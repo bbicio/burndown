@@ -3,9 +3,10 @@ const cookieParser = require('cookie-parser');
 const cors = require('cors');
 
 const { testConnection } = require('./db/client');
-const authRoutes   = require('./routes/auth');
-const usersRoutes  = require('./routes/users');
-const configRoutes = require('./routes/config');
+const authRoutes      = require('./routes/auth');
+const usersRoutes     = require('./routes/users');
+const configRoutes    = require('./routes/config');
+const costGridRoutes  = require('./routes/cost-grids');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,9 +29,10 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Routes
-app.use('/api/auth',   authRoutes);
-app.use('/api/users',  usersRoutes);
-app.use('/api',        configRoutes);
+app.use('/api/auth',        authRoutes);
+app.use('/api/users',       usersRoutes);
+app.use('/api/cost-grids',  costGridRoutes);
+app.use('/api',             configRoutes);
 
 // 404
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
