@@ -1,0 +1,2236 @@
+{
+  "version": 1,
+  "created": "2026-06-05T00:00:00.000Z",
+  "stores": {
+    "config": {
+      "projects": [
+        {
+          "id": "HITA.000001481.001",
+          "name": "PG 26 CHATBOT-AI AGENTCoordination and Kick Off strategy",
+          "startDate": "202601",
+          "endDate": "202612",
+          "currency": "€",
+          "pipeline": "Committed",
+          "status": "Started",
+          "tasks": [
+            {
+              "name": "Overall Coordination",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260101",
+              "endDate": "20261231",
+              "resources": [
+                {
+                  "role": "HWGHEIN - SVP",
+                  "soldHours": 6,
+                  "hourlyRate": 400
+                },
+                {
+                  "role": "HWGHEIN - DIGITAL H&I PROGRAM DIRECTOR",
+                  "soldHours": 36,
+                  "hourlyRate": 220
+                },
+                {
+                  "role": "HWGACCSVS - MANAGER",
+                  "soldHours": 48,
+                  "hourlyRate": 135
+                },
+                {
+                  "role": "HWGDEV - DIRECTOR",
+                  "soldHours": 24,
+                  "hourlyRate": 220
+                },
+                {
+                  "role": "HWGDEV - SR DIRECTOR",
+                  "soldHours": 12,
+                  "hourlyRate": 300
+                },
+                {
+                  "role": "HWGHEIN - VP, DATA SCIENCE",
+                  "soldHours": 12,
+                  "hourlyRate": 300
+                }
+              ]
+            },
+            {
+              "name": "Kickoff strategy",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260115",
+              "endDate": "20260228",
+              "resources": [
+                {
+                  "role": "HWGHEIN - SVP",
+                  "soldHours": 8,
+                  "hourlyRate": 400
+                },
+                {
+                  "role": "HWGHEIN - DIGITAL H&I PROGRAM DIRECTOR",
+                  "soldHours": 8,
+                  "hourlyRate": 220
+                },
+                {
+                  "role": "HWGACCSVS - MANAGER",
+                  "soldHours": 16,
+                  "hourlyRate": 135
+                },
+                {
+                  "role": "HWGDEV - SR DIRECTOR",
+                  "soldHours": 24,
+                  "hourlyRate": 300
+                },
+                {
+                  "role": "HWGHEIN - VP, DATA SCIENCE",
+                  "soldHours": 24,
+                  "hourlyRate": 300
+                },
+                {
+                  "role": "GREENLIGHT SHARED RESOURCE",
+                  "soldHours": 80,
+                  "hourlyRate": 150
+                }
+              ]
+            }
+          ],
+          "phasing": {
+            "202602": 7470,
+            "202603": 4773,
+            "202604": 16380,
+            "202605": 4272,
+            "202606": 4272,
+            "202607": 4272,
+            "202608": 4272,
+            "202609": 4272,
+            "202610": 4272,
+            "202611": 4272,
+            "202612": 4272
+          },
+          "planning": {
+            "202602": 38,
+            "202603": 31,
+            "202604": 97,
+            "202605": 17,
+            "202606": 17,
+            "202607": 17,
+            "202608": 17,
+            "202609": 17,
+            "202610": 17,
+            "202611": 17,
+            "202612": 17
+          },
+          "ptc": [],
+          "groups": [],
+          "costGridRef": {
+            "cgId": "cg_1779814503688",
+            "versionId": "ver_1779814503688"
+          },
+          "programId": "HITA.000001481",
+          "clientId": "cli_1779814516969"
+        },
+        {
+          "id": "HITA.000001481.002",
+          "name": "PG 26 CHATBOT-Assessment dell’es. e creazione della piatt.AI",
+          "startDate": "202602",
+          "endDate": "202612",
+          "currency": "€",
+          "pipeline": "Committed",
+          "status": "Started",
+          "tasks": [
+            {
+              "name": "Assessment",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260201",
+              "endDate": "20260430",
+              "resources": [
+                {
+                  "role": "HWGDEV - DIRECTOR",
+                  "soldHours": 24,
+                  "hourlyRate": 220
+                },
+                {
+                  "role": "HWGDEV - SR DIRECTOR",
+                  "soldHours": 24,
+                  "hourlyRate": 300
+                },
+                {
+                  "role": "HWGHEIN - VP, DATA SCIENCE",
+                  "soldHours": 24,
+                  "hourlyRate": 300
+                },
+                {
+                  "role": "GREENLIGHT SHARED RESOURCE",
+                  "soldHours": 16,
+                  "hourlyRate": 150
+                }
+              ]
+            },
+            {
+              "name": "PoC",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260415",
+              "endDate": "20260531",
+              "resources": [
+                {
+                  "role": "HWGDEV - DIRECTOR",
+                  "soldHours": 5,
+                  "hourlyRate": 220
+                },
+                {
+                  "role": "HWGDEV - SR DIRECTOR",
+                  "soldHours": 4,
+                  "hourlyRate": 300
+                },
+                {
+                  "role": "HWGDEV - PRINCIPAL",
+                  "soldHours": 12,
+                  "hourlyRate": 160
+                },
+                {
+                  "role": "HWGDEV - SR DEVELOPER",
+                  "soldHours": 16,
+                  "hourlyRate": 135
+                },
+                {
+                  "role": "HWGDEV - DEVELOPER",
+                  "soldHours": 19,
+                  "hourlyRate": 100
+                },
+                {
+                  "role": "HWGHEIN - DATA ANALYST",
+                  "soldHours": 48,
+                  "hourlyRate": 100
+                },
+                {
+                  "role": "HWGHEIN - VP, DATA SCIENCE",
+                  "soldHours": 4,
+                  "hourlyRate": 300
+                }
+              ]
+            },
+            {
+              "name": "MVP",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260601",
+              "endDate": "20260731",
+              "resources": [
+                {
+                  "role": "HWGDEV - DIRECTOR",
+                  "soldHours": 8,
+                  "hourlyRate": 220
+                },
+                {
+                  "role": "HWGDEV - PRINCIPAL",
+                  "soldHours": 8,
+                  "hourlyRate": 160
+                },
+                {
+                  "role": "HWGDEV - SR DEVELOPER",
+                  "soldHours": 8,
+                  "hourlyRate": 135
+                },
+                {
+                  "role": "HWGHEIN - DATA ANALYST",
+                  "soldHours": 8,
+                  "hourlyRate": 100
+                },
+                {
+                  "role": "HWGHEIN - VP, DATA SCIENCE",
+                  "soldHours": 16,
+                  "hourlyRate": 300
+                }
+              ]
+            },
+            {
+              "name": "Go-Live",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260715",
+              "endDate": "20260731",
+              "resources": [
+                {
+                  "role": "HWGDEV - DIRECTOR",
+                  "soldHours": 8,
+                  "hourlyRate": 220
+                },
+                {
+                  "role": "HWGDEV - SR DIRECTOR",
+                  "soldHours": 2,
+                  "hourlyRate": 300
+                },
+                {
+                  "role": "HWGDEV - PRINCIPAL",
+                  "soldHours": 4,
+                  "hourlyRate": 160
+                },
+                {
+                  "role": "HWGDEV - SR DEVELOPER",
+                  "soldHours": 4,
+                  "hourlyRate": 135
+                },
+                {
+                  "role": "HWGHEIN - DATA ANALYST",
+                  "soldHours": 8,
+                  "hourlyRate": 100
+                },
+                {
+                  "role": "HWGHEIN - VP, DATA SCIENCE",
+                  "soldHours": 2,
+                  "hourlyRate": 300
+                }
+              ]
+            },
+            {
+              "name": "Monitoraggio e manutenzione",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260801",
+              "endDate": "20261231",
+              "resources": [
+                {
+                  "role": "HWGDEV - DIRECTOR",
+                  "soldHours": 16,
+                  "hourlyRate": 220
+                },
+                {
+                  "role": "HWGDEV - SR DIRECTOR",
+                  "soldHours": 4,
+                  "hourlyRate": 300
+                },
+                {
+                  "role": "HWGDEV - PRINCIPAL",
+                  "soldHours": 8,
+                  "hourlyRate": 160
+                },
+                {
+                  "role": "HWGDEV - DEVELOPER",
+                  "soldHours": 16,
+                  "hourlyRate": 100
+                },
+                {
+                  "role": "HWGHEIN - DATA ANALYST",
+                  "soldHours": 20,
+                  "hourlyRate": 100
+                },
+                {
+                  "role": "HWGHEIN - VP, DATA SCIENCE",
+                  "soldHours": 5,
+                  "hourlyRate": 300
+                }
+              ]
+            }
+          ],
+          "phasing": {
+            "202602": 6950,
+            "202603": 7684,
+            "202604": 12307,
+            "202605": 9419,
+            "202606": 4780,
+            "202607": 9880,
+            "202608": 2248,
+            "202609": 2176,
+            "202610": 2251,
+            "202611": 2176,
+            "202612": 2248
+          },
+          "planning": {
+            "202602": 28,
+            "202603": 31,
+            "202604": 66,
+            "202605": 71,
+            "202606": 24,
+            "202607": 52,
+            "202608": 14,
+            "202609": 14,
+            "202610": 14,
+            "202611": 14,
+            "202612": 14
+          },
+          "ptc": [
+            {
+              "title": "PoC",
+              "note": "PM",
+              "amount": 11412,
+              "month": "202605"
+            },
+            {
+              "title": "MVP",
+              "note": "PM",
+              "amount": 34308,
+              "month": "202606"
+            }
+          ],
+          "groups": [],
+          "costGridRef": {
+            "cgId": "cg_1779814503688",
+            "versionId": "ver_1779814503688"
+          },
+          "programId": "HITA.000001481",
+          "clientId": "cli_1779814516969"
+        },
+        {
+          "id": "HITA.000001481.003",
+          "name": "PG 26 CHATBOT-Int.piattaforma AI e def. anal  e sist. di agg",
+          "startDate": "202603",
+          "endDate": "202612",
+          "currency": "€",
+          "pipeline": "Committed",
+          "status": "Started",
+          "tasks": [
+            {
+              "name": "Assessment",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260301",
+              "endDate": "20260430",
+              "resources": [
+                {
+                  "role": "HWGDEV - DIRECTOR",
+                  "soldHours": 24,
+                  "hourlyRate": 220
+                },
+                {
+                  "role": "HWGDEV - SR DIRECTOR",
+                  "soldHours": 24,
+                  "hourlyRate": 300
+                },
+                {
+                  "role": "HWGHEIN - VP, DATA SCIENCE",
+                  "soldHours": 24,
+                  "hourlyRate": 300
+                },
+                {
+                  "role": "GREENLIGHT SHARED RESOURCE",
+                  "soldHours": 16,
+                  "hourlyRate": 150
+                }
+              ]
+            },
+            {
+              "name": "Poc",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260501",
+              "endDate": "20260630",
+              "resources": [
+                {
+                  "role": "HWGDEV - DIRECTOR",
+                  "soldHours": 4,
+                  "hourlyRate": 220
+                },
+                {
+                  "role": "HWGDEV - SR DIRECTOR",
+                  "soldHours": 5,
+                  "hourlyRate": 300
+                },
+                {
+                  "role": "HWGDEV - PRINCIPAL",
+                  "soldHours": 12,
+                  "hourlyRate": 160
+                },
+                {
+                  "role": "HWGDEV - SR DEVELOPER",
+                  "soldHours": 16,
+                  "hourlyRate": 135
+                },
+                {
+                  "role": "HWGDEV - DEVELOPER",
+                  "soldHours": 20,
+                  "hourlyRate": 100
+                },
+                {
+                  "role": "HWGHEIN - DATA ANALYST",
+                  "soldHours": 48,
+                  "hourlyRate": 100
+                },
+                {
+                  "role": "HWGHEIN - VP, DATA SCIENCE",
+                  "soldHours": 4,
+                  "hourlyRate": 300
+                }
+              ]
+            },
+            {
+              "name": "MVP",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260701",
+              "endDate": "20260930",
+              "resources": [
+                {
+                  "role": "HWGDEV - DIRECTOR",
+                  "soldHours": 7,
+                  "hourlyRate": 220
+                },
+                {
+                  "role": "HWGDEV - PRINCIPAL",
+                  "soldHours": 8,
+                  "hourlyRate": 160
+                },
+                {
+                  "role": "HWGDEV - SR DEVELOPER",
+                  "soldHours": 8,
+                  "hourlyRate": 135
+                },
+                {
+                  "role": "HWGHEIN - DATA ANALYST",
+                  "soldHours": 8,
+                  "hourlyRate": 100
+                },
+                {
+                  "role": "HWGHEIN - VP, DATA SCIENCE",
+                  "soldHours": 16,
+                  "hourlyRate": 300
+                }
+              ]
+            },
+            {
+              "name": "Go-Live",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260915",
+              "endDate": "20260930",
+              "resources": [
+                {
+                  "role": "HWGDEV - DIRECTOR",
+                  "soldHours": 8,
+                  "hourlyRate": 220
+                },
+                {
+                  "role": "HWGDEV - SR DIRECTOR",
+                  "soldHours": 2,
+                  "hourlyRate": 300
+                },
+                {
+                  "role": "HWGDEV - PRINCIPAL",
+                  "soldHours": 4,
+                  "hourlyRate": 160
+                },
+                {
+                  "role": "HWGDEV - SR DEVELOPER",
+                  "soldHours": 4,
+                  "hourlyRate": 135
+                },
+                {
+                  "role": "HWGHEIN - DATA ANALYST",
+                  "soldHours": 8,
+                  "hourlyRate": 100
+                },
+                {
+                  "role": "HWGHEIN - VP, DATA SCIENCE",
+                  "soldHours": 2,
+                  "hourlyRate": 300
+                }
+              ]
+            },
+            {
+              "name": "Monitoraggio e manutenzione",
+              "billable": true,
+              "completed": false,
+              "startDate": "20261001",
+              "endDate": "20261231",
+              "resources": [
+                {
+                  "role": "HWGDEV - DIRECTOR",
+                  "soldHours": 16,
+                  "hourlyRate": 220
+                },
+                {
+                  "role": "HWGDEV - SR DIRECTOR",
+                  "soldHours": 4,
+                  "hourlyRate": 300
+                },
+                {
+                  "role": "HWGDEV - PRINCIPAL",
+                  "soldHours": 8,
+                  "hourlyRate": 160
+                },
+                {
+                  "role": "HWGDEV - DEVELOPER",
+                  "soldHours": 16,
+                  "hourlyRate": 100
+                },
+                {
+                  "role": "HWGHEIN - DATA ANALYST",
+                  "soldHours": 20,
+                  "hourlyRate": 100
+                },
+                {
+                  "role": "HWGHEIN - VP, DATA SCIENCE",
+                  "soldHours": 5,
+                  "hourlyRate": 300
+                }
+              ]
+            }
+          ],
+          "phasing": {
+            "202603": 11214,
+            "202604": 10866,
+            "202605": 7349,
+            "202606": 7111,
+            "202607": 3201,
+            "202608": 3201,
+            "202609": 8038,
+            "202610": 3744,
+            "202611": 3618,
+            "202612": 3739
+          },
+          "planning": {
+            "202603": 45,
+            "202604": 43,
+            "202605": 55,
+            "202606": 54,
+            "202607": 16,
+            "202608": 16,
+            "202609": 43,
+            "202610": 23,
+            "202611": 23,
+            "202612": 23
+          },
+          "ptc": [
+            {
+              "title": "PoC",
+              "note": "PM",
+              "amount": 11452,
+              "month": "202607"
+            },
+            {
+              "title": "MVP",
+              "note": "PM",
+              "amount": 34308,
+              "month": "202609"
+            }
+          ],
+          "groups": [],
+          "costGridRef": {
+            "cgId": "cg_1779814503688",
+            "versionId": "ver_1779814503688"
+          },
+          "programId": "HITA.000001481",
+          "clientId": "cli_1779814516969"
+        },
+        {
+          "id": "HITA.000001201",
+          "name": "BERMITS Maintenance 2026",
+          "startDate": "202512",
+          "endDate": "202612",
+          "currency": "€",
+          "pipeline": "Committed",
+          "status": "Started",
+          "tasks": [
+            {
+              "name": "Overall coordination",
+              "billable": true,
+              "completed": false,
+              "startDate": "20251231",
+              "endDate": "20261231",
+              "resources": [
+                {
+                  "role": "HWGACCSVS - DIRECTOR",
+                  "soldHours": 20,
+                  "hourlyRate": 168
+                }
+              ]
+            },
+            {
+              "name": "Project Management",
+              "billable": true,
+              "completed": false,
+              "startDate": "20251231",
+              "endDate": "20261231",
+              "resources": [
+                {
+                  "role": "HWGINTERN - ACCSVS",
+                  "soldHours": 40,
+                  "hourlyRate": 130
+                },
+                {
+                  "role": "HWGACCSVS - DIRECTOR",
+                  "soldHours": 80,
+                  "hourlyRate": 130
+                }
+              ]
+            },
+            {
+              "name": "Content Management",
+              "billable": true,
+              "completed": false,
+              "startDate": "20251231",
+              "endDate": "20261231",
+              "resources": [
+                {
+                  "role": "TDVI - HWGCREATE - CONTENT SPECIALIST",
+                  "soldHours": 292,
+                  "hourlyRate": 115
+                }
+              ]
+            },
+            {
+              "name": "FE / BE Development",
+              "billable": true,
+              "completed": false,
+              "startDate": "20251231",
+              "endDate": "20261231",
+              "resources": [
+                {
+                  "role": "HWGDEV - DEVELOPER",
+                  "soldHours": 40,
+                  "hourlyRate": 100
+                }
+              ]
+            },
+            {
+              "name": "Quality Assurance",
+              "billable": true,
+              "completed": false,
+              "startDate": "20251231",
+              "endDate": "20261231",
+              "resources": [
+                {
+                  "role": "HWGINTERN - QUAL",
+                  "soldHours": 24,
+                  "hourlyRate": 105
+                }
+              ]
+            },
+            {
+              "name": "Artwork for QR Code",
+              "billable": true,
+              "completed": false,
+              "startDate": "20251231",
+              "endDate": "20261231",
+              "resources": [
+                {
+                  "role": "TDVI - HWGCRSVS - STUDIO DIRECTOR",
+                  "soldHours": 8,
+                  "hourlyRate": 115
+                }
+              ]
+            }
+          ],
+          "phasing": {
+            "202512": 609,
+            "202601": 1585,
+            "202602": 3943,
+            "202603": 5561,
+            "202604": 5635,
+            "202605": 5331,
+            "202606": 5331,
+            "202607": 5331,
+            "202608": 5331,
+            "202609": 5331,
+            "202610": 5331,
+            "202611": 5331,
+            "202612": 5331
+          },
+          "planning": {
+            "202512": 11,
+            "202601": 22,
+            "202602": 40,
+            "202603": 47,
+            "202604": 46,
+            "202605": 42,
+            "202606": 42,
+            "202607": 42,
+            "202608": 42,
+            "202609": 42,
+            "202610": 42,
+            "202611": 42,
+            "202612": 42
+          },
+          "ptc": [],
+          "groups": [
+            {
+              "name": "Accounting",
+              "roles": [
+                "HWGACCSVS - DIRECTOR",
+                "HWGINTERN - ACCSVS"
+              ]
+            },
+            {
+              "name": "Content Management + QA",
+              "roles": [
+                "TDVI - HWGCREATE - CONTENT SPECIALIST",
+                "TDVI - HWGCRSVS - STUDIO DIRECTOR",
+                "HWGINTERN - QUAL"
+              ]
+            },
+            {
+              "name": "Development",
+              "roles": [
+                "HWGDEV - DEVELOPER"
+              ]
+            }
+          ],
+          "costGridRef": {
+            "cgId": "cg_1779823324907",
+            "versionId": "ver_1779823324907"
+          },
+          "programId": null,
+          "clientId": "cli_1779823359661"
+        },
+        {
+          "id": "HITA.000001823.001",
+          "name": "MEN 26 AURORA Platform Dev.-Overall Proj. MNGM",
+          "startDate": "202605",
+          "endDate": "202612",
+          "currency": "€",
+          "pipeline": "Anticipated",
+          "status": "Started At Risk",
+          "tasks": [
+            {
+              "name": "Overall project management",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260511",
+              "endDate": "20261231",
+              "resources": [
+                {
+                  "role": "HWGACCSVS - DIRECTOR",
+                  "soldHours": 210,
+                  "hourlyRate": 65
+                }
+              ]
+            }
+          ],
+          "phasing": {
+            "202605": 1220,
+            "202606": 1742,
+            "202607": 1800,
+            "202608": 1800,
+            "202609": 1742,
+            "202610": 1803,
+            "202611": 1742,
+            "202612": 1800
+          },
+          "planning": {
+            "202605": 19,
+            "202606": 27,
+            "202607": 28,
+            "202608": 28,
+            "202609": 27,
+            "202610": 28,
+            "202611": 27,
+            "202612": 28
+          },
+          "ptc": [],
+          "groups": [],
+          "costGridRef": {
+            "cgId": "cg_1779986156366",
+            "versionId": "ver_1779986156366"
+          },
+          "programId": "HITA.000001823",
+          "clientId": "cli_1779986093137"
+        },
+        {
+          "id": "HITA.000001823.002",
+          "name": "MEN 26 AURORA Platform Dev.-Creation graph.Assets",
+          "startDate": "202605",
+          "endDate": "202612",
+          "currency": "€",
+          "pipeline": "Anticipated",
+          "status": "Not started yet",
+          "tasks": [
+            {
+              "name": "Support to creation of graphic assets",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260511",
+              "endDate": "20261231",
+              "resources": [
+                {
+                  "role": "HWGCREAT - EXPERIENCE DESIGNER",
+                  "soldHours": 16,
+                  "hourlyRate": 65
+                }
+              ]
+            }
+          ],
+          "phasing": {
+            "202605": 93,
+            "202606": 133,
+            "202607": 137,
+            "202608": 137,
+            "202609": 133,
+            "202610": 137,
+            "202611": 133,
+            "202612": 137
+          },
+          "planning": {
+            "202605": 1,
+            "202606": 2,
+            "202607": 2,
+            "202608": 2,
+            "202609": 2,
+            "202610": 2,
+            "202611": 2,
+            "202612": 2
+          },
+          "ptc": [],
+          "groups": [],
+          "costGridRef": {
+            "cgId": "cg_1779986156366",
+            "versionId": "ver_1779986156366"
+          },
+          "programId": "HITA.000001823",
+          "clientId": "cli_1779986093137"
+        },
+        {
+          "id": "HITA.000001823.003",
+          "name": "MEN 26 AURORA Platform Dev.-Development",
+          "startDate": "202605",
+          "endDate": "202612",
+          "currency": "€",
+          "pipeline": "Anticipated",
+          "status": "Started At Risk",
+          "tasks": [
+            {
+              "name": "Development of the Platform",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260511",
+              "endDate": "20261231",
+              "resources": [
+                {
+                  "role": "HWGDEV - SR DEVELOPER",
+                  "soldHours": 486,
+                  "hourlyRate": 65
+                },
+                {
+                  "role": "HWGDEV - PRINCIPAL",
+                  "soldHours": 268,
+                  "hourlyRate": 65
+                },
+                {
+                  "role": "HWGDEV - DIRECTOR",
+                  "soldHours": 140,
+                  "hourlyRate": 80
+                },
+                {
+                  "role": "HWGDEV - SR DIRECTOR",
+                  "soldHours": 39,
+                  "hourlyRate": 100
+                },
+                {
+                  "role": "HWGDEV - DEVELOPER",
+                  "soldHours": 1084,
+                  "hourlyRate": 65
+                }
+              ]
+            },
+            {
+              "name": "Development of AI Pipeline",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260511",
+              "endDate": "20261231",
+              "resources": [
+                {
+                  "role": "HWGHEIN - SR DATA ANALYST",
+                  "soldHours": 168,
+                  "hourlyRate": 80
+                },
+                {
+                  "role": "HWGHEIN - DATA ANALYST",
+                  "soldHours": 160,
+                  "hourlyRate": 65
+                },
+                {
+                  "role": "HWGHEIN - ASSOCIATE DATA SCIENTIST",
+                  "soldHours": 322,
+                  "hourlyRate": 65
+                }
+              ]
+            }
+          ],
+          "phasing": {
+            "202605": 22418,
+            "202606": 22418,
+            "202607": 22418,
+            "202608": 22418,
+            "202609": 22418,
+            "202610": 22418,
+            "202611": 22418,
+            "202612": 22418
+          },
+          "planning": {
+            "202605": 333,
+            "202606": 333,
+            "202607": 333,
+            "202608": 333,
+            "202609": 333,
+            "202610": 333,
+            "202611": 333,
+            "202612": 333
+          },
+          "ptc": [],
+          "groups": [],
+          "costGridRef": {
+            "cgId": "cg_1779986156366",
+            "versionId": "ver_1779986156366"
+          },
+          "programId": "HITA.000001823",
+          "clientId": "cli_1779986093137"
+        },
+        {
+          "id": "HITA.000001823.004",
+          "name": "MEN 26 AURORA Platform Dev.-Active Maintenance",
+          "startDate": "202605",
+          "endDate": "202612",
+          "currency": "€",
+          "pipeline": "Anticipated",
+          "status": "Not started yet",
+          "tasks": [
+            {
+              "name": "Active Maintenance",
+              "billable": true,
+              "completed": false,
+              "startDate": "20260511",
+              "endDate": "20261231",
+              "resources": [
+                {
+                  "role": "HWGACCSVS - DIRECTOR",
+                  "soldHours": 48,
+                  "hourlyRate": 65
+                },
+                {
+                  "role": "HWGHEIN - DATA ANALYST",
+                  "soldHours": 80,
+                  "hourlyRate": 65
+                },
+                {
+                  "role": "HWGDEV - SR DEVELOPER",
+                  "soldHours": 48,
+                  "hourlyRate": 65
+                },
+                {
+                  "role": "HWGDEV - PRINCIPAL",
+                  "soldHours": 32,
+                  "hourlyRate": 65
+                },
+                {
+                  "role": "HWGDEV - DIRECTOR",
+                  "soldHours": 16,
+                  "hourlyRate": 80
+                },
+                {
+                  "role": "HWGDEV - DEVELOPER",
+                  "soldHours": 120,
+                  "hourlyRate": 65
+                }
+              ]
+            }
+          ],
+          "phasing": {
+            "202605": 2019,
+            "202606": 2885,
+            "202607": 2981,
+            "202608": 2981,
+            "202609": 2885,
+            "202610": 2985,
+            "202611": 2885,
+            "202612": 2981
+          },
+          "planning": {
+            "202605": 31,
+            "202606": 44,
+            "202607": 45,
+            "202608": 45,
+            "202609": 44,
+            "202610": 45,
+            "202611": 44,
+            "202612": 45
+          },
+          "ptc": [],
+          "groups": [],
+          "costGridRef": {
+            "cgId": "cg_1779986156366",
+            "versionId": "ver_1779986156366"
+          },
+          "programId": "HITA.000001823",
+          "clientId": "cli_1779986093137"
+        }
+      ],
+      "roles": [],
+      "monthlyCapacity": {},
+      "globalHourlyRate": 160
+    },
+    "roles": [
+      {
+        "id": "role_1779708217916",
+        "label": "Healthware Account Director",
+        "code": "HWGACCSVS - DIRECTOR",
+        "rate": 180
+      },
+      {
+        "id": "role_1779708217917",
+        "label": "Healthware Group Account Director",
+        "code": "HWGACCSVS - GROUP DIRECTOR",
+        "rate": 220
+      },
+      {
+        "id": "role_1779708217918",
+        "label": "Healthware Account Manager",
+        "code": "HWGACCSVS - MANAGER",
+        "rate": 135
+      },
+      {
+        "id": "role_1779708217919",
+        "label": "Healthware Marketing Coordinator",
+        "code": "HWGACCSVS - MARKETING COORDINATOR",
+        "rate": 105
+      },
+      {
+        "id": "role_1779708217920",
+        "label": "Healthware Account Senior Manager",
+        "code": "HWGACCSVS - SR MANAGER",
+        "rate": 150
+      },
+      {
+        "id": "role_1779708217921",
+        "label": "Healthware Account Senior Vice President",
+        "code": "HWGACCSVS - SVP",
+        "rate": 0
+      },
+      {
+        "id": "role_1779708217922",
+        "label": "Healthware Account Vice President",
+        "code": "HWGACCSVS - VP",
+        "rate": 0
+      },
+      {
+        "id": "role_1779708217923",
+        "label": "Healthware Creative Associate Director",
+        "code": "HWGCREAT - ASSOC DIRECTOR",
+        "rate": 135
+      },
+      {
+        "id": "role_1779708217924",
+        "label": "Healthware Creative Content Specialist",
+        "code": "HWGCREAT - CONTENT SPECIALIST",
+        "rate": 135
+      },
+      {
+        "id": "role_1779708217925",
+        "label": "Healthware Creative Copy Supervisor",
+        "code": "HWGCREAT - COPY SUPERVISOR",
+        "rate": 160
+      },
+      {
+        "id": "role_1779708217926",
+        "label": "Healthware Creative Copywriter",
+        "code": "HWGCREAT - COPYWRITER",
+        "rate": 135
+      },
+      {
+        "id": "role_1779708217927",
+        "label": "Healthware Creative Director",
+        "code": "HWGCREAT - DIRECTOR",
+        "rate": 180
+      },
+      {
+        "id": "role_1779708217928",
+        "label": "Healthware Creative Director of Video Production",
+        "code": "HWGCREAT - DIRECTOR VIDEO PRODUCTION",
+        "rate": 0
+      },
+      {
+        "id": "role_1779708217929",
+        "label": "Healthware Creative Experience Designer",
+        "code": "HWGCREAT - EXPERIENCE DESIGNER",
+        "rate": 105
+      },
+      {
+        "id": "role_1779708217930",
+        "label": "Healthware Creative Post Production Video Specialist",
+        "code": "HWGCREAT - POST PROD VIDEO SPECIALIST",
+        "rate": 135
+      },
+      {
+        "id": "role_1779708217931",
+        "label": "Healthware Creative Senior Copywriter",
+        "code": "HWGCREAT - SR COPYWRITER",
+        "rate": 160
+      },
+      {
+        "id": "role_1779708217932",
+        "label": "Healthware Creative Senior Experience Designer",
+        "code": "HWGCREAT - SR EXPERIENCE DESIGNER",
+        "rate": 135
+      },
+      {
+        "id": "role_1779708217933",
+        "label": "Healthware Creative Senior Post Production Video Specialist",
+        "code": "HWGCREAT - SR POST PROD VIDEO SPECIALIST",
+        "rate": 160
+      },
+      {
+        "id": "role_1779708217934",
+        "label": "Healthware Development Architect",
+        "code": "HWGDEV - ARCHITECT",
+        "rate": 160
+      },
+      {
+        "id": "role_1779708217935",
+        "label": "Healthware Development Developer",
+        "code": "HWGDEV - DEVELOPER",
+        "rate": 105
+      },
+      {
+        "id": "role_1779708217936",
+        "label": "Healthware Development Director",
+        "code": "HWGDEV - DIRECTOR",
+        "rate": 220
+      },
+      {
+        "id": "role_1779708217937",
+        "label": "Healthware Development Principal",
+        "code": "HWGDEV - PRINCIPAL",
+        "rate": 160
+      },
+      {
+        "id": "role_1779708217938",
+        "label": "Healthware Development Senior Developer",
+        "code": "HWGDEV - SR DEVELOPER",
+        "rate": 135
+      },
+      {
+        "id": "role_1779708217939",
+        "label": "Healthware Development Senior Director",
+        "code": "HWGDEV - SR DIRECTOR",
+        "rate": 300
+      },
+      {
+        "id": "role_1779708217940",
+        "label": "Healthware Health Innovation Account Director",
+        "code": "HWGHEIN - ACCOUNT DIRECTOR",
+        "rate": 0
+      },
+      {
+        "id": "role_1779708217941",
+        "label": "Healthware Health Innovation Associate Data Scientist",
+        "code": "HWGHEIN - ASSOCIATE DATA SCIENTIST",
+        "rate": 75
+      },
+      {
+        "id": "role_1779708217942",
+        "label": "Healthware Health Innovation Data Analyst",
+        "code": "HWGHEIN - DATA ANALYST",
+        "rate": 105
+      },
+      {
+        "id": "role_1779708217943",
+        "label": "Healthware Health Innovation Senior Data Analyst",
+        "code": "HWGHEIN - SR DATA ANALYST",
+        "rate": 135
+      },
+      {
+        "id": "role_1779708217944",
+        "label": "Healthware Health Innovation SVP",
+        "code": "HWGHEIN - SVP",
+        "rate": 400
+      },
+      {
+        "id": "role_1779708217945",
+        "label": "Healthware Health Innovation Data Science VP",
+        "code": "HWGHEIN - VP, DATA SCIENCE",
+        "rate": 300
+      },
+      {
+        "id": "role_1779708217946",
+        "label": "Healthware Health Innovation Technology VP",
+        "code": "HWGHEIN - VP, INNOV TECH",
+        "rate": 0
+      },
+      {
+        "id": "role_1779708217947",
+        "label": "Healthware Account Services Intern",
+        "code": "HWGINTERN - ACCSVS",
+        "rate": 75
+      },
+      {
+        "id": "role_1779708217948",
+        "label": "Healthware Agency Ops Intern",
+        "code": "HWGINTERN - AGENCY OPS",
+        "rate": 0
+      },
+      {
+        "id": "role_1779708217949",
+        "label": "Healthware Medical Intern",
+        "code": "HWGINTERN - MEDICAL",
+        "rate": 0
+      },
+      {
+        "id": "role_1779708217950",
+        "label": "Healthware Planning Intern",
+        "code": "HWGINTERN - PLANN",
+        "rate": 0
+      },
+      {
+        "id": "role_1779708217951",
+        "label": "Healthware Media Associate Planner",
+        "code": "HWGMEDIA - ASSOC PLANNER",
+        "rate": 105
+      },
+      {
+        "id": "role_1779708217952",
+        "label": "Healthware Media Global Director",
+        "code": "HWGMEDIA - GLOBAL MEDIA DIRECTOR",
+        "rate": 220
+      },
+      {
+        "id": "role_1779708217953",
+        "label": "Healthware Media Global Analytics Director",
+        "code": "HWGMEDIA - GLOBAL MEDIA DIRECTOR ANALYTICS",
+        "rate": 220
+      },
+      {
+        "id": "role_1779708217954",
+        "label": "Healthware Media Global Strategy Director",
+        "code": "HWGMEDIA - GLOBAL MEDIA DIRECTOR STRATEGY",
+        "rate": 220
+      },
+      {
+        "id": "role_1779708217955",
+        "label": "Healthware Media Global Lead",
+        "code": "HWGMEDIA - GLOBAL MEDIA LEAD",
+        "rate": 300
+      },
+      {
+        "id": "role_1779708217956",
+        "label": "Healthware Media Supervisor",
+        "code": "HWGMEDIA - SUPERVISOR",
+        "rate": 160
+      },
+      {
+        "id": "role_1779708217957",
+        "label": "Healthware Medical Associate Director",
+        "code": "HWGMEDICAL - ASSOC DIRECTOR",
+        "rate": 180
+      },
+      {
+        "id": "role_1779708217958",
+        "label": "Healthware Medical Director",
+        "code": "HWGMEDICAL - DIRECTOR",
+        "rate": 220
+      },
+      {
+        "id": "role_1779708217959",
+        "label": "Healthware Medical Senior Strategist",
+        "code": "HWGMEDICAL - SR STRATEGIST",
+        "rate": 160
+      },
+      {
+        "id": "role_1779708217960",
+        "label": "Healthware Medical Strategist",
+        "code": "HWGMEDICAL - STRATEGIST",
+        "rate": 135
+      },
+      {
+        "id": "role_1779708217961",
+        "label": "Healthware Medical VP",
+        "code": "HWGMEDICAL - VP",
+        "rate": 400
+      },
+      {
+        "id": "role_1779708217962",
+        "label": "Healthware Medical Writer",
+        "code": "HWGMEDICAL - WRITER",
+        "rate": 135
+      },
+      {
+        "id": "role_1779708217963",
+        "label": "Healthware Planning Director",
+        "code": "HWGPLAN - DIRECTOR",
+        "rate": 0
+      },
+      {
+        "id": "role_1779708217964",
+        "label": "Healthware Planning Group Director",
+        "code": "HWGPLAN - GROUP DIRECTOR",
+        "rate": 0
+      },
+      {
+        "id": "role_1779708217965",
+        "label": "Healthware PMO Senior Project Manager",
+        "code": "HWGPMO - SR PROJECT MANAGER",
+        "rate": 135
+      },
+      {
+        "id": "role_1779708217966",
+        "label": "Healthware UX Director",
+        "code": "HWGUX - DIRECTOR",
+        "rate": 180
+      },
+      {
+        "id": "role_1779708217967",
+        "label": "Healthware User Experience Strategist",
+        "code": "HWGUX - STRATEGIST",
+        "rate": 160
+      },
+      {
+        "id": "role_1779720545929",
+        "label": "Healthware Health Innovation Digital Program Director",
+        "code": "HWGHEIN - DIGITAL H&I PROGRAM DIRECTOR",
+        "rate": 220
+      },
+      {
+        "id": "role_1779721156274",
+        "label": "Strategic Role for Greenlight Only",
+        "code": "GREENLIGHT SHARED RESOURCE",
+        "rate": 150
+      }
+    ],
+    "programs": [
+      {
+        "id": "HITA.000001481",
+        "name": "CHATBOT-AI AGENT"
+      },
+      {
+        "id": "HITA.000001823",
+        "name": "MEN_26_AURORA_Platform_Development_SOW_2.0"
+      },
+      {
+        "id": "HITA12312312321",
+        "name": "EU DTD"
+      },
+      {
+        "id": "HITA.000000005555",
+        "name": "EU PADRE"
+      }
+    ],
+    "clients": [
+      {
+        "id": "cli_1779814516969",
+        "name": "Policlinico Gemelli"
+      },
+      {
+        "id": "cli_1779823359661",
+        "name": "Bayer AG"
+      },
+      {
+        "id": "cli_1779888070233",
+        "name": "Viking Therapeutics"
+      },
+      {
+        "id": "cli_1779986093137",
+        "name": "Menarini Group"
+      }
+    ],
+    "costgrids": {
+      "index": [
+        "cg_1779814503688",
+        "cg_1779823324907",
+        "cg_1779888173022",
+        "cg_1779986156366"
+      ],
+      "grids": [
+        {
+          "id": "cg_1779814503688",
+          "name": "PG 26 CHATBOT",
+          "versions": [
+            {
+              "versionId": "ver_1779814503688",
+              "versionLabel": "v1",
+              "createdAt": "2026-05-26T16:55:03.688Z",
+              "status": "sip",
+              "linkedProjects": [
+                {
+                  "projectId": "PG_26_CHATBOT_AI_AGE_5084",
+                  "projectName": "PG 26 CHATBOT-AI AGENTCoordination and Kick Off strategy",
+                  "taskIds": [
+                    "task_1779817641064_voct",
+                    "task_1779817678345_qrsk"
+                  ],
+                  "createdAt": "2026-05-26T18:07:45.084Z",
+                  "pipeline": "Committed"
+                },
+                {
+                  "projectId": "PG_26_CHATBOT_ASSESS_2339",
+                  "projectName": "PG 26 CHATBOT-Assessment dell’es. e creazione della piatt.AI",
+                  "taskIds": [
+                    "task_1779817741649_dk00",
+                    "task_1779817773837_4c1q",
+                    "task_1779817797891_xflc",
+                    "task_1779817827794_ho4p",
+                    "task_1779817857383_dvx7"
+                  ],
+                  "createdAt": "2026-05-26T18:09:42.339Z",
+                  "pipeline": "Committed"
+                },
+                {
+                  "projectId": "PG_26_CHATBOT_INT_PI_7542",
+                  "projectName": "PG 26 CHATBOT-Int.piattaforma AI e def. anal  e sist. di agg",
+                  "taskIds": [
+                    "task_1779818451985_j0ur",
+                    "task_1779818496760_9e5k",
+                    "task_1779818533382_cywk",
+                    "task_1779818558755_eb2j",
+                    "task_1779818592655_rj0q"
+                  ],
+                  "createdAt": "2026-05-26T18:10:57.543Z",
+                  "pipeline": "Committed"
+                }
+              ],
+              "projectName": "PG 26 CHATBOT",
+              "startDate": "202601",
+              "endDate": "202612",
+              "currency": "€",
+              "note": "",
+              "roles": [
+                {
+                  "roleCode": "HWGHEIN - SVP",
+                  "roleLabel": "Healthware Health Innovation SVP",
+                  "rate": 400
+                },
+                {
+                  "roleCode": "HWGHEIN - DIGITAL H&I PROGRAM DIRECTOR",
+                  "roleLabel": "Healthware Health Innovation Digital Program Director",
+                  "rate": 220
+                },
+                {
+                  "roleCode": "HWGACCSVS - MANAGER",
+                  "roleLabel": "Healthware Account Manager",
+                  "rate": 135
+                },
+                {
+                  "roleCode": "HWGDEV - DIRECTOR",
+                  "roleLabel": "Healthware Development Director",
+                  "rate": 220
+                },
+                {
+                  "roleCode": "HWGDEV - SR DIRECTOR",
+                  "roleLabel": "Healthware Development Senior Director",
+                  "rate": 300
+                },
+                {
+                  "roleCode": "HWGDEV - PRINCIPAL",
+                  "roleLabel": "Healthware Development Principal",
+                  "rate": 160
+                },
+                {
+                  "roleCode": "HWGDEV - SR DEVELOPER",
+                  "roleLabel": "Healthware Development Senior Developer",
+                  "rate": 135
+                },
+                {
+                  "roleCode": "HWGDEV - DEVELOPER",
+                  "roleLabel": "Healthware Development Developer",
+                  "rate": 100
+                },
+                {
+                  "roleCode": "HWGHEIN - DATA ANALYST",
+                  "roleLabel": "Healthware Health Innovation Data Analyst",
+                  "rate": 100
+                },
+                {
+                  "roleCode": "HWGHEIN - VP, DATA SCIENCE",
+                  "roleLabel": "Healthware Health Innovation Data Science VP",
+                  "rate": 300
+                },
+                {
+                  "roleCode": "GREENLIGHT SHARED RESOURCE",
+                  "roleLabel": "Strategic Role for Greenlight Only",
+                  "rate": 150
+                }
+              ],
+              "phases": [
+                {
+                  "phaseId": "ph_1779814503688_4dp2",
+                  "phaseName": "Overall & Kick-off",
+                  "tasks": [
+                    {
+                      "taskId": "task_1779817641064_voct",
+                      "taskName": "Overall Coordination",
+                      "taskDescription": "Coordinamento operativo e strategico per l'intero periodo del progetto. Include meeting settimanali con il team Gemelli e la gestione interna del team EVERSANA.",
+                      "ptc": 0,
+                      "taskStartDate": "2026-01-01",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGHEIN - SVP": 6,
+                        "HWGHEIN - DIGITAL H&I PROGRAM DIRECTOR": 36,
+                        "HWGACCSVS - MANAGER": 48,
+                        "HWGDEV - DIRECTOR": 24,
+                        "HWGDEV - SR DIRECTOR": 12,
+                        "HWGHEIN - VP, DATA SCIENCE": 12
+                      }
+                    },
+                    {
+                      "taskId": "task_1779817678345_qrsk",
+                      "taskName": "Kickoff strategy",
+                      "taskDescription": "\"Kickoff meeting tra il team EVERSANA e del Policlinico Gemelli per definire la strategia che guiderà l’intero progetto, definire i target di riferimento e gli obiettivi strategici.\nAttività strategiche e fondative per la:\nDefinizione dei need e della strategia \nCreazione delle personas per gli stakeholder di riferimento con l’identificazione dei need e dei comportamenti\nDefinizione della roadmap strategica\"",
+                      "ptc": 0,
+                      "taskStartDate": "2026-01-15",
+                      "taskEndDate": "2026-02-28",
+                      "hours": {
+                        "HWGHEIN - SVP": 8,
+                        "HWGHEIN - DIGITAL H&I PROGRAM DIRECTOR": 8,
+                        "HWGACCSVS - MANAGER": 16,
+                        "HWGDEV - SR DIRECTOR": 24,
+                        "HWGHEIN - VP, DATA SCIENCE": 24,
+                        "GREENLIGHT SHARED RESOURCE": 80
+                      }
+                    }
+                  ]
+                },
+                {
+                  "phaseId": "ph_1779817727218_n4zx",
+                  "phaseName": "Assessment dell’esistente e creazione della piattaforma AI",
+                  "tasks": [
+                    {
+                      "taskId": "task_1779817741649_dk00",
+                      "taskName": "Assessment",
+                      "taskDescription": "Budget for the following activities will be confirmed after the assessment phase.",
+                      "ptc": 0,
+                      "taskStartDate": "2026-02-01",
+                      "taskEndDate": "2026-04-30",
+                      "hours": {
+                        "HWGDEV - DIRECTOR": 24,
+                        "HWGDEV - SR DIRECTOR": 24,
+                        "HWGHEIN - VP, DATA SCIENCE": 24,
+                        "GREENLIGHT SHARED RESOURCE": 16
+                      }
+                    },
+                    {
+                      "taskId": "task_1779817773837_4c1q",
+                      "taskName": "PoC",
+                      "taskDescription": "",
+                      "ptc": 11412,
+                      "taskStartDate": "2026-04-15",
+                      "taskEndDate": "2026-05-31",
+                      "hours": {
+                        "HWGDEV - DIRECTOR": 5,
+                        "HWGDEV - SR DIRECTOR": 4,
+                        "HWGDEV - PRINCIPAL": 12,
+                        "HWGDEV - SR DEVELOPER": 16,
+                        "HWGDEV - DEVELOPER": 19,
+                        "HWGHEIN - DATA ANALYST": 48,
+                        "HWGHEIN - VP, DATA SCIENCE": 4
+                      }
+                    },
+                    {
+                      "taskId": "task_1779817797891_xflc",
+                      "taskName": "MVP",
+                      "taskDescription": "Non sono inclusi i costi per insfrastruttura AI, stimati in 0,50€ ogni 1000 domande",
+                      "ptc": 34308,
+                      "taskStartDate": "2026-06-01",
+                      "taskEndDate": "2026-07-31",
+                      "hours": {
+                        "HWGDEV - DIRECTOR": 8,
+                        "HWGDEV - PRINCIPAL": 8,
+                        "HWGDEV - SR DEVELOPER": 8,
+                        "HWGHEIN - DATA ANALYST": 8,
+                        "HWGHEIN - VP, DATA SCIENCE": 16
+                      }
+                    },
+                    {
+                      "taskId": "task_1779817827794_ho4p",
+                      "taskName": "Go-Live",
+                      "taskDescription": "Non sono inclusi eventuali costi di Hosting stimati in 500€/mese con possibilità di scalare se le performance lo richiederanno",
+                      "ptc": 0,
+                      "taskStartDate": "2026-07-15",
+                      "taskEndDate": "2026-07-31",
+                      "hours": {
+                        "HWGDEV - DIRECTOR": 8,
+                        "HWGDEV - SR DEVELOPER": 4,
+                        "HWGHEIN - DATA ANALYST": 8,
+                        "HWGHEIN - VP, DATA SCIENCE": 2,
+                        "HWGDEV - SR DIRECTOR": 2,
+                        "HWGDEV - PRINCIPAL": 4
+                      }
+                    },
+                    {
+                      "taskId": "task_1779817857383_dvx7",
+                      "taskName": "Monitoraggio e manutenzione",
+                      "taskDescription": "",
+                      "ptc": 0,
+                      "taskStartDate": "2026-08-01",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGDEV - DIRECTOR": 16,
+                        "HWGDEV - SR DIRECTOR": 4,
+                        "HWGDEV - PRINCIPAL": 8,
+                        "HWGDEV - DEVELOPER": 16,
+                        "HWGHEIN - DATA ANALYST": 20,
+                        "HWGHEIN - VP, DATA SCIENCE": 5
+                      }
+                    }
+                  ]
+                },
+                {
+                  "phaseId": "ph_1779818439458_dgqw",
+                  "phaseName": "Integrazione della piattaforma AI e definizione delle analitiche e sistema di aggiornamento",
+                  "tasks": [
+                    {
+                      "taskId": "task_1779818451985_j0ur",
+                      "taskName": "Assessment",
+                      "taskDescription": "Budget for the following activities will be confirmed after the assessment phase.",
+                      "ptc": 0,
+                      "taskStartDate": "2026-03-01",
+                      "taskEndDate": "2026-04-30",
+                      "hours": {
+                        "HWGDEV - DIRECTOR": 24,
+                        "HWGDEV - SR DIRECTOR": 24,
+                        "HWGHEIN - VP, DATA SCIENCE": 24,
+                        "GREENLIGHT SHARED RESOURCE": 16
+                      }
+                    },
+                    {
+                      "taskId": "task_1779818496760_9e5k",
+                      "taskName": "Poc",
+                      "taskDescription": "Non sono inclusi i costi per infrastruttura AI, stimati in 0,50€ ogni 1000 domande",
+                      "ptc": 11452,
+                      "taskStartDate": "2026-05-01",
+                      "taskEndDate": "2026-06-30",
+                      "hours": {
+                        "HWGDEV - DIRECTOR": 4,
+                        "HWGDEV - SR DIRECTOR": 5,
+                        "HWGDEV - PRINCIPAL": 12,
+                        "HWGDEV - SR DEVELOPER": 16,
+                        "HWGDEV - DEVELOPER": 20,
+                        "HWGHEIN - DATA ANALYST": 48,
+                        "HWGHEIN - VP, DATA SCIENCE": 4
+                      }
+                    },
+                    {
+                      "taskId": "task_1779818533382_cywk",
+                      "taskName": "MVP",
+                      "taskDescription": "",
+                      "ptc": 34308,
+                      "taskStartDate": "2026-07-01",
+                      "taskEndDate": "2026-09-30",
+                      "hours": {
+                        "HWGDEV - DIRECTOR": 7,
+                        "HWGDEV - SR DEVELOPER": 8,
+                        "HWGHEIN - DATA ANALYST": 8,
+                        "HWGHEIN - VP, DATA SCIENCE": 16,
+                        "HWGDEV - PRINCIPAL": 8
+                      }
+                    },
+                    {
+                      "taskId": "task_1779818558755_eb2j",
+                      "taskName": "Go-Live",
+                      "taskDescription": "Non sono inclusi eventuali costi di Hosting stimati in 500€/mese con possibilità di scalare se le performance lo richiederanno",
+                      "ptc": 0,
+                      "taskStartDate": "2026-09-15",
+                      "taskEndDate": "2026-09-30",
+                      "hours": {
+                        "HWGDEV - DIRECTOR": 8,
+                        "HWGDEV - SR DIRECTOR": 2,
+                        "HWGDEV - PRINCIPAL": 4,
+                        "HWGDEV - SR DEVELOPER": 4,
+                        "HWGHEIN - DATA ANALYST": 8,
+                        "HWGHEIN - VP, DATA SCIENCE": 2
+                      }
+                    },
+                    {
+                      "taskId": "task_1779818592655_rj0q",
+                      "taskName": "Monitoraggio e manutenzione",
+                      "taskDescription": "",
+                      "ptc": 0,
+                      "taskStartDate": "2026-10-01",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGDEV - DIRECTOR": 16,
+                        "HWGDEV - SR DIRECTOR": 4,
+                        "HWGDEV - PRINCIPAL": 8,
+                        "HWGDEV - DEVELOPER": 16,
+                        "HWGHEIN - DATA ANALYST": 20,
+                        "HWGHEIN - VP, DATA SCIENCE": 5
+                      }
+                    }
+                  ]
+                }
+              ],
+              "clientId": "cli_1779814516969",
+              "pipeline": "Committed"
+            }
+          ]
+        },
+        {
+          "id": "cg_1779823324907",
+          "name": "BERMITS Maintenance 2026",
+          "versions": [
+            {
+              "versionId": "ver_1779823324907",
+              "versionLabel": "v1",
+              "createdAt": "2026-05-26T19:22:04.907Z",
+              "status": "sip",
+              "linkedProjects": [
+                {
+                  "projectId": "BERMITS_MAINTENANCE__0345",
+                  "projectName": "BERMITS Maintenance 2026",
+                  "taskIds": [
+                    "task_1779823397125_7bpe",
+                    "task_1779823430157_paod",
+                    "task_1779823452527_48r2",
+                    "task_1779823472386_pf0b",
+                    "task_1779823497340_8rx9",
+                    "task_1779823514545_3ne3"
+                  ],
+                  "createdAt": "2026-05-26T19:33:00.346Z",
+                  "pipeline": "Committed"
+                }
+              ],
+              "projectName": "BERMITS Maintenance 2026",
+              "startDate": "202601",
+              "endDate": "202612",
+              "currency": "€",
+              "note": "",
+              "roles": [
+                {
+                  "roleCode": "HWGACCSVS - DIRECTOR",
+                  "roleLabel": "Healthware Account Director",
+                  "rate": 168
+                },
+                {
+                  "roleCode": "HWGACCSVS - MANAGER",
+                  "roleLabel": "Healthware Account Manager",
+                  "rate": 130
+                },
+                {
+                  "roleCode": "HWGCREAT - CONTENT SPECIALIST",
+                  "roleLabel": "Healthware Creative Content Specialist",
+                  "rate": 115
+                },
+                {
+                  "roleCode": "HWGDEV - DEVELOPER",
+                  "roleLabel": "Healthware Development Developer",
+                  "rate": 100
+                },
+                {
+                  "roleCode": "HWGINTERN - ACCSVS",
+                  "roleLabel": "Healthware Account Services Intern",
+                  "rate": 105
+                },
+                {
+                  "roleCode": "HWGCREAT - DIRECTOR",
+                  "roleLabel": "Healthware Creative Director",
+                  "rate": 115
+                }
+              ],
+              "phases": [
+                {
+                  "phaseId": "ph_1779823324907_3hx0",
+                  "phaseName": "Phase 1",
+                  "tasks": [
+                    {
+                      "taskId": "task_1779823397125_7bpe",
+                      "taskName": "Overall coordination",
+                      "taskDescription": "",
+                      "ptc": 0,
+                      "taskStartDate": "2025-12-31",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGACCSVS - DIRECTOR": 20
+                      }
+                    },
+                    {
+                      "taskId": "task_1779823430157_paod",
+                      "taskName": "Project  Management",
+                      "taskDescription": "",
+                      "ptc": 0,
+                      "taskStartDate": "2025-12-31",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGACCSVS - MANAGER": 120
+                      }
+                    },
+                    {
+                      "taskId": "task_1779823452527_48r2",
+                      "taskName": "Content Management",
+                      "taskDescription": "",
+                      "ptc": 0,
+                      "taskStartDate": "2025-12-31",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGCREAT - CONTENT SPECIALIST": 292
+                      }
+                    },
+                    {
+                      "taskId": "task_1779823472386_pf0b",
+                      "taskName": "FE / BE Development",
+                      "taskDescription": "",
+                      "ptc": 0,
+                      "taskStartDate": "2025-12-31",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGDEV - DEVELOPER": 32
+                      }
+                    },
+                    {
+                      "taskId": "task_1779823497340_8rx9",
+                      "taskName": "Quality Assurance",
+                      "taskDescription": "",
+                      "ptc": 0,
+                      "taskStartDate": "2025-12-31",
+                      "taskEndDate": "2025-12-31",
+                      "hours": {
+                        "HWGINTERN - ACCSVS": 32
+                      }
+                    },
+                    {
+                      "taskId": "task_1779823514545_3ne3",
+                      "taskName": "Artwork for QR Code",
+                      "taskDescription": "",
+                      "ptc": 0,
+                      "taskStartDate": "2025-12-31",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGCREAT - DIRECTOR": 8
+                      }
+                    }
+                  ]
+                }
+              ],
+              "clientId": "cli_1779823359661",
+              "pipeline": "Committed"
+            }
+          ]
+        },
+        {
+          "id": "cg_1779888173022",
+          "name": "EU DTD Model",
+          "versions": [
+            {
+              "versionId": "ver_1779888173022",
+              "versionLabel": "v1",
+              "createdAt": "2026-05-27T13:22:53.022Z",
+              "status": "draft",
+              "linkedProjects": [],
+              "projectName": "EU DTD Model",
+              "startDate": "202606",
+              "endDate": "202612",
+              "currency": "€",
+              "note": "",
+              "roles": [
+                {
+                  "roleCode": "HWGHEIN - SVP",
+                  "roleLabel": "Healthware Health Innovation SVP",
+                  "rate": 400
+                },
+                {
+                  "roleCode": "HWGACCSVS - GROUP DIRECTOR",
+                  "roleLabel": "Healthware Group Account Director",
+                  "rate": 220
+                },
+                {
+                  "roleCode": "HWGACCSVS - MANAGER",
+                  "roleLabel": "Healthware Account Manager",
+                  "rate": 135
+                },
+                {
+                  "roleCode": "GREENLIGHT SHARED RESOURCE",
+                  "roleLabel": "Strategic Role for Greenlight Only",
+                  "rate": 150
+                },
+                {
+                  "roleCode": "HWGPLAN - DIRECTOR",
+                  "roleLabel": "Healthware Planning Director",
+                  "rate": 180
+                }
+              ],
+              "phases": [
+                {
+                  "phaseId": "ph_1779888173022_tkon",
+                  "phaseName": "Workstream 0",
+                  "tasks": [
+                    {
+                      "taskId": "task_1779888291563_wrs4",
+                      "taskName": "Overall Coordination",
+                      "taskDescription": "Overall coordination for the entire period. It includes also kickoff meeting, periodic calls with client and intenral weekly calls.",
+                      "ptc": 0,
+                      "taskStartDate": "2026-06-16",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGHEIN - SVP": 117,
+                        "HWGACCSVS - GROUP DIRECTOR": 117,
+                        "HWGACCSVS - MANAGER": 144,
+                        "GREENLIGHT SHARED RESOURCE": 36,
+                        "HWGPLAN - DIRECTOR": 36
+                      }
+                    }
+                  ]
+                },
+                {
+                  "phaseId": "ph_1779888325494_bytf",
+                  "phaseName": "Workstream 1",
+                  "tasks": [
+                    {
+                      "taskId": "task_1779888341303_fy3n",
+                      "taskName": "Baseline Market Landscape, OOP Opportunity Assessment, Competitive Analysis (EU4+UK)",
+                      "taskDescription": "OOP market sizing and directional revenue modelling Self-pay target population segmentation and consumer journey analysis Willingness-to-pay and price sensitivity assessment Competitive landscape, pricing, and substitution intelligence Strategic prioritisation and market sequencing Establishment of a Strategic Landscape Observatory (2027-launch)",
+                      "ptc": 0,
+                      "taskStartDate": "2026-06-16",
+                      "taskEndDate": "2026-09-30",
+                      "hours": {
+                        "HWGHEIN - SVP": 140,
+                        "HWGACCSVS - GROUP DIRECTOR": 20,
+                        "HWGACCSVS - MANAGER": 80,
+                        "GREENLIGHT SHARED RESOURCE": 200,
+                        "HWGPLAN - DIRECTOR": 160
+                      }
+                    }
+                  ]
+                },
+                {
+                  "phaseId": "ph_1779888421551_418i",
+                  "phaseName": "Workstream 2",
+                  "tasks": [
+                    {
+                      "taskId": "task_1779888429416_s8ts",
+                      "taskName": "Baseline Channel Partner Strategy (EU4+UK)",
+                      "taskDescription": "Systematic identification and vetting of priority channel partners per market\nConfidential exploratory discussions and insight capture\nEnd-to-end journey modelling (identification → prescribing → fulfilment → persistence)\nBusiness model and pricing architecture design\nExecutive-level alignment with selected partners (Frontiers Health, Berlin – Oct 2026)",
+                      "ptc": 0,
+                      "taskStartDate": "2026-06-16",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGHEIN - SVP": 136,
+                        "HWGACCSVS - GROUP DIRECTOR": 136,
+                        "HWGACCSVS - MANAGER": 180,
+                        "GREENLIGHT SHARED RESOURCE": 196,
+                        "HWGPLAN - DIRECTOR": 196
+                      }
+                    }
+                  ]
+                },
+                {
+                  "phaseId": "ph_1779888463680_8jsu",
+                  "phaseName": "Workstream 3",
+                  "tasks": [
+                    {
+                      "taskId": "task_1779888472306_kubn",
+                      "taskName": "Baseline Legal & Compliance Guidance (EU4+UK)",
+                      "taskDescription": "DTD, tele-prescribing, and promotion frameworks and preliminary guidance\nChannel compliance stress-testing, scenario analysis, and preliminary guidance \nData protection and consent governance preliminary guidance",
+                      "ptc": 125000,
+                      "taskStartDate": "",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGHEIN - SVP": 120,
+                        "HWGACCSVS - GROUP DIRECTOR": 40,
+                        "HWGACCSVS - MANAGER": 160,
+                        "GREENLIGHT SHARED RESOURCE": 160,
+                        "HWGPLAN - DIRECTOR": 88
+                      }
+                    }
+                  ]
+                },
+                {
+                  "phaseId": "ph_1779888503303_lm5e",
+                  "phaseName": "Worksstream 4",
+                  "tasks": [
+                    {
+                      "taskId": "task_1779888519625_mxep",
+                      "taskName": "Baseline Targeted KOL Engagement (EU4+UK)",
+                      "taskDescription": "Identification and engagement of priority KOLs and key opinion-shaping stakeholders per market\nDevelopment of a focused scientific and clinical narrative framework\nLimited 1:1 exploratory engagements to establish relationships, gather needs, test positioning and adoption assumptions\nStructured expert consultation to stress-test adoption assumptions and define the required scientific engagement model, field presence, and brand positioning\n\nKols' fees are not included",
+                      "ptc": 0,
+                      "taskStartDate": "2026-07-01",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGHEIN - SVP": 80,
+                        "HWGACCSVS - GROUP DIRECTOR": 20,
+                        "HWGACCSVS - MANAGER": 80,
+                        "GREENLIGHT SHARED RESOURCE": 120,
+                        "HWGPLAN - DIRECTOR": 88
+                      }
+                    }
+                  ]
+                }
+              ],
+              "clientId": "cli_1779888070233",
+              "pipeline": "SIP"
+            }
+          ]
+        },
+        {
+          "id": "cg_1779986156366",
+          "name": "AURORA Platform Development",
+          "versions": [
+            {
+              "versionId": "ver_1779986156366",
+              "versionLabel": "v1",
+              "createdAt": "2026-05-28T16:35:56.366Z",
+              "status": "sip",
+              "linkedProjects": [
+                {
+                  "projectId": "MEN_26_AURORA_PLATFO_8650",
+                  "projectName": "MEN 26 AURORA Platform Dev.-Overall Proj. MNGM",
+                  "taskIds": [
+                    "task_1779986206107_e0kb"
+                  ],
+                  "createdAt": "2026-05-28T16:54:18.652Z",
+                  "pipeline": "Anticipated"
+                },
+                {
+                  "projectId": "MEN_26_AURORA_PLATFO_5822",
+                  "projectName": "MEN 26 AURORA Platform Dev.-Creation graph.Assets",
+                  "taskIds": [
+                    "task_1779986378994_o7b2"
+                  ],
+                  "createdAt": "2026-05-28T16:57:35.823Z",
+                  "pipeline": "Anticipated"
+                },
+                {
+                  "projectId": "MEN_26_AURORA_PLATFO_8992",
+                  "projectName": "MEN 26 AURORA Platform Dev.-Development",
+                  "taskIds": [
+                    "task_1779986441921_gfbe",
+                    "task_1779986456038_veb8"
+                  ],
+                  "createdAt": "2026-05-28T16:58:58.993Z",
+                  "pipeline": "Anticipated"
+                },
+                {
+                  "projectId": "MEN_26_AURORA_PLATFO_6782",
+                  "projectName": "MEN 26 AURORA Platform Dev.-Active Maintenance",
+                  "taskIds": [
+                    "task_1779986492311_ed3v"
+                  ],
+                  "createdAt": "2026-05-28T17:01:06.783Z",
+                  "pipeline": "Anticipated"
+                }
+              ],
+              "projectName": "AURORA Platform Development",
+              "startDate": "202605",
+              "endDate": "202612",
+              "currency": "€",
+              "note": "",
+              "roles": [
+                {
+                  "roleCode": "HWGACCSVS - DIRECTOR",
+                  "roleLabel": "Healthware Account Director",
+                  "rate": 65
+                },
+                {
+                  "roleCode": "HWGCREAT - EXPERIENCE DESIGNER",
+                  "roleLabel": "Healthware Creative Experience Designer",
+                  "rate": 65
+                },
+                {
+                  "roleCode": "HWGHEIN - SR DATA ANALYST",
+                  "roleLabel": "Healthware Health Innovation Senior Data Analyst",
+                  "rate": 80
+                },
+                {
+                  "roleCode": "HWGHEIN - DATA ANALYST",
+                  "roleLabel": "Healthware Health Innovation Data Analyst",
+                  "rate": 65
+                },
+                {
+                  "roleCode": "HWGHEIN - ASSOCIATE DATA SCIENTIST",
+                  "roleLabel": "Healthware Health Innovation Associate Data Scientist",
+                  "rate": 65
+                },
+                {
+                  "roleCode": "HWGDEV - SR DEVELOPER",
+                  "roleLabel": "Healthware Development Senior Developer",
+                  "rate": 65
+                },
+                {
+                  "roleCode": "HWGDEV - PRINCIPAL",
+                  "roleLabel": "Healthware Development Principal",
+                  "rate": 65
+                },
+                {
+                  "roleCode": "HWGDEV - DIRECTOR",
+                  "roleLabel": "Healthware Development Director",
+                  "rate": 80
+                },
+                {
+                  "roleCode": "HWGDEV - SR DIRECTOR",
+                  "roleLabel": "Healthware Development Senior Director",
+                  "rate": 100
+                },
+                {
+                  "roleCode": "HWGDEV - DEVELOPER",
+                  "roleLabel": "Healthware Development Developer",
+                  "rate": 65
+                }
+              ],
+              "phases": [
+                {
+                  "phaseId": "ph_1779986156366_aikz",
+                  "phaseName": "Project Tasks",
+                  "tasks": [
+                    {
+                      "taskId": "task_1779986206107_e0kb",
+                      "taskName": "Overall project management",
+                      "taskDescription": "",
+                      "ptc": 0,
+                      "taskStartDate": "2026-05-11",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGACCSVS - DIRECTOR": 210
+                      }
+                    },
+                    {
+                      "taskId": "task_1779986378994_o7b2",
+                      "taskName": "Support to creation of graphic assets",
+                      "taskDescription": "",
+                      "ptc": 0,
+                      "taskStartDate": "2026-05-11",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGCREAT - EXPERIENCE DESIGNER": 16
+                      }
+                    },
+                    {
+                      "taskId": "task_1779986441921_gfbe",
+                      "taskName": "Development of the Platform",
+                      "taskDescription": "",
+                      "ptc": 0,
+                      "taskStartDate": "2026-05-11",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGDEV - DEVELOPER": 1084,
+                        "HWGDEV - DIRECTOR": 140,
+                        "HWGDEV - PRINCIPAL": 268,
+                        "HWGDEV - SR DEVELOPER": 486,
+                        "HWGDEV - SR DIRECTOR": 39
+                      }
+                    },
+                    {
+                      "taskId": "task_1779986456038_veb8",
+                      "taskName": "Development of AI Pipeline",
+                      "taskDescription": "",
+                      "ptc": 0,
+                      "taskStartDate": "2026-05-11",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGHEIN - SR DATA ANALYST": 168,
+                        "HWGHEIN - DATA ANALYST": 160,
+                        "HWGHEIN - ASSOCIATE DATA SCIENTIST": 322
+                      }
+                    },
+                    {
+                      "taskId": "task_1779986492311_ed3v",
+                      "taskName": "Active Maintenance",
+                      "taskDescription": "",
+                      "ptc": 0,
+                      "taskStartDate": "2026-05-11",
+                      "taskEndDate": "2026-12-31",
+                      "hours": {
+                        "HWGACCSVS - DIRECTOR": 48,
+                        "HWGHEIN - DATA ANALYST": 80,
+                        "HWGDEV - SR DEVELOPER": 48,
+                        "HWGDEV - PRINCIPAL": 32,
+                        "HWGDEV - DIRECTOR": 16,
+                        "HWGDEV - DEVELOPER": 120
+                      }
+                    }
+                  ]
+                }
+              ],
+              "clientId": "cli_1779986093137",
+              "pipeline": "Anticipated"
+            }
+          ]
+        }
+      ]
+    },
+    "settings": {},
+    "summary": []
+  }
+}

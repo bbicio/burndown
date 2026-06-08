@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash - Reporting Dashboard</title>
+  <link rel="icon" type="image/png" href="https://ik.imagekit.io/6ezjgrjjf/00_Home_Page/letter-f.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar navbar-dark" style="background:#0B1840;border-bottom:3px solid #F0287A;padding:0;flex-direction:column;align-items:stretch">
+  <!-- Row 1: brand + utility -->
+  <div class="d-flex align-items-center justify-content-between px-4" style="height:44px">
+    <button class="d-flex align-items-center gap-2 border-0 bg-transparent text-white p-0" id="btnBrandHome" style="cursor:pointer">
+      <img src="https://ik.imagekit.io/6ezjgrjjf/00_Home_Page/letter-f.png" alt="PDash" height="26" style="border-radius:var(--radius-sm)">
+      <span class="fw-bold" style="font-size:var(--text-xl);letter-spacing:-.02em">PDash</span>
+    </button>
+    <div class="d-flex gap-2 align-items-center">
+      <button class="btn btn-outline-warning btn-sm" id="btnToggleAiSidebar">🤖 AI Chat</button>
+      <button class="btn btn-outline-light btn-sm" id="btnPPFullWidth" title="Toggle full browser width">⛶ Full width</button>
+      <button class="btn btn-outline-light btn-sm" id="btnOpenSettings" title="App settings, API keys, Data Manager">⚙ Settings</button>
+    </div>
+  </div>
+  <!-- Row 2: nav tabs -->
+  <div class="d-flex align-items-stretch px-2" id="mainNavTabs" style="border-top:1px solid rgba(255,255,255,.1)">
+    <button class="nav-main-tab active" data-navtab="pipelineboard">Pipeline</button>
+    <button class="nav-main-tab" data-navtab="planning">Resource Planning</button>
+    <button class="nav-main-tab" data-navtab="reporting">Project Reporting</button>
+  </div>
+</nav>
+
+<!-- Sub-navigation bar (context-sensitive per tab) -->
+<div id="appSubnav" class="px-4 d-flex align-items-center gap-2 flex-wrap" style="background:#122258;border-bottom:1px solid #1E3A8A;min-height:46px;padding-top:8px;padding-bottom:8px"></div>
+
+<!-- Hidden elements kept for JS compatibility -->
+<span id="fileStatus" style="display:none"></span>
+<input type="file" id="fileInput" accept=".xls,.xlsx" style="display:none">
+
+<!-- AI Planning Sidebar -->
+<div id="aiPlanSidebar">
+  <div style="padding:12px 16px;border-bottom:1px solid #dee2e6;background:#0B1840;color:white;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+    <span style="font-weight:600;font-size:.95rem">🤖 AI Planning Assistant</span>
+    <button id="btnCloseAiSidebar" class="btn-close btn-close-white btn-sm"></button>
+  </div>
+  <div style="padding:5px 14px;background:#f0f1f3;border-bottom:1px solid #dee2e6;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+    <span id="aiProviderBadge" style="font-size:.75rem;color:#495057"></span>
+    <button onclick="openConfigModal()" class="btn btn-link btn-sm p-0" style="font-size:.72rem;color:#6c757d;text-decoration:none">⚙️ Change</button>
+  </div>
+  <div id="aiPlanMessages">
+    <div style="background:#f0f4ff;border-radius:8px;padding:10px 12px;font-size:.82rem;color:#444;border-left:3px solid #6c757d">
+      Hello! I'm your planning assistant. You can ask me, for example:<br>
+      • <em>Who is available in the next 2 months?</em><br>
+      • <em>How many hours has [name] allocated to [month]?</em><br>
+      • <em>Which project has the most remaining hours?</em>
+    </div>
+  </div>
+  <div style="padding:10px 12px;border-top:1px solid #dee2e6;display:flex;gap:8px;align-items:flex-end;flex-shrink:0">
+    <textarea id="aiPlanInput" class="form-control form-control-sm" rows="2"
+      placeholder="Ask a question about planning..." style="resize:none;font-size:.83rem"></textarea>
+    <div class="d-flex flex-column gap-1">
+      <button id="btnAiPlanSend" class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:64px">Send</button>
+      <button id="btnAiPlanClear" class="btn btn-outline-secondary btn-sm" style="font-size:.72rem">Clear</button>
+    </div>
+  </div>
+</div>
+
+<div class="app-container">
+
+  <!-- Drop zone (hidden — accessible via Load XLS button and drag-drop) -->
+  <div id="uploadSection" style="display:none">
+    <div id="dropzone">
+      <div style="font-size:3rem;margin-bottom:12px">📂</div>
+      <h5 class="mb-2">Load Timesheet XLS file</h5>
+      <p class="text-muted mb-1">Drag the file here or click to select it</p>
+      <p class="text-muted small mb-0">Expected columns: Date · Job Role: Name · Owner: Name · Hours · Task/Issue · Notes · D365 Project ID · WF Project Name</p>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div id="mainContent" style="display:none">
+
+    <!-- Project header -->
+    <div class="pt-4 mb-3">
+      <!-- Row 1: client — program (hidden when no program) -->
+      <div id="dashboardProgramRow" class="text-muted mb-1" style="display:none;font-size:.9rem"></div>
+      <!-- Row 2: project identity + program switcher -->
+      <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+        <span class="fw-bold fs-5" id="dashboardProjectName" style="color:var(--brand-navy)"></span>
+        <span class="text-muted small" id="dashboardProjectId"></span>
+        <span id="dashboardProjectMeta" class="d-inline-flex gap-1 align-items-center flex-wrap"></span>
+        <!-- Sibling project switcher (shown only when project belongs to a program with siblings) -->
+        <div class="dropdown" id="dashboardSiblingDropdown" style="display:none">
+          <button class="btn btn-sm btn-outline-secondary" type="button"
+                  id="dashboardSiblingBtn" data-bs-toggle="dropdown" aria-expanded="false"
+                  style="font-size:.75rem;padding:2px 7px" title="Switch project">
+            ▾
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm" id="dashboardSiblingMenu"
+              aria-labelledby="dashboardSiblingBtn" style="min-width:320px;font-size:.85rem"></ul>
+        </div>
+      </div>
+      <!-- Row 3: navigation + actions -->
+      <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+        <div>
+          <button class="btn btn-outline-secondary btn-sm" id="btnBackToPortfolio">← Portfolio</button>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-primary btn-sm" id="btnConfigureProject">⚙️ Configure</button>
+          <button class="btn btn-outline-info btn-sm" id="btnPlanningView" style="display:none">📅 Planning</button>
+          <button class="btn btn-outline-warning btn-sm" id="btnAiAnalysis" style="display:none">🤖 AI Analysis</button>
+          <button class="btn btn-outline-success btn-sm" id="btnShareEmail" style="display:none">📧 Share</button>
+        </div>
+      </div>
+    </div>
+    <!-- Hidden select kept for internal logic -->
+    <select id="projectSelect" style="display:none"></select>
+
+
+    <!-- Dashboard -->
+    <div id="dashboard" style="display:none">
+
+      <div id="noConfigAlert" class="alert alert-warning d-none">
+        <strong>⚠️ Budget not configured for this project.</strong>
+        Click <strong>⚙️ Configure Budget</strong> to enter sold hours and hourly rates for tasks and resources.
+      </div>
+
+      <!-- 6 KPI cards -->
+      <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-xl-2">
+          <div class="card kpi-card blue shadow-sm h-100">
+            <div class="card-body py-3 px-3">
+              <div class="text-muted small mb-1">📦 Total Sold Hours</div>
+              <div class="fw-bold fs-4" id="kpiSoldHours">—</div>
+              <div class="text-muted small">from configuration</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-6 col-xl-2">
+          <div class="card kpi-card green shadow-sm h-100">
+            <div class="card-body py-3 px-3">
+              <div class="text-muted small mb-1">💰 Total Budget</div>
+              <div class="fw-bold fs-4" id="kpiBudgetEur">—</div>
+              <div class="text-muted small" id="kpiBudgetEurSub">hours × hourly rate</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-6 col-xl-2">
+          <div class="card kpi-card orange shadow-sm h-100">
+            <div class="card-body py-3 px-3">
+              <div class="text-muted small mb-1">⏱️ Hours Consumed</div>
+              <div class="fw-bold fs-4" id="kpiConsumedHours">—</div>
+              <div class="text-muted small" id="kpiConsumedHoursSub">total to date</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-6 col-xl-2">
+          <div class="card kpi-card purple shadow-sm h-100">
+            <div class="card-body py-3 px-3">
+              <div class="text-muted small mb-1">💸 Budget Consumed</div>
+              <div class="fw-bold fs-4" id="kpiConsumedEur">—</div>
+              <div class="text-muted small" id="kpiConsumedEurSub">hours spent × rate</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-6 col-xl-2">
+          <div class="card kpi-card teal shadow-sm h-100">
+            <div class="card-body py-3 px-3">
+              <div class="text-muted small mb-1">⏳ Hours Left</div>
+              <div class="fw-bold fs-4" id="kpiHoursLeft">—</div>
+              <div class="text-muted small">sold − consumed</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-6 col-xl-2">
+          <div class="card kpi-card red shadow-sm h-100">
+            <div class="card-body py-3 px-3">
+              <div class="text-muted small mb-1">💼 Budget Left</div>
+              <div class="fw-bold fs-4" id="kpiBudgetLeft">—</div>
+              <div class="text-muted small" id="kpiBudgetLeftSub">budget − consumed</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Burndown chart -->
+      <div class="section-card mb-4">
+        <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <span>📉 Hours Burndown</span>
+          <div class="d-flex align-items-center gap-3 flex-wrap">
+            <div class="btn-group btn-group-sm" id="intervalToggle">
+              <button class="btn btn-outline-secondary active" data-interval="monthly">Monthly</button>
+              <button class="btn btn-outline-secondary" data-interval="quarterly">Quarterly</button>
+              <button class="btn btn-outline-secondary" data-interval="biweekly">Biweekly</button>
+              <button class="btn btn-outline-secondary" data-interval="weekly">Weekly</button>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <label class="small text-muted mb-0 fw-normal">Filter by task:</label>
+              <select class="form-select form-select-sm" id="burndownTaskFilter" style="min-width:220px;">
+                <option value="">All tasks</option>
+              </select>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" id="btnExportChart" title="Export chart as PNG image">🖼 Export PNG</button>
+          </div>
+        </div>
+        <div class="p-3">
+          <div class="chart-container">
+            <canvas id="burndownChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly summary table (always shows full data, no filter) -->
+      <div id="summaryMonthlyContainer"></div>
+
+      <!-- PTC Report -->
+      <div id="ptcReportContainer"></div>
+
+      <!-- Date range filter -->
+      <div class="section-card mb-4">
+        <div class="section-header">🗓️ Period filter — applies to all summary and detail tables below</div>
+        <div class="p-3">
+          <div class="row g-3 align-items-end flex-wrap">
+            <div class="col-auto">
+              <label class="form-label small fw-semibold mb-1">Month</label>
+              <select class="form-select form-select-sm" id="monthFilter" style="min-width:160px;">
+                <option value="">— All months —</option>
+              </select>
+            </div>
+            <div class="col-auto d-flex align-items-end pb-1">
+              <span class="text-muted small">or</span>
+            </div>
+            <div class="col-auto">
+              <label class="form-label small fw-semibold mb-1">From</label>
+              <input type="date" class="form-control form-control-sm" id="filterStart">
+            </div>
+            <div class="col-auto">
+              <label class="form-label small fw-semibold mb-1">To</label>
+              <input type="date" class="form-control form-control-sm" id="filterEnd">
+            </div>
+            <div class="col-auto">
+              <button class="btn btn-outline-secondary btn-sm" id="btnResetDate">↺ Reset</button>
+            </div>
+            <div class="col-auto">
+              <span id="filterRangeLabel" class="text-muted small"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary tables -->
+      <div id="summaryTableContainer"></div>
+      <div id="summaryByTaskContainer"></div>
+      <div id="summaryByGroupContainer"></div>
+
+      <!-- Divider between summary and detail -->
+      <div class="section-divider" id="taskTablesDivider" style="display:none">
+        <hr>
+        <span class="section-divider-label">Task detail</span>
+      </div>
+
+      <!-- Per-task detail tables -->
+      <div id="taskTablesContainer"></div>
+
+    </div><!-- /dashboard -->
+  </div><!-- /mainContent -->
+
+  <!-- Roles View -->
+  <!-- Roles Modal -->
+  <div class="modal fade" id="rolesModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header border-0 pb-1">
+          <h5 class="modal-title fw-bold">👥 Roles Registry</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-0">
+          <div class="px-3 py-2 d-flex gap-2 flex-wrap align-items-center border-bottom" style="background:#f8f9fa">
+            <span class="text-muted small">Roles used in Cost Grids to calculate the offer value</span>
+            <div class="ms-auto d-flex gap-2">
+              <button class="btn btn-outline-secondary btn-sm" id="btnRolesShowJson">{ } JSON</button>
+              <button class="btn btn-primary btn-sm" id="btnAddRole">+ Add role</button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle mb-0" id="rolesTable" style="font-size:.92rem">
+              <thead style="background:#eef1ff;position:sticky;top:0;z-index:1">
+                <tr>
+                  <th class="ps-3" style="min-width:180px">Label</th>
+                  <th style="min-width:280px">Code (from actuals)</th>
+                  <th style="min-width:100px">Team</th>
+                  <th style="min-width:120px;text-align:right">Rate (€/h)</th>
+                  <th style="width:90px"></th>
+                </tr>
+              </thead>
+              <tbody id="rolesTableBody">
+                <tr id="rolesEmptyRow">
+                  <td colspan="5" class="text-muted text-center py-5">
+                    No roles configured. Click <strong>+ Add role</strong> to get started.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-1">
+          <button class="btn btn-secondary btn-sm" id="btnRolesBack" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Portfolio View (default home) -->
+  <div id="portfolioSection">
+    <div class="page-title-bar">
+      <h4 class="fw-bold mb-0">📋 Portfolio Overview</h4>
+    </div>
+    <div class="page-toolbar">
+      <div class="page-toolbar-left">
+        <span class="text-muted small">Budget Spent vs Estimated by month — all configured projects</span>
+      </div>
+      <div class="page-toolbar-right">
+        <span id="portfolioCacheBadge"></span>
+        <button class="btn btn-outline-secondary btn-sm" id="btnLoadXls">📂 Load XLS</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="showClientsModal()">👥 Clients</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="showProgramsModal()">🗂 Programs</button>
+        <button class="btn btn-outline-primary btn-sm" id="btnOpenConfig">⚙ Configure Portfolio</button>
+      </div>
+    </div>
+    <div id="portfolioContainer"></div>
+  </div>
+
+  <!-- Portfolio Planning View -->
+  <div id="portfolioPlanningSection" style="display:none">
+    <div class="page-title-bar">
+      <h4 class="fw-bold mb-0" id="portfolioPlanningTitle">📅 Resource Planning</h4>
+      <p class="text-muted small mb-0 mt-1">Hours distribution by role, project or owner — based on sold hours and actuals consumed</p>
+    </div>
+    <div class="page-toolbar">
+      <div class="page-toolbar-left">
+        <!-- Row 1: filters + view/interval toggles -->
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+          <div class="d-flex align-items-center gap-2 flex-wrap" id="portfolioPlanningFilters"></div>
+          <div class="vr" style="opacity:.3;align-self:stretch"></div>
+          <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" id="btnProjectFilter" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+              Projects <span class="badge bg-secondary ms-1" id="projectFilterBadge" style="display:none"></span>
+            </button>
+            <ul class="dropdown-menu shadow" id="projectFilterMenu" style="min-width:280px;max-height:320px;overflow-y:auto;padding:6px 0"></ul>
+          </div>
+          <button class="btn btn-sm btn-outline-danger" id="btnResetProjectFilter" style="display:none">✕ Projects</button>
+          <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" id="btnTeamFilter" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+              Team <span class="badge bg-secondary ms-1" id="teamFilterBadge" style="display:none"></span>
+            </button>
+            <ul class="dropdown-menu shadow" id="teamFilterMenu" style="min-width:240px;max-height:280px;overflow-y:auto;padding:6px 0"></ul>
+          </div>
+          <button class="btn btn-sm btn-outline-danger" id="btnResetTeamFilter" style="display:none">✕ Team</button>
+          <div class="vr" style="opacity:.3;align-self:stretch"></div>
+          <div class="btn-group btn-group-sm" id="ppViewToggle">
+            <button class="btn btn-outline-primary active" data-ppview="byrole">By Role</button>
+            <button class="btn btn-outline-primary" data-ppview="byproject">By Project</button>
+            <button class="btn btn-outline-primary" data-ppview="byowner">By Owner</button>
+          </div>
+          <div class="btn-group btn-group-sm" id="ppIntervalToggle">
+            <button class="btn btn-outline-secondary active" data-ppinterval="monthly">Monthly</button>
+            <button class="btn btn-outline-secondary" data-ppinterval="weekly">Weekly</button>
+          </div>
+        </div>
+        <!-- Row 2: window navigation + display toggles -->
+        <div class="d-flex align-items-center gap-3 flex-wrap mt-1">
+          <div class="d-flex align-items-center gap-1">
+            <button class="btn btn-sm btn-outline-secondary" id="btnPpExpandLeft" title="Add previous month" style="padding:2px 7px;line-height:1.4" disabled>◀+</button>
+            <button class="btn btn-sm btn-outline-secondary" id="btnPpShrinkLeft" title="Hide previous month" style="padding:2px 7px;line-height:1.4" disabled>−▷</button>
+            <span class="small text-muted px-2" id="ppWindowLabel" style="white-space:nowrap;min-width:130px;text-align:center">...</span>
+            <button class="btn btn-sm btn-outline-secondary" id="btnPpShrinkRight" title="Hide next month" style="padding:2px 7px;line-height:1.4" disabled>◁−</button>
+            <button class="btn btn-sm btn-outline-secondary" id="btnPpExpandRight" title="Add next month" style="padding:2px 7px;line-height:1.4" disabled>+▶</button>
+          </div>
+          <div class="vr" style="opacity:.3;align-self:stretch"></div>
+          <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+            <input class="form-check-input" type="checkbox" id="chkMonthlyPulse" checked style="cursor:pointer">
+            <label class="form-check-label small text-muted" for="chkMonthlyPulse">Monthly pulse</label>
+          </div>
+          <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+            <input class="form-check-input" type="checkbox" id="chkRoundHours" checked style="cursor:pointer">
+            <label class="form-check-label small text-muted" for="chkRoundHours">Rounded</label>
+          </div>
+        </div>
+      </div>
+      <div class="page-toolbar-right">
+        <button class="btn btn-sm btn-outline-success" id="btnExportResourcePlan">⬇ Export XLS</button>
+      </div>
+    </div>
+    <div class="section-card">
+      <div id="portfolioPlanningContainer" style="overflow-x:auto"></div>
+    </div>
+  </div>
+
+</div><!-- /app-container -->
+
+<!-- Pipeline Board Section -->
+<div id="pipelineBoardSection" style="display:none;height:calc(100vh - 134px);overflow:hidden;position:relative">
+  <div class="d-flex align-items-center justify-content-between px-4 py-2 flex-shrink-0" style="border-bottom:1px solid #dee2e6">
+    <div>
+      <h4 class="fw-bold mb-0">Pipeline</h4>
+      <p class="text-muted small mb-0 mt-0">All cost grid offers organised by deal stage</p>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <button class="btn btn-outline-secondary btn-sm" id="btnRolesView">👥 Roles</button>
+      <button class="btn btn-primary btn-sm" id="btnNewCostGrid">+ New Cost Grid</button>
+    </div>
+  </div>
+  <!-- 5-column board -->
+  <div id="pbColumnsContainer" class="d-flex gap-0" style="overflow-x:auto;align-items:stretch"></div>
+  <!-- Detail panel (slide-in from right) -->
+  <div id="pbDetailPanel"
+       style="display:none;position:absolute;top:0;right:0;bottom:0;width:860px;max-width:100%;
+              background:#fff;border-left:2px solid #dee2e6;box-shadow:-4px 0 16px rgba(0,0,0,.12);
+              z-index:200;flex-direction:column">
+    <!-- Panel header -->
+    <div class="d-flex align-items-center justify-content-between px-3 py-2 flex-shrink-0"
+         style="border-bottom:1px solid #dee2e6;background:#0B1840;color:#fff">
+      <span class="fw-semibold" style="font-size:var(--text-md)">Offer detail</span>
+      <div class="d-flex gap-2 align-items-center">
+        <button class="btn btn-sm btn-outline-light py-0 px-2" id="pbBtnJsonCg" style="font-size:var(--text-xs)">{ } JSON</button>
+        <button class="btn btn-sm btn-outline-light py-0 px-2" id="pbBtnOpenCg" style="font-size:var(--text-xs)">✏️ Edit</button>
+        <button class="btn btn-sm btn-link text-white p-0" onclick="pbCloseDetailPanel()" style="font-size:1.1rem;line-height:1" title="Close">×</button>
+      </div>
+    </div>
+    <!-- Panel body -->
+    <div id="pbDetailContent" class="d-flex flex-grow-1" style="min-height:0"></div>
+  </div>
+</div>
+
+
+<!-- Cost Grid Editor Section -->
+<div id="costGridEditorSection" class="app-container" style="display:none">
+  <div class="page-title-bar">
+    <h4 class="fw-bold mb-0" id="cgEditorTitle">Cost Grid</h4>
+  </div>
+  <div class="page-toolbar mb-2">
+    <div class="page-toolbar-left">
+      <button class="btn btn-outline-secondary btn-sm" id="btnCgEditorBack">← Pipeline</button>
+    </div>
+    <div class="page-toolbar-right">
+      <button class="btn btn-sm btn-outline-secondary" id="btnCgNewVersion">+ New version</button>
+      <button class="btn btn-sm btn-outline-secondary" id="btnCgExportXls">⬇ Export XLS</button>
+      <button class="btn btn-sm btn-outline-success" id="btnCgGenerateProject" title="Generate project in SIP">🚀 Generate Project</button>
+      <button class="btn btn-sm btn-primary" id="btnCgSave">💾 Save</button>
+    </div>
+  </div>
+  <!-- Version tabs -->
+  <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+    <span class="small text-muted">Version:</span>
+    <div id="cgVersionTabs" class="d-flex gap-1 flex-wrap"></div>
+  </div>
+  <!-- Editor body -->
+  <div id="cgEditorBody"></div>
+</div>
+
+<!-- !! placeholder removed — cost grid sections moved above !! -->
+<div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header border-0 pb-1">
+        <h6 class="modal-title fw-bold" id="confirmModalTitle">⚠️ Confirm</h6>
+      </div>
+      <div class="modal-body pt-1">
+        <p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p>
+      </div>
+      <div class="modal-footer border-0 pt-2">
+        <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger" id="confirmModalOk">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Config Modal -->
+<div class="modal fade" id="configModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">⚙️ Project Budget Configuration</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+
+        <!-- Tab bar -->
+        <ul class="nav nav-tabs px-3 pt-2 mb-0">
+          <li class="nav-item">
+            <button class="nav-link active cfg-tab-btn" data-tab="form">📝 Visual Form</button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link cfg-tab-btn" data-tab="json">{ } JSON</button>
+          </li>
+        </ul>
+
+        <!-- ═══ FORM TAB ═══ -->
+        <div id="cfgTabForm" class="p-3">
+
+          <!-- Project selector row -->
+          <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
+            <label class="fw-semibold small text-nowrap">Project:</label>
+            <select class="form-select form-select-sm" id="cfgProjectSel" style="max-width:360px"></select>
+            <button class="btn btn-sm btn-outline-primary" id="cfgBtnNewProject">+ New</button>
+            <button class="btn btn-sm btn-outline-danger" id="cfgBtnDelProject" disabled>🗑 Delete</button>
+          </div>
+
+          <!-- Empty state -->
+          <div id="cfgNoProjectMsg" class="text-center text-muted py-5" style="display:none">
+            <div style="font-size:2.5rem">📂</div>
+            <p class="mt-2">No projects configured yet.<br>Click <strong>+ New</strong> to add one.</p>
+          </div>
+
+          <!-- Form sections (shown when a project is selected) -->
+          <div id="cfgFormSections">
+
+            <!-- -1. Client assignment -->
+            <div class="cfg-section" style="background:#fff8f0;border-left:3px solid #f59e0b">
+              <div class="cfg-section-title" style="color:#d97706">Client</div>
+              <div class="row g-3 align-items-end">
+                <div class="col-md-8">
+                  <label class="form-label small mb-1">Assign to a client</label>
+                  <select class="form-select form-select-sm" id="cfgClientId">
+                    <option value="__unassigned__">Unassigned</option>
+                  </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                  <button type="button" class="btn btn-outline-secondary btn-sm w-100" onclick="showClientsModal()">👥 Manage clients</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 0. Program assignment -->
+            <div class="cfg-section" style="background:#faf5ff;border-left:3px solid #7c3aed">
+              <div class="cfg-section-title" style="color:#7c3aed">0. Program <span class="fw-normal text-muted" style="font-size:.8rem">(optional)</span></div>
+              <div class="row g-3 align-items-end">
+                <div class="col-md-8">
+                  <label class="form-label small mb-1">Assign to a program</label>
+                  <select class="form-select form-select-sm" id="cfgProgramId">
+                    <option value="">— No program —</option>
+                  </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                  <button type="button" class="btn btn-outline-secondary btn-sm w-100" onclick="showProgramsModal()">🗂 Manage programs</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 1. Basic info -->
+            <div class="cfg-section">
+              <div class="cfg-section-title">1. Project info</div>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label small mb-1">D365 Project ID <span class="text-muted">(matches XLS column)</span></label>
+                  <input type="text" class="form-control form-control-sm" id="cfgId" placeholder="e.g. HITA.000001201">
+                </div>
+                <div class="col-md-8">
+                  <label class="form-label small mb-1">Project Name</label>
+                  <input type="text" class="form-control form-control-sm" id="cfgName" placeholder="e.g. Bayer AG - BERMITS 2026">
+                </div>
+                <div class="col-sm-3 col-md-2">
+                  <label class="form-label small mb-1">Start month</label>
+                  <input type="month" class="form-control form-control-sm" id="cfgStartDate">
+                </div>
+                <div class="col-sm-3 col-md-2">
+                  <label class="form-label small mb-1">End month</label>
+                  <input type="month" class="form-control form-control-sm" id="cfgEndDate">
+                </div>
+                <div class="col-sm-3 col-md-2">
+                  <label class="form-label small mb-1">Currency</label>
+                  <select class="form-select form-select-sm" id="cfgCurrency">
+                    <option value="€">€ Euro</option>
+                    <option value="$">$ Dollar</option>
+                    <option value="£">£ Pound</option>
+                    <option value="CHF">CHF Swiss Franc</option>
+                  </select>
+                </div>
+                <div class="col-sm-3 col-md-2 d-flex align-items-end">
+                  <button type="button" class="btn btn-outline-danger btn-sm w-100" id="cfgBtnClearData" title="Delete cached XLS data for this project">🗑 Clear XLS data</button>
+                </div>
+              </div>
+              <div class="row g-3 mt-1">
+                <div class="col-sm-6 col-md-3">
+                  <label class="form-label small mb-1">Pipeline</label>
+                  <select class="form-select form-select-sm" id="cfgPipeline">
+                    <option value="">— Select —</option>
+                    <option value="SIP">SIP</option>
+                    <option value="Expected">Expected</option>
+                    <option value="Anticipated">Anticipated</option>
+                    <option value="Committed">Committed</option>
+                    <option value="Canceled">Canceled</option>
+                  </select>
+                </div>
+                <div class="col-sm-6 col-md-3">
+                  <label class="form-label small mb-1">Status</label>
+                  <select class="form-select form-select-sm" id="cfgStatus">
+                    <option value="">— Select —</option>
+                    <option value="Not started yet">Not started yet</option>
+                    <option value="Started At Risk">Started At Risk</option>
+                    <option value="Started">Started</option>
+                    <option value="Put on hold">Put on hold</option>
+                    <option value="Completed">Completed</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Tasks -->
+            <div class="cfg-section">
+              <div class="d-flex justify-content-between align-items-center cfg-section-title">
+                <span>2. Tasks &amp; Resources</span>
+                <button class="btn btn-sm btn-outline-primary" id="cfgBtnAddTask">+ Add task</button>
+              </div>
+              <p class="text-muted small mb-3">Task name must match exactly the <strong>Task/Issue</strong> XLS column. Role must match <strong>Job Role: Name</strong>.</p>
+              <div id="cfgTaskList"></div>
+              <div id="cfgTasksGrandTotal" class="d-flex justify-content-end gap-4 px-2 py-2 mt-1 border-top fw-bold small" style="background:#f8f9fa;border-radius:0 0 6px 6px">
+                <span>Total hours: <span id="cfgGrandTotalHours">—</span></span>
+                <span>Total budget: <span id="cfgGrandTotalBudget">—</span></span>
+              </div>
+            </div>
+
+            <!-- 3. Phasing -->
+            <div class="cfg-section">
+              <div class="d-flex justify-content-between align-items-center cfg-section-title">
+                <span>3. Monthly Budget Phasing <span class="fw-normal text-muted">(estimated budget to spend per month)</span></span>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                  <button class="btn btn-sm btn-outline-secondary" id="cfgBtnRollbackPhasing" disabled>
+                    ↩ Rollback <span class="rollback-date text-muted" style="font-size:.75rem"></span>
+                  </button>
+                  <button class="btn btn-sm btn-outline-success" id="cfgBtnDerivePhasing">⟳ Derive from task dates</button>
+                  <button class="btn btn-sm btn-outline-info" id="cfgBtnReforecastPhasing">↻ Reforecast from actuals</button>
+                </div>
+              </div>
+              <div id="cfgPhasingGrid" class="mt-1"></div>
+            </div>
+
+            <!-- 4. Planning -->
+            <div class="cfg-section">
+              <div class="d-flex justify-content-between align-items-center cfg-section-title">
+                <span>4. Monthly Hour Planning <span class="fw-normal text-muted">(planned hours to consume per month)</span></span>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                  <button class="btn btn-sm btn-outline-secondary" id="cfgBtnRollbackPlanning" disabled>
+                    ↩ Rollback <span class="rollback-date text-muted" style="font-size:.75rem"></span>
+                  </button>
+                  <button class="btn btn-sm btn-outline-success" id="cfgBtnDerivePlanning">⟳ Derive from task dates</button>
+                  <button class="btn btn-sm btn-outline-info" id="cfgBtnReforecastPlanning">↻ Reforecast from actuals</button>
+                </div>
+              </div>
+              <div id="cfgPlanningGrid" class="mt-1"></div>
+            </div>
+
+            <!-- 5. Pass Through Costs -->
+            <div class="cfg-section">
+              <div class="d-flex justify-content-between align-items-center cfg-section-title">
+                <span>5. Pass Through Costs <span class="fw-normal text-muted">(PTC — costs not linked to hours)</span></span>
+                <button class="btn btn-sm btn-outline-warning" id="cfgBtnAddPtc">+ Add PTC</button>
+              </div>
+              <p class="text-muted small mb-3">Add external costs (licences, travel, etc.) with title, note, amount and the month they occur.</p>
+              <div id="cfgPtcList"></div>
+              <div id="cfgPtcGrandTotal" class="d-flex justify-content-end px-2 py-2 mt-1 border-top fw-bold small" style="background:#fff3cd;border-radius:0 0 6px 6px">
+                <span>Total PTC: <span id="cfgGrandTotalPtc">—</span></span>
+              </div>
+            </div>
+
+            <!-- 6. Groups -->
+            <div class="cfg-section">
+              <div class="d-flex justify-content-between align-items-center cfg-section-title">
+                <span>6. Functional Groups <span class="fw-normal text-muted">(optional — for the summary table)</span></span>
+                <button class="btn btn-sm btn-outline-secondary" id="cfgBtnAddGroup">+ Add group</button>
+              </div>
+              <p class="text-muted small mb-3">Group roles into functional areas. Roles must match the <strong>Job Role: Name</strong> column (one per line).</p>
+              <div id="cfgGroupList"></div>
+            </div>
+
+          </div><!-- /cfgFormSections -->
+        </div><!-- /cfgTabForm -->
+
+        <!-- ═══ JSON TAB ═══ -->
+        <div id="cfgTabJson" class="p-3" style="display:none">
+          <div class="d-flex gap-2 mb-3 flex-wrap">
+            <button class="btn btn-outline-info btn-sm" id="btnImportConfig">📂 Import JSON</button>
+            <button class="btn btn-outline-success btn-sm" id="btnExportConfig">💾 Export JSON</button>
+          </div>
+          <textarea class="form-control font-monospace" id="configEditor" rows="26" spellcheck="false"></textarea>
+        </div><!-- /cfgTabJson -->
+
+        <div id="cfgJsonError" class="alert alert-danger d-none mx-3 mb-3 py-2 small"></div>
+
+      </div><!-- /modal-body -->
+      <div class="modal-footer d-flex justify-content-between">
+        <div></div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary" id="btnSaveConfig">💾 Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Email Compose Modal -->
+<div class="modal fade" id="emailModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1">
+        <h5 class="modal-title fw-bold">📧 Share Report via Email</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold mb-1">To</label>
+            <input type="email" class="form-control form-control-sm" id="emailTo" placeholder="recipient@example.com">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold mb-1">Subject</label>
+            <input type="text" class="form-control form-control-sm" id="emailSubject">
+          </div>
+        </div>
+        <label class="form-label small fw-semibold mb-1">Message (optional)</label>
+        <textarea class="form-control form-control-sm mb-3" id="emailMessage" rows="3" placeholder="Add a personal note…"></textarea>
+        <label class="form-label small fw-semibold mb-1">Report preview</label>
+        <div id="emailPreview" class="border rounded p-3" style="max-height:340px;overflow-y:auto;font-size:.82rem;background:#fafafa"></div>
+        <div id="emailError" class="alert alert-danger d-none mt-3 mb-0"></div>
+      </div>
+      <div class="modal-footer border-0 pt-1">
+        <div id="emailSpinner" class="me-auto d-none">
+          <span class="spinner-border spinner-border-sm text-success me-1" role="status"></span>
+          <span class="small text-muted">Sending…</span>
+        </div>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-success" id="btnSendEmail">📤 Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AI Analysis Modal -->
+<div class="modal fade" id="aiModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1">
+        <h5 class="modal-title fw-bold">🤖 AI Project Analysis</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="aiSpinner" class="text-center py-5">
+          <div class="spinner-border text-warning" role="status" style="width:2.5rem;height:2.5rem"></div>
+          <p class="mt-3 text-muted small">Analyzing project data…</p>
+        </div>
+        <div id="aiResult" style="display:none;white-space:pre-wrap;font-size:.9rem;line-height:1.75;font-family:'Segoe UI',system-ui,sans-serif"></div>
+        <div id="aiError" class="alert alert-danger d-none mb-0"></div>
+      </div>
+      <div class="modal-footer border-0 pt-1">
+        <button class="btn btn-outline-secondary btn-sm" id="btnCopyAi">📋 Copy</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cost Grid: New Grid modal -->
+<div class="modal fade" id="cgNewGridModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1">
+        <h6 class="modal-title fw-bold">📋 New Cost Grid</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label small fw-semibold mb-1">Grid name</label>
+        <input type="text" class="form-control form-control-sm" id="cgNewGridName" placeholder="e.g. Project Alpha — Proposal">
+        <div id="cgNewGridError" class="text-danger small mt-2 d-none"></div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="btnCgCreateGrid">Crea</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cost Grid: New Version modal -->
+<div class="modal fade" id="cgNewVersionModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1">
+        <h6 class="modal-title fw-bold">+ New version</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label small fw-semibold mb-1">Version label</label>
+        <input type="text" class="form-control form-control-sm" id="cgNewVersionLabel" placeholder="e.g. v2 client">
+        <div class="form-text">The new version will be a copy of the current one.</div>
+        <div id="cgNewVersionError" class="text-danger small mt-2 d-none"></div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="btnCgCreateVersion">Crea</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cost Grid: Role selector modal -->
+<div class="modal fade" id="cgRoleSelectModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:760px">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1">
+        <h6 class="modal-title fw-bold">👥 Add roles</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <input type="text" id="cgRoleSearch" class="form-control form-control-sm mb-2" placeholder="Search by name or code...">
+          <div id="cgRoleTeamFilters" class="d-flex flex-wrap gap-1"></div>
+        </div>
+        <p class="small text-muted mb-2">Roles already added are disabled.</p>
+        <div id="cgRoleSelectList" style="max-height:460px;overflow-y:auto"></div>
+        <div id="cgRoleSelectEmpty" class="text-muted small text-center py-3 d-none">
+          No roles available. Configure them in <strong>👥 Roles</strong>.
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="btnCgAddSelectedRoles">Add selected</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Role Edit Modal -->
+<div class="modal fade" id="roleModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1">
+        <h6 class="modal-title fw-bold" id="roleModalTitle">➕ New role</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold mb-1">Label <span class="text-muted fw-normal">(display name)</span></label>
+          <input type="text" class="form-control form-control-sm" id="roleLabel" placeholder="e.g. Project Manager">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold mb-1">Code <span class="text-muted fw-normal">(from actuals XLS)</span></label>
+          <input type="text" class="form-control form-control-sm" id="roleCode" placeholder="e.g. HWGACCSVS - DIRECTOR">
+          <div class="form-text">Must match exactly the value in the Job Role column of actuals.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold mb-1">Hourly rate (€/h)</label>
+          <input type="number" class="form-control form-control-sm" id="roleRate" placeholder="e.g. 160" min="0" step="0.01">
+        </div>
+        <div id="roleModalError" class="alert alert-danger d-none py-2 small mb-0"></div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="btnSaveRole">💾 Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- JSON Viewer Modal (reusable) -->
+<div class="modal fade" id="jsonViewerModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:860px">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1">
+        <h5 class="modal-title fw-bold font-monospace" id="jsonViewerTitle">{ } JSON</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="px-3 py-2 d-flex gap-2 align-items-center border-bottom" style="background:#f8f9fa">
+          <button class="btn btn-outline-secondary btn-sm" id="btnJsonCopy">📋 Copy</button>
+          <button class="btn btn-outline-secondary btn-sm" id="btnJsonExport">⬇ Export .json</button>
+          <button class="btn btn-outline-secondary btn-sm" id="btnJsonImport">⬆ Import .json</button>
+          <span class="text-muted small ms-auto">The textarea is editable — modify and click <strong>Apply</strong>.</span>
+        </div>
+        <div class="p-3">
+          <textarea id="jsonViewerContent" class="form-control font-monospace"
+            style="min-height:480px;font-size:.82rem;line-height:1.5;resize:vertical"
+            spellcheck="false" autocomplete="off"></textarea>
+          <div id="jsonViewerError" class="text-danger small mt-2 d-none"></div>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+        <button class="btn btn-primary btn-sm" id="btnJsonApply">✓ Applica JSON</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal fade" id="settingsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1">
+        <h5 class="modal-title fw-bold">⚙ App Settings</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <ul class="nav nav-tabs px-3 pt-2 mb-0">
+          <li class="nav-item"><button class="nav-link active stg-tab-btn" data-tab="api">🔑 API &amp; Integrations</button></li>
+          <li class="nav-item"><button class="nav-link stg-tab-btn" data-tab="data">💾 Data Manager</button></li>
+        </ul>
+
+        <!-- ═══ API TAB ═══ -->
+        <div id="stgTabApi" class="p-3">
+          <form autocomplete="off" onsubmit="return false">
+          <div class="cfg-section mb-3">
+            <div class="cfg-section-title">🤖 AI Assistant</div>
+            <div class="row g-2 align-items-center mb-2">
+              <div class="col-auto" style="min-width:160px"><label class="form-label small mb-0 fw-semibold">Active provider</label></div>
+              <div class="col-auto">
+                <select class="form-select form-select-sm" id="stgAiProvider" style="min-width:200px">
+                  <option value="anthropic">🟣 Anthropic (Claude)</option>
+                  <option value="openai">🟢 OpenAI (GPT)</option>
+                  <option value="gemini">🔵 Google Gemini</option>
+                </select>
+              </div>
+              <div class="col-auto">
+                <select class="form-select form-select-sm" id="stgAiModel" style="min-width:260px"></select>
+              </div>
+            </div>
+            <div class="row g-2 align-items-center mt-1">
+              <div class="col-auto" style="min-width:160px"><label class="form-label small mb-0 fw-semibold">🟣 Anthropic API Key</label></div>
+              <div class="col"><input type="password" class="form-control form-control-sm" id="stgAnthropicKey" placeholder="sk-ant-..." autocomplete="off" style="max-width:480px"></div>
+            </div>
+            <div class="row g-2 align-items-center mt-1">
+              <div class="col-auto" style="min-width:160px"><label class="form-label small mb-0 fw-semibold">🟢 OpenAI API Key</label></div>
+              <div class="col"><input type="password" class="form-control form-control-sm" id="stgOpenaiKey" placeholder="sk-..." autocomplete="off" style="max-width:480px"></div>
+            </div>
+            <div class="row g-2 align-items-center mt-1">
+              <div class="col-auto" style="min-width:160px"><label class="form-label small mb-0 fw-semibold">🔵 Gemini API Key</label></div>
+              <div class="col"><input type="password" class="form-control form-control-sm" id="stgGeminiKey" placeholder="AIza..." autocomplete="off" style="max-width:480px"></div>
+            </div>
+          </div>
+          </form>
+          <form autocomplete="off" onsubmit="return false">
+          <div class="cfg-section mb-3">
+            <div class="cfg-section-title">🐙 GitHub — Remote Sync</div>
+            <div class="row g-2 align-items-center mt-1">
+              <div class="col-auto" style="min-width:160px"><label class="form-label small mb-0 fw-semibold">Personal Access Token</label></div>
+              <div class="col"><input type="password" class="form-control form-control-sm" id="stgGithubPat" placeholder="ghp_..." autocomplete="off" style="max-width:480px"></div>
+            </div>
+            <p class="text-muted mt-2 mb-0" style="font-size:.78rem">
+              Create a PAT at GitHub → Settings → Developer settings → Personal access tokens → <strong>scope: gist</strong>.
+            </p>
+          </div>
+          </form>
+          <form autocomplete="off" onsubmit="return false">
+          <div class="cfg-section mb-0">
+            <div class="cfg-section-title">📧 Email Sharing (EmailJS)</div>
+            <div class="row g-2 align-items-center mt-1">
+              <div class="col-auto" style="min-width:160px"><label class="form-label small mb-0 fw-semibold">Public Key</label></div>
+              <div class="col"><input type="password" class="form-control form-control-sm" id="stgEmailjsKey" placeholder="user_XXXXXXXXXX" autocomplete="off" style="max-width:480px"></div>
+            </div>
+            <div class="row g-2 align-items-center mt-1">
+              <div class="col-auto" style="min-width:160px"><label class="form-label small mb-0 fw-semibold">Service ID</label></div>
+              <div class="col"><input type="text" class="form-control form-control-sm" id="stgEmailjsService" placeholder="service_xxxxxxx" style="max-width:480px"></div>
+            </div>
+            <div class="row g-2 align-items-center mt-1">
+              <div class="col-auto" style="min-width:160px"><label class="form-label small mb-0 fw-semibold">Template ID</label></div>
+              <div class="col"><input type="text" class="form-control form-control-sm" id="stgEmailjsTemplate" placeholder="template_xxxxxxx" style="max-width:480px"></div>
+            </div>
+          </div>
+          </form>
+        </div>
+
+        <!-- ═══ DATA MANAGER TAB ═══ -->
+        <div id="stgTabData" class="p-3" style="display:none">
+          <p class="text-muted small mb-3">Download or import individual data stores. XLS data is excluded from backups (re-load the file to restore it).</p>
+          <div id="stgSyncPanel"></div>
+          <div id="stgDataManagerList"></div>
+          <div class="d-flex gap-2 mt-4 pt-3 border-top flex-wrap align-items-center justify-content-between">
+            <div class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-outline-primary btn-sm" id="btnFullBackup">⬇ Full Backup (.json)</button>
+              <button class="btn btn-outline-warning btn-sm" id="btnRestoreBackup">⬆ Restore from Backup</button>
+            </div>
+            <button class="btn btn-outline-danger btn-sm" id="btnResetApp">🗑️ Reset App</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0 d-flex justify-content-between">
+        <small class="text-muted">Settings are saved in a separate localStorage key (<code>PDash_settings</code>)</small>
+        <div class="d-flex gap-2">
+          <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary btn-sm" id="btnSaveSettings">💾 Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/roles.js"></script>
+<script src="js/costgrid.js"></script>
+<script src="js/config-form.js"></script>
+<script src="js/upload.js"></script>
+<script src="js/dashboard.js"></script>
+<!-- Auto-save toast -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+  <div id="cgAutoSaveToast" class="toast align-items-center text-bg-secondary border-0" role="alert" data-bs-delay="2000">
+    <div class="d-flex">
+      <div class="toast-body" style="font-size:.85rem">💾 Auto-saved</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<script src="js/clients.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/programs.js"></script>
+<script src="js/pipeline-board.js"></script>
+<script src="js/portfolio.js"></script>
+<script src="js/planning.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/main.js"></script>
+
+<!-- Programs list modal -->
+<div class="modal fade" id="programsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">🗂 Programs</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="p-3 border-bottom d-flex justify-content-end">
+          <button class="btn btn-sm btn-primary" onclick="openProgramEditModal(null)">＋ New program</button>
+        </div>
+        <table class="table table-sm align-middle mb-0">
+          <thead style="background:#f8f9fa">
+            <tr>
+              <th class="ps-3">Name</th>
+              <th>Program ID</th>
+              <th>Projects</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="programsTableBody">
+            <tr id="programsEmptyRow">
+              <td colspan="4" class="text-center text-muted py-4">No programs. Click <strong>＋ New program</strong>.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Program edit modal -->
+<div class="modal fade" id="programEditModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="programModalTitle">＋ New program</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="programModalError" class="alert alert-danger py-2 d-none"></div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Program name</label>
+          <input type="text" class="form-control form-control-sm" id="programName" placeholder="e.g. Chatbot AI Platform">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Program ID <span class="text-muted fw-normal">(company reference)</span></label>
+          <input type="text" class="form-control form-control-sm" id="programId" placeholder="e.g. PRG-001">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="saveProgramFromModal()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Clients list modal -->
+<div class="modal fade" id="clientsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">👥 Clients</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="p-3 border-bottom d-flex justify-content-end">
+          <button class="btn btn-sm btn-primary" onclick="openClientEditModal(null)">＋ New client</button>
+        </div>
+        <table class="table table-sm align-middle mb-0">
+          <thead style="background:#f8f9fa">
+            <tr>
+              <th class="ps-3">Name</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="clientsTableBody">
+            <tr id="clientsEmptyRow">
+              <td colspan="2" class="text-center text-muted py-4">No clients. Click <strong>＋ New client</strong>.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Client edit modal -->
+<div class="modal fade" id="clientEditModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="clientModalTitle">＋ New client</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="clientModalError" class="alert alert-danger py-2 d-none"></div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Client name</label>
+          <input type="text" class="form-control form-control-sm" id="clientName" placeholder="e.g. Acme Corp">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="saveClientFromModal()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Sync Pull Confirm Modal -->
+<div class="modal fade" id="syncPullModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">⬇ Pull from Remote</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3" style="font-size:.88rem">
+          <div class="d-flex gap-2 mb-2">
+            <span class="text-muted" style="min-width:175px">Remote last modified</span>
+            <span class="fw-semibold" id="syncPullRemoteDate">—</span>
+          </div>
+          <div class="d-flex gap-2 mb-2">
+            <span class="text-muted" style="min-width:175px">Your last push</span>
+            <span class="fw-semibold" id="syncPullPushedDate">—</span>
+          </div>
+          <div class="d-flex gap-2">
+            <span class="text-muted" style="min-width:175px">Local last change</span>
+            <span class="fw-semibold" id="syncPullChangedDate">—</span>
+          </div>
+        </div>
+        <div id="syncPullWarn" class="alert alert-warning py-2 mb-3" style="font-size:.85rem">
+          ⚠️ You have local changes since your last push — they will be overwritten.
+        </div>
+        <p class="mb-0 text-muted" style="font-size:.83rem">
+          Remote data is <strong>merged</strong> into local storage: keys from the remote overwrite local values; keys that exist only locally are kept. The app reloads after merging.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" onclick="syncConfirmPull()">⬇ Merge &amp; Reload</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
