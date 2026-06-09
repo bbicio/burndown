@@ -1,11 +1,18 @@
 // ── MAIN ─────────────────────────────────────────────────────────────────────
 // ── WIRE UP EVENT LISTENERS ───────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   loadConfig();
   loadSettings();
   loadSummarySelection();
   updateAiButtonVisibility();
   refreshTimesheetData();
+
+  // Load reference data from API; fall back to localStorage on failure
+  await Promise.all([
+    loadClientsFromApi(),
+    loadProgramsFromApi(),
+    loadRolesFromApi(),
+  ]);
 
   if (timesheetData.length > 0) {
     populateProjectSelector();

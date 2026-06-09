@@ -10,16 +10,25 @@ let _programEditId = null;
 
 // ── PERSISTENCE ───────────────────────────────────────────────────────────────
 
+async function loadProgramsFromApi() {
+  try {
+    _programs = await Api.programs.list();
+  } catch(e) {
+    // Fallback: load from localStorage
+    try { _programs = JSON.parse(storageGet(PROGRAMS_KEY) || '[]'); } catch(_) { _programs = []; }
+  }
+}
+
 function loadPrograms() {
   try { _programs = JSON.parse(storageGet(PROGRAMS_KEY) || '[]'); } catch(e) { _programs = []; }
 }
 
 function savePrograms() {
-  storageSet(PROGRAMS_KEY, JSON.stringify(_programs));
+  // No-op: programs are now persisted via the API.
+  // Kept for backward compatibility with backup restore (settings.js).
 }
 
 function getPrograms() {
-  if (!_programs.length) loadPrograms();
   return _programs;
 }
 
@@ -68,7 +77,7 @@ function openProgramEditModal(id) {
   bootstrap.Modal.getOrCreateInstance(document.getElementById('programEditModal')).show();
 }
 
-function saveProgramFromModal() {
+async function saveProgramFromModal() {
   const name  = document.getElementById('programName').value.trim();
   const id    = document.getElementById('programId').value.trim();
   const errEl = document.getElementById('programModalError');
@@ -80,17 +89,21 @@ function saveProgramFromModal() {
   const dup = _programs.find(p => p.id.toLowerCase() === id.toLowerCase() && p.id !== _programEditId);
   if (dup) { showProgramError(`ID "${id}" is already used by program "${dup.name}".`); return; }
 
-  if (_programEditId) {
-    const idx = _programs.findIndex(p => p.id === _programEditId);
-    if (idx >= 0) _programs[idx] = { id, name };
-  } else {
-    _programs.push({ id, name });
+  try {
+    if (_programEditId) {
+      await Api.programs.update(_programEditId, name);
+      const idx = _programs.findIndex(p => p.id === _programEditId);
+      if (idx >= 0) _programs[idx] = { id: _programEditId, name };
+    } else {
+      await Api.programs.create(id, name);
+      _programs.push({ id, name });
+    }
+    bootstrap.Modal.getInstance(document.getElementById('programEditModal')).hide();
+    renderProgramsTable();
+    cfgRefreshProgramDropdown();
+  } catch(err) {
+    showProgramError(err.message || 'Save failed.');
   }
-
-  savePrograms();
-  bootstrap.Modal.getInstance(document.getElementById('programEditModal')).hide();
-  renderProgramsTable();
-  cfgRefreshProgramDropdown();
 }
 
 function showProgramError(msg) {
@@ -106,11 +119,15 @@ function deleteProgram(id) {
   const warn = childCount > 0 ? `\n\n⚠️ ${childCount} linked project${childCount===1?'':'s'} will lose the program reference.` : '';
   showConfirm(
     `Delete program "${prog.name}"?${warn}`,
-    () => {
-      _programs = _programs.filter(p => p.id !== id);
-      savePrograms();
-      renderProgramsTable();
-      cfgRefreshProgramDropdown();
+    async () => {
+      try {
+        await Api.programs.delete(id);
+        _programs = _programs.filter(p => p.id !== id);
+        renderProgramsTable();
+        cfgRefreshProgramDropdown();
+      } catch(err) {
+        alert('Delete failed: ' + (err.message || 'Unknown error'));
+      }
     }, null, '🗑 Delete program'
   );
 }

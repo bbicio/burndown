@@ -9,16 +9,25 @@ const UNASSIGNED_CLIENT = { id: '__unassigned__', name: 'Unassigned' };
 let _clients = [];
 let _clientEditId = null;
 
+async function loadClientsFromApi() {
+  try {
+    _clients = await Api.clients.list();
+  } catch(e) {
+    // Fallback: load from localStorage
+    try { _clients = JSON.parse(storageGet(CLIENTS_KEY) || '[]'); } catch(_) { _clients = []; }
+  }
+}
+
 function loadClients() {
   try { _clients = JSON.parse(storageGet(CLIENTS_KEY) || '[]'); } catch(e) { _clients = []; }
 }
 
 function saveClients() {
-  storageSet(CLIENTS_KEY, JSON.stringify(_clients.filter(c => c.id !== '__unassigned__')));
+  // No-op: clients are now persisted via the API.
+  // Kept for backward compatibility with backup restore (settings.js).
 }
 
 function getClients() {
-  if (!_clients.length) loadClients();
   return [UNASSIGNED_CLIENT, ..._clients];
 }
 
@@ -69,7 +78,7 @@ function openClientEditModal(id) {
   bootstrap.Modal.getOrCreateInstance(document.getElementById('clientEditModal')).show();
 }
 
-function saveClientFromModal() {
+async function saveClientFromModal() {
   const name  = document.getElementById('clientName').value.trim();
   const errEl = document.getElementById('clientModalError');
   errEl.classList.add('d-none');
@@ -87,17 +96,22 @@ function saveClientFromModal() {
     return;
   }
 
-  if (_clientEditId) {
-    const idx = _clients.findIndex(c => c.id === _clientEditId);
-    if (idx >= 0) _clients[idx] = { id: _clientEditId, name };
-  } else {
-    _clients.push({ id: 'cli_' + Date.now(), name });
+  try {
+    if (_clientEditId) {
+      await Api.clients.update(_clientEditId, name);
+      const idx = _clients.findIndex(c => c.id === _clientEditId);
+      if (idx >= 0) _clients[idx] = { id: _clientEditId, name };
+    } else {
+      const created = await Api.clients.create(name);
+      _clients.push({ id: created.id, name });
+    }
+    bootstrap.Modal.getInstance(document.getElementById('clientEditModal')).hide();
+    renderClientsTable();
+    cfgRefreshClientDropdown();
+  } catch(err) {
+    errEl.textContent = err.message || 'Save failed.';
+    errEl.classList.remove('d-none');
   }
-
-  saveClients();
-  bootstrap.Modal.getInstance(document.getElementById('clientEditModal')).hide();
-  renderClientsTable();
-  cfgRefreshClientDropdown();
 }
 
 function deleteClient(id) {
@@ -105,11 +119,15 @@ function deleteClient(id) {
   if (!client) return;
   showConfirm(
     `Delete client "${client.name}"?`,
-    () => {
-      _clients = _clients.filter(c => c.id !== id);
-      saveClients();
-      renderClientsTable();
-      cfgRefreshClientDropdown();
+    async () => {
+      try {
+        await Api.clients.delete(id);
+        _clients = _clients.filter(c => c.id !== id);
+        renderClientsTable();
+        cfgRefreshClientDropdown();
+      } catch(err) {
+        alert('Delete failed: ' + (err.message || 'Unknown error'));
+      }
     }, null, '🗑 Delete client'
   );
 }

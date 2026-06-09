@@ -10,6 +10,17 @@ let _roleEditId = null;  // ID of the role being edited (null = new)
 
 // ── PERSISTENCE ──────────────────────────────────────────────────────────────
 
+async function loadRolesFromApi() {
+  try {
+    const raw = await Api.roles.list();
+    // Normalize API shape { id, label, code, team, hourly_rate } → app shape { id, label, code, rate }
+    roles = raw.map(r => ({ id: r.id, label: r.label, code: r.code, rate: r.hourly_rate }));
+  } catch(e) {
+    // Fallback: load from localStorage
+    try { const s = storageGet(ROLES_KEY); roles = s ? JSON.parse(s) : []; } catch(_) { roles = []; }
+  }
+}
+
 function loadRoles() {
   try {
     const s = storageGet(ROLES_KEY);
@@ -18,11 +29,11 @@ function loadRoles() {
 }
 
 function saveRoles() {
-  storageSet(ROLES_KEY, JSON.stringify(roles));
+  // No-op: roles are now persisted via the API.
+  // Kept for backward compatibility with backup restore (settings.js).
 }
 
 function getRoles() {
-  if (!roles.length) loadRoles();
   return roles;
 }
 
@@ -117,32 +128,32 @@ function openRoleModal(roleId) {
   bootstrap.Modal.getOrCreateInstance(document.getElementById('roleModal')).show();
 }
 
-function saveRoleFromModal() {
+async function saveRoleFromModal() {
   const label = document.getElementById('roleLabel').value.trim();
   const code  = document.getElementById('roleCode').value.trim();
   const rate  = parseFloat(document.getElementById('roleRate').value);
-  const errEl = document.getElementById('roleModalError');
-
-  errEl.classList.add('d-none');
 
   if (!label) { showRoleError('Label is required.'); return; }
   if (!code)  { showRoleError('Code is required.'); return; }
   if (isNaN(rate) || rate < 0) { showRoleError('Enter a valid rate (≥ 0).'); return; }
 
-  // Check for duplicate code (excluding self when editing)
   const duplicate = roles.find(r => r.code.toLowerCase() === code.toLowerCase() && r.id !== _roleEditId);
   if (duplicate) { showRoleError(`The code "${code}" is already assigned to role "${duplicate.label}".`); return; }
 
-  if (_roleEditId) {
-    const idx = roles.findIndex(r => r.id === _roleEditId);
-    if (idx >= 0) roles[idx] = { id: _roleEditId, label, code, rate };
-  } else {
-    roles.push({ id: 'role_' + Date.now(), label, code, rate });
+  try {
+    if (_roleEditId) {
+      await Api.roles.update(_roleEditId, { label, code, hourlyRate: rate });
+      const idx = roles.findIndex(r => r.id === _roleEditId);
+      if (idx >= 0) roles[idx] = { id: _roleEditId, label, code, rate };
+    } else {
+      const created = await Api.roles.create({ label, code, hourlyRate: rate });
+      roles.push({ id: created.id, label, code, rate });
+    }
+    bootstrap.Modal.getInstance(document.getElementById('roleModal')).hide();
+    renderRolesTable();
+  } catch(err) {
+    showRoleError(err.message || 'Save failed.');
   }
-
-  saveRoles();
-  bootstrap.Modal.getInstance(document.getElementById('roleModal')).hide();
-  renderRolesTable();
 }
 
 function showRoleError(msg) {
@@ -156,10 +167,14 @@ function deleteRole(roleId) {
   if (!role) return;
   showConfirm(
     `Delete the role "${role.label}"?\n\nWarning: if this role is used in a Cost Grid, the corresponding columns will remain but will no longer be linked to the registry.`,
-    () => {
-      roles = roles.filter(r => r.id !== roleId);
-      saveRoles();
-      renderRolesTable();
+    async () => {
+      try {
+        await Api.roles.delete(roleId);
+        roles = roles.filter(r => r.id !== roleId);
+        renderRolesTable();
+      } catch(err) {
+        alert('Delete failed: ' + (err.message || 'Unknown error'));
+      }
     },
     null,
     '🗑 Delete role'
