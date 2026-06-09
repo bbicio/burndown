@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Admin</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <style>
+    body { background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+    /* ── TOP BAR ─────────────────────────────────────────── */
+    .topbar {
+      background: var(--brand-navy);
+      color: #fff;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+      gap: 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .brand { font-weight: 700; font-size: 1.15rem; letter-spacing: -0.3px; white-space: nowrap; }
+    .brand span { color: var(--brand-magenta); }
+    .topbar-sep { width: 1px; height: 24px; background: rgba(255,255,255,0.15); }
+    .topbar-title { font-size: 0.85rem; opacity: 0.7; }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; font-size: 0.83rem; }
+    .topbar-user { opacity: 0.8; }
+    .btn-topbar { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+                  color: #fff; font-size: 0.8rem; padding: 0.3rem 0.75rem; border-radius: 6px; cursor: pointer; }
+    .btn-topbar:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+    /* ── PAGE ────────────────────────────────────────────── */
+    .page { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+    .page-header h1 { font-size: 1.25rem; font-weight: 700; margin: 0; color: var(--brand-navy); }
+
+    /* ── CARD ────────────────────────────────────────────── */
+    .card { border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    .card-body { padding: 0; }
+
+    /* ── TABLE ───────────────────────────────────────────── */
+    .table { margin: 0; font-size: 0.875rem; }
+    .table thead th { background: #f9fafb; border-bottom: 1px solid #e5e7eb;
+                      font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
+                      letter-spacing: 0.04em; color: #6b7280; padding: 0.75rem 1rem; }
+    .table tbody td { padding: 0.85rem 1rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6; }
+    .table tbody tr:last-child td { border-bottom: none; }
+    .table tbody tr:hover td { background: #fafafa; }
+
+    /* ── BADGES ──────────────────────────────────────────── */
+    .badge-role-admin  { background: #ede9fe; color: #5b21b6; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
+    .badge-role-user   { background: #e0f2fe; color: #0369a1; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
+    .badge-st-active   { background: #dcfce7; color: #166534; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
+    .badge-st-pending  { background: #fef9c3; color: #854d0e; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
+    .badge-st-disabled { background: #f3f4f6; color: #9ca3af; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
+
+    /* ── BUTTONS ─────────────────────────────────────────── */
+    .btn-brand { background: var(--brand-magenta); border: none; color: #fff; font-weight: 600; font-size: 0.875rem; }
+    .btn-brand:hover:not(:disabled) { background: #d01f6a; color: #fff; }
+    .btn-brand:disabled { opacity: 0.65; color: #fff; }
+    .btn-action { font-size: 0.78rem; padding: 0.25rem 0.6rem; }
+
+    /* ── MODAL ───────────────────────────────────────────── */
+    .form-label { font-size: 0.82rem; font-weight: 600; color: #374151; margin-bottom: 0.3rem; }
+    .form-control, .form-select { font-size: 0.875rem; border-color: #e5e7eb; }
+    .form-control:focus, .form-select:focus { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px rgba(240,40,122,0.12); }
+
+    /* ── EMPTY / ERROR ───────────────────────────────────── */
+    .empty { text-align: center; padding: 3rem 1rem; color: #9ca3af; font-size: 0.875rem; }
+    .alert-sm { font-size: 0.83rem; padding: 0.5rem 0.75rem; }
+  </style>
+</head>
+<body>
+  <div id="app">
+
+    <!-- ── TOP BAR ───────────────────────────────────────── -->
+    <div class="topbar">
+      <div class="brand">P<span>Dash</span></div>
+      <div class="topbar-sep"></div>
+      <div class="topbar-title">User Management</div>
+      <div class="topbar-right">
+        <span class="topbar-user">{{ me.firstName }} {{ me.lastName }}</span>
+        <a href="/" class="btn-topbar">← App</a>
+        <button class="btn-topbar" @click="logout">Sign out</button>
+      </div>
+    </div>
+
+    <!-- ── PAGE ──────────────────────────────────────────── -->
+    <div class="page" v-if="ready">
+
+      <div class="page-header">
+        <h1>Users <span class="text-muted fw-normal" style="font-size:1rem">({{ users.length }})</span></h1>
+        <button class="btn btn-brand" @click="openInvite">+ Invite user</button>
+      </div>
+
+      <!-- Filters -->
+      <div class="d-flex gap-2 mb-3">
+        <button v-for="f in filters" :key="f.val"
+                class="btn btn-sm"
+                :class="filter === f.val ? 'btn-dark' : 'btn-outline-secondary'"
+                @click="filter = f.val">
+          {{ f.label }}
+        </button>
+      </div>
+
+      <!-- Global error -->
+      <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="card-body">
+          <table class="table table-hover" v-if="filteredUsers.length">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Invited by</th>
+                <th>Joined</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="u in filteredUsers" :key="u.id">
+                <td class="fw-semibold">{{ u.first_name }} {{ u.last_name }}</td>
+                <td class="text-muted">{{ u.email }}</td>
+                <td><span :class="'badge-role-' + u.role">{{ u.role }}</span></td>
+                <td><span :class="'badge-st-' + u.status">{{ u.status }}</span></td>
+                <td class="text-muted">{{ u.invited_by_name || '—' }}</td>
+                <td class="text-muted">{{ fmtDate(u.created_at) }}</td>
+                <td class="text-end" style="white-space:nowrap">
+                  <template v-if="u.id !== me.id">
+                    <!-- Toggle role -->
+                    <button class="btn btn-outline-secondary btn-action me-1"
+                            :disabled="!!u._loading"
+                            @click="toggleRole(u)">
+                      Make {{ u.role === 'admin' ? 'user' : 'admin' }}
+                    </button>
+                    <!-- Disable / Enable -->
+                    <button v-if="u.status !== 'disabled'"
+                            class="btn btn-outline-danger btn-action"
+                            :disabled="!!u._loading"
+                            @click="setStatus(u, 'disabled')">
+                      Disable
+                    </button>
+                    <button v-else
+                            class="btn btn-outline-success btn-action"
+                            :disabled="!!u._loading"
+                            @click="setStatus(u, 'active')">
+                      Enable
+                    </button>
+                  </template>
+                  <span v-else class="text-muted small">you</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="empty" v-else>No users match the selected filter.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading state -->
+    <div v-else-if="!accessDenied" class="d-flex align-items-center justify-content-center" style="height:60vh">
+      <div class="spinner-border text-secondary"></div>
+    </div>
+    <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
+      <div class="text-center text-muted">
+        <div style="font-size:2rem">🔒</div>
+        <p class="mt-2">Admin access required.</p>
+        <a href="/" class="btn btn-outline-secondary btn-sm">Go to app</a>
+      </div>
+    </div>
+
+    <!-- ── INVITE MODAL ────────────────────────────────────── -->
+    <div class="modal fade" id="inviteModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-bold">Invite user</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form @submit.prevent="submitInvite" novalidate>
+            <div class="modal-body">
+              <div v-if="invite.error" class="alert alert-danger alert-sm mb-3">{{ invite.error }}</div>
+              <div v-if="invite.success" class="alert alert-success alert-sm mb-3">{{ invite.success }}</div>
+              <div class="row g-3">
+                <div class="col-6">
+                  <label class="form-label">First name</label>
+                  <input v-model="invite.firstName" type="text" class="form-control" required :disabled="!!invite.success">
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Last name</label>
+                  <input v-model="invite.lastName" type="text" class="form-control" required :disabled="!!invite.success">
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Email</label>
+                  <input v-model="invite.email" type="email" class="form-control" required :disabled="!!invite.success">
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Role</label>
+                  <select v-model="invite.role" class="form-select" :disabled="!!invite.success">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+              <button type="submit" class="btn btn-brand" :disabled="invite.loading || !!invite.success">
+                <span v-if="invite.loading" class="spinner-border spinner-border-sm me-2"></span>
+                Send invite
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- #app -->
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script>
+    Vue.createApp({
+      data() {
+        return {
+          ready: false,
+          accessDenied: false,
+          me: {},
+          users: [],
+          filter: 'all',
+          filters: [
+            { val: 'all',      label: 'All' },
+            { val: 'active',   label: 'Active' },
+            { val: 'pending',  label: 'Pending' },
+            { val: 'disabled', label: 'Disabled' },
+          ],
+          globalError: null,
+          invite: { firstName: '', lastName: '', email: '', role: 'user', loading: false, error: null, success: null },
+          _modal: null,
+        };
+      },
+      computed: {
+        filteredUsers() {
+          if (this.filter === 'all') return this.users;
+          return this.users.filter(u => u.status === this.filter);
+        },
+      },
+      async created() {
+        // Verify auth + admin role
+        try {
+          const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
+          if (!res.ok) { window.location.href = '/login.html'; return; }
+          this.me = await res.json();
+          if (this.me.role !== 'admin') { this.accessDenied = true; return; }
+          await this.loadUsers();
+          this.ready = true;
+        } catch {
+          window.location.href = '/login.html';
+        }
+      },
+      mounted() {
+        const el = document.getElementById('inviteModal');
+        this._modal = new bootstrap.Modal(el);
+        el.addEventListener('hidden.bs.modal', () => this.resetInvite());
+      },
+      methods: {
+        async loadUsers() {
+          const res = await fetch('/api/users', { credentials: 'same-origin' });
+          this.users = await res.json();
+        },
+
+        async logout() {
+          await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+          window.location.href = '/login.html';
+        },
+
+        openInvite() {
+          this.resetInvite();
+          this._modal.show();
+        },
+        resetInvite() {
+          this.invite = { firstName: '', lastName: '', email: '', role: 'user', loading: false, error: null, success: null };
+        },
+
+        async submitInvite() {
+          this.invite.loading = true;
+          this.invite.error = null;
+          try {
+            const res = await fetch('/api/auth/invite', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({
+                email: this.invite.email,
+                firstName: this.invite.firstName,
+                lastName: this.invite.lastName,
+                role: this.invite.role,
+              }),
+            });
+            const data = await res.json();
+            if (!res.ok) { this.invite.error = data.error || 'Invite failed'; return; }
+            this.invite.success = `Invite sent to ${this.invite.email}`;
+            await this.loadUsers();
+          } catch {
+            this.invite.error = 'Network error. Please try again.';
+          } finally {
+            this.invite.loading = false;
+          }
+        },
+
+        async toggleRole(user) {
+          const newRole = user.role === 'admin' ? 'user' : 'admin';
+          user._loading = true;
+          this.globalError = null;
+          try {
+            const res = await fetch(`/api/users/${user.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ role: newRole }),
+            });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error; return; }
+            user.role = data.role;
+          } catch {
+            this.globalError = 'Network error.';
+          } finally {
+            user._loading = false;
+          }
+        },
+
+        async setStatus(user, status) {
+          user._loading = true;
+          this.globalError = null;
+          try {
+            const res = await fetch(`/api/users/${user.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ status }),
+            });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error; return; }
+            user.status = data.status;
+          } catch {
+            this.globalError = 'Network error.';
+          } finally {
+            user._loading = false;
+          }
+        },
+
+        fmtDate(iso) {
+          if (!iso) return '—';
+          return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        },
+      },
+    }).mount('#app');
+  </script>
+</body>
+</html>
