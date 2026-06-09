@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Sign In</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <style>
+    body {
+      background: var(--brand-navy);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .auth-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 2.5rem 2.25rem;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+    }
+    .brand-name { font-weight: 700; font-size: 1.6rem; letter-spacing: -0.5px; color: var(--brand-navy); line-height: 1; }
+    .brand-name span { color: var(--brand-magenta); }
+    .brand-sub { font-size: 0.78rem; color: #9ca3af; letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px; }
+    .form-label { font-size: 0.82rem; font-weight: 600; color: #374151; margin-bottom: 0.3rem; }
+    .form-control { font-size: 0.9rem; border-color: #e5e7eb; }
+    .form-control:focus { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px rgba(240,40,122,0.12); }
+    .btn-brand { background: var(--brand-magenta); border: none; color: #fff; font-weight: 600; font-size: 0.9rem; padding: 0.6rem 1rem; }
+    .btn-brand:hover:not(:disabled) { background: #d01f6a; color: #fff; }
+    .btn-brand:disabled { opacity: 0.65; color: #fff; }
+    .link-muted { color: #6b7280; font-size: 0.83rem; cursor: pointer; text-decoration: none; }
+    .link-muted:hover { color: var(--brand-magenta); }
+    .divider { border-top: 1px solid #f3f4f6; margin: 1.5rem 0; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="auth-card">
+
+      <div class="text-center mb-4">
+        <div class="brand-name">P<span>Dash</span></div>
+        <div class="brand-sub">Project Dashboard</div>
+      </div>
+
+      <!-- ── LOGIN FORM ─────────────────────────────────────────── -->
+      <form v-if="view === 'login'" @submit.prevent="login" novalidate>
+        <div v-if="error" class="alert alert-danger py-2 px-3 small mb-3">{{ error }}</div>
+
+        <div class="mb-3">
+          <label class="form-label">Email</label>
+          <input v-model="email" type="email" class="form-control" required
+                 autocomplete="email" autofocus placeholder="you@company.com">
+        </div>
+
+        <div class="mb-4">
+          <div class="d-flex justify-content-between align-items-center">
+            <label class="form-label mb-0">Password</label>
+            <a class="link-muted" @click="switchToForgot">Forgot password?</a>
+          </div>
+          <input v-model="password" type="password" class="form-control mt-1" required
+                 autocomplete="current-password" placeholder="••••••••">
+        </div>
+
+        <button type="submit" class="btn btn-brand w-100" :disabled="loading">
+          <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+          Sign in
+        </button>
+      </form>
+
+      <!-- ── FORGOT PASSWORD FORM ───────────────────────────────── -->
+      <div v-else>
+        <a class="link-muted d-inline-flex align-items-center gap-1 mb-3" @click="switchToLogin">
+          ← Back to sign in
+        </a>
+        <h6 class="fw-bold mb-1">Reset your password</h6>
+        <p class="text-muted small mb-3">Enter your email and we'll send you a link to reset your password.</p>
+
+        <div v-if="error"   class="alert alert-danger  py-2 px-3 small mb-3">{{ error }}</div>
+        <div v-if="success" class="alert alert-success py-2 px-3 small mb-3">{{ success }}</div>
+
+        <form @submit.prevent="forgotPassword" novalidate>
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input v-model="forgotEmail" type="email" class="form-control" required
+                   autocomplete="email" placeholder="you@company.com" :disabled="!!success">
+          </div>
+          <button type="submit" class="btn btn-brand w-100" :disabled="loading || !!success">
+            <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            Send reset link
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script>
+    Vue.createApp({
+      data() {
+        return {
+          view: 'login',
+          email: '',
+          password: '',
+          forgotEmail: '',
+          loading: false,
+          error: null,
+          success: null,
+        };
+      },
+      methods: {
+        switchToForgot() { this.view = 'forgot'; this.error = null; this.success = null; },
+        switchToLogin()  { this.view = 'login';  this.error = null; this.success = null; },
+
+        async login() {
+          this.loading = true;
+          this.error = null;
+          try {
+            const res = await fetch('/api/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ email: this.email, password: this.password }),
+            });
+            const data = await res.json();
+            if (!res.ok) { this.error = data.error || 'Sign in failed. Please try again.'; return; }
+            window.location.href = '/';
+          } catch {
+            this.error = 'Network error. Please try again.';
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async forgotPassword() {
+          this.loading = true;
+          this.error = null;
+          this.success = null;
+          try {
+            await fetch('/api/auth/forgot-password', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ email: this.forgotEmail }),
+            });
+            // Always show success — API never reveals if email exists
+            this.success = 'If that email is registered, you\'ll receive a reset link shortly.';
+          } catch {
+            this.error = 'Network error. Please try again.';
+          } finally {
+            this.loading = false;
+          }
+        },
+      },
+    }).mount('#app');
+  </script>
+</body>
+</html>
