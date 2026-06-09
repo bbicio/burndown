@@ -35,7 +35,6 @@ function getPrograms() {
 // ── MODAL ────────────────────────────────────────────────────────────────────
 
 function showProgramsModal() {
-  loadPrograms();
   renderProgramsTable();
   bootstrap.Modal.getOrCreateInstance(document.getElementById('programsModal')).show();
 }

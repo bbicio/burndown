@@ -40,7 +40,6 @@ function getClientName(clientId) {
 // ── MODAL ─────────────────────────────────────────────────────────────────────
 
 function showClientsModal() {
-  loadClients();
   renderClientsTable();
   bootstrap.Modal.getOrCreateInstance(document.getElementById('clientsModal')).show();
 }

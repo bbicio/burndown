@@ -40,7 +40,6 @@ function getRoles() {
 // ── NAVIGATION ───────────────────────────────────────────────────────────────
 
 function showRolesView() {
-  loadRoles();
   renderRolesTable();
   bootstrap.Modal.getOrCreateInstance(document.getElementById('rolesModal')).show();
 }
