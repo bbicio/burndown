@@ -7,7 +7,9 @@ const authRoutes      = require('./routes/auth');
 const usersRoutes     = require('./routes/users');
 const configRoutes    = require('./routes/config');
 const costGridRoutes  = require('./routes/cost-grids');
-const projectsRoutes  = require('./routes/projects');
+const projectsRoutes    = require('./routes/projects');
+const timesheetsRoutes  = require('./routes/timesheets');
+const reportingRoutes   = require('./routes/reporting');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,6 +36,8 @@ app.use('/api/auth',        authRoutes);
 app.use('/api/users',       usersRoutes);
 app.use('/api/cost-grids',  costGridRoutes);
 app.use('/api/projects',    projectsRoutes);
+app.use('/api/timesheets',  timesheetsRoutes);
+app.use('/api/reporting',   reportingRoutes);
 app.use('/api',             configRoutes);
 
 // 404
