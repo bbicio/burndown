@@ -23,15 +23,15 @@
       max-width: 420px;
       box-shadow: 0 24px 64px rgba(0,0,0,0.35);
     }
-    .brand-name { font-weight: 700; font-size: 1.6rem; letter-spacing: -0.5px; color: var(--brand-navy); line-height: 1; }
-    .brand-name span { color: var(--brand-magenta); }
+    .brand-name { font-weight: 700; font-size: 3.2rem; letter-spacing: -0.5px; color: var(--brand-navy); line-height: 1; }
+    .brand-name .p { color: var(--brand-magenta); }
     .brand-sub { font-size: 0.78rem; color: #9ca3af; letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px; }
     .form-label { font-size: 0.82rem; font-weight: 600; color: #374151; margin-bottom: 0.3rem; }
     .form-control { font-size: 0.9rem; border-color: #e5e7eb; }
     .form-control:focus { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px rgba(240,40,122,0.12); }
-    .btn-brand { background: var(--brand-magenta); border: none; color: #fff; font-weight: 600; font-size: 0.9rem; padding: 0.6rem 1rem; }
-    .btn-brand:hover:not(:disabled) { background: #d01f6a; color: #fff; }
-    .btn-brand:disabled { opacity: 0.65; color: #fff; }
+    .btn-primary { background: var(--brand-magenta); border: none; color: #fff; font-weight: 600; font-size: 0.9rem; padding: 0.6rem 1rem; }
+    .btn-primary:hover:not(:disabled) { background: #d01f6a; color: #fff; }
+    .btn-primary:disabled { opacity: 0.65; color: #fff; }
     .user-chip { background: #f3f4f6; border-radius: 8px; padding: 0.6rem 0.9rem; font-size: 0.85rem; }
     .strength-bar { height: 4px; border-radius: 2px; transition: background 0.2s, width 0.2s; }
   </style>
@@ -41,7 +41,7 @@
     <div class="auth-card">
 
       <div class="text-center mb-4">
-        <div class="brand-name">P<span>Dash</span></div>
+        <div class="brand-name"><span class="p">P</span>Dash</div>
         <div class="brand-sub">Project Dashboard</div>
       </div>
 
@@ -95,7 +95,7 @@
             <div class="invalid-feedback">Passwords do not match.</div>
           </div>
 
-          <button type="submit" class="btn btn-brand w-100" :disabled="loading || !canSubmit">
+          <button type="submit" class="btn btn-primary w-100" :disabled="loading || !canSubmit">
             <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status"></span>
             Activate account
           </button>
@@ -107,7 +107,7 @@
         <div style="font-size:2.5rem">✅</div>
         <h6 class="fw-bold mt-2">Account activated!</h6>
         <p class="text-muted small">Your account is ready. You'll be redirected to sign in shortly.</p>
-        <a href="/login.html" class="btn btn-brand btn-sm mt-2">Go to sign in</a>
+        <a href="/login.html" class="btn btn-primary btn-sm mt-2">Go to sign in</a>
       </div>
 
     </div>
@@ -187,5 +187,8 @@
       },
     }).mount('#app');
   </script>
+  <footer style="position:fixed;bottom:0;left:0;right:0;height:100px;background:var(--brand-navy);border-top:3px solid var(--brand-magenta);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1rem;font-weight:500">
+    2026 <span style="margin-left:.35em"><span style="color:var(--brand-magenta)">P</span>Dash</span>
+  </footer>
 </body>
 </html>

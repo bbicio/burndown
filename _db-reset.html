@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — DB Reset</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .page { max-width: 680px; margin: 3rem auto; padding: 0 1.5rem; }
+    .danger-card {
+      border: 2px solid #dc3545;
+      border-radius: 12px;
+      background: #fff;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .danger-card h5 { color: #dc3545; font-weight: 700; margin-bottom: .25rem; }
+    .danger-card p  { color: #6c757d; font-size: .875rem; margin-bottom: .75rem; }
+    .spinner-border { width: 1rem; height: 1rem; border-width: 2px; }
+  </style>
+</head>
+<body>
+
+<div class="page">
+  <div class="mb-4">
+    <h1 class="fw-bold" style="color:#dc3545;font-size:1.75rem">⚠️ Database Reset</h1>
+    <p class="text-muted">Admin-only. Each action is irreversible. Data deleted here cannot be recovered.</p>
+    <div id="authBanner" class="alert alert-warning d-none">Checking permissions…</div>
+  </div>
+
+  <div id="resetCards">
+
+    <div class="danger-card">
+      <h5>Proposals</h5>
+      <p>Deletes all cost grids, versions, phases, tasks, task roles, and related sharing records.</p>
+      <button class="btn btn-danger btn-sm" data-scope="proposals">Delete all proposals</button>
+    </div>
+
+    <div class="danger-card">
+      <h5>Projects &amp; Programs</h5>
+      <p>Deletes all projects (including tasks and planning data) and all programs. Cost grids are not affected.</p>
+      <button class="btn btn-danger btn-sm" data-scope="projects">Delete all projects &amp; programs</button>
+    </div>
+
+    <div class="danger-card">
+      <h5>Clients &amp; Client Groups</h5>
+      <p>Deletes all clients, client groups, and their POTs. Client references on proposals and projects are set to null.</p>
+      <button class="btn btn-danger btn-sm" data-scope="clients">Delete all clients &amp; groups</button>
+    </div>
+
+    <div class="danger-card">
+      <h5>Client Ratecards</h5>
+      <p>Deletes all ratecards that are linked to a specific client (agency-wide ratecards without a client are not affected). Ratecard references on versions are set to null.</p>
+      <button class="btn btn-danger btn-sm" data-scope="ratecards">Delete all client ratecards</button>
+    </div>
+
+    <div class="danger-card">
+      <h5>Actuals (Timesheets)</h5>
+      <p>Deletes all uploaded timesheet data. Project structure is not affected.</p>
+      <button class="btn btn-danger btn-sm" data-scope="actuals">Delete all actuals</button>
+    </div>
+
+    <div class="danger-card">
+      <h5>Pipeline Years &amp; POTs</h5>
+      <p>Deletes all pipeline years and all POT targets with their history. Proposals already in SIP/Committed are not affected.</p>
+      <button class="btn btn-danger btn-sm" data-scope="pipelines">Delete all pipeline years &amp; POTs</button>
+    </div>
+
+  </div>
+
+  <div class="mt-3">
+    <a href="/pipeline.html" class="text-muted small">← Back to pipeline</a>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:440px">
+    <div class="modal-content border-danger">
+      <div class="modal-header border-0 pb-1">
+        <h6 class="modal-title fw-bold text-danger">⚠️ Confirm deletion</h6>
+      </div>
+      <div class="modal-body">
+        <p id="confirmText" class="mb-2"></p>
+        <p class="text-danger fw-semibold mb-3" style="font-size:.875rem">This action is permanent and cannot be undone.</p>
+        <label class="form-label small fw-semibold">Type <strong>DELETE</strong> to confirm</label>
+        <input type="text" class="form-control form-control-sm" id="confirmInput" placeholder="DELETE" autocomplete="off">
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger btn-sm" id="confirmOk" disabled>
+          <span id="confirmSpinner" class="spinner-border me-1 d-none"></span>
+          Delete permanently
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  const SCOPE_LABELS = {
+    proposals: 'all proposals (cost grids, versions, phases, tasks)',
+    projects:  'all projects and programs',
+    clients:   'all clients and client groups',
+    ratecards: 'all client ratecards',
+    actuals:   'all timesheet actuals',
+    pipelines: 'all pipeline years and POTs',
+  };
+
+  let _pendingScope = null;
+  const modal       = bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal'));
+  const confirmOk   = document.getElementById('confirmOk');
+  const confirmInput = document.getElementById('confirmInput');
+
+  // ── Auth check ────────────────────────────────────────────────────────────────
+  (async () => {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      if (res.status === 401) { window.location.href = '/login.html'; return; }
+      const user = await res.json();
+      if (user.role !== 'admin') {
+        document.getElementById('resetCards').innerHTML =
+          '<div class="alert alert-danger">Access denied — admin only.</div>';
+        return;
+      }
+    } catch(e) {
+      document.getElementById('authBanner').textContent = 'Could not verify permissions.';
+      document.getElementById('authBanner').classList.remove('d-none');
+    }
+  })();
+
+  // ── Wire delete buttons ───────────────────────────────────────────────────────
+  document.querySelectorAll('[data-scope]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _pendingScope = btn.dataset.scope;
+      document.getElementById('confirmText').textContent =
+        'You are about to permanently delete ' + SCOPE_LABELS[_pendingScope] + '.';
+      confirmInput.value = '';
+      confirmOk.disabled = true;
+      modal.show();
+      setTimeout(() => confirmInput.focus(), 350);
+    });
+  });
+
+  confirmInput.addEventListener('input', () => {
+    confirmOk.disabled = confirmInput.value.trim() !== 'DELETE';
+  });
+
+  // ── Execute reset ─────────────────────────────────────────────────────────────
+  confirmOk.addEventListener('click', async () => {
+    if (!_pendingScope || confirmInput.value.trim() !== 'DELETE') return;
+
+    const spinner = document.getElementById('confirmSpinner');
+    confirmOk.disabled = true;
+    spinner.classList.remove('d-none');
+
+    try {
+      const res = await fetch('/api/admin/reset/' + _pendingScope, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      modal.hide();
+
+      if (!res.ok) {
+        alert('Error: ' + (data.error || 'Unknown error'));
+        return;
+      }
+
+      // Brief success feedback on the triggering button
+      const btn = document.querySelector(`[data-scope="${_pendingScope}"]`);
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = '✓ Done';
+        btn.disabled = true;
+        btn.classList.replace('btn-danger', 'btn-success');
+        setTimeout(() => {
+          btn.textContent = orig;
+          btn.disabled = false;
+          btn.classList.replace('btn-success', 'btn-danger');
+        }, 3000);
+      }
+    } catch(e) {
+      modal.hide();
+      alert('Network error: ' + e.message);
+    } finally {
+      spinner.classList.add('d-none');
+      confirmOk.disabled = false;
+    }
+  });
+
+  document.getElementById('confirmModal').addEventListener('hidden.bs.modal', () => {
+    _pendingScope = null;
+    confirmInput.value = '';
+    confirmOk.disabled = true;
+  });
+</script>
+</body>
+</html>

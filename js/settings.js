@@ -1,25 +1,51 @@
 // ── SETTINGS MODAL ────────────────────────────────────────────────────────────
 
+function _stgSet(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.value = val;
+}
+
 function openSettingsModal() {
-  document.getElementById('stgAnthropicKey').value  = appSettings.anthropicApiKey || '';
-  document.getElementById('stgOpenaiKey').value     = appSettings.openaiApiKey    || '';
-  document.getElementById('stgGeminiKey').value     = appSettings.geminiApiKey    || '';
-  document.getElementById('stgAiProvider').value    = appSettings.aiProvider      || 'anthropic';
-  stgUpdateModelDropdown(appSettings.aiProvider || 'anthropic', appSettings.aiModel || '');
-  document.getElementById('stgEmailjsKey').value      = appSettings.emailjsKey      || '';
-  document.getElementById('stgEmailjsService').value  = appSettings.emailjsService  || '';
-  document.getElementById('stgEmailjsTemplate').value = appSettings.emailjsTemplate || '';
-  document.getElementById('stgGithubPat').value        = appSettings.githubPat        || '';
+  const user = window.__navUser;
+
+  // Fill AI key fields (only on pages that have core.js / appSettings)
+  if (typeof appSettings !== 'undefined') {
+    _stgSet('stgAnthropicKey',  appSettings.anthropicApiKey || '');
+    _stgSet('stgOpenaiKey',     appSettings.openaiApiKey    || '');
+    _stgSet('stgGeminiKey',     appSettings.geminiApiKey    || '');
+    _stgSet('stgAiProvider',    appSettings.aiProvider      || 'anthropic');
+    stgUpdateModelDropdown(appSettings.aiProvider || 'anthropic', appSettings.aiModel || '');
+    _stgSet('stgEmailjsKey',      appSettings.emailjsKey      || '');
+    _stgSet('stgEmailjsService',  appSettings.emailjsService  || '');
+    _stgSet('stgEmailjsTemplate', appSettings.emailjsTemplate || '');
+    _stgSet('stgGithubPat',       appSettings.githubPat       || '');
+  }
+
+  // Show/hide admin-only elements
+  const isAdmin = user?.role === 'admin';
+  document.querySelectorAll('.stg-admin-only').forEach(el => {
+    el.style.display = isAdmin ? '' : 'none';
+  });
+
+  // Set export email display
+  document.querySelectorAll('.stg-export-email').forEach(el => {
+    el.textContent = user?.email || '—';
+  });
+
   // Reset to API tab
   document.querySelectorAll('.stg-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'api'));
-  document.getElementById('stgTabApi').style.display  = 'block';
-  document.getElementById('stgTabData').style.display = 'none';
+  const tabApi  = document.getElementById('stgTabApi');
+  const tabData = document.getElementById('stgTabData');
+  if (tabApi)  tabApi.style.display  = 'block';
+  if (tabData) tabData.style.display = 'none';
+
   bootstrap.Modal.getOrCreateInstance(document.getElementById('settingsModal')).show();
 }
 
 function stgUpdateModelDropdown(provider, selectedModel) {
   const sel = document.getElementById('stgAiModel');
   if (!sel) return;
+  if (typeof AI_MODELS === 'undefined') return;
   const models = AI_MODELS[provider] || [];
   sel.innerHTML = models.map(m =>
     `<option value="${m.id}"${m.id === selectedModel ? ' selected' : ''}>${m.label}</option>`
@@ -27,147 +53,84 @@ function stgUpdateModelDropdown(provider, selectedModel) {
   if (!sel.value && models.length) sel.value = models[0].id;
 }
 
+function _stgGet(id) {
+  return (document.getElementById(id)?.value || '').trim();
+}
+
 function saveSettingsModal() {
-  appSettings.anthropicApiKey = document.getElementById('stgAnthropicKey').value.trim();
-  appSettings.openaiApiKey    = document.getElementById('stgOpenaiKey').value.trim();
-  appSettings.geminiApiKey    = document.getElementById('stgGeminiKey').value.trim();
-  appSettings.aiProvider      = document.getElementById('stgAiProvider').value || 'anthropic';
-  appSettings.aiModel         = document.getElementById('stgAiModel').value    || '';
-  appSettings.emailjsKey      = document.getElementById('stgEmailjsKey').value.trim();
-  appSettings.emailjsService  = document.getElementById('stgEmailjsService').value.trim();
-  appSettings.emailjsTemplate = document.getElementById('stgEmailjsTemplate').value.trim();
-  appSettings.githubPat       = document.getElementById('stgGithubPat').value.trim();
-  persistSettings();
-  updateAiButtonVisibility();
+  if (typeof appSettings !== 'undefined') {
+    appSettings.anthropicApiKey = _stgGet('stgAnthropicKey');
+    appSettings.openaiApiKey    = _stgGet('stgOpenaiKey');
+    appSettings.geminiApiKey    = _stgGet('stgGeminiKey');
+    appSettings.aiProvider      = _stgGet('stgAiProvider') || 'anthropic';
+    appSettings.aiModel         = _stgGet('stgAiModel');
+    appSettings.emailjsKey      = _stgGet('stgEmailjsKey');
+    appSettings.emailjsService  = _stgGet('stgEmailjsService');
+    appSettings.emailjsTemplate = _stgGet('stgEmailjsTemplate');
+    appSettings.githubPat       = _stgGet('stgGithubPat');
+    if (typeof persistSettings === 'function') persistSettings();
+  }
+  if (typeof updateAiButtonVisibility === 'function') updateAiButtonVisibility();
   bootstrap.Modal.getInstance(document.getElementById('settingsModal'))?.hide();
 }
 
-// ── DATA MANAGER ──────────────────────────────────────────────────────────────
+// ── DATA EXPORTS ──────────────────────────────────────────────────────────────
 
-function renderDataManager() {
-  renderSyncPanel();
-  const container = document.getElementById('stgDataManagerList');
-  if (!container) return;
+async function stgExport(type) {
+  const btn = document.getElementById(`btnExport_${type}`);
+  const statusEl = document.getElementById('stgExportStatus');
+  if (btn) btn.disabled = true;
+  if (statusEl) { statusEl.style.display = 'none'; statusEl.className = 'alert py-2 px-3 small mt-2'; }
 
-  const stores = [
-    {
-      key: CONFIG_KEY, label: 'Portfolio Config',
-      desc: `${(config.projects || []).length} projects`,
-      getData: () => config,
-      onImport: data => { config = data; persistConfig(); showPortfolioView(); }
-    },
-    {
-      key: 'PDash_roles', label: 'Roles',
-      desc: `${getRoles().length} roles`,
-      getData: () => getRoles(),
-      onImport: data => { if (!Array.isArray(data)) throw new Error('Must be an array'); roles = data; saveRoles(); }
-    },
-    {
-      key: 'PDash_cg_index', label: 'Cost Grids',
-      desc: `${cgGetIndex().length} grids`,
-      getData: () => { const idx = cgGetIndex(); return { index: idx, grids: idx.map(id => cgLoad(id)).filter(Boolean) }; },
-      onImport: data => {
-        if (!data.index || !data.grids) throw new Error('Invalid format');
-        cgSaveIndex(data.index);
-        data.grids.forEach(cg => cgSave(cg));
-      }
-    },
-    {
-      key: PROGRAMS_KEY, label: 'Programs',
-      desc: `${getPrograms().length} program(s)`,
-      getData: () => getPrograms(),
-      onImport: data => { if (!Array.isArray(data)) throw new Error('Must be an array'); _programs = data; savePrograms(); }
-    },
-    {
-      key: CLIENTS_KEY, label: 'Clients',
-      desc: `${getClients().filter(c => c.id !== '__unassigned__').length} client(s)`,
-      getData: () => _clients.filter(c => c.id !== '__unassigned__'),
-      onImport: data => { if (!Array.isArray(data)) throw new Error('Must be an array'); _clients = data; saveClients(); }
-    },
-    {
-      key: SETTINGS_KEY, label: 'App Settings (API keys)',
-      desc: hasAiKey() ? 'AI key configured' : 'no AI key',
-      getData: () => appSettings,
-      onImport: data => { appSettings = { ...appSettings, ...data }; persistSettings(); updateAiButtonVisibility(); }
-    },
-    {
-      key: SUMMARY_KEY, label: 'Portfolio Summary selection',
-      desc: `${portfolioSummaryProjects.size} projects pinned`,
-      getData: () => [...portfolioSummaryProjects],
-      onImport: data => { portfolioSummaryProjects = new Set(data); saveSummarySelection(); }
+  try {
+    const result = await apiFetch(`/exports/${type}`, { method: 'POST' });
+    if (statusEl) {
+      statusEl.textContent = `Export sent to ${result.email}`;
+      statusEl.classList.add('alert-success');
+      statusEl.style.display = 'block';
+      setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
     }
-  ];
-
-  container.innerHTML = stores.map((s, i) => {
-    const raw = storageGet(s.key) || '';
-    const kb  = raw ? (new Blob([raw]).size / 1024).toFixed(1) + ' KB' : '—';
-    return `
-      <div class="d-flex align-items-center gap-3 py-2 border-bottom flex-wrap" style="font-size:var(--text-md)">
-        <div style="min-width:200px">
-          <div class="fw-semibold">${s.label}</div>
-          <div class="text-muted small">${s.desc} · ${kb}</div>
-        </div>
-        <div class="d-flex gap-2 ms-auto">
-          <button class="btn btn-sm btn-outline-secondary" data-dm-dl="${i}">⬇ Download</button>
-          <button class="btn btn-sm btn-outline-secondary" data-dm-import="${i}">⬆ Import</button>
-        </div>
-      </div>`;
-  }).join('');
-
-  // Wire download/import per-store
-  container.querySelectorAll('[data-dm-dl]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const s = stores[+btn.dataset.dmDl];
-      const blob = new Blob([JSON.stringify(s.getData(), null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${s.label.toLowerCase().replace(/[^a-z0-9]+/g,'_')}_${new Date().toISOString().slice(0,10)}.json`;
-      a.click(); URL.revokeObjectURL(a.href);
-    });
-  });
-
-  container.querySelectorAll('[data-dm-import]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const s = stores[+btn.dataset.dmImport];
-      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json';
-      inp.onchange = e => {
-        const file = e.target.files[0]; if (!file) return;
-        const reader = new FileReader();
-        reader.onload = ev => {
-          try {
-            const data = JSON.parse(ev.target.result);
-            s.onImport(data);
-            renderDataManager();
-          } catch(err) { alert('Import error: ' + err.message); }
-        };
-        reader.readAsText(file);
-      };
-      inp.click();
-    });
-  });
+  } catch (err) {
+    if (statusEl) {
+      statusEl.textContent = err.message || 'Export failed.';
+      statusEl.classList.add('alert-danger');
+      statusEl.style.display = 'block';
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
-function downloadFullBackup() {
-  const cgIndex = cgGetIndex();
-  const backup = {
-    version: 1,
-    created: new Date().toISOString(),
-    stores: {
-      config:    config,
-      roles:     getRoles(),
-      programs:  getPrograms(),
-      clients:   _clients.filter(c => c.id !== '__unassigned__'),
-      costgrids: { index: cgIndex, grids: cgIndex.map(id => cgLoad(id)).filter(Boolean) },
-      settings:  appSettings,
-      summary:   [...portfolioSummaryProjects]
-    }
-  };
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `burndown_backup_${new Date().toISOString().slice(0,10)}.json`;
-  a.click(); URL.revokeObjectURL(a.href);
+// ── FULL BACKUP ───────────────────────────────────────────────────────────────
+
+async function downloadFullBackup() {
+  try {
+    const [projects, roles, programs, clients, costGrids] = await Promise.all([
+      apiFetch('/projects').catch(() => []),
+      apiFetch('/roles').catch(() => []),
+      apiFetch('/programs').catch(() => []),
+      apiFetch('/clients').catch(() => []),
+      apiFetch('/cost-grids').catch(() => []),
+    ]);
+
+    const backup = {
+      version: 2,
+      created: new Date().toISOString(),
+      stores: { projects, roles, programs, clients, costGrids },
+    };
+
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `pdash_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (err) {
+    alert('Backup failed: ' + (err.message || 'Unknown error'));
+  }
 }
+
+// ── RESTORE FROM BACKUP ───────────────────────────────────────────────────────
 
 function restoreFromBackup(file) {
   const reader = new FileReader();
@@ -175,21 +138,28 @@ function restoreFromBackup(file) {
     try {
       const backup = JSON.parse(ev.target.result);
       if (!backup.stores) throw new Error('Not a valid backup file (missing "stores" key)');
-      showConfirm(
-        'Restore from backup?\n\nThis will overwrite Portfolio Config, Roles, Cost Grids, App Settings and Summary selection.\nXLS data is not affected.',
+
+      const confirmFn = typeof showConfirm === 'function' ? showConfirm : (msg, cb) => { if (confirm(msg)) cb(); };
+      confirmFn(
+        'Restore from backup?\n\nThis will overwrite local data.\nXLS timesheet data is not affected.',
         () => {
           const s = backup.stores;
-          if (s.config)    { config = s.config; persistConfig(); }
-          if (s.roles)     { roles = s.roles; saveRoles(); }
-          if (s.programs)  { _programs = s.programs; savePrograms(); }
-          if (s.clients)   { _clients  = s.clients;  saveClients();  }
-          if (s.costgrids) { cgSaveIndex(s.costgrids.index || []); (s.costgrids.grids || []).forEach(cg => cgSave(cg)); }
-          if (s.settings)  { appSettings = { ...appSettings, ...s.settings }; persistSettings(); updateAiButtonVisibility(); }
-          if (s.summary)   { portfolioSummaryProjects = new Set(s.summary); saveSummarySelection(); }
+          if (typeof appSettings !== 'undefined') {
+            if (s.config)    { if (typeof config !== 'undefined') { config = s.config; } if (typeof persistConfig === 'function') persistConfig(); }
+            if (s.roles)     { if (typeof roles !== 'undefined')  { roles = s.roles; }  if (typeof saveRoles === 'function')    saveRoles(); }
+            if (s.programs)  { if (typeof _programs !== 'undefined') { _programs = s.programs; } if (typeof savePrograms === 'function') savePrograms(); }
+            if (s.clients)   { if (typeof _clients !== 'undefined')  { _clients  = s.clients;  } if (typeof saveClients === 'function')  saveClients(); }
+            if (s.costgrids) {
+              if (typeof cgSaveIndex === 'function') cgSaveIndex(s.costgrids.index || []);
+              if (typeof cgSave === 'function') (s.costgrids.grids || []).forEach(cg => cgSave(cg));
+            }
+            if (s.settings)  { appSettings = { ...appSettings, ...s.settings }; if (typeof persistSettings === 'function') persistSettings(); if (typeof updateAiButtonVisibility === 'function') updateAiButtonVisibility(); }
+            if (s.summary)   { if (typeof portfolioSummaryProjects !== 'undefined') portfolioSummaryProjects = new Set(s.summary); if (typeof saveSummarySelection === 'function') saveSummarySelection(); }
+          }
           bootstrap.Modal.getInstance(document.getElementById('settingsModal'))?.hide();
-          showPortfolioView();
+          if (typeof showPortfolioView === 'function') showPortfolioView();
         },
-        null, '⬆ Restore Backup'
+        null, 'Restore Backup'
       );
     } catch(err) { alert('Restore error: ' + err.message); }
   };

@@ -1,5 +1,5 @@
 const express = require('express');
-const { query } = require('../db/client');
+const { query, pool } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
 const { sendShareNotification } = require('../services/email');
 
@@ -31,27 +31,95 @@ async function canEdit(userId, role, cgId) {
 
 // ── COST GRIDS ────────────────────────────────────────────────────────────────
 
-// GET /api/cost-grids
+// GET /api/cost-grids[?year=YYYY]
 router.get('/', requireAuth, async (req, res, next) => {
   try {
+    const { year } = req.query;
     const isAdmin = req.user.role === 'admin';
-    const visibilityClause = isAdmin
-      ? ''
-      : `AND (cg.owner_id = $1 OR EXISTS(
-           SELECT 1 FROM resource_shares rs
-           WHERE rs.resource_type = 'cost_grid' AND rs.resource_id = cg.id AND rs.user_id = $1
-         ))`;
+    const userId = req.user.id;
+    const params = [];
+
+    // Validate the requested year against admin-managed pipeline years.
+    // An inactive year is inaccessible to everyone on the board.
+    if (year) {
+      const pyRes = await query(
+        'SELECT active FROM pipeline_years WHERE year = $1',
+        [parseInt(year)]
+      );
+      if (!pyRes.rows[0]) return res.status(404).json({ error: 'Pipeline year not found' });
+      if (!pyRes.rows[0].active) return res.status(403).json({ error: 'Pipeline year is inactive' });
+    }
+
+    // Admin: own cost grids (includes Drafts) OR any CG with at least one non-Draft version.
+    // Non-admin: own cost grids (any stage, includes Drafts) OR accessible cost grids
+    //            with at least one non-Draft version.
+    params.push(userId); // $1 for both admin and non-admin
+    let visibilityClause;
+    if (isAdmin) {
+      visibilityClause = `AND (
+        cg.owner_id = $1
+        OR EXISTS(
+          SELECT 1 FROM cost_grid_versions v2 WHERE v2.cost_grid_id = cg.id AND v2.pipeline != 'Draft'
+        )
+      )`;
+    } else {
+      visibilityClause = `AND (
+        cg.owner_id = $1
+        OR (
+          EXISTS(SELECT 1 FROM resource_shares rs
+                 WHERE rs.resource_type = 'cost_grid' AND rs.resource_id = cg.id AND rs.user_id = $1)
+          AND EXISTS(SELECT 1 FROM cost_grid_versions v2
+                     WHERE v2.cost_grid_id = cg.id AND v2.pipeline != 'Draft')
+        )
+      )`;
+    }
+
+    let yearClause = '';
+    if (year) {
+      params.push(parseInt(year));
+      const yp = params.length;
+      // Year filter: Draft-only CGs owned by current user always pass (must appear in Draft column).
+      // All other CGs must have a non-Draft version with pipeline_year = requested year.
+      yearClause = `AND (
+        (cg.owner_id = $1 AND NOT EXISTS(SELECT 1 FROM cost_grid_versions v3 WHERE v3.cost_grid_id = cg.id AND v3.pipeline != 'Draft'))
+        OR EXISTS(
+          SELECT 1 FROM cost_grid_versions v3
+          WHERE v3.cost_grid_id = cg.id AND v3.pipeline_year = $${yp} AND v3.pipeline != 'Draft'
+        )
+      )`;
+    }
 
     const { rows } = await query(
       `SELECT cg.id, cg.name, cg.created_at,
               u.first_name || ' ' || u.last_name AS owner_name,
               cg.owner_id,
-              (SELECT pipeline FROM cost_grid_versions WHERE cost_grid_id = cg.id ORDER BY created_at DESC LIMIT 1) AS pipeline
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'id',            cgv.id,
+                    'label',         cgv.label,
+                    'pipeline',      cgv.pipeline,
+                    'pipeline_year', cgv.pipeline_year,
+                    'start_date',    cgv.start_date,
+                    'end_date',      cgv.end_date,
+                    'currency',      cgv.currency,
+                    'note',          cgv.note,
+                    'created_at',    cgv.created_at,
+                    'locked',        cgv.locked,
+                    'ratecard_id',   cgv.ratecard_id,
+                    'client_id',     cgv.client_id,
+                    'project_name',  cgv.project_name
+                  ) ORDER BY cgv.created_at DESC
+                ) FILTER (WHERE cgv.id IS NOT NULL),
+                '[]'
+              ) AS versions
        FROM cost_grids cg
        JOIN users u ON u.id = cg.owner_id
-       WHERE 1=1 ${visibilityClause}
+       LEFT JOIN cost_grid_versions cgv ON cgv.cost_grid_id = cg.id
+       WHERE 1=1 ${visibilityClause} ${yearClause}
+       GROUP BY cg.id, cg.name, cg.created_at, u.first_name, u.last_name, cg.owner_id
        ORDER BY cg.created_at DESC`,
-      isAdmin ? [] : [req.user.id]
+      params
     );
     res.json(rows);
   } catch (err) { next(err); }
@@ -80,6 +148,58 @@ router.post('/', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/cost-grids/budgets — pre-computed fee+ptc per version for pipeline board cards.
+// Must be declared before /:id to avoid Express matching "budgets" as an id param.
+router.get('/budgets', requireAuth, async (req, res, next) => {
+  try {
+    const { id: userId, role } = req.user;
+    const isAdmin = role === 'admin';
+    const params = [];
+    let visClause = '';
+    if (!isAdmin) {
+      params.push(userId);
+      visClause = `AND (
+        cg.owner_id = $${params.length}
+        OR EXISTS(SELECT 1 FROM resource_shares rs
+                  WHERE rs.resource_type = 'cost_grid' AND rs.resource_id = cg.id
+                    AND rs.user_id = $${params.length})
+      )`;
+    }
+
+    const { rows } = await query(`
+      WITH version_fees AS (
+        SELECT ph.version_id,
+          COALESCE(SUM(tr.days * COALESCE(tr.rate_override, r.hourly_rate, 0)), 0) AS fee
+        FROM phases ph
+        JOIN tasks      t  ON t.phase_id  = ph.id
+        JOIN task_roles tr ON tr.task_id  = t.id
+        JOIN roles      r  ON r.id        = tr.role_id
+        GROUP BY ph.version_id
+      ),
+      version_ptc AS (
+        SELECT ph.version_id, COALESCE(SUM(t.ptc), 0) AS ptc
+        FROM phases ph
+        JOIN tasks t ON t.phase_id = ph.id
+        GROUP BY ph.version_id
+      )
+      SELECT v.id AS version_id,
+             COALESCE(vf.fee, 0) AS fee,
+             COALESCE(vp.ptc, 0) AS ptc
+      FROM cost_grid_versions v
+      JOIN cost_grids cg ON cg.id = v.cost_grid_id
+      LEFT JOIN version_fees vf ON vf.version_id = v.id
+      LEFT JOIN version_ptc  vp ON vp.version_id = v.id
+      WHERE 1=1 ${visClause}
+    `, params);
+
+    const out = {};
+    for (const r of rows) {
+      out[r.version_id] = { fee: parseFloat(r.fee) || 0, ptc: parseFloat(r.ptc) || 0 };
+    }
+    res.json(out);
+  } catch (err) { next(err); }
+});
+
 // PATCH /api/cost-grids/:id
 router.patch('/:id', requireAuth, async (req, res, next) => {
   try {
@@ -97,18 +217,18 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// DELETE /api/cost-grids/:id
+// DELETE /api/cost-grids/:id — only allowed when ALL versions are in Draft stage
 router.delete('/:id', requireAuth, async (req, res, next) => {
   try {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const committed = await query(
-      `SELECT 1 FROM cost_grid_versions WHERE cost_grid_id = $1 AND pipeline = 'Committed' LIMIT 1`,
+    const nonDraft = await query(
+      `SELECT 1 FROM cost_grid_versions WHERE cost_grid_id = $1 AND pipeline != 'Draft' LIMIT 1`,
       [req.params.id]
     );
-    if (committed.rows.length > 0) {
-      return res.status(400).json({ error: 'Cannot delete a cost grid with Committed versions' });
+    if (nonDraft.rows.length > 0) {
+      return res.status(400).json({ error: 'Cannot delete a proposal that has been published to the pipeline' });
     }
     await query('DELETE FROM cost_grids WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
@@ -124,7 +244,7 @@ router.get('/:id/versions', requireAuth, async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     const { rows } = await query(
-      `SELECT id, label, pipeline, start_date, end_date, currency, note, locked, ratecard_id, created_at
+      `SELECT id, label, pipeline, pipeline_year, start_date, end_date, currency, note, locked, ratecard_id, client_id, project_name, created_at
        FROM cost_grid_versions WHERE cost_grid_id = $1 ORDER BY created_at DESC`,
       [req.params.id]
     );
@@ -138,14 +258,15 @@ router.post('/:id/versions', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { label, pipeline, startDate, endDate, currency, note, ratecardId } = req.body;
+    const { label, pipeline, startDate, endDate, currency, note, ratecardId, clientId, projectName } = req.body;
     if (!label?.trim()) return res.status(400).json({ error: 'label is required' });
 
+    // New versions always start as Draft (published via the /publish endpoint)
     const { rows } = await query(
-      `INSERT INTO cost_grid_versions (cost_grid_id, label, pipeline, start_date, end_date, currency, note, ratecard_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [req.params.id, label.trim(), pipeline || 'SIP', startDate || null, endDate || null,
-       currency || 'EUR', note || null, ratecardId || null]
+      `INSERT INTO cost_grid_versions (cost_grid_id, label, pipeline, start_date, end_date, currency, note, ratecard_id, client_id, project_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [req.params.id, label.trim(), 'Draft', startDate || null, endDate || null,
+       currency || 'EUR', note || null, ratecardId || null, clientId || null, projectName || '']
     );
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }
@@ -160,16 +281,19 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
     const locked = await query('SELECT locked FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
     if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
 
-    const { label, pipeline, startDate, endDate, note, ratecardId } = req.body;
+    const { label, pipeline, startDate, endDate, currency, note, ratecardId, clientId, projectName } = req.body;
     const fields = [];
     const params = [];
 
-    if (label !== undefined)      { params.push(label.trim());   fields.push(`label = $${params.length}`); }
-    if (pipeline !== undefined)   { params.push(pipeline);       fields.push(`pipeline = $${params.length}`); }
-    if (startDate !== undefined)  { params.push(startDate);      fields.push(`start_date = $${params.length}`); }
-    if (endDate !== undefined)    { params.push(endDate);        fields.push(`end_date = $${params.length}`); }
-    if (note !== undefined)       { params.push(note);           fields.push(`note = $${params.length}`); }
-    if (ratecardId !== undefined) { params.push(ratecardId);     fields.push(`ratecard_id = $${params.length}`); }
+    if (label !== undefined)       { params.push(label.trim());       fields.push(`label = $${params.length}`); }
+    if (pipeline !== undefined)    { params.push(pipeline);           fields.push(`pipeline = $${params.length}`); }
+    if (startDate !== undefined)   { params.push(startDate || null);  fields.push(`start_date = $${params.length}`); }
+    if (endDate !== undefined)     { params.push(endDate   || null);  fields.push(`end_date = $${params.length}`); }
+    if (currency !== undefined)    { params.push(currency || 'EUR');  fields.push(`currency = $${params.length}`); }
+    if (note !== undefined)        { params.push(note);               fields.push(`note = $${params.length}`); }
+    if (ratecardId !== undefined)  { params.push(ratecardId || null); fields.push(`ratecard_id = $${params.length}`); }
+    if (clientId !== undefined)    { params.push(clientId || null);   fields.push(`client_id = $${params.length}`); }
+    if (projectName !== undefined) { params.push(projectName || '');  fields.push(`project_name = $${params.length}`); }
 
     if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
 
@@ -183,17 +307,20 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// DELETE /api/cost-grids/:id/versions/:vId
+// DELETE /api/cost-grids/:id/versions/:vId — only Draft versions can be deleted
 router.delete('/:id/versions/:vId', requireAuth, async (req, res, next) => {
   try {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
     const { rows } = await query(
-      'SELECT locked FROM cost_grid_versions WHERE id = $1', [req.params.vId]
+      'SELECT locked, pipeline FROM cost_grid_versions WHERE id = $1', [req.params.vId]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Version not found' });
     if (rows[0].locked) return res.status(400).json({ error: 'Version is locked' });
+    if (rows[0].pipeline !== 'Draft') {
+      return res.status(400).json({ error: 'Only Draft versions can be deleted' });
+    }
 
     await query('DELETE FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
     res.json({ ok: true });
@@ -228,8 +355,8 @@ router.post('/:id/versions/:vId/duplicate', requireAuth, async (req, res, next) 
       const tasks = await query('SELECT * FROM tasks WHERE phase_id = $1 ORDER BY sort_order', [ph.id]);
       for (const tk of tasks.rows) {
         const newTk = await query(
-          'INSERT INTO tasks (phase_id, title, ptc, sort_order) VALUES ($1, $2, $3, $4) RETURNING id',
-          [newPh.rows[0].id, tk.title, tk.ptc, tk.sort_order]
+          'INSERT INTO tasks (phase_id, title, description, start_date, end_date, ptc, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+          [newPh.rows[0].id, tk.title, tk.description || '', tk.start_date || '', tk.end_date || '', tk.ptc, tk.sort_order]
         );
         await query(
           `INSERT INTO task_roles (task_id, role_id, days, rate_override, months)
@@ -239,6 +366,29 @@ router.post('/:id/versions/:vId/duplicate', requireAuth, async (req, res, next) 
       }
     }
     res.status(201).json({ id: newVId });
+  } catch (err) { next(err); }
+});
+
+// POST /api/cost-grids/:id/versions/:vId/publish — promote Draft → SIP
+router.post('/:id/versions/:vId/publish', requireAuth, async (req, res, next) => {
+  try {
+    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const { rows } = await query(
+      'SELECT pipeline FROM cost_grid_versions WHERE id = $1 AND cost_grid_id = $2',
+      [req.params.vId, req.params.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Version not found' });
+    if (rows[0].pipeline !== 'Draft') {
+      return res.status(400).json({ error: 'Only Draft versions can be published' });
+    }
+    const currentYear = new Date().getFullYear();
+    const { rows: updated } = await query(
+      `UPDATE cost_grid_versions SET pipeline = 'SIP', pipeline_year = $1 WHERE id = $2 RETURNING *`,
+      [currentYear, req.params.vId]
+    );
+    res.json(updated[0]);
   } catch (err) { next(err); }
 });
 
@@ -261,11 +411,21 @@ router.get('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
       const tasksWithRoles = [];
       for (const tk of tasks.rows) {
         const roles = await query(
-          `SELECT tr.id, tr.role_id, ro.label, ro.code, tr.days, tr.rate_override, tr.months
+          `SELECT tr.id, tr.role_id, ro.label, ro.code, ro.hourly_rate, tr.days, tr.rate_override, tr.months
            FROM task_roles tr JOIN roles ro ON ro.id = tr.role_id WHERE tr.task_id = $1`,
           [tk.id]
         );
-        tasksWithRoles.push({ ...tk, roles: roles.rows });
+        const toInputDate = d => d && d.length === 8 ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : (d || '');
+        tasksWithRoles.push({
+          id:          tk.id,
+          title:       tk.title,
+          description: tk.description || '',
+          start_date:  toInputDate(tk.start_date),
+          end_date:    toInputDate(tk.end_date),
+          ptc:         parseFloat(tk.ptc) || 0,
+          sort_order:  tk.sort_order,
+          roles:       roles.rows,
+        });
       }
       result.push({ ...ph, tasks: tasksWithRoles });
     }
@@ -275,40 +435,86 @@ router.get('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
 
 // PUT /api/cost-grids/:id/versions/:vId/structure
 router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) => {
-  try {
-    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
-      return res.status(403).json({ error: 'Access denied' });
+  if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  const locked = await query('SELECT locked FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
+  if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
+
+  const { phases = [], roles: rolesBody = [] } = req.body;
+
+  // Preload all roles for code→id lookup
+  const { rows: allRoles } = await query('SELECT id, code FROM roles');
+  const roleByCode = Object.fromEntries(allRoles.map(r => [r.code, r.id]));
+
+  // Build custom rate map: roleCode → rate (only for roles marked as custom)
+  const customRateByCode = {};
+  for (const r of rolesBody) {
+    if (r.rateIsCustom && r.roleCode && r.rate != null) {
+      customRateByCode[r.roleCode] = parseFloat(r.rate) || null;
     }
-    const locked = await query('SELECT locked FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
-    if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
+  }
 
-    const { phases = [] } = req.body;
-
-    // Replace entire structure
-    await query('DELETE FROM phases WHERE version_id = $1', [req.params.vId]);
+  // Use a dedicated client for the transaction so BEGIN/COMMIT share the same connection
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM phases WHERE version_id = $1', [req.params.vId]);
 
     for (let pi = 0; pi < phases.length; pi++) {
       const ph = phases[pi];
-      const newPh = await query(
+      if (!ph) continue;
+      const phTitle = (ph.phaseName || ph.title || '').trim() || 'New Phase';
+      const newPh = await client.query(
         'INSERT INTO phases (version_id, title, sort_order) VALUES ($1, $2, $3) RETURNING id',
-        [req.params.vId, ph.title, pi]
+        [req.params.vId, phTitle, pi]
       );
       for (let ti = 0; ti < (ph.tasks || []).length; ti++) {
         const tk = ph.tasks[ti];
-        const newTk = await query(
-          'INSERT INTO tasks (phase_id, title, ptc, sort_order) VALUES ($1, $2, $3, $4) RETURNING id',
-          [newPh.rows[0].id, tk.title, tk.ptc || 0, ti]
+        if (!tk) continue;
+        const tkTitle = (tk.taskName || tk.title || '').trim() || 'New Task';
+        const tkDesc  = tk.taskDescription || tk.description || '';
+        const normDate = d => d ? d.replace(/-/g, '').slice(0, 8) : '';
+        const tkStart = normDate(tk.taskStartDate || tk.start_date  || '');
+        const tkEnd   = normDate(tk.taskEndDate   || tk.end_date    || '');
+        const newTk = await client.query(
+          'INSERT INTO tasks (phase_id, title, description, start_date, end_date, ptc, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+          [newPh.rows[0].id, tkTitle, tkDesc, tkStart, tkEnd, tk.ptc || 0, ti]
         );
-        for (const tr of (tk.roles || [])) {
-          await query(
+        // Accept both hours map {roleCode: days} and roles array [{roleId, days}]
+        const taskRoles = [];
+        if (tk.hours && typeof tk.hours === 'object') {
+          for (const [code, days] of Object.entries(tk.hours)) {
+            const roleId = roleByCode[code];
+            if (roleId && days > 0) taskRoles.push({
+              roleId,
+              days,
+              rateOverride: customRateByCode[code] ?? null,
+              months: null,
+            });
+          }
+        } else {
+          for (const tr of (tk.roles || [])) {
+            const roleId = tr.roleId || roleByCode[tr.roleCode || tr.code];
+            if (roleId) taskRoles.push({ roleId, days: tr.days || 0, rateOverride: tr.rateOverride || null, months: tr.months || null });
+          }
+        }
+        for (const tr of taskRoles) {
+          await client.query(
             'INSERT INTO task_roles (task_id, role_id, days, rate_override, months) VALUES ($1, $2, $3, $4, $5)',
-            [newTk.rows[0].id, tr.roleId, tr.days || 0, tr.rateOverride || null, tr.months || null]
+            [newTk.rows[0].id, tr.roleId, tr.days, tr.rateOverride, tr.months]
           );
         }
       }
     }
+    await client.query('COMMIT');
     res.json({ ok: true });
-  } catch (err) { next(err); }
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    next(err);
+  } finally {
+    client.release();
+  }
 });
 
 // ── LINKED PROJECTS ───────────────────────────────────────────────────────────
@@ -408,7 +614,7 @@ router.post('/:id/shares', requireAuth, async (req, res, next) => {
       resourceType: 'cost grid',
       resourceName: cg.rows[0].name,
       sharedBy: `${sharer.rows[0].first_name} ${sharer.rows[0].last_name}`,
-      link: `${process.env.APP_URL}?cg=${req.params.id}`,
+      link: `${process.env.APP_URL}/pipeline.html`,
     });
 
     res.status(201).json({ ok: true });

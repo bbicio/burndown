@@ -8,9 +8,9 @@
 
 ## 1. Product Overview
 
-PDash is a single-page web application for project portfolio management. It is designed for consulting and professional services teams who need to track commercial offers, plan resources, and monitor budget consumption across multiple projects.
+PDash is a multi-user web application for project portfolio management. It is designed for consulting and professional services teams who need to track commercial offers, plan resources, and monitor budget consumption across multiple projects.
 
-All data is stored locally in the browser (localStorage). There is no backend server; the app runs entirely client-side from a static HTML file.
+The app is backed by a Node.js/Express REST API and a PostgreSQL database, with JWT-based authentication and role-based access control. The frontend is Vanilla JS with no build step; each view is a separate HTML page.
 
 ---
 
@@ -95,8 +95,20 @@ A fixed right-side panel (860 px wide) with two scrollable columns:
 
 ### 4.5 Board Toolbar
 
-- **Roles** button — opens the Roles Registry modal
-- **+ New Cost Grid** button — opens the Cost Grid Editor with a blank grid
+- **Pipeline year dropdown** (replaces the static "Pipeline" title) — shows the selected year and a caret; clicking opens a menu of all visible pipeline years. Switching year reloads the board via `?year=YYYY` URL param.
+- **+ New Cost Grid** button — opens the Cost Grid Editor with a blank grid (hidden for non-admins on inactive years)
+
+### 4.6 Pipeline Stages
+
+Six stages: `Draft` (private, only visible to creator) + `SIP` / `Expected` / `Anticipated` / `Committed` / `Canceled`. Draft offers are excluded from column totals and other users' boards.
+
+### 4.7 Pipeline Years
+
+Admin-managed via **Configuration → Pipelines & POTs**. Each year is either Visible (appears on the board) or Hidden (suppressed for all users). The board enforces visibility: `GET /api/cost-grids?year=YYYY` returns 404 for unknown years and 403 for inactive ones.
+
+### 4.8 POT Summary in Detail Panel
+
+When a cost grid is linked to a client (or client group), the detail panel shows a POT section: pipeline stage value vs. POT target for the selected year, rendered as a colour-coded progress bar (blue / orange ≥ 75 % / green ≥ 100 %).
 
 ### 4.6 Cost Grid Editor (overlay)
 
@@ -213,9 +225,11 @@ Today marker highlighted.
 
 ## 7. Configuration
 
+All configuration screens are admin-only and accessible via the **config.html** page (tabbed layout). Pipeline years and POT targets are also managed here, removing the need for a separate admin section.
+
 ### 7.1 Project Configuration
 
-Accessed via "Configure Portfolio" in the Reporting view.
+Accessed via the project card in the Reporting view (opens `project-config.html` as a full-page form).
 
 **Project fields:**
 
@@ -246,15 +260,53 @@ Accessed via "Configure Portfolio" in the Reporting view.
 
 ### 7.2 Clients
 
-Simple registry: ID + name.  
-Used to group projects in portfolio view.
+Simple registry: ID + name. Used to group projects in portfolio view. A client can belong to at most one client group.
 
-### 7.3 Programs
+Each client row has a **💲 Costgrid** button that opens a rate card modal. The modal lists all roles with two columns:
 
-Simple registry: ID + name.  
-Groups projects across the portfolio and reporting view.
+| Column | Content |
+|---|---|
+| Agency default | Rate from the global rate card (falls back to `role.hourly_rate` if no global card exists) |
+| Client custom (€/h) | Editable override for this client; blank = use agency default |
 
-### 7.4 Roles Registry
+Saving creates or updates a per-client rate card. Custom rates are applied automatically when the client is selected in a new proposal. Rate card management is **not** available from admin.html — it lives exclusively here.
+
+### 7.3 Client Groups
+
+Named bundles of clients (e.g. "Italian Public Sector"). Used as the target for POT targets when multiple clients share a revenue goal. CRUD: create, rename, delete. Members: assign/remove individual clients.
+
+### 7.4 Pipelines & POTs
+
+Master/detail tab in config.html:
+
+**View A — Pipeline list:** table of all pipeline years with Visible / Hidden status badge. Actions: toggle visibility (Show/Hide), delete (blocked if cost grid versions reference the year), + Add year. Clicking a row drills into View B.
+
+**View B — POT targets for selected year:**
+
+Layout (top to bottom):
+1. Navigation row — ← Pipelines button · "Pipeline YYYY" title · Visible/Hidden status badge
+2. **5 stage summary cards** (SIP, Expected, Anticipated, Committed, Canceled) — each shows count of proposals and total professional-fee value (days × 8 × rate; pass-through costs excluded). Cards are populated via `GET /api/pots/pipeline-summary?year=`.
+3. "POT Targets" section header with "+ New POT" button
+4. POT table — lists all POTs for the year. Each row has: client/group name, type badge (Individual / Group), target amount, and action buttons: 🔍 View Details · ✏️ Edit · 🗑.
+
+**+ New POT form:** targets either an individual client or a client group; amount only; year is fixed to the current View B year.
+
+**✏️ Edit:** inline form to update the amount; every change is logged to `pot_history`.
+
+**🔍 View Details modal** — shows:
+- POT type badge (Individual / Group) and scope name
+- **Target** card — current `pot.amount` (most recent history entry)
+- **Current** card — sum of professional fees for Committed proposals scoped to this POT's client/group for the year
+- **History** — change log newest-first: date, author, old value → new value with arrow
+- **Proposals** — all cost grid versions scoped to the POT's client/group + year; Canceled included; Draft excluded; each row links to `/costgrid.html?cgId=...&verId=...`
+
+POT progress is also visible in the Pipeline board detail panel for linked offers.
+
+### 7.5 Programs
+
+Simple registry: ID + name. Groups projects across the portfolio and reporting view.
+
+### 7.6 Roles Registry
 
 Accessed via the "Roles" button on the Pipeline board toolbar.
 
@@ -300,9 +352,9 @@ Actuals are matched to projects and tasks to compute budget spent.
 
 ## 9. Settings
 
-Accessed via the "⚙ Settings" button in the top-right of the navbar.
+Accessed via **account dropdown → ⚙ Settings** (available on all pages).
 
-### 9.1 AI Provider Configuration
+### 9.1 API & Integrations Tab
 
 | Provider | Fields |
 |---|---|
@@ -310,40 +362,73 @@ Accessed via the "⚙ Settings" button in the top-right of the navbar.
 | OpenAI | API Key + model selection |
 | Google Gemini | API Key + model selection |
 
-### 9.2 Email Integration (EmailJS)
+Keys are persisted in the browser's `localStorage` (`PDash_settings`).
 
-- Public Key
-- Service ID
-- Template ID
+### 9.2 Data Manager Tab
 
-Used to send AI-generated project status reports by email.
+#### Exports (CSV — sent to user's email as attachments)
 
-### 9.3 GitHub Integration
+| Export | Contents | Access |
+|---|---|---|
+| Cost Grids | One row per task — Grid, Version, Pipeline, Phase, Task, Description, Dates, PTC%, one column per role-code (days) | All users (own/shared grids only) |
+| Project Portfolio | One row per project — Name, Program Name, Program ID, Client, Pipeline, Status, Dates, Currency | All users (own/shared projects only) |
+| Roles in Rate Cards | One row per role — Role Code, Role Label, Default rate, one column per client ratecard | Admin only |
 
-- Personal Access Token (PAT)
+Clicking an export button triggers a server-side CSV generation; the file is sent immediately as an email attachment to the logged-in user's address.
 
-Used for future sync features.
+#### Backup
 
-### 9.4 Data Backup and Restore
+- **Full Backup (.json):** Downloads a dated JSON snapshot of all API data (projects, roles, programs, clients, cost grids)
+- **Restore from Backup:** Admin-only. Restores from a previously downloaded backup JSON file.
 
-- **Export per store:** Download JSON for each data type (config, roles, cost grids, settings, summary selection)
-- **Full backup:** Dated JSON file containing all stores plus a version number
-- **Restore from backup:** Overwrites all stores (preserves XLS/timesheet data)
+#### Send Notification (admin only)
+
+Admins can compose and send in-app notifications to a specific user or broadcast to all active users. Supports an optional deep-link URL (e.g. `/pipeline.html`, `/costgrid.html?cgId=...`) with a custom label.
 
 ---
 
-## 10. AI Sidebar
+## 10. Notifications
+
+### 10.1 Bell Icon
+
+A 🔔 bell icon in the navbar top bar shows the unread notification count. Clicking it opens a dropdown panel listing the last 50 notifications.
+
+### 10.2 Real-Time Delivery
+
+Notifications are pushed in real time via **Server-Sent Events (SSE)** — no page refresh required. New notifications appear at the top of the panel instantly.
+
+### 10.3 Notification Panel
+
+Each notification shows:
+- Title (bold)
+- Body text (optional)
+- Time ago (e.g. "3m ago")
+- Clickable deep-link if a URL was provided
+
+Clicking a notification marks it as read and navigates to the linked URL if present. "Mark all read" clears the badge in one action.
+
+### 10.4 Notification Types
+
+| Trigger | Description |
+|---|---|
+| Export ready | Sent automatically when a CSV export is requested (currently delivered via email; in-app notification planned) |
+| Admin message | Admin composes a custom message targeting a user or all users |
+| Share | When a cost grid or project is shared with you |
+
+---
+
+## 11. AI Sidebar
 
 Accessed via the "🤖 AI Chat" button in the top-right of the navbar.
 
-### 10.1 Planning Assistant (Chat)
+### 11.1 Planning Assistant (Chat)
 
 - Chat interface with conversation history
 - Context automatically built from: project config, task breakdown, role assignments, monthly allocation, owner totals
 - Calculates forward-looking allocation estimates (next 6 months)
 - User can ask free-form planning questions
 
-### 10.2 Project Analysis
+### 11.2 Project Analysis
 
 - Triggered per project from the Reporting view
 - Calls the configured AI provider with a structured project summary
@@ -355,13 +440,13 @@ Accessed via the "🤖 AI Chat" button in the top-right of the navbar.
   - Task-level performance notes
   - Concrete recommendations
 
-### 10.3 Resource Allocation Analysis
+### 11.3 Resource Allocation Analysis
 
 - Detects overlapping task allocations per resource
 - Flags overallocation (> 28 h/week on a single project)
 - Produces a prioritised issue list by severity
 
-### 10.4 Supported AI Providers
+### 11.4 Supported AI Providers
 
 - Anthropic Claude (`https://api.anthropic.com/v1/messages`)
 - OpenAI (`https://api.openai.com/v1/chat/completions`)
@@ -369,20 +454,20 @@ Accessed via the "🤖 AI Chat" button in the top-right of the navbar.
 
 ---
 
-## 11. Data Model
+## 12. Data Model
 
-All data is persisted in `localStorage` under `PDash_*` keys.
+The source of truth is PostgreSQL. `localStorage` is a read cache seeded from the API on each page load. See ARCHITECTURE.md section 5 for the full DB schema.
 
-### 11.1 Keys
+### 12.1 localStorage cache keys (UI only)
 
 | Key | Contents |
 |---|---|
-| `PDash_config` | `{ projects[], programs[], clients[], roles[], monthlyCapacity{}, globalHourlyRate }` |
-| `PDash_costGrids` | `CostGrid[]` |
-| `PDash_timesheets` | Parsed XLS data keyed by project ID |
-| `PDash_settings` | AI keys, email config, GitHub PAT, display preferences |
+| `PDash_config` | `{ projects[], programs[], clients[], roles[] }` — seeded from API |
+| `PDash_costGrids` | `CostGrid[]` — seeded from API |
+| `PDash_timesheets` | Parsed XLS data keyed by project ID — seeded from API |
+| `PDash_settings` | AI keys, GitHub PAT, display preferences |
 
-### 11.2 CostGrid Shape
+### 12.2 CostGrid Shape
 
 ```
 CostGrid {
@@ -414,7 +499,7 @@ CostGrid {
 }
 ```
 
-### 11.3 Project Shape
+### 12.3 Project Shape
 
 ```
 Project {
@@ -444,20 +529,21 @@ Project {
 
 ---
 
-## 12. Non-Functional Requirements
+## 13. Non-Functional Requirements
 
 | Requirement | Detail |
 |---|---|
-| Runtime | Browser only — no server, no build step |
-| Persistence | localStorage (client-side only; no cloud sync) |
-| Dependencies | Bootstrap 5.3.2 (CDN), Chart.js, SheetJS (XLS parsing) |
+| Runtime | Docker Compose (nginx + Node.js/Express + PostgreSQL); no frontend build step |
+| Persistence | PostgreSQL (source of truth); localStorage used as a read cache |
+| Auth | JWT in httpOnly cookie; 401 → redirect to login |
+| Dependencies (frontend) | Bootstrap 5.3.2 (CDN), Chart.js, SheetJS (XLS parsing) |
+| Dependencies (backend) | Express, pg, bcryptjs, jsonwebtoken, nodemailer, multer, xlsx |
 | Language | All UI text, alerts, and labels must be in English |
 | Design tokens | All colours and type sizes must reference CSS custom properties in `css/tokens.css` — no hardcoded hex values in JS or CSS |
-| Performance | All views must render from localStorage data without network requests (except AI calls and favicon) |
 
 ---
 
-## 13. Design System
+## 14. Design System
 
 | Token group | Description |
 |---|---|

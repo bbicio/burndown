@@ -9,7 +9,45 @@ body {
 }
 
 /* ── Layout ── */
-.app-container { max-width: 1480px; margin: 0 auto; padding: 0 var(--space-6); }
+.app-container { max-width: 100%; margin: 0 auto; padding: 0 var(--space-6); }
+
+/* ── Breadcrumb bar ── */
+:root { --breadcrumb-h: 0px; }
+body.has-breadcrumbs { --breadcrumb-h: 33px; }
+.breadcrumb-bar {
+  background: var(--surface-white);
+  border-bottom: 1px solid var(--border-light);
+  padding: 6px 24px;
+  font-size: var(--text-xs);
+}
+.breadcrumb-bar .breadcrumb-item a { color: var(--text-muted); text-decoration: none; }
+.breadcrumb-bar .breadcrumb-item a:hover { text-decoration: underline; }
+.breadcrumb-bar .breadcrumb-item.active { color: var(--text-secondary); }
+.breadcrumb-bar .breadcrumb-item + .breadcrumb-item::before { color: var(--text-disabled); }
+
+/* ── App footer ── */
+.app-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100px;
+  background: var(--brand-navy);
+  border-top: 3px solid var(--brand-magenta);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: var(--text-md);
+  font-weight: 500;
+  z-index: var(--z-fixed);
+}
+
+/* ── Notification panel ── */
+.notif-item { transition: background var(--duration-fast); }
+.notif-item:hover { background: var(--surface-subtle); }
+.notif-item.unread { border-left: 3px solid var(--brand-magenta); background: #fdf0f5; }
+.notif-item.unread:hover { background: #f9e8f0; }
 
 /* ── Primary nav tabs ── */
 .nav-main-tab {
@@ -28,6 +66,7 @@ body {
 }
 .nav-main-tab:hover  { color: rgba(255,255,255,.9); background: rgba(255,255,255,.07); }
 .nav-main-tab.active { color: var(--text-inverse); border-bottom-color: #fff; }
+a.nav-main-tab { display: inline-flex; align-items: center; text-decoration: none; }
 
 /* ── KPI cards ── */
 .kpi-card { border: none; border-left: 4px solid; border-radius: var(--radius-lg); }
@@ -136,6 +175,32 @@ thead .gantt-label-col { background: var(--indigo-50); z-index: 3; }
 }
 .pp-tooltip .tooltip-arrow::before { border-top-color: var(--border-medium) !important; }
 
+/* ── Primary button → brand magenta ─────────────────────────────────────── */
+.btn-primary {
+  --bs-btn-bg:                 var(--brand-magenta);
+  --bs-btn-border-color:       var(--brand-magenta);
+  --bs-btn-hover-bg:           #d01f6a;
+  --bs-btn-hover-border-color: #d01f6a;
+  --bs-btn-active-bg:          #b81860;
+  --bs-btn-active-border-color:#b81860;
+  --bs-btn-focus-shadow-rgb:   240, 40, 122;
+}
+.btn-outline-primary {
+  --bs-btn-color:              var(--brand-magenta);
+  --bs-btn-border-color:       var(--brand-magenta);
+  --bs-btn-hover-bg:           var(--brand-magenta);
+  --bs-btn-hover-border-color: var(--brand-magenta);
+  --bs-btn-hover-color:        #fff;
+  --bs-btn-active-bg:          #d01f6a;
+  --bs-btn-active-border-color:#d01f6a;
+  --bs-btn-focus-shadow-rgb:   240, 40, 122;
+}
+
+/* ── Admin nav tabs (dimmed to separate from main navigation) ────────────── */
+.nav-admin-tab { opacity: 0.6; font-size: var(--text-sm); }
+.nav-admin-tab:hover  { opacity: 0.85; }
+.nav-admin-tab.active { opacity: 1; }
+
 /* ── Resource planning table ── */
 #portfolioPlanningContainer { overflow-x: auto; }
 #ppResourceTable thead th { position: sticky; top: 0; }
@@ -159,7 +224,12 @@ body.pp-fullwidth .app-container { max-width: 100% !important; padding: 0 12px !
 /* ── Page layout helpers ── */
 .page-title-bar { padding: 20px 0 10px; }
 .page-title-bar h4,
-.page-title-bar h5 { margin-bottom: 0; }
+.page-title-bar h5 { margin-bottom: 0; font-size: 2rem; }
+
+/* ── Pipeline board: year dropdown button ── */
+#pbPipelineBtn { transition: opacity .15s; }
+#pbPipelineBtn:hover { opacity: .8; }
+#pbPipelineBtn:hover #pbPipelineCaret { color: var(--brand-navy) !important; }
 .page-toolbar {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 16px; padding-top: 4px; padding-bottom: 16px;

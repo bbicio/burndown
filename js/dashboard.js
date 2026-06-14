@@ -35,9 +35,14 @@ function selectProject(id) {
   selectedProjectId = id;
   const inDashboard = document.getElementById('mainContent').style.display !== 'none';
   document.getElementById('btnAiAnalysis').style.display       = (id && inDashboard && hasAiKey()) ? 'inline-block' : 'none';
-  document.getElementById('btnShareEmail').style.display       = (id && inDashboard && hasEmailConfig()) ? 'inline-block' : 'none';
+  document.getElementById('btnShareProject').style.display     = (id && inDashboard) ? 'inline-block' : 'none';
   document.getElementById('btnPlanningView').style.display     = (id && inDashboard) ? 'inline-block' : 'none';
   document.getElementById('btnConfigureProject').style.display = (id && inDashboard) ? 'inline-block' : 'none';
+  const breadcrumb = document.getElementById('breadcrumbProjectName');
+  if (breadcrumb) {
+    const proj = (config.projects || []).find(p => p.id === id);
+    breadcrumb.textContent = proj?.name || id || '';
+  }
   if (!id) {
     document.getElementById('dashboard').style.display = 'none';
     return;
@@ -944,9 +949,9 @@ function renderTaskTables(data, cfg) {
           <span class="text-muted small">Chronological entries</span>
           <div class="d-flex gap-2 align-items-center">
             <div class="btn-group btn-group-sm det-group-toggle" style="font-size:var(--text-sm)">
-              <button class="btn btn-outline-primary active" data-group="flat">Flat</button>
-              <button class="btn btn-outline-primary" data-group="role">By role</button>
-              <button class="btn btn-outline-primary" data-group="owner">By owner</button>
+              <button class="btn btn-outline-secondary active" data-group="flat">Flat</button>
+              <button class="btn btn-outline-secondary" data-group="role">By role</button>
+              <button class="btn btn-outline-secondary" data-group="owner">By owner</button>
             </div>
             <div class="det-export-btns d-flex gap-1"></div>
           </div>

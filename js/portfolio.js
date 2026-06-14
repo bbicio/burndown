@@ -38,14 +38,7 @@ function renderPortfolioSummary() {
   wrap.id = 'portfolioSummaryBlock';
 
   if (!selectedCfgs.length) {
-    wrap.innerHTML = `
-      <div class="section-card mb-4" style="border:2px dashed var(--text-disabled)">
-        <div class="section-header d-flex align-items-center gap-2" style="background:var(--surface-light);color:var(--text-muted)">
-          <span>📊 Budget Summary</span>
-          <span class="small fw-normal">— click <strong>＋ Summary</strong> on a project to add it</span>
-        </div>
-      </div>`;
-    return wrap;
+    return null;
   }
 
   const sumPhasing = {}, sumSpent = {};
@@ -165,8 +158,16 @@ function buildProjectCard(cfg, { showSummaryBtn = true } = {}) {
   const totalHours  = (cfg.tasks||[]).reduce((s,t) => s+(t.resources||[]).reduce((rs,r) => rs+(r.soldHours||0),0),0);
   const totalBudget = (cfg.tasks||[]).reduce((s,t) => s+(t.resources||[]).reduce((rs,r) => rs+(r.soldHours||0)*(r.hourlyRate||0),0),0);
   const grandTotal  = totalBudget + totalPtc;
-  const budgetBadge = totalHours > 0 || totalBudget > 0
-    ? `<span class="portfolio-budget-badge">${totalHours.toLocaleString('en-US')} h &nbsp;/&nbsp; ${fmtMoney(grandTotal)}${totalPtc > 0 ? `<span class="text-muted" style="font-size:.8em;font-weight:400"> &nbsp;(${fmtMoney(totalBudget)} fees + ${fmtMoney(totalPtc)} PTC)</span>` : ''}</span>`
+
+  // Fall back to cost-grid budget from the reporting API when project tasks are unconfigured.
+  const cgRef = cfg.costGridRef;
+  const apiBudget = (typeof getPipelineBudget === 'function' && cgRef?.versionId)
+    ? getPipelineBudget(cgRef.versionId) : null;
+  const displayFee   = totalBudget > 0 ? totalBudget   : (apiBudget?.fee   || 0);
+  const displayHours = totalHours  > 0 ? totalHours    : 0;
+  const displayTotal = displayFee + totalPtc;
+  const budgetBadge = displayFee > 0 || displayHours > 0
+    ? `<span class="portfolio-budget-badge">${displayHours > 0 ? displayHours.toLocaleString('en-US') + ' h &nbsp;/&nbsp; ' : ''}${fmtMoney(displayTotal)}${totalPtc > 0 ? `<span class="text-muted" style="font-size:.8em;font-weight:400"> &nbsp;(${fmtMoney(displayFee)} fees + ${fmtMoney(totalPtc)} PTC)</span>` : ''}${apiBudget && totalBudget === 0 ? '<span class="text-muted" style="font-size:.75em;margin-left:4px">(from cost grid)</span>' : ''}</span>`
     : '';
 
   const summaryBtnHtml = showSummaryBtn ? `
@@ -186,9 +187,11 @@ function buildProjectCard(cfg, { showSummaryBtn = true } = {}) {
         ${!hasData ? '<span class="badge bg-warning text-dark">no XLS data</span>' : ''}
         ${budgetBadge}
       </div>
-      <div class="d-flex gap-2">
+      <div class="d-flex gap-2 flex-wrap">
         <button class="btn btn-sm btn-outline-secondary cfg-project-btn">⚙️ Configure</button>
-        <button class="btn btn-sm btn-outline-info portfolio-planning-btn">📅 Planning</button>
+        <button class="btn btn-sm btn-outline-secondary portfolio-share-btn" title="Share project">🔗 Share</button>
+        <button class="btn btn-sm btn-outline-secondary load-actuals-btn" title="Upload XLS actuals for this project">📂 Load Actuals</button>
+        <button class="btn btn-sm btn-outline-secondary portfolio-planning-btn">📅 Planning</button>
         <button class="btn btn-sm ${hasData ? 'btn-primary' : 'btn-outline-secondary'} view-report-btn"
                 ${!hasData ? 'disabled' : ''}>📊 View Report →</button>
         ${summaryBtnHtml}
@@ -207,8 +210,16 @@ function buildProjectCard(cfg, { showSummaryBtn = true } = {}) {
       </table>
     </div>`;
 
-  card.querySelector('.cfg-project-btn').addEventListener('click', () => openConfigModal(cfg.id));
+  card.querySelector('.cfg-project-btn').addEventListener('click', () => {
+    window.location.href = '/project-config.html?projectId=' + encodeURIComponent(cfg.id);
+  });
   card.querySelector('.view-report-btn').addEventListener('click', () => showDashboardView(cfg.id));
+  card.querySelector('.portfolio-share-btn').addEventListener('click', () => {
+    if (typeof openShareModal === 'function') openShareModal('project', cfg.id, cfg.name || cfg.id);
+  });
+  card.querySelector('.load-actuals-btn').addEventListener('click', () => {
+    if (typeof window.triggerLoadActuals === 'function') window.triggerLoadActuals(cfg.id);
+  });
   card.querySelector('.portfolio-planning-btn').addEventListener('click', () => {
     portfolioProjectFilters.clear();
     portfolioProjectFilters.add(cfg.id);
@@ -308,7 +319,7 @@ function renderPortfolioView() {
   const projects  = config.projects || [];
 
   if (!projects.length) {
-    container.innerHTML = '<div class="alert alert-info">No projects configured. Click ⚙️ Configure Portfolio to add projects.</div>';
+    container.innerHTML = '<div class="alert alert-info">No projects configured. Click <strong>＋ New project</strong> to add one.</div>';
     return;
   }
 
@@ -347,7 +358,7 @@ function renderPortfolioView() {
   });
   container.appendChild(toolbar);
 
-  // Global summary block
+  // Global summary block (only shown when at least one project is pinned)
   const summaryEl = renderPortfolioSummary();
   if (summaryEl) container.appendChild(summaryEl);
 
@@ -408,8 +419,9 @@ function renderPortfolioView() {
             <span class="badge" style="background:#ede8ff;color:var(--violet-500);font-size:var(--text-xs)">${children.length} project${children.length===1?'':'s'}</span>
           </div>
           <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-secondary prog-share-btn" style="font-size:var(--text-sm)">🔗 Share Program</button>
             <button class="btn btn-sm btn-outline-secondary prog-toggle-btn" style="font-size:var(--text-sm)">
-              ${isCollapsed ? '▶ Show projects' : '▼ Hide projects'}
+              ${isCollapsed ? '▶ Show Child Projects' : '▼ Hide Child Projects'}
             </button>
           </div>
         </div>
@@ -417,6 +429,10 @@ function renderPortfolioView() {
         <div class="prog-children" style="${isCollapsed ? 'display:none' : ''}">
           <div class="prog-project-list px-2 pb-2 pt-1"></div>
         </div>`;
+
+      programBlock.querySelector('.prog-share-btn').addEventListener('click', () => {
+        if (typeof openShareModal === 'function') openShareModal('program', prog.id, prog.name);
+      });
 
       programBlock.querySelector('.prog-toggle-btn').addEventListener('click', () => {
         if (_expandedPrograms.has(prog.id)) _expandedPrograms.delete(prog.id);
@@ -442,6 +458,10 @@ function renderPortfolioView() {
 }
 
 function showPortfolioView() {
+  if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
+    { label: 'Home', href: '/pipeline.html' },
+    { label: 'Project Portfolio' },
+  ]);
   planningReturnToBurndown = false;
   portfolioProjectFilters.clear();
   document.getElementById('portfolioSection').style.display          = 'block';
@@ -451,7 +471,7 @@ function showPortfolioView() {
   document.getElementById('costGridEditorSection').style.display     = 'none';
   document.getElementById('pipelineBoardSection').style.display      = 'none';
   document.getElementById('btnAiAnalysis').style.display             = 'none';
-  document.getElementById('btnShareEmail').style.display             = 'none';
+  document.getElementById('btnShareProject').style.display           = 'none';
   document.getElementById('btnConfigureProject').style.display       = 'none';
   selectedProjectId = null;
   updateNavState('reporting');
@@ -467,7 +487,7 @@ function showPortfolioPlanningView() {
   document.getElementById('costGridEditorSection').style.display     = 'none';
   document.getElementById('pipelineBoardSection').style.display      = 'none';
   document.getElementById('btnAiAnalysis').style.display             = 'none';
-  document.getElementById('btnShareEmail').style.display             = 'none';
+  document.getElementById('btnShareProject').style.display           = 'none';
   document.getElementById('btnConfigureProject').style.display       = 'none';
   updateNavState('planning');
   renderPortfolioPlanningView();
@@ -475,6 +495,11 @@ function showPortfolioPlanningView() {
 
 function showDashboardView(pid) {
   const cfg = cfgForProject(pid);
+  if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
+    { label: 'Home', href: '/pipeline.html' },
+    { label: 'Project Portfolio', href: '/portfolio.html' },
+    { label: cfg?.name || pid },
+  ]);
   document.getElementById('portfolioSection').style.display          = 'none';
   document.getElementById('portfolioPlanningSection').style.display  = 'none';
   document.getElementById('uploadSection').style.display             = 'none';

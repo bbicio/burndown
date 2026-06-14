@@ -25,7 +25,9 @@ function openConfigModal(projectId) {
   }
   cfgSelectProject(startIdx);
 
-  new bootstrap.Modal(document.getElementById('configModal')).show();
+  if (!window.__cfgFullPage) {
+    new bootstrap.Modal(document.getElementById('configModal')).show();
+  }
 }
 
 function cfgUpdateModelDropdown(provider, selectedModel) {
@@ -146,7 +148,7 @@ function cfgRenderCostGridRef(ref) {
     <div class="alert alert-info py-2 px-3 mb-2 d-flex align-items-center gap-2" style="font-size:var(--text-base)">
       <span>📋</span>
       <span>Generated from Cost Grid <strong>${esc(cgName)}</strong> — version <strong>${esc(verLabel)}</strong></span>
-      <button class="btn btn-sm btn-outline-info py-0 px-2 ms-auto" style="font-size:var(--text-xs)"
+      <button class="btn btn-sm btn-outline-secondary py-0 px-2 ms-auto" style="font-size:var(--text-xs)"
         onclick="bootstrap.Modal.getInstance(document.getElementById('configModal'))?.hide(); showCostGridEditorView('${esc(ref.cgId)}','${esc(ref.versionId)}')">
         Open →
       </button>
@@ -313,7 +315,7 @@ function cfgMakeTaskCard(task) {
         </tfoot>
       </table>
     </div>
-    <button class="btn btn-sm btn-outline-primary cfg-add-res-btn">+ Add resource</button>`;
+    <button class="btn btn-sm btn-primary cfg-add-res-btn">+ Add resource</button>`;
 
   const updateTotals = () => cfgUpdateTaskTotals(card);
 
@@ -1066,13 +1068,30 @@ function saveConfig() {
       // Clean up XLS data for any projects that were deleted in this editing session
       const oldIds = new Set((config.projects || []).map(p => p.id).filter(Boolean));
       const newIds = new Set((cfgEditConfig.projects || []).map(p => p.id).filter(Boolean));
-      oldIds.forEach(id => { if (!newIds.has(id)) clearProjectData(id); });
+      oldIds.forEach(id => {
+        if (!newIds.has(id)) {
+          clearProjectData(id);
+          if (typeof _deleteProjectFromApi !== 'undefined')
+            _deleteProjectFromApi(id).catch(e => console.warn('[sync] project delete:', e.message));
+        }
+      });
       config = cfgEditConfig;
     } else {
       config = JSON.parse(document.getElementById('configEditor').value);
     }
     persistConfig();
-    updateAiButtonVisibility();
+    // Sync all projects to API (fire-and-forget)
+    if (typeof _pushProjectToApi !== 'undefined') {
+      (config.projects || []).forEach(p =>
+        _pushProjectToApi(p).catch(e => console.warn('[sync] project push:', e.message))
+      );
+    }
+    if (typeof updateAiButtonVisibility === 'function') updateAiButtonVisibility();
+
+    if (window.__cfgFullPage) {
+      window.location.href = '/portfolio.html';
+      return;
+    }
 
     // Capture active section BEFORE hiding the modal (modal hide is async/animated).
     const inCgEditor  = document.getElementById('costGridEditorSection')?.style.display !== 'none';

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Timesheets</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+    /* ── PAGE ────────────────────────────────────────────── */
+    .page { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+    .page-header h1 { font-size: 2.5rem; font-weight: 700; margin: 0; color: var(--brand-navy); }
+
+    /* ── CARD ────────────────────────────────────────────── */
+    .card { border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    .card-body { padding: 0; }
+
+    /* ── TABLE ───────────────────────────────────────────── */
+    .table { margin: 0; font-size: 0.875rem; }
+    .table thead th { background: #f9fafb; border-bottom: 1px solid #e5e7eb;
+                      font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
+                      letter-spacing: 0.04em; color: #6b7280; padding: 0.75rem 1rem; }
+    .table tbody td { padding: 0.85rem 1rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6; }
+    .table tbody tr:last-child td { border-bottom: none; }
+    .table tbody tr:hover td { background: #fafafa; }
+
+    /* ── MISC ────────────────────────────────────────────── */
+    .empty { text-align: center; padding: 3rem 1rem; color: #9ca3af; font-size: 0.875rem; }
+    .alert-sm { font-size: 0.83rem; padding: 0.5rem 0.75rem; }
+    code { background: #f3f4f6; border-radius: 4px; padding: 1px 5px; font-size: .82rem; color: #374151; }
+  </style>
+</head>
+<body>
+
+<div id="nav-container"></div>
+
+<div id="app">
+  <div class="page" v-if="ready">
+
+    <!-- ── HEADER ─────────────────────────────────────────── -->
+    <div class="page-header">
+      <h1>Timesheets
+        <span class="text-muted fw-normal" style="font-size:1rem" v-if="rows.length">({{ rows.length }} project{{ rows.length !== 1 ? 's' : '' }})</span>
+      </h1>
+    </div>
+
+    <!-- ── GLOBAL ERROR ──────────────────────────────────── -->
+    <div v-if="error" class="alert alert-danger alert-sm mb-3">{{ error }}</div>
+
+    <!-- ── HINT ───────────────────────────────────────────── -->
+    <p class="text-muted mb-3" style="font-size:.78rem">
+      Each row represents one project code. Uploading a new XLS for a project replaces all previous data for that code.
+      <strong>Delete all</strong> permanently removes every timesheet row for that project from the database.
+      Use <strong>Load XLS</strong> in Project Reporting to import new data.
+    </p>
+
+    <!-- ── TABLE ─────────────────────────────────────────── -->
+    <div class="card">
+      <div class="card-body">
+        <table class="table table-hover" v-if="rows.length">
+          <thead>
+            <tr>
+              <th>Project code</th>
+              <th class="text-end">Uploads</th>
+              <th class="text-end">Rows</th>
+              <th>Last uploaded</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in rows" :key="r.project_code">
+              <td><code>{{ r.project_code }}</code></td>
+              <td class="text-end text-muted">{{ r.uploads }}</td>
+              <td class="text-end fw-semibold">{{ r.total_rows.toLocaleString() }}</td>
+              <td class="text-muted">{{ fmtDate(r.last_uploaded) }}</td>
+              <td class="text-end" style="white-space:nowrap">
+                <a :href="'/portfolio.html?projectId=' + encodeURIComponent(r.project_code)"
+                   class="btn btn-outline-secondary btn-sm me-1" style="font-size:.78rem">
+                  📊 View
+                </a>
+                <button class="btn btn-outline-danger btn-sm"
+                        style="font-size:.78rem"
+                        :disabled="r._loading"
+                        @click="deleteCode(r)">
+                  <span v-if="r._loading" class="spinner-border spinner-border-sm"></span>
+                  <span v-else>🗑 Delete all</span>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="empty" v-else>
+          <div style="font-size:2rem">📂</div>
+          <p class="mt-2 mb-0">No timesheets uploaded yet.</p>
+          <p class="text-muted small">Use <strong>Load XLS</strong> in the Project Reporting view to import timesheets.</p>
+        </div>
+      </div>
+    </div>
+
+
+  </div>
+
+  <!-- Loading -->
+  <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
+    <div class="spinner-border text-secondary"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="js/api.js?v=2"></script>
+<script>
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+<script src="js/core.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/nav.js"></script>
+
+<script>
+  Vue.createApp({
+    data() {
+      return {
+        ready: false,
+        rows:  [],
+        error: null,
+      };
+    },
+
+    async created() {
+      const user = await initNav('timesheets', { breadcrumbs: [
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Timesheets' },
+      ]});
+      if (!user) return;
+      if (user.role !== 'admin') { window.location.href = '/pipeline.html'; return; }
+      await this.loadRows();
+      this.ready = true;
+    },
+
+    methods: {
+      async loadRows() {
+        this.error = null;
+        try {
+          this.rows = await Api.timesheets.list();
+        } catch (e) {
+          this.error = e.message || 'Failed to load timesheets.';
+        }
+      },
+
+      async deleteCode(row) {
+        const code = row.project_code;
+        if (!confirm(`Delete ALL timesheet data for project "${code}"?\n\nThis removes ${row.uploads} upload${row.uploads !== 1 ? 's' : ''} (${row.total_rows.toLocaleString()} rows). This cannot be undone.`)) return;
+        row._loading = true;
+        this.error = null;
+        try {
+          await Api.timesheets.delete(code);
+          await this.loadRows();
+        } catch (e) {
+          this.error = e.message || 'Delete failed.';
+          row._loading = false;
+        }
+      },
+
+      fmtDate(iso) {
+        if (!iso) return '—';
+        return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      },
+    },
+  }).mount('#app');
+</script>
+</body>
+</html>

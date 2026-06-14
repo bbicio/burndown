@@ -1,7 +1,7 @@
 # PDash — Architecture Document
 
 **Version:** 1.0
-**Date:** 2026-06-09
+**Date:** 2026-06-14
 **Status:** Approved
 
 ---
@@ -18,8 +18,7 @@ The frontend remains Vanilla JS in the short term. New pages (login, account act
 
 | Layer | Technology | Rationale |
 |---|---|---|
-| Frontend (new pages) | Vue 3 (CDN) | Component model for auth/profile pages; low migration cost |
-| Frontend (existing views) | Vanilla JS → Vue 3 (incremental) | No big-bang rewrite |
+| Frontend | Vanilla JS (multi-page) | No build step; each page is a self-contained HTML file |
 | Backend | Node.js + Express | Same language as frontend; mature auth/email ecosystem |
 | Database | PostgreSQL | Relational + JSONB; scales well for analytical queries |
 | Auth | JWT + httpOnly cookies | Stateless; protected from XSS |
@@ -46,7 +45,8 @@ The frontend remains Vanilla JS in the short term. New pages (login, account act
 | Manage clients | ✅ | read-only |
 | Manage programs | ✅ | read-only |
 | Manage roles + rates | ✅ | read-only |
-| Create / edit ratecards | ✅ | ❌ |
+| View ratecards | ✅ | ✅ |
+| Create / edit / delete ratecards | ✅ | ❌ |
 | View all cost grids | ✅ | own + shared |
 | View all projects | ✅ | own + shared |
 | View all planning | ✅ | own + shared |
@@ -197,18 +197,21 @@ cost_grids (
 )
 
 cost_grid_versions (
-  id           UUID PRIMARY KEY,
-  cost_grid_id UUID NOT NULL REFERENCES cost_grids(id) ON DELETE CASCADE,
-  label        VARCHAR NOT NULL,
-  pipeline     VARCHAR CHECK (pipeline IN
-               ('SIP','Expected','Anticipated','Committed','Canceled')),
-  start_date   DATE,
-  end_date     DATE,
-  currency     CHAR(3) DEFAULT 'EUR',
-  note         TEXT,
-  locked       BOOLEAN DEFAULT FALSE,
-  ratecard_id  UUID REFERENCES ratecards(id),
-  created_at   TIMESTAMPTZ DEFAULT NOW()
+  id            UUID PRIMARY KEY,
+  cost_grid_id  UUID NOT NULL REFERENCES cost_grids(id) ON DELETE CASCADE,
+  label         VARCHAR NOT NULL,
+  pipeline      VARCHAR CHECK (pipeline IN
+                ('Draft','SIP','Expected','Anticipated','Committed','Canceled')),
+  pipeline_year INTEGER,              -- year bucket (FK enforced at app level via pipeline_years)
+  start_date    VARCHAR(6),           -- YYYYMM (migration 007 changed from DATE)
+  end_date      VARCHAR(6),           -- YYYYMM (migration 007 changed from DATE)
+  currency      CHAR(3) DEFAULT 'EUR',
+  note          TEXT,
+  locked        BOOLEAN DEFAULT FALSE,
+  ratecard_id   UUID REFERENCES ratecards(id),
+  client_id     UUID REFERENCES clients(id) ON DELETE SET NULL,  -- migration 008
+  project_name  VARCHAR(255) NOT NULL DEFAULT '',                -- migration 009
+  created_at    TIMESTAMPTZ DEFAULT NOW()
 )
 
 phases (
@@ -219,11 +222,14 @@ phases (
 )
 
 tasks (
-  id         UUID PRIMARY KEY,
-  phase_id   UUID NOT NULL REFERENCES phases(id) ON DELETE CASCADE,
-  title      VARCHAR NOT NULL,
-  ptc        DECIMAL(10,2) DEFAULT 0,
-  sort_order INTEGER NOT NULL DEFAULT 0
+  id          UUID PRIMARY KEY,
+  phase_id    UUID NOT NULL REFERENCES phases(id) ON DELETE CASCADE,
+  title       VARCHAR NOT NULL,
+  description TEXT    NOT NULL DEFAULT '',
+  start_date  VARCHAR(8)  NOT NULL DEFAULT '',   -- YYYYMMDD
+  end_date    VARCHAR(8)  NOT NULL DEFAULT '',   -- YYYYMMDD
+  ptc         DECIMAL(10,2) DEFAULT 0,
+  sort_order  INTEGER NOT NULL DEFAULT 0
 )
 
 task_roles (
@@ -260,6 +266,8 @@ projects (
   cg_version_id UUID REFERENCES cost_grid_versions(id),
   phasing       JSONB,              -- { "YYYYMM": amount }
   ptc           JSONB,              -- [{ label, amount, month }]
+  planning      JSONB,              -- { "YYYYMM": hours } monthly hour planning
+  groups        JSONB,              -- [{ name, roles[] }] functional role groups
   created_at    TIMESTAMPTZ DEFAULT NOW()
 )
 
@@ -277,7 +285,45 @@ project_tasks (
 )
 ```
 
-### 5.5 Sharing
+### 5.5 Client Groups and POT Targets
+
+```sql
+client_groups (
+  id         UUID PRIMARY KEY,
+  name       VARCHAR(255) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)
+
+-- clients.group_id UUID REFERENCES client_groups(id) ON DELETE SET NULL  (added in migration 005)
+
+pots (
+  id              UUID PRIMARY KEY,
+  client_group_id UUID REFERENCES client_groups(id) ON DELETE CASCADE,
+  client_id       UUID REFERENCES clients(id) ON DELETE CASCADE,
+  year            INTEGER NOT NULL,
+  amount          NUMERIC(14,2) NOT NULL CHECK (amount >= 0),
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  -- CONSTRAINT: exactly one of client_group_id / client_id must be set
+)
+
+pot_history (
+  id         UUID PRIMARY KEY,
+  pot_id     UUID NOT NULL REFERENCES pots(id) ON DELETE CASCADE,
+  old_value  NUMERIC(14,2),
+  new_value  NUMERIC(14,2) NOT NULL,
+  changed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)
+
+pipeline_years (
+  id         UUID PRIMARY KEY,
+  year       INTEGER NOT NULL UNIQUE,
+  active     BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)
+```
+
+### 5.6 Sharing
 
 ```sql
 resource_shares (
@@ -292,7 +338,23 @@ resource_shares (
 )
 ```
 
-### 5.6 Timesheets
+### 5.7 Notifications
+
+```sql
+notifications (
+  id         UUID PRIMARY KEY,
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type       VARCHAR(50)  NOT NULL DEFAULT 'info',
+  title      VARCHAR(255) NOT NULL,
+  body       TEXT,
+  url        VARCHAR(500),          -- optional deep-link inside the app
+  url_label  VARCHAR(100),
+  read_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)
+```
+
+### 5.8 Timesheets
 
 ```sql
 timesheets (
@@ -356,20 +418,30 @@ timesheets (
 | PATCH/DELETE | /api/programs/:id | admin | Update / delete |
 | GET/POST | /api/roles | admin | List / create |
 | PATCH/DELETE | /api/roles/:id | admin | Update / delete |
-| GET/POST | /api/ratecards | admin | List / create |
-| GET | /api/ratecards/:id | admin | Detail |
+| GET | /api/ratecards | ✅ | List (all authenticated users) |
+| POST | /api/ratecards | admin | Create |
+| GET | /api/ratecards/:id | ✅ | Detail (all authenticated users) |
 | POST | /api/ratecards/clone | admin | Clone global → per client |
 | PATCH | /api/ratecards/:id/entries | admin | Bulk update entries |
 | DELETE | /api/ratecards/:id | admin | Delete |
+
+**Ratecard integration in the cost grid editor**
+
+- Client-specific rates are set via the **💲 Costgrid** button on each client row in `config.html` → Clients tab. The modal lists all roles; custom rates override the agency default for that client.
+- The cost grid version form has a **Rate card** dropdown. When a ratecard is selected, `costgrid.js` populates `_cgActiveRatecardMap` (roleId → rate) via `cgUpdateActiveRatecardMap()` (backed by the `loadRatecardsForDropdown()` cache in `ratecards.js`).
+- Rate cells in the grid use this map as the **baseline**: a cell is only marked yellow (`✎ custom`) when the user manually enters a value that differs from the ratecard rate. Clearing the cell restores the ratecard rate (not the bare agency default).
+- The **👥 Add role** modal applies the same map: roles with a custom ratecard entry are highlighted with an indigo badge (`✦ rate €/h`) and a light purple row background. The rate stored in `_cgDraft.roles` on add is the ratecard rate, so no false positive "custom" flag on first render.
+- `_cgActiveRatecardMap` is refreshed on: version open → `cgPopulateRatecardDropdown()`, ratecard dropdown change, and "Add role" modal open.
 
 ### Cost Grid
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | GET/POST | /api/cost-grids | ✅ | List / create |
+| GET | /api/cost-grids/budgets | ✅ | Pre-computed fee + PTC totals per version (all visible versions) |
 | PATCH/DELETE | /api/cost-grids/:id | owner/admin | Update / delete |
-| GET/POST | /api/cost-grids/:id/versions | ✅ | List / create version |
-| PATCH/DELETE | /api/cost-grids/:id/versions/:vId | owner/admin | Update / delete version |
+| GET/POST | /api/cost-grids/:id/versions | ✅ | List / create version — both accept `clientId` |
+| PATCH/DELETE | /api/cost-grids/:id/versions/:vId | owner/admin | Update / delete version — PATCH accepts `clientId`, `ratecardId`, `label`, `pipeline`, `startDate`, `endDate`, `note` |
 | POST | /api/cost-grids/:id/versions/:vId/duplicate | owner/admin | Duplicate version |
 | GET/PUT | /api/cost-grids/:id/versions/:vId/structure | owner/admin | Get / save bulk structure |
 | GET/POST/DELETE | /api/cost-grids/:id/versions/:vId/linked-projects | owner/admin | Manage linked projects |
@@ -384,19 +456,83 @@ timesheets (
 | GET/PUT | /api/projects/:id/tasks | owner/admin | Get / save bulk tasks |
 | PATCH | /api/projects/:id/phasing | owner/admin | Update phasing |
 | PATCH | /api/projects/:id/ptc | owner/admin | Update PTC |
+| PATCH | /api/projects/:id/planning | owner/admin | Update monthly hour planning |
+| PATCH | /api/projects/:id/groups | owner/admin | Update functional role groups |
 | GET/POST/DELETE | /api/projects/:id/shares | owner/admin | Manage sharing |
 
 ### Timesheet + Reporting
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | /api/timesheets | ✅ | List uploaded timesheets |
+| GET | /api/timesheets | ✅ | List uploaded timesheets (summary) |
+| GET | /api/timesheets/all-data | ✅ | All timesheet rows merged (for dashboard seed) |
 | POST | /api/timesheets/upload | ✅ | Upload XLS file |
 | DELETE | /api/timesheets/:projectCode | owner/admin | Remove timesheet data |
 | GET | /api/reporting/portfolio | ✅ | Portfolio budget overview |
 | GET | /api/reporting/projects/:id | ✅ | Single project reporting |
 | GET | /api/reporting/planning | ✅ | Resource planning aggregates |
 | GET | /api/reporting/pipeline | ✅ | Pipeline kanban data |
+
+### Exports (CSV via email)
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| POST | /api/exports/portfolio | ✅ | CSV of all accessible projects → emailed as attachment |
+| POST | /api/exports/cost-grids | ✅ | Pivoted CSV of all accessible cost grids (one row per task, role-code columns) → emailed |
+| POST | /api/exports/ratecards | admin | Pivoted CSV of all ratecards (roles × clients) → emailed |
+
+### Pipeline Years
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | /api/pipeline-years | ✅ | List years (admin: all; user: active only) |
+| POST | /api/pipeline-years | admin | Create year (2000–2100) |
+| PATCH | /api/pipeline-years/:id | admin | Toggle active/inactive |
+| DELETE | /api/pipeline-years/:id | admin | Delete (blocked if versions reference it) |
+
+### Client Groups
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | /api/client-groups | admin | List all groups with member clients |
+| POST | /api/client-groups | admin | Create group |
+| PATCH | /api/client-groups/:id | admin | Rename group |
+| DELETE | /api/client-groups/:id | admin | Delete group |
+| POST | /api/client-groups/:id/members | admin | Assign client to group |
+| DELETE | /api/client-groups/:id/members/:clientId | admin | Remove client from group |
+
+### POT Targets
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | /api/pots | admin | List POTs (filter: `?year=`) |
+| POST | /api/pots | admin | Create POT (clientGroupId or clientId + year + amount) |
+| PATCH | /api/pots/:id | admin | Update amount (logs to pot_history) |
+| DELETE | /api/pots/:id | admin | Delete POT |
+| GET | /api/pots/:id/history | admin | Amount change history |
+| GET | /api/pots/summary | ✅ | Aggregated pipeline value vs. POT target for a client/group + year |
+| GET | /api/pots/pipeline-summary?year= | admin | Per-stage count + professional-fee total for a pipeline year (all 5 stages, Draft excluded) |
+| GET | /api/pots/:id/details?year= | admin | POT metadata + change history + committed total + all scoped proposals (Canceled included, Draft excluded) |
+
+### Notifications
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | /api/notifications/stream | ✅ | SSE stream — real-time push for the current user |
+| GET | /api/notifications | ✅ | Last 50 notifications for current user |
+| GET | /api/notifications/unread-count | ✅ | `{ count: N }` |
+| PATCH | /api/notifications/read-all | ✅ | Mark all as read |
+| PATCH | /api/notifications/:id/read | ✅ | Mark one as read |
+| POST | /api/notifications | admin | Create notification(s); `userId` targets one user, omit to broadcast |
+
+### Admin — Bulk Reset
+
+Scopes: `proposals`, `projects`, `clients`, `ratecards`, `actuals`, `pipelines`. Each runs inside a DB transaction.
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | /api/admin/reset/scopes | admin | List all available scopes with human-readable labels |
+| POST | /api/admin/reset/:scope | admin | Delete all data for the given scope; returns `{ ok, scope, deleted }` |
 
 ---
 
@@ -410,9 +546,9 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: pdash
-      POSTGRES_USER: pdash
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-pdash}
+      POSTGRES_USER: ${POSTGRES_USER:-pdash}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -421,23 +557,28 @@ services:
   api:
     build: ./api
     environment:
-      DATABASE_URL: postgres://pdash:${DB_PASSWORD}@db:5432/pdash
+      DATABASE_URL: postgres://${POSTGRES_USER:-pdash}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pdash}
       JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
       SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
+      SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER}
       SMTP_PASS: ${SMTP_PASS}
-      APP_URL: ${APP_URL}
+      APP_URL: ${APP_URL:-http://localhost}
+      NODE_ENV: ${NODE_ENV:-development}
     ports:
       - "3000:3000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    volumes:
+      - ./api/src:/app/src   # hot reload in development
 
   nginx:
     image: nginx:alpine
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./:/usr/share/nginx/html:ro
     ports:
       - "80:80"
     depends_on:
@@ -453,15 +594,46 @@ volumes:
 burndown/
   api/                    ← Node.js + Express backend
     src/
-      routes/             ← auth, users, clients, cost-grids, projects, ...
-      middleware/         ← auth guard, role check, ownership check
-      db/                 ← PostgreSQL client, migrations
-      services/           ← email, jwt, ratecard clone, ...
+      routes/             ← auth, users, config, cost-grids, projects, timesheets, reporting, exports, notifications, reset
+      middleware/         ← auth guard (requireAuth, requireAdmin)
+      db/                 ← PostgreSQL pool client, migrations/
+      services/           ← email (nodemailer), jwt
+      create-admin.js     ← CLI bootstrap: create/reset admin user
     Dockerfile
     package.json
   css/
+    tokens.css            ← design tokens (single source of truth)
+    style.css
   js/
-  index.html
+    api.js                ← Api.* namespace, apiFetch wrapper
+    api-sync.js           ← localStorage ↔ API sync helpers
+    core.js               ← state, localStorage, shared helpers
+    nav.js                ← navbar injection, initNav(); injects settings + change-pwd modals; calls initNotifications()
+    shares.js             ← generic share modal
+    notifications.js      ← SSE client, bell badge, notification dropdown panel
+    pipeline-board.js     ← kanban board
+    costgrid.js           ← cost grid editor
+    portfolio.js          ← portfolio dashboard
+    dashboard.js          ← per-project KPI/burndown
+    config-form.js        ← project config form
+    roles.js              ← roles management modal
+    ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js
+    upload.js             ← XLS parsing
+    settings.js           ← settings modal logic (openSettingsModal, stgExport, downloadFullBackup)
+    ai.js                 ← AI sidebar
+    clients.js / programs.js
+  index.html              ← redirect → pipeline.html
+  pipeline.html
+  portfolio.html
+  planning.html
+  costgrid.html
+  timesheets.html
+  config.html
+  project-config.html     ← full-page project config form
+  admin.html
+  login.html / activate.html / reset-password.html
+  migration.html          ← one-time localStorage → API migration tool
+  _db-reset.html          ← admin-only hidden page for bulk DB data deletion by scope
   nginx.conf
   docker-compose.yml
   .env.example
@@ -471,27 +643,30 @@ burndown/
 
 ## 8. Migration Strategy
 
-The current app stores all data in localStorage under `PDash_*` keys. Migration happens in two phases:
+**Status: Complete.** The localStorage → API migration has been completed.
 
-### Phase 1 — Backend + Auth (parallel run)
+The `migration.html` tool was used for the one-time migration of existing localStorage data into the PostgreSQL database. It is kept in the repo for reference and disaster recovery but is no longer needed for new installations.
 
-- Build backend API and DB schema
-- Add login page and JWT auth layer
-- Existing PDash views continue reading from localStorage
-- New admin pages (users, ratecards) read from API
+New users start fresh: an admin creates an account via the invite flow, then uses the app directly against the API. No localStorage-only mode remains.
 
-### Phase 2 — Frontend migration (view by view)
+### DB migrations
 
-Replace localStorage reads/writes with API calls, one view at a time:
+Numbered SQL files in `api/src/db/migrations/`. Apply individually via:
 
-1. Config (clients, programs, roles) → `/api/clients`, `/api/programs`, `/api/roles`
-2. Cost Grid editor → `/api/cost-grids`
-3. Pipeline Board → `/api/reporting/pipeline`
-4. Resource Planning → `/api/reporting/planning`
-5. Project Reporting → `/api/reporting/portfolio`
-6. Timesheet upload → `/api/timesheets/upload`
+```powershell
+docker exec pdash-db psql -U pdash -d pdash -c "$(Get-Content api/src/db/migrations/002_add_project_extra.sql -Raw)"
+```
 
-Each view can be migrated independently. localStorage data can be exported via the existing backup function and imported into the DB via a one-time migration script.
+Current migrations:
+- `001_initial.sql` — full schema (users, projects, cost grids, shares, timesheets, ratecards, etc.)
+- `002_add_project_extra.sql` — adds `planning` and `groups` JSONB columns to `projects`
+- `003_add_task_description_dates.sql` — adds `description`, `start_date`, `end_date` to `tasks`
+- `004_add_notifications.sql` — adds `notifications` table + indexes
+- `005_drafts_pipeline_year_pot.sql` — adds `Draft` pipeline stage; `pipeline_year` column on `cost_grid_versions`; `client_groups`; `pots` + `pot_history`
+- `006_pipeline_years.sql` — adds `pipeline_years` table (admin-managed visible years) with seed row for current year
+- `007_version_date_varchar.sql` — converts `cost_grid_versions.start_date` and `end_date` from `DATE` to `VARCHAR(6)` (`YYYYMM`)
+- `008_version_client.sql` — adds `client_id UUID` to `cost_grid_versions` (stored directly on the version, independently of linked projects)
+- `009_version_project_name.sql` — adds `project_name VARCHAR(255)` to `cost_grid_versions` (display name shown on pipeline cards and used as default when generating a linked project)
 
 ---
 

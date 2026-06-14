@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Configuration</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+    .page { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
+    .page-header h1 { font-size: 2.5rem; font-weight: 700; margin: 0; color: var(--brand-navy); }
+
+    .section-title {
+      font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+      color: #6b7280; margin-bottom: .75rem; display: flex; align-items: center;
+      justify-content: space-between;
+    }
+
+    .card { border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.05); margin-bottom: 2rem; }
+    .card-body { padding: 0; }
+
+    .table { margin: 0; font-size: .875rem; }
+    .table thead th {
+      background: #f9fafb; border-bottom: 1px solid #e5e7eb;
+      font-size: .78rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .04em; color: #6b7280; padding: .65rem 1rem;
+    }
+    .table tbody td { padding: .75rem 1rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6; }
+    .table tbody tr:last-child td { border-bottom: none; }
+    .table tbody tr:hover td { background: #fafafa; }
+
+    .team-sep td { background: #f0f2ff; font-size: .75rem; font-weight: 700; color: #5468c4;
+                   padding: 4px 1rem; border-top: 2px solid #c5cef7; }
+
+    .form-card {
+      border: 1px solid #e5e7eb; border-radius: 8px;
+      background: #fff; padding: 1rem 1.25rem; margin-bottom: 1.25rem;
+    }
+    .form-card-title { font-size: .82rem; font-weight: 700; color: var(--brand-navy); margin-bottom: .75rem; }
+
+    .cfg-tabs { border-bottom: 2px solid var(--border-light); margin-bottom: 1.5rem; display: flex; gap: 0; }
+    .cfg-tab-btn { background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
+                   padding: .6rem 1.25rem; font-size: .88rem; font-weight: 600; color: #6b7280; cursor: pointer; }
+    .cfg-tab-btn:hover { color: var(--brand-navy); }
+    .cfg-tab-btn.active { color: var(--brand-magenta); border-bottom-color: var(--brand-magenta); }
+
+    .empty { text-align: center; padding: 2.5rem 1rem; color: #9ca3af; font-size: .875rem; }
+    .alert-sm { font-size: .83rem; padding: .5rem .75rem; }
+    code { background: #f3f4f6; border-radius: 4px; padding: 1px 5px; font-size: .82rem; color: #374151; }
+
+    .rate-warn { color: #dc3545; font-size: .75rem; }
+  </style>
+</head>
+<body>
+
+<div id="nav-container"></div>
+
+<div id="app">
+
+  <!-- ── LOADING / ACCESS DENIED ──────────────────────────────── -->
+  <div v-if="!ready && !accessDenied"
+       class="d-flex align-items-center justify-content-center" style="height:60vh">
+    <div class="spinner-border text-secondary"></div>
+  </div>
+  <div v-else-if="accessDenied"
+       class="d-flex align-items-center justify-content-center" style="height:60vh">
+    <div class="text-center text-muted">
+      <div style="font-size:2rem">🔒</div>
+      <p class="mt-2">Admin access required.</p>
+      <a href="/" class="btn btn-outline-secondary btn-sm">Go to app</a>
+    </div>
+  </div>
+
+  <!-- ── PAGE ────────────────────────────────────────────────── -->
+  <div class="page" v-else>
+
+    <div class="page-header">
+      <div>
+        <h1>Configuration</h1>
+        <p class="text-muted mb-0 mt-1" style="font-size:.83rem">Manage clients, programs, and roles used across the app.</p>
+      </div>
+    </div>
+
+    <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
+
+    <!-- ── TABS ────────────────────────────────────────────────── -->
+    <div class="cfg-tabs">
+      <button class="cfg-tab-btn" :class="{ active: activeTab === 'clients'  }" @click="activeTab = 'clients'">
+        👥 Clients <span class="fw-normal text-muted">({{ clients.length }})</span>
+      </button>
+      <button class="cfg-tab-btn" :class="{ active: activeTab === 'groups'   }" @click="activeTab = 'groups'">
+        🏢 Client Groups <span class="fw-normal text-muted">({{ groups.length }})</span>
+      </button>
+      <button class="cfg-tab-btn" :class="{ active: activeTab === 'pots'     }" @click="activeTab = 'pots'; activePipeline = null">
+        🗓 Pipelines &amp; POTs
+      </button>
+      <button class="cfg-tab-btn" :class="{ active: activeTab === 'programs' }" @click="activeTab = 'programs'">
+        🗂 Programs <span class="fw-normal text-muted">({{ programs.length }})</span>
+      </button>
+      <button class="cfg-tab-btn" :class="{ active: activeTab === 'roles'    }" @click="activeTab = 'roles'">
+        🎯 Roles <span class="fw-normal text-muted">({{ roles.length }})</span>
+      </button>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════ -->
+    <!-- CLIENTS                                                  -->
+    <!-- ════════════════════════════════════════════════════════ -->
+    <div v-show="activeTab === 'clients'">
+    <div class="section-title">
+      <span>Clients <span class="fw-normal text-muted">({{ clients.length }})</span></span>
+      <button class="btn btn-primary btn-sm" @click="openClientForm()">+ Add client</button>
+    </div>
+
+    <!-- Client form -->
+    <div class="form-card" v-if="cf.show">
+      <div class="form-card-title">{{ cf.id ? 'Edit client' : 'New client' }}</div>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-5">
+          <label class="form-label fw-semibold" style="font-size:.82rem">Name</label>
+          <input type="text" class="form-control form-control-sm" v-model="cf.name"
+                 @keydown.enter="saveClient" placeholder="e.g. Acme Corp" ref="cfName" autocomplete="off">
+        </div>
+        <div class="col-auto d-flex gap-2">
+          <button class="btn btn-primary btn-sm" @click="saveClient" :disabled="cf.loading">
+            <span v-if="cf.loading" class="spinner-border spinner-border-sm me-1"></span>
+            {{ cf.id ? 'Save' : 'Create' }}
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" @click="cf.show = false">Cancel</button>
+        </div>
+      </div>
+      <div v-if="cf.error" class="alert alert-danger alert-sm mt-2">{{ cf.error }}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <table class="table table-hover" v-if="clients.length">
+          <thead><tr><th>Name</th><th></th></tr></thead>
+          <tbody>
+            <tr v-for="c in sortedClients" :key="c.id">
+              <td class="fw-semibold">{{ c.name }}</td>
+              <td class="text-end" style="white-space:nowrap">
+                <button class="btn btn-outline-primary btn-sm me-1" style="font-size:.75rem"
+                        @click="openClientRatecard(c)">💲 Costgrid</button>
+                <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
+                        @click="openClientForm(c)">✏️ Edit</button>
+                <button class="btn btn-outline-danger btn-sm" style="font-size:.75rem"
+                        :disabled="c._loading" @click="deleteClient(c)">
+                  <span v-if="c._loading" class="spinner-border spinner-border-sm"></span>
+                  <span v-else>🗑</span>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="empty" v-else>No clients yet. Add your first client above.</div>
+      </div>
+    </div>
+
+    </div><!-- /clients tab -->
+
+    <!-- ════════════════════════════════════════════════════════ -->
+    <!-- CLIENT GROUPS                                            -->
+    <!-- ════════════════════════════════════════════════════════ -->
+    <div v-show="activeTab === 'groups'">
+
+    <div class="section-title">
+      <span>Client Groups <span class="fw-normal text-muted">({{ groups.length }})</span></span>
+      <button class="btn btn-primary btn-sm" @click="openGroupForm()">+ Add group</button>
+    </div>
+
+    <!-- Group create / rename form -->
+    <div class="form-card" v-if="gf.show">
+      <div class="form-card-title">{{ gf.id ? 'Rename group' : 'New client group' }}</div>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-5">
+          <label class="form-label fw-semibold" style="font-size:.82rem">Group name</label>
+          <input type="text" class="form-control form-control-sm" v-model="gf.name"
+                 @keydown.enter="saveGroup" placeholder="e.g. Italian Public Sector" ref="gfName" autocomplete="off">
+        </div>
+        <div class="col-auto d-flex gap-2">
+          <button class="btn btn-primary btn-sm" @click="saveGroup" :disabled="gf.loading">
+            <span v-if="gf.loading" class="spinner-border spinner-border-sm me-1"></span>
+            {{ gf.id ? 'Save' : 'Create' }}
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" @click="gf.show = false">Cancel</button>
+        </div>
+      </div>
+      <div v-if="gf.error" class="alert alert-danger alert-sm mt-2">{{ gf.error }}</div>
+    </div>
+
+    <!-- Groups list -->
+    <div v-if="groups.length">
+      <div v-for="grp in sortedGroups" :key="grp.id" class="card mb-3">
+        <div class="card-body p-0">
+          <!-- Group header -->
+          <div class="d-flex align-items-center justify-content-between px-3 py-2"
+               style="border-bottom:1px solid #f0f0f0;background:#f9fafb;border-radius:10px 10px 0 0">
+            <span class="fw-bold" style="font-size:.9rem">🏢 {{ grp.name }}</span>
+            <div class="d-flex gap-1 align-items-center">
+              <span class="text-muted" style="font-size:.78rem">{{ grp.clients.length }} client{{ grp.clients.length !== 1 ? 's' : '' }}</span>
+              <button class="btn btn-outline-secondary btn-sm ms-2" style="font-size:.75rem"
+                      @click="openGroupForm(grp)">✏️ Rename</button>
+              <button class="btn btn-outline-danger btn-sm" style="font-size:.75rem"
+                      :disabled="grp._loading" @click="deleteGroup(grp)">
+                <span v-if="grp._loading" class="spinner-border spinner-border-sm"></span>
+                <span v-else>🗑</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Assigned clients -->
+          <div class="px-3 py-2">
+            <div v-if="grp.clients.length" class="d-flex flex-wrap gap-2 mb-2">
+              <span v-for="cl in grp.clients" :key="cl.id"
+                    class="badge d-flex align-items-center gap-1"
+                    style="background:#e8edff;color:#1a1a6e;font-size:.8rem;font-weight:500;padding:.35em .65em">
+                {{ cl.name }}
+                <button type="button"
+                        class="btn-close btn-close ms-1" style="font-size:.55rem;opacity:.5"
+                        @click="removeClientFromGroup(grp, cl)"
+                        title="Remove from group"></button>
+              </span>
+            </div>
+            <div v-else class="text-muted mb-2" style="font-size:.82rem">No clients assigned yet.</div>
+
+            <!-- Assign client inline -->
+            <div class="d-flex gap-2 align-items-center" v-if="ungroupedClientsFor(grp).length">
+              <select class="form-select form-select-sm" style="max-width:220px"
+                      v-model="grp._assignPick">
+                <option value="">— assign a client —</option>
+                <option v-for="cl in ungroupedClientsFor(grp)" :key="cl.id" :value="cl.id">{{ cl.name }}</option>
+              </select>
+              <button class="btn btn-outline-primary btn-sm" style="font-size:.78rem"
+                      :disabled="!grp._assignPick || grp._assignLoading"
+                      @click="assignClientToGroup(grp)">
+                <span v-if="grp._assignLoading" class="spinner-border spinner-border-sm me-1"></span>
+                Add
+              </button>
+            </div>
+            <div v-else-if="!ungroupedClientsFor(grp).length && clients.length"
+                 class="text-muted" style="font-size:.78rem">All clients are already grouped.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="empty" v-else>
+      No client groups yet. Groups bundle clients together for POT targets.
+    </div>
+
+    </div><!-- /groups tab -->
+
+    <!-- ════════════════════════════════════════════════════════ -->
+    <!-- PIPELINES & POTs                                         -->
+    <!-- ════════════════════════════════════════════════════════ -->
+    <div v-show="activeTab === 'pots'">
+
+    <!-- ── VIEW A: Pipeline list ─────────────────────────────── -->
+    <div v-if="!activePipeline">
+
+      <div class="section-title">
+        <span>Pipelines</span>
+        <button class="btn btn-primary btn-sm" @click="openPyForm()">+ Add year</button>
+      </div>
+
+      <!-- Create year form -->
+      <div class="form-card" v-if="pyf.show">
+        <div class="form-card-title">New pipeline year</div>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label fw-semibold" style="font-size:.82rem">Year</label>
+            <input type="number" min="2000" max="2100" class="form-control form-control-sm"
+                   v-model="pyf.year" @keydown.enter="createPipelineYear" placeholder="e.g. 2027">
+          </div>
+          <div class="col-auto d-flex gap-2">
+            <button class="btn btn-primary btn-sm" @click="createPipelineYear" :disabled="pyf.loading">
+              <span v-if="pyf.loading" class="spinner-border spinner-border-sm me-1"></span>
+              Create
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" @click="pyf.show = false">Cancel</button>
+          </div>
+        </div>
+        <div v-if="pyf.error" class="alert alert-danger alert-sm mt-2">{{ pyf.error }}</div>
+      </div>
+
+      <!-- Pipeline list -->
+      <div class="card">
+        <div class="card-body">
+          <table class="table" v-if="pipelineYears.length">
+            <thead>
+              <tr>
+                <th>Pipeline</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="py in pipelineYears" :key="py.id" style="cursor:pointer"
+                  @click="selectPipeline(py)">
+                <td class="fw-bold" style="font-size:1rem">Pipeline {{ py.year }}</td>
+                <td>
+                  <span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:.75rem;font-weight:600"
+                        :style="py.active ? 'background:#dcfce7;color:#166534' : 'background:#f3f4f6;color:#6b7280'">
+                    {{ py.active ? 'Visible' : 'Hidden' }}
+                  </span>
+                </td>
+                <td class="text-end" style="white-space:nowrap" @click.stop>
+                  <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
+                          @click="selectPipeline(py)">POTs →</button>
+                  <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
+                          @click="togglePipelineYear(py)" :disabled="py._toggling">
+                    <span v-if="py._toggling" class="spinner-border spinner-border-sm"></span>
+                    <span v-else>{{ py.active ? 'Hide' : 'Show' }}</span>
+                  </button>
+                  <button class="btn btn-outline-danger btn-sm" style="font-size:.75rem"
+                          :disabled="py._loading" @click="deletePipelineYear(py)">
+                    <span v-if="py._loading" class="spinner-border spinner-border-sm"></span>
+                    <span v-else>🗑</span>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="empty" v-else>No pipeline years yet. Add the first year above.</div>
+        </div>
+      </div>
+
+    </div><!-- /view A -->
+
+    <!-- ── VIEW B: POTs for selected pipeline ────────────────── -->
+    <div v-else>
+
+      <!-- Navigation row -->
+      <div class="section-title">
+        <span class="d-flex align-items-center gap-2" style="text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:700;color:#374151">
+          <button class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;text-transform:none;letter-spacing:0"
+                  @click="backToPipelines()">← Pipelines</button>
+          Pipeline {{ activePipeline.year }}
+          <span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:600"
+                :style="activePipeline.active ? 'background:#dcfce7;color:#166534' : 'background:#f3f4f6;color:#6b7280'">
+            {{ activePipeline.active ? 'Visible' : 'Hidden' }}
+          </span>
+        </span>
+      </div>
+
+      <!-- 5 pipeline stage summary cards -->
+      <div class="row g-3 mb-4">
+        <div class="col" v-for="s in pipelineSummary" :key="s.pipeline">
+          <div class="card mb-0" :style="`border-top:3px solid ${stageColor(s.pipeline)};border-radius:10px`">
+            <div class="card-body" style="padding:1rem!important">
+              <div class="fw-bold mb-1" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em"
+                   :style="`color:${stageColor(s.pipeline)}`">{{ s.pipeline }}</div>
+              <div class="fw-bold" style="font-size:1.15rem;color:#1a1a2e;line-height:1.2">{{ fmtAmount(s.total) }}</div>
+              <div class="text-muted" style="font-size:.75rem;margin-top:2px">({{ s.count }})</div>
+            </div>
+          </div>
+        </div>
+        <div v-if="!pipelineSummary.length" class="col-12 text-muted" style="font-size:.85rem">
+          No proposals in this pipeline year yet.
+        </div>
+      </div>
+
+      <!-- POT Targets section title -->
+      <div class="section-title">
+        <span>POT Targets</span>
+        <button class="btn btn-primary btn-sm" @click="openPotForm()">+ New POT</button>
+      </div>
+
+      <!-- POT create / edit form -->
+      <div class="form-card" v-if="potf.show">
+        <div class="form-card-title">{{ potf.id ? 'Edit POT target' : 'New POT — Pipeline ' + activePipeline.year }}</div>
+        <div class="row g-2 align-items-end">
+
+          <!-- Target type (create only) -->
+          <div class="col-md-3" v-if="!potf.id">
+            <label class="form-label fw-semibold" style="font-size:.82rem">Target type</label>
+            <select class="form-select form-select-sm" v-model="potf.targetType">
+              <option value="client">Individual client</option>
+              <option value="group">Client group</option>
+            </select>
+          </div>
+          <div class="col-md-4" v-if="!potf.id">
+            <label class="form-label fw-semibold" style="font-size:.82rem">
+              {{ potf.targetType === 'group' ? 'Client group' : 'Client' }}
+            </label>
+            <select class="form-select form-select-sm" v-model="potf.targetId">
+              <option value="">— select —</option>
+              <template v-if="potf.targetType === 'group'">
+                <option v-for="g in sortedGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
+              </template>
+              <template v-else>
+                <option v-for="c in sortedClients" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </template>
+            </select>
+          </div>
+
+          <!-- Amount (always) -->
+          <div class="col-md-3">
+            <label class="form-label fw-semibold" style="font-size:.82rem">
+              Amount (€)
+              <span v-if="potf.id" class="fw-normal text-muted" style="font-size:.75rem"> — updating for {{ potf.targetLabel }}</span>
+            </label>
+            <input type="number" min="0" step="1000" class="form-control form-control-sm"
+                   v-model="potf.amount" @keydown.enter="savePot" placeholder="e.g. 500000">
+          </div>
+
+          <div class="col-auto d-flex gap-2">
+            <button class="btn btn-primary btn-sm" @click="savePot" :disabled="potf.loading">
+              <span v-if="potf.loading" class="spinner-border spinner-border-sm me-1"></span>
+              {{ potf.id ? 'Update' : 'Create' }}
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" @click="potf.show = false">Cancel</button>
+          </div>
+        </div>
+        <div v-if="potf.error" class="alert alert-danger alert-sm mt-2">{{ potf.error }}</div>
+      </div>
+
+      <!-- POT list -->
+      <div class="card" v-if="pots.length">
+        <div class="card-body">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Target</th>
+                <th>Type</th>
+                <th class="text-end">Amount (€)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="pot in pots" :key="pot.id">
+                <td class="fw-semibold">{{ pot.client_group_name || pot.client_name || '—' }}</td>
+                <td>
+                  <span class="badge" style="background:#e8edff;color:#1a1a6e;font-size:.75rem">
+                    {{ pot.client_group_id ? 'Group' : 'Client' }}
+                  </span>
+                </td>
+                <td class="text-end fw-semibold">{{ fmtAmount(pot.amount) }}</td>
+                <td class="text-end" style="white-space:nowrap">
+                  <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
+                          @click="openPotDetails(pot)">🔍 View Details</button>
+                  <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
+                          @click="openPotForm(pot)">✏️ Edit</button>
+                  <button class="btn btn-outline-danger btn-sm" style="font-size:.75rem"
+                          :disabled="pot._loading" @click="deletePot(pot)">
+                    <span v-if="pot._loading" class="spinner-border spinner-border-sm"></span>
+                    <span v-else>🗑</span>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="empty" v-else-if="!potf.show">
+        No POT targets for Pipeline {{ activePipeline.year }}. Add the first target above.
+      </div>
+
+    </div><!-- /view B -->
+
+    </div><!-- /pots tab -->
+
+    <!-- ════════════════════════════════════════════════════════ -->
+    <!-- PROGRAMS                                                 -->
+    <!-- ════════════════════════════════════════════════════════ -->
+    <div v-show="activeTab === 'programs'">
+    <div class="section-title">
+      <span>Programs <span class="fw-normal text-muted">({{ programs.length }})</span></span>
+      <button class="btn btn-primary btn-sm" @click="openProgramForm()">+ Add program</button>
+    </div>
+
+    <!-- Program form -->
+    <div class="form-card" v-if="pf.show">
+      <div class="form-card-title">{{ pf.id ? 'Edit program' : 'New program' }}</div>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label fw-semibold" style="font-size:.82rem">
+            ID <span class="fw-normal text-muted">(fixed after creation)</span>
+          </label>
+          <input type="text" class="form-control form-control-sm" v-model="pf.programId"
+                 :disabled="!!pf.id" placeholder="e.g. PROG-001" autocomplete="off">
+        </div>
+        <div class="col-md-5">
+          <label class="form-label fw-semibold" style="font-size:.82rem">Name</label>
+          <input type="text" class="form-control form-control-sm" v-model="pf.name"
+                 @keydown.enter="saveProgram" placeholder="e.g. Digital Transformation" ref="pfName" autocomplete="off">
+        </div>
+        <div class="col-auto d-flex gap-2">
+          <button class="btn btn-primary btn-sm" @click="saveProgram" :disabled="pf.loading">
+            <span v-if="pf.loading" class="spinner-border spinner-border-sm me-1"></span>
+            {{ pf.id ? 'Save' : 'Create' }}
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" @click="pf.show = false">Cancel</button>
+        </div>
+      </div>
+      <div v-if="pf.error" class="alert alert-danger alert-sm mt-2">{{ pf.error }}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <table class="table table-hover" v-if="programs.length">
+          <thead>
+            <tr><th>ID</th><th>Name</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="p in sortedPrograms" :key="p.id">
+              <td><code>{{ p.id }}</code></td>
+              <td class="fw-semibold">{{ p.name }}</td>
+              <td class="text-end" style="white-space:nowrap">
+                <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
+                        @click="openProgramForm(p)">✏️ Edit</button>
+                <button class="btn btn-outline-danger btn-sm" style="font-size:.75rem"
+                        :disabled="p._loading" @click="deleteProgram(p)">
+                  <span v-if="p._loading" class="spinner-border spinner-border-sm"></span>
+                  <span v-else>🗑</span>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="empty" v-else>No programs yet. Programs group related projects together.</div>
+      </div>
+    </div>
+
+    </div><!-- /programs tab -->
+
+    <!-- ════════════════════════════════════════════════════════ -->
+    <!-- ROLES                                                    -->
+    <!-- ════════════════════════════════════════════════════════ -->
+    <div v-show="activeTab === 'roles'">
+    <div class="section-title">
+      <span>Roles <span class="fw-normal text-muted">({{ roles.length }})</span></span>
+      <button class="btn btn-primary btn-sm" @click="openRoleForm()">+ Add role</button>
+    </div>
+
+    <!-- Role form -->
+    <div class="form-card" v-if="rf.show">
+      <div class="form-card-title">{{ rf.id ? 'Edit role' : 'New role' }}</div>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold" style="font-size:.82rem">Label</label>
+          <input type="text" class="form-control form-control-sm" v-model="rf.label"
+                 placeholder="e.g. Project Manager" ref="rfLabel" autocomplete="off">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold" style="font-size:.82rem">
+            Code
+            <span class="fw-normal text-muted" style="font-size:.75rem">TEAM - Role</span>
+          </label>
+          <input type="text" class="form-control form-control-sm" v-model="rf.code"
+                 placeholder="e.g. PM - Project Manager" autocomplete="off">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold" style="font-size:.82rem">Default rate (€/h)</label>
+          <input type="number" min="0" step="1" class="form-control form-control-sm" v-model="rf.rate"
+                 @keydown.enter="saveRole" placeholder="e.g. 150">
+        </div>
+        <div class="col-auto d-flex gap-2">
+          <button class="btn btn-primary btn-sm" @click="saveRole" :disabled="rf.loading">
+            <span v-if="rf.loading" class="spinner-border spinner-border-sm me-1"></span>
+            {{ rf.id ? 'Save' : 'Create' }}
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" @click="rf.show = false">Cancel</button>
+        </div>
+      </div>
+      <div v-if="rf.error" class="alert alert-danger alert-sm mt-2">{{ rf.error }}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <table class="table" v-if="roles.length">
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Code</th>
+              <th>Team</th>
+              <th class="text-end">Default rate</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="(group, team) in groupedRoles" :key="team">
+              <tr class="team-sep"><td colspan="5">{{ team }}</td></tr>
+              <tr v-for="r in group" :key="r.id">
+                <td class="fw-semibold">{{ r.label }}</td>
+                <td><code>{{ r.code }}</code></td>
+                <td class="text-muted" style="font-size:.82rem">{{ extractTeam(r.code) }}</td>
+                <td class="text-end">
+                  <span v-if="!r.rate || r.rate === 0" class="rate-warn">⚠️ Not set</span>
+                  <span v-else class="fw-semibold">{{ fmtRate(r.rate) }} €/h</span>
+                </td>
+                <td class="text-end" style="white-space:nowrap">
+                  <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
+                          @click="openRoleForm(r)">✏️ Edit</button>
+                  <button class="btn btn-outline-danger btn-sm" style="font-size:.75rem"
+                          :disabled="r._loading" @click="deleteRole(r)">
+                    <span v-if="r._loading" class="spinner-border spinner-border-sm"></span>
+                    <span v-else>🗑</span>
+                  </button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+        <div class="empty" v-else>
+          No roles yet. Roles define columns in Cost Grid and drive rate calculations.
+        </div>
+      </div>
+    </div>
+
+    </div><!-- /roles tab -->
+
+  </div><!-- .page -->
+</div><!-- #app -->
+
+<!-- POT Details Modal (outside #app so Bootstrap can manage it independently) -->
+<div class="modal fade" id="potDetailsModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:900px">
+    <div class="modal-content">
+      <div class="modal-header border-0" style="background:#0B1840;color:#fff;border-radius:0">
+        <h5 class="modal-title fw-bold" id="potDetailsModalTitle">POT Details</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4" id="potDetailsModalBody">
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Client Rate Card Modal (outside #app) -->
+<div class="modal fade" id="clientRcModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0" style="background:#0B1840;color:#fff;border-radius:0">
+        <h5 class="modal-title fw-bold" id="clientRcTitle">Rate Card</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="px-4 pt-3 pb-2" style="background:#f8fafc;border-bottom:1px solid #e5e7eb">
+          <p class="text-muted mb-0" style="font-size:.8rem">
+            Set custom hourly rates for this client. Leave a field blank to fall back to the agency default.
+            Custom rates are applied automatically when this client is selected in a new proposal.
+          </p>
+        </div>
+        <div id="clientRcBody" class="px-4 pt-3 pb-2">
+          <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+        </div>
+      </div>
+      <div class="modal-footer flex-column align-items-stretch gap-2">
+        <div id="clientRcMsg" class="alert py-2 px-3 small mb-0" style="display:none"></div>
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-primary btn-sm" id="clientRcSaveBtn" disabled
+                  onclick="window.__cfgApp && window.__cfgApp.saveClientRatecard()">Save rates</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="js/api.js?v=2"></script>
+<script>
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+<script src="js/core.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/nav.js"></script>
+
+<script>
+window.__cfgApp = Vue.createApp({
+  data() {
+    return {
+      ready:        false,
+      accessDenied: false,
+      globalError:  null,
+      activeTab:    'clients',
+
+      clients:  [],
+      programs: [],
+      roles:    [],
+      groups:   [],
+
+      // Client form state
+      cf: { show: false, id: null, name: '', error: null, loading: false },
+
+      // Group form state
+      gf: { show: false, id: null, name: '', error: null, loading: false },
+
+      // Pipelines & POT state
+      activePipeline:  null,  // null = pipeline list view; object = POT detail view
+      pyf: { show: false, year: new Date().getFullYear() + 1, error: null, loading: false },
+      pots:            [],
+      potsYear:        new Date().getFullYear(),
+      pipelineSummary: [],   // 5 stage cards: [{pipeline, count, total}]
+      potf: { show: false, id: null, targetType: 'client', targetId: '', year: new Date().getFullYear(), amount: '', targetLabel: '', error: null, loading: false },
+      pipelineYears:   [],   // admin-managed pipeline years (all, active + inactive)
+
+      // Program form state
+      pf: { show: false, id: null, name: '', programId: '', error: null, loading: false },
+
+      // Role form state
+      rf: { show: false, id: null, label: '', code: '', rate: '', error: null, loading: false },
+    };
+  },
+
+  computed: {
+    sortedClients() {
+      return [...this.clients].sort((a, b) => a.name.localeCompare(b.name));
+    },
+    sortedGroups() {
+      return [...this.groups].sort((a, b) => a.name.localeCompare(b.name));
+    },
+    potYearOptions() {
+      // Use admin-managed pipeline years; fallback to current year if none loaded yet
+      return this.pipelineYears.length
+        ? this.pipelineYears.map(py => py.year)
+        : [new Date().getFullYear()];
+    },
+    sortedPrograms() {
+      return [...this.programs].sort((a, b) => a.name.localeCompare(b.name));
+    },
+    groupedRoles() {
+      const sorted = [...this.roles].sort((a, b) => {
+        const ta = this.extractTeam(a.code), tb = this.extractTeam(b.code);
+        return ta.localeCompare(tb) || a.label.localeCompare(b.label);
+      });
+      const groups = {};
+      sorted.forEach(r => {
+        const t = this.extractTeam(r.code);
+        (groups[t] = groups[t] || []).push(r);
+      });
+      return groups;
+    },
+  },
+
+  async created() {
+    const user = await initNav('config', { breadcrumbs: [
+      { label: 'Home', href: '/pipeline.html' },
+      { label: 'Configuration' },
+    ]});
+    if (!user) return;
+    if (user.role !== 'admin') { this.accessDenied = true; return; }
+    await this.loadAll();
+    this.ready = true;
+  },
+
+  methods: {
+    async loadAll() {
+      this.globalError = null;
+      try {
+        const [clients, groups, programs, rolesRaw, pipelineYears] = await Promise.all([
+          Api.clients.list(),
+          Api.clientGroups.list(),
+          Api.programs.list(),
+          Api.roles.list(),
+          Api.pipelineYears.list(),
+        ]);
+        this.clients  = clients;
+        this.groups   = groups.map(g => ({ ...g, _assignPick: '', _assignLoading: false }));
+        this.programs = programs;
+        this.roles    = rolesRaw.map(r => ({ id: r.id, label: r.label, code: r.code, rate: r.hourly_rate || 0 }));
+        this.pipelineYears = pipelineYears.map(py => ({ ...py, _toggling: false, _loading: false }));
+      } catch (e) {
+        this.globalError = e.message || 'Failed to load configuration.';
+      }
+    },
+
+    async loadPots() {
+      const year = this.activePipeline?.year || this.potsYear;
+      try {
+        this.pots = await Api.pots.list(year);
+        this.potHistory = {};
+      } catch (e) {
+        this.globalError = e.message || 'Failed to load POT targets.';
+      }
+    },
+
+    // ── CLIENTS ──────────────────────────────────────────────
+
+    openClientForm(client) {
+      this.cf = {
+        show: true,
+        id:   client?.id   || null,
+        name: client?.name || '',
+        error: null, loading: false,
+      };
+      this.$nextTick(() => this.$refs.cfName?.focus());
+    },
+
+    async saveClient() {
+      const name = this.cf.name.trim();
+      this.cf.error = null;
+      if (!name) { this.cf.error = 'Name is required.'; return; }
+
+      const dup = this.clients.find(c => c.name.toLowerCase() === name.toLowerCase() && c.id !== this.cf.id);
+      if (dup) { this.cf.error = `A client named "${dup.name}" already exists.`; return; }
+
+      this.cf.loading = true;
+      try {
+        if (this.cf.id) {
+          await Api.clients.update(this.cf.id, name);
+          const c = this.clients.find(c => c.id === this.cf.id);
+          if (c) c.name = name;
+        } else {
+          const created = await Api.clients.create(name);
+          this.clients.push({ id: created.id, name: created.name || name });
+        }
+        this.cf.show = false;
+      } catch (e) {
+        this.cf.error = e.message || 'Save failed.';
+      } finally {
+        this.cf.loading = false;
+      }
+    },
+
+    async deleteClient(client) {
+      if (!confirm(`Delete client "${client.name}"?\n\nProjects assigned to this client will become unassigned.`)) return;
+      client._loading = true;
+      try {
+        await Api.clients.delete(client.id);
+        this.clients = this.clients.filter(c => c.id !== client.id);
+      } catch (e) {
+        this.globalError = e.message || 'Delete failed.';
+        client._loading = false;
+      }
+    },
+
+    // ── CLIENT GROUPS ────────────────────────────────────────
+
+    openGroupForm(group) {
+      this.gf = {
+        show: true,
+        id:   group?.id   || null,
+        name: group?.name || '',
+        error: null, loading: false,
+      };
+      this.$nextTick(() => this.$refs.gfName?.focus());
+    },
+
+    async saveGroup() {
+      const name = this.gf.name.trim();
+      this.gf.error = null;
+      if (!name) { this.gf.error = 'Name is required.'; return; }
+
+      const dup = this.groups.find(g => g.name.toLowerCase() === name.toLowerCase() && g.id !== this.gf.id);
+      if (dup) { this.gf.error = `A group named "${dup.name}" already exists.`; return; }
+
+      this.gf.loading = true;
+      try {
+        if (this.gf.id) {
+          await Api.clientGroups.rename(this.gf.id, name);
+          const g = this.groups.find(g => g.id === this.gf.id);
+          if (g) g.name = name;
+        } else {
+          const created = await Api.clientGroups.create(name);
+          this.groups.push({ ...created, _assignPick: '', _assignLoading: false });
+        }
+        this.gf.show = false;
+      } catch (e) {
+        this.gf.error = e.message || 'Save failed.';
+      } finally {
+        this.gf.loading = false;
+      }
+    },
+
+    async deleteGroup(group) {
+      if (!confirm(`Delete group "${group.name}"?\n\nClients will become ungrouped.`)) return;
+      group._loading = true;
+      try {
+        await Api.clientGroups.delete(group.id);
+        this.groups = this.groups.filter(g => g.id !== group.id);
+      } catch (e) {
+        this.globalError = e.message || 'Delete failed.';
+        group._loading = false;
+      }
+    },
+
+    // Returns clients not yet assigned to ANY group (so they can be assigned to this group)
+    ungroupedClientsFor(grp) {
+      const assignedIds = new Set(
+        this.groups.flatMap(g => g.clients.map(c => c.id))
+      );
+      // Also exclude clients already in this group
+      grp.clients.forEach(c => assignedIds.add(c.id));
+      return this.clients.filter(c => !assignedIds.has(c.id))
+                         .sort((a, b) => a.name.localeCompare(b.name));
+    },
+
+    async assignClientToGroup(grp) {
+      const clientId = grp._assignPick;
+      if (!clientId) return;
+      grp._assignLoading = true;
+      try {
+        await Api.clientGroups.assignClient(grp.id, clientId);
+        const client = this.clients.find(c => c.id === clientId);
+        if (client) grp.clients.push({ id: client.id, name: client.name });
+        grp._assignPick = '';
+      } catch (e) {
+        this.globalError = e.message || 'Assign failed.';
+      } finally {
+        grp._assignLoading = false;
+      }
+    },
+
+    async removeClientFromGroup(grp, client) {
+      try {
+        await Api.clientGroups.removeClient(grp.id, client.id);
+        grp.clients = grp.clients.filter(c => c.id !== client.id);
+      } catch (e) {
+        this.globalError = e.message || 'Remove failed.';
+      }
+    },
+
+    // ── PROGRAMS ─────────────────────────────────────────────
+
+    openProgramForm(prog) {
+      this.pf = {
+        show:      true,
+        id:        prog?.id   || null,
+        name:      prog?.name || '',
+        programId: prog?.id   || '',
+        error: null, loading: false,
+      };
+      this.$nextTick(() => this.$refs.pfName?.focus());
+    },
+
+    async saveProgram() {
+      const name = this.pf.name.trim();
+      const id   = this.pf.programId.trim();
+      this.pf.error = null;
+      if (!name) { this.pf.error = 'Name is required.'; return; }
+      if (!id)   { this.pf.error = 'Program ID is required.'; return; }
+
+      const dup = this.programs.find(p => p.id.toLowerCase() === id.toLowerCase() && p.id !== this.pf.id);
+      if (dup) { this.pf.error = `ID "${id}" is already used by program "${dup.name}".`; return; }
+
+      this.pf.loading = true;
+      try {
+        if (this.pf.id) {
+          await Api.programs.update(this.pf.id, name);
+          const p = this.programs.find(p => p.id === this.pf.id);
+          if (p) p.name = name;
+        } else {
+          await Api.programs.create(id, name);
+          this.programs.push({ id, name });
+        }
+        this.pf.show = false;
+      } catch (e) {
+        this.pf.error = e.message || 'Save failed.';
+      } finally {
+        this.pf.loading = false;
+      }
+    },
+
+    async deleteProgram(prog) {
+      if (!confirm(`Delete program "${prog.name}"?\n\nProjects in this program will lose the program reference.`)) return;
+      prog._loading = true;
+      try {
+        await Api.programs.delete(prog.id);
+        this.programs = this.programs.filter(p => p.id !== prog.id);
+      } catch (e) {
+        this.globalError = e.message || 'Delete failed.';
+        prog._loading = false;
+      }
+    },
+
+    // ── ROLES ────────────────────────────────────────────────
+
+    openRoleForm(role) {
+      this.rf = {
+        show:  true,
+        id:    role?.id    || null,
+        label: role?.label || '',
+        code:  role?.code  || '',
+        rate:  role?.rate  != null ? role.rate : '',
+        error: null, loading: false,
+      };
+      this.$nextTick(() => this.$refs.rfLabel?.focus());
+    },
+
+    async saveRole() {
+      const label = this.rf.label.trim();
+      const code  = this.rf.code.trim();
+      const rate  = parseFloat(this.rf.rate);
+      this.rf.error = null;
+
+      if (!label) { this.rf.error = 'Label is required.'; return; }
+      if (!code)  { this.rf.error = 'Code is required.'; return; }
+      if (isNaN(rate) || rate < 0) { this.rf.error = 'Enter a valid rate (≥ 0).'; return; }
+
+      const dup = this.roles.find(r => r.code.toLowerCase() === code.toLowerCase() && r.id !== this.rf.id);
+      if (dup) { this.rf.error = `Code "${code}" is already used by role "${dup.label}".`; return; }
+
+      this.rf.loading = true;
+      try {
+        if (this.rf.id) {
+          await Api.roles.update(this.rf.id, { label, code, hourlyRate: rate });
+          const r = this.roles.find(r => r.id === this.rf.id);
+          if (r) { r.label = label; r.code = code; r.rate = rate; }
+        } else {
+          const created = await Api.roles.create({ label, code, hourlyRate: rate });
+          this.roles.push({ id: created.id, label, code, rate });
+        }
+        this.rf.show = false;
+      } catch (e) {
+        this.rf.error = e.message || 'Save failed.';
+      } finally {
+        this.rf.loading = false;
+      }
+    },
+
+    async deleteRole(role) {
+      if (!confirm(`Delete role "${role.label}"?\n\nCost grid columns using this role will remain but lose the registry link.`)) return;
+      role._loading = true;
+      try {
+        await Api.roles.delete(role.id);
+        this.roles = this.roles.filter(r => r.id !== role.id);
+      } catch (e) {
+        this.globalError = e.message || 'Delete failed.';
+        role._loading = false;
+      }
+    },
+
+    // ── PIPELINES ────────────────────────────────────────────
+
+    openPyForm() {
+      const nextYear = this.pipelineYears.length
+        ? Math.max(...this.pipelineYears.map(py => py.year)) + 1
+        : new Date().getFullYear() + 1;
+      this.pyf = { show: true, year: nextYear, error: null, loading: false };
+    },
+
+    async createPipelineYear() {
+      const year = parseInt(this.pyf.year);
+      this.pyf.error = null;
+      if (!year || year < 2000 || year > 2100) { this.pyf.error = 'Enter a valid year (2000–2100).'; return; }
+      if (this.pipelineYears.find(py => py.year === year)) { this.pyf.error = `Pipeline ${year} already exists.`; return; }
+      this.pyf.loading = true;
+      try {
+        const created = await Api.pipelineYears.create(year);
+        this.pipelineYears.unshift({ ...created, _toggling: false, _loading: false });
+        this.pyf.show = false;
+      } catch (e) {
+        this.pyf.error = e.message || 'Failed to create.';
+      } finally {
+        this.pyf.loading = false;
+      }
+    },
+
+    async togglePipelineYear(py) {
+      py._toggling = true;
+      try {
+        const updated = await Api.pipelineYears.toggle(py.id, !py.active);
+        py.active = updated.active;
+        if (this.activePipeline?.id === py.id) this.activePipeline = { ...this.activePipeline, active: updated.active };
+      } catch (e) {
+        this.globalError = e.message || 'Failed to update pipeline year.';
+      } finally {
+        py._toggling = false;
+      }
+    },
+
+    async deletePipelineYear(py) {
+      if (!confirm(`Delete Pipeline ${py.year}?\n\nCost grid versions linked to this year will remain but the pipeline year entry will be removed.`)) return;
+      py._loading = true;
+      try {
+        await Api.pipelineYears.delete(py.id);
+        this.pipelineYears = this.pipelineYears.filter(p => p.id !== py.id);
+      } catch (e) {
+        this.globalError = e.message || 'Failed to delete pipeline year.';
+        py._loading = false;
+      }
+    },
+
+    selectPipeline(py) {
+      this.activePipeline  = py;
+      this.potsYear        = py.year;
+      this.pots            = [];
+      this.pipelineSummary = [];
+      this.potf.show       = false;
+      this.loadPots();
+      this.loadPipelineSummary();
+    },
+
+    backToPipelines() {
+      this.activePipeline  = null;
+      this.pots            = [];
+      this.pipelineSummary = [];
+      this.potf.show       = false;
+    },
+
+    // ── POT TARGETS ──────────────────────────────────────────
+
+    openPotForm(pot) {
+      if (pot) {
+        this.potf = {
+          show: true, id: pot.id,
+          targetType: pot.client_group_id ? 'group' : 'client',
+          targetId: pot.client_group_id || pot.client_id || '',
+          targetLabel: pot.client_group_name || pot.client_name || '',
+          year: pot.year,
+          amount: pot.amount,
+          error: null, loading: false,
+        };
+      } else {
+        this.potf = {
+          show: true, id: null,
+          targetType: 'client', targetId: '',
+          targetLabel: '', year: this.activePipeline?.year || this.potsYear,
+          amount: '', error: null, loading: false,
+        };
+      }
+    },
+
+    async savePot() {
+      this.potf.error = null;
+      const amount = parseFloat(this.potf.amount);
+      if (isNaN(amount) || amount < 0) { this.potf.error = 'Enter a valid amount (≥ 0).'; return; }
+
+      this.potf.loading = true;
+      try {
+        if (this.potf.id) {
+          const updated = await Api.pots.update(this.potf.id, amount);
+          const p = this.pots.find(p => p.id === this.potf.id);
+          if (p) p.amount = updated.amount;
+          // Clear cached history for this pot so it reloads fresh next time
+          delete this.potHistory[this.potf.id];
+        } else {
+          if (!this.potf.targetId) { this.potf.error = 'Select a target.'; this.potf.loading = false; return; }
+          const body = {
+            year:   this.potf.year,
+            amount,
+            ...(this.potf.targetType === 'group'
+              ? { clientGroupId: this.potf.targetId }
+              : { clientId:      this.potf.targetId }),
+          };
+          const created = await Api.pots.create(body);
+          // Re-fetch the list to get denormalized names
+          this.pots = await Api.pots.list(this.activePipeline?.year || this.potsYear);
+        }
+        this.potf.show = false;
+      } catch (e) {
+        this.potf.error = e.message || 'Save failed.';
+      } finally {
+        this.potf.loading = false;
+      }
+    },
+
+    async deletePot(pot) {
+      if (!confirm(`Delete POT target for "${pot.client_group_name || pot.client_name}" (${pot.year})?\n\nThis cannot be undone.`)) return;
+      pot._loading = true;
+      try {
+        await Api.pots.delete(pot.id);
+        this.pots = this.pots.filter(p => p.id !== pot.id);
+        delete this.potHistory[pot.id];
+      } catch (e) {
+        this.globalError = e.message || 'Delete failed.';
+        pot._loading = false;
+      }
+    },
+
+    async loadPipelineSummary() {
+      if (!this.activePipeline) return;
+      try {
+        this.pipelineSummary = await Api.pots.pipelineSummary(this.activePipeline.year);
+      } catch (e) {
+        this.pipelineSummary = [];
+      }
+    },
+
+    async openPotDetails(pot) {
+      const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('potDetailsModal'));
+      document.getElementById('potDetailsModalTitle').textContent =
+        pot.client_group_name || pot.client_name || 'POT Details';
+      document.getElementById('potDetailsModalBody').innerHTML =
+        '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+      modal.show();
+
+      try {
+        const d = await Api.pots.details(pot.id, this.activePipeline.year);
+        const pct = d.pot.amount > 0
+          ? Math.round(d.committed_total / d.pot.amount * 100) + '% of target'
+          : '';
+        const histRows = d.history.length
+          ? d.history.map(h => `
+              <tr>
+                <td style="white-space:nowrap">${this.fmtDate(h.changed_at)}</td>
+                <td>${esc(h.changed_by_name || '—')}</td>
+                <td class="text-muted">${h.old_value != null ? this.fmtAmount(h.old_value) : '—'}</td>
+                <td class="text-muted px-1" style="font-size:1rem">→</td>
+                <td class="fw-semibold">${this.fmtAmount(h.new_value)}</td>
+              </tr>`).join('')
+          : '<tr><td colspan="5" class="text-muted">No history yet.</td></tr>';
+        const proposalRows = d.proposals.length
+          ? d.proposals.map(p => `
+              <tr>
+                <td>${esc(p.client_name || '—')}</td>
+                <td class="fw-semibold">${esc(p.proposal_name)}</td>
+                <td style="white-space:nowrap">${this.fmtDate(p.created_at)}</td>
+                <td>${esc(p.owner_name || '—')}</td>
+                <td><span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:600;background:${this.stageBg(p.pipeline)};color:${this.stageColor(p.pipeline)}">${esc(p.pipeline)}</span></td>
+                <td class="text-end fw-semibold">${this.fmtAmount(p.value)}</td>
+                <td class="text-end" style="white-space:nowrap"><a href="/costgrid.html?cgId=${encodeURIComponent(p.cg_id)}&verId=${encodeURIComponent(p.version_id)}" target="_blank" style="font-size:.75rem">↗ Open</a></td>
+              </tr>`).join('')
+          : '<tr><td colspan="7" class="text-muted">No proposals for this target in this year.</td></tr>';
+
+        document.getElementById('potDetailsModalBody').innerHTML = `
+          <div class="mb-3">
+            <span class="badge" style="background:#e8edff;color:#1a1a6e;font-size:.8rem;padding:5px 14px">
+              ${d.pot.client_group_id ? 'Group POT' : 'Client POT'}
+            </span>
+          </div>
+          <div class="row g-3 mb-4">
+            <div class="col-6">
+              <div class="card mb-0" style="border-top:3px solid #6b7280;border-radius:10px">
+                <div class="card-body" style="padding:1rem">
+                  <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;font-weight:700;margin-bottom:4px">Target</div>
+                  <div style="font-size:1.6rem;font-weight:700;color:#1a1a2e">${this.fmtAmount(d.pot.amount)}</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="card mb-0" style="border-top:3px solid #2e7d32;border-radius:10px">
+                <div class="card-body" style="padding:1rem">
+                  <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#2e7d32;font-weight:700;margin-bottom:4px">Current (Committed)</div>
+                  <div style="font-size:1.6rem;font-weight:700;color:#2e7d32">${this.fmtAmount(d.committed_total)}</div>
+                  ${pct ? `<div style="font-size:.78rem;color:#6b7280">${pct}</div>` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mb-4">
+            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin-bottom:.5rem">Change History</div>
+            <table class="table table-sm" style="font-size:.82rem">
+              <thead><tr><th>Date</th><th>By</th><th colspan="3">Change</th></tr></thead>
+              <tbody>${histRows}</tbody>
+            </table>
+          </div>
+          <div>
+            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin-bottom:.5rem">Proposals (${d.proposals.length})</div>
+            <table class="table table-sm" style="font-size:.82rem">
+              <thead><tr><th>Client</th><th>Proposal</th><th>Created</th><th>Owner</th><th>Stage</th><th class="text-end">Value</th><th></th></tr></thead>
+              <tbody>${proposalRows}</tbody>
+            </table>
+          </div>`;
+      } catch (e) {
+        document.getElementById('potDetailsModalBody').innerHTML =
+          `<div class="alert alert-danger">Failed to load details: ${esc(e.message)}</div>`;
+      }
+    },
+
+    // ── HELPERS ──────────────────────────────────────────────
+
+    extractTeam(code) {
+      if (!code) return '—';
+      const idx = code.indexOf(' - ');
+      return idx > 0 ? code.slice(0, idx).trim() : (code.split(/[\s_-]/)[0] || '—');
+    },
+
+    stageColor(pipeline) {
+      return { SIP: '#4285f4', Expected: '#e6a817', Anticipated: '#ef6c00', Committed: '#2e7d32', Canceled: '#757575' }[pipeline] || '#6b7280';
+    },
+    stageBg(pipeline) {
+      return { SIP: '#e8f0fe', Expected: '#fff8e1', Anticipated: '#fff3e0', Committed: '#e8f5e9', Canceled: '#f5f5f5' }[pipeline] || '#f8f9fa';
+    },
+
+    fmtRate(n) {
+      return Number(n).toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    },
+    fmtAmount(n) {
+      return '€ ' + Number(n).toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    },
+    fmtDate(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+      catch { return iso; }
+    },
+
+    // ── CLIENT RATE CARD ─────────────────────────────────────
+    async openClientRatecard(client) {
+      const modal   = bootstrap.Modal.getOrCreateInstance(document.getElementById('clientRcModal'));
+      const bodyEl  = document.getElementById('clientRcBody');
+      const msgEl   = document.getElementById('clientRcMsg');
+      const saveBtn = document.getElementById('clientRcSaveBtn');
+
+      document.getElementById('clientRcTitle').textContent = `Rate Card — ${client.name}`;
+      bodyEl.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>';
+      msgEl.style.display = 'none';
+      saveBtn.disabled = true;
+      window._clientRcId = null;
+      modal.show();
+
+      try {
+        const allRc = await Api.ratecards.list();
+        const roles  = this.roles.length ? this.roles : await Api.roles.list();
+
+        // Find or auto-create this client's ratecard
+        let rc = allRc.find(r => r.client_id === client.id);
+        if (!rc) {
+          rc = await Api.ratecards.create(`${client.name}`, client.id);
+          rc = { ...rc, entries: [] };
+        }
+        window._clientRcId = rc.id;
+
+        // Entry map for this client's ratecard
+        const entryMap = {};
+        (rc.entries || []).forEach(e => {
+          entryMap[String(e.roleId ?? e.role_id)] = parseFloat(e.hourlyRate ?? e.hourly_rate) || null;
+        });
+
+        // Global ratecard for fallback defaults
+        const globalRc  = allRc.find(r => !r.client_id);
+        const globalMap = {};
+        if (globalRc) {
+          (globalRc.entries || []).forEach(e => {
+            globalMap[String(e.roleId ?? e.role_id)] = parseFloat(e.hourlyRate ?? e.hourly_rate) || null;
+          });
+        }
+
+        const rows = roles.map(r => {
+          const defRate  = (globalMap[String(r.id)] ?? parseFloat(r.hourly_rate ?? r.rate)) || null;
+          const custRate = entryMap[String(r.id)] ?? '';
+          const defFmt   = defRate != null ? `${Number(defRate).toLocaleString('en', {minimumFractionDigits:0,maximumFractionDigits:2})} €/h` : '—';
+          return `<tr>
+            <td class="fw-semibold align-middle" style="font-size:.83rem">${esc(r.label || r.code || '')}</td>
+            <td class="align-middle"><code style="font-size:.78rem">${esc(r.code || '')}</code></td>
+            <td class="align-middle text-muted" style="font-size:.83rem">${defFmt}</td>
+            <td>
+              <input type="number" min="0" step="1" class="form-control form-control-sm rc-client-rate"
+                     data-role-id="${esc(String(r.id))}"
+                     value="${custRate !== '' ? custRate : ''}"
+                     placeholder="agency default"
+                     style="width:130px">
+            </td>
+          </tr>`;
+        }).join('');
+
+        bodyEl.innerHTML = `
+          <table class="table table-sm table-hover mb-0" style="font-size:.83rem">
+            <thead>
+              <tr>
+                <th style="font-size:.78rem">Role</th>
+                <th style="font-size:.78rem">Code</th>
+                <th style="font-size:.78rem">Agency default</th>
+                <th style="font-size:.78rem">Client custom (€/h)</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>`;
+        saveBtn.disabled = false;
+      } catch (e) {
+        bodyEl.innerHTML = `<div class="text-danger p-3">${esc(e.message)}</div>`;
+      }
+    },
+
+    async saveClientRatecard() {
+      const msgEl   = document.getElementById('clientRcMsg');
+      const saveBtn = document.getElementById('clientRcSaveBtn');
+      if (!window._clientRcId) return;
+
+      const entries = [];
+      document.querySelectorAll('.rc-client-rate').forEach(inp => {
+        const v = inp.value.trim();
+        if (v !== '') entries.push({ roleId: inp.dataset.roleId, hourlyRate: parseFloat(v) || 0 });
+      });
+
+      saveBtn.disabled = true;
+      msgEl.style.display = 'none';
+      try {
+        await Api.ratecards.updateEntries(window._clientRcId, entries);
+        msgEl.textContent = 'Rates saved successfully.';
+        msgEl.className = 'alert alert-success py-2 px-3 small mb-0';
+        msgEl.style.display = 'block';
+        setTimeout(() => { msgEl.style.display = 'none'; }, 3000);
+      } catch (e) {
+        msgEl.textContent = e.message || 'Failed to save.';
+        msgEl.className = 'alert alert-danger py-2 px-3 small mb-0';
+        msgEl.style.display = 'block';
+      } finally {
+        saveBtn.disabled = false;
+      }
+    },
+  },
+}).mount('#app');
+</script>
+</body>
+</html>

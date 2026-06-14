@@ -264,7 +264,7 @@ function renderSyncPanel() {
       </div>
       ${!hasGist ? `
       <div class="d-flex gap-2 flex-wrap align-items-center mb-2">
-        <button class="btn btn-sm btn-outline-primary" id="btnSyncFind" ${!hasPat ? 'disabled' : ''}>🔍 Find existing remote</button>
+        <button class="btn btn-sm btn-outline-secondary" id="btnSyncFind" ${!hasPat ? 'disabled' : ''}>🔍 Find existing remote</button>
         <button class="btn btn-sm btn-primary" id="btnSyncPush" ${!hasPat ? 'disabled' : ''}>⬆ Push (create new)</button>
       </div>
       <div class="d-flex gap-2 align-items-center flex-wrap" style="font-size:var(--text-base)">
@@ -274,7 +274,7 @@ function renderSyncPanel() {
       </div>` : `
       <div class="d-flex gap-2 flex-wrap align-items-center">
         <button class="btn btn-sm btn-primary" id="btnSyncPush">⬆ Push</button>
-        <button class="btn btn-sm btn-outline-primary" id="btnSyncPull">⬇ Pull</button>
+        <button class="btn btn-sm btn-outline-secondary" id="btnSyncPull">⬇ Pull</button>
         <button class="btn btn-link btn-sm text-muted p-0 ms-1" id="btnSyncReset" style="font-size:var(--text-sm)">Unlink remote</button>
       </div>`}
 

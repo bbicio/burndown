@@ -39,6 +39,45 @@ services:
         condition: service_healthy
     volumes:
       - ./api/src:/app/src   # hot reload in development
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/auth/me',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+
+  # ── Integration test runner ───────────────────────────────────────────────────
+  # Usage: docker compose --profile test run --rm test
+  # Exit code 0 = all tests pass; 1 = one or more failures.
+  test:
+    image: node:24-alpine
+    profiles: ["test"]
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-pdash}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pdash}
+      API_URL: http://api:3000
+      TEST_ADMIN_EMAIL: ${TEST_ADMIN_EMAIL:-test-admin@pdash.local}
+      TEST_ADMIN_PASSWORD: ${TEST_ADMIN_PASSWORD:-TestAdmin123!}
+    volumes:
+      - ./api/src:/app/src        # for create-admin.js
+      - ./test-api.js:/app/test-api.js
+    working_dir: /app
+    command: >
+      sh -c "
+        npm install --prefix /tmp pg bcryptjs --silent --no-audit --no-fund &&
+        NODE_PATH=/tmp/node_modules node src/create-admin.js $$TEST_ADMIN_EMAIL $$TEST_ADMIN_PASSWORD Test Admin &&
+        node test-api.js
+      "
+
+  adminer:
+    image: adminer:latest
+    container_name: pdash-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
 
   nginx:
     image: nginx:alpine

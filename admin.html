@@ -6,36 +6,14 @@
   <title>PDash — Admin</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/style.css">
   <style>
     body { background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-
-    /* ── TOP BAR ─────────────────────────────────────────── */
-    .topbar {
-      background: var(--brand-navy);
-      color: #fff;
-      height: 56px;
-      display: flex;
-      align-items: center;
-      padding: 0 1.5rem;
-      gap: 1rem;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .brand { font-weight: 700; font-size: 1.15rem; letter-spacing: -0.3px; white-space: nowrap; }
-    .brand span { color: var(--brand-magenta); }
-    .topbar-sep { width: 1px; height: 24px; background: rgba(255,255,255,0.15); }
-    .topbar-title { font-size: 0.85rem; opacity: 0.7; }
-    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; font-size: 0.83rem; }
-    .topbar-user { opacity: 0.8; }
-    .btn-topbar { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
-                  color: #fff; font-size: 0.8rem; padding: 0.3rem 0.75rem; border-radius: 6px; cursor: pointer; }
-    .btn-topbar:hover { background: rgba(255,255,255,0.2); color: #fff; }
 
     /* ── PAGE ────────────────────────────────────────────── */
     .page { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
     .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
-    .page-header h1 { font-size: 1.25rem; font-weight: 700; margin: 0; color: var(--brand-navy); }
+    .page-header h1 { font-size: 2.5rem; font-weight: 700; margin: 0; color: var(--brand-navy); }
 
     /* ── CARD ────────────────────────────────────────────── */
     .card { border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
@@ -58,9 +36,9 @@
     .badge-st-disabled { background: #f3f4f6; color: #9ca3af; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
 
     /* ── BUTTONS ─────────────────────────────────────────── */
-    .btn-brand { background: var(--brand-magenta); border: none; color: #fff; font-weight: 600; font-size: 0.875rem; }
-    .btn-brand:hover:not(:disabled) { background: #d01f6a; color: #fff; }
-    .btn-brand:disabled { opacity: 0.65; color: #fff; }
+    .btn-primary { background: var(--brand-magenta); border: none; color: #fff; font-weight: 600; font-size: 0.875rem; }
+    .btn-primary:hover:not(:disabled) { background: #d01f6a; color: #fff; }
+    .btn-primary:disabled { opacity: 0.65; color: #fff; }
     .btn-action { font-size: 0.78rem; padding: 0.25rem 0.6rem; }
 
     /* ── MODAL ───────────────────────────────────────────── */
@@ -74,30 +52,29 @@
   </style>
 </head>
 <body>
-  <div id="app">
 
-    <!-- ── TOP BAR ───────────────────────────────────────── -->
-    <div class="topbar">
-      <div class="brand">P<span>Dash</span></div>
-      <div class="topbar-sep"></div>
-      <div class="topbar-title">User Management</div>
-      <div class="topbar-right">
-        <span class="topbar-user">{{ me.firstName }} {{ me.lastName }}</span>
-        <a href="/" class="btn-topbar">← App</a>
-        <button class="btn-topbar" @click="logout">Sign out</button>
-      </div>
-    </div>
+<!-- Navbar (injected by nav.js) -->
+<div id="nav-container"></div>
+
+  <div id="app">
 
     <!-- ── PAGE ──────────────────────────────────────────── -->
     <div class="page" v-if="ready">
 
       <div class="page-header">
         <h1>Users <span class="text-muted fw-normal" style="font-size:1rem">({{ users.length }})</span></h1>
-        <button class="btn btn-brand" @click="openInvite">+ Invite user</button>
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary" @click="openInvite">+ Invite user</button>
+        </div>
       </div>
 
+      <!-- Global error -->
+      <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
+
+      <!-- ── USERS ──────────────────────────────────────────── -->
+
       <!-- Filters -->
-      <div class="d-flex gap-2 mb-3">
+      <div class="d-flex gap-2 mb-3 mt-2">
         <button v-for="f in filters" :key="f.val"
                 class="btn btn-sm"
                 :class="filter === f.val ? 'btn-dark' : 'btn-outline-secondary'"
@@ -105,9 +82,6 @@
           {{ f.label }}
         </button>
       </div>
-
-      <!-- Global error -->
-      <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
 
       <!-- Table -->
       <div class="card">
@@ -148,7 +122,7 @@
                       Disable
                     </button>
                     <button v-else
-                            class="btn btn-outline-success btn-action"
+                            class="btn btn-outline-secondary btn-action"
                             :disabled="!!u._loading"
                             @click="setStatus(u, 'active')">
                       Enable
@@ -212,7 +186,7 @@
             </div>
             <div class="modal-footer border-0 pt-0">
               <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-              <button type="submit" class="btn btn-brand" :disabled="invite.loading || !!invite.success">
+              <button type="submit" class="btn btn-primary" :disabled="invite.loading || !!invite.success">
                 <span v-if="invite.loading" class="spinner-border spinner-border-sm me-2"></span>
                 Send invite
               </button>
@@ -226,6 +200,17 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="js/api.js?v=2"></script>
+  <script>
+    // esc() dependency for nav.js and ratecards.js (core.js is not included on this page)
+    function esc(s) {
+      return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+</script>
+  <script src="js/core.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/nav.js"></script>
   <script>
     Vue.createApp({
       data() {
@@ -253,17 +238,15 @@
         },
       },
       async created() {
-        // Verify auth + admin role
-        try {
-          const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
-          if (!res.ok) { window.location.href = '/login.html'; return; }
-          this.me = await res.json();
-          if (this.me.role !== 'admin') { this.accessDenied = true; return; }
-          await this.loadUsers();
-          this.ready = true;
-        } catch {
-          window.location.href = '/login.html';
-        }
+        const user = await initNav('admin', { breadcrumbs: [
+          { label: 'Home', href: '/pipeline.html' },
+          { label: 'Administration' },
+        ]});
+        if (!user) return;
+        this.me = user;
+        if (user.role !== 'admin') { this.accessDenied = true; return; }
+        await this.loadUsers();
+        this.ready = true;
       },
       mounted() {
         const el = document.getElementById('inviteModal');
@@ -274,11 +257,6 @@
         async loadUsers() {
           const res = await fetch('/api/users', { credentials: 'same-origin' });
           this.users = await res.json();
-        },
-
-        async logout() {
-          await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
-          window.location.href = '/login.html';
         },
 
         openInvite() {

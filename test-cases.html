@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Test Cases</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sw: 268px;
+      --pass:    #16a34a;
+      --fail:    #dc2626;
+      --gray:    #6b7280;
+      --bg:      #f3f4f6;
+      --card:    #ffffff;
+      --border:  #e5e7eb;
+      --sbg:     #111827;
+      --stext:   #d1d5db;
+      --accent:  #2563eb;
+      --text:    #111827;
+      --muted:   #6b7280;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+    body { display: flex; font-family: system-ui, -apple-system, sans-serif;
+           background: var(--bg); color: var(--text); font-size: 14px; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sw); min-width: var(--sw);
+      height: 100vh; background: var(--sbg);
+      display: flex; flex-direction: column; overflow-y: auto;
+    }
+    .sb-head {
+      padding: 18px 16px 14px;
+      font-size: 13px; font-weight: 700; color: #f9fafb;
+      border-bottom: 1px solid #1f2937; flex-shrink: 0;
+    }
+    .sb-head small { display: block; font-size: 11px; font-weight: 400; color: #9ca3af; margin-top: 2px; }
+    .sb-link {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 16px; color: var(--stext); cursor: pointer;
+      font-size: 12.5px; border-left: 3px solid transparent;
+      transition: background 0.12s, color 0.12s; user-select: none;
+    }
+    .sb-link:hover { background: #1f2937; color: #fff; }
+    .sb-link.active { background: #1e3a5f; border-left-color: var(--accent); color: #fff; }
+    .sb-link .name { flex: 1; min-width: 0; }
+    .sb-link .cnt {
+      font-size: 11px; white-space: nowrap; flex-shrink: 0;
+      padding: 1px 6px; border-radius: 99px; background: #1f2937; color: #9ca3af;
+    }
+    .sb-link.active .cnt { background: #1d4ed8; color: #bfdbfe; }
+    .sb-link .dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+      background: var(--gray);
+    }
+
+    /* ── Main ── */
+    .main { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: #fff; border-bottom: 1px solid var(--border);
+      padding: 14px 24px 12px; flex-shrink: 0;
+    }
+    .tb-row1 { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .tb-title { font-size: 17px; font-weight: 700; }
+    .tb-stats { display: flex; gap: 14px; font-size: 12px; color: var(--muted); align-items: center; }
+    .stat-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 2px 8px; border-radius: 99px; font-weight: 600;
+    }
+    .stat-badge.pass { background: #dcfce7; color: var(--pass); }
+    .stat-badge.fail { background: #fee2e2; color: var(--fail); }
+    .stat-badge.un   { background: #f3f4f6; color: var(--gray); }
+    .tb-prog {
+      height: 5px; background: #e5e7eb; border-radius: 99px;
+      overflow: hidden; margin-bottom: 10px;
+    }
+    .tb-prog-fill {
+      height: 100%; border-radius: 99px;
+      background: linear-gradient(90deg, var(--pass) 0%, #4ade80 100%);
+      transition: width 0.3s;
+    }
+    .tb-row2 { display: flex; align-items: center; gap: 8px; }
+    .filter-label { font-size: 11px; color: var(--muted); margin-right: 2px; }
+    .pill {
+      padding: 4px 12px; border-radius: 99px;
+      border: 1px solid var(--border); background: #fff;
+      color: var(--muted); font-size: 12px; cursor: pointer; transition: all 0.12s;
+    }
+    .pill:hover { border-color: #9ca3af; color: var(--text); }
+    .pill.active        { background: #1e3a5f; border-color: #1e3a5f; color: #fff; }
+    .pill.active.p-pass { background: var(--pass); border-color: var(--pass); }
+    .pill.active.p-fail { background: var(--fail); border-color: var(--fail); }
+    .reset-btn {
+      margin-left: auto; padding: 5px 13px;
+      border: 1px solid #fca5a5; background: #fff; color: var(--fail);
+      border-radius: 6px; font-size: 12px; cursor: pointer; transition: background 0.12s;
+    }
+    .reset-btn:hover { background: #fef2f2; }
+
+    /* ── Content ── */
+    .content { flex: 1; overflow-y: auto; padding: 20px 24px 40px; }
+
+    .sec-block { margin-bottom: 28px; }
+    .sec-block.hidden { display: none; }
+
+    .sec-head {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid var(--border);
+    }
+    .sec-head h2 { font-size: 15px; font-weight: 700; flex: 1; }
+    .sec-mini-wrap { display: flex; align-items: center; gap: 8px; }
+    .sec-mini-bar {
+      width: 64px; height: 4px; background: #e5e7eb; border-radius: 99px; overflow: hidden;
+    }
+    .sec-mini-fill { height: 100%; background: var(--pass); border-radius: 99px; transition: width 0.3s; }
+    .sec-mini-txt { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+    .sub-title {
+      font-size: 12px; font-weight: 600; color: #374151;
+      margin: 14px 0 8px; padding-left: 8px;
+      border-left: 3px solid #9ca3af;
+    }
+
+    /* ── Case card ── */
+    .case-card {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 11px 14px; background: var(--card);
+      border: 1px solid var(--border); border-left: 3px solid transparent;
+      border-radius: 8px; margin-bottom: 7px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .case-card:hover { box-shadow: 0 1px 6px rgba(0,0,0,0.07); }
+    .case-card.s-pass { border-left-color: var(--pass); background: #f0fdf4; }
+    .case-card.s-fail { border-left-color: var(--fail); background: #fef2f2; }
+    .case-card.hidden { display: none; }
+
+    .tog {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 2px solid #d1d5db; background: #fff;
+      cursor: pointer; font-size: 15px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: all 0.18s; color: #d1d5db;
+      margin-top: 1px;
+    }
+    .tog:hover { border-color: var(--accent); color: var(--accent); }
+    .tog.pass { background: var(--pass); border-color: var(--pass); color: #fff; }
+    .tog.fail { background: var(--fail); border-color: var(--fail); color: #fff; }
+
+    .cb { flex: 1; min-width: 0; }
+    .ch { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; }
+    .cid {
+      font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em;
+      padding: 1px 6px; border-radius: 4px;
+      background: #f3f4f6; color: #374151;
+      white-space: nowrap; flex-shrink: 0; font-family: monospace;
+    }
+    .sc { font-weight: 600; font-size: 13.5px; }
+    .auto-badge {
+      margin-left: auto; font-size: 10px; padding: 1px 7px;
+      border-radius: 4px; background: #eff6ff; color: #1d4ed8;
+      white-space: nowrap; flex-shrink: 0; font-weight: 600;
+    }
+    .steps {
+      font-size: 12px; color: #4b5563; margin-bottom: 3px;
+    }
+    .steps::before { content: '▸ '; color: #9ca3af; }
+    .exp { font-size: 12px; color: var(--muted); }
+    .exp::before { content: '→ '; color: #9ca3af; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+    .sidebar::-webkit-scrollbar-thumb { background: #374151; }
+  </style>
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main">
+  <header class="topbar">
+    <div class="tb-row1">
+      <span class="tb-title">PDash — Test Cases</span>
+      <div class="tb-stats" id="stats"></div>
+    </div>
+    <div class="tb-prog"><div class="tb-prog-fill" id="prog-fill" style="width:0%"></div></div>
+    <div class="tb-row2">
+      <span class="filter-label">Filter:</span>
+      <button class="pill active"        data-status="all">All</button>
+      <button class="pill p-pass"        data-status="pass">✓ Passed</button>
+      <button class="pill p-fail"        data-status="fail">✗ Failed</button>
+      <button class="pill"               data-status="untested">⬜ Untested</button>
+      <button class="reset-btn" id="reset-btn">Reset all</button>
+    </div>
+  </header>
+  <div class="content" id="content"></div>
+</div>
+
+<script>
+'use strict';
+
+// ── Data ───────────────────────────────────────────────────────────────────────
+// auto: true = covered by test-api.js automated suite
+const SECTIONS = [
+{
+  id:'auth', title:'1. Authentication',
+  cases:[
+    {id:'A-01',scenario:'Login — valid credentials',
+     steps:'POST /api/auth/login with correct email + password',
+     expected:'200 OK, httpOnly JWT cookie set, user object (id, email, role) returned in body',auto:true},
+    {id:'A-02',scenario:'Login — wrong password',
+     steps:'POST /api/auth/login with correct email but wrong password',
+     expected:'401 — generic "Invalid credentials" message, no hint about which field is wrong',auto:true},
+    {id:'A-03',scenario:'Login — disabled user',
+     steps:'POST /api/auth/login with credentials of a disabled account',
+     expected:'403 — login refused even if credentials are valid'},
+    {id:'A-04',scenario:'Login — unknown email',
+     steps:'POST /api/auth/login with a non-existent email address',
+     expected:'401 — same generic message as A-02 (no user enumeration)',auto:true},
+    {id:'A-05',scenario:'Unauthenticated page access → redirect',
+     steps:'Open any authenticated page (e.g. pipeline.html) without a valid session cookie',
+     expected:'Browser is redirected to /login.html',auto:true},
+    {id:'A-06',scenario:'Logout',
+     steps:'Click Logout in the account dropdown; then try to open pipeline.html',
+     expected:'Cookie cleared; next page load redirects to login'},
+    {id:'A-07',scenario:'Invite flow — full cycle',
+     steps:'Admin invites a new email → user clicks link in email → sets password on activate.html',
+     expected:'Account status changes from pending to active; user can log in with the new password'},
+    {id:'A-08',scenario:'Invite token expired',
+     steps:'Use an invite link that was generated more than 48 h ago',
+     expected:'400 or 401 — "Token expired or invalid" error shown on activate.html'},
+    {id:'A-09',scenario:'Duplicate invite email',
+     steps:'Admin attempts to invite an email address that already has an account',
+     expected:'409 or a meaningful inline error — no duplicate account created'},
+    {id:'A-10',scenario:'Password reset — full cycle',
+     steps:'Request reset for a valid email → click link in email → set new password on reset-password.html',
+     expected:'Login succeeds with new password; old password no longer accepted'},
+    {id:'A-11',scenario:'Password reset token expired',
+     steps:'Use a reset link older than 2 h',
+     expected:'400 or 401 — "Token expired" error shown'},
+    {id:'A-12',scenario:'Change password — correct current',
+     steps:'Open change-password modal → supply correct current password + new password → submit',
+     expected:'Password updated; logging in again with old password fails'},
+    {id:'A-13',scenario:'Change password — wrong current',
+     steps:'Open change-password modal → supply an incorrect current password → submit',
+     expected:'400 or 403 — password not changed, error shown inline'},
+  ]
+},
+{
+  id:'nav', title:'2. Navigation & Navbar',
+  cases:[
+    {id:'N-01',scenario:'Nav tabs load correct pages',
+     steps:'Click each top tab: Pipeline, Reporting, Planning',
+     expected:'Correct page loads; clicked tab is highlighted as active; other tabs are not'},
+    {id:'N-02',scenario:'Account dropdown',
+     steps:'Click the user avatar / name in the top-right corner',
+     expected:'Dropdown shows: full name, Settings, Change Password, Logout options'},
+    {id:'N-03',scenario:'Settings modal — two tabs',
+     steps:'Open Settings → switch between tabs',
+     expected:'"API & Integrations" tab shows AI provider key fields; "Data Manager" tab shows export and backup controls'},
+    {id:'N-04',scenario:'Non-admin access to config.html',
+     steps:'Log in as a user with role=user; navigate directly to /config.html',
+     expected:'"Admin access required" message shown — tabs and content are not accessible'},
+    {id:'N-05',scenario:'Non-admin access to admin.html',
+     steps:'Log in as role=user; navigate to /admin.html',
+     expected:'"Admin access required" message or redirect — user management not accessible'},
+    {id:'N-06',scenario:'Non-admin access to timesheets.html',
+     steps:'Log in as role=user; navigate to /timesheets.html',
+     expected:'Redirected to /pipeline.html or "access denied" shown'},
+  ]
+},
+{
+  id:'pipeline', title:'3. Pipeline Board',
+  cases:[
+    {id:'P-01',scenario:'Board renders correctly',
+     steps:'Open /pipeline.html as an authenticated user',
+     expected:'Five kanban columns: SIP, Expected, Anticipated, Committed, Canceled — each with a header and budget total footer'},
+    {id:'P-02',scenario:'Year dropdown shows all visible years',
+     steps:'Click the pipeline year selector in the board header',
+     expected:'Dropdown lists only the years marked as Visible (active) in config; hidden years do not appear'},
+    {id:'P-03',scenario:'Year switch reloads board',
+     steps:'Select a different year from the dropdown',
+     expected:'URL updates with ?year=YYYY; board reloads showing cost grids for that year; column totals update'},
+    {id:'P-04',scenario:'Invalid year in URL',
+     steps:'Navigate manually to /pipeline.html?year=9999 (a year not in pipeline_years)',
+     expected:'Silently redirected to the default active year; board loads normally'},
+    {id:'P-05',scenario:'Inactive year access (non-admin)',
+     steps:'Navigate to a URL with a year that has been hidden by admin',
+     expected:'403 from API; board shows empty state or error message — no cost grids visible'},
+    {id:'P-06',scenario:'Draft stage invisible to others',
+     steps:'Create a Draft cost grid as User A; log in as User B and view the same year',
+     expected:'User B does not see User A\'s Draft grid on the board'},
+    {id:'P-07',scenario:'Draft grid visible to creator',
+     steps:'Create a Draft cost grid; remain logged in as the same user',
+     expected:'Draft grid appears on the creator\'s board (in a Draft column or appropriately filtered)'},
+    {id:'P-08',scenario:'New Cost Grid button',
+     steps:'Click "+ New Cost Grid" on an active pipeline year board',
+     expected:'Modal opens; filling in name + client + submit creates a new grid that appears on the board immediately'},
+    {id:'P-09',scenario:'New CG button hidden for inactive year (admin)',
+     steps:'Admin navigates to a board for a hidden year',
+     expected:'"+  New Cost Grid" button is not displayed; read-only view only'},
+    {id:'P-10',scenario:'Detail panel opens',
+     steps:'Click on any cost grid card on the board',
+     expected:'Detail panel slides in from the right showing offer metadata (name, stage, client, dates) and task/phase breakdown'},
+    {id:'P-11',scenario:'Detail panel closes',
+     steps:'Click × in the detail panel header',
+     expected:'Panel closes; board is fully visible again'},
+    {id:'P-12',scenario:'POT summary in panel — with target',
+     steps:'Open detail panel for a CG linked to a client that has a POT target for the current year',
+     expected:'POT section shows target amount and a progress bar reflecting committed vs target'},
+    {id:'P-13',scenario:'POT summary in panel — no target',
+     steps:'Open detail panel for a CG whose client has no POT set for the current year',
+     expected:'POT section absent or shows "No target set" gracefully'},
+    {id:'P-14',scenario:'Edit button navigates to cost grid editor',
+     steps:'Open detail panel → click ✏️ Edit',
+     expected:'Browser navigates to /costgrid.html?cgId=...&verId=... with the correct IDs'},
+    {id:'P-15',scenario:'Share button opens share modal',
+     steps:'Open detail panel → click 🔗 Share',
+     expected:'Share modal opens; user can search by email, set permission, and share'},
+    {id:'P-16',scenario:'Column totals calculate correctly',
+     steps:'Board with multiple grids in the same stage; check the footer total for that column',
+     expected:'Footer shows the correct sum of all grid budgets in that stage; updates when stage changes'},
+    {id:'P-17',scenario:'Budget on card — Draft and all version types',
+     steps:'Open board with a Draft cost grid that has tasks and roles with rates',
+     expected:'Card shows a fee amount (not "No budget") — the /api/cost-grids/budgets endpoint covers Draft versions directly from the task_roles table'},
+    {id:'P-18',scenario:'PTC shown separately on card',
+     steps:'Open board with a proposal that has pass-through costs entered in at least one task',
+     expected:'Card shows fee on first line; PTC shown on second line as "+ €X PTC"; the two values are never merged into one figure'},
+    {id:'P-19',scenario:'Client name on card after reload',
+     steps:'Set a client on a cost grid version → save → reload the pipeline board',
+     expected:'Client name appears below the pipeline stage badge on the card; not blank even after a full page reload'},
+    {id:'P-20',scenario:'Rate card shown in detail panel',
+     steps:'Set a rate card on a version → open the detail panel by clicking the card',
+     expected:'"Rate card: [name]" line appears below the client name in the panel header; absent when no rate card is set'},
+    {id:'P-21',scenario:'Project name on card after reload',
+     steps:'Enter a project name in the cost grid editor → save → reload the board',
+     expected:'Pipeline card shows the saved project name (not the cost grid name) after reload'},
+    {id:'P-22',scenario:'Column total — professional fees only',
+     steps:'Create proposals with both fees and PTC in the same stage column',
+     expected:'Column footer main value = professional fees only; PTC not included in the main total'},
+    {id:'P-23',scenario:'Column total — PTC secondary line',
+     steps:'Create a proposal with PTC > 0 in the same column',
+     expected:'PTC shown as a smaller muted line below the fee total; no standalone € symbol rendered before the value'},
+    {id:'P-24',scenario:'Column total — no PTC line when zero',
+     steps:'Create a proposal with no PTC in that column',
+     expected:'Only the fee line shown; the muted PTC line is absent when ptc = 0'},
+    {id:'P-25',scenario:'Version tabs — single version',
+     steps:'Open detail panel for a cost grid that has only one version',
+     expected:'No version tab row is rendered above the two-column body'},
+    {id:'P-26',scenario:'Version tabs — multiple versions',
+     steps:'Open detail panel for a cost grid with V1 and V2',
+     expected:'Version tab row appears at the top of the panel; each tab shows a colored stage dot and version label'},
+    {id:'P-27',scenario:'Version tab switch in panel',
+     steps:'Click a different version tab in the detail panel',
+     expected:'Panel content reloads for the selected version; clicked tab is highlighted as active'},
+    {id:'P-28',scenario:'Clone from detail panel — modal opens',
+     steps:'Open detail panel → click ⧉ Clone',
+     expected:'Clone modal opens pre-filled: source name shows the currently viewed version; target name defaults to "[CG name] — Copy"'},
+    {id:'P-29',scenario:'Clone creates v1 label regardless of source',
+     steps:'Clone a version labelled V2 or V3',
+     expected:'Resulting new cost grid has a single version labelled "v1", not the source label'},
+    {id:'P-30',scenario:'Clone result opens in editor',
+     steps:'Complete the clone flow (name + confirm)',
+     expected:'Editor navigates to costgrid.html?cgId=<new>&verId=<new>; cloned phase/task/role structure is intact'},
+  ]
+},
+{
+  id:'costgrid', title:'4. Cost Grid Editor',
+  cases:[
+    {id:'CG-01',scenario:'Load existing grid',
+     steps:'Click ✏️ Edit on a card; costgrid.html loads',
+     expected:'All phases, tasks, role columns, days entered, and computed budgets load correctly from API'},
+    {id:'CG-02',scenario:'Add phase',
+     steps:'Click "+ Add Phase"',
+     expected:'New phase row appears at the bottom; user can type a name; row persists after save'},
+    {id:'CG-03',scenario:'Add task inside a phase',
+     steps:'Click "+ Add Task" inside an existing phase row',
+     expected:'New task row appears under that phase; can be named; appears in totals'},
+    {id:'CG-04',scenario:'Add role column',
+     steps:'Click to add a role to the grid',
+     expected:'New column appears with the effective rate (custom from ratecard if set, agency default otherwise); days × rate calculates budget automatically'},
+    {id:'CG-05',scenario:'Enter days in a task/role cell',
+     steps:'Type a number into any task × role cell',
+     expected:'Row total and phase total and grand total all update immediately'},
+    {id:'CG-06',scenario:'Pass-through cost (PTC)',
+     steps:'Enter a pass-through cost value on a task row',
+     expected:'PTC is added to the task subtotal and rolled up into the grand total'},
+    {id:'CG-07',scenario:'Save grid',
+     steps:'Click Save (or trigger auto-save)',
+     expected:'Structure persisted to API; no data loss on page reload; success indicator shown'},
+    {id:'CG-08',scenario:'Duplicate version',
+     steps:'Click Duplicate on an existing version',
+     expected:'New version created with the same phase/task/role structure; appears in the version dropdown'},
+    {id:'CG-09',scenario:'Delete version',
+     steps:'Click Delete on a non-locked version',
+     expected:'Version removed; pipeline board reloads and no longer shows that version\'s card'},
+    {id:'CG-10',scenario:'JSON export modal',
+     steps:'Click { } JSON button',
+     expected:'Modal shows valid JSON of the full grid structure; can be copied or downloaded'},
+    {id:'CG-11',scenario:'JSON import',
+     steps:'Import a valid JSON file via the import control',
+     expected:'Grid structure is replaced with the imported data; saved to API; board reflects the update'},
+    {id:'CG-12',scenario:'Pipeline stage change',
+     steps:'Change the stage dropdown value (e.g. SIP → Expected)',
+     expected:'Stage badge updates immediately; after navigating back to board, card appears in the new column'},
+    {id:'CG-13',scenario:'Back button',
+     steps:'Click ← Back in the cost grid editor header',
+     expected:'Browser navigates back to /pipeline.html with the same year context'},
+    {id:'CG-14',scenario:'Locked version',
+     steps:'View a version that is linked to a committed project',
+     expected:'All edit controls (add phase, add task, enter days) are disabled; 🔒 badge is visible on the version'},
+    {id:'CG-15',scenario:'Add role modal — no ratecard selected',
+     steps:'Open a version with no ratecard set; click 👥 + Add role',
+     expected:'All roles show sand-colored rate badges (agency defaults); no ratecard hint appears in the modal header'},
+    {id:'CG-16',scenario:'Add role modal — custom rates highlighted',
+     steps:'Open a version with a client ratecard selected; click 👥 + Add role',
+     expected:'Roles with a custom entry show an indigo badge (✦ rate €/h) and a light purple row background; header reads "✦ Custom rates from [ratecard name] applied."'},
+    {id:'CG-17',scenario:'Add role — correct rate persisted',
+     steps:'Select a role that has a custom rate in the active ratecard and confirm',
+     expected:'Role column is added with the custom hourly rate; budget totals use the custom rate, not the agency default'},
+    {id:'CG-18',scenario:'Hours display after API reload — no leading zeros',
+     steps:'Save 10 hours for a role; reload the page; reopen the grid from the board',
+     expected:'Hours cell shows 10,00 — no leading zeros or string-concatenation artefacts from pg DECIMAL → string coercion'},
+    {id:'CG-19',scenario:'PTC totals after API reload — no string coercion',
+     steps:'Save a task with PTC €2,000; reload the page; reopen the grid',
+     expected:'Task PTC, phase total, and grand total all show €2,000.00 — no inflated values from "9255" + "2000.00" = "92552000.00"'},
+    {id:'CG-20',scenario:'Version tab switch in editor loads correct structure',
+     steps:'Open a grid with V1 and V2; click V1 tab while on V2',
+     expected:'V1 structure loaded from API; editor renders V1 phases/tasks/roles; URL updated to V1 verId via replaceState'},
+    {id:'CG-21',scenario:'Clone from editor toolbar',
+     steps:'Click ⧉ Clone in the editor toolbar',
+     expected:'Clone modal opens; source name shows current CG + version label; after clone, editor navigates to the new grid with v1 label'},
+    {id:'CG-22',scenario:'Clone does not corrupt source grid',
+     steps:'Clone from editor; navigate back to the original grid',
+     expected:'Original grid phases, tasks, and totals are intact; no data loss or infinite-loop hang'},
+    {id:'CG-23',scenario:'Clone autosave safety',
+     steps:'Edit a task, wait for autosave timer, immediately click Clone',
+     expected:'Clone completes cleanly; autosave timer was cleared before clone; no concurrent save error or 500 on the source'},
+  ]
+},
+{
+  id:'portfolio', title:'5. Project Reporting (Portfolio)',
+  cases:[
+    {id:'R-01',scenario:'Portfolio page loads',
+     steps:'Open /portfolio.html',
+     expected:'All projects the user has access to are listed as cards or rows'},
+    {id:'R-02',scenario:'Filter by client',
+     steps:'Select a client from the filter dropdown',
+     expected:'Only projects belonging to that client are shown; others are hidden'},
+    {id:'R-03',scenario:'KPI cards',
+     steps:'View a project that has phasing data and uploaded actuals',
+     expected:'Budget Estimated, Budget Spent, and Variance KPI cards show correct calculated values'},
+    {id:'R-04',scenario:'Upload XLS actuals',
+     steps:'Click Load Actuals on a project → select a valid Excel timesheet file',
+     expected:'Timesheet rows parsed and stored; KPI cards and burndown chart update to reflect actual hours'},
+    {id:'R-05',scenario:'Burndown chart',
+     steps:'Open a project with multiple months of estimated + actual data',
+     expected:'Burndown chart renders estimated vs. spent per month in a readable format'},
+    {id:'R-06',scenario:'Gantt view',
+     steps:'Switch to Gantt view for a project with defined phase dates',
+     expected:'Horizontal phase bars rendered with correct start/end date alignment'},
+    {id:'R-07',scenario:'AI analysis',
+     steps:'Click 🤖 AI on a project (with a valid AI provider API key configured in Settings)',
+     expected:'AI sidebar opens; analysis returns a RAG status (R/A/G) with recommendations for the project'},
+    {id:'R-08',scenario:'Share project',
+     steps:'Project owner clicks Share on a project card',
+     expected:'Share modal opens; owner can search a user by email and grant Viewer or Editor access'},
+    {id:'R-09',scenario:'Navigate to project config',
+     steps:'Click the configure button on a project card',
+     expected:'Browser navigates to /project-config.html?projectId=... with the correct project pre-loaded'},
+  ]
+},
+{
+  id:'projconfig', title:'6. Project Configuration',
+  cases:[
+    {id:'PC-01',scenario:'Form loads with existing data',
+     steps:'Open /project-config.html?projectId=<valid-id>',
+     expected:'All fields (name, client, dates, tasks, phasing, planning, groups) pre-filled from API'},
+    {id:'PC-02',scenario:'Save project metadata',
+     steps:'Edit the project name, dates, or client → click Save',
+     expected:'Changes persisted to API; portfolio card reflects the new values'},
+    {id:'PC-03',scenario:'Add a task',
+     steps:'Click "+ Add task" in the Tasks section',
+     expected:'New task row appears; can be named; row is saved and visible in portfolio burndown'},
+    {id:'PC-04',scenario:'Task monthly distribution validation',
+     steps:'Enter percentage values per month for a task; leave total ≠ 100%',
+     expected:'Warning shown ("percentages do not sum to 100%"); save is still allowed but user is informed'},
+    {id:'PC-05',scenario:'Resources — add role',
+     steps:'Add a role with sold hours and rate to a task in the Resources section',
+     expected:'Role saved to API; budget impact reflected in KPIs on portfolio'},
+    {id:'PC-06',scenario:'Save phasing',
+     steps:'Edit monthly phasing amounts for a task and save',
+     expected:'Values stored; burndown chart on portfolio shows updated phasing curve'},
+    {id:'PC-07',scenario:'Save planning hours',
+     steps:'Edit monthly hours in the Planning section and save',
+     expected:'Planning data stored; resource planning page reflects updated hours'},
+    {id:'PC-08',scenario:'Functional groups',
+     steps:'Add a functional group with roles assigned → save',
+     expected:'Group saved to API; visible in the project config form on next load'},
+  ]
+},
+{
+  id:'planning', title:'7. Resource Planning',
+  cases:[
+    {id:'PL-01',scenario:'Planning page loads',
+     steps:'Open /planning.html',
+     expected:'Resource planning table renders with rows for each role/person and columns for time periods'},
+    {id:'PL-02',scenario:'Group by role',
+     steps:'Select "By Role" grouping option',
+     expected:'Table rows are grouped under role codes; hours per role per period shown'},
+    {id:'PL-03',scenario:'Group by project',
+     steps:'Select "By Project" grouping',
+     expected:'Table rows are grouped under project names; hours per project per period shown'},
+    {id:'PL-04',scenario:'Date navigation',
+     steps:'Click next/previous period buttons',
+     expected:'Table columns shift by the configured granularity (week/month); data updates correctly'},
+    {id:'PL-05',scenario:'Export XLS',
+     steps:'Click Export XLS button',
+     expected:'A .xlsx file is downloaded containing the resource planning table for the visible date range'},
+  ]
+},
+{
+  id:'cfclients', title:'8. Config — Clients',
+  cases:[
+    {id:'CF-01',scenario:'Clients tab loads',
+     steps:'Open /config.html → click Clients tab',
+     expected:'All existing clients listed alphabetically; each row shows 💲 Costgrid · ✏️ Edit · 🗑 buttons',auto:true},
+    {id:'CF-02',scenario:'Add client',
+     steps:'Click "+ Add client" → enter a name → submit',
+     expected:'Client appears in list immediately; persisted to API',auto:true},
+    {id:'CF-03',scenario:'Edit / rename client',
+     steps:'Click ✏️ Edit on a client row → change name → save',
+     expected:'Name updated in list and in any dependent dropdowns',auto:true},
+    {id:'CF-04',scenario:'Duplicate name blocked',
+     steps:'Attempt to create a client with a name that already exists (case-insensitive)',
+     expected:'API returns 409; inline error "already exists" shown — no duplicate created',auto:true},
+    {id:'CF-05',scenario:'Delete client',
+     steps:'Click 🗑 on a client with no linked projects → confirm',
+     expected:'Client removed from list; attempt to delete a client with linked projects returns an error'},
+    {id:'CF-06',scenario:'Costgrid modal — no existing ratecard',
+     steps:'Click 💲 Costgrid on a client that has no rate card yet',
+     expected:'Modal opens with title "Rate Card — ClientName"; a rate card is auto-created; all roles listed; Agency default column populated; Custom column empty'},
+    {id:'CF-07',scenario:'Costgrid modal — existing ratecard',
+     steps:'Click 💲 Costgrid on a client that already has a rate card',
+     expected:'Modal opens with previously saved custom rates pre-filled in the Custom column'},
+    {id:'CF-08',scenario:'Save custom rates',
+     steps:'Enter values in one or more Custom (€/h) cells → click Save rates',
+     expected:'Rates saved; reopening the modal shows the saved values',auto:true},
+    {id:'CF-09',scenario:'Clear custom rate (fall back to default)',
+     steps:'Delete the value in a Custom cell → Save rates',
+     expected:'Field left blank; that role uses agency default rate in proposals',auto:true},
+    {id:'CF-10',scenario:'Agency default — global ratecard present',
+     steps:'Open Costgrid modal with a global rate card configured',
+     expected:'Agency default column shows values from the global rate card'},
+    {id:'CF-11',scenario:'Agency default — no global ratecard',
+     steps:'Open Costgrid modal with no global rate card in the system',
+     expected:'Agency default column shows role.hourly_rate or "—" if not set'},
+    {id:'CF-12',scenario:'Ratecard API — list (requireAuth)',
+     steps:'GET /api/ratecards as any logged-in user',
+     expected:'200 array — accessible to all authenticated users, not admin-only',auto:true},
+    {id:'CF-13',scenario:'Ratecard API — create global (admin)',
+     steps:'POST /api/ratecards with clientId=null as admin',
+     expected:'201, id in response',auto:true},
+    {id:'CF-14',scenario:'Ratecard API — create per client (admin)',
+     steps:'POST /api/ratecards with a valid clientId as admin',
+     expected:'201, client_id matches the provided clientId',auto:true},
+    {id:'CF-15',scenario:'Ratecard API — get by id (requireAuth)',
+     steps:'GET /api/ratecards/:id as any logged-in user',
+     expected:'200, correct ratecard returned — accessible to all authenticated users',auto:true},
+  ]
+},
+{
+  id:'cfgroups', title:'9. Config — Client Groups',
+  cases:[
+    {id:'CG-G-01',scenario:'Client Groups tab loads',
+     steps:'Open /config.html → click Client Groups tab',
+     expected:'All groups listed, each showing its name and the clients assigned to it',auto:true},
+    {id:'CG-G-02',scenario:'Create group',
+     steps:'Click "+ Add group" → enter a name → submit',
+     expected:'New group appears in the list with zero clients',auto:true},
+    {id:'CG-G-03',scenario:'Rename group',
+     steps:'Click ✏️ Rename on a group → change name → save',
+     expected:'Name updated in the list'},
+    {id:'CG-G-04',scenario:'Assign client to group',
+     steps:'Select an unassigned client from the dropdown in a group row → click Add',
+     expected:'Client badge appears inside the group; client is no longer in other groups',auto:true},
+    {id:'CG-G-05',scenario:'Remove client from group',
+     steps:'Click × on a client badge inside a group',
+     expected:'Client removed from the group; becomes unassigned again',auto:true},
+    {id:'CG-G-06',scenario:'All clients assigned',
+     steps:'Assign every available client to some group',
+     expected:'Assign dropdown is hidden or empty for groups when no unassigned clients remain'},
+    {id:'CG-G-07',scenario:'Delete group',
+     steps:'Click 🗑 on a group → confirm',
+     expected:'Group deleted; all formerly-assigned clients become unassigned (group_id = NULL)'},
+  ]
+},
+{
+  id:'cfpot', title:'10. Config — Pipelines & POTs',
+  sub:[
+    {title:'View A — Pipeline list', start:'PP-01', end:'PP-09'},
+    {title:'View B — POT Targets (layout: nav title → 5 cards → POT Targets section → table)', start:'PP-10', end:'PP-27'},
+  ],
+  cases:[
+    {id:'PP-01',scenario:'Pipeline list loads',
+     steps:'Open /config.html → click Pipelines & POTs tab',
+     expected:'All pipeline years listed with Visible/Hidden status badges',auto:true},
+    {id:'PP-02',scenario:'Add pipeline year',
+     steps:'Click "+ Add year" → enter a year → click Create',
+     expected:'New year appears in list with Visible badge; active by default',auto:true},
+    {id:'PP-03',scenario:'Duplicate year blocked',
+     steps:'Attempt to add a year that already exists',
+     expected:'Inline error "already exists"; API returns 409',auto:true},
+    {id:'PP-04',scenario:'Invalid year validation',
+     steps:'Enter a year < 2000 or > 2100',
+     expected:'Validation error shown; year not created; API returns 400',auto:true},
+    {id:'PP-05',scenario:'Hide pipeline year',
+     steps:'Click Hide on an active pipeline year',
+     expected:'Badge changes to Hidden; the year disappears from the board year dropdown for all users',auto:true},
+    {id:'PP-06',scenario:'Show (unhide) pipeline year',
+     steps:'Click Show on a hidden pipeline year',
+     expected:'Badge changes to Visible; year reappears in the board year dropdown',auto:true},
+    {id:'PP-07',scenario:'Delete pipeline year (no cost grids)',
+     steps:'Delete a year that has no cost grid versions referencing it',
+     expected:'Year removed from list immediately',auto:true},
+    {id:'PP-08',scenario:'Delete pipeline year (has cost grids)',
+     steps:'Attempt to delete a year that has at least one cost grid version',
+     expected:'Error shown: "year in use" — deletion blocked; API returns 409'},
+    {id:'PP-09',scenario:'Drill into pipeline year (POT view)',
+     steps:'Click "POTs →" or the row for a pipeline year',
+     expected:'View switches to View B showing POT targets for that year; back button visible'},
+    {id:'PP-10',scenario:'View B layout order',
+     steps:'Navigate into a pipeline year',
+     expected:'Top: ← Pipelines button + "Pipeline YYYY" + Visible/Hidden badge. Below: 5 stage cards. Below: "POT Targets" section-title + "+ New POT" button. Below: POT table.'},
+    {id:'PP-11',scenario:'Back button returns to pipeline list',
+     steps:'Click ← Pipelines in View B',
+     expected:'Returns to View A pipeline list; selected year is deselected'},
+    {id:'PP-12',scenario:'5 stage cards render',
+     steps:'Navigate into any pipeline year',
+     expected:'Cards for SIP, Expected, Anticipated, Committed, Canceled shown in order with proposal count and professional-fee total',auto:true},
+    {id:'PP-13',scenario:'Stage card value — professional fees only',
+     steps:'Open a year with proposals that include pass-through costs (PTC)',
+     expected:'Card totals = Σ(days × 8 × rate) per version; PTC field is excluded from all card totals'},
+    {id:'PP-14',scenario:'Stage card — empty stages',
+     steps:'Navigate into a year with proposals in only 2 stages',
+     expected:'Remaining 3 cards show count = 0 and value = € 0',auto:true},
+    {id:'PP-15',scenario:'Add POT — individual client',
+     steps:'Click "+ New POT" → select Individual client → choose a client → enter amount → Create',
+     expected:'POT appears in the list with the correct client name and amount',auto:true},
+    {id:'PP-16',scenario:'Add POT — client group',
+     steps:'Click "+ New POT" → select Client group → choose a group → enter amount → Create',
+     expected:'POT appears in the list labelled with the group name'},
+    {id:'PP-17',scenario:'Duplicate POT blocked',
+     steps:'Try to create a second POT for the same client + year combination',
+     expected:'API returns 409; inline error shown — only one POT per entity per year',auto:true},
+    {id:'PP-18',scenario:'Edit POT amount',
+     steps:'Click ✏️ Edit on a POT → change the amount → Update',
+     expected:'Amount updated in list; a history entry is created recording old and new values',auto:true},
+    {id:'PP-19',scenario:'Delete POT',
+     steps:'Click 🗑 on a POT → confirm',
+     expected:'POT removed from list'},
+    {id:'PP-20',scenario:'No year dropdown in POT form',
+     steps:'Open "+ New POT" form while inside a pipeline year (View B)',
+     expected:'Form title shows "Pipeline YYYY" (the selected year) — there is no year picker in the form'},
+    {id:'PP-21',scenario:'View Details modal opens',
+     steps:'Click 🔍 View Details on any POT row',
+     expected:'Modal opens with: POT type badge (Individual/Group), Target card (current pot.amount), Current card (sum of Committed professional fees for the year)',auto:true},
+    {id:'PP-22',scenario:'View Details — history list',
+     steps:'Open modal for a POT edited at least once',
+     expected:'History entries listed newest-first; each shows date, author name, old value → new value with arrow',auto:true},
+    {id:'PP-23',scenario:'View Details — creation entry',
+     steps:'Open modal for a newly created POT (never edited)',
+     expected:'History shows one entry: old value = — (none), new value = the initial amount'},
+    {id:'PP-24',scenario:'View Details — proposals list',
+     steps:'Open modal for a POT whose client/group has cost grid versions in that year',
+     expected:'All scoped proposals listed; Canceled proposals included; Draft proposals excluded'},
+    {id:'PP-25',scenario:'View Details — proposal link',
+     steps:'Click ↗ Open on a proposal row in the modal',
+     expected:'Opens /costgrid.html?cgId=...&verId=... for that proposal in a new tab'},
+    {id:'PP-26',scenario:'View Details — Current card calculation',
+     steps:'Open modal for a POT with some Committed proposals',
+     expected:'Current card = Σ professional fees (days×8×rate) of Committed proposals only; PTC not included',auto:true},
+    {id:'PP-27',scenario:'View Details — no proposals',
+     steps:'Open modal for a POT with no cost grid versions scoped to its client/group + year',
+     expected:'Proposals section shows an empty state message'},
+  ]
+},
+{
+  id:'admin', title:'11. Admin — User Management',
+  cases:[
+    {id:'AD-01',scenario:'User list loads',
+     steps:'Open /admin.html as an admin',
+     expected:'All users listed with columns: name, email, role, status, invited by',auto:true},
+    {id:'AD-02',scenario:'Filter by status',
+     steps:'Click Active / Pending / Disabled filter tabs',
+     expected:'Table shows only users matching the selected status; counts in tabs update'},
+    {id:'AD-03',scenario:'Invite new user',
+     steps:'Click "+ Invite user" → fill in email, name, role → Send',
+     expected:'User created with status=pending; invite email sent; user appears in Pending tab'},
+    {id:'AD-04',scenario:'Promote to admin',
+     steps:'Click "Make admin" on a user with role=user',
+     expected:'Role changes to admin immediately; button changes to "Make user"'},
+    {id:'AD-05',scenario:'Demote to user',
+     steps:'Click "Make user" on an admin',
+     expected:'Role changes to user; admin loses access to /config.html and /admin.html'},
+    {id:'AD-06',scenario:'Disable user',
+     steps:'Click Disable on an active user',
+     expected:'Status changes to disabled; user can no longer log in; moves to Disabled tab'},
+    {id:'AD-07',scenario:'Enable user',
+     steps:'Click Enable on a disabled user',
+     expected:'Status returns to active; user can log in again'},
+    {id:'AD-08',scenario:'Cannot modify own account',
+     steps:'Admin views their own row in the user list',
+     expected:'No role or status buttons shown for own row — a "(you)" label is displayed instead'},
+    {id:'AD-09',scenario:'Pipeline years section absent',
+     steps:'Open /admin.html and look for a pipeline years section',
+     expected:'No pipeline years section exists — it is managed exclusively in config.html'},
+    {id:'AD-10',scenario:'Data Migration button absent',
+     steps:'Open /admin.html and inspect the page header',
+     expected:'No "↑ Data Migration" button — migration.html is no longer linked from the UI'},
+    {id:'AD-11',scenario:'Rate Cards button absent',
+     steps:'Open /admin.html and inspect the page header',
+     expected:'No "💲 Rate Cards" button — rate card management moved to Config → Clients (💲 Costgrid per row)'},
+  ]
+},
+{
+  id:'timesheets', title:'12. Timesheets',
+  cases:[
+    {id:'TS-01',scenario:'Timesheet list loads',
+     steps:'Open /timesheets.html as admin',
+     expected:'All project codes that have uploaded timesheets are listed with upload count and total row count'},
+    {id:'TS-02',scenario:'View project link',
+     steps:'Click 📊 View on a project code row',
+     expected:'Navigates to /portfolio.html?projectId=... for the corresponding project'},
+    {id:'TS-03',scenario:'Delete all timesheets for a project',
+     steps:'Click 🗑 Delete all on a project code → confirm the dialog',
+     expected:'All timesheet rows for that project code are removed; row disappears from the list'},
+    {id:'TS-04',scenario:'Empty state',
+     steps:'Open timesheets.html when no timesheets have been uploaded',
+     expected:'"No timesheets uploaded yet" message shown with upload instructions'},
+  ]
+},
+{
+  id:'notifications', title:'13. Notifications',
+  cases:[
+    {id:'NT-01',scenario:'Bell badge shows unread count',
+     steps:'Have at least one unread notification; open any page',
+     expected:'A red numeric badge appears on the bell icon in the top navbar'},
+    {id:'NT-02',scenario:'Notification panel opens',
+     steps:'Click the bell icon',
+     expected:'Dropdown panel opens listing the last 50 notifications with timestamps and read/unread state'},
+    {id:'NT-03',scenario:'Real-time push via SSE',
+     steps:'Have the app open in one tab; admin sends a notification to you from another tab',
+     expected:'New notification appears in the panel without a page reload; badge count increments'},
+    {id:'NT-04',scenario:'Mark all read',
+     steps:'Click "Mark all read" in the notification panel',
+     expected:'Badge clears immediately; all items in the panel show as read (no bold / highlight)'},
+    {id:'NT-05',scenario:'Mark one notification read',
+     steps:'Click on a single notification in the panel',
+     expected:'That item marked as read; badge count decrements; navigates to deep-link URL if present'},
+    {id:'NT-06',scenario:'Share triggers notification',
+     steps:'User A shares a cost grid with User B',
+     expected:'User B receives an in-app notification with a deep-link to the shared cost grid'},
+  ]
+},
+{
+  id:'exports', title:'14. Exports (Settings → Data Manager)',
+  cases:[
+    {id:'EX-01',scenario:'Export Portfolio CSV',
+     steps:'Open Settings → Data Manager → click Export Portfolio',
+     expected:'Email received (at logged-in user\'s address) with a CSV attachment of portfolio data'},
+    {id:'EX-02',scenario:'Export Cost Grids CSV',
+     steps:'Click Export Cost Grids',
+     expected:'Email received with a CSV containing one row per task, with role-code columns for hours'},
+    {id:'EX-03',scenario:'Export Rate Cards CSV (admin)',
+     steps:'Open Settings as admin → Data Manager → click Export Rate Cards',
+     expected:'Email received with a matrix CSV: roles as rows, clients as columns, rates as values'},
+    {id:'EX-04',scenario:'Rate Cards export hidden from non-admin',
+     steps:'Open Settings as a user with role=user',
+     expected:'Export Rate Cards button is not present in the Data Manager tab'},
+    {id:'EX-05',scenario:'Full backup download',
+     steps:'Click Download Full Backup',
+     expected:'A JSON file is downloaded with a timestamp in the filename containing all app data'},
+    {id:'EX-06',scenario:'Restore from backup (admin)',
+     steps:'Upload a valid backup JSON via the Restore control',
+     expected:'Data restored successfully; success message shown; app reflects restored state'},
+    {id:'EX-07',scenario:'Send targeted notification (admin)',
+     steps:'Compose a message → select a specific user → click Send',
+     expected:'Notification delivered to the target user; visible in their notification panel'},
+    {id:'EX-08',scenario:'Send broadcast notification (admin)',
+     steps:'Compose a message → leave user field blank → Send',
+     expected:'All active users receive the notification in their panel'},
+  ]
+},
+{
+  id:'sharing', title:'15. Sharing',
+  cases:[
+    {id:'SH-01',scenario:'Open share modal — cost grid',
+     steps:'On detail panel, click 🔗 Share',
+     expected:'Share modal opens showing the cost grid name and existing shares list'},
+    {id:'SH-02',scenario:'Add viewer',
+     steps:'Search a user by email → select "Viewer" → click Share',
+     expected:'User added to shares list; they can see the cost grid but edit controls are disabled for them'},
+    {id:'SH-03',scenario:'Add editor',
+     steps:'Share with "Editor" permission',
+     expected:'User can open the cost grid editor and make changes'},
+    {id:'SH-04',scenario:'Remove share',
+     steps:'Click the remove button on an existing share entry',
+     expected:'User loses access to the cost grid immediately'},
+    {id:'SH-05',scenario:'Share triggers notification',
+     steps:'Complete a share action (SH-02 or SH-03)',
+     expected:'Recipient receives an in-app notification with a deep-link to the shared grid'},
+    {id:'SH-06',scenario:'Share a project',
+     steps:'Click Share on a project card in portfolio',
+     expected:'Same share modal flow as cost grid; project becomes visible to the added user'},
+  ]
+},
+{
+  id:'security', title:'16. API Security',
+  cases:[
+    {id:'SEC-01',scenario:'Unauthenticated requests → 401',
+     steps:'Send GET/POST/PATCH/DELETE to any /api/* endpoint without a session cookie',
+     expected:'401 Unauthorized — endpoints /api/auth/login and /api/auth/activate are the only exceptions',auto:true},
+    {id:'SEC-02',scenario:'Non-admin calls admin-only endpoint → 403',
+     steps:'Log in as role=user; call POST /api/clients, POST /api/pipeline-years, GET /api/users, etc.',
+     expected:'403 Forbidden — "Admin required" response; data not modified'},
+    {id:'SEC-03',scenario:'User cannot access another user\'s private CG',
+     steps:'As User B, attempt to GET or edit a Draft cost grid owned by User A',
+     expected:'403 — grid not returned; not visible on User B\'s board'},
+    {id:'SEC-04',scenario:'Access inactive pipeline year → 403',
+     steps:'GET /api/cost-grids?year=YYYY where YYYY is in pipeline_years but active=false',
+     expected:'403 Forbidden',auto:true},
+    {id:'SEC-05',scenario:'Access unknown pipeline year → 404',
+     steps:'GET /api/cost-grids?year=9998 (a year not in pipeline_years at all)',
+     expected:'404 Not Found',auto:true},
+    {id:'SEC-06',scenario:'Create POT for non-existent client → 400/404',
+     steps:'POST /api/pots with a clientId that does not exist',
+     expected:'400 or 404 — POT not created'},
+    {id:'SEC-07',scenario:'Duplicate POT → 409',
+     steps:'POST /api/pots for the same clientId + year that already has a POT',
+     expected:'409 Conflict',auto:true},
+    {id:'SEC-08',scenario:'Delete pipeline year with CG versions → 409',
+     steps:'DELETE /api/pipeline-years/:id where that year has at least one cost_grid_version referencing it',
+     expected:'409 Conflict — "year in use"; year is not deleted'},
+    {id:'SEC-09',scenario:'JWT cookie is httpOnly',
+     steps:'In browser DevTools console, run: document.cookie',
+     expected:'The pdash_token JWT is NOT listed — it is inaccessible to JavaScript (httpOnly flag)'},
+    {id:'SEC-10',scenario:'Non-admin can read ratecards',
+     steps:'Log in as role=user; GET /api/ratecards and GET /api/ratecards/:id',
+     expected:'200 — read access uses requireAuth; POST/PATCH/DELETE still return 403 (partial auto: unauthenticated write → 401 checked in test suite)'},
+  ]
+},
+{
+  id:'dbreset', title:'17. DB Reset',
+  cases:[
+    {id:'DR-01',scenario:'Page blocked from non-admin',
+     steps:'Navigate to /_db-reset.html as role=user',
+     expected:'403 — page blocked or navbar redirects to pipeline; no reset controls visible'},
+    {id:'DR-02',scenario:'All 6 scopes listed',
+     steps:'Open /_db-reset.html as admin',
+     expected:'Six scope buttons rendered: Proposals, Projects & Programs, Clients & Client Groups, Client Ratecards, Actuals (Timesheets), Pipeline Years & POTs'},
+    {id:'DR-03',scenario:'Reset proposals',
+     steps:'Click Reset → Proposals → confirm',
+     expected:'All cost grids and versions deleted; pipeline board shows empty columns'},
+    {id:'DR-04',scenario:'Reset actuals',
+     steps:'Click Reset → Actuals → confirm',
+     expected:'Timesheets table emptied; portfolio KPIs show 0 actuals on next load'},
+    {id:'DR-05',scenario:'Unknown scope → 400',
+     steps:'POST /api/admin/reset/nonexistent',
+     expected:'400 "Unknown scope" response; no data deleted'},
+    {id:'DR-06',scenario:'Non-admin reset API call → 403',
+     steps:'POST /api/admin/reset/proposals as role=user',
+     expected:'403 Forbidden; data unchanged'},
+  ]
+},
+{
+  id:'regression', title:'18. Regression',
+  cases:[
+    {id:'REG-01',scenario:'Pipeline board after year switch',
+     steps:'Switch year on the board; wait for reload',
+     expected:'Offers load for the new year; column totals recalculate; no offers from other years bleed through'},
+    {id:'REG-02',scenario:'Detail panel POT after client group rename',
+     steps:'Rename a client group → open detail panel for a CG linked to a client in that group',
+     expected:'POT summary section still resolves and displays the updated group name correctly'},
+    {id:'REG-03',scenario:'Config pipeline toggle reflected on board',
+     steps:'Admin hides a pipeline year in config.html → another user reloads the board',
+     expected:'Hidden year is no longer in the board year dropdown for the other user'},
+    {id:'REG-04',scenario:'admin.html no longer shows pipeline section',
+     steps:'Open /admin.html and inspect the page',
+     expected:'Only user management is shown; no pipeline years section exists anywhere on the page'},
+    {id:'REG-05',scenario:'project-config.html save reflects on portfolio',
+     steps:'Edit project metadata or phasing in project-config.html → save → navigate to portfolio',
+     expected:'Portfolio KPI cards and project title reflect the newly saved values'},
+    {id:'REG-06',scenario:'Notification count consistent across pages',
+     steps:'Have unread notifications; navigate between Pipeline, Reporting, and Planning pages',
+     expected:'Bell badge count is the same on every page; does not reset or duplicate on navigation'},
+    {id:'REG-07',scenario:'Cost grid totals after API reload — no string coercion',
+     steps:'Save a multi-task grid with hours across several roles; reload the page; reopen the grid',
+     expected:'All hours and fee totals are numeric; no leading zeros or concatenated digits (e.g. "10005" instead of 15) caused by pg DECIMAL returning strings'},
+    {id:'REG-08',scenario:'Detail panel shows linked projects and client name',
+     steps:'Open detail panel for a cost-grid version that is linked to a project via costGridRef',
+     expected:'Linked project names are listed in the left column; client name is resolved and displayed; POT section uses the correct client'},
+    {id:'REG-09',scenario:'Client and ratecard persist across reloads',
+     steps:'Set client + ratecard on a version; save; reload page; reopen the cost grid editor',
+     expected:'Client dropdown and ratecard dropdown both show the previously saved values; a client-specific ratecard is not reset to None because clientId is now persisted in DB'},
+    {id:'REG-10',scenario:'Project name persists across reloads',
+     steps:'Enter project name in the cost grid editor; save; reload page; reopen the editor',
+     expected:'"Project name" field shows the saved value; pipeline card shows the same name (not the cost grid name)'},
+  ]
+},
+];
+
+// ── State ──────────────────────────────────────────────────────────────────────
+const KEY = 'pdash_test_state_v1';
+let state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { state = {}; }
+
+function getS(id) { return state[id] || 'untested'; }
+function nextS(s)  { return s==='untested'?'pass': s==='pass'?'fail':'untested'; }
+function saveState() { localStorage.setItem(KEY, JSON.stringify(state)); }
+
+// ── Computed ───────────────────────────────────────────────────────────────────
+function allCases() { return SECTIONS.flatMap(s=>s.cases); }
+
+function secStats(sec) {
+  const p=sec.cases.filter(c=>getS(c.id)==='pass').length;
+  const f=sec.cases.filter(c=>getS(c.id)==='fail').length;
+  const u=sec.cases.length-p-f;
+  return {p,f,u,total:sec.cases.length};
+}
+
+function globalStats() {
+  const all=allCases();
+  const p=all.filter(c=>getS(c.id)==='pass').length;
+  const f=all.filter(c=>getS(c.id)==='fail').length;
+  return {p,f,u:all.length-p-f,total:all.length};
+}
+
+// ── Filters ────────────────────────────────────────────────────────────────────
+let sectionFilter='all';
+let statusFilter='all';
+
+// ── Render ─────────────────────────────────────────────────────────────────────
+function togClass(s){ return s==='pass'?'pass':s==='fail'?'fail':''; }
+function togIcon(s) { return s==='pass'?'✓':s==='fail'?'✗':'○'; }
+
+function renderSidebar() {
+  const gs=globalStats();
+  const links=SECTIONS.map(sec=>{
+    const {p,f,total}=secStats(sec);
+    const done=p+f;
+    const col=p===total?'#16a34a':f>0?'#dc2626':'#6b7280';
+    const active=sectionFilter===sec.id?'active':'';
+    return `<div class="sb-link ${active}" data-sec="${sec.id}">
+      <span class="dot" style="background:${col}"></span>
+      <span class="name">${sec.title}</span>
+      <span class="cnt">${p}/${total}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('sidebar').innerHTML=`
+    <div class="sb-head">PDash Test Cases<small>Last saved: ${new Date().toLocaleDateString()}</small></div>
+    <div class="sb-link ${sectionFilter==='all'?'active':''}" data-sec="all">
+      <span class="dot" style="background:#2563eb"></span>
+      <span class="name"><strong>All sections</strong></span>
+      <span class="cnt">${gs.p}/${gs.total}</span>
+    </div>
+    ${links}
+  `;
+
+  document.querySelectorAll('.sb-link').forEach(el=>{
+    el.addEventListener('click',()=>{
+      sectionFilter=el.dataset.sec;
+      render();
+    });
+  });
+}
+
+function renderTopbar() {
+  const {p,f,u,total}=globalStats();
+  const pct=total>0?Math.round(p/total*100):0;
+
+  document.getElementById('stats').innerHTML=`
+    <span class="stat-badge pass">✓ ${p} passed</span>
+    <span class="stat-badge fail">✗ ${f} failed</span>
+    <span class="stat-badge un">⬜ ${u} untested</span>
+    <span style="color:#9ca3af">${pct}% complete</span>
+  `;
+  document.getElementById('prog-fill').style.width=pct+'%';
+}
+
+function renderContent() {
+  const sections=sectionFilter==='all'?SECTIONS:SECTIONS.filter(s=>s.id===sectionFilter);
+  const html=sections.map(sec=>{
+    const {p,total}=secStats(sec);
+    const pct=total>0?Math.round(p/total*100):0;
+
+    // Group sub-labels for section 10
+    const subMap={};
+    if(sec.sub){
+      sec.sub.forEach(sub=>{
+        const ids=sec.cases
+          .filter(c=>c.id>=sub.start && c.id<=sub.end)
+          .map(c=>c.id);
+        ids.forEach(id=>{ subMap[id]=sub.title; });
+      });
+    }
+
+    let lastSub='';
+    const cardsHtml=sec.cases.map(c=>{
+      const s=getS(c.id);
+      const vis=statusFilter==='all'||statusFilter===s;
+      let subLabel='';
+      if(subMap[c.id] && subMap[c.id]!==lastSub){
+        lastSub=subMap[c.id];
+        subLabel=`<div class="sub-title">${lastSub}</div>`;
+      }
+      return `${subLabel}<div class="case-card s-${s} ${vis?'':'hidden'}" data-id="${c.id}">
+        <button class="tog ${togClass(s)}" data-id="${c.id}" title="Click to toggle: untested → pass → fail">${togIcon(s)}</button>
+        <div class="cb">
+          <div class="ch">
+            <span class="cid">${c.id}</span>
+            <span class="sc">${c.scenario}</span>
+            ${c.auto?'<span class="auto-badge">API auto</span>':''}
+          </div>
+          ${c.steps?`<div class="steps">${c.steps}</div>`:''}
+          <div class="exp">${c.expected}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div class="sec-block" id="sec-${sec.id}">
+      <div class="sec-head">
+        <h2>${sec.title}</h2>
+        <div class="sec-mini-wrap">
+          <div class="sec-mini-bar"><div class="sec-mini-fill" style="width:${pct}%"></div></div>
+          <span class="sec-mini-txt">${p}/${total}</span>
+        </div>
+      </div>
+      ${cardsHtml}
+    </div>`;
+  }).join('');
+
+  document.getElementById('content').innerHTML=html;
+
+  // Toggle click handlers
+  document.querySelectorAll('.tog').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const id=btn.dataset.id;
+      state[id]=nextS(getS(id));
+      saveState();
+      render();
+    });
+  });
+}
+
+function render() {
+  renderSidebar();
+  renderTopbar();
+  renderContent();
+}
+
+// ── Filter pills ───────────────────────────────────────────────────────────────
+document.querySelectorAll('.pill[data-status]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    statusFilter=btn.dataset.status;
+    document.querySelectorAll('.pill[data-status]').forEach(b=>{
+      b.classList.toggle('active', b.dataset.status===statusFilter);
+    });
+    render();
+  });
+});
+
+// ── Reset ──────────────────────────────────────────────────────────────────────
+document.getElementById('reset-btn').addEventListener('click',()=>{
+  if(!confirm('Reset all test results? This cannot be undone.')) return;
+  state={};
+  saveState();
+  render();
+});
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>

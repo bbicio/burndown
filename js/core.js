@@ -375,6 +375,7 @@ function showConfirm(message, onConfirm, onCancel, title = '⚠️ Confirm') {
     modal.hide();
   });
   modalEl.addEventListener('hidden.bs.modal', () => {
+    modalEl.style.zIndex = '';  // reset inline z-index set by shown handler
     if (!confirmed && onCancel) onCancel();
   }, { once: true });
 

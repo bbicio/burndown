@@ -1,6 +1,8 @@
 const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { sendShareNotification } = require('../services/email');
+let _pushToUser; // lazy-loaded from notifications route to avoid circular deps
 
 const router = express.Router();
 
@@ -17,6 +19,8 @@ router.post('/clients', requireAdmin, async (req, res, next) => {
   try {
     const { name } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
+    const existing = await query('SELECT id FROM clients WHERE lower(name) = lower($1)', [name.trim()]);
+    if (existing.rows[0]) return res.status(409).json({ error: 'Client name already exists' });
     const { rows } = await query(
       'INSERT INTO clients (name) VALUES ($1) RETURNING id, name',
       [name.trim()]
@@ -86,6 +90,72 @@ router.patch('/programs/:id', requireAdmin, async (req, res, next) => {
     );
     if (!rows[0]) return res.status(404).json({ error: 'Program not found' });
     res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+// POST /programs/:id/share — share all projects in a program with a user
+router.post('/programs/:id/share', requireAuth, async (req, res, next) => {
+  try {
+    const { userId, permission } = req.body;
+    if (!['editor', 'viewer'].includes(permission)) {
+      return res.status(400).json({ error: 'permission must be editor or viewer' });
+    }
+
+    const prog = await query('SELECT id, name FROM programs WHERE id = $1', [req.params.id]);
+    if (!prog.rows[0]) return res.status(404).json({ error: 'Program not found' });
+
+    const target = await query(
+      'SELECT id, email, first_name FROM users WHERE id = $1 AND status = $2', [userId, 'active']
+    );
+    if (!target.rows[0]) return res.status(404).json({ error: 'User not found' });
+
+    const sharer = await query('SELECT first_name, last_name FROM users WHERE id = $1', [req.user.id]);
+
+    // Find all projects in this program
+    const projects = await query('SELECT id FROM projects WHERE program_id = $1', [req.params.id]);
+    if (!projects.rows.length) return res.status(400).json({ error: 'Program has no projects' });
+
+    // Share each project
+    for (const p of projects.rows) {
+      await query(
+        `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
+         VALUES ('project', $1, $2, $3, $4)
+         ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE SET permission = $3`,
+        [p.id, userId, permission, req.user.id]
+      );
+    }
+
+    const sharerName = `${sharer.rows[0].first_name} ${sharer.rows[0].last_name}`;
+    const appUrl = process.env.APP_URL || 'http://localhost';
+
+    // Send email
+    await sendShareNotification({
+      to: target.rows[0].email,
+      firstName: target.rows[0].first_name,
+      resourceType: 'program',
+      resourceName: prog.rows[0].name,
+      sharedBy: sharerName,
+      link: `${appUrl}/portfolio.html`,
+    });
+
+    // Send in-app notification
+    const { rows: [notif] } = await query(
+      `INSERT INTO notifications (user_id, type, title, body, url, url_label)
+       VALUES ($1, 'share', $2, $3, $4, $5)
+       RETURNING id, user_id, type, title, body, url, url_label, read_at, created_at`,
+      [
+        userId,
+        `Program shared: ${prog.rows[0].name}`,
+        `${sharerName} shared the program "${prog.rows[0].name}" (${projects.rows.length} project${projects.rows.length === 1 ? '' : 's'}) with you.`,
+        `${appUrl}/portfolio.html`,
+        'Open Portfolio',
+      ]
+    );
+
+    if (!_pushToUser) _pushToUser = require('./notifications').pushToUser;
+    _pushToUser(userId, { event: 'notification', data: notif });
+
+    res.status(201).json({ ok: true, shared: projects.rows.length });
   } catch (err) { next(err); }
 });
 
@@ -171,7 +241,7 @@ router.delete('/roles/:id', requireAdmin, async (req, res, next) => {
 
 // ── RATECARDS ─────────────────────────────────────────────────────────────────
 
-router.get('/ratecards', requireAdmin, async (req, res, next) => {
+router.get('/ratecards', requireAuth, async (req, res, next) => {
   try {
     const { rows } = await query(`
       SELECT r.id, r.name, r.client_id, c.name AS client_name,
@@ -192,7 +262,7 @@ router.get('/ratecards', requireAdmin, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.get('/ratecards/:id', requireAdmin, async (req, res, next) => {
+router.get('/ratecards/:id', requireAuth, async (req, res, next) => {
   try {
     const { rows } = await query(`
       SELECT r.id, r.name, r.client_id,
@@ -250,6 +320,19 @@ router.post('/ratecards/clone', requireAdmin, async (req, res, next) => {
     `, [newId, global.rows[0].id]);
 
     res.status(201).json({ id: newId });
+  } catch (err) { next(err); }
+});
+
+router.patch('/ratecards/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const result = await query(
+      'UPDATE ratecards SET name = $1 WHERE id = $2 RETURNING id, name, client_id',
+      [name, req.params.id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Ratecard not found' });
+    res.json(result.rows[0]);
   } catch (err) { next(err); }
 });
 

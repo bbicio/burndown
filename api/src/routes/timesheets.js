@@ -44,6 +44,24 @@ router.get('/', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/timesheets/all-data — all rows merged per project code (for portfolio/planning views)
+router.get('/all-data', requireAuth, async (req, res, next) => {
+  try {
+    const codes = await visibleCodes(req.user.id, req.user.role);
+    if (!codes.length) return res.json([]);
+
+    const { rows } = await query(
+      `SELECT project_code, json_agg(entry ORDER BY (entry->>'date')) AS data
+       FROM timesheets t,
+            jsonb_array_elements(t.data) AS entry
+       WHERE t.project_code = ANY($1::text[])
+       GROUP BY project_code`,
+      [codes]
+    );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
 // GET /api/timesheets/:projectCode
 router.get('/:projectCode', requireAuth, async (req, res, next) => {
   try {
@@ -106,20 +124,33 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res, next
       grouped[projectCode].push(entry);
     }
 
-    const codes = Object.keys(grouped);
-    if (!codes.length) return res.status(400).json({ error: 'No valid rows found (projectId column missing or empty)' });
+    // If a specific project code is requested, filter to only that code
+    const scopedCode = (req.query.projectCode || '').trim() || null;
+    const codesToSave = scopedCode
+      ? (grouped[scopedCode] ? { [scopedCode]: grouped[scopedCode] } : {})
+      : grouped;
+
+    const codes = Object.keys(codesToSave);
+    if (!codes.length) {
+      return res.status(400).json({
+        error: scopedCode
+          ? `No rows found for project code "${scopedCode}" in this file`
+          : 'No valid rows found (projectId column missing or empty)',
+      });
+    }
 
     for (const code of codes) {
+      await query('DELETE FROM timesheets WHERE project_code = $1', [code]);
       await query(
         `INSERT INTO timesheets (project_code, data, uploaded_by) VALUES ($1, $2, $3)`,
-        [code, JSON.stringify(grouped[code]), req.user.id]
+        [code, JSON.stringify(codesToSave[code]), req.user.id]
       );
     }
 
     res.status(201).json({
       ok: true,
       projectCodes: codes,
-      totalRows: raw.length,
+      totalRows: codes.reduce((s, c) => s + codesToSave[c].length, 0),
     });
   } catch (err) { next(err); }
 });

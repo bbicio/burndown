@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Project Configuration</title>
+  <link rel="icon" type="image/png" href="https://ik.imagekit.io/6ezjgrjjf/00_Home_Page/letter-f.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="nav-container"></div>
+
+<div class="app-container">
+
+  <!-- Hidden stubs required by config-form.js -->
+  <div style="display:none">
+    <select id="cfgProjectSel"></select>
+    <button id="cfgBtnNewProject"></button>
+    <button id="cfgBtnDelProject"></button>
+    <h4 id="cfgPageTitle"></h4>
+  </div>
+
+  <!-- Error banner -->
+  <div id="cfgJsonError" class="alert alert-danger d-none mb-3 py-2 small"></div>
+
+  <!-- Hidden tab stubs required by config-form.js tab-switching logic -->
+  <div id="cfgTabJson" style="display:none"></div>
+
+  <!-- Form -->
+  <div id="cfgTabForm">
+    <div id="cfgNoProjectMsg" class="text-center text-muted py-5" style="display:none">
+      <div style="font-size:2.5rem">📂</div>
+      <p class="mt-2">No projects configured yet.</p>
+    </div>
+    <div id="cfgFormSections" class="pt-4">
+      <div class="cfg-section">
+        <div class="cfg-section-title">Client</div>
+        <div class="row g-3 align-items-end">
+          <div class="col-md-8"><label class="form-label small mb-1">Assign to a client</label><select class="form-select form-select-sm" id="cfgClientId"><option value="__unassigned__">Unassigned</option></select></div>
+          <div class="col-md-4 d-flex align-items-end"><button type="button" class="btn btn-primary btn-sm w-100" onclick="openClientEditModal(null)">＋ New client</button></div>
+        </div>
+      </div>
+      <div class="cfg-section">
+        <div class="cfg-section-title">0. Program <span class="fw-normal text-muted" style="font-size:.8rem">(optional)</span></div>
+        <div class="row g-3 align-items-end">
+          <div class="col-md-8"><label class="form-label small mb-1">Assign to a program</label><select class="form-select form-select-sm" id="cfgProgramId"><option value="">— No program —</option></select></div>
+          <div class="col-md-4 d-flex align-items-end"><button type="button" class="btn btn-primary btn-sm w-100" onclick="openProgramEditModal(null)">＋ New program</button></div>
+        </div>
+      </div>
+      <div class="cfg-section">
+        <div class="cfg-section-title">1. Project info</div>
+        <div class="row g-3">
+          <div class="col-md-4"><label class="form-label small mb-1">D365 Project ID <span class="text-muted">(matches XLS column)</span></label><input type="text" class="form-control form-control-sm" id="cfgId" placeholder="e.g. HITA.000001201"></div>
+          <div class="col-md-8"><label class="form-label small mb-1">Project Name</label><input type="text" class="form-control form-control-sm" id="cfgName" placeholder="e.g. Bayer AG - BERMITS 2026"></div>
+          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Start month</label><input type="month" class="form-control form-control-sm" id="cfgStartDate"></div>
+          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">End month</label><input type="month" class="form-control form-control-sm" id="cfgEndDate"></div>
+          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Currency</label><select class="form-select form-select-sm" id="cfgCurrency"><option value="€">€ Euro</option><option value="$">$ Dollar</option><option value="£">£ Pound</option><option value="CHF">CHF Swiss Franc</option></select></div>
+          <div class="col-sm-3 col-md-2 d-flex align-items-end"><button type="button" class="btn btn-outline-danger btn-sm w-100" id="cfgBtnClearData">🗑 Clear XLS data</button></div>
+        </div>
+        <div class="row g-3 mt-1">
+          <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Pipeline</label><select class="form-select form-select-sm" id="cfgPipeline"><option value="">— Select —</option><option value="SIP">SIP</option><option value="Expected">Expected</option><option value="Anticipated">Anticipated</option><option value="Committed">Committed</option><option value="Canceled">Canceled</option></select></div>
+          <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Status</label><select class="form-select form-select-sm" id="cfgStatus"><option value="">— Select —</option><option value="Not started yet">Not started yet</option><option value="Started At Risk">Started At Risk</option><option value="Started">Started</option><option value="Put on hold">Put on hold</option><option value="Completed">Completed</option></select></div>
+        </div>
+      </div>
+
+      <!-- Actuals section -->
+      <div class="cfg-section" id="cfgActualsSection">
+        <div class="d-flex justify-content-between align-items-center cfg-section-title">
+          <span>2. Actuals</span>
+          <div class="d-flex gap-2">
+            <label class="btn btn-sm btn-outline-secondary mb-0" id="cfgActualsUploadLabel" style="display:none">
+              ⬆ Upload XLS
+              <input type="file" id="cfgActualsFileInput" accept=".xls,.xlsx" style="display:none">
+            </label>
+            <button class="btn btn-sm btn-outline-secondary" id="cfgActualsExportBtn" style="display:none">⬇ Export CSV</button>
+          </div>
+        </div>
+        <div id="cfgActualsInfo" class="text-muted small py-1">
+          Save the project first to enable actuals upload.
+        </div>
+        <div id="cfgActualsStatus" class="small mt-1" style="display:none"></div>
+      </div>
+
+      <div class="cfg-section">
+        <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>3. Tasks &amp; Resources</span><button class="btn btn-sm btn-primary" id="cfgBtnAddTask">+ Add task</button></div>
+        <p class="text-muted small mb-3">Task name must match exactly the <strong>Task/Issue</strong> XLS column. Role must match <strong>Job Role: Name</strong>.</p>
+        <div id="cfgTaskList"></div>
+        <div id="cfgTasksGrandTotal" class="d-flex justify-content-end gap-4 px-2 py-2 mt-1 border-top fw-bold small" style="background:#f8f9fa;border-radius:0 0 6px 6px">
+          <span>Total hours: <span id="cfgGrandTotalHours">—</span></span>
+          <span>Total budget: <span id="cfgGrandTotalBudget">—</span></span>
+        </div>
+      </div>
+      <div class="cfg-section">
+        <div class="d-flex justify-content-between align-items-center cfg-section-title">
+          <span>4. Monthly Budget Phasing <span class="fw-normal text-muted">(estimated budget to spend per month)</span></span>
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <button class="btn btn-sm btn-outline-secondary" id="cfgBtnRollbackPhasing" disabled>↩ Rollback <span class="rollback-date text-muted" style="font-size:.75rem"></span></button>
+            <button class="btn btn-sm btn-outline-secondary" id="cfgBtnDerivePhasing">⟳ Derive from task dates</button>
+            <button class="btn btn-sm btn-outline-secondary" id="cfgBtnReforecastPhasing">↻ Reforecast from actuals</button>
+          </div>
+        </div>
+        <div id="cfgPhasingGrid" class="mt-1"></div>
+      </div>
+      <div class="cfg-section">
+        <div class="d-flex justify-content-between align-items-center cfg-section-title">
+          <span>5. Monthly Hour Planning <span class="fw-normal text-muted">(planned hours to consume per month)</span></span>
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <button class="btn btn-sm btn-outline-secondary" id="cfgBtnRollbackPlanning" disabled>↩ Rollback <span class="rollback-date text-muted" style="font-size:.75rem"></span></button>
+            <button class="btn btn-sm btn-outline-secondary" id="cfgBtnDerivePlanning">⟳ Derive from task dates</button>
+            <button class="btn btn-sm btn-outline-secondary" id="cfgBtnReforecastPlanning">↻ Reforecast from actuals</button>
+          </div>
+        </div>
+        <div id="cfgPlanningGrid" class="mt-1"></div>
+      </div>
+      <div class="cfg-section">
+        <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>6. Pass Through Costs <span class="fw-normal text-muted">(PTC)</span></span><button class="btn btn-sm btn-primary" id="cfgBtnAddPtc">+ Add PTC</button></div>
+        <p class="text-muted small mb-3">Add external costs (licences, travel, etc.) with title, note, amount and the month they occur.</p>
+        <div id="cfgPtcList"></div>
+        <div id="cfgPtcGrandTotal" class="d-flex justify-content-end px-2 py-2 mt-1 border-top fw-bold small" style="background:#fff3cd;border-radius:0 0 6px 6px"><span>Total PTC: <span id="cfgGrandTotalPtc">—</span></span></div>
+      </div>
+      <div class="cfg-section">
+        <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>7. Functional Groups <span class="fw-normal text-muted">(optional)</span></span><button class="btn btn-sm btn-primary" id="cfgBtnAddGroup">+ Add group</button></div>
+        <p class="text-muted small mb-3">Group roles into functional areas. Roles must match the <strong>Job Role: Name</strong> column (one per line).</p>
+        <div id="cfgGroupList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom action bar -->
+  <div class="d-flex gap-2 justify-content-between align-items-center py-4 border-top mt-2 mb-5">
+    <button class="btn btn-outline-secondary" onclick="window.location.href='/portfolio.html'">← Back to Portfolio</button>
+    <button class="btn btn-primary px-4" id="btnSaveConfig">💾 Save</button>
+  </div>
+
+</div><!-- /app-container -->
+
+<!-- ── MODALS ── -->
+
+<!-- Confirm -->
+<div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold" id="confirmModalTitle">⚠️ Confirm</h6></div>
+      <div class="modal-body pt-1"><p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p></div>
+      <div class="modal-footer border-0 pt-2">
+        <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger" id="confirmModalOk">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Programs -->
+<div class="modal fade" id="programsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title fw-bold">🗂 Programs</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body p-0">
+        <div class="p-3 border-bottom d-flex justify-content-end"><button class="btn btn-sm btn-primary" onclick="openProgramEditModal(null)">＋ New program</button></div>
+        <table class="table table-sm align-middle mb-0">
+          <thead style="background:#f8f9fa"><tr><th class="ps-3">Name</th><th>Program ID</th><th>Projects</th><th></th></tr></thead>
+          <tbody id="programsTableBody"><tr id="programsEmptyRow"><td colspan="4" class="text-center text-muted py-4">No programs. Click <strong>＋ New program</strong>.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Program Edit -->
+<div class="modal fade" id="programEditModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title fw-bold" id="programModalTitle">＋ New program</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="programModalError" class="alert alert-danger py-2 d-none"></div>
+        <div class="mb-3"><label class="form-label small fw-semibold">Program name</label><input type="text" class="form-control form-control-sm" id="programName" placeholder="e.g. Chatbot AI Platform"></div>
+        <div class="mb-3"><label class="form-label small fw-semibold">Program ID</label><input type="text" class="form-control form-control-sm" id="programId" placeholder="e.g. PRG-001"></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" onclick="saveProgramFromModal()">Save</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- Clients -->
+<div class="modal fade" id="clientsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title fw-bold">👥 Clients</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body p-0">
+        <div class="p-3 border-bottom d-flex justify-content-end"><button class="btn btn-sm btn-primary" onclick="openClientEditModal(null)">＋ New client</button></div>
+        <table class="table table-sm align-middle mb-0">
+          <thead style="background:#f8f9fa"><tr><th class="ps-3">Name</th><th></th></tr></thead>
+          <tbody id="clientsTableBody"><tr id="clientsEmptyRow"><td colspan="2" class="text-center text-muted py-4">No clients. Click <strong>＋ New client</strong>.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Client Edit -->
+<div class="modal fade" id="clientEditModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title fw-bold" id="clientModalTitle">＋ New client</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="clientModalError" class="alert alert-danger py-2 d-none"></div>
+        <div class="mb-3"><label class="form-label small fw-semibold">Client name</label><input type="text" class="form-control form-control-sm" id="clientName" placeholder="e.g. Acme Corp"></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" onclick="saveClientFromModal()">Save</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SCRIPTS ── -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>window.__cfgFullPage = true;</script>
+<script src="js/api.js?v=2"></script>
+<script src="js/core.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/roles.js"></script>
+<script src="js/costgrid.js"></script>
+<script src="js/config-form.js"></script>
+<script src="js/clients.js"></script>
+<script src="js/programs.js"></script>
+<script src="js/api-sync.js"></script>
+<script src="js/nav.js"></script>
+
+<script>
+// Navigation stubs required by config-form.js
+function showCostGridEditorView(cgId, versionId) {
+  window.location.href = '/costgrid.html?' + new URLSearchParams({ cgId, verId: versionId });
+}
+function showPortfolioView() { window.location.href = '/portfolio.html'; }
+function renderPortfolioView() {}
+function renderDashboard() {}
+function renderPipelineBoard() {}
+function renderPortfolioPlanningView() {}
+function updateNavState() {}
+function cgHideAll() {}
+
+// ── ACTUALS SECTION ───────────────────────────────────────────────────────────
+
+async function cfgLoadActuals(projectId) {
+  const infoEl   = document.getElementById('cfgActualsInfo');
+  const exportBtn = document.getElementById('cfgActualsExportBtn');
+  const uploadLbl = document.getElementById('cfgActualsUploadLabel');
+  if (!projectId) {
+    infoEl.textContent = 'Save the project first to enable actuals upload.';
+    return;
+  }
+
+  uploadLbl.style.display = '';
+  infoEl.textContent = 'Loading…';
+
+  try {
+    const rows = await Api.timesheets.get(projectId);
+    if (!rows || !rows.length) {
+      infoEl.innerHTML = `<span class="text-muted">No actuals uploaded for project <code>${esc(projectId)}</code>.</span>`;
+      exportBtn.style.display = 'none';
+      return;
+    }
+    const row = rows[0]; // most recent
+    const dt  = row.uploaded_at ? new Date(row.uploaded_at).toLocaleString('en-GB', { dateStyle:'medium', timeStyle:'short' }) : '—';
+    const cnt = row.row_count ?? 0;
+    const approxKb = row.data ? Math.round(JSON.stringify(row.data).length / 1024) : '?';
+    infoEl.innerHTML = `Last upload: <strong>${esc(dt)}</strong> &nbsp;·&nbsp; <strong>${cnt}</strong> rows &nbsp;·&nbsp; ~${approxKb} KB`;
+    exportBtn.style.display = '';
+    exportBtn.dataset.projectId = projectId;
+    exportBtn.dataset.rows = JSON.stringify(row.data);
+  } catch (e) {
+    infoEl.innerHTML = `<span class="text-danger">Could not load actuals: ${esc(e.message)}</span>`;
+  }
+}
+
+function cfgExportActualsCsv(projectId, rowData) {
+  if (!rowData || !rowData.length) return;
+  const cols = ['projectId','projectName','date','role','owner','task','hours','notes'];
+  const header = cols.join(',');
+  const csvRows = rowData.map(r =>
+    cols.map(c => {
+      const v = r[c] === null || r[c] === undefined ? '' : String(r[c]);
+      return v.includes(',') || v.includes('"') || v.includes('\n')
+        ? `"${v.replace(/"/g,'""')}"` : v;
+    }).join(',')
+  );
+  const csv  = [header, ...csvRows].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `actuals_${projectId}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function cfgUploadActuals(file, projectId) {
+  const statusEl = document.getElementById('cfgActualsStatus');
+  statusEl.textContent = '⏳ Uploading…';
+  statusEl.style.display = '';
+  statusEl.className = 'small mt-1 text-muted';
+  try {
+    const result = await Api.timesheets.upload(file, projectId);
+    statusEl.textContent = `✅ Uploaded ${result.totalRows} rows.`;
+    statusEl.className = 'small mt-1 text-success';
+    await cfgLoadActuals(projectId);
+    setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+  } catch (e) {
+    statusEl.textContent = `❌ Upload failed: ${e.message}`;
+    statusEl.className = 'small mt-1 text-danger';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  window.__cfgFullPage = true;
+  loadConfig();
+  loadSettings();
+
+  const user = await initNav('portfolio', { breadcrumbs: [
+    { label: 'Home', href: '/pipeline.html' },
+    { label: 'Project Portfolio', href: '/portfolio.html' },
+    { label: '…' },
+  ]});
+  if (!user) return;
+
+  await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi()]);
+  await Promise.all([loadConfigFromApi(), cgSyncFromApi()]);
+
+  // ── WIRE FORM EVENTS ──────────────────────────────────────────────────────────
+  document.getElementById('btnSaveConfig').addEventListener('click', saveConfig);
+
+  document.getElementById('cfgPipeline').addEventListener('change', () => {
+    cfgApplyPipelineRules(document.getElementById('cfgPipeline').value, document.getElementById('cfgStatus').value);
+    cfgMarkDirty();
+  });
+
+  document.getElementById('cfgBtnClearData').addEventListener('click', () => {
+    const pid = cfgProjectIdx >= 0 ? cfgEditConfig.projects[cfgProjectIdx]?.id : '';
+    if (!pid) return;
+    showConfirm(`Clear all cached XLS data for project "${pid}"?`, () => {
+      clearProjectData(pid);
+      window.location.href = '/portfolio.html';
+    }, null, '🗑 Clear XLS data');
+  });
+
+  // Hidden project selector — still needed by config-form.js internals
+  document.getElementById('cfgProjectSel').addEventListener('change', e => {
+    if (cfgProjectIdx >= 0) cfgSaveCurrentToState();
+    cfgSelectProject(parseInt(e.target.value));
+  });
+
+  document.getElementById('cfgBtnNewProject').addEventListener('click', () => {
+    if (cfgProjectIdx >= 0) cfgSaveCurrentToState();
+    cfgEditConfig.projects.push({ id: '', name: '', startDate: '', endDate: '', currency: '€', tasks: [], phasing: {}, planning: {}, groups: [] });
+    cfgPopulateProjectDropdown();
+    cfgSelectProject(cfgEditConfig.projects.length - 1);
+  });
+
+  document.getElementById('cfgBtnDelProject').addEventListener('click', () => {
+    if (cfgProjectIdx < 0) return;
+    const proj = cfgEditConfig.projects[cfgProjectIdx];
+    const name = proj.name || proj.id || 'this project';
+    showConfirm(`Delete project "${name}"?`, () => {
+      cfgEditConfig.projects.splice(cfgProjectIdx, 1);
+      cfgPopulateProjectDropdown();
+      cfgSelectProject(cfgEditConfig.projects.length > 0 ? 0 : -1);
+    });
+  });
+
+  document.getElementById('cfgBtnDerivePhasing').addEventListener('click', cfgDerivePhasing);
+  document.getElementById('cfgBtnDerivePlanning').addEventListener('click', cfgDerivePhasing);
+  document.getElementById('cfgBtnReforecastPhasing').addEventListener('click', cfgReforecast);
+  document.getElementById('cfgBtnReforecastPlanning').addEventListener('click', cfgReforecast);
+  document.getElementById('cfgBtnRollbackPhasing').addEventListener('click', cfgRollbackReforecast);
+  document.getElementById('cfgBtnRollbackPlanning').addEventListener('click', cfgRollbackReforecast);
+
+  document.getElementById('cfgBtnAddTask').addEventListener('click', () => {
+    document.getElementById('cfgTaskList').appendChild(cfgMakeTaskCard({ name: '', resources: [] }));
+    cfgUpdateGrandTotals();
+  });
+
+  document.getElementById('cfgBtnAddPtc').addEventListener('click', () => {
+    document.getElementById('cfgPtcList').appendChild(cfgMakePtcCard({ title: '', note: '', amount: 0, month: cfgGetProjectMonths()[0] || '' }));
+    cfgUpdateGrandTotals();
+  });
+
+  document.getElementById('cfgBtnAddGroup').addEventListener('click', () => {
+    document.getElementById('cfgGroupList').appendChild(cfgMakeGroupCard({ name: '', roles: [] }));
+  });
+
+  document.getElementById('cfgName').addEventListener('input', () => {
+    if (cfgProjectIdx < 0) return;
+    const sel = document.getElementById('cfgProjectSel');
+    if (sel.options[cfgProjectIdx]) sel.options[cfgProjectIdx].textContent = document.getElementById('cfgName').value.trim() || `Project ${cfgProjectIdx + 1}`;
+    // Update breadcrumb with live name
+    const name = document.getElementById('cfgName').value.trim();
+    if (name && typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
+      { label: 'Home', href: '/pipeline.html' },
+      { label: 'Project Portfolio', href: '/portfolio.html' },
+      { label: name },
+    ]);
+  });
+
+  ['cfgStartDate', 'cfgEndDate'].forEach(id => {
+    const inp = document.getElementById(id);
+    inp.addEventListener('focus', () => { inp.dataset.prev = inp.value; });
+    inp.addEventListener('change', () => {
+      const p = cfgReadGrid('cfg-phasing-input'), pl = cfgReadGrid('cfg-planning-input');
+      const newMonths = new Set(cfgGetMonthRange());
+      const lost = [...new Set([...Object.keys(p), ...Object.keys(pl)].filter(ym => !newMonths.has(ym)))].sort();
+      const apply = () => { cfgRenderPhasingGrid(p); cfgRenderPlanningGrid(pl); };
+      if (lost.length > 0) {
+        const names = lost.map(ym => { const [y, m] = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))]; return new Date(y, m-1, 1).toLocaleDateString('en-US', { month:'short', year:'numeric' }); });
+        showConfirm(`Changing dates will discard values for:\n\n${names.join(', ')}\n\nContinue?`, apply, () => { inp.value = inp.dataset.prev || ''; });
+      } else { apply(); }
+    });
+  });
+
+  // Actuals export
+  document.getElementById('cfgActualsExportBtn').addEventListener('click', () => {
+    const btn = document.getElementById('cfgActualsExportBtn');
+    const rows = btn.dataset.rows ? JSON.parse(btn.dataset.rows) : [];
+    const pid  = btn.dataset.projectId || '';
+    cfgExportActualsCsv(pid, rows);
+  });
+
+  // Actuals upload
+  document.getElementById('cfgActualsFileInput').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const pid = cfgProjectIdx >= 0 ? cfgEditConfig.projects[cfgProjectIdx]?.id : '';
+    if (!pid) { alert('Save the project ID first before uploading actuals.'); return; }
+    await cfgUploadActuals(file, pid);
+    e.target.value = '';
+  });
+
+  // ── INIT FORM ─────────────────────────────────────────────────────────────────
+  cfgEditConfig = JSON.parse(JSON.stringify(config));
+  if (!Array.isArray(cfgEditConfig.projects)) cfgEditConfig.projects = [];
+
+  const params = new URLSearchParams(window.location.search);
+  const projectId = params.get('projectId');
+
+  if (projectId) {
+    const idx = cfgEditConfig.projects.findIndex(
+      p => p.id && p.id.trim().toLowerCase() === projectId.trim().toLowerCase()
+    );
+    cfgPopulateProjectDropdown();
+    cfgSelectProject(idx >= 0 ? idx : (cfgEditConfig.projects.length > 0 ? 0 : -1));
+    const resolvedIdx = idx >= 0 ? idx : (cfgEditConfig.projects.length > 0 ? 0 : -1);
+    const projName = resolvedIdx >= 0 ? (cfgEditConfig.projects[resolvedIdx]?.name || projectId) : projectId;
+    if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
+      { label: 'Home', href: '/pipeline.html' },
+      { label: 'Project Portfolio', href: '/portfolio.html' },
+      { label: projName },
+    ]);
+    // Load actuals info
+    cfgLoadActuals(projectId);
+  } else {
+    cfgEditConfig.projects.push({ id: '', name: '', startDate: '', endDate: '', currency: '€', tasks: [], phasing: {}, planning: {}, groups: [] });
+    cfgPopulateProjectDropdown();
+    cfgSelectProject(cfgEditConfig.projects.length - 1);
+    if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
+      { label: 'Home', href: '/pipeline.html' },
+      { label: 'Project Portfolio', href: '/portfolio.html' },
+      { label: 'New Project' },
+    ]);
+    document.getElementById('cfgActualsInfo').textContent = 'Save the project first to enable actuals upload.';
+  }
+});
+</script>
+
+</body>
+</html>

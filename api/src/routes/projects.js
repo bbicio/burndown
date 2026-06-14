@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
 const { sendShareNotification } = require('../services/email');
+let _pushToUser;
 
 const router = express.Router();
 
@@ -45,10 +46,23 @@ router.get('/', requireAuth, async (req, res, next) => {
     const { rows } = await query(
       `SELECT p.id, p.name, p.program_id, p.client_id, p.pipeline, p.status,
               p.start_date, p.end_date, p.currency, p.cg_version_id, p.created_at,
-              p.owner_id,
+              p.owner_id, p.phasing, p.ptc, p.planning, p.groups,
               u.first_name || ' ' || u.last_name AS owner_name,
               c.name AS client_name,
-              pr.name AS program_name
+              pr.name AS program_name,
+              COALESCE(
+                (SELECT json_agg(json_build_object(
+                   'name',                 pt.name,
+                   'billable',             pt.billable,
+                   'completed',            pt.completed,
+                   'startDate',            pt.start_date,
+                   'endDate',              pt.end_date,
+                   'monthlyDistribution',  pt.monthly_distribution,
+                   'resources',            pt.resources
+                 ) ORDER BY pt.sort_order)
+                 FROM project_tasks pt WHERE pt.project_id = p.id),
+                '[]'::json
+              ) AS tasks
        FROM projects p
        JOIN users u ON u.id = p.owner_id
        LEFT JOIN clients c ON c.id = p.client_id
@@ -230,6 +244,30 @@ router.patch('/:id/ptc', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// PATCH /api/projects/:id/planning
+router.patch('/:id/planning', requireAuth, async (req, res, next) => {
+  try {
+    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const { planning } = req.body;
+    await query('UPDATE projects SET planning = $1 WHERE id = $2', [JSON.stringify(planning), req.params.id]);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// PATCH /api/projects/:id/groups
+router.patch('/:id/groups', requireAuth, async (req, res, next) => {
+  try {
+    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const { groups } = req.body;
+    await query('UPDATE projects SET groups = $1 WHERE id = $2', [JSON.stringify(groups), req.params.id]);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
 // ── SHARING ───────────────────────────────────────────────────────────────────
 
 router.get('/:id/shares', requireAuth, async (req, res, next) => {
@@ -272,14 +310,33 @@ router.post('/:id/shares', requireAuth, async (req, res, next) => {
       [req.params.id, userId, permission, req.user.id]
     );
 
+    const sharerName = `${sharer.rows[0].first_name} ${sharer.rows[0].last_name}`;
+    const appUrl = process.env.APP_URL || 'http://localhost';
+
     await sendShareNotification({
       to: target.rows[0].email,
       firstName: target.rows[0].first_name,
       resourceType: 'project',
       resourceName: proj.rows[0].name,
-      sharedBy: `${sharer.rows[0].first_name} ${sharer.rows[0].last_name}`,
-      link: `${process.env.APP_URL}?project=${req.params.id}`,
+      sharedBy: sharerName,
+      link: `${appUrl}/portfolio.html`,
     });
+
+    const { rows: [notif] } = await query(
+      `INSERT INTO notifications (user_id, type, title, body, url, url_label)
+       VALUES ($1, 'share', $2, $3, $4, $5)
+       RETURNING id, user_id, type, title, body, url, url_label, read_at, created_at`,
+      [
+        userId,
+        `Project shared: ${proj.rows[0].name}`,
+        `${sharerName} shared the project "${proj.rows[0].name}" with you.`,
+        `${appUrl}/portfolio.html`,
+        'Open Portfolio',
+      ]
+    );
+
+    if (!_pushToUser) _pushToUser = require('./notifications').pushToUser;
+    _pushToUser(userId, { event: 'notification', data: notif });
 
     res.status(201).json({ ok: true });
   } catch (err) { next(err); }

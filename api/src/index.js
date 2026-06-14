@@ -10,6 +10,12 @@ const costGridRoutes  = require('./routes/cost-grids');
 const projectsRoutes    = require('./routes/projects');
 const timesheetsRoutes  = require('./routes/timesheets');
 const reportingRoutes   = require('./routes/reporting');
+const exportsRoutes     = require('./routes/exports');
+const { router: notifRoutes } = require('./routes/notifications');
+const clientGroupsRoutes  = require('./routes/client-groups');
+const potsRoutes          = require('./routes/pots');
+const pipelineYearsRoutes = require('./routes/pipeline-years');
+const resetRoutes         = require('./routes/reset');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -38,7 +44,13 @@ app.use('/api/cost-grids',  costGridRoutes);
 app.use('/api/projects',    projectsRoutes);
 app.use('/api/timesheets',  timesheetsRoutes);
 app.use('/api/reporting',   reportingRoutes);
-app.use('/api',             configRoutes);
+app.use('/api/exports',     exportsRoutes);
+app.use('/api/notifications',  notifRoutes);
+app.use('/api/client-groups',   clientGroupsRoutes);
+app.use('/api/pots',            potsRoutes);
+app.use('/api/pipeline-years',  pipelineYearsRoutes);
+app.use('/api/admin/reset',     resetRoutes);
+app.use('/api',               configRoutes);
 
 // 404
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));

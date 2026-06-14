@@ -58,4 +58,14 @@ async function sendShareNotification({ to, firstName, resourceType, resourceName
   });
 }
 
-module.exports = { sendInvite, sendPasswordReset, sendShareNotification };
+async function sendExportEmail({ to, firstName, exports }) {
+  await transporter.sendMail({
+    from: FROM,
+    to,
+    subject: 'PDash — Your export is ready',
+    html: `<p>Hi ${firstName || 'there'},</p><p>Your PDash data export is attached.</p><p>Files: <strong>${exports.map(e => e.filename).join(', ')}</strong></p>`,
+    attachments: exports.map(e => ({ filename: e.filename, content: e.content, contentType: e.type || 'text/csv' })),
+  });
+}
+
+module.exports = { sendInvite, sendPasswordReset, sendShareNotification, sendExportEmail };

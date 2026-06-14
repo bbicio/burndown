@@ -18,6 +18,9 @@ let _cgOfferDetailsCollapsed = false;
 let _cgSummaryCollapsed      = false;
 let _cgRoleModalMode         = 'add';   // 'add' | 'change' | 'duplicate'
 let _cgRoleModalSourceCode   = null;    // roleCode being changed/duplicated
+let _cgActiveRatecardMap     = {};      // roleId → hourly_rate from the ratecard selected for the current version
+let _cgIsClientRatecard      = false;   // true when selected ratecard is client-specific (not agency-wide)
+let _pbCloneSource           = null;    // { cgId, verId, name } — shared between pipeline board and editor
 
 // ── PERSISTENCE ───────────────────────────────────────────────────────────────
 
@@ -25,12 +28,16 @@ function cgGetIndex()     { try { const s = storageGet(CG_INDEX_KEY); return s ?
 function cgSaveIndex(idx) { storageSet(CG_INDEX_KEY, JSON.stringify(idx)); }
 function cgLoad(cgId)     { try { const s = storageGet(cgKey(cgId)); return s ? JSON.parse(s) : null; } catch(e) { return null; } }
 function cgSave(cg)       { storageSet(cgKey(cg.id), JSON.stringify(cg)); }
-function cgDelete(cgId)   { try { localStorage.removeItem(cgKey(cgId)); } catch(e) {} cgSaveIndex(cgGetIndex().filter(id => id !== cgId)); }
+async function cgDelete(cgId) {
+  await Api.costGrids.delete(cgId);
+  try { localStorage.removeItem(cgKey(cgId)); } catch(e) {}
+  cgSaveIndex(cgGetIndex().filter(id => id !== cgId));
+}
 
-function cgNewId()    { return 'cg_'   + Date.now(); }
-function cgNewVerId() { return 'ver_'  + Date.now(); }
-function cgNewPhId()  { return 'ph_'   + Date.now() + '_' + Math.random().toString(36).slice(2,6); }
-function cgNewTkId()  { return 'task_' + Date.now() + '_' + Math.random().toString(36).slice(2,6); }
+function cgNewId()    { return crypto.randomUUID(); }
+function cgNewVerId() { return crypto.randomUUID(); }
+function cgNewPhId()  { return crypto.randomUUID(); }
+function cgNewTkId()  { return crypto.randomUUID(); }
 
 // ── MIGRATION ────────────────────────────────────────────────────────────────
 
@@ -62,6 +69,7 @@ function cgFmtMonth(isoDate) {
   if (isNaN(d)) return '';
   return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
 }
+
 
 function cgRefreshPhaseDates() {
   document.querySelectorAll('.cg-phase-row').forEach(phRow => {
@@ -108,6 +116,7 @@ function cgGetVersionLockState(cgId, versionId) {
 
 function cgPipelineStyle(pipeline) {
   switch (pipeline) {
+    case 'Draft':       return { bg: '#6c757d',                            color: '#fff', icon: ' ✏️' };
     case 'SIP':         return { bg: 'var(--pipeline-sip-color)',          color: '#fff', icon: '' };
     case 'Expected':    return { bg: 'var(--pipeline-expected-color)',     color: '#fff', icon: '' };
     case 'Anticipated': return { bg: 'var(--pipeline-anticipated-color)', color: '#fff', icon: '' };
@@ -124,7 +133,7 @@ function cgLiveVersionBadge(v) {
     return { label: v.pipeline, bg: s.bg, color: s.color, icon: s.icon };
   }
   const lps = v.linkedProjects || [];
-  if (!lps.length) return { label: 'draft', bg: '#e9ecef', color: '#495057', icon: '' };
+  if (!lps.length) return { label: 'Draft', bg: '#6c757d', color: '#fff', icon: ' ✏️' };
   // Legacy fallback: read from linked project.
   const PRIORITY = ['Committed', 'SIP', 'Anticipated', 'Expected', 'Canceled'];
   const found = new Set();
@@ -161,7 +170,7 @@ function showCostGridListView() {
   renderCostGridList();
 }
 
-function showCostGridEditorView(cgId, versionId) {
+async function showCostGridEditorView(cgId, versionId) {
   const cg = cgLoad(cgId);
   if (!cg) return;
   const version = cg.versions.find(v => v.versionId === versionId);
@@ -176,6 +185,7 @@ function showCostGridEditorView(cgId, versionId) {
   updateNavState('pipelineboard');
   document.getElementById('cgEditorTitle').textContent = cg.name;
   renderCgVersionTabs(cg);
+  await cgUpdateActiveRatecardMap();
   renderCgEditor();
 }
 
@@ -267,7 +277,14 @@ function cgConfirmDeleteGrid(cgId, name) {
   const warn   = hasSip ? '\n\n⚠️ One or more versions have generated a project. The project will NOT be deleted.' : '';
   showConfirm(
     `Delete Cost Grid "${name}"?${warn}\n\nAll versions will be deleted.`,
-    () => { cgDelete(cgId); renderPipelineBoard(); },
+    async () => {
+      try {
+        await cgDelete(cgId);
+        renderPipelineBoard();
+      } catch(e) {
+        alert('Delete failed: ' + e.message);
+      }
+    },
     null, '🗑 Delete Cost Grid'
   );
 }
@@ -283,10 +300,18 @@ function cgConfirmDeleteVersion(cgId, versionId, versionLabel) {
   const warn = (v?.linkedProjects || []).length > 0 ? `\n\n⚠️ This version has ${(v.linkedProjects || []).length} linked project(s). The projects will NOT be deleted.` : '';
   showConfirm(
     `Delete version "${versionLabel}"?${warn}`,
-    () => {
-      cg.versions = cg.versions.filter(v => v.versionId !== versionId);
-      cgSave(cg);
-      renderPipelineBoard();
+    async () => {
+      try {
+        await Api.costGrids.versions.delete(cgId, versionId);
+        const fresh = cgLoad(cgId);
+        if (fresh) {
+          fresh.versions = fresh.versions.filter(v => v.versionId !== versionId);
+          cgSave(fresh);
+        }
+        renderPipelineBoard();
+      } catch(e) {
+        alert('Delete failed: ' + e.message);
+      }
     },
     null, '🗑 Delete Version'
   );
@@ -309,10 +334,15 @@ function renderCgVersionTabs(cg) {
     btn.style.fontSize = '.85rem';
     btn.textContent = v.versionLabel + badge.icon + countBadge + lockIcon;
     if (lockState.locked) btn.title = lockState.message;
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       if (isActive) return;
       cgAutoSave();
+      await cgLoadStructureFromApi(cg.id, v.versionId);
       showCostGridEditorView(cg.id, v.versionId);
+      // Keep URL in sync so a refresh reopens the same version
+      const url = new URL(window.location.href);
+      url.searchParams.set('verId', v.versionId);
+      window.history.replaceState(null, '', url.toString());
     });
     container.appendChild(btn);
   });
@@ -330,16 +360,30 @@ function renderCgEditor() {
 
   const lockState  = cgGetVersionLockState(_cgActiveCgId, _cgActiveVersionId);
   const isLocked   = lockState.locked;
+  const isDraft    = v.pipeline === 'Draft';
 
-  // Show/hide Generate Project toolbar button
+  // Show/hide Generate Project + Publish + New Version toolbar buttons
   const genBtn = document.getElementById('btnCgGenerateProject');
-  if (genBtn) genBtn.style.display = isLocked ? 'none' : '';
+  if (genBtn) genBtn.style.display = (isLocked || isDraft) ? 'none' : '';
+  const pubBtn = document.getElementById('btnCgPublish');
+  if (pubBtn) pubBtn.style.display = isDraft ? '' : 'none';
+  const newVerBtn = document.getElementById('btnCgNewVersion');
+  if (newVerBtn) newVerBtn.style.display = isDraft ? '' : 'none';
 
   const lockBannerHtml = isLocked ? `
     <div class="alert mb-3 py-2 px-3 d-flex align-items-center gap-2"
          style="background:var(--color-warning-bg);border:1px solid #ffc107;border-radius:var(--radius-sm);font-size:var(--text-base)">
       <span>🔒</span>
       <span class="fw-semibold">${esc(lockState.message)}</span>
+    </div>` : '';
+
+  const draftBannerHtml = (!isLocked && isDraft) ? `
+    <div class="alert mb-3 py-2 px-3 d-flex align-items-center justify-content-between gap-2"
+         style="background:#f8f9fa;border:1px solid #adb5bd;border-radius:var(--radius-sm);font-size:var(--text-base)">
+      <div class="d-flex align-items-center gap-2">
+        <span>✏️</span>
+        <span class="fw-semibold">Draft — private to you. Publish to make it visible in the shared pipeline.</span>
+      </div>
     </div>` : '';
 
   const colTotals = cgComputeColumnTotals(v);
@@ -357,26 +401,30 @@ function renderCgEditor() {
     `<td style="text-align:center;background:var(--sand-200);font-weight:700;border:1px solid var(--sand-border);padding:5px 4px;font-size:var(--text-base)">${colTotals[r.roleCode]?.fee > 0 ? fmt(colTotals[r.roleCode].fee) : '—'}</td>`
   ).join('');
 
-  // Row: Grand totals + rates per role (editable, default from global roles)
+  // Row: Grand totals + rates per role (editable, baseline from ratecard or global roles)
   const rateCells = v.roles.map(r => {
-    const zeroRate   = !r.rate || r.rate === 0;
-    const globalRate = getRoles().find(gr => gr.code === r.roleCode)?.rate;
-    const isCustom   = globalRate !== undefined && r.rate !== globalRate;
+    const zeroRate     = !r.rate || r.rate === 0;
+    const roleObj      = getRoles().find(gr => gr.code === r.roleCode);
+    const globalRate   = roleObj?.rate;
+    const rcRate       = roleObj ? _cgActiveRatecardMap[String(roleObj.id)] : undefined;
+    const baselineRate = rcRate !== undefined ? rcRate : globalRate;
+    const isCustom     = r.rateIsCustom === true;
     const bg  = zeroRate ? '#fff0f0' : (isCustom ? '#fffbe6' : 'var(--sand-50)');
     const bdr = zeroRate ? '#f5c6cb' : (isCustom ? '#ffe58f' : 'var(--sand-border)');
     const col = zeroRate ? 'var(--color-danger)' : (isCustom ? 'var(--color-warning-text)' : '#555');
     const title = isCustom
-      ? `Custom (default: ${cur} ${globalRate}/h) — clear to restore`
-      : `Rate from roles registry`;
+      ? `Custom (baseline: ${cur}€ ${baselineRate}/h) — clear to restore`
+      : rcRate !== undefined
+        ? `Ratecard rate${globalRate !== undefined ? ` (agency default: ${cur}€ ${globalRate}/h)` : ''}`
+        : 'Rate from roles registry';
     return `<td style="text-align:center;background:${bg};border:1px solid ${bdr};padding:3px 4px;">
       <div style="font-size:var(--text-xs);color:#aaa;margin-bottom:1px">${cur}/h</div>
-      <input type="number" class="cg-rate-input" data-role="${esc(r.roleCode)}" data-default="${globalRate ?? ''}" 
+      <input type="number" class="cg-rate-input" data-role="${esc(r.roleCode)}" data-default="${baselineRate ?? ''}"
         value="${r.rate}" min="0" step="1" title="${esc(title)}"
         style="width:100%;border:1px solid ${bdr};border-radius:var(--radius-xs);text-align:center;font-size:var(--text-md);font-weight:${zeroRate||isCustom?'700':'400'};color:${col};background:transparent;padding:1px 4px">
       ${isCustom ? '<div style="font-size:var(--text-2xs);color:var(--color-warning-text);margin-top:2px">✎ custom</div>' : ''}
       ${zeroRate  ? '<div style="font-size:var(--text-2xs);color:var(--color-danger);margin-top:2px">⚠️ 0</div>' : ''}
-    </td>`;
-  }).join('');
+    </td>`;  }).join('');
 
   // Row: Column labels + role names + remove/change/duplicate buttons
   const roleHeaderCells = v.roles.map((r, rIdx) => {
@@ -575,7 +623,7 @@ function renderCgEditor() {
         <span class="fw-semibold">${esc(pname)}</span>
         <span class="text-muted" style="font-size:var(--text-xs)">&nbsp;${taskCnt} task</span>
         <span style="background:${style.bg};color:${style.color};border-radius:var(--radius-xs);padding:1px 6px;font-size:var(--text-xs);font-weight:600">${esc(pipeline)}</span>
-        ${proj ? `<button class="btn btn-sm btn-outline-primary py-0 px-2 cg-open-project-btn" data-projid="${esc(currentProjId)}"
+        ${proj ? `<button class="btn btn-sm btn-outline-secondary py-0 px-2 cg-open-project-btn" data-projid="${esc(currentProjId)}"
           style="font-size:var(--text-xs)">Reporting</button>` : ''}
         <button class="btn btn-link p-0 ms-1 cg-del-linked-btn" data-projid="${esc(lp.projectId)}"
           style="color:var(--color-danger);font-size:var(--text-sm);line-height:1"
@@ -609,7 +657,7 @@ function renderCgEditor() {
 
   const body = document.getElementById('cgEditorBody');
   body.innerHTML = `
-    ${lockBannerHtml}
+    ${lockBannerHtml}${draftBannerHtml}
     <!-- Header form -->
     <div class="section-card mb-3">
       <div class="section-header d-flex align-items-center" id="cgOfferDetailsHeader" style="cursor:pointer;user-select:none">
@@ -642,10 +690,12 @@ function renderCgEditor() {
           </div>
           <div class="col-md-2">
             <label class="form-label small fw-semibold mb-1">Pipeline stage</label>
-            <select class="form-select" id="cgPipeline">
-              ${['SIP','Expected','Anticipated','Committed','Canceled']
-                .map(p => `<option value="${p}"${(v.pipeline||'SIP')===p?' selected':''}>${p}</option>`).join('')}
-            </select>
+            ${isDraft
+              ? `<div class="form-control-plaintext ps-2 fw-semibold" style="font-size:var(--text-md);color:#6c757d">✏️ Draft</div>`
+              : `<select class="form-select" id="cgPipeline">
+                   ${['SIP','Expected','Anticipated','Committed','Canceled']
+                     .map(p => `<option value="${p}"${(v.pipeline||'SIP')===p?' selected':''}>${p}</option>`).join('')}
+                 </select>`}
           </div>
         </div>
         <div class="row g-2 mt-1 align-items-end">
@@ -657,6 +707,12 @@ function renderCgEditor() {
               </select>
               <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" onclick="showClientsModal()" style="white-space:nowrap">+ New</button>
             </div>
+          </div>
+          <div class="col-md-6" id="cgRatecardCol">
+            <label class="form-label small fw-semibold mb-1">Rate card <span class="text-muted fw-normal">(optional)</span></label>
+            <select class="form-select form-select-sm" id="cgRatecardId">
+              <option value="">— None (use global role rates) —</option>
+            </select>
           </div>
         </div>
         <div class="row g-2">
@@ -875,11 +931,15 @@ function cgBindEditorEvents(body) {
       const code = e.target.dataset.role;
       const role = _cgDraft.roles.find(r => r.roleCode === code);
       if (!role) return;
-      const val = e.target.value.trim();
+      const val      = e.target.value.trim();
+      const defRate  = parseFloat(e.target.dataset.default) || 0;
       if (val === '') {
-        role.rate = parseFloat(e.target.dataset.default) || 0;
+        role.rate         = defRate;
+        role.rateIsCustom = false;
       } else {
-        role.rate = parseFloat(val) || 0;
+        const newRate     = parseFloat(val) || 0;
+        role.rate         = newRate;
+        role.rateIsCustom = newRate !== defRate;
       }
       renderCgEditor();
     })
@@ -1026,9 +1086,85 @@ function cgBindEditorEvents(body) {
     renderCgEditor();
   });
 
-  ['cgProjectName','cgStartDate','cgEndDate','cgNote','cgClientId'].forEach(id => {
+  ['cgProjectName','cgStartDate','cgEndDate','cgNote'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', () => cgSyncHeaderFromForm());
   });
+  document.getElementById('cgClientId')?.addEventListener('change', async () => {
+    cgSyncHeaderFromForm();             // updates _cgDraft.clientId
+    await cgPopulateRatecardDropdown(); // re-filter + reset ratecard if no longer valid
+    renderCgEditor();
+  });
+  document.getElementById('cgRatecardId')?.addEventListener('change', async () => {
+    cgSyncHeaderFromForm();
+    await cgUpdateActiveRatecardMap();
+    renderCgEditor();
+  });
+
+  cgPopulateRatecardDropdown();
+}
+
+async function cgUpdateActiveRatecardMap() {
+  _cgActiveRatecardMap = {};
+  _cgIsClientRatecard  = false;
+  const rcId = _cgDraft?.ratecardId;
+  if (rcId && typeof loadRatecardsForDropdown === 'function') {
+    try {
+      const list = await loadRatecardsForDropdown();
+      const rc   = list.find(r => String(r.id) === String(rcId));
+      if (rc) {
+        _cgIsClientRatecard = rc.client_id != null;
+        (rc.entries || []).forEach(e => {
+          const rid  = String(e.roleId ?? e.role_id);
+          const rate = parseFloat(e.hourlyRate ?? e.hourly_rate);
+          if (!isNaN(rate)) _cgActiveRatecardMap[rid] = rate;
+        });
+      }
+    } catch (_) {}
+  }
+  cgSyncRoleRatesToBaseline();
+}
+
+// Update r.rate for all roles that haven't been manually customised.
+// Keeps fee calculations correct when the ratecard changes.
+function cgSyncRoleRatesToBaseline() {
+  if (!_cgDraft) return;
+  const allRoles = typeof getRoles === 'function' ? getRoles() : [];
+  _cgDraft.roles.forEach(r => {
+    if (r.rateIsCustom) return;
+    const roleObj   = allRoles.find(gr => gr.code === r.roleCode);
+    if (!roleObj) return;
+    const rcRate    = _cgActiveRatecardMap[String(roleObj.id)];
+    const globalRate = roleObj.rate || 0;
+    r.rate = rcRate !== undefined ? rcRate : globalRate;
+  });
+}
+
+async function cgPopulateRatecardDropdown() {
+  const sel = document.getElementById('cgRatecardId');
+  if (!sel) return;
+  if (typeof loadRatecardsForDropdown !== 'function') return;
+  const allRatecards = await loadRatecardsForDropdown();
+
+  // Show global ratecards + those specific to the currently selected client
+  const clientId = _cgDraft?.clientId && _cgDraft.clientId !== '__unassigned__'
+    ? String(_cgDraft.clientId) : null;
+  const ratecards = allRatecards.filter(rc =>
+    rc.client_id == null || (clientId && String(rc.client_id) === clientId)
+  );
+
+  // If the current ratecard is no longer in the filtered list (client switched), reset to None
+  const cur = _cgDraft?.ratecardId;
+  if (cur && !ratecards.find(rc => String(rc.id) === String(cur))) {
+    _cgDraft.ratecardId = null;
+  }
+
+  sel.innerHTML = '<option value="">— None (use global role rates) —</option>' +
+    ratecards.map(rc => {
+      const label = rc.client_name ? `${rc.name} (${rc.client_name})` : rc.name;
+      return `<option value="${esc(rc.id)}"${String(rc.id) === String(_cgDraft?.ratecardId) ? ' selected' : ''}>${esc(label)}</option>`;
+    }).join('');
+  // Populate map so rate cells use the correct baseline
+  await cgUpdateActiveRatecardMap();
 }
 
 function cgSyncHeaderFromForm() {
@@ -1039,9 +1175,13 @@ function cgSyncHeaderFromForm() {
   _cgDraft.startDate   = sd ? sd.replace('-','') : '';
   _cgDraft.endDate     = ed ? ed.replace('-','') : '';
   _cgDraft.currency    = document.getElementById('cgCurrency')?.value || '€';
-  _cgDraft.pipeline    = document.getElementById('cgPipeline')?.value || 'SIP';
+  // Preserve Draft stage — the dropdown is hidden for Draft versions
+  if (_cgDraft.pipeline !== 'Draft') {
+    _cgDraft.pipeline = document.getElementById('cgPipeline')?.value || 'SIP';
+  }
   _cgDraft.note        = document.getElementById('cgNote')?.value.trim() || '';
   _cgDraft.clientId    = document.getElementById('cgClientId')?.value || '__unassigned__';
+  _cgDraft.ratecardId  = document.getElementById('cgRatecardId')?.value || null;
 }
 
 // Propagates the costgrid version's pipeline to all linked config.projects.
@@ -1066,15 +1206,26 @@ let _cgRoleCurrentCodes = new Set();
 let _cgRoleActiveTeam  = null;
 let _cgRoleSearch      = '';
 
-function openCgRoleSelectModal(mode, sourceRoleCode) {
+async function openCgRoleSelectModal(mode, sourceRoleCode) {
   _cgRoleModalMode       = mode || 'add';
   _cgRoleModalSourceCode = sourceRoleCode || null;
   _cgRoleAllRoles        = getRoles();
   _cgRoleActiveTeam      = null;
   _cgRoleSearch          = '';
 
+  // Ensure the active ratecard map is current (usually already populated by cgPopulateRatecardDropdown)
+  await cgUpdateActiveRatecardMap();
+  let rcName = '';
+  const rcId = _cgDraft?.ratecardId;
+  if (rcId && typeof loadRatecardsForDropdown === 'function') {
+    try {
+      const list = await loadRatecardsForDropdown();
+      const rc   = list.find(r => String(r.id) === String(rcId));
+      if (rc) rcName = rc.name;
+    } catch (_) {}
+  }
+
   // In 'change' mode exclude source from "already added" so it's selectable as target too
-  // (user could pick same role — we just prevent picking codes already in the grid except source)
   const currentCodes = new Set(_cgDraft.roles.map(r => r.roleCode));
   if (_cgRoleModalMode === 'change' && _cgRoleModalSourceCode) currentCodes.delete(_cgRoleModalSourceCode);
   _cgRoleCurrentCodes = currentCodes;
@@ -1088,9 +1239,13 @@ function openCgRoleSelectModal(mode, sourceRoleCode) {
                         : '👥 Add roles';
   }
   if (hintEl) {
-    hintEl.textContent = _cgRoleModalMode === 'add'
+    const base = _cgRoleModalMode === 'add'
       ? 'Roles already added are disabled.'
       : 'Select a single role. Roles already in the grid are disabled.';
+    const rcHint = rcName
+      ? ` <span style="color:var(--indigo-600,#4f46e5)">&#10022; Custom rates from <strong>${esc(rcName)}</strong> applied.</span>`
+      : '';
+    hintEl.innerHTML = base + rcHint;
   }
 
   const emptyEl  = document.getElementById('cgRoleSelectEmpty');
@@ -1165,19 +1320,28 @@ function cgRenderRoleList() {
     <div class="mb-2">
       <div style="font-size:var(--text-xs);font-weight:700;color:var(--indigo-500);text-transform:uppercase;letter-spacing:.04em;padding:2px 0 4px">${esc(team)}</div>
       ${teamRoles.sort((a,b) => a.label.localeCompare(b.label)).map(r => {
-        const already   = _cgRoleCurrentCodes.has(r.code);
-        const zeroRate  = !r.rate || r.rate === 0;
+        const already       = _cgRoleCurrentCodes.has(r.code);
+        const roleId        = String(r.id);
+        const rcRate        = _cgActiveRatecardMap[roleId];
+        const globalRate    = r.rate || 0;
+        const effectiveRate = rcRate !== undefined ? rcRate : globalRate;
+        // Highlight only when a CLIENT ratecard is active and its rate differs from global default
+        const hasCustom     = _cgIsClientRatecard && rcRate !== undefined && rcRate !== globalRate;
+        const zeroRate      = !effectiveRate || effectiveRate === 0;
         const rateBadge = zeroRate
           ? `<span class="ms-1 badge" style="background:#fff0f0;color:var(--color-danger);font-size:var(--text-xs)">⚠️ 0/h</span>`
-          : `<span class="ms-1 badge" style="background:var(--sand-50);color:#666;font-size:var(--text-xs)">${r.rate} €/h</span>`;
+          : hasCustom
+            ? `<span class="ms-1 badge" style="background:#eef2ff;color:#4f46e5;border:1px solid #c7d2fe;font-size:var(--text-xs)">&#10022; ${effectiveRate} €/h</span>`
+            : `<span class="ms-1 badge" style="background:var(--sand-50);color:#666;font-size:var(--text-xs)">${effectiveRate} €/h</span>`;
         const isSingleMode = _cgRoleModalMode === 'change' || _cgRoleModalMode === 'duplicate';
         const isSource     = r.code === _cgRoleModalSourceCode;
         const inputType    = isSingleMode ? 'radio' : 'checkbox';
         const inputName    = isSingleMode ? 'cgRoleSelectSingle' : undefined;
         const nameAttr     = inputName ? `name="${inputName}"` : '';
-        return `<div class="form-check mb-1">
+        const rowBg        = hasCustom && !already ? 'background:#f5f3ff;border-radius:4px;' : '';
+        return `<div class="form-check mb-1" style="${rowBg}">
           <input class="form-check-input cg-role-checkbox" type="${inputType}" id="cgrc_${esc(r.id)}"
-            value="${esc(r.code)}" data-label="${esc(r.label)}" data-rate="${r.rate}"
+            value="${esc(r.code)}" data-label="${esc(r.label)}" data-rate="${effectiveRate}"
             ${nameAttr}
             ${already ? 'disabled' : ''}>
           <label class="form-check-label" for="cgrc_${esc(r.id)}" style="${already ? 'color:var(--text-disabled)' : ''}">
@@ -1206,7 +1370,7 @@ function cgAddSelectedRoles() {
     // Replace role metadata in the roles array
     const roleIdx = _cgDraft.roles.findIndex(r => r.roleCode === oldCode);
     if (roleIdx >= 0) {
-      _cgDraft.roles[roleIdx] = { roleCode: newCode, roleLabel: cb.dataset.label, rate: parseFloat(cb.dataset.rate) || 0 };
+      _cgDraft.roles[roleIdx] = { roleCode: newCode, roleLabel: cb.dataset.label, rate: parseFloat(cb.dataset.rate) || 0, rateIsCustom: false };
     }
     // Rename hours keys in all tasks
     _cgDraft.phases.forEach(ph => ph.tasks.forEach(task => {
@@ -1224,7 +1388,7 @@ function cgAddSelectedRoles() {
     if (_cgDraft.roles.find(r => r.roleCode === newCode)) { alert(`Role "${cb.dataset.label}" is already in the grid.`); return; }
     // Insert new role immediately after the source role
     const srcIdx = _cgDraft.roles.findIndex(r => r.roleCode === srcCode);
-    const newRole = { roleCode: newCode, roleLabel: cb.dataset.label, rate: parseFloat(cb.dataset.rate) || 0 };
+    const newRole = { roleCode: newCode, roleLabel: cb.dataset.label, rate: parseFloat(cb.dataset.rate) || 0, rateIsCustom: false };
     _cgDraft.roles.splice(srcIdx + 1, 0, newRole);
     // Copy source hours to new role in all tasks
     _cgDraft.phases.forEach(ph => ph.tasks.forEach(task => {
@@ -1235,7 +1399,7 @@ function cgAddSelectedRoles() {
     // 'add' mode — original behaviour
     checked.forEach(cb => {
       if (!_cgDraft.roles.find(r => r.roleCode === cb.value)) {
-        _cgDraft.roles.push({ roleCode: cb.value, roleLabel: cb.dataset.label, rate: parseFloat(cb.dataset.rate) || 0 });
+        _cgDraft.roles.push({ roleCode: cb.value, roleLabel: cb.dataset.label, rate: parseFloat(cb.dataset.rate) || 0, rateIsCustom: false });
       }
     });
   }
@@ -1250,11 +1414,11 @@ function cgAddSelectedRoles() {
 function cgComputeTaskTotals(task, roles) {
   let totalHrs = 0, totalFee = 0;
   (roles || []).forEach(r => {
-    const h = task.hours[r.roleCode] || 0;
+    const h = parseFloat(task.hours[r.roleCode]) || 0;
     totalHrs += h;
     totalFee += h * (r.rate || 0);
   });
-  const ptc = task.ptc || 0;
+  const ptc = parseFloat(task.ptc) || 0;
   return { totalHrs: Math.round(totalHrs * 100) / 100, totalFee, totalCostAndFee: totalFee + ptc };
 }
 
@@ -1266,8 +1430,8 @@ function cgComputePhaseTotals(phase, roles) {
     const tt = cgComputeTaskTotals(task, roles);
     hrs += tt.totalHrs;
     fee += tt.totalFee;
-    ptc += task.ptc || 0;
-    (roles || []).forEach(r => { byRole[r.roleCode] = (byRole[r.roleCode] || 0) + (task.hours[r.roleCode] || 0); });
+    ptc += parseFloat(task.ptc) || 0;
+    (roles || []).forEach(r => { byRole[r.roleCode] = (byRole[r.roleCode] || 0) + (parseFloat(task.hours[r.roleCode]) || 0); });
   });
   return { hrs: Math.round(hrs * 100) / 100, fee, ptc, byRole };
 }
@@ -1286,7 +1450,7 @@ function cgComputeColumnTotals(version) {
   (version.roles || []).forEach(r => { result[r.roleCode] = { hrs: 0, fee: 0 }; });
   (version.phases || []).forEach(ph => (ph.tasks || []).forEach(task => {
     (version.roles || []).forEach(r => {
-      const h = task.hours[r.roleCode] || 0;
+      const h = parseFloat(task.hours[r.roleCode]) || 0;
       result[r.roleCode].hrs = Math.round((result[r.roleCode].hrs + h) * 100) / 100;
       result[r.roleCode].fee += h * (r.rate || 0);
     });
@@ -1385,6 +1549,10 @@ function cgAutoSave() {
   const idx = cg.versions.findIndex(v => v.versionId === _cgActiveVersionId);
   if (idx >= 0) cg.versions[idx] = _cgDraft;
   cgSave(cg);
+  if (typeof _cgUpsertVersionToApi !== 'undefined') {
+    _cgUpsertVersionToApi(_cgActiveCgId, _cgActiveVersionId)
+      .catch(e => console.warn('[sync] cgAutoSave:', e.message));
+  }
 }
 
 let _cgAutoSaveTimer = null;
@@ -1403,35 +1571,119 @@ function cgSaveVersion() {
   if (btn) { const orig = btn.textContent; btn.textContent = '✓ Saved'; setTimeout(() => { btn.textContent = orig; }, 1500); }
 }
 
+// ── PUBLISH DRAFT ─────────────────────────────────────────────────────────────
+
+async function cgPublishDraft() {
+  if (!_cgActiveCgId || !_cgActiveVersionId) return;
+  const cg = cgLoad(_cgActiveCgId);
+  const ver = cg?.versions.find(v => v.versionId === _cgActiveVersionId);
+  if (!ver || ver.pipeline !== 'Draft') return;
+
+  const otherDrafts = cg.versions.filter(v => v.versionId !== _cgActiveVersionId && v.pipeline === 'Draft');
+  const otherWarn = otherDrafts.length > 0
+    ? `\n\n⚠️ ${otherDrafts.length} other draft version${otherDrafts.length > 1 ? 's' : ''} (${otherDrafts.map(v => v.versionLabel).join(', ')}) will be permanently deleted.`
+    : '';
+
+  showConfirm(
+    `Publish "${ver.versionLabel}" to SIP?${otherWarn}\n\nThis version will become visible to your team and cannot be set back to Draft.`,
+    async () => {
+      cgAutoSave();
+      try {
+        // Delete all other Draft versions from the DB first
+        for (const other of otherDrafts) {
+          await Api.costGrids.versions.delete(_cgActiveCgId, other.versionId);
+        }
+
+        const updated = await Api.costGrids.versions.publish(_cgActiveCgId, _cgActiveVersionId);
+
+        const cgFresh = cgLoad(_cgActiveCgId);
+        if (cgFresh) {
+          // Remove the deleted drafts from localStorage
+          cgFresh.versions = cgFresh.versions.filter(v =>
+            v.versionId === _cgActiveVersionId || v.pipeline !== 'Draft'
+          );
+          const v = cgFresh.versions.find(v => v.versionId === _cgActiveVersionId);
+          if (v) { v.pipeline = 'SIP'; v.pipelineYear = updated.pipeline_year || null; }
+          cgSave(cgFresh);
+        }
+        if (_cgDraft) { _cgDraft.pipeline = 'SIP'; _cgDraft.pipelineYear = updated.pipeline_year || null; }
+        renderCgEditor();
+        const tabs = cgLoad(_cgActiveCgId);
+        if (tabs) renderCgVersionTabs(tabs);
+      } catch (e) {
+        alert('Failed to publish: ' + e.message);
+      }
+    },
+    null, '🚀 Publish to SIP'
+  );
+}
+
 // ── NEW VERSION ───────────────────────────────────────────────────────────────
 
-function cgCreateNewVersion() {
+async function cgCreateNewVersion() {
   const label = document.getElementById('cgNewVersionLabel')?.value.trim();
+  const errEl = document.getElementById('cgNewVersionError');
   if (!label) {
-    const errEl = document.getElementById('cgNewVersionError');
     if (errEl) { errEl.textContent = 'Please enter a label.'; errEl.classList.remove('d-none'); }
     return;
   }
+  if (errEl) errEl.classList.add('d-none');
+
+  // Save current version before branching
   cgAutoSave();
+
+  // Create on the server first to get a server-assigned UUID.
+  // This prevents duplicate rows from repeated upsert attempts with a client UUID.
+  let serverId;
+  try {
+    const src = _cgDraft;
+    const created = await Api.costGrids.versions.create(_cgActiveCgId, {
+      label,
+      currency:    src.currency    || '€',
+      clientId:    (src.clientId && src.clientId !== '__unassigned__') ? src.clientId : null,
+      ratecardId:  src.ratecardId  || null,
+      startDate:   src.startDate   || null,
+      endDate:     src.endDate     || null,
+      note:        src.note        || '',
+      projectName: src.projectName || '',
+    });
+    serverId = created.id;
+  } catch(e) {
+    if (errEl) { errEl.textContent = 'API error: ' + e.message; errEl.classList.remove('d-none'); }
+    return;
+  }
+
+  // Copy phases/roles structure to the new version
+  if ((_cgDraft.phases || []).length > 0) {
+    await Api.costGrids.versions.saveStructure(_cgActiveCgId, serverId, {
+      phases: _cgDraft.phases,
+      roles:  _cgDraft.roles || [],
+    }).catch(e => console.warn('[sync] cgCreateNewVersion saveStructure:', e.message));
+  }
+
+  // Store in localStorage using the server UUID
   const cg = cgLoad(_cgActiveCgId);
   if (!cg) return;
   const newVer = JSON.parse(JSON.stringify(_cgDraft));
-  newVer.versionId    = cgNewVerId();
-  newVer.versionLabel = label;
-  newVer.createdAt    = new Date().toISOString();
-  newVer.status       = 'draft';
-  newVer.linkedProjects  = [];
+  newVer.versionId      = serverId;
+  newVer.versionLabel   = label;
+  newVer.createdAt      = new Date().toISOString();
+  newVer.status         = 'draft';
+  newVer.pipeline       = 'Draft';
+  newVer.pipelineYear   = null;
+  newVer.linkedProjects = [];
   delete newVer.linkedProjectId;
   cg.versions.push(newVer);
   cgSave(cg);
+
   bootstrap.Modal.getInstance(document.getElementById('cgNewVersionModal'))?.hide();
   document.getElementById('cgNewVersionLabel').value = '';
-  showCostGridEditorView(_cgActiveCgId, newVer.versionId);
+  showCostGridEditorView(_cgActiveCgId, serverId);
 }
 
 // ── CREATE NEW GRID ───────────────────────────────────────────────────────────
 
-function cgCreateNewGrid() {
+async function cgCreateNewGrid() {
   const name  = document.getElementById('cgNewGridName')?.value.trim();
   const errEl = document.getElementById('cgNewGridError');
   if (!name) {
@@ -1440,33 +1692,144 @@ function cgCreateNewGrid() {
   }
   if (errEl) errEl.classList.add('d-none');
 
-  const cgId  = cgNewId();
-  const verId = cgNewVerId();
+  // Create on the API first to get server-assigned IDs.
+  // POST /api/cost-grids ignores any client-provided id, so we must use the
+  // UUID from the response — otherwise version creates fail with a FK violation.
+  let cgId, verId;
+  try {
+    const newCg  = await Api.costGrids.create({ name });
+    cgId = newCg.id;
+    const newVer = await Api.costGrids.versions.create(cgId, { label: 'v1' });
+    verId = newVer.id;
+    await Api.costGrids.versions.saveStructure(cgId, verId, {
+      phases: [{ phaseName: 'Phase 1', tasks: [] }],
+      roles:  [],
+    }).catch(() => {});
+  } catch (e) {
+    if (errEl) { errEl.textContent = 'API error: ' + e.message; errEl.classList.remove('d-none'); }
+    return;
+  }
+
   const cg = {
     id: cgId,
     name,
     versions: [{
-      versionId:       verId,
-      versionLabel:    'v1',
-      createdAt:       new Date().toISOString(),
-      status:          'draft',
-      linkedProjects:  [],
-      projectName:     name,
-      startDate:       '',
-      endDate:         '',
-      currency:        '€',
-      note:            '',
-      roles:           [],
-      phases:          [{ phaseId: cgNewPhId(), phaseName: 'Phase 1', tasks: [] }],
+      versionId:      verId,
+      versionLabel:   'v1',
+      createdAt:      new Date().toISOString(),
+      status:         'draft',
+      pipeline:       'Draft',
+      pipelineYear:   null,
+      linkedProjects: [],
+      projectName:    name,
+      startDate:      '',
+      endDate:        '',
+      currency:       '€',
+      note:           '',
+      roles:          [],
+      phases:         [{ phaseId: cgNewPhId(), phaseName: 'Phase 1', tasks: [] }],
     }],
   };
   const idx = cgGetIndex();
-  idx.push(cgId);
+  if (!idx.includes(cgId)) idx.push(cgId);
   cgSaveIndex(idx);
   cgSave(cg);
   bootstrap.Modal.getInstance(document.getElementById('cgNewGridModal'))?.hide();
   document.getElementById('cgNewGridName').value = '';
   showCostGridEditorView(cgId, verId);
+}
+
+// ── CLONE GRID ────────────────────────────────────────────────────────────────
+
+async function cgCloneGrid() {
+  const name  = document.getElementById('cgCloneGridName')?.value.trim();
+  const errEl = document.getElementById('cgCloneError');
+  if (!name) {
+    if (errEl) { errEl.textContent = 'Please enter a name.'; errEl.classList.remove('d-none'); }
+    return;
+  }
+  if (errEl) errEl.classList.add('d-none');
+
+  const { cgId: srcCgId, verId: srcVerId } = _pbCloneSource || {};
+  if (!srcCgId || !srcVerId) return;
+
+  // Cancel any pending autosave before starting async clone operations
+  clearTimeout(_cgAutoSaveTimer);
+
+  // Load full structure from API if not already in localStorage
+  if (typeof cgLoadStructureFromApi === 'function') {
+    await cgLoadStructureFromApi(srcCgId, srcVerId).catch(() => {});
+  }
+  const srcCg  = cgLoad(srcCgId);
+  const srcVer = srcCg?.versions.find(v => v.versionId === srcVerId);
+  if (!srcVer) {
+    if (errEl) { errEl.textContent = 'Source proposal not found.'; errEl.classList.remove('d-none'); }
+    return;
+  }
+
+  try {
+    // 1. Create new cost grid and version on the API
+    const newCg  = await Api.costGrids.create({ name });
+    const cgId   = newCg.id;
+    const newVer = await Api.costGrids.versions.create(cgId, {
+      label:      'v1',
+      currency:   srcVer.currency    || '€',
+      clientId:   srcVer.clientId    || null,
+      ratecardId: srcVer.ratecardId  || null,
+      startDate:  srcVer.startDate   || '',
+      endDate:    srcVer.endDate     || '',
+      note:       srcVer.note        || '',
+      projectName: name,
+    });
+    const verId = newVer.id;
+
+    // 2. Copy phase/task/role structure
+    await Api.costGrids.versions.saveStructure(cgId, verId, {
+      phases: srcVer.phases || [],
+      roles:  srcVer.roles  || [],
+    });
+
+    // 3. Seed localStorage
+    const cg = {
+      id: cgId,
+      name,
+      versions: [{
+        versionId:      verId,
+        versionLabel:   'v1',
+        createdAt:      new Date().toISOString(),
+        status:         'draft',
+        pipeline:       'Draft',
+        pipelineYear:   null,
+        linkedProjects: [],
+        projectName:    name,
+        clientId:       srcVer.clientId    || null,
+        ratecardId:     srcVer.ratecardId  || null,
+        startDate:      srcVer.startDate   || '',
+        endDate:        srcVer.endDate     || '',
+        currency:       srcVer.currency    || '€',
+        note:           srcVer.note        || '',
+        roles:          JSON.parse(JSON.stringify(srcVer.roles  || [])),
+        phases:         JSON.parse(JSON.stringify(srcVer.phases || [])),
+      }],
+    };
+    const idx = cgGetIndex();
+    if (!idx.includes(cgId)) idx.push(cgId);
+    cgSaveIndex(idx);
+    cgSave(cg);
+
+    bootstrap.Modal.getInstance(document.getElementById('cgCloneModal'))?.hide();
+    showCostGridEditorView(cgId, verId);
+    // On costgrid.html, showCostGridEditorView re-renders in place without changing the URL.
+    // Update URL to point to the new clone so refresh/back button work correctly.
+    const curUrl = new URL(window.location.href);
+    if (curUrl.searchParams.get('cgId') && curUrl.searchParams.get('cgId') !== cgId) {
+      curUrl.searchParams.set('cgId', cgId);
+      curUrl.searchParams.set('verId', verId);
+      window.history.replaceState(null, '', curUrl.toString());
+    }
+  } catch(e) {
+    if (errEl) { errEl.textContent = 'Clone failed: ' + e.message; errEl.classList.remove('d-none'); }
+  }
 }
 
 // ── GENERATE PROJECT ──────────────────────────────────────────────────────────
@@ -1844,7 +2207,19 @@ function cgImportAll() {
         if (!data.index || !data.grids) throw new Error('Invalid format');
         showConfirm(
           `Import ${data.grids.length} Cost Grid(s)? This will replace all existing Cost Grids.`,
-          () => { cgSaveIndex(data.index); data.grids.forEach(cg => cgSave(cg)); renderPipelineBoard(); },
+          () => {
+            cgSaveIndex(data.index);
+            data.grids.forEach(cg => {
+              cgSave(cg);
+              if (typeof _cgUpsertVersionToApi !== 'undefined') {
+                cg.versions.forEach(v =>
+                  _cgUpsertVersionToApi(cg.id, v.versionId)
+                    .catch(e => console.warn('[sync] import:', e.message))
+                );
+              }
+            });
+            renderPipelineBoard();
+          },
           null, '⬆ Import Cost Grid'
         );
       } catch(err) { alert('JSON file error: ' + err.message); }

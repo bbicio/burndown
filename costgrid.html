@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Cost Grid</title>
+  <link rel="icon" type="image/png" href="https://ik.imagekit.io/6ezjgrjjf/00_Home_Page/letter-f.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- Navbar -->
+<div id="nav-container"></div>
+
+<div id="costGridEditorSection" class="app-container">
+  <div class="page-title-bar">
+    <h4 class="fw-bold mb-0" id="cgEditorTitle">Cost Grid</h4>
+  </div>
+  <div class="page-toolbar mb-2">
+    <div class="page-toolbar-left">
+      <button class="btn btn-outline-secondary btn-sm" id="btnCgEditorBack">← Pipeline</button>
+    </div>
+    <div class="page-toolbar-right">
+      <button class="btn btn-sm btn-primary" id="btnCgPublish" style="display:none">🚀 Publish to SIP →</button>
+      <button class="btn btn-sm btn-primary" id="btnCgNewVersion">+ New version</button>
+      <button class="btn btn-sm btn-outline-secondary" id="btnCgCloneVersion" title="Clone this version as a new proposal">⧉ Clone</button>
+      <button class="btn btn-sm btn-outline-secondary" id="btnCgExportXls">⬇ Export XLS</button>
+      <button class="btn btn-sm btn-outline-secondary" id="btnCgGenerateProject" title="Generate project in SIP">🚀 Generate Project</button>
+      <button class="btn btn-sm btn-primary" id="btnCgSave">💾 Save</button>
+    </div>
+  </div>
+  <!-- Version tabs -->
+  <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+    <span class="small text-muted">Version:</span>
+    <div id="cgVersionTabs" class="d-flex gap-1 flex-wrap"></div>
+  </div>
+  <!-- Editor body -->
+  <div id="cgEditorBody"></div>
+</div>
+
+<!-- Placeholder sections (referenced by cgHideAll in costgrid.js — overridden as no-op) -->
+<div id="portfolioSection"         style="display:none"></div>
+<div id="portfolioPlanningSection" style="display:none"></div>
+<div id="mainContent"              style="display:none"></div>
+<div id="uploadSection"            style="display:none"></div>
+<div id="pipelineBoardSection"     style="display:none"></div>
+
+<!-- ── MODALS ── -->
+
+<!-- Confirm -->
+<div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold" id="confirmModalTitle">⚠️ Confirm</h6></div>
+      <div class="modal-body pt-1"><p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p></div>
+      <div class="modal-footer border-0 pt-2">
+        <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger" id="confirmModalOk">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New Cost Grid -->
+<div class="modal fade" id="cgNewGridModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold">📋 New Cost Grid</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <label class="form-label small fw-semibold mb-1">Grid name</label>
+        <input type="text" class="form-control form-control-sm" id="cgNewGridName" placeholder="e.g. Project Alpha — Proposal" autofocus>
+        <div id="cgNewGridError" class="text-danger small mt-2 d-none"></div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="btnCgCreateGrid">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New Version -->
+<div class="modal fade" id="cgNewVersionModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold">+ New version</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <label class="form-label small fw-semibold mb-1">Version label</label>
+        <input type="text" class="form-control form-control-sm" id="cgNewVersionLabel" placeholder="e.g. v2 client" autofocus>
+        <div class="form-text">The new version will be a copy of the current one.</div>
+        <div id="cgNewVersionError" class="text-danger small mt-2 d-none"></div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="btnCgCreateVersion">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Clone Proposal -->
+<div class="modal fade" id="cgCloneModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1">
+        <h6 class="modal-title fw-bold">⧉ Clone proposal</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-2">Cloning: <strong id="cgCloneSourceName"></strong></p>
+        <label class="form-label small fw-semibold mb-1">New proposal name</label>
+        <input type="text" class="form-control form-control-sm" id="cgCloneGridName"
+               placeholder="e.g. Project Alpha — Proposal v2" autofocus>
+        <div id="cgCloneError" class="text-danger small mt-2 d-none"></div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="btnCgClone">⧉ Clone</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Role Selector -->
+<div class="modal fade" id="cgRoleSelectModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:760px">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold">👥 Add roles</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <input type="text" id="cgRoleSearch" class="form-control form-control-sm mb-2" placeholder="Search by name or code...">
+          <div id="cgRoleTeamFilters" class="d-flex flex-wrap gap-1"></div>
+        </div>
+        <p class="small text-muted mb-2">Roles already added are disabled.</p>
+        <div id="cgRoleSelectList" style="max-height:460px;overflow-y:auto"></div>
+        <div id="cgRoleSelectEmpty" class="text-muted small text-center py-3 d-none">No roles available. Configure them in <strong>⚙ Config → Roles</strong>.</div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="btnCgAddSelectedRoles">Add selected</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Roles Registry -->
+<div class="modal fade" id="rolesModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1"><h5 class="modal-title fw-bold">👥 Roles Registry</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body p-0">
+        <div class="px-3 py-2 d-flex gap-2 flex-wrap align-items-center border-bottom" style="background:#f8f9fa">
+          <span class="text-muted small">Roles used in Cost Grids to calculate the offer value</span>
+          <div class="ms-auto d-flex gap-2"><button class="btn btn-outline-secondary btn-sm" id="btnRolesShowJson">{ } JSON</button><button class="btn btn-primary btn-sm" id="btnAddRole">+ Add role</button></div>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0" style="font-size:.92rem">
+            <thead style="background:#eef1ff;position:sticky;top:0;z-index:1"><tr><th class="ps-3" style="min-width:180px">Label</th><th style="min-width:280px">Code</th><th style="min-width:100px">Team</th><th style="min-width:120px;text-align:right">Rate (€/h)</th><th style="width:90px"></th></tr></thead>
+            <tbody id="rolesTableBody"><tr id="rolesEmptyRow"><td colspan="5" class="text-muted text-center py-5">No roles configured. Click <strong>+ Add role</strong> to get started.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-1"><button class="btn btn-secondary btn-sm" id="btnRolesBack" data-bs-dismiss="modal">Close</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- Role Edit -->
+<div class="modal fade" id="roleModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold" id="roleModalTitle">➕ New role</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-3"><label class="form-label small fw-semibold mb-1">Label</label><input type="text" class="form-control form-control-sm" id="roleLabel" placeholder="e.g. Project Manager"></div>
+        <div class="mb-3"><label class="form-label small fw-semibold mb-1">Code</label><input type="text" class="form-control form-control-sm" id="roleCode" placeholder="e.g. HWGACCSVS - DIRECTOR"><div class="form-text">Must match the Job Role column in actuals.</div></div>
+        <div class="mb-3"><label class="form-label small fw-semibold mb-1">Hourly rate (€/h)</label><input type="number" class="form-control form-control-sm" id="roleRate" placeholder="e.g. 160" min="0" step="0.01"></div>
+        <div id="roleModalError" class="alert alert-danger d-none py-2 small mb-0"></div>
+      </div>
+      <div class="modal-footer border-0 pt-0"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" id="btnSaveRole">💾 Save</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- JSON Viewer -->
+<div class="modal fade" id="jsonViewerModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:860px">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1"><h5 class="modal-title fw-bold font-monospace" id="jsonViewerTitle">{ } JSON</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body p-0">
+        <div class="px-3 py-2 d-flex gap-2 align-items-center border-bottom" style="background:#f8f9fa">
+          <button class="btn btn-outline-secondary btn-sm" id="btnJsonCopy">📋 Copy</button>
+          <button class="btn btn-outline-secondary btn-sm" id="btnJsonExport">⬇ Export .json</button>
+          <button class="btn btn-outline-secondary btn-sm" id="btnJsonImport">⬆ Import .json</button>
+          <span class="text-muted small ms-auto">The textarea is editable — modify and click <strong>Apply</strong>.</span>
+        </div>
+        <div class="p-3"><textarea id="jsonViewerContent" class="form-control font-monospace" style="min-height:480px;font-size:.82rem;line-height:1.5;resize:vertical" spellcheck="false" autocomplete="off"></textarea><div id="jsonViewerError" class="text-danger small mt-2 d-none"></div></div>
+      </div>
+      <div class="modal-footer border-0"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button><button class="btn btn-primary btn-sm" id="btnJsonApply">✓ Apply JSON</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- Programs -->
+<div class="modal fade" id="programsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title fw-bold">🗂 Programs</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body p-0">
+        <div class="p-3 border-bottom d-flex justify-content-end"><button class="btn btn-sm btn-primary" onclick="openProgramEditModal(null)">＋ New program</button></div>
+        <table class="table table-sm align-middle mb-0">
+          <thead style="background:#f8f9fa"><tr><th class="ps-3">Name</th><th>Program ID</th><th>Projects</th><th></th></tr></thead>
+          <tbody id="programsTableBody"><tr id="programsEmptyRow"><td colspan="4" class="text-center text-muted py-4">No programs. Click <strong>＋ New program</strong>.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Program Edit -->
+<div class="modal fade" id="programEditModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title fw-bold" id="programModalTitle">＋ New program</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="programModalError" class="alert alert-danger py-2 d-none"></div>
+        <div class="mb-3"><label class="form-label small fw-semibold">Program name</label><input type="text" class="form-control form-control-sm" id="programName" placeholder="e.g. Chatbot AI Platform"></div>
+        <div class="mb-3"><label class="form-label small fw-semibold">Program ID</label><input type="text" class="form-control form-control-sm" id="programId" placeholder="e.g. PRG-001"></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" onclick="saveProgramFromModal()">Save</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- Clients -->
+<div class="modal fade" id="clientsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title fw-bold">👥 Clients</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body p-0">
+        <div class="p-3 border-bottom d-flex justify-content-end"><button class="btn btn-sm btn-primary" onclick="openClientEditModal(null)">＋ New client</button></div>
+        <table class="table table-sm align-middle mb-0">
+          <thead style="background:#f8f9fa"><tr><th class="ps-3">Name</th><th></th></tr></thead>
+          <tbody id="clientsTableBody"><tr id="clientsEmptyRow"><td colspan="2" class="text-center text-muted py-4">No clients. Click <strong>＋ New client</strong>.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Client Edit -->
+<div class="modal fade" id="clientEditModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title fw-bold" id="clientModalTitle">＋ New client</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="clientModalError" class="alert alert-danger py-2 d-none"></div>
+        <div class="mb-3"><label class="form-label small fw-semibold">Client name</label><input type="text" class="form-control form-control-sm" id="clientName" placeholder="e.g. Acme Corp"></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" onclick="saveClientFromModal()">Save</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+  <div id="cgAutoSaveToast" class="toast align-items-center text-bg-secondary border-0" role="alert" data-bs-delay="2000">
+    <div class="d-flex"><div class="toast-body" style="font-size:.85rem">💾 Auto-saved</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
+  </div>
+</div>
+
+<!-- ── SCRIPTS ── -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="js/api.js?v=2"></script>
+<script src="js/core.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/roles.js"></script>
+<script src="js/clients.js"></script>
+<script src="js/programs.js"></script>
+<script src="js/costgrid.js"></script>
+<script src="js/api-sync.js"></script>
+<script src="js/ratecards.js"></script>
+<script src="js/nav.js"></script>
+
+<script>
+// ── PAGE-SPECIFIC NAVIGATION OVERRIDES ───────────────────────────────────────
+
+function showPipelineBoardView() {
+  window.location.href = '/pipeline.html';
+}
+
+function showPortfolioView() {
+  window.location.href = '/portfolio.html';
+}
+
+function showPortfolioPlanningView() {
+  window.location.href = '/planning.html';
+}
+
+function showDashboardView(pid) {
+  window.location.href = '/portfolio.html?projectId=' + encodeURIComponent(pid);
+}
+
+// After a delete on this page, redirect back to the pipeline board
+function renderPipelineBoard() {
+  window.location.href = '/pipeline.html';
+}
+
+function updateNavState() {}
+
+// Override cgHideAll: on this page costGridEditorSection is always visible
+function cgHideAll() {}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+
+function _cgShowLoadError(msg) {
+  const el = document.getElementById('cgEditorBody');
+  if (el) el.innerHTML = `<div class="alert alert-danger m-4">${msg} <a href="/pipeline.html">← Back to Pipeline</a></div>`;
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  loadConfig();
+  loadSettings();
+
+  const user = await initNav('pipeline', { breadcrumbs: [
+    { label: 'Home', href: '/pipeline.html' },
+    { label: 'Pipeline', href: '/pipeline.html' },
+    { label: '…' },
+  ]}); // Pipeline tab stays active (cost grid belongs to pipeline board)
+  // null = 401 (already redirected to login) or timeout
+  if (!user) {
+    _cgShowLoadError('Failed to connect to the server. Please check your connection and try again.');
+    return;
+  }
+
+  try {
+    await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi()]);
+  } catch (e) {
+    console.warn('[init] loadClientsFromApi/loadProgramsFromApi/loadRolesFromApi failed:', e.message);
+  }
+
+  // Seed cost grid metadata into localStorage before opening the editor.
+  // Required when the page is opened via a direct/bookmarked URL (localStorage may be cold).
+  try {
+    await cgSyncFromApi();
+  } catch (e) {
+    console.warn('[init] cgSyncFromApi failed:', e.message);
+  }
+
+  // Read cgId and verId from URL params
+  const params    = new URLSearchParams(window.location.search);
+  const cgId      = params.get('cgId');
+  const versionId = params.get('verId');
+
+  if (cgId && versionId) {
+    const cg = cgLoad(cgId);
+    if (!cg) {
+      document.getElementById('cgEditorBody').innerHTML =
+        `<div class="alert alert-danger m-4">Cost grid not found or access denied. <a href="/pipeline.html">← Back to Pipeline</a></div>`;
+      return;
+    }
+
+    // If the versionId from the URL is no longer in localStorage (stale client UUID),
+    // fall back to the most recently created version that exists on the server.
+    let resolvedVerId = versionId;
+    if (!cg.versions.find(v => v.versionId === versionId)) {
+      resolvedVerId = cg.versions[0]?.versionId;
+      if (!resolvedVerId) {
+        document.getElementById('cgEditorBody').innerHTML =
+          `<div class="alert alert-danger m-4">Version not found. <a href="/pipeline.html">← Back to Pipeline</a></div>`;
+        return;
+      }
+      // Update URL to reflect the resolved version (no page reload)
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set('verId', resolvedVerId);
+      window.history.replaceState(null, '', newUrl.toString());
+    }
+
+    // Fetch the full phase/role structure from API before opening the editor
+    await cgLoadStructureFromApi(cgId, resolvedVerId);
+    showCostGridEditorView(cgId, resolvedVerId);
+    if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
+      { label: 'Home', href: '/pipeline.html' },
+      { label: 'Pipeline', href: '/pipeline.html' },
+      { label: cg.name },
+    ]);
+  } else if (cgId) {
+    // Open first version if only cgId is given
+    const cg = cgLoad(cgId);
+    if (cg && cg.versions.length > 0) {
+      const firstVerId = cg.versions[0].versionId;
+      await cgLoadStructureFromApi(cgId, firstVerId);
+      showCostGridEditorView(cgId, firstVerId);
+      if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Pipeline', href: '/pipeline.html' },
+        { label: cg.name },
+      ]);
+    } else {
+      document.getElementById('cgEditorBody').innerHTML =
+        `<div class="alert alert-danger m-4">Cost grid not found or access denied. <a href="/pipeline.html">← Back to Pipeline</a></div>`;
+      return;
+    }
+  } else {
+    // No params — redirect back to pipeline
+    window.location.href = '/pipeline.html';
+    return;
+  }
+
+  // ── TOOLBAR ──
+  document.getElementById('btnCgEditorBack').addEventListener('click', async () => {
+    const btn = document.getElementById('btnCgEditorBack');
+    cgAutoSave();
+    btn.disabled = true;
+    btn.textContent = '💾 Saving…';
+    await new Promise(r => setTimeout(r, 500));
+    showPipelineBoardView();
+  });
+
+  document.getElementById('btnCgPublish').addEventListener('click', cgPublishDraft);
+  document.getElementById('btnCgSave').addEventListener('click', cgSaveVersion);
+  document.getElementById('btnCgNewVersion').addEventListener('click', () => {
+    document.getElementById('cgNewVersionLabel').value = '';
+    document.getElementById('cgNewVersionError').classList.add('d-none');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('cgNewVersionModal')).show();
+  });
+  document.getElementById('cgNewGridModal').addEventListener('shown.bs.modal', () => {
+    document.getElementById('cgNewGridName').focus();
+  });
+  document.getElementById('cgNewVersionModal').addEventListener('shown.bs.modal', () => {
+    document.getElementById('cgNewVersionLabel').focus();
+  });
+  document.getElementById('btnCgCreateVersion').addEventListener('click', cgCreateNewVersion);
+  document.getElementById('btnCgCloneVersion').addEventListener('click', () => {
+    const cg = cgLoad(_cgActiveCgId);
+    if (!cg) return;
+    const ver = cg.versions.find(v => v.versionId === _cgActiveVersionId);
+    _pbCloneSource = { cgId: _cgActiveCgId, verId: _cgActiveVersionId, name: cg.name };
+    document.getElementById('cgCloneSourceName').textContent =
+      cg.name + (ver?.versionLabel ? ' — ' + ver.versionLabel : '');
+    document.getElementById('cgCloneGridName').value = cg.name + ' — Copy';
+    document.getElementById('cgCloneError').classList.add('d-none');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('cgCloneModal')).show();
+  });
+  document.getElementById('cgCloneModal').addEventListener('shown.bs.modal', () => {
+    document.getElementById('cgCloneGridName').focus();
+  });
+  document.getElementById('btnCgClone').addEventListener('click', cgCloneGrid);
+  document.getElementById('btnCgExportXls').addEventListener('click', cgExportXls);
+  document.getElementById('btnCgGenerateProject').addEventListener('click', cgGenerateProject);
+  document.getElementById('btnCgAddSelectedRoles').addEventListener('click', cgAddSelectedRoles);
+
+  // ── ROLES ──
+  document.getElementById('btnRolesBack').addEventListener('click', hideRolesView);
+  document.getElementById('btnAddRole').addEventListener('click', () => openRoleModal(null));
+  document.getElementById('btnSaveRole').addEventListener('click', saveRoleFromModal);
+  document.getElementById('btnRolesShowJson').addEventListener('click', () => {
+    openJsonViewer('Roles', getRoles(), imported => { if (!Array.isArray(imported)) throw new Error('Must be an array'); roles = imported; saveRoles(); renderRolesTable(); }, `roles_${new Date().toISOString().slice(0,10)}.json`);
+  });
+
+  // ── JSON VIEWER ──
+  document.getElementById('btnJsonCopy').addEventListener('click', () => {
+    navigator.clipboard.writeText(document.getElementById('jsonViewerContent').value).catch(() => {});
+  });
+  document.getElementById('btnJsonExport').addEventListener('click', () => {
+    const blob = new Blob([document.getElementById('jsonViewerContent').value], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = _jsonViewerFilename; a.click(); URL.revokeObjectURL(url);
+  });
+  document.getElementById('btnJsonImport').addEventListener('click', () => {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json';
+    inp.onchange = e => {
+      const file = e.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try { JSON.parse(ev.target.result); document.getElementById('jsonViewerContent').value = ev.target.result; document.getElementById('jsonViewerError').classList.add('d-none'); }
+        catch(err) { const el = document.getElementById('jsonViewerError'); el.textContent = 'Invalid JSON: ' + err.message; el.classList.remove('d-none'); }
+      };
+      reader.readAsText(file);
+    };
+    inp.click();
+  });
+  document.getElementById('btnJsonApply').addEventListener('click', () => {
+    const errEl = document.getElementById('jsonViewerError');
+    try { const parsed = JSON.parse(document.getElementById('jsonViewerContent').value); if (_jsonViewerOnSave) _jsonViewerOnSave(parsed); bootstrap.Modal.getInstance(document.getElementById('jsonViewerModal'))?.hide(); errEl.classList.add('d-none'); }
+    catch(err) { errEl.textContent = 'Invalid JSON: ' + err.message; errEl.classList.remove('d-none'); }
+  });
+
+});
+</script>
+
+</body>
+</html>

@@ -1,8 +1,23 @@
 const express = require('express');
 const { query } = require('../db/client');
-const { requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
+
+// GET /api/users/search?email=... — any authenticated user, for share-target lookup
+router.get('/search', requireAuth, async (req, res, next) => {
+  try {
+    const email = (req.query.email || '').toLowerCase().trim();
+    if (!email) return res.status(400).json({ error: 'email is required' });
+    const { rows } = await query(
+      `SELECT id, email, first_name, last_name
+       FROM users WHERE LOWER(email) = $1 AND status = 'active'`,
+      [email]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'No active user found with that email' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});
 
 // GET /api/users
 router.get('/', requireAdmin, async (req, res, next) => {

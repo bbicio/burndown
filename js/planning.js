@@ -1269,8 +1269,8 @@ function renderPortfolioPlanningByProjectContent(container, projects, weeks) {
       <span style="background:#c8e6ff;padding:1px 5px;border-radius:var(--radius-xs)">Blue</span> = current week / month.
     </div>
     <div class="d-flex justify-content-end gap-1 mb-2">
-      <button class="btn btn-outline-secondary pp-expand-all" style="font-size:var(--text-xs);padding:2px 8px">⊞ Espandi tutti</button>
-      <button class="btn btn-outline-secondary pp-collapse-all" style="font-size:var(--text-xs);padding:2px 8px">⊟ Comprimi tutti</button>
+      <button class="btn btn-outline-secondary pp-expand-all" style="font-size:var(--text-xs);padding:2px 8px">⊞ Expand all</button>
+      <button class="btn btn-outline-secondary pp-collapse-all" style="font-size:var(--text-xs);padding:2px 8px">⊟ Collapse all</button>
     </div>
     <table class="gantt-table" id="ppResourceTable" style="border-collapse:collapse;width:100%">
       <thead>
@@ -1475,7 +1475,7 @@ function renderPortfolioPlanningByOwnerContent(container, projects, weeks) {
   const periodLabels = periods.map(p => isMonthly ? p.label : p.dateTitle);
   const periodMeta   = periods.map(p => ({ isPast: p.isPast, isCurrent: p.isCurrent ?? false }));
   const exportRows = [];
-  exportRows.push({ v: ['Owner', 'Progetto', 'Ruolo', 'Sold', 'From actuals', 'To be planned', ...periodLabels], level: 'header' });
+  exportRows.push({ v: ['Owner', 'Project', 'Role', 'Sold', 'From actuals', 'To be planned', ...periodLabels], level: 'header' });
   let tbodyHtml = '';
   let ownerGroupIdx = 0;
   let grandSold = 0, grandActuals = 0, grandTbp = 0;
@@ -1547,20 +1547,20 @@ function renderPortfolioPlanningByOwnerContent(container, projects, weeks) {
   const rowspan = isMonthly ? '1' : '2';
   container.innerHTML = `
     <div class="alert alert-light border mb-3" style="font-size:var(--text-base);color:#444;line-height:1.7">
-      <strong>Logica stima (By Owner):</strong>
-      La tabella è strutturata come <strong>Owner → Progetto → Ruolo</strong>.
-      Le <strong>settimane passate</strong> mostrano ore <em>effettive</em> da timesheet.
-      Le <strong>settimane future</strong> mostrano la quota proporzionale dell'owner sulle ore residue (sold − consumato).
-      Se nessun owner risulta dagli actuals, le ore vengono assegnate a un placeholder <em>TBD</em>.
+      <strong>Estimation logic (By Owner):</strong>
+      The table is structured as <strong>Owner → Project → Role</strong>.
+      <strong>Past weeks</strong> show <em>actual</em> hours from timesheets.
+      <strong>Future weeks</strong> show each owner's proportional share of remaining hours (sold − consumed).
+      If no owner is found in the actuals, hours are assigned to a <em>TBD</em> placeholder.
     </div>
     <div class="d-flex justify-content-end gap-1 mb-2">
-      <button class="btn btn-outline-secondary pp-expand-all" style="font-size:var(--text-xs);padding:2px 8px">⊞ Espandi tutti</button>
-      <button class="btn btn-outline-secondary pp-collapse-all" style="font-size:var(--text-xs);padding:2px 8px">⊟ Comprimi tutti</button>
+      <button class="btn btn-outline-secondary pp-expand-all" style="font-size:var(--text-xs);padding:2px 8px">⊞ Expand all</button>
+      <button class="btn btn-outline-secondary pp-collapse-all" style="font-size:var(--text-xs);padding:2px 8px">⊟ Collapse all</button>
     </div>
     <table class="gantt-table" id="ppResourceTable" style="border-collapse:collapse;width:100%">
       <thead>
         <tr>
-          <th rowspan="${rowspan}" style="${SH}left:0;min-width:200px;background:#d8dff7;font-size:var(--text-base);padding:8px 10px;border:1px solid var(--border-light);white-space:nowrap">Owner / Progetto / Ruolo</th>
+          <th rowspan="${rowspan}" style="${SH}left:0;min-width:200px;background:#d8dff7;font-size:var(--text-base);padding:8px 10px;border:1px solid var(--border-light);white-space:nowrap">Owner / Project / Role</th>
           <th rowspan="${rowspan}" style="${SH}left:200px;min-width:65px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">Sold</th>
           <th rowspan="${rowspan}" style="${SH}left:265px;min-width:80px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">From<br>actuals</th>
           <th rowspan="${rowspan}" style="${SH}left:345px;min-width:90px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);text-align:center;white-space:nowrap">To be<br>planned</th>

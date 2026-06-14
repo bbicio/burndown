@@ -1,58 +1,35 @@
-// ── FILE UPLOAD ──────────────────────────────────────────────────────────────
-function readXLS(file) {
-  const reader = new FileReader();
-  reader.addEventListener('load', e => {
-    const wb   = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: false });
-    const ws   = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' });
+async function readXLS(file, onComplete) {
+  const statusEl = document.getElementById('fileStatus');
+  if (statusEl) { statusEl.style.display = 'inline'; statusEl.textContent = '⏳ Uploading…'; }
 
-    const newRows = rows.map(r => ({
-      date:        parseDate(r['Date']),
-      role:        str(r['Job Role: Name']),
-      owner:       str(r['Owner: Name']),
-      hours:       parseHours(r['Hours']),
-      task:        str(r['Task/Issue']),
-      notes:       str(r['Notes']),
-      projectId:   str(r['D365 Project ID']),
-      projectName: str(r['WF Project Name']),
-    })).filter(r => r.date && r.hours > 0);
-
-    // Save each project's rows to localStorage
-    const byProject = {};
-    newRows.forEach(r => {
-      if (!r.projectId) return;
-      if (!byProject[r.projectId]) byProject[r.projectId] = [];
-      byProject[r.projectId].push(r);
-    });
-    Object.entries(byProject).forEach(([pid, prows]) => {
-      saveProjectData(pid, prows);
-      addToDataIndex(pid);
-    });
-
-    // Rebuild timesheetData from all cached sources
-    refreshTimesheetData();
-
-    document.getElementById('fileStatus').textContent = `✅ ${file.name} · ${newRows.length} rows`;
-    populateProjectSelector();
-    showPortfolioView();
-  });
-  reader.readAsArrayBuffer(file);
-}
-
-function parseDate(v) {
-  if (!v) return null;
-  if (v instanceof Date) return isNaN(v) ? null : v;
-  const s = String(v).trim();
-  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (m) {
-    let [, mo, d, y] = m;
-    if (y.length === 2) y = '20' + y;
-    const dt = new Date(+y, +mo - 1, +d);
-    return isNaN(dt) ? null : dt;
+  try {
+    const result = await Api.timesheets.upload(file);
+    if (statusEl) statusEl.textContent = `✅ ${file.name} · ${result.totalRows} rows`;
+    await refreshTimesheetDataFromApi();
+    if (typeof onComplete === 'function') {
+      onComplete();
+    } else {
+      populateProjectSelector();
+      showPortfolioView();
+    }
+  } catch (e) {
+    if (statusEl) statusEl.textContent = `❌ Upload failed: ${e.message}`;
+    console.error('[upload]', e);
   }
-  const dt = new Date(s);
-  return isNaN(dt) ? null : dt;
 }
 
-function parseHours(v) { return parseFloat(String(v || '0').replace(',', '.')) || 0; }
-function str(v)        { return String(v || '').trim(); }
+async function readXLSForProject(file, projectId) {
+  const statusEl = document.getElementById('fileStatus');
+  if (statusEl) { statusEl.style.display = 'inline'; statusEl.textContent = '⏳ Uploading actuals…'; }
+
+  try {
+    const result = await Api.timesheets.upload(file, projectId);
+    if (statusEl) statusEl.textContent = `✅ ${file.name} · ${result.totalRows} rows for ${projectId}`;
+    await refreshTimesheetDataFromApi();
+    if (typeof renderPortfolioView === 'function') renderPortfolioView();
+    setTimeout(() => { if (statusEl) statusEl.style.display = 'none'; }, 4000);
+  } catch (e) {
+    if (statusEl) statusEl.textContent = `❌ Upload failed: ${e.message}`;
+    console.error('[upload]', e);
+  }
+}
