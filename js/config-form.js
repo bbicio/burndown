@@ -76,7 +76,7 @@ function cfgSaveCurrentToState() {
 
 // ── LOAD / READ PROJECT ────────────────────────────────────────────────────────
 function cfgLoadProject(proj) {
-  document.getElementById('cfgId').value        = proj.id       || '';
+  document.getElementById('cfgId').value        = proj.code     || '';
   document.getElementById('cfgName').value      = proj.name     || '';
   document.getElementById('cfgStartDate').value = ym2month(proj.startDate);
   document.getElementById('cfgEndDate').value   = ym2month(proj.endDate);
@@ -107,13 +107,14 @@ function cfgLoadProject(proj) {
 function cfgReadFormProject() {
   const existing = cfgProjectIdx >= 0 ? cfgEditConfig.projects[cfgProjectIdx] : null;
   return {
-    id:           document.getElementById('cfgId').value.trim(),
+    id:           existing?.id || '',
+    code:         document.getElementById('cfgId').value.trim(),
     name:         document.getElementById('cfgName').value.trim(),
     startDate:    month2ym(document.getElementById('cfgStartDate').value),
     endDate:      month2ym(document.getElementById('cfgEndDate').value),
     currency:     document.getElementById('cfgCurrency').value,
     pipeline:     document.getElementById('cfgPipeline').disabled
-                    ? (getProjectPipeline(document.getElementById('cfgId').value) || document.getElementById('cfgPipeline').value)
+                    ? (getProjectPipeline(existing?.id || '') || document.getElementById('cfgPipeline').value)
                     : document.getElementById('cfgPipeline').value,
     status:       document.getElementById('cfgStatus').value,
     tasks:        cfgReadTasks(),
@@ -401,7 +402,7 @@ function cfgUpdateGridTotals(totalBudget, totalHours) {
   }
 
   let planningSum = 0;
-  document.querySelectorAll('.cfg-planning-input').forEach(inp => { planningSum += cfgParseMoney(inp.value); });
+  document.querySelectorAll('.cfg-planning-input').forEach(inp => { planningSum += cfgParseHours(inp.value); });
   const planningTotalEl = document.getElementById('cfgPlanningTotal');
   if (planningTotalEl) {
     const ref = totalHours > 0 ? ` / ${totalHours.toLocaleString('en-US')} h` : '';
@@ -668,42 +669,58 @@ function cfgDerivePhasing() {
   modal.show();
 }
 
-function cfgReforecast() {
-  const projectId = document.getElementById('cfgId').value.trim();
-  const tasks     = cfgReadTasks().filter(t => t.billable !== false);
-  const months    = cfgGetMonthRange();
+async function cfgReforecast() {
+  const proj    = cfgProjectIdx >= 0 ? cfgEditConfig.projects[cfgProjectIdx] : null;
+  const tasks   = cfgReadTasks().filter(t => t.billable !== false);
+  const months  = cfgGetMonthRange();
 
   if (!months.length) { alert('Set project start and end dates first.'); return; }
+  if (!proj?.code)    { alert('Set the D365 Project ID first before running Reforecast.'); return; }
 
   const now        = new Date();
   const currentYM  = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
   const pastMonths   = months.filter(ym => ym <  currentYM);
   const futureMonths = months.filter(ym => ym >= currentYM);
-  const futureCount  = futureMonths.length || 1;
 
-  // Rate map: role (lowercase) → hourlyRate
-  const rateMap = new Map();
-  tasks.forEach(t => t.resources.forEach(r => {
-    if (r.role && !rateMap.has(r.role.toLowerCase()))
-      rateMap.set(r.role.toLowerCase(), r.hourlyRate || 0);
-  }));
+  const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const billableNames = new Set(tasks.map(t => norm(t.name)));
 
-  const billableNames = new Set(tasks.map(t => t.name.toLowerCase()));
-  const projData = timesheetData.filter(r =>
-    r.projectId === projectId && billableNames.has(r.task?.toLowerCase())
-  );
+  // Per-task, per-role rate map from config resources: rateMap[normTaskName][normRole] = hourlyRate
+  // Same role can have different rates in different tasks.
+  const rateMap = {};
+  tasks.forEach(t => {
+    const tKey = norm(t.name);
+    rateMap[tKey] = {};
+    (t.resources || []).forEach(r => {
+      if (r.role) rateMap[tKey][norm(r.role)] = r.hourlyRate || 0;
+    });
+  });
 
-  // Per-task actuals: taskActuals[taskNameLower][ym] = { spend, hours }
+  // Fetch raw actuals directly from API (timesheetData is not loaded on this page)
+  let rawRows = [];
+  try {
+    const uploads = await Api.timesheets.get(proj.code);
+    rawRows = (uploads || []).flatMap(u => u.data || []);
+  } catch (e) {
+    alert('Could not load actuals from server: ' + e.message);
+    return;
+  }
+
+  const projData = rawRows.filter(r => billableNames.has(norm(r.task)));
+
+  // Per-task actuals: taskActuals[normTaskName][ym] = { hours, spend }
+  // spend = actual hours × rate for that (task, role) pair from config resources.
   const taskActuals = {};
   projData.forEach(r => {
     if (!r.date) return;
-    const ym    = `${r.date.getFullYear()}${String(r.date.getMonth() + 1).padStart(2, '0')}`;
-    const tName = (r.task || '').toLowerCase();
-    const rate  = rateMap.get((r.role || '').toLowerCase()) ?? 0;
+    const dateStr = typeof r.date === 'string' ? r.date : r.date.toISOString();
+    const ym    = dateStr.slice(0, 7).replace('-', '');
+    const tName = norm(r.task);
+    const rate  = (rateMap[tName] || {})[norm(r.role)] ?? 0;
     if (!taskActuals[tName]) taskActuals[tName] = {};
-    if (!taskActuals[tName][ym]) taskActuals[tName][ym] = { spend: 0, hours: 0 };
-    taskActuals[tName][ym].spend += r.hours * rate;
+    if (!taskActuals[tName][ym]) taskActuals[tName][ym] = { hours: 0, spend: 0 };
     taskActuals[tName][ym].hours += r.hours;
+    taskActuals[tName][ym].spend += r.hours * rate;
   });
 
   // Totals from config tasks
@@ -714,8 +731,10 @@ function cfgReforecast() {
   const newPhasing = {}, newPlanning = {};
   let distError = null;
 
+  const pastYMs = new Set(pastMonths);
+
   for (const task of tasks) {
-    const tName      = task.name.toLowerCase();
+    const tName      = norm(task.name);
     const tActuals   = taskActuals[tName] || {};
     const taskBudget = task.resources.reduce((s, r) => s + (r.soldHours||0)*(r.hourlyRate||0), 0);
     const taskHours  = task.resources.reduce((s, r) => s + (r.soldHours||0), 0);
@@ -723,27 +742,43 @@ function cfgReforecast() {
     const distSum = dist ? Object.values(dist).reduce((s, v) => s + v, 0) : 0;
     const useDist = dist && Math.abs(distSum - 100) < 0.5;
 
+    // Narrow future months to the task's own date range
+    const taskStartYM = task.startDate ? task.startDate.slice(0, 6) : months[0];
+    const taskEndYM   = task.endDate   ? task.endDate.slice(0, 6)   : months[months.length - 1];
+    const taskFuture  = futureMonths.filter(ym => ym >= taskStartYM && ym <= taskEndYM);
+    const taskFutureCount = taskFuture.length || 1;
+
+    // Total past actuals for this task
+    const rawPastHrs   = pastMonths.reduce((s, ym) => s + ((tActuals[ym] || {}).hours || 0), 0);
+    const rawPastSpend = pastMonths.reduce((s, ym) => s + ((tActuals[ym] || {}).spend || 0), 0);
+
+    // Cap: if actuals exceed sold, scale past months proportionally so total stays at sold
+    const hrsScale   = rawPastHrs > taskHours   && taskHours   > 0 ? taskHours   / rawPastHrs   : 1;
+    const spendScale = rawPastSpend > taskBudget && taskBudget > 0 ? taskBudget / rawPastSpend : 1;
+
+    const remainHrs = Math.max(0, taskHours  - rawPastHrs);
+    const remainBud = Math.max(0, taskBudget - rawPastSpend);
+
     if (useDist) {
-      // Compute carry-forward delta from past months
       let deltaPct = 0;
       pastMonths.forEach(ym => {
-        const plannedPct   = dist[ym] || 0;
-        const actualBudget = (tActuals[ym] || {}).spend || 0;
+        const actualHrs    = ((tActuals[ym] || {}).hours || 0) * hrsScale;
+        const actualBudget = ((tActuals[ym] || {}).spend || 0) * spendScale;
         const actualPct    = taskBudget > 0 ? (actualBudget / taskBudget * 100) : 0;
+        const plannedPct   = dist[ym] || 0;
         deltaPct += plannedPct - actualPct;
-        const actualHrs = (tActuals[ym] || {}).hours || 0;
-        if (actualBudget > 0) newPhasing[ym]  = (newPhasing[ym]  || 0) + actualBudget;
         if (actualHrs    > 0) newPlanning[ym] = (newPlanning[ym] || 0) + actualHrs;
+        if (actualBudget > 0) newPhasing[ym]  = (newPhasing[ym]  || 0) + actualBudget;
       });
 
-      if (futureMonths.length > 0) {
-        const firstFuture = futureMonths[0];
+      if (taskFuture.length > 0) {
+        const firstFuture = taskFuture[0];
         const adjustedPct = (dist[firstFuture] || 0) + deltaPct;
         if (adjustedPct > 100.5) {
           distError = `Task "${task.name}": carry-forward (${deltaPct.toFixed(1)}%) pushes ${firstFuture} above 100%.\nAdjust the monthly distribution manually before running Reforecast.`;
           break;
         }
-        futureMonths.forEach((ym, i) => {
+        taskFuture.forEach((ym, i) => {
           const pct = (i === 0 ? adjustedPct : (dist[ym] || 0));
           const bud = taskBudget * pct / 100;
           const hrs = taskHours  * pct / 100;
@@ -752,29 +787,31 @@ function cfgReforecast() {
         });
       }
     } else {
-      // Even split: remaining after actuals distributed across future months
-      const pastSpend = pastMonths.reduce((s, ym) => s + ((tActuals[ym] || {}).spend || 0), 0);
-      const pastHrs   = pastMonths.reduce((s, ym) => s + ((tActuals[ym] || {}).hours || 0), 0);
-      const remainBud = taskBudget - pastSpend;
-      const remainHrs = taskHours  - pastHrs;
+      // Past months: exact actuals (scaled if over-consumed)
       pastMonths.forEach(ym => {
-        const bud = (tActuals[ym] || {}).spend || 0;
-        const hrs = (tActuals[ym] || {}).hours || 0;
-        if (bud > 0) newPhasing[ym]  = (newPhasing[ym]  || 0) + bud;
+        const hrs = ((tActuals[ym] || {}).hours || 0) * hrsScale;
+        const bud = ((tActuals[ym] || {}).spend || 0) * spendScale;
         if (hrs > 0) newPlanning[ym] = (newPlanning[ym] || 0) + hrs;
+        if (bud > 0) newPhasing[ym]  = (newPhasing[ym]  || 0) + bud;
       });
-      futureMonths.forEach(ym => {
-        if (remainBud > 0) newPhasing[ym]  = (newPhasing[ym]  || 0) + remainBud / futureCount;
-        if (remainHrs > 0) newPlanning[ym] = (newPlanning[ym] || 0) + remainHrs / futureCount;
+      // Future months: remaining split across task's date window
+      taskFuture.forEach(ym => {
+        if (remainBud > 0) newPhasing[ym]  = (newPhasing[ym]  || 0) + remainBud / taskFutureCount;
+        if (remainHrs > 0) newPlanning[ym] = (newPlanning[ym] || 0) + remainHrs / taskFutureCount;
       });
     }
   }
 
   if (distError) { alert('Cannot reforecast:\n\n' + distError); return; }
 
-  // Round
-  Object.keys(newPhasing).forEach(ym  => { newPhasing[ym]  = Math.round(newPhasing[ym]); });
-  Object.keys(newPlanning).forEach(ym => { newPlanning[ym] = Math.round(newPlanning[ym] * 10) / 10; });
+  // Round future months only — past months keep exact actual values
+  // Hours round to nearest 0.25 (quarter-hour); budget rounds to nearest integer
+  Object.keys(newPhasing).forEach(ym  => {
+    if (!pastYMs.has(ym)) newPhasing[ym]  = Math.round(newPhasing[ym]);
+  });
+  Object.keys(newPlanning).forEach(ym => {
+    if (!pastYMs.has(ym)) newPlanning[ym] = Math.round(newPlanning[ym] * 4) / 4;
+  });
 
   const pastSpendTotal = Object.values(taskActuals).reduce((s, ta) =>
     s + pastMonths.reduce((ps, ym) => ps + ((ta[ym] || {}).spend || 0), 0), 0);
@@ -858,7 +895,18 @@ function cfgParseMoney(str) {
 }
 
 function cfgFmtHours(n) {
-  return n > 0 ? Math.round(n).toLocaleString('en-US') : '';
+  if (!(n > 0)) return '';
+  // Snap to nearest quarter-hour (XLS actuals are always .00/.25/.50/.75)
+  const r = Math.round(n * 4) / 4;
+  // Always use "." as decimal — cfgParseHours must match this convention
+  return r % 1 === 0 ? String(r) : r.toFixed(2);
+}
+
+function cfgParseHours(str) {
+  // Hours are always formatted with "." as decimal (via cfgFmtHours / toFixed).
+  // Never run through cfgParseMoney — de-DE locale strips "." as thousands sep → "22.25" → 2225.
+  const s = String(str).trim().replace(/[^\d.]/g, '');
+  return parseFloat(s) || 0;
 }
 
 function cfgGridHTML(months, existing, cls, type = 'currency', pastReadonly = false) {
@@ -885,13 +933,14 @@ function cfgBindGridFormatting(containerId) {
   if (!el) return;
   el.addEventListener('focusin', e => {
     if (!e.target.matches('input[data-ym]')) return;
-    const raw = cfgParseMoney(e.target.value);
+    const isHours = e.target.dataset.gridType === 'hours';
+    const raw = isHours ? cfgParseHours(e.target.value) : cfgParseMoney(e.target.value);
     e.target.value = raw > 0 ? raw : '';
   });
   el.addEventListener('focusout', e => {
     if (!e.target.matches('input[data-ym]')) return;
-    const raw = cfgParseMoney(e.target.value);
     const isHours = e.target.dataset.gridType === 'hours';
+    const raw = isHours ? cfgParseHours(e.target.value) : cfgParseMoney(e.target.value);
     e.target.value = raw > 0 ? (isHours ? cfgFmtHours(raw) : cfgFmtMoney(raw)) : '';
     cfgUpdateGrandTotals();
   });
@@ -900,7 +949,8 @@ function cfgBindGridFormatting(containerId) {
 function cfgReadGrid(cls) {
   const result = {};
   document.querySelectorAll(`.${cls}`).forEach(inp => {
-    const val = cfgParseMoney(inp.value);
+    const isHours = inp.dataset.gridType === 'hours';
+    const val = isHours ? cfgParseHours(inp.value) : cfgParseMoney(inp.value);
     if (val > 0) result[inp.dataset.ym] = val;
   });
   return result;
@@ -1046,7 +1096,7 @@ function cfgSwitchTab(tab) {
 }
 
 // ── SAVE CONFIG ────────────────────────────────────────────────────────────────
-function saveConfig() {
+async function saveConfig() {
   try {
     const editedProjectId = cfgActiveTab === 'form' && cfgProjectIdx >= 0
       ? cfgEditConfig.projects[cfgProjectIdx]?.id
@@ -1080,18 +1130,31 @@ function saveConfig() {
       config = JSON.parse(document.getElementById('configEditor').value);
     }
     persistConfig();
-    // Sync all projects to API (fire-and-forget)
+
+    if (window.__cfgFullPage) {
+      // Full-page mode: await the API push for the edited project before navigating,
+      // otherwise the browser cancels the fetch when window.location changes.
+      const btn = document.getElementById('btnSaveConfig');
+      if (btn) { btn.disabled = true; btn.textContent = '💾 Saving…'; }
+      if (typeof _pushProjectToApi !== 'undefined') {
+        const editedProj = editedProjectId
+          ? config.projects.find(p => p.id === editedProjectId)
+          : null;
+        if (editedProj) {
+          await _pushProjectToApi(editedProj).catch(e => console.warn('[sync] project push:', e.message));
+        }
+      }
+      window.location.href = '/portfolio.html';
+      return;
+    }
+
+    // Sync all projects to API (fire-and-forget, modal flow)
     if (typeof _pushProjectToApi !== 'undefined') {
       (config.projects || []).forEach(p =>
         _pushProjectToApi(p).catch(e => console.warn('[sync] project push:', e.message))
       );
     }
     if (typeof updateAiButtonVisibility === 'function') updateAiButtonVisibility();
-
-    if (window.__cfgFullPage) {
-      window.location.href = '/portfolio.html';
-      return;
-    }
 
     // Capture active section BEFORE hiding the modal (modal hide is async/animated).
     const inCgEditor  = document.getElementById('costGridEditorSection')?.style.display !== 'none';

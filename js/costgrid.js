@@ -6,8 +6,7 @@
 // Phase:     { phaseId, phaseName, tasks[] }
 // Task:      { taskId, taskName, taskDescription, ptc, hours: { roleCode: n } }
 
-const CG_INDEX_KEY = 'PDash_cg_index';
-const cgKey = id  => `PDash_cg_${id}`;
+const _cgStore = new Map(); // in-memory: cgId → cg object (replaces localStorage PDash_cg_*)
 
 let _cgActiveCgId      = null;
 let _cgActiveVersionId = null;
@@ -24,14 +23,13 @@ let _pbCloneSource           = null;    // { cgId, verId, name } — shared betw
 
 // ── PERSISTENCE ───────────────────────────────────────────────────────────────
 
-function cgGetIndex()     { try { const s = storageGet(CG_INDEX_KEY); return s ? JSON.parse(s) : []; } catch(e) { return []; } }
-function cgSaveIndex(idx) { storageSet(CG_INDEX_KEY, JSON.stringify(idx)); }
-function cgLoad(cgId)     { try { const s = storageGet(cgKey(cgId)); return s ? JSON.parse(s) : null; } catch(e) { return null; } }
-function cgSave(cg)       { storageSet(cgKey(cg.id), JSON.stringify(cg)); }
+function cgGetIndex()     { return [..._cgStore.keys()]; }
+function cgSaveIndex()    { /* no-op: index is implicit in _cgStore */ }
+function cgLoad(cgId)     { const cg = _cgStore.get(cgId); return cg ? JSON.parse(JSON.stringify(cg)) : null; }
+function cgSave(cg)       { _cgStore.set(cg.id, JSON.parse(JSON.stringify(cg))); }
 async function cgDelete(cgId) {
   await Api.costGrids.delete(cgId);
-  try { localStorage.removeItem(cgKey(cgId)); } catch(e) {}
-  cgSaveIndex(cgGetIndex().filter(id => id !== cgId));
+  _cgStore.delete(cgId);
 }
 
 function cgNewId()    { return crypto.randomUUID(); }
@@ -83,6 +81,7 @@ function cgRefreshPhaseDates() {
       ? `<span style="font-size:var(--text-xs);color:#93c5fd;font-weight:400">${cgFmtMonth(dates[0])} – ${cgFmtMonth(dates[dates.length-1])}</span>`
       : '';
   });
+  renderCgPhasing();
 }
 
 // ── VERSION LOCK STATE & LIVE BADGE ──────────────────────────────────────────
@@ -289,7 +288,7 @@ function cgConfirmDeleteGrid(cgId, name) {
   );
 }
 
-function cgConfirmDeleteVersion(cgId, versionId, versionLabel) {
+function cgConfirmDeleteVersion(cgId, versionId, versionLabel, onSuccess) {
   const cg = cgLoad(cgId);
   if (!cg) return;
   if (cg.versions.length <= 1) {
@@ -308,7 +307,7 @@ function cgConfirmDeleteVersion(cgId, versionId, versionLabel) {
           fresh.versions = fresh.versions.filter(v => v.versionId !== versionId);
           cgSave(fresh);
         }
-        renderPipelineBoard();
+        if (onSuccess) onSuccess(); else renderPipelineBoard();
       } catch(e) {
         alert('Delete failed: ' + e.message);
       }
@@ -362,13 +361,16 @@ function renderCgEditor() {
   const isLocked   = lockState.locked;
   const isDraft    = v.pipeline === 'Draft';
 
-  // Show/hide Generate Project + Publish + New Version toolbar buttons
+  // Show/hide Generate Project + Publish + New Version + Delete Version toolbar buttons
+  const hasLinkedProject = (v.linkedProjects || []).length > 0;
   const genBtn = document.getElementById('btnCgGenerateProject');
-  if (genBtn) genBtn.style.display = (isLocked || isDraft) ? 'none' : '';
+  if (genBtn) genBtn.style.display = (isLocked || isDraft || hasLinkedProject) ? 'none' : '';
   const pubBtn = document.getElementById('btnCgPublish');
   if (pubBtn) pubBtn.style.display = isDraft ? '' : 'none';
   const newVerBtn = document.getElementById('btnCgNewVersion');
   if (newVerBtn) newVerBtn.style.display = isDraft ? '' : 'none';
+  const delVerBtn = document.getElementById('btnCgDeleteVersion');
+  if (delVerBtn) delVerBtn.style.display = isDraft ? '' : 'none';
 
   const lockBannerHtml = isLocked ? `
     <div class="alert mb-3 py-2 px-3 d-flex align-items-center gap-2"
@@ -1077,13 +1079,14 @@ function cgBindEditorEvents(body) {
     renderCgEditor();
   });
 
-  // Pipeline change: re-render linked projects panel + propagate to config
+  // Pipeline change: save immediately (not deferred) so the server can detect the change and notify admins
   document.getElementById('cgPipeline')?.addEventListener('change', () => {
     cgSyncHeaderFromForm();
     cgPropagatePipelineToProjects();
     const cg = cgLoad(_cgActiveCgId);
     if (cg) renderCgVersionTabs(cg);
     renderCgEditor();
+    cgAutoSave();
   });
 
   ['cgProjectName','cgStartDate','cgEndDate','cgNote'].forEach(id => {
@@ -1101,6 +1104,7 @@ function cgBindEditorEvents(body) {
   });
 
   cgPopulateRatecardDropdown();
+  renderCgPhasing();
 }
 
 async function cgUpdateActiveRatecardMap() {
@@ -1182,6 +1186,7 @@ function cgSyncHeaderFromForm() {
   _cgDraft.note        = document.getElementById('cgNote')?.value.trim() || '';
   _cgDraft.clientId    = document.getElementById('cgClientId')?.value || '__unassigned__';
   _cgDraft.ratecardId  = document.getElementById('cgRatecardId')?.value || null;
+  renderCgPhasing();
 }
 
 // Propagates the costgrid version's pipeline to all linked config.projects.
@@ -1458,6 +1463,196 @@ function cgComputeColumnTotals(version) {
   return result;
 }
 
+// ── PHASING COMPUTATION (shared by panel + generate-project) ─────────────────
+// Returns { 'YYYYMM': amount } using the version's task dates and role rates.
+// Pass selectedTaskIds array to limit to specific tasks; omit/null for all.
+
+function cgComputePhasing(v, selectedTaskIds) {
+  const vs = v.startDate, ve = v.endDate;
+  if (!vs || !ve || vs.length < 6 || ve.length < 6) return {};
+  const sy = parseInt(vs.slice(0, 4)), sm = parseInt(vs.slice(4, 6));
+  const ey = parseInt(ve.slice(0, 4)), em = parseInt(ve.slice(4, 6));
+  const months = [];
+  let y = sy, mo = sm;
+  while (y < ey || (y === ey && mo <= em)) {
+    months.push(`${y}-${String(mo).padStart(2, '0')}`);
+    if (++mo > 12) { mo = 1; y++; }
+  }
+  if (!months.length) return {};
+
+  function distribute(hrs, taskStart, taskEnd) {
+    let allMonths;
+    if (taskStart && taskEnd && taskStart.length >= 7) {
+      const tsy = parseInt(taskStart.slice(0, 4)), tsm = parseInt(taskStart.slice(5, 7));
+      const tey = parseInt(taskEnd.slice(0, 4)),   tem = parseInt(taskEnd.slice(5, 7));
+      allMonths = [];
+      let ty = tsy, tm = tsm;
+      while (ty < tey || (ty === tey && tm <= tem)) {
+        allMonths.push(`${ty}-${String(tm).padStart(2, '0')}`);
+        if (++tm > 12) { tm = 1; ty++; }
+      }
+    } else {
+      allMonths = months;
+    }
+    if (!allMonths.length) return {};
+    const hpp = parseFloat(hrs) / allMonths.length;
+    const out = {};
+    for (const m of allMonths) {
+      if (m >= months[0] && m <= months[months.length - 1]) out[m] = (out[m] || 0) + hpp;
+    }
+    return out;
+  }
+
+  const monthAmount = {};
+  months.forEach(m => { monthAmount[m] = 0; });
+
+  (v.phases || []).forEach(ph => {
+    (ph.tasks || []).forEach(task => {
+      if (selectedTaskIds && !selectedTaskIds.includes(task.taskId)) return;
+      (v.roles || []).forEach(r => {
+        const h = parseFloat(task.hours[r.roleCode]) || 0;
+        if (!h) return;
+        const dist = distribute(h, task.taskStartDate, task.taskEndDate);
+        for (const [m, hh] of Object.entries(dist)) {
+          if (m in monthAmount) monthAmount[m] += hh * (r.rate || 0);
+        }
+      });
+    });
+  });
+
+  // Project phasing grid uses YYYYMM keys (no dash)
+  const result = {};
+  for (const [m, amt] of Object.entries(monthAmount)) {
+    if (amt > 0) result[m.replace('-', '')] = Math.round(amt);
+  }
+  return result;
+}
+
+// ── PHASING PANEL ────────────────────────────────────────────────────────────
+
+function renderCgPhasing() {
+  const panel = document.getElementById('cgPhasingPanel');
+  if (!panel) return;
+  const v = _cgDraft;
+  if (!v) { panel.style.display = 'none'; return; }
+
+  // Determine month range from version dates (YYYYMM)
+  const vs = v.startDate, ve = v.endDate;
+  if (!vs || !ve || vs.length < 6 || ve.length < 6) { panel.style.display = 'none'; return; }
+  const sy = parseInt(vs.slice(0, 4)), sm = parseInt(vs.slice(4, 6));
+  const ey = parseInt(ve.slice(0, 4)), em = parseInt(ve.slice(4, 6));
+
+  const months = [];
+  let y = sy, m = sm;
+  while (y < ey || (y === ey && m <= em)) {
+    months.push(`${y}-${String(m).padStart(2, '0')}`);
+    if (++m > 12) { m = 1; y++; }
+  }
+  if (!months.length) { panel.style.display = 'none'; return; }
+
+  // Distribute task-role hours proportionally across its months (fallback: version range)
+  function distribute(hrs, taskStart, taskEnd) {
+    let allMonths;
+    if (taskStart && taskEnd && taskStart.length >= 7) {
+      // taskStart is YYYY-MM-DD
+      const tsy = parseInt(taskStart.slice(0, 4)), tsm = parseInt(taskStart.slice(5, 7));
+      const tey = parseInt(taskEnd.slice(0, 4)),   tem = parseInt(taskEnd.slice(5, 7));
+      allMonths = [];
+      let ty = tsy, tm = tsm;
+      while (ty < tey || (ty === tey && tm <= tem)) {
+        allMonths.push(`${ty}-${String(tm).padStart(2, '0')}`);
+        if (++tm > 12) { tm = 1; ty++; }
+      }
+    } else {
+      allMonths = months;
+    }
+    if (!allMonths.length) return {};
+    const hpp = parseFloat(hrs) / allMonths.length;
+    const result = {};
+    for (const mo of allMonths) {
+      if (mo >= months[0] && mo <= months[months.length - 1]) {
+        result[mo] = (result[mo] || 0) + hpp;
+      }
+    }
+    return result;
+  }
+
+  // Accumulate per-month totals
+  const monthHours  = {};
+  const monthAmount = {};
+  months.forEach(mo => { monthHours[mo] = 0; monthAmount[mo] = 0; });
+
+  (v.phases || []).forEach(ph => {
+    (ph.tasks || []).forEach(task => {
+      (v.roles || []).forEach(r => {
+        const h = parseFloat(task.hours[r.roleCode]) || 0;
+        if (!h) return;
+        const dist = distribute(h, task.taskStartDate, task.taskEndDate);
+        for (const [mo, hh] of Object.entries(dist)) {
+          if (mo in monthHours) {
+            monthHours[mo]  += hh;
+            monthAmount[mo] += hh * (r.rate || 0);
+          }
+        }
+      });
+    });
+  });
+
+  const cur   = v.currency || '€';
+  const fmtA  = n => cur + ' ' + Math.round(n).toLocaleString('en');
+  const fmtH  = n => (Math.round(n * 10) / 10) + ' h';
+  const fmtMo = mo => {
+    const [my, mm] = mo.split('-');
+    return new Date(parseInt(my), parseInt(mm) - 1).toLocaleString('en', { month: 'short' }) + ' ' + my;
+  };
+
+  const totalAmt = months.reduce((s, mo) => s + monthAmount[mo], 0);
+  const totalH   = months.reduce((s, mo) => s + monthHours[mo], 0);
+
+  const thCells = months.map(mo =>
+    `<th style="text-align:right;padding:5px 8px;font-size:.75rem;font-weight:700;white-space:nowrap;min-width:90px;border-bottom:2px solid #dee2e6">${fmtMo(mo)}</th>`
+  ).join('');
+
+  const amtCells = months.map(mo =>
+    `<td style="text-align:right;padding:5px 8px;font-size:.78rem;font-weight:700;white-space:nowrap">${fmtA(monthAmount[mo])}</td>`
+  ).join('');
+
+  const hrsCells = months.map(mo =>
+    `<td style="text-align:right;padding:3px 8px;font-size:.72rem;color:#6b7280;white-space:nowrap">${fmtH(monthHours[mo])}</td>`
+  ).join('');
+
+  panel.style.display = '';
+  panel.innerHTML = `
+    <div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+      <div style="background:#0B1840;color:#fff;padding:.5rem 1rem;font-size:.82rem;font-weight:700;display:flex;align-items:center;justify-content:space-between">
+        <span>📅 Monthly Phasing</span>
+        <span style="font-weight:400;font-size:.75rem;color:#93c5fd">
+          Total: ${fmtA(totalAmt)} · ${fmtH(totalH)} · ${months.length} month${months.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="border-collapse:collapse;width:100%">
+          <thead>
+            <tr style="background:#f8f9fa">
+              <th style="text-align:left;padding:5px 10px;font-size:.75rem;font-weight:700;border-bottom:2px solid #dee2e6;white-space:nowrap">Metric</th>
+              ${thCells}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding:5px 10px;font-size:.78rem;font-weight:700;white-space:nowrap">Budget (${cur})</td>
+              ${amtCells}
+            </tr>
+            <tr style="background:#fafbfc">
+              <td style="padding:3px 10px;font-size:.72rem;color:#6b7280;white-space:nowrap">Hours</td>
+              ${hrsCells}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
 // ── PARTIAL REFRESH ───────────────────────────────────────────────────────────
 // Updates totals cells only — avoids full re-render on each keystroke.
 // Column layout: 0=name, 1=desc, 2=cost, 3=ptc-input, 4=hrs, 5=fees, 6+=roles
@@ -1537,22 +1732,24 @@ function cgRefreshTotals() {
       if (cells[6 + i]) cells[6 + i].textContent = (colTotals[r.roleCode]?.hrs || 0) > 0 ? colTotals[r.roleCode].hrs : '';
     });
   }
+  renderCgPhasing();
 }
 
 // ── SAVE ──────────────────────────────────────────────────────────────────────
 
 function cgAutoSave() {
-  if (!_cgActiveCgId || !_cgActiveVersionId || !_cgDraft) return;
+  if (!_cgActiveCgId || !_cgActiveVersionId || !_cgDraft) return Promise.resolve();
   cgSyncHeaderFromForm();
   const cg = cgLoad(_cgActiveCgId);
-  if (!cg) return;
+  if (!cg) return Promise.resolve();
   const idx = cg.versions.findIndex(v => v.versionId === _cgActiveVersionId);
   if (idx >= 0) cg.versions[idx] = _cgDraft;
   cgSave(cg);
   if (typeof _cgUpsertVersionToApi !== 'undefined') {
-    _cgUpsertVersionToApi(_cgActiveCgId, _cgActiveVersionId)
+    return _cgUpsertVersionToApi(_cgActiveCgId, _cgActiveVersionId)
       .catch(e => console.warn('[sync] cgAutoSave:', e.message));
   }
+  return Promise.resolve();
 }
 
 let _cgAutoSaveTimer = null;
@@ -1587,7 +1784,7 @@ async function cgPublishDraft() {
   showConfirm(
     `Publish "${ver.versionLabel}" to SIP?${otherWarn}\n\nThis version will become visible to your team and cannot be set back to Draft.`,
     async () => {
-      cgAutoSave();
+      await cgAutoSave();
       try {
         // Delete all other Draft versions from the DB first
         for (const other of otherDrafts) {
@@ -1598,7 +1795,7 @@ async function cgPublishDraft() {
 
         const cgFresh = cgLoad(_cgActiveCgId);
         if (cgFresh) {
-          // Remove the deleted drafts from localStorage
+          // Remove the deleted drafts from the in-memory store
           cgFresh.versions = cgFresh.versions.filter(v =>
             v.versionId === _cgActiveVersionId || v.pipeline !== 'Draft'
           );
@@ -1756,7 +1953,7 @@ async function cgCloneGrid() {
   // Cancel any pending autosave before starting async clone operations
   clearTimeout(_cgAutoSaveTimer);
 
-  // Load full structure from API if not already in localStorage
+  // Load full structure from API if not already in memory
   if (typeof cgLoadStructureFromApi === 'function') {
     await cgLoadStructureFromApi(srcCgId, srcVerId).catch(() => {});
   }
@@ -1789,7 +1986,7 @@ async function cgCloneGrid() {
       roles:  srcVer.roles  || [],
     });
 
-    // 3. Seed localStorage
+    // 3. Seed in-memory store
     const cg = {
       id: cgId,
       name,
@@ -1884,8 +2081,8 @@ function cgDoGenerateProject(selectedTaskIds, projectName) {
         name:      task.taskName.trim(),
         completed: false,
         billable:  true,
-        startDate: task.taskStartDate ? task.taskStartDate.replace(/-/g, '') : '',
-        endDate:   task.taskEndDate   ? task.taskEndDate.replace(/-/g, '')   : '',
+        startDate: task.taskStartDate ? task.taskStartDate.replace(/-/g, '').slice(0, 6) : '',
+        endDate:   task.taskEndDate   ? task.taskEndDate.replace(/-/g, '').slice(0, 6)   : '',
         resources: (v.roles || []).map(r => ({
           role:       r.roleCode,
           soldHours:  task.hours[r.roleCode] || 0,
@@ -1896,20 +2093,32 @@ function cgDoGenerateProject(selectedTaskIds, projectName) {
   });
 
   if (!config.projects) config.projects = [];
-  const generatedId = projectName.toUpperCase().replace(/[^A-Z0-9]+/g, '_').slice(0, 20) + '_' + Date.now().toString().slice(-4);
+  const generatedId = crypto.randomUUID();
 
-  // Derive start/end from selected task dates, falling back to version header dates
+  // Version dates are authoritative (they define the contract period).
+  // Task dates are used only when the version has no dates set.
   const toYYYYMM = iso => iso ? iso.slice(0, 7).replace('-', '') : '';
-  const selTasks = (v.phases || []).flatMap(ph => ph.tasks).filter(t => selectedTaskIds.includes(t.taskId));
-  const selDates = selTasks.flatMap(t => [t.taskStartDate, t.taskEndDate]).filter(Boolean).sort();
+  const selTasks  = (v.phases || []).flatMap(ph => ph.tasks).filter(t => selectedTaskIds.includes(t.taskId));
+  const startDates = selTasks.map(t => t.taskStartDate).filter(Boolean).sort();
+  const endDates   = selTasks.map(t => t.taskEndDate).filter(Boolean).sort();
   const now = new Date();
   const defaultStart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
   const defaultEnd   = (() => { const d = new Date(now.getFullYear(), now.getMonth() + 12, 1); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`; })();
-  const projStart = (selDates.length ? toYYYYMM(selDates[0]) : null) || v.startDate || defaultStart;
-  const projEnd   = (selDates.length ? toYYYYMM(selDates[selDates.length - 1]) : null) || v.endDate || defaultEnd;
+  const projStart = v.startDate || (startDates.length ? toYYYYMM(startDates[0]) : null) || defaultStart;
+  const projEnd   = v.endDate   || (endDates.length   ? toYYYYMM(endDates[endDates.length - 1]) : null) || defaultEnd;
 
-  config.projects.push({
+  const ptc = selTasks
+    .filter(t => t.ptc > 0)
+    .map(t => ({
+      title:  t.taskName || '',
+      note:   '',
+      amount: t.ptc,
+      month:  t.taskStartDate ? toYYYYMM(t.taskStartDate) : '',
+    }));
+
+  const newProject = {
     id:        generatedId,
+    code:      '',
     name:      projectName,
     startDate: projStart,
     endDate:   projEnd,
@@ -1918,14 +2127,19 @@ function cgDoGenerateProject(selectedTaskIds, projectName) {
     status:    '',
     note:      v.note     || '',
     tasks,
-    phasing:   {},
+    phasing:   cgComputePhasing(v, selectedTaskIds),
     planning:  {},
-    ptc:       [],
+    ptc,
     groups:    [],
     costGridRef: { cgId: _cgActiveCgId, versionId: _cgActiveVersionId },
     clientId:  _cgDraft.clientId || '__unassigned__',
-  });
+  };
+  config.projects.push(newProject);
   persistConfig();
+  _pushProjectToApi(newProject).then(() =>
+    Api.costGrids.versions.linkedProjects.add(_cgActiveCgId, _cgActiveVersionId, { projectId: generatedId })
+      .catch(e => console.warn('[sync] linkedProject link failed:', e.message))
+  );
 
   if (!_cgDraft.linkedProjects) _cgDraft.linkedProjects = [];
   _cgDraft.linkedProjects.push({
@@ -1938,10 +2152,17 @@ function cgDoGenerateProject(selectedTaskIds, projectName) {
 
   _cgSelectionMode = false;
   _cgSelectedTaskIds = new Set();
-  cgAutoSave();
 
+  // Sync linkedProjects back to _cgStore so cgGetVersionLockState hides the Generate button
   const cg = cgLoad(_cgActiveCgId);
-  if (cg) renderCgVersionTabs(cg);
+  if (cg) {
+    const storeVer = cg.versions.find(v => v.versionId === _cgActiveVersionId);
+    if (storeVer) storeVer.linkedProjects = [..._cgDraft.linkedProjects];
+    cgSave(cg);
+    renderCgVersionTabs(cg);
+  }
+
+  cgAutoSave();
 
   renderCgEditor();
 

@@ -59,6 +59,12 @@ const SCOPES = {
       DELETE FROM pipeline_years;
     `,
   },
+  notifications: {
+    label: 'Notifications',
+    sql: `
+      DELETE FROM notifications;
+    `,
+  },
 };
 
 // GET /api/admin/reset/scopes — list available scopes with labels

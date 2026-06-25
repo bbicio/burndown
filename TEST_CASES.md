@@ -1,6 +1,6 @@
 # PDash — Test Cases
 
-**Updated:** 2026-06-14 (rev 3)  
+**Updated:** 2026-06-25 (rev 4)  
 **Coverage scope:** All authenticated pages + API routes. Manual execution unless noted.
 
 > **Auto** = covered by `docker compose --profile test run --rm test` (test-api.js).  
@@ -75,6 +75,11 @@
 | P-28 | Clone from detail panel | Click ⧉ Clone in the detail panel header | Modal opens pre-filled with CG name + "— Copy"; source name shows currently viewed version | |
 | P-29 | Clone creates v1 | Clone any version (V2, V3, etc.) | Resulting new cost grid has a single version labelled "v1", not the source label | |
 | P-30 | Clone result opens editor | Complete clone flow | Navigated to `costgrid.html?cgId=<new>&verId=<new>`; editor shows cloned structure | |
+| P-31 | Delete button hidden for non-Draft | Open detail panel for a version in SIP/Expected/Anticipated/Committed/Canceled | `🗑 Delete` button absent from panel header | |
+| P-32 | Delete button visible for Draft | Open detail panel for a Draft version | `🗑 Delete` button visible in panel header (red outline style) | |
+| P-33 | Delete Draft — confirmation | Click `🗑 Delete` on a Draft version in the panel | Confirm modal appears before any deletion | |
+| P-34 | Delete Draft — only version blocked | Click `🗑 Delete` on a Draft that is the only version of its cost grid | Alert shown: "Cannot delete the only version"; no deletion occurs | |
+| P-35 | Delete Draft — from panel success | Confirm deletion of a Draft version that has siblings | Version deleted via API; panel closes; board re-renders without that version | |
 
 ---
 
@@ -105,6 +110,10 @@
 | CG-21 | Clone from editor toolbar | Click ⧉ Clone in editor toolbar | Modal opens; source name shows current CG + version label; cloned grid opens in editor with v1 label | |
 | CG-22 | Clone does not corrupt source | Clone from editor; navigate back to original grid | Original grid phases/tasks intact; no data loss or loop | |
 | CG-23 | Clone autosave safety | Edit a task → wait for autosave to trigger → immediately clone | Clone completes cleanly; source not saved mid-clone; no 500 errors | |
+| CG-24 | Delete Draft button — hidden for non-Draft | Open a version in any non-Draft stage (SIP, Committed, etc.) in the editor | `🗑 Delete version` button not displayed in the toolbar | |
+| CG-25 | Delete Draft button — visible for Draft | Open a Draft version in the editor | `🗑 Delete version` button visible in the toolbar (red outline style) | |
+| CG-26 | Delete Draft — only version blocked | Click `🗑 Delete version` on a Draft that is the only version of its cost grid | Alert shown: "Cannot delete the only version"; no deletion; user stays in editor | |
+| CG-27 | Delete Draft — from editor success | Confirm deletion of a Draft version that has sibling versions | Version removed; user redirected to `pipeline.html`; board no longer shows the deleted version | |
 
 ---
 
@@ -193,7 +202,7 @@
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
-| PP-01 | Pipeline list loads | Click Pipelines & POTs tab | All years listed with Visible/Hidden badges | ✓ |
+| PP-01 | Pipeline list loads | Click Pipelines & POTs tab | All years listed with Visible/Hidden badges, POT Target column, Achievement column | ✓ |
 | PP-02 | Add year | Click + Add year → enter year → Create | New year in list, active by default | ✓ |
 | PP-03 | Duplicate year | Add a year that already exists | Inline error; API 409 | ✓ |
 | PP-04 | Invalid year | Enter year < 2000 or > 2100 | Validation error; API 400 | ✓ |
@@ -202,12 +211,15 @@
 | PP-07 | Delete (no refs) | Delete year with no CG versions | Year removed immediately | ✓ |
 | PP-08 | Delete (has refs) | Delete year that has CG versions | Error "year in use"; API 409; year not deleted | |
 | PP-09 | Drill into pipeline | Click POTs → or click a row | View B opens for that year; back button visible | |
+| PP-28 | POT Target column — year with POTs | View pipeline list for a year that has POT entries | "POT Target" column shows the sum of all POT amounts for that year | |
+| PP-29 | Achievement column — with Committed+Anticipated | View pipeline list for year with Committed or Anticipated proposals | "Achievement" column shows % (Committed+Anticipated total / POT total) and the fee amount in muted text | |
+| PP-30 | Achievement column — no POTs | View pipeline list for year with no POTs | Both POT Target and Achievement columns show "—" | |
 
-### View B — POT Targets (layout: nav title → 5 cards → POT Targets section → table)
+### View B — POT Targets (layout: nav title → POT banner → 5 cards → POT Targets section → table)
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
-| PP-10 | View B layout | Navigate into a pipeline year | Top row: ← Pipelines + Pipeline YYYY + Visible/Hidden badge. Then 5 stage cards. Then "POT Targets" section-title + "+ New POT" button. Then POT table. | |
+| PP-10 | View B layout | Navigate into a pipeline year that has POTs | Top: ← Pipelines + Pipeline YYYY + badge. Then POT banner (total target + achievement %). Then 5 stage cards. Then "POT Targets" section + table. | |
 | PP-11 | Back button | Click ← Pipelines | Returns to View A (pipeline list) | |
 | PP-12 | 5 stage cards render | Navigate into any pipeline year | Cards for SIP, Expected, Anticipated, Committed, Canceled shown in order with count and professional-fee total | ✓ |
 | PP-13 | Stage card value — professional fees only | Open year with proposals that include PTC | Card totals = Σ (days × 8 × rate) per version; pass-through costs (PTC) excluded from all totals | |
@@ -215,6 +227,11 @@
 | PP-15 | Add POT — client | + New POT → Individual → select client → amount → Create | POT appears with client name and amount | ✓ |
 | PP-16 | Add POT — group | + New POT → Client group → select group → amount → Create | POT appears labelled with group name | |
 | PP-17 | Duplicate POT | Create POT for same client + year twice | API 409; inline error — only one POT per entity per year | ✓ |
+| PP-31 | Add POT — Unassigned virtual | + New POT → Individual → select "Unassigned / To be Identified" → amount → Create | POT appears with label "Unassigned / To be Identified"; stored as `special_label` in DB (no client FK) | |
+| PP-32 | Add POT — New Biz virtual | + New POT → Individual → select "New Biz" → amount → Create | POT appears with label "New Biz"; stored as `special_label` in DB | |
+| PP-33 | POT banner — total and % | Navigate into a pipeline year with POTs and Committed/Anticipated proposals | Banner shows "Total POT Target" = sum of all POT amounts, and "Committed + Anticipated" fee total with % | |
+| PP-34 | POT banner — hidden when no POTs | Navigate into a pipeline year with no POTs | Banner not rendered above the stage cards | |
+| PP-35 | View Details — proposals via client_id | Open modal for a POT whose client has Committed versions (no generated project required) | Proposals list populated; versions matched via `cost_grid_versions.client_id` directly, not through linked projects table | |
 | PP-18 | Edit POT amount | Click ✏️ Edit → change amount → Update | Amount updated; history entry created | ✓ |
 | PP-19 | Delete POT | Click 🗑 → confirm | POT removed | |
 | PP-20 | No year dropdown in form | Open + New POT form inside a pipeline year | Form shows "Pipeline YYYY" — no year picker in form | |
@@ -267,6 +284,14 @@
 | NT-04 | Mark all read | Click "Mark all read" | Badge clears; all items show as read | |
 | NT-05 | Mark one read | Click a notification | Item marked read; navigates to deep-link if present | |
 | NT-06 | Share triggers notification | User A shares a CG with User B | User B receives notification with deep-link | |
+| NT-07 | Send Notification — menu entry visible to all | Open account dropdown as role=user | "📣 Send Notification" item present | |
+| NT-08 | Targeted notification (any user) | Account dropdown → Send Notification → pick a colleague → Push channel → Send | Recipient receives push notification; no broadcast option used | |
+| NT-09 | Broadcast hidden for non-admin | Open Send Notification modal as role=user | Recipient dropdown has no "All users (broadcast)" option | |
+| NT-10 | Broadcast available for admin | Open Send Notification modal as admin | Recipient dropdown includes "All users (broadcast)"; sending delivers to all active users | |
+| NT-11 | Broadcast blocked server-side for non-admin | POST `/api/notifications` with no `userId` as role=user | 403 | |
+| NT-12 | Email channel | Send Notification → check Email (uncheck Push) → Send | Recipient receives email via `sendAdminNotificationEmail`; no push/SSE event fires | |
+| NT-13 | Both channels | Send Notification → check Push and Email → Send | Recipient receives both an in-app/SSE notification and an email | |
+| NT-14 | No channel selected | Uncheck both Push and Email → Send | Inline validation error; request not sent | |
 
 ---
 
@@ -280,8 +305,6 @@
 | EX-04 | Rate Cards hidden (non-admin) | Open Settings as role=user | Export Rate Cards button absent | |
 | EX-05 | Full backup | Click Download Full Backup | JSON file downloaded with timestamp in filename | |
 | EX-06 | Restore (admin) | Upload valid backup JSON | Data restored; success message shown | |
-| EX-07 | Targeted notification | Compose → select user → Send | Notification delivered to that user only | |
-| EX-08 | Broadcast notification | Compose → leave user blank → Send | All active users receive the notification | |
 
 ---
 
@@ -290,11 +313,15 @@
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
 | SH-01 | Open share modal — CG | Click 🔗 Share in detail panel | Modal opens with CG name and existing shares | |
-| SH-02 | Add viewer | Search user by email → Viewer → Share | User can view CG; edit controls disabled for them | |
-| SH-03 | Add editor | Share with Editor permission | User can open editor and save changes | |
-| SH-04 | Remove share | Click remove on a share entry | User loses access immediately | |
+| SH-02 | Add viewer — user dropdown | Type in search field → select a platform user → Viewer → Share | Dropdown shows matching active non-admin users; selected user added as viewer | |
+| SH-03 | Add editor | Select user from dropdown → Editor → Share | User can open editor and save changes | |
+| SH-04 | Remove share | Click remove on an existing share entry | User loses access immediately | |
 | SH-05 | Share triggers notification | Complete SH-02 or SH-03 | Recipient gets in-app notification with deep-link | |
-| SH-06 | Share project | Owner shares a project from portfolio | Same flow as CG sharing; project visible to added user | |
+| SH-06 | Share project | Owner shares a project from portfolio | Same flow as CG sharing; project becomes visible to added user | |
+| SH-07 | Change permission on existing share | Open share modal → change Editor/Viewer select on existing share | Permission updated via upsert; select shows green outline briefly on success; reverts on error | |
+| SH-08 | Share list excludes admins and self | Open share modal; inspect search results | Admin users and the current logged-in user not shown in the dropdown | |
+| SH-09 | Share search filters by name/email | Type partial name or email in the search field | Dropdown filters to up to 10 matching users in real time (client-side on `_shareAllUsers`) | |
+| SH-10 | Viewer permission enforced — UI | Log in as viewer on a shared project/CG; open pipeline board, portfolio, project-config | Pipeline: Edit/Clone/Delete hidden on card and panel. Portfolio: Configure and Load Actuals absent. Project-config: sticky read-only banner; inputs disabled; save/edit buttons hidden | |
 
 ---
 
@@ -320,11 +347,12 @@ Admin-only hidden page for bulk data deletion by scope.
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
 | DR-01 | Page access — non-admin | Navigate to `/_db-reset.html` as role=user | 403 — page content blocked or navbar redirects | |
-| DR-02 | Scopes listed | Open `/_db-reset.html` as admin | All 6 scopes displayed: Proposals, Projects, Clients & Client Groups, Client Ratecards, Actuals, Pipeline Years & POTs | |
+| DR-02 | Scopes listed | Open `/_db-reset.html` as admin | All 7 scopes displayed: Proposals, Projects, Clients & Client Groups, Client Ratecards, Actuals, Pipeline Years & POTs, Notifications | |
 | DR-03 | Reset proposals | Click Reset → Proposals → confirm | All cost grids + versions deleted; board shows empty | |
 | DR-04 | Reset actuals | Click Reset → Actuals → confirm | Timesheet table emptied; portfolio KPIs show 0 actuals | |
 | DR-05 | Unknown scope | POST `/api/admin/reset/nonexistent` | 400 "Unknown scope" | |
 | DR-06 | Non-admin API call | POST `/api/admin/reset/proposals` as role=user | 403 | |
+| DR-07 | Reset notifications | Click Reset → Notifications → confirm | `notifications` table emptied for all users; bell badge clears on reload | |
 | SEC-09 | JWT cookie not accessible from JavaScript (`document.cookie`) | `pdash_token` value not listed — httpOnly flag prevents JS access | |
 | SEC-10 | Non-admin can read ratecards | Log in as `user` role; GET /api/ratecards and GET /api/ratecards/:id | 200 — read access is requireAuth; POST/PATCH/DELETE still return 403 (unauthenticated write → 401 checked in auto suite) | |
 
@@ -344,3 +372,7 @@ Admin-only hidden page for bulk data deletion by scope.
 | REG-08 | Detail panel shows linked projects | Open detail panel for a version linked to a project via `costGridRef` | Linked project names are listed; client name is resolved; POT section uses the correct client | |
 | REG-09 | Client and ratecard persist across reloads | Set client + ratecard on a version; reload page; reopen cost grid editor | Client dropdown and ratecard dropdown both show the previously saved values; client-specific ratecard is not reset to None | |
 | REG-10 | Project name persists across reloads | Enter project name in the cost grid editor; save; reload; reopen | "Project name" field shows the saved value; card on pipeline board shows the same name | |
+| REG-11 | Rate consistency — editor vs. detail panel | Open a proposal with a ratecard (e.g. Bayer AG rates); open the editor (note total); open the detail panel for the same version | Editor total and detail panel total match exactly; no discrepancy from ratecard vs. global rate | |
+| REG-12 | No stale data after hard refresh | Edit a proposal in the editor and save; hard refresh the page | Board shows the updated data; no stale in-memory cache from previous session carries over | |
+| REG-13 | Hours not inflated by de-DE locale | Enter 22.25 planned hours on a month cell in project-config → save → reload → reopen | Value shows 22.25 (not 2225); `cfgParseHours` bypasses `cfgParseMoney` which strips "." as thousands sep in de-DE locale | |
+| REG-14 | Quarter-hour rounding on reforecast | Trigger Reforecast on a project with fractional carry-over hours | Generated future-month values are rounded to nearest 0.25h (e.g. 10.125 → 10.25) | |

@@ -1,11 +1,8 @@
 // ── ROLES MODULE ──────────────────────────────────────────────────────────────
 // Manages the global role registry used by Cost Grid to populate columns.
 // Each role: { id, label, code, rate }
-// Stored in localStorage under ROLES_KEY.
 
-const ROLES_KEY = 'PDash_roles';
-
-let roles = [];          // in-memory array, loaded on showRolesView()
+let roles = [];          // in-memory array, loaded by loadRolesFromApi()
 let _roleEditId = null;  // ID of the role being edited (null = new)
 
 // ── PERSISTENCE ──────────────────────────────────────────────────────────────
@@ -16,21 +13,13 @@ async function loadRolesFromApi() {
     // Normalize API shape { id, label, code, team, hourly_rate } → app shape { id, label, code, rate }
     roles = raw.map(r => ({ id: r.id, label: r.label, code: r.code, rate: r.hourly_rate }));
   } catch(e) {
-    // Fallback: load from localStorage
-    try { const s = storageGet(ROLES_KEY); roles = s ? JSON.parse(s) : []; } catch(_) { roles = []; }
+    console.warn('[roles] loadRolesFromApi:', e.message);
+    roles = [];
   }
 }
 
-function loadRoles() {
-  try {
-    const s = storageGet(ROLES_KEY);
-    roles = s ? JSON.parse(s) : [];
-  } catch(e) { roles = []; }
-}
-
 function saveRoles() {
-  // No-op: roles are now persisted via the API.
-  // Kept for backward compatibility with backup restore (settings.js).
+  // No-op: roles are persisted via the API.
 }
 
 function getRoles() {

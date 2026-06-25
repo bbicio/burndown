@@ -181,16 +181,16 @@ function buildProjectCard(cfg, { showSummaryBtn = true } = {}) {
     <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
       <div class="d-flex align-items-center gap-2 flex-wrap">
         <span>📁 ${esc(fmtProjectTitle(cfg))}</span>
-        <span class="text-muted small">${esc(cfg.id)}</span>
+        ${cfg.code ? `<span class="text-muted small">${esc(cfg.code)}</span>` : ''}
         ${pipelineBadge(getProjectPipeline(cfg.id) || cfg.pipeline)}
         ${statusBadge(cfg.status)}
         ${!hasData ? '<span class="badge bg-warning text-dark">no XLS data</span>' : ''}
         ${budgetBadge}
       </div>
       <div class="d-flex gap-2 flex-wrap">
-        <button class="btn btn-sm btn-outline-secondary cfg-project-btn">⚙️ Configure</button>
+        ${cfg.my_permission !== 'viewer' ? '<button class="btn btn-sm btn-outline-secondary cfg-project-btn">⚙️ Configure</button>' : ''}
         <button class="btn btn-sm btn-outline-secondary portfolio-share-btn" title="Share project">🔗 Share</button>
-        <button class="btn btn-sm btn-outline-secondary load-actuals-btn" title="Upload XLS actuals for this project">📂 Load Actuals</button>
+        ${cfg.my_permission !== 'viewer' ? '<button class="btn btn-sm btn-outline-secondary load-actuals-btn" title="Upload XLS actuals for this project">📂 Load Actuals</button>' : ''}
         <button class="btn btn-sm btn-outline-secondary portfolio-planning-btn">📅 Planning</button>
         <button class="btn btn-sm ${hasData ? 'btn-primary' : 'btn-outline-secondary'} view-report-btn"
                 ${!hasData ? 'disabled' : ''}>📊 View Report →</button>
@@ -210,14 +210,14 @@ function buildProjectCard(cfg, { showSummaryBtn = true } = {}) {
       </table>
     </div>`;
 
-  card.querySelector('.cfg-project-btn').addEventListener('click', () => {
+  card.querySelector('.cfg-project-btn')?.addEventListener('click', () => {
     window.location.href = '/project-config.html?projectId=' + encodeURIComponent(cfg.id);
   });
   card.querySelector('.view-report-btn').addEventListener('click', () => showDashboardView(cfg.id));
   card.querySelector('.portfolio-share-btn').addEventListener('click', () => {
     if (typeof openShareModal === 'function') openShareModal('project', cfg.id, cfg.name || cfg.id);
   });
-  card.querySelector('.load-actuals-btn').addEventListener('click', () => {
+  card.querySelector('.load-actuals-btn')?.addEventListener('click', () => {
     if (typeof window.triggerLoadActuals === 'function') window.triggerLoadActuals(cfg.id);
   });
   card.querySelector('.portfolio-planning-btn').addEventListener('click', () => {
@@ -544,13 +544,13 @@ function showDashboardView(pid) {
       if (hasActuals) {
         return `<li><a class="dropdown-item d-flex align-items-center gap-2 py-2" href="#" data-sib-pid="${esc(s.id)}">
           <span class="fw-semibold">${esc(s.name || s.id)}</span>
-          <span class="text-muted small" style="font-family:monospace">${esc(s.id)}</span>
+          ${s.code ? `<span class="text-muted small" style="font-family:monospace">${esc(s.code)}</span>` : ''}
           <span class="ms-auto d-inline-flex gap-1">${badges}</span>
         </a></li>`;
       } else {
         return `<li><span class="dropdown-item disabled d-flex align-items-center gap-2 py-2" style="opacity:.45;cursor:default">
           <span class="fw-semibold">${esc(s.name || s.id)}</span>
-          <span class="text-muted small" style="font-family:monospace">${esc(s.id)}</span>
+          ${s.code ? `<span class="text-muted small" style="font-family:monospace">${esc(s.code)}</span>` : ''}
           <span class="ms-auto d-inline-flex gap-1 align-items-center">${badges}<span class="text-muted small ms-1" style="font-size:var(--text-xs)">no data</span></span>
         </span></li>`;
       }

@@ -3,7 +3,60 @@ const { query, pool } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
 const { sendShareNotification } = require('../services/email');
 
+let _pushToUser;
+
 const router = express.Router();
+
+const CURRENCY_SYMBOLS = { EUR: '€', USD: '$', GBP: '£', CHF: 'CHF' };
+
+async function notifyAdminsPipelineChange(cgId, vId, oldPipeline, newPipeline) {
+  try {
+    // Fetch CG name, client name, fee, currency in one query
+    const { rows: info } = await query(`
+      SELECT cg.name AS cg_name,
+             COALESCE(c.name, '') AS client_name,
+             cgv.currency,
+             COALESCE(SUM(tr.days * COALESCE(tr.rate_override, r.hourly_rate, 0)), 0) AS fee
+      FROM cost_grid_versions cgv
+      JOIN cost_grids cg ON cg.id = cgv.cost_grid_id
+      LEFT JOIN clients c ON c.id = cgv.client_id
+      LEFT JOIN phases ph ON ph.version_id = cgv.id
+      LEFT JOIN tasks t ON t.phase_id = ph.id
+      LEFT JOIN task_roles tr ON tr.task_id = t.id
+      LEFT JOIN roles r ON r.id = tr.role_id
+      WHERE cgv.id = $1
+      GROUP BY cg.name, c.name, cgv.currency
+    `, [vId]);
+    if (!info[0]) return;
+
+    const { cg_name, client_name, currency, fee } = info[0];
+    const sym = CURRENCY_SYMBOLS[currency] || currency || '€';
+    const feeStr = sym + ' ' + Math.round(parseFloat(fee)).toLocaleString('en-US');
+
+    const title = `Pipeline: ${cg_name}`;
+    const body = `${client_name ? client_name + ' — ' : ''}${cg_name}\n${oldPipeline} → ${newPipeline}\nValue: ${feeStr}`;
+    const url = `/costgrid.html?cgId=${cgId}&verId=${vId}`;
+    const urlLabel = 'Open Cost Grid';
+
+    const { rows: admins } = await query(
+      `SELECT id FROM users WHERE role = 'admin' AND status = 'active'`
+    );
+
+    if (!_pushToUser) _pushToUser = require('./notifications').pushToUser;
+
+    for (const admin of admins) {
+      const { rows } = await query(
+        `INSERT INTO notifications (user_id, type, title, body, url, url_label)
+         VALUES ($1, 'pipeline', $2, $3, $4, $5)
+         RETURNING id, user_id, type, title, body, url, url_label, read_at, created_at`,
+        [admin.id, title, body, url, urlLabel]
+      );
+      _pushToUser(admin.id, { event: 'notification', data: rows[0] });
+    }
+  } catch (e) {
+    console.warn('[notify] pipeline change notification failed:', e.message);
+  }
+}
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
@@ -89,10 +142,16 @@ router.get('/', requireAuth, async (req, res, next) => {
       )`;
     }
 
+    // $1 is always userId (pushed above for both admin and non-admin)
     const { rows } = await query(
       `SELECT cg.id, cg.name, cg.created_at,
               u.first_name || ' ' || u.last_name AS owner_name,
               cg.owner_id,
+              CASE WHEN cg.owner_id = $1 THEN 'owner'
+                   ELSE (SELECT rs2.permission FROM resource_shares rs2
+                         WHERE rs2.resource_type = 'cost_grid' AND rs2.resource_id = cg.id AND rs2.user_id = $1
+                         LIMIT 1)
+              END AS my_permission,
               COALESCE(
                 json_agg(
                   json_build_object(
@@ -108,7 +167,14 @@ router.get('/', requireAuth, async (req, res, next) => {
                     'locked',        cgv.locked,
                     'ratecard_id',   cgv.ratecard_id,
                     'client_id',     cgv.client_id,
-                    'project_name',  cgv.project_name
+                    'project_name',  cgv.project_name,
+                    'linkedProjects', COALESCE(
+                      (SELECT json_agg(json_build_object(
+                                'project_id',   cvp.project_id,
+                                'project_name', cvp.project_name))
+                       FROM cg_version_projects cvp
+                       WHERE cvp.cost_grid_version_id = cgv.id),
+                      '[]'::json)
                   ) ORDER BY cgv.created_at DESC
                 ) FILTER (WHERE cgv.id IS NOT NULL),
                 '[]'
@@ -278,8 +344,9 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const locked = await query('SELECT locked FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
+    const locked = await query('SELECT locked, pipeline AS old_pipeline FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
     if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
+    const oldPipeline = locked.rows[0]?.old_pipeline;
 
     const { label, pipeline, startDate, endDate, currency, note, ratecardId, clientId, projectName } = req.body;
     const fields = [];
@@ -303,6 +370,11 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
       params
     );
     if (!rows[0]) return res.status(404).json({ error: 'Version not found' });
+
+    if (pipeline !== undefined && pipeline !== oldPipeline) {
+      notifyAdminsPipelineChange(req.params.id, req.params.vId, oldPipeline, pipeline);
+    }
+
     res.json(rows[0]);
   } catch (err) { next(err); }
 });
@@ -388,6 +460,7 @@ router.post('/:id/versions/:vId/publish', requireAuth, async (req, res, next) =>
       `UPDATE cost_grid_versions SET pipeline = 'SIP', pipeline_year = $1 WHERE id = $2 RETURNING *`,
       [currentYear, req.params.vId]
     );
+    notifyAdminsPipelineChange(req.params.id, req.params.vId, 'Draft', 'SIP');
     res.json(updated[0]);
   } catch (err) { next(err); }
 });
@@ -447,11 +520,12 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
   const { rows: allRoles } = await query('SELECT id, code FROM roles');
   const roleByCode = Object.fromEntries(allRoles.map(r => [r.code, r.id]));
 
-  // Build custom rate map: roleCode → rate (only for roles marked as custom)
-  const customRateByCode = {};
+  // Snapshot rate for every role so the DB budget query always uses the same
+  // rate the editor sees, regardless of whether the rate was explicitly customised.
+  const rateByCode = {};
   for (const r of rolesBody) {
-    if (r.rateIsCustom && r.roleCode && r.rate != null) {
-      customRateByCode[r.roleCode] = parseFloat(r.rate) || null;
+    if (r.roleCode && r.rate != null) {
+      rateByCode[r.roleCode] = parseFloat(r.rate) || null;
     }
   }
 
@@ -489,7 +563,7 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
             if (roleId && days > 0) taskRoles.push({
               roleId,
               days,
-              rateOverride: customRateByCode[code] ?? null,
+              rateOverride: rateByCode[code] ?? null,
               months: null,
             });
           }

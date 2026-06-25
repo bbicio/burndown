@@ -6,6 +6,9 @@ body {
   background: var(--surface-subtle);
   font-family: 'Segoe UI', system-ui, sans-serif;
   color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 /* ── Layout ── */
@@ -224,7 +227,7 @@ body.pp-fullwidth .app-container { max-width: 100% !important; padding: 0 12px !
 /* ── Page layout helpers ── */
 .page-title-bar { padding: 20px 0 10px; }
 .page-title-bar h4,
-.page-title-bar h5 { margin-bottom: 0; font-size: 2rem; }
+.page-title-bar h5 { margin-bottom: 0; font-size: 2.5rem; font-weight: 700; color: var(--brand-navy); }
 
 /* ── Pipeline board: year dropdown button ── */
 #pbPipelineBtn { transition: opacity .15s; }
@@ -242,17 +245,21 @@ body.pp-fullwidth .app-container { max-width: 100% !important; padding: 0 12px !
 .dropdown-toggle-no-caret::after { display: none; }
 
 /* ── Pipeline Board ── */
-#pbColumnsContainer { height: calc(100% - 61px); }
 .pb-column {
   flex: 1 0 0;
   min-width: 200px;
   border-right: 1px solid var(--border-light);
-  height: 100%;
-  overflow: hidden;
 }
 .pb-column:last-child { border-right: none; }
-.pb-col-body   { overflow-y: auto; }
-.pb-col-footer { border-top: 1px solid var(--border-light); }
+#pbTotalsBar {
+  display: flex;
+  flex-shrink: 0;
+}
+.pb-col-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
 .pb-card:hover { z-index: 1; }
 
 /* ── Button size variants ── */

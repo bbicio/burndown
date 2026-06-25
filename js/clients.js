@@ -1,9 +1,7 @@
 // ── CLIENTS MODULE ────────────────────────────────────────────────────────────
 // Each client: { id, name }
-// Stored in localStorage under CLIENTS_KEY.
 // '__unassigned__' is a reserved id for projects with no client.
 
-const CLIENTS_KEY = 'PDash_clients';
 const UNASSIGNED_CLIENT = { id: '__unassigned__', name: 'Unassigned' };
 
 let _clients = [];
@@ -13,18 +11,13 @@ async function loadClientsFromApi() {
   try {
     _clients = await Api.clients.list();
   } catch(e) {
-    // Fallback: load from localStorage
-    try { _clients = JSON.parse(storageGet(CLIENTS_KEY) || '[]'); } catch(_) { _clients = []; }
+    console.warn('[clients] loadClientsFromApi:', e.message);
+    _clients = [];
   }
 }
 
-function loadClients() {
-  try { _clients = JSON.parse(storageGet(CLIENTS_KEY) || '[]'); } catch(e) { _clients = []; }
-}
-
 function saveClients() {
-  // No-op: clients are now persisted via the API.
-  // Kept for backward compatibility with backup restore (settings.js).
+  // No-op: clients are persisted via the API.
 }
 
 function getClients() {

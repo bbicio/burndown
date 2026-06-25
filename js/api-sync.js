@@ -1,14 +1,13 @@
 // ── API SYNC LAYER ────────────────────────────────────────────────────────────
-// Strategy: localStorage is the UI cache; API is the source of truth.
+// Strategy: in-memory variables are the UI cache; API is the source of truth.
 //
 //   • On page load  → call cgSyncFromApi() / loadConfigFromApi() /
-//                     refreshTimesheetDataFromApi() to seed localStorage from
-//                     the server before existing sync functions read it.
-//   • On user action → write-through: write to localStorage first (immediate
-//                     UI response) then fire an async API call in background.
+//                     refreshTimesheetDataFromApi() to seed in-memory state
+//                     from the server before rendering.
+//   • On user action → update in-memory state immediately (instant UI),
+//                     then fire an async API call in background.
 //
 // All API calls are fire-and-forget: errors are logged but never block the UI.
-// If the backend is unavailable, the app falls back to the local cache.
 
 // ── COST GRIDS ────────────────────────────────────────────────────────────────
 
@@ -23,7 +22,7 @@ function _cgCurrencyToDb(sym) {
   return _CG_SYM_TO_DB[sym] || sym || 'EUR';
 }
 
-// Normalise a server version object into the frontend localStorage shape.
+// Normalise a server version object into the frontend in-memory shape.
 // Server uses { id, label, ... }; frontend uses { versionId, versionLabel, ... }.
 function _cgApiVersionToLocal(v) {
   return {
@@ -59,10 +58,12 @@ async function cgSyncFromApi(year) {
     cgSaveIndex(grids.map(g => g.id));
     for (const g of grids) {
       cgSave({
-        id:        g.id,
-        name:      g.name,
-        ownerName: g.owner_name || '',
-        versions:  (g.versions || []).map(_cgApiVersionToLocal),
+        id:           g.id,
+        name:         g.name,
+        ownerName:    g.owner_name || '',
+        ownerId:      g.owner_id   || '',
+        myPermission: g.my_permission || 'owner',
+        versions:     (g.versions || []).map(_cgApiVersionToLocal),
       });
     }
   } catch (e) {
@@ -111,14 +112,21 @@ async function cgLoadStructureFromApi(cgId, versionId) {
         }),
       }));
 
-      // Rebuild role columns from task_roles if not already set
-      if (!ver.roles?.length && rolesMap.size) {
-        ver.roles = [...rolesMap.entries()].map(([code, { label, rate, isCustom }]) => ({
-          roleCode:     code,
-          roleLabel:    label,
-          rate,
-          rateIsCustom: isCustom || false,
-        }));
+      // Rebuild role columns from task_roles.
+      // If all roles in DB have rate_override (isCustom=true), always refresh so
+      // changes saved in another session are picked up. If any role still lacks
+      // rate_override (proposal saved before the fix that always snapshots rate_override),
+      // only set when empty to preserve client-side ratecard rates that cgSyncRoleRatesToBaseline applies.
+      if (rolesMap.size) {
+        const allHaveOverride = [...rolesMap.values()].every(r => r.isCustom);
+        if (allHaveOverride || !ver.roles?.length) {
+          ver.roles = [...rolesMap.entries()].map(([code, { label, rate, isCustom }]) => ({
+            roleCode:     code,
+            roleLabel:    label,
+            rate,
+            rateIsCustom: isCustom || false,
+          }));
+        }
       }
     }
 
@@ -182,16 +190,28 @@ async function _cgUpsertVersionToApi(cgId, versionId) {
 
 // ── PROJECTS / CONFIG ─────────────────────────────────────────────────────────
 
+// Resolve the cost-grid ID for a version using the in-memory _cgStore.
+function _resolveCgIdForVersion(versionId) {
+  if (!versionId) return null;
+  for (const [cgId, cg] of _cgStore) {
+    if ((cg.versions || []).some(v => v.versionId === versionId)) return cgId;
+  }
+  return null;
+}
+
 // Normalise a server project into the frontend config.projects shape.
 function _apiProjectToLocal(p) {
+  const versionId = p.cg_version_id || null;
+  const cgId      = versionId ? _resolveCgIdForVersion(versionId) : null;
   return {
     id:         p.id,
+    code:       p.code         || '',
     name:       p.name         || '',
     programId:  p.programId    || p.program_id  || '',
     clientId:   p.clientId     || p.client_id   || '',
     startDate:  p.startDate    || p.start_date  || '',
     endDate:    p.endDate      || p.end_date    || '',
-    currency:   p.currency     || '€',
+    currency:   _cgCurrencyFromDb(p.currency),
     pipeline:   p.pipeline     || '',
     status:     p.status       || '',
     tasks:      Array.isArray(p.tasks) ? p.tasks : [],
@@ -199,17 +219,16 @@ function _apiProjectToLocal(p) {
     planning:   p.planning     || {},
     ptc:        p.ptc          || [],
     groups:     p.groups       || [],
-    costGridRef: p.costGridRef
-      || (p.cg_version_id ? { cgId: null, versionId: p.cg_version_id } : null),
+    costGridRef:  versionId ? { cgId, versionId } : null,
+    my_permission: p.my_permission || 'owner',
   };
 }
 
-// Load all projects from the API, rebuild the in-memory config, persist to localStorage.
+// Load all projects from the API into the in-memory config.
 async function loadConfigFromApi() {
   try {
     const projects = await Api.projects.list();
     config.projects = projects.map(_apiProjectToLocal);
-    persistConfig();
   } catch (e) {
     console.warn('[sync] loadConfigFromApi:', e.message);
   }
@@ -219,6 +238,17 @@ async function loadConfigFromApi() {
 async function _pushProjectToApi(project) {
   if (!project?.id) return;
   const { tasks, phasing, planning, ptc, groups, costGridRef, ...meta } = project;
+
+  // Carry the cost-grid version link into the API payload
+  if (costGridRef?.versionId) meta.cgVersionId = costGridRef.versionId;
+
+  // Convert currency symbol to ISO code for CHAR(3) DB column
+  if (meta.currency) meta.currency = _cgCurrencyToDb(meta.currency);
+
+  // Sanitize clientId: the frontend uses sentinel values like '__unassigned__'
+  // which are not valid UUIDs and would cause a PostgreSQL type error.
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (meta.clientId && !uuidRe.test(meta.clientId)) meta.clientId = null;
 
   // Upsert core metadata
   try {
@@ -278,7 +308,7 @@ async function loadPipelineBudgetsFromApi() {
     const budgets = await Api.costGrids.budgets();
     _pbBudgets = {};
     for (const [versionId, b] of Object.entries(budgets)) {
-      _pbBudgets[versionId] = { fee: b.fee || 0, ptc: b.ptc || 0 };
+      _pbBudgets[versionId] = { fee: parseFloat(b.fee) || 0, ptc: parseFloat(b.ptc) || 0 };
     }
   } catch (e) {
     console.warn('[sync] loadPipelineBudgetsFromApi:', e.message);
@@ -292,13 +322,15 @@ function getPipelineBudget(versionId) {
 
 // ── TIMESHEETS ────────────────────────────────────────────────────────────────
 
-// Load all timesheet data from the API, seed the localStorage project-data cache.
-// Replaces the localStorage-only refreshTimesheetData() on pages that have the API.
+// Load all timesheet data from the API into the in-memory timesheetData array.
 async function refreshTimesheetDataFromApi() {
   try {
     const sheets = await Api.timesheets.allData();
     timesheetData = [];
     for (const sheet of sheets) {
+      // Use the project UUID (from DB join) as the key; fall back to D365 code
+      // for orphaned timesheets not matched to any project.
+      const pid = sheet.project_id || sheet.project_code;
       const rows = (sheet.data || [])
         .map(r => ({
           date:        r.date ? new Date(r.date) : null,
@@ -307,19 +339,15 @@ async function refreshTimesheetDataFromApi() {
           hours:       parseFloat(r.hours) || 0,
           task:        r.task        || '',
           notes:       r.notes       || '',
-          projectId:   r.projectId   || r.project_id   || '',
+          projectId:   pid,
           projectName: r.projectName || r.project_name || '',
         }))
         .filter(r => r.date && r.hours > 0);
       if (!rows.length) continue;
-      const pid = sheet.project_code;
       saveProjectData(pid, rows);
-      addToDataIndex(pid);
       timesheetData.push(...rows);
     }
   } catch (e) {
     console.warn('[sync] refreshTimesheetDataFromApi:', e.message);
-    // Fall back to localStorage cache already loaded by refreshTimesheetData()
-    refreshTimesheetData();
   }
 }

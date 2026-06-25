@@ -1,6 +1,7 @@
 const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { sendAdminNotificationEmail } = require('../services/email');
 
 const router = express.Router();
 
@@ -99,31 +100,52 @@ router.patch('/:id/read', requireAuth, async (req, res, next) => {
 
 // ── POST /api/notifications ───────────────────────────────────────────────────
 
-router.post('/', requireAdmin, async (req, res, next) => {
+router.post('/', requireAuth, async (req, res, next) => {
   try {
-    const { userId, type = 'info', title, body, url, urlLabel } = req.body;
+    const { userId, type = 'info', title, body, url, urlLabel, channels } = req.body;
     if (!title?.trim()) return res.status(400).json({ error: 'title is required' });
+
+    const chans = Array.isArray(channels) && channels.length ? channels : ['push'];
+    const wantPush = chans.includes('push');
+    const wantEmail = chans.includes('email');
 
     let targets;
     if (userId) {
-      targets = [userId];
+      const { rows } = await query(
+        `SELECT id, email, first_name FROM users WHERE id = $1 AND status = 'active'`,
+        [userId]
+      );
+      if (!rows[0]) return res.status(404).json({ error: 'Target user not found' });
+      targets = rows;
     } else {
-      // Broadcast to all active users
-      const { rows } = await query("SELECT id FROM users WHERE status = 'active'");
-      targets = rows.map(r => r.id);
+      // Broadcast to all active users — admin only
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Only admins can broadcast to all users' });
+      }
+      const { rows } = await query("SELECT id, email, first_name FROM users WHERE status = 'active'");
+      targets = rows;
     }
 
     const created = [];
-    for (const uid of targets) {
+    for (const u of targets) {
       const { rows } = await query(
         `INSERT INTO notifications (user_id, type, title, body, url, url_label)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id, user_id, type, title, body, url, url_label, read_at, created_at`,
-        [uid, type, title.trim(), body || null, url || null, urlLabel || null]
+        [u.id, type, title.trim(), body || null, url || null, urlLabel || null]
       );
       const notifRow = rows[0];
       created.push(notifRow);
-      pushToUser(uid, { event: 'notification', data: notifRow });
+      if (wantPush) pushToUser(u.id, { event: 'notification', data: notifRow });
+      if (wantEmail) {
+        sendAdminNotificationEmail({
+          to: u.email,
+          firstName: u.first_name,
+          title: title.trim(),
+          body: body || '',
+          url: url || null,
+        }).catch(e => console.warn('[notify] email send failed:', e.message));
+      }
     }
 
     res.status(201).json({ ok: true, created: created.length });

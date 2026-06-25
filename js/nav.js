@@ -69,6 +69,8 @@ async function initNav(activeTab, opts = {}) {
             <ul class="dropdown-menu dropdown-menu-end" style="min-width:180px">
               <li><button class="dropdown-item" id="nav-settings-btn">⚙ Settings</button></li>
               <li><hr class="dropdown-divider"></li>
+              <li><button class="dropdown-item" id="nav-send-notif-btn">📣 Send Notification</button></li>
+              <li><hr class="dropdown-divider"></li>
               <li><button class="dropdown-item" id="nav-change-pwd-btn">🔑 Change password</button></li>
               <li><hr class="dropdown-divider"></li>
               <li><button class="dropdown-item text-danger" id="nav-logout-btn">Sign out</button></li>
@@ -160,6 +162,60 @@ async function initNav(activeTab, opts = {}) {
     document.body.appendChild(modalEl.firstElementChild);
   }
 
+  // ── SEND NOTIFICATION MODAL (injected once by nav.js) ───────────────────────
+  if (!document.getElementById('sendNotifModal')) {
+    const notifEl = document.createElement('div');
+    notifEl.innerHTML = `
+      <div class="modal fade" id="sendNotifModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:520px">
+          <div class="modal-content">
+            <div class="modal-header border-0 pb-1">
+              <h6 class="modal-title fw-bold">📣 Send Notification</h6>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <div id="sendNotifError" class="alert alert-danger py-2 d-none" style="font-size:.82rem"></div>
+              <div class="mb-2">
+                <label class="form-label fw-semibold" style="font-size:.82rem">Recipient</label>
+                <select class="form-select form-select-sm" id="sendNotifTarget"></select>
+              </div>
+              <div class="mb-2">
+                <input type="text" class="form-control form-control-sm" id="sendNotifTitle" placeholder="Title (required)">
+              </div>
+              <div class="mb-2">
+                <textarea class="form-control form-control-sm" id="sendNotifBody" rows="3" placeholder="Message (optional)"></textarea>
+              </div>
+              <div class="d-flex gap-2 mb-2">
+                <input type="url" class="form-control form-control-sm" id="sendNotifUrl" placeholder="Link URL (optional, e.g. /pipeline.html)">
+                <input type="text" class="form-control form-control-sm" id="sendNotifUrlLabel" placeholder="Link label">
+              </div>
+              <div class="mb-0">
+                <label class="form-label fw-semibold mb-1" style="font-size:.82rem">Channel</label>
+                <div class="d-flex gap-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="sendNotifChanPush" checked>
+                    <label class="form-check-label" for="sendNotifChanPush" style="font-size:.82rem">Push notification</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="sendNotifChanEmail">
+                    <label class="form-check-label" for="sendNotifChanEmail" style="font-size:.82rem">Email</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer border-0 d-flex justify-content-between">
+              <span id="sendNotifStatus" class="text-muted small" style="display:none"></span>
+              <div class="d-flex gap-2">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary btn-sm" id="sendNotifSendBtn">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(notifEl.firstElementChild);
+  }
+
   // ── SETTINGS MODAL (injected once by nav.js) ────────────────────────────────
   if (!document.getElementById('settingsModal')) {
     const stgEl = document.createElement('div');
@@ -224,20 +280,6 @@ async function initNav(activeTab, opts = {}) {
                   <div class="d-flex gap-2 flex-wrap">
                     <button class="btn btn-sm btn-outline-secondary" id="btnFullBackup">⬇ Full Backup (.json)</button>
                     <button class="btn btn-sm btn-outline-secondary stg-admin-only" id="btnRestoreBackup" style="display:none">⬆ Restore from Backup</button>
-                  </div>
-                </div>
-                <div class="pt-3 mt-3 border-top stg-admin-only" id="stgAdminNotify" style="display:none">
-                  <div class="fw-semibold mb-2" style="font-size:.875rem">Send Notification</div>
-                  <div class="mb-2"><input type="text" class="form-control form-control-sm" id="stgNotifTitle" placeholder="Title (required)"></div>
-                  <div class="mb-2"><textarea class="form-control form-control-sm" id="stgNotifBody" rows="2" placeholder="Message (optional)"></textarea></div>
-                  <div class="d-flex gap-2 mb-2">
-                    <input type="url" class="form-control form-control-sm" id="stgNotifUrl" placeholder="Link URL (optional, e.g. /pipeline.html)">
-                    <input type="text" class="form-control form-control-sm" id="stgNotifUrlLabel" placeholder="Link label">
-                  </div>
-                  <div class="d-flex gap-2 align-items-center">
-                    <select class="form-select form-select-sm" id="stgNotifTarget" style="max-width:220px"><option value="">All users</option></select>
-                    <button class="btn btn-primary btn-sm" id="btnSendNotif">Send</button>
-                    <span id="stgNotifStatus" class="text-muted small ms-2" style="display:none"></span>
                   </div>
                 </div>
               </div>
@@ -340,22 +382,6 @@ async function initNav(activeTab, opts = {}) {
         const tabData = document.getElementById('stgTabData');
         if (tabApi)  tabApi.style.display  = btn.dataset.tab === 'api'  ? 'block' : 'none';
         if (tabData) tabData.style.display = btn.dataset.tab === 'data' ? 'block' : 'none';
-
-        // Lazy-load users list for admin notification target
-        if (btn.dataset.tab === 'data' && user.role === 'admin') {
-          const sel = document.getElementById('stgNotifTarget');
-          if (sel && sel.options.length <= 1) {
-            apiFetch('/users').then(users => {
-              users.forEach(u => {
-                if (u.status !== 'active') return;
-                const opt = document.createElement('option');
-                opt.value = u.id;
-                opt.textContent = `${u.first_name || ''} ${u.last_name || ''} (${u.email})`.trim();
-                sel.appendChild(opt);
-              });
-            }).catch(() => {});
-          }
-        }
       });
     });
 
@@ -403,42 +429,89 @@ async function initNav(activeTab, opts = {}) {
       inp.click();
     });
 
-    // Send notification (admin)
-    const sendNotifBtn = document.getElementById('btnSendNotif');
-    if (sendNotifBtn) sendNotifBtn.addEventListener('click', async () => {
-      const title    = (document.getElementById('stgNotifTitle')?.value || '').trim();
-      const body     = (document.getElementById('stgNotifBody')?.value || '').trim();
-      const url      = (document.getElementById('stgNotifUrl')?.value || '').trim();
-      const urlLabel = (document.getElementById('stgNotifUrlLabel')?.value || '').trim();
-      const userId   = (document.getElementById('stgNotifTarget')?.value || '').trim() || undefined;
-      const statusEl = document.getElementById('stgNotifStatus');
+    // Mark wired
+    const marker = document.createElement('span');
+    marker.id = 'stgAlreadyWired';
+    marker.style.display = 'none';
+    document.body.appendChild(marker);
+  }
 
-      if (!title) { alert('Title is required.'); return; }
+  // ── SEND NOTIFICATION MODAL EVENTS (wired once) ─────────────────────────────
+  if (!document.getElementById('sendNotifAlreadyWired')) {
+    const openBtn  = document.getElementById('nav-send-notif-btn');
+    const modalEl  = document.getElementById('sendNotifModal');
+    const targetSel = document.getElementById('sendNotifTarget');
+    const errEl    = document.getElementById('sendNotifError');
+    const statusEl = document.getElementById('sendNotifStatus');
+    const sendBtn  = document.getElementById('sendNotifSendBtn');
 
-      sendNotifBtn.disabled = true;
-      if (statusEl) { statusEl.textContent = 'Sending…'; statusEl.style.display = ''; }
+    if (openBtn) openBtn.addEventListener('click', async () => {
+      errEl.classList.add('d-none');
+      statusEl.style.display = 'none';
+      ['sendNotifTitle', 'sendNotifBody', 'sendNotifUrl', 'sendNotifUrlLabel'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+      });
+      document.getElementById('sendNotifChanPush').checked = true;
+      document.getElementById('sendNotifChanEmail').checked = false;
+
+      targetSel.innerHTML = '<option value="">Loading…</option>';
+      bootstrap.Modal.getOrCreateInstance(modalEl).show();
+
+      try {
+        const users = await apiFetch('/users/active-list');
+        const opts = users
+          .filter(u => u.id !== window.__navUser?.id)
+          .map(u => `<option value="${u.id}">${[u.first_name, u.last_name].filter(Boolean).join(' ') || u.email}</option>`)
+          .join('');
+        targetSel.innerHTML = (window.__navUser?.role === 'admin' ? '<option value="">All users (broadcast)</option>' : '') + opts;
+      } catch (e) {
+        targetSel.innerHTML = '<option value="">Failed to load users</option>';
+      }
+    });
+
+    if (sendBtn) sendBtn.addEventListener('click', async () => {
+      const title    = (document.getElementById('sendNotifTitle')?.value || '').trim();
+      const body     = (document.getElementById('sendNotifBody')?.value || '').trim();
+      const url      = (document.getElementById('sendNotifUrl')?.value || '').trim();
+      const urlLabel = (document.getElementById('sendNotifUrlLabel')?.value || '').trim();
+      const userId   = targetSel.value || undefined;
+      const wantPush  = document.getElementById('sendNotifChanPush').checked;
+      const wantEmail = document.getElementById('sendNotifChanEmail').checked;
+
+      errEl.classList.add('d-none');
+
+      if (!title) { errEl.textContent = 'Title is required.'; errEl.classList.remove('d-none'); return; }
+      if (!wantPush && !wantEmail) { errEl.textContent = 'Select at least one channel.'; errEl.classList.remove('d-none'); return; }
+
+      const channels = [];
+      if (wantPush) channels.push('push');
+      if (wantEmail) channels.push('email');
+
+      sendBtn.disabled = true;
+      statusEl.textContent = 'Sending…';
+      statusEl.style.display = '';
 
       try {
         await apiFetch('/notifications', {
           method: 'POST',
-          body: JSON.stringify({ userId, title, body: body || undefined, url: url || undefined, urlLabel: urlLabel || undefined }),
+          body: JSON.stringify({ userId, title, body: body || undefined, url: url || undefined, urlLabel: urlLabel || undefined, channels }),
         });
-        if (statusEl) { statusEl.textContent = 'Sent!'; }
-        // Clear fields
-        ['stgNotifTitle', 'stgNotifBody', 'stgNotifUrl', 'stgNotifUrlLabel'].forEach(id => {
-          const el = document.getElementById(id); if (el) el.value = '';
-        });
-        setTimeout(() => { if (statusEl) statusEl.style.display = 'none'; }, 3000);
+        statusEl.textContent = 'Sent!';
+        setTimeout(() => {
+          bootstrap.Modal.getInstance(modalEl)?.hide();
+          statusEl.style.display = 'none';
+        }, 900);
       } catch (err) {
-        if (statusEl) { statusEl.textContent = err.message || 'Failed.'; }
+        errEl.textContent = err.message || 'Failed to send.';
+        errEl.classList.remove('d-none');
+        statusEl.style.display = 'none';
       } finally {
-        sendNotifBtn.disabled = false;
+        sendBtn.disabled = false;
       }
     });
 
-    // Mark wired
     const marker = document.createElement('span');
-    marker.id = 'stgAlreadyWired';
+    marker.id = 'sendNotifAlreadyWired';
     marker.style.display = 'none';
     document.body.appendChild(marker);
   }

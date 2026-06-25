@@ -189,6 +189,123 @@ router.get('/projects/:id', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── PHASING ───────────────────────────────────────────────────────────────────
+// GET /api/reporting/phasing?year=YYYY (admin only)
+// Returns monthly hours+amount breakdown for all Committed+Anticipated versions in the year.
+router.get('/phasing', requireAuth, async (req, res, next) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin required' });
+    const { year } = req.query;
+    if (!year) return res.status(400).json({ error: 'year is required' });
+    const yr = parseInt(year);
+
+    const { rows } = await query(
+      `SELECT
+         cgv.id          AS version_id,
+         cgv.cost_grid_id AS cg_id,
+         cg.name         AS cg_name,
+         cgv.label       AS version_label,
+         cgv.pipeline,
+         cgv.start_date  AS ver_start,
+         cgv.end_date    AS ver_end,
+         tk.start_date   AS task_start,
+         tk.end_date     AS task_end,
+         tr.days,
+         COALESCE(
+           tr.rate_override,
+           (SELECT re.hourly_rate FROM ratecard_entries re
+            WHERE re.ratecard_id = cgv.ratecard_id AND re.role_id = tr.role_id LIMIT 1),
+           ro.hourly_rate, 0
+         ) AS hourly_rate
+       FROM cost_grid_versions cgv
+       JOIN cost_grids cg ON cg.id = cgv.cost_grid_id
+       JOIN phases ph ON ph.version_id = cgv.id
+       JOIN tasks tk ON tk.phase_id = ph.id
+       JOIN task_roles tr ON tr.task_id = tk.id
+       JOIN roles ro ON ro.id = tr.role_id
+       WHERE cgv.pipeline IN ('Committed', 'Anticipated')
+         AND cgv.pipeline_year = $1`,
+      [yr]
+    );
+
+    const yearMonths = [];
+    for (let m = 1; m <= 12; m++) yearMonths.push(`${yr}-${String(m).padStart(2, '0')}`);
+
+    // Distribute task-role days proportionally across months, clipped to the requested year
+    function distribute(days, taskStart, taskEnd, verStart, verEnd) {
+      let sy, sm, ey, em;
+      const ts = taskStart && taskStart.length >= 6 ? taskStart : null;
+      const te = taskEnd   && taskEnd.length >= 6   ? taskEnd   : null;
+      if (ts && te) {
+        sy = parseInt(ts.slice(0, 4)); sm = parseInt(ts.slice(4, 6));
+        ey = parseInt(te.slice(0, 4)); em = parseInt(te.slice(4, 6));
+      } else if (verStart && verEnd && verStart.length >= 6 && verEnd.length >= 6) {
+        sy = parseInt(verStart.slice(0, 4)); sm = parseInt(verStart.slice(4, 6));
+        ey = parseInt(verEnd.slice(0, 4));   em = parseInt(verEnd.slice(4, 6));
+      } else {
+        return {};
+      }
+      const all = [];
+      let y = sy, m = sm;
+      while (y < ey || (y === ey && m <= em)) {
+        all.push(`${y}-${String(m).padStart(2, '0')}`);
+        if (++m > 12) { m = 1; y++; }
+      }
+      if (!all.length) return {};
+      const dpp = parseFloat(days) / all.length;
+      const out = {};
+      for (const mo of all) {
+        if (mo >= `${yr}-01` && mo <= `${yr}-12`) out[mo] = (out[mo] || 0) + dpp;
+      }
+      return out;
+    }
+
+    const versionMap = new Map();
+    for (const r of rows) {
+      if (!versionMap.has(r.version_id)) {
+        versionMap.set(r.version_id, {
+          cgId: r.cg_id, versionId: r.version_id,
+          name: r.cg_name, versionLabel: r.version_label,
+          pipeline: r.pipeline,
+          startDate: r.ver_start || '', endDate: r.ver_end || '',
+          months: {},
+        });
+      }
+      const v = versionMap.get(r.version_id);
+      const dist = distribute(r.days, r.task_start, r.task_end, r.ver_start, r.ver_end);
+      const rate = parseFloat(r.hourly_rate) || 0;
+      for (const [mo, d] of Object.entries(dist)) {
+        if (!v.months[mo]) v.months[mo] = { hours: 0, amount: 0 };
+        const hrs = d * 8;
+        v.months[mo].hours  += hrs;
+        v.months[mo].amount += hrs * rate;
+      }
+    }
+
+    const totals = {};
+    for (const mo of yearMonths) totals[mo] = { hours: 0, amount: 0 };
+    for (const v of versionMap.values()) {
+      for (const [mo, val] of Object.entries(v.months)) {
+        if (totals[mo]) { totals[mo].hours += val.hours; totals[mo].amount += val.amount; }
+      }
+    }
+    for (const mo of yearMonths) {
+      totals[mo].hours  = Math.round(totals[mo].hours * 10) / 10;
+      totals[mo].amount = Math.round(totals[mo].amount);
+    }
+
+    const projects = [...versionMap.values()].map(v => ({
+      ...v,
+      months: Object.fromEntries(Object.entries(v.months).map(([mo, val]) => [mo, {
+        hours:  Math.round(val.hours * 10) / 10,
+        amount: Math.round(val.amount),
+      }])),
+    }));
+
+    res.json({ year: yr, months: yearMonths, totals, projects });
+  } catch (err) { next(err); }
+});
+
 // ── PLANNING ──────────────────────────────────────────────────────────────────
 // GET /api/reporting/planning
 router.get('/planning', requireAuth, async (req, res, next) => {

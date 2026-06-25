@@ -45,7 +45,8 @@ const Api = {
   },
 
   users: {
-    search: (email) => apiFetch(`/users/search?email=${encodeURIComponent(email)}`),
+    search:     (email) => apiFetch(`/users/search?email=${encodeURIComponent(email)}`),
+    activeList: ()      => apiFetch('/users/active-list'),
   },
 
   clients: {
@@ -160,12 +161,13 @@ const Api = {
   pots: {
     list:    (year)         => apiFetch('/pots' + (year ? `?year=${encodeURIComponent(year)}` : '')),
     create:  (d)            => apiFetch('/pots', { method: 'POST', body: JSON.stringify(d) }),
-    update:  (id, amount)   => apiFetch(`/pots/${id}`, { method: 'PATCH', body: JSON.stringify({ amount }) }),
+    update:  (id, amount, note) => apiFetch(`/pots/${id}`, { method: 'PATCH', body: JSON.stringify({ amount, note }) }),
     delete:  (id)           => apiFetch(`/pots/${id}`, { method: 'DELETE' }),
     history:         (id)         => apiFetch(`/pots/${id}/history`),
     summary:         (params)     => apiFetch('/pots/summary?' + new URLSearchParams(params)),
     pipelineSummary: (year)       => apiFetch(`/pots/pipeline-summary?year=${encodeURIComponent(year)}`),
     details:         (id, year)   => apiFetch(`/pots/${id}/details?year=${encodeURIComponent(year)}`),
+    yearTotals:      ()           => apiFetch('/pots/year-totals'),
   },
 
   reporting: {
@@ -173,5 +175,6 @@ const Api = {
     portfolio: ()           => apiFetch('/reporting/portfolio'),
     project:   (id)         => apiFetch(`/reporting/projects/${id}`),
     planning:  ()           => apiFetch('/reporting/planning'),
+    phasing:   (year)       => apiFetch(`/reporting/phasing?year=${encodeURIComponent(year)}`),
   },
 };

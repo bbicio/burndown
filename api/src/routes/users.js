@@ -19,6 +19,17 @@ router.get('/search', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/users/active-list — any authenticated user, minimal fields for notification/share targeting
+router.get('/active-list', requireAuth, async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT id, email, first_name, last_name, role
+       FROM users WHERE status = 'active' ORDER BY first_name, last_name`
+    );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
 // GET /api/users
 router.get('/', requireAdmin, async (req, res, next) => {
   try {

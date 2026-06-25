@@ -1,9 +1,6 @@
 // ── PROGRAMS MODULE ───────────────────────────────────────────────────────────
 // Manages parent programs that group multiple projects.
 // Each program: { id, name }
-// Stored in localStorage under PROGRAMS_KEY.
-
-const PROGRAMS_KEY = 'PDash_programs';
 
 let _programs = [];
 let _programEditId = null;
@@ -14,18 +11,13 @@ async function loadProgramsFromApi() {
   try {
     _programs = await Api.programs.list();
   } catch(e) {
-    // Fallback: load from localStorage
-    try { _programs = JSON.parse(storageGet(PROGRAMS_KEY) || '[]'); } catch(_) { _programs = []; }
+    console.warn('[programs] loadProgramsFromApi:', e.message);
+    _programs = [];
   }
 }
 
-function loadPrograms() {
-  try { _programs = JSON.parse(storageGet(PROGRAMS_KEY) || '[]'); } catch(e) { _programs = []; }
-}
-
 function savePrograms() {
-  // No-op: programs are now persisted via the API.
-  // Kept for backward compatibility with backup restore (settings.js).
+  // No-op: programs are persisted via the API.
 }
 
 function getPrograms() {

@@ -1,17 +1,17 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDash — Timesheets</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/tokens.css?v=5">
+  <link rel="stylesheet" href="css/style.css?v=5">
   <style>
     body { background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 
     /* ── PAGE ────────────────────────────────────────────── */
-    .page { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
+    .page { margin: 2rem auto; }
     .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
     .page-header h1 { font-size: 2.5rem; font-weight: 700; margin: 0; color: var(--brand-navy); }
 
@@ -39,7 +39,7 @@
 <div id="nav-container"></div>
 
 <div id="app">
-  <div class="page" v-if="ready">
+  <div class="page app-container" v-if="ready">
 
     <!-- ── HEADER ─────────────────────────────────────────── -->
     <div class="page-header">
@@ -78,10 +78,14 @@
               <td class="text-end fw-semibold">{{ r.total_rows.toLocaleString() }}</td>
               <td class="text-muted">{{ fmtDate(r.last_uploaded) }}</td>
               <td class="text-end" style="white-space:nowrap">
-                <a :href="'/portfolio.html?projectId=' + encodeURIComponent(r.project_code)"
-                   class="btn btn-outline-secondary btn-sm me-1" style="font-size:.78rem">
-                  📊 View
-                </a>
+                <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.78rem"
+                        @click="viewRows(r)">
+                  👁 View
+                </button>
+                <button class="btn btn-outline-primary btn-sm me-1" style="font-size:.78rem"
+                        @click="downloadCsv(r)">
+                  ⬇ CSV
+                </button>
                 <button class="btn btn-outline-danger btn-sm"
                         style="font-size:.78rem"
                         :disabled="r._loading"
@@ -102,6 +106,43 @@
     </div>
 
 
+    <!-- ── VIEW MODAL ─────────────────────────────────────────── -->
+    <div v-if="modal.show" class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.45)" @click.self="modal.show=false">
+      <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header py-2">
+            <h6 class="modal-title mb-0">
+              <code>{{ modal.code }}</code>
+              <span class="text-muted ms-2" style="font-size:.8rem">{{ modal.rows.length }} rows</span>
+            </h6>
+            <button type="button" class="btn-close" @click="modal.show=false"></button>
+          </div>
+          <div class="modal-body p-0">
+            <div v-if="modal.loading" class="d-flex justify-content-center p-4">
+              <div class="spinner-border text-secondary"></div>
+            </div>
+            <table v-else class="table table-sm table-hover mb-0" style="font-size:.78rem">
+              <thead>
+                <tr>
+                  <th>Date</th><th>Owner</th><th>Role</th><th>Task</th><th class="text-end">Hours</th><th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, i) in modal.rows" :key="i">
+                  <td style="white-space:nowrap">{{ row.date }}</td>
+                  <td>{{ row.owner }}</td>
+                  <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.role }}</td>
+                  <td>{{ row.task }}</td>
+                  <td class="text-end fw-semibold">{{ row.hours }}</td>
+                  <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="row.notes">{{ row.notes }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Loading -->
@@ -112,16 +153,16 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script src="js/api.js?v=2"></script>
+<script src="js/api.js?v=3"></script>
 <script>
   function esc(s) {
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 </script>
-<script src="js/core.js"></script>
+<script src="js/core.js?v=1"></script>
 <script src="js/settings.js"></script>
 <script src="js/notifications.js"></script>
-<script src="js/nav.js"></script>
+<script src="js/nav.js?v=4"></script>
 
 <script>
   Vue.createApp({
@@ -130,6 +171,7 @@
         ready: false,
         rows:  [],
         error: null,
+        modal: { show: false, loading: false, code: '', rows: [] },
       };
     },
 
@@ -166,6 +208,43 @@
           this.error = e.message || 'Delete failed.';
           row._loading = false;
         }
+      },
+
+      async viewRows(r) {
+        this.modal = { show: true, loading: true, code: r.project_code, rows: [] };
+        try {
+          const records = await Api.timesheets.get(r.project_code);
+          // each record has a .data array; flatten all uploads
+          const flat = records.flatMap(rec => rec.data || []);
+          flat.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+          this.modal.rows = flat;
+        } catch (e) {
+          this.error = e.message || 'Failed to load rows.';
+          this.modal.show = false;
+        } finally {
+          this.modal.loading = false;
+        }
+      },
+
+      downloadCsv(r) {
+        const code = r.project_code;
+        Api.timesheets.get(code).then(records => {
+          const flat = records.flatMap(rec => rec.data || []);
+          flat.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+          const header = ['date','owner','role','task','hours','notes','projectId','projectName'];
+          const lines  = [header.join(',')];
+          flat.forEach(row => {
+            lines.push(header.map(k => {
+              const v = String(row[k] ?? '').replace(/"/g, '""');
+              return v.includes(',') || v.includes('"') || v.includes('\n') ? `"${v}"` : v;
+            }).join(','));
+          });
+          const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `${code}.csv`;
+          a.click();
+        }).catch(e => { this.error = e.message || 'Export failed.'; });
       },
 
       fmtDate(iso) {

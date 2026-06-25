@@ -1,3 +1,12 @@
+// ── LEGACY LOCALSTORAGE CLEANUP ───────────────────────────────────────────────
+// Remove all PDash_* keys except the two that are still legitimately client-side.
+(function cleanLegacyStorage() {
+  const keep = new Set(['PDash_settings', 'PDash_summary']);
+  Object.keys(localStorage)
+    .filter(k => k.startsWith('PDash') && !keep.has(k))
+    .forEach(k => localStorage.removeItem(k));
+})();
+
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let timesheetData = [];
 let config = { projects: [] };
@@ -19,8 +28,6 @@ let ppWindowEnd   = null;  // Date: last day of last visible month (null = unini
 let ppViewInterval   = 'monthly'; // 'monthly' | 'weekly'
 let planningReturnToBurndown = false; // true when planning opened from burndown view
 let portfolioTeamFilters = new Set(); // selected teams (empty = all)
-const CONFIG_KEY     = 'PDash_config';
-const DATA_INDEX_KEY = 'PDash_data_index';
 const SUMMARY_KEY    = 'PDash_summary';
 const SETTINGS_KEY   = 'PDash_settings';
 
@@ -122,57 +129,28 @@ function storageGet(key) {
 }
 function storageSet(key, val) {
   try { localStorage.setItem(key, val); } catch(e) {}
-  // Track last local change for remote sync status (direct write, no recursion)
-  if (key.startsWith('PDash_') && key !== 'PDash_sync' && key !== SETTINGS_KEY && !key.startsWith('PDash_data_')) {
-    try {
-      const raw  = localStorage.getItem('PDash_sync');
-      const meta = raw ? JSON.parse(raw) : {};
-      meta.localChangedAt = new Date().toISOString();
-      localStorage.setItem('PDash_sync', JSON.stringify(meta));
-    } catch(e) {}
-  }
 }
 
-// ── PROJECT DATA CACHE ────────────────────────────────────────────────────────
-function dataKey(pid) { return `PDash_data_${pid}`; }
+// ── PROJECT DATA CACHE (in-memory) ───────────────────────────────────────────
+const _timesheetProjectData = new Map(); // pid → rows[]
 
-function getDataIndex() {
-  try { const s = storageGet(DATA_INDEX_KEY); return s ? JSON.parse(s) : []; } catch(e) { return []; }
-}
-function addToDataIndex(pid) {
-  const idx = getDataIndex();
-  if (!idx.includes(pid)) { idx.push(pid); storageSet(DATA_INDEX_KEY, JSON.stringify(idx)); }
-}
-function removeFromDataIndex(pid) {
-  storageSet(DATA_INDEX_KEY, JSON.stringify(getDataIndex().filter(id => id !== pid)));
-}
-function saveProjectData(pid, rows) {
-  storageSet(dataKey(pid), JSON.stringify(
-    rows.map(r => ({ ...r, date: r.date ? r.date.toISOString() : null }))
-  ));
-}
-function loadProjectData(pid) {
-  try {
-    const s = storageGet(dataKey(pid));
-    if (!s) return [];
-    return JSON.parse(s).map(r => ({ ...r, date: r.date ? new Date(r.date) : null }));
-  } catch(e) { return []; }
-}
+function getDataIndex()          { return [..._timesheetProjectData.keys()]; }
+function addToDataIndex()        { /* no-op: Map tracks keys automatically */ }
+function removeFromDataIndex(pid){ _timesheetProjectData.delete(pid); }
+function saveProjectData(pid, rows) { _timesheetProjectData.set(pid, rows); }
+function loadProjectData(pid)    { return _timesheetProjectData.get(pid) || []; }
 function refreshTimesheetData() {
   timesheetData = [];
-  getDataIndex().forEach(pid => timesheetData.push(...loadProjectData(pid)));
+  _timesheetProjectData.forEach(rows => timesheetData.push(...rows));
 }
 function clearProjectData(pid) {
-  try { localStorage.removeItem(dataKey(pid)); } catch(e) {}
-  removeFromDataIndex(pid);
-  refreshTimesheetData();
+  _timesheetProjectData.delete(pid);
+  timesheetData = timesheetData.filter(r => r.projectId !== pid && r.projectName !== pid);
 }
 
 // ── CONFIG ────────────────────────────────────────────────────────────────────
-function loadConfig() {
-  try { const s = storageGet(CONFIG_KEY); if (s) config = JSON.parse(s); } catch(e) {}
-}
-function persistConfig() { storageSet(CONFIG_KEY, JSON.stringify(config)); }
+function loadConfig()    { /* no-op: config.projects is populated by loadConfigFromApi() */ }
+function persistConfig() { /* no-op: mutations are pushed to the API via _pushProjectToApi() */ }
 
 function loadSummarySelection() {
   try { const s = storageGet(SUMMARY_KEY); if (s) portfolioSummaryProjects = new Set(JSON.parse(s)); } catch(e) {}
@@ -301,8 +279,10 @@ function billableTasks(cfg) {
 // Returns only data rows belonging to billable tasks
 function billableData(data, cfg) {
   if (!cfg) return data;
-  const allowed = new Set(cfg.tasks.filter(t => t.billable !== false).map(t => t.name.toLowerCase()));
-  return data.filter(r => allowed.has(r.task.toLowerCase()));
+  if (!cfg.tasks?.length) return data;  // no tasks configured → treat all rows as billable
+  const norm = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+  const allowed = new Set(cfg.tasks.filter(t => t.billable !== false).map(t => norm(t.name)));
+  return data.filter(r => allowed.has(norm(r.task)));
 }
 
 function fmtMoney(n) {

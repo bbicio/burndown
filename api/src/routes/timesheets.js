@@ -14,13 +14,14 @@ async function visibleCodes(userId, role) {
     return rows.map(r => r.project_code);
   }
   const { rows } = await query(
-    `SELECT name FROM projects p
-     WHERE p.owner_id = $1
+    `SELECT code FROM projects p
+     WHERE code IS NOT NULL
+       AND (p.owner_id = $1
         OR EXISTS(SELECT 1 FROM resource_shares rs
-                  WHERE rs.resource_type='project' AND rs.resource_id=p.id AND rs.user_id=$1)`,
+                  WHERE rs.resource_type='project' AND rs.resource_id=p.id AND rs.user_id=$1))`,
     [userId]
   );
-  return rows.map(r => r.name);
+  return rows.map(r => r.code);
 }
 
 // GET /api/timesheets
@@ -51,11 +52,13 @@ router.get('/all-data', requireAuth, async (req, res, next) => {
     if (!codes.length) return res.json([]);
 
     const { rows } = await query(
-      `SELECT project_code, json_agg(entry ORDER BY (entry->>'date')) AS data
-       FROM timesheets t,
+      `SELECT t.project_code, p.id AS project_id,
+              json_agg(entry ORDER BY (entry->>'date')) AS data
+       FROM timesheets t
+       LEFT JOIN projects p ON p.code = t.project_code,
             jsonb_array_elements(t.data) AS entry
        WHERE t.project_code = ANY($1::text[])
-       GROUP BY project_code`,
+       GROUP BY t.project_code, p.id`,
       [codes]
     );
     res.json(rows);

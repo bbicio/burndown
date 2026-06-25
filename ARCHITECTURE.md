@@ -1,7 +1,7 @@
 # PDash — Architecture Document
 
 **Version:** 1.0
-**Date:** 2026-06-14
+**Date:** 2026-06-25
 **Status:** Approved
 
 ---
@@ -56,9 +56,11 @@ The frontend remains Vanilla JS in the short term. New pages (login, account act
 ### 3.3 Ownership and Sharing
 
 - The creator of a cost grid or project is its **exclusive owner** by default.
-- Owner or admin can share with specific users by selecting from the registered user list.
+- Owner or admin can share with specific users by selecting from a searchable dropdown of active, non-admin platform members (`GET /api/users/active-list`). Free-text email entry is not supported.
 - Sharing triggers an email notification with a direct link.
-- Sharing permissions: `owner` | `editor` | `viewer`.
+- Sharing permissions: `owner` | `editor` | `viewer`. Permission on an existing share can be changed at any time via the same modal (uses `ON CONFLICT DO UPDATE`).
+- The calling user's own permission level (`my_permission`) is returned on `GET /api/cost-grids` and `GET /api/projects` responses so the frontend can conditionally show/hide editing controls without an extra round-trip.
+- **Viewer enforcement** (UI-only; backend always enforces via `resource_shares.permission`): editors/viewers see different UI surfaces — viewers have Edit, Clone, Delete, Configure, Load Actuals, and Reforecast controls hidden; project-config.html enters a read-only banner mode.
 - Disabling a user does **not** delete their resources. Ownership remains and can be reassigned by an admin.
 
 ---
@@ -300,10 +302,11 @@ pots (
   id              UUID PRIMARY KEY,
   client_group_id UUID REFERENCES client_groups(id) ON DELETE CASCADE,
   client_id       UUID REFERENCES clients(id) ON DELETE CASCADE,
+  special_label   VARCHAR(255),              -- migration 010: virtual target (e.g. "New Biz")
   year            INTEGER NOT NULL,
   amount          NUMERIC(14,2) NOT NULL CHECK (amount >= 0),
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  -- CONSTRAINT: exactly one of client_group_id / client_id must be set
+  -- CONSTRAINT: exactly one of client_group_id / client_id / special_label must be set (enforced at app level)
 )
 
 pot_history (
@@ -312,7 +315,8 @@ pot_history (
   old_value  NUMERIC(14,2),
   new_value  NUMERIC(14,2) NOT NULL,
   changed_by UUID REFERENCES users(id) ON DELETE SET NULL,
-  changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  note       VARCHAR(500)               -- migration 011: optional change justification
 )
 
 pipeline_years (
@@ -403,6 +407,8 @@ timesheets (
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
+| GET | /api/users/search?email= | ✅ | Exact-email lookup of one active user |
+| GET | /api/users/active-list | ✅ | List of all active users (id/email/firstName/lastName/role) — used by share modal and notification target picker; returns `role` so frontend can filter out admins |
 | GET | /api/users | admin | List all users |
 | GET | /api/users/:id | admin | Get user detail |
 | PATCH | /api/users/:id | admin | Update role or status |
@@ -437,7 +443,7 @@ timesheets (
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET/POST | /api/cost-grids | ✅ | List / create |
+| GET/POST | /api/cost-grids | ✅ | List / create — list response includes `my_permission` computed for the calling user |
 | GET | /api/cost-grids/budgets | ✅ | Pre-computed fee + PTC totals per version (all visible versions) |
 | PATCH/DELETE | /api/cost-grids/:id | owner/admin | Update / delete |
 | GET/POST | /api/cost-grids/:id/versions | ✅ | List / create version — both accept `clientId` |
@@ -451,7 +457,7 @@ timesheets (
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET/POST | /api/projects | ✅ | List / create |
+| GET/POST | /api/projects | ✅ | List / create — list response includes `my_permission` computed for the calling user |
 | PATCH/DELETE | /api/projects/:id | owner/admin | Update / delete |
 | GET/PUT | /api/projects/:id/tasks | owner/admin | Get / save bulk tasks |
 | PATCH | /api/projects/:id/phasing | owner/admin | Update phasing |
@@ -505,14 +511,15 @@ timesheets (
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | /api/pots | admin | List POTs (filter: `?year=`) |
-| POST | /api/pots | admin | Create POT (clientGroupId or clientId + year + amount) |
+| GET | /api/pots | admin | List POTs (filter: `?year=`); includes `special_label` field |
+| POST | /api/pots | admin | Create POT — exactly one of `clientGroupId`, `clientId`, or `specialLabel` + `year` + `amount` |
 | PATCH | /api/pots/:id | admin | Update amount (logs to pot_history) |
 | DELETE | /api/pots/:id | admin | Delete POT |
 | GET | /api/pots/:id/history | admin | Amount change history |
 | GET | /api/pots/summary | ✅ | Aggregated pipeline value vs. POT target for a client/group + year |
 | GET | /api/pots/pipeline-summary?year= | admin | Per-stage count + professional-fee total for a pipeline year (all 5 stages, Draft excluded) |
-| GET | /api/pots/:id/details?year= | admin | POT metadata + change history + committed total + all scoped proposals (Canceled included, Draft excluded) |
+| GET | /api/pots/year-totals | admin | `{ year: { pot_total, achieved_total } }` for all years — achieved = Committed + Anticipated fee sum |
+| GET | /api/pots/:id/details?year= | admin | POT metadata + change history + committed total + all scoped proposals (matched via `cgv.client_id`; Canceled included, Draft excluded) |
 
 ### Notifications
 
@@ -523,11 +530,11 @@ timesheets (
 | GET | /api/notifications/unread-count | ✅ | `{ count: N }` |
 | PATCH | /api/notifications/read-all | ✅ | Mark all as read |
 | PATCH | /api/notifications/:id/read | ✅ | Mark one as read |
-| POST | /api/notifications | admin | Create notification(s); `userId` targets one user, omit to broadcast |
+| POST | /api/notifications | ✅ | Create notification(s); `userId` targets one user (any authenticated user), omit `userId` to broadcast to all (admin only); `channels: ['push','email']` selects delivery channel(s), default `['push']` |
 
 ### Admin — Bulk Reset
 
-Scopes: `proposals`, `projects`, `clients`, `ratecards`, `actuals`, `pipelines`. Each runs inside a DB transaction.
+Scopes: `proposals`, `projects`, `clients`, `ratecards`, `actuals`, `pipelines`, `notifications`. Each runs inside a DB transaction.
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
@@ -606,8 +613,8 @@ burndown/
     style.css
   js/
     api.js                ← Api.* namespace, apiFetch wrapper
-    api-sync.js           ← localStorage ↔ API sync helpers
-    core.js               ← state, localStorage, shared helpers
+    api-sync.js           ← in-memory ↔ API sync helpers (_cgStore, config.projects, timesheetData)
+    core.js               ← state, in-memory helpers (loadConfig/persistConfig no-ops), shared helpers
     nav.js                ← navbar injection, initNav(); injects settings + change-pwd modals; calls initNotifications()
     shares.js             ← generic share modal
     notifications.js      ← SSE client, bell badge, notification dropdown panel
@@ -643,11 +650,18 @@ burndown/
 
 ## 8. Migration Strategy
 
-**Status: Complete.** The localStorage → API migration has been completed.
+**Status: Complete.** The localStorage → API migration has been completed. **localStorage is no longer used for server data.**
 
 The `migration.html` tool was used for the one-time migration of existing localStorage data into the PostgreSQL database. It is kept in the repo for reference and disaster recovery but is no longer needed for new installations.
 
-New users start fresh: an admin creates an account via the invite flow, then uses the app directly against the API. No localStorage-only mode remains.
+New users start fresh: an admin creates an account via the invite flow, then uses the app directly against the API.
+
+**Current localStorage usage** (only genuinely client-side keys remain):
+- `PDash_settings` — AI provider API keys (Anthropic/OpenAI/Gemini), stored per-device
+- `PDash_summary` — portfolio summary project selection (UI preference)
+- `reforecast_snapshot_<projectId>` — temporary reforecast snapshot in project-config.html
+
+All server data (cost grids, projects, clients, programs, roles, timesheets) is fetched from the API on every page load into in-memory variables. No stale cross-session data is possible.
 
 ### DB migrations
 
@@ -667,6 +681,8 @@ Current migrations:
 - `007_version_date_varchar.sql` — converts `cost_grid_versions.start_date` and `end_date` from `DATE` to `VARCHAR(6)` (`YYYYMM`)
 - `008_version_client.sql` — adds `client_id UUID` to `cost_grid_versions` (stored directly on the version, independently of linked projects)
 - `009_version_project_name.sql` — adds `project_name VARCHAR(255)` to `cost_grid_versions` (display name shown on pipeline cards and used as default when generating a linked project)
+- `010_pots_special_label.sql` — adds `special_label VARCHAR(255)` to `pots` for virtual targets ("Unassigned / To be Identified", "New Biz") that are not tied to a specific client or group
+- `011_pot_history_note.sql` — adds `note VARCHAR(500)` to `pot_history` for optional change justification text
 
 ---
 

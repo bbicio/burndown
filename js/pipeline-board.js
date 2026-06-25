@@ -77,8 +77,18 @@ function pbGetStatus(v) {
 }
 
 function pbFmtMoney(n, cur) {
-  const safe = (typeof n === 'number' && isFinite(n)) ? n : 0;
-  return (cur || '€') + ' ' + safe.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const parsed = parseFloat(n);
+  if (!isFinite(parsed)) return (cur || '€') + ' 0';
+  const usComma  = (cur === '$' || cur === '£');
+  const thSep    = usComma ? ',' : '.';   // thousands separator
+  const decSep   = usComma ? '.' : ',';   // decimal separator
+  const [intPart, decPart] = parsed.toFixed(2).split('.');
+  const intFmt   = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, thSep);
+  const formatted = intFmt + decSep + decPart;
+  if (cur === '$')   return '$ '   + formatted;
+  if (cur === '£')   return '£ '   + formatted;
+  if (cur === 'CHF') return 'CHF ' + formatted;
+  return '€ ' + formatted;
 }
 
 function pbFmtDate(iso) {
@@ -118,10 +128,10 @@ function renderPipelineBoard() {
     }
   });
 
-  container.innerHTML = PB_STAGES.map(stage => {
-    const cards    = grouped[stage];
-    const st       = PB_STAGE_STYLE[stage];
-    const totals   = pbComputeColumnTotals(cards);
+  const stagesData = PB_STAGES.map(stage => {
+    const cards  = grouped[stage];
+    const st     = PB_STAGE_STYLE[stage];
+    const totals = pbComputeColumnTotals(cards);
     const totalsHtml = Object.entries(totals)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([cur, { fee, ptc }]) =>
@@ -130,30 +140,35 @@ function renderPipelineBoard() {
            ${ptc > 0 ? `<div class="text-muted" style="font-size:var(--text-2xs)">${pbFmtMoney(ptc, cur)} PTC</div>` : ''}
          </div>`
       ).join('') || '<span class="text-muted" style="font-size:var(--text-xs)">—</span>';
-
     const cardsHtml = cards.length
       ? cards.map(({ cg, v }) => pbBuildCard(cg, v)).join('')
       : `<div class="text-center text-muted py-4" style="font-size:var(--text-sm)">No offers</div>`;
+    return { stage, st, cardsHtml, totalsHtml };
+  });
 
-    return `
+  container.innerHTML = stagesData.map(({ stage, st, cardsHtml }) => `
       <div class="pb-column d-flex flex-column" style="border-top:3px solid ${st.border}">
-        <!-- Column header -->
         <div class="pb-col-header d-flex align-items-center gap-2 px-2 py-2 flex-shrink-0"
              style="background:${st.bg};border-bottom:1px solid ${st.border}20">
           <span class="fw-bold" style="font-size:var(--text-md);color:#1a1a2e">${esc(stage)}</span>
-          <span class="badge rounded-pill text-white" style="background:${st.badge};font-size:var(--text-xs)">${cards.length}</span>
+          <span class="badge rounded-pill text-white" style="background:${st.badge};font-size:var(--text-xs)">${grouped[stage].length}</span>
         </div>
-        <!-- Scrollable body -->
-        <div class="pb-col-body flex-grow-1 overflow-y-auto px-2 py-2" style="min-height:0">
-          ${cardsHtml}
-        </div>
-        <!-- Sticky footer totals -->
-        <div class="pb-col-footer flex-shrink-0 px-2 py-2"
-             style="background:${st.bg};border-top:1px solid ${st.border}40;font-size:var(--text-sm)">
-          ${totalsHtml}
-        </div>
-      </div>`;
-  }).join('');
+        <div class="pb-col-body px-2 py-2">${cardsHtml}</div>
+      </div>`
+  ).join('');
+
+  const totalsBar = document.getElementById('pbTotalsBar');
+  if (totalsBar) {
+    totalsBar.innerHTML = stagesData.map(({ st, totalsHtml }, i) =>
+      `<div class="pb-col-footer px-2 py-2"
+            style="flex:1 0 0;min-width:200px;background:${st.bg};
+                   border-top:3px solid ${st.border};
+                   ${i < PB_STAGES.length - 1 ? `border-right:1px solid ${st.border}40;` : ''}
+                   font-size:var(--text-sm)">
+         ${totalsHtml}
+       </div>`
+    ).join('');
+  }
 
   // Wire card clicks and action buttons
   container.querySelectorAll('[data-pb-cgid]').forEach(card => {
@@ -231,6 +246,7 @@ function pbComputeColumnTotals(cards) {
 
 function pbBuildCard(cg, v) {
   const isDraft    = v.pipeline === 'Draft';
+  const canEdit    = cg.myPermission !== 'viewer';
   const clientName = v.clientId ? getClientName(v.clientId) : '';
   const showClient = clientName && clientName !== 'Unassigned';
   const grand      = pbGetBudget(v);
@@ -276,10 +292,10 @@ function pbBuildCard(cg, v) {
           ${ownerHtml}
         </div>
         <div class="d-flex gap-1">
-          <button class="btn btn-xs btn-outline-secondary pb-card-edit" title="Open in editor">✏️ Edit</button>
-          <button class="btn btn-xs btn-outline-secondary pb-card-clone" title="Clone proposal">⧉</button>
+          ${canEdit ? `<button class="btn btn-xs btn-outline-secondary pb-card-edit" title="Open in editor">✏️ Edit</button>` : ''}
+          ${canEdit ? `<button class="btn btn-xs btn-outline-secondary pb-card-clone" title="Clone proposal">⧉</button>` : ''}
           ${!isDraft ? `<button class="btn btn-xs btn-outline-secondary pb-card-share" title="Share">🔗</button>` : ''}
-          ${isDraft  ? `<button class="btn btn-xs btn-outline-danger pb-card-del" title="Delete proposal">🗑</button>` : ''}
+          ${isDraft && canEdit ? `<button class="btn btn-xs btn-outline-danger pb-card-del" title="Delete proposal">🗑</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -411,11 +427,9 @@ async function pbOpenDetailPanel(cgId, verId) {
                 ${projStatus ? statusBadge(projStatus)  : ''}
               </div>
             </div>
-            <div class="d-flex gap-1 flex-shrink-0">
-              ${hasData
-                ? `<button class="btn btn-xs btn-outline-secondary"
-                     onclick="pbGoToReporting('${esc(navId)}')">📊 Reporting</button>`
-                : ''}
+            <div class="d-flex gap-1 flex-shrink-0 flex-wrap">
+              <button class="btn btn-xs btn-outline-secondary"
+                onclick="pbGoToPortfolio('${esc(navId)}')">📊 Portfolio</button>
               <button class="btn btn-xs btn-outline-secondary"
                 onclick="pbGoToConfigure('${esc(navId)}')">⚙ Configure</button>
             </div>
@@ -446,7 +460,7 @@ async function pbOpenDetailPanel(cgId, verId) {
             <span class="flex-grow-1">${esc(task.taskName || task.taskId)}</span>
             <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">${dateRange}</span>
             <span style="white-space:nowrap;min-width:44px;text-align:right;font-size:var(--text-xs);color:var(--text-muted)">${tt.totalHrs > 0 ? tt.totalHrs + 'h' : '—'}</span>
-            <span class="fw-semibold" style="white-space:nowrap;min-width:80px;text-align:right">${tt.totalFee > 0 ? fmt(tt.totalFee) : '—'}</span>
+            <span class="fw-semibold" style="white-space:nowrap;min-width:80px;text-align:right">${tt.totalCostAndFee > 0 ? fmt(tt.totalCostAndFee) : '—'}</span>
           </div>`;
       }).join('');
       return `
@@ -504,10 +518,17 @@ async function pbOpenDetailPanel(cgId, verId) {
   pbLoadPotSection(v, stage);
 
   // ── Action buttons ────────────────────────────────────────────────────────
-  document.getElementById('pbBtnOpenCg').onclick = () => {
-    pbCloseDetailPanel();
-    showCostGridEditorView(cgId, v.versionId);
-  };
+  const cgForPerm  = cgLoad(cgId);
+  const canEditCg  = cgForPerm?.myPermission !== 'viewer';
+
+  const openCgBtn = document.getElementById('pbBtnOpenCg');
+  if (openCgBtn) {
+    openCgBtn.style.display = canEditCg ? '' : 'none';
+    openCgBtn.onclick = () => {
+      pbCloseDetailPanel();
+      showCostGridEditorView(cgId, v.versionId);
+    };
+  }
 
   const shareBtn = document.getElementById('pbBtnShareCg');
   if (shareBtn) {
@@ -518,8 +539,20 @@ async function pbOpenDetailPanel(cgId, verId) {
     };
   }
 
+  const deleteVerBtn = document.getElementById('pbBtnDeleteVersion');
+  if (deleteVerBtn) {
+    deleteVerBtn.style.display = (stage === 'Draft' && canEditCg) ? '' : 'none';
+    deleteVerBtn.onclick = () => {
+      cgConfirmDeleteVersion(cgId, v.versionId, v.versionLabel, () => {
+        pbCloseDetailPanel();
+        renderPipelineBoard();
+      });
+    };
+  }
+
   const cloneBtn = document.getElementById('pbBtnCloneCg');
   if (cloneBtn) {
+    cloneBtn.style.display = canEditCg ? '' : 'none';
     cloneBtn.onclick = () => {
       const cg = cgLoad(cgId);
       if (!cg) return;
@@ -603,11 +636,10 @@ function pbCloseDetailPanel() {
   _pbActiveVerid = null;
 }
 
-function pbGoToReporting(projectId) {
-  pbCloseDetailPanel();
-  showDashboardView(projectId);
+function pbGoToPortfolio(projectId) {
+  window.location.href = '/portfolio.html?projectId=' + encodeURIComponent(projectId);
 }
 
 function pbGoToConfigure(projectId) {
-  window.location.href = '/portfolio.html?projectId=' + encodeURIComponent(projectId) + '&configure=true';
+  window.location.href = '/project-config.html?projectId=' + encodeURIComponent(projectId);
 }

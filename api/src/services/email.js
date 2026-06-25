@@ -68,4 +68,19 @@ async function sendExportEmail({ to, firstName, exports }) {
   });
 }
 
-module.exports = { sendInvite, sendPasswordReset, sendShareNotification, sendExportEmail };
+async function sendAdminNotificationEmail({ to, firstName, title, body, url }) {
+  const link = url ? (url.startsWith('http') ? url : `${APP_URL}${url}`) : null;
+  await transporter.sendMail({
+    from: FROM,
+    to,
+    subject: `PDash — ${title}`,
+    html: `
+      <p>Hi ${firstName || 'there'},</p>
+      <p><strong>${title}</strong></p>
+      ${body ? `<p>${body.replace(/\n/g, '<br>')}</p>` : ''}
+      ${link ? `<p><a href="${link}">Open in PDash</a></p>` : ''}
+    `,
+  });
+}
+
+module.exports = { sendInvite, sendPasswordReset, sendShareNotification, sendExportEmail, sendAdminNotificationEmail };

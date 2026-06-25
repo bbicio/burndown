@@ -217,4 +217,160 @@ router.post('/ratecards', requireAdmin, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── GET /api/exports/phasing?year=YYYY ───────────────────────────────────────
+// Direct XLS download of the phasing breakdown for a pipeline year (admin only).
+
+router.get('/phasing', requireAdmin, async (req, res, next) => {
+  try {
+    const { year } = req.query;
+    if (!year) return res.status(400).json({ error: 'year is required' });
+    const yr = parseInt(year);
+
+    const { rows } = await query(
+      `SELECT
+         cgv.id          AS version_id,
+         cgv.cost_grid_id AS cg_id,
+         cg.name         AS cg_name,
+         cgv.label       AS version_label,
+         cgv.pipeline,
+         cgv.start_date  AS ver_start,
+         cgv.end_date    AS ver_end,
+         tk.start_date   AS task_start,
+         tk.end_date     AS task_end,
+         tr.days,
+         COALESCE(
+           tr.rate_override,
+           (SELECT re.hourly_rate FROM ratecard_entries re
+            WHERE re.ratecard_id = cgv.ratecard_id AND re.role_id = tr.role_id LIMIT 1),
+           ro.hourly_rate, 0
+         ) AS hourly_rate
+       FROM cost_grid_versions cgv
+       JOIN cost_grids cg ON cg.id = cgv.cost_grid_id
+       JOIN phases ph ON ph.version_id = cgv.id
+       JOIN tasks tk ON tk.phase_id = ph.id
+       JOIN task_roles tr ON tr.task_id = tk.id
+       JOIN roles ro ON ro.id = tr.role_id
+       WHERE cgv.pipeline IN ('Committed', 'Anticipated')
+         AND cgv.pipeline_year = $1`,
+      [yr]
+    );
+
+    const yearMonths = [];
+    for (let m = 1; m <= 12; m++) yearMonths.push(`${yr}-${String(m).padStart(2, '0')}`);
+
+    function distribute(days, taskStart, taskEnd, verStart, verEnd) {
+      let sy, sm, ey, em;
+      const ts = taskStart && taskStart.length >= 6 ? taskStart : null;
+      const te = taskEnd   && taskEnd.length >= 6   ? taskEnd   : null;
+      if (ts && te) {
+        sy = parseInt(ts.slice(0, 4)); sm = parseInt(ts.slice(4, 6));
+        ey = parseInt(te.slice(0, 4)); em = parseInt(te.slice(4, 6));
+      } else if (verStart && verEnd && verStart.length >= 6 && verEnd.length >= 6) {
+        sy = parseInt(verStart.slice(0, 4)); sm = parseInt(verStart.slice(4, 6));
+        ey = parseInt(verEnd.slice(0, 4));   em = parseInt(verEnd.slice(4, 6));
+      } else {
+        return {};
+      }
+      const all = [];
+      let y = sy, m = sm;
+      while (y < ey || (y === ey && m <= em)) {
+        all.push(`${y}-${String(m).padStart(2, '0')}`);
+        if (++m > 12) { m = 1; y++; }
+      }
+      if (!all.length) return {};
+      const dpp = parseFloat(days) / all.length;
+      const out = {};
+      for (const mo of all) {
+        if (mo >= `${yr}-01` && mo <= `${yr}-12`) out[mo] = (out[mo] || 0) + dpp;
+      }
+      return out;
+    }
+
+    const versionMap = new Map();
+    for (const r of rows) {
+      if (!versionMap.has(r.version_id)) {
+        versionMap.set(r.version_id, {
+          name: r.cg_name, versionLabel: r.version_label,
+          pipeline: r.pipeline,
+          startDate: r.ver_start || '', endDate: r.ver_end || '',
+          months: {},
+        });
+      }
+      const v = versionMap.get(r.version_id);
+      const dist = distribute(r.days, r.task_start, r.task_end, r.ver_start, r.ver_end);
+      const rate = parseFloat(r.hourly_rate) || 0;
+      for (const [mo, d] of Object.entries(dist)) {
+        if (!v.months[mo]) v.months[mo] = { hours: 0, amount: 0 };
+        const hrs = d * 8;
+        v.months[mo].hours  += hrs;
+        v.months[mo].amount += hrs * rate;
+      }
+    }
+
+    const totals = {};
+    for (const mo of yearMonths) totals[mo] = { hours: 0, amount: 0 };
+    for (const v of versionMap.values()) {
+      for (const [mo, val] of Object.entries(v.months)) {
+        if (totals[mo]) { totals[mo].hours += val.hours; totals[mo].amount += val.amount; }
+      }
+    }
+
+    const XLSX = require('xlsx');
+    const monthLabels = yearMonths.map(m => {
+      const [y, mo] = m.split('-');
+      return new Date(parseInt(y), parseInt(mo) - 1).toLocaleString('en', { month: 'short' }) + ' ' + y;
+    });
+
+    // Sheet 1: Amount (€)
+    const amountHeader = ['Project', 'Stage', 'Start', 'End', ...monthLabels, 'TOTAL'];
+    const totalAmountRow = ['TOTAL (€)', '', '', '',
+      ...yearMonths.map(m => Math.round(totals[m].amount)),
+      yearMonths.reduce((s, m) => s + totals[m].amount, 0),
+    ];
+    const amountRows = [...versionMap.values()].map(v => {
+      const rowTotal = yearMonths.reduce((s, m) => s + (v.months[m]?.amount || 0), 0);
+      return [
+        v.name, v.pipeline,
+        v.startDate ? v.startDate.slice(0, 4) + '/' + v.startDate.slice(4, 6) : '',
+        v.endDate   ? v.endDate.slice(0, 4)   + '/' + v.endDate.slice(4, 6)   : '',
+        ...yearMonths.map(m => Math.round(v.months[m]?.amount || 0)),
+        Math.round(rowTotal),
+      ];
+    });
+
+    const wsAmount = XLSX.utils.aoa_to_sheet([amountHeader, totalAmountRow, ...amountRows]);
+    wsAmount['!cols'] = [{ wch: 35 }, { wch: 12 }, { wch: 8 }, { wch: 8 },
+      ...yearMonths.map(() => ({ wch: 10 })), { wch: 12 }];
+
+    // Sheet 2: Hours
+    const hoursHeader = ['Project', 'Stage', 'Start', 'End', ...monthLabels, 'TOTAL'];
+    const totalHoursRow = ['TOTAL (h)', '', '', '',
+      ...yearMonths.map(m => Math.round(totals[m].hours * 10) / 10),
+      Math.round(yearMonths.reduce((s, m) => s + totals[m].hours, 0) * 10) / 10,
+    ];
+    const hoursRows = [...versionMap.values()].map(v => {
+      const rowTotal = yearMonths.reduce((s, m) => s + (v.months[m]?.hours || 0), 0);
+      return [
+        v.name, v.pipeline,
+        v.startDate ? v.startDate.slice(0, 4) + '/' + v.startDate.slice(4, 6) : '',
+        v.endDate   ? v.endDate.slice(0, 4)   + '/' + v.endDate.slice(4, 6)   : '',
+        ...yearMonths.map(m => Math.round((v.months[m]?.hours || 0) * 10) / 10),
+        Math.round(rowTotal * 10) / 10,
+      ];
+    });
+
+    const wsHours = XLSX.utils.aoa_to_sheet([hoursHeader, totalHoursRow, ...hoursRows]);
+    wsHours['!cols'] = wsAmount['!cols'];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsAmount, `Phasing ${yr} (€)`);
+    XLSX.utils.book_append_sheet(wb, wsHours,  `Phasing ${yr} (h)`);
+
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="phasing_${yr}.xlsx"`);
+    res.send(buf);
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

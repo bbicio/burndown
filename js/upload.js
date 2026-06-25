@@ -18,13 +18,16 @@ async function readXLS(file, onComplete) {
   }
 }
 
-async function readXLSForProject(file, projectId) {
+async function readXLSForProject(file) {
   const statusEl = document.getElementById('fileStatus');
   if (statusEl) { statusEl.style.display = 'inline'; statusEl.textContent = '⏳ Uploading actuals…'; }
 
   try {
-    const result = await Api.timesheets.upload(file, projectId);
-    if (statusEl) statusEl.textContent = `✅ ${file.name} · ${result.totalRows} rows for ${projectId}`;
+    // No projectCode filter: import all project codes found in the XLS.
+    // The old approach passed the project UUID as the filter, but XLS rows
+    // carry D365 codes — not UUIDs — so the filter never matched anything.
+    const result = await Api.timesheets.upload(file);
+    if (statusEl) statusEl.textContent = `✅ ${file.name} · ${result.totalRows} rows`;
     await refreshTimesheetDataFromApi();
     if (typeof renderPortfolioView === 'function') renderPortfolioView();
     setTimeout(() => { if (statusEl) statusEl.style.display = 'none'; }, 4000);

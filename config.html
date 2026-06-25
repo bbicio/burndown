@@ -1,16 +1,16 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDash — Configuration</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/tokens.css?v=5">
+  <link rel="stylesheet" href="css/style.css?v=5">
   <style>
     body { background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 
-    .page { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
+    .page { margin: 2rem auto; }
     .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
     .page-header h1 { font-size: 2.5rem; font-weight: 700; margin: 0; color: var(--brand-navy); }
 
@@ -76,7 +76,7 @@
   </div>
 
   <!-- ── PAGE ────────────────────────────────────────────────── -->
-  <div class="page" v-else>
+  <div class="page app-container" v-else>
 
     <div class="page-header">
       <div>
@@ -259,7 +259,7 @@
     <div v-show="activeTab === 'pots'">
 
     <!-- ── VIEW A: Pipeline list ─────────────────────────────── -->
-    <div v-if="!activePipeline">
+    <div v-if="!activePipeline && !phasingYear">
 
       <div class="section-title">
         <span>Pipelines</span>
@@ -294,6 +294,8 @@
               <tr>
                 <th>Pipeline</th>
                 <th>Status</th>
+                <th class="text-end">POT Target</th>
+                <th class="text-end">Achievement</th>
                 <th></th>
               </tr>
             </thead>
@@ -307,9 +309,25 @@
                     {{ py.active ? 'Visible' : 'Hidden' }}
                   </span>
                 </td>
+                <td class="text-end fw-semibold" style="font-size:.9rem">
+                  {{ yearTotals[py.year] ? fmtAmount(yearTotals[py.year].pot_total) : '—' }}
+                </td>
+                <td class="text-end" style="font-size:.9rem">
+                  <template v-if="yearTotals[py.year] && yearTotals[py.year].pot_total > 0">
+                    <span class="fw-semibold" style="color:#2e7d32">
+                      {{ Math.round(yearTotals[py.year].achieved_total / yearTotals[py.year].pot_total * 100) }}%
+                    </span>
+                    <span class="text-muted" style="font-size:.75rem">
+                      &nbsp;({{ fmtAmount(yearTotals[py.year].achieved_total) }})
+                    </span>
+                  </template>
+                  <span v-else class="text-muted">—</span>
+                </td>
                 <td class="text-end" style="white-space:nowrap" @click.stop>
                   <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
                           @click="selectPipeline(py)">POTs →</button>
+                  <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
+                          @click="openPhasingView(py)">📊 Phasing</button>
                   <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
                           @click="togglePipelineYear(py)" :disabled="py._toggling">
                     <span v-if="py._toggling" class="spinner-border spinner-border-sm"></span>
@@ -331,7 +349,7 @@
     </div><!-- /view A -->
 
     <!-- ── VIEW B: POTs for selected pipeline ────────────────── -->
-    <div v-else>
+    <div v-else-if="activePipeline">
 
       <!-- Navigation row -->
       <div class="section-title">
@@ -344,6 +362,27 @@
             {{ activePipeline.active ? 'Visible' : 'Hidden' }}
           </span>
         </span>
+      </div>
+
+      <!-- POT target + achievement banner -->
+      <div class="row g-3 mb-3" v-if="pots.length">
+        <div class="col-auto">
+          <div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:10px;padding:.6rem 1.2rem;display:inline-flex;align-items:center;gap:1.5rem">
+            <div>
+              <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280">Total POT Target</div>
+              <div style="font-size:1.1rem;font-weight:700;color:#1a1a2e">{{ fmtAmount(pots.reduce((s,p) => s + Number(p.amount), 0)) }}</div>
+            </div>
+            <div v-if="pots.reduce((s,p) => s + Number(p.amount), 0) > 0">
+              <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#2e7d32">Committed + Anticipated</div>
+              <div style="font-size:1.1rem;font-weight:700;color:#2e7d32">
+                {{ fmtAmount(pipelineSummary.filter(s => ['Committed','Anticipated'].includes(s.pipeline)).reduce((s,r) => s + r.total, 0)) }}
+                <span style="font-size:.8rem;font-weight:400;color:#6b7280;margin-left:.4rem">
+                  ({{ Math.round(pipelineSummary.filter(s => ['Committed','Anticipated'].includes(s.pipeline)).reduce((s,r) => s + r.total, 0) / pots.reduce((s,p) => s + Number(p.amount), 0) * 100) }}% of target)
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 5 pipeline stage summary cards -->
@@ -392,6 +431,9 @@
                 <option v-for="g in sortedGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
               </template>
               <template v-else>
+                <option value="__unassigned__">Unassigned / To be Identified</option>
+                <option value="__newbiz__">New Biz</option>
+                <option disabled>──────────────</option>
                 <option v-for="c in sortedClients" :key="c.id" :value="c.id">{{ c.name }}</option>
               </template>
             </select>
@@ -400,14 +442,24 @@
           <!-- Amount (always) -->
           <div class="col-md-3">
             <label class="form-label fw-semibold" style="font-size:.82rem">
-              Amount (€)
+              Target (€)
               <span v-if="potf.id" class="fw-normal text-muted" style="font-size:.75rem"> — updating for {{ potf.targetLabel }}</span>
             </label>
             <input type="number" min="0" step="1000" class="form-control form-control-sm"
                    v-model="potf.amount" @keydown.enter="savePot" placeholder="e.g. 500000">
           </div>
 
-          <div class="col-auto d-flex gap-2">
+          <!-- Note (edit only, required) -->
+          <div class="col-md-12" v-if="potf.id" style="margin-top:.25rem">
+            <label class="form-label fw-semibold" style="font-size:.82rem">
+              Reason for change <span class="text-danger">*</span>
+            </label>
+            <input type="text" class="form-control form-control-sm" v-model="potf.note"
+                   placeholder="Explain why the target is being updated (required)"
+                   @keydown.enter="savePot">
+          </div>
+
+          <div class="col-auto d-flex gap-2" style="margin-top:.25rem">
             <button class="btn btn-primary btn-sm" @click="savePot" :disabled="potf.loading">
               <span v-if="potf.loading" class="spinner-border spinner-border-sm me-1"></span>
               {{ potf.id ? 'Update' : 'Create' }}
@@ -424,21 +476,23 @@
           <table class="table">
             <thead>
               <tr>
-                <th>Target</th>
+                <th>Client / Group</th>
                 <th>Type</th>
-                <th class="text-end">Amount (€)</th>
+                <th class="text-end">Target</th>
+                <th class="text-end">Achievement</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="pot in pots" :key="pot.id">
-                <td class="fw-semibold">{{ pot.client_group_name || pot.client_name || '—' }}</td>
+                <td class="fw-semibold">{{ pot.special_label || pot.client_group_name || pot.client_name || '—' }}</td>
                 <td>
                   <span class="badge" style="background:#e8edff;color:#1a1a6e;font-size:.75rem">
-                    {{ pot.client_group_id ? 'Group' : 'Client' }}
+                    {{ pot.special_label ? 'General' : pot.client_group_id ? 'Group' : 'Client' }}
                   </span>
                 </td>
                 <td class="text-end fw-semibold">{{ fmtAmount(pot.amount) }}</td>
+                <td class="text-end" style="color:#2e7d32;font-weight:600">{{ fmtAmount(+pot.achieved_total || 0) }}</td>
                 <td class="text-end" style="white-space:nowrap">
                   <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
                           @click="openPotDetails(pot)">🔍 View Details</button>
@@ -460,6 +514,55 @@
       </div>
 
     </div><!-- /view B -->
+
+    <!-- ── VIEW C: Phasing for selected pipeline ─────────────── -->
+    <div v-else-if="phasingYear">
+
+      <!-- Navigation row -->
+      <div class="section-title">
+        <span class="d-flex align-items-center gap-2" style="text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:700;color:#374151">
+          <button class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;text-transform:none;letter-spacing:0"
+                  @click="backToPipelines()">← Pipelines</button>
+          Phasing — Pipeline {{ phasingYear.year }}
+          <span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:600"
+                :style="phasingYear.active ? 'background:#dcfce7;color:#166534' : 'background:#f3f4f6;color:#6b7280'">
+            {{ phasingYear.active ? 'Visible' : 'Hidden' }}
+          </span>
+        </span>
+        <a :href="`/api/exports/phasing?year=${phasingYear.year}`"
+           class="btn btn-outline-secondary btn-sm" style="font-size:.78rem">⬇ Export XLS</a>
+      </div>
+
+      <!-- 5 pipeline stage summary cards -->
+      <div class="row g-3 mb-4">
+        <div class="col" v-for="s in pipelineSummary" :key="s.pipeline">
+          <div class="card mb-0" :style="`border-top:3px solid ${stageColor(s.pipeline)};border-radius:10px`">
+            <div class="card-body" style="padding:1rem!important">
+              <div class="fw-bold mb-1" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em"
+                   :style="`color:${stageColor(s.pipeline)}`">{{ s.pipeline }}</div>
+              <div class="fw-bold" style="font-size:1.15rem;color:#1a1a2e;line-height:1.2">{{ fmtAmount(s.total) }}</div>
+              <div class="text-muted" style="font-size:.75rem;margin-top:2px">({{ s.count }})</div>
+            </div>
+          </div>
+        </div>
+        <div v-if="!pipelineSummary.length && !phasingLoading" class="col-12 text-muted" style="font-size:.85rem">
+          No proposals in this pipeline year yet.
+        </div>
+      </div>
+
+      <!-- Phasing table -->
+      <div v-if="phasingLoading" class="text-center py-5">
+        <div class="spinner-border text-primary"></div>
+      </div>
+      <div v-else-if="phasingError" class="alert alert-danger">{{ phasingError }}</div>
+      <div v-else-if="phasingData && phasingData.projects.length" class="card">
+        <div class="card-body p-0">
+          <div v-html="phasingTableHtml" style="overflow-x:auto"></div>
+        </div>
+      </div>
+      <div v-else class="empty">No Committed or Anticipated proposals for Pipeline {{ phasingYear.year }}.</div>
+
+    </div><!-- /view C -->
 
     </div><!-- /pots tab -->
 
@@ -664,16 +767,16 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script src="js/api.js?v=2"></script>
+<script src="js/api.js?v=3"></script>
 <script>
   function esc(s) {
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 </script>
-<script src="js/core.js"></script>
+<script src="js/core.js?v=1"></script>
 <script src="js/settings.js"></script>
 <script src="js/notifications.js"></script>
-<script src="js/nav.js"></script>
+<script src="js/nav.js?v=4"></script>
 
 <script>
 window.__cfgApp = Vue.createApp({
@@ -696,13 +799,18 @@ window.__cfgApp = Vue.createApp({
       gf: { show: false, id: null, name: '', error: null, loading: false },
 
       // Pipelines & POT state
-      activePipeline:  null,  // null = pipeline list view; object = POT detail view
+      activePipeline:  null,  // null = pipeline list; object = POT detail view
+      phasingYear:     null,  // null = not in phasing view; pipeline year object = phasing view
+      phasingData:     null,  // { months, totals, projects } from API
+      phasingLoading:  false,
+      phasingError:    null,
       pyf: { show: false, year: new Date().getFullYear() + 1, error: null, loading: false },
       pots:            [],
       potsYear:        new Date().getFullYear(),
       pipelineSummary: [],   // 5 stage cards: [{pipeline, count, total}]
       potf: { show: false, id: null, targetType: 'client', targetId: '', year: new Date().getFullYear(), amount: '', targetLabel: '', error: null, loading: false },
       pipelineYears:   [],   // admin-managed pipeline years (all, active + inactive)
+      yearTotals:      {},   // { year: { pot_total, achieved_total } }
 
       // Program form state
       pf: { show: false, id: null, name: '', programId: '', error: null, loading: false },
@@ -740,6 +848,61 @@ window.__cfgApp = Vue.createApp({
       });
       return groups;
     },
+    phasingTableHtml() {
+      const d = this.phasingData;
+      if (!d || !d.projects.length) return '';
+      const fmtM = (mo) => {
+        const [y, m] = mo.split('-');
+        return new Date(parseInt(y), parseInt(m) - 1).toLocaleString('en', { month: 'short' });
+      };
+      const fmtAmt = (n) => n ? '€ ' + Math.round(n).toLocaleString('en') : '—';
+      const fmtH   = (n) => n ? Math.round(n * 10) / 10 + ' h' : '—';
+      const fmtDate = (s) => s && s.length >= 6 ? s.slice(0, 4) + '/' + s.slice(4, 6) : '—';
+      const stageColor = (p) => ({ Committed: '#2e7d32', Anticipated: '#ef6c00' }[p] || '#6b7280');
+      const stageBg    = (p) => ({ Committed: '#e8f5e9', Anticipated: '#fff3e0' }[p] || '#f5f5f5');
+      const escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const col = 'text-align:right;padding:5px 8px;font-size:.78rem;white-space:nowrap;min-width:80px';
+      const lbl = 'padding:5px 10px;font-size:.78rem;white-space:nowrap';
+      const monthCols = d.months.map(mo =>
+        `<th style="${col};font-weight:700;border-bottom:2px solid #dee2e6">${fmtM(mo)}</th>`
+      ).join('');
+      const totalCols = d.months.map(mo => {
+        const t = d.totals[mo] || {};
+        return `<td style="${col};font-weight:700">${fmtAmt(t.amount)}<br><span style="font-size:.7rem;color:#6b7280">${fmtH(t.hours)}</span></td>`;
+      }).join('');
+      const totalRow = `<tr style="background:#f8f9fa;border-top:2px solid #dee2e6">
+        <td style="${lbl};font-weight:700;min-width:220px">TOTAL</td>
+        <td style="${lbl}"></td><td style="${lbl}"></td><td style="${lbl}"></td>
+        ${totalCols}</tr>`;
+      const projectRows = d.projects.map(p => {
+        const rowTotal = d.months.reduce((s, mo) => s + (p.months[mo]?.amount || 0), 0);
+        const rowHours = d.months.reduce((s, mo) => s + (p.months[mo]?.hours  || 0), 0);
+        const moCols = d.months.map(mo => {
+          const val = p.months[mo] || {};
+          return `<td style="${col}">${val.amount ? fmtAmt(val.amount) : '<span style="color:#ccc">—</span>'}<br><span style="font-size:.7rem;color:#6b7280">${val.hours ? fmtH(val.hours) : ''}</span></td>`;
+        }).join('');
+        return `<tr style="cursor:pointer;border-top:1px solid #e5e7eb" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
+          <td style="${lbl};font-weight:600;min-width:220px"><span style="font-size:.7rem;color:#888;margin-right:4px">▶</span>${escHtml(p.name)}<span style="font-size:.7rem;color:#888;display:block;padding-left:14px">${escHtml(p.versionLabel)}</span></td>
+          <td style="${lbl}"><span style="display:inline-block;padding:1px 8px;border-radius:20px;font-size:.7rem;font-weight:600;background:${stageBg(p.pipeline)};color:${stageColor(p.pipeline)}">${escHtml(p.pipeline)}</span></td>
+          <td style="${lbl};font-size:.75rem;color:#6b7280">${fmtDate(p.startDate)}</td>
+          <td style="${lbl};font-size:.75rem;color:#6b7280">${fmtDate(p.endDate)}</td>
+          ${moCols}</tr>
+        <tr style="display:none;background:#fafbfc"><td colspan="${4 + d.months.length}" style="padding:6px 24px">
+          <div style="font-size:.75rem;color:#6b7280;display:flex;gap:2rem">
+            <span>Total budget: <strong>${fmtAmt(rowTotal)}</strong></span>
+            <span>Total hours: <strong>${fmtH(rowHours)}</strong></span>
+          </div></td></tr>`;
+      }).join('');
+      return `<table style="border-collapse:collapse;width:100%">
+        <thead><tr style="background:#f1f3f5">
+          <th style="${lbl};font-weight:700;min-width:220px;border-bottom:2px solid #dee2e6">Project</th>
+          <th style="${lbl};font-weight:700;border-bottom:2px solid #dee2e6">Stage</th>
+          <th style="${lbl};font-weight:700;border-bottom:2px solid #dee2e6">Start</th>
+          <th style="${lbl};font-weight:700;border-bottom:2px solid #dee2e6">End</th>
+          ${monthCols}
+        </tr></thead>
+        <tbody>${totalRow}${projectRows}</tbody></table>`;
+    },
   },
 
   async created() {
@@ -757,18 +920,20 @@ window.__cfgApp = Vue.createApp({
     async loadAll() {
       this.globalError = null;
       try {
-        const [clients, groups, programs, rolesRaw, pipelineYears] = await Promise.all([
+        const [clients, groups, programs, rolesRaw, pipelineYears, yearTotals] = await Promise.all([
           Api.clients.list(),
           Api.clientGroups.list(),
           Api.programs.list(),
           Api.roles.list(),
           Api.pipelineYears.list(),
+          Api.pots.yearTotals(),
         ]);
         this.clients  = clients;
         this.groups   = groups.map(g => ({ ...g, _assignPick: '', _assignLoading: false }));
         this.programs = programs;
         this.roles    = rolesRaw.map(r => ({ id: r.id, label: r.label, code: r.code, rate: r.hourly_rate || 0 }));
         this.pipelineYears = pipelineYears.map(py => ({ ...py, _toggling: false, _loading: false }));
+        this.yearTotals = yearTotals;
       } catch (e) {
         this.globalError = e.message || 'Failed to load configuration.';
       }
@@ -1093,6 +1258,10 @@ window.__cfgApp = Vue.createApp({
 
     backToPipelines() {
       this.activePipeline  = null;
+      this.phasingYear     = null;
+      this.phasingData     = null;
+      this.phasingLoading  = false;
+      this.phasingError    = null;
       this.pots            = [];
       this.pipelineSummary = [];
       this.potf.show       = false;
@@ -1109,6 +1278,7 @@ window.__cfgApp = Vue.createApp({
           targetLabel: pot.client_group_name || pot.client_name || '',
           year: pot.year,
           amount: pot.amount,
+          note: '',
           error: null, loading: false,
         };
       } else {
@@ -1116,7 +1286,7 @@ window.__cfgApp = Vue.createApp({
           show: true, id: null,
           targetType: 'client', targetId: '',
           targetLabel: '', year: this.activePipeline?.year || this.potsYear,
-          amount: '', error: null, loading: false,
+          amount: '', note: '', error: null, loading: false,
         };
       }
     },
@@ -1126,24 +1296,30 @@ window.__cfgApp = Vue.createApp({
       const amount = parseFloat(this.potf.amount);
       if (isNaN(amount) || amount < 0) { this.potf.error = 'Enter a valid amount (≥ 0).'; return; }
 
+      if (this.potf.id && !this.potf.note?.trim()) {
+        this.potf.error = 'Reason for change is required when updating a POT.';
+        return;
+      }
       this.potf.loading = true;
       try {
         if (this.potf.id) {
-          const updated = await Api.pots.update(this.potf.id, amount);
+          const updated = await Api.pots.update(this.potf.id, amount, this.potf.note.trim());
           const p = this.pots.find(p => p.id === this.potf.id);
-          if (p) p.amount = updated.amount;
+          if (p) { p.amount = updated.amount; p.achieved_total = p.achieved_total || 0; }
           // Clear cached history for this pot so it reloads fresh next time
           delete this.potHistory[this.potf.id];
         } else {
           if (!this.potf.targetId) { this.potf.error = 'Select a target.'; this.potf.loading = false; return; }
-          const body = {
-            year:   this.potf.year,
-            amount,
-            ...(this.potf.targetType === 'group'
-              ? { clientGroupId: this.potf.targetId }
-              : { clientId:      this.potf.targetId }),
-          };
-          const created = await Api.pots.create(body);
+          const specialLabels = { '__unassigned__': 'Unassigned / To be Identified', '__newbiz__': 'New Biz' };
+          const body = { year: this.potf.year, amount };
+          if (this.potf.targetType === 'group') {
+            body.clientGroupId = this.potf.targetId;
+          } else if (specialLabels[this.potf.targetId]) {
+            body.specialLabel = specialLabels[this.potf.targetId];
+          } else {
+            body.clientId = this.potf.targetId;
+          }
+          await Api.pots.create(body);
           // Re-fetch the list to get denormalized names
           this.pots = await Api.pots.list(this.activePipeline?.year || this.potsYear);
         }
@@ -1156,7 +1332,7 @@ window.__cfgApp = Vue.createApp({
     },
 
     async deletePot(pot) {
-      if (!confirm(`Delete POT target for "${pot.client_group_name || pot.client_name}" (${pot.year})?\n\nThis cannot be undone.`)) return;
+      if (!confirm(`Delete POT target for "${pot.special_label || pot.client_group_name || pot.client_name}" (${pot.year})?\n\nThis cannot be undone.`)) return;
       pot._loading = true;
       try {
         await Api.pots.delete(pot.id);
@@ -1166,6 +1342,25 @@ window.__cfgApp = Vue.createApp({
         this.globalError = e.message || 'Delete failed.';
         pot._loading = false;
       }
+    },
+
+    async openPhasingView(py) {
+      this.phasingYear     = py;
+      this.phasingData     = null;
+      this.phasingLoading  = true;
+      this.phasingError    = null;
+      this.pipelineSummary = [];
+      const [summary, phasing] = await Promise.allSettled([
+        Api.pots.pipelineSummary(py.year),
+        Api.reporting.phasing(py.year),
+      ]);
+      this.pipelineSummary = summary.status === 'fulfilled' ? summary.value : [];
+      if (phasing.status === 'fulfilled') {
+        this.phasingData = phasing.value;
+      } else {
+        this.phasingError = phasing.reason?.message || 'Failed to load phasing data.';
+      }
+      this.phasingLoading = false;
     },
 
     async loadPipelineSummary() {
@@ -1180,7 +1375,7 @@ window.__cfgApp = Vue.createApp({
     async openPotDetails(pot) {
       const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('potDetailsModal'));
       document.getElementById('potDetailsModalTitle').textContent =
-        pot.client_group_name || pot.client_name || 'POT Details';
+        pot.special_label || pot.client_group_name || pot.client_name || 'POT Details';
       document.getElementById('potDetailsModalBody').innerHTML =
         '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
       modal.show();
@@ -1198,8 +1393,9 @@ window.__cfgApp = Vue.createApp({
                 <td class="text-muted">${h.old_value != null ? this.fmtAmount(h.old_value) : '—'}</td>
                 <td class="text-muted px-1" style="font-size:1rem">→</td>
                 <td class="fw-semibold">${this.fmtAmount(h.new_value)}</td>
+                <td class="text-muted" style="max-width:220px">${esc(h.note || '—')}</td>
               </tr>`).join('')
-          : '<tr><td colspan="5" class="text-muted">No history yet.</td></tr>';
+          : '<tr><td colspan="6" class="text-muted">No history yet.</td></tr>';
         const proposalRows = d.proposals.length
           ? d.proposals.map(p => `
               <tr>
@@ -1216,7 +1412,7 @@ window.__cfgApp = Vue.createApp({
         document.getElementById('potDetailsModalBody').innerHTML = `
           <div class="mb-3">
             <span class="badge" style="background:#e8edff;color:#1a1a6e;font-size:.8rem;padding:5px 14px">
-              ${d.pot.client_group_id ? 'Group POT' : 'Client POT'}
+              ${d.pot.special_label ? 'General Target' : d.pot.client_group_id ? 'Group POT' : 'Client POT'}
             </span>
           </div>
           <div class="row g-3 mb-4">
@@ -1241,7 +1437,7 @@ window.__cfgApp = Vue.createApp({
           <div class="mb-4">
             <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin-bottom:.5rem">Change History</div>
             <table class="table table-sm" style="font-size:.82rem">
-              <thead><tr><th>Date</th><th>By</th><th colspan="3">Change</th></tr></thead>
+              <thead><tr><th>Date</th><th>By</th><th colspan="3">Change</th><th>Note</th></tr></thead>
               <tbody>${histRows}</tbody>
             </table>
           </div>

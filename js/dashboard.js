@@ -13,7 +13,7 @@ function populateProjectSelector() {
     const hasData = dataIdx.has(p.id);
     const o = document.createElement('option');
     o.value = p.id;
-    o.textContent = (p.name ? `${p.name} — ${p.id}` : p.id) + (hasData ? '' : '  ⚠ no data');
+    o.textContent = (p.name ? `${p.name} — ${p.code || p.id}` : (p.code || p.id)) + (hasData ? '' : '  ⚠ no data');
     sel.appendChild(o);
   });
 
@@ -34,10 +34,12 @@ function populateProjectSelector() {
 function selectProject(id) {
   selectedProjectId = id;
   const inDashboard = document.getElementById('mainContent').style.display !== 'none';
+  const proj    = id ? (config.projects || []).find(p => p.id === id) : null;
+  const canEdit = proj?.my_permission !== 'viewer';
   document.getElementById('btnAiAnalysis').style.display       = (id && inDashboard && hasAiKey()) ? 'inline-block' : 'none';
   document.getElementById('btnShareProject').style.display     = (id && inDashboard) ? 'inline-block' : 'none';
   document.getElementById('btnPlanningView').style.display     = (id && inDashboard) ? 'inline-block' : 'none';
-  document.getElementById('btnConfigureProject').style.display = (id && inDashboard) ? 'inline-block' : 'none';
+  document.getElementById('btnConfigureProject').style.display = (id && inDashboard && canEdit) ? 'inline-block' : 'none';
   const breadcrumb = document.getElementById('breadcrumbProjectName');
   if (breadcrumb) {
     const proj = (config.projects || []).find(p => p.id === id);
@@ -53,9 +55,9 @@ function selectProject(id) {
 
 // ── RENDER DASHBOARD ──────────────────────────────────────────────────────────
 function renderDashboard(projectId) {
-  const data = timesheetData.filter(r => r.projectId === projectId);
   const cfg  = cfgForProject(projectId);
   currentCfg = cfg;
+  const data = timesheetData.filter(r => r.projectId === projectId);
 
   document.getElementById('noConfigAlert').classList.toggle('d-none', !!cfg);
 

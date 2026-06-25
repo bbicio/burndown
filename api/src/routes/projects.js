@@ -43,10 +43,20 @@ router.get('/', requireAuth, async (req, res, next) => {
            WHERE rs.resource_type = 'project' AND rs.resource_id = p.id AND rs.user_id = $1
          ))`;
 
+    // my_permission: 'owner' for admins and owners; else the share permission; null if not shared
+    const myPermCol = isAdmin
+      ? `'owner'::text AS my_permission,`
+      : `CASE WHEN p.owner_id = $1 THEN 'owner'
+              ELSE (SELECT rs2.permission FROM resource_shares rs2
+                    WHERE rs2.resource_type = 'project' AND rs2.resource_id = p.id AND rs2.user_id = $1
+                    LIMIT 1)
+         END AS my_permission,`;
+
     const { rows } = await query(
-      `SELECT p.id, p.name, p.program_id, p.client_id, p.pipeline, p.status,
+      `SELECT p.id, p.code, p.name, p.program_id, p.client_id, p.pipeline, p.status,
               p.start_date, p.end_date, p.currency, p.cg_version_id, p.created_at,
               p.owner_id, p.phasing, p.ptc, p.planning, p.groups,
+              ${myPermCol}
               u.first_name || ' ' || u.last_name AS owner_name,
               c.name AS client_name,
               pr.name AS program_name,
@@ -99,14 +109,20 @@ router.get('/:id', requireAuth, async (req, res, next) => {
 // POST /api/projects
 router.post('/', requireAuth, async (req, res, next) => {
   try {
-    const { name, programId, clientId, startDate, endDate, currency, pipeline, status } = req.body;
+    const { id, name, code, programId, clientId, startDate, endDate, currency, pipeline, status, cgVersionId } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
 
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const safeClientId    = clientId    && uuidRe.test(clientId)    ? clientId    : null;
+    const safeCgVersionId = cgVersionId && uuidRe.test(cgVersionId) ? cgVersionId : null;
+
     const { rows } = await query(
-      `INSERT INTO projects (name, program_id, client_id, start_date, end_date, currency, pipeline, status, owner_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, name, owner_id, created_at`,
-      [name.trim(), programId || null, clientId || null, startDate || null,
-       endDate || null, currency || 'EUR', pipeline || null, status || null, req.user.id]
+      `INSERT INTO projects (id, code, name, program_id, client_id, start_date, end_date, currency, pipeline, status, cg_version_id, owner_id)
+       VALUES (COALESCE($1::uuid, uuid_generate_v4()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING id, code, name, owner_id, created_at`,
+      [id || null, code?.trim() || null, name.trim(), programId || null, safeClientId, startDate || null,
+       endDate || null, currency || 'EUR', pipeline || null, status || null,
+       safeCgVersionId, req.user.id]
     );
 
     // Register owner in resource_shares
@@ -126,10 +142,10 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const allowed = ['name', 'programId', 'clientId', 'startDate', 'endDate',
+    const allowed = ['name', 'code', 'programId', 'clientId', 'startDate', 'endDate',
                      'currency', 'pipeline', 'status', 'cgVersionId'];
     const map = {
-      name: 'name', programId: 'program_id', clientId: 'client_id',
+      name: 'name', code: 'code', programId: 'program_id', clientId: 'client_id',
       startDate: 'start_date', endDate: 'end_date', currency: 'currency',
       pipeline: 'pipeline', status: 'status', cgVersionId: 'cg_version_id'
     };
@@ -161,7 +177,7 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     const timesheets = await query(
-      'SELECT COUNT(*) FROM timesheets WHERE project_code = (SELECT name FROM projects WHERE id = $1)',
+      'SELECT COUNT(*) FROM timesheets WHERE project_code = (SELECT code FROM projects WHERE id = $1)',
       [req.params.id]
     );
     if (parseInt(timesheets.rows[0].count) > 0) {
@@ -208,8 +224,9 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
          (project_id, name, billable, completed, start_date, end_date,
           monthly_distribution, resources, sort_order)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [req.params.id, t.name, t.billable ?? true, t.completed ?? false,
-         t.startDate || null, t.endDate || null,
+        [req.params.id, (t.name || '').replace(/\s+/g, ' ').trim(), t.billable ?? true, t.completed ?? false,
+         t.startDate ? t.startDate.replace(/-/g, '').slice(0, 8) || null : null,
+         t.endDate   ? t.endDate.replace(/-/g, '').slice(0, 8)   || null : null,
          t.monthlyDistribution ? JSON.stringify(t.monthlyDistribution) : null,
          t.resources ? JSON.stringify(t.resources) : null, i]
       );
