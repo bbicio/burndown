@@ -651,3 +651,24 @@ After login, if the user has never accepted the current Terms & Conditions versi
 ### 17.3 Anonymization
 
 The right-to-erasure mechanism for this product is the anonymize action described in §16.4 — admin-performed, not self-service, and requires the account to be disabled first.
+
+---
+
+## 18. Sharing & Permissions
+
+### 18.1 Ownership
+
+The creator of a cost grid or project is its exclusive owner by default. Disabling a user does not remove their ownership; an admin can reassign it to another user.
+
+### 18.2 Share Modal
+
+Available from a cost grid's detail panel or a project's reporting view. Searches active, non-admin platform users by name or email (no free-text email invites — only existing accounts can be granted access). Grants Editor or Viewer access. Permission on an existing share can be changed at any time. Sharing sends the recipient a notification with a direct link to the shared resource.
+
+### 18.3 Viewer Enforcement
+
+| Surface | Hidden for viewers |
+|---|---|
+| Pipeline board (card + detail panel) | Edit, Clone, Delete |
+| Project Reporting (portfolio view) | Configure, Load Actuals |
+| Project Reporting (single-project view) | Configure |
+| Project Configuration form | Entire form becomes read-only (sticky banner, all inputs disabled, Save/action buttons hidden) |
