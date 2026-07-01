@@ -1176,10 +1176,10 @@ const SECTIONS = [
      expected:'Board and detail panel show updated data fetched fresh from API; no stale values from a previous session'},
     {id:'REG-13',scenario:'Hours not inflated by de-DE locale',
      steps:'Enter 22.25 planned hours in a month cell in project-config.html → save → reload → reopen',
-     expected:'Value shows 22.25, not 2225 — cfgParseHours uses parseFloat directly, bypassing cfgParseMoney which strips "." as thousands separator in the de-DE locale'},
+     expected:'Value shows 22.25, not 2225 — cfgParseHours (now in js/lib/cfg-parse.js) uses parseFloat directly, bypassing cfgParseMoney which strips "." as thousands separator in the de-DE locale. Covered by a vitest characterization test (js/lib/cfg-parse.test.js), separate from the auto badge below which denotes test-api.js coverage.'},
     {id:'REG-14',scenario:'Quarter-hour rounding on reforecast',
      steps:'Trigger Reforecast on a project that has fractional carry-over hours',
-     expected:'Generated future-month values are rounded to the nearest 0.25h (e.g. 10.125 → 10.25); no "10,12" display artefacts'},
+     expected:'Generated future-month values are rounded to the nearest 0.25h (e.g. 10.125 → 10.25) via roundToQuarterHour (js/lib/cfg-parse.js); no "10,12" display artefacts. Covered by a vitest characterization test (js/lib/cfg-parse.test.js), separate from the auto badge below which denotes test-api.js coverage.'},
   ]
 },
 ];
