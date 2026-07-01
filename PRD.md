@@ -101,12 +101,11 @@ A fixed right-side panel (860 px wide) with two scrollable columns.
 ### 4.5 Board Toolbar
 
 - **Pipeline year dropdown** (replaces the static "Pipeline" title) — shows the selected year and a caret; clicking opens a menu of all visible pipeline years. Switching year reloads the board via `?year=YYYY` URL param.
-- **+ New Cost Grid** button — opens the Cost Grid Editor with a blank grid (hidden for non-admins on inactive years)
-- **Roles** button — opens the Roles Registry modal (see §7.6)
+- **+ New Proposal** button — opens the Cost Grid Editor with a blank grid (hidden for non-admins on inactive years)
 
 ### 4.6 Pipeline Stages
 
-Six stages: `Draft` (private, only visible to creator) + `SIP` / `Expected` / `Anticipated` / `Committed` / `Canceled`. Draft offers are excluded from column totals and other users' boards.
+See §4.2 for the full list of stages and their meanings.
 
 ### 4.7 Pipeline Years
 
@@ -324,7 +323,7 @@ Simple registry: ID + name. Groups projects across the portfolio and reporting v
 
 ### 7.6 Roles Registry
 
-Accessed via the "Roles" button on the Pipeline board toolbar.
+Accessed via the "Roles" tab in **config.html** (Configuration), alongside Clients, Client Groups, and Programs.
 
 | Field | Notes |
 |---|---|
@@ -676,4 +675,4 @@ Available from a cost grid's detail panel or a project's reporting view. Searche
 | Pipeline board (card + detail panel) | Edit, Clone, Delete |
 | Project Reporting (portfolio view) | Configure, Load Actuals |
 | Project Reporting (single-project view) | Configure |
-| Project Configuration form | Entire form becomes read-only (sticky banner, all inputs disabled, Save/action buttons hidden) |
+| Project Configuration form | Entire form becomes read-only (sticky banner, all inputs disabled, Save/action/Reforecast buttons hidden) |
