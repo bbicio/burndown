@@ -845,7 +845,7 @@ async function cfgReforecast() {
     if (!pastYMs.has(ym)) newPhasing[ym]  = Math.round(newPhasing[ym] * 100) / 100;
   });
   Object.keys(newPlanning).forEach(ym => {
-    if (!pastYMs.has(ym)) newPlanning[ym] = Math.round(newPlanning[ym] * 4) / 4;
+    if (!pastYMs.has(ym)) newPlanning[ym] = roundToQuarterHour(newPlanning[ym]);
   });
 
   const pastSpendTotal = Object.values(taskActuals).reduce((s, ta) =>
@@ -927,21 +927,6 @@ function cfgParseMoney(str) {
     // en-US: ',' = thousands, '.' = decimal  →  '1,500.50' → 1500.50
     return parseFloat(digits.replace(/,/g, '')) || 0;
   }
-}
-
-function cfgFmtHours(n) {
-  if (!(n > 0)) return '';
-  // Snap to nearest quarter-hour (XLS actuals are always .00/.25/.50/.75)
-  const r = Math.round(n * 4) / 4;
-  // Always use "." as decimal — cfgParseHours must match this convention
-  return r % 1 === 0 ? String(r) : r.toFixed(2);
-}
-
-function cfgParseHours(str) {
-  // Hours are always formatted with "." as decimal (via cfgFmtHours / toFixed).
-  // Never run through cfgParseMoney — de-DE locale strips "." as thousands sep → "22.25" → 2225.
-  const s = String(str).trim().replace(/[^\d.]/g, '');
-  return parseFloat(s) || 0;
 }
 
 function cfgGridHTML(months, existing, cls, type = 'currency', pastReadonly = false) {
