@@ -127,6 +127,17 @@
                             @click="setStatus(u, 'active')">
                       Enable
                     </button>
+                    <!-- Anonymize — only for disabled, non-anonymized users -->
+                    <button v-if="u.status === 'disabled' && !u.email.startsWith('anon_')"
+                            class="btn btn-outline-danger btn-action ms-1"
+                            :disabled="!!u._loading"
+                            @click="confirmAnonymize(u)"
+                            title="Permanently replace personal data with anonymous values">
+                      🗑 Anonymize
+                    </button>
+                    <span v-if="u.email.startsWith('anon_')"
+                          class="badge ms-1"
+                          style="background:#f3f4f6;color:#6b7280;font-size:.7rem">anonymized</span>
                   </template>
                   <span v-else class="text-muted small">you</span>
                 </td>
@@ -147,6 +158,33 @@
         <div style="font-size:2rem">🔒</div>
         <p class="mt-2">Admin access required.</p>
         <a href="/" class="btn btn-outline-secondary btn-sm">Go to app</a>
+      </div>
+    </div>
+
+    <!-- ── TERMS & CONDITIONS ───────────────────────────────── -->
+    <div class="card mt-4" v-if="ready">
+      <div class="card-body p-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <div>
+            <h5 class="fw-bold mb-0">📄 Terms &amp; Conditions</h5>
+            <div class="text-muted mt-1" style="font-size:.82rem">
+              Current version: <strong>v{{ terms.version }}</strong>
+              <span v-if="terms.updatedAt"> · Last updated {{ fmtDate(terms.updatedAt) }}</span>
+              <span v-if="terms.updatedBy"> by {{ terms.updatedBy }}</span>
+            </div>
+          </div>
+          <div class="d-flex gap-2">
+            <a href="/terms.html" target="_blank" class="btn btn-outline-secondary btn-sm">👁 Preview</a>
+            <button class="btn btn-primary btn-sm" style="background:var(--brand-navy);border-color:var(--brand-navy)"
+                    @click="saveTerms(false)" :disabled="terms.saving">Save draft</button>
+            <button class="btn btn-warning btn-sm" @click="saveTerms(true)" :disabled="terms.saving">
+              🚀 Publish new version
+            </button>
+          </div>
+        </div>
+        <div v-if="terms.msg" class="alert alert-sm mb-3" :class="terms.msgOk ? 'alert-success' : 'alert-danger'" style="font-size:.85rem">{{ terms.msg }}</div>
+        <div class="text-muted mb-2" style="font-size:.78rem">Edit HTML content below. "Save draft" saves without bumping the version. "Publish new version" increments the version — all users will be asked to re-accept at next login.</div>
+        <textarea v-model="terms.content" class="form-control font-monospace" rows="18" style="font-size:.78rem;resize:vertical"></textarea>
       </div>
     </div>
 
@@ -207,7 +245,7 @@
       return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 </script>
-  <script src="js/core.js?v=1"></script>
+  <script src="js/core.js?v=2"></script>
   <script src="js/settings.js"></script>
   <script src="js/notifications.js"></script>
   <script src="js/nav.js?v=4"></script>
@@ -228,6 +266,7 @@
           ],
           globalError: null,
           invite: { firstName: '', lastName: '', email: '', role: 'user', loading: false, error: null, success: null },
+          terms: { version: 1, content: '', updatedAt: null, updatedBy: null, saving: false, msg: null, msgOk: true },
           _modal: null,
         };
       },
@@ -245,7 +284,7 @@
         if (!user) return;
         this.me = user;
         if (user.role !== 'admin') { this.accessDenied = true; return; }
-        await this.loadUsers();
+        await Promise.all([this.loadUsers(), this.loadTerms()]);
         this.ready = true;
       },
       mounted() {
@@ -331,6 +370,69 @@
             this.globalError = 'Network error.';
           } finally {
             user._loading = false;
+          }
+        },
+
+        confirmAnonymize(user) {
+          if (!confirm(
+            `Anonymize "${user.first_name} ${user.last_name}"?\n\n` +
+            `This will permanently replace their name and email with anonymous values.\n` +
+            `All proposals, projects, and cost grids they created will be preserved.\n\n` +
+            `This action cannot be undone.`
+          )) return;
+          this.anonymizeUser(user);
+        },
+
+        async anonymizeUser(user) {
+          user._loading = true;
+          this.globalError = null;
+          try {
+            const res = await fetch(`/api/users/${user.id}/anonymize`, {
+              method: 'POST', credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json' },
+            });
+            const d = await res.json();
+            if (!res.ok) { this.globalError = d.error || 'Anonymization failed'; return; }
+            await this.loadUsers();
+          } catch {
+            this.globalError = 'Network error.';
+          } finally {
+            user._loading = false;
+          }
+        },
+
+        async loadTerms() {
+          const res = await fetch('/api/app-settings/terms', { credentials: 'same-origin' });
+          const d = await res.json();
+          this.terms.version   = d.version;
+          this.terms.content   = d.content;
+          this.terms.updatedAt = d.updatedAt;
+          this.terms.updatedBy = d.updatedBy;
+        },
+
+        async saveTerms(publishNewVersion) {
+          this.terms.saving = true;
+          this.terms.msg    = null;
+          try {
+            const res = await fetch('/api/app-settings/terms', {
+              method: 'PUT',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content: this.terms.content, publishNewVersion }),
+            });
+            const d = await res.json();
+            if (!res.ok) { this.terms.msg = d.error || 'Save failed'; this.terms.msgOk = false; return; }
+            if (publishNewVersion && d.newVersion) this.terms.version = d.newVersion;
+            this.terms.updatedAt = new Date().toISOString();
+            this.terms.updatedBy = this.me.first_name + ' ' + this.me.last_name;
+            this.terms.msg   = publishNewVersion
+              ? `Published as v${this.terms.version} — all users will be asked to re-accept at next login.`
+              : 'Draft saved.';
+            this.terms.msgOk = true;
+          } catch {
+            this.terms.msg = 'Network error.'; this.terms.msgOk = false;
+          } finally {
+            this.terms.saving = false;
           }
         },
 

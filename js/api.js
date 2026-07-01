@@ -42,6 +42,7 @@ const Api = {
     me:             ()    => apiFetch('/auth/me'),
     logout:         ()    => apiFetch('/auth/logout', { method: 'POST' }),
     changePassword: (d)   => apiFetch('/auth/change-password', { method: 'POST', body: JSON.stringify(d) }),
+    updateProfile:  (d)   => apiFetch('/auth/profile', { method: 'PATCH', body: JSON.stringify(d) }),
   },
 
   users: {
@@ -115,6 +116,7 @@ const Api = {
       publish:    (cgId, vId)         => apiFetch(`/cost-grids/${cgId}/versions/${vId}/publish`,   { method: 'POST' }),
       structure:  (cgId, vId)         => apiFetch(`/cost-grids/${cgId}/versions/${vId}/structure`),
       saveStructure: (cgId, vId, d)   => apiFetch(`/cost-grids/${cgId}/versions/${vId}/structure`, { method: 'PUT', body: JSON.stringify(d) }),
+      refreshRate:   (cgId, vId)      => apiFetch(`/cost-grids/${cgId}/versions/${vId}/refresh-rate`, { method: 'POST' }),
       linkedProjects: {
         list:   (cgId, vId)           => apiFetch(`/cost-grids/${cgId}/versions/${vId}/linked-projects`),
         add:    (cgId, vId, d)        => apiFetch(`/cost-grids/${cgId}/versions/${vId}/linked-projects`, { method: 'POST', body: JSON.stringify(d) }),
@@ -170,11 +172,20 @@ const Api = {
     yearTotals:      ()           => apiFetch('/pots/year-totals'),
   },
 
+  currencies: {
+    active:     ()           => apiFetch('/currencies/active'),
+    list:       ()           => apiFetch('/currencies'),
+    activate:   (code, rate) => apiFetch(`/currencies/${encodeURIComponent(code)}/activate`, { method: 'POST',  body: JSON.stringify({ rate }) }),
+    updateRate: (code, rate) => apiFetch(`/currencies/${encodeURIComponent(code)}/rate`,     { method: 'PATCH', body: JSON.stringify({ rate }) }),
+    history:    (code)       => apiFetch(`/currencies/${encodeURIComponent(code)}/history`),
+  },
+
   reporting: {
     pipeline:  ()           => apiFetch('/reporting/pipeline'),
     portfolio: ()           => apiFetch('/reporting/portfolio'),
     project:   (id)         => apiFetch(`/reporting/projects/${id}`),
     planning:  ()           => apiFetch('/reporting/planning'),
-    phasing:   (year)       => apiFetch(`/reporting/phasing?year=${encodeURIComponent(year)}`),
+    phasing:        (year) => apiFetch(`/reporting/phasing?year=${encodeURIComponent(year)}`),
+    projectPhasing: (year) => apiFetch(`/reporting/project-phasing?year=${encodeURIComponent(year)}`),
   },
 };

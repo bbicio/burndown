@@ -1,6 +1,6 @@
 # PDash — Test Cases
 
-**Updated:** 2026-06-25 (rev 4)  
+**Updated:** 2026-06-30 (rev 7)  
 **Coverage scope:** All authenticated pages + API routes. Manual execution unless noted.
 
 > **Auto** = covered by `docker compose --profile test run --rm test` (test-api.js).  
@@ -80,6 +80,10 @@
 | P-33 | Delete Draft — confirmation | Click `🗑 Delete` on a Draft version in the panel | Confirm modal appears before any deletion | |
 | P-34 | Delete Draft — only version blocked | Click `🗑 Delete` on a Draft that is the only version of its cost grid | Alert shown: "Cannot delete the only version"; no deletion occurs | |
 | P-35 | Delete Draft — from panel success | Confirm deletion of a Draft version that has siblings | Version deleted via API; panel closes; board re-renders without that version | |
+| P-36 | Pipeline stage badge on card | View a card for a Committed proposal | Card shows a "Committed" stage badge (green), not the project status "Started" | |
+| P-37 | POT visible to non-owner user | User A has Committed proposal for a client; User B (who can't see User A's proposal) opens any proposal for the same client | POT section shows full committed+anticipated total including User A's proposal; not 0 | |
+| P-38 | Detail panel closes on click outside | Open a detail panel; click anywhere on the pipeline board outside the `#pbDetailPanel` element | Panel closes; `_pbOutsideClickHandler` fires on `mousedown` outside the panel area | |
+| P-39 | Task list in linked-project chips — detail panel (R5) | Open detail panel for a cost grid whose linked project has assigned tasks | Each linked-project chip in the left column shows the assigned task names from `lp.taskNames` | |
 
 ---
 
@@ -114,6 +118,13 @@
 | CG-25 | Delete Draft button — visible for Draft | Open a Draft version in the editor | `🗑 Delete version` button visible in the toolbar (red outline style) | |
 | CG-26 | Delete Draft — only version blocked | Click `🗑 Delete version` on a Draft that is the only version of its cost grid | Alert shown: "Cannot delete the only version"; no deletion; user stays in editor | |
 | CG-27 | Delete Draft — from editor success | Confirm deletion of a Draft version that has sibling versions | Version removed; user redirected to `pipeline.html`; board no longer shows the deleted version | |
+| CG-28 | Compact header toggle | Open cost grid editor; click ⊟ in the "Phase / Task" header cell | Header row collapses to 10px font, reduced padding; move/change/dup/remove role buttons hidden; button changes to ⊞; state persists after page reload | |
+| CG-29 | Assigned tasks have no ✕ button (R1) | Open a cost grid where some tasks are already assigned to a linked project; inspect task rows in the editor | Tasks with an assignment have no ✕ (remove) button; unassigned tasks retain the ✕ | |
+| CG-30 | Add to project modal — singleton (R2) | Open the "Add to project" modal on a cost grid; dismiss it; reopen it | Modal is created once and appended to `document.body` (z-index:10500); reopening reuses the same element; no duplicate modals appear in the DOM | |
+| CG-31 | Task assignment persists across reload (R3/R4) | Assign one or more tasks to a linked project via the "Add to project" modal; save; reload the page | Assigned task names are still shown as assigned after reload; `task_names_direct` column in DB holds the names | |
+| CG-32 | Generate Project button hidden when all tasks assigned (R4) | Assign all editor tasks to an existing linked project | "Generate Project" button is hidden; all tasks are already mapped so no new project is needed | |
+| CG-33 | Task list shown in linked-project chips — editor (R5) | Open a cost grid with tasks assigned to a linked project; inspect the linked-project chip in the editor | Chip lists the assigned task names below the project name | |
+| CG-34 | project-config.html — no empty load after navigation | Navigate to `project-config.html?projectId=<id>` immediately after leaving portfolio | Form loads with all fields populated; if `config.projects` is empty on first attempt the page retries `loadConfigFromApi()` once after 600ms and succeeds | |
 
 ---
 
@@ -145,6 +156,8 @@
 | PC-06 | Phasing | Edit monthly phasing amounts → save | Burndown chart on portfolio shows updated curve | |
 | PC-07 | Planning | Edit monthly planning hours → save | Resource planning page reflects updated hours | |
 | PC-08 | Functional groups | Add group with roles → save | Group persisted; visible on next form load | |
+| PC-09 | Status change persists | Open project config; change Status dropdown from "Started" to "Put on hold" → Save | DB `status` column updated; reopening form shows new status; no FK constraint error from currency symbol | |
+| PC-10 | Currency round-trip | Project has currency "€" in form; save; reload | Form still shows "€"; DB stores "EUR"; PATCH does not fail with FK violation | |
 
 ---
 
@@ -157,6 +170,16 @@
 | PL-03 | Group by project | Select "By Project" | Rows grouped under project names | |
 | PL-04 | Date navigation | Click next/previous period | Columns shift by configured granularity; data updates | |
 | PL-05 | Export XLS | Click Export XLS | .xlsx downloaded with resource planning data for visible range | |
+
+---
+
+## 8. Configuration (`config.html`) — Roles
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| RL-01 | Role rate override — per-currency | Set a USD hourly rate on a role via the role edit form → save | `rate_overrides` saved to DB; `GET /api/roles` returns the `rate_overrides` field; reopening the form shows the saved USD value | ✓ |
+| RL-02 | Role rate override used in non-EUR proposal | Create a USD proposal; open the cost grid editor; add the role with a USD rate override | Role column shows the `rateOverrides.USD` value, not EUR rate × USD factor | |
+| RL-03 | Role rate override fallback chain | Open a USD proposal with no ratecard; add a role that has no USD override | Role rate falls back to EUR rate × currency factor (last fallback); not to zero or an error | |
 
 ---
 
@@ -179,6 +202,8 @@
 | CF-13 | Ratecard API — create global (admin) | POST /api/ratecards (clientId=null) as admin | 201, id in response | ✓ |
 | CF-14 | Ratecard API — create per client (admin) | POST /api/ratecards with clientId as admin | 201, client_id matches | ✓ |
 | CF-15 | Ratecard API — get by id (requireAuth) | GET /api/ratecards/:id as any logged-in user | 200, correct ratecard returned — accessible to all authenticated users | ✓ |
+| CF-16 | Ratecard multi-currency — USD column visible | Open client ratecard modal when USD is an active currency | USD column rendered alongside EUR; no filter bug from missing `active` field on `/active` endpoint response |  |
+| CF-17 | Ratecard multi-currency — agency placeholder | Open client ratecard modal for a role that has a USD rate override | USD placeholder shows `"140 (agency)"` (role.rateOverrides.USD); not generic placeholder text | |
 
 ---
 
@@ -235,13 +260,22 @@
 | PP-18 | Edit POT amount | Click ✏️ Edit → change amount → Update | Amount updated; history entry created | ✓ |
 | PP-19 | Delete POT | Click 🗑 → confirm | POT removed | |
 | PP-20 | No year dropdown in form | Open + New POT form inside a pipeline year | Form shows "Pipeline YYYY" — no year picker in form | |
-| PP-21 | View Details modal opens | Click 🔍 View Details on a POT row | Modal opens with: POT type badge (Individual/Group), Target card (current pot.amount), Current card (sum of Committed professional fees) | ✓ |
+| PP-21 | View Details modal opens | Click 🔍 View Details on a POT row | Modal opens with: POT type badge, four KPI cards: Target / Total (C+A) / Committed / Anticipated — each with color-coded border and % of target | ✓ |
 | PP-22 | View Details — history section | Open modal for a POT edited at least once | History list shows entries newest-first: date, author, old value → new value with arrow | ✓ |
 | PP-23 | View Details — history creation entry | Open modal for a newly created POT (never edited) | History shows one entry with old value = — and new value = initial amount | |
 | PP-24 | View Details — proposals list | Open modal for a POT with linked proposals | List shows all proposals in scoped client/group + year; Canceled included; Draft excluded | |
 | PP-25 | View Details — proposal link | Click ↗ Open on a proposal row | Navigates to `/costgrid.html?cgId=...&verId=...` for that proposal (opens in new tab) | |
-| PP-26 | View Details — Current card calculation | POT with Committed proposals | Current card value = Σ professional fees (days×8×rate) of Committed proposals only; no PTC | ✓ |
+| PP-26 | View Details — Committed card calculation | POT with Committed proposals | Committed card value = Σ professional fees (EUR-normalised) of Committed proposals only; no PTC; Anticipated card shows Anticipated proposals only; Total = Committed + Anticipated | ✓ |
 | PP-27 | View Details — no proposals | Open modal for POT with no scoped proposals | Proposals section shows empty state message | |
+| PP-36 | POT section — proposal without linked project | Create a proposal with `clientId` set but no linked project; open the detail panel | POT section is shown (uses `v.clientId` as fallback — no linked project required) | |
+| PP-37 | POT totalBudget — Committed+Anticipated only | Pipeline board with a SIP and a Committed proposal for the same client | POT progress bar totalBudget uses only Committed+Anticipated; SIP amount not included | |
+| PP-38 | POT totalBudget — EUR conversion | Non-EUR (USD) Committed proposal; open detail panel | POT section shows EUR-equivalent value (converted via `b?.currencyRate`), not raw USD amount | |
+| PP-39 | Phasing — Canceled/Draft excluded | Open "Proposal Phasing" view in config.html | Canceled and Draft proposals not shown in the table regardless of stage filter applied | |
+| PP-40 | Phasing — non-EUR EUR equivalent | Non-EUR proposal in Phasing view | Monthly cells show local amount on first line and EUR equivalent in parentheses below; Total column also shows EUR equivalent | |
+| PP-41 | POT split — proposal preview panel | Open detail panel for a CG with a POT; client has both Committed and Anticipated proposals | POT section shows: "X% total" label + dual-segment progress bar (green=Committed, orange=Anticipated); three rows below bar: Total (C+A) with color, Committed in green, Anticipated in orange (only if > 0) | |
+| PP-42 | POT split — config.html POT list | Open Config → Pipelines & POTs → POT list for a year with proposals | Table shows three columns: "Total (C+A)" / "Committed" / "Anticipated" — all as EUR amounts; no single "Achievement" column | |
+| PP-43 | POT split — year overview row | Pipeline list for year with POTs | Achievement cell shows total% + C+A amount on first line; secondary line shows "C: €X · A: €Y" in green/orange | |
+| PP-44 | POT split — detail modal four cards | View Details modal for POT with Committed + Anticipated proposals | Four KPI cards rendered: Target (grey border) / Total C+A (dark border, total%) / Committed (green border, C%) / Anticipated (orange border, A%); no single "Current (Committed)" card | |
 
 ---
 
@@ -260,10 +294,36 @@
 | AD-09 | Pipeline years absent | Open admin.html | No pipeline years section — managed in config.html | |
 | AD-10 | Data Migration button absent | Open admin.html | No "↑ Data Migration" button — migration.html is no longer linked from the UI | |
 | AD-11 | Rate Cards button absent | Open admin.html | No "💲 Rate Cards" button — rate card management moved to Config → Clients | |
+| AD-12 | Anonymize button — only on disabled non-anonymized | View a disabled user row that has a real email | "🗑 Anonymize" button visible; "anonymized" badge absent | |
+| AD-13 | Anonymize button — hidden on active user | View an active user row | "🗑 Anonymize" button not shown | |
+| AD-14 | Anonymize — confirm dialog | Click "🗑 Anonymize" on a disabled user | Browser confirm dialog appears explaining what data will be replaced and that operational records are preserved | |
+| AD-15 | Anonymize — result | Confirm anonymization | User row shows email `anon_<uuid>@deleted.local`; name "[Deleted] User"; "anonymized" badge shown; no Anonymize button | |
+| AD-16 | Anonymize — operational data intact | Anonymize a user who owned cost grids | Cost grids still appear on pipeline board; proposals not deleted | |
+| AD-17 | Anonymize — cannot anonymize self | API call `POST /api/users/<own-id>/anonymize` | 400 "You cannot anonymize your own account" | |
+| AD-18 | T&C editor visible to admin | Open admin.html → scroll to Terms & Conditions section | Version number, last updated info, textarea with HTML content, Save draft + Publish buttons visible | |
+| AD-19 | Save T&C draft | Edit T&C textarea → click Save draft | Content saved; version number unchanged; existing users not re-prompted | |
+| AD-20 | Publish new T&C version | Click Publish new version | Version number incremented; next login for every user shows terms.html before continuing | |
 
 ---
 
-## 12. Timesheets
+## 12. GDPR Features
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| GD-01 | T&C gate — first login | Log in as a user who has never accepted T&C | After navbar loads, redirected to `/terms.html?next=/pipeline.html` | |
+| GD-02 | T&C gate — after version bump | Admin publishes new T&C version; user logs in | Existing users redirected to terms.html on next page load | |
+| GD-03 | T&C page — button starts disabled | Open `/terms.html` | "Continue to PDash" button is greyed out and disabled | |
+| GD-04 | T&C page — checkbox enables button | Tick "I have read and understood" checkbox | Button becomes active | |
+| GD-05 | T&C page — accept and redirect | Tick checkbox → click Continue | POST /api/auth/accept-terms; redirect to original `?next` destination | |
+| GD-06 | T&C page — no redirect loop | Already accepted; open any page | No redirect to terms.html; page loads normally | |
+| GD-07 | Profile update — open modal | Account dropdown → 👤 My Profile | Modal opens with first name, last name, email pre-filled from session | |
+| GD-08 | Profile update — save valid | Change first name → Save | PATCH /api/auth/profile succeeds; navbar name updates immediately | |
+| GD-09 | Profile update — invalid email | Enter "notanemail" in email field → Save | 400 error shown inline; profile not saved | |
+| GD-10 | Profile update — duplicate email | Enter email already used by another user → Save | 409 "Email already in use" shown inline | |
+
+---
+
+## 13. Timesheets <!-- was 12 -->
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
@@ -353,6 +413,14 @@ Admin-only hidden page for bulk data deletion by scope.
 | DR-05 | Unknown scope | POST `/api/admin/reset/nonexistent` | 400 "Unknown scope" | |
 | DR-06 | Non-admin API call | POST `/api/admin/reset/proposals` as role=user | 403 | |
 | DR-07 | Reset notifications | Click Reset → Notifications → confirm | `notifications` table emptied for all users; bell badge clears on reload | |
+| DR-08 | Delete single proposal widget — admin only | Navigate to `/_db-reset.html` as non-admin | Widget is not rendered until admin check passes; entering a UUID and clicking delete is impossible for non-admins | |
+| DR-09 | Delete single proposal widget — confirmation | Enter a valid cost grid UUID in the "Delete single proposal" widget; click Delete | Confirmation prompt appears before deletion | |
+| DR-10 | Delete single proposal widget — cascade | Confirm deletion of a cost grid that has linked projects and resource shares | Cost grid, all versions, linked projects, and resource_shares deleted in a transaction; board no longer shows the grid | |
+| DR-11 | Delete single proposal widget — unknown UUID | Enter a random UUID that does not exist in the DB | API returns 404; error message shown in widget; no data changed | |
+| DR-12 | Change owner widget — admin only | Navigate to `/_db-reset.html` as non-admin | Widget is hidden; `GET /api/auth/me` admin check gates visibility | |
+| DR-13 | Change owner widget — dropdown populated | Open `/_db-reset.html` as admin; inspect the "Change proposal owner" widget | Dropdown lists all active non-admin users fetched from `GET /api/users/active-list` | |
+| DR-14 | Change owner widget — success | Enter a valid cost grid UUID; select a user from dropdown; click Assign | `owner_id` updated in DB; success message shown in widget | |
+| DR-15 | Change owner widget — unknown UUID | Enter a UUID that does not match any cost grid; click Assign | API returns 404; error message shown; no change made | |
 | SEC-09 | JWT cookie not accessible from JavaScript (`document.cookie`) | `pdash_token` value not listed — httpOnly flag prevents JS access | |
 | SEC-10 | Non-admin can read ratecards | Log in as `user` role; GET /api/ratecards and GET /api/ratecards/:id | 200 — read access is requireAuth; POST/PATCH/DELETE still return 403 (unauthenticated write → 401 checked in auto suite) | |
 

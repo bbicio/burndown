@@ -232,6 +232,45 @@ async function testClientGroups() {
   }
 }
 
+// ── Roles ─────────────────────────────────────────────────────────────────────
+
+async function testRoles() {
+  section('Roles');
+
+  // List — verify rate_overrides field is returned
+  const r1 = await api('GET', '/api/roles', null, adminCookie);
+  ok(r1.status === 200 && Array.isArray(r1.data), 'RL-01 GET /roles → 200 array');
+
+  if (!Array.isArray(r1.data) || r1.data.length === 0) {
+    ok(true, 'RL-01 rate_overrides field present — skipped (no roles in system)');
+    ok(true, 'RL-01 PATCH rateOverrides saved and returned — skipped (no roles in system)');
+    return;
+  }
+
+  // Verify GET returns rate_overrides on each role
+  ok(r1.data.every(r => 'rate_overrides' in r || r.rate_overrides !== undefined || Object.prototype.hasOwnProperty.call(r, 'rate_overrides')),
+    'RL-01 GET /roles: every role has rate_overrides field');
+
+  // PATCH a role with rateOverrides — use first available role
+  const role = r1.data[0];
+  const testOverrides = { USD: 200, GBP: 180 };
+  const r2 = await api('PATCH', `/api/roles/${role.id}`, { rateOverrides: testOverrides }, adminCookie);
+  ok(r2.status === 200, 'RL-01 PATCH /roles/:id with rateOverrides → 200');
+
+  // Verify GET returns the saved overrides
+  const r3 = await api('GET', '/api/roles', null, adminCookie);
+  const updated = Array.isArray(r3.data) ? r3.data.find(r => r.id === role.id) : null;
+  ok(updated !== null, 'RL-01 updated role found in GET /roles after PATCH');
+  ok(
+    updated && Number(updated.rate_overrides?.USD) === 200 && Number(updated.rate_overrides?.GBP) === 180,
+    'RL-01 rate_overrides.USD and GBP saved correctly and returned by GET /roles'
+  );
+
+  // Restore original overrides (clean up — set back to original or empty)
+  const origOverrides = role.rate_overrides || {};
+  await api('PATCH', `/api/roles/${role.id}`, { rateOverrides: origOverrides }, adminCookie);
+}
+
 // ── Ratecards ─────────────────────────────────────────────────────────────────
 
 async function testRatecards() {
@@ -414,6 +453,108 @@ async function testUsers() {
   ok(Array.isArray(r1.data) && r1.data.some(u => u.email === EMAIL), 'AD-01 test admin in user list');
 }
 
+// ── Admin Reset — single proposal ─────────────────────────────────────────────
+
+const TEST_YEAR_C = 2097;   // dedicated year for admin-reset tests
+
+async function testAdminResetProposal() {
+  section('Admin Reset — Single Proposal');
+
+  const FAKE_UUID = '00000000-0000-0000-0000-000000000000';
+
+  // Setup: pipeline year + cost grid to delete
+  const rpy = await api('POST', '/api/pipeline-years', { year: TEST_YEAR_C }, adminCookie);
+  const pyId = rpy.data?.id;
+  if (pyId) later('DELETE', `/api/pipeline-years/${pyId}`);
+
+  let cgId = null;
+  if (pyId) {
+    const rcg = await api('POST', '/api/cost-grids',
+      { name: '__test_reset_cg__', pipelineYear: TEST_YEAR_C }, adminCookie);
+    ok(rcg.status === 201, 'DR-10 POST cost grid for deletion test → 201');
+    cgId = rcg.data?.id;
+  } else {
+    ok(false, 'DR-10 POST cost grid for deletion test → skipped (pipeline year creation failed)');
+  }
+
+  // Unauthenticated → 401
+  ok((await api('POST', `/api/admin/reset/cost-grid/${FAKE_UUID}`)).status === 401,
+    'DR-10 POST /api/admin/reset/cost-grid without auth → 401');
+
+  // Unknown UUID → 404
+  ok((await api('POST', `/api/admin/reset/cost-grid/${FAKE_UUID}`, null, adminCookie)).status === 404,
+    'DR-11 POST /api/admin/reset/cost-grid with unknown UUID → 404');
+
+  // Delete the real cost grid
+  if (cgId) {
+    const rdel = await api('POST', `/api/admin/reset/cost-grid/${cgId}`, null, adminCookie);
+    ok(rdel.status === 200, 'DR-10 POST /api/admin/reset/cost-grid/:cgId → 200');
+    ok(rdel.data?.ok === true, 'DR-10 response.ok is true');
+    // Verify it is gone
+    const rcheck = await api('POST', `/api/admin/reset/cost-grid/${cgId}`, null, adminCookie);
+    ok(rcheck.status === 404, 'DR-10 second delete of same cgId → 404 (already deleted)');
+  }
+}
+
+// ── Admin Reset — change owner ─────────────────────────────────────────────────
+
+async function testAdminChangeOwner() {
+  section('Admin Reset — Change Proposal Owner');
+
+  const FAKE_UUID = '00000000-0000-0000-0000-000000000000';
+
+  // Need the admin user's own id for the owner reassignment
+  const me = await api('GET', '/api/auth/me', null, adminCookie);
+  const adminId = me.data?.id;
+
+  // Setup: reuse TEST_YEAR_C (already created by testAdminResetProposal; skip if 409)
+  const rpy2 = await api('POST', '/api/pipeline-years', { year: TEST_YEAR_C }, adminCookie);
+  const pyId2 = rpy2.data?.id;
+  if (pyId2) later('DELETE', `/api/pipeline-years/${pyId2}`);
+  const havePy = [201, 409].includes(rpy2.status);   // 409 = year exists from previous test
+
+  let cgId = null;
+  if (havePy) {
+    const rcg = await api('POST', '/api/cost-grids',
+      { name: '__test_owner_cg__', pipelineYear: TEST_YEAR_C }, adminCookie);
+    ok(rcg.status === 201, 'DR-14 POST cost grid for owner change test → 201');
+    cgId = rcg.data?.id;
+    if (cgId) later('DELETE', `/api/cost-grids/${cgId}`);
+  } else {
+    ok(false, 'DR-14 POST cost grid for owner change test → skipped (pipeline year unavailable)');
+  }
+
+  // Unauthenticated → 401
+  ok((await api('PATCH', `/api/admin/reset/cost-grid/${FAKE_UUID}/owner`, { ownerId: FAKE_UUID })).status === 401,
+    'DR-14 PATCH /api/admin/reset/cost-grid/.../owner without auth → 401');
+
+  // Missing ownerId → 400
+  if (cgId) {
+    ok((await api('PATCH', `/api/admin/reset/cost-grid/${cgId}/owner`, {}, adminCookie)).status === 400,
+      'DR-14 PATCH with missing ownerId → 400');
+  }
+
+  // Unknown cgId → 404
+  ok((await api('PATCH', `/api/admin/reset/cost-grid/${FAKE_UUID}/owner`,
+    { ownerId: adminId || FAKE_UUID }, adminCookie)).status === 404,
+    'DR-15 PATCH with unknown cgId → 404');
+
+  // Unknown ownerId → 404
+  if (cgId) {
+    ok((await api('PATCH', `/api/admin/reset/cost-grid/${cgId}/owner`,
+      { ownerId: FAKE_UUID }, adminCookie)).status === 404,
+      'DR-15 PATCH with unknown ownerId → 404');
+  }
+
+  // Valid reassignment → 200
+  if (cgId && adminId) {
+    const r = await api('PATCH', `/api/admin/reset/cost-grid/${cgId}/owner`,
+      { ownerId: adminId }, adminCookie);
+    ok(r.status === 200, 'DR-14 PATCH /api/admin/reset/cost-grid/:cgId/owner → 200');
+    ok(r.data?.ok === true, 'DR-14 response.ok is true');
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -430,10 +571,13 @@ async function main() {
     await testPipelineYears();
     await testClients();
     await testClientGroups();
+    await testRoles();
     await testRatecards();
     await testPots();
     await testCostGridBudgets();
     await testUsers();
+    await testAdminResetProposal();
+    await testAdminChangeOwner();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
     console.error(e.stack);

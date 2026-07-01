@@ -11,16 +11,10 @@
 
 // ── COST GRIDS ────────────────────────────────────────────────────────────────
 
-// Map ISO currency codes (DB) ↔ display symbols (frontend).
-const _CG_DB_TO_SYM  = { EUR: '€', USD: '$', GBP: '£', CHF: 'CHF' };
-const _CG_SYM_TO_DB  = { '€': 'EUR', '$': 'USD', '£': 'GBP', CHF: 'CHF' };
-function _cgCurrencyFromDb(raw) {
-  const trimmed = (raw || '').trim();
-  return _CG_DB_TO_SYM[trimmed] || trimmed || '€';
-}
-function _cgCurrencyToDb(sym) {
-  return _CG_SYM_TO_DB[sym] || sym || 'EUR';
-}
+// Currency is stored as ISO code ('EUR', 'USD') both in DB and in memory.
+// These shims are kept so any lingering callers don't break.
+function _cgCurrencyFromDb(raw) { return (raw || 'EUR').trim(); }
+function _cgCurrencyToDb(code)  { return (code || 'EUR').trim(); }
 
 // Normalise a server version object into the frontend in-memory shape.
 // Server uses { id, label, ... }; frontend uses { versionId, versionLabel, ... }.
@@ -33,6 +27,7 @@ function _cgApiVersionToLocal(v) {
     startDate:      v.startDate    || v.start_date   || '',
     endDate:        v.endDate      || v.end_date     || '',
     currency:       _cgCurrencyFromDb(v.currency),
+    currencyRate:   parseFloat(v.currency_rate) || 1.0,
     note:           v.note        || '',
     createdAt:      v.createdAt   || v.created_at   || new Date().toISOString(),
     status:         v.locked ? 'committed' : (v.status || 'draft'),
@@ -42,6 +37,8 @@ function _cgApiVersionToLocal(v) {
     linkedProjects: (v.linkedProjects || []).map(lp => ({
       projectId:   lp.projectId   || lp.project_id   || '',
       projectName: lp.projectName || lp.project_name || '',
+      taskIds:     lp.taskIds     || lp.task_ids      || [],
+      taskNames:   lp.taskNames   || lp.task_names    || [],
     })),
     // phases and roles come from the /structure endpoint, not the list endpoint
     roles:  v.roles  || [],
@@ -68,6 +65,17 @@ async function cgSyncFromApi(year) {
     }
   } catch (e) {
     console.warn('[sync] cgSyncFromApi:', e.message);
+  }
+}
+
+// Fetch active currencies from API and cache in window.__currencies.
+// Call this once per page load before any money formatting.
+async function loadCurrenciesFromApi() {
+  try {
+    window.__currencies = await Api.currencies.active();
+  } catch (e) {
+    console.warn('[sync] loadCurrenciesFromApi:', e.message);
+    if (!window.__currencies) window.__currencies = [{ code: 'EUR', symbol: '€', locale: 'it-IT', current_rate: 1.0 }];
   }
 }
 
@@ -159,7 +167,8 @@ async function _cgUpsertVersionToApi(cgId, versionId) {
     pipeline:       meta.pipeline    || null,
     startDate:      meta.startDate   || null,
     endDate:        meta.endDate     || null,
-    currency:       _cgCurrencyToDb(meta.currency),
+    currency:       meta.currency || 'EUR',
+    currencyRate:   parseFloat((window.__currencies || []).find(cu => cu.code === (meta.currency || 'EUR'))?.current_rate) || 1.0,
     note:           meta.note        || '',
     status:         meta.status      || 'draft',
     projectName:    meta.projectName || '',
@@ -211,7 +220,7 @@ function _apiProjectToLocal(p) {
     clientId:   p.clientId     || p.client_id   || '',
     startDate:  p.startDate    || p.start_date  || '',
     endDate:    p.endDate      || p.end_date    || '',
-    currency:   _cgCurrencyFromDb(p.currency),
+    currency:   ({ EUR: '€', USD: '$', GBP: '£' }[p.currency] || p.currency || '€'),
     pipeline:   p.pipeline     || '',
     status:     p.status       || '',
     tasks:      Array.isArray(p.tasks) ? p.tasks : [],
@@ -242,8 +251,12 @@ async function _pushProjectToApi(project) {
   // Carry the cost-grid version link into the API payload
   if (costGridRef?.versionId) meta.cgVersionId = costGridRef.versionId;
 
-  // Convert currency symbol to ISO code for CHAR(3) DB column
-  if (meta.currency) meta.currency = _cgCurrencyToDb(meta.currency);
+  // Convert currency symbol to ISO code for the currencies FK column
+  const currencySymbolMap = { '€': 'EUR', '$': 'USD', '£': 'GBP' };
+  if (meta.currency) {
+    const trimmed = meta.currency.trim();
+    meta.currency = currencySymbolMap[trimmed] || trimmed || 'EUR';
+  }
 
   // Sanitize clientId: the frontend uses sentinel values like '__unassigned__'
   // which are not valid UUIDs and would cause a PostgreSQL type error.
@@ -308,7 +321,12 @@ async function loadPipelineBudgetsFromApi() {
     const budgets = await Api.costGrids.budgets();
     _pbBudgets = {};
     for (const [versionId, b] of Object.entries(budgets)) {
-      _pbBudgets[versionId] = { fee: parseFloat(b.fee) || 0, ptc: parseFloat(b.ptc) || 0 };
+      _pbBudgets[versionId] = {
+        fee:          parseFloat(b.fee) || 0,
+        ptc:          parseFloat(b.ptc) || 0,
+        currency:     b.currency || 'EUR',
+        currencyRate: parseFloat(b.currencyRate) || 1.0,
+      };
     }
   } catch (e) {
     console.warn('[sync] loadPipelineBudgetsFromApi:', e.message);

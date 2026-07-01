@@ -15,9 +15,11 @@ let _cgSelectionMode         = false;
 let _cgSelectedTaskIds       = new Set();
 let _cgOfferDetailsCollapsed = false;
 let _cgSummaryCollapsed      = false;
+let _cgCompactHeader         = localStorage.getItem('PDash_cgCompactHeader') === '1';
 let _cgRoleModalMode         = 'add';   // 'add' | 'change' | 'duplicate'
 let _cgRoleModalSourceCode   = null;    // roleCode being changed/duplicated
-let _cgActiveRatecardMap     = {};      // roleId → hourly_rate from the ratecard selected for the current version
+let _cgActiveRatecardMap     = {};      // roleId → EUR hourly_rate from the ratecard selected for the current version
+let _cgActiveRatecardOverrides = {};   // roleId → { USD: 216, GBP: 200, ... } per-currency rate overrides
 let _cgIsClientRatecard      = false;   // true when selected ratecard is client-specific (not agency-wide)
 let _pbCloneSource           = null;    // { cgId, verId, name } — shared between pipeline board and editor
 
@@ -51,21 +53,35 @@ function cgMigrateVersion(v) {
 
 // ── CURRENCY FORMAT ───────────────────────────────────────────────────────────
 
-function cgFmtCurrency(amount, currency) {
-  const n      = Math.round((amount || 0) * 100) / 100;
-  const locale = (currency === '$' || currency === '£') ? 'en-US' : 'de-DE';
-  const f      = n.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  if (currency === 'CHF') return `CHF ${f}`;
-  if (currency === '$')   return `$ ${f}`;
-  if (currency === '£')   return `£ ${f}`;
-  return `€ ${f}`;
+function cgFmtCurrency(amount, code) {
+  const n    = parseFloat(amount) || 0;
+  const opts = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  const cur  = (window.__currencies || []).find(c => c.code === code)
+    || { symbol: code === 'EUR' ? '€' : (code || 'EUR'), locale: 'it-IT' };
+  return `${cur.symbol} ${new Intl.NumberFormat(cur.locale, opts).format(n)}`;
 }
 
 function cgFmtMonth(isoDate) {
   if (!isoDate) return '';
   const d = new Date(isoDate + (isoDate.length === 10 ? 'T00:00:00' : ''));
   if (isNaN(d)) return '';
-  return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// dd/mm/yyyy ↔ yyyy-mm-dd helpers for task date inputs
+function cgIsoToIt(iso) {
+  if (!iso || iso.length < 10) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+function cgItToIso(it) {
+  if (!it) return '';
+  const parts = it.split('/');
+  if (parts.length !== 3) return '';
+  const [d, m, y] = parts;
+  if (!d || !m || !y || y.length !== 4) return '';
+  const iso = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  return isNaN(new Date(iso).getTime()) ? '' : iso;
 }
 
 
@@ -215,12 +231,12 @@ function renderCostGridList() {
       const linkedBadge = _lps.length > 0
         ? `<span class="badge" style="background:#0dcaf0;color:#000;font-size:var(--text-xs)">🔗 ${_lps.length} project${_lps.length > 1 ? 's' : ''}</span>` : '';
       const totals      = cgComputeGrandTotals(v);
-      const fmt         = a => cgFmtCurrency(a, v.currency || '€');
+      const fmt         = a => cgFmtCurrency(a, v.currency || 'EUR');
       const dateRange   = [v.startDate && cgFmtDate(v.startDate), v.endDate && cgFmtDate(v.endDate)].filter(Boolean).join(' – ');
       return `
         <tr>
           <td class="ps-3" style="font-weight:500;font-size:var(--text-md)">${esc(v.versionLabel)}</td>
-          <td class="text-muted" style="font-size:var(--text-base)">${new Date(v.createdAt).toLocaleDateString('en-US')}</td>
+          <td class="text-muted" style="font-size:var(--text-base)">${new Date(v.createdAt).toLocaleDateString('it-IT')}</td>
           <td>${sipBadge} ${lockBadge} ${linkedBadge}</td>
           <td class="text-muted" style="font-size:var(--text-base)">${dateRange}</td>
           <td class="text-end" style="font-size:var(--text-md)">${totals.hrs > 0 ? totals.hrs + 'h' : '—'}</td>
@@ -354,7 +370,7 @@ function renderCgVersionTabs(cg) {
 
 function renderCgEditor() {
   const v   = _cgDraft;
-  const cur = v.currency || '€';
+  const cur = v.currency || 'EUR';
   const fmt = a => cgFmtCurrency(a, cur);
 
   const lockState  = cgGetVersionLockState(_cgActiveCgId, _cgActiveVersionId);
@@ -362,9 +378,13 @@ function renderCgEditor() {
   const isDraft    = v.pipeline === 'Draft';
 
   // Show/hide Generate Project + Publish + New Version + Delete Version toolbar buttons
-  const hasLinkedProject = (v.linkedProjects || []).length > 0;
+  const assignedIds   = cgGetAssignedTaskIds();
+  const assignedNames = cgGetAssignedTaskNames();
+  const _isTaskAssigned = t => assignedIds.has(t.taskId) || assignedNames.has(t.taskName?.trim().toLowerCase());
+  const hasFreeTasks = (v.phases || []).flatMap(ph => ph.tasks).some(t => t.taskName?.trim() && !_isTaskAssigned(t));
+
   const genBtn = document.getElementById('btnCgGenerateProject');
-  if (genBtn) genBtn.style.display = (isLocked || isDraft || hasLinkedProject) ? 'none' : '';
+  if (genBtn) genBtn.style.display = (isLocked || isDraft || !hasFreeTasks) ? 'none' : '';
   const pubBtn = document.getElementById('btnCgPublish');
   if (pubBtn) pubBtn.style.display = isDraft ? '' : 'none';
   const newVerBtn = document.getElementById('btnCgNewVersion');
@@ -432,6 +452,12 @@ function renderCgEditor() {
   const roleHeaderCells = v.roles.map((r, rIdx) => {
     const zeroRate = !r.rate || r.rate === 0;
     const hdrBg    = zeroRate ? '#7f0b0b' : 'var(--brand-navy)';
+    if (_cgCompactHeader) {
+      const zeroWarn = zeroRate ? ' ⚠️' : '';
+      return `<th style="position:sticky;top:0;z-index:2;text-align:center;background:${hdrBg};color:#fff;border:1px solid #333;padding:3px 2px;min-width:80px;font-size:10px;font-weight:600;vertical-align:middle">
+         <div title="${esc(r.roleCode)}" style="cursor:default;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px">${esc(r.roleLabel)}${zeroWarn}</div>
+       </th>`;
+    }
     const zeroWarn = zeroRate ? '<div style="font-size:var(--text-xs);color:#ffb3b3;font-weight:400">⚠️ rate 0</div>' : '';
     const canL = rIdx > 0;
     const canR = rIdx < v.roles.length - 1;
@@ -454,7 +480,8 @@ function renderCgEditor() {
 
   // ── phase / task body rows ─────────────────────────────────────────────────
 
-  const _assignedTaskIds = cgGetAssignedTaskIds();
+  const _assignedTaskIds   = cgGetAssignedTaskIds();
+  const _assignedTaskNames = cgGetAssignedTaskNames();
 
   const bodyRows = v.phases.map(phase => {
     const phTotals = cgComputePhaseTotals(phase, v.roles);
@@ -481,7 +508,7 @@ function renderCgEditor() {
          </td>`
       ).join('');
 
-      const isAssigned = _assignedTaskIds.has(task.taskId);
+      const isAssigned = _assignedTaskIds.has(task.taskId) || _assignedTaskNames.has(task.taskName?.trim().toLowerCase());
       const isSelected = _cgSelectedTaskIds.has(task.taskId);
       const cbHtml = _cgSelectionMode
         ? `<div class="mb-1 d-flex align-items-center gap-1">
@@ -502,22 +529,24 @@ function renderCgEditor() {
                 style="border:none;font-size:var(--text-md);font-weight:700;background:transparent;flex:1;padding:3px 4px;resize:vertical;min-height:48px"
                 placeholder="Task name"
                 data-phase="${esc(phase.phaseId)}" data-task="${esc(task.taskId)}">${esc(task.taskName)}</textarea>
-              <button class="btn btn-link p-0 cg-del-task-btn" data-phase="${esc(phase.phaseId)}" data-task="${esc(task.taskId)}"
-                style="color:var(--color-danger);font-size:var(--text-xs);line-height:1;flex-shrink:0;margin-top:4px" title="Delete task">✕</button>
+              ${!isAssigned ? `<button class="btn btn-link p-0 cg-del-task-btn" data-phase="${esc(phase.phaseId)}" data-task="${esc(task.taskId)}"
+                style="color:var(--color-danger);font-size:var(--text-xs);line-height:1;flex-shrink:0;margin-top:4px" title="Delete task">✕</button>` : ''}
             </div>
             <div class="d-flex gap-2 mt-1 align-items-center">
               <div class="d-flex align-items-center gap-1">
                 <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">From</span>
-                <input type="date" class="cg-task-start form-control form-control-sm p-1"
-                  style="font-size:var(--text-xs);height:24px;border:1px solid var(--border-light);min-width:140px"
-                  value="${task.taskStartDate || ''}"
+                <input type="text" class="cg-task-start form-control form-control-sm p-1"
+                  style="font-size:var(--text-xs);height:24px;border:1px solid var(--border-light);width:100px"
+                  placeholder="gg/mm/aaaa" maxlength="10"
+                  value="${cgIsoToIt(task.taskStartDate)}"
                   data-phase="${esc(phase.phaseId)}" data-task="${esc(task.taskId)}">
               </div>
               <div class="d-flex align-items-center gap-1">
                 <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">To</span>
-                <input type="date" class="cg-task-end form-control form-control-sm p-1"
-                  style="font-size:var(--text-xs);height:24px;border:1px solid var(--border-light);min-width:140px"
-                  value="${task.taskEndDate || ''}"
+                <input type="text" class="cg-task-end form-control form-control-sm p-1"
+                  style="font-size:var(--text-xs);height:24px;border:1px solid var(--border-light);width:100px"
+                  placeholder="gg/mm/aaaa" maxlength="10"
+                  value="${cgIsoToIt(task.taskEndDate)}"
                   data-phase="${esc(phase.phaseId)}" data-task="${esc(task.taskId)}">
               </div>
             </div>
@@ -604,10 +633,7 @@ function renderCgEditor() {
   let linkedProjectsHtml = '';
   if (linkedProjects.length > 0) {
     const pipeline = _cgDraft.pipeline || 'SIP';
-    const style    = cgPipelineStyle(pipeline);
     const badges = linkedProjects.map(lp => {
-      // Look up by stored ID first; fall back to costGridRef in case the user
-      // renamed the project ID in the config form after generation.
       let proj = (config.projects || []).find(p => p.id === lp.projectId);
       if (!proj) {
         proj = (config.projects || []).find(p =>
@@ -616,37 +642,64 @@ function renderCgEditor() {
       }
       const currentProjId = proj?.id || lp.projectId;
       const pname   = lp.projectName || proj?.name || lp.projectId;
-      const taskCnt = (lp.taskIds || []).length;
-      const isSip   = pipeline === 'SIP';
-      const btnTitle = !proj
-        ? 'Remove link (project not found in portfolio)'
-        : (isSip ? 'Delete project (SIP) and remove link' : 'Remove link only (project is not SIP and will not be deleted)');
-      return `<div class="d-flex align-items-center gap-1 border rounded px-2 py-1" style="font-size:var(--text-base);background:var(--surface-light)">
-        <span class="fw-semibold">${esc(pname)}</span>
-        <span class="text-muted" style="font-size:var(--text-xs)">&nbsp;${taskCnt} task</span>
-        <span style="background:${style.bg};color:${style.color};border-radius:var(--radius-xs);padding:1px 6px;font-size:var(--text-xs);font-weight:600">${esc(pipeline)}</span>
-        ${proj ? `<button class="btn btn-sm btn-outline-secondary py-0 px-2 cg-open-project-btn" data-projid="${esc(currentProjId)}"
-          style="font-size:var(--text-xs)">Reporting</button>` : ''}
-        <button class="btn btn-link p-0 ms-1 cg-del-linked-btn" data-projid="${esc(lp.projectId)}"
-          style="color:var(--color-danger);font-size:var(--text-sm);line-height:1"
-          title="${esc(btnTitle)}">🗑</button>
-      </div>`;
+      const pcode   = proj?.code || '';
+      const pstatus = proj?.status || '';
+      const ppipe   = getProjectPipeline(currentProjId) || pipeline;
+      // Task names: prefer in-memory resolution (fresh), fallback to API-returned taskNames
+      const resolvedTaskNames = (lp.taskIds || []).map(tid => {
+        for (const ph of _cgDraft.phases || []) {
+          const t = ph.tasks.find(t => t.taskId === tid);
+          if (t?.taskName?.trim()) return t.taskName.trim();
+        }
+        return null;
+      }).filter(Boolean);
+      const taskNames = resolvedTaskNames.length ? resolvedTaskNames : (lp.taskNames || []);
+      const taskListHtml = taskNames.length
+        ? `<div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:5px"><span style="font-weight:600">Tasks:</span> ${taskNames.map(n => esc(n)).join(', ')}</div>`
+        : '';
+      return `
+        <div class="border rounded p-2" style="font-size:var(--text-sm);background:var(--surface-light);min-width:220px">
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="flex-grow-1 min-width-0">
+              <div class="fw-semibold text-truncate">${esc(pname)}</div>
+              ${pcode ? `<div style="font-size:var(--text-xs);color:var(--text-muted);font-family:'SFMono-Regular',monospace">${esc(pcode)}</div>` : ''}
+              <div class="d-flex gap-1 flex-wrap mt-1">
+                ${pipelineBadge(ppipe)}
+                ${statusBadgeLarge(pstatus)}
+              </div>
+              ${taskListHtml}
+            </div>
+            ${proj ? `<button class="btn btn-xs btn-outline-secondary flex-shrink-0 cg-open-project-btn"
+              data-projid="${esc(currentProjId)}" style="font-size:var(--text-xs);white-space:nowrap">📊 Portfolio</button>` : ''}
+          </div>
+        </div>`;
     }).join('');
     linkedProjectsHtml = `
       <div class="mt-3 pt-2 border-top">
-        <div class="small fw-semibold text-muted mb-2">🔗 Generated projects (${linkedProjects.length})</div>
+        <div class="small fw-semibold text-muted mb-2">🔗 Linked projects (${linkedProjects.length})</div>
         <div class="d-flex flex-wrap gap-2">${badges}</div>
       </div>`;
   }
 
   // ── Selection bar (sticky bottom, shown only in selection mode) ────────────
+  const existingLinked = (_cgDraft.linkedProjects || []);
+  const addToProjectOpts = existingLinked.map(lp =>
+    `<option value="${esc(lp.projectId)}">${esc(lp.projectName || lp.projectId)}</option>`
+  ).join('');
   const selBarHtml = _cgSelectionMode ? `
-    <div id="cgSelectionBar" style="position:sticky;bottom:0;left:0;right:0;z-index:100;background:var(--brand-navy);color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-top:3px solid var(--indigo-500)">
+    <div id="cgSelectionBar" style="position:sticky;bottom:0;left:0;right:0;z-index:100;background:var(--brand-navy);color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:3px solid var(--indigo-500)">
       <div class="d-flex align-items-center gap-3">
         <span style="font-size:var(--text-md)"><strong id="cgSelCount">${_cgSelectedTaskIds.size}</strong> tasks selected</span>
         <button class="btn btn-sm btn-outline-light py-0 px-2" id="btnCgSelectAll" style="font-size:var(--text-sm)">☑ All free tasks</button>
       </div>
-      <div class="d-flex gap-2">
+      <div class="d-flex gap-2 align-items-center flex-wrap">
+        ${existingLinked.length ? `
+          <select id="cgAddToProjectSel" class="form-select form-select-sm py-0" style="width:auto;min-width:180px;height:30px;font-size:var(--text-sm)">
+            <option value="">— Add to existing project —</option>
+            ${addToProjectOpts}
+          </select>
+          <button class="btn btn-sm btn-warning py-0 px-3" id="btnCgAddToProject" style="font-size:var(--text-base)">＋ Add to project</button>
+        ` : ''}
         <button class="btn btn-sm btn-outline-secondary py-0 px-3" id="btnCgCancelSel" style="font-size:var(--text-base)">Cancel</button>
         <button class="btn btn-sm btn-success py-0 px-3" id="btnCgConfirmSel" style="font-size:var(--text-base)">▶ Create project</button>
       </div>
@@ -654,7 +707,7 @@ function renderCgEditor() {
 
   const offerIcon = _cgOfferDetailsCollapsed ? '▶' : '▼';
   const offerSummary = _cgOfferDetailsCollapsed
-    ? `<span class="text-muted ms-3" style="font-size:var(--text-base);font-weight:400">${esc(v.projectName || '')}${v.startDate ? '  ·  ' + v.startDate.slice(0,4)+'/'+v.startDate.slice(4,6) : ''}${v.endDate ? ' – ' + v.endDate.slice(0,4)+'/'+v.endDate.slice(4,6) : ''}  ·  ${esc(v.currency || '€')}</span>`
+    ? `<span class="text-muted ms-3" style="font-size:var(--text-base);font-weight:400">${esc(v.projectName || '')}${v.startDate ? '  ·  ' + v.startDate.slice(0,4)+'/'+v.startDate.slice(4,6) : ''}${v.endDate ? ' – ' + v.endDate.slice(0,4)+'/'+v.endDate.slice(4,6) : ''}  ·  ${esc(v.currency || 'EUR')}</span>`
     : '';
 
   const body = document.getElementById('cgEditorBody');
@@ -684,10 +737,9 @@ function renderCgEditor() {
           <div class="col-md-2">
             <label class="form-label small fw-semibold mb-1">Currency</label>
             <select class="form-select" id="cgCurrency">
-              <option value="€"   ${v.currency==='€'  ?'selected':''}>€ EUR</option>
-              <option value="$"   ${v.currency==='$'  ?'selected':''}>$ USD</option>
-              <option value="£"   ${v.currency==='£'  ?'selected':''}>£ GBP</option>
-              <option value="CHF" ${v.currency==='CHF'?'selected':''}>CHF</option>
+              ${(window.__currencies || [{code:'EUR',symbol:'€',name:'Euro'}]).map(cu =>
+                `<option value="${cu.code}"${(v.currency||'EUR')===cu.code?' selected':''}>  ${cu.symbol} ${cu.code} — ${cu.name}</option>`
+              ).join('')}
             </select>
           </div>
           <div class="col-md-2">
@@ -778,12 +830,31 @@ function renderCgEditor() {
             </tr>
             <!-- Row: Column labels + role names -->
             <tr style="background:var(--brand-navy)">
-              <th style="position:sticky;top:0;left:0;z-index:4;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 12px;min-width:200px;font-size:var(--text-md)">Phase / Task</th>
+              ${_cgCompactHeader ? `
+              <th style="position:sticky;top:0;left:0;z-index:4;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:3px 8px;min-width:200px;font-size:10px">
+                <div class="d-flex align-items-center justify-content-between">
+                  <span>Phase / Task</span>
+                  <button id="cgCompactToggleBtn" title="Expand header" style="background:none;border:none;color:#93c5fd;font-size:12px;cursor:pointer;padding:0;line-height:1;margin-left:6px">⊞</button>
+                </div>
+              </th>
+              <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:3px 8px;min-width:240px;font-size:10px">Description</th>
+              <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:3px 6px;min-width:110px;text-align:right;font-size:10px">TOTAL COST / FEE</th>
+              <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:3px 6px;min-width:90px;text-align:right;font-size:10px">PTC</th>
+              <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:3px 6px;min-width:60px;text-align:right;font-size:10px">hrs</th>
+              <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:3px 6px;min-width:100px;text-align:right;font-size:10px">Fees</th>
+              ` : `
+              <th style="position:sticky;top:0;left:0;z-index:4;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 12px;min-width:200px;font-size:var(--text-md)">
+                <div class="d-flex align-items-center justify-content-between">
+                  <span>Phase / Task</span>
+                  <button id="cgCompactToggleBtn" title="Compact header" style="background:none;border:none;color:#93c5fd;font-size:12px;cursor:pointer;padding:0;line-height:1;margin-left:6px">⊟</button>
+                </div>
+              </th>
               <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 12px;min-width:240px;font-size:var(--text-md)">Description</th>
               <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 10px;min-width:130px;text-align:right;font-size:var(--text-base)">TOTAL COST<br>and FEE</th>
               <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 10px;min-width:115px;text-align:right;font-size:var(--text-base)">Total Pass<br>through Costs</th>
               <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 10px;min-width:75px;text-align:right;font-size:var(--text-base)">Total<br>hrs</th>
               <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 10px;min-width:120px;text-align:right;font-size:var(--text-base)">Total<br>fees</th>
+              `}
               ${roleHeaderCells}
             </tr>
           </thead>
@@ -846,7 +917,7 @@ function cgBindEditorEvents(body) {
         const span = document.createElement('span');
         span.className = 'text-muted ms-3';
         span.style.cssText = 'font-size:var(--text-base);font-weight:400';
-        span.textContent = `${v.projectName || ''}${v.startDate ? '  ·  ' + v.startDate.slice(0,4)+'/'+v.startDate.slice(4,6) : ''}${v.endDate ? ' – ' + v.endDate.slice(0,4)+'/'+v.endDate.slice(4,6) : ''}  ·  ${v.currency || '€'}`;
+        span.textContent = `${v.projectName || ''}${v.startDate ? '  ·  ' + v.startDate.slice(0,4)+'/'+v.startDate.slice(4,6) : ''}${v.endDate ? ' – ' + v.endDate.slice(0,4)+'/'+v.endDate.slice(4,6) : ''}  ·  ${v.currency || 'EUR'}`;
         body.querySelector('#cgOfferDetailsHeader').appendChild(span);
       }
     } else {
@@ -855,6 +926,13 @@ function cgBindEditorEvents(body) {
   });
 
   // Summary rows collapse toggle
+  body.querySelector('#cgCompactToggleBtn')?.addEventListener('click', e => {
+    e.stopPropagation();
+    _cgCompactHeader = !_cgCompactHeader;
+    localStorage.setItem('PDash_cgCompactHeader', _cgCompactHeader ? '1' : '0');
+    renderCgEditor();
+  });
+
   body.querySelector('#cgSummaryToggleRow')?.addEventListener('click', () => {
     _cgSummaryCollapsed = !_cgSummaryCollapsed;
     const rows = body.querySelectorAll('[data-summary="hrs"],[data-summary="fee"],[data-summary="grand"]');
@@ -910,21 +988,31 @@ function cgBindEditorEvents(body) {
     });
     inp.addEventListener('blur', e => {
       const task = cgFindTask(e.target.dataset.phase, e.target.dataset.task);
-      if (task) e.target.value = task.ptc > 0 ? cgFmtCurrency(task.ptc, _cgDraft.currency || '€') : '';
+      if (task) e.target.value = task.ptc > 0 ? cgFmtCurrency(task.ptc, _cgDraft.currency || 'EUR') : '';
     });
   });
 
   body.querySelectorAll('.cg-task-start').forEach(inp =>
     inp.addEventListener('change', e => {
       const task = cgFindTask(e.target.dataset.phase, e.target.dataset.task);
-      if (task) { task.taskStartDate = e.target.value; cgRefreshPhaseDates(); cgScheduleAutoSave(); }
+      if (!task) return;
+      const iso = cgItToIso(e.target.value);
+      e.target.value = iso ? cgIsoToIt(iso) : '';
+      task.taskStartDate = iso;
+      cgRefreshPhaseDates();
+      cgScheduleAutoSave();
     })
   );
 
   body.querySelectorAll('.cg-task-end').forEach(inp =>
     inp.addEventListener('change', e => {
       const task = cgFindTask(e.target.dataset.phase, e.target.dataset.task);
-      if (task) { task.taskEndDate = e.target.value; cgRefreshPhaseDates(); cgScheduleAutoSave(); }
+      if (!task) return;
+      const iso = cgItToIso(e.target.value);
+      e.target.value = iso ? cgIsoToIt(iso) : '';
+      task.taskEndDate = iso;
+      cgRefreshPhaseDates();
+      cgScheduleAutoSave();
     })
   );
 
@@ -1062,6 +1150,34 @@ function cgBindEditorEvents(body) {
   body.querySelector('#btnCgCancelSel')?.addEventListener('click', cgExitSelectionMode);
   body.querySelector('#btnCgConfirmSel')?.addEventListener('click', cgConfirmAndGenerate);
 
+  body.querySelector('#btnCgAddToProject')?.addEventListener('click', () => {
+    const sel = document.getElementById('cgAddToProjectSel');
+    const projId = sel?.value;
+    if (!projId) { alert('Select a project from the dropdown.'); return; }
+    if (_cgSelectedTaskIds.size === 0) { alert('Select at least one task.'); return; }
+
+    const lp = (_cgDraft.linkedProjects || []).find(l => l.projectId === projId);
+    const projName = lp?.projectName || projId;
+    const selectedIds = [..._cgSelectedTaskIds];
+    const taskNames = selectedIds.map(tid => {
+      for (const ph of _cgDraft.phases || []) {
+        const t = ph.tasks.find(t => t.taskId === tid);
+        if (t?.taskName?.trim()) return t.taskName.trim();
+      }
+      return tid;
+    });
+
+    const modal = _cgEnsureAddToProjectModal();
+    modal.querySelector('#cgAddToProjectModalBody').innerHTML = `
+      <p class="mb-2">Add the following tasks to <strong>${esc(projName)}</strong>?</p>
+      <ul class="mb-0 ps-3" style="font-size:var(--text-sm)">
+        ${taskNames.map(n => `<li>${esc(n)}</li>`).join('')}
+      </ul>`;
+    modal.dataset.projId = projId;
+    modal.dataset.taskIds = JSON.stringify(selectedIds);
+    modal.style.display = 'flex';
+  });
+
   body.querySelectorAll('.cg-del-linked-btn').forEach(btn =>
     btn.addEventListener('click', e => cgDeleteLinkedProject(e.currentTarget.dataset.projid))
   );
@@ -1073,10 +1189,106 @@ function cgBindEditorEvents(body) {
     })
   );
 
-  // Currency triggers full re-render (affects all formatted values)
-  document.getElementById('cgCurrency')?.addEventListener('change', () => {
-    cgSyncHeaderFromForm();
-    renderCgEditor();
+  // Currency triggers rate recalculation + full re-render
+  document.getElementById('cgCurrency')?.addEventListener('change', function () {
+    const sel          = this;
+    const newCurrency  = sel.value;
+    const prevCurrency = _cgDraft?.currency || 'EUR';
+
+    if (newCurrency === prevCurrency) return;
+
+    // If no roles yet, just apply immediately
+    if (!_cgDraft?.roles?.length) {
+      cgSyncHeaderFromForm();
+      cgSyncRoleRatesToBaseline(true);
+      renderCgEditor();
+      cgAutoSave();
+      return;
+    }
+
+    const preview   = cgPreviewRateChange(newCurrency);
+    const newEntry  = (window.__currencies || []).find(c => c.code === newCurrency);
+    const prevEntry = (window.__currencies || []).find(c => c.code === prevCurrency);
+    const newSym    = newEntry?.symbol  || newCurrency;
+    const prevSym   = prevEntry?.symbol || prevCurrency;
+    const fmtR      = (n, sym) => `${sym} ${Number(n).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const hasCustom = preview.some(r => r.isCustom);
+    const roleRows  = preview.map(r =>
+      `<tr>
+        <td style="padding:3px 8px;font-size:.82rem">${esc(r.roleLabel)}</td>
+        <td style="padding:3px 8px;font-size:.82rem;text-align:right;color:#6b7280">${fmtR(r.currentRate, prevSym)}</td>
+        <td style="padding:3px 8px;font-size:.82rem;text-align:right;font-weight:600">${fmtR(r.newRate, newSym)}</td>
+        ${r.isCustom ? `<td style="padding:3px 8px;font-size:.75rem;color:#dc3545">custom → reset</td>` : '<td></td>'}
+      </tr>`
+    ).join('');
+
+    const modalId = 'cgCurrencyChangeModal';
+    let modalEl = document.getElementById(modalId);
+    if (!modalEl) {
+      modalEl = document.createElement('div');
+      modalEl.id = modalId;
+      modalEl.className = 'modal fade';
+      modalEl.tabIndex = -1;
+      modalEl.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" style="font-size:var(--text-base)">Change currency to ${esc(newCurrency)}?</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="${modalId}Body"></div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary btn-sm" id="${modalId}Cancel">Cancel</button>
+              <button type="button" class="btn btn-primary btn-sm" id="${modalId}Confirm">Change to ${esc(newCurrency)}</button>
+            </div>
+          </div>
+        </div>`;
+      document.body.appendChild(modalEl);
+    } else {
+      modalEl.querySelector('.modal-title').textContent = `Change currency to ${newCurrency}?`;
+      document.getElementById(`${modalId}Confirm`).textContent = `Change to ${newCurrency}`;
+    }
+
+    document.getElementById(`${modalId}Body`).innerHTML = `
+      <p style="font-size:var(--text-sm);margin-bottom:8px">
+        All role rates will be reset to their <strong>${esc(newCurrency)} baseline</strong>.
+        ${hasCustom ? '<span style="color:#dc3545">Custom rates will be lost.</span>' : ''}
+      </p>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #dee2e6;border-radius:4px;overflow:hidden">
+        <thead style="background:#f1f3f5">
+          <tr>
+            <th style="padding:4px 8px;font-size:.75rem;font-weight:600;text-align:left">Role</th>
+            <th style="padding:4px 8px;font-size:.75rem;font-weight:600;text-align:right">Current (${esc(prevCurrency)})</th>
+            <th style="padding:4px 8px;font-size:.75rem;font-weight:600;text-align:right">New (${esc(newCurrency)})</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>${roleRows}</tbody>
+      </table>`;
+
+    const bsModal = new bootstrap.Modal(modalEl);
+    bsModal.show();
+
+    document.getElementById(`${modalId}Cancel`).onclick = () => {
+      bsModal.hide();
+      sel.value = prevCurrency;  // revert dropdown
+    };
+
+    document.getElementById(`${modalId}Confirm`).onclick = () => {
+      bsModal.hide();
+      cgSyncHeaderFromForm();        // sets _cgDraft.currency = newCurrency
+      cgSyncRoleRatesToBaseline(true); // force-reset all roles
+      renderCgEditor();
+      cgAutoSave();
+    };
+
+    // Also revert on backdrop/ESC dismiss
+    modalEl.addEventListener('hidden.bs.modal', () => {
+      if (sel.value !== prevCurrency && _cgDraft?.currency === prevCurrency) {
+        sel.value = prevCurrency;
+      }
+    }, { once: true });
   });
 
   // Pipeline change: save immediately (not deferred) so the server can detect the change and notify admins
@@ -1108,8 +1320,9 @@ function cgBindEditorEvents(body) {
 }
 
 async function cgUpdateActiveRatecardMap() {
-  _cgActiveRatecardMap = {};
-  _cgIsClientRatecard  = false;
+  _cgActiveRatecardMap     = {};
+  _cgActiveRatecardOverrides = {};
+  _cgIsClientRatecard      = false;
   const rcId = _cgDraft?.ratecardId;
   if (rcId && typeof loadRatecardsForDropdown === 'function') {
     try {
@@ -1121,6 +1334,8 @@ async function cgUpdateActiveRatecardMap() {
           const rid  = String(e.roleId ?? e.role_id);
           const rate = parseFloat(e.hourlyRate ?? e.hourly_rate);
           if (!isNaN(rate)) _cgActiveRatecardMap[rid] = rate;
+          const ov = e.rateOverrides ?? e.rate_overrides;
+          if (ov && typeof ov === 'object') _cgActiveRatecardOverrides[rid] = ov;
         });
       }
     } catch (_) {}
@@ -1129,18 +1344,59 @@ async function cgUpdateActiveRatecardMap() {
 }
 
 // Update r.rate for all roles that haven't been manually customised.
-// Keeps fee calculations correct when the ratecard changes.
-function cgSyncRoleRatesToBaseline() {
+// For non-EUR cost grids: use rate_overrides[currency] if set, else convert EUR × exchange rate.
+// Pass force=true to reset even roles marked as rateIsCustom (used on explicit currency change).
+function cgSyncRoleRatesToBaseline(force = false) {
   if (!_cgDraft) return;
+  const currency     = _cgDraft.currency || 'EUR';
+  const currencyRate = parseFloat(
+    (window.__currencies || []).find(c => c.code === currency)?.current_rate
+  ) || 1.0;
   const allRoles = typeof getRoles === 'function' ? getRoles() : [];
   _cgDraft.roles.forEach(r => {
-    if (r.rateIsCustom) return;
-    const roleObj   = allRoles.find(gr => gr.code === r.roleCode);
+    if (r.rateIsCustom && !force) return;
+    const roleObj  = allRoles.find(gr => gr.code === r.roleCode);
     if (!roleObj) return;
-    const rcRate    = _cgActiveRatecardMap[String(roleObj.id)];
-    const globalRate = roleObj.rate || 0;
-    r.rate = rcRate !== undefined ? rcRate : globalRate;
+    const rid      = String(roleObj.id);
+    const eurRate  = _cgActiveRatecardMap[rid] ?? (roleObj.rate || 0);
+    if (currency === 'EUR') {
+      r.rate = eurRate;
+    } else {
+      const rcOverride   = (_cgActiveRatecardOverrides[rid] || {})[currency];
+      const roleOverride = (roleObj.rateOverrides || {})[currency];
+      r.rate = rcOverride != null ? rcOverride
+             : roleOverride != null ? roleOverride
+             : Math.round(eurRate * currencyRate * 100) / 100;
+    }
+    if (force) r.rateIsCustom = false;
   });
+}
+
+// Compute what each role's rate would be in targetCurrency without mutating _cgDraft.
+// Returns array of { roleCode, roleLabel, currentRate, newRate }.
+function cgPreviewRateChange(targetCurrency) {
+  if (!_cgDraft) return [];
+  const currencyRate = parseFloat(
+    (window.__currencies || []).find(c => c.code === targetCurrency)?.current_rate
+  ) || 1.0;
+  const allRoles = typeof getRoles === 'function' ? getRoles() : [];
+  return _cgDraft.roles.map(r => {
+    const roleObj = allRoles.find(gr => gr.code === r.roleCode);
+    if (!roleObj) return null;
+    const rid     = String(roleObj.id);
+    const eurRate = _cgActiveRatecardMap[rid] ?? (roleObj.rate || 0);
+    let newRate;
+    if (targetCurrency === 'EUR') {
+      newRate = eurRate;
+    } else {
+      const rcOverride   = (_cgActiveRatecardOverrides[rid] || {})[targetCurrency];
+      const roleOverride = (roleObj.rateOverrides || {})[targetCurrency];
+      newRate = rcOverride != null ? rcOverride
+              : roleOverride != null ? roleOverride
+              : Math.round(eurRate * currencyRate * 100) / 100;
+    }
+    return { roleCode: r.roleCode, roleLabel: r.roleLabel || r.roleCode, currentRate: r.rate, newRate, isCustom: r.rateIsCustom };
+  }).filter(Boolean);
 }
 
 async function cgPopulateRatecardDropdown() {
@@ -1178,7 +1434,7 @@ function cgSyncHeaderFromForm() {
   const ed = document.getElementById('cgEndDate')?.value;
   _cgDraft.startDate   = sd ? sd.replace('-','') : '';
   _cgDraft.endDate     = ed ? ed.replace('-','') : '';
-  _cgDraft.currency    = document.getElementById('cgCurrency')?.value || '€';
+  _cgDraft.currency    = document.getElementById('cgCurrency')?.value || 'EUR';
   // Preserve Draft stage — the dropdown is hidden for Draft versions
   if (_cgDraft.pipeline !== 'Draft') {
     _cgDraft.pipeline = document.getElementById('cgPipeline')?.value || 'SIP';
@@ -1327,17 +1583,29 @@ function cgRenderRoleList() {
       ${teamRoles.sort((a,b) => a.label.localeCompare(b.label)).map(r => {
         const already       = _cgRoleCurrentCodes.has(r.code);
         const roleId        = String(r.id);
+        const currency      = _cgDraft?.currency || 'EUR';
+        const currencyRate  = parseFloat((window.__currencies || []).find(c => c.code === currency)?.current_rate) || 1.0;
+        const curSym        = (window.__currencies || []).find(c => c.code === currency)?.symbol || '€';
         const rcRate        = _cgActiveRatecardMap[roleId];
         const globalRate    = r.rate || 0;
-        const effectiveRate = rcRate !== undefined ? rcRate : globalRate;
+        const eurRate       = rcRate !== undefined ? rcRate : globalRate;
+        const override      = currency !== 'EUR' ? (_cgActiveRatecardOverrides[roleId] || {})[currency] : undefined;
+        const roleDefault   = currency !== 'EUR' ? (r.rateOverrides || {})[currency] : undefined;
+        const effectiveRate = currency === 'EUR' ? eurRate
+          : override != null    ? override
+          : roleDefault != null ? roleDefault
+          : Math.round(eurRate * currencyRate * 100) / 100;
+        const hasOverride   = currency !== 'EUR' && (override != null || roleDefault != null);
         // Highlight only when a CLIENT ratecard is active and its rate differs from global default
         const hasCustom     = _cgIsClientRatecard && rcRate !== undefined && rcRate !== globalRate;
         const zeroRate      = !effectiveRate || effectiveRate === 0;
         const rateBadge = zeroRate
           ? `<span class="ms-1 badge" style="background:#fff0f0;color:var(--color-danger);font-size:var(--text-xs)">⚠️ 0/h</span>`
+          : hasOverride
+            ? `<span class="ms-1 badge" style="background:#eef2ff;color:#4f46e5;border:1px solid #c7d2fe;font-size:var(--text-xs)">&#10022; ${effectiveRate} ${curSym}/h</span>`
           : hasCustom
-            ? `<span class="ms-1 badge" style="background:#eef2ff;color:#4f46e5;border:1px solid #c7d2fe;font-size:var(--text-xs)">&#10022; ${effectiveRate} €/h</span>`
-            : `<span class="ms-1 badge" style="background:var(--sand-50);color:#666;font-size:var(--text-xs)">${effectiveRate} €/h</span>`;
+            ? `<span class="ms-1 badge" style="background:#eef2ff;color:#4f46e5;border:1px solid #c7d2fe;font-size:var(--text-xs)">&#10022; ${effectiveRate} ${curSym}/h</span>`
+            : `<span class="ms-1 badge" style="background:var(--sand-50);color:#666;font-size:var(--text-xs)">${effectiveRate} ${curSym}/h</span>`;
         const isSingleMode = _cgRoleModalMode === 'change' || _cgRoleModalMode === 'duplicate';
         const isSource     = r.code === _cgRoleModalSourceCode;
         const inputType    = isSingleMode ? 'radio' : 'checkbox';
@@ -1598,7 +1866,7 @@ function renderCgPhasing() {
     });
   });
 
-  const cur   = v.currency || '€';
+  const cur   = v.currency || 'EUR';
   const fmtA  = n => cur + ' ' + Math.round(n).toLocaleString('en');
   const fmtH  = n => (Math.round(n * 10) / 10) + ' h';
   const fmtMo = mo => {
@@ -1659,7 +1927,7 @@ function renderCgPhasing() {
 
 function cgRefreshTotals() {
   const v         = _cgDraft;
-  const cur       = v.currency || '€';
+  const cur       = v.currency || 'EUR';
   const fmt       = a => cgFmtCurrency(a, cur);
   const grand     = cgComputeGrandTotals(v);
   const colTotals = cgComputeColumnTotals(v);
@@ -1836,7 +2104,7 @@ async function cgCreateNewVersion() {
     const src = _cgDraft;
     const created = await Api.costGrids.versions.create(_cgActiveCgId, {
       label,
-      currency:    src.currency    || '€',
+      currency:    src.currency    || 'EUR',
       clientId:    (src.clientId && src.clientId !== '__unassigned__') ? src.clientId : null,
       ratecardId:  src.ratecardId  || null,
       startDate:   src.startDate   || null,
@@ -1970,7 +2238,7 @@ async function cgCloneGrid() {
     const cgId   = newCg.id;
     const newVer = await Api.costGrids.versions.create(cgId, {
       label:      'v1',
-      currency:   srcVer.currency    || '€',
+      currency:   srcVer.currency    || 'EUR',
       clientId:   srcVer.clientId    || null,
       ratecardId: srcVer.ratecardId  || null,
       startDate:  srcVer.startDate   || '',
@@ -2003,7 +2271,7 @@ async function cgCloneGrid() {
         ratecardId:     srcVer.ratecardId  || null,
         startDate:      srcVer.startDate   || '',
         endDate:        srcVer.endDate     || '',
-        currency:       srcVer.currency    || '€',
+        currency:       srcVer.currency    || 'EUR',
         note:           srcVer.note        || '',
         roles:          JSON.parse(JSON.stringify(srcVer.roles  || [])),
         phases:         JSON.parse(JSON.stringify(srcVer.phases || [])),
@@ -2057,6 +2325,74 @@ function cgExitSelectionMode() {
   renderCgEditor();
 }
 
+async function cgDoAddTasksToProject(projId, selectedTaskIds) {
+  const v = _cgDraft;
+  const proj = (config.projects || []).find(p => p.id === projId);
+  if (!proj) { alert('Project not found in local config.'); return; }
+
+  // Build new task objects to append to the project
+  const newTasks = [];
+  (v.phases || []).forEach(ph => {
+    (ph.tasks || []).forEach(task => {
+      if (!selectedTaskIds.includes(task.taskId)) return;
+      if (!task.taskName?.trim()) return;
+      newTasks.push({
+        name:      task.taskName.trim(),
+        completed: false,
+        billable:  true,
+        startDate: task.taskStartDate ? task.taskStartDate.replace(/-/g, '') : '',
+        endDate:   task.taskEndDate   ? task.taskEndDate.replace(/-/g, '')   : '',
+        resources: (v.roles || []).map(r => ({
+          role:       r.roleCode,
+          soldHours:  task.hours[r.roleCode] || 0,
+          hourlyRate: r.rate || 0,
+        })).filter(r => r.soldHours > 0),
+      });
+    });
+  });
+
+  // Append tasks to project in memory and push to API
+  if (!proj.tasks) proj.tasks = [];
+  proj.tasks.push(...newTasks);
+  await _pushProjectToApi(proj).catch(e => console.warn('[sync] addTasksToProject failed:', e.message));
+
+  // Update task_ids + task_names_direct in cg_version_projects (upsert via POST)
+  const lp = (_cgDraft.linkedProjects || []).find(l => l.projectId === projId);
+  if (lp) {
+    const updatedTaskIds = [...(lp.taskIds || []), ...selectedTaskIds];
+    // Resolve names for all assigned taskIds (union of previous + new)
+    const resolveNameForId = tid => {
+      for (const ph of v.phases || []) {
+        const t = ph.tasks.find(t => t.taskId === tid);
+        if (t?.taskName?.trim()) return t.taskName.trim();
+      }
+      return null;
+    };
+    const updatedTaskNames = [...new Set([
+      ...(lp.taskNames || []),
+      ...selectedTaskIds.map(resolveNameForId).filter(Boolean),
+    ])];
+    lp.taskIds   = updatedTaskIds;
+    lp.taskNames = updatedTaskNames;
+    await Api.costGrids.versions.linkedProjects.add(
+      _cgActiveCgId, _cgActiveVersionId,
+      { projectId: projId, taskIds: updatedTaskIds, taskNames: updatedTaskNames }
+    ).catch(e => console.warn('[sync] task_ids update failed:', e.message));
+  }
+
+  // Sync back to _cgStore
+  const cg = cgLoad(_cgActiveCgId);
+  if (cg) {
+    const storeVer = cg.versions.find(v => v.versionId === _cgActiveVersionId);
+    if (storeVer) storeVer.linkedProjects = JSON.parse(JSON.stringify(_cgDraft.linkedProjects));
+    cgSave(cg);
+  }
+
+  _cgSelectionMode = false;
+  _cgSelectedTaskIds = new Set();
+  renderCgEditor();
+}
+
 function cgConfirmAndGenerate() {
   if (_cgSelectedTaskIds.size === 0) {
     alert('Select at least one task.');
@@ -2081,8 +2417,8 @@ function cgDoGenerateProject(selectedTaskIds, projectName) {
         name:      task.taskName.trim(),
         completed: false,
         billable:  true,
-        startDate: task.taskStartDate ? task.taskStartDate.replace(/-/g, '').slice(0, 6) : '',
-        endDate:   task.taskEndDate   ? task.taskEndDate.replace(/-/g, '').slice(0, 6)   : '',
+        startDate: task.taskStartDate ? task.taskStartDate.replace(/-/g, '') : '',
+        endDate:   task.taskEndDate   ? task.taskEndDate.replace(/-/g, '')   : '',
         resources: (v.roles || []).map(r => ({
           role:       r.roleCode,
           soldHours:  task.hours[r.roleCode] || 0,
@@ -2122,12 +2458,12 @@ function cgDoGenerateProject(selectedTaskIds, projectName) {
     name:      projectName,
     startDate: projStart,
     endDate:   projEnd,
-    currency:  v.currency || '€',
+    currency:  v.currency || 'EUR',
     pipeline:  _cgDraft.pipeline || 'SIP',
     status:    '',
     note:      v.note     || '',
     tasks,
-    phasing:   cgComputePhasing(v, selectedTaskIds),
+    phasing:   {},
     planning:  {},
     ptc,
     groups:    [],
@@ -2136,8 +2472,13 @@ function cgDoGenerateProject(selectedTaskIds, projectName) {
   };
   config.projects.push(newProject);
   persistConfig();
+  const selectedTaskNames = selectedTaskIds.map(tid => {
+    const t = (v.phases || []).flatMap(ph => ph.tasks).find(t => t.taskId === tid);
+    return t?.taskName?.trim() || null;
+  }).filter(Boolean);
+
   _pushProjectToApi(newProject).then(() =>
-    Api.costGrids.versions.linkedProjects.add(_cgActiveCgId, _cgActiveVersionId, { projectId: generatedId })
+    Api.costGrids.versions.linkedProjects.add(_cgActiveCgId, _cgActiveVersionId, { projectId: generatedId, taskIds: selectedTaskIds, taskNames: selectedTaskNames })
       .catch(e => console.warn('[sync] linkedProject link failed:', e.message))
   );
 
@@ -2146,6 +2487,7 @@ function cgDoGenerateProject(selectedTaskIds, projectName) {
     projectId:   generatedId,
     projectName: projectName,
     taskIds:     selectedTaskIds,
+    taskNames:   selectedTaskNames,
     createdAt:   new Date().toISOString(),
   });
   _cgDraft.status = 'sip';
@@ -2219,7 +2561,7 @@ function cgDeleteLinkedProject(projectId) {
 async function cgExportXls() {
   cgSyncHeaderFromForm();
   const v   = _cgDraft;
-  const cur = v.currency || '€';
+  const cur = v.currency || 'EUR';
   const cg  = cgLoad(_cgActiveCgId);
   if (typeof ExcelJS === 'undefined') { alert('ExcelJS is not available.'); return; }
 
@@ -2456,6 +2798,49 @@ function cgGetAssignedTaskIds() {
   const assigned = new Set();
   (_cgDraft?.linkedProjects || []).forEach(lp => (lp.taskIds || []).forEach(id => assigned.add(id)));
   return assigned;
+}
+
+// Returns Set of lower-cased task names that are assigned to a linked project.
+// Used as a robust fallback when task UUIDs may have changed.
+function cgGetAssignedTaskNames() {
+  const names = new Set();
+  (_cgDraft?.linkedProjects || []).forEach(lp =>
+    (lp.taskNames || []).forEach(n => { if (n?.trim()) names.add(n.trim().toLowerCase()); })
+  );
+  return names;
+}
+
+// Singleton modal appended to document.body so it's not clipped by the sticky bar z-index.
+function _cgEnsureAddToProjectModal() {
+  let m = document.getElementById('cgAddToProjectModal');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'cgAddToProjectModal';
+    m.style.cssText = 'display:none;position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,.5);align-items:center;justify-content:center;';
+    m.innerHTML = `
+      <div style="max-width:480px;width:100%;margin:0 auto">
+        <div class="modal-content shadow-lg">
+          <div class="modal-header py-2 px-3" style="background:var(--brand-navy);color:#fff;border-bottom:none">
+            <h6 class="modal-title mb-0">＋ Add tasks to project</h6>
+          </div>
+          <div class="modal-body px-3 py-3" id="cgAddToProjectModalBody"></div>
+          <div class="modal-footer py-2 px-3 gap-2">
+            <button class="btn btn-sm btn-outline-secondary" id="cgAddToProjectCancel">Cancel</button>
+            <button class="btn btn-sm btn-warning" id="cgAddToProjectConfirm">Confirm</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(m);
+
+    m.querySelector('#cgAddToProjectCancel').addEventListener('click', () => { m.style.display = 'none'; });
+    m.querySelector('#cgAddToProjectConfirm').addEventListener('click', async () => {
+      const projId = m.dataset.projId;
+      const taskIds = JSON.parse(m.dataset.taskIds || '[]');
+      m.style.display = 'none';
+      await cgDoAddTasksToProject(projId, taskIds);
+    });
+  }
+  return m;
 }
 
 function cgFindTask(phaseId, taskId) {

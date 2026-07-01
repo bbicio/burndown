@@ -7,7 +7,6 @@ let _pushToUser;
 
 const router = express.Router();
 
-const CURRENCY_SYMBOLS = { EUR: '€', USD: '$', GBP: '£', CHF: 'CHF' };
 
 async function notifyAdminsPipelineChange(cgId, vId, oldPipeline, newPipeline) {
   try {
@@ -16,22 +15,23 @@ async function notifyAdminsPipelineChange(cgId, vId, oldPipeline, newPipeline) {
       SELECT cg.name AS cg_name,
              COALESCE(c.name, '') AS client_name,
              cgv.currency,
+             COALESCE(cu.symbol, cgv.currency, '€') AS currency_symbol,
              COALESCE(SUM(tr.days * COALESCE(tr.rate_override, r.hourly_rate, 0)), 0) AS fee
       FROM cost_grid_versions cgv
       JOIN cost_grids cg ON cg.id = cgv.cost_grid_id
       LEFT JOIN clients c ON c.id = cgv.client_id
+      LEFT JOIN currencies cu ON cu.code = cgv.currency
       LEFT JOIN phases ph ON ph.version_id = cgv.id
       LEFT JOIN tasks t ON t.phase_id = ph.id
       LEFT JOIN task_roles tr ON tr.task_id = t.id
       LEFT JOIN roles r ON r.id = tr.role_id
       WHERE cgv.id = $1
-      GROUP BY cg.name, c.name, cgv.currency
+      GROUP BY cg.name, c.name, cgv.currency, cu.symbol
     `, [vId]);
     if (!info[0]) return;
 
-    const { cg_name, client_name, currency, fee } = info[0];
-    const sym = CURRENCY_SYMBOLS[currency] || currency || '€';
-    const feeStr = sym + ' ' + Math.round(parseFloat(fee)).toLocaleString('en-US');
+    const { cg_name, client_name, currency_symbol, fee } = info[0];
+    const feeStr = currency_symbol + ' ' + Math.round(parseFloat(fee)).toLocaleString('en-US');
 
     const title = `Pipeline: ${cg_name}`;
     const body = `${client_name ? client_name + ' — ' : ''}${cg_name}\n${oldPipeline} → ${newPipeline}\nValue: ${feeStr}`;
@@ -162,6 +162,7 @@ router.get('/', requireAuth, async (req, res, next) => {
                     'start_date',    cgv.start_date,
                     'end_date',      cgv.end_date,
                     'currency',      cgv.currency,
+                    'currency_rate', cgv.currency_rate,
                     'note',          cgv.note,
                     'created_at',    cgv.created_at,
                     'locked',        cgv.locked,
@@ -171,7 +172,9 @@ router.get('/', requireAuth, async (req, res, next) => {
                     'linkedProjects', COALESCE(
                       (SELECT json_agg(json_build_object(
                                 'project_id',   cvp.project_id,
-                                'project_name', cvp.project_name))
+                                'project_name', cvp.project_name,
+                                'task_ids',     cvp.task_ids,
+                                'task_names',   cvp.task_names_direct))
                        FROM cg_version_projects cvp
                        WHERE cvp.cost_grid_version_id = cgv.id),
                       '[]'::json)
@@ -249,6 +252,8 @@ router.get('/budgets', requireAuth, async (req, res, next) => {
         GROUP BY ph.version_id
       )
       SELECT v.id AS version_id,
+             v.currency,
+             v.currency_rate,
              COALESCE(vf.fee, 0) AS fee,
              COALESCE(vp.ptc, 0) AS ptc
       FROM cost_grid_versions v
@@ -260,7 +265,12 @@ router.get('/budgets', requireAuth, async (req, res, next) => {
 
     const out = {};
     for (const r of rows) {
-      out[r.version_id] = { fee: parseFloat(r.fee) || 0, ptc: parseFloat(r.ptc) || 0 };
+      out[r.version_id] = {
+        fee:          parseFloat(r.fee) || 0,
+        ptc:          parseFloat(r.ptc) || 0,
+        currency:     r.currency || 'EUR',
+        currencyRate: parseFloat(r.currency_rate) || 1.0,
+      };
     }
     res.json(out);
   } catch (err) { next(err); }
@@ -324,15 +334,27 @@ router.post('/:id/versions', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { label, pipeline, startDate, endDate, currency, note, ratecardId, clientId, projectName } = req.body;
+    const { label, pipeline, startDate, endDate, currency, currencyRate, note, ratecardId, clientId, projectName } = req.body;
     if (!label?.trim()) return res.status(400).json({ error: 'label is required' });
+
+    // Resolve currency_rate: use provided value, else look up live rate from currencies table
+    const resolvedCurrency = currency || 'EUR';
+    let resolvedRate = parseFloat(currencyRate) || null;
+    if (!resolvedRate) {
+      if (resolvedCurrency === 'EUR') {
+        resolvedRate = 1.0;
+      } else {
+        const { rows: cr } = await query('SELECT current_rate FROM currencies WHERE code = $1 AND active = true', [resolvedCurrency]);
+        resolvedRate = cr[0] ? parseFloat(cr[0].current_rate) : 1.0;
+      }
+    }
 
     // New versions always start as Draft (published via the /publish endpoint)
     const { rows } = await query(
-      `INSERT INTO cost_grid_versions (cost_grid_id, label, pipeline, start_date, end_date, currency, note, ratecard_id, client_id, project_name)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      `INSERT INTO cost_grid_versions (cost_grid_id, label, pipeline, start_date, end_date, currency, currency_rate, note, ratecard_id, client_id, project_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
       [req.params.id, label.trim(), 'Draft', startDate || null, endDate || null,
-       currency || 'EUR', note || null, ratecardId || null, clientId || null, projectName || '']
+       resolvedCurrency, resolvedRate, note || null, ratecardId || null, clientId || null, projectName || '']
     );
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }
@@ -348,15 +370,15 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
     if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
     const oldPipeline = locked.rows[0]?.old_pipeline;
 
-    const { label, pipeline, startDate, endDate, currency, note, ratecardId, clientId, projectName } = req.body;
+    const { label, pipeline, startDate, endDate, currency, currencyRate, note, ratecardId, clientId, projectName } = req.body;
     const fields = [];
     const params = [];
-
     if (label !== undefined)       { params.push(label.trim());       fields.push(`label = $${params.length}`); }
     if (pipeline !== undefined)    { params.push(pipeline);           fields.push(`pipeline = $${params.length}`); }
     if (startDate !== undefined)   { params.push(startDate || null);  fields.push(`start_date = $${params.length}`); }
     if (endDate !== undefined)     { params.push(endDate   || null);  fields.push(`end_date = $${params.length}`); }
     if (currency !== undefined)    { params.push(currency || 'EUR');  fields.push(`currency = $${params.length}`); }
+    if (currencyRate !== undefined){ params.push(parseFloat(currencyRate) || 1.0); fields.push(`currency_rate = $${params.length}`); }
     if (note !== undefined)        { params.push(note);               fields.push(`note = $${params.length}`); }
     if (ratecardId !== undefined)  { params.push(ratecardId || null); fields.push(`ratecard_id = $${params.length}`); }
     if (clientId !== undefined)    { params.push(clientId || null);   fields.push(`client_id = $${params.length}`); }
@@ -371,7 +393,7 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
     );
     if (!rows[0]) return res.status(404).json({ error: 'Version not found' });
 
-    if (pipeline !== undefined && pipeline !== oldPipeline) {
+    if (pipeline !== undefined && oldPipeline && pipeline !== oldPipeline) {
       notifyAdminsPipelineChange(req.params.id, req.params.vId, oldPipeline, pipeline);
     }
 
@@ -551,10 +573,16 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
         const normDate = d => d ? d.replace(/-/g, '').slice(0, 8) : '';
         const tkStart = normDate(tk.taskStartDate || tk.start_date  || '');
         const tkEnd   = normDate(tk.taskEndDate   || tk.end_date    || '');
-        const newTk = await client.query(
-          'INSERT INTO tasks (phase_id, title, description, start_date, end_date, ptc, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
-          [newPh.rows[0].id, tkTitle, tkDesc, tkStart, tkEnd, tk.ptc || 0, ti]
-        );
+        const tkId = tk.taskId || tk.id || null;
+        const newTk = tkId
+          ? await client.query(
+              'INSERT INTO tasks (id, phase_id, title, description, start_date, end_date, ptc, sort_order) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+              [tkId, newPh.rows[0].id, tkTitle, tkDesc, tkStart, tkEnd, tk.ptc || 0, ti]
+            )
+          : await client.query(
+              'INSERT INTO tasks (phase_id, title, description, start_date, end_date, ptc, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+              [newPh.rows[0].id, tkTitle, tkDesc, tkStart, tkEnd, tk.ptc || 0, ti]
+            );
         // Accept both hours map {roleCode: days} and roles array [{roleId, days}]
         const taskRoles = [];
         if (tk.hours && typeof tk.hours === 'object') {
@@ -599,7 +627,7 @@ router.get('/:id/versions/:vId/linked-projects', requireAuth, async (req, res, n
       return res.status(403).json({ error: 'Access denied' });
     }
     const { rows } = await query(
-      'SELECT project_id, project_name FROM cg_version_projects WHERE cost_grid_version_id = $1',
+      'SELECT project_id, project_name, task_ids FROM cg_version_projects WHERE cost_grid_version_id = $1',
       [req.params.vId]
     );
     res.json(rows);
@@ -611,14 +639,15 @@ router.post('/:id/versions/:vId/linked-projects', requireAuth, async (req, res, 
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { projectId } = req.body;
+    const { projectId, taskIds, taskNames } = req.body;
     const proj = await query('SELECT name FROM projects WHERE id = $1', [projectId]);
     if (!proj.rows[0]) return res.status(404).json({ error: 'Project not found' });
 
     await query(
-      `INSERT INTO cg_version_projects (cost_grid_version_id, project_id, project_name)
-       VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-      [req.params.vId, projectId, proj.rows[0].name]
+      `INSERT INTO cg_version_projects (cost_grid_version_id, project_id, project_name, task_ids, task_names_direct)
+       VALUES ($1, $2, $3, $4, $5) ON CONFLICT (cost_grid_version_id, project_id)
+       DO UPDATE SET task_ids = EXCLUDED.task_ids, task_names_direct = EXCLUDED.task_names_direct`,
+      [req.params.vId, projectId, proj.rows[0].name, JSON.stringify(taskIds || []), JSON.stringify(taskNames || [])]
     );
     res.status(201).json({ ok: true });
   } catch (err) { next(err); }
@@ -714,6 +743,34 @@ router.delete('/:id/shares/:userId', requireAuth, async (req, res, next) => {
       [req.params.id, req.params.userId]
     );
     res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// POST /api/cost-grids/:id/versions/:vId/refresh-rate
+// Snapshots the current live exchange rate from currencies table onto the version.
+router.post('/:id/versions/:vId/refresh-rate', requireAuth, async (req, res, next) => {
+  try {
+    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const { rows: ver } = await query(
+      'SELECT currency FROM cost_grid_versions WHERE id = $1', [req.params.vId]
+    );
+    if (!ver[0]) return res.status(404).json({ error: 'Version not found' });
+    const currency = ver[0].currency;
+    if (currency === 'EUR') return res.json({ currency, currency_rate: 1.0 });
+
+    const { rows: cur } = await query(
+      'SELECT current_rate FROM currencies WHERE code = $1 AND active = true', [currency]
+    );
+    if (!cur[0]) return res.status(404).json({ error: 'Currency not active' });
+
+    const rate = parseFloat(cur[0].current_rate);
+    await query(
+      'UPDATE cost_grid_versions SET currency_rate = $1 WHERE id = $2',
+      [rate, req.params.vId]
+    );
+    res.json({ currency, currency_rate: rate });
   } catch (err) { next(err); }
 });
 

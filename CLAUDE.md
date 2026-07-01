@@ -47,12 +47,13 @@ Multi-page Vanilla JS app backed by a Node.js/Express REST API and PostgreSQL. N
 | `timesheets.html` | `/timesheets.html` | XLS timesheet upload management |
 | `config.html` | `/config.html` | Clients / client groups / programs / roles / pipelines & POT targets (admin only) |
 | `project-config.html` | `/project-config.html?projectId=` | Full-page project config form (tasks, phasing, planning, groups); viewer mode: sticky read-only banner + all inputs disabled + action buttons hidden |
-| `admin.html` | `/admin.html` | User management — invite, role, disable (admin only) |
+| `admin.html` | `/admin.html` | User management — invite, role, disable, anonymize (admin only); T&C editor |
+| `terms.html` | `/terms.html?next=` | Public (auth required) — T&C acceptance page shown on first login or after version bump |
 | `login.html` | `/login.html` | Public — login form |
 | `activate.html` | `/activate.html?token=` | Public — account activation |
 | `reset-password.html` | `/reset-password.html?token=` | Public — password reset |
 | `migration.html` | `/migration.html` | One-time data migration tool |
-| `_db-reset.html` | `/_db-reset.html` | Admin-only hidden page for bulk DB data deletion by scope |
+| `_db-reset.html` | `/_db-reset.html` | Admin-only hidden page for bulk DB data deletion by scope; also has "Delete single proposal" widget (UUID input, cascade delete) and "Change proposal owner" widget (UUID + active-user dropdown) |
 
 ### File structure
 
@@ -65,23 +66,24 @@ costgrid.html            — cost grid editor
 timesheets.html          — timesheet upload (admin only)
 config.html              — config UI (clients / client groups / programs / roles / pipelines & POT targets; admin only)
 project-config.html      — full-page project config form (tasks, phasing, planning, groups)
-admin.html               — user management (invite, role, disable; admin only)
+admin.html               — user management (invite, role, disable, anonymize; admin only); T&C editor (view/edit/publish)
+terms.html               — standalone T&C acceptance page (no navbar/initNav); redirected to by initNav() gate
 css/tokens.css           — design tokens (single source of truth for colors/type)
 css/style.css            — component styles referencing tokens
 js/api.js                — Api.* namespace, apiFetch wrapper (401 → redirect to login)
-js/api-sync.js           — in-memory ↔ API sync layer (cgSyncFromApi, loadConfigFromApi, etc.); `cgSyncFromApi` stores `myPermission: g.my_permission` on each `_cgStore` entry; `_apiProjectToLocal` maps `my_permission: p.my_permission || 'owner'` — fields not listed here are silently dropped even if returned by API
-js/core.js               — state, in-memory helpers (loadConfig/persistConfig are no-ops), shared badges, esc(), fmtH(), fmtMoney()
-js/nav.js                — navbar + footer injection, initNav(); also injects settings modal HTML,
-                            change-password modal, and send-notification modal; calls initNotifications() at
-                            end; stores window.__navUser
+js/api-sync.js           — in-memory ↔ API sync layer (cgSyncFromApi, loadConfigFromApi, etc.); `cgSyncFromApi` stores `myPermission: g.my_permission` on each `_cgStore` entry; `_apiProjectToLocal` maps `my_permission: p.my_permission || 'owner'` and converts ISO currency code → symbol (`EUR→'€'`, `USD→'$'`, `GBP→'£'`) for the form select; `_pushProjectToApi` converts symbol → ISO code before PATCH to satisfy `currencies` FK constraint — fields not listed here are silently dropped even if returned by API; `_cgApiVersionToLocal` maps `taskIds` and `taskNames` from `lp.task_ids`/`lp.task_names` on each linked-project entry
+js/core.js               — state, in-memory helpers (loadConfig/persistConfig are no-ops), shared badges, esc(), fmtH(), fmtMoney(); `statusBadge()` small style for pipeline cards; `statusBadgeLarge()` same size/style as `pipelineBadge()` — used only in linked-project chips in the editor and detail panel
+js/nav.js                — navbar + footer injection, initNav(); injects settings, change-password, send-notification,
+                            and "My Profile" modals; T&C gate after GET /api/auth/me (redirects to /terms.html
+                            if user.terms_version < current_terms_version); calls initNotifications(); stores window.__navUser
 js/notifications.js      — bell icon + SSE notification panel; initNotifications(user) called by nav.js
 js/shares.js             — share modal (cost_grid and project); loads active non-admin users from `GET /api/users/active-list` into a searchable in-memory dropdown; supports adding new shares and editing permission (editor/viewer) on existing ones via the same upsert API; `_shareAllUsers` module var is the immutable source list; `_shareUserList` excludes already-shared users
-js/pipeline-board.js     — kanban render, pbOpenDetailPanel, pbCloseDetailPanel; caches `_pbRatecards` (from Api.ratecards.list) for ratecard name display in detail panel; version tabs, Clone button, and Delete Draft button in detail panel; hides Edit/Clone/Delete controls for viewers (`cg.myPermission !== 'viewer'`)
-js/costgrid.js           — cost grid editor (phases/tasks/roles table, save/load/version logic); declares `_pbCloneSource` (shared with pipeline board); Clone + Delete Draft buttons in editor toolbar; `cgConfirmDeleteVersion(cgId, verId, label, onSuccess?)` accepts optional callback (editor passes redirect, list/panel pass re-render)
+js/pipeline-board.js     — kanban render, pbOpenDetailPanel, pbCloseDetailPanel; caches `_pbRatecards` (from Api.ratecards.list) for ratecard name display in detail panel; version tabs, Clone button, and Delete Draft button in detail panel; hides Edit/Clone/Delete controls for viewers (`cg.myPermission !== 'viewer'`); pipeline card badge shows `pipelineBadge(v.pipeline)` (stage, not project status); `pbLoadPotSection` falls back to `v.clientId` when no linked project provides a clientId; POT `committed_total`/`anticipated_total` read directly from `GET /api/pots/summary` response (server-side, all proposals) — not from `_pbBudgets` cache; POT section shows split: Total% (C+A), Committed (green), Anticipated (orange) with dual-segment progress bar; linked-project chips use `statusBadgeLarge()` for project status; chips display assigned task list from `lp.taskNames` (R5); `_pbOutsideClickHandler` closes the panel on `mousedown` outside `#pbDetailPanel` — registered by `pbOpenDetailPanel` with a 200ms delay and removed by `pbCloseDetailPanel`
+js/costgrid.js           — cost grid editor (phases/tasks/roles table, save/load/version logic); declares `_pbCloneSource` (shared with pipeline board); Clone + Delete Draft buttons in editor toolbar; `cgConfirmDeleteVersion(cgId, verId, label, onSuccess?)` accepts optional callback (editor passes redirect, list/panel pass re-render); non-EUR role rate 3-level fallback: ratecard override → `role.rateOverrides[currency]` → EUR rate × factor; both `cgSyncRoleRatesToBaseline` and `cgPreviewRateChange` use this chain; `_cgCompactHeader` (localStorage `PDash_cgCompactHeader`) toggles compact/normal blue header row via ⊟/⊞ button in the "Phase / Task" sticky cell — compact hides role move/change/dup/remove buttons and reduces header font to 10px; **task assignment (R1–R5)**: `cgGetAssignedTaskIds()` + `cgGetAssignedTaskNames()` dual UUID+name check — assigned tasks have no ✕ button; `cgDoAddTasksToProject` and `cgDoGenerateProject` send `taskNames`; Generate Project button hidden when all tasks are mapped; `_cgEnsureAddToProjectModal()` is a singleton modal appended to `document.body` (z-index:10500)
 js/portfolio.js          — portfolio dashboard + resource planning view; hides Configure and Load Actuals buttons for viewers (`cfg.my_permission !== 'viewer'`)
 js/dashboard.js          — per-project KPI + burndown render; hides Configure button for viewers (`proj?.my_permission !== 'viewer'`)
 js/config-form.js        — project config form (tasks, phasing, planning, groups); `cfgParseHours(str)` uses `parseFloat` directly — never via `cfgParseMoney` (which strips "." for de-DE locale, inflating "22.25" → 2225); `cfgFmtHours(n)` uses `toFixed(2)`; future-month reforecast values rounded to `Math.round(n * 4) / 4`
-js/roles.js              — roles management modal
+js/roles.js              — roles management modal; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role; role shape is `{ id, label, code, rate, rateOverrides }`
 js/upload.js             — Excel timesheet parsing
 js/settings.js           — openSettingsModal() / saveSettingsModal(); reads window.__navUser; all
                             appSettings / AI_MODELS / getRoles references guarded with typeof checks
@@ -89,16 +91,22 @@ js/ai.js                 — AI sidebar chat + project analysis
 js/clients.js            — client CRUD helpers
 js/programs.js           — program CRUD helpers
 js/ratecards.js          — rate cards admin modal + loadRatecardsForDropdown() cache used by costgrid.js;
-                            client-specific rate editing is via openClientRatecard() in config.html (Vue method)
+                            client-specific rate editing is via openClientRatecard() in config.html (Vue method);
+                            `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`;
+                            `_rcSaveEntries` collects `.rc-override-rate` inputs and sends `rateOverrides` per role
 api/src/routes/          — Express routes (auth, users, config, cost-grids, projects, timesheets,
-                            reporting, exports, notifications, pipeline-years, client-groups, pots, reset)
+                            reporting, exports, notifications, pipeline-years, client-groups, pots, reset, app-settings)
 api/src/routes/exports.js        — POST /api/exports/{portfolio|cost-grids|ratecards}
 api/src/routes/notifications.js  — SSE stream, CRUD, push; exports { router, pushToUser }
 api/src/routes/pipeline-years.js — CRUD for admin-managed pipeline years
 api/src/routes/client-groups.js  — CRUD for client groups + member assignment
-api/src/routes/pots.js           — CRUD for POT targets + history; /year-totals; proposals matched via cgv.client_id (not cg_version_projects)
+api/src/routes/pots.js           — CRUD for POT targets + history; /year-totals; proposals matched via cgv.client_id (not cg_version_projects); `GET /`, `GET /year-totals`, `GET /:id/details` and `GET /summary` all return `committed_total`, `anticipated_total` separately; `/summary` computes these server-side across all proposals (no user-visibility filter) so every caller sees the same POT; all fee subqueries divide by `COALESCE(currency_rate, 1)` for EUR normalisation
 api/src/routes/reset.js          — GET /api/admin/reset/scopes + POST /api/admin/reset/:scope (admin-only bulk delete);
-                                    scopes: proposals, projects, clients, ratecards, actuals, pipelines, notifications
+                                    scopes: proposals, projects, clients, ratecards, actuals, pipelines, notifications;
+                                    POST /api/admin/reset/cost-grid/:cgId — delete one proposal + linked projects (transactional);
+                                    PATCH /api/admin/reset/cost-grid/:cgId/owner — reassign proposal owner
+api/src/routes/app-settings.js   — GET /api/app-settings/terms (requireAuth); PUT /api/app-settings/terms (requireAdmin);
+                                    publishNewVersion=true increments terms_version forcing all users to re-accept
 api/src/db/migrations/   — numbered SQL migration files
 api/src/services/        — email (nodemailer: sendInvite, sendPasswordReset, sendShareNotification,
                             sendExportEmail, sendAdminNotificationEmail), jwt
@@ -111,8 +119,8 @@ Navigation is URL-based — clicking a nav tab changes `window.location.href`. E
 
 Each page calls `initNav(activeTab)` from `nav.js` which:
 1. Injects the shared navbar HTML (two-row: logo/icons row + tabs row) and fixed footer
-2. Injects the settings modal, change-password modal, and send-notification modal HTML (centralised — do NOT duplicate in page HTML)
-3. Calls `GET /api/auth/me` — redirects to `/login.html` on 401
+2. Injects the settings modal, change-password modal, send-notification modal, and "My Profile" modal HTML (centralised — do NOT duplicate in page HTML)
+3. Calls `GET /api/auth/me` — redirects to `/login.html` on 401; redirects to `/terms.html` if `user.terms_version < user.current_terms_version`
 4. Stores the user object in `window.__navUser`
 5. Wires all navbar events (account dropdown, settings, change password, notifications)
 6. Calls `initNotifications(user)` from `notifications.js`
@@ -297,6 +305,10 @@ Brand: `--brand-navy: #0B1840`, `--brand-magenta: #F0287A`.
 | `009_version_project_name.sql` | `project_name VARCHAR(255)` added to `cost_grid_versions` |
 | `010_pots_special_label.sql` | `special_label VARCHAR(255)` added to `pots` for virtual targets |
 | `011_pot_history_note.sql` | `note VARCHAR(500)` added to `pot_history` for change justification |
+| `013_role_rate_overrides.sql` | `rate_overrides JSONB NOT NULL DEFAULT '{}'` added to `roles` for per-currency agency default rates |
+| `014_terms_accepted.sql` | `terms_version INTEGER` and `terms_accepted_at TIMESTAMPTZ` added to `users` for T&C acceptance tracking |
+| `015_app_settings.sql` | `app_settings` key/value table created; seeded with `terms_version` and `terms_content` |
+| `017_task_names_direct.sql` | `task_names_direct JSONB NOT NULL DEFAULT '[]'::jsonb` added to `cg_version_projects`; backfills from `project_tasks` name matching |
 
 Run migrations with:
 ```powershell

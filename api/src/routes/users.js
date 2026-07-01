@@ -102,6 +102,36 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/users/:id/anonymize — replace personal data with anonymous values; keep operational records
+router.post('/:id/anonymize', requireAdmin, async (req, res, next) => {
+  try {
+    if (req.params.id === req.user.id)
+      return res.status(400).json({ error: 'You cannot anonymize your own account' });
+
+    const { rows: [existing] } = await query('SELECT id, status FROM users WHERE id = $1', [req.params.id]);
+    if (!existing) return res.status(404).json({ error: 'User not found' });
+
+    const { rows: [updated] } = await query(
+      `UPDATE users SET
+         email             = 'anon_' || id || '@deleted.local',
+         first_name        = '[Deleted]',
+         last_name         = 'User',
+         password_hash     = NULL,
+         invite_token      = NULL,
+         invite_expires    = NULL,
+         reset_token       = NULL,
+         reset_expires     = NULL,
+         terms_version     = NULL,
+         terms_accepted_at = NULL,
+         status            = 'disabled'
+       WHERE id = $1
+       RETURNING id, status`,
+      [req.params.id]
+    );
+    res.json({ ok: true, ...updated });
+  } catch (err) { next(err); }
+});
+
 // DELETE /api/users/:id  — soft delete (disable)
 router.delete('/:id', requireAdmin, async (req, res, next) => {
   try {

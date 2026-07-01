@@ -183,7 +183,7 @@ function buildProjectCard(cfg, { showSummaryBtn = true } = {}) {
         <span>📁 ${esc(fmtProjectTitle(cfg))}</span>
         ${cfg.code ? `<span class="text-muted small">${esc(cfg.code)}</span>` : ''}
         ${pipelineBadge(getProjectPipeline(cfg.id) || cfg.pipeline)}
-        ${statusBadge(cfg.status)}
+        ${statusBadgeLarge(cfg.status)}
         ${!hasData ? '<span class="badge bg-warning text-dark">no XLS data</span>' : ''}
         ${budgetBadge}
       </div>
@@ -527,7 +527,7 @@ function showDashboardView(pid) {
   document.getElementById('dashboardProjectName').textContent = cfg ? (cfg.name || pid) : pid;
   document.getElementById('dashboardProjectId').textContent   = cfg?.name ? pid : '';
   const metaEl = document.getElementById('dashboardProjectMeta');
-  if (metaEl) metaEl.innerHTML = [pipelineBadge(getProjectPipeline(pid) || cfg?.pipeline), statusBadge(cfg?.status)].filter(Boolean).join(' ');
+  if (metaEl) metaEl.innerHTML = [pipelineBadge(getProjectPipeline(pid) || cfg?.pipeline), statusBadgeLarge(cfg?.status)].join(' ');
 
   // Sibling project switcher
   const siblings = prog
@@ -540,7 +540,7 @@ function showDashboardView(pid) {
   if (siblings.length && dropdownEl && menuEl) {
     menuEl.innerHTML = siblings.map(s => {
       const hasActuals = timesheetData.some(r => r.projectId === s.id);
-      const badges     = [pipelineBadge(getProjectPipeline(s.id) || s.pipeline), statusBadge(s.status)].filter(Boolean).join(' ');
+      const badges     = [pipelineBadge(getProjectPipeline(s.id) || s.pipeline), statusBadgeLarge(s.status)].join(' ');
       if (hasActuals) {
         return `<li><a class="dropdown-item d-flex align-items-center gap-2 py-2" href="#" data-sib-pid="${esc(s.id)}">
           <span class="fw-semibold">${esc(s.name || s.id)}</span>

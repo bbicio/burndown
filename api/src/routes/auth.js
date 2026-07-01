@@ -8,6 +8,11 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
+async function getCurrentTermsVersion() {
+  const { rows } = await query("SELECT value FROM app_settings WHERE key = 'terms_version'");
+  return parseInt(rows[0]?.value || '1');
+}
+
 function token48h() {
   const tok = crypto.randomBytes(32).toString('hex');
   const exp = new Date(Date.now() + 48 * 60 * 60 * 1000);
@@ -24,11 +29,53 @@ function token2h() {
 router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const { rows } = await query(
-      'SELECT id, email, first_name, last_name, role, status FROM users WHERE id = $1',
+      'SELECT id, email, first_name, last_name, role, status, terms_version FROM users WHERE id = $1',
       [req.user.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+    const currentTermsVersion = await getCurrentTermsVersion();
+    res.json({ ...rows[0], current_terms_version: currentTermsVersion });
+  } catch (err) { next(err); }
+});
+
+// PATCH /api/auth/profile — update own name / email
+router.patch('/profile', requireAuth, async (req, res, next) => {
+  try {
+    const { firstName, lastName, email } = req.body;
+    const fields = [], params = [];
+
+    if (firstName !== undefined) { params.push(firstName.trim()); fields.push(`first_name = $${params.length}`); }
+    if (lastName  !== undefined) { params.push(lastName.trim());  fields.push(`last_name = $${params.length}`); }
+    if (email     !== undefined) {
+      const normalized = email.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized))
+        return res.status(400).json({ error: 'Invalid email address' });
+      const dup = await query('SELECT id FROM users WHERE email = $1 AND id <> $2', [normalized, req.user.id]);
+      if (dup.rows[0]) return res.status(409).json({ error: 'Email already in use' });
+      params.push(normalized); fields.push(`email = $${params.length}`);
+    }
+
+    if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
+
+    params.push(req.user.id);
+    const { rows } = await query(
+      `UPDATE users SET ${fields.join(', ')} WHERE id = $${params.length}
+       RETURNING id, email, first_name, last_name, role`,
+      params
+    );
     res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+// POST /api/auth/accept-terms
+router.post('/accept-terms', requireAuth, async (req, res, next) => {
+  try {
+    const currentTermsVersion = await getCurrentTermsVersion();
+    await query(
+      'UPDATE users SET terms_version = $1, terms_accepted_at = NOW() WHERE id = $2',
+      [currentTermsVersion, req.user.id]
+    );
+    res.json({ ok: true, terms_version: currentTermsVersion });
   } catch (err) { next(err); }
 });
 

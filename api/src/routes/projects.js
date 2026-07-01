@@ -177,7 +177,7 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     const timesheets = await query(
-      'SELECT COUNT(*) FROM timesheets WHERE project_code = (SELECT code FROM projects WHERE id = $1)',
+      'SELECT COUNT(*) FROM timesheets t JOIN projects p ON p.code = t.project_code WHERE p.id = $1',
       [req.params.id]
     );
     if (parseInt(timesheets.rows[0].count) > 0) {

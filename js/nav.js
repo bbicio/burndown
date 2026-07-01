@@ -12,6 +12,13 @@ async function initNav(activeTab, opts = {}) {
     return null;
   }
 
+  // Redirect to terms page if user hasn't accepted the current version
+  if ((user.terms_version || 0) < (user.current_terms_version || 1)) {
+    const dest = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.href = '/terms.html?next=' + dest;
+    return null;
+  }
+
   // Store user globally so settings.js and notifications.js can access it
   window.__navUser = user;
 
@@ -67,6 +74,7 @@ async function initNav(activeTab, opts = {}) {
               ${displayName}
             </button>
             <ul class="dropdown-menu dropdown-menu-end" style="min-width:180px">
+              <li><button class="dropdown-item" id="nav-profile-btn">👤 My Profile</button></li>
               <li><button class="dropdown-item" id="nav-settings-btn">⚙ Settings</button></li>
               <li><hr class="dropdown-divider"></li>
               <li><button class="dropdown-item" id="nav-send-notif-btn">📣 Send Notification</button></li>
@@ -160,6 +168,45 @@ async function initNav(activeTab, opts = {}) {
         </div>
       </div>`;
     document.body.appendChild(modalEl.firstElementChild);
+  }
+
+  // ── MY PROFILE MODAL ────────────────────────────────────────────────────────
+  if (!document.getElementById('navProfileModal')) {
+    const profileEl = document.createElement('div');
+    profileEl.innerHTML = `
+      <div class="modal fade" id="navProfileModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
+          <div class="modal-content">
+            <div class="modal-header" style="padding:14px 18px">
+              <h6 class="modal-title fw-semibold mb-0">👤 My Profile</h6>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:18px">
+              <div id="navProfileError"   class="alert alert-danger  py-2 d-none" style="font-size:.82rem"></div>
+              <div id="navProfileSuccess" class="alert alert-success py-2 d-none" style="font-size:.82rem">Profile updated.</div>
+              <div class="row g-3">
+                <div class="col-6">
+                  <label class="form-label fw-semibold" style="font-size:.82rem">First name</label>
+                  <input type="text" class="form-control form-control-sm" id="navProfileFirstName" autocomplete="given-name">
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold" style="font-size:.82rem">Last name</label>
+                  <input type="text" class="form-control form-control-sm" id="navProfileLastName" autocomplete="family-name">
+                </div>
+                <div class="col-12">
+                  <label class="form-label fw-semibold" style="font-size:.82rem">Email</label>
+                  <input type="email" class="form-control form-control-sm" id="navProfileEmail" autocomplete="email">
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer" style="padding:10px 18px">
+              <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+              <button class="btn btn-primary btn-sm" id="navProfileSaveBtn">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(profileEl.firstElementChild);
   }
 
   // ── SEND NOTIFICATION MODAL (injected once by nav.js) ───────────────────────
@@ -301,6 +348,59 @@ async function initNav(activeTab, opts = {}) {
   document.getElementById('nav-logout-btn').addEventListener('click', async () => {
     try { await Api.auth.logout(); } catch (e) {}
     window.location.href = '/login.html';
+  });
+
+  document.getElementById('nav-profile-btn').addEventListener('click', () => {
+    const u = window.__navUser || {};
+    document.getElementById('navProfileFirstName').value = u.first_name || u.firstName || '';
+    document.getElementById('navProfileLastName').value  = u.last_name  || u.lastName  || '';
+    document.getElementById('navProfileEmail').value     = u.email || '';
+    document.getElementById('navProfileError').classList.add('d-none');
+    document.getElementById('navProfileSuccess').classList.add('d-none');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('navProfileModal')).show();
+    setTimeout(() => document.getElementById('navProfileFirstName').focus(), 300);
+  });
+
+  document.getElementById('navProfileSaveBtn').addEventListener('click', async () => {
+    const btn    = document.getElementById('navProfileSaveBtn');
+    const errEl  = document.getElementById('navProfileError');
+    const okEl   = document.getElementById('navProfileSuccess');
+    const firstName = document.getElementById('navProfileFirstName').value.trim();
+    const lastName  = document.getElementById('navProfileLastName').value.trim();
+    const email     = document.getElementById('navProfileEmail').value.trim();
+
+    errEl.classList.add('d-none');
+    okEl.classList.add('d-none');
+
+    if (!firstName || !lastName || !email) {
+      errEl.textContent = 'All fields are required.';
+      errEl.classList.remove('d-none');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      const updated = await Api.auth.updateProfile({ firstName, lastName, email });
+      // Update in-memory user so navbar reflects new name immediately
+      if (window.__navUser) {
+        window.__navUser.first_name = updated.first_name;
+        window.__navUser.last_name  = updated.last_name;
+        window.__navUser.email      = updated.email;
+        const nameEl = document.getElementById('nav-account-btn');
+        if (nameEl) nameEl.textContent = `${updated.first_name} ${updated.last_name} ▾`;
+      }
+      okEl.classList.remove('d-none');
+      setTimeout(() => {
+        bootstrap.Modal.getInstance(document.getElementById('navProfileModal'))?.hide();
+      }, 1500);
+    } catch (e) {
+      errEl.textContent = e.message || 'Failed to update profile.';
+      errEl.classList.remove('d-none');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save';
+    }
   });
 
   document.getElementById('nav-change-pwd-btn').addEventListener('click', () => {

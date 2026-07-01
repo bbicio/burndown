@@ -244,38 +244,67 @@ function _rcRenderEntries(rc) {
   const body = document.getElementById('rcEntriesBody');
   if (!body) return;
 
-  const entryMap = {};
-  (rc.entries || []).forEach(e => { entryMap[String(e.roleId)] = e.hourlyRate; });
+  const entryMap    = {};
+  const overrideMap = {};
+  (rc.entries || []).forEach(e => {
+    const rid = String(e.roleId);
+    entryMap[rid]    = e.hourlyRate;
+    overrideMap[rid] = e.rateOverrides || {};
+  });
 
   if (!_rcRoles.length) {
     body.innerHTML = '<div class="text-muted" style="font-size:.83rem">No roles configured.</div>';
     return;
   }
 
+  const nonEurCurrencies = (window.__currencies || []).filter(cu => cu.code !== 'EUR');
+
+  const extraHeaders = nonEurCurrencies.map(cu =>
+    `<th style="font-size:.78rem">${esc(cu.symbol)} ${esc(cu.code)}/h</th>`
+  ).join('');
+
+  const rows = _rcRoles.map(role => {
+    const rid      = String(role.id);
+    const eurVal   = entryMap[rid] !== undefined ? Number(entryMap[rid]) : '';
+    const overrides = overrideMap[rid] || {};
+    const roleDefault  = _rcRoles.find(ro => String(ro.id) === rid);
+    const extraCols = nonEurCurrencies.map(cu => {
+      const v           = overrides[cu.code] != null ? overrides[cu.code] : '';
+      const agencyRate  = (roleDefault?.rate_overrides || {})[cu.code];
+      const placeholder = agencyRate != null ? `${agencyRate} (agency)` : 'agency default';
+      return `<td>
+        <input type="number" min="0" step="0.01" class="form-control form-control-sm rc-override-rate"
+               data-role-id="${esc(rid)}" data-currency="${esc(cu.code)}"
+               value="${v !== '' ? v : ''}"
+               placeholder="${esc(placeholder)}"
+               style="width:130px">
+      </td>`;
+    }).join('');
+    return `<tr>
+      <td class="fw-semibold align-middle">${esc(role.label || role.code || role.id)}</td>
+      <td>
+        <input type="number" min="0" step="1" class="form-control form-control-sm rc-rate-input"
+               data-role-id="${esc(rid)}"
+               value="${eurVal !== '' ? eurVal : ''}"
+               placeholder="—"
+               style="width:100px">
+      </td>
+      <td class="align-middle text-muted" style="font-size:.78rem">€/h</td>
+      ${extraCols}
+    </tr>`;
+  }).join('');
+
   body.innerHTML = `
     <table class="table table-sm mb-0" style="font-size:.83rem">
       <thead>
         <tr>
-          <th style="width:60%;font-size:.78rem">Role</th>
-          <th style="font-size:.78rem">Hourly rate</th>
-          <th style="width:60px;font-size:.78rem">Currency</th>
+          <th style="width:40%;font-size:.78rem">Role</th>
+          <th style="font-size:.78rem">€/h</th>
+          <th style="width:40px"></th>
+          ${extraHeaders}
         </tr>
       </thead>
-      <tbody>
-        ${_rcRoles.map(role => `
-          <tr>
-            <td class="fw-semibold align-middle">${esc(role.label || role.code || role.id)}</td>
-            <td>
-              <input type="number" min="0" step="1" class="form-control form-control-sm rc-rate-input"
-                     data-role-id="${esc(role.id)}"
-                     value="${entryMap[String(role.id)] !== undefined ? Number(entryMap[String(role.id)]) : ''}"
-                     placeholder="—"
-                     style="width:100px">
-            </td>
-            <td class="align-middle text-muted">€/h</td>
-          </tr>
-        `).join('')}
-      </tbody>
+      <tbody>${rows}</tbody>
     </table>`;
 }
 
@@ -314,12 +343,31 @@ async function _rcSaveEntries() {
   const msg = document.getElementById('rcEditMsg');
   const btn = document.getElementById('rcSaveEntriesBtn');
 
-  const entries = [];
+  // Collect EUR rates
+  const rateMap     = {};
+  const overridesMap = {};
   document.querySelectorAll('.rc-rate-input').forEach(input => {
     const val = input.value.trim();
+    if (val !== '') rateMap[input.dataset.roleId] = parseFloat(val) || 0;
+  });
+  // Collect per-currency overrides
+  document.querySelectorAll('.rc-override-rate').forEach(input => {
+    const val = input.value.trim();
     if (val !== '') {
-      entries.push({ roleId: input.dataset.roleId, hourlyRate: parseFloat(val) || 0 });
+      const rid = input.dataset.roleId;
+      const cur = input.dataset.currency;
+      if (!overridesMap[rid]) overridesMap[rid] = {};
+      overridesMap[rid][cur] = parseFloat(val);
     }
+  });
+  const allRoleIds = new Set([...Object.keys(rateMap), ...Object.keys(overridesMap)]);
+  const entries = [];
+  allRoleIds.forEach(rid => {
+    entries.push({
+      roleId:        rid,
+      hourlyRate:    rateMap[rid] ?? 0,
+      rateOverrides: overridesMap[rid] ?? {},
+    });
   });
 
   btn.disabled = true;

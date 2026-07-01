@@ -178,7 +178,7 @@ router.delete('/programs/:id', requireAdmin, async (req, res, next) => {
 router.get('/roles', requireAuth, async (req, res, next) => {
   try {
     const { rows } = await query(
-      'SELECT id, label, code, team, hourly_rate FROM roles ORDER BY label'
+      'SELECT id, label, code, team, hourly_rate, rate_overrides FROM roles ORDER BY label'
     );
     res.json(rows);
   } catch (err) { next(err); }
@@ -201,14 +201,15 @@ router.post('/roles', requireAdmin, async (req, res, next) => {
 
 router.patch('/roles/:id', requireAdmin, async (req, res, next) => {
   try {
-    const { label, code, team, hourlyRate } = req.body;
+    const { label, code, team, hourlyRate, rateOverrides } = req.body;
     const fields = [];
     const params = [];
 
-    if (label !== undefined)     { params.push(label.trim());                  fields.push(`label = $${params.length}`); }
-    if (code !== undefined)      { params.push(code.trim().toUpperCase());      fields.push(`code = $${params.length}`); }
-    if (team !== undefined)      { params.push(team?.trim() || null);           fields.push(`team = $${params.length}`); }
-    if (hourlyRate !== undefined){ params.push(hourlyRate);                     fields.push(`hourly_rate = $${params.length}`); }
+    if (label !== undefined)        { params.push(label.trim());                  fields.push(`label = $${params.length}`); }
+    if (code !== undefined)         { params.push(code.trim().toUpperCase());      fields.push(`code = $${params.length}`); }
+    if (team !== undefined)         { params.push(team?.trim() || null);           fields.push(`team = $${params.length}`); }
+    if (hourlyRate !== undefined)   { params.push(hourlyRate);                     fields.push(`hourly_rate = $${params.length}`); }
+    if (rateOverrides !== undefined){ params.push(JSON.stringify(rateOverrides));  fields.push(`rate_overrides = $${params.length}`); }
 
     if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
 
@@ -247,7 +248,8 @@ router.get('/ratecards', requireAuth, async (req, res, next) => {
       SELECT r.id, r.name, r.client_id, c.name AS client_name,
              COALESCE(
                json_agg(
-                 json_build_object('roleId', re.role_id, 'label', ro.label, 'hourlyRate', re.hourly_rate)
+                 json_build_object('roleId', re.role_id, 'label', ro.label, 'hourlyRate', re.hourly_rate,
+                                   'rateOverrides', COALESCE(re.rate_overrides, '{}'))
                  ORDER BY ro.label
                ) FILTER (WHERE re.id IS NOT NULL), '[]'
              ) AS entries
@@ -268,7 +270,8 @@ router.get('/ratecards/:id', requireAuth, async (req, res, next) => {
       SELECT r.id, r.name, r.client_id,
              COALESCE(
                json_agg(
-                 json_build_object('roleId', re.role_id, 'label', ro.label, 'hourlyRate', re.hourly_rate)
+                 json_build_object('roleId', re.role_id, 'label', ro.label, 'hourlyRate', re.hourly_rate,
+                                   'rateOverrides', COALESCE(re.rate_overrides, '{}'))
                  ORDER BY ro.label
                ) FILTER (WHERE re.id IS NOT NULL), '[]'
              ) AS entries
@@ -342,11 +345,12 @@ router.patch('/ratecards/:id/entries', requireAdmin, async (req, res, next) => {
     if (!Array.isArray(entries)) return res.status(400).json({ error: 'Body must be an array' });
 
     for (const e of entries) {
+      const overrides = (e.rateOverrides && typeof e.rateOverrides === 'object') ? e.rateOverrides : {};
       await query(`
-        INSERT INTO ratecard_entries (ratecard_id, role_id, hourly_rate)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (ratecard_id, role_id) DO UPDATE SET hourly_rate = $3
-      `, [req.params.id, e.roleId, e.hourlyRate]);
+        INSERT INTO ratecard_entries (ratecard_id, role_id, hourly_rate, rate_overrides)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (ratecard_id, role_id) DO UPDATE SET hourly_rate = $3, rate_overrides = $4
+      `, [req.params.id, e.roleId, e.hourlyRate, JSON.stringify(overrides)]);
     }
     res.json({ ok: true });
   } catch (err) { next(err); }

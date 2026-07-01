@@ -104,6 +104,9 @@
       <button class="cfg-tab-btn" :class="{ active: activeTab === 'roles'    }" @click="activeTab = 'roles'">
         🎯 Roles <span class="fw-normal text-muted">({{ roles.length }})</span>
       </button>
+      <button class="cfg-tab-btn" :class="{ active: activeTab === 'currencies' }" @click="activeTab = 'currencies'">
+        💱 Currencies
+      </button>
     </div>
 
     <!-- ════════════════════════════════════════════════════════ -->
@@ -259,7 +262,7 @@
     <div v-show="activeTab === 'pots'">
 
     <!-- ── VIEW A: Pipeline list ─────────────────────────────── -->
-    <div v-if="!activePipeline && !phasingYear">
+    <div v-if="!activePipeline && !phasingYear && !projectPhasingYear">
 
       <div class="section-title">
         <span>Pipelines</span>
@@ -314,12 +317,15 @@
                 </td>
                 <td class="text-end" style="font-size:.9rem">
                   <template v-if="yearTotals[py.year] && yearTotals[py.year].pot_total > 0">
-                    <span class="fw-semibold" style="color:#2e7d32">
+                    <div class="fw-semibold" style="color:#1a1a2e">
                       {{ Math.round(yearTotals[py.year].achieved_total / yearTotals[py.year].pot_total * 100) }}%
-                    </span>
-                    <span class="text-muted" style="font-size:.75rem">
-                      &nbsp;({{ fmtAmount(yearTotals[py.year].achieved_total) }})
-                    </span>
+                      <span class="text-muted fw-normal" style="font-size:.75rem">({{ fmtAmount(yearTotals[py.year].achieved_total) }})</span>
+                    </div>
+                    <div style="font-size:.72rem;margin-top:2px">
+                      <span style="color:#198754">C: {{ fmtAmount(yearTotals[py.year].committed_total || 0) }}</span>
+                      <span class="text-muted mx-1">·</span>
+                      <span style="color:#fd7e14">A: {{ fmtAmount(yearTotals[py.year].anticipated_total || 0) }}</span>
+                    </div>
                   </template>
                   <span v-else class="text-muted">—</span>
                 </td>
@@ -327,7 +333,9 @@
                   <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
                           @click="selectPipeline(py)">POTs →</button>
                   <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
-                          @click="openPhasingView(py)">📊 Phasing</button>
+                          @click="openPhasingView(py)">📊 Proposal Phasing</button>
+                  <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
+                          @click="openProjectPhasingView(py)">📋 Project Phasing</button>
                   <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
                           @click="togglePipelineYear(py)" :disabled="py._toggling">
                     <span v-if="py._toggling" class="spinner-border spinner-border-sm"></span>
@@ -479,7 +487,9 @@
                 <th>Client / Group</th>
                 <th>Type</th>
                 <th class="text-end">Target</th>
-                <th class="text-end">Achievement</th>
+                <th class="text-end">Total (C+A)</th>
+                <th class="text-end">Committed</th>
+                <th class="text-end">Anticipated</th>
                 <th></th>
               </tr>
             </thead>
@@ -492,7 +502,9 @@
                   </span>
                 </td>
                 <td class="text-end fw-semibold">{{ fmtAmount(pot.amount) }}</td>
-                <td class="text-end" style="color:#2e7d32;font-weight:600">{{ fmtAmount(+pot.achieved_total || 0) }}</td>
+                <td class="text-end fw-semibold">{{ fmtAmount(+pot.achieved_total || 0) }}</td>
+                <td class="text-end" style="color:#198754;font-weight:600">{{ fmtAmount(+pot.committed_total || 0) }}</td>
+                <td class="text-end" style="color:#fd7e14;font-weight:600">{{ fmtAmount(+pot.anticipated_total || 0) }}</td>
                 <td class="text-end" style="white-space:nowrap">
                   <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
                           @click="openPotDetails(pot)">🔍 View Details</button>
@@ -523,7 +535,7 @@
         <span class="d-flex align-items-center gap-2" style="text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:700;color:#374151">
           <button class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;text-transform:none;letter-spacing:0"
                   @click="backToPipelines()">← Pipelines</button>
-          Phasing — Pipeline {{ phasingYear.year }}
+          Proposal Phasing — Pipeline {{ phasingYear.year }}
           <span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:600"
                 :style="phasingYear.active ? 'background:#dcfce7;color:#166534' : 'background:#f3f4f6;color:#6b7280'">
             {{ phasingYear.active ? 'Visible' : 'Hidden' }}
@@ -555,16 +567,197 @@
         <div class="spinner-border text-primary"></div>
       </div>
       <div v-else-if="phasingError" class="alert alert-danger">{{ phasingError }}</div>
-      <div v-else-if="phasingData && phasingData.projects.length" class="card">
+      <div v-else-if="phasingData" class="card">
+        <div class="card-body" style="padding:10px 16px 6px;border-bottom:1px solid #e5e7eb">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:.75rem;font-weight:600;color:#6b7280;margin-right:2px">Stage:</span>
+            <button v-for="st in ['SIP','Expected','Anticipated','Committed']" :key="st"
+                    style="font-size:.7rem;padding:1px 8px;border-radius:20px;cursor:pointer;border:1.5px solid;transition:all .15s"
+                    :style="phasingFilterStages.includes(st) ? `background:${stageColor(st)};color:#fff;border-color:${stageColor(st)}` : `background:#fff;color:#6b7280;border-color:#ccc`"
+                    @click="phasingFilterStages.includes(st) ? phasingFilterStages.splice(phasingFilterStages.indexOf(st),1) : phasingFilterStages.push(st)">
+              {{ st }}
+            </button>
+            <select v-model="phasingFilterClient" class="form-select form-select-sm" style="width:auto;font-size:.75rem;height:26px;padding-top:1px;padding-bottom:1px">
+              <option value="">All clients</option>
+              <option v-for="cl in sortedClients" :key="cl.id" :value="cl.id">{{ cl.name }}</option>
+            </select>
+            <button v-if="phasingFilterStages.length || phasingFilterClient"
+                    class="btn btn-sm btn-outline-secondary" style="font-size:.7rem;padding:1px 8px"
+                    @click="phasingFilterStages = []; phasingFilterClient = ''">✕ Clear</button>
+          </div>
+        </div>
         <div class="card-body p-0">
-          <div v-html="phasingTableHtml" style="overflow-x:auto"></div>
+          <div v-if="!phasingData.projects.length" class="empty" style="padding:1.5rem">No proposals for Pipeline {{ phasingYear.year }}.</div>
+          <div v-else v-html="phasingTableHtml" style="overflow-x:auto"></div>
         </div>
       </div>
-      <div v-else class="empty">No Committed or Anticipated proposals for Pipeline {{ phasingYear.year }}.</div>
 
     </div><!-- /view C -->
 
+    <!-- ── VIEW D: Project Phasing ─────────────────────────── -->
+    <div v-else-if="projectPhasingYear">
+      <div class="section-title">
+        <span class="d-flex align-items-center gap-2" style="text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:700;color:#374151">
+          <button class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;text-transform:none;letter-spacing:0"
+                  @click="backToPipelines()">← Pipelines</button>
+          Project Phasing — Pipeline {{ projectPhasingYear.year }}
+        </span>
+      </div>
+      <div v-if="projectPhasingLoading" class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+      <div v-else-if="projectPhasingError" class="alert alert-danger">{{ projectPhasingError }}</div>
+      <div v-else-if="projectPhasingData" class="card">
+        <div class="card-body" style="padding:10px 16px 6px;border-bottom:1px solid #e5e7eb">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:.75rem;font-weight:600;color:#6b7280;margin-right:2px">Stage:</span>
+            <button v-for="st in ['SIP','Expected','Anticipated','Committed']" :key="st"
+                    style="font-size:.7rem;padding:1px 8px;border-radius:20px;cursor:pointer;border:1.5px solid;transition:all .15s"
+                    :style="ppFilterStages.includes(st) ? `background:${stageColor(st)};color:#fff;border-color:${stageColor(st)}` : `background:#fff;color:#6b7280;border-color:#ccc`"
+                    @click="ppFilterStages.includes(st) ? ppFilterStages.splice(ppFilterStages.indexOf(st),1) : ppFilterStages.push(st)">
+              {{ st }}
+            </button>
+            <select v-model="ppFilterClient" class="form-select form-select-sm" style="width:auto;font-size:.75rem;height:26px;padding-top:1px;padding-bottom:1px">
+              <option value="">All clients</option>
+              <option v-for="cl in sortedClients" :key="cl.id" :value="cl.id">{{ cl.name }}</option>
+            </select>
+            <button v-if="ppFilterStages.length || ppFilterClient"
+                    class="btn btn-sm btn-outline-secondary" style="font-size:.7rem;padding:1px 8px"
+                    @click="ppFilterStages = []; ppFilterClient = ''">✕ Clear</button>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <div v-if="!projectPhasingData.projects.length" class="empty" style="padding:1.5rem">No projects for Pipeline {{ projectPhasingYear.year }}.</div>
+          <div v-else v-html="projectPhasingTableHtml" style="overflow-x:auto"></div>
+        </div>
+      </div>
+    </div><!-- /view D -->
+
     </div><!-- /pots tab -->
+
+    <!-- ════════════════════════════════════════════════════════ -->
+    <!-- CURRENCIES                                               -->
+    <!-- ════════════════════════════════════════════════════════ -->
+    <div v-show="activeTab === 'currencies'">
+
+      <div class="section-title">
+        <span>Currencies</span>
+        <button class="btn btn-primary btn-sm" @click="crf.show = true">+ Activate currency</button>
+      </div>
+
+      <!-- Activate form -->
+      <div class="form-card" v-if="crf.show">
+        <div class="form-card-title">Activate a currency</div>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold" style="font-size:.82rem">Currency</label>
+            <select class="form-select form-select-sm" v-model="crf.code">
+              <option value="">— select —</option>
+              <option v-for="cur in currencies.filter(c => !c.active && c.code !== 'EUR')" :key="cur.code" :value="cur.code">
+                {{ cur.code }} — {{ cur.name }}
+              </option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold" style="font-size:.82rem">1 EUR =</label>
+            <div class="input-group input-group-sm">
+              <input type="number" step="0.000001" min="0.000001" class="form-control" v-model="crf.rate" placeholder="e.g. 1.20">
+              <span class="input-group-text" style="font-size:.8rem">{{ currencies.find(c => c.code === crf.code)?.symbol || '?' }}</span>
+            </div>
+          </div>
+          <div class="col-auto d-flex gap-2">
+            <button class="btn btn-primary btn-sm" @click="activateCurrency" :disabled="crf.loading || !crf.code">
+              <span v-if="crf.loading" class="spinner-border spinner-border-sm me-1"></span>
+              Activate
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" @click="crf.show = false; crf.error = null">Cancel</button>
+          </div>
+        </div>
+        <div v-if="crf.error" class="alert alert-danger alert-sm mt-2">{{ crf.error }}</div>
+      </div>
+
+      <!-- Active currencies table -->
+      <div class="card">
+        <div class="card-body p-0">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th style="font-size:.82rem">Code</th>
+                <th style="font-size:.82rem">Symbol</th>
+                <th style="font-size:.82rem">Name</th>
+                <th style="font-size:.82rem">1 EUR =</th>
+                <th style="font-size:.82rem">Last updated</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="cur in currencies.filter(c => c.active)" :key="cur.code">
+                <td class="fw-bold" style="font-size:.9rem">{{ cur.code }}</td>
+                <td>{{ cur.symbol }}</td>
+                <td>{{ cur.name }}</td>
+                <td style="min-width:200px">
+                  <template v-if="cur.code === 'EUR'">
+                    <span class="text-muted" style="font-size:.85rem">Fixed 1:1</span>
+                  </template>
+                  <template v-else>
+                    <div class="d-flex align-items-center gap-2">
+                      <input type="number" step="0.000001" min="0.000001" class="form-control form-control-sm" style="max-width:120px"
+                             v-model="crEdit[cur.code].rate">
+                      <span style="font-size:.82rem;color:#6b7280">{{ cur.symbol }}</span>
+                      <button class="btn btn-sm btn-outline-primary" style="font-size:.72rem;white-space:nowrap"
+                              @click="updateCurrencyRate(cur.code)" :disabled="crEdit[cur.code]?.saving">
+                        <span v-if="crEdit[cur.code]?.saving" class="spinner-border spinner-border-sm"></span>
+                        <span v-else>Save</span>
+                      </button>
+                    </div>
+                    <div v-if="crEdit[cur.code]?.error" class="text-danger" style="font-size:.75rem;margin-top:2px">{{ crEdit[cur.code].error }}</div>
+                  </template>
+                </td>
+                <td style="font-size:.82rem;color:#6b7280">
+                  {{ cur.last_updated ? new Date(cur.last_updated).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}) : '—' }}
+                </td>
+                <td class="text-end">
+                  <button v-if="cur.code !== 'EUR'" class="btn btn-outline-secondary btn-sm" style="font-size:.72rem"
+                          @click="openCurrencyHistory(cur)">History</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="empty" v-if="!currencies.some(c => c.active)">No active currencies.</div>
+        </div>
+      </div>
+
+    </div><!-- /currencies tab -->
+
+    <!-- Rate history modal -->
+    <div class="modal fade" id="crHistoryModal" tabindex="-1">
+      <div class="modal-dialog modal-md">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Rate History — {{ crHistory.name }} ({{ crHistory.code }})</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div v-if="crHistory.loading" class="text-center py-3"><div class="spinner-border text-primary"></div></div>
+            <table v-else-if="crHistory.rows.length" class="table table-sm mb-0">
+              <thead>
+                <tr>
+                  <th style="font-size:.82rem">Date</th>
+                  <th style="font-size:.82rem">1 EUR =</th>
+                  <th style="font-size:.82rem">Updated by</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in crHistory.rows" :key="row.id">
+                  <td style="font-size:.82rem">{{ new Date(row.created_at).toLocaleString('en-GB') }}</td>
+                  <td style="font-size:.82rem;font-weight:600">{{ Number(row.rate).toLocaleString('en', {minimumFractionDigits:6}) }}</td>
+                  <td style="font-size:.82rem;color:#6b7280">{{ row.updated_by || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p v-else class="text-muted" style="font-size:.85rem">No rate history yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- ════════════════════════════════════════════════════════ -->
     <!-- PROGRAMS                                                 -->
@@ -660,6 +853,13 @@
           <label class="form-label fw-semibold" style="font-size:.82rem">Default rate (€/h)</label>
           <input type="number" min="0" step="1" class="form-control form-control-sm" v-model="rf.rate"
                  @keydown.enter="saveRole" placeholder="e.g. 150">
+        </div>
+        <div class="col-md-2" v-for="cu in currencies.filter(c => c.code !== 'EUR')" :key="cu.code">
+          <label class="form-label fw-semibold" style="font-size:.82rem">Default rate ({{ cu.symbol }}/h)</label>
+          <input type="number" min="0" step="0.01" class="form-control form-control-sm"
+                 :value="rf.rateOverrides[cu.code] || ''"
+                 @input="e => { if(e.target.value) rf.rateOverrides[cu.code] = e.target.value; else delete rf.rateOverrides[cu.code]; }"
+                 :placeholder="'e.g. ' + Math.round((rf.rate || 0) * cu.current_rate)">
         </div>
         <div class="col-auto d-flex gap-2">
           <button class="btn btn-primary btn-sm" @click="saveRole" :disabled="rf.loading">
@@ -773,7 +973,7 @@
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 </script>
-<script src="js/core.js?v=1"></script>
+<script src="js/core.js?v=2"></script>
 <script src="js/settings.js"></script>
 <script src="js/notifications.js"></script>
 <script src="js/nav.js?v=4"></script>
@@ -802,8 +1002,16 @@ window.__cfgApp = Vue.createApp({
       activePipeline:  null,  // null = pipeline list; object = POT detail view
       phasingYear:     null,  // null = not in phasing view; pipeline year object = phasing view
       phasingData:     null,  // { months, totals, projects } from API
-      phasingLoading:  false,
-      phasingError:    null,
+      phasingLoading:        false,
+      phasingError:          null,
+      phasingFilterStages:   [],
+      phasingFilterClient:   '',
+      projectPhasingYear:    null,
+      projectPhasingData:    null,
+      projectPhasingLoading: false,
+      projectPhasingError:   null,
+      ppFilterStages:        [],
+      ppFilterClient:        '',
       pyf: { show: false, year: new Date().getFullYear() + 1, error: null, loading: false },
       pots:            [],
       potsYear:        new Date().getFullYear(),
@@ -816,7 +1024,13 @@ window.__cfgApp = Vue.createApp({
       pf: { show: false, id: null, name: '', programId: '', error: null, loading: false },
 
       // Role form state
-      rf: { show: false, id: null, label: '', code: '', rate: '', error: null, loading: false },
+      rf: { show: false, id: null, label: '', code: '', rate: '', rateOverrides: {}, error: null, loading: false },
+
+      // Currency state
+      currencies:    [],
+      crf: { show: false, code: '', rate: '1', error: null, loading: false },
+      crEdit: {},
+      crHistory: { show: false, code: '', name: '', rows: [], loading: false },
     };
   },
 
@@ -855,51 +1069,169 @@ window.__cfgApp = Vue.createApp({
         const [y, m] = mo.split('-');
         return new Date(parseInt(y), parseInt(m) - 1).toLocaleString('en', { month: 'short' });
       };
-      const fmtAmt = (n) => n ? '€ ' + Math.round(n).toLocaleString('en') : '—';
-      const fmtH   = (n) => n ? Math.round(n * 10) / 10 + ' h' : '—';
+      const opts = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+      const fmtAmtC = (n, cur) => {
+        if (!n) return '—';
+        const code   = (cur || 'EUR').trim();
+        const entry  = (window.__currencies || []).find(c => c.code === code);
+        const symbol = entry?.symbol || (code === 'EUR' ? '€' : code);
+        const locale = entry?.locale || 'it-IT';
+        return `${symbol} ${new Intl.NumberFormat(locale, opts).format(n)}`;
+      };
+      const fmtAmt  = (n) => fmtAmtC(n, 'EUR');
+      const fmtH    = (n) => n ? Math.round(n * 10) / 10 + ' h' : '—';
       const fmtDate = (s) => s && s.length >= 6 ? s.slice(0, 4) + '/' + s.slice(4, 6) : '—';
-      const stageColor = (p) => ({ Committed: '#2e7d32', Anticipated: '#ef6c00' }[p] || '#6b7280');
-      const stageBg    = (p) => ({ Committed: '#e8f5e9', Anticipated: '#fff3e0' }[p] || '#f5f5f5');
       const escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       const col = 'text-align:right;padding:5px 8px;font-size:.78rem;white-space:nowrap;min-width:80px';
       const lbl = 'padding:5px 10px;font-size:.78rem;white-space:nowrap';
+
+      // Apply filters — Canceled and Draft are always excluded
+      const ACTIVE_STAGES = ['SIP', 'Expected', 'Anticipated', 'Committed'];
+      let projects = d.projects.filter(p => ACTIVE_STAGES.includes(p.pipeline));
+      if (this.phasingFilterStages.length)
+        projects = projects.filter(p => this.phasingFilterStages.includes(p.pipeline));
+      if (this.phasingFilterClient)
+        projects = projects.filter(p => p.clientId === this.phasingFilterClient);
+
+      // Recompute totals from filtered set — convert to EUR via currency_rate snapshot
+      const filteredTotals = {};
+      for (const mo of d.months) filteredTotals[mo] = { hours: 0, amount: 0 };
+      for (const p of projects) {
+        const rate = p.currencyRate || 1.0;
+        for (const [mo, val] of Object.entries(p.months)) {
+          if (filteredTotals[mo]) {
+            filteredTotals[mo].hours  += val.hours  || 0;
+            filteredTotals[mo].amount += (val.amount || 0) / rate;
+          }
+        }
+      }
+
       const monthCols = d.months.map(mo =>
         `<th style="${col};font-weight:700;border-bottom:2px solid #dee2e6">${fmtM(mo)}</th>`
       ).join('');
+      const colTot = col + ';background:#f1f3f5;font-weight:700';
       const totalCols = d.months.map(mo => {
-        const t = d.totals[mo] || {};
-        return `<td style="${col};font-weight:700">${fmtAmt(t.amount)}<br><span style="font-size:.7rem;color:#6b7280">${fmtH(t.hours)}</span></td>`;
+        const t = filteredTotals[mo] || {};
+        return `<td style="${col};font-weight:700">${t.amount ? fmtAmt(t.amount) : '<span style="color:#ccc">—</span>'}</td>`;
       }).join('');
+      const grandTotalEur = Object.values(filteredTotals).reduce((s, t) => s + (t.amount || 0), 0);
       const totalRow = `<tr style="background:#f8f9fa;border-top:2px solid #dee2e6">
-        <td style="${lbl};font-weight:700;min-width:220px">TOTAL</td>
+        <td style="${lbl};font-weight:700;min-width:220px">TOTAL <span style="font-size:.7rem;font-weight:400;color:#6b7280">(€)</span></td>
         <td style="${lbl}"></td><td style="${lbl}"></td><td style="${lbl}"></td>
-        ${totalCols}</tr>`;
-      const projectRows = d.projects.map(p => {
-        const rowTotal = d.months.reduce((s, mo) => s + (p.months[mo]?.amount || 0), 0);
-        const rowHours = d.months.reduce((s, mo) => s + (p.months[mo]?.hours  || 0), 0);
+        ${totalCols}
+        <td style="${colTot}">${fmtAmt(grandTotalEur)}</td></tr>`;
+      if (!projects.length) return '<p style="padding:1rem;color:#6b7280;font-size:.85rem">No proposals match the current filters.</p>';
+      const projectRows = projects.map(p => {
+        const rate       = p.currencyRate || 1.0;
+        const isNonEur   = p.currency && p.currency !== 'EUR';
+        const rowTotal   = d.months.reduce((s, mo) => s + (p.months[mo]?.amount || 0), 0);
+        const rowTotalEur = rowTotal / rate;
+        const totalCell  = isNonEur
+          ? `${fmtAmtC(rowTotal, p.currency)}<br><span style="font-size:.7rem;color:#6b7280">(${fmtAmt(rowTotalEur)})</span>`
+          : (rowTotal ? fmtAmt(rowTotal) : '<span style="color:#ccc">—</span>');
         const moCols = d.months.map(mo => {
           const val = p.months[mo] || {};
-          return `<td style="${col}">${val.amount ? fmtAmt(val.amount) : '<span style="color:#ccc">—</span>'}<br><span style="font-size:.7rem;color:#6b7280">${val.hours ? fmtH(val.hours) : ''}</span></td>`;
+          if (!val.amount) return `<td style="${col}"><span style="color:#ccc">—</span></td>`;
+          const localStr = fmtAmtC(val.amount, p.currency);
+          const eurStr   = isNonEur ? `<br><span style="font-size:.7rem;color:#6b7280">(${fmtAmt(val.amount / rate)})</span>` : '';
+          return `<td style="${col}">${localStr}${eurStr}</td>`;
         }).join('');
-        return `<tr style="cursor:pointer;border-top:1px solid #e5e7eb" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
-          <td style="${lbl};font-weight:600;min-width:220px"><span style="font-size:.7rem;color:#888;margin-right:4px">▶</span>${escHtml(p.name)}<span style="font-size:.7rem;color:#888;display:block;padding-left:14px">${escHtml(p.versionLabel)}</span></td>
-          <td style="${lbl}"><span style="display:inline-block;padding:1px 8px;border-radius:20px;font-size:.7rem;font-weight:600;background:${stageBg(p.pipeline)};color:${stageColor(p.pipeline)}">${escHtml(p.pipeline)}</span></td>
+        return `<tr style="border-top:1px solid #e5e7eb">
+          <td style="${lbl};font-weight:600;min-width:220px">${escHtml(p.name)}<span style="font-size:.7rem;color:#888;display:block">${escHtml(p.versionLabel)}</span></td>
+          <td style="${lbl}"><span style="display:inline-block;padding:1px 8px;border-radius:20px;font-size:.7rem;font-weight:600;background:${this.stageBg(p.pipeline)};color:${this.stageColor(p.pipeline)}">${escHtml(p.pipeline)}</span></td>
           <td style="${lbl};font-size:.75rem;color:#6b7280">${fmtDate(p.startDate)}</td>
           <td style="${lbl};font-size:.75rem;color:#6b7280">${fmtDate(p.endDate)}</td>
-          ${moCols}</tr>
-        <tr style="display:none;background:#fafbfc"><td colspan="${4 + d.months.length}" style="padding:6px 24px">
-          <div style="font-size:.75rem;color:#6b7280;display:flex;gap:2rem">
-            <span>Total budget: <strong>${fmtAmt(rowTotal)}</strong></span>
-            <span>Total hours: <strong>${fmtH(rowHours)}</strong></span>
-          </div></td></tr>`;
+          ${moCols}
+          <td style="${colTot};white-space:nowrap">${totalCell}</td></tr>`;
       }).join('');
       return `<table style="border-collapse:collapse;width:100%">
         <thead><tr style="background:#f1f3f5">
-          <th style="${lbl};font-weight:700;min-width:220px;border-bottom:2px solid #dee2e6">Project</th>
+          <th style="${lbl};font-weight:700;min-width:220px;border-bottom:2px solid #dee2e6">Proposal</th>
           <th style="${lbl};font-weight:700;border-bottom:2px solid #dee2e6">Stage</th>
           <th style="${lbl};font-weight:700;border-bottom:2px solid #dee2e6">Start</th>
           <th style="${lbl};font-weight:700;border-bottom:2px solid #dee2e6">End</th>
           ${monthCols}
+          <th style="${colTot};border-bottom:2px solid #dee2e6">Total</th>
+        </tr></thead>
+        <tbody>${totalRow}${projectRows}</tbody></table>`;
+    },
+    projectPhasingTableHtml() {
+      const d = this.projectPhasingData;
+      if (!d || !d.projects.length) return '';
+      const fmtM = (mo) => {
+        const [y, m] = mo.split('-');
+        return new Date(parseInt(y), parseInt(m) - 1).toLocaleString('en', { month: 'short', year: '2-digit' });
+      };
+      const opts = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+      const fmtAmtC = (n, cur) => {
+        if (n == null || n === 0) return '—';
+        const code   = (cur || 'EUR').trim();
+        const entry  = (window.__currencies || []).find(c => c.code === code);
+        const symbol = entry?.symbol || (code === 'EUR' ? '€' : code);
+        const locale = entry?.locale || 'it-IT';
+        return `${symbol} ${new Intl.NumberFormat(locale, opts).format(n)}`;
+      };
+      const fmtAmt  = (n) => fmtAmtC(n, 'EUR');
+      const escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const cell = 'text-align:right;padding:5px 8px;font-size:.78rem;white-space:nowrap;min-width:80px;border-left:1px solid #e5e7eb';
+      const lbl  = 'padding:5px 10px;font-size:.78rem;white-space:nowrap';
+
+      // Apply filters — Canceled and Draft always excluded
+      const ACTIVE_STAGES = ['SIP', 'Expected', 'Anticipated', 'Committed'];
+      let projects = d.projects.filter(p => ACTIVE_STAGES.includes(p.pipeline));
+      if (this.ppFilterStages.length) projects = projects.filter(p => this.ppFilterStages.includes(p.pipeline));
+      if (this.ppFilterClient)        projects = projects.filter(p => p.clientId === this.ppFilterClient);
+
+      // Recompute totals from filtered set — convert to EUR via currency_rate snapshot
+      const ft = Object.fromEntries(d.months.map(m => [m, 0]));
+      for (const p of projects) {
+        const rate = p.currencyRate || 1.0;
+        for (const mo of d.months) ft[mo] += (p.months[mo] || 0) / rate;
+      }
+      const grandTotal = Object.values(ft).reduce((s, v) => s + v, 0);
+
+      const cellTotal = cell + ';background:#f1f3f5;font-weight:700';
+      const monthHeaders = d.months.map(mo =>
+        `<th style="${cell};font-weight:700;border-bottom:2px solid #dee2e6;background:#f1f3f5">${fmtM(mo)}</th>`
+      ).join('');
+      const totalCols = d.months.map(mo =>
+        `<td style="${cell};font-weight:700">${fmtAmt(ft[mo])}</td>`
+      ).join('');
+      const totalRow = `<tr style="background:#f8f9fa;border-top:2px solid #dee2e6">
+        <td style="${lbl};font-weight:700;min-width:220px">TOTAL <span style="font-size:.7rem;font-weight:400;color:#6b7280">(€)</span></td>
+        <td style="${lbl}"></td>
+        ${totalCols}
+        <td style="${cellTotal}">${fmtAmt(grandTotal)}</td></tr>`;
+
+      if (!projects.length) return '<p style="padding:1rem;color:#6b7280;font-size:.85rem">No projects match the current filters.</p>';
+      const projectRows = projects.map(p => {
+        const rate     = p.currencyRate || 1.0;
+        const isNonEur = p.currency && p.currency !== 'EUR';
+        const rowTotal = d.months.reduce((s, mo) => s + (p.months[mo] || 0), 0);
+        const rowTotalEur = rowTotal / rate;
+        const totalCellContent = isNonEur
+          ? `${fmtAmtC(rowTotal, p.currency)}<br><span style="font-size:.7rem;color:#6b7280">(${fmtAmt(rowTotalEur)})</span>`
+          : fmtAmtC(rowTotal, p.currency);
+        const moCols = d.months.map(mo => {
+          const v = p.months[mo] || 0;
+          if (!v) return `<td style="${cell}"><span style="color:#ccc">—</span></td>`;
+          const localStr = fmtAmtC(v, p.currency);
+          const eurStr   = isNonEur ? `<br><span style="font-size:.7rem;color:#6b7280">(${fmtAmt(v / rate)})</span>` : '';
+          return `<td style="${cell}">${localStr}${eurStr}</td>`;
+        }).join('');
+        return `<tr style="border-top:1px solid #e5e7eb">
+          <td style="${lbl};font-weight:600;min-width:220px">${escHtml(p.name)}</td>
+          <td style="${lbl}"><span style="display:inline-block;padding:1px 8px;border-radius:20px;font-size:.7rem;font-weight:600;background:${this.stageBg(p.pipeline)};color:${this.stageColor(p.pipeline)}">${escHtml(p.pipeline)}</span></td>
+          ${moCols}
+          <td style="${cellTotal};white-space:nowrap">${totalCellContent}</td></tr>`;
+      }).join('');
+
+      return `<table style="border-collapse:collapse;width:100%">
+        <thead><tr style="background:#f1f3f5">
+          <th style="${lbl};font-weight:700;min-width:220px;border-bottom:2px solid #dee2e6">Project</th>
+          <th style="${lbl};font-weight:700;border-bottom:2px solid #dee2e6">Stage</th>
+          ${monthHeaders}
+          <th style="${cellTotal};border-bottom:2px solid #dee2e6">Total</th>
         </tr></thead>
         <tbody>${totalRow}${projectRows}</tbody></table>`;
     },
@@ -912,6 +1244,7 @@ window.__cfgApp = Vue.createApp({
     ]});
     if (!user) return;
     if (user.role !== 'admin') { this.accessDenied = true; return; }
+    try { window.__currencies = await Api.currencies.active(); } catch {}
     await this.loadAll();
     this.ready = true;
   },
@@ -920,23 +1253,75 @@ window.__cfgApp = Vue.createApp({
     async loadAll() {
       this.globalError = null;
       try {
-        const [clients, groups, programs, rolesRaw, pipelineYears, yearTotals] = await Promise.all([
+        const [clients, groups, programs, rolesRaw, pipelineYears, yearTotals, currencies] = await Promise.all([
           Api.clients.list(),
           Api.clientGroups.list(),
           Api.programs.list(),
           Api.roles.list(),
           Api.pipelineYears.list(),
           Api.pots.yearTotals(),
+          Api.currencies.list(),
         ]);
         this.clients  = clients;
         this.groups   = groups.map(g => ({ ...g, _assignPick: '', _assignLoading: false }));
         this.programs = programs;
-        this.roles    = rolesRaw.map(r => ({ id: r.id, label: r.label, code: r.code, rate: r.hourly_rate || 0 }));
+        this.roles    = rolesRaw.map(r => ({ id: r.id, label: r.label, code: r.code, rate: r.hourly_rate || 0, rateOverrides: r.rate_overrides || {} }));
         this.pipelineYears = pipelineYears.map(py => ({ ...py, _toggling: false, _loading: false }));
-        this.yearTotals = yearTotals;
+        this.yearTotals    = yearTotals;
+        this.currencies    = currencies;
+        this.crEdit        = Object.fromEntries(currencies.map(c => [c.code, { rate: String(c.current_rate), saving: false, error: null }]));
       } catch (e) {
         this.globalError = e.message || 'Failed to load configuration.';
       }
+    },
+
+    // ── CURRENCIES ───────────────────────────────────────────
+
+    async loadCurrencies() {
+      const all = await Api.currencies.list();
+      this.currencies = all;
+      this.crEdit = Object.fromEntries(all.map(c => [c.code, { rate: String(c.current_rate), saving: false, error: null }]));
+    },
+
+    async activateCurrency() {
+      const rate = parseFloat(this.crf.rate);
+      if (!isFinite(rate) || rate <= 0) { this.crf.error = 'Rate must be a positive number'; return; }
+      if (!this.crf.code) { this.crf.error = 'Select a currency'; return; }
+      this.crf.loading = true; this.crf.error = null;
+      try {
+        await Api.currencies.activate(this.crf.code, rate);
+        this.crf = { show: false, code: '', rate: '1', error: null, loading: false };
+        await this.loadCurrencies();
+      } catch (e) {
+        this.crf.error = e.message || 'Failed to activate currency';
+      }
+      this.crf.loading = false;
+    },
+
+    async updateCurrencyRate(code) {
+      const ed = this.crEdit[code];
+      if (!ed) return;
+      const rate = parseFloat(ed.rate);
+      if (!isFinite(rate) || rate <= 0) { ed.error = 'Rate must be a positive number'; return; }
+      ed.saving = true; ed.error = null;
+      try {
+        await Api.currencies.updateRate(code, rate);
+        await this.loadCurrencies();
+      } catch (e) {
+        ed.error = e.message || 'Failed to update rate';
+      }
+      ed.saving = false;
+    },
+
+    async openCurrencyHistory(cur) {
+      this.crHistory = { show: true, code: cur.code, name: cur.name, rows: [], loading: true };
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('crHistoryModal')).show();
+      try {
+        this.crHistory.rows = await Api.currencies.history(cur.code);
+      } catch (e) {
+        this.crHistory.rows = [];
+      }
+      this.crHistory.loading = false;
     },
 
     async loadPots() {
@@ -1142,11 +1527,12 @@ window.__cfgApp = Vue.createApp({
 
     openRoleForm(role) {
       this.rf = {
-        show:  true,
-        id:    role?.id    || null,
-        label: role?.label || '',
-        code:  role?.code  || '',
-        rate:  role?.rate  != null ? role.rate : '',
+        show:         true,
+        id:           role?.id    || null,
+        label:        role?.label || '',
+        code:         role?.code  || '',
+        rate:         role?.rate  != null ? role.rate : '',
+        rateOverrides: role?.rateOverrides ? { ...role.rateOverrides } : {},
         error: null, loading: false,
       };
       this.$nextTick(() => this.$refs.rfLabel?.focus());
@@ -1167,13 +1553,18 @@ window.__cfgApp = Vue.createApp({
 
       this.rf.loading = true;
       try {
+        const rateOverrides = {};
+        for (const [cur, val] of Object.entries(this.rf.rateOverrides)) {
+          const v = parseFloat(val);
+          if (v > 0) rateOverrides[cur] = v;
+        }
         if (this.rf.id) {
-          await Api.roles.update(this.rf.id, { label, code, hourlyRate: rate });
+          await Api.roles.update(this.rf.id, { label, code, hourlyRate: rate, rateOverrides });
           const r = this.roles.find(r => r.id === this.rf.id);
-          if (r) { r.label = label; r.code = code; r.rate = rate; }
+          if (r) { r.label = label; r.code = code; r.rate = rate; r.rateOverrides = rateOverrides; }
         } else {
           const created = await Api.roles.create({ label, code, hourlyRate: rate });
-          this.roles.push({ id: created.id, label, code, rate });
+          this.roles.push({ id: created.id, label, code, rate, rateOverrides: {} });
         }
         this.rf.show = false;
       } catch (e) {
@@ -1257,14 +1648,22 @@ window.__cfgApp = Vue.createApp({
     },
 
     backToPipelines() {
-      this.activePipeline  = null;
-      this.phasingYear     = null;
-      this.phasingData     = null;
-      this.phasingLoading  = false;
-      this.phasingError    = null;
-      this.pots            = [];
-      this.pipelineSummary = [];
-      this.potf.show       = false;
+      this.activePipeline        = null;
+      this.phasingYear           = null;
+      this.phasingData           = null;
+      this.phasingLoading        = false;
+      this.phasingError          = null;
+      this.phasingFilterStages   = [];
+      this.phasingFilterClient   = '';
+      this.projectPhasingYear    = null;
+      this.projectPhasingData    = null;
+      this.projectPhasingLoading = false;
+      this.projectPhasingError   = null;
+      this.ppFilterStages        = [];
+      this.ppFilterClient        = '';
+      this.pots                  = [];
+      this.pipelineSummary       = [];
+      this.potf.show             = false;
     },
 
     // ── POT TARGETS ──────────────────────────────────────────
@@ -1363,6 +1762,19 @@ window.__cfgApp = Vue.createApp({
       this.phasingLoading = false;
     },
 
+    async openProjectPhasingView(py) {
+      this.projectPhasingYear    = py;
+      this.projectPhasingData    = null;
+      this.projectPhasingLoading = true;
+      this.projectPhasingError   = null;
+      try {
+        this.projectPhasingData = await Api.reporting.projectPhasing(py.year);
+      } catch (err) {
+        this.projectPhasingError = err.message || 'Failed to load project phasing data.';
+      }
+      this.projectPhasingLoading = false;
+    },
+
     async loadPipelineSummary() {
       if (!this.activePipeline) return;
       try {
@@ -1382,9 +1794,11 @@ window.__cfgApp = Vue.createApp({
 
       try {
         const d = await Api.pots.details(pot.id, this.activePipeline.year);
-        const pct = d.pot.amount > 0
-          ? Math.round(d.committed_total / d.pot.amount * 100) + '% of target'
-          : '';
+        const anticipatedTotal = d.anticipated_total || 0;
+        const achievedTotal    = d.committed_total + anticipatedTotal;
+        const pctTot  = d.pot.amount > 0 ? Math.round(achievedTotal      / d.pot.amount * 100) : 0;
+        const pctC    = d.pot.amount > 0 ? Math.round(d.committed_total   / d.pot.amount * 100) : 0;
+        const pctA    = d.pot.amount > 0 ? Math.round(anticipatedTotal    / d.pot.amount * 100) : 0;
         const histRows = d.history.length
           ? d.history.map(h => `
               <tr>
@@ -1416,20 +1830,38 @@ window.__cfgApp = Vue.createApp({
             </span>
           </div>
           <div class="row g-3 mb-4">
-            <div class="col-6">
+            <div class="col-3">
               <div class="card mb-0" style="border-top:3px solid #6b7280;border-radius:10px">
-                <div class="card-body" style="padding:1rem">
-                  <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;font-weight:700;margin-bottom:4px">Target</div>
-                  <div style="font-size:1.6rem;font-weight:700;color:#1a1a2e">${this.fmtAmount(d.pot.amount)}</div>
+                <div class="card-body" style="padding:.9rem">
+                  <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;font-weight:700;margin-bottom:4px">Target</div>
+                  <div style="font-size:1.3rem;font-weight:700;color:#1a1a2e">${this.fmtAmount(d.pot.amount)}</div>
                 </div>
               </div>
             </div>
-            <div class="col-6">
-              <div class="card mb-0" style="border-top:3px solid #2e7d32;border-radius:10px">
-                <div class="card-body" style="padding:1rem">
-                  <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#2e7d32;font-weight:700;margin-bottom:4px">Current (Committed)</div>
-                  <div style="font-size:1.6rem;font-weight:700;color:#2e7d32">${this.fmtAmount(d.committed_total)}</div>
-                  ${pct ? `<div style="font-size:.78rem;color:#6b7280">${pct}</div>` : ''}
+            <div class="col-3">
+              <div class="card mb-0" style="border-top:3px solid #1a1a2e;border-radius:10px">
+                <div class="card-body" style="padding:.9rem">
+                  <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:#1a1a2e;font-weight:700;margin-bottom:4px">Total (C+A)</div>
+                  <div style="font-size:1.3rem;font-weight:700;color:#1a1a2e">${this.fmtAmount(achievedTotal)}</div>
+                  ${pctTot ? `<div style="font-size:.78rem;color:#6b7280">${pctTot}% of target</div>` : ''}
+                </div>
+              </div>
+            </div>
+            <div class="col-3">
+              <div class="card mb-0" style="border-top:3px solid #198754;border-radius:10px">
+                <div class="card-body" style="padding:.9rem">
+                  <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:#198754;font-weight:700;margin-bottom:4px">Committed</div>
+                  <div style="font-size:1.3rem;font-weight:700;color:#198754">${this.fmtAmount(d.committed_total)}</div>
+                  ${pctC ? `<div style="font-size:.78rem;color:#6b7280">${pctC}% of target</div>` : ''}
+                </div>
+              </div>
+            </div>
+            <div class="col-3">
+              <div class="card mb-0" style="border-top:3px solid #fd7e14;border-radius:10px">
+                <div class="card-body" style="padding:.9rem">
+                  <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:#fd7e14;font-weight:700;margin-bottom:4px">Anticipated</div>
+                  <div style="font-size:1.3rem;font-weight:700;color:#fd7e14">${this.fmtAmount(anticipatedTotal)}</div>
+                  ${pctA ? `<div style="font-size:.78rem;color:#6b7280">+${pctA}% potential</div>` : ''}
                 </div>
               </div>
             </div>
@@ -1463,17 +1895,17 @@ window.__cfgApp = Vue.createApp({
     },
 
     stageColor(pipeline) {
-      return { SIP: '#4285f4', Expected: '#e6a817', Anticipated: '#ef6c00', Committed: '#2e7d32', Canceled: '#757575' }[pipeline] || '#6b7280';
+      return { SIP: '#4285f4', Expected: '#e6a817', Anticipated: '#ef6c00', Committed: '#2e7d32', Canceled: '#757575', Draft: '#546e7a' }[pipeline] || '#6b7280';
     },
     stageBg(pipeline) {
-      return { SIP: '#e8f0fe', Expected: '#fff8e1', Anticipated: '#fff3e0', Committed: '#e8f5e9', Canceled: '#f5f5f5' }[pipeline] || '#f8f9fa';
+      return { SIP: '#e8f0fe', Expected: '#fff8e1', Anticipated: '#fff3e0', Committed: '#e8f5e9', Canceled: '#f5f5f5', Draft: '#eceff1' }[pipeline] || '#f8f9fa';
     },
 
     fmtRate(n) {
       return Number(n).toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     },
     fmtAmount(n) {
-      return '€ ' + Number(n).toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+      return '€ ' + new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n));
     },
     fmtDate(iso) {
       if (!iso) return '—';
@@ -1509,8 +1941,11 @@ window.__cfgApp = Vue.createApp({
 
         // Entry map for this client's ratecard
         const entryMap = {};
+        const overrideMap = {};
         (rc.entries || []).forEach(e => {
-          entryMap[String(e.roleId ?? e.role_id)] = parseFloat(e.hourlyRate ?? e.hourly_rate) || null;
+          const rid = String(e.roleId ?? e.role_id);
+          entryMap[rid]    = parseFloat(e.hourlyRate ?? e.hourly_rate) || null;
+          overrideMap[rid] = e.rateOverrides ?? e.rate_overrides ?? {};
         });
 
         // Global ratecard for fallback defaults
@@ -1522,24 +1957,45 @@ window.__cfgApp = Vue.createApp({
           });
         }
 
+        // Active non-EUR currencies for extra rate columns
+        const nonEurCurrencies = (window.__currencies || []).filter(cu => cu.code !== 'EUR');
+
         const rows = roles.map(r => {
-          const defRate  = (globalMap[String(r.id)] ?? parseFloat(r.hourly_rate ?? r.rate)) || null;
-          const custRate = entryMap[String(r.id)] ?? '';
+          const rid      = String(r.id);
+          const defRate  = (globalMap[rid] ?? parseFloat(r.hourly_rate ?? r.rate)) || null;
+          const custRate = entryMap[rid] ?? '';
           const defFmt   = defRate != null ? `${Number(defRate).toLocaleString('en', {minimumFractionDigits:0,maximumFractionDigits:2})} €/h` : '—';
+          const overrides = overrideMap[rid] || {};
+          const roleObj   = roles.find(ro => String(ro.id) === rid);
+          const extraCols = nonEurCurrencies.map(cu => {
+            const v           = overrides[cu.code] != null ? overrides[cu.code] : '';
+            const roleDefault = roleObj?.rateOverrides?.[cu.code];
+            const placeholder = roleDefault != null ? `${roleDefault} (agency)` : 'agency default';
+            return `<td>
+              <input type="number" min="0" step="0.01" class="form-control form-control-sm rc-override-rate"
+                     data-role-id="${esc(rid)}" data-currency="${esc(cu.code)}"
+                     value="${v !== '' ? v : ''}"
+                     placeholder="${esc(placeholder)}"
+                     style="width:130px">
+            </td>`;
+          }).join('');
           return `<tr>
             <td class="fw-semibold align-middle" style="font-size:.83rem">${esc(r.label || r.code || '')}</td>
             <td class="align-middle"><code style="font-size:.78rem">${esc(r.code || '')}</code></td>
             <td class="align-middle text-muted" style="font-size:.83rem">${defFmt}</td>
             <td>
               <input type="number" min="0" step="1" class="form-control form-control-sm rc-client-rate"
-                     data-role-id="${esc(String(r.id))}"
+                     data-role-id="${esc(rid)}"
                      value="${custRate !== '' ? custRate : ''}"
                      placeholder="agency default"
                      style="width:130px">
             </td>
+            ${extraCols}
           </tr>`;
         }).join('');
 
+        const extraHeaders = nonEurCurrencies.map(cu =>
+          `<th style="font-size:.78rem">${cu.symbol} ${cu.code}/h</th>`).join('');
         bodyEl.innerHTML = `
           <table class="table table-sm table-hover mb-0" style="font-size:.83rem">
             <thead>
@@ -1548,6 +2004,7 @@ window.__cfgApp = Vue.createApp({
                 <th style="font-size:.78rem">Code</th>
                 <th style="font-size:.78rem">Agency default</th>
                 <th style="font-size:.78rem">Client custom (€/h)</th>
+                ${extraHeaders}
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -1563,10 +2020,32 @@ window.__cfgApp = Vue.createApp({
       const saveBtn = document.getElementById('clientRcSaveBtn');
       if (!window._clientRcId) return;
 
-      const entries = [];
+      // Collect EUR rates
+      const rateMap   = {};
+      const overridesMap = {};
       document.querySelectorAll('.rc-client-rate').forEach(inp => {
         const v = inp.value.trim();
-        if (v !== '') entries.push({ roleId: inp.dataset.roleId, hourlyRate: parseFloat(v) || 0 });
+        if (v !== '') rateMap[inp.dataset.roleId] = parseFloat(v) || 0;
+      });
+      // Collect per-currency overrides
+      document.querySelectorAll('.rc-override-rate').forEach(inp => {
+        const v = inp.value.trim();
+        if (v !== '') {
+          const rid = inp.dataset.roleId;
+          const cur = inp.dataset.currency;
+          if (!overridesMap[rid]) overridesMap[rid] = {};
+          overridesMap[rid][cur] = parseFloat(v);
+        }
+      });
+      // Build entries array (include all roles that have either EUR or override rates)
+      const allRoleIds = new Set([...Object.keys(rateMap), ...Object.keys(overridesMap)]);
+      const entries = [];
+      allRoleIds.forEach(rid => {
+        entries.push({
+          roleId:        rid,
+          hourlyRate:    rateMap[rid] ?? 0,
+          rateOverrides: overridesMap[rid] ?? {},
+        });
       });
 
       saveBtn.disabled = true;

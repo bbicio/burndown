@@ -16,6 +16,8 @@ const clientGroupsRoutes  = require('./routes/client-groups');
 const potsRoutes          = require('./routes/pots');
 const pipelineYearsRoutes = require('./routes/pipeline-years');
 const resetRoutes         = require('./routes/reset');
+const currenciesRoutes    = require('./routes/currencies');
+const appSettingsRoutes   = require('./routes/app-settings');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,6 +52,8 @@ app.use('/api/client-groups',   clientGroupsRoutes);
 app.use('/api/pots',            potsRoutes);
 app.use('/api/pipeline-years',  pipelineYearsRoutes);
 app.use('/api/admin/reset',     resetRoutes);
+app.use('/api/currencies',      currenciesRoutes);
+app.use('/api/app-settings',    appSettingsRoutes);
 app.use('/api',               configRoutes);
 
 // 404

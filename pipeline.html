@@ -174,15 +174,15 @@
 <!-- ── SCRIPTS ── -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="js/api.js?v=4"></script>
-<script src="js/core.js?v=1"></script>
+<script src="js/core.js?v=2"></script>
 <script src="js/settings.js"></script>
 <script src="js/notifications.js"></script>
 <script src="js/roles.js"></script>
 <script src="js/costgrid.js?v=2"></script>
 <script src="js/clients.js"></script>
 <script src="js/programs.js"></script>
-<script src="js/pipeline-board.js?v=6"></script>
-<script src="js/api-sync.js?v=9"></script>
+<script src="js/pipeline-board.js?v=10"></script>
+<script src="js/api-sync.js?v=14"></script>
 <script src="js/shares.js"></script>
 <script src="js/nav.js?v=4"></script>
 
@@ -292,6 +292,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btnNewCostGrid').style.display = (_selPy?.active !== false) ? '' : 'none';
 
   // Seed caches from API, then render
+  await loadCurrenciesFromApi();
   await cgSyncFromApi(_pbSelectedYear);
   await Promise.all([loadConfigFromApi(), loadPipelineBudgetsFromApi()]);
   renderPipelineBoard();

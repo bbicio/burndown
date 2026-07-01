@@ -1,5 +1,20 @@
-// ── CONFIG FORM ───────────────────────────────────────────────────────────────
+﻿// ── CONFIG FORM ───────────────────────────────────────────────────────────────
 // ── CONFIG FORM ────────────────────────────────────────────────────────────────
+
+// YYYYMMDD ↔ dd/mm/yyyy helpers for task date text inputs
+function cfgYmdToIt(ymd) {
+  if (!ymd || ymd.length < 8) return '';
+  return `${ymd.slice(6,8)}/${ymd.slice(4,6)}/${ymd.slice(0,4)}`;
+}
+function cfgItToYmd(it) {
+  if (!it) return '';
+  const parts = it.split('/');
+  if (parts.length !== 3) return '';
+  const [d, m, y] = parts;
+  if (!d || !m || !y || y.length !== 4) return '';
+  const ymd = `${y}${m.padStart(2,'0')}${d.padStart(2,'0')}`;
+  return isNaN(new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`).getTime()) ? '' : ymd;
+}
 let cfgEditConfig = null;
 let cfgProjectIdx = -1;
 let cfgActiveTab  = 'form';
@@ -102,6 +117,24 @@ function cfgLoadProject(proj) {
   cfgRenderGroups(proj.groups  || []);
   cfgSyncRollbackButtons();
   cfgRenderCostGridRef(proj.costGridRef);
+  cfgUpdateReforecastVisibility(proj.code);
+}
+
+async function cfgUpdateReforecastVisibility(code) {
+  const btnP = document.getElementById('cfgBtnReforecastPhasing');
+  const btnPl = document.getElementById('cfgBtnReforecastPlanning');
+  if (!btnP || !btnPl) return;
+  btnP.style.display = 'none';
+  btnPl.style.display = 'none';
+  if (!code) return;
+  try {
+    const uploads = await Api.timesheets.get(code);
+    const hasData = (uploads || []).some(u => (u.data || []).length > 0);
+    if (hasData) {
+      btnP.style.display = '';
+      btnPl.style.display = '';
+    }
+  } catch (_) { /* silently ignore — buttons stay hidden */ }
 }
 
 function cfgReadFormProject() {
@@ -209,7 +242,7 @@ function cfgRebuildDistUI(card, existingDist) {
   const startVal    = card.querySelector('.cfg-task-start').value;
   const endVal      = card.querySelector('.cfg-task-end').value;
   const isCompleted = card.querySelector('.cfg-task-completed').checked;
-  const months      = cfgTaskMonthRange(date2ymd(startVal), date2ymd(endVal));
+  const months      = cfgTaskMonthRange(cfgItToYmd(startVal), cfgItToYmd(endVal));
   const container   = card.querySelector('.cfg-task-dist-container');
   if (!months.length) { container.innerHTML = ''; return; }
 
@@ -220,7 +253,7 @@ function cfgRebuildDistUI(card, existingDist) {
 
   const cells = months.map(ym => {
     const [y, m] = [parseInt(ym.slice(0, 4)), parseInt(ym.slice(4, 6))];
-    const label   = new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    const label   = new Date(y, m - 1, 1).toLocaleDateString('it-IT', { month: 'short', year: '2-digit' });
     const val     = isSingle ? 100 : (existingDist[ym] != null ? existingDist[ym] : '');
     const isPast  = hasSnap && ym < currentYM;
     const ro      = isSingle || isCompleted || isPast ? ' readonly' : '';
@@ -278,11 +311,13 @@ function cfgMakeTaskCard(task) {
     </div>
     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
       <span class="text-muted small text-nowrap">Period:</span>
-      <input type="date" class="form-control form-control-sm cfg-task-start" style="width:160px"
-             value="${ymd2date(task.startDate || '')}">
+      <input type="text" class="form-control form-control-sm cfg-task-start" style="width:120px"
+             placeholder="gg/mm/aaaa" maxlength="10"
+             value="${cfgYmdToIt(task.startDate || '')}">
       <span class="text-muted small">→</span>
-      <input type="date" class="form-control form-control-sm cfg-task-end" style="width:160px"
-             value="${ymd2date(task.endDate || '')}">
+      <input type="text" class="form-control form-control-sm cfg-task-end" style="width:120px"
+             placeholder="gg/mm/aaaa" maxlength="10"
+             value="${cfgYmdToIt(task.endDate || '')}">
       <span class="text-muted small">(optional — defaults to project dates)</span>
     </div>
     <div class="cfg-task-dist-container mb-2"></div>
@@ -445,8 +480,8 @@ function cfgReadTasks() {
       name:               card.querySelector('.cfg-task-name').value.trim(),
       billable:           card.querySelector('.cfg-task-billable').checked,
       completed:          card.querySelector('.cfg-task-completed').checked,
-      startDate:          date2ymd(card.querySelector('.cfg-task-start').value),
-      endDate:            date2ymd(card.querySelector('.cfg-task-end').value),
+      startDate:          cfgItToYmd(card.querySelector('.cfg-task-start').value),
+      endDate:            cfgItToYmd(card.querySelector('.cfg-task-end').value),
       monthlyDistribution: Object.keys(dist).length ? dist : undefined,
       resources: [...card.querySelectorAll('.cfg-res-tbody tr')].map(tr => ({
         role:       tr.querySelector('.cfg-res-role').value.trim(),
@@ -629,7 +664,7 @@ function cfgDerivePhasing() {
         }
       }
     });
-    if (budget > 0) newPhasing[ym]  = Math.round(budget);
+    if (budget > 0) newPhasing[ym]  = Math.round(budget * 100) / 100;
     if (hours  > 0) newPlanning[ym] = Math.round(hours * 10) / 10;
   });
 
@@ -805,9 +840,9 @@ async function cfgReforecast() {
   if (distError) { alert('Cannot reforecast:\n\n' + distError); return; }
 
   // Round future months only — past months keep exact actual values
-  // Hours round to nearest 0.25 (quarter-hour); budget rounds to nearest integer
+  // Hours round to nearest 0.25 (quarter-hour); budget rounds to nearest cent
   Object.keys(newPhasing).forEach(ym  => {
-    if (!pastYMs.has(ym)) newPhasing[ym]  = Math.round(newPhasing[ym]);
+    if (!pastYMs.has(ym)) newPhasing[ym]  = Math.round(newPhasing[ym] * 100) / 100;
   });
   Object.keys(newPlanning).forEach(ym => {
     if (!pastYMs.has(ym)) newPlanning[ym] = Math.round(newPlanning[ym] * 4) / 4;
@@ -875,8 +910,8 @@ function cfgCurrencyLocale(cur) {
 
 function cfgFmtMoney(amount, currency) {
   const cur = currency || document.getElementById('cfgCurrency')?.value || '€';
-  const n = Math.round(amount || 0);
-  const f = n.toLocaleString(cfgCurrencyLocale(cur));
+  const opts = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  const f    = new Intl.NumberFormat(cfgCurrencyLocale(cur), opts).format(amount || 0);
   return cur === 'CHF' ? `CHF ${f}` : `${cur} ${f}`;
 }
 
@@ -1225,4 +1260,84 @@ function exportConfig() {
   a.href = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
   a.download = 'burndown_config.json';
   a.click();
+}
+
+// ── TASKS & RESOURCES XLSX EXPORT ────────────────────────────────────────────
+function cfgExportTasksXlsx() {
+  if (typeof XLSX === 'undefined') { alert('XLSX library not available.'); return; }
+  if (cfgProjectIdx < 0) { alert('No project selected.'); return; }
+
+  // Read directly from the DOM — immune to cfgProjectIdx drift
+  const proj = cfgReadFormProject();
+  if (!proj) return;
+
+  const fmt = n => typeof n === 'number' ? n : (parseFloat(n) || 0);
+  const rows = [];
+
+  // ── Header block ──────────────────────────────────────────────────────────
+  rows.push(['Project',  proj.name  || '']);
+  rows.push(['Project ID (D365)', proj.code || '']);
+  rows.push(['Pipeline', proj.pipeline || '']);
+  rows.push(['Status',   proj.status   || '']);
+  rows.push([]);
+
+  // ── Column headers ────────────────────────────────────────────────────────
+  rows.push(['Task', 'Role', 'Hours', 'Hourly Rate (€)', 'Total (€)']);
+
+  const headerRowIdx = rows.length; // 1-based index in the sheet = rows.length (already pushed)
+
+  let grandHours = 0;
+  let grandTotal = 0;
+
+  (proj.tasks || []).forEach(task => {
+    const resources = task.resources || [];
+    let taskHours = 0;
+    let taskTotal = 0;
+
+    if (resources.length === 0) {
+      rows.push([task.name || '', '', '', '', '']);
+    } else {
+      resources.forEach((res, ri) => {
+        const h = fmt(res.soldHours);
+        const r = fmt(res.hourlyRate);
+        const sub = h * r;
+        taskHours += h;
+        taskTotal += sub;
+        rows.push([
+          ri === 0 ? (task.name || '') : '',
+          res.role || '',
+          h,
+          r,
+          sub,
+        ]);
+      });
+    }
+
+    // Task subtotal row
+    rows.push(['', 'Subtotal', taskHours, '', taskTotal]);
+    rows.push([]);
+    grandHours += taskHours;
+    grandTotal += taskTotal;
+  });
+
+  // ── Grand total ───────────────────────────────────────────────────────────
+  rows.push(['', 'GRAND TOTAL', grandHours, '', grandTotal]);
+
+  // ── Build workbook ────────────────────────────────────────────────────────
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  // Column widths
+  ws['!cols'] = [
+    { wch: 36 }, // Task
+    { wch: 30 }, // Role
+    { wch: 10 }, // Hours
+    { wch: 16 }, // Rate
+    { wch: 14 }, // Total
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Tasks & Resources');
+
+  const safe = s => String(s || '').replace(/[^a-z0-9]/gi, '_').slice(0, 30);
+  XLSX.writeFile(wb, `tasks_${safe(proj.code || proj.name)}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }

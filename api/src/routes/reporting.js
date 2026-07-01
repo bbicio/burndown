@@ -191,7 +191,7 @@ router.get('/projects/:id', requireAuth, async (req, res, next) => {
 
 // ── PHASING ───────────────────────────────────────────────────────────────────
 // GET /api/reporting/phasing?year=YYYY (admin only)
-// Returns monthly hours+amount breakdown for all Committed+Anticipated versions in the year.
+// Returns monthly hours+amount breakdown for all versions in the year (all pipeline stages).
 router.get('/phasing', requireAuth, async (req, res, next) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin required' });
@@ -201,15 +201,18 @@ router.get('/phasing', requireAuth, async (req, res, next) => {
 
     const { rows } = await query(
       `SELECT
-         cgv.id          AS version_id,
-         cgv.cost_grid_id AS cg_id,
-         cg.name         AS cg_name,
-         cgv.label       AS version_label,
+         cgv.id            AS version_id,
+         cgv.cost_grid_id  AS cg_id,
+         cg.name           AS cg_name,
+         cgv.currency      AS currency,
+         cgv.currency_rate AS currency_rate,
+         cgv.label         AS version_label,
          cgv.pipeline,
-         cgv.start_date  AS ver_start,
-         cgv.end_date    AS ver_end,
-         tk.start_date   AS task_start,
-         tk.end_date     AS task_end,
+         cgv.client_id,
+         cgv.start_date    AS ver_start,
+         cgv.end_date      AS ver_end,
+         tk.start_date     AS task_start,
+         tk.end_date       AS task_end,
          tr.days,
          COALESCE(
            tr.rate_override,
@@ -223,8 +226,7 @@ router.get('/phasing', requireAuth, async (req, res, next) => {
        JOIN tasks tk ON tk.phase_id = ph.id
        JOIN task_roles tr ON tr.task_id = tk.id
        JOIN roles ro ON ro.id = tr.role_id
-       WHERE cgv.pipeline IN ('Committed', 'Anticipated')
-         AND cgv.pipeline_year = $1`,
+       WHERE cgv.pipeline_year = $1`,
       [yr]
     );
 
@@ -267,6 +269,9 @@ router.get('/phasing', requireAuth, async (req, res, next) => {
           cgId: r.cg_id, versionId: r.version_id,
           name: r.cg_name, versionLabel: r.version_label,
           pipeline: r.pipeline,
+          currency:     r.currency      || 'EUR',
+          currencyRate: parseFloat(r.currency_rate) || 1.0,
+          clientId: r.client_id || null,
           startDate: r.ver_start || '', endDate: r.ver_end || '',
           months: {},
         });
@@ -276,33 +281,93 @@ router.get('/phasing', requireAuth, async (req, res, next) => {
       const rate = parseFloat(r.hourly_rate) || 0;
       for (const [mo, d] of Object.entries(dist)) {
         if (!v.months[mo]) v.months[mo] = { hours: 0, amount: 0 };
-        const hrs = d * 8;
+        const hrs = d;
         v.months[mo].hours  += hrs;
         v.months[mo].amount += hrs * rate;
       }
     }
 
+    // Totals are always in EUR: convert each version's local amounts using the currency_rate snapshot
     const totals = {};
     for (const mo of yearMonths) totals[mo] = { hours: 0, amount: 0 };
     for (const v of versionMap.values()) {
+      const rate = v.currencyRate || 1.0;
       for (const [mo, val] of Object.entries(v.months)) {
-        if (totals[mo]) { totals[mo].hours += val.hours; totals[mo].amount += val.amount; }
+        if (totals[mo]) {
+          totals[mo].hours  += val.hours;
+          totals[mo].amount += val.amount / rate;
+        }
       }
     }
     for (const mo of yearMonths) {
       totals[mo].hours  = Math.round(totals[mo].hours * 10) / 10;
-      totals[mo].amount = Math.round(totals[mo].amount);
+      totals[mo].amount = Math.round(totals[mo].amount * 100) / 100;
     }
 
     const projects = [...versionMap.values()].map(v => ({
       ...v,
       months: Object.fromEntries(Object.entries(v.months).map(([mo, val]) => [mo, {
         hours:  Math.round(val.hours * 10) / 10,
-        amount: Math.round(val.amount),
+        amount: Math.round(val.amount * 100) / 100,
       }])),
     }));
 
-    res.json({ year: yr, months: yearMonths, totals, projects });
+    res.json({ year: yr, months: yearMonths, totals, projects, totalsCurrency: 'EUR' });
+  } catch (err) { next(err); }
+});
+
+// ── PROJECT PHASING ───────────────────────────────────────────────────────────
+// GET /api/reporting/project-phasing?year=YYYY (admin only)
+// Reads projects.phasing directly — values already reflect actuals if user ran Reforecast + saved.
+// Excludes Draft and Canceled pipeline stages.
+router.get('/project-phasing', requireAuth, async (req, res, next) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin required' });
+    const { year } = req.query;
+    if (!year) return res.status(400).json({ error: 'year is required' });
+    const yr = parseInt(year);
+
+    const yearMonths = [];
+    for (let m = 1; m <= 12; m++) yearMonths.push(`${yr}-${String(m).padStart(2, '0')}`);
+
+    // Projects linked to cost grid versions in this pipeline year (excludes Draft + Canceled)
+    const { rows: projRows } = await query(
+      `SELECT p.id, p.name, p.client_id, p.currency, p.phasing,
+              cgv.pipeline, cgv.client_id AS version_client_id,
+              cgv.currency_rate
+       FROM cost_grid_versions cgv
+       JOIN projects p ON p.cg_version_id = cgv.id
+       WHERE cgv.pipeline_year = $1
+         AND cgv.pipeline NOT IN ('Draft', 'Canceled')`,
+      [yr]
+    );
+
+    if (!projRows.length) {
+      return res.json({ year: yr, months: yearMonths, totals: Object.fromEntries(yearMonths.map(m => [m, 0])), projects: [], totalsCurrency: 'EUR' });
+    }
+
+    // projects.phasing keys are YYYYMM (no dash); yearMonths are YYYY-MM
+    const projects = projRows.map(p => {
+      const phasing      = p.phasing || {};
+      const clientId     = p.client_id || p.version_client_id || null;
+      const currencyRate = parseFloat(p.currency_rate) || 1.0;
+      const months       = {};
+      for (const mo of yearMonths) {
+        const key  = mo.replace('-', '');  // "2026-07" → "202607"
+        months[mo] = Math.round((parseFloat(phasing[key]) || 0) * 100) / 100;
+      }
+      return { projectId: p.id, name: p.name, pipeline: p.pipeline, currency: p.currency || 'EUR', currencyRate, clientId, months };
+    });
+
+    // Totals always in EUR: divide each project's local amount by its currency_rate snapshot
+    const totals = Object.fromEntries(yearMonths.map(m => [m, 0]));
+    for (const p of projects) {
+      const rate = p.currencyRate || 1.0;
+      for (const mo of yearMonths) totals[mo] += p.months[mo] / rate;
+    }
+    for (const mo of yearMonths) totals[mo] = Math.round(totals[mo] * 100) / 100;
+
+    res.json({ year: yr, months: yearMonths, totals, projects, totalsCurrency: 'EUR' });
   } catch (err) { next(err); }
 });
 

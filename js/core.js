@@ -285,13 +285,13 @@ function billableData(data, cfg) {
   return data.filter(r => allowed.has(norm(r.task)));
 }
 
-function fmtMoney(n) {
+function fmtMoney(n, currencyCode) {
   if (n === null || n === undefined) return '—';
-  const currency = currentCfg?.currency || '€';
-  if (currency === '$')   return '$ '   + new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n);
-  if (currency === '£')   return '£ '   + new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(n);
-  if (currency === 'CHF') return 'CHF ' + new Intl.NumberFormat('de-CH', { maximumFractionDigits: 0 }).format(n);
-  return '€ ' + new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 }).format(n);
+  const code = currencyCode || currentCfg?.currency || 'EUR';
+  const opts = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  const cur  = (window.__currencies || []).find(c => c.code === code)
+    || { symbol: code === 'EUR' ? '€' : code, locale: 'it-IT' };
+  return `${cur.symbol} ${new Intl.NumberFormat(cur.locale, opts).format(n)}`;
 }
 
 function fmtH(n)         { return (n !== null && n !== undefined) ? n.toFixed(2) + 'h' : '—'; }
@@ -328,11 +328,24 @@ function getProjectPipeline(projectId) {
 }
 
 function statusBadge(status) {
-  if (!status) return '';
-  const s = { 'Not started yet':'background:var(--text-disabled);color:#fff', 'Started':'background:var(--color-success);color:#fff',
+  const s = status || 'Not started yet';
+  const style = { 'Not started yet':'background:var(--text-disabled);color:#fff', 'Started':'background:var(--color-success);color:#fff',
     'Started At Risk':'background:var(--color-danger);color:#fff', 'Put on hold':'background:var(--color-warning);color:#000',
-    'Completed':'background:var(--brand-navy);color:#fff' }[status] || 'background:var(--text-disabled);color:#fff';
-  return `<span style="font-size:var(--text-2xs);border-radius:var(--radius-xs);padding:1px 7px;font-weight:600;${s}">${esc(status)}</span>`;
+    'Completed':'background:var(--brand-navy);color:#fff' }[s] || 'background:var(--text-disabled);color:#fff';
+  return `<span style="font-size:var(--text-2xs);border-radius:var(--radius-xs);padding:1px 7px;font-weight:600;${style}">${esc(s)}</span>`;
+}
+
+// Like statusBadge but styled identically to pipelineBadge — used in linked-project chips only.
+function statusBadgeLarge(status) {
+  const s = status || 'Not started yet';
+  const style = {
+    'Not started yet': 'background:#9ca3af;color:#fff',
+    'Started':         'background:var(--color-success);color:#fff',
+    'Started At Risk': 'background:var(--color-danger);color:#fff',
+    'Put on hold':     'background:#d97706;color:#fff',
+    'Completed':       'background:var(--brand-navy);color:#fff',
+  }[s] || 'background:#9ca3af;color:#fff';
+  return `<span style="font-size:var(--text-xs);border-radius:var(--radius-xs);padding:2px 8px;font-weight:600;${style}">${esc(s)}</span>`;
 }
 
 // ── CONFIRM MODAL ─────────────────────────────────────────────────────────────

@@ -76,19 +76,13 @@ function pbGetStatus(v) {
   return null;
 }
 
-function pbFmtMoney(n, cur) {
+function pbFmtMoney(n, code) {
   const parsed = parseFloat(n);
-  if (!isFinite(parsed)) return (cur || '€') + ' 0';
-  const usComma  = (cur === '$' || cur === '£');
-  const thSep    = usComma ? ',' : '.';   // thousands separator
-  const decSep   = usComma ? '.' : ',';   // decimal separator
-  const [intPart, decPart] = parsed.toFixed(2).split('.');
-  const intFmt   = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, thSep);
-  const formatted = intFmt + decSep + decPart;
-  if (cur === '$')   return '$ '   + formatted;
-  if (cur === '£')   return '£ '   + formatted;
-  if (cur === 'CHF') return 'CHF ' + formatted;
-  return '€ ' + formatted;
+  const opts   = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  const cur    = (window.__currencies || []).find(c => c.code === code)
+    || { symbol: code === 'EUR' ? '€' : (code || '€'), locale: 'it-IT' };
+  if (!isFinite(parsed)) return `${cur.symbol} 0,00`;
+  return `${cur.symbol} ${new Intl.NumberFormat(cur.locale, opts).format(parsed)}`;
 }
 
 function pbFmtDate(iso) {
@@ -131,15 +125,21 @@ function renderPipelineBoard() {
   const stagesData = PB_STAGES.map(stage => {
     const cards  = grouped[stage];
     const st     = PB_STAGE_STYLE[stage];
-    const totals = pbComputeColumnTotals(cards);
-    const totalsHtml = Object.entries(totals)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([cur, { fee, ptc }]) =>
-        `<div class="text-end">
-           <div class="fw-bold" style="font-size:var(--text-base)">${pbFmtMoney(fee, cur)}</div>
-           ${ptc > 0 ? `<div class="text-muted" style="font-size:var(--text-2xs)">${pbFmtMoney(ptc, cur)} PTC</div>` : ''}
-         </div>`
-      ).join('') || '<span class="text-muted" style="font-size:var(--text-xs)">—</span>';
+    const { byCurrency, totalEur, totalEurPtc } = pbComputeColumnTotals(cards);
+    const multiCurrency = Object.keys(byCurrency).length > 1 || (Object.keys(byCurrency).length === 1 && !byCurrency['EUR']);
+    const currencyLines = Object.entries(byCurrency)
+      .sort(([a], [b]) => a === 'EUR' ? -1 : b === 'EUR' ? 1 : a.localeCompare(b))
+      .map(([cur, { fee, ptc, rate }]) => {
+        const localStr = `<span class="fw-bold">${pbFmtMoney(fee, cur)}</span>`;
+        const eurEquiv = cur !== 'EUR' ? ` <span style="color:#888;font-size:var(--text-2xs)">(≈ ${pbFmtMoney(fee / rate, 'EUR')})</span>` : '';
+        const ptcStr   = ptc > 0 ? `<div class="text-muted" style="font-size:var(--text-2xs)">${pbFmtMoney(ptc, cur)} PTC</div>` : '';
+        return `<div class="text-end">${localStr}${eurEquiv}${ptcStr}</div>`;
+      });
+    if (multiCurrency) {
+      const totPtcStr = totalEurPtc > 0 ? `<div class="text-muted" style="font-size:var(--text-2xs)">+ ${pbFmtMoney(totalEurPtc, 'EUR')} PTC</div>` : '';
+      currencyLines.push(`<div class="text-end fw-bold" style="border-top:1px solid #ddd;margin-top:3px;padding-top:3px">TOT ${pbFmtMoney(totalEur, 'EUR')}${totPtcStr}</div>`);
+    }
+    const totalsHtml = currencyLines.join('') || '<span class="text-muted" style="font-size:var(--text-xs)">—</span>';
     const cardsHtml = cards.length
       ? cards.map(({ cg, v }) => pbBuildCard(cg, v)).join('')
       : `<div class="text-center text-muted py-4" style="font-size:var(--text-sm)">No offers</div>`;
@@ -224,24 +224,34 @@ function pbFmtTaskDate(d) {
 // Falls back to the pre-computed API budget when phases haven't been loaded yet
 // (i.e. after cgSyncFromApi() but before cgLoadStructureFromApi()).
 function pbGetBudget(v) {
-  if ((v.phases || []).length) return cgComputeGrandTotals(v);
+  const currencyRate = v.currencyRate || 1.0;
+  if ((v.phases || []).length) {
+    const g = cgComputeGrandTotals(v);
+    return { ...g, currencyRate };
+  }
   if (typeof getPipelineBudget === 'function') {
     const api = getPipelineBudget(v.versionId);
-    if (api) return { fee: api.fee, ptc: api.ptc || 0, hrs: 0, _fromApi: true };
+    if (api) return { fee: api.fee, ptc: api.ptc || 0, hrs: 0, currencyRate: api.currencyRate || currencyRate, _fromApi: true };
   }
-  return { fee: 0, ptc: 0, hrs: 0 };
+  return { fee: 0, ptc: 0, hrs: 0, currencyRate };
 }
 
 function pbComputeColumnTotals(cards) {
-  const totals = {};
+  const byCurrency = {};
+  let totalEur = 0, totalEurPtc = 0;
   cards.forEach(({ v }) => {
     const grand = pbGetBudget(v);
-    const cur   = v.currency || '€';
-    if (!totals[cur]) totals[cur] = { fee: 0, ptc: 0 };
-    totals[cur].fee += (isFinite(grand.fee) ? grand.fee : 0);
-    totals[cur].ptc += (isFinite(grand.ptc) ? grand.ptc : 0);
+    const cur   = v.currency || 'EUR';
+    const rate  = grand.currencyRate || v.currencyRate || 1.0;
+    const fee   = isFinite(grand.fee) ? grand.fee : 0;
+    const ptc   = isFinite(grand.ptc) ? grand.ptc : 0;
+    if (!byCurrency[cur]) byCurrency[cur] = { fee: 0, ptc: 0, rate };
+    byCurrency[cur].fee += fee;
+    byCurrency[cur].ptc += ptc;
+    totalEur    += fee / rate;
+    totalEurPtc += ptc / rate;
   });
-  return totals;
+  return { byCurrency, totalEur, totalEurPtc };
 }
 
 function pbBuildCard(cg, v) {
@@ -254,16 +264,20 @@ function pbBuildCard(cg, v) {
   const status     = pbGetStatus(v);
   const isLocked   = (v.linkedProjects || []).length > 0;
 
+  const currencyRate = grand.currencyRate || v.currencyRate || 1.0;
+  const eurEquivStr  = cur !== 'EUR' && grand.fee > 0
+    ? `<div style="font-size:var(--text-2xs);color:#888;margin-top:1px">≈ ${pbFmtMoney(grand.fee / currencyRate, 'EUR')}</div>`
+    : '';
   const feeStr   = grand.fee > 0
     ? `<div class="fw-bold" style="font-size:var(--text-base)">${pbFmtMoney(grand.fee, cur)}</div>`
     : '<div class="text-muted" style="font-size:var(--text-sm)">No budget</div>';
   const ptcStr   = grand.ptc > 0
     ? `<div style="font-size:var(--text-2xs);color:var(--text-muted);margin-top:1px">+ ${pbFmtMoney(grand.ptc, cur)} PTC</div>`
     : '';
-  const totalStr = feeStr + ptcStr;
+  const totalStr = feeStr + eurEquivStr + ptcStr;
 
-  const statusBadgeHtml = status ? statusBadge(status) : '';
-  const lockedBadge     = isLocked ? `<span class="badge" style="background:var(--text-muted);color:#fff;font-size:var(--text-2xs)">🔒</span>` : '';
+  const statusBadgeHtml = pipelineBadge(v.pipeline);
+  const lockedBadge     = isLocked ? `<span class="badge" style="background:var(--text-muted);color:#fff;font-size:var(--text-2xs)">🔗</span>` : '';
   const ownerHtml       = cg.ownerName ? `<div class="text-muted" style="font-size:var(--text-2xs);margin-top:2px">👤 ${esc(cg.ownerName)}</div>` : '';
 
   return `
@@ -315,6 +329,9 @@ async function pbOpenDetailPanel(cgId, verId) {
   panel.style.display = 'flex';
   content.innerHTML = `<div class="d-flex align-items-center justify-content-center w-100"><div class="spinner-border text-secondary"></div></div>`;
 
+  document.removeEventListener('mousedown', _pbOutsideClickHandler);
+  setTimeout(() => document.addEventListener('mousedown', _pbOutsideClickHandler), 200);
+
   // Load phases + roles from API into localStorage
   if (typeof cgLoadStructureFromApi === 'function') {
     await cgLoadStructureFromApi(cgId, verId).catch(() => {});
@@ -347,18 +364,23 @@ async function pbOpenDetailPanel(cgId, verId) {
   const rcEntry    = v.ratecardId ? _pbRatecards.find(r => String(r.id) === String(v.ratecardId)) : null;
   const rcName     = rcEntry ? rcEntry.name : '';
   const grand      = pbGetBudget(v);
-  const cur        = v.currency || '€';
+  const cur        = v.currency || 'EUR';
   const fmt        = n => pbFmtMoney(n, cur);
   const isLocked   = _lps.length > 0;
   const stage      = pbGetStage(v);
   const st         = PB_STAGE_STYLE[stage] || PB_STAGE_STYLE.SIP;
+
+  const _liveRateEntry = cur !== 'EUR' ? (window.__currencies || []).find(c => c.code === cur) : null;
+  const _liveRate      = _liveRateEntry ? parseFloat(_liveRateEntry.current_rate) : null;
+  const _isAdmin       = window.__navUser?.role === 'admin';
+  const _rateStale     = _isAdmin && _liveRate != null && Math.abs(_liveRate - (v.currencyRate || 1.0)) > 0.0001;
 
   // ── LEFT COLUMN: offer info ───────────────────────────────────────────────
   const offerHtml = `
     <div class="mb-3">
       <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
         <span class="badge rounded-pill text-white" style="background:${st.badge};font-size:var(--text-xs)">${esc(stage)}</span>
-        ${isLocked ? `<span class="badge" style="background:var(--text-muted);color:#fff;font-size:var(--text-xs)">🔒 Locked</span>` : ''}
+        ${isLocked ? `<span class="badge" style="background:var(--text-muted);color:#fff;font-size:var(--text-xs)">🔗 Linked project</span>` : ''}
       </div>
       ${showClient ? `<div class="text-muted" style="font-size:var(--text-xs)">${esc(clientName)}</div>` : ''}
       ${rcName ? `<div class="text-muted" style="font-size:var(--text-xs)">Rate card: ${esc(rcName)}</div>` : ''}
@@ -372,11 +394,15 @@ async function pbOpenDetailPanel(cgId, verId) {
       </div>
       <div class="col-6">
         <div class="text-muted" style="font-size:var(--text-xs)">Currency</div>
-        <div>${esc(cur)}</div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span>${esc(cur)}${v.currencyRate && cur !== 'EUR' ? ` · 1 € = ${Number(v.currencyRate).toLocaleString('en', {minimumFractionDigits:4,maximumFractionDigits:4})} ${esc(cur)}` : ''}</span>
+          ${_rateStale ? `<button id="pbBtnRefreshRate" class="btn btn-outline-warning" style="font-size:var(--text-2xs);padding:1px 6px;line-height:1.4" title="Rate snapshot is outdated — click to update">↺ Refresh rate</button>` : ''}
+        </div>
       </div>
       <div class="col-6">
         <div class="text-muted" style="font-size:var(--text-xs)">Professional fees</div>
         <div class="fw-semibold">${grand.fee > 0 ? fmt(grand.fee) : '—'}</div>
+        ${cur !== 'EUR' && grand.fee > 0 ? `<div class="text-muted" style="font-size:var(--text-2xs)">≈ ${pbFmtMoney(grand.fee / (v.currencyRate || 1), 'EUR')}</div>` : ''}
       </div>
       <div class="col-6">
         <div class="text-muted" style="font-size:var(--text-xs)">PTC</div>
@@ -385,6 +411,7 @@ async function pbOpenDetailPanel(cgId, verId) {
       <div class="col-12">
         <div class="text-muted" style="font-size:var(--text-xs)">Total budget</div>
         <div class="fw-bold" style="font-size:var(--text-xl)">${(grand.fee + grand.ptc) > 0 ? fmt(grand.fee + grand.ptc) : '—'}</div>
+        ${cur !== 'EUR' && (grand.fee + grand.ptc) > 0 ? `<div class="text-muted" style="font-size:var(--text-sm)">≈ ${pbFmtMoney((grand.fee + grand.ptc) / (v.currencyRate || 1), 'EUR')}</div>` : ''}
       </div>
     </div>
     ${v.note ? `<div class="mb-3 p-2 rounded" style="background:var(--surface-light);font-size:var(--text-sm);white-space:pre-wrap">${esc(v.note)}</div>` : ''}`;
@@ -410,10 +437,14 @@ async function pbOpenDetailPanel(cgId, verId) {
       }
 
       const navId      = proj?.id || lp.projectId;
-      const dispId     = proj?.id || lp.projectId;
+      const pcode      = proj?.code || '';
       const pname      = lp.projectName || proj?.name || lp.projectId;
       const pipeline   = getProjectPipeline(navId) || proj?.pipeline || '';
       const projStatus = proj?.status || '';
+      const taskNames  = lp.taskNames || [];
+      const taskListHtml = taskNames.length
+        ? `<div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:5px"><span style="font-weight:600">Tasks:</span> ${taskNames.map(n => esc(n)).join(', ')}</div>`
+        : '';
       // Check data against the resolved navId
       const hasData    = timesheetData.some(r => r.projectId === navId);
       return `
@@ -421,17 +452,16 @@ async function pbOpenDetailPanel(cgId, verId) {
           <div class="d-flex align-items-start justify-content-between gap-2">
             <div class="flex-grow-1 min-width-0">
               <div class="fw-semibold">${esc(pname)}</div>
-              <div style="font-size:var(--text-xs);color:var(--text-muted);font-family:'SFMono-Regular',monospace">${esc(dispId)}</div>
+              ${pcode ? `<div style="font-size:var(--text-xs);color:var(--text-muted);font-family:'SFMono-Regular',monospace">${esc(pcode)}</div>` : ''}
               <div class="d-flex gap-1 flex-wrap mt-1">
-                ${pipeline   ? pipelineBadge(pipeline)  : ''}
-                ${projStatus ? statusBadge(projStatus)  : ''}
+                ${pipeline ? pipelineBadge(pipeline) : ''}
+                ${statusBadgeLarge(projStatus)}
               </div>
+              ${taskListHtml}
             </div>
             <div class="d-flex gap-1 flex-shrink-0 flex-wrap">
               <button class="btn btn-xs btn-outline-secondary"
                 onclick="pbGoToPortfolio('${esc(navId)}')">📊 Portfolio</button>
-              <button class="btn btn-xs btn-outline-secondary"
-                onclick="pbGoToConfigure('${esc(navId)}')">⚙ Configure</button>
             </div>
           </div>
         </div>`;
@@ -515,6 +545,71 @@ async function pbOpenDetailPanel(cgId, verId) {
     btn.addEventListener('click', () => pbOpenDetailPanel(btn.dataset.cgid, btn.dataset.verid))
   );
 
+  // Wire refresh rate button (admin only, shown only when rate is stale)
+  const refreshBtn = document.getElementById('pbBtnRefreshRate');
+  if (refreshBtn && _liveRate != null) {
+    refreshBtn.addEventListener('click', () => {
+      const snapStr = Number(v.currencyRate || 1).toLocaleString('en', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+      const liveStr = Number(_liveRate).toLocaleString('en', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+
+      const modalId = 'pbRefreshRateModal';
+      let modalEl = document.getElementById(modalId);
+      if (!modalEl) {
+        modalEl = document.createElement('div');
+        modalEl.id = modalId;
+        modalEl.className = 'modal fade';
+        modalEl.tabIndex = -1;
+        modalEl.innerHTML = `
+          <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" style="font-size:var(--text-base)">Update exchange rate</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body" id="${modalId}Body"></div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning btn-sm" id="${modalId}Confirm">↺ Update rate</button>
+              </div>
+            </div>
+          </div>`;
+        document.body.appendChild(modalEl);
+      }
+
+      document.getElementById(`${modalId}Body`).innerHTML = `
+        <p style="font-size:var(--text-sm)">The exchange rate snapshot on this proposal will be updated to the latest rate.</p>
+        <table class="table table-sm mb-2">
+          <tbody>
+            <tr>
+              <td class="text-muted" style="font-size:var(--text-xs)">Current snapshot</td>
+              <td class="fw-semibold">1 € = ${esc(snapStr)} ${esc(cur)}</td>
+            </tr>
+            <tr>
+              <td class="text-muted" style="font-size:var(--text-xs)">Latest rate</td>
+              <td class="fw-bold text-warning">1 € = ${esc(liveStr)} ${esc(cur)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="text-muted mb-0" style="font-size:var(--text-xs)">Budget amounts remain in ${esc(cur)}. Only the EUR equivalent display will change.</p>`;
+
+      const bsModal = new bootstrap.Modal(modalEl);
+      bsModal.show();
+
+      document.getElementById(`${modalId}Confirm`).onclick = async () => {
+        bsModal.hide();
+        try {
+          await Api.costGrids.versions.refreshRate(cgId, verId);
+          await cgSyncFromApi();
+          await loadPipelineBudgetsFromApi();
+          renderPipelineBoard();
+          await pbOpenDetailPanel(cgId, verId);
+        } catch (e) {
+          alert('Failed to refresh rate: ' + e.message);
+        }
+      };
+    });
+  }
+
   pbLoadPotSection(v, stage);
 
   // ── Action buttons ────────────────────────────────────────────────────────
@@ -574,12 +669,13 @@ async function pbLoadPotSection(v, stage) {
   const year = v.pipelineYear;
   if (!year || stage === 'Draft') { el.innerHTML = ''; return; }
 
-  // Find the client from the first linked project
+  // Resolve clientId: prefer linked project, fall back to version's own clientId
   let clientId = null;
   for (const lp of (v.linkedProjects || [])) {
     const proj = (config.projects || []).find(p => p.id === lp.projectId);
     if (proj?.clientId) { clientId = proj.clientId; break; }
   }
+  if (!clientId) clientId = v.clientId || null;
   if (!clientId) { el.innerHTML = ''; return; }
 
   // Check if client belongs to a group
@@ -592,7 +688,7 @@ async function pbLoadPotSection(v, stage) {
   </div>`;
 
   try {
-    const { pot, proposals } = await Api.pots.summary(params);
+    const { pot, proposals, committed_total, anticipated_total } = await Api.pots.summary(params);
 
     if (!pot) {
       el.innerHTML = `<div style="border-top:1px solid var(--border-light);padding-top:10px;margin-top:4px">
@@ -601,28 +697,41 @@ async function pbLoadPotSection(v, stage) {
       return;
     }
 
-    const totalBudget = proposals.reduce((sum, p) => {
-      const b = typeof getPipelineBudget === 'function' ? getPipelineBudget(p.version_id) : null;
-      return sum + (b?.fee || 0);
-    }, 0);
-    const pct = pot.amount > 0 ? Math.min(100, Math.round(totalBudget / pot.amount * 100)) : 0;
-    const pctColor = pct >= 100 ? '#198754' : pct >= 75 ? '#fd7e14' : '#0d6efd';
-    const fmtM = n => '€ ' + Number(n).toLocaleString('en', { maximumFractionDigits: 0 });
+    // Totals come from the server and include ALL proposals regardless of caller visibility
+    const committedTotal   = parseFloat(committed_total   || 0);
+    const anticipatedTotal = parseFloat(anticipated_total || 0);
+    const totalBudget      = committedTotal + anticipatedTotal;
+
+    const pct    = pot.amount > 0 ? Math.min(100, Math.round(totalBudget    / pot.amount * 100)) : 0;
+    const pctC   = pot.amount > 0 ? Math.min(100, Math.round(committedTotal / pot.amount * 100)) : 0;
+    const pctA   = Math.min(pct - pctC, 100 - pctC);
+    const fmtM   = n => '€ ' + Number(n).toLocaleString('en', { maximumFractionDigits: 0 });
+    const totColor = pct >= 100 ? '#198754' : pct >= 75 ? '#fd7e14' : '#0d6efd';
+    const nContrib = proposals.filter(p => p.pipeline === 'Committed' || p.pipeline === 'Anticipated').length;
 
     el.innerHTML = `
       <div style="border-top:1px solid var(--border-light);padding-top:10px;margin-top:4px">
         <div class="d-flex align-items-center justify-content-between mb-1">
           <span class="fw-semibold" style="font-size:var(--text-sm)">🎯 POT — ${esc(targetName)} ${year}</span>
-          <span style="font-size:var(--text-xs);color:${pctColor};font-weight:700">${pct}%</span>
+          <span style="font-size:var(--text-xs);color:${totColor};font-weight:700">${pct}% total</span>
         </div>
-        <div style="height:6px;background:#e9ecef;border-radius:3px;overflow:hidden;margin-bottom:5px">
-          <div style="height:100%;width:${pct}%;background:${pctColor};border-radius:3px"></div>
+        <div style="height:8px;background:#e9ecef;border-radius:3px;overflow:hidden;margin-bottom:6px;display:flex">
+          <div style="height:100%;width:${pctC}%;background:#198754"></div>
+          <div style="height:100%;width:${pctA}%;background:#fd7e14;opacity:.75"></div>
         </div>
-        <div class="d-flex justify-content-between" style="font-size:var(--text-xs);color:var(--text-muted)">
-          <span>Pipeline: <strong style="color:#1a1a2e">${fmtM(totalBudget)}</strong></span>
-          <span>Target: <strong style="color:#1a1a2e">${fmtM(pot.amount)}</strong></span>
+        <div style="font-size:var(--text-xs);color:var(--text-muted);display:flex;flex-direction:column;gap:3px">
+          <div class="d-flex justify-content-between">
+            <span>Total (C+A): <strong style="color:${totColor}">${fmtM(totalBudget)}</strong></span>
+            <span>Target: <strong style="color:#1a1a2e">${fmtM(pot.amount)}</strong></span>
+          </div>
+          <div style="padding-left:8px;border-left:3px solid #198754">
+            Committed: <strong style="color:#198754">${fmtM(committedTotal)}</strong> <span style="color:#888">(${pctC}%)</span>
+          </div>
+          ${anticipatedTotal > 0 ? `<div style="padding-left:8px;border-left:3px solid #fd7e14">
+            Anticipated: <strong style="color:#fd7e14">+ ${fmtM(anticipatedTotal)}</strong> <span style="color:#888">(${pctA}%)</span>
+          </div>` : ''}
         </div>
-        ${proposals.length > 1 ? `<div class="text-muted mt-1" style="font-size:var(--text-2xs)">${proposals.length} proposals contribute to this POT</div>` : ''}
+        ${nContrib > 1 ? `<div class="text-muted mt-1" style="font-size:var(--text-2xs)">${nContrib} proposals contribute to this POT</div>` : ''}
       </div>`;
   } catch (e) {
     el.innerHTML = '';
@@ -634,6 +743,12 @@ function pbCloseDetailPanel() {
   if (panel) panel.style.display = 'none';
   _pbActiveCgId  = null;
   _pbActiveVerid = null;
+  document.removeEventListener('mousedown', _pbOutsideClickHandler);
+}
+
+function _pbOutsideClickHandler(e) {
+  const panel = document.getElementById('pbDetailPanel');
+  if (panel && !panel.contains(e.target)) pbCloseDetailPanel();
 }
 
 function pbGoToPortfolio(projectId) {
