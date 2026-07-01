@@ -265,6 +265,8 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 
 **Edit modes:** Visual form or raw JSON editor.
 
+**Other sections in the form:** Phasing (monthly budget distribution), Planning (monthly sold-hours distribution), and Functional Groups (named role groupings) — each a distinct area of the same full-page form.
+
 ### 7.2 Clients
 
 Simple registry: ID + name. Used to group projects in portfolio view. A client can belong to at most one client group.
@@ -277,6 +279,8 @@ Each client row has a **💲 Costgrid** button that opens a rate card modal. The
 | Client custom (€/h) | Editable override for this client; blank = use agency default |
 
 Saving creates or updates a per-client rate card. Custom rates are applied automatically when the client is selected in a new proposal. Rate card management is **not** available from admin.html — it lives exclusively here.
+
+Rate cards support multiple currencies: for each active non-EUR currency (e.g. USD), the modal shows an additional column alongside EUR, pre-populated with the role's agency default for that currency when set.
 
 ### 7.3 Client Groups
 
@@ -292,11 +296,12 @@ Master/detail tab in config.html:
 
 Layout (top to bottom):
 1. Navigation row — ← Pipelines button · "Pipeline YYYY" title · Visible/Hidden status badge
-2. **5 stage summary cards** (SIP, Expected, Anticipated, Committed, Canceled) — each shows count of proposals and total professional-fee value (days × 8 × rate; pass-through costs excluded). Cards are populated via `GET /api/pots/pipeline-summary?year=`.
-3. "POT Targets" section header with "+ New POT" button
-4. POT table — lists all POTs for the year. Each row has: client/group name, type badge (Individual / Group), target amount, and action buttons: 🔍 View Details · ✏️ Edit · 🗑.
+2. **POT banner** (shown only when the year has at least one POT) — Total POT Target across all POTs for the year, and the Committed+Anticipated total with achievement %
+3. **5 stage summary cards** (SIP, Expected, Anticipated, Committed, Canceled) — each shows count of proposals and total professional-fee value (days × 8 × rate; pass-through costs excluded). Cards are populated via `GET /api/pots/pipeline-summary?year=`.
+4. "POT Targets" section header with "+ New POT" button
+5. POT table — lists all POTs for the year. Each row has: client/group name, type badge (Individual / Group), target amount, and action buttons: 🔍 View Details · ✏️ Edit · 🗑.
 
-**+ New POT form:** targets either an individual client or a client group; amount only; year is fixed to the current View B year.
+**+ New POT form:** targets an individual client, a client group, or one of two virtual scopes — "Unassigned / To be Identified" and "New Biz" — for revenue not yet tied to a named client; amount only; year is fixed to the current View B year.
 
 **✏️ Edit:** inline form to update the amount; every change is logged to `pot_history`.
 
