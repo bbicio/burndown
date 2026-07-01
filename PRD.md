@@ -224,7 +224,7 @@ Variance highlighting (green when under budget, red when over).
 
 ## 7. Configuration
 
-All configuration screens are admin-only and accessible via the **config.html** page (tabbed layout). Pipeline years and POT targets are also managed here, removing the need for a separate admin section.
+All configuration screens described in this section are admin-only and accessible via the **config.html** page (tabbed layout), which also manages Pipeline years and POT targets. (A separate `admin.html` page exists for user management and is out of scope for this section.)
 
 ### 7.1 Project Configuration
 
@@ -294,8 +294,7 @@ Layout (top to bottom):
 
 **🔍 View Details modal** — shows:
 - POT type badge (Individual / Group) and scope name
-- **Target** card — current `pot.amount` (most recent history entry)
-- **Current** card — sum of professional fees for Committed proposals scoped to this POT's client/group for the year
+- Four KPI cards: **Target** (current `pot.amount`, most recent history entry) · **Total (C+A)** (Committed + Anticipated professional fees) · **Committed** · **Anticipated** — each scoped to this POT's client/group for the year, with a % of target
 - **History** — change log newest-first: date, author, old value → new value with arrow
 - **Proposals** — all cost grid versions scoped to the POT's client/group + year; Canceled included; Draft excluded; each row links to `/costgrid.html?cgId=...&verId=...`
 
