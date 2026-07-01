@@ -69,6 +69,7 @@ Each card represents one cost grid (the active/locked version). Cards display:
 - Number of phases and tasks
 - Linked project(s) with status badge
 - Edit (✏️) action button; Delete (🗑) action button only on Draft-stage cards with edit permission
+- Viewer permission hides Edit and Delete entirely (see §18.3)
 
 Clicking a card (anywhere other than the action buttons) opens the **Detail Panel**.
 
@@ -76,7 +77,7 @@ Clicking a card (anywhere other than the action buttons) opens the **Detail Pane
 
 A fixed right-side panel (860 px wide) with two scrollable columns.
 
-**Header:** 🗑 Delete (Draft stage only) · ⧉ Clone · 🔗 Share · ✏️ Edit · ×. When the cost grid has more than one version, a row of version tabs (colour-coded stage dot + label) appears above the two-column body; clicking a tab reloads the panel for that version.
+**Header:** 🗑 Delete (Draft stage only) · ⧉ Clone · 🔗 Share · ✏️ Edit · ×. When the cost grid has more than one version, a row of version tabs (colour-coded stage dot + label) appears above the two-column body; clicking a tab reloads the panel for that version. Viewer permission hides Clone, Share, and Edit from the header (see §18.3).
 
 **Left column — Offer metadata + Linked Projects**
 
@@ -216,6 +217,8 @@ Today marker highlighted.
 - **Programs** — open Programs management modal
 - **Configure Portfolio** — open Project configuration panel
 
+Configure Portfolio and Load Actuals are hidden for viewers (see §18.3).
+
 **View features:**
 - Projects grouped by program (expandable / collapsible)
 - Program summary row aggregates all child metrics
@@ -266,6 +269,8 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 **Edit modes:** Visual form or raw JSON editor.
 
 **Other sections in the form:** Phasing (monthly budget distribution), Planning (monthly sold-hours distribution), and Functional Groups (named role groupings) — each a distinct area of the same full-page form.
+
+The entire form is read-only for viewers (see §18.3).
 
 ### 7.2 Clients
 
