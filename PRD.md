@@ -46,17 +46,18 @@ Organise all commercial offers (cost grids) by deal stage. Each offer is a card 
 
 ### 4.2 Deal Stages (Columns)
 
-Five fixed stages, displayed left to right:
+Six fixed stages, displayed left to right:
 
 | Stage | Meaning |
 |---|---|
+| Draft | Private working copy — visible only to its creator; excluded from column totals |
 | SIP | Strategic intent / early prospect |
 | Expected | Qualified opportunity, likely to close |
 | Anticipated | High-confidence, close imminent |
 | Committed | Deal signed / Committed revenue |
 | Canceled | Opportunity withdrawn or lost |
 
-Each column has a sticky footer showing the total budget value of all offers in that column.
+Each column (except Draft) has a sticky footer showing the total budget value of all offers in that column.
 
 ### 4.3 Offer Cards
 
@@ -73,7 +74,9 @@ Clicking a card (anywhere other than the action buttons) opens the **Detail Pane
 
 ### 4.4 Detail Panel
 
-A fixed right-side panel (860 px wide) with two scrollable columns:
+A fixed right-side panel (860 px wide) with two scrollable columns.
+
+**Header:** 🗑 Delete (Draft stage only) · ⧉ Clone · 🔗 Share · ✏️ Edit · ×. When the cost grid has more than one version, a row of version tabs (colour-coded stage dot + label) appears above the two-column body; clicking a tab reloads the panel for that version.
 
 **Left column — Offer metadata + Linked Projects**
 
@@ -81,10 +84,11 @@ A fixed right-side panel (860 px wide) with two scrollable columns:
 - Version label, creation date
 - Start date / end date
 - Currency
+- Rate card name, if one is set on the version
 - Notes
 - Total budget (€) broken down as: Fee + Pass-Through Costs (PTC)
 - JSON export button for the raw cost grid data
-- **Linked Projects** list: for each linked project shows project ID (resolved from config), project name, status badge, and a "📊 Portfolio" button that navigates to that project's reporting view (only visible when timesheet data exists for the project)
+- **Linked Projects** list: for each linked project shows project ID (resolved from config), project name, status badge, assigned task names (if any tasks have been assigned to the project), and a "📊 Portfolio" button that navigates to that project's reporting view (only visible when timesheet data exists for the project)
 
 **Right column — Task and Phase breakdown**
 
@@ -97,6 +101,7 @@ A fixed right-side panel (860 px wide) with two scrollable columns:
 
 - **Pipeline year dropdown** (replaces the static "Pipeline" title) — shows the selected year and a caret; clicking opens a menu of all visible pipeline years. Switching year reloads the board via `?year=YYYY` URL param.
 - **+ New Cost Grid** button — opens the Cost Grid Editor with a blank grid (hidden for non-admins on inactive years)
+- **Roles** button — opens the Roles Registry modal (see §7.6)
 
 ### 4.6 Pipeline Stages
 
@@ -110,9 +115,11 @@ Admin-managed via **Configuration → Pipelines & POTs**. Each year is either Vi
 
 When a cost grid is linked to a client (or client group), the detail panel shows a POT section: Total % (Committed + Anticipated) against the POT target for the selected year, rendered as a dual-segment progress bar (Committed in green, Anticipated in orange), with the Total, Committed, and Anticipated amounts listed below the bar.
 
-### 4.6 Cost Grid Editor (overlay)
+### 4.9 Cost Grid Editor (overlay)
 
 Accessed via "+ New Cost Grid" or the Edit button on a card. The editor opens as a full-page overlay that keeps the Pipeline tab highlighted in the nav.
+
+**Toolbar:** ⧉ Clone · 🗑 Delete version (Draft stage only) · ⊟/⊞ compact header toggle (hides per-role move/change/duplicate/remove controls and shrinks the header font)
 
 **Grid-level fields:**
 - Grid name
@@ -122,6 +129,7 @@ Accessed via "+ New Cost Grid" or the Edit button on a card. The editor opens as
 - Pipeline stage (SIP / Expected / Anticipated / Committed / Canceled)
 - Start date / End date
 - Currency (€, $, £, CHF)
+- Client and rate card selection (drives the effective rate for each role column)
 - Notes
 - Linked projects (multi-select from configured projects)
 
@@ -135,7 +143,7 @@ Accessed via "+ New Cost Grid" or the Edit button on a card. The editor opens as
 **Role columns:**
 - Added/removed dynamically
 - Each role has a label, a code (matching the actuals XLS), a team, and an hourly rate (€/h)
-- Rate can be overridden at version level
+- Effective rate follows a fallback chain: client rate card override → role's per-currency agency default → EUR rate × currency exchange factor
 
 **Cost calculation:**
 - Task budget = Σ(days × hourly rate) per role + PTC
