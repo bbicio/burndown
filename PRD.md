@@ -394,7 +394,7 @@ Clicking an export button triggers a server-side CSV generation; the file is sen
 
 #### Send Notification
 
-Any authenticated user can compose and send an in-app notification to a specific colleague; broadcasting to all active users is admin-only. Supports an optional deep-link URL (e.g. `/pipeline.html`, `/costgrid.html?cgId=...`) with a custom label.
+Any authenticated user can compose and send a notification to a specific colleague; broadcasting to all active users is admin-only. Delivery channel is selectable — Push (in-app), Email, or both (at least one required). Supports an optional deep-link URL (e.g. `/pipeline.html`, `/costgrid.html?cgId=...`) with a custom label.
 
 ---
 
