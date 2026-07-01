@@ -67,7 +67,7 @@ Each card represents one cost grid (the active/locked version). Cards display:
 - Total budget (€)
 - Number of phases and tasks
 - Linked project(s) with status badge
-- Edit (✏️) and Delete (🗑) action buttons
+- Edit (✏️) action button; Delete (🗑) action button only on Draft-stage cards with edit permission
 
 Clicking a card (anywhere other than the action buttons) opens the **Detail Panel**.
 
@@ -84,7 +84,7 @@ A fixed right-side panel (860 px wide) with two scrollable columns:
 - Notes
 - Total budget (€) broken down as: Fee + Pass-Through Costs (PTC)
 - JSON export button for the raw cost grid data
-- **Linked Projects** list: for each linked project shows project ID (resolved from config), project name, status badge, and a "📊 Reporting" button that navigates to that project's reporting view (only visible when timesheet data exists for the project)
+- **Linked Projects** list: for each linked project shows project ID (resolved from config), project name, status badge, and a "📊 Portfolio" button that navigates to that project's reporting view (only visible when timesheet data exists for the project)
 
 **Right column — Task and Phase breakdown**
 
@@ -108,7 +108,7 @@ Admin-managed via **Configuration → Pipelines & POTs**. Each year is either Vi
 
 ### 4.8 POT Summary in Detail Panel
 
-When a cost grid is linked to a client (or client group), the detail panel shows a POT section: pipeline stage value vs. POT target for the selected year, rendered as a colour-coded progress bar (blue / orange ≥ 75 % / green ≥ 100 %).
+When a cost grid is linked to a client (or client group), the detail panel shows a POT section: Total % (Committed + Anticipated) against the POT target for the selected year, rendered as a dual-segment progress bar (Committed in green, Anticipated in orange), with the Total, Committed, and Anticipated amounts listed below the bar.
 
 ### 4.6 Cost Grid Editor (overlay)
 
