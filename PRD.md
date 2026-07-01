@@ -379,9 +379,9 @@ Clicking an export button triggers a server-side CSV generation; the file is sen
 - **Full Backup (.json):** Downloads a dated JSON snapshot of all API data (projects, roles, programs, clients, cost grids)
 - **Restore from Backup:** Admin-only. Restores from a previously downloaded backup JSON file.
 
-#### Send Notification (admin only)
+#### Send Notification
 
-Admins can compose and send in-app notifications to a specific user or broadcast to all active users. Supports an optional deep-link URL (e.g. `/pipeline.html`, `/costgrid.html?cgId=...`) with a custom label.
+Any authenticated user can compose and send an in-app notification to a specific colleague; broadcasting to all active users is admin-only. Supports an optional deep-link URL (e.g. `/pipeline.html`, `/costgrid.html?cgId=...`) with a custom label.
 
 ---
 
