@@ -672,7 +672,11 @@ burndown/
     costgrid.js           ← cost grid editor; non-EUR role rate fallback chain: ratecard override → `role.rateOverrides[currency]` → EUR rate × currency factor; both `cgSyncRoleRatesToBaseline` and `cgPreviewRateChange` use this chain; `effectiveRate` in role select modal also updated; linked-project chips use `statusBadgeLarge()` for project status badges; `_cgCompactHeader` (localStorage `PDash_cgCompactHeader`) toggles compact/normal header mode via ⊟/⊞ button in the "Phase / Task" sticky cell — compact hides role move/change/dup/remove buttons and reduces header font to 10px; **task assignment (R1–R5)**: `cgGetAssignedTaskIds()` + `cgGetAssignedTaskNames()` perform dual UUID+name check — assigned tasks show no ✕ button; `cgDoAddTasksToProject` and `cgDoGenerateProject` send `taskNames` alongside `taskIds`; Generate Project button hidden when all tasks are already mapped; `_cgEnsureAddToProjectModal()` creates a singleton modal appended to `document.body` (z-index:10500, created once and reused)
     portfolio.js          ← portfolio dashboard
     dashboard.js          ← per-project KPI/burndown
-    config-form.js        ← project config form
+    config-form.js        ← project config form; hours parsing/formatting/rounding delegated to js/lib/cfg-parse.js
+    lib/                  ← pure functions extracted for unit testing (vitest + jsdom), each an ES module
+                            (`export function ...`) with a `window.<name> = <name>` bridge for classic-script
+                            callers; cfg-parse.js — cfgParseHours, cfgFmtHours, roundToQuarterHour (moved from
+                            config-form.js)
     roles.js              ← roles management modal; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role — role shape: `{ id, label, code, rate, rateOverrides }`
     ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js; `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects per-role `rateOverrides` and sends them to the API
     upload.js             ← XLS parsing
@@ -692,9 +696,12 @@ burndown/
   login.html / activate.html / reset-password.html
   migration.html          ← one-time localStorage → API migration tool
   _db-reset.html          ← admin-only hidden page for bulk DB data deletion by scope
-  nginx.conf
+  nginx.conf              ← denies dev-only toolchain artifacts (node_modules/, package.json, package-lock.json,
+                            vitest.config.js, *.test.js, *.spec.js) even though it bind-mounts the repo root
   docker-compose.yml
   .env.example
+  package.json            ← dev-only vitest + jsdom test toolchain for js/lib/ (never bundled, never served)
+  vitest.config.js
 ```
 
 ---

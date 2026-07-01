@@ -1,9 +1,10 @@
 # PDash — Test Cases
 
-**Updated:** 2026-06-30 (rev 7)  
+**Updated:** 2026-07-01 (rev 8)  
 **Coverage scope:** All authenticated pages + API routes. Manual execution unless noted.
 
 > **Auto** = covered by `docker compose --profile test run --rm test` (test-api.js).  
+> **✓ (vitest)** = covered by a frontend unit/characterization test (`npm test`, `js/lib/*.test.js`) — a separate, dev-only toolchain from the API's `test-api.js` (see CLAUDE.md).  
 > All other cases require manual testing in the browser.
 
 ---
@@ -442,5 +443,5 @@ Admin-only hidden page for bulk data deletion by scope.
 | REG-10 | Project name persists across reloads | Enter project name in the cost grid editor; save; reload; reopen | "Project name" field shows the saved value; card on pipeline board shows the same name | |
 | REG-11 | Rate consistency — editor vs. detail panel | Open a proposal with a ratecard (e.g. Bayer AG rates); open the editor (note total); open the detail panel for the same version | Editor total and detail panel total match exactly; no discrepancy from ratecard vs. global rate | |
 | REG-12 | No stale data after hard refresh | Edit a proposal in the editor and save; hard refresh the page | Board shows the updated data; no stale in-memory cache from previous session carries over | |
-| REG-13 | Hours not inflated by de-DE locale | Enter 22.25 planned hours on a month cell in project-config → save → reload → reopen | Value shows 22.25 (not 2225); `cfgParseHours` bypasses `cfgParseMoney` which strips "." as thousands sep in de-DE locale | |
-| REG-14 | Quarter-hour rounding on reforecast | Trigger Reforecast on a project with fractional carry-over hours | Generated future-month values are rounded to nearest 0.25h (e.g. 10.125 → 10.25) | |
+| REG-13 | Hours not inflated by de-DE locale | Enter 22.25 planned hours on a month cell in project-config → save → reload → reopen | Value shows 22.25 (not 2225); `cfgParseHours` (now in `js/lib/cfg-parse.js`) bypasses `cfgParseMoney` which strips "." as thousands sep in de-DE locale | ✓ (vitest) |
+| REG-14 | Quarter-hour rounding on reforecast | Trigger Reforecast on a project with fractional carry-over hours | Generated future-month values are rounded to nearest 0.25h (e.g. 10.125 → 10.25) via `roundToQuarterHour` (`js/lib/cfg-parse.js`) | ✓ (vitest) |

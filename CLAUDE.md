@@ -27,7 +27,11 @@ To run database migrations:
 docker exec pdash-db psql -U pdash -d pdash -f /path/to/migration.sql
 ```
 
-No package manager, no bundler, no tests, no linter on the frontend.
+No bundler, no build step for the **runtime** — nginx serves `js/`/`css/` files exactly as they are on disk, and this must stay true.
+
+A dev-only test toolchain exists for the frontend: root `package.json` + vitest + jsdom, isolated from the runtime (see `js/lib/` below). It is never bundled, never served — `node_modules/`, `package.json`, `package-lock.json`, `vitest.config.js`, and any `*.test.js`/`*.spec.js` file are explicitly denied in `nginx.conf`. Run tests with `npm test` (single run) or `npm run test:watch`.
+
+Still no linter on the frontend.
 
 ---
 
@@ -72,6 +76,10 @@ css/tokens.css           — design tokens (single source of truth for colors/ty
 css/style.css            — component styles referencing tokens
 js/api.js                — Api.* namespace, apiFetch wrapper (401 → redirect to login)
 js/api-sync.js           — in-memory ↔ API sync layer (cgSyncFromApi, loadConfigFromApi, etc.); `cgSyncFromApi` stores `myPermission: g.my_permission` on each `_cgStore` entry; `_apiProjectToLocal` maps `my_permission: p.my_permission || 'owner'` and converts ISO currency code → symbol (`EUR→'€'`, `USD→'$'`, `GBP→'£'`) for the form select; `_pushProjectToApi` converts symbol → ISO code before PATCH to satisfy `currencies` FK constraint — fields not listed here are silently dropped even if returned by API; `_cgApiVersionToLocal` maps `taskIds` and `taskNames` from `lp.task_ids`/`lp.task_names` on each linked-project entry
+js/lib/                  — pure functions extracted for unit testing (vitest + jsdom), each an ES module
+                            (`export function ...`) with a `window.<name> = <name>` bridge for existing classic-script
+                            callers; see "Script loading order" below. `cfg-parse.js` — `cfgParseHours`,
+                            `cfgFmtHours`, `roundToQuarterHour` (moved from config-form.js)
 js/core.js               — state, in-memory helpers (loadConfig/persistConfig are no-ops), shared badges, esc(), fmtH(), fmtMoney(); `statusBadge()` small style for pipeline cards; `statusBadgeLarge()` same size/style as `pipelineBadge()` — used only in linked-project chips in the editor and detail panel
 js/nav.js                — navbar + footer injection, initNav(); injects settings, change-password, send-notification,
                             and "My Profile" modals; T&C gate after GET /api/auth/me (redirects to /terms.html
@@ -82,7 +90,7 @@ js/pipeline-board.js     — kanban render, pbOpenDetailPanel, pbCloseDetailPane
 js/costgrid.js           — cost grid editor (phases/tasks/roles table, save/load/version logic); declares `_pbCloneSource` (shared with pipeline board); Clone + Delete Draft buttons in editor toolbar; `cgConfirmDeleteVersion(cgId, verId, label, onSuccess?)` accepts optional callback (editor passes redirect, list/panel pass re-render); non-EUR role rate 3-level fallback: ratecard override → `role.rateOverrides[currency]` → EUR rate × factor; both `cgSyncRoleRatesToBaseline` and `cgPreviewRateChange` use this chain; `_cgCompactHeader` (localStorage `PDash_cgCompactHeader`) toggles compact/normal blue header row via ⊟/⊞ button in the "Phase / Task" sticky cell — compact hides role move/change/dup/remove buttons and reduces header font to 10px; **task assignment (R1–R5)**: `cgGetAssignedTaskIds()` + `cgGetAssignedTaskNames()` dual UUID+name check — assigned tasks have no ✕ button; `cgDoAddTasksToProject` and `cgDoGenerateProject` send `taskNames`; Generate Project button hidden when all tasks are mapped; `_cgEnsureAddToProjectModal()` is a singleton modal appended to `document.body` (z-index:10500)
 js/portfolio.js          — portfolio dashboard + resource planning view; hides Configure and Load Actuals buttons for viewers (`cfg.my_permission !== 'viewer'`)
 js/dashboard.js          — per-project KPI + burndown render; hides Configure button for viewers (`proj?.my_permission !== 'viewer'`)
-js/config-form.js        — project config form (tasks, phasing, planning, groups); `cfgParseHours(str)` uses `parseFloat` directly — never via `cfgParseMoney` (which strips "." for de-DE locale, inflating "22.25" → 2225); `cfgFmtHours(n)` uses `toFixed(2)`; future-month reforecast values rounded to `Math.round(n * 4) / 4`
+js/config-form.js        — project config form (tasks, phasing, planning, groups); hours parsing/formatting delegated to `js/lib/cfg-parse.js`
 js/roles.js              — roles management modal; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role; role shape is `{ id, label, code, rate, rateOverrides }`
 js/upload.js             — Excel timesheet parsing
 js/settings.js           — openSettingsModal() / saveSettingsModal(); reads window.__navUser; all
@@ -177,6 +185,16 @@ Pipeline stage is stored on `costGridVersion.pipeline`. These locations must sta
 Valid stages: `SIP`, `Expected`, `Anticipated`, `Committed`, `Canceled`.
 
 Helper: `getProjectPipeline(projectId)` — reads from `costGridRef` version first, falls back to `config.projects[].pipeline`.
+
+### Script loading order (`js/lib/*` modules)
+
+Files under `js/lib/` are native ES modules (`export function ...`), loaded via `<script type="module" src="js/lib/...">`, with a `window.<name> = <name>` bridge line per export so existing classic-script callers keep working unchanged.
+
+Module scripts are always deferred: they execute after HTML parsing completes and before `DOMContentLoaded` fires, regardless of their position in the document. Classic non-deferred scripts (`core.js`, `config-form.js`, etc.) execute immediately at parse time, in document order.
+
+**Rule:** a bridged `window.*` global from `js/lib/` may only be read from inside an event handler or a function invoked after `DOMContentLoaded` — never at the top level of a classic script's parse-time execution, since the bridging module may not have run yet at that point. Every current `js/lib/` consumer (e.g. `cfgParseHours`/`cfgFmtHours` calls in `config-form.js`) satisfies this today.
+
+If a future `js/lib/` module needs another `js/lib/` module's function, use a native ES `import` between them (resolved independently of `<script>` tag order in the HTML), not the `window` bridge.
 
 ### Linked project resolution
 
