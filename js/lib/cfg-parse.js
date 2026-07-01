@@ -11,4 +11,18 @@ export function cfgParseHours(str) {
   return parseFloat(s) || 0;
 }
 
+export function roundToQuarterHour(n) {
+  return Math.round(n * 4) / 4;
+}
+
+export function cfgFmtHours(n) {
+  if (!(n > 0)) return '';
+  // Snap to nearest quarter-hour (XLS actuals are always .00/.25/.50/.75)
+  const r = roundToQuarterHour(n);
+  // Always use "." as decimal — cfgParseHours must match this convention
+  return r % 1 === 0 ? String(r) : r.toFixed(2);
+}
+
 window.cfgParseHours = cfgParseHours;
+window.roundToQuarterHour = roundToQuarterHour;
+window.cfgFmtHours = cfgFmtHours;
