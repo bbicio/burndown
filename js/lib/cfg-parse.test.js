@@ -33,11 +33,17 @@ describe('cfgParseHours', () => {
   it('characterization: comma-decimal input has the comma stripped, not treated as a decimal separator (documented quirk, not fixed in this cycle)', () => {
     expect(cfgParseHours('22,25')).toBe(2225);
   });
+
+  it('characterization: a leading minus sign is stripped, not treated as a negative sign (documented quirk, not fixed in this cycle)', () => {
+    expect(cfgParseHours('-5')).toBe(5);
+  });
 });
 
 describe('roundToQuarterHour', () => {
-  it('REG-14: rounds a fractional carry-over value to the nearest quarter-hour (reforecast site, config-form.js:848)', () => {
-    expect(roundToQuarterHour(10.125)).toBe(10.25);
+  it('REG-14: rounds a fractional carry-over value to the nearest quarter-hour (reforecast site, config-form.js:848) and returns a plain number, matching the reforecast site which writes the result straight into newPlanning[ym]', () => {
+    const result = roundToQuarterHour(10.125);
+    expect(typeof result).toBe('number');
+    expect(result).toBe(10.25);
   });
 
   it('rounds down when closer to the lower quarter-hour', () => {
@@ -46,12 +52,6 @@ describe('roundToQuarterHour', () => {
 
   it('leaves an exact quarter-hour value unchanged', () => {
     expect(roundToQuarterHour(7.5)).toBe(7.5);
-  });
-
-  it('returns a plain number (no formatting) — matches the reforecast site which writes the result straight into newPlanning[ym]', () => {
-    const result = roundToQuarterHour(10.125);
-    expect(typeof result).toBe('number');
-    expect(result).toBe(10.25);
   });
 });
 
