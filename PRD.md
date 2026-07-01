@@ -591,3 +591,47 @@ Available to any authenticated user from the account menu. Requires the current 
 ### 15.5 Logout
 
 Clears the session cookie and returns the user to the login page.
+
+---
+
+## 16. User Administration
+
+Accessed via `admin.html`, admin-only.
+
+### 16.1 User List
+
+All users, filterable by status (Active / Pending / Disabled); each row shows role and who invited the user.
+
+### 16.2 Roles & Permissions
+
+| Role | Description |
+|---|---|
+| `admin` | Full access to all data and configuration |
+| `user` | Scoped access — owns and sees only their own resources |
+
+| Action | Admin | User |
+|---|---|---|
+| Invite users | ✅ | ❌ |
+| Disable / re-enable users | ✅ | ❌ |
+| Manage clients | ✅ | read-only |
+| Manage programs | ✅ | read-only |
+| Manage roles + rates | ✅ | read-only |
+| View ratecards | ✅ | ✅ |
+| Create / edit / delete ratecards | ✅ | ❌ |
+| View all cost grids | ✅ | own + shared |
+| View all projects | ✅ | own + shared |
+| View all planning | ✅ | own + shared |
+| Share cost grid / project | ✅ | own only |
+| Upload timesheet | ✅ | own projects only |
+
+### 16.3 Role & Status Actions
+
+Make a user admin or user; disable or re-enable an account. An admin cannot change their own role or status — their own row shows "(you)" instead of action buttons.
+
+### 16.4 Anonymize
+
+Available only on disabled, not-yet-anonymized users. Requires an explicit confirmation describing what will change. Replaces the user's email and name with anonymized placeholders; their operational data (cost grids, projects) is preserved, only the identity is scrubbed. An admin cannot anonymize their own account.
+
+### 16.5 Terms & Conditions Editor
+
+Admin can view the current version number and edit its HTML content. "Save draft" updates the content without changing the version (existing users are not re-prompted). "Publish new version" increments the version, which forces every user to re-accept on their next login (see §17.1).
