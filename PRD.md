@@ -163,7 +163,6 @@ Show the distribution of sold hours across the portfolio — by role, by project
 
 | Control | Options |
 |---|---|
-| Pipeline filter | Dropdown — filter offers by stage |
 | Project filter | Multi-select projects |
 | Group by | By Role / By Project / By Owner |
 | Time granularity | Monthly / Weekly |
@@ -178,6 +177,12 @@ Show the distribution of sold hours across the portfolio — by role, by project
 Rows: resources (roles, projects, or owners depending on grouping).  
 Columns: time periods (months or weeks) within the selected date range.  
 Cells: hours for that resource in that period (sold / actuals / variance).
+
+### 5.4 Gantt View
+
+Phase-level Gantt bars per project.  
+Colour-coded by pipeline stage.  
+Today marker highlighted.
 
 ---
 
@@ -214,12 +219,6 @@ Cells: hours for that resource in that period (sold / actuals / variance).
 Bar chart showing estimated vs. spent per month across the portfolio.  
 Pass-through costs shown as a separate series.  
 Variance highlighting (green when under budget, red when over).
-
-### 6.3 Gantt View
-
-Phase-level Gantt bars per project.  
-Colour-coded by pipeline stage.  
-Today marker highlighted.
 
 ---
 
