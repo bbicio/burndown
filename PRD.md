@@ -423,7 +423,7 @@ Clicking a notification marks it as read and navigates to the linked URL if pres
 | Trigger | Description |
 |---|---|
 | Export ready | Sent automatically when a CSV export is requested (currently delivered via email; in-app notification planned) |
-| Admin message | Admin composes a custom message targeting a user or all users |
+| Sent notification | Any user composes a message targeting a specific colleague; broadcast to all users is admin-only |
 | Share | When a cost grid or project is shared with you |
 
 ---
