@@ -117,7 +117,7 @@ When a cost grid is linked to a client (or client group), the detail panel shows
 
 ### 4.9 Cost Grid Editor (overlay)
 
-Accessed via "+ New Cost Grid" or the Edit button on a card. The editor opens as a full-page overlay that keeps the Pipeline tab highlighted in the nav.
+Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as a full-page overlay that keeps the Pipeline tab highlighted in the nav.
 
 **Toolbar:** ⧉ Clone · 🗑 Delete version (Draft stage only) · ⊟/⊞ compact header toggle (hides per-role move/change/duplicate/remove controls and shrinks the header font)
 
