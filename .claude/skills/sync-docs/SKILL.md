@@ -34,9 +34,15 @@ Review all recent code changes in this session (and git diff if needed) and upda
 - If an endpoint's auth changed (e.g. requireAdmin → requireAuth), update the SEC-01 loop or add a new security assertion.
 - Call new test functions from main() in a logical order.
 
+### 6. PRD.md (only if user-visible behaviour changed)
+- Trigger only when the change alters what a user can do, see, or experience: a new page/view, a new feature, a changed user flow, a changed permission/role behaviour, or a UI element added/removed that affects how the product is used.
+- Do NOT trigger for internal refactors, extracted modules, added tests, dev tooling, or changes to files/functions that produce byte-identical user-facing behaviour — even if extensive.
+- If the change is a bugfix, update PRD.md only if the PRD's description of the feature was itself inaccurate (i.e. the bug meant the PRD never matched reality); do not update it for fixes that restore documented behaviour.
+- When in doubt whether a change is "user-visible," state the ambiguity in the summary and leave PRD.md untouched — flagging beats guessing.
+
 ## Process
 
 1. Read the current state of each file before editing.
 2. Cross-reference against the actual code (js/, api/src/routes/, costgrid.html, config.html, etc.) to verify what changed.
 3. Make targeted edits — do not rewrite sections that are still accurate.
-4. Report a brief summary at the end: which files were updated and what changed in each.
+4. Report a brief summary at the end: which files were updated and what changed in each. Always explicitly state whether PRD.md was evaluated and the outcome — updated / not necessary (internal-only change) / ambiguous (needs human verification) — even when PRD.md itself was left untouched.
