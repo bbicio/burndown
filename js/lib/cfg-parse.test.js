@@ -29,6 +29,10 @@ describe('cfgParseHours', () => {
   it('returns 0 for null-ish input coerced to string', () => {
     expect(cfgParseHours(null)).toBe(0);
   });
+
+  it('characterization: comma-decimal input has the comma stripped, not treated as a decimal separator (documented quirk, not fixed in this cycle)', () => {
+    expect(cfgParseHours('22,25')).toBe(2225);
+  });
 });
 
 describe('roundToQuarterHour', () => {
