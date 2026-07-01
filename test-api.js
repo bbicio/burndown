@@ -374,7 +374,7 @@ async function testPots() {
   if (!potId) return;
 
   // Update amount
-  const r4 = await api('PATCH', `/api/pots/${potId}`, { amount: 200000 }, adminCookie);
+  const r4 = await api('PATCH', `/api/pots/${potId}`, { amount: 200000, note: 'test update' }, adminCookie);
   ok(r4.status === 200,                         'POT-03 PATCH update amount → 200');
   ok(Number(r4.data?.amount) === 200000,        'POT-03 amount updated to 200000');
 
