@@ -342,7 +342,7 @@ Actuals are matched to projects and tasks to compute budget spent.
 ### 8.3 Behaviour
 
 - Rows with missing date or zero hours are ignored
-- Hours grouped by project ID and stored in localStorage
+- Hours are grouped by project ID and persisted to PostgreSQL via the API (`timesheets` routes); the frontend loads them into an in-memory cache on each page load
 - Uploading a new file for a project replaces the previous actuals for that project
 - Triggers refresh of all reporting views
 
@@ -454,16 +454,16 @@ Accessed via the "🤖 AI Chat" button in the top-right of the navbar.
 
 ## 12. Data Model
 
-The source of truth is PostgreSQL. `localStorage` is a read cache seeded from the API on each page load. See ARCHITECTURE.md section 5 for the full DB schema.
+The source of truth is PostgreSQL. On each page load, the frontend seeds an **in-memory** cache (module-level JS variables, not localStorage) from the API; user actions update the in-memory state immediately and fire an async write to the API in the background. See ARCHITECTURE.md section 5 for the full DB schema and CLAUDE.md's "Data strategy (in-memory cache)" section for the sync functions.
 
-### 12.1 localStorage cache keys (UI only)
+### 12.1 localStorage keys (client-only settings, not server data)
+
+`localStorage` is **not** used for server data — every project, cost grid, role, client, and timesheet row lives only in the in-memory cache described above, seeded fresh from the API on every page load. Only two genuinely client-side keys exist:
 
 | Key | Contents |
 |---|---|
-| `PDash_config` | `{ projects[], programs[], clients[], roles[] }` — seeded from API |
-| `PDash_costGrids` | `CostGrid[]` — seeded from API |
-| `PDash_timesheets` | Parsed XLS data keyed by project ID — seeded from API |
-| `PDash_settings` | AI keys, GitHub PAT, display preferences |
+| `PDash_settings` | AI provider keys, display preferences |
+| `PDash_summary` | Portfolio summary view selection |
 
 ### 12.2 CostGrid Shape
 
