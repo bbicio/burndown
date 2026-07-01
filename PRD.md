@@ -635,3 +635,19 @@ Available only on disabled, not-yet-anonymized users. Requires an explicit confi
 ### 16.5 Terms & Conditions Editor
 
 Admin can view the current version number and edit its HTML content. "Save draft" updates the content without changing the version (existing users are not re-prompted). "Publish new version" increments the version, which forces every user to re-accept on their next login (see §17.1).
+
+---
+
+## 17. GDPR & Data Rights
+
+### 17.1 Terms & Conditions Gate
+
+After login, if the user has never accepted the current Terms & Conditions version — or a new version was published since their last acceptance — they are redirected to a standalone acceptance page before continuing to the app. A checkbox must be ticked before the continue button becomes active. Accepting returns the user to the page they were originally headed to.
+
+### 17.2 Profile Rectification
+
+"My Profile" (accessible from the account menu) lets a user update their own first name, last name, and email. Email must be a valid format and not already used by another account.
+
+### 17.3 Anonymization
+
+The right-to-erasure mechanism for this product is the anonymize action described in §16.4 — admin-performed, not self-service, and requires the account to be disabled first.
