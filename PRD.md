@@ -10,7 +10,7 @@
 
 PDash is a multi-user web application for project portfolio management. It is designed for consulting and professional services teams who need to track commercial offers, plan resources, and monitor budget consumption across multiple projects.
 
-The app is backed by a Node.js/Express REST API and a PostgreSQL database, with JWT-based authentication and role-based access control. The frontend is Vanilla JS with no build step; each view is a separate HTML page.
+The app is backed by a Node.js/Express REST API and a PostgreSQL database, with JWT-based authentication and role-based access control — two account roles (admin/user) plus per-resource sharing permissions (owner/editor/viewer) govern what each user can see and do (see §15–18). The frontend is Vanilla JS with no build step; each view is a separate HTML page.
 
 ---
 
@@ -567,3 +567,27 @@ Project {
 | `--space-1` → `--space-6` | 8px grid spacing (4px → 24px) |
 | `--radius-xs` → `--radius-full` | Border radius scale |
 | `--shadow-xs` → `--shadow-xl` | Elevation shadows |
+
+---
+
+## 15. Authentication
+
+### 15.1 Login
+
+Email + password. On success: httpOnly JWT cookie set, user profile returned. Wrong password or unknown email both return a generic "invalid credentials" error (no field hint, no user enumeration). Disabled accounts are refused even with correct credentials.
+
+### 15.2 Invite Flow
+
+Admin fills first name, last name, email, role → user created in `pending` status → invite email sent with a link containing a token valid for **48 hours**. Following the link lets the user set a password; the account becomes `active`.
+
+### 15.3 Password Reset
+
+Self-service. Requesting a reset always returns success, regardless of whether the email matches an account (no enumeration). If it does match, a reset link is emailed, valid for **2 hours**. Following it lets the user set a new password.
+
+### 15.4 Change Password
+
+Available to any authenticated user from the account menu. Requires the current password plus a new password and confirmation.
+
+### 15.5 Logout
+
+Clears the session cookie and returns the user to the login page.
