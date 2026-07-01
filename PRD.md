@@ -488,11 +488,11 @@ CostGrid {
     {
       versionId
       label
-      pipeline           // "SIP" | "Expected" | "Anticipated" | "Committed" | "Canceled"
+      pipeline           // "Draft" | "SIP" | "Expected" | "Anticipated" | "Committed" | "Canceled"
       startDate, endDate
       currency
       note
-      linkedProjects: [{ projectId, projectName }]
+      linkedProjects: [{ projectId, projectName, taskIds, taskNames }]  // taskIds/taskNames = tasks assigned to this project
       phases: [
         {
           id, title
