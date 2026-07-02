@@ -51,3 +51,23 @@ Run the full closeout sequence for the current feature branch: test, optional ma
      - On (b): append all remaining findings to `code_review_followups` and proceed to Gate 4.
      - On (c): stop `/finish-cycle` entirely.
 4. Once the gate is passed (zero findings, or all remaining findings accepted as follow-up), proceed to Gate 4, carrying `code_review_followups` forward for use in Gate 5.
+
+## Gate 4 — MERGE (always an explicit human gate, never automatic)
+
+1. Build the pre-merge summary:
+   - Commit count: `git log main..HEAD --oneline | wc -l`
+   - Files touched by category: run `git diff --stat main...HEAD`, then group the listed files by top-level path prefix (`js/`, `api/`, `css/`, `docs/`, or "root-level" for any file with no `/` in its path).
+   - Out-of-scope check: if Gate 2 identified exactly one plan file, read its "File Structure" section (a markdown table or list of file paths near the top of the plan) and compare it against the files touched in this diff. List, non-blocking, any touched file not mentioned there as "outside the declared File Structure."
+   - Include the pre-flight divergence note from check 5, if it fired.
+2. Show the full summary. Ask explicitly: "Proceed with merge? [yes/no]"
+   - If the answer is anything other than a clear yes: stop and wait.
+3. If confirmed, run in sequence:
+   ```bash
+   git checkout main
+   git merge --no-ff <branch>
+   git push origin main
+   ```
+   - If `git merge` reports conflicts: stop immediately, run `git status` to list the conflicting files, show them, and do not attempt automatic resolution.
+4. After a successful push, ask explicitly: "Delete the local branch `<branch>`? [yes/no]" — no default either way.
+   - If yes: run `git branch -d <branch>`.
+   - If no: leave the branch as-is.
