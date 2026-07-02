@@ -298,6 +298,30 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 
 **Other sections in the form:** Phasing (monthly budget distribution), Planning (monthly sold-hours distribution), and Functional Groups (named role groupings) — each a distinct area of the same full-page form.
 
+Phasing and Planning are manual grids by default (one currency/hours input per month, freely editable). Two actions can bulk-fill them instead of hand-entry — both share the same confirm-modal / snapshot / rollback UI, but compute completely different numbers:
+
+#### Derive from Task Dates vs. Reforecast
+
+| | **Derive from Task Dates** | **Reforecast** |
+|---|---|---|
+| Button | `⟳ Derive from task dates` | `↻ Reforecast from actuals` |
+| Visible when | Always | Only once actuals exist for the project's D365 code in the uploaded timesheets |
+| Data source | Task `startDate`/`endDate` and sold hours/budget only — no actuals | Actual timesheet hours from the loaded XLS, matched by task name, plus sold hours/budget |
+| What it touches | All months (past and future alike) | **Past** months (before the current calendar month) vs. **current/future** months, handled differently |
+| Past months | N/A — not treated specially | Overwritten with **actual** spend and hours from the XLS. If actuals exceed the sold total, they're scaled down proportionally so the task never shows more than 100% consumed |
+| Future months | Each task's `soldHours × hourlyRate` (and hours) is split across months by day-overlap: `overlapDays / taskTotalDays` fraction of the task falling in that month | If the task's `monthlyDistribution` sums to ~100%, remaining budget/hours follow that distribution, with any drift between planned % and actuals-derived % carried onto the first future month; otherwise the remaining budget/hours are split evenly across the task's remaining future months |
+| Rounding | None specified | Future months only: hours to the nearest quarter-hour, currency to the nearest cent. Past months keep exact actual values |
+| Result | Both Phasing and Planning grids updated | Both Phasing and Planning grids **fully overwritten** |
+| Confirmation | Standard confirm modal | Modal explicitly states past months are replaced with actuals and future months are redistributed |
+| Snapshot / rollback | Current grid values saved to browser `localStorage` before overwriting; `↩ Rollback reforecast` restores them (own confirm modal). Past months become read-only in the grid while a snapshot exists | Same mechanism, shared with Derive |
+| Persisted to server | Only when the user subsequently clicks the page's normal **Save** — the snapshot itself is never sent to the API | Same — Save is a separate, explicit step |
+
+**Blocking error case (Reforecast only):** if the carried-forward drift would push the first future month's distribution above 100%, Reforecast does not silently clamp or partially apply — it stops computing entirely (no task after the offending one is processed either) and shows a blocking `alert()`: *"Cannot reforecast: Task "&lt;name&gt;": carry-forward (X%) pushes &lt;month&gt; above 100%. Adjust the monthly distribution manually before running Reforecast."* Neither grid is touched, no snapshot is taken, and the user must manually edit that task's monthly distribution before retrying.
+
+**Unsaved result is lost silently on navigation:** a successful Derive/Reforecast only updates the on-screen grid inputs and writes the pre-run snapshot to `localStorage` — it does not touch the server. There is no `beforeunload` warning anywhere in the app. If the user closes the tab or navigates away before clicking **Save**, the derived/reforecasted values are gone; the next visit loads the grids fresh from the server (i.e. still the pre-run values), and the abandoned `localStorage` snapshot is left behind, keyed by project ID — so Rollback may still appear available on a later visit even though there is nothing meaningful left to roll back to (the current grid already equals the snapshot).
+
+Neither action validates that Phasing/Planning sums match the task totals; saving proceeds with only a soft warning if Phasing is entirely empty while billable tasks exist.
+
 The entire form is read-only for viewers (see §18.3).
 
 ### 7.2 Clients
