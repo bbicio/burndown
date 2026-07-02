@@ -384,10 +384,10 @@ Accessed via the "Roles" tab in **config.html** (Configuration), alongside Clien
 |---|---|
 | Label | Display name (e.g. "Senior Developer") |
 | Code | Must match the role code in the XLS actuals (e.g. "HWGDEV") |
-| Team | Group label for Resource Planning filters |
+| Team | Not a separate input — auto-derived from the `TEAM - Role` prefix of Code, used as a group label for Resource Planning filters |
 | Rate (€/h) | Default hourly rate; can be overridden per cost grid version |
 
-Actions: Add, edit, delete, JSON export/import.
+Actions: Add, edit, delete.
 
 ---
 
