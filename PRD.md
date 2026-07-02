@@ -249,11 +249,15 @@ Configure Portfolio and Load Actuals are hidden for viewers (see §18.3).
 - Filter by client
 - Sort alphabetically or by client
 
-### 6.2 Monthly Budget Chart
+### 6.2 Monthly Summary Table
 
-Bar chart showing estimated vs. spent per month across the portfolio.  
-Pass-through costs shown as a separate series.  
-Variance highlighting (green when under budget, red when over).
+Not a portfolio-wide bar chart — this is a **per-project table** in the drill-down view (`dashboard.js:340-452`), one row per month, columns grouped as Hours (Estimated / Consumed / Variance) and Budget (Estimated / Spent / Variance), plus a PTC column that only appears when the project has at least one pass-through-cost line item (`hasPtc`, `dashboard.js:366,409,433`). A TOTAL row sums every column.
+
+- Hours Estimated = `cfg.planning[YYYYMM]`; Hours Consumed = actual timesheet hours that month; Hours Variance = Estimated − Consumed.
+- Budget Estimated = `cfg.phasing[YYYYMM]`; Budget Spent = actual hours × role rate that month; Budget Variance = Estimated − Spent.
+- Variance highlighting is **one-sided**: negative variance (over budget/over hours) is shown in bold red (`text-danger fw-bold`, `dashboard.js:429,432`); there is no corresponding green styling for positive/under-budget variance — it renders in the default table text color.
+
+The only chart on this page is the burndown line chart described implicitly by §6.1 (Chart.js `type: 'line'`, `dashboard.js:296-297`) — there is no separate bar chart matching the portfolio-wide "estimated vs. spent per month across the portfolio" description that was previously here.
 
 ---
 
