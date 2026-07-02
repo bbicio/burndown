@@ -71,3 +71,48 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 4. After a successful push, ask explicitly: "Delete the local branch `<branch>`? [yes/no]" — no default either way.
    - If yes: run `git branch -d <branch>`.
    - If no: leave the branch as-is.
+
+## Gate 5 — SYNC-DOCS + REPORT (after merge, shared human gate)
+
+1. On `main` (post-merge), invoke `/sync-docs`. Let it run its existing, unmodified scope (ARCHITECTURE.md, CLAUDE.md, TEST_CASES.md, test-cases.html, test-api.js, PRD.md-conditional) — do not reimplement or narrow it here.
+2. Create the report file at `docs/superpowers/reports/<YYYY-MM-DD>-<branch-sanitized>-finish-cycle.md` (today's date; `<branch-sanitized>` from pre-flight step 4) with this structure:
+
+   ```markdown
+   # Finish-cycle report — <branch>
+
+   **Date:** <YYYY-MM-DD>
+   **Branch:** <branch> → main
+
+   ## What was done
+
+   <commit count and one-line-per-commit summary, from Gate 4's `git log main..HEAD --oneline` output captured before the merge>
+
+   ## Code review follow-ups
+
+   <one bullet per entry in code_review_followups, each noting: round number, finding summary, file/line if available. Write "None." if the list is empty.>
+
+   ## Roadmap notes
+
+   <dead code, candidate bugs, or other observations surfaced during Gates 1-4, collected as they came up — not invented retroactively. Write "None." if nothing surfaced.>
+
+   ## Sync-docs outcome
+
+   <which files /sync-docs updated and which it didn't, with reasoning — copied directly from /sync-docs's own summary output in step 1>
+   ```
+
+3. Show the combined diff (`git diff`, covers both `/sync-docs`'s edits and the new report file, since neither has been committed yet).
+4. Ask explicitly: "Commit and push these doc/report changes to main? [yes/no]"
+   - If the answer is anything other than a clear yes: stop and wait, leaving the changes uncommitted locally.
+5. If confirmed, run in sequence:
+   ```bash
+   git add <files changed by sync-docs> docs/superpowers/reports/<report-filename>
+   git commit -m "docs: sync docs + finish-cycle report for <branch>"
+   git push origin main
+   ```
+
+## Gate 6 — FINAL REPORT (in chat)
+
+Print in chat:
+- The path to the just-committed report file.
+- One line per gate (1 through 5) stating its outcome (e.g. "Gate 1: passed (frontend + backend)", "Gate 3: 1 finding, fixed and re-verified", "Gate 4: merged, merge commit (main had diverged)").
+- An explicit pointer: "See the Roadmap notes section of `<report path>` for open items."
