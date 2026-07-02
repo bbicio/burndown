@@ -290,7 +290,7 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 | Name | text | Must match "Task/Issue" column in XLS |
 | Billable | boolean | Include in budget calculations |
 | Completed | boolean | Locks monthly distribution |
-| Start / End date | YYYYMM | Defaults to project dates |
+| Start / End date | DD/MM/YYYY | Full date, not month-only; defaults to project dates |
 | Monthly distribution | % per month | Required for multi-month tasks |
 | Resources | role + sold hours + rate | Breakdown of sold effort |
 
