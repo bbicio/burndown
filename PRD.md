@@ -402,7 +402,7 @@ Actuals are matched to projects and tasks to compute budget spent.
 
 | Column | Format | Notes |
 |---|---|---|
-| Date | MM/DD/YYYY | Week ending date |
+| Date | DD/MM/YYYY (or ISO `YYYY-MM-DD`) | Week ending date |
 | Job Role: Name | `CODE - LABEL` | Matched to role code in Roles Registry |
 | Owner: Name | Text | Person who logged the hours |
 | Hours | Decimal | Comma or period accepted |
@@ -413,7 +413,7 @@ Actuals are matched to projects and tasks to compute budget spent.
 
 ### 8.3 Behaviour
 
-- Rows with missing date or zero hours are ignored
+- Rows with a missing/blank D365 Project ID are skipped; date and hours are stored as-is even if blank/zero
 - Hours are grouped by project ID and persisted to PostgreSQL via the API (`timesheets` routes); the frontend loads them into an in-memory cache on each page load
 - Uploading a new file for a project replaces the previous actuals for that project
 - Triggers refresh of all reporting views
