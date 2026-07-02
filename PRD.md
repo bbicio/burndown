@@ -183,14 +183,28 @@ Show the distribution of sold hours across the portfolio — by role, by project
 ### 5.3 Table Structure
 
 Rows: resources (roles, projects, or owners depending on grouping).  
-Columns: time periods (months or weeks) within the selected date range.  
-Cells: hours for that resource in that period (sold / actuals / variance).
+Columns: time periods (months or weeks) within the selected date range, plus three summary columns per row: **Sold**, **From actuals**, **To be planned**.  
+Cells: hours for that resource in that period.
+
+**Formulas** (portfolio-wide table; the By Role / By Project / By Owner grouping only changes the aggregation key, not the underlying math — all three share the same residual/distribution engine):
+
+- **Sold** = Σ `task.resources[].soldHours`, summed over the tasks/resources matching the row's group and the active team filter (`planning.js:607,610`).
+- **From actuals** (past weeks only) = matched timesheet hours grouped by week, filtered by task name + role (`planning.js:613-617,624-636`). A week is "past" once its end date is before today (`w.isPast`, `planning.js:449`).
+- **Residual** = `Math.max(0, soldHours − consumedHours)` per task/role (`planning.js:619`) — floored at 0, so an over-consumed task/role contributes nothing to future planning rather than a negative offset.
+- **To be planned** (current/future weeks) = the residual, distributed across the task's remaining weeks:
+  - If the task's `monthlyDistribution` sums to ~100% (`planning.js:642-644`): the residual is split by month according to that %, renormalized across whichever future months the distribution actually covers (`planning.js:646-677`), then divided evenly across that month's weeks. If the distribution has 0% allocated to every visible future month, this falls back to the even-split rule below (`planning.js:655-664`).
+  - Otherwise: the residual is split evenly across `countFutureTaskWeeks()` — a count of the task's *own* remaining weeks based on its date window, not the number of weeks currently visible on screen, so hours/week stays stable as the user pages through the date range (`planning.js:679-681`).
+- **Monthly pulse** (toggle): applies only in the even-split branch above (not when a `monthlyDistribution` is driving the split), and only when the computed hours/week is `< 1` (`planning.js:683`). Instead of showing a fractional value in every week, that month's total is aggregated into a single cell on the month's first visible week and rendered as `~Xh` (`planning.js:686-698`).
+- **Rounded** (toggle): display-only — `Math.round(hours)` vs. `hours.toFixed(2)` (`planning.js:714`). It does not change Sold/From actuals/To be planned totals or exports, only how each cell is printed.
+- The per-project "By Task" Gantt view (§5.4) uses simpler math than the portfolio table above: it splits raw `soldHours` (not the sold-minus-consumed residual) evenly across the task's overlapping weeks, or by `monthlyDistribution` % if present (`planning.js:286-296`) — actual consumption is shown separately as a completion-% overlay (see §5.4), not subtracted from planned hours.
 
 ### 5.4 Gantt View
 
-Phase-level Gantt bars per project.  
-Colour-coded by pipeline stage.  
-Today marker highlighted.
+Task-level Gantt bars per project — **not** phase-level: rows are `project.tasks[]` entries directly (`renderPlanningByTask`, `planning.js:235-270`); there is no phase grouping in this view (phases only exist in the cost-grid domain, not on `project.tasks`).
+
+Each bar's fill color reflects task status, not pipeline stage (`planning.js:253`): grey if the task is marked non-billable (`excl`), green if completed, red if actual hours exceed sold hours, blue otherwise. The filled portion of the bar is `min(100, consumedHours / soldHours × 100)` (`planning.js:248`) — a completion/consumption indicator, distinct from the "To be planned" distribution math in §5.3.
+
+Today marker: the current week's column is highlighted (`gantt-today` class / `isCurrent` flag, `planning.js:450`).
 
 ---
 
