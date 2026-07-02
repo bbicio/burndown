@@ -177,7 +177,7 @@ Show the distribution of sold hours across the portfolio — by role, by project
 | Date range navigation | Previous / Next with period label (e.g. "May 2026 – Aug 2026") |
 | Team filter | Filter by team name |
 | Monthly pulse | Toggle — show pulse indicators |
-| Rounded | Toggle — round hour values to whole numbers |
+| Rounded | Toggle — round to whole numbers vs. two decimal places (display only, see §5.3) |
 | Export XLS | Download the current table as Excel |
 
 ### 5.3 Table Structure
