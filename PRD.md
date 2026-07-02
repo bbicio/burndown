@@ -214,15 +214,26 @@ Today marker: the current week's column is highlighted (`gantt-today` class / `i
 
 **Purpose:** Show budget estimated vs. budget spent per project per month.
 
-**KPI cards per project:**
+**Portfolio summary table** (one row per KPI, one column per month, `portfolio.js:44-91`):
 
 | KPI | Calculation |
 |---|---|
-| Budget Estimated | From cost grid phasing (monthly distribution) |
-| Budget Spent | Actuals from XLS × role hourly rate |
+| Budget Estimated | Σ `project.phasing[YYYYMM]` across selected projects |
+| Budget Spent | Σ timesheet hours for that month × the matching role's hourly rate |
 | Variance | Estimated − Spent |
-| Total Sold Hours | Σ sold hours from cost grid |
-| Total Budget | Σ sold hours × rate |
+
+**Per-project drill-down KPI cards** (`portfolio.html:80-85`, computed by `dashboard.js:78-130`) — a separate set of cards shown when opening a single project, driven by task/config data rather than `phasing`:
+
+| KPI | Calculation |
+|---|---|
+| Total Sold Hours | Σ `task.resources[].soldHours` over billable tasks |
+| Total Budget | Σ `soldHours × hourlyRate` over billable tasks (+ pass-through costs, if any) |
+| Hours Consumed | Σ actual hours from timesheets to date |
+| Budget Consumed | Σ actual hours × role rate |
+| Hours Left | Total Sold Hours − Hours Consumed |
+| Budget Left | Total Budget − Budget Consumed |
+
+Note the two tables are not interchangeable: the portfolio summary's "Budget Estimated" reads the manually-maintained/derived `phasing` grid (§7.1), while the drill-down's "Total Budget" is computed live from task sold-hours × rate and ignores `phasing` entirely — the two can disagree if `phasing` hasn't been kept in sync with the task data (e.g. after editing sold hours without re-running Derive/Reforecast).
 
 **Toolbar actions:**
 - **Load XLS** — upload an Excel timesheet file to import actuals
