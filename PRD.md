@@ -347,7 +347,9 @@ Named bundles of clients (e.g. "Italian Public Sector"). Used as the target for 
 
 Master/detail tab in config.html:
 
-**View A — Pipeline list:** table of all pipeline years with Visible / Hidden status badge. Actions: toggle visibility (Show/Hide), delete (blocked if cost grid versions reference the year), + Add year. Clicking a row drills into View B.
+**View A — Pipeline list:** table of all pipeline years with Visible / Hidden status badge. Actions: toggle visibility (Show/Hide), delete (blocked if cost grid versions reference the year), "POTs →" (drills into View B), "📊 Proposal Phasing", "📋 Project Phasing", + Add year.
+
+**Proposal Phasing / Project Phasing:** dedicated per-year views opened from the pipeline list row, each with an XLS export link. Proposal Phasing shows the monthly budget distribution across proposals for the year; Project Phasing shows the same for active projects.
 
 **View B — POT targets for selected year:**
 
