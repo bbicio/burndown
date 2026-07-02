@@ -440,8 +440,8 @@ Keys are persisted in the browser's `localStorage` (`PDash_settings`).
 
 | Export | Contents | Access |
 |---|---|---|
-| Cost Grids | One row per task — Grid, Version, Pipeline, Phase, Task, Description, Dates, PTC%, one column per role-code (days) | All users (own/shared grids only) |
-| Project Portfolio | One row per project — Name, Program Name, Program ID, Client, Pipeline, Status, Dates, Currency | All users (own/shared projects only) |
+| Cost Grids | One row per task — Grid, Version, Pipeline, Start Date, End Date, Currency, Phase, Task, one column per role-code (days) | All users (own/shared grids only) |
+| Project Portfolio | One row per project — ID, Name, Program, Program ID, Client, Pipeline, Status, Start Date, End Date, Currency | All users (own/shared projects only) |
 | Roles in Rate Cards | One row per role — Role Code, Role Label, Default rate, one column per client ratecard | Admin only |
 
 Clicking an export button triggers a server-side CSV generation; the file is sent immediately as an email attachment to the logged-in user's address.
@@ -449,7 +449,7 @@ Clicking an export button triggers a server-side CSV generation; the file is sen
 #### Backup
 
 - **Full Backup (.json):** Downloads a dated JSON snapshot of all API data (projects, roles, programs, clients, cost grids)
-- **Restore from Backup:** Admin-only. Restores from a previously downloaded backup JSON file.
+- **Restore from Backup:** Admin-only. ⚠️ Non-functional as implemented — `restoreFromBackup()` only mutates legacy in-memory globals via no-op save functions and reads a key shape (`s.config`/`s.costgrids`) that doesn't match what Full Backup actually writes (`stores.projects`/`stores.costGrids`); no data is persisted back to the API.
 
 #### Send Notification
 
