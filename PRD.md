@@ -418,6 +418,8 @@ Actuals are matched to projects and tasks to compute budget spent.
 - Uploading a new file for a project replaces the previous actuals for that project
 - Triggers refresh of all reporting views
 
+**Known risk:** date parsing for text-formatted cells assumes DD/MM/YYYY unconditionally (`api/src/routes/timesheets.js:193-194`), with no heuristic validation. If the source export occasionally emits US-format dates (MM/DD/YYYY) for a text-formatted cell, day and month are silently swapped whenever both values are ≤12 (e.g. "03/04/2026" is always read as 3 April, never as 4 March) — no error is raised. Native Excel date cells are unaffected (handled by a separate, earlier branch). Candidate for a future technical cycle (input validation or explicit format confirmation).
+
 ---
 
 ## 9. Settings
