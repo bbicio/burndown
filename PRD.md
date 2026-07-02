@@ -604,7 +604,7 @@ Project {
 | Requirement | Detail |
 |---|---|
 | Runtime | Docker Compose (nginx + Node.js/Express + PostgreSQL); no frontend build step |
-| Persistence | PostgreSQL (source of truth); localStorage used as a read cache |
+| Persistence | PostgreSQL (source of truth); in-memory JS cache seeded from the API on each page load (see §12.1) — localStorage holds only client-side settings, not server data |
 | Auth | JWT in httpOnly cookie; 401 → redirect to login |
 | Dependencies (frontend) | Bootstrap 5.3.2 (CDN), Chart.js, SheetJS (XLS parsing) |
 | Dependencies (backend) | Express, pg, bcryptjs, jsonwebtoken, nodemailer, multer, xlsx |
