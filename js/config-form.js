@@ -632,8 +632,9 @@ function cfgDerivePhasing() {
   const cfgEnd   = month2ym(document.getElementById('cfgEndDate').value);
   const cur      = document.getElementById('cfgCurrency')?.value || '€';
 
-  // Pre-compute new grids
-  const newPhasing = {}, newPlanning = {};
+  // Pre-compute new grids — planning hours are accumulated RAW (unrounded) here;
+  // the exact final rounding happens once, after this loop, via distributeHoursExact.
+  const newPhasing = {}, rawPlanning = {};
   months.forEach(ym => {
     const [y, m]   = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))];
     const mStart   = new Date(y, m-1, 1);
@@ -665,8 +666,12 @@ function cfgDerivePhasing() {
       }
     });
     if (budget > 0) newPhasing[ym]  = Math.round(budget * 100) / 100;
-    if (hours  > 0) newPlanning[ym] = Math.round(hours * 10) / 10;
+    if (hours  > 0) rawPlanning[ym] = hours;
   });
+
+  const totalHoursExact = tasks.reduce((s, t) =>
+    s + t.resources.reduce((rs, r) => rs + (r.soldHours || 0), 0), 0);
+  const newPlanning = totalHoursExact > 0 ? distributeHoursExact(totalHoursExact, rawPlanning) : {};
 
   const totalBudget = Object.values(newPhasing).reduce((s, v) => s + v, 0);
   const totalHours  = Object.values(newPlanning).reduce((s, v) => s + v, 0);
