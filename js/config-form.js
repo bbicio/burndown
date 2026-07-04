@@ -839,13 +839,9 @@ async function cfgReforecast() {
 
   if (distError) { alert('Cannot reforecast:\n\n' + distError); return; }
 
-  // Round future months only — past months keep exact actual values
-  // Hours round to nearest 0.25 (quarter-hour); budget rounds to nearest cent
-  Object.keys(newPhasing).forEach(ym  => {
-    if (!pastYMs.has(ym)) newPhasing[ym]  = Math.round(newPhasing[ym] * 100) / 100;
-  });
-  Object.keys(newPlanning).forEach(ym => {
-    if (!pastYMs.has(ym)) newPlanning[ym] = roundToQuarterHour(newPlanning[ym]);
+  // Round phasing (currency) per month — budget/phasing drift is out of scope for this fix
+  Object.keys(newPhasing).forEach(ym => {
+    if (!pastYMs.has(ym)) newPhasing[ym] = Math.round(newPhasing[ym] * 100) / 100;
   });
 
   const pastSpendTotal = Object.values(taskActuals).reduce((s, ta) =>
@@ -854,6 +850,16 @@ async function cfgReforecast() {
     s + pastMonths.reduce((ps, ym) => ps + ((ta[ym] || {}).hours || 0), 0), 0);
   const remainingBudget = totalBudget - pastSpendTotal;
   const remainingHours  = totalHours  - pastHrsTotal;
+
+  // Distribute future months' hours to the exact remaining-hours residual —
+  // replaces independent per-month roundToQuarterHour (audit finding F2-3).
+  const rawFuturePlanning = {};
+  futureMonths.forEach(ym => {
+    if (newPlanning[ym] !== undefined) rawFuturePlanning[ym] = newPlanning[ym];
+  });
+  if (Object.keys(rawFuturePlanning).length > 0) {
+    Object.assign(newPlanning, distributeHoursExact(remainingHours, rawFuturePlanning));
+  }
 
   const cur  = document.getElementById('cfgCurrency')?.value || '€';
   const fmtB = n => cfgFmtMoney(Math.abs(n), cur);
