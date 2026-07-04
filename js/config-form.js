@@ -669,9 +669,8 @@ function cfgDerivePhasing() {
     if (hours  > 0) rawPlanning[ym] = hours;
   });
 
-  const totalHoursExact = tasks.reduce((s, t) =>
-    s + t.resources.reduce((rs, r) => rs + (r.soldHours || 0), 0), 0);
-  const newPlanning = totalHoursExact > 0 ? distributeHoursExact(totalHoursExact, rawPlanning) : {};
+  const rawPlanningTotal = Object.values(rawPlanning).reduce((s, v) => s + v, 0);
+  const newPlanning = rawPlanningTotal > 0 ? distributeHoursExact(rawPlanningTotal, rawPlanning) : {};
 
   const totalBudget = Object.values(newPhasing).reduce((s, v) => s + v, 0);
   const totalHours  = Object.values(newPlanning).reduce((s, v) => s + v, 0);
@@ -862,8 +861,11 @@ async function cfgReforecast() {
   futureMonths.forEach(ym => {
     if (newPlanning[ym] !== undefined) rawFuturePlanning[ym] = newPlanning[ym];
   });
+  let distributedRemainingHours = remainingHours;
   if (Object.keys(rawFuturePlanning).length > 0) {
-    Object.assign(newPlanning, distributeHoursExact(remainingHours, rawFuturePlanning));
+    const distributedFuture = distributeHoursExact(remainingHours, rawFuturePlanning);
+    Object.assign(newPlanning, distributedFuture);
+    distributedRemainingHours = Object.values(distributedFuture).reduce((s, v) => s + v, 0);
   }
 
   const cur  = document.getElementById('cfgCurrency')?.value || '€';
@@ -885,7 +887,7 @@ async function cfgReforecast() {
         ${distTaskCount > 0 ? `<em>(${distTaskCount} task${distTaskCount > 1 ? 's' : ''} use monthly distribution)</em>` : '(even split)'}:
         <ul class="mt-1 mb-0">
           <li>Remaining budget: <strong>${fmtB(remainingBudget)}</strong>${remainingBudget < 0 ? ' <span class="text-danger">(over budget)</span>' : ''}</li>
-          <li>Remaining hours:&nbsp; <strong>${fmtH(remainingHours)}</strong>${remainingHours < 0 ? ' <span class="text-danger">(over hours)</span>' : ''}</li>
+          <li>Remaining hours:&nbsp; <strong>${fmtH(distributedRemainingHours)}</strong>${remainingHours < 0 ? ' <span class="text-danger">(over hours)</span>' : ''}</li>
         </ul>
       </li>
     </ul>
