@@ -79,7 +79,13 @@ js/api-sync.js           — in-memory ↔ API sync layer (cgSyncFromApi, loadCo
 js/lib/                  — pure functions extracted for unit testing (vitest + jsdom), each an ES module
                             (`export function ...`) with a `window.<name> = <name>` bridge for existing classic-script
                             callers; see "Script loading order" below. `cfg-parse.js` — `cfgParseHours`,
-                            `cfgFmtHours`, `roundToQuarterHour` (moved from config-form.js)
+                            `cfgFmtHours`, `roundToQuarterHour` (moved from config-form.js), `distributeHoursExact(total, rawValues, grid=0.25)`
+                            (largest-remainder rounding: floors every raw value to `grid`, then hands the missing
+                            grid-steps to the containers with the largest fractional remainder — ascending key as
+                            tie-break — so the returned values always sum to exactly `roundToQuarterHour(total)`;
+                            throws on a negative `rawValues` entry or if `Σ rawValues` diverges from `total` by more
+                            than 0.05). Used by `cfgDerivePhasing`/`cfgReforecast` in `config-form.js` so the
+                            planning-grid total shown in the confirmation modal always matches what gets saved.
 js/core.js               — state, in-memory helpers (loadConfig/persistConfig are no-ops), shared badges, esc(), fmtH(), fmtMoney(); `statusBadge()` small style for pipeline cards; `statusBadgeLarge()` same size/style as `pipelineBadge()` — used only in linked-project chips in the editor and detail panel
 js/nav.js                — navbar + footer injection, initNav(); injects settings, change-password, send-notification,
                             and "My Profile" modals; T&C gate after GET /api/auth/me (redirects to /terms.html

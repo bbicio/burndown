@@ -676,7 +676,11 @@ burndown/
     lib/                  ← pure functions extracted for unit testing (vitest + jsdom), each an ES module
                             (`export function ...`) with a `window.<name> = <name>` bridge for classic-script
                             callers; cfg-parse.js — cfgParseHours, cfgFmtHours, roundToQuarterHour (moved from
-                            config-form.js)
+                            config-form.js), distributeHoursExact(total, rawValues, grid=0.25) — largest-remainder
+                            rounding, guarantees the returned values sum to exactly roundToQuarterHour(total);
+                            used by cfgDerivePhasing/cfgReforecast so the confirmation modal's total always
+                            matches the saved grid (fixes prior modal-vs-save divergence and per-month rounding
+                            drift)
     roles.js              ← roles management modal; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role — role shape: `{ id, label, code, rate, rateOverrides }`
     ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js; `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects per-role `rateOverrides` and sends them to the API
     upload.js             ← XLS parsing

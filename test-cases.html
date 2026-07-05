@@ -1177,9 +1177,15 @@ const SECTIONS = [
     {id:'REG-13',scenario:'Hours not inflated by de-DE locale',
      steps:'Enter 22.25 planned hours in a month cell in project-config.html → save → reload → reopen',
      expected:'Value shows 22.25, not 2225 — cfgParseHours (now in js/lib/cfg-parse.js) uses parseFloat directly, bypassing cfgParseMoney which strips "." as thousands separator in the de-DE locale. Covered by a vitest characterization test (js/lib/cfg-parse.test.js), separate from the auto badge below which denotes test-api.js coverage.'},
-    {id:'REG-14',scenario:'Quarter-hour rounding on reforecast',
-     steps:'Trigger Reforecast on a project that has fractional carry-over hours',
-     expected:'Generated future-month values are rounded to the nearest 0.25h (e.g. 10.125 → 10.25) via roundToQuarterHour (js/lib/cfg-parse.js); no "10,12" display artefacts. Covered by a vitest characterization test (js/lib/cfg-parse.test.js), separate from the auto badge below which denotes test-api.js coverage.'},
+    {id:'REG-14',scenario:'Quarter-hour rounding, single value',
+     steps:'A carry-over value like 10.125h is rounded',
+     expected:'roundToQuarterHour (js/lib/cfg-parse.js) rounds it to the nearest 0.25h (10.125 → 10.25); this is the low-level primitive distributeHoursExact (REG-15/16) builds on, not the Reforecast/Derive distribution itself. Covered by a vitest characterization test (js/lib/cfg-parse.test.js), separate from the auto badge below which denotes test-api.js coverage.'},
+    {id:'REG-15',scenario:'Reforecast future-month distribution sums exactly, no drift',
+     steps:'Reforecast a residual (e.g. 7.4h) across several future months, each individually rounded to the nearest quarter-hour',
+     expected:'The distributed months\' sum is always exactly roundToQuarterHour(7.4) = 7.5 — distributeHoursExact\'s largest-remainder algorithm, not independent per-month rounding, so no cumulative drift (audit finding F2-3). Covered by a vitest characterization test (js/lib/cfg-parse.test.js), separate from the auto badge below which denotes test-api.js coverage.'},
+    {id:'REG-16',scenario:'Derive confirmation modal always matches what gets saved',
+     steps:'Run "Derive from task dates" on a task spanning several months with a real day-overlap split (e.g. 2.4h over Jan–Mar)',
+     expected:'The modal\'s displayed total, the rendered planning grid, and the value read back on save are always identical — distributeHoursExact computes the final exact-sum value once, before any DOM render, so there is no longer a lossy round-trip through the grid\'s display formatting (audit finding F2-2). Covered by a vitest characterization test (js/lib/cfg-parse.test.js), separate from the auto badge below which denotes test-api.js coverage.'},
   ]
 },
 ];
