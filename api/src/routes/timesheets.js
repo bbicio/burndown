@@ -3,6 +3,7 @@ const multer  = require('multer');
 const XLSX    = require('xlsx');
 const { query } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
+const { parseFlexibleDate } = require('../lib/date-parse');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -108,12 +109,25 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res, next
     const colProjName= findCol('projectname', 'project name', 'project_name', 'progetto');
 
     const grouped = {};
-    for (const row of raw) {
+    for (let i = 0; i < raw.length; i++) {
+      const row = raw[i];
       const projectCode = colProjId ? String(row[colProjId] ?? '').trim() : '';
       if (!projectCode) continue;
 
+      let date;
+      try {
+        date = colDate ? formatDate(row[colDate]) : null;
+      } catch (err) {
+        // Reject the whole file — no partial writes — on any unparseable date.
+        // Row numbers are 1-indexed and account for the header row (raw[0] is
+        // spreadsheet row 2), matching what a user sees when opening the file.
+        return res.status(400).json({
+          error: `Invalid date in row ${i + 2}: ${err.message}`,
+        });
+      }
+
       const entry = {
-        date:        colDate     ? formatDate(row[colDate])          : null,
+        date,
         role:        colRole     ? String(row[colRole] ?? '').trim() : null,
         owner:       colOwner    ? String(row[colOwner] ?? '').trim(): null,
         hours:       colHours    ? parseFloat(row[colHours]) || 0    : 0,
@@ -189,10 +203,10 @@ function formatDate(val) {
   const s = String(val).trim();
   // already ISO
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  // DD/MM/YYYY
   const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
-  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  if (m) return parseFlexibleDate(m[1], m[2], m[3]);
   return s;
 }
 
 module.exports = router;
+module.exports.formatDate = formatDate;
