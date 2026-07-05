@@ -3,6 +3,7 @@ const multer  = require('multer');
 const XLSX    = require('xlsx');
 const { query } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
+const { parseFlexibleDate } = require('../lib/date-parse');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -189,10 +190,10 @@ function formatDate(val) {
   const s = String(val).trim();
   // already ISO
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  // DD/MM/YYYY
   const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
-  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  if (m) return parseFlexibleDate(m[1], m[2], m[3]);
   return s;
 }
 
 module.exports = router;
+module.exports.formatDate = formatDate;
