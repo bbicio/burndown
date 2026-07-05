@@ -857,7 +857,7 @@ async function cfgReforecast() {
 
   // Distribute future months' hours to their own actual accumulated total —
   // replaces independent per-month roundToQuarterHour (audit finding F2-3).
-  // Target is Σ rawFuturePlanning itself, not the independently-computed
+  // Target is Σ futureRawHours itself, not the independently-computed
   // remainingHours: per-task overrun clamping (Math.max(0, ...) above) and
   // monthlyDistribution's accepted 99.5-100.5% tolerance both make
   // remainingHours a routinely different number from what actually
@@ -866,14 +866,17 @@ async function cfgReforecast() {
   // remainingHours itself is kept, unchanged, only for the "(over hours)"
   // warning below, a different signal (sold vs. consumed) unrelated to
   // this distribution's arithmetic.
-  const rawFuturePlanning = {};
+  // Named distinctly from cfgDerivePhasing's rawPlanning: this is not a
+  // freshly-accumulated structure but a future-only slice extracted from
+  // newPlanning, which also holds past months' already-exact actual values.
+  const futureRawHours = {};
   futureMonths.forEach(ym => {
-    if (newPlanning[ym] !== undefined) rawFuturePlanning[ym] = newPlanning[ym];
+    if (newPlanning[ym] !== undefined) futureRawHours[ym] = newPlanning[ym];
   });
-  const rawFuturePlanningTotal = Object.values(rawFuturePlanning).reduce((s, v) => s + v, 0);
+  const futureRawHoursTotal = Object.values(futureRawHours).reduce((s, v) => s + v, 0);
   let distributedRemainingHours = remainingHours;
-  if (rawFuturePlanningTotal > 0) {
-    const distributedFuture = distributeHoursExact(rawFuturePlanningTotal, rawFuturePlanning);
+  if (futureRawHoursTotal > 0) {
+    const distributedFuture = distributeHoursExact(futureRawHoursTotal, futureRawHours);
     Object.assign(newPlanning, distributedFuture);
     distributedRemainingHours = Object.values(distributedFuture).reduce((s, v) => s + v, 0);
   }
