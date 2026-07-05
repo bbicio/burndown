@@ -855,15 +855,25 @@ async function cfgReforecast() {
   const remainingBudget = totalBudget - pastSpendTotal;
   const remainingHours  = totalHours  - pastHrsTotal;
 
-  // Distribute future months' hours to the exact remaining-hours residual —
+  // Distribute future months' hours to their own actual accumulated total —
   // replaces independent per-month roundToQuarterHour (audit finding F2-3).
+  // Target is Σ rawFuturePlanning itself, not the independently-computed
+  // remainingHours: per-task overrun clamping (Math.max(0, ...) above) and
+  // monthlyDistribution's accepted 99.5-100.5% tolerance both make
+  // remainingHours a routinely different number from what actually
+  // accumulated into the future months — using it as the distribution
+  // target would throw on ordinary over-hours or tolerance-band projects.
+  // remainingHours itself is kept, unchanged, only for the "(over hours)"
+  // warning below, a different signal (sold vs. consumed) unrelated to
+  // this distribution's arithmetic.
   const rawFuturePlanning = {};
   futureMonths.forEach(ym => {
     if (newPlanning[ym] !== undefined) rawFuturePlanning[ym] = newPlanning[ym];
   });
+  const rawFuturePlanningTotal = Object.values(rawFuturePlanning).reduce((s, v) => s + v, 0);
   let distributedRemainingHours = remainingHours;
-  if (Object.keys(rawFuturePlanning).length > 0) {
-    const distributedFuture = distributeHoursExact(remainingHours, rawFuturePlanning);
+  if (rawFuturePlanningTotal > 0) {
+    const distributedFuture = distributeHoursExact(rawFuturePlanningTotal, rawFuturePlanning);
     Object.assign(newPlanning, distributedFuture);
     distributedRemainingHours = Object.values(distributedFuture).reduce((s, v) => s + v, 0);
   }
