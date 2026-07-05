@@ -943,6 +943,15 @@ const SECTIONS = [
     {id:'TS-04',scenario:'Empty state',
      steps:'Open timesheets.html when no timesheets have been uploaded',
      expected:'"No timesheets uploaded yet" message shown with upload instructions'},
+    {id:'TS-05',scenario:'Unambiguous date disambiguation',
+     steps:'Upload a file with a text-formatted date where day or month is >12 (e.g. 25/03/2026)',
+     expected:'Resolved correctly regardless of which position is >12 — the value >12 can only be the day, not guessed. Covered by a node:test characterization test (api/src/lib/date-parse.test.js, api/src/routes/timesheets.test.js).'},
+    {id:'TS-06',scenario:'Ambiguous date default',
+     steps:'Upload a file with a text-formatted date where both day and month are ≤12 (e.g. 03/04/2026)',
+     expected:'Resolved as MM/DD (month=03, day=04), matching the known source export convention, not the previous DD/MM assumption. Covered by a node:test characterization test.'},
+    {id:'TS-07',scenario:'Invalid date rejects the whole upload',
+     steps:'Upload a file with one valid row and one calendar-invalid date (e.g. 31/04/2026, April has no 31st)',
+     expected:'Entire upload rejected (400) naming the offending spreadsheet row; zero rows persisted, not even the valid one from the same file. Covered by a node:test characterization test plus manual verification (curl + DB check) against the running dev stack.'},
   ]
 },
 {

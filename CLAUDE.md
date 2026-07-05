@@ -31,7 +31,9 @@ No bundler, no build step for the **runtime** — nginx serves `js/`/`css/` file
 
 A dev-only test toolchain exists for the frontend: root `package.json` + vitest + jsdom, isolated from the runtime (see `js/lib/` below). It is never bundled, never served — `node_modules/`, `package.json`, `package-lock.json`, `vitest.config.js`, and any `*.test.js`/`*.spec.js` file are explicitly denied in `nginx.conf`. Run tests with `npm test` (single run) or `npm run test:watch`.
 
-Still no linter on the frontend.
+The backend has its own, separate unit-test toolchain: Node's built-in `node:test` runner (zero new dependency), scoped to `api/src/**/*.test.js` via `api/package.json`'s `"test"` script (`node --test src/**/*.test.js`, run from inside `api/`). This is deliberately kept independent from the frontend's `vitest` config — `vitest.config.js`'s `include` (`js/**/*.test.js`) never picks up `api/` files, and the backend runner never touches `js/`. Files that `require()` Express/DB modules (e.g. `api/src/routes/timesheets.test.js`, which imports `./timesheets`) need `api`'s `node_modules` present — run via `docker exec pdash-api node --test src/...` (the container already has them and volume-mounts `api/src` live) if the host has no `api/node_modules` installed. Pure `api/src/lib/*.test.js` files have no such dependency and run anywhere.
+
+Still no linter on the frontend or backend.
 
 ---
 
@@ -111,6 +113,14 @@ js/ratecards.js          — rate cards admin modal + loadRatecardsForDropdown()
                             `_rcSaveEntries` collects `.rc-override-rate` inputs and sends `rateOverrides` per role
 api/src/routes/          — Express routes (auth, users, config, cost-grids, projects, timesheets,
                             reporting, exports, notifications, pipeline-years, client-groups, pots, reset, app-settings)
+api/src/lib/              — pure functions extracted for unit testing (node:test, run via `npm test`/`node --test`
+                            from `api/`), mirroring the frontend's `js/lib/` convention; `date-parse.js` —
+                            `parseFlexibleDate(a, b, year)`: disambiguates day/month order deterministically when
+                            one value is >12 (unambiguous), falls back to MM/DD (the source export's known
+                            convention) only when genuinely ambiguous (both ≤12), validates against real
+                            calendar/leap-year arithmetic, throws on an invalid date. Consumed by
+                            `api/src/routes/timesheets.js`'s `formatDate()`, which now rejects the entire upload
+                            (400, no partial DB writes) if any row's date can't be resolved.
 api/src/routes/exports.js        — POST /api/exports/{portfolio|cost-grids|ratecards}
 api/src/routes/notifications.js  — SSE stream, CRUD, push; exports { router, pushToUser }
 api/src/routes/pipeline-years.js — CRUD for admin-managed pipeline years

@@ -402,7 +402,7 @@ Actuals are matched to projects and tasks to compute budget spent.
 
 | Column | Format | Notes |
 |---|---|---|
-| Date | DD/MM/YYYY (or ISO `YYYY-MM-DD`) | Week ending date |
+| Date | DD/MM/YYYY, MM/DD/YYYY, or ISO `YYYY-MM-DD` — day/month order is disambiguated automatically | Week ending date |
 | Job Role: Name | `CODE - LABEL` | Matched to role code in Roles Registry |
 | Owner: Name | Text | Person who logged the hours |
 | Hours | Decimal | Comma or period accepted |
@@ -417,8 +417,7 @@ Actuals are matched to projects and tasks to compute budget spent.
 - Hours are grouped by project ID and persisted to PostgreSQL via the API (`timesheets` routes); the frontend loads them into an in-memory cache on each page load
 - Uploading a new file for a project replaces the previous actuals for that project
 - Triggers refresh of all reporting views
-
-**Known risk:** date parsing for text-formatted cells assumes DD/MM/YYYY unconditionally (`api/src/routes/timesheets.js:193-194`), with no heuristic validation. If the source export occasionally emits US-format dates (MM/DD/YYYY) for a text-formatted cell, day and month are silently swapped whenever both values are ≤12 (e.g. "03/04/2026" is always read as 3 April, never as 4 March) — no error is raised. Native Excel date cells are unaffected (handled by a separate, earlier branch). Candidate for a future technical cycle (input validation or explicit format confirmation).
+- **Date disambiguation:** for text-formatted date cells (native Excel date cells are read directly, unambiguous), day/month order is resolved deterministically whenever possible — if one of the two numbers is greater than 12, it cannot be a month, so the reading is unambiguous. Only when both numbers are ≤12 (genuinely ambiguous, e.g. `03/04/2026`) does the system fall back to a default (MM/DD, matching the source export's known convention). If the resolved date is not a real calendar date (e.g. day 31 in April), the **entire upload is rejected** with an error naming the offending spreadsheet row — no partial import, not even of the file's otherwise-valid rows.
 
 ---
 

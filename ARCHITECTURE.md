@@ -513,7 +513,7 @@ timesheets (
 |---|---|---|---|
 | GET | /api/timesheets | ✅ | List uploaded timesheets (summary) |
 | GET | /api/timesheets/all-data | ✅ | All timesheet rows merged (for dashboard seed) |
-| POST | /api/timesheets/upload | ✅ | Upload XLS file |
+| POST | /api/timesheets/upload | ✅ | Upload XLS file; rejects the entire file (400, no partial writes) if any row's date cannot be resolved to a valid calendar date |
 | DELETE | /api/timesheets/:projectCode | owner/admin | Remove timesheet data |
 | GET | /api/reporting/portfolio | ✅ | Portfolio budget overview |
 | GET | /api/reporting/projects/:id | ✅ | Single project reporting |
@@ -652,6 +652,11 @@ burndown/
   api/                    ← Node.js + Express backend
     src/
       routes/             ← auth, users, config, cost-grids, projects, timesheets, reporting, exports, notifications, reset
+      lib/                ← pure functions extracted for unit testing (node:test, run via `npm test`/`node --test`),
+                            mirroring the frontend's js/lib/ convention; date-parse.js — parseFlexibleDate(a, b, year):
+                            disambiguates day/month order (unambiguous when one value is >12; falls back to the
+                            source's known MM/DD convention only when genuinely ambiguous), validates the result
+                            against real calendar/leap-year arithmetic, throws on an invalid date
       middleware/         ← auth guard (requireAuth, requireAdmin)
       db/                 ← PostgreSQL pool client, migrations/
       services/           ← email (nodemailer), jwt
