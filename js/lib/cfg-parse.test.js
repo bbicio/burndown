@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cfgParseHours, roundToQuarterHour, cfgFmtHours } from './cfg-parse.js';
+import { cfgParseHours, roundToQuarterHour, cfgFmtHours, distributeHoursExact } from './cfg-parse.js';
 
 describe('cfgParseHours', () => {
   it('REG-13: does not inflate "22.25" via de-DE thousands-separator stripping', () => {
@@ -74,5 +74,65 @@ describe('cfgFmtHours', () => {
 
   it('returns an empty string for a negative value', () => {
     expect(cfgFmtHours(-5)).toBe('');
+  });
+});
+
+describe('distributeHoursExact', () => {
+  it('REG-15: Reforecast 7.4h/3-month residual sums exactly to the rounded total (audit F2-3 traced case)', () => {
+    // Today's bug: 7.4/3 = 2.46667 each, roundToQuarterHour → 2.5 each, sum 7.5 ≠ 7.4 (drift).
+    // distributeHoursExact must guarantee the sum equals roundToQuarterHour(7.4) = 7.5 by construction,
+    // not by accident — every distributed value must be grid-aligned and the total must reconcile.
+    const raw = { '202601': 7.4 / 3, '202602': 7.4 / 3, '202603': 7.4 / 3 };
+    const result = distributeHoursExact(7.4, raw);
+    const sum = Object.values(result).reduce((s, v) => s + v, 0);
+    expect(sum).toBe(7.5);
+    Object.values(result).forEach(v => {
+      expect(v % 0.25).toBeCloseTo(0, 10);
+    });
+  });
+
+  it('REG-16: Derive 2.4h/3-month real day-overlap fractions sum exactly to the rounded total (audit F2-2 traced case)', () => {
+    // Task 2026-01-01..2026-03-31 (31+28+31=90 days, 2026 not a leap year), 2.4h split by day-overlap.
+    // These are the RAW (pre-rounding) values — not the already-degraded {0.8, 0.7, 0.8} (summing to 2.3)
+    // that today's buggy code produces after its own Math.round(hours*10)/10.
+    const raw = {
+      '202601': 2.4 * 31 / 90,
+      '202602': 2.4 * 28 / 90,
+      '202603': 2.4 * 31 / 90,
+    };
+    const result = distributeHoursExact(2.4, raw);
+    expect(result).toEqual({ '202601': 1, '202602': 0.75, '202603': 0.75 });
+    const sum = Object.values(result).reduce((s, v) => s + v, 0);
+    expect(sum).toBe(2.5);
+  });
+
+  it('handles a total with a 0.4 fraction explicitly (sold-hours set edge case)', () => {
+    const result = distributeHoursExact(0.4, { '202601': 0.4 });
+    expect(result).toEqual({ '202601': 0.5 });
+  });
+
+  it('throws when the sum of rawValues diverges from total beyond the 0.05 epsilon', () => {
+    expect(() => distributeHoursExact(7.4, { '202601': 2, '202602': 2, '202603': 1 }))
+      .toThrow(/7\.4/);
+  });
+
+  it('throws when a rawValues entry is negative', () => {
+    expect(() => distributeHoursExact(5, { '202601': -1, '202602': 6 }))
+      .toThrow(/202601/);
+  });
+
+  it('never gives a bump to a zero-value container when others have positive remainders', () => {
+    const result = distributeHoursExact(2.5, { '202601': 2.5, '202602': 0 });
+    expect(result['202602']).toBe(0);
+  });
+
+  it('breaks remainder ties by container key ascending, deterministically', () => {
+    // Both containers have the same raw value (0.30), so an identical remainder (0.05)
+    // after flooring to the 0.25 grid — an exact tie. floorSum = 0.25+0.25 = 0.5;
+    // roundToQuarterHour(0.63) = 0.75 (0.63*4=2.52, round=3, /4=0.75), so exactly one
+    // grid-step bump is needed ((0.75-0.5)/0.25 = 1) and the tie-break must pick a single
+    // winner. 0.63 is within the 0.05 epsilon of the raw sum (0.60), so this does not throw.
+    const result = distributeHoursExact(0.63, { '202603': 0.30, '202601': 0.30 });
+    expect(result).toEqual({ '202601': 0.5, '202603': 0.25 });
   });
 });

@@ -632,8 +632,9 @@ function cfgDerivePhasing() {
   const cfgEnd   = month2ym(document.getElementById('cfgEndDate').value);
   const cur      = document.getElementById('cfgCurrency')?.value || '€';
 
-  // Pre-compute new grids
-  const newPhasing = {}, newPlanning = {};
+  // Pre-compute new grids — planning hours are accumulated RAW (unrounded) here;
+  // the exact final rounding happens once, after this loop, via distributeHoursExact.
+  const newPhasing = {}, rawPlanning = {};
   months.forEach(ym => {
     const [y, m]   = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))];
     const mStart   = new Date(y, m-1, 1);
@@ -665,8 +666,11 @@ function cfgDerivePhasing() {
       }
     });
     if (budget > 0) newPhasing[ym]  = Math.round(budget * 100) / 100;
-    if (hours  > 0) newPlanning[ym] = Math.round(hours * 10) / 10;
+    if (hours  > 0) rawPlanning[ym] = hours;
   });
+
+  const rawPlanningTotal = Object.values(rawPlanning).reduce((s, v) => s + v, 0);
+  const newPlanning = rawPlanningTotal > 0 ? distributeHoursExact(rawPlanningTotal, rawPlanning) : {};
 
   const totalBudget = Object.values(newPhasing).reduce((s, v) => s + v, 0);
   const totalHours  = Object.values(newPlanning).reduce((s, v) => s + v, 0);
@@ -839,13 +843,9 @@ async function cfgReforecast() {
 
   if (distError) { alert('Cannot reforecast:\n\n' + distError); return; }
 
-  // Round future months only — past months keep exact actual values
-  // Hours round to nearest 0.25 (quarter-hour); budget rounds to nearest cent
-  Object.keys(newPhasing).forEach(ym  => {
-    if (!pastYMs.has(ym)) newPhasing[ym]  = Math.round(newPhasing[ym] * 100) / 100;
-  });
-  Object.keys(newPlanning).forEach(ym => {
-    if (!pastYMs.has(ym)) newPlanning[ym] = roundToQuarterHour(newPlanning[ym]);
+  // Round phasing (currency) per month — budget/phasing drift is out of scope for this fix
+  Object.keys(newPhasing).forEach(ym => {
+    if (!pastYMs.has(ym)) newPhasing[ym] = Math.round(newPhasing[ym] * 100) / 100;
   });
 
   const pastSpendTotal = Object.values(taskActuals).reduce((s, ta) =>
@@ -854,6 +854,32 @@ async function cfgReforecast() {
     s + pastMonths.reduce((ps, ym) => ps + ((ta[ym] || {}).hours || 0), 0), 0);
   const remainingBudget = totalBudget - pastSpendTotal;
   const remainingHours  = totalHours  - pastHrsTotal;
+
+  // Distribute future months' hours to their own actual accumulated total —
+  // replaces independent per-month roundToQuarterHour (audit finding F2-3).
+  // Target is Σ futureRawHours itself, not the independently-computed
+  // remainingHours: per-task overrun clamping (Math.max(0, ...) above) and
+  // monthlyDistribution's accepted 99.5-100.5% tolerance both make
+  // remainingHours a routinely different number from what actually
+  // accumulated into the future months — using it as the distribution
+  // target would throw on ordinary over-hours or tolerance-band projects.
+  // remainingHours itself is kept, unchanged, only for the "(over hours)"
+  // warning below, a different signal (sold vs. consumed) unrelated to
+  // this distribution's arithmetic.
+  // Named distinctly from cfgDerivePhasing's rawPlanning: this is not a
+  // freshly-accumulated structure but a future-only slice extracted from
+  // newPlanning, which also holds past months' already-exact actual values.
+  const futureRawHours = {};
+  futureMonths.forEach(ym => {
+    if (newPlanning[ym] !== undefined) futureRawHours[ym] = newPlanning[ym];
+  });
+  const futureRawHoursTotal = Object.values(futureRawHours).reduce((s, v) => s + v, 0);
+  let distributedRemainingHours = remainingHours;
+  if (futureRawHoursTotal > 0) {
+    const distributedFuture = distributeHoursExact(futureRawHoursTotal, futureRawHours);
+    Object.assign(newPlanning, distributedFuture);
+    distributedRemainingHours = Object.values(distributedFuture).reduce((s, v) => s + v, 0);
+  }
 
   const cur  = document.getElementById('cfgCurrency')?.value || '€';
   const fmtB = n => cfgFmtMoney(Math.abs(n), cur);
@@ -874,7 +900,7 @@ async function cfgReforecast() {
         ${distTaskCount > 0 ? `<em>(${distTaskCount} task${distTaskCount > 1 ? 's' : ''} use monthly distribution)</em>` : '(even split)'}:
         <ul class="mt-1 mb-0">
           <li>Remaining budget: <strong>${fmtB(remainingBudget)}</strong>${remainingBudget < 0 ? ' <span class="text-danger">(over budget)</span>' : ''}</li>
-          <li>Remaining hours:&nbsp; <strong>${fmtH(remainingHours)}</strong>${remainingHours < 0 ? ' <span class="text-danger">(over hours)</span>' : ''}</li>
+          <li>Remaining hours:&nbsp; <strong>${fmtH(distributedRemainingHours)}</strong>${remainingHours < 0 ? ' <span class="text-danger">(over hours)</span>' : ''}</li>
         </ul>
       </li>
     </ul>
