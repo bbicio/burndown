@@ -12,3 +12,6 @@ Thumbs.db
 # RTK / local tooling
 .tokensave/
 .claude/settings.local.json.bak
+
+# Worktrees
+.worktrees/
