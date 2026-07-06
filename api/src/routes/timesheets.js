@@ -96,17 +96,9 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res, next
 
     // Detect column mapping (case-insensitive, trimmed)
     const sampleKeys = Object.keys(raw[0]).map(k => k.trim());
-    const findCol = (...candidates) =>
-      sampleKeys.find(k => candidates.some(c => k.toLowerCase().includes(c.toLowerCase())));
-
-    const colDate    = findCol('date', 'data');
-    const colRole    = findCol('role', 'ruolo', 'resource');
-    const colOwner   = findCol('owner', 'worker', 'name', 'nome');
-    const colHours   = findCol('hours', 'ore', 'qty', 'quantity');
-    const colTask    = findCol('task', 'attività', 'activity');
-    const colNotes   = findCol('notes', 'note', 'description');
-    const colProjId  = findCol('projectid', 'project id', 'project_id', 'codice');
-    const colProjName= findCol('projectname', 'project name', 'project_name', 'progetto');
+    const {
+      colDate, colRole, colOwner, colHours, colTask, colNotes, colProjId, colProjName,
+    } = resolveColumnMap(sampleKeys);
 
     const grouped = {};
     for (let i = 0; i < raw.length; i++) {
@@ -197,6 +189,25 @@ router.delete('/:projectCode', requireAuth, async (req, res, next) => {
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
+function resolveColumnMap(headers) {
+  const used = new Set();
+  const findCol = (...candidates) => {
+    const col = headers.find(k => !used.has(k) && candidates.some(c => k.toLowerCase().includes(c.toLowerCase())));
+    if (col) used.add(col);
+    return col;
+  };
+  return {
+    colDate:     findCol('date', 'data'),
+    colRole:     findCol('role', 'ruolo', 'resource'),
+    colOwner:    findCol('owner', 'worker', 'name', 'nome'),
+    colHours:    findCol('hours', 'ore', 'qty', 'quantity'),
+    colTask:     findCol('task', 'attività', 'activity'),
+    colNotes:    findCol('notes', 'note', 'description'),
+    colProjId:   findCol('projectid', 'project id', 'project_id', 'codice'),
+    colProjName: findCol('projectname', 'project name', 'project_name', 'progetto'),
+  };
+}
+
 function formatDate(val) {
   if (!val) return null;
   if (val instanceof Date) return val.toISOString().slice(0, 10);
@@ -210,3 +221,4 @@ function formatDate(val) {
 
 module.exports = router;
 module.exports.formatDate = formatDate;
+module.exports.resolveColumnMap = resolveColumnMap;
