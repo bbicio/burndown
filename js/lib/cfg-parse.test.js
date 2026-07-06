@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cfgParseHours, roundToQuarterHour, cfgFmtHours, distributeHoursExact } from './cfg-parse.js';
+import { cfgParseHours, roundToQuarterHour, cfgFmtHours, distributeHoursExact, isValidSoldHours } from './cfg-parse.js';
 
 describe('cfgParseHours', () => {
   it('REG-13: does not inflate "22.25" via de-DE thousands-separator stripping', () => {
@@ -134,5 +134,44 @@ describe('distributeHoursExact', () => {
     // winner. 0.63 is within the 0.05 epsilon of the raw sum (0.60), so this does not throw.
     const result = distributeHoursExact(0.63, { '202603': 0.30, '202601': 0.30 });
     expect(result).toEqual({ '202601': 0.5, '202603': 0.25 });
+  });
+});
+
+describe('isValidSoldHours', () => {
+  it('accepts a whole number', () => {
+    expect(isValidSoldHours(5)).toBe(true);
+  });
+
+  it('accepts a .25 fraction', () => {
+    expect(isValidSoldHours(2.25)).toBe(true);
+  });
+
+  it('accepts a .5 fraction', () => {
+    expect(isValidSoldHours(3.5)).toBe(true);
+  });
+
+  it('accepts a .75 fraction', () => {
+    expect(isValidSoldHours(1.75)).toBe(true);
+  });
+
+  it('accepts zero', () => {
+    expect(isValidSoldHours(0)).toBe(true);
+  });
+
+  it('rejects a .4 fraction (not in the allowed set)', () => {
+    expect(isValidSoldHours(2.4)).toBe(false);
+  });
+
+  it('rejects a .6 fraction (not in the allowed set)', () => {
+    expect(isValidSoldHours(2.6)).toBe(false);
+  });
+
+  it('rejects a negative value', () => {
+    expect(isValidSoldHours(-2.25)).toBe(false);
+  });
+
+  it('rejects a non-finite value', () => {
+    expect(isValidSoldHours(NaN)).toBe(false);
+    expect(isValidSoldHours(Infinity)).toBe(false);
   });
 });

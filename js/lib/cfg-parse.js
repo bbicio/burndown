@@ -63,7 +63,18 @@ export function distributeHoursExact(total, rawValues, grid = 0.25) {
   return result;
 }
 
+export const SOLD_HOURS_FRACTIONS = [0, 0.25, 0.5, 0.75];
+
+export function isValidSoldHours(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return false;
+  const frac = n - Math.trunc(n);
+  return SOLD_HOURS_FRACTIONS.some(f => Math.abs(frac - f) < 1e-9);
+}
+
 window.cfgParseHours = cfgParseHours;
 window.roundToQuarterHour = roundToQuarterHour;
 window.cfgFmtHours = cfgFmtHours;
 window.distributeHoursExact = distributeHoursExact;
+window.SOLD_HOURS_FRACTIONS = SOLD_HOURS_FRACTIONS;
+window.isValidSoldHours = isValidSoldHours;
