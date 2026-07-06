@@ -335,6 +335,7 @@
 | TS-05 | Unambiguous date disambiguation | Upload a file with a text-formatted date where day or month is >12 (e.g. `25/03/2026`) | Resolved correctly regardless of which position is >12 — the value >12 can only be the day, not guessed | ✓ (node:test) |
 | TS-06 | Ambiguous date default | Upload a file with a text-formatted date where both day and month are ≤12 (e.g. `03/04/2026`) | Resolved as MM/DD (month=03, day=04), matching the known source export convention, not the previous DD/MM assumption | ✓ (node:test) |
 | TS-07 | Invalid date rejects the whole upload | Upload a file with one valid row and one calendar-invalid date (e.g. `31/04/2026`, April has no 31st) | Entire upload rejected (400) naming the offending spreadsheet row; zero rows persisted, not even the valid one from the same file | ✓ (node:test) |
+| TS-08 | Ambiguous header doesn't collapse owner into role | Upload a file with a header like `"Resource Name"` (matches both the role and owner keyword lists) | The column is claimed by role only; owner is not populated with the same value as role (left unmapped if no other owner column exists) — planning "By Owner" view shows actual person names, not role names, when a genuine owner column is present | ✓ (node:test) |
 
 ---
 

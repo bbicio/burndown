@@ -121,6 +121,16 @@ api/src/lib/              — pure functions extracted for unit testing (node:te
                             calendar/leap-year arithmetic, throws on an invalid date. Consumed by
                             `api/src/routes/timesheets.js`'s `formatDate()`, which now rejects the entire upload
                             (400, no partial DB writes) if any row's date can't be resolved.
+                            `api/src/routes/timesheets.js`'s `resolveColumnMap(headers)` — column-header-to-field
+                            resolver for the XLS upload, exported (like `formatDate`) for direct `node:test`
+                            coverage. Resolves each of `colDate/colRole/colOwner/colHours/colTask/colNotes/
+                            colProjId/colProjName` via case-insensitive substring match against each field's
+                            keyword list, tracking already-claimed headers in a `Set` so no physical column can be
+                            assigned to two fields (previously an ambiguous header like `"Resource Name"` — matching
+                            both role's `resource` keyword and owner's `name` keyword — would silently duplicate
+                            role into owner). Field declaration order (`date > role > owner > hours > task > notes
+                            > projId > projName`) is the explicit conflict-priority order: whichever field is
+                            declared first wins any column conflict.
 api/src/routes/exports.js        — POST /api/exports/{portfolio|cost-grids|ratecards}
 api/src/routes/notifications.js  — SSE stream, CRUD, push; exports { router, pushToUser }
 api/src/routes/pipeline-years.js — CRUD for admin-managed pipeline years

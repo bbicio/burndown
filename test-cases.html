@@ -952,6 +952,9 @@ const SECTIONS = [
     {id:'TS-07',scenario:'Invalid date rejects the whole upload',
      steps:'Upload a file with one valid row and one calendar-invalid date (e.g. 31/04/2026, April has no 31st)',
      expected:'Entire upload rejected (400) naming the offending spreadsheet row; zero rows persisted, not even the valid one from the same file. Covered by a node:test characterization test plus manual verification (curl + DB check) against the running dev stack.'},
+    {id:'TS-08',scenario:'Ambiguous header doesn\'t collapse owner into role',
+     steps:'Upload a file with a header like "Resource Name" (matches both the role and owner keyword lists)',
+     expected:'The column is claimed by role only; owner is not populated with the same value as role (left unmapped if no other owner column exists) — planning "By Owner" view shows actual person names, not role names, when a genuine owner column is present. Covered by a node:test characterization test (api/src/routes/timesheets.test.js).'},
   ]
 },
 {
