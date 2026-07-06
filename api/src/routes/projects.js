@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
 const { sendShareNotification } = require('../services/email');
+const { isValidSoldHours } = require('../lib/sold-hours');
 let _pushToUser;
 
 const router = express.Router();
@@ -214,6 +215,18 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
     }
     const tasks = req.body;
     if (!Array.isArray(tasks)) return res.status(400).json({ error: 'Body must be an array' });
+
+    // Reject the whole request — no partial writes — if any resource's sold
+    // hours fall outside the allowed set. No automatic rounding.
+    for (const t of tasks) {
+      for (const r of (t?.resources || [])) {
+        if (r?.soldHours != null && !isValidSoldHours(r.soldHours)) {
+          return res.status(400).json({
+            error: `Invalid sold hours "${r.soldHours}" for role "${r.role || ''}" on task "${t.name || ''}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`,
+          });
+        }
+      }
+    }
 
     await query('DELETE FROM project_tasks WHERE project_id = $1', [req.params.id]);
 

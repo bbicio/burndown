@@ -2,6 +2,7 @@ const express = require('express');
 const { query, pool } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
 const { sendShareNotification } = require('../services/email');
+const { isValidSoldHours } = require('../lib/sold-hours');
 
 let _pushToUser;
 
@@ -537,6 +538,29 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
   if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
 
   const { phases = [], roles: rolesBody = [] } = req.body;
+
+  // Reject the whole request — no partial writes — if any role's sold hours
+  // fall outside the allowed set. No automatic rounding.
+  for (const ph of phases) {
+    for (const tk of (ph?.tasks || [])) {
+      if (tk?.hours && typeof tk.hours === 'object') {
+        for (const [code, days] of Object.entries(tk.hours)) {
+          if (!isValidSoldHours(days)) {
+            return res.status(400).json({
+              error: `Invalid sold hours "${days}" for role "${code}" in task "${tk.taskName || tk.title || ''}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`,
+            });
+          }
+        }
+      }
+      for (const tr of (tk?.roles || [])) {
+        if (tr?.days != null && !isValidSoldHours(tr.days)) {
+          return res.status(400).json({
+            error: `Invalid sold hours "${tr.days}" in task "${tk.taskName || tk.title || ''}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`,
+          });
+        }
+      }
+    }
+  }
 
   // Preload all roles for code→id lookup
   const { rows: allRoles } = await query('SELECT id, code FROM roles');
