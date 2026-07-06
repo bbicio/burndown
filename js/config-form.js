@@ -1150,6 +1150,21 @@ async function saveConfig() {
 
     if (cfgActiveTab === 'form') {
       if (cfgProjectIdx >= 0) cfgSaveCurrentToState();
+      // Reject an explicit save if any sold-hours value is outside the allowed set —
+      // no automatic rounding, the user must correct it before the save proceeds.
+      if (cfgProjectIdx >= 0) {
+        const editedProj = cfgEditConfig.projects[cfgProjectIdx];
+        if (editedProj) {
+          for (const task of (editedProj.tasks || [])) {
+            for (const r of (task.resources || [])) {
+              if (r.soldHours && !isValidSoldHours(r.soldHours)) {
+                alert(`Invalid sold hours "${r.soldHours}" for role "${r.role}" on task "${task.name}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`);
+                return;
+              }
+            }
+          }
+        }
+      }
       // Warn if active project has tasks but no phasing configured
       if (cfgProjectIdx >= 0) {
         const editedProj = cfgEditConfig.projects[cfgProjectIdx];

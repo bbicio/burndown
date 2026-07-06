@@ -977,6 +977,19 @@ function cgBindEditorEvents(body) {
     })
   );
 
+  body.querySelectorAll('.cg-hours-input').forEach(inp =>
+    inp.addEventListener('blur', e => {
+      const val = parseFloat(e.target.value) || 0;
+      if (val > 0 && !isValidSoldHours(val)) {
+        alert(`Invalid sold hours "${val}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`);
+        const task = cgFindTask(e.target.dataset.phase, e.target.dataset.task);
+        if (task) delete task.hours[e.target.dataset.role];
+        e.target.value = '';
+        cgRefreshTotals(); cgScheduleAutoSave();
+      }
+    })
+  );
+
   body.querySelectorAll('.cg-ptc-input').forEach(inp => {
     inp.addEventListener('focus', e => {
       const task = cgFindTask(e.target.dataset.phase, e.target.dataset.task);
