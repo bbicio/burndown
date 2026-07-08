@@ -611,12 +611,11 @@ function renderPortfolioPlanningView() {
 
         // Consumed hours from actuals for this task+role
         const consumedH = projData
-          .filter(r => r.task?.toLowerCase() === task.name.toLowerCase() &&
-                       r.role?.toLowerCase() === res.role.toLowerCase())
+          .filter(r => matchesTaskRole(r, task.name, res.role))
           .reduce((s, r) => s + r.hours, 0);
         roleActualsMap[res.role] = (roleActualsMap[res.role] || 0) + consumedH;
 
-        const residualH = Math.max(0, soldH - consumedH);
+        const residualH = computeResidual(soldH, consumedH);
 
         if (!roleMap[res.role]) roleMap[res.role] = {};
 
@@ -624,8 +623,7 @@ function renderPortfolioPlanningView() {
         const pastWeeks = overlapWeeks.filter(w => w.isPast);
         pastWeeks.forEach(w => {
           const actualH = projData
-            .filter(r => r.task?.toLowerCase() === task.name.toLowerCase() &&
-                         r.role?.toLowerCase() === res.role.toLowerCase() &&
+            .filter(r => matchesTaskRole(r, task.name, res.role) &&
                          r.date >= w.weekStart && r.date <= w.weekEnd)
             .reduce((s, r) => s + r.hours, 0);
           if (actualH < 0.01) return;
@@ -843,7 +841,7 @@ function renderPortfolioPlanningView() {
           <th rowspan="${isMonthly ? 1 : 2}" style="position:sticky;left:0;z-index:4;min-width:185px;background:var(--sand-200);font-size:var(--text-base);padding:8px 10px;border:1px solid var(--border-light);white-space:nowrap">Role</th>
           <th rowspan="${isMonthly ? 1 : 2}" style="position:sticky;left:185px;z-index:4;min-width:65px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">Sold</th>
           <th rowspan="${isMonthly ? 1 : 2}" style="position:sticky;left:250px;z-index:4;min-width:80px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">From<br>actuals</th>
-          <th rowspan="${isMonthly ? 1 : 2}" style="position:sticky;left:330px;z-index:4;min-width:90px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);text-align:center;white-space:nowrap">To be<br>planned</th>
+          <th rowspan="${isMonthly ? 1 : 2}" title="To be planned can exceed Sold − Actuals when a role has multiple tasks and one is over-consumed — hours over budget on one task aren't subtracted from another task's remaining budget." style="position:sticky;left:330px;z-index:4;min-width:90px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);text-align:center;white-space:nowrap">To be<br>planned</th>
           ${periodHeaderHtml}
         </tr>
         ${isMonthly ? '' : `<tr>${subHeaderHtml}</tr>`}
@@ -1048,12 +1046,9 @@ function renderPortfolioPlanningByProjectContent(container, projects, weeks) {
         if (!rolePassesTeamFilter(res.role)) return;
         const soldH = res.soldHours || 0;
 
-        const taskRoleRecs = projData.filter(r =>
-          r.task?.toLowerCase() === task.name.toLowerCase() &&
-          r.role?.toLowerCase() === res.role.toLowerCase()
-        );
+        const taskRoleRecs = projData.filter(r => matchesTaskRole(r, task.name, res.role));
         const consumedH = taskRoleRecs.reduce((s, r) => s + r.hours, 0);
-        const residualH = Math.max(0, soldH - consumedH);
+        const residualH = computeResidual(soldH, consumedH);
 
         const ownerTotals = {};
         taskRoleRecs.forEach(r => { const o = r.owner?.trim() || '—'; ownerTotals[o] = (ownerTotals[o] || 0) + r.hours; });
@@ -1278,7 +1273,7 @@ function renderPortfolioPlanningByProjectContent(container, projects, weeks) {
           <th rowspan="${rowspan}" style="${SH}left:0;min-width:200px;background:#d8dff7;font-size:var(--text-base);padding:8px 10px;border:1px solid var(--border-light);white-space:nowrap">Project / Task / Role / Owner</th>
           <th rowspan="${rowspan}" style="${SH}left:200px;min-width:65px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">Sold</th>
           <th rowspan="${rowspan}" style="${SH}left:265px;min-width:80px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">From<br>actuals</th>
-          <th rowspan="${rowspan}" style="${SH}left:345px;min-width:90px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);text-align:center;white-space:nowrap">To be<br>planned</th>
+          <th rowspan="${rowspan}" title="To be planned can exceed Sold − Actuals when a role has multiple tasks and one is over-consumed — hours over budget on one task aren't subtracted from another task's remaining budget." style="${SH}left:345px;min-width:90px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);text-align:center;white-space:nowrap">To be<br>planned</th>
           ${periodHeaderHtml}
         </tr>
         ${isMonthly ? '' : `<tr>${subHeaderHtml}</tr>`}
@@ -1343,7 +1338,7 @@ function renderPortfolioPlanningByOwnerContent(container, projects, weeks) {
       (task.resources || []).forEach(res => {
         if (!rolePassesTeamFilter(res.role)) return;
         const soldH    = res.soldHours || 0;
-        const roleRecs = projData.filter(r => r.role === res.role && (!task.name || r.task === task.name));
+        const roleRecs = projData.filter(r => matchesTaskRole(r, task.name, res.role));
 
         // Past week data + owner totals
         const roleWeekData = {};
@@ -1363,7 +1358,7 @@ function renderPortfolioPlanningByOwnerContent(container, projects, weeks) {
         Object.values(ownerTotals).forEach(h => { totalOwnerH += h; });
 
         const consumedH = totalOwnerH;
-        const roleTbp   = Math.max(0, soldH - consumedH);
+        const roleTbp   = computeResidual(soldH, consumedH);
         if (soldH < 0.01 && consumedH < 0.01) return;
 
         const ownerNames = Object.entries(ownerTotals).filter(([, h]) => h > 0.01).sort((a, b) => b[1] - a[1]).map(([o]) => o);
@@ -1563,7 +1558,7 @@ function renderPortfolioPlanningByOwnerContent(container, projects, weeks) {
           <th rowspan="${rowspan}" style="${SH}left:0;min-width:200px;background:#d8dff7;font-size:var(--text-base);padding:8px 10px;border:1px solid var(--border-light);white-space:nowrap">Owner / Project / Role</th>
           <th rowspan="${rowspan}" style="${SH}left:200px;min-width:65px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">Sold</th>
           <th rowspan="${rowspan}" style="${SH}left:265px;min-width:80px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">From<br>actuals</th>
-          <th rowspan="${rowspan}" style="${SH}left:345px;min-width:90px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);text-align:center;white-space:nowrap">To be<br>planned</th>
+          <th rowspan="${rowspan}" title="To be planned can exceed Sold − Actuals when a role has multiple tasks and one is over-consumed — hours over budget on one task aren't subtracted from another task's remaining budget." style="${SH}left:345px;min-width:90px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);text-align:center;white-space:nowrap">To be<br>planned</th>
           ${periodHeaderHtml}
         </tr>
         ${isMonthly ? '' : `<tr>${subHeaderHtml}</tr>`}
