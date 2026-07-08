@@ -48,7 +48,17 @@ An audit surfaces things beyond its negotiated scope (Step 1) — a second file 
 
 ## Report structure
 
-Match the style already used in this repo's `docs/superpowers/audits/*.md`: a Scope note, a Method section, Findings (each with Type, Severity, Location, Evidence, Description — categories are this audit's own choice, not fixed), a "Ruled out" section for checked-but-not-divergent patterns, and the dedicated out-of-scope/roadmap section from Step 5.
+Match the style already used in this repo's `docs/superpowers/audits/*.md`: a Scope note, a Method section, Findings (each with Type, Severity, Location, Evidence, Description — categories are this audit's own choice, not fixed), a "Ruled out" section for checked-but-not-divergent patterns, the dedicated out-of-scope/roadmap section from Step 5, and — as the last line of the report itself, not a separate message — Step 6's Next step line.
+
+## Step 6 — REQUIRED: close with the Next step line
+
+The report is not complete without this. The literal last line of every report produced by this skill, after the out-of-scope/roadmap section, with nothing after it:
+
+`Report ready. Next step: audit-to-brief to translate the findings into fix cycles, or stop here if the audit doesn't call for immediate fixes.`
+
+This is a fixed step, not optional trailing advice — treat it with the same weight as Steps 1-5, not as commentary appended after the "real" report is done. It applies to every audit this skill produces, unconditionally: unlike Step 1's scope negotiation, it does not depend on any upstream classification.
+
+The line is a suggestion, not an action: state it and stop. Never invoke `audit-to-brief` yourself.
 
 ## Common mistakes
 
@@ -57,3 +67,4 @@ Match the style already used in this repo's `docs/superpowers/audits/*.md`: a Sc
 - Fixing a "one-liner" while auditing instead of only describing it (Step 4).
 - Labeling an out-of-scope discovery inline as "(informational)" inside the main findings instead of moving it to its own section (Step 5).
 - Inventing a fixed severity/category schema up front instead of letting it fit the domain being audited.
+- Ending the report without the standalone Next step line.
