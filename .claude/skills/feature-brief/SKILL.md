@@ -37,7 +37,7 @@ No exceptions:
 
 If the answer is ambiguous, "I don't know," or doesn't map to one of the two scenarios below: ask again, this time offering concrete examples of what a Scenario 1 vs. Scenario 2 request looks like. Do not proceed on a guess.
 
-If the answer is a third kind of request (e.g., a fix driven by an audit report's findings): stop. State that this falls outside this skill's scope and name the process that should handle it instead, if one exists. Do not produce a Brief.
+If the answer is a third kind of request (e.g., a fix driven by an audit report's findings): stop. State that this falls outside this skill's scope and name the process that should handle it instead, if one exists. Do not produce a Brief. Close with the Next step line for this case (see Next step, below).
 
 ## Step 2 — sections by scenario
 
@@ -61,7 +61,16 @@ If the answer is a third kind of request (e.g., a fix driven by an audit report'
 
 ## Output
 
-Fixed sections, operational tone, no narrative or filler prose. Section set depends on scenario (Step 2). End with any open questions intended for `/brainstorming` to resolve — the Brief surfaces them, it doesn't resolve them.
+Fixed sections, operational tone, no narrative or filler prose. Section set depends on scenario (Step 2). End with any open questions intended for `/brainstorming` to resolve — the Brief surfaces them, it doesn't resolve them. Then the Next step line (below).
+
+## Next step
+
+Every response this skill produces ends with one explicit, standalone line naming what comes next — never left implicit inside a prose note or a section title.
+
+- **Brief completed** (Scenario 1 or 2): `Brief ready. Next step: /brainstorming.`
+- **Out-of-scope request** (Step 1's third case): `Next step: this falls outside feature-brief's scope — use audit-to-brief, starting from a closed audit report.`
+
+This line is a suggestion, not an action: state it and stop. Never invoke `/brainstorming` or `audit-to-brief` — the skill's job ends at producing the line.
 
 ## Common mistakes
 
@@ -69,3 +78,4 @@ Fixed sections, operational tone, no narrative or filler prose. Section set depe
 - Writing "Current behavior" from assumption instead of reading code.
 - Deciding excluded scope unilaterally instead of proposing and confirming.
 - Treating this skill as also doing `/brainstorming`'s job (exploring alternatives, resolving trade-offs) — it doesn't; it stops at a confirmed Brief.
+- Mentioning `/brainstorming` only inline in a section title or closing note instead of the standalone Next step line.
