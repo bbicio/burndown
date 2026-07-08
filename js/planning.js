@@ -102,15 +102,6 @@ function countFutureTaskWeeks(tStart, tEnd, todayMidnight) {
   return count;
 }
 
-// Count distinct future calendar months that overlap the task range.
-function countFutureTaskMonths(tStart, tEnd, todayMidnight) {
-  if (!tEnd || tEnd < todayMidnight) return 0;
-  const effectiveStart = (tStart && tStart > todayMidnight) ? tStart : todayMidnight;
-  const sYM = effectiveStart.getFullYear() * 12 + effectiveStart.getMonth();
-  const eYM = tEnd.getFullYear() * 12 + tEnd.getMonth();
-  return Math.max(0, eYM - sYM + 1);
-}
-
 function getCalendarWeeks(startDate, endDate) {
   // Find the Monday on or before startDate
   const anchor = new Date(startDate);
@@ -676,33 +667,20 @@ function renderPortfolioPlanningView() {
         } else {
         // Use total task future weeks (not just visible) so hPerWeek is stable as the axis range changes.
         const totalFutureWeeks = countFutureTaskWeeks(tStart, tEnd, todayMidnight);
-        const hPerWeek = totalFutureWeeks > 0 ? residualH / totalFutureWeeks : residualH / futureWeeks.length;
 
-        if (portfolioMonthlyPulse && hPerWeek < 1) {
-          // Monthly pulse: aggregate by month, show in first week of each month
-          const byMonth = {};
-          futureWeeks.forEach(w => {
-            if (!byMonth[w.monthKey]) byMonth[w.monthKey] = { weeks: [], hours: 0 };
-            byMonth[w.monthKey].weeks.push(w);
-            byMonth[w.monthKey].hours += hPerWeek;
-          });
-          Object.values(byMonth).forEach(m => {
-            const firstWeek = m.weeks[0];
-            const key = firstWeek.weekStart.toISOString();
-            if (!roleMap[res.role][key]) roleMap[res.role][key] = { hours: 0, breakdown: [], isPast: false, isPulse: true };
-            roleMap[res.role][key].isPulse = true;
-            roleMap[res.role][key].hours += m.hours;
-            roleMap[res.role][key].breakdown.push({ project: proj.name || proj.id, task: task.name, hours: m.hours });
-          });
-        } else {
-          // Distribute evenly week by week (exact fractional values)
-          futureWeeks.forEach(w => {
-            const key = w.weekStart.toISOString();
-            if (!roleMap[res.role][key]) roleMap[res.role][key] = { hours: 0, breakdown: [], isPast: false, isPulse: false };
-            roleMap[res.role][key].hours += hPerWeek;
-            roleMap[res.role][key].breakdown.push({ project: proj.name || proj.id, task: task.name, hours: hPerWeek });
-          });
-        }
+        const byMonth = {};
+        futureWeeks.forEach(w => {
+          if (!byMonth[w.monthKey]) byMonth[w.monthKey] = [];
+          byMonth[w.monthKey].push(w.weekStart.toISOString());
+        });
+        const weeksByMonth = Object.entries(byMonth).map(([monthKey, weekKeys]) => ({ monthKey, weekKeys }));
+
+        distributeFutureResidual(residualH, totalFutureWeeks, weeksByMonth, portfolioMonthlyPulse).forEach(entry => {
+          if (!roleMap[res.role][entry.key]) roleMap[res.role][entry.key] = { hours: 0, breakdown: [], isPast: false, isPulse: entry.isPulse };
+          if (entry.isPulse) roleMap[res.role][entry.key].isPulse = true;
+          roleMap[res.role][entry.key].hours += entry.hours;
+          roleMap[res.role][entry.key].breakdown.push({ project: proj.name || proj.id, task: task.name, hours: entry.hours });
+        });
         }
       });
     });
@@ -1060,7 +1038,6 @@ function renderPortfolioPlanningByProjectContent(container, projects, weeks) {
         const futureWeeks = overlapWeeks.filter(w => !w.isPast);
         const _now = new Date(); const _td = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate());
         const _totalFw = countFutureTaskWeeks(tStart, tEnd, _td);
-        const hPerWeek = _totalFw > 0 ? residualH / _totalFw : (futureWeeks.length > 0 ? residualH / futureWeeks.length : 0);
 
         const roleWeekData = {};
 
@@ -1083,27 +1060,19 @@ function renderPortfolioPlanningByProjectContent(container, projects, weeks) {
         };
 
         if (futureWeeks.length > 0 && residualH > 0.01) {
-          if (portfolioMonthlyPulse && hPerWeek < 1) {
-            const byMonth = {};
-            futureWeeks.forEach(w => {
-              if (!byMonth[w.monthKey]) byMonth[w.monthKey] = { firstWeek: w, hours: 0 };
-              byMonth[w.monthKey].hours += hPerWeek;
-            });
-            Object.values(byMonth).forEach(m => {
-              const key = m.firstWeek.weekStart.toISOString();
-              if (!roleWeekData[key]) roleWeekData[key] = { total: 0, byOwner: {}, isPulse: true, isPast: false };
-              roleWeekData[key].total += m.hours;
-              roleWeekData[key].isPulse = true;
-              distribute(roleWeekData[key].byOwner, m.hours);
-            });
-          } else {
-            futureWeeks.forEach(w => {
-              const key = w.weekStart.toISOString();
-              if (!roleWeekData[key]) roleWeekData[key] = { total: 0, byOwner: {}, isPulse: false, isPast: false };
-              roleWeekData[key].total += hPerWeek;
-              distribute(roleWeekData[key].byOwner, hPerWeek);
-            });
-          }
+          const byMonth = {};
+          futureWeeks.forEach(w => {
+            if (!byMonth[w.monthKey]) byMonth[w.monthKey] = [];
+            byMonth[w.monthKey].push(w.weekStart.toISOString());
+          });
+          const weeksByMonth = Object.entries(byMonth).map(([monthKey, weekKeys]) => ({ monthKey, weekKeys }));
+
+          distributeFutureResidual(residualH, _totalFw, weeksByMonth, portfolioMonthlyPulse).forEach(entry => {
+            if (!roleWeekData[entry.key]) roleWeekData[entry.key] = { total: 0, byOwner: {}, isPulse: entry.isPulse, isPast: false };
+            roleWeekData[entry.key].total += entry.hours;
+            if (entry.isPulse) roleWeekData[entry.key].isPulse = true;
+            distribute(roleWeekData[entry.key].byOwner, entry.hours);
+          });
         }
 
         const roleTbp = Object.entries(roleWeekData)
@@ -1369,34 +1338,26 @@ function renderPortfolioPlanningByOwnerContent(container, projects, weeks) {
           const _owNow = new Date(); const _owTd = new Date(_owNow.getFullYear(), _owNow.getMonth(), _owNow.getDate());
           const futureWeeks = weeks.filter(w => !w.isPast);
           const taskWeeks   = tStart && tEnd ? futureWeeks.filter(w => w.weekEnd >= tStart && w.weekStart <= tEnd) : futureWeeks;
-          // Compute canonical counts from task date range (stable regardless of view range)
+          // Compute canonical count from task date range (stable regardless of view range)
           const totalTaskFw = (tStart && tEnd) ? countFutureTaskWeeks(tStart, tEnd, _owTd) : taskWeeks.length;
-          const totalTaskFm = (tStart && tEnd) ? countFutureTaskMonths(tStart, tEnd, _owTd) : null;
           const distribute  = (byOwner, hours) => {
             if (totalOwnerH > 0.01) ownerNames.forEach(o => { byOwner[o] = (byOwner[o] || 0) + hours * (ownerTotals[o] / totalOwnerH); });
             else byOwner['—'] = (byOwner['—'] || 0) + hours;
           };
-          if (portfolioMonthlyPulse && roleTbp < taskWeeks.length) {
-            const monthMap = {};
-            taskWeeks.forEach(w => { if (!monthMap[w.monthKey]) monthMap[w.monthKey] = []; monthMap[w.monthKey].push(w); });
-            const mkKeys = Object.keys(monthMap);
-            const mh     = roleTbp / (totalTaskFm || mkKeys.length || 1);
-            mkKeys.forEach(mk => {
-              const lastW = monthMap[mk][monthMap[mk].length - 1];
-              const key   = lastW.weekStart.toISOString();
-              if (!roleWeekData[key]) roleWeekData[key] = { total: 0, byOwner: {}, isPulse: true, isPast: false };
-              roleWeekData[key].total += mh;
-              distribute(roleWeekData[key].byOwner, mh);
-            });
-          } else {
-            const hpw = totalTaskFw > 0 ? roleTbp / totalTaskFw : (taskWeeks.length > 0 ? roleTbp / taskWeeks.length : 0);
-            taskWeeks.forEach(w => {
-              const key = w.weekStart.toISOString();
-              if (!roleWeekData[key]) roleWeekData[key] = { total: 0, byOwner: {}, isPulse: false, isPast: false };
-              roleWeekData[key].total += hpw;
-              distribute(roleWeekData[key].byOwner, hpw);
-            });
-          }
+
+          const monthMap = {};
+          taskWeeks.forEach(w => {
+            if (!monthMap[w.monthKey]) monthMap[w.monthKey] = [];
+            monthMap[w.monthKey].push(w.weekStart.toISOString());
+          });
+          const weeksByMonth = Object.entries(monthMap).map(([monthKey, weekKeys]) => ({ monthKey, weekKeys }));
+
+          distributeFutureResidual(roleTbp, totalTaskFw, weeksByMonth, portfolioMonthlyPulse).forEach(entry => {
+            if (!roleWeekData[entry.key]) roleWeekData[entry.key] = { total: 0, byOwner: {}, isPulse: entry.isPulse, isPast: false };
+            roleWeekData[entry.key].total += entry.hours;
+            if (entry.isPulse) roleWeekData[entry.key].isPulse = true;
+            distribute(roleWeekData[entry.key].byOwner, entry.hours);
+          });
         }
 
         // Pivot into ownerMap
