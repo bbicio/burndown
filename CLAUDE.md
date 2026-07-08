@@ -88,6 +88,14 @@ js/lib/                  — pure functions extracted for unit testing (vitest +
                             throws on a negative `rawValues` entry or if `Σ rawValues` diverges from `total` by more
                             than 0.05). Used by `cfgDerivePhasing`/`cfgReforecast` in `config-form.js` so the
                             planning-grid total shown in the confirmation modal always matches what gets saved.
+                            `planning-calc.js` — `matchesTaskRole(record, taskName, role)`: case-insensitive on
+                            both role and task name, null-safe (a missing `taskName` matches on role alone, never
+                            throws). `computeResidual(soldH, consumedH)`: `Math.max(0, soldH - consumedH)`,
+                            extracted verbatim from three previously-divergent inline implementations. Both are
+                            consumed identically by all three grouping views in `planning.js` (by-role, by-project,
+                            by-owner) — previously by-role/by-project crashed on a task with no name and by-owner
+                            was case-sensitive on both fields; loaded via `<script type="module">` on
+                            `planning.html`, before `planning.js`.
 js/core.js               — state, in-memory helpers (loadConfig/persistConfig are no-ops), shared badges, esc(), fmtH(), fmtMoney(); `statusBadge()` small style for pipeline cards; `statusBadgeLarge()` same size/style as `pipelineBadge()` — used only in linked-project chips in the editor and detail panel
 js/nav.js                — navbar + footer injection, initNav(); injects settings, change-password, send-notification,
                             and "My Profile" modals; T&C gate after GET /api/auth/me (redirects to /terms.html

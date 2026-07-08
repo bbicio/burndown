@@ -589,6 +589,15 @@ const SECTIONS = [
     {id:'PL-05',scenario:'Export XLS',
      steps:'Click Export XLS button',
      expected:'A .xlsx file is downloaded containing the resource planning table for the visible date range'},
+    {id:'PL-06',scenario:'Task with no name doesn\'t crash any view',
+     steps:'Load planning data containing a task with no name set',
+     expected:'By Role, By Project, and By Owner all render without a TypeError; the nameless task\'s actuals match on role alone. Covered by a vitest characterization test (js/lib/planning-calc.test.js).'},
+    {id:'PL-07',scenario:'Case-insensitive task+role matching, consistent across views',
+     steps:'Load timesheet actuals whose task/role casing differs from the project config\'s casing (e.g. "developer" vs "Developer")',
+     expected:'By Role, By Project, and By Owner all count the actuals identically — no view under- or over-counts relative to the others. Covered by a vitest characterization test.'},
+    {id:'PL-08',scenario:'"To be planned" tooltip on aggregate discrepancy',
+     steps:'Hover the "To be planned" column header in any of the three views',
+     expected:'Tooltip explains that the value can exceed Sold − Actuals when a role has multiple tasks and one is over-consumed'},
   ]
 },
 {

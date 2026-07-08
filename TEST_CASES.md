@@ -171,6 +171,9 @@
 | PL-03 | Group by project | Select "By Project" | Rows grouped under project names | |
 | PL-04 | Date navigation | Click next/previous period | Columns shift by configured granularity; data updates | |
 | PL-05 | Export XLS | Click Export XLS | .xlsx downloaded with resource planning data for visible range | |
+| PL-06 | Task with no name doesn't crash any view | Load planning data containing a task with no `name` set | By Role, By Project, and By Owner all render without a TypeError; the nameless task's actuals match on role alone | ✓ (vitest) |
+| PL-07 | Case-insensitive task+role matching, consistent across views | Load timesheet actuals whose task/role casing differs from the project config's casing (e.g. `developer` vs `Developer`) | By Role, By Project, and By Owner all count the actuals identically — no view under- or over-counts relative to the others | ✓ (vitest) |
+| PL-08 | "To be planned" tooltip on aggregate discrepancy | Hover the "To be planned" column header in any of the three views | Tooltip explains that the value can exceed Sold − Actuals when a role has multiple tasks and one is over-consumed | |
 
 ---
 
