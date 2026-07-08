@@ -40,9 +40,21 @@ Review all recent code changes in this session (and git diff if needed) and upda
 - If the change is a bugfix, update PRD.md only if the PRD's description of the feature was itself inaccurate (i.e. the bug meant the PRD never matched reality); do not update it for fixes that restore documented behaviour.
 - When in doubt whether a change is "user-visible," state the ambiguity in the summary and leave PRD.md untouched — flagging beats guessing.
 
+### 7. docs/superpowers/PROCESS.md (only if the cycle changed the development *process* itself, not the product)
+
+**PROCESS.md gate** — answer this as an explicit yes/no before deciding whether to touch the file. Does the cycle just closed satisfy **at least one** of:
+1. It introduced or modified one of the process skills (`feature-brief`, the audit skill, `audit-to-brief`).
+2. It introduced an exception to the standard process expected to be **recurring** (not a one-off already documented in that single cycle's own report).
+3. It modified the common 7-phase skeleton, or the scenario-specific guardrails for one of the three scenarios (new feature / evolution / audit-fix).
+
+- If **none** of the three is true → do not touch `PROCESS.md`; proceed normally with the other `/sync-docs` outputs.
+- If **at least one** is true → update the relevant section of `PROCESS.md`, and note in the cycle's own report which of the three conditions triggered the update.
+
+A cycle that merely *executes* the process as documented — the large majority of cycles — is not material for this file; it stays in that cycle's own report, not here.
+
 ## Process
 
 1. Read the current state of each file before editing.
 2. Cross-reference against the actual code (js/, api/src/routes/, costgrid.html, config.html, etc.) to verify what changed.
 3. Make targeted edits — do not rewrite sections that are still accurate.
-4. Report a brief summary at the end: which files were updated and what changed in each. Always explicitly state whether PRD.md was evaluated and the outcome — updated / not necessary (internal-only change) / ambiguous (needs human verification) — even when PRD.md itself was left untouched.
+4. Report a brief summary at the end: which files were updated and what changed in each. Always explicitly state whether PRD.md was evaluated and the outcome — updated / not necessary (internal-only change) / ambiguous (needs human verification) — even when PRD.md itself was left untouched. Always explicitly state the PROCESS.md gate's answer (which of the three conditions applied, or none) — even when PROCESS.md itself was left untouched.
