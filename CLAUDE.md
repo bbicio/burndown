@@ -94,8 +94,17 @@ js/lib/                  — pure functions extracted for unit testing (vitest +
                             extracted verbatim from three previously-divergent inline implementations. Both are
                             consumed identically by all three grouping views in `planning.js` (by-role, by-project,
                             by-owner) — previously by-role/by-project crashed on a task with no name and by-owner
-                            was case-sensitive on both fields; loaded via `<script type="module">` on
-                            `planning.html`, before `planning.js`.
+                            was case-sensitive on both fields. `distributeFutureResidual(residualH,
+                            totalFutureWeeks, weeksByMonth, pulseEnabled)`: computes `hPerWeek` from the task's
+                            canonical remaining-week count (not the currently-visible date window); when
+                            `pulseEnabled && hPerWeek < 1`, aggregates each month's weeks into one entry placed on
+                            that month's first week with hours proportional to its week count; otherwise returns
+                            one entry per week at a flat `hPerWeek`. Consumed identically by all three grouping
+                            views — previously by-owner used the visible window's week count for its pulse
+                            threshold (so paging could flip it) and split hours equally per month regardless of
+                            week count, both since unified with by-role/by-project's already-correct behavior;
+                            `countFutureTaskMonths()` (the old by-owner-only helper this replaced) was removed as
+                            dead code. Loaded via `<script type="module">` on `planning.html`, before `planning.js`.
 js/core.js               — state, in-memory helpers (loadConfig/persistConfig are no-ops), shared badges, esc(), fmtH(), fmtMoney(); `statusBadge()` small style for pipeline cards; `statusBadgeLarge()` same size/style as `pipelineBadge()` — used only in linked-project chips in the editor and detail panel
 js/nav.js                — navbar + footer injection, initNav(); injects settings, change-password, send-notification,
                             and "My Profile" modals; T&C gate after GET /api/auth/me (redirects to /terms.html

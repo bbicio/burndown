@@ -598,6 +598,15 @@ const SECTIONS = [
     {id:'PL-08',scenario:'"To be planned" tooltip on aggregate discrepancy',
      steps:'Hover the "To be planned" column header in any of the three views',
      expected:'Tooltip explains that the value can exceed Sold − Actuals when a role has multiple tasks and one is over-consumed'},
+    {id:'PL-09',scenario:'Monthly Pulse threshold consistent across views, independent of visible window',
+     steps:'Enable Monthly Pulse toggle on data where a role\'s canonical hours/week is < 1, then page to a shorter visible date window',
+     expected:'By Owner activates the pulse in agreement with By Role/By Project; the threshold does not flip as the visible window changes. Covered by a vitest characterization test (js/lib/planning-calc.test.js).'},
+    {id:'PL-10',scenario:'Monthly Pulse monthly totals match across views',
+     steps:'With Monthly Pulse active on a role spanning months with different week counts',
+     expected:'By Owner\'s monthly total for each month matches By Role/By Project\'s (proportional to that month\'s calendar weeks, not divided equally per month). Covered by a vitest characterization test.'},
+    {id:'PL-11',scenario:'Monthly Pulse cell placement consistent across views',
+     steps:'With Monthly Pulse active',
+     expected:'All three views place the aggregated cell on the month\'s first week (not the last). Covered by a vitest characterization test.'},
   ]
 },
 {

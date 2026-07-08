@@ -174,6 +174,9 @@
 | PL-06 | Task with no name doesn't crash any view | Load planning data containing a task with no `name` set | By Role, By Project, and By Owner all render without a TypeError; the nameless task's actuals match on role alone | ✓ (vitest) |
 | PL-07 | Case-insensitive task+role matching, consistent across views | Load timesheet actuals whose task/role casing differs from the project config's casing (e.g. `developer` vs `Developer`) | By Role, By Project, and By Owner all count the actuals identically — no view under- or over-counts relative to the others | ✓ (vitest) |
 | PL-08 | "To be planned" tooltip on aggregate discrepancy | Hover the "To be planned" column header in any of the three views | Tooltip explains that the value can exceed Sold − Actuals when a role has multiple tasks and one is over-consumed | |
+| PL-09 | Monthly Pulse threshold consistent across views, independent of visible window | Enable Monthly Pulse toggle on data where a role's canonical hours/week is `< 1`, then page to a shorter visible date window | By Owner activates the pulse in agreement with By Role/By Project; the threshold does not flip as the visible window changes | ✓ (vitest) |
+| PL-10 | Monthly Pulse monthly totals match across views | With Monthly Pulse active on a role spanning months with different week counts | By Owner's monthly total for each month matches By Role/By Project's (proportional to that month's calendar weeks, not divided equally per month) | ✓ (vitest) |
+| PL-11 | Monthly Pulse cell placement consistent across views | With Monthly Pulse active | All three views place the aggregated cell on the month's first week (not the last) | ✓ (vitest) |
 
 ---
 
