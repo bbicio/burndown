@@ -390,34 +390,16 @@ function cfgForProject(projectId) {
 
 function cfgApplyPipelineRules(pipeline, currentStatus) {
   const sel = document.getElementById('cfgStatus');
-  const allOpts = ['Not started yet', 'Started At Risk', 'Started', 'Put on hold', 'Complete'];
-  const allowed = {
-    'SIP':              [],
-    'Expected':         ['Not started yet', 'Started At Risk', 'Put on hold', 'Complete'],
-    'Anticipated':      ['Not started yet', 'Started At Risk', 'Put on hold', 'Complete'],
-    'Committed':        ['Started', 'Put on hold', 'Complete'],
-    'Started':          ['Started', 'Started At Risk', 'Put on hold', 'Complete'],
-    'Started at risk':  ['Started', 'Started At Risk', 'Put on hold', 'Complete'],
-    'On Hold':          ['Not started yet', 'Started At Risk', 'Put on hold', 'Complete'],
-    'Canceled':         null, // keep value, disable
-  };
+  const { options, disabled } = getStatusRule(pipeline);
 
-  const opts = pipeline ? allowed[pipeline] : allOpts;
-
-  if (pipeline === 'SIP') {
-    sel.innerHTML = '<option value="">— Select —</option>';
+  if (options === null) {          // Canceled: leave existing options/value untouched, just disable
     sel.disabled = true;
-    sel.value = '';
-  } else if (pipeline === 'Canceled') {
-    sel.disabled = true;
-    // keep current options and value
-  } else {
-    const list = opts || allOpts;
-    sel.innerHTML = '<option value="">— Select —</option>' +
-      list.map(o => `<option value="${o}">${o}</option>`).join('');
-    sel.disabled = false;
-    sel.value = list.includes(currentStatus) ? currentStatus : '';
+    return;
   }
+  sel.innerHTML = '<option value="">— Select —</option>' +
+    options.map(o => `<option value="${o}">${o}</option>`).join('');
+  sel.disabled = disabled;         // true only for SIP (options = [])
+  sel.value = options.includes(currentStatus) ? currentStatus : '';
 }
 
 function inRange(date, start, end) {
