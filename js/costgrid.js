@@ -115,15 +115,11 @@ function cgGetVersionLockState(cgId, versionId) {
     message: 'This version is locked — another version has been used to generate a project.'
   };
 
-  // This version has a Committed linked project → deal is done, lock it
+  // Proposal itself is Committed and every task has been migrated to a project → deal is fully done, lock it
   const thisVer = cg.versions.find(v => v.versionId === versionId);
-  const hasCommitted = (thisVer?.linkedProjects || []).some(lp => {
-    const proj = (config.projects || []).find(p => p.id === lp.projectId);
-    return proj?.pipeline === 'Committed';
-  });
-  if (hasCommitted) return {
+  if (isVersionCommittedLocked(thisVer)) return {
     locked: true, reason: 'committed',
-    message: 'This version is locked — the linked project has been committed.'
+    message: 'This version is locked — the proposal has been committed and every task has been migrated to a project.'
   };
 
   return { locked: false, reason: '', message: '' };
