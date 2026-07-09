@@ -105,7 +105,7 @@
 | CG-11 | JSON import | Import a valid JSON file | Structure replaced; saved to API; board reflects update | |
 | CG-12 | Pipeline stage change | Change stage dropdown | Badge updates; card moves to new column on board | |
 | CG-13 | Back button | Click ← Back | Returns to `/pipeline.html` with same year context | |
-| CG-14 | Locked version | View a version linked to a committed project | All edit controls disabled; 🔒 badge visible | |
+| CG-14 | Locked version | View a version whose own pipeline is Committed, with every task already migrated to a project | All edit controls disabled; 🔒 badge visible | |
 | CG-15 | Add role — default rates (no ratecard) | Open a version with no ratecard selected; click 👥 + Add role | Modal shows all roles with sand-colored rate badges; no ratecard hint in header | |
 | CG-16 | Add role — custom rates highlighted | Open a version with a client ratecard selected; click 👥 + Add role | Roles with custom entries show an indigo badge (✦ rate €/h) and light purple row background; modal header shows "✦ Custom rates from [ratecard name] applied." | |
 | CG-17 | Add role — correct rate applied | Select a role with a custom rate and confirm | Role column added with the custom rate (not agency default); budget calculation uses the custom rate | |
@@ -126,6 +126,9 @@
 | CG-32 | Generate Project button hidden when all tasks assigned (R4) | Assign all editor tasks to an existing linked project | "Generate Project" button is hidden; all tasks are already mapped so no new project is needed | |
 | CG-33 | Task list shown in linked-project chips — editor (R5) | Open a cost grid with tasks assigned to a linked project; inspect the linked-project chip in the editor | Chip lists the assigned task names below the project name | |
 | CG-34 | project-config.html — no empty load after navigation | Navigate to `project-config.html?projectId=<id>` immediately after leaving portfolio | Form loads with all fields populated; if `config.projects` is empty on first attempt the page retries `loadConfigFromApi()` once after 600ms and succeeds | |
+| CG-35 | Generate Project stays visible after partial commit | Version has ≥2 unmapped tasks; migrate task 1 to a project; set the version's own Pipeline to Committed; leave task 2 unmapped | "Generate Project" is still visible; editor fields still editable; no 🔒 badge — the version does not lock while any task remains unmapped, regardless of Committed status | |
+| CG-36 | Version locks only once fully committed | Continuing from CG-35: migrate the remaining task (task 2) to a project too | Now that every task is migrated and the version's pipeline is Committed, the editor locks: "Generate Project" hidden, 🔒 badge and lock banner shown, all fields disabled | |
+| CG-37 | Pipeline change propagates to all linked projects | Version has generated 2+ projects (from different tasks); change the version's Pipeline dropdown | Every linked project's own `pipeline` field updates to match, in the same save — not just the most recently generated one | |
 
 ---
 
@@ -159,6 +162,8 @@
 | PC-08 | Functional groups | Add group with roles → save | Group persisted; visible on next form load | |
 | PC-09 | Status change persists | Open project config; change Status dropdown from "Started" to "Put on hold" → Save | DB `status` column updated; reopening form shows new status; no FK constraint error from currency symbol | |
 | PC-10 | Currency round-trip | Project has currency "€" in form; save; reload | Form still shows "€"; DB stores "EUR"; PATCH does not fail with FK violation | |
+| PC-11 | Status options follow Pipeline — Committed includes Started At Risk | Set Pipeline to "Committed"; open the Status dropdown | Options include "Started At Risk" (alongside "Started", "Put on hold", "Completed") — same as "Expected"/"Anticipated" | |
+| PC-12 | Completed status — badge and Planning exclusion | Set Status to "Completed"; save; view the project's badge elsewhere; open Resource Planning | Badge renders navy ("Completed" style, not the default/grey fallback); project does not appear in Resource Planning's eligible-projects list | |
 
 ---
 

@@ -440,7 +440,7 @@ const SECTIONS = [
      steps:'Click ← Back in the cost grid editor header',
      expected:'Browser navigates back to /pipeline.html with the same year context'},
     {id:'CG-14',scenario:'Locked version',
-     steps:'View a version that is linked to a committed project',
+     steps:'View a version whose own pipeline is Committed, with every task already migrated to a project',
      expected:'All edit controls (add phase, add task, enter days) are disabled; 🔒 badge is visible on the version'},
     {id:'CG-15',scenario:'Add role modal — no ratecard selected',
      steps:'Open a version with no ratecard set; click 👥 + Add role',
@@ -502,6 +502,15 @@ const SECTIONS = [
     {id:'CG-34',scenario:'project-config.html — no empty load after navigation',
      steps:'Navigate to project-config.html?projectId=<id> immediately after leaving portfolio',
      expected:'Form loads with all fields populated; if config.projects is empty on first attempt the page retries loadConfigFromApi() once after 600ms and succeeds'},
+    {id:'CG-35',scenario:'Generate Project stays visible after partial commit',
+     steps:'Version has ≥2 unmapped tasks; migrate task 1 to a project; set the version\'s own Pipeline to Committed; leave task 2 unmapped',
+     expected:'"Generate Project" is still visible; editor fields still editable; no 🔒 badge — the version does not lock while any task remains unmapped, regardless of Committed status'},
+    {id:'CG-36',scenario:'Version locks only once fully committed',
+     steps:'Continuing from CG-35: migrate the remaining task (task 2) to a project too',
+     expected:'Now that every task is migrated and the version\'s pipeline is Committed, the editor locks: "Generate Project" hidden, 🔒 badge and lock banner shown, all fields disabled'},
+    {id:'CG-37',scenario:'Pipeline change propagates to all linked projects',
+     steps:'Version has generated 2+ projects (from different tasks); change the version\'s Pipeline dropdown',
+     expected:'Every linked project\'s own pipeline field updates to match, in the same save — not just the most recently generated one'},
   ]
 },
 {
@@ -569,6 +578,12 @@ const SECTIONS = [
     {id:'PC-10',scenario:'Currency round-trip',
      steps:'Project has currency "€" in form; save; reload page',
      expected:'Form still shows "€"; DB stores "EUR"; PATCH does not fail with FK violation on currencies table'},
+    {id:'PC-11',scenario:'Status options follow Pipeline — Committed includes Started At Risk',
+     steps:'Set Pipeline to "Committed"; open the Status dropdown',
+     expected:'Options include "Started At Risk" (alongside "Started", "Put on hold", "Completed") — same as "Expected"/"Anticipated"'},
+    {id:'PC-12',scenario:'Completed status — badge and Planning exclusion',
+     steps:'Set Status to "Completed"; save; view the project\'s badge elsewhere; open Resource Planning',
+     expected:'Badge renders navy ("Completed" style, not the default/grey fallback); project does not appear in Resource Planning\'s eligible-projects list'},
   ]
 },
 {

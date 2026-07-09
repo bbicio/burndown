@@ -152,8 +152,9 @@ Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as 
 
 **Versioning:**
 - Multiple versions per grid
-- A version is **locked** when: (a) a Committed linked project exists, or (b) another version in the same grid has a linked project
+- A version is **locked** when: (a) the proposal itself is Committed **and** every task has already been migrated to a project, or (b) another version in the same grid has a linked project
 - Locked versions display a 🔒 badge and are read-only
+- While the proposal is Committed but tasks remain unmapped, the version stays fully editable and "Generate Project" stays available for the remaining tasks — a proposal can generate more than one project over time, and being Committed does not by itself block that
 
 **Version actions:** Duplicate, Delete, JSON export/import
 
@@ -278,7 +279,7 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 | End date | YYYYMM | |
 | Currency | select | €, $, £, CHF |
 | Pipeline | select | Inherited from cost grid if linked |
-| Status | select | Project status |
+| Status | select | Project status; allowed values depend on Pipeline (e.g. `Started At Risk` is available for `Committed`, `Expected`, and `Anticipated`; `SIP` disables the field entirely; `Canceled` disables it and preserves the current value) |
 | Client | select | Optional |
 | Program | select | Optional |
 | Cost Grid Ref | auto | Set when generated from cost grid |
