@@ -1295,7 +1295,7 @@ function renderPortfolioPlanningByOwnerContent(container, projects, weeks) {
     }).join('');
   }
 
-  // Build ownerMap: owner → { sold, actuals, tbp, weekTotals, projects: { projId → { name, sold, actuals, tbp, weekTotals, roles: { role → { sold, actuals, tbp, weekData } } } } }
+  // Build ownerMap: owner → { sold, actuals, tbp, weekTotals, projects: { projId → { name, sold, actuals, tbp, weekTotals, tasks: { taskName → { sold, actuals, tbp, weekData } } } } }
   const ownerMap = {};
 
   projects.forEach(proj => {
@@ -1304,96 +1304,96 @@ function renderPortfolioPlanningByOwnerContent(container, projects, weeks) {
       if (task.completed) return;
       const tStart = task.startDate ? parseTaskDate(task.startDate, false) : null;
       const tEnd   = task.endDate   ? parseTaskDate(task.endDate,   true)  : null;
-      (task.resources || []).forEach(res => {
-        if (!rolePassesTeamFilter(res.role)) return;
-        const soldH    = res.soldHours || 0;
-        const roleRecs = projData.filter(r => matchesTaskRole(r, task.name, res.role));
 
-        // Past week data + owner totals
-        const roleWeekData = {};
-        const ownerTotals  = {};
-        let totalOwnerH    = 0;
+      const resources = (task.resources || []).filter(res => rolePassesTeamFilter(res.role));
+      if (!resources.length) return;
+      const soldH    = resources.reduce((s, res) => s + (res.soldHours || 0), 0);
+      const taskRecs = projData.filter(r => resources.some(res => matchesTaskRole(r, task.name, res.role)));
+
+      // Past week data + owner totals
+      const taskWeekData = {};
+      const ownerTotals  = {};
+      let totalOwnerH    = 0;
+
+      weeks.forEach(w => {
+        if (!w.isPast) return;
+        const key  = w.weekStart.toISOString();
+        const recs = taskRecs.filter(r => { const d = new Date(r.date); d.setHours(0,0,0,0); return d >= w.weekStart && d <= w.weekEnd; });
+        if (!recs.length) return;
+        const byOwner = {};
+        recs.forEach(r => { const o = r.owner?.trim() || '—'; byOwner[o] = (byOwner[o] || 0) + r.hours; });
+        taskWeekData[key] = { total: recs.reduce((s, r) => s + r.hours, 0), byOwner, isPulse: false, isPast: true };
+      });
+      taskRecs.forEach(r => { const o = r.owner?.trim() || '—'; ownerTotals[o] = (ownerTotals[o] || 0) + r.hours; });
+      Object.values(ownerTotals).forEach(h => { totalOwnerH += h; });
+
+      const consumedH = totalOwnerH;
+      const taskTbp   = computeResidual(soldH, consumedH);
+      if (soldH < 0.01 && consumedH < 0.01) return;
+
+      const ownerNames = Object.entries(ownerTotals).filter(([, h]) => h > 0.01).sort((a, b) => b[1] - a[1]).map(([o]) => o);
+      const hasOwners  = ownerNames.length > 0;
+
+      // Future week distribution
+      if (taskTbp > 0.01) {
+        const _owNow = new Date(); const _owTd = new Date(_owNow.getFullYear(), _owNow.getMonth(), _owNow.getDate());
+        const futureWeeks = weeks.filter(w => !w.isPast);
+        const taskWeeks   = tStart && tEnd ? futureWeeks.filter(w => w.weekEnd >= tStart && w.weekStart <= tEnd) : futureWeeks;
+        // Compute canonical count from task date range (stable regardless of view range)
+        const totalTaskFw = (tStart && tEnd) ? countFutureTaskWeeks(tStart, tEnd, _owTd) : taskWeeks.length;
+        const distribute  = (byOwner, hours) => {
+          if (totalOwnerH > 0.01) ownerNames.forEach(o => { byOwner[o] = (byOwner[o] || 0) + hours * (ownerTotals[o] / totalOwnerH); });
+          else byOwner['—'] = (byOwner['—'] || 0) + hours;
+        };
+
+        const monthMap = {};
+        taskWeeks.forEach(w => {
+          if (!monthMap[w.monthKey]) monthMap[w.monthKey] = [];
+          monthMap[w.monthKey].push(w.weekStart.toISOString());
+        });
+        const weeksByMonth = Object.entries(monthMap).map(([monthKey, weekKeys]) => ({ monthKey, weekKeys }));
+
+        distributeFutureResidual(taskTbp, totalTaskFw, weeksByMonth, portfolioMonthlyPulse).forEach(entry => {
+          if (!taskWeekData[entry.key]) taskWeekData[entry.key] = { total: 0, byOwner: {}, isPulse: entry.isPulse, isPast: false };
+          taskWeekData[entry.key].total += entry.hours;
+          if (entry.isPulse) taskWeekData[entry.key].isPulse = true;
+          distribute(taskWeekData[entry.key].byOwner, entry.hours);
+        });
+      }
+
+      // Pivot into ownerMap
+      const displayOwners = hasOwners ? ownerNames : ['—'];
+      displayOwners.forEach(ownerName => {
+        const isPlaceholder = ownerName === '—';
+        const ownerProp    = totalOwnerH > 0.01 ? (ownerTotals[ownerName] || 0) / totalOwnerH : (isPlaceholder ? 1 : 0);
+        const ownerSold    = soldH * ownerProp;
+        const ownerActuals = ownerTotals[ownerName] || 0;
+        const ownerTbpH    = taskTbp * ownerProp;
+
+        if (!ownerMap[ownerName]) ownerMap[ownerName] = { sold: 0, actuals: 0, tbp: 0, weekTotals: {}, projects: {} };
+        const om = ownerMap[ownerName];
+        om.sold += ownerSold; om.actuals += ownerActuals; om.tbp += ownerTbpH;
+
+        if (!om.projects[proj.id]) om.projects[proj.id] = { name: proj.name || proj.id, sold: 0, actuals: 0, tbp: 0, weekTotals: {}, tasks: {} };
+        const pm = om.projects[proj.id];
+        pm.sold += ownerSold; pm.actuals += ownerActuals; pm.tbp += ownerTbpH;
+
+        if (!pm.tasks[task.name]) pm.tasks[task.name] = { sold: 0, actuals: 0, tbp: 0, weekData: {} };
+        const tm = pm.tasks[task.name];
+        tm.sold += ownerSold; tm.actuals += ownerActuals; tm.tbp += ownerTbpH;
 
         weeks.forEach(w => {
-          if (!w.isPast) return;
-          const key  = w.weekStart.toISOString();
-          const recs = roleRecs.filter(r => { const d = new Date(r.date); d.setHours(0,0,0,0); return d >= w.weekStart && d <= w.weekEnd; });
-          if (!recs.length) return;
-          const byOwner = {};
-          recs.forEach(r => { const o = r.owner?.trim() || '—'; byOwner[o] = (byOwner[o] || 0) + r.hours; });
-          roleWeekData[key] = { total: recs.reduce((s, r) => s + r.hours, 0), byOwner, isPulse: false, isPast: true };
-        });
-        roleRecs.forEach(r => { const o = r.owner?.trim() || '—'; ownerTotals[o] = (ownerTotals[o] || 0) + r.hours; });
-        Object.values(ownerTotals).forEach(h => { totalOwnerH += h; });
-
-        const consumedH = totalOwnerH;
-        const roleTbp   = computeResidual(soldH, consumedH);
-        if (soldH < 0.01 && consumedH < 0.01) return;
-
-        const ownerNames = Object.entries(ownerTotals).filter(([, h]) => h > 0.01).sort((a, b) => b[1] - a[1]).map(([o]) => o);
-        const hasOwners  = ownerNames.length > 0;
-
-        // Future week distribution
-        if (roleTbp > 0.01) {
-          const _owNow = new Date(); const _owTd = new Date(_owNow.getFullYear(), _owNow.getMonth(), _owNow.getDate());
-          const futureWeeks = weeks.filter(w => !w.isPast);
-          const taskWeeks   = tStart && tEnd ? futureWeeks.filter(w => w.weekEnd >= tStart && w.weekStart <= tEnd) : futureWeeks;
-          // Compute canonical count from task date range (stable regardless of view range)
-          const totalTaskFw = (tStart && tEnd) ? countFutureTaskWeeks(tStart, tEnd, _owTd) : taskWeeks.length;
-          const distribute  = (byOwner, hours) => {
-            if (totalOwnerH > 0.01) ownerNames.forEach(o => { byOwner[o] = (byOwner[o] || 0) + hours * (ownerTotals[o] / totalOwnerH); });
-            else byOwner['—'] = (byOwner['—'] || 0) + hours;
-          };
-
-          const monthMap = {};
-          taskWeeks.forEach(w => {
-            if (!monthMap[w.monthKey]) monthMap[w.monthKey] = [];
-            monthMap[w.monthKey].push(w.weekStart.toISOString());
-          });
-          const weeksByMonth = Object.entries(monthMap).map(([monthKey, weekKeys]) => ({ monthKey, weekKeys }));
-
-          distributeFutureResidual(roleTbp, totalTaskFw, weeksByMonth, portfolioMonthlyPulse).forEach(entry => {
-            if (!roleWeekData[entry.key]) roleWeekData[entry.key] = { total: 0, byOwner: {}, isPulse: entry.isPulse, isPast: false };
-            roleWeekData[entry.key].total += entry.hours;
-            if (entry.isPulse) roleWeekData[entry.key].isPulse = true;
-            distribute(roleWeekData[entry.key].byOwner, entry.hours);
-          });
-        }
-
-        // Pivot into ownerMap
-        const displayOwners = hasOwners ? ownerNames : ['—'];
-        displayOwners.forEach(ownerName => {
-          const isPlaceholder = ownerName === '—';
-          const ownerProp    = totalOwnerH > 0.01 ? (ownerTotals[ownerName] || 0) / totalOwnerH : (isPlaceholder ? 1 : 0);
-          const ownerSold    = soldH * ownerProp;
-          const ownerActuals = ownerTotals[ownerName] || 0;
-          const ownerTbpH    = roleTbp * ownerProp;
-
-          if (!ownerMap[ownerName]) ownerMap[ownerName] = { sold: 0, actuals: 0, tbp: 0, weekTotals: {}, projects: {} };
-          const om = ownerMap[ownerName];
-          om.sold += ownerSold; om.actuals += ownerActuals; om.tbp += ownerTbpH;
-
-          if (!om.projects[proj.id]) om.projects[proj.id] = { name: proj.name || proj.id, sold: 0, actuals: 0, tbp: 0, weekTotals: {}, roles: {} };
-          const pm = om.projects[proj.id];
-          pm.sold += ownerSold; pm.actuals += ownerActuals; pm.tbp += ownerTbpH;
-
-          if (!pm.roles[res.role]) pm.roles[res.role] = { sold: 0, actuals: 0, tbp: 0, weekData: {} };
-          const rm = pm.roles[res.role];
-          rm.sold += ownerSold; rm.actuals += ownerActuals; rm.tbp += ownerTbpH;
-
-          weeks.forEach(w => {
-            const key = w.weekStart.toISOString();
-            const d   = roleWeekData[key];
-            if (!d) return;
-            const oh = d.byOwner[ownerName] || 0;
-            if (oh < 0.001) return;
-            if (!rm.weekData[key]) rm.weekData[key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
-            rm.weekData[key].hours += oh;
-            if (!pm.weekTotals[key]) pm.weekTotals[key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
-            pm.weekTotals[key].hours += oh;
-            if (!om.weekTotals[key]) om.weekTotals[key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
-            om.weekTotals[key].hours += oh;
-          });
+          const key = w.weekStart.toISOString();
+          const d   = taskWeekData[key];
+          if (!d) return;
+          const oh = d.byOwner[ownerName] || 0;
+          if (oh < 0.001) return;
+          if (!tm.weekData[key]) tm.weekData[key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
+          tm.weekData[key].hours += oh;
+          if (!pm.weekTotals[key]) pm.weekTotals[key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
+          pm.weekTotals[key].hours += oh;
+          if (!om.weekTotals[key]) om.weekTotals[key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
+          om.weekTotals[key].hours += oh;
         });
       });
     });
@@ -1431,7 +1431,7 @@ function renderPortfolioPlanningByOwnerContent(container, projects, weeks) {
   const periodLabels = periods.map(p => isMonthly ? p.label : p.dateTitle);
   const periodMeta   = periods.map(p => ({ isPast: p.isPast, isCurrent: p.isCurrent ?? false }));
   const exportRows = [];
-  exportRows.push({ v: ['Owner', 'Project', 'Role', 'Sold', 'From actuals', 'To be planned', ...periodLabels], level: 'header' });
+  exportRows.push({ v: ['Owner', 'Project', 'Task', 'Sold', 'From actuals', 'To be planned', ...periodLabels], level: 'header' });
   let tbodyHtml = '';
   let ownerGroupIdx = 0;
   let grandSold = 0, grandActuals = 0, grandTbp = 0;
@@ -1473,17 +1473,17 @@ function renderPortfolioPlanningByOwnerContent(container, projects, weeks) {
       exportRows.push({ v: ['', pm.name, '', rnd(pm.sold), rnd(pm.actuals), rnd(pm.tbp),
         ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (pm.weekTotals[k]?.hours || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'task' });
 
-      Object.entries(pm.roles).sort((a, b) => a[0].localeCompare(b[0])).forEach(([role, rm]) => {
+      Object.entries(pm.tasks).sort((a, b) => a[0].localeCompare(b[0])).forEach(([taskName, tm]) => {
         tbodyHtml += `
           <tr data-parent-group="${oid}" style="background:#fafafa">
-            <td style="${SB}left:0;background:#fafafa;font-size:var(--text-sm);padding:4px 8px 4px 38px;font-weight:600;border:1px solid var(--border-light);white-space:nowrap;color:#444">${esc(role)}</td>
-            <td style="${SB}left:200px;background:var(--sand-50);text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);color:var(--text-muted)">${fmtPH(rm.sold)}</td>
-            <td style="${SB}left:265px;background:var(--sand-50);text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);color:#555">${fmtPH(rm.actuals)}</td>
-            <td style="${SB}left:345px;background:var(--sand-50);text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);color:#555">${fmtPH(rm.tbp)}</td>
-            ${makePeriodCells(rm.weekData, null, true)}
+            <td style="${SB}left:0;background:#fafafa;font-size:var(--text-sm);padding:4px 8px 4px 38px;font-weight:600;border:1px solid var(--border-light);white-space:nowrap;color:#444">${esc(taskName)}</td>
+            <td style="${SB}left:200px;background:var(--sand-50);text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);color:var(--text-muted)">${fmtPH(tm.sold)}</td>
+            <td style="${SB}left:265px;background:var(--sand-50);text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);color:#555">${fmtPH(tm.actuals)}</td>
+            <td style="${SB}left:345px;background:var(--sand-50);text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);color:#555">${fmtPH(tm.tbp)}</td>
+            ${makePeriodCells(tm.weekData, null, true)}
           </tr>`;
-        exportRows.push({ v: ['', '', role, rnd(rm.sold), rnd(rm.actuals), rnd(rm.tbp),
-          ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (rm.weekData[k]?.hours || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'role' });
+        exportRows.push({ v: ['', '', taskName, rnd(tm.sold), rnd(tm.actuals), rnd(tm.tbp),
+          ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (tm.weekData[k]?.hours || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'role' });
       });
     });
   });
@@ -1504,7 +1504,7 @@ function renderPortfolioPlanningByOwnerContent(container, projects, weeks) {
   container.innerHTML = `
     <div class="alert alert-light border mb-3" style="font-size:var(--text-base);color:#444;line-height:1.7">
       <strong>Estimation logic (By Owner):</strong>
-      The table is structured as <strong>Owner → Project → Role</strong>.
+      The table is structured as <strong>Owner → Project → Task</strong>.
       <strong>Past weeks</strong> show <em>actual</em> hours from timesheets.
       <strong>Future weeks</strong> show each owner's proportional share of remaining hours (sold − consumed).
       If no owner is found in the actuals, hours are assigned to a <em>TBD</em> placeholder.
@@ -1516,7 +1516,7 @@ function renderPortfolioPlanningByOwnerContent(container, projects, weeks) {
     <table class="gantt-table" id="ppResourceTable" style="border-collapse:collapse;width:100%">
       <thead>
         <tr>
-          <th rowspan="${rowspan}" style="${SH}left:0;min-width:200px;background:#d8dff7;font-size:var(--text-base);padding:8px 10px;border:1px solid var(--border-light);white-space:nowrap">Owner / Project / Role</th>
+          <th rowspan="${rowspan}" style="${SH}left:0;min-width:200px;background:#d8dff7;font-size:var(--text-base);padding:8px 10px;border:1px solid var(--border-light);white-space:nowrap">Owner / Project / Task</th>
           <th rowspan="${rowspan}" style="${SH}left:200px;min-width:65px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">Sold</th>
           <th rowspan="${rowspan}" style="${SH}left:265px;min-width:80px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">From<br>actuals</th>
           <th rowspan="${rowspan}" title="To be planned can exceed Sold − Actuals when a role has multiple tasks and one is over-consumed — hours over budget on one task aren't subtracted from another task's remaining budget." style="${SH}left:345px;min-width:90px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);text-align:center;white-space:nowrap">To be<br>planned</th>
