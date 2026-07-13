@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { formatDate, resolveColumnMap } = require('./timesheets');
+const { formatDate, resolveColumnMap, trimRowKeys } = require('./timesheets');
 
 test('formatDate: native Date instance is unaffected by this change', () => {
   const d = new Date(Date.UTC(2026, 2, 15)); // March 15, 2026
@@ -67,4 +67,50 @@ test('resolveColumnMap: two owners sharing a role resolve to distinct row values
   assert.equal(rows[1][map.colOwner], 'Bob');
   assert.notEqual(rows[0][map.colOwner], rows[0][map.colRole]);
   assert.notEqual(rows[1][map.colOwner], rows[1][map.colRole]);
+});
+
+test('trimRowKeys: trims every key, leaves values untouched', () => {
+  const row = { ' Date ': '2026-06-15', 'Role: Name    ': 'HWGDEV - DEVELOPER', 'Hours': 8 };
+  const trimmed = trimRowKeys(row);
+  assert.deepEqual(trimmed, { 'Date': '2026-06-15', 'Role: Name': 'HWGDEV - DEVELOPER', 'Hours': 8 });
+});
+
+test('trimRowKeys: a row with no whitespace in any key is unchanged', () => {
+  const row = { Date: '2026-06-15', Role: 'Developer', Hours: 8 };
+  assert.deepEqual(trimRowKeys(row), row);
+});
+
+test('trimRowKeys + resolveColumnMap: real header list resolves every field correctly, not empty', () => {
+  // Exact real source headers (docs/superpowers/specs/2026-07-13-timesheet-owner-role-mapping-fix-design.md):
+  // every header except Date and WF Project Name has trailing whitespace.
+  const rawRow = {
+    'Date': '2026-06-15',
+    'Job ': 'HWGDEV',
+    'Role: Name    ': 'HWGDEV - DEVELOPER',
+    'Hour Type    ': 'Billable',
+    'Owner: Name    ': 'Mario Rossi',
+    'Hours    ': 8,
+    'Task/Issue    ': 'Build API',
+    'Notes    ': '',
+    'D365 Project ID    ': 'HITA.000001823.001',
+    'WF Project Name': 'Some Project',
+  };
+
+  const row = trimRowKeys(rawRow);
+  const sampleKeys = Object.keys(row);
+  const map = resolveColumnMap(sampleKeys);
+
+  // Same field-extraction logic as POST /upload (api/src/routes/timesheets.js:121-130)
+  const role        = map.colRole     ? String(row[map.colRole] ?? '').trim() : null;
+  const owner       = map.colOwner    ? String(row[map.colOwner] ?? '').trim() : null;
+  const hours       = map.colHours    ? (parseFloat(row[map.colHours]) || 0) : 0;
+  const task        = map.colTask     ? String(row[map.colTask] ?? '').trim() : null;
+  const projectCode = map.colProjId   ? String(row[map.colProjId] ?? '').trim() : '';
+
+  assert.equal(role, 'HWGDEV - DEVELOPER');
+  assert.equal(owner, 'Mario Rossi');
+  assert.notEqual(role, owner); // the original symptom: these used to collapse to the same value
+  assert.equal(hours, 8);
+  assert.equal(task, 'Build API');
+  assert.equal(projectCode, 'HITA.000001823.001'); // empty would silently drop the whole row
 });
