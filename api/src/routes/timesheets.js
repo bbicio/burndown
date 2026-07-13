@@ -90,12 +90,12 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res, next
 
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
     const sheetName = workbook.SheetNames[0];
-    const raw = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null });
+    const raw = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null }).map(trimRowKeys);
 
     if (!raw.length) return res.status(400).json({ error: 'File is empty or unreadable' });
 
     // Detect column mapping (case-insensitive, trimmed)
-    const sampleKeys = Object.keys(raw[0]).map(k => k.trim());
+    const sampleKeys = Object.keys(raw[0]); // already trimmed by trimRowKeys above
     const {
       colDate, colRole, colOwner, colHours, colTask, colNotes, colProjId, colProjName,
     } = resolveColumnMap(sampleKeys);
@@ -187,6 +187,12 @@ router.delete('/:projectCode', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+function trimRowKeys(row) {
+  const trimmed = {};
+  for (const key of Object.keys(row)) trimmed[key.trim()] = row[key];
+  return trimmed;
+}
+
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
 function resolveColumnMap(headers) {
@@ -222,3 +228,4 @@ function formatDate(val) {
 module.exports = router;
 module.exports.formatDate = formatDate;
 module.exports.resolveColumnMap = resolveColumnMap;
+module.exports.trimRowKeys = trimRowKeys;
