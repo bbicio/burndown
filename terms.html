@@ -52,91 +52,88 @@
       box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
     }
     .confirm-bar label { font-size: .9rem; color: var(--text-primary); cursor: pointer; user-select: none; }
-    #btnAccept { min-width: 200px; }
-    #errMsg { color: #dc3545; font-size: .83rem; display: none; }
   </style>
 </head>
 <body>
 
-  <div class="terms-header">
-    <span class="brand-name"><span class="p">P</span>Dash</span>
-    <span style="color:rgba(255,255,255,.5);margin-left:16px;font-size:.85rem">Terms of Use &amp; Privacy Notice</span>
-  </div>
-
-  <div class="terms-card">
-    <h1>Terms of Use &amp; Privacy Notice <span class="version-badge" id="versionLabel">…</span></h1>
-    <p style="color:var(--text-muted);font-size:.82rem" id="effectiveDate">Loading…</p>
-    <div id="termsBody" style="min-height:200px"></div>
-    <div style="height:80px"></div>
-  </div>
-
-  <div class="confirm-bar">
-    <div class="d-flex align-items-center gap-3">
-      <input type="checkbox" id="chkRead" class="form-check-input" style="width:1.2em;height:1.2em;cursor:pointer;margin-top:0">
-      <label for="chkRead">I have read and understood this notice</label>
+  <div id="app">
+    <div class="terms-header">
+      <span class="brand-name"><span class="p">P</span>Dash</span>
+      <span style="color:rgba(255,255,255,.5);margin-left:16px;font-size:.85rem">Terms of Use &amp; Privacy Notice</span>
     </div>
-    <div class="d-flex align-items-center gap-3">
-      <span id="errMsg">Please confirm you have read the notice before continuing.</span>
-      <button id="btnAccept" class="btn btn-primary" style="background:var(--brand-navy);border-color:var(--brand-navy)">
-        Continue to PDash
-      </button>
+
+    <div class="terms-card">
+      <h1>Terms of Use &amp; Privacy Notice <span class="version-badge">{{ version ? 'v' + version : '…' }}</span></h1>
+      <p style="color:var(--text-muted);font-size:.82rem">{{ effectiveDate || 'Loading…' }}</p>
+      <div style="min-height:200px">
+        <div v-if="termsContent" v-html="termsContent"></div>
+        <div v-else-if="loadError">{{ loadError }}</div>
+      </div>
+      <div style="height:80px"></div>
+    </div>
+
+    <div class="confirm-bar">
+      <div class="d-flex align-items-center gap-3">
+        <input type="checkbox" id="chkRead" v-model="checked" class="form-check-input" style="width:1.2em;height:1.2em;cursor:pointer;margin-top:0">
+        <label for="chkRead">I have read and understood this notice</label>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <span v-if="errorMsg" style="color:#dc3545;font-size:.83rem">{{ errorMsg }}</span>
+        <button @click="accept" :disabled="!checked || saving" class="btn btn-primary" style="background:var(--brand-navy);border-color:var(--brand-navy);min-width:200px">
+          {{ saving ? 'Saving…' : 'Continue to PDash' }}
+        </button>
+      </div>
     </div>
   </div>
 
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script>
-    const params = new URLSearchParams(window.location.search);
-    const next   = params.get('next') || '/pipeline.html';
-
-    const btn    = document.getElementById('btnAccept');
-    const chk    = document.getElementById('chkRead');
-    const errMsg = document.getElementById('errMsg');
-
-    // Load T&C content from API
-    (async () => {
-      try {
-        const r = await fetch('/api/app-settings/terms', { credentials: 'include' });
-        if (r.status === 401) { window.location.href = '/login.html'; return; }
-        const d = await r.json();
-        document.getElementById('versionLabel').textContent = 'v' + d.version;
-        document.getElementById('effectiveDate').textContent =
-          d.updatedAt
+    Vue.createApp({
+      data() {
+        return {
+          next: new URLSearchParams(window.location.search).get('next') || '/pipeline.html',
+          version: null,
+          effectiveDate: '',
+          termsContent: '',
+          loadError: '',
+          checked: false,
+          saving: false,
+          errorMsg: '',
+        };
+      },
+      async mounted() {
+        try {
+          const r = await fetch('/api/app-settings/terms', { credentials: 'include' });
+          if (r.status === 401) { window.location.href = '/login.html'; return; }
+          const d = await r.json();
+          this.version = d.version;
+          this.effectiveDate = d.updatedAt
             ? 'Effective from: ' + new Date(d.updatedAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })
             : '';
-        document.getElementById('termsBody').innerHTML = d.content;
-      } catch (e) {
-        document.getElementById('termsBody').textContent = 'Unable to load terms. Please refresh or contact your administrator.';
-      }
-    })();
-
-    // Button disabled until checkbox is ticked
-    btn.disabled = true;
-    btn.style.opacity = '0.5';
-
-    chk.addEventListener('change', () => {
-      btn.disabled = !chk.checked;
-      btn.style.opacity = chk.checked ? '1' : '0.5';
-      errMsg.style.display = 'none';
-    });
-
-    btn.addEventListener('click', async () => {
-      btn.disabled = true;
-      btn.textContent = 'Saving…';
-      try {
-        const r = await fetch('/api/auth/accept-terms', {
-          method: 'POST', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        if (r.status === 401) { window.location.href = '/login.html'; return; }
-        if (!r.ok) throw new Error('Server error ' + r.status);
-        window.location.href = next;
-      } catch (e) {
-        btn.disabled = false;
-        btn.style.opacity = '1';
-        btn.textContent = 'Continue to PDash';
-        errMsg.textContent = 'Could not save. Please try again.';
-        errMsg.style.display = 'inline';
-      }
-    });
+          this.termsContent = d.content;
+        } catch (e) {
+          this.loadError = 'Unable to load terms. Please refresh or contact your administrator.';
+        }
+      },
+      methods: {
+        async accept() {
+          this.saving = true;
+          this.errorMsg = '';
+          try {
+            const r = await fetch('/api/auth/accept-terms', {
+              method: 'POST', credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+            });
+            if (r.status === 401) { window.location.href = '/login.html'; return; }
+            if (!r.ok) throw new Error('Server error ' + r.status);
+            window.location.href = this.next;
+          } catch (e) {
+            this.saving = false;
+            this.errorMsg = 'Could not save. Please try again.';
+          }
+        },
+      },
+    }).mount('#app');
   </script>
 </body>
 </html>
