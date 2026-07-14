@@ -701,7 +701,7 @@ burndown/
   config.html             ← admin config (clients, programs, roles, pipelines & POTs); Role edit form shows per-currency rate fields populated from `rateOverrides`; "Proposal Phasing" view (was "Phasing") excludes Canceled/Draft stages; monthly cells show local amount + EUR equivalent for non-EUR proposals; `phasingTableHtml` adds Total column and removes collapsible detail; `openClientRatecard` fixed filter and shows agency default per-currency placeholder
   project-config.html     ← full-page project config form
   admin.html              ← user management; "🗑 Anonymize" button on disabled non-anonymized users; T&C editor (admin: view version, edit HTML, save draft / publish new version)
-  terms.html              ← standalone T&C acceptance page (no initNav); shown by gate in initNav() when user.terms_version < current; loaded from /api/app-settings/terms; POST /api/auth/accept-terms on confirm
+  terms.html              ← standalone T&C acceptance page (no initNav), Vue 3 (CDN, no build step, same pattern as login.html); shown by gate in initNav() when user.terms_version < current; loaded from /api/app-settings/terms; POST /api/auth/accept-terms on confirm
   login.html / activate.html / reset-password.html
   _db-reset.html          ← admin-only hidden page for bulk DB data deletion by scope
   nginx.conf              ← denies dev-only toolchain artifacts (node_modules/, package.json, package-lock.json,

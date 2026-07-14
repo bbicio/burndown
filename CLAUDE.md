@@ -76,7 +76,7 @@ timesheets.html          — timesheet upload (admin only)
 config.html              — config UI (clients / client groups / programs / roles / pipelines & POT targets; admin only)
 project-config.html      — full-page project config form (tasks, phasing, planning, groups)
 admin.html               — user management (invite, role, disable, anonymize; admin only); T&C editor (view/edit/publish)
-terms.html               — standalone T&C acceptance page (no navbar/initNav); redirected to by initNav() gate
+terms.html               — standalone T&C acceptance page (no navbar/initNav), Vue 3 (CDN, no build step, same pattern as login.html); redirected to by initNav() gate
 css/tokens.css           — design tokens (single source of truth for colors/type)
 css/style.css            — component styles referencing tokens
 js/api.js                — Api.* namespace, apiFetch wrapper (401 → redirect to login)
