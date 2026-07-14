@@ -79,7 +79,7 @@
       </div>
       <div class="d-flex align-items-center gap-3">
         <span v-if="errorMsg" style="color:#dc3545;font-size:.83rem">{{ errorMsg }}</span>
-        <button @click="accept" :disabled="!checked || saving" :style="{ opacity: (!checked || saving) ? '0.5' : '1' }" class="btn btn-primary" style="background:var(--brand-navy);border-color:var(--brand-navy);min-width:200px">
+        <button @click="accept" :disabled="!checked || saving" :style="{ opacity: checked ? '1' : '0.5' }" class="btn btn-primary" style="background:var(--brand-navy);border-color:var(--brand-navy);min-width:200px">
           {{ saving ? 'Saving…' : 'Continue to PDash' }}
         </button>
       </div>
