@@ -622,6 +622,12 @@ const SECTIONS = [
     {id:'PL-11',scenario:'Monthly Pulse cell placement consistent across views',
      steps:'With Monthly Pulse active',
      expected:'All three views place the aggregated cell on the month\'s first week (not the last). Covered by a vitest characterization test.'},
+    {id:'PL-12',scenario:'By Owner groups by task, not role',
+     steps:'Select "By Owner"; find an owner with hours logged on 2+ tasks in the same project',
+     expected:'Rows are grouped as Owner → Project → Task (not Role); one row per task, not per role'},
+    {id:'PL-13',scenario:'By Owner aggregates multi-role tasks into one row',
+     steps:'Select "By Owner"; find a task with 2+ sold roles (e.g. Developer + QA)',
+     expected:'That task\'s Sold/Actuals/To be planned sum both roles into a single task row'},
   ]
 },
 {

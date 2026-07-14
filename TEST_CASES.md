@@ -182,6 +182,8 @@
 | PL-09 | Monthly Pulse threshold consistent across views, independent of visible window | Enable Monthly Pulse toggle on data where a role's canonical hours/week is `< 1`, then page to a shorter visible date window | By Owner activates the pulse in agreement with By Role/By Project; the threshold does not flip as the visible window changes | ✓ (vitest) |
 | PL-10 | Monthly Pulse monthly totals match across views | With Monthly Pulse active on a role spanning months with different week counts | By Owner's monthly total for each month matches By Role/By Project's (proportional to that month's calendar weeks, not divided equally per month) | ✓ (vitest) |
 | PL-11 | Monthly Pulse cell placement consistent across views | With Monthly Pulse active | All three views place the aggregated cell on the month's first week (not the last) | ✓ (vitest) |
+| PL-12 | By Owner groups by task, not role | Select "By Owner"; find an owner with hours logged on 2+ tasks in the same project | Rows are grouped as Owner → Project → **Task** (not Role); one row per task, not per role | |
+| PL-13 | By Owner aggregates multi-role tasks into one row | Select "By Owner"; find a task with 2+ sold roles (e.g. Developer + QA) | That task's Sold/Actuals/To be planned sum both roles into a single task row | |
 
 ---
 
