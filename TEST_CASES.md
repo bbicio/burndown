@@ -306,7 +306,6 @@
 | AD-07 | Enable user | Click Enable on a disabled user | Status → active; user can log in again | |
 | AD-08 | Cannot modify self | View own row in user list | No role/status buttons — "(you)" label shown instead | |
 | AD-09 | Pipeline years absent | Open admin.html | No pipeline years section — managed in config.html | |
-| AD-10 | Data Migration button absent | Open admin.html | No "↑ Data Migration" button — migration.html is no longer linked from the UI | |
 | AD-11 | Rate Cards button absent | Open admin.html | No "💲 Rate Cards" button — rate card management moved to Config → Clients | |
 | AD-12 | Anonymize button — only on disabled non-anonymized | View a disabled user row that has a real email | "🗑 Anonymize" button visible; "anonymized" badge absent | |
 | AD-13 | Anonymize button — hidden on active user | View an active user row | "🗑 Anonymize" button not shown | |

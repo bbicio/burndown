@@ -62,7 +62,6 @@ Multi-page Vanilla JS app backed by a Node.js/Express REST API and PostgreSQL. N
 | `login.html` | `/login.html` | Public — login form |
 | `activate.html` | `/activate.html?token=` | Public — account activation |
 | `reset-password.html` | `/reset-password.html?token=` | Public — password reset |
-| `migration.html` | `/migration.html` | One-time data migration tool |
 | `_db-reset.html` | `/_db-reset.html` | Admin-only hidden page for bulk DB data deletion by scope; also has "Delete single proposal" widget (UUID input, cascade delete) and "Change proposal owner" widget (UUID + active-user dropdown) |
 
 ### File structure

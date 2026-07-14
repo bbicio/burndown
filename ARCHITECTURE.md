@@ -703,7 +703,6 @@ burndown/
   admin.html              ← user management; "🗑 Anonymize" button on disabled non-anonymized users; T&C editor (admin: view version, edit HTML, save draft / publish new version)
   terms.html              ← standalone T&C acceptance page (no initNav); shown by gate in initNav() when user.terms_version < current; loaded from /api/app-settings/terms; POST /api/auth/accept-terms on confirm
   login.html / activate.html / reset-password.html
-  migration.html          ← one-time localStorage → API migration tool
   _db-reset.html          ← admin-only hidden page for bulk DB data deletion by scope
   nginx.conf              ← denies dev-only toolchain artifacts (node_modules/, package.json, package-lock.json,
                             vitest.config.js, *.test.js, *.spec.js) even though it bind-mounts the repo root
@@ -719,7 +718,7 @@ burndown/
 
 **Status: Complete.** The localStorage → API migration has been completed. **localStorage is no longer used for server data.**
 
-The `migration.html` tool was used for the one-time migration of existing localStorage data into the PostgreSQL database. It is kept in the repo for reference and disaster recovery but is no longer needed for new installations.
+The `migration.html` tool was used for the one-time migration of existing localStorage data into the PostgreSQL database. It has been removed from the repo (`docs/superpowers/plans/2026-07-14-vue-migration-roadmap.md`) — the migration itself is long complete and the tool was already unreachable from the UI before this removal.
 
 New users start fresh: an admin creates an account via the invite flow, then uses the app directly against the API.
 
