@@ -61,14 +61,33 @@ Run the full closeout sequence for the current feature branch: test, optional ma
    - Include the pre-flight divergence note from check 5, if it fired.
 2. Show the full summary. Ask explicitly: "Proceed with merge? [yes/no]"
    - If the answer is anything other than a clear yes: stop and wait.
-3. If confirmed, run in sequence:
+3. **CWD safety check (worktrees):** run:
+   ```bash
+   GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
+   GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
+   ```
+   If `GIT_DIR != GIT_COMMON`, the current checkout is a linked worktree — `git checkout main` from here will fail because `main` is already checked out elsewhere. Before continuing, `cd` to the main repo root:
+   ```bash
+   MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
+   cd "$MAIN_ROOT"
+   ```
+   If `GIT_DIR == GIT_COMMON`, this step is a no-op — proceed from the current directory.
+4. If confirmed, run in sequence (from the main repo root, per step 3):
    ```bash
    git checkout main
    git merge --no-ff <branch>
    git push origin main
    ```
    - If `git merge` reports conflicts: stop immediately, run `git status` to list the conflicting files, show them, and do not attempt automatic resolution.
-4. After a successful push, ask explicitly: "Delete the local branch `<branch>`? [yes/no]" — no default either way.
+5. **Worktree cleanup (only if step 3 detected a linked worktree):** the branch just merged was checked out in a linked worktree at some path `<worktree-path>`. Before deleting the branch (step 6), remove the worktree — `git branch -d` fails while a worktree still references the branch.
+   - Only remove worktrees whose path is under `.worktrees/`, `worktrees/`, or `.claude/worktrees/` — this project's own worktree conventions. If the path doesn't match, do not remove it; note that cleanup was skipped because the worktree isn't one this process owns.
+   - From the main repo root:
+     ```bash
+     git worktree remove "<worktree-path>"
+     git worktree prune
+     ```
+   - If removal fails (a recurring, known issue in this environment — locked files, leftover `node_modules`, or a stale IDE handle): this is non-blocking. Report the failure, confirm via `git status --short` inside the worktree path that nothing uncommitted would be lost, and continue — git itself already deregisters the worktree correctly even when the physical directory can't be deleted; leaving the orphaned directory does not block the rest of the cycle.
+6. After a successful push (and worktree cleanup, if applicable), ask explicitly: "Delete the local branch `<branch>`? [yes/no]" — no default either way.
    - If yes: run `git branch -d <branch>`.
    - If no: leave the branch as-is.
 
