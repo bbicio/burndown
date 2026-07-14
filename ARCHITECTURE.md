@@ -718,7 +718,7 @@ burndown/
 
 **Status: Complete.** The localStorage → API migration has been completed. **localStorage is no longer used for server data.**
 
-The `migration.html` tool was used for the one-time migration of existing localStorage data into the PostgreSQL database. It has been removed from the repo (`docs/superpowers/plans/2026-07-14-vue-migration-roadmap.md`) — the migration itself is long complete and the tool was already unreachable from the UI (see `TEST_CASES.md` AD-10, prior to this cycle).
+The `migration.html` tool was used for the one-time migration of existing localStorage data into the PostgreSQL database. It has been removed from the repo (`docs/superpowers/plans/2026-07-14-vue-migration-roadmap.md`) — the migration itself is long complete and the tool was already unreachable from the UI before this removal.
 
 New users start fresh: an admin creates an account via the invite flow, then uses the app directly against the API.
 
