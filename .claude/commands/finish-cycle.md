@@ -1,6 +1,6 @@
 # /finish-cycle — Development Cycle Closeout Command
 
-Run the full closeout sequence for the current feature branch: test, optional manual-verification gate, code review, merge to main, doc sync, and a persisted report. Every judgment gate (code review findings, merge, the doc-sync/report push) always stops for explicit confirmation. Only objective gates (test pass/fail, pre-flight checks) block or unblock without asking.
+Run the full closeout sequence for the current feature branch: test, optional manual-verification gate, code review, merge to main, backend restart (if applicable), doc sync, and a persisted report. Every judgment gate (code review findings, merge, the backend restart, the doc-sync/report push) always stops for explicit confirmation. Only objective gates (test pass/fail, pre-flight checks) block or unblock without asking.
 
 ## Pre-flight (automatic, no confirmation)
 
@@ -79,7 +79,12 @@ Run the full closeout sequence for the current feature branch: test, optional ma
    git push origin main
    ```
    - If `git merge` reports conflicts: stop immediately, run `git status` to list the conflicting files, show them, and do not attempt automatic resolution.
-5. **Worktree cleanup (only if step 3 detected a linked worktree):** the branch just merged was checked out in a linked worktree at some path `<worktree-path>`. Before deleting the branch (step 6), remove the worktree — `git branch -d` fails while a worktree still references the branch.
+5. **Backend restart (only if Gate 1 step 2 determined the diff touches `api/`):** `pdash-api` runs as a plain `node src/index.js` process (`api/Dockerfile`) with no hot-reload — the `./api/src:/app/src` volume mount keeps the file on disk current, but the running process keeps serving whatever was in memory at container start until it is explicitly restarted. Merging a backend change to `main` does not make it take effect on its own.
+   - Ask explicitly: "This cycle touched `api/`. Restart `pdash-api` now so the merged code actually takes effect? [yes/no]"
+   - If yes: run `docker compose restart api`, then poll `docker inspect pdash-api --format '{{.State.Health.Status}}'` (a few seconds apart, up to the container's own healthcheck window) until it reports `healthy`. Report the new `docker inspect pdash-api --format '{{.State.StartedAt}}'` timestamp as confirmation.
+   - If no: state explicitly, as a visible warning (not a footnote): "`pdash-api` was NOT restarted — it will keep serving pre-merge backend code until it is. Any backend fix in this cycle is not actually live yet."  Record this warning for Gate 6's per-gate summary.
+   - If Gate 1 step 2 determined the diff does *not* touch `api/`: skip this step entirely, no mention needed.
+6. **Worktree cleanup (only if step 3 detected a linked worktree):** the branch just merged was checked out in a linked worktree at some path `<worktree-path>`. Before deleting the branch (step 7), remove the worktree — `git branch -d` fails while a worktree still references the branch.
    - Only remove worktrees whose path is under `.worktrees/`, `worktrees/`, or `.claude/worktrees/` — this project's own worktree conventions. If the path doesn't match, do not remove it; note that cleanup was skipped because the worktree isn't one this process owns.
    - From the main repo root:
      ```bash
@@ -87,7 +92,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
      git worktree prune
      ```
    - If removal fails (a recurring, known issue in this environment — locked files, leftover `node_modules`, or a stale IDE handle): this is non-blocking. Report the failure, confirm via `git status --short` inside the worktree path that nothing uncommitted would be lost, and continue — git itself already deregisters the worktree correctly even when the physical directory can't be deleted; leaving the orphaned directory does not block the rest of the cycle.
-6. After a successful push (and worktree cleanup, if applicable), ask explicitly: "Delete the local branch `<branch>`? [yes/no]" — no default either way.
+7. After a successful push (worktree cleanup and backend restart, if applicable), ask explicitly: "Delete the local branch `<branch>`? [yes/no]" — no default either way.
    - If yes: run `git branch -d <branch>`.
    - If no: leave the branch as-is.
 
@@ -133,6 +138,6 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 
 Print in chat:
 - The path to the just-committed report file.
-- One line per gate (1 through 5) stating its outcome (e.g. "Gate 1: passed (frontend + backend)", "Gate 3: 1 finding, fixed and re-verified", "Gate 4: merged, merge commit (main had diverged)").
+- One line per gate (1 through 5) stating its outcome (e.g. "Gate 1: passed (frontend + backend)", "Gate 3: 1 finding, fixed and re-verified", "Gate 4: merged, merge commit (main had diverged), pdash-api restarted and healthy" — or, if the restart was declined, "Gate 4: merged; pdash-api NOT restarted, backend change not yet live").
 - An explicit pointer: "See the Roadmap notes section of `<report path>` for open items."
 - **REQUIRED, as the literal last line, with nothing after it:** `Cycle closed and pushed. If this was the last of a series of related cycles (e.g. a multi-cycle audit), consider a cold review before moving on to the next work.` This is a fixed, unconditional closing line, not optional trailing commentary — it is a text suggestion for the user to weigh, not a decision this command makes: never try to determine from repo state, commit history, or anything else whether this cycle actually was the last of a series — always print the same line, and never act on it (no starting a review, no reading other reports) beyond printing it.
