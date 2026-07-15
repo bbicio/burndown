@@ -32,7 +32,36 @@
     </div>
 
     <div class="pt-4">
-      <!-- Task 2 inserts Client + Program sections here -->
+      <div class="cfg-section">
+        <div class="cfg-section-title">Client</div>
+        <div class="row g-3 align-items-end">
+          <div class="col-md-8">
+            <label class="form-label small mb-1">Assign to a client</label>
+            <select class="form-select form-select-sm" v-model="project.clientId" :disabled="isViewer">
+              <option value="__unassigned__">Unassigned</option>
+              <option v-for="c in getClients()" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <button type="button" class="btn btn-primary btn-sm w-100" v-if="!isViewer" @click="openClientModal">＋ New client</button>
+          </div>
+        </div>
+      </div>
+      <div class="cfg-section">
+        <div class="cfg-section-title">0. Program <span class="fw-normal text-muted" style="font-size:.8rem">(optional)</span></div>
+        <div class="row g-3 align-items-end">
+          <div class="col-md-8">
+            <label class="form-label small mb-1">Assign to a program</label>
+            <select class="form-select form-select-sm" v-model="project.programId" :disabled="isViewer">
+              <option value="">— No program —</option>
+              <option v-for="p in getPrograms()" :key="p.id" :value="p.id">{{ p.name }}</option>
+            </select>
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <button type="button" class="btn btn-primary btn-sm w-100" v-if="!isViewer" @click="openProgramModal">＋ New program</button>
+          </div>
+        </div>
+      </div>
 
       <div class="cfg-section">
         <div class="cfg-section-title">1. Project info</div>
@@ -62,7 +91,33 @@
     </div>
   </template>
 
-  <!-- Task 2 inserts Client/Program modals; Task 3/6 insert the confirm modal here -->
+  <div class="modal fade" id="clientEditModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title fw-bold">＋ New client</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div v-if="clientModal.error" class="alert alert-danger py-2">{{ clientModal.error }}</div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Client name</label><input type="text" class="form-control form-control-sm" v-model="clientModal.name" placeholder="e.g. Acme Corp"></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" @click="saveClientModal">Save</button></div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="programEditModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title fw-bold">＋ New program</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div v-if="programModal.error" class="alert alert-danger py-2">{{ programModal.error }}</div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Program name</label><input type="text" class="form-control form-control-sm" v-model="programModal.name" placeholder="e.g. Chatbot AI Platform"></div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Program ID</label><input type="text" class="form-control form-control-sm" v-model="programModal.id" placeholder="e.g. PRG-001"></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" @click="saveProgramModal">Save</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Task 3/6 insert the confirm modal here -->
 
 </div>
 
@@ -106,6 +161,8 @@
         isNewProject: false,
         jsonError: '',
         saving: false,
+        clientModal: { name: '', error: '' },
+        programModal: { name: '', id: '', error: '' },
       };
     },
     computed: {
@@ -190,6 +247,40 @@
       },
       async onSave() {
         // Task 6 implements the full save flow.
+      },
+      openClientModal() {
+        this.clientModal = { name: '', error: '' };
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('clientEditModal')).show();
+      },
+      async saveClientModal() {
+        const name = this.clientModal.name.trim();
+        if (!name) { this.clientModal.error = 'Name is required.'; return; }
+        try {
+          const created = await Api.clients.create(name);
+          await loadClientsFromApi();
+          this.project.clientId = created.id;
+          bootstrap.Modal.getInstance(document.getElementById('clientEditModal'))?.hide();
+        } catch (e) {
+          this.clientModal.error = e.message || 'Save failed.';
+        }
+      },
+      openProgramModal() {
+        this.programModal = { name: '', id: '', error: '' };
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('programEditModal')).show();
+      },
+      async saveProgramModal() {
+        const name = this.programModal.name.trim();
+        const id = this.programModal.id.trim();
+        if (!name) { this.programModal.error = 'Name is required.'; return; }
+        if (!id) { this.programModal.error = 'Program ID is required.'; return; }
+        try {
+          const created = await Api.programs.create(id, name);
+          await loadProgramsFromApi();
+          this.project.programId = created.id;
+          bootstrap.Modal.getInstance(document.getElementById('programEditModal'))?.hide();
+        } catch (e) {
+          this.programModal.error = e.message || 'Save failed.';
+        }
       },
     },
   }).mount('#app');
