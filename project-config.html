@@ -80,7 +80,88 @@
       </div>
 
       <!-- Task 6 inserts Actuals section here -->
-      <!-- Task 3 inserts Tasks & Resources section here -->
+      <div class="cfg-section">
+  <div class="d-flex justify-content-between align-items-center cfg-section-title">
+    <span>3. Tasks &amp; Resources</span>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-outline-secondary" @click="exportTasksXlsx">⬇ XLSX</button>
+      <button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addTask">+ Add task</button>
+    </div>
+  </div>
+  <p class="text-muted small mb-3">Task name must match exactly the <strong>Task/Issue</strong> XLS column. Role must match <strong>Job Role: Name</strong>.</p>
+
+  <div v-for="(task, ti) in project.tasks" :key="ti" class="cfg-task-card border rounded p-3 mb-3">
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <span class="text-muted small text-nowrap">Task name:</span>
+      <input type="text" class="form-control form-control-sm fw-semibold" v-model="task.name" :disabled="isViewer" placeholder="must match Task/Issue column in XLS">
+      <div class="form-check form-switch mb-0 flex-shrink-0 d-flex align-items-center gap-1" title="Uncheck to exclude this task from all reports and charts">
+        <input class="form-check-input" type="checkbox" role="switch" v-model="task.billable" :disabled="isViewer">
+        <label class="form-check-label small text-nowrap">Include in report</label>
+      </div>
+      <div class="form-check form-switch mb-0 flex-shrink-0 d-flex align-items-center gap-1" title="Mark task as completed">
+        <input class="form-check-input" type="checkbox" role="switch" v-model="task.completed" :disabled="isViewer" @change="rebuildTaskDist(ti)">
+        <label class="form-check-label small text-nowrap">Completed</label>
+      </div>
+      <button class="btn btn-sm btn-outline-danger flex-shrink-0" v-if="!isViewer" @click="confirmRemoveTask(ti)">🗑 Remove</button>
+    </div>
+    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+      <span class="text-muted small text-nowrap">Period:</span>
+      <input type="text" class="form-control form-control-sm" style="width:120px" :disabled="isViewer" placeholder="gg/mm/aaaa" maxlength="10" :value="ymdToIt(task.startDate)" @change="e => { task.startDate = itToYmd(e.target.value); rebuildTaskDist(ti); }">
+      <span class="text-muted small">→</span>
+      <input type="text" class="form-control form-control-sm" style="width:120px" :disabled="isViewer" placeholder="gg/mm/aaaa" maxlength="10" :value="ymdToIt(task.endDate)" @change="e => { task.endDate = itToYmd(e.target.value); rebuildTaskDist(ti); }">
+      <span class="text-muted small">(optional — defaults to project dates)</span>
+    </div>
+
+    <div class="mt-1 pt-2" style="border-top:1px solid #e9ecef" v-if="taskMonthRange(task).length">
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <span class="text-muted small">Monthly % distribution:</span>
+        <span class="badge" :class="distBadgeClass(task)">{{ distBadgeText(task) }}</span>
+      </div>
+      <div class="cfg-month-grid">
+        <div class="cfg-month-cell" v-for="ym in taskMonthRange(task)" :key="ym">
+          <div class="cfg-month-label">{{ monthLabel(ym, 'it-IT') }}</div>
+          <div class="d-flex align-items-center gap-1">
+            <input type="number" class="form-control form-control-sm text-end" min="0" max="100" step="1"
+                   :readonly="taskMonthRange(task).length === 1 || task.completed || isViewer"
+                   v-model.number="task.monthlyDistribution[ym]" placeholder="0">
+            <span style="font-size:var(--text-xs);color:#888">%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-responsive mb-2">
+      <table class="table table-sm table-bordered mb-0" style="table-layout:fixed;width:100%">
+        <colgroup><col><col style="width:110px"><col style="width:110px"><col style="width:110px"><col style="width:32px"></colgroup>
+        <thead style="background:var(--surface-light)">
+          <tr><th>Job Role: Name <span class="fw-normal text-muted small">(must match XLS)</span></th><th class="text-end">Sold Hours</th><th class="text-end">Hourly Rate</th><th class="text-end">Subtotal</th><th></th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="(res, ri) in task.resources" :key="ri">
+            <td><input type="text" class="form-control form-control-sm" v-model="res.role" :disabled="isViewer" placeholder="e.g. HWGDEV - DEVELOPER"></td>
+            <td><input type="number" class="form-control form-control-sm text-end" min="0" step="0.5" v-model.number="res.soldHours" :disabled="isViewer"></td>
+            <td><input type="number" class="form-control form-control-sm text-end" min="0" step="1" v-model.number="res.hourlyRate" :disabled="isViewer"></td>
+            <td class="text-end small fw-semibold align-middle">{{ res.soldHours > 0 && res.hourlyRate > 0 ? fmtMoney(res.soldHours * res.hourlyRate) : '—' }}</td>
+            <td class="text-center"><button class="btn btn-sm btn-link text-danger p-0" v-if="!isViewer" @click="confirmRemoveResource(ti, ri)">✕</button></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--surface-light)">
+            <td colspan="3" class="text-end small fw-bold py-1">Task total</td>
+            <td class="text-end fw-bold py-1">{{ taskTotal(task) > 0 ? fmtMoney(taskTotal(task)) : '—' }}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addResource(ti)">+ Add resource</button>
+  </div>
+
+  <div class="d-flex justify-content-end gap-4 px-2 py-2 mt-1 border-top fw-bold small" style="background:#f8f9fa;border-radius:0 0 6px 6px">
+    <span>Total hours: {{ grandTotalHours > 0 ? grandTotalHours.toLocaleString('en-US') : '—' }}</span>
+    <span>Total budget: {{ grandTotalBudget > 0 ? fmtMoney(grandTotalBudget) : '—' }}</span>
+  </div>
+</div>
       <!-- Task 5 inserts Phasing/Planning grid sections here -->
       <!-- Task 6 inserts PTC + Functional Groups sections here -->
     </div>
@@ -118,6 +199,18 @@
   </div>
 
   <!-- Task 3/6 insert the confirm modal here -->
+  <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+      <div class="modal-content shadow-lg">
+        <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold">⚠️ Confirm</h6></div>
+        <div class="modal-body pt-1"><p class="mb-0" style="white-space:pre-line;font-size:.92rem">{{ confirmModal.message }}</p></div>
+        <div class="modal-footer border-0 pt-2">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-danger" @click="confirmModalOk">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
 </div>
 
@@ -163,6 +256,7 @@
         saving: false,
         clientModal: { name: '', error: '' },
         programModal: { name: '', id: '', error: '' },
+        confirmModal: { message: '', onConfirm: null },
       };
     },
     computed: {
@@ -182,6 +276,12 @@
       endMonthInput: {
         get() { return ym2month(this.project?.endDate); },
         set(v) { if (this.project) this.project.endDate = month2ym(v); },
+      },
+      grandTotalHours() {
+        return (this.project?.tasks || []).reduce((s, t) => s + t.resources.reduce((rs, r) => rs + (r.soldHours || 0), 0), 0);
+      },
+      grandTotalBudget() {
+        return (this.project?.tasks || []).reduce((s, t) => s + t.resources.reduce((rs, r) => rs + (r.soldHours || 0) * (r.hourlyRate || 0), 0), 0);
       },
     },
     async created() {
@@ -281,6 +381,94 @@
         } catch (e) {
           this.programModal.error = e.message || 'Save failed.';
         }
+      },
+      // Currency formatting — config-form.js-specific, not extracted to js/lib (no other page needs it after this migration).
+      cfgCurrencyLocale(cur) { return (cur === '$' || cur === '£') ? 'en-US' : 'de-DE'; },
+      fmtMoney(amount) {
+        const cur = this.project?.currency || '€';
+        const f = new Intl.NumberFormat(this.cfgCurrencyLocale(cur), { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
+        return cur === 'CHF' ? `CHF ${f}` : `${cur} ${f}`;
+      },
+      parseMoney(str) {
+        const cur = this.project?.currency || '€';
+        const digits = String(str).trim().replace(/^(CHF|[€$£])\s*/i, '');
+        return this.cfgCurrencyLocale(cur) === 'de-DE'
+          ? parseFloat(digits.replace(/\./g, '').replace(',', '.')) || 0
+          : parseFloat(digits.replace(/,/g, '')) || 0;
+      },
+      ymdToIt(ymd) {
+        if (!ymd || ymd.length < 8) return '';
+        return `${ymd.slice(6,8)}/${ymd.slice(4,6)}/${ymd.slice(0,4)}`;
+      },
+      itToYmd(it) {
+        if (!it) return '';
+        const parts = it.split('/');
+        if (parts.length !== 3) return '';
+        const [d, m, y] = parts;
+        if (!d || !m || !y || y.length !== 4) return '';
+        const ymd = `${y}${m.padStart(2,'0')}${d.padStart(2,'0')}`;
+        return isNaN(new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`).getTime()) ? '' : ymd;
+      },
+      monthLabel(ym, locale = 'en-US') {
+        const [y, m] = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))];
+        return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'short', year: '2-digit' });
+      },
+      taskMonthRange(task) {
+        const s = task.startDate || (this.project.startDate ? this.project.startDate + '01' : '');
+        const e = task.endDate   || (this.project.endDate   ? this.project.endDate   + '01' : '');
+        if (!s || !e) return [];
+        // parseTaskDate is defined in js/core.js and stays unchanged — same semantics as today.
+        const tStart = parseTaskDate(s, false), tEnd = parseTaskDate(e, true);
+        const months = [];
+        let cy = tStart.getFullYear(), cm = tStart.getMonth() + 1;
+        const ey = tEnd.getFullYear(), em = tEnd.getMonth() + 1;
+        while (cy < ey || (cy === ey && cm <= em)) { months.push(`${cy}${String(cm).padStart(2,'0')}`); cm++; if (cm > 12) { cm = 1; cy++; } }
+        return months;
+      },
+      rebuildTaskDist(ti) {
+        const task = this.project.tasks[ti];
+        const months = this.taskMonthRange(task);
+        const kept = {};
+        months.forEach(ym => { if (task.monthlyDistribution?.[ym] != null) kept[ym] = task.monthlyDistribution[ym]; });
+        if (months.length === 1) kept[months[0]] = 100;
+        task.monthlyDistribution = kept;
+      },
+      distBadgeClass(task) {
+        const sum = Object.values(task.monthlyDistribution || {}).reduce((s, v) => s + (v || 0), 0);
+        if (Math.abs(sum - 100) < 0.05) return 'bg-success';
+        return sum > 100 ? 'bg-danger' : 'bg-warning text-dark';
+      },
+      distBadgeText(task) {
+        const sum = Object.values(task.monthlyDistribution || {}).reduce((s, v) => s + (v || 0), 0);
+        const rounded = Math.round(sum * 10) / 10;
+        if (Math.abs(sum - 100) < 0.05) return 'Σ = 100%';
+        return sum > 100 ? `Σ = ${rounded}% (${Math.round((sum-100)*10)/10}% too much)` : `Σ = ${rounded}% (${Math.round((100-sum)*10)/10}% missing)`;
+      },
+      taskTotal(task) {
+        return task.resources.reduce((s, r) => s + (r.soldHours || 0) * (r.hourlyRate || 0), 0);
+      },
+      addTask() {
+        this.project.tasks.push({ name: '', billable: true, completed: false, startDate: '', endDate: '', monthlyDistribution: {}, resources: [] });
+      },
+      confirmRemoveTask(ti) {
+        const name = this.project.tasks[ti].name.trim() || 'this task';
+        this.showConfirm(`Delete task "${name}" and all its resources?`, () => { this.project.tasks.splice(ti, 1); });
+      },
+      addResource(ti) {
+        this.project.tasks[ti].resources.push({ role: '', soldHours: 0, hourlyRate: 0 });
+      },
+      confirmRemoveResource(ti, ri) {
+        const role = this.project.tasks[ti].resources[ri].role.trim() || 'this resource';
+        this.showConfirm(`Remove resource "${role}"?`, () => { this.project.tasks[ti].resources.splice(ri, 1); });
+      },
+      showConfirm(message, onConfirm) {
+        this.confirmModal = { message, onConfirm };
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).show();
+      },
+      confirmModalOk() {
+        const cb = this.confirmModal.onConfirm;
+        bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
+        if (cb) cb();
       },
     },
   }).mount('#app');
