@@ -703,7 +703,7 @@ burndown/
   admin.html              ← user management; "🗑 Anonymize" button on disabled non-anonymized users; T&C editor (admin: view version, edit HTML, save draft / publish new version)
   terms.html              ← standalone T&C acceptance page (no initNav), Vue 3 (CDN, no build step, same pattern as login.html); shown by gate in initNav() when user.terms_version < current; loaded from /api/app-settings/terms; POST /api/auth/accept-terms on confirm
   login.html / activate.html / reset-password.html
-  _db-reset.html          ← admin-only hidden page for bulk DB data deletion by scope
+  _db-reset.html          ← admin-only hidden page for bulk DB data deletion by scope, Vue 3 (CDN, no build step, same pattern as admin.html), now with navbar (initNav(null, ...), no nav-tab entry)
   nginx.conf              ← denies dev-only toolchain artifacts (node_modules/, package.json, package-lock.json,
                             vitest.config.js, *.test.js, *.spec.js) even though it bind-mounts the repo root
   docker-compose.yml

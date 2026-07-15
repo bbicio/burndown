@@ -1138,7 +1138,7 @@ const SECTIONS = [
   cases:[
     {id:'DR-01',scenario:'Page blocked from non-admin',
      steps:'Navigate to /_db-reset.html as role=user',
-     expected:'403 — page blocked or navbar redirects to pipeline; no reset controls visible'},
+     expected:'Navbar renders normally; page body shows "Access denied — admin only" alert in place of the reset cards; no reset controls visible'},
     {id:'DR-02',scenario:'All 7 scopes listed',
      steps:'Open /_db-reset.html as admin',
      expected:'Seven scope buttons rendered: Proposals, Projects & Programs, Clients & Client Groups, Client Ratecards, Actuals (Timesheets), Pipeline Years & POTs, Notifications'},

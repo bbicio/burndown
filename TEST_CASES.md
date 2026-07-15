@@ -423,7 +423,7 @@ Admin-only hidden page for bulk data deletion by scope.
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
-| DR-01 | Page access — non-admin | Navigate to `/_db-reset.html` as role=user | 403 — page content blocked or navbar redirects | |
+| DR-01 | Page access — non-admin | Navigate to `/_db-reset.html` as role=user | Navbar renders normally; page body shows "Access denied — admin only" alert in place of the reset cards | |
 | DR-02 | Scopes listed | Open `/_db-reset.html` as admin | All 7 scopes displayed: Proposals, Projects, Clients & Client Groups, Client Ratecards, Actuals, Pipeline Years & POTs, Notifications | |
 | DR-03 | Reset proposals | Click Reset → Proposals → confirm | All cost grids + versions deleted; board shows empty | |
 | DR-04 | Reset actuals | Click Reset → Actuals → confirm | Timesheet table emptied; portfolio KPIs show 0 actuals | |
