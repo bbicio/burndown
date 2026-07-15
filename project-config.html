@@ -162,7 +162,54 @@
     <span>Total budget: {{ grandTotalBudget > 0 ? fmtMoney(grandTotalBudget) : '—' }}</span>
   </div>
 </div>
-      <!-- Task 5 inserts Phasing/Planning grid sections here -->
+      <div class="cfg-section">
+  <div class="d-flex justify-content-between align-items-center cfg-section-title">
+    <span>4. Monthly Budget Phasing <span class="fw-normal text-muted">(estimated budget to spend per month)</span></span>
+    <div class="d-flex gap-2 align-items-center flex-wrap" v-if="!isViewer">
+      <button class="btn btn-sm btn-outline-secondary" @click="derivePhasing">⟳ Derive from task dates</button>
+      <button class="btn btn-sm btn-outline-secondary" v-if="reforecastVisible" @click="runReforecast">↻ Reforecast from actuals</button>
+    </div>
+  </div>
+  <div class="mt-1" v-if="projectMonths.length">
+    <div class="cfg-month-grid">
+      <div class="cfg-month-cell" v-for="ym in projectMonths" :key="ym">
+        <div class="cfg-month-label">{{ monthLabel(ym) }}</div>
+        <input type="text" class="form-control form-control-sm text-end"
+               :readonly="isViewer" :value="project.phasing[ym] > 0 ? fmtMoney(project.phasing[ym]) : ''"
+               @focus="e => { e.target.value = project.phasing[ym] > 0 ? project.phasing[ym] : ''; }"
+               @blur="e => { const v = parseMoney(e.target.value); if (v > 0) project.phasing[ym] = v; else delete project.phasing[ym]; e.target.value = v > 0 ? fmtMoney(v) : ''; }">
+      </div>
+    </div>
+    <div class="d-flex align-items-center gap-2 mt-2" style="font-size:var(--text-base)">
+      <span class="text-muted">=</span><strong>{{ phasingSum > 0 ? fmtMoney(phasingSum) : '—' }}{{ grandTotalBudget > 0 ? ' / ' + fmtMoney(grandTotalBudget) : '' }}</strong>
+    </div>
+  </div>
+  <p class="text-muted small mb-0" v-else>Set Start and End month first.</p>
+</div>
+<div class="cfg-section">
+  <div class="d-flex justify-content-between align-items-center cfg-section-title">
+    <span>5. Monthly Hour Planning <span class="fw-normal text-muted">(planned hours to consume per month)</span></span>
+    <div class="d-flex gap-2 align-items-center flex-wrap" v-if="!isViewer">
+      <button class="btn btn-sm btn-outline-secondary" @click="derivePhasing">⟳ Derive from task dates</button>
+      <button class="btn btn-sm btn-outline-secondary" v-if="reforecastVisible" @click="runReforecast">↻ Reforecast from actuals</button>
+    </div>
+  </div>
+  <div class="mt-1" v-if="projectMonths.length">
+    <div class="cfg-month-grid">
+      <div class="cfg-month-cell" v-for="ym in projectMonths" :key="ym">
+        <div class="cfg-month-label">{{ monthLabel(ym) }}</div>
+        <input type="text" class="form-control form-control-sm text-end"
+               :readonly="isViewer" :value="project.planning[ym] > 0 ? cfgFmtHours(project.planning[ym]) : ''"
+               @focus="e => { e.target.value = project.planning[ym] > 0 ? project.planning[ym] : ''; }"
+               @blur="e => { const v = cfgParseHours(e.target.value); if (v > 0) project.planning[ym] = v; else delete project.planning[ym]; e.target.value = v > 0 ? cfgFmtHours(v) : ''; }">
+      </div>
+    </div>
+    <div class="d-flex align-items-center gap-2 mt-2" style="font-size:var(--text-base)">
+      <span class="text-muted">=</span><strong>{{ planningSum > 0 ? (planningSum.toLocaleString('en-US') + ' h') : '—' }}{{ grandTotalHours > 0 ? ' / ' + grandTotalHours.toLocaleString('en-US') + ' h' : '' }}</strong>
+    </div>
+  </div>
+  <p class="text-muted small mb-0" v-else>Set Start and End month first.</p>
+</div>
       <!-- Task 6 inserts PTC + Functional Groups sections here -->
     </div>
 
@@ -257,6 +304,7 @@
         clientModal: { name: '', error: '' },
         programModal: { name: '', id: '', error: '' },
         confirmModal: { message: '', onConfirm: null },
+        reforecastVisible: false,
       };
     },
     computed: {
@@ -283,6 +331,17 @@
       grandTotalBudget() {
         return (this.project?.tasks || []).reduce((s, t) => s + t.resources.reduce((rs, r) => rs + (r.soldHours || 0) * (r.hourlyRate || 0), 0), 0);
       },
+      projectMonths() {
+        if (!this.project?.startDate || !this.project?.endDate) return [];
+        const [sy, sm] = [parseInt(this.project.startDate.slice(0,4)), parseInt(this.project.startDate.slice(4,6))];
+        const [ey, em] = [parseInt(this.project.endDate.slice(0,4)), parseInt(this.project.endDate.slice(4,6))];
+        const months = [];
+        let cy = sy, cm = sm;
+        while (cy < ey || (cy === ey && cm <= em)) { months.push(`${cy}${String(cm).padStart(2,'0')}`); cm++; if (cm > 12) { cm = 1; cy++; } }
+        return months;
+      },
+      phasingSum() { return Object.values(this.project?.phasing || {}).reduce((s, v) => s + v, 0); },
+      planningSum() { return Object.values(this.project?.planning || {}).reduce((s, v) => s + v, 0); },
     },
     async created() {
       const user = await initNav('portfolio', { breadcrumbs: [
@@ -301,6 +360,7 @@
       }
 
       this.resolveProject();
+      if (this.project && !this.notFound) await this.updateReforecastVisibility();
       this.ready = true;
     },
     methods: {
@@ -469,6 +529,65 @@
         const cb = this.confirmModal.onConfirm;
         bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
         if (cb) cb();
+      },
+      async updateReforecastVisibility() {
+        this.reforecastVisible = false;
+        if (!this.project?.code) return;
+        try {
+          const uploads = await Api.timesheets.get(this.project.code);
+          this.reforecastVisible = (uploads || []).some(u => (u.data || []).length > 0);
+        } catch (_) { /* stays hidden */ }
+      },
+      derivePhasing() {
+        const tasks = this.project.tasks.filter(t => t.billable !== false);
+        const months = this.projectMonths;
+        if (!months.length) { alert('Set project dates first.'); return; }
+        const result = deriveDistribution(tasks, months, this.project.startDate, this.project.endDate);
+        const fmtB = n => this.fmtMoney(n);
+        const message = `Phasing and planning will be computed from task date ranges, distributing each task's budget proportionally to the days of overlap with each month.\n\n`
+          + `Total budget distributed: ${fmtB(result.totalBudget)} across ${months.length} months\n`
+          + `Total hours distributed: ${result.totalHours.toLocaleString('en-US')} h`;
+        this.showConfirm(message, () => {
+          this.project.phasing = result.newPhasing;
+          this.project.planning = result.newPlanning;
+        });
+      },
+      async runReforecast() {
+        const tasks = this.project.tasks.filter(t => t.billable !== false);
+        const months = this.projectMonths;
+        if (!months.length) { alert('Set project start and end dates first.'); return; }
+        if (!this.project.code) { alert('Set the D365 Project ID first before running Reforecast.'); return; }
+
+        let actualsRows = [];
+        try {
+          const uploads = await Api.timesheets.get(this.project.code);
+          actualsRows = (uploads || []).flatMap(u => u.data || []);
+        } catch (e) { alert('Could not load actuals from server: ' + e.message); return; }
+
+        const now = new Date();
+        const currentYm = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}`;
+        const result = reforecastDistribution(tasks, months, actualsRows, currentYm);
+        if (result.distError) { alert('Cannot reforecast:\n\n' + result.distError); return; }
+
+        const fmtB = n => this.fmtMoney(Math.abs(n));
+        const fmtH = n => `${+(Math.round(Math.abs(n) + 'e1') + 'e-1')} h`;
+        const pastCount = result.pastMonths.length, futureCount = result.futureMonths.length;
+        const distTaskCount = tasks.filter(t => {
+          const d = t.monthlyDistribution;
+          return d && Math.abs(Object.values(d).reduce((s,v)=>s+v,0) - 100) < 0.5;
+        }).length;
+
+        const message = `Phasing and planning grids will be fully overwritten:\n\n`
+          + `Past months (${pastCount}) — replaced with actual spend & hours from loaded XLS data\n`
+          + `Current & future months (${futureCount}) — distributed per task settings `
+          + (distTaskCount > 0 ? `(${distTaskCount} task${distTaskCount>1?'s':''} use monthly distribution)` : '(even split)') + `:\n`
+          + `  Remaining budget: ${fmtB(result.remainingBudget)}${result.remainingBudget < 0 ? ' (over budget)' : ''}\n`
+          + `  Remaining hours: ${fmtH(result.distributedRemainingHours)}${result.remainingHours < 0 ? ' (over hours)' : ''}`;
+
+        this.showConfirm(message, () => {
+          this.project.phasing = result.newPhasing;
+          this.project.planning = result.newPlanning;
+        });
       },
     },
   }).mount('#app');
