@@ -79,7 +79,20 @@
         </div>
       </div>
 
-      <!-- Task 6 inserts Actuals section here -->
+      <div class="cfg-section">
+        <div class="d-flex justify-content-between align-items-center cfg-section-title">
+          <span>2. Actuals</span>
+          <div class="d-flex gap-2">
+            <label class="btn btn-sm btn-outline-secondary mb-0" v-if="project.code && !isViewer">
+              ⬆ Upload XLS
+              <input type="file" accept=".xls,.xlsx" style="display:none" @change="onActualsFileChange">
+            </label>
+            <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="exportActualsCsv">⬇ Export CSV</button>
+          </div>
+        </div>
+        <div class="text-muted small py-1" v-html="actuals.info"></div>
+        <div class="small mt-1" v-if="actuals.status" :class="actuals.statusClass">{{ actuals.status }}</div>
+      </div>
       <div class="cfg-section">
   <div class="d-flex justify-content-between align-items-center cfg-section-title">
     <span>3. Tasks &amp; Resources</span>
@@ -210,7 +223,45 @@
   </div>
   <p class="text-muted small mb-0" v-else>Set Start and End month first.</p>
 </div>
-      <!-- Task 6 inserts PTC + Functional Groups sections here -->
+      <div class="cfg-section">
+  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>6. Pass Through Costs <span class="fw-normal text-muted">(PTC)</span></span><button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addPtc">+ Add PTC</button></div>
+  <p class="text-muted small mb-3">Add external costs (licences, travel, etc.) with title, note, amount and the month they occur.</p>
+  <div class="cfg-ptc-card border rounded p-3 mb-2" v-for="(item, pi) in project.ptc" :key="pi">
+    <div class="row g-2 align-items-start">
+      <div class="col-sm-3"><label class="form-label small text-muted mb-1">Title</label><input type="text" class="form-control form-control-sm" v-model="item.title" :disabled="isViewer" placeholder="e.g. Software licence"></div>
+      <div class="col-sm-4"><label class="form-label small text-muted mb-1">Note</label><input type="text" class="form-control form-control-sm" v-model="item.note" :disabled="isViewer" placeholder="optional description"></div>
+      <div class="col-sm-2"><label class="form-label small text-muted mb-1">Amount</label>
+        <input type="text" class="form-control form-control-sm text-end" :readonly="isViewer"
+               :value="item.amount > 0 ? fmtMoney(item.amount) : ''"
+               @focus="e => { e.target.value = item.amount > 0 ? item.amount : ''; }"
+               @blur="e => { item.amount = parseMoney(e.target.value); e.target.value = item.amount > 0 ? fmtMoney(item.amount) : ''; }">
+      </div>
+      <div class="col-sm-2"><label class="form-label small text-muted mb-1">Month</label>
+        <select class="form-select form-select-sm" v-model="item.month" :disabled="isViewer">
+          <option v-if="!projectMonths.length" value="">— set project dates first —</option>
+          <option v-for="ym in projectMonths" :key="ym" :value="ym">{{ monthLabelLong(ym) }}</option>
+        </select>
+      </div>
+      <div class="col-sm-1 d-flex align-items-end"><button class="btn btn-sm btn-outline-danger w-100" v-if="!isViewer" @click="confirmRemovePtc(pi)">🗑</button></div>
+    </div>
+  </div>
+  <div class="d-flex justify-content-end px-2 py-2 mt-1 border-top fw-bold small" style="background:#fff3cd;border-radius:0 0 6px 6px">Total PTC: {{ totalPtc > 0 ? fmtMoney(totalPtc) : '—' }}</div>
+</div>
+<div class="cfg-section">
+  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>7. Functional Groups <span class="fw-normal text-muted">(optional)</span></span><button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addGroup">+ Add group</button></div>
+  <p class="text-muted small mb-3">Group roles into functional areas. Roles must match the <strong>Job Role: Name</strong> column (one per line).</p>
+  <div class="cfg-group-card border rounded p-3 mb-2" v-for="(grp, gi) in project.groups" :key="gi">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <span class="text-muted small text-nowrap">Group name:</span>
+      <input type="text" class="form-control form-control-sm" v-model="grp.name" :disabled="isViewer" placeholder="e.g. Development">
+      <button class="btn btn-sm btn-outline-danger flex-shrink-0" v-if="!isViewer" @click="project.groups.splice(gi, 1)">🗑</button>
+    </div>
+    <label class="form-label small text-muted mb-1">Roles (one per line, must match Job Role: Name column in XLS):</label>
+    <textarea class="form-control form-control-sm font-monospace" rows="3" :disabled="isViewer"
+              :value="grp.roles.join('\n')" @input="e => grp.roles = e.target.value.split('\n').map(s => s.trim()).filter(Boolean)"
+              placeholder="HWGDEV - DEVELOPER&#10;HWGINTERN - ACCSVS"></textarea>
+  </div>
+</div>
     </div>
 
     <div class="d-flex gap-2 justify-content-between align-items-center py-4 border-top mt-2 mb-5">
@@ -305,6 +356,7 @@
         programModal: { name: '', id: '', error: '' },
         confirmModal: { message: '', onConfirm: null },
         reforecastVisible: false,
+        actuals: { info: 'Save the project first to enable actuals upload.', status: '', statusClass: '', exportRows: null },
       };
     },
     computed: {
@@ -342,6 +394,7 @@
       },
       phasingSum() { return Object.values(this.project?.phasing || {}).reduce((s, v) => s + v, 0); },
       planningSum() { return Object.values(this.project?.planning || {}).reduce((s, v) => s + v, 0); },
+      totalPtc() { return (this.project?.ptc || []).reduce((s, p) => s + (p.amount || 0), 0); },
     },
     async created() {
       const user = await initNav('portfolio', { breadcrumbs: [
@@ -361,6 +414,7 @@
 
       this.resolveProject();
       if (this.project && !this.notFound) await this.updateReforecastVisibility();
+      if (this.project && !this.notFound) await this.loadActuals();
       this.ready = true;
     },
     methods: {
@@ -402,11 +456,153 @@
       onDateChange() {
         // Task 5 extends this to warn about out-of-range phasing/planning months.
       },
+      monthLabelLong(ym) {
+        const [y, m] = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))];
+        return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      },
+      addPtc() {
+        this.project.ptc.push({ title: '', note: '', amount: 0, month: this.projectMonths[0] || '' });
+      },
+      confirmRemovePtc(pi) {
+        const title = this.project.ptc[pi].title.trim() || 'this entry';
+        this.showConfirm(`Remove PTC "${title}"?`, () => { this.project.ptc.splice(pi, 1); });
+      },
+      addGroup() {
+        this.project.groups.push({ name: '', roles: [] });
+      },
+      async loadActuals() {
+        if (!this.project.code) { this.actuals.info = 'Save the project first to enable actuals upload.'; return; }
+        this.actuals.info = 'Loading…';
+        try {
+          const rows = await Api.timesheets.get(this.project.code);
+          if (!rows || !rows.length) {
+            this.actuals.info = `<span class="text-muted">No actuals uploaded for project <code>${esc(this.project.code)}</code>.</span>`;
+            this.actuals.exportRows = null;
+            return;
+          }
+          const row = rows[0];
+          const dt = row.uploaded_at ? new Date(row.uploaded_at).toLocaleString('en-GB', { dateStyle:'medium', timeStyle:'short' }) : '—';
+          const cnt = row.row_count ?? 0;
+          const approxKb = row.data ? Math.round(JSON.stringify(row.data).length / 1024) : '?';
+          this.actuals.info = `Last upload: <strong>${esc(dt)}</strong> &nbsp;·&nbsp; <strong>${cnt}</strong> rows &nbsp;·&nbsp; ~${approxKb} KB`;
+          this.actuals.exportRows = row.data;
+        } catch (e) {
+          this.actuals.info = `<span class="text-danger">Could not load actuals: ${esc(e.message)}</span>`;
+        }
+      },
+      exportActualsCsv() {
+        const rowData = this.actuals.exportRows;
+        if (!rowData || !rowData.length) return;
+        const cols = ['projectId','projectName','date','role','owner','task','hours','notes'];
+        const header = cols.join(',');
+        const csvRows = rowData.map(r => cols.map(c => {
+          const v = r[c] === null || r[c] === undefined ? '' : String(r[c]);
+          return v.includes(',') || v.includes('"') || v.includes('\n') ? `"${v.replace(/"/g,'""')}"` : v;
+        }).join(','));
+        const csv = [header, ...csvRows].join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `actuals_${this.project.code}_${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      async onActualsFileChange(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (!this.project.code) { alert('Set the D365 Project ID first before uploading actuals.'); return; }
+        this.actuals.status = '⏳ Uploading…'; this.actuals.statusClass = 'text-muted';
+        try {
+          const result = await Api.timesheets.upload(file, this.project.code);
+          this.actuals.status = `✅ Uploaded ${result.totalRows} rows.`; this.actuals.statusClass = 'text-success';
+          await this.loadActuals();
+          await this.updateReforecastVisibility();
+          setTimeout(() => { this.actuals.status = ''; }, 4000);
+        } catch (err) {
+          this.actuals.status = `❌ Upload failed: ${err.message}`; this.actuals.statusClass = 'text-danger';
+        }
+        e.target.value = '';
+      },
+      exportTasksXlsx() {
+        if (typeof XLSX === 'undefined') { alert('XLSX library not available.'); return; }
+        const proj = this.project;
+        const fmt = n => typeof n === 'number' ? n : (parseFloat(n) || 0);
+        const rows = [];
+        rows.push(['Project', proj.name || '']);
+        rows.push(['Project ID (D365)', proj.code || '']);
+        rows.push(['Pipeline', proj.pipeline || '']);
+        rows.push(['Status', proj.status || '']);
+        rows.push([]);
+        rows.push(['Task', 'Role', 'Hours', 'Hourly Rate (€)', 'Total (€)']);
+        let grandHours = 0, grandTotal = 0;
+        (proj.tasks || []).forEach(task => {
+          const resources = task.resources || [];
+          let taskHours = 0, taskTotal = 0;
+          if (resources.length === 0) {
+            rows.push([task.name || '', '', '', '', '']);
+          } else {
+            resources.forEach((res, ri) => {
+              const h = fmt(res.soldHours), r = fmt(res.hourlyRate), sub = h * r;
+              taskHours += h; taskTotal += sub;
+              rows.push([ri === 0 ? (task.name || '') : '', res.role || '', h, r, sub]);
+            });
+          }
+          rows.push(['', 'Subtotal', taskHours, '', taskTotal]);
+          rows.push([]);
+          grandHours += taskHours; grandTotal += taskTotal;
+        });
+        rows.push(['', 'GRAND TOTAL', grandHours, '', grandTotal]);
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [{ wch: 36 }, { wch: 30 }, { wch: 10 }, { wch: 16 }, { wch: 14 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Tasks & Resources');
+        const safe = s => String(s || '').replace(/[^a-z0-9]/gi, '_').slice(0, 30);
+        XLSX.writeFile(wb, `tasks_${safe(proj.code || proj.name)}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      },
       onClearData() {
-        // Task 6 implements this fully (clearProjectData + redirect).
+        if (!this.project.id) return;
+        this.showConfirm(`Clear all cached XLS data for project "${this.project.id}"?`, () => {
+          clearProjectData(this.project.id);
+          window.location.href = '/portfolio.html';
+        });
       },
       async onSave() {
-        // Task 6 implements the full save flow.
+        // Sold-hours validation — reject the save if any value is outside the allowed set.
+        for (const task of this.project.tasks) {
+          for (const r of task.resources) {
+            if (r.soldHours && !isValidSoldHours(r.soldHours)) {
+              alert(`Invalid sold hours "${r.soldHours}" for role "${r.role}" on task "${task.name}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`);
+              return;
+            }
+          }
+        }
+        // Warn if there are billable tasks with resources but no phasing configured.
+        const hasBillable = this.project.tasks.some(t => t.billable !== false && t.resources.length);
+        const phasingEmpty = !Object.values(this.project.phasing).some(v => v > 0);
+        if (hasBillable && phasingEmpty) {
+          if (!window.confirm('The budget phasing for this project is empty — no monthly budget is configured.\n\nSave anyway?')) return;
+        }
+
+        this.saving = true;
+        try {
+          // config/cfgEditConfig/persistConfig are the existing in-memory-state contract (js/core.js, no-ops
+          // by design per CLAUDE.md's "Data strategy" section) — mirror the original's single-project write-back.
+          if (this.isNewProject) {
+            config.projects.push(this.project);
+          } else {
+            const idx = config.projects.findIndex(p => p.id === this.project.id);
+            if (idx >= 0) config.projects[idx] = this.project; else config.projects.push(this.project);
+          }
+          persistConfig();
+
+          if (typeof _pushProjectToApi !== 'undefined') {
+            await _pushProjectToApi(this.project).catch(e => console.warn('[sync] project push:', e.message));
+          }
+          window.location.href = '/portfolio.html';
+        } catch (e) {
+          this.jsonError = 'Save failed: ' + e.message;
+          this.saving = false;
+        }
       },
       openClientModal() {
         this.clientModal = { name: '', error: '' };
