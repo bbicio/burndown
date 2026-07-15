@@ -11,7 +11,7 @@
 ## Global Constraints
 
 1. Vue 3 via CDN only — no build step, no SFCs.
-2. `project-config.html` no longer loads `js/config-form.js` or `js/roles.js`. It keeps `js/core.js`, `js/api.js`, `js/api-sync.js`, `js/nav.js`, `js/notifications.js`, `js/settings.js`, `js/clients.js`, `js/programs.js`, the XLSX CDN script, and adds `js/lib/config-form-calc.js` (new, `type="module"`) alongside the existing `js/lib/cfg-parse.js` (still needed for `cfgParseHours`/`cfgFmtHours`/`distributeHoursExact`). `js/clients.js`/`js/programs.js` stay loaded solely for their state/data functions (`getClients()`/`getPrograms()`/`loadClientsFromApi()`/`loadProgramsFromApi()`, consumed by Task 2) — their modal-UI functions (`openClientEditModal`, `showClientsModal`, etc.) are simply never invoked, per Constraint 7.
+2. `project-config.html` no longer loads `js/config-form.js` or `js/roles.js`. It keeps `js/core.js`, `js/api.js`, `js/api-sync.js`, `js/nav.js`, `js/notifications.js`, `js/settings.js`, `js/clients.js`, `js/programs.js`, the XLSX CDN script, and adds `js/lib/config-form-calc.js` (new, `type="module"`) alongside the existing `js/lib/cfg-parse.js` (still needed for `cfgParseHours`/`cfgFmtHours`/`distributeHoursExact`) and `js/lib/status-rules.js` (still needed for `getStatusRule()`, used by Task 1's `statusRule` computed property — present in the original's own script list). `js/clients.js`/`js/programs.js` stay loaded solely for their state/data functions (`getClients()`/`getPrograms()`/`loadClientsFromApi()`/`loadProgramsFromApi()`, consumed by Task 2) — their modal-UI functions (`openClientEditModal`, `showClientsModal`, etc.) are simply never invoked, per Constraint 7.
 3. No change to any API endpoint used today (`loadClientsFromApi`, `loadProgramsFromApi`, `loadConfigFromApi`, `_pushProjectToApi`, `Api.timesheets.get`/`.upload`, client/program CRUD).
 4. **Single `project` object, not an array.** The hidden `projects[]`/dropdown/New/Delete machinery (`project-config.html:18-24` in the original) is not reproduced — confirmed dead weight specific to this page (invisible stubs, never user-reachable). The page resolves exactly one project from `?projectId=` in the URL, or starts a fresh blank one if the param is absent.
 5. **Unknown `?projectId=`** shows an explicit "Project not found" error state instead of the original's silent fallback to array index 0 — confirmed fix, not a 1:1 port point.
@@ -145,6 +145,7 @@ Replace `project-config.html` in full:
 <script src="js/clients.js"></script>
 <script src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
+<script type="module" src="js/lib/status-rules.js?v=1"></script>
 <script type="module" src="js/lib/config-form-calc.js?v=1"></script>
 <script src="js/api-sync.js?v=14"></script>
 <script src="js/nav.js?v=4"></script>
@@ -1472,7 +1473,7 @@ Expected: no matches (all confirmed-dead markup from the original was never carr
 - [ ] **Step 2: Verify the script tag list matches Global Constraint 2 exactly**
 
 Run: `grep -n "<script" project-config.html`
-Expected: bootstrap bundle, XLSX CDN, Vue 3 CDN, `js/api.js`, `js/core.js`, `js/settings.js`, `js/notifications.js`, `js/clients.js`, `js/programs.js`, `js/lib/cfg-parse.js` (module), `js/lib/config-form-calc.js` (module), `js/api-sync.js`, `js/nav.js`, plus the inline `<script>` with the Vue app. No `js/config-form.js`, no `js/roles.js`. `js/clients.js`/`js/programs.js` are intentionally present (per Global Constraint 2) solely for `getClients()`/`getPrograms()`/`loadClientsFromApi()`/`loadProgramsFromApi()` — their modal-UI functions (`openClientEditModal`, `showClientsModal`, etc.) are simply never called by this page's own template/methods.
+Expected: bootstrap bundle, XLSX CDN, Vue 3 CDN, `js/api.js`, `js/core.js`, `js/settings.js`, `js/notifications.js`, `js/clients.js`, `js/programs.js`, `js/lib/cfg-parse.js` (module), `js/lib/status-rules.js` (module), `js/lib/config-form-calc.js` (module), `js/api-sync.js`, `js/nav.js`, plus the inline `<script>` with the Vue app. No `js/config-form.js`, no `js/roles.js`. `js/clients.js`/`js/programs.js` are intentionally present (per Global Constraint 2) solely for `getClients()`/`getPrograms()`/`loadClientsFromApi()`/`loadProgramsFromApi()` — their modal-UI functions (`openClientEditModal`, `showClientsModal`, etc.) are simply never called by this page's own template/methods.
 
 - [ ] **Step 3: Run the full frontend test suite one more time**
 
