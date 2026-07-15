@@ -16,6 +16,8 @@ Three findings from code review during brainstorming, verified by direct reading
 
 **Decision:** `portfolio.html`'s orphaned `#configModal` (and by extension, whether `js/config-form.js`'s dead `cfgSwitchTab`/rollback code can ever be safely deleted) is explicitly deferred to a **separate future cycle**, not bundled into this one. This cycle touches only `project-config.html`.
 
+4. **The multi-project array/dropdown/New/Delete machinery is also page-local dead weight.** `project-config.html:18-24` wraps `cfgProjectSel`/`cfgBtnNewProject`/`cfgBtnDelProject`/`cfgPageTitle` in `display:none` — required only because `config-form.js` is shared with `portfolio.html`'s (now-confirmed-orphaned) modal-based flow, which let a user pick among multiple projects. On this page, a user always sees exactly one project, resolved from `?projectId=` in the URL (or a fresh blank one if absent/not found) — never a selection. **Decision:** the Vue rewrite manages a single reactive `project` object, not a `projects[]` array with a selection index — matching what this page's UI actually exposes today, not what the shared file's internals happen to model.
+
 ## Architecture
 
 Vue 3 rewrite (CDN, `Vue.createApp({...}).mount('#app')`), same pattern as `admin.html`/`terms.html`/`_db-reset.html`. `project-config.html` drops `js/config-form.js` and `js/roles.js` from its script-load list entirely; keeps `js/core.js`, `js/api.js`, `js/api-sync.js`, `js/nav.js`, `js/notifications.js`, `js/settings.js`. Adds one new module, `js/lib/config-form-calc.js` (pure functions, vitest-covered), following the same extraction pattern already established for `cfg-parse.js`/`planning-calc.js`/`costgrid-calc.js`/`status-rules.js`.
