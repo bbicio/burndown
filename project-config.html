@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -13,509 +13,787 @@
 
 <div id="nav-container"></div>
 
-<div class="app-container">
+<div id="app" class="app-container">
 
-  <!-- Hidden stubs required by config-form.js -->
-  <div style="display:none">
-    <select id="cfgProjectSel"></select>
-    <button id="cfgBtnNewProject"></button>
-    <button id="cfgBtnDelProject"></button>
-    <h4 id="cfgPageTitle"></h4>
+  <div v-if="notFound" class="text-center text-muted py-5">
+    <div style="font-size:2.5rem">⚠️</div>
+    <p class="mt-2">Project not found.</p>
+    <a href="/portfolio.html" class="btn btn-outline-secondary btn-sm">← Back to Portfolio</a>
   </div>
 
-  <!-- Error banner -->
-  <div id="cfgJsonError" class="alert alert-danger d-none mb-3 py-2 small"></div>
+  <div v-else-if="!ready" class="d-flex align-items-center justify-content-center" style="height:60vh">
+    <div class="spinner-border text-secondary"></div>
+  </div>
 
-  <!-- Hidden tab stubs required by config-form.js tab-switching logic -->
-  <div id="cfgTabJson" style="display:none"></div>
-
-  <!-- Form -->
-  <div id="cfgTabForm">
-    <div id="cfgNoProjectMsg" class="text-center text-muted py-5" style="display:none">
-      <div style="font-size:2.5rem">📂</div>
-      <p class="mt-2">No projects configured yet.</p>
+  <template v-else>
+    <div v-if="jsonError" class="alert alert-danger py-2 small">{{ jsonError }}</div>
+    <div v-if="isViewer" class="alert alert-info d-flex align-items-center gap-2 mb-3 rounded-0" style="position:sticky;top:0;z-index:100;font-size:.85rem">
+      <span>👁 You have <strong>viewer</strong> access to this project — editing is disabled.</span>
     </div>
-    <div id="cfgFormSections" class="pt-4">
+
+    <div class="pt-4">
       <div class="cfg-section">
         <div class="cfg-section-title">Client</div>
         <div class="row g-3 align-items-end">
-          <div class="col-md-8"><label class="form-label small mb-1">Assign to a client</label><select class="form-select form-select-sm" id="cfgClientId"><option value="__unassigned__">Unassigned</option></select></div>
-          <div class="col-md-4 d-flex align-items-end"><button type="button" class="btn btn-primary btn-sm w-100" onclick="openClientEditModal(null)">＋ New client</button></div>
+          <div class="col-md-8">
+            <label class="form-label small mb-1">Assign to a client</label>
+            <select class="form-select form-select-sm" v-model="project.clientId" :disabled="isViewer">
+              <option value="__unassigned__">Unassigned</option>
+              <option v-for="c in getClients()" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <button type="button" class="btn btn-primary btn-sm w-100" v-if="!isViewer" @click="openClientModal">＋ New client</button>
+          </div>
         </div>
       </div>
       <div class="cfg-section">
         <div class="cfg-section-title">0. Program <span class="fw-normal text-muted" style="font-size:.8rem">(optional)</span></div>
         <div class="row g-3 align-items-end">
-          <div class="col-md-8"><label class="form-label small mb-1">Assign to a program</label><select class="form-select form-select-sm" id="cfgProgramId"><option value="">— No program —</option></select></div>
-          <div class="col-md-4 d-flex align-items-end"><button type="button" class="btn btn-primary btn-sm w-100" onclick="openProgramEditModal(null)">＋ New program</button></div>
+          <div class="col-md-8">
+            <label class="form-label small mb-1">Assign to a program</label>
+            <select class="form-select form-select-sm" v-model="project.programId" :disabled="isViewer">
+              <option value="">— No program —</option>
+              <option v-for="p in getPrograms()" :key="p.id" :value="p.id">{{ p.name }}</option>
+            </select>
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <button type="button" class="btn btn-primary btn-sm w-100" v-if="!isViewer" @click="openProgramModal">＋ New program</button>
+          </div>
         </div>
       </div>
+
       <div class="cfg-section">
         <div class="cfg-section-title">1. Project info</div>
         <div class="row g-3">
-          <div class="col-md-4"><label class="form-label small mb-1">D365 Project ID <span class="text-muted">(matches XLS column)</span></label><input type="text" class="form-control form-control-sm" id="cfgId" placeholder="e.g. HITA.000001201"></div>
-          <div class="col-md-8"><label class="form-label small mb-1">Project Name</label><input type="text" class="form-control form-control-sm" id="cfgName" placeholder="e.g. Bayer AG - BERMITS 2026"></div>
-          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Start month</label><input type="month" class="form-control form-control-sm" id="cfgStartDate"></div>
-          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">End month</label><input type="month" class="form-control form-control-sm" id="cfgEndDate"></div>
-          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Currency</label><select class="form-select form-select-sm" id="cfgCurrency"><option value="€">€ Euro</option><option value="$">$ Dollar</option><option value="£">£ Pound</option><option value="CHF">CHF Swiss Franc</option></select></div>
-          <div class="col-sm-3 col-md-2 d-flex align-items-end"><button type="button" class="btn btn-outline-danger btn-sm w-100" id="cfgBtnClearData">🗑 Clear XLS data</button></div>
+          <div class="col-md-4"><label class="form-label small mb-1">D365 Project ID <span class="text-muted">(matches XLS column)</span></label><input type="text" class="form-control form-control-sm" v-model="project.code" :disabled="isViewer" placeholder="e.g. HITA.000001201"></div>
+          <div class="col-md-8"><label class="form-label small mb-1">Project Name</label><input type="text" class="form-control form-control-sm" v-model="project.name" :disabled="isViewer" placeholder="e.g. Bayer AG - BERMITS 2026" @input="onNameInput"></div>
+          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Start month</label><input type="month" class="form-control form-control-sm" v-model="startMonthInput" :disabled="isViewer" @change="onDateChange"></div>
+          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">End month</label><input type="month" class="form-control form-control-sm" v-model="endMonthInput" :disabled="isViewer" @change="onDateChange"></div>
+          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Currency</label><select class="form-select form-select-sm" v-model="project.currency" :disabled="isViewer"><option value="€">€ Euro</option><option value="$">$ Dollar</option><option value="£">£ Pound</option><option value="CHF">CHF Swiss Franc</option></select></div>
+          <div class="col-sm-3 col-md-2 d-flex align-items-end"><button type="button" class="btn btn-outline-danger btn-sm w-100" v-if="!isViewer" @click="onClearData">🗑 Clear XLS data</button></div>
         </div>
         <div class="row g-3 mt-1">
-          <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Pipeline</label><select class="form-select form-select-sm" id="cfgPipeline"><option value="">— Select —</option><option value="SIP">SIP</option><option value="Expected">Expected</option><option value="Anticipated">Anticipated</option><option value="Committed">Committed</option><option value="Canceled">Canceled</option></select></div>
-          <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Status</label><select class="form-select form-select-sm" id="cfgStatus"><option value="">— Select —</option><option value="Not started yet">Not started yet</option><option value="Started At Risk">Started At Risk</option><option value="Started">Started</option><option value="Put on hold">Put on hold</option><option value="Completed">Completed</option></select></div>
+          <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Pipeline</label><select class="form-select form-select-sm" v-model="project.pipeline" :disabled="isViewer || pipelineLocked" :title="pipelineLocked ? 'Pipeline is managed from the Cost Grid' : ''" @change="onPipelineChange"><option value="">— Select —</option><option value="SIP">SIP</option><option value="Expected">Expected</option><option value="Anticipated">Anticipated</option><option value="Committed">Committed</option><option value="Canceled">Canceled</option></select></div>
+          <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Status</label><select class="form-select form-select-sm" v-model="project.status" :disabled="isViewer || statusRule.disabled"><option v-if="!statusRule.options || !statusRule.options.length" value=""> — Select —</option><option v-for="opt in (statusRule.options || [])" :key="opt" :value="opt">{{ opt }}</option></select></div>
         </div>
       </div>
 
-      <!-- Actuals section -->
-      <div class="cfg-section" id="cfgActualsSection">
+      <div class="cfg-section">
         <div class="d-flex justify-content-between align-items-center cfg-section-title">
           <span>2. Actuals</span>
           <div class="d-flex gap-2">
-            <label class="btn btn-sm btn-outline-secondary mb-0" id="cfgActualsUploadLabel" style="display:none">
+            <label class="btn btn-sm btn-outline-secondary mb-0" v-if="project.code && !isViewer">
               ⬆ Upload XLS
-              <input type="file" id="cfgActualsFileInput" accept=".xls,.xlsx" style="display:none">
+              <input type="file" accept=".xls,.xlsx" style="display:none" @change="onActualsFileChange">
             </label>
-            <button class="btn btn-sm btn-outline-secondary" id="cfgActualsExportBtn" style="display:none">⬇ Export CSV</button>
+            <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="exportActualsCsv">⬇ Export CSV</button>
           </div>
         </div>
-        <div id="cfgActualsInfo" class="text-muted small py-1">
-          Save the project first to enable actuals upload.
-        </div>
-        <div id="cfgActualsStatus" class="small mt-1" style="display:none"></div>
+        <div class="text-muted small py-1" v-html="actuals.info"></div>
+        <div class="small mt-1" v-if="actuals.status" :class="actuals.statusClass">{{ actuals.status }}</div>
       </div>
+      <div class="cfg-section">
+  <div class="d-flex justify-content-between align-items-center cfg-section-title">
+    <span>3. Tasks &amp; Resources</span>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-outline-secondary" @click="exportTasksXlsx">⬇ XLSX</button>
+      <button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addTask">+ Add task</button>
+    </div>
+  </div>
+  <p class="text-muted small mb-3">Task name must match exactly the <strong>Task/Issue</strong> XLS column. Role must match <strong>Job Role: Name</strong>.</p>
 
-      <div class="cfg-section">
-        <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>3. Tasks &amp; Resources</span><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-secondary" id="cfgBtnExportTasksXlsx">⬇ XLSX</button><button class="btn btn-sm btn-primary" id="cfgBtnAddTask">+ Add task</button></div></div>
-        <p class="text-muted small mb-3">Task name must match exactly the <strong>Task/Issue</strong> XLS column. Role must match <strong>Job Role: Name</strong>.</p>
-        <div id="cfgTaskList"></div>
-        <div id="cfgTasksGrandTotal" class="d-flex justify-content-end gap-4 px-2 py-2 mt-1 border-top fw-bold small" style="background:#f8f9fa;border-radius:0 0 6px 6px">
-          <span>Total hours: <span id="cfgGrandTotalHours">—</span></span>
-          <span>Total budget: <span id="cfgGrandTotalBudget">—</span></span>
-        </div>
+  <div v-for="(task, ti) in project.tasks" :key="ti" class="cfg-task-card border rounded p-3 mb-3">
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <span class="text-muted small text-nowrap">Task name:</span>
+      <input type="text" class="form-control form-control-sm fw-semibold" v-model="task.name" :disabled="isViewer" placeholder="must match Task/Issue column in XLS">
+      <div class="form-check form-switch mb-0 flex-shrink-0 d-flex align-items-center gap-1" title="Uncheck to exclude this task from all reports and charts">
+        <input class="form-check-input" type="checkbox" role="switch" v-model="task.billable" :disabled="isViewer">
+        <label class="form-check-label small text-nowrap">Include in report</label>
       </div>
-      <div class="cfg-section">
-        <div class="d-flex justify-content-between align-items-center cfg-section-title">
-          <span>4. Monthly Budget Phasing <span class="fw-normal text-muted">(estimated budget to spend per month)</span></span>
-          <div class="d-flex gap-2 align-items-center flex-wrap">
-            <button class="btn btn-sm btn-outline-secondary" id="cfgBtnDerivePhasing">⟳ Derive from task dates</button>
-            <button class="btn btn-sm btn-outline-secondary" id="cfgBtnReforecastPhasing">↻ Reforecast from actuals</button>
+      <div class="form-check form-switch mb-0 flex-shrink-0 d-flex align-items-center gap-1" title="Mark task as completed">
+        <input class="form-check-input" type="checkbox" role="switch" v-model="task.completed" :disabled="isViewer" @change="rebuildTaskDist(ti)">
+        <label class="form-check-label small text-nowrap">Completed</label>
+      </div>
+      <button class="btn btn-sm btn-outline-danger flex-shrink-0" v-if="!isViewer" @click="confirmRemoveTask(ti)">🗑 Remove</button>
+    </div>
+    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+      <span class="text-muted small text-nowrap">Period:</span>
+      <input type="text" class="form-control form-control-sm" style="width:120px" :disabled="isViewer" placeholder="gg/mm/aaaa" maxlength="10" :value="ymdToIt(task.startDate)" @change="e => { task.startDate = itToYmd(e.target.value); rebuildTaskDist(ti); }">
+      <span class="text-muted small">→</span>
+      <input type="text" class="form-control form-control-sm" style="width:120px" :disabled="isViewer" placeholder="gg/mm/aaaa" maxlength="10" :value="ymdToIt(task.endDate)" @change="e => { task.endDate = itToYmd(e.target.value); rebuildTaskDist(ti); }">
+      <span class="text-muted small">(optional — defaults to project dates)</span>
+    </div>
+
+    <div class="mt-1 pt-2" style="border-top:1px solid #e9ecef" v-if="taskMonthRange(task).length">
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <span class="text-muted small">Monthly % distribution:</span>
+        <span class="badge" :class="distBadgeClass(task)">{{ distBadgeText(task) }}</span>
+      </div>
+      <div class="cfg-month-grid">
+        <div class="cfg-month-cell" v-for="ym in taskMonthRange(task)" :key="ym">
+          <div class="cfg-month-label">{{ monthLabel(ym, 'it-IT') }}</div>
+          <div class="d-flex align-items-center gap-1">
+            <input type="number" class="form-control form-control-sm text-end" min="0" max="100" step="1"
+                   :readonly="taskMonthRange(task).length === 1 || task.completed || isViewer"
+                   v-model.number="task.monthlyDistribution[ym]" placeholder="0">
+            <span style="font-size:var(--text-xs);color:#888">%</span>
           </div>
         </div>
-        <div id="cfgPhasingGrid" class="mt-1"></div>
       </div>
+    </div>
+
+    <div class="table-responsive mb-2">
+      <table class="table table-sm table-bordered mb-0" style="table-layout:fixed;width:100%">
+        <colgroup><col><col style="width:110px"><col style="width:110px"><col style="width:110px"><col style="width:32px"></colgroup>
+        <thead style="background:var(--surface-light)">
+          <tr><th>Job Role: Name <span class="fw-normal text-muted small">(must match XLS)</span></th><th class="text-end">Sold Hours</th><th class="text-end">Hourly Rate</th><th class="text-end">Subtotal</th><th></th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="(res, ri) in task.resources" :key="ri">
+            <td><input type="text" class="form-control form-control-sm" v-model="res.role" :disabled="isViewer" placeholder="e.g. HWGDEV - DEVELOPER"></td>
+            <td><input type="number" class="form-control form-control-sm text-end" min="0" step="0.5" v-model.number="res.soldHours" :disabled="isViewer"></td>
+            <td><input type="number" class="form-control form-control-sm text-end" min="0" step="1" v-model.number="res.hourlyRate" :disabled="isViewer"></td>
+            <td class="text-end small fw-semibold align-middle">{{ res.soldHours > 0 && res.hourlyRate > 0 ? fmtMoney(res.soldHours * res.hourlyRate) : '—' }}</td>
+            <td class="text-center"><button class="btn btn-sm btn-link text-danger p-0" v-if="!isViewer" @click="confirmRemoveResource(ti, ri)">✕</button></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--surface-light)">
+            <td colspan="3" class="text-end small fw-bold py-1">Task total</td>
+            <td class="text-end fw-bold py-1">{{ taskTotal(task) > 0 ? fmtMoney(taskTotal(task)) : '—' }}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addResource(ti)">+ Add resource</button>
+  </div>
+
+  <div class="d-flex justify-content-end gap-4 px-2 py-2 mt-1 border-top fw-bold small" style="background:#f8f9fa;border-radius:0 0 6px 6px">
+    <span>Total hours: {{ grandTotalHours > 0 ? grandTotalHours.toLocaleString('en-US') : '—' }}</span>
+    <span>Total budget: {{ grandTotalBudget > 0 ? fmtMoney(grandTotalBudget) : '—' }}</span>
+  </div>
+</div>
       <div class="cfg-section">
-        <div class="d-flex justify-content-between align-items-center cfg-section-title">
-          <span>5. Monthly Hour Planning <span class="fw-normal text-muted">(planned hours to consume per month)</span></span>
-          <div class="d-flex gap-2 align-items-center flex-wrap">
-            <button class="btn btn-sm btn-outline-secondary" id="cfgBtnDerivePlanning">⟳ Derive from task dates</button>
-            <button class="btn btn-sm btn-outline-secondary" id="cfgBtnReforecastPlanning">↻ Reforecast from actuals</button>
-          </div>
+  <div class="d-flex justify-content-between align-items-center cfg-section-title">
+    <span>4. Monthly Budget Phasing <span class="fw-normal text-muted">(estimated budget to spend per month)</span></span>
+    <div class="d-flex gap-2 align-items-center flex-wrap" v-if="!isViewer">
+      <button class="btn btn-sm btn-outline-secondary" @click="derivePhasing">⟳ Derive from task dates</button>
+      <button class="btn btn-sm btn-outline-secondary" v-if="reforecastVisible" @click="runReforecast">↻ Reforecast from actuals</button>
+    </div>
+  </div>
+  <div class="mt-1" v-if="projectMonths.length">
+    <div class="cfg-month-grid">
+      <div class="cfg-month-cell" v-for="ym in projectMonths" :key="ym">
+        <div class="cfg-month-label">{{ monthLabel(ym) }}</div>
+        <input type="text" class="form-control form-control-sm text-end"
+               :readonly="isViewer" :value="project.phasing[ym] > 0 ? fmtMoney(project.phasing[ym]) : ''"
+               @focus="e => { e.target.value = project.phasing[ym] > 0 ? project.phasing[ym] : ''; }"
+               @blur="e => { const v = parseMoney(e.target.value); if (v > 0) project.phasing[ym] = v; else delete project.phasing[ym]; e.target.value = v > 0 ? fmtMoney(v) : ''; }">
+      </div>
+    </div>
+    <div class="d-flex align-items-center gap-2 mt-2" style="font-size:var(--text-base)">
+      <span class="text-muted">=</span><strong>{{ phasingSum > 0 ? fmtMoney(phasingSum) : '—' }}{{ grandTotalBudget > 0 ? ' / ' + fmtMoney(grandTotalBudget) : '' }}</strong>
+    </div>
+  </div>
+  <p class="text-muted small mb-0" v-else>Set Start and End month first.</p>
+</div>
+<div class="cfg-section">
+  <div class="d-flex justify-content-between align-items-center cfg-section-title">
+    <span>5. Monthly Hour Planning <span class="fw-normal text-muted">(planned hours to consume per month)</span></span>
+    <div class="d-flex gap-2 align-items-center flex-wrap" v-if="!isViewer">
+      <button class="btn btn-sm btn-outline-secondary" @click="derivePhasing">⟳ Derive from task dates</button>
+      <button class="btn btn-sm btn-outline-secondary" v-if="reforecastVisible" @click="runReforecast">↻ Reforecast from actuals</button>
+    </div>
+  </div>
+  <div class="mt-1" v-if="projectMonths.length">
+    <div class="cfg-month-grid">
+      <div class="cfg-month-cell" v-for="ym in projectMonths" :key="ym">
+        <div class="cfg-month-label">{{ monthLabel(ym) }}</div>
+        <input type="text" class="form-control form-control-sm text-end"
+               :readonly="isViewer" :value="project.planning[ym] > 0 ? cfgFmtHours(project.planning[ym]) : ''"
+               @focus="e => { e.target.value = project.planning[ym] > 0 ? project.planning[ym] : ''; }"
+               @blur="e => { const v = cfgParseHours(e.target.value); if (v > 0) project.planning[ym] = v; else delete project.planning[ym]; e.target.value = v > 0 ? cfgFmtHours(v) : ''; }">
+      </div>
+    </div>
+    <div class="d-flex align-items-center gap-2 mt-2" style="font-size:var(--text-base)">
+      <span class="text-muted">=</span><strong>{{ planningSum > 0 ? (planningSum.toLocaleString('en-US') + ' h') : '—' }}{{ grandTotalHours > 0 ? ' / ' + grandTotalHours.toLocaleString('en-US') + ' h' : '' }}</strong>
+    </div>
+  </div>
+  <p class="text-muted small mb-0" v-else>Set Start and End month first.</p>
+</div>
+      <div class="cfg-section">
+  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>6. Pass Through Costs <span class="fw-normal text-muted">(PTC)</span></span><button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addPtc">+ Add PTC</button></div>
+  <p class="text-muted small mb-3">Add external costs (licences, travel, etc.) with title, note, amount and the month they occur.</p>
+  <div class="cfg-ptc-card border rounded p-3 mb-2" v-for="(item, pi) in project.ptc" :key="pi">
+    <div class="row g-2 align-items-start">
+      <div class="col-sm-3"><label class="form-label small text-muted mb-1">Title</label><input type="text" class="form-control form-control-sm" v-model="item.title" :disabled="isViewer" placeholder="e.g. Software licence"></div>
+      <div class="col-sm-4"><label class="form-label small text-muted mb-1">Note</label><input type="text" class="form-control form-control-sm" v-model="item.note" :disabled="isViewer" placeholder="optional description"></div>
+      <div class="col-sm-2"><label class="form-label small text-muted mb-1">Amount</label>
+        <input type="text" class="form-control form-control-sm text-end" :readonly="isViewer"
+               :value="item.amount > 0 ? fmtMoney(item.amount) : ''"
+               @focus="e => { e.target.value = item.amount > 0 ? item.amount : ''; }"
+               @blur="e => { item.amount = parseMoney(e.target.value); e.target.value = item.amount > 0 ? fmtMoney(item.amount) : ''; }">
+      </div>
+      <div class="col-sm-2"><label class="form-label small text-muted mb-1">Month</label>
+        <select class="form-select form-select-sm" v-model="item.month" :disabled="isViewer">
+          <option v-if="!projectMonths.length" value="">— set project dates first —</option>
+          <option v-for="ym in projectMonths" :key="ym" :value="ym">{{ monthLabelLong(ym) }}</option>
+        </select>
+      </div>
+      <div class="col-sm-1 d-flex align-items-end"><button class="btn btn-sm btn-outline-danger w-100" v-if="!isViewer" @click="confirmRemovePtc(pi)">🗑</button></div>
+    </div>
+  </div>
+  <div class="d-flex justify-content-end px-2 py-2 mt-1 border-top fw-bold small" style="background:#fff3cd;border-radius:0 0 6px 6px">Total PTC: {{ totalPtc > 0 ? fmtMoney(totalPtc) : '—' }}</div>
+</div>
+<div class="cfg-section">
+  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>7. Functional Groups <span class="fw-normal text-muted">(optional)</span></span><button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addGroup">+ Add group</button></div>
+  <p class="text-muted small mb-3">Group roles into functional areas. Roles must match the <strong>Job Role: Name</strong> column (one per line).</p>
+  <div class="cfg-group-card border rounded p-3 mb-2" v-for="(grp, gi) in project.groups" :key="gi">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <span class="text-muted small text-nowrap">Group name:</span>
+      <input type="text" class="form-control form-control-sm" v-model="grp.name" :disabled="isViewer" placeholder="e.g. Development">
+      <button class="btn btn-sm btn-outline-danger flex-shrink-0" v-if="!isViewer" @click="project.groups.splice(gi, 1)">🗑</button>
+    </div>
+    <label class="form-label small text-muted mb-1">Roles (one per line, must match Job Role: Name column in XLS):</label>
+    <textarea class="form-control form-control-sm font-monospace" rows="3" :disabled="isViewer"
+              :value="grp.roles.join('\n')" @input="e => grp.roles = e.target.value.split('\n').map(s => s.trim()).filter(Boolean)"
+              placeholder="HWGDEV - DEVELOPER&#10;HWGINTERN - ACCSVS"></textarea>
+  </div>
+</div>
+    </div>
+
+    <div class="d-flex gap-2 justify-content-between align-items-center py-4 border-top mt-2 mb-5">
+      <button class="btn btn-outline-secondary" onclick="window.location.href='/portfolio.html'">← Back to Portfolio</button>
+      <button v-if="!isViewer" class="btn btn-primary px-4" :disabled="saving" @click="onSave">{{ saving ? '💾 Saving…' : '💾 Save' }}</button>
+    </div>
+  </template>
+
+  <div class="modal fade" id="clientEditModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title fw-bold">＋ New client</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div v-if="clientModal.error" class="alert alert-danger py-2">{{ clientModal.error }}</div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Client name</label><input type="text" class="form-control form-control-sm" v-model="clientModal.name" placeholder="e.g. Acme Corp"></div>
         </div>
-        <div id="cfgPlanningGrid" class="mt-1"></div>
+        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" @click="saveClientModal">Save</button></div>
       </div>
-      <div class="cfg-section">
-        <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>6. Pass Through Costs <span class="fw-normal text-muted">(PTC)</span></span><button class="btn btn-sm btn-primary" id="cfgBtnAddPtc">+ Add PTC</button></div>
-        <p class="text-muted small mb-3">Add external costs (licences, travel, etc.) with title, note, amount and the month they occur.</p>
-        <div id="cfgPtcList"></div>
-        <div id="cfgPtcGrandTotal" class="d-flex justify-content-end px-2 py-2 mt-1 border-top fw-bold small" style="background:#fff3cd;border-radius:0 0 6px 6px"><span>Total PTC: <span id="cfgGrandTotalPtc">—</span></span></div>
-      </div>
-      <div class="cfg-section">
-        <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>7. Functional Groups <span class="fw-normal text-muted">(optional)</span></span><button class="btn btn-sm btn-primary" id="cfgBtnAddGroup">+ Add group</button></div>
-        <p class="text-muted small mb-3">Group roles into functional areas. Roles must match the <strong>Job Role: Name</strong> column (one per line).</p>
-        <div id="cfgGroupList"></div>
+    </div>
+  </div>
+  <div class="modal fade" id="programEditModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title fw-bold">＋ New program</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div v-if="programModal.error" class="alert alert-danger py-2">{{ programModal.error }}</div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Program name</label><input type="text" class="form-control form-control-sm" v-model="programModal.name" placeholder="e.g. Chatbot AI Platform"></div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Program ID</label><input type="text" class="form-control form-control-sm" v-model="programModal.id" placeholder="e.g. PRG-001"></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" @click="saveProgramModal">Save</button></div>
       </div>
     </div>
   </div>
 
-  <!-- Bottom action bar -->
-  <div class="d-flex gap-2 justify-content-between align-items-center py-4 border-top mt-2 mb-5">
-    <button class="btn btn-outline-secondary" onclick="window.location.href='/portfolio.html'">← Back to Portfolio</button>
-    <button class="btn btn-primary px-4" id="btnSaveConfig">💾 Save</button>
-  </div>
-
-</div><!-- /app-container -->
-
-<!-- ── MODALS ── -->
-
-<!-- Confirm -->
-<div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
-    <div class="modal-content shadow-lg">
-      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold" id="confirmModalTitle">⚠️ Confirm</h6></div>
-      <div class="modal-body pt-1"><p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p></div>
-      <div class="modal-footer border-0 pt-2">
-        <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-danger" id="confirmModalOk">Confirm</button>
+  <!-- Task 3/6 insert the confirm modal here -->
+  <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+      <div class="modal-content shadow-lg">
+        <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold">⚠️ Confirm</h6></div>
+        <div class="modal-body pt-1"><p class="mb-0" style="white-space:pre-line;font-size:.92rem">{{ confirmModal.message }}</p></div>
+        <div class="modal-footer border-0 pt-2">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-danger" @click="confirmModalOk">Confirm</button>
+        </div>
       </div>
     </div>
   </div>
+
 </div>
 
-<!-- Programs -->
-<div class="modal fade" id="programsModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold">🗂 Programs</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <div class="p-3 border-bottom d-flex justify-content-end"><button class="btn btn-sm btn-primary" onclick="openProgramEditModal(null)">＋ New program</button></div>
-        <table class="table table-sm align-middle mb-0">
-          <thead style="background:#f8f9fa"><tr><th class="ps-3">Name</th><th>Program ID</th><th>Projects</th><th></th></tr></thead>
-          <tbody id="programsTableBody"><tr id="programsEmptyRow"><td colspan="4" class="text-center text-muted py-4">No programs. Click <strong>＋ New program</strong>.</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Program Edit -->
-<div class="modal fade" id="programEditModal" tabindex="-1">
-  <div class="modal-dialog modal-sm">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold" id="programModalTitle">＋ New program</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div id="programModalError" class="alert alert-danger py-2 d-none"></div>
-        <div class="mb-3"><label class="form-label small fw-semibold">Program name</label><input type="text" class="form-control form-control-sm" id="programName" placeholder="e.g. Chatbot AI Platform"></div>
-        <div class="mb-3"><label class="form-label small fw-semibold">Program ID</label><input type="text" class="form-control form-control-sm" id="programId" placeholder="e.g. PRG-001"></div>
-      </div>
-      <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" onclick="saveProgramFromModal()">Save</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Clients -->
-<div class="modal fade" id="clientsModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold">👥 Clients</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <div class="p-3 border-bottom d-flex justify-content-end"><button class="btn btn-sm btn-primary" onclick="openClientEditModal(null)">＋ New client</button></div>
-        <table class="table table-sm align-middle mb-0">
-          <thead style="background:#f8f9fa"><tr><th class="ps-3">Name</th><th></th></tr></thead>
-          <tbody id="clientsTableBody"><tr id="clientsEmptyRow"><td colspan="2" class="text-center text-muted py-4">No clients. Click <strong>＋ New client</strong>.</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Client Edit -->
-<div class="modal fade" id="clientEditModal" tabindex="-1">
-  <div class="modal-dialog modal-sm">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold" id="clientModalTitle">＋ New client</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div id="clientModalError" class="alert alert-danger py-2 d-none"></div>
-        <div class="mb-3"><label class="form-label small fw-semibold">Client name</label><input type="text" class="form-control form-control-sm" id="clientName" placeholder="e.g. Acme Corp"></div>
-      </div>
-      <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" onclick="saveClientFromModal()">Save</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- ── SCRIPTS ── -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script>window.__cfgFullPage = true;</script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="js/api.js?v=4"></script>
 <script src="js/core.js?v=2"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/notifications.js"></script>
-<script src="js/roles.js"></script>
-<script src="js/costgrid.js?v=2"></script>
-<script type="module" src="js/lib/cfg-parse.js?v=1"></script>
-<script type="module" src="js/lib/costgrid-calc.js?v=1"></script>
-<script type="module" src="js/lib/status-rules.js?v=1"></script>
-<script src="js/config-form.js?v=12"></script>
 <script src="js/clients.js"></script>
 <script src="js/programs.js"></script>
+<script type="module" src="js/lib/cfg-parse.js?v=1"></script>
+<script type="module" src="js/lib/status-rules.js?v=1"></script>
+<script type="module" src="js/lib/config-form-calc.js?v=1"></script>
 <script src="js/api-sync.js?v=14"></script>
 <script src="js/nav.js?v=4"></script>
-
 <script>
-// Navigation stubs required by config-form.js
-function showCostGridEditorView(cgId, versionId) {
-  window.location.href = '/costgrid.html?' + new URLSearchParams({ cgId, verId: versionId });
-}
-function showPortfolioView() { window.location.href = '/portfolio.html'; }
-function renderPortfolioView() {}
-function renderDashboard() {}
-function renderPipelineBoard() {}
-function renderPortfolioPlanningView() {}
-function updateNavState() {}
-function cgHideAll() {}
-
-// ── ACTUALS SECTION ───────────────────────────────────────────────────────────
-
-async function cfgLoadActuals(projectId) {
-  const infoEl   = document.getElementById('cfgActualsInfo');
-  const exportBtn = document.getElementById('cfgActualsExportBtn');
-  const uploadLbl = document.getElementById('cfgActualsUploadLabel');
-  if (!projectId) {
-    infoEl.textContent = 'Save the project first to enable actuals upload.';
-    return;
+  function month2ym(monthInputVal) {
+    if (!monthInputVal) return '';
+    return monthInputVal.replace('-', '');
+  }
+  function ym2month(ym) {
+    if (!ym || ym.length < 6) return '';
+    return `${ym.slice(0,4)}-${ym.slice(4,6)}`;
   }
 
-  uploadLbl.style.display = '';
-  infoEl.textContent = 'Loading…';
-
-  try {
-    const rows = await Api.timesheets.get(projectId);
-    if (!rows || !rows.length) {
-      infoEl.innerHTML = `<span class="text-muted">No actuals uploaded for project <code>${esc(projectId)}</code>.</span>`;
-      exportBtn.style.display = 'none';
-      return;
-    }
-    const row = rows[0]; // most recent
-    const dt  = row.uploaded_at ? new Date(row.uploaded_at).toLocaleString('en-GB', { dateStyle:'medium', timeStyle:'short' }) : '—';
-    const cnt = row.row_count ?? 0;
-    const approxKb = row.data ? Math.round(JSON.stringify(row.data).length / 1024) : '?';
-    infoEl.innerHTML = `Last upload: <strong>${esc(dt)}</strong> &nbsp;·&nbsp; <strong>${cnt}</strong> rows &nbsp;·&nbsp; ~${approxKb} KB`;
-    exportBtn.style.display = '';
-    exportBtn.dataset.projectId = projectId;
-    exportBtn.dataset.rows = JSON.stringify(row.data);
-  } catch (e) {
-    infoEl.innerHTML = `<span class="text-danger">Could not load actuals: ${esc(e.message)}</span>`;
-  }
-}
-
-function cfgExportActualsCsv(projectId, rowData) {
-  if (!rowData || !rowData.length) return;
-  const cols = ['projectId','projectName','date','role','owner','task','hours','notes'];
-  const header = cols.join(',');
-  const csvRows = rowData.map(r =>
-    cols.map(c => {
-      const v = r[c] === null || r[c] === undefined ? '' : String(r[c]);
-      return v.includes(',') || v.includes('"') || v.includes('\n')
-        ? `"${v.replace(/"/g,'""')}"` : v;
-    }).join(',')
-  );
-  const csv  = [header, ...csvRows].join('\r\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url;
-  a.download = `actuals_${projectId}_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function cfgUploadActuals(file, projectId) {
-  const statusEl = document.getElementById('cfgActualsStatus');
-  statusEl.textContent = '⏳ Uploading…';
-  statusEl.style.display = '';
-  statusEl.className = 'small mt-1 text-muted';
-  try {
-    const result = await Api.timesheets.upload(file, projectId);
-    statusEl.textContent = `✅ Uploaded ${result.totalRows} rows.`;
-    statusEl.className = 'small mt-1 text-success';
-    await cfgLoadActuals(projectId);
-    setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
-  } catch (e) {
-    statusEl.textContent = `❌ Upload failed: ${e.message}`;
-    statusEl.className = 'small mt-1 text-danger';
-  }
-}
-
-document.addEventListener('DOMContentLoaded', async () => {
-  window.__cfgFullPage = true;
-  loadConfig();
-  loadSettings();
-
-  const user = await initNav('portfolio', { breadcrumbs: [
-    { label: 'Home', href: '/pipeline.html' },
-    { label: 'Project Portfolio', href: '/portfolio.html' },
-    { label: '…' },
-  ]});
-  if (!user) return;
-
-  await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi()]);
-  await Promise.all([loadConfigFromApi(), cgSyncFromApi()]);
-
-  // If projects came back empty but a projectId is in the URL, the connection pool was likely
-  // saturated by in-flight requests from the previous page. Retry once after a short pause.
-  if (config.projects.length === 0 && new URLSearchParams(window.location.search).get('projectId')) {
-    await new Promise(r => setTimeout(r, 600));
-    await loadConfigFromApi();
-  }
-
-  // ── WIRE FORM EVENTS ──────────────────────────────────────────────────────────
-  document.getElementById('btnSaveConfig').addEventListener('click', saveConfig);
-
-  document.getElementById('cfgPipeline').addEventListener('change', () => {
-    cfgApplyPipelineRules(document.getElementById('cfgPipeline').value, document.getElementById('cfgStatus').value);
-    cfgMarkDirty();
+  const BLANK_PROJECT = () => ({
+    id: '', code: '', name: '', startDate: '', endDate: '', currency: '€',
+    pipeline: '', status: '', tasks: [], phasing: {}, planning: {},
+    ptc: [], groups: [], costGridRef: null, programId: null,
+    clientId: '__unassigned__', my_permission: 'owner',
   });
 
-  document.getElementById('cfgBtnClearData').addEventListener('click', () => {
-    const pid = cfgProjectIdx >= 0 ? cfgEditConfig.projects[cfgProjectIdx]?.id : '';
-    if (!pid) return;
-    showConfirm(`Clear all cached XLS data for project "${pid}"?`, () => {
-      clearProjectData(pid);
-      window.location.href = '/portfolio.html';
-    }, null, '🗑 Clear XLS data');
-  });
+  Vue.createApp({
+    data() {
+      return {
+        ready: false,
+        notFound: false,
+        project: null,
+        isNewProject: false,
+        jsonError: '',
+        saving: false,
+        clientModal: { name: '', error: '' },
+        programModal: { name: '', id: '', error: '' },
+        confirmModal: { message: '', onConfirm: null },
+        reforecastVisible: false,
+        actuals: { info: 'Save the project first to enable actuals upload.', status: '', statusClass: '', exportRows: null },
+      };
+    },
+    computed: {
+      isViewer() {
+        return this.project?.my_permission === 'viewer';
+      },
+      pipelineLocked() {
+        return !!(this.project?.costGridRef?.cgId);
+      },
+      statusRule() {
+        return this.project ? getStatusRule(this.project.pipeline) : { options: null, disabled: true };
+      },
+      startMonthInput: {
+        get() { return ym2month(this.project?.startDate); },
+        set(v) { if (this.project) this.project.startDate = month2ym(v); },
+      },
+      endMonthInput: {
+        get() { return ym2month(this.project?.endDate); },
+        set(v) { if (this.project) this.project.endDate = month2ym(v); },
+      },
+      grandTotalHours() {
+        return (this.project?.tasks || []).reduce((s, t) => s + t.resources.reduce((rs, r) => rs + (r.soldHours || 0), 0), 0);
+      },
+      grandTotalBudget() {
+        return (this.project?.tasks || []).reduce((s, t) => s + t.resources.reduce((rs, r) => rs + (r.soldHours || 0) * (r.hourlyRate || 0), 0), 0);
+      },
+      projectMonths() {
+        if (!this.project?.startDate || !this.project?.endDate) return [];
+        const [sy, sm] = [parseInt(this.project.startDate.slice(0,4)), parseInt(this.project.startDate.slice(4,6))];
+        const [ey, em] = [parseInt(this.project.endDate.slice(0,4)), parseInt(this.project.endDate.slice(4,6))];
+        const months = [];
+        let cy = sy, cm = sm;
+        while (cy < ey || (cy === ey && cm <= em)) { months.push(`${cy}${String(cm).padStart(2,'0')}`); cm++; if (cm > 12) { cm = 1; cy++; } }
+        return months;
+      },
+      phasingSum() { return Object.values(this.project?.phasing || {}).reduce((s, v) => s + v, 0); },
+      planningSum() { return Object.values(this.project?.planning || {}).reduce((s, v) => s + v, 0); },
+      totalPtc() { return (this.project?.ptc || []).reduce((s, p) => s + (p.amount || 0), 0); },
+    },
+    async created() {
+      const user = await initNav('portfolio', { breadcrumbs: [
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Project Portfolio', href: '/portfolio.html' },
+        { label: '…' },
+      ]});
+      if (!user) return;
 
-  // Hidden project selector — still needed by config-form.js internals
-  document.getElementById('cfgProjectSel').addEventListener('change', e => {
-    if (cfgProjectIdx >= 0) cfgSaveCurrentToState();
-    cfgSelectProject(parseInt(e.target.value));
-  });
+      await Promise.all([loadClientsFromApi(), loadProgramsFromApi()]);
+      await loadConfigFromApi();
 
-  document.getElementById('cfgBtnNewProject').addEventListener('click', () => {
-    if (cfgProjectIdx >= 0) cfgSaveCurrentToState();
-    cfgEditConfig.projects.push({ id: '', name: '', startDate: '', endDate: '', currency: '€', tasks: [], phasing: {}, planning: {}, groups: [] });
-    cfgPopulateProjectDropdown();
-    cfgSelectProject(cfgEditConfig.projects.length - 1);
-  });
+      if (config.projects.length === 0 && new URLSearchParams(window.location.search).get('projectId')) {
+        await new Promise(r => setTimeout(r, 600));
+        await loadConfigFromApi();
+      }
 
-  document.getElementById('cfgBtnDelProject').addEventListener('click', () => {
-    if (cfgProjectIdx < 0) return;
-    const proj = cfgEditConfig.projects[cfgProjectIdx];
-    const name = proj.name || proj.id || 'this project';
-    showConfirm(`Delete project "${name}"?`, () => {
-      cfgEditConfig.projects.splice(cfgProjectIdx, 1);
-      cfgPopulateProjectDropdown();
-      cfgSelectProject(cfgEditConfig.projects.length > 0 ? 0 : -1);
-    });
-  });
-
-  document.getElementById('cfgBtnDerivePhasing').addEventListener('click', cfgDerivePhasing);
-  document.getElementById('cfgBtnDerivePlanning').addEventListener('click', cfgDerivePhasing);
-  document.getElementById('cfgBtnReforecastPhasing').addEventListener('click', cfgReforecast);
-  document.getElementById('cfgBtnReforecastPlanning').addEventListener('click', cfgReforecast);
-
-  document.getElementById('cfgBtnAddTask').addEventListener('click', () => {
-    document.getElementById('cfgTaskList').appendChild(cfgMakeTaskCard({ name: '', resources: [] }));
-    cfgUpdateGrandTotals();
-  });
-
-  document.getElementById('cfgBtnExportTasksXlsx').addEventListener('click', cfgExportTasksXlsx);
-
-  document.getElementById('cfgBtnAddPtc').addEventListener('click', () => {
-    document.getElementById('cfgPtcList').appendChild(cfgMakePtcCard({ title: '', note: '', amount: 0, month: cfgGetProjectMonths()[0] || '' }));
-    cfgUpdateGrandTotals();
-  });
-
-  document.getElementById('cfgBtnAddGroup').addEventListener('click', () => {
-    document.getElementById('cfgGroupList').appendChild(cfgMakeGroupCard({ name: '', roles: [] }));
-  });
-
-  document.getElementById('cfgName').addEventListener('input', () => {
-    if (cfgProjectIdx < 0) return;
-    const sel = document.getElementById('cfgProjectSel');
-    if (sel.options[cfgProjectIdx]) sel.options[cfgProjectIdx].textContent = document.getElementById('cfgName').value.trim() || `Project ${cfgProjectIdx + 1}`;
-    // Update breadcrumb with live name
-    const name = document.getElementById('cfgName').value.trim();
-    if (name && typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
-      { label: 'Home', href: '/pipeline.html' },
-      { label: 'Project Portfolio', href: '/portfolio.html' },
-      { label: name },
-    ]);
-  });
-
-  ['cfgStartDate', 'cfgEndDate'].forEach(id => {
-    const inp = document.getElementById(id);
-    inp.addEventListener('focus', () => { inp.dataset.prev = inp.value; });
-    inp.addEventListener('change', () => {
-      const p = cfgReadGrid('cfg-phasing-input'), pl = cfgReadGrid('cfg-planning-input');
-      const newMonths = new Set(cfgGetMonthRange());
-      const lost = [...new Set([...Object.keys(p), ...Object.keys(pl)].filter(ym => !newMonths.has(ym)))].sort();
-      const apply = () => { cfgRenderPhasingGrid(p); cfgRenderPlanningGrid(pl); };
-      if (lost.length > 0) {
-        const names = lost.map(ym => { const [y, m] = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))]; return new Date(y, m-1, 1).toLocaleDateString('en-US', { month:'short', year:'numeric' }); });
-        showConfirm(`Changing dates will discard values for:\n\n${names.join(', ')}\n\nContinue?`, apply, () => { inp.value = inp.dataset.prev || ''; });
-      } else { apply(); }
-    });
-  });
-
-  // Actuals export
-  document.getElementById('cfgActualsExportBtn').addEventListener('click', () => {
-    const btn = document.getElementById('cfgActualsExportBtn');
-    const rows = btn.dataset.rows ? JSON.parse(btn.dataset.rows) : [];
-    const pid  = btn.dataset.projectId || '';
-    cfgExportActualsCsv(pid, rows);
-  });
-
-  // Actuals upload
-  document.getElementById('cfgActualsFileInput').addEventListener('change', async e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const pid = cfgProjectIdx >= 0 ? cfgEditConfig.projects[cfgProjectIdx]?.code : '';
-    if (!pid) { alert('Set the D365 Project ID first before uploading actuals.'); return; }
-    await cfgUploadActuals(file, pid);
-    e.target.value = '';
-  });
-
-  // ── INIT FORM ─────────────────────────────────────────────────────────────────
-  cfgEditConfig = JSON.parse(JSON.stringify(config));
-  if (!Array.isArray(cfgEditConfig.projects)) cfgEditConfig.projects = [];
-
-  const params = new URLSearchParams(window.location.search);
-  const projectId = params.get('projectId');
-
-  if (projectId) {
-    const idx = cfgEditConfig.projects.findIndex(
-      p => p.id && p.id.trim().toLowerCase() === projectId.trim().toLowerCase()
-    );
-    cfgPopulateProjectDropdown();
-    cfgSelectProject(idx >= 0 ? idx : (cfgEditConfig.projects.length > 0 ? 0 : -1));
-    const resolvedIdx = idx >= 0 ? idx : (cfgEditConfig.projects.length > 0 ? 0 : -1);
-    const resolvedProj = resolvedIdx >= 0 ? cfgEditConfig.projects[resolvedIdx] : null;
-    const projName = resolvedProj?.name || projectId;
-    if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
-      { label: 'Home', href: '/pipeline.html' },
-      { label: 'Project Portfolio', href: '/portfolio.html' },
-      { label: projName },
-    ]);
-
-    // Enforce read-only for viewers
-    if (resolvedProj?.my_permission === 'viewer') {
-      const banner = document.createElement('div');
-      banner.className = 'alert alert-info d-flex align-items-center gap-2 mb-0 rounded-0';
-      banner.style.cssText = 'position:sticky;top:0;z-index:100;font-size:.85rem';
-      banner.innerHTML = '<span>👁 You have <strong>viewer</strong> access to this project — editing is disabled.</span>';
-      document.querySelector('main, .container-fluid, body > div') && document.body.insertBefore(banner, document.body.firstChild);
-
-      // Hide save/add/delete action buttons
-      ['btnSaveConfig','cfgBtnNewProject','cfgBtnDelProject','cfgBtnClearData'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-      });
-
-      // Make all form inputs and selects read-only after a tick (form renders async)
-      setTimeout(() => {
-        document.querySelectorAll(
-          '#cfgFormSections input, #cfgFormSections select, #cfgFormSections textarea'
-        ).forEach(el => {
-          el.setAttribute('readonly', '');
-          el.setAttribute('disabled', '');
+      this.resolveProject();
+      if (this.project && !this.notFound) this.sanitizeStatus();
+      if (this.project && !this.notFound) await this.updateReforecastVisibility();
+      if (this.project && !this.notFound) await this.loadActuals();
+      this.ready = true;
+    },
+    methods: {
+      resolveProject() {
+        const params = new URLSearchParams(window.location.search);
+        const projectId = params.get('projectId');
+        if (!projectId) {
+          this.project = BLANK_PROJECT();
+          this.isNewProject = true;
+          this.updateBreadcrumb('New Project');
+          return;
+        }
+        const found = (config.projects || []).find(
+          p => p.id && p.id.trim().toLowerCase() === projectId.trim().toLowerCase()
+        );
+        if (!found) {
+          this.notFound = true;
+          return;
+        }
+        this.project = JSON.parse(JSON.stringify(found));
+        this.isNewProject = false;
+        this.updateBreadcrumb(this.project.name || projectId);
+      },
+      updateBreadcrumb(label) {
+        if (typeof updateBreadcrumbs === 'function') {
+          updateBreadcrumbs([
+            { label: 'Home', href: '/pipeline.html' },
+            { label: 'Project Portfolio', href: '/portfolio.html' },
+            { label },
+          ]);
+        }
+      },
+      onNameInput() {
+        this.updateBreadcrumb(this.project.name.trim() || 'New Project');
+      },
+      onPipelineChange() {
+        this.sanitizeStatus();
+      },
+      sanitizeStatus() {
+        const rule = getStatusRule(this.project.pipeline);
+        if (rule.options && !rule.options.includes(this.project.status)) {
+          this.project.status = '';
+        }
+      },
+      onDateChange() {
+        // Task 5 extends this to warn about out-of-range phasing/planning months.
+      },
+      monthLabelLong(ym) {
+        const [y, m] = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))];
+        return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      },
+      addPtc() {
+        this.project.ptc.push({ title: '', note: '', amount: 0, month: this.projectMonths[0] || '' });
+      },
+      confirmRemovePtc(pi) {
+        const title = this.project.ptc[pi].title.trim() || 'this entry';
+        this.showConfirm(`Remove PTC "${title}"?`, () => { this.project.ptc.splice(pi, 1); });
+      },
+      addGroup() {
+        this.project.groups.push({ name: '', roles: [] });
+      },
+      async loadActuals() {
+        if (!this.project.code) { this.actuals.info = 'Save the project first to enable actuals upload.'; return; }
+        this.actuals.info = 'Loading…';
+        try {
+          const rows = await Api.timesheets.get(this.project.code);
+          if (!rows || !rows.length) {
+            this.actuals.info = `<span class="text-muted">No actuals uploaded for project <code>${esc(this.project.code)}</code>.</span>`;
+            this.actuals.exportRows = null;
+            return;
+          }
+          const row = rows[0];
+          const dt = row.uploaded_at ? new Date(row.uploaded_at).toLocaleString('en-GB', { dateStyle:'medium', timeStyle:'short' }) : '—';
+          const cnt = row.row_count ?? 0;
+          const approxKb = row.data ? Math.round(JSON.stringify(row.data).length / 1024) : '?';
+          this.actuals.info = `Last upload: <strong>${esc(dt)}</strong> &nbsp;·&nbsp; <strong>${cnt}</strong> rows &nbsp;·&nbsp; ~${approxKb} KB`;
+          this.actuals.exportRows = row.data;
+        } catch (e) {
+          this.actuals.info = `<span class="text-danger">Could not load actuals: ${esc(e.message)}</span>`;
+        }
+      },
+      exportActualsCsv() {
+        const rowData = this.actuals.exportRows;
+        if (!rowData || !rowData.length) return;
+        const cols = ['projectId','projectName','date','role','owner','task','hours','notes'];
+        const header = cols.join(',');
+        const csvRows = rowData.map(r => cols.map(c => {
+          const v = r[c] === null || r[c] === undefined ? '' : String(r[c]);
+          return v.includes(',') || v.includes('"') || v.includes('\n') ? `"${v.replace(/"/g,'""')}"` : v;
+        }).join(','));
+        const csv = [header, ...csvRows].join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `actuals_${this.project.code}_${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      async onActualsFileChange(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (!this.project.code) { alert('Set the D365 Project ID first before uploading actuals.'); return; }
+        this.actuals.status = '⏳ Uploading…'; this.actuals.statusClass = 'text-muted';
+        try {
+          const result = await Api.timesheets.upload(file, this.project.code);
+          this.actuals.status = `✅ Uploaded ${result.totalRows} rows.`; this.actuals.statusClass = 'text-success';
+          await this.loadActuals();
+          await this.updateReforecastVisibility();
+          setTimeout(() => { this.actuals.status = ''; }, 4000);
+        } catch (err) {
+          this.actuals.status = `❌ Upload failed: ${err.message}`; this.actuals.statusClass = 'text-danger';
+        }
+        e.target.value = '';
+      },
+      exportTasksXlsx() {
+        if (typeof XLSX === 'undefined') { alert('XLSX library not available.'); return; }
+        const proj = this.project;
+        const fmt = n => typeof n === 'number' ? n : (parseFloat(n) || 0);
+        const rows = [];
+        rows.push(['Project', proj.name || '']);
+        rows.push(['Project ID (D365)', proj.code || '']);
+        rows.push(['Pipeline', proj.pipeline || '']);
+        rows.push(['Status', proj.status || '']);
+        rows.push([]);
+        rows.push(['Task', 'Role', 'Hours', 'Hourly Rate (€)', 'Total (€)']);
+        let grandHours = 0, grandTotal = 0;
+        (proj.tasks || []).forEach(task => {
+          const resources = task.resources || [];
+          let taskHours = 0, taskTotal = 0;
+          if (resources.length === 0) {
+            rows.push([task.name || '', '', '', '', '']);
+          } else {
+            resources.forEach((res, ri) => {
+              const h = fmt(res.soldHours), r = fmt(res.hourlyRate), sub = h * r;
+              taskHours += h; taskTotal += sub;
+              rows.push([ri === 0 ? (task.name || '') : '', res.role || '', h, r, sub]);
+            });
+          }
+          rows.push(['', 'Subtotal', taskHours, '', taskTotal]);
+          rows.push([]);
+          grandHours += taskHours; grandTotal += taskTotal;
         });
-        // Hide add-task, add-resource, delete-task, reforecast, derive buttons
-        document.querySelectorAll(
-          '#cfgBtnAddTask, .cfg-btn-del-task, .cfg-add-res-btn, .cfg-res-del-btn,' +
-          '[onclick*="cfgReforecast"], [onclick*="cfgDerivePhasing"],' +
-          '#cfgRollbackPhasingBtn, #cfgRollbackPlanningBtn'
-        ).forEach(el => { el.style.display = 'none'; });
-      }, 200);
-    }
+        rows.push(['', 'GRAND TOTAL', grandHours, '', grandTotal]);
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [{ wch: 36 }, { wch: 30 }, { wch: 10 }, { wch: 16 }, { wch: 14 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Tasks & Resources');
+        const safe = s => String(s || '').replace(/[^a-z0-9]/gi, '_').slice(0, 30);
+        XLSX.writeFile(wb, `tasks_${safe(proj.code || proj.name)}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      },
+      onClearData() {
+        if (!this.project.id) return;
+        this.showConfirm(`Clear all cached XLS data for project "${this.project.id}"?`, () => {
+          clearProjectData(this.project.id);
+          window.location.href = '/portfolio.html';
+        });
+      },
+      async onSave() {
+        // Sold-hours validation — reject the save if any value is outside the allowed set.
+        for (const task of this.project.tasks) {
+          for (const r of task.resources) {
+            if (r.soldHours && !isValidSoldHours(r.soldHours)) {
+              alert(`Invalid sold hours "${r.soldHours}" for role "${r.role}" on task "${task.name}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`);
+              return;
+            }
+          }
+        }
+        // Warn if there are billable tasks with resources but no phasing configured.
+        const hasBillable = this.project.tasks.some(t => t.billable !== false && t.resources.length);
+        const phasingEmpty = !Object.values(this.project.phasing).some(v => v > 0);
+        if (hasBillable && phasingEmpty) {
+          if (!window.confirm('The budget phasing for this project is empty — no monthly budget is configured.\n\nSave anyway?')) return;
+        }
 
-    // Load actuals using the D365 project code (not the internal UUID)
-    cfgLoadActuals(resolvedProj?.code || '');
-  } else {
-    cfgEditConfig.projects.push({ id: '', name: '', startDate: '', endDate: '', currency: '€', tasks: [], phasing: {}, planning: {}, groups: [] });
-    cfgPopulateProjectDropdown();
-    cfgSelectProject(cfgEditConfig.projects.length - 1);
-    if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
-      { label: 'Home', href: '/pipeline.html' },
-      { label: 'Project Portfolio', href: '/portfolio.html' },
-      { label: 'New Project' },
-    ]);
-    document.getElementById('cfgActualsInfo').textContent = 'Save the project first to enable actuals upload.';
-  }
-});
+        this.saving = true;
+        try {
+          // config/cfgEditConfig/persistConfig are the existing in-memory-state contract (js/core.js, no-ops
+          // by design per CLAUDE.md's "Data strategy" section) — mirror the original's single-project write-back.
+          if (this.isNewProject) {
+            config.projects.push(this.project);
+          } else {
+            const idx = config.projects.findIndex(p => p.id === this.project.id);
+            if (idx >= 0) config.projects[idx] = this.project; else config.projects.push(this.project);
+          }
+          persistConfig();
+
+          if (typeof _pushProjectToApi !== 'undefined') {
+            await _pushProjectToApi(this.project).catch(e => console.warn('[sync] project push:', e.message));
+          }
+          window.location.href = '/portfolio.html';
+        } catch (e) {
+          this.jsonError = 'Save failed: ' + e.message;
+          this.saving = false;
+        }
+      },
+      openClientModal() {
+        this.clientModal = { name: '', error: '' };
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('clientEditModal')).show();
+      },
+      async saveClientModal() {
+        const name = this.clientModal.name.trim();
+        if (!name) { this.clientModal.error = 'Name is required.'; return; }
+        try {
+          const created = await Api.clients.create(name);
+          await loadClientsFromApi();
+          this.project.clientId = created.id;
+          bootstrap.Modal.getInstance(document.getElementById('clientEditModal'))?.hide();
+        } catch (e) {
+          this.clientModal.error = e.message || 'Save failed.';
+        }
+      },
+      openProgramModal() {
+        this.programModal = { name: '', id: '', error: '' };
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('programEditModal')).show();
+      },
+      async saveProgramModal() {
+        const name = this.programModal.name.trim();
+        const id = this.programModal.id.trim();
+        if (!name) { this.programModal.error = 'Name is required.'; return; }
+        if (!id) { this.programModal.error = 'Program ID is required.'; return; }
+        try {
+          const created = await Api.programs.create(id, name);
+          await loadProgramsFromApi();
+          this.project.programId = created.id;
+          bootstrap.Modal.getInstance(document.getElementById('programEditModal'))?.hide();
+        } catch (e) {
+          this.programModal.error = e.message || 'Save failed.';
+        }
+      },
+      // Currency formatting — config-form.js-specific, not extracted to js/lib (no other page needs it after this migration).
+      cfgCurrencyLocale(cur) { return (cur === '$' || cur === '£') ? 'en-US' : 'de-DE'; },
+      fmtMoney(amount) {
+        const cur = this.project?.currency || '€';
+        const f = new Intl.NumberFormat(this.cfgCurrencyLocale(cur), { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
+        return cur === 'CHF' ? `CHF ${f}` : `${cur} ${f}`;
+      },
+      parseMoney(str) {
+        const cur = this.project?.currency || '€';
+        const digits = String(str).trim().replace(/^(CHF|[€$£])\s*/i, '');
+        return this.cfgCurrencyLocale(cur) === 'de-DE'
+          ? parseFloat(digits.replace(/\./g, '').replace(',', '.')) || 0
+          : parseFloat(digits.replace(/,/g, '')) || 0;
+      },
+      ymdToIt(ymd) {
+        if (!ymd || ymd.length < 8) return '';
+        return `${ymd.slice(6,8)}/${ymd.slice(4,6)}/${ymd.slice(0,4)}`;
+      },
+      itToYmd(it) {
+        if (!it) return '';
+        const parts = it.split('/');
+        if (parts.length !== 3) return '';
+        const [d, m, y] = parts;
+        if (!d || !m || !y || y.length !== 4) return '';
+        const ymd = `${y}${m.padStart(2,'0')}${d.padStart(2,'0')}`;
+        return isNaN(new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`).getTime()) ? '' : ymd;
+      },
+      monthLabel(ym, locale = 'en-US') {
+        const [y, m] = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))];
+        return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'short', year: '2-digit' });
+      },
+      taskMonthRange(task) {
+        const s = task.startDate || (this.project.startDate ? this.project.startDate + '01' : '');
+        const e = task.endDate   || (this.project.endDate   ? this.project.endDate   + '01' : '');
+        if (!s || !e) return [];
+        // parseTaskDate is defined in js/core.js and stays unchanged — same semantics as today.
+        const tStart = parseTaskDate(s, false), tEnd = parseTaskDate(e, true);
+        const months = [];
+        let cy = tStart.getFullYear(), cm = tStart.getMonth() + 1;
+        const ey = tEnd.getFullYear(), em = tEnd.getMonth() + 1;
+        while (cy < ey || (cy === ey && cm <= em)) { months.push(`${cy}${String(cm).padStart(2,'0')}`); cm++; if (cm > 12) { cm = 1; cy++; } }
+        return months;
+      },
+      rebuildTaskDist(ti) {
+        const task = this.project.tasks[ti];
+        const months = this.taskMonthRange(task);
+        const kept = {};
+        months.forEach(ym => { if (task.monthlyDistribution?.[ym] != null) kept[ym] = task.monthlyDistribution[ym]; });
+        if (months.length === 1) kept[months[0]] = 100;
+        task.monthlyDistribution = kept;
+      },
+      distBadgeClass(task) {
+        const sum = Object.values(task.monthlyDistribution || {}).reduce((s, v) => s + (v || 0), 0);
+        if (Math.abs(sum - 100) < 0.05) return 'bg-success';
+        return sum > 100 ? 'bg-danger' : 'bg-warning text-dark';
+      },
+      distBadgeText(task) {
+        const sum = Object.values(task.monthlyDistribution || {}).reduce((s, v) => s + (v || 0), 0);
+        const rounded = Math.round(sum * 10) / 10;
+        if (Math.abs(sum - 100) < 0.05) return 'Σ = 100%';
+        return sum > 100 ? `Σ = ${rounded}% (${Math.round((sum-100)*10)/10}% too much)` : `Σ = ${rounded}% (${Math.round((100-sum)*10)/10}% missing)`;
+      },
+      taskTotal(task) {
+        return task.resources.reduce((s, r) => s + (r.soldHours || 0) * (r.hourlyRate || 0), 0);
+      },
+      addTask() {
+        this.project.tasks.push({ name: '', billable: true, completed: false, startDate: '', endDate: '', monthlyDistribution: {}, resources: [] });
+      },
+      confirmRemoveTask(ti) {
+        const name = this.project.tasks[ti].name.trim() || 'this task';
+        this.showConfirm(`Delete task "${name}" and all its resources?`, () => { this.project.tasks.splice(ti, 1); });
+      },
+      addResource(ti) {
+        this.project.tasks[ti].resources.push({ role: '', soldHours: 0, hourlyRate: 0 });
+      },
+      confirmRemoveResource(ti, ri) {
+        const role = this.project.tasks[ti].resources[ri].role.trim() || 'this resource';
+        this.showConfirm(`Remove resource "${role}"?`, () => { this.project.tasks[ti].resources.splice(ri, 1); });
+      },
+      showConfirm(message, onConfirm) {
+        this.confirmModal = { message, onConfirm };
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).show();
+      },
+      confirmModalOk() {
+        const cb = this.confirmModal.onConfirm;
+        bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
+        if (cb) cb();
+      },
+      async updateReforecastVisibility() {
+        this.reforecastVisible = false;
+        if (!this.project?.code) return;
+        try {
+          const uploads = await Api.timesheets.get(this.project.code);
+          this.reforecastVisible = (uploads || []).some(u => (u.data || []).length > 0);
+        } catch (_) { /* stays hidden */ }
+      },
+      derivePhasing() {
+        const tasks = this.project.tasks.filter(t => t.billable !== false);
+        const months = this.projectMonths;
+        if (!months.length) { alert('Set project dates first.'); return; }
+        const result = deriveDistribution(tasks, months, this.project.startDate, this.project.endDate);
+        const fmtB = n => this.fmtMoney(n);
+        const message = `Phasing and planning will be computed from task date ranges, distributing each task's budget proportionally to the days of overlap with each month.\n\n`
+          + `Total budget distributed: ${fmtB(result.totalBudget)} across ${months.length} months\n`
+          + `Total hours distributed: ${result.totalHours.toLocaleString('en-US')} h`;
+        this.showConfirm(message, () => {
+          this.project.phasing = result.newPhasing;
+          this.project.planning = result.newPlanning;
+        });
+      },
+      async runReforecast() {
+        const tasks = this.project.tasks.filter(t => t.billable !== false);
+        const months = this.projectMonths;
+        if (!months.length) { alert('Set project start and end dates first.'); return; }
+        if (!this.project.code) { alert('Set the D365 Project ID first before running Reforecast.'); return; }
+
+        let actualsRows = [];
+        try {
+          const uploads = await Api.timesheets.get(this.project.code);
+          actualsRows = (uploads || []).flatMap(u => u.data || []);
+        } catch (e) { alert('Could not load actuals from server: ' + e.message); return; }
+
+        const now = new Date();
+        const currentYm = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}`;
+        const result = reforecastDistribution(tasks, months, actualsRows, currentYm);
+        if (result.distError) { alert('Cannot reforecast:\n\n' + result.distError); return; }
+
+        const fmtB = n => this.fmtMoney(Math.abs(n));
+        const fmtH = n => `${+(Math.round(Math.abs(n) + 'e1') + 'e-1')} h`;
+        const pastCount = result.pastMonths.length, futureCount = result.futureMonths.length;
+        const distTaskCount = tasks.filter(t => {
+          const d = t.monthlyDistribution;
+          return d && Math.abs(Object.values(d).reduce((s,v)=>s+v,0) - 100) < 0.5;
+        }).length;
+
+        const message = `Phasing and planning grids will be fully overwritten:\n\n`
+          + `Past months (${pastCount}) — replaced with actual spend & hours from loaded XLS data\n`
+          + `Current & future months (${futureCount}) — distributed per task settings `
+          + (distTaskCount > 0 ? `(${distTaskCount} task${distTaskCount>1?'s':''} use monthly distribution)` : '(even split)') + `:\n`
+          + `  Remaining budget: ${fmtB(result.remainingBudget)}${result.remainingBudget < 0 ? ' (over budget)' : ''}\n`
+          + `  Remaining hours: ${fmtH(result.distributedRemainingHours)}${result.remainingHours < 0 ? ' (over hours)' : ''}`;
+
+        this.showConfirm(message, () => {
+          this.project.phasing = result.newPhasing;
+          this.project.planning = result.newPlanning;
+        });
+      },
+    },
+  }).mount('#app');
 </script>
-
 </body>
 </html>
-
-
