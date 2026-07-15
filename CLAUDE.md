@@ -74,7 +74,7 @@ planning.html            — resource planning
 costgrid.html            — cost grid editor
 timesheets.html          — timesheet upload (admin only)
 config.html              — config UI (clients / client groups / programs / roles / pipelines & POT targets; admin only)
-project-config.html      — full-page project config form (tasks, phasing, planning, groups)
+project-config.html      — full-page project config form (tasks, phasing, planning, groups), Vue 3 (CDN, no build step, same pattern as admin.html); single reactive project object, not an array; unknown ?projectId= shows an explicit not-found state instead of falling back to a random project; no longer loads js/config-form.js or js/roles.js
 admin.html               — user management (invite, role, disable, anonymize; admin only); T&C editor (view/edit/publish)
 terms.html               — standalone T&C acceptance page (no navbar/initNav), Vue 3 (CDN, no build step, same pattern as login.html); redirected to by initNav() gate
 css/tokens.css           — design tokens (single source of truth for colors/type)
@@ -128,7 +128,7 @@ js/lib/                  — pure functions extracted for unit testing (vitest +
                             project reached Committed, even with other tasks in the same version still unmapped.
                             Loaded via `<script type="module">` on every page that can render version lock state:
                             `project-config.html`, `portfolio.html`, `planning.html`, `pipeline.html`, `costgrid.html`.
-js/core.js               — state, in-memory helpers (loadConfig/persistConfig are no-ops), shared badges, esc(), fmtH(), fmtMoney(); `statusBadge()` small style for pipeline cards; `statusBadgeLarge()` same size/style as `pipelineBadge()` — used only in linked-project chips in the editor and detail panel; `cfgApplyPipelineRules(pipeline, currentStatus)` — thin DOM wrapper around `js/lib/status-rules.js`'s `getStatusRule()`, applies the returned `{options, disabled}` to the `#cfgStatus` `<select>`
+js/core.js               — state, in-memory helpers (loadConfig/persistConfig are no-ops), shared badges, esc(), fmtH(), fmtMoney(); `statusBadge()` small style for pipeline cards; `statusBadgeLarge()` same size/style as `pipelineBadge()` — used only in linked-project chips in the editor and detail panel; `cfgApplyPipelineRules(pipeline, currentStatus)` — thin DOM wrapper around `js/lib/status-rules.js`'s `getStatusRule()`, applies the returned `{options, disabled}` to the `#cfgStatus` `<select>`; still used by `js/config-form.js` (i.e. `portfolio.html`'s own config modal) but **not** by `project-config.html`, whose Vue rewrite calls `getStatusRule()` directly from a reactive `sanitizeStatus()` method instead (no `#cfgStatus` element exists on that page anymore)
 js/nav.js                — navbar + footer injection, initNav(); injects settings, change-password, send-notification,
                             and "My Profile" modals; T&C gate after GET /api/auth/me (redirects to /terms.html
                             if user.terms_version < current_terms_version); calls initNotifications(); stores window.__navUser

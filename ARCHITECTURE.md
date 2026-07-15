@@ -699,7 +699,7 @@ burndown/
   costgrid.html
   timesheets.html
   config.html             ← admin config (clients, programs, roles, pipelines & POTs); Role edit form shows per-currency rate fields populated from `rateOverrides`; "Proposal Phasing" view (was "Phasing") excludes Canceled/Draft stages; monthly cells show local amount + EUR equivalent for non-EUR proposals; `phasingTableHtml` adds Total column and removes collapsible detail; `openClientRatecard` fixed filter and shows agency default per-currency placeholder
-  project-config.html     ← full-page project config form
+  project-config.html     ← full-page project config form, Vue 3 (CDN, no build step, same pattern as admin.html); manages a single reactive project object (not an array — the original's hidden multi-project dropdown/New/Delete machinery was confirmed dead on this page); unknown ?projectId= shows an explicit not-found state
   admin.html              ← user management; "🗑 Anonymize" button on disabled non-anonymized users; T&C editor (admin: view version, edit HTML, save draft / publish new version)
   terms.html              ← standalone T&C acceptance page (no initNav), Vue 3 (CDN, no build step, same pattern as login.html); shown by gate in initNav() when user.terms_version < current; loaded from /api/app-settings/terms; POST /api/auth/accept-terms on confirm
   login.html / activate.html / reset-password.html
@@ -725,7 +725,7 @@ New users start fresh: an admin creates an account via the invite flow, then use
 **Current localStorage usage** (only genuinely client-side keys remain):
 - `PDash_settings` — AI provider API keys (Anthropic/OpenAI/Gemini), stored per-device
 - `PDash_summary` — portfolio summary project selection (UI preference)
-- `reforecast_snapshot_<projectId>` — temporary reforecast snapshot in project-config.html
+- `reforecast_snapshot_<projectId>` — no longer written; `project-config.html`'s Vue 3 rewrite confirmed the rollback/snapshot feature was already unreachable on that page (no rollback button existed in its markup) and did not port it. The mechanism still exists in `js/config-form.js` (unchanged, still loaded by `portfolio.html`'s own orphaned `#configModal`) but has no reachable trigger anywhere in the app.
 
 All server data (cost grids, projects, clients, programs, roles, timesheets) is fetched from the API on every page load into in-memory variables. No stale cross-session data is possible.
 

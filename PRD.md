@@ -295,11 +295,11 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 | Monthly distribution | % per month | Required for multi-month tasks |
 | Resources | role + sold hours + rate | Breakdown of sold effort |
 
-**Edit modes:** Visual form or raw JSON editor.
+**Edit modes:** Visual form only. (A raw-JSON editor toggle exists in the underlying shared `js/config-form.js`, still used by `portfolio.html`'s own separate, orphaned config modal, but was confirmed unreachable on `project-config.html` — no toggle button existed in this page's markup — during its 2026-07 Vue 3 migration, and was not ported.)
 
 **Other sections in the form:** Phasing (monthly budget distribution), Planning (monthly sold-hours distribution), and Functional Groups (named role groupings) — each a distinct area of the same full-page form.
 
-Phasing and Planning are manual grids by default (one currency/hours input per month, freely editable). Two actions can bulk-fill them instead of hand-entry — both share the same confirm-modal / snapshot / rollback UI, but compute completely different numbers:
+Phasing and Planning are manual grids by default (one currency/hours input per month, freely editable). Two actions can bulk-fill them instead of hand-entry — both share the same confirm-modal UI, but compute completely different numbers:
 
 #### Derive from Task Dates vs. Reforecast
 
@@ -314,12 +314,13 @@ Phasing and Planning are manual grids by default (one currency/hours input per m
 | Rounding | Hours across all months round to the nearest quarter-hour, with the sum guaranteed to exactly match the total distributed — never a value the confirmation modal didn't already show | Future months only: hours round to the nearest quarter-hour with the sum guaranteed to exactly match the residual being distributed (no cumulative drift across months); currency rounds to the nearest cent per month, independently. Past months keep exact actual values |
 | Result | Both Phasing and Planning grids updated | Both Phasing and Planning grids **fully overwritten** |
 | Confirmation | Standard confirm modal | Modal explicitly states past months are replaced with actuals and future months are redistributed |
-| Snapshot / rollback | Current grid values saved to browser `localStorage` before overwriting; `↩ Rollback reforecast` restores them (own confirm modal). Past months become read-only in the grid while a snapshot exists | Same mechanism, shared with Derive |
-| Persisted to server | Only when the user subsequently clicks the page's normal **Save** — the snapshot itself is never sent to the API | Same — Save is a separate, explicit step |
+| Persisted to server | Only when the user subsequently clicks the page's normal **Save** | Same — Save is a separate, explicit step |
 
-**Blocking error case (Reforecast only):** if the carried-forward drift would push the first future month's distribution above 100%, Reforecast does not silently clamp or partially apply — it stops computing entirely (no task after the offending one is processed either) and shows a blocking `alert()`: *"Cannot reforecast: Task "&lt;name&gt;": carry-forward (X%) pushes &lt;month&gt; above 100%. Adjust the monthly distribution manually before running Reforecast."* Neither grid is touched, no snapshot is taken, and the user must manually edit that task's monthly distribution before retrying.
+**No snapshot/rollback.** `project-config.html` has no `↩ Rollback` control and never saves a pre-run snapshot — confirmed, during that page's 2026-07 Vue 3 migration, to have been unreachable dead code already (`js/config-form.js` still contains the underlying `cfgSaveReforecastSnapshot`/`cfgRollbackReforecast` functions and localStorage mechanism, still exercised by `portfolio.html`'s own separate, orphaned config modal, but no live page reachable from normal navigation exposes a rollback button). A Derive/Reforecast run cannot be undone once it overwrites the on-screen grids, other than by reloading the page before clicking **Save** (which discards all unsaved edits, not just the derived/reforecasted ones).
 
-**Unsaved result is lost silently on navigation:** a successful Derive/Reforecast only updates the on-screen grid inputs and writes the pre-run snapshot to `localStorage` — it does not touch the server. There is no `beforeunload` warning anywhere in the app. If the user closes the tab or navigates away before clicking **Save**, the derived/reforecasted values are gone; the next visit loads the grids fresh from the server (i.e. still the pre-run values), and the abandoned `localStorage` snapshot is left behind, keyed by project ID — so Rollback may still appear available on a later visit even though there is nothing meaningful left to roll back to (the current grid already equals the snapshot).
+**Blocking error case (Reforecast only):** if the carried-forward drift would push the first future month's distribution above 100%, Reforecast does not silently clamp or partially apply — it stops computing entirely (no task after the offending one is processed either) and shows a blocking `alert()`: *"Cannot reforecast: Task "&lt;name&gt;": carry-forward (X%) pushes &lt;month&gt; above 100%. Adjust the monthly distribution manually before running Reforecast."* Neither grid is touched, and the user must manually edit that task's monthly distribution before retrying.
+
+**Unsaved result is lost silently on navigation:** a successful Derive/Reforecast only updates the on-screen grid inputs — it does not touch the server. There is no `beforeunload` warning anywhere in the app. If the user closes the tab or navigates away before clicking **Save**, the derived/reforecasted values are gone; the next visit loads the grids fresh from the server (i.e. still the pre-run values).
 
 Neither action validates that Phasing/Planning sums match the task totals; saving proceeds with only a soft warning if Phasing is entirely empty while billable tasks exist.
 
