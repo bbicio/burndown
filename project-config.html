@@ -75,7 +75,7 @@
         </div>
         <div class="row g-3 mt-1">
           <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Pipeline</label><select class="form-select form-select-sm" v-model="project.pipeline" :disabled="isViewer || pipelineLocked" :title="pipelineLocked ? 'Pipeline is managed from the Cost Grid' : ''" @change="onPipelineChange"><option value="">— Select —</option><option value="SIP">SIP</option><option value="Expected">Expected</option><option value="Anticipated">Anticipated</option><option value="Committed">Committed</option><option value="Canceled">Canceled</option></select></div>
-          <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Status</label><select class="form-select form-select-sm" v-model="project.status" :disabled="isViewer || !statusRule.options"><option v-if="!statusRule.options || !statusRule.options.length" value=""> — Select —</option><option v-for="opt in (statusRule.options || [])" :key="opt" :value="opt">{{ opt }}</option></select></div>
+          <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Status</label><select class="form-select form-select-sm" v-model="project.status" :disabled="isViewer || statusRule.disabled"><option v-if="!statusRule.options || !statusRule.options.length" value=""> — Select —</option><option v-for="opt in (statusRule.options || [])" :key="opt" :value="opt">{{ opt }}</option></select></div>
         </div>
       </div>
 
@@ -413,6 +413,7 @@
       }
 
       this.resolveProject();
+      if (this.project && !this.notFound) this.sanitizeStatus();
       if (this.project && !this.notFound) await this.updateReforecastVisibility();
       if (this.project && !this.notFound) await this.loadActuals();
       this.ready = true;
@@ -451,7 +452,13 @@
         this.updateBreadcrumb(this.project.name.trim() || 'New Project');
       },
       onPipelineChange() {
-        cfgApplyPipelineRules(this.project.pipeline, this.project.status);
+        this.sanitizeStatus();
+      },
+      sanitizeStatus() {
+        const rule = getStatusRule(this.project.pipeline);
+        if (rule.options && !rule.options.includes(this.project.status)) {
+          this.project.status = '';
+        }
       },
       onDateChange() {
         // Task 5 extends this to warn about out-of-range phasing/planning months.
