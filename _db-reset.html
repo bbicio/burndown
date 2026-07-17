@@ -47,6 +47,7 @@
 
     <template v-else>
       <div id="resetCards">
+        <div v-if="scopeErrorMsg" class="alert alert-danger py-2 mb-3" style="grid-column:1 / -1">{{ scopeErrorMsg }}</div>
         <div class="danger-card" v-for="s in scopes" :key="s.scope">
           <h5>{{ s.title }}</h5>
           <p>{{ s.description }}</p>
@@ -151,6 +152,7 @@
         confirmInputValue: '',
         confirmBusy: false,
         scopeDoneFlag: null,
+        scopeErrorMsg: '',
 
         cgIdInput: '',
         cgDeleteMsg: null,
@@ -162,8 +164,6 @@
         ownerLoadFailed: false,
         ownerChangeBusy: false,
         cgOwnerMsg: null,
-
-        _modal: null,
       };
     },
     async created() {
@@ -178,9 +178,7 @@
       this.ready = true;
     },
     mounted() {
-      const el = document.getElementById('confirmModal');
-      this._modal = new bootstrap.Modal(el);
-      el.addEventListener('hidden.bs.modal', () => {
+      document.getElementById('confirmModal').addEventListener('hidden.bs.modal', () => {
         this.pendingScope = null;
         this.pendingCgId = null;
         this.confirmInputValue = '';
@@ -190,10 +188,11 @@
       openScopeConfirm(scope) {
         this.pendingScope = scope;
         this.pendingCgId = null;
+        this.scopeErrorMsg = '';
         const s = this.scopes.find(x => x.scope === scope);
         this.confirmText = 'You are about to permanently delete ' + s.label + '.';
         this.confirmInputValue = '';
-        this._modal.show();
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).show();
       },
       openCgDeleteConfirm() {
         const cgId = this.cgIdInput.trim();
@@ -202,7 +201,7 @@
         this.pendingScope = null;
         this.confirmText = 'You are about to permanently delete cost grid ' + cgId + ' and all its linked projects.';
         this.confirmInputValue = '';
-        this._modal.show();
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).show();
       },
       async confirmDelete() {
         if (this.confirmInputValue.trim() !== 'DELETE') return;
@@ -219,18 +218,18 @@
             headers: { 'Content-Type': 'application/json' },
           });
           const data = await res.json();
-          this._modal.hide();
+          bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
 
           if (!res.ok) {
-            alert('Error: ' + (data.error || 'Unknown error'));
+            this.scopeErrorMsg = 'Error: ' + (data.error || 'Unknown error');
             return;
           }
 
           this.scopeDoneFlag = { scope };
           setTimeout(() => { this.scopeDoneFlag = null; }, 3000);
         } catch (e) {
-          this._modal.hide();
-          alert('Network error: ' + e.message);
+          bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
+          this.scopeErrorMsg = 'Network error: ' + e.message;
         } finally {
           this.confirmBusy = false;
         }
@@ -245,7 +244,7 @@
             headers: { 'Content-Type': 'application/json' },
           });
           const data = await res.json();
-          this._modal.hide();
+          bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
 
           if (!res.ok) {
             this.cgDeleteMsg = { text: 'Error: ' + (data.error || 'Unknown error'), isError: true };
@@ -255,7 +254,7 @@
           this.cgDeleteMsg = { text: `✓ Deleted "${data.cgName}" and ${data.projectsDeleted} linked project(s).`, isError: false };
           this.cgIdInput = '';
         } catch (e) {
-          this._modal.hide();
+          bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
           this.cgDeleteMsg = { text: 'Network error: ' + e.message, isError: true };
         } finally {
           this.confirmBusy = false;
