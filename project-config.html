@@ -354,7 +354,7 @@
         saving: false,
         clientModal: { name: '', error: '' },
         programModal: { name: '', id: '', error: '' },
-        confirmModal: { message: '', onConfirm: null },
+        confirmModal: { message: '' },
         reforecastVisible: false,
         actuals: { info: 'Save the project first to enable actuals upload.', status: '', statusClass: '', exportRows: null },
       };
@@ -470,9 +470,11 @@
       addPtc() {
         this.project.ptc.push({ title: '', note: '', amount: 0, month: this.projectMonths[0] || '' });
       },
-      confirmRemovePtc(pi) {
+      async confirmRemovePtc(pi) {
         const title = this.project.ptc[pi].title.trim() || 'this entry';
-        this.showConfirm(`Remove PTC "${title}"?`, () => { this.project.ptc.splice(pi, 1); });
+        if (await this.showConfirm(`Remove PTC "${title}"?`)) {
+          this.project.ptc.splice(pi, 1);
+        }
       },
       addGroup() {
         this.project.groups.push({ name: '', roles: [] });
@@ -566,12 +568,12 @@
         const safe = s => String(s || '').replace(/[^a-z0-9]/gi, '_').slice(0, 30);
         XLSX.writeFile(wb, `tasks_${safe(proj.code || proj.name)}_${new Date().toISOString().slice(0, 10)}.xlsx`);
       },
-      onClearData() {
+      async onClearData() {
         if (!this.project.id) return;
-        this.showConfirm(`Clear all cached XLS data for project "${this.project.id}"?`, () => {
+        if (await this.showConfirm(`Clear all cached XLS data for project "${this.project.id}"?`)) {
           clearProjectData(this.project.id);
           window.location.href = '/portfolio.html';
-        });
+        }
       },
       async onSave() {
         // Sold-hours validation — reject the save if any value is outside the allowed set.
@@ -587,7 +589,8 @@
         const hasBillable = this.project.tasks.some(t => t.billable !== false && t.resources.length);
         const phasingEmpty = !Object.values(this.project.phasing).some(v => v > 0);
         if (hasBillable && phasingEmpty) {
-          if (!window.confirm('The budget phasing for this project is empty — no monthly budget is configured.\n\nSave anyway?')) return;
+          const proceed = await this.showConfirm('The budget phasing for this project is empty — no monthly budget is configured.\n\nSave anyway?');
+          if (!proceed) return;
         }
 
         this.saving = true;
@@ -713,25 +716,38 @@
       addTask() {
         this.project.tasks.push({ name: '', billable: true, completed: false, startDate: '', endDate: '', monthlyDistribution: {}, resources: [] });
       },
-      confirmRemoveTask(ti) {
+      async confirmRemoveTask(ti) {
         const name = this.project.tasks[ti].name.trim() || 'this task';
-        this.showConfirm(`Delete task "${name}" and all its resources?`, () => { this.project.tasks.splice(ti, 1); });
+        if (await this.showConfirm(`Delete task "${name}" and all its resources?`)) {
+          this.project.tasks.splice(ti, 1);
+        }
       },
       addResource(ti) {
         this.project.tasks[ti].resources.push({ role: '', soldHours: 0, hourlyRate: 0 });
       },
-      confirmRemoveResource(ti, ri) {
+      async confirmRemoveResource(ti, ri) {
         const role = this.project.tasks[ti].resources[ri].role.trim() || 'this resource';
-        this.showConfirm(`Remove resource "${role}"?`, () => { this.project.tasks[ti].resources.splice(ri, 1); });
+        if (await this.showConfirm(`Remove resource "${role}"?`)) {
+          this.project.tasks[ti].resources.splice(ri, 1);
+        }
       },
-      showConfirm(message, onConfirm) {
-        this.confirmModal = { message, onConfirm };
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).show();
+      showConfirm(message) {
+        this.confirmModal = { message };
+        return new Promise(resolve => {
+          const el = document.getElementById('confirmModal');
+          this._confirmAccepted = false;
+          this._confirmResolve = () => { this._confirmAccepted = true; };
+          const onHidden = () => {
+            el.removeEventListener('hidden.bs.modal', onHidden);
+            resolve(this._confirmAccepted);
+          };
+          el.addEventListener('hidden.bs.modal', onHidden);
+          bootstrap.Modal.getOrCreateInstance(el).show();
+        });
       },
       confirmModalOk() {
-        const cb = this.confirmModal.onConfirm;
+        if (this._confirmResolve) this._confirmResolve();
         bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
-        if (cb) cb();
       },
       async updateReforecastVisibility() {
         this.reforecastVisible = false;
@@ -741,7 +757,7 @@
           this.reforecastVisible = (uploads || []).some(u => (u.data || []).length > 0);
         } catch (_) { /* stays hidden */ }
       },
-      derivePhasing() {
+      async derivePhasing() {
         const tasks = this.project.tasks.filter(t => t.billable !== false);
         const months = this.projectMonths;
         if (!months.length) { alert('Set project dates first.'); return; }
@@ -750,10 +766,10 @@
         const message = `Phasing and planning will be computed from task date ranges, distributing each task's budget proportionally to the days of overlap with each month.\n\n`
           + `Total budget distributed: ${fmtB(result.totalBudget)} across ${months.length} months\n`
           + `Total hours distributed: ${result.totalHours.toLocaleString('en-US')} h`;
-        this.showConfirm(message, () => {
+        if (await this.showConfirm(message)) {
           this.project.phasing = result.newPhasing;
           this.project.planning = result.newPlanning;
-        });
+        }
       },
       async runReforecast() {
         const tasks = this.project.tasks.filter(t => t.billable !== false);
@@ -787,10 +803,10 @@
           + `  Remaining budget: ${fmtB(result.remainingBudget)}${result.remainingBudget < 0 ? ' (over budget)' : ''}\n`
           + `  Remaining hours: ${fmtH(result.distributedRemainingHours)}${result.remainingHours < 0 ? ' (over hours)' : ''}`;
 
-        this.showConfirm(message, () => {
+        if (await this.showConfirm(message)) {
           this.project.phasing = result.newPhasing;
           this.project.planning = result.newPlanning;
-        });
+        }
       },
     },
   }).mount('#app');
