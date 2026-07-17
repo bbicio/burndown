@@ -91,6 +91,7 @@
           </div>
         </div>
         <div class="text-muted small py-1" v-html="actuals.info"></div>
+        <div class="small mt-1 text-danger" v-if="actuals.guardMsg">{{ actuals.guardMsg }}</div>
         <div class="small mt-1" v-if="actuals.status" :class="actuals.statusClass">{{ actuals.status }}</div>
       </div>
       <div class="cfg-section">
@@ -101,6 +102,7 @@
       <button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addTask">+ Add task</button>
     </div>
   </div>
+  <div v-if="tasksXlsxError" class="alert alert-danger py-1 px-2 small mb-2">{{ tasksXlsxError }}</div>
   <p class="text-muted small mb-3">Task name must match exactly the <strong>Task/Issue</strong> XLS column. Role must match <strong>Job Role: Name</strong>.</p>
 
   <div v-for="(task, ti) in project.tasks" :key="ti" class="cfg-task-card border rounded p-3 mb-3">
@@ -183,6 +185,7 @@
       <button class="btn btn-sm btn-outline-secondary" v-if="reforecastVisible" @click="runReforecast">↻ Reforecast from actuals</button>
     </div>
   </div>
+  <div v-if="phasingActionError" class="alert alert-danger py-1 px-2 small mb-2" style="white-space:pre-line">{{ phasingActionError }}</div>
   <div class="mt-1" v-if="projectMonths.length">
     <div class="cfg-month-grid">
       <div class="cfg-month-cell" v-for="ym in projectMonths" :key="ym">
@@ -356,7 +359,9 @@
         programModal: { name: '', id: '', error: '' },
         confirmModal: { message: '' },
         reforecastVisible: false,
-        actuals: { info: 'Save the project first to enable actuals upload.', status: '', statusClass: '', exportRows: null },
+        actuals: { info: 'Save the project first to enable actuals upload.', status: '', statusClass: '', exportRows: null, guardMsg: '' },
+        tasksXlsxError: '',
+        phasingActionError: '',
       };
     },
     computed: {
@@ -519,7 +524,8 @@
       async onActualsFileChange(e) {
         const file = e.target.files[0];
         if (!file) return;
-        if (!this.project.code) { alert('Set the D365 Project ID first before uploading actuals.'); return; }
+        this.actuals.guardMsg = '';
+        if (!this.project.code) { this.actuals.guardMsg = 'Set the D365 Project ID first before uploading actuals.'; return; }
         this.actuals.status = '⏳ Uploading…'; this.actuals.statusClass = 'text-muted';
         try {
           const result = await Api.timesheets.upload(file, this.project.code);
@@ -533,7 +539,8 @@
         e.target.value = '';
       },
       exportTasksXlsx() {
-        if (typeof XLSX === 'undefined') { alert('XLSX library not available.'); return; }
+        this.tasksXlsxError = '';
+        if (typeof XLSX === 'undefined') { this.tasksXlsxError = 'XLSX library not available.'; return; }
         const proj = this.project;
         const fmt = n => typeof n === 'number' ? n : (parseFloat(n) || 0);
         const rows = [];
@@ -577,10 +584,11 @@
       },
       async onSave() {
         // Sold-hours validation — reject the save if any value is outside the allowed set.
+        this.jsonError = '';
         for (const task of this.project.tasks) {
           for (const r of task.resources) {
             if (r.soldHours && !isValidSoldHours(r.soldHours)) {
-              alert(`Invalid sold hours "${r.soldHours}" for role "${r.role}" on task "${task.name}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`);
+              this.jsonError = `Invalid sold hours "${r.soldHours}" for role "${r.role}" on task "${task.name}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`;
               return;
             }
           }
@@ -758,9 +766,10 @@
         } catch (_) { /* stays hidden */ }
       },
       async derivePhasing() {
+        this.phasingActionError = '';
         const tasks = this.project.tasks.filter(t => t.billable !== false);
         const months = this.projectMonths;
-        if (!months.length) { alert('Set project dates first.'); return; }
+        if (!months.length) { this.phasingActionError = 'Set project dates first.'; return; }
         const result = deriveDistribution(tasks, months, this.project.startDate, this.project.endDate);
         const fmtB = n => this.fmtMoney(n);
         const message = `Phasing and planning will be computed from task date ranges, distributing each task's budget proportionally to the days of overlap with each month.\n\n`
@@ -772,21 +781,22 @@
         }
       },
       async runReforecast() {
+        this.phasingActionError = '';
         const tasks = this.project.tasks.filter(t => t.billable !== false);
         const months = this.projectMonths;
-        if (!months.length) { alert('Set project start and end dates first.'); return; }
-        if (!this.project.code) { alert('Set the D365 Project ID first before running Reforecast.'); return; }
+        if (!months.length) { this.phasingActionError = 'Set project start and end dates first.'; return; }
+        if (!this.project.code) { this.phasingActionError = 'Set the D365 Project ID first before running Reforecast.'; return; }
 
         let actualsRows = [];
         try {
           const uploads = await Api.timesheets.get(this.project.code);
           actualsRows = (uploads || []).flatMap(u => u.data || []);
-        } catch (e) { alert('Could not load actuals from server: ' + e.message); return; }
+        } catch (e) { this.phasingActionError = 'Could not load actuals from server: ' + e.message; return; }
 
         const now = new Date();
         const currentYm = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}`;
         const result = reforecastDistribution(tasks, months, actualsRows, currentYm);
-        if (result.distError) { alert('Cannot reforecast:\n\n' + result.distError); return; }
+        if (result.distError) { this.phasingActionError = 'Cannot reforecast:\n\n' + result.distError; return; }
 
         const fmtB = n => this.fmtMoney(Math.abs(n));
         const fmtH = n => `${+(Math.round(Math.abs(n) + 'e1') + 'e-1')} h`;
