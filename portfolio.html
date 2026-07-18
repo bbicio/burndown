@@ -389,7 +389,69 @@
           </table>
         </div>
       </div>
-      <!-- Task 7 inserts task detail tables here -->
+      <div v-if="taskDetailData.length" class="section-divider"><hr><span class="section-divider-label">Task detail</span></div>
+      <div v-for="entry in taskDetailData" :key="entry.task.name" class="section-card mb-4">
+        <div class="section-header d-flex justify-content-between align-items-center">
+          <span>📋 {{ entry.task.name }}<span v-if="entry.task.billable === false" class="badge bg-secondary ms-1" style="font-size:var(--text-xs);vertical-align:middle;">Excluded from report</span></span>
+          <div class="d-flex gap-2 align-items-center">
+            <button class="btn btn-sm btn-outline-secondary" @click="taskState(entry.task.name).expanded = !taskState(entry.task.name).expanded">{{ taskState(entry.task.name).expanded ? '▲ Close details' : '▶ Expand details' }}</button>
+            <ExportButtons :tbl-ref="() => $refs['taskTable_'+entry.task.name]?.[0]" :filename="'task_'+entry.task.name.replace(/[^a-zA-Z0-9]/g,'_')" :card-ref="() => $refs['taskCard_'+entry.task.name]?.[0]" />
+          </div>
+        </div>
+        <div class="table-responsive" :ref="'taskCard_'+entry.task.name">
+          <table :ref="'taskTable_'+entry.task.name" class="table table-sm table-hover align-middle mb-0 task-sum-tbl" style="table-layout:fixed;width:100%">
+            <colgroup><col style="width:40%"><col style="width:20%"><col style="width:20%"><col style="width:20%"></colgroup>
+            <thead style="background:var(--surface-light);"><tr><th class="ps-3">Role (Resource)</th><th class="text-end">Sold hours</th><th class="text-end">{{ filterHasFilter ? 'Consumed (' + filterRangeLabel + ')' : 'Consumed (period)' }}</th><th class="text-end pe-3">Remaining (total)</th></tr></thead>
+            <tbody>
+              <tr v-for="(r, i) in entry.rows" :key="i" :class="{'table-danger': r.remaining !== null && r.remaining < 0}">
+                <td class="ps-3">{{ r.label }}</td>
+                <td class="text-end">{{ r.soldHours !== null ? fmtH(r.soldHours) : '—' }}<span v-if="r.soldEur !== null" class="eur-sub">{{ fmtMoney(r.soldEur) }}</span></td>
+                <td class="text-end">{{ fmtH(r.consumedPeriod) }}<span class="eur-sub">{{ fmtMoney(r.consumedPeriodEur) }}</span></td>
+                <td class="text-end pe-3" :class="{'fw-bold text-danger': r.remaining !== null && r.remaining < 0}">{{ r.remaining !== null ? fmtH(r.remaining) : '—' }}<span v-if="r.remainingEur !== null" class="eur-sub" :class="{danger: r.remainingEur < 0}">{{ fmtMoney(r.remainingEur) }}</span></td>
+              </tr>
+              <tr class="fw-bold" style="background:#e9ecef;">
+                <td class="ps-3">TOTAL</td>
+                <td class="text-end">{{ fmtH(entry.totSold) }}<span class="eur-sub">{{ fmtMoney(entry.totSoldEur) }}</span></td>
+                <td class="text-end">{{ fmtH(entry.totPeriod) }}<span class="eur-sub">{{ fmtMoney(entry.totPeriodEur) }}</span></td>
+                <td class="text-end pe-3" :class="{'text-danger': entry.totRemaining < 0}">{{ fmtH(entry.totRemaining) }}<span class="eur-sub" :class="{danger: entry.totRemainingEur < 0}">{{ fmtMoney(entry.totRemainingEur) }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="detail-section" v-show="taskState(entry.task.name).expanded">
+          <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+            <span class="text-muted small">Chronological entries</span>
+            <div class="d-flex gap-2 align-items-center">
+              <div class="btn-group btn-group-sm" style="font-size:var(--text-sm)">
+                <button v-for="gm in ['flat','role','owner']" :key="gm" class="btn btn-outline-secondary" :class="{active: taskState(entry.task.name).groupMode === gm}" @click="taskState(entry.task.name).groupMode = gm">{{ gm === 'flat' ? 'Flat' : gm === 'role' ? 'By role' : 'By owner' }}</button>
+              </div>
+              <ExportButtons :tbl-ref="() => $refs['detTable_'+entry.task.name]?.[0]" :filename="'task_'+entry.task.name.replace(/[^a-zA-Z0-9]/g,'_')+'_detail'" :card-ref="() => $refs['detSection_'+entry.task.name]?.[0]" />
+            </div>
+          </div>
+          <div class="table-responsive" :ref="'detSection_'+entry.task.name">
+            <table :ref="'detTable_'+entry.task.name" class="table table-sm align-middle mb-0 det-tbl" style="table-layout:fixed;width:100%">
+              <colgroup><col style="width:15%"><col style="width:40%"><col style="width:15%"><col style="width:30%"></colgroup>
+              <thead style="background:var(--indigo-50);"><tr><th class="ps-3">Date</th><th>{{ taskState(entry.task.name).groupMode === 'flat' ? 'Role (Resource)' : taskState(entry.task.name).groupMode === 'role' ? 'Owner' : 'Role' }}</th><th class="text-end">Hours</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr v-if="!taskDetailRows(entry, taskState(entry.task.name).groupMode)"><td colspan="4" class="text-center text-muted py-3 small">No entries in the selected period.</td></tr>
+                <template v-else v-for="(row, i) in taskDetailRows(entry, taskState(entry.task.name).groupMode)" :key="i">
+                  <tr v-if="row.isGroupHeader" :style="{background: taskState(entry.task.name).groupMode === 'role' ? 'var(--indigo-50)' : 'var(--color-warning-bg)'}">
+                    <td class="ps-3 fw-semibold small" colspan="2">{{ row.label }}</td>
+                    <td class="text-end fw-semibold small">{{ fmtH(row.hours) }}<span class="eur-sub">{{ fmtMoney(row.eur) }}</span></td>
+                    <td></td>
+                  </tr>
+                  <tr v-else>
+                    <td class="ps-3">{{ fmtDate(row.date) }}</td>
+                    <td :class="{'text-muted': taskState(entry.task.name).groupMode !== 'flat'}">{{ row.col2 }}</td>
+                    <td class="text-end">{{ fmtH(row.hours) }}<span v-if="row.eur !== null" class="eur-sub">{{ fmtMoney(row.eur) }}</span></td>
+                    <td class="text-muted small">{{ row.notes }}</td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </template>
 
@@ -456,6 +518,7 @@
         filterMonth: '',
         filterStart: '',
         filterEnd: '',
+        taskDetailState: {}, // { [taskName]: { expanded: bool, groupMode: 'flat'|'role'|'owner' } }
       };
     },
     computed: {
@@ -718,6 +781,53 @@
           return { label, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
         });
       },
+      taskDetailData() {
+        const cfg = this.dashboardProject;
+        if (!cfg) return [];
+        const { start, end } = this.filterRange;
+        const data = this.dashboardData;
+
+        return cfg.tasks.map(task => {
+          const taskData = data.filter(r => r.task.toLowerCase() === task.name.toLowerCase());
+          const periodData = taskData.filter(r => (!start || r.date >= start) && (!end || r.date <= end)).sort((a,b) => a.date - b.date);
+
+          const roleMap = new Map();
+          periodData.forEach(r => {
+            const key = r.role.toLowerCase();
+            if (!roleMap.has(key)) roleMap.set(key, { role: r.role, owners: new Set(), consumedPeriod: 0 });
+            if (r.owner) roleMap.get(key).owners.add(r.owner);
+            roleMap.get(key).consumedPeriod += r.hours;
+          });
+          task.resources.forEach(res => {
+            if (!roleMap.has(res.role.toLowerCase())) roleMap.set(res.role.toLowerCase(), { role: res.role, owners: new Set(), consumedPeriod: 0 });
+          });
+
+          const rows = [...roleMap.values()].map(({ role, owners, consumedPeriod }) => {
+            const owner = [...owners].filter(Boolean).join(', ') || '—';
+            const cfgRes = task.resources.find(r => r.role.toLowerCase() === role.toLowerCase());
+            const rate = cfgRes?.hourlyRate ?? 0;
+            const soldHours = cfgRes?.soldHours ?? null;
+            const soldEur = soldHours !== null ? soldHours * rate : null;
+            const consumedTotal = taskData.filter(r => r.role.toLowerCase() === role.toLowerCase()).reduce((s,r) => s+r.hours, 0);
+            const remaining = cfgRes != null ? cfgRes.soldHours - consumedTotal : null;
+            const consumedPeriodEur = periodData.filter(r => r.role.toLowerCase() === role.toLowerCase()).reduce((s,r) => s+r.hours*rate, 0);
+            const remainingEur = cfgRes != null ? rate * (cfgRes.soldHours - consumedTotal) : null;
+            return { label: `${role} (${owner})`, soldHours, soldEur, consumedPeriod, consumedPeriodEur, remaining, remainingEur };
+          });
+
+          const totSold = rows.reduce((s,r) => s+(r.soldHours??0), 0);
+          const totSoldEur = rows.reduce((s,r) => s+(r.soldEur??0), 0);
+          const totPeriod = periodData.reduce((s,r) => s+r.hours, 0);
+          const totPeriodEur = periodData.reduce((s,r) => {
+            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
+            return s + r.hours * (cfgR?.hourlyRate ?? 0);
+          }, 0);
+          const totRemaining = rows.reduce((s,r) => s+(r.remaining??0), 0);
+          const totRemainingEur = rows.reduce((s,r) => s+(r.remainingEur??0), 0);
+
+          return { task, rows, totSold, totSoldEur, totPeriod, totPeriodEur, totRemaining, totRemainingEur, periodData };
+        });
+      },
     },
     async created() {
       this._burndownChart = null;
@@ -751,8 +861,46 @@
       getClientName,
       pipelineBadge,
       fmtMoney,
+      fmtDate,
       getProjectPipeline,
       statusBadgeLarge,
+      taskState(taskName) {
+        if (!this.taskDetailState[taskName]) {
+          this.taskDetailState[taskName] = { expanded: false, groupMode: 'flat' };
+        }
+        return this.taskDetailState[taskName];
+      },
+      taskDetailRows(entry, groupMode) {
+        const { task, periodData } = entry;
+        if (periodData.length === 0) return null; // template renders the "no entries" row itself
+        if (groupMode === 'flat') {
+          return periodData.map(r => {
+            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
+            return { date: r.date, col2: `${r.role} (${r.owner})`, hours: r.hours, eur: cfgR ? r.hours * cfgR.hourlyRate : null, notes: r.notes, isGroupHeader: false };
+          });
+        }
+        const groups = new Map();
+        periodData.forEach(r => {
+          const k = groupMode === 'role' ? r.role.toLowerCase() : r.owner.toLowerCase();
+          const label = groupMode === 'role' ? r.role : r.owner;
+          if (!groups.has(k)) groups.set(k, { label, entries: [] });
+          groups.get(k).entries.push(r);
+        });
+        const out = [];
+        groups.forEach(({ label, entries }) => {
+          const grpH = entries.reduce((s,r) => s+r.hours, 0);
+          const grpEur = entries.reduce((s,r) => {
+            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
+            return s + r.hours * (cfgR?.hourlyRate ?? 0);
+          }, 0);
+          out.push({ isGroupHeader: true, label, hours: grpH, eur: grpEur });
+          entries.forEach(r => {
+            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
+            out.push({ date: r.date, col2: groupMode === 'role' ? r.owner : r.role, hours: r.hours, eur: cfgR ? r.hours * cfgR.hourlyRate : null, notes: r.notes, isGroupHeader: false });
+          });
+        });
+        return out;
+      },
       filterMonthLabel(ym) {
         const [y, m] = ym.split('-').map(Number);
         return new Date(y, m-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
