@@ -320,7 +320,75 @@
           </table>
         </div>
       </div>
-      <!-- Task 6 inserts the date filter + summary tables here -->
+      <div class="section-card mb-4">
+        <div class="section-header">🗓️ Period filter — applies to all summary and detail tables below</div>
+        <div class="p-3">
+          <div class="row g-3 align-items-end flex-wrap">
+            <div class="col-auto"><label class="form-label small fw-semibold mb-1">Month</label>
+              <select class="form-select form-select-sm" v-model="filterMonth" style="min-width:160px" @change="filterStart = ''; filterEnd = '';">
+                <option value="">— All months —</option>
+                <option v-for="ym in filterMonthOptions" :key="ym" :value="ym">{{ filterMonthLabel(ym) }}</option>
+              </select>
+            </div>
+            <div class="col-auto d-flex align-items-end pb-1"><span class="text-muted small">or</span></div>
+            <div class="col-auto"><label class="form-label small fw-semibold mb-1">From</label><input type="date" class="form-control form-control-sm" v-model="filterStart" @change="filterMonth = ''"></div>
+            <div class="col-auto"><label class="form-label small fw-semibold mb-1">To</label><input type="date" class="form-control form-control-sm" v-model="filterEnd" @change="filterMonth = ''"></div>
+            <div class="col-auto"><button class="btn btn-outline-secondary btn-sm" @click="resetDateFilter">↺ Reset</button></div>
+            <div class="col-auto"><span class="text-muted small">{{ filterRangeLabel }}</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="section-card mb-4" v-if="summaryByTask">
+        <div class="section-header d-flex justify-content-between align-items-center">
+          <span>📋 Summary by task</span>
+          <ExportButtons :tbl-ref="() => $refs.summaryByTaskTable" filename="summary_by_task" :card-ref="() => $refs.summaryByTaskCard" />
+        </div>
+        <div class="table-responsive" ref="summaryByTaskCard">
+          <table ref="summaryByTaskTable" class="table table-sm align-middle mb-0 tbl-fixed">
+            <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByTask" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
+            <tbody>
+              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ fmtMoney(c.soldEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totSold) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByTask, filterHasFilter).totSoldEur) }}</span></td></tr>
+              <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totSpent) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByTask, filterHasFilter).totSpentEur) }}</span></td></tr>
+              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ fmtMoney(c.inPeriodEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByTask, filterHasFilter).totInPeriod) : '—' }}</td></tr>
+              <tr style="background:#e9ecef;"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByTask" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(c.soldEur - c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByTask, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totResidual) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByTask, filterHasFilter).totResidualEur) }}</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="section-card mb-4" v-if="summaryByRole">
+        <div class="section-header d-flex justify-content-between align-items-center">
+          <span>📊 Summary by role</span>
+          <ExportButtons :tbl-ref="() => $refs.summaryByRoleTable" filename="summary_by_role" :card-ref="() => $refs.summaryByRoleCard" />
+        </div>
+        <div class="table-responsive" ref="summaryByRoleCard">
+          <table ref="summaryByRoleTable" class="table table-sm align-middle mb-0 tbl-fixed">
+            <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByRole" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
+            <tbody>
+              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ fmtMoney(c.soldEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totSold) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByRole, filterHasFilter).totSoldEur) }}</span></td></tr>
+              <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totSpent) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByRole, filterHasFilter).totSpentEur) }}</span></td></tr>
+              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ fmtMoney(c.inPeriodEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByRole, filterHasFilter).totInPeriod) : '—' }}</td></tr>
+              <tr style="background:#e9ecef;"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByRole" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(c.soldEur - c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByRole, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totResidual) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByRole, filterHasFilter).totResidualEur) }}</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="section-card mb-4" v-if="summaryByGroup">
+        <div class="section-header d-flex justify-content-between align-items-center">
+          <span>🏷️ Summary by functional area</span>
+          <ExportButtons :tbl-ref="() => $refs.summaryByGroupTable" filename="summary_by_group" :card-ref="() => $refs.summaryByGroupCard" />
+        </div>
+        <div class="table-responsive" ref="summaryByGroupCard">
+          <table ref="summaryByGroupTable" class="table table-sm align-middle mb-0 tbl-fixed">
+            <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByGroup" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
+            <tbody>
+              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ fmtMoney(c.soldEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totSold) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByGroup, filterHasFilter).totSoldEur) }}</span></td></tr>
+              <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totSpent) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByGroup, filterHasFilter).totSpentEur) }}</span></td></tr>
+              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ fmtMoney(c.inPeriodEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByGroup, filterHasFilter).totInPeriod) : '—' }}</td></tr>
+              <tr style="background:#e9ecef;"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(c.soldEur - c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByGroup, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totResidual) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByGroup, filterHasFilter).totResidualEur) }}</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
       <!-- Task 7 inserts task detail tables here -->
     </div>
   </template>
@@ -385,6 +453,9 @@
         dashboardReady: false,
         burndownInterval: 'monthly',
         burndownTaskFilter: '',
+        filterMonth: '',
+        filterStart: '',
+        filterEnd: '',
       };
     },
     computed: {
@@ -567,6 +638,86 @@
         });
         return { rows, total };
       },
+      filterMonthOptions() {
+        const cfg = this.dashboardProject, data = this.dashboardData;
+        const months = [];
+        if (cfg?.startDate && cfg?.endDate) {
+          let cy = parseInt(cfg.startDate.slice(0,4)), cm = parseInt(cfg.startDate.slice(4,6));
+          const ey = parseInt(cfg.endDate.slice(0,4)), em = parseInt(cfg.endDate.slice(4,6));
+          while (cy < ey || (cy === ey && cm <= em)) { months.push(`${cy}-${String(cm).padStart(2,'0')}`); cm++; if (cm>12){cm=1;cy++;} }
+        } else {
+          const monthSet = new Set(data.map(r => `${r.date.getFullYear()}-${String(r.date.getMonth()+1).padStart(2,'0')}`));
+          [...monthSet].sort().forEach(ym => months.push(ym));
+        }
+        return months;
+      },
+      filterRange() {
+        if (this.filterMonth) {
+          const [y, m] = this.filterMonth.split('-').map(Number);
+          return { start: new Date(y, m-1, 1), end: new Date(y, m, 0, 23, 59, 59) };
+        }
+        return {
+          start: this.filterStart ? new Date(this.filterStart + 'T00:00:00') : null,
+          end: this.filterEnd ? new Date(this.filterEnd + 'T23:59:59') : null,
+        };
+      },
+      filterHasFilter() { return !!(this.filterRange.start || this.filterRange.end); },
+      filterRangeLabel() {
+        if (this.filterMonth) return this.filterMonthLabel(this.filterMonth);
+        const { start, end } = this.filterRange;
+        const fmtD = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        if (start && end) return `${fmtD(start)} – ${fmtD(end)}`;
+        if (start) return `from ${fmtD(start)}`;
+        if (end) return `until ${fmtD(end)}`;
+        return '';
+      },
+      summaryByTask() {
+        if (!this.dashboardProject) return null;
+        const bTasks = billableTasks(this.dashboardProject);
+        const entries = bTasks.map(t => ({
+          key: t.name.toLowerCase(), label: t.name,
+          soldHours: t.resources.reduce((s,r) => s+r.soldHours, 0),
+          soldEur: t.resources.reduce((s,r) => s+r.soldHours*r.hourlyRate, 0),
+        }));
+        return this.buildSummaryCols(this.dashboardData, r => r.task.toLowerCase(), entries);
+      },
+      summaryByRole() {
+        if (!this.dashboardProject) return null;
+        const roleMap = new Map();
+        billableTasks(this.dashboardProject).forEach(t => t.resources.forEach(res => {
+          const key = res.role.toLowerCase();
+          if (!roleMap.has(key)) roleMap.set(key, { key, label: res.role, soldHours: 0, soldEur: 0 });
+          roleMap.get(key).soldHours += res.soldHours;
+          roleMap.get(key).soldEur += res.soldHours * res.hourlyRate;
+        }));
+        const bData = billableData(this.dashboardData, this.dashboardProject);
+        return this.buildSummaryCols(bData, r => r.role.toLowerCase(), [...roleMap.values()]);
+      },
+      summaryByGroup() {
+        const cfg = this.dashboardProject;
+        if (!cfg || !cfg.groups?.length) return null;
+        const bData = billableData(this.dashboardData, cfg);
+        const bTasks = billableTasks(cfg);
+        const entries = cfg.groups.map(grp => {
+          const roleLowers = grp.roles.map(r => r.toLowerCase());
+          let soldHours = 0, soldEur = 0;
+          bTasks.forEach(task => task.resources.forEach(res => {
+            if (roleLowers.includes(res.role.toLowerCase())) { soldHours += res.soldHours; soldEur += res.soldHours*res.hourlyRate; }
+          }));
+          return { key: grp.name, label: grp.name, soldHours, soldEur, _roleLowers: roleLowers };
+        });
+        // Group membership is by role-list, not a single row field — filter bData once per group inline via a custom byKeyFn closure.
+        return entries.map(({ key, label, soldHours, soldEur, _roleLowers }) => {
+          const { start, end } = this.filterRange;
+          const grpRows = bData.filter(r => _roleLowers.includes(r.role.toLowerCase()));
+          const totalConsumed = grpRows.reduce((s,r) => s+r.hours, 0);
+          const totalConsumedEur = grpRows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0);
+          const periodRows = grpRows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
+          const inPeriod = periodRows.reduce((s,r) => s+r.hours, 0);
+          const inPeriodEur = periodRows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0);
+          return { label, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
+        });
+      },
     },
     async created() {
       this._burndownChart = null;
@@ -602,6 +753,36 @@
       fmtMoney,
       getProjectPipeline,
       statusBadgeLarge,
+      filterMonthLabel(ym) {
+        const [y, m] = ym.split('-').map(Number);
+        return new Date(y, m-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      },
+      resetDateFilter() { this.filterMonth = ''; this.filterStart = ''; this.filterEnd = ''; },
+      buildSummaryCols(rows, byKeyFn, entries) {
+        const { start, end } = this.filterRange;
+        return entries.map(({ key, label, soldHours, soldEur }) => {
+          const keyRows = rows.filter(r => byKeyFn(r) === key);
+          const totalConsumed = keyRows.reduce((s,r) => s+r.hours, 0);
+          const totalConsumedEur = keyRows.reduce((s,r) => s+r.hours*(findRate(r, this.dashboardProject)??0), 0);
+          const periodRows = keyRows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
+          const inPeriod = periodRows.reduce((s,r) => s+r.hours, 0);
+          const inPeriodEur = periodRows.reduce((s,r) => s+r.hours*(findRate(r, this.dashboardProject)??0), 0);
+          return { label, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
+        });
+      },
+      summaryTotals(cols, hasFilter) {
+        const totSold = cols.reduce((s,c) => s+c.soldHours, 0);
+        const totSoldEur = cols.reduce((s,c) => s+c.soldEur, 0);
+        const totConsumed = cols.reduce((s,c) => s+c.totalConsumed, 0);
+        const totConsumedEur = cols.reduce((s,c) => s+c.totalConsumedEur, 0);
+        const totInPeriod = cols.reduce((s,c) => s+c.inPeriod, 0);
+        const totInPeriodEur = cols.reduce((s,c) => s+c.inPeriodEur, 0);
+        const totSpent = totConsumed - (hasFilter ? totInPeriod : 0);
+        const totSpentEur = totConsumedEur - (hasFilter ? totInPeriodEur : 0);
+        const totResidual = totSold - totConsumed;
+        const totResidualEur = totSoldEur - totConsumedEur;
+        return { totSold, totSoldEur, totSpent, totSpentEur, totInPeriod, totInPeriodEur, totResidual, totResidualEur };
+      },
       showOverview() {
         this.view = 'overview';
         if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
