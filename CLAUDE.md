@@ -31,6 +31,13 @@ To run database migrations:
 docker exec pdash-db psql -U pdash -d pdash -f /path/to/migration.sql
 ```
 
+To test a feature branch in isolation before merging (separate containers/ports, doesn't touch the `main` stack):
+
+```bash
+scripts/test-branch.sh up    # build + start, clone data from main if running
+scripts/test-branch.sh down  # tear down
+```
+
 No bundler, no build step for the **runtime** — nginx serves `js/`/`css/` files exactly as they are on disk, and this must stay true.
 
 A dev-only test toolchain exists for the frontend: root `package.json` + vitest + jsdom, isolated from the runtime (see `js/lib/` below). It is never bundled, never served — `node_modules/`, `package.json`, `package-lock.json`, `vitest.config.js`, and any `*.test.js`/`*.spec.js` file are explicitly denied in `nginx.conf`. Run tests with `npm test` (single run) or `npm run test:watch`.
@@ -186,6 +193,11 @@ api/src/db/migrations/   — numbered SQL migration files
 api/src/services/        — email (nodemailer: sendInvite, sendPasswordReset, sendShareNotification,
                             sendExportEmail, sendAdminNotificationEmail), jwt
 api/src/create-admin.js  — CLI bootstrap script (admin user create/reset)
+scripts/test-branch.sh   — isolated Docker Compose stack for testing the current feature branch before merge
+                            (distinct container names/ports from the main stack, clones data from main via
+                            pg_dump/pg_restore when available, falls back to a fresh migrated DB + bootstrapped
+                            test admin otherwise); `up`/`down` subcommands; reads `.env` via a manual line-by-line
+                            parser (never source/eval — real `.env` values here contain shell-special characters)
 ```
 
 ### Routing

@@ -708,8 +708,17 @@ burndown/
                             vitest.config.js, *.test.js, *.spec.js) even though it bind-mounts the repo root
   docker-compose.yml
   .env.example
+  .gitattributes          ← pins *.sh to LF line endings on checkout regardless of local core.autocrlf
   package.json            ← dev-only vitest + jsdom test toolchain for js/lib/ (never bundled, never served)
   vitest.config.js
+  scripts/
+    test-branch.sh        ← isolated Docker Compose stack (`up`/`down`) for testing the current feature branch
+                             before merge; distinct container names/ports from the main stack (safe to run
+                             alongside it); clones data from the running main stack via pg_dump/pg_restore when
+                             available, else applies all migrations to a fresh DB + bootstraps a test admin;
+                             reads `.env` via a manual line-by-line parser mirroring create-admin.js's approach
+                             (never source/eval — real `.env` values here contain shell-special characters like
+                             `$$`, which naive sourcing would corrupt)
 ```
 
 ---
