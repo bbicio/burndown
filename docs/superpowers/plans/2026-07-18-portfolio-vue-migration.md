@@ -1,0 +1,1898 @@
+# `portfolio.html` Vue 3 Migration Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Rewrite `portfolio.html` (currently driven by `js/portfolio.js` + `js/dashboard.js`, both exclusive to this page) as a Vue 3 (CDN, no build step) app, 1:1 behavior for every reachable feature, dropping confirmed-dead code and extracting the highest-risk calculation logic (KPI/burndown math) into a new testable module.
+
+**Architecture:** Single-file rewrite of `portfolio.html`. One `Vue.createApp({...}).mount('#app')` with a `view` field (`'overview'|'dashboard'`) replacing today's manual section show/hide. `js/dashboard.js`'s rendering logic (KPIs, burndown, monthly/PTC/summary/task tables) and `js/portfolio.js`'s rendering logic (project cards, program summaries) both fold into this same Vue instance — both files are exclusive to this page, unlike `js/clients.js`/`js/programs.js`/`js/shares.js`/`js/ai.js`, which stay as external globals this page calls into (genuinely shared with other pages). A new module, `js/lib/portfolio-calc.js`, extracts the pure calculation core of KPI and burndown-series computation into vitest-tested functions, following the `config-form-calc.js` pattern.
+
+**Tech Stack:** Vue 3 via CDN, Bootstrap 5.3.2, Chart.js 4.4.0 (already loaded), XLSX (already loaded), html2canvas (already used by `exportElementToPNG` — confirm it's actually loaded somewhere globally before Task 8, since it's referenced but not seen in this page's own `<script>` list; if missing, it was already broken before this migration and stays exactly as broken, not a regression to introduce).
+
+## Global Constraints
+
+1. Vue 3 via CDN only — no build step, no SFCs.
+2. `portfolio.html` drops `js/roles.js` (confirmed unused in live code — see design spec's Investigation findings) and `js/config-form.js`/`js/dashboard.js` (their logic either becomes dead-code-not-ported or folds into the Vue instance). Keeps `js/api.js`, `js/core.js`, `js/settings.js`, `js/notifications.js`, `js/costgrid.js` (verify during Task 1 whether anything on this page still needs it — likely not, since the cost-grid editor is a separate page reached via redirect; if unused, drop it too and note the deviation), `js/upload.js` (actuals upload, still needed), `js/clients.js`, `js/programs.js`, `js/ai.js`, `js/shares.js`, `js/api-sync.js`, `js/nav.js`, plus the XLSX and Chart.js CDN scripts, and adds `js/lib/portfolio-calc.js` (new, `type="module"`).
+3. **Confirmed-dead code is not ported** (per design spec's Investigation findings): `#configModal` and everything reachable only through it (its Form/JSON tab toggle, `clientsModal`/`clientEditModal`, `programsModal`/`programEditModal`), `rolesModal`/`roleModal` and the roles-JSON-viewer hook, `jsonViewerModal` (used only by the dead config-JSON-tab and dead roles-JSON hook — confirm no other live caller exists before dropping; if none, drop it), the three empty placeholder section divs (`#portfolioPlanningSection`/`#pipelineBoardSection`/`#costGridEditorSection`), and `js/portfolio.js`'s dead duplicate `showPortfolioPlanningView`.
+4. **`getClientName()`/`getPrograms()` (from `js/clients.js`/`js/programs.js`) are genuinely used** — keep both files loaded, called as plain globals from Vue methods/computed properties, same as `project-config.html`'s established pattern.
+5. **`openShareModal()`/`openAiAnalysis()` (from `js/shares.js`/`js/ai.js`) already use `bootstrap.Modal.getOrCreateInstance()`** — called as plain globals, no conflict with the modal-idiom convention.
+6. No API/backend changes.
+7. `pdash-nginx` serves `main`'s working directory only — manual verification is a post-merge step (Task 10).
+
+---
+
+## File Structure
+
+- Modify: `portfolio.html` (full rewrite; `<head>` stays as-is except adding one new `<script type="module">` tag for `js/lib/portfolio-calc.js`).
+- Create: `js/lib/portfolio-calc.js` (pure functions, `export function` + `window.*` bridge).
+- Create: `js/lib/portfolio-calc.test.js` (vitest).
+
+---
+
+## Shared Data Shapes
+
+**`cfg` (project config object)**: same shape used throughout the codebase — `{ id, code, name, clientId, programId, pipeline, status, startDate, endDate, tasks: [...], phasing: {ym: eur}, planning: {ym: hours}, ptc: [...], groups: [...], my_permission }`.
+
+**Timesheet row** (`timesheetData` entries, global array from `js/api-sync.js`): `{ projectId, date: Date, role, owner, task, hours, notes }`.
+
+**Month string format**: `YYYYMM` (matching every prior migration in this roadmap).
+
+---
+
+### Task 1: Vue skeleton, `initNav`, view-switching, portfolio overview
+
+**Files:**
+- Modify: `portfolio.html` (full file — `<head>` unchanged except adding one script tag; full `<body>` rewrite; later tasks add template/method blocks to the same file)
+
+**Interfaces:**
+- Produces: `data()` fields `view` (`'overview'|'dashboard'`), `projects` (computed from global `config.projects`), portfolio-overview filter state (`portfolioSort`, `portfolioClientFilter`, `expandedPrograms`), `summaryProjects` (mirrors today's `portfolioSummaryProjects` global Set — verify during implementation whether this stays a global Set shared with other logic, or becomes page-local Vue state; check `js/core.js`/`js/api-sync.js` for other readers of `portfolioSummaryProjects` before deciding, and note the decision in the commit).
+- Consumes: global `config.projects` (populated by `loadConfigFromApi()`), `timesheetData` (from `refreshTimesheetDataFromApi()`), `getClientName()`/`getPrograms()` (globals), `initNav()`, `getProjectPipeline()`/`pipelineBadge()`/`statusBadgeLarge()`/`findRate()`/`fmtMoney()`/`esc()` (from `js/core.js`, unchanged).
+
+- [ ] **Step 1: Read `js/core.js` for `portfolioSummaryProjects`, `saveSummarySelection`, `loadSummarySelection`, `updatePortfolioCacheBadge`, `getPipelineBudget`**
+
+Before writing `data()`, grep `js/core.js`/`js/api-sync.js` for these identifiers to confirm their exact current shape (e.g., is `portfolioSummaryProjects` a plain `Set` global, and does `saveSummarySelection()` persist it to `localStorage` under `PDash_summary` per CLAUDE.md's "Current localStorage usage" section?). Use the real API — do not guess.
+
+- [ ] **Step 2: Write the new file's head, skeleton body, and portfolio-overview template**
+
+Replace `portfolio.html` in full (head unchanged from the original except the head's own `<script src=".../chart.umd.min.js">` line, which stays exactly where it is — Chart.js must load before the Vue app script that eventually calls `new Chart(...)` in Task 4, and since it's a classic non-deferred script in `<head>`, it already executes before any `<body>` script regardless of position):
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Project Reporting</title>
+  <link rel="icon" type="image/png" href="https://ik.imagekit.io/6ezjgrjjf/00_Home_Page/letter-f.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="css/tokens.css?v=5">
+  <link rel="stylesheet" href="css/style.css?v=5">
+  <style>
+    .app-container { padding: 0 12px; }
+  </style>
+</head>
+<body>
+
+<div id="nav-container"></div>
+
+<!-- Hidden per-project file input (actuals upload target) -->
+<input type="file" id="fileInput" accept=".xls,.xlsx" style="display:none">
+
+<div id="app" class="app-container">
+
+  <template v-if="view === 'overview'">
+    <div class="page-title-bar">
+      <h4 class="fw-bold mb-0">📋 Project Portfolio</h4>
+    </div>
+    <div class="page-toolbar">
+      <div class="page-toolbar-left">
+        <span class="text-muted small">Budget Spent vs Estimated by month — all configured projects</span>
+      </div>
+      <div class="page-toolbar-right">
+        <button class="btn btn-primary btn-sm" onclick="window.location.href='/project-config.html'">＋ New project</button>
+      </div>
+    </div>
+
+    <div v-if="!projects.length" class="alert alert-info">No projects configured. Click <strong>＋ New project</strong> to add one.</div>
+
+    <template v-else>
+      <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+        <div class="d-flex align-items-center gap-2">
+          <span class="small text-muted">Sort:</span>
+          <select class="form-select form-select-sm" v-model="portfolioSort" style="width:auto">
+            <option value="name">Alphabetical</option>
+            <option value="client">Client name</option>
+          </select>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="small text-muted">Client:</span>
+          <select class="form-select form-select-sm" v-model="portfolioClientFilter" style="width:auto">
+            <option value="">All clients</option>
+            <option v-for="cid in allClientIds" :key="cid" :value="cid">{{ getClientName(cid) }}</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Task 1 inserts the pinned-summary block here (Step 3) -->
+
+      <!-- Program groups -->
+      <div class="section-card mb-4" style="border:2px solid var(--violet-500)" v-for="prog in visibleProgramGroups" :key="prog.id">
+        <div class="section-header d-flex justify-content-between align-items-center" style="background:var(--violet-50)">
+          <div class="d-flex align-items-center gap-3">
+            <span style="font-size:var(--text-xl)">📂</span>
+            <div>
+              <span v-if="prog.domClientName" class="fw-bold" style="font-size:var(--text-lg)">{{ prog.domClientName }} —</span>
+              <span class="fw-bold" style="font-size:var(--text-lg)">{{ prog.name }}</span>
+              <span class="text-muted ms-2" style="font-size:var(--text-sm);font-family:monospace">{{ prog.id }}</span>
+            </div>
+            <span v-html="pipelineBadge(prog.domPipeline)"></span>
+            <span class="badge" style="background:#ede8ff;color:var(--violet-500);font-size:var(--text-xs)">{{ prog.children.length }} project{{ prog.children.length===1?'':'s' }}</span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-secondary" style="font-size:var(--text-sm)" @click="openShareModal('program', prog.id, prog.name)">🔗 Share Program</button>
+            <button class="btn btn-sm btn-outline-secondary" style="font-size:var(--text-sm)" @click="toggleProgramExpanded(prog.id)">
+              {{ expandedPrograms.has(prog.id) ? '▼ Hide Child Projects' : '▶ Show Child Projects' }}
+            </button>
+          </div>
+        </div>
+        <!-- Task 1 inserts the program-summary sub-table here (Step 4) -->
+        <div v-if="expandedPrograms.has(prog.id)" class="prog-children">
+          <div class="prog-project-list px-2 pb-2 pt-1">
+            <!-- Task 1 inserts per-project cards here (Step 5), showSummaryBtn=false -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Ungrouped projects -->
+      <!-- Task 1 inserts per-project cards here (Step 5), showSummaryBtn=true -->
+    </template>
+  </template>
+
+  <template v-else>
+    <!-- Task 3 inserts the dashboard view here -->
+  </template>
+
+</div>
+
+<!-- Confirm modal (shared, used by later tasks if any confirmation is needed — none identified yet for reachable flows, kept for parity with the established pattern in case Task 8 needs it) -->
+
+<!-- AI Analysis -->
+<div class="modal fade" id="aiModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-1"><h5 class="modal-title fw-bold">🤖 AI Project Analysis</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="aiSpinner" class="text-center py-5"><div class="spinner-border text-warning" role="status" style="width:2.5rem;height:2.5rem"></div><p class="mt-3 text-muted small">Analyzing project data…</p></div>
+        <div id="aiResult" style="display:none;white-space:pre-wrap;font-size:.9rem;line-height:1.75"></div>
+        <div id="aiError" class="alert alert-danger d-none mb-0"></div>
+      </div>
+      <div class="modal-footer border-0 pt-1">
+        <button class="btn btn-outline-secondary btn-sm" id="btnCopyAi">📋 Copy</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="js/api.js?v=4"></script>
+<script src="js/core.js?v=2"></script>
+<script src="js/settings.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/upload.js"></script>
+<script src="js/clients.js"></script>
+<script src="js/programs.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/shares.js"></script>
+<script type="module" src="js/lib/portfolio-calc.js?v=1"></script>
+<script src="js/api-sync.js?v=14"></script>
+<script src="js/nav.js?v=4"></script>
+<script>
+  Vue.createApp({
+    data() {
+      return {
+        view: 'overview',
+        portfolioSort: 'name',
+        portfolioClientFilter: '',
+        expandedPrograms: new Set(),
+      };
+    },
+    computed: {
+      projects() {
+        return (config.projects || []).filter(p => p.id);
+      },
+      allClientIds() {
+        return [...new Set(
+          this.projects.filter(p => p.clientId && p.clientId !== '__unassigned__').map(p => p.clientId)
+        )].sort((a, b) => getClientName(a).localeCompare(getClientName(b)));
+      },
+      sortedFilteredProjects() {
+        const sortFn = this.portfolioSort === 'client'
+          ? (a, b) => getClientName(a.clientId).localeCompare(getClientName(b.clientId)) || (a.name||a.id).localeCompare(b.name||b.id)
+          : (a, b) => (a.name||a.id).localeCompare(b.name||b.id);
+        return [...this.projects]
+          .filter(p => !this.portfolioClientFilter || p.clientId === this.portfolioClientFilter)
+          .sort(sortFn);
+      },
+      visibleProgramGroups() {
+        const programs = getPrograms();
+        const grouped = {};
+        this.sortedFilteredProjects.forEach(cfg => {
+          if (cfg.programId && programs.find(p => p.id === cfg.programId)) {
+            (grouped[cfg.programId] = grouped[cfg.programId] || []).push(cfg);
+          }
+        });
+        return programs
+          .filter(prog => grouped[prog.id]?.length)
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map(prog => {
+            const children = [...grouped[prog.id]].sort((a, b) => (a.id||'').localeCompare(b.id||''));
+            const pipelines = children.map(c => getProjectPipeline(c.id) || c.pipeline).filter(Boolean);
+            const clientIds = children.map(c => c.clientId).filter(c => c && c !== '__unassigned__');
+            const domClientId = clientIds.length ? clientIds[0] : '';
+            return {
+              ...prog,
+              children,
+              domPipeline: pipelines.length ? pipelines[0] : '',
+              domClientName: domClientId ? getClientName(domClientId) : '',
+            };
+          });
+      },
+      ungroupedProjects() {
+        const programs = getPrograms();
+        return this.sortedFilteredProjects.filter(cfg =>
+          !(cfg.programId && programs.find(p => p.id === cfg.programId))
+        );
+      },
+    },
+    async created() {
+      loadSettings();
+      loadSummarySelection();
+      updateAiButtonVisibility();
+
+      const user = await initNav('portfolio', { breadcrumbs: [
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Project Portfolio' },
+      ]});
+      if (!user) return;
+
+      await Promise.all([loadClientsFromApi(), loadProgramsFromApi()]);
+      await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
+
+      const params = new URLSearchParams(window.location.search);
+      const urlProjectId = params.get('projectId');
+      if (urlProjectId) {
+        this.showDashboard(urlProjectId);
+      } else {
+        this.showOverview();
+      }
+    },
+    methods: {
+      getClientName,
+      pipelineBadge,
+      showOverview() {
+        this.view = 'overview';
+        if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
+          { label: 'Home', href: '/pipeline.html' },
+          { label: 'Project Portfolio' },
+        ]);
+      },
+      toggleProgramExpanded(id) {
+        if (this.expandedPrograms.has(id)) this.expandedPrograms.delete(id);
+        else this.expandedPrograms.add(id);
+      },
+      // Task 3 adds showDashboard(pid) here.
+    },
+  }).mount('#app');
+</script>
+</body>
+</html>
+```
+
+Note: `expandedPrograms`/a `Set` in `data()` works with Vue 3's reactivity (Vue 3 wraps `Set`/`Map` with reactive proxies), so `.has()`/`.add()`/`.delete()` calls trigger re-renders correctly — confirmed by Vue 3's own reactivity documentation, no special handling needed.
+
+- [ ] **Step 3: Add the pinned-summary block**
+
+Insert where `<!-- Task 1 inserts the pinned-summary block here -->` is marked. Port `renderPortfolioSummary()` (`js/portfolio.js:30-97`) as a `v-if="summaryProjects.size"` block with a computed `pinnedSummary` property. First read `js/core.js`/`js/api-sync.js` to find `portfolioSummaryProjects`'s real definition (per Step 1) before wiring `data()`'s `summaryProjects` to it — if it's a shared global `Set` also read/written elsewhere (e.g., by `saveSummarySelection()`/`loadSummarySelection()`), keep reading/writing that same global object directly from Vue methods (do not create a page-local copy that could desync), same pattern as this page already uses for `config`/`timesheetData`.
+
+```html
+<div class="section-card mb-4" style="border:2px solid var(--indigo-500)" v-if="pinnedSummary">
+  <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2" style="background:var(--indigo-50)">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <span class="fw-bold">📊 Budget Summary</span>
+      <span class="small text-muted">{{ pinnedSummary.cfgs.length }} project{{ pinnedSummary.cfgs.length===1?'':'s' }}:</span>
+      <span class="badge" v-for="c in pinnedSummary.cfgs" :key="c.id" style="background:#e9ecef;color:#495057;font-weight:500">{{ fmtProjectTitle(c) }}</span>
+    </div>
+  </div>
+  <div class="table-responsive p-2">
+    <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
+      <thead style="background:var(--indigo-50)">
+        <tr><th style="min-width:140px"></th><th v-for="ym in pinnedSummary.months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end fw-bold" style="min-width:100px;background:#e0e3f5">Total</th></tr>
+      </thead>
+      <tbody>
+        <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in pinnedSummary.months" :key="ym" class="text-end">{{ fmtMoney(pinnedSummary.phasing[ym]) }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ fmtMoney(pinnedSummary.grandEst) }}</td></tr>
+        <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in pinnedSummary.months" :key="ym" class="text-end">{{ fmtMoney(pinnedSummary.spent[ym]) }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ fmtMoney(pinnedSummary.grandSpent) }}</td></tr>
+        <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in pinnedSummary.months" :key="ym" class="text-end fw-semibold" :style="{color: varColor(pinnedSummary.phasing[ym]-pinnedSummary.spent[ym])}">{{ fmtVar(pinnedSummary.phasing[ym]-pinnedSummary.spent[ym]) }}</td><td class="text-end fw-bold" :style="{background:'#f0f0f0',color: varColor(pinnedSummary.grandVar)}">{{ fmtVar(pinnedSummary.grandVar) }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+```
+
+Add to `computed`:
+```js
+pinnedSummary() {
+  const cfgs = this.projects.filter(p => summaryProjects.has(p.id)); // `summaryProjects` = whatever Step 1 found `portfolioSummaryProjects` to be
+  if (!cfgs.length) return null;
+  const monthSet = new Set();
+  cfgs.forEach(cfg => getMonthRangeFromCfg(cfg).forEach(ym => monthSet.add(ym)));
+  const months = [...monthSet].sort();
+  const phasing = {}, spent = {};
+  months.forEach(ym => { phasing[ym] = 0; spent[ym] = 0; });
+  cfgs.forEach(cfg => {
+    months.forEach(ym => { phasing[ym] += cfg.phasing?.[ym] || 0; });
+    timesheetData.filter(r => r.projectId === cfg.id).forEach(r => {
+      if (!r.date) return;
+      const ym = `${r.date.getFullYear()}${String(r.date.getMonth()+1).padStart(2,'0')}`;
+      if (spent[ym] !== undefined) spent[ym] += r.hours * (findRate(r, cfg) ?? 0);
+    });
+  });
+  const grandEst = months.reduce((s, ym) => s + phasing[ym], 0);
+  const grandSpent = months.reduce((s, ym) => s + spent[ym], 0);
+  return { cfgs, months, phasing, spent, grandEst, grandSpent, grandVar: grandEst - grandSpent };
+},
+```
+
+Add to `methods`:
+```js
+getMonthRangeFromCfg(cfg) {
+  if (!cfg?.startDate || !cfg?.endDate) return [];
+  const sy = parseInt(cfg.startDate.slice(0,4)), sm = parseInt(cfg.startDate.slice(4,6));
+  const ey = parseInt(cfg.endDate.slice(0,4)), em = parseInt(cfg.endDate.slice(4,6));
+  const months = [];
+  let cy = sy, cm = sm;
+  while (cy < ey || (cy === ey && cm <= em)) { months.push(`${cy}${String(cm).padStart(2,'0')}`); cm++; if (cm > 12) { cm = 1; cy++; } }
+  return months;
+},
+monthLabel(ym) {
+  return new Date(parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))-1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+},
+varColor(v) { return v > 0 ? 'var(--color-success)' : v < 0 ? 'var(--color-danger)' : 'var(--text-muted)'; },
+fmtVar(v) { return `${v >= 0 ? '+' : ''}${fmtMoney(v)}`; },
+fmtProjectTitle(cfg) {
+  const client = getClientName(cfg.clientId);
+  const name = cfg.name || cfg.id;
+  return client && client !== 'Unassigned' ? `${client} — ${name}` : name;
+},
+```
+
+(`getMonthRangeFromCfg`/`fmtProjectTitle` are shared with the program-summary and project-card sub-tables added in Steps 4-5 — defined once here, reused there.)
+
+- [ ] **Step 4: Add the program-summary sub-table**
+
+Insert where `<!-- Task 1 inserts the program-summary sub-table here -->` is marked, as a computed-per-`prog` sub-render. Port `buildProgramSummary()` (`js/portfolio.js:244-313`) — same structure as `pinnedSummary`'s table (Step 3) but scoped to `prog.children` and including PTC columns. Add a `programSummary(children)` method (not a top-level computed, since it's per-program-group):
+
+```html
+<div class="table-responsive px-3 pb-2" style="background:var(--violet-50)" v-if="programSummary(prog.children)">
+  <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
+    <thead style="background:#ede8ff">
+      <tr><th style="min-width:140px"></th><th v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end fw-bold" style="min-width:100px;background:#ddd8f5">{{ programSummary(prog.children).totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="programSummary(prog.children).totalPtc > 0" class="text-end fw-bold" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr>
+    </thead>
+    <tbody>
+      <tr style="background:#faf8ff"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end">{{ fmtMoney(programSummary(prog.children).phasing[ym]) }}</td><td class="text-end fw-bold" style="background:#f0eeff">{{ fmtMoney(programSummary(prog.children).grandEst) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(programSummary(prog.children).totalPtc) }}</td></tr>
+      <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end">{{ fmtMoney(programSummary(prog.children).spent[ym]) }}</td><td class="text-end fw-bold" style="background:#f0eeff">{{ fmtMoney(programSummary(prog.children).grandSpent) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+      <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end fw-semibold" :style="{color: varColor(programSummary(prog.children).phasing[ym]-programSummary(prog.children).spent[ym])}">{{ fmtVar(programSummary(prog.children).phasing[ym]-programSummary(prog.children).spent[ym]) }}</td><td class="text-end fw-bold" :style="{background:'#f0eeff',color: varColor(programSummary(prog.children).grandVar)}">{{ fmtVar(programSummary(prog.children).grandVar) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+    </tbody>
+  </table>
+</div>
+```
+
+Add to `methods`:
+```js
+programSummary(cfgs) {
+  const monthSet = new Set();
+  cfgs.forEach(cfg => this.getMonthRangeFromCfg(cfg).forEach(ym => monthSet.add(ym)));
+  const months = [...monthSet].sort();
+  if (!months.length) return null;
+  const phasing = {}, spent = {};
+  months.forEach(ym => { phasing[ym] = 0; spent[ym] = 0; });
+  cfgs.forEach(cfg => {
+    months.forEach(ym => { phasing[ym] += cfg.phasing?.[ym] || 0; });
+    timesheetData.filter(r => r.projectId === cfg.id).forEach(r => {
+      if (!r.date) return;
+      const ym = `${r.date.getFullYear()}${String(r.date.getMonth()+1).padStart(2,'0')}`;
+      if (spent[ym] !== undefined) spent[ym] += r.hours * (findRate(r, cfg) ?? 0);
+    });
+  });
+  const totalPtc = cfgs.reduce((s, cfg) => s + (cfg.ptc||[]).reduce((a,p) => a+(p.amount||0), 0), 0);
+  const grandEst = months.reduce((s, ym) => s + phasing[ym], 0);
+  const grandSpent = months.reduce((s, ym) => s + spent[ym], 0);
+  return { months, phasing, spent, totalPtc, grandEst, grandSpent, grandVar: grandEst - grandSpent };
+},
+```
+
+Performance note: calling `programSummary(prog.children)` repeatedly in the template (once per binding) recomputes each time rather than caching — acceptable here since the underlying data (`config.projects`/`timesheetData`) only changes on page load or explicit user actions (not on every render tick), matching the original's own per-render-call recomputation in `buildProgramSummary()`. Not a regression.
+
+- [ ] **Step 5: Add the per-project card**
+
+Insert where `<!-- Task 1 inserts per-project cards here -->` is marked (two locations: inside expanded program groups with `showSummaryBtn:false`, and for `ungroupedProjects` with `showSummaryBtn:true`). Port `buildProjectCard()` (`js/portfolio.js:101-240`):
+
+```html
+<div class="section-card mb-4" v-for="cfg in prog.children" :key="cfg.id" v-if="cardData(cfg)">
+  <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <span>📁 {{ fmtProjectTitle(cfg) }}</span>
+      <span v-if="cfg.code" class="text-muted small">{{ cfg.code }}</span>
+      <span v-html="pipelineBadge(getProjectPipeline(cfg.id) || cfg.pipeline)"></span>
+      <span v-html="statusBadgeLarge(cfg.status)"></span>
+      <span v-if="!cardData(cfg).hasData" class="badge bg-warning text-dark">no XLS data</span>
+      <span v-if="cardData(cfg).budgetBadgeHtml" v-html="cardData(cfg).budgetBadgeHtml"></span>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="window.location.href = '/project-config.html?projectId=' + encodeURIComponent(cfg.id)">⚙️ Configure</button>
+      <button class="btn btn-sm btn-outline-secondary" title="Share project" @click="openShareModal('project', cfg.id, cfg.name || cfg.id)">🔗 Share</button>
+      <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" title="Upload XLS actuals for this project" @click="triggerLoadActuals(cfg.id)">📂 Load Actuals</button>
+      <button class="btn btn-sm btn-outline-secondary" @click="goPlanningForProject(cfg.id)">📅 Planning</button>
+      <button class="btn btn-sm" :class="cardData(cfg).hasData ? 'btn-primary' : 'btn-outline-secondary'" :disabled="!cardData(cfg).hasData" @click="showDashboard(cfg.id)">📊 View Report →</button>
+      <button v-if="showSummaryBtnFor(prog)" class="btn btn-sm" :class="summaryProjects.has(cfg.id) ? 'btn-success' : 'btn-outline-secondary'" @click="toggleSummary(cfg.id)">{{ summaryProjects.has(cfg.id) ? '✓ Summary' : '＋ Summary' }}</button>
+    </div>
+  </div>
+  <div class="table-responsive p-2">
+    <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
+      <thead style="background:var(--indigo-50)"><tr><th style="min-width:110px"></th><th v-for="ym in cardData(cfg).months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end" style="min-width:90px;background:#e9ecef">{{ cardData(cfg).totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="cardData(cfg).totalPtc > 0" class="text-end" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr></thead>
+      <tbody>
+        <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in cardData(cfg).months" :key="ym" class="text-end">{{ cardData(cfg).hasPhasing ? fmtMoney(cfg.phasing?.[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ cardData(cfg).hasPhasing ? fmtMoney(cardData(cfg).totalPhasing) : '—' }}</td><td v-if="cardData(cfg).totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(cardData(cfg).totalPtc) }}</td></tr>
+        <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in cardData(cfg).months" :key="ym" class="text-end">{{ cardData(cfg).hasData ? fmtMoney(cardData(cfg).monthSpend[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ cardData(cfg).hasData ? fmtMoney(cardData(cfg).totalSpent) : '—' }}</td><td v-if="cardData(cfg).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+        <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in cardData(cfg).months" :key="ym" class="text-end" :style="varCellStyle(cfg, ym)">{{ varCellText(cfg, ym) }}</td><td class="text-end fw-bold" :style="{background:'#f0f0f0', color: (cardData(cfg).hasData && cardData(cfg).hasPhasing) ? varColor(cardData(cfg).totalVar) : undefined}">{{ (cardData(cfg).hasData && cardData(cfg).hasPhasing) ? fmtVar(cardData(cfg).totalVar) : '—' }}</td><td v-if="cardData(cfg).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+```
+
+Add to `methods`:
+```js
+cardData(cfg) {
+  const data = timesheetData.filter(r => r.projectId === cfg.id);
+  const months = this.getMonthRangeFromCfg(cfg);
+  if (!months.length) return null;
+  const monthSpend = {};
+  data.forEach(r => {
+    if (!r.date) return;
+    const ym = `${r.date.getFullYear()}${String(r.date.getMonth()+1).padStart(2,'0')}`;
+    monthSpend[ym] = (monthSpend[ym]||0) + r.hours * (findRate(r, cfg) ?? 0);
+  });
+  const hasData = data.length > 0;
+  const hasPhasing = cfg.phasing && Object.keys(cfg.phasing).length > 0;
+  const totalPtc = (cfg.ptc||[]).reduce((s,p) => s+(p.amount||0), 0);
+  const totalSpent = months.reduce((s, ym) => s + (monthSpend[ym]||0), 0);
+  const totalPhasing = months.reduce((s, ym) => s + (cfg.phasing?.[ym]||0), 0);
+  const totalVar = totalPhasing - totalSpent;
+  const totalHours = (cfg.tasks||[]).reduce((s,t) => s+(t.resources||[]).reduce((rs,r) => rs+(r.soldHours||0),0), 0);
+  const totalBudget = (cfg.tasks||[]).reduce((s,t) => s+(t.resources||[]).reduce((rs,r) => rs+(r.soldHours||0)*(r.hourlyRate||0),0), 0);
+  const cgRef = cfg.costGridRef;
+  const apiBudget = (typeof getPipelineBudget === 'function' && cgRef?.versionId) ? getPipelineBudget(cgRef.versionId) : null;
+  const displayFee = totalBudget > 0 ? totalBudget : (apiBudget?.fee || 0);
+  const displayHours = totalHours > 0 ? totalHours : 0;
+  const displayTotal = displayFee + totalPtc;
+  const budgetBadgeHtml = (displayFee > 0 || displayHours > 0)
+    ? `<span class="portfolio-budget-badge">${displayHours > 0 ? displayHours.toLocaleString('en-US') + ' h &nbsp;/&nbsp; ' : ''}${fmtMoney(displayTotal)}${totalPtc > 0 ? `<span class="text-muted" style="font-size:.8em;font-weight:400"> &nbsp;(${fmtMoney(displayFee)} fees + ${fmtMoney(totalPtc)} PTC)</span>` : ''}${apiBudget && totalBudget === 0 ? '<span class="text-muted" style="font-size:.75em;margin-left:4px">(from cost grid)</span>' : ''}</span>`
+    : '';
+  return { months, monthSpend, hasData, hasPhasing, totalPtc, totalSpent, totalPhasing, totalVar, budgetBadgeHtml };
+},
+varCellStyle(cfg, ym) {
+  const cd = this.cardData(cfg);
+  if (!cd.hasData || !cd.hasPhasing) return {};
+  const v = (cfg.phasing?.[ym]||0) - (cd.monthSpend[ym]||0);
+  return { color: this.varColor(v), fontWeight: 600 };
+},
+varCellText(cfg, ym) {
+  const cd = this.cardData(cfg);
+  if (!cd.hasData || !cd.hasPhasing) return '—';
+  const v = (cfg.phasing?.[ym]||0) - (cd.monthSpend[ym]||0);
+  return `${v>=0?'+':''}${this.fmtMoney ? this.fmtMoney(v) : fmtMoney(v)}`;
+},
+fmtMoney,
+getProjectPipeline,
+statusBadgeLarge,
+showSummaryBtnFor(prog) { return !prog; }, // true only for ungrouped (called with undefined `prog` there), false inside program groups — see brief note below
+toggleSummary(id) {
+  if (summaryProjects.has(id)) summaryProjects.delete(id); else summaryProjects.add(id);
+  saveSummarySelection();
+},
+triggerLoadActuals(projectId) {
+  window._loadActualsProjectId = projectId;
+  document.getElementById('fileInput').click();
+},
+goPlanningForProject(id) {
+  window.location.href = '/planning.html?projectId=' + encodeURIComponent(id);
+},
+```
+
+**Implementer note on `showSummaryBtnFor`**: the original's `showSummaryBtn` flag is `false` for program-grouped cards and `true` for ungrouped ones (`js/portfolio.js:446,455`). Since the template above is shared between both contexts (program-group children and the top-level `ungroupedProjects` loop), pass an explicit prop-like distinction — e.g. render the ungrouped loop as a **separate** `v-for` block (not sharing the exact same template snippet verbatim) with the summary button unconditionally shown, and the grouped-children loop with it unconditionally hidden, rather than a shared conditional method. Simplify by NOT reusing one template fragment for both — write two near-identical blocks (one with the summary button, one without), matching the original's own `{showSummaryBtn}` parameter pattern more directly than a shared conditional would. Remove `showSummaryBtnFor()` from the methods list above if you take this simpler route.
+
+- [ ] **Step 6: Wire up the hidden actuals file input**
+
+Add a `change` listener in `created()` (after the existing `await`s, before `this.showOverview()`/`this.showDashboard(...)`):
+
+```js
+document.getElementById('fileInput').addEventListener('change', e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (f) readXLSForProject(f, window._loadActualsProjectId);
+});
+```
+
+- [ ] **Step 7: Run the frontend test suite**
+
+Run: `npm test` — expect all existing tests to still pass (this task touches no test files).
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add portfolio.html
+git commit -m "$(cat <<'EOF'
+feat(portfolio): Vue 3 skeleton, portfolio overview view
+
+Task 1 of the portfolio.html Vue migration. Single Vue instance with
+a view ('overview'|'dashboard') field replacing manual section
+show/hide. Ports renderPortfolioSummary/buildProgramSummary/
+buildProjectCard/renderPortfolioView from js/portfolio.js. Drops
+js/roles.js (unused) and the confirmed-orphaned #configModal + nested
+modals (not ported, per design spec's Investigation findings).
+
+Design: docs/superpowers/specs/2026-07-18-portfolio-vue-migration-design.md
+EOF
+)"
+```
+
+---
+
+### Task 2: `js/lib/portfolio-calc.js` — KPI + burndown-series extraction (TDD)
+
+**Files:**
+- Create: `js/lib/portfolio-calc.js`
+- Create: `js/lib/portfolio-calc.test.js`
+
+**Interfaces:**
+- Produces: `computeKpis(data, cfg, billableData, billableTasks, findRate)` and `computeBurndownSeries(data, cfg, taskFilter, interval, billableData, billableTasks, findRate)` — both pure, bridged to `window.*`. Note both take `billableData`/`billableTasks`/`findRate` as parameters rather than importing them, since those three helpers are defined in `js/dashboard.js`'s surrounding scope today (verify their exact location — likely `js/core.js` or still-undefined-until-Task-3's-own-file; read `js/dashboard.js`'s top of file and `js/core.js` in full to find `billableData`/`billableTasks`/`findRate`/`fmtH`/`inRange`/`pad`'s real definitions before writing this task, since the design spec did not pin down their exact source file).
+
+- [ ] **Step 1: Locate `billableData`/`billableTasks`/`findRate`/`inRange`/`pad`/`fmtH`/`fmtDate`/`fmtDateLabel`'s real definitions**
+
+Run: `grep -rn "^function billableData\|^function billableTasks\|^function findRate\|^function inRange\|^function pad\b\|^function fmtH\b\|^function fmtDate\b\|^function fmtDateLabel" js/*.html *.html 2>/dev/null` (or equivalent) to find these. They are almost certainly in `js/core.js` (shared helpers) — confirm and cite the exact file:line in your report. `js/lib/portfolio-calc.js` will need `billableData`/`billableTasks`/`findRate` as injected parameters (since they're plain globals, not `js/lib/*` exports, and this new module must stay pure/DOM-free) — do not `import` them (they're not ES modules); pass them in from the calling Vue method instead.
+
+- [ ] **Step 2: Write the failing tests**
+
+Create `js/lib/portfolio-calc.test.js`:
+
+```js
+import { describe, it, expect } from 'vitest';
+import { computeKpis, computeBurndownPoints } from './portfolio-calc.js';
+
+// Minimal fakes for the three injected helper functions — real behavior confirmed
+// against js/core.js during Step 1; kept simple here since these tests exercise
+// computeKpis'/computeBurndownPoints' own arithmetic, not the helpers' internals.
+const billableTasks = cfg => (cfg?.tasks || []).filter(t => t.billable !== false);
+const billableData = (data, cfg) => {
+  const names = new Set(billableTasks(cfg).map(t => t.name.toLowerCase()));
+  return data.filter(r => !cfg || names.has(r.task.toLowerCase()));
+};
+const findRate = (row, cfg) => {
+  const task = (cfg?.tasks || []).find(t => t.name.toLowerCase() === row.task.toLowerCase());
+  const res = task?.resources.find(r => r.role.toLowerCase() === row.role.toLowerCase());
+  return res?.hourlyRate ?? 0;
+};
+
+describe('computeKpis', () => {
+  it('returns dashes-equivalent (null) fields when cfg is absent', () => {
+    const data = [{ task: 'Dev', role: 'Developer', hours: 5, date: new Date('2026-01-15') }];
+    const result = computeKpis(data, null, billableData, billableTasks, findRate);
+    expect(result.consumedHours).toBe(5);
+    expect(result.soldHours).toBeNull();
+    expect(result.budgetTotal).toBeNull();
+  });
+
+  it('computes sold/consumed/left correctly with a configured project', () => {
+    const cfg = {
+      tasks: [{ name: 'Dev', billable: true, resources: [{ role: 'Developer', soldHours: 20, hourlyRate: 100 }] }],
+      ptc: [{ amount: 500 }],
+    };
+    const data = [
+      { task: 'Dev', role: 'Developer', hours: 8, date: new Date('2026-01-10') },
+      { task: 'Dev', role: 'Developer', hours: 4, date: new Date('2026-01-20') },
+    ];
+    const result = computeKpis(data, cfg, billableData, billableTasks, findRate);
+    expect(result.consumedHours).toBe(12);
+    expect(result.soldHours).toBe(20);
+    expect(result.budgetTotal).toBe(2500); // 20*100 + 500 PTC
+    expect(result.consumedEur).toBe(1200); // 12*100
+    expect(result.hoursLeft).toBe(8);
+    expect(result.budgetLeft).toBe(1300);
+  });
+
+  it('excludes non-billable tasks from sold/consumed totals', () => {
+    const cfg = {
+      tasks: [
+        { name: 'Dev', billable: true, resources: [{ role: 'Developer', soldHours: 10, hourlyRate: 50 }] },
+        { name: 'Excluded', billable: false, resources: [{ role: 'Developer', soldHours: 100, hourlyRate: 50 }] },
+      ],
+    };
+    const data = [{ task: 'Dev', role: 'Developer', hours: 5, date: new Date('2026-01-10') }];
+    const result = computeKpis(data, cfg, billableData, billableTasks, findRate);
+    expect(result.soldHours).toBe(10);
+  });
+});
+
+describe('computeBurndownPoints', () => {
+  it('generates one point per month for the monthly interval within the project date range', () => {
+    const cfg = {
+      startDate: '202601', endDate: '202603',
+      tasks: [{ name: 'Dev', billable: true, resources: [{ role: 'Developer', soldHours: 30, hourlyRate: 10 }] }],
+    };
+    const data = [{ task: 'Dev', role: 'Developer', hours: 10, date: new Date('2026-01-15') }];
+    const result = computeBurndownPoints(data, cfg, '', 'monthly', billableData, billableTasks, findRate);
+    expect(result.labels.length).toBe(3);
+    // Remaining hours after Jan (10 consumed of 30 sold) = 20, unchanged through Feb/Mar (no more actuals).
+    expect(result.burnValues[0]).toBeCloseTo(20, 5);
+    expect(result.burnValues[2]).toBeCloseTo(20, 5);
+  });
+
+  it('returns cumulative (not remaining) hours when the project has no config (no sold-hours budget)', () => {
+    const data = [
+      { task: 'Dev', role: 'Developer', hours: 3, date: new Date('2026-01-05') },
+      { task: 'Dev', role: 'Developer', hours: 2, date: new Date('2026-01-25') },
+    ];
+    const result = computeBurndownPoints(data, null, '', 'monthly', billableData, billableTasks, findRate);
+    // Single point (no cfg → axis derived from data's own min/max date + 14 months) — just check first point sums both entries.
+    expect(result.burnValues[0]).toBeCloseTo(5, 5);
+  });
+
+  it('filters to a single task when taskFilter is set', () => {
+    const cfg = {
+      startDate: '202601', endDate: '202601',
+      tasks: [
+        { name: 'Dev', billable: true, resources: [{ role: 'Developer', soldHours: 10, hourlyRate: 10 }] },
+        { name: 'QA', billable: true, resources: [{ role: 'Tester', soldHours: 5, hourlyRate: 10 }] },
+      ],
+    };
+    const data = [
+      { task: 'Dev', role: 'Developer', hours: 4, date: new Date('2026-01-10') },
+      { task: 'QA', role: 'Tester', hours: 2, date: new Date('2026-01-10') },
+    ];
+    const result = computeBurndownPoints(data, cfg, 'Dev', 'monthly', billableData, billableTasks, findRate);
+    // Budget for 'Dev' alone = 10 sold hours; consumed = 4 → remaining = 6.
+    expect(result.burnValues[0]).toBeCloseTo(6, 5);
+  });
+});
+```
+
+- [ ] **Step 3: Run the tests to verify they fail**
+
+Run: `npx vitest run js/lib/portfolio-calc.test.js`
+Expected: FAIL with "Cannot find module './portfolio-calc.js'".
+
+- [ ] **Step 4: Read `renderKPIs`/`renderBurndown` one more time before extracting**
+
+Read `js/dashboard.js:78-130` (`renderKPIs`) and `:148-340` (`renderBurndown`) in full, side-by-side with the tests above — confirm every branch survives extraction: the `cfg`-absent early-return shape in `renderKPIs`; the interval-specific point generation (`quarterly`/`weekly`/`monthly`/`biweekly`) and the phasing-based vs. linear "ideal trend" branch, and the planning-line branch, in `renderBurndown`.
+
+- [ ] **Step 5: Write `js/lib/portfolio-calc.js`**
+
+```js
+export function computeKpis(data, cfg, billableData, billableTasks, findRate) {
+  const bData = billableData(data, cfg);
+  const consumedHours = bData.reduce((s, r) => s + r.hours, 0);
+  const maxDate = bData.length ? bData.reduce((max, r) => r.date > max ? r.date : max, bData[0].date) : null;
+
+  if (!cfg) {
+    return { consumedHours, maxDate, soldHours: null, budgetTotal: null, consumedEur: null, hoursLeft: null, budgetLeft: null, feesOnly: null, totalPtc: null };
+  }
+
+  const bTasks = billableTasks(cfg);
+  const soldHours = bTasks.reduce((s, t) => s + t.resources.reduce((ss, r) => ss + r.soldHours, 0), 0);
+  const feesOnly = bTasks.reduce((s, t) => s + t.resources.reduce((ss, r) => ss + r.soldHours * r.hourlyRate, 0), 0);
+  const consumedEur = bData.reduce((s, r) => s + r.hours * (findRate(r, cfg) ?? 0), 0);
+  const totalPtc = (cfg.ptc || []).reduce((s, p) => s + (p.amount || 0), 0);
+  const budgetTotal = feesOnly + totalPtc;
+  const hoursLeft = soldHours - consumedHours;
+  const budgetLeft = budgetTotal - consumedEur;
+
+  return { consumedHours, maxDate, soldHours, budgetTotal, consumedEur, hoursLeft, budgetLeft, feesOnly, totalPtc };
+}
+
+export function computeBurndownPoints(data, cfg, taskFilter, interval, billableData, billableTasks, findRate) {
+  const bData = billableData(data, cfg);
+  const filteredData = taskFilter
+    ? bData.filter(r => r.task.toLowerCase() === taskFilter.toLowerCase())
+    : bData;
+
+  const budget = cfg
+    ? taskFilter
+      ? (cfg.tasks.find(t => t.name.toLowerCase() === taskFilter.toLowerCase())
+           ?.resources.reduce((s, r) => s + r.soldHours, 0) ?? 0)
+      : billableTasks(cfg).reduce((s, t) => s + t.resources.reduce((ss, r) => ss + r.soldHours, 0), 0)
+    : null;
+
+  let axisStart, axisEnd;
+  if (cfg?.startDate && cfg?.endDate) {
+    const sy = parseInt(cfg.startDate.slice(0, 4)), sm = parseInt(cfg.startDate.slice(4, 6));
+    const ey = parseInt(cfg.endDate.slice(0, 4)), em = parseInt(cfg.endDate.slice(4, 6));
+    axisStart = new Date(sy, sm - 1, 1);
+    axisEnd = new Date(ey, em, 0);
+  } else {
+    const allDates = (filteredData.length ? filteredData : data).map(r => r.date);
+    const minDate = allDates.reduce((a, b) => a < b ? a : b);
+    axisStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+    axisEnd = new Date(axisStart);
+    axisEnd.setMonth(axisEnd.getMonth() + 14);
+  }
+
+  const points = [];
+  if (interval === 'quarterly') {
+    let cur = new Date(axisStart.getFullYear(), Math.floor(axisStart.getMonth() / 3) * 3, 1);
+    while (cur <= axisEnd) { points.push(new Date(cur)); cur.setMonth(cur.getMonth() + 3); }
+  } else if (interval === 'weekly') {
+    const weekStart = new Date(axisStart);
+    weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+    for (let d = new Date(weekStart); d <= axisEnd; d.setDate(d.getDate() + 7)) points.push(new Date(d));
+  } else if (interval === 'monthly') {
+    let cur = new Date(axisStart.getFullYear(), axisStart.getMonth(), 1);
+    while (cur <= axisEnd) { points.push(new Date(cur)); cur.setMonth(cur.getMonth() + 1); }
+  } else {
+    for (let d = new Date(axisStart); d <= axisEnd; d.setDate(d.getDate() + 14)) points.push(new Date(d));
+  }
+
+  const burnValues = points.map(d => {
+    const consumed = filteredData.filter(r => r.date <= d).reduce((s, r) => s + r.hours, 0);
+    return budget !== null ? Math.max(0, budget - consumed) : consumed;
+  });
+
+  let idealData = null;
+  let totalBudgetEur = 0;
+  if (budget !== null) {
+    totalBudgetEur = cfg
+      ? (taskFilter ? cfg.tasks : billableTasks(cfg)).reduce((s, t) => s + t.resources.reduce((ss, r) => ss + r.soldHours * r.hourlyRate, 0), 0)
+      : 0;
+    const usePhasingIdeal = !taskFilter && cfg?.phasing && Object.keys(cfg.phasing).length > 0 && totalBudgetEur > 0;
+    idealData = points.map(d => {
+      if (usePhasingIdeal) {
+        let cumPhasing = 0;
+        Object.entries(cfg.phasing).forEach(([ym, val]) => {
+          const y = parseInt(ym.slice(0, 4)), m = parseInt(ym.slice(4, 6));
+          if (new Date(y, m - 1, 1) <= d) cumPhasing += val;
+        });
+        return { y: parseFloat(Math.max(0, budget * (1 - cumPhasing / totalBudgetEur)).toFixed(2)), phasingEur: cumPhasing };
+      } else {
+        const span = axisEnd - axisStart, elapsed = d - axisStart;
+        return { y: parseFloat(Math.max(0, budget * (1 - elapsed / span)).toFixed(2)), phasingEur: null };
+      }
+    });
+  }
+
+  let planningData = null;
+  if (budget !== null && !taskFilter && cfg?.planning && Object.keys(cfg.planning).length > 0) {
+    planningData = points.map(d => {
+      let cumPlanning = 0;
+      Object.entries(cfg.planning).forEach(([ym, val]) => {
+        const y = parseInt(ym.slice(0, 4)), m = parseInt(ym.slice(4, 6));
+        if (new Date(y, m - 1, 1) <= d) cumPlanning += val;
+      });
+      return parseFloat(Math.max(0, budget - cumPlanning).toFixed(2));
+    });
+  }
+
+  const tooltipBudgetConsumed = cfg
+    ? points.map(d => filteredData.filter(r => r.date <= d).reduce((s, r) => s + r.hours * (findRate(r, cfg) ?? 0), 0))
+    : null;
+  const tooltipPhasingEur = idealData ? idealData.map(v => v.phasingEur) : null;
+
+  return {
+    points, budget, axisStart, axisEnd, interval,
+    burnValues,
+    idealValues: idealData ? idealData.map(v => v.y) : null,
+    hasPhasingEur: idealData ? idealData.some(v => v.phasingEur !== null) : false,
+    planningData,
+    totalBudgetEur,
+    tooltipBudgetConsumed,
+    tooltipPhasingEur,
+    labels: interval === 'quarterly'
+      ? points.map(d => `Q${Math.floor(d.getMonth()/3)+1} '${String(d.getFullYear()).slice(2)}`)
+      : interval === 'monthly'
+      ? points.map(d => d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }))
+      : points.map(d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })), // fmtDateLabel equivalent — verify exact original format against js/core.js's real fmtDateLabel in Step 1 and adjust if it differs
+  };
+}
+
+window.computeKpis = computeKpis;
+window.computeBurndownPoints = computeBurndownPoints;
+```
+
+- [ ] **Step 6: Run the tests, verify they pass; run the full suite**
+
+Run: `npx vitest run js/lib/portfolio-calc.test.js` — expect PASS, all tests.
+Run: `npm test` — expect 70 (baseline) + new tests, all passing.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add js/lib/portfolio-calc.js js/lib/portfolio-calc.test.js
+git commit -m "$(cat <<'EOF'
+feat(portfolio): extract KPI/burndown math into js/lib/portfolio-calc.js
+
+New vitest-covered pure functions, extracted from renderKPIs and
+renderBurndown in js/dashboard.js. billableData/billableTasks/findRate
+are passed in as parameters rather than imported, since they're plain
+globals (confirmed location: js/core.js) not ES module exports.
+EOF
+)"
+```
+
+---
+
+### Task 3: Dashboard header + KPIs wired to the extracted lib
+
+**Files:**
+- Modify: `portfolio.html`
+
+**Interfaces:**
+- Consumes: `computeKpis` (Task 2, via `window.*` bridge), `billableData`/`billableTasks`/`findRate` (globals from `js/core.js`, confirmed location in Task 2 Step 1).
+- Produces: `showDashboard(pid)` method (replacing Task 1's placeholder comment), dashboard header template, KPI cards template.
+
+- [ ] **Step 1: Add the dashboard view template**
+
+Insert where `<!-- Task 3 inserts the dashboard view here -->` is marked in Task 1's skeleton:
+
+```html
+<div class="pt-4 mb-3">
+  <nav aria-label="breadcrumb" class="mb-2">
+    <ol class="breadcrumb mb-0" style="font-size:var(--text-xs)">
+      <li class="breadcrumb-item"><a href="#" class="text-muted text-decoration-none" @click.prevent="showOverview">Portfolio</a></li>
+      <li class="breadcrumb-item active text-muted" aria-current="page">{{ dashboardProject?.name || dashboardProjectId }}</li>
+    </ol>
+  </nav>
+  <div v-if="dashboardProgramRow" class="text-muted mb-1" style="font-size:.9rem" v-html="dashboardProgramRow"></div>
+  <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+    <span class="fw-bold fs-5" style="color:var(--brand-navy)">{{ dashboardProject?.name || dashboardProjectId }}</span>
+    <span class="text-muted small">{{ dashboardProject?.name ? dashboardProjectId : '' }}</span>
+    <span class="d-inline-flex gap-1 align-items-center flex-wrap" v-html="dashboardMetaHtml"></span>
+    <div class="dropdown" v-if="dashboardSiblings.length">
+      <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:.75rem;padding:2px 7px" title="Switch project">▾</button>
+      <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:320px;font-size:.85rem">
+        <li v-for="s in dashboardSiblings" :key="s.id">
+          <a v-if="s.hasActuals" class="dropdown-item d-flex align-items-center gap-2 py-2" href="#" @click.prevent="showDashboard(s.id)">
+            <span class="fw-semibold">{{ s.name || s.id }}</span>
+            <span v-if="s.code" class="text-muted small" style="font-family:monospace">{{ s.code }}</span>
+            <span class="ms-auto d-inline-flex gap-1" v-html="s.badgesHtml"></span>
+          </a>
+          <span v-else class="dropdown-item disabled d-flex align-items-center gap-2 py-2" style="opacity:.45;cursor:default">
+            <span class="fw-semibold">{{ s.name || s.id }}</span>
+            <span v-if="s.code" class="text-muted small" style="font-family:monospace">{{ s.code }}</span>
+            <span class="ms-auto d-inline-flex gap-1 align-items-center" v-html="s.badgesHtml"><span class="text-muted small ms-1" style="font-size:var(--text-xs)">no data</span></span>
+          </span>
+        </li>
+      </ul>
+    </div>
+  </div>
+  <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+    <div><button class="btn btn-outline-secondary btn-sm" @click="showOverview">← Portfolio</button></div>
+    <div class="d-flex gap-2">
+      <button v-if="dashboardProject?.my_permission !== 'viewer'" class="btn btn-outline-secondary btn-sm" @click="window.location.href = '/project-config.html?projectId=' + encodeURIComponent(dashboardProjectId)">⚙️ Configure</button>
+      <button class="btn btn-outline-secondary btn-sm" @click="goPlanningForProject(dashboardProjectId)">📅 Planning</button>
+      <button v-if="hasAiKey()" class="btn btn-outline-secondary btn-sm" @click="openAiAnalysis()">🤖 AI Analysis</button>
+      <button class="btn btn-outline-secondary btn-sm" @click="openShareModal('project', dashboardProjectId, dashboardProject?.name || dashboardProjectId)">🔗 Share</button>
+    </div>
+  </div>
+</div>
+
+<div v-if="dashboardReady">
+  <div v-if="!dashboardProject" class="alert alert-warning">
+    <strong>⚠️ Budget not configured for this project.</strong>
+    Click <strong>⚙️ Configure Budget</strong> to enter sold hours and hourly rates.
+  </div>
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-2"><div class="card kpi-card blue shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">📦 Total Sold Hours</div><div class="fw-bold fs-4">{{ kpis.soldHours !== null ? fmtH(kpis.soldHours) : '—' }}</div><div class="text-muted small">from configuration</div></div></div></div>
+    <div class="col-sm-6 col-xl-2"><div class="card kpi-card green shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💰 Total Budget</div><div class="fw-bold fs-4">{{ kpis.budgetTotal !== null ? fmtMoney(kpis.budgetTotal) : '—' }}</div><div class="text-muted small">{{ kpiBudgetEurSub }}</div></div></div></div>
+    <div class="col-sm-6 col-xl-2"><div class="card kpi-card orange shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">⏱️ Hours Consumed</div><div class="fw-bold fs-4">{{ fmtH(kpis.consumedHours) }}</div><div class="text-muted small">{{ kpiAsOfStr }}</div></div></div></div>
+    <div class="col-sm-6 col-xl-2"><div class="card kpi-card purple shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💸 Budget Consumed</div><div class="fw-bold fs-4">{{ kpis.consumedEur !== null ? fmtMoney(kpis.consumedEur) : '—' }}</div><div class="text-muted small">{{ kpiAsOfStr }}</div></div></div></div>
+    <div class="col-sm-6 col-xl-2"><div class="card kpi-card teal shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">⏳ Hours Left</div><div class="fw-bold fs-4" :style="{color: kpiLeftColor(kpis.hoursLeft, kpis.soldHours)}">{{ kpis.hoursLeft !== null ? fmtH(kpis.hoursLeft) : '—' }}</div><div class="text-muted small">sold − consumed</div></div></div></div>
+    <div class="col-sm-6 col-xl-2"><div class="card kpi-card red shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💼 Budget Left</div><div class="fw-bold fs-4" :style="{color: kpiLeftColor(kpis.budgetLeft, kpis.budgetTotal)}">{{ kpis.budgetLeft !== null ? fmtMoney(kpis.budgetLeft) : '—' }}</div><div class="text-muted small">{{ kpiBudgetLeftSub }}</div></div></div></div>
+  </div>
+  <!-- Task 4 inserts the burndown chart section here -->
+  <!-- Task 5 inserts monthly summary + PTC report here -->
+  <!-- Task 6 inserts the date filter + summary tables here -->
+  <!-- Task 7 inserts task detail tables here -->
+</div>
+```
+
+- [ ] **Step 2: Add `data()` fields, `computed`, and `methods`**
+
+In `data()`, add:
+```js
+dashboardProjectId: null,
+dashboardReady: false,
+```
+
+In `computed`, add:
+```js
+dashboardProject() {
+  return this.dashboardProjectId ? (config.projects || []).find(p => p.id === this.dashboardProjectId) : null;
+},
+dashboardData() {
+  return this.dashboardProjectId ? timesheetData.filter(r => r.projectId === this.dashboardProjectId) : [];
+},
+kpis() {
+  if (!this.dashboardReady) return { consumedHours: 0, soldHours: null, budgetTotal: null, consumedEur: null, hoursLeft: null, budgetLeft: null };
+  return computeKpis(this.dashboardData, this.dashboardProject, billableData, billableTasks, findRate);
+},
+kpiAsOfStr() {
+  return this.kpis.maxDate
+    ? `as of ${this.kpis.maxDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
+    : 'total to date';
+},
+kpiBudgetEurSub() {
+  return this.kpis.totalPtc > 0 ? `${fmtMoney(this.kpis.feesOnly)} fees + ${fmtMoney(this.kpis.totalPtc)} PTC` : 'hours × hourly rate';
+},
+kpiBudgetLeftSub() {
+  return this.kpis.totalPtc > 0 ? '(fees + PTC) − consumed' : 'budget − consumed';
+},
+dashboardProgramRow() {
+  const cfg = this.dashboardProject;
+  const prog = cfg?.programId ? getPrograms().find(p => p.id === cfg.programId) : null;
+  const clientName = cfg?.clientId ? getClientName(cfg.clientId) : '';
+  const hasClient = clientName && clientName !== 'Unassigned';
+  if (!hasClient && !prog) return '';
+  const clientPart = hasClient ? `<span class="fw-semibold">${esc(clientName)}</span>` : '';
+  const sep = hasClient && prog ? ' — ' : '';
+  const progPart = prog ? `<span class="fw-semibold">${esc(prog.name)}</span>` : '';
+  return clientPart + sep + progPart;
+},
+dashboardMetaHtml() {
+  if (!this.dashboardProjectId) return '';
+  return [pipelineBadge(getProjectPipeline(this.dashboardProjectId) || this.dashboardProject?.pipeline), statusBadgeLarge(this.dashboardProject?.status)].join(' ');
+},
+dashboardSiblings() {
+  const cfg = this.dashboardProject;
+  const progId = cfg?.programId;
+  if (!progId) return [];
+  return (config.projects || [])
+    .filter(p => p.programId === progId && p.id !== this.dashboardProjectId)
+    .sort((a, b) => (a.id||'').localeCompare(b.id||''))
+    .map(s => ({
+      ...s,
+      hasActuals: timesheetData.some(r => r.projectId === s.id),
+      badgesHtml: [pipelineBadge(getProjectPipeline(s.id) || s.pipeline), statusBadgeLarge(s.status)].join(' '),
+    }));
+},
+```
+
+In `methods`, add:
+```js
+esc,
+statusBadgeLarge,
+hasAiKey,
+kpiLeftColor(left, total) {
+  if (left === null) return '';
+  if (left < 0) return 'var(--color-danger)';
+  if (total && left < total * 0.1) return '#fd7e14';
+  return '';
+},
+showDashboard(pid) {
+  this.view = 'dashboard';
+  this.dashboardProjectId = pid;
+  this.dashboardReady = true;
+  const cfg = this.dashboardProject;
+  if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
+    { label: 'Home', href: '/pipeline.html' },
+    { label: 'Project Portfolio', href: '/portfolio.html' },
+    { label: cfg?.name || pid },
+  ]);
+  // Task 4-7 add their own per-view reset/init calls here (burndown interval reset, date filter reset, etc.)
+},
+```
+
+- [ ] **Step 3: Wire `showDashboard` to run on load from a `?projectId=` URL param**
+
+In `created()` (Task 1), the existing code already calls `this.showDashboard(urlProjectId)` — no change needed here, just confirm it now resolves correctly against this task's real implementation (Task 1 wrote a forward-reference comment for this method).
+
+- [ ] **Step 4: Run the frontend test suite**
+
+Run: `npm test` — expect all tests to pass.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add portfolio.html
+git commit -m "feat(portfolio): dashboard header, sibling switcher, KPIs wired to js/lib/portfolio-calc.js"
+```
+
+---
+
+### Task 4: Burndown chart
+
+**Files:**
+- Modify: `portfolio.html`
+
+**Interfaces:**
+- Consumes: `computeBurndownPoints` (Task 2).
+- Produces: burndown chart template + `Chart.js` integration methods.
+
+- [ ] **Step 1: Add the burndown section template**
+
+Insert where `<!-- Task 4 inserts the burndown chart section here -->` is marked:
+
+```html
+<div class="section-card mb-4">
+  <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span>📉 Hours Burndown</span>
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <div class="btn-group btn-group-sm">
+        <button v-for="opt in ['monthly','quarterly','biweekly','weekly']" :key="opt" class="btn btn-outline-secondary" :class="{active: burndownInterval === opt}" @click="burndownInterval = opt">{{ opt.charAt(0).toUpperCase() + opt.slice(1) }}</button>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <label class="small text-muted mb-0 fw-normal">Filter by task:</label>
+        <select class="form-select form-select-sm" v-model="burndownTaskFilter" style="min-width:220px">
+          <option value="">All tasks</option>
+          <option v-for="t in billableTaskNames" :key="t" :value="t">{{ t }}</option>
+        </select>
+      </div>
+      <button class="btn btn-outline-secondary btn-sm" title="Export chart as PNG" @click="exportChartPng">🖼 Export PNG</button>
+    </div>
+  </div>
+  <div class="p-3"><div class="chart-container"><canvas ref="burndownCanvas"></canvas></div></div>
+</div>
+```
+
+- [ ] **Step 2: Add `data()` fields, `computed`, and `methods`**
+
+In `data()`, add:
+```js
+burndownInterval: 'monthly',
+burndownTaskFilter: '',
+```
+(also add a plain instance property, not in `data()`, for the Chart.js instance: assign `this._burndownChart = null;` inside `created()`'s body, since Chart instances are not reactive-friendly, matching the established convention for non-template-read instance state.)
+
+In `computed`, add:
+```js
+billableTaskNames() {
+  return this.dashboardReady ? billableTasks(this.dashboardProject).map(t => t.name) : [];
+},
+```
+
+In `methods`, add:
+```js
+renderBurndownChart() {
+  if (this._burndownChart) { this._burndownChart.destroy(); this._burndownChart = null; }
+  if (!this.dashboardData.length) return;
+
+  const series = computeBurndownPoints(this.dashboardData, this.dashboardProject, this.burndownTaskFilter, this.burndownInterval, billableData, billableTasks, findRate);
+  const { labels, burnValues, idealValues, hasPhasingEur, planningData, budget, totalBudgetEur, tooltipBudgetConsumed, tooltipPhasingEur } = series;
+
+  const datasets = [{
+    label: budget !== null ? 'Remaining Hours' : 'Cumulative Hours',
+    data: burnValues,
+    borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,0.07)',
+    fill: true, tension: 0.3, pointRadius: 3, pointHoverRadius: 5,
+  }];
+  if (idealValues) {
+    datasets.push({
+      label: hasPhasingEur ? 'Estimated Budget (phasing)' : 'Ideal Trend',
+      data: idealValues,
+      borderColor: hasPhasingEur ? '#FF6F00' : 'var(--text-disabled)', borderDash: [6, 4], borderWidth: 2,
+      fill: false, pointRadius: 0, tension: 0,
+    });
+  }
+  if (planningData) {
+    datasets.push({
+      label: 'Estimated Hours',
+      data: planningData,
+      borderColor: '#2E7D32', borderDash: [4, 4], borderWidth: 2,
+      fill: false, pointRadius: 0, tension: 0,
+    });
+  }
+
+  this._burndownChart = new Chart(this.$refs.burndownCanvas, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        tooltip: {
+          mode: 'index', intersect: false,
+          filter: item => item.datasetIndex === 0,
+          displayColors: false,
+          callbacks: {
+            label: context => {
+              const i = context.dataIndex;
+              const lines = ['── Hours ──────────────────'];
+              if (budget !== null) {
+                lines.push(`  Consumed:   ${fmtH(Math.max(0, budget - burnValues[i]))}`);
+                lines.push(`  Remaining:  ${fmtH(Math.max(0, burnValues[i]))}`);
+                if (planningData) lines.push(`  Estimated:  ${fmtH(planningData[i])}`);
+              } else {
+                lines.push(`  Consumed:   ${fmtH(burnValues[i])}`);
+              }
+              if (tooltipBudgetConsumed) {
+                lines.push('', '── Budget ─────────────────');
+                const consumed = tooltipBudgetConsumed[i] ?? 0;
+                lines.push(`  Consumed:   ${fmtMoney(consumed)}`);
+                lines.push(`  Remaining:  ${fmtMoney(totalBudgetEur - consumed)}`);
+                if (tooltipPhasingEur?.[i] != null) lines.push(`  Estimated:  ${fmtMoney(tooltipPhasingEur[i])}`);
+              }
+              return lines;
+            },
+          },
+        },
+        legend: { position: 'top' },
+      },
+      scales: {
+        x: { ticks: { maxRotation: 45, autoSkip: false } },
+        y: { beginAtZero: true, title: { display: true, text: 'Hours' } },
+      },
+    },
+  });
+},
+exportChartPng() {
+  if (!this._burndownChart) return;
+  const a = document.createElement('a');
+  a.href = this._burndownChart.toBase64Image('image/png', 1);
+  a.download = `burndown_${this.dashboardProjectId || 'chart'}.png`;
+  a.click();
+},
+```
+
+- [ ] **Step 3: Wire re-render triggers**
+
+In `showDashboard(pid)` (Task 3), after setting `this.dashboardReady = true;`, add:
+```js
+this.burndownInterval = 'monthly';
+this.burndownTaskFilter = '';
+this.$nextTick(() => this.renderBurndownChart());
+```
+
+Add a `watch` block to the Vue options object (sibling to `data`/`computed`/`methods`/`created`):
+```js
+watch: {
+  burndownInterval() { this.renderBurndownChart(); },
+  burndownTaskFilter() { this.renderBurndownChart(); },
+},
+```
+
+(`$nextTick` in `showDashboard` ensures the `<canvas ref="burndownCanvas">` element exists in the DOM — since switching `view` from `'overview'` to `'dashboard'` is itself reactive, the canvas is only inserted after Vue's next render tick.)
+
+- [ ] **Step 4: Run the frontend test suite**
+
+Run: `npm test` — expect all tests to pass.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add portfolio.html
+git commit -m "feat(portfolio): burndown chart wired to js/lib/portfolio-calc.js"
+```
+
+---
+
+### Task 5: Monthly summary table + PTC report
+
+**Files:**
+- Modify: `portfolio.html`
+
+**Interfaces:**
+- Produces: `monthlySummary` computed, `ptcReport` computed, shared `exportButtons` template partial + `copyTableToClipboard`/`exportTableToXLS`/`exportElementToPNG` methods (reused by every remaining table section in Tasks 5-7).
+
+- [ ] **Step 1: Add the shared export-button methods**
+
+These are used by every table section from here through Task 7 — add once now. In `methods`, add:
+```js
+copyTableToClipboard(tbl) {
+  if (!tbl) return;
+  const text = [...tbl.querySelectorAll('tr')]
+    .map(tr => [...tr.querySelectorAll('th,td')].map(c => c.innerText.replace(/\n/g, ' ').trim()).join('\t'))
+    .join('\n');
+  navigator.clipboard.writeText(text).catch(() => {});
+},
+exportTableToXLS(tbl, filename) {
+  if (!tbl) return;
+  const wb = XLSX.utils.table_to_book(tbl, { sheet: 'Data' });
+  XLSX.writeFile(wb, filename + '.xlsx');
+},
+exportElementToPNG(el, filename) {
+  if (!el || typeof html2canvas === 'undefined') return;
+  html2canvas(el, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = filename + '.png';
+    a.click();
+  });
+},
+```
+
+Add a reusable template partial (a small Vue component, registered once, since it's used identically by ~7 table sections) right before `Vue.createApp({...})`:
+```js
+const ExportButtons = {
+  props: ['tblRef', 'filename', 'cardRef'],
+  template: `
+    <div class="d-flex gap-1">
+      <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:var(--text-xs)" title="Copy" @click="$root.copyTableToClipboard(tblRef?.())">📋</button>
+      <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:var(--text-xs)" title="XLS" @click="$root.exportTableToXLS(tblRef?.(), filename)">📊</button>
+      <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:var(--text-xs)" title="PNG" @click="$root.exportElementToPNG(cardRef?.(), filename)">🖼️</button>
+    </div>`,
+};
+```
+
+Register it in the `Vue.createApp({...})` call by adding, as a sibling to `data`/`computed`/`methods`:
+```js
+components: { ExportButtons },
+```
+
+(`tblRef`/`cardRef` are passed as zero-arg functions returning the actual DOM element via a template `ref`, matching the original's `wireExportButtons(div, tblFn, filename, cardEl)` signature where `tblFn` was already a closure — this preserves that same "resolve the element at click-time, not at render-time" behavior, important because the original comment at `js/dashboard.js:1049` implies the table DOM may be rebuilt between when the button is wired and when it's clicked.)
+
+- [ ] **Step 2: Add the monthly summary table**
+
+Insert where `<!-- Task 5 inserts monthly summary + PTC report here -->` is marked (first of two sections at this marker):
+
+```html
+<div class="section-card mb-4" v-if="monthlySummary">
+  <div class="section-header d-flex justify-content-between align-items-center">
+    <span>📅 Monthly Summary — hours and budget spent by month</span>
+    <ExportButtons :tbl-ref="() => $refs.monthlyTable" filename="monthly_summary" :card-ref="() => $refs.monthlyCard" />
+  </div>
+  <div class="table-responsive">
+    <table ref="monthlyTable" class="table table-sm table-hover align-middle mb-0 tbl-fixed">
+      <thead style="background:var(--surface-light);">
+        <tr>
+          <th class="ps-3" rowspan="2" style="vertical-align:middle;border-bottom:2px solid var(--border-light)">Month</th>
+          <th colspan="3" class="text-center border-start" style="border-bottom:2px solid var(--border-light)">Hours</th>
+          <th colspan="3" class="text-center border-start" style="border-bottom:2px solid var(--border-light)">Budget</th>
+          <th v-if="monthlySummary.hasPtc" class="text-center border-start" rowspan="2" style="vertical-align:middle;border-bottom:2px solid var(--border-light)">PTC</th>
+        </tr>
+        <tr style="background:var(--surface-light);">
+          <th class="text-end border-start">Estimated</th><th class="text-end">Consumed</th><th class="text-end">Variance</th>
+          <th class="text-end border-start">Estimated</th><th class="text-end">Spent</th><th :class="monthlySummary.hasPtc ? 'text-end' : 'text-end pe-3'">Variance</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="m in monthlySummary.months" :key="m.label">
+          <td class="ps-3">{{ m.label }}</td>
+          <td class="text-end border-start">{{ dashboardProject ? fmtH(m.estimatedHours) : '—' }}</td>
+          <td class="text-end">{{ fmtH(m.hours) }}</td>
+          <td class="text-end" :class="{'text-danger fw-bold': m.hVar !== null && m.hVar < 0}">{{ m.hVar !== null ? fmtH(m.hVar) : '—' }}</td>
+          <td class="text-end border-start">{{ dashboardProject ? fmtMoney(m.estimated) : '—' }}</td>
+          <td class="text-end">{{ m.spent !== null ? fmtMoney(m.spent) : '—' }}</td>
+          <td :class="[monthlySummary.hasPtc ? 'text-end' : 'text-end pe-3', {'text-danger fw-bold': m.bVar !== null && m.bVar < 0}]">{{ m.bVar !== null ? fmtMoney(m.bVar) : '—' }}</td>
+          <td v-if="monthlySummary.hasPtc" class="text-end pe-3 border-start">{{ m.ptc > 0 ? fmtMoney(m.ptc) : '—' }}</td>
+        </tr>
+        <tr class="fw-bold" style="background:#e9ecef;">
+          <td class="ps-3">TOTAL</td>
+          <td class="text-end border-start">{{ monthlySummary.totEstimatedHours !== null ? fmtH(monthlySummary.totEstimatedHours) : '—' }}</td>
+          <td class="text-end">{{ fmtH(monthlySummary.totHours) }}</td>
+          <td class="text-end" :class="{'text-danger': monthlySummary.totHoursVariance !== null && monthlySummary.totHoursVariance < 0}">{{ monthlySummary.totHoursVariance !== null ? fmtH(monthlySummary.totHoursVariance) : '—' }}</td>
+          <td class="text-end border-start">{{ monthlySummary.totEstimated !== null ? fmtMoney(monthlySummary.totEstimated) : '—' }}</td>
+          <td class="text-end">{{ monthlySummary.totSpent !== null ? fmtMoney(monthlySummary.totSpent) : '—' }}</td>
+          <td :class="monthlySummary.hasPtc ? 'text-end' : 'text-end pe-3'" :style="{color: (monthlySummary.totBudgetVariance !== null && monthlySummary.totBudgetVariance < 0) ? 'red' : ''}">{{ monthlySummary.totBudgetVariance !== null ? fmtMoney(monthlySummary.totBudgetVariance) : '—' }}</td>
+          <td v-if="monthlySummary.hasPtc" class="text-end pe-3 border-start">{{ monthlySummary.totPtc !== null ? fmtMoney(monthlySummary.totPtc) : '—' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+```
+
+Add to `computed`:
+```js
+monthlySummary() {
+  const data = this.dashboardData, cfg = this.dashboardProject;
+  if (!data.length) return null;
+  let startY, startM, endY, endM;
+  if (cfg?.startDate && cfg?.endDate) {
+    startY = parseInt(cfg.startDate.slice(0,4)); startM = parseInt(cfg.startDate.slice(4,6));
+    endY = parseInt(cfg.endDate.slice(0,4)); endM = parseInt(cfg.endDate.slice(4,6));
+  } else {
+    const dates = data.map(r => r.date);
+    const minD = dates.reduce((a,b) => a<b?a:b), maxD = dates.reduce((a,b) => a>b?a:b);
+    startY = minD.getFullYear(); startM = minD.getMonth()+1;
+    endY = maxD.getFullYear(); endM = maxD.getMonth()+1;
+  }
+  const ptcItems = cfg?.ptc || [];
+  const ptcByMonth = {};
+  ptcItems.forEach(p => { if (p.month) ptcByMonth[p.month] = (ptcByMonth[p.month]||0) + (p.amount||0); });
+  const hasPtc = ptcItems.length > 0;
+  const bData = billableData(data, cfg);
+  const months = [];
+  let cy = startY, cm = startM;
+  while (cy < endY || (cy === endY && cm <= endM)) {
+    const ym = `${cy}${String(cm).padStart(2,'0')}`;
+    const start = new Date(cy, cm-1, 1), end = new Date(cy, cm, 0, 23, 59, 59);
+    const rows = bData.filter(r => r.date >= start && r.date <= end);
+    const hours = rows.reduce((s,r) => s+r.hours, 0);
+    const spent = cfg ? rows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0) : null;
+    const estimatedHours = cfg?.planning?.[ym] ?? 0;
+    const estimated = cfg?.phasing?.[ym] ?? 0;
+    const ptc = ptcByMonth[ym] || 0;
+    const label = start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const hVar = cfg ? estimatedHours - hours : null;
+    const bVar = spent !== null ? estimated - spent : null;
+    months.push({ label, hours, estimatedHours, spent, estimated, ptc, hVar, bVar });
+    cm++; if (cm > 12) { cm = 1; cy++; }
+  }
+  const totHours = months.reduce((s,m) => s+m.hours, 0);
+  const totEstimatedHours = cfg ? months.reduce((s,m) => s+m.estimatedHours, 0) : null;
+  const totHoursVariance = totEstimatedHours !== null ? totEstimatedHours - totHours : null;
+  const totSpent = cfg ? months.reduce((s,m) => s+(m.spent??0), 0) : null;
+  const totEstimated = cfg ? months.reduce((s,m) => s+m.estimated, 0) : null;
+  const totBudgetVariance = (totEstimated !== null && totSpent !== null) ? totEstimated - totSpent : null;
+  const totPtc = hasPtc ? months.reduce((s,m) => s+m.ptc, 0) : null;
+  return { months, hasPtc, totHours, totEstimatedHours, totHoursVariance, totSpent, totEstimated, totBudgetVariance, totPtc };
+},
+```
+
+- [ ] **Step 3: Add the PTC report table**
+
+Insert as the second part of the same marker area:
+
+```html
+<div class="section-card mb-4" v-if="ptcReport">
+  <div class="section-header d-flex justify-content-between align-items-center">
+    <span>💼 Pass Through Costs</span>
+    <ExportButtons :tbl-ref="() => $refs.ptcTable" filename="ptc_report" :card-ref="() => $refs.ptcCard" />
+  </div>
+  <div class="table-responsive">
+    <table ref="ptcTable" class="table table-sm table-hover align-middle mb-0">
+      <thead style="background:var(--surface-light);"><tr><th class="ps-3" style="width:160px">Month</th><th>Title</th><th>Note</th><th class="text-end pe-3">Amount</th></tr></thead>
+      <tbody>
+        <tr v-for="(p, i) in ptcReport.rows" :key="i" :style="i % 2 !== 0 ? 'background:var(--surface-light)' : ''">
+          <td class="ps-3">{{ p.monthLabel }}</td>
+          <td class="fw-semibold">{{ p.title || '—' }}</td>
+          <td class="text-muted small">{{ p.note || '' }}</td>
+          <td class="text-end pe-3 fw-semibold">{{ fmtMoney(p.amount || 0) }}</td>
+        </tr>
+        <tr class="fw-bold" style="background:#e9ecef;"><td class="ps-3" colspan="3">TOTAL</td><td class="text-end pe-3">{{ fmtMoney(ptcReport.total) }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+```
+
+Add to `computed`:
+```js
+ptcReport() {
+  const ptcItems = this.dashboardProject?.ptc || [];
+  if (!ptcItems.length) return null;
+  const total = ptcItems.reduce((s,p) => s+(p.amount||0), 0);
+  const rows = [...ptcItems].sort((a,b) => {
+    if (a.month !== b.month) return (a.month||'').localeCompare(b.month||'');
+    return (a.title||'').localeCompare(b.title||'');
+  }).map(p => {
+    let monthLabel = '—';
+    if (p.month && p.month.length === 6) {
+      const y = parseInt(p.month.slice(0,4)), m = parseInt(p.month.slice(4,6));
+      monthLabel = new Date(y, m-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+    return { ...p, monthLabel };
+  });
+  return { rows, total };
+},
+```
+
+- [ ] **Step 4: Run the frontend test suite**
+
+Run: `npm test` — expect all tests to pass.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add portfolio.html
+git commit -m "feat(portfolio): monthly summary + PTC report tables, shared export-button component"
+```
+
+---
+
+### Task 6: Date/month filter + summary-by-task/role/group tables
+
+**Files:**
+- Modify: `portfolio.html`
+
+**Interfaces:**
+- Produces: date-filter template + state, `summaryByTask`/`summaryByRole`/`summaryByGroup` computed properties sharing a `buildSummaryCols`/`summaryTotals` helper pair.
+
+- [ ] **Step 1: Add the date/month filter section**
+
+Insert where `<!-- Task 6 inserts the date filter + summary tables here -->` is marked:
+
+```html
+<div class="section-card mb-4">
+  <div class="section-header">🗓️ Period filter — applies to all summary and detail tables below</div>
+  <div class="p-3">
+    <div class="row g-3 align-items-end flex-wrap">
+      <div class="col-auto"><label class="form-label small fw-semibold mb-1">Month</label>
+        <select class="form-select form-select-sm" v-model="filterMonth" style="min-width:160px" @change="filterStart = ''; filterEnd = '';">
+          <option value="">— All months —</option>
+          <option v-for="ym in filterMonthOptions" :key="ym" :value="ym">{{ filterMonthLabel(ym) }}</option>
+        </select>
+      </div>
+      <div class="col-auto d-flex align-items-end pb-1"><span class="text-muted small">or</span></div>
+      <div class="col-auto"><label class="form-label small fw-semibold mb-1">From</label><input type="date" class="form-control form-control-sm" v-model="filterStart" @change="filterMonth = ''"></div>
+      <div class="col-auto"><label class="form-label small fw-semibold mb-1">To</label><input type="date" class="form-control form-control-sm" v-model="filterEnd" @change="filterMonth = ''"></div>
+      <div class="col-auto"><button class="btn btn-outline-secondary btn-sm" @click="resetDateFilter">↺ Reset</button></div>
+      <div class="col-auto"><span class="text-muted small">{{ filterRangeLabel }}</span></div>
+    </div>
+  </div>
+</div>
+```
+
+Add to `data()`:
+```js
+filterMonth: '',
+filterStart: '',
+filterEnd: '',
+```
+
+Add to `computed`:
+```js
+filterMonthOptions() {
+  const cfg = this.dashboardProject, data = this.dashboardData;
+  const months = [];
+  if (cfg?.startDate && cfg?.endDate) {
+    let cy = parseInt(cfg.startDate.slice(0,4)), cm = parseInt(cfg.startDate.slice(4,6));
+    const ey = parseInt(cfg.endDate.slice(0,4)), em = parseInt(cfg.endDate.slice(4,6));
+    while (cy < ey || (cy === ey && cm <= em)) { months.push(`${cy}-${String(cm).padStart(2,'0')}`); cm++; if (cm>12){cm=1;cy++;} }
+  } else {
+    const monthSet = new Set(data.map(r => `${r.date.getFullYear()}-${String(r.date.getMonth()+1).padStart(2,'0')}`));
+    [...monthSet].sort().forEach(ym => months.push(ym));
+  }
+  return months;
+},
+filterRange() {
+  if (this.filterMonth) {
+    const [y, m] = this.filterMonth.split('-').map(Number);
+    return { start: new Date(y, m-1, 1), end: new Date(y, m, 0, 23, 59, 59) };
+  }
+  return {
+    start: this.filterStart ? new Date(this.filterStart + 'T00:00:00') : null,
+    end: this.filterEnd ? new Date(this.filterEnd + 'T23:59:59') : null,
+  };
+},
+filterHasFilter() { return !!(this.filterRange.start || this.filterRange.end); },
+filterRangeLabel() {
+  if (this.filterMonth) return this.filterMonthLabel(this.filterMonth);
+  const { start, end } = this.filterRange;
+  const fmtD = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  if (start && end) return `${fmtD(start)} – ${fmtD(end)}`;
+  if (start) return `from ${fmtD(start)}`;
+  if (end) return `until ${fmtD(end)}`;
+  return '';
+},
+```
+
+Add to `methods`:
+```js
+filterMonthLabel(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+},
+resetDateFilter() { this.filterMonth = ''; this.filterStart = ''; this.filterEnd = ''; },
+```
+
+- [ ] **Step 2: Add the three summary-by tables (task, role, group)**
+
+All three share the same "sold / spent / in-period / residual" row structure (`summaryRows`/`summaryTable` in the original, `js/dashboard.js:609-683`). Add a shared computed-building helper method and one Vue sub-component for the shared table body, then three computed properties feeding it. In `methods`:
+
+```js
+buildSummaryCols(rows, byKeyFn, entries) {
+  // entries: array of { key, label, soldHours, soldEur } precomputed per caller (task/role/group differ in how sold values are derived)
+  const { start, end } = this.filterRange;
+  return entries.map(({ key, label, soldHours, soldEur }) => {
+    const keyRows = rows.filter(r => byKeyFn(r) === key);
+    const totalConsumed = keyRows.reduce((s,r) => s+r.hours, 0);
+    const totalConsumedEur = keyRows.reduce((s,r) => s+r.hours*(findRate(r, this.dashboardProject)??0), 0);
+    const periodRows = keyRows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
+    const inPeriod = periodRows.reduce((s,r) => s+r.hours, 0);
+    const inPeriodEur = periodRows.reduce((s,r) => s+r.hours*(findRate(r, this.dashboardProject)??0), 0);
+    return { label, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
+  });
+},
+```
+
+Add to `computed`:
+```js
+summaryByTask() {
+  if (!this.dashboardProject) return null;
+  const bTasks = billableTasks(this.dashboardProject);
+  const entries = bTasks.map(t => ({
+    key: t.name.toLowerCase(), label: t.name,
+    soldHours: t.resources.reduce((s,r) => s+r.soldHours, 0),
+    soldEur: t.resources.reduce((s,r) => s+r.soldHours*r.hourlyRate, 0),
+  }));
+  return this.buildSummaryCols(this.dashboardData, r => r.task.toLowerCase(), entries);
+},
+summaryByRole() {
+  if (!this.dashboardProject) return null;
+  const roleMap = new Map();
+  billableTasks(this.dashboardProject).forEach(t => t.resources.forEach(res => {
+    const key = res.role.toLowerCase();
+    if (!roleMap.has(key)) roleMap.set(key, { key, label: res.role, soldHours: 0, soldEur: 0 });
+    roleMap.get(key).soldHours += res.soldHours;
+    roleMap.get(key).soldEur += res.soldHours * res.hourlyRate;
+  }));
+  const bData = billableData(this.dashboardData, this.dashboardProject);
+  return this.buildSummaryCols(bData, r => r.role.toLowerCase(), [...roleMap.values()]);
+},
+summaryByGroup() {
+  const cfg = this.dashboardProject;
+  if (!cfg || !cfg.groups?.length) return null;
+  const bData = billableData(this.dashboardData, cfg);
+  const bTasks = billableTasks(cfg);
+  const entries = cfg.groups.map(grp => {
+    const roleLowers = grp.roles.map(r => r.toLowerCase());
+    let soldHours = 0, soldEur = 0;
+    bTasks.forEach(task => task.resources.forEach(res => {
+      if (roleLowers.includes(res.role.toLowerCase())) { soldHours += res.soldHours; soldEur += res.soldHours*res.hourlyRate; }
+    }));
+    return { key: grp.name, label: grp.name, soldHours, soldEur, _roleLowers: roleLowers };
+  });
+  // Group membership is by role-list, not a single row field — filter bData once per group inline via a custom byKeyFn closure.
+  return entries.map(({ key, label, soldHours, soldEur, _roleLowers }) => {
+    const { start, end } = this.filterRange;
+    const grpRows = bData.filter(r => _roleLowers.includes(r.role.toLowerCase()));
+    const totalConsumed = grpRows.reduce((s,r) => s+r.hours, 0);
+    const totalConsumedEur = grpRows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0);
+    const periodRows = grpRows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
+    const inPeriod = periodRows.reduce((s,r) => s+r.hours, 0);
+    const inPeriodEur = periodRows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0);
+    return { label, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
+  });
+},
+```
+
+Note: `summaryByGroup`'s membership test (a role can belong to a functional group) doesn't fit `buildSummaryCols`'s single-`key`-equality `byKeyFn` shape, so it's computed inline rather than forced through the shared helper — this mirrors the original's own structure (`renderSummaryByGroup`, `js/dashboard.js:713-744`, already didn't share code with `renderSummaryByTask`/`renderSummaryTable` beyond the final `summaryTable()` HTML-building call). Only the **row-rendering template** (Step 3 below) is shared between all three; the column-computation logic for `summaryByGroup` is intentionally separate.
+
+- [ ] **Step 3: Add the shared summary-table template (used 3×) and totals row**
+
+Add a method for the shared totals computation:
+```js
+summaryTotals(cols, hasFilter) {
+  const totSold = cols.reduce((s,c) => s+c.soldHours, 0);
+  const totSoldEur = cols.reduce((s,c) => s+c.soldEur, 0);
+  const totConsumed = cols.reduce((s,c) => s+c.totalConsumed, 0);
+  const totConsumedEur = cols.reduce((s,c) => s+c.totalConsumedEur, 0);
+  const totInPeriod = cols.reduce((s,c) => s+c.inPeriod, 0);
+  const totInPeriodEur = cols.reduce((s,c) => s+c.inPeriodEur, 0);
+  const totSpent = totConsumed - (hasFilter ? totInPeriod : 0);
+  const totSpentEur = totConsumedEur - (hasFilter ? totInPeriodEur : 0);
+  const totResidual = totSold - totConsumed;
+  const totResidualEur = totSoldEur - totConsumedEur;
+  return { totSold, totSoldEur, totSpent, totSpentEur, totInPeriod, totInPeriodEur, totResidual, totResidualEur };
+},
+```
+
+Template (repeat 3× — for `summaryByTask`/`filename="summary_by_task"`/title `📋 Summary by task`; `summaryByRole`/`summary_by_role`/`📊 Summary by role`; `summaryByGroup`/`summary_by_group`/`🏷️ Summary by functional area` — substitute `summaryByTask` for the other two computed names and adjust the title/filename/ref name accordingly):
+
+```html
+<div class="section-card mb-4" v-if="summaryByTask">
+  <div class="section-header d-flex justify-content-between align-items-center">
+    <span>📋 Summary by task</span>
+    <ExportButtons :tbl-ref="() => $refs.summaryByTaskTable" filename="summary_by_task" :card-ref="() => $refs.summaryByTaskCard" />
+  </div>
+  <div class="table-responsive">
+    <table ref="summaryByTaskTable" class="table table-sm align-middle mb-0 tbl-fixed">
+      <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByTask" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
+      <tbody>
+        <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ fmtMoney(c.soldEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totSold) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByTask, filterHasFilter).totSoldEur) }}</span></td></tr>
+        <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totSpent) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByTask, filterHasFilter).totSpentEur) }}</span></td></tr>
+        <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ fmtMoney(c.inPeriodEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByTask, filterHasFilter).totInPeriod) : '—' }}</td></tr>
+        <tr style="background:#e9ecef;"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByTask" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(c.soldEur - c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByTask, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totResidual) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByTask, filterHasFilter).totResidualEur) }}</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+```
+
+Add a global CSS rule (once, in the `<style>` block from Task 1) for `.eur-sub`, matching the original's presumed styling — read `css/style.css` for the existing `.eur-sub` rule (it's referenced throughout `js/dashboard.js` via the `he()` helper, `js/dashboard.js:609`, so it must already be defined there) and confirm it doesn't need to be redefined in `portfolio.html` itself.
+
+- [ ] **Step 4: Wire filter changes to nothing extra**
+
+Since `filterRange`/`filterHasFilter` are computed properties reading from `filterMonth`/`filterStart`/`filterEnd` reactively, no explicit "update" call is needed (unlike the original's imperative `updateTaskTables()`) — every dependent computed (`summaryByTask`/`summaryByRole`/`summaryByGroup`, and Task 7's task-detail tables) re-evaluates automatically when the filter state changes. This is a simplification enabled by Vue's reactivity, not a behavior change.
+
+- [ ] **Step 5: Run the frontend test suite**
+
+Run: `npm test` — expect all tests to pass.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add portfolio.html
+git commit -m "feat(portfolio): date filter + summary-by-task/role/group tables"
+```
+
+---
+
+### Task 7: Task detail tables
+
+**Files:**
+- Modify: `portfolio.html`
+
+**Interfaces:**
+- Produces: `taskDetailData` computed (one entry per task), expand/collapse + group-mode toggle state per task, detail-row template.
+
+This is the most complex remaining section (`renderTaskTables`, `js/dashboard.js:782-1020`, 239 lines) — read it again in full immediately before starting this task, side-by-side with the code below, to confirm every branch (flat/role/owner grouping modes, the `isUnbillable` badge, the remaining-hours danger-row highlighting) is preserved.
+
+- [ ] **Step 1: Add per-task expand/group-mode state**
+
+In `data()`, add:
+```js
+taskDetailState: {}, // { [taskName]: { expanded: bool, groupMode: 'flat'|'role'|'owner' } }
+```
+
+Add a method to lazily initialize per-task state:
+```js
+taskState(taskName) {
+  if (!this.taskDetailState[taskName]) {
+    this.taskDetailState[taskName] = { expanded: false, groupMode: 'flat' };
+  }
+  return this.taskDetailState[taskName];
+},
+```
+
+- [ ] **Step 2: Add the `taskDetailData` computed property**
+
+```js
+taskDetailData() {
+  const cfg = this.dashboardProject;
+  if (!cfg) return [];
+  const { start, end } = this.filterRange;
+  const data = this.dashboardData;
+
+  return cfg.tasks.map(task => {
+    const taskData = data.filter(r => r.task.toLowerCase() === task.name.toLowerCase());
+    const periodData = taskData.filter(r => (!start || r.date >= start) && (!end || r.date <= end)).sort((a,b) => a.date - b.date);
+
+    const roleMap = new Map();
+    periodData.forEach(r => {
+      const key = r.role.toLowerCase();
+      if (!roleMap.has(key)) roleMap.set(key, { role: r.role, owners: new Set(), consumedPeriod: 0 });
+      if (r.owner) roleMap.get(key).owners.add(r.owner);
+      roleMap.get(key).consumedPeriod += r.hours;
+    });
+    task.resources.forEach(res => {
+      if (!roleMap.has(res.role.toLowerCase())) roleMap.set(res.role.toLowerCase(), { role: res.role, owners: new Set(), consumedPeriod: 0 });
+    });
+
+    const rows = [...roleMap.values()].map(({ role, owners, consumedPeriod }) => {
+      const owner = [...owners].filter(Boolean).join(', ') || '—';
+      const cfgRes = task.resources.find(r => r.role.toLowerCase() === role.toLowerCase());
+      const rate = cfgRes?.hourlyRate ?? 0;
+      const soldHours = cfgRes?.soldHours ?? null;
+      const soldEur = soldHours !== null ? soldHours * rate : null;
+      const consumedTotal = taskData.filter(r => r.role.toLowerCase() === role.toLowerCase()).reduce((s,r) => s+r.hours, 0);
+      const remaining = cfgRes != null ? cfgRes.soldHours - consumedTotal : null;
+      const consumedPeriodEur = periodData.filter(r => r.role.toLowerCase() === role.toLowerCase()).reduce((s,r) => s+r.hours*rate, 0);
+      const remainingEur = cfgRes != null ? rate * (cfgRes.soldHours - consumedTotal) : null;
+      return { label: `${role} (${owner})`, soldHours, soldEur, consumedPeriod, consumedPeriodEur, remaining, remainingEur };
+    });
+
+    const totSold = rows.reduce((s,r) => s+(r.soldHours??0), 0);
+    const totSoldEur = rows.reduce((s,r) => s+(r.soldEur??0), 0);
+    const totPeriod = periodData.reduce((s,r) => s+r.hours, 0);
+    const totPeriodEur = periodData.reduce((s,r) => {
+      const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
+      return s + r.hours * (cfgR?.hourlyRate ?? 0);
+    }, 0);
+    const totRemaining = rows.reduce((s,r) => s+(r.remaining??0), 0);
+    const totRemainingEur = rows.reduce((s,r) => s+(r.remainingEur??0), 0);
+
+    return { task, rows, totSold, totSoldEur, totPeriod, totPeriodEur, totRemaining, totRemainingEur, periodData };
+  });
+},
+```
+
+- [ ] **Step 3: Add the detail-row builder method**
+
+```js
+taskDetailRows(entry, groupMode) {
+  const { task, periodData } = entry;
+  if (periodData.length === 0) return null; // template renders the "no entries" row itself
+  if (groupMode === 'flat') {
+    return periodData.map(r => {
+      const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
+      return { date: r.date, col2: `${r.role} (${r.owner})`, hours: r.hours, eur: cfgR ? r.hours * cfgR.hourlyRate : null, notes: r.notes, isGroupHeader: false };
+    });
+  }
+  const groups = new Map();
+  periodData.forEach(r => {
+    const k = groupMode === 'role' ? r.role.toLowerCase() : r.owner.toLowerCase();
+    const label = groupMode === 'role' ? r.role : r.owner;
+    if (!groups.has(k)) groups.set(k, { label, entries: [] });
+    groups.get(k).entries.push(r);
+  });
+  const out = [];
+  groups.forEach(({ label, entries }) => {
+    const grpH = entries.reduce((s,r) => s+r.hours, 0);
+    const grpEur = entries.reduce((s,r) => {
+      const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
+      return s + r.hours * (cfgR?.hourlyRate ?? 0);
+    }, 0);
+    out.push({ isGroupHeader: true, label, hours: grpH, eur: grpEur });
+    entries.forEach(r => {
+      const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
+      out.push({ date: r.date, col2: groupMode === 'role' ? r.owner : r.role, hours: r.hours, eur: cfgR ? r.hours * cfgR.hourlyRate : null, notes: r.notes, isGroupHeader: false });
+    });
+  });
+  return out;
+},
+```
+
+- [ ] **Step 4: Add the template**
+
+Insert where `<!-- Task 7 inserts task detail tables here -->` is marked (in Task 3's dashboard template, after the summary tables):
+
+```html
+<div v-if="taskDetailData.length" class="section-divider"><hr><span class="section-divider-label">Task detail</span></div>
+<div v-for="entry in taskDetailData" :key="entry.task.name" class="section-card mb-4">
+  <div class="section-header d-flex justify-content-between align-items-center">
+    <span>📋 {{ entry.task.name }}<span v-if="entry.task.billable === false" class="badge bg-secondary ms-1" style="font-size:var(--text-xs);vertical-align:middle;">Excluded from report</span></span>
+    <div class="d-flex gap-2 align-items-center">
+      <button class="btn btn-sm btn-outline-secondary" @click="taskState(entry.task.name).expanded = !taskState(entry.task.name).expanded">{{ taskState(entry.task.name).expanded ? '▲ Close details' : '▶ Expand details' }}</button>
+      <ExportButtons :tbl-ref="() => $refs['taskTable_'+entry.task.name]?.[0]" :filename="'task_'+entry.task.name.replace(/[^a-zA-Z0-9]/g,'_')" :card-ref="() => $refs['taskCard_'+entry.task.name]?.[0]" />
+    </div>
+  </div>
+  <div class="table-responsive" :ref="'taskCard_'+entry.task.name">
+    <table :ref="'taskTable_'+entry.task.name" class="table table-sm table-hover align-middle mb-0 task-sum-tbl" style="table-layout:fixed;width:100%">
+      <colgroup><col style="width:40%"><col style="width:20%"><col style="width:20%"><col style="width:20%"></colgroup>
+      <thead style="background:var(--surface-light);"><tr><th class="ps-3">Role (Resource)</th><th class="text-end">Sold hours</th><th class="text-end">{{ filterHasFilter ? 'Consumed (' + filterRangeLabel + ')' : 'Consumed (period)' }}</th><th class="text-end pe-3">Remaining (total)</th></tr></thead>
+      <tbody>
+        <tr v-for="(r, i) in entry.rows" :key="i" :class="{'table-danger': r.remaining !== null && r.remaining < 0}">
+          <td class="ps-3">{{ r.label }}</td>
+          <td class="text-end">{{ r.soldHours !== null ? fmtH(r.soldHours) : '—' }}<span v-if="r.soldEur !== null" class="eur-sub">{{ fmtMoney(r.soldEur) }}</span></td>
+          <td class="text-end">{{ fmtH(r.consumedPeriod) }}<span class="eur-sub">{{ fmtMoney(r.consumedPeriodEur) }}</span></td>
+          <td class="text-end pe-3" :class="{'fw-bold text-danger': r.remaining !== null && r.remaining < 0}">{{ r.remaining !== null ? fmtH(r.remaining) : '—' }}<span v-if="r.remainingEur !== null" class="eur-sub" :class="{danger: r.remainingEur < 0}">{{ fmtMoney(r.remainingEur) }}</span></td>
+        </tr>
+        <tr class="fw-bold" style="background:#e9ecef;">
+          <td class="ps-3">TOTAL</td>
+          <td class="text-end">{{ fmtH(entry.totSold) }}<span class="eur-sub">{{ fmtMoney(entry.totSoldEur) }}</span></td>
+          <td class="text-end">{{ fmtH(entry.totPeriod) }}<span class="eur-sub">{{ fmtMoney(entry.totPeriodEur) }}</span></td>
+          <td class="text-end pe-3" :class="{'text-danger': entry.totRemaining < 0}">{{ fmtH(entry.totRemaining) }}<span class="eur-sub" :class="{danger: entry.totRemainingEur < 0}">{{ fmtMoney(entry.totRemainingEur) }}</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="detail-section" v-show="taskState(entry.task.name).expanded">
+    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+      <span class="text-muted small">Chronological entries</span>
+      <div class="d-flex gap-2 align-items-center">
+        <div class="btn-group btn-group-sm" style="font-size:var(--text-sm)">
+          <button v-for="gm in ['flat','role','owner']" :key="gm" class="btn btn-outline-secondary" :class="{active: taskState(entry.task.name).groupMode === gm}" @click="taskState(entry.task.name).groupMode = gm">{{ gm === 'flat' ? 'Flat' : gm === 'role' ? 'By role' : 'By owner' }}</button>
+        </div>
+        <ExportButtons :tbl-ref="() => $refs['detTable_'+entry.task.name]?.[0]" :filename="'task_'+entry.task.name.replace(/[^a-zA-Z0-9]/g,'_')+'_detail'" :card-ref="() => $refs['detSection_'+entry.task.name]?.[0]" />
+      </div>
+    </div>
+    <div class="table-responsive" :ref="'detSection_'+entry.task.name">
+      <table :ref="'detTable_'+entry.task.name" class="table table-sm align-middle mb-0 det-tbl" style="table-layout:fixed;width:100%">
+        <colgroup><col style="width:15%"><col style="width:40%"><col style="width:15%"><col style="width:30%"></colgroup>
+        <thead style="background:var(--indigo-50);"><tr><th class="ps-3">Date</th><th>{{ taskState(entry.task.name).groupMode === 'flat' ? 'Role (Resource)' : taskState(entry.task.name).groupMode === 'role' ? 'Owner' : 'Role' }}</th><th class="text-end">Hours</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr v-if="!taskDetailRows(entry, taskState(entry.task.name).groupMode)"><td colspan="4" class="text-center text-muted py-3 small">No entries in the selected period.</td></tr>
+          <template v-else v-for="(row, i) in taskDetailRows(entry, taskState(entry.task.name).groupMode)" :key="i">
+            <tr v-if="row.isGroupHeader" :style="{background: taskState(entry.task.name).groupMode === 'role' ? 'var(--indigo-50)' : 'var(--color-warning-bg)'}">
+              <td class="ps-3 fw-semibold small" colspan="2">{{ row.label }}</td>
+              <td class="text-end fw-semibold small">{{ fmtH(row.hours) }}<span class="eur-sub">{{ fmtMoney(row.eur) }}</span></td>
+              <td></td>
+            </tr>
+            <tr v-else>
+              <td class="ps-3">{{ fmtDate(row.date) }}</td>
+              <td :class="{'text-muted': taskState(entry.task.name).groupMode !== 'flat'}">{{ row.col2 }}</td>
+              <td class="text-end">{{ fmtH(row.hours) }}<span v-if="row.eur !== null" class="eur-sub">{{ fmtMoney(row.eur) }}</span></td>
+              <td class="text-muted small">{{ row.notes }}</td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+```
+
+Add `fmtDate` to `methods` (confirm its real definition from `js/core.js` per Task 2 Step 1, and reuse it — do not redefine).
+
+- [ ] **Step 5: Run the frontend test suite**
+
+Run: `npm test` — expect all tests to pass.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add portfolio.html
+git commit -m "feat(portfolio): task detail tables (flat/role/owner grouping, expand/collapse)"
+```
+
+---
+
+### Task 8: AI Analysis, Share, Load Actuals wiring; final script-list cleanup
+
+**Files:**
+- Modify: `portfolio.html`
+
+**Interfaces:**
+- Consumes: `openAiAnalysis()`/`openShareModal()` (globals, `js/ai.js`/`js/shares.js`), `readXLSForProject()` (global, `js/upload.js`).
+
+- [ ] **Step 1: Verify AI Analysis / Share / Load Actuals are already correctly wired by prior tasks**
+
+Task 3's dashboard header template already calls `openAiAnalysis()`/`openShareModal(...)` directly as button `@click` handlers, and Task 1's per-project card template calls `openShareModal('project', ...)`/`triggerLoadActuals(cfg.id)`. Confirm `js/ai.js`'s `openAiAnalysis()` reads `selectedProjectId`-equivalent state correctly — it likely reads a **global** `selectedProjectId` variable (`js/dashboard.js:35`, `selectedProjectId = id;` inside the old `selectProject()`). Since this migration no longer calls the old `selectProject()`, **set the global `selectedProjectId` variable directly inside `showDashboard(pid)`** (Task 3) so `js/ai.js`/other globals reading it still see the correct value:
+
+Add to `showDashboard(pid)` (Task 3), right after `this.dashboardProjectId = pid;`:
+```js
+selectedProjectId = pid; // js/ai.js and other globals read this module-level variable directly
+```
+
+And in `showOverview()` (Task 1), add:
+```js
+selectedProjectId = null;
+```
+
+- [ ] **Step 2: Verify `js/ai.js`'s AI modal DOM IDs still exist**
+
+`openAiAnalysis()` almost certainly writes to `#aiSpinner`/`#aiResult`/`#aiError` inside `#aiModal` (kept in Task 1's skeleton) via `document.getElementById(...)` — confirm by reading `js/ai.js` directly, and confirm the modal markup kept in Task 1 matches exactly (it was copied verbatim from the original in Task 1 Step 2, so this should already be correct — this step is a verification, not a code change).
+
+- [ ] **Step 3: Wire `#btnCopyAi`**
+
+In `created()`, after the existing event listener setup, add:
+```js
+document.getElementById('btnCopyAi').addEventListener('click', () => {
+  const text = document.getElementById('aiResult').textContent;
+  if (text) navigator.clipboard.writeText(text).catch(() => {});
+});
+```
+
+- [ ] **Step 4: Verify and clean up the script list**
+
+Run: `grep -n "<script" portfolio.html`
+Expected: bootstrap bundle, xlsx CDN, Vue 3 CDN, `js/api.js`, `js/core.js`, `js/settings.js`, `js/notifications.js`, `js/upload.js`, `js/clients.js`, `js/programs.js`, `js/ai.js`, `js/shares.js`, `js/lib/portfolio-calc.js` (module), `js/api-sync.js`, `js/nav.js`, plus the head's Chart.js CDN script and the inline `<script>` with the Vue app. No `js/roles.js`, no `js/config-form.js`, no `js/dashboard.js`, no `js/portfolio.js` (both folded into the Vue instance), no `js/costgrid.js` (verify per Global Constraint 2 that nothing on this page needs it — if something does, add it back with a comment explaining why, don't silently drop a needed dependency).
+
+- [ ] **Step 5: Verify no remaining dead markup or references**
+
+Run: `grep -n "configModal\|rolesModal\|roleModal\|programsModal\|programEditModal\|clientsModal\|clientEditModal\|jsonViewerModal\|portfolioPlanningSection\|pipelineBoardSection\|costGridEditorSection\|showPortfolioPlanningView" portfolio.html`
+Expected: no matches (all confirmed-dead markup was never carried into the Task 1-7 rewrite — this is a verification, not a removal).
+
+- [ ] **Step 6: Run the frontend test suite one more time**
+
+Run: `npm test` — expect all tests to pass.
+
+- [ ] **Step 7: Commit (only if Step 1-5 required a fix)**
+
+```bash
+git add portfolio.html
+git commit -m "fix(portfolio): wire selectedProjectId global for js/ai.js compatibility, verify script list and dead-markup removal"
+```
+
+If no fix was needed beyond Steps 1 and 3 (which are real code additions, so always commit those), fold this into a single commit for Task 8's actual changes.
+
+---
+
+### Task 9: Manual verification (post-merge only — do not attempt during Tasks 1-8's review cycle)
+
+**This task cannot be executed until after `/finish-cycle`'s Gate 4 (merge) completes**, per Global Constraint 7.
+
+**Files:** None — manual browser checklist.
+
+- [ ] **Step 1: Portfolio overview** — open `/portfolio.html` with no `?projectId=`, confirm project cards render with correct budget/spend/variance figures, client/program filters work, program groups expand/collapse, pinned-summary block appears when a project's "＋ Summary" button is toggled.
+- [ ] **Step 2: Open a project's dashboard** — click "📊 View Report →" on a card with data, confirm breadcrumb, header, sibling switcher (if the project has a program with siblings), and all KPI values match what the same project showed before this migration (spot-check against a screenshot or manual calculation).
+- [ ] **Step 3: Burndown chart** — switch interval (monthly/quarterly/biweekly/weekly), filter by task, confirm the chart redraws correctly each time; click "🖼 Export PNG" and confirm a file downloads.
+- [ ] **Step 4: Monthly summary + PTC report** — confirm figures match, confirm the export buttons (Copy/XLS/PNG) work for each table.
+- [ ] **Step 5: Date/month filter** — set a month filter, confirm summary-by-task/role/group tables and task detail tables all update; switch to a From/To range instead, confirm it overrides the month filter and vice versa; click Reset, confirm all filters clear.
+- [ ] **Step 6: Task detail tables** — expand a task's details, toggle Flat/By role/By owner grouping, confirm the chronological entries table reorganizes correctly each time; confirm the "Excluded from report" badge shows for non-billable tasks.
+- [ ] **Step 7: AI Analysis** — click "🤖 AI Analysis" (only visible if an AI key is configured), confirm it still works end-to-end (spinner → result), confirm "📋 Copy" copies the result.
+- [ ] **Step 8: Share** — click "🔗 Share" on a project card and on a program header, confirm the share modal opens correctly for each resource type.
+- [ ] **Step 9: Load Actuals** — click "📂 Load Actuals" on a project card, upload an XLS, confirm it processes correctly and the dashboard/cards reflect the new data.
+- [ ] **Step 10: Viewer mode** — as a user with `viewer` permission on a shared project, confirm "⚙️ Configure"/"📂 Load Actuals" are hidden on both the project card and the dashboard header.
+- [ ] **Step 11: Direct-link with `?projectId=`** — open `/portfolio.html?projectId=<id>` directly, confirm it opens straight into that project's dashboard (matching the pipeline board's "Reporting" link behavior).
+- [ ] **Step 12: Console check** — throughout Steps 1-11, confirm no console errors.
+- [ ] **Step 13: Record the result**
+
+If all 12 checks pass: note in the cycle's `/finish-cycle` report that manual verification was completed post-merge. If any check fails: this is a regression — do not close the cycle; fix on a new small follow-up commit, re-verify, then close.
+
+---
+
+## Self-Review Notes
+
+- **Spec coverage:** every section in the design spec's Components section (portfolio overview, KPI/burndown extraction, dashboard header, monthly/PTC/summary/task-detail tables, AI/Share/actuals integration) maps to a task above. The design's confirmed-dead-code omissions (`#configModal` + nested modals, placeholder divs, dead duplicate function, `js/roles.js`) are never reintroduced in any task's code.
+- **Placeholder scan:** several steps explicitly instruct the implementer to verify a real source location before writing code (Task 2 Step 1's `billableData`/`billableTasks`/`findRate` lookup; Task 8 Step 1-2's `selectedProjectId`/AI-modal-DOM verification) rather than guessing — this is a deliberate "confirm before writing," not an unfilled TBD, following the same pattern already validated in `project-config.html`'s Task 2 (client/program API-shape verification).
+- **Type consistency:** `cfg`/project object field names are used identically across every task (`clientId`, `programId`, `pipeline`, `status`, `tasks`, `phasing`, `planning`, `ptc`, `groups`, `my_permission`). `computeKpis`/`computeBurndownPoints`'s return shapes (Task 2) match exactly what Task 3/4's `computed`/`methods` destructure. The `ExportButtons` component's prop names (`tblRef`/`filename`/`cardRef`) are used identically across Tasks 5-7's six usages.
+- **Known size risk, flagged explicitly rather than hidden:** this plan is larger than any prior cycle in this roadmap (10 tasks vs. `project-config.html`'s 8) — a direct consequence of folding both `js/portfolio.js` and `js/dashboard.js` (1058 lines, previously assumed out-of-scope until brainstorming corrected that) into one page's migration. If task-review overhead becomes excessive during execution, consider whether Tasks 5-7 (which share substantial structural similarity — export buttons, summary-row math) could be further merged or re-split, but the current split keeps each task's diff independently reviewable and testable, which was prioritized over minimizing task count.
