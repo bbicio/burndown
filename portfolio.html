@@ -237,7 +237,25 @@
         <div class="col-sm-6 col-xl-2"><div class="card kpi-card teal shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">⏳ Hours Left</div><div class="fw-bold fs-4" :style="{color: kpiLeftColor(kpis.hoursLeft, kpis.soldHours)}">{{ kpis.hoursLeft !== null ? fmtH(kpis.hoursLeft) : '—' }}</div><div class="text-muted small">sold − consumed</div></div></div></div>
         <div class="col-sm-6 col-xl-2"><div class="card kpi-card red shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💼 Budget Left</div><div class="fw-bold fs-4" :style="{color: kpiLeftColor(kpis.budgetLeft, kpis.budgetTotal)}">{{ kpis.budgetLeft !== null ? fmtMoney(kpis.budgetLeft) : '—' }}</div><div class="text-muted small">{{ kpiBudgetLeftSub }}</div></div></div></div>
       </div>
-      <!-- Task 4 inserts the burndown chart section here -->
+      <div class="section-card mb-4">
+        <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <span>📉 Hours Burndown</span>
+          <div class="d-flex align-items-center gap-3 flex-wrap">
+            <div class="btn-group btn-group-sm">
+              <button v-for="opt in ['monthly','quarterly','biweekly','weekly']" :key="opt" class="btn btn-outline-secondary" :class="{active: burndownInterval === opt}" @click="burndownInterval = opt">{{ opt.charAt(0).toUpperCase() + opt.slice(1) }}</button>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <label class="small text-muted mb-0 fw-normal">Filter by task:</label>
+              <select class="form-select form-select-sm" v-model="burndownTaskFilter" style="min-width:220px">
+                <option value="">All tasks</option>
+                <option v-for="t in billableTaskNames" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" title="Export chart as PNG" @click="exportChartPng">🖼 Export PNG</button>
+          </div>
+        </div>
+        <div class="p-3"><div class="chart-container"><canvas ref="burndownCanvas"></canvas></div></div>
+      </div>
       <!-- Task 5 inserts monthly summary + PTC report here -->
       <!-- Task 6 inserts the date filter + summary tables here -->
       <!-- Task 7 inserts task detail tables here -->
@@ -291,6 +309,8 @@
         expandedPrograms: new Set(),
         dashboardProjectId: null,
         dashboardReady: false,
+        burndownInterval: 'monthly',
+        burndownTaskFilter: '',
       };
     },
     computed: {
@@ -409,8 +429,12 @@
             badgesHtml: [pipelineBadge(getProjectPipeline(s.id) || s.pipeline), statusBadgeLarge(s.status)].join(' '),
           }));
       },
+      billableTaskNames() {
+        return this.dashboardReady ? billableTasks(this.dashboardProject).map(t => t.name) : [];
+      },
     },
     async created() {
+      this._burndownChart = null;
       loadSettings();
       loadSummarySelection();
       updateAiButtonVisibility();
@@ -563,8 +587,93 @@
           { label: 'Project Portfolio', href: '/portfolio.html' },
           { label: cfg?.name || pid },
         ]);
-        // Task 4-7 add their own per-view reset/init calls here (burndown interval reset, date filter reset, etc.)
+        this.burndownInterval = 'monthly';
+        this.burndownTaskFilter = '';
+        this.$nextTick(() => this.renderBurndownChart());
+        // Task 5-7 add their own per-view reset/init calls here (date filter reset, etc.)
       },
+      renderBurndownChart() {
+        if (this._burndownChart) { this._burndownChart.destroy(); this._burndownChart = null; }
+        if (!this.dashboardData.length) return;
+
+        const series = computeBurndownPoints(this.dashboardData, this.dashboardProject, this.burndownTaskFilter, this.burndownInterval, billableData, billableTasks, findRate);
+        const { labels, burnValues, idealValues, hasPhasingEur, planningData, budget, totalBudgetEur, tooltipBudgetConsumed, tooltipPhasingEur } = series;
+
+        const datasets = [{
+          label: budget !== null ? 'Remaining Hours' : 'Cumulative Hours',
+          data: burnValues,
+          borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,0.07)',
+          fill: true, tension: 0.3, pointRadius: 3, pointHoverRadius: 5,
+        }];
+        if (idealValues) {
+          datasets.push({
+            label: hasPhasingEur ? 'Estimated Budget (phasing)' : 'Ideal Trend',
+            data: idealValues,
+            borderColor: hasPhasingEur ? '#FF6F00' : 'var(--text-disabled)', borderDash: [6, 4], borderWidth: 2,
+            fill: false, pointRadius: 0, tension: 0,
+          });
+        }
+        if (planningData) {
+          datasets.push({
+            label: 'Estimated Hours',
+            data: planningData,
+            borderColor: '#2E7D32', borderDash: [4, 4], borderWidth: 2,
+            fill: false, pointRadius: 0, tension: 0,
+          });
+        }
+
+        this._burndownChart = new Chart(this.$refs.burndownCanvas, {
+          type: 'line',
+          data: { labels, datasets },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+              tooltip: {
+                mode: 'index', intersect: false,
+                filter: item => item.datasetIndex === 0,
+                displayColors: false,
+                callbacks: {
+                  label: context => {
+                    const i = context.dataIndex;
+                    const lines = ['── Hours ──────────────────'];
+                    if (budget !== null) {
+                      lines.push(`  Consumed:   ${fmtH(Math.max(0, budget - burnValues[i]))}`);
+                      lines.push(`  Remaining:  ${fmtH(Math.max(0, burnValues[i]))}`);
+                      if (planningData) lines.push(`  Estimated:  ${fmtH(planningData[i])}`);
+                    } else {
+                      lines.push(`  Consumed:   ${fmtH(burnValues[i])}`);
+                    }
+                    if (tooltipBudgetConsumed) {
+                      lines.push('', '── Budget ─────────────────');
+                      const consumed = tooltipBudgetConsumed[i] ?? 0;
+                      lines.push(`  Consumed:   ${fmtMoney(consumed)}`);
+                      lines.push(`  Remaining:  ${fmtMoney(totalBudgetEur - consumed)}`);
+                      if (tooltipPhasingEur?.[i] != null) lines.push(`  Estimated:  ${fmtMoney(tooltipPhasingEur[i])}`);
+                    }
+                    return lines;
+                  },
+                },
+              },
+              legend: { position: 'top' },
+            },
+            scales: {
+              x: { ticks: { maxRotation: 45, autoSkip: false } },
+              y: { beginAtZero: true, title: { display: true, text: 'Hours' } },
+            },
+          },
+        });
+      },
+      exportChartPng() {
+        if (!this._burndownChart) return;
+        const a = document.createElement('a');
+        a.href = this._burndownChart.toBase64Image('image/png', 1);
+        a.download = `burndown_${this.dashboardProjectId || 'chart'}.png`;
+        a.click();
+      },
+    },
+    watch: {
+      burndownInterval() { this.renderBurndownChart(); },
+      burndownTaskFilter() { this.renderBurndownChart(); },
     },
   }).mount('#app');
 </script>
