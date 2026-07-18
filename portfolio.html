@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -10,124 +10,19 @@
   <link rel="stylesheet" href="css/tokens.css?v=5">
   <link rel="stylesheet" href="css/style.css?v=5">
   <style>
-    /* Match pipeline's edge-to-edge width — same reduced padding as the existing pp-fullwidth mode */
     .app-container { padding: 0 12px; }
   </style>
 </head>
 <body>
 
-<!-- Navbar -->
 <div id="nav-container"></div>
 
-<!-- Hidden per-project file input -->
+<!-- Hidden per-project file input (actuals upload target) -->
 <input type="file" id="fileInput" accept=".xls,.xlsx" style="display:none">
-<span id="fileStatus" style="display:none"></span>
 
-<div class="app-container">
+<div id="app" class="app-container">
 
-  <!-- Upload section (hidden, kept for upload.js compatibility) -->
-  <div id="uploadSection" style="display:none">
-    <div id="dropzone">
-      <div style="font-size:3rem;margin-bottom:12px">📂</div>
-      <h5 class="mb-2">Load Timesheet XLS file</h5>
-      <p class="text-muted mb-1">Drag the file here or click to select it</p>
-      <p class="text-muted small mb-0">Expected columns: Date · Job Role: Name · Owner: Name · Hours · Task/Issue · Notes · D365 Project ID · WF Project Name</p>
-    </div>
-  </div>
-
-  <!-- Project dashboard (shown after selecting a project) -->
-  <div id="mainContent" style="display:none">
-    <div class="pt-4 mb-3">
-      <nav aria-label="breadcrumb" class="mb-2">
-        <ol class="breadcrumb mb-0" style="font-size:var(--text-xs)">
-          <li class="breadcrumb-item"><a href="#" id="breadcrumbPortfolioLink" class="text-muted text-decoration-none">Portfolio</a></li>
-          <li class="breadcrumb-item active text-muted" id="breadcrumbProjectName" aria-current="page"></li>
-        </ol>
-      </nav>
-      <div id="dashboardProgramRow" class="text-muted mb-1" style="display:none;font-size:.9rem"></div>
-      <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-        <span class="fw-bold fs-5" id="dashboardProjectName" style="color:var(--brand-navy)"></span>
-        <span class="text-muted small" id="dashboardProjectId"></span>
-        <span id="dashboardProjectMeta" class="d-inline-flex gap-1 align-items-center flex-wrap"></span>
-        <div class="dropdown" id="dashboardSiblingDropdown" style="display:none">
-          <button class="btn btn-sm btn-outline-secondary" type="button"
-                  id="dashboardSiblingBtn" data-bs-toggle="dropdown" aria-expanded="false"
-                  style="font-size:.75rem;padding:2px 7px" title="Switch project">▾</button>
-          <ul class="dropdown-menu dropdown-menu-end shadow-sm" id="dashboardSiblingMenu"
-              aria-labelledby="dashboardSiblingBtn" style="min-width:320px;font-size:.85rem"></ul>
-        </div>
-      </div>
-      <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-        <div>
-          <button class="btn btn-outline-secondary btn-sm" id="btnBackToPortfolio">← Portfolio</button>
-        </div>
-        <div class="d-flex gap-2">
-          <button class="btn btn-outline-secondary btn-sm" id="btnConfigureProject">⚙️ Configure</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btnPlanningView" style="display:none">📅 Planning</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btnAiAnalysis" style="display:none">🤖 AI Analysis</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btnShareProject" style="display:none">🔗 Share</button>
-        </div>
-      </div>
-    </div>
-    <select id="projectSelect" style="display:none"></select>
-
-    <div id="dashboard" style="display:none">
-      <div id="noConfigAlert" class="alert alert-warning d-none">
-        <strong>⚠️ Budget not configured for this project.</strong>
-        Click <strong>⚙️ Configure Budget</strong> to enter sold hours and hourly rates.
-      </div>
-      <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card blue shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">📦 Total Sold Hours</div><div class="fw-bold fs-4" id="kpiSoldHours">—</div><div class="text-muted small">from configuration</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card green shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💰 Total Budget</div><div class="fw-bold fs-4" id="kpiBudgetEur">—</div><div class="text-muted small" id="kpiBudgetEurSub">hours × hourly rate</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card orange shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">⏱️ Hours Consumed</div><div class="fw-bold fs-4" id="kpiConsumedHours">—</div><div class="text-muted small" id="kpiConsumedHoursSub">total to date</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card purple shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💸 Budget Consumed</div><div class="fw-bold fs-4" id="kpiConsumedEur">—</div><div class="text-muted small" id="kpiConsumedEurSub">hours spent × rate</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card teal shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">⏳ Hours Left</div><div class="fw-bold fs-4" id="kpiHoursLeft">—</div><div class="text-muted small">sold − consumed</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card red shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💼 Budget Left</div><div class="fw-bold fs-4" id="kpiBudgetLeft">—</div><div class="text-muted small" id="kpiBudgetLeftSub">budget − consumed</div></div></div></div>
-      </div>
-      <div class="section-card mb-4">
-        <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <span>📉 Hours Burndown</span>
-          <div class="d-flex align-items-center gap-3 flex-wrap">
-            <div class="btn-group btn-group-sm" id="intervalToggle">
-              <button class="btn btn-outline-secondary active" data-interval="monthly">Monthly</button>
-              <button class="btn btn-outline-secondary" data-interval="quarterly">Quarterly</button>
-              <button class="btn btn-outline-secondary" data-interval="biweekly">Biweekly</button>
-              <button class="btn btn-outline-secondary" data-interval="weekly">Weekly</button>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-              <label class="small text-muted mb-0 fw-normal">Filter by task:</label>
-              <select class="form-select form-select-sm" id="burndownTaskFilter" style="min-width:220px"><option value="">All tasks</option></select>
-            </div>
-            <button class="btn btn-outline-secondary btn-sm" id="btnExportChart" title="Export chart as PNG">🖼 Export PNG</button>
-          </div>
-        </div>
-        <div class="p-3"><div class="chart-container"><canvas id="burndownChart"></canvas></div></div>
-      </div>
-      <div id="summaryMonthlyContainer"></div>
-      <div id="ptcReportContainer"></div>
-      <div class="section-card mb-4">
-        <div class="section-header">🗓️ Period filter — applies to all summary and detail tables below</div>
-        <div class="p-3">
-          <div class="row g-3 align-items-end flex-wrap">
-            <div class="col-auto"><label class="form-label small fw-semibold mb-1">Month</label><select class="form-select form-select-sm" id="monthFilter" style="min-width:160px"><option value="">— All months —</option></select></div>
-            <div class="col-auto d-flex align-items-end pb-1"><span class="text-muted small">or</span></div>
-            <div class="col-auto"><label class="form-label small fw-semibold mb-1">From</label><input type="date" class="form-control form-control-sm" id="filterStart"></div>
-            <div class="col-auto"><label class="form-label small fw-semibold mb-1">To</label><input type="date" class="form-control form-control-sm" id="filterEnd"></div>
-            <div class="col-auto"><button class="btn btn-outline-secondary btn-sm" id="btnResetDate">↺ Reset</button></div>
-            <div class="col-auto"><span id="filterRangeLabel" class="text-muted small"></span></div>
-          </div>
-        </div>
-      </div>
-      <div id="summaryTableContainer"></div>
-      <div id="summaryByTaskContainer"></div>
-      <div id="summaryByGroupContainer"></div>
-      <div class="section-divider" id="taskTablesDivider" style="display:none"><hr><span class="section-divider-label">Task detail</span></div>
-      <div id="taskTablesContainer"></div>
-    </div>
-  </div>
-
-  <!-- Portfolio overview (default landing) -->
-  <div id="portfolioSection">
+  <template v-if="view === 'overview'">
     <div class="page-title-bar">
       <h4 class="fw-bold mb-0">📋 Project Portfolio</h4>
     </div>
@@ -136,151 +31,164 @@
         <span class="text-muted small">Budget Spent vs Estimated by month — all configured projects</span>
       </div>
       <div class="page-toolbar-right">
-        <span id="portfolioCacheBadge"></span>
-        <button class="btn btn-primary btn-sm" id="btnOpenConfig">＋ New project</button>
+        <button class="btn btn-primary btn-sm" onclick="window.location.href='/project-config.html'">＋ New project</button>
       </div>
     </div>
-    <div id="portfolioContainer"></div>
-  </div>
 
-</div><!-- /app-container -->
+    <div v-if="!projects.length" class="alert alert-info">No projects configured. Click <strong>＋ New project</strong> to add one.</div>
 
-<!-- Placeholder sections (referenced by portfolio.js but live on other pages) -->
-<div id="portfolioPlanningSection" style="display:none"></div>
-<div id="pipelineBoardSection"     style="display:none"></div>
-<div id="costGridEditorSection"    style="display:none"></div>
-
-<!-- ── MODALS ── -->
-
-<!-- Confirm -->
-<div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
-    <div class="modal-content shadow-lg">
-      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold" id="confirmModalTitle">⚠️ Confirm</h6></div>
-      <div class="modal-body pt-1"><p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p></div>
-      <div class="modal-footer border-0 pt-2">
-        <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-danger" id="confirmModalOk">Confirm</button>
+    <template v-else>
+      <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+        <div class="d-flex align-items-center gap-2">
+          <span class="small text-muted">Sort:</span>
+          <select class="form-select form-select-sm" v-model="portfolioSort" style="width:auto">
+            <option value="name">Alphabetical</option>
+            <option value="client">Client name</option>
+          </select>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="small text-muted">Client:</span>
+          <select class="form-select form-select-sm" v-model="portfolioClientFilter" style="width:auto">
+            <option value="">All clients</option>
+            <option v-for="cid in allClientIds" :key="cid" :value="cid">{{ getClientName(cid) }}</option>
+          </select>
+        </div>
       </div>
-    </div>
-  </div>
-</div>
 
-<!-- Config -->
-<div class="modal fade" id="configModal" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold">⚙️ Project Budget Configuration</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <ul class="nav nav-tabs px-3 pt-2 mb-0">
-          <li class="nav-item"><button class="nav-link active cfg-tab-btn" data-tab="form">📝 Visual Form</button></li>
-          <li class="nav-item"><button class="nav-link cfg-tab-btn" data-tab="json">{ } JSON</button></li>
-        </ul>
-        <div id="cfgTabForm" class="p-3">
-          <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
-            <label class="fw-semibold small text-nowrap">Project:</label>
-            <select class="form-select form-select-sm" id="cfgProjectSel" style="max-width:360px"></select>
-            <button class="btn btn-sm btn-primary" id="cfgBtnNewProject">+ New</button>
-            <button class="btn btn-sm btn-outline-danger" id="cfgBtnDelProject" disabled>🗑 Delete</button>
+      <!-- Task 1 inserts the pinned-summary block here (Step 3) -->
+      <div class="section-card mb-4" style="border:2px solid var(--indigo-500)" v-if="pinnedSummary">
+        <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2" style="background:var(--indigo-50)">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="fw-bold">📊 Budget Summary</span>
+            <span class="small text-muted">{{ pinnedSummary.cfgs.length }} project{{ pinnedSummary.cfgs.length===1?'':'s' }}:</span>
+            <span class="badge" v-for="c in pinnedSummary.cfgs" :key="c.id" style="background:#e9ecef;color:#495057;font-weight:500">{{ fmtProjectTitle(c) }}</span>
           </div>
-          <div id="cfgNoProjectMsg" class="text-center text-muted py-5" style="display:none">
-            <div style="font-size:2.5rem">📂</div>
-            <p class="mt-2">No projects configured yet.<br>Click <strong>+ New</strong> to add one.</p>
+        </div>
+        <div class="table-responsive p-2">
+          <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
+            <thead style="background:var(--indigo-50)">
+              <tr><th style="min-width:140px"></th><th v-for="ym in pinnedSummary.months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end fw-bold" style="min-width:100px;background:#e0e3f5">Total</th></tr>
+            </thead>
+            <tbody>
+              <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in pinnedSummary.months" :key="ym" class="text-end">{{ fmtMoney(pinnedSummary.phasing[ym]) }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ fmtMoney(pinnedSummary.grandEst) }}</td></tr>
+              <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in pinnedSummary.months" :key="ym" class="text-end">{{ fmtMoney(pinnedSummary.spent[ym]) }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ fmtMoney(pinnedSummary.grandSpent) }}</td></tr>
+              <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in pinnedSummary.months" :key="ym" class="text-end fw-semibold" :style="{color: varColor(pinnedSummary.phasing[ym]-pinnedSummary.spent[ym])}">{{ fmtVar(pinnedSummary.phasing[ym]-pinnedSummary.spent[ym]) }}</td><td class="text-end fw-bold" :style="{background:'#f0f0f0',color: varColor(pinnedSummary.grandVar)}">{{ fmtVar(pinnedSummary.grandVar) }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Program groups -->
+      <div class="section-card mb-4" style="border:2px solid var(--violet-500)" v-for="prog in visibleProgramGroups" :key="prog.id">
+        <div class="section-header d-flex justify-content-between align-items-center" style="background:var(--violet-50)">
+          <div class="d-flex align-items-center gap-3">
+            <span style="font-size:var(--text-xl)">📂</span>
+            <div>
+              <span v-if="prog.domClientName" class="fw-bold" style="font-size:var(--text-lg)">{{ prog.domClientName }} —</span>
+              <span class="fw-bold" style="font-size:var(--text-lg)">{{ prog.name }}</span>
+              <span class="text-muted ms-2" style="font-size:var(--text-sm);font-family:monospace">{{ prog.id }}</span>
+            </div>
+            <span v-html="pipelineBadge(prog.domPipeline)"></span>
+            <span class="badge" style="background:#ede8ff;color:var(--violet-500);font-size:var(--text-xs)">{{ prog.children.length }} project{{ prog.children.length===1?'':'s' }}</span>
           </div>
-          <div id="cfgFormSections">
-            <div class="cfg-section" style="background:#fff8f0;border-left:3px solid #f59e0b">
-              <div class="cfg-section-title" style="color:#d97706">Client</div>
-              <div class="row g-3 align-items-end">
-                <div class="col-md-8"><label class="form-label small mb-1">Assign to a client</label><select class="form-select form-select-sm" id="cfgClientId"><option value="__unassigned__">Unassigned</option></select></div>
-                <div class="col-md-4 d-flex align-items-end"><button type="button" class="btn btn-outline-secondary btn-sm w-100" onclick="showClientsModal()">👥 Manage clients</button></div>
-              </div>
-            </div>
-            <div class="cfg-section" style="background:#faf5ff;border-left:3px solid #7c3aed">
-              <div class="cfg-section-title" style="color:#7c3aed">0. Program <span class="fw-normal text-muted" style="font-size:.8rem">(optional)</span></div>
-              <div class="row g-3 align-items-end">
-                <div class="col-md-8"><label class="form-label small mb-1">Assign to a program</label><select class="form-select form-select-sm" id="cfgProgramId"><option value="">— No program —</option></select></div>
-                <div class="col-md-4 d-flex align-items-end"><button type="button" class="btn btn-outline-secondary btn-sm w-100" onclick="showProgramsModal()">🗂 Manage programs</button></div>
-              </div>
-            </div>
-            <div class="cfg-section">
-              <div class="cfg-section-title">1. Project info</div>
-              <div class="row g-3">
-                <div class="col-md-4"><label class="form-label small mb-1">D365 Project ID <span class="text-muted">(matches XLS column)</span></label><input type="text" class="form-control form-control-sm" id="cfgId" placeholder="e.g. HITA.000001201"></div>
-                <div class="col-md-8"><label class="form-label small mb-1">Project Name</label><input type="text" class="form-control form-control-sm" id="cfgName" placeholder="e.g. Bayer AG - BERMITS 2026"></div>
-                <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Start month</label><input type="month" class="form-control form-control-sm" id="cfgStartDate"></div>
-                <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">End month</label><input type="month" class="form-control form-control-sm" id="cfgEndDate"></div>
-                <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Currency</label><select class="form-select form-select-sm" id="cfgCurrency"><option value="€">€ Euro</option><option value="$">$ Dollar</option><option value="£">£ Pound</option><option value="CHF">CHF Swiss Franc</option></select></div>
-                <div class="col-sm-3 col-md-2 d-flex align-items-end"><button type="button" class="btn btn-outline-danger btn-sm w-100" id="cfgBtnClearData">🗑 Clear XLS data</button></div>
-              </div>
-              <div class="row g-3 mt-1">
-                <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Pipeline</label><select class="form-select form-select-sm" id="cfgPipeline"><option value="">— Select —</option><option value="SIP">SIP</option><option value="Expected">Expected</option><option value="Anticipated">Anticipated</option><option value="Committed">Committed</option><option value="Canceled">Canceled</option></select></div>
-                <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Status</label><select class="form-select form-select-sm" id="cfgStatus"><option value="">— Select —</option><option value="Not started yet">Not started yet</option><option value="Started At Risk">Started At Risk</option><option value="Started">Started</option><option value="Put on hold">Put on hold</option><option value="Completed">Completed</option></select></div>
-              </div>
-            </div>
-            <div class="cfg-section">
-              <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>2. Tasks &amp; Resources</span><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-secondary" id="cfgBtnExportTasksXlsx">⬇ XLSX</button><button class="btn btn-sm btn-primary" id="cfgBtnAddTask">+ Add task</button></div></div>
-              <p class="text-muted small mb-3">Task name must match exactly the <strong>Task/Issue</strong> XLS column. Role must match <strong>Job Role: Name</strong>.</p>
-              <div id="cfgTaskList"></div>
-              <div id="cfgTasksGrandTotal" class="d-flex justify-content-end gap-4 px-2 py-2 mt-1 border-top fw-bold small" style="background:#f8f9fa;border-radius:0 0 6px 6px">
-                <span>Total hours: <span id="cfgGrandTotalHours">—</span></span>
-                <span>Total budget: <span id="cfgGrandTotalBudget">—</span></span>
-              </div>
-            </div>
-            <div class="cfg-section">
-              <div class="d-flex justify-content-between align-items-center cfg-section-title">
-                <span>3. Monthly Budget Phasing <span class="fw-normal text-muted">(estimated budget to spend per month)</span></span>
-                <div class="d-flex gap-2 align-items-center flex-wrap">
-                  <button class="btn btn-sm btn-outline-secondary" id="cfgBtnRollbackPhasing" disabled>↩ Rollback <span class="rollback-date text-muted" style="font-size:.75rem"></span></button>
-                  <button class="btn btn-sm btn-outline-secondary" id="cfgBtnDerivePhasing">⟳ Derive from task dates</button>
-                  <button class="btn btn-sm btn-outline-secondary" id="cfgBtnReforecastPhasing">↻ Reforecast from actuals</button>
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-secondary" style="font-size:var(--text-sm)" @click="openShareModal('program', prog.id, prog.name)">🔗 Share Program</button>
+            <button class="btn btn-sm btn-outline-secondary" style="font-size:var(--text-sm)" @click="toggleProgramExpanded(prog.id)">
+              {{ expandedPrograms.has(prog.id) ? '▼ Hide Child Projects' : '▶ Show Child Projects' }}
+            </button>
+          </div>
+        </div>
+        <!-- Task 1 inserts the program-summary sub-table here (Step 4) -->
+        <div class="table-responsive px-3 pb-2" style="background:var(--violet-50)" v-if="programSummary(prog.children)">
+          <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
+            <thead style="background:#ede8ff">
+              <tr><th style="min-width:140px"></th><th v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end fw-bold" style="min-width:100px;background:#ddd8f5">{{ programSummary(prog.children).totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="programSummary(prog.children).totalPtc > 0" class="text-end fw-bold" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr>
+            </thead>
+            <tbody>
+              <tr style="background:#faf8ff"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end">{{ fmtMoney(programSummary(prog.children).phasing[ym]) }}</td><td class="text-end fw-bold" style="background:#f0eeff">{{ fmtMoney(programSummary(prog.children).grandEst) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(programSummary(prog.children).totalPtc) }}</td></tr>
+              <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end">{{ fmtMoney(programSummary(prog.children).spent[ym]) }}</td><td class="text-end fw-bold" style="background:#f0eeff">{{ fmtMoney(programSummary(prog.children).grandSpent) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+              <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end fw-semibold" :style="{color: varColor(programSummary(prog.children).phasing[ym]-programSummary(prog.children).spent[ym])}">{{ fmtVar(programSummary(prog.children).phasing[ym]-programSummary(prog.children).spent[ym]) }}</td><td class="text-end fw-bold" :style="{background:'#f0eeff',color: varColor(programSummary(prog.children).grandVar)}">{{ fmtVar(programSummary(prog.children).grandVar) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="expandedPrograms.has(prog.id)" class="prog-children">
+          <div class="prog-project-list px-2 pb-2 pt-1">
+            <!-- Task 1 inserts per-project cards here (Step 5), showSummaryBtn=false -->
+            <div class="section-card mb-4" v-for="cfg in prog.children" :key="cfg.id" v-if="cardData(cfg)">
+              <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <span>📁 {{ fmtProjectTitle(cfg) }}</span>
+                  <span v-if="cfg.code" class="text-muted small">{{ cfg.code }}</span>
+                  <span v-html="pipelineBadge(getProjectPipeline(cfg.id) || cfg.pipeline)"></span>
+                  <span v-html="statusBadgeLarge(cfg.status)"></span>
+                  <span v-if="!cardData(cfg).hasData" class="badge bg-warning text-dark">no XLS data</span>
+                  <span v-if="cardData(cfg).budgetBadgeHtml" v-html="cardData(cfg).budgetBadgeHtml"></span>
+                </div>
+                <div class="d-flex gap-2 flex-wrap">
+                  <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="window.location.href = '/project-config.html?projectId=' + encodeURIComponent(cfg.id)">⚙️ Configure</button>
+                  <button class="btn btn-sm btn-outline-secondary" title="Share project" @click="openShareModal('project', cfg.id, cfg.name || cfg.id)">🔗 Share</button>
+                  <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" title="Upload XLS actuals for this project" @click="triggerLoadActuals(cfg.id)">📂 Load Actuals</button>
+                  <button class="btn btn-sm btn-outline-secondary" @click="goPlanningForProject(cfg.id)">📅 Planning</button>
+                  <button class="btn btn-sm" :class="cardData(cfg).hasData ? 'btn-primary' : 'btn-outline-secondary'" :disabled="!cardData(cfg).hasData" @click="showDashboard(cfg.id)">📊 View Report →</button>
                 </div>
               </div>
-              <div id="cfgPhasingGrid" class="mt-1"></div>
-            </div>
-            <div class="cfg-section">
-              <div class="d-flex justify-content-between align-items-center cfg-section-title">
-                <span>4. Monthly Hour Planning <span class="fw-normal text-muted">(planned hours to consume per month)</span></span>
-                <div class="d-flex gap-2 align-items-center flex-wrap">
-                  <button class="btn btn-sm btn-outline-secondary" id="cfgBtnRollbackPlanning" disabled>↩ Rollback <span class="rollback-date text-muted" style="font-size:.75rem"></span></button>
-                  <button class="btn btn-sm btn-outline-secondary" id="cfgBtnDerivePlanning">⟳ Derive from task dates</button>
-                  <button class="btn btn-sm btn-outline-secondary" id="cfgBtnReforecastPlanning">↻ Reforecast from actuals</button>
-                </div>
+              <div class="table-responsive p-2">
+                <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
+                  <thead style="background:var(--indigo-50)"><tr><th style="min-width:110px"></th><th v-for="ym in cardData(cfg).months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end" style="min-width:90px;background:#e9ecef">{{ cardData(cfg).totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="cardData(cfg).totalPtc > 0" class="text-end" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr></thead>
+                  <tbody>
+                    <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in cardData(cfg).months" :key="ym" class="text-end">{{ cardData(cfg).hasPhasing ? fmtMoney(cfg.phasing?.[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ cardData(cfg).hasPhasing ? fmtMoney(cardData(cfg).totalPhasing) : '—' }}</td><td v-if="cardData(cfg).totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(cardData(cfg).totalPtc) }}</td></tr>
+                    <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in cardData(cfg).months" :key="ym" class="text-end">{{ cardData(cfg).hasData ? fmtMoney(cardData(cfg).monthSpend[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ cardData(cfg).hasData ? fmtMoney(cardData(cfg).totalSpent) : '—' }}</td><td v-if="cardData(cfg).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+                    <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in cardData(cfg).months" :key="ym" class="text-end" :style="varCellStyle(cfg, ym)">{{ varCellText(cfg, ym) }}</td><td class="text-end fw-bold" :style="{background:'#f0f0f0', color: (cardData(cfg).hasData && cardData(cfg).hasPhasing) ? varColor(cardData(cfg).totalVar) : undefined}">{{ (cardData(cfg).hasData && cardData(cfg).hasPhasing) ? fmtVar(cardData(cfg).totalVar) : '—' }}</td><td v-if="cardData(cfg).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+                  </tbody>
+                </table>
               </div>
-              <div id="cfgPlanningGrid" class="mt-1"></div>
-            </div>
-            <div class="cfg-section">
-              <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>5. Pass Through Costs <span class="fw-normal text-muted">(PTC)</span></span><button class="btn btn-sm btn-primary" id="cfgBtnAddPtc">+ Add PTC</button></div>
-              <p class="text-muted small mb-3">Add external costs (licences, travel, etc.) with title, note, amount and the month they occur.</p>
-              <div id="cfgPtcList"></div>
-              <div id="cfgPtcGrandTotal" class="d-flex justify-content-end px-2 py-2 mt-1 border-top fw-bold small" style="background:#fff3cd;border-radius:0 0 6px 6px"><span>Total PTC: <span id="cfgGrandTotalPtc">—</span></span></div>
-            </div>
-            <div class="cfg-section">
-              <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>6. Functional Groups <span class="fw-normal text-muted">(optional)</span></span><button class="btn btn-sm btn-primary" id="cfgBtnAddGroup">+ Add group</button></div>
-              <p class="text-muted small mb-3">Group roles into functional areas. Roles must match the <strong>Job Role: Name</strong> column (one per line).</p>
-              <div id="cfgGroupList"></div>
             </div>
           </div>
         </div>
-        <div id="cfgTabJson" class="p-3" style="display:none">
-          <div class="d-flex gap-2 mb-3 flex-wrap">
-            <button class="btn btn-outline-secondary btn-sm" id="btnImportConfig">📂 Import JSON</button>
-            <button class="btn btn-outline-secondary btn-sm" id="btnExportConfig">💾 Export JSON</button>
+      </div>
+
+      <!-- Ungrouped projects -->
+      <!-- Task 1 inserts per-project cards here (Step 5), showSummaryBtn=true -->
+      <div class="section-card mb-4" v-for="cfg in ungroupedProjects" :key="cfg.id" v-if="cardData(cfg)">
+        <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span>📁 {{ fmtProjectTitle(cfg) }}</span>
+            <span v-if="cfg.code" class="text-muted small">{{ cfg.code }}</span>
+            <span v-html="pipelineBadge(getProjectPipeline(cfg.id) || cfg.pipeline)"></span>
+            <span v-html="statusBadgeLarge(cfg.status)"></span>
+            <span v-if="!cardData(cfg).hasData" class="badge bg-warning text-dark">no XLS data</span>
+            <span v-if="cardData(cfg).budgetBadgeHtml" v-html="cardData(cfg).budgetBadgeHtml"></span>
           </div>
-          <textarea class="form-control font-monospace" id="configEditor" rows="26" spellcheck="false"></textarea>
+          <div class="d-flex gap-2 flex-wrap">
+            <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="window.location.href = '/project-config.html?projectId=' + encodeURIComponent(cfg.id)">⚙️ Configure</button>
+            <button class="btn btn-sm btn-outline-secondary" title="Share project" @click="openShareModal('project', cfg.id, cfg.name || cfg.id)">🔗 Share</button>
+            <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" title="Upload XLS actuals for this project" @click="triggerLoadActuals(cfg.id)">📂 Load Actuals</button>
+            <button class="btn btn-sm btn-outline-secondary" @click="goPlanningForProject(cfg.id)">📅 Planning</button>
+            <button class="btn btn-sm" :class="cardData(cfg).hasData ? 'btn-primary' : 'btn-outline-secondary'" :disabled="!cardData(cfg).hasData" @click="showDashboard(cfg.id)">📊 View Report →</button>
+            <button class="btn btn-sm" :class="portfolioSummaryProjects.has(cfg.id) ? 'btn-success' : 'btn-outline-secondary'" @click="toggleSummary(cfg.id)">{{ portfolioSummaryProjects.has(cfg.id) ? '✓ Summary' : '＋ Summary' }}</button>
+          </div>
         </div>
-        <div id="cfgJsonError" class="alert alert-danger d-none mx-3 mb-3 py-2 small"></div>
-      </div>
-      <div class="modal-footer d-flex justify-content-between">
-        <div></div>
-        <div class="d-flex gap-2">
-          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button class="btn btn-primary" id="btnSaveConfig">💾 Save</button>
+        <div class="table-responsive p-2">
+          <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
+            <thead style="background:var(--indigo-50)"><tr><th style="min-width:110px"></th><th v-for="ym in cardData(cfg).months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end" style="min-width:90px;background:#e9ecef">{{ cardData(cfg).totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="cardData(cfg).totalPtc > 0" class="text-end" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr></thead>
+            <tbody>
+              <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in cardData(cfg).months" :key="ym" class="text-end">{{ cardData(cfg).hasPhasing ? fmtMoney(cfg.phasing?.[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ cardData(cfg).hasPhasing ? fmtMoney(cardData(cfg).totalPhasing) : '—' }}</td><td v-if="cardData(cfg).totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(cardData(cfg).totalPtc) }}</td></tr>
+              <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in cardData(cfg).months" :key="ym" class="text-end">{{ cardData(cfg).hasData ? fmtMoney(cardData(cfg).monthSpend[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ cardData(cfg).hasData ? fmtMoney(cardData(cfg).totalSpent) : '—' }}</td><td v-if="cardData(cfg).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+              <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in cardData(cfg).months" :key="ym" class="text-end" :style="varCellStyle(cfg, ym)">{{ varCellText(cfg, ym) }}</td><td class="text-end fw-bold" :style="{background:'#f0f0f0', color: (cardData(cfg).hasData && cardData(cfg).hasPhasing) ? varColor(cardData(cfg).totalVar) : undefined}">{{ (cardData(cfg).hasData && cardData(cfg).hasPhasing) ? fmtVar(cardData(cfg).totalVar) : '—' }}</td><td v-if="cardData(cfg).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
-    </div>
-  </div>
+    </template>
+  </template>
+
+  <template v-else>
+    <!-- Task 3 inserts the dashboard view here -->
+  </template>
+
 </div>
 
+<!-- Confirm modal (shared, used by later tasks if any confirmation is needed — none identified yet for reachable flows, kept for parity with the established pattern in case Task 8 needs it) -->
 
 <!-- AI Analysis -->
 <div class="modal fade" id="aiModal" tabindex="-1">
@@ -300,381 +208,235 @@
   </div>
 </div>
 
-<!-- JSON Viewer -->
-<div class="modal fade" id="jsonViewerModal" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:860px">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1"><h5 class="modal-title fw-bold font-monospace" id="jsonViewerTitle">{ } JSON</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <div class="px-3 py-2 d-flex gap-2 align-items-center border-bottom" style="background:#f8f9fa">
-          <button class="btn btn-outline-secondary btn-sm" id="btnJsonCopy">📋 Copy</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btnJsonExport">⬇ Export .json</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btnJsonImport">⬆ Import .json</button>
-          <span class="text-muted small ms-auto">The textarea is editable — modify and click <strong>Apply</strong>.</span>
-        </div>
-        <div class="p-3"><textarea id="jsonViewerContent" class="form-control font-monospace" style="min-height:480px;font-size:.82rem;line-height:1.5;resize:vertical" spellcheck="false" autocomplete="off"></textarea><div id="jsonViewerError" class="text-danger small mt-2 d-none"></div></div>
-      </div>
-      <div class="modal-footer border-0"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button><button class="btn btn-primary btn-sm" id="btnJsonApply">✓ Apply JSON</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Roles Registry -->
-<div class="modal fade" id="rolesModal" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1"><h5 class="modal-title fw-bold">👥 Roles Registry</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <div class="px-3 py-2 d-flex gap-2 flex-wrap align-items-center border-bottom" style="background:#f8f9fa">
-          <span class="text-muted small">Roles used in Cost Grids to calculate the offer value</span>
-          <div class="ms-auto d-flex gap-2"><button class="btn btn-outline-secondary btn-sm" id="btnRolesShowJson">{ } JSON</button><button class="btn btn-primary btn-sm" id="btnAddRole">+ Add role</button></div>
-        </div>
-        <div class="table-responsive">
-          <table class="table align-middle mb-0" style="font-size:.92rem">
-            <thead style="background:#eef1ff;position:sticky;top:0;z-index:1"><tr><th class="ps-3" style="min-width:180px">Label</th><th style="min-width:280px">Code</th><th style="min-width:100px">Team</th><th style="min-width:120px;text-align:right">Rate (€/h)</th><th style="width:90px"></th></tr></thead>
-            <tbody id="rolesTableBody"><tr id="rolesEmptyRow"><td colspan="5" class="text-muted text-center py-5">No roles configured. Click <strong>+ Add role</strong> to get started.</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="modal-footer border-0 pt-1"><button class="btn btn-secondary btn-sm" id="btnRolesBack" data-bs-dismiss="modal">Close</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Role Edit -->
-<div class="modal fade" id="roleModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold" id="roleModalTitle">➕ New role</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div class="mb-3"><label class="form-label small fw-semibold mb-1">Label</label><input type="text" class="form-control form-control-sm" id="roleLabel" placeholder="e.g. Project Manager"></div>
-        <div class="mb-3"><label class="form-label small fw-semibold mb-1">Code</label><input type="text" class="form-control form-control-sm" id="roleCode" placeholder="e.g. HWGACCSVS - DIRECTOR"><div class="form-text">Must match the Job Role column in actuals.</div></div>
-        <div class="mb-3"><label class="form-label small fw-semibold mb-1">Hourly rate (€/h)</label><input type="number" class="form-control form-control-sm" id="roleRate" placeholder="e.g. 160" min="0" step="0.01"></div>
-        <div id="roleModalError" class="alert alert-danger d-none py-2 small mb-0"></div>
-      </div>
-      <div class="modal-footer border-0 pt-0"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" id="btnSaveRole">💾 Save</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Programs -->
-<div class="modal fade" id="programsModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold">🗂 Programs</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <div class="p-3 border-bottom d-flex justify-content-end"><button class="btn btn-sm btn-primary" onclick="openProgramEditModal(null)">＋ New program</button></div>
-        <table class="table table-sm align-middle mb-0">
-          <thead style="background:#f8f9fa"><tr><th class="ps-3">Name</th><th>Program ID</th><th>Projects</th><th></th></tr></thead>
-          <tbody id="programsTableBody"><tr id="programsEmptyRow"><td colspan="4" class="text-center text-muted py-4">No programs. Click <strong>＋ New program</strong>.</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Program Edit -->
-<div class="modal fade" id="programEditModal" tabindex="-1">
-  <div class="modal-dialog modal-sm">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold" id="programModalTitle">＋ New program</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div id="programModalError" class="alert alert-danger py-2 d-none"></div>
-        <div class="mb-3"><label class="form-label small fw-semibold">Program name</label><input type="text" class="form-control form-control-sm" id="programName" placeholder="e.g. Chatbot AI Platform"></div>
-        <div class="mb-3"><label class="form-label small fw-semibold">Program ID</label><input type="text" class="form-control form-control-sm" id="programId" placeholder="e.g. PRG-001"></div>
-      </div>
-      <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" onclick="saveProgramFromModal()">Save</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Clients -->
-<div class="modal fade" id="clientsModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold">👥 Clients</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <div class="p-3 border-bottom d-flex justify-content-end"><button class="btn btn-sm btn-primary" onclick="openClientEditModal(null)">＋ New client</button></div>
-        <table class="table table-sm align-middle mb-0">
-          <thead style="background:#f8f9fa"><tr><th class="ps-3">Name</th><th></th></tr></thead>
-          <tbody id="clientsTableBody"><tr id="clientsEmptyRow"><td colspan="2" class="text-center text-muted py-4">No clients. Click <strong>＋ New client</strong>.</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Client Edit -->
-<div class="modal fade" id="clientEditModal" tabindex="-1">
-  <div class="modal-dialog modal-sm">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold" id="clientModalTitle">＋ New client</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div id="clientModalError" class="alert alert-danger py-2 d-none"></div>
-        <div class="mb-3"><label class="form-label small fw-semibold">Client name</label><input type="text" class="form-control form-control-sm" id="clientName" placeholder="e.g. Acme Corp"></div>
-      </div>
-      <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" onclick="saveClientFromModal()">Save</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Toast -->
-<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999">
-  <div id="cgAutoSaveToast" class="toast align-items-center text-bg-secondary border-0" role="alert" data-bs-delay="2000">
-    <div class="d-flex"><div class="toast-body" style="font-size:.85rem">💾 Auto-saved</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
-  </div>
-</div>
-
-<!-- ── SCRIPTS ── -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="js/api.js?v=4"></script>
 <script src="js/core.js?v=2"></script>
 <script src="js/settings.js"></script>
 <script src="js/notifications.js"></script>
-<script src="js/roles.js"></script>
-<script src="js/costgrid.js?v=2"></script>
-<script type="module" src="js/lib/cfg-parse.js?v=1"></script>
-<script type="module" src="js/lib/costgrid-calc.js?v=1"></script>
-<script type="module" src="js/lib/status-rules.js?v=1"></script>
-<script src="js/config-form.js?v=12"></script>
 <script src="js/upload.js"></script>
-<script src="js/dashboard.js?v=4"></script>
 <script src="js/clients.js"></script>
 <script src="js/programs.js"></script>
-<script src="js/portfolio.js?v=3"></script>
 <script src="js/ai.js"></script>
-<script src="js/api-sync.js?v=14"></script>
 <script src="js/shares.js"></script>
+<script type="module" src="js/lib/portfolio-calc.js?v=1"></script>
+<script src="js/api-sync.js?v=14"></script>
 <script src="js/nav.js?v=4"></script>
-
 <script>
-// ── PAGE-SPECIFIC NAVIGATION OVERRIDES ───────────────────────────────────────
+  Vue.createApp({
+    data() {
+      return {
+        view: 'overview',
+        portfolioSort: 'name',
+        portfolioClientFilter: '',
+        expandedPrograms: new Set(),
+      };
+    },
+    computed: {
+      projects() {
+        return (config.projects || []).filter(p => p.id);
+      },
+      allClientIds() {
+        return [...new Set(
+          this.projects.filter(p => p.clientId && p.clientId !== '__unassigned__').map(p => p.clientId)
+        )].sort((a, b) => getClientName(a).localeCompare(getClientName(b)));
+      },
+      sortedFilteredProjects() {
+        const sortFn = this.portfolioSort === 'client'
+          ? (a, b) => getClientName(a.clientId).localeCompare(getClientName(b.clientId)) || (a.name||a.id).localeCompare(b.name||b.id)
+          : (a, b) => (a.name||a.id).localeCompare(b.name||b.id);
+        return [...this.projects]
+          .filter(p => !this.portfolioClientFilter || p.clientId === this.portfolioClientFilter)
+          .sort(sortFn);
+      },
+      visibleProgramGroups() {
+        const programs = getPrograms();
+        const grouped = {};
+        this.sortedFilteredProjects.forEach(cfg => {
+          if (cfg.programId && programs.find(p => p.id === cfg.programId)) {
+            (grouped[cfg.programId] = grouped[cfg.programId] || []).push(cfg);
+          }
+        });
+        return programs
+          .filter(prog => grouped[prog.id]?.length)
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map(prog => {
+            const children = [...grouped[prog.id]].sort((a, b) => (a.id||'').localeCompare(b.id||''));
+            const pipelines = children.map(c => getProjectPipeline(c.id) || c.pipeline).filter(Boolean);
+            const clientIds = children.map(c => c.clientId).filter(c => c && c !== '__unassigned__');
+            const domClientId = clientIds.length ? clientIds[0] : '';
+            return {
+              ...prog,
+              children,
+              domPipeline: pipelines.length ? pipelines[0] : '',
+              domClientName: domClientId ? getClientName(domClientId) : '',
+            };
+          });
+      },
+      ungroupedProjects() {
+        const programs = getPrograms();
+        return this.sortedFilteredProjects.filter(cfg =>
+          !(cfg.programId && programs.find(p => p.id === cfg.programId))
+        );
+      },
+      pinnedSummary() {
+        const cfgs = this.projects.filter(p => portfolioSummaryProjects.has(p.id));
+        if (!cfgs.length) return null;
+        const monthSet = new Set();
+        cfgs.forEach(cfg => this.getMonthRangeFromCfg(cfg).forEach(ym => monthSet.add(ym)));
+        const months = [...monthSet].sort();
+        const phasing = {}, spent = {};
+        months.forEach(ym => { phasing[ym] = 0; spent[ym] = 0; });
+        cfgs.forEach(cfg => {
+          months.forEach(ym => { phasing[ym] += cfg.phasing?.[ym] || 0; });
+          timesheetData.filter(r => r.projectId === cfg.id).forEach(r => {
+            if (!r.date) return;
+            const ym = `${r.date.getFullYear()}${String(r.date.getMonth()+1).padStart(2,'0')}`;
+            if (spent[ym] !== undefined) spent[ym] += r.hours * (findRate(r, cfg) ?? 0);
+          });
+        });
+        const grandEst = months.reduce((s, ym) => s + phasing[ym], 0);
+        const grandSpent = months.reduce((s, ym) => s + spent[ym], 0);
+        return { cfgs, months, phasing, spent, grandEst, grandSpent, grandVar: grandEst - grandSpent };
+      },
+    },
+    async created() {
+      loadSettings();
+      loadSummarySelection();
+      updateAiButtonVisibility();
 
-function showPortfolioPlanningView() {
-  window.location.href = '/planning.html';
-}
+      const user = await initNav('portfolio', { breadcrumbs: [
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Project Portfolio' },
+      ]});
+      if (!user) return;
 
-function showPlanningView(projectId) {
-  window.location.href = '/planning.html' + (projectId ? '?projectId=' + encodeURIComponent(projectId) : '');
-}
+      await Promise.all([loadClientsFromApi(), loadProgramsFromApi()]);
+      await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
 
-function showPipelineBoardView() {
-  window.location.href = '/pipeline.html';
-}
+      document.getElementById('fileInput').addEventListener('change', e => {
+        const f = e.target.files[0]; e.target.value = '';
+        if (f) readXLSForProject(f, window._loadActualsProjectId);
+      });
 
-function showCostGridEditorView(cgId, versionId) {
-  window.location.href = '/costgrid.html?' + new URLSearchParams({ cgId, verId: versionId });
-}
-
-function updateNavState() {}
-function cgHideAll() {}
-
-// ── INIT ─────────────────────────────────────────────────────────────────────
-
-document.addEventListener('DOMContentLoaded', async () => {
-  loadConfig();
-  loadSettings();
-  loadSummarySelection();
-  updateAiButtonVisibility();
-  refreshTimesheetData();
-
-  const user = await initNav('portfolio', { breadcrumbs: [
-    { label: 'Home', href: '/pipeline.html' },
-    { label: 'Project Portfolio' },
-  ]});
-  if (!user) return;
-
-  await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi()]);
-
-  // Seed caches from API (timesheets replace the localStorage-only refreshTimesheetData call above)
-  await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
-
-  if (timesheetData.length > 0) populateProjectSelector();
-
-  // Open project dashboard directly if URL param present (from pipeline board "Reporting" link)
-  const params = new URLSearchParams(window.location.search);
-  const urlProjectId = params.get('projectId');
-  if (urlProjectId) {
-    showDashboardView(urlProjectId);
-    if (params.get('configure') === 'true') {
-      setTimeout(() => openConfigModal(urlProjectId), 300);
-    }
-  } else {
-    showPortfolioView();
-  }
-
-  // ── NAVIGATION ──
-  document.getElementById('btnBackToPortfolio').addEventListener('click', showPortfolioView);
-  document.getElementById('breadcrumbPortfolioLink').addEventListener('click', e => { e.preventDefault(); showPortfolioView(); });
-  document.getElementById('btnPlanningView').addEventListener('click', () => showPlanningView(selectedProjectId));
-
-  // ── PER-PROJECT XLS UPLOAD ──
-  window._loadActualsProjectId = null;
-  const fileInput = document.getElementById('fileInput');
-  fileInput.addEventListener('change', e => {
-    const f = e.target.files[0]; e.target.value = '';
-    if (f) readXLSForProject(f, window._loadActualsProjectId);
-  });
-
-  window.triggerLoadActuals = (projectId) => {
-    window._loadActualsProjectId = projectId;
-    fileInput.click();
-  };
-
-  // ── CONFIG NAVIGATION ──
-  document.getElementById('btnOpenConfig').addEventListener('click', () => {
-    window.location.href = '/project-config.html';
-  });
-  document.getElementById('btnConfigureProject').addEventListener('click', () => {
-    window.location.href = '/project-config.html' + (selectedProjectId ? '?projectId=' + encodeURIComponent(selectedProjectId) : '');
-  });
-  document.getElementById('btnSaveConfig').addEventListener('click', saveConfig);
-  document.getElementById('btnImportConfig').addEventListener('click', importConfigFile);
-  document.getElementById('btnExportConfig').addEventListener('click', exportConfig);
-  document.getElementById('cfgPipeline').addEventListener('change', () => {
-    cfgApplyPipelineRules(document.getElementById('cfgPipeline').value, document.getElementById('cfgStatus').value);
-    cfgMarkDirty();
-  });
-  document.getElementById('cfgBtnClearData').addEventListener('click', () => {
-    const pid = cfgProjectIdx >= 0 ? cfgEditConfig.projects[cfgProjectIdx]?.id : '';
-    if (!pid) return;
-    showConfirm(`Clear all cached XLS data for project "${pid}"?`, () => { clearProjectData(pid); populateProjectSelector(); showPortfolioView(); }, null, '🗑 Clear XLS data');
-  });
-  document.querySelectorAll('.cfg-tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => cfgSwitchTab(btn.dataset.tab));
-  });
-  document.getElementById('cfgProjectSel').addEventListener('change', e => {
-    if (cfgProjectIdx >= 0) cfgSaveCurrentToState();
-    cfgSelectProject(parseInt(e.target.value));
-  });
-  document.getElementById('cfgBtnNewProject').addEventListener('click', () => {
-    if (cfgProjectIdx >= 0) cfgSaveCurrentToState();
-    cfgEditConfig.projects.push({ id: '', name: '', startDate: '', endDate: '', currency: '€', tasks: [], phasing: {}, planning: {}, groups: [] });
-    cfgPopulateProjectDropdown();
-    cfgSelectProject(cfgEditConfig.projects.length - 1);
-  });
-  document.getElementById('cfgBtnDelProject').addEventListener('click', () => {
-    if (cfgProjectIdx < 0) return;
-    const proj = cfgEditConfig.projects[cfgProjectIdx];
-    const name = proj.name || proj.id || 'this project';
-    showConfirm(`Delete project "${name}"?`, () => {
-      cfgEditConfig.projects.splice(cfgProjectIdx, 1);
-      cfgPopulateProjectDropdown();
-      cfgSelectProject(cfgEditConfig.projects.length > 0 ? 0 : -1);
-    });
-  });
-  document.getElementById('cfgBtnDerivePhasing').addEventListener('click', cfgDerivePhasing);
-  document.getElementById('cfgBtnDerivePlanning').addEventListener('click', cfgDerivePhasing);
-  document.getElementById('cfgBtnReforecastPhasing').addEventListener('click', cfgReforecast);
-  document.getElementById('cfgBtnReforecastPlanning').addEventListener('click', cfgReforecast);
-  document.getElementById('cfgBtnRollbackPhasing').addEventListener('click', cfgRollbackReforecast);
-  document.getElementById('cfgBtnRollbackPlanning').addEventListener('click', cfgRollbackReforecast);
-  document.getElementById('cfgBtnAddTask').addEventListener('click', () => {
-    document.getElementById('cfgTaskList').appendChild(cfgMakeTaskCard({ name: '', resources: [] }));
-    cfgUpdateGrandTotals();
-  });
-  document.getElementById('cfgBtnExportTasksXlsx').addEventListener('click', cfgExportTasksXlsx);
-  document.getElementById('cfgBtnAddPtc').addEventListener('click', () => {
-    document.getElementById('cfgPtcList').appendChild(cfgMakePtcCard({ title: '', note: '', amount: 0, month: cfgGetProjectMonths()[0] || '' }));
-    cfgUpdateGrandTotals();
-  });
-  document.getElementById('cfgBtnAddGroup').addEventListener('click', () => {
-    document.getElementById('cfgGroupList').appendChild(cfgMakeGroupCard({ name: '', roles: [] }));
-  });
-  document.getElementById('cfgName').addEventListener('input', () => {
-    if (cfgProjectIdx < 0) return;
-    const sel = document.getElementById('cfgProjectSel');
-    if (sel.options[cfgProjectIdx]) sel.options[cfgProjectIdx].textContent = document.getElementById('cfgName').value.trim() || `Project ${cfgProjectIdx + 1}`;
-  });
-  ['cfgStartDate', 'cfgEndDate'].forEach(id => {
-    const inp = document.getElementById(id);
-    inp.addEventListener('focus', () => { inp.dataset.prev = inp.value; });
-    inp.addEventListener('change', () => {
-      const p = cfgReadGrid('cfg-phasing-input'), pl = cfgReadGrid('cfg-planning-input');
-      const newMonths = new Set(cfgGetMonthRange());
-      const lost = [...new Set([...Object.keys(p), ...Object.keys(pl)].filter(ym => !newMonths.has(ym)))].sort();
-      const apply = () => { cfgRenderPhasingGrid(p); cfgRenderPlanningGrid(pl); };
-      if (lost.length > 0) {
-        const names = lost.map(ym => { const [y, m] = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))]; return new Date(y, m-1, 1).toLocaleDateString('en-US', { month:'short', year:'numeric' }); });
-        showConfirm(`Changing dates will discard values for:\n\n${names.join(', ')}\n\nContinue?`, apply, () => { inp.value = inp.dataset.prev || ''; });
-      } else { apply(); }
-    });
-  });
-
-  // ── DASHBOARD ──
-  document.getElementById('projectSelect').addEventListener('change', e => selectProject(e.target.value));
-  document.getElementById('burndownTaskFilter').addEventListener('change', updateBurndown);
-  document.getElementById('btnExportChart').addEventListener('click', () => {
-    if (!burndownChartInst) return;
-    const a = document.createElement('a');
-    a.href = burndownChartInst.toBase64Image('image/png', 1);
-    a.download = `burndown_${selectedProjectId || 'chart'}.png`;
-    a.click();
-  });
-  document.querySelectorAll('#intervalToggle [data-interval]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      burndownInterval = btn.dataset.interval;
-      document.querySelectorAll('#intervalToggle [data-interval]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      updateBurndown();
-    });
-  });
-  document.getElementById('monthFilter').addEventListener('change', () => {
-    document.getElementById('filterStart').value = '';
-    document.getElementById('filterEnd').value = '';
-    updateTaskTables();
-  });
-  document.getElementById('filterStart').addEventListener('change', () => { document.getElementById('monthFilter').value = ''; updateTaskTables(); });
-  document.getElementById('filterEnd').addEventListener('change', () => { document.getElementById('monthFilter').value = ''; updateTaskTables(); });
-  document.getElementById('btnResetDate').addEventListener('click', resetDateFilter);
-
-  // ── AI + EMAIL ──
-  document.getElementById('btnAiAnalysis').addEventListener('click', openAiAnalysis);
-  document.getElementById('btnCopyAi').addEventListener('click', () => {
-    const text = document.getElementById('aiResult').textContent;
-    if (text) navigator.clipboard.writeText(text).catch(() => {});
-  });
-  document.getElementById('btnShareProject').addEventListener('click', () => {
-    const proj = (config.projects || []).find(p => p.id === selectedProjectId);
-    const name = proj?.name || selectedProjectId || 'Project';
-    openShareModal('project', selectedProjectId, name);
-  });
-
-  // ── JSON VIEWER ──
-  document.getElementById('btnJsonCopy').addEventListener('click', () => { navigator.clipboard.writeText(document.getElementById('jsonViewerContent').value).catch(() => {}); });
-  document.getElementById('btnJsonExport').addEventListener('click', () => {
-    const blob = new Blob([document.getElementById('jsonViewerContent').value], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = _jsonViewerFilename; a.click(); URL.revokeObjectURL(url);
-  });
-  document.getElementById('btnJsonImport').addEventListener('click', () => {
-    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json';
-    inp.onchange = e => {
-      const file = e.target.files[0]; if (!file) return;
-      const reader = new FileReader();
-      reader.onload = ev => { try { JSON.parse(ev.target.result); document.getElementById('jsonViewerContent').value = ev.target.result; document.getElementById('jsonViewerError').classList.add('d-none'); } catch(err) { const el = document.getElementById('jsonViewerError'); el.textContent = 'Invalid JSON: ' + err.message; el.classList.remove('d-none'); } };
-      reader.readAsText(file);
-    };
-    inp.click();
-  });
-  document.getElementById('btnJsonApply').addEventListener('click', () => {
-    const errEl = document.getElementById('jsonViewerError');
-    try { const parsed = JSON.parse(document.getElementById('jsonViewerContent').value); if (_jsonViewerOnSave) _jsonViewerOnSave(parsed); bootstrap.Modal.getInstance(document.getElementById('jsonViewerModal'))?.hide(); errEl.classList.add('d-none'); }
-    catch(err) { errEl.textContent = 'Invalid JSON: ' + err.message; errEl.classList.remove('d-none'); }
-  });
-
-  // ── ROLES ──
-  document.getElementById('btnAddRole').addEventListener('click', () => openRoleModal(null));
-  document.getElementById('btnSaveRole').addEventListener('click', saveRoleFromModal);
-  document.getElementById('btnRolesBack').addEventListener('click', hideRolesView);
-  document.getElementById('btnRolesShowJson').addEventListener('click', () => {
-    openJsonViewer('Roles', getRoles(), imported => { if (!Array.isArray(imported)) throw new Error('Must be an array'); roles = imported; saveRoles(); renderRolesTable(); }, `roles_${new Date().toISOString().slice(0,10)}.json`);
-  });
-
-});
+      const params = new URLSearchParams(window.location.search);
+      const urlProjectId = params.get('projectId');
+      if (urlProjectId) {
+        this.showDashboard(urlProjectId);
+      } else {
+        this.showOverview();
+      }
+    },
+    methods: {
+      getClientName,
+      pipelineBadge,
+      fmtMoney,
+      getProjectPipeline,
+      statusBadgeLarge,
+      showOverview() {
+        this.view = 'overview';
+        if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
+          { label: 'Home', href: '/pipeline.html' },
+          { label: 'Project Portfolio' },
+        ]);
+      },
+      toggleProgramExpanded(id) {
+        if (this.expandedPrograms.has(id)) this.expandedPrograms.delete(id);
+        else this.expandedPrograms.add(id);
+      },
+      getMonthRangeFromCfg(cfg) {
+        if (!cfg?.startDate || !cfg?.endDate) return [];
+        const sy = parseInt(cfg.startDate.slice(0,4)), sm = parseInt(cfg.startDate.slice(4,6));
+        const ey = parseInt(cfg.endDate.slice(0,4)), em = parseInt(cfg.endDate.slice(4,6));
+        const months = [];
+        let cy = sy, cm = sm;
+        while (cy < ey || (cy === ey && cm <= em)) { months.push(`${cy}${String(cm).padStart(2,'0')}`); cm++; if (cm > 12) { cm = 1; cy++; } }
+        return months;
+      },
+      monthLabel(ym) {
+        return new Date(parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))-1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      },
+      varColor(v) { return v > 0 ? 'var(--color-success)' : v < 0 ? 'var(--color-danger)' : 'var(--text-muted)'; },
+      fmtVar(v) { return `${v >= 0 ? '+' : ''}${fmtMoney(v)}`; },
+      fmtProjectTitle(cfg) {
+        const client = getClientName(cfg.clientId);
+        const name = cfg.name || cfg.id;
+        return client && client !== 'Unassigned' ? `${client} — ${name}` : name;
+      },
+      programSummary(cfgs) {
+        const monthSet = new Set();
+        cfgs.forEach(cfg => this.getMonthRangeFromCfg(cfg).forEach(ym => monthSet.add(ym)));
+        const months = [...monthSet].sort();
+        if (!months.length) return null;
+        const phasing = {}, spent = {};
+        months.forEach(ym => { phasing[ym] = 0; spent[ym] = 0; });
+        cfgs.forEach(cfg => {
+          months.forEach(ym => { phasing[ym] += cfg.phasing?.[ym] || 0; });
+          timesheetData.filter(r => r.projectId === cfg.id).forEach(r => {
+            if (!r.date) return;
+            const ym = `${r.date.getFullYear()}${String(r.date.getMonth()+1).padStart(2,'0')}`;
+            if (spent[ym] !== undefined) spent[ym] += r.hours * (findRate(r, cfg) ?? 0);
+          });
+        });
+        const totalPtc = cfgs.reduce((s, cfg) => s + (cfg.ptc||[]).reduce((a,p) => a+(p.amount||0), 0), 0);
+        const grandEst = months.reduce((s, ym) => s + phasing[ym], 0);
+        const grandSpent = months.reduce((s, ym) => s + spent[ym], 0);
+        return { months, phasing, spent, totalPtc, grandEst, grandSpent, grandVar: grandEst - grandSpent };
+      },
+      cardData(cfg) {
+        const data = timesheetData.filter(r => r.projectId === cfg.id);
+        const months = this.getMonthRangeFromCfg(cfg);
+        if (!months.length) return null;
+        const monthSpend = {};
+        data.forEach(r => {
+          if (!r.date) return;
+          const ym = `${r.date.getFullYear()}${String(r.date.getMonth()+1).padStart(2,'0')}`;
+          monthSpend[ym] = (monthSpend[ym]||0) + r.hours * (findRate(r, cfg) ?? 0);
+        });
+        const hasData = data.length > 0;
+        const hasPhasing = cfg.phasing && Object.keys(cfg.phasing).length > 0;
+        const totalPtc = (cfg.ptc||[]).reduce((s,p) => s+(p.amount||0), 0);
+        const totalSpent = months.reduce((s, ym) => s + (monthSpend[ym]||0), 0);
+        const totalPhasing = months.reduce((s, ym) => s + (cfg.phasing?.[ym]||0), 0);
+        const totalVar = totalPhasing - totalSpent;
+        const totalHours = (cfg.tasks||[]).reduce((s,t) => s+(t.resources||[]).reduce((rs,r) => rs+(r.soldHours||0),0), 0);
+        const totalBudget = (cfg.tasks||[]).reduce((s,t) => s+(t.resources||[]).reduce((rs,r) => rs+(r.soldHours||0)*(r.hourlyRate||0),0), 0);
+        const cgRef = cfg.costGridRef;
+        const apiBudget = (typeof getPipelineBudget === 'function' && cgRef?.versionId) ? getPipelineBudget(cgRef.versionId) : null;
+        const displayFee = totalBudget > 0 ? totalBudget : (apiBudget?.fee || 0);
+        const displayHours = totalHours > 0 ? totalHours : 0;
+        const displayTotal = displayFee + totalPtc;
+        const budgetBadgeHtml = (displayFee > 0 || displayHours > 0)
+          ? `<span class="portfolio-budget-badge">${displayHours > 0 ? displayHours.toLocaleString('en-US') + ' h &nbsp;/&nbsp; ' : ''}${fmtMoney(displayTotal)}${totalPtc > 0 ? `<span class="text-muted" style="font-size:.8em;font-weight:400"> &nbsp;(${fmtMoney(displayFee)} fees + ${fmtMoney(totalPtc)} PTC)</span>` : ''}${apiBudget && totalBudget === 0 ? '<span class="text-muted" style="font-size:.75em;margin-left:4px">(from cost grid)</span>' : ''}</span>`
+          : '';
+        return { months, monthSpend, hasData, hasPhasing, totalPtc, totalSpent, totalPhasing, totalVar, budgetBadgeHtml };
+      },
+      varCellStyle(cfg, ym) {
+        const cd = this.cardData(cfg);
+        if (!cd.hasData || !cd.hasPhasing) return {};
+        const v = (cfg.phasing?.[ym]||0) - (cd.monthSpend[ym]||0);
+        return { color: this.varColor(v), fontWeight: 600 };
+      },
+      varCellText(cfg, ym) {
+        const cd = this.cardData(cfg);
+        if (!cd.hasData || !cd.hasPhasing) return '—';
+        const v = (cfg.phasing?.[ym]||0) - (cd.monthSpend[ym]||0);
+        return `${v>=0?'+':''}${this.fmtMoney ? this.fmtMoney(v) : fmtMoney(v)}`;
+      },
+      toggleSummary(id) {
+        if (portfolioSummaryProjects.has(id)) portfolioSummaryProjects.delete(id); else portfolioSummaryProjects.add(id);
+        saveSummarySelection();
+      },
+      triggerLoadActuals(projectId) {
+        window._loadActualsProjectId = projectId;
+        document.getElementById('fileInput').click();
+      },
+      goPlanningForProject(id) {
+        window.location.href = '/planning.html?projectId=' + encodeURIComponent(id);
+      },
+      // Task 3 adds showDashboard(pid) here.
+    },
+  }).mount('#app');
 </script>
-
 </body>
 </html>
-
