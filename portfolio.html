@@ -849,6 +849,11 @@
         if (f) readXLSForProject(f, window._loadActualsProjectId);
       });
 
+      document.getElementById('btnCopyAi').addEventListener('click', () => {
+        const text = document.getElementById('aiResult').textContent;
+        if (text) navigator.clipboard.writeText(text).catch(() => {});
+      });
+
       const params = new URLSearchParams(window.location.search);
       const urlProjectId = params.get('projectId');
       if (urlProjectId) {
@@ -933,6 +938,7 @@
       },
       showOverview() {
         this.view = 'overview';
+        selectedProjectId = null;
         if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
           { label: 'Home', href: '/pipeline.html' },
           { label: 'Project Portfolio' },
