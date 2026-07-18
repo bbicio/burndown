@@ -55,7 +55,6 @@
         </div>
       </div>
 
-      <!-- Task 1 inserts the pinned-summary block here (Step 3) -->
       <div class="section-card mb-4" style="border:2px solid var(--indigo-500)" v-if="pinnedSummary">
         <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2" style="background:var(--indigo-50)">
           <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -98,7 +97,6 @@
             </button>
           </div>
         </div>
-        <!-- Task 1 inserts the program-summary sub-table here (Step 4) -->
         <div class="table-responsive px-3 pb-2" style="background:var(--violet-50)" v-if="programSummary(prog.children)">
           <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
             <thead style="background:#ede8ff">
@@ -113,7 +111,6 @@
         </div>
         <div v-if="expandedPrograms.has(prog.id)" class="prog-children">
           <div class="prog-project-list px-2 pb-2 pt-1">
-            <!-- Task 1 inserts per-project cards here (Step 5), showSummaryBtn=false -->
             <div class="section-card mb-4" v-for="cfg in prog.children" :key="cfg.id" v-if="cardData(cfg)">
               <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -148,7 +145,6 @@
       </div>
 
       <!-- Ungrouped projects -->
-      <!-- Task 1 inserts per-project cards here (Step 5), showSummaryBtn=true -->
       <div class="section-card mb-4" v-for="cfg in ungroupedProjects" :key="cfg.id" v-if="cardData(cfg)">
         <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -517,10 +513,12 @@
         filterStart: '',
         filterEnd: '',
         taskDetailState: {}, // { [taskName]: { expanded: bool, groupMode: 'flat'|'role'|'owner' } }
+        refreshTick: 0, // bumped after mutating non-reactive globals (config.projects/timesheetData/portfolioSummaryProjects) that Vue can't see; forces computed re-evaluation
       };
     },
     computed: {
       projects() {
+        this.refreshTick; // establishes reactive dependency: bumped by toggleSummary() and after Load Actuals upload
         return (config.projects || []).filter(p => p.id);
       },
       allClientIds() {
@@ -842,9 +840,9 @@
       await Promise.all([loadClientsFromApi(), loadProgramsFromApi()]);
       await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
 
-      document.getElementById('fileInput').addEventListener('change', e => {
+      document.getElementById('fileInput').addEventListener('change', async e => {
         const f = e.target.files[0]; e.target.value = '';
-        if (f) readXLSForProject(f, window._loadActualsProjectId);
+        if (f) { await readXLSForProject(f, window._loadActualsProjectId); this.refreshTick++; }
       });
 
       document.getElementById('btnCopyAi').addEventListener('click', () => {
@@ -1028,6 +1026,7 @@
       toggleSummary(id) {
         if (portfolioSummaryProjects.has(id)) portfolioSummaryProjects.delete(id); else portfolioSummaryProjects.add(id);
         saveSummarySelection();
+        this.refreshTick++;
       },
       triggerLoadActuals(projectId) {
         window._loadActualsProjectId = projectId;
@@ -1058,7 +1057,6 @@
         this.burndownInterval = 'monthly';
         this.burndownTaskFilter = '';
         this.$nextTick(() => this.renderBurndownChart());
-        // Task 5-7 add their own per-view reset/init calls here (date filter reset, etc.)
       },
       renderBurndownChart() {
         if (this._burndownChart) { this._burndownChart.destroy(); this._burndownChart = null; }
