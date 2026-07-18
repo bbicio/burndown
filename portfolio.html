@@ -183,7 +183,65 @@
   </template>
 
   <template v-else>
-    <!-- Task 3 inserts the dashboard view here -->
+    <div class="pt-4 mb-3">
+      <nav aria-label="breadcrumb" class="mb-2">
+        <ol class="breadcrumb mb-0" style="font-size:var(--text-xs)">
+          <li class="breadcrumb-item"><a href="#" class="text-muted text-decoration-none" @click.prevent="showOverview">Portfolio</a></li>
+          <li class="breadcrumb-item active text-muted" aria-current="page">{{ dashboardProject?.name || dashboardProjectId }}</li>
+        </ol>
+      </nav>
+      <div v-if="dashboardProgramRow" class="text-muted mb-1" style="font-size:.9rem" v-html="dashboardProgramRow"></div>
+      <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+        <span class="fw-bold fs-5" style="color:var(--brand-navy)">{{ dashboardProject?.name || dashboardProjectId }}</span>
+        <span class="text-muted small">{{ dashboardProject?.name ? dashboardProjectId : '' }}</span>
+        <span class="d-inline-flex gap-1 align-items-center flex-wrap" v-html="dashboardMetaHtml"></span>
+        <div class="dropdown" v-if="dashboardSiblings.length">
+          <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:.75rem;padding:2px 7px" title="Switch project">▾</button>
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:320px;font-size:.85rem">
+            <li v-for="s in dashboardSiblings" :key="s.id">
+              <a v-if="s.hasActuals" class="dropdown-item d-flex align-items-center gap-2 py-2" href="#" @click.prevent="showDashboard(s.id)">
+                <span class="fw-semibold">{{ s.name || s.id }}</span>
+                <span v-if="s.code" class="text-muted small" style="font-family:monospace">{{ s.code }}</span>
+                <span class="ms-auto d-inline-flex gap-1" v-html="s.badgesHtml"></span>
+              </a>
+              <span v-else class="dropdown-item disabled d-flex align-items-center gap-2 py-2" style="opacity:.45;cursor:default">
+                <span class="fw-semibold">{{ s.name || s.id }}</span>
+                <span v-if="s.code" class="text-muted small" style="font-family:monospace">{{ s.code }}</span>
+                <span class="ms-auto d-inline-flex gap-1 align-items-center" v-html="s.badgesHtml"><span class="text-muted small ms-1" style="font-size:var(--text-xs)">no data</span></span>
+              </span>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+        <div><button class="btn btn-outline-secondary btn-sm" @click="showOverview">← Portfolio</button></div>
+        <div class="d-flex gap-2">
+          <button v-if="dashboardProject?.my_permission !== 'viewer'" class="btn btn-outline-secondary btn-sm" @click="window.location.href = '/project-config.html?projectId=' + encodeURIComponent(dashboardProjectId)">⚙️ Configure</button>
+          <button class="btn btn-outline-secondary btn-sm" @click="goPlanningForProject(dashboardProjectId)">📅 Planning</button>
+          <button v-if="hasAiKey()" class="btn btn-outline-secondary btn-sm" @click="openAiAnalysis()">🤖 AI Analysis</button>
+          <button class="btn btn-outline-secondary btn-sm" @click="openShareModal('project', dashboardProjectId, dashboardProject?.name || dashboardProjectId)">🔗 Share</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="dashboardReady">
+      <div v-if="!dashboardProject" class="alert alert-warning">
+        <strong>⚠️ Budget not configured for this project.</strong>
+        Click <strong>⚙️ Configure Budget</strong> to enter sold hours and hourly rates.
+      </div>
+      <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-xl-2"><div class="card kpi-card blue shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">📦 Total Sold Hours</div><div class="fw-bold fs-4">{{ kpis.soldHours !== null ? fmtH(kpis.soldHours) : '—' }}</div><div class="text-muted small">from configuration</div></div></div></div>
+        <div class="col-sm-6 col-xl-2"><div class="card kpi-card green shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💰 Total Budget</div><div class="fw-bold fs-4">{{ kpis.budgetTotal !== null ? fmtMoney(kpis.budgetTotal) : '—' }}</div><div class="text-muted small">{{ kpiBudgetEurSub }}</div></div></div></div>
+        <div class="col-sm-6 col-xl-2"><div class="card kpi-card orange shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">⏱️ Hours Consumed</div><div class="fw-bold fs-4">{{ fmtH(kpis.consumedHours) }}</div><div class="text-muted small">{{ kpiAsOfStr }}</div></div></div></div>
+        <div class="col-sm-6 col-xl-2"><div class="card kpi-card purple shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💸 Budget Consumed</div><div class="fw-bold fs-4">{{ kpis.consumedEur !== null ? fmtMoney(kpis.consumedEur) : '—' }}</div><div class="text-muted small">{{ kpiAsOfStr }}</div></div></div></div>
+        <div class="col-sm-6 col-xl-2"><div class="card kpi-card teal shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">⏳ Hours Left</div><div class="fw-bold fs-4" :style="{color: kpiLeftColor(kpis.hoursLeft, kpis.soldHours)}">{{ kpis.hoursLeft !== null ? fmtH(kpis.hoursLeft) : '—' }}</div><div class="text-muted small">sold − consumed</div></div></div></div>
+        <div class="col-sm-6 col-xl-2"><div class="card kpi-card red shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💼 Budget Left</div><div class="fw-bold fs-4" :style="{color: kpiLeftColor(kpis.budgetLeft, kpis.budgetTotal)}">{{ kpis.budgetLeft !== null ? fmtMoney(kpis.budgetLeft) : '—' }}</div><div class="text-muted small">{{ kpiBudgetLeftSub }}</div></div></div></div>
+      </div>
+      <!-- Task 4 inserts the burndown chart section here -->
+      <!-- Task 5 inserts monthly summary + PTC report here -->
+      <!-- Task 6 inserts the date filter + summary tables here -->
+      <!-- Task 7 inserts task detail tables here -->
+    </div>
   </template>
 
 </div>
@@ -231,6 +289,8 @@
         portfolioSort: 'name',
         portfolioClientFilter: '',
         expandedPrograms: new Set(),
+        dashboardProjectId: null,
+        dashboardReady: false,
       };
     },
     computed: {
@@ -299,6 +359,55 @@
         const grandEst = months.reduce((s, ym) => s + phasing[ym], 0);
         const grandSpent = months.reduce((s, ym) => s + spent[ym], 0);
         return { cfgs, months, phasing, spent, grandEst, grandSpent, grandVar: grandEst - grandSpent };
+      },
+      dashboardProject() {
+        return this.dashboardProjectId ? (config.projects || []).find(p => p.id === this.dashboardProjectId) : null;
+      },
+      dashboardData() {
+        return this.dashboardProjectId ? timesheetData.filter(r => r.projectId === this.dashboardProjectId) : [];
+      },
+      kpis() {
+        if (!this.dashboardReady) return { consumedHours: 0, soldHours: null, budgetTotal: null, consumedEur: null, hoursLeft: null, budgetLeft: null };
+        return computeKpis(this.dashboardData, this.dashboardProject, billableData, billableTasks, findRate);
+      },
+      kpiAsOfStr() {
+        return this.kpis.maxDate
+          ? `as of ${this.kpis.maxDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
+          : 'total to date';
+      },
+      kpiBudgetEurSub() {
+        return this.kpis.totalPtc > 0 ? `${fmtMoney(this.kpis.feesOnly)} fees + ${fmtMoney(this.kpis.totalPtc)} PTC` : 'hours × hourly rate';
+      },
+      kpiBudgetLeftSub() {
+        return this.kpis.totalPtc > 0 ? '(fees + PTC) − consumed' : 'budget − consumed';
+      },
+      dashboardProgramRow() {
+        const cfg = this.dashboardProject;
+        const prog = cfg?.programId ? getPrograms().find(p => p.id === cfg.programId) : null;
+        const clientName = cfg?.clientId ? getClientName(cfg.clientId) : '';
+        const hasClient = clientName && clientName !== 'Unassigned';
+        if (!hasClient && !prog) return '';
+        const clientPart = hasClient ? `<span class="fw-semibold">${esc(clientName)}</span>` : '';
+        const sep = hasClient && prog ? ' — ' : '';
+        const progPart = prog ? `<span class="fw-semibold">${esc(prog.name)}</span>` : '';
+        return clientPart + sep + progPart;
+      },
+      dashboardMetaHtml() {
+        if (!this.dashboardProjectId) return '';
+        return [pipelineBadge(getProjectPipeline(this.dashboardProjectId) || this.dashboardProject?.pipeline), statusBadgeLarge(this.dashboardProject?.status)].join(' ');
+      },
+      dashboardSiblings() {
+        const cfg = this.dashboardProject;
+        const progId = cfg?.programId;
+        if (!progId) return [];
+        return (config.projects || [])
+          .filter(p => p.programId === progId && p.id !== this.dashboardProjectId)
+          .sort((a, b) => (a.id||'').localeCompare(b.id||''))
+          .map(s => ({
+            ...s,
+            hasActuals: timesheetData.some(r => r.projectId === s.id),
+            badgesHtml: [pipelineBadge(getProjectPipeline(s.id) || s.pipeline), statusBadgeLarge(s.status)].join(' '),
+          }));
       },
     },
     async created() {
@@ -435,7 +544,27 @@
       goPlanningForProject(id) {
         window.location.href = '/planning.html?projectId=' + encodeURIComponent(id);
       },
-      // Task 3 adds showDashboard(pid) here.
+      esc,
+      hasAiKey,
+      kpiLeftColor(left, total) {
+        if (left === null) return '';
+        if (left < 0) return 'var(--color-danger)';
+        if (total && left < total * 0.1) return '#fd7e14';
+        return '';
+      },
+      showDashboard(pid) {
+        this.view = 'dashboard';
+        this.dashboardProjectId = pid;
+        this.dashboardReady = true;
+        selectedProjectId = pid;
+        const cfg = this.dashboardProject;
+        if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
+          { label: 'Home', href: '/pipeline.html' },
+          { label: 'Project Portfolio', href: '/portfolio.html' },
+          { label: cfg?.name || pid },
+        ]);
+        // Task 4-7 add their own per-view reset/init calls here (burndown interval reset, date filter reset, etc.)
+      },
     },
   }).mount('#app');
 </script>
