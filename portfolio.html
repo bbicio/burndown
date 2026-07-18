@@ -256,7 +256,70 @@
         </div>
         <div class="p-3"><div class="chart-container"><canvas ref="burndownCanvas"></canvas></div></div>
       </div>
-      <!-- Task 5 inserts monthly summary + PTC report here -->
+      <div class="section-card mb-4" v-if="monthlySummary">
+        <div class="section-header d-flex justify-content-between align-items-center">
+          <span>📅 Monthly Summary — hours and budget spent by month</span>
+          <ExportButtons :tbl-ref="() => $refs.monthlyTable" filename="monthly_summary" :card-ref="() => $refs.monthlyCard" />
+        </div>
+        <div class="table-responsive" ref="monthlyCard">
+          <table ref="monthlyTable" class="table table-sm table-hover align-middle mb-0 tbl-fixed">
+            <thead style="background:var(--surface-light);">
+              <tr>
+                <th class="ps-3" rowspan="2" style="vertical-align:middle;border-bottom:2px solid var(--border-light)">Month</th>
+                <th colspan="3" class="text-center border-start" style="border-bottom:2px solid var(--border-light)">Hours</th>
+                <th colspan="3" class="text-center border-start" style="border-bottom:2px solid var(--border-light)">Budget</th>
+                <th v-if="monthlySummary.hasPtc" class="text-center border-start" rowspan="2" style="vertical-align:middle;border-bottom:2px solid var(--border-light)">PTC</th>
+              </tr>
+              <tr style="background:var(--surface-light);">
+                <th class="text-end border-start">Estimated</th><th class="text-end">Consumed</th><th class="text-end">Variance</th>
+                <th class="text-end border-start">Estimated</th><th class="text-end">Spent</th><th :class="monthlySummary.hasPtc ? 'text-end' : 'text-end pe-3'">Variance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="m in monthlySummary.months" :key="m.label">
+                <td class="ps-3">{{ m.label }}</td>
+                <td class="text-end border-start">{{ dashboardProject ? fmtH(m.estimatedHours) : '—' }}</td>
+                <td class="text-end">{{ fmtH(m.hours) }}</td>
+                <td class="text-end" :class="{'text-danger fw-bold': m.hVar !== null && m.hVar < 0}">{{ m.hVar !== null ? fmtH(m.hVar) : '—' }}</td>
+                <td class="text-end border-start">{{ dashboardProject ? fmtMoney(m.estimated) : '—' }}</td>
+                <td class="text-end">{{ m.spent !== null ? fmtMoney(m.spent) : '—' }}</td>
+                <td :class="[monthlySummary.hasPtc ? 'text-end' : 'text-end pe-3', {'text-danger fw-bold': m.bVar !== null && m.bVar < 0}]">{{ m.bVar !== null ? fmtMoney(m.bVar) : '—' }}</td>
+                <td v-if="monthlySummary.hasPtc" class="text-end pe-3 border-start">{{ m.ptc > 0 ? fmtMoney(m.ptc) : '—' }}</td>
+              </tr>
+              <tr class="fw-bold" style="background:#e9ecef;">
+                <td class="ps-3">TOTAL</td>
+                <td class="text-end border-start">{{ monthlySummary.totEstimatedHours !== null ? fmtH(monthlySummary.totEstimatedHours) : '—' }}</td>
+                <td class="text-end">{{ fmtH(monthlySummary.totHours) }}</td>
+                <td class="text-end" :class="{'text-danger': monthlySummary.totHoursVariance !== null && monthlySummary.totHoursVariance < 0}">{{ monthlySummary.totHoursVariance !== null ? fmtH(monthlySummary.totHoursVariance) : '—' }}</td>
+                <td class="text-end border-start">{{ monthlySummary.totEstimated !== null ? fmtMoney(monthlySummary.totEstimated) : '—' }}</td>
+                <td class="text-end">{{ monthlySummary.totSpent !== null ? fmtMoney(monthlySummary.totSpent) : '—' }}</td>
+                <td :class="monthlySummary.hasPtc ? 'text-end' : 'text-end pe-3'" :style="{color: (monthlySummary.totBudgetVariance !== null && monthlySummary.totBudgetVariance < 0) ? 'red' : ''}">{{ monthlySummary.totBudgetVariance !== null ? fmtMoney(monthlySummary.totBudgetVariance) : '—' }}</td>
+                <td v-if="monthlySummary.hasPtc" class="text-end pe-3 border-start">{{ monthlySummary.totPtc !== null ? fmtMoney(monthlySummary.totPtc) : '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="section-card mb-4" v-if="ptcReport">
+        <div class="section-header d-flex justify-content-between align-items-center">
+          <span>💼 Pass Through Costs</span>
+          <ExportButtons :tbl-ref="() => $refs.ptcTable" filename="ptc_report" :card-ref="() => $refs.ptcCard" />
+        </div>
+        <div class="table-responsive" ref="ptcCard">
+          <table ref="ptcTable" class="table table-sm table-hover align-middle mb-0">
+            <thead style="background:var(--surface-light);"><tr><th class="ps-3" style="width:160px">Month</th><th>Title</th><th>Note</th><th class="text-end pe-3">Amount</th></tr></thead>
+            <tbody>
+              <tr v-for="(p, i) in ptcReport.rows" :key="i" :style="i % 2 !== 0 ? 'background:var(--surface-light)' : ''">
+                <td class="ps-3">{{ p.monthLabel }}</td>
+                <td class="fw-semibold">{{ p.title || '—' }}</td>
+                <td class="text-muted small">{{ p.note || '' }}</td>
+                <td class="text-end pe-3 fw-semibold">{{ fmtMoney(p.amount || 0) }}</td>
+              </tr>
+              <tr class="fw-bold" style="background:#e9ecef;"><td class="ps-3" colspan="3">TOTAL</td><td class="text-end pe-3">{{ fmtMoney(ptcReport.total) }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
       <!-- Task 6 inserts the date filter + summary tables here -->
       <!-- Task 7 inserts task detail tables here -->
     </div>
@@ -300,7 +363,18 @@
 <script src="js/api-sync.js?v=14"></script>
 <script src="js/nav.js?v=4"></script>
 <script>
+  const ExportButtons = {
+    props: ['tblRef', 'filename', 'cardRef'],
+    template: `
+      <div class="d-flex gap-1">
+        <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:var(--text-xs)" title="Copy" @click="$root.copyTableToClipboard(tblRef?.())">📋</button>
+        <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:var(--text-xs)" title="XLS" @click="$root.exportTableToXLS(tblRef?.(), filename)">📊</button>
+        <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:var(--text-xs)" title="PNG" @click="$root.exportElementToPNG(cardRef?.(), filename)">🖼️</button>
+      </div>`,
+  };
+
   Vue.createApp({
+    components: { ExportButtons },
     data() {
       return {
         view: 'overview',
@@ -431,6 +505,67 @@
       },
       billableTaskNames() {
         return this.dashboardReady ? billableTasks(this.dashboardProject).map(t => t.name) : [];
+      },
+      monthlySummary() {
+        const data = this.dashboardData, cfg = this.dashboardProject;
+        if (!data.length) return null;
+        let startY, startM, endY, endM;
+        if (cfg?.startDate && cfg?.endDate) {
+          startY = parseInt(cfg.startDate.slice(0,4)); startM = parseInt(cfg.startDate.slice(4,6));
+          endY = parseInt(cfg.endDate.slice(0,4)); endM = parseInt(cfg.endDate.slice(4,6));
+        } else {
+          const dates = data.map(r => r.date);
+          const minD = dates.reduce((a,b) => a<b?a:b), maxD = dates.reduce((a,b) => a>b?a:b);
+          startY = minD.getFullYear(); startM = minD.getMonth()+1;
+          endY = maxD.getFullYear(); endM = maxD.getMonth()+1;
+        }
+        const ptcItems = cfg?.ptc || [];
+        const ptcByMonth = {};
+        ptcItems.forEach(p => { if (p.month) ptcByMonth[p.month] = (ptcByMonth[p.month]||0) + (p.amount||0); });
+        const hasPtc = ptcItems.length > 0;
+        const bData = billableData(data, cfg);
+        const months = [];
+        let cy = startY, cm = startM;
+        while (cy < endY || (cy === endY && cm <= endM)) {
+          const ym = `${cy}${String(cm).padStart(2,'0')}`;
+          const start = new Date(cy, cm-1, 1), end = new Date(cy, cm, 0, 23, 59, 59);
+          const rows = bData.filter(r => r.date >= start && r.date <= end);
+          const hours = rows.reduce((s,r) => s+r.hours, 0);
+          const spent = cfg ? rows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0) : null;
+          const estimatedHours = cfg?.planning?.[ym] ?? 0;
+          const estimated = cfg?.phasing?.[ym] ?? 0;
+          const ptc = ptcByMonth[ym] || 0;
+          const label = start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+          const hVar = cfg ? estimatedHours - hours : null;
+          const bVar = spent !== null ? estimated - spent : null;
+          months.push({ label, hours, estimatedHours, spent, estimated, ptc, hVar, bVar });
+          cm++; if (cm > 12) { cm = 1; cy++; }
+        }
+        const totHours = months.reduce((s,m) => s+m.hours, 0);
+        const totEstimatedHours = cfg ? months.reduce((s,m) => s+m.estimatedHours, 0) : null;
+        const totHoursVariance = totEstimatedHours !== null ? totEstimatedHours - totHours : null;
+        const totSpent = cfg ? months.reduce((s,m) => s+(m.spent??0), 0) : null;
+        const totEstimated = cfg ? months.reduce((s,m) => s+m.estimated, 0) : null;
+        const totBudgetVariance = (totEstimated !== null && totSpent !== null) ? totEstimated - totSpent : null;
+        const totPtc = hasPtc ? months.reduce((s,m) => s+m.ptc, 0) : null;
+        return { months, hasPtc, totHours, totEstimatedHours, totHoursVariance, totSpent, totEstimated, totBudgetVariance, totPtc };
+      },
+      ptcReport() {
+        const ptcItems = this.dashboardProject?.ptc || [];
+        if (!ptcItems.length) return null;
+        const total = ptcItems.reduce((s,p) => s+(p.amount||0), 0);
+        const rows = [...ptcItems].sort((a,b) => {
+          if (a.month !== b.month) return (a.month||'').localeCompare(b.month||'');
+          return (a.title||'').localeCompare(b.title||'');
+        }).map(p => {
+          let monthLabel = '—';
+          if (p.month && p.month.length === 6) {
+            const y = parseInt(p.month.slice(0,4)), m = parseInt(p.month.slice(4,6));
+            monthLabel = new Date(y, m-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+          }
+          return { ...p, monthLabel };
+        });
+        return { rows, total };
       },
     },
     async created() {
@@ -669,6 +804,27 @@
         a.href = this._burndownChart.toBase64Image('image/png', 1);
         a.download = `burndown_${this.dashboardProjectId || 'chart'}.png`;
         a.click();
+      },
+      copyTableToClipboard(tbl) {
+        if (!tbl) return;
+        const text = [...tbl.querySelectorAll('tr')]
+          .map(tr => [...tr.querySelectorAll('th,td')].map(c => c.innerText.replace(/\n/g, ' ').trim()).join('\t'))
+          .join('\n');
+        navigator.clipboard.writeText(text).catch(() => {});
+      },
+      exportTableToXLS(tbl, filename) {
+        if (!tbl) return;
+        const wb = XLSX.utils.table_to_book(tbl, { sheet: 'Data' });
+        XLSX.writeFile(wb, filename + '.xlsx');
+      },
+      exportElementToPNG(el, filename) {
+        if (!el || typeof html2canvas === 'undefined') return;
+        html2canvas(el, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+          const a = document.createElement('a');
+          a.href = canvas.toDataURL('image/png');
+          a.download = filename + '.png';
+          a.click();
+        });
       },
     },
     watch: {
