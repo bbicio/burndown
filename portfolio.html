@@ -60,18 +60,18 @@
           <div class="d-flex align-items-center gap-2 flex-wrap">
             <span class="fw-bold">📊 Budget Summary</span>
             <span class="small text-muted">{{ pinnedSummary.cfgs.length }} project{{ pinnedSummary.cfgs.length===1?'':'s' }}:</span>
-            <span class="badge" v-for="c in pinnedSummary.cfgs" :key="c.id" style="background:#e9ecef;color:#495057;font-weight:500">{{ fmtProjectTitle(c) }}</span>
+            <span class="badge" v-for="c in pinnedSummary.cfgs" :key="c.id" style="background:var(--surface-medium);color:#495057;font-weight:500">{{ fmtProjectTitle(c) }}</span>
           </div>
         </div>
         <div class="table-responsive p-2">
           <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
             <thead style="background:var(--indigo-50)">
-              <tr><th style="min-width:140px"></th><th v-for="ym in pinnedSummary.months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end fw-bold" style="min-width:100px;background:#e0e3f5">Total</th></tr>
+              <tr><th style="min-width:140px"></th><th v-for="ym in pinnedSummary.months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end fw-bold" style="min-width:100px;background:var(--portfolio-indigo-totals-bg)">Total</th></tr>
             </thead>
             <tbody>
-              <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in pinnedSummary.months" :key="ym" class="text-end">{{ fmtMoney(pinnedSummary.phasing[ym]) }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ fmtMoney(pinnedSummary.grandEst) }}</td></tr>
-              <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in pinnedSummary.months" :key="ym" class="text-end">{{ fmtMoney(pinnedSummary.spent[ym]) }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ fmtMoney(pinnedSummary.grandSpent) }}</td></tr>
-              <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in pinnedSummary.months" :key="ym" class="text-end fw-semibold" :style="{color: varColor(pinnedSummary.phasing[ym]-pinnedSummary.spent[ym])}">{{ fmtVar(pinnedSummary.phasing[ym]-pinnedSummary.spent[ym]) }}</td><td class="text-end fw-bold" :style="{background:'#f0f0f0',color: varColor(pinnedSummary.grandVar)}">{{ fmtVar(pinnedSummary.grandVar) }}</td></tr>
+              <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in pinnedSummary.months" :key="ym" class="text-end">{{ fmtMoney(pinnedSummary.phasing[ym]) }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ fmtMoney(pinnedSummary.grandEst) }}</td></tr>
+              <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in pinnedSummary.months" :key="ym" class="text-end">{{ fmtMoney(pinnedSummary.spent[ym]) }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ fmtMoney(pinnedSummary.grandSpent) }}</td></tr>
+              <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in pinnedSummary.months" :key="ym" class="text-end fw-semibold" :style="{color: varColor(pinnedSummary.phasing[ym]-pinnedSummary.spent[ym])}">{{ fmtVar(pinnedSummary.phasing[ym]-pinnedSummary.spent[ym]) }}</td><td class="text-end fw-bold" :style="{background:'var(--portfolio-totals-bg)',color: varColor(pinnedSummary.grandVar)}">{{ fmtVar(pinnedSummary.grandVar) }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -88,7 +88,7 @@
               <span class="text-muted ms-2" style="font-size:var(--text-sm);font-family:monospace">{{ prog.id }}</span>
             </div>
             <span v-html="pipelineBadge(prog.domPipeline)"></span>
-            <span class="badge" style="background:#ede8ff;color:var(--violet-500);font-size:var(--text-xs)">{{ prog.children.length }} project{{ prog.children.length===1?'':'s' }}</span>
+            <span class="badge" style="background:var(--portfolio-violet-tint-bg);color:var(--violet-500);font-size:var(--text-xs)">{{ prog.children.length }} project{{ prog.children.length===1?'':'s' }}</span>
           </div>
           <div class="d-flex align-items-center gap-2">
             <button class="btn btn-sm btn-outline-secondary" style="font-size:var(--text-sm)" @click="openShareModal('program', prog.id, prog.name)">🔗 Share Program</button>
@@ -99,82 +99,86 @@
         </div>
         <div class="table-responsive px-3 pb-2" style="background:var(--violet-50)" v-if="programSummary(prog.children)">
           <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
-            <thead style="background:#ede8ff">
-              <tr><th style="min-width:140px"></th><th v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end fw-bold" style="min-width:100px;background:#ddd8f5">{{ programSummary(prog.children).totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="programSummary(prog.children).totalPtc > 0" class="text-end fw-bold" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr>
+            <thead style="background:var(--portfolio-violet-tint-bg)">
+              <tr><th style="min-width:140px"></th><th v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end fw-bold" style="min-width:100px;background:var(--portfolio-violet-totals-bg)">{{ programSummary(prog.children).totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="programSummary(prog.children).totalPtc > 0" class="text-end fw-bold" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr>
             </thead>
             <tbody>
-              <tr style="background:#faf8ff"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end">{{ fmtMoney(programSummary(prog.children).phasing[ym]) }}</td><td class="text-end fw-bold" style="background:#f0eeff">{{ fmtMoney(programSummary(prog.children).grandEst) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(programSummary(prog.children).totalPtc) }}</td></tr>
-              <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end">{{ fmtMoney(programSummary(prog.children).spent[ym]) }}</td><td class="text-end fw-bold" style="background:#f0eeff">{{ fmtMoney(programSummary(prog.children).grandSpent) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
-              <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end fw-semibold" :style="{color: varColor(programSummary(prog.children).phasing[ym]-programSummary(prog.children).spent[ym])}">{{ fmtVar(programSummary(prog.children).phasing[ym]-programSummary(prog.children).spent[ym]) }}</td><td class="text-end fw-bold" :style="{background:'#f0eeff',color: varColor(programSummary(prog.children).grandVar)}">{{ fmtVar(programSummary(prog.children).grandVar) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+              <tr style="background:var(--portfolio-violet-row-bg)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end">{{ fmtMoney(programSummary(prog.children).phasing[ym]) }}</td><td class="text-end fw-bold" style="background:var(--portfolio-violet-row2-bg)">{{ fmtMoney(programSummary(prog.children).grandEst) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(programSummary(prog.children).totalPtc) }}</td></tr>
+              <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end">{{ fmtMoney(programSummary(prog.children).spent[ym]) }}</td><td class="text-end fw-bold" style="background:var(--portfolio-violet-row2-bg)">{{ fmtMoney(programSummary(prog.children).grandSpent) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+              <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end fw-semibold" :style="{color: varColor(programSummary(prog.children).phasing[ym]-programSummary(prog.children).spent[ym])}">{{ fmtVar(programSummary(prog.children).phasing[ym]-programSummary(prog.children).spent[ym]) }}</td><td class="text-end fw-bold" :style="{background:'var(--portfolio-violet-row2-bg)',color: varColor(programSummary(prog.children).grandVar)}">{{ fmtVar(programSummary(prog.children).grandVar) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
             </tbody>
           </table>
         </div>
         <div v-if="expandedPrograms.has(prog.id)" class="prog-children">
           <div class="prog-project-list px-2 pb-2 pt-1">
-            <div class="section-card mb-4" v-for="cfg in prog.children" :key="cfg.id" v-if="cardData(cfg)">
+            <template v-for="cfg in prog.children" :key="cfg.id">
+            <div class="section-card mb-4" v-if="cardDataMap[cfg.id]">
               <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                   <span>📁 {{ fmtProjectTitle(cfg) }}</span>
                   <span v-if="cfg.code" class="text-muted small">{{ cfg.code }}</span>
                   <span v-html="pipelineBadge(getProjectPipeline(cfg.id) || cfg.pipeline)"></span>
                   <span v-html="statusBadgeLarge(cfg.status)"></span>
-                  <span v-if="!cardData(cfg).hasData" class="badge bg-warning text-dark">no XLS data</span>
-                  <span v-if="cardData(cfg).budgetBadgeHtml" v-html="cardData(cfg).budgetBadgeHtml"></span>
+                  <span v-if="!cardDataMap[cfg.id].hasData" class="badge bg-warning text-dark">no XLS data</span>
+                  <span v-if="cardDataMap[cfg.id].budgetBadgeHtml" v-html="cardDataMap[cfg.id].budgetBadgeHtml"></span>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
                   <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="window.location.href = '/project-config.html?projectId=' + encodeURIComponent(cfg.id)">⚙️ Configure</button>
                   <button class="btn btn-sm btn-outline-secondary" title="Share project" @click="openShareModal('project', cfg.id, cfg.name || cfg.id)">🔗 Share</button>
                   <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" title="Upload XLS actuals for this project" @click="triggerLoadActuals(cfg.id)">📂 Load Actuals</button>
                   <button class="btn btn-sm btn-outline-secondary" @click="goPlanningForProject(cfg.id)">📅 Planning</button>
-                  <button class="btn btn-sm" :class="cardData(cfg).hasData ? 'btn-primary' : 'btn-outline-secondary'" :disabled="!cardData(cfg).hasData" @click="showDashboard(cfg.id)">📊 View Report →</button>
+                  <button class="btn btn-sm" :class="cardDataMap[cfg.id].hasData ? 'btn-primary' : 'btn-outline-secondary'" :disabled="!cardDataMap[cfg.id].hasData" @click="showDashboard(cfg.id)">📊 View Report →</button>
                 </div>
               </div>
               <div class="table-responsive p-2">
                 <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
-                  <thead style="background:var(--indigo-50)"><tr><th style="min-width:110px"></th><th v-for="ym in cardData(cfg).months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end" style="min-width:90px;background:#e9ecef">{{ cardData(cfg).totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="cardData(cfg).totalPtc > 0" class="text-end" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr></thead>
+                  <thead style="background:var(--indigo-50)"><tr><th style="min-width:110px"></th><th v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end" style="min-width:90px;background:var(--surface-medium)">{{ cardDataMap[cfg.id].totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr></thead>
                   <tbody>
-                    <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in cardData(cfg).months" :key="ym" class="text-end">{{ cardData(cfg).hasPhasing ? fmtMoney(cfg.phasing?.[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ cardData(cfg).hasPhasing ? fmtMoney(cardData(cfg).totalPhasing) : '—' }}</td><td v-if="cardData(cfg).totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(cardData(cfg).totalPtc) }}</td></tr>
-                    <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in cardData(cfg).months" :key="ym" class="text-end">{{ cardData(cfg).hasData ? fmtMoney(cardData(cfg).monthSpend[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ cardData(cfg).hasData ? fmtMoney(cardData(cfg).totalSpent) : '—' }}</td><td v-if="cardData(cfg).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
-                    <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in cardData(cfg).months" :key="ym" class="text-end" :style="varCellStyle(cfg, ym)">{{ varCellText(cfg, ym) }}</td><td class="text-end fw-bold" :style="{background:'#f0f0f0', color: (cardData(cfg).hasData && cardData(cfg).hasPhasing) ? varColor(cardData(cfg).totalVar) : undefined}">{{ (cardData(cfg).hasData && cardData(cfg).hasPhasing) ? fmtVar(cardData(cfg).totalVar) : '—' }}</td><td v-if="cardData(cfg).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+                    <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cfg.phasing?.[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cardDataMap[cfg.id].totalPhasing) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(cardDataMap[cfg.id].totalPtc) }}</td></tr>
+                    <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].monthSpend[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].totalSpent) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+                    <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end" :style="varCellStyle(cfg, ym, cardDataMap[cfg.id])">{{ varCellText(cfg, ym, cardDataMap[cfg.id]) }}</td><td class="text-end fw-bold" :style="{background:'var(--portfolio-totals-bg)', color: (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? varColor(cardDataMap[cfg.id].totalVar) : undefined}">{{ (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? fmtVar(cardDataMap[cfg.id].totalVar) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
                   </tbody>
                 </table>
               </div>
             </div>
+            </template>
           </div>
         </div>
       </div>
 
       <!-- Ungrouped projects -->
-      <div class="section-card mb-4" v-for="cfg in ungroupedProjects" :key="cfg.id" v-if="cardData(cfg)">
+      <template v-for="cfg in ungroupedProjects" :key="cfg.id">
+      <div class="section-card mb-4" v-if="cardDataMap[cfg.id]">
         <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div class="d-flex align-items-center gap-2 flex-wrap">
             <span>📁 {{ fmtProjectTitle(cfg) }}</span>
             <span v-if="cfg.code" class="text-muted small">{{ cfg.code }}</span>
             <span v-html="pipelineBadge(getProjectPipeline(cfg.id) || cfg.pipeline)"></span>
             <span v-html="statusBadgeLarge(cfg.status)"></span>
-            <span v-if="!cardData(cfg).hasData" class="badge bg-warning text-dark">no XLS data</span>
-            <span v-if="cardData(cfg).budgetBadgeHtml" v-html="cardData(cfg).budgetBadgeHtml"></span>
+            <span v-if="!cardDataMap[cfg.id].hasData" class="badge bg-warning text-dark">no XLS data</span>
+            <span v-if="cardDataMap[cfg.id].budgetBadgeHtml" v-html="cardDataMap[cfg.id].budgetBadgeHtml"></span>
           </div>
           <div class="d-flex gap-2 flex-wrap">
             <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="window.location.href = '/project-config.html?projectId=' + encodeURIComponent(cfg.id)">⚙️ Configure</button>
             <button class="btn btn-sm btn-outline-secondary" title="Share project" @click="openShareModal('project', cfg.id, cfg.name || cfg.id)">🔗 Share</button>
             <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" title="Upload XLS actuals for this project" @click="triggerLoadActuals(cfg.id)">📂 Load Actuals</button>
             <button class="btn btn-sm btn-outline-secondary" @click="goPlanningForProject(cfg.id)">📅 Planning</button>
-            <button class="btn btn-sm" :class="cardData(cfg).hasData ? 'btn-primary' : 'btn-outline-secondary'" :disabled="!cardData(cfg).hasData" @click="showDashboard(cfg.id)">📊 View Report →</button>
-            <button class="btn btn-sm" :class="portfolioSummaryProjects.has(cfg.id) ? 'btn-success' : 'btn-outline-secondary'" @click="toggleSummary(cfg.id)">{{ portfolioSummaryProjects.has(cfg.id) ? '✓ Summary' : '＋ Summary' }}</button>
+            <button class="btn btn-sm" :class="cardDataMap[cfg.id].hasData ? 'btn-primary' : 'btn-outline-secondary'" :disabled="!cardDataMap[cfg.id].hasData" @click="showDashboard(cfg.id)">📊 View Report →</button>
+            <button class="btn btn-sm" :class="isPinnedSummary(cfg.id) ? 'btn-success' : 'btn-outline-secondary'" @click="toggleSummary(cfg.id)">{{ isPinnedSummary(cfg.id) ? '✓ Summary' : '＋ Summary' }}</button>
           </div>
         </div>
         <div class="table-responsive p-2">
           <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
-            <thead style="background:var(--indigo-50)"><tr><th style="min-width:110px"></th><th v-for="ym in cardData(cfg).months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end" style="min-width:90px;background:#e9ecef">{{ cardData(cfg).totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="cardData(cfg).totalPtc > 0" class="text-end" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr></thead>
+            <thead style="background:var(--indigo-50)"><tr><th style="min-width:110px"></th><th v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end" style="min-width:90px;background:var(--surface-medium)">{{ cardDataMap[cfg.id].totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr></thead>
             <tbody>
-              <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in cardData(cfg).months" :key="ym" class="text-end">{{ cardData(cfg).hasPhasing ? fmtMoney(cfg.phasing?.[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ cardData(cfg).hasPhasing ? fmtMoney(cardData(cfg).totalPhasing) : '—' }}</td><td v-if="cardData(cfg).totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(cardData(cfg).totalPtc) }}</td></tr>
-              <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in cardData(cfg).months" :key="ym" class="text-end">{{ cardData(cfg).hasData ? fmtMoney(cardData(cfg).monthSpend[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:#f0f0f0">{{ cardData(cfg).hasData ? fmtMoney(cardData(cfg).totalSpent) : '—' }}</td><td v-if="cardData(cfg).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
-              <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in cardData(cfg).months" :key="ym" class="text-end" :style="varCellStyle(cfg, ym)">{{ varCellText(cfg, ym) }}</td><td class="text-end fw-bold" :style="{background:'#f0f0f0', color: (cardData(cfg).hasData && cardData(cfg).hasPhasing) ? varColor(cardData(cfg).totalVar) : undefined}">{{ (cardData(cfg).hasData && cardData(cfg).hasPhasing) ? fmtVar(cardData(cfg).totalVar) : '—' }}</td><td v-if="cardData(cfg).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+              <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cfg.phasing?.[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cardDataMap[cfg.id].totalPhasing) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(cardDataMap[cfg.id].totalPtc) }}</td></tr>
+              <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].monthSpend[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].totalSpent) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+              <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end" :style="varCellStyle(cfg, ym, cardDataMap[cfg.id])">{{ varCellText(cfg, ym, cardDataMap[cfg.id]) }}</td><td class="text-end fw-bold" :style="{background:'var(--portfolio-totals-bg)', color: (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? varColor(cardDataMap[cfg.id].totalVar) : undefined}">{{ (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? fmtVar(cardDataMap[cfg.id].totalVar) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
             </tbody>
           </table>
         </div>
       </div>
+      </template>
     </template>
   </template>
 
@@ -203,7 +207,7 @@
               <span v-else class="dropdown-item disabled d-flex align-items-center gap-2 py-2" style="opacity:.45;cursor:default">
                 <span class="fw-semibold">{{ s.name || s.id }}</span>
                 <span v-if="s.code" class="text-muted small" style="font-family:monospace">{{ s.code }}</span>
-                <span class="ms-auto d-inline-flex gap-1 align-items-center" v-html="s.badgesHtml"><span class="text-muted small ms-1" style="font-size:var(--text-xs)">no data</span></span>
+                <span class="ms-auto d-inline-flex gap-1 align-items-center" v-html="s.badgesHtml"></span>
               </span>
             </li>
           </ul>
@@ -282,7 +286,7 @@
                 <td :class="[monthlySummary.hasPtc ? 'text-end' : 'text-end pe-3', {'text-danger fw-bold': m.bVar !== null && m.bVar < 0}]">{{ m.bVar !== null ? fmtMoney(m.bVar) : '—' }}</td>
                 <td v-if="monthlySummary.hasPtc" class="text-end pe-3 border-start">{{ m.ptc > 0 ? fmtMoney(m.ptc) : '—' }}</td>
               </tr>
-              <tr class="fw-bold" style="background:#e9ecef;">
+              <tr class="fw-bold" style="background:var(--surface-medium);">
                 <td class="ps-3">TOTAL</td>
                 <td class="text-end border-start">{{ monthlySummary.totEstimatedHours !== null ? fmtH(monthlySummary.totEstimatedHours) : '—' }}</td>
                 <td class="text-end">{{ fmtH(monthlySummary.totHours) }}</td>
@@ -311,7 +315,7 @@
                 <td class="text-muted small">{{ p.note || '' }}</td>
                 <td class="text-end pe-3 fw-semibold">{{ fmtMoney(p.amount || 0) }}</td>
               </tr>
-              <tr class="fw-bold" style="background:#e9ecef;"><td class="ps-3" colspan="3">TOTAL</td><td class="text-end pe-3">{{ fmtMoney(ptcReport.total) }}</td></tr>
+              <tr class="fw-bold" style="background:var(--surface-medium);"><td class="ps-3" colspan="3">TOTAL</td><td class="text-end pe-3">{{ fmtMoney(ptcReport.total) }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -346,7 +350,7 @@
               <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ fmtMoney(c.soldEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totSold) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByTask, filterHasFilter).totSoldEur) }}</span></td></tr>
               <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totSpent) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByTask, filterHasFilter).totSpentEur) }}</span></td></tr>
               <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ fmtMoney(c.inPeriodEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByTask, filterHasFilter).totInPeriod) : '—' }}</td></tr>
-              <tr style="background:#e9ecef;"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByTask" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(c.soldEur - c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByTask, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totResidual) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByTask, filterHasFilter).totResidualEur) }}</span></td></tr>
+              <tr style="background:var(--surface-medium);"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByTask" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(c.soldEur - c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByTask, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totResidual) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByTask, filterHasFilter).totResidualEur) }}</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -363,7 +367,7 @@
               <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ fmtMoney(c.soldEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totSold) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByRole, filterHasFilter).totSoldEur) }}</span></td></tr>
               <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totSpent) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByRole, filterHasFilter).totSpentEur) }}</span></td></tr>
               <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ fmtMoney(c.inPeriodEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByRole, filterHasFilter).totInPeriod) : '—' }}</td></tr>
-              <tr style="background:#e9ecef;"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByRole" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(c.soldEur - c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByRole, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totResidual) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByRole, filterHasFilter).totResidualEur) }}</span></td></tr>
+              <tr style="background:var(--surface-medium);"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByRole" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(c.soldEur - c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByRole, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totResidual) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByRole, filterHasFilter).totResidualEur) }}</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -380,7 +384,7 @@
               <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ fmtMoney(c.soldEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totSold) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByGroup, filterHasFilter).totSoldEur) }}</span></td></tr>
               <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totSpent) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByGroup, filterHasFilter).totSpentEur) }}</span></td></tr>
               <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ fmtMoney(c.inPeriodEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByGroup, filterHasFilter).totInPeriod) : '—' }}</td></tr>
-              <tr style="background:#e9ecef;"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(c.soldEur - c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByGroup, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totResidual) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByGroup, filterHasFilter).totResidualEur) }}</span></td></tr>
+              <tr style="background:var(--surface-medium);"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(c.soldEur - c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByGroup, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totResidual) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByGroup, filterHasFilter).totResidualEur) }}</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -405,7 +409,7 @@
                 <td class="text-end">{{ fmtH(r.consumedPeriod) }}<span class="eur-sub">{{ fmtMoney(r.consumedPeriodEur) }}</span></td>
                 <td class="text-end pe-3" :class="{'fw-bold text-danger': r.remaining !== null && r.remaining < 0}">{{ r.remaining !== null ? fmtH(r.remaining) : '—' }}<span v-if="r.remainingEur !== null" class="eur-sub" :class="{danger: r.remainingEur < 0}">{{ fmtMoney(r.remainingEur) }}</span></td>
               </tr>
-              <tr class="fw-bold" style="background:#e9ecef;">
+              <tr class="fw-bold" style="background:var(--surface-medium);">
                 <td class="ps-3">TOTAL</td>
                 <td class="text-end">{{ fmtH(entry.totSold) }}<span class="eur-sub">{{ fmtMoney(entry.totSoldEur) }}</span></td>
                 <td class="text-end">{{ fmtH(entry.totPeriod) }}<span class="eur-sub">{{ fmtMoney(entry.totPeriodEur) }}</span></td>
@@ -564,6 +568,11 @@
           !(cfg.programId && programs.find(p => p.id === cfg.programId))
         );
       },
+      cardDataMap() {
+        const map = {};
+        this.projects.forEach(cfg => { map[cfg.id] = this.cardData(cfg); });
+        return map;
+      },
       pinnedSummary() {
         const cfgs = this.projects.filter(p => portfolioSummaryProjects.has(p.id));
         if (!cfgs.length) return null;
@@ -585,9 +594,11 @@
         return { cfgs, months, phasing, spent, grandEst, grandSpent, grandVar: grandEst - grandSpent };
       },
       dashboardProject() {
+        this.refreshTick; // see computed.projects: guards against a future dashboard-view mutation of config.projects going unnoticed
         return this.dashboardProjectId ? (config.projects || []).find(p => p.id === this.dashboardProjectId) : null;
       },
       dashboardData() {
+        this.refreshTick; // see computed.projects: guards against a future dashboard-view mutation of timesheetData going unnoticed
         return this.dashboardProjectId ? timesheetData.filter(r => r.projectId === this.dashboardProjectId) : [];
       },
       kpis() {
@@ -839,6 +850,7 @@
 
       await Promise.all([loadClientsFromApi(), loadProgramsFromApi()]);
       await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
+      this.refreshTick++; // mount() runs before this async data load resolves, so `projects` (and everything chained off it) must be nudged once data is actually in
 
       document.getElementById('fileInput').addEventListener('change', async e => {
         const f = e.target.files[0]; e.target.value = '';
@@ -863,8 +875,17 @@
       pipelineBadge,
       fmtMoney,
       fmtDate,
+      fmtH,
       getProjectPipeline,
       statusBadgeLarge,
+      openAiAnalysis,
+      openShareModal,
+      isPinnedSummary(id) {
+        // template expressions resolve bare identifiers through the component instance only (never
+        // fall through to window in Vue 3's runtime-compiled mode), so the global Set must be read
+        // dynamically here rather than referenced bare in the template or captured once by value
+        return portfolioSummaryProjects.has(id);
+      },
       taskState(taskName) {
         if (!this.taskDetailState[taskName]) {
           this.taskDetailState[taskName] = { expanded: false, groupMode: 'flat' };
@@ -1011,14 +1032,12 @@
           : '';
         return { months, monthSpend, hasData, hasPhasing, totalPtc, totalSpent, totalPhasing, totalVar, budgetBadgeHtml };
       },
-      varCellStyle(cfg, ym) {
-        const cd = this.cardData(cfg);
+      varCellStyle(cfg, ym, cd) {
         if (!cd.hasData || !cd.hasPhasing) return {};
         const v = (cfg.phasing?.[ym]||0) - (cd.monthSpend[ym]||0);
         return { color: this.varColor(v), fontWeight: 600 };
       },
-      varCellText(cfg, ym) {
-        const cd = this.cardData(cfg);
+      varCellText(cfg, ym, cd) {
         if (!cd.hasData || !cd.hasPhasing) return '—';
         const v = (cfg.phasing?.[ym]||0) - (cd.monthSpend[ym]||0);
         return `${v>=0?'+':''}${this.fmtMoney ? this.fmtMoney(v) : fmtMoney(v)}`;
@@ -1049,6 +1068,7 @@
         this.dashboardReady = true;
         selectedProjectId = pid;
         const cfg = this.dashboardProject;
+        currentCfg = cfg; // js/core.js's fmtMoney(n) falls back to currentCfg?.currency when no explicit currencyCode is passed
         if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
           { label: 'Home', href: '/pipeline.html' },
           { label: 'Project Portfolio', href: '/portfolio.html' },

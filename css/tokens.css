@@ -71,6 +71,14 @@
   --color-info:         #0dcaf0;
   --color-info-bg:      #cff4fc;
 
+  /* ── Portfolio summary table tints (Budget Summary / program rollup tables) ── */
+  --portfolio-totals-bg:        #f0f0f0;
+  --portfolio-indigo-totals-bg: #e0e3f5;
+  --portfolio-violet-tint-bg:   #ede8ff;
+  --portfolio-violet-totals-bg: #ddd8f5;
+  --portfolio-violet-row-bg:    #faf8ff;
+  --portfolio-violet-row2-bg:   #f0eeff;
+
   /* ── KPI card accent colours ── */
   --kpi-blue:   #0d6efd;
   --kpi-green:  #198754;
