@@ -59,21 +59,28 @@ API_PORT=3001
 DB_PORT=5433
 ADMINER_PORT=8082
 
+# Why !override on ports: Docker Compose concatenates list-type fields (like
+# ports) across -f files instead of replacing them — container_name, a
+# scalar, is replaced correctly, but a plain `ports: [...]` override would
+# add to the base file's ports rather than replace them, causing this
+# service to try to bind both the base port and the branch port. !override
+# (Compose Specification merge tag, supported since Compose v2.24) forces
+# a full replace instead.
 write_override() {
   cat > "$OVERRIDE_FILE" <<EOF
 services:
   db:
     container_name: ${DB_CONTAINER}
-    ports: ["${DB_PORT}:5432"]
+    ports: !override ["${DB_PORT}:5432"]
   api:
     container_name: ${API_CONTAINER}
-    ports: ["${API_PORT}:3000"]
+    ports: !override ["${API_PORT}:3000"]
   nginx:
     container_name: pdash-nginx-${SANITIZED}
-    ports: ["${FRONTEND_PORT}:80"]
+    ports: !override ["${FRONTEND_PORT}:80"]
   adminer:
     container_name: pdash-adminer-${SANITIZED}
-    ports: ["${ADMINER_PORT}:8080"]
+    ports: !override ["${ADMINER_PORT}:8080"]
 EOF
 }
 
