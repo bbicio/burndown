@@ -668,7 +668,7 @@ burndown/
     style.css
   js/
     api.js                ← Api.* namespace, apiFetch wrapper
-    api-sync.js           ← in-memory ↔ API sync helpers (_cgStore, config.projects, timesheetData); `_pushProjectToApi` maps currency symbol → ISO code (`'€'→'EUR'`, `'$'→'USD'`, `'£'→'GBP'`) before PATCH to satisfy `currencies` FK; `_apiProjectToLocal` maps ISO code → symbol for the form select
+    api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData; `_cgStore` itself lives in costgrid.js — this file's `cgSyncFromApi` populates it); `_pushProjectToApi` maps currency symbol → ISO code (`'€'→'EUR'`, `'$'→'USD'`, `'£'→'GBP'`) before PATCH to satisfy `currencies` FK; `_apiProjectToLocal` maps ISO code → symbol for the form select; `costGridRef.cgId` is read directly from `GET /api/projects`'s server-resolved `cg_id` (a JOIN to `cost_grid_versions`), not from `_cgStore` — fixed 2026-07 after `_resolveCgIdForVersion()`/`_cgStore` (only declared in costgrid.js) threw on pages that don't load that script (`portfolio.html`, `project-config.html`), silently emptying `config.projects` there
     core.js               ← state, in-memory helpers (loadConfig/persistConfig no-ops), shared helpers; `statusBadge()` small style for pipeline cards; `statusBadgeLarge()` same as `pipelineBadge` style — used only in linked-project chips
     nav.js                ← navbar injection, initNav(); injects settings, change-pwd, and "My Profile" modals; T&C gate (redirects to /terms.html if user.terms_version < current_terms_version); calls initNotifications()
     shares.js             ← generic share modal
