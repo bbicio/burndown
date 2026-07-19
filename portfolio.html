@@ -123,7 +123,7 @@
                   <span v-if="cardDataMap[cfg.id].budgetBadgeHtml" v-html="cardDataMap[cfg.id].budgetBadgeHtml"></span>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
-                  <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="window.location.href = '/project-config.html?projectId=' + encodeURIComponent(cfg.id)">⚙️ Configure</button>
+                  <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="goConfigure(cfg.id)">⚙️ Configure</button>
                   <button class="btn btn-sm btn-outline-secondary" title="Share project" @click="openShareModal('project', cfg.id, cfg.name || cfg.id)">🔗 Share</button>
                   <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" title="Upload XLS actuals for this project" @click="triggerLoadActuals(cfg.id)">📂 Load Actuals</button>
                   <button class="btn btn-sm btn-outline-secondary" @click="goPlanningForProject(cfg.id)">📅 Planning</button>
@@ -159,7 +159,7 @@
             <span v-if="cardDataMap[cfg.id].budgetBadgeHtml" v-html="cardDataMap[cfg.id].budgetBadgeHtml"></span>
           </div>
           <div class="d-flex gap-2 flex-wrap">
-            <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="window.location.href = '/project-config.html?projectId=' + encodeURIComponent(cfg.id)">⚙️ Configure</button>
+            <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="goConfigure(cfg.id)">⚙️ Configure</button>
             <button class="btn btn-sm btn-outline-secondary" title="Share project" @click="openShareModal('project', cfg.id, cfg.name || cfg.id)">🔗 Share</button>
             <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" title="Upload XLS actuals for this project" @click="triggerLoadActuals(cfg.id)">📂 Load Actuals</button>
             <button class="btn btn-sm btn-outline-secondary" @click="goPlanningForProject(cfg.id)">📅 Planning</button>
@@ -216,7 +216,7 @@
       <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
         <div><button class="btn btn-outline-secondary btn-sm" @click="showOverview">← Portfolio</button></div>
         <div class="d-flex gap-2">
-          <button v-if="dashboardProject?.my_permission !== 'viewer'" class="btn btn-outline-secondary btn-sm" @click="window.location.href = '/project-config.html?projectId=' + encodeURIComponent(dashboardProjectId)">⚙️ Configure</button>
+          <button v-if="dashboardProject?.my_permission !== 'viewer'" class="btn btn-outline-secondary btn-sm" @click="goConfigure(dashboardProjectId)">⚙️ Configure</button>
           <button class="btn btn-outline-secondary btn-sm" @click="goPlanningForProject(dashboardProjectId)">📅 Planning</button>
           <button v-if="hasAiKey()" class="btn btn-outline-secondary btn-sm" @click="openAiAnalysis()">🤖 AI Analysis</button>
           <button class="btn btn-outline-secondary btn-sm" @click="openShareModal('project', dashboardProjectId, dashboardProject?.name || dashboardProjectId)">🔗 Share</button>
@@ -1053,6 +1053,9 @@
       },
       goPlanningForProject(id) {
         window.location.href = '/planning.html?projectId=' + encodeURIComponent(id);
+      },
+      goConfigure(id) {
+        window.location.href = '/project-config.html?projectId=' + encodeURIComponent(id);
       },
       esc,
       hasAiKey,

@@ -424,6 +424,14 @@
       this.ready = true;
     },
     methods: {
+      getClients,
+      getPrograms,
+      // cfgFmtHours/cfgParseHours are bridged from a deferred ES module (js/lib/cfg-parse.js) onto
+      // window; a bare shorthand re-export here would evaluate before the module has run (this
+      // object literal builds at classic-script parse time), so these wrap the call in a method
+      // body instead, which only executes later, once the bridge is guaranteed to exist.
+      cfgFmtHours(n) { return window.cfgFmtHours(n); },
+      cfgParseHours(s) { return window.cfgParseHours(s); },
       resolveProject() {
         const params = new URLSearchParams(window.location.search);
         const projectId = params.get('projectId');
