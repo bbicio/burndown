@@ -319,7 +319,7 @@ function getProjectPipeline(projectId) {
   const proj = (config.projects || []).find(p => p.id === projectId);
   if (!proj) return '';
   const ref = proj.costGridRef;
-  if (ref?.cgId) {
+  if (ref?.cgId && typeof cgLoad === 'function') {
     const cg  = cgLoad(ref.cgId);
     const ver = cg?.versions.find(v => v.versionId === ref.versionId);
     if (ver?.pipeline) return ver.pipeline;
