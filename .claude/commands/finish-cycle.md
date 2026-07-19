@@ -23,15 +23,22 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 
 ## Gate 2 — MANUAL VERIFICATION (human gate, always confirms)
 
-1. Run `git log --diff-filter=A main..HEAD -- docs/superpowers/` to find spec/plan files added inside this branch.
-2. Run `git log main..HEAD | grep -o 'docs/superpowers/[^ ]*\.md'` to find spec/plan files referenced in this branch's commit messages.
-3. Combine the two result sets (deduplicated):
+1. Run `scripts/test-branch.sh status`.
+   - If `down` (exit 1): ask explicitly "Spin up an isolated test environment for this branch now? [yes/no]"
+     - If yes: run `scripts/test-branch.sh up`. Record `<branch-env-active>` = true.
+     - If no: record `<branch-env-active>` = false, unless it was already true earlier in this same session (do not overwrite an existing true with false).
+   - If `up` (exit 0): ask explicitly "An isolated test environment for this branch is already running (from an earlier `/finish-cycle` run on this branch) — reuse it, or rebuild it with fresh data from main? [reuse/rebuild]"
+     - If reuse: do nothing further. Record `<branch-env-active>` = true.
+     - If rebuild: run `scripts/test-branch.sh down`, then `scripts/test-branch.sh up`. Record `<branch-env-active>` = true.
+2. Run `git log --diff-filter=A main..HEAD -- docs/superpowers/` to find spec/plan files added inside this branch.
+3. Run `git log main..HEAD | grep -o 'docs/superpowers/[^ ]*\.md'` to find spec/plan files referenced in this branch's commit messages.
+4. Combine the two result sets (deduplicated):
    - Exactly one unique file → read it and check for mentions of browser verification or jsdom-untestable behavior. Show the file path and what was found (or state "no explicit mention of manual verification found in this file" if none).
    - More than one → state explicitly: "Found N candidates: [list] — no automatic selection."
    - Zero → state explicitly: "No spec/plan reference found in this branch's commits."
-4. Regardless of the outcome in step 3, always ask explicitly: "Have you manually verified this in the browser? [yes/no]"
-   - If the answer is "no" or anything other than a clear yes: stop and wait. Do not proceed.
-   - If "yes": proceed to Gate 3.
+5. Regardless of the outcome in step 4, always ask explicitly: "Have you manually verified this in the browser? [yes/no]"
+   - If the answer is "no" or anything other than a clear yes: stop and wait. Do not proceed. Do not tear down the branch environment if `<branch-env-active>` is true — leave it running so the user can keep testing.
+   - If "yes": if `<branch-env-active>` is true, run `scripts/test-branch.sh down` to tear down the test stack. Then proceed to Gate 3.
 
 ## Gate 3 — CODE REVIEW (conditional human gate, max 3 rounds by default)
 
