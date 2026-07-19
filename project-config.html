@@ -26,6 +26,9 @@
   </div>
 
   <template v-else>
+    <div class="page-title-bar">
+      <h4 class="fw-bold mb-0">📁 {{ isNewProject ? 'New Project' : project.name }}</h4>
+    </div>
     <div v-if="jsonError" class="alert alert-danger py-2 small">{{ jsonError }}</div>
     <div v-if="isViewer" class="alert alert-info d-flex align-items-center gap-2 mb-3 rounded-0" style="position:sticky;top:0;z-index:100;font-size:.85rem">
       <span>👁 You have <strong>viewer</strong> access to this project — editing is disabled.</span>
