@@ -55,7 +55,7 @@ router.get('/', requireAuth, async (req, res, next) => {
 
     const { rows } = await query(
       `SELECT p.id, p.code, p.name, p.program_id, p.client_id, p.pipeline, p.status,
-              p.start_date, p.end_date, p.currency, p.cg_version_id, p.created_at,
+              p.start_date, p.end_date, p.currency, p.cg_version_id, cgv.cost_grid_id AS cg_id, p.created_at,
               p.owner_id, p.phasing, p.ptc, p.planning, p.groups,
               ${myPermCol}
               u.first_name || ' ' || u.last_name AS owner_name,
@@ -78,6 +78,7 @@ router.get('/', requireAuth, async (req, res, next) => {
        JOIN users u ON u.id = p.owner_id
        LEFT JOIN clients c ON c.id = p.client_id
        LEFT JOIN programs pr ON pr.id = p.program_id
+       LEFT JOIN cost_grid_versions cgv ON cgv.id = p.cg_version_id
        WHERE 1=1 ${visibilityClause}
        ORDER BY p.name`,
       isAdmin ? [] : [req.user.id]
