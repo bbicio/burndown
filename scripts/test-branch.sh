@@ -100,6 +100,17 @@ open_browser() {
   esac
 }
 
+status() {
+  if docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER" && \
+     docker ps --format '{{.Names}}' | grep -qx "$API_CONTAINER"; then
+    echo "up"
+    exit 0
+  else
+    echo "down"
+    exit 1
+  fi
+}
+
 up() {
   write_override
   echo "Starting isolated stack for branch '${BRANCH}' (project: ${PROJECT})..."
@@ -144,5 +155,6 @@ down() {
 case "${1:-up}" in
   up) up ;;
   down) down ;;
-  *) echo "Usage: $0 [up|down]" >&2; exit 1 ;;
+  status) status ;;
+  *) echo "Usage: $0 [up|down|status]" >&2; exit 1 ;;
 esac
