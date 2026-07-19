@@ -81,7 +81,7 @@ planning.html            — resource planning
 costgrid.html            — cost grid editor
 timesheets.html          — timesheet upload (admin only)
 config.html              — config UI (clients / client groups / programs / roles / pipelines & POT targets; admin only)
-project-config.html      — full-page project config form (tasks, phasing, planning, groups), Vue 3 (CDN, no build step, same pattern as admin.html); single reactive project object, not an array; unknown ?projectId= shows an explicit not-found state instead of falling back to a random project; no longer loads js/config-form.js or js/roles.js
+project-config.html      — full-page project config form (tasks, phasing, planning, groups), Vue 3 (CDN, no build step, same pattern as admin.html); single reactive project object, not an array; unknown ?projectId= shows an explicit not-found state instead of falling back to a random project; no longer loads js/config-form.js or js/roles.js; page-title-bar (matching portfolio.html/pipeline.html) shows the project's name (or "New Project" via isNewProject for the no-?projectId= creation flow); resolveProject() normalizes any task's monthlyDistribution: null (seen on real data) to {} — the Monthly % distribution grid's v-model indexes directly into it
 admin.html               — user management (invite, role, disable, anonymize; admin only); T&C editor (view/edit/publish)
 terms.html               — standalone T&C acceptance page (no navbar/initNav), Vue 3 (CDN, no build step, same pattern as login.html); redirected to by initNav() gate
 css/tokens.css           — design tokens (single source of truth for colors/type)
