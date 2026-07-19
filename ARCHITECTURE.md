@@ -694,7 +694,7 @@ burndown/
     clients.js / programs.js
   index.html              ← redirect → pipeline.html
   pipeline.html
-  portfolio.html
+  portfolio.html          ← portfolio overview + per-project dashboard, Vue 3 (CDN, no build step, same pattern as project-config.html); folds in the former js/portfolio.js + js/dashboard.js; adds js/lib/portfolio-calc.js (KPI/burndown math extraction, vitest-covered); no longer loads js/roles.js or js/config-form.js (the latter only served this page's own now-removed, previously-unreachable #configModal + nested CRUD modals)
   planning.html
   costgrid.html
   timesheets.html
@@ -734,7 +734,7 @@ New users start fresh: an admin creates an account via the invite flow, then use
 **Current localStorage usage** (only genuinely client-side keys remain):
 - `PDash_settings` — AI provider API keys (Anthropic/OpenAI/Gemini), stored per-device
 - `PDash_summary` — portfolio summary project selection (UI preference)
-- `reforecast_snapshot_<projectId>` — no longer written; `project-config.html`'s Vue 3 rewrite confirmed the rollback/snapshot feature was already unreachable on that page (no rollback button existed in its markup) and did not port it. The mechanism still exists in `js/config-form.js` (unchanged, still loaded by `portfolio.html`'s own orphaned `#configModal`) but has no reachable trigger anywhere in the app.
+- `reforecast_snapshot_<projectId>` — no longer written; `project-config.html`'s Vue 3 rewrite confirmed the rollback/snapshot feature was already unreachable on that page (no rollback button existed in its markup) and did not port it. The mechanism still exists in `js/config-form.js` (unchanged); `portfolio.html`'s own copy of that config modal was confirmed unreachable dead code and dropped entirely in its own Vue migration, but `js/config-form.js` remains loaded by `planning.html` — whether it's actually reachable there was not investigated and remains an open question.
 
 All server data (cost grids, projects, clients, programs, roles, timesheets) is fetched from the API on every page load into in-memory variables. No stale cross-session data is possible.
 

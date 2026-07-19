@@ -215,7 +215,7 @@ Today marker: the current week's column is highlighted (`gantt-today` class / `i
 
 **Purpose:** Show budget estimated vs. budget spent per project per month.
 
-**Portfolio summary table** (one row per KPI, one column per month, `portfolio.js:44-91`):
+**Portfolio summary table** (one row per KPI, one column per month; computed client-side in `portfolio.html`'s Vue instance, `pinnedSummary`/`programSummary` computed properties):
 
 | KPI | Calculation |
 |---|---|
@@ -223,7 +223,7 @@ Today marker: the current week's column is highlighted (`gantt-today` class / `i
 | Budget Spent | Σ timesheet hours for that month × the matching role's hourly rate |
 | Variance | Estimated − Spent |
 
-**Per-project drill-down KPI cards** (`portfolio.html:80-85`, computed by `dashboard.js:78-130`) — a separate set of cards shown when opening a single project, driven by task/config data rather than `phasing`:
+**Per-project drill-down KPI cards** — a separate set of cards shown when opening a single project, driven by task/config data rather than `phasing`; computed by `js/lib/portfolio-calc.js`'s `computeKpis()` (extracted, vitest-covered, from the former `js/dashboard.js`'s `renderKPIs`) and consumed by `portfolio.html`'s Vue `kpis` computed property:
 
 | KPI | Calculation |
 |---|---|
@@ -237,12 +237,18 @@ Today marker: the current week's column is highlighted (`gantt-today` class / `i
 Note the two tables are not interchangeable: the portfolio summary's "Budget Estimated" reads the manually-maintained/derived `phasing` grid (§7.1), while the drill-down's "Total Budget" is computed live from task sold-hours × rate and ignores `phasing` entirely — the two can disagree if `phasing` hasn't been kept in sync with the task data (e.g. after editing sold hours without re-running Derive/Reforecast).
 
 **Toolbar actions:**
-- **Load XLS** — upload an Excel timesheet file to import actuals
-- **Clients** — open Clients management modal
-- **Programs** — open Programs management modal
-- **Configure Portfolio** — open Project configuration panel
+- **＋ New project** — the only page-level toolbar action; navigates to `project-config.html`
 
-Configure Portfolio and Load Actuals are hidden for viewers (see §18.3).
+**Per-project card actions** (each project's own card, not a page toolbar):
+- **⚙️ Configure** — navigate to that project's `project-config.html`
+- **📂 Load Actuals** — upload an Excel timesheet file to import actuals for that project
+- **🔗 Share** — open the share modal
+- **📅 Planning** — navigate to `planning.html` for that project
+- **＋ Summary** (ungrouped projects only) — pin/unpin the project into the Budget Summary table at the top of the page
+
+Configure and Load Actuals are hidden for viewers (see §18.3).
+
+(Corrected 2026-07: this section previously described "Clients"/"Programs" management modals as page-level toolbar actions. Confirmed during `portfolio.html`'s 2026-07 Vue 3 migration that both were only ever reachable through `#configModal`, itself gated behind a `?configure=true` URL parameter no file in the repo ever set — i.e. already unreachable dead code before this migration, not a regression. `#configModal` and its nested clients/programs/roles CRUD were dropped entirely as part of that rewrite.)
 
 **View features:**
 - Projects grouped by program (expandable / collapsible)
@@ -252,13 +258,13 @@ Configure Portfolio and Load Actuals are hidden for viewers (see §18.3).
 
 ### 6.2 Monthly Summary Table
 
-Not a portfolio-wide bar chart — this is a **per-project table** in the drill-down view (`dashboard.js:340-452`), one row per month, columns grouped as Hours (Estimated / Consumed / Variance) and Budget (Estimated / Spent / Variance), plus a PTC column that only appears when the project has at least one pass-through-cost line item (`hasPtc`, `dashboard.js:366,409,433`). A TOTAL row sums every column.
+Not a portfolio-wide bar chart — this is a **per-project table** in the drill-down view (`portfolio.html`'s `monthlySummary` Vue computed property), one row per month, columns grouped as Hours (Estimated / Consumed / Variance) and Budget (Estimated / Spent / Variance), plus a PTC column that only appears when the project has at least one pass-through-cost line item (`hasPtc`). A TOTAL row sums every column.
 
 - Hours Estimated = `cfg.planning[YYYYMM]`; Hours Consumed = actual timesheet hours that month; Hours Variance = Estimated − Consumed.
 - Budget Estimated = `cfg.phasing[YYYYMM]`; Budget Spent = actual hours × role rate that month; Budget Variance = Estimated − Spent.
-- Variance highlighting is **one-sided**: negative variance (over budget/over hours) is shown in bold red (`text-danger fw-bold`, `dashboard.js:429,432`); there is no corresponding green styling for positive/under-budget variance — it renders in the default table text color.
+- Variance highlighting is **one-sided**: negative variance (over budget/over hours) is shown in bold red (`text-danger fw-bold`); there is no corresponding green styling for positive/under-budget variance — it renders in the default table text color.
 
-The only chart on this page is the burndown line chart described implicitly by §6.1 (Chart.js `type: 'line'`, `dashboard.js:296-297`) — there is no separate bar chart matching the portfolio-wide "estimated vs. spent per month across the portfolio" description that was previously here.
+The only chart on this page is the burndown line chart described implicitly by §6.1 (Chart.js `type: 'line'`, `renderBurndownChart()` method) — there is no separate bar chart matching the portfolio-wide "estimated vs. spent per month across the portfolio" description that was previously here.
 
 ---
 
@@ -295,7 +301,7 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 | Monthly distribution | % per month | Required for multi-month tasks |
 | Resources | role + sold hours + rate | Breakdown of sold effort |
 
-**Edit modes:** Visual form only. (A raw-JSON editor toggle exists in the underlying shared `js/config-form.js`, still used by `portfolio.html`'s own separate, orphaned config modal, but was confirmed unreachable on `project-config.html` — no toggle button existed in this page's markup — during its 2026-07 Vue 3 migration, and was not ported.)
+**Edit modes:** Visual form only. (A raw-JSON editor toggle exists in the underlying shared `js/config-form.js`, but was confirmed unreachable on `project-config.html` — no toggle button existed in this page's markup — during its 2026-07 Vue 3 migration, and was not ported. `portfolio.html`'s own separate copy of this config modal, which also referenced `js/config-form.js`, was confirmed unreachable and dropped entirely during that page's own 2026-07 Vue 3 migration; `js/config-form.js` itself remains loaded by `planning.html`, whose own reachability was not investigated.)
 
 **Other sections in the form:** Phasing (monthly budget distribution), Planning (monthly sold-hours distribution), and Functional Groups (named role groupings) — each a distinct area of the same full-page form.
 
@@ -316,7 +322,7 @@ Phasing and Planning are manual grids by default (one currency/hours input per m
 | Confirmation | Standard confirm modal | Modal explicitly states past months are replaced with actuals and future months are redistributed |
 | Persisted to server | Only when the user subsequently clicks the page's normal **Save** | Same — Save is a separate, explicit step |
 
-**No snapshot/rollback.** `project-config.html` has no `↩ Rollback` control and never saves a pre-run snapshot — confirmed, during that page's 2026-07 Vue 3 migration, to have been unreachable dead code already (`js/config-form.js` still contains the underlying `cfgSaveReforecastSnapshot`/`cfgRollbackReforecast` functions and localStorage mechanism, still exercised by `portfolio.html`'s own separate, orphaned config modal, but no live page reachable from normal navigation exposes a rollback button). A Derive/Reforecast run cannot be undone once it overwrites the on-screen grids, other than by reloading the page before clicking **Save** (which discards all unsaved edits, not just the derived/reforecasted ones).
+**No snapshot/rollback.** `project-config.html` has no `↩ Rollback` control and never saves a pre-run snapshot — confirmed, during that page's 2026-07 Vue 3 migration, to have been unreachable dead code already (`js/config-form.js` still contains the underlying `cfgSaveReforecastSnapshot`/`cfgRollbackReforecast` functions and localStorage mechanism; `portfolio.html`'s own separate copy of this config modal was confirmed unreachable and dropped entirely during that page's own 2026-07 Vue 3 migration, and no live page reachable from normal navigation exposes a rollback button). A Derive/Reforecast run cannot be undone once it overwrites the on-screen grids, other than by reloading the page before clicking **Save** (which discards all unsaved edits, not just the derived/reforecasted ones).
 
 **Blocking error case (Reforecast only):** if the carried-forward drift would push the first future month's distribution above 100%, Reforecast does not silently clamp or partially apply — it stops computing entirely (no task after the offending one is processed either) and shows an inline error message (not a native browser dialog, since a 2026-07 cleanup cycle removed all `alert()`/`window.confirm()` calls from this page): *"Cannot reforecast: Task "&lt;name&gt;": carry-forward (X%) pushes &lt;month&gt; above 100%. Adjust the monthly distribution manually before running Reforecast."* Neither grid is touched, and the user must manually edit that task's monthly distribution before retrying.
 
