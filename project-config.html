@@ -449,6 +449,11 @@
           return;
         }
         this.project = JSON.parse(JSON.stringify(found));
+        // The API can return monthlyDistribution: null for a task (seen on real data); the Monthly %
+        // distribution grid's v-model writes directly into task.monthlyDistribution[ym], which throws
+        // if the object itself is null. Normalize once here, matching the same default the "+ Add task"
+        // button already uses for brand-new tasks.
+        (this.project.tasks || []).forEach(t => { if (!t.monthlyDistribution) t.monthlyDistribution = {}; });
         this.isNewProject = false;
         this.updateBreadcrumb(this.project.name || projectId);
       },
