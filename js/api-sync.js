@@ -211,7 +211,7 @@ function _resolveCgIdForVersion(versionId) {
 // Normalise a server project into the frontend config.projects shape.
 function _apiProjectToLocal(p) {
   const versionId = p.cg_version_id || null;
-  const cgId      = versionId ? _resolveCgIdForVersion(versionId) : null;
+  const cgId      = p.cg_id || null;
   return {
     id:         p.id,
     code:       p.code         || '',
