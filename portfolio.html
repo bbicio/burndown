@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -10,124 +10,19 @@
   <link rel="stylesheet" href="css/tokens.css?v=5">
   <link rel="stylesheet" href="css/style.css?v=5">
   <style>
-    /* Match pipeline's edge-to-edge width — same reduced padding as the existing pp-fullwidth mode */
     .app-container { padding: 0 12px; }
   </style>
 </head>
 <body>
 
-<!-- Navbar -->
 <div id="nav-container"></div>
 
-<!-- Hidden per-project file input -->
+<!-- Hidden per-project file input (actuals upload target) -->
 <input type="file" id="fileInput" accept=".xls,.xlsx" style="display:none">
-<span id="fileStatus" style="display:none"></span>
 
-<div class="app-container">
+<div id="app" class="app-container">
 
-  <!-- Upload section (hidden, kept for upload.js compatibility) -->
-  <div id="uploadSection" style="display:none">
-    <div id="dropzone">
-      <div style="font-size:3rem;margin-bottom:12px">📂</div>
-      <h5 class="mb-2">Load Timesheet XLS file</h5>
-      <p class="text-muted mb-1">Drag the file here or click to select it</p>
-      <p class="text-muted small mb-0">Expected columns: Date · Job Role: Name · Owner: Name · Hours · Task/Issue · Notes · D365 Project ID · WF Project Name</p>
-    </div>
-  </div>
-
-  <!-- Project dashboard (shown after selecting a project) -->
-  <div id="mainContent" style="display:none">
-    <div class="pt-4 mb-3">
-      <nav aria-label="breadcrumb" class="mb-2">
-        <ol class="breadcrumb mb-0" style="font-size:var(--text-xs)">
-          <li class="breadcrumb-item"><a href="#" id="breadcrumbPortfolioLink" class="text-muted text-decoration-none">Portfolio</a></li>
-          <li class="breadcrumb-item active text-muted" id="breadcrumbProjectName" aria-current="page"></li>
-        </ol>
-      </nav>
-      <div id="dashboardProgramRow" class="text-muted mb-1" style="display:none;font-size:.9rem"></div>
-      <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-        <span class="fw-bold fs-5" id="dashboardProjectName" style="color:var(--brand-navy)"></span>
-        <span class="text-muted small" id="dashboardProjectId"></span>
-        <span id="dashboardProjectMeta" class="d-inline-flex gap-1 align-items-center flex-wrap"></span>
-        <div class="dropdown" id="dashboardSiblingDropdown" style="display:none">
-          <button class="btn btn-sm btn-outline-secondary" type="button"
-                  id="dashboardSiblingBtn" data-bs-toggle="dropdown" aria-expanded="false"
-                  style="font-size:.75rem;padding:2px 7px" title="Switch project">▾</button>
-          <ul class="dropdown-menu dropdown-menu-end shadow-sm" id="dashboardSiblingMenu"
-              aria-labelledby="dashboardSiblingBtn" style="min-width:320px;font-size:.85rem"></ul>
-        </div>
-      </div>
-      <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-        <div>
-          <button class="btn btn-outline-secondary btn-sm" id="btnBackToPortfolio">← Portfolio</button>
-        </div>
-        <div class="d-flex gap-2">
-          <button class="btn btn-outline-secondary btn-sm" id="btnConfigureProject">⚙️ Configure</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btnPlanningView" style="display:none">📅 Planning</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btnAiAnalysis" style="display:none">🤖 AI Analysis</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btnShareProject" style="display:none">🔗 Share</button>
-        </div>
-      </div>
-    </div>
-    <select id="projectSelect" style="display:none"></select>
-
-    <div id="dashboard" style="display:none">
-      <div id="noConfigAlert" class="alert alert-warning d-none">
-        <strong>⚠️ Budget not configured for this project.</strong>
-        Click <strong>⚙️ Configure Budget</strong> to enter sold hours and hourly rates.
-      </div>
-      <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card blue shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">📦 Total Sold Hours</div><div class="fw-bold fs-4" id="kpiSoldHours">—</div><div class="text-muted small">from configuration</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card green shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💰 Total Budget</div><div class="fw-bold fs-4" id="kpiBudgetEur">—</div><div class="text-muted small" id="kpiBudgetEurSub">hours × hourly rate</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card orange shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">⏱️ Hours Consumed</div><div class="fw-bold fs-4" id="kpiConsumedHours">—</div><div class="text-muted small" id="kpiConsumedHoursSub">total to date</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card purple shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💸 Budget Consumed</div><div class="fw-bold fs-4" id="kpiConsumedEur">—</div><div class="text-muted small" id="kpiConsumedEurSub">hours spent × rate</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card teal shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">⏳ Hours Left</div><div class="fw-bold fs-4" id="kpiHoursLeft">—</div><div class="text-muted small">sold − consumed</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card red shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💼 Budget Left</div><div class="fw-bold fs-4" id="kpiBudgetLeft">—</div><div class="text-muted small" id="kpiBudgetLeftSub">budget − consumed</div></div></div></div>
-      </div>
-      <div class="section-card mb-4">
-        <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <span>📉 Hours Burndown</span>
-          <div class="d-flex align-items-center gap-3 flex-wrap">
-            <div class="btn-group btn-group-sm" id="intervalToggle">
-              <button class="btn btn-outline-secondary active" data-interval="monthly">Monthly</button>
-              <button class="btn btn-outline-secondary" data-interval="quarterly">Quarterly</button>
-              <button class="btn btn-outline-secondary" data-interval="biweekly">Biweekly</button>
-              <button class="btn btn-outline-secondary" data-interval="weekly">Weekly</button>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-              <label class="small text-muted mb-0 fw-normal">Filter by task:</label>
-              <select class="form-select form-select-sm" id="burndownTaskFilter" style="min-width:220px"><option value="">All tasks</option></select>
-            </div>
-            <button class="btn btn-outline-secondary btn-sm" id="btnExportChart" title="Export chart as PNG">🖼 Export PNG</button>
-          </div>
-        </div>
-        <div class="p-3"><div class="chart-container"><canvas id="burndownChart"></canvas></div></div>
-      </div>
-      <div id="summaryMonthlyContainer"></div>
-      <div id="ptcReportContainer"></div>
-      <div class="section-card mb-4">
-        <div class="section-header">🗓️ Period filter — applies to all summary and detail tables below</div>
-        <div class="p-3">
-          <div class="row g-3 align-items-end flex-wrap">
-            <div class="col-auto"><label class="form-label small fw-semibold mb-1">Month</label><select class="form-select form-select-sm" id="monthFilter" style="min-width:160px"><option value="">— All months —</option></select></div>
-            <div class="col-auto d-flex align-items-end pb-1"><span class="text-muted small">or</span></div>
-            <div class="col-auto"><label class="form-label small fw-semibold mb-1">From</label><input type="date" class="form-control form-control-sm" id="filterStart"></div>
-            <div class="col-auto"><label class="form-label small fw-semibold mb-1">To</label><input type="date" class="form-control form-control-sm" id="filterEnd"></div>
-            <div class="col-auto"><button class="btn btn-outline-secondary btn-sm" id="btnResetDate">↺ Reset</button></div>
-            <div class="col-auto"><span id="filterRangeLabel" class="text-muted small"></span></div>
-          </div>
-        </div>
-      </div>
-      <div id="summaryTableContainer"></div>
-      <div id="summaryByTaskContainer"></div>
-      <div id="summaryByGroupContainer"></div>
-      <div class="section-divider" id="taskTablesDivider" style="display:none"><hr><span class="section-divider-label">Task detail</span></div>
-      <div id="taskTablesContainer"></div>
-    </div>
-  </div>
-
-  <!-- Portfolio overview (default landing) -->
-  <div id="portfolioSection">
+  <template v-if="view === 'overview'">
     <div class="page-title-bar">
       <h4 class="fw-bold mb-0">📋 Project Portfolio</h4>
     </div>
@@ -136,151 +31,431 @@
         <span class="text-muted small">Budget Spent vs Estimated by month — all configured projects</span>
       </div>
       <div class="page-toolbar-right">
-        <span id="portfolioCacheBadge"></span>
-        <button class="btn btn-primary btn-sm" id="btnOpenConfig">＋ New project</button>
+        <button class="btn btn-primary btn-sm" onclick="window.location.href='/project-config.html'">＋ New project</button>
       </div>
     </div>
-    <div id="portfolioContainer"></div>
-  </div>
 
-</div><!-- /app-container -->
+    <div v-if="!projects.length" class="alert alert-info">No projects configured. Click <strong>＋ New project</strong> to add one.</div>
 
-<!-- Placeholder sections (referenced by portfolio.js but live on other pages) -->
-<div id="portfolioPlanningSection" style="display:none"></div>
-<div id="pipelineBoardSection"     style="display:none"></div>
-<div id="costGridEditorSection"    style="display:none"></div>
-
-<!-- ── MODALS ── -->
-
-<!-- Confirm -->
-<div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
-    <div class="modal-content shadow-lg">
-      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold" id="confirmModalTitle">⚠️ Confirm</h6></div>
-      <div class="modal-body pt-1"><p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p></div>
-      <div class="modal-footer border-0 pt-2">
-        <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-danger" id="confirmModalOk">Confirm</button>
+    <template v-else>
+      <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+        <div class="d-flex align-items-center gap-2">
+          <span class="small text-muted">Sort:</span>
+          <select class="form-select form-select-sm" v-model="portfolioSort" style="width:auto">
+            <option value="name">Alphabetical</option>
+            <option value="client">Client name</option>
+          </select>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="small text-muted">Client:</span>
+          <select class="form-select form-select-sm" v-model="portfolioClientFilter" style="width:auto">
+            <option value="">All clients</option>
+            <option v-for="cid in allClientIds" :key="cid" :value="cid">{{ getClientName(cid) }}</option>
+          </select>
+        </div>
       </div>
-    </div>
-  </div>
-</div>
 
-<!-- Config -->
-<div class="modal fade" id="configModal" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold">⚙️ Project Budget Configuration</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <ul class="nav nav-tabs px-3 pt-2 mb-0">
-          <li class="nav-item"><button class="nav-link active cfg-tab-btn" data-tab="form">📝 Visual Form</button></li>
-          <li class="nav-item"><button class="nav-link cfg-tab-btn" data-tab="json">{ } JSON</button></li>
-        </ul>
-        <div id="cfgTabForm" class="p-3">
-          <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
-            <label class="fw-semibold small text-nowrap">Project:</label>
-            <select class="form-select form-select-sm" id="cfgProjectSel" style="max-width:360px"></select>
-            <button class="btn btn-sm btn-primary" id="cfgBtnNewProject">+ New</button>
-            <button class="btn btn-sm btn-outline-danger" id="cfgBtnDelProject" disabled>🗑 Delete</button>
-          </div>
-          <div id="cfgNoProjectMsg" class="text-center text-muted py-5" style="display:none">
-            <div style="font-size:2.5rem">📂</div>
-            <p class="mt-2">No projects configured yet.<br>Click <strong>+ New</strong> to add one.</p>
-          </div>
-          <div id="cfgFormSections">
-            <div class="cfg-section" style="background:#fff8f0;border-left:3px solid #f59e0b">
-              <div class="cfg-section-title" style="color:#d97706">Client</div>
-              <div class="row g-3 align-items-end">
-                <div class="col-md-8"><label class="form-label small mb-1">Assign to a client</label><select class="form-select form-select-sm" id="cfgClientId"><option value="__unassigned__">Unassigned</option></select></div>
-                <div class="col-md-4 d-flex align-items-end"><button type="button" class="btn btn-outline-secondary btn-sm w-100" onclick="showClientsModal()">👥 Manage clients</button></div>
-              </div>
-            </div>
-            <div class="cfg-section" style="background:#faf5ff;border-left:3px solid #7c3aed">
-              <div class="cfg-section-title" style="color:#7c3aed">0. Program <span class="fw-normal text-muted" style="font-size:.8rem">(optional)</span></div>
-              <div class="row g-3 align-items-end">
-                <div class="col-md-8"><label class="form-label small mb-1">Assign to a program</label><select class="form-select form-select-sm" id="cfgProgramId"><option value="">— No program —</option></select></div>
-                <div class="col-md-4 d-flex align-items-end"><button type="button" class="btn btn-outline-secondary btn-sm w-100" onclick="showProgramsModal()">🗂 Manage programs</button></div>
-              </div>
-            </div>
-            <div class="cfg-section">
-              <div class="cfg-section-title">1. Project info</div>
-              <div class="row g-3">
-                <div class="col-md-4"><label class="form-label small mb-1">D365 Project ID <span class="text-muted">(matches XLS column)</span></label><input type="text" class="form-control form-control-sm" id="cfgId" placeholder="e.g. HITA.000001201"></div>
-                <div class="col-md-8"><label class="form-label small mb-1">Project Name</label><input type="text" class="form-control form-control-sm" id="cfgName" placeholder="e.g. Bayer AG - BERMITS 2026"></div>
-                <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Start month</label><input type="month" class="form-control form-control-sm" id="cfgStartDate"></div>
-                <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">End month</label><input type="month" class="form-control form-control-sm" id="cfgEndDate"></div>
-                <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Currency</label><select class="form-select form-select-sm" id="cfgCurrency"><option value="€">€ Euro</option><option value="$">$ Dollar</option><option value="£">£ Pound</option><option value="CHF">CHF Swiss Franc</option></select></div>
-                <div class="col-sm-3 col-md-2 d-flex align-items-end"><button type="button" class="btn btn-outline-danger btn-sm w-100" id="cfgBtnClearData">🗑 Clear XLS data</button></div>
-              </div>
-              <div class="row g-3 mt-1">
-                <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Pipeline</label><select class="form-select form-select-sm" id="cfgPipeline"><option value="">— Select —</option><option value="SIP">SIP</option><option value="Expected">Expected</option><option value="Anticipated">Anticipated</option><option value="Committed">Committed</option><option value="Canceled">Canceled</option></select></div>
-                <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Status</label><select class="form-select form-select-sm" id="cfgStatus"><option value="">— Select —</option><option value="Not started yet">Not started yet</option><option value="Started At Risk">Started At Risk</option><option value="Started">Started</option><option value="Put on hold">Put on hold</option><option value="Completed">Completed</option></select></div>
-              </div>
-            </div>
-            <div class="cfg-section">
-              <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>2. Tasks &amp; Resources</span><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-secondary" id="cfgBtnExportTasksXlsx">⬇ XLSX</button><button class="btn btn-sm btn-primary" id="cfgBtnAddTask">+ Add task</button></div></div>
-              <p class="text-muted small mb-3">Task name must match exactly the <strong>Task/Issue</strong> XLS column. Role must match <strong>Job Role: Name</strong>.</p>
-              <div id="cfgTaskList"></div>
-              <div id="cfgTasksGrandTotal" class="d-flex justify-content-end gap-4 px-2 py-2 mt-1 border-top fw-bold small" style="background:#f8f9fa;border-radius:0 0 6px 6px">
-                <span>Total hours: <span id="cfgGrandTotalHours">—</span></span>
-                <span>Total budget: <span id="cfgGrandTotalBudget">—</span></span>
-              </div>
-            </div>
-            <div class="cfg-section">
-              <div class="d-flex justify-content-between align-items-center cfg-section-title">
-                <span>3. Monthly Budget Phasing <span class="fw-normal text-muted">(estimated budget to spend per month)</span></span>
-                <div class="d-flex gap-2 align-items-center flex-wrap">
-                  <button class="btn btn-sm btn-outline-secondary" id="cfgBtnRollbackPhasing" disabled>↩ Rollback <span class="rollback-date text-muted" style="font-size:.75rem"></span></button>
-                  <button class="btn btn-sm btn-outline-secondary" id="cfgBtnDerivePhasing">⟳ Derive from task dates</button>
-                  <button class="btn btn-sm btn-outline-secondary" id="cfgBtnReforecastPhasing">↻ Reforecast from actuals</button>
-                </div>
-              </div>
-              <div id="cfgPhasingGrid" class="mt-1"></div>
-            </div>
-            <div class="cfg-section">
-              <div class="d-flex justify-content-between align-items-center cfg-section-title">
-                <span>4. Monthly Hour Planning <span class="fw-normal text-muted">(planned hours to consume per month)</span></span>
-                <div class="d-flex gap-2 align-items-center flex-wrap">
-                  <button class="btn btn-sm btn-outline-secondary" id="cfgBtnRollbackPlanning" disabled>↩ Rollback <span class="rollback-date text-muted" style="font-size:.75rem"></span></button>
-                  <button class="btn btn-sm btn-outline-secondary" id="cfgBtnDerivePlanning">⟳ Derive from task dates</button>
-                  <button class="btn btn-sm btn-outline-secondary" id="cfgBtnReforecastPlanning">↻ Reforecast from actuals</button>
-                </div>
-              </div>
-              <div id="cfgPlanningGrid" class="mt-1"></div>
-            </div>
-            <div class="cfg-section">
-              <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>5. Pass Through Costs <span class="fw-normal text-muted">(PTC)</span></span><button class="btn btn-sm btn-primary" id="cfgBtnAddPtc">+ Add PTC</button></div>
-              <p class="text-muted small mb-3">Add external costs (licences, travel, etc.) with title, note, amount and the month they occur.</p>
-              <div id="cfgPtcList"></div>
-              <div id="cfgPtcGrandTotal" class="d-flex justify-content-end px-2 py-2 mt-1 border-top fw-bold small" style="background:#fff3cd;border-radius:0 0 6px 6px"><span>Total PTC: <span id="cfgGrandTotalPtc">—</span></span></div>
-            </div>
-            <div class="cfg-section">
-              <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>6. Functional Groups <span class="fw-normal text-muted">(optional)</span></span><button class="btn btn-sm btn-primary" id="cfgBtnAddGroup">+ Add group</button></div>
-              <p class="text-muted small mb-3">Group roles into functional areas. Roles must match the <strong>Job Role: Name</strong> column (one per line).</p>
-              <div id="cfgGroupList"></div>
-            </div>
+      <div class="section-card mb-4" style="border:2px solid var(--indigo-500)" v-if="pinnedSummary">
+        <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2" style="background:var(--indigo-50)">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="fw-bold">📊 Budget Summary</span>
+            <span class="small text-muted">{{ pinnedSummary.cfgs.length }} project{{ pinnedSummary.cfgs.length===1?'':'s' }}:</span>
+            <span class="badge" v-for="c in pinnedSummary.cfgs" :key="c.id" style="background:var(--surface-medium);color:#495057;font-weight:500">{{ fmtProjectTitle(c) }}</span>
           </div>
         </div>
-        <div id="cfgTabJson" class="p-3" style="display:none">
-          <div class="d-flex gap-2 mb-3 flex-wrap">
-            <button class="btn btn-outline-secondary btn-sm" id="btnImportConfig">📂 Import JSON</button>
-            <button class="btn btn-outline-secondary btn-sm" id="btnExportConfig">💾 Export JSON</button>
-          </div>
-          <textarea class="form-control font-monospace" id="configEditor" rows="26" spellcheck="false"></textarea>
+        <div class="table-responsive p-2">
+          <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
+            <thead style="background:var(--indigo-50)">
+              <tr><th style="min-width:140px"></th><th v-for="ym in pinnedSummary.months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end fw-bold" style="min-width:100px;background:var(--portfolio-indigo-totals-bg)">Total</th></tr>
+            </thead>
+            <tbody>
+              <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in pinnedSummary.months" :key="ym" class="text-end">{{ fmtMoney(pinnedSummary.phasing[ym]) }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ fmtMoney(pinnedSummary.grandEst) }}</td></tr>
+              <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in pinnedSummary.months" :key="ym" class="text-end">{{ fmtMoney(pinnedSummary.spent[ym]) }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ fmtMoney(pinnedSummary.grandSpent) }}</td></tr>
+              <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in pinnedSummary.months" :key="ym" class="text-end fw-semibold" :style="{color: varColor(pinnedSummary.phasing[ym]-pinnedSummary.spent[ym])}">{{ fmtVar(pinnedSummary.phasing[ym]-pinnedSummary.spent[ym]) }}</td><td class="text-end fw-bold" :style="{background:'var(--portfolio-totals-bg)',color: varColor(pinnedSummary.grandVar)}">{{ fmtVar(pinnedSummary.grandVar) }}</td></tr>
+            </tbody>
+          </table>
         </div>
-        <div id="cfgJsonError" class="alert alert-danger d-none mx-3 mb-3 py-2 small"></div>
       </div>
-      <div class="modal-footer d-flex justify-content-between">
-        <div></div>
+
+      <!-- Program groups -->
+      <div class="section-card mb-4" style="border:2px solid var(--violet-500)" v-for="prog in visibleProgramGroups" :key="prog.id">
+        <div class="section-header d-flex justify-content-between align-items-center" style="background:var(--violet-50)">
+          <div class="d-flex align-items-center gap-3">
+            <span style="font-size:var(--text-xl)">📂</span>
+            <div>
+              <span v-if="prog.domClientName" class="fw-bold" style="font-size:var(--text-lg)">{{ prog.domClientName }} —</span>
+              <span class="fw-bold" style="font-size:var(--text-lg)">{{ prog.name }}</span>
+              <span class="text-muted ms-2" style="font-size:var(--text-sm);font-family:monospace">{{ prog.id }}</span>
+            </div>
+            <span v-html="pipelineBadge(prog.domPipeline)"></span>
+            <span class="badge" style="background:var(--portfolio-violet-tint-bg);color:var(--violet-500);font-size:var(--text-xs)">{{ prog.children.length }} project{{ prog.children.length===1?'':'s' }}</span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-secondary" style="font-size:var(--text-sm)" @click="openShareModal('program', prog.id, prog.name)">🔗 Share Program</button>
+            <button class="btn btn-sm btn-outline-secondary" style="font-size:var(--text-sm)" @click="toggleProgramExpanded(prog.id)">
+              {{ expandedPrograms.has(prog.id) ? '▼ Hide Child Projects' : '▶ Show Child Projects' }}
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive px-3 pb-2" style="background:var(--violet-50)" v-if="programSummary(prog.children)">
+          <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
+            <thead style="background:var(--portfolio-violet-tint-bg)">
+              <tr><th style="min-width:140px"></th><th v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end fw-bold" style="min-width:100px;background:var(--portfolio-violet-totals-bg)">{{ programSummary(prog.children).totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="programSummary(prog.children).totalPtc > 0" class="text-end fw-bold" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr>
+            </thead>
+            <tbody>
+              <tr style="background:var(--portfolio-violet-row-bg)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end">{{ fmtMoney(programSummary(prog.children).phasing[ym]) }}</td><td class="text-end fw-bold" style="background:var(--portfolio-violet-row2-bg)">{{ fmtMoney(programSummary(prog.children).grandEst) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(programSummary(prog.children).totalPtc) }}</td></tr>
+              <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end">{{ fmtMoney(programSummary(prog.children).spent[ym]) }}</td><td class="text-end fw-bold" style="background:var(--portfolio-violet-row2-bg)">{{ fmtMoney(programSummary(prog.children).grandSpent) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+              <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end fw-semibold" :style="{color: varColor(programSummary(prog.children).phasing[ym]-programSummary(prog.children).spent[ym])}">{{ fmtVar(programSummary(prog.children).phasing[ym]-programSummary(prog.children).spent[ym]) }}</td><td class="text-end fw-bold" :style="{background:'var(--portfolio-violet-row2-bg)',color: varColor(programSummary(prog.children).grandVar)}">{{ fmtVar(programSummary(prog.children).grandVar) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="expandedPrograms.has(prog.id)" class="prog-children">
+          <div class="prog-project-list px-2 pb-2 pt-1">
+            <template v-for="cfg in prog.children" :key="cfg.id">
+            <div class="section-card mb-4" v-if="cardDataMap[cfg.id]">
+              <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <span>📁 {{ fmtProjectTitle(cfg) }}</span>
+                  <span v-if="cfg.code" class="text-muted small">{{ cfg.code }}</span>
+                  <span v-html="pipelineBadge(getProjectPipeline(cfg.id) || cfg.pipeline)"></span>
+                  <span v-html="statusBadgeLarge(cfg.status)"></span>
+                  <span v-if="!cardDataMap[cfg.id].hasData" class="badge bg-warning text-dark">no XLS data</span>
+                  <span v-if="cardDataMap[cfg.id].budgetBadgeHtml" v-html="cardDataMap[cfg.id].budgetBadgeHtml"></span>
+                </div>
+                <div class="d-flex gap-2 flex-wrap">
+                  <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="window.location.href = '/project-config.html?projectId=' + encodeURIComponent(cfg.id)">⚙️ Configure</button>
+                  <button class="btn btn-sm btn-outline-secondary" title="Share project" @click="openShareModal('project', cfg.id, cfg.name || cfg.id)">🔗 Share</button>
+                  <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" title="Upload XLS actuals for this project" @click="triggerLoadActuals(cfg.id)">📂 Load Actuals</button>
+                  <button class="btn btn-sm btn-outline-secondary" @click="goPlanningForProject(cfg.id)">📅 Planning</button>
+                  <button class="btn btn-sm" :class="cardDataMap[cfg.id].hasData ? 'btn-primary' : 'btn-outline-secondary'" :disabled="!cardDataMap[cfg.id].hasData" @click="showDashboard(cfg.id)">📊 View Report →</button>
+                </div>
+              </div>
+              <div class="table-responsive p-2">
+                <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
+                  <thead style="background:var(--indigo-50)"><tr><th style="min-width:110px"></th><th v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end" style="min-width:90px;background:var(--surface-medium)">{{ cardDataMap[cfg.id].totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr></thead>
+                  <tbody>
+                    <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cfg.phasing?.[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cardDataMap[cfg.id].totalPhasing) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(cardDataMap[cfg.id].totalPtc) }}</td></tr>
+                    <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].monthSpend[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].totalSpent) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+                    <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end" :style="varCellStyle(cfg, ym, cardDataMap[cfg.id])">{{ varCellText(cfg, ym, cardDataMap[cfg.id]) }}</td><td class="text-end fw-bold" :style="{background:'var(--portfolio-totals-bg)', color: (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? varColor(cardDataMap[cfg.id].totalVar) : undefined}">{{ (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? fmtVar(cardDataMap[cfg.id].totalVar) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ungrouped projects -->
+      <template v-for="cfg in ungroupedProjects" :key="cfg.id">
+      <div class="section-card mb-4" v-if="cardDataMap[cfg.id]">
+        <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span>📁 {{ fmtProjectTitle(cfg) }}</span>
+            <span v-if="cfg.code" class="text-muted small">{{ cfg.code }}</span>
+            <span v-html="pipelineBadge(getProjectPipeline(cfg.id) || cfg.pipeline)"></span>
+            <span v-html="statusBadgeLarge(cfg.status)"></span>
+            <span v-if="!cardDataMap[cfg.id].hasData" class="badge bg-warning text-dark">no XLS data</span>
+            <span v-if="cardDataMap[cfg.id].budgetBadgeHtml" v-html="cardDataMap[cfg.id].budgetBadgeHtml"></span>
+          </div>
+          <div class="d-flex gap-2 flex-wrap">
+            <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="window.location.href = '/project-config.html?projectId=' + encodeURIComponent(cfg.id)">⚙️ Configure</button>
+            <button class="btn btn-sm btn-outline-secondary" title="Share project" @click="openShareModal('project', cfg.id, cfg.name || cfg.id)">🔗 Share</button>
+            <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" title="Upload XLS actuals for this project" @click="triggerLoadActuals(cfg.id)">📂 Load Actuals</button>
+            <button class="btn btn-sm btn-outline-secondary" @click="goPlanningForProject(cfg.id)">📅 Planning</button>
+            <button class="btn btn-sm" :class="cardDataMap[cfg.id].hasData ? 'btn-primary' : 'btn-outline-secondary'" :disabled="!cardDataMap[cfg.id].hasData" @click="showDashboard(cfg.id)">📊 View Report →</button>
+            <button class="btn btn-sm" :class="isPinnedSummary(cfg.id) ? 'btn-success' : 'btn-outline-secondary'" @click="toggleSummary(cfg.id)">{{ isPinnedSummary(cfg.id) ? '✓ Summary' : '＋ Summary' }}</button>
+          </div>
+        </div>
+        <div class="table-responsive p-2">
+          <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
+            <thead style="background:var(--indigo-50)"><tr><th style="min-width:110px"></th><th v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end" style="min-width:90px;background:var(--surface-medium)">{{ cardDataMap[cfg.id].totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr></thead>
+            <tbody>
+              <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cfg.phasing?.[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cardDataMap[cfg.id].totalPhasing) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(cardDataMap[cfg.id].totalPtc) }}</td></tr>
+              <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].monthSpend[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].totalSpent) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+              <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end" :style="varCellStyle(cfg, ym, cardDataMap[cfg.id])">{{ varCellText(cfg, ym, cardDataMap[cfg.id]) }}</td><td class="text-end fw-bold" :style="{background:'var(--portfolio-totals-bg)', color: (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? varColor(cardDataMap[cfg.id].totalVar) : undefined}">{{ (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? fmtVar(cardDataMap[cfg.id].totalVar) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      </template>
+    </template>
+  </template>
+
+  <template v-else>
+    <div class="pt-4 mb-3">
+      <nav aria-label="breadcrumb" class="mb-2">
+        <ol class="breadcrumb mb-0" style="font-size:var(--text-xs)">
+          <li class="breadcrumb-item"><a href="#" class="text-muted text-decoration-none" @click.prevent="showOverview">Portfolio</a></li>
+          <li class="breadcrumb-item active text-muted" aria-current="page">{{ dashboardProject?.name || dashboardProjectId }}</li>
+        </ol>
+      </nav>
+      <div v-if="dashboardProgramRow" class="text-muted mb-1" style="font-size:.9rem" v-html="dashboardProgramRow"></div>
+      <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+        <span class="fw-bold fs-5" style="color:var(--brand-navy)">{{ dashboardProject?.name || dashboardProjectId }}</span>
+        <span class="text-muted small">{{ dashboardProject?.name ? dashboardProjectId : '' }}</span>
+        <span class="d-inline-flex gap-1 align-items-center flex-wrap" v-html="dashboardMetaHtml"></span>
+        <div class="dropdown" v-if="dashboardSiblings.length">
+          <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:.75rem;padding:2px 7px" title="Switch project">▾</button>
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:320px;font-size:.85rem">
+            <li v-for="s in dashboardSiblings" :key="s.id">
+              <a v-if="s.hasActuals" class="dropdown-item d-flex align-items-center gap-2 py-2" href="#" @click.prevent="showDashboard(s.id)">
+                <span class="fw-semibold">{{ s.name || s.id }}</span>
+                <span v-if="s.code" class="text-muted small" style="font-family:monospace">{{ s.code }}</span>
+                <span class="ms-auto d-inline-flex gap-1" v-html="s.badgesHtml"></span>
+              </a>
+              <span v-else class="dropdown-item disabled d-flex align-items-center gap-2 py-2" style="opacity:.45;cursor:default">
+                <span class="fw-semibold">{{ s.name || s.id }}</span>
+                <span v-if="s.code" class="text-muted small" style="font-family:monospace">{{ s.code }}</span>
+                <span class="ms-auto d-inline-flex gap-1 align-items-center" v-html="s.badgesHtml"></span>
+              </span>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+        <div><button class="btn btn-outline-secondary btn-sm" @click="showOverview">← Portfolio</button></div>
         <div class="d-flex gap-2">
-          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button class="btn btn-primary" id="btnSaveConfig">💾 Save</button>
+          <button v-if="dashboardProject?.my_permission !== 'viewer'" class="btn btn-outline-secondary btn-sm" @click="window.location.href = '/project-config.html?projectId=' + encodeURIComponent(dashboardProjectId)">⚙️ Configure</button>
+          <button class="btn btn-outline-secondary btn-sm" @click="goPlanningForProject(dashboardProjectId)">📅 Planning</button>
+          <button v-if="hasAiKey()" class="btn btn-outline-secondary btn-sm" @click="openAiAnalysis()">🤖 AI Analysis</button>
+          <button class="btn btn-outline-secondary btn-sm" @click="openShareModal('project', dashboardProjectId, dashboardProject?.name || dashboardProjectId)">🔗 Share</button>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
+    <div v-if="dashboardReady">
+      <div v-if="!dashboardProject" class="alert alert-warning">
+        <strong>⚠️ Budget not configured for this project.</strong>
+        Click <strong>⚙️ Configure Budget</strong> to enter sold hours and hourly rates.
+      </div>
+      <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-xl-2"><div class="card kpi-card blue shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">📦 Total Sold Hours</div><div class="fw-bold fs-4">{{ kpis.soldHours !== null ? fmtH(kpis.soldHours) : '—' }}</div><div class="text-muted small">from configuration</div></div></div></div>
+        <div class="col-sm-6 col-xl-2"><div class="card kpi-card green shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💰 Total Budget</div><div class="fw-bold fs-4">{{ kpis.budgetTotal !== null ? fmtMoney(kpis.budgetTotal) : '—' }}</div><div class="text-muted small">{{ kpiBudgetEurSub }}</div></div></div></div>
+        <div class="col-sm-6 col-xl-2"><div class="card kpi-card orange shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">⏱️ Hours Consumed</div><div class="fw-bold fs-4">{{ fmtH(kpis.consumedHours) }}</div><div class="text-muted small">{{ kpiAsOfStr }}</div></div></div></div>
+        <div class="col-sm-6 col-xl-2"><div class="card kpi-card purple shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💸 Budget Consumed</div><div class="fw-bold fs-4">{{ kpis.consumedEur !== null ? fmtMoney(kpis.consumedEur) : '—' }}</div><div class="text-muted small">{{ kpiAsOfStr }}</div></div></div></div>
+        <div class="col-sm-6 col-xl-2"><div class="card kpi-card teal shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">⏳ Hours Left</div><div class="fw-bold fs-4" :style="{color: kpiLeftColor(kpis.hoursLeft, kpis.soldHours)}">{{ kpis.hoursLeft !== null ? fmtH(kpis.hoursLeft) : '—' }}</div><div class="text-muted small">sold − consumed</div></div></div></div>
+        <div class="col-sm-6 col-xl-2"><div class="card kpi-card red shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💼 Budget Left</div><div class="fw-bold fs-4" :style="{color: kpiLeftColor(kpis.budgetLeft, kpis.budgetTotal)}">{{ kpis.budgetLeft !== null ? fmtMoney(kpis.budgetLeft) : '—' }}</div><div class="text-muted small">{{ kpiBudgetLeftSub }}</div></div></div></div>
+      </div>
+      <div class="section-card mb-4">
+        <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <span>📉 Hours Burndown</span>
+          <div class="d-flex align-items-center gap-3 flex-wrap">
+            <div class="btn-group btn-group-sm">
+              <button v-for="opt in ['monthly','quarterly','biweekly','weekly']" :key="opt" class="btn btn-outline-secondary" :class="{active: burndownInterval === opt}" @click="burndownInterval = opt">{{ opt.charAt(0).toUpperCase() + opt.slice(1) }}</button>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <label class="small text-muted mb-0 fw-normal">Filter by task:</label>
+              <select class="form-select form-select-sm" v-model="burndownTaskFilter" style="min-width:220px">
+                <option value="">All tasks</option>
+                <option v-for="t in billableTaskNames" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" title="Export chart as PNG" @click="exportChartPng">🖼 Export PNG</button>
+          </div>
+        </div>
+        <div class="p-3"><div class="chart-container"><canvas ref="burndownCanvas"></canvas></div></div>
+      </div>
+      <div class="section-card mb-4" v-if="monthlySummary">
+        <div class="section-header d-flex justify-content-between align-items-center">
+          <span>📅 Monthly Summary — hours and budget spent by month</span>
+          <ExportButtons :tbl-ref="() => $refs.monthlyTable" filename="monthly_summary" :card-ref="() => $refs.monthlyCard" />
+        </div>
+        <div class="table-responsive" ref="monthlyCard">
+          <table ref="monthlyTable" class="table table-sm table-hover align-middle mb-0 tbl-fixed">
+            <thead style="background:var(--surface-light);">
+              <tr>
+                <th class="ps-3" rowspan="2" style="vertical-align:middle;border-bottom:2px solid var(--border-light)">Month</th>
+                <th colspan="3" class="text-center border-start" style="border-bottom:2px solid var(--border-light)">Hours</th>
+                <th colspan="3" class="text-center border-start" style="border-bottom:2px solid var(--border-light)">Budget</th>
+                <th v-if="monthlySummary.hasPtc" class="text-center border-start" rowspan="2" style="vertical-align:middle;border-bottom:2px solid var(--border-light)">PTC</th>
+              </tr>
+              <tr style="background:var(--surface-light);">
+                <th class="text-end border-start">Estimated</th><th class="text-end">Consumed</th><th class="text-end">Variance</th>
+                <th class="text-end border-start">Estimated</th><th class="text-end">Spent</th><th :class="monthlySummary.hasPtc ? 'text-end' : 'text-end pe-3'">Variance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="m in monthlySummary.months" :key="m.label">
+                <td class="ps-3">{{ m.label }}</td>
+                <td class="text-end border-start">{{ dashboardProject ? fmtH(m.estimatedHours) : '—' }}</td>
+                <td class="text-end">{{ fmtH(m.hours) }}</td>
+                <td class="text-end" :class="{'text-danger fw-bold': m.hVar !== null && m.hVar < 0}">{{ m.hVar !== null ? fmtH(m.hVar) : '—' }}</td>
+                <td class="text-end border-start">{{ dashboardProject ? fmtMoney(m.estimated) : '—' }}</td>
+                <td class="text-end">{{ m.spent !== null ? fmtMoney(m.spent) : '—' }}</td>
+                <td :class="[monthlySummary.hasPtc ? 'text-end' : 'text-end pe-3', {'text-danger fw-bold': m.bVar !== null && m.bVar < 0}]">{{ m.bVar !== null ? fmtMoney(m.bVar) : '—' }}</td>
+                <td v-if="monthlySummary.hasPtc" class="text-end pe-3 border-start">{{ m.ptc > 0 ? fmtMoney(m.ptc) : '—' }}</td>
+              </tr>
+              <tr class="fw-bold" style="background:var(--surface-medium);">
+                <td class="ps-3">TOTAL</td>
+                <td class="text-end border-start">{{ monthlySummary.totEstimatedHours !== null ? fmtH(monthlySummary.totEstimatedHours) : '—' }}</td>
+                <td class="text-end">{{ fmtH(monthlySummary.totHours) }}</td>
+                <td class="text-end" :class="{'text-danger': monthlySummary.totHoursVariance !== null && monthlySummary.totHoursVariance < 0}">{{ monthlySummary.totHoursVariance !== null ? fmtH(monthlySummary.totHoursVariance) : '—' }}</td>
+                <td class="text-end border-start">{{ monthlySummary.totEstimated !== null ? fmtMoney(monthlySummary.totEstimated) : '—' }}</td>
+                <td class="text-end">{{ monthlySummary.totSpent !== null ? fmtMoney(monthlySummary.totSpent) : '—' }}</td>
+                <td :class="monthlySummary.hasPtc ? 'text-end' : 'text-end pe-3'" :style="{color: (monthlySummary.totBudgetVariance !== null && monthlySummary.totBudgetVariance < 0) ? 'red' : ''}">{{ monthlySummary.totBudgetVariance !== null ? fmtMoney(monthlySummary.totBudgetVariance) : '—' }}</td>
+                <td v-if="monthlySummary.hasPtc" class="text-end pe-3 border-start">{{ monthlySummary.totPtc !== null ? fmtMoney(monthlySummary.totPtc) : '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="section-card mb-4" v-if="ptcReport">
+        <div class="section-header d-flex justify-content-between align-items-center">
+          <span>💼 Pass Through Costs</span>
+          <ExportButtons :tbl-ref="() => $refs.ptcTable" filename="ptc_report" :card-ref="() => $refs.ptcCard" />
+        </div>
+        <div class="table-responsive" ref="ptcCard">
+          <table ref="ptcTable" class="table table-sm table-hover align-middle mb-0">
+            <thead style="background:var(--surface-light);"><tr><th class="ps-3" style="width:160px">Month</th><th>Title</th><th>Note</th><th class="text-end pe-3">Amount</th></tr></thead>
+            <tbody>
+              <tr v-for="(p, i) in ptcReport.rows" :key="i" :style="i % 2 !== 0 ? 'background:var(--surface-light)' : ''">
+                <td class="ps-3">{{ p.monthLabel }}</td>
+                <td class="fw-semibold">{{ p.title || '—' }}</td>
+                <td class="text-muted small">{{ p.note || '' }}</td>
+                <td class="text-end pe-3 fw-semibold">{{ fmtMoney(p.amount || 0) }}</td>
+              </tr>
+              <tr class="fw-bold" style="background:var(--surface-medium);"><td class="ps-3" colspan="3">TOTAL</td><td class="text-end pe-3">{{ fmtMoney(ptcReport.total) }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="section-card mb-4">
+        <div class="section-header">🗓️ Period filter — applies to all summary and detail tables below</div>
+        <div class="p-3">
+          <div class="row g-3 align-items-end flex-wrap">
+            <div class="col-auto"><label class="form-label small fw-semibold mb-1">Month</label>
+              <select class="form-select form-select-sm" v-model="filterMonth" style="min-width:160px" @change="filterStart = ''; filterEnd = '';">
+                <option value="">— All months —</option>
+                <option v-for="ym in filterMonthOptions" :key="ym" :value="ym">{{ filterMonthLabel(ym) }}</option>
+              </select>
+            </div>
+            <div class="col-auto d-flex align-items-end pb-1"><span class="text-muted small">or</span></div>
+            <div class="col-auto"><label class="form-label small fw-semibold mb-1">From</label><input type="date" class="form-control form-control-sm" v-model="filterStart" @change="filterMonth = ''"></div>
+            <div class="col-auto"><label class="form-label small fw-semibold mb-1">To</label><input type="date" class="form-control form-control-sm" v-model="filterEnd" @change="filterMonth = ''"></div>
+            <div class="col-auto"><button class="btn btn-outline-secondary btn-sm" @click="resetDateFilter">↺ Reset</button></div>
+            <div class="col-auto"><span class="text-muted small">{{ filterRangeLabel }}</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="section-card mb-4" v-if="summaryByTask">
+        <div class="section-header d-flex justify-content-between align-items-center">
+          <span>📋 Summary by task</span>
+          <ExportButtons :tbl-ref="() => $refs.summaryByTaskTable" filename="summary_by_task" :card-ref="() => $refs.summaryByTaskCard" />
+        </div>
+        <div class="table-responsive" ref="summaryByTaskCard">
+          <table ref="summaryByTaskTable" class="table table-sm align-middle mb-0 tbl-fixed">
+            <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByTask" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
+            <tbody>
+              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ fmtMoney(c.soldEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totSold) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByTask, filterHasFilter).totSoldEur) }}</span></td></tr>
+              <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totSpent) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByTask, filterHasFilter).totSpentEur) }}</span></td></tr>
+              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ fmtMoney(c.inPeriodEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByTask, filterHasFilter).totInPeriod) : '—' }}</td></tr>
+              <tr style="background:var(--surface-medium);"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByTask" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(c.soldEur - c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByTask, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totResidual) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByTask, filterHasFilter).totResidualEur) }}</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="section-card mb-4" v-if="summaryByRole">
+        <div class="section-header d-flex justify-content-between align-items-center">
+          <span>📊 Summary by role</span>
+          <ExportButtons :tbl-ref="() => $refs.summaryByRoleTable" filename="summary_by_role" :card-ref="() => $refs.summaryByRoleCard" />
+        </div>
+        <div class="table-responsive" ref="summaryByRoleCard">
+          <table ref="summaryByRoleTable" class="table table-sm align-middle mb-0 tbl-fixed">
+            <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByRole" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
+            <tbody>
+              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ fmtMoney(c.soldEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totSold) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByRole, filterHasFilter).totSoldEur) }}</span></td></tr>
+              <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totSpent) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByRole, filterHasFilter).totSpentEur) }}</span></td></tr>
+              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ fmtMoney(c.inPeriodEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByRole, filterHasFilter).totInPeriod) : '—' }}</td></tr>
+              <tr style="background:var(--surface-medium);"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByRole" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(c.soldEur - c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByRole, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totResidual) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByRole, filterHasFilter).totResidualEur) }}</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="section-card mb-4" v-if="summaryByGroup">
+        <div class="section-header d-flex justify-content-between align-items-center">
+          <span>🏷️ Summary by functional area</span>
+          <ExportButtons :tbl-ref="() => $refs.summaryByGroupTable" filename="summary_by_group" :card-ref="() => $refs.summaryByGroupCard" />
+        </div>
+        <div class="table-responsive" ref="summaryByGroupCard">
+          <table ref="summaryByGroupTable" class="table table-sm align-middle mb-0 tbl-fixed">
+            <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByGroup" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
+            <tbody>
+              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ fmtMoney(c.soldEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totSold) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByGroup, filterHasFilter).totSoldEur) }}</span></td></tr>
+              <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totSpent) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByGroup, filterHasFilter).totSpentEur) }}</span></td></tr>
+              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ fmtMoney(c.inPeriodEur) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByGroup, filterHasFilter).totInPeriod) : '—' }}</td></tr>
+              <tr style="background:var(--surface-medium);"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ fmtMoney(c.soldEur - c.totalConsumedEur) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByGroup, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totResidual) }}<span class="eur-sub">{{ fmtMoney(summaryTotals(summaryByGroup, filterHasFilter).totResidualEur) }}</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div v-if="taskDetailData.length" class="section-divider"><hr><span class="section-divider-label">Task detail</span></div>
+      <div v-for="entry in taskDetailData" :key="entry.task.name" class="section-card mb-4">
+        <div class="section-header d-flex justify-content-between align-items-center">
+          <span>📋 {{ entry.task.name }}<span v-if="entry.task.billable === false" class="badge bg-secondary ms-1" style="font-size:var(--text-xs);vertical-align:middle;">Excluded from report</span></span>
+          <div class="d-flex gap-2 align-items-center">
+            <button class="btn btn-sm btn-outline-secondary" @click="taskState(entry.task.name).expanded = !taskState(entry.task.name).expanded">{{ taskState(entry.task.name).expanded ? '▲ Close details' : '▶ Expand details' }}</button>
+            <ExportButtons :tbl-ref="() => $refs['taskTable_'+entry.task.name]?.[0]" :filename="'task_'+entry.task.name.replace(/[^a-zA-Z0-9]/g,'_')" :card-ref="() => $refs['taskCard_'+entry.task.name]?.[0]" />
+          </div>
+        </div>
+        <div class="table-responsive" :ref="'taskCard_'+entry.task.name">
+          <table :ref="'taskTable_'+entry.task.name" class="table table-sm table-hover align-middle mb-0 task-sum-tbl" style="table-layout:fixed;width:100%">
+            <colgroup><col style="width:40%"><col style="width:20%"><col style="width:20%"><col style="width:20%"></colgroup>
+            <thead style="background:var(--surface-light);"><tr><th class="ps-3">Role (Resource)</th><th class="text-end">Sold hours</th><th class="text-end">{{ filterHasFilter ? 'Consumed (' + filterRangeLabel + ')' : 'Consumed (period)' }}</th><th class="text-end pe-3">Remaining (total)</th></tr></thead>
+            <tbody>
+              <tr v-for="(r, i) in entry.rows" :key="i" :class="{'table-danger': r.remaining !== null && r.remaining < 0}">
+                <td class="ps-3">{{ r.label }}</td>
+                <td class="text-end">{{ r.soldHours !== null ? fmtH(r.soldHours) : '—' }}<span v-if="r.soldEur !== null" class="eur-sub">{{ fmtMoney(r.soldEur) }}</span></td>
+                <td class="text-end">{{ fmtH(r.consumedPeriod) }}<span class="eur-sub">{{ fmtMoney(r.consumedPeriodEur) }}</span></td>
+                <td class="text-end pe-3" :class="{'fw-bold text-danger': r.remaining !== null && r.remaining < 0}">{{ r.remaining !== null ? fmtH(r.remaining) : '—' }}<span v-if="r.remainingEur !== null" class="eur-sub" :class="{danger: r.remainingEur < 0}">{{ fmtMoney(r.remainingEur) }}</span></td>
+              </tr>
+              <tr class="fw-bold" style="background:var(--surface-medium);">
+                <td class="ps-3">TOTAL</td>
+                <td class="text-end">{{ fmtH(entry.totSold) }}<span class="eur-sub">{{ fmtMoney(entry.totSoldEur) }}</span></td>
+                <td class="text-end">{{ fmtH(entry.totPeriod) }}<span class="eur-sub">{{ fmtMoney(entry.totPeriodEur) }}</span></td>
+                <td class="text-end pe-3" :class="{'text-danger': entry.totRemaining < 0}">{{ fmtH(entry.totRemaining) }}<span class="eur-sub" :class="{danger: entry.totRemainingEur < 0}">{{ fmtMoney(entry.totRemainingEur) }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="detail-section" v-show="taskState(entry.task.name).expanded">
+          <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+            <span class="text-muted small">Chronological entries</span>
+            <div class="d-flex gap-2 align-items-center">
+              <div class="btn-group btn-group-sm" style="font-size:var(--text-sm)">
+                <button v-for="gm in ['flat','role','owner']" :key="gm" class="btn btn-outline-secondary" :class="{active: taskState(entry.task.name).groupMode === gm}" @click="taskState(entry.task.name).groupMode = gm">{{ gm === 'flat' ? 'Flat' : gm === 'role' ? 'By role' : 'By owner' }}</button>
+              </div>
+              <ExportButtons :tbl-ref="() => $refs['detTable_'+entry.task.name]?.[0]" :filename="'task_'+entry.task.name.replace(/[^a-zA-Z0-9]/g,'_')+'_detail'" :card-ref="() => $refs['detSection_'+entry.task.name]?.[0]" />
+            </div>
+          </div>
+          <div class="table-responsive" :ref="'detSection_'+entry.task.name">
+            <table :ref="'detTable_'+entry.task.name" class="table table-sm align-middle mb-0 det-tbl" style="table-layout:fixed;width:100%">
+              <colgroup><col style="width:15%"><col style="width:40%"><col style="width:15%"><col style="width:30%"></colgroup>
+              <thead style="background:var(--indigo-50);"><tr><th class="ps-3">Date</th><th>{{ taskState(entry.task.name).groupMode === 'flat' ? 'Role (Resource)' : taskState(entry.task.name).groupMode === 'role' ? 'Owner' : 'Role' }}</th><th class="text-end">Hours</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr v-if="!taskDetailRows(entry, taskState(entry.task.name).groupMode)"><td colspan="4" class="text-center text-muted py-3 small">No entries in the selected period.</td></tr>
+                <template v-else v-for="(row, i) in taskDetailRows(entry, taskState(entry.task.name).groupMode)" :key="i">
+                  <tr v-if="row.isGroupHeader" :style="{background: taskState(entry.task.name).groupMode === 'role' ? 'var(--indigo-50)' : 'var(--color-warning-bg)'}">
+                    <td class="ps-3 fw-semibold small" colspan="2">{{ row.label }}</td>
+                    <td class="text-end fw-semibold small">{{ fmtH(row.hours) }}<span class="eur-sub">{{ fmtMoney(row.eur) }}</span></td>
+                    <td></td>
+                  </tr>
+                  <tr v-else>
+                    <td class="ps-3">{{ fmtDate(row.date) }}</td>
+                    <td :class="{'text-muted': taskState(entry.task.name).groupMode !== 'flat'}">{{ row.col2 }}</td>
+                    <td class="text-end">{{ fmtH(row.hours) }}<span v-if="row.eur !== null" class="eur-sub">{{ fmtMoney(row.eur) }}</span></td>
+                    <td class="text-muted small">{{ row.notes }}</td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+</div>
 
 <!-- AI Analysis -->
 <div class="modal fade" id="aiModal" tabindex="-1">
@@ -300,381 +475,714 @@
   </div>
 </div>
 
-<!-- JSON Viewer -->
-<div class="modal fade" id="jsonViewerModal" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:860px">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1"><h5 class="modal-title fw-bold font-monospace" id="jsonViewerTitle">{ } JSON</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <div class="px-3 py-2 d-flex gap-2 align-items-center border-bottom" style="background:#f8f9fa">
-          <button class="btn btn-outline-secondary btn-sm" id="btnJsonCopy">📋 Copy</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btnJsonExport">⬇ Export .json</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btnJsonImport">⬆ Import .json</button>
-          <span class="text-muted small ms-auto">The textarea is editable — modify and click <strong>Apply</strong>.</span>
-        </div>
-        <div class="p-3"><textarea id="jsonViewerContent" class="form-control font-monospace" style="min-height:480px;font-size:.82rem;line-height:1.5;resize:vertical" spellcheck="false" autocomplete="off"></textarea><div id="jsonViewerError" class="text-danger small mt-2 d-none"></div></div>
-      </div>
-      <div class="modal-footer border-0"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button><button class="btn btn-primary btn-sm" id="btnJsonApply">✓ Apply JSON</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Roles Registry -->
-<div class="modal fade" id="rolesModal" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1"><h5 class="modal-title fw-bold">👥 Roles Registry</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <div class="px-3 py-2 d-flex gap-2 flex-wrap align-items-center border-bottom" style="background:#f8f9fa">
-          <span class="text-muted small">Roles used in Cost Grids to calculate the offer value</span>
-          <div class="ms-auto d-flex gap-2"><button class="btn btn-outline-secondary btn-sm" id="btnRolesShowJson">{ } JSON</button><button class="btn btn-primary btn-sm" id="btnAddRole">+ Add role</button></div>
-        </div>
-        <div class="table-responsive">
-          <table class="table align-middle mb-0" style="font-size:.92rem">
-            <thead style="background:#eef1ff;position:sticky;top:0;z-index:1"><tr><th class="ps-3" style="min-width:180px">Label</th><th style="min-width:280px">Code</th><th style="min-width:100px">Team</th><th style="min-width:120px;text-align:right">Rate (€/h)</th><th style="width:90px"></th></tr></thead>
-            <tbody id="rolesTableBody"><tr id="rolesEmptyRow"><td colspan="5" class="text-muted text-center py-5">No roles configured. Click <strong>+ Add role</strong> to get started.</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="modal-footer border-0 pt-1"><button class="btn btn-secondary btn-sm" id="btnRolesBack" data-bs-dismiss="modal">Close</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Role Edit -->
-<div class="modal fade" id="roleModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold" id="roleModalTitle">➕ New role</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div class="mb-3"><label class="form-label small fw-semibold mb-1">Label</label><input type="text" class="form-control form-control-sm" id="roleLabel" placeholder="e.g. Project Manager"></div>
-        <div class="mb-3"><label class="form-label small fw-semibold mb-1">Code</label><input type="text" class="form-control form-control-sm" id="roleCode" placeholder="e.g. HWGACCSVS - DIRECTOR"><div class="form-text">Must match the Job Role column in actuals.</div></div>
-        <div class="mb-3"><label class="form-label small fw-semibold mb-1">Hourly rate (€/h)</label><input type="number" class="form-control form-control-sm" id="roleRate" placeholder="e.g. 160" min="0" step="0.01"></div>
-        <div id="roleModalError" class="alert alert-danger d-none py-2 small mb-0"></div>
-      </div>
-      <div class="modal-footer border-0 pt-0"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" id="btnSaveRole">💾 Save</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Programs -->
-<div class="modal fade" id="programsModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold">🗂 Programs</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <div class="p-3 border-bottom d-flex justify-content-end"><button class="btn btn-sm btn-primary" onclick="openProgramEditModal(null)">＋ New program</button></div>
-        <table class="table table-sm align-middle mb-0">
-          <thead style="background:#f8f9fa"><tr><th class="ps-3">Name</th><th>Program ID</th><th>Projects</th><th></th></tr></thead>
-          <tbody id="programsTableBody"><tr id="programsEmptyRow"><td colspan="4" class="text-center text-muted py-4">No programs. Click <strong>＋ New program</strong>.</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Program Edit -->
-<div class="modal fade" id="programEditModal" tabindex="-1">
-  <div class="modal-dialog modal-sm">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold" id="programModalTitle">＋ New program</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div id="programModalError" class="alert alert-danger py-2 d-none"></div>
-        <div class="mb-3"><label class="form-label small fw-semibold">Program name</label><input type="text" class="form-control form-control-sm" id="programName" placeholder="e.g. Chatbot AI Platform"></div>
-        <div class="mb-3"><label class="form-label small fw-semibold">Program ID</label><input type="text" class="form-control form-control-sm" id="programId" placeholder="e.g. PRG-001"></div>
-      </div>
-      <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" onclick="saveProgramFromModal()">Save</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Clients -->
-<div class="modal fade" id="clientsModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold">👥 Clients</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <div class="p-3 border-bottom d-flex justify-content-end"><button class="btn btn-sm btn-primary" onclick="openClientEditModal(null)">＋ New client</button></div>
-        <table class="table table-sm align-middle mb-0">
-          <thead style="background:#f8f9fa"><tr><th class="ps-3">Name</th><th></th></tr></thead>
-          <tbody id="clientsTableBody"><tr id="clientsEmptyRow"><td colspan="2" class="text-center text-muted py-4">No clients. Click <strong>＋ New client</strong>.</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Client Edit -->
-<div class="modal fade" id="clientEditModal" tabindex="-1">
-  <div class="modal-dialog modal-sm">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold" id="clientModalTitle">＋ New client</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div id="clientModalError" class="alert alert-danger py-2 d-none"></div>
-        <div class="mb-3"><label class="form-label small fw-semibold">Client name</label><input type="text" class="form-control form-control-sm" id="clientName" placeholder="e.g. Acme Corp"></div>
-      </div>
-      <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" onclick="saveClientFromModal()">Save</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Toast -->
-<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999">
-  <div id="cgAutoSaveToast" class="toast align-items-center text-bg-secondary border-0" role="alert" data-bs-delay="2000">
-    <div class="d-flex"><div class="toast-body" style="font-size:.85rem">💾 Auto-saved</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
-  </div>
-</div>
-
-<!-- ── SCRIPTS ── -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="js/api.js?v=4"></script>
 <script src="js/core.js?v=2"></script>
 <script src="js/settings.js"></script>
 <script src="js/notifications.js"></script>
-<script src="js/roles.js"></script>
-<script src="js/costgrid.js?v=2"></script>
-<script type="module" src="js/lib/cfg-parse.js?v=1"></script>
-<script type="module" src="js/lib/costgrid-calc.js?v=1"></script>
-<script type="module" src="js/lib/status-rules.js?v=1"></script>
-<script src="js/config-form.js?v=12"></script>
 <script src="js/upload.js"></script>
-<script src="js/dashboard.js?v=4"></script>
 <script src="js/clients.js"></script>
 <script src="js/programs.js"></script>
-<script src="js/portfolio.js?v=3"></script>
 <script src="js/ai.js"></script>
-<script src="js/api-sync.js?v=14"></script>
 <script src="js/shares.js"></script>
+<script type="module" src="js/lib/portfolio-calc.js?v=1"></script>
+<script src="js/api-sync.js?v=14"></script>
 <script src="js/nav.js?v=4"></script>
-
 <script>
-// ── PAGE-SPECIFIC NAVIGATION OVERRIDES ───────────────────────────────────────
-
-function showPortfolioPlanningView() {
-  window.location.href = '/planning.html';
-}
-
-function showPlanningView(projectId) {
-  window.location.href = '/planning.html' + (projectId ? '?projectId=' + encodeURIComponent(projectId) : '');
-}
-
-function showPipelineBoardView() {
-  window.location.href = '/pipeline.html';
-}
-
-function showCostGridEditorView(cgId, versionId) {
-  window.location.href = '/costgrid.html?' + new URLSearchParams({ cgId, verId: versionId });
-}
-
-function updateNavState() {}
-function cgHideAll() {}
-
-// ── INIT ─────────────────────────────────────────────────────────────────────
-
-document.addEventListener('DOMContentLoaded', async () => {
-  loadConfig();
-  loadSettings();
-  loadSummarySelection();
-  updateAiButtonVisibility();
-  refreshTimesheetData();
-
-  const user = await initNav('portfolio', { breadcrumbs: [
-    { label: 'Home', href: '/pipeline.html' },
-    { label: 'Project Portfolio' },
-  ]});
-  if (!user) return;
-
-  await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi()]);
-
-  // Seed caches from API (timesheets replace the localStorage-only refreshTimesheetData call above)
-  await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
-
-  if (timesheetData.length > 0) populateProjectSelector();
-
-  // Open project dashboard directly if URL param present (from pipeline board "Reporting" link)
-  const params = new URLSearchParams(window.location.search);
-  const urlProjectId = params.get('projectId');
-  if (urlProjectId) {
-    showDashboardView(urlProjectId);
-    if (params.get('configure') === 'true') {
-      setTimeout(() => openConfigModal(urlProjectId), 300);
-    }
-  } else {
-    showPortfolioView();
-  }
-
-  // ── NAVIGATION ──
-  document.getElementById('btnBackToPortfolio').addEventListener('click', showPortfolioView);
-  document.getElementById('breadcrumbPortfolioLink').addEventListener('click', e => { e.preventDefault(); showPortfolioView(); });
-  document.getElementById('btnPlanningView').addEventListener('click', () => showPlanningView(selectedProjectId));
-
-  // ── PER-PROJECT XLS UPLOAD ──
-  window._loadActualsProjectId = null;
-  const fileInput = document.getElementById('fileInput');
-  fileInput.addEventListener('change', e => {
-    const f = e.target.files[0]; e.target.value = '';
-    if (f) readXLSForProject(f, window._loadActualsProjectId);
-  });
-
-  window.triggerLoadActuals = (projectId) => {
-    window._loadActualsProjectId = projectId;
-    fileInput.click();
+  const ExportButtons = {
+    props: ['tblRef', 'filename', 'cardRef'],
+    template: `
+      <div class="d-flex gap-1">
+        <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:var(--text-xs)" title="Copy" @click="$root.copyTableToClipboard(tblRef?.())">📋</button>
+        <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:var(--text-xs)" title="XLS" @click="$root.exportTableToXLS(tblRef?.(), filename)">📊</button>
+        <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:var(--text-xs)" title="PNG" @click="$root.exportElementToPNG(cardRef?.(), filename)">🖼️</button>
+      </div>`,
   };
 
-  // ── CONFIG NAVIGATION ──
-  document.getElementById('btnOpenConfig').addEventListener('click', () => {
-    window.location.href = '/project-config.html';
-  });
-  document.getElementById('btnConfigureProject').addEventListener('click', () => {
-    window.location.href = '/project-config.html' + (selectedProjectId ? '?projectId=' + encodeURIComponent(selectedProjectId) : '');
-  });
-  document.getElementById('btnSaveConfig').addEventListener('click', saveConfig);
-  document.getElementById('btnImportConfig').addEventListener('click', importConfigFile);
-  document.getElementById('btnExportConfig').addEventListener('click', exportConfig);
-  document.getElementById('cfgPipeline').addEventListener('change', () => {
-    cfgApplyPipelineRules(document.getElementById('cfgPipeline').value, document.getElementById('cfgStatus').value);
-    cfgMarkDirty();
-  });
-  document.getElementById('cfgBtnClearData').addEventListener('click', () => {
-    const pid = cfgProjectIdx >= 0 ? cfgEditConfig.projects[cfgProjectIdx]?.id : '';
-    if (!pid) return;
-    showConfirm(`Clear all cached XLS data for project "${pid}"?`, () => { clearProjectData(pid); populateProjectSelector(); showPortfolioView(); }, null, '🗑 Clear XLS data');
-  });
-  document.querySelectorAll('.cfg-tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => cfgSwitchTab(btn.dataset.tab));
-  });
-  document.getElementById('cfgProjectSel').addEventListener('change', e => {
-    if (cfgProjectIdx >= 0) cfgSaveCurrentToState();
-    cfgSelectProject(parseInt(e.target.value));
-  });
-  document.getElementById('cfgBtnNewProject').addEventListener('click', () => {
-    if (cfgProjectIdx >= 0) cfgSaveCurrentToState();
-    cfgEditConfig.projects.push({ id: '', name: '', startDate: '', endDate: '', currency: '€', tasks: [], phasing: {}, planning: {}, groups: [] });
-    cfgPopulateProjectDropdown();
-    cfgSelectProject(cfgEditConfig.projects.length - 1);
-  });
-  document.getElementById('cfgBtnDelProject').addEventListener('click', () => {
-    if (cfgProjectIdx < 0) return;
-    const proj = cfgEditConfig.projects[cfgProjectIdx];
-    const name = proj.name || proj.id || 'this project';
-    showConfirm(`Delete project "${name}"?`, () => {
-      cfgEditConfig.projects.splice(cfgProjectIdx, 1);
-      cfgPopulateProjectDropdown();
-      cfgSelectProject(cfgEditConfig.projects.length > 0 ? 0 : -1);
-    });
-  });
-  document.getElementById('cfgBtnDerivePhasing').addEventListener('click', cfgDerivePhasing);
-  document.getElementById('cfgBtnDerivePlanning').addEventListener('click', cfgDerivePhasing);
-  document.getElementById('cfgBtnReforecastPhasing').addEventListener('click', cfgReforecast);
-  document.getElementById('cfgBtnReforecastPlanning').addEventListener('click', cfgReforecast);
-  document.getElementById('cfgBtnRollbackPhasing').addEventListener('click', cfgRollbackReforecast);
-  document.getElementById('cfgBtnRollbackPlanning').addEventListener('click', cfgRollbackReforecast);
-  document.getElementById('cfgBtnAddTask').addEventListener('click', () => {
-    document.getElementById('cfgTaskList').appendChild(cfgMakeTaskCard({ name: '', resources: [] }));
-    cfgUpdateGrandTotals();
-  });
-  document.getElementById('cfgBtnExportTasksXlsx').addEventListener('click', cfgExportTasksXlsx);
-  document.getElementById('cfgBtnAddPtc').addEventListener('click', () => {
-    document.getElementById('cfgPtcList').appendChild(cfgMakePtcCard({ title: '', note: '', amount: 0, month: cfgGetProjectMonths()[0] || '' }));
-    cfgUpdateGrandTotals();
-  });
-  document.getElementById('cfgBtnAddGroup').addEventListener('click', () => {
-    document.getElementById('cfgGroupList').appendChild(cfgMakeGroupCard({ name: '', roles: [] }));
-  });
-  document.getElementById('cfgName').addEventListener('input', () => {
-    if (cfgProjectIdx < 0) return;
-    const sel = document.getElementById('cfgProjectSel');
-    if (sel.options[cfgProjectIdx]) sel.options[cfgProjectIdx].textContent = document.getElementById('cfgName').value.trim() || `Project ${cfgProjectIdx + 1}`;
-  });
-  ['cfgStartDate', 'cfgEndDate'].forEach(id => {
-    const inp = document.getElementById(id);
-    inp.addEventListener('focus', () => { inp.dataset.prev = inp.value; });
-    inp.addEventListener('change', () => {
-      const p = cfgReadGrid('cfg-phasing-input'), pl = cfgReadGrid('cfg-planning-input');
-      const newMonths = new Set(cfgGetMonthRange());
-      const lost = [...new Set([...Object.keys(p), ...Object.keys(pl)].filter(ym => !newMonths.has(ym)))].sort();
-      const apply = () => { cfgRenderPhasingGrid(p); cfgRenderPlanningGrid(pl); };
-      if (lost.length > 0) {
-        const names = lost.map(ym => { const [y, m] = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))]; return new Date(y, m-1, 1).toLocaleDateString('en-US', { month:'short', year:'numeric' }); });
-        showConfirm(`Changing dates will discard values for:\n\n${names.join(', ')}\n\nContinue?`, apply, () => { inp.value = inp.dataset.prev || ''; });
-      } else { apply(); }
-    });
-  });
+  Vue.createApp({
+    components: { ExportButtons },
+    data() {
+      return {
+        view: 'overview',
+        portfolioSort: 'name',
+        portfolioClientFilter: '',
+        expandedPrograms: new Set(),
+        dashboardProjectId: null,
+        dashboardReady: false,
+        burndownInterval: 'monthly',
+        burndownTaskFilter: '',
+        filterMonth: '',
+        filterStart: '',
+        filterEnd: '',
+        taskDetailState: {}, // { [taskName]: { expanded: bool, groupMode: 'flat'|'role'|'owner' } }
+        refreshTick: 0, // bumped after mutating non-reactive globals (config.projects/timesheetData/portfolioSummaryProjects) that Vue can't see; forces computed re-evaluation
+      };
+    },
+    computed: {
+      projects() {
+        this.refreshTick; // establishes reactive dependency: bumped by toggleSummary() and after Load Actuals upload
+        return (config.projects || []).filter(p => p.id);
+      },
+      allClientIds() {
+        return [...new Set(
+          this.projects.filter(p => p.clientId && p.clientId !== '__unassigned__').map(p => p.clientId)
+        )].sort((a, b) => getClientName(a).localeCompare(getClientName(b)));
+      },
+      sortedFilteredProjects() {
+        const sortFn = this.portfolioSort === 'client'
+          ? (a, b) => getClientName(a.clientId).localeCompare(getClientName(b.clientId)) || (a.name||a.id).localeCompare(b.name||b.id)
+          : (a, b) => (a.name||a.id).localeCompare(b.name||b.id);
+        return [...this.projects]
+          .filter(p => !this.portfolioClientFilter || p.clientId === this.portfolioClientFilter)
+          .sort(sortFn);
+      },
+      visibleProgramGroups() {
+        const programs = getPrograms();
+        const grouped = {};
+        this.sortedFilteredProjects.forEach(cfg => {
+          if (cfg.programId && programs.find(p => p.id === cfg.programId)) {
+            (grouped[cfg.programId] = grouped[cfg.programId] || []).push(cfg);
+          }
+        });
+        return programs
+          .filter(prog => grouped[prog.id]?.length)
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map(prog => {
+            const children = [...grouped[prog.id]].sort((a, b) => (a.id||'').localeCompare(b.id||''));
+            const pipelines = children.map(c => getProjectPipeline(c.id) || c.pipeline).filter(Boolean);
+            const clientIds = children.map(c => c.clientId).filter(c => c && c !== '__unassigned__');
+            const domClientId = clientIds.length ? clientIds[0] : '';
+            return {
+              ...prog,
+              children,
+              domPipeline: pipelines.length ? pipelines[0] : '',
+              domClientName: domClientId ? getClientName(domClientId) : '',
+            };
+          });
+      },
+      ungroupedProjects() {
+        const programs = getPrograms();
+        return this.sortedFilteredProjects.filter(cfg =>
+          !(cfg.programId && programs.find(p => p.id === cfg.programId))
+        );
+      },
+      cardDataMap() {
+        const map = {};
+        this.projects.forEach(cfg => { map[cfg.id] = this.cardData(cfg); });
+        return map;
+      },
+      pinnedSummary() {
+        const cfgs = this.projects.filter(p => portfolioSummaryProjects.has(p.id));
+        if (!cfgs.length) return null;
+        const monthSet = new Set();
+        cfgs.forEach(cfg => this.getMonthRangeFromCfg(cfg).forEach(ym => monthSet.add(ym)));
+        const months = [...monthSet].sort();
+        const phasing = {}, spent = {};
+        months.forEach(ym => { phasing[ym] = 0; spent[ym] = 0; });
+        cfgs.forEach(cfg => {
+          months.forEach(ym => { phasing[ym] += cfg.phasing?.[ym] || 0; });
+          timesheetData.filter(r => r.projectId === cfg.id).forEach(r => {
+            if (!r.date) return;
+            const ym = `${r.date.getFullYear()}${String(r.date.getMonth()+1).padStart(2,'0')}`;
+            if (spent[ym] !== undefined) spent[ym] += r.hours * (findRate(r, cfg) ?? 0);
+          });
+        });
+        const grandEst = months.reduce((s, ym) => s + phasing[ym], 0);
+        const grandSpent = months.reduce((s, ym) => s + spent[ym], 0);
+        return { cfgs, months, phasing, spent, grandEst, grandSpent, grandVar: grandEst - grandSpent };
+      },
+      dashboardProject() {
+        this.refreshTick; // see computed.projects: guards against a future dashboard-view mutation of config.projects going unnoticed
+        return this.dashboardProjectId ? (config.projects || []).find(p => p.id === this.dashboardProjectId) : null;
+      },
+      dashboardData() {
+        this.refreshTick; // see computed.projects: guards against a future dashboard-view mutation of timesheetData going unnoticed
+        return this.dashboardProjectId ? timesheetData.filter(r => r.projectId === this.dashboardProjectId) : [];
+      },
+      kpis() {
+        if (!this.dashboardReady) return { consumedHours: 0, soldHours: null, budgetTotal: null, consumedEur: null, hoursLeft: null, budgetLeft: null };
+        return computeKpis(this.dashboardData, this.dashboardProject, billableData, billableTasks, findRate);
+      },
+      kpiAsOfStr() {
+        return this.kpis.maxDate
+          ? `as of ${this.kpis.maxDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
+          : 'total to date';
+      },
+      kpiBudgetEurSub() {
+        return this.kpis.totalPtc > 0 ? `${fmtMoney(this.kpis.feesOnly)} fees + ${fmtMoney(this.kpis.totalPtc)} PTC` : 'hours × hourly rate';
+      },
+      kpiBudgetLeftSub() {
+        return this.kpis.totalPtc > 0 ? '(fees + PTC) − consumed' : 'budget − consumed';
+      },
+      dashboardProgramRow() {
+        const cfg = this.dashboardProject;
+        const prog = cfg?.programId ? getPrograms().find(p => p.id === cfg.programId) : null;
+        const clientName = cfg?.clientId ? getClientName(cfg.clientId) : '';
+        const hasClient = clientName && clientName !== 'Unassigned';
+        if (!hasClient && !prog) return '';
+        const clientPart = hasClient ? `<span class="fw-semibold">${esc(clientName)}</span>` : '';
+        const sep = hasClient && prog ? ' — ' : '';
+        const progPart = prog ? `<span class="fw-semibold">${esc(prog.name)}</span>` : '';
+        return clientPart + sep + progPart;
+      },
+      dashboardMetaHtml() {
+        if (!this.dashboardProjectId) return '';
+        return [pipelineBadge(getProjectPipeline(this.dashboardProjectId) || this.dashboardProject?.pipeline), statusBadgeLarge(this.dashboardProject?.status)].join(' ');
+      },
+      dashboardSiblings() {
+        const cfg = this.dashboardProject;
+        const progId = cfg?.programId;
+        if (!progId) return [];
+        return (config.projects || [])
+          .filter(p => p.programId === progId && p.id !== this.dashboardProjectId)
+          .sort((a, b) => (a.id||'').localeCompare(b.id||''))
+          .map(s => ({
+            ...s,
+            hasActuals: timesheetData.some(r => r.projectId === s.id),
+            badgesHtml: [pipelineBadge(getProjectPipeline(s.id) || s.pipeline), statusBadgeLarge(s.status)].join(' '),
+          }));
+      },
+      billableTaskNames() {
+        return this.dashboardReady ? billableTasks(this.dashboardProject).map(t => t.name) : [];
+      },
+      monthlySummary() {
+        const data = this.dashboardData, cfg = this.dashboardProject;
+        if (!data.length) return null;
+        let startY, startM, endY, endM;
+        if (cfg?.startDate && cfg?.endDate) {
+          startY = parseInt(cfg.startDate.slice(0,4)); startM = parseInt(cfg.startDate.slice(4,6));
+          endY = parseInt(cfg.endDate.slice(0,4)); endM = parseInt(cfg.endDate.slice(4,6));
+        } else {
+          const dates = data.map(r => r.date);
+          const minD = dates.reduce((a,b) => a<b?a:b), maxD = dates.reduce((a,b) => a>b?a:b);
+          startY = minD.getFullYear(); startM = minD.getMonth()+1;
+          endY = maxD.getFullYear(); endM = maxD.getMonth()+1;
+        }
+        const ptcItems = cfg?.ptc || [];
+        const ptcByMonth = {};
+        ptcItems.forEach(p => { if (p.month) ptcByMonth[p.month] = (ptcByMonth[p.month]||0) + (p.amount||0); });
+        const hasPtc = ptcItems.length > 0;
+        const bData = billableData(data, cfg);
+        const months = [];
+        let cy = startY, cm = startM;
+        while (cy < endY || (cy === endY && cm <= endM)) {
+          const ym = `${cy}${String(cm).padStart(2,'0')}`;
+          const start = new Date(cy, cm-1, 1), end = new Date(cy, cm, 0, 23, 59, 59);
+          const rows = bData.filter(r => r.date >= start && r.date <= end);
+          const hours = rows.reduce((s,r) => s+r.hours, 0);
+          const spent = cfg ? rows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0) : null;
+          const estimatedHours = cfg?.planning?.[ym] ?? 0;
+          const estimated = cfg?.phasing?.[ym] ?? 0;
+          const ptc = ptcByMonth[ym] || 0;
+          const label = start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+          const hVar = cfg ? estimatedHours - hours : null;
+          const bVar = spent !== null ? estimated - spent : null;
+          months.push({ label, hours, estimatedHours, spent, estimated, ptc, hVar, bVar });
+          cm++; if (cm > 12) { cm = 1; cy++; }
+        }
+        const totHours = months.reduce((s,m) => s+m.hours, 0);
+        const totEstimatedHours = cfg ? months.reduce((s,m) => s+m.estimatedHours, 0) : null;
+        const totHoursVariance = totEstimatedHours !== null ? totEstimatedHours - totHours : null;
+        const totSpent = cfg ? months.reduce((s,m) => s+(m.spent??0), 0) : null;
+        const totEstimated = cfg ? months.reduce((s,m) => s+m.estimated, 0) : null;
+        const totBudgetVariance = (totEstimated !== null && totSpent !== null) ? totEstimated - totSpent : null;
+        const totPtc = hasPtc ? months.reduce((s,m) => s+m.ptc, 0) : null;
+        return { months, hasPtc, totHours, totEstimatedHours, totHoursVariance, totSpent, totEstimated, totBudgetVariance, totPtc };
+      },
+      ptcReport() {
+        const ptcItems = this.dashboardProject?.ptc || [];
+        if (!ptcItems.length) return null;
+        const total = ptcItems.reduce((s,p) => s+(p.amount||0), 0);
+        const rows = [...ptcItems].sort((a,b) => {
+          if (a.month !== b.month) return (a.month||'').localeCompare(b.month||'');
+          return (a.title||'').localeCompare(b.title||'');
+        }).map(p => {
+          let monthLabel = '—';
+          if (p.month && p.month.length === 6) {
+            const y = parseInt(p.month.slice(0,4)), m = parseInt(p.month.slice(4,6));
+            monthLabel = new Date(y, m-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+          }
+          return { ...p, monthLabel };
+        });
+        return { rows, total };
+      },
+      filterMonthOptions() {
+        const cfg = this.dashboardProject, data = this.dashboardData;
+        const months = [];
+        if (cfg?.startDate && cfg?.endDate) {
+          let cy = parseInt(cfg.startDate.slice(0,4)), cm = parseInt(cfg.startDate.slice(4,6));
+          const ey = parseInt(cfg.endDate.slice(0,4)), em = parseInt(cfg.endDate.slice(4,6));
+          while (cy < ey || (cy === ey && cm <= em)) { months.push(`${cy}-${String(cm).padStart(2,'0')}`); cm++; if (cm>12){cm=1;cy++;} }
+        } else {
+          const monthSet = new Set(data.map(r => `${r.date.getFullYear()}-${String(r.date.getMonth()+1).padStart(2,'0')}`));
+          [...monthSet].sort().forEach(ym => months.push(ym));
+        }
+        return months;
+      },
+      filterRange() {
+        if (this.filterMonth) {
+          const [y, m] = this.filterMonth.split('-').map(Number);
+          return { start: new Date(y, m-1, 1), end: new Date(y, m, 0, 23, 59, 59) };
+        }
+        return {
+          start: this.filterStart ? new Date(this.filterStart + 'T00:00:00') : null,
+          end: this.filterEnd ? new Date(this.filterEnd + 'T23:59:59') : null,
+        };
+      },
+      filterHasFilter() { return !!(this.filterRange.start || this.filterRange.end); },
+      filterRangeLabel() {
+        if (this.filterMonth) return this.filterMonthLabel(this.filterMonth);
+        const { start, end } = this.filterRange;
+        const fmtD = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        if (start && end) return `${fmtD(start)} – ${fmtD(end)}`;
+        if (start) return `from ${fmtD(start)}`;
+        if (end) return `until ${fmtD(end)}`;
+        return '';
+      },
+      summaryByTask() {
+        if (!this.dashboardProject) return null;
+        const bTasks = billableTasks(this.dashboardProject);
+        const entries = bTasks.map(t => ({
+          key: t.name.toLowerCase(), label: t.name,
+          soldHours: t.resources.reduce((s,r) => s+r.soldHours, 0),
+          soldEur: t.resources.reduce((s,r) => s+r.soldHours*r.hourlyRate, 0),
+        }));
+        return this.buildSummaryCols(this.dashboardData, r => r.task.toLowerCase(), entries);
+      },
+      summaryByRole() {
+        if (!this.dashboardProject) return null;
+        const roleMap = new Map();
+        billableTasks(this.dashboardProject).forEach(t => t.resources.forEach(res => {
+          const key = res.role.toLowerCase();
+          if (!roleMap.has(key)) roleMap.set(key, { key, label: res.role, soldHours: 0, soldEur: 0 });
+          roleMap.get(key).soldHours += res.soldHours;
+          roleMap.get(key).soldEur += res.soldHours * res.hourlyRate;
+        }));
+        const bData = billableData(this.dashboardData, this.dashboardProject);
+        return this.buildSummaryCols(bData, r => r.role.toLowerCase(), [...roleMap.values()]);
+      },
+      summaryByGroup() {
+        const cfg = this.dashboardProject;
+        if (!cfg || !cfg.groups?.length) return null;
+        const bData = billableData(this.dashboardData, cfg);
+        const bTasks = billableTasks(cfg);
+        const entries = cfg.groups.map(grp => {
+          const roleLowers = grp.roles.map(r => r.toLowerCase());
+          let soldHours = 0, soldEur = 0;
+          bTasks.forEach(task => task.resources.forEach(res => {
+            if (roleLowers.includes(res.role.toLowerCase())) { soldHours += res.soldHours; soldEur += res.soldHours*res.hourlyRate; }
+          }));
+          return { key: grp.name, label: grp.name, soldHours, soldEur, _roleLowers: roleLowers };
+        });
+        // Group membership is by role-list, not a single row field — filter bData once per group inline via a custom byKeyFn closure.
+        return entries.map(({ key, label, soldHours, soldEur, _roleLowers }) => {
+          const { start, end } = this.filterRange;
+          const grpRows = bData.filter(r => _roleLowers.includes(r.role.toLowerCase()));
+          const totalConsumed = grpRows.reduce((s,r) => s+r.hours, 0);
+          const totalConsumedEur = grpRows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0);
+          const periodRows = grpRows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
+          const inPeriod = periodRows.reduce((s,r) => s+r.hours, 0);
+          const inPeriodEur = periodRows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0);
+          return { label, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
+        });
+      },
+      taskDetailData() {
+        const cfg = this.dashboardProject;
+        if (!cfg) return [];
+        const { start, end } = this.filterRange;
+        const data = this.dashboardData;
 
-  // ── DASHBOARD ──
-  document.getElementById('projectSelect').addEventListener('change', e => selectProject(e.target.value));
-  document.getElementById('burndownTaskFilter').addEventListener('change', updateBurndown);
-  document.getElementById('btnExportChart').addEventListener('click', () => {
-    if (!burndownChartInst) return;
-    const a = document.createElement('a');
-    a.href = burndownChartInst.toBase64Image('image/png', 1);
-    a.download = `burndown_${selectedProjectId || 'chart'}.png`;
-    a.click();
-  });
-  document.querySelectorAll('#intervalToggle [data-interval]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      burndownInterval = btn.dataset.interval;
-      document.querySelectorAll('#intervalToggle [data-interval]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      updateBurndown();
-    });
-  });
-  document.getElementById('monthFilter').addEventListener('change', () => {
-    document.getElementById('filterStart').value = '';
-    document.getElementById('filterEnd').value = '';
-    updateTaskTables();
-  });
-  document.getElementById('filterStart').addEventListener('change', () => { document.getElementById('monthFilter').value = ''; updateTaskTables(); });
-  document.getElementById('filterEnd').addEventListener('change', () => { document.getElementById('monthFilter').value = ''; updateTaskTables(); });
-  document.getElementById('btnResetDate').addEventListener('click', resetDateFilter);
+        return cfg.tasks.map(task => {
+          const taskData = data.filter(r => r.task.toLowerCase() === task.name.toLowerCase());
+          const periodData = taskData.filter(r => (!start || r.date >= start) && (!end || r.date <= end)).sort((a,b) => a.date - b.date);
 
-  // ── AI + EMAIL ──
-  document.getElementById('btnAiAnalysis').addEventListener('click', openAiAnalysis);
-  document.getElementById('btnCopyAi').addEventListener('click', () => {
-    const text = document.getElementById('aiResult').textContent;
-    if (text) navigator.clipboard.writeText(text).catch(() => {});
-  });
-  document.getElementById('btnShareProject').addEventListener('click', () => {
-    const proj = (config.projects || []).find(p => p.id === selectedProjectId);
-    const name = proj?.name || selectedProjectId || 'Project';
-    openShareModal('project', selectedProjectId, name);
-  });
+          const roleMap = new Map();
+          periodData.forEach(r => {
+            const key = r.role.toLowerCase();
+            if (!roleMap.has(key)) roleMap.set(key, { role: r.role, owners: new Set(), consumedPeriod: 0 });
+            if (r.owner) roleMap.get(key).owners.add(r.owner);
+            roleMap.get(key).consumedPeriod += r.hours;
+          });
+          task.resources.forEach(res => {
+            if (!roleMap.has(res.role.toLowerCase())) roleMap.set(res.role.toLowerCase(), { role: res.role, owners: new Set(), consumedPeriod: 0 });
+          });
 
-  // ── JSON VIEWER ──
-  document.getElementById('btnJsonCopy').addEventListener('click', () => { navigator.clipboard.writeText(document.getElementById('jsonViewerContent').value).catch(() => {}); });
-  document.getElementById('btnJsonExport').addEventListener('click', () => {
-    const blob = new Blob([document.getElementById('jsonViewerContent').value], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = _jsonViewerFilename; a.click(); URL.revokeObjectURL(url);
-  });
-  document.getElementById('btnJsonImport').addEventListener('click', () => {
-    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json';
-    inp.onchange = e => {
-      const file = e.target.files[0]; if (!file) return;
-      const reader = new FileReader();
-      reader.onload = ev => { try { JSON.parse(ev.target.result); document.getElementById('jsonViewerContent').value = ev.target.result; document.getElementById('jsonViewerError').classList.add('d-none'); } catch(err) { const el = document.getElementById('jsonViewerError'); el.textContent = 'Invalid JSON: ' + err.message; el.classList.remove('d-none'); } };
-      reader.readAsText(file);
-    };
-    inp.click();
-  });
-  document.getElementById('btnJsonApply').addEventListener('click', () => {
-    const errEl = document.getElementById('jsonViewerError');
-    try { const parsed = JSON.parse(document.getElementById('jsonViewerContent').value); if (_jsonViewerOnSave) _jsonViewerOnSave(parsed); bootstrap.Modal.getInstance(document.getElementById('jsonViewerModal'))?.hide(); errEl.classList.add('d-none'); }
-    catch(err) { errEl.textContent = 'Invalid JSON: ' + err.message; errEl.classList.remove('d-none'); }
-  });
+          const rows = [...roleMap.values()].map(({ role, owners, consumedPeriod }) => {
+            const owner = [...owners].filter(Boolean).join(', ') || '—';
+            const cfgRes = task.resources.find(r => r.role.toLowerCase() === role.toLowerCase());
+            const rate = cfgRes?.hourlyRate ?? 0;
+            const soldHours = cfgRes?.soldHours ?? null;
+            const soldEur = soldHours !== null ? soldHours * rate : null;
+            const consumedTotal = taskData.filter(r => r.role.toLowerCase() === role.toLowerCase()).reduce((s,r) => s+r.hours, 0);
+            const remaining = cfgRes != null ? cfgRes.soldHours - consumedTotal : null;
+            const consumedPeriodEur = periodData.filter(r => r.role.toLowerCase() === role.toLowerCase()).reduce((s,r) => s+r.hours*rate, 0);
+            const remainingEur = cfgRes != null ? rate * (cfgRes.soldHours - consumedTotal) : null;
+            return { label: `${role} (${owner})`, soldHours, soldEur, consumedPeriod, consumedPeriodEur, remaining, remainingEur };
+          });
 
-  // ── ROLES ──
-  document.getElementById('btnAddRole').addEventListener('click', () => openRoleModal(null));
-  document.getElementById('btnSaveRole').addEventListener('click', saveRoleFromModal);
-  document.getElementById('btnRolesBack').addEventListener('click', hideRolesView);
-  document.getElementById('btnRolesShowJson').addEventListener('click', () => {
-    openJsonViewer('Roles', getRoles(), imported => { if (!Array.isArray(imported)) throw new Error('Must be an array'); roles = imported; saveRoles(); renderRolesTable(); }, `roles_${new Date().toISOString().slice(0,10)}.json`);
-  });
+          const totSold = rows.reduce((s,r) => s+(r.soldHours??0), 0);
+          const totSoldEur = rows.reduce((s,r) => s+(r.soldEur??0), 0);
+          const totPeriod = periodData.reduce((s,r) => s+r.hours, 0);
+          const totPeriodEur = periodData.reduce((s,r) => {
+            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
+            return s + r.hours * (cfgR?.hourlyRate ?? 0);
+          }, 0);
+          const totRemaining = rows.reduce((s,r) => s+(r.remaining??0), 0);
+          const totRemainingEur = rows.reduce((s,r) => s+(r.remainingEur??0), 0);
 
-});
+          return { task, rows, totSold, totSoldEur, totPeriod, totPeriodEur, totRemaining, totRemainingEur, periodData };
+        });
+      },
+    },
+    async created() {
+      this._burndownChart = null;
+      loadSettings();
+      loadSummarySelection();
+      updateAiButtonVisibility();
+
+      const user = await initNav('portfolio', { breadcrumbs: [
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Project Portfolio' },
+      ]});
+      if (!user) return;
+
+      await Promise.all([loadClientsFromApi(), loadProgramsFromApi()]);
+      await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
+      this.refreshTick++; // mount() runs before this async data load resolves, so `projects` (and everything chained off it) must be nudged once data is actually in
+
+      document.getElementById('fileInput').addEventListener('change', async e => {
+        const f = e.target.files[0]; e.target.value = '';
+        if (f) { await readXLSForProject(f, window._loadActualsProjectId); this.refreshTick++; }
+      });
+
+      document.getElementById('btnCopyAi').addEventListener('click', () => {
+        const text = document.getElementById('aiResult').textContent;
+        if (text) navigator.clipboard.writeText(text).catch(() => {});
+      });
+
+      const params = new URLSearchParams(window.location.search);
+      const urlProjectId = params.get('projectId');
+      if (urlProjectId) {
+        this.showDashboard(urlProjectId);
+      } else {
+        this.showOverview();
+      }
+    },
+    methods: {
+      getClientName,
+      pipelineBadge,
+      fmtMoney,
+      fmtDate,
+      fmtH,
+      getProjectPipeline,
+      statusBadgeLarge,
+      openAiAnalysis,
+      openShareModal,
+      isPinnedSummary(id) {
+        // template expressions resolve bare identifiers through the component instance only (never
+        // fall through to window in Vue 3's runtime-compiled mode), so the global Set must be read
+        // dynamically here rather than referenced bare in the template or captured once by value
+        return portfolioSummaryProjects.has(id);
+      },
+      taskState(taskName) {
+        if (!this.taskDetailState[taskName]) {
+          this.taskDetailState[taskName] = { expanded: false, groupMode: 'flat' };
+        }
+        return this.taskDetailState[taskName];
+      },
+      taskDetailRows(entry, groupMode) {
+        const { task, periodData } = entry;
+        if (periodData.length === 0) return null; // template renders the "no entries" row itself
+        if (groupMode === 'flat') {
+          return periodData.map(r => {
+            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
+            return { date: r.date, col2: `${r.role} (${r.owner})`, hours: r.hours, eur: cfgR ? r.hours * cfgR.hourlyRate : null, notes: r.notes, isGroupHeader: false };
+          });
+        }
+        const groups = new Map();
+        periodData.forEach(r => {
+          const k = groupMode === 'role' ? r.role.toLowerCase() : r.owner.toLowerCase();
+          const label = groupMode === 'role' ? r.role : r.owner;
+          if (!groups.has(k)) groups.set(k, { label, entries: [] });
+          groups.get(k).entries.push(r);
+        });
+        const out = [];
+        groups.forEach(({ label, entries }) => {
+          const grpH = entries.reduce((s,r) => s+r.hours, 0);
+          const grpEur = entries.reduce((s,r) => {
+            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
+            return s + r.hours * (cfgR?.hourlyRate ?? 0);
+          }, 0);
+          out.push({ isGroupHeader: true, label, hours: grpH, eur: grpEur });
+          entries.forEach(r => {
+            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
+            out.push({ date: r.date, col2: groupMode === 'role' ? r.owner : r.role, hours: r.hours, eur: cfgR ? r.hours * cfgR.hourlyRate : null, notes: r.notes, isGroupHeader: false });
+          });
+        });
+        return out;
+      },
+      filterMonthLabel(ym) {
+        const [y, m] = ym.split('-').map(Number);
+        return new Date(y, m-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      },
+      resetDateFilter() { this.filterMonth = ''; this.filterStart = ''; this.filterEnd = ''; },
+      buildSummaryCols(rows, byKeyFn, entries) {
+        const { start, end } = this.filterRange;
+        return entries.map(({ key, label, soldHours, soldEur }) => {
+          const keyRows = rows.filter(r => byKeyFn(r) === key);
+          const totalConsumed = keyRows.reduce((s,r) => s+r.hours, 0);
+          const totalConsumedEur = keyRows.reduce((s,r) => s+r.hours*(findRate(r, this.dashboardProject)??0), 0);
+          const periodRows = keyRows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
+          const inPeriod = periodRows.reduce((s,r) => s+r.hours, 0);
+          const inPeriodEur = periodRows.reduce((s,r) => s+r.hours*(findRate(r, this.dashboardProject)??0), 0);
+          return { label, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
+        });
+      },
+      summaryTotals(cols, hasFilter) {
+        const totSold = cols.reduce((s,c) => s+c.soldHours, 0);
+        const totSoldEur = cols.reduce((s,c) => s+c.soldEur, 0);
+        const totConsumed = cols.reduce((s,c) => s+c.totalConsumed, 0);
+        const totConsumedEur = cols.reduce((s,c) => s+c.totalConsumedEur, 0);
+        const totInPeriod = cols.reduce((s,c) => s+c.inPeriod, 0);
+        const totInPeriodEur = cols.reduce((s,c) => s+c.inPeriodEur, 0);
+        const totSpent = totConsumed - (hasFilter ? totInPeriod : 0);
+        const totSpentEur = totConsumedEur - (hasFilter ? totInPeriodEur : 0);
+        const totResidual = totSold - totConsumed;
+        const totResidualEur = totSoldEur - totConsumedEur;
+        return { totSold, totSoldEur, totSpent, totSpentEur, totInPeriod, totInPeriodEur, totResidual, totResidualEur };
+      },
+      showOverview() {
+        this.view = 'overview';
+        selectedProjectId = null;
+        if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
+          { label: 'Home', href: '/pipeline.html' },
+          { label: 'Project Portfolio' },
+        ]);
+      },
+      toggleProgramExpanded(id) {
+        if (this.expandedPrograms.has(id)) this.expandedPrograms.delete(id);
+        else this.expandedPrograms.add(id);
+      },
+      getMonthRangeFromCfg(cfg) {
+        if (!cfg?.startDate || !cfg?.endDate) return [];
+        const sy = parseInt(cfg.startDate.slice(0,4)), sm = parseInt(cfg.startDate.slice(4,6));
+        const ey = parseInt(cfg.endDate.slice(0,4)), em = parseInt(cfg.endDate.slice(4,6));
+        const months = [];
+        let cy = sy, cm = sm;
+        while (cy < ey || (cy === ey && cm <= em)) { months.push(`${cy}${String(cm).padStart(2,'0')}`); cm++; if (cm > 12) { cm = 1; cy++; } }
+        return months;
+      },
+      monthLabel(ym) {
+        return new Date(parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))-1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      },
+      varColor(v) { return v > 0 ? 'var(--color-success)' : v < 0 ? 'var(--color-danger)' : 'var(--text-muted)'; },
+      fmtVar(v) { return `${v >= 0 ? '+' : ''}${fmtMoney(v)}`; },
+      fmtProjectTitle(cfg) {
+        const client = getClientName(cfg.clientId);
+        const name = cfg.name || cfg.id;
+        return client && client !== 'Unassigned' ? `${client} — ${name}` : name;
+      },
+      programSummary(cfgs) {
+        const monthSet = new Set();
+        cfgs.forEach(cfg => this.getMonthRangeFromCfg(cfg).forEach(ym => monthSet.add(ym)));
+        const months = [...monthSet].sort();
+        if (!months.length) return null;
+        const phasing = {}, spent = {};
+        months.forEach(ym => { phasing[ym] = 0; spent[ym] = 0; });
+        cfgs.forEach(cfg => {
+          months.forEach(ym => { phasing[ym] += cfg.phasing?.[ym] || 0; });
+          timesheetData.filter(r => r.projectId === cfg.id).forEach(r => {
+            if (!r.date) return;
+            const ym = `${r.date.getFullYear()}${String(r.date.getMonth()+1).padStart(2,'0')}`;
+            if (spent[ym] !== undefined) spent[ym] += r.hours * (findRate(r, cfg) ?? 0);
+          });
+        });
+        const totalPtc = cfgs.reduce((s, cfg) => s + (cfg.ptc||[]).reduce((a,p) => a+(p.amount||0), 0), 0);
+        const grandEst = months.reduce((s, ym) => s + phasing[ym], 0);
+        const grandSpent = months.reduce((s, ym) => s + spent[ym], 0);
+        return { months, phasing, spent, totalPtc, grandEst, grandSpent, grandVar: grandEst - grandSpent };
+      },
+      cardData(cfg) {
+        const data = timesheetData.filter(r => r.projectId === cfg.id);
+        const months = this.getMonthRangeFromCfg(cfg);
+        if (!months.length) return null;
+        const monthSpend = {};
+        data.forEach(r => {
+          if (!r.date) return;
+          const ym = `${r.date.getFullYear()}${String(r.date.getMonth()+1).padStart(2,'0')}`;
+          monthSpend[ym] = (monthSpend[ym]||0) + r.hours * (findRate(r, cfg) ?? 0);
+        });
+        const hasData = data.length > 0;
+        const hasPhasing = cfg.phasing && Object.keys(cfg.phasing).length > 0;
+        const totalPtc = (cfg.ptc||[]).reduce((s,p) => s+(p.amount||0), 0);
+        const totalSpent = months.reduce((s, ym) => s + (monthSpend[ym]||0), 0);
+        const totalPhasing = months.reduce((s, ym) => s + (cfg.phasing?.[ym]||0), 0);
+        const totalVar = totalPhasing - totalSpent;
+        const totalHours = (cfg.tasks||[]).reduce((s,t) => s+(t.resources||[]).reduce((rs,r) => rs+(r.soldHours||0),0), 0);
+        const totalBudget = (cfg.tasks||[]).reduce((s,t) => s+(t.resources||[]).reduce((rs,r) => rs+(r.soldHours||0)*(r.hourlyRate||0),0), 0);
+        const cgRef = cfg.costGridRef;
+        const apiBudget = (typeof getPipelineBudget === 'function' && cgRef?.versionId) ? getPipelineBudget(cgRef.versionId) : null;
+        const displayFee = totalBudget > 0 ? totalBudget : (apiBudget?.fee || 0);
+        const displayHours = totalHours > 0 ? totalHours : 0;
+        const displayTotal = displayFee + totalPtc;
+        const budgetBadgeHtml = (displayFee > 0 || displayHours > 0)
+          ? `<span class="portfolio-budget-badge">${displayHours > 0 ? displayHours.toLocaleString('en-US') + ' h &nbsp;/&nbsp; ' : ''}${fmtMoney(displayTotal)}${totalPtc > 0 ? `<span class="text-muted" style="font-size:.8em;font-weight:400"> &nbsp;(${fmtMoney(displayFee)} fees + ${fmtMoney(totalPtc)} PTC)</span>` : ''}${apiBudget && totalBudget === 0 ? '<span class="text-muted" style="font-size:.75em;margin-left:4px">(from cost grid)</span>' : ''}</span>`
+          : '';
+        return { months, monthSpend, hasData, hasPhasing, totalPtc, totalSpent, totalPhasing, totalVar, budgetBadgeHtml };
+      },
+      varCellStyle(cfg, ym, cd) {
+        if (!cd.hasData || !cd.hasPhasing) return {};
+        const v = (cfg.phasing?.[ym]||0) - (cd.monthSpend[ym]||0);
+        return { color: this.varColor(v), fontWeight: 600 };
+      },
+      varCellText(cfg, ym, cd) {
+        if (!cd.hasData || !cd.hasPhasing) return '—';
+        const v = (cfg.phasing?.[ym]||0) - (cd.monthSpend[ym]||0);
+        return `${v>=0?'+':''}${this.fmtMoney ? this.fmtMoney(v) : fmtMoney(v)}`;
+      },
+      toggleSummary(id) {
+        if (portfolioSummaryProjects.has(id)) portfolioSummaryProjects.delete(id); else portfolioSummaryProjects.add(id);
+        saveSummarySelection();
+        this.refreshTick++;
+      },
+      triggerLoadActuals(projectId) {
+        window._loadActualsProjectId = projectId;
+        document.getElementById('fileInput').click();
+      },
+      goPlanningForProject(id) {
+        window.location.href = '/planning.html?projectId=' + encodeURIComponent(id);
+      },
+      esc,
+      hasAiKey,
+      kpiLeftColor(left, total) {
+        if (left === null) return '';
+        if (left < 0) return 'var(--color-danger)';
+        if (total && left < total * 0.1) return '#fd7e14';
+        return '';
+      },
+      showDashboard(pid) {
+        this.view = 'dashboard';
+        this.dashboardProjectId = pid;
+        this.dashboardReady = true;
+        selectedProjectId = pid;
+        const cfg = this.dashboardProject;
+        currentCfg = cfg; // js/core.js's fmtMoney(n) falls back to currentCfg?.currency when no explicit currencyCode is passed
+        if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
+          { label: 'Home', href: '/pipeline.html' },
+          { label: 'Project Portfolio', href: '/portfolio.html' },
+          { label: cfg?.name || pid },
+        ]);
+        this.burndownInterval = 'monthly';
+        this.burndownTaskFilter = '';
+        this.$nextTick(() => this.renderBurndownChart());
+      },
+      renderBurndownChart() {
+        if (this._burndownChart) { this._burndownChart.destroy(); this._burndownChart = null; }
+        if (!this.dashboardData.length) return;
+
+        const series = computeBurndownPoints(this.dashboardData, this.dashboardProject, this.burndownTaskFilter, this.burndownInterval, billableData, billableTasks, findRate);
+        const { labels, burnValues, idealValues, hasPhasingEur, planningData, budget, totalBudgetEur, tooltipBudgetConsumed, tooltipPhasingEur } = series;
+
+        const datasets = [{
+          label: budget !== null ? 'Remaining Hours' : 'Cumulative Hours',
+          data: burnValues,
+          borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,0.07)',
+          fill: true, tension: 0.3, pointRadius: 3, pointHoverRadius: 5,
+        }];
+        if (idealValues) {
+          datasets.push({
+            label: hasPhasingEur ? 'Estimated Budget (phasing)' : 'Ideal Trend',
+            data: idealValues,
+            borderColor: hasPhasingEur ? '#FF6F00' : 'var(--text-disabled)', borderDash: [6, 4], borderWidth: 2,
+            fill: false, pointRadius: 0, tension: 0,
+          });
+        }
+        if (planningData) {
+          datasets.push({
+            label: 'Estimated Hours',
+            data: planningData,
+            borderColor: '#2E7D32', borderDash: [4, 4], borderWidth: 2,
+            fill: false, pointRadius: 0, tension: 0,
+          });
+        }
+
+        this._burndownChart = new Chart(this.$refs.burndownCanvas, {
+          type: 'line',
+          data: { labels, datasets },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+              tooltip: {
+                mode: 'index', intersect: false,
+                filter: item => item.datasetIndex === 0,
+                displayColors: false,
+                callbacks: {
+                  label: context => {
+                    const i = context.dataIndex;
+                    const lines = ['── Hours ──────────────────'];
+                    if (budget !== null) {
+                      lines.push(`  Consumed:   ${fmtH(Math.max(0, budget - burnValues[i]))}`);
+                      lines.push(`  Remaining:  ${fmtH(Math.max(0, burnValues[i]))}`);
+                      if (planningData) lines.push(`  Estimated:  ${fmtH(planningData[i])}`);
+                    } else {
+                      lines.push(`  Consumed:   ${fmtH(burnValues[i])}`);
+                    }
+                    if (tooltipBudgetConsumed) {
+                      lines.push('', '── Budget ─────────────────');
+                      const consumed = tooltipBudgetConsumed[i] ?? 0;
+                      lines.push(`  Consumed:   ${fmtMoney(consumed)}`);
+                      lines.push(`  Remaining:  ${fmtMoney(totalBudgetEur - consumed)}`);
+                      if (tooltipPhasingEur?.[i] != null) lines.push(`  Estimated:  ${fmtMoney(tooltipPhasingEur[i])}`);
+                    }
+                    return lines;
+                  },
+                },
+              },
+              legend: { position: 'top' },
+            },
+            scales: {
+              x: { ticks: { maxRotation: 45, autoSkip: false } },
+              y: { beginAtZero: true, title: { display: true, text: 'Hours' } },
+            },
+          },
+        });
+      },
+      exportChartPng() {
+        if (!this._burndownChart) return;
+        const a = document.createElement('a');
+        a.href = this._burndownChart.toBase64Image('image/png', 1);
+        a.download = `burndown_${this.dashboardProjectId || 'chart'}.png`;
+        a.click();
+      },
+      copyTableToClipboard(tbl) {
+        if (!tbl) return;
+        const text = [...tbl.querySelectorAll('tr')]
+          .map(tr => [...tr.querySelectorAll('th,td')].map(c => c.innerText.replace(/\n/g, ' ').trim()).join('\t'))
+          .join('\n');
+        navigator.clipboard.writeText(text).catch(() => {});
+      },
+      exportTableToXLS(tbl, filename) {
+        if (!tbl) return;
+        const wb = XLSX.utils.table_to_book(tbl, { sheet: 'Data' });
+        XLSX.writeFile(wb, filename + '.xlsx');
+      },
+      exportElementToPNG(el, filename) {
+        if (!el || typeof html2canvas === 'undefined') return;
+        html2canvas(el, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+          const a = document.createElement('a');
+          a.href = canvas.toDataURL('image/png');
+          a.download = filename + '.png';
+          a.click();
+        });
+      },
+    },
+    watch: {
+      burndownInterval() { this.renderBurndownChart(); },
+      burndownTaskFilter() { this.renderBurndownChart(); },
+    },
+  }).mount('#app');
 </script>
-
 </body>
 </html>
-
