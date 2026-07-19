@@ -712,9 +712,12 @@ burndown/
   package.json            ← dev-only vitest + jsdom test toolchain for js/lib/ (never bundled, never served)
   vitest.config.js
   scripts/
-    test-branch.sh        ← isolated Docker Compose stack (`up`/`down`) for testing the current feature branch
-                             before merge; distinct container names/ports from the main stack (safe to run
-                             alongside it); clones data from the running main stack via pg_dump/pg_restore when
+    test-branch.sh        ← isolated Docker Compose stack (`up`/`down`/`status`) for testing the current feature
+                             branch before merge; distinct container names/ports from the main stack (safe to run
+                             alongside it); `status` reports "up"/"down" by querying Docker directly (no persisted
+                             state) — consumed by `/finish-cycle`'s Gate 2 to detect a branch environment already
+                             running from an earlier attempt and offer reuse-vs-rebuild instead of asking to spin
+                             up again; clones data from the running main stack via pg_dump/pg_restore when
                              available, else applies all migrations to a fresh DB + bootstraps a test admin;
                              reads `.env` via a manual line-by-line parser mirroring create-admin.js's approach
                              (never source/eval — real `.env` values here contain shell-special characters like

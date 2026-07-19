@@ -34,9 +34,12 @@ docker exec pdash-db psql -U pdash -d pdash -f /path/to/migration.sql
 To test a feature branch in isolation before merging (separate containers/ports, doesn't touch the `main` stack):
 
 ```bash
-scripts/test-branch.sh up    # build + start, clone data from main if running
-scripts/test-branch.sh down  # tear down
+scripts/test-branch.sh up      # build + start, clone data from main if running
+scripts/test-branch.sh down    # tear down
+scripts/test-branch.sh status  # "up" (exit 0) or "down" (exit 1) — queries Docker directly, no persisted state
 ```
+
+`/finish-cycle`'s Gate 2 calls `status` automatically to detect a branch environment still running from an earlier `/finish-cycle` attempt on the same branch, and asks to reuse or rebuild it instead of the plain "spin up now?" question.
 
 No bundler, no build step for the **runtime** — nginx serves `js/`/`css/` files exactly as they are on disk, and this must stay true.
 
@@ -206,8 +209,11 @@ api/src/create-admin.js  — CLI bootstrap script (admin user create/reset)
 scripts/test-branch.sh   — isolated Docker Compose stack for testing the current feature branch before merge
                             (distinct container names/ports from the main stack, clones data from main via
                             pg_dump/pg_restore when available, falls back to a fresh migrated DB + bootstrapped
-                            test admin otherwise); `up`/`down` subcommands; reads `.env` via a manual line-by-line
-                            parser (never source/eval — real `.env` values here contain shell-special characters)
+                            test admin otherwise); `up`/`down`/`status` subcommands (`status` reports "up"/"down" by
+                            querying Docker directly, no persisted state — consumed by `/finish-cycle` Gate 2 to
+                            detect a branch environment already running from an earlier attempt); reads `.env` via
+                            a manual line-by-line parser (never source/eval — real `.env` values here contain
+                            shell-special characters)
 ```
 
 ### Routing
