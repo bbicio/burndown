@@ -354,6 +354,8 @@ function showCostGridEditorView(cgId, versionId) {
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
+let _pbDetailOutsideClickHandler = null;
+
 const PB_STAGES = ['Draft', 'SIP', 'Expected', 'Anticipated', 'Committed', 'Canceled'];
 const PB_STAGE_STYLE = {
   Draft:       { bg: '#f8f9fa',                          border: '#adb5bd',                          badge: '#6c757d'                           },
@@ -544,6 +546,16 @@ Vue.createApp({
     async openDetailPanel(cgId, verId) {
       this.selectedCgId = cgId;
       this.selectedVerId = verId;
+
+      // Delayed registration avoids the same click that opened the panel
+      // (e.g. a card click) immediately triggering the outside-click close.
+      if (_pbDetailOutsideClickHandler) document.removeEventListener('mousedown', _pbDetailOutsideClickHandler);
+      _pbDetailOutsideClickHandler = (e) => {
+        const panel = document.getElementById('pbDetailPanel');
+        if (panel && !panel.contains(e.target)) this.closeDetailPanel();
+      };
+      setTimeout(() => document.addEventListener('mousedown', _pbDetailOutsideClickHandler), 200);
+
       if (typeof cgLoadStructureFromApi === 'function') {
         await cgLoadStructureFromApi(cgId, verId).catch(() => {});
       }
@@ -554,6 +566,10 @@ Vue.createApp({
     closeDetailPanel() {
       this.selectedCgId = null;
       this.selectedVerId = null;
+      if (_pbDetailOutsideClickHandler) {
+        document.removeEventListener('mousedown', _pbDetailOutsideClickHandler);
+        _pbDetailOutsideClickHandler = null;
+      }
     },
     verStageBadgeColor(ver) {
       return (PB_STAGE_STYLE[pbGetStage(ver)] || PB_STAGE_STYLE.SIP).badge;
