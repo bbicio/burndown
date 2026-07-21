@@ -104,8 +104,21 @@
          style="border-bottom:1px solid #dee2e6;background:#0B1840;color:#fff">
       <span class="fw-semibold" style="font-size:var(--text-md)">Offer detail</span>
       <div class="d-flex gap-2 align-items-center">
+        <button v-if="detailStage === 'Draft' && selectedCg.myPermission !== 'viewer'" class="btn btn-sm btn-outline-danger px-3" style="font-size:var(--text-xs);font-weight:600" title="Delete this Draft version" @click="deleteSelectedVersion">🗑 Delete</button>
+        <button v-if="selectedCg.myPermission !== 'viewer'" class="btn btn-sm btn-light px-3" style="font-size:var(--text-xs);font-weight:600" title="Clone this version as a new proposal" @click="openCloneModal(selectedCgId, selectedVerId)">⧉ Clone</button>
+        <button v-if="detailStage !== 'Draft'" class="btn btn-sm btn-light px-3" style="font-size:var(--text-xs);font-weight:600" title="Share this cost grid" @click="openShareModal('cost_grid', selectedCgId, selectedCg.name)">🔗 Share</button>
+        <button v-if="selectedCg.myPermission !== 'viewer'" class="btn btn-sm btn-light px-3" style="font-size:var(--text-xs);font-weight:600" title="Open full cost grid editor" @click="closeDetailPanel(); showCostGridEditorView(selectedCgId, selectedVerId)">✏️ Edit</button>
         <button class="btn btn-sm btn-link text-white p-0" @click="closeDetailPanel" style="font-size:1.1rem;line-height:1" title="Close">×</button>
       </div>
+    </div>
+    <div v-if="selectedCg.versions.length > 1" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 18px;border-bottom:1px solid var(--border-light);background:var(--surface-light);flex-shrink:0">
+      <span class="text-muted" style="font-size:var(--text-xs)">Version:</span>
+      <button v-for="ver in selectedCg.versions" :key="ver.versionId"
+              class="btn btn-sm" :class="ver.versionId === selectedVerId ? 'btn-primary' : 'btn-outline-secondary'"
+              style="font-size:var(--text-xs);padding:2px 10px;gap:4px"
+              @click="openDetailPanel(selectedCgId, ver.versionId)">
+        {{ ver.versionLabel }}<span :style="{ display:'inline-block', width:'7px', height:'7px', borderRadius:'50%', background: verStageBadgeColor(ver), verticalAlign:'middle', marginLeft:'4px' }"></span>
+      </button>
     </div>
     <div class="d-flex flex-grow-1" style="min-height:0">
       <div style="width:50%;padding:20px 18px;overflow-y:auto;border-right:1px solid var(--border-light)">
@@ -125,7 +138,10 @@
           </div>
           <div class="col-6">
             <div class="text-muted" style="font-size:var(--text-xs)">Currency</div>
-            <div>{{ selectedVersion.currency || 'EUR' }}<span v-if="selectedVersion.currencyRate && selectedVersion.currency !== 'EUR'"> · 1 € = {{ Number(selectedVersion.currencyRate).toLocaleString('en', {minimumFractionDigits:4,maximumFractionDigits:4}) }} {{ selectedVersion.currency }}</span></div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <span>{{ selectedVersion.currency || 'EUR' }}<span v-if="selectedVersion.currencyRate && selectedVersion.currency !== 'EUR'"> · 1 € = {{ Number(selectedVersion.currencyRate).toLocaleString('en', {minimumFractionDigits:4,maximumFractionDigits:4}) }} {{ selectedVersion.currency }}</span></span>
+              <button v-if="rateStale" class="btn btn-outline-warning" style="font-size:var(--text-2xs);padding:1px 6px;line-height:1.4" title="Rate snapshot is outdated — click to update" @click="confirmRefreshRate">↺ Refresh rate</button>
+            </div>
           </div>
           <div class="col-6">
             <div class="text-muted" style="font-size:var(--text-xs)">Professional fees</div>
@@ -141,6 +157,30 @@
           </div>
         </div>
         <div v-if="selectedVersion.note" class="mb-3 p-2 rounded" style="background:var(--surface-light);font-size:var(--text-sm);white-space:pre-wrap">{{ selectedVersion.note }}</div>
+        <div v-if="potState" style="border-top:1px solid var(--border-light);padding-top:10px;margin-top:4px">
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <span class="fw-semibold" style="font-size:var(--text-sm)">🎯 POT — {{ potState.targetName }} {{ potState.year }}</span>
+            <span :style="{ fontSize:'var(--text-xs)', color: potState.totColor, fontWeight:700 }">{{ potState.pct }}% total</span>
+          </div>
+          <div v-if="potState.pot" style="height:8px;background:#e9ecef;border-radius:3px;overflow:hidden;margin-bottom:6px;display:flex">
+            <div :style="{ height:'100%', width: potState.pctC + '%', background:'#198754' }"></div>
+            <div :style="{ height:'100%', width: potState.pctA + '%', background:'#fd7e14', opacity:.75 }"></div>
+          </div>
+          <div v-if="potState.pot" style="font-size:var(--text-xs);color:var(--text-muted);display:flex;flex-direction:column;gap:3px">
+            <div class="d-flex justify-content-between">
+              <span>Total (C+A): <strong :style="{ color: potState.totColor }">{{ potFmtMoney(potState.totalBudget) }}</strong></span>
+              <span>Target: <strong style="color:#1a1a2e">{{ potFmtMoney(potState.pot.amount) }}</strong></span>
+            </div>
+            <div style="padding-left:8px;border-left:3px solid #198754">
+              Committed: <strong style="color:#198754">{{ potFmtMoney(potState.committedTotal) }}</strong> <span style="color:#888">({{ potState.pctC }}%)</span>
+            </div>
+            <div v-if="potState.anticipatedTotal > 0" style="padding-left:8px;border-left:3px solid #fd7e14">
+              Anticipated: <strong style="color:#fd7e14">+ {{ potFmtMoney(potState.anticipatedTotal) }}</strong> <span style="color:#888">({{ potState.pctA }}%)</span>
+            </div>
+          </div>
+          <div v-if="!potState.pot" class="text-muted" style="font-size:var(--text-xs)">No POT target for <strong>{{ potState.targetName }}</strong> in {{ potState.year }}.</div>
+          <div v-if="potState.nContrib > 1" class="text-muted mt-1" style="font-size:var(--text-2xs)">{{ potState.nContrib }} proposals contribute to this POT</div>
+        </div>
         <hr style="border-color:var(--border-light);margin:16px 0">
         <div class="fw-semibold mb-2" style="font-size:var(--text-md)">🔗 Linked projects</div>
         <div v-if="!detailLinkedProjects.length" class="text-muted" style="font-size:var(--text-sm)">No projects linked.</div>
@@ -355,6 +395,8 @@ Vue.createApp({
       selectedCgId: null,
       selectedVerId: null,
       currencies: [],
+      potState: null,
+      clientGroups: [],
     };
   },
   computed: {
@@ -457,6 +499,15 @@ Vue.createApp({
       const phases = this.selectedVersion?.phases || [];
       return phases.some(ph => ph.tasks?.length);
     },
+    liveRate() {
+      if (!this.selectedVersion || this.selectedVersion.currency === 'EUR') return null;
+      const entry = this.currencies.find(c => c.code === this.selectedVersion.currency);
+      return entry ? parseFloat(entry.current_rate) : null;
+    },
+    rateStale() {
+      const isAdmin = window.__navUser?.role === 'admin';
+      return isAdmin && this.liveRate != null && Math.abs(this.liveRate - (this.selectedVersion.currencyRate || 1.0)) > 0.0001;
+    },
   },
   methods: {
     esc,
@@ -495,10 +546,74 @@ Vue.createApp({
         await cgLoadStructureFromApi(cgId, verId).catch(() => {});
       }
       this.refreshTick++; // structure just loaded into _cgStore — see Global Constraint 4
+      const v = this.selectedVersion;
+      if (v) this.loadPotSection(v, pbGetStage(v));
     },
     closeDetailPanel() {
       this.selectedCgId = null;
       this.selectedVerId = null;
+    },
+    verStageBadgeColor(ver) {
+      return (PB_STAGE_STYLE[pbGetStage(ver)] || PB_STAGE_STYLE.SIP).badge;
+    },
+    potFmtMoney(n) { return '€ ' + Number(n).toLocaleString('en', { maximumFractionDigits: 0 }); },
+    async loadPotSection(v, stage) {
+      this.potState = null;
+      const year = v.pipelineYear;
+      if (!year || stage === 'Draft') return;
+
+      let clientId = null;
+      for (const lp of (v.linkedProjects || [])) {
+        const proj = (config.projects || []).find(p => p.id === lp.projectId);
+        if (proj?.clientId) { clientId = proj.clientId; break; }
+      }
+      if (!clientId) clientId = v.clientId || null;
+      if (!clientId) return;
+
+      const group = this.clientGroups.find(g => (g.clients || []).some(c => c.id === clientId));
+      const params = group ? { year, clientGroupId: group.id } : { year, clientId };
+      const targetName = group ? group.name : getClientName(clientId);
+
+      try {
+        const { pot, proposals, committed_total, anticipated_total } = await Api.pots.summary(params);
+        if (!pot) { this.potState = { pot: null, year, targetName }; return; }
+        const committedTotal = parseFloat(committed_total || 0);
+        const anticipatedTotal = parseFloat(anticipated_total || 0);
+        const totalBudget = committedTotal + anticipatedTotal;
+        const { pct, pctC, pctA } = pbComputePotPercentages(totalBudget, committedTotal, pot.amount);
+        const totColor = pct >= 100 ? '#198754' : pct >= 75 ? '#fd7e14' : '#0d6efd';
+        const nContrib = proposals.filter(p => p.pipeline === 'Committed' || p.pipeline === 'Anticipated').length;
+        this.potState = { pot, year, targetName, committedTotal, anticipatedTotal, totalBudget, pct, pctC, pctA, totColor, nContrib };
+      } catch (e) {
+        this.potState = null;
+      }
+    },
+    deleteSelectedVersion() {
+      cgConfirmDeleteVersion(this.selectedCgId, this.selectedVerId, this.selectedVersion.versionLabel, () => {
+        this.closeDetailPanel();
+        this.refreshTick++;
+      });
+    },
+    confirmRefreshRate() {
+      const cgId = this.selectedCgId, verId = this.selectedVerId, cur = this.selectedVersion.currency;
+      const snapStr = Number(this.selectedVersion.currencyRate || 1).toLocaleString('en', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+      const liveStr = Number(this.liveRate).toLocaleString('en', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+      showConfirm(
+        `Update the exchange rate snapshot?\n\nCurrent snapshot: 1 € = ${snapStr} ${cur}\nLatest rate: 1 € = ${liveStr} ${cur}\n\nBudget amounts remain in ${cur}. Only the EUR equivalent display will change.`,
+        async () => {
+          try {
+            await Api.costGrids.versions.refreshRate(cgId, verId);
+            await cgSyncFromApi();
+            await loadPipelineBudgetsFromApi();
+            this.refreshTick++;
+            await this.openDetailPanel(cgId, verId);
+          } catch (e) {
+            alert('Failed to refresh rate: ' + e.message);
+          }
+        },
+        null,
+        'Update exchange rate'
+      );
     },
     statusBadgeLarge,
     getProjectPipeline,
@@ -566,6 +681,7 @@ Vue.createApp({
 
     await loadCurrenciesFromApi();
     this.currencies = window.__currencies || [];
+    Api.clientGroups.list().then(gs => { this.clientGroups = gs; }).catch(() => {});
     await cgSyncFromApi(this.selectedYear);
     await Promise.all([loadConfigFromApi(), loadPipelineBudgetsFromApi()]);
     this.refreshTick++; // initial load completed — see Global Constraint 4
