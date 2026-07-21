@@ -282,7 +282,7 @@ function renderCostGridList() {
   });
 }
 
-function cgConfirmDeleteGrid(cgId, name) {
+function cgConfirmDeleteGrid(cgId, name, onSuccess) {
   const cg     = cgLoad(cgId);
   const hasSip = cg?.versions.some(v => (v.linkedProjects || []).length > 0 || v.linkedProjectId);
   const warn   = hasSip ? '\n\n⚠️ One or more versions have generated a project. The project will NOT be deleted.' : '';
@@ -291,7 +291,7 @@ function cgConfirmDeleteGrid(cgId, name) {
     async () => {
       try {
         await cgDelete(cgId);
-        renderPipelineBoard();
+        if (onSuccess) onSuccess(); else renderPipelineBoard();
       } catch(e) {
         alert('Delete failed: ' + e.message);
       }

@@ -81,7 +81,7 @@
               <button v-if="card.cg.myPermission !== 'viewer'" class="btn btn-xs btn-outline-secondary" title="Open in editor" @click.stop="showCostGridEditorView(card.cg.id, card.v.versionId)">✏️ Edit</button>
               <button v-if="card.cg.myPermission !== 'viewer'" class="btn btn-xs btn-outline-secondary" title="Clone proposal" @click.stop="openCloneModal(card.cg.id, card.v.versionId)">⧉</button>
               <button v-if="card.v.pipeline !== 'Draft'" class="btn btn-xs btn-outline-secondary" title="Share" @click.stop="openShareModal('cost_grid', card.cg.id, card.cg.name)">🔗</button>
-              <button v-if="card.v.pipeline === 'Draft' && card.cg.myPermission !== 'viewer'" class="btn btn-xs btn-outline-danger" title="Delete proposal" @click.stop="cgConfirmDeleteGrid(card.cg.id, card.cg.name)">🗑</button>
+              <button v-if="card.v.pipeline === 'Draft' && card.cg.myPermission !== 'viewer'" class="btn btn-xs btn-outline-danger" title="Delete proposal" @click.stop="deleteGridCard(card.cg.id, card.cg.name)">🗑</button>
             </div>
           </div>
         </div>
@@ -516,7 +516,9 @@ Vue.createApp({
     getClientName,
     openShareModal,
     showCostGridEditorView,
-    cgConfirmDeleteGrid,
+    deleteGridCard(cgId, name) {
+      cgConfirmDeleteGrid(cgId, name, () => { this.refreshTick++; });
+    },
     cardClientName(card) {
       const clientId = card.v.clientId;
       const name = clientId ? getClientName(clientId) : '';
