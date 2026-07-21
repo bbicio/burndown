@@ -25,6 +25,7 @@ load_env() {
   local env_file=".env"
   [ -f "$env_file" ] || return 0
   while IFS='=' read -r key val; do
+    key="${key%$'\r'}"
     [[ -z "$key" || "$key" == \#* ]] && continue
     val="${val%$'\r'}"
     val="${val%\"}"; val="${val#\"}"
