@@ -2790,7 +2790,7 @@ function cgImportAll() {
                 );
               }
             });
-            renderPipelineBoard();
+            if (typeof renderPipelineBoard === 'function') renderPipelineBoard();
           },
           null, '⬆ Import Cost Grid'
         );
