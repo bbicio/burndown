@@ -107,8 +107,76 @@
         <button class="btn btn-sm btn-link text-white p-0" @click="closeDetailPanel" style="font-size:1.1rem;line-height:1" title="Close">×</button>
       </div>
     </div>
-    <div class="d-flex flex-grow-1 align-items-center justify-content-center" style="min-height:0">
-      <div class="spinner-border text-secondary"></div>
+    <div class="d-flex flex-grow-1" style="min-height:0">
+      <div style="width:50%;padding:20px 18px;overflow-y:auto;border-right:1px solid var(--border-light)">
+        <div class="mb-3">
+          <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+            <span class="badge rounded-pill text-white" :style="{ background: detailStageStyle.badge, fontSize:'var(--text-xs)' }">{{ detailStage }}</span>
+            <span v-if="detailLinkedProjects.length" class="badge" style="background:var(--text-muted);color:#fff;font-size:var(--text-xs)">🔗 Linked project</span>
+          </div>
+          <div v-if="detailClientName" class="text-muted" style="font-size:var(--text-xs)">{{ detailClientName }}</div>
+          <div class="fw-bold" style="font-size:var(--text-lg)">{{ selectedVersion.projectName || selectedCg.name }}</div>
+          <div class="text-muted" style="font-size:var(--text-xs)">{{ selectedVersion.versionLabel || '' }} · {{ pbFmtDate(selectedVersion.createdAt) }}</div>
+        </div>
+        <div class="row g-2 mb-3" style="font-size:var(--text-base)">
+          <div class="col-6">
+            <div class="text-muted" style="font-size:var(--text-xs)">Period</div>
+            <div>{{ selectedVersion.startDate ? selectedVersion.startDate.slice(0,4)+'/'+selectedVersion.startDate.slice(4,6) : '—' }} – {{ selectedVersion.endDate ? selectedVersion.endDate.slice(0,4)+'/'+selectedVersion.endDate.slice(4,6) : '—' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted" style="font-size:var(--text-xs)">Currency</div>
+            <div>{{ selectedVersion.currency || 'EUR' }}<span v-if="selectedVersion.currencyRate && selectedVersion.currency !== 'EUR'"> · 1 € = {{ Number(selectedVersion.currencyRate).toLocaleString('en', {minimumFractionDigits:4,maximumFractionDigits:4}) }} {{ selectedVersion.currency }}</span></div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted" style="font-size:var(--text-xs)">Professional fees</div>
+            <div class="fw-semibold">{{ detailBudget.fee > 0 ? pbFmtMoney(detailBudget.fee, selectedVersion.currency || 'EUR', currencies) : '—' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted" style="font-size:var(--text-xs)">PTC</div>
+            <div class="fw-semibold">{{ detailBudget.ptc > 0 ? pbFmtMoney(detailBudget.ptc, selectedVersion.currency || 'EUR', currencies) : '—' }}</div>
+          </div>
+          <div class="col-12">
+            <div class="text-muted" style="font-size:var(--text-xs)">Total budget</div>
+            <div class="fw-bold" style="font-size:var(--text-xl)">{{ (detailBudget.fee + detailBudget.ptc) > 0 ? pbFmtMoney(detailBudget.fee + detailBudget.ptc, selectedVersion.currency || 'EUR', currencies) : '—' }}</div>
+          </div>
+        </div>
+        <div v-if="selectedVersion.note" class="mb-3 p-2 rounded" style="background:var(--surface-light);font-size:var(--text-sm);white-space:pre-wrap">{{ selectedVersion.note }}</div>
+        <hr style="border-color:var(--border-light);margin:16px 0">
+        <div class="fw-semibold mb-2" style="font-size:var(--text-md)">🔗 Linked projects</div>
+        <div v-if="!detailLinkedProjects.length" class="text-muted" style="font-size:var(--text-sm)">No projects linked.</div>
+        <div v-for="lp in detailLinkedProjects" :key="lp.navId" class="p-2 mb-2 rounded border" style="font-size:var(--text-sm);background:var(--surface-light)">
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="flex-grow-1">
+              <div class="fw-semibold">{{ lp.pname }}</div>
+              <div v-if="lp.pcode" style="font-size:var(--text-xs);color:var(--text-muted);font-family:'SFMono-Regular',monospace">{{ lp.pcode }}</div>
+              <div class="d-flex gap-1 flex-wrap mt-1">
+                <span v-if="lp.pipeline" v-html="pipelineBadge(lp.pipeline)"></span>
+                <span v-html="statusBadgeLarge(lp.projStatus)"></span>
+              </div>
+              <div v-if="lp.taskNames.length" style="font-size:var(--text-xs);color:var(--text-muted);margin-top:5px"><span style="font-weight:600">Tasks:</span> {{ lp.taskNames.join(', ') }}</div>
+            </div>
+            <div class="d-flex gap-1 flex-shrink-0">
+              <button class="btn btn-xs btn-outline-secondary" @click="pbGoToPortfolio(lp.navId)">📊 Portfolio</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1;padding:20px 18px;overflow-y:auto">
+        <div class="fw-semibold mb-3" style="font-size:var(--text-md)">📋 Tasks by phase</div>
+        <div v-if="!detailHasTasks" class="text-muted" style="font-size:var(--text-sm)">No tasks defined.</div>
+        <div v-for="ph in (selectedVersion.phases || [])" :key="ph.phaseId" class="mb-4">
+          <div class="d-flex align-items-center justify-content-between mb-2 pb-1" style="border-bottom:2px solid var(--indigo-200)">
+            <span class="fw-bold" style="font-size:var(--text-md);color:var(--indigo-600)">{{ ph.phaseName || ph.phaseId }}</span>
+            <span v-if="phaseTotal(ph) > 0" style="font-size:var(--text-sm);font-weight:600">{{ pbFmtMoney(phaseTotal(ph), selectedVersion.currency || 'EUR', currencies) }}</span>
+          </div>
+          <div v-for="task in (ph.tasks || [])" :key="task.taskId" class="d-flex align-items-baseline gap-3 py-2 border-bottom" style="font-size:var(--text-base)">
+            <span class="flex-grow-1">{{ task.taskName || task.taskId }}</span>
+            <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">{{ taskDateRange(task) }}</span>
+            <span style="white-space:nowrap;min-width:44px;text-align:right;font-size:var(--text-xs);color:var(--text-muted)">{{ taskTotals(task).totalHrs > 0 ? taskTotals(task).totalHrs + 'h' : '—' }}</span>
+            <span class="fw-semibold" style="white-space:nowrap;min-width:80px;text-align:right">{{ taskTotals(task).totalCostAndFee > 0 ? pbFmtMoney(taskTotals(task).totalCostAndFee, selectedVersion.currency || 'EUR', currencies) : '—' }}</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -286,6 +354,7 @@ Vue.createApp({
       newProposalVisible: false,
       selectedCgId: null,
       selectedVerId: null,
+      currencies: [],
     };
   },
   computed: {
@@ -324,6 +393,70 @@ Vue.createApp({
         return { stage, st, cards, totalsHtml: currencyLines.join('') || '<span class="text-muted" style="font-size:var(--text-xs)">—</span>' };
       });
     },
+    selectedCg() {
+      this.refreshTick;
+      return this.selectedCgId ? cgLoad(this.selectedCgId) : null;
+    },
+    selectedVersion() {
+      const cg = this.selectedCg;
+      if (!cg) return null;
+      return cg.versions.find(v => v.versionId === this.selectedVerId) || pbGetDisplayVersion(cg);
+    },
+    detailStage() {
+      return this.selectedVersion ? pbGetStage(this.selectedVersion) : 'SIP';
+    },
+    detailStageStyle() {
+      return PB_STAGE_STYLE[this.detailStage] || PB_STAGE_STYLE.SIP;
+    },
+    detailBudget() {
+      if (!this.selectedVersion) return { fee: 0, ptc: 0 };
+      return pbGetVersionBudget(this.selectedVersion, cgComputeGrandTotals, getPipelineBudget);
+    },
+    detailLinkedProjects() {
+      if (!this.selectedVersion || !this.selectedCg) return [];
+      const v = this.selectedVersion;
+      const projsByRef = (config.projects || []).filter(p =>
+        p.costGridRef?.cgId === this.selectedCgId && p.costGridRef?.versionId === v.versionId
+      );
+      const lps = (v.linkedProjects && v.linkedProjects.length)
+        ? v.linkedProjects
+        : projsByRef.map(p => ({ projectId: p.id, projectName: p.name }));
+      return lps.map(lp => {
+        let proj = (config.projects || []).find(p => p.id === lp.projectId);
+        if (!proj && projsByRef.length) {
+          proj = projsByRef.find(p => p.name === lp.projectName)
+              || projsByRef.find(p => lp.projectName && p.name &&
+                   (lp.projectName.startsWith(p.name) || p.name.startsWith(lp.projectName)))
+              || (projsByRef.length === 1 ? projsByRef[0] : null);
+        }
+        const navId = proj?.id || lp.projectId;
+        return {
+          navId,
+          pcode: proj?.code || '',
+          pname: lp.projectName || proj?.name || lp.projectId,
+          pipeline: getProjectPipeline(navId) || proj?.pipeline || '',
+          projStatus: proj?.status || '',
+          taskNames: lp.taskNames || [],
+        };
+      });
+    },
+    detailClientName() {
+      if (!this.selectedVersion) return '';
+      const v = this.selectedVersion;
+      const projsByRef = (config.projects || []).filter(p =>
+        p.costGridRef?.cgId === this.selectedCgId && p.costGridRef?.versionId === v.versionId
+      );
+      const effectiveClientId = v.clientId
+        || this.detailLinkedProjects.map(lp => (config.projects || []).find(p => p.id === lp.navId)?.clientId).find(Boolean)
+        || projsByRef[0]?.clientId
+        || null;
+      const name = effectiveClientId ? getClientName(effectiveClientId) : '';
+      return name && name !== 'Unassigned' ? name : '';
+    },
+    detailHasTasks() {
+      const phases = this.selectedVersion?.phases || [];
+      return phases.some(ph => ph.tasks?.length);
+    },
   },
   methods: {
     esc,
@@ -355,14 +488,36 @@ Vue.createApp({
       this.yearDropdownOpen = false;
       window.location.href = '/pipeline.html?year=' + year;
     },
-    openDetailPanel(cgId, verId) {
-      // Filled in fully by Task 3; for this task, just track selection so the placeholder panel shows.
+    async openDetailPanel(cgId, verId) {
       this.selectedCgId = cgId;
       this.selectedVerId = verId;
+      if (typeof cgLoadStructureFromApi === 'function') {
+        await cgLoadStructureFromApi(cgId, verId).catch(() => {});
+      }
+      this.refreshTick++; // structure just loaded into _cgStore — see Global Constraint 4
     },
     closeDetailPanel() {
       this.selectedCgId = null;
       this.selectedVerId = null;
+    },
+    statusBadgeLarge,
+    getProjectPipeline,
+    // pbFmtMoney is called bare in this task's template interpolations (e.g. {{ pbFmtMoney(...) }})
+    // — per Global Constraint 5, it must be a real methods: entry (not just relied on as a global),
+    // since Vue's runtime-compiled template scope never falls through to window for it.
+    pbFmtMoney(n, code) { return window.pbFmtMoney(n, code, this.currencies); },
+    pbGoToPortfolio(projectId) {
+      window.location.href = '/portfolio.html?projectId=' + encodeURIComponent(projectId);
+    },
+    phaseTotal(ph) {
+      const t = cgComputePhaseTotals(ph, this.selectedVersion.roles);
+      return t.fee + t.ptc;
+    },
+    taskTotals(task) {
+      return cgComputeTaskTotals(task, this.selectedVersion.roles);
+    },
+    taskDateRange(task) {
+      return [pbFmtTaskDate(task.taskStartDate), pbFmtTaskDate(task.taskEndDate)].filter(Boolean).join(' – ') || '—';
     },
     openNewProposalModal() {
       document.getElementById('cgNewGridName').value = '';
@@ -410,6 +565,7 @@ Vue.createApp({
     document.addEventListener('click', () => { this.yearDropdownOpen = false; });
 
     await loadCurrenciesFromApi();
+    this.currencies = window.__currencies || [];
     await cgSyncFromApi(this.selectedYear);
     await Promise.all([loadConfigFromApi(), loadPipelineBudgetsFromApi()]);
     this.refreshTick++; // initial load completed — see Global Constraint 4
