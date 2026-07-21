@@ -60,7 +60,7 @@ Multi-page Vanilla JS app backed by a Node.js/Express REST API and PostgreSQL. N
 | File | Route | Purpose |
 |---|---|---|
 | `index.html` | `/` | Redirect → `/pipeline.html` |
-| `pipeline.html` | `/pipeline.html` | Pipeline board + cost grid editor access |
+| `pipeline.html` | `/pipeline.html` | Pipeline board + cost grid editor access, Vue 3 (CDN, no build step, same pattern as `portfolio.html`/`project-config.html`) |
 | `portfolio.html` | `/portfolio.html` | Project reporting dashboard (portfolio overview + per-project KPI/burndown), Vue 3 (CDN, no build step, same pattern as `admin.html`/`project-config.html`) |
 | `planning.html` | `/planning.html` | Resource planning view |
 | `costgrid.html` | `/costgrid.html?cgId=&verId=` | Cost grid editor (full-page) |
@@ -78,7 +78,7 @@ Multi-page Vanilla JS app backed by a Node.js/Express REST API and PostgreSQL. N
 
 ```
 index.html               — 9-line redirect to pipeline.html
-pipeline.html            — kanban board
+pipeline.html            — kanban pipeline board (6 stage columns, slide-in detail panel, pipeline-year dropdown), Vue 3 (CDN, no build step, same pattern as portfolio.html/project-config.html); folds in the former js/pipeline-board.js (760 lines, now deleted — confirmed exclusive to this page); adds js/lib/pipeline-calc.js (pbGetVersionBudget/pbComputeColumnTotals/pbFmtMoney/pbFmtDate/pbFmtTaskDate/pbComputePotPercentages); js/costgrid.js/js/core.js and the 4 shared static modals (#confirmModal/#cgNewGridModal/#cgCloneModal/#jsonViewerModal) remain unmodified Vanilla, called as globals — costgrid.html/planning.html still depend on them as-is; detail panel shows a loading spinner while phase/task structure fetches and an explicit "Could not load cost grid" message if it fails; outside-click-to-close on the detail panel ignores clicks inside any Bootstrap modal spawned from the panel (Share/Clone/Confirm), since those modals live outside #pbDetailPanel in the DOM
 portfolio.html           — project reporting dashboard (portfolio overview + per-project dashboard), Vue 3 (CDN, no build step, same pattern as project-config.html); folds in the former js/portfolio.js + js/dashboard.js (both now unloaded by this page — js/dashboard.js was exclusive to portfolio.html and is now fully orphaned dead code; js/portfolio.js remains loaded elsewhere, see its own entry below); no longer loads js/roles.js (confirmed unused) or js/config-form.js (only needed for the now-removed, previously-unreachable #configModal + nested clients/programs/roles CRUD modals); adds js/lib/portfolio-calc.js; cardData(cfg) hoisted into a cardDataMap computed (was called ~29x/row per project card)
 planning.html            — resource planning
 costgrid.html            — cost grid editor
@@ -149,14 +149,22 @@ js/lib/                  — pure functions extracted for unit testing (vitest +
                             by `portfolio.html`'s Vue `kpis`/burndown-chart computed properties; the chart-drawing
                             (Chart.js) call itself stays a Vue method, not extracted. Loaded via
                             `<script type="module">` on `portfolio.html`, before the inline `Vue.createApp` script.
+                            `pipeline-calc.js` — `pbGetVersionBudget(v, cgComputeGrandTotals, getPipelineBudget)` /
+                            `pbComputeColumnTotals(cards, cgComputeGrandTotals, getPipelineBudget)`: extracted from
+                            the former `js/pipeline-board.js`'s own aggregation logic, with the shared `js/costgrid.js`
+                            globals passed in as parameters (dependency injection) rather than read directly, matching
+                            `portfolio-calc.js`'s precedent — keeps the module DOM-free and independently testable.
+                            `pbFmtMoney(n, code, currencies)` / `pbFmtDate(iso)` / `pbFmtTaskDate(iso)` /
+                            `pbComputePotPercentages(totalBudget, committedTotal, potAmount)`: pure formatting/POT-math
+                            helpers, also ported verbatim. Loaded via `<script type="module">` on `pipeline.html`,
+                            before the inline `Vue.createApp` script.
 js/core.js               — state, in-memory helpers (loadConfig/persistConfig are no-ops), shared badges, esc(), fmtH(), fmtMoney(); `statusBadge()` small style for pipeline cards; `statusBadgeLarge()` same size/style as `pipelineBadge()` — used only in linked-project chips in the editor and detail panel; `cfgApplyPipelineRules(pipeline, currentStatus)` — thin DOM wrapper around `js/lib/status-rules.js`'s `getStatusRule()`, applies the returned `{options, disabled}` to the `#cfgStatus` `<select>`; still referenced by `js/config-form.js`'s own config-modal code, which is loaded only by `planning.html` now (`portfolio.html`'s own config modal — the one this comment previously referred to — was confirmed unreachable dead code and dropped entirely in its Vue migration; whether `planning.html`'s own `js/config-form.js` load is itself live or vestigial was not investigated by that migration and remains an open question); not used by `project-config.html`, whose Vue rewrite calls `getStatusRule()` directly from a reactive `sanitizeStatus()` method instead (no `#cfgStatus` element exists on that page anymore)
 js/nav.js                — navbar + footer injection, initNav(); injects settings, change-password, send-notification,
                             and "My Profile" modals; T&C gate after GET /api/auth/me (redirects to /terms.html
                             if user.terms_version < current_terms_version); calls initNotifications(); stores window.__navUser
 js/notifications.js      — bell icon + SSE notification panel; initNotifications(user) called by nav.js
 js/shares.js             — share modal (cost_grid and project); loads active non-admin users from `GET /api/users/active-list` into a searchable in-memory dropdown; supports adding new shares and editing permission (editor/viewer) on existing ones via the same upsert API; `_shareAllUsers` module var is the immutable source list; `_shareUserList` excludes already-shared users
-js/pipeline-board.js     — kanban render, pbOpenDetailPanel, pbCloseDetailPanel; caches `_pbRatecards` (from Api.ratecards.list) for ratecard name display in detail panel; version tabs, Clone button, and Delete Draft button in detail panel; hides Edit/Clone/Delete controls for viewers (`cg.myPermission !== 'viewer'`); pipeline card badge shows `pipelineBadge(v.pipeline)` (stage, not project status); `pbLoadPotSection` falls back to `v.clientId` when no linked project provides a clientId; POT `committed_total`/`anticipated_total` read directly from `GET /api/pots/summary` response (server-side, all proposals) — not from `_pbBudgets` cache; POT section shows split: Total% (C+A), Committed (green), Anticipated (orange) with dual-segment progress bar; linked-project chips use `statusBadgeLarge()` for project status; chips display assigned task list from `lp.taskNames` (R5); `_pbOutsideClickHandler` closes the panel on `mousedown` outside `#pbDetailPanel` — registered by `pbOpenDetailPanel` with a 200ms delay and removed by `pbCloseDetailPanel`
-js/costgrid.js           — cost grid editor (phases/tasks/roles table, save/load/version logic); declares `_pbCloneSource` (shared with pipeline board); Clone + Delete Draft buttons in editor toolbar; `cgConfirmDeleteVersion(cgId, verId, label, onSuccess?)` accepts optional callback (editor passes redirect, list/panel pass re-render); non-EUR role rate 3-level fallback: ratecard override → `role.rateOverrides[currency]` → EUR rate × factor; both `cgSyncRoleRatesToBaseline` and `cgPreviewRateChange` use this chain; `_cgCompactHeader` (localStorage `PDash_cgCompactHeader`) toggles compact/normal blue header row via ⊟/⊞ button in the "Phase / Task" sticky cell — compact hides role move/change/dup/remove buttons and reduces header font to 10px; **task assignment (R1–R5)**: `cgGetAssignedTaskIds()` + `cgGetAssignedTaskNames()` dual UUID+name check — assigned tasks have no ✕ button; `cgDoAddTasksToProject` and `cgDoGenerateProject` send `taskNames`; Generate Project button hidden when all tasks are mapped; `_cgEnsureAddToProjectModal()` is a singleton modal appended to `document.body` (z-index:10500); `cgGetVersionLockState(cgId, versionId)` — `other-version-active` reason (a sibling version already has linked projects) is whole-version and unchanged; `committed` reason now uses `js/lib/costgrid-calc.js`'s `isVersionCommittedLocked()` — locks only once the proposal's own pipeline is `Committed` **and** every task has been migrated to a project, not as soon as any single linked project reaches Committed; `cgPropagatePipelineToProjects()` pushes `_cgDraft.pipeline` onto every entry in `_cgDraft.linkedProjects` whenever the editor's Pipeline `<select>` changes (`js/costgrid.js` `change` listener) — the only way a version's pipeline is ever changed (no drag-and-drop on the pipeline board), so `config.projects[].pipeline` for a cost-grid-generated project never goes stale relative to its source version
+js/costgrid.js           — cost grid editor (phases/tasks/roles table, save/load/version logic); declares `_pbCloneSource` (shared between `pipeline.html` and `costgrid.html`); Clone + Delete Draft buttons in editor toolbar; `cgConfirmDeleteGrid(cgId, name, onSuccess?)` and `cgConfirmDeleteVersion(cgId, verId, label, onSuccess?)` both accept an optional callback (defaults to a bare `renderPipelineBoard()` call if omitted — a global that only exists on pre-Vue pages; every live caller on `pipeline.html` passes a callback that bumps its own Vue `refreshTick` instead); `cgImportAll()`'s post-import refresh guards the same call with `typeof renderPipelineBoard === 'function'` for the same reason; non-EUR role rate 3-level fallback: ratecard override → `role.rateOverrides[currency]` → EUR rate × factor; both `cgSyncRoleRatesToBaseline` and `cgPreviewRateChange` use this chain; `_cgCompactHeader` (localStorage `PDash_cgCompactHeader`) toggles compact/normal blue header row via ⊟/⊞ button in the "Phase / Task" sticky cell — compact hides role move/change/dup/remove buttons and reduces header font to 10px; **task assignment (R1–R5)**: `cgGetAssignedTaskIds()` + `cgGetAssignedTaskNames()` dual UUID+name check — assigned tasks have no ✕ button; `cgDoAddTasksToProject` and `cgDoGenerateProject` send `taskNames`; Generate Project button hidden when all tasks are mapped; `_cgEnsureAddToProjectModal()` is a singleton modal appended to `document.body` (z-index:10500); `cgGetVersionLockState(cgId, versionId)` — `other-version-active` reason (a sibling version already has linked projects) is whole-version and unchanged; `committed` reason now uses `js/lib/costgrid-calc.js`'s `isVersionCommittedLocked()` — locks only once the proposal's own pipeline is `Committed` **and** every task has been migrated to a project, not as soon as any single linked project reaches Committed; `cgPropagatePipelineToProjects()` pushes `_cgDraft.pipeline` onto every entry in `_cgDraft.linkedProjects` whenever the editor's Pipeline `<select>` changes (`js/costgrid.js` `change` listener) — the only way a version's pipeline is ever changed (no drag-and-drop on the pipeline board), so `config.projects[].pipeline` for a cost-grid-generated project never goes stale relative to its source version
 js/portfolio.js          — no longer loaded by `portfolio.html` (its rendering logic was folded into that page's Vue rewrite); still loaded by `planning.html`, which relies on two of its exports — `getMonthRangeFromCfg(cfg)` and `fmtProjectTitle(cfg)` — consumed by `js/planning.js`; the rest of this file's functions (`renderPortfolioSummary`, `buildProjectCard`, `buildProgramSummary`, `renderPortfolioView`, `showPortfolioView`, `showDashboardView`, the dead duplicate `showPortfolioPlanningView`) are unreachable now that no page's script list wires them up
 js/planning.js           — resource planning table filters (project/team dropdowns, group-by role/project/owner, monthly/weekly interval, monthly pulse, rounded-hours toggle) and the Gantt view (phase-level bars, colour-coded by pipeline stage, today marker); loaded by `planning.html`
 js/config-form.js        — project config form (tasks, phasing, planning, groups); hours parsing/formatting delegated to `js/lib/cfg-parse.js`
@@ -275,7 +283,7 @@ Pipeline stage is stored on `costGridVersion.pipeline`. These locations must sta
 - `css/tokens.css` — `--pipeline-{stage}-bg` / `--pipeline-{stage}-color` for all 5 stages
 - `js/core.js` `pipelineBadge()` — uses `var(--pipeline-*-color)`
 - `js/costgrid.js` switch block — uses `var(--pipeline-*-color)`
-- `js/pipeline-board.js` `PB_STAGE_STYLE` — uses `var(--pipeline-*-bg/color)`
+- `pipeline.html`'s inline `PB_STAGE_STYLE` const — uses `var(--pipeline-*-bg/color)`
 
 Valid stages: `SIP`, `Expected`, `Anticipated`, `Committed`, `Canceled`.
 
@@ -297,7 +305,7 @@ If a future `js/lib/` module needs another `js/lib/` module's function, use a na
 
 ### Linked project resolution
 
-`linkedProjects[].projectId` may contain stale auto-generated IDs if the project was renamed. Correct resolution order in `pbOpenDetailPanel()`:
+`linkedProjects[].projectId` may contain stale auto-generated IDs if the project was renamed. Correct resolution order in `pipeline.html`'s `detailLinkedProjects` computed (Vue; ported verbatim from the former `js/pipeline-board.js`'s `pbOpenDetailPanel()`):
 
 1. Direct `config.projects.find(p => p.id === lp.projectId)`
 2. If null: filter projects by `costGridRef.cgId + versionId` → match by name within that subset
@@ -308,9 +316,9 @@ Never use `lp.projectId` raw as the display ID — always resolve to `proj.id`.
 ### Cost grid editor ↔ pipeline board integration
 
 - `costgrid.html` is a separate page. The back button navigates to `pipeline.html`.
-- After delete (grid or version): call `renderPipelineBoard()`
-- After JSON import: call `renderPipelineBoard()`
-- `showCostGridEditorView(cgId, verId)` redirects to `costgrid.html?cgId=...&verId=...`
+- After delete (grid or version): `cgConfirmDeleteGrid`/`cgConfirmDeleteVersion` call their `onSuccess` callback if given, else fall back to a bare `renderPipelineBoard()` — a global that no longer exists on `pipeline.html` (its Vue rewrite passes a callback that bumps `refreshTick` instead); `costgrid.html` still defines its own local `renderPipelineBoard()` override, so the fallback remains safe there.
+- After JSON import: `cgImportAll()` calls `renderPipelineBoard()` guarded by a `typeof` check, for the same reason.
+- `showCostGridEditorView(cgId, verId)` redirects to `costgrid.html?cgId=...&verId=...` — on `pipeline.html` this is a page-local override (a plain redirect) since the page has no `#costGridEditorSection` DOM for `js/costgrid.js`'s own single-page-app version of this function to target.
 - On `costgrid.html` cold load: call `cgSyncFromApi()` before reading URL params to avoid empty `_cgStore`
 
 ### Version tab switching (editor)
@@ -319,7 +327,7 @@ Version tab click handlers in `renderCgVersionTabs` are **async**: they call `aw
 
 ### Clone (`cgCloneGrid`)
 
-`_pbCloneSource = { cgId, verId, name }` is declared in `costgrid.js` (not `pipeline-board.js`) so it is available on both `pipeline.html` and `costgrid.html`.
+`_pbCloneSource = { cgId, verId, name }` is declared in `costgrid.js` so it is available on both `pipeline.html` (whose Vue `openCloneModal` method sets it) and `costgrid.html` (whose own inline handler sets it identically).
 
 Clone flow:
 1. Clears `_cgAutoSaveTimer` (clearTimeout) to prevent concurrent save on the original during clone
@@ -340,16 +348,19 @@ Navbar: two rows (106px: 10px padding-top + 44px top row + 52px tabs row). Foote
 
 ### Detail panel
 
-`#pbDetailPanel` width: 860px. Layout (top to bottom):
-- **Version tabs row** (shown only when `cg.versions.length > 1`): horizontal tab buttons with colored stage dot, rendered above the two-column body; clicking a tab calls `pbOpenDetailPanel(cgId, verId)` to reload the panel for that version
-- **Two-column body** inside `#pbDetailContent` (a `d-flex flex-grow-1`):
+`#pbDetailPanel` width: 860px, Vue-rendered (`v-if="selectedCgId"`). Layout (top to bottom):
+- While the version's phase/task structure is loading (`detailLoading`): a centered Bootstrap spinner, no header action buttons.
+- If `selectedCg`/`selectedVersion` fail to resolve after loading (e.g. a stale/missing cost grid): an explicit "Could not load cost grid. Try reloading the page." message, matching the former `js/pipeline-board.js`'s equivalent error path.
+- Otherwise: **Version tabs row** (shown only when `cg.versions.length > 1`): horizontal tab buttons with colored stage dot, rendered above the two-column body; clicking a tab calls `openDetailPanel(cgId, verId)` to reload the panel for that version.
+- **Two-column body** (a `d-flex flex-grow-1`, no separate `#pbDetailContent` wrapper — direct child of `#pbDetailPanel`):
   - Left column (50%): offer metadata + linked projects, `overflow-y:auto`, `border-right`
   - Right column (flex:1): task/phase breakdown, `overflow-y:auto`
 
-Header buttons (right side): `🗑 Delete` · `⧉ Clone` · `🔗 Share` · `✏️ Edit` · `×`
+Header buttons (right side, shown once loaded): `🗑 Delete` · `⧉ Clone` · `🔗 Share` · `✏️ Edit` · `×` — plain `@click` Vue bindings, no element IDs.
 
-- `🗑 Delete` (`#pbBtnDeleteVersion`): visible only when `stage === 'Draft'`. Calls `cgConfirmDeleteVersion(cgId, verId, label, onSuccess)` where `onSuccess` closes the panel and re-renders the board.
-- The Clone button (`#pbBtnCloneCg`) sets `_pbCloneSource = { cgId, verId, name }` for the currently viewed version and opens `#cgCloneModal`.
+- `🗑 Delete`: visible only when `detailStage === 'Draft'`. Calls `deleteSelectedVersion()`, which wraps `cgConfirmDeleteVersion(cgId, verId, label, onSuccess)` with an `onSuccess` that closes the panel and bumps `refreshTick`.
+- `⧉ Clone` calls `openCloneModal(cgId, verId)`, which sets `_pbCloneSource = { cgId, verId, name }` for the currently viewed version and opens `#cgCloneModal`.
+- Outside-click-to-close (`mousedown` outside `#pbDetailPanel`, 200ms delayed registration to avoid the opening click immediately closing it) explicitly ignores clicks inside any `.modal`/`.modal-backdrop` — Share/Clone/Confirm modals are appended outside `#pbDetailPanel` in the DOM, so without this guard, interacting with them (e.g. confirming a delete) would close the panel mid-action.
 
 ### Column totals footer
 

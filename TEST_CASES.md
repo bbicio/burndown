@@ -83,8 +83,14 @@
 | P-35 | Delete Draft — from panel success | Confirm deletion of a Draft version that has siblings | Version deleted via API; panel closes; board re-renders without that version | |
 | P-36 | Pipeline stage badge on card | View a card for a Committed proposal | Card shows a "Committed" stage badge (green), not the project status "Started" | |
 | P-37 | POT visible to non-owner user | User A has Committed proposal for a client; User B (who can't see User A's proposal) opens any proposal for the same client | POT section shows full committed+anticipated total including User A's proposal; not 0 | |
-| P-38 | Detail panel closes on click outside | Open a detail panel; click anywhere on the pipeline board outside the `#pbDetailPanel` element | Panel closes; `_pbOutsideClickHandler` fires on `mousedown` outside the panel area | |
+| P-38 | Detail panel closes on click outside | Open a detail panel; click anywhere on the pipeline board outside the `#pbDetailPanel` element | Panel closes (`mousedown` outside the panel, 200ms delayed registration) | |
 | P-39 | Task list in linked-project chips — detail panel (R5) | Open detail panel for a cost grid whose linked project has assigned tasks | Each linked-project chip in the left column shows the assigned task names from `lp.taskNames` | |
+| P-40 | Delete proposal from card | Click 🗑 on a Draft card | Confirm modal appears; on confirm, the whole cost grid is deleted via API and the card disappears from the board — no error alert | |
+| P-41 | Detail panel Edit button navigates correctly | Open a detail panel, click ✏️ Edit | Navigates to `costgrid.html?cgId=<real-id>&verId=<real-id>` — not `cgId=null&verId=null` | |
+| P-42 | Outside-click ignores clicks inside spawned modals | Open a detail panel, click 🗑 Delete/⧉ Clone/🔗 Share to open the respective modal, then click inside that modal (e.g. its Confirm/input field) | Detail panel stays open; the modal's own action completes normally | |
+| P-43 | Detail panel loading state | Open a detail panel for a version whose structure isn't yet cached | A spinner shows while phases/tasks load, before content appears | |
+| P-44 | Detail panel load-failure state | Open a detail panel for a `cgId` that fails to resolve (e.g. stale/missing cost grid) | An explicit "Could not load cost grid. Try reloading the page." message shows instead of a silently empty/missing panel | |
+| P-45 | Refresh-rate failure uses in-app modal | Trigger a refresh-rate failure (e.g. API error) | Error shown via the app's own confirm-style modal, not a native browser `alert()` | |
 
 ---
 

@@ -673,7 +673,6 @@ burndown/
     nav.js                ← navbar injection, initNav(); injects settings, change-pwd, and "My Profile" modals; T&C gate (redirects to /terms.html if user.terms_version < current_terms_version); calls initNotifications()
     shares.js             ← generic share modal
     notifications.js      ← SSE client, bell badge, notification dropdown panel
-    pipeline-board.js     ← kanban board; pipeline card shows `pipelineBadge(v.pipeline)` (stage badge, not project status); `pbLoadPotSection` reads `committed_total`/`anticipated_total` directly from `GET /api/pots/summary` response (server-side, all proposals visible to everyone); falls back to `v.clientId` when no linked project has a clientId; linked-project chips use `statusBadgeLarge()` for project status badges; linked-project chips show the assigned task list from `lp.taskNames` (R5); `_pbOutsideClickHandler` closes `#pbDetailPanel` on `mousedown` outside the panel (registered by `pbOpenDetailPanel` with 200ms delay, removed by `pbCloseDetailPanel`)
     costgrid.js           ← cost grid editor; non-EUR role rate fallback chain: ratecard override → `role.rateOverrides[currency]` → EUR rate × currency factor; both `cgSyncRoleRatesToBaseline` and `cgPreviewRateChange` use this chain; `effectiveRate` in role select modal also updated; linked-project chips use `statusBadgeLarge()` for project status badges; `_cgCompactHeader` (localStorage `PDash_cgCompactHeader`) toggles compact/normal header mode via ⊟/⊞ button in the "Phase / Task" sticky cell — compact hides role move/change/dup/remove buttons and reduces header font to 10px; **task assignment (R1–R5)**: `cgGetAssignedTaskIds()` + `cgGetAssignedTaskNames()` perform dual UUID+name check — assigned tasks show no ✕ button; `cgDoAddTasksToProject` and `cgDoGenerateProject` send `taskNames` alongside `taskIds`; Generate Project button hidden when all tasks are already mapped; `_cgEnsureAddToProjectModal()` creates a singleton modal appended to `document.body` (z-index:10500, created once and reused)
     portfolio.js          ← portfolio dashboard
     dashboard.js          ← per-project KPI/burndown
@@ -685,7 +684,10 @@ burndown/
                             rounding, guarantees the returned values sum to exactly roundToQuarterHour(total);
                             used by cfgDerivePhasing/cfgReforecast so the confirmation modal's total always
                             matches the saved grid (fixes prior modal-vs-save divergence and per-month rounding
-                            drift)
+                            drift); pipeline-calc.js — pbGetVersionBudget/pbComputeColumnTotals (take
+                            cgComputeGrandTotals/getPipelineBudget as parameters, DI-style, matching
+                            portfolio-calc.js's precedent), pbFmtMoney/pbFmtDate/pbFmtTaskDate/
+                            pbComputePotPercentages; extracted from the former js/pipeline-board.js
     roles.js              ← roles management modal; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role — role shape: `{ id, label, code, rate, rateOverrides }`
     ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js; `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects per-role `rateOverrides` and sends them to the API
     upload.js             ← XLS parsing
@@ -693,7 +695,11 @@ burndown/
     ai.js                 ← AI sidebar
     clients.js / programs.js
   index.html              ← redirect → pipeline.html
-  pipeline.html
+  pipeline.html           ← kanban pipeline board, Vue 3 (CDN, no build step, same pattern as portfolio.html/
+                            project-config.html); folds in the former js/pipeline-board.js (760 lines, now
+                            deleted — confirmed exclusive to this page); adds js/lib/pipeline-calc.js;
+                            js/costgrid.js/js/core.js and the 4 shared static modals stay unmodified Vanilla,
+                            called as globals (costgrid.html/planning.html still depend on them as-is)
   portfolio.html          ← portfolio overview + per-project dashboard, Vue 3 (CDN, no build step, same pattern as project-config.html); folds in the former js/portfolio.js + js/dashboard.js; adds js/lib/portfolio-calc.js (KPI/burndown math extraction, vitest-covered); no longer loads js/roles.js or js/config-form.js (the latter only served this page's own now-removed, previously-unreachable #configModal + nested CRUD modals)
   planning.html
   costgrid.html
