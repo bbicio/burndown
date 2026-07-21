@@ -107,7 +107,7 @@
         <button v-if="detailStage === 'Draft' && selectedCg.myPermission !== 'viewer'" class="btn btn-sm btn-outline-danger px-3" style="font-size:var(--text-xs);font-weight:600" title="Delete this Draft version" @click="deleteSelectedVersion">🗑 Delete</button>
         <button v-if="selectedCg.myPermission !== 'viewer'" class="btn btn-sm btn-light px-3" style="font-size:var(--text-xs);font-weight:600" title="Clone this version as a new proposal" @click="openCloneModal(selectedCgId, selectedVerId)">⧉ Clone</button>
         <button v-if="detailStage !== 'Draft'" class="btn btn-sm btn-light px-3" style="font-size:var(--text-xs);font-weight:600" title="Share this cost grid" @click="openShareModal('cost_grid', selectedCgId, selectedCg.name)">🔗 Share</button>
-        <button v-if="selectedCg.myPermission !== 'viewer'" class="btn btn-sm btn-light px-3" style="font-size:var(--text-xs);font-weight:600" title="Open full cost grid editor" @click="closeDetailPanel(); showCostGridEditorView(selectedCgId, selectedVerId)">✏️ Edit</button>
+        <button v-if="selectedCg.myPermission !== 'viewer'" class="btn btn-sm btn-light px-3" style="font-size:var(--text-xs);font-weight:600" title="Open full cost grid editor" @click="showCostGridEditorView(selectedCgId, selectedVerId)">✏️ Edit</button>
         <button class="btn btn-sm btn-link text-white p-0" @click="closeDetailPanel" style="font-size:1.1rem;line-height:1" title="Close">×</button>
       </div>
     </div>
