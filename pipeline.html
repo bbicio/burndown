@@ -550,11 +550,19 @@ Vue.createApp({
       // Delayed registration avoids the same click that opened the panel
       // (e.g. a card click) immediately triggering the outside-click close.
       if (_pbDetailOutsideClickHandler) document.removeEventListener('mousedown', _pbDetailOutsideClickHandler);
-      _pbDetailOutsideClickHandler = (e) => {
+      const handler = (e) => {
         const panel = document.getElementById('pbDetailPanel');
-        if (panel && !panel.contains(e.target)) this.closeDetailPanel();
+        if (!panel || panel.contains(e.target)) return;
+        // Modals opened from the panel (Share/Clone/Confirm/etc.) live outside
+        // #pbDetailPanel in the DOM — a click inside one of them must not close the panel.
+        if (e.target.closest('.modal') || e.target.classList.contains('modal-backdrop')) return;
+        this.closeDetailPanel();
       };
-      setTimeout(() => document.addEventListener('mousedown', _pbDetailOutsideClickHandler), 200);
+      _pbDetailOutsideClickHandler = handler;
+      setTimeout(() => {
+        // Superseded by a later openDetailPanel() call before this delay elapsed — don't register.
+        if (_pbDetailOutsideClickHandler === handler) document.addEventListener('mousedown', handler);
+      }, 200);
 
       if (typeof cgLoadStructureFromApi === 'function') {
         await cgLoadStructureFromApi(cgId, verId).catch(() => {});
