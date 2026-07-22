@@ -1693,52 +1693,6 @@ function cgAddSelectedRoles() {
 
 // ── CALCULATIONS ──────────────────────────────────────────────────────────────
 
-function cgComputeTaskTotals(task, roles) {
-  let totalHrs = 0, totalFee = 0;
-  (roles || []).forEach(r => {
-    const h = parseFloat(task.hours[r.roleCode]) || 0;
-    totalHrs += h;
-    totalFee += h * (r.rate || 0);
-  });
-  const ptc = parseFloat(task.ptc) || 0;
-  return { totalHrs: Math.round(totalHrs * 100) / 100, totalFee, totalCostAndFee: totalFee + ptc };
-}
-
-function cgComputePhaseTotals(phase, roles) {
-  let hrs = 0, fee = 0, ptc = 0;
-  const byRole = {};
-  (roles || []).forEach(r => { byRole[r.roleCode] = 0; });
-  (phase.tasks || []).forEach(task => {
-    const tt = cgComputeTaskTotals(task, roles);
-    hrs += tt.totalHrs;
-    fee += tt.totalFee;
-    ptc += parseFloat(task.ptc) || 0;
-    (roles || []).forEach(r => { byRole[r.roleCode] = (byRole[r.roleCode] || 0) + (parseFloat(task.hours[r.roleCode]) || 0); });
-  });
-  return { hrs: Math.round(hrs * 100) / 100, fee, ptc, byRole };
-}
-
-function cgComputeGrandTotals(version) {
-  let hrs = 0, fee = 0, ptc = 0;
-  (version.phases || []).forEach(ph => {
-    const pt = cgComputePhaseTotals(ph, version.roles);
-    hrs += pt.hrs; fee += pt.fee; ptc += pt.ptc;
-  });
-  return { hrs: Math.round(hrs * 100) / 100, fee, ptc };
-}
-
-function cgComputeColumnTotals(version) {
-  const result = {};
-  (version.roles || []).forEach(r => { result[r.roleCode] = { hrs: 0, fee: 0 }; });
-  (version.phases || []).forEach(ph => (ph.tasks || []).forEach(task => {
-    (version.roles || []).forEach(r => {
-      const h = parseFloat(task.hours[r.roleCode]) || 0;
-      result[r.roleCode].hrs = Math.round((result[r.roleCode].hrs + h) * 100) / 100;
-      result[r.roleCode].fee += h * (r.rate || 0);
-    });
-  }));
-  return result;
-}
 
 // ── PHASING COMPUTATION (shared by panel + generate-project) ─────────────────
 // Returns { 'YYYYMM': amount } using the version's task dates and role rates.
