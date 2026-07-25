@@ -15,32 +15,146 @@
 <div id="nav-container"></div>
 
 <div id="costGridEditorSection" class="app-container">
-  <div class="page-title-bar">
-    <h4 class="fw-bold mb-0" id="cgEditorTitle">Cost Grid</h4>
+  <div v-if="loading" class="d-flex justify-content-center align-items-center" style="height:60vh">
+    <div class="spinner-border text-secondary"></div>
   </div>
-  <div class="page-toolbar mb-2">
-    <div class="page-toolbar-left">
-      <button class="btn btn-outline-secondary btn-sm" id="btnCgEditorBack">← Pipeline</button>
+  <div v-else-if="loadError" class="alert alert-danger m-4">
+    {{ loadError }} <a href="/pipeline.html">← Back to Pipeline</a>
+  </div>
+  <template v-else>
+    <div class="page-title-bar">
+      <h4 class="fw-bold mb-0">{{ cg?.name || 'Cost Grid' }}</h4>
     </div>
-    <div class="page-toolbar-right">
-      <button class="btn btn-sm btn-outline-danger" id="btnCgDeleteVersion" style="display:none" title="Delete this Draft version">🗑 Delete version</button>
-      <button class="btn btn-sm btn-primary" id="btnCgPublish" style="display:none">🚀 Publish to SIP →</button>
-      <button class="btn btn-sm btn-primary" id="btnCgNewVersion">+ New version</button>
-      <button class="btn btn-sm btn-outline-secondary" id="btnCgCloneVersion" title="Clone this version as a new proposal">⧉ Clone</button>
-      <button class="btn btn-sm btn-outline-secondary" id="btnCgExportXls">⬇ Export XLS</button>
-      <button class="btn btn-sm btn-outline-secondary" id="btnCgGenerateProject" title="Generate project in SIP">🚀 Generate Project</button>
-      <button class="btn btn-sm btn-primary" id="btnCgSave">💾 Save</button>
+    <div class="page-toolbar mb-2">
+      <div class="page-toolbar-left">
+        <button class="btn btn-outline-secondary btn-sm" @click="goBack" :disabled="backSaving">{{ backSaving ? '💾 Saving…' : '← Pipeline' }}</button>
+      </div>
+      <div class="page-toolbar-right">
+        <button v-if="isDraft" class="btn btn-sm btn-outline-danger" @click="deleteVersion" title="Delete this Draft version">🗑 Delete version</button>
+        <button v-if="isDraft" class="btn btn-sm btn-primary" @click="publishDraft">🚀 Publish to SIP →</button>
+        <button v-if="isDraft" class="btn btn-sm btn-primary" @click="openNewVersionModal">+ New version</button>
+        <button class="btn btn-sm btn-outline-secondary" @click="openCloneModal" title="Clone this version as a new proposal">⧉ Clone</button>
+        <button class="btn btn-sm btn-outline-secondary" @click="exportXls">⬇ Export XLS</button>
+        <button v-if="!isLocked && !isDraft && hasFreeTasks" class="btn btn-sm btn-outline-secondary" @click="generateProject" title="Generate project in SIP">🚀 Generate Project</button>
+        <button id="btnCgSave" class="btn btn-sm btn-primary" @click="saveVersion">💾 Save</button>
+      </div>
     </div>
-  </div>
-  <!-- Version tabs -->
-  <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-    <span class="small text-muted">Version:</span>
-    <div id="cgVersionTabs" class="d-flex gap-1 flex-wrap"></div>
-  </div>
-  <!-- Editor body -->
-  <div id="cgEditorBody"></div>
-  <!-- Phasing panel (rendered below the structure table) -->
-  <div id="cgPhasingPanel" style="display:none;margin-top:2rem"></div>
+    <!-- Version tabs -->
+    <div v-if="cg && cg.versions.length > 1" class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+      <span class="small text-muted">Version:</span>
+      <div class="d-flex gap-1 flex-wrap">
+        <button v-for="v in cg.versions" :key="v.versionId"
+          class="btn btn-sm" :class="v.versionId === verId ? 'btn-primary' : 'btn-outline-secondary'"
+          style="font-size:.85rem" :title="versionTabTitle(v)" @click="switchVersion(v.versionId)">
+          {{ versionTabLabel(v) }}
+        </button>
+      </div>
+    </div>
+
+    <div v-if="isLocked" class="alert mb-3 py-2 px-3 d-flex align-items-center gap-2"
+         style="background:var(--color-warning-bg);border:1px solid #ffc107;border-radius:var(--radius-sm);font-size:var(--text-base)">
+      <span>🔒</span>
+      <span class="fw-semibold">{{ lockState.message }}</span>
+    </div>
+    <div v-else-if="isDraft" class="alert mb-3 py-2 px-3 d-flex align-items-center justify-content-between gap-2"
+         style="background:#f8f9fa;border:1px solid #adb5bd;border-radius:var(--radius-sm);font-size:var(--text-base)">
+      <div class="d-flex align-items-center gap-2">
+        <span>✏️</span>
+        <span class="fw-semibold">Draft — private to you. Publish to make it visible in the shared pipeline.</span>
+      </div>
+    </div>
+
+    <!-- Editor body -->
+    <div id="cgEditorBody">
+      <!-- Header form -->
+      <div class="section-card mb-3">
+        <div class="section-header d-flex align-items-center" style="cursor:pointer;user-select:none" @click="offerDetailsCollapsed = !offerDetailsCollapsed">
+          <span style="font-size:var(--text-sm);margin-right:6px;color:var(--text-muted)">{{ offerDetailsCollapsed ? '▶' : '▼' }}</span>
+          <span>📄 Offer details</span>
+          <span v-if="offerDetailsCollapsed" class="text-muted ms-3" style="font-size:var(--text-base);font-weight:400">{{ offerDetailsSummary }}</span>
+        </div>
+        <div v-show="!offerDetailsCollapsed" class="p-3">
+          <div class="row g-2 align-items-end mb-2">
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold mb-1">Project name</label>
+              <input type="text" class="form-control" id="cgProjectName" v-model="draft.projectName" placeholder="Project name" @change="onHeaderFieldChange">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small fw-semibold mb-1">Start</label>
+              <input type="month" class="form-control" id="cgStartDate" v-model="startDateInput" @change="onHeaderFieldChange">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small fw-semibold mb-1">End</label>
+              <input type="month" class="form-control" id="cgEndDate" v-model="endDateInput" @change="onHeaderFieldChange">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small fw-semibold mb-1">Currency</label>
+              <select class="form-select" id="cgCurrency" v-model="draft.currency" @change="onCurrencyChange">
+                <option v-for="cu in (currencies.length ? currencies : [{code:'EUR',symbol:'€',name:'Euro'}])" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.code }} — {{ cu.name }}</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small fw-semibold mb-1">Pipeline stage</label>
+              <div v-if="isDraft" class="form-control-plaintext ps-2 fw-semibold" style="font-size:var(--text-md);color:#6c757d">✏️ Draft</div>
+              <select v-else class="form-select" id="cgPipeline" v-model="draft.pipeline" @change="onPipelineChange">
+                <option v-for="p in ['SIP','Expected','Anticipated','Committed','Canceled']" :key="p" :value="p">{{ p }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="row g-2 mt-1 align-items-end">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold mb-1">Client</label>
+              <div class="d-flex gap-2">
+                <select class="form-select form-select-sm" id="cgClientId" v-model="draft.clientId" @change="onClientChange">
+                  <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
+                </select>
+                <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" onclick="showClientsModal()" style="white-space:nowrap">+ New</button>
+              </div>
+            </div>
+            <div class="col-md-6" id="cgRatecardCol">
+              <label class="form-label small fw-semibold mb-1">Rate card <span class="text-muted fw-normal">(optional)</span></label>
+              <select class="form-select form-select-sm" id="cgRatecardId" v-model="ratecardIdInput" @change="onRatecardChange">
+                <option value="">— None (use global role rates) —</option>
+                <option v-for="rc in filteredRatecards" :key="rc.id" :value="String(rc.id)">{{ rc.client_name ? rc.name + ' (' + rc.client_name + ')' : rc.name }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label small fw-semibold mb-1">Notes</label>
+              <textarea class="form-control" id="cgNote" v-model="draft.note" rows="3" placeholder="Notes, conditions, scope of work…" @change="onHeaderFieldChange"></textarea>
+            </div>
+          </div>
+
+          <div v-if="(draft.linkedProjects || []).length" class="mt-3 pt-2 border-top">
+            <div class="small fw-semibold text-muted mb-2">🔗 Linked projects ({{ draft.linkedProjects.length }})</div>
+            <div class="d-flex flex-wrap gap-2">
+              <div v-for="lp in linkedProjectDisplay" :key="lp.currentProjId" class="border rounded p-2" style="font-size:var(--text-sm);background:var(--surface-light);min-width:220px">
+                <div class="d-flex align-items-start justify-content-between gap-2">
+                  <div class="flex-grow-1 min-width-0">
+                    <div class="fw-semibold text-truncate">{{ lp.pname }}</div>
+                    <div v-if="lp.pcode" style="font-size:var(--text-xs);color:var(--text-muted);font-family:'SFMono-Regular',monospace">{{ lp.pcode }}</div>
+                    <div class="d-flex gap-1 flex-wrap mt-1">
+                      <span v-html="pipelineBadge(lp.ppipe)"></span>
+                      <span v-html="statusBadgeLarge(lp.pstatus)"></span>
+                    </div>
+                    <div v-if="lp.taskNames.length" style="font-size:var(--text-xs);color:var(--text-muted);margin-top:5px"><span style="font-weight:600">Tasks:</span> {{ lp.taskNames.join(', ') }}</div>
+                  </div>
+                  <button v-if="lp.hasProj" class="btn btn-xs btn-outline-secondary flex-shrink-0" @click="openLinkedProject(lp.currentProjId)" style="font-size:var(--text-xs);white-space:nowrap">📊 Portfolio</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grid table: Task 3 (role columns) + Task 4 (task/phase rows/selection bar) -->
+      <div id="cgGridPlaceholder"></div>
+    </div>
+
+    <!-- Phasing panel: Task 5 -->
+    <div id="cgPhasingPanelPlaceholder"></div>
+  </template>
 </div>
 
 <!-- Placeholder sections (referenced by cgHideAll in costgrid.js — overridden as no-op) -->
@@ -276,6 +390,7 @@
 <!-- ── SCRIPTS ── -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="js/api.js?v=3"></script>
 <script src="js/core.js?v=3"></script>
 <script src="js/settings.js"></script>
@@ -291,219 +406,266 @@
 <script src="js/nav.js?v=4"></script>
 
 <script>
-// ── PAGE-SPECIFIC NAVIGATION OVERRIDES ───────────────────────────────────────
-
-function showPipelineBoardView() {
-  window.location.href = '/pipeline.html';
-}
-
-function showPortfolioView() {
-  window.location.href = '/portfolio.html';
-}
-
-function showPortfolioPlanningView() {
-  window.location.href = '/planning.html';
-}
-
-function showDashboardView(pid) {
-  window.location.href = '/portfolio.html?projectId=' + encodeURIComponent(pid);
-}
-
-// After a delete on this page, redirect back to the pipeline board
-function renderPipelineBoard() {
-  window.location.href = '/pipeline.html';
-}
+document.addEventListener('DOMContentLoaded', () => {
 
 function updateNavState() {}
-
-// Override cgHideAll: on this page costGridEditorSection is always visible
 function cgHideAll() {}
 
-// ── INIT ─────────────────────────────────────────────────────────────────────
-
-function _cgShowLoadError(msg) {
-  const el = document.getElementById('cgEditorBody');
-  if (el) el.innerHTML = `<div class="alert alert-danger m-4">${msg} <a href="/pipeline.html">← Back to Pipeline</a></div>`;
-}
-
-document.addEventListener('DOMContentLoaded', async () => {
-  loadConfig();
-  loadSettings();
-
-  const user = await initNav('pipeline', { breadcrumbs: [
-    { label: 'Home', href: '/pipeline.html' },
-    { label: 'Pipeline', href: '/pipeline.html' },
-    { label: '…' },
-  ]}); // Pipeline tab stays active (cost grid belongs to pipeline board)
-  // null = 401 (already redirected to login) or timeout
-  if (!user) {
-    _cgShowLoadError('Failed to connect to the server. Please check your connection and try again.');
-    return;
-  }
-
-  try {
-    await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi(), loadCurrenciesFromApi(), loadConfigFromApi()]);
-  } catch (e) {
-    console.warn('[init] loadClientsFromApi/loadProgramsFromApi/loadRolesFromApi failed:', e.message);
-  }
-
-  // Seed cost grid metadata into localStorage before opening the editor.
-  // Required when the page is opened via a direct/bookmarked URL (localStorage may be cold).
-  try {
-    await cgSyncFromApi();
-  } catch (e) {
-    console.warn('[init] cgSyncFromApi failed:', e.message);
-  }
-
-  // Read cgId and verId from URL params
-  const params    = new URLSearchParams(window.location.search);
-  const cgId      = params.get('cgId');
-  const versionId = params.get('verId');
-
-  if (cgId && versionId) {
-    const cg = cgLoad(cgId);
-    if (!cg) {
-      document.getElementById('cgEditorBody').innerHTML =
-        `<div class="alert alert-danger m-4">Cost grid not found or access denied. <a href="/pipeline.html">← Back to Pipeline</a></div>`;
-      return;
-    }
-
-    // If the versionId from the URL is no longer in localStorage (stale client UUID),
-    // fall back to the most recently created version that exists on the server.
-    let resolvedVerId = versionId;
-    if (!cg.versions.find(v => v.versionId === versionId)) {
-      resolvedVerId = cg.versions[0]?.versionId;
-      if (!resolvedVerId) {
-        document.getElementById('cgEditorBody').innerHTML =
-          `<div class="alert alert-danger m-4">Version not found. <a href="/pipeline.html">← Back to Pipeline</a></div>`;
-        return;
+Vue.createApp({
+  data() {
+    return {
+      cgId: null, verId: null,
+      cg: null, draft: null,
+      loading: true, loadError: null,
+      clients: [], currencies: [],
+      ratecardMap: {}, ratecardOverrides: {}, isClientRatecard: false, allRatecards: [],
+      offerDetailsCollapsed: false, summaryCollapsed: false,
+      selectionMode: false, selectedTaskIds: new Set(),
+      backSaving: false,
+      newVersionLabel: '', newVersionError: '',
+      cloneGridName: '', cloneError: '', cloneSourceName: '',
+      prevCurrency: 'EUR', // last-committed currency, used by Task 5's onCurrencyChange to detect+revert a change
+    };
+  },
+  computed: {
+    lockState() {
+      this.cg; // reactive dependency — see Global Constraint 9
+      if (!this.cgId || !this.verId) return { locked: false, reason: '', message: '' };
+      return cgGetVersionLockState(this.cgId, this.verId);
+    },
+    isLocked() { return this.lockState.locked; },
+    isDraft() { return this.draft?.pipeline === 'Draft'; },
+    hasFreeTasks() {
+      if (!this.draft) return false;
+      const assignedIds = cgGetAssignedTaskIds();
+      const assignedNames = cgGetAssignedTaskNames();
+      return (this.draft.phases || []).flatMap(ph => ph.tasks).some(t =>
+        t.taskName?.trim() && !assignedIds.has(t.taskId) && !assignedNames.has(t.taskName.trim().toLowerCase())
+      );
+    },
+    grand() { return this.draft ? cgComputeGrandTotals(this.draft) : { hrs: 0, fee: 0, ptc: 0 }; },
+    colTotals() { return this.draft ? cgComputeColumnTotals(this.draft) : {}; },
+    offerDetailsSummary() {
+      const v = this.draft; if (!v) return '';
+      return `${v.projectName || ''}${v.startDate ? '  ·  ' + v.startDate.slice(0,4)+'/'+v.startDate.slice(4,6) : ''}${v.endDate ? ' – ' + v.endDate.slice(0,4)+'/'+v.endDate.slice(4,6) : ''}  ·  ${v.currency || 'EUR'}`;
+    },
+    startDateInput: {
+      get() { return this.draft?.startDate ? this.draft.startDate.slice(0,4)+'-'+this.draft.startDate.slice(4,6) : ''; },
+      set(val) { if (this.draft) this.draft.startDate = val ? val.replace('-','') : ''; },
+    },
+    endDateInput: {
+      get() { return this.draft?.endDate ? this.draft.endDate.slice(0,4)+'-'+this.draft.endDate.slice(4,6) : ''; },
+      set(val) { if (this.draft) this.draft.endDate = val ? val.replace('-','') : ''; },
+    },
+    ratecardIdInput: {
+      get() { return this.draft?.ratecardId ? String(this.draft.ratecardId) : ''; },
+      set(val) { if (this.draft) this.draft.ratecardId = val || null; },
+    },
+    filteredRatecards() {
+      const clientId = this.draft?.clientId && this.draft.clientId !== '__unassigned__' ? String(this.draft.clientId) : null;
+      return this.allRatecards.filter(rc => rc.client_id == null || (clientId && String(rc.client_id) === clientId));
+    },
+    linkedProjectDisplay() {
+      if (!this.draft) return [];
+      const pipeline = this.draft.pipeline || 'SIP';
+      return (this.draft.linkedProjects || []).map(lp => {
+        let proj = (config.projects || []).find(p => p.id === lp.projectId);
+        if (!proj) {
+          proj = (config.projects || []).find(p => p.costGridRef?.cgId === this.cgId && p.costGridRef?.versionId === this.verId);
+        }
+        const currentProjId = proj?.id || lp.projectId;
+        const resolvedTaskNames = (lp.taskIds || []).map(tid => {
+          for (const ph of this.draft.phases || []) {
+            const t = ph.tasks.find(t => t.taskId === tid);
+            if (t?.taskName?.trim()) return t.taskName.trim();
+          }
+          return null;
+        }).filter(Boolean);
+        return {
+          currentProjId,
+          pname: lp.projectName || proj?.name || lp.projectId,
+          pcode: proj?.code || '',
+          pstatus: proj?.status || '',
+          ppipe: (typeof getProjectPipeline === 'function' ? getProjectPipeline(currentProjId) : null) || pipeline,
+          taskNames: resolvedTaskNames.length ? resolvedTaskNames : (lp.taskNames || []),
+          hasProj: !!proj,
+        };
+      });
+    },
+  },
+  methods: {
+    esc, pipelineBadge, statusBadgeLarge, cgScheduleAutoSave,
+    versionTabLabel(v) {
+      const badge = cgLiveVersionBadge(v);
+      const projCount = (v.linkedProjects || []).length;
+      const lockState = cgGetVersionLockState(this.cgId, v.versionId);
+      return v.versionLabel + badge.icon + (projCount > 0 ? ` (${projCount})` : '') + (lockState.locked ? ' 🔒' : '');
+    },
+    versionTabTitle(v) {
+      const lockState = cgGetVersionLockState(this.cgId, v.versionId);
+      return lockState.locked ? lockState.message : '';
+    },
+    resyncFromGlobals() {
+      // `this.draft` and `_cgDraft` are kept as the SAME object reference (see openVersion) —
+      // every kept-unchanged global mutates _cgDraft's fields in place, which Vue's v-model
+      // reads/writes go through too. Re-cloning `this.draft` here would silently break that
+      // invariant (cgAutoSave() would then keep saving a stale snapshot of the FIRST clone
+      // forever, since it reads `_cgDraft` directly, not `this.draft`). What raw external
+      // mutation *doesn't* get automatically is a re-render trigger (Vue's reactivity fires
+      // only on writes that go through its own proxy) — $forceUpdate() supplies that without
+      // touching the reference. See Global Constraint 9.
+      if (_cgActiveCgId) this.cg = cgLoad(_cgActiveCgId);
+      this.selectionMode = _cgSelectionMode;
+      this.selectedTaskIds = new Set(_cgSelectedTaskIds);
+      this.$forceUpdate();
+    },
+    async openVersion(cgId, versionId) {
+      this.loading = true; this.loadError = null;
+      let cgRec = cgLoad(cgId);
+      if (!cgRec) { this.loadError = 'Cost grid not found or access denied.'; this.loading = false; return; }
+      let resolvedVerId = versionId;
+      if (!cgRec.versions.find(v => v.versionId === resolvedVerId)) {
+        resolvedVerId = cgRec.versions[0]?.versionId;
+        if (!resolvedVerId) { this.loadError = 'Version not found.'; this.loading = false; return; }
       }
-      // Update URL to reflect the resolved version (no page reload)
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.set('verId', resolvedVerId);
-      window.history.replaceState(null, '', newUrl.toString());
-    }
+      await cgLoadStructureFromApi(cgId, resolvedVerId);
+      cgRec = cgLoad(cgId);
+      const version = cgRec.versions.find(v => v.versionId === resolvedVerId);
+      if (!version) { this.loadError = 'Version not found.'; this.loading = false; return; }
 
-    // Fetch the full phase/role structure from API before opening the editor
-    await cgLoadStructureFromApi(cgId, resolvedVerId);
-    showCostGridEditorView(cgId, resolvedVerId);
-    if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
+      this.cgId = cgId; this.verId = resolvedVerId;
+      _cgActiveCgId = cgId; _cgActiveVersionId = resolvedVerId;
+      _cgDraft = cgMigrateVersion(JSON.parse(JSON.stringify(version)));
+      _cgSelectionMode = false; _cgSelectedTaskIds = new Set();
+      this.offerDetailsCollapsed = false; this.summaryCollapsed = false;
+      this.cg = cgRec;
+      // `this.draft` is assigned the SAME object as `_cgDraft` — not a clone of it — and this
+      // is the ONLY place that reference is ever swapped (see Global Constraint 9). Every
+      // subsequent Vue v-model edit and every kept-unchanged global's in-place mutation of
+      // `_cgDraft.foo = ...` both land on this one object, so cgAutoSave() (which reads
+      // `_cgDraft` directly) always sees the current edited state.
+      this.draft = _cgDraft;
+      this.prevCurrency = this.draft.currency || 'EUR';
+      this.selectionMode = false; this.selectedTaskIds = new Set();
+
+      await cgUpdateActiveRatecardMap(); // may mutate _cgDraft.roles[].rate in place (non-custom roles)
+      this.ratecardMap = { ..._cgActiveRatecardMap };
+      this.ratecardOverrides = { ..._cgActiveRatecardOverrides };
+      this.isClientRatecard = _cgIsClientRatecard;
+      // No re-render needed yet — this is still before the very first paint (this.loading is
+      // still true), so the upcoming initial render already reflects cgUpdateActiveRatecardMap's
+      // adjustment with no stale-vs-fresh gap to bridge.
+
+      if (typeof loadRatecardsForDropdown === 'function') {
+        this.allRatecards = await loadRatecardsForDropdown().catch(() => []);
+      }
+
+      const url = new URL(window.location.href);
+      url.searchParams.set('cgId', cgId);
+      url.searchParams.set('verId', resolvedVerId);
+      window.history.replaceState(null, '', url.toString());
+      document.title = 'PDash — ' + (this.cg?.name || 'Cost Grid');
+
+      this.loading = false;
+    },
+    async switchVersion(verId) {
+      if (verId === this.verId) return;
+      cgAutoSave();
+      await this.openVersion(this.cgId, verId);
+    },
+    async goBack() {
+      cgAutoSave();
+      this.backSaving = true;
+      await new Promise(r => setTimeout(r, 500));
+      window.location.href = '/pipeline.html';
+    },
+    onHeaderFieldChange() { cgScheduleAutoSave(); },
+    onPipelineChange() {
+      cgPropagatePipelineToProjects();
+      const cgFresh = cgLoad(this.cgId);
+      if (cgFresh) this.cg = cgFresh;
+      cgAutoSave();
+    },
+    async onClientChange() {
+      await this.refreshRatecards();
+      cgScheduleAutoSave();
+    },
+    async onRatecardChange() {
+      // this.draft IS _cgDraft (same reference — see openVersion), so this.draft.ratecardId
+      // is already current; cgUpdateActiveRatecardMap() reads _cgDraft.ratecardId directly.
+      await cgUpdateActiveRatecardMap(); // mutates _cgDraft.roles[].rate in place for non-custom roles
+      this.ratecardMap = { ..._cgActiveRatecardMap };
+      this.ratecardOverrides = { ..._cgActiveRatecardOverrides };
+      this.isClientRatecard = _cgIsClientRatecard;
+      this.$forceUpdate(); // reflect the in-place role-rate adjustment (Global Constraint 9)
+      cgScheduleAutoSave();
+    },
+    async refreshRatecards() {
+      // Mirrors the filtering cgPopulateRatecardDropdown() used to do — the actual <option>
+      // filtering now lives in the filteredRatecards computed; this only resets an
+      // out-of-range selection and re-syncs the active ratecard map.
+      const clientId = this.draft?.clientId && this.draft.clientId !== '__unassigned__' ? String(this.draft.clientId) : null;
+      const valid = this.allRatecards.find(rc => String(rc.id) === String(this.draft.ratecardId) && (rc.client_id == null || (clientId && String(rc.client_id) === clientId)));
+      if (this.draft.ratecardId && !valid) this.draft.ratecardId = null; // this.draft IS _cgDraft
+      await cgUpdateActiveRatecardMap();
+      this.ratecardMap = { ..._cgActiveRatecardMap };
+      this.ratecardOverrides = { ..._cgActiveRatecardOverrides };
+      this.isClientRatecard = _cgIsClientRatecard;
+      this.$forceUpdate();
+    },
+    saveVersion() { cgSaveVersion(); },
+    deleteVersion() {
+      if (!this.cg || !this.verId) return;
+      const v = this.cg.versions.find(v => v.versionId === this.verId);
+      if (!v) return;
+      cgConfirmDeleteVersion(this.cgId, this.verId, v.versionLabel, () => { window.location.href = 'pipeline.html'; });
+    },
+    publishDraft() { cgPublishDraft(); },
+    openLinkedProject(projId) { cgAutoSave(); showDashboardView(projId); },
+    exportXls() { cgExportXls(); },
+    generateProject() { cgGenerateProject(); },
+  },
+  async created() {
+    loadConfig();
+    loadSettings();
+
+    const user = await initNav('pipeline', { breadcrumbs: [
       { label: 'Home', href: '/pipeline.html' },
       { label: 'Pipeline', href: '/pipeline.html' },
-      { label: cg.name },
+      { label: '…' },
+    ]});
+    if (!user) { this.loadError = 'Failed to connect to the server. Please check your connection and try again.'; this.loading = false; return; }
+
+    try {
+      await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi(), loadCurrenciesFromApi(), loadConfigFromApi()]);
+    } catch (e) { console.warn('[init] loadClientsFromApi/loadProgramsFromApi/loadRolesFromApi failed:', e.message); }
+
+    try { await cgSyncFromApi(); } catch (e) { console.warn('[init] cgSyncFromApi failed:', e.message); }
+
+    this.clients = getClients();
+    this.currencies = window.__currencies || [];
+
+    const params = new URLSearchParams(window.location.search);
+    const cgId = params.get('cgId');
+    const versionId = params.get('verId');
+    if (!cgId) { window.location.href = '/pipeline.html'; return; }
+    const cgRec = cgLoad(cgId);
+    if (!cgRec) { this.loadError = 'Cost grid not found or access denied.'; this.loading = false; return; }
+    const targetVerId = (versionId && cgRec.versions.find(v => v.versionId === versionId)) ? versionId : cgRec.versions[0]?.versionId;
+    if (!targetVerId) { this.loadError = 'Cost grid not found or access denied.'; this.loading = false; return; }
+
+    _cgVueApp = this; // wire the bridge — Global Constraint 7
+
+    await this.openVersion(cgId, targetVerId);
+    if (typeof updateBreadcrumbs === 'function' && this.cg) updateBreadcrumbs([
+      { label: 'Home', href: '/pipeline.html' },
+      { label: 'Pipeline', href: '/pipeline.html' },
+      { label: this.cg.name },
     ]);
-  } else if (cgId) {
-    // Open first version if only cgId is given
-    const cg = cgLoad(cgId);
-    if (cg && cg.versions.length > 0) {
-      const firstVerId = cg.versions[0].versionId;
-      await cgLoadStructureFromApi(cgId, firstVerId);
-      showCostGridEditorView(cgId, firstVerId);
-      if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
-        { label: 'Home', href: '/pipeline.html' },
-        { label: 'Pipeline', href: '/pipeline.html' },
-        { label: cg.name },
-      ]);
-    } else {
-      document.getElementById('cgEditorBody').innerHTML =
-        `<div class="alert alert-danger m-4">Cost grid not found or access denied. <a href="/pipeline.html">← Back to Pipeline</a></div>`;
-      return;
-    }
-  } else {
-    // No params — redirect back to pipeline
-    window.location.href = '/pipeline.html';
-    return;
-  }
+  },
+}).mount('#costGridEditorSection');
 
-  // ── TOOLBAR ──
-  document.getElementById('btnCgEditorBack').addEventListener('click', async () => {
-    const btn = document.getElementById('btnCgEditorBack');
-    cgAutoSave();
-    btn.disabled = true;
-    btn.textContent = '💾 Saving…';
-    await new Promise(r => setTimeout(r, 500));
-    showPipelineBoardView();
-  });
-
-  document.getElementById('btnCgPublish').addEventListener('click', cgPublishDraft);
-  document.getElementById('btnCgDeleteVersion').addEventListener('click', () => {
-    if (!_cgActiveCgId || !_cgActiveVersionId) return;
-    const cg = cgLoad(_cgActiveCgId);
-    const v = cg?.versions.find(v => v.versionId === _cgActiveVersionId);
-    if (!v) return;
-    cgConfirmDeleteVersion(_cgActiveCgId, _cgActiveVersionId, v.versionLabel, () => {
-      window.location.href = 'pipeline.html';
-    });
-  });
-  document.getElementById('btnCgSave').addEventListener('click', cgSaveVersion);
-  document.getElementById('btnCgNewVersion').addEventListener('click', () => {
-    document.getElementById('cgNewVersionLabel').value = '';
-    document.getElementById('cgNewVersionError').classList.add('d-none');
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('cgNewVersionModal')).show();
-  });
-  document.getElementById('cgNewGridModal').addEventListener('shown.bs.modal', () => {
-    document.getElementById('cgNewGridName').focus();
-  });
-  document.getElementById('cgNewVersionModal').addEventListener('shown.bs.modal', () => {
-    document.getElementById('cgNewVersionLabel').focus();
-  });
-  document.getElementById('btnCgCreateVersion').addEventListener('click', cgCreateNewVersion);
-  document.getElementById('btnCgCloneVersion').addEventListener('click', () => {
-    const cg = cgLoad(_cgActiveCgId);
-    if (!cg) return;
-    const ver = cg.versions.find(v => v.versionId === _cgActiveVersionId);
-    _pbCloneSource = { cgId: _cgActiveCgId, verId: _cgActiveVersionId, name: cg.name };
-    document.getElementById('cgCloneSourceName').textContent =
-      cg.name + (ver?.versionLabel ? ' — ' + ver.versionLabel : '');
-    document.getElementById('cgCloneGridName').value = cg.name + ' — Copy';
-    document.getElementById('cgCloneError').classList.add('d-none');
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('cgCloneModal')).show();
-  });
-  document.getElementById('cgCloneModal').addEventListener('shown.bs.modal', () => {
-    document.getElementById('cgCloneGridName').focus();
-  });
-  document.getElementById('btnCgClone').addEventListener('click', cgCloneGrid);
-  document.getElementById('btnCgExportXls').addEventListener('click', cgExportXls);
-  document.getElementById('btnCgGenerateProject').addEventListener('click', cgGenerateProject);
-  document.getElementById('btnCgAddSelectedRoles').addEventListener('click', cgAddSelectedRoles);
-
-  // ── ROLES ──
-  document.getElementById('btnRolesBack').addEventListener('click', hideRolesView);
-  document.getElementById('btnAddRole').addEventListener('click', () => openRoleModal(null));
-  document.getElementById('btnSaveRole').addEventListener('click', saveRoleFromModal);
-  document.getElementById('btnRolesShowJson').addEventListener('click', () => {
-    openJsonViewer('Roles', getRoles(), imported => { if (!Array.isArray(imported)) throw new Error('Must be an array'); roles = imported; saveRoles(); renderRolesTable(); }, `roles_${new Date().toISOString().slice(0,10)}.json`);
-  });
-
-  // ── JSON VIEWER ──
-  document.getElementById('btnJsonCopy').addEventListener('click', () => {
-    navigator.clipboard.writeText(document.getElementById('jsonViewerContent').value).catch(() => {});
-  });
-  document.getElementById('btnJsonExport').addEventListener('click', () => {
-    const blob = new Blob([document.getElementById('jsonViewerContent').value], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = _jsonViewerFilename; a.click(); URL.revokeObjectURL(url);
-  });
-  document.getElementById('btnJsonImport').addEventListener('click', () => {
-    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json';
-    inp.onchange = e => {
-      const file = e.target.files[0]; if (!file) return;
-      const reader = new FileReader();
-      reader.onload = ev => {
-        try { JSON.parse(ev.target.result); document.getElementById('jsonViewerContent').value = ev.target.result; document.getElementById('jsonViewerError').classList.add('d-none'); }
-        catch(err) { const el = document.getElementById('jsonViewerError'); el.textContent = 'Invalid JSON: ' + err.message; el.classList.remove('d-none'); }
-      };
-      reader.readAsText(file);
-    };
-    inp.click();
-  });
-  document.getElementById('btnJsonApply').addEventListener('click', () => {
-    const errEl = document.getElementById('jsonViewerError');
-    try { const parsed = JSON.parse(document.getElementById('jsonViewerContent').value); if (_jsonViewerOnSave) _jsonViewerOnSave(parsed); bootstrap.Modal.getInstance(document.getElementById('jsonViewerModal'))?.hide(); errEl.classList.add('d-none'); }
-    catch(err) { errEl.textContent = 'Invalid JSON: ' + err.message; errEl.classList.remove('d-none'); }
-  });
-
-});
+}); // end DOMContentLoaded
 </script>
 
 </body>
