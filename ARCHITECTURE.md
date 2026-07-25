@@ -673,7 +673,7 @@ burndown/
     nav.js                ← navbar injection, initNav(); injects settings, change-pwd, and "My Profile" modals; T&C gate (redirects to /terms.html if user.terms_version < current_terms_version); calls initNotifications()
     shares.js             ← generic share modal
     notifications.js      ← SSE client, bell badge, notification dropdown panel
-    costgrid.js           ← cost grid editor; non-EUR role rate fallback chain: ratecard override → `role.rateOverrides[currency]` → EUR rate × currency factor; both `cgSyncRoleRatesToBaseline` and `cgPreviewRateChange` use this chain; `effectiveRate` in role select modal also updated; linked-project chips use `statusBadgeLarge()` for project status badges; `_cgCompactHeader` (localStorage `PDash_cgCompactHeader`) toggles compact/normal header mode via ⊟/⊞ button in the "Phase / Task" sticky cell — compact hides role move/change/dup/remove buttons and reduces header font to 10px; **task assignment (R1–R5)**: `cgGetAssignedTaskIds()` + `cgGetAssignedTaskNames()` perform dual UUID+name check — assigned tasks show no ✕ button; `cgDoAddTasksToProject` and `cgDoGenerateProject` send `taskNames` alongside `taskIds`; Generate Project button hidden when all tasks are already mapped; `_cgEnsureAddToProjectModal()` creates a singleton modal appended to `document.body` (z-index:10500, created once and reused)
+    costgrid.js           ← shared cost-grid business-logic library, loaded unmodified by `pipeline.html`/`planning.html` as globals, and by `costgrid.html`'s own Vue rewrite via the bridge pattern (see `costgrid.html` entry below); non-EUR role rate fallback chain (ratecard override → `role.rateOverrides[currency]` → EUR rate × currency factor) is no longer duplicated inline — `cgSyncRoleRatesToBaseline` and `cgPreviewRateChange` both now call the shared `resolveRoleRate()` (`js/lib/costgrid-calc.js`); linked-project chips use `statusBadgeLarge()` for project status badges; `_cgCompactHeader` (localStorage `PDash_cgCompactHeader`) toggles compact/normal header mode via ⊟/⊞ button in the "Phase / Task" sticky cell — compact hides role move/change/dup/remove buttons and reduces header font to 10px; **task assignment (R1–R5)**: `cgGetAssignedTaskIds()` + `cgGetAssignedTaskNames()` perform dual UUID+name check — assigned tasks show no ✕ button; `cgDoAddTasksToProject` and `cgDoGenerateProject` send `taskNames` alongside `taskIds`; Generate Project button hidden when all tasks are already mapped; `_cgEnsureAddToProjectModal()` creates a singleton modal appended to `document.body` (z-index:10500, created once and reused); the imperative rendering functions this file used for its own now-Vue page (`renderCgEditor`/`cgBindEditorEvents`/`cgApplyEditorLock`/`cgRefreshTotals`/`cgRefreshPhaseDates`/`cgRenderRoleList`/`cgFindTask`) were deleted — `renderCgEditor()`/`renderCgVersionTabs(cg)`/`showCostGridEditorView(cgId, versionId)` are now thin bridges delegating into `costgrid.html`'s mounted Vue instance
     portfolio.js          ← portfolio dashboard
     dashboard.js          ← per-project KPI/burndown
     config-form.js        ← project config form; hours parsing/formatting/rounding delegated to js/lib/cfg-parse.js
@@ -687,7 +687,21 @@ burndown/
                             drift); pipeline-calc.js — pbGetVersionBudget/pbComputeColumnTotals (take
                             cgComputeGrandTotals/getPipelineBudget as parameters, DI-style, matching
                             portfolio-calc.js's precedent), pbFmtMoney/pbFmtDate/pbFmtTaskDate/
-                            pbComputePotPercentages; extracted from the former js/pipeline-board.js
+                            pbComputePotPercentages; extracted from the former js/pipeline-board.js;
+                            costgrid-calc.js — resolveRoleRate(...) (3-tier rate resolution: ratecard
+                            per-currency override → role per-currency override → EUR baseline × live
+                            exchange rate — deduplicates logic previously repeated inline three times;
+                            now called from both the Vue role-selector/rate-cell code in costgrid.html
+                            and from js/costgrid.js's cgSyncRoleRatesToBaseline/cgPreviewRateChange),
+                            cgComputeTaskTotals/cgComputePhaseTotals/cgComputeGrandTotals/
+                            cgComputeColumnTotals (relocated verbatim from js/costgrid.js, window.*
+                            bridged under the same names so pipeline.html's unchanged detail-panel
+                            call sites are unaffected), stripCloneTaskIds(phases) (strips taskId/
+                            phaseId before a cloned structure is POSTed to saveStructure() for a new
+                            version — fixes a `duplicate key value violates unique constraint
+                            "tasks_pkey"` error: the backend reuses a supplied taskId as the new row's
+                            PK, which is correct for a same-version re-save but wrong for Clone, since
+                            the source version's tasks still exist in the DB under those exact IDs)
     roles.js              ← roles management modal; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role — role shape: `{ id, label, code, rate, rateOverrides }`
     ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js; `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects per-role `rateOverrides` and sends them to the API
     upload.js             ← XLS parsing
@@ -701,8 +715,39 @@ burndown/
                             js/costgrid.js/js/core.js and the 4 shared static modals stay unmodified Vanilla,
                             called as globals (costgrid.html/planning.html still depend on them as-is)
   portfolio.html          ← portfolio overview + per-project dashboard, Vue 3 (CDN, no build step, same pattern as project-config.html); folds in the former js/portfolio.js + js/dashboard.js; adds js/lib/portfolio-calc.js (KPI/burndown math extraction, vitest-covered); no longer loads js/roles.js or js/config-form.js (the latter only served this page's own now-removed, previously-unreachable #configModal + nested CRUD modals)
-  planning.html
-  costgrid.html
+  planning.html           ← removes the same 2 dead Roles Registry modal blocks (#rolesModal/#roleModal)
+                            confirmed dead here too (only reachable opener lived in the unloaded
+                            js/main.js) — same cleanup as costgrid.html's Vue migration
+  costgrid.html           ← cost grid editor (phase/task/role table, phasing panel, version tabs,
+                            toolbar), Vue 3 (CDN, no build step, same pattern as pipeline.html/
+                            portfolio.html); single monolithic Vue.createApp, no sub-components, matching
+                            the other Tier 2 pages; js/costgrid.js stays loaded as the shared library for
+                            pipeline.html/planning.html — a "bridge pattern" redefines renderCgEditor()/
+                            renderCgVersionTabs(cg)/showCostGridEditorView(cgId, versionId) to delegate
+                            into the mounted Vue instance (via a module-level `_cgVueApp` reference) so
+                            ~15 other unchanged js/costgrid.js functions that call these three at their
+                            tail (cgPublishDraft, cgCreateNewVersion, cgCloneGrid, cgGenerateProject, etc.)
+                            require zero code changes; `_cgDraft`/`this.draft` are the SAME object
+                            reference (assigned once per version load), not independently re-cloned
+                            copies — critical, since `cgAutoSave()` (a kept-unchanged global) reads
+                            `_cgDraft` directly, so a divergent clone would silently persist stale,
+                            un-edited data on every autosave; locked/Committed-version edit enforcement
+                            (`:disabled="isLocked"`/`v-if="!isLocked"` across every input/select/textarea
+                            and every mutation button inside the editor body, both the offer-details
+                            header form and the grid table) restores the pre-Vue `cgApplyEditorLock()`'s
+                            coverage exactly, since the whole editor body used to be swept by
+                            `querySelectorAll('input, textarea, select')`; `#confirmModal`/
+                            `#jsonViewerModal` stay unmodified shared Vanilla utilities
+                            (`showConfirm()`/`openJsonViewer()`); `#cgNewVersionModal`/`#cgCloneModal`/
+                            `#cgRoleSelectModal` are Vue-triggered (opened via Vue methods, still
+                            Bootstrap-modal-backed); deletes the confirmed-dead `#rolesModal`/`#roleModal`/
+                            `#programsModal`/`#programEditModal` markup (their only openers lived in the
+                            unloaded `js/main.js`) — `#clientsModal`/`#clientEditModal` were investigated
+                            and found genuinely reachable (`showClientsModal()`, a live "+ New" button
+                            next to the Client dropdown), so kept, along with `js/clients.js`'s `<script>`
+                            tag (also still needed for `getClients()`); `js/roles.js`/`js/programs.js`
+                            likewise kept — both define load*FromApi() functions this page's own init
+                            calls unconditionally, not just their (now-removed) dead CRUD modals
   timesheets.html
   config.html             ← admin config (clients, programs, roles, pipelines & POTs); Role edit form shows per-currency rate fields populated from `rateOverrides`; "Proposal Phasing" view (was "Phasing") excludes Canceled/Draft stages; monthly cells show local amount + EUR equivalent for non-EUR proposals; `phasingTableHtml` adds Total column and removes collapsible detail; `openClientRatecard` fixed filter and shows agency default per-currency placeholder
   project-config.html     ← full-page project config form, Vue 3 (CDN, no build step, same pattern as admin.html); manages a single reactive project object (not an array — the original's hidden multi-project dropdown/New/Delete machinery was confirmed dead on this page); unknown ?projectId= shows an explicit not-found state
