@@ -223,7 +223,77 @@
             </thead>
             <tbody id="cgGridBody">
               <tr v-if="draft.roles.length === 0"><td colspan="6" class="text-center text-muted py-2" style="font-size:var(--text-base);border:1px solid var(--border-light)">No roles added yet. Click <strong>👥 + Add role</strong> to add role columns.</td></tr>
-              <!-- Phase/task rows: Task 4 -->
+              <template v-for="phase in draft.phases" :key="phase.phaseId">
+                <tr class="cg-phase-row">
+                  <td style="padding:6px 8px;border:1px solid var(--brand-dark);background:var(--brand-navy);vertical-align:middle">
+                    <div class="d-flex align-items-center gap-1">
+                      <input type="text" class="form-control" style="border:none;font-size:var(--text-lg);background:transparent;color:#fff;font-weight:700;flex:1;padding:2px 4px;height:32px" v-model="phase.phaseName" placeholder="Phase name" @change="cgScheduleAutoSave()">
+                      <button class="btn btn-link p-0" style="color:#93c5fd;font-size:var(--text-sm);white-space:nowrap" title="Add task" @click="addTask(phase)">+ task</button>
+                      <button v-if="selectionMode" class="btn btn-link p-0" style="color:#fcd34d;font-size:var(--text-xs);white-space:nowrap" title="Select all free tasks in this phase" @click="selectAllFreeInPhase(phase)">☑ liberi</button>
+                      <button class="btn btn-link p-0" style="color:#f8877a;font-size:var(--text-xs)" title="Delete phase" @click="deletePhase(phase)">✕</button>
+                    </div>
+                  </td>
+                  <td style="background:var(--brand-navy);border:1px solid var(--brand-dark);padding:4px 8px;vertical-align:middle">
+                    <span style="font-size:var(--text-xs);color:#93c5fd;font-weight:400">{{ phaseDatesLabel(phase) }}</span>
+                  </td>
+                  <td style="text-align:right;padding:6px 10px;border:1px solid var(--brand-dark);font-weight:700;font-size:var(--text-md);white-space:nowrap;background:var(--brand-mid);color:#e2e8ff">{{ (phaseTotals(phase).fee + phaseTotals(phase).ptc) > 0 ? fmtCur(phaseTotals(phase).fee + phaseTotals(phase).ptc) : '—' }}</td>
+                  <td style="text-align:right;padding:6px 10px;border:1px solid var(--brand-dark);font-weight:600;font-size:var(--text-md);white-space:nowrap;background:var(--brand-mid);color:#e2e8ff">{{ phaseTotals(phase).ptc > 0 ? fmtCur(phaseTotals(phase).ptc) : '—' }}</td>
+                  <td style="text-align:right;padding:6px 10px;border:1px solid var(--brand-dark);font-weight:700;font-size:var(--text-md);white-space:nowrap;background:var(--brand-mid);color:#e2e8ff">{{ phaseTotals(phase).hrs > 0 ? phaseTotals(phase).hrs + 'h' : '—' }}</td>
+                  <td style="text-align:right;padding:6px 10px;border:1px solid var(--brand-dark);font-weight:600;font-size:var(--text-md);white-space:nowrap;background:var(--brand-mid);color:#e2e8ff">{{ phaseTotals(phase).fee > 0 ? fmtCur(phaseTotals(phase).fee) : '—' }}</td>
+                  <td v-for="r in draft.roles" :key="'ph-'+r.roleCode" style="text-align:center;vertical-align:middle;background:var(--brand-mid);color:#c8d0ee;font-weight:600;border:1px solid var(--brand-dark);padding:6px 4px;font-size:var(--text-md)">{{ (phaseTotals(phase).byRole[r.roleCode] || 0) > 0 ? phaseTotals(phase).byRole[r.roleCode] : '' }}</td>
+                </tr>
+                <tr v-for="task in phase.tasks" :key="task.taskId" class="cg-task-row">
+                  <td style="padding:4px 6px;border:1px solid var(--border-light);min-width:200px;vertical-align:top">
+                    <div v-if="selectionMode" class="mb-1 d-flex align-items-center gap-1">
+                      <input type="checkbox" class="form-check-input" :checked="isTaskAssigned(task) || selectedTaskIds.has(task.taskId)" :disabled="isTaskAssigned(task)" :style="isTaskAssigned(task) ? 'opacity:.4' : ''" @change="toggleTaskSelection(task)">
+                      <span v-if="isTaskAssigned(task)" style="font-size:var(--text-xs);color:var(--text-disabled)">already assigned</span>
+                    </div>
+                    <div class="d-flex align-items-start gap-1">
+                      <textarea class="form-control" rows="2" style="border:none;font-size:var(--text-md);font-weight:700;background:transparent;flex:1;padding:3px 4px;resize:vertical;min-height:48px" placeholder="Task name" v-model="task.taskName" @change="cgScheduleAutoSave()"></textarea>
+                      <button v-if="!isTaskAssigned(task)" class="btn btn-link p-0" style="color:var(--color-danger);font-size:var(--text-xs);line-height:1;flex-shrink:0;margin-top:4px" title="Delete task" @click="deleteTask(phase, task)">✕</button>
+                    </div>
+                    <div class="d-flex gap-2 mt-1 align-items-center">
+                      <div class="d-flex align-items-center gap-1">
+                        <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">From</span>
+                        <input type="text" class="form-control form-control-sm p-1" style="font-size:var(--text-xs);height:24px;border:1px solid var(--border-light);width:100px" placeholder="gg/mm/aaaa" maxlength="10" :value="cgIsoToIt(task.taskStartDate)" @change="onTaskDateChange(task, 'taskStartDate', $event)">
+                      </div>
+                      <div class="d-flex align-items-center gap-1">
+                        <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">To</span>
+                        <input type="text" class="form-control form-control-sm p-1" style="font-size:var(--text-xs);height:24px;border:1px solid var(--border-light);width:100px" placeholder="gg/mm/aaaa" maxlength="10" :value="cgIsoToIt(task.taskEndDate)" @change="onTaskDateChange(task, 'taskEndDate', $event)">
+                      </div>
+                    </div>
+                  </td>
+                  <td style="padding:4px 6px;border:1px solid var(--border-light);min-width:240px;vertical-align:top">
+                    <textarea class="form-control" rows="3" style="border:none;font-size:var(--text-md);background:transparent;color:#555;padding:3px 4px;resize:vertical;min-height:72px" placeholder="Description…" v-model="task.taskDescription" @change="cgScheduleAutoSave()"></textarea>
+                  </td>
+                  <td style="text-align:right;padding:6px 10px;border:1px solid var(--border-light);font-size:var(--text-md);white-space:nowrap;background:var(--sand-50);vertical-align:middle">
+                    <strong v-if="taskTotals(task).totalCostAndFee > 0">{{ fmtCur(taskTotals(task).totalCostAndFee) }}</strong><span v-else style="color:#bbb">—</span>
+                  </td>
+                  <td style="padding:3px 5px;border:1px solid var(--border-light);min-width:120px;vertical-align:middle">
+                    <input type="text" class="form-control" style="border:1px solid var(--border-light);font-size:var(--text-md);padding:4px 6px;height:32px;text-align:right"
+                      :value="ptcFocusedTask === task.taskId ? (task.ptc > 0 ? task.ptc : '') : (task.ptc > 0 ? fmtCur(task.ptc) : '')" placeholder="—"
+                      @focus="ptcFocusedTask = task.taskId"
+                      @input="task.ptc = parseFloat($event.target.value) || 0; cgScheduleAutoSave()"
+                      @blur="ptcFocusedTask = null">
+                  </td>
+                  <td style="text-align:right;padding:6px 10px;border:1px solid var(--border-light);font-size:var(--text-md);white-space:nowrap;background:var(--sand-50);vertical-align:middle">
+                    <strong v-if="taskTotals(task).totalHrs > 0">{{ taskTotals(task).totalHrs }}h</strong><span v-else style="color:#bbb">—</span>
+                  </td>
+                  <td style="text-align:right;padding:6px 10px;border:1px solid var(--border-light);font-size:var(--text-md);white-space:nowrap;background:var(--sand-50);vertical-align:middle">
+                    <span v-if="taskTotals(task).totalFee > 0">{{ fmtCur(taskTotals(task).totalFee) }}</span><span v-else style="color:#bbb">—</span>
+                  </td>
+                  <td v-for="r in draft.roles" :key="'th-'+r.roleCode" style="border:1px solid var(--border-light);padding:2px 3px;text-align:center;vertical-align:middle">
+                    <input type="number" class="form-control p-1" style="border:none;text-align:center;font-size:var(--text-md);background:transparent;min-width:70px;height:34px"
+                      :value="task.hours[r.roleCode] || ''" min="0" step="0.5" placeholder="—"
+                      @input="onHoursInput(task, r.roleCode, $event)" @blur="onHoursBlur(task, r.roleCode, $event)">
+                  </td>
+                </tr>
+                <tr class="cg-add-task-row">
+                  <td :colspan="6 + draft.roles.length" style="padding:3px 10px;border:1px solid var(--border-light);background:var(--surface-light)">
+                    <button class="btn btn-link btn-sm p-0" style="font-size:var(--text-base);color:var(--text-muted)" @click="addTask(phase)">+ add task</button>
+                  </td>
+                </tr>
+              </template>
             </tbody>
             <tfoot>
               <tr style="background:var(--indigo-50)">
@@ -238,6 +308,24 @@
             </tfoot>
           </table>
         </div>
+      </div>
+    </div>
+
+    <div v-if="selectionMode" style="position:sticky;bottom:0;left:0;right:0;z-index:100;background:var(--brand-navy);color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:3px solid var(--indigo-500)">
+      <div class="d-flex align-items-center gap-3">
+        <span style="font-size:var(--text-md)"><strong>{{ selectedTaskIds.size }}</strong> tasks selected</span>
+        <button class="btn btn-sm btn-outline-light py-0 px-2" style="font-size:var(--text-sm)" @click="selectAllFree">☑ All free tasks</button>
+      </div>
+      <div class="d-flex gap-2 align-items-center flex-wrap">
+        <template v-if="(draft.linkedProjects || []).length">
+          <select v-model="addToProjectSel" class="form-select form-select-sm py-0" style="width:auto;min-width:180px;height:30px;font-size:var(--text-sm)">
+            <option value="">— Add to existing project —</option>
+            <option v-for="lp in draft.linkedProjects" :key="lp.projectId" :value="lp.projectId">{{ lp.projectName || lp.projectId }}</option>
+          </select>
+          <button class="btn btn-sm btn-warning py-0 px-3" style="font-size:var(--text-base)" @click="addToProject">＋ Add to project</button>
+        </template>
+        <button class="btn btn-sm btn-outline-secondary py-0 px-3" style="font-size:var(--text-base)" @click="cancelSelection">Cancel</button>
+        <button class="btn btn-sm btn-success py-0 px-3" style="font-size:var(--text-base)" @click="confirmAndGenerate">▶ Create project</button>
       </div>
     </div>
 
@@ -533,6 +621,7 @@ Vue.createApp({
       offerDetailsCollapsed: false, summaryCollapsed: false,
       compactHeader: localStorage.getItem('PDash_cgCompactHeader') === '1',
       selectionMode: false, selectedTaskIds: new Set(),
+      ptcFocusedTask: null, addToProjectSel: '',
       backSaving: false,
       newVersionLabel: '', newVersionError: '',
       cloneGridName: '', cloneError: '', cloneSourceName: '',
@@ -606,7 +695,7 @@ Vue.createApp({
     },
   },
   methods: {
-    esc, pipelineBadge, statusBadgeLarge, cgScheduleAutoSave,
+    esc, pipelineBadge, statusBadgeLarge, cgScheduleAutoSave, cgIsoToIt, cgItToIso,
     versionTabLabel(v) {
       const badge = cgLiveVersionBadge(v);
       const projCount = (v.linkedProjects || []).length;
@@ -791,6 +880,93 @@ Vue.createApp({
       localStorage.setItem('PDash_cgCompactHeader', this.compactHeader ? '1' : '0');
     },
     toggleSummaryCollapsed() { this.summaryCollapsed = !this.summaryCollapsed; },
+    taskTotals(task) { return cgComputeTaskTotals(task, this.draft.roles); },
+    phaseTotals(phase) { return cgComputePhaseTotals(phase, this.draft.roles); },
+    phaseDatesLabel(phase) {
+      const dates = phase.tasks.flatMap(t => [t.taskStartDate, t.taskEndDate]).filter(Boolean).sort();
+      return dates.length ? `${cgFmtMonth(dates[0])} – ${cgFmtMonth(dates[dates.length-1])}` : '';
+    },
+    isTaskAssigned(task) {
+      const assignedIds = cgGetAssignedTaskIds();
+      const assignedNames = cgGetAssignedTaskNames();
+      return assignedIds.has(task.taskId) || assignedNames.has(task.taskName?.trim().toLowerCase());
+    },
+    deletePhase(phase) {
+      showConfirm(`Delete phase "${phase.phaseName}" and all its tasks?`, () => {
+        this.draft.phases = this.draft.phases.filter(p => p.phaseId !== phase.phaseId);
+        cgScheduleAutoSave();
+      }, null, '✕ Delete phase');
+    },
+    deleteTask(phase, task) {
+      showConfirm(`Delete task "${task.taskName || 'this task'}"?`, () => {
+        phase.tasks = phase.tasks.filter(t => t.taskId !== task.taskId);
+        cgScheduleAutoSave();
+      }, null, '✕ Delete task');
+    },
+    addTask(phase) {
+      phase.tasks.push({ taskId: cgNewTkId(), taskName: '', taskDescription: '', ptc: 0, taskStartDate: '', taskEndDate: '', hours: {} });
+      cgScheduleAutoSave();
+    },
+    onTaskDateChange(task, field, event) {
+      const iso = cgItToIso(event.target.value);
+      event.target.value = iso ? cgIsoToIt(iso) : '';
+      task[field] = iso;
+      cgScheduleAutoSave();
+    },
+    onHoursInput(task, roleCode, event) {
+      const val = parseFloat(event.target.value) || 0;
+      if (val > 0) task.hours[roleCode] = val; else delete task.hours[roleCode];
+      cgScheduleAutoSave();
+    },
+    onHoursBlur(task, roleCode, event) {
+      const val = parseFloat(event.target.value) || 0;
+      if (val > 0 && !isValidSoldHours(val)) {
+        alert(`Invalid sold hours "${val}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`);
+        delete task.hours[roleCode];
+        event.target.value = '';
+        cgScheduleAutoSave();
+      }
+    },
+    toggleTaskSelection(task) {
+      if (this.selectedTaskIds.has(task.taskId)) { this.selectedTaskIds.delete(task.taskId); _cgSelectedTaskIds.delete(task.taskId); }
+      else { this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId); }
+    },
+    selectAllFreeInPhase(phase) {
+      const assignedIds = cgGetAssignedTaskIds();
+      phase.tasks.forEach(task => {
+        if (!assignedIds.has(task.taskId)) { this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId); }
+      });
+    },
+    selectAllFree() {
+      const assignedIds = cgGetAssignedTaskIds();
+      (this.draft.phases || []).flatMap(ph => ph.tasks).forEach(task => {
+        if (!assignedIds.has(task.taskId)) { this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId); }
+      });
+    },
+    cancelSelection() { cgExitSelectionMode(); },
+    confirmAndGenerate() { cgConfirmAndGenerate(); },
+    addToProject() {
+      const projId = this.addToProjectSel;
+      if (!projId) { alert('Select a project from the dropdown.'); return; }
+      if (this.selectedTaskIds.size === 0) { alert('Select at least one task.'); return; }
+      const lp = (this.draft.linkedProjects || []).find(l => l.projectId === projId);
+      const projName = lp?.projectName || projId;
+      const selectedIds = [...this.selectedTaskIds];
+      const taskNames = selectedIds.map(tid => {
+        for (const ph of this.draft.phases || []) {
+          const t = ph.tasks.find(t => t.taskId === tid);
+          if (t?.taskName?.trim()) return t.taskName.trim();
+        }
+        return tid;
+      });
+      const modal = _cgEnsureAddToProjectModal();
+      modal.querySelector('#cgAddToProjectModalBody').innerHTML =
+        `<p class="mb-2">Add the following tasks to <strong>${esc(projName)}</strong>?</p>
+         <ul class="mb-0 ps-3" style="font-size:var(--text-sm)">${taskNames.map(n => `<li>${esc(n)}</li>`).join('')}</ul>`;
+      modal.dataset.projId = projId;
+      modal.dataset.taskIds = JSON.stringify(selectedIds);
+      modal.style.display = 'flex';
+    },
   },
   async created() {
     loadConfig();
