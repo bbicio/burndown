@@ -161,44 +161,6 @@
   </div>
 </div>
 
-<!-- Roles Registry -->
-<div class="modal fade" id="rolesModal" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1"><h5 class="modal-title fw-bold">👥 Roles Registry</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <div class="px-3 py-2 d-flex gap-2 flex-wrap align-items-center border-bottom" style="background:#f8f9fa">
-          <span class="text-muted small">Roles used in Cost Grids to calculate the offer value</span>
-          <div class="ms-auto d-flex gap-2"><button class="btn btn-outline-secondary btn-sm" id="btnRolesShowJson">{ } JSON</button><button class="btn btn-primary btn-sm" id="btnAddRole">+ Add role</button></div>
-        </div>
-        <div class="table-responsive">
-          <table class="table align-middle mb-0" style="font-size:.92rem">
-            <thead style="background:#eef1ff;position:sticky;top:0;z-index:1"><tr><th class="ps-3" style="min-width:180px">Label</th><th style="min-width:280px">Code</th><th style="min-width:100px">Team</th><th style="min-width:120px;text-align:right">Rate (€/h)</th><th style="width:90px"></th></tr></thead>
-            <tbody id="rolesTableBody"><tr id="rolesEmptyRow"><td colspan="5" class="text-muted text-center py-5">No roles configured. Click <strong>+ Add role</strong> to get started.</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="modal-footer border-0 pt-1"><button class="btn btn-secondary btn-sm" id="btnRolesBack" data-bs-dismiss="modal">Close</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Role Edit -->
-<div class="modal fade" id="roleModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold" id="roleModalTitle">➕ New role</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div class="mb-3"><label class="form-label small fw-semibold mb-1">Label</label><input type="text" class="form-control form-control-sm" id="roleLabel" placeholder="e.g. Project Manager"></div>
-        <div class="mb-3"><label class="form-label small fw-semibold mb-1">Code</label><input type="text" class="form-control form-control-sm" id="roleCode" placeholder="e.g. HWGACCSVS - DIRECTOR"><div class="form-text">Must match the Job Role column in actuals.</div></div>
-        <div class="mb-3"><label class="form-label small fw-semibold mb-1">Hourly rate (€/h)</label><input type="number" class="form-control form-control-sm" id="roleRate" placeholder="e.g. 160" min="0" step="0.01"></div>
-        <div id="roleModalError" class="alert alert-danger d-none py-2 small mb-0"></div>
-      </div>
-      <div class="modal-footer border-0 pt-0"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" id="btnSaveRole">💾 Save</button></div>
-    </div>
-  </div>
-</div>
-
 <!-- Toast -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999">
   <div id="cgAutoSaveToast" class="toast align-items-center text-bg-secondary border-0" role="alert" data-bs-delay="2000">
@@ -405,14 +367,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const errEl = document.getElementById('jsonViewerError');
     try { const parsed = JSON.parse(document.getElementById('jsonViewerContent').value); if (_jsonViewerOnSave) _jsonViewerOnSave(parsed); bootstrap.Modal.getInstance(document.getElementById('jsonViewerModal'))?.hide(); errEl.classList.add('d-none'); }
     catch(err) { errEl.textContent = 'Invalid JSON: ' + err.message; errEl.classList.remove('d-none'); }
-  });
-
-  // ── ROLES ──
-  document.getElementById('btnAddRole').addEventListener('click', () => openRoleModal(null));
-  document.getElementById('btnSaveRole').addEventListener('click', saveRoleFromModal);
-  document.getElementById('btnRolesBack').addEventListener('click', hideRolesView);
-  document.getElementById('btnRolesShowJson').addEventListener('click', () => {
-    openJsonViewer('Roles', getRoles(), imported => { if (!Array.isArray(imported)) throw new Error('Must be an array'); roles = imported; saveRoles(); renderRolesTable(); }, `roles_${new Date().toISOString().slice(0,10)}.json`);
   });
 
 });

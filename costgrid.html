@@ -360,6 +360,52 @@
       </div>
     </div>
   </template>
+
+  <!-- Role Selector -->
+  <div class="modal fade" id="cgRoleSelectModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:760px">
+      <div class="modal-content">
+        <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold">{{ roleModalMode === 'change' ? '⇄ Change role' : roleModalMode === 'duplicate' ? '⊕ Duplicate column' : '👥 Add roles' }}</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <input type="text" id="cgRoleSearch" class="form-control form-control-sm mb-2" placeholder="Search by name or code..." v-model="roleSearch">
+            <div class="d-flex flex-wrap gap-1">
+              <button v-for="t in roleModalTeams" :key="t || 'All'" type="button" class="btn btn-sm py-0 px-2" :class="roleActiveTeam === t ? 'btn-primary' : 'btn-outline-secondary'" style="font-size:var(--text-sm)" @click="roleActiveTeam = t">{{ t || 'All' }}</button>
+            </div>
+          </div>
+          <p class="small text-muted mb-2">
+            {{ roleModalMode === 'add' ? 'Roles already added are disabled.' : 'Select a single role. Roles already in the grid are disabled.' }}
+            <span v-if="roleRcName" style="color:var(--indigo-600,#4f46e5)">&#10022; Custom rates from <strong>{{ roleRcName }}</strong> applied.</span>
+          </p>
+          <div style="max-height:460px;overflow-y:auto">
+            <div v-if="!roleAllRoles.length" class="text-muted small text-center py-3">No roles available. Configure them in <strong>⚙ Config → Roles</strong>.</div>
+            <div v-else-if="!roleModalFilteredGroups.length" class="text-muted small text-center py-3">No results.</div>
+            <div v-for="g in roleModalFilteredGroups" :key="g.team" class="mb-2">
+              <div style="font-size:var(--text-xs);font-weight:700;color:var(--indigo-500);text-transform:uppercase;letter-spacing:.04em;padding:2px 0 4px">{{ g.team }}</div>
+              <div v-for="row in g.roles" :key="row.code" class="form-check mb-1" :style="row.hasCustom && !row.already ? 'background:#f5f3ff;border-radius:4px;' : ''">
+                <input class="form-check-input cg-role-checkbox" :type="row.isSingleMode ? 'radio' : 'checkbox'"
+                  :id="'cgrc_' + row.id" :value="row.code" :data-label="row.label" :data-rate="row.effectiveRate"
+                  :name="row.isSingleMode ? 'cgRoleSelectSingle' : null" :disabled="row.already">
+                <label class="form-check-label" :for="'cgrc_' + row.id" :style="row.already ? 'color:var(--text-disabled)' : ''">
+                  <strong style="font-size:var(--text-md)">{{ row.label }}</strong>
+                  <span class="text-muted ms-1" style="font-size:var(--text-sm)">{{ row.code }}</span>
+                  <span v-if="row.zeroRate" class="ms-1 badge" style="background:#fff0f0;color:var(--color-danger);font-size:var(--text-xs)">⚠️ 0/h</span>
+                  <span v-else-if="row.hasOverride || row.hasCustom" class="ms-1 badge" style="background:#eef2ff;color:#4f46e5;border:1px solid #c7d2fe;font-size:var(--text-xs)">&#10022; {{ row.effectiveRate }} {{ row.curSym }}/h</span>
+                  <span v-else class="ms-1 badge" style="background:var(--sand-50);color:#666;font-size:var(--text-xs)">{{ row.effectiveRate }} {{ row.curSym }}/h</span>
+                  <span v-if="row.isSource" class="ms-1 badge" style="background:var(--text-muted);color:#fff;font-size:var(--text-xs)">current</span>
+                  <span v-if="row.already && !row.isSource" class="ms-1 text-muted" style="font-size:var(--text-xs)">(already added)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary btn-sm" id="btnCgAddSelectedRoles" @click="confirmRoleSelection">Add selected</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Placeholder sections (referenced by cgHideAll in costgrid.js — overridden as no-op) -->
@@ -445,66 +491,6 @@
   </div>
 </div>
 
-<!-- Role Selector -->
-<div class="modal fade" id="cgRoleSelectModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:760px">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold">👥 Add roles</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div class="mb-3">
-          <input type="text" id="cgRoleSearch" class="form-control form-control-sm mb-2" placeholder="Search by name or code...">
-          <div id="cgRoleTeamFilters" class="d-flex flex-wrap gap-1"></div>
-        </div>
-        <p class="small text-muted mb-2">Roles already added are disabled.</p>
-        <div id="cgRoleSelectList" style="max-height:460px;overflow-y:auto"></div>
-        <div id="cgRoleSelectEmpty" class="text-muted small text-center py-3 d-none">No roles available. Configure them in <strong>⚙ Config → Roles</strong>.</div>
-      </div>
-      <div class="modal-footer border-0 pt-0">
-        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-primary btn-sm" id="btnCgAddSelectedRoles">Add selected</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Roles Registry -->
-<div class="modal fade" id="rolesModal" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1"><h5 class="modal-title fw-bold">👥 Roles Registry</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <div class="px-3 py-2 d-flex gap-2 flex-wrap align-items-center border-bottom" style="background:#f8f9fa">
-          <span class="text-muted small">Roles used in Cost Grids to calculate the offer value</span>
-          <div class="ms-auto d-flex gap-2"><button class="btn btn-outline-secondary btn-sm" id="btnRolesShowJson">{ } JSON</button><button class="btn btn-primary btn-sm" id="btnAddRole">+ Add role</button></div>
-        </div>
-        <div class="table-responsive">
-          <table class="table align-middle mb-0" style="font-size:.92rem">
-            <thead style="background:#eef1ff;position:sticky;top:0;z-index:1"><tr><th class="ps-3" style="min-width:180px">Label</th><th style="min-width:280px">Code</th><th style="min-width:100px">Team</th><th style="min-width:120px;text-align:right">Rate (€/h)</th><th style="width:90px"></th></tr></thead>
-            <tbody id="rolesTableBody"><tr id="rolesEmptyRow"><td colspan="5" class="text-muted text-center py-5">No roles configured. Click <strong>+ Add role</strong> to get started.</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="modal-footer border-0 pt-1"><button class="btn btn-secondary btn-sm" id="btnRolesBack" data-bs-dismiss="modal">Close</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Role Edit -->
-<div class="modal fade" id="roleModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold" id="roleModalTitle">➕ New role</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div class="mb-3"><label class="form-label small fw-semibold mb-1">Label</label><input type="text" class="form-control form-control-sm" id="roleLabel" placeholder="e.g. Project Manager"></div>
-        <div class="mb-3"><label class="form-label small fw-semibold mb-1">Code</label><input type="text" class="form-control form-control-sm" id="roleCode" placeholder="e.g. HWGACCSVS - DIRECTOR"><div class="form-text">Must match the Job Role column in actuals.</div></div>
-        <div class="mb-3"><label class="form-label small fw-semibold mb-1">Hourly rate (€/h)</label><input type="number" class="form-control form-control-sm" id="roleRate" placeholder="e.g. 160" min="0" step="0.01"></div>
-        <div id="roleModalError" class="alert alert-danger d-none py-2 small mb-0"></div>
-      </div>
-      <div class="modal-footer border-0 pt-0"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" id="btnSaveRole">💾 Save</button></div>
-    </div>
-  </div>
-</div>
-
 <!-- JSON Viewer -->
 <div class="modal fade" id="jsonViewerModal" tabindex="-1">
   <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:860px">
@@ -520,37 +506,6 @@
         <div class="p-3"><textarea id="jsonViewerContent" class="form-control font-monospace" style="min-height:480px;font-size:.82rem;line-height:1.5;resize:vertical" spellcheck="false" autocomplete="off"></textarea><div id="jsonViewerError" class="text-danger small mt-2 d-none"></div></div>
       </div>
       <div class="modal-footer border-0"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button><button class="btn btn-primary btn-sm" id="btnJsonApply">✓ Apply JSON</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Programs -->
-<div class="modal fade" id="programsModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold">🗂 Programs</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <div class="p-3 border-bottom d-flex justify-content-end"><button class="btn btn-sm btn-primary" onclick="openProgramEditModal(null)">＋ New program</button></div>
-        <table class="table table-sm align-middle mb-0">
-          <thead style="background:#f8f9fa"><tr><th class="ps-3">Name</th><th>Program ID</th><th>Projects</th><th></th></tr></thead>
-          <tbody id="programsTableBody"><tr id="programsEmptyRow"><td colspan="4" class="text-center text-muted py-4">No programs. Click <strong>＋ New program</strong>.</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Program Edit -->
-<div class="modal fade" id="programEditModal" tabindex="-1">
-  <div class="modal-dialog modal-sm">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold" id="programModalTitle">＋ New program</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div id="programModalError" class="alert alert-danger py-2 d-none"></div>
-        <div class="mb-3"><label class="form-label small fw-semibold">Program name</label><input type="text" class="form-control form-control-sm" id="programName" placeholder="e.g. Chatbot AI Platform"></div>
-        <div class="mb-3"><label class="form-label small fw-semibold">Program ID</label><input type="text" class="form-control form-control-sm" id="programId" placeholder="e.g. PRG-001"></div>
-      </div>
-      <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" onclick="saveProgramFromModal()">Save</button></div>
     </div>
   </div>
 </div>
@@ -654,9 +609,38 @@ Vue.createApp({
       newVersionLabel: '', newVersionError: '',
       cloneGridName: '', cloneError: '', cloneSourceName: '',
       prevCurrency: 'EUR', // last-committed currency, used by Task 5's onCurrencyChange to detect+revert a change
+      roleModalMode: 'add', roleModalSourceCode: null, roleSearch: '', roleActiveTeam: '', roleAllRoles: [], roleRcName: '',
     };
   },
   computed: {
+    roleModalTeams() {
+      const teams = [...new Set(this.roleAllRoles.map(r => r.code.indexOf(' - ') > 0 ? r.code.slice(0, r.code.indexOf(' - ')).trim() : '—'))].sort();
+      return ['', ...teams];
+    },
+    roleModalCurrentCodes() {
+      const codes = new Set(this.draft.roles.map(r => r.roleCode));
+      if (this.roleModalMode === 'change' && this.roleModalSourceCode) codes.delete(this.roleModalSourceCode);
+      return codes;
+    },
+    roleModalFilteredGroups() {
+      let filtered = this.roleAllRoles;
+      if (this.roleActiveTeam) {
+        filtered = filtered.filter(r => (r.code.indexOf(' - ') > 0 ? r.code.slice(0, r.code.indexOf(' - ')).trim() : '—') === this.roleActiveTeam);
+      }
+      if (this.roleSearch.trim()) {
+        const q = this.roleSearch.trim().toLowerCase();
+        filtered = filtered.filter(r => r.label.toLowerCase().includes(q) || r.code.toLowerCase().includes(q));
+      }
+      const groups = {};
+      filtered.forEach(r => {
+        const team = r.code.indexOf(' - ') > 0 ? r.code.slice(0, r.code.indexOf(' - ')).trim() : '—';
+        if (!groups[team]) groups[team] = [];
+        groups[team].push(r);
+      });
+      return Object.entries(groups).sort(([a],[b]) => a.localeCompare(b)).map(([team, roles]) => ({
+        team, roles: roles.slice().sort((a,b) => a.label.localeCompare(b.label)).map(r => this.roleModalRoleRow(r)),
+      }));
+    },
     lockState() {
       this.cg; // reactive dependency — see Global Constraint 9
       if (!this.cgId || !this.verId) return { locked: false, reason: '', message: '' };
@@ -782,6 +766,53 @@ Vue.createApp({
   },
   methods: {
     esc, pipelineBadge, statusBadgeLarge, cgScheduleAutoSave, cgIsoToIt, cgItToIso,
+    roleModalRoleRow(r) {
+      const already = this.roleModalCurrentCodes.has(r.code);
+      const currency = this.draft?.currency || 'EUR';
+      const currencyRate = parseFloat((this.currencies || []).find(c => c.code === currency)?.current_rate) || 1.0;
+      const resolved = resolveRoleRate({
+        roleId: r.id, globalRate: r.rate || 0, currency, currencyRate,
+        ratecardMap: this.ratecardMap, ratecardOverrides: this.ratecardOverrides, roleOverrides: r.rateOverrides || {},
+      });
+      const rcRate = this.ratecardMap[String(r.id)];
+      return {
+        ...r,
+        already,
+        effectiveRate: resolved.effectiveRate,
+        curSym: (this.currencies || []).find(c => c.code === currency)?.symbol || '€',
+        hasOverride: resolved.isOverride,
+        hasCustom: this.isClientRatecard && rcRate !== undefined && rcRate !== (r.rate || 0),
+        zeroRate: !resolved.effectiveRate || resolved.effectiveRate === 0,
+        isSingleMode: this.roleModalMode === 'change' || this.roleModalMode === 'duplicate',
+        isSource: r.code === this.roleModalSourceCode,
+      };
+    },
+    async openRoleModal(mode, sourceRoleCode) {
+      this.roleModalMode = mode || 'add';
+      this.roleModalSourceCode = sourceRoleCode || null;
+      // cgAddSelectedRoles() (js/costgrid.js, kept unchanged by this task) reads these
+      // module-level globals to decide add/change/duplicate behavior — must stay in sync
+      // even though addRoleColumn/changeRole/duplicateRole call this method directly and
+      // never go through the openCgRoleSelectModal() bridge.
+      _cgRoleModalMode = this.roleModalMode;
+      _cgRoleModalSourceCode = this.roleModalSourceCode;
+      this.roleAllRoles = getRoles();
+      this.roleActiveTeam = '';
+      this.roleSearch = '';
+      await cgUpdateActiveRatecardMap();
+      this.ratecardMap = { ..._cgActiveRatecardMap };
+      this.ratecardOverrides = { ..._cgActiveRatecardOverrides };
+      this.isClientRatecard = _cgIsClientRatecard;
+      this.roleRcName = '';
+      const rcId = this.draft?.ratecardId;
+      if (rcId) {
+        const rc = this.allRatecards.find(r => String(r.id) === String(rcId));
+        if (rc) this.roleRcName = rc.name;
+      }
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('cgRoleSelectModal')).show();
+      this.$nextTick(() => document.getElementById('cgRoleSearch')?.focus());
+    },
+    confirmRoleSelection() { cgAddSelectedRoles(); },
     versionTabLabel(v) {
       const badge = cgLiveVersionBadge(v);
       const projCount = (v.linkedProjects || []).length;
