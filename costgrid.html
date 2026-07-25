@@ -330,8 +330,35 @@
       </div>
     </div>
 
-    <!-- Phasing panel: Task 5 -->
-    <div id="cgPhasingPanelPlaceholder"></div>
+    <!-- Phasing panel -->
+    <div v-if="phasingMonths.length" style="margin-top:2rem;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+      <div style="background:#0B1840;color:#fff;padding:.5rem 1rem;font-size:.82rem;font-weight:700;display:flex;align-items:center;justify-content:space-between">
+        <span>📅 Monthly Phasing</span>
+        <span style="font-weight:400;font-size:.75rem;color:#93c5fd">
+          Total: {{ phasingFmtAmount(phasingTotals.totalAmt) }} · {{ phasingFmtHours(phasingTotals.totalH) }} · {{ phasingMonths.length }} month{{ phasingMonths.length !== 1 ? 's' : '' }}
+        </span>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="border-collapse:collapse;width:100%">
+          <thead>
+            <tr style="background:#f8f9fa">
+              <th style="text-align:left;padding:5px 10px;font-size:.75rem;font-weight:700;border-bottom:2px solid #dee2e6;white-space:nowrap">Metric</th>
+              <th v-for="mo in phasingMonths" :key="'h-'+mo" style="text-align:right;padding:5px 8px;font-size:.75rem;font-weight:700;white-space:nowrap;min-width:90px;border-bottom:2px solid #dee2e6">{{ phasingFmtMonth(mo) }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding:5px 10px;font-size:.78rem;font-weight:700;white-space:nowrap">Budget ({{ draft.currency || 'EUR' }})</td>
+              <td v-for="mo in phasingMonths" :key="'a-'+mo" style="text-align:right;padding:5px 8px;font-size:.78rem;font-weight:700;white-space:nowrap">{{ phasingFmtAmount(phasingByMonth.amount[mo] || 0) }}</td>
+            </tr>
+            <tr style="background:#fafbfc">
+              <td style="padding:3px 10px;font-size:.72rem;color:#6b7280;white-space:nowrap">Hours</td>
+              <td v-for="mo in phasingMonths" :key="'hr-'+mo" style="text-align:right;padding:3px 8px;font-size:.72rem;color:#6b7280;white-space:nowrap">{{ phasingFmtHours(phasingByMonth.hours[mo] || 0) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </template>
 </div>
 
@@ -694,6 +721,64 @@ Vue.createApp({
         };
       });
     },
+    phasingMonths() {
+      const v = this.draft;
+      if (!v?.startDate || !v?.endDate || v.startDate.length < 6 || v.endDate.length < 6) return [];
+      const sy = parseInt(v.startDate.slice(0, 4)), sm = parseInt(v.startDate.slice(4, 6));
+      const ey = parseInt(v.endDate.slice(0, 4)), em = parseInt(v.endDate.slice(4, 6));
+      const months = [];
+      let y = sy, m = sm;
+      while (y < ey || (y === ey && m <= em)) {
+        months.push(`${y}-${String(m).padStart(2, '0')}`);
+        if (++m > 12) { m = 1; y++; }
+      }
+      return months;
+    },
+    phasingByMonth() {
+      const months = this.phasingMonths;
+      if (!months.length) return { hours: {}, amount: {} };
+      const distribute = (hrs, taskStart, taskEnd) => {
+        let allMonths;
+        if (taskStart && taskEnd && taskStart.length >= 7) {
+          const tsy = parseInt(taskStart.slice(0, 4)), tsm = parseInt(taskStart.slice(5, 7));
+          const tey = parseInt(taskEnd.slice(0, 4)), tem = parseInt(taskEnd.slice(5, 7));
+          allMonths = [];
+          let ty = tsy, tm = tsm;
+          while (ty < tey || (ty === tey && tm <= tem)) {
+            allMonths.push(`${ty}-${String(tm).padStart(2, '0')}`);
+            if (++tm > 12) { tm = 1; ty++; }
+          }
+        } else {
+          allMonths = months;
+        }
+        if (!allMonths.length) return {};
+        const hpp = parseFloat(hrs) / allMonths.length;
+        const result = {};
+        for (const mo of allMonths) if (mo >= months[0] && mo <= months[months.length - 1]) result[mo] = (result[mo] || 0) + hpp;
+        return result;
+      };
+      const monthHours = {}, monthAmount = {};
+      months.forEach(mo => { monthHours[mo] = 0; monthAmount[mo] = 0; });
+      (this.draft.phases || []).forEach(ph => (ph.tasks || []).forEach(task => {
+        (this.draft.roles || []).forEach(r => {
+          const h = parseFloat(task.hours[r.roleCode]) || 0;
+          if (!h) return;
+          const dist = distribute(h, task.taskStartDate, task.taskEndDate);
+          for (const [mo, hh] of Object.entries(dist)) {
+            if (mo in monthHours) { monthHours[mo] += hh; monthAmount[mo] += hh * (r.rate || 0); }
+          }
+        });
+      }));
+      return { hours: monthHours, amount: monthAmount };
+    },
+    phasingTotals() {
+      const { hours, amount } = this.phasingByMonth;
+      const months = this.phasingMonths;
+      return {
+        totalAmt: months.reduce((s, mo) => s + (amount[mo] || 0), 0),
+        totalH: months.reduce((s, mo) => s + (hours[mo] || 0), 0),
+      };
+    },
   },
   methods: {
     esc, pipelineBadge, statusBadgeLarge, cgScheduleAutoSave, cgIsoToIt, cgItToIso,
@@ -972,6 +1057,119 @@ Vue.createApp({
       modal.dataset.taskIds = JSON.stringify(selectedIds);
       modal.style.display = 'flex';
     },
+    phasingFmtAmount(n) { return (this.draft.currency || 'EUR') + ' ' + Math.round(n).toLocaleString('en'); },
+    phasingFmtHours(n) { return (Math.round(n * 10) / 10) + ' h'; },
+    phasingFmtMonth(mo) {
+      const [my, mm] = mo.split('-');
+      return new Date(parseInt(my), parseInt(mm) - 1).toLocaleString('en', { month: 'short' }) + ' ' + my;
+    },
+    openNewVersionModal() {
+      document.getElementById('cgNewVersionLabel').value = '';
+      document.getElementById('cgNewVersionError').classList.add('d-none');
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('cgNewVersionModal')).show();
+    },
+    openCloneModal() {
+      if (!this.cg) return;
+      const ver = this.cg.versions.find(v => v.versionId === this.verId);
+      _pbCloneSource = { cgId: this.cgId, verId: this.verId, name: this.cg.name };
+      document.getElementById('cgCloneSourceName').textContent = this.cg.name + (ver?.versionLabel ? ' — ' + ver.versionLabel : '');
+      document.getElementById('cgCloneGridName').value = this.cg.name + ' — Copy';
+      document.getElementById('cgCloneError').classList.add('d-none');
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('cgCloneModal')).show();
+    },
+    onCurrencyChange() {
+      const newCurrency = this.draft.currency;
+      const prevCurrency = this.prevCurrency;
+      if (newCurrency === prevCurrency) return;
+
+      if (!this.draft.roles?.length) {
+        cgSyncRoleRatesToBaseline(true);
+        this.prevCurrency = newCurrency;
+        this.$forceUpdate();
+        cgAutoSave();
+        return;
+      }
+
+      const preview = cgPreviewRateChange(newCurrency);
+      const newEntry = (this.currencies || []).find(c => c.code === newCurrency);
+      const prevEntry = (this.currencies || []).find(c => c.code === prevCurrency);
+      const newSym = newEntry?.symbol || newCurrency;
+      const prevSym = prevEntry?.symbol || prevCurrency;
+      const fmtR = (n, sym) => `${sym} ${Number(n).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const hasCustom = preview.some(r => r.isCustom);
+      const roleRows = preview.map(r =>
+        `<tr>
+          <td style="padding:3px 8px;font-size:.82rem">${esc(r.roleLabel)}</td>
+          <td style="padding:3px 8px;font-size:.82rem;text-align:right;color:#6b7280">${fmtR(r.currentRate, prevSym)}</td>
+          <td style="padding:3px 8px;font-size:.82rem;text-align:right;font-weight:600">${fmtR(r.newRate, newSym)}</td>
+          ${r.isCustom ? `<td style="padding:3px 8px;font-size:.75rem;color:#dc3545">custom → reset</td>` : '<td></td>'}
+        </tr>`
+      ).join('');
+
+      const modalId = 'cgCurrencyChangeModal';
+      let modalEl = document.getElementById(modalId);
+      if (!modalEl) {
+        modalEl = document.createElement('div');
+        modalEl.id = modalId;
+        modalEl.className = 'modal fade';
+        modalEl.tabIndex = -1;
+        modalEl.innerHTML = `
+          <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" style="font-size:var(--text-base)">Change currency to ${esc(newCurrency)}?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body" id="${modalId}Body"></div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" id="${modalId}Cancel">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="${modalId}Confirm">Change to ${esc(newCurrency)}</button>
+              </div>
+            </div>
+          </div>`;
+        document.body.appendChild(modalEl);
+      } else {
+        modalEl.querySelector('.modal-title').textContent = `Change currency to ${newCurrency}?`;
+        document.getElementById(`${modalId}Confirm`).textContent = `Change to ${newCurrency}`;
+      }
+
+      document.getElementById(`${modalId}Body`).innerHTML = `
+        <p style="font-size:var(--text-sm);margin-bottom:8px">
+          All role rates will be reset to their <strong>${esc(newCurrency)} baseline</strong>.
+          ${hasCustom ? '<span style="color:#dc3545">Custom rates will be lost.</span>' : ''}
+        </p>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #dee2e6;border-radius:4px;overflow:hidden">
+          <thead style="background:#f1f3f5">
+            <tr>
+              <th style="padding:4px 8px;font-size:.75rem;font-weight:600;text-align:left">Role</th>
+              <th style="padding:4px 8px;font-size:.75rem;font-weight:600;text-align:right">Current (${esc(prevCurrency)})</th>
+              <th style="padding:4px 8px;font-size:.75rem;font-weight:600;text-align:right">New (${esc(newCurrency)})</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>${roleRows}</tbody>
+        </table>`;
+
+      const bsModal = new bootstrap.Modal(modalEl);
+      bsModal.show();
+
+      document.getElementById(`${modalId}Cancel`).onclick = () => {
+        bsModal.hide();
+        this.draft.currency = prevCurrency; // revert — a genuine Vue-driven mutation, no forceUpdate needed
+      };
+      document.getElementById(`${modalId}Confirm`).onclick = () => {
+        bsModal.hide();
+        cgSyncRoleRatesToBaseline(true); // mutates _cgDraft.roles[].rate in place — this.draft IS _cgDraft
+        this.prevCurrency = newCurrency;
+        this.$forceUpdate();
+        cgAutoSave();
+      };
+      modalEl.addEventListener('hidden.bs.modal', () => {
+        if (this.draft.currency !== prevCurrency && this.prevCurrency === prevCurrency) {
+          this.draft.currency = prevCurrency;
+        }
+      }, { once: true });
+    },
   },
   async created() {
     loadConfig();
@@ -1003,6 +1201,15 @@ Vue.createApp({
     if (!targetVerId) { this.loadError = 'Cost grid not found or access denied.'; this.loading = false; return; }
 
     _cgVueApp = this; // wire the bridge — Global Constraint 7
+
+    document.getElementById('cgNewVersionModal').addEventListener('shown.bs.modal', () => {
+      document.getElementById('cgNewVersionLabel').focus();
+    });
+    document.getElementById('btnCgCreateVersion').addEventListener('click', cgCreateNewVersion);
+    document.getElementById('cgCloneModal').addEventListener('shown.bs.modal', () => {
+      document.getElementById('cgCloneGridName').focus();
+    });
+    document.getElementById('btnCgClone').addEventListener('click', cgCloneGrid);
 
     await this.openVersion(cgId, targetVerId);
     if (typeof updateBreadcrumbs === 'function' && this.cg) updateBreadcrumbs([
