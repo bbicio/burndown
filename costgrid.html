@@ -411,6 +411,24 @@ document.addEventListener('DOMContentLoaded', () => {
 function updateNavState() {}
 function cgHideAll() {}
 
+// ── PAGE-SPECIFIC NAVIGATION OVERRIDES ───────────────────────────────────────
+
+function showPipelineBoardView() {
+  window.location.href = '/pipeline.html';
+}
+
+function showPortfolioView() {
+  window.location.href = '/portfolio.html';
+}
+
+function showPortfolioPlanningView() {
+  window.location.href = '/planning.html';
+}
+
+function showDashboardView(pid) {
+  window.location.href = '/portfolio.html?projectId=' + encodeURIComponent(pid);
+}
+
 Vue.createApp({
   data() {
     return {
