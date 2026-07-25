@@ -229,7 +229,7 @@
                     <div class="d-flex align-items-center gap-1">
                       <input type="text" class="form-control" style="border:none;font-size:var(--text-lg);background:transparent;color:#fff;font-weight:700;flex:1;padding:2px 4px;height:32px" v-model="phase.phaseName" placeholder="Phase name" @change="cgScheduleAutoSave()">
                       <button class="btn btn-link p-0" style="color:#93c5fd;font-size:var(--text-sm);white-space:nowrap" title="Add task" @click="addTask(phase)">+ task</button>
-                      <button v-if="selectionMode" class="btn btn-link p-0" style="color:#fcd34d;font-size:var(--text-xs);white-space:nowrap" title="Select all free tasks in this phase" @click="selectAllFreeInPhase(phase)">☑ liberi</button>
+                      <button v-if="selectionMode" class="btn btn-link p-0" style="color:#fcd34d;font-size:var(--text-xs);white-space:nowrap" title="Select all free tasks in this phase" @click="selectAllFreeInPhase(phase)">☑ free</button>
                       <button class="btn btn-link p-0" style="color:#f8877a;font-size:var(--text-xs)" title="Delete phase" @click="deletePhase(phase)">✕</button>
                     </div>
                   </td>
@@ -271,10 +271,10 @@
                   </td>
                   <td style="padding:3px 5px;border:1px solid var(--border-light);min-width:120px;vertical-align:middle">
                     <input type="text" class="form-control" style="border:1px solid var(--border-light);font-size:var(--text-md);padding:4px 6px;height:32px;text-align:right"
-                      :value="ptcFocusedTask === task.taskId ? (task.ptc > 0 ? task.ptc : '') : (task.ptc > 0 ? fmtCur(task.ptc) : '')" placeholder="—"
-                      @focus="ptcFocusedTask = task.taskId"
-                      @input="task.ptc = parseFloat($event.target.value) || 0; cgScheduleAutoSave()"
-                      @blur="ptcFocusedTask = null">
+                      :value="ptcFocusedTask === task.taskId ? ptcRaw : (task.ptc > 0 ? fmtCur(task.ptc) : '')" placeholder="—"
+                      @focus="ptcFocusedTask = task.taskId; ptcRaw = task.ptc > 0 ? String(task.ptc) : ''"
+                      @input="ptcRaw = $event.target.value; task.ptc = parseFloat($event.target.value) || 0; cgScheduleAutoSave()"
+                      @blur="ptcFocusedTask = null; ptcRaw = ''">
                   </td>
                   <td style="text-align:right;padding:6px 10px;border:1px solid var(--border-light);font-size:var(--text-md);white-space:nowrap;background:var(--sand-50);vertical-align:middle">
                     <strong v-if="taskTotals(task).totalHrs > 0">{{ taskTotals(task).totalHrs }}h</strong><span v-else style="color:#bbb">—</span>
@@ -284,7 +284,8 @@
                   </td>
                   <td v-for="r in draft.roles" :key="'th-'+r.roleCode" style="border:1px solid var(--border-light);padding:2px 3px;text-align:center;vertical-align:middle">
                     <input type="number" class="form-control p-1" style="border:none;text-align:center;font-size:var(--text-md);background:transparent;min-width:70px;height:34px"
-                      :value="task.hours[r.roleCode] || ''" min="0" step="0.5" placeholder="—"
+                      :value="hoursEditing && hoursEditing.taskId === task.taskId && hoursEditing.roleCode === r.roleCode ? hoursEditing.raw : (task.hours[r.roleCode] || '')" min="0" step="0.5" placeholder="—"
+                      @focus="hoursEditing = { taskId: task.taskId, roleCode: r.roleCode, raw: String(task.hours[r.roleCode] ?? '') }"
                       @input="onHoursInput(task, r.roleCode, $event)" @blur="onHoursBlur(task, r.roleCode, $event)">
                   </td>
                 </tr>
@@ -621,7 +622,7 @@ Vue.createApp({
       offerDetailsCollapsed: false, summaryCollapsed: false,
       compactHeader: localStorage.getItem('PDash_cgCompactHeader') === '1',
       selectionMode: false, selectedTaskIds: new Set(),
-      ptcFocusedTask: null, addToProjectSel: '',
+      ptcFocusedTask: null, ptcRaw: '', hoursEditing: null, addToProjectSel: '',
       backSaving: false,
       newVersionLabel: '', newVersionError: '',
       cloneGridName: '', cloneError: '', cloneSourceName: '',
@@ -914,6 +915,9 @@ Vue.createApp({
       cgScheduleAutoSave();
     },
     onHoursInput(task, roleCode, event) {
+      if (this.hoursEditing && this.hoursEditing.taskId === task.taskId && this.hoursEditing.roleCode === roleCode) {
+        this.hoursEditing.raw = event.target.value;
+      }
       const val = parseFloat(event.target.value) || 0;
       if (val > 0) task.hours[roleCode] = val; else delete task.hours[roleCode];
       cgScheduleAutoSave();
@@ -926,6 +930,7 @@ Vue.createApp({
         event.target.value = '';
         cgScheduleAutoSave();
       }
+      this.hoursEditing = null;
     },
     toggleTaskSelection(task) {
       if (this.selectedTaskIds.has(task.taskId)) { this.selectedTaskIds.delete(task.taskId); _cgSelectedTaskIds.delete(task.taskId); }
