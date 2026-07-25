@@ -401,34 +401,6 @@ function cgPreviewRateChange(targetCurrency) {
   }).filter(Boolean);
 }
 
-async function cgPopulateRatecardDropdown() {
-  const sel = document.getElementById('cgRatecardId');
-  if (!sel) return;
-  if (typeof loadRatecardsForDropdown !== 'function') return;
-  const allRatecards = await loadRatecardsForDropdown();
-
-  // Show global ratecards + those specific to the currently selected client
-  const clientId = _cgDraft?.clientId && _cgDraft.clientId !== '__unassigned__'
-    ? String(_cgDraft.clientId) : null;
-  const ratecards = allRatecards.filter(rc =>
-    rc.client_id == null || (clientId && String(rc.client_id) === clientId)
-  );
-
-  // If the current ratecard is no longer in the filtered list (client switched), reset to None
-  const cur = _cgDraft?.ratecardId;
-  if (cur && !ratecards.find(rc => String(rc.id) === String(cur))) {
-    _cgDraft.ratecardId = null;
-  }
-
-  sel.innerHTML = '<option value="">— None (use global role rates) —</option>' +
-    ratecards.map(rc => {
-      const label = rc.client_name ? `${rc.name} (${rc.client_name})` : rc.name;
-      return `<option value="${esc(rc.id)}"${String(rc.id) === String(_cgDraft?.ratecardId) ? ' selected' : ''}>${esc(label)}</option>`;
-    }).join('');
-  // Populate map so rate cells use the correct baseline
-  await cgUpdateActiveRatecardMap();
-}
-
 function cgSyncHeaderFromForm() {
   if (!_cgDraft) return;
   _cgDraft.projectName = document.getElementById('cgProjectName')?.value.trim() || '';
