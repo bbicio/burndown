@@ -105,10 +105,10 @@
             <div class="col-md-6">
               <label class="form-label small fw-semibold mb-1">Client</label>
               <div class="d-flex gap-2">
-                <select class="form-select form-select-sm" id="cgClientId" v-model="draft.clientId" @change="onClientChange">
+                <select class="form-select form-select-sm" id="cgClientId" v-model="clientIdInput" @change="onClientChange">
                   <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
                 </select>
-                <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" onclick="showClientsModal()" style="white-space:nowrap">+ New</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" @click="openClientsModal" style="white-space:nowrap">+ New</button>
               </div>
             </div>
             <div class="col-md-6" id="cgRatecardCol">
@@ -153,8 +153,8 @@
         <div class="section-header d-flex justify-content-between align-items-center">
           <span>📊 Cost Grid</span>
           <div class="d-flex gap-2">
-            <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:var(--text-base)" @click="addRoleColumn">👥 + Add role</button>
-            <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:var(--text-base)" @click="addPhase">+ Add phase</button>
+            <button v-if="!isLocked" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:var(--text-base)" @click="addRoleColumn">👥 + Add role</button>
+            <button v-if="!isLocked" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:var(--text-base)" @click="addPhase">+ Add phase</button>
           </div>
         </div>
         <div style="overflow:auto;max-height:calc(100vh - 300px)">
@@ -185,7 +185,7 @@
                 <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-size:var(--text-md);white-space:nowrap">{{ grand.fee > 0 ? fmtCur(grand.fee) : '—' }}</td>
                 <td v-for="r in draft.roles" :key="'rate-'+r.roleCode" :style="{ textAlign:'center', background: (!r.rate || r.rate === 0) ? '#fff0f0' : (r.rateIsCustom ? '#fffbe6' : 'var(--sand-50)'), border: '1px solid ' + ((!r.rate || r.rate === 0) ? '#f5c6cb' : (r.rateIsCustom ? '#ffe58f' : 'var(--sand-border)')), padding:'3px 4px' }">
                   <div style="font-size:var(--text-xs);color:#aaa;margin-bottom:1px">{{ draft.currency || 'EUR' }}/h</div>
-                  <input type="number" min="0" step="1" :value="r.rate" @change="onRateChange(r, $event)"
+                  <input type="number" min="0" step="1" :value="r.rate" @change="onRateChange(r, $event)" :disabled="isLocked"
                     :title="r.rateIsCustom ? 'Custom (baseline: ' + (draft.currency||'EUR') + ' ' + roleBaseline(r).effectiveRate + '/h) — clear to restore' : 'Rate from roles registry / ratecard'"
                     :style="{ width:'100%', border:'1px solid ' + ((!r.rate||r.rate===0)?'#f5c6cb':(r.rateIsCustom?'#ffe58f':'var(--sand-border)')), borderRadius:'var(--radius-xs)', textAlign:'center', fontSize:'var(--text-md)', fontWeight: (!r.rate||r.rate===0||r.rateIsCustom) ? '700':'400', color: (!r.rate||r.rate===0) ? 'var(--color-danger)' : (r.rateIsCustom ? 'var(--color-warning-text)':'#555'), background:'transparent', padding:'1px 4px' }">
                   <div v-if="r.rateIsCustom" style="font-size:var(--text-2xs);color:var(--color-warning-text);margin-top:2px">✎ custom</div>
@@ -208,14 +208,14 @@
                   <div :title="r.roleCode" :style="compactHeader ? 'cursor:default;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px' : 'cursor:default'">{{ r.roleLabel }}<template v-if="compactHeader && (!r.rate||r.rate===0)"> ⚠️</template></div>
                   <div v-if="!compactHeader && (!r.rate||r.rate===0)" style="font-size:var(--text-xs);color:#ffb3b3;font-weight:400">⚠️ rate 0</div>
                   <template v-if="!compactHeader">
-                    <div class="d-flex justify-content-center gap-2 mt-1">
+                    <div v-if="!isLocked" class="d-flex justify-content-center gap-2 mt-1">
                       <button class="btn btn-link p-0" :disabled="rIdx === 0" :style="{ color: rIdx > 0 ? '#93c5fd' : '#444', fontSize:'var(--text-sm)', lineHeight:1 }" title="Move left" @click="moveRole(r, -1)">◀</button>
                       <button class="btn btn-link p-0" :disabled="rIdx === draft.roles.length - 1" :style="{ color: rIdx < draft.roles.length - 1 ? '#93c5fd' : '#444', fontSize:'var(--text-sm)', lineHeight:1 }" title="Move right" @click="moveRole(r, 1)">▶</button>
                     </div>
                     <div class="d-flex justify-content-center gap-1 mt-1 flex-wrap">
                       <button class="btn btn-link p-0" style="color:#93c5fd;font-size:var(--text-2xs);line-height:1.3" title="Replace this role with another" @click="changeRole(r.roleCode)">⇄ change</button>
                       <button class="btn btn-link p-0" style="color:#86efac;font-size:var(--text-2xs);line-height:1.3" title="Duplicate column with a different role" @click="duplicateRole(r.roleCode)">⊕ dup</button>
-                      <button class="btn btn-link p-0" style="color:#f8877a;font-size:var(--text-2xs);line-height:1.3" title="Remove column" @click="removeRoleColumn(r.roleCode)">✕ remove</button>
+                      <button v-if="!isLocked" class="btn btn-link p-0" style="color:#f8877a;font-size:var(--text-2xs);line-height:1.3" title="Remove column" @click="removeRoleColumn(r.roleCode)">✕ remove</button>
                     </div>
                   </template>
                 </th>
@@ -227,10 +227,10 @@
                 <tr class="cg-phase-row">
                   <td style="padding:6px 8px;border:1px solid var(--brand-dark);background:var(--brand-navy);vertical-align:middle">
                     <div class="d-flex align-items-center gap-1">
-                      <input type="text" class="form-control" style="border:none;font-size:var(--text-lg);background:transparent;color:#fff;font-weight:700;flex:1;padding:2px 4px;height:32px" v-model="phase.phaseName" placeholder="Phase name" @change="cgScheduleAutoSave()">
-                      <button class="btn btn-link p-0" style="color:#93c5fd;font-size:var(--text-sm);white-space:nowrap" title="Add task" @click="addTask(phase)">+ task</button>
-                      <button v-if="selectionMode" class="btn btn-link p-0" style="color:#fcd34d;font-size:var(--text-xs);white-space:nowrap" title="Select all free tasks in this phase" @click="selectAllFreeInPhase(phase)">☑ free</button>
-                      <button class="btn btn-link p-0" style="color:#f8877a;font-size:var(--text-xs)" title="Delete phase" @click="deletePhase(phase)">✕</button>
+                      <input type="text" class="form-control" style="border:none;font-size:var(--text-lg);background:transparent;color:#fff;font-weight:700;flex:1;padding:2px 4px;height:32px" v-model="phase.phaseName" placeholder="Phase name" :disabled="isLocked" @change="cgScheduleAutoSave()">
+                      <button v-if="!isLocked" class="btn btn-link p-0" style="color:#93c5fd;font-size:var(--text-sm);white-space:nowrap" title="Add task" @click="addTask(phase)">+ task</button>
+                      <button v-if="selectionMode && !isLocked" class="btn btn-link p-0" style="color:#fcd34d;font-size:var(--text-xs);white-space:nowrap" title="Select all free tasks in this phase" @click="selectAllFreeInPhase(phase)">☑ free</button>
+                      <button v-if="!isLocked" class="btn btn-link p-0" style="color:#f8877a;font-size:var(--text-xs)" title="Delete phase" @click="deletePhase(phase)">✕</button>
                     </div>
                   </td>
                   <td style="background:var(--brand-navy);border:1px solid var(--brand-dark);padding:4px 8px;vertical-align:middle">
@@ -249,29 +249,29 @@
                       <span v-if="isTaskAssigned(task)" style="font-size:var(--text-xs);color:var(--text-disabled)">already assigned</span>
                     </div>
                     <div class="d-flex align-items-start gap-1">
-                      <textarea class="form-control" rows="2" style="border:none;font-size:var(--text-md);font-weight:700;background:transparent;flex:1;padding:3px 4px;resize:vertical;min-height:48px" placeholder="Task name" v-model="task.taskName" @change="cgScheduleAutoSave()"></textarea>
-                      <button v-if="!isTaskAssigned(task)" class="btn btn-link p-0" style="color:var(--color-danger);font-size:var(--text-xs);line-height:1;flex-shrink:0;margin-top:4px" title="Delete task" @click="deleteTask(phase, task)">✕</button>
+                      <textarea class="form-control" rows="2" style="border:none;font-size:var(--text-md);font-weight:700;background:transparent;flex:1;padding:3px 4px;resize:vertical;min-height:48px" placeholder="Task name" v-model="task.taskName" :disabled="isLocked" @change="cgScheduleAutoSave()"></textarea>
+                      <button v-if="!isTaskAssigned(task) && !isLocked" class="btn btn-link p-0" style="color:var(--color-danger);font-size:var(--text-xs);line-height:1;flex-shrink:0;margin-top:4px" title="Delete task" @click="deleteTask(phase, task)">✕</button>
                     </div>
                     <div class="d-flex gap-2 mt-1 align-items-center">
                       <div class="d-flex align-items-center gap-1">
                         <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">From</span>
-                        <input type="text" class="form-control form-control-sm p-1" style="font-size:var(--text-xs);height:24px;border:1px solid var(--border-light);width:100px" placeholder="gg/mm/aaaa" maxlength="10" :value="cgIsoToIt(task.taskStartDate)" @change="onTaskDateChange(task, 'taskStartDate', $event)">
+                        <input type="text" class="form-control form-control-sm p-1" style="font-size:var(--text-xs);height:24px;border:1px solid var(--border-light);width:100px" placeholder="gg/mm/aaaa" maxlength="10" :value="cgIsoToIt(task.taskStartDate)" :disabled="isLocked" @change="onTaskDateChange(task, 'taskStartDate', $event)">
                       </div>
                       <div class="d-flex align-items-center gap-1">
                         <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">To</span>
-                        <input type="text" class="form-control form-control-sm p-1" style="font-size:var(--text-xs);height:24px;border:1px solid var(--border-light);width:100px" placeholder="gg/mm/aaaa" maxlength="10" :value="cgIsoToIt(task.taskEndDate)" @change="onTaskDateChange(task, 'taskEndDate', $event)">
+                        <input type="text" class="form-control form-control-sm p-1" style="font-size:var(--text-xs);height:24px;border:1px solid var(--border-light);width:100px" placeholder="gg/mm/aaaa" maxlength="10" :value="cgIsoToIt(task.taskEndDate)" :disabled="isLocked" @change="onTaskDateChange(task, 'taskEndDate', $event)">
                       </div>
                     </div>
                   </td>
                   <td style="padding:4px 6px;border:1px solid var(--border-light);min-width:240px;vertical-align:top">
-                    <textarea class="form-control" rows="3" style="border:none;font-size:var(--text-md);background:transparent;color:#555;padding:3px 4px;resize:vertical;min-height:72px" placeholder="Description…" v-model="task.taskDescription" @change="cgScheduleAutoSave()"></textarea>
+                    <textarea class="form-control" rows="3" style="border:none;font-size:var(--text-md);background:transparent;color:#555;padding:3px 4px;resize:vertical;min-height:72px" placeholder="Description…" v-model="task.taskDescription" :disabled="isLocked" @change="cgScheduleAutoSave()"></textarea>
                   </td>
                   <td style="text-align:right;padding:6px 10px;border:1px solid var(--border-light);font-size:var(--text-md);white-space:nowrap;background:var(--sand-50);vertical-align:middle">
                     <strong v-if="taskTotals(task).totalCostAndFee > 0">{{ fmtCur(taskTotals(task).totalCostAndFee) }}</strong><span v-else style="color:#bbb">—</span>
                   </td>
                   <td style="padding:3px 5px;border:1px solid var(--border-light);min-width:120px;vertical-align:middle">
                     <input type="text" class="form-control" style="border:1px solid var(--border-light);font-size:var(--text-md);padding:4px 6px;height:32px;text-align:right"
-                      :value="ptcFocusedTask === task.taskId ? ptcRaw : (task.ptc > 0 ? fmtCur(task.ptc) : '')" placeholder="—"
+                      :value="ptcFocusedTask === task.taskId ? ptcRaw : (task.ptc > 0 ? fmtCur(task.ptc) : '')" placeholder="—" :disabled="isLocked"
                       @focus="ptcFocusedTask = task.taskId; ptcRaw = task.ptc > 0 ? String(task.ptc) : ''"
                       @input="ptcRaw = $event.target.value; task.ptc = parseFloat($event.target.value) || 0; cgScheduleAutoSave()"
                       @blur="ptcFocusedTask = null; ptcRaw = ''">
@@ -284,12 +284,12 @@
                   </td>
                   <td v-for="r in draft.roles" :key="'th-'+r.roleCode" style="border:1px solid var(--border-light);padding:2px 3px;text-align:center;vertical-align:middle">
                     <input type="number" class="form-control p-1" style="border:none;text-align:center;font-size:var(--text-md);background:transparent;min-width:70px;height:34px"
-                      :value="hoursEditing && hoursEditing.taskId === task.taskId && hoursEditing.roleCode === r.roleCode ? hoursEditing.raw : (task.hours[r.roleCode] || '')" min="0" step="0.5" placeholder="—"
+                      :value="hoursEditing && hoursEditing.taskId === task.taskId && hoursEditing.roleCode === r.roleCode ? hoursEditing.raw : (task.hours[r.roleCode] || '')" min="0" step="0.5" placeholder="—" :disabled="isLocked"
                       @focus="hoursEditing = { taskId: task.taskId, roleCode: r.roleCode, raw: String(task.hours[r.roleCode] ?? '') }"
                       @input="onHoursInput(task, r.roleCode, $event)" @blur="onHoursBlur(task, r.roleCode, $event)">
                   </td>
                 </tr>
-                <tr class="cg-add-task-row">
+                <tr v-if="!isLocked" class="cg-add-task-row">
                   <td :colspan="6 + draft.roles.length" style="padding:3px 10px;border:1px solid var(--border-light);background:var(--surface-light)">
                     <button class="btn btn-link btn-sm p-0" style="font-size:var(--text-base);color:var(--text-muted)" @click="addTask(phase)">+ add task</button>
                   </td>
@@ -315,7 +315,7 @@
     <div v-if="selectionMode" style="position:sticky;bottom:0;left:0;right:0;z-index:100;background:var(--brand-navy);color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:3px solid var(--indigo-500)">
       <div class="d-flex align-items-center gap-3">
         <span style="font-size:var(--text-md)"><strong>{{ selectedTaskIds.size }}</strong> tasks selected</span>
-        <button class="btn btn-sm btn-outline-light py-0 px-2" style="font-size:var(--text-sm)" @click="selectAllFree">☑ All free tasks</button>
+        <button v-if="!isLocked" class="btn btn-sm btn-outline-light py-0 px-2" style="font-size:var(--text-sm)" @click="selectAllFree">☑ All free tasks</button>
       </div>
       <div class="d-flex gap-2 align-items-center flex-wrap">
         <template v-if="(draft.linkedProjects || []).length">
@@ -325,8 +325,8 @@
           </select>
           <button class="btn btn-sm btn-warning py-0 px-3" style="font-size:var(--text-base)" @click="addToProject">＋ Add to project</button>
         </template>
-        <button class="btn btn-sm btn-outline-secondary py-0 px-3" style="font-size:var(--text-base)" @click="cancelSelection">Cancel</button>
-        <button class="btn btn-sm btn-success py-0 px-3" style="font-size:var(--text-base)" @click="confirmAndGenerate">▶ Create project</button>
+        <button v-if="!isLocked" class="btn btn-sm btn-outline-secondary py-0 px-3" style="font-size:var(--text-base)" @click="cancelSelection">Cancel</button>
+        <button v-if="!isLocked" class="btn btn-sm btn-success py-0 px-3" style="font-size:var(--text-base)" @click="confirmAndGenerate">▶ Create project</button>
       </div>
     </div>
 
@@ -674,6 +674,10 @@ Vue.createApp({
       get() { return this.draft?.ratecardId ? String(this.draft.ratecardId) : ''; },
       set(val) { if (this.draft) this.draft.ratecardId = val || null; },
     },
+    clientIdInput: {
+      get() { return this.draft?.clientId || '__unassigned__'; },
+      set(val) { if (this.draft) this.draft.clientId = (val && val !== '__unassigned__') ? val : null; },
+    },
     filteredRatecards() {
       const clientId = this.draft?.clientId && this.draft.clientId !== '__unassigned__' ? String(this.draft.clientId) : null;
       return this.allRatecards.filter(rc => rc.client_id == null || (clientId && String(rc.client_id) === clientId));
@@ -907,6 +911,12 @@ Vue.createApp({
     async onClientChange() {
       await this.refreshRatecards();
       cgScheduleAutoSave();
+    },
+    openClientsModal() {
+      showClientsModal();
+      document.getElementById('clientsModal')?.addEventListener('hidden.bs.modal', () => {
+        this.clients = getClients();
+      }, { once: true });
     },
     async onRatecardChange() {
       // this.draft IS _cgDraft (same reference — see openVersion), so this.draft.ratecardId

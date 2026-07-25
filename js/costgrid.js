@@ -359,17 +359,12 @@ function cgSyncRoleRatesToBaseline(force = false) {
     if (r.rateIsCustom && !force) return;
     const roleObj  = allRoles.find(gr => gr.code === r.roleCode);
     if (!roleObj) return;
-    const rid      = String(roleObj.id);
-    const eurRate  = _cgActiveRatecardMap[rid] ?? (roleObj.rate || 0);
-    if (currency === 'EUR') {
-      r.rate = eurRate;
-    } else {
-      const rcOverride   = (_cgActiveRatecardOverrides[rid] || {})[currency];
-      const roleOverride = (roleObj.rateOverrides || {})[currency];
-      r.rate = rcOverride != null ? rcOverride
-             : roleOverride != null ? roleOverride
-             : Math.round(eurRate * currencyRate * 100) / 100;
-    }
+    const resolved = resolveRoleRate({
+      roleId: roleObj.id, globalRate: roleObj.rate || 0, currency, currencyRate,
+      ratecardMap: _cgActiveRatecardMap, ratecardOverrides: _cgActiveRatecardOverrides,
+      roleOverrides: roleObj.rateOverrides || {},
+    });
+    r.rate = resolved.effectiveRate;
     if (force) r.rateIsCustom = false;
   });
 }
@@ -385,19 +380,12 @@ function cgPreviewRateChange(targetCurrency) {
   return _cgDraft.roles.map(r => {
     const roleObj = allRoles.find(gr => gr.code === r.roleCode);
     if (!roleObj) return null;
-    const rid     = String(roleObj.id);
-    const eurRate = _cgActiveRatecardMap[rid] ?? (roleObj.rate || 0);
-    let newRate;
-    if (targetCurrency === 'EUR') {
-      newRate = eurRate;
-    } else {
-      const rcOverride   = (_cgActiveRatecardOverrides[rid] || {})[targetCurrency];
-      const roleOverride = (roleObj.rateOverrides || {})[targetCurrency];
-      newRate = rcOverride != null ? rcOverride
-              : roleOverride != null ? roleOverride
-              : Math.round(eurRate * currencyRate * 100) / 100;
-    }
-    return { roleCode: r.roleCode, roleLabel: r.roleLabel || r.roleCode, currentRate: r.rate, newRate, isCustom: r.rateIsCustom };
+    const resolved = resolveRoleRate({
+      roleId: roleObj.id, globalRate: roleObj.rate || 0, currency: targetCurrency, currencyRate,
+      ratecardMap: _cgActiveRatecardMap, ratecardOverrides: _cgActiveRatecardOverrides,
+      roleOverrides: roleObj.rateOverrides || {},
+    });
+    return { roleCode: r.roleCode, roleLabel: r.roleLabel || r.roleCode, currentRate: r.rate, newRate: resolved.effectiveRate, isCustom: r.rateIsCustom };
   }).filter(Boolean);
 }
 
