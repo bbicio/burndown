@@ -963,13 +963,17 @@ async function cgCloneGrid() {
     });
     const verId = newVer.id;
 
-    // 2. Copy phase/task/role structure
+    // 2. Copy phase/task/role structure — strip taskId/phaseId so the backend mints fresh UUIDs
+    //    instead of reusing the source version's (still-live) ones (see stripCloneTaskIds above).
     await Api.costGrids.versions.saveStructure(cgId, verId, {
-      phases: srcVer.phases || [],
+      phases: stripCloneTaskIds(srcVer.phases || []),
       roles:  srcVer.roles  || [],
     });
 
-    // 3. Seed in-memory store
+    // 3. Seed in-memory store with header fields only — phases/roles (with the server's
+    //    real new IDs) are filled in by cgLoadStructureFromApi() right after, so nothing in
+    //    memory ever holds the source version's stale taskIds (which would otherwise be
+    //    resent, and fail the same way, on the very first autosave of the new clone).
     const cg = {
       id: cgId,
       name,
@@ -988,14 +992,15 @@ async function cgCloneGrid() {
         endDate:        srcVer.endDate     || '',
         currency:       srcVer.currency    || 'EUR',
         note:           srcVer.note        || '',
-        roles:          JSON.parse(JSON.stringify(srcVer.roles  || [])),
-        phases:         JSON.parse(JSON.stringify(srcVer.phases || [])),
+        roles:          JSON.parse(JSON.stringify(srcVer.roles || [])),
+        phases:         [],
       }],
     };
     const idx = cgGetIndex();
     if (!idx.includes(cgId)) idx.push(cgId);
     cgSaveIndex(idx);
     cgSave(cg);
+    await cgLoadStructureFromApi(cgId, verId);
 
     bootstrap.Modal.getInstance(document.getElementById('cgCloneModal'))?.hide();
     showCostGridEditorView(cgId, verId);

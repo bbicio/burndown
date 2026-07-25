@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   resolveRoleRate, cgComputeTaskTotals, cgComputePhaseTotals, cgComputeGrandTotals, cgComputeColumnTotals,
-  versionHasFreeTasks, isVersionCommittedLocked,
+  versionHasFreeTasks, isVersionCommittedLocked, stripCloneTaskIds,
 } from './costgrid-calc.js';
 
 describe('resolveRoleRate', () => {
@@ -177,5 +177,45 @@ describe('isVersionCommittedLocked', () => {
       linkedProjects: [{ projectId: 'p1', taskIds: ['t1'], taskNames: [] }],
     };
     expect(isVersionCommittedLocked(ver)).toBe(true);
+  });
+});
+
+describe('stripCloneTaskIds', () => {
+  it('removes phaseId and taskId from every phase/task while keeping other fields', () => {
+    const phases = [
+      { phaseId: 'ph1', phaseName: 'Phase 1', tasks: [
+        { taskId: 't1', taskName: 'Design', hours: { PM: 10 }, ptc: 50 },
+        { taskId: 't2', taskName: 'Build', hours: {} },
+      ] },
+    ];
+    const result = stripCloneTaskIds(phases);
+    expect(result).toEqual([
+      { phaseName: 'Phase 1', tasks: [
+        { taskName: 'Design', hours: { PM: 10 }, ptc: 50 },
+        { taskName: 'Build', hours: {} },
+      ] },
+    ]);
+  });
+
+  it('does not mutate the input array or its objects', () => {
+    const phases = [{ phaseId: 'ph1', phaseName: 'Phase 1', tasks: [{ taskId: 't1', taskName: 'Design' }] }];
+    const before = JSON.parse(JSON.stringify(phases));
+    stripCloneTaskIds(phases);
+    expect(phases).toEqual(before);
+  });
+
+  it('handles a phase with no tasks', () => {
+    expect(stripCloneTaskIds([{ phaseId: 'ph1', phaseName: 'Empty', tasks: [] }]))
+      .toEqual([{ phaseName: 'Empty', tasks: [] }]);
+  });
+
+  it('handles an empty/undefined phases array', () => {
+    expect(stripCloneTaskIds([])).toEqual([]);
+    expect(stripCloneTaskIds(undefined)).toEqual([]);
+  });
+
+  it('handles a phase whose tasks array is missing entirely', () => {
+    expect(stripCloneTaskIds([{ phaseId: 'ph1', phaseName: 'No tasks key' }]))
+      .toEqual([{ phaseName: 'No tasks key', tasks: [] }]);
   });
 });

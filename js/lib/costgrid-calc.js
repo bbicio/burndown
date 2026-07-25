@@ -90,3 +90,19 @@ window.cgComputeTaskTotals = cgComputeTaskTotals;
 window.cgComputePhaseTotals = cgComputePhaseTotals;
 window.cgComputeGrandTotals = cgComputeGrandTotals;
 window.cgComputeColumnTotals = cgComputeColumnTotals;
+
+// ── CLONE BUG FIX ─────────────────────────────────────────────────────────────
+// Strips server-assigned taskId/phaseId before a cloned structure is POSTed to
+// saveStructure() for a brand-new version — otherwise the backend's PUT
+// /:id/versions/:vId/structure handler reuses the supplied taskId as the new
+// row's primary key (correct for a same-version re-save, wrong here: the SOURCE
+// version's tasks still exist in the DB under those exact IDs), causing
+// `duplicate key value violates unique constraint "tasks_pkey"`.
+export function stripCloneTaskIds(phases) {
+  return (phases || []).map(ph => {
+    const { phaseId, ...phRest } = ph;
+    return { ...phRest, tasks: (ph.tasks || []).map(t => { const { taskId, ...tRest } = t; return tRest; }) };
+  });
+}
+
+window.stripCloneTaskIds = stripCloneTaskIds;
