@@ -16,3 +16,93 @@ export function isVersionCommittedLocked(ver) {
 
 window.versionHasFreeTasks = versionHasFreeTasks;
 window.isVersionCommittedLocked = isVersionCommittedLocked;
+
+// ── RATE RESOLUTION ──────────────────────────────────────────────────────────
+// Deduplicates the 3-tier rate chain (ratecard per-currency override → role-level
+// per-currency override → EUR baseline × live exchange rate) that was previously
+// repeated, slightly differently, in cgSyncRoleRatesToBaseline, cgPreviewRateChange,
+// and the role-selector list's rate badge.
+export function resolveRoleRate({ roleId, globalRate, currency, currencyRate, ratecardMap = {}, ratecardOverrides = {}, roleOverrides = {} }) {
+  const rid = String(roleId);
+  const ratecardEurRate = ratecardMap[rid];
+  const eurRate = ratecardEurRate !== undefined ? ratecardEurRate : (globalRate || 0);
+  if (currency === 'EUR') {
+    return { eurRate, effectiveRate: eurRate, isOverride: false };
+  }
+  const ratecardOverride = (ratecardOverrides[rid] || {})[currency];
+  const roleOverride = roleOverrides ? roleOverrides[currency] : undefined;
+  if (ratecardOverride != null) return { eurRate, effectiveRate: ratecardOverride, isOverride: true };
+  if (roleOverride != null) return { eurRate, effectiveRate: roleOverride, isOverride: true };
+  const converted = Math.round(eurRate * (currencyRate || 1) * 100) / 100;
+  return { eurRate, effectiveRate: converted, isOverride: false };
+}
+
+// ── TOTALS (relocated verbatim from js/costgrid.js:1696-1741) ────────────────
+export function cgComputeTaskTotals(task, roles) {
+  let totalHrs = 0, totalFee = 0;
+  (roles || []).forEach(r => {
+    const h = parseFloat(task.hours[r.roleCode]) || 0;
+    totalHrs += h;
+    totalFee += h * (r.rate || 0);
+  });
+  const ptc = parseFloat(task.ptc) || 0;
+  return { totalHrs: Math.round(totalHrs * 100) / 100, totalFee, totalCostAndFee: totalFee + ptc };
+}
+
+export function cgComputePhaseTotals(phase, roles) {
+  let hrs = 0, fee = 0, ptc = 0;
+  const byRole = {};
+  (roles || []).forEach(r => { byRole[r.roleCode] = 0; });
+  (phase.tasks || []).forEach(task => {
+    const tt = cgComputeTaskTotals(task, roles);
+    hrs += tt.totalHrs;
+    fee += tt.totalFee;
+    ptc += parseFloat(task.ptc) || 0;
+    (roles || []).forEach(r => { byRole[r.roleCode] = (byRole[r.roleCode] || 0) + (parseFloat(task.hours[r.roleCode]) || 0); });
+  });
+  return { hrs: Math.round(hrs * 100) / 100, fee, ptc, byRole };
+}
+
+export function cgComputeGrandTotals(version) {
+  let hrs = 0, fee = 0, ptc = 0;
+  (version.phases || []).forEach(ph => {
+    const pt = cgComputePhaseTotals(ph, version.roles);
+    hrs += pt.hrs; fee += pt.fee; ptc += pt.ptc;
+  });
+  return { hrs: Math.round(hrs * 100) / 100, fee, ptc };
+}
+
+export function cgComputeColumnTotals(version) {
+  const result = {};
+  (version.roles || []).forEach(r => { result[r.roleCode] = { hrs: 0, fee: 0 }; });
+  (version.phases || []).forEach(ph => (ph.tasks || []).forEach(task => {
+    (version.roles || []).forEach(r => {
+      const h = parseFloat(task.hours[r.roleCode]) || 0;
+      result[r.roleCode].hrs = Math.round((result[r.roleCode].hrs + h) * 100) / 100;
+      result[r.roleCode].fee += h * (r.rate || 0);
+    });
+  }));
+  return result;
+}
+
+window.resolveRoleRate = resolveRoleRate;
+window.cgComputeTaskTotals = cgComputeTaskTotals;
+window.cgComputePhaseTotals = cgComputePhaseTotals;
+window.cgComputeGrandTotals = cgComputeGrandTotals;
+window.cgComputeColumnTotals = cgComputeColumnTotals;
+
+// ── CLONE BUG FIX ─────────────────────────────────────────────────────────────
+// Strips server-assigned taskId/phaseId before a cloned structure is POSTed to
+// saveStructure() for a brand-new version — otherwise the backend's PUT
+// /:id/versions/:vId/structure handler reuses the supplied taskId as the new
+// row's primary key (correct for a same-version re-save, wrong here: the SOURCE
+// version's tasks still exist in the DB under those exact IDs), causing
+// `duplicate key value violates unique constraint "tasks_pkey"`.
+export function stripCloneTaskIds(phases) {
+  return (phases || []).map(ph => {
+    const { phaseId, ...phRest } = ph;
+    return { ...phRest, tasks: (ph.tasks || []).map(t => { const { taskId, ...tRest } = t; return tRest; }) };
+  });
+}
+
+window.stripCloneTaskIds = stripCloneTaskIds;
