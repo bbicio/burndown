@@ -77,26 +77,26 @@
           <div class="row g-2 align-items-end mb-2">
             <div class="col-md-4">
               <label class="form-label small fw-semibold mb-1">Project name</label>
-              <input type="text" class="form-control" id="cgProjectName" v-model="draft.projectName" placeholder="Project name" @change="onHeaderFieldChange">
+              <input type="text" class="form-control" id="cgProjectName" v-model="draft.projectName" placeholder="Project name" @change="onHeaderFieldChange" :disabled="isLocked">
             </div>
             <div class="col-md-2">
               <label class="form-label small fw-semibold mb-1">Start</label>
-              <input type="month" class="form-control" id="cgStartDate" v-model="startDateInput" @change="onHeaderFieldChange">
+              <input type="month" class="form-control" id="cgStartDate" v-model="startDateInput" @change="onHeaderFieldChange" :disabled="isLocked">
             </div>
             <div class="col-md-2">
               <label class="form-label small fw-semibold mb-1">End</label>
-              <input type="month" class="form-control" id="cgEndDate" v-model="endDateInput" @change="onHeaderFieldChange">
+              <input type="month" class="form-control" id="cgEndDate" v-model="endDateInput" @change="onHeaderFieldChange" :disabled="isLocked">
             </div>
             <div class="col-md-2">
               <label class="form-label small fw-semibold mb-1">Currency</label>
-              <select class="form-select" id="cgCurrency" v-model="draft.currency" @change="onCurrencyChange">
+              <select class="form-select" id="cgCurrency" v-model="draft.currency" @change="onCurrencyChange" :disabled="isLocked">
                 <option v-for="cu in (currencies.length ? currencies : [{code:'EUR',symbol:'€',name:'Euro'}])" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.code }} — {{ cu.name }}</option>
               </select>
             </div>
             <div class="col-md-2">
               <label class="form-label small fw-semibold mb-1">Pipeline stage</label>
               <div v-if="isDraft" class="form-control-plaintext ps-2 fw-semibold" style="font-size:var(--text-md);color:#6c757d">✏️ Draft</div>
-              <select v-else class="form-select" id="cgPipeline" v-model="draft.pipeline" @change="onPipelineChange">
+              <select v-else class="form-select" id="cgPipeline" v-model="draft.pipeline" @change="onPipelineChange" :disabled="isLocked">
                 <option v-for="p in ['SIP','Expected','Anticipated','Committed','Canceled']" :key="p" :value="p">{{ p }}</option>
               </select>
             </div>
@@ -105,7 +105,7 @@
             <div class="col-md-6">
               <label class="form-label small fw-semibold mb-1">Client</label>
               <div class="d-flex gap-2">
-                <select class="form-select form-select-sm" id="cgClientId" v-model="clientIdInput" @change="onClientChange">
+                <select class="form-select form-select-sm" id="cgClientId" v-model="clientIdInput" @change="onClientChange" :disabled="isLocked">
                   <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
                 </select>
                 <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" @click="openClientsModal" style="white-space:nowrap">+ New</button>
@@ -113,7 +113,7 @@
             </div>
             <div class="col-md-6" id="cgRatecardCol">
               <label class="form-label small fw-semibold mb-1">Rate card <span class="text-muted fw-normal">(optional)</span></label>
-              <select class="form-select form-select-sm" id="cgRatecardId" v-model="ratecardIdInput" @change="onRatecardChange">
+              <select class="form-select form-select-sm" id="cgRatecardId" v-model="ratecardIdInput" @change="onRatecardChange" :disabled="isLocked">
                 <option value="">— None (use global role rates) —</option>
                 <option v-for="rc in filteredRatecards" :key="rc.id" :value="String(rc.id)">{{ rc.client_name ? rc.name + ' (' + rc.client_name + ')' : rc.name }}</option>
               </select>
@@ -122,7 +122,7 @@
           <div class="row g-2">
             <div class="col-12">
               <label class="form-label small fw-semibold mb-1">Notes</label>
-              <textarea class="form-control" id="cgNote" v-model="draft.note" rows="3" placeholder="Notes, conditions, scope of work…" @change="onHeaderFieldChange"></textarea>
+              <textarea class="form-control" id="cgNote" v-model="draft.note" rows="3" placeholder="Notes, conditions, scope of work…" @change="onHeaderFieldChange" :disabled="isLocked"></textarea>
             </div>
           </div>
 
@@ -212,10 +212,10 @@
                       <button class="btn btn-link p-0" :disabled="rIdx === 0" :style="{ color: rIdx > 0 ? '#93c5fd' : '#444', fontSize:'var(--text-sm)', lineHeight:1 }" title="Move left" @click="moveRole(r, -1)">◀</button>
                       <button class="btn btn-link p-0" :disabled="rIdx === draft.roles.length - 1" :style="{ color: rIdx < draft.roles.length - 1 ? '#93c5fd' : '#444', fontSize:'var(--text-sm)', lineHeight:1 }" title="Move right" @click="moveRole(r, 1)">▶</button>
                     </div>
-                    <div class="d-flex justify-content-center gap-1 mt-1 flex-wrap">
+                    <div v-if="!isLocked" class="d-flex justify-content-center gap-1 mt-1 flex-wrap">
                       <button class="btn btn-link p-0" style="color:#93c5fd;font-size:var(--text-2xs);line-height:1.3" title="Replace this role with another" @click="changeRole(r.roleCode)">⇄ change</button>
                       <button class="btn btn-link p-0" style="color:#86efac;font-size:var(--text-2xs);line-height:1.3" title="Duplicate column with a different role" @click="duplicateRole(r.roleCode)">⊕ dup</button>
-                      <button v-if="!isLocked" class="btn btn-link p-0" style="color:#f8877a;font-size:var(--text-2xs);line-height:1.3" title="Remove column" @click="removeRoleColumn(r.roleCode)">✕ remove</button>
+                      <button class="btn btn-link p-0" style="color:#f8877a;font-size:var(--text-2xs);line-height:1.3" title="Remove column" @click="removeRoleColumn(r.roleCode)">✕ remove</button>
                     </div>
                   </template>
                 </th>
