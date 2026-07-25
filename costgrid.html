@@ -148,8 +148,97 @@
         </div>
       </div>
 
-      <!-- Grid table: Task 3 (role columns) + Task 4 (task/phase rows/selection bar) -->
-      <div id="cgGridPlaceholder"></div>
+      <!-- Grid -->
+      <div class="section-card">
+        <div class="section-header d-flex justify-content-between align-items-center">
+          <span>📊 Cost Grid</span>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:var(--text-base)" @click="addRoleColumn">👥 + Add role</button>
+            <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:var(--text-base)" @click="addPhase">+ Add phase</button>
+          </div>
+        </div>
+        <div style="overflow:auto;max-height:calc(100vh - 300px)">
+          <table class="table mb-0" id="cgGridTable" style="min-width:700px;border-collapse:collapse">
+            <thead>
+              <tr style="background:var(--sand-200);cursor:pointer;user-select:none" :title="summaryCollapsed ? 'Expand summary' : 'Collapse summary'" @click="toggleSummaryCollapsed">
+                <td :colspan="6 + draft.roles.length" style="padding:3px 12px;border:1px solid var(--sand-border);font-size:var(--text-sm);color:#888;font-weight:600">
+                  <span style="font-size:var(--text-xs);margin-right:4px">{{ summaryCollapsed ? '▶' : '▼' }}</span>
+                  {{ summaryCollapsed ? 'Summary (click to expand)' : 'Summary (click to collapse)' }}
+                </td>
+              </tr>
+              <tr v-show="!summaryCollapsed" style="background:var(--sand-200)">
+                <td colspan="6" style="padding:5px 12px;border:1px solid var(--sand-border);font-weight:700;font-size:var(--text-base);color:#444">Total Hrs by Role</td>
+                <td v-for="r in draft.roles" :key="'hrs-'+r.roleCode" style="text-align:center;background:var(--sand-200);font-weight:700;border:1px solid var(--sand-border);padding:5px 4px;font-size:var(--text-md)">{{ colTotals[r.roleCode]?.hrs || 0 }}</td>
+              </tr>
+              <tr v-show="!summaryCollapsed" style="background:var(--sand-200)">
+                <td colspan="6" style="padding:5px 12px;border:1px solid var(--sand-border);font-weight:700;font-size:var(--text-base);color:#444">Total Fee by Role</td>
+                <td v-for="r in draft.roles" :key="'fee-'+r.roleCode" style="text-align:center;background:var(--sand-200);font-weight:700;border:1px solid var(--sand-border);padding:5px 4px;font-size:var(--text-base)">{{ (colTotals[r.roleCode]?.fee > 0) ? fmtCur(colTotals[r.roleCode].fee) : '—' }}</td>
+              </tr>
+              <tr v-show="!summaryCollapsed" style="background:var(--sand-100)">
+                <td style="padding:6px 12px;border:1px solid var(--sand-border);vertical-align:middle">
+                  <span style="background:var(--brand-navy);color:#fff;border-radius:var(--radius-xs);padding:3px 10px;font-size:var(--text-base);font-weight:700;letter-spacing:.04em">{{ draft.currency || 'EUR' }}</span>
+                </td>
+                <td style="border:1px solid var(--sand-border)"></td>
+                <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-weight:700;font-size:var(--text-lg);white-space:nowrap"><strong>{{ fmtCur(grand.fee + grand.ptc) }}</strong></td>
+                <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-size:var(--text-md);white-space:nowrap">{{ grand.ptc > 0 ? fmtCur(grand.ptc) : '—' }}</td>
+                <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-weight:700;font-size:var(--text-lg);white-space:nowrap">{{ grand.hrs > 0 ? grand.hrs + 'h' : '—' }}</td>
+                <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-size:var(--text-md);white-space:nowrap">{{ grand.fee > 0 ? fmtCur(grand.fee) : '—' }}</td>
+                <td v-for="r in draft.roles" :key="'rate-'+r.roleCode" :style="{ textAlign:'center', background: (!r.rate || r.rate === 0) ? '#fff0f0' : (r.rateIsCustom ? '#fffbe6' : 'var(--sand-50)'), border: '1px solid ' + ((!r.rate || r.rate === 0) ? '#f5c6cb' : (r.rateIsCustom ? '#ffe58f' : 'var(--sand-border)')), padding:'3px 4px' }">
+                  <div style="font-size:var(--text-xs);color:#aaa;margin-bottom:1px">{{ draft.currency || 'EUR' }}/h</div>
+                  <input type="number" min="0" step="1" :value="r.rate" @change="onRateChange(r, $event)"
+                    :title="r.rateIsCustom ? 'Custom (baseline: ' + (draft.currency||'EUR') + ' ' + roleBaseline(r).effectiveRate + '/h) — clear to restore' : 'Rate from roles registry / ratecard'"
+                    :style="{ width:'100%', border:'1px solid ' + ((!r.rate||r.rate===0)?'#f5c6cb':(r.rateIsCustom?'#ffe58f':'var(--sand-border)')), borderRadius:'var(--radius-xs)', textAlign:'center', fontSize:'var(--text-md)', fontWeight: (!r.rate||r.rate===0||r.rateIsCustom) ? '700':'400', color: (!r.rate||r.rate===0) ? 'var(--color-danger)' : (r.rateIsCustom ? 'var(--color-warning-text)':'#555'), background:'transparent', padding:'1px 4px' }">
+                  <div v-if="r.rateIsCustom" style="font-size:var(--text-2xs);color:var(--color-warning-text);margin-top:2px">✎ custom</div>
+                  <div v-if="!r.rate || r.rate === 0" style="font-size:var(--text-2xs);color:var(--color-danger);margin-top:2px">⚠️ 0</div>
+                </td>
+              </tr>
+              <tr style="background:var(--brand-navy)">
+                <th style="position:sticky;top:0;left:0;z-index:4;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 12px;min-width:200px;font-size:var(--text-md)">
+                  <div class="d-flex align-items-center justify-content-between">
+                    <span>Phase / Task</span>
+                    <button style="background:none;border:none;color:#93c5fd;font-size:12px;cursor:pointer;padding:0;line-height:1;margin-left:6px" :title="compactHeader ? 'Expand header' : 'Compact header'" @click.stop="toggleCompactHeader">{{ compactHeader ? '⊞' : '⊟' }}</button>
+                  </div>
+                </th>
+                <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 12px;min-width:240px;font-size:var(--text-md)">Description</th>
+                <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 10px;min-width:130px;text-align:right;font-size:var(--text-base)">TOTAL COST<br>and FEE</th>
+                <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 10px;min-width:115px;text-align:right;font-size:var(--text-base)">Total Pass<br>through Costs</th>
+                <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 10px;min-width:75px;text-align:right;font-size:var(--text-base)">Total<br>hrs</th>
+                <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 10px;min-width:120px;text-align:right;font-size:var(--text-base)">Total<br>fees</th>
+                <th v-for="(r, rIdx) in draft.roles" :key="r.roleCode" :style="{ position:'sticky', top:0, zIndex:2, textAlign:'center', background: (!r.rate||r.rate===0) ? '#7f0b0b' : 'var(--brand-navy)', color:'#fff', border:'1px solid #333', padding: compactHeader ? '3px 2px':'8px 4px', minWidth: compactHeader ? '80px':'100px', fontSize: compactHeader ? '10px':'var(--text-base)', fontWeight:600, verticalAlign: compactHeader?'middle':'top' }">
+                  <div :title="r.roleCode" :style="compactHeader ? 'cursor:default;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px' : 'cursor:default'">{{ r.roleLabel }}<template v-if="compactHeader && (!r.rate||r.rate===0)"> ⚠️</template></div>
+                  <div v-if="!compactHeader && (!r.rate||r.rate===0)" style="font-size:var(--text-xs);color:#ffb3b3;font-weight:400">⚠️ rate 0</div>
+                  <template v-if="!compactHeader">
+                    <div class="d-flex justify-content-center gap-2 mt-1">
+                      <button class="btn btn-link p-0" :disabled="rIdx === 0" :style="{ color: rIdx > 0 ? '#93c5fd' : '#444', fontSize:'var(--text-sm)', lineHeight:1 }" title="Move left" @click="moveRole(r, -1)">◀</button>
+                      <button class="btn btn-link p-0" :disabled="rIdx === draft.roles.length - 1" :style="{ color: rIdx < draft.roles.length - 1 ? '#93c5fd' : '#444', fontSize:'var(--text-sm)', lineHeight:1 }" title="Move right" @click="moveRole(r, 1)">▶</button>
+                    </div>
+                    <div class="d-flex justify-content-center gap-1 mt-1 flex-wrap">
+                      <button class="btn btn-link p-0" style="color:#93c5fd;font-size:var(--text-2xs);line-height:1.3" title="Replace this role with another" @click="changeRole(r.roleCode)">⇄ change</button>
+                      <button class="btn btn-link p-0" style="color:#86efac;font-size:var(--text-2xs);line-height:1.3" title="Duplicate column with a different role" @click="duplicateRole(r.roleCode)">⊕ dup</button>
+                      <button class="btn btn-link p-0" style="color:#f8877a;font-size:var(--text-2xs);line-height:1.3" title="Remove column" @click="removeRoleColumn(r.roleCode)">✕ remove</button>
+                    </div>
+                  </template>
+                </th>
+              </tr>
+            </thead>
+            <tbody id="cgGridBody">
+              <tr v-if="draft.roles.length === 0"><td colspan="6" class="text-center text-muted py-2" style="font-size:var(--text-base);border:1px solid var(--border-light)">No roles added yet. Click <strong>👥 + Add role</strong> to add role columns.</td></tr>
+              <!-- Phase/task rows: Task 4 -->
+            </tbody>
+            <tfoot>
+              <tr style="background:var(--indigo-50)">
+                <td style="position:sticky;left:0;z-index:3;background:var(--indigo-50);font-weight:700;padding:7px 12px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);font-size:var(--text-md)">TOTAL</td>
+                <td style="border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--indigo-50)"></td>
+                <td style="text-align:right;font-weight:700;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-lg);white-space:nowrap"><strong>{{ fmtCur(grand.fee + grand.ptc) }}</strong></td>
+                <td style="text-align:right;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-md);white-space:nowrap">{{ grand.ptc > 0 ? fmtCur(grand.ptc) : '—' }}</td>
+                <td style="text-align:right;font-weight:700;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-lg);white-space:nowrap">{{ grand.hrs > 0 ? grand.hrs + 'h' : '—' }}</td>
+                <td style="text-align:right;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-md);white-space:nowrap">{{ grand.fee > 0 ? fmtCur(grand.fee) : '—' }}</td>
+                <td v-for="r in draft.roles" :key="'foot-'+r.roleCode" style="text-align:center;font-weight:700;padding:7px 4px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-50);font-size:var(--text-md)">{{ (colTotals[r.roleCode]?.hrs || 0) > 0 ? colTotals[r.roleCode].hrs : '' }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- Phasing panel: Task 5 -->
@@ -442,6 +531,7 @@ Vue.createApp({
       clients: [], currencies: [],
       ratecardMap: {}, ratecardOverrides: {}, isClientRatecard: false, allRatecards: [],
       offerDetailsCollapsed: false, summaryCollapsed: false,
+      compactHeader: localStorage.getItem('PDash_cgCompactHeader') === '1',
       selectionMode: false, selectedTaskIds: new Set(),
       backSaving: false,
       newVersionLabel: '', newVersionError: '',
@@ -646,6 +736,61 @@ Vue.createApp({
     openLinkedProject(projId) { cgAutoSave(); showDashboardView(projId); },
     exportXls() { cgExportXls(); },
     generateProject() { cgGenerateProject(); },
+    fmtCur(amount) { return cgFmtCurrency(amount, this.draft?.currency || 'EUR'); },
+    addPhase() {
+      this.draft.phases.push({ phaseId: cgNewPhId(), phaseName: 'New phase', tasks: [] });
+      cgScheduleAutoSave();
+    },
+    roleBaseline(role) {
+      const roleObj = getRoles().find(gr => gr.code === role.roleCode);
+      const roleId = roleObj?.id;
+      const globalRate = roleObj?.rate;
+      if (roleId == null) return { eurRate: globalRate || 0, effectiveRate: role.rate, isOverride: false };
+      return resolveRoleRate({
+        roleId, globalRate,
+        currency: this.draft.currency || 'EUR',
+        currencyRate: parseFloat((this.currencies || []).find(c => c.code === (this.draft.currency || 'EUR'))?.current_rate) || 1.0,
+        ratecardMap: this.ratecardMap, ratecardOverrides: this.ratecardOverrides,
+        roleOverrides: roleObj?.rateOverrides || {},
+      });
+    },
+    onRateChange(role, event) {
+      const val = event.target.value.trim();
+      const baseline = this.roleBaseline(role);
+      if (val === '') {
+        role.rate = baseline.effectiveRate;
+        role.rateIsCustom = false;
+      } else {
+        const newRate = parseFloat(val) || 0;
+        role.rate = newRate;
+        role.rateIsCustom = newRate !== baseline.effectiveRate;
+      }
+      cgScheduleAutoSave();
+    },
+    moveRole(role, dir) {
+      const idx = this.draft.roles.findIndex(r => r.roleCode === role.roleCode);
+      const newIdx = idx + dir;
+      if (idx < 0 || newIdx < 0 || newIdx >= this.draft.roles.length) return;
+      const roles = this.draft.roles;
+      [roles[idx], roles[newIdx]] = [roles[newIdx], roles[idx]];
+      cgScheduleAutoSave();
+    },
+    removeRoleColumn(code) {
+      const label = this.draft.roles.find(r => r.roleCode === code)?.roleLabel || code;
+      showConfirm(`Remove column "${label}"?\n\nHours entered for this role will be deleted.`, () => {
+        this.draft.roles = this.draft.roles.filter(r => r.roleCode !== code);
+        this.draft.phases.forEach(ph => ph.tasks.forEach(t => delete t.hours[code]));
+        cgScheduleAutoSave();
+      }, null, '✕ Remove column');
+    },
+    addRoleColumn() { this.openRoleModal('add', null); },
+    changeRole(code) { this.openRoleModal('change', code); },
+    duplicateRole(code) { this.openRoleModal('duplicate', code); },
+    toggleCompactHeader() {
+      this.compactHeader = !this.compactHeader;
+      localStorage.setItem('PDash_cgCompactHeader', this.compactHeader ? '1' : '0');
+    },
+    toggleSummaryCollapsed() { this.summaryCollapsed = !this.summaryCollapsed; },
   },
   async created() {
     loadConfig();
