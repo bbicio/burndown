@@ -913,10 +913,272 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         return { html, exportRows, periodMeta };
       },
+      byOwnerView() {
+        const projects = this.filteredProjects;
+        const weeks    = this.weeks;
+        const fmtPH = v => v > 0.005 ? (this.roundHours ? Math.round(v) : v.toFixed(2)) + 'h' : '';
+        const rnd   = v => Math.round(v * 10) / 10;
+        const SH = 'position:sticky;z-index:4;';
+        const SB = 'position:sticky;z-index:2;';
+
+        const isMonthly = this.interval === 'monthly';
+        const periods   = isMonthly ? buildMonthPeriods(weeks) : weeks;
+
+        let periodHeaderHtml, subHeaderHtml = '';
+        if (isMonthly) {
+          periodHeaderHtml = periods.map(p => {
+            const bg = p.isPast ? '#e9ebec' : p.isCurrent ? '#4dabf7' : 'var(--indigo-100)';
+            const fw = p.isCurrent ? 'font-weight:bold;color:#fff;' : '';
+            return `<th style="min-width:70px;text-align:center;background:${bg};font-size:var(--text-sm);padding:4px 3px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);${fw}">${p.label}</th>`;
+          }).join('');
+        } else {
+          const monthGroups = [];
+          weeks.forEach(w => {
+            const last = monthGroups[monthGroups.length - 1];
+            if (last && last.key === w.monthKey) last.count++;
+            else monthGroups.push({ key: w.monthKey, count: 1, allPast: w.isPast });
+          });
+          weeks.forEach(w => { const mg = monthGroups.find(m => m.key === w.monthKey); if (mg && !w.isPast) mg.allPast = false; });
+          periodHeaderHtml = monthGroups.map(mg => {
+            const bg = mg.allPast ? '#e9ebec' : 'var(--indigo-100)';
+            return `<th colspan="${mg.count}" style="text-align:center;background:${bg};font-size:var(--text-sm);padding:4px 3px;border:1px solid var(--border-light);">${mg.key}</th>`;
+          }).join('');
+          subHeaderHtml = weeks.map(w => {
+            const bg = w.isCurrent ? '#4dabf7' : w.isPast ? '#e8eaec' : '#f0f2ff';
+            const borderR = w.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)';
+            return `<th title="${w.dateTitle}" style="min-width:42px;max-width:52px;font-size:var(--text-xs);text-align:center;background:${bg};border:1px solid var(--border-light);border-right:${borderR};padding:3px 2px;white-space:nowrap;${w.isCurrent ? 'font-weight:bold;color:#fff;' : ''}">${w.wLabel}</th>`;
+          }).join('');
+        }
+
+        const ownerMap = {};
+
+        projects.forEach(proj => {
+          const projData = timesheetData.filter(r => r.projectId === proj.id);
+          (proj.tasks || []).forEach(task => {
+            if (task.completed) return;
+            const tStart = task.startDate ? parseTaskDate(task.startDate, false) : null;
+            const tEnd   = task.endDate   ? parseTaskDate(task.endDate,   true)  : null;
+
+            const resources = (task.resources || []).filter(res => rolePassesTeamFilter(res.role));
+            if (!resources.length) return;
+            const soldH    = resources.reduce((s, res) => s + (res.soldHours || 0), 0);
+            const taskRecs = projData.filter(r => resources.some(res => matchesTaskRole(r, task.name, res.role)));
+
+            const taskWeekData = {};
+            const ownerTotals  = {};
+            let totalOwnerH    = 0;
+
+            weeks.forEach(w => {
+              if (!w.isPast) return;
+              const key  = w.weekStart.toISOString();
+              const recs = taskRecs.filter(r => { const d = new Date(r.date); d.setHours(0,0,0,0); return d >= w.weekStart && d <= w.weekEnd; });
+              if (!recs.length) return;
+              const byOwner = {};
+              recs.forEach(r => { const o = r.owner?.trim() || '—'; byOwner[o] = (byOwner[o] || 0) + r.hours; });
+              taskWeekData[key] = { total: recs.reduce((s, r) => s + r.hours, 0), byOwner, isPulse: false, isPast: true };
+            });
+            taskRecs.forEach(r => { const o = r.owner?.trim() || '—'; ownerTotals[o] = (ownerTotals[o] || 0) + r.hours; });
+            Object.values(ownerTotals).forEach(h => { totalOwnerH += h; });
+
+            const consumedH = totalOwnerH;
+            const taskTbp   = computeResidual(soldH, consumedH);
+            if (soldH < 0.01 && consumedH < 0.01) return;
+
+            const ownerNames = Object.entries(ownerTotals).filter(([, h]) => h > 0.01).sort((a, b) => b[1] - a[1]).map(([o]) => o);
+            const hasOwners  = ownerNames.length > 0;
+
+            if (taskTbp > 0.01) {
+              const _owNow = new Date(); const _owTd = new Date(_owNow.getFullYear(), _owNow.getMonth(), _owNow.getDate());
+              const futureWeeks = weeks.filter(w => !w.isPast);
+              const taskWeeks   = tStart && tEnd ? futureWeeks.filter(w => w.weekEnd >= tStart && w.weekStart <= tEnd) : futureWeeks;
+              const totalTaskFw = (tStart && tEnd) ? countFutureTaskWeeks(tStart, tEnd, _owTd) : taskWeeks.length;
+              const distribute  = (byOwner, hours) => {
+                if (totalOwnerH > 0.01) ownerNames.forEach(o => { byOwner[o] = (byOwner[o] || 0) + hours * (ownerTotals[o] / totalOwnerH); });
+                else byOwner['—'] = (byOwner['—'] || 0) + hours;
+              };
+
+              const monthMap = {};
+              taskWeeks.forEach(w => {
+                if (!monthMap[w.monthKey]) monthMap[w.monthKey] = [];
+                monthMap[w.monthKey].push(w.weekStart.toISOString());
+              });
+              const weeksByMonth = Object.entries(monthMap).map(([monthKey, weekKeys]) => ({ monthKey, weekKeys }));
+
+              distributeFutureResidual(taskTbp, totalTaskFw, weeksByMonth, this.monthlyPulse).forEach(entry => {
+                if (!taskWeekData[entry.key]) taskWeekData[entry.key] = { total: 0, byOwner: {}, isPulse: entry.isPulse, isPast: false };
+                taskWeekData[entry.key].total += entry.hours;
+                if (entry.isPulse) taskWeekData[entry.key].isPulse = true;
+                distribute(taskWeekData[entry.key].byOwner, entry.hours);
+              });
+            }
+
+            const displayOwners = hasOwners ? ownerNames : ['—'];
+            displayOwners.forEach(ownerName => {
+              const isPlaceholder = ownerName === '—';
+              const ownerProp    = totalOwnerH > 0.01 ? (ownerTotals[ownerName] || 0) / totalOwnerH : (isPlaceholder ? 1 : 0);
+              const ownerSold    = soldH * ownerProp;
+              const ownerActuals = ownerTotals[ownerName] || 0;
+              const ownerTbpH    = taskTbp * ownerProp;
+
+              if (!ownerMap[ownerName]) ownerMap[ownerName] = { sold: 0, actuals: 0, tbp: 0, weekTotals: {}, projects: {} };
+              const om = ownerMap[ownerName];
+              om.sold += ownerSold; om.actuals += ownerActuals; om.tbp += ownerTbpH;
+
+              if (!om.projects[proj.id]) om.projects[proj.id] = { name: proj.name || proj.id, sold: 0, actuals: 0, tbp: 0, weekTotals: {}, tasks: {} };
+              const pm = om.projects[proj.id];
+              pm.sold += ownerSold; pm.actuals += ownerActuals; pm.tbp += ownerTbpH;
+
+              if (!pm.tasks[task.name]) pm.tasks[task.name] = { sold: 0, actuals: 0, tbp: 0, weekData: {} };
+              const tm = pm.tasks[task.name];
+              tm.sold += ownerSold; tm.actuals += ownerActuals; tm.tbp += ownerTbpH;
+
+              weeks.forEach(w => {
+                const key = w.weekStart.toISOString();
+                const d   = taskWeekData[key];
+                if (!d) return;
+                const oh = d.byOwner[ownerName] || 0;
+                if (oh < 0.001) return;
+                if (!tm.weekData[key]) tm.weekData[key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
+                tm.weekData[key].hours += oh;
+                if (!pm.weekTotals[key]) pm.weekTotals[key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
+                pm.weekTotals[key].hours += oh;
+                if (!om.weekTotals[key]) om.weekTotals[key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
+                om.weekTotals[key].hours += oh;
+              });
+            });
+          });
+        });
+
+        if (Object.keys(ownerMap).length === 0) {
+          return { html: '<div class="alert alert-info mb-0">No owner data found for the selected filters.</div>', exportRows: [], periodMeta: [] };
+        }
+
+        const makePeriodCells = (weekDataMap, bgFn, small = false) => periods.map(p => {
+          const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()];
+          let h = 0, isPulse = false;
+          keys.forEach(key => { const d = weekDataMap[key]; if (d) { h += d.hours; if (d.isPulse) isPulse = true; } });
+          const borderR = isMonthly ? '3px solid var(--text-muted)' : (p.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)');
+          if (h < 0.01) return `<td style="background:${p.isPast ? '#f4f5f6' : 'transparent'};border:1px solid var(--border-light);border-right:${borderR}"></td>`;
+          const bg = bgFn ? bgFn(p, h, isPulse) : (p.isPast ? (small ? '#e8eaec' : '#e5e8ea') : isPulse ? (small ? '#f3effe' : 'var(--violet-100)') : p.isCurrent ? '#c8e6ff' : small ? '#fafafa' : 'white');
+          const dv = isPulse
+            ? `<span style="font-style:italic;color:${small ? 'var(--violet-400)' : 'var(--violet-600)'};font-size:${small ? '.7rem' : '.75rem'}">~${fmtPH(h)}</span>`
+            : (h < 1 && this.roundHours ? `<span style="color:#888;font-size:var(--text-2xs)">${h.toFixed(2)}h</span>` : `<span style="font-size:${small ? '.72rem' : '.75rem'}">${fmtPH(h)}</span>`);
+          return `<td style="background:${bg};border:1px solid var(--border-light);border-right:${borderR};text-align:center;padding:2px 3px">${dv}</td>`;
+        }).join('');
+
+        const makeGrandCells = weekTotals => periods.map(p => {
+          const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()];
+          const h = keys.reduce((s, k) => s + (weekTotals[k] || 0), 0);
+          const borderR = isMonthly ? '3px solid var(--text-muted)' : (p.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)');
+          if (h < 0.01) return `<td style="background:${p.isPast ? '#f4f5f6' : 'transparent'};border:1px solid var(--border-light);border-right:${borderR}"></td>`;
+          const bg = p.isPast ? '#e5e8ea' : p.isCurrent ? '#c8e6ff' : '#f0f2ff';
+          return `<td style="background:${bg};border:1px solid var(--border-light);border-right:${borderR};text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 3px">${fmtPH(h)}</td>`;
+        }).join('');
+
+        const periodLabels = periods.map(p => isMonthly ? p.label : p.dateTitle);
+        const periodMeta   = periods.map(p => ({ isPast: p.isPast, isCurrent: p.isCurrent ?? false }));
+        const exportRows = [{ v: ['Owner', 'Project', 'Task', 'Sold', 'From actuals', 'To be planned', ...periodLabels], level: 'header' }];
+        let tbodyHtml = '';
+        let ownerGroupIdx = 0;
+        let grandSold = 0, grandActuals = 0, grandTbp = 0;
+        const grandWeekTotals = {};
+
+        Object.entries(ownerMap).sort((a, b) => a[0].localeCompare(b[0])).forEach(([ownerName, om]) => {
+          const oid = `owner-${ownerGroupIdx++}`;
+          const displayName = ownerName === '—' ? 'TBD' : ownerName;
+          grandSold += om.sold; grandActuals += om.actuals; grandTbp += om.tbp;
+
+          weeks.forEach(w => {
+            const key = w.weekStart.toISOString();
+            grandWeekTotals[key] = (grandWeekTotals[key] || 0) + (om.weekTotals[key]?.hours || 0);
+          });
+
+          tbodyHtml += `
+            <tr data-group-id="${oid}" style="background:var(--indigo-300);border-top:3px solid var(--indigo-500);border-bottom:1px solid var(--indigo-500)">
+              <td style="${SB}left:0;background:var(--indigo-300);font-size:var(--text-md);padding:7px 8px 7px 10px;font-weight:700;border:1px solid var(--border-light);border-left:4px solid var(--indigo-500);white-space:nowrap"><span class="pp-toggle" style="display:inline-block;width:12px;margin-right:4px;font-size:var(--text-xs)">▼</span>👤 ${esc(displayName)}</td>
+              <td style="${SB}left:200px;background:var(--sand-300);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled)">${fmtPH(om.sold)}</td>
+              <td style="${SB}left:265px;background:var(--sand-300);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled)">${fmtPH(om.actuals)}</td>
+              <td style="${SB}left:345px;background:var(--sand-300);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted)">${fmtPH(om.tbp)}</td>
+              ${makePeriodCells(om.weekTotals, null)}
+            </tr>`;
+          exportRows.push({ v: [displayName, '', '', rnd(om.sold), rnd(om.actuals), rnd(om.tbp),
+            ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (om.weekTotals[k]?.hours || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'project' });
+
+          Object.entries(om.projects).sort((a, b) => a[1].name.localeCompare(b[1].name)).forEach(([projId, pm]) => {
+            const projCfg = (config.projects || []).find(p => p.id === projId);
+            const pmPipe  = projCfg ? pipelineBadge(projCfg.pipeline) : '';
+            const pmStat  = projCfg ? statusBadge(projCfg.status)     : '';
+            tbodyHtml += `
+              <tr data-parent-group="${oid}" style="background:#e8ecff;border-top:2px solid #8899dd">
+                <td style="${SB}left:0;background:#e8ecff;font-size:var(--text-sm);padding:5px 8px 5px 22px;font-weight:600;border:1px solid var(--border-light);border-left:3px solid #8899dd;white-space:nowrap">🏢 ${esc(pm.name)} ${pmPipe} ${pmStat}</td>
+                <td style="${SB}left:200px;background:var(--sand-200);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled)">${fmtPH(pm.sold)}</td>
+                <td style="${SB}left:265px;background:var(--sand-200);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled)">${fmtPH(pm.actuals)}</td>
+                <td style="${SB}left:345px;background:var(--sand-200);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted)">${fmtPH(pm.tbp)}</td>
+                ${makePeriodCells(pm.weekTotals, null)}
+              </tr>`;
+            exportRows.push({ v: ['', pm.name, '', rnd(pm.sold), rnd(pm.actuals), rnd(pm.tbp),
+              ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (pm.weekTotals[k]?.hours || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'task' });
+
+            Object.entries(pm.tasks).sort((a, b) => a[0].localeCompare(b[0])).forEach(([taskName, tm]) => {
+              tbodyHtml += `
+                <tr data-parent-group="${oid}" style="background:#fafafa">
+                  <td style="${SB}left:0;background:#fafafa;font-size:var(--text-sm);padding:4px 8px 4px 38px;font-weight:600;border:1px solid var(--border-light);white-space:nowrap;color:#444">${esc(taskName)}</td>
+                  <td style="${SB}left:200px;background:var(--sand-50);text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);color:var(--text-muted)">${fmtPH(tm.sold)}</td>
+                  <td style="${SB}left:265px;background:var(--sand-50);text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);color:#555">${fmtPH(tm.actuals)}</td>
+                  <td style="${SB}left:345px;background:var(--sand-50);text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);color:#555">${fmtPH(tm.tbp)}</td>
+                  ${makePeriodCells(tm.weekData, null, true)}
+                </tr>`;
+              exportRows.push({ v: ['', '', taskName, rnd(tm.sold), rnd(tm.actuals), rnd(tm.tbp),
+                ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (tm.weekData[k]?.hours || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'role' });
+            });
+          });
+        });
+
+        tbodyHtml += `
+          <tr style="background:var(--indigo-50);border-top:3px solid var(--text-muted)">
+            <td style="${SB}left:0;background:var(--indigo-50);font-size:var(--text-base);padding:6px 8px;font-weight:bold;border:1px solid var(--border-light);border-top:3px solid var(--text-muted)">Total</td>
+            <td style="${SB}left:200px;background:var(--sand-400);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);border-top:3px solid var(--text-muted)">${fmtPH(grandSold)}</td>
+            <td style="${SB}left:265px;background:var(--sand-400);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);border-top:3px solid var(--text-muted)">${fmtPH(grandActuals)}</td>
+            <td style="${SB}left:345px;background:var(--sand-400);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);border-top:3px solid var(--text-muted)">${fmtPH(grandTbp)}</td>
+            ${makeGrandCells(grandWeekTotals)}
+          </tr>`;
+
+        exportRows.push({ v: ['Total', '', '', rnd(grandSold), rnd(grandActuals), rnd(grandTbp),
+          ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (grandWeekTotals[k] || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'total' });
+
+        const rowspan = isMonthly ? '1' : '2';
+        const html = `
+          <div class="alert alert-light border mb-3" style="font-size:var(--text-base);color:#444;line-height:1.7">
+            <strong>Estimation logic (By Owner):</strong>
+            The table is structured as <strong>Owner → Project → Task</strong>.
+            <strong>Past weeks</strong> show <em>actual</em> hours from timesheets.
+            <strong>Future weeks</strong> show each owner's proportional share of remaining hours (sold − consumed).
+            If no owner is found in the actuals, hours are assigned to a <em>TBD</em> placeholder.
+          </div>
+          <div class="d-flex justify-content-end gap-1 mb-2">
+            <button class="btn btn-outline-secondary pp-expand-all" style="font-size:var(--text-xs);padding:2px 8px">⊞ Expand all</button>
+            <button class="btn btn-outline-secondary pp-collapse-all" style="font-size:var(--text-xs);padding:2px 8px">⊟ Collapse all</button>
+          </div>
+          <table class="gantt-table" id="ppResourceTable" style="border-collapse:collapse;width:100%">
+            <thead>
+              <tr>
+                <th rowspan="${rowspan}" style="${SH}left:0;min-width:200px;background:#d8dff7;font-size:var(--text-base);padding:8px 10px;border:1px solid var(--border-light);white-space:nowrap">Owner / Project / Task</th>
+                <th rowspan="${rowspan}" style="${SH}left:200px;min-width:65px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">Sold</th>
+                <th rowspan="${rowspan}" style="${SH}left:265px;min-width:80px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">From<br>actuals</th>
+                <th rowspan="${rowspan}" title="To be planned can exceed Sold − Actuals when a role has multiple tasks and one is over-consumed — hours over budget on one task aren't subtracted from another task's remaining budget." style="${SH}left:345px;min-width:90px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);text-align:center;white-space:nowrap">To be<br>planned</th>
+                ${periodHeaderHtml}
+              </tr>
+              ${isMonthly ? '' : `<tr>${subHeaderHtml}</tr>`}
+            </thead>
+            <tbody>${tbodyHtml}</tbody>
+          </table>`;
+
+        return { html, exportRows, periodMeta };
+      },
       activeViewHtml() {
         if (this.view === 'byrole') return this.byRoleView.html;
         if (this.view === 'byproject') return this.byProjectView.html;
-        return ''; // 'byowner' branch added in Task 5
+        return this.byOwnerView.html;
       },
     },
     methods: {
