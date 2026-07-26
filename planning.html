@@ -346,6 +346,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // out of scope for this cycle, since no other page calls updatePpWindowWidget with this label.
       },
       byRoleView() {
+        this.teamFilters; // reactive dependency (rolePassesTeamFilter reads the plain global mirror)
         const projects = this.filteredProjects;
         const weeks    = this.weeks;
         const now = new Date();
@@ -608,6 +609,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { html, exportRows, periodMeta };
       },
       byProjectView() {
+        this.teamFilters; // reactive dependency (rolePassesTeamFilter reads the plain global mirror)
         const projects = this.filteredProjects;
         const weeks    = this.weeks;
         const fmtPH = v => v > 0.005 ? (this.roundHours ? Math.round(v) : v.toFixed(2)) + 'h' : '';
@@ -929,6 +931,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { html, exportRows, periodMeta };
       },
       byOwnerView() {
+        this.teamFilters; // reactive dependency (rolePassesTeamFilter reads the plain global mirror)
         const projects = this.filteredProjects;
         const weeks    = this.weeks;
         const fmtPH = v => v > 0.005 ? (this.roundHours ? Math.round(v) : v.toFixed(2)) + 'h' : '';
