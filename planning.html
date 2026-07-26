@@ -556,7 +556,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <span style="background:var(--color-danger-bg);padding:1px 5px;border-radius:var(--radius-xs)">Red</span> = load &gt; 30h/week (overallocation) &nbsp;·&nbsp;
             <span style="background:#c8e6ff;padding:1px 5px;border-radius:var(--radius-xs)">Blue</span> = current week / month.
           </div>
-          <table class="gantt-table" style="border-collapse:collapse;width:100%">
+          <table class="gantt-table" id="ppResourceTable" style="border-collapse:collapse;width:100%">
             <thead>
               <tr>
                 <th rowspan="${isMonthly ? 1 : 2}" style="position:sticky;left:0;z-index:4;min-width:185px;background:var(--sand-200);font-size:var(--text-base);padding:8px 10px;border:1px solid var(--border-light);white-space:nowrap">Role</th>
@@ -897,7 +897,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <button class="btn btn-outline-secondary pp-expand-all" style="font-size:var(--text-xs);padding:2px 8px">⊞ Expand all</button>
             <button class="btn btn-outline-secondary pp-collapse-all" style="font-size:var(--text-xs);padding:2px 8px">⊟ Collapse all</button>
           </div>
-          <table class="gantt-table" style="border-collapse:collapse;width:100%">
+          <table class="gantt-table" id="ppResourceTable" style="border-collapse:collapse;width:100%">
             <thead>
               <tr>
                 <th rowspan="${rowspan}" style="${SH}left:0;min-width:200px;background:#d8dff7;font-size:var(--text-base);padding:8px 10px;border:1px solid var(--border-light);white-space:nowrap">Project / Task / Role / Owner</th>
