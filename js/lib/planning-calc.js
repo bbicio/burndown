@@ -113,8 +113,7 @@ export function getPlanningPeriods(cfg, interval) {
   const weeks = [];
   const cur = new Date(anchor);
   while (cur <= projectEnd) {
-    let we = new Date(cur); we.setDate(we.getDate() + 6);
-    if (we > projectEnd) we = new Date(projectEnd);
+    const we = new Date(cur); we.setDate(we.getDate() + 6);
     weeks.push({ key: `${cur.getFullYear()}${String(cur.getMonth()+1).padStart(2,'0')}${String(cur.getDate()).padStart(2,'0')}`,
       label: cur.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       start: new Date(cur), end: we });

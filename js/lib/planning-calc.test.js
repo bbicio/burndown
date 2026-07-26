@@ -211,7 +211,13 @@ describe('getPlanningPeriods', () => {
     const periods = getPlanningPeriods({}, 'weekly');
     // January 2026: 1st is a Thursday, so the anchor Monday is 2025-12-29; last day is 2026-01-31 (Saturday)
     expect(periods[0].start).toEqual(new Date(2025, 11, 29));
-    expect(periods[periods.length - 1].end.getMonth()).toBe(0); // still within/around January
+    // Last calendar week is Mon 2026-01-26 - Sun 2026-02-01: its end date is never clamped to the
+    // project's own end-of-month (2026-01-31) -- the original js/planning.js always let the last
+    // week's end spill into the following month, uncapped. Traced by hand: anchor 2025-12-29,
+    // projectEnd 2026-01-31, weeks step by 7 days -> 12/29, 01/05, 01/12, 01/19, 01/26 (last cur
+    // <= projectEnd), whose +6-day end is 2026-02-01.
+    expect(periods[periods.length - 1].start).toEqual(new Date(2026, 0, 26));
+    expect(periods[periods.length - 1].end).toEqual(new Date(2026, 1, 1));
     delete globalThis.getMonthRangeFromCfg;
   });
 });
