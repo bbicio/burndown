@@ -661,6 +661,18 @@ const SECTIONS = [
     {id:'PL-13',scenario:'By Owner aggregates multi-role tasks into one row',
      steps:'Select "By Owner"; find a task with 2+ sold roles (e.g. Developer + QA)',
      expected:'That task\'s Sold/Actuals/To be planned sum both roles into a single task row'},
+    {id:'PL-14',scenario:'AI Chat button hidden when no key configured',
+     steps:'With no AI provider API key set in Settings, open /planning.html',
+     expected:'"🤖 AI Chat" button in the navbar is hidden (not just disabled)'},
+    {id:'PL-15',scenario:'AI sidebar preserves typed text with no key configured',
+     steps:'Open AI Chat sidebar with no API key configured; type a question; press Send',
+     expected:'"API Key required" dialog appears; the typed question remains in the textarea (not cleared)'},
+    {id:'PL-16',scenario:'AI sidebar sends on Ctrl/Meta+Enter',
+     steps:'With an AI key configured, type a question in the AI sidebar and press Ctrl+Enter (or Cmd+Enter)',
+     expected:'Message sends, same as plain Enter; only Shift+Enter inserts a newline instead'},
+    {id:'PL-17',scenario:'Group toggle stays single-click after repeated re-renders',
+     steps:'In By Project or By Owner view, type several characters in the AI sidebar input (triggering re-renders), then click a group header to collapse/expand it',
+     expected:'Group collapses/expands exactly once per click — no compounding/duplicate toggling from repeated re-renders'},
   ]
 },
 {

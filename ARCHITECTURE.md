@@ -673,10 +673,10 @@ burndown/
     nav.js                ← navbar injection, initNav(); injects settings, change-pwd, and "My Profile" modals; T&C gate (redirects to /terms.html if user.terms_version < current_terms_version); calls initNotifications()
     shares.js             ← generic share modal
     notifications.js      ← SSE client, bell badge, notification dropdown panel
-    costgrid.js           ← shared cost-grid business-logic library, loaded unmodified by `pipeline.html`/`planning.html` as globals, and by `costgrid.html`'s own Vue rewrite via the bridge pattern (see `costgrid.html` entry below); non-EUR role rate fallback chain (ratecard override → `role.rateOverrides[currency]` → EUR rate × currency factor) is no longer duplicated inline — `cgSyncRoleRatesToBaseline` and `cgPreviewRateChange` both now call the shared `resolveRoleRate()` (`js/lib/costgrid-calc.js`); linked-project chips use `statusBadgeLarge()` for project status badges; `_cgCompactHeader` (localStorage `PDash_cgCompactHeader`) toggles compact/normal header mode via ⊟/⊞ button in the "Phase / Task" sticky cell — compact hides role move/change/dup/remove buttons and reduces header font to 10px; **task assignment (R1–R5)**: `cgGetAssignedTaskIds()` + `cgGetAssignedTaskNames()` perform dual UUID+name check — assigned tasks show no ✕ button; `cgDoAddTasksToProject` and `cgDoGenerateProject` send `taskNames` alongside `taskIds`; Generate Project button hidden when all tasks are already mapped; `_cgEnsureAddToProjectModal()` creates a singleton modal appended to `document.body` (z-index:10500, created once and reused); the imperative rendering functions this file used for its own now-Vue page (`renderCgEditor`/`cgBindEditorEvents`/`cgApplyEditorLock`/`cgRefreshTotals`/`cgRefreshPhaseDates`/`cgRenderRoleList`/`cgFindTask`) were deleted — `renderCgEditor()`/`renderCgVersionTabs(cg)`/`showCostGridEditorView(cgId, versionId)` are now thin bridges delegating into `costgrid.html`'s mounted Vue instance
+    costgrid.js           ← shared cost-grid business-logic library, loaded unmodified by `pipeline.html` as globals (no longer loaded by `planning.html`, whose Vue migration confirmed no genuine call into this file remained), and by `costgrid.html`'s own Vue rewrite via the bridge pattern (see `costgrid.html` entry below); non-EUR role rate fallback chain (ratecard override → `role.rateOverrides[currency]` → EUR rate × currency factor) is no longer duplicated inline — `cgSyncRoleRatesToBaseline` and `cgPreviewRateChange` both now call the shared `resolveRoleRate()` (`js/lib/costgrid-calc.js`); linked-project chips use `statusBadgeLarge()` for project status badges; `_cgCompactHeader` (localStorage `PDash_cgCompactHeader`) toggles compact/normal header mode via ⊟/⊞ button in the "Phase / Task" sticky cell — compact hides role move/change/dup/remove buttons and reduces header font to 10px; **task assignment (R1–R5)**: `cgGetAssignedTaskIds()` + `cgGetAssignedTaskNames()` perform dual UUID+name check — assigned tasks show no ✕ button; `cgDoAddTasksToProject` and `cgDoGenerateProject` send `taskNames` alongside `taskIds`; Generate Project button hidden when all tasks are already mapped; `_cgEnsureAddToProjectModal()` creates a singleton modal appended to `document.body` (z-index:10500, created once and reused); the imperative rendering functions this file used for its own now-Vue page (`renderCgEditor`/`cgBindEditorEvents`/`cgApplyEditorLock`/`cgRefreshTotals`/`cgRefreshPhaseDates`/`cgRenderRoleList`/`cgFindTask`) were deleted — `renderCgEditor()`/`renderCgVersionTabs(cg)`/`showCostGridEditorView(cgId, versionId)` are now thin bridges delegating into `costgrid.html`'s mounted Vue instance
     portfolio.js          ← portfolio dashboard
     dashboard.js          ← per-project KPI/burndown
-    config-form.js        ← project config form; hours parsing/formatting/rounding delegated to js/lib/cfg-parse.js
+    config-form.js        ← project config form; hours parsing/formatting/rounding delegated to js/lib/cfg-parse.js; no longer loaded by planning.html (confirmed dead there in its Vue migration — no reachable #configModal on that page)
     lib/                  ← pure functions extracted for unit testing (vitest + jsdom), each an ES module
                             (`export function ...`) with a `window.<name> = <name>` bridge for classic-script
                             callers; cfg-parse.js — cfgParseHours, cfgFmtHours, roundToQuarterHour (moved from
@@ -701,7 +701,14 @@ burndown/
                             version — fixes a `duplicate key value violates unique constraint
                             "tasks_pkey"` error: the backend reuses a supplied taskId as the new row's
                             PK, which is correct for a same-version re-save but wrong for Clone, since
-                            the source version's tasks still exist in the DB under those exact IDs)
+                            the source version's tasks still exist in the DB under those exact IDs);
+                            planning-calc.js — matchesTaskRole/computeResidual/distributeFutureResidual
+                            (pre-existing, shared by all three Resource Planning grouping views) plus
+                            getCalendarWeeks/workingDaysInWeek/getPlanningPeriods/countFutureTaskWeeks
+                            (added in the planning.html Vue migration, relocated verbatim from the
+                            former js/planning.js); getPlanningPeriods reads getMonthRangeFromCfg (a
+                            js/portfolio.js classic-script global) via globalThis rather than importing
+                            it, since js/lib/ modules only import from sibling js/lib/ modules
     roles.js              ← roles management modal; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role — role shape: `{ id, label, code, rate, rateOverrides }`
     ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js; `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects per-role `rateOverrides` and sends them to the API
     upload.js             ← XLS parsing
@@ -715,9 +722,29 @@ burndown/
                             js/costgrid.js/js/core.js and the 4 shared static modals stay unmodified Vanilla,
                             called as globals (costgrid.html/planning.html still depend on them as-is)
   portfolio.html          ← portfolio overview + per-project dashboard, Vue 3 (CDN, no build step, same pattern as project-config.html); folds in the former js/portfolio.js + js/dashboard.js; adds js/lib/portfolio-calc.js (KPI/burndown math extraction, vitest-covered); no longer loads js/roles.js or js/config-form.js (the latter only served this page's own now-removed, previously-unreachable #configModal + nested CRUD modals)
-  planning.html           ← removes the same 2 dead Roles Registry modal blocks (#rolesModal/#roleModal)
-                            confirmed dead here too (only reachable opener lived in the unloaded
-                            js/main.js) — same cleanup as costgrid.html's Vue migration
+  planning.html           ← resource planning (filters, By Role/By Project/By Owner grouping views,
+                            monthly/weekly interval, monthly pulse, rounded-hours toggle, XLS
+                            export/upload, AI Planning Sidebar), Vue 3 (CDN, no build step, same
+                            pattern as pipeline.html/costgrid.html); last Tier 2 page in the Vue
+                            migration roadmap — every page except the 9-line index.html redirect is
+                            now on Vue 3; folds in the former js/planning.js (1558 lines, now deleted,
+                            confirmed exclusive to this page — same precedent as
+                            js/pipeline-board.js/js/dashboard.js); single monolithic Vue.createApp, no
+                            sub-components; drops the js/config-form.js and js/costgrid.js `<script>`
+                            tags (confirmed dead on this page); keeps js/roles.js/js/clients.js/
+                            js/programs.js unmodified (their load*FromApi() calls are genuinely used;
+                            the same dead #rolesModal/#roleModal Roles Registry markup already removed
+                            elsewhere was also removed here) and js/ai.js/js/upload.js/js/portfolio.js
+                            unmodified as globals (js/ai.js gets one hardcoded-Italian-string
+                            translation, its only change); AI Sidebar is Vue-reactive UI wired to the
+                            unchanged js/ai.js functions via hidden DOM compatibility elements;
+                            `created()` awaits initNav() and returns early on !user before any
+                            API-loading call (a Gate-3 code-review fix — the first draft inverted this
+                            ordering); `initTooltipsAndToggles()` guards every addEventListener call
+                            with a `data-pp-bound` marker so re-invocations across `updated()` never
+                            double-bind a v-html-rendered row left in place; pre-existing bug confirmed
+                            during this cycle, not fixed: "Export XLS" throws `ReferenceError: ExcelJS
+                            is not defined` — no page in the repo loads the ExcelJS library
   costgrid.html           ← cost grid editor (phase/task/role table, phasing panel, version tabs,
                             toolbar), Vue 3 (CDN, no build step, same pattern as pipeline.html/
                             portfolio.html); single monolithic Vue.createApp, no sub-components, matching
@@ -788,7 +815,7 @@ New users start fresh: an admin creates an account via the invite flow, then use
 **Current localStorage usage** (only genuinely client-side keys remain):
 - `PDash_settings` — AI provider API keys (Anthropic/OpenAI/Gemini), stored per-device
 - `PDash_summary` — portfolio summary project selection (UI preference)
-- `reforecast_snapshot_<projectId>` — no longer written; `project-config.html`'s Vue 3 rewrite confirmed the rollback/snapshot feature was already unreachable on that page (no rollback button existed in its markup) and did not port it. The mechanism still exists in `js/config-form.js` (unchanged); `portfolio.html`'s own copy of that config modal was confirmed unreachable dead code and dropped entirely in its own Vue migration, but `js/config-form.js` remains loaded by `planning.html` — whether it's actually reachable there was not investigated and remains an open question.
+- `reforecast_snapshot_<projectId>` — no longer written; `project-config.html`'s Vue 3 rewrite confirmed the rollback/snapshot feature was already unreachable on that page (no rollback button existed in its markup) and did not port it. The mechanism still exists in `js/config-form.js` (unchanged); `portfolio.html`'s own copy of that config modal was confirmed unreachable dead code and dropped entirely in its own Vue migration, and `planning.html`'s own Vue migration confirmed `js/config-form.js` was dead there too (no reachable `#configModal`) and dropped its `<script>` tag — no page in the repo loads `js/config-form.js` reachably anymore, though the file itself is kept for reference.
 
 All server data (cost grids, projects, clients, programs, roles, timesheets) is fetched from the API on every page load into in-memory variables. No stale cross-session data is possible.
 

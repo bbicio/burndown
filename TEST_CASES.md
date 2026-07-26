@@ -195,6 +195,10 @@
 | PL-11 | Monthly Pulse cell placement consistent across views | With Monthly Pulse active | All three views place the aggregated cell on the month's first week (not the last) | ✓ (vitest) |
 | PL-12 | By Owner groups by task, not role | Select "By Owner"; find an owner with hours logged on 2+ tasks in the same project | Rows are grouped as Owner → Project → **Task** (not Role); one row per task, not per role | |
 | PL-13 | By Owner aggregates multi-role tasks into one row | Select "By Owner"; find a task with 2+ sold roles (e.g. Developer + QA) | That task's Sold/Actuals/To be planned sum both roles into a single task row | |
+| PL-14 | AI Chat button hidden when no key configured | With no AI provider API key set in Settings, open `/planning.html` | "🤖 AI Chat" button in the navbar is hidden (not just disabled) | |
+| PL-15 | AI sidebar preserves typed text with no key configured | Open AI Chat sidebar with no API key configured; type a question; press Send | "API Key required" dialog appears; the typed question remains in the textarea (not cleared) | |
+| PL-16 | AI sidebar sends on Ctrl/Meta+Enter | With an AI key configured, type a question in the AI sidebar and press Ctrl+Enter (or Cmd+Enter) | Message sends, same as plain Enter; only Shift+Enter inserts a newline instead | |
+| PL-17 | Group toggle stays single-click after repeated re-renders | In By Project or By Owner view, type several characters in the AI sidebar input (triggering re-renders), then click a group header to collapse/expand it | Group collapses/expands exactly once per click — no compounding/duplicate toggling from repeated re-renders | |
 
 ---
 
