@@ -98,7 +98,7 @@ async function aiPlanSend() {
 
   if (!apiKey) {
     const names = { anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Google Gemini' };
-    showConfirm(`Nessuna API key configurata per ${names[provider] || provider}.\n\nApri ⚙ Settings → API & Integrations.`, null, null, 'ℹ️ API Key richiesta');
+    showConfirm(`No API key configured for ${names[provider] || provider}.\n\nOpen ⚙ Settings → API & Integrations.`, null, null, 'ℹ️ API Key required');
     return;
   }
   const input = document.getElementById('aiPlanInput');
