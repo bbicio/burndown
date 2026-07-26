@@ -14,34 +14,48 @@
 <!-- Navbar -->
 <div id="nav-container"></div>
 
+<div id="planningApp">
+<div style="display:none">
+  <textarea id="aiPlanInput"></textarea>
+  <button id="btnAiPlanSend"></button>
+  <div id="aiPlanMessages"></div>
+</div>
+
 <!-- Hidden file input for XLS upload -->
 <input type="file" id="fileInput" ref="fileInput" accept=".xls,.xlsx" style="display:none" @change="onFileInputChange">
 <span id="fileStatus" style="display:none;font-size:var(--text-xs);margin-right:8px"></span>
 
 <!-- AI Planning Sidebar -->
-<div id="aiPlanSidebar">
+<div id="aiPlanSidebar" :class="{ open: aiSidebarOpen }">
   <div style="padding:12px 16px;border-bottom:1px solid #dee2e6;background:#0B1840;color:white;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
     <span style="font-weight:600;font-size:.95rem">🤖 AI Planning Assistant</span>
-    <button id="btnCloseAiSidebar" class="btn-close btn-close-white btn-sm"></button>
+    <button class="btn-close btn-close-white btn-sm" @click="aiSidebarOpen = false"></button>
   </div>
   <div style="padding:5px 14px;background:#f0f1f3;border-bottom:1px solid #dee2e6;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-    <span id="aiProviderBadge" style="font-size:.78rem;color:#495057;font-weight:500"></span>
+    <span style="font-size:.78rem;color:#495057;font-weight:500">{{ aiProviderBadgeText }}</span>
     <button onclick="openSettingsModal()" class="btn btn-link btn-sm p-0" style="font-size:.75rem;color:#6c757d;text-decoration:none" title="Configure AI provider">⚙️ Settings</button>
   </div>
-  <div id="aiPlanMessages">
+  <div ref="aiMessagesEl">
     <div style="background:#f0f4ff;border-radius:8px;padding:10px 12px;font-size:.82rem;color:#444;border-left:3px solid #6c757d">
       Hello! I'm your planning assistant. You can ask me, for example:<br>
       • <em>Who is available in the next 2 months?</em><br>
       • <em>How many hours has [name] allocated to [month]?</em><br>
       • <em>Which project has the most remaining hours?</em>
     </div>
+    <div v-for="(m, i) in aiMessages" :key="i"
+      :style="m.role === 'user'
+        ? 'align-self:flex-end;max-width:85%;background:#0d6efd;color:white;border-radius:12px 12px 2px 12px;padding:8px 12px;font-size:.85rem'
+        : 'align-self:flex-start;max-width:90%;background:#f1f3f5;border-radius:2px 12px 12px 12px;padding:8px 12px;font-size:.85rem;color:#212529'"
+      v-html="m.role === 'user' ? esc(m.content) : m.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')">
+    </div>
   </div>
   <div style="padding:10px 12px;border-top:1px solid #dee2e6;display:flex;gap:8px;align-items:flex-end;flex-shrink:0">
-    <textarea id="aiPlanInput" class="form-control form-control-sm" rows="2"
-      placeholder="Ask a question about planning..." style="resize:none;font-size:.83rem"></textarea>
+    <textarea v-model="aiInput" class="form-control form-control-sm" rows="2"
+      placeholder="Ask a question about planning..." style="resize:none;font-size:.83rem"
+      @keydown.enter.exact.prevent="sendAiMessage"></textarea>
     <div class="d-flex flex-column gap-1">
-      <button id="btnAiPlanSend" class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:64px">Send</button>
-      <button id="btnAiPlanClear" class="btn btn-outline-secondary btn-sm" style="font-size:.72rem">Clear</button>
+      <button class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:64px" :disabled="aiSending" @click="sendAiMessage">{{ aiSending ? '…' : 'Send' }}</button>
+      <button class="btn btn-outline-secondary btn-sm" style="font-size:.72rem" @click="clearAiMessages">Clear</button>
     </div>
   </div>
 </div>
@@ -150,6 +164,7 @@
   </div>
 
 </div><!-- /app-container -->
+</div><!-- /planningApp -->
 
 <!-- Placeholder sections (referenced by portfolio.js / costgrid.js) -->
 <div id="portfolioSection"      style="display:none"></div>
@@ -215,7 +230,7 @@
 <script src="js/portfolio.js"></script>
 <script src="js/planning.js"></script>
 <script src="js/upload.js"></script>
-<script src="js/ai.js"></script>
+<script src="js/ai.js?v=1"></script>
 <script src="js/api-sync.js?v=14"></script>
 <script src="js/nav.js?v=4"></script>
 
@@ -247,6 +262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         monthlyPulse: true, roundHours: true,
         fullWidth: true,
         aiSidebarOpen: false,
+        aiMessages: [], aiInput: '', aiSending: false,
         returnToBurndown: false, singleProjectId: null,
         refreshTick: 0, // bumped after an XLS upload to force grouping-view computeds to
                         // recompute — timesheetData/config.projects are plain globals mutated
@@ -1180,6 +1196,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (this.view === 'byproject') return this.byProjectView.html;
         return this.byOwnerView.html;
       },
+      aiProviderBadgeText() {
+        const provider = appSettings.aiProvider || 'anthropic';
+        const model    = appSettings.aiModel    || '';
+        const icons  = { anthropic: '🟣', openai: '🟢', gemini: '🔵' };
+        const names  = { anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Gemini' };
+        const models = AI_MODELS[provider] || [];
+        const modelLabel = (models.find(m => m.id === model)?.label || model || models[0]?.label || '').replace(/ \(.*\)/, '');
+        return `${icons[provider] || '🤖'} ${names[provider] || provider} · ${modelLabel}`;
+      },
     },
     methods: {
       esc, fmtProjectTitle,
@@ -1240,8 +1265,111 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.classList.toggle('pp-fullwidth', this.fullWidth);
       },
       bumpRefresh() { this.refreshTick++; },
-      // exportCurrentView, onFileInputChange: implemented in Task 6.
-      // aiPlanSend/aiPlanMessages wiring: implemented in Task 6.
+      async onFileInputChange(e) {
+        const f = e.target.files[0];
+        e.target.value = '';
+        if (f) await readXLS(f, () => this.bumpRefresh());
+      },
+      async exportCurrentView() {
+        const rnd = v => Math.round(v * 10) / 10;
+        if (this.view === 'byrole') {
+          const { exportRows, periodMeta } = this.byRoleView;
+          await this.buildStyledExcelExport({ exportRows, periodMeta, nameCount: 1, sheetName: 'Resource Planning', filename: `resource_planning_${new Date().toISOString().slice(0,10)}.xlsx` });
+        } else if (this.view === 'byproject') {
+          const { exportRows, periodMeta } = this.byProjectView;
+          await this.buildStyledExcelExport({ exportRows, periodMeta, nameCount: 4, sheetName: 'Planning By Project', filename: 'planning_by_project.xlsx' });
+        } else {
+          const { exportRows, periodMeta } = this.byOwnerView;
+          await this.buildStyledExcelExport({ exportRows, periodMeta, nameCount: 3, sheetName: 'Planning By Owner', filename: 'planning_by_owner.xlsx' });
+        }
+      },
+      // exportRows: [{ v: [...values], level: 'header'|'project'|'task'|'role'|'owner'|'total' }]
+      // periodMeta: [{ isPast, isCurrent }] — one entry per period column (after name + 3 metric cols)
+      async buildStyledExcelExport({ exportRows, periodMeta, nameCount, sheetName, filename }) {
+        const metricCount = 3;
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet(sheetName);
+
+        const lvlFill = {
+          header:  { name: 'FFD8DFF7', metric: 'FFE0E1E3' },
+          project: { name: 'FFC5CEF7', metric: 'FFD8D9DB' },
+          task:    { name: 'FFE8ECFF', metric: 'FFE0E1E3' },
+          role:    { name: 'FFFFFFFF', metric: 'FFF0F1F2' },
+          owner:   { name: 'FFFAFAFA', metric: 'FFF5F6F7' },
+          total:   { name: 'FFEEF1FF', metric: 'FFC8CACC' },
+        };
+        const periodFill = (pm, isHeader) => {
+          if (isHeader) return pm.isCurrent ? 'FF4DABF7' : pm.isPast ? 'FFDDE0E3' : 'FFE8EAFF';
+          return pm.isCurrent ? 'FFC8E6FF' : pm.isPast ? 'FFD6D9DC' : 'FFF0F2FF';
+        };
+
+        exportRows.forEach(({ v: values, level }) => {
+          const wsRow = ws.addRow(values);
+          const lc    = lvlFill[level] || lvlFill.role;
+          const isBold = ['header', 'project', 'task', 'total'].includes(level);
+          wsRow.eachCell({ includeEmpty: true }, (cell, colIdx) => {
+            let fgColor, fontColor = 'FF000000';
+            if (colIdx <= nameCount) {
+              fgColor = lc.name;
+            } else if (colIdx <= nameCount + metricCount) {
+              fgColor = lc.metric;
+            } else {
+              const pm = periodMeta[colIdx - nameCount - metricCount - 1];
+              if (pm) {
+                fgColor = periodFill(pm, level === 'header');
+                if (level === 'header' && pm.isCurrent) fontColor = 'FFFFFFFF';
+              }
+            }
+            if (fgColor) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fgColor } };
+            cell.font = { name: 'Calibri', size: 9, bold: isBold, color: { argb: fontColor } };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFBFC4CA' } }, left: { style: 'thin', color: { argb: 'FFBFC4CA' } },
+              bottom: { style: 'thin', color: { argb: 'FFBFC4CA' } }, right: { style: 'thin', color: { argb: 'FFBFC4CA' } },
+            };
+            cell.alignment = { vertical: 'middle', horizontal: colIdx <= nameCount ? 'left' : 'center' };
+          });
+          wsRow.height = 15;
+        });
+
+        ws.columns = [
+          ...Array(nameCount).fill(null).map(() => ({ width: 28 })),
+          ...Array(metricCount).fill(null).map(() => ({ width: 12 })),
+          ...periodMeta.map(() => ({ width: 11 })),
+        ];
+        ws.views = [{ state: 'frozen', xSplit: nameCount + metricCount, ySplit: 1 }];
+
+        const buffer = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      },
+      async sendAiMessage() {
+        const msg = this.aiInput.trim();
+        if (!msg) return;
+        this.aiInput = '';
+        // aiPlanSend() (js/ai.js, unchanged) reads document.getElementById('aiPlanInput').value
+        // and the module-level aiPlanMessages array directly, and toggles #btnAiPlanSend's
+        // disabled/textContent while in flight. Rather than duplicate its provider-dispatch/fetch
+        // logic here, this shim feeds it what it expects via the hidden compatibility elements
+        // added in Step 4 below, then copies its result back into this.aiMessages once it resolves.
+        aiPlanMessages = [...this.aiMessages];
+        document.getElementById('aiPlanInput').value = msg;
+        this.aiSending = true;
+        try {
+          await aiPlanSend();
+        } finally {
+          this.aiMessages = [...aiPlanMessages];
+          this.aiSending = false;
+          this.$nextTick(() => { const el = this.$refs.aiMessagesEl; if (el) el.scrollTop = el.scrollHeight; });
+        }
+      },
+      clearAiMessages() {
+        aiPlanMessages = [];
+        this.aiMessages = [];
+      },
       initTooltipsAndToggles() {
         const container = this.$refs.planningContainer;
         if (!container) return;
@@ -1304,7 +1432,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     },
   });
 
-  app.mount('#portfolioPlanningSection');
+  app.mount('#planningApp');
 
   document.getElementById('btnJsonCopy').addEventListener('click', () => {
     navigator.clipboard.writeText(document.getElementById('jsonViewerContent').value).catch(() => {});
