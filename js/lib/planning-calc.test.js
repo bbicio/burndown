@@ -1,5 +1,6 @@
 import { describe, it, expect, test } from 'vitest';
 import { matchesTaskRole, computeResidual, distributeFutureResidual } from './planning-calc.js';
+import { getCalendarWeeks, workingDaysInWeek, getPlanningPeriods, countFutureTaskWeeks } from './planning-calc.js';
 
 describe('matchesTaskRole', () => {
   it('matches identical role and task name', () => {
@@ -110,5 +111,131 @@ describe('distributeFutureResidual', () => {
 
   it('returns an empty array when weeksByMonth is empty', () => {
     expect(distributeFutureResidual(5, 10, [], true)).toEqual([]);
+  });
+});
+
+describe('getCalendarWeeks', () => {
+  it('anchors the first week to the Monday on or before startDate', () => {
+    // 2026-01-07 is a Wednesday; the Monday on/before it is 2026-01-05
+    const weeks = getCalendarWeeks(new Date(2026, 0, 7), new Date(2026, 0, 7));
+    expect(weeks).toHaveLength(1);
+    expect(weeks[0].weekStart).toEqual(new Date(2026, 0, 5));
+    expect(weeks[0].weekEnd).toEqual(new Date(2026, 0, 11));
+  });
+
+  it('anchors correctly when startDate is itself a Monday', () => {
+    const weeks = getCalendarWeeks(new Date(2026, 0, 5), new Date(2026, 0, 5));
+    expect(weeks[0].weekStart).toEqual(new Date(2026, 0, 5));
+  });
+
+  it('anchors correctly when startDate is a Sunday (dow=0 wraps back 6 days)', () => {
+    // 2026-01-11 is a Sunday; Monday on/before is 2026-01-05
+    const weeks = getCalendarWeeks(new Date(2026, 0, 11), new Date(2026, 0, 11));
+    expect(weeks[0].weekStart).toEqual(new Date(2026, 0, 5));
+  });
+
+  it('enumerates one week per 7-day span, inclusive of endDate', () => {
+    const weeks = getCalendarWeeks(new Date(2026, 0, 5), new Date(2026, 0, 18));
+    expect(weeks).toHaveLength(2);
+    expect(weeks[1].weekStart).toEqual(new Date(2026, 0, 12));
+    expect(weeks[1].weekEnd).toEqual(new Date(2026, 0, 18));
+  });
+
+  it('labels a single-month week as "DD-DD Mon"', () => {
+    const weeks = getCalendarWeeks(new Date(2026, 0, 5), new Date(2026, 0, 5));
+    expect(weeks[0].label).toBe('05-11 Jan');
+  });
+
+  it('labels a week spanning two months as "DD Mon-DD Mon"', () => {
+    // Week of 2026-01-26 (Mon) to 2026-02-01 (Sun) spans January into February
+    const weeks = getCalendarWeeks(new Date(2026, 0, 26), new Date(2026, 0, 26));
+    expect(weeks[0].label).toBe('26 Jan-01 Feb');
+  });
+
+  it('sets monthKey from the week\'s start date', () => {
+    const weeks = getCalendarWeeks(new Date(2026, 0, 5), new Date(2026, 0, 5));
+    expect(weeks[0].monthKey).toBe('Jan 2026');
+  });
+});
+
+describe('workingDaysInWeek', () => {
+  it('counts Mon-Fri days that fall within both the week and the task range', () => {
+    const week = { weekStart: new Date(2026, 0, 5), weekEnd: new Date(2026, 0, 11) }; // Mon 5 - Sun 11
+    const count = workingDaysInWeek(week, new Date(2026, 0, 5), new Date(2026, 0, 11));
+    expect(count).toBe(5); // Mon-Fri, weekend excluded
+  });
+
+  it('excludes days before the task start', () => {
+    const week = { weekStart: new Date(2026, 0, 5), weekEnd: new Date(2026, 0, 11) };
+    const count = workingDaysInWeek(week, new Date(2026, 0, 8), new Date(2026, 0, 11)); // task starts Thu
+    expect(count).toBe(2); // Thu, Fri only
+  });
+
+  it('excludes days after the task end', () => {
+    const week = { weekStart: new Date(2026, 0, 5), weekEnd: new Date(2026, 0, 11) };
+    const count = workingDaysInWeek(week, new Date(2026, 0, 5), new Date(2026, 0, 7)); // task ends Wed
+    expect(count).toBe(3); // Mon, Tue, Wed
+  });
+
+  it('returns 0 when the task range does not overlap any weekday of the week', () => {
+    const week = { weekStart: new Date(2026, 0, 5), weekEnd: new Date(2026, 0, 11) };
+    const count = workingDaysInWeek(week, new Date(2026, 0, 10), new Date(2026, 0, 11)); // Sat-Sun only
+    expect(count).toBe(0);
+  });
+});
+
+describe('getPlanningPeriods', () => {
+  it('returns monthly periods keyed YYYYMM, one per month in the config\'s date range, when interval is monthly', () => {
+    const cfg = { startDate: '20260101', endDate: '20260301' };
+    // getPlanningPeriods relies on the global getMonthRangeFromCfg (js/portfolio.js) — the real
+    // function is loaded as a page global, not imported, so this test stubs it directly on
+    // globalThis exactly like the existing distributeFutureResidual tests stub no globals (this
+    // is the first planning-calc function with an external global dependency).
+    globalThis.getMonthRangeFromCfg = c => ['202601', '202602', '202603'];
+    const periods = getPlanningPeriods(cfg, 'monthly');
+    expect(periods).toHaveLength(3);
+    expect(periods[0]).toMatchObject({ key: '202601' });
+    expect(periods[0].start).toEqual(new Date(2026, 0, 1));
+    expect(periods[0].end).toEqual(new Date(2026, 0, 31));
+    delete globalThis.getMonthRangeFromCfg;
+  });
+
+  it('returns an empty array when the config has no resolvable month range', () => {
+    globalThis.getMonthRangeFromCfg = () => [];
+    expect(getPlanningPeriods({}, 'monthly')).toEqual([]);
+    delete globalThis.getMonthRangeFromCfg;
+  });
+
+  it('returns one weekly period per calendar week spanning the full month range, when interval is weekly', () => {
+    globalThis.getMonthRangeFromCfg = () => ['202601'];
+    const periods = getPlanningPeriods({}, 'weekly');
+    // January 2026: 1st is a Thursday, so the anchor Monday is 2025-12-29; last day is 2026-01-31 (Saturday)
+    expect(periods[0].start).toEqual(new Date(2025, 11, 29));
+    expect(periods[periods.length - 1].end.getMonth()).toBe(0); // still within/around January
+    delete globalThis.getMonthRangeFromCfg;
+  });
+});
+
+describe('countFutureTaskWeeks', () => {
+  const today = new Date(2026, 0, 5); // Monday
+
+  it('returns 0 when the task already ended before today', () => {
+    expect(countFutureTaskWeeks(new Date(2025, 11, 1), new Date(2025, 11, 20), today)).toBe(0);
+  });
+
+  it('counts weeks from today\'s Monday through the task end when the task started in the past', () => {
+    // Task ends 2026-01-18 (Sunday) — 2 full weeks from today's Monday (5th-11th, 12th-18th)
+    const count = countFutureTaskWeeks(new Date(2025, 11, 1), new Date(2026, 0, 18), today);
+    expect(count).toBe(2);
+  });
+
+  it('anchors to the task\'s own start when it starts in the future, not to today', () => {
+    // Task starts 2026-02-02 (Monday), ends 2026-02-08 (Sunday) — exactly 1 week
+    const count = countFutureTaskWeeks(new Date(2026, 1, 2), new Date(2026, 1, 8), today);
+    expect(count).toBe(1);
+  });
+
+  it('returns 0 when tEnd is null/undefined', () => {
+    expect(countFutureTaskWeeks(today, null, today)).toBe(0);
   });
 });
