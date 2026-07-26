@@ -52,7 +52,7 @@
   <div style="padding:10px 12px;border-top:1px solid #dee2e6;display:flex;gap:8px;align-items:flex-end;flex-shrink:0">
     <textarea v-model="aiInput" class="form-control form-control-sm" rows="2"
       placeholder="Ask a question about planning..." style="resize:none;font-size:.83rem"
-      @keydown.enter.exact.prevent="sendAiMessage"></textarea>
+      @keydown.enter="e => { if (!e.shiftKey) { e.preventDefault(); sendAiMessage(); } }"></textarea>
     <div class="d-flex flex-column gap-1">
       <button class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:64px" :disabled="aiSending" @click="sendAiMessage">{{ aiSending ? '…' : 'Send' }}</button>
       <button class="btn btn-outline-secondary btn-sm" style="font-size:.72rem" @click="clearAiMessages">Clear</button>
@@ -152,7 +152,7 @@
       </div>
       <div class="page-toolbar-right">
         <button class="btn btn-outline-secondary btn-sm" @click="$refs.fileInput.click()">📂 Load XLS</button>
-        <button class="btn btn-outline-secondary btn-sm" title="Ask questions about resource availability, allocations and planning" @click="aiSidebarOpen = !aiSidebarOpen">🤖 AI Chat</button>
+        <button id="btnToggleAiSidebar" class="btn btn-outline-secondary btn-sm" title="Ask questions about resource availability, allocations and planning" @click="aiSidebarOpen = !aiSidebarOpen">🤖 AI Chat</button>
         <button class="btn btn-outline-secondary btn-sm" title="Toggle full browser width" @click="toggleFullWidth">{{ fullWidth ? '⊡ Compact' : '⛶ Full width' }}</button>
         <button class="btn btn-sm btn-outline-secondary" @click="exportCurrentView">⬇ Export XLS</button>
       </div>
@@ -1351,17 +1351,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       async sendAiMessage() {
         const msg = this.aiInput.trim();
         if (!msg) return;
-        this.aiInput = '';
         // aiPlanSend() (js/ai.js, unchanged) reads document.getElementById('aiPlanInput').value
         // and the module-level aiPlanMessages array directly, and toggles #btnAiPlanSend's
         // disabled/textContent while in flight. Rather than duplicate its provider-dispatch/fetch
         // logic here, this shim feeds it what it expects via the hidden compatibility elements
         // added in Step 4 below, then copies its result back into this.aiMessages once it resolves.
+        // aiPlanSend() checks for a configured API key FIRST and returns immediately (without
+        // consuming the message) if none is set — in that case the typed question must remain in
+        // the textarea, matching the original vanilla behavior. So this.aiInput is only cleared
+        // once aiPlanMessages has actually grown, proving aiPlanSend() consumed the message
+        // (rather than duplicating its provider/key-lookup logic here).
         aiPlanMessages = [...this.aiMessages];
+        const lenBefore = aiPlanMessages.length;
         document.getElementById('aiPlanInput').value = msg;
         this.aiSending = true;
         try {
           await aiPlanSend();
+          if (aiPlanMessages.length > lenBefore) this.aiInput = '';
         } finally {
           this.aiMessages = [...aiPlanMessages];
           this.aiSending = false;
@@ -1381,12 +1387,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         // Group expand/collapse (By Project/By Owner views, added in Tasks 4-5) — ported
         // verbatim from setupGroupToggle (js/planning.js:1539-1558).
+        // v-html can leave the same DOM nodes in place across re-renders (when the underlying
+        // computed string hasn't changed), so this method can run more than once against the
+        // same elements. A `data-pp-bound` marker guards every addEventListener call below so
+        // listeners never stack up (each element is bound at most once).
         const groups = new Map();
         container.querySelectorAll('tr[data-group-id]').forEach(hRow => {
           const gid = hRow.dataset.groupId;
           const childRows = [...container.querySelectorAll(`tr[data-parent-group="${gid}"]`)];
           groups.set(gid, { hRow, childRows, collapsed: false });
           hRow.style.cursor = 'pointer';
+          if (hRow.dataset.ppBound) return;
+          hRow.dataset.ppBound = '1';
           hRow.addEventListener('click', () => {
             const g = groups.get(gid);
             g.collapsed = !g.collapsed;
@@ -1397,8 +1409,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         const expandAll   = container.querySelector('.pp-expand-all');
         const collapseAll = container.querySelector('.pp-collapse-all');
-        if (expandAll)   expandAll.addEventListener('click',  e => { e.stopPropagation(); groups.forEach(g => { g.collapsed = false; g.childRows.forEach(r => r.style.display = '');     const b = g.hRow.querySelector('.pp-toggle'); if (b) b.textContent = '▼'; }); });
-        if (collapseAll) collapseAll.addEventListener('click', e => { e.stopPropagation(); groups.forEach(g => { g.collapsed = true;  g.childRows.forEach(r => r.style.display = 'none'); const b = g.hRow.querySelector('.pp-toggle'); if (b) b.textContent = '▶'; }); });
+        if (expandAll && !expandAll.dataset.ppBound) {
+          expandAll.dataset.ppBound = '1';
+          expandAll.addEventListener('click', e => { e.stopPropagation(); groups.forEach(g => { g.collapsed = false; g.childRows.forEach(r => r.style.display = '');     const b = g.hRow.querySelector('.pp-toggle'); if (b) b.textContent = '▼'; }); });
+        }
+        if (collapseAll && !collapseAll.dataset.ppBound) {
+          collapseAll.dataset.ppBound = '1';
+          collapseAll.addEventListener('click', e => { e.stopPropagation(); groups.forEach(g => { g.collapsed = true;  g.childRows.forEach(r => r.style.display = 'none'); const b = g.hRow.querySelector('.pp-toggle'); if (b) b.textContent = '▶'; }); });
+        }
       },
     },
     watch: {
@@ -1410,6 +1428,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       teamFilters: { handler(v) { portfolioTeamFilters = v; }, immediate: true },
     },
     async created() {
+      const user = await initNav('planning', { breadcrumbs: [
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Resource Planning' },
+      ]});
+      if (!user) return;
+
       await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi()]);
       await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
       this.initWindowIfNeeded();
@@ -1463,17 +1487,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     catch(err) { errEl.textContent = 'Invalid JSON: ' + err.message; errEl.classList.remove('d-none'); }
   });
 
-  // initNav() itself renders the shared navbar/footer and gates on auth — its own async
-  // resolution doesn't block anything above, matching how every other Vue page on this
-  // roadmap (portfolio.html, pipeline.html, project-config.html) calls it: fire, then await
-  // separately for the user object before any user-scoped UI is shown. Since this page's
-  // Vue app doesn't render anything user-scoped beyond the standard authenticated shell,
-  // it's awaited here purely to preserve the original 401-redirect gate's ordering.
-  const user = await initNav('planning', { breadcrumbs: [
-    { label: 'Home', href: '/pipeline.html' },
-    { label: 'Resource Planning' },
-  ]});
-  if (!user) return;
 });
 </script>
 
