@@ -752,6 +752,7 @@ async function cgPublishDraft() {
         renderCgEditor();
         const tabs = cgLoad(_cgActiveCgId);
         if (tabs) renderCgVersionTabs(tabs);
+        window.location.reload();
       } catch (e) {
         showConfirm('Failed to publish: ' + e.message, null, null, '⚠️ Publish failed');
       }
