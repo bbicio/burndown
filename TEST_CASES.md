@@ -140,6 +140,8 @@
 | CG-40 | New client appears in dropdown without reload | Click "+ New" next to the Client dropdown; create a new client; close the modal | The newly-created client appears as a selectable option in the Client dropdown immediately, with no page reload needed | |
 | CG-41 | Clearing a custom rate on a non-EUR grid restores the converted baseline | On a grid with Currency set to a non-EUR currency (e.g. USD), set a role's rate to a custom value, then clear the input | The rate reverts to the correct currency-converted baseline (e.g. the USD-converted rate), not the raw EUR registry value; the "✎ custom" badge disappears | |
 | CG-42 | Locked version blocks the offer-details header form too | Open a version that is Committed with every task already migrated to a project (locked) | Project name, Start, End, Currency, Pipeline stage, Client, Rate card, and Notes fields are all disabled, in addition to the grid table's own fields | |
+| CG-43 | Clone warns if the new version's structure fails to load | Clone a grid; force the post-clone structure fetch to fail (e.g. network throttling) | An "⚠️ Clone incomplete" dialog explains the structure may not have loaded and to reload; the editor still opens on the new (temporarily empty) clone; reloading the page shows the correct structure | |
+| CG-44 | Clone blocks if the source version's structure fails to load | Click ⧉ Clone on a version whose structure isn't already in memory; force that fetch to fail | Clone is blocked with an inline "Could not load the source proposal's structure. Please try again." error; no new cost grid/version is created on the API | |
 
 ---
 

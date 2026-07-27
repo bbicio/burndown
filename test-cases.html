@@ -544,6 +544,12 @@ const SECTIONS = [
     {id:'CG-42',scenario:'Locked version blocks the offer-details header form too',
      steps:'Open a version that is Committed with every task already migrated to a project (locked)',
      expected:'Project name, Start, End, Currency, Pipeline stage, Client, Rate card, and Notes fields are all disabled, in addition to the grid table\'s own fields'},
+    {id:'CG-43',scenario:'Clone warns if the new version\'s structure fails to load',
+     steps:'Clone a grid; force the post-clone structure fetch to fail (e.g. network throttling)',
+     expected:'An "⚠️ Clone incomplete" dialog explains the structure may not have loaded and to reload; the editor still opens on the new (temporarily empty) clone; reloading the page shows the correct structure'},
+    {id:'CG-44',scenario:'Clone blocks if the source version\'s structure fails to load',
+     steps:'Click ⧉ Clone on a version whose structure isn\'t already in memory; force that fetch to fail',
+     expected:'Clone is blocked with an inline "Could not load the source proposal\'s structure. Please try again." error; no new cost grid/version is created on the API'},
   ]
 },
 {
