@@ -175,6 +175,7 @@ async function showCostGridEditorView(cgId, versionId) {
   if (_cgVueApp) { await _cgVueApp.openVersion(cgId, versionId); return; }
   // No mounted Vue app (e.g. this global was called before mount, or from a page that
   // never sets _cgVueApp) — nothing to do; every real caller on costgrid.html runs after mount.
+  console.warn('[costgrid] showCostGridEditorView called before _cgVueApp is ready', cgId, versionId);
 }
 
 // ── LIST VIEW ─────────────────────────────────────────────────────────────────
@@ -308,7 +309,8 @@ function cgConfirmDeleteVersion(cgId, versionId, versionLabel, onSuccess) {
 // ── VERSION TABS ──────────────────────────────────────────────────────────────
 
 function renderCgVersionTabs(cg) {
-  if (_cgVueApp) _cgVueApp.cg = cg ? JSON.parse(JSON.stringify(cg)) : null;
+  if (_cgVueApp) { _cgVueApp.cg = cg ? JSON.parse(JSON.stringify(cg)) : null; return; }
+  console.warn('[costgrid] renderCgVersionTabs called before _cgVueApp is ready', cg);
 }
 
 // ── EDITOR RENDER ─────────────────────────────────────────────────────────────
@@ -898,7 +900,11 @@ async function cgCloneGrid() {
 
   // Load full structure from API if not already in memory
   if (typeof cgLoadStructureFromApi === 'function') {
-    await cgLoadStructureFromApi(srcCgId, srcVerId).catch(() => {});
+    const srcStructureLoaded = await cgLoadStructureFromApi(srcCgId, srcVerId);
+    if (!srcStructureLoaded) {
+      if (errEl) { errEl.textContent = 'Could not load the source proposal\'s structure. Please try again.'; errEl.classList.remove('d-none'); }
+      return;
+    }
   }
   const srcCg  = cgLoad(srcCgId);
   const srcVer = srcCg?.versions.find(v => v.versionId === srcVerId);
@@ -960,7 +966,13 @@ async function cgCloneGrid() {
     if (!idx.includes(cgId)) idx.push(cgId);
     cgSaveIndex(idx);
     cgSave(cg);
-    await cgLoadStructureFromApi(cgId, verId);
+    const structureLoaded = await cgLoadStructureFromApi(cgId, verId);
+    if (!structureLoaded) {
+      showConfirm(
+        'The new proposal was created, but its structure may not have loaded correctly. Please reload the page to verify.',
+        null, null, '⚠️ Clone incomplete'
+      );
+    }
 
     bootstrap.Modal.getInstance(document.getElementById('cgCloneModal'))?.hide();
     showCostGridEditorView(cgId, verId);
