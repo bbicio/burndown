@@ -120,7 +120,7 @@
       Could not load cost grid. Try reloading the page.
     </div>
     <template v-else>
-    <div v-if="selectedCg.versions.length > 1" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 18px;border-bottom:1px solid var(--border-light);background:var(--surface-light);flex-shrink:0">
+    <div v-if="selectedCg.versions.length > 0" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 18px;border-bottom:1px solid var(--border-light);background:var(--surface-light);flex-shrink:0">
       <span class="text-muted" style="font-size:var(--text-xs)">Version:</span>
       <button v-for="ver in selectedCg.versions" :key="ver.versionId"
               class="btn btn-sm" :class="ver.versionId === selectedVerId ? 'btn-primary' : 'btn-outline-secondary'"
