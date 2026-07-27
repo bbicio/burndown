@@ -550,6 +550,18 @@ const SECTIONS = [
     {id:'CG-44',scenario:'Clone blocks if the source version\'s structure fails to load',
      steps:'Click ⧉ Clone on a version whose structure isn\'t already in memory; force that fetch to fail',
      expected:'Clone is blocked with an inline "Could not load the source proposal\'s structure. Please try again." error; no new cost grid/version is created on the API'},
+    {id:'CG-45',scenario:'Deleting a proposal\'s only version deletes the whole proposal',
+     steps:'On a cost grid with exactly one version, trigger the version-delete action',
+     expected:'The "Delete Cost Grid" confirmation appears (not a blocking alert); confirming deletes the entire proposal'},
+    {id:'CG-46',scenario:'Version tabs visible with a single version',
+     steps:'Open a cost grid with exactly one version in the editor and in the pipeline board\'s detail panel',
+     expected:'A version tab/label is shown in both views (previously hidden until a 2nd version existed)'},
+    {id:'CG-47',scenario:'Publish failure shows a styled dialog, not a native alert',
+     steps:'Trigger a Publish failure (e.g. a stale local copy attempting to publish an already-non-Draft version)',
+     expected:'A "⚠️ Publish failed" dialog appears with the error message, not a native browser alert'},
+    {id:'CG-48',scenario:'Publish success reflects immediately',
+     steps:'Publish a Draft version to SIP',
+     expected:'The page reloads automatically; Draft-only controls (Publish, Delete version, New version) are no longer shown, no manual reload needed'},
   ]
 },
 {

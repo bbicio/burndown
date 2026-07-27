@@ -77,7 +77,7 @@ Clicking a card (anywhere other than the action buttons) opens the **Detail Pane
 
 A fixed right-side panel (860 px wide) with two scrollable columns.
 
-**Header:** 🗑 Delete (Draft stage only) · ⧉ Clone · 🔗 Share · ✏️ Edit · ×. When the cost grid has more than one version, a row of version tabs (colour-coded stage dot + label) appears above the two-column body; clicking a tab reloads the panel for that version. Viewer permission hides Clone, Share, and Edit from the header (see §18.3).
+**Header:** 🗑 Delete (Draft stage only) · ⧉ Clone · 🔗 Share · ✏️ Edit · ×. A row of version tabs (colour-coded stage dot + label) always appears above the two-column body, even for a single-version proposal; clicking a tab reloads the panel for that version. Deleting a proposal's only remaining version deletes the entire proposal, since every proposal always has at least one version. Viewer permission hides Clone, Share, and Edit from the header (see §18.3).
 
 **Left column — Offer metadata + Linked Projects**
 

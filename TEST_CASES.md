@@ -142,6 +142,10 @@
 | CG-42 | Locked version blocks the offer-details header form too | Open a version that is Committed with every task already migrated to a project (locked) | Project name, Start, End, Currency, Pipeline stage, Client, Rate card, and Notes fields are all disabled, in addition to the grid table's own fields | |
 | CG-43 | Clone warns if the new version's structure fails to load | Clone a grid; force the post-clone structure fetch to fail (e.g. network throttling) | An "⚠️ Clone incomplete" dialog explains the structure may not have loaded and to reload; the editor still opens on the new (temporarily empty) clone; reloading the page shows the correct structure | |
 | CG-44 | Clone blocks if the source version's structure fails to load | Click ⧉ Clone on a version whose structure isn't already in memory; force that fetch to fail | Clone is blocked with an inline "Could not load the source proposal's structure. Please try again." error; no new cost grid/version is created on the API | |
+| CG-45 | Deleting a proposal's only version deletes the whole proposal | On a cost grid with exactly one version, trigger the version-delete action | The "Delete Cost Grid" confirmation appears (not a blocking alert); confirming deletes the entire proposal | |
+| CG-46 | Version tabs visible with a single version | Open a cost grid with exactly one version in the editor and in the pipeline board's detail panel | A version tab/label is shown in both views (previously hidden until a 2nd version existed) | |
+| CG-47 | Publish failure shows a styled dialog, not a native alert | Trigger a Publish failure (e.g. a stale local copy attempting to publish an already-non-Draft version) | A "⚠️ Publish failed" dialog appears with the error message, not a native browser alert | |
+| CG-48 | Publish success reflects immediately | Publish a Draft version to SIP | The page reloads automatically; Draft-only controls (Publish, Delete version, New version) are no longer shown, no manual reload needed | |
 
 ---
 
