@@ -139,8 +139,10 @@ async function cgLoadStructureFromApi(cgId, versionId) {
     }
 
     cgSave(cg);
+    return true;
   } catch (e) {
     console.warn('[sync] cgLoadStructureFromApi:', e.message);
+    return false;
   }
 }
 

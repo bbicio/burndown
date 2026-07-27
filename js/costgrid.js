@@ -960,7 +960,13 @@ async function cgCloneGrid() {
     if (!idx.includes(cgId)) idx.push(cgId);
     cgSaveIndex(idx);
     cgSave(cg);
-    await cgLoadStructureFromApi(cgId, verId);
+    const structureLoaded = await cgLoadStructureFromApi(cgId, verId);
+    if (!structureLoaded) {
+      showConfirm(
+        'The new proposal was created, but its structure may not have loaded correctly. Please reload the page to verify.',
+        null, null, '⚠️ Clone incomplete'
+      );
+    }
 
     bootstrap.Modal.getInstance(document.getElementById('cgCloneModal'))?.hide();
     showCostGridEditorView(cgId, verId);
