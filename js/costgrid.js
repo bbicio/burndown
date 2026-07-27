@@ -900,7 +900,11 @@ async function cgCloneGrid() {
 
   // Load full structure from API if not already in memory
   if (typeof cgLoadStructureFromApi === 'function') {
-    await cgLoadStructureFromApi(srcCgId, srcVerId).catch(() => {});
+    const srcStructureLoaded = await cgLoadStructureFromApi(srcCgId, srcVerId);
+    if (!srcStructureLoaded) {
+      if (errEl) { errEl.textContent = 'Could not load the source proposal\'s structure. Please try again.'; errEl.classList.remove('d-none'); }
+      return;
+    }
   }
   const srcCg  = cgLoad(srcCgId);
   const srcVer = srcCg?.versions.find(v => v.versionId === srcVerId);

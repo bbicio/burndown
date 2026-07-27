@@ -85,9 +85,9 @@ async function cgLoadStructureFromApi(cgId, versionId) {
   try {
     const struct = await Api.costGrids.versions.structure(cgId, versionId);
     const cg = cgLoad(cgId);
-    if (!cg) return;
+    if (!cg) { console.warn('[sync] cgLoadStructureFromApi: cost grid not found in local store', cgId); return false; }
     const ver = cg.versions.find(v => v.versionId === versionId);
-    if (!ver) return;
+    if (!ver) { console.warn('[sync] cgLoadStructureFromApi: version not found', cgId, versionId); return false; }
 
     if (Array.isArray(struct.phases)) {
       const rolesMap = new Map(); // code → { label, rate }
