@@ -749,9 +749,6 @@ async function cgPublishDraft() {
           cgSave(cgFresh);
         }
         if (_cgDraft) { _cgDraft.pipeline = 'SIP'; _cgDraft.pipelineYear = updated.pipeline_year || null; }
-        renderCgEditor();
-        const tabs = cgLoad(_cgActiveCgId);
-        if (tabs) renderCgVersionTabs(tabs);
         window.location.reload();
       } catch (e) {
         showConfirm('Failed to publish: ' + e.message, null, null, '⚠️ Publish failed');
