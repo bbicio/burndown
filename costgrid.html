@@ -40,7 +40,7 @@
       </div>
     </div>
     <!-- Version tabs -->
-    <div v-if="cg && cg.versions.length > 1" class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+    <div v-if="cg && cg.versions.length > 0" class="d-flex align-items-center gap-2 mb-3 flex-wrap">
       <span class="small text-muted">Version:</span>
       <div class="d-flex gap-1 flex-wrap">
         <button v-for="v in cg.versions" :key="v.versionId"

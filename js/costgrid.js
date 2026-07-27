@@ -282,7 +282,7 @@ function cgConfirmDeleteVersion(cgId, versionId, versionLabel, onSuccess) {
   const cg = cgLoad(cgId);
   if (!cg) return;
   if (cg.versions.length <= 1) {
-    alert('Cannot delete the only version of a Cost Grid. Delete the entire Cost Grid instead.');
+    cgConfirmDeleteGrid(cgId, cg.name, onSuccess);
     return;
   }
   const v = cg.versions.find(v => v.versionId === versionId);
@@ -749,11 +749,9 @@ async function cgPublishDraft() {
           cgSave(cgFresh);
         }
         if (_cgDraft) { _cgDraft.pipeline = 'SIP'; _cgDraft.pipelineYear = updated.pipeline_year || null; }
-        renderCgEditor();
-        const tabs = cgLoad(_cgActiveCgId);
-        if (tabs) renderCgVersionTabs(tabs);
+        window.location.reload();
       } catch (e) {
-        alert('Failed to publish: ' + e.message);
+        showConfirm('Failed to publish: ' + e.message, null, null, '⚠️ Publish failed');
       }
     },
     null, '🚀 Publish to SIP'

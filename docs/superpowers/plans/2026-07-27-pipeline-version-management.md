@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fix three small, independent issues in pipeline/cost-grid version management: deleting a proposal's only version now deletes the whole proposal instead of blocking; the version-tab row is always visible (even with one version); Publish's failure path uses the shared `showConfirm()` dialog instead of a native `alert()`.
+**Goal:** Fix four small, independent issues in pipeline/cost-grid version management: deleting a proposal's only version now deletes the whole proposal instead of blocking; the version-tab row is always visible (even with one version); Publish's failure path uses the shared `showConfirm()` dialog instead of a native `alert()`; a successful Publish now reliably reflects in the UI without requiring a manual page reload (Task 4, added mid-cycle — a genuinely new finding discovered during this cycle's own Gate 2 manual verification, explicitly approved for inclusion by the user rather than isolated to a future cycle).
 
 **Architecture:** Three self-contained changes across `js/costgrid.js` (two functions), `costgrid.html`, and `pipeline.html` (one template condition each). No shared code between the three items — each is independently testable.
 
@@ -183,4 +183,59 @@ If the button is no longer visible/clickable after the first successful publish 
 ```bash
 git add js/costgrid.js
 git commit -m "fix(costgrid): Publish failure shows a showConfirm() dialog instead of a native alert()"
+```
+
+---
+
+### Task 4: Publish success reliably reflects in the UI without a manual reload
+
+**Added mid-cycle** — discovered during this cycle's own Gate 2 manual verification of Task 3's Publish flow, and explicitly approved by the user for inclusion in this same cycle (option A: reload) rather than deferral to a future cycle.
+
+**Root cause:** `cgPublishDraft()`'s success path (`js/costgrid.js:751`) mutates `_cgDraft.pipeline = 'SIP'` by writing directly to the raw global object, not through Vue's reactive proxy (`_cgVueApp.draft`). Since `this.draft` and `_cgDraft` are the same underlying object (a deliberate invariant — see `resyncFromGlobals()`'s own comment, `costgrid.html:830-838` — so `cgAutoSave()` always reads live data), writes made directly to `_cgDraft` bypass the Proxy `set` trap Vue's reactivity depends on to mark dependents dirty. The subsequent `renderCgEditor()` → `_cgVueApp.resyncFromGlobals()` call forces a re-render via `$forceUpdate()`, but `$forceUpdate()` does not invalidate cached `computed` values (like `isDraft`, `costgrid.html:650`) whose tracked dependency never fired a reactive trigger — so the Publish button and other Draft-only UI remain visible until a full page reload rebuilds the app from scratch.
+
+**Files:**
+- Modify: `js/costgrid.js:751-754` (`cgPublishDraft`'s success path)
+
+**Interfaces:** None — fully independent of Tasks 1-3.
+
+- [ ] **Step 1: Add a page reload after a successful publish**
+
+Current code (`js/costgrid.js:751-754`):
+
+```js
+        if (_cgDraft) { _cgDraft.pipeline = 'SIP'; _cgDraft.pipelineYear = updated.pipeline_year || null; }
+        renderCgEditor();
+        const tabs = cgLoad(_cgActiveCgId);
+        if (tabs) renderCgVersionTabs(tabs);
+```
+
+Change to:
+
+```js
+        if (_cgDraft) { _cgDraft.pipeline = 'SIP'; _cgDraft.pipelineYear = updated.pipeline_year || null; }
+        renderCgEditor();
+        const tabs = cgLoad(_cgActiveCgId);
+        if (tabs) renderCgVersionTabs(tabs);
+        window.location.reload();
+```
+
+This guarantees the page re-fetches fresh state from the API on every successful publish, sidestepping the reactivity-invalidation gap entirely — matching the same "reload to see the fresh state" pattern this project's own Clone-failure fix (from the just-merged `costgrid-silent-failures` cycle) already relies on for a related self-healing case. The existing `renderCgEditor()`/`renderCgVersionTabs(tabs)` calls are left in place (harmless — they run synchronously before the reload takes effect) rather than removed, to minimize the diff and avoid any risk of a subtle behavior change in the brief instant before reload.
+
+- [ ] **Step 2: Run the test suite**
+
+```bash
+npm test
+```
+
+Expected: same pass count as before this task (no test covers this function).
+
+- [ ] **Step 3: Manual verification**
+
+Publish a Draft version to SIP in `costgrid.html`. Expected: immediately after confirming, the page reloads on its own, and the editor now correctly shows the version's SIP state (no Draft-only buttons/banner visible) — no manual reload needed.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add js/costgrid.js
+git commit -m "fix(costgrid): reload the page after a successful Publish so the UI reliably reflects the new state"
 ```
