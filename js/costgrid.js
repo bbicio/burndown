@@ -282,7 +282,7 @@ function cgConfirmDeleteVersion(cgId, versionId, versionLabel, onSuccess) {
   const cg = cgLoad(cgId);
   if (!cg) return;
   if (cg.versions.length <= 1) {
-    alert('Cannot delete the only version of a Cost Grid. Delete the entire Cost Grid instead.');
+    cgConfirmDeleteGrid(cgId, cg.name, onSuccess);
     return;
   }
   const v = cg.versions.find(v => v.versionId === versionId);
