@@ -175,6 +175,7 @@ async function showCostGridEditorView(cgId, versionId) {
   if (_cgVueApp) { await _cgVueApp.openVersion(cgId, versionId); return; }
   // No mounted Vue app (e.g. this global was called before mount, or from a page that
   // never sets _cgVueApp) — nothing to do; every real caller on costgrid.html runs after mount.
+  console.warn('[costgrid] showCostGridEditorView called before _cgVueApp is ready', cgId, versionId);
 }
 
 // ── LIST VIEW ─────────────────────────────────────────────────────────────────
@@ -308,7 +309,8 @@ function cgConfirmDeleteVersion(cgId, versionId, versionLabel, onSuccess) {
 // ── VERSION TABS ──────────────────────────────────────────────────────────────
 
 function renderCgVersionTabs(cg) {
-  if (_cgVueApp) _cgVueApp.cg = cg ? JSON.parse(JSON.stringify(cg)) : null;
+  if (_cgVueApp) { _cgVueApp.cg = cg ? JSON.parse(JSON.stringify(cg)) : null; return; }
+  console.warn('[costgrid] renderCgVersionTabs called before _cgVueApp is ready', cg);
 }
 
 // ── EDITOR RENDER ─────────────────────────────────────────────────────────────
