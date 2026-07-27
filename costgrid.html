@@ -1099,7 +1099,7 @@ Vue.createApp({
       modal.style.display = 'flex';
     },
     phasingFmtAmount(n) { return (this.draft.currency || 'EUR') + ' ' + Math.round(n).toLocaleString('en'); },
-    phasingFmtHours(n) { return (Math.round(n * 10) / 10) + ' h'; },
+    phasingFmtHours(n) { return fmtH(n); },
     phasingFmtMonth(mo) {
       const [my, mm] = mo.split('-');
       return new Date(parseInt(my), parseInt(mm) - 1).toLocaleString('en', { month: 'short' }) + ' ' + my;
