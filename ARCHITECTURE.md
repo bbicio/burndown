@@ -740,9 +740,10 @@ burndown/
                             API-loading call (a Gate-3 code-review fix — the first draft inverted this
                             ordering); `initTooltipsAndToggles()` guards every addEventListener call
                             with a `data-pp-bound` marker so re-invocations across `updated()` never
-                            double-bind a v-html-rendered row left in place; pre-existing bug confirmed
-                            during this cycle, not fixed: "Export XLS" throws `ReferenceError: ExcelJS
-                            is not defined` — no page in the repo loads the ExcelJS library
+                            double-bind a v-html-rendered row left in place; "Export XLS" (a
+                            pre-existing `ReferenceError: ExcelJS is not defined` bug — no page loaded
+                            the ExcelJS library) was fixed in a later dedicated cycle (2026-07-28) by
+                            adding the ExcelJS CDN `<script>` tag here and on `costgrid.html`
   costgrid.html           ← cost grid editor (phase/task/role table, phasing panel, version tabs,
                             toolbar), Vue 3 (CDN, no build step, same pattern as pipeline.html/
                             portfolio.html); single monolithic Vue.createApp, no sub-components, matching

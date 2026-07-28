@@ -147,6 +147,7 @@
 | CG-47 | Publish failure shows a styled dialog, not a native alert | Trigger a Publish failure (e.g. a stale local copy attempting to publish an already-non-Draft version) | A "⚠️ Publish failed" dialog appears with the error message, not a native browser alert | |
 | CG-48 | Publish success reflects immediately | Publish a Draft version to SIP | The page reloads automatically; Draft-only controls (Publish, Delete version, New version) are no longer shown, no manual reload needed | |
 | CG-49 | Phasing panel shows exact hour precision | Open the Proposal Phasing panel on a cost grid with fractional task hours (e.g. 0.25h, or a monthly aggregate like 1.333h) | Total-hours summary and each month's hours row show exact 2-decimal values (e.g. "0.25h") matching the app-wide hour format, not rounded to the nearest tenth (no more "0.3 h") | |
+| CG-50 | Export XLS produces a styled workbook | Click "Export XLS" in the editor toolbar | A `.xlsx` file downloads with no error; opening it shows the expected cell styling (dark/sand colors, borders, fonts), not just raw unstyled data | |
 
 ---
 
