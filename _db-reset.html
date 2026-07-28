@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDash — DB Reset</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="css/tokens.css?v=6">
+  <link rel="stylesheet" href="css/tokens.css?v=7">
   <link rel="stylesheet" href="css/style.css?v=6">
   <style>
     body { background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -35,7 +35,7 @@
 <!-- Navbar (injected by nav.js) -->
 <div id="nav-container"></div>
 
-<div id="app">
+<div id="app" v-cloak>
 
   <div v-if="ready || accessDenied" class="page app-container">
     <div class="mb-4">
