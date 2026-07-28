@@ -562,6 +562,9 @@ const SECTIONS = [
     {id:'CG-48',scenario:'Publish success reflects immediately',
      steps:'Publish a Draft version to SIP',
      expected:'The page reloads automatically; Draft-only controls (Publish, Delete version, New version) are no longer shown, no manual reload needed'},
+    {id:'CG-49',scenario:'Phasing panel shows exact hour precision',
+     steps:'Open the Proposal Phasing panel on a cost grid with fractional task hours (e.g. 0.25h, or a monthly aggregate like 1.333h)',
+     expected:'Total-hours summary and each month\'s hours row show exact 2-decimal values (e.g. "0.25h") matching the app-wide hour format, not rounded to the nearest tenth (no more "0.3 h")'},
   ]
 },
 {
