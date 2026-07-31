@@ -25,6 +25,7 @@ async function apiFetch(path, options = {}) {
   }
   clearTimeout(timer);
   if (res.status === 401) {
+    window.__pdashAuthRedirecting = true;
     window.location.href = '/login.html';
     throw new Error('Unauthorized');
   }
