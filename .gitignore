@@ -15,3 +15,6 @@ Thumbs.db
 
 # Worktrees
 .worktrees/
+
+# scripts/test-branch.sh generates this override file per branch; never source-controlled
+docker-compose.branch.yml
