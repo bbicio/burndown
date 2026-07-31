@@ -664,8 +664,10 @@ burndown/
     Dockerfile
     package.json
   css/
-    tokens.css            ← design tokens (single source of truth)
-    style.css
+    tokens.css            ← design tokens (single source of truth); also carries `[v-cloak] { display: none; }`
+                            (2026-07, repo-wide FOUC fix) — see CLAUDE.md's "v-cloak" section for the full rationale
+    style.css             ← includes `.pb-board-root` (2026-07) — extracted from pipeline.html's former inline
+                            style so the `[v-cloak]` rule above could win via cascade without `!important`
   js/
     api.js                ← Api.* namespace, apiFetch wrapper
     api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData; `_cgStore` itself lives in costgrid.js — this file's `cgSyncFromApi` populates it); `_pushProjectToApi` maps currency symbol → ISO code (`'€'→'EUR'`, `'$'→'USD'`, `'£'→'GBP'`) before PATCH to satisfy `currencies` FK; `_apiProjectToLocal` maps ISO code → symbol for the form select; `costGridRef.cgId` is read directly from `GET /api/projects`'s server-resolved `cg_id` (a JOIN to `cost_grid_versions`), not from `_cgStore` — fixed 2026-07 after `_resolveCgIdForVersion()`/`_cgStore` (only declared in costgrid.js) threw on pages that don't load that script (`portfolio.html`, `project-config.html`), silently emptying `config.projects` there; `cgLoadStructureFromApi(cgId, versionId)` returns `true` on success / `false` on any failure (a fetch error, or the cost grid/version not found in the local store) instead of always resolving to `undefined` — added so `js/costgrid.js`'s `cgCloneGrid()` can detect and surface a failed structure load instead of silently proceeding with stale/incomplete data
