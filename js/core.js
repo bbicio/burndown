@@ -390,9 +390,12 @@ function showInfo(message, title = 'ℹ️ Info') {
 
   const cancelBtn = document.getElementById('confirmModalCancel');
   const okOld = document.getElementById('confirmModalOk');
+  const originalOkText = okOld.textContent;
+  const originalOkClass = okOld.className;
   const okBtn = okOld.cloneNode(true);
   okOld.replaceWith(okBtn);
   okBtn.textContent = 'OK';
+  okBtn.className = 'btn btn-primary';
 
   cancelBtn.style.display = 'none';
 
@@ -402,6 +405,8 @@ function showInfo(message, title = 'ℹ️ Info') {
   modalEl.addEventListener('hidden.bs.modal', () => {
     modalEl.style.zIndex = '';
     cancelBtn.style.display = ''; // restore for the next showConfirm() call
+    okBtn.textContent = originalOkText; // restore for the next showConfirm() call
+    okBtn.className = originalOkClass;  // restore for the next showConfirm() call
   }, { once: true });
 
   modalEl.addEventListener('shown.bs.modal', () => {
