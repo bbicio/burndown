@@ -970,9 +970,9 @@ async function cgCloneGrid() {
     cgSave(cg);
     const structureLoaded = await cgLoadStructureFromApi(cgId, verId);
     if (!structureLoaded && !window.__pdashAuthRedirecting) {
-      showConfirm(
+      showInfo(
         'The new proposal was created, but its structure may not have loaded correctly. Please reload the page to verify.',
-        null, null, '⚠️ Clone incomplete'
+        '⚠️ Clone incomplete'
       );
     }
 

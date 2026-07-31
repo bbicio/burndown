@@ -383,6 +383,37 @@ function showConfirm(message, onConfirm, onCancel, title = '⚠️ Confirm') {
   modal.show();
 }
 
+function showInfo(message, title = 'ℹ️ Info') {
+  const modalEl = document.getElementById('confirmModal');
+  document.getElementById('confirmModalTitle').textContent  = title;
+  document.getElementById('confirmModalMessage').textContent = message;
+
+  const cancelBtn = document.getElementById('confirmModalCancel');
+  const okOld = document.getElementById('confirmModalOk');
+  const okBtn = okOld.cloneNode(true);
+  okOld.replaceWith(okBtn);
+  okBtn.textContent = 'OK';
+
+  cancelBtn.style.display = 'none';
+
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+  okBtn.addEventListener('click', () => modal.hide());
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    modalEl.style.zIndex = '';
+    cancelBtn.style.display = ''; // restore for the next showConfirm() call
+  }, { once: true });
+
+  modalEl.addEventListener('shown.bs.modal', () => {
+    modalEl.style.zIndex = '1200';
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    if (backdrops.length > 0)
+      backdrops[backdrops.length - 1].style.zIndex = '1190';
+  }, { once: true });
+
+  modal.show();
+}
+
 function cfgForProject(projectId) {
   const key = projectId.trim().toLowerCase();
   return config.projects?.find(p => p.id && p.id.trim().toLowerCase() === key) || null;
