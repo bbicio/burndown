@@ -98,7 +98,7 @@ async function aiPlanSend() {
 
   if (!apiKey) {
     const names = { anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Google Gemini' };
-    showConfirm(`No API key configured for ${names[provider] || provider}.\n\nOpen ⚙ Settings → API & Integrations.`, null, null, 'ℹ️ API Key required');
+    showInfo(`No API key configured for ${names[provider] || provider}.\n\nOpen ⚙ Settings → API & Integrations.`, 'ℹ️ API Key required');
     return;
   }
   const input = document.getElementById('aiPlanInput');
@@ -377,9 +377,9 @@ async function callAi(prompt) {
 
 async function openAiAnalysis() {
   if (!hasAiKey()) {
-    showConfirm(
+    showInfo(
       'Nessuna API key AI configurata.\n\nApri ⚙️ Configura Budget → sezione AI Assistant.',
-      null, null, 'ℹ️ API Key richiesta'
+      'ℹ️ API Key richiesta'
     );
     return;
   }

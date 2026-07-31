@@ -383,6 +383,53 @@ function showConfirm(message, onConfirm, onCancel, title = '⚠️ Confirm') {
   modal.show();
 }
 
+function showInfo(message, title = 'ℹ️ Info') {
+  const modalEl = document.getElementById('confirmModal');
+  document.getElementById('confirmModalTitle').textContent  = title;
+  document.getElementById('confirmModalMessage').textContent = message;
+
+  const cancelBtn = document.getElementById('confirmModalCancel');
+  cancelBtn.style.display = 'none';
+
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+  // A showInfo() call that arrives while a previous one is still open (e.g. a fast double-click
+  // before the trigger button's disabled state paints) must not re-capture the OK button's
+  // "original" text/class — at this point they're already the "OK"/btn-primary values set below,
+  // so re-capturing would permanently poison the restore on close.
+  if (modalEl.dataset.pdashInfoActive === '1') {
+    modal.show();
+    return;
+  }
+  modalEl.dataset.pdashInfoActive = '1';
+
+  const okOld = document.getElementById('confirmModalOk');
+  const originalOkText = okOld.textContent;
+  const originalOkClass = okOld.className;
+  const okBtn = okOld.cloneNode(true);
+  okOld.replaceWith(okBtn);
+  okBtn.textContent = 'OK';
+  okBtn.className = 'btn btn-primary';
+
+  okBtn.addEventListener('click', () => modal.hide());
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    modalEl.style.zIndex = '';
+    modalEl.dataset.pdashInfoActive = '';
+    cancelBtn.style.display = ''; // restore for the next showConfirm() call
+    okBtn.textContent = originalOkText; // restore for the next showConfirm() call
+    okBtn.className = originalOkClass;  // restore for the next showConfirm() call
+  }, { once: true });
+
+  modalEl.addEventListener('shown.bs.modal', () => {
+    modalEl.style.zIndex = '1200';
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    if (backdrops.length > 0)
+      backdrops[backdrops.length - 1].style.zIndex = '1190';
+  }, { once: true });
+
+  modal.show();
+}
+
 function cfgForProject(projectId) {
   const key = projectId.trim().toLowerCase();
   return config.projects?.find(p => p.id && p.id.trim().toLowerCase() === key) || null;
