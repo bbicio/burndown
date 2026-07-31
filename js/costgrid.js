@@ -157,6 +157,10 @@ const CG_SECTIONS = ['portfolioSection','portfolioPlanningSection','mainContent'
                      'uploadSection','costGridEditorSection',
                      'pipelineBoardSection'];
 
+// NOTE: if this function (or its only caller, showCostGridListView — currently dead, zero callers)
+// is ever reactivated, it will set a plain (non-!important) display:none on #costGridEditorSection/
+// #pipelineBoardSection, which are v-cloak'd Vue roots on costgrid.html/pipeline.html — verify this
+// doesn't fight Vue's own mount-time removal of v-cloak before re-enabling this path.
 function cgHideAll() { CG_SECTIONS.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; }); }
 
 function showCostGridListView() {

@@ -145,3 +145,7 @@
   --z-modal:        500;
   --z-notification: 700;
 }
+
+[v-cloak] {
+  display: none;
+}
