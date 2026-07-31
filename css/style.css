@@ -287,3 +287,13 @@ body.pp-fullwidth .app-container { max-width: 100% !important; padding: 0 12px !
 .fs-app-md  { font-size: var(--text-md); }
 .fs-app-lg  { font-size: var(--text-lg); }
 .fs-app-xl  { font-size: var(--text-xl); }
+
+/* ── Pipeline board root (extracted from inline style so v-cloak's plain
+   display:none rule can win via normal cascade, no !important needed) ── */
+.pb-board-root {
+  height: calc(100vh - 206px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
