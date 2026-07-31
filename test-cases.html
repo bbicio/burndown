@@ -545,8 +545,8 @@ const SECTIONS = [
      steps:'Open a version that is Committed with every task already migrated to a project (locked)',
      expected:'Project name, Start, End, Currency, Pipeline stage, Client, Rate card, and Notes fields are all disabled, in addition to the grid table\'s own fields'},
     {id:'CG-43',scenario:'Clone warns if the new version\'s structure fails to load',
-     steps:'Clone a grid; force the post-clone structure fetch to fail (e.g. network throttling)',
-     expected:'An "⚠️ Clone incomplete" dialog explains the structure may not have loaded and to reload; the editor still opens on the new (temporarily empty) clone; reloading the page shows the correct structure'},
+     steps:'Clone a grid; force the post-clone structure fetch to fail with an ordinary (non-401) error (e.g. network throttling)',
+     expected:'A single-button "⚠️ Clone incomplete" dialog (OK only, no Cancel) explains the structure may not have loaded and to reload; the editor still opens on the new (temporarily empty) clone; reloading the page shows the correct structure'},
     {id:'CG-44',scenario:'Clone blocks if the source version\'s structure fails to load',
      steps:'Click ⧉ Clone on a version whose structure isn\'t already in memory; force that fetch to fail',
      expected:'Clone is blocked with an inline "Could not load the source proposal\'s structure. Please try again." error; no new cost grid/version is created on the API'},
@@ -568,6 +568,12 @@ const SECTIONS = [
     {id:'CG-50',scenario:'Export XLS produces a styled workbook',
      steps:'Click "Export XLS" in the editor toolbar',
      expected:'A .xlsx file downloads with no error; opening it shows the expected cell styling (dark/sand colors, borders, fonts), not just raw unstyled data'},
+    {id:'CG-51',scenario:'Clone-incomplete warning suppressed during a session-expiry race',
+     steps:'Clone a grid; force the post-clone structure fetch to fail with a 401 (session expired) instead of an ordinary error',
+     expected:'No "⚠️ Clone incomplete" dialog appears; the browser redirects straight to /login.html'},
+    {id:'CG-52',scenario:'showInfo() button state doesn\'t leak into the next showConfirm()',
+     steps:'Trigger the "⚠️ Clone incomplete" dialog (or any showInfo() dialog); dismiss it with OK; immediately trigger "🗑 Delete version" on a Draft',
+     expected:'The Delete confirmation shows both Cancel and the real red "Confirm" button — not a leftover "OK"/blue button from the prior dialog'},
   ]
 },
 {
@@ -600,6 +606,9 @@ const SECTIONS = [
     {id:'R-09',scenario:'Navigate to project config',
      steps:'Click the configure button on a project card',
      expected:'Browser navigates to /project-config.html?projectId=... with the correct project pre-loaded'},
+    {id:'R-10',scenario:'AI analysis with no key configured shows a dialog, not a crash',
+     steps:'Click 🤖 AI with no AI provider API key set in Settings',
+     expected:'A single-button "API Key required" dialog appears (via showInfo()); no console error from a missing #confirmModal element'},
   ]
 },
 {
@@ -690,7 +699,7 @@ const SECTIONS = [
      expected:'"🤖 AI Chat" button in the navbar is hidden (not just disabled)'},
     {id:'PL-15',scenario:'AI sidebar preserves typed text with no key configured',
      steps:'Open AI Chat sidebar with no API key configured; type a question; press Send',
-     expected:'"API Key required" dialog appears; the typed question remains in the textarea (not cleared)'},
+     expected:'A single-button "API Key required" dialog (OK only, no Cancel) appears; the typed question remains in the textarea (not cleared)'},
     {id:'PL-16',scenario:'AI sidebar sends on Ctrl/Meta+Enter',
      steps:'With an AI key configured, type a question in the AI sidebar and press Ctrl+Enter (or Cmd+Enter)',
      expected:'Message sends, same as plain Enter; only Shift+Enter inserts a newline instead'},
