@@ -201,15 +201,6 @@ async function _cgUpsertVersionToApi(cgId, versionId) {
 
 // ── PROJECTS / CONFIG ─────────────────────────────────────────────────────────
 
-// Resolve the cost-grid ID for a version using the in-memory _cgStore.
-function _resolveCgIdForVersion(versionId) {
-  if (!versionId) return null;
-  for (const [cgId, cg] of _cgStore) {
-    if ((cg.versions || []).some(v => v.versionId === versionId)) return cgId;
-  }
-  return null;
-}
-
 // Normalise a server project into the frontend config.projects shape.
 function _apiProjectToLocal(p) {
   const versionId = p.cg_version_id || null;
