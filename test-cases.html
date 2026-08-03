@@ -225,7 +225,7 @@ const SECTIONS = [
      expected:'401 — same generic message as A-02 (no user enumeration)',auto:true},
     {id:'A-05',scenario:'Unauthenticated page access → redirect',
      steps:'Open any authenticated page (e.g. pipeline.html) without a valid session cookie',
-     expected:'Browser is redirected to /login.html',auto:true},
+     expected:'Browser is redirected to /login.html, on the same host:port the request arrived on (never a different port/stack — nginx.conf\'s auth-gate emits a relative Location, not an absolute one)',auto:true},
     {id:'A-06',scenario:'Logout',
      steps:'Click Logout in the account dropdown; then try to open pipeline.html',
      expected:'Cookie cleared; next page load redirects to login'},

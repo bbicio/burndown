@@ -17,7 +17,7 @@
 | A-02 | Login — wrong password | POST with incorrect password | 401 — generic "Invalid credentials", no field hint | ✓ |
 | A-03 | Login — disabled user | POST with credentials of a disabled account | 403 — login refused even with valid credentials | |
 | A-04 | Login — unknown email | POST with non-existent email | 401 — same generic message as A-02 (no user enumeration) | ✓ |
-| A-05 | Unauthenticated redirect | Open any authenticated page without a session cookie | Redirected to `/login.html` | ✓ |
+| A-05 | Unauthenticated redirect | Open any authenticated page without a session cookie | Redirected to `/login.html`, on the same host:port the request arrived on (never a different port/stack — `nginx.conf`'s auth-gate emits a relative `Location`, not an absolute one) | ✓ |
 | A-06 | Logout | Click Logout → try to open pipeline.html | Cookie cleared; page redirects to login | |
 | A-07 | Invite flow | Admin invites email → user activates via email link | Status changes to active; user can log in | |
 | A-08 | Invite token expired | Use invite link older than 48 h | 400/401 — "Token expired or invalid" shown | |
