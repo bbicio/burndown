@@ -574,6 +574,9 @@ const SECTIONS = [
     {id:'CG-52',scenario:'showInfo() button state doesn\'t leak into the next showConfirm()',
      steps:'Trigger the "⚠️ Clone incomplete" dialog (or any showInfo() dialog); dismiss it with OK; immediately trigger "🗑 Delete version" on a Draft',
      expected:'The Delete confirmation shows both Cancel and the real red "Confirm" button — not a leftover "OK"/blue button from the prior dialog'},
+    {id:'CG-53',scenario:'"+ New" client save ignores a fast repeat click',
+     steps:'In the editor, click "+ New" next to the Client dropdown, type a name, then click Save twice in quick succession (or trigger the save call twice before the first resolves)',
+     expected:'Only one client is created, not two'},
   ]
 },
 {
@@ -706,6 +709,9 @@ const SECTIONS = [
     {id:'PL-17',scenario:'Group toggle stays single-click after repeated re-renders',
      steps:'In By Project or By Owner view, type several characters in the AI sidebar input (triggering re-renders), then click a group header to collapse/expand it',
      expected:'Group collapses/expands exactly once per click — no compounding/duplicate toggling from repeated re-renders'},
+    {id:'PL-18',scenario:'AI sidebar Send ignores a fast repeat click',
+     steps:'With an AI key configured, type a question and click Send twice in quick succession before the first request resolves',
+     expected:'Only one request/message is sent, not two; the button re-enables normally once the (single) reply arrives'},
   ]
 },
 {
