@@ -835,6 +835,9 @@ async function cgCreateNewVersion() {
 // ── CREATE NEW GRID ───────────────────────────────────────────────────────────
 
 async function cgCreateNewGrid() {
+  const btn = document.getElementById('btnCgCreateGrid');
+  if (btn && btn.disabled) return; // already in flight -- ignore a fast repeat click
+
   const name  = document.getElementById('cgNewGridName')?.value.trim();
   const errEl = document.getElementById('cgNewGridError');
   if (!name) {
@@ -842,57 +845,65 @@ async function cgCreateNewGrid() {
     return;
   }
   if (errEl) errEl.classList.add('d-none');
+  if (btn) btn.disabled = true;
 
-  // Create on the API first to get server-assigned IDs.
-  // POST /api/cost-grids ignores any client-provided id, so we must use the
-  // UUID from the response — otherwise version creates fail with a FK violation.
-  let cgId, verId;
   try {
-    const newCg  = await Api.costGrids.create({ name });
-    cgId = newCg.id;
-    const newVer = await Api.costGrids.versions.create(cgId, { label: 'v1' });
-    verId = newVer.id;
-    await Api.costGrids.versions.saveStructure(cgId, verId, {
-      phases: [{ phaseName: 'Phase 1', tasks: [] }],
-      roles:  [],
-    }).catch(() => {});
-  } catch (e) {
-    if (errEl) { errEl.textContent = 'API error: ' + e.message; errEl.classList.remove('d-none'); }
-    return;
-  }
+    // Create on the API first to get server-assigned IDs.
+    // POST /api/cost-grids ignores any client-provided id, so we must use the
+    // UUID from the response — otherwise version creates fail with a FK violation.
+    let cgId, verId;
+    try {
+      const newCg  = await Api.costGrids.create({ name });
+      cgId = newCg.id;
+      const newVer = await Api.costGrids.versions.create(cgId, { label: 'v1' });
+      verId = newVer.id;
+      await Api.costGrids.versions.saveStructure(cgId, verId, {
+        phases: [{ phaseName: 'Phase 1', tasks: [] }],
+        roles:  [],
+      }).catch(() => {});
+    } catch (e) {
+      if (errEl) { errEl.textContent = 'API error: ' + e.message; errEl.classList.remove('d-none'); }
+      return;
+    }
 
-  const cg = {
-    id: cgId,
-    name,
-    versions: [{
-      versionId:      verId,
-      versionLabel:   'v1',
-      createdAt:      new Date().toISOString(),
-      status:         'draft',
-      pipeline:       'Draft',
-      pipelineYear:   null,
-      linkedProjects: [],
-      projectName:    name,
-      startDate:      '',
-      endDate:        '',
-      currency:       '€',
-      note:           '',
-      roles:          [],
-      phases:         [{ phaseId: cgNewPhId(), phaseName: 'Phase 1', tasks: [] }],
-    }],
-  };
-  const idx = cgGetIndex();
-  if (!idx.includes(cgId)) idx.push(cgId);
-  cgSaveIndex(idx);
-  cgSave(cg);
-  bootstrap.Modal.getInstance(document.getElementById('cgNewGridModal'))?.hide();
-  document.getElementById('cgNewGridName').value = '';
-  showCostGridEditorView(cgId, verId);
+    const cg = {
+      id: cgId,
+      name,
+      versions: [{
+        versionId:      verId,
+        versionLabel:   'v1',
+        createdAt:      new Date().toISOString(),
+        status:         'draft',
+        pipeline:       'Draft',
+        pipelineYear:   null,
+        linkedProjects: [],
+        projectName:    name,
+        startDate:      '',
+        endDate:        '',
+        currency:       '€',
+        note:           '',
+        roles:          [],
+        phases:         [{ phaseId: cgNewPhId(), phaseName: 'Phase 1', tasks: [] }],
+      }],
+    };
+    const idx = cgGetIndex();
+    if (!idx.includes(cgId)) idx.push(cgId);
+    cgSaveIndex(idx);
+    cgSave(cg);
+    bootstrap.Modal.getInstance(document.getElementById('cgNewGridModal'))?.hide();
+    document.getElementById('cgNewGridName').value = '';
+    showCostGridEditorView(cgId, verId);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 // ── CLONE GRID ────────────────────────────────────────────────────────────────
 
 async function cgCloneGrid() {
+  const btn = document.getElementById('btnCgClone');
+  if (btn && btn.disabled) return; // already in flight -- ignore a fast repeat click
+
   const name  = document.getElementById('cgCloneGridName')?.value.trim();
   const errEl = document.getElementById('cgCloneError');
   if (!name) {
@@ -904,25 +915,26 @@ async function cgCloneGrid() {
   const { cgId: srcCgId, verId: srcVerId } = _pbCloneSource || {};
   if (!srcCgId || !srcVerId) return;
 
-  // Cancel any pending autosave before starting async clone operations
-  clearTimeout(_cgAutoSaveTimer);
+  if (btn) btn.disabled = true;
+  try {
+    // Cancel any pending autosave before starting async clone operations
+    clearTimeout(_cgAutoSaveTimer);
 
-  // Load full structure from API if not already in memory
-  if (typeof cgLoadStructureFromApi === 'function') {
-    const srcStructureLoaded = await cgLoadStructureFromApi(srcCgId, srcVerId);
-    if (!srcStructureLoaded) {
-      if (errEl) { errEl.textContent = 'Could not load the source proposal\'s structure. Please try again.'; errEl.classList.remove('d-none'); }
+    // Load full structure from API if not already in memory
+    if (typeof cgLoadStructureFromApi === 'function') {
+      const srcStructureLoaded = await cgLoadStructureFromApi(srcCgId, srcVerId);
+      if (!srcStructureLoaded) {
+        if (errEl) { errEl.textContent = 'Could not load the source proposal\'s structure. Please try again.'; errEl.classList.remove('d-none'); }
+        return;
+      }
+    }
+    const srcCg  = cgLoad(srcCgId);
+    const srcVer = srcCg?.versions.find(v => v.versionId === srcVerId);
+    if (!srcVer) {
+      if (errEl) { errEl.textContent = 'Source proposal not found.'; errEl.classList.remove('d-none'); }
       return;
     }
-  }
-  const srcCg  = cgLoad(srcCgId);
-  const srcVer = srcCg?.versions.find(v => v.versionId === srcVerId);
-  if (!srcVer) {
-    if (errEl) { errEl.textContent = 'Source proposal not found.'; errEl.classList.remove('d-none'); }
-    return;
-  }
 
-  try {
     // 1. Create new cost grid and version on the API
     const newCg  = await Api.costGrids.create({ name });
     const cgId   = newCg.id;
@@ -995,6 +1007,8 @@ async function cgCloneGrid() {
     }
   } catch(e) {
     if (errEl) { errEl.textContent = 'Clone failed: ' + e.message; errEl.classList.remove('d-none'); }
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
