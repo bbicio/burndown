@@ -726,8 +726,6 @@ async function cgSaveVersion() {
 
 // ── PUBLISH DRAFT ─────────────────────────────────────────────────────────────
 
-let _cgPublishInFlight = false;
-
 async function cgPublishDraft() {
   if (!_cgActiveCgId || !_cgActiveVersionId) return;
   const cg = cgLoad(_cgActiveCgId);
@@ -742,11 +740,6 @@ async function cgPublishDraft() {
   showConfirm(
     `Publish "${ver.versionLabel}" to SIP?${otherWarn}\n\nThis version will become visible to your team and cannot be set back to Draft.`,
     async () => {
-      // showConfirm() hides the modal synchronously right after invoking this callback, but
-      // the hide animation leaves a narrow window where a second click could re-enter here
-      // before the local cache reflects this call's in-progress pipeline change.
-      if (_cgPublishInFlight) return;
-      _cgPublishInFlight = true;
       await cgAutoSave();
       try {
         // Delete all other Draft versions from the DB first
@@ -770,8 +763,6 @@ async function cgPublishDraft() {
         window.location.reload();
       } catch (e) {
         showConfirm('Failed to publish: ' + e.message, null, null, '⚠️ Publish failed');
-      } finally {
-        _cgPublishInFlight = false;
       }
     },
     null, '🚀 Publish to SIP'
