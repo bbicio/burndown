@@ -711,13 +711,22 @@ function cgScheduleAutoSave() {
   }, 2000);
 }
 
-function cgSaveVersion() {
-  cgAutoSave();
+async function cgSaveVersion() {
   const btn = document.getElementById('btnCgSave');
-  if (btn) { const orig = btn.textContent; btn.textContent = '✓ Saved'; setTimeout(() => { btn.textContent = orig; }, 1500); }
+  if (btn && btn.disabled) return; // already in flight -- ignore a fast repeat click
+  if (btn) btn.disabled = true;
+  const orig = btn ? btn.textContent : null;
+  await cgAutoSave(); // never rejects -- errors are caught and logged internally
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = '✓ Saved';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  }
 }
 
 // ── PUBLISH DRAFT ─────────────────────────────────────────────────────────────
+
+let _cgPublishInFlight = false;
 
 async function cgPublishDraft() {
   if (!_cgActiveCgId || !_cgActiveVersionId) return;
@@ -733,6 +742,11 @@ async function cgPublishDraft() {
   showConfirm(
     `Publish "${ver.versionLabel}" to SIP?${otherWarn}\n\nThis version will become visible to your team and cannot be set back to Draft.`,
     async () => {
+      // showConfirm() hides the modal synchronously right after invoking this callback, but
+      // the hide animation leaves a narrow window where a second click could re-enter here
+      // before the local cache reflects this call's in-progress pipeline change.
+      if (_cgPublishInFlight) return;
+      _cgPublishInFlight = true;
       await cgAutoSave();
       try {
         // Delete all other Draft versions from the DB first
@@ -756,6 +770,8 @@ async function cgPublishDraft() {
         window.location.reload();
       } catch (e) {
         showConfirm('Failed to publish: ' + e.message, null, null, '⚠️ Publish failed');
+      } finally {
+        _cgPublishInFlight = false;
       }
     },
     null, '🚀 Publish to SIP'
