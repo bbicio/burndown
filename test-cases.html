@@ -577,6 +577,12 @@ const SECTIONS = [
     {id:'CG-53',scenario:'"+ New" client save ignores a fast repeat click',
      steps:'In the editor, click "+ New" next to the Client dropdown, type a name, then click Save twice in quick succession (or trigger the save call twice before the first resolves)',
      expected:'Only one client is created, not two'},
+    {id:'CG-54',scenario:'Save button reflects real completion, ignores a fast repeat click',
+     steps:'Click "💾 Save" in the editor toolbar twice in quick succession before the first save resolves',
+     expected:'The button disables for the duration of the actual save (not just a fixed timer); "✓ Saved" appears only once the save has really completed; the second click is ignored, not a second save attempt'},
+    {id:'CG-55',scenario:'Publish ignores a fast repeat confirm click',
+     steps:'Click "🚀 Publish to SIP", then click "Confirm" in the dialog twice in quick succession before the first publish resolves',
+     expected:'Only one publish attempt reaches the API; the second click is a no-op — no duplicate delete/publish calls'},
   ]
 },
 {
