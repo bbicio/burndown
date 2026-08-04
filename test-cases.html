@@ -583,6 +583,12 @@ const SECTIONS = [
     {id:'CG-55',scenario:'Publish ignores a fast repeat confirm click',
      steps:'Click "🚀 Publish to SIP", then click "Confirm" in the dialog twice in quick succession before the first publish resolves',
      expected:'Only one publish attempt reaches the API; the second click is a no-op — no duplicate delete/publish calls'},
+    {id:'CG-56',scenario:'"+ New Proposal" ignores a fast repeat click',
+     steps:'On the pipeline board, click "+ New Proposal", enter a name, then click "Create" twice in quick succession before the first request resolves',
+     expected:'Only one new proposal is created, not two'},
+    {id:'CG-57',scenario:'Clone (toolbar/board) ignores a fast repeat click',
+     steps:'Open the Clone modal (pipeline board or editor toolbar), enter a name, then click the Clone button twice in quick succession before the first request resolves',
+     expected:'Only one cloned proposal is created, not two'},
   ]
 },
 {
