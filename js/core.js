@@ -361,8 +361,11 @@ function showConfirm(message, onConfirm, onCancel, title = '⚠️ Confirm') {
 
   const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
   let confirmed = false;
+  let clicked   = false;
 
   okBtn.addEventListener('click', () => {
+    if (clicked) return; // ignore a fast repeat click before the hide animation completes
+    clicked = true;
     confirmed = true;
     if (onConfirm) onConfirm();   // execute immediately, before hide animation
     modal.hide();
