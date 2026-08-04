@@ -1324,6 +1324,9 @@ const SECTIONS = [
     {id:'REG-16',scenario:'Derive confirmation modal always matches what gets saved',
      steps:'Run "Derive from task dates" on a task spanning several months with a real day-overlap split (e.g. 2.4h over Jan–Mar)',
      expected:'The modal\'s displayed total, the rendered planning grid, and the value read back on save are always identical — distributeHoursExact computes the final exact-sum value once, before any DOM render, so there is no longer a lossy round-trip through the grid\'s display formatting (audit finding F2-2). Covered by a vitest characterization test (js/lib/cfg-parse.test.js), separate from the auto badge below which denotes test-api.js coverage.'},
+    {id:'REG-17',scenario:'Any showConfirm() action ignores a fast repeat click',
+     steps:'On any destructive/confirm action that routes through the shared showConfirm() dialog (e.g. delete a client, delete a Draft version), click the dialog\'s action button (Confirm/Delete/etc.) twice in quick succession before the first action resolves',
+     expected:'The underlying action (delete, publish, etc.) executes exactly once, not twice — no duplicate API call, no "not found" error from a second attempt on already-gone data'},
   ]
 },
 ];
