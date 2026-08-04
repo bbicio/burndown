@@ -90,6 +90,10 @@ function buildPlanningContext() {
 }
 
 async function aiPlanSend() {
+  const sendBtn = document.getElementById('btnAiPlanSend');
+  if (sendBtn.disabled) return; // already in flight -- ignore a fast repeat click
+  sendBtn.disabled = true;
+
   const provider = appSettings.aiProvider || 'anthropic';
   const models   = AI_MODELS[provider] || [];
   const model    = appSettings.aiModel || (models[0]?.id ?? '');
@@ -99,16 +103,16 @@ async function aiPlanSend() {
   if (!apiKey) {
     const names = { anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Google Gemini' };
     showInfo(`No API key configured for ${names[provider] || provider}.\n\nOpen ⚙ Settings → API & Integrations.`, 'ℹ️ API Key required');
+    sendBtn.disabled = false;
     return;
   }
   const input = document.getElementById('aiPlanInput');
   const msg   = input.value.trim();
-  if (!msg) return;
+  if (!msg) { sendBtn.disabled = false; return; }
   input.value = '';
   aiPlanMessages.push({ role: 'user', content: msg });
   renderAiPlanMessages();
-  const sendBtn = document.getElementById('btnAiPlanSend');
-  sendBtn.disabled = true; sendBtn.textContent = '…';
+  sendBtn.textContent = '…';
 
   try {
     let reply;

@@ -71,8 +71,9 @@ function openClientEditModal(id) {
 }
 
 async function saveClientFromModal() {
-  const name  = document.getElementById('clientName').value.trim();
-  const errEl = document.getElementById('clientModalError');
+  const name    = document.getElementById('clientName').value.trim();
+  const errEl   = document.getElementById('clientModalError');
+  const saveBtn = document.getElementById('clientSaveBtn');
   errEl.classList.add('d-none');
 
   if (!name) {
@@ -88,6 +89,8 @@ async function saveClientFromModal() {
     return;
   }
 
+  if (saveBtn.disabled) return; // already in flight -- ignore a fast repeat click
+  saveBtn.disabled = true;
   try {
     if (_clientEditId) {
       await Api.clients.update(_clientEditId, name);
@@ -103,6 +106,8 @@ async function saveClientFromModal() {
   } catch(err) {
     errEl.textContent = err.message || 'Save failed.';
     errEl.classList.remove('d-none');
+  } finally {
+    saveBtn.disabled = false;
   }
 }
 
