@@ -191,6 +191,7 @@
 | PC-10 | Currency round-trip | Project has currency "€" in form; save; reload | Form still shows "€"; DB stores "EUR"; PATCH does not fail with FK violation | |
 | PC-11 | Status options follow Pipeline — Committed includes Started At Risk | Set Pipeline to "Committed"; open the Status dropdown | Options include "Started At Risk" (alongside "Started", "Put on hold", "Completed") — same as "Expected"/"Anticipated" | |
 | PC-12 | Completed status — badge and Planning exclusion | Set Status to "Completed"; save; view the project's badge elsewhere; open Resource Planning | Badge renders navy ("Completed" style, not the default/grey fallback); project does not appear in Resource Planning's eligible-projects list | |
+| PC-13 | "+ New client"/"+ New program" Save ignores a fast repeat click | Click "+ New client" (or "+ New program") next to the respective dropdown, enter a name, then click Save twice in quick succession before the first request resolves | Only one client (or program) is created, not two; the button shows "Saving…" and is disabled for the duration of the real request | |
 
 ---
 

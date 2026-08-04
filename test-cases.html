@@ -665,6 +665,9 @@ const SECTIONS = [
     {id:'PC-12',scenario:'Completed status — badge and Planning exclusion',
      steps:'Set Status to "Completed"; save; view the project\'s badge elsewhere; open Resource Planning',
      expected:'Badge renders navy ("Completed" style, not the default/grey fallback); project does not appear in Resource Planning\'s eligible-projects list'},
+    {id:'PC-13',scenario:'"+ New client"/"+ New program" Save ignores a fast repeat click',
+     steps:'Click "+ New client" (or "+ New program") next to the respective dropdown, enter a name, then click Save twice in quick succession before the first request resolves',
+     expected:'Only one client (or program) is created, not two; the button shows "Saving…" and is disabled for the duration of the real request'},
   ]
 },
 {
