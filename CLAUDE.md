@@ -193,7 +193,14 @@ api/src/lib/              — pure functions extracted for unit testing (node:te
                             convention) only when genuinely ambiguous (both ≤12), validates against real
                             calendar/leap-year arithmetic, throws on an invalid date. Consumed by
                             `api/src/routes/timesheets.js`'s `formatDate()`, which now rejects the entire upload
-                            (400, no partial DB writes) if any row's date can't be resolved.
+                            (400, no partial DB writes) if any row's date can't be resolved — either a calendar-invalid
+                            D/M/YYYY date (via `parseFlexibleDate`) or a cell value that doesn't match any recognized
+                            date format at all (2026-08; previously fell through to storing the raw, un-validated
+                            string as the entry's date). A whitespace-only cell is treated as "no date" (`null`),
+                            not an error. `trimRowKeys(row)` trims every uploaded row's object keys before
+                            `resolveColumnMap()` reads them (predates this session), so header/value whitespace
+                            mismatches between the sampled header row and individual data rows can't cause a
+                            column-mapping miss.
                             `api/src/routes/timesheets.js`'s `resolveColumnMap(headers)` — column-header-to-field
                             resolver for the XLS upload, exported (like `formatDate`) for direct `node:test`
                             coverage. Resolves each of `colDate/colRole/colOwner/colHours/colTask/colNotes/

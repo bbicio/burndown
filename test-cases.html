@@ -1090,6 +1090,9 @@ const SECTIONS = [
     {id:'TS-08',scenario:'Ambiguous header doesn\'t collapse owner into role',
      steps:'Upload a file with a header like "Resource Name" (matches both the role and owner keyword lists)',
      expected:'The column is claimed by role only; owner is not populated with the same value as role (left unmapped if no other owner column exists) — planning "By Owner" view shows actual person names, not role names, when a genuine owner column is present. Covered by a node:test characterization test (api/src/routes/timesheets.test.js).'},
+    {id:'TS-09',scenario:'Unrecognized date value rejects the whole upload',
+     steps:'Upload a file with one valid row and one date cell containing free text that isn\'t a date at all (e.g. "N/A")',
+     expected:'Entire upload rejected (400) naming the offending spreadsheet row, same as a calendar-invalid date (TS-07); zero rows persisted. A whitespace-only date cell is treated as no date (row keeps a null date) rather than rejected. Covered by a node:test characterization test (api/src/routes/timesheets.test.js).'},
   ]
 },
 {
