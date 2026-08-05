@@ -119,8 +119,10 @@ open_browser() {
 }
 
 status() {
-  if docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER" && \
-     docker ps --format '{{.Names}}' | grep -qx "$API_CONTAINER"; then
+  local db_health api_health
+  db_health=$(docker inspect -f '{{.State.Health.Status}}' "$DB_CONTAINER" 2>/dev/null || echo "missing")
+  api_health=$(docker inspect -f '{{.State.Health.Status}}' "$API_CONTAINER" 2>/dev/null || echo "missing")
+  if [ "$db_health" = "healthy" ] && [ "$api_health" = "healthy" ]; then
     echo "up"
     exit 0
   else
