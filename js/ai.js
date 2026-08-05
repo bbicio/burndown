@@ -255,7 +255,7 @@ function buildProjectSummary(data, cfg) {
     lines.push('');
     lines.push('--- TASK BREAKDOWN ---');
     cfg.tasks.forEach(task => {
-      const td  = data.filter(r => r.task.toLowerCase() === task.name.toLowerCase());
+      const td  = data.filter(r => (r.task || '').toLowerCase() === (task.name || '').toLowerCase());
       const tch = td.reduce((s, r) => s + r.hours, 0);
       const tsh = task.resources.reduce((s, r) => s + r.soldHours, 0);
       const tbe = task.resources.reduce((s, r) => s + r.soldHours * r.hourlyRate, 0);
