@@ -627,6 +627,9 @@ const SECTIONS = [
     {id:'R-11',scenario:"AI analysis doesn't crash on a timesheet record with a missing task field",
      steps:"With an AI key configured, have timesheet actuals containing a record whose task field is missing/undefined (e.g. via console: buildProjectSummary(data, cfg) where one data row has task: undefined); click AI Analysis",
      expected:"Summary is generated without a TypeError — TASK BREAKDOWN's task match is null-safe"},
+    {id:'R-12',scenario:"KPI cards and burndown chart don't crash on a timesheet record with a missing task/role field",
+     steps:"Have timesheet actuals containing a record whose task or role field is missing/undefined for a project with budget phasing configured; view that project's KPI cards and burndown chart",
+     expected:"Budget Spent/Variance and the burndown chart render without a TypeError — findRate()'s task/role match (js/core.js) is null-safe; the malformed record simply doesn't match any configured rate (treated as €0) instead of crashing the whole page"},
   ]
 },
 {
