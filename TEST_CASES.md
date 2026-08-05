@@ -3,7 +3,7 @@
 **Updated:** 2026-07-01 (rev 8)  
 **Coverage scope:** All authenticated pages + API routes. Manual execution unless noted.
 
-> **Auto** = covered by `docker compose --profile test run --rm test` (test-api.js).  
+> **Auto** = covered by `scripts/run-tests.sh` (test-api.js).  
 > **✓ (vitest)** = covered by a frontend unit/characterization test (`npm test`, `js/lib/*.test.js`) — a separate, dev-only toolchain from the API's `test-api.js` (see CLAUDE.md).  
 > All other cases require manual testing in the browser.
 
