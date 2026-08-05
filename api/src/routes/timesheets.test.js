@@ -19,6 +19,14 @@ test('formatDate: empty string input returns null', () => {
   assert.equal(formatDate(''), null);
 });
 
+test('formatDate: whitespace-only string input returns null', () => {
+  assert.equal(formatDate('   '), null);
+});
+
+test('formatDate: unrecognized garbage string throws instead of silently passing through', () => {
+  assert.throws(() => formatDate('N/A'), /not a recognized date format/i);
+});
+
 test('formatDate: text cell with day > 12 resolves unambiguously as DD/MM', () => {
   assert.equal(formatDate('25/03/2026'), '2026-03-25');
 });
