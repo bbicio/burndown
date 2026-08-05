@@ -624,6 +624,9 @@ const SECTIONS = [
     {id:'R-10',scenario:'AI analysis with no key configured shows a dialog, not a crash',
      steps:'Click 🤖 AI with no AI provider API key set in Settings',
      expected:'A single-button "API Key required" dialog appears (via showInfo()); no console error from a missing #confirmModal element'},
+    {id:'R-11',scenario:"AI analysis doesn't crash on a timesheet record with a missing task field",
+     steps:"With an AI key configured, have timesheet actuals containing a record whose task field is missing/undefined (e.g. via console: buildProjectSummary(data, cfg) where one data row has task: undefined); click AI Analysis",
+     expected:"Summary is generated without a TypeError — TASK BREAKDOWN's task match is null-safe"},
   ]
 },
 {

@@ -172,6 +172,7 @@
 | R-08 | Share project | Owner clicks Share on a project | Share modal opens; can grant Viewer or Editor access | |
 | R-09 | Navigate to project config | Click configure button | Navigates to `/project-config.html?projectId=...` | |
 | R-10 | AI analysis with no key configured shows a dialog, not a crash | Click 🤖 AI with no AI provider API key set in Settings | A single-button "API Key required" dialog appears (via `showInfo()`); no console error from a missing `#confirmModal` element | |
+| R-11 | AI analysis doesn't crash on a timesheet record with a missing task field | With an AI key configured, have timesheet actuals containing a record whose `task` field is missing/undefined (e.g. via console: `buildProjectSummary(data, cfg)` where one `data` row has `task: undefined`); click 🤖 AI Analysis | Summary is generated without a `TypeError` — TASK BREAKDOWN's task match is null-safe | |
 
 ---
 
