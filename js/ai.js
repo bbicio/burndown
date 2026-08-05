@@ -15,13 +15,13 @@ function buildPlanningContext() {
     ctx += `- **${proj.name || proj.id}** | pipeline: ${proj.pipeline || 'n/a'} | dates: ${proj.startDate || '?'} → ${proj.endDate || '?'} | sold: ${sold.toFixed(0)}h | consumed: ${consumed.toFixed(0)}h | to-be-planned: ${tbp.toFixed(0)}h\n`;
     tasks.forEach(t => {
       const tSold  = (t.resources || []).reduce((s, r) => s + (r.soldHours || 0), 0);
-      const tRecs  = projData.filter(r => r.task === t.name);
+      const tRecs  = projData.filter(r => (r.task || '').toLowerCase() === (t.name || '').toLowerCase());
       const tConsumed = tRecs.reduce((s, r) => s + r.hours, 0);
       ctx += `  Task: ${t.name || '?'} | dates: ${t.startDate || '?'} → ${t.endDate || '?'} | sold: ${tSold.toFixed(0)}h | consumed: ${tConsumed.toFixed(0)}h\n`;
       (t.resources || []).forEach(res => {
-        const rRecs    = tRecs.filter(r => r.role === res.role);
+        const rRecs    = projData.filter(r => matchesTaskRole(r, t.name, res.role));
         const rConsumed = rRecs.reduce((s, r) => s + r.hours, 0);
-        const rTbp     = Math.max(0, (res.soldHours || 0) - rConsumed);
+        const rTbp     = computeResidual(res.soldHours || 0, rConsumed);
         const ownersMap = {};
         rRecs.forEach(r => { const o = r.owner?.trim() || '—'; ownersMap[o] = (ownersMap[o] || 0) + r.hours; });
         const ownersStr = Object.entries(ownersMap).map(([o, h]) => `${o}:${h.toFixed(0)}h`).join(', ');
@@ -52,11 +52,11 @@ function buildPlanningContext() {
       const tEnd = task.endDate ? parseTaskDate(task.endDate, true) : null;
       (task.resources || []).forEach(res => {
         const soldH = res.soldHours || 0;
-        const rRecs = projData.filter(r => r.role === res.role && (!task.name || r.task === task.name));
+        const rRecs = projData.filter(r => matchesTaskRole(r, task.name, res.role));
         const ownersMap = {};
         let totalH = 0;
         rRecs.forEach(r => { const o = r.owner?.trim() || '—'; ownersMap[o] = (ownersMap[o] || 0) + r.hours; totalH += r.hours; });
-        const tbp = Math.max(0, soldH - totalH);
+        const tbp = computeResidual(soldH, totalH);
         if (tbp < 0.01) return;
         const effectiveEnd = tEnd || new Date(now.getFullYear(), now.getMonth() + 6, 0);
         const months = [];
@@ -428,90 +428,4 @@ ${summary}
     document.getElementById('aiError').textContent     = 'Error: ' + err.message;
     document.getElementById('aiError').classList.remove('d-none');
   }
-}
-
-// ── PLANNING AI ANALYSIS ──────────────────────────────────────────────────────
-function buildResourceAllocationSummary(projectId) {
-  const cfg  = cfgForProject(projectId);
-  const data = timesheetData.filter(r => r.projectId === projectId);
-  if (!cfg) return '';
-
-  const lines = [];
-  lines.push(`PROJECT: ${cfg.name || projectId}`);
-  lines.push(`PERIOD:  ${ym2month(cfg.startDate)} → ${ym2month(cfg.endDate)}`);
-
-  // ── Per-task detail ──
-  lines.push('\n--- TASKS ---');
-  (cfg.tasks || []).forEach(task => {
-    const tStart = parseTaskDate(task.startDate || cfg.startDate, false);
-    const tEnd   = parseTaskDate(task.endDate   || cfg.endDate,   true);
-    const weeks  = Math.max(1, Math.ceil((tEnd - tStart) / (7 * 86400000)));
-    const label  = d => d.toISOString().slice(0, 10);
-    const status = task.completed ? 'COMPLETED' : task.billable === false ? 'EXCLUDED' : 'In progress';
-
-    lines.push(`\nTask: ${task.name}  [${status}]`);
-    lines.push(`  Period: ${label(tStart)} → ${label(tEnd)}  (${weeks} weeks)`);
-    lines.push('  Sold resources:');
-    (task.resources || []).forEach(res => {
-      const wkLoad  = (res.soldHours / weeks).toFixed(1);
-      const consumed = data
-        .filter(r => r.task.toLowerCase() === task.name.toLowerCase()
-                  && r.role.toLowerCase() === res.role.toLowerCase())
-        .reduce((s, r) => s + r.hours, 0);
-      lines.push(`    ${res.role}: ${res.soldHours}h sold (≈${wkLoad}h/wk), ${consumed.toFixed(1)}h consumed`);
-    });
-  });
-
-  // ── Cross-task aggregation per owner ──
-  lines.push('\n--- OWNER CROSS-TASK ALLOCATION ---');
-
-  // Build: owner → [{ task, role, soldHours, weeklyLoad, start, end, weeks }]
-  const ownerMap = {};
-  (cfg.tasks || []).forEach(task => {
-    const tStart = parseTaskDate(task.startDate || cfg.startDate, false);
-    const tEnd   = parseTaskDate(task.endDate   || cfg.endDate,   true);
-    const weeks  = Math.max(1, Math.ceil((tEnd - tStart) / (7 * 86400000)));
-
-    (task.resources || []).forEach(res => {
-      const owners = [...new Set(
-        data.filter(r => r.task.toLowerCase() === task.name.toLowerCase()
-                      && r.role.toLowerCase() === res.role.toLowerCase())
-            .map(r => r.owner).filter(Boolean)
-      )];
-      const keys = owners.length ? owners : [res.role]; // fallback to role if no XLS data
-      keys.forEach(key => {
-        if (!ownerMap[key]) ownerMap[key] = [];
-        ownerMap[key].push({
-          task: task.name, role: res.role,
-          soldHours: res.soldHours,
-          weeklyLoad: res.soldHours / weeks,
-          start: tStart, end: tEnd, weeks,
-        });
-      });
-    });
-  });
-
-  Object.entries(ownerMap).sort((a, b) => a[0].localeCompare(b[0])).forEach(([owner, asgns]) => {
-    const totalH = asgns.reduce((s, a) => s + a.soldHours, 0);
-    lines.push(`\nResource: ${owner}  (total on project: ${totalH}h)`);
-    asgns.forEach(a => {
-      const label = d => d.toISOString().slice(0, 10);
-      lines.push(`  [${a.task}] ${a.role}: ${a.soldHours}h / ${a.weeks}wk ≈ ${a.weeklyLoad.toFixed(1)}h/wk  (${label(a.start)}→${label(a.end)})`);
-    });
-
-    // Detect overlapping task pairs and their combined weekly load
-    for (let i = 0; i < asgns.length; i++) {
-      for (let j = i + 1; j < asgns.length; j++) {
-        const a = asgns[i], b = asgns[j];
-        if (a.start > b.end || b.start > a.end) continue;
-        const oStart = new Date(Math.max(a.start, b.start));
-        const oEnd   = new Date(Math.min(a.end,   b.end));
-        const oWks   = Math.max(1, Math.ceil((oEnd - oStart) / (7 * 86400000)));
-        const combo  = (a.weeklyLoad + b.weeklyLoad).toFixed(1);
-        lines.push(`  ⚠ OVERLAP [${a.task}] + [${b.task}]: ${oWks} weeks, combined ≈${combo}h/wk on this project`);
-      }
-    }
-  });
-
-  return lines.join('\n');
 }
