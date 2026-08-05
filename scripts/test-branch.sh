@@ -24,10 +24,14 @@ set -euo pipefail
 load_env() {
   local env_file=".env"
   [ -f "$env_file" ] || return 0
-  while IFS='=' read -r key val; do
-    key="${key%$'\r'}"
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
+    [[ "$line" != *=* ]] && continue
+    key="${line%%=*}"; val="${line#*=}"
+    key="${key#"${key%%[![:space:]]*}"}"; key="${key%"${key##*[![:space:]]}"}"
     [[ -z "$key" || "$key" == \#* ]] && continue
-    val="${val%$'\r'}"
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    val="${val#"${val%%[![:space:]]*}"}"; val="${val%"${val##*[![:space:]]}"}"
     val="${val%\"}"; val="${val#\"}"
     val="${val%\'}"; val="${val#\'}"
     if [ -z "${!key+x}" ]; then
@@ -98,6 +102,13 @@ wait_healthy() {
   done
 }
 
+schema_exists() {
+  local result
+  result=$(docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -tAc \
+    "SELECT to_regclass('public.users') IS NOT NULL;")
+  [ "$result" = "t" ]
+}
+
 open_browser() {
   local url=$1
   case "$(uname -s)" in
@@ -109,8 +120,10 @@ open_browser() {
 }
 
 status() {
-  if docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER" && \
-     docker ps --format '{{.Names}}' | grep -qx "$API_CONTAINER"; then
+  local db_health api_health
+  db_health=$(docker inspect -f '{{.State.Running}}/{{.State.Health.Status}}' "$DB_CONTAINER" 2>/dev/null || echo "missing")
+  api_health=$(docker inspect -f '{{.State.Running}}/{{.State.Health.Status}}' "$API_CONTAINER" 2>/dev/null || echo "missing")
+  if [ "$db_health" = "true/healthy" ] && [ "$api_health" = "true/healthy" ]; then
     echo "up"
     exit 0
   else
@@ -134,11 +147,15 @@ up() {
     $COMPOSE up -d --build api nginx adminer
     wait_healthy "$API_CONTAINER"
   else
-    echo "main stack not running — applying migrations to a fresh database..."
-    for f in api/src/db/migrations/*.sql; do
-      echo "  applying $(basename "$f")"
-      docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" < "$f"
-    done
+    echo "main stack not running — preparing fresh database..."
+    if schema_exists; then
+      echo "schema already present — skipping migrations."
+    else
+      for f in api/src/db/migrations/*.sql; do
+        echo "  applying $(basename "$f")"
+        docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" < "$f"
+      done
+    fi
     $COMPOSE up -d --build api nginx adminer
     wait_healthy "$API_CONTAINER"
     echo "Bootstrapping test admin user (test-branch@pdash.local / TestBranch123!)..."
