@@ -1,6 +1,6 @@
 # Processo di sviluppo — burndown (PDash)
 
-> Documenta il workflow spec-driven come applicato finora. Le tre skill di processo previste (§4) sono tutte costruite: `feature-brief`, `domain-audit`, `audit-to-brief`.
+> Documenta il workflow spec-driven come applicato finora. Le tre skill di processo previste (§5) sono tutte costruite: `feature-brief`, `domain-audit`, `audit-to-brief`.
 >
 > Aggiornato via `/sync-docs`, ma solo quando un ciclo introduce un cambiamento reale al processo — non ad ogni esecuzione. Vedi criterio di aggiornamento in fondo al documento.
 
@@ -66,7 +66,20 @@ Le deroghe al processo standard sono permesse ma vanno sempre:
 
 ---
 
-## 4. Skill di processo
+## 4. Guardia infrastrutturale — comandi Docker sul main stack
+
+Regola permanente (non un'eccezione una tantum), applicabile alla fase Esecuzione di **tutti e tre** gli scenari, ogni volta che un task/piano prevede di eseguire comandi `docker compose` contro lo stack principale (`pdash-db`/`pdash-api`/`pdash-nginx`/`pdash-adminer`, progetto `burndown`) invece che contro uno stack isolato (`scripts/test-branch.sh`, `scripts/run-tests.sh`).
+
+**Origine:** 2026-08-05, ciclo `worktree-docker-test-profile-container-names` — un subagente implementatore, incaricato di verificare `scripts/run-tests.sh` (isolamento del profilo test Docker), ha azzerato il volume dati reale del main stack (`burndown_pgdata`), quasi certamente eseguendo `docker compose down -v` contro il progetto principale invece che contro quello isolato (`pdash_test`) — probabilmente per abitudine, replicando la logica di cleanup dello script isolato stesso. Il recupero è riuscito solo grazie a un dump `pg_dump` lasciato per caso da un ciclo precedente scollegato, non per un meccanismo di sicurezza previsto. Dettagli completi: `docs/superpowers/reports/2026-08-05-worktree-docker-test-profile-container-names-finish-cycle.md`.
+
+**Regole (vincolanti, ripetute anche in `CLAUDE.md` §Infrastructure safety che ha precedenza sulle skill):**
+1. Nessun `-v`/`--volumes` contro il main stack in nessuna circostanza; ogni dispatch che istruisce un agente a eseguire `docker compose down/up/restart` sul progetto principale deve vietarlo esplicitamente e imporre di fermarsi ed escalare (mai improvvisare un comando più aggressivo) se qualcosa non si comporta come atteso.
+2. Snapshot (`pg_dump`) esplicito prima di qualunque operazione Docker-lifecycle delegata sul main stack — mai fare affidamento su un dump incidentale lasciato da un ciclo scollegato.
+3. `docker compose down/up/restart` sul main stack, anche senza `-v`, richiede conferma esplicita dell'utente come qualunque azione ad alto rischio — non va trattato come "sicuro perché reversibile in teoria". Preferire, quando il piano lo consente, la verifica contro uno stack isolato invece di toccare il main stack.
+
+---
+
+## 5. Skill di processo
 
 Tutte e tre costruite. Non una per scenario ma una per tipo di gap — ciascuna in `.claude/skills/<nome>/SKILL.md`:
 
@@ -76,7 +89,7 @@ Tutte e tre costruite. Non una per scenario ma una per tipo di gap — ciascuna 
 
 ---
 
-## 5. Criterio di aggiornamento di questo documento
+## 6. Criterio di aggiornamento di questo documento
 
 `/sync-docs` aggiorna questo file **solo se** il ciclo appena chiuso soddisfa almeno una di queste condizioni:
 - Ha introdotto o modificato una delle skill di processo (`feature-brief`, `domain-audit`, `audit-to-brief`).

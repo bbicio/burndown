@@ -6,6 +6,11 @@ For the development workflow (new feature / evolution / audit-fix), see [docs/su
 
 **Process override — closing a development branch:** in this project, `/finish-cycle` (`.claude/commands/finish-cycle.md`) is the terminal step of every execution phase, whether run inline, via `superpowers:executing-plans`, or via `superpowers:subagent-driven-development`. Never invoke `superpowers:finishing-a-development-branch` at the end of a plan's execution — `/finish-cycle` already performs its own test gate, code review, `--no-ff` merge, push, and worktree cleanup (Gate 4). Do not merge or push a feature branch by any other means (manual `git merge`/`git push`, or the generic finishing skill) before `/finish-cycle` has run.
 
+**Infrastructure safety — Docker commands against the main stack (`pdash-db`/`pdash-api`/`pdash-nginx`/`pdash-adminer`, project `burndown`):** never delegate a plan task or subagent dispatch that runs `docker compose` (`up`/`down`/`restart`/etc.) directly against the main stack without all three of the following. Origin: on 2026-08-05, a delegated implementer subagent verifying `scripts/run-tests.sh` (isolated test-profile work, see `docs/superpowers/reports/2026-08-05-worktree-docker-test-profile-container-names-finish-cycle.md`) wiped the real `burndown_pgdata` volume — almost certainly by running `docker compose down -v` against the main project instead of the isolated `pdash_test` one, most likely copying the `-v` habit from the isolated script's own cleanup logic. Recovery only worked because an unrelated, incidental `pg_dump` snapshot happened to exist from an earlier cycle — not because of any designed safety net.
+1. **No `-v`/`--volumes` against the main stack, ever, ideally not even flagged as "not needed."** Any dispatch prompt that instructs an agent to run `docker compose down`/`up`/`restart` against the main project must explicitly forbid `-v`/`--volumes` in that same instruction, and must tell the agent to stop and escalate rather than trying a more aggressive command if the plain command doesn't behave as expected.
+2. **Snapshot before touching it.** Before any agent-run Docker-lifecycle operation on the main stack as part of a verification or test step, take an explicit `pg_dump` backup first (see "Database backup & full recreation" below) — do not rely on an incidental leftover dump from an unrelated prior cycle.
+3. **Treat it as a risky, confirm-first action.** `docker compose down`/`up`/`restart` against the main stack, even without `-v`, requires the same explicit human confirmation as other hard-to-reverse actions (per the top-level Executing Actions guidance) — it is not "safe because reversible in theory." Prefer, wherever the plan allows, verifying against an isolated stack (`scripts/test-branch.sh`, `scripts/run-tests.sh`) instead of touching the main stack at all.
+
 ## Development
 
 The app runs via Docker Compose. Start everything with:
@@ -30,6 +35,33 @@ To run database migrations:
 ```powershell
 docker exec pdash-db psql -U pdash -d pdash -f /path/to/migration.sql
 ```
+
+### Database backup & full recreation
+
+There was previously no documented procedure for this — added 2026-08-05 after an incident (see "Infrastructure safety" above) where the main stack's data volume was accidentally wiped and recovery depended entirely on an unrelated, incidental leftover backup file.
+
+**Backup (take before any risky operation on the main stack):**
+
+```powershell
+docker exec pdash-db pg_dump -U pdash -Fc pdash > pdash-backup-<date>.dump
+```
+
+**Restore from a backup** (into a running, empty or to-be-overwritten `pdash-db`):
+
+```powershell
+docker cp pdash-backup-<date>.dump pdash-db:/tmp/restore.dump
+docker exec pdash-db pg_restore -U pdash -d pdash --clean --if-exists --no-owner /tmp/restore.dump
+docker exec pdash-db rm /tmp/restore.dump
+```
+
+**Full recreation from scratch** (empty volume, no backup — e.g. first-ever setup, or genuine data loss with no dump available): apply every migration file in `api/src/db/migrations/` in filename order, then bootstrap the first admin user:
+
+```powershell
+for f in api/src/db/migrations/*.sql; do docker exec -i pdash-db psql -U pdash -d pdash < "$f"; done
+docker exec pdash-api node /app/src/create-admin.js <email> <password> [firstName] [lastName]
+```
+
+This is the same migration-loop pattern `scripts/test-branch.sh` and `scripts/run-tests.sh` already use internally for their own isolated stacks — nothing in the running app (`api/Dockerfile`, `api/src/index.js`, `create-admin.js`) applies migrations automatically, so a genuinely empty `pdash-db` stays schema-less until this loop is run by hand.
 
 To test a feature branch in isolation before merging (separate containers/ports, doesn't touch the `main` stack):
 
