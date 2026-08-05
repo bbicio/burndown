@@ -14,6 +14,7 @@ load_env() {
     key="${line%%=*}"; val="${line#*=}"
     key="${key#"${key%%[![:space:]]*}"}"; key="${key%"${key##*[![:space:]]}"}"
     [[ -z "$key" || "$key" == \#* ]] && continue
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
     val="${val#"${val%%[![:space:]]*}"}"; val="${val%"${val##*[![:space:]]}"}"
     val="${val%\"}"; val="${val#\"}"
     val="${val%\'}"; val="${val#\'}"
