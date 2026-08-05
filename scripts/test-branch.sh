@@ -30,6 +30,7 @@ load_env() {
     key="${line%%=*}"; val="${line#*=}"
     key="${key#"${key%%[![:space:]]*}"}"; key="${key%"${key##*[![:space:]]}"}"
     [[ -z "$key" || "$key" == \#* ]] && continue
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
     val="${val#"${val%%[![:space:]]*}"}"; val="${val%"${val##*[![:space:]]}"}"
     val="${val%\"}"; val="${val#\"}"
     val="${val%\'}"; val="${val#\'}"
@@ -120,9 +121,9 @@ open_browser() {
 
 status() {
   local db_health api_health
-  db_health=$(docker inspect -f '{{.State.Health.Status}}' "$DB_CONTAINER" 2>/dev/null || echo "missing")
-  api_health=$(docker inspect -f '{{.State.Health.Status}}' "$API_CONTAINER" 2>/dev/null || echo "missing")
-  if [ "$db_health" = "healthy" ] && [ "$api_health" = "healthy" ]; then
+  db_health=$(docker inspect -f '{{.State.Running}}/{{.State.Health.Status}}' "$DB_CONTAINER" 2>/dev/null || echo "missing")
+  api_health=$(docker inspect -f '{{.State.Running}}/{{.State.Health.Status}}' "$API_CONTAINER" 2>/dev/null || echo "missing")
+  if [ "$db_health" = "true/healthy" ] && [ "$api_health" = "true/healthy" ]; then
     echo "up"
     exit 0
   else
