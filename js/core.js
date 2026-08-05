@@ -263,9 +263,9 @@ function parseTaskDate(str, isEnd) {
 
 function findRate(row, cfg) {
   for (const task of cfg.tasks) {
-    if (task.name.toLowerCase() !== row.task.toLowerCase()) continue;
+    if ((task.name || '').toLowerCase() !== (row.task || '').toLowerCase()) continue;
     for (const res of task.resources)
-      if (res.role.toLowerCase() === row.role.toLowerCase()) return res.hourlyRate;
+      if ((res.role || '').toLowerCase() === (row.role || '').toLowerCase()) return res.hourlyRate;
     if (task.resources.length) return task.resources[0].hourlyRate;
   }
   return null;
