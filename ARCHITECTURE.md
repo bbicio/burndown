@@ -801,6 +801,15 @@ burndown/
                              reads `.env` via a manual line-by-line parser mirroring create-admin.js's approach
                              (never source/eval — real `.env` values here contain shell-special characters like
                              `$$`, which naive sourcing would corrupt)
+    run-tests.sh           ← ephemeral, fully isolated stack (distinct `-p pdash_test` project name,
+                             `pdash-db-test`/`pdash-api-test` container names, no host ports) for the
+                             `docker-compose.yml` integration-test profile; unlike test-branch.sh it never clones
+                             main-stack data — always applies all `api/src/db/migrations/*.sql` to a fresh DB (the
+                             `test` service's own command never applied migrations itself, so the old bare
+                             `docker compose --profile test run --rm test` command only ever worked by silently
+                             attaching to the main stack's already-migrated volume); `trap cleanup EXIT` removes
+                             containers + the disposable volume + the generated `docker-compose.test.yml` override
+                             on every exit path; is `/finish-cycle` Gate 1's documented test command
 ```
 
 ---

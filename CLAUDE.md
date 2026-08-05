@@ -234,6 +234,20 @@ scripts/test-branch.sh   — isolated Docker Compose stack for testing the curre
                             detect a branch environment already running from an earlier attempt); reads `.env` via
                             a manual line-by-line parser (never source/eval — real `.env` values here contain
                             shell-special characters)
+scripts/run-tests.sh     — ephemeral, fully isolated Docker Compose stack for the integration-test profile
+                            (distinct `-p pdash_test` project name, `pdash-db-test`/`pdash-api-test` container
+                            names, no host ports at all via `ports: !override []`); reuses `scripts/test-branch.sh`'s
+                            `load_env()`/`write_override()`(`!override` merge tag)/`wait_healthy()` verbatim rather
+                            than reinventing them; applies all `api/src/db/migrations/*.sql` explicitly before
+                            starting `api` (the `test` service's own command never applied migrations itself —
+                            confirmed via `api/Dockerfile`/`create-admin.js`, so the old bare
+                            `docker compose --profile test run --rm test` command only ever "worked" by silently
+                            attaching to the main stack's already-migrated volume, a real data-isolation risk, not
+                            just a naming conflict); `trap cleanup EXIT` guarantees containers + the disposable
+                            `pdash_test_pgdata`-prefixed volume + the generated `docker-compose.test.yml` override
+                            are removed on every exit path (pass, fail, or interrupt); replaces the old bare command
+                            as `/finish-cycle` Gate 1's documented test command (`.claude/commands/finish-cycle.md`)
+                            and as `TEST_CASES.md`'s "Auto" coverage legend; `docker-compose.test.yml` is gitignored
 ```
 
 ### `v-cloak` (all Vue pages, 2026-07)
