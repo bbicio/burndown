@@ -101,6 +101,13 @@ wait_healthy() {
   done
 }
 
+schema_exists() {
+  local result
+  result=$(docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -tAc \
+    "SELECT to_regclass('public.users') IS NOT NULL;")
+  [ "$result" = "t" ]
+}
+
 open_browser() {
   local url=$1
   case "$(uname -s)" in
@@ -137,11 +144,15 @@ up() {
     $COMPOSE up -d --build api nginx adminer
     wait_healthy "$API_CONTAINER"
   else
-    echo "main stack not running — applying migrations to a fresh database..."
-    for f in api/src/db/migrations/*.sql; do
-      echo "  applying $(basename "$f")"
-      docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" < "$f"
-    done
+    echo "main stack not running — preparing fresh database..."
+    if schema_exists; then
+      echo "schema already present — skipping migrations."
+    else
+      for f in api/src/db/migrations/*.sql; do
+        echo "  applying $(basename "$f")"
+        docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" < "$f"
+      done
+    fi
     $COMPOSE up -d --build api nginx adminer
     wait_healthy "$API_CONTAINER"
     echo "Bootstrapping test admin user (test-branch@pdash.local / TestBranch123!)..."
