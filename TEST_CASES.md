@@ -217,6 +217,7 @@
 | PL-16 | AI sidebar sends on Ctrl/Meta+Enter | With an AI key configured, type a question in the AI sidebar and press Ctrl+Enter (or Cmd+Enter) | Message sends, same as plain Enter; only Shift+Enter inserts a newline instead | |
 | PL-17 | Group toggle stays single-click after repeated re-renders | In By Project or By Owner view, type several characters in the AI sidebar input (triggering re-renders), then click a group header to collapse/expand it | Group collapses/expands exactly once per click — no compounding/duplicate toggling from repeated re-renders | |
 | PL-18 | AI sidebar Send ignores a fast repeat click | With an AI key configured, type a question and click Send twice in quick succession before the first request resolves | Only one request/message is sent, not two; the button re-enables normally once the (single) reply arrives | |
+| PL-19 | AI sidebar context matches task/role case-insensitively | Have timesheet actuals whose task/role casing differs from the project config's casing (e.g. `developer` vs `Developer`); open the AI sidebar and inspect the built context (e.g. via console: `buildPlanningContext()`) | Consumed/to-be-planned hours for that role are counted correctly regardless of casing — matches PL-07's parity guarantee, extended to the AI sidebar's own context builder (`js/ai.js`'s `buildPlanningContext()`, previously a separate, case-sensitive reimplementation) | |
 
 ---
 

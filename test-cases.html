@@ -727,6 +727,9 @@ const SECTIONS = [
     {id:'PL-18',scenario:'AI sidebar Send ignores a fast repeat click',
      steps:'With an AI key configured, type a question and click Send twice in quick succession before the first request resolves',
      expected:'Only one request/message is sent, not two; the button re-enables normally once the (single) reply arrives'},
+    {id:'PL-19',scenario:'AI sidebar context matches task/role case-insensitively',
+     steps:"Have timesheet actuals whose task/role casing differs from the project config's casing (e.g. developer vs Developer); open the AI sidebar and inspect the built context (e.g. via console: buildPlanningContext())",
+     expected:"Consumed/to-be-planned hours for that role are counted correctly regardless of casing — matches PL-07's parity guarantee, extended to the AI sidebar's own context builder (js/ai.js's buildPlanningContext(), previously a separate, case-sensitive reimplementation)"},
   ]
 },
 {
