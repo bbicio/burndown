@@ -236,13 +236,29 @@ api/src/lib/              — pure functions extracted for unit testing (node:te
                             `api/src/routes/timesheets.js`'s `resolveColumnMap(headers)` — column-header-to-field
                             resolver for the XLS upload, exported (like `formatDate`) for direct `node:test`
                             coverage. Resolves each of `colDate/colRole/colOwner/colHours/colTask/colNotes/
-                            colProjId/colProjName` via case-insensitive substring match against each field's
-                            keyword list, tracking already-claimed headers in a `Set` so no physical column can be
-                            assigned to two fields (previously an ambiguous header like `"Resource Name"` — matching
-                            both role's `resource` keyword and owner's `name` keyword — would silently duplicate
-                            role into owner). Field declaration order (`date > role > owner > hours > task > notes
-                            > projId > projName`) is the explicit conflict-priority order: whichever field is
-                            declared first wins any column conflict.
+                            colProjId/colProjName` via a **specificity-scored global assignment** (2026-08, replacing
+                            the earlier fixed-declaration-order/first-match algorithm) — an audit
+                            (`docs/superpowers/audits/2026-08-05-timesheet-column-mapping-ambiguity-audit.md`) found
+                            the old algorithm could silently misassign a column whenever a generic keyword from an
+                            early-declared field (e.g. `colOwner`'s bare `'name'`/`'nome'`) collided with a more
+                            specific keyword belonging to a later-declared field (e.g. `colProjName`'s
+                            `'project name'`) — the outcome depended purely on which column happened to appear first
+                            in the uploaded file, with no error ever raised (`"Project Name"` could end up as the
+                            `owner` value for every row, `colProjName` left `null`). Every (header, field) match is
+                            now scored — tier 2 if the header equals the keyword exactly, tier 1 if the keyword
+                            appears as a whole word inside the header (word-boundary aware via a manual
+                            `\p{L}\p{N}` Unicode-property check, not a plain regex `\b`, since `\b` doesn't treat
+                            accented letters like the `à` in `attività` as word characters and would misfire on that
+                            candidate); within a tier, a longer/more specific keyword outranks a shorter/generic
+                            one — then all matches across every header and every field are sorted by score and
+                            assigned greedily (highest-specificity first), so field-declaration order only decides
+                            genuine ties (e.g. `"Resource Name"` still resolves to `colRole`, not `colOwner`,
+                            because `'resource'` (8 chars) always outscores `'name'` (4 chars) — it never reaches
+                            the tie-break). `colTask`'s candidate list gained `'task name'`/`'nome attività'`
+                            (mirroring `colProjName`'s existing `'project name'` pattern) — a gap found mid-fix: the
+                            bare `'task'` (4 chars) tied exactly with `colOwner`'s bare `'name'` (4 chars) for the
+                            header `"Task Name"`, and without a more specific candidate to break that tie cleanly,
+                            declaration order silently regressed the exact bug being fixed.
 api/src/routes/exports.js        — POST /api/exports/{portfolio|cost-grids|ratecards}
 api/src/routes/notifications.js  — SSE stream, CRUD, push; exports { router, pushToUser }
 api/src/routes/pipeline-years.js — CRUD for admin-managed pipeline years

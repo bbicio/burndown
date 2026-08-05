@@ -1102,6 +1102,12 @@ const SECTIONS = [
     {id:'TS-09',scenario:'Unrecognized date value rejects the whole upload',
      steps:'Upload a file with one valid row and one date cell containing free text that isn\'t a date at all (e.g. "N/A")',
      expected:'Entire upload rejected (400) naming the offending spreadsheet row, same as a calendar-invalid date (TS-07); zero rows persisted. A whitespace-only date cell is treated as no date (row keeps a null date) rather than rejected. Covered by a node:test characterization test (api/src/routes/timesheets.test.js).'},
+    {id:'TS-10',scenario:"Generic keyword doesn't steal a more specific field's column",
+     steps:'Upload a file with a "Project Name" header (and no separate "Owner" column, or one that appears later in the file)',
+     expected:'"Project Name" is claimed by the project-name field, not owner — owner is left unmapped rather than populated with the project\'s name; same principle applies to a "Task Name" header not being stolen from the task field. Covered by a node:test characterization test (api/src/routes/timesheets.test.js).'},
+    {id:'TS-11',scenario:'Exact header match wins over a partial match for the same field',
+     steps:'Upload a file with both "Data Chiusura" and "Data" as headers',
+     expected:'The date field resolves to the exact-match column ("Data"), not the column that merely contains the keyword as a substring ("Data Chiusura"). Covered by a node:test characterization test (api/src/routes/timesheets.test.js).'},
   ]
 },
 {
