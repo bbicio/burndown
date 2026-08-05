@@ -32,11 +32,12 @@ Run the full closeout sequence for the current feature branch: test, optional ma
      - If rebuild: run `scripts/test-branch.sh down`, then `scripts/test-branch.sh up`. Record `<branch-env-active>` = true.
 2. Run `git log --diff-filter=A main..HEAD -- docs/superpowers/` to find spec/plan files added inside this branch.
 3. Run `git log main..HEAD | grep -o 'docs/superpowers/[^ ]*\.md'` to find spec/plan files referenced in this branch's commit messages.
-4. Combine the two result sets (deduplicated):
+4. Run `git merge-base main HEAD` to get `<merge-base>`, then `git log --oneline -8 <merge-base>` to list the 8 commits at and immediately before the branch's divergence point. Walk this list from `<merge-base>` backward and collect a *contiguous* prefix of commits whose messages match this project's own convention for spec/plan setup (`docs: brief + design spec for <topic>`, `docs: implementation plan for <topic>`) — stop at the first commit that doesn't match (do not skip over a non-matching commit to keep collecting further back). For each matching commit, run `git show --name-only <sha>` to get the `docs/superpowers/specs/*.md`/`docs/superpowers/plans/*.md` file(s) it added. This finds the common case in this project where Brief + Spec + Plan are committed to `main` *before* the feature branch is opened — steps 2-3 alone only see commits unique to the branch and miss this case entirely (a known, previously-reported blind spot). Bounding the walk to a contiguous matching prefix (rather than a flat commit-count lookback) avoids pulling in older, unrelated cycles' spec/plan commits once an ordinary merge or docs-sync commit is hit.
+5. Combine all three result sets (deduplicated):
    - Exactly one unique file → read it and check for mentions of browser verification or jsdom-untestable behavior. Show the file path and what was found (or state "no explicit mention of manual verification found in this file" if none).
    - More than one → state explicitly: "Found N candidates: [list] — no automatic selection."
    - Zero → state explicitly: "No spec/plan reference found in this branch's commits."
-5. Regardless of the outcome in step 4, always ask explicitly: "Have you manually verified this in the browser? [yes/no]"
+6. Regardless of the outcome in step 5, always ask explicitly: "Have you manually verified this in the browser? [yes/no]"
    - If the answer is "no" or anything other than a clear yes: stop and wait. Do not proceed. Do not tear down the branch environment if `<branch-env-active>` is true — leave it running so the user can keep testing.
    - If "yes": if `<branch-env-active>` is true, run `scripts/test-branch.sh down` to tear down the test stack. Then proceed to Gate 3.
 
