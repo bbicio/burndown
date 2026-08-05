@@ -10,7 +10,7 @@
 
 PDash evolves from a single-user localStorage SPA into a multi-user web application with authentication, role-based access control, a REST API backend, and a PostgreSQL database.
 
-The frontend remains Vanilla JS in the short term. New pages (login, account activation, password recovery) are built in **Vue 3** (CDN, no build step). Existing PDash views migrate to Vue incrementally.
+The frontend migration to **Vue 3** (CDN, no build step) completed 2026-08-05 — every page is now Vue 3 except the 9-line `index.html` redirect. A handful of shared library files remain classic (non-Vue) scripts, loaded as globals by the Vue pages that still need them (see the file-by-file notes in §7 below).
 
 ---
 
@@ -18,7 +18,7 @@ The frontend remains Vanilla JS in the short term. New pages (login, account act
 
 | Layer | Technology | Rationale |
 |---|---|---|
-| Frontend | Vanilla JS (multi-page) | No build step; each page is a self-contained HTML file |
+| Frontend | Vue 3 (CDN, multi-page) | No build step; each page is a self-contained HTML file with an inline `Vue.createApp(...)` |
 | Backend | Node.js + Express | Same language as frontend; mature auth/email ecosystem |
 | Database | PostgreSQL | Relational + JSONB; scales well for analytical queries |
 | Auth | JWT + httpOnly cookies | Stateless; protected from XSS |

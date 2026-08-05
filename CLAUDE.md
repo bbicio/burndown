@@ -85,7 +85,7 @@ Still no linter on the frontend or backend.
 
 ## Architecture
 
-Multi-page Vanilla JS app backed by a Node.js/Express REST API and PostgreSQL. No frontend framework.
+Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page is Vue 3 (loaded via CDN, no build step) except the 9-line `index.html` redirect — the Vue migration (tracked page-by-page below) completed 2026-08-05 when `planning.html`, the last holdout, moved over. A handful of shared library files (`js/costgrid.js`, `js/clients.js`, `js/roles.js`, `js/programs.js`, `js/ratecards.js`, `js/ai.js`, `js/upload.js`, `js/shares.js`, `js/notifications.js`, `js/nav.js`, `js/core.js`, `js/api.js`, `js/api-sync.js`, `js/settings.js`) remain classic (non-Vue) scripts loaded as globals by the Vue pages — see the file-by-file notes below for which pages load which.
 
 ### Pages
 
