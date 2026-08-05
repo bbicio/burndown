@@ -17,7 +17,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 2. If it passes, run `git diff --stat main...HEAD` and inspect the listed paths.
    - If any path starts with `api/` (including `api/src/db/migrations/`), or if any touched path's relevance to backend behavior is unclear/ambiguous, proceed to step 3.
    - Otherwise, skip straight to Gate 2.
-3. Run `docker compose --profile test run --rm test`.
+3. Run `scripts/run-tests.sh`.
    - If it fails: stop immediately, show the failing output verbatim. Require a fix and a re-run of `/finish-cycle` from the top.
 4. Proceed automatically to Gate 2 — no confirmation needed, this is an objective gate.
 

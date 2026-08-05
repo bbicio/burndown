@@ -18,3 +18,6 @@ Thumbs.db
 
 # scripts/test-branch.sh generates this override file per branch; never source-controlled
 docker-compose.branch.yml
+
+# scripts/run-tests.sh generates this override file per run; never source-controlled
+docker-compose.test.yml
