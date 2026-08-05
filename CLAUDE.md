@@ -68,7 +68,8 @@ To test a feature branch in isolation before merging (separate containers/ports,
 ```bash
 scripts/test-branch.sh up      # build + start, clone data from main if running
 scripts/test-branch.sh down    # tear down
-scripts/test-branch.sh status  # "up" (exit 0) or "down" (exit 1) — queries Docker directly, no persisted state
+scripts/test-branch.sh status  # "up" (exit 0) or "down" (exit 1) — both containers must be Docker-healthy
+                                # for "up" (2026-08: previously just checked they existed via `docker ps`)
 ```
 
 `/finish-cycle`'s Gate 2 calls `status` automatically to detect a branch environment still running from an earlier `/finish-cycle` attempt on the same branch, and asks to reuse or rebuild it instead of the plain "spin up now?" question.
@@ -277,16 +278,27 @@ api/src/create-admin.js  — CLI bootstrap script (admin user create/reset)
 scripts/test-branch.sh   — isolated Docker Compose stack for testing the current feature branch before merge
                             (distinct container names/ports from the main stack, clones data from main via
                             pg_dump/pg_restore when available, falls back to a fresh migrated DB + bootstrapped
-                            test admin otherwise); `up`/`down`/`status` subcommands (`status` reports "up"/"down" by
-                            querying Docker directly, no persisted state — consumed by `/finish-cycle` Gate 2 to
-                            detect a branch environment already running from an earlier attempt); reads `.env` via
-                            a manual line-by-line parser (never source/eval — real `.env` values here contain
-                            shell-special characters)
+                            test admin otherwise — the fresh-DB migration loop is idempotent, 2026-08: a
+                            `schema_exists()` helper checks `public.users` via `to_regclass` before applying
+                            migrations, so a second `up` without an intervening `down` skips already-applied
+                            migrations instead of failing with "already exists"; admin bootstrap stays unconditional
+                            on every run); `up`/`down`/`status` subcommands (`status` reports "up" only when both
+                            containers are actually Docker-healthy — `.State.Running` + `.State.Health.Status`,
+                            2026-08, previously just checked they existed via `docker ps`, which misreported a
+                            crash-looping/still-starting/stopped-but-stale-healthy container as "up" — consumed by
+                            `/finish-cycle` Gate 2 to detect a branch environment already running from an earlier
+                            attempt); reads `.env` via a manual line-by-line parser (never source/eval — real `.env`
+                            values here contain shell-special characters); `load_env()` silently skips any line with
+                            no `=` or an invalid shell-identifier key (2026-08 — previously a stray line like
+                            `export FOO=bar` aborted the whole script under `set -e`) and trims whitespace around
+                            key/value
 scripts/run-tests.sh     — ephemeral, fully isolated Docker Compose stack for the integration-test profile
                             (distinct `-p pdash_test` project name, `pdash-db-test`/`pdash-api-test` container
                             names, no host ports at all via `ports: !override []`); reuses `scripts/test-branch.sh`'s
                             `load_env()`/`write_override()`(`!override` merge tag)/`wait_healthy()` verbatim rather
-                            than reinventing them; applies all `api/src/db/migrations/*.sql` explicitly before
+                            than reinventing them (its own `load_env()` copy received the identical 2026-08 fix,
+                            kept duplicated by design — no shared shell-library convention exists in this project);
+                            applies all `api/src/db/migrations/*.sql` explicitly before
                             starting `api` (the `test` service's own command never applied migrations itself —
                             confirmed via `api/Dockerfile`/`create-admin.js`, so the old bare
                             `docker compose --profile test run --rm test` command only ever "worked" by silently

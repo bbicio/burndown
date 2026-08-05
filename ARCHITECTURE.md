@@ -793,14 +793,25 @@ burndown/
   scripts/
     test-branch.sh        ← isolated Docker Compose stack (`up`/`down`/`status`) for testing the current feature
                              branch before merge; distinct container names/ports from the main stack (safe to run
-                             alongside it); `status` reports "up"/"down" by querying Docker directly (no persisted
-                             state) — consumed by `/finish-cycle`'s Gate 2 to detect a branch environment already
-                             running from an earlier attempt and offer reuse-vs-rebuild instead of asking to spin
-                             up again; clones data from the running main stack via pg_dump/pg_restore when
-                             available, else applies all migrations to a fresh DB + bootstraps a test admin;
+                             alongside it); `status` reports "up" only when both the db and api containers are
+                             actually Docker-healthy (`docker inspect .State.Running`/`.State.Health.Status`, 2026-08
+                             hardening — previously checked mere `docker ps` existence, so a crash-looping or
+                             still-starting container was misreported as "up"; the combined Running+Health check also
+                             closes a related gap where a *stopped* container can still show a stale `healthy` from
+                             before it exited) — consumed by `/finish-cycle`'s Gate 2 to detect a branch environment
+                             already running from an earlier attempt and offer reuse-vs-rebuild instead of asking to
+                             spin up again; clones data from the running main stack via pg_dump/pg_restore when
+                             available, else applies all migrations to a fresh DB + bootstraps a test admin — the
+                             fresh-DB migration loop is idempotent (2026-08 hardening): a `schema_exists()` helper
+                             checks for `public.users` via `to_regclass` before applying migrations, so re-running
+                             `up` a second time without an intervening `down` skips already-applied migrations
+                             instead of failing with "already exists"; the admin-bootstrap step stays unconditional
+                             on every run (create-admin.js is itself create-or-reset-password, so this is safe);
                              reads `.env` via a manual line-by-line parser mirroring create-admin.js's approach
                              (never source/eval — real `.env` values here contain shell-special characters like
-                             `$$`, which naive sourcing would corrupt)
+                             `$$`, which naive sourcing would corrupt) — hardened 2026-08 to silently skip any line
+                             with no `=` or a key that isn't a valid shell identifier (e.g. a stray `export FOO=bar`
+                             line, previously an uncaught `set -e` abort) and to trim whitespace around key/value
     run-tests.sh           ← ephemeral, fully isolated stack (distinct `-p pdash_test` project name,
                              `pdash-db-test`/`pdash-api-test` container names, no host ports) for the
                              `docker-compose.yml` integration-test profile; unlike test-branch.sh it never clones
@@ -809,7 +820,10 @@ burndown/
                              `docker compose --profile test run --rm test` command only ever worked by silently
                              attaching to the main stack's already-migrated volume); `trap cleanup EXIT` removes
                              containers + the disposable volume + the generated `docker-compose.test.yml` override
-                             on every exit path; is `/finish-cycle` Gate 1's documented test command
+                             on every exit path; is `/finish-cycle` Gate 1's documented test command; its own
+                             `load_env()` copy received the identical 2026-08 malformed-line/whitespace fix as
+                             test-branch.sh's (kept duplicated by design, not consolidated — no shared shell-library
+                             convention exists in this project)
 ```
 
 ---
