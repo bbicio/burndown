@@ -195,23 +195,77 @@ function trimRowKeys(row) {
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
+const FIELD_CANDIDATES = {
+  colDate:     ['date', 'data'],
+  colRole:     ['role', 'ruolo', 'resource'],
+  colOwner:    ['owner', 'worker', 'name', 'nome'],
+  colHours:    ['hours', 'ore', 'qty', 'quantity'],
+  colTask:     ['task', 'attività', 'activity', 'task name', 'nome attività'],
+  colNotes:    ['notes', 'note', 'description'],
+  colProjId:   ['projectid', 'project id', 'project_id', 'codice'],
+  colProjName: ['projectname', 'project name', 'project_name', 'progetto'],
+};
+const FIELD_ORDER = Object.keys(FIELD_CANDIDATES);
+
+// Unicode-aware "not a letter/digit" check -- a plain regex \b word boundary doesn't treat
+// accented letters (e.g. the "à" in "attività") as word characters, which would create a
+// false boundary in the middle of that word and silently break the 'attività' candidate.
+function isBoundaryChar(ch) {
+  return ch === undefined || !/[\p{L}\p{N}]/u.test(ch);
+}
+
+// Returns null if `candidate` doesn't appear in `header` as a whole word (or the whole
+// header), otherwise a specificity score: tier 2 = header equals candidate exactly,
+// tier 1 = candidate appears as a whole word inside a longer header. Within a tier,
+// a longer candidate is more specific than a shorter one.
+function matchSpecificity(header, candidate) {
+  const h = header.toLowerCase();
+  const c = candidate.toLowerCase();
+  if (h === c) return { tier: 2, length: c.length };
+  const idx = h.indexOf(c);
+  if (idx === -1) return null;
+  if (isBoundaryChar(h[idx - 1]) && isBoundaryChar(h[idx + c.length])) {
+    return { tier: 1, length: c.length };
+  }
+  return null;
+}
+
 function resolveColumnMap(headers) {
-  const used = new Set();
-  const findCol = (...candidates) => {
-    const col = headers.find(k => !used.has(k) && candidates.some(c => k.toLowerCase().includes(c.toLowerCase())));
-    if (col) used.add(col);
-    return col;
-  };
-  return {
-    colDate:     findCol('date', 'data'),
-    colRole:     findCol('role', 'ruolo', 'resource'),
-    colOwner:    findCol('owner', 'worker', 'name', 'nome'),
-    colHours:    findCol('hours', 'ore', 'qty', 'quantity'),
-    colTask:     findCol('task', 'attività', 'activity'),
-    colNotes:    findCol('notes', 'note', 'description'),
-    colProjId:   findCol('projectid', 'project id', 'project_id', 'codice'),
-    colProjName: findCol('projectname', 'project name', 'project_name', 'progetto'),
-  };
+  const matches = [];
+  headers.forEach((header, headerIdx) => {
+    FIELD_ORDER.forEach((field, fieldIdx) => {
+      let best = null;
+      for (const candidate of FIELD_CANDIDATES[field]) {
+        const score = matchSpecificity(header, candidate);
+        if (score && (!best || score.tier > best.tier ||
+            (score.tier === best.tier && score.length > best.length))) {
+          best = score;
+        }
+      }
+      if (best) matches.push({ header, headerIdx, field, fieldIdx, ...best });
+    });
+  });
+
+  // Highest specificity first; ties broken by field-declaration order then header
+  // position, matching today's behavior exactly when specificity doesn't differ.
+  matches.sort((a, b) =>
+    b.tier - a.tier ||
+    b.length - a.length ||
+    a.fieldIdx - b.fieldIdx ||
+    a.headerIdx - b.headerIdx
+  );
+
+  const result = {};
+  const usedHeaders = new Set();
+  const usedFields = new Set();
+  for (const m of matches) {
+    if (usedHeaders.has(m.header) || usedFields.has(m.field)) continue;
+    result[m.field] = m.header;
+    usedHeaders.add(m.header);
+    usedFields.add(m.field);
+  }
+  for (const field of FIELD_ORDER) if (!(field in result)) result[field] = undefined;
+  return result;
 }
 
 function formatDate(val) {

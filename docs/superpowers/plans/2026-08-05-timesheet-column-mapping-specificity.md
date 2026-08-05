@@ -117,7 +117,7 @@ const FIELD_CANDIDATES = {
   colRole:     ['role', 'ruolo', 'resource'],
   colOwner:    ['owner', 'worker', 'name', 'nome'],
   colHours:    ['hours', 'ore', 'qty', 'quantity'],
-  colTask:     ['task', 'attività', 'activity'],
+  colTask:     ['task', 'attività', 'activity', 'task name', 'nome attività'],
   colNotes:    ['notes', 'note', 'description'],
   colProjId:   ['projectid', 'project id', 'project_id', 'codice'],
   colProjName: ['projectname', 'project name', 'project_name', 'progetto'],

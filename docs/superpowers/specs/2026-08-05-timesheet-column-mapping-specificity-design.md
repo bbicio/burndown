@@ -37,7 +37,7 @@ const FIELD_CANDIDATES = {
   colRole:     ['role', 'ruolo', 'resource'],
   colOwner:    ['owner', 'worker', 'name', 'nome'],
   colHours:    ['hours', 'ore', 'qty', 'quantity'],
-  colTask:     ['task', 'attività', 'activity'],
+  colTask:     ['task', 'attività', 'activity', 'task name', 'nome attività'],
   colNotes:    ['notes', 'note', 'description'],
   colProjId:   ['projectid', 'project id', 'project_id', 'codice'],
   colProjName: ['projectname', 'project name', 'project_name', 'progetto'],
@@ -111,6 +111,8 @@ Design notes:
 - The exact-match tier (`h === c`) exists so that, e.g., a header that is *only* `"Date"` outranks a hypothetical longer competing candidate that also happens to match as a whole word — full-string equality is the strongest possible specificity signal.
 - Tie-break (`fieldIdx` then `headerIdx`, both ascending) preserves today's exact behavior whenever two matches have identical tier and length — this is what keeps `"Resource Name"` resolving to `colRole` (verified by hand: `'resource'`, 8 chars, always outscores `'name'`, 4 chars, so this particular case doesn't even reach the tie-break, but the tie-break itself matches the field declaration order that produces today's result in the cases where a genuine tie occurs).
 - No change to the function's signature or return shape — still receives a trimmed header array, still returns an object with the same 8 keys, each `string | undefined`. No caller (`api/src/routes/timesheets.js:99-101`) needs to change.
+
+**Correction found during implementation (2026-08-05):** the first implementation attempt used `colTask: ['task', 'attività', 'activity']` (the original, unmodified candidate list) and the `"Task Name"` regression test failed — `colTask`'s bare `'task'` (4 chars) and `colOwner`'s bare `'name'` (4 chars) score an exact tie (same tier, same length) for that header, and the `fieldIdx` tie-break resolves it to `colOwner` (declared 3rd, before `colTask`'s 5th) — silently reintroducing the exact F1 bug this design exists to fix. Root cause: `colProjName` already had a specific compound candidate (`'project name'`, 13 chars) that clearly outscores `colOwner`'s generic `'name'` with no tie — `colTask` had no equivalent compound candidate, so it could only compete via the bare word, which ties. Fix: added `'task name'`/`'nome attività'` to `colTask`'s candidate list (`FIELD_CANDIDATES` above already reflects this), mirroring the specific-compound-phrase pattern `colProjName` already used. This is a narrow, deliberate exception to this design's original "candidate table is unchanged" framing (confirmed with the user before applying) — the table itself needed one small extension for the *scoring* fix to actually work end-to-end, not a second, different mechanism.
 
 ## Verifica
 

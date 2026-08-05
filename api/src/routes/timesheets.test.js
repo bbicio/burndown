@@ -77,6 +77,41 @@ test('resolveColumnMap: two owners sharing a role resolve to distinct row values
   assert.notEqual(rows[1][map.colOwner], rows[1][map.colRole]);
 });
 
+test('resolveColumnMap: "Project Name" resolves to colProjName, not colOwner (no separate Owner column)', () => {
+  const map = resolveColumnMap(['Date', 'Role', 'Project Name', 'Hours', 'Task', 'Project ID']);
+  assert.equal(map.colProjName, 'Project Name');
+  assert.notEqual(map.colOwner, 'Project Name');
+});
+
+test('resolveColumnMap: "Project Name" still resolves correctly even when it appears before the real Owner column', () => {
+  const map = resolveColumnMap(['Date', 'Role', 'Project Name', 'Owner', 'Hours', 'Task', 'Project ID']);
+  assert.equal(map.colProjName, 'Project Name');
+  assert.equal(map.colOwner, 'Owner');
+});
+
+test('resolveColumnMap: "Task Name" alone resolves to colTask, not colOwner', () => {
+  const map = resolveColumnMap(['Date', 'Role', 'Task Name', 'Hours', 'Project ID']);
+  assert.equal(map.colTask, 'Task Name');
+  assert.notEqual(map.colOwner, 'Task Name');
+});
+
+test('resolveColumnMap: Italian "Nome Progetto" + "Nome Risorsa" both resolve to their correct fields', () => {
+  const map = resolveColumnMap(['Data', 'Ruolo', 'Nome Progetto', 'Nome Risorsa', 'Ore', 'Attività', 'Codice']);
+  assert.equal(map.colProjName, 'Nome Progetto');
+  assert.equal(map.colOwner, 'Nome Risorsa');
+});
+
+test('resolveColumnMap: "Data" (exact match) wins over "Data Chiusura" (partial match) for colDate', () => {
+  const map = resolveColumnMap(['Data Chiusura', 'Data', 'Ruolo', 'Ore', 'Codice']);
+  assert.equal(map.colDate, 'Data');
+  assert.notEqual(map.colDate, 'Data Chiusura');
+});
+
+test('resolveColumnMap: "Surname" is not misassigned to colOwner via a bare substring match on "name"', () => {
+  const map = resolveColumnMap(['Date', 'Role', 'Surname', 'Hours', 'Task', 'Project ID']);
+  assert.notEqual(map.colOwner, 'Surname');
+});
+
 test('trimRowKeys: trims every key, leaves values untouched', () => {
   const row = { ' Date ': '2026-06-15', 'Role: Name    ': 'HWGDEV - DEVELOPER', 'Hours': 8 };
   const trimmed = trimRowKeys(row);
