@@ -8,10 +8,13 @@ set -euo pipefail
 load_env() {
   local env_file=".env"
   [ -f "$env_file" ] || return 0
-  while IFS='=' read -r key val; do
-    key="${key%$'\r'}"
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
+    [[ "$line" != *=* ]] && continue
+    key="${line%%=*}"; val="${line#*=}"
+    key="${key#"${key%%[![:space:]]*}"}"; key="${key%"${key##*[![:space:]]}"}"
     [[ -z "$key" || "$key" == \#* ]] && continue
-    val="${val%$'\r'}"
+    val="${val#"${val%%[![:space:]]*}"}"; val="${val%"${val##*[![:space:]]}"}"
     val="${val%\"}"; val="${val#\"}"
     val="${val%\'}"; val="${val#\'}"
     if [ -z "${!key+x}" ]; then
