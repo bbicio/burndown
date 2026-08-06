@@ -63,8 +63,12 @@ wait_healthy() {
   done
 }
 
-cleanup() {
+compose_down() {
   $COMPOSE down -v --remove-orphans >/dev/null 2>&1 || true
+}
+
+cleanup() {
+  compose_down
   rm -f "$OVERRIDE_FILE"
 }
 trap cleanup EXIT
@@ -72,7 +76,7 @@ trap cleanup EXIT
 write_override
 
 echo "Cleaning up any leftover state from a prior run..."
-$COMPOSE down -v --remove-orphans >/dev/null 2>&1 || true
+compose_down
 
 echo "Starting isolated test stack (project: ${PROJECT})..."
 
