@@ -6,9 +6,10 @@ if [ ! -f docker-compose.yml ] || [ ! -d api/src/db/migrations ]; then
   exit 1
 fi
 
-LOCK_DIR=".run-tests.lock"
+LOCK_DIR="${TMPDIR:-/tmp}/pdash_test.run-tests.lock"
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
-  echo "Another run-tests.sh is already in progress (lock: $LOCK_DIR). Wait for it to finish." >&2
+  echo "Another run-tests.sh is already in progress (lock: $LOCK_DIR)." >&2
+  echo "If no run is actually in progress, it is a stale lock — remove it with: rmdir $LOCK_DIR" >&2
   exit 1
 fi
 
