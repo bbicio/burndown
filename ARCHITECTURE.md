@@ -811,7 +811,14 @@ burndown/
                              (never source/eval — real `.env` values here contain shell-special characters like
                              `$$`, which naive sourcing would corrupt) — hardened 2026-08 to silently skip any line
                              with no `=` or a key that isn't a valid shell identifier (e.g. a stray `export FOO=bar`
-                             line, previously an uncaught `set -e` abort) and to trim whitespace around key/value
+                             line, previously an uncaught `set -e` abort) and to trim whitespace around key/value —
+                             2026-08 Cycle 3 hardening: the main-stack data-clone dump (`pg_dump`/`pg_restore`) now
+                             writes to a `mktemp`-created file (`600` permissions, no world-readable window) instead
+                             of a fixed `/tmp/pdash_branch_snapshot.dump` path, and deletes it immediately after
+                             `pg_restore` completes (a stale, days-old dump under the old fixed path was found and
+                             confirmed during this fix's verification); the four ports (`FRONTEND_PORT`/`API_PORT`/
+                             `DB_PORT`/`ADMINER_PORT`) are now overridable via optional `TEST_BRANCH_*_PORT` `.env`
+                             variables, same defaults if unset
     run-tests.sh           ← ephemeral, fully isolated stack (distinct `-p pdash_test` project name,
                              `pdash-db-test`/`pdash-api-test` container names, no host ports) for the
                              `docker-compose.yml` integration-test profile; unlike test-branch.sh it never clones
@@ -833,7 +840,19 @@ burndown/
                              is now conditional on the `api` service — a hash of `api/Dockerfile`+`api/package.json`
                              compared against a gitignored marker file (`.run-tests-image-hash`, repo root) decides
                              whether to rebuild, only rebuilding when those inputs actually changed; `db` drops
-                             `--build` entirely (it has no build context — `image: postgres:16-alpine` directly)
+                             `--build` entirely (it has no build context — `image: postgres:16-alpine` directly) —
+                             2026-08 Cycle 3 hardening: the duplicated `$COMPOSE down -v --remove-orphans` command
+                             (previously inline in both `cleanup()` and the pre-cleanup call) is now a single shared
+                             `compose_down()` function; an `mkdir`-based concurrency lock (acquired right after the
+                             cwd guard, released in `cleanup()`) prevents two simultaneous invocations from tearing
+                             each other down via the pre-cleanup — the lock file lives at a shared
+                             `${TMPDIR:-/tmp}/pdash_test.run-tests.lock` path (not inside the repo checkout), since
+                             the `pdash_test` Docker project it protects is daemon-global, not scoped to any one
+                             git worktree — two different worktrees each acquiring their own checkout-local lock was
+                             the exact bug this final form avoids (caught by this cycle's own whole-branch review);
+                             the lock-contention error message names the exact `rmdir` command to recover from a
+                             genuinely stale lock (left behind by a `SIGHUP`/`kill -9`/crash, none of which reliably
+                             run the `EXIT` trap)
 ```
 
 ---

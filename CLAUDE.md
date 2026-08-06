@@ -291,7 +291,13 @@ scripts/test-branch.sh   — isolated Docker Compose stack for testing the curre
                             values here contain shell-special characters); `load_env()` silently skips any line with
                             no `=` or an invalid shell-identifier key (2026-08 — previously a stray line like
                             `export FOO=bar` aborted the whole script under `set -e`) and trims whitespace around
-                            key/value
+                            key/value; 2026-08 Cycle 3 hardening: the main-stack data-clone dump is written via
+                            `mktemp` (`600` permissions, no world-readable window) instead of a fixed
+                            `/tmp/pdash_branch_snapshot.dump` path, and deleted right after `pg_restore` completes
+                            (a stale, days-old dump was found under the old fixed path during this fix's own
+                            verification); the four ports are overridable via optional `TEST_BRANCH_FRONTEND_PORT`/
+                            `TEST_BRANCH_API_PORT`/`TEST_BRANCH_DB_PORT`/`TEST_BRANCH_ADMINER_PORT` `.env` variables,
+                            same defaults (8081/3001/5433/8082) if unset
 scripts/run-tests.sh     — ephemeral, fully isolated Docker Compose stack for the integration-test profile
                             (distinct `-p pdash_test` project name, `pdash-db-test`/`pdash-api-test` container
                             names, no host ports at all via `ports: !override []`); reuses `scripts/test-branch.sh`'s
@@ -317,7 +323,17 @@ scripts/run-tests.sh     — ephemeral, fully isolated Docker Compose stack for 
                             (which bypasses the `EXIT` trap) doesn't leak into the next one; and a conditional
                             `--build` for `api` only, gated on a hash of `api/Dockerfile`+`api/package.json` against
                             a gitignored marker (`.run-tests-image-hash`, repo root) — `db` drops `--build` entirely
-                            since it has no build context (`image: postgres:16-alpine` directly, no Dockerfile)
+                            since it has no build context (`image: postgres:16-alpine` directly, no Dockerfile);
+                            2026-08 Cycle 3 hardening: the duplicated `$COMPOSE down -v --remove-orphans` command is
+                            now a single shared `compose_down()` function (used by both `cleanup()` and the
+                            pre-cleanup call); an `mkdir`-based concurrency lock, acquired right after the cwd
+                            guard and released in `cleanup()`, prevents two simultaneous invocations from tearing
+                            each other down — the lock lives at a shared `${TMPDIR:-/tmp}/pdash_test.run-tests.lock`
+                            path rather than inside the repo checkout, since the `pdash_test` Docker project it
+                            protects is daemon-global, not scoped to any one git worktree (two different worktrees
+                            each acquiring their own checkout-local lock was the exact bug this final form avoids,
+                            caught by this cycle's own whole-branch review); the lock-contention error message
+                            names the exact `rmdir` command to recover from a genuinely stale lock
 ```
 
 ### `v-cloak` (all Vue pages, 2026-07)
