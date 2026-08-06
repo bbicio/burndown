@@ -120,14 +120,14 @@
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script src="js/api.js?v=4"></script>
-<script src="js/core.js?v=3"></script>
-<script src="js/settings.js"></script>
-<script src="js/notifications.js"></script>
-<script src="js/nav.js?v=4"></script>
-<script>
+<script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script defer src="js/api.js?v=4"></script>
+<script defer src="js/core.js?v=3"></script>
+<script defer src="js/settings.js"></script>
+<script defer src="js/notifications.js"></script>
+<script defer src="js/nav.js?v=4"></script>
+<script type="module">
   const SCOPES = [
     { scope: 'proposals', title: 'Proposals', description: 'Deletes all cost grids, versions, phases, tasks, task roles, and related sharing records.', buttonText: 'Delete all proposals', label: 'all proposals (cost grids, versions, phases, tasks)' },
     { scope: 'projects', title: 'Projects & Programs', description: 'Deletes all projects (including tasks and planning data) and all programs. Cost grids are not affected.', buttonText: 'Delete all projects & programs', label: 'all projects and programs' },
