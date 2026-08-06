@@ -307,7 +307,17 @@ scripts/run-tests.sh     — ephemeral, fully isolated Docker Compose stack for 
                             `pdash_test_pgdata`-prefixed volume + the generated `docker-compose.test.yml` override
                             are removed on every exit path (pass, fail, or interrupt); replaces the old bare command
                             as `/finish-cycle` Gate 1's documented test command (`.claude/commands/finish-cycle.md`)
-                            and as `TEST_CASES.md`'s "Auto" coverage legend; `docker-compose.test.yml` is gitignored
+                            and as `TEST_CASES.md`'s "Auto" coverage legend; `docker-compose.test.yml` is gitignored;
+                            2026-08 Cycle 2 hardening added: an invocation-directory guard (exits 1 before any Docker
+                            call if `docker-compose.yml`/`api/src/db/migrations/` aren't found relative to cwd);
+                            an unconditional pre-cleanup (`$COMPOSE down -v --remove-orphans`) at script start,
+                            running *after* `write_override` (the override file must already exist, since `$COMPOSE`
+                            references it via `-f` — otherwise the pre-cleanup silently no-ops, a bug caught by the
+                            cycle's own final whole-branch review) — so state left over from a `SIGKILL`'d prior run
+                            (which bypasses the `EXIT` trap) doesn't leak into the next one; and a conditional
+                            `--build` for `api` only, gated on a hash of `api/Dockerfile`+`api/package.json` against
+                            a gitignored marker (`.run-tests-image-hash`, repo root) — `db` drops `--build` entirely
+                            since it has no build context (`image: postgres:16-alpine` directly, no Dockerfile)
 ```
 
 ### `v-cloak` (all Vue pages, 2026-07)

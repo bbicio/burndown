@@ -823,7 +823,17 @@ burndown/
                              on every exit path; is `/finish-cycle` Gate 1's documented test command; its own
                              `load_env()` copy received the identical 2026-08 malformed-line/whitespace fix as
                              test-branch.sh's (kept duplicated by design, not consolidated — no shared shell-library
-                             convention exists in this project)
+                             convention exists in this project) — hardened again 2026-08 (Cycle 2): exits 1
+                             immediately, before touching Docker, if `docker-compose.yml`/`api/src/db/migrations/`
+                             aren't found relative to cwd (guards against being invoked from the wrong directory);
+                             writes the override file then runs an unconditional `$COMPOSE down -v --remove-orphans`
+                             at the very start (in that order — the override file must exist first, since `$COMPOSE`
+                             references it via `-f`, otherwise the pre-cleanup silently no-ops) so leftover state
+                             from a `SIGKILL`'d prior run (which bypasses the `EXIT` trap) doesn't linger; `--build`
+                             is now conditional on the `api` service — a hash of `api/Dockerfile`+`api/package.json`
+                             compared against a gitignored marker file (`.run-tests-image-hash`, repo root) decides
+                             whether to rebuild, only rebuilding when those inputs actually changed; `db` drops
+                             `--build` entirely (it has no build context — `image: postgres:16-alpine` directly)
 ```
 
 ---
