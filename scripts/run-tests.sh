@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [ ! -f docker-compose.yml ] || [ ! -d api/src/db/migrations ]; then
+  echo "scripts/run-tests.sh must be run from the repository root (docker-compose.yml and api/src/db/migrations/ not found here)." >&2
+  exit 1
+fi
+
 # Same load_env() as scripts/test-branch.sh, verbatim -- reads .env into this shell's own
 # environment (docker compose auto-loads .env for container-internal variables, but the psql
 # call below runs in this script's own shell, outside any container, and needs POSTGRES_USER/
