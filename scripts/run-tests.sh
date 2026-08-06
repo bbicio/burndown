@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [ ! -f docker-compose.yml ] || [ ! -d api/src/db/migrations ]; then
+  echo "scripts/run-tests.sh must be run from the repository root (docker-compose.yml and api/src/db/migrations/ not found here)." >&2
+  exit 1
+fi
+
 # Same load_env() as scripts/test-branch.sh, verbatim -- reads .env into this shell's own
 # environment (docker compose auto-loads .env for container-internal variables, but the psql
 # call below runs in this script's own shell, outside any container, and needs POSTGRES_USER/
@@ -65,9 +70,13 @@ cleanup() {
 trap cleanup EXIT
 
 write_override
+
+echo "Cleaning up any leftover state from a prior run..."
+$COMPOSE down -v --remove-orphans >/dev/null 2>&1 || true
+
 echo "Starting isolated test stack (project: ${PROJECT})..."
 
-$COMPOSE up -d --build db
+$COMPOSE up -d db
 wait_healthy "$DB_CONTAINER"
 
 echo "Applying migrations to the fresh test database..."
@@ -76,8 +85,17 @@ for f in api/src/db/migrations/*.sql; do
   docker exec -i "$DB_CONTAINER" psql -U "${POSTGRES_USER:-pdash}" -d "${POSTGRES_DB:-pdash}" < "$f"
 done
 
-$COMPOSE up -d --build api
+IMAGE_HASH_FILE=".run-tests-image-hash"
+CURRENT_HASH=$(cat api/Dockerfile api/package.json | sha256sum | cut -d' ' -f1)
+
+API_BUILD_FLAG="--build"
+if [ -f "$IMAGE_HASH_FILE" ] && [ "$(cat "$IMAGE_HASH_FILE")" = "$CURRENT_HASH" ]; then
+  API_BUILD_FLAG=""
+fi
+
+$COMPOSE up -d $API_BUILD_FLAG api
 wait_healthy "$API_CONTAINER"
+echo "$CURRENT_HASH" > "$IMAGE_HASH_FILE"
 
 set +e
 $COMPOSE --profile test run --rm test
