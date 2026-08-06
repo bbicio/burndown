@@ -354,11 +354,11 @@
 <script defer src="js/shares.js"></script>
 <script defer src="js/nav.js?v=4"></script>
 
-<script>
-function showCostGridEditorView(cgId, versionId) {
+<script type="module">
+window.showCostGridEditorView = function (cgId, versionId) {
   const p = new URLSearchParams({ cgId, verId: versionId });
   window.location.href = '/costgrid.html?' + p;
-}
+};
 </script>
 
 <script>

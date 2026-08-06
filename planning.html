@@ -233,18 +233,20 @@
 <script defer src="js/api-sync.js?v=14"></script>
 <script defer src="js/nav.js?v=4"></script>
 
-<script>
-function showPortfolioView() {
+<script type="module">
+window.showPortfolioView = function () {
   window.location.href = '/portfolio.html';
-}
-function showDashboardView(pid) {
+};
+window.showDashboardView = function (pid) {
   window.location.href = '/portfolio.html?projectId=' + encodeURIComponent(pid);
-}
-function showPipelineBoardView() {
+};
+window.showPipelineBoardView = function () {
   window.location.href = '/pipeline.html';
-}
-function updateNavState() {}
+};
+window.updateNavState = function () {};
+</script>
 
+<script>
 document.addEventListener('DOMContentLoaded', async () => {
   loadConfig();
   loadSettings();
