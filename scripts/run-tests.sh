@@ -6,6 +6,12 @@ if [ ! -f docker-compose.yml ] || [ ! -d api/src/db/migrations ]; then
   exit 1
 fi
 
+LOCK_DIR=".run-tests.lock"
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+  echo "Another run-tests.sh is already in progress (lock: $LOCK_DIR). Wait for it to finish." >&2
+  exit 1
+fi
+
 # Same load_env() as scripts/test-branch.sh, verbatim -- reads .env into this shell's own
 # environment (docker compose auto-loads .env for container-internal variables, but the psql
 # call below runs in this script's own shell, outside any container, and needs POSTGRES_USER/
@@ -70,6 +76,7 @@ compose_down() {
 cleanup() {
   compose_down
   rm -f "$OVERRIDE_FILE"
+  rmdir "$LOCK_DIR" 2>/dev/null || true
 }
 trap cleanup EXIT
 
