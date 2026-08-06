@@ -59,10 +59,10 @@ API_CONTAINER="pdash-api-${SANITIZED}"
 DB_USER="${POSTGRES_USER:-pdash}"
 DB_NAME="${POSTGRES_DB:-pdash}"
 
-FRONTEND_PORT=8081
-API_PORT=3001
-DB_PORT=5433
-ADMINER_PORT=8082
+FRONTEND_PORT="${TEST_BRANCH_FRONTEND_PORT:-8081}"
+API_PORT="${TEST_BRANCH_API_PORT:-3001}"
+DB_PORT="${TEST_BRANCH_DB_PORT:-5433}"
+ADMINER_PORT="${TEST_BRANCH_ADMINER_PORT:-8082}"
 
 # Why !override on ports: Docker Compose concatenates list-type fields (like
 # ports) across -f files instead of replacing them — container_name, a
