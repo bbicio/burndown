@@ -69,6 +69,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
+echo "Cleaning up any leftover state from a prior run..."
+$COMPOSE down -v --remove-orphans >/dev/null 2>&1 || true
+
 write_override
 echo "Starting isolated test stack (project: ${PROJECT})..."
 
