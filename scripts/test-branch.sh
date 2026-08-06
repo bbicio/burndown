@@ -141,8 +141,10 @@ up() {
 
   if docker ps --format '{{.Names}}' | grep -qx "$MAIN_DB_CONTAINER"; then
     echo "main stack detected — cloning data from ${MAIN_DB_CONTAINER}..."
-    docker exec "$MAIN_DB_CONTAINER" pg_dump -U "$DB_USER" -Fc "$DB_NAME" > /tmp/pdash_branch_snapshot.dump
-    docker exec -i "$DB_CONTAINER" pg_restore -U "$DB_USER" -d "$DB_NAME" --clean --if-exists < /tmp/pdash_branch_snapshot.dump
+    DUMP_FILE=$(mktemp)
+    docker exec "$MAIN_DB_CONTAINER" pg_dump -U "$DB_USER" -Fc "$DB_NAME" > "$DUMP_FILE"
+    docker exec -i "$DB_CONTAINER" pg_restore -U "$DB_USER" -d "$DB_NAME" --clean --if-exists < "$DUMP_FILE"
+    rm -f "$DUMP_FILE"
     echo "Data cloned from main."
     $COMPOSE up -d --build api nginx adminer
     wait_healthy "$API_CONTAINER"
