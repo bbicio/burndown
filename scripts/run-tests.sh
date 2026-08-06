@@ -6,6 +6,13 @@ if [ ! -f docker-compose.yml ] || [ ! -d api/src/db/migrations ]; then
   exit 1
 fi
 
+LOCK_DIR="${TMPDIR:-/tmp}/pdash_test.run-tests.lock"
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+  echo "Another run-tests.sh is already in progress (lock: $LOCK_DIR)." >&2
+  echo "If no run is actually in progress, it is a stale lock — remove it with: rmdir $LOCK_DIR" >&2
+  exit 1
+fi
+
 # Same load_env() as scripts/test-branch.sh, verbatim -- reads .env into this shell's own
 # environment (docker compose auto-loads .env for container-internal variables, but the psql
 # call below runs in this script's own shell, outside any container, and needs POSTGRES_USER/
@@ -63,16 +70,21 @@ wait_healthy() {
   done
 }
 
-cleanup() {
+compose_down() {
   $COMPOSE down -v --remove-orphans >/dev/null 2>&1 || true
+}
+
+cleanup() {
+  compose_down
   rm -f "$OVERRIDE_FILE"
+  rmdir "$LOCK_DIR" 2>/dev/null || true
 }
 trap cleanup EXIT
 
 write_override
 
 echo "Cleaning up any leftover state from a prior run..."
-$COMPOSE down -v --remove-orphans >/dev/null 2>&1 || true
+compose_down
 
 echo "Starting isolated test stack (project: ${PROJECT})..."
 

@@ -59,10 +59,10 @@ API_CONTAINER="pdash-api-${SANITIZED}"
 DB_USER="${POSTGRES_USER:-pdash}"
 DB_NAME="${POSTGRES_DB:-pdash}"
 
-FRONTEND_PORT=8081
-API_PORT=3001
-DB_PORT=5433
-ADMINER_PORT=8082
+FRONTEND_PORT="${TEST_BRANCH_FRONTEND_PORT:-8081}"
+API_PORT="${TEST_BRANCH_API_PORT:-3001}"
+DB_PORT="${TEST_BRANCH_DB_PORT:-5433}"
+ADMINER_PORT="${TEST_BRANCH_ADMINER_PORT:-8082}"
 
 # Why !override on ports: Docker Compose concatenates list-type fields (like
 # ports) across -f files instead of replacing them — container_name, a
@@ -141,8 +141,10 @@ up() {
 
   if docker ps --format '{{.Names}}' | grep -qx "$MAIN_DB_CONTAINER"; then
     echo "main stack detected — cloning data from ${MAIN_DB_CONTAINER}..."
-    docker exec "$MAIN_DB_CONTAINER" pg_dump -U "$DB_USER" -Fc "$DB_NAME" > /tmp/pdash_branch_snapshot.dump
-    docker exec -i "$DB_CONTAINER" pg_restore -U "$DB_USER" -d "$DB_NAME" --clean --if-exists < /tmp/pdash_branch_snapshot.dump
+    DUMP_FILE=$(mktemp)
+    docker exec "$MAIN_DB_CONTAINER" pg_dump -U "$DB_USER" -Fc "$DB_NAME" > "$DUMP_FILE"
+    docker exec -i "$DB_CONTAINER" pg_restore -U "$DB_USER" -d "$DB_NAME" --clean --if-exists < "$DUMP_FILE"
+    rm -f "$DUMP_FILE"
     echo "Data cloned from main."
     $COMPOSE up -d --build api nginx adminer
     wait_healthy "$API_CONTAINER"
