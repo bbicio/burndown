@@ -806,17 +806,28 @@ burndown/
                              checks for `public.users` via `to_regclass` before applying migrations, so re-running
                              `up` a second time without an intervening `down` skips already-applied migrations
                              instead of failing with "already exists"; the admin-bootstrap step stays unconditional
-                             on every run (create-admin.js is itself create-or-reset-password, so this is safe);
+                             on every run (create-admin.js is itself create-or-reset-password, so this is safe) —
+                             further hardened 2026-08: `schema_exists()` also checks `cg_version_projects
+                             .task_names_direct` (added by the last migration file) alongside `public.users`, so a
+                             schema left partially migrated by an interrupted run is detected and the script exits
+                             with an explicit `down && up` remediation message instead of silently skipping the
+                             remaining migrations (files don't use `IF NOT EXISTS`, so blindly re-running the full
+                             loop against a partial schema would itself fail on the migrations that did succeed);
+                             also explicitly checks the first `psql` call's exit status, warning instead of
+                             silently treating a transient failure as "schema absent";
                              reads `.env` via a manual line-by-line parser mirroring create-admin.js's approach
                              (never source/eval — real `.env` values here contain shell-special characters like
                              `$$`, which naive sourcing would corrupt) — hardened 2026-08 to silently skip any line
                              with no `=` or a key that isn't a valid shell identifier (e.g. a stray `export FOO=bar`
-                             line, previously an uncaught `set -e` abort) and to trim whitespace around key/value —
+                             line, previously an uncaught `set -e` abort) and to trim whitespace around key/value
+                             (its `line`/`key`/`val` loop variables are now `local`-declared too, 2026-08) —
                              2026-08 Cycle 3 hardening: the main-stack data-clone dump (`pg_dump`/`pg_restore`) now
                              writes to a `mktemp`-created file (`600` permissions, no world-readable window) instead
-                             of a fixed `/tmp/pdash_branch_snapshot.dump` path, and deletes it immediately after
-                             `pg_restore` completes (a stale, days-old dump under the old fixed path was found and
-                             confirmed during this fix's verification); the four ports (`FRONTEND_PORT`/`API_PORT`/
+                             of a fixed `/tmp/pdash_branch_snapshot.dump` path (a stale, days-old dump under the old
+                             fixed path was found and confirmed during this fix's verification), and is now cleaned
+                             up via `trap 'rm -f "$DUMP_FILE"' EXIT` (the script's only `EXIT` trap) so a mid-clone
+                             failure doesn't leak the file, replacing an earlier unconditional `rm -f` that only ran
+                             on the success path; the four ports (`FRONTEND_PORT`/`API_PORT`/
                              `DB_PORT`/`ADMINER_PORT`) are now overridable via optional `TEST_BRANCH_*_PORT` `.env`
                              variables, same defaults if unset
     run-tests.sh           ← ephemeral, fully isolated stack (distinct `-p pdash_test` project name,
