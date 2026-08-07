@@ -157,3 +157,25 @@ test('trimRowKeys + resolveColumnMap: real header list resolves every field corr
   assert.equal(task, 'Build API');
   assert.equal(projectCode, 'HITA.000001823.001'); // empty would silently drop the whole row
 });
+
+test('resolveColumnMap: candidate matches a later occurrence when the first occurrence is not a word boundary', () => {
+  // "hours" first appears inside "afterhours" (no left word boundary — preceded by "r"),
+  // then again as its own word " Hours" (clean boundaries on both sides). The pre-fix
+  // matchSpecificity() only checked the FIRST occurrence and would return null here,
+  // missing the match entirely; the fix scans every occurrence via a while loop.
+  const map = resolveColumnMap(['Date', 'Role', 'afterhours Hours', 'Task', 'Project ID']);
+  assert.strictEqual(map.colHours, 'afterhours Hours');
+});
+
+test('resolveColumnMap: two columns with identical header text both resolve, not collapsed onto one', () => {
+  const map = resolveColumnMap(['Date', 'Notes', 'Hours', 'Task', 'Project ID', 'Notes']);
+  // Both "Notes" columns exist in the input. This does NOT actually exercise the
+  // usedHeaders index-vs-string fix: no two fields in today's FIELD_CANDIDATES table share
+  // an overlapping candidate word, so a genuine cross-field collision on identical header
+  // text isn't constructible from the current real candidate list without inventing an
+  // artificial one. This test instead documents a narrower, still-useful invariant: duplicate
+  // header text doesn't throw and doesn't corrupt the matching field's result (colNotes still
+  // resolves to a "Notes" header). The usedHeaders fix's actual blast-radius benefit would
+  // only manifest if a future candidate list ever introduces overlapping words across fields.
+  assert.strictEqual(map.colNotes, 'Notes');
+});

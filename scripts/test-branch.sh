@@ -24,6 +24,7 @@ set -euo pipefail
 load_env() {
   local env_file=".env"
   [ -f "$env_file" ] || return 0
+  local line key val
   while IFS= read -r line || [ -n "$line" ]; do
     line="${line%$'\r'}"
     [[ "$line" != *=* ]] && continue
@@ -103,10 +104,25 @@ wait_healthy() {
 }
 
 schema_exists() {
-  local result
-  result=$(docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -tAc \
+  local users_exist last_migration_exists rc
+  users_exist=$(docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -tAc \
     "SELECT to_regclass('public.users') IS NOT NULL;")
-  [ "$result" = "t" ]
+  rc=$?
+  if [ $rc -ne 0 ]; then
+    echo "Warning: could not query schema state (psql exit $rc) — treating as absent." >&2
+    return 1
+  fi
+  [ "$users_exist" != "t" ] && return 1
+
+  last_migration_exists=$(docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -tAc \
+    "SELECT column_name FROM information_schema.columns WHERE table_name='cg_version_projects' AND column_name='task_names_direct';")
+  if [ -z "$last_migration_exists" ]; then
+    echo "Schema appears partially migrated (interrupted run?). Run:" >&2
+    echo "  scripts/test-branch.sh down && scripts/test-branch.sh up" >&2
+    echo "to rebuild from a clean database." >&2
+    exit 1
+  fi
+  return 0
 }
 
 open_browser() {
@@ -121,6 +137,11 @@ open_browser() {
 
 status() {
   local db_health api_health
+  # "missing" is the only reachable non-"healthy" fallback in practice: both containers
+  # always have a Docker healthcheck defined in docker-compose.yml (a precondition
+  # wait_healthy() already assumes elsewhere in this file), so a container that exists
+  # but genuinely lacks a healthcheck — which would otherwise produce an empty string
+  # here, not "missing" — never actually occurs.
   db_health=$(docker inspect -f '{{.State.Running}}/{{.State.Health.Status}}' "$DB_CONTAINER" 2>/dev/null || echo "missing")
   api_health=$(docker inspect -f '{{.State.Running}}/{{.State.Health.Status}}' "$API_CONTAINER" 2>/dev/null || echo "missing")
   if [ "$db_health" = "true/healthy" ] && [ "$api_health" = "true/healthy" ]; then
@@ -142,9 +163,9 @@ up() {
   if docker ps --format '{{.Names}}' | grep -qx "$MAIN_DB_CONTAINER"; then
     echo "main stack detected — cloning data from ${MAIN_DB_CONTAINER}..."
     DUMP_FILE=$(mktemp)
+    trap 'rm -f "$DUMP_FILE"' EXIT
     docker exec "$MAIN_DB_CONTAINER" pg_dump -U "$DB_USER" -Fc "$DB_NAME" > "$DUMP_FILE"
     docker exec -i "$DB_CONTAINER" pg_restore -U "$DB_USER" -d "$DB_NAME" --clean --if-exists < "$DUMP_FILE"
-    rm -f "$DUMP_FILE"
     echo "Data cloned from main."
     $COMPOSE up -d --build api nginx adminer
     wait_healthy "$API_CONTAINER"

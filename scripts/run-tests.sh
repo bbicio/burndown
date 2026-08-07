@@ -20,6 +20,7 @@ fi
 load_env() {
   local env_file=".env"
   [ -f "$env_file" ] || return 0
+  local line key val
   while IFS= read -r line || [ -n "$line" ]; do
     line="${line%$'\r'}"
     [[ "$line" != *=* ]] && continue
