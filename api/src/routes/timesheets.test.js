@@ -159,26 +159,23 @@ test('trimRowKeys + resolveColumnMap: real header list resolves every field corr
 });
 
 test('resolveColumnMap: candidate matches a later occurrence when the first occurrence is not a word boundary', () => {
-  // "xnamename" — "name" appears at index 1 (no left boundary: preceded by 'x')
-  // and again at index 5 (left boundary: preceded by 'e' is NOT a boundary either in this
-  // constructed example, so use a case where a LATER occurrence is genuinely boundary-clean)
-  const map = resolveColumnMap(['Date', 'unowner name', 'Hours', 'Task', 'Project ID']);
-  // "owner" appears at index 2 with no left boundary (preceded by 'n' from "un"), but "name"
-  // appears at the end with a clean left boundary (preceded by a space) — this exercises the
-  // fix directly: candidate "name" (for colOwner) must still be found via its later,
-  // boundary-clean occurrence, not abandoned after the first (non-boundary) occurrence fails.
-  assert.strictEqual(map.colOwner, 'unowner name');
+  // "hours" first appears inside "afterhours" (no left word boundary — preceded by "r"),
+  // then again as its own word " Hours" (clean boundaries on both sides). The pre-fix
+  // matchSpecificity() only checked the FIRST occurrence and would return null here,
+  // missing the match entirely; the fix scans every occurrence via a while loop.
+  const map = resolveColumnMap(['Date', 'Role', 'afterhours Hours', 'Task', 'Project ID']);
+  assert.strictEqual(map.colHours, 'afterhours Hours');
 });
 
 test('resolveColumnMap: two columns with identical header text both resolve, not collapsed onto one', () => {
   const map = resolveColumnMap(['Date', 'Notes', 'Hours', 'Task', 'Project ID', 'Notes']);
-  // Both "Notes" columns exist in the input; only one field (colNotes) can claim the string
-  // "Notes" as its header value today (result maps field -> header STRING, not index), so
-  // this test's real assertion is that resolving does not throw and does not silently drop
-  // data for the field it does map — the header-index-based usedHeaders fix prevents the
-  // FIRST "Notes" occurrence from incorrectly blocking a DIFFERENT field from separately
-  // matching the SECOND "Notes" occurrence, if any other field also had "notes" as a
-  // candidate. Since only colNotes has "notes"/"note"/"description" as candidates here,
-  // assert the basic non-collision invariant: colNotes still resolves to a "Notes" header.
+  // Both "Notes" columns exist in the input. This does NOT actually exercise the
+  // usedHeaders index-vs-string fix: no two fields in today's FIELD_CANDIDATES table share
+  // an overlapping candidate word, so a genuine cross-field collision on identical header
+  // text isn't constructible from the current real candidate list without inventing an
+  // artificial one. This test instead documents a narrower, still-useful invariant: duplicate
+  // header text doesn't throw and doesn't corrupt the matching field's result (colNotes still
+  // resolves to a "Notes" header). The usedHeaders fix's actual blast-radius benefit would
+  // only manifest if a future candidate list ever introduces overlapping words across fields.
   assert.strictEqual(map.colNotes, 'Notes');
 });
