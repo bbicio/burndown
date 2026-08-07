@@ -222,10 +222,12 @@ function matchSpecificity(header, candidate) {
   const h = header.toLowerCase();
   const c = candidate.toLowerCase();
   if (h === c) return { tier: 2, length: c.length };
-  const idx = h.indexOf(c);
-  if (idx === -1) return null;
-  if (isBoundaryChar(h[idx - 1]) && isBoundaryChar(h[idx + c.length])) {
-    return { tier: 1, length: c.length };
+  let idx = h.indexOf(c);
+  while (idx !== -1) {
+    if (isBoundaryChar(h[idx - 1]) && isBoundaryChar(h[idx + c.length])) {
+      return { tier: 1, length: c.length };
+    }
+    idx = h.indexOf(c, idx + 1);
   }
   return null;
 }
@@ -259,9 +261,9 @@ function resolveColumnMap(headers) {
   const usedHeaders = new Set();
   const usedFields = new Set();
   for (const m of matches) {
-    if (usedHeaders.has(m.header) || usedFields.has(m.field)) continue;
+    if (usedHeaders.has(m.headerIdx) || usedFields.has(m.field)) continue;
     result[m.field] = m.header;
-    usedHeaders.add(m.header);
+    usedHeaders.add(m.headerIdx);
     usedFields.add(m.field);
   }
   for (const field of FIELD_ORDER) if (!(field in result)) result[field] = undefined;
