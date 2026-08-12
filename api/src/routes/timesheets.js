@@ -232,6 +232,17 @@ function matchSpecificity(header, candidate) {
   return null;
 }
 
+// Known, accepted limitation (documented 2026-08-12, not fixed): the assignment below is
+// greedy (highest-specificity match wins first), not a globally-optimal bipartite matching.
+// If two headers tie exactly on score for the same field, and one of them has no other
+// viable field match while the other does, greedy can assign the field to the "flexible"
+// header first, leaving the header with no alternative unmapped — even though a different
+// assignment could have filled both. Reproducing this requires a specific real-world header
+// naming coincidence not observed across two prior investigation cycles (see
+// docs/superpowers/specs/2026-08-05-timesheet-column-mapping-specificity-design.md and
+// docs/superpowers/specs/2026-08-12-final-three-backlog-items-design.md). A full optimal
+// matching algorithm (e.g. Hungarian algorithm) was confirmed disproportionate for this
+// undemonstrated edge case — not implemented.
 function resolveColumnMap(headers) {
   const matches = [];
   headers.forEach((header, headerIdx) => {

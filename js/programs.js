@@ -3,7 +3,6 @@
 // Each program: { id, name }
 
 let _programs = [];
-let _programEditId = null;
 
 // ── PERSISTENCE ───────────────────────────────────────────────────────────────
 
