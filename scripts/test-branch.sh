@@ -116,6 +116,11 @@ schema_exists() {
 
   last_migration_exists=$(docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -tAc \
     "SELECT column_name FROM information_schema.columns WHERE table_name='cg_version_projects' AND column_name='task_names_direct';")
+  rc=$?
+  if [ $rc -ne 0 ]; then
+    echo "Warning: could not query schema state (psql exit $rc) — treating as absent." >&2
+    return 1
+  fi
   if [ -z "$last_migration_exists" ]; then
     echo "Schema appears partially migrated (interrupted run?). Run:" >&2
     echo "  scripts/test-branch.sh down && scripts/test-branch.sh up" >&2
