@@ -3,7 +3,6 @@
 // Each role: { id, label, code, rate }
 
 let roles = [];          // in-memory array, loaded by loadRolesFromApi()
-let _roleEditId = null;  // ID of the role being edited (null = new)
 
 // ── PERSISTENCE ──────────────────────────────────────────────────────────────
 
