@@ -302,6 +302,31 @@
       </div>
     </div>
   </div>
+  <div class="modal fade" id="actualsViewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title mb-0">Actuals <span class="text-muted ms-2" style="font-size:.8rem">{{ actuals.exportRows?.length || 0 }} rows</span></h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-0">
+          <table class="table table-sm table-hover mb-0" style="font-size:.78rem">
+            <thead>
+              <tr><th>Date</th><th>Owner</th><th>Role</th><th>Task</th><th class="text-end">Hours</th><th>Notes</th><th class="text-end">Fee</th><th class="text-end">Spent</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="(row, i) in actuals.exportRows" :key="i">
+                <td>{{ row.date }}</td><td>{{ row.owner }}</td><td>{{ row.role }}</td><td>{{ row.task }}</td>
+                <td class="text-end">{{ row.hours }}</td><td>{{ row.notes }}</td>
+                <td class="text-end">{{ fmtMoney(row.fee || 0, project.currency) }}</td>
+                <td class="text-end fw-semibold">{{ fmtMoney((row.fee || 0) * (row.hours || 0), project.currency) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Task 3/6 insert the confirm modal here -->
   <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
@@ -520,6 +545,9 @@
         } catch (e) {
           this.actuals.info = `<span class="text-danger">Could not load actuals: ${esc(e.message)}</span>`;
         }
+      },
+      openActualsViewModal() {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('actualsViewModal')).show();
       },
       exportActualsCsv() {
         const rowData = this.actuals.exportRows;
