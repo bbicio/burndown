@@ -49,13 +49,17 @@ router.get('/', requireAuth, async (req, res, next) => {
               cgv.pipeline_year AS pipeline_year
        FROM agg
        LEFT JOIN LATERAL (
-         SELECT * FROM projects pr WHERE pr.code = agg.project_code
+         SELECT * FROM projects pr
+         WHERE pr.code = agg.project_code
+           AND ($3 OR pr.owner_id = $2
+                OR EXISTS(SELECT 1 FROM resource_shares rs
+                          WHERE rs.resource_type='project' AND rs.resource_id=pr.id AND rs.user_id=$2))
          ORDER BY pr.created_at LIMIT 1
        ) p ON TRUE
        LEFT JOIN clients c              ON c.id = p.client_id
        LEFT JOIN cost_grid_versions cgv ON cgv.id = p.cg_version_id
        ORDER BY agg.project_code`,
-      [codes]
+      [codes, req.user.id, req.user.role === 'admin']
     );
     res.json(rows);
   } catch (err) { next(err); }
@@ -218,17 +222,24 @@ function trimRowKeys(row) {
 
 // Batch-loads { name, resources } task lists for every given project code,
 // keyed by project_code. One query for the whole upload, not one per row.
+// projects.code has no uniqueness constraint (012_project_code.sql) — a
+// LATERAL + ORDER BY created_at LIMIT 1 picks the same canonical project per
+// code that GET / uses, so fee resolution never draws rates from an
+// arbitrary duplicate-code project.
 async function loadProjectTasksByCode(codes) {
   if (!codes.length) return {};
   const { rows } = await query(
-    `SELECT p.code,
+    `SELECT agg.code,
             COALESCE(
               (SELECT json_agg(json_build_object('name', pt.name, 'resources', pt.resources) ORDER BY pt.sort_order)
                FROM project_tasks pt WHERE pt.project_id = p.id),
               '[]'::json
             ) AS tasks
-     FROM projects p
-     WHERE p.code = ANY($1::text[])`,
+     FROM unnest($1::text[]) AS agg(code)
+     LEFT JOIN LATERAL (
+       SELECT * FROM projects pr WHERE pr.code = agg.code
+       ORDER BY pr.created_at LIMIT 1
+     ) p ON TRUE`,
     [codes]
   );
   const map = {};
