@@ -74,7 +74,6 @@
           <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Start month</label><input type="month" class="form-control form-control-sm" v-model="startMonthInput" :disabled="isViewer" @change="onDateChange"></div>
           <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">End month</label><input type="month" class="form-control form-control-sm" v-model="endMonthInput" :disabled="isViewer" @change="onDateChange"></div>
           <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Currency</label><select class="form-select form-select-sm" v-model="project.currency" :disabled="isViewer"><option value="€">€ Euro</option><option value="$">$ Dollar</option><option value="£">£ Pound</option><option value="CHF">CHF Swiss Franc</option></select></div>
-          <div class="col-sm-3 col-md-2 d-flex align-items-end"><button type="button" class="btn btn-outline-danger btn-sm w-100" v-if="!isViewer" @click="onClearData">🗑 Clear XLS data</button></div>
         </div>
         <div class="row g-3 mt-1">
           <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Pipeline</label><select class="form-select form-select-sm" v-model="project.pipeline" :disabled="isViewer || pipelineLocked" :title="pipelineLocked ? 'Pipeline is managed from the Cost Grid' : ''" @change="onPipelineChange"><option value="">— Select —</option><option value="SIP">SIP</option><option value="Expected">Expected</option><option value="Anticipated">Anticipated</option><option value="Committed">Committed</option><option value="Canceled">Canceled</option></select></div>
@@ -87,10 +86,12 @@
           <span>2. Actuals</span>
           <div class="d-flex gap-2">
             <label class="btn btn-sm btn-outline-secondary mb-0" v-if="project.code && !isViewer">
-              ⬆ Upload XLS
+              📂 Load Actuals
               <input type="file" accept=".xls,.xlsx" style="display:none" @change="onActualsFileChange">
             </label>
-            <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="exportActualsCsv">⬇ Export CSV</button>
+            <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="openActualsViewModal">👁 View</button>
+            <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="downloadActualsXlsx">⬇ Download actuals</button>
+            <button class="btn btn-sm btn-outline-danger" v-if="!isViewer" @click="onDeleteActuals">🗑 Delete actuals</button>
           </div>
         </div>
         <div class="text-muted small py-1" v-html="actuals.info"></div>
@@ -591,11 +592,18 @@
         const safe = s => String(s || '').replace(/[^a-z0-9]/gi, '_').slice(0, 30);
         XLSX.writeFile(wb, `tasks_${safe(proj.code || proj.name)}_${new Date().toISOString().slice(0, 10)}.xlsx`);
       },
-      async onClearData() {
-        if (!this.project.id) return;
-        if (await this.showConfirm(`Clear all cached XLS data for project "${this.project.id}"?`)) {
-          clearProjectData(this.project.id);
-          window.location.href = '/portfolio.html';
+      async onDeleteActuals() {
+        if (!this.project.code) return;
+        const n = this.actuals.exportRows?.length || 0;
+        const msg = n
+          ? `Delete ALL actuals for project "${this.project.code}"?\n\nThis removes ${n} row${n !== 1 ? 's' : ''}. This cannot be undone.`
+          : `Delete actuals for project "${this.project.code}"?`;
+        if (!(await this.showConfirm(msg))) return;
+        try {
+          await Api.timesheets.delete(this.project.code);
+          await this.loadActuals();
+        } catch (e) {
+          this.actuals.status = `❌ Delete failed: ${e.message}`; this.actuals.statusClass = 'text-danger';
         }
       },
       async onSave() {
