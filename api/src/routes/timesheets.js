@@ -9,6 +9,19 @@ const { resolveFee } = require('../lib/rate-resolve');
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
+// Shared "can this user see this project" predicate, used everywhere a project
+// needs to be scoped to the calling user's ownership/sharing. Kept as one
+// function so a future visibility-rule change (e.g. a new share type) only
+// needs to be made once, rather than drifting across independently-written
+// inline SQL copies. `isAdminExpr` is a raw SQL expression (a bound param
+// placeholder like '$3', or the literal 'FALSE' when the caller has already
+// excluded admins from this code path) — never string-interpolated user input.
+function projectVisibilityPredicate(projectAlias, userIdParam, isAdminExpr) {
+  return `(${isAdminExpr} OR ${projectAlias}.owner_id = ${userIdParam}
+    OR EXISTS(SELECT 1 FROM resource_shares rs
+              WHERE rs.resource_type='project' AND rs.resource_id=${projectAlias}.id AND rs.user_id=${userIdParam}))`;
+}
+
 // Visible project codes for the current user
 async function visibleCodes(userId, role) {
   if (role === 'admin') {
@@ -18,9 +31,7 @@ async function visibleCodes(userId, role) {
   const { rows } = await query(
     `SELECT code FROM projects p
      WHERE code IS NOT NULL
-       AND (p.owner_id = $1
-        OR EXISTS(SELECT 1 FROM resource_shares rs
-                  WHERE rs.resource_type='project' AND rs.resource_id=p.id AND rs.user_id=$1))`,
+       AND ${projectVisibilityPredicate('p', '$1', 'FALSE')}`,
     [userId]
   );
   return rows.map(r => r.code);
@@ -51,9 +62,7 @@ router.get('/', requireAuth, async (req, res, next) => {
        LEFT JOIN LATERAL (
          SELECT * FROM projects pr
          WHERE pr.code = agg.project_code
-           AND ($3 OR pr.owner_id = $2
-                OR EXISTS(SELECT 1 FROM resource_shares rs
-                          WHERE rs.resource_type='project' AND rs.resource_id=pr.id AND rs.user_id=$2))
+           AND ${projectVisibilityPredicate('pr', '$2', '$3')}
          ORDER BY pr.created_at LIMIT 1
        ) p ON TRUE
        LEFT JOIN clients c              ON c.id = p.client_id
@@ -242,9 +251,7 @@ async function loadProjectTasksByCode(codes, userId, isAdmin) {
      LEFT JOIN LATERAL (
        SELECT * FROM projects pr
        WHERE pr.code = agg.code
-         AND ($3 OR pr.owner_id = $2
-              OR EXISTS(SELECT 1 FROM resource_shares rs
-                        WHERE rs.resource_type='project' AND rs.resource_id=pr.id AND rs.user_id=$2))
+         AND ${projectVisibilityPredicate('pr', '$2', '$3')}
        ORDER BY pr.created_at LIMIT 1
      ) p ON TRUE`,
     [codes, userId, isAdmin]
