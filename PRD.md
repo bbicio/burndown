@@ -426,6 +426,21 @@ Actuals are matched to projects and tasks to compute budget spent.
 - Uploading a new file for a project replaces the previous actuals for that project
 - Triggers refresh of all reporting views
 - **Date disambiguation:** for text-formatted date cells (native Excel date cells are read directly, unambiguous), day/month order is resolved deterministically whenever possible — if one of the two numbers is greater than 12, it cannot be a month, so the reading is unambiguous. Only when both numbers are ≤12 (genuinely ambiguous, e.g. `03/04/2026`) does the system fall back to a default (MM/DD, matching the source export's known convention). If the resolved date is not a real calendar date (e.g. day 31 in April), the **entire upload is rejected** with an error naming the offending spreadsheet row — no partial import, not even of the file's otherwise-valid rows.
+- **Fee snapshot (2026-09):** each imported row's hourly rate (`Fee`) is resolved once at import time — by matching the row's task+role against the linked project's configured resource rates, same logic as the burndown/KPI rate lookup used elsewhere — and stored with the row. A later change to a role's rate does not retroactively change what an already-imported row reports; re-uploading the file is how a project's actuals pick up a rate change. A row whose task/role can't be matched to any configured resource stores a `Fee` of `0` rather than leaving it unset.
+
+### 8.4 Timesheet Management Page (`/timesheets.html`, admin only)
+
+Lists every project code that has uploaded timesheet data, for review and cleanup — separate from the upload action itself (§8.1-8.3), which happens from the Project Reporting view.
+
+- **Summary table**, one row per project code:
+  - **Client**, **Project**, **Project code** — the first 3 columns; Client/Project show "—" for a project code with no matching project record.
+  - **Uploads**, **Rows**, **Last uploaded** — as before.
+  - Filters: a checkbox multi-select for Client, a checkbox multi-select for Project (both combine with AND, and with each other), and a free-text substring filter for Project code.
+  - Sorting: clicking the Client, Project, or Project code header cycles ascending → descending → unsorted; the other columns aren't sortable.
+  - **Pipeline year** selector: defaults to the current calendar year if it's an active pipeline year, otherwise the most recently active year; an explicit "All years" option shows every project code regardless of year. A project code with no linked cost-grid version has no pipeline year and is only shown under "All years."
+- **View** (👁): opens a modal listing every uploaded row for that project code — Date, Owner, Role, Task, Hours, Notes, **Fee**, **Spent**. Fee is the hourly rate snapshotted at import time (§8.3); Spent is Fee × Hours. Both are formatted in the project's own currency.
+- **Export** (⬇ XLSX): downloads the same rows and columns as the View modal, as an Excel `.xlsx` workbook (not CSV), named `<Client>_<Project>_<ProjectCode>_<YYYYMMDD>.xlsx` (spaces in client/project names become `-`; characters not valid in a filename are dropped).
+- **Delete all** (🗑): removes every uploaded row for that project code, after a confirmation prompt naming the number of uploads/rows that will be deleted. Irreversible.
 
 ---
 

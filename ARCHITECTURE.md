@@ -418,9 +418,12 @@ timesheets (
   "task": "Task name",
   "notes": "",
   "projectId": "D365ID",
-  "projectName": "Name"
+  "projectName": "Name",
+  "fee": 65.0
 }
 ```
+
+`fee` is resolved once at upload time (`POST /api/timesheets/upload`) by matching `task`+`role` against the linked project's `project_tasks.resources[].hourlyRate` (same case-insensitive, first-resource-fallback logic as `js/core.js`'s `findRate()`, ported to the backend as `api/src/lib/rate-resolve.js`'s `resolveFee()`), never recomputed later — a rate change after upload never retroactively alters a stored `fee`. Rows uploaded before this field existed have no `fee` key; every consumer treats that identically to a resolved `fee` of `0`. Since `projects.code` has no uniqueness constraint (`012_project_code.sql`), the project used for this lookup — and for `GET /api/timesheets`'s `client_name`/`project_name`/`currency`/`pipeline_year` columns (below) — is resolved via a `LEFT JOIN LATERAL (... ORDER BY created_at LIMIT 1)` scoped to the calling user's own visibility (owner or `resource_shares`), so a duplicate code never leaks another user's inaccessible project's name or rates; the predicate is factored into one shared `projectVisibilityPredicate()` helper in `api/src/routes/timesheets.js`, reused by `visibleCodes()` and both LATERAL joins.
 
 ---
 
@@ -511,7 +514,7 @@ timesheets (
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | /api/timesheets | ✅ | List uploaded timesheets (summary) |
+| GET | /api/timesheets | ✅ | List uploaded timesheets (summary), one row per `project_code`; each row also carries `client_name`, `project_name`, `currency`, `pipeline_year` (visibility-scoped, see §5.8) |
 | GET | /api/timesheets/all-data | ✅ | All timesheet rows merged (for dashboard seed) |
 | POST | /api/timesheets/upload | ✅ | Upload XLS file; rejects the entire file (400, no partial writes) if any row's date cannot be resolved to a valid calendar date |
 | DELETE | /api/timesheets/:projectCode | owner/admin | Remove timesheet data |
@@ -776,7 +779,16 @@ burndown/
                             tag (also still needed for `getClients()`); `js/roles.js`/`js/programs.js`
                             likewise kept — both define load*FromApi() functions this page's own init
                             calls unconditionally, not just their (now-removed) dead CRUD modals
-  timesheets.html
+  timesheets.html          ← admin-only timesheet upload management, Vue 3 (CDN, no build step); summary table
+                            leads with Client/Project/Project code (checkbox multi-select filters on Client/
+                            Project, free-text on Project code, click-to-sort on all three) plus a pipeline-year
+                            selector (default: current year, or the most recent active year; explicit "All years"
+                            option — a project with no linked cost-grid version has `pipeline_year: null` and is
+                            visible only under "All years"); "View" modal grid adds Fee/Spent as its last two
+                            columns (`Spent = Fee × Hours`, no rounding, formatted with the project's currency via
+                            `fmtMoney`); export replaced CSV with XLSX (ExcelJS 4.4.0 CDN, same pattern as
+                            planning.html/costgrid.html), filename `Client_Project_ProjectCode_YYYYMMDD.xlsx`
+                            (spaces→`-`, filesystem-unsafe characters stripped)
   config.html             ← admin config (clients, programs, roles, pipelines & POTs); Role edit form shows per-currency rate fields populated from `rateOverrides`; "Proposal Phasing" view (was "Phasing") excludes Canceled/Draft stages; monthly cells show local amount + EUR equivalent for non-EUR proposals; `phasingTableHtml` adds Total column and removes collapsible detail; `openClientRatecard` fixed filter and shows agency default per-currency placeholder
   project-config.html     ← full-page project config form, Vue 3 (CDN, no build step, same pattern as admin.html); manages a single reactive project object (not an array — the original's hidden multi-project dropdown/New/Delete machinery was confirmed dead on this page); unknown ?projectId= shows an explicit not-found state
   admin.html              ← user management; "🗑 Anonymize" button on disabled non-anonymized users; T&C editor (admin: view version, edit HTML, save draft / publish new version)
