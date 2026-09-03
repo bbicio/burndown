@@ -58,13 +58,55 @@
       Use <strong>Load XLS</strong> in Project Reporting to import new data.
     </p>
 
+    <!-- ── FILTERS ───────────────────────────────────────────── -->
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <div class="dropdown">
+        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false">
+          Client{{ clientFilter.length ? ' (' + clientFilter.length + ')' : '' }}
+        </button>
+        <ul class="dropdown-menu p-2" style="max-height:260px;overflow-y:auto">
+          <li v-for="name in clientOptions" :key="name" class="form-check">
+            <input class="form-check-input" type="checkbox" :id="'cf-' + name"
+                   :value="name" v-model="clientFilter" @click.stop>
+            <label class="form-check-label" :for="'cf-' + name" @click.stop>{{ name }}</label>
+          </li>
+          <li v-if="!clientOptions.length" class="text-muted small px-2">No data</li>
+        </ul>
+      </div>
+      <div class="dropdown">
+        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false">
+          Project{{ projectFilter.length ? ' (' + projectFilter.length + ')' : '' }}
+        </button>
+        <ul class="dropdown-menu p-2" style="max-height:260px;overflow-y:auto">
+          <li v-for="name in projectOptions" :key="name" class="form-check">
+            <input class="form-check-input" type="checkbox" :id="'pf-' + name"
+                   :value="name" v-model="projectFilter" @click.stop>
+            <label class="form-check-label" :for="'pf-' + name" @click.stop>{{ name }}</label>
+          </li>
+          <li v-if="!projectOptions.length" class="text-muted small px-2">No data</li>
+        </ul>
+      </div>
+      <input type="text" class="form-control form-control-sm" style="width:200px"
+             placeholder="Filter by project code…" v-model="codeFilter">
+      <select class="form-select form-select-sm" style="width:auto" v-model.number="selectedYearOption">
+        <option :value="0">All years</option>
+        <option v-for="py in pipelineYears" :key="py.year" :value="py.year">Pipeline {{ py.year }}</option>
+      </select>
+      <button v-if="clientFilter.length || projectFilter.length || codeFilter || selectedYearOption !== 0"
+              class="btn btn-outline-secondary btn-sm" @click="resetFilters">↺ Reset filters</button>
+    </div>
+
     <!-- ── TABLE ─────────────────────────────────────────── -->
     <div class="card">
       <div class="card-body">
-        <table class="table table-hover" v-if="rows.length">
+        <table class="table table-hover" v-if="filteredRows.length">
           <thead>
             <tr>
-              <th>Project code</th>
+              <th style="cursor:pointer" @click="toggleSort('client_name')">Client{{ sortIndicator('client_name') }}</th>
+              <th style="cursor:pointer" @click="toggleSort('project_name')">Project{{ sortIndicator('project_name') }}</th>
+              <th style="cursor:pointer" @click="toggleSort('project_code')">Project code{{ sortIndicator('project_code') }}</th>
               <th class="text-end">Uploads</th>
               <th class="text-end">Rows</th>
               <th>Last uploaded</th>
@@ -72,7 +114,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="r in rows" :key="r.project_code">
+            <tr v-for="r in filteredRows" :key="r.project_code">
+              <td>{{ r.client_name || '—' }}</td>
+              <td>{{ r.project_name || '—' }}</td>
               <td><code>{{ r.project_code }}</code></td>
               <td class="text-end text-muted">{{ r.uploads }}</td>
               <td class="text-end fw-semibold">{{ r.total_rows.toLocaleString() }}</td>
@@ -83,8 +127,8 @@
                   👁 View
                 </button>
                 <button class="btn btn-outline-primary btn-sm me-1" style="font-size:.78rem"
-                        @click="downloadCsv(r)">
-                  ⬇ CSV
+                        @click="downloadXlsx(r)">
+                  ⬇ XLSX
                 </button>
                 <button class="btn btn-outline-danger btn-sm"
                         style="font-size:.78rem"
@@ -99,8 +143,8 @@
         </table>
         <div class="empty" v-else>
           <div style="font-size:2rem">📂</div>
-          <p class="mt-2 mb-0">No timesheets uploaded yet.</p>
-          <p class="text-muted small">Use <strong>Load XLS</strong> in the Project Reporting view to import timesheets.</p>
+          <p class="mt-2 mb-0">{{ rows.length ? 'No timesheets match the current filters.' : 'No timesheets uploaded yet.' }}</p>
+          <p class="text-muted small" v-if="!rows.length">Use <strong>Load XLS</strong> in the Project Reporting view to import timesheets.</p>
         </div>
       </div>
     </div>
@@ -172,7 +216,41 @@
         rows:  [],
         error: null,
         modal: { show: false, loading: false, code: '', rows: [] },
+        pipelineYears: [],
+        selectedYearOption: 0, // 0 = "All years" sentinel
+        clientFilter: [],
+        projectFilter: [],
+        codeFilter: '',
+        sortBy: null,
+        sortDir: 'asc',
       };
+    },
+
+    computed: {
+      clientOptions() {
+        return [...new Set(this.rows.map(r => r.client_name).filter(Boolean))].sort();
+      },
+      projectOptions() {
+        return [...new Set(this.rows.map(r => r.project_name).filter(Boolean))].sort();
+      },
+      filteredRows() {
+        let out = this.rows.filter(r => {
+          if (this.selectedYearOption !== 0 && r.pipeline_year !== this.selectedYearOption) return false;
+          if (this.clientFilter.length && !this.clientFilter.includes(r.client_name)) return false;
+          if (this.projectFilter.length && !this.projectFilter.includes(r.project_name)) return false;
+          if (this.codeFilter && !r.project_code.toLowerCase().includes(this.codeFilter.toLowerCase())) return false;
+          return true;
+        });
+        if (this.sortBy) {
+          const dir = this.sortDir === 'asc' ? 1 : -1;
+          out = [...out].sort((a, b) => {
+            const av = (a[this.sortBy] || '').toString().toLowerCase();
+            const bv = (b[this.sortBy] || '').toString().toLowerCase();
+            return av < bv ? -dir : av > bv ? dir : 0;
+          });
+        }
+        return out;
+      },
     },
 
     async created() {
@@ -182,11 +260,34 @@
       ]});
       if (!user) return;
       if (user.role !== 'admin') { window.location.href = '/pipeline.html'; return; }
+
+      try { this.pipelineYears = await Api.pipelineYears.list(); } catch (e) { this.pipelineYears = []; }
+      const currentYear = new Date().getFullYear();
+      const hasCurrentYear = this.pipelineYears.some(py => py.year === currentYear);
+      this.selectedYearOption = hasCurrentYear ? currentYear
+        : (this.pipelineYears.length ? this.pipelineYears[0].year : 0);
+
       await this.loadRows();
       this.ready = true;
     },
 
     methods: {
+      toggleSort(field) {
+        if (this.sortBy !== field) { this.sortBy = field; this.sortDir = 'asc'; return; }
+        if (this.sortDir === 'asc') { this.sortDir = 'desc'; return; }
+        this.sortBy = null; this.sortDir = 'asc';
+      },
+      sortIndicator(field) {
+        if (this.sortBy !== field) return '';
+        return this.sortDir === 'asc' ? ' ▲' : ' ▼';
+      },
+      resetFilters() {
+        this.clientFilter = [];
+        this.projectFilter = [];
+        this.codeFilter = '';
+        this.selectedYearOption = 0;
+      },
+
       async loadRows() {
         this.error = null;
         try {
