@@ -265,14 +265,19 @@
       if (!user) return;
       if (user.role !== 'admin') { window.location.href = '/pipeline.html'; return; }
 
-      try { this.pipelineYears = await Api.pipelineYears.list(); } catch (e) { this.pipelineYears = []; }
+      const [pipelineYearsResult, currenciesResult] = await Promise.allSettled([
+        Api.pipelineYears.list(),
+        Api.currencies.active(),
+      ]);
+      this.pipelineYears = pipelineYearsResult.status === 'fulfilled' ? pipelineYearsResult.value : [];
+      window.__currencies = currenciesResult.status === 'fulfilled'
+        ? currenciesResult.value
+        : [{ code: 'EUR', symbol: '€', locale: 'it-IT' }];
+
       const currentYear = new Date().getFullYear();
       const hasCurrentYear = this.pipelineYears.some(py => py.year === currentYear);
       this.selectedYearOption = hasCurrentYear ? currentYear
         : (this.pipelineYears.length ? this.pipelineYears[0].year : 0);
-
-      try { window.__currencies = await Api.currencies.active(); }
-      catch (e) { window.__currencies = [{ code: 'EUR', symbol: '€', locale: 'it-IT' }]; }
 
       await this.loadRows();
       this.ready = true;

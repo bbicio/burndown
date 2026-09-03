@@ -167,7 +167,7 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res, next
       });
     }
 
-    const projectTasksByCode = await loadProjectTasksByCode(codes);
+    const projectTasksByCode = await loadProjectTasksByCode(codes, req.user.id, req.user.role === 'admin');
     for (const code of codes) {
       const tasks = projectTasksByCode[code] || [];
       for (const entry of codesToSave[code]) {
@@ -222,11 +222,14 @@ function trimRowKeys(row) {
 
 // Batch-loads { name, resources } task lists for every given project code,
 // keyed by project_code. One query for the whole upload, not one per row.
-// projects.code has no uniqueness constraint (012_project_code.sql) — a
-// LATERAL + ORDER BY created_at LIMIT 1 picks the same canonical project per
-// code that GET / uses, so fee resolution never draws rates from an
-// arbitrary duplicate-code project.
-async function loadProjectTasksByCode(codes) {
+// projects.code has no uniqueness constraint (012_project_code.sql) — the
+// LATERAL, scoped by the same owner/share visibility predicate GET / uses
+// (ORDER BY created_at LIMIT 1 to break ties among visible matches), picks
+// a project the uploader can actually see. If none of the same-coded
+// projects are visible to them, this resolves to no project (empty task
+// list, fee falls back to 0) rather than ever drawing rates from a project
+// they have no access to.
+async function loadProjectTasksByCode(codes, userId, isAdmin) {
   if (!codes.length) return {};
   const { rows } = await query(
     `SELECT agg.code,
@@ -237,10 +240,14 @@ async function loadProjectTasksByCode(codes) {
             ) AS tasks
      FROM unnest($1::text[]) AS agg(code)
      LEFT JOIN LATERAL (
-       SELECT * FROM projects pr WHERE pr.code = agg.code
+       SELECT * FROM projects pr
+       WHERE pr.code = agg.code
+         AND ($3 OR pr.owner_id = $2
+              OR EXISTS(SELECT 1 FROM resource_shares rs
+                        WHERE rs.resource_type='project' AND rs.resource_id=pr.id AND rs.user_id=$2))
        ORDER BY pr.created_at LIMIT 1
      ) p ON TRUE`,
-    [codes]
+    [codes, userId, isAdmin]
   );
   const map = {};
   for (const row of rows) map[row.code] = row.tasks || [];
