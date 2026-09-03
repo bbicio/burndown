@@ -601,7 +601,8 @@
         if (!(await this.showConfirm(msg))) return;
         try {
           await Api.timesheets.delete(this.project.code);
-          await this.loadActuals();
+          this.actuals.info = `<span class="text-muted">No actuals uploaded for project <code>${esc(this.project.code)}</code>.</span>`;
+          this.actuals.exportRows = null;
         } catch (e) {
           this.actuals.status = `❌ Delete failed: ${e.message}`; this.actuals.statusClass = 'text-danger';
         }
