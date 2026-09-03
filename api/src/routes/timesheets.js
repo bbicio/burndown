@@ -33,21 +33,28 @@ router.get('/', requireAuth, async (req, res, next) => {
     if (!codes.length) return res.json([]);
 
     const { rows } = await query(
-      `SELECT t.project_code,
-              COUNT(*)::int           AS uploads,
-              MAX(t.uploaded_at)      AS last_uploaded,
-              SUM(jsonb_array_length(t.data)) AS total_rows,
+      `WITH agg AS (
+         SELECT project_code,
+                COUNT(*)::int AS uploads,
+                MAX(uploaded_at) AS last_uploaded,
+                SUM(jsonb_array_length(data)) AS total_rows
+         FROM timesheets
+         WHERE project_code = ANY($1::text[])
+         GROUP BY project_code
+       )
+       SELECT agg.project_code, agg.uploads, agg.last_uploaded, agg.total_rows,
               c.name   AS client_name,
               p.name   AS project_name,
               p.currency AS currency,
               cgv.pipeline_year AS pipeline_year
-       FROM timesheets t
-       LEFT JOIN projects p             ON p.code = t.project_code
+       FROM agg
+       LEFT JOIN LATERAL (
+         SELECT * FROM projects pr WHERE pr.code = agg.project_code
+         ORDER BY pr.created_at LIMIT 1
+       ) p ON TRUE
        LEFT JOIN clients c              ON c.id = p.client_id
        LEFT JOIN cost_grid_versions cgv ON cgv.id = p.cg_version_id
-       WHERE t.project_code = ANY($1::text[])
-       GROUP BY t.project_code, c.name, p.name, p.currency, cgv.pipeline_year
-       ORDER BY t.project_code`,
+       ORDER BY agg.project_code`,
       [codes]
     );
     res.json(rows);
@@ -216,7 +223,7 @@ async function loadProjectTasksByCode(codes) {
   const { rows } = await query(
     `SELECT p.code,
             COALESCE(
-              (SELECT json_agg(json_build_object('name', pt.name, 'resources', pt.resources))
+              (SELECT json_agg(json_build_object('name', pt.name, 'resources', pt.resources) ORDER BY pt.sort_order)
                FROM project_tasks pt WHERE pt.project_id = p.id),
               '[]'::json
             ) AS tasks

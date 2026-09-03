@@ -363,6 +363,7 @@
           a.href = URL.createObjectURL(blob);
           a.download = `${code}.xlsx`;
           a.click();
+          URL.revokeObjectURL(a.href);
         } catch (e) {
           this.error = e.message || 'Export failed.';
         }
