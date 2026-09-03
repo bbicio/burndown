@@ -346,6 +346,7 @@
 
 <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script defer src="js/api.js?v=4"></script>
 <script defer src="js/core.js?v=3"></script>
@@ -549,22 +550,37 @@
       openActualsViewModal() {
         bootstrap.Modal.getOrCreateInstance(document.getElementById('actualsViewModal')).show();
       },
-      exportActualsCsv() {
-        const rowData = this.actuals.exportRows;
-        if (!rowData || !rowData.length) return;
-        const cols = ['projectId','projectName','date','role','owner','task','hours','notes'];
-        const header = cols.join(',');
-        const csvRows = rowData.map(r => cols.map(c => {
-          const v = r[c] === null || r[c] === undefined ? '' : String(r[c]);
-          return v.includes(',') || v.includes('"') || v.includes('\n') ? `"${v.replace(/"/g,'""')}"` : v;
-        }).join(','));
-        const csv = [header, ...csvRows].join('\r\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
+      async downloadActualsXlsx() {
+        const rows = this.actuals.exportRows || [];
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet(this.project.code || 'Actuals');
+        ws.addRow(['Date', 'Owner', 'Role', 'Task', 'Hours', 'Notes', 'Fee', 'Spent']).font = { bold: true };
+        rows.forEach(r => {
+          const fee = r.fee || 0;
+          ws.addRow([r.date, r.owner, r.role, r.task, r.hours, r.notes, fee, fee * (r.hours || 0)]);
+        });
+        ws.columns = [
+          { width: 12 }, { width: 20 }, { width: 18 }, { width: 24 },
+          { width: 10 }, { width: 30 }, { width: 12 }, { width: 12 },
+        ];
+        ws.views = [{ state: 'frozen', ySplit: 1 }];
+
+        const buffer = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const a = document.createElement('a');
-        a.href = url; a.download = `actuals_${this.project.code}_${new Date().toISOString().slice(0,10)}.csv`;
+        a.href = URL.createObjectURL(blob);
+        a.download = this.buildActualsFilename();
         a.click();
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(a.href), 0);
+      },
+      buildActualsFilename() {
+        const sanitize = s => String(s || '').trim().replace(/\s+/g, '-').replace(/[\\/:*?"<>|]/g, '');
+        const client = sanitize(getClientName(this.project.clientId) || 'NoClient');
+        const proj = sanitize(this.project.name || 'NoProject');
+        const code = sanitize(this.project.code);
+        const now = new Date();
+        const yyyymmdd = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+        return `${client}_${proj}_${code}_${yyyymmdd}.xlsx`;
       },
       async onActualsFileChange(e) {
         const file = e.target.files[0];
