@@ -368,7 +368,10 @@
           a.href = URL.createObjectURL(blob);
           a.download = this.buildXlsxFilename(r);
           a.click();
-          URL.revokeObjectURL(a.href);
+          // Deferred: some browsers (Safari, older Firefox/Chromium) process the
+          // click-to-download hand-off asynchronously — revoking synchronously can
+          // invalidate the blob before the download actually starts.
+          setTimeout(() => URL.revokeObjectURL(a.href), 0);
         } catch (e) {
           this.error = e.message || 'Export failed.';
         }
