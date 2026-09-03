@@ -361,7 +361,7 @@
           const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
           const a = document.createElement('a');
           a.href = URL.createObjectURL(blob);
-          a.download = `${code}.xlsx`;
+          a.download = this.buildXlsxFilename(r);
           a.click();
           URL.revokeObjectURL(a.href);
         } catch (e) {
@@ -372,6 +372,22 @@
       fmtDate(iso) {
         if (!iso) return '—';
         return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      },
+
+      // Filesystem-safe filename part: spaces become '-', characters invalid in
+      // Windows/macOS filenames are stripped (client/project names are free text
+      // and can contain ':', '/', etc. — e.g. "NH-26-...:AnnualUpdate").
+      sanitizeForFilename(s) {
+        return String(s || '').trim().replace(/\s+/g, '-').replace(/[\\/:*?"<>|]/g, '');
+      },
+
+      buildXlsxFilename(r) {
+        const client = this.sanitizeForFilename(r.client_name || 'NoClient');
+        const project = this.sanitizeForFilename(r.project_name || 'NoProject');
+        const code = this.sanitizeForFilename(r.project_code);
+        const now = new Date();
+        const yyyymmdd = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+        return `${client}_${project}_${code}_${yyyymmdd}.xlsx`;
       },
     },
   }).mount('#app');
