@@ -4,6 +4,7 @@ const XLSX    = require('xlsx');
 const { query } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
 const { parseFlexibleDate } = require('../lib/date-parse');
+const { resolveFee } = require('../lib/rate-resolve');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -148,6 +149,14 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res, next
       });
     }
 
+    const projectTasksByCode = await loadProjectTasksByCode(codes);
+    for (const code of codes) {
+      const tasks = projectTasksByCode[code] || [];
+      for (const entry of codesToSave[code]) {
+        entry.fee = resolveFee(tasks, entry.task, entry.role);
+      }
+    }
+
     for (const code of codes) {
       await query('DELETE FROM timesheets WHERE project_code = $1', [code]);
       await query(
@@ -191,6 +200,26 @@ function trimRowKeys(row) {
   const trimmed = {};
   for (const key of Object.keys(row)) trimmed[key.trim()] = row[key];
   return trimmed;
+}
+
+// Batch-loads { name, resources } task lists for every given project code,
+// keyed by project_code. One query for the whole upload, not one per row.
+async function loadProjectTasksByCode(codes) {
+  if (!codes.length) return {};
+  const { rows } = await query(
+    `SELECT p.code,
+            COALESCE(
+              (SELECT json_agg(json_build_object('name', pt.name, 'resources', pt.resources))
+               FROM project_tasks pt WHERE pt.project_id = p.id),
+              '[]'::json
+            ) AS tasks
+     FROM projects p
+     WHERE p.code = ANY($1::text[])`,
+    [codes]
+  );
+  const map = {};
+  for (const row of rows) map[row.code] = row.tasks || [];
+  return map;
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
