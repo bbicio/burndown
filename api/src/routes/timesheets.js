@@ -4,9 +4,23 @@ const XLSX    = require('xlsx');
 const { query } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
 const { parseFlexibleDate } = require('../lib/date-parse');
+const { resolveFee } = require('../lib/rate-resolve');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+
+// Shared "can this user see this project" predicate, used everywhere a project
+// needs to be scoped to the calling user's ownership/sharing. Kept as one
+// function so a future visibility-rule change (e.g. a new share type) only
+// needs to be made once, rather than drifting across independently-written
+// inline SQL copies. `isAdminExpr` is a raw SQL expression (a bound param
+// placeholder like '$3', or the literal 'FALSE' when the caller has already
+// excluded admins from this code path) — never string-interpolated user input.
+function projectVisibilityPredicate(projectAlias, userIdParam, isAdminExpr) {
+  return `(${isAdminExpr} OR ${projectAlias}.owner_id = ${userIdParam}
+    OR EXISTS(SELECT 1 FROM resource_shares rs
+              WHERE rs.resource_type='project' AND rs.resource_id=${projectAlias}.id AND rs.user_id=${userIdParam}))`;
+}
 
 // Visible project codes for the current user
 async function visibleCodes(userId, role) {
@@ -17,9 +31,7 @@ async function visibleCodes(userId, role) {
   const { rows } = await query(
     `SELECT code FROM projects p
      WHERE code IS NOT NULL
-       AND (p.owner_id = $1
-        OR EXISTS(SELECT 1 FROM resource_shares rs
-                  WHERE rs.resource_type='project' AND rs.resource_id=p.id AND rs.user_id=$1))`,
+       AND ${projectVisibilityPredicate('p', '$1', 'FALSE')}`,
     [userId]
   );
   return rows.map(r => r.code);
@@ -32,15 +44,31 @@ router.get('/', requireAuth, async (req, res, next) => {
     if (!codes.length) return res.json([]);
 
     const { rows } = await query(
-      `SELECT project_code,
-              COUNT(*)::int           AS uploads,
-              MAX(uploaded_at)        AS last_uploaded,
-              SUM(jsonb_array_length(data)) AS total_rows
-       FROM timesheets
-       WHERE project_code = ANY($1::text[])
-       GROUP BY project_code
-       ORDER BY project_code`,
-      [codes]
+      `WITH agg AS (
+         SELECT project_code,
+                COUNT(*)::int AS uploads,
+                MAX(uploaded_at) AS last_uploaded,
+                SUM(jsonb_array_length(data)) AS total_rows
+         FROM timesheets
+         WHERE project_code = ANY($1::text[])
+         GROUP BY project_code
+       )
+       SELECT agg.project_code, agg.uploads, agg.last_uploaded, agg.total_rows,
+              c.name   AS client_name,
+              p.name   AS project_name,
+              p.currency AS currency,
+              cgv.pipeline_year AS pipeline_year
+       FROM agg
+       LEFT JOIN LATERAL (
+         SELECT * FROM projects pr
+         WHERE pr.code = agg.project_code
+           AND ${projectVisibilityPredicate('pr', '$2', '$3')}
+         ORDER BY pr.created_at LIMIT 1
+       ) p ON TRUE
+       LEFT JOIN clients c              ON c.id = p.client_id
+       LEFT JOIN cost_grid_versions cgv ON cgv.id = p.cg_version_id
+       ORDER BY agg.project_code`,
+      [codes, req.user.id, req.user.role === 'admin']
     );
     res.json(rows);
   } catch (err) { next(err); }
@@ -148,6 +176,14 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res, next
       });
     }
 
+    const projectTasksByCode = await loadProjectTasksByCode(codes, req.user.id, req.user.role === 'admin');
+    for (const code of codes) {
+      const tasks = projectTasksByCode[code] || [];
+      for (const entry of codesToSave[code]) {
+        entry.fee = resolveFee(tasks, entry.task, entry.role);
+      }
+    }
+
     for (const code of codes) {
       await query('DELETE FROM timesheets WHERE project_code = $1', [code]);
       await query(
@@ -191,6 +227,38 @@ function trimRowKeys(row) {
   const trimmed = {};
   for (const key of Object.keys(row)) trimmed[key.trim()] = row[key];
   return trimmed;
+}
+
+// Batch-loads { name, resources } task lists for every given project code,
+// keyed by project_code. One query for the whole upload, not one per row.
+// projects.code has no uniqueness constraint (012_project_code.sql) — the
+// LATERAL, scoped by the same owner/share visibility predicate GET / uses
+// (ORDER BY created_at LIMIT 1 to break ties among visible matches), picks
+// a project the uploader can actually see. If none of the same-coded
+// projects are visible to them, this resolves to no project (empty task
+// list, fee falls back to 0) rather than ever drawing rates from a project
+// they have no access to.
+async function loadProjectTasksByCode(codes, userId, isAdmin) {
+  if (!codes.length) return {};
+  const { rows } = await query(
+    `SELECT agg.code,
+            COALESCE(
+              (SELECT json_agg(json_build_object('name', pt.name, 'resources', pt.resources) ORDER BY pt.sort_order)
+               FROM project_tasks pt WHERE pt.project_id = p.id),
+              '[]'::json
+            ) AS tasks
+     FROM unnest($1::text[]) AS agg(code)
+     LEFT JOIN LATERAL (
+       SELECT * FROM projects pr
+       WHERE pr.code = agg.code
+         AND ${projectVisibilityPredicate('pr', '$2', '$3')}
+       ORDER BY pr.created_at LIMIT 1
+     ) p ON TRUE`,
+    [codes, userId, isAdmin]
+  );
+  const map = {};
+  for (const row of rows) map[row.code] = row.tasks || [];
+  return map;
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
