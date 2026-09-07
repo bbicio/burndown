@@ -685,7 +685,7 @@
           if (typeof _pushProjectToApi !== 'undefined') {
             await _pushProjectToApi(this.project).catch(e => console.warn('[sync] project push:', e.message));
           }
-          window.location.href = '/portfolio.html';
+          window.location.href = '/portfolio.html?projectId=' + this.project.id;
         } catch (e) {
           this.jsonError = 'Save failed: ' + e.message;
           this.saving = false;
