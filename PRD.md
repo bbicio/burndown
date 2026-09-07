@@ -305,6 +305,13 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 
 **Other sections in the form:** Phasing (monthly budget distribution), Planning (monthly sold-hours distribution), and Functional Groups (named role groupings) — each a distinct area of the same full-page form.
 
+**Actuals section** (2026-09): manages the D365 timesheet data imported for this project.
+- **📂 Load Actuals** — upload an Excel timesheet file (same mechanism as the portfolio-view button of the same name, §5).
+- **👁 View** — opens a popup listing every imported row for this project: Date, Owner, Role, Task, Hours, Notes, Fee, Spent (Fee is the hourly rate resolved and stored at import time, §8.3; Spent = Fee × Hours). Shown only once actuals exist; visible to viewers too.
+- **⬇ Download actuals** — downloads the same rows/columns as an Excel `.xlsx` file, named `<Client>_<ProjectName>_<ProjectCode>_<YYYYMMDD>.xlsx`. Shown only once actuals exist; visible to viewers too.
+- **🗑 Delete actuals** — permanently removes all imported actuals for this project's D365 code, after a confirmation prompt. Hidden for viewers.
+- Saving the project form (**💾 Save**) now returns to this project's own detail view in Project Reporting, rather than the bare project list.
+
 Phasing and Planning are manual grids by default (one currency/hours input per month, freely editable). Two actions can bulk-fill them instead of hand-entry — both share the same confirm-modal UI, but compute completely different numbers:
 
 #### Derive from Task Dates vs. Reforecast
