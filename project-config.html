@@ -91,7 +91,7 @@
             </label>
             <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="openActualsViewModal">👁 View</button>
             <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="downloadActualsXlsx">⬇ Download actuals</button>
-            <button class="btn btn-sm btn-outline-danger" v-if="project.code && !isViewer" @click="onDeleteActuals">🗑 Delete actuals</button>
+            <button class="btn btn-sm btn-outline-danger" v-if="project.code && !isViewer" :disabled="actuals.deleting" @click="onDeleteActuals">🗑 Delete actuals</button>
           </div>
         </div>
         <div class="text-muted small py-1" v-html="actuals.info"></div>
@@ -389,7 +389,7 @@
         programModal: { name: '', id: '', error: '', saving: false },
         confirmModal: { message: '' },
         reforecastVisible: false,
-        actuals: { info: 'Save the project first to enable actuals upload.', status: '', statusClass: '', exportRows: null, guardMsg: '' },
+        actuals: { info: 'Save the project first to enable actuals upload.', status: '', statusClass: '', exportRows: null, guardMsg: '', deleting: false },
         tasksXlsxError: '',
         phasingActionError: '',
       };
@@ -555,27 +555,31 @@
           this.actuals.status = '❌ Export library not available.'; this.actuals.statusClass = 'text-danger';
           return;
         }
-        const rows = this.actuals.exportRows || [];
-        const wb = new ExcelJS.Workbook();
-        const ws = wb.addWorksheet(this.project.code || 'Actuals');
-        ws.addRow(['Date', 'Owner', 'Role', 'Task', 'Hours', 'Notes', 'Fee', 'Spent']).font = { bold: true };
-        rows.forEach(r => {
-          const fee = r.fee || 0;
-          ws.addRow([r.date, r.owner, r.role, r.task, r.hours, r.notes, fee, fee * (r.hours || 0)]);
-        });
-        ws.columns = [
-          { width: 12 }, { width: 20 }, { width: 18 }, { width: 24 },
-          { width: 10 }, { width: 30 }, { width: 12 }, { width: 12 },
-        ];
-        ws.views = [{ state: 'frozen', ySplit: 1 }];
+        try {
+          const rows = this.actuals.exportRows || [];
+          const wb = new ExcelJS.Workbook();
+          const ws = wb.addWorksheet(this.project.code || 'Actuals');
+          ws.addRow(['Date', 'Owner', 'Role', 'Task', 'Hours', 'Notes', 'Fee', 'Spent']).font = { bold: true };
+          rows.forEach(r => {
+            const fee = r.fee || 0;
+            ws.addRow([r.date, r.owner, r.role, r.task, r.hours, r.notes, fee, fee * (r.hours || 0)]);
+          });
+          ws.columns = [
+            { width: 12 }, { width: 20 }, { width: 18 }, { width: 24 },
+            { width: 10 }, { width: 30 }, { width: 12 }, { width: 12 },
+          ];
+          ws.views = [{ state: 'frozen', ySplit: 1 }];
 
-        const buffer = await wb.xlsx.writeBuffer();
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = this.buildActualsFilename();
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 0);
+          const buffer = await wb.xlsx.writeBuffer();
+          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = this.buildActualsFilename();
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 0);
+        } catch (e) {
+          this.actuals.status = `❌ Export failed: ${e.message}`; this.actuals.statusClass = 'text-danger';
+        }
       },
       buildActualsFilename() {
         const sanitize = s => String(s || '').trim().replace(/\s+/g, '-').replace(/[\\/:*?"<>|]/g, '');
@@ -642,11 +646,13 @@
       },
       async onDeleteActuals() {
         if (!this.project.code) return;
+        if (this.actuals.deleting) return; // already in flight -- ignore a fast repeat click
         const n = this.actuals.exportRows?.length || 0;
         const msg = n
           ? `Delete ALL actuals for project "${this.project.code}"?\n\nThis removes ${n} row${n !== 1 ? 's' : ''}. This cannot be undone.`
           : `Delete actuals for project "${this.project.code}"?`;
         if (!(await this.showConfirm(msg))) return;
+        this.actuals.deleting = true;
         try {
           await Api.timesheets.delete(this.project.code);
           this.actuals.info = `<span class="text-muted">No actuals uploaded for project <code>${esc(this.project.code)}</code>.</span>`;
@@ -656,6 +662,8 @@
           setTimeout(() => { this.actuals.status = ''; }, 4000);
         } catch (e) {
           this.actuals.status = `❌ Delete failed: ${e.message}`; this.actuals.statusClass = 'text-danger';
+        } finally {
+          this.actuals.deleting = false;
         }
       },
       async onSave() {
