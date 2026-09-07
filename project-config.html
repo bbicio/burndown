@@ -74,7 +74,6 @@
           <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Start month</label><input type="month" class="form-control form-control-sm" v-model="startMonthInput" :disabled="isViewer" @change="onDateChange"></div>
           <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">End month</label><input type="month" class="form-control form-control-sm" v-model="endMonthInput" :disabled="isViewer" @change="onDateChange"></div>
           <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Currency</label><select class="form-select form-select-sm" v-model="project.currency" :disabled="isViewer"><option value="€">€ Euro</option><option value="$">$ Dollar</option><option value="£">£ Pound</option><option value="CHF">CHF Swiss Franc</option></select></div>
-          <div class="col-sm-3 col-md-2 d-flex align-items-end"><button type="button" class="btn btn-outline-danger btn-sm w-100" v-if="!isViewer" @click="onClearData">🗑 Clear XLS data</button></div>
         </div>
         <div class="row g-3 mt-1">
           <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Pipeline</label><select class="form-select form-select-sm" v-model="project.pipeline" :disabled="isViewer || pipelineLocked" :title="pipelineLocked ? 'Pipeline is managed from the Cost Grid' : ''" @change="onPipelineChange"><option value="">— Select —</option><option value="SIP">SIP</option><option value="Expected">Expected</option><option value="Anticipated">Anticipated</option><option value="Committed">Committed</option><option value="Canceled">Canceled</option></select></div>
@@ -87,10 +86,12 @@
           <span>2. Actuals</span>
           <div class="d-flex gap-2">
             <label class="btn btn-sm btn-outline-secondary mb-0" v-if="project.code && !isViewer">
-              ⬆ Upload XLS
+              📂 Load Actuals
               <input type="file" accept=".xls,.xlsx" style="display:none" @change="onActualsFileChange">
             </label>
-            <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="exportActualsCsv">⬇ Export CSV</button>
+            <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="openActualsViewModal">👁 View</button>
+            <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="downloadActualsXlsx">⬇ Download actuals</button>
+            <button class="btn btn-sm btn-outline-danger" v-if="project.code && !isViewer" @click="onDeleteActuals">🗑 Delete actuals</button>
           </div>
         </div>
         <div class="text-muted small py-1" v-html="actuals.info"></div>
@@ -301,6 +302,31 @@
       </div>
     </div>
   </div>
+  <div class="modal fade" id="actualsViewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title mb-0">Actuals <span class="text-muted ms-2" style="font-size:.8rem">{{ actuals.exportRows?.length || 0 }} rows</span></h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-0">
+          <table class="table table-sm table-hover mb-0" style="font-size:.78rem">
+            <thead>
+              <tr><th>Date</th><th>Owner</th><th>Role</th><th>Task</th><th class="text-end">Hours</th><th>Notes</th><th class="text-end">Fee</th><th class="text-end">Spent</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="(row, i) in actuals.exportRows" :key="i">
+                <td>{{ row.date }}</td><td>{{ row.owner }}</td><td>{{ row.role }}</td><td>{{ row.task }}</td>
+                <td class="text-end">{{ row.hours }}</td><td>{{ row.notes }}</td>
+                <td class="text-end">{{ fmtMoney(row.fee || 0, project.currency) }}</td>
+                <td class="text-end fw-semibold">{{ fmtMoney((row.fee || 0) * (row.hours || 0), project.currency) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Task 3/6 insert the confirm modal here -->
   <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
@@ -320,6 +346,7 @@
 
 <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script defer src="js/api.js?v=4"></script>
 <script defer src="js/core.js?v=3"></script>
@@ -520,22 +547,44 @@
           this.actuals.info = `<span class="text-danger">Could not load actuals: ${esc(e.message)}</span>`;
         }
       },
-      exportActualsCsv() {
-        const rowData = this.actuals.exportRows;
-        if (!rowData || !rowData.length) return;
-        const cols = ['projectId','projectName','date','role','owner','task','hours','notes'];
-        const header = cols.join(',');
-        const csvRows = rowData.map(r => cols.map(c => {
-          const v = r[c] === null || r[c] === undefined ? '' : String(r[c]);
-          return v.includes(',') || v.includes('"') || v.includes('\n') ? `"${v.replace(/"/g,'""')}"` : v;
-        }).join(','));
-        const csv = [header, ...csvRows].join('\r\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
+      openActualsViewModal() {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('actualsViewModal')).show();
+      },
+      async downloadActualsXlsx() {
+        if (typeof ExcelJS === 'undefined') {
+          this.actuals.status = '❌ Export library not available.'; this.actuals.statusClass = 'text-danger';
+          return;
+        }
+        const rows = this.actuals.exportRows || [];
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet(this.project.code || 'Actuals');
+        ws.addRow(['Date', 'Owner', 'Role', 'Task', 'Hours', 'Notes', 'Fee', 'Spent']).font = { bold: true };
+        rows.forEach(r => {
+          const fee = r.fee || 0;
+          ws.addRow([r.date, r.owner, r.role, r.task, r.hours, r.notes, fee, fee * (r.hours || 0)]);
+        });
+        ws.columns = [
+          { width: 12 }, { width: 20 }, { width: 18 }, { width: 24 },
+          { width: 10 }, { width: 30 }, { width: 12 }, { width: 12 },
+        ];
+        ws.views = [{ state: 'frozen', ySplit: 1 }];
+
+        const buffer = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const a = document.createElement('a');
-        a.href = url; a.download = `actuals_${this.project.code}_${new Date().toISOString().slice(0,10)}.csv`;
+        a.href = URL.createObjectURL(blob);
+        a.download = this.buildActualsFilename();
         a.click();
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(a.href), 0);
+      },
+      buildActualsFilename() {
+        const sanitize = s => String(s || '').trim().replace(/\s+/g, '-').replace(/[\\/:*?"<>|]/g, '');
+        const client = sanitize(getClientName(this.project.clientId) || 'NoClient');
+        const proj = sanitize(this.project.name || 'NoProject');
+        const code = sanitize(this.project.code);
+        const now = new Date();
+        const yyyymmdd = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+        return `${client}_${proj}_${code}_${yyyymmdd}.xlsx`;
       },
       async onActualsFileChange(e) {
         const file = e.target.files[0];
@@ -591,11 +640,22 @@
         const safe = s => String(s || '').replace(/[^a-z0-9]/gi, '_').slice(0, 30);
         XLSX.writeFile(wb, `tasks_${safe(proj.code || proj.name)}_${new Date().toISOString().slice(0, 10)}.xlsx`);
       },
-      async onClearData() {
-        if (!this.project.id) return;
-        if (await this.showConfirm(`Clear all cached XLS data for project "${this.project.id}"?`)) {
-          clearProjectData(this.project.id);
-          window.location.href = '/portfolio.html';
+      async onDeleteActuals() {
+        if (!this.project.code) return;
+        const n = this.actuals.exportRows?.length || 0;
+        const msg = n
+          ? `Delete ALL actuals for project "${this.project.code}"?\n\nThis removes ${n} row${n !== 1 ? 's' : ''}. This cannot be undone.`
+          : `Delete actuals for project "${this.project.code}"?`;
+        if (!(await this.showConfirm(msg))) return;
+        try {
+          await Api.timesheets.delete(this.project.code);
+          this.actuals.info = `<span class="text-muted">No actuals uploaded for project <code>${esc(this.project.code)}</code>.</span>`;
+          this.actuals.exportRows = null;
+          this.reforecastVisible = false;
+          this.actuals.status = '✅ Actuals deleted.'; this.actuals.statusClass = 'text-success';
+          setTimeout(() => { this.actuals.status = ''; }, 4000);
+        } catch (e) {
+          this.actuals.status = `❌ Delete failed: ${e.message}`; this.actuals.statusClass = 'text-danger';
         }
       },
       async onSave() {
@@ -632,7 +692,7 @@
           if (typeof _pushProjectToApi !== 'undefined') {
             await _pushProjectToApi(this.project).catch(e => console.warn('[sync] project push:', e.message));
           }
-          window.location.href = '/portfolio.html';
+          window.location.href = '/portfolio.html?projectId=' + this.project.id;
         } catch (e) {
           this.jsonError = 'Save failed: ' + e.message;
           this.saving = false;

@@ -42,6 +42,8 @@
 - [ ] Viewer mode: View/Download visible; Load Actuals/Delete actuals hidden.
 - [ ] Saving a project (new or existing) redirects to `/portfolio.html?projectId=<id>`, landing on that project's detail view — matching what clicking `📊 View Report` from the portfolio list produces.
 
+> **Correction (2026-09):** "new or existing" above only actually verified true for existing projects. Creating a *new* project via this page has never persisted server-side (`BLANK_PROJECT()` sets `id: ''`, and `_pushProjectToApi()` silently no-ops on an empty id) — a pre-existing bug, unrelated to and not fixed by this cycle. See the design doc's own correction note and the cycle's finish-cycle report.
+
 ## Explicitly excluded scope
 
 - No change to the upload mechanism itself (column mapping, date parsing, fee snapshot logic) — reused as-is from the existing `POST /api/timesheets/upload`.
