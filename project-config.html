@@ -91,7 +91,7 @@
             </label>
             <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="openActualsViewModal">👁 View</button>
             <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="downloadActualsXlsx">⬇ Download actuals</button>
-            <button class="btn btn-sm btn-outline-danger" v-if="!isViewer" @click="onDeleteActuals">🗑 Delete actuals</button>
+            <button class="btn btn-sm btn-outline-danger" v-if="project.code && !isViewer" @click="onDeleteActuals">🗑 Delete actuals</button>
           </div>
         </div>
         <div class="text-muted small py-1" v-html="actuals.info"></div>
@@ -551,6 +551,10 @@
         bootstrap.Modal.getOrCreateInstance(document.getElementById('actualsViewModal')).show();
       },
       async downloadActualsXlsx() {
+        if (typeof ExcelJS === 'undefined') {
+          this.actuals.status = '❌ Export library not available.'; this.actuals.statusClass = 'text-danger';
+          return;
+        }
         const rows = this.actuals.exportRows || [];
         const wb = new ExcelJS.Workbook();
         const ws = wb.addWorksheet(this.project.code || 'Actuals');
@@ -647,6 +651,9 @@
           await Api.timesheets.delete(this.project.code);
           this.actuals.info = `<span class="text-muted">No actuals uploaded for project <code>${esc(this.project.code)}</code>.</span>`;
           this.actuals.exportRows = null;
+          this.reforecastVisible = false;
+          this.actuals.status = '✅ Actuals deleted.'; this.actuals.statusClass = 'text-success';
+          setTimeout(() => { this.actuals.status = ''; }, 4000);
         } catch (e) {
           this.actuals.status = `❌ Delete failed: ${e.message}`; this.actuals.statusClass = 'text-danger';
         }
