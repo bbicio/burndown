@@ -579,6 +579,7 @@
           setTimeout(() => URL.revokeObjectURL(a.href), 0);
         } catch (e) {
           this.actuals.status = `❌ Export failed: ${e.message}`; this.actuals.statusClass = 'text-danger';
+          setTimeout(() => { this.actuals.status = ''; }, 4000);
         }
       },
       buildActualsFilename() {
@@ -662,6 +663,7 @@
           setTimeout(() => { this.actuals.status = ''; }, 4000);
         } catch (e) {
           this.actuals.status = `❌ Delete failed: ${e.message}`; this.actuals.statusClass = 'text-danger';
+          setTimeout(() => { this.actuals.status = ''; }, 4000);
         } finally {
           this.actuals.deleting = false;
         }
@@ -836,6 +838,7 @@
         return new Promise(resolve => {
           const el = document.getElementById('confirmModal');
           this._confirmAccepted = false;
+          this._confirmClicked = false; // guards confirmModalOk() against a fast repeat click, same idiom as js/core.js's showConfirm()
           this._confirmResolve = () => { this._confirmAccepted = true; };
           const onHidden = () => {
             el.removeEventListener('hidden.bs.modal', onHidden);
@@ -846,6 +849,8 @@
         });
       },
       confirmModalOk() {
+        if (this._confirmClicked) return; // ignore a fast repeat click before the hide animation completes
+        this._confirmClicked = true;
         if (this._confirmResolve) this._confirmResolve();
         bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
       },
