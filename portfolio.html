@@ -112,34 +112,26 @@
         <div v-if="expandedPrograms.has(prog.id)" class="prog-children">
           <div class="prog-project-list px-2 pb-2 pt-1">
             <template v-for="cfg in prog.children" :key="cfg.id">
-            <div class="section-card mb-4" v-if="cardDataMap[cfg.id]">
+            <div class="col-md-6" v-if="cardDataMap[cfg.id]">
+            <div class="section-card mb-0 h-100">
               <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                   <span>📁 {{ fmtProjectTitle(cfg) }}</span>
                   <span v-if="cfg.code" class="text-muted small">{{ cfg.code }}</span>
                   <span v-html="pipelineBadge(getProjectPipeline(cfg.id) || cfg.pipeline)"></span>
                   <span v-html="statusBadgeLarge(cfg.status)"></span>
-                  <span v-if="!cardDataMap[cfg.id].hasData" class="badge bg-warning text-dark">no XLS data</span>
+                  <span v-if="!cardDataMap[cfg.id].hasData" class="badge bg-warning text-dark">No actuals available</span>
                   <span v-if="cardDataMap[cfg.id].budgetBadgeHtml" v-html="cardDataMap[cfg.id].budgetBadgeHtml"></span>
                 </div>
-                <div class="d-flex gap-2 flex-wrap">
-                  <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="goConfigure(cfg.id)">⚙️ Configure</button>
-                  <button class="btn btn-sm btn-outline-secondary" title="Share project" @click="openShareModal('project', cfg.id, cfg.name || cfg.id)">🔗 Share</button>
-                  <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" title="Upload XLS actuals for this project" @click="triggerLoadActuals(cfg.id)">📂 Load Actuals</button>
-                  <button class="btn btn-sm btn-outline-secondary" @click="goPlanningForProject(cfg.id)">📅 Planning</button>
-                  <button class="btn btn-sm" :class="cardDataMap[cfg.id].hasData ? 'btn-primary' : 'btn-outline-secondary'" :disabled="!cardDataMap[cfg.id].hasData" @click="showDashboard(cfg.id)">📊 View Report →</button>
-                </div>
+                <button class="btn btn-sm btn-primary" @click="showDashboard(cfg.id)">Open project →</button>
               </div>
-              <div class="table-responsive p-2">
-                <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
-                  <thead style="background:var(--indigo-50)"><tr><th style="min-width:110px"></th><th v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end" style="min-width:90px;background:var(--surface-medium)">{{ cardDataMap[cfg.id].totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr></thead>
-                  <tbody>
-                    <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cfg.phasing?.[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cardDataMap[cfg.id].totalPhasing) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(cardDataMap[cfg.id].totalPtc) }}</td></tr>
-                    <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].monthSpend[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].totalSpent) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
-                    <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end" :style="varCellStyle(cfg, ym, cardDataMap[cfg.id])">{{ varCellText(cfg, ym, cardDataMap[cfg.id]) }}</td><td class="text-end fw-bold" :style="{background:'var(--portfolio-totals-bg)', color: (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? varColor(cardDataMap[cfg.id].totalVar) : undefined}">{{ (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? fmtVar(cardDataMap[cfg.id].totalVar) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
-                  </tbody>
-                </table>
+              <div class="d-flex gap-4 flex-wrap p-3">
+                <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ cfg.startDate && cfg.endDate ? (monthLabel(cfg.startDate) + ' – ' + monthLabel(cfg.endDate)) : '—' }}</div></div>
+                <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cardDataMap[cfg.id].totalPhasing) : '—' }}</div></div>
+                <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].totalSpent) : '—' }}</div></div>
+                <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? varColor(cardDataMap[cfg.id].totalVar) : undefined}">{{ (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? fmtVar(cardDataMap[cfg.id].totalVar) : '—' }}</div></div>
               </div>
+            </div>
             </div>
             </template>
           </div>
@@ -148,35 +140,26 @@
 
       <!-- Ungrouped projects -->
       <template v-for="cfg in ungroupedProjects" :key="cfg.id">
-      <div class="section-card mb-4" v-if="cardDataMap[cfg.id]">
+      <div class="col-md-6" v-if="cardDataMap[cfg.id]">
+      <div class="section-card mb-0 h-100">
         <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div class="d-flex align-items-center gap-2 flex-wrap">
             <span>📁 {{ fmtProjectTitle(cfg) }}</span>
             <span v-if="cfg.code" class="text-muted small">{{ cfg.code }}</span>
             <span v-html="pipelineBadge(getProjectPipeline(cfg.id) || cfg.pipeline)"></span>
             <span v-html="statusBadgeLarge(cfg.status)"></span>
-            <span v-if="!cardDataMap[cfg.id].hasData" class="badge bg-warning text-dark">no XLS data</span>
+            <span v-if="!cardDataMap[cfg.id].hasData" class="badge bg-warning text-dark">No actuals available</span>
             <span v-if="cardDataMap[cfg.id].budgetBadgeHtml" v-html="cardDataMap[cfg.id].budgetBadgeHtml"></span>
           </div>
-          <div class="d-flex gap-2 flex-wrap">
-            <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="goConfigure(cfg.id)">⚙️ Configure</button>
-            <button class="btn btn-sm btn-outline-secondary" title="Share project" @click="openShareModal('project', cfg.id, cfg.name || cfg.id)">🔗 Share</button>
-            <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" title="Upload XLS actuals for this project" @click="triggerLoadActuals(cfg.id)">📂 Load Actuals</button>
-            <button class="btn btn-sm btn-outline-secondary" @click="goPlanningForProject(cfg.id)">📅 Planning</button>
-            <button class="btn btn-sm" :class="cardDataMap[cfg.id].hasData ? 'btn-primary' : 'btn-outline-secondary'" :disabled="!cardDataMap[cfg.id].hasData" @click="showDashboard(cfg.id)">📊 View Report →</button>
-            <button class="btn btn-sm" :class="isPinnedSummary(cfg.id) ? 'btn-success' : 'btn-outline-secondary'" @click="toggleSummary(cfg.id)">{{ isPinnedSummary(cfg.id) ? '✓ Summary' : '＋ Summary' }}</button>
-          </div>
+          <button class="btn btn-sm btn-primary" @click="showDashboard(cfg.id)">Open project →</button>
         </div>
-        <div class="table-responsive p-2">
-          <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
-            <thead style="background:var(--indigo-50)"><tr><th style="min-width:110px"></th><th v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end" style="min-width:90px;background:var(--surface-medium)">{{ cardDataMap[cfg.id].totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr></thead>
-            <tbody>
-              <tr style="background:var(--surface-light)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cfg.phasing?.[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cardDataMap[cfg.id].totalPhasing) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(cardDataMap[cfg.id].totalPtc) }}</td></tr>
-              <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].monthSpend[ym]||0) : '—' }}</td><td class="text-end fw-bold" style="background:var(--portfolio-totals-bg)">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].totalSpent) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
-              <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in cardDataMap[cfg.id].months" :key="ym" class="text-end" :style="varCellStyle(cfg, ym, cardDataMap[cfg.id])">{{ varCellText(cfg, ym, cardDataMap[cfg.id]) }}</td><td class="text-end fw-bold" :style="{background:'var(--portfolio-totals-bg)', color: (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? varColor(cardDataMap[cfg.id].totalVar) : undefined}">{{ (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? fmtVar(cardDataMap[cfg.id].totalVar) : '—' }}</td><td v-if="cardDataMap[cfg.id].totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
-            </tbody>
-          </table>
+        <div class="d-flex gap-4 flex-wrap p-3">
+          <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ cfg.startDate && cfg.endDate ? (monthLabel(cfg.startDate) + ' – ' + monthLabel(cfg.endDate)) : '—' }}</div></div>
+          <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cardDataMap[cfg.id].totalPhasing) : '—' }}</div></div>
+          <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].totalSpent) : '—' }}</div></div>
+          <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? varColor(cardDataMap[cfg.id].totalVar) : undefined}">{{ (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? fmtVar(cardDataMap[cfg.id].totalVar) : '—' }}</div></div>
         </div>
+      </div>
       </div>
       </template>
     </template>
