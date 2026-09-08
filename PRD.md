@@ -446,8 +446,8 @@ Lists every project code that has uploaded timesheet data, for review and cleanu
   - Sorting: clicking the Client, Project, or Project code header cycles ascending → descending → unsorted; the other columns aren't sortable.
   - **Pipeline year** selector: defaults to the current calendar year if it's an active pipeline year, otherwise the most recently active year; an explicit "All years" option shows every project code regardless of year. A project code with no linked cost-grid version has no pipeline year and is only shown under "All years."
 - **View** (👁): opens a modal listing every uploaded row for that project code — Date, Owner, Role, Task, Hours, Notes, **Fee**, **Spent**. Fee is the hourly rate snapshotted at import time (§8.3); Spent is Fee × Hours. Both are formatted in the project's own currency.
-- **Export** (⬇ XLSX): downloads the same rows and columns as the View modal, as an Excel `.xlsx` workbook (not CSV), named `<Client>_<Project>_<ProjectCode>_<YYYYMMDD>.xlsx` (spaces in client/project names become `-`; characters not valid in a filename are dropped).
-- **Delete all** (🗑): removes every uploaded row for that project code, after a confirmation prompt naming the number of uploads/rows that will be deleted. Irreversible.
+- **Download actuals** (⬇): downloads the same rows and columns as the View modal, as an Excel `.xlsx` workbook (not CSV), named `<Client>_<Project>_<ProjectCode>_<YYYYMMDD>.xlsx` (spaces in client/project names become `-`; characters not valid in a filename are dropped).
+- **Delete actuals** (🗑): removes every uploaded row for that project code, after a confirmation prompt naming the number of uploads/rows that will be deleted. Irreversible.
 
 ---
 
