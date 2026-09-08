@@ -607,9 +607,13 @@
         this.actuals.status = '⏳ Uploading…'; this.actuals.statusClass = 'text-muted';
         try {
           const result = await Api.timesheets.upload(file, this.project.code);
-          this.flashActualsStatus(`✅ Uploaded ${result.totalRows} rows.`, 'text-success');
+          this.actuals.status = `✅ Uploaded ${result.totalRows} rows.`; this.actuals.statusClass = 'text-success';
           await this.loadActuals();
           await this.updateReforecastVisibility();
+          // Start the 4s auto-clear only now, after the reload settles — starting it
+          // right after upload (like flashActualsStatus does) would race the reload
+          // and could clear the message before the user ever sees it confirmed.
+          setTimeout(() => { this.actuals.status = ''; }, 4000);
         } catch (err) {
           this.flashActualsStatus(`❌ Upload failed: ${err.message}`, 'text-danger');
         }
