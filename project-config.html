@@ -554,10 +554,13 @@
       // auto-clears after `ms` — used for every actuals status EXCEPT the
       // "⏳ Uploading…" in-progress message, which is meant to be overwritten by
       // the success/failure message right after, not to auto-clear on its own.
+      // Cancels any previously-scheduled clear first, so two flashes within `ms`
+      // of each other don't have the first one's timer wipe the second's message.
       flashActualsStatus(message, cls, ms = 4000) {
+        clearTimeout(this._actualsStatusTimer);
         this.actuals.status = message;
         this.actuals.statusClass = cls;
-        setTimeout(() => { this.actuals.status = ''; }, ms);
+        this._actualsStatusTimer = setTimeout(() => { this.actuals.status = ''; }, ms);
       },
       async downloadActualsXlsx() {
         if (typeof ExcelJS === 'undefined') {
@@ -604,6 +607,7 @@
         if (!file) return;
         this.actuals.guardMsg = '';
         if (!this.project.code) { this.actuals.guardMsg = 'Set the D365 Project ID first before uploading actuals.'; return; }
+        clearTimeout(this._actualsStatusTimer); // cancel any pending clear from a prior action's flash
         this.actuals.status = '⏳ Uploading…'; this.actuals.statusClass = 'text-muted';
         try {
           const result = await Api.timesheets.upload(file, this.project.code);
@@ -613,7 +617,7 @@
           // Start the 4s auto-clear only now, after the reload settles — starting it
           // right after upload (like flashActualsStatus does) would race the reload
           // and could clear the message before the user ever sees it confirmed.
-          setTimeout(() => { this.actuals.status = ''; }, 4000);
+          this._actualsStatusTimer = setTimeout(() => { this.actuals.status = ''; }, 4000);
         } catch (err) {
           this.flashActualsStatus(`❌ Upload failed: ${err.message}`, 'text-danger');
         }
