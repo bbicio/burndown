@@ -1034,17 +1034,7 @@
         const budgetBadgeHtml = (displayFee > 0 || displayHours > 0)
           ? `<span class="portfolio-budget-badge">${displayHours > 0 ? displayHours.toLocaleString('en-US') + ' h &nbsp;/&nbsp; ' : ''}${fmtMoney(displayTotal)}${totalPtc > 0 ? `<span class="text-muted" style="font-size:.8em;font-weight:400"> &nbsp;(${fmtMoney(displayFee)} fees + ${fmtMoney(totalPtc)} PTC)</span>` : ''}${apiBudget && totalBudget === 0 ? '<span class="text-muted" style="font-size:.75em;margin-left:4px">(from cost grid)</span>' : ''}</span>`
           : '';
-        return { months, monthSpend, hasData, hasPhasing, totalPtc, totalSpent, totalPhasing, totalVar, budgetBadgeHtml };
-      },
-      varCellStyle(cfg, ym, cd) {
-        if (!cd.hasData || !cd.hasPhasing) return {};
-        const v = (cfg.phasing?.[ym]||0) - (cd.monthSpend[ym]||0);
-        return { color: this.varColor(v), fontWeight: 600 };
-      },
-      varCellText(cfg, ym, cd) {
-        if (!cd.hasData || !cd.hasPhasing) return '—';
-        const v = (cfg.phasing?.[ym]||0) - (cd.monthSpend[ym]||0);
-        return `${v>=0?'+':''}${this.fmtMoney ? this.fmtMoney(v) : fmtMoney(v)}`;
+        return { hasData, hasPhasing, totalPtc, totalSpent, totalPhasing, totalVar, budgetBadgeHtml };
       },
       toggleSummary(id) {
         if (portfolioSummaryProjects.has(id)) portfolioSummaryProjects.delete(id); else portfolioSummaryProjects.add(id);
@@ -1067,7 +1057,7 @@
         if (left === null) return '';
         if (left < 0) return 'var(--color-danger)';
         if (total && left < total * 0.1) return '#fd7e14';
-        return '';
+        return 'var(--color-success)';
       },
       showDashboard(pid) {
         this.view = 'dashboard';
