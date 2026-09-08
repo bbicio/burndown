@@ -200,9 +200,11 @@
         <div><button class="btn btn-outline-secondary btn-sm" @click="showOverview">← Portfolio</button></div>
         <div class="d-flex gap-2">
           <button v-if="dashboardProject?.my_permission !== 'viewer'" class="btn btn-outline-secondary btn-sm" @click="goConfigure(dashboardProjectId)">⚙️ Configure</button>
+          <button v-if="dashboardProject?.my_permission !== 'viewer'" class="btn btn-outline-secondary btn-sm" title="Upload XLS actuals for this project" @click="triggerLoadActuals(dashboardProjectId)">📂 Load Actuals</button>
           <button class="btn btn-outline-secondary btn-sm" @click="goPlanningForProject(dashboardProjectId)">📅 Planning</button>
           <button v-if="hasAiKey()" class="btn btn-outline-secondary btn-sm" @click="openAiAnalysis()">🤖 AI Analysis</button>
           <button class="btn btn-outline-secondary btn-sm" @click="openShareModal('project', dashboardProjectId, dashboardProject?.name || dashboardProjectId)">🔗 Share</button>
+          <button class="btn btn-sm" :class="isPinnedSummary(dashboardProjectId) ? 'btn-success' : 'btn-outline-secondary'" @click="toggleSummary(dashboardProjectId)">{{ isPinnedSummary(dashboardProjectId) ? '✓ Summary' : '＋ Summary' }}</button>
         </div>
       </div>
     </div>
