@@ -550,9 +550,21 @@
       openActualsViewModal() {
         bootstrap.Modal.getOrCreateInstance(document.getElementById('actualsViewModal')).show();
       },
+      // Sets a transient actuals-section status message (success or error) that
+      // auto-clears after `ms` — used for every actuals status EXCEPT the
+      // "⏳ Uploading…" in-progress message, which is meant to be overwritten by
+      // the success/failure message right after, not to auto-clear on its own.
+      // Cancels any previously-scheduled clear first, so two flashes within `ms`
+      // of each other don't have the first one's timer wipe the second's message.
+      flashActualsStatus(message, cls, ms = 4000) {
+        clearTimeout(this._actualsStatusTimer);
+        this.actuals.status = message;
+        this.actuals.statusClass = cls;
+        this._actualsStatusTimer = setTimeout(() => { this.actuals.status = ''; }, ms);
+      },
       async downloadActualsXlsx() {
         if (typeof ExcelJS === 'undefined') {
-          this.actuals.status = '❌ Export library not available.'; this.actuals.statusClass = 'text-danger';
+          this.flashActualsStatus('❌ Export library not available.', 'text-danger');
           return;
         }
         try {
@@ -578,7 +590,7 @@
           a.click();
           setTimeout(() => URL.revokeObjectURL(a.href), 0);
         } catch (e) {
-          this.actuals.status = `❌ Export failed: ${e.message}`; this.actuals.statusClass = 'text-danger';
+          this.flashActualsStatus(`❌ Export failed: ${e.message}`, 'text-danger');
         }
       },
       buildActualsFilename() {
@@ -595,15 +607,19 @@
         if (!file) return;
         this.actuals.guardMsg = '';
         if (!this.project.code) { this.actuals.guardMsg = 'Set the D365 Project ID first before uploading actuals.'; return; }
+        clearTimeout(this._actualsStatusTimer); // cancel any pending clear from a prior action's flash
         this.actuals.status = '⏳ Uploading…'; this.actuals.statusClass = 'text-muted';
         try {
           const result = await Api.timesheets.upload(file, this.project.code);
           this.actuals.status = `✅ Uploaded ${result.totalRows} rows.`; this.actuals.statusClass = 'text-success';
           await this.loadActuals();
           await this.updateReforecastVisibility();
-          setTimeout(() => { this.actuals.status = ''; }, 4000);
+          // Start the 4s auto-clear only now, after the reload settles — starting it
+          // right after upload (like flashActualsStatus does) would race the reload
+          // and could clear the message before the user ever sees it confirmed.
+          this._actualsStatusTimer = setTimeout(() => { this.actuals.status = ''; }, 4000);
         } catch (err) {
-          this.actuals.status = `❌ Upload failed: ${err.message}`; this.actuals.statusClass = 'text-danger';
+          this.flashActualsStatus(`❌ Upload failed: ${err.message}`, 'text-danger');
         }
         e.target.value = '';
       },
@@ -658,10 +674,9 @@
           this.actuals.info = `<span class="text-muted">No actuals uploaded for project <code>${esc(this.project.code)}</code>.</span>`;
           this.actuals.exportRows = null;
           this.reforecastVisible = false;
-          this.actuals.status = '✅ Actuals deleted.'; this.actuals.statusClass = 'text-success';
-          setTimeout(() => { this.actuals.status = ''; }, 4000);
+          this.flashActualsStatus('✅ Actuals deleted.', 'text-success');
         } catch (e) {
-          this.actuals.status = `❌ Delete failed: ${e.message}`; this.actuals.statusClass = 'text-danger';
+          this.flashActualsStatus(`❌ Delete failed: ${e.message}`, 'text-danger');
         } finally {
           this.actuals.deleting = false;
         }
@@ -836,6 +851,7 @@
         return new Promise(resolve => {
           const el = document.getElementById('confirmModal');
           this._confirmAccepted = false;
+          this._confirmClicked = false; // guards confirmModalOk() against a fast repeat click, same idiom as js/core.js's showConfirm()
           this._confirmResolve = () => { this._confirmAccepted = true; };
           const onHidden = () => {
             el.removeEventListener('hidden.bs.modal', onHidden);
@@ -846,6 +862,8 @@
         });
       },
       confirmModalOk() {
+        if (this._confirmClicked) return; // ignore a fast repeat click before the hide animation completes
+        this._confirmClicked = true;
         if (this._confirmResolve) this._confirmResolve();
         bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
       },
