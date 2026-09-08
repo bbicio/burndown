@@ -199,6 +199,8 @@
 | PC-16 | Delete actuals is a real, permanent delete | Click 🗑 Delete actuals → confirm | Confirmation names the row count; on confirm, the Actuals section shows "No actuals uploaded..." (not an error); the data is actually gone from the database (re-opening the project or checking `timesheets.html` confirms no rows remain for that project code); the ↻ Reforecast from actuals button disappears; 👁 View/⬇ Download actuals disappear (nothing left to show) | |
 | PC-17 | Delete actuals hidden without a project code | Open the "New Project" creation form (no `?projectId=`) | 🗑 Delete actuals is not shown in the Actuals section (matches 📂 Load Actuals' own `project.code`-gated visibility) | |
 | PC-18 | Save returns to the saved project's own detail view | Edit an existing project's name → Save | Browser lands on that project's Project Reporting detail view (KPIs, burndown) via `portfolio.html?projectId=<id>`, not the bare project list | |
+| PC-19 | Delete actuals as a non-admin owner/editor succeeds | Log in as a non-admin user who owns (or has editor access to) a project with imported actuals; click 🗑 Delete actuals → confirm | Delete succeeds (200), same as for an admin — not a 403 | |
+| PC-20 | Confirm dialog ignores a fast repeat click | Trigger any confirmation dialog on this page (e.g. 🗑 Delete actuals, Delete task, Remove resource) → double-click "Confirm" in quick succession | The confirmed action runs only once, not twice | |
 
 ---
 

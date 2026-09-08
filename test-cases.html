@@ -689,6 +689,12 @@ const SECTIONS = [
     {id:'PC-18',scenario:'Save returns to the saved project\'s own detail view',
      steps:'Edit an existing project\'s name → Save',
      expected:'Browser lands on that project\'s Project Reporting detail view (KPIs, burndown) via portfolio.html?projectId=<id>, not the bare project list'},
+    {id:'PC-19',scenario:'Delete actuals as a non-admin owner/editor succeeds',
+     steps:'Log in as a non-admin user who owns (or has editor access to) a project with imported actuals; click 🗑 Delete actuals → confirm',
+     expected:'Delete succeeds (200), same as for an admin — not a 403'},
+    {id:'PC-20',scenario:'Confirm dialog ignores a fast repeat click',
+     steps:'Trigger any confirmation dialog on this page (e.g. 🗑 Delete actuals, Delete task, Remove resource) → double-click "Confirm" in quick succession',
+     expected:'The confirmed action runs only once, not twice'},
   ]
 },
 {
