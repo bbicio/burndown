@@ -16,6 +16,9 @@ Thumbs.db
 # Worktrees
 .worktrees/
 
+# Superpowers brainstorming visual-companion session data
+.superpowers/
+
 # scripts/test-branch.sh generates this override file per branch; never source-controlled
 docker-compose.branch.yml
 
