@@ -209,7 +209,7 @@ router.delete('/:projectCode', requireAuth, async (req, res, next) => {
       const { rows } = await query(
         `SELECT 1 FROM projects p
          LEFT JOIN resource_shares rs ON rs.resource_type='project' AND rs.resource_id=p.id AND rs.user_id=$1
-         WHERE p.name = $2 AND (p.owner_id=$1 OR (rs.user_id IS NOT NULL AND rs.permission IN ('owner','editor')))`,
+         WHERE p.code = $2 AND (p.owner_id=$1 OR (rs.user_id IS NOT NULL AND rs.permission IN ('owner','editor')))`,
         [req.user.id, req.params.projectCode]
       );
       if (!rows.length) return res.status(403).json({ error: 'Access denied' });
