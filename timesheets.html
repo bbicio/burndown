@@ -54,7 +54,7 @@
     <!-- ── HINT ───────────────────────────────────────────── -->
     <p class="text-muted mb-3" style="font-size:.78rem">
       Each row represents one project code. Uploading a new XLS for a project replaces all previous data for that code.
-      <strong>Delete all</strong> permanently removes every timesheet row for that project from the database.
+      <strong>Delete actuals</strong> permanently removes every timesheet row for that project from the database.
       Use <strong>Load XLS</strong> in Project Reporting to import new data.
     </p>
 
@@ -128,14 +128,14 @@
                 </button>
                 <button class="btn btn-outline-primary btn-sm me-1" style="font-size:.78rem"
                         @click="downloadXlsx(r)">
-                  ⬇ XLSX
+                  ⬇ Download actuals
                 </button>
                 <button class="btn btn-outline-danger btn-sm"
                         style="font-size:.78rem"
                         :disabled="r._loading"
                         @click="deleteCode(r)">
                   <span v-if="r._loading" class="spinner-border spinner-border-sm"></span>
-                  <span v-else>🗑 Delete all</span>
+                  <span v-else>🗑 Delete actuals</span>
                 </button>
               </td>
             </tr>
