@@ -213,9 +213,9 @@ Today marker: the current week's column is highlighted (`gantt-today` class / `i
 
 ### 6.1 Portfolio Overview
 
-**Purpose:** Show budget estimated vs. budget spent per project per month.
+**Purpose:** Show, per project, enough to judge budget health at a glance and get into the project's own detail — not a full per-month breakdown (that lives in the drill-down view, §6.2). (Corrected 2026-09: the list view previously showed a per-project monthly Estimated/Spent/Variance table on every card; user feedback — reviewing this list as an actual analyst — was that the per-month figures were never read, only the totals, with every real read happening after clicking into the project's own detail page. The card was redesigned around that observation; see "Per-project card" below.)
 
-**Portfolio summary table** (one row per KPI, one column per month; computed client-side in `portfolio.html`'s Vue instance, `pinnedSummary`/`programSummary` computed properties):
+**Portfolio summary table** (one row per KPI, one column per month; computed client-side in `portfolio.html`'s Vue instance, `pinnedSummary`/`programSummary` computed properties) — unchanged by the 2026-09 card redesign, still a full monthly breakdown, but scoped to the projects pinned into it (§ "＋ Summary" below), not to every card:
 
 | KPI | Calculation |
 |---|---|
@@ -239,14 +239,16 @@ Note the two tables are not interchangeable: the portfolio summary's "Budget Est
 **Toolbar actions:**
 - **＋ New project** — the only page-level toolbar action; navigates to `project-config.html`
 
-**Per-project card actions** (each project's own card, not a page toolbar):
+**Per-project card** (2026-09 redesign): identity (title, code, pipeline/status badges, an actuals-availability badge — `No actuals available` when the project has no uploaded timesheet data) plus a compact totals row — Duration (project start–end month range), Sold (`phasing` total), Spent (actual-hours-to-date total), and Variance (Sold − Spent, colored green when positive/under-budget and red when negative/over-budget) — with no per-month breakdown on the card itself. The only action on the card is a single **Open project →** button, always clickable (not gated on the project having actuals), which navigates into that project's detail view (§6.2).
+
+**Detail-page actions** (moved off the list card in the 2026-09 redesign; live in the detail view's own header instead, alongside Configure):
 - **⚙️ Configure** — navigate to that project's `project-config.html`
 - **📂 Load Actuals** — upload an Excel timesheet file to import actuals for that project
 - **🔗 Share** — open the share modal
 - **📅 Planning** — navigate to `planning.html` for that project
-- **＋ Summary** (ungrouped projects only) — pin/unpin the project into the Budget Summary table at the top of the page
+- **＋ Summary** — pin/unpin the project into the Budget Summary table at the top of the Portfolio Overview page
 
-Configure and Load Actuals are hidden for viewers (see §18.3).
+Configure and Load Actuals are hidden for viewers (see §18.3) — this permission gating is unchanged by the relocation, only its location moved from the list card to the detail-page header.
 
 (Corrected 2026-07: this section previously described "Clients"/"Programs" management modals as page-level toolbar actions. Confirmed during `portfolio.html`'s 2026-07 Vue 3 migration that both were only ever reachable through `#configModal`, itself gated behind a `?configure=true` URL parameter no file in the repo ever set — i.e. already unreachable dead code before this migration, not a regression. `#configModal` and its nested clients/programs/roles CRUD were dropped entirely as part of that rewrite.)
 
@@ -255,6 +257,7 @@ Configure and Load Actuals are hidden for viewers (see §18.3).
 - Program summary row aggregates all child metrics
 - Filter by client
 - Sort alphabetically or by client
+- Cards lay out in a 2-column grid — a program group spans the full row width, its own child projects render in a nested 2-column grid, and ungrouped projects fill the remaining cells two per row (2026-09)
 
 ### 6.2 Monthly Summary Table
 
@@ -306,7 +309,7 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 **Other sections in the form:** Phasing (monthly budget distribution), Planning (monthly sold-hours distribution), and Functional Groups (named role groupings) — each a distinct area of the same full-page form.
 
 **Actuals section** (2026-09): manages the D365 timesheet data imported for this project.
-- **📂 Load Actuals** — upload an Excel timesheet file (same mechanism as the portfolio-view button of the same name, §5).
+- **📂 Load Actuals** — upload an Excel timesheet file (same mechanism as the Project Reporting single-project detail view's button of the same name, §6.1).
 - **👁 View** — opens a popup listing every imported row for this project: Date, Owner, Role, Task, Hours, Notes, Fee, Spent (Fee is the hourly rate resolved and stored at import time, §8.3; Spent = Fee × Hours). Shown only once actuals exist; visible to viewers too.
 - **⬇ Download actuals** — downloads the same rows/columns as an Excel `.xlsx` file, named `<Client>_<ProjectName>_<ProjectCode>_<YYYYMMDD>.xlsx`. Shown only once actuals exist; visible to viewers too.
 - **🗑 Delete actuals** — permanently removes all imported actuals for this project's D365 code, after a confirmation prompt. Hidden for viewers.
@@ -759,6 +762,6 @@ Available from a cost grid's detail panel or a project's reporting view. Searche
 | Surface | Hidden for viewers |
 |---|---|
 | Pipeline board (card + detail panel) | Edit, Clone, Delete |
-| Project Reporting (portfolio view) | Configure, Load Actuals |
-| Project Reporting (single-project view) | Configure |
+| Project Reporting (portfolio view) | — (Configure/Load Actuals moved to the single-project view in the 2026-09 card redesign; the list card itself carries no viewer-gated action) |
+| Project Reporting (single-project view) | Configure, Load Actuals |
 | Project Configuration form | Entire form becomes read-only (sticky banner, all inputs disabled, Save/action/Reforecast buttons hidden) |

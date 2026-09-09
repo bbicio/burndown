@@ -162,18 +162,23 @@
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
-| R-01 | Portfolio loads | Open `/portfolio.html` | All accessible projects listed | |
+| R-01 | Portfolio loads | Open `/portfolio.html` | All accessible projects listed, each as a card in a 2-column grid (a program group spans the full row width; its child projects render in their own nested 2-column grid) | |
 | R-02 | Filter by client | Select a client filter | Only projects for that client shown | |
 | R-03 | KPI cards | View project with phasing + actuals | Budget Estimated, Spent, Variance correctly calculated | |
-| R-04 | Upload XLS actuals | Click Load Actuals → select Excel file | Rows parsed and stored; KPIs and burndown update | |
+| R-04 | Upload XLS actuals | On a project's detail page, click 📂 Load Actuals → select Excel file | Rows parsed and stored; KPIs and burndown chart update (chart redraws even when the upload happens without leaving the detail page) — corrected 2026-09, Load Actuals moved from the list-view card to the detail page's header action row | |
 | R-05 | Burndown chart | Project with multi-month data | Estimated vs. spent per month rendered correctly | |
 | R-06 | Gantt view | Switch to Gantt for project with phase dates | Phase bars aligned to correct date ranges | |
 | R-07 | AI analysis | Click 🤖 AI (API key configured) | AI returns RAG status + recommendations | |
 | R-08 | Share project | Owner clicks Share on a project | Share modal opens; can grant Viewer or Editor access | |
-| R-09 | Navigate to project config | Click configure button | Navigates to `/project-config.html?projectId=...` | |
+| R-09 | Navigate to project config | On a project's detail page, click ⚙️ Configure | Navigates to `/project-config.html?projectId=...` — corrected 2026-09, Configure is detail-page-only, no longer duplicated on the list-view card | |
 | R-10 | AI analysis with no key configured shows a dialog, not a crash | Click 🤖 AI with no AI provider API key set in Settings | A single-button "API Key required" dialog appears (via `showInfo()`); no console error from a missing `#confirmModal` element | |
 | R-11 | AI analysis doesn't crash on a timesheet record with a missing task field | With an AI key configured, have timesheet actuals containing a record whose `task` field is missing/undefined (e.g. via console: `buildProjectSummary(data, cfg)` where one `data` row has `task: undefined`); click 🤖 AI Analysis | Summary is generated without a `TypeError` — TASK BREAKDOWN's task match is null-safe | |
 | R-12 | KPI cards and burndown chart don't crash on a timesheet record with a missing task/role field | Have timesheet actuals containing a record whose `task` or `role` field is missing/undefined for a project with budget phasing configured; view that project's KPI cards and burndown chart | Budget Spent/Variance and the burndown chart render without a `TypeError` — `findRate()`'s task/role match (`js/core.js`) is null-safe; the malformed record simply doesn't match any configured rate (treated as €0) instead of crashing the whole page | |
+| R-13 | List-view card shows identity + totals, no monthly table (2026-09) | Open `/portfolio.html`, inspect any project card | Card shows title, code, pipeline/status badges, an actuals-availability badge (`No actuals available` when no actuals uploaded), Duration, Sold, Spent, and a colored Variance (green when positive, red when negative) — no per-month breakdown table, no PTC column | |
+| R-14 | List-view entry button always enabled, even with no actuals (2026-09) | Open `/portfolio.html`; find a project card with the `No actuals available` badge; click `Open project →` | Navigates straight into that project's detail page — the button is never disabled, unlike the old `📊 View Report →` button it replaced | |
+| R-15 | Detail-page header hosts the relocated Load Actuals and Summary actions (2026-09) | Open any project's detail page | Header action row shows Configure, 📂 Load Actuals, Planning, AI Analysis (if key set), Share, and ＋/✓ Summary — none of these five is gated on the project having actuals uploaded | |
+| R-16 | Variance color convention matches between list and detail (2026-09) | Open a project with a comfortably positive `Hours Left`/`Budget Left` residual | Both KPI cards render in green (`kpiLeftColor()`), matching the list-view card's own green Variance for the same positive-residual case; still red when negative, orange near the 10% threshold | |
+| R-17 | Project switcher lists every sibling, even with no actuals (2026-09) | On a project that belongs to a program with sibling projects, open the `▾` project switcher next to the title | Every sibling in the dropdown is clickable and navigates on click — none is greyed out/disabled for lacking actuals; a sibling with no `name` shows its project code (e.g. `HITA...`) as the label instead of a raw internal ID | |
 
 ---
 
@@ -451,7 +456,7 @@
 | SH-07 | Change permission on existing share | Open share modal → change Editor/Viewer select on existing share | Permission updated via upsert; select shows green outline briefly on success; reverts on error | |
 | SH-08 | Share list excludes admins and self | Open share modal; inspect search results | Admin users and the current logged-in user not shown in the dropdown | |
 | SH-09 | Share search filters by name/email | Type partial name or email in the search field | Dropdown filters to up to 10 matching users in real time (client-side on `_shareAllUsers`) | |
-| SH-10 | Viewer permission enforced — UI | Log in as viewer on a shared project/CG; open pipeline board, portfolio, project-config | Pipeline: Edit/Clone/Delete hidden on card and panel. Portfolio: Configure and Load Actuals absent. Project-config: sticky read-only banner; inputs disabled; save/edit buttons hidden | |
+| SH-10 | Viewer permission enforced — UI | Log in as viewer on a shared project/CG; open pipeline board, portfolio, project-config | Pipeline: Edit/Clone/Delete hidden on card and panel. Portfolio: on the project's detail page, Configure and Load Actuals absent (corrected 2026-09 — both live in the detail page's header action row, not on the list-view card). Project-config: sticky read-only banner; inputs disabled; save/edit buttons hidden | |
 
 ---
 
