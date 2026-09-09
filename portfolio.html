@@ -188,16 +188,11 @@
           <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:.75rem;padding:2px 7px" title="Switch project">▾</button>
           <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:320px;font-size:.85rem">
             <li v-for="s in dashboardSiblings" :key="s.id">
-              <a v-if="s.hasActuals" class="dropdown-item d-flex align-items-center gap-2 py-2" href="#" @click.prevent="showDashboard(s.id)">
-                <span class="fw-semibold">{{ s.name || s.id }}</span>
-                <span v-if="s.code" class="text-muted small" style="font-family:monospace">{{ s.code }}</span>
+              <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="#" @click.prevent="showDashboard(s.id)">
+                <span class="fw-semibold">{{ s.name || s.code || s.id }}</span>
+                <span v-if="s.code && s.name" class="text-muted small" style="font-family:monospace">{{ s.code }}</span>
                 <span class="ms-auto d-inline-flex gap-1" v-html="s.badgesHtml"></span>
               </a>
-              <span v-else class="dropdown-item disabled d-flex align-items-center gap-2 py-2" style="opacity:.45;cursor:default">
-                <span class="fw-semibold">{{ s.name || s.id }}</span>
-                <span v-if="s.code" class="text-muted small" style="font-family:monospace">{{ s.code }}</span>
-                <span class="ms-auto d-inline-flex gap-1 align-items-center" v-html="s.badgesHtml"></span>
-              </span>
             </li>
           </ul>
         </div>
@@ -644,7 +639,6 @@
           .sort((a, b) => (a.id||'').localeCompare(b.id||''))
           .map(s => ({
             ...s,
-            hasActuals: timesheetData.some(r => r.projectId === s.id),
             badgesHtml: [pipelineBadge(getProjectPipeline(s.id) || s.pipeline), statusBadgeLarge(s.status)].join(' '),
           }));
       },
@@ -858,7 +852,11 @@
 
       document.getElementById('fileInput').addEventListener('change', async e => {
         const f = e.target.files[0]; e.target.value = '';
-        if (f) { await readXLSForProject(f, window._loadActualsProjectId); this.refreshTick++; }
+        if (f) {
+          await readXLSForProject(f, window._loadActualsProjectId);
+          this.refreshTick++;
+          if (this.view === 'dashboard') this.$nextTick(() => this.renderBurndownChart());
+        }
       });
 
       document.getElementById('btnCopyAi').addEventListener('click', () => {
@@ -1034,7 +1032,7 @@
         const budgetBadgeHtml = (displayFee > 0 || displayHours > 0)
           ? `<span class="portfolio-budget-badge">${displayHours > 0 ? displayHours.toLocaleString('en-US') + ' h &nbsp;/&nbsp; ' : ''}${fmtMoney(displayTotal)}${totalPtc > 0 ? `<span class="text-muted" style="font-size:.8em;font-weight:400"> &nbsp;(${fmtMoney(displayFee)} fees + ${fmtMoney(totalPtc)} PTC)</span>` : ''}${apiBudget && totalBudget === 0 ? '<span class="text-muted" style="font-size:.75em;margin-left:4px">(from cost grid)</span>' : ''}</span>`
           : '';
-        return { hasData, hasPhasing, totalPtc, totalSpent, totalPhasing, totalVar, budgetBadgeHtml };
+        return { hasData, hasPhasing, totalSpent, totalPhasing, totalVar, budgetBadgeHtml };
       },
       toggleSummary(id) {
         if (portfolioSummaryProjects.has(id)) portfolioSummaryProjects.delete(id); else portfolioSummaryProjects.add(id);
