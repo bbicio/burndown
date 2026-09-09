@@ -645,6 +645,15 @@ const SECTIONS = [
     {id:'R-17',scenario:'Project switcher lists every sibling, even with no actuals (2026-09)',
      steps:"On a project that belongs to a program with sibling projects, open the ▾ project switcher next to the title",
      expected:"Every sibling in the dropdown is clickable and navigates on click — none is greyed out/disabled for lacking actuals; a sibling with no name shows its project code (e.g. HITA...) as the label instead of a raw internal ID"},
+    {id:'R-18',scenario:'Program-group header shows identity + totals, no monthly table (2026-09)',
+     steps:"Open /portfolio.html, inspect a program group's own header row (e.g. 'Menarini Ricerche')",
+     expected:"Header shows Duration, Sold, Spent, and a colored Variance aggregated across all child projects — no per-month breakdown table; the 'N projects' count badge stays visible in the header, unaffected"},
+    {id:'R-19',scenario:'List-view URL stays in sync with the viewed project (2026-09)',
+     steps:"Click 'Open project →' on any card, or switch project via the ▾ dropdown, or click '← Portfolio'",
+     expected:"The browser address bar updates to /portfolio.html?projectId=<id> (or bare /portfolio.html for the list) without a full page reload; refreshing the page while on a project detail lands back on that same project"},
+    {id:'R-20',scenario:'Detail-page title area shows the project code, not the raw DB id (2026-09)',
+     steps:"Open any project's detail page whose project has a name",
+     expected:"The small chip next to the title shows the project's own code (e.g. HITA...), never the internal database id"},
   ]
 },
 {

@@ -254,10 +254,11 @@ Configure and Load Actuals are hidden for viewers (see §18.3) — this permissi
 
 **View features:**
 - Projects grouped by program (expandable / collapsible)
-- Program summary row aggregates all child metrics
+- Program group header shows the same Duration/Sold/Spent/Variance totals as an individual card, aggregated across all its child projects, plus a project-count badge — corrected 2026-09, previously a full per-month breakdown table (excluded from the initial card redesign, then extended to match on user request after seeing it live)
 - Filter by client
 - Sort alphabetically or by client
 - Cards lay out in a 2-column grid — a program group spans the full row width, its own child projects render in a nested 2-column grid, and ungrouped projects fill the remaining cells two per row (2026-09)
+- The list view's URL stays in sync with the project being viewed (`?projectId=<id>` while on a detail view, bare `/portfolio.html` on the list), matching every other page that links into this view (2026-09)
 
 ### 6.2 Monthly Summary Table
 
