@@ -99,11 +99,11 @@
             </button>
           </div>
         </div>
-        <div class="d-flex gap-4 flex-wrap p-3" style="background:var(--violet-50)" v-if="programSummary(prog.children)">
-          <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ programDuration(prog.children) ? (monthLabel(programDuration(prog.children).start) + ' – ' + monthLabel(programDuration(prog.children).end)) : '—' }}</div></div>
-          <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ fmtMoney(programSummary(prog.children).grandEst) }}</div></div>
-          <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ fmtMoney(programSummary(prog.children).grandSpent) }}</div></div>
-          <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: varColor(programSummary(prog.children).grandVar)}">{{ fmtVar(programSummary(prog.children).grandVar) }}</div></div>
+        <div class="d-flex gap-4 flex-wrap p-3" style="background:var(--violet-50)" v-if="programStatsMap[prog.id]?.summary">
+          <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ programStatsMap[prog.id].duration ? (monthLabel(programStatsMap[prog.id].duration.start) + ' – ' + monthLabel(programStatsMap[prog.id].duration.end)) : '—' }}</div></div>
+          <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ fmtMoney(programStatsMap[prog.id].summary.grandEst) }}</div></div>
+          <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ fmtMoney(programStatsMap[prog.id].summary.grandSpent) }}</div></div>
+          <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: varColor(programStatsMap[prog.id].summary.grandVar)}">{{ fmtVar(programStatsMap[prog.id].summary.grandVar) }}</div></div>
         </div>
         <div v-if="expandedPrograms.has(prog.id)" class="prog-children">
           <div class="prog-project-list px-2 pb-2 pt-1">
@@ -564,6 +564,13 @@
       cardDataMap() {
         const map = {};
         this.projects.forEach(cfg => { map[cfg.id] = this.cardData(cfg); });
+        return map;
+      },
+      programStatsMap() {
+        const map = {};
+        this.visibleProgramGroups.forEach(prog => {
+          map[prog.id] = { summary: this.programSummary(prog.children), duration: this.programDuration(prog.children) };
+        });
         return map;
       },
       pinnedSummary() {
