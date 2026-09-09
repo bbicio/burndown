@@ -99,17 +99,11 @@
             </button>
           </div>
         </div>
-        <div class="table-responsive px-3 pb-2" style="background:var(--violet-50)" v-if="programSummary(prog.children)">
-          <table class="table table-sm align-middle mb-0" style="font-size:var(--text-base)">
-            <thead style="background:var(--portfolio-violet-tint-bg)">
-              <tr><th style="min-width:140px"></th><th v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end" style="min-width:90px;white-space:nowrap">{{ monthLabel(ym) }}</th><th class="text-end fw-bold" style="min-width:100px;background:var(--portfolio-violet-totals-bg)">{{ programSummary(prog.children).totalPtc > 0 ? 'Total Fee' : 'Total' }}</th><th v-if="programSummary(prog.children).totalPtc > 0" class="text-end fw-bold" style="min-width:90px;background:var(--color-warning-bg);white-space:nowrap">PTC</th></tr>
-            </thead>
-            <tbody>
-              <tr style="background:var(--portfolio-violet-row-bg)"><td class="fw-semibold ps-2">Budget Estimated</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end">{{ fmtMoney(programSummary(prog.children).phasing[ym]) }}</td><td class="text-end fw-bold" style="background:var(--portfolio-violet-row2-bg)">{{ fmtMoney(programSummary(prog.children).grandEst) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end fw-bold" style="background:var(--color-warning-bg)">{{ fmtMoney(programSummary(prog.children).totalPtc) }}</td></tr>
-              <tr><td class="fw-semibold ps-2">Budget Spent</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end">{{ fmtMoney(programSummary(prog.children).spent[ym]) }}</td><td class="text-end fw-bold" style="background:var(--portfolio-violet-row2-bg)">{{ fmtMoney(programSummary(prog.children).grandSpent) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
-              <tr><td class="fw-semibold ps-2">Variance</td><td v-for="ym in programSummary(prog.children).months" :key="ym" class="text-end fw-semibold" :style="{color: varColor(programSummary(prog.children).phasing[ym]-programSummary(prog.children).spent[ym])}">{{ fmtVar(programSummary(prog.children).phasing[ym]-programSummary(prog.children).spent[ym]) }}</td><td class="text-end fw-bold" :style="{background:'var(--portfolio-violet-row2-bg)',color: varColor(programSummary(prog.children).grandVar)}">{{ fmtVar(programSummary(prog.children).grandVar) }}</td><td v-if="programSummary(prog.children).totalPtc > 0" class="text-end text-muted" style="background:var(--color-warning-bg)">—</td></tr>
-            </tbody>
-          </table>
+        <div class="d-flex gap-4 flex-wrap p-3" style="background:var(--violet-50)" v-if="programStatsMap[prog.id]?.summary">
+          <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ programStatsMap[prog.id].duration ? (monthLabel(programStatsMap[prog.id].duration.start) + ' – ' + monthLabel(programStatsMap[prog.id].duration.end)) : '—' }}</div></div>
+          <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ fmtMoney(programStatsMap[prog.id].summary.grandEst) }}</div></div>
+          <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ fmtMoney(programStatsMap[prog.id].summary.grandSpent) }}</div></div>
+          <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: varColor(programStatsMap[prog.id].summary.grandVar)}">{{ fmtVar(programStatsMap[prog.id].summary.grandVar) }}</div></div>
         </div>
         <div v-if="expandedPrograms.has(prog.id)" class="prog-children">
           <div class="prog-project-list px-2 pb-2 pt-1">
@@ -176,13 +170,13 @@
       <nav aria-label="breadcrumb" class="mb-2">
         <ol class="breadcrumb mb-0" style="font-size:var(--text-xs)">
           <li class="breadcrumb-item"><a href="#" class="text-muted text-decoration-none" @click.prevent="showOverview">Portfolio</a></li>
-          <li class="breadcrumb-item active text-muted" aria-current="page">{{ dashboardProject?.name || dashboardProjectId }}</li>
+          <li class="breadcrumb-item active text-muted" aria-current="page">{{ dashboardProject?.name || dashboardProject?.code || dashboardProjectId }}</li>
         </ol>
       </nav>
       <div v-if="dashboardProgramRow" class="text-muted mb-1" style="font-size:.9rem" v-html="dashboardProgramRow"></div>
       <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-        <span class="fw-bold fs-5" style="color:var(--brand-navy)">{{ dashboardProject?.name || dashboardProjectId }}</span>
-        <span class="text-muted small">{{ dashboardProject?.name ? dashboardProjectId : '' }}</span>
+        <span class="fw-bold fs-5" style="color:var(--brand-navy)">{{ dashboardProject?.name || dashboardProject?.code || dashboardProjectId }}</span>
+        <span v-if="dashboardProject?.code && dashboardProject?.name" class="text-muted small" style="font-family:monospace">{{ dashboardProject.code }}</span>
         <span class="d-inline-flex gap-1 align-items-center flex-wrap" v-html="dashboardMetaHtml"></span>
         <div class="dropdown" v-if="dashboardSiblings.length">
           <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:.75rem;padding:2px 7px" title="Switch project">▾</button>
@@ -572,6 +566,13 @@
         this.projects.forEach(cfg => { map[cfg.id] = this.cardData(cfg); });
         return map;
       },
+      programStatsMap() {
+        const map = {};
+        this.visibleProgramGroups.forEach(prog => {
+          map[prog.id] = { summary: this.programSummary(prog.children), duration: this.programDuration(prog.children) };
+        });
+        return map;
+      },
       pinnedSummary() {
         const cfgs = this.projects.filter(p => portfolioSummaryProjects.has(p.id));
         if (!cfgs.length) return null;
@@ -958,6 +959,7 @@
       showOverview() {
         this.view = 'overview';
         selectedProjectId = null;
+        history.replaceState(null, '', '/portfolio.html');
         if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
           { label: 'Home', href: '/pipeline.html' },
           { label: 'Project Portfolio' },
@@ -1001,10 +1003,15 @@
             if (spent[ym] !== undefined) spent[ym] += r.hours * (findRate(r, cfg) ?? 0);
           });
         });
-        const totalPtc = cfgs.reduce((s, cfg) => s + (cfg.ptc||[]).reduce((a,p) => a+(p.amount||0), 0), 0);
         const grandEst = months.reduce((s, ym) => s + phasing[ym], 0);
         const grandSpent = months.reduce((s, ym) => s + spent[ym], 0);
-        return { months, phasing, spent, totalPtc, grandEst, grandSpent, grandVar: grandEst - grandSpent };
+        return { grandEst, grandSpent, grandVar: grandEst - grandSpent };
+      },
+      programDuration(cfgs) {
+        const starts = cfgs.map(cfg => cfg.startDate).filter(Boolean).sort();
+        const ends = cfgs.map(cfg => cfg.endDate).filter(Boolean).sort();
+        if (!starts.length || !ends.length) return null;
+        return { start: starts[0], end: ends[ends.length - 1] };
       },
       cardData(cfg) {
         const data = timesheetData.filter(r => r.projectId === cfg.id);
@@ -1062,6 +1069,7 @@
         this.dashboardProjectId = pid;
         this.dashboardReady = true;
         selectedProjectId = pid;
+        history.replaceState(null, '', '/portfolio.html?projectId=' + encodeURIComponent(pid));
         const cfg = this.dashboardProject;
         currentCfg = cfg; // js/core.js's fmtMoney(n) falls back to currentCfg?.currency when no explicit currencyCode is passed
         if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
