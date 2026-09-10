@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const { renderEmailHtml } = require('../lib/email-template');
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -19,13 +20,16 @@ async function sendInvite({ to, firstName, token }) {
     from: FROM,
     to,
     subject: 'You have been invited to PDash',
-    html: `
-      <p>Hi ${firstName},</p>
-      <p>You have been invited to access <strong>PDash</strong>.</p>
-      <p>Click the link below to set your password and activate your account:</p>
-      <p><a href="${link}">${link}</a></p>
-      <p>This link expires in 48 hours.</p>
-    `,
+    html: renderEmailHtml({
+      appUrl: APP_URL,
+      bodyHtml: `
+        <p>Hi ${firstName},</p>
+        <p>You have been invited to access <strong>PDash</strong>.</p>
+        <p>Click the link below to set your password and activate your account:</p>
+        <p><a href="${link}">${link}</a></p>
+        <p>This link expires in 48 hours.</p>
+      `,
+    }),
   });
 }
 
@@ -35,13 +39,16 @@ async function sendPasswordReset({ to, firstName, token }) {
     from: FROM,
     to,
     subject: 'PDash — Password reset request',
-    html: `
-      <p>Hi ${firstName},</p>
-      <p>We received a request to reset your PDash password.</p>
-      <p>Click the link below to set a new password:</p>
-      <p><a href="${link}">${link}</a></p>
-      <p>This link expires in 2 hours. If you did not request a reset, ignore this email.</p>
-    `,
+    html: renderEmailHtml({
+      appUrl: APP_URL,
+      bodyHtml: `
+        <p>Hi ${firstName},</p>
+        <p>We received a request to reset your PDash password.</p>
+        <p>Click the link below to set a new password:</p>
+        <p><a href="${link}">${link}</a></p>
+        <p>This link expires in 2 hours. If you did not request a reset, ignore this email.</p>
+      `,
+    }),
   });
 }
 
@@ -50,11 +57,14 @@ async function sendShareNotification({ to, firstName, resourceType, resourceName
     from: FROM,
     to,
     subject: `PDash — ${sharedBy} shared a ${resourceType} with you`,
-    html: `
-      <p>Hi ${firstName},</p>
-      <p><strong>${sharedBy}</strong> has shared the ${resourceType} <strong>"${resourceName}"</strong> with you on PDash.</p>
-      <p><a href="${link}">Open in PDash</a></p>
-    `,
+    html: renderEmailHtml({
+      appUrl: APP_URL,
+      bodyHtml: `
+        <p>Hi ${firstName},</p>
+        <p><strong>${sharedBy}</strong> has shared the ${resourceType} <strong>"${resourceName}"</strong> with you on PDash.</p>
+        <p><a href="${link}">Open in PDash</a></p>
+      `,
+    }),
   });
 }
 
@@ -63,7 +73,15 @@ async function sendExportEmail({ to, firstName, exports }) {
     from: FROM,
     to,
     subject: 'PDash — Your export is ready',
-    html: `<p>Hi ${firstName || 'there'},</p><p>Your PDash data export is attached.</p><p>Files: <strong>${exports.map(e => e.filename).join(', ')}</strong></p>`,
+    html: renderEmailHtml({
+      appUrl: APP_URL,
+      bodyHtml: `
+        <p>Hi ${firstName || 'there'},</p>
+        <p>Your PDash data export is attached.</p>
+        <p>Files:</p>
+        <ul>${exports.map(e => `<li>${e.filename}</li>`).join('')}</ul>
+      `,
+    }),
     attachments: exports.map(e => ({ filename: e.filename, content: e.content, contentType: e.type || 'text/csv' })),
   });
 }
@@ -74,12 +92,15 @@ async function sendAdminNotificationEmail({ to, firstName, title, body, url }) {
     from: FROM,
     to,
     subject: `PDash — ${title}`,
-    html: `
-      <p>Hi ${firstName || 'there'},</p>
-      <p><strong>${title}</strong></p>
-      ${body ? `<p>${body.replace(/\n/g, '<br>')}</p>` : ''}
-      ${link ? `<p><a href="${link}">Open in PDash</a></p>` : ''}
-    `,
+    html: renderEmailHtml({
+      appUrl: APP_URL,
+      bodyHtml: `
+        <p>Hi ${firstName || 'there'},</p>
+        <p><strong>${title}</strong></p>
+        ${body ? `<p>${body.replace(/\n/g, '<br>')}</p>` : ''}
+        ${link ? `<p><a href="${link}">Open in PDash</a></p>` : ''}
+      `,
+    }),
   });
 }
 
