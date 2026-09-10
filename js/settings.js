@@ -15,9 +15,6 @@ function openSettingsModal() {
     _stgSet('stgGeminiKey',     appSettings.geminiApiKey    || '');
     _stgSet('stgAiProvider',    appSettings.aiProvider      || 'anthropic');
     stgUpdateModelDropdown(appSettings.aiProvider || 'anthropic', appSettings.aiModel || '');
-    _stgSet('stgEmailjsKey',      appSettings.emailjsKey      || '');
-    _stgSet('stgEmailjsService',  appSettings.emailjsService  || '');
-    _stgSet('stgEmailjsTemplate', appSettings.emailjsTemplate || '');
     _stgSet('stgGithubPat',       appSettings.githubPat       || '');
   }
 
@@ -64,9 +61,6 @@ function saveSettingsModal() {
     appSettings.geminiApiKey    = _stgGet('stgGeminiKey');
     appSettings.aiProvider      = _stgGet('stgAiProvider') || 'anthropic';
     appSettings.aiModel         = _stgGet('stgAiModel');
-    appSettings.emailjsKey      = _stgGet('stgEmailjsKey');
-    appSettings.emailjsService  = _stgGet('stgEmailjsService');
-    appSettings.emailjsTemplate = _stgGet('stgEmailjsTemplate');
     appSettings.githubPat       = _stgGet('stgGithubPat');
     if (typeof persistSettings === 'function') persistSettings();
   }

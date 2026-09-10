@@ -36,8 +36,7 @@ let _jsonViewerFilename = 'export.json';
 
 let appSettings = {
   aiProvider: 'anthropic', aiModel: '',
-  anthropicApiKey: '', openaiApiKey: '', geminiApiKey: '',
-  emailjsKey: '', emailjsService: '', emailjsTemplate: ''
+  anthropicApiKey: '', openaiApiKey: '', geminiApiKey: ''
 };
 
 let portfolioSummaryProjects = new Set(); // project IDs selected for the summary table
@@ -162,16 +161,13 @@ function loadSettings() {
     const s = storageGet(SETTINGS_KEY);
     if (s) {
       appSettings = { ...appSettings, ...JSON.parse(s) };
-    } else if (config.anthropicApiKey || config.openaiApiKey || config.emailjsKey) {
+    } else if (config.anthropicApiKey || config.openaiApiKey) {
       // One-time migration from legacy config object
       appSettings.anthropicApiKey = config.anthropicApiKey || '';
       appSettings.openaiApiKey    = config.openaiApiKey    || '';
       appSettings.geminiApiKey    = config.geminiApiKey    || '';
       appSettings.aiProvider      = config.aiProvider      || 'anthropic';
       appSettings.aiModel         = config.aiModel         || '';
-      appSettings.emailjsKey      = config.emailjsKey      || '';
-      appSettings.emailjsService  = config.emailjsService  || '';
-      appSettings.emailjsTemplate = config.emailjsTemplate || '';
       persistSettings();
     }
   } catch(e) {}
@@ -180,9 +176,6 @@ function persistSettings() { storageSet(SETTINGS_KEY, JSON.stringify(appSettings
 
 function hasAiKey() {
   return !!(appSettings.anthropicApiKey || appSettings.openaiApiKey || appSettings.geminiApiKey);
-}
-function hasEmailConfig() {
-  return !!(appSettings.emailjsKey && appSettings.emailjsService && appSettings.emailjsTemplate);
 }
 
 // ── JSON VIEWER ───────────────────────────────────────────────────────────────
