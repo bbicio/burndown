@@ -104,7 +104,7 @@ wait_healthy() {
 }
 
 schema_exists() {
-  local users_exist last_migration_exists rc
+  local users_exist last_migration_exists terms_versions_exists rc
   users_exist=$(docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -tAc \
     "SELECT to_regclass('public.users') IS NOT NULL;")
   rc=$?
@@ -126,6 +126,23 @@ schema_exists() {
   fi
   if [ -z "$last_migration_exists" ]; then
     echo "Schema appears partially migrated (interrupted run?). Run:" >&2
+    echo "  scripts/test-branch.sh down && scripts/test-branch.sh up" >&2
+    echo "to rebuild from a clean database." >&2
+    exit 1
+  fi
+
+  terms_versions_exists=$(docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -tAc \
+    "SELECT to_regclass('public.terms_versions') IS NOT NULL;")
+  rc=$?
+  if [ $rc -ne 0 ]; then
+    echo "Error: could not determine schema state (psql exit $rc) on the terms_versions check," >&2
+    echo "even though the users table was already confirmed present. Re-run:" >&2
+    echo "  scripts/test-branch.sh up" >&2
+    echo "to retry, or investigate the docker exec/psql failure above." >&2
+    exit 1
+  fi
+  if [ "$terms_versions_exists" != "t" ]; then
+    echo "Schema appears partially migrated (interrupted run? missing migration 019+). Run:" >&2
     echo "  scripts/test-branch.sh down && scripts/test-branch.sh up" >&2
     echo "to rebuild from a clean database." >&2
     exit 1
