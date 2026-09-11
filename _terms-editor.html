@@ -51,11 +51,52 @@
           <textarea v-model="terms.content" class="form-control font-monospace" rows="18" style="font-size:.78rem;resize:vertical"></textarea>
         </div>
       </div>
+
+      <!-- ── VERSION HISTORY ───────────────────────────────── -->
+      <div class="card mt-4">
+        <div class="card-body p-4">
+          <h5 class="fw-bold mb-3">📜 Version History</h5>
+          <div v-if="versionsError" class="alert alert-danger alert-sm mb-3" style="font-size:.85rem">{{ versionsError }}</div>
+          <div v-if="versionsLoading" class="text-muted" style="font-size:.85rem">Loading…</div>
+          <table v-else class="table table-sm align-middle mb-0" style="font-size:.85rem">
+            <thead>
+              <tr><th>Version</th><th>Published</th><th>By</th><th></th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="v in versions" :key="v.version">
+                <td>v{{ v.version }}</td>
+                <td>{{ fmtDate(v.publishedAt) }}</td>
+                <td>{{ v.publishedBy || '—' }}</td>
+                <td class="text-end"><button class="btn btn-outline-secondary btn-sm" @click="viewVersion(v.version)">👁 View</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </template>
   </div>
 
   <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
     <div class="spinner-border text-secondary"></div>
+  </div>
+
+  <!-- ── VERSION VIEW MODAL ───────────────────────────────── -->
+  <div class="modal fade" id="versionViewModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h6 class="modal-title fw-bold" v-if="viewingVersion">v{{ viewingVersion.version }} — published {{ fmtDate(viewingVersion.publishedAt) }} by {{ viewingVersion.publishedBy || '—' }}</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div v-if="viewVersionError" class="alert alert-danger alert-sm mb-3" style="font-size:.85rem">{{ viewVersionError }}</div>
+          <textarea v-if="viewingVersion" class="form-control font-monospace" rows="18" style="font-size:.78rem" readonly :value="viewingVersion.content"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -75,6 +116,11 @@
         accessDenied: false,
         me: {},
         terms: { version: 1, content: '', updatedAt: null, updatedBy: null, saving: false, msg: null, msgOk: true },
+        versions: [],
+        versionsLoading: false,
+        versionsError: null,
+        viewingVersion: null,
+        viewVersionError: null,
       };
     },
     async created() {
@@ -85,15 +131,15 @@
       if (!user) return;
       this.me = user;
       if (user.role !== 'sysadmin') { this.accessDenied = true; return; }
-      await this.loadTerms();
+      await Promise.all([this.loadDraft(), this.loadVersions()]);
       this.ready = true;
     },
     methods: {
-      async loadTerms() {
+      async loadDraft() {
         try {
-          const res = await fetch('/api/app-settings/terms', { credentials: 'same-origin' });
+          const res = await fetch('/api/app-settings/terms/draft', { credentials: 'same-origin' });
           const d = await res.json();
-          if (!res.ok) { this.terms.msg = d.error || 'Failed to load terms.'; this.terms.msgOk = false; return; }
+          if (!res.ok) { this.terms.msg = d.error || 'Failed to load draft.'; this.terms.msgOk = false; return; }
           this.terms.version   = d.version;
           this.terms.content   = d.content;
           this.terms.updatedAt = d.updatedAt;
@@ -121,10 +167,38 @@
             ? `Published as v${this.terms.version} — all users will be asked to re-accept at next login.`
             : 'Draft saved.';
           this.terms.msgOk = true;
+          await this.loadVersions();
         } catch {
           this.terms.msg = 'Network error.'; this.terms.msgOk = false;
         } finally {
           this.terms.saving = false;
+        }
+      },
+      async loadVersions() {
+        this.versionsLoading = true;
+        this.versionsError = null;
+        try {
+          const res = await fetch('/api/app-settings/terms/versions', { credentials: 'same-origin' });
+          const d = await res.json();
+          if (!res.ok) { this.versionsError = d.error || 'Failed to load version history.'; return; }
+          this.versions = d;
+        } catch {
+          this.versionsError = 'Network error.';
+        } finally {
+          this.versionsLoading = false;
+        }
+      },
+      async viewVersion(version) {
+        this.viewVersionError = null;
+        this.viewingVersion = null;
+        try {
+          const res = await fetch(`/api/app-settings/terms/versions/${version}`, { credentials: 'same-origin' });
+          const d = await res.json();
+          if (!res.ok) { this.viewVersionError = d.error || 'Failed to load version.'; return; }
+          this.viewingVersion = d;
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('versionViewModal')).show();
+        } catch {
+          this.viewVersionError = 'Network error.';
         }
       },
       fmtDate(iso) {
