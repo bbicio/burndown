@@ -52,10 +52,13 @@ Stesso one-liner (`role === 'admin'` → include anche `sysadmin`) in:
 |---|---|---|
 | `config.html` | 1246 | Gate accesso pagina Config |
 | `timesheets.html` | 266 | Gate accesso pagina Actuals Repository |
-| `pipeline.html` | 523 | `isAdmin` — mostra opzione broadcast nel modale Send Notification |
+| `pipeline.html` | 523 | `isAdmin` — usato da `rateStale` per mostrare il warning "tasso di cambio non aggiornato" |
 | `js/settings.js` | 22 | `isAdmin` — mostra sezioni admin-only del modale Settings |
 | `js/nav.js` | 35 | Gate per i tab Config/Actuals Repository/User Admin |
+| `js/nav.js` | 566 | Mostra l'opzione "All users (broadcast)" nel modale Send Notification |
 | `js/shares.js` | 356 | Esclusione dalla lista utenti selezionabili nel modale Share (oggi esclude solo `role==='admin'`) |
+
+Inoltre, 4 file di route hanno una **copia locale** di `requireAdmin` invece di importare quella condivisa da `middleware/auth.js` — estendere solo il middleware condiviso non li tocca: `api/src/routes/client-groups.js:7-10`, `currencies.js:7-10`, `pipeline-years.js:7-10`, `pots.js:7-10` (tutte identiche: `function requireAdmin(req,res,next){ if (req.user.role!=='admin') return res.status(403).json({error:'Admin required'}); next(); }`). Vanno rimosse e sostituite con l'import di quella condivisa (già estesa al §2), eliminando la duplicazione invece di ripeterla quattro volte.
 
 ## 5. Nuovo blocco menu sysadmin (`js/nav.js`)
 
