@@ -30,6 +30,7 @@
 
     /* ── BADGES ──────────────────────────────────────────── */
     .badge-role-admin  { background: #ede9fe; color: #5b21b6; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
+    .badge-role-sysadmin { background: #fee2e2; color: #991b1b; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
     .badge-role-user   { background: #e0f2fe; color: #0369a1; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
     .badge-st-active   { background: #dcfce7; color: #166534; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
     .badge-st-pending  { background: #fef9c3; color: #854d0e; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
@@ -108,11 +109,19 @@
                 <td class="text-muted">{{ fmtDate(u.created_at) }}</td>
                 <td class="text-end" style="white-space:nowrap">
                   <template v-if="u.id !== me.id">
-                    <!-- Toggle role -->
-                    <button class="btn btn-outline-secondary btn-action me-1"
+                    <!-- Toggle role (user <-> admin only — sysadmin rows are managed by the dedicated toggle below) -->
+                    <button v-if="u.role !== 'sysadmin'"
+                            class="btn btn-outline-secondary btn-action me-1"
                             :disabled="!!u._loading"
                             @click="toggleRole(u)">
                       Make {{ u.role === 'admin' ? 'user' : 'admin' }}
+                    </button>
+                    <!-- Grant/Revoke sysadmin — only a sysadmin viewer can touch this, and only on an admin/sysadmin row -->
+                    <button v-if="me.role === 'sysadmin' && u.role !== 'user'"
+                            class="btn btn-outline-danger btn-action me-1"
+                            :disabled="!!u._loading"
+                            @click="toggleSysAdmin(u)">
+                      {{ u.role === 'sysadmin' ? '⬇ Revoke sysadmin' : '⬆ Grant sysadmin' }}
                     </button>
                     <!-- Disable / Enable -->
                     <button v-if="u.status !== 'disabled'"
@@ -158,33 +167,6 @@
         <div style="font-size:2rem">🔒</div>
         <p class="mt-2">Admin access required.</p>
         <a href="/" class="btn btn-outline-secondary btn-sm">Go to app</a>
-      </div>
-    </div>
-
-    <!-- ── TERMS & CONDITIONS ───────────────────────────────── -->
-    <div class="card mt-4" v-if="ready">
-      <div class="card-body p-4">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-          <div>
-            <h5 class="fw-bold mb-0">📄 Terms &amp; Conditions</h5>
-            <div class="text-muted mt-1" style="font-size:.82rem">
-              Current version: <strong>v{{ terms.version }}</strong>
-              <span v-if="terms.updatedAt"> · Last updated {{ fmtDate(terms.updatedAt) }}</span>
-              <span v-if="terms.updatedBy"> by {{ terms.updatedBy }}</span>
-            </div>
-          </div>
-          <div class="d-flex gap-2">
-            <a href="/terms.html" target="_blank" class="btn btn-outline-secondary btn-sm">👁 Preview</a>
-            <button class="btn btn-primary btn-sm" style="background:var(--brand-navy);border-color:var(--brand-navy)"
-                    @click="saveTerms(false)" :disabled="terms.saving">Save draft</button>
-            <button class="btn btn-warning btn-sm" @click="saveTerms(true)" :disabled="terms.saving">
-              🚀 Publish new version
-            </button>
-          </div>
-        </div>
-        <div v-if="terms.msg" class="alert alert-sm mb-3" :class="terms.msgOk ? 'alert-success' : 'alert-danger'" style="font-size:.85rem">{{ terms.msg }}</div>
-        <div class="text-muted mb-2" style="font-size:.78rem">Edit HTML content below. "Save draft" saves without bumping the version. "Publish new version" increments the version — all users will be asked to re-accept at next login.</div>
-        <textarea v-model="terms.content" class="form-control font-monospace" rows="18" style="font-size:.78rem;resize:vertical"></textarea>
       </div>
     </div>
 
@@ -266,7 +248,6 @@
           ],
           globalError: null,
           invite: { firstName: '', lastName: '', email: '', role: 'user', loading: false, error: null, success: null },
-          terms: { version: 1, content: '', updatedAt: null, updatedBy: null, saving: false, msg: null, msgOk: true },
           _modal: null,
         };
       },
@@ -283,8 +264,8 @@
         ]});
         if (!user) return;
         this.me = user;
-        if (user.role !== 'admin') { this.accessDenied = true; return; }
-        await Promise.all([this.loadUsers(), this.loadTerms()]);
+        if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
+        await this.loadUsers();
         this.ready = true;
       },
       mounted() {
@@ -353,6 +334,27 @@
           }
         },
 
+        async toggleSysAdmin(user) {
+          const newRole = user.role === 'sysadmin' ? 'admin' : 'sysadmin';
+          user._loading = true;
+          this.globalError = null;
+          try {
+            const res = await fetch(`/api/users/${user.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ role: newRole }),
+            });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error; return; }
+            user.role = data.role;
+          } catch {
+            this.globalError = 'Network error.';
+          } finally {
+            user._loading = false;
+          }
+        },
+
         async setStatus(user, status) {
           user._loading = true;
           this.globalError = null;
@@ -398,41 +400,6 @@
             this.globalError = 'Network error.';
           } finally {
             user._loading = false;
-          }
-        },
-
-        async loadTerms() {
-          const res = await fetch('/api/app-settings/terms', { credentials: 'same-origin' });
-          const d = await res.json();
-          this.terms.version   = d.version;
-          this.terms.content   = d.content;
-          this.terms.updatedAt = d.updatedAt;
-          this.terms.updatedBy = d.updatedBy;
-        },
-
-        async saveTerms(publishNewVersion) {
-          this.terms.saving = true;
-          this.terms.msg    = null;
-          try {
-            const res = await fetch('/api/app-settings/terms', {
-              method: 'PUT',
-              credentials: 'same-origin',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ content: this.terms.content, publishNewVersion }),
-            });
-            const d = await res.json();
-            if (!res.ok) { this.terms.msg = d.error || 'Save failed'; this.terms.msgOk = false; return; }
-            if (publishNewVersion && d.newVersion) this.terms.version = d.newVersion;
-            this.terms.updatedAt = new Date().toISOString();
-            this.terms.updatedBy = this.me.first_name + ' ' + this.me.last_name;
-            this.terms.msg   = publishNewVersion
-              ? `Published as v${this.terms.version} — all users will be asked to re-accept at next login.`
-              : 'Draft saved.';
-            this.terms.msgOk = true;
-          } catch {
-            this.terms.msg = 'Network error.'; this.terms.msgOk = false;
-          } finally {
-            this.terms.saving = false;
           }
         },
 
