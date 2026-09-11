@@ -10,7 +10,32 @@ async function getSetting(key) {
 }
 
 // GET /api/app-settings/terms — any authenticated user (needed by terms.html)
+// Returns the latest PUBLISHED version from terms_versions (not the draft in
+// app_settings — see GET /terms/draft for that). Response shape unchanged.
 router.get('/terms', requireAuth, async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT tv.version, tv.content, tv.published_at, u.first_name, u.last_name
+       FROM terms_versions tv
+       LEFT JOIN users u ON u.id = tv.published_by
+       ORDER BY tv.version DESC
+       LIMIT 1`
+    );
+    const row = rows[0];
+    res.json({
+      version:   row?.version || 1,
+      content:   row?.content || '',
+      updatedAt: row?.published_at || null,
+      updatedBy: row ? (`${row.first_name || ''} ${row.last_name || ''}`.trim() || null) : null,
+    });
+  } catch (err) { next(err); }
+});
+
+// GET /api/app-settings/terms/draft — sysadmin only; the in-progress draft
+// (app_settings.terms_content), never shown to terms.html. Same shape/query
+// as the old GET /terms handler above -- this route is that handler's logic,
+// relocated verbatim.
+router.get('/terms/draft', requireSysAdmin, async (req, res, next) => {
   try {
     const [versionRow, contentRow, metaRow] = await Promise.all([
       query("SELECT value FROM app_settings WHERE key = 'terms_version'"),
@@ -22,6 +47,50 @@ router.get('/terms', requireAuth, async (req, res, next) => {
       content:   contentRow.rows[0]?.value || '',
       updatedAt: metaRow.rows[0]?.updated_at || null,
       updatedBy: metaRow.rows[0] ? `${metaRow.rows[0].first_name} ${metaRow.rows[0].last_name}`.trim() : null,
+    });
+  } catch (err) { next(err); }
+});
+
+// GET /api/app-settings/terms/versions — sysadmin only; list of published
+// versions (no content -- a list row doesn't need the full text).
+router.get('/terms/versions', requireSysAdmin, async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT tv.version, tv.published_at, u.first_name, u.last_name
+       FROM terms_versions tv
+       LEFT JOIN users u ON u.id = tv.published_by
+       ORDER BY tv.version DESC`
+    );
+    res.json(rows.map(r => ({
+      version:     r.version,
+      publishedAt: r.published_at,
+      publishedBy: `${r.first_name || ''} ${r.last_name || ''}`.trim() || null,
+    })));
+  } catch (err) { next(err); }
+});
+
+// GET /api/app-settings/terms/versions/:version — sysadmin only; full text
+// of one past published version, read-only. :version is the integer version
+// number (not the row's UUID) -- matches how the frontend already thinks
+// about versions.
+router.get('/terms/versions/:version', requireSysAdmin, async (req, res, next) => {
+  try {
+    const versionNum = parseInt(req.params.version, 10);
+    if (!Number.isInteger(versionNum)) return res.status(400).json({ error: 'Invalid version' });
+    const { rows } = await query(
+      `SELECT tv.version, tv.content, tv.published_at, u.first_name, u.last_name
+       FROM terms_versions tv
+       LEFT JOIN users u ON u.id = tv.published_by
+       WHERE tv.version = $1`,
+      [versionNum]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Version not found' });
+    const row = rows[0];
+    res.json({
+      version:     row.version,
+      content:     row.content,
+      publishedAt: row.published_at,
+      publishedBy: `${row.first_name || ''} ${row.last_name || ''}`.trim() || null,
     });
   } catch (err) { next(err); }
 });
