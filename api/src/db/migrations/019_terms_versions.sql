@@ -14,7 +14,7 @@ CREATE TABLE terms_versions (
 -- whatever terms_version already is) — the only text still recoverable.
 INSERT INTO terms_versions (version, content, published_at, published_by)
 SELECT
-  (SELECT value::int FROM app_settings WHERE key = 'terms_version'),
+  COALESCE((SELECT value::int FROM app_settings WHERE key = 'terms_version'), 1),
   (SELECT value FROM app_settings WHERE key = 'terms_content'),
   (SELECT updated_at FROM app_settings WHERE key = 'terms_content'),
   (SELECT updated_by FROM app_settings WHERE key = 'terms_content')

@@ -191,14 +191,16 @@
       async viewVersion(version) {
         this.viewVersionError = null;
         this.viewingVersion = null;
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('versionViewModal'));
         try {
           const res = await fetch(`/api/app-settings/terms/versions/${version}`, { credentials: 'same-origin' });
           const d = await res.json();
-          if (!res.ok) { this.viewVersionError = d.error || 'Failed to load version.'; return; }
+          if (!res.ok) { this.viewVersionError = d.error || 'Failed to load version.'; modal.show(); return; }
           this.viewingVersion = d;
-          bootstrap.Modal.getOrCreateInstance(document.getElementById('versionViewModal')).show();
+          modal.show();
         } catch {
           this.viewVersionError = 'Network error.';
+          modal.show();
         }
       },
       fmtDate(iso) {

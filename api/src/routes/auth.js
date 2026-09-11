@@ -9,7 +9,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
 async function getCurrentTermsVersion() {
-  const { rows } = await query("SELECT value FROM app_settings WHERE key = 'terms_version'");
+  const { rows } = await query('SELECT COALESCE(MAX(version), 1) AS value FROM terms_versions');
   return parseInt(rows[0]?.value || '1');
 }
 
