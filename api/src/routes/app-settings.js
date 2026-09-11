@@ -95,21 +95,32 @@ router.get('/terms/versions/:version', requireSysAdmin, async (req, res, next) =
   } catch (err) { next(err); }
 });
 
-// PUT /api/app-settings/terms — sysadmin only; bumps version when publishNewVersion=true
+// PUT /api/app-settings/terms — sysadmin only. publishNewVersion=false saves
+// only the draft (app_settings.terms_content/terms_version, unaffected by
+// terms.html's GET /terms). publishNewVersion=true additionally inserts an
+// immutable row into terms_versions -- the new source of truth for "what's
+// the latest published version" -- and syncs the draft to match, so the next
+// edit starts from what was just published.
 router.put('/terms', requireSysAdmin, async (req, res, next) => {
   try {
     const { content, publishNewVersion } = req.body;
     if (content === undefined) return res.status(400).json({ error: 'content is required' });
 
+    let newVersion = null;
+    if (publishNewVersion) {
+      const cur = await query('SELECT COALESCE(MAX(version), 0) AS max_version FROM terms_versions');
+      newVersion = cur.rows[0].max_version + 1;
+      await query(
+        'INSERT INTO terms_versions (version, content, published_at, published_by) VALUES ($1, $2, NOW(), $3)',
+        [newVersion, content, req.user.id]
+      );
+    }
+
     await query(
       "INSERT INTO app_settings (key, value, updated_at, updated_by) VALUES ('terms_content', $1, NOW(), $2) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW(), updated_by = $2",
       [content, req.user.id]
     );
-
-    let newVersion = null;
     if (publishNewVersion) {
-      const cur = await query("SELECT value FROM app_settings WHERE key = 'terms_version'");
-      newVersion = (parseInt(cur.rows[0]?.value || '1')) + 1;
       await query(
         "INSERT INTO app_settings (key, value, updated_at, updated_by) VALUES ('terms_version', $1, NOW(), $2) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW(), updated_by = $2",
         [String(newVersion), req.user.id]
