@@ -1,6 +1,7 @@
 const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { isAdminRole } = require('../lib/is-admin');
 const { sendAdminNotificationEmail } = require('../services/email');
 
 const router = express.Router();
@@ -119,7 +120,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       targets = rows;
     } else {
       // Broadcast to all active users — admin only
-      if (req.user.role !== 'admin') {
+      if (!isAdminRole(req.user.role)) {
         return res.status(403).json({ error: 'Only admins can broadcast to all users' });
       }
       const { rows } = await query("SELECT id, email, first_name FROM users WHERE status = 'active'");

@@ -5,6 +5,15 @@ const { roleChangeError } = require('../lib/role-transition');
 
 const router = express.Router();
 
+// Guards every mutation of another user's row (role, status, anonymize, delete):
+// only a sysadmin may touch a sysadmin. Returns an error message or null.
+function sysAdminTargetError(actorRole, targetCurrentRole) {
+  if (targetCurrentRole === 'sysadmin' && actorRole !== 'sysadmin') {
+    return 'Only a sysadmin can modify another sysadmin';
+  }
+  return null;
+}
+
 // GET /api/users/search?email=... — any authenticated user, for share-target lookup
 router.get('/search', requireAuth, async (req, res, next) => {
   try {
@@ -86,9 +95,15 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
     if (role && !allowed.role.includes(role)) return res.status(400).json({ error: 'Invalid role' });
     if (status && !allowed.status.includes(status)) return res.status(400).json({ error: 'Invalid status' });
 
+    const { rows: [target] } = await query('SELECT role FROM users WHERE id = $1', [req.params.id]);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+
+    // A sysadmin row is only ever modifiable by another sysadmin — whatever
+    // field the request is trying to change (status-only requests included).
+    const protErr = sysAdminTargetError(req.user.role, target.role);
+    if (protErr) return res.status(403).json({ error: protErr });
+
     if (role) {
-      const { rows: [target] } = await query('SELECT role FROM users WHERE id = $1', [req.params.id]);
-      if (!target) return res.status(404).json({ error: 'User not found' });
       const roleErr = roleChangeError(req.user.role, target.role, role);
       if (roleErr) return res.status(403).json({ error: roleErr });
     }
@@ -116,8 +131,11 @@ router.post('/:id/anonymize', requireAdmin, async (req, res, next) => {
     if (req.params.id === req.user.id)
       return res.status(400).json({ error: 'You cannot anonymize your own account' });
 
-    const { rows: [existing] } = await query('SELECT id, status FROM users WHERE id = $1', [req.params.id]);
+    const { rows: [existing] } = await query('SELECT id, status, role FROM users WHERE id = $1', [req.params.id]);
     if (!existing) return res.status(404).json({ error: 'User not found' });
+
+    const protErr = sysAdminTargetError(req.user.role, existing.role);
+    if (protErr) return res.status(403).json({ error: protErr });
 
     const { rows: [updated] } = await query(
       `UPDATE users SET
@@ -146,6 +164,13 @@ router.delete('/:id', requireAdmin, async (req, res, next) => {
     if (req.params.id === req.user.id) {
       return res.status(400).json({ error: 'You cannot disable your own account' });
     }
+
+    const { rows: [target] } = await query('SELECT role FROM users WHERE id = $1', [req.params.id]);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+
+    const protErr = sysAdminTargetError(req.user.role, target.role);
+    if (protErr) return res.status(403).json({ error: protErr });
+
     const { rows } = await query(
       `UPDATE users SET status = 'disabled' WHERE id = $1
        RETURNING id, email, first_name, last_name, status`,

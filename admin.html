@@ -123,27 +123,29 @@
                             @click="toggleSysAdmin(u)">
                       {{ u.role === 'sysadmin' ? '⬇ Revoke sysadmin' : '⬆ Grant sysadmin' }}
                     </button>
-                    <!-- Disable / Enable -->
-                    <button v-if="u.status !== 'disabled'"
-                            class="btn btn-outline-danger btn-action"
-                            :disabled="!!u._loading"
-                            @click="setStatus(u, 'disabled')">
-                      Disable
-                    </button>
-                    <button v-else
-                            class="btn btn-outline-secondary btn-action"
-                            :disabled="!!u._loading"
-                            @click="setStatus(u, 'active')">
-                      Enable
-                    </button>
-                    <!-- Anonymize — only for disabled, non-anonymized users -->
-                    <button v-if="u.status === 'disabled' && !u.email.startsWith('anon_')"
-                            class="btn btn-outline-danger btn-action ms-1"
-                            :disabled="!!u._loading"
-                            @click="confirmAnonymize(u)"
-                            title="Permanently replace personal data with anonymous values">
-                      🗑 Anonymize
-                    </button>
+                    <!-- Disable / Enable + Anonymize — a sysadmin row is only actionable by a sysadmin viewer -->
+                    <template v-if="canModifyUser(u)">
+                      <button v-if="u.status !== 'disabled'"
+                              class="btn btn-outline-danger btn-action"
+                              :disabled="!!u._loading"
+                              @click="setStatus(u, 'disabled')">
+                        Disable
+                      </button>
+                      <button v-else
+                              class="btn btn-outline-secondary btn-action"
+                              :disabled="!!u._loading"
+                              @click="setStatus(u, 'active')">
+                        Enable
+                      </button>
+                      <!-- Anonymize — only for disabled, non-anonymized users -->
+                      <button v-if="u.status === 'disabled' && !u.email.startsWith('anon_')"
+                              class="btn btn-outline-danger btn-action ms-1"
+                              :disabled="!!u._loading"
+                              @click="confirmAnonymize(u)"
+                              title="Permanently replace personal data with anonymous values">
+                        🗑 Anonymize
+                      </button>
+                    </template>
                     <span v-if="u.email.startsWith('anon_')"
                           class="badge ms-1"
                           style="background:#f3f4f6;color:#6b7280;font-size:.7rem">anonymized</span>
@@ -332,6 +334,12 @@
           } finally {
             user._loading = false;
           }
+        },
+
+        // A sysadmin row may only be acted on by a sysadmin viewer (mirrors the
+        // backend's own check in api/src/routes/users.js).
+        canModifyUser(user) {
+          return this.me?.role === 'sysadmin' || user.role !== 'sysadmin';
         },
 
         async toggleSysAdmin(user) {

@@ -90,12 +90,17 @@
     },
     methods: {
       async loadTerms() {
-        const res = await fetch('/api/app-settings/terms', { credentials: 'same-origin' });
-        const d = await res.json();
-        this.terms.version   = d.version;
-        this.terms.content   = d.content;
-        this.terms.updatedAt = d.updatedAt;
-        this.terms.updatedBy = d.updatedBy;
+        try {
+          const res = await fetch('/api/app-settings/terms', { credentials: 'same-origin' });
+          const d = await res.json();
+          if (!res.ok) { this.terms.msg = d.error || 'Failed to load terms.'; this.terms.msgOk = false; return; }
+          this.terms.version   = d.version;
+          this.terms.content   = d.content;
+          this.terms.updatedAt = d.updatedAt;
+          this.terms.updatedBy = d.updatedBy;
+        } catch {
+          this.terms.msg = 'Network error.'; this.terms.msgOk = false;
+        }
       },
       async saveTerms(publishNewVersion) {
         this.terms.saving = true;

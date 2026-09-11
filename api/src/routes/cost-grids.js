@@ -3,6 +3,7 @@ const { query, pool } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
 const { sendShareNotification } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
+const { isAdminRole } = require('../lib/is-admin');
 
 let _pushToUser;
 
@@ -40,7 +41,7 @@ async function notifyAdminsPipelineChange(cgId, vId, oldPipeline, newPipeline) {
     const urlLabel = 'Open Cost Grid';
 
     const { rows: admins } = await query(
-      `SELECT id FROM users WHERE role = 'admin' AND status = 'active'`
+      `SELECT id FROM users WHERE role IN ('admin', 'sysadmin') AND status = 'active'`
     );
 
     if (!_pushToUser) _pushToUser = require('./notifications').pushToUser;
@@ -62,7 +63,7 @@ async function notifyAdminsPipelineChange(cgId, vId, oldPipeline, newPipeline) {
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
 async function canAccess(userId, role, cgId) {
-  if (role === 'admin') return true;
+  if (isAdminRole(role)) return true;
   const { rows } = await query(
     `SELECT 1 FROM cost_grids cg
      LEFT JOIN resource_shares rs ON rs.resource_type = 'cost_grid' AND rs.resource_id = cg.id AND rs.user_id = $1
@@ -73,7 +74,7 @@ async function canAccess(userId, role, cgId) {
 }
 
 async function canEdit(userId, role, cgId) {
-  if (role === 'admin') return true;
+  if (isAdminRole(role)) return true;
   const { rows } = await query(
     `SELECT 1 FROM cost_grids cg
      LEFT JOIN resource_shares rs ON rs.resource_type = 'cost_grid' AND rs.resource_id = cg.id AND rs.user_id = $1
@@ -89,7 +90,7 @@ async function canEdit(userId, role, cgId) {
 router.get('/', requireAuth, async (req, res, next) => {
   try {
     const { year } = req.query;
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = isAdminRole(req.user.role);
     const userId = req.user.id;
     const params = [];
 
@@ -223,7 +224,7 @@ router.post('/', requireAuth, async (req, res, next) => {
 router.get('/budgets', requireAuth, async (req, res, next) => {
   try {
     const { id: userId, role } = req.user;
-    const isAdmin = role === 'admin';
+    const isAdmin = isAdminRole(role);
     const params = [];
     let visClause = '';
     if (!isAdmin) {

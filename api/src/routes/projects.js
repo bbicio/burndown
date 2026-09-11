@@ -3,6 +3,7 @@ const { query } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
 const { sendShareNotification } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
+const { isAdminRole } = require('../lib/is-admin');
 let _pushToUser;
 
 const router = express.Router();
@@ -10,7 +11,7 @@ const router = express.Router();
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
 async function canAccess(userId, role, projectId) {
-  if (role === 'admin') return true;
+  if (isAdminRole(role)) return true;
   const { rows } = await query(
     `SELECT 1 FROM projects p
      LEFT JOIN resource_shares rs ON rs.resource_type = 'project' AND rs.resource_id = p.id AND rs.user_id = $1
@@ -21,7 +22,7 @@ async function canAccess(userId, role, projectId) {
 }
 
 async function canEdit(userId, role, projectId) {
-  if (role === 'admin') return true;
+  if (isAdminRole(role)) return true;
   const { rows } = await query(
     `SELECT 1 FROM projects p
      LEFT JOIN resource_shares rs ON rs.resource_type = 'project' AND rs.resource_id = p.id AND rs.user_id = $1
@@ -36,7 +37,7 @@ async function canEdit(userId, role, projectId) {
 // GET /api/projects
 router.get('/', requireAuth, async (req, res, next) => {
   try {
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = isAdminRole(req.user.role);
     const visibilityClause = isAdmin
       ? ''
       : `AND (p.owner_id = $1 OR EXISTS(

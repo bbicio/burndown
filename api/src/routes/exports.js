@@ -1,6 +1,7 @@
 const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { isAdminRole } = require('../lib/is-admin');
 const { sendExportEmail } = require('../services/email');
 
 const router = express.Router();
@@ -20,7 +21,7 @@ function buildCsv(headers, rows) {
 
 router.post('/portfolio', requireAuth, async (req, res, next) => {
   try {
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = isAdminRole(req.user.role);
     const visibilityClause = isAdmin
       ? ''
       : `AND (p.owner_id = $1 OR EXISTS(
@@ -72,7 +73,7 @@ router.post('/portfolio', requireAuth, async (req, res, next) => {
 
 router.post('/cost-grids', requireAuth, async (req, res, next) => {
   try {
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = isAdminRole(req.user.role);
     const visibilityClause = isAdmin
       ? ''
       : `AND (cg.owner_id = $1 OR EXISTS(
