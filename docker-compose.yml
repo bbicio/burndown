@@ -60,6 +60,8 @@ services:
       API_URL: http://api:3000
       TEST_ADMIN_EMAIL: ${TEST_ADMIN_EMAIL:-test-admin@pdash.local}
       TEST_ADMIN_PASSWORD: ${TEST_ADMIN_PASSWORD:-TestAdmin123!}
+      TEST_SYSADMIN_EMAIL: ${TEST_SYSADMIN_EMAIL:-test-sysadmin@pdash.local}
+      TEST_SYSADMIN_PASSWORD: ${TEST_SYSADMIN_PASSWORD:-TestSysAdmin123!}
     volumes:
       - ./api/src:/app/src        # for create-admin.js
       - ./test-api.js:/app/test-api.js
@@ -68,6 +70,8 @@ services:
       sh -c "
         npm install --prefix /tmp pg bcryptjs --silent --no-audit --no-fund &&
         NODE_PATH=/tmp/node_modules node src/create-admin.js $$TEST_ADMIN_EMAIL $$TEST_ADMIN_PASSWORD Test Admin &&
+        NODE_PATH=/tmp/node_modules node src/create-admin.js $$TEST_SYSADMIN_EMAIL $$TEST_SYSADMIN_PASSWORD Test SysAdmin &&
+        NODE_PATH=/tmp/node_modules node src/promote-sysadmin.js $$TEST_SYSADMIN_EMAIL &&
         node test-api.js
       "
 
