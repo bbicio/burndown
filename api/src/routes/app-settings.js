@@ -9,6 +9,16 @@ async function getSetting(key) {
   return rows[0]?.value ?? null;
 }
 
+// Formats a joined user's first_name/last_name into a display name, or null
+// if neither is present (e.g. the row exists but the LEFT JOIN found no
+// user — an unset published_by/updated_by, or a since-deleted user). Both
+// fields are guarded with `|| ''` so a partially-missing name never renders
+// as the literal string "undefined" or "null".
+function formatFullName(row) {
+  if (!row) return null;
+  return `${row.first_name || ''} ${row.last_name || ''}`.trim() || null;
+}
+
 // GET /api/app-settings/terms — any authenticated user (needed by terms.html)
 // Returns the latest PUBLISHED version from terms_versions (not the draft in
 // app_settings — see GET /terms/draft for that). Response shape unchanged.
@@ -26,7 +36,7 @@ router.get('/terms', requireAuth, async (req, res, next) => {
       version:   row?.version || 1,
       content:   row?.content || '',
       updatedAt: row?.published_at || null,
-      updatedBy: row ? (`${row.first_name || ''} ${row.last_name || ''}`.trim() || null) : null,
+      updatedBy: formatFullName(row),
     });
   } catch (err) { next(err); }
 });
@@ -46,7 +56,7 @@ router.get('/terms/draft', requireSysAdmin, async (req, res, next) => {
       version:   parseInt(versionRow.rows[0]?.value || '1'),
       content:   contentRow.rows[0]?.value || '',
       updatedAt: metaRow.rows[0]?.updated_at || null,
-      updatedBy: metaRow.rows[0] ? `${metaRow.rows[0].first_name} ${metaRow.rows[0].last_name}`.trim() : null,
+      updatedBy: formatFullName(metaRow.rows[0]),
     });
   } catch (err) { next(err); }
 });
@@ -64,7 +74,7 @@ router.get('/terms/versions', requireSysAdmin, async (req, res, next) => {
     res.json(rows.map(r => ({
       version:     r.version,
       publishedAt: r.published_at,
-      publishedBy: `${r.first_name || ''} ${r.last_name || ''}`.trim() || null,
+      publishedBy: formatFullName(r),
     })));
   } catch (err) { next(err); }
 });
@@ -90,7 +100,7 @@ router.get('/terms/versions/:version', requireSysAdmin, async (req, res, next) =
       version:     row.version,
       content:     row.content,
       publishedAt: row.published_at,
-      publishedBy: `${row.first_name || ''} ${row.last_name || ''}`.trim() || null,
+      publishedBy: formatFullName(row),
     });
   } catch (err) { next(err); }
 });
