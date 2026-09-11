@@ -32,11 +32,17 @@ async function initNav(activeTab, opts = {}) {
     `<a class="nav-main-tab${activeTab === t.id ? ' active' : ''}" href="${t.href}">${esc(t.label)}</a>`
   ).join('');
 
-  const adminHtml = user.role === 'admin'
+  const adminHtml = (user.role === 'admin' || user.role === 'sysadmin')
     ? `<span style="border-left:1px solid rgba(255,255,255,.15);margin:8px 6px;align-self:stretch"></span>` +
       `<a class="nav-main-tab nav-admin-tab${activeTab === 'config'     ? ' active' : ''}" href="/config.html">⚙ Config</a>` +
       `<a class="nav-main-tab nav-admin-tab${activeTab === 'timesheets' ? ' active' : ''}" href="/timesheets.html">📂 Actuals Repository</a>` +
       `<a class="nav-main-tab nav-admin-tab${activeTab === 'admin'      ? ' active' : ''}" href="/admin.html">👤 User Admin</a>`
+    : '';
+
+  const sysAdminHtml = user.role === 'sysadmin'
+    ? `<span style="border-left:1px solid rgba(255,255,255,.15);margin:8px 6px;align-self:stretch"></span>` +
+      `<a class="nav-main-tab nav-admin-tab${activeTab === 'dbreset'     ? ' active' : ''}" href="/_db-reset.html">🗄 DB Reset</a>` +
+      `<a class="nav-main-tab nav-admin-tab${activeTab === 'termseditor' ? ' active' : ''}" href="/_terms-editor.html">📄 Terms &amp; Conditions</a>`
     : '';
 
   const displayName = esc([user.firstName, user.lastName].filter(Boolean).join(' ') || user.email);
@@ -89,6 +95,7 @@ async function initNav(activeTab, opts = {}) {
       <div class="d-flex align-items-stretch px-2" style="border-top:1px solid rgba(255,255,255,.1);padding-bottom:8px">
         ${tabsHtml}
         ${adminHtml}
+        ${sysAdminHtml}
       </div>
     </nav>`;
 
@@ -563,7 +570,7 @@ async function initNav(activeTab, opts = {}) {
           .filter(u => u.id !== window.__navUser?.id)
           .map(u => `<option value="${u.id}">${[u.first_name, u.last_name].filter(Boolean).join(' ') || u.email}</option>`)
           .join('');
-        targetSel.innerHTML = (window.__navUser?.role === 'admin' ? '<option value="">All users (broadcast)</option>' : '') + opts;
+        targetSel.innerHTML = (['admin','sysadmin'].includes(window.__navUser?.role) ? '<option value="">All users (broadcast)</option>' : '') + opts;
       } catch (e) {
         targetSel.innerHTML = '<option value="">Failed to load users</option>';
       }

@@ -352,7 +352,7 @@
 <script defer src="js/programs.js"></script>
 <script defer src="js/api-sync.js?v=14"></script>
 <script defer src="js/shares.js"></script>
-<script defer src="js/nav.js?v=4"></script>
+<script defer src="js/nav.js?v=5"></script>
 
 <script type="module">
 window.showCostGridEditorView = function (cgId, versionId) {
@@ -520,7 +520,7 @@ Vue.createApp({
       return entry ? parseFloat(entry.current_rate) : null;
     },
     rateStale() {
-      const isAdmin = window.__navUser?.role === 'admin';
+      const isAdmin = ['admin', 'sysadmin'].includes(window.__navUser?.role);
       return isAdmin && this.liveRate != null && Math.abs(this.liveRate - (this.selectedVersion.currencyRate || 1.0)) > 0.0001;
     },
   },

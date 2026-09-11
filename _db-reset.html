@@ -40,10 +40,10 @@
   <div v-if="ready || accessDenied" class="page app-container">
     <div class="mb-4">
       <h1 class="fw-bold" style="color:#dc3545;font-size:2.5rem">⚠️ Database Reset</h1>
-      <p class="text-muted">Admin-only. Each action is irreversible. Data deleted here cannot be recovered.</p>
+      <p class="text-muted">Sysadmin-only. Each action is irreversible. Data deleted here cannot be recovered.</p>
     </div>
 
-    <div v-if="accessDenied" class="alert alert-danger">Access denied — admin only.</div>
+    <div v-if="accessDenied" class="alert alert-danger">Access denied — sysadmin only.</div>
 
     <template v-else>
       <div id="resetCards">
@@ -126,7 +126,7 @@
 <script defer src="js/core.js?v=3"></script>
 <script defer src="js/settings.js"></script>
 <script defer src="js/notifications.js"></script>
-<script defer src="js/nav.js?v=4"></script>
+<script defer src="js/nav.js?v=5"></script>
 <script type="module">
   const SCOPES = [
     { scope: 'proposals', title: 'Proposals', description: 'Deletes all cost grids, versions, phases, tasks, task roles, and related sharing records.', buttonText: 'Delete all proposals', label: 'all proposals (cost grids, versions, phases, tasks)' },
@@ -167,13 +167,13 @@
       };
     },
     async created() {
-      const user = await initNav(null, { breadcrumbs: [
+      const user = await initNav('dbreset', { breadcrumbs: [
         { label: 'Home', href: '/pipeline.html' },
         { label: 'Database Reset' },
       ]});
       if (!user) return;
       this.me = user;
-      if (user.role !== 'admin') { this.accessDenied = true; return; }
+      if (user.role !== 'sysadmin') { this.accessDenied = true; return; }
       await this.loadActiveUsers();
       this.ready = true;
     },

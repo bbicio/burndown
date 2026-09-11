@@ -210,7 +210,7 @@
 <script defer src="js/core.js?v=3"></script>
 <script defer src="js/settings.js"></script>
 <script defer src="js/notifications.js"></script>
-<script defer src="js/nav.js?v=4"></script>
+<script defer src="js/nav.js?v=5"></script>
 
 <script type="module">
   Vue.createApp({
@@ -263,7 +263,7 @@
         { label: 'Timesheets' },
       ]});
       if (!user) return;
-      if (user.role !== 'admin') { window.location.href = '/pipeline.html'; return; }
+      if (!['admin', 'sysadmin'].includes(user.role)) { window.location.href = '/pipeline.html'; return; }
 
       const [pipelineYearsResult, currenciesResult] = await Promise.allSettled([
         Api.pipelineYears.list(),

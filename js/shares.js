@@ -353,7 +353,7 @@ async function openShareModal(resourceType, resourceId, resourceName) {
   // Load user list first so _shareAllUsers is populated when _renderShareList calls _refreshEligibleList
   const self     = (window.__navUser || {}).id;
   const allUsers = await Api.users.activeList();
-  _shareAllUsers = (allUsers || []).filter(u => u.role !== 'admin' && u.id !== self);
+  _shareAllUsers = (allUsers || []).filter(u => !['admin', 'sysadmin'].includes(u.role) && u.id !== self);
 
   await _renderShareList(); // internally calls _refreshEligibleList, which reads _shareAllUsers
 

@@ -976,7 +976,7 @@
 <script defer src="js/core.js?v=3"></script>
 <script defer src="js/settings.js"></script>
 <script defer src="js/notifications.js"></script>
-<script defer src="js/nav.js?v=4"></script>
+<script defer src="js/nav.js?v=5"></script>
 
 <script type="module">
 window.__cfgApp = Vue.createApp({
@@ -1243,7 +1243,7 @@ window.__cfgApp = Vue.createApp({
       { label: 'Configuration' },
     ]});
     if (!user) return;
-    if (user.role !== 'admin') { this.accessDenied = true; return; }
+    if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
     try { window.__currencies = await Api.currencies.active(); } catch {}
     await this.loadAll();
     this.ready = true;
