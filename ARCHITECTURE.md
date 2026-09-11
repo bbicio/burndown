@@ -77,6 +77,7 @@ Backend authorization has two middleware tiers (`api/src/middleware/auth.js`): `
 - The calling user's own permission level (`my_permission`) is returned on `GET /api/cost-grids` and `GET /api/projects` responses so the frontend can conditionally show/hide editing controls without an extra round-trip.
 - **Viewer enforcement** (UI-only; backend always enforces via `resource_shares.permission`): editors/viewers see different UI surfaces — viewers have Edit, Clone, Delete, Configure, Load Actuals, and Reforecast controls hidden; project-config.html enters a read-only banner mode.
 - Disabling a user does **not** delete their resources. Ownership remains and can be reassigned by an admin.
+- **Inline share visibility (2026-09)**: beyond the `#shareModal` add/edit/remove UI, both `pipeline.html`'s sliding detail panel and `costgrid.html`'s full-page editor show a read-only-at-a-glance, remove-capable share list inline (`js/share-list-component.js`, a reusable Vue component registered on both pages' apps), so a viewer doesn't need to open the modal just to see who has access. Removal still goes through the same `DELETE /:id/shares/:userId` route and its owner-removal guard; adding a share remains exclusive to the modal. Sharing a cost grid does **not** grant access to its linked project(s) — `resource_type` scopes `resource_shares` rows independently per resource, with no cascade between `cost_grid` and `project` shares.
 
 ---
 

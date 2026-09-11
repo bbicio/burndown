@@ -479,6 +479,10 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | SH-08 | Share list excludes admins and self | Open share modal; inspect search results | Admin users and the current logged-in user not shown in the dropdown | |
 | SH-09 | Share search filters by name/email | Type partial name or email in the search field | Dropdown filters to up to 10 matching users in real time (client-side on `_shareAllUsers`) | |
 | SH-10 | Viewer permission enforced — UI | Log in as viewer on a shared project/CG; open pipeline board, portfolio, project-config | Pipeline: Edit/Clone/Delete hidden on card and panel. Portfolio: on the project's detail page, Configure and Load Actuals absent (corrected 2026-09 — both live in the detail page's header action row, not on the list-view card). Project-config: sticky read-only banner; inputs disabled; save/edit buttons hidden | |
+| SH-11 | Inline share list — detail panel (2026-09) | Open a non-Draft proposal's sliding detail panel in pipeline.html | Left column shows owner name next to the version creation date, and a "👥 Shared with" list (name, email, permission badge) below it, without opening the Share modal | |
+| SH-12 | Inline share list — remove (2026-09) | From the detail panel's inline share list, click ✕ on a non-owner share | Share is removed immediately; row disappears from the inline list; owner row has no ✕ | |
+| SH-13 | Inline share list syncs with modal (2026-09) | Add or remove a share via 🔗 Share (`#shareModal`), then close the modal | Detail panel's inline share list reflects the change without a manual page reload | |
+| SH-14 | costgrid.html gains sharing UI (2026-09) | Open a non-Draft proposal in the full-page editor (costgrid.html) | Toolbar shows a working "🔗 Share" button (opens `#shareModal`); a new "Sharing" section between "Offer details" and "Cost Grid" shows owner name, version creation date, and the same inline share list with remove capability as SH-11/SH-12 | |
 
 ---
 

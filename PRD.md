@@ -774,7 +774,13 @@ The creator of a cost grid or project is its exclusive owner by default. Disabli
 
 Available from a cost grid's detail panel or a project's reporting view. Searches active, non-admin/non-sysadmin platform users by name or email (no free-text email invites — only existing accounts can be granted access). Grants Editor or Viewer access. Permission on an existing share can be changed at any time. Sharing sends the recipient a notification with a direct link to the shared resource.
 
-### 18.3 Viewer Enforcement
+### 18.3 Inline Share Visibility (2026-09)
+
+Both the pipeline board's sliding detail panel and the full-page proposal editor show, without needing to open the Share modal: the proposal owner's name, its (version's) creation date, and a "Shared with" list of everyone who has access, each with their permission badge. A non-owner share can be removed directly from this list. Adding a new share, or changing an existing share's permission, still requires the Share modal. The full-page proposal editor previously had no sharing controls at all — it now also has its own Share button, opening the same modal.
+
+Sharing a cost grid does not grant access to its linked project(s) — the two are independent grants; a project must be shared separately for someone to see it.
+
+### 18.4 Viewer Enforcement
 
 | Surface | Hidden for viewers |
 |---|---|
