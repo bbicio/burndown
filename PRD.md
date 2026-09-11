@@ -738,7 +738,9 @@ Available only on disabled, not-yet-anonymized users. Requires an explicit confi
 
 ### 16.5 Terms & Conditions Editor
 
-Moved out of `admin.html` (2026-09) to its own page — sysadmin-exclusive, reachable from a sysadmin-only navbar menu. Sysadmin can view the current version number and edit its HTML content. "Save draft" updates the content without changing the version (existing users are not re-prompted). "Publish new version" increments the version, which forces every user to re-accept on their next login (see §17.1).
+Moved out of `admin.html` (2026-09) to its own page — sysadmin-exclusive, reachable from a sysadmin-only navbar menu. Sysadmin can view the current draft's version number and edit its HTML content. "Save draft" saves the edit for later without publishing it — users are unaffected and never see an unsaved draft. "Publish new version" permanently records the current draft as a new version and increments the version number, which forces every user to re-accept on their next login (see §17.1).
+
+**Version history (2026-09):** every published version is retained permanently — publishing a new version never destroys the previous one's text, unlike before this change. A "Version History" list shows every past version (number, publish date, publisher); clicking a version opens its full text read-only. This exists primarily for record-keeping — being able to show exactly what text a given user accepted at a given time, which was not previously possible.
 
 ### 16.6 DB Reset
 

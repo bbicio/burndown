@@ -591,12 +591,17 @@ timesheets (
 | PATCH | /api/notifications/:id/read | ✅ | Mark one as read |
 | POST | /api/notifications | ✅ | Create notification(s); `userId` targets one user (any authenticated user), omit `userId` to broadcast to all (admin only); `channels: ['push','email']` selects delivery channel(s), default `['push']` |
 
-### App Settings
+### App Settings — Terms & Conditions (version history, 2026-09)
+
+`terms_versions` is a new, immutable, append-only table (`id`, `version` INTEGER UNIQUE, `content`, `published_at`, `published_by`) — application code never `UPDATE`s/`DELETE`s a row once inserted. `app_settings.terms_content`/`terms_version` (the old single-row storage) is repurposed as pure **draft** storage — never read by `terms.html`'s acceptance gate or by `GET /api/auth/me`'s `current_terms_version` after this change; both now read `MAX(terms_versions.version)`.
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | /api/app-settings/terms | ✅ | Returns `{ version, content, updatedAt, updatedBy }` — used by `terms.html` and the sysadmin editor (`_terms-editor.html`) |
-| PUT | /api/app-settings/terms | **sysadmin** | Save T&C content; `publishNewVersion: true` increments `terms_version` (forces all users to re-accept). Was `admin`-gated before 2026-09; editing UI moved from `admin.html` to `_terms-editor.html` in the same change |
+| GET | /api/app-settings/terms | ✅ | Returns `{ version, content, updatedAt, updatedBy }` for the **latest published** version (from `terms_versions`) — used by `terms.html`'s acceptance gate. Response shape unchanged from before this feature |
+| GET | /api/app-settings/terms/draft | **sysadmin** | The in-progress draft (`app_settings.terms_content`/`terms_version`), same response shape as above — what `_terms-editor.html` loads into its textarea |
+| GET | /api/app-settings/terms/versions | **sysadmin** | List of published versions, no `content` field: `[{ version, publishedAt, publishedBy }, ...]` DESC by version |
+| GET | /api/app-settings/terms/versions/:version | **sysadmin** | Full text of one past published version; 404 if unknown |
+| PUT | /api/app-settings/terms | **sysadmin** | `{ content, publishNewVersion }`. `false` writes only the draft (unaffected by `terms.html`). `true` additionally computes `newVersion = MAX(terms_versions.version)+1`, inserts a new immutable row, and syncs the draft to match. No transactional guard against a concurrent double-publish race — a pre-existing risk class carried over from the old single-row storage's identical read-then-increment race, explicitly descoped (`docs/superpowers/specs/2026-09-11-terms-version-history-design.md`) |
 
 ### Admin — Bulk Reset
 
@@ -811,7 +816,7 @@ burndown/
   terms.html              ← standalone T&C acceptance page (no initNav), Vue 3 (CDN, no build step, same pattern as login.html); shown by gate in initNav() when user.terms_version < current; loaded from /api/app-settings/terms; POST /api/auth/accept-terms on confirm
   login.html / activate.html / reset-password.html
   _db-reset.html          ← sysadmin-exclusive (2026-09, was admin-only) hidden page for bulk DB data deletion by scope, Vue 3 (CDN, no build step, same pattern as admin.html), linked from the sysadmin-only navbar menu (initNav('dbreset', ...))
-  _terms-editor.html      ← sysadmin-exclusive (2026-09) hidden page — Terms & Conditions editor (view version, edit HTML, save draft / publish new version), moved out of admin.html; linked from the sysadmin-only navbar menu (initNav('termseditor', ...))
+  _terms-editor.html      ← sysadmin-exclusive (2026-09) hidden page — Terms & Conditions editor (view version, edit HTML, save draft / publish new version), moved out of admin.html; linked from the sysadmin-only navbar menu (initNav('termseditor', ...)); loads the draft (GET /terms/draft) separately from the published version, browses immutable version history (GET /terms/versions, /versions/:version) — see §5's App Settings section
   nginx.conf              ← denies dev-only toolchain artifacts (node_modules/, package.json, package-lock.json,
                             vitest.config.js, *.test.js, *.spec.js) even though it bind-mounts the repo root
   docker-compose.yml
@@ -937,6 +942,7 @@ Current migrations:
 - `015_app_settings.sql` — creates `app_settings` key/value table; seeds `terms_version` (1) and `terms_content` (default HTML notice)
 - `017_task_names_direct.sql` — adds `task_names_direct JSONB NOT NULL DEFAULT '[]'::jsonb` to `cg_version_projects`; backfills from `project_tasks` name matching
 - `018_sysadmin_role.sql` — widens `users.role`'s CHECK constraint to add `sysadmin` as a third value; no backfill
+- `019_terms_versions.sql` — new immutable, append-only `terms_versions` table; backfills one row from the then-current `app_settings.terms_content`/`terms_version` (the only text still recoverable)
 
 ---
 

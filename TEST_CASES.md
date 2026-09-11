@@ -536,8 +536,20 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | TE-02 | Editor loads | Open `/_terms-editor.html` as sysadmin | Version number, last updated info, textarea with HTML content, Preview/Save draft/Publish buttons visible | |
 | TE-03 | Save draft | Edit textarea → click Save draft | Content saved; version number unchanged; existing users not re-prompted | |
 | TE-04 | Publish new version | Click Publish new version | Version number incremented; next login for every user shows terms.html before continuing | |
-| TE-05 | Load failure shows an error, not an infinite spinner | Simulate `GET /api/app-settings/terms` failing (e.g. network error) | `terms.msg` shows an error message; page does not hang on the loading spinner forever | |
+| TE-05 | Load failure shows an error, not an infinite spinner | Simulate `GET /api/app-settings/terms/draft` failing (e.g. network error) | `terms.msg` shows an error message; page does not hang on the loading spinner forever | |
 | TE-06 | PUT rejected for plain admin (API) | `PUT /api/app-settings/terms` as role=admin | 403 — was 200 before 2026-09 | |
+
+### 17a.1 Version history (2026-09)
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| TE-07 | Draft save does not affect the published gate | Edit the textarea → Save draft → open `/terms.html` (or `GET /api/app-settings/terms`) in a separate session | `terms.html` still shows the **previously published** text, unaffected by the unsaved draft edit — this is the behavior this cycle exists to fix | ✓ |
+| TE-08 | Publish creates a new immutable version | Click Publish new version | `terms.html`/`GET /terms` now reflects the new text; "Version History" list gains a new row (newest first); version number increments | ✓ |
+| TE-09 | Publishing does not alter earlier versions | After TE-08, click "👁 View" on the previous (now second-newest) version in the history list | Shows the exact original text, unaffected by the later publish or by any draft edits made in between | ✓ |
+| TE-10 | Version History list | Open `/_terms-editor.html` as sysadmin | "📜 Version History" card lists every published version with version number, publish date, publisher | |
+| TE-11 | View a past version | Click "👁 View" on any row in the Version History list | Read-only modal opens showing that version's full text, plus version/date/publisher header; "Close" dismisses it | |
+| TE-12 | View error is visible, not silent | Trigger a failed `GET /api/app-settings/terms/versions/:version` (e.g. a version deleted between page load and click — API-level test) | The version-view modal opens and shows an error message, rather than the click doing nothing visible | |
+| TE-13 | Sysadmin-only version-history endpoints reject a plain admin | `GET /api/app-settings/terms/versions` and `GET /api/app-settings/terms/versions/:version` and `GET /api/app-settings/terms/draft` as role=admin | 403 on all three | ✓ |
 
 ---
 
