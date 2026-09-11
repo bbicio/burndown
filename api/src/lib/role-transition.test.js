@@ -43,3 +43,10 @@ test('roleChangeError: sysadmin actor can still perform ordinary user<->admin ch
   assert.equal(roleChangeError('sysadmin', 'user', 'admin'), null);
   assert.equal(roleChangeError('sysadmin', 'admin', 'user'), null);
 });
+
+test('roleChangeError: even a sysadmin actor cannot demote a sysadmin straight to user (symmetric two-step rule)', () => {
+  assert.equal(
+    roleChangeError('sysadmin', 'sysadmin', 'user'),
+    'A sysadmin must first be demoted to admin before becoming a plain user'
+  );
+});

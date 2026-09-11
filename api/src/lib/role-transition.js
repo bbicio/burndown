@@ -9,6 +9,11 @@ function roleChangeError(actorRole, targetCurrentRole, requestedRole) {
   if (requestedRole === 'sysadmin' && targetCurrentRole !== 'admin') {
     return 'Only an admin can be promoted to sysadmin';
   }
+  // Symmetric with promotion: a sysadmin steps down through admin, never
+  // straight to user, in one call.
+  if (targetCurrentRole === 'sysadmin' && requestedRole !== 'sysadmin' && requestedRole !== 'admin') {
+    return 'A sysadmin must first be demoted to admin before becoming a plain user';
+  }
   return null;
 }
 

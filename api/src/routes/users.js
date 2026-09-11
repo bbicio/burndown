@@ -14,6 +14,17 @@ function sysAdminTargetError(actorRole, targetCurrentRole) {
   return null;
 }
 
+// requireAdmin (unlike requireSysAdmin) trusts the role claim baked into the
+// JWT at login time. That's fine for ordinary admin actions, but role/status/
+// anonymize mutations that touch a sysadmin account need the actor's *current*
+// privilege, not a stale one from up to 8h ago — an actor whose sysadmin
+// status was just revoked must not be able to keep granting/revoking it or
+// modifying other sysadmins on the strength of an old token.
+async function liveRole(userId) {
+  const { rows: [u] } = await query('SELECT role FROM users WHERE id = $1', [userId]);
+  return u ? u.role : null;
+}
+
 // GET /api/users/search?email=... — any authenticated user, for share-target lookup
 router.get('/search', requireAuth, async (req, res, next) => {
   try {
@@ -100,11 +111,13 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
 
     // A sysadmin row is only ever modifiable by another sysadmin — whatever
     // field the request is trying to change (status-only requests included).
-    const protErr = sysAdminTargetError(req.user.role, target.role);
+    // Use the actor's live role, not the JWT-cached one from requireAdmin.
+    const actorRole = await liveRole(req.user.id);
+    const protErr = sysAdminTargetError(actorRole, target.role);
     if (protErr) return res.status(403).json({ error: protErr });
 
     if (role) {
-      const roleErr = roleChangeError(req.user.role, target.role, role);
+      const roleErr = roleChangeError(actorRole, target.role, role);
       if (roleErr) return res.status(403).json({ error: roleErr });
     }
 
@@ -134,7 +147,8 @@ router.post('/:id/anonymize', requireAdmin, async (req, res, next) => {
     const { rows: [existing] } = await query('SELECT id, status, role FROM users WHERE id = $1', [req.params.id]);
     if (!existing) return res.status(404).json({ error: 'User not found' });
 
-    const protErr = sysAdminTargetError(req.user.role, existing.role);
+    const actorRole = await liveRole(req.user.id);
+    const protErr = sysAdminTargetError(actorRole, existing.role);
     if (protErr) return res.status(403).json({ error: protErr });
 
     const { rows: [updated] } = await query(
@@ -168,7 +182,8 @@ router.delete('/:id', requireAdmin, async (req, res, next) => {
     const { rows: [target] } = await query('SELECT role FROM users WHERE id = $1', [req.params.id]);
     if (!target) return res.status(404).json({ error: 'User not found' });
 
-    const protErr = sysAdminTargetError(req.user.role, target.role);
+    const actorRole = await liveRole(req.user.id);
+    const protErr = sysAdminTargetError(actorRole, target.role);
     if (protErr) return res.status(403).json({ error: protErr });
 
     const { rows } = await query(
