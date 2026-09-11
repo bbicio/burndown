@@ -1,6 +1,6 @@
 const express = require('express');
 const { query } = require('../db/client');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireSysAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -26,8 +26,8 @@ router.get('/terms', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PUT /api/app-settings/terms — admin only; bumps version when publishNewVersion=true
-router.put('/terms', requireAdmin, async (req, res, next) => {
+// PUT /api/app-settings/terms — sysadmin only; bumps version when publishNewVersion=true
+router.put('/terms', requireSysAdmin, async (req, res, next) => {
   try {
     const { content, publishNewVersion } = req.body;
     if (content === undefined) return res.status(400).json({ error: 'content is required' });

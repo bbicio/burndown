@@ -1,13 +1,8 @@
 const express = require('express');
 const { query } = require('../db/client');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
-
-function requireAdmin(req, res, next) {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin required' });
-  next();
-}
 
 // GET /api/pots/pipeline-summary?year=YYYY
 // Per-stage count + total budget value for the whole pipeline year (all users).

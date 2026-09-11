@@ -1,6 +1,7 @@
 const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { roleChangeError } = require('../lib/role-transition');
 
 const router = express.Router();
 
@@ -81,9 +82,16 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
       return res.status(400).json({ error: 'You cannot modify your own account' });
     }
 
-    const allowed = { role: ['admin', 'user'], status: ['active', 'disabled'] };
+    const allowed = { role: ['admin', 'user', 'sysadmin'], status: ['active', 'disabled'] };
     if (role && !allowed.role.includes(role)) return res.status(400).json({ error: 'Invalid role' });
     if (status && !allowed.status.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+
+    if (role) {
+      const { rows: [target] } = await query('SELECT role FROM users WHERE id = $1', [req.params.id]);
+      if (!target) return res.status(404).json({ error: 'User not found' });
+      const roleErr = roleChangeError(req.user.role, target.role, role);
+      if (roleErr) return res.status(403).json({ error: roleErr });
+    }
 
     const fields = [];
     const params = [];

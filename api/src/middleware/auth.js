@@ -13,11 +13,20 @@ function requireAuth(req, res, next) {
 
 function requireAdmin(req, res, next) {
   requireAuth(req, res, () => {
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'admin' && req.user.role !== 'sysadmin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
     next();
   });
 }
 
-module.exports = { requireAuth, requireAdmin };
+function requireSysAdmin(req, res, next) {
+  requireAuth(req, res, () => {
+    if (req.user.role !== 'sysadmin') {
+      return res.status(403).json({ error: 'Sysadmin access required' });
+    }
+    next();
+  });
+}
+
+module.exports = { requireAuth, requireAdmin, requireSysAdmin };
