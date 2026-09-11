@@ -31,27 +31,42 @@ The frontend migration to **Vue 3** (CDN, no build step) completed 2026-08-05 �
 
 ### 3.1 Roles
 
+Three tiers (2026-09, `018_sysadmin_role.sql` widened the `role` CHECK constraint from `('admin','user')`) — a sysadmin inherits every admin capability, plus two capabilities carved out of the plain admin tier:
+
 | Role | Description |
 |---|---|
-| `admin` | Full access to all data and configuration |
+| `sysadmin` | Everything `admin` has, plus exclusive access to `_db-reset.html` (bulk/targeted destructive DB operations) and Terms & Conditions editing (`_terms-editor.html`, `PUT /api/app-settings/terms`) |
+| `admin` | Full access to all data and configuration (see matrix below) — no longer includes DB Reset or T&C editing |
 | `user` | Scoped access — owns and sees only their own resources |
+
+No user is promoted to `sysadmin` automatically — the migration is a pure constraint widening with no backfill. The first sysadmin must be set directly via SQL (`UPDATE users SET role='sysadmin' WHERE ...`) or the `api/src/promote-sysadmin.js` CLI script; every subsequent promotion goes through `admin.html`'s "⬆ Grant sysadmin" toggle (sysadmin viewers only). Promotion is two-step by design: `user → admin` (any admin/sysadmin) then `admin → sysadmin` (sysadmin only) — never a direct `user → sysadmin` jump, and demotion mirrors it (`sysadmin → admin` only, never straight to `user`), enforced by `api/src/lib/role-transition.js`'s `roleChangeError()`.
+
+Backend authorization has two middleware tiers (`api/src/middleware/auth.js`): `requireAdmin` (`role === 'admin' || role === 'sysadmin'`, trusts the JWT's role claim for its full session lifetime — same JWT-caching behavior as before this change) and `requireSysAdmin` (`role === 'sysadmin'` exclusive, re-reads the role from the DB on every call rather than trusting the token — used only for `reset.js` and `PUT /api/app-settings/terms`, where an up-to-8h stale revocation window on irreversible bulk-deletion routes was judged unacceptable). A shared `isAdminRole(role)` helper (`api/src/lib/is-admin.js`) backs every route-local `role === 'admin'` check that isn't behind the `requireAdmin` middleware itself (cost-grids, projects, timesheets, exports, reporting, notifications, pipeline-years) — added after a live-verified gap where several such literals were missed by the initial sysadmin rollout, leaving a real sysadmin account unable to see any projects/grids/timesheets.
 
 ### 3.2 Permission Matrix
 
-| Action | Admin | User |
-|---|---|---|
-| Invite users | ✅ | ❌ |
-| Disable / re-enable users | ✅ | ❌ |
-| Manage clients | ✅ | read-only |
-| Manage programs | ✅ | read-only |
-| Manage roles + rates | ✅ | read-only |
-| View ratecards | ✅ | ✅ |
-| Create / edit / delete ratecards | ✅ | ❌ |
-| View all cost grids | ✅ | own + shared |
-| View all projects | ✅ | own + shared |
-| View all planning | ✅ | own + shared |
-| Share cost grid / project | ✅ | own only |
-| Upload timesheet | ✅ | own projects only |
+| Action | Sysadmin | Admin | User |
+|---|---|---|---|
+| Access DB Reset (`_db-reset.html`) | ✅ | ❌ | ❌ |
+| Edit/publish Terms & Conditions | ✅ | ❌ | ❌ |
+| Grant/revoke sysadmin | ✅ | ❌ | ❌ |
+| Invite users | ✅ | ✅ | ❌ |
+| Disable / re-enable users | ✅ | ✅ (not on a sysadmin account — see below) | ❌ |
+| Anonymize users | ✅ | ✅ (not on a sysadmin account) | ❌ |
+| Modify a sysadmin's role/status, or anonymize/disable them | ✅ | ❌ | ❌ |
+| Manage clients | ✅ | ✅ | read-only |
+| Manage programs | ✅ | ✅ | read-only |
+| Manage roles + rates | ✅ | ✅ | read-only |
+| View ratecards | ✅ | ✅ | ✅ |
+| Create / edit / delete ratecards | ✅ | ✅ | ❌ |
+| View all cost grids | ✅ | ✅ | own + shared |
+| View all projects | ✅ | ✅ | own + shared |
+| View all planning | ✅ | ✅ | own + shared |
+| Share cost grid / project | ✅ | ✅ | own only |
+| Upload timesheet | ✅ | ✅ | own projects only |
+| Broadcast notification | ✅ | ✅ | ❌ |
+
+"Modify a sysadmin" mutations (`PATCH /api/users/:id`, `POST /:id/anonymize`, `DELETE /:id`) are guarded by `sysAdminTargetError()` (`api/src/routes/users.js`), checked against the actor's *live* DB role (not the JWT-cached one `requireAdmin` reads elsewhere) — closing the same stale-token window `requireSysAdmin` closes for the DB-wipe routes, applied here because these routes can also grant/revoke sysadmin itself.
 
 ### 3.3 Ownership and Sharing
 
@@ -160,7 +175,7 @@ users (
   email             VARCHAR UNIQUE NOT NULL,
   first_name        VARCHAR NOT NULL,
   last_name         VARCHAR NOT NULL,
-  role              VARCHAR NOT NULL CHECK (role IN ('admin','user')),
+  role              VARCHAR NOT NULL CHECK (role IN ('admin','user','sysadmin')),  -- 018_sysadmin_role.sql
   status            VARCHAR NOT NULL DEFAULT 'pending'
                     CHECK (status IN ('pending','active','disabled')),
   password_hash     VARCHAR,
@@ -454,9 +469,9 @@ timesheets (
 | GET | /api/users/active-list | ✅ | List of all active users (id/email/firstName/lastName/role) — used by share modal and notification target picker; returns `role` so frontend can filter out admins |
 | GET | /api/users | admin | List all users |
 | GET | /api/users/:id | admin | Get user detail |
-| PATCH | /api/users/:id | admin | Update role or status |
-| DELETE | /api/users/:id | admin | Disable user (soft delete) |
-| POST | /api/users/:id/anonymize | admin | Permanently replace personal data with anonymous values (name → "[Deleted] User", email → `anon_<uuid>@deleted.local`); clears password hash and tokens; preserves operational records |
+| PATCH | /api/users/:id | admin* | Update role or status. `role` accepts `admin`/`user`/`sysadmin` (2026-09) subject to `roleChangeError()`'s two-step promotion/demotion rules. *Mutating a target already `role='sysadmin'` — any field — additionally requires the actor to be sysadmin (`sysAdminTargetError()`, live DB role) |
+| DELETE | /api/users/:id | admin* | Disable user (soft delete). *Same sysadmin-target protection as PATCH above |
+| POST | /api/users/:id/anonymize | admin* | Permanently replace personal data with anonymous values (name → "[Deleted] User", email → `anon_<uuid>@deleted.local`); clears password hash and tokens; preserves operational records. *Same sysadmin-target protection as PATCH above |
 
 ### Configuration
 
@@ -580,19 +595,19 @@ timesheets (
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | /api/app-settings/terms | ✅ | Returns `{ version, content, updatedAt, updatedBy }` — used by `terms.html` and admin editor |
-| PUT | /api/app-settings/terms | admin | Save T&C content; `publishNewVersion: true` increments `terms_version` (forces all users to re-accept) |
+| GET | /api/app-settings/terms | ✅ | Returns `{ version, content, updatedAt, updatedBy }` — used by `terms.html` and the sysadmin editor (`_terms-editor.html`) |
+| PUT | /api/app-settings/terms | **sysadmin** | Save T&C content; `publishNewVersion: true` increments `terms_version` (forces all users to re-accept). Was `admin`-gated before 2026-09; editing UI moved from `admin.html` to `_terms-editor.html` in the same change |
 
 ### Admin — Bulk Reset
 
-Scopes: `proposals`, `projects`, `clients`, `ratecards`, `actuals`, `pipelines`, `notifications`. Each runs inside a DB transaction.
+Scopes: `proposals`, `projects`, `clients`, `ratecards`, `actuals`, `pipelines`, `notifications`. Each runs inside a DB transaction. All four endpoints below were `admin`-gated before 2026-09; now **sysadmin**-exclusive (`requireSysAdmin`, re-reads role from the DB rather than trusting the JWT — see §3.1).
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | /api/admin/reset/scopes | admin | List all available scopes with human-readable labels |
-| POST | /api/admin/reset/:scope | admin | Delete all data for the given scope; returns `{ ok, scope, deleted }` |
-| POST | /api/admin/reset/cost-grid/:cgId | admin | Delete one cost grid + all its versions + linked projects (transactional); 404 on unknown cgId |
-| PATCH | /api/admin/reset/cost-grid/:cgId/owner | admin | Reassign cost grid `owner_id` to an active user; body: `{ ownerId }`; 400 if `ownerId` missing; 404 if cgId or userId unknown |
+| GET | /api/admin/reset/scopes | **sysadmin** | List all available scopes with human-readable labels |
+| POST | /api/admin/reset/:scope | **sysadmin** | Delete all data for the given scope; returns `{ ok, scope, deleted }` |
+| POST | /api/admin/reset/cost-grid/:cgId | **sysadmin** | Delete one cost grid + all its versions + linked projects (transactional); 404 on unknown cgId |
+| PATCH | /api/admin/reset/cost-grid/:cgId/owner | **sysadmin** | Reassign cost grid `owner_id` to an active user; body: `{ ownerId }`; 400 if `ownerId` missing; 404 if cgId or userId unknown |
 
 ---
 
@@ -660,10 +675,11 @@ burndown/
                             disambiguates day/month order (unambiguous when one value is >12; falls back to the
                             source's known MM/DD convention only when genuinely ambiguous), validates the result
                             against real calendar/leap-year arithmetic, throws on an invalid date
-      middleware/         ← auth guard (requireAuth, requireAdmin)
+      middleware/         ← auth guard (requireAuth, requireAdmin, requireSysAdmin — see §3.1)
       db/                 ← PostgreSQL pool client, migrations/
       services/           ← email (nodemailer), jwt
-      create-admin.js     ← CLI bootstrap: create/reset admin user
+      create-admin.js     ← CLI bootstrap: create/reset admin user (always role='admin')
+      promote-sysadmin.js ← CLI: promote an existing user to role='sysadmin'
     Dockerfile
     package.json
   css/
@@ -791,10 +807,11 @@ burndown/
                             (spaces→`-`, filesystem-unsafe characters stripped)
   config.html             ← admin config (clients, programs, roles, pipelines & POTs); Role edit form shows per-currency rate fields populated from `rateOverrides`; "Proposal Phasing" view (was "Phasing") excludes Canceled/Draft stages; monthly cells show local amount + EUR equivalent for non-EUR proposals; `phasingTableHtml` adds Total column and removes collapsible detail; `openClientRatecard` fixed filter and shows agency default per-currency placeholder
   project-config.html     ← full-page project config form, Vue 3 (CDN, no build step, same pattern as admin.html); manages a single reactive project object (not an array — the original's hidden multi-project dropdown/New/Delete machinery was confirmed dead on this page); unknown ?projectId= shows an explicit not-found state
-  admin.html              ← user management; "🗑 Anonymize" button on disabled non-anonymized users; T&C editor (admin: view version, edit HTML, save draft / publish new version)
+  admin.html              ← user management; "🗑 Anonymize" button on disabled non-anonymized users; role toggle (admin↔user) + sysadmin grant/revoke toggle (sysadmin viewers only). T&C editor moved out (2026-09) to _terms-editor.html
   terms.html              ← standalone T&C acceptance page (no initNav), Vue 3 (CDN, no build step, same pattern as login.html); shown by gate in initNav() when user.terms_version < current; loaded from /api/app-settings/terms; POST /api/auth/accept-terms on confirm
   login.html / activate.html / reset-password.html
-  _db-reset.html          ← admin-only hidden page for bulk DB data deletion by scope, Vue 3 (CDN, no build step, same pattern as admin.html), now with navbar (initNav(null, ...), no nav-tab entry)
+  _db-reset.html          ← sysadmin-exclusive (2026-09, was admin-only) hidden page for bulk DB data deletion by scope, Vue 3 (CDN, no build step, same pattern as admin.html), linked from the sysadmin-only navbar menu (initNav('dbreset', ...))
+  _terms-editor.html      ← sysadmin-exclusive (2026-09) hidden page — Terms & Conditions editor (view version, edit HTML, save draft / publish new version), moved out of admin.html; linked from the sysadmin-only navbar menu (initNav('termseditor', ...))
   nginx.conf              ← denies dev-only toolchain artifacts (node_modules/, package.json, package-lock.json,
                             vitest.config.js, *.test.js, *.spec.js) even though it bind-mounts the repo root
   docker-compose.yml
@@ -919,6 +936,7 @@ Current migrations:
 - `014_terms_accepted.sql` — adds `terms_version INTEGER` and `terms_accepted_at TIMESTAMPTZ` to `users` for T&C acceptance tracking
 - `015_app_settings.sql` — creates `app_settings` key/value table; seeds `terms_version` (1) and `terms_content` (default HTML notice)
 - `017_task_names_direct.sql` — adds `task_names_direct JSONB NOT NULL DEFAULT '[]'::jsonb` to `cg_version_projects`; backfills from `project_tasks` name matching
+- `018_sysadmin_role.sql` — widens `users.role`'s CHECK constraint to add `sysadmin` as a third value; no backfill
 
 ---
 

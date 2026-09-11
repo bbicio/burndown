@@ -10,7 +10,7 @@
 
 PDash is a multi-user web application for project portfolio management. It is designed for consulting and professional services teams who need to track commercial offers, plan resources, and monitor budget consumption across multiple projects.
 
-The app is backed by a Node.js/Express REST API and a PostgreSQL database, with JWT-based authentication and role-based access control — two account roles (admin/user) plus per-resource sharing permissions (owner/editor/viewer) govern what each user can see and do (see §15–18). The frontend is Vanilla JS with no build step; each view is a separate HTML page.
+The app is backed by a Node.js/Express REST API and a PostgreSQL database, with JWT-based authentication and role-based access control — three account roles (sysadmin/admin/user, sysadmin added 2026-09) plus per-resource sharing permissions (owner/editor/viewer) govern what each user can see and do (see §15–18). The frontend is Vanilla JS with no build step; each view is a separate HTML page.
 
 ---
 
@@ -488,7 +488,7 @@ Clicking an export button triggers a server-side CSV generation; the file is sen
 
 #### Send Notification
 
-Any authenticated user can compose and send a notification to a specific colleague; broadcasting to all active users is admin-only. Delivery channel is selectable — Push (in-app), Email, or both (at least one required). Supports an optional deep-link URL (e.g. `/pipeline.html`, `/costgrid.html?cgId=...`) with a custom label.
+Any authenticated user can compose and send a notification to a specific colleague; broadcasting to all active users is admin/sysadmin-only. Delivery channel is selectable — Push (in-app), Email, or both (at least one required). Supports an optional deep-link URL (e.g. `/pipeline.html`, `/costgrid.html?cgId=...`) with a custom label.
 
 ---
 
@@ -517,7 +517,7 @@ Clicking a notification marks it as read and navigates to the linked URL if pres
 | Trigger | Description |
 |---|---|
 | Export ready | Sent automatically when a CSV export is requested (currently delivered via email; in-app notification planned) |
-| Sent notification | Any user composes a message targeting a specific colleague; broadcast to all users is admin-only |
+| Sent notification | Any user composes a message targeting a specific colleague; broadcast to all users is admin/sysadmin-only |
 | Share | When a cost grid or project is shared with you |
 
 ---
@@ -690,7 +690,7 @@ Clears the session cookie and returns the user to the login page.
 
 ## 16. User Administration
 
-Accessed via `admin.html`, admin-only.
+Accessed via `admin.html`, admin or sysadmin.
 
 ### 16.1 User List
 
@@ -698,37 +698,51 @@ All users, filterable by status (Active / Pending / Disabled); each row shows ro
 
 ### 16.2 Roles & Permissions
 
+Three tiers (2026-09) — `sysadmin` sits above `admin` and inherits every admin capability, plus two exclusives carved out of the plain admin tier:
+
 | Role | Description |
 |---|---|
-| `admin` | Full access to all data and configuration |
+| `sysadmin` | Everything `admin` has, plus exclusive access to the DB Reset page (§16.6) and Terms & Conditions editing (§16.5) |
+| `admin` | Full access to all data and configuration — no longer includes DB Reset or T&C editing |
 | `user` | Scoped access — owns and sees only their own resources |
 
-| Action | Admin | User |
-|---|---|---|
-| Invite users | ✅ | ❌ |
-| Disable / re-enable users | ✅ | ❌ |
-| Manage clients | ✅ | read-only |
-| Manage programs | ✅ | read-only |
-| Manage roles + rates | ✅ | read-only |
-| View ratecards | ✅ | ✅ |
-| Create / edit / delete ratecards | ✅ | ❌ |
-| View all cost grids | ✅ | own + shared |
-| View all projects | ✅ | own + shared |
-| View all planning | ✅ | own + shared |
-| Share cost grid / project | ✅ | own only |
-| Upload timesheet | ✅ | own projects only |
+No account starts as sysadmin; the first one is set up outside the product (direct DB action). Every promotion after that goes through §16.3's toggle.
+
+| Action | Sysadmin | Admin | User |
+|---|---|---|---|
+| Access DB Reset page | ✅ | ❌ | ❌ |
+| Edit/publish Terms & Conditions | ✅ | ❌ | ❌ |
+| Grant/revoke sysadmin | ✅ | ❌ | ❌ |
+| Invite users | ✅ | ✅ | ❌ |
+| Disable / re-enable users | ✅ | ✅ (not on a sysadmin account) | ❌ |
+| Anonymize users | ✅ | ✅ (not on a sysadmin account) | ❌ |
+| Manage clients | ✅ | ✅ | read-only |
+| Manage programs | ✅ | ✅ | read-only |
+| Manage roles + rates | ✅ | ✅ | read-only |
+| View ratecards | ✅ | ✅ | ✅ |
+| Create / edit / delete ratecards | ✅ | ✅ | ❌ |
+| View all cost grids | ✅ | ✅ | own + shared |
+| View all projects | ✅ | ✅ | own + shared |
+| View all planning | ✅ | ✅ | own + shared |
+| Share cost grid / project | ✅ | ✅ | own only |
+| Upload timesheet | ✅ | ✅ | own projects only |
+| Broadcast notification | ✅ | ✅ | ❌ |
 
 ### 16.3 Role & Status Actions
 
-Make a user admin or user; disable or re-enable an account. An admin cannot change their own role or status — their own row shows "(you)" instead of action buttons.
+Make a user admin or user (any admin/sysadmin can do this). Grant or revoke sysadmin (sysadmin viewers only, and only on an admin/sysadmin row — never directly on a `user` row: promotion is two-step, `user → admin` then `admin → sysadmin`; demotion mirrors it, `sysadmin → admin` then `admin → user`, never a direct jump in either direction). Disable or re-enable an account. No one can change their own role or status — their own row shows "(you)" instead of action buttons. A sysadmin account can only be modified — role, status, or anonymized — by another sysadmin; a plain admin sees no action buttons at all on a sysadmin's row.
 
 ### 16.4 Anonymize
 
-Available only on disabled, not-yet-anonymized users. Requires an explicit confirmation describing what will change. Replaces the user's email and name with anonymized placeholders; their operational data (cost grids, projects) is preserved, only the identity is scrubbed. An admin cannot anonymize their own account.
+Available only on disabled, not-yet-anonymized users. Requires an explicit confirmation describing what will change. Replaces the user's email and name with anonymized placeholders; their operational data (cost grids, projects) is preserved, only the identity is scrubbed. No one can anonymize their own account, and (per §16.3) a plain admin cannot anonymize a sysadmin.
 
 ### 16.5 Terms & Conditions Editor
 
-Admin can view the current version number and edit its HTML content. "Save draft" updates the content without changing the version (existing users are not re-prompted). "Publish new version" increments the version, which forces every user to re-accept on their next login (see §17.1).
+Moved out of `admin.html` (2026-09) to its own page — sysadmin-exclusive, reachable from a sysadmin-only navbar menu. Sysadmin can view the current version number and edit its HTML content. "Save draft" updates the content without changing the version (existing users are not re-prompted). "Publish new version" increments the version, which forces every user to re-accept on their next login (see §17.1).
+
+### 16.6 DB Reset
+
+Sysadmin-exclusive hidden page (was admin-only before 2026-09) for bulk/targeted destructive DB operations — reset by scope, delete a single proposal, or reassign a proposal's owner. Reachable from the same sysadmin-only navbar menu as §16.5.
 
 ---
 
@@ -756,7 +770,7 @@ The creator of a cost grid or project is its exclusive owner by default. Disabli
 
 ### 18.2 Share Modal
 
-Available from a cost grid's detail panel or a project's reporting view. Searches active, non-admin platform users by name or email (no free-text email invites — only existing accounts can be granted access). Grants Editor or Viewer access. Permission on an existing share can be changed at any time. Sharing sends the recipient a notification with a direct link to the shared resource.
+Available from a cost grid's detail panel or a project's reporting view. Searches active, non-admin/non-sysadmin platform users by name or email (no free-text email invites — only existing accounts can be granted access). Grants Editor or Viewer access. Permission on an existing share can be changed at any time. Sharing sends the recipient a notification with a direct link to the shared resource.
 
 ### 18.3 Viewer Enforcement
 

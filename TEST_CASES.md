@@ -364,9 +364,28 @@
 | AD-15 | Anonymize — result | Confirm anonymization | User row shows email `anon_<uuid>@deleted.local`; name "[Deleted] User"; "anonymized" badge shown; no Anonymize button | |
 | AD-16 | Anonymize — operational data intact | Anonymize a user who owned cost grids | Cost grids still appear on pipeline board; proposals not deleted | |
 | AD-17 | Anonymize — cannot anonymize self | API call `POST /api/users/<own-id>/anonymize` | 400 "You cannot anonymize your own account" | |
-| AD-18 | T&C editor visible to admin | Open admin.html → scroll to Terms & Conditions section | Version number, last updated info, textarea with HTML content, Save draft + Publish buttons visible | |
-| AD-19 | Save T&C draft | Edit T&C textarea → click Save draft | Content saved; version number unchanged; existing users not re-prompted | |
-| AD-20 | Publish new T&C version | Click Publish new version | Version number incremented; next login for every user shows terms.html before continuing | |
+| AD-18 | T&C editor removed from admin.html (2026-09) | Open admin.html | No Terms & Conditions section — moved to `_terms-editor.html` (sysadmin-exclusive, see §17a) | |
+
+### 11a. Sysadmin role (2026-09)
+
+Third tier above `admin` — sysadmin inherits every admin capability, plus two exclusives carved out of the plain admin tier (DB Reset §17, Terms & Conditions §17a). No user starts as sysadmin (`018_sysadmin_role.sql` has no backfill); first promotion is manual (SQL or `promote-sysadmin.js`), every one after that via the toggle below.
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| AD-21 | Base role toggle hidden on sysadmin row | View a row with role=sysadmin, as any viewer (admin or sysadmin) | No "Make admin"/"Make user" button on that row | |
+| AD-22 | Grant sysadmin toggle — visible only to sysadmin viewer | View an admin row as a plain-admin viewer, then as a sysadmin viewer | Plain admin: no "⬆ Grant sysadmin" button. Sysadmin: button visible | |
+| AD-23 | Grant sysadmin toggle — hidden on user rows | View a role=user row as a sysadmin viewer | No grant/revoke sysadmin button (two-step: user→admin first, then admin→sysadmin) | |
+| AD-24 | Grant sysadmin | As sysadmin, click "⬆ Grant sysadmin" on an admin row | Role → sysadmin; badge turns red "sysadmin"; row's base toggle disappears; row now shows "⬇ Revoke sysadmin" | |
+| AD-25 | Revoke sysadmin | As sysadmin, click "⬇ Revoke sysadmin" on a sysadmin row | Role → admin; base toggle reappears | |
+| AD-26 | Direct promotion to sysadmin rejected | API call `PATCH /api/users/:id { role: 'sysadmin' }` where target is currently role=user | 400/403 "Only an admin can be promoted to sysadmin" — two-step rule enforced server-side even if the UI path is bypassed | ✓ |
+| AD-27 | Direct demotion to user rejected | API call `PATCH /api/users/:id { role: 'user' }` where target is currently role=sysadmin | 403 "A sysadmin must first be demoted to admin before becoming a plain user" | ✓ |
+| AD-28 | Plain admin cannot grant/revoke sysadmin | API call `PATCH /api/users/:id { role: 'sysadmin' }` (or reverse) as role=admin | 403 "Only a sysadmin can grant or revoke sysadmin" | ✓ |
+| AD-29 | Plain admin cannot disable a sysadmin | Click Disable on a sysadmin row as a plain-admin viewer | Disable/Enable/Anonymize buttons not rendered on that row for a plain-admin viewer | |
+| AD-30 | Plain admin cannot disable a sysadmin (API) | API call `PATCH /api/users/:id { status: 'disabled' }` where target is sysadmin, actor is admin | 403 "Only a sysadmin can modify another sysadmin" — enforced even for a status-only request with no `role` field | |
+| AD-31 | Plain admin cannot anonymize a sysadmin (API) | API call `POST /api/users/:id/anonymize` where target is sysadmin, actor is admin | 403 "Only a sysadmin can modify another sysadmin" | |
+| AD-32 | Sysadmin cannot self-modify | View own row as sysadmin | No toggle/action buttons — "(you)" label shown, same as any other role (pre-existing self-exclusion, unaffected) | |
+| AD-33 | Revoking sysadmin takes effect immediately on DB Reset/Terms routes | As sysadmin B, revoke sysadmin A's role while A has an active session; A (still on old session) requests `GET /api/admin/reset/scopes` | 403 — `requireSysAdmin` re-reads the role from the DB rather than trusting A's JWT, so the revocation is effective immediately on these two sysadmin-exclusive route groups (not delayed up to the JWT's 8h lifetime, unlike ordinary `requireAdmin`-gated routes) | |
+| AD-34 | Sysadmin sees every admin-gated page and action | Log in as sysadmin; visit Config, Actuals Repository, User Admin; open Send Notification | All three admin nav tabs present and functional; broadcast option present in Send Notification — sysadmin is a strict superset of admin everywhere except the two exclusives | |
 
 ---
 
@@ -480,27 +499,45 @@
 
 ## 17. DB Reset (`_db-reset.html`)
 
-Admin-only hidden page for bulk data deletion by scope.
+**Sysadmin-exclusive** hidden page for bulk data deletion by scope (2026-09 — was admin-only; narrowed as one of two privileges carved out of the plain admin tier, alongside Terms & Conditions editing — see §11a).
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
-| DR-01 | Page access — non-admin | Navigate to `/_db-reset.html` as role=user | Navbar renders normally; page body shows "Access denied — admin only" alert in place of the reset cards | |
-| DR-02 | Scopes listed | Open `/_db-reset.html` as admin | All 7 scopes displayed: Proposals, Projects, Clients & Client Groups, Client Ratecards, Actuals, Pipeline Years & POTs, Notifications | |
+| DR-01 | Page access — non-sysadmin | Navigate to `/_db-reset.html` as role=user or role=admin | Navbar renders normally; page body shows "Access denied — sysadmin only" alert in place of the reset cards | |
+| DR-02 | Scopes listed | Open `/_db-reset.html` as sysadmin | All 7 scopes displayed: Proposals, Projects, Clients & Client Groups, Client Ratecards, Actuals, Pipeline Years & POTs, Notifications | |
 | DR-03 | Reset proposals | Click Reset → Proposals → confirm | All cost grids + versions deleted; board shows empty | |
 | DR-04 | Reset actuals | Click Reset → Actuals → confirm | Timesheet table emptied; portfolio KPIs show 0 actuals | |
-| DR-05 | Unknown scope | POST `/api/admin/reset/nonexistent` | 400 "Unknown scope" | |
-| DR-06 | Non-admin API call | POST `/api/admin/reset/proposals` as role=user | 403 | |
+| DR-05 | Unknown scope | POST `/api/admin/reset/nonexistent` as sysadmin | 400 "Unknown scope" | |
+| DR-06 | Non-authenticated API call | POST `/api/admin/reset/proposals` with no cookie | 401 | |
+| DR-06b | Plain-admin API call rejected | POST `/api/admin/reset/proposals` as role=admin (not sysadmin) | 403 "Sysadmin access required" — an admin who could do this before 2026-09 can no longer | ✓ |
 | DR-07 | Reset notifications | Click Reset → Notifications → confirm | `notifications` table emptied for all users; bell badge clears on reload | |
-| DR-08 | Delete single proposal widget — admin only | Navigate to `/_db-reset.html` as non-admin | Widget is not rendered until admin check passes; entering a UUID and clicking delete is impossible for non-admins | |
+| DR-08 | Delete single proposal widget — sysadmin only | Navigate to `/_db-reset.html` as non-sysadmin (user or admin) | Widget is not rendered until sysadmin check passes; entering a UUID and clicking delete is impossible for non-sysadmins | |
 | DR-09 | Delete single proposal widget — confirmation | Enter a valid cost grid UUID in the "Delete single proposal" widget; click Delete | Confirmation prompt appears before deletion | |
-| DR-10 | Delete single proposal widget — cascade | Confirm deletion of a cost grid that has linked projects and resource shares | Cost grid, all versions, linked projects, and resource_shares deleted in a transaction; board no longer shows the grid | |
-| DR-11 | Delete single proposal widget — unknown UUID | Enter a random UUID that does not exist in the DB | API returns 404; error message shown in widget; no data changed | |
-| DR-12 | Change owner widget — admin only | Navigate to `/_db-reset.html` as non-admin | Widget is hidden; `GET /api/auth/me` admin check gates visibility | |
-| DR-13 | Change owner widget — dropdown populated | Open `/_db-reset.html` as admin; inspect the "Change proposal owner" widget | Dropdown lists all active non-admin users fetched from `GET /api/users/active-list` | |
-| DR-14 | Change owner widget — success | Enter a valid cost grid UUID; select a user from dropdown; click Assign | `owner_id` updated in DB; success message shown in widget | |
-| DR-15 | Change owner widget — unknown UUID | Enter a UUID that does not match any cost grid; click Assign | API returns 404; error message shown; no change made | |
+| DR-10 | Delete single proposal widget — cascade | Confirm deletion of a cost grid that has linked projects and resource shares | Cost grid, all versions, linked projects, and resource_shares deleted in a transaction; board no longer shows the grid | ✓ |
+| DR-10b | Delete single proposal — plain admin rejected | POST `/api/admin/reset/cost-grid/:cgId` as role=admin | 403 "Sysadmin access required" | ✓ |
+| DR-11 | Delete single proposal widget — unknown UUID | Enter a random UUID that does not exist in the DB (as sysadmin) | API returns 404; error message shown in widget; no data changed | ✓ |
+| DR-12 | Change owner widget — sysadmin only | Navigate to `/_db-reset.html` as non-sysadmin | Widget is hidden; `GET /api/auth/me` sysadmin check gates visibility | |
+| DR-13 | Change owner widget — dropdown populated | Open `/_db-reset.html` as sysadmin; inspect the "Change proposal owner" widget | Dropdown lists all active non-admin/non-sysadmin users fetched from `GET /api/users/active-list` | |
+| DR-14 | Change owner widget — success | Enter a valid cost grid UUID; select a user from dropdown; click Assign (as sysadmin) | `owner_id` updated in DB; success message shown in widget | ✓ |
+| DR-14b | Change owner — plain admin rejected | PATCH `/api/admin/reset/cost-grid/:cgId/owner` as role=admin | 403 "Sysadmin access required" | ✓ |
+| DR-15 | Change owner widget — unknown UUID | Enter a UUID that does not match any cost grid; click Assign (as sysadmin) | API returns 404; error message shown; no change made | ✓ |
 | SEC-09 | JWT cookie not accessible from JavaScript (`document.cookie`) | `pdash_token` value not listed — httpOnly flag prevents JS access | |
 | SEC-10 | Non-admin can read ratecards | Log in as `user` role; GET /api/ratecards and GET /api/ratecards/:id | 200 — read access is requireAuth; POST/PATCH/DELETE still return 403 (unauthenticated write → 401 checked in auto suite) | |
+
+---
+
+## 17a. Terms & Conditions Editor (`_terms-editor.html`)
+
+**Sysadmin-exclusive** hidden page (2026-09) — moved out of `admin.html`, which no longer has this card. Same content/behavior as the former in-page card, just on its own page with its own gate.
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| TE-01 | Page access — non-sysadmin | Navigate to `/_terms-editor.html` as role=user or role=admin | "Access denied — sysadmin only" alert; no editor shown | |
+| TE-02 | Editor loads | Open `/_terms-editor.html` as sysadmin | Version number, last updated info, textarea with HTML content, Preview/Save draft/Publish buttons visible | |
+| TE-03 | Save draft | Edit textarea → click Save draft | Content saved; version number unchanged; existing users not re-prompted | |
+| TE-04 | Publish new version | Click Publish new version | Version number incremented; next login for every user shows terms.html before continuing | |
+| TE-05 | Load failure shows an error, not an infinite spinner | Simulate `GET /api/app-settings/terms` failing (e.g. network error) | `terms.msg` shows an error message; page does not hang on the loading spinner forever | |
+| TE-06 | PUT rejected for plain admin (API) | `PUT /api/app-settings/terms` as role=admin | 403 — was 200 before 2026-09 | |
 
 ---
 
