@@ -19,7 +19,7 @@ function openSettingsModal() {
   }
 
   // Show/hide admin-only elements
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = ['admin', 'sysadmin'].includes(user?.role);
   document.querySelectorAll('.stg-admin-only').forEach(el => {
     el.style.display = isAdmin ? '' : 'none';
   });

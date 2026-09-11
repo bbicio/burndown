@@ -1,6 +1,7 @@
 const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
+const { isAdminRole } = require('../lib/is-admin');
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ function projectsVisibilitySql(isAdmin, paramIndex) {
 // GET /api/reporting/pipeline
 router.get('/pipeline', requireAuth, async (req, res, next) => {
   try {
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = isAdminRole(req.user.role);
     const vis = projectsVisibilitySql(isAdmin, 1);
     const params = isAdmin ? [] : [req.user.id];
 
@@ -73,7 +74,7 @@ router.get('/pipeline', requireAuth, async (req, res, next) => {
 // GET /api/reporting/portfolio
 router.get('/portfolio', requireAuth, async (req, res, next) => {
   try {
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = isAdminRole(req.user.role);
     const vis = projectsVisibilitySql(isAdmin, 1);
     const params = isAdmin ? [] : [req.user.id];
 
@@ -121,7 +122,7 @@ router.get('/portfolio', requireAuth, async (req, res, next) => {
 // GET /api/reporting/projects/:id
 router.get('/projects/:id', requireAuth, async (req, res, next) => {
   try {
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = isAdminRole(req.user.role);
     if (!isAdmin) {
       const { rows: access } = await query(
         `SELECT 1 FROM projects p
@@ -194,7 +195,7 @@ router.get('/projects/:id', requireAuth, async (req, res, next) => {
 // Returns monthly hours+amount breakdown for all versions in the year (all pipeline stages).
 router.get('/phasing', requireAuth, async (req, res, next) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin required' });
+    if (!isAdminRole(req.user.role)) return res.status(403).json({ error: 'Admin required' });
     const { year } = req.query;
     if (!year) return res.status(400).json({ error: 'year is required' });
     const yr = parseInt(year);
@@ -322,7 +323,7 @@ router.get('/phasing', requireAuth, async (req, res, next) => {
 // Excludes Draft and Canceled pipeline stages.
 router.get('/project-phasing', requireAuth, async (req, res, next) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin required' });
+    if (!isAdminRole(req.user.role)) return res.status(403).json({ error: 'Admin required' });
     const { year } = req.query;
     if (!year) return res.status(400).json({ error: 'year is required' });
     const yr = parseInt(year);
@@ -375,7 +376,7 @@ router.get('/project-phasing', requireAuth, async (req, res, next) => {
 // GET /api/reporting/planning
 router.get('/planning', requireAuth, async (req, res, next) => {
   try {
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = isAdminRole(req.user.role);
     const vis = projectsVisibilitySql(isAdmin, 1);
     const params = isAdmin ? [] : [req.user.id];
 

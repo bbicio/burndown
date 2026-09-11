@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Terms & Conditions</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/tokens.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=6">
+  <style>
+    body { background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .page { margin: 3rem auto; }
+    .card { border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    .alert-sm { font-size: 0.83rem; padding: 0.5rem 0.75rem; }
+  </style>
+</head>
+<body>
+
+<!-- Navbar (injected by nav.js) -->
+<div id="nav-container"></div>
+
+<div id="app" v-cloak>
+
+  <div v-if="ready || accessDenied" class="page app-container">
+    <div v-if="accessDenied" class="alert alert-danger">Access denied — sysadmin only.</div>
+
+    <template v-else>
+      <!-- ── TERMS & CONDITIONS ───────────────────────────────── -->
+      <div class="card">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+              <h5 class="fw-bold mb-0">📄 Terms &amp; Conditions</h5>
+              <div class="text-muted mt-1" style="font-size:.82rem">
+                Current version: <strong>v{{ terms.version }}</strong>
+                <span v-if="terms.updatedAt"> · Last updated {{ fmtDate(terms.updatedAt) }}</span>
+                <span v-if="terms.updatedBy"> by {{ terms.updatedBy }}</span>
+              </div>
+            </div>
+            <div class="d-flex gap-2">
+              <a href="/terms.html" target="_blank" class="btn btn-outline-secondary btn-sm">👁 Preview</a>
+              <button class="btn btn-primary btn-sm" style="background:var(--brand-navy);border-color:var(--brand-navy)"
+                      @click="saveTerms(false)" :disabled="terms.saving">Save draft</button>
+              <button class="btn btn-warning btn-sm" @click="saveTerms(true)" :disabled="terms.saving">
+                🚀 Publish new version
+              </button>
+            </div>
+          </div>
+          <div v-if="terms.msg" class="alert alert-sm mb-3" :class="terms.msgOk ? 'alert-success' : 'alert-danger'" style="font-size:.85rem">{{ terms.msg }}</div>
+          <div class="text-muted mb-2" style="font-size:.78rem">Edit HTML content below. "Save draft" saves without bumping the version. "Publish new version" increments the version — all users will be asked to re-accept at next login.</div>
+          <textarea v-model="terms.content" class="form-control font-monospace" rows="18" style="font-size:.78rem;resize:vertical"></textarea>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
+    <div class="spinner-border text-secondary"></div>
+  </div>
+
+</div>
+
+<script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script defer src="js/api.js?v=4"></script>
+<script defer src="js/core.js?v=3"></script>
+<script defer src="js/settings.js"></script>
+<script defer src="js/notifications.js"></script>
+<script defer src="js/nav.js?v=5"></script>
+<script type="module">
+  Vue.createApp({
+    data() {
+      return {
+        ready: false,
+        accessDenied: false,
+        me: {},
+        terms: { version: 1, content: '', updatedAt: null, updatedBy: null, saving: false, msg: null, msgOk: true },
+      };
+    },
+    async created() {
+      const user = await initNav('termseditor', { breadcrumbs: [
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Terms & Conditions' },
+      ]});
+      if (!user) return;
+      this.me = user;
+      if (user.role !== 'sysadmin') { this.accessDenied = true; return; }
+      await this.loadTerms();
+      this.ready = true;
+    },
+    methods: {
+      async loadTerms() {
+        try {
+          const res = await fetch('/api/app-settings/terms', { credentials: 'same-origin' });
+          const d = await res.json();
+          if (!res.ok) { this.terms.msg = d.error || 'Failed to load terms.'; this.terms.msgOk = false; return; }
+          this.terms.version   = d.version;
+          this.terms.content   = d.content;
+          this.terms.updatedAt = d.updatedAt;
+          this.terms.updatedBy = d.updatedBy;
+        } catch {
+          this.terms.msg = 'Network error.'; this.terms.msgOk = false;
+        }
+      },
+      async saveTerms(publishNewVersion) {
+        this.terms.saving = true;
+        this.terms.msg    = null;
+        try {
+          const res = await fetch('/api/app-settings/terms', {
+            method: 'PUT',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: this.terms.content, publishNewVersion }),
+          });
+          const d = await res.json();
+          if (!res.ok) { this.terms.msg = d.error || 'Save failed'; this.terms.msgOk = false; return; }
+          if (publishNewVersion && d.newVersion) this.terms.version = d.newVersion;
+          this.terms.updatedAt = new Date().toISOString();
+          this.terms.updatedBy = this.me.first_name + ' ' + this.me.last_name;
+          this.terms.msg   = publishNewVersion
+            ? `Published as v${this.terms.version} — all users will be asked to re-accept at next login.`
+            : 'Draft saved.';
+          this.terms.msgOk = true;
+        } catch {
+          this.terms.msg = 'Network error.'; this.terms.msgOk = false;
+        } finally {
+          this.terms.saving = false;
+        }
+      },
+      fmtDate(iso) {
+        if (!iso) return '—';
+        return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      },
+    },
+  }).mount('#app');
+</script>
+</body>
+</html>

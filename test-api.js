@@ -7,8 +7,10 @@
  *
  * Environment (set in docker-compose.yml):
  *   API_URL             default: http://api:3000
- *   TEST_ADMIN_EMAIL    default: test-admin@pdash.local
- *   TEST_ADMIN_PASSWORD default: TestAdmin123!
+ *   TEST_ADMIN_EMAIL       default: test-admin@pdash.local
+ *   TEST_ADMIN_PASSWORD    default: TestAdmin123!
+ *   TEST_SYSADMIN_EMAIL    default: test-sysadmin@pdash.local
+ *   TEST_SYSADMIN_PASSWORD default: TestSysAdmin123!
  */
 'use strict';
 
@@ -16,12 +18,19 @@ const BASE  = process.env.API_URL             || 'http://api:3000';
 const EMAIL = process.env.TEST_ADMIN_EMAIL    || 'test-admin@pdash.local';
 const PASS  = process.env.TEST_ADMIN_PASSWORD || 'TestAdmin123!';
 
+// Sysadmin test account — bootstrapped separately (docker-compose.yml's `test`
+// service runs create-admin.js + promote-sysadmin.js for this email). Used
+// only for the admin/reset/* endpoints, which are sysadmin-exclusive.
+const SYSADMIN_EMAIL = process.env.TEST_SYSADMIN_EMAIL    || 'test-sysadmin@pdash.local';
+const SYSADMIN_PASS  = process.env.TEST_SYSADMIN_PASSWORD || 'TestSysAdmin123!';
+
 // Far-future years unlikely to clash with real data
 const TEST_YEAR   = 2099;
 const TEST_YEAR_B = 2098;   // used by POT tests (avoids clash with pipeline-years tests)
 
 let passed = 0, failed = 0;
 let adminCookie = '';
+let sysadminCookie = '';
 const cleanupQueue = [];    // { method, path } — executed in reverse at the end
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
@@ -93,6 +102,14 @@ async function testAuth() {
   const me = await api('GET', '/api/auth/me', null, adminCookie);
   ok(me.status === 200,           'A-me authenticated → 200');
   ok(me.data?.role === 'admin',   'A-me role = admin');
+
+  // Sysadmin test account — needed for admin/reset/* (sysadmin-exclusive).
+  const r2 = await api('POST', '/api/auth/login', { email: SYSADMIN_EMAIL, password: SYSADMIN_PASS });
+  if (!ok(r2.status === 200, 'A-06 sysadmin login → 200')) return false;
+  sysadminCookie = extractCookie(r2.headers);
+  ok(!!sysadminCookie, 'A-06 sysadmin JWT cookie is set');
+  const sysMe = await api('GET', '/api/auth/me', null, sysadminCookie);
+  ok(sysMe.data?.role === 'sysadmin', 'A-06 sysadmin role = sysadmin');
 
   return true;
 }
@@ -481,17 +498,21 @@ async function testAdminResetProposal() {
   ok((await api('POST', `/api/admin/reset/cost-grid/${FAKE_UUID}`)).status === 401,
     'DR-10 POST /api/admin/reset/cost-grid without auth → 401');
 
-  // Unknown UUID → 404
-  ok((await api('POST', `/api/admin/reset/cost-grid/${FAKE_UUID}`, null, adminCookie)).status === 404,
+  // admin/reset/* is sysadmin-exclusive — a plain admin must be rejected
+  ok((await api('POST', `/api/admin/reset/cost-grid/${FAKE_UUID}`, null, adminCookie)).status === 403,
+    'DR-10b POST /api/admin/reset/cost-grid as plain admin → 403 (sysadmin-only)');
+
+  // Unknown UUID → 404 (as sysadmin)
+  ok((await api('POST', `/api/admin/reset/cost-grid/${FAKE_UUID}`, null, sysadminCookie)).status === 404,
     'DR-11 POST /api/admin/reset/cost-grid with unknown UUID → 404');
 
-  // Delete the real cost grid
+  // Delete the real cost grid (as sysadmin)
   if (cgId) {
-    const rdel = await api('POST', `/api/admin/reset/cost-grid/${cgId}`, null, adminCookie);
+    const rdel = await api('POST', `/api/admin/reset/cost-grid/${cgId}`, null, sysadminCookie);
     ok(rdel.status === 200, 'DR-10 POST /api/admin/reset/cost-grid/:cgId → 200');
     ok(rdel.data?.ok === true, 'DR-10 response.ok is true');
     // Verify it is gone
-    const rcheck = await api('POST', `/api/admin/reset/cost-grid/${cgId}`, null, adminCookie);
+    const rcheck = await api('POST', `/api/admin/reset/cost-grid/${cgId}`, null, sysadminCookie);
     ok(rcheck.status === 404, 'DR-10 second delete of same cgId → 404 (already deleted)');
   }
 }
@@ -528,28 +549,35 @@ async function testAdminChangeOwner() {
   ok((await api('PATCH', `/api/admin/reset/cost-grid/${FAKE_UUID}/owner`, { ownerId: FAKE_UUID })).status === 401,
     'DR-14 PATCH /api/admin/reset/cost-grid/.../owner without auth → 401');
 
-  // Missing ownerId → 400
+  // admin/reset/* is sysadmin-exclusive — a plain admin must be rejected
   if (cgId) {
-    ok((await api('PATCH', `/api/admin/reset/cost-grid/${cgId}/owner`, {}, adminCookie)).status === 400,
+    ok((await api('PATCH', `/api/admin/reset/cost-grid/${cgId}/owner`,
+      { ownerId: adminId || FAKE_UUID }, adminCookie)).status === 403,
+      'DR-14b PATCH .../owner as plain admin → 403 (sysadmin-only)');
+  }
+
+  // Missing ownerId → 400 (as sysadmin)
+  if (cgId) {
+    ok((await api('PATCH', `/api/admin/reset/cost-grid/${cgId}/owner`, {}, sysadminCookie)).status === 400,
       'DR-14 PATCH with missing ownerId → 400');
   }
 
-  // Unknown cgId → 404
+  // Unknown cgId → 404 (as sysadmin)
   ok((await api('PATCH', `/api/admin/reset/cost-grid/${FAKE_UUID}/owner`,
-    { ownerId: adminId || FAKE_UUID }, adminCookie)).status === 404,
+    { ownerId: adminId || FAKE_UUID }, sysadminCookie)).status === 404,
     'DR-15 PATCH with unknown cgId → 404');
 
-  // Unknown ownerId → 404
+  // Unknown ownerId → 404 (as sysadmin)
   if (cgId) {
     ok((await api('PATCH', `/api/admin/reset/cost-grid/${cgId}/owner`,
-      { ownerId: FAKE_UUID }, adminCookie)).status === 404,
+      { ownerId: FAKE_UUID }, sysadminCookie)).status === 404,
       'DR-15 PATCH with unknown ownerId → 404');
   }
 
-  // Valid reassignment → 200
+  // Valid reassignment → 200 (as sysadmin, reassigning ownership to the plain admin)
   if (cgId && adminId) {
     const r = await api('PATCH', `/api/admin/reset/cost-grid/${cgId}/owner`,
-      { ownerId: adminId }, adminCookie);
+      { ownerId: adminId }, sysadminCookie);
     ok(r.status === 200, 'DR-14 PATCH /api/admin/reset/cost-grid/:cgId/owner → 200');
     ok(r.data?.ok === true, 'DR-14 response.ok is true');
   }
@@ -560,6 +588,7 @@ async function testAdminChangeOwner() {
 async function main() {
   process.stdout.write(`\n${bold('PDash API Integration Tests')} — ${BASE}\n`);
   process.stdout.write(`Admin: ${EMAIL}\n`);
+  process.stdout.write(`Sysadmin: ${SYSADMIN_EMAIL}\n`);
 
   try {
     const authed = await testAuth();

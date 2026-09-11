@@ -1,13 +1,8 @@
 const express = require('express');
 const { query } = require('../db/client');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
-
-function requireAdmin(req, res, next) {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin required' });
-  next();
-}
 
 // GET /api/client-groups — list all groups with their clients
 router.get('/', requireAuth, async (req, res, next) => {

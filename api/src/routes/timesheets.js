@@ -5,6 +5,7 @@ const { query } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
 const { parseFlexibleDate } = require('../lib/date-parse');
 const { resolveFee } = require('../lib/rate-resolve');
+const { isAdminRole } = require('../lib/is-admin');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -24,7 +25,7 @@ function projectVisibilityPredicate(projectAlias, userIdParam, isAdminExpr) {
 
 // Visible project codes for the current user
 async function visibleCodes(userId, role) {
-  if (role === 'admin') {
+  if (isAdminRole(role)) {
     const { rows } = await query('SELECT DISTINCT project_code FROM timesheets ORDER BY project_code');
     return rows.map(r => r.project_code);
   }
@@ -68,7 +69,7 @@ router.get('/', requireAuth, async (req, res, next) => {
        LEFT JOIN clients c              ON c.id = p.client_id
        LEFT JOIN cost_grid_versions cgv ON cgv.id = p.cg_version_id
        ORDER BY agg.project_code`,
-      [codes, req.user.id, req.user.role === 'admin']
+      [codes, req.user.id, isAdminRole(req.user.role)]
     );
     res.json(rows);
   } catch (err) { next(err); }
@@ -176,7 +177,7 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res, next
       });
     }
 
-    const projectTasksByCode = await loadProjectTasksByCode(codes, req.user.id, req.user.role === 'admin');
+    const projectTasksByCode = await loadProjectTasksByCode(codes, req.user.id, isAdminRole(req.user.role));
     for (const code of codes) {
       const tasks = projectTasksByCode[code] || [];
       for (const entry of codesToSave[code]) {
@@ -203,7 +204,7 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res, next
 // DELETE /api/timesheets/:projectCode
 router.delete('/:projectCode', requireAuth, async (req, res, next) => {
   try {
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = isAdminRole(req.user.role);
     if (!isAdmin) {
       // Only allow delete if the user owns or has editor access to the project
       const { rows } = await query(

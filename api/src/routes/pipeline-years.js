@@ -1,19 +1,15 @@
 const express = require('express');
 const { query } = require('../db/client');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { isAdminRole } = require('../lib/is-admin');
 
 const router = express.Router();
-
-function requireAdmin(req, res, next) {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin required' });
-  next();
-}
 
 // GET /api/pipeline-years
 // Admin: all years (active + inactive). Non-admin: only active years.
 router.get('/', requireAuth, async (req, res, next) => {
   try {
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = isAdminRole(req.user.role);
     const whereClause = isAdmin ? '' : 'WHERE active = true';
     const { rows } = await query(
       `SELECT id, year, active, created_at FROM pipeline_years ${whereClause} ORDER BY year DESC`

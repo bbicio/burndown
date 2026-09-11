@@ -1,11 +1,11 @@
 const express = require('express');
 const { query, pool } = require('../db/client');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireSysAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// All endpoints require admin
-router.use(requireAuth, requireAdmin);
+// All endpoints require sysadmin
+router.use(requireAuth, requireSysAdmin);
 
 const SCOPES = {
   proposals: {
