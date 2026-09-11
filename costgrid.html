@@ -34,6 +34,7 @@
         <button v-if="isDraft" class="btn btn-sm btn-primary" @click="publishDraft">🚀 Publish to SIP →</button>
         <button v-if="isDraft" class="btn btn-sm btn-primary" @click="openNewVersionModal">+ New version</button>
         <button class="btn btn-sm btn-outline-secondary" @click="openCloneModal" title="Clone this version as a new proposal">⧉ Clone</button>
+        <button v-if="!isDraft" class="btn btn-sm btn-outline-secondary" @click="openShareModal('cost_grid', cgId, cg.name)" title="Share this cost grid">🔗 Share</button>
         <button class="btn btn-sm btn-outline-secondary" @click="exportXls">⬇ Export XLS</button>
         <button v-if="!isLocked && !isDraft && hasFreeTasks" class="btn btn-sm btn-outline-secondary" @click="generateProject" title="Generate project in SIP">🚀 Generate Project</button>
         <button id="btnCgSave" class="btn btn-sm btn-primary" @click="saveVersion">💾 Save</button>
@@ -145,6 +146,19 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Sharing -->
+      <div class="section-card mb-3">
+        <div class="section-header">📤 Sharing</div>
+        <div class="p-3">
+          <div v-if="cg?.ownerName || draft?.createdAt" class="text-muted mb-2" style="font-size:var(--text-xs)">
+            <span v-if="cg?.ownerName">👤 {{ cg.ownerName }}</span>
+            <span v-if="cg?.ownerName && draft?.createdAt"> · </span>
+            <span v-if="draft?.createdAt">Created {{ new Date(draft.createdAt).toLocaleDateString() }}</span>
+          </div>
+          <share-list :key="'sl-' + cgId + '-' + shareListRefreshTick" resource-type="cost_grid" :resource-id="cgId" :can-manage="cg?.myPermission !== 'viewer'"></share-list>
         </div>
       </div>
 
@@ -563,6 +577,8 @@
 <script defer src="js/costgrid.js?v=27"></script>
 <script defer src="js/api-sync.js?v=14"></script>
 <script defer src="js/ratecards.js"></script>
+<script defer src="js/shares.js"></script>
+<script defer src="js/share-list-component.js"></script>
 <script defer src="js/nav.js?v=5"></script>
 
 <script>
@@ -598,6 +614,7 @@ Vue.createApp({
     return {
       cgId: null, verId: null,
       cg: null, draft: null,
+      shareListRefreshTick: 0, // bumped when #shareModal closes, to reload the inline share-list
       loading: true, loadError: null,
       clients: [], currencies: [],
       ratecardMap: {}, ratecardOverrides: {}, isClientRatecard: false, allRatecards: [],
@@ -1251,6 +1268,9 @@ Vue.createApp({
       document.getElementById('cgCloneGridName').focus();
     });
     document.getElementById('btnCgClone').addEventListener('click', cgCloneGrid);
+    document.addEventListener('hidden.bs.modal', e => {
+      if (e.target && e.target.id === 'shareModal') this.shareListRefreshTick++;
+    });
 
     await this.openVersion(cgId, targetVerId);
     if (typeof updateBreadcrumbs === 'function' && this.cg) updateBreadcrumbs([
@@ -1259,7 +1279,9 @@ Vue.createApp({
       { label: this.cg.name },
     ]);
   },
-}).mount('#costGridEditorSection');
+})
+  .component('share-list', window.ShareListComponent)
+  .mount('#costGridEditorSection');
 
 }); // end DOMContentLoaded
 </script>
