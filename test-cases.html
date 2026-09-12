@@ -1322,7 +1322,7 @@ const SECTIONS = [
      expected:"Pipeline board: Edit, Clone, Delete buttons hidden on card and detail panel. Portfolio: on the project's detail page, Configure and Load Actuals buttons absent (corrected 2026-09 — both live in the detail page's header action row, not on the list-view card). Project-config: sticky read-only banner; all inputs disabled; save and edit buttons hidden"},
     {id:'SH-11',scenario:'Inline share list — detail panel (2026-09)',
      steps:"Open a non-Draft proposal's sliding detail panel in pipeline.html",
-     expected:'Left column shows the owner name next to the existing version creation date, plus a "Shared with" list (name, email, permission badge) below it — visible without opening the Share modal'},
+     expected:'Under the title: an "Owner: name, Created at: date" line (no version label, shown as a colored badge above instead), separated by an hr from Period/Currency/Fees/PTC/Total budget; below the totals (and any note), before the POT block, a "Shared with" list (name, email, permission badge) with a single grey separator line before and after it — visible without opening the Share modal'},
     {id:'SH-12',scenario:'Inline share list — remove (2026-09)',
      steps:"From the detail panel's inline share list, click the remove button on a non-owner share",
      expected:'Share is removed immediately; the row disappears from the inline list; the owner row never shows a remove button'},
@@ -1331,7 +1331,7 @@ const SECTIONS = [
      expected:"The detail panel's inline share list reflects the change without a manual page reload"},
     {id:'SH-14',scenario:'costgrid.html gains sharing UI (2026-09)',
      steps:'Open a non-Draft proposal in the full-page editor (costgrid.html)',
-     expected:'Toolbar shows a working Share button (opens #shareModal); a new "Sharing" section between "Offer details" and "Cost Grid" shows owner name, version creation date, and the same inline share list with remove capability as SH-11/SH-12'},
+     expected:'Toolbar shows a working Share button (opens #shareModal); "Offer details" body starts with an "Owner: name, Created at: date" line; a new "Sharing" section between "Offer details" and "Cost Grid", collapsible exactly like "Offer details", shows only the inline share list with remove capability as SH-11/SH-12 (no owner/date duplicated there)'},
   ]
 },
 {
