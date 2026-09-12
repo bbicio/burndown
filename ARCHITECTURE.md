@@ -76,7 +76,7 @@ Backend authorization has two middleware tiers (`api/src/middleware/auth.js`): `
 - Sharing permissions: `owner` | `editor` | `viewer`. Permission on an existing share can be changed at any time via the same modal (uses `ON CONFLICT DO UPDATE`).
 - The calling user's own permission level (`my_permission`) is returned on `GET /api/cost-grids` and `GET /api/projects` responses so the frontend can conditionally show/hide editing controls without an extra round-trip.
 - **Viewer enforcement** (UI-only; backend always enforces via `resource_shares.permission`): editors/viewers see different UI surfaces — viewers have Edit, Clone, Delete, Configure, Load Actuals, and Reforecast controls hidden; project-config.html enters a read-only banner mode.
-- Disabling a user does **not** delete their resources. Ownership remains and can be reassigned by an admin.
+- Disabling a user does **not** delete their resources. Ownership remains and can be reassigned by a sysadmin via `_db-reset.html`'s "Change proposal owner" widget (`PATCH /api/admin/reset/cost-grid/:cgId/owner`), which keeps `cost_grids.owner_id` and `resource_shares` in sync as a single transaction (2026-09 fix — see the API Reference table entry for that route).
 - **Inline share visibility (2026-09)**: beyond the `#shareModal` add/edit/remove UI, both `pipeline.html`'s sliding detail panel and `costgrid.html`'s full-page editor show a read-only-at-a-glance, remove-capable share list inline (`js/share-list-component.js`, a reusable Vue component registered on both pages' apps), so a viewer doesn't need to open the modal just to see who has access. Removal still goes through the same `DELETE /:id/shares/:userId` route and its owner-removal guard; adding a share remains exclusive to the modal. Sharing a cost grid does **not** grant access to its linked project(s) — `resource_type` scopes `resource_shares` rows independently per resource, with no cascade between `cost_grid` and `project` shares.
 
 ---
@@ -613,7 +613,7 @@ Scopes: `proposals`, `projects`, `clients`, `ratecards`, `actuals`, `pipelines`,
 | GET | /api/admin/reset/scopes | **sysadmin** | List all available scopes with human-readable labels |
 | POST | /api/admin/reset/:scope | **sysadmin** | Delete all data for the given scope; returns `{ ok, scope, deleted }` |
 | POST | /api/admin/reset/cost-grid/:cgId | **sysadmin** | Delete one cost grid + all its versions + linked projects (transactional); 404 on unknown cgId |
-| PATCH | /api/admin/reset/cost-grid/:cgId/owner | **sysadmin** | Reassign cost grid `owner_id` to an active user; body: `{ ownerId }`; 400 if `ownerId` missing; 404 if cgId or userId unknown |
+| PATCH | /api/admin/reset/cost-grid/:cgId/owner | **sysadmin** | Reassign a cost grid's owner to an active user (transactional); body: `{ ownerId }`; 400 if `ownerId` missing; 404 if cgId or userId unknown. Updates `cost_grids.owner_id` **and** keeps `resource_shares` in sync (2026-09 fix): removes the previous owner's `owner`-permission row and upserts one for the new owner — both the share modal and the inline share list read `resource_shares`, not `cost_grids.owner_id`, for "who has access" |
 
 ---
 

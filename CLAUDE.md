@@ -335,7 +335,15 @@ api/src/routes/reset.js          — GET /api/admin/reset/scopes + POST /api/adm
                                     2026-09 — was admin-only, gated `requireSysAdmin` not `requireAdmin`);
                                     scopes: proposals, projects, clients, ratecards, actuals, pipelines, notifications;
                                     POST /api/admin/reset/cost-grid/:cgId — delete one proposal + linked projects (transactional);
-                                    PATCH /api/admin/reset/cost-grid/:cgId/owner — reassign proposal owner
+                                    PATCH /api/admin/reset/cost-grid/:cgId/owner — reassign proposal owner; now transactional
+                                    (2026-09 fix) and keeps `resource_shares` in sync with `cost_grids.owner_id`, not just the
+                                    latter — previously only `cost_grids.owner_id` was updated, so the share modal/inline share
+                                    list (both read/write `resource_shares`, never `cost_grids.owner_id` directly) kept showing
+                                    the *previous* owner as permanent owner (un-shareable, since "already has access" excludes
+                                    them from the add-share search) and never showed the real new owner at all; the fix deletes
+                                    the old owner's stale `resource_shares` row and upserts one for the new owner (`ON CONFLICT
+                                    ... DO UPDATE SET permission = 'owner'`, since they may already hold some other permission
+                                    on the same cost grid) inside the same transaction as the `cost_grids.owner_id` update
 api/src/routes/app-settings.js   — **Version history (2026-09)**: `GET /terms` (requireAuth, unchanged response shape
                                     `{version,content,updatedAt,updatedBy}`) now reads the latest row from the new
                                     `terms_versions` table (immutable, append-only — application code never
