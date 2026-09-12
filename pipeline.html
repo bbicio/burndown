@@ -138,11 +138,9 @@
           </div>
           <div v-if="detailClientName" class="text-muted" style="font-size:var(--text-xs)">{{ detailClientName }}</div>
           <div class="fw-bold" style="font-size:var(--text-lg)">{{ selectedVersion.projectName || selectedCg.name }}</div>
-          <div class="text-muted" style="font-size:var(--text-xs)">{{ selectedVersion.versionLabel || '' }} · {{ pbFmtDate(selectedVersion.createdAt) }}<span v-if="selectedCg.ownerName"> · 👤 {{ selectedCg.ownerName }}</span></div>
+          <div class="text-muted" style="font-size:var(--text-xs)">Owner: 👤 {{ selectedCg.ownerName || '—' }}, Created at: {{ pbFmtDate(selectedVersion.createdAt) }}</div>
         </div>
-        <div class="mb-3">
-          <share-list :key="'sl-' + selectedCgId + '-' + shareListRefreshTick" resource-type="cost_grid" :resource-id="selectedCgId" :can-manage="selectedCg.myPermission !== 'viewer'"></share-list>
-        </div>
+        <hr style="border-color:var(--border-light);margin:12px 0">
         <div class="row g-2 mb-3" style="font-size:var(--text-base)">
           <div class="col-6">
             <div class="text-muted" style="font-size:var(--text-xs)">Period</div>
@@ -169,6 +167,9 @@
           </div>
         </div>
         <div v-if="selectedVersion.note" class="mb-3 p-2 rounded" style="background:var(--surface-light);font-size:var(--text-sm);white-space:pre-wrap">{{ selectedVersion.note }}</div>
+        <div style="border-top:1px solid var(--border-light);padding-top:10px;margin-top:4px;margin-bottom:12px">
+          <share-list :key="'sl-' + selectedCgId + '-' + shareListRefreshTick" resource-type="cost_grid" :resource-id="selectedCgId" :can-manage="selectedCg.myPermission !== 'viewer'"></share-list>
+        </div>
         <div v-if="potState" style="border-top:1px solid var(--border-light);padding-top:10px;margin-top:4px">
           <div class="d-flex align-items-center justify-content-between mb-1">
             <span class="fw-semibold" style="font-size:var(--text-sm)">🎯 POT — {{ potState.targetName }} {{ potState.year }}</span>
