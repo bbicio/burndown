@@ -32,17 +32,31 @@ async function initNav(activeTab, opts = {}) {
     `<a class="nav-main-tab${activeTab === t.id ? ' active' : ''}" href="${t.href}">${esc(t.label)}</a>`
   ).join('');
 
+  const adminPageIds = ['config', 'timesheets', 'admin'];
   const adminHtml = (user.role === 'admin' || user.role === 'sysadmin')
     ? `<span style="border-left:1px solid rgba(255,255,255,.15);margin:8px 6px;align-self:stretch"></span>` +
-      `<a class="nav-main-tab nav-admin-tab${activeTab === 'config'     ? ' active' : ''}" href="/config.html">⚙ Config</a>` +
-      `<a class="nav-main-tab nav-admin-tab${activeTab === 'timesheets' ? ' active' : ''}" href="/timesheets.html">📂 Actuals Repository</a>` +
-      `<a class="nav-main-tab nav-admin-tab${activeTab === 'admin'      ? ' active' : ''}" href="/admin.html">👤 User Admin</a>`
+      `<div class="dropdown">
+        <a class="nav-main-tab nav-role-menu-trigger dropdown-toggle${adminPageIds.includes(activeTab) ? ' active' : ''}"
+           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">⚙ Admin</a>
+        <ul class="dropdown-menu">
+          <li><a class="dropdown-item${activeTab === 'config'     ? ' active' : ''}" href="/config.html">⚙ Config</a></li>
+          <li><a class="dropdown-item${activeTab === 'timesheets' ? ' active' : ''}" href="/timesheets.html">📂 Actuals Repository</a></li>
+          <li><a class="dropdown-item${activeTab === 'admin'      ? ' active' : ''}" href="/admin.html">👤 User Admin</a></li>
+        </ul>
+      </div>`
     : '';
 
+  const sysAdminPageIds = ['dbreset', 'termseditor'];
   const sysAdminHtml = user.role === 'sysadmin'
     ? `<span style="border-left:1px solid rgba(255,255,255,.15);margin:8px 6px;align-self:stretch"></span>` +
-      `<a class="nav-main-tab nav-admin-tab${activeTab === 'dbreset'     ? ' active' : ''}" href="/_db-reset.html">🗄 DB Reset</a>` +
-      `<a class="nav-main-tab nav-admin-tab${activeTab === 'termseditor' ? ' active' : ''}" href="/_terms-editor.html">📄 Terms &amp; Conditions</a>`
+      `<div class="dropdown">
+        <a class="nav-main-tab nav-role-menu-trigger dropdown-toggle${sysAdminPageIds.includes(activeTab) ? ' active' : ''}"
+           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">🔒 Sysadmin</a>
+        <ul class="dropdown-menu">
+          <li><a class="dropdown-item${activeTab === 'dbreset'     ? ' active' : ''}" href="/_db-reset.html">🗄 DB Reset</a></li>
+          <li><a class="dropdown-item${activeTab === 'termseditor' ? ' active' : ''}" href="/_terms-editor.html">📄 Terms &amp; Conditions</a></li>
+        </ul>
+      </div>`
     : '';
 
   const displayName = esc([user.firstName, user.lastName].filter(Boolean).join(' ') || user.email);
