@@ -71,12 +71,18 @@ body.has-breadcrumbs { --breadcrumb-h: 33px; }
 .nav-main-tab.active { color: var(--text-inverse); border-bottom-color: #fff; }
 a.nav-main-tab { display: inline-flex; align-items: center; text-decoration: none; }
 
-/* ── Role-menu dropdown triggers (Admin / Sysadmin) ── */
+/* ── Role-menu dropdown triggers (Admin / Sysadmin) ──
+   No vertical margin here: the trigger <a> is wrapped in a <div class="dropdown">
+   for Bootstrap's dropdown JS, which becomes the actual flex child in the tabs
+   row — a margin on the <a> would not collapse through that wrapper and would
+   grow the row's flex-line height beyond the other tabs' fixed 44px (breaking
+   the navbar height math pipeline.html's #pbColumnsContainer calc relies on).
+   The already-inherited .nav-main-tab height:44px keeps this trigger the same
+   size as its siblings; border-radius + background alone give the pill look. */
 .nav-role-menu-trigger {
   background: #fff;
   color: var(--text-primary);
   border-radius: var(--radius-sm);
-  margin: 6px 0;
 }
 .nav-role-menu-trigger:hover  { background: #fff; color: var(--text-primary); opacity: .85; }
 .nav-role-menu-trigger.active { background: #fff; color: var(--text-primary); border-bottom-color: var(--brand-magenta); }
