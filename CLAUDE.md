@@ -228,6 +228,30 @@ js/nav.js                — navbar + footer injection, initNav(); injects setti
                             → `/_terms-editor.html` (tab id `termseditor`) — both pages were admin-only before this
                             change; now carved out to sysadmin exclusively. Send Notification's broadcast option
                             (`'All users (broadcast)'`) widened the same way, `['admin','sysadmin'].includes(role)`.
+                            **Dropdown submenus (2026-09)**: `adminHtml`/`sysAdminHtml` no longer render their pages
+                            as flat inline `<a class="nav-main-tab">` links — each is now a single Bootstrap dropdown
+                            (`<div class="dropdown">` wrapper, `<a class="nav-main-tab nav-role-menu-trigger
+                            dropdown-toggle" data-bs-toggle="dropdown">` trigger, `<ul class="dropdown-menu">` of
+                            `<li><a class="dropdown-item">` items), same pattern as the pre-existing `#nav-account-btn`
+                            dropdown further down in this file. Trigger labels: "⚙ Admin" (Config/Actuals
+                            Repository/User Admin) and "🔒 Sysadmin" (DB Reset/Terms & Conditions) — same role gating
+                            and hrefs as before, same preceding vertical divider. The trigger (not the individual
+                            dropdown items) gets the `active` class whenever `activeTab` matches any page id inside
+                            its own submenu (`adminPageIds`/`sysAdminPageIds` arrays — keep these in sync with any
+                            future page added under a trigger); each `<li><a class="dropdown-item">` also keeps its
+                            own exact-match `active` class, independent of the trigger's. Trigger styling
+                            (`.nav-role-menu-trigger` in `css/style.css`): white background + `var(--text-primary)`
+                            text, distinct from the plain-text main tabs — deliberately carries **no vertical margin**
+                            of its own; a code-review finding caught that a margin here does not collapse through the
+                            `<div class="dropdown">` wrapper (the actual flex child in the `align-items-stretch` tabs
+                            row), which silently grows that row's height beyond the other tabs' fixed 44px and eats
+                            into `pipeline.html`'s `calc(100vh - 206px)` navbar-height contract (see "Pipeline board
+                            layout" below) — the trigger relies solely on the already-shared `.nav-main-tab`
+                            `height: 44px` to stay the same size as its siblings. Any future style tweak to this
+                            trigger must not reintroduce margin/padding on the `<a>` or the `.dropdown` wrapper
+                            without re-verifying `pipeline.html`'s sticky column-totals footer stays fully visible
+                            for an admin/sysadmin user. The now-fully-dead `.nav-admin-tab` CSS rules (opacity
+                            dimming on the old flat links) were removed as part of this change.
 js/notifications.js      — bell icon + SSE notification panel; initNotifications(user) called by nav.js
 js/shares.js             — share modal (cost_grid and project); loads active non-admin **or sysadmin** users from `GET /api/users/active-list` into a searchable in-memory dropdown (2026-09: exclusion widened from `role !== 'admin'` to `!['admin','sysadmin'].includes(role)`); supports adding new shares and editing permission (editor/viewer) on existing ones via the same upsert API; `_shareAllUsers` module var is the immutable source list; `_shareUserList` excludes already-shared users
 js/share-list-component.js — (2026-09) `window.ShareListComponent`, a reusable Vue component (props: `resource-type`, `resource-id`, `can-manage`) showing a "👥 Shared with" list with a per-row ✕ remove button (hidden for the owner row and whenever `can-manage` is false); reads `GET /api/{cost-grids|projects}/:id/shares`, removes via `DELETE .../:id/shares/:userId` — the same endpoints `js/shares.js` already used, no new API surface; deliberately does not add the ability to create a new share (stays exclusive to `js/shares.js`'s `#shareModal`); registered via `app.component('share-list', window.ShareListComponent)` on both `pipeline.html`'s and `costgrid.html`'s Vue apps

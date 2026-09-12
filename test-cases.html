@@ -1120,7 +1120,16 @@ const SECTIONS = [
      expected:'403 — requireSysAdmin re-reads the role from the DB rather than trusting A\'s JWT, so the revocation is effective immediately on these two sysadmin-exclusive route groups (not delayed up to the JWT\'s 8h lifetime, unlike ordinary requireAdmin-gated routes)'},
     {id:'AD-34',scenario:'Sysadmin sees every admin-gated page and action',
      steps:'Log in as sysadmin; visit Config, Actuals Repository, User Admin; open Send Notification',
-     expected:'All three admin nav tabs present and functional; broadcast option present in Send Notification — sysadmin is a strict superset of admin everywhere except the two exclusives'},
+     expected:'All three admin pages reachable via the Admin navbar dropdown and functional; broadcast option present in Send Notification — sysadmin is a strict superset of admin everywhere except the two exclusives'},
+    {id:'AD-35',scenario:'Admin/Sysadmin navbar dropdowns — role visibility (2026-09)',
+     steps:'Log in as role=user, then role=admin, then role=sysadmin; inspect the top navbar',
+     expected:'user: neither Admin nor Sysadmin trigger shown. admin: only Admin shown (Config/Actuals Repository/User Admin inside). sysadmin: both triggers shown, Sysadmin holds DB Reset/Terms & Conditions'},
+    {id:'AD-36',scenario:'Admin/Sysadmin navbar dropdowns — active state',
+     steps:'As sysadmin, open /admin.html, then /_db-reset.html',
+     expected:'Admin trigger shows active state on /admin.html; Sysadmin trigger shows active state on /_db-reset.html — each trigger highlights only for pages inside its own submenu'},
+    {id:'AD-37',scenario:'Admin/Sysadmin navbar dropdowns — pipeline board height unaffected',
+     steps:'As sysadmin, open /pipeline.html',
+     expected:'Both new dropdown triggers measure the same height as the other navbar tabs (44px); the pipeline board\'s sticky column-totals footer remains fully visible, not clipped'},
   ]
 },
 {
