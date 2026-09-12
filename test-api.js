@@ -581,6 +581,28 @@ async function testAdminChangeOwner() {
     ok(r.status === 200, 'DR-14 PATCH /api/admin/reset/cost-grid/:cgId/owner → 200');
     ok(r.data?.ok === true, 'DR-14 response.ok is true');
   }
+
+  // resource_shares sync: cgId is currently owned by adminId (the creator — the reassignment
+  // above was a no-op, same owner). Reassign to a genuinely different user (sysadmin) and
+  // confirm resource_shares actually follows cost_grids.owner_id, not just the response body.
+  if (cgId && adminId) {
+    const meSys = await api('GET', '/api/auth/me', null, sysadminCookie);
+    const sysadminId = meSys.data?.id;
+    if (sysadminId) {
+      const r2 = await api('PATCH', `/api/admin/reset/cost-grid/${cgId}/owner`,
+        { ownerId: sysadminId }, sysadminCookie);
+      ok(r2.status === 200, 'DR-16 PATCH reassign to a different user → 200');
+
+      const shares = await api('GET', `/api/cost-grids/${cgId}/shares`, null, sysadminCookie);
+      const rows = shares.data || [];
+      const oldOwnerRow = rows.find(s => s.user_id === adminId);
+      const newOwnerRow = rows.find(s => s.user_id === sysadminId);
+      ok(!oldOwnerRow, 'DR-16 previous owner no longer has a resource_shares row');
+      ok(newOwnerRow?.permission === 'owner', 'DR-16 new owner has a resource_shares row with permission=owner');
+      ok(rows.filter(s => s.permission === 'owner').length === 1,
+        'DR-16 exactly one owner row remains after reassignment');
+    }
+  }
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────

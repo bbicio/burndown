@@ -525,6 +525,7 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | DR-14 | Change owner widget — success | Enter a valid cost grid UUID; select a user from dropdown; click Assign (as sysadmin) | `owner_id` updated in DB; success message shown in widget | ✓ |
 | DR-14b | Change owner — plain admin rejected | PATCH `/api/admin/reset/cost-grid/:cgId/owner` as role=admin | 403 "Sysadmin access required" | ✓ |
 | DR-15 | Change owner widget — unknown UUID | Enter a UUID that does not match any cost grid; click Assign (as sysadmin) | API returns 404; error message shown; no change made | ✓ |
+| DR-16 | Change owner — resource_shares stays in sync (2026-09) | PATCH `/api/admin/reset/cost-grid/:cgId/owner` to reassign to a genuinely different user, then GET `/api/cost-grids/:id/shares` | Previous owner's `resource_shares` row is gone; new owner has a `resource_shares` row with `permission: 'owner'`; exactly one `owner` row exists — fixes a bug where the old owner kept a stale owner row forever (un-shareable, and the real new owner never appeared in "who has access") | ✓ |
 | SEC-09 | JWT cookie not accessible from JavaScript (`document.cookie`) | `pdash_token` value not listed — httpOnly flag prevents JS access | |
 | SEC-10 | Non-admin can read ratecards | Log in as `user` role; GET /api/ratecards and GET /api/ratecards/:id | 200 — read access is requireAuth; POST/PATCH/DELETE still return 403 (unauthenticated write → 401 checked in auto suite) | |
 

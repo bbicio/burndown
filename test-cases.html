@@ -1426,6 +1426,9 @@ const SECTIONS = [
     {id:'DR-15',scenario:'Change owner widget — unknown UUID',
      steps:'Enter a UUID that does not match any cost grid; click Assign (as sysadmin)',
      expected:'API returns 404; error message shown; no ownership change made',auto:true},
+    {id:'DR-16',scenario:'Change owner — resource_shares stays in sync (2026-09)',
+     steps:'PATCH the owner endpoint to reassign to a genuinely different user, then GET the shares endpoint for that cost grid',
+     expected:"Previous owner's resource_shares row is gone; new owner has a resource_shares row with permission owner; exactly one owner row exists — fixes a bug where the old owner kept a stale owner row forever and the real new owner never appeared in \"who has access\"",auto:true},
   ]
 },
 {
