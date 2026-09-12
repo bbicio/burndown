@@ -71,6 +71,22 @@ body.has-breadcrumbs { --breadcrumb-h: 33px; }
 .nav-main-tab.active { color: var(--text-inverse); border-bottom-color: #fff; }
 a.nav-main-tab { display: inline-flex; align-items: center; text-decoration: none; }
 
+/* ── Role-menu dropdown triggers (Admin / Sysadmin) ──
+   No vertical margin here: the trigger <a> is wrapped in a <div class="dropdown">
+   for Bootstrap's dropdown JS, which becomes the actual flex child in the tabs
+   row — a margin on the <a> would not collapse through that wrapper and would
+   grow the row's flex-line height beyond the other tabs' fixed 44px (breaking
+   the navbar height math pipeline.html's #pbColumnsContainer calc relies on).
+   The already-inherited .nav-main-tab height:44px keeps this trigger the same
+   size as its siblings; border-radius + background alone give the pill look. */
+.nav-role-menu-trigger {
+  background: #fff;
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+}
+.nav-role-menu-trigger:hover  { background: #fff; color: var(--text-primary); opacity: .85; }
+.nav-role-menu-trigger.active { background: #fff; color: var(--text-primary); border-bottom-color: var(--brand-magenta); }
+
 /* ── KPI cards ── */
 .kpi-card { border: none; border-left: 4px solid; border-radius: var(--radius-lg); }
 .kpi-card.blue   { border-left-color: var(--kpi-blue);   }
@@ -198,11 +214,6 @@ thead .gantt-label-col { background: var(--indigo-50); z-index: 3; }
   --bs-btn-active-border-color:#d01f6a;
   --bs-btn-focus-shadow-rgb:   240, 40, 122;
 }
-
-/* ── Admin nav tabs (dimmed to separate from main navigation) ────────────── */
-.nav-admin-tab { opacity: 0.6; font-size: var(--text-sm); }
-.nav-admin-tab:hover  { opacity: 0.85; }
-.nav-admin-tab.active { opacity: 1; }
 
 /* ── Resource planning table ── */
 #portfolioPlanningContainer { overflow-x: auto; }
