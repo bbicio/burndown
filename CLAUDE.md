@@ -40,7 +40,15 @@ docker exec pdash-db psql -U pdash -d pdash -f /path/to/migration.sql
 
 There was previously no documented procedure for this — added 2026-08-05 after an incident (see "Infrastructure safety" above) where the main stack's data volume was accidentally wiped and recovery depended entirely on an unrelated, incidental leftover backup file.
 
-**Backup (take before any risky operation on the main stack):**
+**Backup (preferred — automated, run before any risky operation on the main stack):**
+
+```bash
+scripts/backup-db.sh
+```
+
+Writes a timestamped `pg_dump -Fc` snapshot to `backups/` (gitignored — real data, including PII, must never reach git), keeping only the 3 most recent dumps and pruning older ones automatically. Non-blocking by design: if `pdash-db` isn't running, it warns and exits 0 rather than failing whatever called it. `/finish-cycle`'s Gate 4 (2026-09) runs this automatically, with no confirmation prompt, right after merge is confirmed and before any merge state changes — so every merge to `main` leaves a fresh data snapshot behind, not just a structural one recoverable from `api/src/db/migrations/`.
+
+**Backup (manual fallback — equivalent to what the script above does):**
 
 ```powershell
 docker exec pdash-db pg_dump -U pdash -Fc pdash > pdash-backup-<date>.dump
@@ -535,6 +543,17 @@ scripts/run-tests.sh     — ephemeral, fully isolated Docker Compose stack for 
                             each acquiring their own checkout-local lock was the exact bug this final form avoids,
                             caught by this cycle's own whole-branch review); the lock-contention error message
                             names the exact `rmdir` command to recover from a genuinely stale lock
+scripts/backup-db.sh     — (2026-09) `pg_dump -Fc` snapshot of the main stack's `pdash-db` into `backups/`
+                            (gitignored — real data, including PII, must never reach git), timestamped to the
+                            second (`pdash-backup-YYYY-MM-DD-HHMMSS.dump`) to avoid collisions across repeated runs
+                            in the same day; keeps only the 3 most recent dumps, pruning older ones automatically
+                            after each run. Non-blocking by design: if `pdash-db` isn't running/healthy, warns and
+                            exits 0 rather than failing whatever called it. Same `.env` line-by-line parser as
+                            `scripts/test-branch.sh`/`scripts/run-tests.sh` (never `source`/`eval`, for the same
+                            shell-special-character reason). Run standalone, or automatically (no confirmation
+                            prompt) by `/finish-cycle`'s Gate 4 right after merge is confirmed and before any merge
+                            state changes — see "Database backup & full recreation" above for the manual-fallback
+                            command this replaces as the preferred path.
 ```
 
 ### `v-cloak` (all Vue pages, 2026-07)
