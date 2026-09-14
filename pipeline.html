@@ -50,6 +50,73 @@
       <button class="btn btn-primary btn-sm" v-if="newProposalVisible" @click="openNewProposalModal">+ New Proposal</button>
     </div>
   </div>
+  <div class="d-flex align-items-center gap-2 px-4 py-2 flex-shrink-0 flex-wrap"
+       style="background:var(--surface-light);border-bottom:1px solid #dee2e6">
+    <input type="text" class="form-control form-control-sm" style="max-width:220px"
+           placeholder="🔍 Search proposal or client…" v-model="filterSearch">
+
+    <div class="dropdown">
+      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+              data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+        Owner<span v-if="filterOwnerIds.length" class="badge bg-secondary ms-1">{{ filterOwnerIds.length }}</span>
+      </button>
+      <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:220px">
+        <li v-if="!ownerOptions.length" class="text-muted px-2" style="font-size:var(--text-sm)">No options</li>
+        <li v-for="opt in ownerOptions" :key="opt.value" class="form-check">
+          <input class="form-check-input" type="checkbox" :id="'flt-owner-' + opt.value" :value="opt.value" v-model="filterOwnerIds">
+          <label class="form-check-label" :for="'flt-owner-' + opt.value" style="font-size:var(--text-sm)">{{ opt.label }}</label>
+        </li>
+      </ul>
+    </div>
+
+    <div class="dropdown">
+      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+              data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+        Client<span v-if="filterClientIds.length" class="badge bg-secondary ms-1">{{ filterClientIds.length }}</span>
+      </button>
+      <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:220px">
+        <li v-if="!clientOptions.length" class="text-muted px-2" style="font-size:var(--text-sm)">No options</li>
+        <li v-for="opt in clientOptions" :key="opt.value" class="form-check">
+          <input class="form-check-input" type="checkbox" :id="'flt-client-' + opt.value" :value="opt.value" v-model="filterClientIds">
+          <label class="form-check-label" :for="'flt-client-' + opt.value" style="font-size:var(--text-sm)">{{ opt.label }}</label>
+        </li>
+      </ul>
+    </div>
+
+    <div class="dropdown">
+      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+              data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+        Currency<span v-if="filterCurrencies.length" class="badge bg-secondary ms-1">{{ filterCurrencies.length }}</span>
+      </button>
+      <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:160px">
+        <li v-if="!currencyOptions.length" class="text-muted px-2" style="font-size:var(--text-sm)">No options</li>
+        <li v-for="opt in currencyOptions" :key="opt.value" class="form-check">
+          <input class="form-check-input" type="checkbox" :id="'flt-cur-' + opt.value" :value="opt.value" v-model="filterCurrencies">
+          <label class="form-check-label" :for="'flt-cur-' + opt.value" style="font-size:var(--text-sm)">{{ opt.label }}</label>
+        </li>
+      </ul>
+    </div>
+
+    <div class="dropdown">
+      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+              data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+        Value<span v-if="filterPriceBuckets.length" class="badge bg-secondary ms-1">{{ filterPriceBuckets.length }}</span>
+      </button>
+      <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:200px">
+        <li v-for="opt in priceBucketOptions" :key="opt.value" class="form-check">
+          <input class="form-check-input" type="checkbox" :id="'flt-price-' + opt.value" :value="opt.value" v-model="filterPriceBuckets">
+          <label class="form-check-label" :for="'flt-price-' + opt.value" style="font-size:var(--text-sm)">{{ opt.label }}</label>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li class="form-check">
+          <input class="form-check-input" type="checkbox" id="flt-include-ptc" v-model="filterIncludePtc">
+          <label class="form-check-label" for="flt-include-ptc" style="font-size:var(--text-sm)">Include PTC in value</label>
+        </li>
+      </ul>
+    </div>
+
+    <button v-if="filtersActive" class="btn btn-sm btn-link text-danger" @click="clearFilters">✕ Clear filters</button>
+  </div>
   <div class="d-flex gap-0" style="flex:1;min-height:0;overflow-x:auto;overflow-y:hidden;align-items:stretch">
     <div v-for="col in stagesData" :key="col.stage" class="pb-column d-flex flex-column" :style="{ borderTop: '3px solid ' + col.st.border }">
       <div class="pb-col-header d-flex align-items-center gap-2 px-2 py-2 flex-shrink-0"
@@ -416,23 +483,91 @@ Vue.createApp({
       currencies: [],
       potState: null,
       clientGroups: [],
+      filterSearch: '',
+      filterOwnerIds: [],
+      filterClientIds: [],
+      filterCurrencies: [],
+      filterPriceBuckets: [],
+      filterIncludePtc: false,
     };
   },
   computed: {
+    filterableCards() {
+      this.refreshTick;
+      const index = cgGetIndex();
+      const cards = [];
+      index.forEach(cgId => {
+        const cg = cgLoad(cgId);
+        if (!cg || !cg.versions?.length) return;
+        const v = pbGetDisplayVersion(cg);
+        if (!v) return;
+        if (pbGetStage(v) === 'Draft') return;
+        cards.push({ cg, v });
+      });
+      return cards;
+    },
+    ownerOptions() {
+      const seen = new Map();
+      this.filterableCards.forEach(({ cg }) => {
+        if (cg.ownerId && !seen.has(cg.ownerId)) seen.set(cg.ownerId, cg.ownerName || cg.ownerId);
+      });
+      return Array.from(seen, ([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+    },
+    clientOptions() {
+      const seen = new Map();
+      this.filterableCards.forEach(({ v }) => {
+        if (!v.clientId || seen.has(v.clientId)) return;
+        const name = getClientName(v.clientId);
+        if (name && name !== 'Unassigned') seen.set(v.clientId, name);
+      });
+      return Array.from(seen, ([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+    },
+    currencyOptions() {
+      const seen = new Set();
+      this.filterableCards.forEach(({ v }) => seen.add(v.currency || 'EUR'));
+      return Array.from(seen).sort().map(c => ({ value: c, label: c }));
+    },
+    priceBucketOptions() {
+      return [
+        { value: '0-20k',    label: '€0 – 20K' },
+        { value: '20-50k',   label: '€20K – 50K' },
+        { value: '50-100k',  label: '€50K – 100K' },
+        { value: '100-200k', label: '€100K – 200K' },
+        { value: '200k+',    label: '€200K+' },
+      ];
+    },
+    activeFilters() {
+      return {
+        search: this.filterSearch,
+        ownerIds: this.filterOwnerIds,
+        clientIds: this.filterClientIds,
+        currencies: this.filterCurrencies,
+        priceBuckets: this.filterPriceBuckets,
+        includePtc: this.filterIncludePtc,
+      };
+    },
+    filtersActive() {
+      return !!this.filterSearch.trim() || this.filterOwnerIds.length > 0 || this.filterClientIds.length > 0 ||
+        this.filterCurrencies.length > 0 || this.filterPriceBuckets.length > 0;
+    },
     stagesData() {
       this.refreshTick;
       const index = cgGetIndex();
       const grouped = {};
       PB_STAGES.forEach(s => { grouped[s] = []; });
+      const filters = this.activeFilters;
       index.forEach(cgId => {
         const cg = cgLoad(cgId);
         if (!cg || !cg.versions?.length) return;
         const v = pbGetDisplayVersion(cg);
         if (!v) return;
         const stage = pbGetStage(v);
-        if (stage === 'Draft') grouped['Draft'].push({ cg, v });
-        else if (grouped[stage]) grouped[stage].push({ cg, v });
-        else grouped['SIP'].push({ cg, v });
+        const card = { cg, v };
+        // Draft is a private working copy — filters never apply to it.
+        if (stage !== 'Draft' && !pbCardMatchesFilters(card, filters, cgComputeGrandTotals, getPipelineBudget, getClientName)) return;
+        if (stage === 'Draft') grouped['Draft'].push(card);
+        else if (grouped[stage]) grouped[stage].push(card);
+        else grouped['SIP'].push(card);
       });
       return PB_STAGES.map(stage => {
         const cards = grouped[stage];
@@ -544,6 +679,14 @@ Vue.createApp({
       const clientId = card.v.clientId;
       const name = clientId ? getClientName(clientId) : '';
       return name && name !== 'Unassigned' ? name : '';
+    },
+    clearFilters() {
+      this.filterSearch = '';
+      this.filterOwnerIds = [];
+      this.filterClientIds = [];
+      this.filterCurrencies = [];
+      this.filterPriceBuckets = [];
+      this.filterIncludePtc = false;
     },
     cardBudgetHtml(card) {
       const grand = pbGetVersionBudget(card.v, cgComputeGrandTotals, getPipelineBudget);
