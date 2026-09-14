@@ -624,6 +624,14 @@ A bridged `window.*` global from `js/lib/` may only be read from inside an event
 
 If a future `js/lib/` module needs another `js/lib/` module's function, use a native ES `import` between them (resolved independently of `<script>` tag order in the HTML), not the `window` bridge.
 
+### Cache-busting (`?v=N` query strings)
+
+No bundler means no content-hashed filenames — every `<script src="...">`/`<link href="...">` tag that references a project-owned `js/*.js`, `js/lib/*.js`, or `css/*.css` file carries its own `?v=N` query string (e.g. `js/nav.js?v=6`, `css/style.css?v=11`, `js/lib/pipeline-calc.js?v=2`). The full URL — path *and* query string — is the browser's cache key, so **editing a versioned file's content without bumping every `?v=N` reference to it is a live production bug**, not a cosmetic omission: any browser that already cached the old URL keeps serving the pre-edit file indefinitely, even though the file on disk (and on the server) is current.
+
+This has caused two real production incidents: `css/style.css` and `js/nav.js` were modified in the `nav-admin-dropdown` cycle (2026-09) without either's `?v=N` ever being bumped, left silently stale across all 10 authenticated pages that load them; and `js/lib/pipeline-calc.js` gained two new exports (`pbPriceBucketKey`/`pbCardMatchesFilters`) in the `pipeline-filters` cycle without `pipeline.html`'s own `?v=1` reference being bumped, causing a `ReferenceError: pbCardMatchesFilters is not defined` in production once real users' browsers had the old response cached. Both were fixed together in the `fix-pipeline-calc-cachebust` cycle (2026-09).
+
+**Rule for every future change to a versioned file:** grep the whole repo for every `?v=N` reference to that exact file path before merging, and bump every one of them to the same new `N` — a file loaded on 10 pages needs its version bumped in all 10, not just the page you were actively testing. `css/tokens.css` and CDN-hosted libraries (Bootstrap, Chart.js, ExcelJS, etc.) are exempt — tokens.css changes rarely and CDN URLs are already pinned to an exact library version.
+
 ### Linked project resolution
 
 `linkedProjects[].projectId` may contain stale auto-generated IDs if the project was renamed. Correct resolution order in `pipeline.html`'s `detailLinkedProjects` computed (Vue; ported verbatim from the former `js/pipeline-board.js`'s `pbOpenDetailPanel()`):
