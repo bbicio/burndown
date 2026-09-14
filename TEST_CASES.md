@@ -91,6 +91,17 @@
 | P-43 | Detail panel loading state | Open a detail panel for a version whose structure isn't yet cached | A spinner shows while phases/tasks load, before content appears | |
 | P-44 | Detail panel load-failure state | Open a detail panel for a `cgId` that fails to resolve (e.g. stale/missing cost grid) | An explicit "Could not load cost grid. Try reloading the page." message shows instead of a silently empty/missing panel | |
 | P-45 | Refresh-rate failure uses in-app modal | Trigger a refresh-rate failure (e.g. API error) | Error shown via the app's own confirm-style modal, not a native browser `alert()` | |
+| P-46 | Filter bar layout (2026-09) | Open `/pipeline.html` | A filter bar appears below the title, above the columns: search field first, then Owner/Client/Currency/Value dropdowns in that order, enclosed in its own bordered/background strip | |
+| P-47 | Free-text search — live filtering | Type a substring of a proposal's name into the search field | Board updates immediately (no button/reload) to only the columns/cards whose name or client matches, case-insensitive | |
+| P-48 | Free-text search — matches client name | Type a substring of a client name (not the proposal name) | Matching proposals for that client remain visible | |
+| P-49 | Owner/Client filters — multi-select OR | Select two different owners in the Owner dropdown | Cards from either selected owner are shown (OR within the filter); the dropdown stays open after each checkbox click | |
+| P-50 | Filters combine with AND across categories | Select an Owner AND a Client that don't both appear on the same proposal | No cards match; each filter category narrows independently | |
+| P-51 | Owner/Client option lists exclude Draft | Create a Draft-only proposal for an owner/client with no other non-Draft proposals | That owner/client does not appear as a selectable option in the Owner/Client dropdowns | |
+| P-52 | Draft column never filtered | Apply any combination of filters that would exclude all other columns' cards | The Draft column still shows all of the current user's own Draft proposals, unaffected | |
+| P-53 | Value (price bucket) filter + Include PTC | Select a price bucket; toggle "Include PTC in value" on and off | With PTC off, bucketing uses fee-only totals (same total the card's main value already shows); with PTC on, bucketing uses fee+PTC — results change accordingly, not two separate filters | |
+| P-54 | Column counts/totals reflect filters | Apply any filter that hides some cards in a column | That column's numeric badge and footer total both drop to match only the visible (filtered) cards | |
+| P-55 | Clear filters | With at least one filter active, click "✕ Clear filters" | All filters (search, Owner, Client, Currency, Value, Include PTC) reset to empty/off; full board returns; the Clear-filters link disappears | |
+| P-56 | Filters reset on reload | Apply filters, then reload the page | All filters are back to empty — no persistence in the URL or storage | |
 
 ---
 

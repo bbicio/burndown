@@ -73,6 +73,10 @@ Each card represents one cost grid (the active/locked version). Cards display:
 
 Clicking a card (anywhere other than the action buttons) opens the **Detail Panel**.
 
+### 4.3a Filtering (2026-09)
+
+A filter bar sits below the title, above the columns, so the board stays readable as the number of offers grows. In order: a free-text search box (matches offer name or client name), then four multi-select dropdown filters — Owner, Client, Currency, and Value (deal size, bucketed €0–20K / €20K–50K / €50K–100K / €100K–200K / €200K+, with an "Include PTC" toggle deciding whether pass-through costs count toward the bucket). Selecting multiple values within one filter is an OR (e.g. two owners at once); different filters combine as AND. All filtering updates the board instantly as selections change, and a "Clear filters" control appears once any filter is active. Filters never change which offers a user is allowed to see (§3.3/§18) — they only narrow what's already visible — and the Draft column is always shown in full, unaffected by any filter, since it's a private working copy. Filters reset whenever the page is reloaded.
+
 ### 4.4 Detail Panel
 
 A fixed right-side panel (860 px wide) with two scrollable columns.
