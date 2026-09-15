@@ -1398,6 +1398,16 @@ const SECTIONS = [
     {id:'SH-14',scenario:'costgrid.html gains sharing UI (2026-09)',
      steps:'Open a non-Draft proposal in the full-page editor (costgrid.html)',
      expected:'Toolbar shows a working Share button (opens #shareModal); "Offer details" body starts with an "Owner: name, Created at: date" line; a new "Sharing" section between "Offer details" and "Cost Grid", collapsible exactly like "Offer details", shows only the inline share list with remove capability as SH-11/SH-12 (no owner/date duplicated there)'},
+    {id:'SH-15',scenario:'Reassign proposal owner from costgrid.html — visibility (2026-09)',
+     steps:'Open any proposal cost grid editor as a plain admin (not sysadmin), including a Committed/locked version',
+     expected:'A "Reassign to…" dropdown appears next to the Owner line, populated from active users, with the current owner own option disabled; visible regardless of version lock state'},
+    {id:'SH-16',scenario:'Reassign proposal owner from costgrid.html — effect (2026-09)',
+     steps:'Select a different active user from the "Reassign to…" dropdown, confirm the modal',
+     expected:"cost_grids.owner_id updates to the new user; new owner gets an owner resource_shares row on the cost grid (old owner loses theirs) and an editor row on every project linked to any version of the proposal (unless they already own that project, in which case their owner permission is preserved); new owner receives an email listing the linked projects; the page inline share list updates immediately (no reload needed)",
+     auto:true},
+    {id:'SH-17',scenario:'Portfolio to Project Dashboard button rename (2026-09)',
+     steps:"Open the Linked projects area in pipeline.html detail panel, and separately in costgrid.html editor",
+     expected:'Both show "Project Dashboard" (was "Portfolio"); clicking still navigates to the project dashboard/detail view'},
   ]
 },
 {

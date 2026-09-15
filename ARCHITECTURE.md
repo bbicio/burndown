@@ -77,6 +77,7 @@ Backend authorization has two middleware tiers (`api/src/middleware/auth.js`): `
 - The calling user's own permission level (`my_permission`) is returned on `GET /api/cost-grids` and `GET /api/projects` responses so the frontend can conditionally show/hide editing controls without an extra round-trip.
 - **Viewer enforcement** (UI-only; backend always enforces via `resource_shares.permission`): editors/viewers see different UI surfaces — viewers have Edit, Clone, Delete, Configure, Load Actuals, and Reforecast controls hidden; project-config.html enters a read-only banner mode.
 - Disabling a user does **not** delete their resources. Ownership remains and can be reassigned by a sysadmin via `_db-reset.html`'s "Change proposal owner" widget (`PATCH /api/admin/reset/cost-grid/:cgId/owner`), which keeps `cost_grids.owner_id` and `resource_shares` in sync as a single transaction (2026-09 fix — see the API Reference table entry for that route).
+- **Owner reassignment from within the editor (2026-09)**: any admin or sysadmin can also reassign a cost grid's owner directly from `costgrid.html` itself (not just `_db-reset.html`), via a new `PATCH /api/cost-grids/:id/reassign-owner` route — see its own API Reference table entry. Unlike the `_db-reset.html` route above, this one also grants the new owner an `editor` `resource_shares` row on every project linked to any version of the cost grid (never downgrading a project the new owner already owns outright to `editor`), and emails the new owner a notification listing those linked projects. Both routes keep `resource_shares.shared_by` set to the actor performing the reassignment, not the new owner.
 - **Inline share visibility (2026-09)**: beyond the `#shareModal` add/edit/remove UI, both `pipeline.html`'s sliding detail panel and `costgrid.html`'s full-page editor show a read-only-at-a-glance, remove-capable share list inline (`js/share-list-component.js`, a reusable Vue component registered on both pages' apps), so a viewer doesn't need to open the modal just to see who has access. Removal still goes through the same `DELETE /:id/shares/:userId` route and its owner-removal guard; adding a share remains exclusive to the modal. Sharing a cost grid does **not** grant access to its linked project(s) — `resource_type` scopes `resource_shares` rows independently per resource, with no cascade between `cost_grid` and `project` shares.
 
 ---
@@ -512,6 +513,7 @@ timesheets (
 | GET/PUT | /api/cost-grids/:id/versions/:vId/structure | owner/admin | Get / save bulk structure |
 | GET/POST/DELETE | /api/cost-grids/:id/versions/:vId/linked-projects | owner/admin | Manage linked projects |
 | GET/POST/DELETE | /api/cost-grids/:id/shares | owner/admin | Manage sharing |
+| PATCH | /api/cost-grids/:id/reassign-owner | admin/sysadmin | Reassign the proposal's owner (2026-09); also grants the new owner `editor` on every linked project and emails them a notification — see its own note above |
 
 ### Projects
 

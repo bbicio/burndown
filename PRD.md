@@ -93,7 +93,7 @@ A fixed right-side panel (860 px wide) with two scrollable columns.
 - Notes
 - Total budget (€) broken down as: Fee + Pass-Through Costs (PTC)
 - JSON export button for the raw cost grid data
-- **Linked Projects** list: for each linked project shows project ID (resolved from config), project name, status badge, assigned task names (if any tasks have been assigned to the project), and a "📊 Portfolio" button that navigates to that project's reporting view (only visible when timesheet data exists for the project)
+- **Linked Projects** list: for each linked project shows project ID (resolved from config), project name, status badge, assigned task names (if any tasks have been assigned to the project), and a "📊 Project Dashboard" button (renamed from "Portfolio", 2026-09) that navigates to that project's reporting view (only visible when timesheet data exists for the project)
 
 **Right column — Task and Phase breakdown**
 
@@ -789,6 +789,8 @@ The right-to-erasure mechanism for this product is the anonymize action describe
 ### 18.1 Ownership
 
 The creator of a cost grid or project is its exclusive owner by default. Disabling a user does not remove their ownership; an admin can reassign it to another user.
+
+A sysadmin can reassign a proposal's owner from `_db-reset.html`'s "Change proposal owner" widget (§16.6). As of 2026-09, any admin or sysadmin can also do this directly from the full-page cost grid editor (§4.9) — a "Reassign to…" dropdown next to the owner's name, listing active users, available regardless of whether the version is locked (reassignment is an ownership change, not a content edit). Reassigning a proposal's owner this way additionally grants the new owner Editor access to every project already linked to the proposal (an existing owner of one of those projects keeps their ownership rather than being downgraded), and sends the new owner an email notification listing the linked projects they gained access to.
 
 ### 18.2 Share Modal
 
