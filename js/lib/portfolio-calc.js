@@ -197,7 +197,7 @@ export function normalizeGroupEntries(grp) {
 export function entryMatchesRow(entries, role, task) {
   const roleLower = (role || '').toLowerCase();
   const taskLower = (task || '').toLowerCase();
-  return entries.some(e => e.role.toLowerCase() === roleLower && (!e.task || e.task.toLowerCase() === taskLower));
+  return entries.some(e => (e.role || '').toLowerCase() === roleLower && (!e.task || e.task.toLowerCase() === taskLower));
 }
 
 window.computeKpis = computeKpis;

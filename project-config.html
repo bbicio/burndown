@@ -699,6 +699,11 @@
         }
       },
       async onSave() {
+        // Drop blank role rows (e.g. "+ Add role" clicked then left empty) before saving —
+        // the old textarea-based form filtered blank lines via .filter(Boolean); this per-row
+        // form has no equivalent, and a saved {role: '', task: '...'} would otherwise reach
+        // entryMatchesRow() on portfolio.html (js/lib/portfolio-calc.js) as a real entry.
+        (this.project.groups || []).forEach(g => { g.entries = (g.entries || []).filter(e => e.role.trim()); });
         // Sold-hours validation — reject the save if any value is outside the allowed set.
         this.jsonError = '';
         for (const task of this.project.tasks) {

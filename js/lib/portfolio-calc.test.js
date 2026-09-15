@@ -253,4 +253,10 @@ describe('entryMatchesRow', () => {
     const entries = [{ role: 'Account Director', task: '' }];
     expect(entryMatchesRow(entries, 'Developer', 'FE / BE Development')).toBe(false);
   });
+
+  it('does not throw on an entry with a blank/missing role (e.g. an unfinished row left in project-config.html\'s form)', () => {
+    const entries = [{ role: '', task: 'Overall Coordination' }, { role: 'Account Director', task: '' }];
+    expect(() => entryMatchesRow(entries, 'Account Director', 'Overall Coordination')).not.toThrow();
+    expect(entryMatchesRow(entries, 'Account Director', 'Overall Coordination')).toBe(true);
+  });
 });
