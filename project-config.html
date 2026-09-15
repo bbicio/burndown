@@ -256,17 +256,23 @@
 </div>
 <div class="cfg-section">
   <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>7. Functional Groups <span class="fw-normal text-muted">(optional)</span></span><button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addGroup">+ Add group</button></div>
-  <p class="text-muted small mb-3">Group roles into functional areas. Roles must match the <strong>Job Role: Name</strong> column (one per line).</p>
+  <p class="text-muted small mb-3">Group roles into functional areas. Each role must match the <strong>Job Role: Name</strong> column in the XLS. Pick a specific task to count that role's hours only on that task (e.g. the same role billed at a different rate on another task) — leave it as "— any task —" to count the role everywhere it appears, matching the old behavior.</p>
   <div class="cfg-group-card border rounded p-3 mb-2" v-for="(grp, gi) in project.groups" :key="gi">
     <div class="d-flex align-items-center gap-2 mb-2">
       <span class="text-muted small text-nowrap">Group name:</span>
       <input type="text" class="form-control form-control-sm" v-model="grp.name" :disabled="isViewer" placeholder="e.g. Development">
       <button class="btn btn-sm btn-outline-danger flex-shrink-0" v-if="!isViewer" @click="project.groups.splice(gi, 1)">🗑</button>
     </div>
-    <label class="form-label small text-muted mb-1">Roles (one per line, must match Job Role: Name column in XLS):</label>
-    <textarea class="form-control form-control-sm font-monospace" rows="3" :disabled="isViewer"
-              :value="grp.roles.join('\n')" @input="e => grp.roles = e.target.value.split('\n').map(s => s.trim()).filter(Boolean)"
-              placeholder="HWGDEV - DEVELOPER&#10;HWGINTERN - ACCSVS"></textarea>
+    <label class="form-label small text-muted mb-1">Roles:</label>
+    <div class="d-flex align-items-center gap-2 mb-2" v-for="(entry, ei) in grp.entries" :key="ei">
+      <input type="text" class="form-control form-control-sm" v-model="entry.role" :disabled="isViewer" placeholder="e.g. HWGDEV - DEVELOPER">
+      <select class="form-select form-select-sm" style="max-width:220px" v-model="entry.task" :disabled="isViewer">
+        <option value="">— any task —</option>
+        <option v-for="t in project.tasks" :key="t.name" :value="t.name">{{ t.name }}</option>
+      </select>
+      <button class="btn btn-sm btn-outline-danger flex-shrink-0" v-if="!isViewer" @click="grp.entries.splice(ei, 1)">🗑</button>
+    </div>
+    <button class="btn btn-sm btn-outline-secondary" v-if="!isViewer" @click="addGroupEntry(gi)">+ Add role</button>
   </div>
 </div>
     </div>
@@ -484,6 +490,14 @@
         // if the object itself is null. Normalize once here, matching the same default the "+ Add task"
         // button already uses for brand-new tasks.
         (this.project.tasks || []).forEach(t => { if (!t.monthlyDistribution) t.monthlyDistribution = {}; });
+        // Legacy groups only had roles: string[] (no task association) -- seed
+        // entries: [{role, task: ''}] (wildcard = "any task", matching the old
+        // behavior) so this form can bind directly to grp.entries[].role/.task.
+        // Mirrors js/lib/portfolio-calc.js's normalizeGroupEntries(), duplicated
+        // here rather than shared: this is a one-time UI-seeding convenience, not
+        // the correctness-critical path (that's portfolio.html's own summary
+        // aggregation, which calls the real js/lib function).
+        (this.project.groups || []).forEach(g => { if (!g.entries || !g.entries.length) g.entries = (g.roles || []).map(role => ({ role, task: '' })); });
         this.isNewProject = false;
         this.updateBreadcrumb(this.project.name || projectId);
       },
@@ -525,7 +539,10 @@
         }
       },
       addGroup() {
-        this.project.groups.push({ name: '', roles: [] });
+        this.project.groups.push({ name: '', entries: [] });
+      },
+      addGroupEntry(gi) {
+        this.project.groups[gi].entries.push({ role: '', task: '' });
       },
       async loadActuals() {
         if (!this.project.code) { this.actuals.info = 'Save the project first to enable actuals upload.'; return; }
@@ -682,6 +699,11 @@
         }
       },
       async onSave() {
+        // Drop blank role rows (e.g. "+ Add role" clicked then left empty) before saving —
+        // the old textarea-based form filtered blank lines via .filter(Boolean); this per-row
+        // form has no equivalent, and a saved {role: '', task: '...'} would otherwise reach
+        // entryMatchesRow() on portfolio.html (js/lib/portfolio-calc.js) as a real entry.
+        (this.project.groups || []).forEach(g => { g.entries = (g.entries || []).filter(e => e.role.trim()); });
         // Sold-hours validation — reject the save if any value is outside the allowed set.
         this.jsonError = '';
         for (const task of this.project.tasks) {

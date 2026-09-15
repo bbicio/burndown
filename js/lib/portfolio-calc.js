@@ -138,5 +138,71 @@ export function computeBurndownPoints(data, cfg, taskFilter, interval, billableD
   };
 }
 
+// Generic pivot builder shared by portfolio.html's "Summary by task/role/functional
+// area" cards — extracted verbatim (Vue's `this.filterRange`/`this.dashboardProject`
+// become explicit `filterRange`/`cfg` parameters) from the former Vue method of the
+// same name. `entries` is the caller-built list of {key, label, soldHours, soldEur}
+// columns; `byKeyFn(row)` must return the same string as an entry's own `key` for a
+// row to count toward that column — callers decide whether that key is a single
+// dimension (role, or task) or a composite one (`role + '|' + task`), this function
+// itself is agnostic to which.
+export function buildSummaryCols(rows, byKeyFn, entries, filterRange, cfg, findRate) {
+  const { start, end } = filterRange;
+  return entries.map(({ key, label, soldHours, soldEur }) => {
+    const keyRows = rows.filter(r => byKeyFn(r) === key);
+    const totalConsumed = keyRows.reduce((s, r) => s + r.hours, 0);
+    const totalConsumedEur = keyRows.reduce((s, r) => s + r.hours * (findRate(r, cfg) ?? 0), 0);
+    const periodRows = keyRows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
+    const inPeriod = periodRows.reduce((s, r) => s + r.hours, 0);
+    const inPeriodEur = periodRows.reduce((s, r) => s + r.hours * (findRate(r, cfg) ?? 0), 0);
+    return { label, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
+  });
+}
+
+// Sums an array of buildSummaryCols() columns into the TOTAL column shown at the
+// right edge of each summary card — agnostic to how the columns were grouped (single
+// or composite key), so regrouping a card's key never requires a change here.
+export function summaryTotals(cols, hasFilter) {
+  const totSold = cols.reduce((s, c) => s + c.soldHours, 0);
+  const totSoldEur = cols.reduce((s, c) => s + c.soldEur, 0);
+  const totConsumed = cols.reduce((s, c) => s + c.totalConsumed, 0);
+  const totConsumedEur = cols.reduce((s, c) => s + c.totalConsumedEur, 0);
+  const totInPeriod = cols.reduce((s, c) => s + c.inPeriod, 0);
+  const totInPeriodEur = cols.reduce((s, c) => s + c.inPeriodEur, 0);
+  const totSpent = totConsumed - (hasFilter ? totInPeriod : 0);
+  const totSpentEur = totConsumedEur - (hasFilter ? totInPeriodEur : 0);
+  const totResidual = totSold - totConsumed;
+  const totResidualEur = totSoldEur - totConsumedEur;
+  return { totSold, totSoldEur, totSpent, totSpentEur, totInPeriod, totInPeriodEur, totResidual, totResidualEur };
+}
+
+// Functional-area group membership. A group's `entries` is the precise, current
+// shape: [{role, task}], where task === '' means "any task" (a wildcard). Legacy
+// projects only have `roles: string[]` (no task association at all) -- normalized
+// here to wildcard entries so old group definitions keep working unchanged until
+// someone re-edits them in project-config.html's per-(role,task) form. No DB
+// migration needed: both shapes are read transparently through this one function.
+export function normalizeGroupEntries(grp) {
+  if (grp.entries && grp.entries.length) return grp.entries;
+  return (grp.roles || []).map(role => ({ role, task: '' }));
+}
+
+// True if a timesheet row's (role, task) is claimed by one of a group's entries --
+// case-insensitive on both, wildcard entries (task: '') match any task. This is
+// the precision mechanism that replaces per-task column splitting for "Summary by
+// functional area": a group can claim a role's hours on one task but not another
+// (the Bayer case -- same role label, 168/h on Overall Coordination, 130/h on
+// Project Management) by adding only the entry it actually wants, instead of the
+// report having to guess by fragmenting its own output.
+export function entryMatchesRow(entries, role, task) {
+  const roleLower = (role || '').toLowerCase();
+  const taskLower = (task || '').toLowerCase();
+  return entries.some(e => (e.role || '').toLowerCase() === roleLower && (!e.task || e.task.toLowerCase() === taskLower));
+}
+
 window.computeKpis = computeKpis;
 window.computeBurndownPoints = computeBurndownPoints;
+window.buildSummaryCols = buildSummaryCols;
+window.summaryTotals = summaryTotals;
+window.normalizeGroupEntries = normalizeGroupEntries;
+window.entryMatchesRow = entryMatchesRow;
