@@ -1125,9 +1125,10 @@ function cgConfirmAndGenerate() {
   _cgVueApp?.openProjectNameModal(defaultName);
 }
 
-function cgSubmitProjectName(projectName) {
+function cgSubmitProjectName(projectName, projectCode) {
   const trimmedName = (projectName || '').trim();
   if (!trimmedName) return;
+  const trimmedCode = (projectCode || '').trim();
 
   const selectedTaskIds = [..._cgSelectedTaskIds];
 
@@ -1135,7 +1136,7 @@ function cgSubmitProjectName(projectName) {
   // run), every later generation auto-links to it — partial selection or not, no re-prompt.
   const existingProgramId = findExistingProgramForProposal(_cgDraft.linkedProjects, config.projects);
   if (existingProgramId) {
-    cgDoGenerateProject(selectedTaskIds, trimmedName, existingProgramId);
+    cgDoGenerateProject(selectedTaskIds, trimmedName, existingProgramId, trimmedCode);
     return;
   }
 
@@ -1143,7 +1144,7 @@ function cgSubmitProjectName(projectName) {
   // unassigned — no program prompt needed, matches pre-existing behavior.
   const leavesTasksUnassigned = selectedTaskIds.length < _cgFreeTaskIdsAtGenerateStart.size;
   if (!leavesTasksUnassigned) {
-    cgDoGenerateProject(selectedTaskIds, trimmedName, null);
+    cgDoGenerateProject(selectedTaskIds, trimmedName, null, trimmedCode);
     return;
   }
 
@@ -1151,15 +1152,15 @@ function cgSubmitProjectName(projectName) {
   // generating. cgResumePendingGeneration() resumes on success; cancel/dismiss (any path,
   // handled via the modal's own hidden.bs.modal listener) drops _cgPendingGeneration, so no
   // project is created at all if the user backs out here.
-  _cgPendingGeneration = { selectedTaskIds, projectName: trimmedName };
+  _cgPendingGeneration = { selectedTaskIds, projectName: trimmedName, projectCode: trimmedCode };
   _cgVueApp?.openCreateProgramModal();
 }
 
 function cgResumePendingGeneration(programId) {
   if (!_cgPendingGeneration) return;
-  const { selectedTaskIds, projectName } = _cgPendingGeneration;
+  const { selectedTaskIds, projectName, projectCode } = _cgPendingGeneration;
   _cgPendingGeneration = null;
-  cgDoGenerateProject(selectedTaskIds, projectName, programId);
+  cgDoGenerateProject(selectedTaskIds, projectName, programId, projectCode);
 }
 
 // Any dismissal of #cgCreateProgramModal that isn't a successful Create (Cancel, X, backdrop,
@@ -1169,7 +1170,7 @@ function cgAbortPendingGeneration() {
   _cgPendingGeneration = null;
 }
 
-function cgDoGenerateProject(selectedTaskIds, projectName, programId) {
+function cgDoGenerateProject(selectedTaskIds, projectName, programId, projectCode) {
   const v = _cgDraft;
 
   const tasks = [];
@@ -1218,7 +1219,7 @@ function cgDoGenerateProject(selectedTaskIds, projectName, programId) {
 
   const newProject = {
     id:        generatedId,
-    code:      '',
+    code:      projectCode || '',
     name:      projectName,
     startDate: projStart,
     endDate:   projEnd,

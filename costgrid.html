@@ -455,6 +455,7 @@
         <div class="modal-body">
           <div v-if="projectNameModal.error" class="alert alert-danger py-2">{{ projectNameModal.error }}</div>
           <div class="mb-3"><label class="form-label small fw-semibold">Project name</label><input type="text" class="form-control form-control-sm" v-model="projectNameModal.name" @keyup.enter="submitProjectNameModal" placeholder="e.g. Acme Corp — Phase 1"></div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Project code <span class="text-muted fw-normal">(optional)</span></label><input type="text" class="form-control form-control-sm" v-model="projectNameModal.code" @keyup.enter="submitProjectNameModal" placeholder="e.g. HITA.000001201"></div>
         </div>
         <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" @click="submitProjectNameModal">Continue</button></div>
       </div>
@@ -630,7 +631,7 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=4"></script>
-<script defer src="js/costgrid.js?v=30"></script>
+<script defer src="js/costgrid.js?v=31"></script>
 <script defer src="js/api-sync.js?v=14"></script>
 <script defer src="js/ratecards.js"></script>
 <script defer src="js/shares.js"></script>
@@ -687,7 +688,7 @@ Vue.createApp({
       myRole: '',
       reassignOwnerOptions: [], reassignOwnerOptionsLoaded: false, reassignOwnerBusy: false,
       createProgramModal: { name: '', id: '', error: '', saving: false },
-      projectNameModal: { name: '', error: '' },
+      projectNameModal: { name: '', code: '', error: '' },
     };
   },
   computed: {
@@ -901,14 +902,15 @@ Vue.createApp({
       };
     },
     openProjectNameModal(defaultName) {
-      this.projectNameModal = { name: defaultName || '', error: '' };
+      this.projectNameModal = { name: defaultName || '', code: '', error: '' };
       bootstrap.Modal.getOrCreateInstance(document.getElementById('cgProjectNameModal')).show();
     },
     submitProjectNameModal() {
       const name = this.projectNameModal.name.trim();
       if (!name) { this.projectNameModal.error = 'Project name is required.'; return; }
+      const code = this.projectNameModal.code.trim();
       bootstrap.Modal.getInstance(document.getElementById('cgProjectNameModal'))?.hide();
-      cgSubmitProjectName(name);
+      cgSubmitProjectName(name, code);
     },
     openCreateProgramModal() {
       this.createProgramModal = { name: '', id: '', error: '', saving: false };
