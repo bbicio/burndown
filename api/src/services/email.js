@@ -125,4 +125,4 @@ async function sendAdminNotificationEmail({ to, firstName, title, body, url }) {
   });
 }
 
-module.exports = { sendInvite, sendPasswordReset, sendShareNotification, sendOwnerReassignedEmail, sendExportEmail, sendAdminNotificationEmail };
+module.exports = { sendInvite, sendPasswordReset, sendShareNotification, sendOwnerReassignedEmail, sendExportEmail, sendAdminNotificationEmail, APP_URL };

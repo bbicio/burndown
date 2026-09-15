@@ -1,7 +1,7 @@
 const express = require('express');
 const { query, pool } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
-const { sendShareNotification, sendOwnerReassignedEmail } = require('../services/email');
+const { sendShareNotification, sendOwnerReassignedEmail, APP_URL } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
 const { isAdminRole } = require('../lib/is-admin');
 
@@ -846,12 +846,12 @@ router.patch('/:id/reassign-owner', requireAuth, async (req, res, next) => {
       cgName: cg.rows[0].name,
       reassignedBy: `${reassigner.rows[0].first_name} ${reassigner.rows[0].last_name}`,
       linkedProjectNames: linked.rows.map(r => r.project_name),
-      link: `${process.env.APP_URL}/pipeline.html`,
+      link: `${APP_URL}/pipeline.html`,
     }).catch(e => console.warn('[reassign-owner] email failed:', e.message));
 
     res.json({ ok: true, cgName: cg.rows[0].name, newOwner: `${user.rows[0].first_name} ${user.rows[0].last_name}` });
   } catch (err) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     next(err);
   } finally {
     client.release();
