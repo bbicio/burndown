@@ -1118,11 +1118,18 @@ function cgConfirmAndGenerate() {
   }
   cgSyncHeaderFromForm();
   const defaultName = _cgDraft.projectName || '';
-  const projectName = prompt('Project name:', defaultName);
-  if (!projectName || !projectName.trim()) return;
+  // Project name is collected via #cgProjectNameModal (Vue-driven), not a native prompt() —
+  // cgSubmitProjectName() below is the continuation once the user submits it. Cancel/dismiss
+  // on that modal simply does nothing further (no pending state was created yet at this point),
+  // matching the old prompt()-cancel behavior of aborting with no project created.
+  _cgVueApp?.openProjectNameModal(defaultName);
+}
+
+function cgSubmitProjectName(projectName) {
+  const trimmedName = (projectName || '').trim();
+  if (!trimmedName) return;
 
   const selectedTaskIds = [..._cgSelectedTaskIds];
-  const trimmedName = projectName.trim();
 
   // Once this proposal already has an established program (from an earlier Generate Project
   // run), every later generation auto-links to it — partial selection or not, no re-prompt.
@@ -1266,9 +1273,13 @@ function cgDoGenerateProject(selectedTaskIds, projectName, programId) {
 
   renderCgEditor();
 
+  // openConfigModal() never existed on this page (dead reference left over from before this
+  // page's Vue migration) — Confirm silently threw and never navigated. project-config.html is
+  // where a project's ID/code is actually assigned, reached the same way portfolio.html's own
+  // Configure button does (js/portfolio.js:214).
   showConfirm(
     `Project "${projectName}" created in Portfolio (pipeline: ${_cgDraft.pipeline || 'SIP'}).\n\nOpen configuration to assign the Project ID?`,
-    () => { showPortfolioView(); openConfigModal(generatedId); },
+    () => { window.location.href = '/project-config.html?projectId=' + encodeURIComponent(generatedId); },
     null, '✓ Project created'
   );
 }

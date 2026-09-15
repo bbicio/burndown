@@ -432,7 +432,7 @@
 
   <!-- Create Program (Generate Project, partial task selection, no program yet for this proposal) -->
   <div class="modal fade" id="cgCreateProgramModal" tabindex="-1">
-    <div class="modal-dialog modal-sm">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
       <div class="modal-content">
         <div class="modal-header"><h5 class="modal-title fw-bold">＋ Create program</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
@@ -442,6 +442,21 @@
           <div class="mb-3"><label class="form-label small fw-semibold">Program ID</label><input type="text" class="form-control form-control-sm" v-model="createProgramModal.id" placeholder="e.g. PRG-001"></div>
         </div>
         <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" :disabled="createProgramModal.saving" @click="saveCreateProgramModal">{{ createProgramModal.saving ? 'Saving…' : 'Create' }}</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generate Project — project name (replaces a native prompt(), which blocked automated/
+       accessibility interaction and was the only remaining non-HTML dialog on this page) -->
+  <div class="modal fade" id="cgProjectNameModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title fw-bold">🚀 Generate project</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div v-if="projectNameModal.error" class="alert alert-danger py-2">{{ projectNameModal.error }}</div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Project name</label><input type="text" class="form-control form-control-sm" v-model="projectNameModal.name" @keyup.enter="submitProjectNameModal" placeholder="e.g. Acme Corp — Phase 1"></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" @click="submitProjectNameModal">Continue</button></div>
       </div>
     </div>
   </div>
@@ -599,7 +614,7 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=4"></script>
-<script defer src="js/costgrid.js?v=28"></script>
+<script defer src="js/costgrid.js?v=29"></script>
 <script defer src="js/api-sync.js?v=14"></script>
 <script defer src="js/ratecards.js"></script>
 <script defer src="js/shares.js"></script>
@@ -655,6 +670,7 @@ Vue.createApp({
       myRole: '',
       reassignOwnerOptions: [], reassignOwnerOptionsLoaded: false, reassignOwnerBusy: false,
       createProgramModal: { name: '', id: '', error: '', saving: false },
+      projectNameModal: { name: '', error: '' },
     };
   },
   computed: {
@@ -866,6 +882,16 @@ Vue.createApp({
         isSingleMode: this.roleModalMode === 'change' || this.roleModalMode === 'duplicate',
         isSource: r.code === this.roleModalSourceCode,
       };
+    },
+    openProjectNameModal(defaultName) {
+      this.projectNameModal = { name: defaultName || '', error: '' };
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('cgProjectNameModal')).show();
+    },
+    submitProjectNameModal() {
+      const name = this.projectNameModal.name.trim();
+      if (!name) { this.projectNameModal.error = 'Project name is required.'; return; }
+      bootstrap.Modal.getInstance(document.getElementById('cgProjectNameModal'))?.hide();
+      cgSubmitProjectName(name);
     },
     openCreateProgramModal() {
       this.createProgramModal = { name: '', id: '', error: '', saving: false };
