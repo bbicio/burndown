@@ -485,7 +485,7 @@
 <script defer src="js/programs.js"></script>
 <script defer src="js/ai.js?v=1"></script>
 <script defer src="js/shares.js"></script>
-<script type="module" src="js/lib/portfolio-calc.js?v=2"></script>
+<script type="module" src="js/lib/portfolio-calc.js?v=3"></script>
 <script defer src="js/api-sync.js?v=14"></script>
 <script defer src="js/nav.js?v=6"></script>
 <script type="module">
@@ -778,37 +778,37 @@
         const byKeyFn = r => r.role.toLowerCase() + '|' + r.task.toLowerCase();
         return buildSummaryCols(bData, byKeyFn, [...roleTaskMap.values()], this.filterRange, cfg, findRate);
       },
-      // Same composite-key reasoning as summaryByRole() above, one level coarser: a
-      // functional area groups multiple roles, so without the task dimension it can
-      // blend rates across BOTH multiple tasks AND multiple roles under one column.
-      // Kept as its own hand-rolled aggregation (not buildSummaryCols) because group
-      // membership is a role-list match (a row's role can belong to more than one
-      // group, by design), not a single-key equality buildSummaryCols expects.
+      // One column per functional area — correctness comes from each group's own
+      // `entries: [{role, task}]` (normalizeGroupEntries()/entryMatchesRow(),
+      // js/lib/portfolio-calc.js), not from splitting the output by task: a group
+      // can claim a role's hours on one specific task while leaving another task's
+      // hours for the same role out entirely (the Bayer case — "HWGACCSVS - DIRECTOR"
+      // billed at 168/h on Overall Coordination vs 130/h on Project Management —
+      // was previously only resolvable by fragmenting this card into as many
+      // columns as summaryByRole(); now the group definition itself decides what
+      // counts, and the card stays one coherent column per area). Legacy groups
+      // with only `roles: string[]` (no task association) normalize to wildcard
+      // entries (task: '') and keep summing across every task, matching pre-change
+      // behavior exactly until someone re-edits them in project-config.html.
       summaryByGroup() {
         const cfg = this.dashboardProject;
         if (!cfg || !cfg.groups?.length) return null;
         const bData = billableData(this.dashboardData, cfg);
         const bTasks = billableTasks(cfg);
-        const entries = [];
-        cfg.groups.forEach(grp => {
-          const roleLowers = grp.roles.map(r => r.toLowerCase());
-          bTasks.forEach(task => {
-            const memberResources = task.resources.filter(res => roleLowers.includes(res.role.toLowerCase()));
-            if (!memberResources.length) return; // this group has no member role on this task — no empty column
-            const soldHours = memberResources.reduce((s,r) => s+r.soldHours, 0);
-            const soldEur = memberResources.reduce((s,r) => s+r.soldHours*r.hourlyRate, 0);
-            entries.push({ label: `${grp.name} — ${task.name}`, soldHours, soldEur, _roleLowers: roleLowers, _taskLower: task.name.toLowerCase() });
-          });
-        });
         const { start, end } = this.filterRange;
-        return entries.map(({ label, soldHours, soldEur, _roleLowers, _taskLower }) => {
-          const grpTaskRows = bData.filter(r => _roleLowers.includes(r.role.toLowerCase()) && r.task.toLowerCase() === _taskLower);
-          const totalConsumed = grpTaskRows.reduce((s,r) => s+r.hours, 0);
-          const totalConsumedEur = grpTaskRows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0);
-          const periodRows = grpTaskRows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
+        return cfg.groups.map(grp => {
+          const grpEntries = normalizeGroupEntries(grp);
+          let soldHours = 0, soldEur = 0;
+          bTasks.forEach(task => task.resources.forEach(res => {
+            if (entryMatchesRow(grpEntries, res.role, task.name)) { soldHours += res.soldHours; soldEur += res.soldHours * res.hourlyRate; }
+          }));
+          const grpRows = bData.filter(r => entryMatchesRow(grpEntries, r.role, r.task));
+          const totalConsumed = grpRows.reduce((s,r) => s+r.hours, 0);
+          const totalConsumedEur = grpRows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0);
+          const periodRows = grpRows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
           const inPeriod = periodRows.reduce((s,r) => s+r.hours, 0);
           const inPeriodEur = periodRows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0);
-          return { label, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
+          return { label: grp.name, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
         });
       },
       taskDetailData() {

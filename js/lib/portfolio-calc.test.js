@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeKpis, computeBurndownPoints, buildSummaryCols, summaryTotals } from './portfolio-calc.js';
+import { computeKpis, computeBurndownPoints, buildSummaryCols, summaryTotals, normalizeGroupEntries, entryMatchesRow } from './portfolio-calc.js';
 
 // Minimal fakes for the three injected helper functions — real behavior confirmed
 // against js/core.js during Step 1; kept simple here since these tests exercise
@@ -200,5 +200,57 @@ describe('summaryTotals', () => {
     const totals = summaryTotals(cols, true);
     expect(totals.totSpent).toBe(2); // 6 total - 4 in-period
     expect(totals.totSpentEur).toBe(200);
+  });
+});
+
+describe('normalizeGroupEntries', () => {
+  it('returns entries as-is when already present', () => {
+    const grp = { name: 'Accounting', roles: ['Legacy Role'], entries: [{ role: 'Account Director', task: 'Overall Coordination' }] };
+    expect(normalizeGroupEntries(grp)).toEqual([{ role: 'Account Director', task: 'Overall Coordination' }]);
+  });
+
+  it('seeds wildcard entries (task: "") from legacy roles[] when entries is absent', () => {
+    const grp = { name: 'Accounting', roles: ['Account Director', 'Account Services Intern'] };
+    expect(normalizeGroupEntries(grp)).toEqual([
+      { role: 'Account Director', task: '' },
+      { role: 'Account Services Intern', task: '' },
+    ]);
+  });
+
+  it('seeds wildcard entries when entries is present but empty', () => {
+    const grp = { name: 'Accounting', roles: ['Account Director'], entries: [] };
+    expect(normalizeGroupEntries(grp)).toEqual([{ role: 'Account Director', task: '' }]);
+  });
+
+  it('returns an empty array when neither entries nor roles is present', () => {
+    expect(normalizeGroupEntries({ name: 'Empty' })).toEqual([]);
+  });
+});
+
+describe('entryMatchesRow', () => {
+  it('matches a wildcard entry (task: "") regardless of the row\'s task', () => {
+    const entries = [{ role: 'Account Director', task: '' }];
+    expect(entryMatchesRow(entries, 'Account Director', 'Overall Coordination')).toBe(true);
+    expect(entryMatchesRow(entries, 'Account Director', 'Project Management')).toBe(true);
+  });
+
+  it('matches a task-scoped entry only on that exact task — the Bayer case', () => {
+    // Same role, but the group only claims it for Overall Coordination, not
+    // Project Management -- exactly the precise-membership goal this pair of
+    // functions exists for (resolves the "same role, two rates" ambiguity by
+    // letting the group definition itself pick which task's hours count).
+    const entries = [{ role: 'HWGACCSVS - DIRECTOR', task: 'Overall Coordination' }];
+    expect(entryMatchesRow(entries, 'HWGACCSVS - DIRECTOR', 'Overall Coordination')).toBe(true);
+    expect(entryMatchesRow(entries, 'HWGACCSVS - DIRECTOR', 'Project Management')).toBe(false);
+  });
+
+  it('is case-insensitive on both role and task', () => {
+    const entries = [{ role: 'Account Director', task: 'Overall Coordination' }];
+    expect(entryMatchesRow(entries, 'account director', 'OVERALL COORDINATION')).toBe(true);
+  });
+
+  it('returns false when no entry matches the role at all', () => {
+    const entries = [{ role: 'Account Director', task: '' }];
+    expect(entryMatchesRow(entries, 'Developer', 'FE / BE Development')).toBe(false);
   });
 });
