@@ -282,7 +282,10 @@
     </div>
 
     <div class="d-flex gap-2 justify-content-between align-items-center py-4 border-top mt-2 mb-5">
-      <button class="btn btn-outline-secondary" onclick="window.location.href='/portfolio.html'">← Back to Portfolio</button>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" onclick="window.location.href='/portfolio.html'">← Back to Portfolio</button>
+        <button v-if="!isNewProject" class="btn btn-outline-secondary" @click="goProjectDashboard">← Project Dashboard</button>
+      </div>
       <button v-if="!isViewer" class="btn btn-primary px-4" :disabled="saving" @click="onSave">{{ saving ? '💾 Saving…' : '💾 Save' }}</button>
     </div>
   </template>
