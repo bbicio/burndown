@@ -1,6 +1,45 @@
 import { describe, it, expect, test } from 'vitest';
 import { matchesTaskRole, computeResidual, distributeFutureResidual } from './planning-calc.js';
 import { getCalendarWeeks, workingDaysInWeek, getPlanningPeriods, countFutureTaskWeeks } from './planning-calc.js';
+import { sumChildBreakdownHours } from './planning-calc.js';
+
+describe('sumChildBreakdownHours', () => {
+  const weekMap = {
+    w1: { hours: 10, isPast: true, isPulse: false, breakdown: [
+      { project: 'Alpha', task: 'Build', hours: 6 },
+      { project: 'Beta',  task: 'Design', hours: 4 },
+    ] },
+    w2: { hours: 8, isPast: false, isPulse: true, breakdown: [
+      { project: 'Alpha', task: 'Build', hours: 8 },
+    ] },
+    w3: { hours: 5, isPast: false, isPulse: false, breakdown: [
+      { project: 'Alpha', task: 'Deploy', hours: 5 },
+    ] },
+  };
+
+  it('sums hours across weeks for a matching (project, task) pair', () => {
+    expect(sumChildBreakdownHours(weekMap, ['w1', 'w2'], 'Alpha', 'Build')).toEqual({ hours: 14, isPulse: true });
+  });
+
+  it('excludes entries from a different project or task', () => {
+    expect(sumChildBreakdownHours(weekMap, ['w1'], 'Beta', 'Design')).toEqual({ hours: 4, isPulse: false });
+    expect(sumChildBreakdownHours(weekMap, ['w1', 'w2', 'w3'], 'Alpha', 'Deploy')).toEqual({ hours: 5, isPulse: false });
+  });
+
+  it('isPulse reflects only weeks that actually contributed matching hours', () => {
+    // w2 is a pulse week but only contains Alpha/Build — a different child must not inherit isPulse from it
+    expect(sumChildBreakdownHours(weekMap, ['w1', 'w2'], 'Beta', 'Design')).toEqual({ hours: 4, isPulse: false });
+  });
+
+  it('returns zero hours and isPulse false when no week key is present in the map', () => {
+    expect(sumChildBreakdownHours(weekMap, ['missing'], 'Alpha', 'Build')).toEqual({ hours: 0, isPulse: false });
+  });
+
+  it('handles a cell with no breakdown array without crashing', () => {
+    const sparse = { w1: { hours: 3, isPast: true, isPulse: false } };
+    expect(sumChildBreakdownHours(sparse, ['w1'], 'Alpha', 'Build')).toEqual({ hours: 0, isPulse: false });
+  });
+});
 
 describe('matchesTaskRole', () => {
   it('matches identical role and task name', () => {

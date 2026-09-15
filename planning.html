@@ -224,7 +224,7 @@
 <script defer src="js/settings.js"></script>
 <script defer src="js/notifications.js"></script>
 <script defer src="js/roles.js"></script>
-<script type="module" src="js/lib/planning-calc.js?v=2"></script>
+<script type="module" src="js/lib/planning-calc.js?v=3"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/portfolio.js"></script>
@@ -357,9 +357,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const roleMap = {};
         const roleSoldMap = {};
         const roleActualsMap = {};
+        // Per-role breakdown by (project, task) — one entry per child row in the drill-down.
+        // Sold/actual are accumulated here at the same point as roleSoldMap/roleActualsMap above
+        // (the same soldH/consumedH values, just also kept partitioned by child instead of only
+        // merged into the role-wide total); "to be planned" per child is derived at render time
+        // via computeResidual(sold, actual), not stored, since it's fully determined by the two.
+        const roleChildMap = {};
 
         projects.forEach(proj => {
           const projData = timesheetData.filter(r => r.projectId === proj.id);
+          const projLabel = proj.name || proj.id;
 
           (proj.tasks || []).forEach(task => {
             if (task.completed) return;
@@ -379,6 +386,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 .filter(r => matchesTaskRole(r, task.name, res.role))
                 .reduce((s, r) => s + r.hours, 0);
               roleActualsMap[res.role] = (roleActualsMap[res.role] || 0) + consumedH;
+
+              if (!roleChildMap[res.role]) roleChildMap[res.role] = {};
+              const childKey = `${projLabel}::${task.name}`;
+              if (!roleChildMap[res.role][childKey]) {
+                roleChildMap[res.role][childKey] = { project: projLabel, task: task.name, sold: 0, actual: 0 };
+              }
+              roleChildMap[res.role][childKey].sold   += soldH;
+              roleChildMap[res.role][childKey].actual += consumedH;
 
               const residualH = computeResidual(soldH, consumedH);
 
@@ -500,7 +515,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         periods.forEach(p => { colTotals[pKey(p)] = 0; colFutureTotals[pKey(p)] = 0; });
 
         let tbodyHtml = '';
-        roles.forEach(role => {
+        roles.forEach((role, roleIdx) => {
+          const gid = `role-${roleIdx}`;
           let rowToBePlanned = 0;
           const cells = periods.map(p => {
             const borderR = isMonthly ? '3px solid var(--text-muted)' : (p.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)');
@@ -539,10 +555,41 @@ document.addEventListener('DOMContentLoaded', async () => {
           const tbpCell  = `<td style="position:sticky;left:330px;z-index:2;text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);background:var(--sand-50)">${fmtPH(rowToBePlanned)}</td>`;
 
           tbodyHtml += `
-            <tr>
-              <td style="position:sticky;left:0;z-index:2;background:white;font-size:var(--text-base);padding:6px 8px;font-weight:500;border:1px solid var(--border-light);white-space:nowrap">${esc(role)}</td>
+            <tr data-group-id="${gid}">
+              <td style="position:sticky;left:0;z-index:2;background:white;font-size:var(--text-base);padding:6px 8px;font-weight:500;border:1px solid var(--border-light);white-space:nowrap"><span class="pp-toggle" style="display:inline-block;width:12px;margin-right:4px;font-size:var(--text-xs)">▶</span>${esc(role)}</td>
               ${soldCell}${actCell}${tbpCell}${cells}
             </tr>`;
+
+          // Drill-down: one child row per (project, task) this role covers, collapsed by default
+          // (initTooltipsAndToggles() shows/hides these together via data-parent-group, same
+          // mechanism already used by By Project/By Owner — see planning.html's own notes there).
+          const children = Object.values(roleChildMap[role] || {})
+            .sort((a, b) => (b.sold + b.actual) - (a.sold + a.actual));
+
+          children.forEach(child => {
+            const childTbp = computeResidual(child.sold, child.actual);
+            const childCells = periods.map(p => {
+              const borderR = isMonthly ? '3px solid var(--text-muted)' : (p.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)');
+              const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()];
+              const { hours: h, isPulse: hasPulse } = sumChildBreakdownHours(roleMap[role] || {}, keys, child.project, child.task);
+              const emptyBg = p.isPast ? '#f4f5f6' : 'transparent';
+              if (h < 0.01) return `<td style="background:${emptyBg};border:1px solid var(--border-light);border-right:${borderR}"></td>`;
+              const bg = p.isPast ? '#e8eaec' : hasPulse ? '#f3effe' : '#fafafa';
+              const displayVal = hasPulse ? `<span style="font-style:italic;color:var(--violet-400);font-size:var(--text-xs)">~${fmtPH(h)}</span>`
+                : h < 1 && this.roundHours ? `<span style="color:#888;font-size:var(--text-2xs)">${h.toFixed(2)}h</span>`
+                : `<span style="font-size:var(--text-xs)">${fmtPH(h)}</span>`;
+              return `<td style="background:${bg};border:1px solid var(--border-light);border-right:${borderR};text-align:center;padding:2px 3px">${displayVal}</td>`;
+            }).join('');
+
+            tbodyHtml += `
+              <tr data-parent-group="${gid}" style="background:#fafafa;display:none">
+                <td style="position:sticky;left:0;z-index:2;background:#fafafa;font-size:var(--text-xs);padding:3px 8px 3px 30px;border:1px solid var(--border-light);color:#444;white-space:nowrap">🏢 ${esc(child.project)} · 📋 ${esc(child.task)}</td>
+                <td style="position:sticky;left:185px;z-index:2;text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);background:#f5f6f7;color:#555">${fmtPH(child.sold)}</td>
+                <td style="position:sticky;left:250px;z-index:2;text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);background:#f5f6f7;color:#555">${fmtPH(child.actual)}</td>
+                <td style="position:sticky;left:330px;z-index:2;text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);background:#f5f6f7;color:#555">${fmtPH(childTbp)}</td>
+                ${childCells}
+              </tr>`;
+          });
         });
 
         const totalCells = periods.map(p => {
@@ -573,6 +620,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             <span style="background:var(--color-warning-bg);padding:1px 5px;border-radius:var(--radius-xs)">Yellow</span> = load &gt; 24h/week &nbsp;·&nbsp;
             <span style="background:var(--color-danger-bg);padding:1px 5px;border-radius:var(--radius-xs)">Red</span> = load &gt; 30h/week (overallocation) &nbsp;·&nbsp;
             <span style="background:#c8e6ff;padding:1px 5px;border-radius:var(--radius-xs)">Blue</span> = current week / month.
+            Expand a role row (▶) to see its breakdown by project and task.
+          </div>
+          <div class="d-flex justify-content-end gap-1 mb-2">
+            <button class="btn btn-outline-secondary pp-expand-all" style="font-size:var(--text-xs);padding:2px 8px">⊞ Expand all</button>
+            <button class="btn btn-outline-secondary pp-collapse-all" style="font-size:var(--text-xs);padding:2px 8px">⊟ Collapse all</button>
           </div>
           <table class="gantt-table" id="ppResourceTable" style="border-collapse:collapse;width:100%">
             <thead>
@@ -1397,7 +1449,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         container.querySelectorAll('tr[data-group-id]').forEach(hRow => {
           const gid = hRow.dataset.groupId;
           const childRows = [...container.querySelectorAll(`tr[data-parent-group="${gid}"]`)];
-          groups.set(gid, { hRow, childRows, collapsed: false });
+          // Seed from the child rows' own current display state rather than hardcoding false —
+          // By Project/By Owner's rows carry no inline display (start expanded, collapsed:false
+          // is correct there); By Role's drill-down rows start with display:none in their own
+          // template (collapsed by default per that view's own design), so this must read the
+          // real DOM state or the first click after any re-render would be a no-op toggle.
+          const startsCollapsed = childRows.length > 0 && childRows[0].style.display === 'none';
+          groups.set(gid, { hRow, childRows, collapsed: startsCollapsed });
           hRow.style.cursor = 'pointer';
           if (hRow.dataset.ppBound) return;
           hRow.dataset.ppBound = '1';
