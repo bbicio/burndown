@@ -274,6 +274,16 @@ Not a portfolio-wide bar chart — this is a **per-project table** in the drill-
 
 The only chart on this page is the burndown line chart described implicitly by §6.1 (Chart.js `type: 'line'`, `renderBurndownChart()` method) — there is no separate bar chart matching the portfolio-wide "estimated vs. spent per month across the portfolio" description that was previously here.
 
+### 6.3 Summary by Task / Role / Functional Area
+
+Three cards in the drill-down view, below the Monthly Summary table, each a pivot table (one row per metric — Total Amount, Spent, In period, Residual — one column per group, plus a TOTAL column) built from the same underlying timesheet data. Every column shows both hours and the corresponding € figure.
+
+- **Summary by task** — one column per project task, regardless of role.
+- **Summary by role** — one column per **(role, task) pair** actually present, not per role alone (2026-09). A role billed at a different hourly rate on two different tasks (real example: an "Account Director" role priced at 168/h on one task and 130/h on another, because the rate is configured per task, not globally per role) previously landed in one blended column whose total couldn't be reconciled against the cost grid; it now gets two separate, internally-consistent columns, one per task.
+- **Summary by functional area** — one column per functional area (§7.1's Functional Groups), unchanged in shape from before 2026-09, but now precise: each area's membership is a list of explicit **(role, task)** pairs (or a role claimed for "— any task —", the default/legacy behavior) rather than a bare role-name list matched against every task that role appears on. This lets an area count a role's hours on one specific task while excluding that same role's hours on a different task (billed at a different rate) — without needing to split the card's own columns by task the way "Summary by role" does.
+
+Task detail (the per-task role breakdown further down the page) is unaffected by any of the above — it was already scoped to one task at a time.
+
 ---
 
 ## 7. Configuration
@@ -312,6 +322,8 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 **Edit modes:** Visual form only. (A raw-JSON editor toggle exists in the underlying shared `js/config-form.js`, but was confirmed unreachable on `project-config.html` — no toggle button existed in this page's markup — during its 2026-07 Vue 3 migration, and was not ported. `portfolio.html`'s own separate copy of this config modal, which also referenced `js/config-form.js`, was confirmed unreachable and dropped entirely during that page's own 2026-07 Vue 3 migration; `js/config-form.js` itself remains loaded by `planning.html`, whose own reachability was not investigated.)
 
 **Other sections in the form:** Phasing (monthly budget distribution), Planning (monthly sold-hours distribution), and Functional Groups (named role groupings) — each a distinct area of the same full-page form.
+
+**Functional Groups** (2026-09): each group is a name plus a list of role rows, one row per role membership — a free-text role name (must match the "Job Role: Name" column in the uploaded XLS) plus a task dropdown, scoped to this project's own tasks, defaulting to "— any task —". Picking a specific task claims that role's hours only on that task for this group — used to keep a functional area's reporting total precise when the same role is billed at different rates on different tasks (see §6.3); leaving it as "— any task —" claims the role everywhere it appears, matching the group's pre-2026-09 behavior.
 
 **Actuals section** (2026-09): manages the D365 timesheet data imported for this project.
 - **📂 Load Actuals** — upload an Excel timesheet file (same mechanism as the Project Reporting single-project detail view's button of the same name, §6.1).
