@@ -243,7 +243,7 @@ Note the two tables are not interchangeable: the portfolio summary's "Budget Est
 **Toolbar actions:**
 - **＋ New project** — the only page-level toolbar action; navigates to `project-config.html`
 
-**Per-project card** (2026-09 redesign): identity (title, code, pipeline/status badges, an actuals-availability badge — `No actuals available` when the project has no uploaded timesheet data) plus a compact totals row — Duration (project start–end month range), Sold (`phasing` total), Spent (actual-hours-to-date total), and Variance (Sold − Spent, colored green when positive/under-budget and red when negative/over-budget) — with no per-month breakdown on the card itself. The only action on the card is a single **Open project →** button, always clickable (not gated on the project having actuals), which navigates into that project's detail view (§6.2).
+**Per-project card** (2026-09 redesign): identity (title, code, pipeline/status badges, an actuals-availability badge — `No actuals available` when the project has no uploaded timesheet data) plus a compact totals row — Duration (project start–end month range), Sold (`phasing` total), Spent (actual-hours-to-date total), and Variance (Sold − Spent, colored green when positive/under-budget and red when negative/over-budget) — with no per-month breakdown on the card itself. The only action on the card is a single **Project Dashboard** button (renamed from `Open project →`, 2026-09), always clickable (not gated on the project having actuals), which navigates into that project's detail view (§6.2).
 
 **Detail-page actions** (moved off the list card in the 2026-09 redesign; live in the detail view's own header instead, alongside Configure):
 - **⚙️ Configure** — navigate to that project's `project-config.html`
@@ -253,6 +253,8 @@ Note the two tables are not interchangeable: the portfolio summary's "Budget Est
 - **＋ Summary** — pin/unpin the project into the Budget Summary table at the top of the Portfolio Overview page
 
 Configure and Load Actuals are hidden for viewers (see §18.3) — this permission gating is unchanged by the relocation, only its location moved from the list card to the detail-page header.
+
+**← Portfolio** (2026-09): navigates back to the list. Appears both at the top of the detail view (next to the header) and again at the bottom (after Task detail) — the same action in two places so a long detail page doesn't force a scroll back to the top just to leave it.
 
 (Corrected 2026-07: this section previously described "Clients"/"Programs" management modals as page-level toolbar actions. Confirmed during `portfolio.html`'s 2026-07 Vue 3 migration that both were only ever reachable through `#configModal`, itself gated behind a `?configure=true` URL parameter no file in the repo ever set — i.e. already unreachable dead code before this migration, not a regression. `#configModal` and its nested clients/programs/roles CRUD were dropped entirely as part of that rewrite.)
 
@@ -293,6 +295,8 @@ All configuration screens described in this section are admin-only and accessibl
 ### 7.1 Project Configuration
 
 Accessed via the project card in the Reporting view (opens `project-config.html` as a full-page form).
+
+**Navigation** (2026-09): a `← Back to Portfolio` / `← Project Dashboard` button pair appears both at the top of the page and again at the bottom (next to Save). `← Project Dashboard` jumps straight to this project's own detail/report view instead of the bare list; it's hidden for a project that hasn't been saved yet (nothing to link to).
 
 **Project fields:**
 
