@@ -813,7 +813,7 @@ router.patch('/:id/reassign-owner', requireAuth, async (req, res, next) => {
     await client.query(
       `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
        VALUES ('cost_grid', $1, $2, 'owner', $3)
-       ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE SET permission = 'owner'`,
+       ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE SET permission = 'owner', shared_by = $3`,
       [cgId, ownerId, req.user.id]
     );
 
@@ -832,7 +832,7 @@ router.patch('/:id/reassign-owner', requireAuth, async (req, res, next) => {
         `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
          VALUES ('project', $1, $2, 'editor', $3)
          ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE
-         SET permission = 'editor' WHERE resource_shares.permission != 'owner'`,
+         SET permission = 'editor', shared_by = $3 WHERE resource_shares.permission != 'owner'`,
         [row.project_id, ownerId, req.user.id]
       );
     }
