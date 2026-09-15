@@ -23,6 +23,8 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 
 ## Gate 2 — MANUAL VERIFICATION (human gate, always confirms)
 
+**Teardown is a one-way door gated on the human's own "yes" — nothing else ever triggers it.** `scripts/test-branch.sh down` for this branch's environment may run ONLY at the exact point step 6 below says so, immediately after the user has explicitly answered "yes" to the literal question "Have you manually verified this in the browser?". No other moment qualifies — not after your own exploratory use of the environment (implementation testing, debugging, a pre-check you ran to save the user time), not because you consider your own check equivalent to the user's, not as routine cleanup once you're "done" with it, not between two separate `/finish-cycle` invocations in the same conversation. If you used the environment yourself for any reason before reaching this gate, leave it running and let step 1 below discover it as already `up` — do not tear it down first "to keep things tidy" and re-spin it. Two real incidents in one session (2026-09-15, `worktree-costgrid-owner-reassign` and `worktree-planning-role-task-breakdown`) were both this exact mistake: the agent's own browser verification was mistaken for satisfying this gate, and the environment was torn down before the user had answered the question at all.
+
 1. Run `scripts/test-branch.sh status`.
    - If `down` (exit 1): ask explicitly "Spin up an isolated test environment for this branch now? [yes/no]"
      - If yes: run `scripts/test-branch.sh up`. Record `<branch-env-active>` = true.
@@ -37,9 +39,9 @@ Run the full closeout sequence for the current feature branch: test, optional ma
    - Exactly one unique file → read it and check for mentions of browser verification or jsdom-untestable behavior. Show the file path and what was found (or state "no explicit mention of manual verification found in this file" if none).
    - More than one → state explicitly: "Found N candidates: [list] — no automatic selection."
    - Zero → state explicitly: "No spec/plan reference found in this branch's commits."
-6. Regardless of the outcome in step 5, always ask explicitly: "Have you manually verified this in the browser? [yes/no]"
+6. Regardless of the outcome in step 5, always ask explicitly: "Have you manually verified this in the browser? [yes/no]" — this question must reach the user and receive their actual answer; your own use of the environment earlier in this gate or anywhere else in the session is not a substitute answer, however thorough.
    - If the answer is "no" or anything other than a clear yes: stop and wait. Do not proceed. Do not tear down the branch environment if `<branch-env-active>` is true — leave it running so the user can keep testing.
-   - If "yes": if `<branch-env-active>` is true, run `scripts/test-branch.sh down` to tear down the test stack. Then proceed to Gate 3.
+   - If "yes": if `<branch-env-active>` is true, run `scripts/test-branch.sh down` to tear down the test stack — this is the only point in the entire command where that teardown may happen. Then proceed to Gate 3.
 
 ## Gate 3 — CODE REVIEW (conditional human gate, max 3 rounds by default)
 
