@@ -122,6 +122,28 @@ export function getPlanningPeriods(cfg, interval) {
   return weeks;
 }
 
+// Sums, across a set of week keys, only the breakdown entries belonging to one (project, task)
+// child — used by planning.html's "By Role" drill-down rows to derive per-child period hours
+// from the same roleMap[role] cells the parent role row already builds (js/planning.js has been
+// deleted; this mirrors what used to be inline logic, extracted here for unit coverage since it's
+// pure and DOM-free). isPulse is true only if a week that actually contributed matching hours was
+// itself a pulse (monthly-aggregate) week — a pulse week with no matching entry doesn't taint an
+// unrelated child's isPulse flag.
+export function sumChildBreakdownHours(roleWeekMap, weekKeys, project, task) {
+  let hours = 0, isPulse = false;
+  weekKeys.forEach(key => {
+    const cell = roleWeekMap[key];
+    if (!cell) return;
+    (cell.breakdown || []).forEach(b => {
+      if (b.project === project && b.task === task) {
+        hours += b.hours;
+        if (cell.isPulse) isPulse = true;
+      }
+    });
+  });
+  return { hours, isPulse };
+}
+
 window.matchesTaskRole = matchesTaskRole;
 window.computeResidual = computeResidual;
 window.distributeFutureResidual = distributeFutureResidual;
@@ -129,3 +151,4 @@ window.getCalendarWeeks = getCalendarWeeks;
 window.workingDaysInWeek = workingDaysInWeek;
 window.getPlanningPeriods = getPlanningPeriods;
 window.countFutureTaskWeeks = countFutureTaskWeeks;
+window.sumChildBreakdownHours = sumChildBreakdownHours;
