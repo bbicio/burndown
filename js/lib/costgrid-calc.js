@@ -106,3 +106,19 @@ export function stripCloneTaskIds(phases) {
 }
 
 window.stripCloneTaskIds = stripCloneTaskIds;
+
+// ── PROGRAM AUTO-LINK (Generate Project) ──────────────────────────────────────
+// Once a proposal's first partial-task-selection Generate Project run establishes
+// a program, every later generation from the same proposal — partial or covering
+// every remaining task — auto-links to that same program instead of prompting
+// again. Derived from the linked projects' own programId (no dedicated field
+// exists on cost_grid_versions/cg_version_projects for "this proposal's program").
+export function findExistingProgramForProposal(linkedProjects, projects) {
+  for (const lp of linkedProjects || []) {
+    const proj = (projects || []).find(p => p.id === lp.projectId);
+    if (proj?.programId) return proj.programId;
+  }
+  return null;
+}
+
+window.findExistingProgramForProposal = findExistingProgramForProposal;

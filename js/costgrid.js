@@ -13,6 +13,8 @@ let _cgActiveVersionId = null;
 let _cgDraft           = null;
 let _cgSelectionMode         = false;
 let _cgSelectedTaskIds       = new Set();
+let _cgFreeTaskIdsAtGenerateStart = new Set(); // snapshot of free-task ids taken when Generate Project entered selection mode
+let _cgPendingGeneration      = null;          // { selectedTaskIds, projectName } awaiting the Create Program modal's outcome
 let _cgOfferDetailsCollapsed = false;
 let _cgSummaryCollapsed      = false;
 let _cgCompactHeader         = localStorage.getItem('PDash_cgCompactHeader') === '1';
@@ -1028,6 +1030,7 @@ function cgGenerateProject() {
   }
 
   // Enter selection mode
+  _cgFreeTaskIdsAtGenerateStart = new Set(freeTasks.map(t => t.taskId));
   _cgSelectionMode = true;
   _cgSelectedTaskIds = new Set();
   renderCgEditor();
@@ -1117,10 +1120,49 @@ function cgConfirmAndGenerate() {
   const defaultName = _cgDraft.projectName || '';
   const projectName = prompt('Project name:', defaultName);
   if (!projectName || !projectName.trim()) return;
-  cgDoGenerateProject([..._cgSelectedTaskIds], projectName.trim());
+
+  const selectedTaskIds = [..._cgSelectedTaskIds];
+  const trimmedName = projectName.trim();
+
+  // Once this proposal already has an established program (from an earlier Generate Project
+  // run), every later generation auto-links to it — partial selection or not, no re-prompt.
+  const existingProgramId = findExistingProgramForProposal(_cgDraft.linkedProjects, config.projects);
+  if (existingProgramId) {
+    cgDoGenerateProject(selectedTaskIds, trimmedName, existingProgramId);
+    return;
+  }
+
+  // Selecting every task that was free when Generate Project was clicked leaves nothing
+  // unassigned — no program prompt needed, matches pre-existing behavior.
+  const leavesTasksUnassigned = selectedTaskIds.length < _cgFreeTaskIdsAtGenerateStart.size;
+  if (!leavesTasksUnassigned) {
+    cgDoGenerateProject(selectedTaskIds, trimmedName, null);
+    return;
+  }
+
+  // Partial selection, no program established yet for this proposal — require one before
+  // generating. cgResumePendingGeneration() resumes on success; cancel/dismiss (any path,
+  // handled via the modal's own hidden.bs.modal listener) drops _cgPendingGeneration, so no
+  // project is created at all if the user backs out here.
+  _cgPendingGeneration = { selectedTaskIds, projectName: trimmedName };
+  _cgVueApp?.openCreateProgramModal();
 }
 
-function cgDoGenerateProject(selectedTaskIds, projectName) {
+function cgResumePendingGeneration(programId) {
+  if (!_cgPendingGeneration) return;
+  const { selectedTaskIds, projectName } = _cgPendingGeneration;
+  _cgPendingGeneration = null;
+  cgDoGenerateProject(selectedTaskIds, projectName, programId);
+}
+
+// Any dismissal of #cgCreateProgramModal that isn't a successful Create (Cancel, X, backdrop,
+// Esc) lands here — clears the pending generation so no project is created at all. A no-op if
+// cgResumePendingGeneration() already consumed it on the success path.
+function cgAbortPendingGeneration() {
+  _cgPendingGeneration = null;
+}
+
+function cgDoGenerateProject(selectedTaskIds, projectName, programId) {
   const v = _cgDraft;
 
   const tasks = [];
@@ -1184,6 +1226,7 @@ function cgDoGenerateProject(selectedTaskIds, projectName) {
     groups:    [],
     costGridRef: { cgId: _cgActiveCgId, versionId: _cgActiveVersionId },
     clientId:  _cgDraft.clientId || '__unassigned__',
+    programId: programId || null,
   };
   config.projects.push(newProject);
   persistConfig();

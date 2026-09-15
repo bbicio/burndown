@@ -1,8 +1,40 @@
 import { describe, it, expect } from 'vitest';
 import {
   resolveRoleRate, cgComputeTaskTotals, cgComputePhaseTotals, cgComputeGrandTotals, cgComputeColumnTotals,
-  versionHasFreeTasks, isVersionCommittedLocked, stripCloneTaskIds,
+  versionHasFreeTasks, isVersionCommittedLocked, stripCloneTaskIds, findExistingProgramForProposal,
 } from './costgrid-calc.js';
+
+describe('findExistingProgramForProposal', () => {
+  it('returns null when no linked project has a programId', () => {
+    const linkedProjects = [{ projectId: 'p1' }, { projectId: 'p2' }];
+    const projects = [{ id: 'p1', programId: null }, { id: 'p2', programId: null }];
+    expect(findExistingProgramForProposal(linkedProjects, projects)).toBe(null);
+  });
+
+  it('returns the programId of the first linked project that has one', () => {
+    const linkedProjects = [{ projectId: 'p1' }, { projectId: 'p2' }];
+    const projects = [{ id: 'p1', programId: null }, { id: 'p2', programId: 'PRG-001' }];
+    expect(findExistingProgramForProposal(linkedProjects, projects)).toBe('PRG-001');
+  });
+
+  it('returns null when linkedProjects is empty', () => {
+    expect(findExistingProgramForProposal([], [{ id: 'p1', programId: 'PRG-001' }])).toBe(null);
+  });
+
+  it('returns null when linkedProjects is undefined', () => {
+    expect(findExistingProgramForProposal(undefined, [{ id: 'p1', programId: 'PRG-001' }])).toBe(null);
+  });
+
+  it('skips a linked project not found in the projects list, without throwing', () => {
+    const linkedProjects = [{ projectId: 'missing' }, { projectId: 'p2' }];
+    const projects = [{ id: 'p2', programId: 'PRG-002' }];
+    expect(findExistingProgramForProposal(linkedProjects, projects)).toBe('PRG-002');
+  });
+
+  it('returns null when projects is undefined', () => {
+    expect(findExistingProgramForProposal([{ projectId: 'p1' }], undefined)).toBe(null);
+  });
+});
 
 describe('resolveRoleRate', () => {
   it('returns the EUR baseline rate unchanged when currency is EUR', () => {

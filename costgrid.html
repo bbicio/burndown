@@ -429,6 +429,22 @@
       </div>
     </div>
   </div>
+
+  <!-- Create Program (Generate Project, partial task selection, no program yet for this proposal) -->
+  <div class="modal fade" id="cgCreateProgramModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title fw-bold">＋ Create program</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <p class="small text-muted">This proposal isn't fully migrated yet — link the generated project to a program so later projects from the same proposal can join it automatically.</p>
+          <div v-if="createProgramModal.error" class="alert alert-danger py-2">{{ createProgramModal.error }}</div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Program name</label><input type="text" class="form-control form-control-sm" v-model="createProgramModal.name" placeholder="e.g. Chatbot AI Platform"></div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Program ID</label><input type="text" class="form-control form-control-sm" v-model="createProgramModal.id" placeholder="e.g. PRG-001"></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" :disabled="createProgramModal.saving" @click="saveCreateProgramModal">{{ createProgramModal.saving ? 'Saving…' : 'Create' }}</button></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Placeholder sections (referenced by cgHideAll in costgrid.js — overridden as no-op) -->
@@ -582,8 +598,8 @@
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
-<script type="module" src="js/lib/costgrid-calc.js?v=3"></script>
-<script defer src="js/costgrid.js?v=27"></script>
+<script type="module" src="js/lib/costgrid-calc.js?v=4"></script>
+<script defer src="js/costgrid.js?v=28"></script>
 <script defer src="js/api-sync.js?v=14"></script>
 <script defer src="js/ratecards.js"></script>
 <script defer src="js/shares.js"></script>
@@ -638,6 +654,7 @@ Vue.createApp({
       roleModalMode: 'add', roleModalSourceCode: null, roleSearch: '', roleActiveTeam: '', roleAllRoles: [], roleRcName: '',
       myRole: '',
       reassignOwnerOptions: [], reassignOwnerOptionsLoaded: false, reassignOwnerBusy: false,
+      createProgramModal: { name: '', id: '', error: '', saving: false },
     };
   },
   computed: {
@@ -849,6 +866,27 @@ Vue.createApp({
         isSingleMode: this.roleModalMode === 'change' || this.roleModalMode === 'duplicate',
         isSource: r.code === this.roleModalSourceCode,
       };
+    },
+    openCreateProgramModal() {
+      this.createProgramModal = { name: '', id: '', error: '', saving: false };
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('cgCreateProgramModal')).show();
+    },
+    async saveCreateProgramModal() {
+      if (this.createProgramModal.saving) return; // already in flight -- ignore a fast repeat click
+      const name = this.createProgramModal.name.trim();
+      const id = this.createProgramModal.id.trim();
+      if (!name) { this.createProgramModal.error = 'Name is required.'; return; }
+      if (!id) { this.createProgramModal.error = 'Program ID is required.'; return; }
+      this.createProgramModal.saving = true;
+      try {
+        const created = await Api.programs.create(id, name);
+        cgResumePendingGeneration(created.id);
+        bootstrap.Modal.getInstance(document.getElementById('cgCreateProgramModal'))?.hide();
+      } catch (e) {
+        this.createProgramModal.error = e.message || 'Save failed.';
+      } finally {
+        this.createProgramModal.saving = false;
+      }
     },
     async openRoleModal(mode, sourceRoleCode) {
       this.roleModalMode = mode || 'add';
@@ -1314,6 +1352,10 @@ Vue.createApp({
     document.getElementById('btnCgClone').addEventListener('click', cgCloneGrid);
     document.addEventListener('hidden.bs.modal', e => {
       if (e.target && e.target.id === 'shareModal') this.shareListRefreshTick++;
+      // Any dismissal path (Cancel, X, backdrop, Esc) must abort the whole pending generation —
+      // saveCreateProgramModal() already cleared the pending state via cgResumePendingGeneration()
+      // on a successful Create, so this is a harmless no-op in that case.
+      if (e.target && e.target.id === 'cgCreateProgramModal') cgAbortPendingGeneration();
     });
 
     await this.openVersion(cgId, targetVerId);
