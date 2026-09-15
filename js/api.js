@@ -108,6 +108,7 @@ const Api = {
     create:  (d)            => apiFetch('/cost-grids',    { method: 'POST',   body: JSON.stringify(d) }),
     update:  (id, d)        => apiFetch(`/cost-grids/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
     delete:  (id)           => apiFetch(`/cost-grids/${id}`, { method: 'DELETE' }),
+    reassignOwner: (id, ownerId) => apiFetch(`/cost-grids/${id}/reassign-owner`, { method: 'PATCH', body: JSON.stringify({ ownerId }) }),
     versions: {
       list:       (cgId)              => apiFetch(`/cost-grids/${cgId}/versions`),
       create:     (cgId, d)           => apiFetch(`/cost-grids/${cgId}/versions`, { method: 'POST', body: JSON.stringify(d) }),

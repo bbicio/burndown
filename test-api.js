@@ -605,6 +605,138 @@ async function testAdminChangeOwner() {
   }
 }
 
+// ── Cost grid — admin/sysadmin owner reassignment (with linked-project editor grant) ──────
+
+async function testCostGridReassignOwner() {
+  section('Cost Grid — Reassign Owner (admin/sysadmin)');
+
+  const FAKE_UUID = '00000000-0000-0000-0000-000000000000';
+
+  const meAdmin = await api('GET', '/api/auth/me', null, adminCookie);
+  const adminId = meAdmin.data?.id;
+  const meSys = await api('GET', '/api/auth/me', null, sysadminCookie);
+  const sysadminId = meSys.data?.id;
+
+  // Setup: pipeline year + cost grid (owned by admin) + a version + a project linked to it
+  const rpy = await api('POST', '/api/pipeline-years', { year: TEST_YEAR_C }, adminCookie);
+  const pyId = rpy.data?.id;
+  if (pyId) later('DELETE', `/api/pipeline-years/${pyId}`);
+  const havePy = [201, 409].includes(rpy.status);
+
+  let cgId = null, vId = null, projId = null;
+  if (havePy) {
+    const rcg = await api('POST', '/api/cost-grids',
+      { name: '__test_reassign_cg__', pipelineYear: TEST_YEAR_C }, adminCookie);
+    ok(rcg.status === 201, 'CGR-01 POST cost grid for reassign test → 201');
+    cgId = rcg.data?.id;
+    if (cgId) later('DELETE', `/api/cost-grids/${cgId}`);
+
+    if (cgId) {
+      const rv = await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'v1' }, adminCookie);
+      vId = rv.data?.id;
+    }
+
+    const rproj = await api('POST', '/api/projects', { name: '__test_reassign_proj__' }, adminCookie);
+    projId = rproj.data?.id;
+    if (projId) later('DELETE', `/api/projects/${projId}`);
+
+    if (vId && projId) {
+      const rlink = await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/linked-projects`,
+        { projectId: projId, taskIds: [], taskNames: [] }, adminCookie);
+      ok(rlink.status === 201, 'CGR-01 link project to cost grid version → 201');
+    }
+  } else {
+    ok(false, 'CGR-01 POST cost grid for reassign test → skipped (pipeline year unavailable)');
+  }
+
+  // Unauthenticated → 401
+  ok((await api('PATCH', `/api/cost-grids/${FAKE_UUID}/reassign-owner`, { ownerId: FAKE_UUID })).status === 401,
+    'CGR-02 PATCH /reassign-owner without auth → 401');
+
+  // Missing ownerId → 400 (as admin)
+  if (cgId) {
+    ok((await api('PATCH', `/api/cost-grids/${cgId}/reassign-owner`, {}, adminCookie)).status === 400,
+      'CGR-03 PATCH with missing ownerId → 400');
+  }
+
+  // Unknown cgId → 404 (as admin)
+  ok((await api('PATCH', `/api/cost-grids/${FAKE_UUID}/reassign-owner`,
+    { ownerId: sysadminId || FAKE_UUID }, adminCookie)).status === 404,
+    'CGR-04 PATCH with unknown cgId → 404');
+
+  // Unknown ownerId → 404 (as admin)
+  if (cgId) {
+    ok((await api('PATCH', `/api/cost-grids/${cgId}/reassign-owner`,
+      { ownerId: FAKE_UUID }, adminCookie)).status === 404,
+      'CGR-05 PATCH with unknown ownerId → 404');
+  }
+
+  // Valid reassignment → 200 (as admin, reassigning to sysadmin — a genuinely different user)
+  if (cgId && sysadminId) {
+    const r = await api('PATCH', `/api/cost-grids/${cgId}/reassign-owner`, { ownerId: sysadminId }, adminCookie);
+    ok(r.status === 200, 'CGR-06 PATCH /reassign-owner as admin → 200');
+    ok(r.data?.ok === true, 'CGR-06 response.ok is true');
+  }
+
+  // resource_shares sync on the cost grid itself: old owner (admin) loses the owner row,
+  // new owner (sysadmin) gets exactly one.
+  if (cgId && adminId && sysadminId) {
+    const shares = await api('GET', `/api/cost-grids/${cgId}/shares`, null, adminCookie);
+    const rows = shares.data || [];
+    ok(!rows.find(s => s.user_id === adminId && s.permission === 'owner'),
+      'CGR-07 previous owner no longer has an owner row on the cost grid');
+    ok(rows.find(s => s.user_id === sysadminId)?.permission === 'owner',
+      'CGR-07 new owner has an owner row on the cost grid');
+  }
+
+  // resource_shares grant on the linked project: new owner gets 'editor'. The project's own
+  // owner (admin, from POST /api/projects's own owner registration) is a DIFFERENT resource
+  // than the cost grid — reassigning the cost grid's owner must never touch it.
+  if (projId && adminId && sysadminId) {
+    const pshares = await api('GET', `/api/projects/${projId}/shares`, null, adminCookie);
+    const prows = pshares.data || [];
+    ok(prows.find(s => s.user_id === sysadminId)?.permission === 'editor',
+      'CGR-08 new owner has an editor share on the linked project');
+    ok(prows.find(s => s.user_id === adminId)?.permission === 'owner',
+      'CGR-08 the project\'s own owner (unrelated to the cost grid reassignment) is untouched');
+  }
+
+  // CGR-09: reassigning to a user who ALREADY owns the linked project must never downgrade
+  // that project's own owner row from 'owner' to 'editor' (regression coverage for the round-1
+  // fix to the ON CONFLICT clause).
+  if (havePy) {
+    const rproj2 = await api('POST', '/api/projects', { name: '__test_reassign_proj2__' }, sysadminCookie);
+    const proj2Id = rproj2.data?.id;
+    if (proj2Id) later('DELETE', `/api/projects/${proj2Id}`);
+
+    const rcg2 = await api('POST', '/api/cost-grids',
+      { name: '__test_reassign_cg2__', pipelineYear: TEST_YEAR_C }, adminCookie);
+    const cg2Id = rcg2.data?.id;
+    if (cg2Id) later('DELETE', `/api/cost-grids/${cg2Id}`);
+
+    let v2Id = null;
+    if (cg2Id) {
+      const rv2 = await api('POST', `/api/cost-grids/${cg2Id}/versions`, { label: 'v1' }, adminCookie);
+      v2Id = rv2.data?.id;
+    }
+
+    if (v2Id && proj2Id) {
+      await api('POST', `/api/cost-grids/${cg2Id}/versions/${v2Id}/linked-projects`,
+        { projectId: proj2Id, taskIds: [], taskNames: [] }, adminCookie);
+    }
+
+    if (cg2Id && proj2Id && sysadminId) {
+      const r2 = await api('PATCH', `/api/cost-grids/${cg2Id}/reassign-owner`, { ownerId: sysadminId }, adminCookie);
+      ok(r2.status === 200, 'CGR-09 PATCH /reassign-owner to a user who already owns the linked project → 200');
+
+      const p2shares = await api('GET', `/api/projects/${proj2Id}/shares`, null, adminCookie);
+      const p2rows = p2shares.data || [];
+      ok(p2rows.find(s => s.user_id === sysadminId)?.permission === 'owner',
+        'CGR-09 the linked project\'s existing owner keeps permission=owner (not downgraded to editor)');
+    }
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -629,6 +761,7 @@ async function main() {
     await testUsers();
     await testAdminResetProposal();
     await testAdminChangeOwner();
+    await testCostGridReassignOwner();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
     console.error(e.stack);
