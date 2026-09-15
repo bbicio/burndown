@@ -1579,38 +1579,8 @@ function cgGetAssignedTaskNames() {
   return names;
 }
 
-// Singleton modal appended to document.body so it's not clipped by the sticky bar z-index.
-function _cgEnsureAddToProjectModal() {
-  let m = document.getElementById('cgAddToProjectModal');
-  if (!m) {
-    m = document.createElement('div');
-    m.id = 'cgAddToProjectModal';
-    m.style.cssText = 'display:none;position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,.5);align-items:center;justify-content:center;';
-    m.innerHTML = `
-      <div style="max-width:480px;width:100%;margin:0 auto">
-        <div class="modal-content shadow-lg">
-          <div class="modal-header py-2 px-3" style="background:var(--brand-navy);color:#fff;border-bottom:none">
-            <h6 class="modal-title mb-0">＋ Add tasks to project</h6>
-          </div>
-          <div class="modal-body px-3 py-3" id="cgAddToProjectModalBody"></div>
-          <div class="modal-footer py-2 px-3 gap-2">
-            <button class="btn btn-sm btn-outline-secondary" id="cgAddToProjectCancel">Cancel</button>
-            <button class="btn btn-sm btn-warning" id="cgAddToProjectConfirm">Confirm</button>
-          </div>
-        </div>
-      </div>`;
-    document.body.appendChild(m);
-
-    m.querySelector('#cgAddToProjectCancel').addEventListener('click', () => { m.style.display = 'none'; });
-    m.querySelector('#cgAddToProjectConfirm').addEventListener('click', async () => {
-      const projId = m.dataset.projId;
-      const taskIds = JSON.parse(m.dataset.taskIds || '[]');
-      m.style.display = 'none';
-      await cgDoAddTasksToProject(projId, taskIds);
-    });
-  }
-  return m;
-}
+// "Add tasks to project" confirmation lives in costgrid.html as #cgAddToProjectModal (a real
+// Bootstrap modal, Vue-driven via addToProjectModal/addToProject()/confirmAddToProject()).
 
 function cgFmtDate(yyyymm) {
   if (!yyyymm || yyyymm.length < 6) return '';

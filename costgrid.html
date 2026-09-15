@@ -460,6 +460,22 @@
       </div>
     </div>
   </div>
+
+  <!-- Add selected tasks to an already-linked project (selection-mode toolbar's "Add to project") -->
+  <div class="modal fade" id="cgAddToProjectModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title fw-bold">＋ Add tasks to project</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <p class="mb-2">Add the following tasks to <strong>{{ addToProjectModal.projName }}</strong>?</p>
+          <ul class="mb-0 ps-3" style="font-size:var(--text-sm)">
+            <li v-for="n in addToProjectModal.taskNames" :key="n">{{ n }}</li>
+          </ul>
+        </div>
+        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-warning btn-sm" @click="confirmAddToProject">Confirm</button></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Placeholder sections (referenced by cgHideAll in costgrid.js — overridden as no-op) -->
@@ -614,7 +630,7 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=4"></script>
-<script defer src="js/costgrid.js?v=29"></script>
+<script defer src="js/costgrid.js?v=30"></script>
 <script defer src="js/api-sync.js?v=14"></script>
 <script defer src="js/ratecards.js"></script>
 <script defer src="js/shares.js"></script>
@@ -662,6 +678,7 @@ Vue.createApp({
       compactHeader: localStorage.getItem('PDash_cgCompactHeader') === '1',
       selectionMode: false, selectedTaskIds: new Set(),
       ptcFocusedTask: null, ptcRaw: '', hoursEditing: null, addToProjectSel: '',
+      addToProjectModal: { projId: '', projName: '', taskNames: [], taskIds: [] },
       backSaving: false,
       newVersionLabel: '', newVersionError: '',
       cloneGridName: '', cloneError: '', cloneSourceName: '',
@@ -1213,13 +1230,13 @@ Vue.createApp({
         }
         return tid;
       });
-      const modal = _cgEnsureAddToProjectModal();
-      modal.querySelector('#cgAddToProjectModalBody').innerHTML =
-        `<p class="mb-2">Add the following tasks to <strong>${esc(projName)}</strong>?</p>
-         <ul class="mb-0 ps-3" style="font-size:var(--text-sm)">${taskNames.map(n => `<li>${esc(n)}</li>`).join('')}</ul>`;
-      modal.dataset.projId = projId;
-      modal.dataset.taskIds = JSON.stringify(selectedIds);
-      modal.style.display = 'flex';
+      this.addToProjectModal = { projId, projName, taskNames, taskIds: selectedIds };
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('cgAddToProjectModal')).show();
+    },
+    async confirmAddToProject() {
+      const { projId, taskIds } = this.addToProjectModal;
+      bootstrap.Modal.getInstance(document.getElementById('cgAddToProjectModal'))?.hide();
+      await cgDoAddTasksToProject(projId, taskIds);
     },
     phasingFmtAmount(n) { return (this.draft.currency || 'EUR') + ' ' + Math.round(n).toLocaleString('en'); },
     phasingFmtHours(n) { return fmtH(n); },
@@ -1382,6 +1399,9 @@ Vue.createApp({
       // saveCreateProgramModal() already cleared the pending state via cgResumePendingGeneration()
       // on a successful Create, so this is a harmless no-op in that case.
       if (e.target && e.target.id === 'cgCreateProgramModal') cgAbortPendingGeneration();
+      // Reset the "Add to project" dropdown on every close of that modal, Confirm or Cancel
+      // alike, so it doesn't keep showing the previously-selected project next time.
+      if (e.target && e.target.id === 'cgAddToProjectModal') this.addToProjectSel = '';
     });
 
     await this.openVersion(cgId, targetVerId);
