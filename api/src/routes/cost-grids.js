@@ -1,7 +1,7 @@
 const express = require('express');
 const { query, pool } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
-const { sendShareNotification } = require('../services/email');
+const { sendShareNotification, sendOwnerReassignedEmail } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
 const { isAdminRole } = require('../lib/is-admin');
 
@@ -769,6 +769,92 @@ router.delete('/:id/shares/:userId', requireAuth, async (req, res, next) => {
     );
     res.json({ ok: true });
   } catch (err) { next(err); }
+});
+
+// ── OWNER REASSIGNMENT (admin/sysadmin, distinct from reset.js's sysadmin-only path) ───────
+
+// PATCH /api/cost-grids/:id/reassign-owner — admin/sysadmin-only. Unlike
+// PATCH /api/admin/reset/cost-grid/:cgId/owner (reset.js, sysadmin-exclusive, cost-grid-only),
+// this route is reachable from costgrid.html itself, open to any admin or sysadmin, and also
+// grants the new owner an 'editor' resource_shares row on every project linked to ANY version
+// of this cost grid — the old owner's own access to those projects (as project owner or via
+// a separate share) is untouched, since project ownership is a different resource entirely.
+router.patch('/:id/reassign-owner', requireAuth, async (req, res, next) => {
+  if (!isAdminRole(req.user.role)) return res.status(403).json({ error: 'Access denied' });
+  const { id: cgId } = req.params;
+  const { ownerId } = req.body;
+  if (!ownerId) return res.status(400).json({ error: 'ownerId is required' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const cg = await client.query('SELECT id, name FROM cost_grids WHERE id = $1', [cgId]);
+    if (cg.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Cost grid not found' });
+    }
+
+    const user = await client.query(
+      `SELECT id, email, first_name, last_name FROM users WHERE id = $1 AND status = 'active'`,
+      [ownerId]
+    );
+    if (user.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Active user not found' });
+    }
+
+    await client.query('UPDATE cost_grids SET owner_id = $1 WHERE id = $2', [ownerId, cgId]);
+
+    await client.query(
+      `DELETE FROM resource_shares WHERE resource_type = 'cost_grid' AND resource_id = $1 AND permission = 'owner' AND user_id != $2`,
+      [cgId, ownerId]
+    );
+    await client.query(
+      `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
+       VALUES ('cost_grid', $1, $2, 'owner', $3)
+       ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE SET permission = 'owner'`,
+      [cgId, ownerId, req.user.id]
+    );
+
+    // Every project linked to ANY version of this cost grid — not just the version currently
+    // open in the editor — gets an 'editor' grant for the new owner.
+    const linked = await client.query(
+      `SELECT DISTINCT cvp.project_id, p.name AS project_name
+       FROM cg_version_projects cvp
+       JOIN cost_grid_versions cgv ON cgv.id = cvp.cost_grid_version_id
+       JOIN projects p ON p.id = cvp.project_id
+       WHERE cgv.cost_grid_id = $1`,
+      [cgId]
+    );
+    for (const row of linked.rows) {
+      await client.query(
+        `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
+         VALUES ('project', $1, $2, 'editor', $3)
+         ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE SET permission = 'editor'`,
+        [row.project_id, ownerId, req.user.id]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    const reassigner = await query('SELECT first_name, last_name FROM users WHERE id = $1', [req.user.id]);
+    sendOwnerReassignedEmail({
+      to: user.rows[0].email,
+      firstName: user.rows[0].first_name,
+      cgName: cg.rows[0].name,
+      reassignedBy: `${reassigner.rows[0].first_name} ${reassigner.rows[0].last_name}`,
+      linkedProjectNames: linked.rows.map(r => r.project_name),
+      link: `${process.env.APP_URL}/pipeline.html`,
+    }).catch(e => console.warn('[reassign-owner] email failed:', e.message));
+
+    res.json({ ok: true, cgName: cg.rows[0].name, newOwner: `${user.rows[0].first_name} ${user.rows[0].last_name}` });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client.release();
+  }
 });
 
 // POST /api/cost-grids/:id/versions/:vId/refresh-rate

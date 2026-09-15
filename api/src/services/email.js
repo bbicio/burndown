@@ -68,6 +68,27 @@ async function sendShareNotification({ to, firstName, resourceType, resourceName
   });
 }
 
+async function sendOwnerReassignedEmail({ to, firstName, cgName, reassignedBy, linkedProjectNames, link }) {
+  const projectsHtml = linkedProjectNames && linkedProjectNames.length
+    ? `<p>You also received editor access to the following linked project${linkedProjectNames.length > 1 ? 's' : ''}:</p>
+       <ul>${linkedProjectNames.map(n => `<li>${n}</li>`).join('')}</ul>`
+    : '';
+  await transporter.sendMail({
+    from: FROM,
+    to,
+    subject: `PDash — ${reassignedBy} made you the owner of "${cgName}"`,
+    html: renderEmailHtml({
+      appUrl: APP_URL,
+      bodyHtml: `
+        <p>Hi ${firstName},</p>
+        <p><strong>${reassignedBy}</strong> has made you the owner of the proposal <strong>"${cgName}"</strong> on PDash.</p>
+        ${projectsHtml}
+        <p><a href="${link}">Open in PDash</a></p>
+      `,
+    }),
+  });
+}
+
 async function sendExportEmail({ to, firstName, exports }) {
   await transporter.sendMail({
     from: FROM,
@@ -104,4 +125,4 @@ async function sendAdminNotificationEmail({ to, firstName, title, body, url }) {
   });
 }
 
-module.exports = { sendInvite, sendPasswordReset, sendShareNotification, sendExportEmail, sendAdminNotificationEmail };
+module.exports = { sendInvite, sendPasswordReset, sendShareNotification, sendOwnerReassignedEmail, sendExportEmail, sendAdminNotificationEmail };
