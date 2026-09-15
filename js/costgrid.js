@@ -13,7 +13,6 @@ let _cgActiveVersionId = null;
 let _cgDraft           = null;
 let _cgSelectionMode         = false;
 let _cgSelectedTaskIds       = new Set();
-let _cgFreeTaskIdsAtGenerateStart = new Set(); // snapshot of free-task ids taken when Generate Project entered selection mode
 let _cgPendingGeneration      = null;          // { selectedTaskIds, projectName } awaiting the Create Program modal's outcome
 let _cgOfferDetailsCollapsed = false;
 let _cgSummaryCollapsed      = false;
@@ -1030,7 +1029,6 @@ function cgGenerateProject() {
   }
 
   // Enter selection mode
-  _cgFreeTaskIdsAtGenerateStart = new Set(freeTasks.map(t => t.taskId));
   _cgSelectionMode = true;
   _cgSelectedTaskIds = new Set();
   renderCgEditor();
@@ -1134,15 +1132,21 @@ function cgSubmitProjectName(projectName, projectCode) {
 
   // Once this proposal already has an established program (from an earlier Generate Project
   // run), every later generation auto-links to it — partial selection or not, no re-prompt.
-  const existingProgramId = findExistingProgramForProposal(_cgDraft.linkedProjects, config.projects);
+  const existingProgramId = findExistingProgramForProposal(_cgDraft.linkedProjects, config.projects, _cgActiveCgId, _cgActiveVersionId);
   if (existingProgramId) {
     cgDoGenerateProject(selectedTaskIds, trimmedName, existingProgramId, trimmedCode);
     return;
   }
 
-  // Selecting every task that was free when Generate Project was clicked leaves nothing
-  // unassigned — no program prompt needed, matches pre-existing behavior.
-  const leavesTasksUnassigned = selectedTaskIds.length < _cgFreeTaskIdsAtGenerateStart.size;
+  // Recomputed fresh here (not from the snapshot taken when Generate Project was clicked) —
+  // selection mode doesn't disable "+ task", so a task added mid-selection must still count as
+  // free. Selecting every currently-free task leaves nothing unassigned — no program prompt
+  // needed, matches pre-existing behavior.
+  const assignedIds = cgGetAssignedTaskIds();
+  const currentFreeTaskIds = (_cgDraft.phases || []).flatMap(ph => ph.tasks)
+    .filter(t => t.taskName?.trim() && !assignedIds.has(t.taskId))
+    .map(t => t.taskId);
+  const leavesTasksUnassigned = currentFreeTaskIds.some(id => !selectedTaskIds.includes(id));
   if (!leavesTasksUnassigned) {
     cgDoGenerateProject(selectedTaskIds, trimmedName, null, trimmedCode);
     return;
@@ -1170,7 +1174,7 @@ function cgAbortPendingGeneration() {
   _cgPendingGeneration = null;
 }
 
-function cgDoGenerateProject(selectedTaskIds, projectName, programId, projectCode) {
+async function cgDoGenerateProject(selectedTaskIds, projectName, programId, projectCode) {
   const v = _cgDraft;
 
   const tasks = [];
@@ -1243,10 +1247,15 @@ function cgDoGenerateProject(selectedTaskIds, projectName, programId, projectCod
     return t?.taskName?.trim() || null;
   }).filter(Boolean);
 
-  _pushProjectToApi(newProject).then(() =>
-    Api.costGrids.versions.linkedProjects.add(_cgActiveCgId, _cgActiveVersionId, { projectId: generatedId, taskIds: selectedTaskIds, taskNames: selectedTaskNames })
-      .catch(e => console.warn('[sync] linkedProject link failed:', e.message))
-  );
+  // Awaited (not fire-and-forget) so the post-generation dialog below only offers to navigate to
+  // project-config.html once the project genuinely exists server-side — otherwise a fast Confirm
+  // click could land there before the project was persisted, showing "Project not found."
+  try {
+    await _pushProjectToApi(newProject);
+    await Api.costGrids.versions.linkedProjects.add(_cgActiveCgId, _cgActiveVersionId, { projectId: generatedId, taskIds: selectedTaskIds, taskNames: selectedTaskNames });
+  } catch (e) {
+    console.warn('[sync] project generation sync failed:', e.message);
+  }
 
   if (!_cgDraft.linkedProjects) _cgDraft.linkedProjects = [];
   _cgDraft.linkedProjects.push({

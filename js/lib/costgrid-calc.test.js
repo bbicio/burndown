@@ -31,6 +31,29 @@ describe('findExistingProgramForProposal', () => {
     expect(findExistingProgramForProposal(linkedProjects, projects)).toBe('PRG-002');
   });
 
+  it('falls back to a name match scoped to cgId/versionId when the linked id is stale', () => {
+    const linkedProjects = [{ projectId: 'stale-id', projectName: 'Renamed Project' }];
+    const projects = [
+      { id: 'new-id', name: 'Renamed Project', programId: 'PRG-003', costGridRef: { cgId: 'cg1', versionId: 'v1' } },
+      { id: 'other', name: 'Unrelated', programId: 'PRG-999', costGridRef: { cgId: 'cg2', versionId: 'v2' } },
+    ];
+    expect(findExistingProgramForProposal(linkedProjects, projects, 'cg1', 'v1')).toBe('PRG-003');
+  });
+
+  it('falls back to the single project in scope when no name matches and only one is scoped there', () => {
+    const linkedProjects = [{ projectId: 'stale-id', projectName: 'Completely different name' }];
+    const projects = [
+      { id: 'new-id', name: 'Actual Name', programId: 'PRG-004', costGridRef: { cgId: 'cg1', versionId: 'v1' } },
+    ];
+    expect(findExistingProgramForProposal(linkedProjects, projects, 'cg1', 'v1')).toBe('PRG-004');
+  });
+
+  it('does not apply the stale-id fallback when cgId/versionId are omitted', () => {
+    const linkedProjects = [{ projectId: 'stale-id', projectName: 'Renamed Project' }];
+    const projects = [{ id: 'new-id', name: 'Renamed Project', programId: 'PRG-003', costGridRef: { cgId: 'cg1', versionId: 'v1' } }];
+    expect(findExistingProgramForProposal(linkedProjects, projects)).toBe(null);
+  });
+
   it('returns null when projects is undefined', () => {
     expect(findExistingProgramForProposal([{ projectId: 'p1' }], undefined)).toBe(null);
   });

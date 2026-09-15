@@ -113,9 +113,27 @@ window.stripCloneTaskIds = stripCloneTaskIds;
 // every remaining task — auto-links to that same program instead of prompting
 // again. Derived from the linked projects' own programId (no dedicated field
 // exists on cost_grid_versions/cg_version_projects for "this proposal's program").
-export function findExistingProgramForProposal(linkedProjects, projects) {
+//
+// A linked project's own id can go stale if it was renamed after linking
+// (linkedProjects[].projectId then matches nothing in `projects`) — resolved the
+// same way pipeline.html's detailLinkedProjects computed does: direct id match,
+// else a name match (exact or prefix) among projects scoped to this cost-grid
+// version, else that scope's own single-project fallback. cgId/versionId are
+// optional — omitting either simply skips the fallback (returns only on a direct
+// id match), which is the correct behavior when the caller has no such scope.
+export function findExistingProgramForProposal(linkedProjects, projects, cgId, versionId) {
+  const allProjects = projects || [];
+  const projsByRef = (cgId && versionId)
+    ? allProjects.filter(p => p.costGridRef?.cgId === cgId && p.costGridRef?.versionId === versionId)
+    : [];
   for (const lp of linkedProjects || []) {
-    const proj = (projects || []).find(p => p.id === lp.projectId);
+    let proj = allProjects.find(p => p.id === lp.projectId);
+    if (!proj && projsByRef.length) {
+      proj = projsByRef.find(p => p.name === lp.projectName)
+        || projsByRef.find(p => lp.projectName && p.name &&
+             (lp.projectName.startsWith(p.name) || p.name.startsWith(lp.projectName)))
+        || (projsByRef.length === 1 ? projsByRef[0] : null);
+    }
     if (proj?.programId) return proj.programId;
   }
   return null;

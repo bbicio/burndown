@@ -470,6 +470,32 @@ async function testUsers() {
   ok(Array.isArray(r1.data) && r1.data.some(u => u.email === EMAIL), 'AD-01 test admin in user list');
 }
 
+// ── Programs ───────────────────────────────────────────────────────────────────
+
+async function testPrograms() {
+  section('Programs');
+
+  const id = '__test_prg_' + Date.now();
+  const name = '__test program__';
+
+  ok((await api('POST', '/api/programs', { id, name })).status === 401,
+    'PRG-01 POST /programs without auth → 401');
+
+  ok((await api('POST', '/api/programs', { name }, adminCookie)).status === 400,
+    'PRG-02 POST /programs with missing id → 400');
+
+  // requireAuth, not requireAdmin — project-config.html's own "+ New program" button (and
+  // costgrid.html's Generate Project flow) are reachable by any non-viewer, not just admins;
+  // adminCookie here only proves the route isn't broken, not that a plain user can reach it too
+  // (this suite has no non-admin test account) — that half is covered by manual verification.
+  const r = await api('POST', '/api/programs', { id, name }, adminCookie);
+  ok(r.status === 201, 'PRG-03 POST /programs as admin → 201');
+  if (r.status === 201) later('DELETE', `/api/programs/${id}`);
+
+  ok((await api('POST', '/api/programs', { id, name }, adminCookie)).status === 409,
+    'PRG-04 POST /programs with a duplicate id → 409');
+}
+
 // ── Admin Reset — single proposal ─────────────────────────────────────────────
 
 const TEST_YEAR_C = 2097;   // dedicated year for admin-reset tests
@@ -759,6 +785,7 @@ async function main() {
     await testPots();
     await testCostGridBudgets();
     await testUsers();
+    await testPrograms();
     await testAdminResetProposal();
     await testAdminChangeOwner();
     await testCostGridReassignOwner();

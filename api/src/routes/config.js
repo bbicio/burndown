@@ -65,7 +65,10 @@ router.get('/programs', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/programs', requireAdmin, async (req, res, next) => {
+// requireAuth, not requireAdmin: project-config.html's own "+ New program" button is already
+// reachable by any non-viewer (owner/editor), and costgrid.html's Generate Project flow needs the
+// same access for a non-admin proposal owner/editor establishing a proposal's first program.
+router.post('/programs', requireAuth, async (req, res, next) => {
   try {
     const { id, name } = req.body;
     if (!id?.trim() || !name?.trim()) return res.status(400).json({ error: 'id and name are required' });
