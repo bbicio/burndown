@@ -109,9 +109,9 @@ router.patch('/cost-grid/:cgId/owner', async (req, res, next) => {
 
     await client.query(
       `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
-       VALUES ('cost_grid', $1, $2, 'owner', $2)
-       ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE SET permission = 'owner', shared_by = $2`,
-      [cgId, ownerId]
+       VALUES ('cost_grid', $1, $2, 'owner', $3)
+       ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE SET permission = 'owner', shared_by = $3`,
+      [cgId, ownerId, req.user.id]
     );
 
     await client.query('COMMIT');
