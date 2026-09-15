@@ -485,7 +485,7 @@
 <script defer src="js/programs.js"></script>
 <script defer src="js/ai.js?v=1"></script>
 <script defer src="js/shares.js"></script>
-<script type="module" src="js/lib/portfolio-calc.js?v=1"></script>
+<script type="module" src="js/lib/portfolio-calc.js?v=2"></script>
 <script defer src="js/api-sync.js?v=14"></script>
 <script defer src="js/nav.js?v=6"></script>
 <script type="module">
@@ -747,46 +747,65 @@
       },
       summaryByTask() {
         if (!this.dashboardProject) return null;
-        const bTasks = billableTasks(this.dashboardProject);
+        const cfg = this.dashboardProject;
+        const bTasks = billableTasks(cfg);
         const entries = bTasks.map(t => ({
           key: t.name.toLowerCase(), label: t.name,
           soldHours: t.resources.reduce((s,r) => s+r.soldHours, 0),
           soldEur: t.resources.reduce((s,r) => s+r.soldHours*r.hourlyRate, 0),
         }));
-        return this.buildSummaryCols(this.dashboardData, r => r.task.toLowerCase(), entries);
+        return buildSummaryCols(this.dashboardData, r => r.task.toLowerCase(), entries, this.filterRange, cfg, findRate);
       },
+      // Composite key (role + task): a role sold at a different rate_override on two
+      // different tasks (task_roles is per (task, role), not a single global rate per
+      // role — verified on the Bayer AG "BERMITS Maintenance 2026" project, where
+      // "Account Director" resolves to 168/h on "Overall Coordination" and, via
+      // findRate()'s task-scoped fallback, 130/h on "Project Management") previously
+      // landed in ONE blended column here, summing hours billed at two different rates
+      // under a single total that could never be reconciled against the cost grid.
+      // Splitting the key by task keeps every column internally consistent (one rate).
       summaryByRole() {
         if (!this.dashboardProject) return null;
-        const roleMap = new Map();
-        billableTasks(this.dashboardProject).forEach(t => t.resources.forEach(res => {
-          const key = res.role.toLowerCase();
-          if (!roleMap.has(key)) roleMap.set(key, { key, label: res.role, soldHours: 0, soldEur: 0 });
-          roleMap.get(key).soldHours += res.soldHours;
-          roleMap.get(key).soldEur += res.soldHours * res.hourlyRate;
+        const cfg = this.dashboardProject;
+        const roleTaskMap = new Map();
+        billableTasks(cfg).forEach(t => t.resources.forEach(res => {
+          const key = res.role.toLowerCase() + '|' + t.name.toLowerCase();
+          if (!roleTaskMap.has(key)) roleTaskMap.set(key, { key, label: `${res.role} — ${t.name}`, soldHours: 0, soldEur: 0 });
+          roleTaskMap.get(key).soldHours += res.soldHours;
+          roleTaskMap.get(key).soldEur += res.soldHours * res.hourlyRate;
         }));
-        const bData = billableData(this.dashboardData, this.dashboardProject);
-        return this.buildSummaryCols(bData, r => r.role.toLowerCase(), [...roleMap.values()]);
+        const bData = billableData(this.dashboardData, cfg);
+        const byKeyFn = r => r.role.toLowerCase() + '|' + r.task.toLowerCase();
+        return buildSummaryCols(bData, byKeyFn, [...roleTaskMap.values()], this.filterRange, cfg, findRate);
       },
+      // Same composite-key reasoning as summaryByRole() above, one level coarser: a
+      // functional area groups multiple roles, so without the task dimension it can
+      // blend rates across BOTH multiple tasks AND multiple roles under one column.
+      // Kept as its own hand-rolled aggregation (not buildSummaryCols) because group
+      // membership is a role-list match (a row's role can belong to more than one
+      // group, by design), not a single-key equality buildSummaryCols expects.
       summaryByGroup() {
         const cfg = this.dashboardProject;
         if (!cfg || !cfg.groups?.length) return null;
         const bData = billableData(this.dashboardData, cfg);
         const bTasks = billableTasks(cfg);
-        const entries = cfg.groups.map(grp => {
+        const entries = [];
+        cfg.groups.forEach(grp => {
           const roleLowers = grp.roles.map(r => r.toLowerCase());
-          let soldHours = 0, soldEur = 0;
-          bTasks.forEach(task => task.resources.forEach(res => {
-            if (roleLowers.includes(res.role.toLowerCase())) { soldHours += res.soldHours; soldEur += res.soldHours*res.hourlyRate; }
-          }));
-          return { key: grp.name, label: grp.name, soldHours, soldEur, _roleLowers: roleLowers };
+          bTasks.forEach(task => {
+            const memberResources = task.resources.filter(res => roleLowers.includes(res.role.toLowerCase()));
+            if (!memberResources.length) return; // this group has no member role on this task — no empty column
+            const soldHours = memberResources.reduce((s,r) => s+r.soldHours, 0);
+            const soldEur = memberResources.reduce((s,r) => s+r.soldHours*r.hourlyRate, 0);
+            entries.push({ label: `${grp.name} — ${task.name}`, soldHours, soldEur, _roleLowers: roleLowers, _taskLower: task.name.toLowerCase() });
+          });
         });
-        // Group membership is by role-list, not a single row field — filter bData once per group inline via a custom byKeyFn closure.
-        return entries.map(({ key, label, soldHours, soldEur, _roleLowers }) => {
-          const { start, end } = this.filterRange;
-          const grpRows = bData.filter(r => _roleLowers.includes(r.role.toLowerCase()));
-          const totalConsumed = grpRows.reduce((s,r) => s+r.hours, 0);
-          const totalConsumedEur = grpRows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0);
-          const periodRows = grpRows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
+        const { start, end } = this.filterRange;
+        return entries.map(({ label, soldHours, soldEur, _roleLowers, _taskLower }) => {
+          const grpTaskRows = bData.filter(r => _roleLowers.includes(r.role.toLowerCase()) && r.task.toLowerCase() === _taskLower);
+          const totalConsumed = grpTaskRows.reduce((s,r) => s+r.hours, 0);
+          const totalConsumedEur = grpTaskRows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0);
+          const periodRows = grpTaskRows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
           const inPeriod = periodRows.reduce((s,r) => s+r.hours, 0);
           const inPeriodEur = periodRows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0);
           return { label, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
@@ -936,30 +955,17 @@
         return new Date(y, m-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       },
       resetDateFilter() { this.filterMonth = ''; this.filterStart = ''; this.filterEnd = ''; },
-      buildSummaryCols(rows, byKeyFn, entries) {
-        const { start, end } = this.filterRange;
-        return entries.map(({ key, label, soldHours, soldEur }) => {
-          const keyRows = rows.filter(r => byKeyFn(r) === key);
-          const totalConsumed = keyRows.reduce((s,r) => s+r.hours, 0);
-          const totalConsumedEur = keyRows.reduce((s,r) => s+r.hours*(findRate(r, this.dashboardProject)??0), 0);
-          const periodRows = keyRows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
-          const inPeriod = periodRows.reduce((s,r) => s+r.hours, 0);
-          const inPeriodEur = periodRows.reduce((s,r) => s+r.hours*(findRate(r, this.dashboardProject)??0), 0);
-          return { label, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
-        });
-      },
+      // Called directly from the template (`{{ summaryTotals(summaryByRole, ...) }}`) —
+      // kept as a thin Vue-instance wrapper delegating to the js/lib/portfolio-calc.js
+      // global rather than removed outright, since a compiled Vue template does not
+      // reliably fall back to a bare `window.*` global from inside its own `with()`
+      // block (the same landmine already fixed elsewhere in this codebase for
+      // `openShareModal`, see pipeline.html/costgrid.html Global Constraint 5).
+      // buildSummaryCols() has no such wrapper: it's only ever called from this
+      // component's own computed properties (plain JS, not template expressions),
+      // where a bare global reference resolves normally.
       summaryTotals(cols, hasFilter) {
-        const totSold = cols.reduce((s,c) => s+c.soldHours, 0);
-        const totSoldEur = cols.reduce((s,c) => s+c.soldEur, 0);
-        const totConsumed = cols.reduce((s,c) => s+c.totalConsumed, 0);
-        const totConsumedEur = cols.reduce((s,c) => s+c.totalConsumedEur, 0);
-        const totInPeriod = cols.reduce((s,c) => s+c.inPeriod, 0);
-        const totInPeriodEur = cols.reduce((s,c) => s+c.inPeriodEur, 0);
-        const totSpent = totConsumed - (hasFilter ? totInPeriod : 0);
-        const totSpentEur = totConsumedEur - (hasFilter ? totInPeriodEur : 0);
-        const totResidual = totSold - totConsumed;
-        const totResidualEur = totSoldEur - totConsumedEur;
-        return { totSold, totSoldEur, totSpent, totSpentEur, totInPeriod, totInPeriodEur, totResidual, totResidualEur };
+        return summaryTotals(cols, hasFilter);
       },
       showOverview() {
         this.view = 'overview';
