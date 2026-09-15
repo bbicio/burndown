@@ -574,7 +574,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script defer src="js/api.js?v=3"></script>
+<script defer src="js/api.js?v=5"></script>
 <script defer src="js/core.js?v=3"></script>
 <script defer src="js/settings.js"></script>
 <script defer src="js/notifications.js"></script>
@@ -801,8 +801,7 @@ Vue.createApp({
     esc, pipelineBadge, statusBadgeLarge, cgScheduleAutoSave, cgIsoToIt, cgItToIso, openShareModal,
     async loadReassignOwnerOptions() {
       try {
-        const res = await fetch('/api/users/active-list', { credentials: 'same-origin' });
-        const users = res.ok ? await res.json() : [];
+        const users = await Api.users.activeList();
         this.reassignOwnerOptions = users.map(u => ({ id: u.id, label: `${u.first_name} ${u.last_name} (${u.email})` }));
       } catch (e) {
         console.warn('[reassign-owner] failed to load active users:', e.message);
@@ -823,6 +822,7 @@ Vue.createApp({
       try {
         const result = await Api.costGrids.reassignOwner(this.cgId, newOwnerId);
         if (this.cg) { this.cg.ownerId = newOwnerId; this.cg.ownerName = result.newOwner; }
+        this.shareListRefreshTick++;
       } catch (e) {
         showInfo(`Failed to reassign owner: ${e.message}`, '⚠️ Reassignment failed');
       } finally {
