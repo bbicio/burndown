@@ -29,6 +29,10 @@
     <div class="page-title-bar">
       <h4 class="fw-bold mb-0">📁 {{ isNewProject ? 'New Project' : project.name }}</h4>
     </div>
+    <div class="d-flex gap-2 mb-3">
+      <button class="btn btn-outline-secondary btn-sm" onclick="window.location.href='/portfolio.html'">← Back to Portfolio</button>
+      <button v-if="!isNewProject" class="btn btn-outline-secondary btn-sm" @click="goProjectDashboard">← Project Dashboard</button>
+    </div>
     <div v-if="jsonError" class="alert alert-danger py-2 small">{{ jsonError }}</div>
     <div v-if="isViewer" class="alert alert-info d-flex align-items-center gap-2 mb-3 rounded-0" style="position:sticky;top:0;z-index:100;font-size:.85rem">
       <span>👁 You have <strong>viewer</strong> access to this project — editing is disabled.</span>
@@ -278,7 +282,10 @@
     </div>
 
     <div class="d-flex gap-2 justify-content-between align-items-center py-4 border-top mt-2 mb-5">
-      <button class="btn btn-outline-secondary" onclick="window.location.href='/portfolio.html'">← Back to Portfolio</button>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" onclick="window.location.href='/portfolio.html'">← Back to Portfolio</button>
+        <button v-if="!isNewProject" class="btn btn-outline-secondary" @click="goProjectDashboard">← Project Dashboard</button>
+      </div>
       <button v-if="!isViewer" class="btn btn-primary px-4" :disabled="saving" @click="onSave">{{ saving ? '💾 Saving…' : '💾 Save' }}</button>
     </div>
   </template>
@@ -543,6 +550,14 @@
       },
       addGroupEntry(gi) {
         this.project.groups[gi].entries.push({ role: '', task: '' });
+      },
+      // A plain Vue method, not an inline `@click="window.location...` expression: a
+      // compiled Vue template does not reliably fall back to a bare `window` global from
+      // inside its own `with()` block (the same landmine already fixed elsewhere in this
+      // codebase, e.g. pipeline.html/costgrid.html's openShareModal) — only a real method
+      // body, called via `@click="goProjectDashboard"`, resolves `window` normally.
+      goProjectDashboard() {
+        window.location.href = '/portfolio.html?projectId=' + this.project.id;
       },
       async loadActuals() {
         if (!this.project.code) { this.actuals.info = 'Save the project first to enable actuals upload.'; return; }
