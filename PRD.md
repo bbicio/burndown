@@ -445,6 +445,14 @@ Accessed via the "Roles" tab in **config.html** (Configuration), alongside Clien
 | Team | Not a separate input — auto-derived from the `TEAM - Role` prefix of Code, used as a group label for Resource Planning filters |
 | Rate (€/h) | Default hourly rate; can be overridden per cost grid version |
 
+### 7.7 Currencies
+
+Accessed via the "💱 Currencies" tab in **config.html**, alongside Clients, Client Groups, Programs, Roles, and Pipelines & POTs — previously undocumented in this PRD despite being a distinct admin tab.
+
+EUR is the fixed base currency (always 1:1, not editable, always active). Any other currency starts **inactive** — offered on offer/project currency dropdowns only once an admin activates it here. **"+ Activate currency"** picks an inactive currency and sets its exchange rate as "1 EUR = X"; once activated it appears in the active-currencies table alongside EUR, with its own symbol, name, rate, and last-updated date. An active currency's rate can be updated at any time directly in that table (a Save button per row); every update is timestamped. A **History** button (not available for EUR, whose rate never changes) opens a log of that currency's past rates over time.
+
+This exchange rate is the same one used throughout the app wherever a non-EUR figure needs a EUR-equivalent — the pipeline board's mixed-currency column totals (§4.2), the rate card's per-currency columns (§7.2), and any other cross-currency aggregation all read this same admin-managed rate, not a separately configured one.
+
 Actions: Add, edit, delete.
 
 ---
