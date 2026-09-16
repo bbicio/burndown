@@ -97,8 +97,8 @@ A fixed right-side panel (860 px wide) with two scrollable columns.
 
 **Right column — Task and Phase breakdown**
 
-- Phase headers (bold, indigo) with total days and total budget
-- Per-task rows: task name, role breakdown (days per role), task total
+- Phase headers (bold, indigo) with total hours and total budget
+- Per-task rows: task name, role breakdown (hours per role), task total
 - Role column totals at the bottom of each phase
 - Grand total row
 
@@ -141,7 +141,7 @@ Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as 
 
 - A grid has one or more **phases** (named work packages)
 - Each phase has one or more **tasks**
-- Each task has estimated **days** per **role**
+- Each task has estimated **hours** per **role** (despite the "days" terminology used loosely elsewhere in this document's own history — the actual stored, calculated, and displayed unit throughout the cost grid is hours, entered directly, not converted from a day count)
 - Pass-through costs (PTC) can be added at task level
 
 **Role columns:**
@@ -151,7 +151,7 @@ Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as 
 - Each role column header carries four controls: ◀ / ▶ to move the column left/right, "⇄ change" to replace that role with a different one (keeping its position and hours), "⊕ dup" to duplicate the column under a different role, and "✕ remove" to delete the column outright. The compact-header toggle (§4.9's editor toolbar) hides all four to save space; they reappear when compact mode is switched off.
 
 **Cost calculation:**
-- Task budget = Σ(days × hourly rate) per role + PTC
+- Task budget = Σ(hours × hourly rate) per role + PTC
 - Phase budget = Σ task budgets
 - Total budget = Σ phase budgets
 
