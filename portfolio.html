@@ -39,8 +39,8 @@
 
     <template v-else>
       <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
-        <input type="text" class="form-control form-control-sm" style="max-width:240px"
-               placeholder="🔍 Search project or client…" v-model="portfolioSearch">
+        <input type="text" class="form-control form-control-sm" style="max-width:240px" aria-label="Search projects"
+               placeholder="🔍 Search project, code, or client…" v-model="portfolioSearch">
         <div class="d-flex align-items-center gap-2">
           <span class="small text-muted">Sort:</span>
           <select class="form-select form-select-sm" v-model="portfolioSort" style="width:auto">
@@ -69,6 +69,8 @@
         </div>
         <button v-if="portfolioFiltersActive" class="btn btn-sm btn-link text-danger" @click="clearPortfolioFilters">✕ Clear filters</button>
       </div>
+
+      <div v-if="!visibleProgramGroups.length && !ungroupedProjects.length" class="alert alert-info">No projects match the current filters.</div>
 
       <!-- Budget Summary panel (pinned-project comparison table) hidden 2026-09 per user request, along with its ＋/✓ Summary toggle button in the detail header — toggleSummary()/pinnedSummary/portfolioSummaryProjects logic left intact for an easy restore
       <div class="section-card mb-4" style="border:2px solid var(--indigo-500)" v-if="pinnedSummary">
@@ -113,7 +115,7 @@
           <div class="d-flex align-items-center gap-2">
             <button class="btn btn-sm" style="font-size:var(--text-sm);background:var(--violet-500);color:#fff;border-color:var(--violet-500)" @click="openShareModal('program', prog.id, prog.name)">🔗 Share Program</button>
             <button class="btn btn-sm" style="font-size:var(--text-sm);background:var(--violet-500);color:#fff;border-color:var(--violet-500)" @click="toggleProgramExpanded(prog.id)">
-              {{ expandedPrograms.has(prog.id) ? '▼ Hide Child Projects' : '▶ Show Child Projects' }}
+              {{ (expandedPrograms.has(prog.id) || portfolioFiltersActive) ? '▼ Hide Child Projects' : '▶ Show Child Projects' }}
             </button>
           </div>
         </div>
@@ -123,7 +125,9 @@
           <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ fmtMoney(programStatsMap[prog.id].summary.grandSpent) }}</div></div>
           <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: varColor(programStatsMap[prog.id].summary.grandVar)}">{{ fmtVar(programStatsMap[prog.id].summary.grandVar) }}</div></div>
         </div>
-        <div v-if="expandedPrograms.has(prog.id)" class="prog-children">
+        <!-- Auto-expanded while a search/status filter is active (round-2 code-review fix) — a
+             matching child project must not stay hidden behind a manual "Show Child Projects" click. -->
+        <div v-if="expandedPrograms.has(prog.id) || portfolioFiltersActive" class="prog-children">
           <div class="prog-project-list px-2 pb-2 pt-1">
             <div class="row g-3">
             <template v-for="cfg in prog.children" :key="cfg.id">
