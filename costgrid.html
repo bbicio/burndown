@@ -429,6 +429,63 @@
       </div>
     </div>
   </div>
+
+  <!-- Create Program (Generate Project, partial task selection, no program yet for this proposal) -->
+  <div class="modal fade" id="cgCreateProgramModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title fw-bold">＋ Create program</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <p class="small text-muted">This proposal isn't fully migrated yet — link the generated project to a program so later projects from the same proposal can join it automatically.</p>
+          <div v-if="createProgramModal.error" class="alert alert-danger py-2">{{ createProgramModal.error }}</div>
+          <div class="mb-3" v-if="programs.length">
+            <label class="form-label small fw-semibold">Program</label>
+            <select class="form-select form-select-sm" v-model="createProgramModal.existingId">
+              <option value="">＋ Create new program</option>
+              <option v-for="p in programs" :key="p.id" :value="p.id">{{ p.name }} ({{ p.id }})</option>
+            </select>
+          </div>
+          <template v-if="!createProgramModal.existingId">
+            <div class="mb-3"><label class="form-label small fw-semibold">Program name</label><input type="text" class="form-control form-control-sm" v-model="createProgramModal.name" @input="createProgramModal.error=''" placeholder="e.g. Chatbot AI Platform"></div>
+            <div class="mb-3"><label class="form-label small fw-semibold">Program ID</label><input type="text" class="form-control form-control-sm" v-model="createProgramModal.id" @input="createProgramModal.error=''" placeholder="e.g. PRG-001"></div>
+          </template>
+        </div>
+        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" :disabled="createProgramModal.saving" @click="saveCreateProgramModal">{{ createProgramModal.saving ? 'Saving…' : (createProgramModal.existingId ? 'Link' : 'Create') }}</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generate Project — project name (replaces a native prompt(), which blocked automated/
+       accessibility interaction and was the only remaining non-HTML dialog on this page) -->
+  <div class="modal fade" id="cgProjectNameModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title fw-bold">🚀 Generate project</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div v-if="projectNameModal.error" class="alert alert-danger py-2">{{ projectNameModal.error }}</div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Project name</label><input type="text" class="form-control form-control-sm" v-model="projectNameModal.name" @input="projectNameModal.error=''" @keyup.enter="submitProjectNameModal" placeholder="e.g. Acme Corp — Phase 1"></div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Project code <span class="text-muted fw-normal">(optional)</span></label><input type="text" class="form-control form-control-sm" v-model="projectNameModal.code" @keyup.enter="submitProjectNameModal" placeholder="e.g. HITA.000001201"></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" :disabled="projectNameModal.submitting" @click="submitProjectNameModal">Continue</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add selected tasks to an already-linked project (selection-mode toolbar's "Add to project") -->
+  <div class="modal fade" id="cgAddToProjectModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title fw-bold">＋ Add tasks to project</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <p class="mb-2">Add the following tasks to <strong>{{ addToProjectModal.projName }}</strong>?</p>
+          <ul class="mb-0 ps-3" style="font-size:var(--text-sm)">
+            <li v-for="(n, i) in addToProjectModal.taskNames" :key="i">{{ n }}</li>
+          </ul>
+        </div>
+        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-warning btn-sm" @click="confirmAddToProject">Confirm</button></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Placeholder sections (referenced by cgHideAll in costgrid.js — overridden as no-op) -->
@@ -582,9 +639,9 @@
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
-<script type="module" src="js/lib/costgrid-calc.js?v=3"></script>
-<script defer src="js/costgrid.js?v=27"></script>
-<script defer src="js/api-sync.js?v=14"></script>
+<script type="module" src="js/lib/costgrid-calc.js?v=5"></script>
+<script defer src="js/costgrid.js?v=32"></script>
+<script defer src="js/api-sync.js?v=15"></script>
 <script defer src="js/ratecards.js"></script>
 <script defer src="js/shares.js"></script>
 <script defer src="js/share-list-component.js"></script>
@@ -631,6 +688,7 @@ Vue.createApp({
       compactHeader: localStorage.getItem('PDash_cgCompactHeader') === '1',
       selectionMode: false, selectedTaskIds: new Set(),
       ptcFocusedTask: null, ptcRaw: '', hoursEditing: null, addToProjectSel: '',
+      addToProjectModal: { projId: '', projName: '', taskNames: [], taskIds: [] },
       backSaving: false,
       newVersionLabel: '', newVersionError: '',
       cloneGridName: '', cloneError: '', cloneSourceName: '',
@@ -638,6 +696,14 @@ Vue.createApp({
       roleModalMode: 'add', roleModalSourceCode: null, roleSearch: '', roleActiveTeam: '', roleAllRoles: [], roleRcName: '',
       myRole: '',
       reassignOwnerOptions: [], reassignOwnerOptionsLoaded: false, reassignOwnerBusy: false,
+      // Reactive copy of js/programs.js's own module-level cache — getPrograms() itself is a
+      // classic-script global a runtime-compiled Vue template can't resolve (its `with(_ctx)`
+      // proxy only sees `_ctx.*`/component `data`/`methods`, the same landmine already documented
+      // for openShareModal on this page and summaryTotals on portfolio.html), so the Create
+      // Program modal's "link to existing" dropdown reads this instead.
+      programs: [],
+      createProgramModal: { existingId: '', name: '', id: '', error: '', saving: false },
+      projectNameModal: { name: '', code: '', error: '', submitting: false },
     };
   },
   computed: {
@@ -849,6 +915,63 @@ Vue.createApp({
         isSingleMode: this.roleModalMode === 'change' || this.roleModalMode === 'duplicate',
         isSource: r.code === this.roleModalSourceCode,
       };
+    },
+    openProjectNameModal(defaultName) {
+      this.projectNameModal = { name: defaultName || '', code: '', error: '', submitting: false };
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('cgProjectNameModal')).show();
+    },
+    // Chains a follow-up (which may itself open another modal, e.g. Bootstrap's own show()) off
+    // this modal's own hidden.bs.modal event rather than firing it synchronously right after
+    // hide() — hide() only starts the fade-out; calling show() on a second modal before it
+    // finishes can leave body scroll-locking/backdrop state in a bad spot (round-2 code-review
+    // fix).
+    hideModalThen(modalId, fn) {
+      const modalEl = document.getElementById(modalId);
+      const instance = bootstrap.Modal.getInstance(modalEl);
+      if (!instance) {
+        // No live instance to hide (already closed / never shown) — run the follow-up directly
+        // rather than registering a listener that would otherwise never fire.
+        console.warn('[hideModalThen] no Modal instance for #' + modalId + ', running follow-up directly');
+        fn();
+        return;
+      }
+      modalEl.addEventListener('hidden.bs.modal', fn, { once: true });
+      instance.hide();
+    },
+    submitProjectNameModal() {
+      if (this.projectNameModal.submitting) return; // already in flight -- ignore a fast repeat click/Enter
+      const name = this.projectNameModal.name.trim();
+      if (!name) { this.projectNameModal.error = 'Project name is required.'; return; }
+      const code = this.projectNameModal.code.trim();
+      this.projectNameModal.submitting = true;
+      this.hideModalThen('cgProjectNameModal', () => cgSubmitProjectName(name, code));
+    },
+    openCreateProgramModal() {
+      this.createProgramModal = { existingId: '', name: '', id: '', error: '', saving: false };
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('cgCreateProgramModal')).show();
+    },
+    async saveCreateProgramModal() {
+      if (this.createProgramModal.saving) return; // already in flight -- ignore a fast repeat click
+      // Linking to an already-established program (e.g. after a duplicate-ID create attempt, or
+      // two proposals meant to share one program from the start) needs no API call of its own.
+      if (this.createProgramModal.existingId) {
+        this.hideModalThen('cgCreateProgramModal', () => cgResumePendingGeneration(this.createProgramModal.existingId));
+        return;
+      }
+      const name = this.createProgramModal.name.trim();
+      const id = this.createProgramModal.id.trim();
+      if (!name) { this.createProgramModal.error = 'Name is required.'; return; }
+      if (!id) { this.createProgramModal.error = 'Program ID is required.'; return; }
+      this.createProgramModal.saving = true;
+      try {
+        const created = await Api.programs.create(id, name);
+        this.programs.push(created);
+        this.hideModalThen('cgCreateProgramModal', () => cgResumePendingGeneration(created.id));
+      } catch (e) {
+        this.createProgramModal.error = e.message || 'Save failed.';
+      } finally {
+        this.createProgramModal.saving = false;
+      }
     },
     async openRoleModal(mode, sourceRoleCode) {
       this.roleModalMode = mode || 'add';
@@ -1137,8 +1260,8 @@ Vue.createApp({
     confirmAndGenerate() { cgConfirmAndGenerate(); },
     addToProject() {
       const projId = this.addToProjectSel;
-      if (!projId) { alert('Select a project from the dropdown.'); return; }
-      if (this.selectedTaskIds.size === 0) { alert('Select at least one task.'); return; }
+      if (!projId) { showInfo('Select a project from the dropdown.'); return; }
+      if (this.selectedTaskIds.size === 0) { showInfo('Select at least one task.'); return; }
       const lp = (this.draft.linkedProjects || []).find(l => l.projectId === projId);
       const projName = lp?.projectName || projId;
       const selectedIds = [...this.selectedTaskIds];
@@ -1149,13 +1272,13 @@ Vue.createApp({
         }
         return tid;
       });
-      const modal = _cgEnsureAddToProjectModal();
-      modal.querySelector('#cgAddToProjectModalBody').innerHTML =
-        `<p class="mb-2">Add the following tasks to <strong>${esc(projName)}</strong>?</p>
-         <ul class="mb-0 ps-3" style="font-size:var(--text-sm)">${taskNames.map(n => `<li>${esc(n)}</li>`).join('')}</ul>`;
-      modal.dataset.projId = projId;
-      modal.dataset.taskIds = JSON.stringify(selectedIds);
-      modal.style.display = 'flex';
+      this.addToProjectModal = { projId, projName, taskNames, taskIds: selectedIds };
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('cgAddToProjectModal')).show();
+    },
+    async confirmAddToProject() {
+      const { projId, taskIds } = this.addToProjectModal;
+      bootstrap.Modal.getInstance(document.getElementById('cgAddToProjectModal'))?.hide();
+      await cgDoAddTasksToProject(projId, taskIds);
     },
     phasingFmtAmount(n) { return (this.draft.currency || 'EUR') + ' ' + Math.round(n).toLocaleString('en'); },
     phasingFmtHours(n) { return fmtH(n); },
@@ -1287,6 +1410,7 @@ Vue.createApp({
     try {
       await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi(), loadCurrenciesFromApi(), loadConfigFromApi()]);
     } catch (e) { console.warn('[init] loadClientsFromApi/loadProgramsFromApi/loadRolesFromApi failed:', e.message); }
+    this.programs = getPrograms();
 
     try { await cgSyncFromApi(); } catch (e) { console.warn('[init] cgSyncFromApi failed:', e.message); }
 
@@ -1314,6 +1438,13 @@ Vue.createApp({
     document.getElementById('btnCgClone').addEventListener('click', cgCloneGrid);
     document.addEventListener('hidden.bs.modal', e => {
       if (e.target && e.target.id === 'shareModal') this.shareListRefreshTick++;
+      // Any dismissal path (Cancel, X, backdrop, Esc) must abort the whole pending generation —
+      // saveCreateProgramModal() already cleared the pending state via cgResumePendingGeneration()
+      // on a successful Create, so this is a harmless no-op in that case.
+      if (e.target && e.target.id === 'cgCreateProgramModal') cgAbortPendingGeneration();
+      // Reset the "Add to project" dropdown on every close of that modal, Confirm or Cancel
+      // alike, so it doesn't keep showing the previously-selected project next time.
+      if (e.target && e.target.id === 'cgAddToProjectModal') this.addToProjectSel = '';
     });
 
     await this.openVersion(cgId, targetVerId);

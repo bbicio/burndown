@@ -1,6 +1,7 @@
 const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { isAdminRole } = require('../lib/is-admin');
 const { sendShareNotification } = require('../services/email');
 let _pushToUser; // lazy-loaded from notifications route to avoid circular deps
 
@@ -65,7 +66,10 @@ router.get('/programs', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/programs', requireAdmin, async (req, res, next) => {
+// requireAuth, not requireAdmin: project-config.html's own "+ New program" button is already
+// reachable by any non-viewer (owner/editor), and costgrid.html's Generate Project flow needs the
+// same access for a non-admin proposal owner/editor establishing a proposal's first program.
+router.post('/programs', requireAuth, async (req, res, next) => {
   try {
     const { id, name } = req.body;
     if (!id?.trim() || !name?.trim()) return res.status(400).json({ error: 'id and name are required' });
@@ -80,10 +84,33 @@ router.post('/programs', requireAdmin, async (req, res, next) => {
   }
 });
 
-router.patch('/programs/:id', requireAdmin, async (req, res, next) => {
+// requireAuth (not requireAdmin), matching POST /programs above: a non-admin who just created a
+// program via costgrid.html's Generate Project flow needs to be able to fix a typo in its name.
+// Same ownership check as POST /programs/:id/share below — admin, or owner/editor on at least one
+// of the program's projects — except a program with zero projects yet (still being established;
+// the sole existing caller creates the project only after this PATCH becomes reachable, but a
+// prior generation attempt may have failed after creating the program, per _pushProjectToApi's
+// failure path) is left open to any authenticated user, the same as POST /programs itself.
+router.patch('/programs/:id', requireAuth, async (req, res, next) => {
   try {
     const { name } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
+
+    if (!isAdminRole(req.user.role)) {
+      const projects = await query('SELECT id FROM projects WHERE program_id = $1', [req.params.id]);
+      if (projects.rows.length) {
+        const projectIds = projects.rows.map(p => p.id);
+        const access = await query(
+          `SELECT 1 FROM projects p
+           LEFT JOIN resource_shares rs ON rs.resource_type = 'project' AND rs.resource_id = p.id AND rs.user_id = $1
+           WHERE p.id = ANY($2::uuid[]) AND (p.owner_id = $1 OR (rs.user_id IS NOT NULL AND rs.permission IN ('owner','editor')))
+           LIMIT 1`,
+          [req.user.id, projectIds]
+        );
+        if (!access.rows.length) return res.status(403).json({ error: 'Access denied' });
+      }
+    }
+
     const { rows } = await query(
       'UPDATE programs SET name = $1 WHERE id = $2 RETURNING id, name',
       [name.trim(), req.params.id]
@@ -114,6 +141,22 @@ router.post('/programs/:id/share', requireAuth, async (req, res, next) => {
     // Find all projects in this program
     const projects = await query('SELECT id FROM projects WHERE program_id = $1', [req.params.id]);
     if (!projects.rows.length) return res.status(400).json({ error: 'Program has no projects' });
+
+    // Caller must be an admin or already hold owner/editor access on at least one project in
+    // this program — otherwise POST /programs (requireAuth) plus this route would let any
+    // authenticated user attach their own project to an arbitrary existing program and then
+    // grant themselves editor access to every other project in it.
+    if (!isAdminRole(req.user.role)) {
+      const projectIds = projects.rows.map(p => p.id);
+      const access = await query(
+        `SELECT 1 FROM projects p
+         LEFT JOIN resource_shares rs ON rs.resource_type = 'project' AND rs.resource_id = p.id AND rs.user_id = $1
+         WHERE p.id = ANY($2::uuid[]) AND (p.owner_id = $1 OR (rs.user_id IS NOT NULL AND rs.permission IN ('owner','editor')))
+         LIMIT 1`,
+        [req.user.id, projectIds]
+      );
+      if (!access.rows.length) return res.status(403).json({ error: 'Access denied' });
+    }
 
     // Share each project
     for (const p of projects.rows) {

@@ -13,6 +13,7 @@ let _cgActiveVersionId = null;
 let _cgDraft           = null;
 let _cgSelectionMode         = false;
 let _cgSelectedTaskIds       = new Set();
+let _cgPendingGeneration      = null;          // { selectedTaskIds, projectName } awaiting the Create Program modal's outcome
 let _cgOfferDetailsCollapsed = false;
 let _cgSummaryCollapsed      = false;
 let _cgCompactHeader         = localStorage.getItem('PDash_cgCompactHeader') === '1';
@@ -1017,13 +1018,13 @@ async function cgCloneGrid() {
 function cgGenerateProject() {
   cgSyncHeaderFromForm();
   const v = _cgDraft;
-  if (!v.projectName) { alert('Enter a project name before generating.'); return; }
+  if (!v.projectName) { showInfo('Enter a project name before generating.'); return; }
 
   // Count free tasks (not yet assigned to any project)
   const assignedIds = cgGetAssignedTaskIds();
   const freeTasks = (v.phases || []).flatMap(ph => ph.tasks).filter(t => t.taskName?.trim() && !assignedIds.has(t.taskId));
   if (freeTasks.length === 0) {
-    alert('All tasks have already been assigned to existing projects.');
+    showInfo('All tasks have already been assigned to existing projects.');
     return;
   }
 
@@ -1043,7 +1044,7 @@ function cgExitSelectionMode() {
 async function cgDoAddTasksToProject(projId, selectedTaskIds) {
   const v = _cgDraft;
   const proj = (config.projects || []).find(p => p.id === projId);
-  if (!proj) { alert('Project not found in local config.'); return; }
+  if (!proj) { showInfo('Project not found in local config.'); return; }
 
   // Build new task objects to append to the project
   const newTasks = [];
@@ -1110,17 +1111,79 @@ async function cgDoAddTasksToProject(projId, selectedTaskIds) {
 
 function cgConfirmAndGenerate() {
   if (_cgSelectedTaskIds.size === 0) {
-    alert('Select at least one task.');
+    showInfo('Select at least one task.');
     return;
   }
   cgSyncHeaderFromForm();
   const defaultName = _cgDraft.projectName || '';
-  const projectName = prompt('Project name:', defaultName);
-  if (!projectName || !projectName.trim()) return;
-  cgDoGenerateProject([..._cgSelectedTaskIds], projectName.trim());
+  // Project name is collected via #cgProjectNameModal (Vue-driven), not a native prompt() —
+  // cgSubmitProjectName() below is the continuation once the user submits it. Cancel/dismiss
+  // on that modal simply does nothing further (no pending state was created yet at this point),
+  // matching the old prompt()-cancel behavior of aborting with no project created.
+  if (!_cgVueApp) { console.warn('[cgConfirmAndGenerate] called before _cgVueApp bridge is set'); return; }
+  _cgVueApp.openProjectNameModal(defaultName);
 }
 
-function cgDoGenerateProject(selectedTaskIds, projectName) {
+function cgSubmitProjectName(projectName, projectCode) {
+  const trimmedName = (projectName || '').trim();
+  if (!trimmedName) return;
+  const trimmedCode = (projectCode || '').trim();
+
+  const selectedTaskIds = [..._cgSelectedTaskIds];
+
+  // Once this proposal already has an established program (from an earlier Generate Project
+  // run), every later generation auto-links to it — partial selection or not, no re-prompt.
+  const existingProgramId = findExistingProgramForProposal(_cgDraft.linkedProjects, config.projects, _cgActiveCgId, _cgActiveVersionId);
+  if (existingProgramId) {
+    cgDoGenerateProject(selectedTaskIds, trimmedName, existingProgramId, trimmedCode)
+      .catch(e => console.warn('[cgDoGenerateProject] unhandled failure:', e.message));
+    return;
+  }
+
+  // Recomputed fresh here (not from the snapshot taken when Generate Project was clicked) —
+  // selection mode doesn't disable "+ task", so a task added mid-selection must still count as
+  // free. Selecting every currently-free task leaves nothing unassigned — no program prompt
+  // needed, matches pre-existing behavior.
+  // Dual id+name check, matching js/lib/costgrid-calc.js's versionHasFreeTasks() (the same check
+  // that gates the Generate Project button and the Committed lock) — a task assigned under a
+  // stale id but still matched by name must count as assigned here too.
+  const assignedIds = cgGetAssignedTaskIds();
+  const assignedNames = cgGetAssignedTaskNames();
+  const currentFreeTaskIds = (_cgDraft.phases || []).flatMap(ph => ph.tasks)
+    .filter(t => t.taskName?.trim() && !assignedIds.has(t.taskId) && !assignedNames.has(t.taskName.trim().toLowerCase()))
+    .map(t => t.taskId);
+  const leavesTasksUnassigned = currentFreeTaskIds.some(id => !selectedTaskIds.includes(id));
+  if (!leavesTasksUnassigned) {
+    cgDoGenerateProject(selectedTaskIds, trimmedName, null, trimmedCode)
+      .catch(e => console.warn('[cgDoGenerateProject] unhandled failure:', e.message));
+    return;
+  }
+
+  // Partial selection, no program established yet for this proposal — require one before
+  // generating. cgResumePendingGeneration() resumes on success; cancel/dismiss (any path,
+  // handled via the modal's own hidden.bs.modal listener) drops _cgPendingGeneration, so no
+  // project is created at all if the user backs out here.
+  _cgPendingGeneration = { selectedTaskIds, projectName: trimmedName, projectCode: trimmedCode };
+  if (!_cgVueApp) { console.warn('[cgSubmitProjectName] called before _cgVueApp bridge is set'); return; }
+  _cgVueApp.openCreateProgramModal();
+}
+
+function cgResumePendingGeneration(programId) {
+  if (!_cgPendingGeneration) return;
+  const { selectedTaskIds, projectName, projectCode } = _cgPendingGeneration;
+  _cgPendingGeneration = null;
+  cgDoGenerateProject(selectedTaskIds, projectName, programId, projectCode)
+    .catch(e => console.warn('[cgDoGenerateProject] unhandled failure:', e.message));
+}
+
+// Any dismissal of #cgCreateProgramModal that isn't a successful Create (Cancel, X, backdrop,
+// Esc) lands here — clears the pending generation so no project is created at all. A no-op if
+// cgResumePendingGeneration() already consumed it on the success path.
+function cgAbortPendingGeneration() {
+  _cgPendingGeneration = null;
+}
+
+async function cgDoGenerateProject(selectedTaskIds, projectName, programId, projectCode) {
   const v = _cgDraft;
 
   const tasks = [];
@@ -1169,7 +1232,7 @@ function cgDoGenerateProject(selectedTaskIds, projectName) {
 
   const newProject = {
     id:        generatedId,
-    code:      '',
+    code:      projectCode || '',
     name:      projectName,
     startDate: projStart,
     endDate:   projEnd,
@@ -1184,6 +1247,7 @@ function cgDoGenerateProject(selectedTaskIds, projectName) {
     groups:    [],
     costGridRef: { cgId: _cgActiveCgId, versionId: _cgActiveVersionId },
     clientId:  _cgDraft.clientId || '__unassigned__',
+    programId: programId || null,
   };
   config.projects.push(newProject);
   persistConfig();
@@ -1192,10 +1256,28 @@ function cgDoGenerateProject(selectedTaskIds, projectName) {
     return t?.taskName?.trim() || null;
   }).filter(Boolean);
 
-  _pushProjectToApi(newProject).then(() =>
-    Api.costGrids.versions.linkedProjects.add(_cgActiveCgId, _cgActiveVersionId, { projectId: generatedId, taskIds: selectedTaskIds, taskNames: selectedTaskNames })
-      .catch(e => console.warn('[sync] linkedProject link failed:', e.message))
-  );
+  // Exit selection mode synchronously, before the awaits below — neither depends on their
+  // result, and leaving the toolbar's "Create project" button live during the network
+  // round-trip let a second click generate a duplicate project (round-2 code-review fix).
+  _cgSelectionMode = false;
+  _cgSelectedTaskIds = new Set();
+
+  // Awaited (not fire-and-forget) so the post-generation dialog below only offers to navigate to
+  // project-config.html once the project genuinely exists server-side — otherwise a fast Confirm
+  // click could land there before the project was persisted, showing "Project not found."
+  // _pushProjectToApi returns false (never throws) when the core project upsert itself failed —
+  // only then is the project genuinely absent server-side; its sub-resource pushes (tasks,
+  // phasing, etc.) stay best-effort/swallowed internally, matching this function's existing
+  // convention for those fields, so they don't gate this success check.
+  let pushedOk = false;
+  try {
+    pushedOk = await _pushProjectToApi(newProject);
+    if (pushedOk) {
+      await Api.costGrids.versions.linkedProjects.add(_cgActiveCgId, _cgActiveVersionId, { projectId: generatedId, taskIds: selectedTaskIds, taskNames: selectedTaskNames });
+    }
+  } catch (e) {
+    console.warn('[sync] project generation sync failed:', e.message);
+  }
 
   if (!_cgDraft.linkedProjects) _cgDraft.linkedProjects = [];
   _cgDraft.linkedProjects.push({
@@ -1206,9 +1288,6 @@ function cgDoGenerateProject(selectedTaskIds, projectName) {
     createdAt:   new Date().toISOString(),
   });
   _cgDraft.status = 'sip';
-
-  _cgSelectionMode = false;
-  _cgSelectedTaskIds = new Set();
 
   // Sync linkedProjects back to _cgStore so cgGetVersionLockState hides the Generate button
   const cg = cgLoad(_cgActiveCgId);
@@ -1223,9 +1302,21 @@ function cgDoGenerateProject(selectedTaskIds, projectName) {
 
   renderCgEditor();
 
+  if (!pushedOk) {
+    showInfo(
+      `Project "${projectName}" was created locally, but saving it to the server failed. Reload the page and check the Portfolio before continuing — the project may need to be re-created.`,
+      '⚠️ Sync failed'
+    );
+    return;
+  }
+
+  // openConfigModal() never existed on this page (dead reference left over from before this
+  // page's Vue migration) — Confirm silently threw and never navigated. project-config.html is
+  // where a project's ID/code is actually assigned, reached the same way portfolio.html's own
+  // Configure button does (js/portfolio.js:214).
   showConfirm(
     `Project "${projectName}" created in Portfolio (pipeline: ${_cgDraft.pipeline || 'SIP'}).\n\nOpen configuration to assign the Project ID?`,
-    () => { showPortfolioView(); openConfigModal(generatedId); },
+    () => { window.location.href = '/project-config.html?projectId=' + encodeURIComponent(generatedId); },
     null, '✓ Project created'
   );
 }
@@ -1525,38 +1616,8 @@ function cgGetAssignedTaskNames() {
   return names;
 }
 
-// Singleton modal appended to document.body so it's not clipped by the sticky bar z-index.
-function _cgEnsureAddToProjectModal() {
-  let m = document.getElementById('cgAddToProjectModal');
-  if (!m) {
-    m = document.createElement('div');
-    m.id = 'cgAddToProjectModal';
-    m.style.cssText = 'display:none;position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,.5);align-items:center;justify-content:center;';
-    m.innerHTML = `
-      <div style="max-width:480px;width:100%;margin:0 auto">
-        <div class="modal-content shadow-lg">
-          <div class="modal-header py-2 px-3" style="background:var(--brand-navy);color:#fff;border-bottom:none">
-            <h6 class="modal-title mb-0">＋ Add tasks to project</h6>
-          </div>
-          <div class="modal-body px-3 py-3" id="cgAddToProjectModalBody"></div>
-          <div class="modal-footer py-2 px-3 gap-2">
-            <button class="btn btn-sm btn-outline-secondary" id="cgAddToProjectCancel">Cancel</button>
-            <button class="btn btn-sm btn-warning" id="cgAddToProjectConfirm">Confirm</button>
-          </div>
-        </div>
-      </div>`;
-    document.body.appendChild(m);
-
-    m.querySelector('#cgAddToProjectCancel').addEventListener('click', () => { m.style.display = 'none'; });
-    m.querySelector('#cgAddToProjectConfirm').addEventListener('click', async () => {
-      const projId = m.dataset.projId;
-      const taskIds = JSON.parse(m.dataset.taskIds || '[]');
-      m.style.display = 'none';
-      await cgDoAddTasksToProject(projId, taskIds);
-    });
-  }
-  return m;
-}
+// "Add tasks to project" confirmation lives in costgrid.html as #cgAddToProjectModal (a real
+// Bootstrap modal, Vue-driven via addToProjectModal/addToProject()/confirmAddToProject()).
 
 function cgFmtDate(yyyymm) {
   if (!yyyymm || yyyymm.length < 6) return '';
