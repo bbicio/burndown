@@ -39,6 +39,8 @@
 
     <template v-else>
       <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+        <input type="text" class="form-control form-control-sm" style="max-width:240px" aria-label="Search projects"
+               placeholder="🔍 Search project, code, or client…" v-model="portfolioSearch">
         <div class="d-flex align-items-center gap-2">
           <span class="small text-muted">Sort:</span>
           <select class="form-select form-select-sm" v-model="portfolioSort" style="width:auto">
@@ -53,7 +55,22 @@
             <option v-for="cid in allClientIds" :key="cid" :value="cid">{{ getClientName(cid) }}</option>
           </select>
         </div>
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                  data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+            Status<span v-if="portfolioStatusFilter.length" class="badge bg-secondary ms-1">{{ portfolioStatusFilter.length }}</span>
+          </button>
+          <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:200px">
+            <li v-for="opt in statusFilterOptions" :key="opt" class="form-check">
+              <input class="form-check-input" type="checkbox" :id="'flt-status-' + opt.replace(/\s+/g,'-')" :value="opt" v-model="portfolioStatusFilter">
+              <label class="form-check-label" :for="'flt-status-' + opt.replace(/\s+/g,'-')" style="font-size:var(--text-sm)">{{ opt }}</label>
+            </li>
+          </ul>
+        </div>
+        <button v-if="portfolioFiltersActive" class="btn btn-sm btn-link text-danger" @click="clearPortfolioFilters">✕ Clear filters</button>
       </div>
+
+      <div v-if="!visibleProgramGroups.length && !ungroupedProjects.length" class="alert alert-info">No projects match the current filters.</div>
 
       <!-- Budget Summary panel (pinned-project comparison table) hidden 2026-09 per user request, along with its ＋/✓ Summary toggle button in the detail header — toggleSummary()/pinnedSummary/portfolioSummaryProjects logic left intact for an easy restore
       <div class="section-card mb-4" style="border:2px solid var(--indigo-500)" v-if="pinnedSummary">
@@ -97,9 +114,10 @@
           </div>
           <div class="d-flex align-items-center gap-2">
             <button class="btn btn-sm" style="font-size:var(--text-sm);background:var(--violet-500);color:#fff;border-color:var(--violet-500)" @click="openShareModal('program', prog.id, prog.name)">🔗 Share Program</button>
-            <button class="btn btn-sm" style="font-size:var(--text-sm);background:var(--violet-500);color:#fff;border-color:var(--violet-500)" @click="toggleProgramExpanded(prog.id)">
+            <button v-if="!portfolioFiltersActive" class="btn btn-sm" style="font-size:var(--text-sm);background:var(--violet-500);color:#fff;border-color:var(--violet-500)" @click="toggleProgramExpanded(prog.id)">
               {{ expandedPrograms.has(prog.id) ? '▼ Hide Child Projects' : '▶ Show Child Projects' }}
             </button>
+            <span v-else class="badge" style="background:var(--violet-500);font-size:var(--text-xs)" title="Child projects are shown automatically while a filter is active">▼ Shown (filtered)</span>
           </div>
         </div>
         <div class="d-flex gap-4 flex-wrap p-3" v-if="programStatsMap[prog.id]?.summary">
@@ -108,7 +126,9 @@
           <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ fmtMoney(programStatsMap[prog.id].summary.grandSpent) }}</div></div>
           <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: varColor(programStatsMap[prog.id].summary.grandVar)}">{{ fmtVar(programStatsMap[prog.id].summary.grandVar) }}</div></div>
         </div>
-        <div v-if="expandedPrograms.has(prog.id)" class="prog-children">
+        <!-- Auto-expanded while a search/status filter is active (round-2 code-review fix) — a
+             matching child project must not stay hidden behind a manual "Show Child Projects" click. -->
+        <div v-if="expandedPrograms.has(prog.id) || portfolioFiltersActive" class="prog-children">
           <div class="prog-project-list px-2 pb-2 pt-1">
             <div class="row g-3">
             <template v-for="cfg in prog.children" :key="cfg.id">
@@ -123,7 +143,10 @@
                   <span v-if="!cardDataMap[cfg.id].hasData" class="badge bg-warning text-dark">No actuals available</span>
                   <span v-if="cardDataMap[cfg.id].budgetBadgeHtml" v-html="cardDataMap[cfg.id].budgetBadgeHtml"></span>
                 </div>
-                <button class="btn btn-sm btn-primary" @click="showDashboard(cfg.id)">Project Dashboard</button>
+                <div class="d-flex gap-2">
+                  <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="goConfigure(cfg.id)">⚙️ Configure</button>
+                  <button class="btn btn-sm btn-primary" @click="showDashboard(cfg.id)">Project Dashboard</button>
+                </div>
               </div>
               <div class="d-flex gap-4 flex-wrap p-3">
                 <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ cfg.startDate && cfg.endDate ? (monthLabel(cfg.startDate) + ' – ' + monthLabel(cfg.endDate)) : '—' }}</div></div>
@@ -153,7 +176,10 @@
             <span v-if="!cardDataMap[cfg.id].hasData" class="badge bg-warning text-dark">No actuals available</span>
             <span v-if="cardDataMap[cfg.id].budgetBadgeHtml" v-html="cardDataMap[cfg.id].budgetBadgeHtml"></span>
           </div>
-          <button class="btn btn-sm btn-primary" @click="showDashboard(cfg.id)">Project Dashboard</button>
+          <div class="d-flex gap-2">
+            <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="goConfigure(cfg.id)">⚙️ Configure</button>
+            <button class="btn btn-sm btn-primary" @click="showDashboard(cfg.id)">Project Dashboard</button>
+          </div>
         </div>
         <div class="d-flex gap-4 flex-wrap p-3">
           <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ cfg.startDate && cfg.endDate ? (monthLabel(cfg.startDate) + ' – ' + monthLabel(cfg.endDate)) : '—' }}</div></div>
@@ -508,6 +534,8 @@
         view: 'overview',
         portfolioSort: 'name',
         portfolioClientFilter: '',
+        portfolioSearch: '',
+        portfolioStatusFilter: [],
         expandedPrograms: new Set(),
         dashboardProjectId: null,
         dashboardReady: false,
@@ -530,12 +558,30 @@
           this.projects.filter(p => p.clientId && p.clientId !== '__unassigned__').map(p => p.clientId)
         )].sort((a, b) => getClientName(a).localeCompare(getClientName(b)));
       },
+      // Fixed enum, not derived from live data — matches js/lib/status-rules.js's exact spellings
+      // (project.status is a free-standing field, independent of any one pipeline stage's own
+      // allowed-values list).
+      statusFilterOptions() {
+        return ['Not started yet', 'Started', 'Started At Risk', 'Put on hold', 'Completed'];
+      },
+      portfolioFiltersActive() {
+        return !!this.portfolioSearch.trim() || !!this.portfolioClientFilter || this.portfolioStatusFilter.length > 0;
+      },
       sortedFilteredProjects() {
         const sortFn = this.portfolioSort === 'client'
           ? (a, b) => getClientName(a.clientId).localeCompare(getClientName(b.clientId)) || (a.name||a.id).localeCompare(b.name||b.id)
           : (a, b) => (a.name||a.id).localeCompare(b.name||b.id);
+        const term = this.portfolioSearch.trim().toLowerCase();
         return [...this.projects]
           .filter(p => !this.portfolioClientFilter || p.clientId === this.portfolioClientFilter)
+          // p.status || 'Not started yet' matches statusBadgeLarge()'s own default (js/core.js) — a
+          // project with no status stored still displays as "Not started yet" on its card, so it must
+          // match that same filter option, not disappear from it.
+          .filter(p => !this.portfolioStatusFilter.length || this.portfolioStatusFilter.includes(p.status || 'Not started yet'))
+          .filter(p => !term
+            || (p.name||'').toLowerCase().includes(term)
+            || (p.code||'').toLowerCase().includes(term)
+            || (p.clientId && p.clientId !== '__unassigned__' && getClientName(p.clientId).toLowerCase().includes(term)))
           .sort(sortFn);
       },
       visibleProgramGroups() {
@@ -1068,6 +1114,11 @@
       },
       goConfigure(id) {
         window.location.href = '/project-config.html?projectId=' + encodeURIComponent(id);
+      },
+      clearPortfolioFilters() {
+        this.portfolioSearch = '';
+        this.portfolioClientFilter = '';
+        this.portfolioStatusFilter = [];
       },
       esc,
       hasAiKey,
