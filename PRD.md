@@ -148,6 +148,7 @@ Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as 
 - Added/removed dynamically
 - Each role has a label, a code (matching the actuals XLS), a team, and an hourly rate (€/h)
 - Effective rate follows a fallback chain: client rate card override → role's per-currency agency default → EUR rate × currency exchange factor
+- Each role column header carries four controls: ◀ / ▶ to move the column left/right, "⇄ change" to replace that role with a different one (keeping its position and hours), "⊕ dup" to duplicate the column under a different role, and "✕ remove" to delete the column outright. The compact-header toggle (§4.9's editor toolbar) hides all four to save space; they reappear when compact mode is switched off.
 
 **Cost calculation:**
 - Task budget = Σ(days × hourly rate) per role + PTC
