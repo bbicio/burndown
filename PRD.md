@@ -57,7 +57,7 @@ Six fixed stages, displayed left to right:
 | Committed | Deal signed / Committed revenue |
 | Canceled | Opportunity withdrawn or lost |
 
-Each column (except Draft) has a sticky footer showing the total budget value of all offers in that column.
+Each column (except Draft) has a sticky footer showing the total budget value of all offers in that column. **Mixed currencies within one column (2026-09 clarification, no behavior change):** if every offer in a column shares the same currency, the footer shows one plain total in that currency. If a column holds offers in more than one currency, the footer instead shows one subtotal line per currency (in that currency's own figures, with a small grey EUR-equivalent shown next to any non-EUR line), followed by a bold combined "TOT" line — the sum of every offer's fee converted to its EUR-equivalent via that offer's own exchange rate, not a naive sum of raw numbers across currencies. Pass-through costs (PTC) follow the same per-currency-then-EUR-equivalent pattern, shown as a secondary line under each subtotal.
 
 ### 4.3 Offer Cards
 
