@@ -336,9 +336,13 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 | Monthly distribution | % per month | Required for multi-month tasks |
 | Resources | role + sold hours + rate | Breakdown of sold effort |
 
+**Monthly % distribution (per task):** only shown for a task spanning more than one month — a single-month task has nothing to distribute. One editable cell per month the task covers, each a percentage; a badge next to the row gives live feedback on whether the entered percentages currently sum to 100%. The cells are read-only (can't be edited) once the task is marked Completed, for a single-month task, or for a viewer. This is the same distribution the Derive/Reforecast actions below read when spreading a task's budget/hours across its future months.
+
 **Edit modes:** Visual form only. (A raw-JSON editor toggle exists in the underlying shared `js/config-form.js`, but was confirmed unreachable on `project-config.html` — no toggle button existed in this page's markup — during its 2026-07 Vue 3 migration, and was not ported. `portfolio.html`'s own separate copy of this config modal, which also referenced `js/config-form.js`, was confirmed unreachable and dropped entirely during that page's own 2026-07 Vue 3 migration; `js/config-form.js` itself remains loaded by `planning.html`, whose own reachability was not investigated.)
 
-**Other sections in the form:** Phasing (monthly budget distribution), Planning (monthly sold-hours distribution), and Functional Groups (named role groupings) — each a distinct area of the same full-page form.
+**Other sections in the form:** Pass Through Costs (external cost line items), Phasing (monthly budget distribution), Planning (monthly sold-hours distribution), and Functional Groups (named role groupings) — each a distinct area of the same full-page form.
+
+**Pass Through Costs (PTC):** external costs not tied to sold hours — licences, travel, and similar — added as individual line items, each with a title, an optional free-text note, an amount, and the month it occurs in (chosen from the project's own configured months; the project's start/end dates must be set first). A running "Total PTC" figure sums every item. Any item can be removed, after confirming.
 
 **Functional Groups** (2026-09): each group is a name plus a list of role rows, one row per role membership — a free-text role name (must match the "Job Role: Name" column in the uploaded XLS) plus a task dropdown, scoped to this project's own tasks, defaulting to "— any task —". Picking a specific task claims that role's hours only on that task for this group — used to keep a functional area's reporting total precise when the same role is billed at different rates on different tasks (see §6.3); leaving it as "— any task —" claims the role everywhere it appears, matching the group's pre-2026-09 behavior.
 
