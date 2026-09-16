@@ -39,6 +39,8 @@
 
     <template v-else>
       <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+        <input type="text" class="form-control form-control-sm" style="max-width:240px"
+               placeholder="🔍 Search project or client…" v-model="portfolioSearch">
         <div class="d-flex align-items-center gap-2">
           <span class="small text-muted">Sort:</span>
           <select class="form-select form-select-sm" v-model="portfolioSort" style="width:auto">
@@ -52,6 +54,18 @@
             <option value="">All clients</option>
             <option v-for="cid in allClientIds" :key="cid" :value="cid">{{ getClientName(cid) }}</option>
           </select>
+        </div>
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                  data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+            Status<span v-if="portfolioStatusFilter.length" class="badge bg-secondary ms-1">{{ portfolioStatusFilter.length }}</span>
+          </button>
+          <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:200px">
+            <li v-for="opt in statusFilterOptions" :key="opt" class="form-check">
+              <input class="form-check-input" type="checkbox" :id="'flt-status-' + opt" :value="opt" v-model="portfolioStatusFilter">
+              <label class="form-check-label" :for="'flt-status-' + opt" style="font-size:var(--text-sm)">{{ opt }}</label>
+            </li>
+          </ul>
         </div>
       </div>
 
@@ -123,7 +137,10 @@
                   <span v-if="!cardDataMap[cfg.id].hasData" class="badge bg-warning text-dark">No actuals available</span>
                   <span v-if="cardDataMap[cfg.id].budgetBadgeHtml" v-html="cardDataMap[cfg.id].budgetBadgeHtml"></span>
                 </div>
-                <button class="btn btn-sm btn-primary" @click="showDashboard(cfg.id)">Project Dashboard</button>
+                <div class="d-flex gap-2">
+                  <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="goConfigure(cfg.id)">⚙️ Configure</button>
+                  <button class="btn btn-sm btn-primary" @click="showDashboard(cfg.id)">Project Dashboard</button>
+                </div>
               </div>
               <div class="d-flex gap-4 flex-wrap p-3">
                 <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ cfg.startDate && cfg.endDate ? (monthLabel(cfg.startDate) + ' – ' + monthLabel(cfg.endDate)) : '—' }}</div></div>
@@ -153,7 +170,10 @@
             <span v-if="!cardDataMap[cfg.id].hasData" class="badge bg-warning text-dark">No actuals available</span>
             <span v-if="cardDataMap[cfg.id].budgetBadgeHtml" v-html="cardDataMap[cfg.id].budgetBadgeHtml"></span>
           </div>
-          <button class="btn btn-sm btn-primary" @click="showDashboard(cfg.id)">Project Dashboard</button>
+          <div class="d-flex gap-2">
+            <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="goConfigure(cfg.id)">⚙️ Configure</button>
+            <button class="btn btn-sm btn-primary" @click="showDashboard(cfg.id)">Project Dashboard</button>
+          </div>
         </div>
         <div class="d-flex gap-4 flex-wrap p-3">
           <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ cfg.startDate && cfg.endDate ? (monthLabel(cfg.startDate) + ' – ' + monthLabel(cfg.endDate)) : '—' }}</div></div>
@@ -508,6 +528,8 @@
         view: 'overview',
         portfolioSort: 'name',
         portfolioClientFilter: '',
+        portfolioSearch: '',
+        portfolioStatusFilter: [],
         expandedPrograms: new Set(),
         dashboardProjectId: null,
         dashboardReady: false,
@@ -530,12 +552,21 @@
           this.projects.filter(p => p.clientId && p.clientId !== '__unassigned__').map(p => p.clientId)
         )].sort((a, b) => getClientName(a).localeCompare(getClientName(b)));
       },
+      // Fixed enum, not derived from live data — matches js/lib/status-rules.js's exact spellings
+      // (project.status is a free-standing field, independent of any one pipeline stage's own
+      // allowed-values list).
+      statusFilterOptions() {
+        return ['Not started yet', 'Started', 'Started At Risk', 'Put on hold', 'Completed'];
+      },
       sortedFilteredProjects() {
         const sortFn = this.portfolioSort === 'client'
           ? (a, b) => getClientName(a.clientId).localeCompare(getClientName(b.clientId)) || (a.name||a.id).localeCompare(b.name||b.id)
           : (a, b) => (a.name||a.id).localeCompare(b.name||b.id);
+        const term = this.portfolioSearch.trim().toLowerCase();
         return [...this.projects]
           .filter(p => !this.portfolioClientFilter || p.clientId === this.portfolioClientFilter)
+          .filter(p => !this.portfolioStatusFilter.length || this.portfolioStatusFilter.includes(p.status))
+          .filter(p => !term || (p.name||'').toLowerCase().includes(term) || getClientName(p.clientId).toLowerCase().includes(term))
           .sort(sortFn);
       },
       visibleProgramGroups() {
