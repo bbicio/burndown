@@ -106,14 +106,23 @@ Not every concise point needs a `<details>` expansion — only ones where `PRD.m
 - **Admin configuration screens** (Clients, Pipelines & POTs, Roles) — restore the fuller field-by-field detail `PRD.md` gives for the POT detail modal and the rate-card modal, trimmed to one line each in the concise pass.
 - Any other point where a side-by-side re-read shows the concise manual dropped something `PRD.md` states — the executor's job during this pass is exactly that re-read, not a fixed checklist.
 
-### 4.5 SKILL.md changes
+### 4.5 Changelog
+
+The generated HTML gains a persistent **Changelog** section (own entry in the sidebar nav, placed near the top of the document alongside the masthead's provenance stamp — the stamp says "what this version is," the changelog says "what changed to get here"). Unlike the masthead's single latest-generation stamp, the changelog is **append-only across regenerations**: each time the skill produces a new `docs/OPERATIONAL_MANUAL.html`, it adds one new dated entry to the top of the list (newest first) and keeps every prior entry — it never overwrites or trims history.
+
+Each entry is `**YYYY-MM-DD** — <one-paragraph human-readable summary>`, written by the executor at generation time from actual knowledge of what changed since the previous entry (the same judgment used to write a commit message — not a mechanical text diff of the HTML, which would be noisy given the whole file is regenerated fresh each run). A regeneration triggered by a `PRD.md` update names which sections/flows changed; a regeneration triggered by a skill/format upgrade (like this one) names the format change itself.
+
+**Bootstrapping:** this upgrade is the first entry — e.g. *"2026-09-16 — Upgraded from plain concise Markdown to this HTML format: per-item "▸ Details" expansions, one screenshot per main flow (synthetic data only), and controls/button reference tables. Supersedes `docs/OPERATIONAL_MANUAL.md`, which is no longer maintained."* Every regeneration after this one reads the existing file's Changelog section first (before regenerating), preserves it verbatim, and prepends the new entry — the skill must never regenerate this section's history from scratch.
+
+### 4.6 SKILL.md changes
 
 The "Produces" section changes from describing a single Markdown file to describing the HTML file with its toggle/screenshot properties. The "Steps" section gains:
 - An explicit step for the isolated-environment/synthetic-data screenshot pass (§4.2), placed after the text-generation steps (so the executor knows the full detailed-text content before deciding which points get a screenshot).
 - A step describing how to decide which points get a `<details>` expansion (§4.4's "re-read against PRD.md" approach, not a fixed list baked into the skill file — PRD.md's own content will keep changing across regenerations, so the skill should describe the *process* of finding what's expandable, not hardcode today's list).
 - The existing "PDash-specific defaults" section is updated in place (source = PRD.md, structure by flow) rather than replaced — those decisions are unaffected by this change.
+- A step for the Changelog (§4.5): before regenerating, read the existing `docs/OPERATIONAL_MANUAL.html`'s Changelog section (if the file already exists) and carry every entry forward verbatim, then prepend one new entry describing this run's changes.
 
-The "Guards" section gains one entry: **never embed data from a real environment in a screenshot** — screenshots come only from the isolated, synthetic-data environment described in §4.2, never the main stack.
+The "Guards" section gains two entries: **never embed data from a real environment in a screenshot** — screenshots come only from the isolated, synthetic-data environment described in §4.2, never the main stack; and **never regenerate the Changelog's history** — only ever prepend to it, reading the previous file first.
 
 ## 5. Testing / verification approach
 
