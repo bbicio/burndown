@@ -813,6 +813,6 @@ Sharing a cost grid does not grant access to its linked project(s) — the two a
 | Surface | Hidden for viewers |
 |---|---|
 | Pipeline board (card + detail panel) | Edit, Clone, Delete |
-| Project Reporting (portfolio view) | — (Configure/Load Actuals moved to the single-project view in the 2026-09 card redesign; the list card itself carries no viewer-gated action) |
+| Project Reporting (portfolio view) | Configure (list card — reintroduced in a later 2026-09 cycle, hidden per-card for a viewer-permission project); Load Actuals stays single-project-view only |
 | Project Reporting (single-project view) | Configure, Load Actuals |
 | Project Configuration form | Entire form becomes read-only (sticky banner, all inputs disabled, Save/action/Reforecast buttons hidden) |
