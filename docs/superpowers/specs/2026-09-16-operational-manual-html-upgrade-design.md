@@ -171,7 +171,30 @@ Per explicit user request, this needs the same "walk through it properly, don't 
 
 **§9 Settings**
 - The full Exports table (what each of the three export types contains, and who can run it — Roles in Rate Cards is admin-only).
-- **That "Restore from Backup" does not actually work** — `PRD.md` states this plainly (a real, currently-true limitation, not a hypothetical); worth surfacing in the detailed view rather than silently omitting a button that looks functional but isn't.
+- **That "Restore from Backup" does not actually work, and the full reason why** — two compounding causes, not one: a straightforward key-name mismatch for project/cost-grid data, and — even for the fields that *do* line up — the underlying save functions are no-ops left over from before this app was fully API-backed. Worth surfacing in the detailed view rather than silently omitting a button that looks functional but isn't. (Source: `PRD.md` §9.2, corrected alongside the 2026-09-16 audit — the earlier version of this PRD line cited only the first cause.)
+
+**§5 Resource Planning (addendum)**
+- **Overallocation color coding (§5.5, new)** — a static, non-AI legend on the Resource Planning table: a row's load shows red once it exceeds 30 hours/week. Worth stating plainly that this is a fixed display rule, not an analysis — the AI Sidebar section below used to (incorrectly) describe an AI-driven version of this same idea; the two are unrelated, and the detailed manual should not conflate them the way an earlier PRD draft did.
+
+**§11 AI Sidebar**
+- **Where the request actually goes.** AI provider calls (Claude/OpenAI/Gemini) go directly from the browser to the provider's own endpoint — never through PDash's own servers. The API key and the full prompt (which, for Project Analysis, includes real financial figures) leave the browser directly. Worth stating plainly as a privacy-relevant fact, not just a technical footnote.
+- **A prior draft of `PRD.md` described a "Resource Allocation Analysis" AI feature that does not exist in the codebase** — confirmed during the 2026-09-16 audit and removed from `PRD.md`. Do not describe this capability in the manual under any name; the only real overallocation-related behavior is the unrelated, non-AI color rule covered above.
+
+**§15 Authentication**
+- **Password minimum (8 characters)** and **session length (8 hours, automatic sign-out, no in-app warning)** — both real, enforced behaviors previously absent from the Authentication section entirely (session length existed only in a technical table elsewhere in `PRD.md`). Straightforward facts a reader would reasonably expect to find here.
+
+**§16 Administration (addendum)**
+- **DB Reset's "Reset by scope" is 7 distinct operations, not one clause** — Proposals, Projects & Programs, Clients & Client Groups, Client Ratecards, Actuals, Pipeline Years & POTs, Notifications — each with its own specific carve-out (e.g. agency-wide ratecards are spared by the Ratecards scope; SIP/Committed proposals are spared by the Pipelines scope). Worth a small table in the detailed view rather than a flat list, mirroring `PRD.md`'s own table. Also worth surfacing the "type DELETE to confirm" mechanism as the actual safeguard against a misclick on any of these.
+- **Terms & Conditions editor's "👁 Preview" button** — opens the live acceptance page in a new tab showing the current draft as a real user would see it, before publishing.
+
+**§18 Sharing and Permissions (addendum)**
+- **Sharing an entire Program** — previously missing from `PRD.md` entirely, found during the 2026-09-16 audit. A program group's header has its own "🔗 Share Program" button, granting the chosen permission on every project in that program in one action (not project-by-project), gated on the sharer being admin or already owning/editing at least one project in the program.
+- **Share is unavailable on a Draft-stage proposal** — follows from Draft being private to its creator, but worth stating explicitly rather than leaving a reader to infer it from the button's absence.
+
+**§7 Project Configuration / Administration (addendum)**
+- **A Program's ID is permanently fixed after creation** — no way to correct a typo on that program later; the workaround is creating a new program and migrating its projects. Directly relevant to the deferred "let a user edit programs they created" cycle mentioned earlier — that future cycle needs to account for this constraint, possibly even address it.
+- **Deleting a Program is blocked outright while any project is still linked to it** — worth stating the real (blocking) behavior plainly; the app's own confirm-dialog text is misleading here (implies projects get silently unlinked) but that's a separate, tracked product bug, not something the manual should describe as real behavior.
+- **Deleting a Client Group only ungroups its member clients** — doesn't delete them. A client belongs to at most one group at a time.
 
 **§13 Administration**
 - **Roles registry, and the missing middle link of the rate fallback chain.** The basic registry (label, code, the auto-derived Team, default EUR rate) was already documented, but the Add/Edit Role form also has one extra field per active non-EUR currency — "Default rate (X/h)" — previously undocumented. Left blank, that currency's rate for this role is just the EUR rate converted at whatever the current exchange rate (§7.7) is; filling it in fixes this role's own default in that currency regardless of later exchange-rate movement. This is precisely the "role's per-currency agency default" step already named (but never elaborated) in the offer editor's rate fallback chain (§4) — worth closing the loop explicitly now that Clients (rate-card override, takes priority) and Currencies (the exchange-rate fallback, lowest priority) are both documented: all three links of that chain are now real, findable sections rather than one being a dangling reference. (Source: `PRD.md` §7.6, added alongside this spec after verifying in `config.html`.)
