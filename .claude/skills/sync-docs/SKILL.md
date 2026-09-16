@@ -38,7 +38,10 @@ Review all recent code changes in this session (and git diff if needed) and upda
 - Trigger only when the change alters what a user can do, see, or experience: a new page/view, a new feature, a changed user flow, a changed permission/role behaviour, or a UI element added/removed that affects how the product is used.
 - Do NOT trigger for internal refactors, extracted modules, added tests, dev tooling, or changes to files/functions that produce byte-identical user-facing behaviour — even if extensive.
 - If the change is a bugfix, update PRD.md only if the PRD's description of the feature was itself inaccurate (i.e. the bug meant the PRD never matched reality); do not update it for fixes that restore documented behaviour.
-- When in doubt whether a change is "user-visible," state the ambiguity in the summary and leave PRD.md untouched — flagging beats guessing.
+- **When in doubt whether a change is "user-visible," ask the user explicitly, one targeted question, rather than silently leaving PRD.md untouched.** (2026-09 revision — the previous "flagging beats guessing" rule let genuine gaps accumulate silently over many cycles; a 2026-09-16 `domain-audit` of `PRD.md` against the live app found 14 such gaps, several of them entire undocumented features. Silent omission is no longer acceptable for anything that touches a real, new user-facing screen, tab, button, or modal — ask instead of skip. A change that's genuinely internal after the user confirms it is still fine to leave undocumented; the fix is asking, not defaulting either way.)
+
+### 6b. `.claude/skills/operational-manual/SKILL.md`'s inlined detail-content reference (only if PRD.md was updated in this cycle)
+If PRD.md was touched above, check whether any of the changed sections fall within the manual's own scope (this skill's "PDash detail-content reference" section mirrors `PRD.md` section-by-section) and update that reference to match — same content, same level of care as when it was first built. This keeps the skill's own reference from silently going stale the same way `PRD.md` itself did before 2026-09-16, even though the manual (`docs/OPERATIONAL_MANUAL.html`) itself stays regenerated only on explicit request, not on every cycle.
 
 ### 7. docs/superpowers/PROCESS.md (only if the cycle changed the development *process* itself, not the product)
 

@@ -1,6 +1,6 @@
 # Processo di sviluppo — burndown (PDash)
 
-> Documenta il workflow spec-driven come applicato finora. Le tre skill di processo previste (§5) sono tutte costruite: `feature-brief`, `domain-audit`, `audit-to-brief`.
+> Documenta il workflow spec-driven come applicato finora. Le tre skill di processo del ciclo spec-driven (§5) sono tutte costruite: `feature-brief`, `domain-audit`, `audit-to-brief`. Una quarta skill, `operational-manual`, produce documentazione utente su richiesta — non fa parte della catena Brief→Spec→Piano, ma va mantenuta sincronizzata con `PRD.md` (vedi §5).
 >
 > Aggiornato via `/sync-docs`, ma solo quando un ciclo introduce un cambiamento reale al processo — non ad ogni esecuzione. Vedi criterio di aggiornamento in fondo al documento.
 
@@ -53,6 +53,12 @@ Le fasi centrali (Spec → `/writing-plans` → Piano) sono **identiche** nei tr
 
 **Nota sull'audit stesso** (a monte del Brief, solo per lo Scenario 3): l'audit è un processo a sé — verifica soltanto, non fixa. Condotto dalla skill `domain-audit`: negoziazione esplicita dello scope (perimetro, cosa conta come finding, ground truth) prima di leggere codice, evidenza con citazioni file:linea per ogni claim, root-cause analysis prima di classificare, mai un fix durante l'audit (guardia che regge anche a una richiesta esplicita e ripetuta dell'utente di fixare al volo), finding fuori scope isolati in una sezione dedicata del report. Report persistito in `docs/superpowers/audits/`. Distinta dalla skill di sicurezza (`security-review`) — non sovrappone vulnerabilità/credenziali/injection.
 
+**Cadenza raccomandata — audit di riconciliazione documentazione-vs-codice (2026-09):** oltre all'uso ad-hoc dello Scenario 3 su un'area specifica, un audit `domain-audit` con `PRD.md` come ground truth (scope: "tutte le pagine utente-facing vs PRD.md", stesso perimetro del ciclo 2026-09-16) va considerato:
+- **Obbligatorio** prima di ogni rigenerazione di `docs/OPERATIONAL_MANUAL.html` (skill `operational-manual`) — non generare il manuale su un `PRD.md` la cui accuratezza non è stata riverificata di recente.
+- **Raccomandato come pratica standing**, a prescindere dalla generazione del manuale, con una cadenza indicativa di circa ogni 10 cicli `/finish-cycle` chiusi o ogni ~2 mesi, quale che venga prima — a scopo di prevenire l'accumulo silenzioso di scostamenti tra `PRD.md` e il comportamento reale dell'app, la stessa dinamica che ha prodotto i 14 finding del `2026-09-16-prd-vs-app-behavior-audit.md`.
+
+Questa non è una nuova skill né una modifica allo Scenario 3 — è un promemoria di cadenza per l'uso ricorrente di una skill già esistente.
+
 ---
 
 ## 3. Eccezioni concordate (esempi, non regola generale)
@@ -84,8 +90,9 @@ Regola permanente (non un'eccezione una tantum), applicabile alla fase Esecuzion
 Tutte e tre costruite. Non una per scenario ma una per tipo di gap — ciascuna in `.claude/skills/<nome>/SKILL.md`:
 
 - **`feature-brief`**: converte una richiesta grezza in un Brief strutturato per gli scenari 1 e 2. Primo passo sempre una domanda esplicita di classificazione dello scenario, mai inferita.
-- **`domain-audit`**: conduce l'audit di dominio per lo scenario 3 — scope negoziato prima di leggere codice, evidenza file:linea per ogni claim, root-cause analysis, mai fix durante l'audit, finding fuori scope isolati in sezione dedicata. Non sovrappone la skill di sicurezza (`security-review`); tassonomia dei finding libera, decisa per singolo audit.
+- **`domain-audit`**: conduce l'audit di dominio per lo scenario 3 — scope negoziato prima di leggere codice, evidenza file:linea per ogni claim, root-cause analysis, mai fix durante l'audit, finding fuori scope isolati in sezione dedicata. Non sovrappone la skill di sicurezza (`security-review`); tassonomia dei finding libera, decisa per singolo audit. Vedi anche la cadenza raccomandata in §2 per il suo uso come audit di riconciliazione `PRD.md`-vs-codice.
 - **`audit-to-brief`**: prende un report d'audit già chiuso (generato da `domain-audit`) e costruisce il/i Brief di fix per lo scenario 3 — raggruppamento dei finding in cicli proposto e confermato con l'utente, mai deciso unilateralmente; finding di natura diversa (es. design vs. correttezza) segnalati e trattati con un Brief in forma Scenario 2. Costruita e testata sui due casi reali disponibili (audit Resource Planning, audit `js/ai.js`) dopo che il secondo caso si è accumulato — come previsto, per evitare di generalizzare da un solo audit.
+- **`operational-manual`** (2026-09-16, aggiunta): non fa parte della catena Brief→Spec→Piano — produce `docs/OPERATIONAL_MANUAL.html`, il manuale operativo utente-facing, **solo su richiesta esplicita**, mai automaticamente. Ha però un obbligo di sincronizzazione permanente con `PRD.md`: la skill contiene, inlineata al proprio interno (sezione "PDash detail-content reference", non solo referenziata da uno spec esterno — scelta deliberata per sopravvivere anche se lo spec viene archiviato/perso), l'elenco dettagliato di cosa documentare per ciascuna area del prodotto, mantenuto verificato contro `PRD.md`. **`/sync-docs` (§6b del proprio file) aggiorna questa sezione ogni volta che `PRD.md` viene toccato nello stesso ciclo** — così le due fonti non divergono di nuovo silenziosamente come accaduto prima del 2026-09-16. La generazione vera e propria dell'HTML resta un trigger separato e resta a richiesta.
 
 ---
 
