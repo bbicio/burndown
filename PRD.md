@@ -159,6 +159,7 @@ Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as 
 - A version is **locked** when: (a) the proposal itself is Committed **and** every task has already been migrated to a project, or (b) another version in the same grid has a linked project
 - Locked versions display a 🔒 badge and are read-only
 - While the proposal is Committed but tasks remain unmapped, the version stays fully editable and "Generate Project" stays available for the remaining tasks — a proposal can generate more than one project over time, and being Committed does not by itself block that
+- **Program auto-link (2026-09):** generating a project from only a subset of the proposal's available tasks (any stage except Draft), when the proposal has no program established yet, opens a "Create program" step (name + ID, or link to an already-existing program) before the project is created; canceling that step aborts the whole generation with nothing created. Once a program is established this way, every later project generated from the same proposal — partial selection or the remaining full set — auto-links to that same program with no further prompt. Any authenticated user with editor access to the proposal can establish a program this way, not just admins.
 
 **Version actions:** Duplicate, Delete, JSON export/import
 

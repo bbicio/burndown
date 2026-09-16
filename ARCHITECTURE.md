@@ -481,8 +481,11 @@ timesheets (
 |---|---|---|---|
 | GET/POST | /api/clients | admin | List / create |
 | PATCH/DELETE | /api/clients/:id | admin | Update / delete |
-| GET/POST | /api/programs | admin | List / create |
-| PATCH/DELETE | /api/programs/:id | admin | Update / delete |
+| GET | /api/programs | ✅ | List (all authenticated users) |
+| POST | /api/programs | ✅ | Create (2026-09: relaxed from admin — a non-admin proposal owner/editor can establish a program via costgrid.html's Generate Project flow) |
+| PATCH | /api/programs/:id | ✅ | Update name (2026-09: relaxed from admin, same reason; if the program already has ≥1 linked project, caller must be admin or owner/editor on at least one of them) |
+| DELETE | /api/programs/:id | admin | Delete (blocked while any project is still linked) |
+| POST | /api/programs/:id/share | ✅ | Share every project in a program with a user; caller must be admin or owner/editor on at least one of the program's projects (2026-09 — this pre-existing route previously had no ownership check at all) |
 | GET/POST | /api/roles | admin | List / create — `GET` returns `rate_overrides` JSONB field |
 | PATCH/DELETE | /api/roles/:id | admin | Update / delete — `PATCH` accepts `rateOverrides` body field (saved to `rate_overrides` column) |
 | GET | /api/ratecards | ✅ | List (all authenticated users) |
