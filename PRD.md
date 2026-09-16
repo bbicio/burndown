@@ -123,7 +123,7 @@ When a cost grid is linked to a client (or client group), the detail panel shows
 
 Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as a full-page overlay that keeps the Pipeline tab highlighted in the nav.
 
-**Toolbar:** ⧉ Clone · 🗑 Delete version (Draft stage only) · ⊟/⊞ compact header toggle (hides per-role move/change/duplicate/remove controls and shrinks the header font)
+**Toolbar:** 🚀 Publish to SIP (Draft versions only, see "Publishing a Draft" below) · 🔗 Share (opens the same share modal described in §18.2, with the same inline "Shared with" list and removal described in §18.3 — the full-page editor is not a separate sharing surface, it's the same mechanism as the pipeline board's detail panel) · ⧉ Clone · 🗑 Delete version (Draft stage only) · ⬇ Export XLS (downloads a styled Excel workbook of the current version's full structure) · ⊟/⊞ compact header toggle (hides per-role move/change/duplicate/remove controls and shrinks the header font)
 
 **Grid-level fields:**
 - Grid name
@@ -157,6 +157,8 @@ Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as 
 
 **Versioning:**
 - Multiple versions per grid
+- **Publishing a Draft to SIP** (🚀 Publish to SIP, Draft versions only): a one-way transition — once published, a version can never be set back to Draft. Publishing makes it visible to the rest of the team for the first time (a Draft is private to its creator, see §4.2). If the same proposal has *other* Draft versions besides the one being published, they are **permanently deleted** as part of publishing — the confirmation dialog names them and warns of this before it happens.
+- **Clone** (⧉, available from both the pipeline board's detail panel and the full-page editor): creates a brand-new, separate proposal — not a new version of the current one — copying the current version's full phase/task/role structure. The new proposal's first version is always labeled "v1" regardless of what the source version was labeled.
 - A version is **locked** when: (a) the proposal itself is Committed **and** every task has already been migrated to a project, or (b) another version in the same grid has a linked project
 - Locked versions display a 🔒 badge and are read-only
 - While the proposal is Committed but tasks remain unmapped, the version stays fully editable and "Generate Project" stays available for the remaining tasks — a proposal can generate more than one project over time, and being Committed does not by itself block that
