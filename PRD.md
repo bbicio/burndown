@@ -446,6 +446,9 @@ Accessed via the "Roles" tab in **config.html** (Configuration), alongside Clien
 | Code | Must match the role code in the XLS actuals (e.g. "HWGDEV") |
 | Team | Not a separate input — auto-derived from the `TEAM - Role` prefix of Code, used as a group label for Resource Planning filters |
 | Rate (€/h) | Default hourly rate; can be overridden per cost grid version |
+| Default rate (per active non-EUR currency) | Optional — one extra field per active currency (§7.7) appears in the same Add/Edit Role form; blank means "convert the EUR rate at the current exchange rate," a value here fixes this role's own default rate in that currency regardless of exchange-rate movement. This is the "role's per-currency agency default" link in the rate fallback chain (§4.9) — distinct from a client's own rate-card override (§7.2, which takes priority over this) and from a per-offer rate edit (which takes priority over both). |
+
+Actions: Add, edit, delete.
 
 ### 7.7 Currencies
 
