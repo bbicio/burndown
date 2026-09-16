@@ -438,11 +438,11 @@
         <div class="modal-body">
           <p class="small text-muted">This proposal isn't fully migrated yet — link the generated project to a program so later projects from the same proposal can join it automatically.</p>
           <div v-if="createProgramModal.error" class="alert alert-danger py-2">{{ createProgramModal.error }}</div>
-          <div class="mb-3" v-if="(getPrograms ? getPrograms() : []).length">
+          <div class="mb-3" v-if="programs.length">
             <label class="form-label small fw-semibold">Program</label>
             <select class="form-select form-select-sm" v-model="createProgramModal.existingId">
               <option value="">＋ Create new program</option>
-              <option v-for="p in (getPrograms ? getPrograms() : [])" :key="p.id" :value="p.id">{{ p.name }} ({{ p.id }})</option>
+              <option v-for="p in programs" :key="p.id" :value="p.id">{{ p.name }} ({{ p.id }})</option>
             </select>
           </div>
           <template v-if="!createProgramModal.existingId">
@@ -466,7 +466,7 @@
           <div class="mb-3"><label class="form-label small fw-semibold">Project name</label><input type="text" class="form-control form-control-sm" v-model="projectNameModal.name" @input="projectNameModal.error=''" @keyup.enter="submitProjectNameModal" placeholder="e.g. Acme Corp — Phase 1"></div>
           <div class="mb-3"><label class="form-label small fw-semibold">Project code <span class="text-muted fw-normal">(optional)</span></label><input type="text" class="form-control form-control-sm" v-model="projectNameModal.code" @keyup.enter="submitProjectNameModal" placeholder="e.g. HITA.000001201"></div>
         </div>
-        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" @click="submitProjectNameModal">Continue</button></div>
+        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" :disabled="projectNameModal.submitting" @click="submitProjectNameModal">Continue</button></div>
       </div>
     </div>
   </div>
@@ -641,7 +641,7 @@
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=5"></script>
 <script defer src="js/costgrid.js?v=32"></script>
-<script defer src="js/api-sync.js?v=14"></script>
+<script defer src="js/api-sync.js?v=15"></script>
 <script defer src="js/ratecards.js"></script>
 <script defer src="js/shares.js"></script>
 <script defer src="js/share-list-component.js"></script>
@@ -696,8 +696,14 @@ Vue.createApp({
       roleModalMode: 'add', roleModalSourceCode: null, roleSearch: '', roleActiveTeam: '', roleAllRoles: [], roleRcName: '',
       myRole: '',
       reassignOwnerOptions: [], reassignOwnerOptionsLoaded: false, reassignOwnerBusy: false,
-      createProgramModal: { name: '', id: '', error: '', saving: false },
-      projectNameModal: { name: '', code: '', error: '' },
+      // Reactive copy of js/programs.js's own module-level cache — getPrograms() itself is a
+      // classic-script global a runtime-compiled Vue template can't resolve (its `with(_ctx)`
+      // proxy only sees `_ctx.*`/component `data`/`methods`, the same landmine already documented
+      // for openShareModal on this page and summaryTotals on portfolio.html), so the Create
+      // Program modal's "link to existing" dropdown reads this instead.
+      programs: [],
+      createProgramModal: { existingId: '', name: '', id: '', error: '', saving: false },
+      projectNameModal: { name: '', code: '', error: '', submitting: false },
     };
   },
   computed: {
@@ -911,7 +917,7 @@ Vue.createApp({
       };
     },
     openProjectNameModal(defaultName) {
-      this.projectNameModal = { name: defaultName || '', code: '', error: '' };
+      this.projectNameModal = { name: defaultName || '', code: '', error: '', submitting: false };
       bootstrap.Modal.getOrCreateInstance(document.getElementById('cgProjectNameModal')).show();
     },
     // Chains a follow-up (which may itself open another modal, e.g. Bootstrap's own show()) off
@@ -921,13 +927,23 @@ Vue.createApp({
     // fix).
     hideModalThen(modalId, fn) {
       const modalEl = document.getElementById(modalId);
+      const instance = bootstrap.Modal.getInstance(modalEl);
+      if (!instance) {
+        // No live instance to hide (already closed / never shown) — run the follow-up directly
+        // rather than registering a listener that would otherwise never fire.
+        console.warn('[hideModalThen] no Modal instance for #' + modalId + ', running follow-up directly');
+        fn();
+        return;
+      }
       modalEl.addEventListener('hidden.bs.modal', fn, { once: true });
-      bootstrap.Modal.getInstance(modalEl)?.hide();
+      instance.hide();
     },
     submitProjectNameModal() {
+      if (this.projectNameModal.submitting) return; // already in flight -- ignore a fast repeat click/Enter
       const name = this.projectNameModal.name.trim();
       if (!name) { this.projectNameModal.error = 'Project name is required.'; return; }
       const code = this.projectNameModal.code.trim();
+      this.projectNameModal.submitting = true;
       this.hideModalThen('cgProjectNameModal', () => cgSubmitProjectName(name, code));
     },
     openCreateProgramModal() {
@@ -1393,6 +1409,7 @@ Vue.createApp({
     try {
       await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi(), loadCurrenciesFromApi(), loadConfigFromApi()]);
     } catch (e) { console.warn('[init] loadClientsFromApi/loadProgramsFromApi/loadRolesFromApi failed:', e.message); }
+    this.programs = getPrograms();
 
     try { await cgSyncFromApi(); } catch (e) { console.warn('[init] cgSyncFromApi failed:', e.message); }
 
