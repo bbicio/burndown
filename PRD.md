@@ -403,6 +403,8 @@ Named bundles of clients (e.g. "Italian Public Sector"). Used as the target for 
 
 ### 7.4 Pipelines & POTs
 
+**What a POT is:** a Client POT is the total target revenue — the maximum "wallet potential" — allocated to a specific client (or client group) for a given forecasting year. It is the financial benchmark the organization aims to capture from that client, combining existing recurring business with identified upsell/cross-sell growth opportunities. Everything below (the POT banner, the POT table, the View Details modal, the history log) is different views onto that one number and how actual/anticipated pipeline is tracking against it.
+
 Master/detail tab in config.html:
 
 **View A — Pipeline list:** table of all pipeline years with Visible / Hidden status badge. Actions: toggle visibility (Show/Hide), delete (blocked if cost grid versions reference the year), "POTs →" (drills into View B), "📊 Proposal Phasing", "📋 Project Phasing", + Add year.
