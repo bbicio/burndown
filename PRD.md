@@ -248,6 +248,8 @@ Today marker: the current week's column is highlighted (`gantt-today` class / `i
 
 Note the two tables are not interchangeable: the portfolio summary's "Budget Estimated" reads the manually-maintained/derived `phasing` grid (§7.1), while the drill-down's "Total Budget" is computed live from task sold-hours × rate and ignores `phasing` entirely — the two can disagree if `phasing` hasn't been kept in sync with the task data (e.g. after editing sold hours without re-running Derive/Reforecast).
 
+**Burndown chart:** a line chart on the detail page, filterable to a single task (or the whole project) and to a monthly or weekly interval. Its solid main line is the actual consumption trend — labeled "Remaining Hours" if the project has a budget to burn down against, or "Cumulative Hours" if it doesn't. Up to two dashed reference lines can appear alongside it: "Estimated Budget (phasing)" (orange, when the project's `phasing` data is available) and/or "Estimated Hours" (green, from the `planning` grid) — these are the plan the actual line is being compared against, letting a reader see at a glance whether consumption is running ahead of or behind what was planned.
+
 **Toolbar actions:**
 - **＋ New project** — the only page-level toolbar action; navigates to `project-config.html`
 
