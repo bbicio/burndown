@@ -438,10 +438,19 @@
         <div class="modal-body">
           <p class="small text-muted">This proposal isn't fully migrated yet — link the generated project to a program so later projects from the same proposal can join it automatically.</p>
           <div v-if="createProgramModal.error" class="alert alert-danger py-2">{{ createProgramModal.error }}</div>
-          <div class="mb-3"><label class="form-label small fw-semibold">Program name</label><input type="text" class="form-control form-control-sm" v-model="createProgramModal.name" placeholder="e.g. Chatbot AI Platform"></div>
-          <div class="mb-3"><label class="form-label small fw-semibold">Program ID</label><input type="text" class="form-control form-control-sm" v-model="createProgramModal.id" placeholder="e.g. PRG-001"></div>
+          <div class="mb-3" v-if="(getPrograms ? getPrograms() : []).length">
+            <label class="form-label small fw-semibold">Program</label>
+            <select class="form-select form-select-sm" v-model="createProgramModal.existingId">
+              <option value="">＋ Create new program</option>
+              <option v-for="p in (getPrograms ? getPrograms() : [])" :key="p.id" :value="p.id">{{ p.name }} ({{ p.id }})</option>
+            </select>
+          </div>
+          <template v-if="!createProgramModal.existingId">
+            <div class="mb-3"><label class="form-label small fw-semibold">Program name</label><input type="text" class="form-control form-control-sm" v-model="createProgramModal.name" @input="createProgramModal.error=''" placeholder="e.g. Chatbot AI Platform"></div>
+            <div class="mb-3"><label class="form-label small fw-semibold">Program ID</label><input type="text" class="form-control form-control-sm" v-model="createProgramModal.id" @input="createProgramModal.error=''" placeholder="e.g. PRG-001"></div>
+          </template>
         </div>
-        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" :disabled="createProgramModal.saving" @click="saveCreateProgramModal">{{ createProgramModal.saving ? 'Saving…' : 'Create' }}</button></div>
+        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" :disabled="createProgramModal.saving" @click="saveCreateProgramModal">{{ createProgramModal.saving ? 'Saving…' : (createProgramModal.existingId ? 'Link' : 'Create') }}</button></div>
       </div>
     </div>
   </div>
@@ -454,7 +463,7 @@
         <div class="modal-header"><h5 class="modal-title fw-bold">🚀 Generate project</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
           <div v-if="projectNameModal.error" class="alert alert-danger py-2">{{ projectNameModal.error }}</div>
-          <div class="mb-3"><label class="form-label small fw-semibold">Project name</label><input type="text" class="form-control form-control-sm" v-model="projectNameModal.name" @keyup.enter="submitProjectNameModal" placeholder="e.g. Acme Corp — Phase 1"></div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Project name</label><input type="text" class="form-control form-control-sm" v-model="projectNameModal.name" @input="projectNameModal.error=''" @keyup.enter="submitProjectNameModal" placeholder="e.g. Acme Corp — Phase 1"></div>
           <div class="mb-3"><label class="form-label small fw-semibold">Project code <span class="text-muted fw-normal">(optional)</span></label><input type="text" class="form-control form-control-sm" v-model="projectNameModal.code" @keyup.enter="submitProjectNameModal" placeholder="e.g. HITA.000001201"></div>
         </div>
         <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" @click="submitProjectNameModal">Continue</button></div>
@@ -470,7 +479,7 @@
         <div class="modal-body">
           <p class="mb-2">Add the following tasks to <strong>{{ addToProjectModal.projName }}</strong>?</p>
           <ul class="mb-0 ps-3" style="font-size:var(--text-sm)">
-            <li v-for="n in addToProjectModal.taskNames" :key="n">{{ n }}</li>
+            <li v-for="(n, i) in addToProjectModal.taskNames" :key="i">{{ n }}</li>
           </ul>
         </div>
         <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-warning btn-sm" @click="confirmAddToProject">Confirm</button></div>
@@ -905,19 +914,34 @@ Vue.createApp({
       this.projectNameModal = { name: defaultName || '', code: '', error: '' };
       bootstrap.Modal.getOrCreateInstance(document.getElementById('cgProjectNameModal')).show();
     },
+    // Chains a follow-up (which may itself open another modal, e.g. Bootstrap's own show()) off
+    // this modal's own hidden.bs.modal event rather than firing it synchronously right after
+    // hide() — hide() only starts the fade-out; calling show() on a second modal before it
+    // finishes can leave body scroll-locking/backdrop state in a bad spot (round-2 code-review
+    // fix).
+    hideModalThen(modalId, fn) {
+      const modalEl = document.getElementById(modalId);
+      modalEl.addEventListener('hidden.bs.modal', fn, { once: true });
+      bootstrap.Modal.getInstance(modalEl)?.hide();
+    },
     submitProjectNameModal() {
       const name = this.projectNameModal.name.trim();
       if (!name) { this.projectNameModal.error = 'Project name is required.'; return; }
       const code = this.projectNameModal.code.trim();
-      bootstrap.Modal.getInstance(document.getElementById('cgProjectNameModal'))?.hide();
-      cgSubmitProjectName(name, code);
+      this.hideModalThen('cgProjectNameModal', () => cgSubmitProjectName(name, code));
     },
     openCreateProgramModal() {
-      this.createProgramModal = { name: '', id: '', error: '', saving: false };
+      this.createProgramModal = { existingId: '', name: '', id: '', error: '', saving: false };
       bootstrap.Modal.getOrCreateInstance(document.getElementById('cgCreateProgramModal')).show();
     },
     async saveCreateProgramModal() {
       if (this.createProgramModal.saving) return; // already in flight -- ignore a fast repeat click
+      // Linking to an already-established program (e.g. after a duplicate-ID create attempt, or
+      // two proposals meant to share one program from the start) needs no API call of its own.
+      if (this.createProgramModal.existingId) {
+        this.hideModalThen('cgCreateProgramModal', () => cgResumePendingGeneration(this.createProgramModal.existingId));
+        return;
+      }
       const name = this.createProgramModal.name.trim();
       const id = this.createProgramModal.id.trim();
       if (!name) { this.createProgramModal.error = 'Name is required.'; return; }
@@ -925,8 +949,7 @@ Vue.createApp({
       this.createProgramModal.saving = true;
       try {
         const created = await Api.programs.create(id, name);
-        cgResumePendingGeneration(created.id);
-        bootstrap.Modal.getInstance(document.getElementById('cgCreateProgramModal'))?.hide();
+        this.hideModalThen('cgCreateProgramModal', () => cgResumePendingGeneration(created.id));
       } catch (e) {
         this.createProgramModal.error = e.message || 'Save failed.';
       } finally {
@@ -1220,8 +1243,8 @@ Vue.createApp({
     confirmAndGenerate() { cgConfirmAndGenerate(); },
     addToProject() {
       const projId = this.addToProjectSel;
-      if (!projId) { alert('Select a project from the dropdown.'); return; }
-      if (this.selectedTaskIds.size === 0) { alert('Select at least one task.'); return; }
+      if (!projId) { showInfo('Select a project from the dropdown.'); return; }
+      if (this.selectedTaskIds.size === 0) { showInfo('Select at least one task.'); return; }
       const lp = (this.draft.linkedProjects || []).find(l => l.projectId === projId);
       const projName = lp?.projectName || projId;
       const selectedIds = [...this.selectedTaskIds];

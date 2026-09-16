@@ -237,8 +237,12 @@ async function loadConfigFromApi() {
 }
 
 // Upsert a single project and its sub-resources to the API (fire-and-forget).
+// Returns true once the project's core metadata is confirmed to exist server-side, false if that
+// upsert itself failed (never throws) — sub-resource pushes below (tasks/phasing/etc.) stay
+// best-effort and don't affect this return value. Callers that need to know whether the project
+// is genuinely safe to link to / navigate to (e.g. cgDoGenerateProject) should check it.
 async function _pushProjectToApi(project) {
-  if (!project?.id) return;
+  if (!project?.id) return false;
   const { tasks, phasing, planning, ptc, groups, costGridRef, ...meta } = project;
 
   // Carry the cost-grid version link into the API payload
@@ -261,7 +265,7 @@ async function _pushProjectToApi(project) {
     await Api.projects.update(project.id, meta);
   } catch {
     try { await Api.projects.create({ ...meta, id: project.id }); }
-    catch (e) { console.warn('[sync] project upsert failed:', e.message); return; }
+    catch (e) { console.warn('[sync] project upsert failed:', e.message); return false; }
   }
 
   // Tasks
@@ -293,6 +297,8 @@ async function _pushProjectToApi(project) {
     try { await Api.projects.groups(project.id, groups); }
     catch (e) { console.warn('[sync] groups save failed:', e.message); }
   }
+
+  return true;
 }
 
 // Delete a project from the API (fire-and-forget).
