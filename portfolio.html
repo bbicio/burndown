@@ -114,9 +114,10 @@
           </div>
           <div class="d-flex align-items-center gap-2">
             <button class="btn btn-sm" style="font-size:var(--text-sm);background:var(--violet-500);color:#fff;border-color:var(--violet-500)" @click="openShareModal('program', prog.id, prog.name)">🔗 Share Program</button>
-            <button class="btn btn-sm" style="font-size:var(--text-sm);background:var(--violet-500);color:#fff;border-color:var(--violet-500)" @click="toggleProgramExpanded(prog.id)">
-              {{ (expandedPrograms.has(prog.id) || portfolioFiltersActive) ? '▼ Hide Child Projects' : '▶ Show Child Projects' }}
+            <button v-if="!portfolioFiltersActive" class="btn btn-sm" style="font-size:var(--text-sm);background:var(--violet-500);color:#fff;border-color:var(--violet-500)" @click="toggleProgramExpanded(prog.id)">
+              {{ expandedPrograms.has(prog.id) ? '▼ Hide Child Projects' : '▶ Show Child Projects' }}
             </button>
+            <span v-else class="badge" style="background:var(--violet-500);font-size:var(--text-xs)" title="Child projects are shown automatically while a filter is active">▼ Shown (filtered)</span>
           </div>
         </div>
         <div class="d-flex gap-4 flex-wrap p-3" v-if="programStatsMap[prog.id]?.summary">
