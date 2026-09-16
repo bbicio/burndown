@@ -219,6 +219,10 @@ Each bar's fill color reflects task status, not pipeline stage (`planning.js:253
 
 Today marker: the current week's column is highlighted (`gantt-today` class / `isCurrent` flag, `planning.js:450`).
 
+### 5.5 Overallocation color coding
+
+A static, non-AI legend on the Resource Planning table: a row's load is shown in red once it exceeds 30 hours/week (`planning.html:621`). This is a fixed display rule, not an analysis or a generated issue list — see §11.3's correction note for a feature this PRD previously (incorrectly) described as an AI-driven version of this same idea.
+
 ---
 
 ## 6. Project Reporting
@@ -399,7 +403,7 @@ Rate cards support multiple currencies: for each active non-EUR currency (e.g. U
 
 ### 7.3 Client Groups
 
-Named bundles of clients (e.g. "Italian Public Sector"). Used as the target for POT targets when multiple clients share a revenue goal. CRUD: create, rename, delete. Members: assign/remove individual clients.
+Named bundles of clients (e.g. "Italian Public Sector"). Used as the target for POT targets when multiple clients share a revenue goal. CRUD: create, rename, delete. Members: assign/remove individual clients. A client can belong to at most one group at a time. Deleting a group does not delete its member clients — they simply become ungrouped.
 
 ### 7.4 Pipelines & POTs
 
@@ -434,7 +438,9 @@ POT progress is also visible in the Pipeline board detail panel for linked offer
 
 ### 7.5 Programs
 
-Simple registry: ID + name. Groups projects across the portfolio and reporting view.
+Simple registry: ID + name. Groups projects across the portfolio and reporting view. **A program's ID is permanently fixed once created** — the field is disabled in the edit form from that point on, with no way to change it later; a typo made at creation time cannot be corrected on this program, only worked around by creating a new one and migrating its projects.
+
+**Deleting a program is blocked outright while any project is still linked to it** — the delete does not proceed and does not unlink the projects; every linked project must be moved off the program first. (The confirm dialog's own wording currently says linked projects "will lose the program reference," implying the projects get silently unlinked and the delete proceeds — that text does not match this actual, blocking behavior; tracked as a product bug, not corrected by this PRD note alone.)
 
 ### 7.6 Roles Registry
 
@@ -536,7 +542,7 @@ Clicking an export button triggers a server-side CSV generation; the file is sen
 #### Backup
 
 - **Full Backup (.json):** Downloads a dated JSON snapshot of all API data (projects, roles, programs, clients, cost grids)
-- **Restore from Backup:** Admin-only. ⚠️ Non-functional as implemented — `restoreFromBackup()` only mutates legacy in-memory globals via no-op save functions and reads a key shape (`s.config`/`s.costgrids`) that doesn't match what Full Backup actually writes (`stores.projects`/`stores.costGrids`); no data is persisted back to the API.
+- **Restore from Backup:** Admin-only. ⚠️ Non-functional as implemented, for two compounding reasons — not just the one below: `restoreFromBackup()` reads a key shape (`s.config`/`s.costgrids`) that doesn't match what Full Backup actually writes (`stores.projects`/`stores.costGrids`) for the project/cost-grid data; and even for the keys that *do* line up (roles/programs/clients), the functions that would apply them are documented no-ops left over from before this app was fully API-backed, and every page reloads its state fresh from the API on the next load regardless. No data is persisted back to the API by this button, for any of its fields.
 
 #### Send Notification
 
@@ -597,17 +603,15 @@ Accessed via the "🤖 AI Chat" button in the top-right of the navbar.
   - Task-level performance notes
   - Concrete recommendations
 
-### 11.3 Resource Allocation Analysis
-
-- Detects overlapping task allocations per resource
-- Flags overallocation (> 28 h/week on a single project)
-- Produces a prioritised issue list by severity
-
-### 11.4 Supported AI Providers
+### 11.3 Supported AI Providers, and where the request actually goes
 
 - Anthropic Claude (`https://api.anthropic.com/v1/messages`)
 - OpenAI (`https://api.openai.com/v1/chat/completions`)
 - Google Gemini (`https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`)
+
+**These calls go directly from the browser to the provider, not through PDash's own backend.** The API key entered in Settings (§9.1) and the full request payload (including, for Project Analysis, financial project figures) are sent client-side straight to the provider's own endpoint — PDash's servers never see the prompt or the response.
+
+(2026-09 correction: an earlier version of this PRD described a "Resource Allocation Analysis" feature here — detecting overlapping task allocations and flagging overallocation via AI, at a >28h/week threshold. Audited and confirmed this does not exist anywhere in the codebase. The only real overallocation-related behavior in the app is unrelated and non-AI: Resource Planning's own table (§5) statically color-codes a row red once its load exceeds 30h/week — a fixed display rule, not an AI analysis. This section previously conflated the two.)
 
 ---
 
@@ -720,19 +724,21 @@ Project {
 
 ### 15.1 Login
 
-Email + password. On success: httpOnly JWT cookie set, user profile returned. Wrong password or unknown email both return a generic "invalid credentials" error (no field hint, no user enumeration). Disabled accounts are refused even with correct credentials.
+Email + password. On success: httpOnly JWT cookie set, user profile returned. Wrong password or unknown email both return a generic "invalid credentials" error (no field hint, no user enumeration). Disabled accounts are refused even with correct credentials. **A session lasts 8 hours** from login before the user is automatically signed out (no in-app warning as it approaches — the next action simply gets a 401 and redirects to login).
+
+**Password requirement:** every password-setting flow (activation, reset, change) requires a minimum of 8 characters — enforced both in the UI and, authoritatively, on the server.
 
 ### 15.2 Invite Flow
 
-Admin fills first name, last name, email, role → user created in `pending` status → invite email sent with a link containing a token valid for **48 hours**. Following the link lets the user set a password; the account becomes `active`.
+Admin fills first name, last name, email, role → user created in `pending` status → invite email sent with a link containing a token valid for **48 hours**. Following the link lets the user set a password (same 8-character minimum as above); the account becomes `active`.
 
 ### 15.3 Password Reset
 
-Self-service. Requesting a reset always returns success, regardless of whether the email matches an account (no enumeration). If it does match, a reset link is emailed, valid for **2 hours**. Following it lets the user set a new password.
+Self-service. Requesting a reset always returns success, regardless of whether the email matches an account (no enumeration). If it does match, a reset link is emailed, valid for **2 hours**. Following it lets the user set a new password (same 8-character minimum).
 
 ### 15.4 Change Password
 
-Available to any authenticated user from the account menu. Requires the current password plus a new password and confirmation.
+Available to any authenticated user from the account menu. Requires the current password plus a new password and confirmation (same 8-character minimum).
 
 ### 15.5 Logout
 
@@ -769,7 +775,7 @@ No account starts as sysadmin; the first one is set up outside the product (dire
 | Disable / re-enable users | ✅ | ✅ (not on a sysadmin account) | ❌ |
 | Anonymize users | ✅ | ✅ (not on a sysadmin account) | ❌ |
 | Manage clients | ✅ | ✅ | read-only |
-| Manage programs | ✅ | ✅ | read-only |
+| Manage programs | ✅ | ✅ | create/rename ✅ (2026-09, see §4.9/§7.5), delete ❌ |
 | Manage roles + rates | ✅ | ✅ | read-only |
 | View ratecards | ✅ | ✅ | ✅ |
 | Create / edit / delete ratecards | ✅ | ✅ | ❌ |
@@ -790,13 +796,29 @@ Available only on disabled, not-yet-anonymized users. Requires an explicit confi
 
 ### 16.5 Terms & Conditions Editor
 
-Moved out of `admin.html` (2026-09) to its own page — sysadmin-exclusive, reachable from a sysadmin-only navbar menu. Sysadmin can view the current draft's version number and edit its HTML content. "Save draft" saves the edit for later without publishing it — users are unaffected and never see an unsaved draft. "Publish new version" permanently records the current draft as a new version and increments the version number, which forces every user to re-accept on their next login (see §17.1).
+Moved out of `admin.html` (2026-09) to its own page — sysadmin-exclusive, reachable from a sysadmin-only navbar menu. Sysadmin can view the current draft's version number and edit its HTML content. "Save draft" saves the edit for later without publishing it — users are unaffected and never see an unsaved draft. "Publish new version" permanently records the current draft as a new version and increments the version number, which forces every user to re-accept on their next login (see §17.1). A "👁 Preview" button opens the live acceptance page (`/terms.html`) in a new tab, rendering the current *draft* exactly as a real user would see it — a way to check the draft's appearance before committing to Publish.
 
 **Version history (2026-09):** every published version is retained permanently — publishing a new version never destroys the previous one's text, unlike before this change. A "Version History" list shows every past version (number, publish date, publisher); clicking a version opens its full text read-only. This exists primarily for record-keeping — being able to show exactly what text a given user accepted at a given time, which was not previously possible.
 
 ### 16.6 DB Reset
 
-Sysadmin-exclusive hidden page (was admin-only before 2026-09) for bulk/targeted destructive DB operations — reset by scope, delete a single proposal, or reassign a proposal's owner. Reachable from the same sysadmin-only navbar menu as §16.5.
+Sysadmin-exclusive hidden page (was admin-only before 2026-09) for bulk/targeted destructive DB operations. Reachable from the same sysadmin-only navbar menu as §16.5. Every destructive action on this page — every scope below, plus the single-proposal delete — requires typing the literal word **DELETE** into a confirmation field before it can proceed, not just a click-through dialog.
+
+**Reset by scope** — 7 independently-triggered, differently-scoped bulk deletions, each with its own stated effect and carve-outs:
+
+| Scope | Deletes | Explicitly spared |
+|---|---|---|
+| Proposals | All cost grids, versions, phases, tasks, task roles, and related sharing records | — |
+| Projects & Programs | All projects (including tasks and planning data) and all programs | Cost grids are not affected |
+| Clients & Client Groups | All clients, client groups, and their POTs | Client references on proposals/projects are set to null, not cascade-deleted |
+| Client Ratecards | All ratecards linked to a specific client | Agency-wide ratecards (no client) are not affected |
+| Actuals (Timesheets) | All uploaded timesheet data | Project structure is not affected |
+| Pipeline Years & POTs | All pipeline years and all POT targets with their history | Proposals already in SIP/Committed are not affected |
+| Notifications | All in-app notifications for all users | Push/email history already sent is not affected |
+
+**Delete a single proposal** — deletes one cost grid (and everything under it) by ID, independent of the scoped resets above.
+
+**Reassign a proposal's owner** — moves ownership of one proposal to a different active user (see §18.1 for the fuller reassignment behavior, including the equivalent, broader route available directly from the cost grid editor).
 
 ---
 
@@ -826,7 +848,9 @@ A sysadmin can reassign a proposal's owner from `_db-reset.html`'s "Change propo
 
 ### 18.2 Share Modal
 
-Available from a cost grid's detail panel or a project's reporting view. Searches active, non-admin/non-sysadmin platform users by name or email (no free-text email invites — only existing accounts can be granted access). Grants Editor or Viewer access. Permission on an existing share can be changed at any time. Sharing sends the recipient a notification with a direct link to the shared resource.
+Available from a cost grid's detail panel or a project's reporting view — not available at all on a Draft-stage proposal, consistent with a Draft being private to its creator (§4.2). Searches active, non-admin/non-sysadmin platform users by name or email (no free-text email invites — only existing accounts can be granted access). Grants Editor or Viewer access. Permission on an existing share can be changed at any time. Sharing sends the recipient a notification with a direct link to the shared resource.
+
+**Sharing a whole program (2026-09):** each program group's header in the portfolio list view has its own "🔗 Share Program" button — a third, distinct sharing target beyond a single cost grid or project. Sharing a program grants the chosen permission on **every project currently in that program**, in one action, not project-by-project. Only an admin, or someone who already owns/edits at least one project in the program, can do this.
 
 ### 18.3 Inline Share Visibility (2026-09)
 
