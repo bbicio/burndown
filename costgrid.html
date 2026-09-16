@@ -965,6 +965,7 @@ Vue.createApp({
       this.createProgramModal.saving = true;
       try {
         const created = await Api.programs.create(id, name);
+        this.programs.push(created);
         this.hideModalThen('cgCreateProgramModal', () => cgResumePendingGeneration(created.id));
       } catch (e) {
         this.createProgramModal.error = e.message || 'Save failed.';
