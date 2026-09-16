@@ -253,7 +253,7 @@ Note the two tables are not interchangeable: the portfolio summary's "Budget Est
 - **📅 Planning** — navigate to `planning.html` for that project
 - **＋ Summary** — pin/unpin the project into the Budget Summary table at the top of the Portfolio Overview page
 
-Configure and Load Actuals are hidden for viewers (see §18.3) — this permission gating is unchanged by the relocation, only its location moved from the list card to the detail-page header.
+Configure and Load Actuals are hidden for viewers (see §18.3). Load Actuals remains detail-page-only; **Configure was reintroduced on the list cards in a later 2026-09 cycle** (see the View features bullets below) — the original "moved from the list card to the detail-page header" note above describes an intermediate state, not current behavior.
 
 **← Portfolio** (2026-09): navigates back to the list. Appears both at the top of the detail view (next to the header) and again at the bottom (after Task detail) — the same action in two places so a long detail page doesn't force a scroll back to the top just to leave it.
 
@@ -262,8 +262,13 @@ Configure and Load Actuals are hidden for viewers (see §18.3) — this permissi
 **View features:**
 - Projects grouped by program (expandable / collapsible)
 - Program group header shows the same Duration/Sold/Spent/Variance totals as an individual card, aggregated across all its child projects, plus a project-count badge — corrected 2026-09, previously a full per-month breakdown table (excluded from the initial card redesign, then extended to match on user request after seeing it live)
+- Search by project name, project code, or client name (2026-09, first control in the filter row) — combines with the Client and Status filters below via AND
 - Filter by client
+- Filter by status — multi-select (Not started yet / Started / Started At Risk / Put on hold / Completed); selecting several combines them via OR; a project with no status stored matches "Not started yet," the same default its own status badge shows (2026-09)
+- "✕ Clear filters" resets search/Client/Status together (not Sort) once any of them is active; an explicit "No projects match the current filters." message appears when the combination matches nothing (2026-09)
 - Sort alphabetically or by client
+- Each card carries a "⚙️ Configure" button (hidden for a viewer-permission project) alongside "Project Dashboard," navigating straight to that project's `project-config.html` from the list (2026-09 — reintroduces the shortcut an earlier 2026-09 cycle had deliberately dropped in favor of detail-only access)
+- A program group whose children include a search/Status match auto-expands, so a matching project is never left hidden behind a manual "Show Child Projects" click; the manual toggle is unavailable (replaced by a "▼ Shown (filtered)" indicator) while any filter is active, to avoid a control that looks clickable but has no visible effect (2026-09)
 - Cards lay out in a 2-column grid — a program group spans the full row width, its own child projects render in a nested 2-column grid, and ungrouped projects fill the remaining cells two per row (2026-09)
 - The list view's URL stays in sync with the project being viewed (`?projectId=<id>` while on a detail view, bare `/portfolio.html` on the list), matching every other page that links into this view (2026-09)
 
