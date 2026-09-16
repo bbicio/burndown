@@ -163,7 +163,9 @@ Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as 
 
 **Version actions:** Duplicate, Delete, JSON export/import
 
-**Back button:** Returns to Pipeline Board (auto-saves draft state).
+**Saving:** every field edit inside the editor (phase/task names, descriptions, PTC, header fields, role rates, etc.) schedules an autosave in the background, confirmed by a brief "💾 Auto-saved" toast — there is no need to click anything for an edit to persist. A `💾 Save` button is also available in the toolbar for an explicit, immediate save (shows "💾 Saving…" while in flight).
+
+**Back button:** Returns to Pipeline Board (also triggers an autosave of the current draft state before navigating, on top of the continuous per-edit autosave above).
 
 ---
 
