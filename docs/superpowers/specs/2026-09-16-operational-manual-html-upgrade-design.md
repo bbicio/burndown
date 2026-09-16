@@ -98,13 +98,47 @@ Populated entirely from `PRD.md`'s own text — it already names most buttons wi
 
 ### 4.4 What "detailed" means, concretely
 
-Not every concise point needs a `<details>` expansion — only ones where `PRD.md` actually contains more than what the concise pass kept. Concretely, expanding the first-generation manual against `PRD.md` again, the following gain real detail (non-exhaustive — the executor re-derives this by re-reading `PRD.md` section-by-section against the current concise text, not by only following this list):
+Not every concise point needs a `<details>` expansion — only ones where `PRD.md` actually contains more than what the concise pass kept. This list was built by re-reading the entirety of `PRD.md` section-by-section against the first-generation manual's text — it is intentionally much longer than the first pass at this spec, because that first pass under-sampled how much detail `PRD.md` actually carries. It is still not a closed list: the executor re-derives it the same way (a full side-by-side re-read), and adds anything found here that's missing, rather than treating this as a ceiling.
 
-- **Resource Planning formulas** (§5 of the manual) — the concise pass compressed `PRD.md`'s own Sold/From actuals/To be planned/Residual formulas heavily; the detailed view restores the fuller explanation, including the By Owner task-level floor behavior and the monthly-pulse aggregation rule.
-- **Summary by role** (part of Project Reporting) — restore the concrete example already in `PRD.md` (a role billed at two different hourly rates on two different tasks).
-- **Derive vs. Reforecast** (Project Configuration) — the concise pass already has a comparison table; the detailed view adds the specific rounding/drift-carry behavior and the blocking-error case text from `PRD.md`.
-- **Admin configuration screens** (Clients, Pipelines & POTs, Roles) — restore the fuller field-by-field detail `PRD.md` gives for the POT detail modal and the rate-card modal, trimmed to one line each in the concise pass.
-- Any other point where a side-by-side re-read shows the concise manual dropped something `PRD.md` states — the executor's job during this pass is exactly that re-read, not a fixed checklist.
+**§4 Pipeline**
+- **Offer cards** — the exact visibility rule for the Delete button (Draft-stage cards only, and only with edit permission), not just "editing/deleting needs edit access."
+- **Filtering** — the Value filter's bucket ranges spelled out (€0–20K / €20K–50K / €50K–100K / €100K–200K / €200K+) and what "Include PTC" changes; the explicit OR-within-one-filter / AND-across-filters rule; that filters reset on every page reload; that the Draft column is exempt from all filtering.
+- **Detail panel** — the full header action list and that deleting a proposal's only remaining version deletes the whole proposal, not just that version; every left-column field (rate card name if set, JSON export button); that a linked project's "Project Dashboard" button only appears once timesheet data exists for it; the full right-column phase/task/role/grand-total breakdown structure.
+- **Board toolbar** — that switching pipeline year changes the URL (`?year=YYYY`) and that "+ New Proposal" is hidden for non-admins on inactive years.
+- **Offer editor** — the full field split between grid-level and version-level settings; the role rate fallback chain (client rate card override → role's per-currency agency default → EUR rate × currency exchange factor); the exact cost formula (task = Σ days×rate per role + PTC; phase = Σ tasks; total = Σ phases); the two distinct locking conditions (Committed + fully migrated, OR a sibling version already has a linked project).
+
+**§5 Resource Planning**
+- The full Sold / From actuals / To be planned / Residual formulas, including the By Owner task-level floor behavior (an over-consumed role's shortfall can be offset by another role's remaining budget on the same task) and the monthly-pulse aggregation rule (bundled into the month's first week, proportional to calendar weeks in that month).
+- That the Gantt view is task-level, not phase-level, and its bar-fill math (completion %) is a *different*, simpler calculation than the portfolio table's residual math — the two can look inconsistent by design, not by bug.
+
+**§6 Project Reporting**
+- **The two KPI tables are not interchangeable** — the portfolio summary's "Budget Estimated" reads the manually-maintained `phasing` grid, while the drill-down's "Total Budget" is computed live from task sold-hours × rate; the two can disagree if `phasing` hasn't been kept in sync (e.g. after editing sold hours without re-running Derive/Reforecast). This nuance was dropped entirely from the concise pass and is worth restoring prominently.
+- The full Portfolio KPI formula table (Estimated/Spent/Variance) and the full per-project drill-down KPI formula table (6 rows: Total Sold Hours, Total Budget, Hours/Budget Consumed, Hours/Budget Left).
+- **Monthly Summary Table** — the exact Hours/Budget formulas per column, and that variance highlighting is one-sided (negative shown in bold red; no corresponding green for positive variance — a real, deliberate asymmetry).
+- **Summary by role** — the concrete example already in `PRD.md` (a role billed at two different hourly rates on two different tasks, e.g. "Account Director" at 168/h on one task and 130/h on another).
+- **Summary by functional area** — the `{role, task}` membership model (a role can be claimed on one specific task while excluded on another, vs. the legacy "any task" wildcard).
+
+**§7 Project Configuration**
+- The full Project fields table and Task fields table (exact field list, types, and matching rules against the timesheet columns).
+- **Derive vs. Reforecast** — beyond the existing comparison table, the specific rounding/drift-carry behavior (hours round to the nearest quarter-hour with the sum guaranteed to match exactly; currency rounds per month independently), the blocking-error case's exact message shape, and — importantly — **that there is no snapshot/rollback and no unsaved-changes warning**: a successful Derive/Reforecast only updates on-screen values until Save is clicked, and navigating away first loses it silently with no `beforeunload` prompt.
+- **Actuals section** — the exact filename pattern for downloaded actuals, and that the "View" popup's Fee/Spent columns come from the rate snapshotted at import time, not a live lookup.
+
+**§8 Timesheet Upload**
+- The exact expected-columns table (Date, Job Role: Name, Owner: Name, Hours, Task/Issue, D365 Project ID, WF Project Name, Notes) with each column's format and matching rule.
+- The date-disambiguation logic in plain terms (unambiguous when one number is >12; falls back to MM/DD only when genuinely ambiguous; a genuinely invalid date rejects the *entire* upload, naming the offending row).
+- The fee-snapshot behavior (rate resolved and locked in at import time; a later rate change doesn't retroactively affect already-imported rows).
+
+**§9 Settings**
+- The full Exports table (what each of the three export types contains, and who can run it — Roles in Rate Cards is admin-only).
+- **That "Restore from Backup" does not actually work** — `PRD.md` states this plainly (a real, currently-true limitation, not a hypothetical); worth surfacing in the detailed view rather than silently omitting a button that looks functional but isn't.
+
+**§13 Administration**
+- **Clients** — the rate-card modal's two-column structure (Agency default vs. Client custom override) and multi-currency support.
+- **Pipelines & POTs** — the View A / View B layout, the 5 stage-summary-card contents, the "+ New POT" form's two virtual scopes ("Unassigned / To be Identified" and "New Biz") alongside client/client-group targeting, and the View Details modal's 4 KPI cards + History + Proposals list.
+- **User administration** — the two-step sysadmin promotion/demotion rule spelled out (`user → admin` then `admin → sysadmin`; never a direct jump in either direction) rather than just "admins can grant sysadmin."
+- **Terms & Conditions** — that every published version is retained permanently and viewable, not just the current one.
+
+Any other point where a side-by-side re-read shows the concise manual dropped something `PRD.md` states should be added the same way — this list is the result of doing that once, not a substitute for doing it again at generation time.
 
 ### 4.5 Changelog
 
