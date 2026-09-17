@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { formatDate, resolveColumnMap, trimRowKeys } = require('./timesheets');
+const { formatDate, resolveColumnMap, trimRowKeys, findRoleTaskInconsistencies } = require('./timesheets');
 
 test('formatDate: native Date instance is unaffected by this change', () => {
   const d = new Date(Date.UTC(2026, 2, 15)); // March 15, 2026
@@ -178,4 +178,84 @@ test('resolveColumnMap: two columns with identical header text both resolve, not
   // resolves to a "Notes" header). The usedHeaders fix's actual blast-radius benefit would
   // only manifest if a future candidate list ever introduces overlapping words across fields.
   assert.strictEqual(map.colNotes, 'Notes');
+});
+
+// ── findRoleTaskInconsistencies ─────────────────────────────────────────────
+// Pre-save validation: every uploaded row's (task, role) must match a task and
+// one of its configured resources, case-insensitively — same matching rule
+// resolveFee() already uses for task names, but stricter on role (no
+// fallback-to-first-resource: an unmatched role is always flagged, never
+// silently accepted).
+
+const TASKS_FIXTURE = [
+  { name: 'Platform rollout', resources: [{ role: 'Senior Consultant' }, { role: 'Project Director' }] },
+  { name: 'Training & handover', resources: [{ role: 'Senior Consultant' }] },
+];
+
+test('findRoleTaskInconsistencies: task + role both configured returns no inconsistencies', () => {
+  const entries = [{ projectCode: 'P1', task: 'Platform rollout', role: 'Senior Consultant' }];
+  assert.deepEqual(findRoleTaskInconsistencies(entries, { P1: TASKS_FIXTURE }), []);
+});
+
+test('findRoleTaskInconsistencies: task match is case-insensitive, same as resolveFee', () => {
+  const entries = [{ projectCode: 'P1', task: 'PLATFORM ROLLOUT', role: 'senior consultant' }];
+  assert.deepEqual(findRoleTaskInconsistencies(entries, { P1: TASKS_FIXTURE }), []);
+});
+
+test('findRoleTaskInconsistencies: task not configured on the project is flagged', () => {
+  const entries = [{ projectCode: 'P1', task: 'Unknown Task', role: 'Senior Consultant' }];
+  const result = findRoleTaskInconsistencies(entries, { P1: TASKS_FIXTURE });
+  assert.deepEqual(result, [{ projectCode: 'P1', task: 'Unknown Task', role: 'Senior Consultant' }]);
+});
+
+test('findRoleTaskInconsistencies: role not among the task\'s configured resources is flagged, never falls back to the first resource', () => {
+  const entries = [{ projectCode: 'P1', task: 'Platform rollout', role: 'QA Engineer' }];
+  const result = findRoleTaskInconsistencies(entries, { P1: TASKS_FIXTURE });
+  assert.deepEqual(result, [{ projectCode: 'P1', task: 'Platform rollout', role: 'QA Engineer' }]);
+});
+
+test('findRoleTaskInconsistencies: blank/missing role on an otherwise-valid task is flagged', () => {
+  const entries = [{ projectCode: 'P1', task: 'Platform rollout', role: '' }];
+  const result = findRoleTaskInconsistencies(entries, { P1: TASKS_FIXTURE });
+  assert.deepEqual(result, [{ projectCode: 'P1', task: 'Platform rollout', role: '' }]);
+});
+
+test('findRoleTaskInconsistencies: blank task name is flagged the same as any other unconfigured task', () => {
+  const entries = [{ projectCode: 'P1', task: '', role: 'Senior Consultant' }];
+  const result = findRoleTaskInconsistencies(entries, { P1: TASKS_FIXTURE });
+  assert.deepEqual(result, [{ projectCode: 'P1', task: '', role: 'Senior Consultant' }]);
+});
+
+test('findRoleTaskInconsistencies: rows with hours = 0 are checked the same as any other row', () => {
+  const entries = [{ projectCode: 'P1', task: 'Unknown Task', role: 'Senior Consultant', hours: 0 }];
+  const result = findRoleTaskInconsistencies(entries, { P1: TASKS_FIXTURE });
+  assert.equal(result.length, 1);
+});
+
+test('findRoleTaskInconsistencies: identical (task, role) repeated across many rows is deduplicated', () => {
+  const entries = [
+    { projectCode: 'P1', task: 'Unknown Task', role: 'Senior Consultant' },
+    { projectCode: 'P1', task: 'Unknown Task', role: 'Senior Consultant' },
+    { projectCode: 'P1', task: 'Unknown Task', role: 'Senior Consultant' },
+  ];
+  const result = findRoleTaskInconsistencies(entries, { P1: TASKS_FIXTURE });
+  assert.equal(result.length, 1);
+});
+
+test('findRoleTaskInconsistencies: distinct project codes are checked against their own task list, and both surface', () => {
+  const entries = [
+    { projectCode: 'P1', task: 'Platform rollout', role: 'QA Engineer' },
+    { projectCode: 'P2', task: 'Training & handover', role: 'Project Director' },
+  ];
+  const tasksByCode = { P1: TASKS_FIXTURE, P2: TASKS_FIXTURE };
+  const result = findRoleTaskInconsistencies(entries, tasksByCode);
+  assert.equal(result.length, 2);
+  assert.ok(result.some(r => r.projectCode === 'P1' && r.task === 'Platform rollout'));
+  assert.ok(result.some(r => r.projectCode === 'P2' && r.task === 'Training & handover'));
+});
+
+test('findRoleTaskInconsistencies: a project code with no configured tasks flags every row for that code', () => {
+  const entries = [{ projectCode: 'P3', task: 'Anything', role: 'Anyone' }];
+  const result = findRoleTaskInconsistencies(entries, { P3: [] });
+  assert.deepEqual(result, [{ projectCode: 'P3', task: 'Anything', role: 'Anyone' }]);
 });

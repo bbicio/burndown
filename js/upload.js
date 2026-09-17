@@ -13,7 +13,12 @@ async function readXLS(file, onComplete) {
       showPortfolioView();
     }
   } catch (e) {
-    if (statusEl) statusEl.textContent = `❌ Upload failed: ${e.message}`;
+    if (statusEl) statusEl.textContent = '';
+    if (e.data && e.data.inconsistencies) {
+      showInfo(formatUploadInconsistencies(e.data.inconsistencies), '⚠️ Upload blocked');
+    } else {
+      if (statusEl) statusEl.textContent = `❌ Upload failed: ${e.message}`;
+    }
     console.error('[upload]', e);
   }
 }
@@ -32,7 +37,12 @@ async function readXLSForProject(file) {
     if (typeof renderPortfolioView === 'function') renderPortfolioView();
     setTimeout(() => { if (statusEl) statusEl.style.display = 'none'; }, 4000);
   } catch (e) {
-    if (statusEl) statusEl.textContent = `❌ Upload failed: ${e.message}`;
+    if (e.data && e.data.inconsistencies) {
+      if (statusEl) statusEl.style.display = 'none';
+      showInfo(formatUploadInconsistencies(e.data.inconsistencies), '⚠️ Upload blocked');
+    } else {
+      if (statusEl) statusEl.textContent = `❌ Upload failed: ${e.message}`;
+    }
     console.error('[upload]', e);
   }
 }

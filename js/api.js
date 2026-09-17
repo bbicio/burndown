@@ -31,7 +31,14 @@ async function apiFetch(path, options = {}) {
   }
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
-  if (!res.ok) throw new Error((data && data.error) || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = new Error((data && data.error) || `HTTP ${res.status}`);
+    // Full parsed error body, for the rare caller that needs more than the message
+    // string (e.g. a structured list) — additive only, existing callers reading
+    // just err.message are unaffected.
+    err.data = data;
+    throw err;
+  }
   return data;
 }
 

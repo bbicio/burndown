@@ -178,6 +178,23 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res, next
     }
 
     const projectTasksByCode = await loadProjectTasksByCode(codes, req.user.id, isAdminRole(req.user.role));
+
+    // Reject the whole upload — no partial writes, same rule as the date-validation
+    // check above — if any row references a task or role that isn't configured on
+    // its project. Checked before resolveFee() runs, so an unmatched role never
+    // reaches resolveFee()'s own fallback-to-first-resource behavior.
+    const flatEntries = [];
+    for (const code of codes) {
+      for (const entry of codesToSave[code]) flatEntries.push({ projectCode: code, task: entry.task, role: entry.role });
+    }
+    const inconsistencies = findRoleTaskInconsistencies(flatEntries, projectTasksByCode);
+    if (inconsistencies.length) {
+      return res.status(400).json({
+        error: 'Upload blocked — some rows reference a role or task that is not configured on the project.',
+        inconsistencies,
+      });
+    }
+
     for (const code of codes) {
       const tasks = projectTasksByCode[code] || [];
       for (const entry of codesToSave[code]) {
@@ -223,6 +240,35 @@ router.delete('/:projectCode', requireAuth, async (req, res, next) => {
     res.json({ ok: true, deleted: rowCount });
   } catch (err) { next(err); }
 });
+
+// Pre-save validation: every uploaded row's (task, role) must resolve to a real
+// task on that project and to one of that task's configured resources — same
+// case-insensitive task-name matching resolveFee() (api/src/lib/rate-resolve.js)
+// already uses, but stricter on role: an unmatched role is always flagged here,
+// never silently accepted via resolveFee()'s own fallback-to-first-resource
+// behavior. A blank role, or a blank/unrecognized task name, is flagged the same
+// as any other mismatch — no special-casing. Deduplicated by the exact
+// (projectCode, task, role) triple, so a task/role repeated across many weekly
+// rows is reported once, not once per row.
+function findRoleTaskInconsistencies(entries, tasksByCode) {
+  const seen = new Set();
+  const result = [];
+  for (const entry of entries) {
+    const tasks = tasksByCode[entry.projectCode] || [];
+    const tName = (entry.task || '').toLowerCase();
+    const task = tasks.find(t => (t.name || '').toLowerCase() === tName);
+    const rName = (entry.role || '').toLowerCase();
+    const roleOk = task && (task.resources || []).some(r => (r.role || '').toLowerCase() === rName);
+    if (!roleOk) {
+      const key = JSON.stringify([entry.projectCode, entry.task, entry.role]);
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push({ projectCode: entry.projectCode, task: entry.task, role: entry.role });
+      }
+    }
+  }
+  return result;
+}
 
 function trimRowKeys(row) {
   const trimmed = {};
@@ -366,3 +412,4 @@ module.exports = router;
 module.exports.formatDate = formatDate;
 module.exports.resolveColumnMap = resolveColumnMap;
 module.exports.trimRowKeys = trimRowKeys;
+module.exports.findRoleTaskInconsistencies = findRoleTaskInconsistencies;
