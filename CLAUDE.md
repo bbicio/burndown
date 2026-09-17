@@ -343,7 +343,16 @@ js/ratecards.js          — rate cards admin modal + loadRatecardsForDropdown()
                             `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`;
                             `_rcSaveEntries` collects `.rc-override-rate` inputs and sends `rateOverrides` per role
 api/src/routes/          — Express routes (auth, users, config, cost-grids, projects, timesheets,
-                            reporting, exports, notifications, pipeline-years, client-groups, pots, reset, app-settings)
+                            reporting, exports, notifications, pipeline-years, client-groups, pots, reset,
+                            app-settings, currencies)
+api/src/routes/currencies.js — currencies admin surface (backs `config.html`'s Currencies tab): `GET /active`
+                            (requireAuth, active currencies for dropdowns/money formatting), `GET /` (admin, all
+                            currencies + last rate-update timestamp from `currency_rates`), `POST /:code/activate`
+                            (admin, activates a currency with an initial rate — EUR always active, rejects
+                            re-activation), `PATCH /:code/rate` (admin, updates the rate for an already-active
+                            non-EUR currency — EUR's rate is fixed at 1:1), `GET /:code/history` (admin,
+                            chronological rate-change log, last 100 entries). Every rate change (activate or
+                            update) both updates `currencies.current_rate` and inserts a `currency_rates` row.
 api/src/routes/config.js — clients / client groups / programs / roles / ratecards CRUD (backs `config.html`).
                             **Programs auth (2026-09)**: `POST /programs` relaxed `requireAdmin` → `requireAuth` —
                             `project-config.html`'s own "+ New program" button was already reachable by any
@@ -413,6 +422,13 @@ api/src/lib/              — pure functions extracted for unit testing (node:te
                             collision isn't constructible from today's real candidate list. The non-optimal
                             greedy (rather than globally-optimal bipartite) assignment strategy is unchanged —
                             no demonstrated real-world trigger, left as documented backlog.
+                            `sold-hours.js` — `isValidSoldHours(value)`/`SOLD_HOURS_FRACTIONS` (`[0, 0.25, 0.5,
+                            0.75]`): validates that a sold-hours value lands on a quarter-hour boundary. Consumed
+                            by `cost-grids.js` and `projects.js` for their own sold-hours validation.
+                            `email-template.js` — `renderEmailHtml({ bodyHtml, appUrl, year })`: the shared HTML
+                            wrapper (navy/magenta logo header, footer with app URL + year) used by every system
+                            email (invite, password reset, share notification, export ready, admin notification) —
+                            mirrors `login.html`'s own logo styling so emails match the product's visual identity.
                             `rate-resolve.js` (2026-09) — `resolveFee(tasks, taskName, role)`: backend port of
                             `js/core.js`'s `findRate()` (case-insensitive task+role match, fallback to a matched
                             task's first resource, `0` — never `null` — when nothing matches). Consumed by

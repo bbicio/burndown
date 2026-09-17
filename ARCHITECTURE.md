@@ -534,6 +534,16 @@ timesheets (
 - The **👥 Add role** modal applies the same map: roles with a custom ratecard entry are highlighted with an indigo badge (`✦ rate €/h`) and a light purple row background. The rate stored in `_cgDraft.roles` on add is the ratecard rate, so no false positive "custom" flag on first render.
 - `_cgActiveRatecardMap` is refreshed on: version open → `cgPopulateRatecardDropdown()`, ratecard dropdown change, and "Add role" modal open.
 
+### Currencies
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | /api/currencies/active | ✅ | Active currencies (dropdowns, money formatting) |
+| GET | /api/currencies | admin | All currencies (active + inactive) plus last rate-update timestamp |
+| POST | /api/currencies/:code/activate | admin | Activate a currency with an initial exchange rate; logs to `currency_rates` |
+| PATCH | /api/currencies/:code/rate | admin | Update the exchange rate for an active non-EUR currency; logs to `currency_rates` |
+| GET | /api/currencies/:code/history | admin | Chronological rate-change history for one currency |
+
 ### Cost Grid
 
 | Method | Endpoint | Auth | Description |
@@ -574,14 +584,17 @@ timesheets (
 | GET | /api/reporting/projects/:id | ✅ | Single project reporting |
 | GET | /api/reporting/planning | ✅ | Resource planning aggregates |
 | GET | /api/reporting/pipeline | ✅ | Pipeline kanban data |
+| GET | /api/reporting/phasing?year= | admin | Monthly hours+amount breakdown for all versions in the year (all pipeline stages) |
+| GET | /api/reporting/project-phasing?year= | admin | Same breakdown read directly from `projects.phasing` (reflects Reforecast if run+saved); excludes Draft and Canceled |
 
-### Exports (CSV via email)
+### Exports
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | POST | /api/exports/portfolio | ✅ | CSV of all accessible projects → emailed as attachment |
 | POST | /api/exports/cost-grids | ✅ | Pivoted CSV of all accessible cost grids (one row per task, role-code columns) → emailed |
 | POST | /api/exports/ratecards | admin | Pivoted CSV of all ratecards (roles × clients) → emailed |
+| GET | /api/exports/phasing?year= | admin | Direct XLS download (not emailed) of the phasing breakdown for a pipeline year |
 
 ### Pipeline Years
 
