@@ -1,5 +1,11 @@
 version: '3.9'
 
+# Pinned explicitly so the main stack's project name (and therefore its volume
+# names, e.g. burndown_pgdata) never changes if this directory is ever renamed
+# on disk — Docker Compose otherwise defaults the project name to the current
+# folder's basename.
+name: burndown
+
 services:
 
   db:
