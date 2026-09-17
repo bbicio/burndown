@@ -443,9 +443,11 @@ Simple registry: ID + name. Groups projects across the portfolio and reporting v
 
 **Deleting a program is blocked outright while any project is still linked to it** — the delete does not proceed and does not unlink the projects; every linked project must be moved off the program first. (The confirm dialog's own wording currently says linked projects "will lose the program reference," implying the projects get silently unlinked and the delete proceeds — that text does not match this actual, blocking behavior; tracked as a product bug, not corrected by this PRD note alone.)
 
+**No longer has its own tab in config.html's navigation (2026-09)** — since any user can already establish a program from other entry points (`project-config.html`'s "+ New program", or Generate Project's auto-link flow, §4.9), a dedicated Programs tab was judged redundant and hidden. The registry, its API, and the rename/delete actions described above are all unchanged in the backend — but with no tab to reach them from, renaming or deleting an existing program currently has **no UI entry point at all**. Revisiting where that capability should live is an open, explicitly deferred follow-up, not an oversight.
+
 ### 7.6 Roles Registry
 
-Accessed via the "Roles" tab in **config.html** (Configuration), alongside Clients, Client Groups, and Programs.
+Accessed via the "Roles" tab in **config.html** (Configuration), alongside Currencies, Clients, Client Groups, and Pipelines & POTs.
 
 | Field | Notes |
 |---|---|
@@ -459,7 +461,7 @@ Actions: Add, edit, delete.
 
 ### 7.7 Currencies
 
-Accessed via the "💱 Currencies" tab in **config.html**, alongside Clients, Client Groups, Programs, Roles, and Pipelines & POTs — previously undocumented in this PRD despite being a distinct admin tab.
+Accessed via the "💱 Currencies" tab in **config.html**, alongside Roles, Clients, Client Groups, and Pipelines & POTs — previously undocumented in this PRD despite being a distinct admin tab.
 
 EUR is the fixed base currency (always 1:1, not editable, always active). Any other currency starts **inactive** — offered on offer/project currency dropdowns only once an admin activates it here. **"+ Activate currency"** picks an inactive currency and sets its exchange rate as "1 EUR = X"; once activated it appears in the active-currencies table alongside EUR, with its own symbol, name, rate, and last-updated date. An active currency's rate can be updated at any time directly in that table (a Save button per row); every update is timestamped. A **History** button (not available for EUR, whose rate never changes) opens a log of that currency's past rates over time.
 
