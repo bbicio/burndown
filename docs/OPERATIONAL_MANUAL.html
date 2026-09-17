@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDash — Operational Manual</title>
+<style>
+  :root{
+    --navy:#0B1840; --magenta:#F0287A;
+    --indigo-700:#233a63; --indigo-600:#33538a; --indigo-100:#eef2f9;
+    --violet-700:#42406b; --violet-600:#5b5a8c; --violet-100:#f0eff8;
+    --sand-700:#8a6a3a; --sand-600:#b6924f; --sand-100:#f8f1e3;
+    --ink:#141a2c; --muted:#5c6478; --faint:#8992a6;
+    --bg:#fbfbfd; --surface:#ffffff; --border:#e3e6ee; --border-soft:#edeff5;
+    --success:#1f8a4c; --success-bg:#e9f7ee;
+    --danger:#c8404a; --danger-bg:#fbebec;
+    --warning:#a9701f; --warning-bg:#fbf1e2;
+    --code-bg:#f4f5f9;
+    --radius:10px; --radius-sm:6px;
+    --shadow:0 1px 2px rgba(20,26,44,.06), 0 8px 24px rgba(20,26,44,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --indigo-100:#1a2438; --violet-100:#1e1c33; --sand-100:#2a2115;
+      --ink:#eef0f6; --muted:#aab0c4; --faint:#7d8399;
+      --bg:#0d1120; --surface:#121729; --border:#232a45; --border-soft:#1d2338;
+      --success-bg:#12301f; --danger-bg:#3a1518; --warning-bg:#332108;
+      --code-bg:#171d33;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-size:15px; line-height:1.6;
+  }
+  a{color:var(--indigo-600)}
+  .wrap{max-width:1180px; margin:0 auto; padding:0 28px}
+
+  /* ── header ─────────────────────────────────────────────────────── */
+  .masthead{background:var(--navy); color:#fff; padding:34px 0 30px}
+  .masthead .logo{font-size:1.5rem; font-weight:800; letter-spacing:-.01em}
+  .masthead .logo span{color:var(--magenta)}
+  .masthead h1{margin:.5em 0 .15em; font-size:1.9rem; font-weight:700; letter-spacing:-.01em}
+  .masthead p{margin:0; color:#c9cfe4; font-size:.98rem; max-width:62ch}
+
+  .provenance{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow); margin:-26px auto 0; max-width:1180px;
+    padding:16px 22px; display:flex; flex-wrap:wrap; gap:8px 28px;
+    font-size:.85rem; color:var(--muted);
+    position:relative; z-index:2;
+  }
+  .provenance strong{color:var(--ink)}
+
+  /* ── layout ─────────────────────────────────────────────────────── */
+  .layout{display:flex; gap:36px; padding:38px 0 80px; align-items:flex-start}
+  .toc{
+    flex:0 0 240px; position:sticky; top:20px;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px 14px; font-size:.86rem; max-height:calc(100vh - 40px); overflow-y:auto;
+  }
+  .toc-eyebrow{text-transform:uppercase; letter-spacing:.08em; font-size:.68rem; color:var(--faint); font-weight:700; margin:0 0 10px 4px}
+  .toc a{display:block; padding:6px 8px; border-radius:var(--radius-sm); color:var(--muted); text-decoration:none}
+  .toc a:hover{background:var(--indigo-100); color:var(--indigo-700)}
+
+  main{flex:1; min-width:0}
+
+  /* ── sections ───────────────────────────────────────────────────── */
+  section.chapter{margin-bottom:54px; scroll-margin-top:20px}
+  .chapter-head{display:flex; align-items:baseline; gap:12px; margin-bottom:6px}
+  .chapter-num{
+    font-size:.78rem; font-weight:800; color:#fff; background:var(--indigo-600);
+    border-radius:999px; padding:2px 11px; letter-spacing:.02em; flex:0 0 auto;
+  }
+  .chapter-head h2{margin:0; font-size:1.45rem; font-weight:700; letter-spacing:-.01em}
+  .chapter-intro{color:var(--muted); margin:6px 0 22px; max-width:74ch}
+
+  h3.flow{
+    font-size:1.05rem; font-weight:700; margin:30px 0 4px;
+    padding-bottom:8px; border-bottom:2px solid var(--border-soft);
+  }
+  h4.sub{font-size:.95rem; font-weight:700; margin:20px 0 6px; color:var(--indigo-700)}
+
+  .item{margin:14px 0 18px}
+  .item > p.lead{margin:0 0 4px; font-weight:600}
+  .item > p.body{margin:0; color:var(--muted)}
+
+  details.expand{
+    margin-top:8px; border:1px solid var(--border); border-radius:var(--radius-sm);
+    background:var(--surface); overflow:hidden;
+  }
+  details.expand > summary{
+    cursor:pointer; list-style:none; padding:8px 13px; font-size:.83rem; font-weight:700;
+    color:var(--indigo-600); background:var(--indigo-100); user-select:none;
+  }
+  details.expand > summary::-webkit-details-marker{display:none}
+  details.expand > summary::before{content:"▸ "; }
+  details.expand[open] > summary::before{content:"▾ "; }
+  details.expand[open] > summary{border-bottom:1px solid var(--border)}
+  .expand-body{padding:13px 16px; font-size:.92rem; color:var(--ink)}
+  .expand-body p{margin:0 0 10px}
+  .expand-body p:last-child{margin-bottom:0}
+  .expand-body ol, .expand-body ul{margin:8px 0; padding-left:1.3em}
+  .expand-body li{margin:5px 0}
+  .expand-body code{background:var(--code-bg); padding:1px 5px; border-radius:4px; font-size:.85em}
+
+  .callout{border-radius:var(--radius-sm); padding:10px 14px; font-size:.87rem; margin:10px 0}
+  .callout.warn{background:var(--warning-bg); color:var(--warning); border:1px solid color-mix(in srgb, var(--warning) 30%, transparent)}
+  .callout.danger{background:var(--danger-bg); color:var(--danger); border:1px solid color-mix(in srgb, var(--danger) 30%, transparent)}
+  .callout.info{background:var(--indigo-100); color:var(--indigo-700); border:1px solid transparent}
+
+  table.controls{width:100%; border-collapse:collapse; font-size:.85rem; margin:8px 0}
+  table.controls caption{text-align:left; font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; color:var(--faint); margin-bottom:6px; font-weight:700}
+  table.controls th, table.controls td{text-align:left; padding:7px 10px; border-bottom:1px solid var(--border-soft); vertical-align:top}
+  table.controls th{color:var(--faint); font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; font-weight:700}
+  table.controls tr:last-child td{border-bottom:none}
+
+  table.fields{width:100%; border-collapse:collapse; font-size:.87rem; margin:6px 0 14px}
+  table.fields th, table.fields td{text-align:left; padding:6px 10px; border-bottom:1px solid var(--border-soft)}
+  table.fields th{color:var(--faint); font-weight:700; font-size:.72rem; text-transform:uppercase; letter-spacing:.04em}
+  table.fields code{background:var(--code-bg); padding:1px 5px; border-radius:4px; font-size:.9em}
+
+  .badge{display:inline-block; font-size:.72rem; font-weight:700; padding:1px 8px; border-radius:999px}
+  .badge.violet{background:var(--violet-100); color:var(--violet-700)}
+  .badge.sand{background:var(--sand-100); color:var(--sand-700)}
+  .badge.indigo{background:var(--indigo-100); color:var(--indigo-700)}
+
+  ul.plain{margin:4px 0 14px; padding-left:1.3em}
+  ul.plain li{margin:4px 0}
+
+  code.inline{background:var(--code-bg); padding:1px 5px; border-radius:4px; font-size:.87em}
+
+  footer#changelog{
+    border-top:1px solid var(--border); padding-top:28px; margin-top:20px;
+  }
+  footer#changelog h2{font-size:1.2rem}
+  .cl-entry{border-left:3px solid var(--indigo-600); padding:2px 0 2px 16px; margin:14px 0}
+  .cl-date{font-weight:700; font-size:.85rem; color:var(--indigo-700)}
+  .cl-entry p{margin:4px 0 0; color:var(--muted); font-size:.9rem}
+
+  @media (max-width:900px){
+    .layout{flex-direction:column}
+    .toc{position:static; width:100%; max-height:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="wrap">
+    <div class="logo"><span>P</span>Dash</div>
+    <h1>Operational Manual</h1>
+    <p>How to use PDash day to day — pipeline offers, resource planning, project reporting, configuration, and administration. Written for the people who use the app, not the people who build it.</p>
+  </div>
+</div>
+
+<div class="provenance wrap">
+  <div><strong>Generated</strong> 2026-09-17</div>
+  <div><strong>Source</strong> <code class="inline">PRD.md</code> (kept current at every merge, reconciled against the live app by periodic audit — most recently <code class="inline">2026-09-16-prd-vs-app-behavior-audit.md</code>)</div>
+  <div><strong>Scope</strong> Every flow confirmed live in <code class="inline">PRD.md</code>. No screenshots in this generation — text and control-reference tables only.</div>
+</div>
+
+<div class="wrap layout">
+<nav class="toc">
+  <p class="toc-eyebrow">Contents</p>
+  <a href="#getting-started">2 · Getting Started</a>
+  <a href="#navigation">3 · Navigation</a>
+  <a href="#pipeline">4 · Pipeline</a>
+  <a href="#planning">5 · Resource Planning</a>
+  <a href="#reporting">6 · Project Reporting</a>
+  <a href="#configuration">7 · Configuration</a>
+  <a href="#timesheets">8 · Timesheet Upload</a>
+  <a href="#settings">9 · Settings</a>
+  <a href="#notifications">10 · Notifications</a>
+  <a href="#ai">11 · AI Sidebar</a>
+  <a href="#auth">15 · Authentication</a>
+  <a href="#admin">16 · User Administration</a>
+  <a href="#gdpr">17 · GDPR &amp; Data Rights</a>
+  <a href="#sharing">18 · Sharing &amp; Permissions</a>
+  <a href="#changelog">Changelog</a>
+</nav>
+
+<main>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<section class="chapter" id="getting-started">
+  <div class="chapter-head"><span class="chapter-num">2</span><h2>Getting Started</h2></div>
+  <p class="chapter-intro">PDash is a portfolio-management tool for consulting teams: track commercial offers through a sales pipeline, plan who's working on what, and monitor budget consumption against actuals. Everything below assumes you already have an account — invites are sent by an administrator (§16.2).</p>
+
+  <div class="item">
+    <p class="lead">Signing in</p>
+    <p class="body">Enter your email and password on the login page. A session lasts 8 hours before you're signed out automatically — there's no warning as it approaches, your next click simply returns you to the login page.</p>
+    <details class="expand">
+      <summary>Details</summary>
+      <div class="expand-body">
+        <p>Wrong password and an unrecognized email produce the exact same generic error, with no hint about which one was wrong. This is deliberate: it stops anyone from using the login form to discover which email addresses have accounts. A disabled account is refused even with the correct password.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="item">
+    <p class="lead">Forgot your password?</p>
+    <p class="body">Use "Forgot password" on the login page. You'll always see the same success message, whether or not that email has an account — if it does, a reset link arrives by email, valid for 2 hours.</p>
+    <details class="expand">
+      <summary>Details</summary>
+      <div class="expand-body">
+        <p>The identical always-succeeds response is the same anti-enumeration protection as login: it prevents anyone from using the reset form to check which emails are registered. Every password you set — via reset, via the initial invite link, or via Change Password in your account menu — must be at least 8 characters.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="item">
+    <p class="lead">Accepting Terms &amp; Conditions</p>
+    <p class="body">The first time you log in, and again any time an administrator publishes a new version, you're taken to an acceptance page before you can continue. Tick the box to enable the continue button; you're then returned to wherever you were headed.</p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<section class="chapter" id="navigation">
+  <div class="chapter-head"><span class="chapter-num">3</span><h2>Navigation</h2></div>
+  <p class="chapter-intro">Three tabs in the top navigation bar cover day-to-day work; administrators see extra menus (§16).</p>
+  <table class="fields">
+    <tr><th>Tab</th><th>What it's for</th></tr>
+    <tr><td><strong>Pipeline</strong></td><td>Kanban board of commercial offers by deal stage. This is what loads by default.</td></tr>
+    <tr><td><strong>Resource Planning</strong></td><td>Cross-project view of who's working on what, and how many hours are still to be planned.</td></tr>
+    <tr><td><strong>Project Reporting</strong></td><td>Portfolio overview and per-project budget/burndown detail.</td></tr>
+  </table>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<section class="chapter" id="pipeline">
+  <div class="chapter-head"><span class="chapter-num">4</span><h2>Pipeline</h2></div>
+  <p class="chapter-intro">Every commercial offer lives here as a card on a kanban board, organized into six stages. This is where offers are built, priced, shared, and eventually turned into real projects.</p>
+
+  <h3 class="flow">Deal stages</h3>
+  <table class="fields">
+    <tr><th>Stage</th><th>Meaning</th></tr>
+    <tr><td><span class="badge indigo">Draft</span></td><td>Private working copy — only its creator can see it; excluded from every column total and filter.</td></tr>
+    <tr><td><span class="badge indigo">SIP</span></td><td>Strategic intent / early prospect.</td></tr>
+    <tr><td><span class="badge indigo">Expected</span></td><td>Qualified opportunity, likely to close.</td></tr>
+    <tr><td><span class="badge indigo">Anticipated</span></td><td>High confidence, close imminent.</td></tr>
+    <tr><td><span class="badge indigo">Committed</span></td><td>Deal signed — committed revenue.</td></tr>
+    <tr><td><span class="badge indigo">Canceled</span></td><td>Opportunity withdrawn or lost.</td></tr>
+  </table>
+  <div class="item">
+    <p class="body">Each column (except Draft) has a running total in its footer.</p>
+    <details class="expand">
+      <summary>Details</summary>
+      <div class="expand-body">
+        <p>If every offer in a column shares one currency, the footer is a single plain total. If a column mixes currencies, the footer instead shows one subtotal per currency (with a small EUR-equivalent next to each non-EUR line), followed by a bold combined total — the sum of every offer's fee converted to EUR at that offer's own exchange rate, never a naive sum across currencies. Pass-through costs follow the same pattern as a secondary line under each subtotal.</p>
+      </div>
+    </details>
+  </div>
+
+  <h3 class="flow">Offer cards and the detail panel</h3>
+  <p class="body">Each card shows the offer name, stage badge, total budget, phase/task counts, and any linked project(s). Clicking anywhere on a card except its action buttons opens a right-side detail panel.</p>
+  <div class="item">
+    <p class="lead">Detail panel contents</p>
+    <details class="expand" open>
+      <summary>Details</summary>
+      <div class="expand-body">
+        <p>The header carries Delete (Draft stage only), Clone, Share, Edit, and Close, plus a row of version tabs above the panel body — always visible, even for a single-version offer. Deleting a proposal's only remaining version deletes the whole proposal, since every proposal always has at least one.</p>
+        <p><strong>Left column:</strong> offer name and stage badge, version label and creation date, dates, currency, rate card name (if set), notes, the total budget split into Fee + Pass-Through Costs, a JSON export button, and the linked-projects list — each entry shows the project's ID, name, status badge, any assigned task names, and a "📊 Project Dashboard" button (visible only once that project has timesheet data).</p>
+        <p><strong>Right column:</strong> the full phase → task → role breakdown, with hours and budget rolling up from role to task to phase to a grand total.</p>
+        <p>Viewer permission hides Clone, Share, and Edit entirely from this panel (see §18).</p>
+      </div>
+    </details>
+  </div>
+
+  <h3 class="flow">Filtering the board</h3>
+  <p class="body">A filter bar between the title and the columns lets you narrow what's visible without changing what you're allowed to see — search by offer or client name, then filter by Owner, Client, Currency, or deal Value.</p>
+  <details class="expand">
+    <summary>Details</summary>
+    <div class="expand-body">
+      <p>Value buckets: €0–20K, €20K–50K, €50K–100K, €100K–200K, €200K+, with an "Include PTC" toggle deciding whether pass-through costs count toward the bucket. Selecting several values within one filter is an OR (e.g. two owners at once); different filters combine with AND. Filters never hide an offer you're otherwise allowed to see — they only narrow the already-visible set — and the Draft column is always shown in full regardless of any filter, since it's private to begin with. A "Clear filters" link appears once anything is active, and every filter resets when the page reloads.</p>
+    </div>
+  </details>
+
+  <h3 class="flow">Board toolbar</h3>
+  <ul class="plain">
+    <li>The pipeline-year dropdown at the top switches which year's board you're viewing.</li>
+    <li>"+ New Proposal" opens a blank offer in the editor (hidden for non-admins on years marked inactive).</li>
+  </ul>
+
+  <h3 class="flow">POT progress</h3>
+  <p class="body">When an offer is linked to a client (or client group) that has a revenue target set, the detail panel shows a progress bar toward that target — Committed in green, Anticipated in orange — with the exact totals listed below.</p>
+
+  <h3 class="flow">The offer editor</h3>
+  <p class="body">Opened via "+ New Proposal" or an existing card's Edit button, as a full-page overlay.</p>
+
+  <table class="controls">
+    <caption>Editor toolbar</caption>
+    <tr><th>Control</th><th>What it does</th><th>Who sees it</th></tr>
+    <tr><td>🚀 Publish to SIP</td><td>Moves a Draft version out of private working-copy status, permanently — see below</td><td>Editors, on a Draft version</td></tr>
+    <tr><td>🔗 Share</td><td>Opens the share modal (§18); the same inline "Shared with" list lives here too</td><td>Editors, except on Draft</td></tr>
+    <tr><td>⧉ Clone</td><td>Creates a new, separate offer copying this version's full structure</td><td>Editors</td></tr>
+    <tr><td>🗑 Delete version</td><td>Removes the current version (or the whole offer, if it's the only version)</td><td>Editors, on a Draft version</td></tr>
+    <tr><td>⬇ Export XLS</td><td>Downloads the current version's structure as a styled Excel workbook</td><td>Everyone with access</td></tr>
+    <tr><td>⊟/⊞</td><td>Compact-header toggle — hides the per-role move/change/duplicate/remove buttons to save space</td><td>Everyone with access</td></tr>
+  </table>
+
+  <div class="item">
+    <p class="lead">Publishing a Draft to SIP</p>
+    <p class="body">A one-way move — once published, a version can never go back to Draft. It's also the moment the offer becomes visible to anyone else on the team.</p>
+    <div class="callout warn">If the same offer has other Draft versions besides the one you're publishing, they are permanently deleted as part of publishing. The confirmation dialog names them before this happens.</div>
+  </div>
+
+  <div class="item">
+    <p class="lead">Cloning an offer</p>
+    <p class="body">Clone always creates a brand-new, separate offer — never a new version of the one you're viewing. The clone's first version is always labeled "v1," regardless of the source version's own label.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Structure and cost calculation</p>
+    <p class="body">An offer is organized as Phases → Tasks → Roles. Each task-role cell holds an hours figure. Task cost = Σ(hours × role's effective rate) plus that task's own pass-through costs; phase cost sums its tasks; the offer total sums its phases.</p>
+    <details class="expand">
+      <summary>Details — the task-cost walkthrough</summary>
+      <div class="expand-body">
+        <ol>
+          <li><strong>The unit is hours, not days.</strong> Each task-role cell is an hours figure, entered directly.</li>
+          <li><strong>Task cost</strong> = Σ(hours × that role's effective rate) across every role on the task, plus that task's own pass-through costs.</li>
+          <li><strong>Phase cost</strong> = the sum of its tasks' costs; <strong>offer total</strong> = the sum of its phases' costs — pure sums at both levels, nothing re-derived or re-rated.</li>
+          <li><strong>The bridge to a project.</strong> When a task migrates into a project, each role's hours figure carries over unchanged as that role's Sold Hours on the new project task — a direct copy, no recalculation.</li>
+          <li><strong>The bridge to Resource Planning.</strong> Resource Planning's "Sold" column is that exact same figure, summed however the active view groups it — a number you see there traces back, unchanged, to what was typed into the offer editor.</li>
+        </ol>
+        <p>The effective rate for a role follows a fallback chain: a client's own rate-card override (§7.2, highest priority) → that role's per-currency agency default (§7.6) → the EUR rate converted at the current exchange factor (§7.7, lowest-priority fallback).</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="item">
+    <p class="lead">Role columns</p>
+    <p class="body">Each role column carries four controls: move it left/right, change the role (keeping its position and hours), duplicate it under a different role, or remove it outright. The compact-header toggle hides all four to save space.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Locking</p>
+    <p class="body">A version becomes read-only (🔒) once either: the offer is Committed and every task has already been migrated to a project, or another version of the same offer already has a linked project.</p>
+    <details class="expand">
+      <summary>Details</summary>
+      <div class="expand-body">
+        <p>Being Committed does not by itself lock the editor — while any task remains unmapped to a project, the version stays fully editable and "Generate Project" stays available for the rest. An offer can generate more than one project over time.</p>
+      </div>
+    </details>
+  </div>
+
+  <h3 class="flow">Generating a project from an offer</h3>
+  <p class="body">Once an offer is ready, its tasks migrate into real projects — either all at once, or in stages.</p>
+  <details class="expand" open>
+    <summary>Details — the three real scenarios</summary>
+    <div class="expand-body">
+      <ol>
+        <li><strong>Selecting every remaining task at once.</strong> One project is created immediately, no program step, no prompts.</li>
+        <li><strong>Selecting only some of the tasks.</strong> If the offer has no program yet, a "Create program" step appears — create a new one, or link to an existing program. Canceling this step aborts the whole generation with nothing created. Once a program is established this way, every later generation from the same offer — partial or the remaining full set — auto-links to it with no further prompt. Any editor of the offer can do this, not just admins.</li>
+        <li><strong>Adding tasks to an already-linked project instead of creating a new one.</strong> The same selection toolbar also offers a dropdown of the offer's existing linked project(s) plus an "＋ Add to project" button once at least one exists. A confirmation step lists exactly which tasks will be added; the dropdown always resets after use.</li>
+      </ol>
+      <div class="callout info">If the underlying save fails to reach the server mid-generation, you'll see an explicit sync-failure warning rather than a false success message.</div>
+    </div>
+  </details>
+
+  <div class="item">
+    <p class="lead">Saving</p>
+    <p class="body">Every field edit in the editor autosaves in the background, confirmed by a brief toast — there's nothing to click for an edit to persist. A Save button is also available for an explicit, immediate save.</p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<section class="chapter" id="planning">
+  <div class="chapter-head"><span class="chapter-num">5</span><h2>Resource Planning</h2></div>
+  <p class="chapter-intro">A cross-project view of sold hours against actuals — grouped by role, by project, or by owner — and what still needs to be planned into the future.</p>
+
+  <h3 class="flow">What a row means, per view</h3>
+  <table class="fields">
+    <tr><th>View</th><th>Row structure</th></tr>
+    <tr><td><strong>By Role</strong></td><td>One row per role, expandable (collapsed by default) into one child row per project/task that role covers.</td></tr>
+    <tr><td><strong>By Project</strong></td><td>Project → Task → Role → Owner — the most granular view.</td></tr>
+    <tr><td><strong>By Owner</strong></td><td>Owner → Project → Task — deliberately coarser: every role a person logged time under on a task is combined into that one row, because the point of this view is "what is this person working on," not their role.</td></tr>
+  </table>
+
+  <h3 class="flow">Reading the columns</h3>
+  <p class="body">Time-period columns (months or weeks) across the date range you've selected, plus three summary columns on every row: <strong>Sold</strong>, <strong>From actuals</strong>, <strong>To be planned</strong>.</p>
+
+  <div class="item">
+    <p class="lead">How the numbers are built</p>
+    <details class="expand" open>
+      <summary>Details — the full walkthrough</summary>
+      <div class="expand-body">
+        <p><strong>Sold</strong> is the estimated hours from the offer/project's own task-role data, summed to match the row and the active Team filter.</p>
+        <p><strong>From actuals</strong> (past periods only) is matching timesheet hours, matched to the row by task name and role.</p>
+        <p><strong>Residual, and the one genuinely counter-intuitive rule:</strong> Residual = max(0, Sold − From actuals), computed per individual task/role, never at the row's total level, then floored at zero. This is why "To be planned" can sometimes look bigger than "Sold minus From actuals" suggests: if one task among several is already over-consumed, its own shortfall floors to zero and stops contributing there — it does <strong>not</strong> pull down other, still-healthy tasks' remaining residual. This is intentional, documented behavior, not a bug — the app itself carries a tooltip explaining it.</p>
+        <p><strong>To be planned</strong> spreads that residual across future weeks: if the task's own month-by-month distribution sums to roughly 100%, the residual follows that distribution; otherwise it splits evenly across the task's own remaining weeks (counted from the task's own dates, not whatever's currently visible on screen, so the number doesn't change as you page through the calendar).</p>
+        <p><strong>Monthly pulse</strong> — only in the even-split case, and only when that would put less than 1 hour/week on a task — shows the whole month's share once, on that month's first week, instead of a tiny fraction repeated every week.</p>
+        <p><strong>Rounded</strong> is purely cosmetic — whole numbers vs. two decimals. It never changes any total or export.</p>
+      </div>
+    </details>
+  </div>
+
+  <h3 class="flow">Gantt view</h3>
+  <p class="body">A separate, task-level bar chart per project. It uses simpler math than the table above: bars show consumption as a percentage of sold hours, not the sold-minus-consumed residual — the two views intentionally answer different questions.</p>
+  <details class="expand">
+    <summary>Details</summary>
+    <div class="expand-body">
+      <p>A bar's color reflects task status, not pipeline stage: grey if the task is non-billable, green if completed, red if actual hours exceed sold hours, blue otherwise. Today's week is always highlighted.</p>
+    </div>
+  </details>
+
+  <div class="item">
+    <p class="lead">Overallocation color coding</p>
+    <p class="body">A row's load shows in red once it exceeds 30 hours/week. This is a fixed display rule, not an analysis — there is no AI-driven overallocation feature (see §11's note on this).</p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<section class="chapter" id="reporting">
+  <div class="chapter-head"><span class="chapter-num">6</span><h2>Project Reporting</h2></div>
+  <p class="chapter-intro">The portfolio-wide overview, plus a full budget/burndown detail page per project.</p>
+
+  <h3 class="flow">Portfolio overview</h3>
+  <p class="body">Each project card shows its identity (title, code, pipeline/status badges, whether actuals exist) plus a compact stats row — Duration, Sold, Spent, Variance. A single "Project Dashboard" button, always clickable, takes you into that project's own detail view.</p>
+  <div class="item">
+    <p class="lead">Finding a project</p>
+    <p class="body">A search box (name/code/client) sits first in the filter row, followed by Client and Status filters (Status is multi-select), sort by name or client, and a "Clear filters" link once anything is active.</p>
+  </div>
+  <div class="item">
+    <p class="lead">Programs</p>
+    <p class="body">Projects sharing a program are grouped under an expandable header, itself showing the same Duration/Sold/Spent/Variance totals aggregated across its children, plus a project count.</p>
+  </div>
+  <div class="item">
+    <p class="lead">Pinning a Budget Summary</p>
+    <p class="body">The "＋ Summary" action on a project's detail page pins it into a monthly Estimated/Spent/Variance table at the top of the portfolio overview — separate from the per-card stats row, and the only place a full month-by-month breakdown still appears at the list level.</p>
+  </div>
+
+  <h3 class="flow">Single-project detail</h3>
+  <p class="body">Opened via a card's "Project Dashboard" button. This is where the deeper reporting lives.</p>
+
+  <table class="controls">
+    <caption>Detail-page header actions</caption>
+    <tr><th>Control</th><th>What it does</th><th>Who sees it</th></tr>
+    <tr><td>⚙️ Configure</td><td>Opens the project's configuration form (§7.1)</td><td>Hidden for viewers</td></tr>
+    <tr><td>📂 Load Actuals</td><td>Uploads an Excel timesheet file for this project (§8)</td><td>Hidden for viewers</td></tr>
+    <tr><td>🔗 Share</td><td>Opens the share modal (§18)</td><td>Owner/editor</td></tr>
+    <tr><td>📅 Planning</td><td>Jumps to Resource Planning, filtered to this project</td><td>Everyone with access</td></tr>
+    <tr><td>＋ Summary</td><td>Pins/unpins this project into the portfolio Budget Summary table</td><td>Everyone with access</td></tr>
+  </table>
+
+  <div class="item">
+    <p class="lead">KPI cards</p>
+    <p class="body">Six figures: Total Sold Hours, Total Budget, Hours Consumed, Budget Consumed, Hours Left, Budget Left — computed live from the project's own task and actuals data.</p>
+    <div class="callout info">This is a different calculation path from the portfolio overview's own summary table (which reads the manually-maintained Phasing grid, §7.1) — the two can disagree if Phasing hasn't been kept in sync with task edits.</div>
+  </div>
+
+  <div class="item">
+    <p class="lead">Burndown chart</p>
+    <p class="body">A line chart, filterable to one task or the whole project, monthly or weekly. Its solid line is actual consumption; up to two dashed reference lines show what was planned (from Phasing and/or from the Planning grid), so you can see at a glance whether spend is running ahead of or behind plan.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Monthly Summary Table</p>
+    <p class="body">One row per month, split into Hours (Estimated/Consumed/Variance) and Budget (Estimated/Spent/Variance), plus a Pass-Through-Costs column when the project has any.</p>
+    <details class="expand">
+      <summary>Details</summary>
+      <div class="expand-body">
+        <p>Variance highlighting only flags the bad case: a negative (over-budget/over-hours) variance shows bold red; a positive variance has no special color.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="item">
+    <p class="lead">Summary by Task / Role / Functional Area</p>
+    <p class="body">Three pivot cards below the monthly table, breaking the same actuals data down three different ways.</p>
+    <details class="expand">
+      <summary>Details</summary>
+      <div class="expand-body">
+        <p><strong>Summary by task</strong> — one column per task, regardless of role.</p>
+        <p><strong>Summary by role</strong> — one column per (role, task) pair actually present, not per role alone. A role billed at different rates on different tasks (for example, an "Account Director" priced at 168/h on one task and 130/h on another) gets two separate, internally-consistent columns instead of one blended one.</p>
+        <p><strong>Summary by functional area</strong> — one column per functional group (§7.1), where each group's membership is a list of specific (role, task) pairs — or a role claimed for "any task." This lets a group claim a role's hours on one task while excluding that same role's hours on a different task billed at a different rate.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<section class="chapter" id="configuration">
+  <div class="chapter-head"><span class="chapter-num">7</span><h2>Configuration</h2></div>
+  <p class="chapter-intro">Admin-only setup screens, reached from the Configuration page: project-level fields, plus registries for clients, client groups, programs, roles, pipeline years/targets, and currencies.</p>
+
+  <h4 class="sub">7.1 Project Configuration</h4>
+  <p class="body">One full-page form per project: identity fields, tasks, phasing, planning, functional groups, and actuals management.</p>
+
+  <table class="fields">
+    <tr><th>Field</th><th>Notes</th></tr>
+    <tr><td>Name</td><td>Must match the D365 Project Name in the timesheet export</td></tr>
+    <tr><td>Start / End date</td><td>Month-level</td></tr>
+    <tr><td>Currency, Pipeline, Status, Client, Program</td><td>Status's allowed values depend on Pipeline stage</td></tr>
+  </table>
+
+  <div class="item">
+    <p class="lead">Monthly % distribution</p>
+    <p class="body">Shown only for a task spanning more than one month — one editable percentage cell per covered month, with a live badge showing whether the row currently sums to 100%. Cells lock once a task is Completed, is single-month, or you're a viewer.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Phasing and Planning grids</p>
+    <p class="body">Both are plain, freely-editable input grids by default — one currency/hours cell per month. Two bulk-fill actions can populate them instead of hand-entry.</p>
+    <details class="expand" open>
+      <summary>Details — Derive from Task Dates vs. Reforecast</summary>
+      <div class="expand-body">
+        <p><strong>Derive from Task Dates</strong> is always available and uses only each task's own dates and sold hours/budget — no actuals. It spreads every task's total across the months it overlaps, by day-overlap fraction, touching both past and future months equally.</p>
+        <p><strong>Reforecast</strong> only appears once actuals exist for the project. Past months are overwritten with real spend and hours from the uploaded timesheets (scaled down if actuals exceed the sold total, so a task never shows over 100% consumed). Future months redistribute the remaining budget/hours — following the task's monthly distribution if it sums to ~100%, otherwise split evenly across the remaining months.</p>
+        <div class="callout warn">Neither action has an undo. A run only updates the on-screen grids — nothing is saved to the server until you click the page's own Save button — and there's no unsaved-changes warning if you navigate away first; the values are simply lost.</div>
+        <p>If Reforecast's carried-forward drift would push a month above 100%, it stops entirely rather than partially applying — no task after the offending one is touched, and an inline message names the task and the month. You adjust that task's monthly distribution manually before retrying.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="item">
+    <p class="lead">Pass Through Costs</p>
+    <p class="body">External costs not tied to sold hours — licenses, travel, and similar — added as individual line items with a title, optional note, amount, and month. A running total sums every item; any item can be removed.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Functional Groups</p>
+    <p class="body">Each group is a name plus a list of role rows — a role name (must match the timesheet's role column) plus a task dropdown, defaulting to "any task." Picking a specific task claims that role's hours only on that task for this group.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Actuals section</p>
+    <p class="body">Load Actuals, View (a popup listing every imported row — visible to viewers too), Download actuals (an Excel file named by client/project/code/date), and Delete actuals (hidden for viewers, permanent).</p>
+  </div>
+
+  <h4 class="sub">7.2 Clients</h4>
+  <p class="body">A simple name registry, used to group projects. Each client row has a 💲 button opening a rate-card modal — Agency default (read-only) and Client custom (blank = use the default) per role, plus one column per active non-EUR currency. Rate-card management lives only here.</p>
+
+  <h4 class="sub">7.3 Client Groups</h4>
+  <p class="body">Named bundles of clients, used as a revenue-target scope when several clients share one goal. A client belongs to at most one group; deleting a group only ungroups its clients, it doesn't delete them.</p>
+
+  <h4 class="sub">7.4 Pipelines &amp; POTs</h4>
+  <div class="item">
+    <p class="lead">What a POT is</p>
+    <p class="body">A Client POT is the total target revenue — the maximum "wallet potential" — allocated to a specific client (or client group) for one forecasting year: existing recurring business plus identified upsell/cross-sell opportunity, combined into one benchmark.</p>
+  </div>
+  <div class="item">
+    <p class="lead">Setting one up</p>
+    <p class="body">"+ New POT" targets a client, a client group, or one of two general scopes ("Unassigned / To be Identified", "New Biz") — amount and year only.</p>
+  </div>
+  <div class="item">
+    <p class="lead">Tracking progress</p>
+    <p class="body">A banner shows the total target and achievement % across every POT for the year; five stage-summary cards show count and fee value per pipeline stage; a "🔍 View Details" modal per POT shows its own KPI cards, a change history, and the list of matching proposals. The same progress figure is also visible from the Pipeline board's detail panel for a linked offer.</p>
+  </div>
+
+  <h4 class="sub">7.5 Programs</h4>
+  <p class="body">A simple ID + name registry, used to group projects across the portfolio.</p>
+  <div class="callout warn">A program's ID is permanently fixed once created — there's no way to correct a typo later, only to create a new program and migrate its projects.</div>
+  <div class="callout warn">Deleting a program is blocked outright while any project is still linked to it — the delete does not proceed. The confirmation dialog's wording currently suggests projects get unlinked instead; that text doesn't match this actual (blocking) behavior — it's a known, tracked issue with the dialog text itself, not with what actually happens.</div>
+
+  <h4 class="sub">7.6 Roles Registry</h4>
+  <p class="body">Label, code (must match the timesheet's role code), team (auto-derived from the code), default hourly rate, and one optional "Default rate" field per active non-EUR currency.</p>
+  <details class="expand">
+    <summary>Details</summary>
+    <div class="expand-body">
+      <p>Leaving a currency's default rate blank means "convert the EUR rate at the current exchange rate"; a value fixes this role's own default in that currency regardless of later exchange-rate movement. This is the middle link in the rate fallback chain (§4): a client's rate-card override takes priority over it, and it in turn takes priority over the plain EUR-rate-times-exchange-factor fallback.</p>
+    </div>
+  </details>
+
+  <h4 class="sub">7.7 Currencies</h4>
+  <p class="body">EUR is fixed (1:1, always active, not editable). Any other currency starts inactive — it only becomes selectable elsewhere once an admin activates it here with an initial "1 EUR = X" rate.</p>
+  <details class="expand">
+    <summary>Details</summary>
+    <div class="expand-body">
+      <p>An active currency's rate can be updated any time, each change timestamped; a History button shows the full rate log for that currency (not available for EUR, whose rate never changes). This is the one exchange rate the whole app reads for every cross-currency figure — the Pipeline board's mixed-currency totals, a client's rate card, and any other cross-currency aggregation all use this same admin-managed rate.</p>
+    </div>
+  </details>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<section class="chapter" id="timesheets">
+  <div class="chapter-head"><span class="chapter-num">8</span><h2>Timesheet Upload</h2></div>
+  <p class="chapter-intro">How actual hours make it into PDash, and how to review or clean up what's been imported.</p>
+
+  <div class="item">
+    <p class="lead">Where you upload from</p>
+    <p class="body">Two entry points that do the same thing: a project's own configuration form, and its Project Reporting detail page — both have a "📂 Load Actuals" button.</p>
+  </div>
+
+  <table class="fields">
+    <caption style="text-align:left;color:var(--faint);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Expected columns</caption>
+    <tr><th>Column</th><th>Notes</th></tr>
+    <tr><td>Date</td><td>Several formats accepted; day/month order disambiguated automatically</td></tr>
+    <tr><td>Job Role: Name</td><td>Matched to a role code in the Roles Registry</td></tr>
+    <tr><td>Owner: Name</td><td>Person who logged the hours</td></tr>
+    <tr><td>Hours</td><td>Decimal, comma or period accepted</td></tr>
+    <tr><td>Task/Issue</td><td>Must match a task name in the project's configuration</td></tr>
+    <tr><td>D365 Project ID</td><td>Identifies the project</td></tr>
+    <tr><td>WF Project Name</td><td>Display name</td></tr>
+    <tr><td>Notes</td><td>Free text, not used in any calculation</td></tr>
+  </table>
+
+  <div class="item">
+    <p class="lead">Replace, not append</p>
+    <div class="callout warn">Uploading a new file for a project code replaces every previously-imported row for that code — it does not add to them. Rows with a missing project ID are skipped entirely.</div>
+  </div>
+
+  <div class="item">
+    <p class="lead">The rate snapshot</p>
+    <p class="body">Each row's hourly rate is resolved and locked in once, at import time. A later rate change doesn't retroactively affect already-imported rows — re-uploading is the only way to pick up a new rate.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Date parsing</p>
+    <p class="body">Unambiguous whenever one date number is over 12; falls back to a default order only when genuinely ambiguous. A date that isn't a real calendar date rejects the entire upload, naming the offending row — no partial import.</p>
+  </div>
+
+  <h3 class="flow">Reviewing what was uploaded (admin only)</h3>
+  <p class="body">The Timesheet Management page lists every project code with uploaded data — Client, Project, Project code, Uploads, Rows, Last uploaded — sortable and filterable, with a pipeline-year selector (default: current year if active, else the most recent active year, plus an explicit "All years").</p>
+  <table class="controls">
+    <tr><th>Control</th><th>What it does</th></tr>
+    <tr><td>👁 View</td><td>Popup listing every row — Date, Owner, Role, Task, Hours, Notes, Fee, Spent</td></tr>
+    <tr><td>⬇ Download actuals</td><td>Same rows as an Excel file, named <code class="inline">&lt;Client&gt;_&lt;Project&gt;_&lt;Code&gt;_&lt;YYYYMMDD&gt;.xlsx</code></td></tr>
+    <tr><td>🗑 Delete actuals</td><td>Removes every row for that code, after confirmation — irreversible</td></tr>
+  </table>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<section class="chapter" id="settings">
+  <div class="chapter-head"><span class="chapter-num">9</span><h2>Settings</h2></div>
+  <p class="chapter-intro">Reached from the account dropdown, available on every page.</p>
+
+  <div class="item">
+    <p class="lead">API &amp; Integrations</p>
+    <p class="body">Enter an API key and pick a model for Anthropic, OpenAI, or Google Gemini — needed for the AI Sidebar (§11). Keys are stored only in your own browser.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Data Manager — exports</p>
+    <table class="fields">
+      <tr><th>Export</th><th>Contents</th><th>Access</th></tr>
+      <tr><td>Cost Grids</td><td>One row per task, one column per role</td><td>Everyone — own/shared grids only</td></tr>
+      <tr><td>Project Portfolio</td><td>One row per project</td><td>Everyone — own/shared projects only</td></tr>
+      <tr><td>Roles in Rate Cards</td><td>One row per role, one column per client ratecard</td><td>Admin only</td></tr>
+    </table>
+    <p class="body">Every export is emailed to you as an attachment, not downloaded directly.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Backup</p>
+    <p class="body">Full Backup downloads a dated JSON snapshot of your data.</p>
+    <div class="callout danger">Restore from Backup does not currently work — it's non-functional as implemented. Do not rely on it to recover data; it will not restore anything into the app.</div>
+  </div>
+
+  <div class="item">
+    <p class="lead">Send Notification</p>
+    <p class="body">Any user can send a push and/or email notification to a specific colleague, with an optional link. Broadcasting to everyone is admin/sysadmin only.</p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<section class="chapter" id="notifications">
+  <div class="chapter-head"><span class="chapter-num">10</span><h2>Notifications</h2></div>
+  <p class="chapter-intro">A bell icon in the top bar shows your unread count; clicking it opens the last 50 notifications, delivered in real time — no page refresh needed.</p>
+  <table class="fields">
+    <tr><th>Trigger</th><th>Description</th></tr>
+    <tr><td>Export ready</td><td>Sent when a CSV export completes (currently by email)</td></tr>
+    <tr><td>Sent notification</td><td>Someone sent you a message directly, or broadcast one</td></tr>
+    <tr><td>Share</td><td>A cost grid or project was shared with you</td></tr>
+  </table>
+  <p class="body">Clicking a notification marks it read and follows its link, if it has one. "Mark all read" clears the badge in one action.</p>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<section class="chapter" id="ai">
+  <div class="chapter-head"><span class="chapter-num">11</span><h2>AI Sidebar</h2></div>
+  <p class="chapter-intro">Opened from the "🤖 AI Chat" button in the top-right of the navbar. Requires an API key configured in Settings (§9).</p>
+
+  <div class="item">
+    <p class="lead">Planning Assistant</p>
+    <p class="body">A chat interface with context automatically built from project config, task breakdown, role assignments, and monthly allocation — ask free-form planning questions and get forward-looking estimates.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Project Analysis</p>
+    <p class="body">Triggered per project from Project Reporting. Returns a RAG status with rationale, burn-rate analysis, budget-risk assessment, planning variance, task-level notes, and recommendations.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Where the request actually goes</p>
+    <div class="callout info">AI calls go directly from your browser to the provider you chose (Anthropic, OpenAI, or Google) — never through PDash's own servers. Your API key and the full request, which for Project Analysis includes real financial figures, are sent client-side straight to the provider. PDash's servers never see the prompt or the response.</div>
+    <p class="body">There is no "Resource Allocation Analysis" AI feature — an earlier draft of this manual's source material described one, but it does not exist in the app. The only overallocation-related behavior is the plain, non-AI color rule described under Resource Planning (§5).</p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<section class="chapter" id="auth">
+  <div class="chapter-head"><span class="chapter-num">15</span><h2>Authentication</h2></div>
+  <p class="chapter-intro">The mechanics behind signing in, invites, and password changes — beyond the basics already covered in Getting Started (§2).</p>
+
+  <table class="fields">
+    <tr><th>Flow</th><th>Detail</th></tr>
+    <tr><td>Session length</td><td>8 hours from login, then automatic sign-out with no advance warning</td></tr>
+    <tr><td>Password minimum</td><td>8 characters, on every password-setting flow</td></tr>
+    <tr><td>Invite link</td><td>Valid 48 hours</td></tr>
+    <tr><td>Password-reset link</td><td>Valid 2 hours</td></tr>
+  </table>
+
+  <div class="item">
+    <p class="lead">Being invited</p>
+    <p class="body">An administrator enters your name, email, and role; you receive an invite email with a link that lets you set a password and activates your account.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Changing your password</p>
+    <p class="body">Available any time from the account menu — requires your current password plus the new one, twice.</p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<section class="chapter" id="admin">
+  <div class="chapter-head"><span class="chapter-num">16</span><h2>User Administration</h2></div>
+  <p class="chapter-intro">Reached via the User Admin page — admin or sysadmin only. Three account tiers govern what's possible.</p>
+
+  <table class="fields">
+    <tr><th>Role</th><th>Description</th></tr>
+    <tr><td><strong>sysadmin</strong></td><td>Everything admin has, plus exclusive access to DB Reset and Terms &amp; Conditions editing</td></tr>
+    <tr><td><strong>admin</strong></td><td>Full access to all data and configuration</td></tr>
+    <tr><td><strong>user</strong></td><td>Scoped access — owns and sees only their own resources (plus anything shared with them)</td></tr>
+  </table>
+  <p class="body">No account starts as sysadmin — the first one is set up outside the product; every promotion after that goes through the toggle below.</p>
+
+  <div class="item">
+    <p class="lead">Changing a user's role or status</p>
+    <p class="body">Any admin/sysadmin can toggle a user between admin and user. Granting or revoking sysadmin is sysadmin-only, and is always two-step: <code class="inline">user → admin</code> then <code class="inline">admin → sysadmin</code> (never a direct jump); demotion mirrors it. No one can change their own role or status — your own row shows "(you)" instead of action buttons. A sysadmin's row can only be modified by another sysadmin; a plain admin sees no action buttons there at all.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Anonymizing a user</p>
+    <p class="body">Available only on a disabled, not-yet-anonymized account, behind an explicit confirmation. Replaces their name and email with anonymized placeholders while preserving their operational records (cost grids, projects). No one can anonymize their own account, and a plain admin can't anonymize a sysadmin.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Terms &amp; Conditions editor</p>
+    <p class="body">Sysadmin-exclusive. Edit the current draft's HTML, "Save draft" without publishing (users are unaffected), or "Publish new version" — which permanently records the draft as a new version and forces everyone to re-accept on their next login. A "👁 Preview" button opens the live acceptance page in a new tab so you can check the draft's appearance first.</p>
+    <details class="expand">
+      <summary>Details</summary>
+      <div class="expand-body">
+        <p>Every published version is retained permanently — publishing a new one never erases the previous text. A Version History list shows every past version with its publish date and publisher; clicking one opens its full text, read-only.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="item">
+    <p class="lead">DB Reset</p>
+    <p class="body">Sysadmin-exclusive hidden page for bulk, irreversible deletions. Every destructive action here requires typing the literal word <code class="inline">DELETE</code> into a confirmation field — not just clicking through a dialog.</p>
+    <details class="expand" open>
+      <summary>Details — the 7 scopes</summary>
+      <div class="expand-body">
+        <table class="controls">
+          <tr><th>Scope</th><th>Deletes</th><th>Spared</th></tr>
+          <tr><td>Proposals</td><td>All cost grids, versions, phases, tasks, roles, sharing records</td><td>—</td></tr>
+          <tr><td>Projects &amp; Programs</td><td>All projects and programs</td><td>Cost grids</td></tr>
+          <tr><td>Clients &amp; Client Groups</td><td>All clients, groups, and their POTs</td><td>References become null, not cascade-deleted</td></tr>
+          <tr><td>Client Ratecards</td><td>Client-specific ratecards</td><td>Agency-wide ratecards</td></tr>
+          <tr><td>Actuals</td><td>All uploaded timesheet data</td><td>Project structure</td></tr>
+          <tr><td>Pipeline Years &amp; POTs</td><td>All years and POT targets/history</td><td>Proposals already in SIP/Committed</td></tr>
+          <tr><td>Notifications</td><td>All in-app notifications</td><td>Already-sent push/email history</td></tr>
+        </table>
+        <p>A separate "Delete a single proposal" action removes one offer (and everything under it) by ID, and a "Reassign owner" widget moves one proposal's ownership to another active user.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<section class="chapter" id="gdpr">
+  <div class="chapter-head"><span class="chapter-num">17</span><h2>GDPR &amp; Data Rights</h2></div>
+
+  <div class="item">
+    <p class="lead">Terms &amp; Conditions gate</p>
+    <p class="body">If you've never accepted the current version — or a newer one was published since your last acceptance — you're redirected to an acceptance page before continuing.</p>
+  </div>
+  <div class="item">
+    <p class="lead">Your own data</p>
+    <p class="body">"My Profile," from the account menu, lets you update your own first name, last name, and email at any time.</p>
+  </div>
+  <div class="item">
+    <p class="lead">Right to erasure</p>
+    <p class="body">Handled via the anonymize action (§16) — admin-performed, not self-service, and only available once an account has been disabled.</p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<section class="chapter" id="sharing">
+  <div class="chapter-head"><span class="chapter-num">18</span><h2>Sharing &amp; Permissions</h2></div>
+  <p class="chapter-intro">Every offer and project has an owner and can be shared with specific colleagues at Editor or Viewer level.</p>
+
+  <div class="item">
+    <p class="lead">Ownership</p>
+    <p class="body">Whoever creates an offer or project is its owner by default. Disabling a user doesn't remove their ownership — an admin can reassign it.</p>
+    <details class="expand">
+      <summary>Details</summary>
+      <div class="expand-body">
+        <p>From the offer editor, any admin/sysadmin can reassign a proposal's owner directly, regardless of the version's lock state. This also grants the new owner Editor access to every project already linked to that proposal (without downgrading an existing owner of one of those projects) and emails them a notification listing what they gained.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="item">
+    <p class="lead">Sharing an offer or project</p>
+    <p class="body">Search for an existing platform user by name or email — only real accounts can be granted access, no free-text invites — and grant Editor or Viewer. Sharing is not available at all on a Draft offer, since Draft is private to its creator by definition.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Sharing a whole program</p>
+    <p class="body">A program group's header has its own "🔗 Share Program" button — granting the chosen permission on every project in that program in one action, rather than one at a time. Only an admin, or someone who already owns/edits at least one project in the program, can do this.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Seeing who has access</p>
+    <p class="body">Both the pipeline board's detail panel and the full-page offer editor show a "Shared with" list without opening the Share modal — owner name, creation date, and every share with its permission badge. A non-owner share can be removed directly from this list; adding a new share or changing a permission still needs the Share modal.</p>
+  </div>
+
+  <div class="item">
+    <p class="lead">Viewer restrictions</p>
+    <table class="fields">
+      <tr><th>Surface</th><th>Hidden for viewers</th></tr>
+      <tr><td>Pipeline board</td><td>Edit, Clone, Delete</td></tr>
+      <tr><td>Project Reporting — portfolio</td><td>Configure</td></tr>
+      <tr><td>Project Reporting — single project</td><td>Configure, Load Actuals</td></tr>
+      <tr><td>Project Configuration form</td><td>The entire form — read-only banner, every input disabled</td></tr>
+    </table>
+    <p class="body">Sharing an offer does not automatically share its linked project(s) — the two grants are independent.</p>
+  </div>
+</section>
+
+</main>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div class="wrap">
+<footer id="changelog">
+  <h2>Changelog</h2>
+  <div class="cl-entry">
+    <div class="cl-date">2026-09-17 — First generation</div>
+    <p>Initial generation of the operational manual, built from <code class="inline">PRD.md</code> as of this date — itself just closed out a full <code class="inline">domain-audit</code> reconciliation (14 gaps fixed 2026-09-16) plus a follow-on audit and 4 fix cycles for <code class="inline">ARCHITECTURE.md</code>/<code class="inline">CLAUDE.md</code>. Covers Getting Started, Navigation, Pipeline (including the 2026-09 filter bar, Sharing, and Generate Project/program auto-link flow), Resource Planning, Project Reporting (including the 2026-09 card redesign and search/Status filters), Configuration (Project Config, Clients, Client Groups, Pipelines &amp; POTs, Programs, Roles, Currencies), Timesheet Upload, Settings, Notifications, AI Sidebar, Authentication, User Administration (including the 3-tier sysadmin role, Terms &amp; Conditions version history, and DB Reset), GDPR, and Sharing &amp; Permissions. No screenshots in this pass — a future regeneration can add them via an isolated, synthetic-data environment per this skill's own guard.</p>
+  </div>
+</footer>
+</div>
+
+</body>
+</html>
