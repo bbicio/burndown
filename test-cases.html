@@ -922,6 +922,23 @@ const SECTIONS = [
     {id:'RL-03',scenario:'Role rate override fallback chain',
      steps:'Open a USD proposal with no ratecard; add a role that has no USD override',
      expected:'Role rate falls back to EUR rate × currency factor (last fallback); not to zero or an error'},
+    {id:'RL-04',scenario:'Add/Edit Role form shows only active-currency rate fields (2026-09)',
+     steps:'With exactly 2 non-EUR currencies active (e.g. USD, GBP), open the role create form, then the edit form on an existing role',
+     expected:'Exactly 2 extra rate fields shown (USD, GBP) — no field for any inactive currency in the registry'},
+    {id:'RL-05',scenario:'Activating a new currency adds its field live',
+     steps:"With RL-04's form still open (or reopened), activate a third currency from the Currencies tab, then reopen the role form",
+     expected:'A third rate field now appears for the newly-activated currency, in both the create and edit forms (same shared form/filter)'},
+  ]
+},
+{
+  id:'cfnav', title:'7a. Config — Navigation',
+  cases:[
+    {id:'CN-01',scenario:'Tab order (2026-09)',
+     steps:'Open config.html',
+     expected:'Tabs appear left to right: Currencies, Roles, Clients, Client Groups, Pipelines & POTs'},
+    {id:'CN-02',scenario:'Programs tab hidden from nav (2026-09)',
+     steps:'Open config.html, inspect the tab bar',
+     expected:'No "Programs" tab button — Currencies through Pipelines & POTs only; the underlying panel/data/API remain functional but have no UI entry point'},
   ]
 },
 {

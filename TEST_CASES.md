@@ -287,6 +287,17 @@
 | RL-01 | Role rate override — per-currency | Set a USD hourly rate on a role via the role edit form → save | `rate_overrides` saved to DB; `GET /api/roles` returns the `rate_overrides` field; reopening the form shows the saved USD value | ✓ |
 | RL-02 | Role rate override used in non-EUR proposal | Create a USD proposal; open the cost grid editor; add the role with a USD rate override | Role column shows the `rateOverrides.USD` value, not EUR rate × USD factor | |
 | RL-03 | Role rate override fallback chain | Open a USD proposal with no ratecard; add a role that has no USD override | Role rate falls back to EUR rate × currency factor (last fallback); not to zero or an error | |
+| RL-04 | Add/Edit Role form shows only active-currency rate fields (2026-09) | With exactly 2 non-EUR currencies active (e.g. USD, GBP), open the role create form, then the edit form on an existing role | Exactly 2 extra rate fields shown (USD, GBP) — no field for any inactive currency in the registry | |
+| RL-05 | Activating a new currency adds its field live | With RL-04's form still open (or reopened), activate a third currency from the Currencies tab, then reopen the role form | A third rate field now appears for the newly-activated currency, in both the create and edit forms (same shared form/filter) | |
+
+---
+
+## 7a. Configuration (`config.html`) — Navigation
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| CN-01 | Tab order (2026-09) | Open config.html | Tabs appear left to right: Currencies, Roles, Clients, Client Groups, Pipelines & POTs | |
+| CN-02 | Programs tab hidden from nav (2026-09) | Open config.html, inspect the tab bar | No "Programs" tab button — Currencies through Pipelines & POTs only; the underlying panel/data/API remain functional but have no UI entry point | |
 
 ---
 
