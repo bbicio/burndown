@@ -126,6 +126,31 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/auth/:id/resend-invite  (admin only) — fresh 48h token, still-pending users only
+router.post('/:id/resend-invite', requireAdmin, async (req, res, next) => {
+  try {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.id)) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const { rows } = await query(
+      `SELECT email, first_name, status FROM users WHERE id = $1`,
+      [req.params.id]
+    );
+    const user = rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.status !== 'pending') return res.status(400).json({ error: 'This user is not a pending invite' });
+
+    const { tok, exp } = token48h();
+    await query(
+      `UPDATE users SET invite_token = $1, invite_expires = $2 WHERE id = $3`,
+      [tok, exp, req.params.id]
+    );
+
+    await sendInvite({ to: user.email, firstName: user.first_name, token: tok });
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
 // GET /api/auth/invite/:token
 router.get('/invite/:token', async (req, res, next) => {
   try {
