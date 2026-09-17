@@ -675,6 +675,7 @@ services:
 
   db:
     image: postgres:16-alpine
+    container_name: pdash-db
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-pdash}
       POSTGRES_USER: ${POSTGRES_USER:-pdash}
@@ -683,9 +684,15 @@ services:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pdash}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   api:
     build: ./api
+    container_name: pdash-api
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-pdash}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pdash}
       JWT_SECRET: ${JWT_SECRET}
@@ -703,9 +710,38 @@ services:
         condition: service_healthy
     volumes:
       - ./api/src:/app/src   # hot reload in development
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"...GET /api/auth/me, exit 0 if status < 500...\""]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+
+  # ── Integration test runner (docker compose --profile test run --rm test) ──────
+  # Not started by a plain `docker compose up` (profiles: ["test"]). Installs pg/bcryptjs,
+  # bootstraps a test admin + a test sysadmin via create-admin.js/promote-sysadmin.js, then
+  # runs test-api.js against the live api service. Exit 0 = all tests pass.
+  test:
+    image: node:24-alpine
+    profiles: ["test"]
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./api/src:/app/src
+      - ./test-api.js:/app/test-api.js
+
+  adminer:
+    image: adminer:latest
+    container_name: pdash-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
 
   nginx:
     image: nginx:alpine
+    container_name: pdash-nginx
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./:/usr/share/nginx/html:ro
@@ -717,6 +753,8 @@ services:
 volumes:
   pgdata:
 ```
+
+**Docker main-stack safety.** Commands run directly against this main stack (`pdash-db`/`pdash-api`/`pdash-nginx`/`pdash-adminer`, as opposed to the isolated stacks `scripts/test-branch.sh`/`scripts/run-tests.sh` create) are subject to a permanent operational guardrail — no `-v`/`--volumes` ever, a `pg_dump` snapshot before any lifecycle operation, and explicit human confirmation even for a plain restart. The rule exists because of a real 2026-08-05 incident that wiped the `pgdata` volume; see CLAUDE.md's "Infrastructure safety" section (top of file) for the full, binding text — this note is informational only, CLAUDE.md is the source of truth.
 
 ### Directory structure
 
@@ -911,11 +949,15 @@ burndown/
                              instead of failing with "already exists"; the admin-bootstrap step stays unconditional
                              on every run (create-admin.js is itself create-or-reset-password, so this is safe) —
                              further hardened 2026-08: `schema_exists()` also checks `cg_version_projects
-                             .task_names_direct` (added by the last migration file) alongside `public.users`, so a
-                             schema left partially migrated by an interrupted run is detected and the script exits
-                             with an explicit `down && up` remediation message instead of silently skipping the
-                             remaining migrations (files don't use `IF NOT EXISTS`, so blindly re-running the full
-                             loop against a partial schema would itself fail on the migrations that did succeed);
+                             .task_names_direct` (added by migration `017_task_names_direct.sql`) alongside
+                             `public.users`, so a schema left partially migrated by an interrupted run is detected
+                             and the script exits with an explicit `down && up` remediation message instead of
+                             silently skipping the remaining migrations (files don't use `IF NOT EXISTS`, so blindly
+                             re-running the full loop against a partial schema would itself fail on the migrations
+                             that did succeed); 2026-09: `schema_exists()` also checks `to_regclass('public
+                             .terms_versions')` (added by migration `019_terms_versions.sql`, the actual last
+                             migration — the `017`-era check above had gone two migrations stale and would
+                             otherwise have misjudged a DB migrated only through 017/018 as fully up to date);
                              also explicitly checks the first `psql` call's exit status, warning instead of
                              silently treating a transient failure as "schema absent";
                              reads `.env` via a manual line-by-line parser mirroring create-admin.js's approach
@@ -967,6 +1009,15 @@ burndown/
                              the lock-contention error message names the exact `rmdir` command to recover from a
                              genuinely stale lock (left behind by a `SIGHUP`/`kill -9`/crash, none of which reliably
                              run the `EXIT` trap)
+    backup-db.sh            ← (2026-09) `pg_dump -Fc` snapshot of the main stack's `pdash-db` into `backups/`
+                             (gitignored — real data, including PII, must never reach git), timestamped to the
+                             second, keeping only the 3 most recent dumps and pruning older ones automatically;
+                             non-blocking by design — warns and exits 0 if `pdash-db` isn't running/healthy rather
+                             than failing whatever called it; same `.env` line-by-line parser as
+                             test-branch.sh/run-tests.sh; run standalone, or automatically (no confirmation prompt)
+                             by `/finish-cycle`'s Gate 4 right after merge is confirmed and before any merge state
+                             changes — see "Docker main-stack safety" above for the incident this exists to guard
+                             against
 ```
 
 ---
