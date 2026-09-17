@@ -57,7 +57,11 @@ Le fasi centrali (Spec → `/writing-plans` → Piano) sono **identiche** nei tr
 - **Obbligatorio** prima di ogni rigenerazione di `docs/OPERATIONAL_MANUAL.html` (skill `operational-manual`) — non generare il manuale su un `PRD.md` la cui accuratezza non è stata riverificata di recente.
 - **Raccomandato come pratica standing**, a prescindere dalla generazione del manuale, con una cadenza indicativa di circa ogni 10 cicli `/finish-cycle` chiusi o ogni ~2 mesi, quale che venga prima — a scopo di prevenire l'accumulo silenzioso di scostamenti tra `PRD.md` e il comportamento reale dell'app, la stessa dinamica che ha prodotto i 14 finding del `2026-09-16-prd-vs-app-behavior-audit.md`.
 
-Questa non è una nuova skill né una modifica allo Scenario 3 — è un promemoria di cadenza per l'uso ricorrente di una skill già esistente.
+**Cadenza raccomandata — audit ARCHITECTURE.md/CLAUDE.md vs codice (2026-09):** lo stesso schema, esteso ai due documenti di architettura/riferimento operativo, dopo che il ciclo `2026-09-17-architecture-claude-vs-app-behavior-audit.md` ha trovato 22 finding con lo stesso pattern di fondo — `CLAUDE.md` aggiornato quasi ad ogni ciclo (via `/sync-docs`), `ARCHITECTURE.md` no, accumulando scostamenti silenziosi (schema DB, migrazioni, endpoint, script infra). Un audit `domain-audit` con questi due file come ground truth (scope: "l'intero codebase vs ARCHITECTURE.md/CLAUDE.md, entrambe le direzioni") va considerato:
+- **Raccomandato come pratica standing**, con la stessa cadenza indicativa di `PRD.md` — circa ogni 10 cicli `/finish-cycle` chiusi o ogni ~2 mesi, quale che venga prima. Non è legato alla generazione di alcun deliverable (a differenza del vincolo "obbligatorio" su `PRD.md` per `operational-manual`), quindi resta puramente su base di cadenza temporale/numero cicli.
+- Non è necessario farlo sempre nella stessa sessione dell'audit `PRD.md` — sono due audit indipendenti con ground truth diversi — ma può essere comodo eseguirli in sequenza quando si apre una finestra di manutenzione documentale.
+
+Nessuna delle due voci è una nuova skill né una modifica allo Scenario 3 — sono promemoria di cadenza per l'uso ricorrente di una skill già esistente.
 
 ---
 
