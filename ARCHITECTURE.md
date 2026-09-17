@@ -485,6 +485,7 @@ timesheets (
 | POST | /api/auth/logout | ✅ | Clear JWT cookie |
 | GET | /api/auth/me | ✅ | Current user profile |
 | POST | /api/auth/invite | admin | Invite new user |
+| POST | /api/auth/:id/resend-invite | admin | Resend activation email to a pending user with a fresh 48h token |
 | GET | /api/auth/invite/:token | — | Validate invite token |
 | POST | /api/auth/activate | — | Set password, activate account |
 | POST | /api/auth/forgot-password | — | Request password reset |

@@ -153,6 +153,7 @@ Write this with the same walkthrough treatment as Resource Planning above:
 **§15 Authentication**
 - **Password minimum (8 characters)** on every password-setting flow (activation, reset, change).
 - **Session length (8 hours)**, automatic sign-out, no in-app warning as it approaches.
+- **Resending a lost invite (2026-09).** A "✉️ Resend invite" button on the user list, visible only for a still-pending invite, issues a brand-new activation link (fresh 48-hour window) and invalidates the old one — for when the original invite email was lost or never arrived. Any admin or sysadmin can trigger it, not only the person who sent the original invite.
 
 **§13/§16 Administration**
 - **Roles registry — the missing middle link of the rate fallback chain.** Beyond label/code/team/default EUR rate, the Add/Edit Role form has one extra field per active non-EUR currency — "Default rate (X/h)." Blank means "convert the EUR rate at the current exchange rate"; a value fixes this role's own default in that currency regardless of later exchange-rate movement. This is the "role's per-currency agency default" link in the rate chain — Clients (override, highest priority) and Currencies (exchange-rate fallback, lowest priority) are the other two links.
