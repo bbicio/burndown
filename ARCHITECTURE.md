@@ -197,7 +197,17 @@ app_settings (                        -- migration 015: generic key/value store 
   updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   updated_by UUID         REFERENCES users(id) ON DELETE SET NULL
 )
--- Seeded rows: 'terms_version' (integer string), 'terms_content' (HTML)
+-- Seeded rows: 'terms_version' (integer string), 'terms_content' (HTML) — now repurposed as
+-- pure draft storage (migration 019, see terms_versions below); no longer read by the
+-- acceptance gate or by GET /api/auth/me's current_terms_version.
+
+terms_versions (                      -- migration 019: immutable, append-only, never UPDATEd/DELETEd
+  id           UUID PRIMARY KEY,
+  version      INTEGER UNIQUE NOT NULL,
+  content      TEXT NOT NULL,
+  published_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  published_by UUID REFERENCES users(id)
+)
 ```
 
 ### 5.2 Configuration
@@ -240,6 +250,24 @@ ratecard_entries (
   rate_overrides JSONB NOT NULL DEFAULT '{}',  -- per-currency overrides for this client e.g. {"USD": 120}
   UNIQUE (ratecard_id, role_id)
 )
+
+currencies (                          -- migration 012: master table, seeded with 20 codes
+  code         VARCHAR(10)   PRIMARY KEY,
+  symbol       VARCHAR(10)   NOT NULL,
+  name         VARCHAR(100)  NOT NULL,
+  locale       VARCHAR(20)   NOT NULL,
+  active       BOOLEAN       NOT NULL DEFAULT false,  -- EUR is always active and locked at 1:1
+  current_rate DECIMAL(10,6) NOT NULL DEFAULT 1.0,
+  updated_at   TIMESTAMP     NOT NULL DEFAULT NOW()
+)
+
+currency_rates (                      -- migration 012: append-only rate-change history log
+  id            SERIAL PRIMARY KEY,
+  currency_code VARCHAR(10)   NOT NULL REFERENCES currencies(code),
+  rate          DECIMAL(10,6) NOT NULL,
+  created_at    TIMESTAMP     NOT NULL DEFAULT NOW(),
+  created_by    UUID          REFERENCES users(id)
+)
 ```
 
 ### 5.3 Cost Grid
@@ -261,7 +289,8 @@ cost_grid_versions (
   pipeline_year INTEGER,              -- year bucket (FK enforced at app level via pipeline_years)
   start_date    VARCHAR(6),           -- YYYYMM (migration 007 changed from DATE)
   end_date      VARCHAR(6),           -- YYYYMM (migration 007 changed from DATE)
-  currency      CHAR(3) DEFAULT 'EUR',
+  currency      VARCHAR(10) NOT NULL DEFAULT 'EUR' REFERENCES currencies(code),  -- migration 012
+  currency_rate DECIMAL(10,6) NOT NULL DEFAULT 1.0,                              -- migration 012
   note          TEXT,
   locked        BOOLEAN DEFAULT FALSE,
   ratecard_id   UUID REFERENCES ratecards(id),
@@ -301,6 +330,7 @@ cg_version_projects (
   cost_grid_version_id UUID NOT NULL REFERENCES cost_grid_versions(id) ON DELETE CASCADE,
   project_id           UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   project_name         VARCHAR,     -- snapshot at link time
+  task_ids             JSONB NOT NULL DEFAULT '[]'::jsonb,  -- migration 016: cost-grid task IDs mapped to this project
   task_names_direct    JSONB NOT NULL DEFAULT '[]'::jsonb,  -- migration 017: task names assigned via "Add to project"
   PRIMARY KEY (cost_grid_version_id, project_id)
 )
@@ -312,11 +342,12 @@ cg_version_projects (
 projects (
   id            UUID PRIMARY KEY,
   name          VARCHAR NOT NULL,
+  code          VARCHAR(100),       -- migration 012: D365 Project ID, separate from the internal UUID
   program_id    VARCHAR REFERENCES programs(id),
   client_id     UUID REFERENCES clients(id),
   start_date    CHAR(6),            -- YYYYMM
   end_date      CHAR(6),            -- YYYYMM
-  currency      CHAR(3) DEFAULT 'EUR',
+  currency      VARCHAR(10) NOT NULL DEFAULT 'EUR' REFERENCES currencies(code),  -- migration 012
   pipeline      VARCHAR,
   status        VARCHAR,
   owner_id      UUID NOT NULL REFERENCES users(id),
@@ -334,8 +365,8 @@ project_tasks (
   name                 VARCHAR NOT NULL,
   billable             BOOLEAN DEFAULT TRUE,
   completed            BOOLEAN DEFAULT FALSE,
-  start_date           CHAR(6),
-  end_date             CHAR(6),
+  start_date           CHAR(8),     -- YYYYMMDD (migration 012 widened from CHAR(6)/YYYYMM)
+  end_date             CHAR(8),     -- YYYYMMDD (migration 012 widened from CHAR(6)/YYYYMM)
   monthly_distribution JSONB,       -- { "YYYYMM": percent }
   resources            JSONB,       -- [{ role, soldHours, hourlyRate }]
   sort_order           INTEGER DEFAULT 0
@@ -943,9 +974,13 @@ Current migrations:
 - `009_version_project_name.sql` — adds `project_name VARCHAR(255)` to `cost_grid_versions` (display name shown on pipeline cards and used as default when generating a linked project)
 - `010_pots_special_label.sql` — adds `special_label VARCHAR(255)` to `pots` for virtual targets ("Unassigned / To be Identified", "New Biz") that are not tied to a specific client or group
 - `011_pot_history_note.sql` — adds `note VARCHAR(500)` to `pot_history` for optional change justification text
+- `012_currencies.sql` — creates `currencies` (master table, seeded with 20 codes, EUR always active/locked at 1:1) and `currency_rates` (append-only rate-change history); converts `cost_grid_versions.currency`/`projects.currency` from bare `CHAR(3)` to `VARCHAR(10) REFERENCES currencies(code)`; adds `cost_grid_versions.currency_rate DECIMAL(10,6)`; adds `ratecard_entries.rate_overrides JSONB` if not already present
+- `012_project_code.sql` — adds `projects.code VARCHAR(100)` (D365 Project ID, separate from the internal UUID primary key)
+- `012_project_task_date_char8.sql` — widens `project_tasks.start_date`/`end_date` from `CHAR(6)` to `CHAR(8)` (YYYYMM → YYYYMMDD), padding existing 6-char values to `YYYYMM01`
 - `013_role_rate_overrides.sql` — adds `rate_overrides JSONB NOT NULL DEFAULT '{}'` to `roles` table for per-currency agency default rates
 - `014_terms_accepted.sql` — adds `terms_version INTEGER` and `terms_accepted_at TIMESTAMPTZ` to `users` for T&C acceptance tracking
 - `015_app_settings.sql` — creates `app_settings` key/value table; seeds `terms_version` (1) and `terms_content` (default HTML notice)
+- `016_version_project_task_ids.sql` — adds `task_ids JSONB NOT NULL DEFAULT '[]'::jsonb` to `cg_version_projects`, tracking which cost-grid tasks are mapped to each linked project so Generate Project can detect free tasks across sessions
 - `017_task_names_direct.sql` — adds `task_names_direct JSONB NOT NULL DEFAULT '[]'::jsonb` to `cg_version_projects`; backfills from `project_tasks` name matching
 - `018_sysadmin_role.sql` — widens `users.role`'s CHECK constraint to add `sysadmin` as a third value; no backfill
 - `019_terms_versions.sql` — new immutable, append-only `terms_versions` table; backfills one row from the then-current `app_settings.terms_content`/`terms_version` (the only text still recoverable)

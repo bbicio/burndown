@@ -873,9 +873,13 @@ Brand: `--brand-navy: #0B1840`, `--brand-magenta: #F0287A`.
 | `009_version_project_name.sql` | `project_name VARCHAR(255)` added to `cost_grid_versions` |
 | `010_pots_special_label.sql` | `special_label VARCHAR(255)` added to `pots` for virtual targets |
 | `011_pot_history_note.sql` | `note VARCHAR(500)` added to `pot_history` for change justification |
+| `012_currencies.sql` | New `currencies` (master, 20-code seed, EUR always active/locked 1:1) and `currency_rates` (rate-change history) tables; `cost_grid_versions.currency`/`projects.currency` converted from bare `CHAR(3)` to `VARCHAR(10) REFERENCES currencies(code)`; `cost_grid_versions.currency_rate DECIMAL(10,6)` added; `ratecard_entries.rate_overrides JSONB` added if not already present |
+| `012_project_code.sql` | `projects.code VARCHAR(100)` added (D365 Project ID, separate from the internal UUID) |
+| `012_project_task_date_char8.sql` | `project_tasks.start_date`/`end_date` widened `CHAR(6)` → `CHAR(8)` (YYYYMM → YYYYMMDD), existing values padded to `YYYYMM01` |
 | `013_role_rate_overrides.sql` | `rate_overrides JSONB NOT NULL DEFAULT '{}'` added to `roles` for per-currency agency default rates |
 | `014_terms_accepted.sql` | `terms_version INTEGER` and `terms_accepted_at TIMESTAMPTZ` added to `users` for T&C acceptance tracking |
 | `015_app_settings.sql` | `app_settings` key/value table created; seeded with `terms_version` and `terms_content` |
+| `016_version_project_task_ids.sql` | `task_ids JSONB NOT NULL DEFAULT '[]'::jsonb` added to `cg_version_projects`, tracking which cost-grid tasks are mapped to each linked project so Generate Project can detect free tasks across sessions |
 | `017_task_names_direct.sql` | `task_names_direct JSONB NOT NULL DEFAULT '[]'::jsonb` added to `cg_version_projects`; backfills from `project_tasks` name matching |
 | `018_sysadmin_role.sql` | Widens `users.role`'s CHECK constraint from `('admin','user')` to `('admin','user','sysadmin')`; no backfill — no existing row changes value, promotion is manual (`promote-sysadmin.js` or `admin.html`'s toggle) |
 | `019_terms_versions.sql` | New `terms_versions` table (`id`, `version` INTEGER UNIQUE, `content`, `published_at`, `published_by`) — immutable, append-only, application code never UPDATEs/DELETEs it. Backfills one row from the then-current `app_settings.terms_content`/`terms_version` (the only text still recoverable — every earlier version had already been overwritten by the old single-row storage); the version subquery is `COALESCE(...,1)`-wrapped so a DB with `terms_content` but no `terms_version` key doesn't fail the migration |
