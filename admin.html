@@ -329,6 +329,7 @@
           const newRole = user.role === 'admin' ? 'user' : 'admin';
           user._loading = true;
           this.globalError = null;
+          this.globalSuccess = null;
           try {
             const res = await fetch(`/api/users/${user.id}`, {
               method: 'PATCH',
@@ -356,6 +357,7 @@
           const newRole = user.role === 'sysadmin' ? 'admin' : 'sysadmin';
           user._loading = true;
           this.globalError = null;
+          this.globalSuccess = null;
           try {
             const res = await fetch(`/api/users/${user.id}`, {
               method: 'PATCH',
@@ -376,6 +378,7 @@
         async setStatus(user, status) {
           user._loading = true;
           this.globalError = null;
+          this.globalSuccess = null;
           try {
             const res = await fetch(`/api/users/${user.id}`, {
               method: 'PATCH',
@@ -402,8 +405,8 @@
               method: 'POST', credentials: 'same-origin',
               headers: { 'Content-Type': 'application/json' },
             });
-            const data = await res.json();
-            if (!res.ok) { this.globalError = data.error || 'Resend failed'; return; }
+            const d = await res.json();
+            if (!res.ok) { this.globalError = d.error || 'Resend failed'; return; }
             this.globalSuccess = `Invite resent to ${user.email}`;
           } catch {
             this.globalError = 'Network error.';
@@ -425,6 +428,7 @@
         async anonymizeUser(user) {
           user._loading = true;
           this.globalError = null;
+          this.globalSuccess = null;
           try {
             const res = await fetch(`/api/users/${user.id}/anonymize`, {
               method: 'POST', credentials: 'same-origin',

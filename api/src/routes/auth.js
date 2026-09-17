@@ -129,6 +129,9 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
 // POST /api/auth/:id/resend-invite  (admin only) — fresh 48h token, still-pending users only
 router.post('/:id/resend-invite', requireAdmin, async (req, res, next) => {
   try {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.id)) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     const { rows } = await query(
       `SELECT email, first_name, status FROM users WHERE id = $1`,
       [req.params.id]
