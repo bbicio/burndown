@@ -431,6 +431,11 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | AD-35 | Admin/Sysadmin navbar dropdowns — role visibility (2026-09) | Log in as role=user, then role=admin, then role=sysadmin; inspect the top navbar | user: neither "⚙ Admin" nor "🔒 Sysadmin" trigger shown. admin: only "⚙ Admin" shown (Config/Actuals Repository/User Admin inside). sysadmin: both triggers shown, "🔒 Sysadmin" holds DB Reset/Terms & Conditions | |
 | AD-36 | Admin/Sysadmin navbar dropdowns — active state | As sysadmin, open `/admin.html`, then `/_db-reset.html` | "⚙ Admin" trigger shows active state on `/admin.html`; "🔒 Sysadmin" trigger shows active state on `/_db-reset.html` — each trigger highlights only for pages inside its own submenu | |
 | AD-37 | Admin/Sysadmin navbar dropdowns — pipeline board height unaffected | As sysadmin, open `/pipeline.html` | Both new dropdown triggers measure the same height as the other navbar tabs (44px); the pipeline board's sticky column-totals footer remains fully visible, not clipped | |
+| AD-38 | Resend invite button — pending users only | View a pending user row, then an active/disabled user row | "✉️ Resend invite" shown only on the pending row | |
+| AD-39 | Resend invite — success | Click "✉️ Resend invite" on a pending user | A new invite email is sent; success message "Invite resent to {email}" shown; the old activation link no longer works | |
+| AD-40 | Resend invite — fresh token, new expiry | Resend an invite whose original link had already expired (>48h old) | The new link works and is valid for a full new 48-hour window from the resend, not from the original invite | |
+| AD-41 | Resend invite — rejected for a non-pending user | API call `POST /api/auth/:id/resend-invite` where target status is active or disabled | 400 "This user is not a pending invite" | |
+| AD-42 | Resend invite — any admin or sysadmin can trigger it | As an admin who did not send the original invite, click "✉️ Resend invite" on a pending user invited by someone else | Succeeds — resend is not restricted to the original inviter | |
 
 ---
 

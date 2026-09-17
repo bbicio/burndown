@@ -71,6 +71,7 @@
 
       <!-- Global error -->
       <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
+      <div v-if="globalSuccess" class="alert alert-success alert-sm mb-3">{{ globalSuccess }}</div>
 
       <!-- ── USERS ──────────────────────────────────────────── -->
 
@@ -122,6 +123,14 @@
                             :disabled="!!u._loading"
                             @click="toggleSysAdmin(u)">
                       {{ u.role === 'sysadmin' ? '⬇ Revoke sysadmin' : '⬆ Grant sysadmin' }}
+                    </button>
+                    <!-- Resend invite — pending users only -->
+                    <button v-if="u.status === 'pending'"
+                            class="btn btn-outline-secondary btn-action me-1"
+                            :disabled="!!u._loading"
+                            @click="resendInvite(u)"
+                            title="Send a fresh activation link, valid for another 48 hours">
+                      ✉️ Resend invite
                     </button>
                     <!-- Disable / Enable + Anonymize — a sysadmin row is only actionable by a sysadmin viewer -->
                     <template v-if="canModifyUser(u)">
@@ -249,6 +258,7 @@
             { val: 'disabled', label: 'Disabled' },
           ],
           globalError: null,
+          globalSuccess: null,
           invite: { firstName: '', lastName: '', email: '', role: 'user', loading: false, error: null, success: null },
           _modal: null,
         };
@@ -376,6 +386,25 @@
             const data = await res.json();
             if (!res.ok) { this.globalError = data.error; return; }
             user.status = data.status;
+          } catch {
+            this.globalError = 'Network error.';
+          } finally {
+            user._loading = false;
+          }
+        },
+
+        async resendInvite(user) {
+          user._loading = true;
+          this.globalError = null;
+          this.globalSuccess = null;
+          try {
+            const res = await fetch(`/api/auth/${user.id}/resend-invite`, {
+              method: 'POST', credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json' },
+            });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error || 'Resend failed'; return; }
+            this.globalSuccess = `Invite resent to ${user.email}`;
           } catch {
             this.globalError = 'Network error.';
           } finally {

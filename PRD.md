@@ -734,6 +734,8 @@ Email + password. On success: httpOnly JWT cookie set, user profile returned. Wr
 
 Admin fills first name, last name, email, role → user created in `pending` status → invite email sent with a link containing a token valid for **48 hours**. Following the link lets the user set a password (same 8-character minimum as above); the account becomes `active`.
 
+**Resending an invite (2026-09):** a "✉️ Resend invite" button appears on `admin.html`'s user list, visible only for users still in `pending` status — for the case where the original invite email was lost or never arrived. Resending invalidates the old link and issues a brand-new token with a fresh 48-hour expiry (regardless of whether the previous one had already expired); the same invite email template is used. Any admin or sysadmin can resend, not only the user who sent the original invite.
+
 ### 15.3 Password Reset
 
 Self-service. Requesting a reset always returns success, regardless of whether the email matches an account (no enumeration). If it does match, a reset link is emailed, valid for **2 hours**. Following it lets the user set a new password (same 8-character minimum).
