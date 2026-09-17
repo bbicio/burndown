@@ -190,6 +190,7 @@ test('resolveColumnMap: two columns with identical header text both resolve, not
 const TASKS_FIXTURE = [
   { name: 'Platform rollout', resources: [{ role: 'Senior Consultant' }, { role: 'Project Director' }] },
   { name: 'Training & handover', resources: [{ role: 'Senior Consultant' }] },
+  { name: 'Discovery workshop', resources: [] },
 ];
 
 test('findRoleTaskInconsistencies: task + role both configured returns no inconsistencies', () => {
@@ -226,10 +227,27 @@ test('findRoleTaskInconsistencies: blank task name is flagged the same as any ot
   assert.deepEqual(result, [{ projectCode: 'P1', task: '', role: 'Senior Consultant' }]);
 });
 
-test('findRoleTaskInconsistencies: rows with hours = 0 are checked the same as any other row', () => {
-  const entries = [{ projectCode: 'P1', task: 'Unknown Task', role: 'Senior Consultant', hours: 0 }];
+// Distinct from "task not configured" above: here the task genuinely exists on the
+// project, it just has no resources at all configured on it yet — a real state (e.g. a
+// freshly-added task row) that must be flagged the same way, not treated as if the task
+// itself were missing.
+test('findRoleTaskInconsistencies: a task that exists but has zero configured resources is flagged', () => {
+  const entries = [{ projectCode: 'P1', task: 'Discovery workshop', role: 'Senior Consultant' }];
   const result = findRoleTaskInconsistencies(entries, { P1: TASKS_FIXTURE });
-  assert.equal(result.length, 1);
+  assert.deepEqual(result, [{ projectCode: 'P1', task: 'Discovery workshop', role: 'Senior Consultant' }]);
+});
+
+// findRoleTaskInconsistencies() never reads entry.hours (the real POST /upload call site
+// doesn't even forward it) — hours=0 rows are checked purely because every row is checked,
+// not because of any hours-specific branch. Verified both ways: a valid row isn't flagged
+// just for having hours=0, and an invalid row isn't excused by it either.
+test('findRoleTaskInconsistencies: hours=0 has no bearing on the check — same result as any other row', () => {
+  const entries = [
+    { projectCode: 'P1', task: 'Platform rollout', role: 'Senior Consultant', hours: 0 },
+    { projectCode: 'P1', task: 'Unknown Task', role: 'Senior Consultant', hours: 0 },
+  ];
+  const result = findRoleTaskInconsistencies(entries, { P1: TASKS_FIXTURE });
+  assert.deepEqual(result, [{ projectCode: 'P1', task: 'Unknown Task', role: 'Senior Consultant' }]);
 });
 
 test('findRoleTaskInconsistencies: identical (task, role) repeated across many rows is deduplicated', () => {
