@@ -293,6 +293,27 @@ function fmtDateLabel(d) { return d ? `${pad(d.getDate())}/${pad(d.getMonth()+1)
 function pad(n)          { return String(n).padStart(2, '0'); }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+// Formats the `inconsistencies` list from a blocked POST /api/timesheets/upload
+// (a role or task in the file that isn't configured on the project) into the
+// plain-text, multi-line message shown in a confirm/info modal — both upload
+// entry points (project-config.html, js/upload.js) share this one formatter so
+// the wording never drifts between them. Capped at 20 lines so a badly
+// mismatched file doesn't produce an unreadably long modal.
+function formatUploadInconsistencies(list) {
+  const MAX = 20;
+  const lines = list.slice(0, MAX).map(i =>
+    `• ${i.projectCode}: task "${i.task || '(blank)'}", role "${i.role || '(blank)'}"`
+  );
+  if (list.length > MAX) lines.push(`…and ${list.length - MAX} more.`);
+  return [
+    `Upload blocked — ${list.length} row${list.length === 1 ? '' : 's'} reference a role or task that isn't configured on the project:`,
+    '',
+    ...lines,
+    '',
+    `Fix the file, or update the project's tasks/resources, then upload again.`,
+  ].join('\n');
+}
+
 function pipelineBadge(pipeline) {
   if (!pipeline) return '';
   const s = {
