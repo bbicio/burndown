@@ -1351,6 +1351,13 @@ const SECTIONS = [
     {id:'TS-18',scenario:'Duplicate project code doesn\'t leak an inaccessible project\'s data',
      steps:'As a non-admin user, upload a timesheet for a project_code that is also used (not DB-unique, 012_project_code.sql) by a different, earlier-created project the user cannot see',
      expected:'The uploaded entries\' fee is resolved from the user\'s own visible project\'s rates, and GET /api/timesheets shows that user\'s own project\'s name/client/currency for the code — never the inaccessible project\'s'},
+    {id:'TS-19',scenario:'Role/task inconsistency blocks the entire upload (backend)',
+     steps:'Upload a file where at least one row\'s Task/Issue doesn\'t match any configured task on the project, or whose Job Role isn\'t among that task\'s configured resources (blank role included)',
+     expected:'Entire upload rejected (400) with { error, inconsistencies: [{projectCode, task, role}, ...] }; no rows persisted for any project code in the file, not even ones with no inconsistency',
+     auto:true},
+    {id:'TS-20',scenario:'Role/task inconsistency shows a blocking dialog at all three upload entry points',
+     steps:'Trigger the TS-19 scenario from project-config.html\'s 📂 Load Actuals, portfolio.html\'s 📂 Load Actuals, and planning.html\'s 📂 Load XLS',
+     expected:'Each shows an informational (single-OK, no Cancel) dialog listing every distinct project/task/role combination found inconsistent (capped at 20 lines, "…and N more." beyond that); nothing is imported'},
   ]
 },
 {

@@ -192,6 +192,7 @@ Show the distribution of sold hours across the portfolio — by role, by project
 | Monthly pulse | Toggle — show pulse indicators |
 | Rounded | Toggle — round to whole numbers vs. two decimal places (display only, see §5.3) |
 | Export XLS | Download the current table as Excel |
+| 📂 Load XLS | Upload an Excel timesheet file to import actuals — a third entry point into the same upload mechanism described in §8, alongside Project Reporting's and the project configuration form's "Load Actuals" buttons; subject to the same blocking role/task validation (§8.3) |
 
 ### 5.3 Table Structure
 
@@ -495,7 +496,8 @@ Actuals are matched to projects and tasks to compute budget spent.
 - Uploading a new file for a project replaces the previous actuals for that project
 - Triggers refresh of all reporting views
 - **Date disambiguation:** for text-formatted date cells (native Excel date cells are read directly, unambiguous), day/month order is resolved deterministically whenever possible — if one of the two numbers is greater than 12, it cannot be a month, so the reading is unambiguous. Only when both numbers are ≤12 (genuinely ambiguous, e.g. `03/04/2026`) does the system fall back to a default (MM/DD, matching the source export's known convention). If the resolved date is not a real calendar date (e.g. day 31 in April), the **entire upload is rejected** with an error naming the offending spreadsheet row — no partial import, not even of the file's otherwise-valid rows.
-- **Fee snapshot (2026-09):** each imported row's hourly rate (`Fee`) is resolved once at import time — by matching the row's task+role against the linked project's configured resource rates, same logic as the burndown/KPI rate lookup used elsewhere — and stored with the row. A later change to a role's rate does not retroactively change what an already-imported row reports; re-uploading the file is how a project's actuals pick up a rate change. A row whose task/role can't be matched to any configured resource stores a `Fee` of `0` rather than leaving it unset.
+- **Fee snapshot (2026-09):** each imported row's hourly rate (`Fee`) is resolved once at import time — by matching the row's task+role against the linked project's configured resource rates, same logic as the burndown/KPI rate lookup used elsewhere — and stored with the row. A later change to a role's rate does not retroactively change what an already-imported row reports; re-uploading the file is how a project's actuals pick up a rate change.
+- **Role/task validation, blocking (2026-09):** before anything is imported, every row's Task/Issue and Job Role: Name are checked against the target project's own configured tasks and resources — the same case-insensitive matching used for the Fee snapshot above, but stricter: a row referencing a task that doesn't exist on the project, or a role that isn't among that task's configured resources (a blank role included), is an inconsistency. If the file contains even one, **the entire upload is rejected** — nothing is imported for any project code in the file — and a dialog lists every distinct project/task/role combination found to be inconsistent, so the file (or the project's task/resource configuration) can be corrected before re-uploading. This replaces the old silent behavior where an unmatched row would still import with a `Fee` of `0` or a rate borrowed from the task's first configured resource.
 
 ### 8.4 Timesheet Management Page (`/timesheets.html`, admin only)
 
