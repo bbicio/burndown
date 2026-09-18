@@ -104,6 +104,9 @@
               <select class="form-select" id="cgCurrency" v-model="draft.currency" @change="onCurrencyChange" :disabled="isLocked">
                 <option v-for="cu in (currencies.length ? currencies : [{code:'EUR',symbol:'€',name:'Euro'}])" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.code }} — {{ cu.name }}</option>
               </select>
+              <div v-if="draft.currency && draft.currency !== 'EUR'" class="text-muted" style="font-size:.72rem;margin-top:2px">
+                1 EUR = {{ draft.currencyRate }} {{ (currencies.find(cu => cu.code === draft.currency) || {}).symbol || '' }}
+              </div>
             </div>
             <div class="col-md-2">
               <label class="form-label small fw-semibold mb-1">Pipeline stage</label>
@@ -1308,6 +1311,7 @@ Vue.createApp({
 
       if (!this.draft.roles?.length) {
         cgSyncRoleRatesToBaseline(true);
+        this.draft.currencyRate = parseFloat((this.currencies || []).find(c => c.code === newCurrency)?.current_rate) || 1.0;
         this.prevCurrency = newCurrency;
         this.$forceUpdate();
         cgAutoSave();
@@ -1384,6 +1388,7 @@ Vue.createApp({
       document.getElementById(`${modalId}Confirm`).onclick = () => {
         bsModal.hide();
         cgSyncRoleRatesToBaseline(true); // mutates _cgDraft.roles[].rate in place — this.draft IS _cgDraft
+        this.draft.currencyRate = parseFloat(newEntry?.current_rate) || 1.0;
         this.prevCurrency = newCurrency;
         this.$forceUpdate();
         cgAutoSave();
