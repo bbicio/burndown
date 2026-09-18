@@ -83,7 +83,7 @@ async function initNav(activeTab, opts = {}) {
                 <button class="btn btn-link btn-sm p-0 text-muted" id="nav-notif-read-all" style="font-size:.78rem;text-decoration:none">Mark all read</button>
               </div>
               <div id="nav-notif-browser-banner" class="px-3 py-2 border-bottom d-flex align-items-center justify-content-between gap-2" style="display:none;font-size:.78rem;background:var(--indigo-50,#eef2ff)">
-                <span>🔔 Enable desktop notifications?</span>
+                <span id="nav-notif-browser-label">🔔 Enable desktop notifications?</span>
                 <button class="btn btn-primary btn-sm py-0 px-2" id="nav-notif-browser-enable" style="font-size:.75rem">Enable</button>
               </div>
               <div id="nav-notif-list" style="overflow-y:auto;max-height:420px">
