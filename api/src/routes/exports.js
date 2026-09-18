@@ -4,6 +4,8 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { isAdminRole } = require('../lib/is-admin');
 const { sendExportEmail } = require('../services/email');
 
+let _createNotification;
+
 const router = express.Router();
 
 // ── CSV HELPERS ───────────────────────────────────────────────────────────────
@@ -64,6 +66,13 @@ router.post('/portfolio', requireAuth, async (req, res, next) => {
       firstName: req.user.first_name,
       exports: [{ filename, content, type: 'text/csv' }],
     });
+
+    if (!_createNotification) _createNotification = require('./notifications').createNotification;
+    _createNotification(req.user.id, {
+      type: 'info',
+      title: 'Your export is ready',
+      body: `${filename} was emailed to you.`,
+    }).catch(e => console.warn('[export] notification failed:', e.message));
 
     res.json({ ok: true, email: req.user.email });
   } catch (err) { next(err); }
@@ -151,6 +160,13 @@ router.post('/cost-grids', requireAuth, async (req, res, next) => {
       exports: [{ filename, content, type: 'text/csv' }],
     });
 
+    if (!_createNotification) _createNotification = require('./notifications').createNotification;
+    _createNotification(req.user.id, {
+      type: 'info',
+      title: 'Your export is ready',
+      body: `${filename} was emailed to you.`,
+    }).catch(e => console.warn('[export] notification failed:', e.message));
+
     res.json({ ok: true, email: req.user.email });
   } catch (err) { next(err); }
 });
@@ -213,6 +229,13 @@ router.post('/ratecards', requireAdmin, async (req, res, next) => {
       firstName: req.user.first_name,
       exports: [{ filename, content, type: 'text/csv' }],
     });
+
+    if (!_createNotification) _createNotification = require('./notifications').createNotification;
+    _createNotification(req.user.id, {
+      type: 'info',
+      title: 'Your export is ready',
+      body: `${filename} was emailed to you.`,
+    }).catch(e => console.warn('[export] notification failed:', e.message));
 
     res.json({ ok: true, email: req.user.email });
   } catch (err) { next(err); }

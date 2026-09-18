@@ -578,9 +578,11 @@ Clicking a notification marks it as read and navigates to the linked URL if pres
 
 | Trigger | Description |
 |---|---|
-| Export ready | Sent automatically when a CSV export is requested (currently delivered via email; in-app notification planned) |
+| Export ready | Sent automatically when a CSV export is requested — both an email (with the file attached) and an in-app notification (2026-09) to the requester themselves |
 | Sent notification | Any user composes a message targeting a specific colleague; broadcast to all users is admin/sysadmin-only |
-| Share | When a cost grid or project is shared with you |
+| Share granted | When a cost grid, project, or program is shared with you — both an email and an in-app notification, for all three resource types (2026-09: previously cost grid share sent only the email) |
+| Share revoked (2026-09) | When your access to a project is removed — both an email and an in-app notification to the person whose access was removed (previously silent on both channels); program-level access is granted and revoked per-project under the hood, so this same trigger covers both |
+| Cost grid ownership reassigned (2026-09) | When you're made the new owner of a cost grid/proposal — both an email and an in-app notification to the new owner (previously email only) |
 
 ### 10.5 Browser (Desktop) Notifications (2026-09)
 
@@ -860,11 +862,13 @@ The right-to-erasure mechanism for this product is the anonymize action describe
 
 The creator of a cost grid or project is its exclusive owner by default. Disabling a user does not remove their ownership; an admin can reassign it to another user.
 
-A sysadmin can reassign a proposal's owner from `_db-reset.html`'s "Change proposal owner" widget (§16.6). As of 2026-09, any admin or sysadmin can also do this directly from the full-page cost grid editor (§4.9) — a "Reassign to…" dropdown next to the owner's name, listing active users, available regardless of whether the version is locked (reassignment is an ownership change, not a content edit). Reassigning a proposal's owner this way additionally grants the new owner Editor access to every project already linked to the proposal (an existing owner of one of those projects keeps their ownership rather than being downgraded), and sends the new owner an email notification listing the linked projects they gained access to.
+A sysadmin can reassign a proposal's owner from `_db-reset.html`'s "Change proposal owner" widget (§16.6). As of 2026-09, any admin or sysadmin can also do this directly from the full-page cost grid editor (§4.9) — a "Reassign to…" dropdown next to the owner's name, listing active users, available regardless of whether the version is locked (reassignment is an ownership change, not a content edit). Reassigning a proposal's owner this way additionally grants the new owner Editor access to every project already linked to the proposal (an existing owner of one of those projects keeps their ownership rather than being downgraded), and sends the new owner both an email (listing the linked projects they gained access to) and an in-app notification (2026-09).
 
 ### 18.2 Share Modal
 
-Available from a cost grid's detail panel or a project's reporting view — not available at all on a Draft-stage proposal, consistent with a Draft being private to its creator (§4.2). Searches active, non-admin/non-sysadmin platform users by name or email (no free-text email invites — only existing accounts can be granted access). Grants Editor or Viewer access. Permission on an existing share can be changed at any time. Sharing sends the recipient a notification with a direct link to the shared resource.
+Available from a cost grid's detail panel or a project's reporting view — not available at all on a Draft-stage proposal, consistent with a Draft being private to its creator (§4.2). Searches active, non-admin/non-sysadmin platform users by name or email (no free-text email invites — only existing accounts can be granted access). Grants Editor or Viewer access. Permission on an existing share can be changed at any time. Sharing sends the recipient both an email and an in-app notification with a direct link to the shared resource — for all three resource types, project, cost grid, and program (2026-09: previously cost grid share sent only the email, no in-app notification).
+
+**Removing a project share (2026-09):** the person whose access is removed also gets an email and an in-app notification — previously this happened silently, on neither channel. There is no separate "remove" action for a whole program at once — a program's access is granted per-project under the hood, so removing someone from a program means removing them from each of its projects individually, which is where this same notification fires. Removing a cost grid share stays silent on both channels — this cycle only closed the gap for project/program access, not cost grids, as an explicit scope decision.
 
 **Sharing a whole program (2026-09):** each program group's header in the portfolio list view has its own "🔗 Share Program" button — a third, distinct sharing target beyond a single cost grid or project. Sharing a program grants the chosen permission on **every project currently in that program**, in one action, not project-by-project. Only an admin, or someone who already owns/edits at least one project in the program, can do this.
 

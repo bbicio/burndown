@@ -473,8 +473,24 @@ api/src/lib/              — pure functions extracted for unit testing (node:te
                             `sysadmin → user`, added after a code-review finding — the promotion side already had
                             this two-step rule, the demotion side didn't). Consumed by `PATCH /api/users/:id`.
                             9 `node:test` cases.
-api/src/routes/exports.js        — POST /api/exports/{portfolio|cost-grids|ratecards}
-api/src/routes/notifications.js  — SSE stream, CRUD, push; exports { router, pushToUser }
+api/src/routes/exports.js        — POST /api/exports/{portfolio|cost-grids|ratecards}. Each, after emailing the
+                                    CSV to the requester, also creates a self-targeted in-app notification via
+                                    `createNotification()` (2026-09) — "Your export is ready", fire-and-forget
+                                    (`.catch(console.warn)`), same pattern as the other new-2026-09 notification
+                                    call sites. `GET /api/exports/phasing` (XLS download, direct response, no
+                                    email/notification — a different code shape entirely) is unaffected.
+api/src/routes/notifications.js  — SSE stream, CRUD, push; exports { router, pushToUser, createNotification }.
+                                    `createNotification(userId, {type, title, body, url, urlLabel})` (2026-09) —
+                                    the `INSERT INTO notifications` + `pushToUser()` pair every "something happened
+                                    to you" flow in this codebase follows, extracted once six call sites needed it
+                                    (project/program share grant, cost-grid share grant, cost-grid ownership
+                                    reassignment, export-ready self-notification, project share revoke). Lazy-required
+                                    the same way `pushToUser` always has been (`if (!_x) _x = require('./notifications').X`)
+                                    to sidestep the circular-require between this file and its callers. The
+                                    pipeline-stage-change broadcast (`notifyAdminsPipelineChange`, `cost-grids.js`)
+                                    was deliberately left on its own manual `INSERT`+`pushToUser` loop rather than
+                                    migrated — it's a one-INSERT-per-admin broadcast, not a single-recipient call,
+                                    and wasn't part of the cycle that introduced this helper.
 api/src/routes/pipeline-years.js — CRUD for admin-managed pipeline years
 api/src/routes/client-groups.js  — CRUD for client groups + member assignment
 api/src/routes/pots.js           — CRUD for POT targets + history; /year-totals; proposals matched via cgv.client_id (not cg_version_projects); `GET /`, `GET /year-totals`, `GET /:id/details` and `GET /summary` all return `committed_total`, `anticipated_total` separately; `/summary` computes these server-side across all proposals (no user-visibility filter) so every caller sees the same POT; all fee subqueries divide by `COALESCE(currency_rate, 1)` for EUR normalisation
@@ -567,7 +583,16 @@ api/src/routes/timesheets.js     — `GET /` (2026-09) returns one summary row p
                                     `portfolio.html`'s "Load Actuals" respectively) via the global `showInfo()`.
 api/src/db/migrations/   — numbered SQL migration files
 api/src/services/        — email (nodemailer: sendInvite, sendPasswordReset, sendShareNotification,
-                            sendOwnerReassignedEmail, sendExportEmail, sendAdminNotificationEmail), jwt;
+                            sendShareRevokedEmail, sendOwnerReassignedEmail, sendExportEmail,
+                            sendAdminNotificationEmail), jwt; `sendShareRevokedEmail({to, firstName,
+                            resourceType, resourceName, revokedBy})` (2026-09) — the counterpart to
+                            `sendShareNotification` for the opposite direction (access removed rather than
+                            granted); no `link`, unlike every other templated email here, since the
+                            recipient can no longer open the resource. Consumed by `projects.js`'s
+                            `DELETE /:id/shares/:userId` (see that file's own entry) — the only caller so far;
+                            cost-grid share removal (`cost-grids.js`'s own `DELETE /:id/shares/:userId`)
+                            deliberately still doesn't call it, an explicit 2026-09 scope decision, not an
+                            oversight.
                             `email.js` exports its own `APP_URL` constant (2026-09, falls back to
                             `'http://localhost'` when the env var is unset) alongside its `send*` functions, so
                             route files building an email `link` can use it instead of bare `process.env.APP_URL` —

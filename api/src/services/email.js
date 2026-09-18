@@ -68,6 +68,21 @@ async function sendShareNotification({ to, firstName, resourceType, resourceName
   });
 }
 
+async function sendShareRevokedEmail({ to, firstName, resourceType, resourceName, revokedBy }) {
+  await transporter.sendMail({
+    from: FROM,
+    to,
+    subject: `PDash — Your access to "${resourceName}" was removed`,
+    html: renderEmailHtml({
+      appUrl: APP_URL,
+      bodyHtml: `
+        <p>Hi ${firstName},</p>
+        <p><strong>${revokedBy}</strong> has removed your access to the ${resourceType} <strong>"${resourceName}"</strong> on PDash.</p>
+      `,
+    }),
+  });
+}
+
 async function sendOwnerReassignedEmail({ to, firstName, cgName, reassignedBy, linkedProjectNames, link }) {
   const projectsHtml = linkedProjectNames && linkedProjectNames.length
     ? `<p>You also received editor access to the following linked project${linkedProjectNames.length > 1 ? 's' : ''}:</p>
@@ -125,4 +140,4 @@ async function sendAdminNotificationEmail({ to, firstName, title, body, url }) {
   });
 }
 
-module.exports = { sendInvite, sendPasswordReset, sendShareNotification, sendOwnerReassignedEmail, sendExportEmail, sendAdminNotificationEmail, APP_URL };
+module.exports = { sendInvite, sendPasswordReset, sendShareNotification, sendShareRevokedEmail, sendOwnerReassignedEmail, sendExportEmail, sendAdminNotificationEmail, APP_URL };

@@ -6,6 +6,7 @@ const { isValidSoldHours } = require('../lib/sold-hours');
 const { isAdminRole } = require('../lib/is-admin');
 
 let _pushToUser;
+let _createNotification;
 
 const router = express.Router();
 
@@ -736,13 +737,24 @@ router.post('/:id/shares', requireAuth, async (req, res, next) => {
       [req.params.id, userId, permission, req.user.id]
     );
 
+    const sharerName = `${sharer.rows[0].first_name} ${sharer.rows[0].last_name}`;
+
     await sendShareNotification({
       to: target.rows[0].email,
       firstName: target.rows[0].first_name,
       resourceType: 'cost grid',
       resourceName: cg.rows[0].name,
-      sharedBy: `${sharer.rows[0].first_name} ${sharer.rows[0].last_name}`,
+      sharedBy: sharerName,
       link: `${process.env.APP_URL}/pipeline.html`,
+    });
+
+    if (!_createNotification) _createNotification = require('./notifications').createNotification;
+    await _createNotification(userId, {
+      type: 'share',
+      title: `Cost grid shared: ${cg.rows[0].name}`,
+      body: `${sharerName} shared the cost grid "${cg.rows[0].name}" with you.`,
+      url: `${process.env.APP_URL}/pipeline.html`,
+      urlLabel: 'Open Pipeline',
     });
 
     res.status(201).json({ ok: true });
@@ -840,14 +852,24 @@ router.patch('/:id/reassign-owner', requireAuth, async (req, res, next) => {
     await client.query('COMMIT');
 
     const reassigner = await query('SELECT first_name, last_name FROM users WHERE id = $1', [req.user.id]);
+    const reassignerName = `${reassigner.rows[0].first_name} ${reassigner.rows[0].last_name}`;
     sendOwnerReassignedEmail({
       to: user.rows[0].email,
       firstName: user.rows[0].first_name,
       cgName: cg.rows[0].name,
-      reassignedBy: `${reassigner.rows[0].first_name} ${reassigner.rows[0].last_name}`,
+      reassignedBy: reassignerName,
       linkedProjectNames: linked.rows.map(r => r.project_name),
       link: `${APP_URL}/pipeline.html`,
     }).catch(e => console.warn('[reassign-owner] email failed:', e.message));
+
+    if (!_createNotification) _createNotification = require('./notifications').createNotification;
+    _createNotification(ownerId, {
+      type: 'share',
+      title: `You are now the owner: ${cg.rows[0].name}`,
+      body: `${reassignerName} made you the owner of "${cg.rows[0].name}".`,
+      url: `${APP_URL}/pipeline.html`,
+      urlLabel: 'Open Pipeline',
+    }).catch(e => console.warn('[reassign-owner] notification failed:', e.message));
 
     res.json({ ok: true, cgName: cg.rows[0].name, newOwner: `${user.rows[0].first_name} ${user.rows[0].last_name}` });
   } catch (err) {
