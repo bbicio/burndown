@@ -169,9 +169,19 @@ Write this with the same walkthrough treatment as Resource Planning above:
 - **Terms & Conditions** — every published version retained permanently and viewable, not just the current one; a "👁 Preview" button opens the live acceptance page showing the current draft before publishing.
 - **DB Reset's "Reset by scope" is 7 distinct operations, not one clause** — Proposals, Projects & Programs, Clients & Client Groups, Client Ratecards, Actuals, Pipeline Years & POTs, Notifications — each with its own carve-out (e.g. agency-wide ratecards are spared by the Ratecards scope; SIP/Committed proposals are spared by the Pipelines scope). Every destructive action here (all 7 scopes, plus single-proposal delete) requires typing the literal word **DELETE** into a confirmation field.
 
+**§10 Notifications**
+- **Which channels fire for which trigger (2026-09) — worth a small reference table rather than prose, since the pattern differs by trigger:**
+  - *Sharing a project, cost grid, or program with you* — both an email and an in-app notification, for all three resource types alike.
+  - *Removing your access to a project* — both an email and an in-app notification (2026-09; previously silent on both channels). This does **not** currently apply to a cost-grid share being removed, which stays silent on both — a real, current gap in the product, not something to describe as symmetric with the project case.
+  - *Being made the new owner of a cost grid/proposal* — both an email and an in-app notification (2026-09; previously email only).
+  - *An export you requested finishing* — both an email (with the file attached) and an in-app notification to yourself (2026-09; previously email only).
+  - *A colleague sending you a "📣 Send Notification" message* — whichever channel(s) they chose (Push, Email, or both) when sending; this is the one trigger where the channel is a real, user-facing choice, not a fixed pairing.
+- **Browser (desktop) notifications** — covered in its own §10.5-equivalent point already above; don't duplicate here, just note that any in-app notification listed above is also a candidate for a native popup if the reader has enabled it.
+
 **§18 Sharing and Permissions**
 - **Sharing an entire Program.** A program group's header has its own "🔗 Share Program" button, granting the chosen permission on every project in that program in one action (not project-by-project), gated on the sharer being admin or already owning/editing at least one project in the program.
 - **Share is unavailable on a Draft-stage proposal** — follows from Draft being private to its creator; state it explicitly rather than leaving a reader to infer it from the button's absence.
+- **Removing a project share now tells the person (2026-09).** Both the email and the in-app notification described under §10 above fire the moment a project share is removed — cross-reference §10 rather than re-explaining the channel mechanics here; this point is specifically about the fact that it's no longer silent, which a reader coming from "how do I share a project" would expect to also cover "what happens when I remove one."
 
 ## Guards
 
