@@ -771,10 +771,14 @@
           <div class="modal-body" style="font-size:.88rem">
             <p>You're about to change 1 EUR = <strong>{{ crRateConfirm.oldRate }}</strong> → <strong>{{ crRateConfirm.newRate }}</strong> {{ crRateConfirm.symbol }} for {{ crRateConfirm.code }}.</p>
             <p class="mb-0">This update does <strong>not</strong> affect any proposal or project already in the system — it only applies to new ones created from now on (or to an existing cost grid version if a "refresh rate" is explicitly run on it).</p>
+            <p v-if="crEdit[crRateConfirm.code]?.error" class="text-danger mb-0 mt-2" style="font-size:.8rem">{{ crEdit[crRateConfirm.code].error }}</p>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-            <button type="button" class="btn btn-primary btn-sm" @click="updateCurrencyRate(crRateConfirm.code)" data-bs-dismiss="modal">Confirm</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" :disabled="crEdit[crRateConfirm.code]?.saving">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm" @click="updateCurrencyRate(crRateConfirm.code)" :disabled="crEdit[crRateConfirm.code]?.saving">
+              <span v-if="crEdit[crRateConfirm.code]?.saving" class="spinner-border spinner-border-sm me-1"></span>
+              Confirm
+            </button>
           </div>
         </div>
       </div>
@@ -1338,13 +1342,14 @@ window.__cfgApp = Vue.createApp({
 
     async updateCurrencyRate(code) {
       const ed = this.crEdit[code];
-      if (!ed) return;
+      if (!ed || ed.saving) return;
       const rate = parseFloat(ed.rate);
       if (!isFinite(rate) || rate <= 0) { ed.error = 'Rate must be a positive number'; return; }
       ed.saving = true; ed.error = null;
       try {
         await Api.currencies.updateRate(code, rate);
         await this.loadCurrencies();
+        bootstrap.Modal.getInstance(document.getElementById('crRateConfirmModal'))?.hide();
       } catch (e) {
         ed.error = e.message || 'Failed to update rate';
       }

@@ -105,7 +105,7 @@
                 <option v-for="cu in (currencies.length ? currencies : [{code:'EUR',symbol:'€',name:'Euro'}])" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.code }} — {{ cu.name }}</option>
               </select>
               <div v-if="draft.currency && draft.currency !== 'EUR'" class="text-muted" style="font-size:.72rem;margin-top:2px">
-                1 EUR = {{ draft.currencyRate }} {{ (currencies.find(cu => cu.code === draft.currency) || {}).symbol || '' }}
+                1 EUR = {{ Number(draft.currencyRate).toLocaleString('en', { minimumFractionDigits: 6 }) }} {{ (currencies.find(cu => cu.code === draft.currency) || {}).symbol || '' }}
               </div>
             </div>
             <div class="col-md-2">
