@@ -974,10 +974,11 @@
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 </script>
-<script defer src="js/core.js?v=4"></script>
+<script defer src="js/core.js?v=5"></script>
 <script defer src="js/settings.js"></script>
-<script defer src="js/notifications.js"></script>
-<script defer src="js/nav.js?v=6"></script>
+<script type="module" src="js/lib/notif-browser.js?v=2"></script>
+<script defer src="js/notifications.js?v=2"></script>
+<script defer src="js/nav.js?v=8"></script>
 
 <script type="module">
 window.__cfgApp = Vue.createApp({

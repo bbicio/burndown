@@ -14,6 +14,70 @@ function initNotifications(user) {
   // requests to queue during page init. Defer until init API calls complete.
   setTimeout(openSseStream, 2000);
   wireNotifPanel();
+  wireBrowserNotifBanner();
+}
+
+// ── BROWSER (DESKTOP) NOTIFICATIONS ─────────────────────────────────────────
+// Best-effort echo of the existing SSE "push" channel — the site tries to
+// show a native OS notification alongside the in-app bell, it's never the
+// only delivery path. Browser *permission* is per-origin and can only be
+// granted/asked from here (never silently revoked by this app); once granted,
+// an additional local opt-out (localStorage) lets the user turn the popups
+// back off without touching the browser's own site settings.
+
+const BROWSER_NOTIF_OPT_OUT_KEY = 'PDash_browserNotifDisabled';
+
+function isBrowserNotifOptedOut() {
+  return localStorage.getItem(BROWSER_NOTIF_OPT_OUT_KEY) === '1';
+}
+
+function refreshBrowserNotifBanner() {
+  if (typeof Notification === 'undefined') return;
+  const banner = document.getElementById('nav-notif-browser-banner');
+  const label = document.getElementById('nav-notif-browser-label');
+  const btn = document.getElementById('nav-notif-browser-enable');
+  if (!banner || !label || !btn) return;
+
+  const state = getBrowserNotifBannerState(Notification.permission, isBrowserNotifOptedOut());
+  banner.style.display = state.visible ? '' : 'none';
+  if (!state.visible) return;
+
+  if (state.label === 'Enable') {
+    label.textContent = '🔔 Enable desktop notifications?';
+    btn.textContent = 'Enable';
+    btn.className = 'btn btn-primary btn-sm py-0 px-2';
+  } else {
+    label.textContent = '🔔 Desktop notifications on';
+    btn.textContent = 'Disable';
+    btn.className = 'btn btn-outline-secondary btn-sm py-0 px-2';
+  }
+}
+
+function wireBrowserNotifBanner() {
+  if (typeof Notification === 'undefined') return; // unsupported browser/context
+  refreshBrowserNotifBanner();
+  document.getElementById('nav-notif-browser-enable')?.addEventListener('click', async () => {
+    if (Notification.permission === 'granted') {
+      // Toggle the local opt-out — real browser permission, once granted,
+      // can only be revoked by the user via the browser's own site settings.
+      if (isBrowserNotifOptedOut()) localStorage.removeItem(BROWSER_NOTIF_OPT_OUT_KEY);
+      else localStorage.setItem(BROWSER_NOTIF_OPT_OUT_KEY, '1');
+    } else {
+      await Notification.requestPermission().catch(() => {});
+    }
+    refreshBrowserNotifBanner();
+  });
+}
+
+function maybeShowBrowserNotification(n) {
+  if (typeof Notification === 'undefined') return;
+  const isVisible = document.hasFocus() && !document.hidden;
+  if (!shouldShowBrowserNotification(Notification.permission, isVisible, isBrowserNotifOptedOut())) return;
+  const browserNotif = new Notification(n.title, { body: n.body || '' });
+  browserNotif.onclick = () => {
+    window.focus();
+    if (n.url) window.location.href = n.url;
+  };
 }
 
 function loadUnreadCount() {
@@ -38,7 +102,10 @@ function openSseStream() {
   es.addEventListener('message', e => {
     try {
       const msg = JSON.parse(e.data);
-      if (msg.event === 'notification') prependNotification(msg.data);
+      if (msg.event === 'notification') {
+        prependNotification(msg.data);
+        maybeShowBrowserNotification(msg.data);
+      }
     } catch (_) {}
   });
   es.onerror = () => { /* EventSource reconnects automatically */ };
@@ -49,7 +116,10 @@ function wireNotifPanel() {
   if (!wrapper) return;
 
   // Load notifications when panel opens
-  wrapper.addEventListener('show.bs.dropdown', () => renderNotifications());
+  wrapper.addEventListener('show.bs.dropdown', () => {
+    renderNotifications();
+    refreshBrowserNotifBanner();
+  });
 
   // Mark all read
   document.getElementById('nav-notif-read-all')?.addEventListener('click', async () => {
