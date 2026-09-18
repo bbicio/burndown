@@ -557,8 +557,8 @@ timesheets (
 | POST | /api/cost-grids/:id/versions/:vId/duplicate | owner/admin | Duplicate version |
 | GET/PUT | /api/cost-grids/:id/versions/:vId/structure | owner/admin | Get / save bulk structure |
 | GET/POST/DELETE | /api/cost-grids/:id/versions/:vId/linked-projects | owner/admin | Manage linked projects |
-| GET/POST/DELETE | /api/cost-grids/:id/shares | owner/admin | Manage sharing |
-| PATCH | /api/cost-grids/:id/reassign-owner | admin/sysadmin | Reassign the proposal's owner (2026-09); also grants the new owner `editor` on every linked project and emails them a notification — see its own note above |
+| GET/POST/DELETE | /api/cost-grids/:id/shares | owner/admin | Manage sharing; `POST` (grant) emails and in-app-notifies the recipient (2026-09: in-app notification added — was email-only before); `DELETE` (revoke) still sends neither, unlike the equivalent project-share revoke |
+| PATCH | /api/cost-grids/:id/reassign-owner | admin/sysadmin | Reassign the proposal's owner (2026-09); also grants the new owner `editor` on every linked project and both emails and in-app-notifies them (2026-09: in-app notification added — was email-only before) — see its own note above |
 
 ### Projects
 
@@ -571,7 +571,7 @@ timesheets (
 | PATCH | /api/projects/:id/ptc | owner/admin | Update PTC |
 | PATCH | /api/projects/:id/planning | owner/admin | Update monthly hour planning |
 | PATCH | /api/projects/:id/groups | owner/admin | Update functional role groups |
-| GET/POST/DELETE | /api/projects/:id/shares | owner/admin | Manage sharing |
+| GET/POST/DELETE | /api/projects/:id/shares | owner/admin | Manage sharing; both `POST` (grant) and `DELETE` (revoke) email + in-app-notify the affected user (2026-09: `DELETE` previously sent neither) |
 
 ### Timesheet + Reporting
 
@@ -592,9 +592,9 @@ timesheets (
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | /api/exports/portfolio | ✅ | CSV of all accessible projects → emailed as attachment |
-| POST | /api/exports/cost-grids | ✅ | Pivoted CSV of all accessible cost grids (one row per task, role-code columns) → emailed |
-| POST | /api/exports/ratecards | admin | Pivoted CSV of all ratecards (roles × clients) → emailed |
+| POST | /api/exports/portfolio | ✅ | CSV of all accessible projects → emailed as attachment + self-notified in-app (2026-09) |
+| POST | /api/exports/cost-grids | ✅ | Pivoted CSV of all accessible cost grids (one row per task, role-code columns) → emailed + self-notified in-app (2026-09) |
+| POST | /api/exports/ratecards | admin | Pivoted CSV of all ratecards (roles × clients) → emailed + self-notified in-app (2026-09) |
 | GET | /api/exports/phasing?year= | admin | Direct XLS download (not emailed) of the phasing breakdown for a pipeline year |
 
 ### Pipeline Years
