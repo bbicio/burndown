@@ -381,11 +381,11 @@ router.delete('/:id/shares/:userId', requireAuth, async (req, res, next) => {
       return res.status(400).json({ error: 'Cannot remove the owner' });
     }
 
-    const target = await query(
-      'SELECT email, first_name FROM users WHERE id = $1', [req.params.userId]
-    );
-    const proj = await query('SELECT name FROM projects WHERE id = $1', [req.params.id]);
-    const revoker = await query('SELECT first_name, last_name FROM users WHERE id = $1', [req.user.id]);
+    const [target, proj, revoker] = await Promise.all([
+      query('SELECT email, first_name FROM users WHERE id = $1', [req.params.userId]),
+      query('SELECT name FROM projects WHERE id = $1', [req.params.id]),
+      query('SELECT first_name, last_name FROM users WHERE id = $1', [req.user.id]),
+    ]);
 
     await query(
       `DELETE FROM resource_shares WHERE resource_type = 'project'
