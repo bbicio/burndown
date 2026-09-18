@@ -1,0 +1,186 @@
+﻿diff --git a/js/lib/notif-browser.js b/js/lib/notif-browser.js
+new file mode 100644
+index 0000000..c3b83c4
+--- /dev/null
++++ b/js/lib/notif-browser.js
+@@ -0,0 +1,12 @@
++export function shouldShowBrowserNotification(permission, isPageVisible, optedOut = false) {
++  return permission === 'granted' && !isPageVisible && !optedOut;
++}
++
++export function getBrowserNotifBannerState(permission, optedOut) {
++  if (permission === 'denied') return { visible: false, label: null };
++  if (permission === 'default') return { visible: true, label: 'Enable' };
++  return { visible: true, label: optedOut ? 'Enable' : 'Disable' };
++}
++
++window.shouldShowBrowserNotification = shouldShowBrowserNotification;
++window.getBrowserNotifBannerState = getBrowserNotifBannerState;
+diff --git a/js/lib/notif-browser.test.js b/js/lib/notif-browser.test.js
+new file mode 100644
+index 0000000..d6d039a
+--- /dev/null
++++ b/js/lib/notif-browser.test.js
+@@ -0,0 +1,48 @@
++import { describe, it, expect } from 'vitest';
++import { shouldShowBrowserNotification, getBrowserNotifBannerState } from './notif-browser.js';
++
++describe('shouldShowBrowserNotification', () => {
++  it('shows when permission is granted and the page is not visible', () => {
++    expect(shouldShowBrowserNotification('granted', false)).toBe(true);
++  });
++
++  it('does not show when the page is already visible, even with permission granted', () => {
++    expect(shouldShowBrowserNotification('granted', true)).toBe(false);
++  });
++
++  it('does not show when permission is denied, regardless of visibility', () => {
++    expect(shouldShowBrowserNotification('denied', false)).toBe(false);
++    expect(shouldShowBrowserNotification('denied', true)).toBe(false);
++  });
++
++  it('does not show when permission is still default (never asked)', () => {
++    expect(shouldShowBrowserNotification('default', false)).toBe(false);
++  });
++
++  it('does not show when the user has opted out locally, even with permission granted', () => {
++    expect(shouldShowBrowserNotification('granted', false, true)).toBe(false);
++  });
++
++  it('defaults optedOut to false when omitted', () => {
++    expect(shouldShowBrowserNotification('granted', false)).toBe(true);
++  });
++});
++
++describe('getBrowserNotifBannerState', () => {
++  it('offers to Enable when permission was never asked', () => {
++    expect(getBrowserNotifBannerState('default', false)).toEqual({ visible: true, label: 'Enable' });
++  });
++
++  it('offers to Disable when granted and not opted out', () => {
++    expect(getBrowserNotifBannerState('granted', false)).toEqual({ visible: true, label: 'Disable' });
++  });
++
++  it('offers to Enable again when granted but the user opted out locally', () => {
++    expect(getBrowserNotifBannerState('granted', true)).toEqual({ visible: true, label: 'Enable' });
++  });
++
++  it('hides entirely when the browser itself has denied permission — nothing this app can offer', () => {
++    expect(getBrowserNotifBannerState('denied', false)).toEqual({ visible: false, label: null });
++    expect(getBrowserNotifBannerState('denied', true)).toEqual({ visible: false, label: null });
++  });
++});
+diff --git a/js/nav.js b/js/nav.js
+index 0bbb2e2..9d7b692 100644
+--- a/js/nav.js
++++ b/js/nav.js
+@@ -82,6 +82,10 @@ async function initNav(activeTab, opts = {}) {
+                 <span class="fw-semibold" style="font-size:.875rem">Notifications</span>
+                 <button class="btn btn-link btn-sm p-0 text-muted" id="nav-notif-read-all" style="font-size:.78rem;text-decoration:none">Mark all read</button>
+               </div>
++              <div id="nav-notif-browser-banner" class="px-3 py-2 border-bottom d-flex align-items-center justify-content-between gap-2" style="display:none;font-size:.78rem;background:var(--indigo-50,#eef2ff)">
++                <span id="nav-notif-browser-label">🔔 Enable desktop notifications?</span>
++                <button class="btn btn-primary btn-sm py-0 px-2" id="nav-notif-browser-enable" style="font-size:.75rem">Enable</button>
++              </div>
+               <div id="nav-notif-list" style="overflow-y:auto;max-height:420px">
+                 <div class="text-center text-muted py-4" style="font-size:.875rem">No notifications yet</div>
+               </div>
+diff --git a/js/notifications.js b/js/notifications.js
+index 9541e5a..65f5ed3 100644
+--- a/js/notifications.js
++++ b/js/notifications.js
+@@ -14,6 +14,70 @@ function initNotifications(user) {
+   // requests to queue during page init. Defer until init API calls complete.
+   setTimeout(openSseStream, 2000);
+   wireNotifPanel();
++  wireBrowserNotifBanner();
++}
++
++// ── BROWSER (DESKTOP) NOTIFICATIONS ─────────────────────────────────────────
++// Best-effort echo of the existing SSE "push" channel — the site tries to
++// show a native OS notification alongside the in-app bell, it's never the
++// only delivery path. Browser *permission* is per-origin and can only be
++// granted/asked from here (never silently revoked by this app); once granted,
++// an additional local opt-out (localStorage) lets the user turn the popups
++// back off without touching the browser's own site settings.
++
++const BROWSER_NOTIF_OPT_OUT_KEY = 'PDash_browserNotifDisabled';
++
++function isBrowserNotifOptedOut() {
++  return localStorage.getItem(BROWSER_NOTIF_OPT_OUT_KEY) === '1';
++}
++
++function refreshBrowserNotifBanner() {
++  if (typeof Notification === 'undefined') return;
++  const banner = document.getElementById('nav-notif-browser-banner');
++  const label = document.getElementById('nav-notif-browser-label');
++  const btn = document.getElementById('nav-notif-browser-enable');
++  if (!banner || !label || !btn) return;
++
++  const state = getBrowserNotifBannerState(Notification.permission, isBrowserNotifOptedOut());
++  banner.style.display = state.visible ? '' : 'none';
++  if (!state.visible) return;
++
++  if (state.label === 'Enable') {
++    label.textContent = '🔔 Enable desktop notifications?';
++    btn.textContent = 'Enable';
++    btn.className = 'btn btn-primary btn-sm py-0 px-2';
++  } else {
++    label.textContent = '🔔 Desktop notifications on';
++    btn.textContent = 'Disable';
++    btn.className = 'btn btn-outline-secondary btn-sm py-0 px-2';
++  }
++}
++
++function wireBrowserNotifBanner() {
++  if (typeof Notification === 'undefined') return; // unsupported browser/context
++  refreshBrowserNotifBanner();
++  document.getElementById('nav-notif-browser-enable')?.addEventListener('click', async () => {
++    if (Notification.permission === 'granted') {
++      // Toggle the local opt-out — real browser permission, once granted,
++      // can only be revoked by the user via the browser's own site settings.
++      if (isBrowserNotifOptedOut()) localStorage.removeItem(BROWSER_NOTIF_OPT_OUT_KEY);
++      else localStorage.setItem(BROWSER_NOTIF_OPT_OUT_KEY, '1');
++    } else {
++      await Notification.requestPermission().catch(() => {});
++    }
++    refreshBrowserNotifBanner();
++  });
++}
++
++function maybeShowBrowserNotification(n) {
++  if (typeof Notification === 'undefined') return;
++  const isVisible = document.hasFocus() && !document.hidden;
++  if (!shouldShowBrowserNotification(Notification.permission, isVisible, isBrowserNotifOptedOut())) return;
++  const browserNotif = new Notification(n.title, { body: n.body || '' });
++  browserNotif.onclick = () => {
++    window.focus();
++    if (n.url) window.location.href = n.url;
++  };
+ }
+ 
+ function loadUnreadCount() {
+@@ -38,7 +102,10 @@ function openSseStream() {
+   es.addEventListener('message', e => {
+     try {
+       const msg = JSON.parse(e.data);
+-      if (msg.event === 'notification') prependNotification(msg.data);
++      if (msg.event === 'notification') {
++        prependNotification(msg.data);
++        maybeShowBrowserNotification(msg.data);
++      }
+     } catch (_) {}
+   });
+   es.onerror = () => { /* EventSource reconnects automatically */ };
+@@ -49,7 +116,10 @@ function wireNotifPanel() {
+   if (!wrapper) return;
+ 
+   // Load notifications when panel opens
+-  wrapper.addEventListener('show.bs.dropdown', () => renderNotifications());
++  wrapper.addEventListener('show.bs.dropdown', () => {
++    renderNotifications();
++    refreshBrowserNotifBanner();
++  });
+ 
+   // Mark all read
+   document.getElementById('nav-notif-read-all')?.addEventListener('click', async () => {

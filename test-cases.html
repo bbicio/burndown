@@ -1461,6 +1461,9 @@ const SECTIONS = [
      steps:'Deny the browser\'s permission prompt (or block this origin in the browser\'s own site settings), then open the panel',
      expected:'No row shown at all — this app has no way to override a browser-level block',
      auto:true},
+    {id:'NT-22',scenario:'Disable survives navigating to another page (2026-09)',
+     steps:'With permission granted, click "Disable", then navigate to a different PDash page (full page load, not the same tab\'s SPA state)',
+     expected:'Row still reads "Enable" on the new page — the opt-out is not silently wiped by js/core.js\'s legacy-localStorage cleanup, which runs on every page load'},
   ]
 },
 {

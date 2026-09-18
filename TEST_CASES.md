@@ -519,6 +519,7 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | NT-19 | Disable turns popups off locally, without touching browser settings | With permission granted, click "Disable", then trigger an SSE push notification while the tab isn't focused | No native popup fires (in-app panel/badge still updates normally); row now reads "Enable" again | ✓ (vitest, shouldShowBrowserNotification with optedOut) |
 | NT-20 | Re-enabling after a local disable doesn't re-prompt the browser | With popups locally disabled (NT-19) and permission already granted, click "Enable" | Popups resume immediately — no browser permission prompt appears again, since permission was never actually revoked | |
 | NT-21 | Row hidden entirely if the browser itself denies permission | Deny the browser's permission prompt (or block this origin in the browser's own site settings), then open the panel | No row shown at all — this app has no way to override a browser-level block | ✓ (vitest, getBrowserNotifBannerState) |
+| NT-22 | Disable survives navigating to another page (2026-09) | With permission granted, click "Disable", then navigate to a different PDash page (full page load, not the same tab's SPA state) | Row still reads "Enable" on the new page — the opt-out is not silently wiped by `js/core.js`'s legacy-localStorage cleanup, which runs on every page load | |
 
 ---
 

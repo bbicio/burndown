@@ -725,7 +725,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 ### Data strategy (in-memory cache)
 
-In-memory module-level variables are the UI cache; the API is the source of truth. **localStorage is not used for server data** — it holds only `PDash_settings` (AI keys) and `PDash_summary` (portfolio summary selection), both genuinely client-side.
+In-memory module-level variables are the UI cache; the API is the source of truth. **localStorage is not used for server data** — it holds only `PDash_settings` (AI keys), `PDash_summary` (portfolio summary selection), and `PDash_browserNotifDisabled` (2026-09, the browser-notification opt-out — see `js/notifications.js`'s entry), all genuinely client-side. `js/core.js`'s `cleanLegacyStorage()` IIFE wipes any other `PDash*` key on every page load (navigation here is full-page, not SPA, so this runs constantly) — **any new localStorage key must be added to its `keep` Set or it will be silently deleted on the very next navigation**, a real bug caught by code review in the browser-notification cycle (the opt-out flag was originally missing from this list, making "Disable" revert itself on the next page load).
 
 - **On page load**: call `cgSyncFromApi()` / `loadConfigFromApi()` / `refreshTimesheetDataFromApi()` to populate in-memory state from the API. Each page load starts fresh — no stale cross-session data.
 - **On user action**: update in-memory state immediately (instant UI), then fire an async API call in the background (fire-and-forget).
