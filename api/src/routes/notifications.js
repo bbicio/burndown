@@ -19,6 +19,20 @@ function pushToUser(userId, data) {
   }
 }
 
+// Insert one notification row and push it over SSE in one call — the shared
+// shape every "something happened to you" flow in this codebase follows
+// (share granted/revoked, ownership reassigned, export ready, ...).
+async function createNotification(userId, { type = 'info', title, body = null, url = null, urlLabel = null }) {
+  const { rows } = await query(
+    `INSERT INTO notifications (user_id, type, title, body, url, url_label)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, user_id, type, title, body, url, url_label, read_at, created_at`,
+    [userId, type, title, body, url, urlLabel]
+  );
+  pushToUser(userId, { event: 'notification', data: rows[0] });
+  return rows[0];
+}
+
 // ── GET /api/notifications/stream ─────────────────────────────────────────────
 
 router.get('/stream', requireAuth, (req, res) => {
@@ -153,4 +167,4 @@ router.post('/', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-module.exports = { router, pushToUser };
+module.exports = { router, pushToUser, createNotification };

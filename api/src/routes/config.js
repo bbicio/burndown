@@ -3,7 +3,7 @@ const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { isAdminRole } = require('../lib/is-admin');
 const { sendShareNotification } = require('../services/email');
-let _pushToUser; // lazy-loaded from notifications route to avoid circular deps
+let _createNotification; // lazy-loaded from notifications route to avoid circular deps
 
 const router = express.Router();
 
@@ -182,21 +182,14 @@ router.post('/programs/:id/share', requireAuth, async (req, res, next) => {
     });
 
     // Send in-app notification
-    const { rows: [notif] } = await query(
-      `INSERT INTO notifications (user_id, type, title, body, url, url_label)
-       VALUES ($1, 'share', $2, $3, $4, $5)
-       RETURNING id, user_id, type, title, body, url, url_label, read_at, created_at`,
-      [
-        userId,
-        `Program shared: ${prog.rows[0].name}`,
-        `${sharerName} shared the program "${prog.rows[0].name}" (${projects.rows.length} project${projects.rows.length === 1 ? '' : 's'}) with you.`,
-        `${appUrl}/portfolio.html`,
-        'Open Portfolio',
-      ]
-    );
-
-    if (!_pushToUser) _pushToUser = require('./notifications').pushToUser;
-    _pushToUser(userId, { event: 'notification', data: notif });
+    if (!_createNotification) _createNotification = require('./notifications').createNotification;
+    await _createNotification(userId, {
+      type: 'share',
+      title: `Program shared: ${prog.rows[0].name}`,
+      body: `${sharerName} shared the program "${prog.rows[0].name}" (${projects.rows.length} project${projects.rows.length === 1 ? '' : 's'}) with you.`,
+      url: `${appUrl}/portfolio.html`,
+      urlLabel: 'Open Portfolio',
+    });
 
     res.status(201).json({ ok: true, shared: projects.rows.length });
   } catch (err) { next(err); }

@@ -1,10 +1,10 @@
 const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
-const { sendShareNotification } = require('../services/email');
+const { sendShareNotification, sendShareRevokedEmail } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
 const { isAdminRole } = require('../lib/is-admin');
-let _pushToUser;
+let _createNotification;
 
 const router = express.Router();
 
@@ -354,21 +354,14 @@ router.post('/:id/shares', requireAuth, async (req, res, next) => {
       link: `${appUrl}/portfolio.html`,
     });
 
-    const { rows: [notif] } = await query(
-      `INSERT INTO notifications (user_id, type, title, body, url, url_label)
-       VALUES ($1, 'share', $2, $3, $4, $5)
-       RETURNING id, user_id, type, title, body, url, url_label, read_at, created_at`,
-      [
-        userId,
-        `Project shared: ${proj.rows[0].name}`,
-        `${sharerName} shared the project "${proj.rows[0].name}" with you.`,
-        `${appUrl}/portfolio.html`,
-        'Open Portfolio',
-      ]
-    );
-
-    if (!_pushToUser) _pushToUser = require('./notifications').pushToUser;
-    _pushToUser(userId, { event: 'notification', data: notif });
+    if (!_createNotification) _createNotification = require('./notifications').createNotification;
+    await _createNotification(userId, {
+      type: 'share',
+      title: `Project shared: ${proj.rows[0].name}`,
+      body: `${sharerName} shared the project "${proj.rows[0].name}" with you.`,
+      url: `${appUrl}/portfolio.html`,
+      urlLabel: 'Open Portfolio',
+    });
 
     res.status(201).json({ ok: true });
   } catch (err) { next(err); }
@@ -387,11 +380,39 @@ router.delete('/:id/shares/:userId', requireAuth, async (req, res, next) => {
     if (isOwner.rows.length > 0) {
       return res.status(400).json({ error: 'Cannot remove the owner' });
     }
+
+    const target = await query(
+      'SELECT email, first_name FROM users WHERE id = $1', [req.params.userId]
+    );
+    const proj = await query('SELECT name FROM projects WHERE id = $1', [req.params.id]);
+    const revoker = await query('SELECT first_name, last_name FROM users WHERE id = $1', [req.user.id]);
+
     await query(
       `DELETE FROM resource_shares WHERE resource_type = 'project'
        AND resource_id = $1 AND user_id = $2`,
       [req.params.id, req.params.userId]
     );
+
+    // Best-effort — the row is already gone either way, and a departed/anonymized
+    // target may no longer resolve to a real user row.
+    if (target.rows[0]) {
+      const revokerName = `${revoker.rows[0].first_name} ${revoker.rows[0].last_name}`;
+      sendShareRevokedEmail({
+        to: target.rows[0].email,
+        firstName: target.rows[0].first_name,
+        resourceType: 'project',
+        resourceName: proj.rows[0].name,
+        revokedBy: revokerName,
+      }).catch(e => console.warn('[share-revoke] email failed:', e.message));
+
+      if (!_createNotification) _createNotification = require('./notifications').createNotification;
+      _createNotification(req.params.userId, {
+        type: 'share',
+        title: `Access removed: ${proj.rows[0].name}`,
+        body: `${revokerName} removed your access to the project "${proj.rows[0].name}".`,
+      }).catch(e => console.warn('[share-revoke] notification failed:', e.message));
+    }
+
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
