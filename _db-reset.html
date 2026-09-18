@@ -125,8 +125,9 @@
 <script defer src="js/api.js?v=6"></script>
 <script defer src="js/core.js?v=4"></script>
 <script defer src="js/settings.js"></script>
-<script defer src="js/notifications.js"></script>
-<script defer src="js/nav.js?v=6"></script>
+<script type="module" src="js/lib/notif-browser.js?v=1"></script>
+<script defer src="js/notifications.js?v=1"></script>
+<script defer src="js/nav.js?v=7"></script>
 <script type="module">
   const SCOPES = [
     { scope: 'proposals', title: 'Proposals', description: 'Deletes all cost grids, versions, phases, tasks, task roles, and related sharing records.', buttonText: 'Delete all proposals', label: 'all proposals (cost grids, versions, phases, tasks)' },

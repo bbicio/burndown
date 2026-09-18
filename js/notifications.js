@@ -14,6 +14,34 @@ function initNotifications(user) {
   // requests to queue during page init. Defer until init API calls complete.
   setTimeout(openSseStream, 2000);
   wireNotifPanel();
+  wireBrowserNotifBanner();
+}
+
+// ── BROWSER (DESKTOP) NOTIFICATIONS ─────────────────────────────────────────
+// Best-effort echo of the existing SSE "push" channel — the site tries to
+// show a native OS notification alongside the in-app bell, it's never the
+// only delivery path. No server involvement: Notification permission is a
+// per-origin browser setting, remembered by the browser itself.
+
+function wireBrowserNotifBanner() {
+  if (typeof Notification === 'undefined') return; // unsupported browser/context
+  const banner = document.getElementById('nav-notif-browser-banner');
+  if (!banner) return;
+  if (Notification.permission === 'default') banner.style.display = '';
+  document.getElementById('nav-notif-browser-enable')?.addEventListener('click', async () => {
+    await Notification.requestPermission().catch(() => {});
+    banner.style.display = 'none';
+  });
+}
+
+function maybeShowBrowserNotification(n) {
+  if (typeof Notification === 'undefined') return;
+  if (!shouldShowBrowserNotification(Notification.permission, document.hasFocus() && !document.hidden)) return;
+  const browserNotif = new Notification(n.title, { body: n.body || '' });
+  browserNotif.onclick = () => {
+    window.focus();
+    if (n.url) window.location.href = n.url;
+  };
 }
 
 function loadUnreadCount() {
@@ -38,7 +66,10 @@ function openSseStream() {
   es.addEventListener('message', e => {
     try {
       const msg = JSON.parse(e.data);
-      if (msg.event === 'notification') prependNotification(msg.data);
+      if (msg.event === 'notification') {
+        prependNotification(msg.data);
+        maybeShowBrowserNotification(msg.data);
+      }
     } catch (_) {}
   });
   es.onerror = () => { /* EventSource reconnects automatically */ };

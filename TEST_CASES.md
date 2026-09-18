@@ -512,6 +512,10 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | NT-12 | Email channel | Send Notification → check Email (uncheck Push) → Send | Recipient receives email via `sendAdminNotificationEmail`; no push/SSE event fires | |
 | NT-13 | Both channels | Send Notification → check Push and Email → Send | Recipient receives both an in-app/SSE notification and an email | |
 | NT-14 | No channel selected | Uncheck both Push and Email → Send | Inline validation error; request not sent | |
+| NT-15 | Browser-notification banner shown when permission never asked (2026-09) | Open the notification panel in a browser where this origin's Notification permission is still "default" | "🔔 Enable desktop notifications?" banner shown above the notification list, with an "Enable" button | |
+| NT-16 | Browser-notification banner hidden once decided | Click "Enable" (grant or deny in the browser's own prompt), then reopen the panel on this or any other page | Banner no longer shown — the browser remembers the per-origin decision | |
+| NT-17 | Browser popup fires only when the tab isn't focused | With permission granted, have the PDash tab in the background (another tab or app focused), trigger an SSE push notification | A native OS/browser notification popup appears, titled with the notification's title; clicking it focuses the PDash tab and navigates to the notification's URL if present | |
+| NT-18 | No redundant popup while looking at the page | With permission granted, have the PDash tab focused and visible, trigger an SSE push notification | The notification still appears in the in-app panel/badge as usual; no browser popup fires (avoids double-alerting) | ✓ (vitest, shouldShowBrowserNotification) |
 
 ---
 

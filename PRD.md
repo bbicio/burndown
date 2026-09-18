@@ -582,6 +582,10 @@ Clicking a notification marks it as read and navigates to the linked URL if pres
 | Sent notification | Any user composes a message targeting a specific colleague; broadcast to all users is admin/sysadmin-only |
 | Share | When a cost grid or project is shared with you |
 
+### 10.5 Browser (Desktop) Notifications (2026-09)
+
+Alongside the in-app bell, the site tries to show a native OS/browser popup for the same real-time notifications — a best-effort echo, never the only delivery path. The first time the notification panel is opened with the browser's permission still unasked, a small banner ("🔔 Enable desktop notifications?") offers to request it; once granted or denied, the browser remembers the choice for this site and the banner doesn't reappear. When granted, a new notification arriving via the existing SSE stream shows a popup **only if the PDash tab isn't currently focused/visible** — avoiding a redundant popup when the user is already looking at the page. Clicking the popup focuses the tab and follows the notification's link, same as clicking it in the panel. No server-side change: this is a purely client-side echo of the "push" channel already described above.
+
 ---
 
 ## 11. AI Sidebar
