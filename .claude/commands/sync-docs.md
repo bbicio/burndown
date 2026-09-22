@@ -10,11 +10,16 @@ Review all recent code changes in this session (and git diff if needed) and upda
 - If a new API endpoint was added or its auth changed (requireAuth vs requireAdmin), update the API Reference table.
 - If a new DB migration was applied, add it to the migrations list.
 - If a new frontend behaviour was introduced (e.g. new modal, new state variable, new data flow), add or update the relevant section.
+- For a `.html` page's own Directory Structure entry: keep it short (architectural facts only — what it folds in, what it loads). Per-page narrative detail follows the same `docs/pages/<page-name>.md` routing rule as CLAUDE.md (see below) — do not let narrative accumulate back into this file's per-page entries either. If that page already has a `docs/pages/` file, its entry here should point to it rather than restate the detail.
 
 ### 2. CLAUDE.md
-- Update the file structure table (`js/`, `api/src/routes/`, etc.) if any file was added, removed, or its purpose changed.
-- Update the Pages table if a new page was added or its purpose changed.
+- Update the file structure table (`js/`, `api/src/routes/`, etc.) if any file was added, removed, or its purpose changed — except for the per-page `.html` entries covered by the routing rule below.
 - Update any architectural notes (routing, data strategy, settings modal, notifications, etc.) that are now outdated.
+
+**Routing rule — per-page implementation detail (mandatory, not a preference):** for any `.html` page listed in the Pages table, the narrative implementation detail — what changed, which methods/components were touched, first-attempt bugs found during the cycle, references to specs/plans/reports — MUST be written to `docs/pages/<page-name>.md` (e.g. `docs/pages/portfolio.md` for `portfolio.html`), never inline in `CLAUDE.md`. If `docs/pages/<page-name>.md` does not yet exist for a page you are updating, create it (use an existing one, e.g. `docs/pages/portfolio.md`, as the template for structure and tone) rather than falling back to writing the detail into `CLAUDE.md`.
+- In `CLAUDE.md`'s Pages table, touch **only** the "Purpose" column, and only if the page's actual purpose/scope changed (not for every implementation cycle) — do not append narrative there. If the table row does not yet link to a `docs/pages/` file and one now exists or was just created, add the link.
+- The old File Structure block (the big fenced code listing further down `CLAUDE.md`) is being phased out per-page as each page's narrative is split into `docs/pages/`: if a page's entry there still holds the full narrative, replace it with a one- or two-line pointer to `docs/pages/<page-name>.md`, the same way the `portfolio.html` entry already does — do not add new narrative there either.
+- This rule applies only to page-level (`.html`) narrative. Shared library files (`js/*.js`, `js/lib/*.js`, `api/src/**`), DB migrations, and cross-cutting conventions still belong in `CLAUDE.md`/`ARCHITECTURE.md` as before.
 
 ### 3. TEST_CASES.md
 - For every new feature or bug fix, add one or more test cases in the appropriate section.
