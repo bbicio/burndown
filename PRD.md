@@ -132,7 +132,7 @@ Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as 
 - Version label
 - Pipeline stage (SIP / Expected / Anticipated / Committed / Canceled)
 - Start date / End date
-- Currency (€, $, £, CHF)
+- Currency (€, $, £, CHF) — whenever a non-EUR currency is selected, the field shows the offer's own frozen "1 EUR = X" exchange rate underneath it (the rate this offer was last saved with, not a live lookup — see §7.7 for why)
 - Client and rate card selection (drives the effective rate for each role column)
 - Notes
 - Linked projects (multi-select from configured projects)
@@ -464,6 +464,8 @@ Actions: Add, edit, delete.
 Accessed via the "💱 Currencies" tab in **config.html**, alongside Roles, Clients, Client Groups, and Pipelines & POTs — previously undocumented in this PRD despite being a distinct admin tab.
 
 EUR is the fixed base currency (always 1:1, not editable, always active). Any other currency starts **inactive** — offered on offer/project currency dropdowns only once an admin activates it here. **"+ Activate currency"** picks an inactive currency and sets its exchange rate as "1 EUR = X"; once activated it appears in the active-currencies table alongside EUR, with its own symbol, name, rate, and last-updated date. An active currency's rate can be updated at any time directly in that table (a Save button per row); every update is timestamped. A **History** button (not available for EUR, whose rate never changes) opens a log of that currency's past rates over time.
+
+Clicking Save on a rate change opens a confirmation dialog showing the old and new rate before it takes effect, explaining explicitly that the update does **not** retroactively change any proposal or project already in the system — each offer's own exchange rate is fixed the moment the offer is created (or last saved with that currency selected), and only applies going forward to new offers (an existing offer's rate can only change if it is re-saved with that currency selected again, which recomputes it from the then-current admin rate — there is no separate, user-facing "refresh rate" action). This mirrors, in the offer editor itself, the rate display described in §4.9 below.
 
 This exchange rate is the same one used throughout the app wherever a non-EUR figure needs a EUR-equivalent — the pipeline board's mixed-currency column totals (§4.2), the rate card's per-currency columns (§7.2), and any other cross-currency aggregation all read this same admin-managed rate, not a separately configured one.
 

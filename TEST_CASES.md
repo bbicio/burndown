@@ -177,6 +177,8 @@
 | CG-66 | Add to project dropdown resets between uses | Complete an "Add to project" flow (CG-65); open "Add to project" again on a different task selection | The project dropdown does not retain the previously-selected project; starts unselected | |
 | CG-67 | Non-admin can establish a program from Generate Project | As a non-admin (plain `user` role) with editor access to a proposal, complete CG-58's Create Program step | The program is created successfully (no 403), even though `POST /api/programs` requires only `requireAuth`, not admin | |
 | CG-68 | Sync-failure warning shown if project generation doesn't persist server-side | Complete Generate Project while the project's core API upsert fails (e.g. network interruption) | A "⚠️ Sync failed" info dialog appears instead of the normal success/navigate confirm; the selection toolbar has already exited | |
+| CG-69 | Exchange-rate display next to Currency field (2026-09) | Open a proposal in the editor; set Currency to a non-EUR currency (e.g. USD) | "1 EUR = X.XXXXXX" appears in small text under the Currency field, formatted to 6 decimals, using the offer's own frozen rate — not shown at all when Currency is EUR | |
+| CG-70 | Exchange-rate display updates live on currency change | Continuing from CG-69, switch Currency from EUR to a non-EUR currency inside the editor (no page reload) | The rate line appears immediately with the currency's current admin-set rate — not stale/`1.000000` until a reload | |
 
 ---
 
@@ -298,6 +300,10 @@
 |---|---|---|---|---|
 | CN-01 | Tab order (2026-09) | Open config.html | Tabs appear left to right: Currencies, Roles, Clients, Client Groups, Pipelines & POTs | |
 | CN-02 | Programs tab hidden from nav (2026-09) | Open config.html, inspect the tab bar | No "Programs" tab button — Currencies through Pipelines & POTs only; the underlying panel/data/API remain functional but have no UI entry point | |
+| CN-03 | Rate-update confirmation modal appears (2026-09) | On the Currencies tab, change an active currency's rate value and click Save | A confirmation modal opens ("Update exchange rate?") showing the old and new rate and explaining the change does not retroactively affect existing proposals/projects — the rate is not yet saved | |
+| CN-04 | Rate-update confirmation — Cancel does not save | Trigger CN-03's modal, then click Cancel | Modal closes; the currency's rate in the table is unchanged | |
+| CN-05 | Rate-update confirmation — Confirm saves | Trigger CN-03's modal, then click Confirm | Modal closes; the currency's rate and Last Updated date update in the table | |
+| CN-06 | Rate-update confirmation ignores a fast repeat click | Trigger CN-03's modal, then click Confirm twice in quick succession before the first request resolves | Only one rate-update request reaches the API; the button shows a spinner and is disabled for the duration of the save | |
 
 ---
 

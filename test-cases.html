@@ -655,6 +655,12 @@ const SECTIONS = [
     {id:'CG-68',scenario:'Sync-failure warning shown if project generation doesn\'t persist server-side',
      steps:'Complete Generate Project while the project\'s core API upsert fails (e.g. network interruption)',
      expected:'A "⚠️ Sync failed" info dialog appears instead of the normal success/navigate confirm; the selection toolbar has already exited'},
+    {id:'CG-69',scenario:'Exchange-rate display next to Currency field (2026-09)',
+     steps:'Open a proposal in the editor; set Currency to a non-EUR currency (e.g. USD)',
+     expected:'"1 EUR = X.XXXXXX" appears in small text under the Currency field, formatted to 6 decimals, using the offer\'s own frozen rate — not shown at all when Currency is EUR'},
+    {id:'CG-70',scenario:'Exchange-rate display updates live on currency change',
+     steps:'Continuing from CG-69, switch Currency from EUR to a non-EUR currency inside the editor (no page reload)',
+     expected:'The rate line appears immediately with the currency\'s current admin-set rate — not stale/1.000000 until a reload'},
   ]
 },
 {
@@ -939,6 +945,18 @@ const SECTIONS = [
     {id:'CN-02',scenario:'Programs tab hidden from nav (2026-09)',
      steps:'Open config.html, inspect the tab bar',
      expected:'No "Programs" tab button — Currencies through Pipelines & POTs only; the underlying panel/data/API remain functional but have no UI entry point'},
+    {id:'CN-03',scenario:'Rate-update confirmation modal appears (2026-09)',
+     steps:'On the Currencies tab, change an active currency\'s rate value and click Save',
+     expected:'A confirmation modal opens ("Update exchange rate?") showing the old and new rate and explaining the change does not retroactively affect existing proposals/projects — the rate is not yet saved'},
+    {id:'CN-04',scenario:'Rate-update confirmation — Cancel does not save',
+     steps:"Trigger CN-03's modal, then click Cancel",
+     expected:"Modal closes; the currency's rate in the table is unchanged"},
+    {id:'CN-05',scenario:'Rate-update confirmation — Confirm saves',
+     steps:"Trigger CN-03's modal, then click Confirm",
+     expected:"Modal closes; the currency's rate and Last Updated date update in the table"},
+    {id:'CN-06',scenario:'Rate-update confirmation ignores a fast repeat click',
+     steps:"Trigger CN-03's modal, then click Confirm twice in quick succession before the first request resolves",
+     expected:'Only one rate-update request reaches the API; the button shows a spinner and is disabled for the duration of the save'},
   ]
 },
 {
