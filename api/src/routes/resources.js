@@ -50,10 +50,22 @@ router.patch('/:id', async (req, res, next) => {
     const fields = [];
     const values = [];
     let i = 1;
-    if (firstName !== undefined)      { fields.push(`first_name = $${i++}`);      values.push(firstName.trim()); }
-    if (lastName !== undefined)       { fields.push(`last_name = $${i++}`);       values.push(lastName.trim()); }
-    if (email !== undefined)          { fields.push(`email = $${i++}`);           values.push(email.trim()); }
-    if (jobTitle !== undefined)       { fields.push(`job_title = $${i++}`);       values.push(jobTitle.trim()); }
+    if (firstName !== undefined) {
+      if (!firstName?.trim()) return res.status(400).json({ error: 'firstName cannot be empty' });
+      fields.push(`first_name = $${i++}`); values.push(firstName.trim());
+    }
+    if (lastName !== undefined) {
+      if (!lastName?.trim()) return res.status(400).json({ error: 'lastName cannot be empty' });
+      fields.push(`last_name = $${i++}`); values.push(lastName.trim());
+    }
+    if (email !== undefined) {
+      if (!email?.trim()) return res.status(400).json({ error: 'email cannot be empty' });
+      fields.push(`email = $${i++}`); values.push(email.trim());
+    }
+    if (jobTitle !== undefined) {
+      if (!jobTitle?.trim()) return res.status(400).json({ error: 'jobTitle cannot be empty' });
+      fields.push(`job_title = $${i++}`); values.push(jobTitle.trim());
+    }
     if (jobDescription !== undefined) { fields.push(`job_description = $${i++}`); values.push(jobDescription?.trim() || null); }
     if (userId !== undefined)         { fields.push(`user_id = $${i++}`);         values.push(userId || null); }
     if (status !== undefined) {
