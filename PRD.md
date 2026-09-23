@@ -805,6 +805,7 @@ No account starts as sysadmin; the first one is set up outside the product (dire
 | Share cost grid / project | ✅ | ✅ | own only |
 | Upload timesheet | ✅ | ✅ | own projects only |
 | Broadcast notification | ✅ | ✅ | ❌ |
+| Manage Team / Attribute Lists (§16.7/§16.8, 2026-09) | ✅ | ✅ | ❌ |
 
 ### 16.3 Role & Status Actions
 
@@ -839,6 +840,22 @@ Sysadmin-exclusive hidden page (was admin-only before 2026-09) for bulk/targeted
 **Delete a single proposal** — deletes one cost grid (and everything under it) by ID, independent of the scoped resets above.
 
 **Reassign a proposal's owner** — moves ownership of one proposal to a different active user (see §18.1 for the fuller reassignment behavior, including the equivalent, broader route available directly from the cost grid editor).
+
+### 16.7 Team (Resource Registry, 2026-09)
+
+Own page (`team.html`), admin or sysadmin, reachable from the "⚙ Admin" navbar dropdown. A standalone directory of people who can be allocated to work — first name, last name, email, job title, and a free-text job description — kept separate from PDash user accounts (a resource does not need a login to exist here) but with an optional link to one, when the person also happens to be a PDash user.
+
+Job title is chosen from the same list of roles used elsewhere in the app (§7.6), so a resource's title stays consistent with the titles sold in cost grids; an "Other…" option allows a free-text title for anyone whose real title isn't in that list. Resources can be deactivated (hidden from the default list, kept for history) and reactivated, or deleted outright.
+
+This is the first of four planned cycles toward AI-assisted resource allocation — nothing on this page is consumed by planning or the pipeline yet.
+
+### 16.8 Attribute Lists (Tag Taxonomy, 2026-09)
+
+Own page (`attribute-lists.html`), admin or sysadmin, reachable from the same "⚙ Admin" dropdown as Team. A generic, admin-managed system of named lists and their items — seeded on first deploy with four lists (Market, Brand, Therapeutic Area, Service Type), each empty until an admin populates it. An admin can create additional lists at any time directly from the UI, with no further development needed.
+
+Each list's items can be renamed and toggled active/inactive, but never deleted outright — once a tag exists, it can be retired but not erased, so a future feature that has already applied it to a proposal or project can't have that reference silently vanish. A list's own display name can be renamed too; its underlying identifier is fixed at creation and never changes, even across a rename.
+
+Nothing on this page tags a proposal or project yet — that connection, and the AI-assisted resource suggestion this taxonomy is ultimately meant to feed, are later cycles of the same initiative as §16.7.
 
 ---
 

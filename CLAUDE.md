@@ -117,6 +117,8 @@ Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page i
 | `reset-password.html` | `/reset-password.html?token=` | Public — password reset |
 | `_db-reset.html` | `/_db-reset.html` | **Sysadmin-exclusive** hidden page for bulk DB data deletion by scope, Vue 3 (CDN, no build step, same pattern as `admin.html`), linked from the sysadmin-only navbar menu (`initNav('dbreset', ...)`); also has "Delete single proposal" widget (UUID input, cascade delete) and "Change proposal owner" widget (UUID + active-user dropdown). Full narrative: [docs/pages/db-reset.md](docs/pages/db-reset.md) |
 | `_terms-editor.html` | `/_terms-editor.html` | **Sysadmin-exclusive** hidden page — Terms & Conditions editor, Vue 3 (CDN, no build step, same pattern as `_db-reset.html`), linked from the sysadmin-only navbar menu (`initNav('termseditor', ...)`); moved here from `admin.html`'s former T&C card, which is now removed. Full narrative: [docs/pages/terms-editor.md](docs/pages/terms-editor.md) |
+| `team.html` | `/team.html` | Resource registry CRUD (name/email/job title/job description, optional link to a PDash user), admin **or sysadmin**, linked from the ⚙ Admin dropdown. First of four planned resource-allocation cycles. |
+| `attribute-lists.html` | `/attribute-lists.html` | Generic, agnostic tag/taxonomy admin console — create lists and their items (Market/Brand/Therapeutic Area/Service Type seeded, more addable without code changes), admin **or sysadmin**, linked from the ⚙ Admin dropdown. Not yet consumed by any other page (tagging proposals/projects is a later cycle). |
 
 ### File structure
 
@@ -133,6 +135,9 @@ admin.html               — User management (invite, role, disable, anonymize; 
 _terms-editor.html       — Sysadmin-exclusive Terms & Conditions console, Vue 3 (CDN, no build step, same pattern as `_db-reset.html`). Full narrative: [docs/pages/terms-editor.md](docs/pages/terms-editor.md).
 _db-reset.html           — Sysadmin-exclusive hidden page for bulk DB data deletion by scope, Vue 3 (CDN, no build step, same pattern as `admin.html`). Full narrative: [docs/pages/db-reset.md](docs/pages/db-reset.md).
 terms.html               — Standalone T&C acceptance page (no navbar/initNav), Vue 3 (CDN, no build step, same pattern as login.html). Full narrative: [docs/pages/terms.md](docs/pages/terms.md).
+team.html                — Resource registry CRUD, Vue 3 (CDN, no build step, same pattern as admin.html), admin **or sysadmin**, linked from the ⚙ Admin dropdown. First of four planned resource-allocation cycles (see `docs/superpowers/specs/2026-09-23-team-attribute-lists-design.md`); no `docs/pages/` file yet — narrative is still single-cycle.
+attribute-lists.html     — Generic tag/taxonomy admin console (lists + items, no physical delete, only active/inactive), Vue 3 (CDN, no build step, same pattern as admin.html), admin **or sysadmin**, linked from the ⚙ Admin dropdown. Same cycle/spec as team.html; not yet consumed by any other page.
+css/admin-crud.css       — shared layout (page-header/card/table/badge-st-active/btn-primary/form-*/empty/alert-sm) for simple admin CRUD pages, extracted 2026-09 from duplicated inline `<style>` blocks in admin.html/team.html/attribute-lists.html; a page's own extra states (e.g. admin.html's role badges, pending/disabled status) stay inline
 css/tokens.css           — design tokens (single source of truth for colors/type); also carries `[v-cloak] { display: none; }` (2026-07) — kept here rather than in style.css since 4 of the 13 Vue pages (`login.html`/`terms.html`/`activate.html`/`reset-password.html`) load only tokens.css, not style.css, and moving the rule would silently disable it there; a deliberate, accepted deviation from the tokens/style split below
 css/style.css            — component styles referencing tokens; `.pb-board-root` (2026-07) — extracted from `pipeline.html`'s former inline `style` attribute specifically so the `[v-cloak]` rule above can win via normal CSS cascade without needing `!important`
 js/api.js                — Api.* namespace, apiFetch wrapper (401 → redirect to login, sets `window.__pdashAuthRedirecting`); on `!res.ok` attaches the parsed response body to the thrown Error as `err.data` (2026-09) so callers can act on structured error payloads (e.g. timesheet upload's `inconsistencies`, see `docs/api/timesheets.md`).
@@ -159,7 +164,19 @@ js/ratecards.js          — rate cards admin modal + loadRatecardsForDropdown()
                             `_rcSaveEntries` collects `.rc-override-rate` inputs and sends `rateOverrides` per role
 api/src/routes/          — Express routes (auth, users, config, cost-grids, projects, timesheets,
                             reporting, exports, notifications, pipeline-years, client-groups, pots, reset,
-                            app-settings, currencies)
+                            app-settings, currencies, attribute-lists, resources)
+api/src/routes/attribute-lists.js — generic tag/taxonomy CRUD (backs `attribute-lists.html`), all routes
+                            `requireAuth, requireAdmin`: `GET/POST /` (lists, with active-item counts),
+                            `PATCH /:id` (rename only — `slug` is immutable, generated once via `slugify()`
+                            at creation and never touched again), `GET/POST /:id/items`, `PATCH
+                            /:id/items/:itemId` (label and/or `active`/`inactive` status). No `DELETE`
+                            anywhere in this file — by design, so a tag already applied elsewhere can never
+                            be removed out from under it in a future cycle.
+api/src/routes/resources.js — resource registry CRUD (backs `team.html`), all routes `requireAuth,
+                            requireAdmin`: `GET/POST /`, `PATCH/DELETE /:id`. Unlike attribute-lists.js,
+                            supports a genuine hard `DELETE` since nothing yet references a resource row.
+                            `job_title` is free text, not an FK to `roles` — validated non-empty on both
+                            POST and PATCH, matching every other required field.
 api/src/routes/currencies.js — currencies admin surface (backs `config.html`'s Currencies tab): `GET /active`
                             (requireAuth, active currencies for dropdowns/money formatting), `GET /` (admin, all
                             currencies + last rate-update timestamp from `currency_rates`), `POST /:code/activate`
@@ -169,7 +186,7 @@ api/src/routes/currencies.js — currencies admin surface (backs `config.html`'s
                             chronological rate-change log, last 100 entries). Every rate change (activate or
                             update) both updates `currencies.current_rate` and inserts a `currency_rates` row.
 api/src/routes/config.js — clients / client groups / programs / roles / ratecards CRUD (backs `config.html`). Full narrative: [docs/api/config.md](docs/api/config.md).
-api/src/lib/              — pure functions extracted for unit testing (node:test, run via `npm test`/`node --test` from `api/`), mirroring the frontend's `js/lib/` convention; modules: date-parse.js, sold-hours.js, email-template.js, rate-resolve.js, is-admin.js, role-transition.js. Full narrative: [docs/api/lib.md](docs/api/lib.md).
+api/src/lib/              — pure functions extracted for unit testing (node:test, run via `npm test`/`node --test` from `api/`), mirroring the frontend's `js/lib/` convention; modules: date-parse.js, sold-hours.js, email-template.js, rate-resolve.js, is-admin.js, role-transition.js, slugify.js. Full narrative: [docs/api/lib.md](docs/api/lib.md).
 api/src/routes/exports.js        — POST /api/exports/{portfolio|cost-grids|ratecards}. Each, after emailing the
                                     CSV to the requester, also creates a self-targeted in-app notification via
                                     `createNotification()` (2026-09) — "Your export is ready", fire-and-forget
@@ -206,7 +223,7 @@ scripts/backup-db.sh     — pg_dump -Fc snapshot of the main stack's pdash-db i
 
 ### `v-cloak` (all Vue pages, 2026-07)
 
-Every one of the 13 Vue-mounted pages (all pages except the 9-line `index.html` redirect) has `v-cloak` on its actual Vue root mount element, paired with the `[v-cloak] { display: none; }` rule in `css/tokens.css`. This hides the raw, uncompiled template markup that would otherwise briefly flash on load/reload before Vue finishes mounting (each page is a runtime-compiled `Vue.createApp({...}).mount(...)` with no build step, so the template is the literal HTML already in the file). Vue removes the `v-cloak` attribute automatically once mounting completes — no application code manages it. **Any new Vue page must add `v-cloak` to its root mount element** to get this protection; it is not automatic. If a root element ever needs an inline `display` style (as `pipeline.html`'s did — extracted into `.pb-board-root` in `css/style.css` for exactly this reason), prefer a CSS class over an inline `style` attribute, since an inline style would otherwise need `!important` on the `[v-cloak]` rule to be overridden (a global, blunt fix for what is really a single-page conflict).
+Every one of the 15 Vue-mounted pages (all pages except the 9-line `index.html` redirect) has `v-cloak` on its actual Vue root mount element, paired with the `[v-cloak] { display: none; }` rule in `css/tokens.css`. This hides the raw, uncompiled template markup that would otherwise briefly flash on load/reload before Vue finishes mounting (each page is a runtime-compiled `Vue.createApp({...}).mount(...)` with no build step, so the template is the literal HTML already in the file). Vue removes the `v-cloak` attribute automatically once mounting completes — no application code manages it. **Any new Vue page must add `v-cloak` to its root mount element** to get this protection; it is not automatic. If a root element ever needs an inline `display` style (as `pipeline.html`'s did — extracted into `.pb-board-root` in `css/style.css` for exactly this reason), prefer a CSS class over an inline `style` attribute, since an inline style would otherwise need `!important` on the `[v-cloak]` rule to be overridden (a global, blunt fix for what is really a single-page conflict).
 
 ### Routing
 
@@ -449,6 +466,7 @@ Brand: `--brand-navy: #0B1840`, `--brand-magenta: #F0287A`.
 | `017_task_names_direct.sql` | `task_names_direct JSONB NOT NULL DEFAULT '[]'::jsonb` added to `cg_version_projects`; backfills from `project_tasks` name matching |
 | `018_sysadmin_role.sql` | Widens `users.role`'s CHECK constraint from `('admin','user')` to `('admin','user','sysadmin')`; no backfill — no existing row changes value, promotion is manual (`promote-sysadmin.js` or `admin.html`'s toggle) |
 | `019_terms_versions.sql` | New `terms_versions` table (`id`, `version` INTEGER UNIQUE, `content`, `published_at`, `published_by`) — immutable, append-only, application code never UPDATEs/DELETEs it. Backfills one row from the then-current `app_settings.terms_content`/`terms_version` (the only text still recoverable — every earlier version had already been overwritten by the old single-row storage); the version subquery is `COALESCE(...,1)`-wrapped so a DB with `terms_content` but no `terms_version` key doesn't fail the migration |
+| `020_resources_attribute_lists.sql` | New `resources` table (first/last name, email, `job_title` free text, `job_description`, optional `user_id` FK, `active`/`inactive` status) and a generic tag-taxonomy pair, `attribute_lists` (`name`, immutable `slug`) + `attribute_list_items` (`label`, `active`/`inactive` status, no physical delete) — seeds 4 empty lists (Market, Brand, Therapeutic Area, Service Type). First of four planned resource-allocation cycles; see `docs/superpowers/specs/2026-09-23-team-attribute-lists-design.md` |
 
 Run migrations with:
 ```powershell

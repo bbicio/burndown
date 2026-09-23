@@ -65,6 +65,7 @@ Backend authorization has two middleware tiers (`api/src/middleware/auth.js`): `
 | Share cost grid / project | ✅ | ✅ | own only |
 | Upload timesheet | ✅ | ✅ | own projects only |
 | Broadcast notification | ✅ | ✅ | ❌ |
+| Manage resource registry / attribute lists (`team.html`/`attribute-lists.html`, 2026-09) | ✅ | ✅ | ❌ |
 
 "Modify a sysadmin" mutations (`PATCH /api/users/:id`, `POST /:id/anonymize`, `DELETE /:id`) are guarded by `sysAdminTargetError()` (`api/src/routes/users.js`), checked against the actor's *live* DB role (not the JWT-cached one `requireAdmin` reads elsewhere) — closing the same stale-token window `requireSysAdmin` closes for the DB-wipe routes, applied here because these routes can also grant/revoke sysadmin itself.
 
@@ -267,6 +268,39 @@ currency_rates (                      -- migration 012: append-only rate-change 
   rate          DECIMAL(10,6) NOT NULL,
   created_at    TIMESTAMP     NOT NULL DEFAULT NOW(),
   created_by    UUID          REFERENCES users(id)
+)
+
+resources (                           -- migration 020: standalone resource registry, first of four
+                                       -- planned resource-allocation cycles (see docs/superpowers/
+                                       -- specs/2026-09-23-team-attribute-lists-design.md)
+  id              UUID PRIMARY KEY,
+  first_name      VARCHAR NOT NULL,
+  last_name       VARCHAR NOT NULL,
+  email           VARCHAR NOT NULL,
+  job_title       VARCHAR NOT NULL,   -- free text, not an FK to roles
+  job_description TEXT,
+  user_id         UUID REFERENCES users(id) ON DELETE SET NULL,  -- optional link to a PDash account
+  status          VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)
+
+attribute_lists (                     -- migration 020: generic, agnostic tag/taxonomy system —
+                                       -- seeded with 4 empty lists (Market, Brand, Therapeutic Area,
+                                       -- Service Type); admin can create more via attribute-lists.html
+  id          UUID PRIMARY KEY,
+  name        VARCHAR NOT NULL,       -- rename-able display name
+  slug        VARCHAR(100) NOT NULL UNIQUE,  -- generated once at creation, immutable thereafter
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)
+
+attribute_list_items (                -- migration 020: no physical DELETE anywhere in the API —
+                                       -- only active/inactive, so a tag applied elsewhere can never
+                                       -- vanish out from under it in a future cycle
+  id          UUID PRIMARY KEY,
+  list_id     UUID NOT NULL REFERENCES attribute_lists(id) ON DELETE CASCADE,
+  label       VARCHAR NOT NULL,
+  status      VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 )
 ```
 
@@ -527,6 +561,19 @@ timesheets (
 | PATCH | /api/ratecards/:id/entries | admin | Bulk update entries |
 | DELETE | /api/ratecards/:id | admin | Delete |
 
+### Resources & Attribute Lists (2026-09)
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET/POST | /api/resources | admin | List / create resource registry entries |
+| PATCH/DELETE | /api/resources/:id | admin | Update (validates non-empty on any of `firstName`/`lastName`/`email`/`jobTitle` present in the body, matching POST) / hard delete |
+| GET/POST | /api/attribute-lists | admin | List (with active-item counts) / create a taxonomy list — `slug` is generated once via `slugify()` and rejected with 400 if it would exceed 100 characters |
+| PATCH | /api/attribute-lists/:id | admin | Rename only — `slug` is never touched |
+| GET/POST | /api/attribute-lists/:id/items | admin | List / create items within a list |
+| PATCH | /api/attribute-lists/:id/items/:itemId | admin | Update `label` and/or `active`/`inactive` `status` |
+
+No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`attribute_list_items` in §5.2 for why.
+
 **Ratecard integration in the cost grid editor**
 
 - Client-specific rates are set via the **💲 Costgrid** button on each client row in `config.html` → Clients tab. The modal lists all roles; custom rates override the agency default for that client.
@@ -763,7 +810,7 @@ volumes:
 burndown/
   api/                    ← Node.js + Express backend
     src/
-      routes/             ← auth, users, config, cost-grids, projects, timesheets, reporting, exports, notifications, reset
+      routes/             ← auth, users, config, cost-grids, projects, timesheets, reporting, exports, notifications, reset, attribute-lists, resources
       lib/                ← pure functions extracted for unit testing (node:test), mirroring the frontend's js/lib/
                             convention. Full narrative: docs/api/lib.md
       middleware/         ← auth guard (requireAuth, requireAdmin, requireSysAdmin — see §3.1)
@@ -778,6 +825,9 @@ burndown/
                             (2026-07, repo-wide FOUC fix) — see CLAUDE.md's "v-cloak" section for the full rationale
     style.css             ← includes `.pb-board-root` (2026-07) — extracted from pipeline.html's former inline
                             style so the `[v-cloak]` rule above could win via cascade without `!important`
+    admin-crud.css        ← shared layout for simple admin CRUD pages (page-header/card/table/badges/
+                            btn-primary/form-*/empty/alert-sm), extracted 2026-09 from duplicated inline
+                            `<style>` blocks in admin.html/team.html/attribute-lists.html
   js/
     api.js                ← Api.* namespace, apiFetch wrapper
     api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData). Full narrative: docs/js/api-sync.md
@@ -816,6 +866,8 @@ burndown/
   login.html / activate.html / reset-password.html
   _db-reset.html          ← sysadmin-exclusive (2026-09, was admin-only) hidden page for bulk DB data deletion by scope, Vue 3 (CDN, no build step, same pattern as admin.html), linked from the sysadmin-only navbar menu (initNav('dbreset', ...))
   _terms-editor.html      ← sysadmin-exclusive hidden page — Terms & Conditions editor, moved out of admin.html; linked from the sysadmin-only navbar menu (initNav('termseditor', ...)) — see §5's App Settings section. Full narrative: docs/pages/terms-editor.md
+  team.html               ← resource registry CRUD, Vue 3 (CDN, no build step, same pattern as admin.html), admin or sysadmin, linked from the ⚙ Admin dropdown (2026-09). First of four planned resource-allocation cycles — see docs/superpowers/specs/2026-09-23-team-attribute-lists-design.md
+  attribute-lists.html    ← generic, agnostic tag/taxonomy admin console (lists + items, no physical delete), Vue 3 (CDN, no build step, same pattern as admin.html), admin or sysadmin, linked from the ⚙ Admin dropdown (2026-09). Same cycle as team.html; not yet consumed by any other page
   nginx.conf              ← denies dev-only toolchain artifacts (node_modules/, package.json, package-lock.json,
                             vitest.config.js, *.test.js, *.spec.js) even though it bind-mounts the repo root
   docker-compose.yml
@@ -876,6 +928,7 @@ Current migrations:
 - `017_task_names_direct.sql` — adds `task_names_direct JSONB NOT NULL DEFAULT '[]'::jsonb` to `cg_version_projects`; backfills from `project_tasks` name matching
 - `018_sysadmin_role.sql` — widens `users.role`'s CHECK constraint to add `sysadmin` as a third value; no backfill
 - `019_terms_versions.sql` — new immutable, append-only `terms_versions` table; backfills one row from the then-current `app_settings.terms_content`/`terms_version` (the only text still recoverable)
+- `020_resources_attribute_lists.sql` — creates `resources`, `attribute_lists`, `attribute_list_items` (see §5.2); seeds 4 empty `attribute_lists` rows (Market, Brand, Therapeutic Area, Service Type)
 
 ---
 

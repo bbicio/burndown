@@ -641,6 +641,34 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 
 ---
 
+## 18. Team + Attribute Lists (2026-09)
+
+First of four planned resource-allocation cycles (see `docs/superpowers/specs/2026-09-23-team-attribute-lists-design.md`). Two new admin-or-sysadmin pages, linked from the "⚙ Admin" navbar dropdown: `team.html` (standalone resource registry, separate from `users`) and `attribute-lists.html` (a generic, agnostic tag/taxonomy system — new lists can be created from the UI without any code change).
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| TM-01 | Page access — non-admin | Navigate to `/team.html` or `/attribute-lists.html` as role=user | "Admin access required" screen; "⚙ Admin" trigger (and both pages' links) absent from the navbar entirely | |
+| TM-02 | GET /api/resources — non-admin rejected | `GET /api/resources` as role=user | 403 | ✓ |
+| TM-03 | GET /api/attribute-lists — non-admin rejected | `GET /api/attribute-lists` as role=user | 403 | ✓ |
+| TM-04 | Create resource — dropdown job title | Open `/team.html` → + New resource → fill name/email → pick an existing role from the Job title dropdown → Create | Resource created with that role's `label` as `job_title`; row appears in the table | ✓ |
+| TM-05 | Create resource — custom job title | + New resource → select "Other…" in Job title → type a custom value → Create | Resource created with the typed free-text value as `job_title` (not tied to any `roles` row) | |
+| TM-06 | Create resource — job title required | + New resource → fill name/email, leave Job title on its placeholder → Create | "Job title is required" error shown; nothing created (the dropdown visibly shows the placeholder, not a role that looks pre-selected) | |
+| TM-07 | Edit resource — job title reverse-maps correctly | Edit a resource whose `job_title` matches an existing role's label, then one whose `job_title` doesn't | First: dropdown pre-selects that role. Second: dropdown shows "Other…" with the free-text input pre-filled | |
+| TM-08 | Deactivate / reactivate resource | Click Deactivate on an active resource, then toggle "Show inactive" | Resource disappears from the default view; reappears (status: inactive) once "Show inactive" is checked; Activate button restores it | |
+| TM-09 | Delete resource | Click Delete on a resource → confirm in the modal (not a native browser dialog) | Resource permanently removed; disappears from the table (hard delete, unlike attribute list items below) | ✓ |
+| TM-10 | PATCH resource — empty required field rejected | `PATCH /api/resources/:id` with `{"firstName": ""}` or `{"firstName": null}` | 400 "firstName cannot be empty" — not a 500, and the existing value is left unchanged | ✓ |
+| TM-11 | Resource linked to a PDash user | Create/edit a resource with "Linked PDash user" set to an active user | Table's "Linked user" column shows that user's name instead of "—" | |
+| AL-01 | Seeded lists present | Open `/attribute-lists.html` | 4 lists shown: Brand, Market, Service Type, Therapeutic Area — each with slug and 0 active items on a fresh DB | ✓ |
+| AL-02 | Create a new list | + New list → enter a name → Create | New list appears in the table with an auto-generated slug (lowercase, hyphenated) and 0 active items | ✓ |
+| AL-03 | Slug is immutable across rename | Rename an existing list (e.g. "Market" → "Target Market") | Display name updates; the `slug` column value is unchanged | ✓ |
+| AL-04 | Over-length slug rejected | `POST /api/attribute-lists` with a `name` long enough to produce a slug over 100 characters | 400 — not a raw 500 from the DB's `VARCHAR(100)` column limit | ✓ |
+| AL-05 | No delete action exists for lists or items | Inspect the UI and the API surface | Neither `attribute-lists.html` nor `api/src/routes/attribute-lists.js` expose any delete — only rename/edit-label and active/inactive toggle | |
+| AL-06 | Add / edit / deactivate an item | Drill into a list → + New item → add a label → Edit its label → Deactivate it | Item created (active); label updates in place; deactivating hides it from the default view and drops the list-of-lists "Active items" count by one, without a full page reload | ✓ |
+| AL-07 | PATCH item — empty/null label rejected | `PATCH /api/attribute-lists/:id/items/:itemId` with `{"label": ""}` or `{"label": null}` | 400 "label cannot be empty" — not a 500 | ✓ |
+| AL-08 | Duplicate item labels within one list are not prevented (known follow-up) | Add two items with the identical label to the same list | Both are accepted — no server-side uniqueness constraint on `(list_id, label)` yet | ✓ |
+
+---
+
 ## 17. Regression — Cross-feature
 
 | ID | Scenario | Expected | Auto |

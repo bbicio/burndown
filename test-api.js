@@ -763,6 +763,89 @@ async function testCostGridReassignOwner() {
   }
 }
 
+// ── Resources & Attribute Lists (2026-09) ─────────────────────────────────────
+
+async function testResourcesAndAttributeLists() {
+  section('Resources & Attribute Lists');
+
+  // ── Resources ──
+  ok((await api('GET', '/api/resources')).status === 401,
+    'TM-02 GET /api/resources without auth → 401');
+
+  const email = `__test_resource_${Date.now()}@example.test`;
+  const rCreate = await api('POST', '/api/resources',
+    { firstName: 'Test', lastName: 'Resource', email, jobTitle: 'Project Manager' }, adminCookie);
+  ok(rCreate.status === 201 && rCreate.data?.status === 'active',
+    'TM-04 POST /api/resources as admin → 201, status active');
+  const resourceId = rCreate.data?.id;
+  if (resourceId) later('DELETE', `/api/resources/${resourceId}`);
+
+  if (resourceId) {
+    const rEmpty = await api('PATCH', `/api/resources/${resourceId}`, { firstName: '' }, adminCookie);
+    ok(rEmpty.status === 400, 'TM-10 PATCH /api/resources/:id with empty firstName → 400');
+
+    const rNull = await api('PATCH', `/api/resources/${resourceId}`, { firstName: null }, adminCookie);
+    ok(rNull.status === 400, 'TM-10 PATCH /api/resources/:id with null firstName → 400 (not a 500)');
+
+    const rGet = await api('GET', '/api/resources', null, adminCookie);
+    const row = (rGet.data || []).find(r => r.id === resourceId);
+    ok(row?.first_name === 'Test', 'TM-10 rejected PATCH left first_name unchanged');
+
+    const rValid = await api('PATCH', `/api/resources/${resourceId}`, { firstName: 'Updated' }, adminCookie);
+    ok(rValid.status === 200 && rValid.data?.first_name === 'Updated',
+      'TM-10 valid PATCH still succeeds after the empty/null rejections above');
+  }
+
+  // ── Attribute Lists ──
+  ok((await api('GET', '/api/attribute-lists')).status === 401,
+    'TM-03 GET /api/attribute-lists without auth → 401');
+
+  const rLists = await api('GET', '/api/attribute-lists', null, adminCookie);
+  ok(rLists.status === 200 && ['market', 'brand', 'therapeutic-area', 'service-type']
+    .every(slug => rLists.data?.some(l => l.slug === slug)),
+    'AL-01 GET /api/attribute-lists → 200, all 4 seeded slugs present');
+
+  const listName = `__test list ${Date.now()}`;
+  const rListCreate = await api('POST', '/api/attribute-lists', { name: listName }, adminCookie);
+  ok(rListCreate.status === 201 && typeof rListCreate.data?.slug === 'string' && rListCreate.data.slug.length > 0,
+    'AL-02 POST /api/attribute-lists as admin → 201 with a generated slug');
+  const listId = rListCreate.data?.id;
+  const originalSlug = rListCreate.data?.slug;
+  // No DELETE endpoint exists for attribute_lists (by design — see api/src/routes/attribute-lists.js) —
+  // nothing to register with later() here; the ephemeral test DB is discarded after this run regardless.
+
+  if (listId) {
+    const rRename = await api('PATCH', `/api/attribute-lists/${listId}`, { name: listName + ' renamed' }, adminCookie);
+    ok(rRename.status === 200 && rRename.data?.slug === originalSlug,
+      'AL-03 PATCH rename leaves slug unchanged');
+
+    const longName = 'A '.repeat(60).trim();
+    ok((await api('POST', '/api/attribute-lists', { name: longName }, adminCookie)).status === 400,
+      'AL-04 POST with a name producing a slug over 100 chars → 400');
+
+    const rItemCreate = await api('POST', `/api/attribute-lists/${listId}/items`, { label: 'Test item' }, adminCookie);
+    ok(rItemCreate.status === 201 && rItemCreate.data?.status === 'active',
+      'AL-06 POST /api/attribute-lists/:id/items as admin → 201, status active');
+    const itemId = rItemCreate.data?.id;
+
+    if (itemId) {
+      const rItemEmpty = await api('PATCH', `/api/attribute-lists/${listId}/items/${itemId}`, { label: '' }, adminCookie);
+      ok(rItemEmpty.status === 400, 'AL-07 PATCH item with empty label → 400');
+
+      const rItemNull = await api('PATCH', `/api/attribute-lists/${listId}/items/${itemId}`, { label: null }, adminCookie);
+      ok(rItemNull.status === 400, 'AL-07 PATCH item with null label → 400 (not a 500)');
+
+      const rItemToggle = await api('PATCH', `/api/attribute-lists/${listId}/items/${itemId}`, { status: 'inactive' }, adminCookie);
+      ok(rItemToggle.status === 200 && rItemToggle.data?.status === 'inactive',
+        'AL-06 PATCH item status toggle → 200, status inactive');
+
+      const rDup = await api('POST', `/api/attribute-lists/${listId}/items`, { label: 'Test item' }, adminCookie);
+      ok(rDup.status === 201,
+        'AL-08 duplicate label within the same list is accepted (known follow-up, no uniqueness constraint yet)');
+    }
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -789,6 +872,7 @@ async function main() {
     await testAdminResetProposal();
     await testAdminChangeOwner();
     await testCostGridReassignOwner();
+    await testResourcesAndAttributeLists();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
     console.error(e.stack);
