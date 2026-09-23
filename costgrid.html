@@ -163,6 +163,27 @@
         </div>
       </div>
 
+      <!-- Tags -->
+      <div class="section-card mb-3">
+        <div class="section-header d-flex align-items-center" style="cursor:pointer;user-select:none" @click="tagsCollapsed = !tagsCollapsed">
+          <span style="font-size:var(--text-sm);margin-right:6px;color:var(--text-muted)">{{ tagsCollapsed ? '▶' : '▼' }}</span>
+          <span>🏷 Tags</span>
+        </div>
+        <div v-show="!tagsCollapsed" class="p-3">
+          <div v-if="!attributeLists.length" class="text-muted" style="font-size:var(--text-sm)">No tag lists configured yet.</div>
+          <div v-for="list in attributeLists" :key="list.id" class="mb-2">
+            <div class="small fw-semibold text-muted mb-1">{{ list.name }}</div>
+            <div v-if="!list.items.length" class="text-muted" style="font-size:var(--text-xs)">No active items in this list.</div>
+            <div class="d-flex flex-wrap gap-2">
+              <label v-for="item in list.items" :key="item.id" class="d-flex align-items-center gap-1" style="font-size:var(--text-sm);cursor:pointer">
+                <input type="checkbox" class="form-check-input" :checked="versionTagItemIds.includes(item.id)" :disabled="isLocked || cg?.myPermission === 'viewer'" @change="toggleTag(item.id)">
+                {{ item.label }}
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Sharing -->
       <div class="section-card mb-3">
         <div class="section-header d-flex align-items-center" style="cursor:pointer;user-select:none" @click="sharingCollapsed = !sharingCollapsed">
@@ -689,7 +710,8 @@ Vue.createApp({
       loading: true, loadError: null,
       clients: [], currencies: [],
       ratecardMap: {}, ratecardOverrides: {}, isClientRatecard: false, allRatecards: [],
-      offerDetailsCollapsed: false, summaryCollapsed: false, sharingCollapsed: false,
+      offerDetailsCollapsed: false, summaryCollapsed: false, sharingCollapsed: false, tagsCollapsed: false,
+      attributeLists: [], versionTagItemIds: [],
       compactHeader: localStorage.getItem('PDash_cgCompactHeader') === '1',
       selectionMode: false, selectedTaskIds: new Set(),
       ptcFocusedTask: null, ptcRaw: '', hoursEditing: null, addToProjectSel: '',
@@ -1057,6 +1079,14 @@ Vue.createApp({
       this.prevCurrency = this.draft.currency || 'EUR';
       this.selectionMode = false; this.selectedTaskIds = new Set();
 
+      try {
+        const tagRows = await Api.costGrids.versions.tags.list(cgId, resolvedVerId);
+        this.versionTagItemIds = tagRows.map(r => r.item_id);
+      } catch (e) {
+        console.warn('[costgrid] load version tags failed:', e.message);
+        this.versionTagItemIds = [];
+      }
+
       await cgUpdateActiveRatecardMap(); // may mutate _cgDraft.roles[].rate in place (non-custom roles)
       this.ratecardMap = { ..._cgActiveRatecardMap };
       this.ratecardOverrides = { ..._cgActiveRatecardOverrides };
@@ -1089,6 +1119,14 @@ Vue.createApp({
       window.location.href = '/pipeline.html';
     },
     onHeaderFieldChange() { cgScheduleAutoSave(); },
+    toggleTag(itemId) {
+      if (this.isLocked || this.cg?.myPermission === 'viewer') return;
+      const idx = this.versionTagItemIds.indexOf(itemId);
+      if (idx === -1) this.versionTagItemIds.push(itemId);
+      else this.versionTagItemIds.splice(idx, 1);
+      Api.costGrids.versions.tags.replace(this.cgId, this.verId, this.versionTagItemIds)
+        .catch(e => console.warn('[costgrid] saveTags:', e.message));
+    },
     onPipelineChange() {
       cgPropagatePipelineToProjects();
       const cgFresh = cgLoad(this.cgId);
@@ -1420,6 +1458,8 @@ Vue.createApp({
     this.programs = getPrograms();
 
     try { await cgSyncFromApi(); } catch (e) { console.warn('[init] cgSyncFromApi failed:', e.message); }
+
+    this.attributeLists = await loadActiveAttributeListsForTagging().catch(e => { console.warn('[costgrid] loadActiveAttributeListsForTagging:', e.message); return []; });
 
     this.clients = getClients();
     this.currencies = window.__currencies || [];
