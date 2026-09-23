@@ -32,16 +32,18 @@ async function initNav(activeTab, opts = {}) {
     `<a class="nav-main-tab${activeTab === t.id ? ' active' : ''}" href="${t.href}">${esc(t.label)}</a>`
   ).join('');
 
-  const adminPageIds = ['config', 'timesheets', 'admin'];
+  const adminPageIds = ['config', 'timesheets', 'admin', 'team', 'attributelists'];
   const adminHtml = (user.role === 'admin' || user.role === 'sysadmin')
     ? `<span style="border-left:1px solid rgba(255,255,255,.15);margin:8px 6px;align-self:stretch"></span>` +
       `<div class="dropdown">
         <a class="nav-main-tab nav-role-menu-trigger dropdown-toggle${adminPageIds.includes(activeTab) ? ' active' : ''}"
            href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">⚙ Admin</a>
         <ul class="dropdown-menu">
-          <li><a class="dropdown-item${activeTab === 'config'     ? ' active' : ''}" href="/config.html">⚙ Config</a></li>
-          <li><a class="dropdown-item${activeTab === 'timesheets' ? ' active' : ''}" href="/timesheets.html">📂 Actuals Repository</a></li>
-          <li><a class="dropdown-item${activeTab === 'admin'      ? ' active' : ''}" href="/admin.html">👤 User Admin</a></li>
+          <li><a class="dropdown-item${activeTab === 'config'          ? ' active' : ''}" href="/config.html">⚙ Config</a></li>
+          <li><a class="dropdown-item${activeTab === 'timesheets'      ? ' active' : ''}" href="/timesheets.html">📂 Actuals Repository</a></li>
+          <li><a class="dropdown-item${activeTab === 'admin'           ? ' active' : ''}" href="/admin.html">👤 User Admin</a></li>
+          <li><a class="dropdown-item${activeTab === 'team'            ? ' active' : ''}" href="/team.html">👥 Team</a></li>
+          <li><a class="dropdown-item${activeTab === 'attributelists'  ? ' active' : ''}" href="/attribute-lists.html">🏷 Attribute Lists</a></li>
         </ul>
       </div>`
     : '';
