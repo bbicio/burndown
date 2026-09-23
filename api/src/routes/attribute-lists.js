@@ -78,6 +78,7 @@ router.post('/:id/items', async (req, res, next) => {
     res.status(201).json(rows[0]);
   } catch (err) {
     if (err.code === '23503') return res.status(404).json({ error: 'List not found' });
+    if (err.code === '23505') return res.status(409).json({ error: 'An item with this label already exists in this list' });
     next(err);
   }
 });
@@ -106,7 +107,10 @@ router.patch('/:id/items/:itemId', async (req, res, next) => {
     );
     if (!rows[0]) return res.status(404).json({ error: 'Item not found' });
     res.json(rows[0]);
-  } catch (err) { next(err); }
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'An item with this label already exists in this list' });
+    next(err);
+  }
 });
 
 module.exports = router;

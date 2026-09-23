@@ -665,7 +665,7 @@ First of four planned resource-allocation cycles (see `docs/superpowers/specs/20
 | AL-05 | No delete action exists for lists or items | Inspect the UI and the API surface | Neither `attribute-lists.html` nor `api/src/routes/attribute-lists.js` expose any delete — only rename/edit-label and active/inactive toggle | |
 | AL-06 | Add / edit / deactivate an item | Drill into a list → + New item → add a label → Edit its label → Deactivate it | Item created (active); label updates in place; deactivating hides it from the default view and drops the list-of-lists "Active items" count by one, without a full page reload | ✓ |
 | AL-07 | PATCH item — empty/null label rejected | `PATCH /api/attribute-lists/:id/items/:itemId` with `{"label": ""}` or `{"label": null}` | 400 "label cannot be empty" — not a 500 | ✓ |
-| AL-08 | Duplicate item labels within one list are not prevented (known follow-up) | Add two items with the identical label to the same list | Both are accepted — no server-side uniqueness constraint on `(list_id, label)` yet | ✓ |
+| AL-08 | Duplicate item labels within one list are rejected | Add two items with the identical label (any case) to the same list | Second attempt → 409 "An item with this label already exists in this list" — enforced by a case-insensitive unique index on `(list_id, lower(label))` | ✓ |
 
 ---
 
