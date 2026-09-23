@@ -171,7 +171,9 @@ api/src/routes/attribute-lists.js — generic tag/taxonomy CRUD (backs `attribut
                             at creation and never touched again), `GET/POST /:id/items`, `PATCH
                             /:id/items/:itemId` (label and/or `active`/`inactive` status). No `DELETE`
                             anywhere in this file — by design, so a tag already applied elsewhere can never
-                            be removed out from under it in a future cycle.
+                            be removed out from under it in a future cycle. Item label is unique per list,
+                            case-insensitively (`021_attribute_list_items_unique_label.sql`) — both item
+                            routes catch the resulting `23505` and return 409.
 api/src/routes/resources.js — resource registry CRUD (backs `team.html`), all routes `requireAuth,
                             requireAdmin`: `GET/POST /`, `PATCH/DELETE /:id`. Unlike attribute-lists.js,
                             supports a genuine hard `DELETE` since nothing yet references a resource row.
@@ -238,7 +240,7 @@ Each page calls `initNav(activeTab)` from `nav.js` which:
 6. Calls `initNotifications(user)` from `notifications.js`
 7. Returns the user object
 
-All authenticated pages must load (in order): `core.js`, `api.js`, `api-sync.js`, `nav.js`, `notifications.js`, `settings.js` — then any page-specific scripts.
+All authenticated pages must load `core.js`, `api.js`, `nav.js`, `notifications.js`, and `settings.js` (`api-sync.js` too, if the page actually calls one of its exports — e.g. cost-grid/project/timesheet sync pages; most admin CRUD pages don't and may omit it). **Corrected 2026-09** — this previously prescribed one fixed linear order (`core.js, api.js, api-sync.js, nav.js, notifications.js, settings.js`); no page, including `pipeline.html`, ever actually followed it (`pipeline.html`'s real order is `api.js, core.js, settings.js, notifications.js, ..., api-sync.js, ..., nav.js` — nav.js last, not third). Per the "Script loading order" section above, deferred/module scripts share one execution queue ordered by document position — the only real constraint is that a file defining a global must appear before a file that reads it (e.g. `core.js`'s `esc()`/`showConfirm()` before any script calling them, `nav.js` before `initNotifications()`'s caller). There is no other project-wide ordering requirement to enforce.
 
 Typical page init pattern:
 ```js
@@ -467,6 +469,7 @@ Brand: `--brand-navy: #0B1840`, `--brand-magenta: #F0287A`.
 | `018_sysadmin_role.sql` | Widens `users.role`'s CHECK constraint from `('admin','user')` to `('admin','user','sysadmin')`; no backfill — no existing row changes value, promotion is manual (`promote-sysadmin.js` or `admin.html`'s toggle) |
 | `019_terms_versions.sql` | New `terms_versions` table (`id`, `version` INTEGER UNIQUE, `content`, `published_at`, `published_by`) — immutable, append-only, application code never UPDATEs/DELETEs it. Backfills one row from the then-current `app_settings.terms_content`/`terms_version` (the only text still recoverable — every earlier version had already been overwritten by the old single-row storage); the version subquery is `COALESCE(...,1)`-wrapped so a DB with `terms_content` but no `terms_version` key doesn't fail the migration |
 | `020_resources_attribute_lists.sql` | New `resources` table (first/last name, email, `job_title` free text, `job_description`, optional `user_id` FK, `active`/`inactive` status) and a generic tag-taxonomy pair, `attribute_lists` (`name`, immutable `slug`) + `attribute_list_items` (`label`, `active`/`inactive` status, no physical delete) — seeds 4 empty lists (Market, Brand, Therapeutic Area, Service Type). First of four planned resource-allocation cycles; see `docs/superpowers/specs/2026-09-23-team-attribute-lists-design.md` |
+| `021_attribute_list_items_unique_label.sql` | Case-insensitive unique index `(list_id, lower(label))` on `attribute_list_items` — closes the AL-08 known gap from the `020` cycle where two items with the same label (any case) could be created in one list |
 
 Run migrations with:
 ```powershell

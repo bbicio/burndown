@@ -840,8 +840,12 @@ async function testResourcesAndAttributeLists() {
         'AL-06 PATCH item status toggle → 200, status inactive');
 
       const rDup = await api('POST', `/api/attribute-lists/${listId}/items`, { label: 'Test item' }, adminCookie);
-      ok(rDup.status === 201,
-        'AL-08 duplicate label within the same list is accepted (known follow-up, no uniqueness constraint yet)');
+      ok(rDup.status === 409,
+        'AL-08 duplicate label within the same list → 409');
+
+      const rDupCase = await api('POST', `/api/attribute-lists/${listId}/items`, { label: 'TEST ITEM' }, adminCookie);
+      ok(rDupCase.status === 409,
+        'AL-08 duplicate label is case-insensitive → 409');
     }
   }
 }

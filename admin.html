@@ -253,8 +253,15 @@
       },
       methods: {
         async loadUsers() {
-          const res = await fetch('/api/users', { credentials: 'same-origin' });
-          this.users = await res.json();
+          this.globalError = null;
+          try {
+            const res = await fetch('/api/users', { credentials: 'same-origin' });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error || 'Failed to load users.'; return; }
+            this.users = data;
+          } catch {
+            this.globalError = 'Network error.';
+          }
         },
 
         openInvite() {

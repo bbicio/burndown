@@ -205,7 +205,14 @@
         if (!user) return;
         this.me = user;
         if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
-        await Promise.all([this.loadResources(), this.loadRoles(), this.loadUsers()]);
+        // Sequential, not Promise.all: each loader writes to the shared globalError on
+        // failure, and running them concurrently would let a later success/failure
+        // silently overwrite an earlier one's error message.
+        const loadErrors = [];
+        await this.loadResources(); if (this.globalError) { loadErrors.push(this.globalError); this.globalError = null; }
+        await this.loadRoles(); if (this.globalError) { loadErrors.push(this.globalError); this.globalError = null; }
+        await this.loadUsers(); if (this.globalError) { loadErrors.push(this.globalError); this.globalError = null; }
+        if (loadErrors.length) this.globalError = loadErrors.join(' ');
         this.ready = true;
       },
       mounted() {
@@ -217,16 +224,37 @@
                     jobDescription: '', userId: null, status: 'active', loading: false, error: null };
         },
         async loadResources() {
-          const res = await fetch('/api/resources', { credentials: 'same-origin' });
-          this.resources = await res.json();
+          this.globalError = null;
+          try {
+            const res = await fetch('/api/resources', { credentials: 'same-origin' });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error || 'Failed to load resources.'; return; }
+            this.resources = data;
+          } catch {
+            this.globalError = 'Network error.';
+          }
         },
         async loadRoles() {
-          const res = await fetch('/api/roles', { credentials: 'same-origin' });
-          this.roles = await res.json();
+          this.globalError = null;
+          try {
+            const res = await fetch('/api/roles', { credentials: 'same-origin' });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error || 'Failed to load roles.'; return; }
+            this.roles = data;
+          } catch {
+            this.globalError = 'Network error.';
+          }
         },
         async loadUsers() {
-          const res = await fetch('/api/users/active-list', { credentials: 'same-origin' });
-          this.users = await res.json();
+          this.globalError = null;
+          try {
+            const res = await fetch('/api/users/active-list', { credentials: 'same-origin' });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error || 'Failed to load users.'; return; }
+            this.users = data;
+          } catch {
+            this.globalError = 'Network error.';
+          }
         },
 
         openCreate() {

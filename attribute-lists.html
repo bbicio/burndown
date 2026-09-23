@@ -216,13 +216,28 @@
       },
       methods: {
         async loadLists() {
-          const res = await fetch('/api/attribute-lists', { credentials: 'same-origin' });
-          this.lists = await res.json();
+          this.globalError = null;
+          try {
+            const res = await fetch('/api/attribute-lists', { credentials: 'same-origin' });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error || 'Failed to load lists.'; return; }
+            this.lists = data;
+          } catch {
+            this.globalError = 'Network error.';
+          }
         },
         async openList(l) {
+          this.globalError = null;
           this.currentList = l;
-          const res = await fetch(`/api/attribute-lists/${l.id}/items`, { credentials: 'same-origin' });
-          this.items = await res.json();
+          this.items = [];
+          try {
+            const res = await fetch(`/api/attribute-lists/${l.id}/items`, { credentials: 'same-origin' });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error || 'Failed to load items.'; return; }
+            this.items = data;
+          } catch {
+            this.globalError = 'Network error.';
+          }
         },
         backToLists() {
           this.currentList = null;

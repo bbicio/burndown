@@ -1771,9 +1771,9 @@ const SECTIONS = [
     {id:'AL-07',scenario:'PATCH item — empty/null label rejected',
      steps:'PATCH /api/attribute-lists/:id/items/:itemId with {"label": ""} or {"label": null}',
      expected:'400 "label cannot be empty" — not a 500',auto:true},
-    {id:'AL-08',scenario:'Duplicate item labels within one list are not prevented (known follow-up)',
-     steps:'Add two items with the identical label to the same list',
-     expected:'Both are accepted — no server-side uniqueness constraint on (list_id, label) yet',auto:true},
+    {id:'AL-08',scenario:'Duplicate item labels within one list are rejected',
+     steps:'Add two items with the identical label (any case) to the same list',
+     expected:'Second attempt → 409 "An item with this label already exists in this list" — enforced by a case-insensitive unique index on (list_id, lower(label))',auto:true},
   ]
 },
 {
