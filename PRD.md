@@ -853,7 +853,7 @@ This is the first of four planned cycles toward AI-assisted resource allocation 
 
 Own page (`attribute-lists.html`), admin or sysadmin, reachable from the same "⚙ Admin" dropdown as Team. A generic, admin-managed system of named lists and their items — seeded on first deploy with four lists (Market, Brand, Therapeutic Area, Service Type), each empty until an admin populates it. An admin can create additional lists at any time directly from the UI, with no further development needed.
 
-Each list's items can be renamed and toggled active/inactive, but never deleted outright — once a tag exists, it can be retired but not erased, so a future feature that has already applied it to a proposal or project can't have that reference silently vanish. A list's own display name can be renamed too; its underlying identifier is fixed at creation and never changes, even across a rename.
+Each list's items can be renamed and toggled active/inactive, but never deleted outright — once a tag exists, it can be retired but not erased, so a future feature that has already applied it to a proposal or project can't have that reference silently vanish. A list's own display name can be renamed too; its underlying identifier is fixed at creation and never changes, even across a rename. An item's label must be unique within its list (case-insensitive) — adding or renaming to a label that already exists in that list is rejected with an error (2026-09).
 
 Nothing on this page tags a proposal or project yet — that connection, and the AI-assisted resource suggestion this taxonomy is ultimately meant to feed, are later cycles of the same initiative as §16.7.
 

@@ -300,7 +300,8 @@ attribute_list_items (                -- migration 020: no physical DELETE anywh
   list_id     UUID NOT NULL REFERENCES attribute_lists(id) ON DELETE CASCADE,
   label       VARCHAR NOT NULL,
   status      VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (list_id, lower(label))       -- migration 021: case-insensitive per-list uniqueness
 )
 ```
 
@@ -569,8 +570,8 @@ timesheets (
 | PATCH/DELETE | /api/resources/:id | admin | Update (validates non-empty on any of `firstName`/`lastName`/`email`/`jobTitle` present in the body, matching POST) / hard delete |
 | GET/POST | /api/attribute-lists | admin | List (with active-item counts) / create a taxonomy list — `slug` is generated once via `slugify()` and rejected with 400 if it would exceed 100 characters |
 | PATCH | /api/attribute-lists/:id | admin | Rename only — `slug` is never touched |
-| GET/POST | /api/attribute-lists/:id/items | admin | List / create items within a list |
-| PATCH | /api/attribute-lists/:id/items/:itemId | admin | Update `label` and/or `active`/`inactive` `status` |
+| GET/POST | /api/attribute-lists/:id/items | admin | List / create items within a list — label unique per list, case-insensitively; 409 on a duplicate |
+| PATCH | /api/attribute-lists/:id/items/:itemId | admin | Update `label` and/or `active`/`inactive` `status` — 409 if the new label duplicates another item in the same list |
 
 No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`attribute_list_items` in §5.2 for why.
 
@@ -929,6 +930,7 @@ Current migrations:
 - `018_sysadmin_role.sql` — widens `users.role`'s CHECK constraint to add `sysadmin` as a third value; no backfill
 - `019_terms_versions.sql` — new immutable, append-only `terms_versions` table; backfills one row from the then-current `app_settings.terms_content`/`terms_version` (the only text still recoverable)
 - `020_resources_attribute_lists.sql` — creates `resources`, `attribute_lists`, `attribute_list_items` (see §5.2); seeds 4 empty `attribute_lists` rows (Market, Brand, Therapeutic Area, Service Type)
+- `021_attribute_list_items_unique_label.sql` — case-insensitive unique index on `attribute_list_items(list_id, lower(label))`; disambiguates any pre-existing duplicate labels first so the index can never fail to create
 
 ---
 

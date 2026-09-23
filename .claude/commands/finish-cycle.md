@@ -90,12 +90,20 @@ Run the full closeout sequence for the current feature branch: test, optional ma
    git push origin main
    ```
    - If `git merge` reports conflicts: stop immediately, run `git status` to list the conflicting files, show them, and do not attempt automatic resolution.
-6. **Backend restart (only if Gate 1 step 2 determined the diff touches `api/`):** `pdash-api` runs as a plain `node src/index.js` process (`api/Dockerfile`) with no hot-reload — the `./api/src:/app/src` volume mount keeps the file on disk current, but the running process keeps serving whatever was in memory at container start until it is explicitly restarted. Merging a backend change to `main` does not make it take effect on its own.
+6. **Apply new migrations (only if the diff touches `api/src/db/migrations/`):** nothing in the running app applies migrations automatically — no code in `api/Dockerfile`, `api/src/index.js`, or `create-admin.js` does this (see CLAUDE.md's "Database backup & full recreation" section). A migration file merged to `main` sits completely inert against the real `pdash-db` until someone runs it by hand. **This step exists because that silent gap already caused a real incident:** migration `020` (the `resources`/`attribute_lists` schema) was merged in the `worktree-team-attribute-lists` cycle (2026-09-23) and this step didn't exist yet — the file sat unapplied against the main `pdash-db` for an entire subsequent cycle, so `team.html`/`attribute-lists.html` silently never worked against the real stack (only against isolated test stacks, which apply every migration fresh on every spin-up, masking the gap). Discovered and fixed only when the very next cycle (`worktree-admin-crud-consistency`) happened to touch the same tables.
+   - Identify new migration files: `git diff --diff-filter=A --name-only <merge-base>...HEAD -- api/src/db/migrations/` (files this branch added — not pre-existing ones it happened to touch).
+   - If none: skip this step entirely, no mention needed.
+   - If one or more: for each, in filename order, run:
+     ```bash
+     docker exec -i pdash-db psql -U pdash -d pdash < api/src/db/migrations/<file>
+     ```
+     Report each file's output. This project's migration convention (`CREATE TABLE IF NOT EXISTS`, `INSERT ... ON CONFLICT DO NOTHING`) makes re-running an already-applied migration a safe no-op, so there is no need to first check whether it was already applied. If a migration errors, stop immediately, show the error verbatim, and do not proceed to the backend restart below until it's resolved — an error here means the schema and the merged code are now out of sync.
+7. **Backend restart (only if Gate 1 step 2 determined the diff touches `api/`):** `pdash-api` runs as a plain `node src/index.js` process (`api/Dockerfile`) with no hot-reload — the `./api/src:/app/src` volume mount keeps the file on disk current, but the running process keeps serving whatever was in memory at container start until it is explicitly restarted. Merging a backend change to `main` does not make it take effect on its own.
    - Ask explicitly: "This cycle touched `api/`. Restart `pdash-api` now so the merged code actually takes effect? [yes/no]"
    - If yes: run `docker compose restart api`, then poll `docker inspect pdash-api --format '{{.State.Health.Status}}'` (a few seconds apart, up to the container's own healthcheck window) until it reports `healthy`. Report the new `docker inspect pdash-api --format '{{.State.StartedAt}}'` timestamp as confirmation.
    - If no: state explicitly, as a visible warning (not a footnote): "`pdash-api` was NOT restarted — it will keep serving pre-merge backend code until it is. Any backend fix in this cycle is not actually live yet."  Record this warning for Gate 6's per-gate summary.
    - If Gate 1 step 2 determined the diff does *not* touch `api/`: skip this step entirely, no mention needed.
-7. **Worktree cleanup (only if step 4 detected a linked worktree):** the branch just merged was checked out in a linked worktree at some path `<worktree-path>`. Before deleting the branch (step 8), remove the worktree — `git branch -d` fails while a worktree still references the branch.
+8. **Worktree cleanup (only if step 4 detected a linked worktree):** the branch just merged was checked out in a linked worktree at some path `<worktree-path>`. Before deleting the branch (step 9), remove the worktree — `git branch -d` fails while a worktree still references the branch.
    - Only remove worktrees whose path is under `.worktrees/`, `worktrees/`, or `.claude/worktrees/` — this project's own worktree conventions. If the path doesn't match, do not remove it; note that cleanup was skipped because the worktree isn't one this process owns.
    - From the main repo root:
      ```bash
@@ -103,7 +111,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
      git worktree prune
      ```
    - If removal fails (a recurring, known issue in this environment — locked files, leftover `node_modules`, or a stale IDE handle): this is non-blocking. Report the failure, confirm via `git status --short` inside the worktree path that nothing uncommitted would be lost, and continue — git itself already deregisters the worktree correctly even when the physical directory can't be deleted; leaving the orphaned directory does not block the rest of the cycle.
-8. After a successful push (worktree cleanup and backend restart, if applicable), ask explicitly: "Delete the local branch `<branch>`? [yes/no]" — no default either way.
+9. After a successful push (migration apply, worktree cleanup, and backend restart, if applicable), ask explicitly: "Delete the local branch `<branch>`? [yes/no]" — no default either way.
    - If yes: run `git branch -d <branch>`.
    - If no: leave the branch as-is.
 
