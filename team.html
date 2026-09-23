@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Team</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/tokens.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=11">
+  <style>
+    body { background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .page { margin: 2rem auto; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+    .page-header h1 { font-size: 2.5rem; font-weight: 700; margin: 0; color: var(--brand-navy); }
+    .card { border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    .card-body { padding: 0; }
+    .table { margin: 0; font-size: 0.875rem; }
+    .table thead th { background: #f9fafb; border-bottom: 1px solid #e5e7eb;
+                      font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
+                      letter-spacing: 0.04em; color: #6b7280; padding: 0.75rem 1rem; }
+    .table tbody td { padding: 0.85rem 1rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6; }
+    .table tbody tr:last-child td { border-bottom: none; }
+    .table tbody tr:hover td { background: #fafafa; }
+    .badge-st-active   { background: #dcfce7; color: #166534; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
+    .badge-st-inactive { background: #f3f4f6; color: #9ca3af; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
+    .btn-primary { background: var(--brand-magenta); border: none; color: #fff; font-weight: 600; font-size: 0.875rem; }
+    .btn-primary:hover:not(:disabled) { background: #d01f6a; color: #fff; }
+    .btn-primary:disabled { opacity: 0.65; color: #fff; }
+    .btn-action { font-size: 0.78rem; padding: 0.25rem 0.6rem; }
+    .form-label { font-size: 0.82rem; font-weight: 600; color: #374151; margin-bottom: 0.3rem; }
+    .form-control, .form-select { font-size: 0.875rem; border-color: #e5e7eb; }
+    .form-control:focus, .form-select:focus { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px rgba(240,40,122,0.12); }
+    .empty { text-align: center; padding: 3rem 1rem; color: #9ca3af; font-size: 0.875rem; }
+    .alert-sm { font-size: 0.83rem; padding: 0.5rem 0.75rem; }
+  </style>
+</head>
+<body>
+
+<div id="nav-container"></div>
+
+  <div id="app" v-cloak>
+
+    <div class="page app-container" v-if="ready">
+
+      <div class="page-header">
+        <h1>Team <span class="text-muted fw-normal" style="font-size:1rem">({{ resources.length }})</span></h1>
+        <button class="btn btn-primary" @click="openCreate">+ New resource</button>
+      </div>
+
+      <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
+
+      <div class="d-flex gap-2 mb-3 align-items-center">
+        <input v-model="filterText" type="text" class="form-control form-control-sm" style="max-width:280px"
+               placeholder="Search name or email…">
+        <div class="form-check ms-2">
+          <input class="form-check-input" type="checkbox" id="showInactive" v-model="showInactive">
+          <label class="form-check-label" for="showInactive" style="font-size:.85rem">Show inactive</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <table class="table table-hover" v-if="filteredResources.length">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Job title</th>
+                <th>Linked user</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in filteredResources" :key="r.id">
+                <td class="fw-semibold">{{ r.first_name }} {{ r.last_name }}</td>
+                <td class="text-muted">{{ r.email }}</td>
+                <td>{{ r.job_title }}</td>
+                <td class="text-muted">
+                  <span v-if="r.user_id">{{ r.linked_user_first_name }} {{ r.linked_user_last_name }}</span>
+                  <span v-else>—</span>
+                </td>
+                <td><span :class="'badge-st-' + r.status">{{ r.status }}</span></td>
+                <td class="text-end" style="white-space:nowrap">
+                  <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!r._loading" @click="openEdit(r)">Edit</button>
+                  <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!r._loading" @click="toggleStatus(r)">
+                    {{ r.status === 'active' ? 'Deactivate' : 'Activate' }}
+                  </button>
+                  <button class="btn btn-outline-danger btn-action" :disabled="!!r._loading" @click="confirmDelete(r)">Delete</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="empty" v-else>No resources match the current filter.</div>
+        </div>
+      </div>
+    </div>
+
+    <div v-else-if="!accessDenied" class="d-flex align-items-center justify-content-center" style="height:60vh">
+      <div class="spinner-border text-secondary"></div>
+    </div>
+    <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
+      <div class="text-center text-muted">
+        <div style="font-size:2rem">🔒</div>
+        <p class="mt-2">Admin access required.</p>
+        <a href="/" class="btn btn-outline-secondary btn-sm">Go to app</a>
+      </div>
+    </div>
+
+    <!-- ── CREATE/EDIT MODAL ────────────────────────────────── -->
+    <div class="modal fade" id="resourceModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-bold">{{ form.id ? 'Edit resource' : 'New resource' }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form @submit.prevent="submitForm" novalidate>
+            <div class="modal-body">
+              <div v-if="form.error" class="alert alert-danger alert-sm mb-3">{{ form.error }}</div>
+              <div class="row g-3">
+                <div class="col-6">
+                  <label class="form-label">First name</label>
+                  <input v-model="form.firstName" type="text" class="form-control" required>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Last name</label>
+                  <input v-model="form.lastName" type="text" class="form-control" required>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Email</label>
+                  <input v-model="form.email" type="email" class="form-control" required>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Job title</label>
+                  <select v-model="form.jobTitleSelect" class="form-select">
+                    <option v-for="role in roles" :key="role.id" :value="role.label">{{ role.label }}</option>
+                    <option value="__other__">Other…</option>
+                  </select>
+                  <input v-if="form.jobTitleSelect === '__other__'" v-model="form.jobTitleOther"
+                         type="text" class="form-control mt-2" placeholder="Enter a custom job title" required>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Job description</label>
+                  <textarea v-model="form.jobDescription" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Linked PDash user (optional)</label>
+                  <select v-model="form.userId" class="form-select">
+                    <option :value="null">— None —</option>
+                    <option v-for="u in users" :key="u.id" :value="u.id">{{ u.first_name }} {{ u.last_name }} ({{ u.email }})</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+              <button type="submit" class="btn btn-primary" :disabled="form.loading">
+                <span v-if="form.loading" class="spinner-border spinner-border-sm me-2"></span>
+                {{ form.id ? 'Save' : 'Create' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm -->
+    <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
+      <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+        <div class="modal-content shadow-lg">
+          <div class="modal-header border-0 pb-1">
+            <h6 class="modal-title fw-bold" id="confirmModalTitle">⚠️ Confirm</h6>
+          </div>
+          <div class="modal-body pt-1">
+            <p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p>
+          </div>
+          <div class="modal-footer border-0 pt-2">
+            <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-danger" id="confirmModalOk">Confirm</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- #app -->
+
+  <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script defer src="js/api.js?v=6"></script>
+  <script defer src="js/core.js?v=5"></script>
+  <script defer src="js/settings.js"></script>
+  <script type="module" src="js/lib/notif-browser.js?v=2"></script>
+  <script defer src="js/notifications.js?v=2"></script>
+  <script defer src="js/nav.js?v=9"></script>
+  <script type="module">
+    Vue.createApp({
+      data() {
+        return {
+          ready: false,
+          accessDenied: false,
+          me: {},
+          resources: [],
+          roles: [],
+          users: [],
+          filterText: '',
+          showInactive: false,
+          globalError: null,
+          form: this.blankForm(),
+          _resourceModal: null,
+        };
+      },
+      computed: {
+        filteredResources() {
+          const q = this.filterText.trim().toLowerCase();
+          return this.resources.filter(r => {
+            if (!this.showInactive && r.status !== 'active') return false;
+            if (!q) return true;
+            const hay = `${r.first_name} ${r.last_name} ${r.email}`.toLowerCase();
+            return hay.includes(q);
+          });
+        },
+      },
+      async created() {
+        const user = await initNav('team', { breadcrumbs: [
+          { label: 'Home', href: '/pipeline.html' },
+          { label: 'Team' },
+        ]});
+        if (!user) return;
+        this.me = user;
+        if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
+        await Promise.all([this.loadResources(), this.loadRoles(), this.loadUsers()]);
+        this.ready = true;
+      },
+      mounted() {
+        this._resourceModal = new bootstrap.Modal(document.getElementById('resourceModal'));
+      },
+      methods: {
+        blankForm() {
+          return { id: null, firstName: '', lastName: '', email: '', jobTitleSelect: '', jobTitleOther: '',
+                    jobDescription: '', userId: null, status: 'active', loading: false, error: null };
+        },
+        async loadResources() {
+          const res = await fetch('/api/resources', { credentials: 'same-origin' });
+          this.resources = await res.json();
+        },
+        async loadRoles() {
+          const res = await fetch('/api/roles', { credentials: 'same-origin' });
+          this.roles = await res.json();
+        },
+        async loadUsers() {
+          const res = await fetch('/api/users/active-list', { credentials: 'same-origin' });
+          this.users = await res.json();
+        },
+
+        openCreate() {
+          this.form = this.blankForm();
+          this._resourceModal.show();
+        },
+        openEdit(r) {
+          const knownLabel = this.roles.some(role => role.label === r.job_title);
+          this.form = {
+            id: r.id, firstName: r.first_name, lastName: r.last_name, email: r.email,
+            jobTitleSelect: knownLabel ? r.job_title : '__other__',
+            jobTitleOther: knownLabel ? '' : r.job_title,
+            jobDescription: r.job_description || '', userId: r.user_id, status: r.status,
+            loading: false, error: null,
+          };
+          this._resourceModal.show();
+        },
+
+        async submitForm() {
+          this.form.loading = true;
+          this.form.error = null;
+          const jobTitle = this.form.jobTitleSelect === '__other__' ? this.form.jobTitleOther.trim() : this.form.jobTitleSelect;
+          if (!jobTitle) { this.form.error = 'Job title is required'; this.form.loading = false; return; }
+          const payload = {
+            firstName: this.form.firstName, lastName: this.form.lastName, email: this.form.email,
+            jobTitle, jobDescription: this.form.jobDescription, userId: this.form.userId,
+          };
+          try {
+            const url = this.form.id ? `/api/resources/${this.form.id}` : '/api/resources';
+            const method = this.form.id ? 'PATCH' : 'POST';
+            const res = await fetch(url, {
+              method, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+              body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (!res.ok) { this.form.error = data.error || 'Save failed'; return; }
+            this._resourceModal.hide();
+            await this.loadResources();
+          } catch {
+            this.form.error = 'Network error. Please try again.';
+          } finally {
+            this.form.loading = false;
+          }
+        },
+
+        async toggleStatus(r) {
+          r._loading = true;
+          this.globalError = null;
+          try {
+            const newStatus = r.status === 'active' ? 'inactive' : 'active';
+            const res = await fetch(`/api/resources/${r.id}`, {
+              method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+              body: JSON.stringify({ status: newStatus }),
+            });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error; return; }
+            r.status = data.status;
+          } catch {
+            this.globalError = 'Network error.';
+          } finally {
+            r._loading = false;
+          }
+        },
+
+        confirmDelete(r) {
+          showConfirm(`Delete resource "${r.first_name} ${r.last_name}"?\n\nThis cannot be undone.`, () => this.deleteResource(r));
+        },
+        async deleteResource(r) {
+          r._loading = true;
+          this.globalError = null;
+          try {
+            const res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE', credentials: 'same-origin' });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error; return; }
+            await this.loadResources();
+          } catch {
+            this.globalError = 'Network error.';
+          } finally {
+            r._loading = false;
+          }
+        },
+      },
+    }).mount('#app');
+  </script>
+</body>
+</html>
