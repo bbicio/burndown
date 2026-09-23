@@ -108,7 +108,8 @@
                 </div>
                 <div class="col-12">
                   <label class="form-label">Job title</label>
-                  <select v-model="form.jobTitleSelect" class="form-select">
+                  <select v-model="form.jobTitleSelect" class="form-select" required>
+                    <option value="" disabled>Select a job title…</option>
                     <option v-for="role in roles" :key="role.id" :value="role.label">{{ role.label }}</option>
                     <option value="__other__">Other…</option>
                   </select>
