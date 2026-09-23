@@ -225,24 +225,36 @@
         },
         async loadResources() {
           this.globalError = null;
-          const res = await fetch('/api/resources', { credentials: 'same-origin' });
-          const data = await res.json();
-          if (!res.ok) { this.globalError = data.error || 'Failed to load resources.'; return; }
-          this.resources = data;
+          try {
+            const res = await fetch('/api/resources', { credentials: 'same-origin' });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error || 'Failed to load resources.'; return; }
+            this.resources = data;
+          } catch {
+            this.globalError = 'Network error.';
+          }
         },
         async loadRoles() {
           this.globalError = null;
-          const res = await fetch('/api/roles', { credentials: 'same-origin' });
-          const data = await res.json();
-          if (!res.ok) { this.globalError = data.error || 'Failed to load roles.'; return; }
-          this.roles = data;
+          try {
+            const res = await fetch('/api/roles', { credentials: 'same-origin' });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error || 'Failed to load roles.'; return; }
+            this.roles = data;
+          } catch {
+            this.globalError = 'Network error.';
+          }
         },
         async loadUsers() {
           this.globalError = null;
-          const res = await fetch('/api/users/active-list', { credentials: 'same-origin' });
-          const data = await res.json();
-          if (!res.ok) { this.globalError = data.error || 'Failed to load users.'; return; }
-          this.users = data;
+          try {
+            const res = await fetch('/api/users/active-list', { credentials: 'same-origin' });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error || 'Failed to load users.'; return; }
+            this.users = data;
+          } catch {
+            this.globalError = 'Network error.';
+          }
         },
 
         openCreate() {

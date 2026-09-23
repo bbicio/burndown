@@ -8,7 +8,7 @@ WITH duplicates AS (
   FROM attribute_list_items
 )
 UPDATE attribute_list_items ali
-SET label = ali.label || ' (duplicate ' || duplicates.rn || ')'
+SET label = left(ali.label, 255 - length(' (duplicate ' || duplicates.rn || ')')) || ' (duplicate ' || duplicates.rn || ')'
 FROM duplicates
 WHERE ali.id = duplicates.id AND duplicates.rn > 1;
 
