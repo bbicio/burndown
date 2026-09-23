@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Attribute Lists</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/tokens.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=11">
+  <style>
+    body { background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .page { margin: 2rem auto; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+    .page-header h1 { font-size: 2.5rem; font-weight: 700; margin: 0; color: var(--brand-navy); }
+    .card { border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    .card-body { padding: 0; }
+    .table { margin: 0; font-size: 0.875rem; }
+    .table thead th { background: #f9fafb; border-bottom: 1px solid #e5e7eb;
+                      font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
+                      letter-spacing: 0.04em; color: #6b7280; padding: 0.75rem 1rem; }
+    .table tbody td { padding: 0.85rem 1rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6; }
+    .table tbody tr:last-child td { border-bottom: none; }
+    .table tbody tr:hover td { background: #fafafa; cursor: pointer; }
+    .badge-st-active   { background: #dcfce7; color: #166534; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
+    .badge-st-inactive { background: #f3f4f6; color: #9ca3af; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
+    .btn-primary { background: var(--brand-magenta); border: none; color: #fff; font-weight: 600; font-size: 0.875rem; }
+    .btn-primary:hover:not(:disabled) { background: #d01f6a; color: #fff; }
+    .btn-primary:disabled { opacity: 0.65; color: #fff; }
+    .btn-action { font-size: 0.78rem; padding: 0.25rem 0.6rem; }
+    .form-label { font-size: 0.82rem; font-weight: 600; color: #374151; margin-bottom: 0.3rem; }
+    .form-control, .form-select { font-size: 0.875rem; border-color: #e5e7eb; }
+    .form-control:focus { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px rgba(240,40,122,0.12); }
+    .empty { text-align: center; padding: 3rem 1rem; color: #9ca3af; font-size: 0.875rem; }
+    .alert-sm { font-size: 0.83rem; padding: 0.5rem 0.75rem; }
+    .slug-code { font-size: .78rem; color: #9ca3af; }
+  </style>
+</head>
+<body>
+
+<div id="nav-container"></div>
+
+  <div id="app" v-cloak>
+
+    <div class="page app-container" v-if="ready">
+
+      <!-- ── LIST-OF-LISTS VIEW ────────────────────────────── -->
+      <template v-if="!currentList">
+        <div class="page-header">
+          <h1>Attribute Lists <span class="text-muted fw-normal" style="font-size:1rem">({{ lists.length }})</span></h1>
+          <button class="btn btn-primary" @click="openNewList">+ New list</button>
+        </div>
+
+        <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
+
+        <div class="card">
+          <div class="card-body">
+            <table class="table table-hover" v-if="lists.length">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Slug</th>
+                  <th>Active items</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="l in lists" :key="l.id" @click="openList(l)">
+                  <td class="fw-semibold">{{ l.name }}</td>
+                  <td class="slug-code">{{ l.slug }}</td>
+                  <td>{{ l.active_item_count }}</td>
+                  <td class="text-end" @click.stop>
+                    <button class="btn btn-outline-secondary btn-action" @click="openRenameList(l)">Rename</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="empty" v-else>No attribute lists yet.</div>
+          </div>
+        </div>
+      </template>
+
+      <!-- ── LIST DRILL-IN VIEW ───────────────────────────── -->
+      <template v-else>
+        <div class="page-header">
+          <div>
+            <button class="btn btn-outline-secondary btn-sm mb-2" @click="backToLists">← All lists</button>
+            <h1>{{ currentList.name }} <span class="text-muted fw-normal" style="font-size:1rem">{{ currentList.slug }}</span></h1>
+          </div>
+          <button class="btn btn-primary" @click="openNewItem">+ New item</button>
+        </div>
+
+        <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
+
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="showInactiveItems" v-model="showInactiveItems">
+          <label class="form-check-label" for="showInactiveItems" style="font-size:.85rem">Show inactive</label>
+        </div>
+
+        <div class="card">
+          <div class="card-body">
+            <table class="table table-hover" v-if="filteredItems.length">
+              <thead>
+                <tr>
+                  <th>Label</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="it in filteredItems" :key="it.id">
+                  <td>{{ it.label }}</td>
+                  <td><span :class="'badge-st-' + it.status">{{ it.status }}</span></td>
+                  <td class="text-end" style="white-space:nowrap">
+                    <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!it._loading" @click="openEditItem(it)">Edit</button>
+                    <button class="btn btn-outline-secondary btn-action" :disabled="!!it._loading" @click="toggleItemStatus(it)">
+                      {{ it.status === 'active' ? 'Deactivate' : 'Activate' }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="empty" v-else>No items match the current filter.</div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <div v-else-if="!accessDenied" class="d-flex align-items-center justify-content-center" style="height:60vh">
+      <div class="spinner-border text-secondary"></div>
+    </div>
+    <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
+      <div class="text-center text-muted">
+        <div style="font-size:2rem">🔒</div>
+        <p class="mt-2">Admin access required.</p>
+        <a href="/" class="btn btn-outline-secondary btn-sm">Go to app</a>
+      </div>
+    </div>
+
+    <!-- ── NEW/RENAME LIST MODAL ────────────────────────────── -->
+    <div class="modal fade" id="listModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-bold">{{ listForm.id ? 'Rename list' : 'New list' }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form @submit.prevent="submitListForm" novalidate>
+            <div class="modal-body">
+              <div v-if="listForm.error" class="alert alert-danger alert-sm mb-3">{{ listForm.error }}</div>
+              <label class="form-label">Name</label>
+              <input v-model="listForm.name" type="text" class="form-control" required>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+              <button type="submit" class="btn btn-primary" :disabled="listForm.loading">
+                <span v-if="listForm.loading" class="spinner-border spinner-border-sm me-2"></span>
+                {{ listForm.id ? 'Save' : 'Create' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── NEW/EDIT ITEM MODAL ─────────────────────────────── -->
+    <div class="modal fade" id="itemModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-bold">{{ itemForm.id ? 'Edit item' : 'New item' }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form @submit.prevent="submitItemForm" novalidate>
+            <div class="modal-body">
+              <div v-if="itemForm.error" class="alert alert-danger alert-sm mb-3">{{ itemForm.error }}</div>
+              <label class="form-label">Label</label>
+              <input v-model="itemForm.label" type="text" class="form-control" required>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+              <button type="submit" class="btn btn-primary" :disabled="itemForm.loading">
+                <span v-if="itemForm.loading" class="spinner-border spinner-border-sm me-2"></span>
+                {{ itemForm.id ? 'Save' : 'Create' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- #app -->
+
+  <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script defer src="js/api.js?v=6"></script>
+  <script defer src="js/core.js?v=5"></script>
+  <script defer src="js/settings.js"></script>
+  <script type="module" src="js/lib/notif-browser.js?v=2"></script>
+  <script defer src="js/notifications.js?v=2"></script>
+  <script defer src="js/nav.js?v=9"></script>
+  <script type="module">
+    Vue.createApp({
+      data() {
+        return {
+          ready: false,
+          accessDenied: false,
+          me: {},
+          lists: [],
+          currentList: null,
+          items: [],
+          showInactiveItems: false,
+          globalError: null,
+          listForm: { id: null, name: '', loading: false, error: null },
+          itemForm: { id: null, label: '', loading: false, error: null },
+          _listModal: null,
+          _itemModal: null,
+        };
+      },
+      computed: {
+        filteredItems() {
+          return this.showInactiveItems ? this.items : this.items.filter(it => it.status === 'active');
+        },
+      },
+      async created() {
+        const user = await initNav('attributelists', { breadcrumbs: [
+          { label: 'Home', href: '/pipeline.html' },
+          { label: 'Attribute Lists' },
+        ]});
+        if (!user) return;
+        this.me = user;
+        if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
+        await this.loadLists();
+        this.ready = true;
+      },
+      mounted() {
+        this._listModal = new bootstrap.Modal(document.getElementById('listModal'));
+        this._itemModal = new bootstrap.Modal(document.getElementById('itemModal'));
+      },
+      methods: {
+        async loadLists() {
+          const res = await fetch('/api/attribute-lists', { credentials: 'same-origin' });
+          this.lists = await res.json();
+        },
+        async openList(l) {
+          this.currentList = l;
+          const res = await fetch(`/api/attribute-lists/${l.id}/items`, { credentials: 'same-origin' });
+          this.items = await res.json();
+        },
+        backToLists() {
+          this.currentList = null;
+          this.items = [];
+          this.loadLists();
+        },
+
+        openNewList() {
+          this.listForm = { id: null, name: '', loading: false, error: null };
+          this._listModal.show();
+        },
+        openRenameList(l) {
+          this.listForm = { id: l.id, name: l.name, loading: false, error: null };
+          this._listModal.show();
+        },
+        async submitListForm() {
+          this.listForm.loading = true;
+          this.listForm.error = null;
+          try {
+            const url = this.listForm.id ? `/api/attribute-lists/${this.listForm.id}` : '/api/attribute-lists';
+            const method = this.listForm.id ? 'PATCH' : 'POST';
+            const res = await fetch(url, {
+              method, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+              body: JSON.stringify({ name: this.listForm.name }),
+            });
+            const data = await res.json();
+            if (!res.ok) { this.listForm.error = data.error || 'Save failed'; return; }
+            this._listModal.hide();
+            await this.loadLists();
+          } catch {
+            this.listForm.error = 'Network error. Please try again.';
+          } finally {
+            this.listForm.loading = false;
+          }
+        },
+
+        openNewItem() {
+          this.itemForm = { id: null, label: '', loading: false, error: null };
+          this._itemModal.show();
+        },
+        openEditItem(it) {
+          this.itemForm = { id: it.id, label: it.label, loading: false, error: null };
+          this._itemModal.show();
+        },
+        async submitItemForm() {
+          this.itemForm.loading = true;
+          this.itemForm.error = null;
+          try {
+            const url = this.itemForm.id
+              ? `/api/attribute-lists/${this.currentList.id}/items/${this.itemForm.id}`
+              : `/api/attribute-lists/${this.currentList.id}/items`;
+            const method = this.itemForm.id ? 'PATCH' : 'POST';
+            const res = await fetch(url, {
+              method, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+              body: JSON.stringify({ label: this.itemForm.label }),
+            });
+            const data = await res.json();
+            if (!res.ok) { this.itemForm.error = data.error || 'Save failed'; return; }
+            this._itemModal.hide();
+            await this.openList(this.currentList);
+            await this.loadLists();
+          } catch {
+            this.itemForm.error = 'Network error. Please try again.';
+          } finally {
+            this.itemForm.loading = false;
+          }
+        },
+
+        async toggleItemStatus(it) {
+          it._loading = true;
+          this.globalError = null;
+          try {
+            const newStatus = it.status === 'active' ? 'inactive' : 'active';
+            const res = await fetch(`/api/attribute-lists/${this.currentList.id}/items/${it.id}`, {
+              method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+              body: JSON.stringify({ status: newStatus }),
+            });
+            const data = await res.json();
+            if (!res.ok) { this.globalError = data.error; return; }
+            it.status = data.status;
+            await this.loadLists();
+          } catch {
+            this.globalError = 'Network error.';
+          } finally {
+            it._loading = false;
+          }
+        },
+      },
+    }).mount('#app');
+  </script>
+</body>
+</html>
