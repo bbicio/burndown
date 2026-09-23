@@ -29,6 +29,7 @@ router.post('/', async (req, res, next) => {
     if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
     const slug = slugify(name);
     if (!slug) return res.status(400).json({ error: 'name must contain at least one letter or number' });
+    if (slug.length > 100) return res.status(400).json({ error: 'name produces a slug longer than 100 characters — please use a shorter name' });
     const { rows } = await query(
       `INSERT INTO attribute_lists (name, slug) VALUES ($1, $2) RETURNING id, name, slug, created_at`,
       [name.trim(), slug]
@@ -89,7 +90,7 @@ router.patch('/:id/items/:itemId', async (req, res, next) => {
     const values = [];
     let i = 1;
     if (label !== undefined) {
-      if (!label.trim()) return res.status(400).json({ error: 'label cannot be empty' });
+      if (!label?.trim()) return res.status(400).json({ error: 'label cannot be empty' });
       fields.push(`label = $${i++}`); values.push(label.trim());
     }
     if (status !== undefined) {
