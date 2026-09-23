@@ -764,11 +764,8 @@ burndown/
   api/                    ← Node.js + Express backend
     src/
       routes/             ← auth, users, config, cost-grids, projects, timesheets, reporting, exports, notifications, reset
-      lib/                ← pure functions extracted for unit testing (node:test, run via `npm test`/`node --test`),
-                            mirroring the frontend's js/lib/ convention; date-parse.js — parseFlexibleDate(a, b, year):
-                            disambiguates day/month order (unambiguous when one value is >12; falls back to the
-                            source's known MM/DD convention only when genuinely ambiguous), validates the result
-                            against real calendar/leap-year arithmetic, throws on an invalid date
+      lib/                ← pure functions extracted for unit testing (node:test), mirroring the frontend's js/lib/
+                            convention. Full narrative: docs/api/lib.md
       middleware/         ← auth guard (requireAuth, requireAdmin, requireSysAdmin — see §3.1)
       db/                 ← PostgreSQL pool client, migrations/
       services/           ← email (nodemailer), jwt
@@ -783,148 +780,42 @@ burndown/
                             style so the `[v-cloak]` rule above could win via cascade without `!important`
   js/
     api.js                ← Api.* namespace, apiFetch wrapper
-    api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData; `_cgStore` itself lives in costgrid.js — this file's `cgSyncFromApi` populates it); `_pushProjectToApi` maps currency symbol → ISO code (`'€'→'EUR'`, `'$'→'USD'`, `'£'→'GBP'`) before PATCH to satisfy `currencies` FK; `_apiProjectToLocal` maps ISO code → symbol for the form select; `costGridRef.cgId` is read directly from `GET /api/projects`'s server-resolved `cg_id` (a JOIN to `cost_grid_versions`), not from `_cgStore` — fixed 2026-07 after `_resolveCgIdForVersion()`/`_cgStore` (only declared in costgrid.js) threw on pages that don't load that script (`portfolio.html`, `project-config.html`), silently emptying `config.projects` there (`_resolveCgIdForVersion()` itself, left with zero callers after the fix, was deleted in a later cleanup cycle, 2026-08); `cgLoadStructureFromApi(cgId, versionId)` returns `true` on success / `false` on any failure (a fetch error, or the cost grid/version not found in the local store) instead of always resolving to `undefined` — added so `js/costgrid.js`'s `cgCloneGrid()` can detect and surface a failed structure load instead of silently proceeding with stale/incomplete data; `_pushProjectToApi(project)` (2026-09) likewise returns `true`/`false` — `true` once the core project upsert is confirmed persisted server-side, `false` if that upsert itself fails (sub-resource pushes stay best-effort and don't affect this return value) — consumed by `js/costgrid.js`'s `cgDoGenerateProject()` to decide whether the post-generation dialog can safely offer to navigate to `project-config.html`
-    core.js               ← state, in-memory helpers (loadConfig/persistConfig no-ops), shared helpers; `statusBadge()` small style for pipeline cards; `statusBadgeLarge()` same as `pipelineBadge` style — used only in linked-project chips
-    nav.js                ← navbar injection, initNav(); injects settings, change-pwd, and "My Profile" modals; T&C gate (redirects to /terms.html if user.terms_version < current_terms_version); calls initNotifications(); admin/sysadmin tabs (Config/Actuals Repository/User Admin, and the sysadmin-exclusive DB Reset/Terms & Conditions pair) render as Bootstrap dropdown submenus (2026-09, `.nav-role-menu-trigger.dropdown-toggle`) rather than flat inline tabs — the trigger carries no vertical margin of its own so it doesn't grow the tabs row beyond pipeline.html's fixed navbar-height contract
+    api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData). Full narrative: docs/js/api-sync.md
+    core.js               ← state, in-memory helpers (loadConfig/persistConfig no-ops), shared helpers, showConfirm()/showInfo() modal idioms, findRate(). Full narrative: docs/js/core.md
+    nav.js                ← navbar injection, initNav(); injects settings, change-pwd, and "My Profile" modals; T&C gate; calls initNotifications(). Full narrative: docs/js/nav.md
     shares.js             ← generic share modal
-    notifications.js      ← SSE client, bell badge, notification dropdown panel
-    costgrid.js           ← shared cost-grid business-logic library, loaded unmodified by `pipeline.html` as globals (no longer loaded by `planning.html`, whose Vue migration confirmed no genuine call into this file remained), and by `costgrid.html`'s own Vue rewrite via the bridge pattern (see `costgrid.html` entry below); Decided 2026-07: this file is a permanent shared Vanilla service layer, not migration debt — see `docs/superpowers/specs/2026-07-27-costgrid-js-fate-design.md`. non-EUR role rate fallback chain (ratecard override → `role.rateOverrides[currency]` → EUR rate × currency factor) is no longer duplicated inline — `cgSyncRoleRatesToBaseline` and `cgPreviewRateChange` both now call the shared `resolveRoleRate()` (`js/lib/costgrid-calc.js`); linked-project chips use `statusBadgeLarge()` for project status badges; `_cgCompactHeader` (localStorage `PDash_cgCompactHeader`) toggles compact/normal header mode via ⊟/⊞ button in the "Phase / Task" sticky cell — compact hides role move/change/dup/remove buttons and reduces header font to 10px; **task assignment (R1–R5)**: `cgGetAssignedTaskIds()` + `cgGetAssignedTaskNames()` perform dual UUID+name check — assigned tasks show no ✕ button; `cgDoAddTasksToProject` and `cgDoGenerateProject` send `taskNames` alongside `taskIds`; Generate Project button hidden when all tasks are already mapped; `_cgEnsureAddToProjectModal()` creates a singleton modal appended to `document.body` (z-index:10500, created once and reused); the imperative rendering functions this file used for its own now-Vue page (`renderCgEditor`/`cgBindEditorEvents`/`cgApplyEditorLock`/`cgRefreshTotals`/`cgRefreshPhaseDates`/`cgRenderRoleList`/`cgFindTask`) were deleted — `renderCgEditor()`/`renderCgVersionTabs(cg)`/`showCostGridEditorView(cgId, versionId)` are now thin bridges delegating into `costgrid.html`'s mounted Vue instance; **Generate Project / program auto-link (2026-09)**: `cgConfirmAndGenerate()`/`cgSubmitProjectName()`/`cgResumePendingGeneration()`/`cgAbortPendingGeneration()` (state held in `_cgPendingGeneration`) require a proposal to have (or create) a linked program before a partial-task-selection generation completes, auto-linking every later generation from the same proposal to that same program (resolved via `findExistingProgramForProposal()`, `js/lib/costgrid-calc.js`)
+    notifications.js      ← SSE client, bell badge, notification dropdown panel; also drives browser/desktop notifications. Full narrative: docs/js/notifications.md
+    costgrid.js           ← shared cost-grid business-logic library, loaded unmodified by `pipeline.html` as globals, and by `costgrid.html`'s own Vue rewrite via the bridge pattern; decided 2026-07 this file is a permanent shared Vanilla service layer, not migration debt — see `docs/superpowers/specs/2026-07-27-costgrid-js-fate-design.md`. Full narrative: docs/js/costgrid.md
     portfolio.js          ← mostly dead code since portfolio.html's Vue rewrite folded its rendering logic in directly; only 2 exports remain reachable — `fmtProjectTitle`/`getMonthRangeFromCfg`, both consumed by planning.html
     lib/                  ← pure functions extracted for unit testing (vitest + jsdom), each an ES module
                             (`export function ...`) with a `window.<name> = <name>` bridge for classic-script
-                            callers; cfg-parse.js — cfgParseHours, cfgFmtHours, roundToQuarterHour (moved from
-                            config-form.js), distributeHoursExact(total, rawValues, grid=0.25) — largest-remainder
-                            rounding, guarantees the returned values sum to exactly roundToQuarterHour(total);
-                            used by cfgDerivePhasing/cfgReforecast so the confirmation modal's total always
-                            matches the saved grid (fixes prior modal-vs-save divergence and per-month rounding
-                            drift); pipeline-calc.js — pbGetVersionBudget/pbComputeColumnTotals (take
-                            cgComputeGrandTotals/getPipelineBudget as parameters, DI-style, matching
-                            portfolio-calc.js's precedent), pbFmtMoney/pbFmtDate/pbFmtTaskDate/
-                            pbComputePotPercentages; extracted from the former js/pipeline-board.js;
-                            costgrid-calc.js — resolveRoleRate(...) (3-tier rate resolution: ratecard
-                            per-currency override → role per-currency override → EUR baseline × live
-                            exchange rate — deduplicates logic previously repeated inline three times;
-                            now called from both the Vue role-selector/rate-cell code in costgrid.html
-                            and from js/costgrid.js's cgSyncRoleRatesToBaseline/cgPreviewRateChange),
-                            cgComputeTaskTotals/cgComputePhaseTotals/cgComputeGrandTotals/
-                            cgComputeColumnTotals (relocated verbatim from js/costgrid.js, window.*
-                            bridged under the same names so pipeline.html's unchanged detail-panel
-                            call sites are unaffected), stripCloneTaskIds(phases) (strips taskId/
-                            phaseId before a cloned structure is POSTed to saveStructure() for a new
-                            version — fixes a `duplicate key value violates unique constraint
-                            "tasks_pkey"` error: the backend reuses a supplied taskId as the new row's
-                            PK, which is correct for a same-version re-save but wrong for Clone, since
-                            the source version's tasks still exist in the DB under those exact IDs);
-                            planning-calc.js — matchesTaskRole/computeResidual/distributeFutureResidual
-                            (pre-existing, shared by all three Resource Planning grouping views) plus
-                            getCalendarWeeks/workingDaysInWeek/getPlanningPeriods/countFutureTaskWeeks
-                            (added in the planning.html Vue migration, relocated verbatim from the
-                            former js/planning.js); getPlanningPeriods reads getMonthRangeFromCfg (a
-                            js/portfolio.js classic-script global) via globalThis rather than importing
-                            it, since js/lib/ modules only import from sibling js/lib/ modules;
-                            costgrid-calc.js also exports `findExistingProgramForProposal(linkedProjects,
-                            projects, cgId, versionId)` (2026-09) — resolves an existing program already
-                            linked to a proposal so a later Generate Project run auto-links to it instead
-                            of prompting again; same stale-id resolution order as pipeline.html's own
-                            linked-project lookup (direct id → name match scoped to cgId/versionId →
-                            single-project fallback)
+                            callers; modules: cfg-parse.js, planning-calc.js, status-rules.js, costgrid-calc.js,
+                            portfolio-calc.js, pipeline-calc.js, notif-browser.js. Full narrative: docs/js/lib.md
     roles.js              ← `loadRolesFromApi`/`saveRoles` (no-op)/`getRoles` only — its former roles-management modal UI was confirmed unreachable and deleted in the 2026-08 dead-code cleanup; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role — role shape: `{ id, label, code, rate, rateOverrides }`
     ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js; `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects per-role `rateOverrides` and sends them to the API
     upload.js             ← XLS parsing
     settings.js           ← settings modal logic (openSettingsModal, stgExport, downloadFullBackup)
-    ai.js                 ← AI sidebar
+    ai.js                 ← AI sidebar chat + project analysis. Full narrative: docs/js/ai.md
     clients.js / programs.js
   index.html              ← redirect → pipeline.html
   pipeline.html           ← kanban pipeline board, Vue 3 (CDN, no build step, same pattern as portfolio.html/
-                            project-config.html); folds in the former js/pipeline-board.js (760 lines, now
-                            deleted — confirmed exclusive to this page); adds js/lib/pipeline-calc.js;
-                            js/costgrid.js/js/core.js and the 4 shared static modals stay unmodified Vanilla,
-                            called as globals (costgrid.html/planning.html still depend on them as-is);
-                            **filter bar (2026-09)**: a row between the title bar and the board columns with
-                            free-text search plus Owner/Client/Currency/Value multi-select dropdown filters,
-                            entirely client-side over already-loaded data (matched via `js/lib/pipeline-calc.js`'s
-                            `pbCardMatchesFilters`) — see CLAUDE.md's own pipeline.html entry for full detail
+                            project-config.html). Full narrative: docs/pages/pipeline.md
   portfolio.html          ← portfolio overview + per-project dashboard, Vue 3 (CDN, no build step, same pattern as project-config.html); folds in the former js/portfolio.js + js/dashboard.js; adds js/lib/portfolio-calc.js (KPI/burndown math extraction, vitest-covered); no longer loads js/roles.js or js/config-form.js (the latter only served this page's own now-removed, previously-unreachable #configModal + nested CRUD modals); overview list-view project cards restructured (2026-09) to show identity + a Duration/Sold/Spent/Variance stats row (no monthly table) and a single always-enabled entry button into the detail page, laid out in a 2-column Bootstrap grid; list-view filter row (2026-09) also gained a free-text search input (matches project name/code/client name) and a Status multi-select dropdown, plus a `⚙️ Configure` button back on each card (a prior "detail-only" decision from the card-restructure cycle, since reversed) — full implementation narrative: `docs/pages/portfolio.md`
   planning.html           ← resource planning (filters, By Role/By Project/By Owner grouping views,
                             monthly/weekly interval, monthly pulse, rounded-hours toggle, XLS
                             export/upload, AI Planning Sidebar), Vue 3 (CDN, no build step, same
-                            pattern as pipeline.html/costgrid.html); last Tier 2 page in the Vue
-                            migration roadmap — every page except the 10-line index.html redirect is
-                            now on Vue 3; folds in the former js/planning.js (1558 lines, now deleted,
-                            confirmed exclusive to this page — same precedent as
-                            js/pipeline-board.js/js/dashboard.js); single monolithic Vue.createApp, no
-                            sub-components; drops the js/config-form.js and js/costgrid.js `<script>`
-                            tags (confirmed dead on this page); keeps js/roles.js/js/clients.js/
-                            js/programs.js unmodified (their load*FromApi() calls are genuinely used;
-                            the same dead #rolesModal/#roleModal Roles Registry markup already removed
-                            elsewhere was also removed here) and js/ai.js/js/upload.js/js/portfolio.js
-                            unmodified as globals (js/ai.js gets one hardcoded-Italian-string
-                            translation, its only change); AI Sidebar is Vue-reactive UI wired to the
-                            unchanged js/ai.js functions via hidden DOM compatibility elements;
-                            `created()` awaits initNav() and returns early on !user before any
-                            API-loading call (a Gate-3 code-review fix — the first draft inverted this
-                            ordering); `initTooltipsAndToggles()` guards every addEventListener call
-                            with a `data-pp-bound` marker so re-invocations across `updated()` never
-                            double-bind a v-html-rendered row left in place; "Export XLS" (a
-                            pre-existing `ReferenceError: ExcelJS is not defined` bug — no page loaded
-                            the ExcelJS library) was fixed in a later dedicated cycle (2026-07-28) by
-                            adding the ExcelJS CDN `<script>` tag here and on `costgrid.html`
+                            pattern as pipeline.html/costgrid.html). Full narrative: docs/pages/planning.md
   costgrid.html           ← cost grid editor (phase/task/role table, phasing panel, version tabs,
                             toolbar), Vue 3 (CDN, no build step, same pattern as pipeline.html/
-                            portfolio.html); single monolithic Vue.createApp, no sub-components, matching
-                            the other Tier 2 pages; js/costgrid.js stays loaded as the shared library for
-                            pipeline.html/planning.html — a "bridge pattern" redefines renderCgEditor()/
-                            renderCgVersionTabs(cg)/showCostGridEditorView(cgId, versionId) to delegate
-                            into the mounted Vue instance (via a module-level `_cgVueApp` reference) so
-                            ~15 other unchanged js/costgrid.js functions that call these three at their
-                            tail (cgPublishDraft, cgCreateNewVersion, cgCloneGrid, cgGenerateProject, etc.)
-                            require zero code changes; `_cgDraft`/`this.draft` are the SAME object
-                            reference (assigned once per version load), not independently re-cloned
-                            copies — critical, since `cgAutoSave()` (a kept-unchanged global) reads
-                            `_cgDraft` directly, so a divergent clone would silently persist stale,
-                            un-edited data on every autosave; locked/Committed-version edit enforcement
-                            (`:disabled="isLocked"`/`v-if="!isLocked"` across every input/select/textarea
-                            and every mutation button inside the editor body, both the offer-details
-                            header form and the grid table) restores the pre-Vue `cgApplyEditorLock()`'s
-                            coverage exactly, since the whole editor body used to be swept by
-                            `querySelectorAll('input, textarea, select')`; `#confirmModal`/
-                            `#jsonViewerModal` stay unmodified shared Vanilla utilities
-                            (`showConfirm()`/`openJsonViewer()`); `#cgNewVersionModal`/`#cgCloneModal`/
-                            `#cgRoleSelectModal` are Vue-triggered (opened via Vue methods, still
-                            Bootstrap-modal-backed); deletes the confirmed-dead `#rolesModal`/`#roleModal`/
-                            `#programsModal`/`#programEditModal` markup (their only openers lived in the
-                            unloaded `js/main.js`) — `#clientsModal`/`#clientEditModal` were investigated
-                            and found genuinely reachable (`showClientsModal()`, a live "+ New" button
-                            next to the Client dropdown), so kept, along with `js/clients.js`'s `<script>`
-                            tag (also still needed for `getClients()`); `js/roles.js`/`js/programs.js`
-                            likewise kept — both define load*FromApi() functions this page's own init
-                            calls unconditionally, not just their (now-removed) dead CRUD modals;
-                            **Sharing (2026-09)**: a "🔗 Share" toolbar button plus a "Sharing" section-card
-                            hosting the inline `<share-list>` component (same one used by pipeline.html's
-                            detail panel); owner reassignment via a `<select>` at the top of "Offer details"
-                            (visible to admin/sysadmin, any version lock state), calling
-                            `PATCH /cost-grids/:id/reassign-owner`; **Generate Project / program auto-link
-                            (2026-09)**: three new modals (`#cgProjectNameModal`, `#cgCreateProgramModal`,
-                            `#cgAddToProjectModal`) replace the former native `prompt()`/hand-rolled modal for
-                            naming a new project, creating-or-linking a program, and adding tasks to an
-                            existing project — see `js/costgrid.js`'s own entry above for the full flow
-  timesheets.html          ← admin-only timesheet upload management, Vue 3 (CDN, no build step); summary table
-                            leads with Client/Project/Project code (checkbox multi-select filters on Client/
-                            Project, free-text on Project code, click-to-sort on all three) plus a pipeline-year
-                            selector (default: current year, or the most recent active year; explicit "All years"
-                            option — a project with no linked cost-grid version has `pipeline_year: null` and is
-                            visible only under "All years"); "View" modal grid adds Fee/Spent as its last two
-                            columns (`Spent = Fee × Hours`, no rounding, formatted with the project's currency via
-                            `fmtMoney`); export replaced CSV with XLSX (ExcelJS 4.4.0 CDN, same pattern as
-                            planning.html/costgrid.html), filename `Client_Project_ProjectCode_YYYYMMDD.xlsx`
-                            (spaces→`-`, filesystem-unsafe characters stripped)
+                            portfolio.html). Full narrative: docs/pages/costgrid.md
+  timesheets.html          ← admin-only timesheet upload management, Vue 3 (CDN, no build step). Full narrative: docs/pages/timesheets.md
   config.html             ← admin config (clients, programs, roles, pipelines & POTs); Role edit form shows per-currency rate fields populated from `rateOverrides`; "Proposal Phasing" view (was "Phasing") excludes Canceled/Draft stages; monthly cells show local amount + EUR equivalent for non-EUR proposals; `phasingTableHtml` adds Total column and removes collapsible detail; `openClientRatecard` fixed filter and shows agency default per-currency placeholder
   project-config.html     ← full-page project config form, Vue 3 (CDN, no build step, same pattern as admin.html); manages a single reactive project object (not an array — the original's hidden multi-project dropdown/New/Delete machinery was confirmed dead on this page); unknown ?projectId= shows an explicit not-found state
   admin.html              ← user management; "🗑 Anonymize" button on disabled non-anonymized users; role toggle (admin↔user) + sysadmin grant/revoke toggle (sysadmin viewers only). T&C editor moved out (2026-09) to _terms-editor.html
   terms.html              ← standalone T&C acceptance page (no initNav), Vue 3 (CDN, no build step, same pattern as login.html); shown by gate in initNav() when user.terms_version < current; loaded from /api/app-settings/terms; POST /api/auth/accept-terms on confirm
   login.html / activate.html / reset-password.html
   _db-reset.html          ← sysadmin-exclusive (2026-09, was admin-only) hidden page for bulk DB data deletion by scope, Vue 3 (CDN, no build step, same pattern as admin.html), linked from the sysadmin-only navbar menu (initNav('dbreset', ...))
-  _terms-editor.html      ← sysadmin-exclusive (2026-09) hidden page — Terms & Conditions editor (view version, edit HTML, save draft / publish new version), moved out of admin.html; linked from the sysadmin-only navbar menu (initNav('termseditor', ...)); loads the draft (GET /terms/draft) separately from the published version, browses immutable version history (GET /terms/versions, /versions/:version) — see §5's App Settings section
+  _terms-editor.html      ← sysadmin-exclusive hidden page — Terms & Conditions editor, moved out of admin.html; linked from the sysadmin-only navbar menu (initNav('termseditor', ...)) — see §5's App Settings section. Full narrative: docs/pages/terms-editor.md
   nginx.conf              ← denies dev-only toolchain artifacts (node_modules/, package.json, package-lock.json,
                             vitest.config.js, *.test.js, *.spec.js) even though it bind-mounts the repo root
   docker-compose.yml
@@ -933,92 +824,9 @@ burndown/
   package.json            ← dev-only vitest + jsdom test toolchain for js/lib/ (never bundled, never served)
   vitest.config.js
   scripts/
-    test-branch.sh        ← isolated Docker Compose stack (`up`/`down`/`status`) for testing the current feature
-                             branch before merge; distinct container names/ports from the main stack (safe to run
-                             alongside it); `status` reports "up" only when both the db and api containers are
-                             actually Docker-healthy (`docker inspect .State.Running`/`.State.Health.Status`, 2026-08
-                             hardening — previously checked mere `docker ps` existence, so a crash-looping or
-                             still-starting container was misreported as "up"; the combined Running+Health check also
-                             closes a related gap where a *stopped* container can still show a stale `healthy` from
-                             before it exited) — consumed by `/finish-cycle`'s Gate 2 to detect a branch environment
-                             already running from an earlier attempt and offer reuse-vs-rebuild instead of asking to
-                             spin up again; clones data from the running main stack via pg_dump/pg_restore when
-                             available, else applies all migrations to a fresh DB + bootstraps a test admin — the
-                             fresh-DB migration loop is idempotent (2026-08 hardening): a `schema_exists()` helper
-                             checks for `public.users` via `to_regclass` before applying migrations, so re-running
-                             `up` a second time without an intervening `down` skips already-applied migrations
-                             instead of failing with "already exists"; the admin-bootstrap step stays unconditional
-                             on every run (create-admin.js is itself create-or-reset-password, so this is safe) —
-                             further hardened 2026-08: `schema_exists()` also checks `cg_version_projects
-                             .task_names_direct` (added by migration `017_task_names_direct.sql`) alongside
-                             `public.users`, so a schema left partially migrated by an interrupted run is detected
-                             and the script exits with an explicit `down && up` remediation message instead of
-                             silently skipping the remaining migrations (files don't use `IF NOT EXISTS`, so blindly
-                             re-running the full loop against a partial schema would itself fail on the migrations
-                             that did succeed); 2026-09: `schema_exists()` also checks `to_regclass('public
-                             .terms_versions')` (added by migration `019_terms_versions.sql`, the actual last
-                             migration — the `017`-era check above had gone two migrations stale and would
-                             otherwise have misjudged a DB migrated only through 017/018 as fully up to date);
-                             also explicitly checks the first `psql` call's exit status, warning instead of
-                             silently treating a transient failure as "schema absent";
-                             reads `.env` via a manual line-by-line parser mirroring create-admin.js's approach
-                             (never source/eval — real `.env` values here contain shell-special characters like
-                             `$$`, which naive sourcing would corrupt) — hardened 2026-08 to silently skip any line
-                             with no `=` or a key that isn't a valid shell identifier (e.g. a stray `export FOO=bar`
-                             line, previously an uncaught `set -e` abort) and to trim whitespace around key/value
-                             (its `line`/`key`/`val` loop variables are now `local`-declared too, 2026-08) —
-                             2026-08 Cycle 3 hardening: the main-stack data-clone dump (`pg_dump`/`pg_restore`) now
-                             writes to a `mktemp`-created file (`600` permissions, no world-readable window) instead
-                             of a fixed `/tmp/pdash_branch_snapshot.dump` path (a stale, days-old dump under the old
-                             fixed path was found and confirmed during this fix's verification), and is now cleaned
-                             up via `trap 'rm -f "$DUMP_FILE"' EXIT` (the script's only `EXIT` trap) so a mid-clone
-                             failure doesn't leak the file, replacing an earlier unconditional `rm -f` that only ran
-                             on the success path; the four ports (`FRONTEND_PORT`/`API_PORT`/
-                             `DB_PORT`/`ADMINER_PORT`) are now overridable via optional `TEST_BRANCH_*_PORT` `.env`
-                             variables, same defaults if unset
-    run-tests.sh           ← ephemeral, fully isolated stack (distinct `-p pdash_test` project name,
-                             `pdash-db-test`/`pdash-api-test` container names, no host ports) for the
-                             `docker-compose.yml` integration-test profile; unlike test-branch.sh it never clones
-                             main-stack data — always applies all `api/src/db/migrations/*.sql` to a fresh DB (the
-                             `test` service's own command never applied migrations itself, so the old bare
-                             `docker compose --profile test run --rm test` command only ever worked by silently
-                             attaching to the main stack's already-migrated volume); `trap cleanup EXIT` removes
-                             containers + the disposable volume + the generated `docker-compose.test.yml` override
-                             on every exit path; is `/finish-cycle` Gate 1's documented test command; its own
-                             `load_env()` copy received the identical 2026-08 malformed-line/whitespace fix as
-                             test-branch.sh's (kept duplicated by design, not consolidated — no shared shell-library
-                             convention exists in this project) — hardened again 2026-08 (Cycle 2): exits 1
-                             immediately, before touching Docker, if `docker-compose.yml`/`api/src/db/migrations/`
-                             aren't found relative to cwd (guards against being invoked from the wrong directory);
-                             writes the override file then runs an unconditional `$COMPOSE down -v --remove-orphans`
-                             at the very start (in that order — the override file must exist first, since `$COMPOSE`
-                             references it via `-f`, otherwise the pre-cleanup silently no-ops) so leftover state
-                             from a `SIGKILL`'d prior run (which bypasses the `EXIT` trap) doesn't linger; `--build`
-                             is now conditional on the `api` service — a hash of `api/Dockerfile`+`api/package.json`
-                             compared against a gitignored marker file (`.run-tests-image-hash`, repo root) decides
-                             whether to rebuild, only rebuilding when those inputs actually changed; `db` drops
-                             `--build` entirely (it has no build context — `image: postgres:16-alpine` directly) —
-                             2026-08 Cycle 3 hardening: the duplicated `$COMPOSE down -v --remove-orphans` command
-                             (previously inline in both `cleanup()` and the pre-cleanup call) is now a single shared
-                             `compose_down()` function; an `mkdir`-based concurrency lock (acquired right after the
-                             cwd guard, released in `cleanup()`) prevents two simultaneous invocations from tearing
-                             each other down via the pre-cleanup — the lock file lives at a shared
-                             `${TMPDIR:-/tmp}/pdash_test.run-tests.lock` path (not inside the repo checkout), since
-                             the `pdash_test` Docker project it protects is daemon-global, not scoped to any one
-                             git worktree — two different worktrees each acquiring their own checkout-local lock was
-                             the exact bug this final form avoids (caught by this cycle's own whole-branch review);
-                             the lock-contention error message names the exact `rmdir` command to recover from a
-                             genuinely stale lock (left behind by a `SIGHUP`/`kill -9`/crash, none of which reliably
-                             run the `EXIT` trap)
-    backup-db.sh            ← (2026-09) `pg_dump -Fc` snapshot of the main stack's `pdash-db` into `backups/`
-                             (gitignored — real data, including PII, must never reach git), timestamped to the
-                             second, keeping only the 3 most recent dumps and pruning older ones automatically;
-                             non-blocking by design — warns and exits 0 if `pdash-db` isn't running/healthy rather
-                             than failing whatever called it; same `.env` line-by-line parser as
-                             test-branch.sh/run-tests.sh; run standalone, or automatically (no confirmation prompt)
-                             by `/finish-cycle`'s Gate 4 right after merge is confirmed and before any merge state
-                             changes — see "Docker main-stack safety" above for the incident this exists to guard
-                             against
+    test-branch.sh        ← isolated Docker Compose stack (`up`/`down`/`status`) for testing the current feature branch before merge; distinct container names/ports from the main stack. Full narrative: docs/scripts/test-branch.md
+    run-tests.sh           ← ephemeral, fully isolated stack (distinct `-p pdash_test` project name, no host ports) for the `docker-compose.yml` integration-test profile; always applies all migrations to a fresh DB; is `/finish-cycle` Gate 1's documented test command. Full narrative: docs/scripts/run-tests.md
+    backup-db.sh          ← pg_dump -Fc snapshot of the main stack's pdash-db into backups/ (gitignored), timestamped to the second, keeps only the 3 most recent dumps; non-blocking (warns + exits 0 if pdash-db isn't running). Run standalone, or automatically by /finish-cycle Gate 4 right after merge — see "Docker main-stack safety" above for the incident this exists to guard against
 ```
 
 ---
