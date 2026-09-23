@@ -19,6 +19,7 @@ const resetRoutes         = require('./routes/reset');
 const currenciesRoutes    = require('./routes/currencies');
 const appSettingsRoutes   = require('./routes/app-settings');
 const attributeListsRoutes = require('./routes/attribute-lists');
+const resourcesRoutes = require('./routes/resources');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -56,6 +57,7 @@ app.use('/api/admin/reset',     resetRoutes);
 app.use('/api/currencies',      currenciesRoutes);
 app.use('/api/app-settings',    appSettingsRoutes);
 app.use('/api/attribute-lists', attributeListsRoutes);
+app.use('/api/resources',       resourcesRoutes);
 app.use('/api',               configRoutes);
 
 // 404
