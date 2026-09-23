@@ -1,5 +1,5 @@
 const express = require('express');
-const { query } = require('../db/client');
+const { query, pool } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
 const { sendShareNotification, sendShareRevokedEmail } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
@@ -414,6 +414,64 @@ router.delete('/:id/shares/:userId', requireAuth, async (req, res, next) => {
     }
 
     res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// ── TAGS ──────────────────────────────────────────────────────────────────────
+
+// GET /api/projects/:id/tags
+router.get('/:id/tags', requireAuth, async (req, res, next) => {
+  try {
+    if (!await canAccess(req.user.id, req.user.role, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const { rows } = await query(
+      `SELECT ali.id AS item_id, ali.label, ali.status, al.id AS list_id, al.name AS list_name, al.slug AS list_slug
+       FROM project_tags pt
+       JOIN attribute_list_items ali ON ali.id = pt.item_id
+       JOIN attribute_lists al ON al.id = ali.list_id
+       WHERE pt.project_id = $1
+       ORDER BY al.name, ali.label`,
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+// PUT /api/projects/:id/tags — replace-all; rejected when the project has a linked cost grid version
+router.put('/:id/tags', requireAuth, async (req, res, next) => {
+  try {
+    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const { rows: projRows } = await query('SELECT cg_version_id FROM projects WHERE id = $1', [req.params.id]);
+    if (!projRows[0]) return res.status(404).json({ error: 'Project not found' });
+    if (projRows[0].cg_version_id) {
+      return res.status(409).json({ error: 'Tags for this project are managed from its linked proposal' });
+    }
+
+    const { itemIds = [] } = req.body;
+    if (!Array.isArray(itemIds)) return res.status(400).json({ error: 'itemIds must be an array' });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM project_tags WHERE project_id = $1', [req.params.id]);
+      for (const itemId of itemIds) {
+        await client.query(
+          'INSERT INTO project_tags (project_id, item_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [req.params.id, itemId]
+        );
+      }
+      await client.query('COMMIT');
+      res.json({ ok: true });
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      if (err.code === '23503') return res.status(400).json({ error: 'One or more tag items do not exist' });
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) { next(err); }
 });
 
