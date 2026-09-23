@@ -135,7 +135,7 @@ _db-reset.html           — Sysadmin-exclusive hidden page for bulk DB data del
 terms.html               — Standalone T&C acceptance page (no navbar/initNav), Vue 3 (CDN, no build step, same pattern as login.html). Full narrative: [docs/pages/terms.md](docs/pages/terms.md).
 css/tokens.css           — design tokens (single source of truth for colors/type); also carries `[v-cloak] { display: none; }` (2026-07) — kept here rather than in style.css since 4 of the 13 Vue pages (`login.html`/`terms.html`/`activate.html`/`reset-password.html`) load only tokens.css, not style.css, and moving the rule would silently disable it there; a deliberate, accepted deviation from the tokens/style split below
 css/style.css            — component styles referencing tokens; `.pb-board-root` (2026-07) — extracted from `pipeline.html`'s former inline `style` attribute specifically so the `[v-cloak]` rule above can win via normal CSS cascade without needing `!important`
-js/api.js                — Api.* namespace, apiFetch wrapper (401 → redirect to login); sets `window.__pdashAuthRedirecting = true` before the redirect (never reset — a full page navigation is already in flight once set), a side-channel flag consumed by `js/costgrid.js`'s `cgCloneGrid()` to suppress a misleading warning during a session-expiry race (see that file's entry); on `!res.ok` (2026-09), attaches the parsed response body to the thrown `Error` as `err.data` (additive — no existing caller read `.data` before this) so a caller can act on structured error payloads, e.g. the timesheet upload's `inconsistencies` array (see `api/src/routes/timesheets.js`'s entry)
+js/api.js                — Api.* namespace, apiFetch wrapper (401 → redirect to login, sets `window.__pdashAuthRedirecting`); on `!res.ok` attaches the parsed response body to the thrown Error as `err.data` (2026-09) so callers can act on structured error payloads (e.g. timesheet upload's `inconsistencies`, see `docs/api/timesheets.md`).
 js/api-sync.js           — in-memory ↔ API sync layer (cgSyncFromApi, loadConfigFromApi, _pushProjectToApi, etc.). Full narrative: [docs/js/api-sync.md](docs/js/api-sync.md).
 js/lib/                  — pure functions extracted for unit testing (vitest + jsdom), each an ES module (`export function ...`) with a `window.<name> = <name>` bridge for existing classic-script callers; modules: cfg-parse.js, planning-calc.js, status-rules.js, costgrid-calc.js, portfolio-calc.js, pipeline-calc.js, notif-browser.js. Full narrative: [docs/js/lib.md](docs/js/lib.md).
 js/core.js               — state, in-memory helpers (loadConfig/persistConfig are no-ops), shared badges, esc(), fmtH(), fmtMoney(), showConfirm()/showInfo() modal idioms, findRate(), formatUploadInconsistencies(). Full narrative: [docs/js/core.md](docs/js/core.md).
@@ -181,23 +181,7 @@ api/src/routes/reset.js          — GET /api/admin/reset/scopes + POST /api/adm
 api/src/routes/app-settings.js   — App-wide settings routes, incl. Terms & Conditions storage/version history (GET/PUT /terms, /terms/draft, /terms/versions). Full narrative: [docs/api/app-settings.md](docs/api/app-settings.md).
 api/src/routes/timesheets.js     — GET / (summary), POST /upload (XLS ingest + role/task validation gate), DELETE /:projectCode. Full narrative: [docs/api/timesheets.md](docs/api/timesheets.md).
 api/src/db/migrations/   — numbered SQL migration files
-api/src/services/        — email (nodemailer: sendInvite, sendPasswordReset, sendShareNotification,
-                            sendShareRevokedEmail, sendOwnerReassignedEmail, sendExportEmail,
-                            sendAdminNotificationEmail), jwt; `sendShareRevokedEmail({to, firstName,
-                            resourceType, resourceName, revokedBy})` (2026-09) — the counterpart to
-                            `sendShareNotification` for the opposite direction (access removed rather than
-                            granted); no `link`, unlike every other templated email here, since the
-                            recipient can no longer open the resource. Consumed by `projects.js`'s
-                            `DELETE /:id/shares/:userId` (see that file's own entry) — the only caller so far;
-                            cost-grid share removal (`cost-grids.js`'s own `DELETE /:id/shares/:userId`)
-                            deliberately still doesn't call it, an explicit 2026-09 scope decision, not an
-                            oversight.
-                            `email.js` exports its own `APP_URL` constant (2026-09, falls back to
-                            `'http://localhost'` when the env var is unset) alongside its `send*` functions, so
-                            route files building an email `link` can use it instead of bare `process.env.APP_URL` —
-                            `cost-grids.js`'s `sendOwnerReassignedEmail` call is the first consumer; the identical
-                            bare-`process.env.APP_URL` pattern still exists elsewhere in that file (`sendShareNotification`'s
-                            call), a known, accepted minor left unfixed since it was out of this cycle's scope
+api/src/services/        — email (nodemailer: sendInvite, sendPasswordReset, sendShareNotification, sendShareRevokedEmail, sendOwnerReassignedEmail, sendExportEmail, sendAdminNotificationEmail), jwt; sendShareRevokedEmail (2026-09) is the access-removed counterpart to sendShareNotification, consumed only by projects.js's DELETE /:id/shares/:userId (cost-grid share removal doesn't call it, a deliberate scope decision); email.js exports an APP_URL constant (2026-09) for building email links.
 api/src/create-admin.js  — CLI bootstrap script (admin user create/reset); always sets role='admin' by design — never
                             sysadmin, a deliberate scope boundary (see `promote-sysadmin.js` for that step)
 api/src/promote-sysadmin.js — CLI script (2026-09) to promote an existing user to `role='sysadmin'` — the separate
@@ -214,30 +198,10 @@ api/src/middleware/auth.js — `requireAuth` (JWT cookie → `req.user`), `requi
                             re-reads the role from the DB on every call — gates `reset.js` and `PUT
                             /api/app-settings/terms`, where an up-to-8h-stale revocation window on genuinely
                             irreversible bulk-deletion routes was judged unacceptable, 2026-09).
-api/src/routes/users.js  — `PATCH /:id` (role/status), `POST /:id/anonymize`, `DELETE /:id` (soft-delete/disable) all
-                            gated `requireAdmin`, then a shared `sysAdminTargetError(actorRole, targetCurrentRole)`
-                            check (2026-09): a row currently `role='sysadmin'` can only be mutated — role, status,
-                            anonymize, delete, any of them — by an actor who is themselves sysadmin. The actor's role
-                            for this check is read fresh from the DB via a small `liveRole(userId)` helper, not
-                            `req.user.role` from `requireAdmin`'s JWT-cached claim (code-review fix — a sysadmin
-                            whose privileges were just revoked could otherwise keep granting/revoking sysadmin or
-                            modifying other sysadmins on a stale token for up to 8h). `PATCH /:id`'s `role` field
-                            additionally runs `roleChangeError()` (`api/src/lib/role-transition.js`) for the
-                            two-step promotion/demotion rules. Self-modification blocked unconditionally on all
-                            three routes (`req.params.id === req.user.id`), predates this session.
+api/src/routes/users.js  — PATCH /:id (role/status), POST /:id/anonymize, DELETE /:id, all gated requireAdmin plus a shared sysAdminTargetError() check (2026-09): only a sysadmin may mutate a row currently role='sysadmin', checked via a fresh DB read (liveRole()), not the JWT-cached claim. PATCH /:id's role field also runs roleChangeError() (api/src/lib/role-transition.js) for two-step promotion/demotion. Self-modification blocked unconditionally on all three routes.
 scripts/test-branch.sh   — isolated Docker Compose stack for testing the current feature branch before merge (distinct container names/ports, clones data from main via pg_dump/pg_restore when available); up/down/status subcommands. Full narrative: [docs/scripts/test-branch.md](docs/scripts/test-branch.md).
 scripts/run-tests.sh     — ephemeral, fully isolated Docker Compose stack for the integration-test profile (no host ports, disposable volume, auto-teardown via trap); applies migrations explicitly before starting api. Full narrative: [docs/scripts/run-tests.md](docs/scripts/run-tests.md).
-scripts/backup-db.sh     — (2026-09) `pg_dump -Fc` snapshot of the main stack's `pdash-db` into `backups/`
-                            (gitignored — real data, including PII, must never reach git), timestamped to the
-                            second (`pdash-backup-YYYY-MM-DD-HHMMSS.dump`) to avoid collisions across repeated runs
-                            in the same day; keeps only the 3 most recent dumps, pruning older ones automatically
-                            after each run. Non-blocking by design: if `pdash-db` isn't running/healthy, warns and
-                            exits 0 rather than failing whatever called it. Same `.env` line-by-line parser as
-                            `scripts/test-branch.sh`/`scripts/run-tests.sh` (never `source`/`eval`, for the same
-                            shell-special-character reason). Run standalone, or automatically (no confirmation
-                            prompt) by `/finish-cycle`'s Gate 4 right after merge is confirmed and before any merge
-                            state changes — see "Database backup & full recreation" above for the manual-fallback
-                            command this replaces as the preferred path.
+scripts/backup-db.sh     — pg_dump -Fc snapshot of the main stack's pdash-db into backups/ (gitignored), timestamped to the second, keeps only the 3 most recent dumps; non-blocking (warns + exits 0 if pdash-db isn't running). Run standalone, or automatically by /finish-cycle Gate 4 right after merge — see "Database backup & full recreation" above.
 ```
 
 ### `v-cloak` (all Vue pages, 2026-07)
