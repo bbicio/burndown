@@ -106,6 +106,10 @@ const Api = {
       add:    (id, userId, permission) => apiFetch(`/projects/${id}/shares`,           { method: 'POST',   body: JSON.stringify({ userId, permission }) }),
       remove: (id, userId)            => apiFetch(`/projects/${id}/shares/${userId}`,  { method: 'DELETE' }),
     },
+    tags: {
+      list:    (id)          => apiFetch(`/projects/${id}/tags`),
+      replace: (id, itemIds) => apiFetch(`/projects/${id}/tags`, { method: 'PUT', body: JSON.stringify({ itemIds }) }),
+    },
   },
 
   costGrids: {
@@ -130,6 +134,10 @@ const Api = {
         list:   (cgId, vId)           => apiFetch(`/cost-grids/${cgId}/versions/${vId}/linked-projects`),
         add:    (cgId, vId, d)        => apiFetch(`/cost-grids/${cgId}/versions/${vId}/linked-projects`, { method: 'POST', body: JSON.stringify(d) }),
         remove: (cgId, vId, projId)   => apiFetch(`/cost-grids/${cgId}/versions/${vId}/linked-projects/${projId}`, { method: 'DELETE' }),
+      },
+      tags: {
+        list:    (cgId, vId)           => apiFetch(`/cost-grids/${cgId}/versions/${vId}/tags`),
+        replace: (cgId, vId, itemIds)  => apiFetch(`/cost-grids/${cgId}/versions/${vId}/tags`, { method: 'PUT', body: JSON.stringify({ itemIds }) }),
       },
     },
     shares: {
