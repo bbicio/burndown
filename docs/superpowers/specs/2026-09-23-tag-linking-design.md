@@ -49,12 +49,20 @@ Validazione: ogni `item_id` nel payload deve esistere in `attribute_list_items` 
 
 ## 3. Risoluzione lato frontend
 
-Nuova funzione `getProjectTags(projectId)` in `js/core.js`, gemella di `getProjectPipeline(projectId)` (stesso file, stessa logica):
-1. Risolve il progetto e il suo `costGridRef`.
-2. Se `costGridRef` è impostato: ritorna i tag della versione collegata (già caricati in `_cgStore`/via `cgLoadStructureFromApi`, che verrà esteso per includere anche i tag della versione nella stessa chiamata di caricamento struttura, evitando una fetch separata).
-3. Altrimenti: ritorna i tag diretti del progetto (caricati insieme al resto di `config.projects[]` da `loadConfigFromApi()`, esteso per includere `tags` per-progetto).
-
-Questa funzione è il solo punto di lettura usato da entrambe le pagine UI (§4, §5) — nessun'altra pagina la consuma in questo ciclo.
+**Nota post-implementazione (2026-09-24):** questa sezione descriveva in origine una
+funzione condivisa `getProjectTags(projectId)` in `js/core.js`, gemella sincrona di
+`getProjectPipeline(projectId)` letta da uno store in-memory già popolato. In fase di
+piano (`docs/superpowers/plans/2026-09-23-tag-linking.md`) questo è stato
+volutamente sostituito da una risoluzione diretta per-pagina, più semplice e
+corretta: `project-config.html` non carica `js/costgrid.js` (a differenza di
+`pipeline.html`), quindi `_cgStore` non è mai popolato lì — un resolver sincrono
+letto dalla cache avrebbe sistematicamente fallito silenziosamente su questa pagina.
+La logica implementata (in `project-config.html`'s `loadTags()`) resta identica nella
+sostanza — risolve via `costGridRef` quando presente, altrimenti legge i tag diretti
+del progetto — ma è una fetch live per-pagina (`Api.costGrids.versions.tags.list` /
+`Api.projects.tags.list`), non una lettura da cache condivisa. Unico consumatore in
+questo ciclo resta `project-config.html`; `costgrid.html` gestisce i tag di versione
+per conto proprio (§4), senza bisogno di risolvere via `costGridRef`.
 
 ## 4. UI in `costgrid.html`
 

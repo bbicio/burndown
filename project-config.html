@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="https://ik.imagekit.io/6ezjgrjjf/00_Home_Page/letter-f.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/tokens.css?v=7">
-  <link rel="stylesheet" href="css/style.css?v=11">
+  <link rel="stylesheet" href="css/style.css?v=13">
 </head>
 <body>
 
@@ -279,6 +279,29 @@
     <button class="btn btn-sm btn-outline-secondary" v-if="!isViewer" @click="addGroupEntry(gi)">+ Add role</button>
   </div>
 </div>
+<div class="cfg-section" v-if="!isNewProject">
+  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>8. Tags <span class="fw-normal text-muted">(optional)</span></span></div>
+  <p v-if="pipelineLocked" class="text-muted small mb-2">Managed from the linked proposal — <a :href="'/costgrid.html?cgId=' + project.costGridRef.cgId + '&verId=' + project.costGridRef.versionId">open it to edit</a>.</p>
+  <div v-if="!attributeLists.length" class="text-muted small">No tag lists configured yet.</div>
+  <div class="tags-section" :class="{ 'tags-section--readonly': tagsReadOnly }">
+  <div v-for="list in attributeLists" :key="list.id" class="tag-group mb-3">
+    <div class="tag-group__label">{{ list.name }}</div>
+    <div v-if="!list.items.length" class="text-muted" style="font-size:.75rem">No active items in this list.</div>
+    <div class="tag-group__list">
+      <label v-for="item in list.items" :key="item.id" class="tag-pill">
+        <input type="checkbox" :checked="isTagChecked(item.id)" :disabled="tagsReadOnly || tagSaving" @change="toggleTag(item.id, $event)">
+        <svg class="tag-pill__check" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.8 8.8L10 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>{{ item.label }}</span>
+      </label>
+      <label v-for="row in inactiveAssignedForList(list.id)" :key="row.item_id" class="tag-pill tag-pill--inactive">
+        <input type="checkbox" checked :disabled="tagsReadOnly || tagSaving" @change="toggleTag(row.item_id, $event)">
+        <span>{{ row.label }}</span>
+        <span class="tag-pill__suffix">inactive</span>
+      </label>
+    </div>
+  </div>
+  </div>
+</div>
     </div>
 
     <div class="d-flex gap-2 justify-content-between align-items-center py-4 border-top mt-2 mb-5">
@@ -361,7 +384,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script defer src="js/api.js?v=6"></script>
+<script defer src="js/api.js?v=7"></script>
 <script defer src="js/core.js?v=5"></script>
 <script defer src="js/settings.js"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
@@ -372,6 +395,7 @@
 <script type="module" src="js/lib/status-rules.js?v=1"></script>
 <script type="module" src="js/lib/config-form-calc.js?v=1"></script>
 <script defer src="js/api-sync.js?v=15"></script>
+<script defer src="js/tags.js?v=2"></script>
 <script defer src="js/nav.js?v=9"></script>
 <script type="module">
   function month2ym(monthInputVal) {
@@ -398,6 +422,9 @@
         project: null,
         isNewProject: false,
         jsonError: '',
+        attributeLists: [],
+        projectTags: [],
+        tagSaving: false,
         saving: false,
         clientModal: { name: '', error: '', saving: false },
         programModal: { name: '', id: '', error: '', saving: false },
@@ -415,6 +442,7 @@
       pipelineLocked() {
         return !!(this.project?.costGridRef?.cgId);
       },
+      tagsReadOnly() { return this.isViewer || this.pipelineLocked; },
       statusRule() {
         return this.project ? getStatusRule(this.project.pipeline) : { options: null, disabled: true };
       },
@@ -465,6 +493,10 @@
       if (this.project && !this.notFound) this.sanitizeStatus();
       if (this.project && !this.notFound) await this.updateReforecastVisibility();
       if (this.project && !this.notFound) await this.loadActuals();
+      if (this.project && !this.notFound && !this.isNewProject) {
+        this.attributeLists = await loadActiveAttributeListsForTagging().catch(e => { console.warn('[project-config] loadActiveAttributeListsForTagging:', e.message); return []; });
+        await this.loadTags();
+      }
       this.ready = true;
     },
     methods: {
@@ -508,6 +540,46 @@
         (this.project.groups || []).forEach(g => { if (!g.entries || !g.entries.length) g.entries = (g.roles || []).map(role => ({ role, task: '' })); });
         this.isNewProject = false;
         this.updateBreadcrumb(this.project.name || projectId);
+      },
+      async loadTags() {
+        try {
+          this.projectTags = this.pipelineLocked
+            ? await Api.costGrids.versions.tags.list(this.project.costGridRef.cgId, this.project.costGridRef.versionId)
+            : await Api.projects.tags.list(this.project.id);
+        } catch (e) {
+          console.warn('[project-config] loadTags:', e.message);
+          this.projectTags = [];
+        }
+      },
+      isTagChecked(itemId) {
+        return this.projectTags.some(t => t.item_id === itemId);
+      },
+      // An assigned tag whose item was later deactivated stays assigned (per spec) but
+      // no longer appears in `attributeLists` (active items only) — render it separately
+      // so it stays visible and removable.
+      inactiveAssignedForList(listId) {
+        return this.projectTags.filter(t => t.list_id === listId && t.status !== 'active');
+      },
+      async toggleTag(itemId, event) {
+        if (this.tagsReadOnly) return;
+        // In-flight guard: the checkbox is also :disabled while tagSaving is true, so this
+        // is a defense-in-depth fallback for the brief window before Vue re-renders that
+        // disabled state. The native checkbox has already visually flipped by the time
+        // @change fires — if we're bailing out, flip it back so it doesn't show a state
+        // that was never applied to projectTags or saved.
+        if (this.tagSaving) { if (event) event.target.checked = !event.target.checked; return; }
+        const newIds = this.isTagChecked(itemId)
+          ? this.projectTags.filter(t => t.item_id !== itemId).map(t => t.item_id)
+          : [...this.projectTags.map(t => t.item_id), itemId];
+        this.tagSaving = true;
+        try {
+          await Api.projects.tags.replace(this.project.id, newIds);
+          await this.loadTags();
+        } catch (e) {
+          console.warn('[project-config] toggleTag:', e.message);
+        } finally {
+          this.tagSaving = false;
+        }
       },
       updateBreadcrumb(label) {
         if (typeof updateBreadcrumbs === 'function') {

@@ -308,3 +308,91 @@ body.pp-fullwidth .app-container { max-width: 100% !important; padding: 0 12px !
   overflow: hidden;
   position: relative;
 }
+
+/* ── Tag pill component (costgrid.html / project-config.html "🏷 Tags" section)
+   Bindings are unchanged from the checkbox markup this replaces — toggleTag(),
+   isTagChecked()/versionTagItemIds, tagsReadOnly, inactiveAssignedForList() all
+   still read/write the same real <input type="checkbox">; only its presentation
+   changes. The checkbox stays in the DOM, visually hidden (not display:none) so
+   Tab/Space, focus, and screen readers keep working exactly as before. ── */
+.tag-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.tag-group__label {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.tag-group__list { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+.tag-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--surface-white);
+  color: var(--brand-navy);
+  border: 1px solid var(--border-medium);
+  user-select: none;
+}
+
+.tag-pill input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* :not(.tag-pill--inactive) matters: .tag-pill--inactive is always checked (an
+   inactive item can only ever appear here already-assigned), and without the
+   exclusion this rule's higher specificity — one class plus :has(input:checked),
+   vs. --inactive's single class — would override the dashed/muted styling below
+   and paint it as a normal solid navy-filled pill regardless of source order. */
+.tag-pill:has(input:checked):not(.tag-pill--inactive) {
+  background: var(--brand-navy);
+  color: var(--text-inverse);
+  border-color: var(--brand-navy);
+}
+
+.tag-pill__check { display: none; width: 12px; height: 12px; }
+.tag-pill:has(input:checked) .tag-pill__check { display: inline-block; }
+
+.tag-pill:has(input:focus-visible) {
+  outline: 2px solid var(--brand-navy);
+  outline-offset: 2px;
+}
+
+/* Assigned but its item was later deactivated (Fix #4) — stays visible and
+   clickable to remove; never navy-filled even though its checkbox is checked. */
+.tag-pill--inactive {
+  background: var(--surface-white);
+  color: var(--text-disabled);
+  border-style: dashed;
+  border-color: var(--border-medium);
+}
+.tag-pill--inactive .tag-pill__suffix {
+  font-style: italic;
+  color: var(--text-disabled);
+  font-size: var(--text-2xs);
+}
+
+/* Whole section read-only (locked version, viewer permission, or a linked
+   project's Tags section). Contrast fix: dim only the pills that AREN'T
+   assigned — a selected pill (navy fill + white text) or an inactive-assigned
+   pill both stay at full opacity, since what's actually tagged is the one
+   thing that must stay legible in read-only mode; a faded navy fill would
+   otherwise drop white-on-navy below 4.5:1 contrast. */
+.tags-section--readonly { pointer-events: none; }
+.tags-section--readonly .tag-group__label,
+.tags-section--readonly .tag-pill:not(:has(input:checked)) {
+  opacity: .55;
+}

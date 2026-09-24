@@ -5,7 +5,10 @@ const { slugify } = require('../lib/slugify');
 
 const router = express.Router();
 
-router.use(requireAuth, requireAdmin);
+// Reads are open to any authenticated user (e.g. the tag-assignment UI on
+// costgrid.html/project-config.html, used by editors — not just admins). Writes
+// stay admin-only, applied per-route below.
+router.use(requireAuth);
 
 // GET /api/attribute-lists — all lists with their active item count
 router.get('/', async (req, res, next) => {
@@ -23,7 +26,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // POST /api/attribute-lists
-router.post('/', async (req, res, next) => {
+router.post('/', requireAdmin, async (req, res, next) => {
   try {
     const { name } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
@@ -42,7 +45,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // PATCH /api/attribute-lists/:id — rename only, slug is immutable
-router.patch('/:id', async (req, res, next) => {
+router.patch('/:id', requireAdmin, async (req, res, next) => {
   try {
     const { name } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
@@ -67,7 +70,7 @@ router.get('/:id/items', async (req, res, next) => {
 });
 
 // POST /api/attribute-lists/:id/items
-router.post('/:id/items', async (req, res, next) => {
+router.post('/:id/items', requireAdmin, async (req, res, next) => {
   try {
     const { label } = req.body;
     if (!label?.trim()) return res.status(400).json({ error: 'label is required' });
@@ -84,7 +87,7 @@ router.post('/:id/items', async (req, res, next) => {
 });
 
 // PATCH /api/attribute-lists/:id/items/:itemId
-router.patch('/:id/items/:itemId', async (req, res, next) => {
+router.patch('/:id/items/:itemId', requireAdmin, async (req, res, next) => {
   try {
     const { label, status } = req.body;
     const fields = [];

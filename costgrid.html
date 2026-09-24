@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="https://ik.imagekit.io/6ezjgrjjf/00_Home_Page/letter-f.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/tokens.css?v=7">
-  <link rel="stylesheet" href="css/style.css?v=11">
+  <link rel="stylesheet" href="css/style.css?v=13">
 </head>
 <body>
 
@@ -158,6 +158,33 @@
                   <button v-if="lp.hasProj" class="btn btn-xs btn-outline-secondary flex-shrink-0" @click="openLinkedProject(lp.currentProjId)" style="font-size:var(--text-xs);white-space:nowrap">📊 Project Dashboard</button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tags -->
+      <div class="section-card mb-3">
+        <div class="section-header d-flex align-items-center" style="cursor:pointer;user-select:none" @click="tagsCollapsed = !tagsCollapsed">
+          <span style="font-size:var(--text-sm);margin-right:6px;color:var(--text-muted)">{{ tagsCollapsed ? '▶' : '▼' }}</span>
+          <span>🏷 Tags</span>
+        </div>
+        <div v-show="!tagsCollapsed" class="p-3" :class="{ 'tags-section--readonly': isLocked || cg?.myPermission === 'viewer' }">
+          <div v-if="!attributeLists.length" class="text-muted" style="font-size:var(--text-sm)">No tag lists configured yet.</div>
+          <div v-for="list in attributeLists" :key="list.id" class="tag-group mb-3">
+            <div class="tag-group__label">{{ list.name }}</div>
+            <div v-if="!list.items.length" class="text-muted" style="font-size:var(--text-xs)">No active items in this list.</div>
+            <div class="tag-group__list">
+              <label v-for="item in list.items" :key="item.id" class="tag-pill">
+                <input type="checkbox" :checked="versionTagItemIds.includes(item.id)" :disabled="isLocked || cg?.myPermission === 'viewer' || tagSaving" @change="toggleTag(item.id, $event)">
+                <svg class="tag-pill__check" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.8 8.8L10 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span>{{ item.label }}</span>
+              </label>
+              <label v-for="row in inactiveAssignedForList(list.id)" :key="row.item_id" class="tag-pill tag-pill--inactive">
+                <input type="checkbox" checked :disabled="isLocked || cg?.myPermission === 'viewer' || tagSaving" @change="toggleTag(row.item_id, $event)">
+                <span>{{ row.label }}</span>
+                <span class="tag-pill__suffix">inactive</span>
+              </label>
             </div>
           </div>
         </div>
@@ -634,7 +661,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script defer src="js/api.js?v=6"></script>
+<script defer src="js/api.js?v=7"></script>
 <script defer src="js/core.js?v=5"></script>
 <script defer src="js/settings.js"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
@@ -646,6 +673,7 @@
 <script type="module" src="js/lib/costgrid-calc.js?v=5"></script>
 <script defer src="js/costgrid.js?v=32"></script>
 <script defer src="js/api-sync.js?v=15"></script>
+<script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>
 <script defer src="js/shares.js"></script>
 <script defer src="js/share-list-component.js"></script>
@@ -688,7 +716,8 @@ Vue.createApp({
       loading: true, loadError: null,
       clients: [], currencies: [],
       ratecardMap: {}, ratecardOverrides: {}, isClientRatecard: false, allRatecards: [],
-      offerDetailsCollapsed: false, summaryCollapsed: false, sharingCollapsed: false,
+      offerDetailsCollapsed: false, summaryCollapsed: false, sharingCollapsed: false, tagsCollapsed: false,
+      attributeLists: [], versionTagItemIds: [], versionTagRows: [], tagSaving: false,
       compactHeader: localStorage.getItem('PDash_cgCompactHeader') === '1',
       selectionMode: false, selectedTaskIds: new Set(),
       ptcFocusedTask: null, ptcRaw: '', hoursEditing: null, addToProjectSel: '',
@@ -1056,6 +1085,16 @@ Vue.createApp({
       this.prevCurrency = this.draft.currency || 'EUR';
       this.selectionMode = false; this.selectedTaskIds = new Set();
 
+      try {
+        const tagRows = await Api.costGrids.versions.tags.list(cgId, resolvedVerId);
+        this.versionTagItemIds = tagRows.map(r => r.item_id);
+        this.versionTagRows = tagRows;
+      } catch (e) {
+        console.warn('[costgrid] load version tags failed:', e.message);
+        this.versionTagItemIds = [];
+        this.versionTagRows = [];
+      }
+
       await cgUpdateActiveRatecardMap(); // may mutate _cgDraft.roles[].rate in place (non-custom roles)
       this.ratecardMap = { ..._cgActiveRatecardMap };
       this.ratecardOverrides = { ..._cgActiveRatecardOverrides };
@@ -1088,6 +1127,40 @@ Vue.createApp({
       window.location.href = '/pipeline.html';
     },
     onHeaderFieldChange() { cgScheduleAutoSave(); },
+    async toggleTag(itemId, event) {
+      if (this.isLocked || this.cg?.myPermission === 'viewer') return;
+      // In-flight guard: the checkbox is also :disabled while tagSaving is true, so this
+      // is a defense-in-depth fallback for the brief window before Vue re-renders that
+      // disabled state. The native checkbox has already visually flipped by the time
+      // @change fires — if we're bailing out, flip it back so it doesn't show a state
+      // that was never applied to versionTagItemIds or saved.
+      if (this.tagSaving) { if (event) event.target.checked = !event.target.checked; return; }
+      const idx = this.versionTagItemIds.indexOf(itemId);
+      const prevItemIds = [...this.versionTagItemIds];
+      const prevRows = [...this.versionTagRows];
+      if (idx === -1) {
+        this.versionTagItemIds.push(itemId);
+      } else {
+        this.versionTagItemIds.splice(idx, 1);
+        this.versionTagRows = this.versionTagRows.filter(r => r.item_id !== itemId);
+      }
+      this.tagSaving = true;
+      try {
+        await Api.costGrids.versions.tags.replace(this.cgId, this.verId, this.versionTagItemIds);
+      } catch (e) {
+        console.warn('[costgrid] saveTags:', e.message);
+        this.versionTagItemIds = prevItemIds;
+        this.versionTagRows = prevRows;
+      } finally {
+        this.tagSaving = false;
+      }
+    },
+    // An assigned tag whose item was later deactivated stays assigned (per spec) but
+    // no longer appears in `attributeLists` (active items only) — render it separately
+    // so it stays visible and removable.
+    inactiveAssignedForList(listId) {
+      return this.versionTagRows.filter(r => r.list_id === listId && r.status !== 'active');
+    },
     onPipelineChange() {
       cgPropagatePipelineToProjects();
       const cgFresh = cgLoad(this.cgId);
@@ -1419,6 +1492,8 @@ Vue.createApp({
     this.programs = getPrograms();
 
     try { await cgSyncFromApi(); } catch (e) { console.warn('[init] cgSyncFromApi failed:', e.message); }
+
+    this.attributeLists = await loadActiveAttributeListsForTagging().catch(e => { console.warn('[costgrid] loadActiveAttributeListsForTagging:', e.message); return []; });
 
     this.clients = getClients();
     this.currencies = window.__currencies || [];
