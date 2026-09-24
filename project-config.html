@@ -279,6 +279,21 @@
     <button class="btn btn-sm btn-outline-secondary" v-if="!isViewer" @click="addGroupEntry(gi)">+ Add role</button>
   </div>
 </div>
+<div class="cfg-section" v-if="!isNewProject">
+  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>8. Tags <span class="fw-normal text-muted">(optional)</span></span></div>
+  <p v-if="pipelineLocked" class="text-muted small mb-2">Managed from the linked proposal — <a :href="'/costgrid.html?cgId=' + project.costGridRef.cgId + '&verId=' + project.costGridRef.versionId">open it to edit</a>.</p>
+  <div v-if="!attributeLists.length" class="text-muted small">No tag lists configured yet.</div>
+  <div v-for="list in attributeLists" :key="list.id" class="mb-2">
+    <div class="small fw-semibold text-muted mb-1">{{ list.name }}</div>
+    <div v-if="!list.items.length" class="text-muted" style="font-size:.75rem">No active items in this list.</div>
+    <div class="d-flex flex-wrap gap-2">
+      <label v-for="item in list.items" :key="item.id" class="d-flex align-items-center gap-1" style="font-size:.85rem;cursor:pointer">
+        <input type="checkbox" class="form-check-input" :checked="isTagChecked(item.id)" :disabled="tagsReadOnly" @change="toggleTag(item.id)">
+        {{ item.label }}
+      </label>
+    </div>
+  </div>
+</div>
     </div>
 
     <div class="d-flex gap-2 justify-content-between align-items-center py-4 border-top mt-2 mb-5">
@@ -399,6 +414,8 @@
         project: null,
         isNewProject: false,
         jsonError: '',
+        attributeLists: [],
+        projectTags: [],
         saving: false,
         clientModal: { name: '', error: '', saving: false },
         programModal: { name: '', id: '', error: '', saving: false },
@@ -416,6 +433,7 @@
       pipelineLocked() {
         return !!(this.project?.costGridRef?.cgId);
       },
+      tagsReadOnly() { return this.isViewer || this.pipelineLocked; },
       statusRule() {
         return this.project ? getStatusRule(this.project.pipeline) : { options: null, disabled: true };
       },
@@ -466,6 +484,10 @@
       if (this.project && !this.notFound) this.sanitizeStatus();
       if (this.project && !this.notFound) await this.updateReforecastVisibility();
       if (this.project && !this.notFound) await this.loadActuals();
+      if (this.project && !this.notFound && !this.isNewProject) {
+        this.attributeLists = await loadActiveAttributeListsForTagging().catch(e => { console.warn('[project-config] loadActiveAttributeListsForTagging:', e.message); return []; });
+        await this.loadTags();
+      }
       this.ready = true;
     },
     methods: {
@@ -509,6 +531,31 @@
         (this.project.groups || []).forEach(g => { if (!g.entries || !g.entries.length) g.entries = (g.roles || []).map(role => ({ role, task: '' })); });
         this.isNewProject = false;
         this.updateBreadcrumb(this.project.name || projectId);
+      },
+      async loadTags() {
+        try {
+          this.projectTags = this.pipelineLocked
+            ? await Api.costGrids.versions.tags.list(this.project.costGridRef.cgId, this.project.costGridRef.versionId)
+            : await Api.projects.tags.list(this.project.id);
+        } catch (e) {
+          console.warn('[project-config] loadTags:', e.message);
+          this.projectTags = [];
+        }
+      },
+      isTagChecked(itemId) {
+        return this.projectTags.some(t => t.item_id === itemId);
+      },
+      async toggleTag(itemId) {
+        if (this.tagsReadOnly) return;
+        const newIds = this.isTagChecked(itemId)
+          ? this.projectTags.filter(t => t.item_id !== itemId).map(t => t.item_id)
+          : [...this.projectTags.map(t => t.item_id), itemId];
+        try {
+          await Api.projects.tags.replace(this.project.id, newIds);
+          await this.loadTags();
+        } catch (e) {
+          console.warn('[project-config] toggleTag:', e.message);
+        }
       },
       updateBreadcrumb(label) {
         if (typeof updateBreadcrumbs === 'function') {
