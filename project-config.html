@@ -289,12 +289,12 @@
     <div v-if="!list.items.length" class="text-muted" style="font-size:.75rem">No active items in this list.</div>
     <div class="tag-group__list">
       <label v-for="item in list.items" :key="item.id" class="tag-pill">
-        <input type="checkbox" :checked="isTagChecked(item.id)" :disabled="tagsReadOnly" @change="toggleTag(item.id)">
+        <input type="checkbox" :checked="isTagChecked(item.id)" :disabled="tagsReadOnly || tagSaving" @change="toggleTag(item.id, $event)">
         <svg class="tag-pill__check" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.8 8.8L10 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>{{ item.label }}</span>
       </label>
       <label v-for="row in inactiveAssignedForList(list.id)" :key="row.item_id" class="tag-pill tag-pill--inactive">
-        <input type="checkbox" checked :disabled="tagsReadOnly" @change="toggleTag(row.item_id)">
+        <input type="checkbox" checked :disabled="tagsReadOnly || tagSaving" @change="toggleTag(row.item_id, $event)">
         <span>{{ row.label }}</span>
         <span class="tag-pill__suffix">inactive</span>
       </label>
@@ -395,7 +395,7 @@
 <script type="module" src="js/lib/status-rules.js?v=1"></script>
 <script type="module" src="js/lib/config-form-calc.js?v=1"></script>
 <script defer src="js/api-sync.js?v=15"></script>
-<script defer src="js/tags.js?v=1"></script>
+<script defer src="js/tags.js?v=2"></script>
 <script defer src="js/nav.js?v=9"></script>
 <script type="module">
   function month2ym(monthInputVal) {
@@ -424,6 +424,7 @@
         jsonError: '',
         attributeLists: [],
         projectTags: [],
+        tagSaving: false,
         saving: false,
         clientModal: { name: '', error: '', saving: false },
         programModal: { name: '', id: '', error: '', saving: false },
@@ -559,24 +560,25 @@
       inactiveAssignedForList(listId) {
         return this.projectTags.filter(t => t.list_id === listId && t.status !== 'active');
       },
-      async toggleTag(itemId) {
+      async toggleTag(itemId, event) {
         if (this.tagsReadOnly) return;
-        // In-flight guard: a save already in progress is serialized before the next one
-        // starts, so two rapid clicks on different tags can't race — the second click's
-        // itemIds would otherwise be computed from a not-yet-refreshed this.projectTags
-        // and silently overwrite the first click's change.
-        if (this._tagSaving) return;
+        // In-flight guard: the checkbox is also :disabled while tagSaving is true, so this
+        // is a defense-in-depth fallback for the brief window before Vue re-renders that
+        // disabled state. The native checkbox has already visually flipped by the time
+        // @change fires — if we're bailing out, flip it back so it doesn't show a state
+        // that was never applied to projectTags or saved.
+        if (this.tagSaving) { if (event) event.target.checked = !event.target.checked; return; }
         const newIds = this.isTagChecked(itemId)
           ? this.projectTags.filter(t => t.item_id !== itemId).map(t => t.item_id)
           : [...this.projectTags.map(t => t.item_id), itemId];
-        this._tagSaving = true;
+        this.tagSaving = true;
         try {
           await Api.projects.tags.replace(this.project.id, newIds);
           await this.loadTags();
         } catch (e) {
           console.warn('[project-config] toggleTag:', e.message);
         } finally {
-          this._tagSaving = false;
+          this.tagSaving = false;
         }
       },
       updateBreadcrumb(label) {

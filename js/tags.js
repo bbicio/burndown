@@ -7,17 +7,15 @@ async function loadActiveAttributeListsForTagging() {
   if (!listsRes.ok) throw new Error('Failed to load attribute lists');
   const lists = await listsRes.json();
 
-  const result = [];
-  for (const list of lists) {
+  return Promise.all(lists.map(async (list) => {
     const itemsRes = await fetch(`/api/attribute-lists/${list.id}/items`, { credentials: 'same-origin' });
     if (!itemsRes.ok) throw new Error(`Failed to load items for list "${list.name}"`);
     const items = await itemsRes.json();
-    result.push({
+    return {
       id: list.id,
       name: list.name,
       slug: list.slug,
       items: items.filter(i => i.status === 'active'),
-    });
-  }
-  return result;
+    };
+  }));
 }

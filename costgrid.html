@@ -176,12 +176,12 @@
             <div v-if="!list.items.length" class="text-muted" style="font-size:var(--text-xs)">No active items in this list.</div>
             <div class="tag-group__list">
               <label v-for="item in list.items" :key="item.id" class="tag-pill">
-                <input type="checkbox" :checked="versionTagItemIds.includes(item.id)" :disabled="isLocked || cg?.myPermission === 'viewer'" @change="toggleTag(item.id)">
+                <input type="checkbox" :checked="versionTagItemIds.includes(item.id)" :disabled="isLocked || cg?.myPermission === 'viewer' || tagSaving" @change="toggleTag(item.id, $event)">
                 <svg class="tag-pill__check" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.8 8.8L10 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 <span>{{ item.label }}</span>
               </label>
               <label v-for="row in inactiveAssignedForList(list.id)" :key="row.item_id" class="tag-pill tag-pill--inactive">
-                <input type="checkbox" checked :disabled="isLocked || cg?.myPermission === 'viewer'" @change="toggleTag(row.item_id)">
+                <input type="checkbox" checked :disabled="isLocked || cg?.myPermission === 'viewer' || tagSaving" @change="toggleTag(row.item_id, $event)">
                 <span>{{ row.label }}</span>
                 <span class="tag-pill__suffix">inactive</span>
               </label>
@@ -673,7 +673,7 @@
 <script type="module" src="js/lib/costgrid-calc.js?v=5"></script>
 <script defer src="js/costgrid.js?v=32"></script>
 <script defer src="js/api-sync.js?v=15"></script>
-<script defer src="js/tags.js?v=1"></script>
+<script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>
 <script defer src="js/shares.js"></script>
 <script defer src="js/share-list-component.js"></script>
@@ -717,7 +717,7 @@ Vue.createApp({
       clients: [], currencies: [],
       ratecardMap: {}, ratecardOverrides: {}, isClientRatecard: false, allRatecards: [],
       offerDetailsCollapsed: false, summaryCollapsed: false, sharingCollapsed: false, tagsCollapsed: false,
-      attributeLists: [], versionTagItemIds: [], versionTagRows: [],
+      attributeLists: [], versionTagItemIds: [], versionTagRows: [], tagSaving: false,
       compactHeader: localStorage.getItem('PDash_cgCompactHeader') === '1',
       selectionMode: false, selectedTaskIds: new Set(),
       ptcFocusedTask: null, ptcRaw: '', hoursEditing: null, addToProjectSel: '',
@@ -1127,11 +1127,14 @@ Vue.createApp({
       window.location.href = '/pipeline.html';
     },
     onHeaderFieldChange() { cgScheduleAutoSave(); },
-    async toggleTag(itemId) {
+    async toggleTag(itemId, event) {
       if (this.isLocked || this.cg?.myPermission === 'viewer') return;
-      // In-flight guard: a save already in progress is serialized before the next one
-      // starts, so two rapid clicks can't race and silently overwrite each other.
-      if (this._tagSaving) return;
+      // In-flight guard: the checkbox is also :disabled while tagSaving is true, so this
+      // is a defense-in-depth fallback for the brief window before Vue re-renders that
+      // disabled state. The native checkbox has already visually flipped by the time
+      // @change fires — if we're bailing out, flip it back so it doesn't show a state
+      // that was never applied to versionTagItemIds or saved.
+      if (this.tagSaving) { if (event) event.target.checked = !event.target.checked; return; }
       const idx = this.versionTagItemIds.indexOf(itemId);
       const prevItemIds = [...this.versionTagItemIds];
       const prevRows = [...this.versionTagRows];
@@ -1141,7 +1144,7 @@ Vue.createApp({
         this.versionTagItemIds.splice(idx, 1);
         this.versionTagRows = this.versionTagRows.filter(r => r.item_id !== itemId);
       }
-      this._tagSaving = true;
+      this.tagSaving = true;
       try {
         await Api.costGrids.versions.tags.replace(this.cgId, this.verId, this.versionTagItemIds);
       } catch (e) {
@@ -1149,7 +1152,7 @@ Vue.createApp({
         this.versionTagItemIds = prevItemIds;
         this.versionTagRows = prevRows;
       } finally {
-        this._tagSaving = false;
+        this.tagSaving = false;
       }
     },
     // An assigned tag whose item was later deactivated stays assigned (per spec) but
