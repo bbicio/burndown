@@ -118,7 +118,7 @@ Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page i
 | `_db-reset.html` | `/_db-reset.html` | **Sysadmin-exclusive** hidden page for bulk DB data deletion by scope, Vue 3 (CDN, no build step, same pattern as `admin.html`), linked from the sysadmin-only navbar menu (`initNav('dbreset', ...)`); also has "Delete single proposal" widget (UUID input, cascade delete) and "Change proposal owner" widget (UUID + active-user dropdown). Full narrative: [docs/pages/db-reset.md](docs/pages/db-reset.md) |
 | `_terms-editor.html` | `/_terms-editor.html` | **Sysadmin-exclusive** hidden page — Terms & Conditions editor, Vue 3 (CDN, no build step, same pattern as `_db-reset.html`), linked from the sysadmin-only navbar menu (`initNav('termseditor', ...)`); moved here from `admin.html`'s former T&C card, which is now removed. Full narrative: [docs/pages/terms-editor.md](docs/pages/terms-editor.md) |
 | `team.html` | `/team.html` | Resource registry CRUD (name/email/job title/job description, optional link to a PDash user), admin **or sysadmin**, linked from the ⚙ Admin dropdown. First of four planned resource-allocation cycles. |
-| `attribute-lists.html` | `/attribute-lists.html` | Generic, agnostic tag/taxonomy admin console — create lists and their items (Market/Brand/Therapeutic Area/Service Type seeded, more addable without code changes), admin **or sysadmin**, linked from the ⚙ Admin dropdown. Not yet consumed by any other page (tagging proposals/projects is a later cycle). |
+| `attribute-lists.html` | `/attribute-lists.html` | Generic, agnostic tag/taxonomy admin console — create lists and their items (Market/Brand/Therapeutic Area/Service Type seeded, more addable without code changes), admin **or sysadmin**, linked from the ⚙ Admin dropdown. As of Cycle 2 (2026-09), its lists/items are consumed by `costgrid.html`/`project-config.html`'s "🏷 Tags" sections via the shared `js/tags.js` helper. |
 
 ### File structure
 
@@ -139,8 +139,8 @@ team.html                — Resource registry CRUD, Vue 3 (CDN, no build step, 
 attribute-lists.html     — Generic tag/taxonomy admin console (lists + items, no physical delete, only active/inactive), Vue 3 (CDN, no build step, same pattern as admin.html), admin **or sysadmin**, linked from the ⚙ Admin dropdown. Same cycle/spec as team.html; not yet consumed by any other page.
 css/admin-crud.css       — shared layout (page-header/card/table/badge-st-active/btn-primary/form-*/empty/alert-sm) for simple admin CRUD pages, extracted 2026-09 from duplicated inline `<style>` blocks in admin.html/team.html/attribute-lists.html; a page's own extra states (e.g. admin.html's role badges, pending/disabled status) stay inline
 css/tokens.css           — design tokens (single source of truth for colors/type); also carries `[v-cloak] { display: none; }` (2026-07) — kept here rather than in style.css since 4 of the 13 Vue pages (`login.html`/`terms.html`/`activate.html`/`reset-password.html`) load only tokens.css, not style.css, and moving the rule would silently disable it there; a deliberate, accepted deviation from the tokens/style split below
-css/style.css            — component styles referencing tokens; `.pb-board-root` (2026-07) — extracted from `pipeline.html`'s former inline `style` attribute specifically so the `[v-cloak]` rule above can win via normal CSS cascade without needing `!important`
-js/api.js                — Api.* namespace, apiFetch wrapper (401 → redirect to login, sets `window.__pdashAuthRedirecting`); on `!res.ok` attaches the parsed response body to the thrown Error as `err.data` (2026-09) so callers can act on structured error payloads (e.g. timesheet upload's `inconsistencies`, see `docs/api/timesheets.md`).
+css/style.css            — component styles referencing tokens; `.pb-board-root` (2026-07) — extracted from `pipeline.html`'s former inline `style` attribute specifically so the `[v-cloak]` rule above can win via normal CSS cascade without needing `!important`. `.tag-pill`/`.tag-group`/`.tag-pill--inactive`/`.tags-section--readonly` (2026-09, Cycle 2) — the tag-pill/chip component shared by `costgrid.html`/`project-config.html`'s Tags sections; see `docs/pages/costgrid.md`'s "Tags" section for the component detail, the readonly-contrast decision, and a `:has()`-specificity bug found and fixed during the redesign.
+js/api.js                — Api.* namespace, apiFetch wrapper (401 → redirect to login, sets `window.__pdashAuthRedirecting`); on `!res.ok` attaches the parsed response body to the thrown Error as `err.data` (2026-09) so callers can act on structured error payloads (e.g. timesheet upload's `inconsistencies`, see `docs/api/timesheets.md`). `Api.costGrids.versions.tags.{list,replace}` / `Api.projects.tags.{list,replace}` (2026-09, Cycle 2) — thin wrappers over the new tag routes, `replace` sending `{ itemIds }` for a full replace-all.
 js/api-sync.js           — in-memory ↔ API sync layer (cgSyncFromApi, loadConfigFromApi, _pushProjectToApi, etc.). Full narrative: [docs/js/api-sync.md](docs/js/api-sync.md).
 js/lib/                  — pure functions extracted for unit testing (vitest + jsdom), each an ES module (`export function ...`) with a `window.<name> = <name>` bridge for existing classic-script callers; modules: cfg-parse.js, planning-calc.js, status-rules.js, costgrid-calc.js, portfolio-calc.js, pipeline-calc.js, notif-browser.js. Full narrative: [docs/js/lib.md](docs/js/lib.md).
 js/core.js               — state, in-memory helpers (loadConfig/persistConfig are no-ops), shared badges, esc(), fmtH(), fmtMoney(), showConfirm()/showInfo() modal idioms, findRate(), formatUploadInconsistencies(). Full narrative: [docs/js/core.md](docs/js/core.md).
@@ -156,6 +156,7 @@ js/settings.js           — openSettingsModal() / saveSettingsModal(); reads wi
                             appSettings / AI_MODELS / getRoles references guarded with typeof checks;
                             `.stg-admin-only` sections gated on `['admin','sysadmin'].includes(role)` (2026-09, was admin-only)
 js/ai.js                 — AI sidebar chat + project analysis; `aiPlanSend()`/`openAiAnalysis()`/`buildPlanningContext()`/`buildProjectSummary()`. Full narrative: [docs/js/ai.md](docs/js/ai.md).
+js/tags.js               — (2026-09, Cycle 2) `loadActiveAttributeListsForTagging()`, a shared classic script loaded only by `costgrid.html`/`project-config.html`; talks to `/api/attribute-lists`/`/api/attribute-lists/:id/items` directly via `fetch()` (not the `Api.*` wrapper, matching `attribute-lists.html`'s own established call style for these two endpoints), fetched in parallel (`Promise.all`), filters each list to `status === 'active'` items only. Not cached — each consumer page calls it once per page load. See `docs/pages/costgrid.md`'s "Tags" section for the UI it feeds.
 js/clients.js            — client CRUD helpers; `saveClientFromModal()` guards `#clientSaveBtn` (id added 2026-08, the button previously had none) against a fast repeat click — `if (saveBtn.disabled) return;` before the `await`, re-enabled in a `finally`; a double-click during the network round-trip could previously create two clients from one submission. `js/programs.js`/`js/roles.js` had the structurally identical gap in their own save functions, but those functions (along with the rest of both files' unreachable modal-editing UI) were deleted entirely in the 2026-08 dead-code cleanup — see their own entries below
 js/programs.js           — `loadProgramsFromApi`/`savePrograms`(no-op)/`getPrograms` only; its modal-editing UI (`showProgramsModal`/`renderProgramsTable`/`openProgramEditModal`/`saveProgramFromModal`/`showProgramError`/`deleteProgram`/`cfgRefreshProgramDropdown`) was confirmed unreachable from any page (verified via repo-wide grep — the only same-named hit, `deleteProgram` in `config.html`, is an unrelated Vue component method) and deleted 2026-08
 js/ratecards.js          — rate cards admin modal + loadRatecardsForDropdown() cache used by costgrid.js;
@@ -165,15 +166,20 @@ js/ratecards.js          — rate cards admin modal + loadRatecardsForDropdown()
 api/src/routes/          — Express routes (auth, users, config, cost-grids, projects, timesheets,
                             reporting, exports, notifications, pipeline-years, client-groups, pots, reset,
                             app-settings, currencies, attribute-lists, resources)
-api/src/routes/attribute-lists.js — generic tag/taxonomy CRUD (backs `attribute-lists.html`), all routes
-                            `requireAuth, requireAdmin`: `GET/POST /` (lists, with active-item counts),
-                            `PATCH /:id` (rename only — `slug` is immutable, generated once via `slugify()`
-                            at creation and never touched again), `GET/POST /:id/items`, `PATCH
-                            /:id/items/:itemId` (label and/or `active`/`inactive` status). No `DELETE`
-                            anywhere in this file — by design, so a tag already applied elsewhere can never
-                            be removed out from under it in a future cycle. Item label is unique per list,
-                            case-insensitively (`021_attribute_list_items_unique_label.sql`) — both item
-                            routes catch the resulting `23505` and return 409.
+api/src/routes/attribute-lists.js — generic tag/taxonomy CRUD (backs `attribute-lists.html`, and as of
+                            Cycle 2 read by `costgrid.html`/`project-config.html`'s Tags sections via
+                            `js/tags.js`). Reads (`GET /`, `GET /:id/items`) are `requireAuth` only (2026-09,
+                            was `requireAdmin` — the blanket admin-only router guard silently broke the tag
+                            UI for any non-admin editor, since `js/tags.js`'s fetches all 403'd and the
+                            `.catch()` swallowed it into an empty "No tag lists configured yet." with no
+                            error surfaced); writes stay `requireAdmin` per-route: `POST /` and `PATCH /:id`
+                            (rename only — `slug` is immutable, generated once via `slugify()` at creation
+                            and never touched again), `POST /:id/items`, `PATCH /:id/items/:itemId` (label
+                            and/or `active`/`inactive` status). No `DELETE` anywhere in this file — by
+                            design, so a tag already applied elsewhere can never be removed out from under
+                            it in a future cycle. Item label is unique per list, case-insensitively
+                            (`021_attribute_list_items_unique_label.sql`) — both item routes catch the
+                            resulting `23505` and return 409.
 api/src/routes/resources.js — resource registry CRUD (backs `team.html`), all routes `requireAuth,
                             requireAdmin`: `GET/POST /`, `PATCH/DELETE /:id`. Unlike attribute-lists.js,
                             supports a genuine hard `DELETE` since nothing yet references a resource row.
@@ -470,6 +476,7 @@ Brand: `--brand-navy: #0B1840`, `--brand-magenta: #F0287A`.
 | `019_terms_versions.sql` | New `terms_versions` table (`id`, `version` INTEGER UNIQUE, `content`, `published_at`, `published_by`) — immutable, append-only, application code never UPDATEs/DELETEs it. Backfills one row from the then-current `app_settings.terms_content`/`terms_version` (the only text still recoverable — every earlier version had already been overwritten by the old single-row storage); the version subquery is `COALESCE(...,1)`-wrapped so a DB with `terms_content` but no `terms_version` key doesn't fail the migration |
 | `020_resources_attribute_lists.sql` | New `resources` table (first/last name, email, `job_title` free text, `job_description`, optional `user_id` FK, `active`/`inactive` status) and a generic tag-taxonomy pair, `attribute_lists` (`name`, immutable `slug`) + `attribute_list_items` (`label`, `active`/`inactive` status, no physical delete) — seeds 4 empty lists (Market, Brand, Therapeutic Area, Service Type). First of four planned resource-allocation cycles; see `docs/superpowers/specs/2026-09-23-team-attribute-lists-design.md` |
 | `021_attribute_list_items_unique_label.sql` | Case-insensitive unique index `(list_id, lower(label))` on `attribute_list_items` — closes the AL-08 known gap from the `020` cycle where two items with the same label (any case) could be created in one list |
+| `022_version_project_tags.sql` | New `cost_grid_version_tags(version_id, item_id)` and `project_tags(project_id, item_id)` join tables (composite PK, FK to `attribute_list_items(id)` with no cascade since items are never physically deleted, plus a supporting index on `item_id`) — Cycle 2 of the resource-allocation initiative, linking `attribute_lists` tags to proposals/projects; see `docs/superpowers/specs/2026-09-23-tag-linking-design.md` |
 
 Run migrations with:
 ```powershell

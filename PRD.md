@@ -806,6 +806,7 @@ No account starts as sysadmin; the first one is set up outside the product (dire
 | Upload timesheet | ✅ | ✅ | own projects only |
 | Broadcast notification | ✅ | ✅ | ❌ |
 | Manage Team / Attribute Lists (§16.7/§16.8, 2026-09) | ✅ | ✅ | ❌ |
+| Read attribute lists to assign a tag on a proposal/project one has access to (§16.9, 2026-09 Cycle 2) | ✅ | ✅ | ✅ |
 
 ### 16.3 Role & Status Actions
 
@@ -855,7 +856,17 @@ Own page (`attribute-lists.html`), admin or sysadmin, reachable from the same "�
 
 Each list's items can be renamed and toggled active/inactive, but never deleted outright — once a tag exists, it can be retired but not erased, so a future feature that has already applied it to a proposal or project can't have that reference silently vanish. A list's own display name can be renamed too; its underlying identifier is fixed at creation and never changes, even across a rename. An item's label must be unique within its list (case-insensitive) — adding or renaming to a label that already exists in that list is rejected with an error (2026-09).
 
-Nothing on this page tags a proposal or project yet — that connection, and the AI-assisted resource suggestion this taxonomy is ultimately meant to feed, are later cycles of the same initiative as §16.7.
+As of Cycle 2 (2026-09, §16.9), these lists and items are what a proposal/project's Tags section reads from — no other page consumes them yet, and the AI-assisted resource suggestion this taxonomy is ultimately meant to feed remains a later cycle.
+
+### 16.9 Tag Assignment on Proposals & Projects (2026-09, Cycle 2)
+
+Second of four planned cycles toward AI-assisted resource allocation (§16.7/§16.8 were the first). Any editor or owner of a proposal — not just an admin — can assign tags from the lists set up in §16.8 (Market, Brand, Therapeutic Area, Service Type, or any list an admin has added) to it, from a new "🏷 Tags" section in the cost grid editor. Tags render as toggleable pills, grouped by list: click to assign, click again to remove.
+
+A project generated from a tagged proposal always shows the same tags, read-only, with a note pointing back to the proposal to make changes there — the tags are read live from the proposal, not copied, so a change on the proposal is reflected on the project immediately, with nothing to keep in sync. A project created without a linked proposal gets its own, independently editable set of tags instead, in the project's own configuration page.
+
+A tag whose underlying item is later deactivated (§16.8) stays assigned rather than silently disappearing — it renders distinguishably (dimmed, marked "inactive") so it stays visible and can still be explicitly removed, but is never dropped out from under whoever assigned it.
+
+Filtering the pipeline board or portfolio reporting by these tags is not part of this cycle — deferred to a later one.
 
 ---
 

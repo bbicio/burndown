@@ -649,7 +649,7 @@ First of four planned resource-allocation cycles (see `docs/superpowers/specs/20
 |---|---|---|---|---|
 | TM-01 | Page access — non-admin | Navigate to `/team.html` or `/attribute-lists.html` as role=user | "Admin access required" screen; "⚙ Admin" trigger (and both pages' links) absent from the navbar entirely | |
 | TM-02 | GET /api/resources — non-admin rejected | `GET /api/resources` as role=user | 403 | ✓ |
-| TM-03 | GET /api/attribute-lists — non-admin rejected | `GET /api/attribute-lists` as role=user | 403 | ✓ |
+| TM-03 | GET /api/attribute-lists without auth rejected | `GET /api/attribute-lists` with no session cookie | 401. Note: as of 2026-09 Cycle 2, an *authenticated* non-admin's `GET` is allowed (relaxed from admin-only, see TAG-08) — this case only covers the unauthenticated path, unaffected by that change | ✓ |
 | TM-04 | Create resource — dropdown job title | Open `/team.html` → + New resource → fill name/email → pick an existing role from the Job title dropdown → Create | Resource created with that role's `label` as `job_title`; row appears in the table | ✓ |
 | TM-05 | Create resource — custom job title | + New resource → select "Other…" in Job title → type a custom value → Create | Resource created with the typed free-text value as `job_title` (not tied to any `roles` row) | |
 | TM-06 | Create resource — job title required | + New resource → fill name/email, leave Job title on its placeholder → Create | "Job title is required" error shown; nothing created (the dropdown visibly shows the placeholder, not a role that looks pre-selected) | |
@@ -666,6 +666,27 @@ First of four planned resource-allocation cycles (see `docs/superpowers/specs/20
 | AL-06 | Add / edit / deactivate an item | Drill into a list → + New item → add a label → Edit its label → Deactivate it | Item created (active); label updates in place; deactivating hides it from the default view and drops the list-of-lists "Active items" count by one, without a full page reload | ✓ |
 | AL-07 | PATCH item — empty/null label rejected | `PATCH /api/attribute-lists/:id/items/:itemId` with `{"label": ""}` or `{"label": null}` | 400 "label cannot be empty" — not a 500 | ✓ |
 | AL-08 | Duplicate item labels within one list are rejected | Add two items with the identical label (any case) to the same list | Second attempt → 409 "An item with this label already exists in this list" — enforced by a case-insensitive unique index on `(list_id, lower(label))` | ✓ |
+
+---
+
+## 19. Tag Linking (2026-09, Cycle 2)
+
+Second of four planned resource-allocation cycles (see `docs/superpowers/specs/2026-09-23-tag-linking-design.md`). Lets an admin/editor assign `attribute_lists` tags to a proposal (cost grid version) in `costgrid.html`; a project generated from that proposal reflects the same tags read-only, resolved live (no copy/propagation). A project with no linked proposal gets its own directly-editable tags in `project-config.html`. Tags render as toggleable pills (see `docs/pages/costgrid.md`'s "Tags" section for the visual redesign detail).
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| TAG-01 | Assign a tag on a proposal | Open a proposal in `costgrid.html`, expand "🏷 Tags", click an available pill | Pill switches to selected (navy fill + checkmark); reload the page — still selected | ✓ |
+| TAG-02 | Remove a tag from a proposal | Click an already-selected pill | Pill switches back to available (outline); reload — still unselected | ✓ |
+| TAG-03 | Linked project reflects proposal tags read-only | Open `project-config.html` for a project generated from a tagged proposal | Section 8 "Tags" shows the same tags, checkboxes disabled, with a "Managed from the linked proposal — open it to edit" note linking back to the proposal | |
+| TAG-04 | Linked project tags resolve live, not at generation time | Change a tag on the proposal, then reload the linked project's page (no re-generation) | The project's Tags section reflects the change immediately — no propagation/copy step exists | |
+| TAG-05 | Standalone project has its own editable tags | Open `project-config.html` for a project with no linked proposal, toggle a tag | Pill toggles and persists on reload; no read-only note shown | ✓ |
+| TAG-06 | Direct write to a linked project's tags rejected | `PUT /api/projects/:id/tags` for a project whose `cg_version_id` is set | 409 — tags for a linked project are only writable via the proposal | ✓ |
+| TAG-07 | Unknown tag item rejected | `PUT` either tags endpoint with an `itemId` that doesn't exist in `attribute_list_items` | 400 — not a 500 (FK violation translated) | ✓ |
+| TAG-08 | Non-admin editor can populate and use the tag UI | Log in as a plain (non-admin) user who owns/edits a proposal, open its Tags section | Lists and active items render normally (not "No tag lists configured yet.") — regression coverage for the round-1 finding where a blanket admin-only guard on `GET /api/attribute-lists` silently broke this for every non-admin | |
+| TAG-09 | Locked version rejects a tag write | Set `locked = true` directly in the DB for a test version (no route in the current codebase ever sets this column — it's a defensive check with no live producer as of this cycle), then `PUT /api/cost-grids/:id/versions/:vId/tags` | 400 "Version is locked" — verified manually during this cycle via `docker exec ... psql ... UPDATE cost_grid_versions SET locked = true`; not automatable in `test-api.js` (HTTP-only, no DB access) | |
+| TAG-10 | Duplicating a version copies its tags | Assign a tag to a proposal version, then `POST .../duplicate` | The new version's tags include the same assignment | ✓ |
+| TAG-11 | Assigned-then-deactivated tag stays visible and removable | Assign a tag, then deactivate that item in `attribute-lists.html`, reload the proposal/project Tags section | The item still renders as a dashed, muted, "(inactive)"-labelled pill (not silently dropped) and remains clickable to remove | |
+| TAG-12 | Read-only section keeps assigned tags legible | View a proposal's Tags section as a shared viewer (or any read-only path) | Selected and inactive-assigned pills stay at full opacity/contrast; only unselected pills visibly dim | |
 
 ---
 

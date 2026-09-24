@@ -66,6 +66,7 @@ Backend authorization has two middleware tiers (`api/src/middleware/auth.js`): `
 | Upload timesheet | ✅ | ✅ | own projects only |
 | Broadcast notification | ✅ | ✅ | ❌ |
 | Manage resource registry / attribute lists (`team.html`/`attribute-lists.html`, 2026-09) | ✅ | ✅ | ❌ |
+| Read attribute lists (assign tags on a proposal/project one has access to, 2026-09 Cycle 2) | ✅ | ✅ | ✅ |
 
 "Modify a sysadmin" mutations (`PATCH /api/users/:id`, `POST /:id/anonymize`, `DELETE /:id`) are guarded by `sysAdminTargetError()` (`api/src/routes/users.js`), checked against the actor's *live* DB role (not the JWT-cached one `requireAdmin` reads elsewhere) — closing the same stale-token window `requireSysAdmin` closes for the DB-wipe routes, applied here because these routes can also grant/revoke sysadmin itself.
 
@@ -369,6 +370,14 @@ cg_version_projects (
   task_names_direct    JSONB NOT NULL DEFAULT '[]'::jsonb,  -- migration 017: task names assigned via "Add to project"
   PRIMARY KEY (cost_grid_version_id, project_id)
 )
+
+cost_grid_version_tags (              -- migration 022: attribute_lists tags assigned to a proposal —
+                                       -- Cycle 2 of the resource-allocation initiative. No cascade on
+                                       -- item_id: items are never physically deleted (Cycle 1 design).
+  version_id UUID NOT NULL REFERENCES cost_grid_versions(id) ON DELETE CASCADE,
+  item_id    UUID NOT NULL REFERENCES attribute_list_items(id),
+  PRIMARY KEY (version_id, item_id)
+)
 ```
 
 ### 5.4 Projects
@@ -405,6 +414,16 @@ project_tasks (
   monthly_distribution JSONB,       -- { "YYYYMM": percent }
   resources            JSONB,       -- [{ role, soldHours, hourlyRate }]
   sort_order           INTEGER DEFAULT 0
+)
+
+project_tags (                        -- migration 022: attribute_lists tags for a project with no
+                                       -- linked proposal (cg_version_id NULL). A project WITH
+                                       -- cg_version_id set reads tags live from cost_grid_version_tags
+                                       -- instead — this table's rows for such a project, if any exist
+                                       -- from before it acquired a link, are simply ignored, never read.
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  item_id    UUID NOT NULL REFERENCES attribute_list_items(id),
+  PRIMARY KEY (project_id, item_id)
 )
 ```
 
@@ -568,9 +587,11 @@ timesheets (
 |---|---|---|---|
 | GET/POST | /api/resources | admin | List / create resource registry entries |
 | PATCH/DELETE | /api/resources/:id | admin | Update (validates non-empty on any of `firstName`/`lastName`/`email`/`jobTitle` present in the body, matching POST) / hard delete |
-| GET/POST | /api/attribute-lists | admin | List (with active-item counts) / create a taxonomy list — `slug` is generated once via `slugify()` and rejected with 400 if it would exceed 100 characters |
+| GET | /api/attribute-lists | ✅ | List (with active-item counts). 2026-09 (Cycle 2): relaxed from `admin` — `costgrid.html`/`project-config.html`'s Tags UI is used by non-admin editors, and the previous blanket admin-only guard silently broke it for them |
+| POST | /api/attribute-lists | admin | Create a taxonomy list — `slug` is generated once via `slugify()` and rejected with 400 if it would exceed 100 characters |
 | PATCH | /api/attribute-lists/:id | admin | Rename only — `slug` is never touched |
-| GET/POST | /api/attribute-lists/:id/items | admin | List / create items within a list — label unique per list, case-insensitively; 409 on a duplicate |
+| GET | /api/attribute-lists/:id/items | ✅ | List items within a list. Relaxed to `✅` alongside the list-level `GET` above, same reason |
+| POST | /api/attribute-lists/:id/items | admin | Create an item within a list — label unique per list, case-insensitively; 409 on a duplicate |
 | PATCH | /api/attribute-lists/:id/items/:itemId | admin | Update `label` and/or `active`/`inactive` `status` — 409 if the new label duplicates another item in the same list |
 
 No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`attribute_list_items` in §5.2 for why.
@@ -607,6 +628,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | GET/POST/DELETE | /api/cost-grids/:id/versions/:vId/linked-projects | owner/admin | Manage linked projects |
 | GET/POST/DELETE | /api/cost-grids/:id/shares | owner/admin | Manage sharing; `POST` (grant) emails and in-app-notifies the recipient (2026-09: in-app notification added — was email-only before); `DELETE` (revoke) still sends neither, unlike the equivalent project-share revoke |
 | PATCH | /api/cost-grids/:id/reassign-owner | admin/sysadmin | Reassign the proposal's owner (2026-09); also grants the new owner `editor` on every linked project and both emails and in-app-notifies them (2026-09: in-app notification added — was email-only before) — see its own note above |
+| GET/PUT | /api/cost-grids/:id/versions/:vId/tags | owner/admin | (2026-09, Cycle 2) Get / replace-all the version's `attribute_lists` tags — `PUT` body `{ itemIds: string[] }`, rejects with 400 if the version is `locked`, and with 400 (not 500) if an `itemId` doesn't exist (translated from the FK violation) |
 
 ### Projects
 
@@ -620,6 +642,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | PATCH | /api/projects/:id/planning | owner/admin | Update monthly hour planning |
 | PATCH | /api/projects/:id/groups | owner/admin | Update functional role groups |
 | GET/POST/DELETE | /api/projects/:id/shares | owner/admin | Manage sharing; both `POST` (grant) and `DELETE` (revoke) email + in-app-notify the affected user (2026-09: `DELETE` previously sent neither) |
+| GET/PUT | /api/projects/:id/tags | owner/admin | (2026-09, Cycle 2) Get / replace-all the project's own `attribute_lists` tags — `PUT` body `{ itemIds: string[] }`, rejects with **409** if the project has `cg_version_id` set (tags for a linked project are read-only here, managed from the proposal via the cost-grids route above instead), and 400 on an unknown `itemId` |
 
 ### Timesheet + Reporting
 
@@ -825,7 +848,10 @@ burndown/
     tokens.css            ← design tokens (single source of truth); also carries `[v-cloak] { display: none; }`
                             (2026-07, repo-wide FOUC fix) — see CLAUDE.md's "v-cloak" section for the full rationale
     style.css             ← includes `.pb-board-root` (2026-07) — extracted from pipeline.html's former inline
-                            style so the `[v-cloak]` rule above could win via cascade without `!important`
+                            style so the `[v-cloak]` rule above could win via cascade without `!important`;
+                            `.tag-pill`/`.tag-group`/`.tag-pill--inactive`/`.tags-section--readonly` (2026-09,
+                            Cycle 2) — the tag-pill/chip component shared by costgrid.html/project-config.html's
+                            Tags sections. Full narrative: docs/pages/costgrid.md's "Tags" section
     admin-crud.css        ← shared layout for simple admin CRUD pages (page-header/card/table/badges/
                             btn-primary/form-*/empty/alert-sm), extracted 2026-09 from duplicated inline
                             `<style>` blocks in admin.html/team.html/attribute-lists.html
@@ -847,6 +873,10 @@ burndown/
     upload.js             ← XLS parsing
     settings.js           ← settings modal logic (openSettingsModal, stgExport, downloadFullBackup)
     ai.js                 ← AI sidebar chat + project analysis. Full narrative: docs/js/ai.md
+    tags.js                ← (2026-09, Cycle 2) `loadActiveAttributeListsForTagging()`, shared by
+                            costgrid.html/project-config.html's Tags sections; fetches lists + active items
+                            in parallel via raw fetch() (not Api.*), matching attribute-lists.html's own
+                            call style for these endpoints. Full narrative: docs/pages/costgrid.md's "Tags" section
     clients.js / programs.js
   index.html              ← redirect → pipeline.html
   pipeline.html           ← kanban pipeline board, Vue 3 (CDN, no build step, same pattern as portfolio.html/
@@ -861,14 +891,14 @@ burndown/
                             portfolio.html). Full narrative: docs/pages/costgrid.md
   timesheets.html          ← admin-only timesheet upload management, Vue 3 (CDN, no build step). Full narrative: docs/pages/timesheets.md
   config.html             ← admin config (clients, programs, roles, pipelines & POTs); Role edit form shows per-currency rate fields populated from `rateOverrides`; "Proposal Phasing" view (was "Phasing") excludes Canceled/Draft stages; monthly cells show local amount + EUR equivalent for non-EUR proposals; `phasingTableHtml` adds Total column and removes collapsible detail; `openClientRatecard` fixed filter and shows agency default per-currency placeholder
-  project-config.html     ← full-page project config form, Vue 3 (CDN, no build step, same pattern as admin.html); manages a single reactive project object (not an array — the original's hidden multi-project dropdown/New/Delete machinery was confirmed dead on this page); unknown ?projectId= shows an explicit not-found state
+  project-config.html     ← full-page project config form, Vue 3 (CDN, no build step, same pattern as admin.html); manages a single reactive project object (not an array — the original's hidden multi-project dropdown/New/Delete machinery was confirmed dead on this page); unknown ?projectId= shows an explicit not-found state. Full narrative: docs/pages/project-config.md
   admin.html              ← user management; "🗑 Anonymize" button on disabled non-anonymized users; role toggle (admin↔user) + sysadmin grant/revoke toggle (sysadmin viewers only). T&C editor moved out (2026-09) to _terms-editor.html
   terms.html              ← standalone T&C acceptance page (no initNav), Vue 3 (CDN, no build step, same pattern as login.html); shown by gate in initNav() when user.terms_version < current; loaded from /api/app-settings/terms; POST /api/auth/accept-terms on confirm
   login.html / activate.html / reset-password.html
   _db-reset.html          ← sysadmin-exclusive (2026-09, was admin-only) hidden page for bulk DB data deletion by scope, Vue 3 (CDN, no build step, same pattern as admin.html), linked from the sysadmin-only navbar menu (initNav('dbreset', ...))
   _terms-editor.html      ← sysadmin-exclusive hidden page — Terms & Conditions editor, moved out of admin.html; linked from the sysadmin-only navbar menu (initNav('termseditor', ...)) — see §5's App Settings section. Full narrative: docs/pages/terms-editor.md
   team.html               ← resource registry CRUD, Vue 3 (CDN, no build step, same pattern as admin.html), admin or sysadmin, linked from the ⚙ Admin dropdown (2026-09). First of four planned resource-allocation cycles — see docs/superpowers/specs/2026-09-23-team-attribute-lists-design.md
-  attribute-lists.html    ← generic, agnostic tag/taxonomy admin console (lists + items, no physical delete), Vue 3 (CDN, no build step, same pattern as admin.html), admin or sysadmin, linked from the ⚙ Admin dropdown (2026-09). Same cycle as team.html; not yet consumed by any other page
+  attribute-lists.html    ← generic, agnostic tag/taxonomy admin console (lists + items, no physical delete), Vue 3 (CDN, no build step, same pattern as admin.html), admin or sysadmin, linked from the ⚙ Admin dropdown (2026-09). As of Cycle 2 (2026-09), its lists/items are consumed by costgrid.html/project-config.html's Tags sections via js/tags.js
   nginx.conf              ← denies dev-only toolchain artifacts (node_modules/, package.json, package-lock.json,
                             vitest.config.js, *.test.js, *.spec.js) even though it bind-mounts the repo root
   docker-compose.yml
@@ -931,6 +961,7 @@ Current migrations:
 - `019_terms_versions.sql` — new immutable, append-only `terms_versions` table; backfills one row from the then-current `app_settings.terms_content`/`terms_version` (the only text still recoverable)
 - `020_resources_attribute_lists.sql` — creates `resources`, `attribute_lists`, `attribute_list_items` (see §5.2); seeds 4 empty `attribute_lists` rows (Market, Brand, Therapeutic Area, Service Type)
 - `021_attribute_list_items_unique_label.sql` — case-insensitive unique index on `attribute_list_items(list_id, lower(label))`; disambiguates any pre-existing duplicate labels first so the index can never fail to create
+- `022_version_project_tags.sql` — creates `cost_grid_version_tags` and `project_tags` join tables (see §5.3/§5.4), each a composite-PK pair with a supporting index on `item_id`; Cycle 2 of the resource-allocation initiative
 
 ---
 

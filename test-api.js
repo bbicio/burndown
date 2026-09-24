@@ -850,6 +850,112 @@ async function testResourcesAndAttributeLists() {
   }
 }
 
+// ── Tag Linking (2026-09, Cycle 2) ──────────────────────────────────────────────
+
+async function testTagLinking() {
+  section('Tag Linking');
+
+  const rpy = await api('POST', '/api/pipeline-years', { year: TEST_YEAR_C }, adminCookie);
+  const havePy = [201, 409].includes(rpy.status);
+
+  let cgId = null, vId = null, itemId = null;
+
+  if (havePy) {
+    const rcg = await api('POST', '/api/cost-grids',
+      { name: '__test_tag_cg__', pipelineYear: TEST_YEAR_C }, adminCookie);
+    cgId = rcg.data?.id;
+    if (cgId) later('DELETE', `/api/cost-grids/${cgId}`);
+    if (cgId) {
+      const rv = await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'v1' }, adminCookie);
+      vId = rv.data?.id;
+    }
+  } else {
+    ok(false, 'TAG-setup pipeline year unavailable, cost grid setup skipped');
+  }
+
+  // A Market-list item to tag with (seeded list from Cycle 1)
+  const rLists = await api('GET', '/api/attribute-lists', null, adminCookie);
+  const marketList = (rLists.data || []).find(l => l.slug === 'market');
+  if (marketList) {
+    const rItem = await api('POST', `/api/attribute-lists/${marketList.id}/items`,
+      { label: `__test_tag_item_${Date.now()}__` }, adminCookie);
+    itemId = rItem.data?.id;
+  }
+  ok(!!itemId, 'TAG-setup test item created in the seeded Market list');
+
+  // TAG-01/02: assign, then remove, a tag on the proposal
+  if (cgId && vId && itemId) {
+    const rSet = await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags`, { itemIds: [itemId] }, adminCookie);
+    ok(rSet.status === 200 && rSet.data?.ok === true, 'TAG-01 PUT version tags → 200');
+
+    const rGet = await api('GET', `/api/cost-grids/${cgId}/versions/${vId}/tags`, null, adminCookie);
+    ok(rGet.status === 200 && (rGet.data || []).some(t => t.item_id === itemId),
+      'TAG-01 GET version tags includes the assigned item');
+
+    const rClear = await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags`, { itemIds: [] }, adminCookie);
+    ok(rClear.status === 200, 'TAG-02 PUT version tags with empty array → 200');
+
+    const rGet2 = await api('GET', `/api/cost-grids/${cgId}/versions/${vId}/tags`, null, adminCookie);
+    ok(rGet2.status === 200 && (rGet2.data || []).length === 0, 'TAG-02 GET version tags is empty after clearing');
+  } else {
+    ok(false, 'TAG-01/02 skipped — cost grid version or test item unavailable');
+  }
+
+  // TAG-07: unknown item id rejected with 400, not 500
+  if (cgId && vId) {
+    const FAKE_UUID = '00000000-0000-0000-0000-000000000000';
+    ok((await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags`, { itemIds: [FAKE_UUID] }, adminCookie)).status === 400,
+      'TAG-07 PUT version tags with an unknown itemId → 400');
+  }
+
+  // TAG-10: duplicating a version copies its tags
+  if (cgId && vId && itemId) {
+    await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags`, { itemIds: [itemId] }, adminCookie);
+    const rDup = await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/duplicate`, null, adminCookie);
+    const newVId = rDup.data?.id;
+    if (newVId) {
+      const rDupTags = await api('GET', `/api/cost-grids/${cgId}/versions/${newVId}/tags`, null, adminCookie);
+      ok(rDupTags.status === 200 && (rDupTags.data || []).some(t => t.item_id === itemId),
+        'TAG-10 duplicated version carries the source version\'s tags');
+    } else {
+      ok(false, 'TAG-10 duplicate did not return a new version id');
+    }
+  }
+
+  // TAG-05: a standalone project (no linked proposal) has its own directly-editable tags
+  const rProj = await api('POST', '/api/projects', { name: '__test_tag_proj__' }, adminCookie);
+  const standaloneProjId = rProj.data?.id;
+  if (standaloneProjId) later('DELETE', `/api/projects/${standaloneProjId}`);
+
+  if (standaloneProjId && itemId) {
+    const rSetP = await api('PUT', `/api/projects/${standaloneProjId}/tags`, { itemIds: [itemId] }, adminCookie);
+    ok(rSetP.status === 200 && rSetP.data?.ok === true, 'TAG-05 PUT standalone project tags → 200');
+
+    const rGetP = await api('GET', `/api/projects/${standaloneProjId}/tags`, null, adminCookie);
+    ok(rGetP.status === 200 && (rGetP.data || []).some(t => t.item_id === itemId),
+      'TAG-05 GET standalone project tags includes the assigned item');
+  } else {
+    ok(false, 'TAG-05 skipped — standalone project or test item unavailable');
+  }
+
+  // TAG-06: a linked project (cg_version_id set) rejects a direct tag write with 409
+  if (cgId && vId) {
+    const rLinkedProj = await api('POST', '/api/projects',
+      { name: '__test_tag_linked_proj__', cgVersionId: vId }, adminCookie);
+    const linkedProjId = rLinkedProj.data?.id;
+    if (linkedProjId) later('DELETE', `/api/projects/${linkedProjId}`);
+
+    if (linkedProjId) {
+      ok((await api('PUT', `/api/projects/${linkedProjId}/tags`, { itemIds: itemId ? [itemId] : [] }, adminCookie)).status === 409,
+        'TAG-06 PUT tags on a linked project → 409');
+    } else {
+      ok(false, 'TAG-06 skipped — linked project could not be created');
+    }
+  } else {
+    ok(false, 'TAG-06 skipped — cost grid version unavailable');
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -877,6 +983,7 @@ async function main() {
     await testAdminChangeOwner();
     await testCostGridReassignOwner();
     await testResourcesAndAttributeLists();
+    await testTagLinking();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
     console.error(e.stack);
