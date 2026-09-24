@@ -561,14 +561,22 @@
       },
       async toggleTag(itemId) {
         if (this.tagsReadOnly) return;
+        // In-flight guard: a save already in progress is serialized before the next one
+        // starts, so two rapid clicks on different tags can't race — the second click's
+        // itemIds would otherwise be computed from a not-yet-refreshed this.projectTags
+        // and silently overwrite the first click's change.
+        if (this._tagSaving) return;
         const newIds = this.isTagChecked(itemId)
           ? this.projectTags.filter(t => t.item_id !== itemId).map(t => t.item_id)
           : [...this.projectTags.map(t => t.item_id), itemId];
+        this._tagSaving = true;
         try {
           await Api.projects.tags.replace(this.project.id, newIds);
           await this.loadTags();
         } catch (e) {
           console.warn('[project-config] toggleTag:', e.message);
+        } finally {
+          this._tagSaving = false;
         }
       },
       updateBreadcrumb(label) {

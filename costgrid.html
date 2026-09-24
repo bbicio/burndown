@@ -1127,17 +1127,30 @@ Vue.createApp({
       window.location.href = '/pipeline.html';
     },
     onHeaderFieldChange() { cgScheduleAutoSave(); },
-    toggleTag(itemId) {
+    async toggleTag(itemId) {
       if (this.isLocked || this.cg?.myPermission === 'viewer') return;
+      // In-flight guard: a save already in progress is serialized before the next one
+      // starts, so two rapid clicks can't race and silently overwrite each other.
+      if (this._tagSaving) return;
       const idx = this.versionTagItemIds.indexOf(itemId);
+      const prevItemIds = [...this.versionTagItemIds];
+      const prevRows = [...this.versionTagRows];
       if (idx === -1) {
         this.versionTagItemIds.push(itemId);
       } else {
         this.versionTagItemIds.splice(idx, 1);
         this.versionTagRows = this.versionTagRows.filter(r => r.item_id !== itemId);
       }
-      Api.costGrids.versions.tags.replace(this.cgId, this.verId, this.versionTagItemIds)
-        .catch(e => console.warn('[costgrid] saveTags:', e.message));
+      this._tagSaving = true;
+      try {
+        await Api.costGrids.versions.tags.replace(this.cgId, this.verId, this.versionTagItemIds);
+      } catch (e) {
+        console.warn('[costgrid] saveTags:', e.message);
+        this.versionTagItemIds = prevItemIds;
+        this.versionTagRows = prevRows;
+      } finally {
+        this._tagSaving = false;
+      }
     },
     // An assigned tag whose item was later deactivated stays assigned (per spec) but
     // no longer appears in `attributeLists` (active items only) — render it separately
