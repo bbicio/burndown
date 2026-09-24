@@ -179,6 +179,10 @@
                 <input type="checkbox" class="form-check-input" :checked="versionTagItemIds.includes(item.id)" :disabled="isLocked || cg?.myPermission === 'viewer'" @change="toggleTag(item.id)">
                 {{ item.label }}
               </label>
+              <label v-for="row in inactiveAssignedForList(list.id)" :key="row.item_id" class="d-flex align-items-center gap-1 text-muted" style="font-size:var(--text-sm);cursor:pointer">
+                <input type="checkbox" class="form-check-input" checked :disabled="isLocked || cg?.myPermission === 'viewer'" @change="toggleTag(row.item_id)">
+                {{ row.label }} <span style="font-size:var(--text-2xs)">(inactive)</span>
+              </label>
             </div>
           </div>
         </div>
@@ -711,7 +715,7 @@ Vue.createApp({
       clients: [], currencies: [],
       ratecardMap: {}, ratecardOverrides: {}, isClientRatecard: false, allRatecards: [],
       offerDetailsCollapsed: false, summaryCollapsed: false, sharingCollapsed: false, tagsCollapsed: false,
-      attributeLists: [], versionTagItemIds: [],
+      attributeLists: [], versionTagItemIds: [], versionTagRows: [],
       compactHeader: localStorage.getItem('PDash_cgCompactHeader') === '1',
       selectionMode: false, selectedTaskIds: new Set(),
       ptcFocusedTask: null, ptcRaw: '', hoursEditing: null, addToProjectSel: '',
@@ -1082,9 +1086,11 @@ Vue.createApp({
       try {
         const tagRows = await Api.costGrids.versions.tags.list(cgId, resolvedVerId);
         this.versionTagItemIds = tagRows.map(r => r.item_id);
+        this.versionTagRows = tagRows;
       } catch (e) {
         console.warn('[costgrid] load version tags failed:', e.message);
         this.versionTagItemIds = [];
+        this.versionTagRows = [];
       }
 
       await cgUpdateActiveRatecardMap(); // may mutate _cgDraft.roles[].rate in place (non-custom roles)
@@ -1122,10 +1128,20 @@ Vue.createApp({
     toggleTag(itemId) {
       if (this.isLocked || this.cg?.myPermission === 'viewer') return;
       const idx = this.versionTagItemIds.indexOf(itemId);
-      if (idx === -1) this.versionTagItemIds.push(itemId);
-      else this.versionTagItemIds.splice(idx, 1);
+      if (idx === -1) {
+        this.versionTagItemIds.push(itemId);
+      } else {
+        this.versionTagItemIds.splice(idx, 1);
+        this.versionTagRows = this.versionTagRows.filter(r => r.item_id !== itemId);
+      }
       Api.costGrids.versions.tags.replace(this.cgId, this.verId, this.versionTagItemIds)
         .catch(e => console.warn('[costgrid] saveTags:', e.message));
+    },
+    // An assigned tag whose item was later deactivated stays assigned (per spec) but
+    // no longer appears in `attributeLists` (active items only) — render it separately
+    // so it stays visible and removable.
+    inactiveAssignedForList(listId) {
+      return this.versionTagRows.filter(r => r.list_id === listId && r.status !== 'active');
     },
     onPipelineChange() {
       cgPropagatePipelineToProjects();

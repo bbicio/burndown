@@ -462,6 +462,14 @@ router.post('/:id/versions/:vId/duplicate', requireAuth, async (req, res, next) 
         );
       }
     }
+
+    // Clone tags
+    await query(
+      `INSERT INTO cost_grid_version_tags (version_id, item_id)
+       SELECT $1, item_id FROM cost_grid_version_tags WHERE version_id = $2`,
+      [newVId, req.params.vId]
+    );
+
     res.status(201).json({ id: newVId });
   } catch (err) { next(err); }
 });
@@ -934,6 +942,9 @@ router.put('/:id/versions/:vId/tags', requireAuth, async (req, res, next) => {
   if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
     return res.status(403).json({ error: 'Access denied' });
   }
+  const locked = await query('SELECT locked FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
+  if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
+
   const { itemIds = [] } = req.body;
   if (!Array.isArray(itemIds)) return res.status(400).json({ error: 'itemIds must be an array' });
 
