@@ -168,7 +168,6 @@
       </div>
       <ul class="nav nav-tabs px-3 pt-2 flex-shrink-0">
         <li class="nav-item"><button type="button" class="nav-link" :class="{ active: detailTab === 'details' }" @click="detailTab = 'details'">Details</button></li>
-        <li class="nav-item"><button type="button" class="nav-link" :class="{ active: detailTab === 'aliases' }" @click="detailTab = 'aliases'">Aliases <span class="badge bg-secondary ms-1">{{ detailAliases.length }}</span></button></li>
         <li class="nav-item"><button type="button" class="nav-link" :class="{ active: detailTab === 'profile' }" @click="detailTab = 'profile'">Experience profile</button></li>
       </ul>
       <div class="flex-grow-1 p-3" style="overflow-y:auto">
@@ -196,20 +195,23 @@
               <span v-else class="text-muted">—</span>
             </dd>
           </dl>
-        </div>
-        <div v-else-if="detailTab === 'aliases'">
-          <p class="text-muted small">Names from uploaded actuals that resolve to this resource.</p>
-          <div v-if="unmatchedError" class="alert alert-danger alert-sm">{{ unmatchedError }}</div>
-          <table class="table table-sm" v-if="detailAliases.length">
-            <thead><tr><th>Name</th><th></th></tr></thead>
-            <tbody>
-              <tr v-for="a in detailAliases" :key="a.id">
-                <td>{{ a.display_name || a.alias_normalized }}</td>
-                <td class="text-end"><button class="btn btn-outline-danger btn-action" :disabled="!!a._loading" @click="removeAlias(a)">Remove</button></td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="empty" v-else>No aliases for this resource.</div>
+          <details class="mt-4 pt-3" style="border-top:1px solid #dee2e6">
+            <summary class="fw-semibold" style="cursor:pointer;font-size:.9rem">Aliases <span class="badge bg-secondary ms-1">{{ detailAliases.length }}</span></summary>
+            <div class="mt-2">
+              <p class="text-muted small">Names from uploaded actuals that resolve to this resource.</p>
+              <div v-if="unmatchedError" class="alert alert-danger alert-sm">{{ unmatchedError }}</div>
+              <table class="table table-sm" v-if="detailAliases.length">
+                <thead><tr><th>Name</th><th></th></tr></thead>
+                <tbody>
+                  <tr v-for="a in detailAliases" :key="a.id">
+                    <td>{{ a.display_name || a.alias_normalized }}</td>
+                    <td class="text-end"><button class="btn btn-outline-danger btn-action" :disabled="!!a._loading" @click="removeAlias(a)">Remove</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="empty" v-else>No aliases for this resource.</div>
+            </div>
+          </details>
         </div>
         <div v-else style="font-size:.9rem">
           <div v-if="profileLoading" class="text-muted">Loading…</div>
