@@ -21,7 +21,7 @@ router.get('/unmatched', async (req, res, next) => {
     const { rows } = await query(
       `SELECT name_normalized,
               (array_agg(display_name ORDER BY hours DESC))[1] AS display_name,
-              SUM(hours)::float AS hours,
+              ROUND(SUM(hours), 2)::float AS hours,
               COUNT(DISTINCT project_code)::int AS projects,
               (array_agg(candidate_resource_ids))[1] AS candidate_resource_ids
        FROM profile_unmatched
@@ -44,7 +44,8 @@ router.post('/unmatched/rescan', async (req, res, next) => {
 router.get('/aliases', async (req, res, next) => {
   try {
     const { rows } = await query(
-      `SELECT a.id, a.alias_normalized, a.resource_id, a.created_at, r.first_name, r.last_name
+      `SELECT a.id, a.alias_normalized, a.display_name, a.resource_id, a.created_by, a.created_at,
+              a.updated_by, a.updated_at, r.first_name, r.last_name
        FROM resource_aliases a
        LEFT JOIN resources r ON r.id = a.resource_id
        ORDER BY a.alias_normalized`
@@ -64,15 +65,20 @@ router.post('/aliases', async (req, res, next) => {
     if (wantsIgnore === !!resourceId) {
       return res.status(400).json({ error: 'Provide either resourceId or ignore: true' });
     }
+    // Upsert on the normalized key: a re-assignment keeps created_by, records updated_by/updated_at,
+    // and is reported as 200 (only a genuine insert is 201; `xmax = 0` is true only for an insert).
     const { rows } = await query(
-      `INSERT INTO resource_aliases (alias_normalized, resource_id, created_by)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (alias_normalized) DO UPDATE SET resource_id = EXCLUDED.resource_id
-       RETURNING id, alias_normalized, resource_id`,
-      [key, wantsIgnore ? null : resourceId, req.user.id]
+      `INSERT INTO resource_aliases (alias_normalized, display_name, resource_id, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $4)
+       ON CONFLICT (alias_normalized) DO UPDATE
+         SET resource_id = EXCLUDED.resource_id, display_name = EXCLUDED.display_name,
+             updated_by = EXCLUDED.updated_by, updated_at = now()
+       RETURNING id, alias_normalized, display_name, resource_id, (xmax = 0) AS created`,
+      [key, String(name).trim(), wantsIgnore ? null : resourceId, req.user.id]
     );
     await rescanAll();
-    res.status(201).json(rows[0]);
+    const { created, ...alias } = rows[0];
+    res.status(created ? 201 : 200).json(alias);
   } catch (err) {
     if (err.code === '23503') return res.status(400).json({ error: 'Resource not found' });
     if (err.code === '22P02') return res.status(400).json({ error: 'resourceId must be a valid UUID' });

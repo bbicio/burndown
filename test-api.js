@@ -1079,6 +1079,8 @@ async function testResourceMatching() {
   const unknownName = `Luca Sconosciuto${ts}`;
   const unknownKey  = `luca sconosciuto${ts}`.split(' ').sort().join(' ');
   const code = `TMATCH${ts}`;
+  const roundName = `Arrotondo${ts}`;
+  const roundKey = roundName.toLowerCase();
 
   // Setup: a resource, and a project with a matching task/role so the upload passes validation
   const rRes = await api('POST', '/api/resources',
@@ -1118,6 +1120,8 @@ async function testResourceMatching() {
     `${code},2026-01-15,Analysis,Consultant,${last.toUpperCase()}  Mario,4`,
     `${code},2026-01-16,Analysis,Consultant,${unknownName},6`,
     `${code},2026-01-17,Analysis,Consultant,,2`,
+    `${code},2026-01-18,Analysis,Consultant,${roundName},0.1`,
+    `${code},2026-01-19,Analysis,Consultant,${roundName},0.2`,
   ].join('\n');
   const rUp = await uploadCsv('/api/timesheets/upload', csv, adminCookie);
   ok(rUp.status === 201, `MA-04 CSV timesheet upload → 201 (got ${rUp.status}${rUp.data?.error ? ': ' + rUp.data.error : ''})`);
@@ -1131,6 +1135,8 @@ async function testResourceMatching() {
   ok(!!unknownRow && Number(unknownRow.hours) === 6 && unknownRow.projects === 1,
     'MA-05 unknown owner is queued with its hours and project count');
   ok(!un.some(u => u.name_normalized === ''), 'MA-05 blank owner never enters the queue');
+  const roundRow = un.find(u => u.name_normalized === roundKey);
+  ok(!!roundRow && roundRow.hours === 0.3, `MA-14 summed hours carry no floating-point noise (got ${roundRow?.hours})`);
 
   // MA-06: assign → leaves the queue, listed as an alias
   const rAlias = await api('POST', '/api/resources/aliases', { name: unknownName, resourceId: resId }, adminCookie);
@@ -1141,13 +1147,23 @@ async function testResourceMatching() {
   const rAliases = await api('GET', '/api/resources/aliases', null, adminCookie);
   ok((rAliases.data || []).some(a => a.id === aliasId && a.resource_id === resId),
     'MA-06 GET aliases lists the new alias with its resource');
+  ok((rAliases.data || []).some(a => a.id === aliasId && a.display_name === unknownName),
+    'MA-12 the alias keeps the name as the admin saw it, not only the normalized key');
 
-  // MA-03: the same alias twice upserts, no 500
+  // MA-03: the same alias twice upserts, no 500 — and reports an update (200), not a create
   const rAlias2 = await api('POST', '/api/resources/aliases', { name: unknownName.toUpperCase(), resourceId: resId }, adminCookie);
-  ok(rAlias2.status === 201, 'MA-03 adding the same alias again (different case) → 201, not 500');
+  ok(rAlias2.status === 200, `MA-03 re-adding the same alias (different case) → 200 update, not 201/500 (got ${rAlias2.status})`);
   const dupes = ((await api('GET', '/api/resources/aliases', null, adminCookie)).data || [])
     .filter(a => a.alias_normalized === unknownKey);
   ok(dupes.length === 1, 'MA-03 still exactly one alias row for that normalized name');
+
+  // MA-13: a re-assignment by another admin is recorded — created_by stays, updated_by changes
+  const rAlias3 = await api('POST', '/api/resources/aliases', { name: unknownName, resourceId: resId }, sysadminCookie);
+  const audited = ((await api('GET', '/api/resources/aliases', null, adminCookie)).data || [])
+    .find(a => a.alias_normalized === unknownKey);
+  ok(rAlias3.status === 200 && !!audited && !!audited.created_by && !!audited.updated_by
+      && audited.created_by !== audited.updated_by,
+    'MA-13 re-assignment by another admin updates updated_by and leaves created_by unchanged');
 
   // MA-07: removing the alias returns the name to the queue
   ok((await api('DELETE', `/api/resources/aliases/${dupes[0]?.id}`, null, adminCookie)).status === 200,

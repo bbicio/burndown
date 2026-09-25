@@ -99,6 +99,15 @@ test('aggregateUnmatched: sums hours per project+name, skips matched/ignored/emp
   ]);
 });
 
+test('aggregateUnmatched: summed hours carry no floating-point noise', () => {
+  const ctx = buildMatchContext([], []);
+  const out = aggregateUnmatched({ P1: [
+    { owner: 'Luca Verdi', hours: 0.1 },
+    { owner: 'verdi luca', hours: 0.2 },
+  ] }, ctx);
+  assert.equal(out[0].hours, 0.3);
+});
+
 test('aggregateUnmatched: ambiguous names carry their candidates; bad hours count as 0', () => {
   const ctx = buildMatchContext([R('r1', 'Mario', 'Rossi'), R('r2', 'Rossi', 'Mario')], []);
   const out = aggregateUnmatched({ P1: [{ owner: 'Mario Rossi', hours: 'abc' }] }, ctx);

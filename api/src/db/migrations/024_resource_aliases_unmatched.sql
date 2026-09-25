@@ -1,10 +1,13 @@
 -- Cycle 3b: link free-text owner names in uploaded actuals to resources.
 CREATE TABLE IF NOT EXISTS resource_aliases (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  alias_normalized TEXT NOT NULL UNIQUE,
+  alias_normalized TEXT NOT NULL UNIQUE,   -- lowercased, accent-stripped, tokens sorted: the match key
+  display_name     TEXT NOT NULL,          -- the name as the admin saw/typed it, for the UI
   resource_id      UUID REFERENCES resources(id) ON DELETE CASCADE,  -- NULL = ignored name (not a person)
   created_by       UUID REFERENCES users(id) ON DELETE SET NULL,
-  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by       UUID REFERENCES users(id) ON DELETE SET NULL,     -- last (re)assignment
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Owner names that could not be matched (or matched ambiguously), per project code.

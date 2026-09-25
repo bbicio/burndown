@@ -64,6 +64,8 @@ function aggregateUnmatched(rowsByCode, ctx) {
       entry.hours += Number.isFinite(hours) ? hours : 0;
     }
   }
+  // Hours are summed as floats: round to 2 decimals so 0.1 + 0.2 reads 0.3, not 0.30000000000000004.
+  for (const entry of acc.values()) entry.hours = Math.round((entry.hours + Number.EPSILON) * 100) / 100;
   return [...acc.values()].sort((a, b) =>
     a.projectCode < b.projectCode ? -1 : a.projectCode > b.projectCode ? 1
       : a.nameNormalized < b.nameNormalized ? -1 : a.nameNormalized > b.nameNormalized ? 1 : 0);

@@ -18,13 +18,25 @@ async function refreshUnmatched(codes = null) {
     ]);
     const ctx = buildMatchContext(resources.rows, aliases.rows);
 
-    const ts = codes
-      ? await client.query('SELECT project_code, data FROM timesheets WHERE project_code = ANY($1::text[])', [codes])
-      : await client.query('SELECT project_code, data FROM timesheets');
+    // Aggregate per (project, owner-as-written) in SQL, so Node only sees the distinct names
+    // instead of every timesheet row — a full rescan (run on every admin change) stays cheap
+    // as the actuals history grows. Non-array `data` and non-numeric hours count as nothing/0.
+    const ts = await client.query(
+      `SELECT t.project_code, e->>'owner' AS owner,
+              SUM(CASE WHEN (e->>'hours') ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (e->>'hours')::numeric ELSE 0 END) AS hours
+       FROM timesheets t
+       CROSS JOIN LATERAL jsonb_array_elements(
+         CASE WHEN jsonb_typeof(t.data) = 'array' THEN t.data ELSE '[]'::jsonb END) e
+       WHERE ${codes ? 't.project_code = ANY($1::text[])' : 'TRUE'}
+         AND COALESCE(BTRIM(e->>'owner'), '') <> ''
+       GROUP BY t.project_code, e->>'owner'
+       ORDER BY t.project_code, hours DESC`,
+      codes ? [codes] : []
+    );
     const rowsByCode = {};
     for (const r of ts.rows) {
       if (!rowsByCode[r.project_code]) rowsByCode[r.project_code] = [];
-      if (Array.isArray(r.data)) rowsByCode[r.project_code].push(...r.data);
+      rowsByCode[r.project_code].push({ owner: r.owner, hours: r.hours });
     }
     const unmatched = aggregateUnmatched(rowsByCode, ctx);
 

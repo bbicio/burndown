@@ -113,7 +113,7 @@
               <thead><tr><th>Name</th><th>Resolves to</th><th></th></tr></thead>
               <tbody>
                 <tr v-for="a in aliases" :key="a.id">
-                  <td>{{ a.alias_normalized }}</td>
+                  <td>{{ a.display_name || a.alias_normalized }}</td>
                   <td><span v-if="a.resource_id">{{ a.first_name }} {{ a.last_name }}</span><span v-else class="text-muted">ignored</span></td>
                   <td class="text-end">
                     <button class="btn btn-outline-danger btn-action" :disabled="!!a._loading" @click="removeAlias(a)">Remove</button>
