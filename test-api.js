@@ -1271,6 +1271,122 @@ async function testResourceMatching() {
   ok(rScan.status === 200 && rScan.data?.ok === true, 'MA-10 POST /unmatched/rescan → 200');
 }
 
+// ── Profile Engine (2026-09, Cycle 3c) ──────────────────────────────────────────
+
+// Drain the profile queue. A concurrent worker run makes the endpoint answer 409 — retry briefly.
+async function runProfileJobs() {
+  for (let i = 0; i < 10; i++) {
+    const r = await api('POST', '/api/profile-jobs/run', null, adminCookie);
+    if (r.status !== 409) return r;
+    await new Promise(res => setTimeout(res, 500));
+  }
+  return { status: 409, data: null };
+}
+
+async function getProfile(resourceId) {
+  const r = await api('GET', `/api/resources/${resourceId}/profile`, null, adminCookie);
+  return r.data;
+}
+
+// rows: [[projectCode, date, owner, hours], ...] — task/role are fixed to match the test projects' config.
+function profileCsv(rows) {
+  return ['projectId,date,task,role,owner,hours',
+    ...rows.map(([code, date, owner, hours]) => `${code},${date},Analysis,Consultant,${owner},${hours}`)].join('\n');
+}
+
+let _fixtureSeq = 0;
+
+// Shared setup: one resource, two projects (task/role valid for CSV uploads) and a Market list value.
+// Cleanup order matters (runs in reverse): role first registered → deleted last.
+async function profileFixture() {
+  const ts = `${Date.now()}${++_fixtureSeq}`;
+  const f = { ts, code1: `TPROF1${ts}`, code2: `TPROF2${ts}`, person: `Prof Tester${ts}` };
+  f.role = await makeTestRole(`P${ts}`);
+  const rRes = await api('POST', '/api/resources',
+    { firstName: 'Prof', lastName: `Tester${ts}`, email: `prof.${ts}@test.local`, roleId: f.role.id }, adminCookie);
+  f.resId = rRes.data?.id;
+  if (f.resId) later('DELETE', `/api/resources/${f.resId}`);
+
+  const mkProject = async (code) => {
+    const r = await api('POST', '/api/projects', { name: `__prof_proj_${code}__`, code }, adminCookie);
+    const id = r.data?.id;
+    if (id) {
+      later('DELETE', `/api/projects/${id}`);
+      await api('PUT', `/api/projects/${id}/tasks`,
+        [{ name: 'Analysis', resources: [{ role: 'Consultant', soldHours: 8 }] }], adminCookie);
+    }
+    return id;
+  };
+  f.p1 = await mkProject(f.code1);
+  f.p2 = await mkProject(f.code2);
+  later('DELETE', `/api/timesheets/${f.code1}`);   // registered after the projects → runs before their deletion
+  later('DELETE', `/api/timesheets/${f.code2}`);
+
+  const lists = (await api('GET', '/api/attribute-lists', null, adminCookie)).data || [];
+  f.market = lists.find(l => l.slug === 'market');
+  f.itemLabel = `__prof_item_${ts}__`;
+  const rItem = f.market
+    ? await api('POST', `/api/attribute-lists/${f.market.id}/items`, { label: f.itemLabel }, adminCookie)
+    : { data: null };
+  f.itemId = rItem.data?.id;
+  f.ok = !!(f.resId && f.p1 && f.p2 && f.itemId);
+  return f;
+}
+
+async function testProfileEngine() {
+  section('Profile Engine');
+
+  const NIL = '00000000-0000-0000-0000-000000000000';
+  ok((await api('POST', '/api/profile-jobs/run')).status === 401, 'PE-01 POST /api/profile-jobs/run without auth → 401');
+  ok((await api('GET', `/api/resources/${NIL}/profile`)).status === 401, 'PE-01 GET profile without auth → 401');
+  ok((await api('GET', `/api/resources/${NIL}/profile`, null, adminCookie)).status === 404, 'PE-02 GET profile of an unknown resource → 404');
+  ok((await api('GET', '/api/resources/not-a-uuid/profile', null, adminCookie)).status === 404, 'PE-02 GET profile with a non-UUID id → 404');
+
+  const f = await profileFixture();
+  ok(f.ok, 'PE-setup resource, two projects and a Market value created');
+  if (!f.ok) return;
+  const { ts, code1, code2, person, resId, p1, itemId, itemLabel } = f;
+  await api('PUT', `/api/projects/${p1}/tags`, { itemIds: [itemId] }, adminCookie);   // a tag on P1 only
+
+  // PE-03: upload → run → profile
+  const rUp = await uploadCsv('/api/timesheets/upload', profileCsv([
+    [code1, '2026-01-15', person, 4],
+    [code1, '2026-02-10', person, 6],
+    [code1, '2026-02-11', `Nobody${ts}`, 2],
+    [code2, '2026-03-05', person, 3],
+  ]), adminCookie);
+  ok(rUp.status === 201, `PE-03 upload of actuals for two project codes → 201 (got ${rUp.status}${rUp.data?.error ? ': ' + rUp.data.error : ''})`);
+  const rRun = await runProfileJobs();
+  ok(rRun.status === 200 && rRun.data?.ok === true, `PE-03 POST /api/profile-jobs/run → 200 (got ${rRun.status})`);
+
+  let prof = await getProfile(resId);
+  ok(!!prof?.profile && !!prof.profile_computed_at, 'PE-03 the resource has a profile after the run');
+  const p = prof?.profile;
+  ok(p?.totals?.hours === 13 && p?.totals?.projects === 2 && p?.totals?.firstWorked === '2026-01' && p?.totals?.lastWorked === '2026-03',
+    'PE-03 totals: 13 h over 2 projects, 2026-01 → 2026-03 (the unmatched owner is excluded)');
+  ok(p?.dimensions?.market?.name === 'Market' && p.dimensions.market.values[0]?.value === itemLabel
+      && p.dimensions.market.values[0]?.hours === 10 && p.dimensions.market.untaggedHours === 3,
+    'PE-04 Market dimension: tagged project P1 = 10 h, untagged P2 = 3 h');
+  ok(p?.projects?.[code1]?.tasks?.[0]?.name === 'Analysis' && p.projects[code1].tasks[0].hours === 10
+      && p?.roles?.[0]?.code === 'Consultant' && p.roles[0].hours === 13,
+    'PE-05 tasks are per project and roles are the actuals\' role codes');
+
+  // PE-06: isolation — re-uploading P1 must not disturb P2
+  const p2Before = JSON.stringify(p?.projects?.[code2]);
+  await uploadCsv(`/api/timesheets/upload?projectCode=${code1}`, profileCsv([[code1, '2026-04-01', person, 2]]), adminCookie);
+  await runProfileJobs();
+  prof = await getProfile(resId);
+  ok(prof?.profile?.totals?.hours === 5 && JSON.stringify(prof.profile.projects[code2]) === p2Before,
+    'PE-06 re-processing P1 (10 h → 2 h) leaves P2 untouched: total 5 h, P2 entry identical');
+
+  // PE-09: deleting a code's actuals removes its hours
+  ok((await api('DELETE', `/api/timesheets/${code2}`, null, adminCookie)).status === 200, 'PE-09 DELETE the actuals of P2 → 200');
+  await runProfileJobs();
+  prof = await getProfile(resId);
+  ok(prof?.profile?.totals?.projects === 1 && prof.profile.projects[code2] === undefined && prof.profile.totals.hours === 2,
+    'PE-09 P2\'s hours disappear from the profile (1 project, 2 h left)');
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -1299,6 +1415,7 @@ async function main() {
     await testCostGridReassignOwner();
     await testResourcesAndAttributeLists();
     await testResourceMatching();
+    await testProfileEngine();
     await testTagLinking();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));

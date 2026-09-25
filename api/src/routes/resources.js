@@ -104,6 +104,18 @@ router.delete('/aliases/:id', async (req, res, next) => {
   }
 });
 
+// GET /api/resources/:id/profile — the cached experience profile (null until first calculated)
+router.get('/:id/profile', async (req, res, next) => {
+  try {
+    const { rows } = await query('SELECT profile, profile_computed_at FROM resources WHERE id = $1', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Resource not found' });
+    res.json({ profile: rows[0].profile, profile_computed_at: rows[0].profile_computed_at });
+  } catch (err) {
+    if (err.code === '22P02') return res.status(404).json({ error: 'Resource not found' });
+    next(err);
+  }
+});
+
 // GET /api/resources — all resources (active + inactive), with linked user resolved
 router.get('/', async (req, res, next) => {
   try {
