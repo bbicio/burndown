@@ -63,6 +63,20 @@ async function api(method, path, body, cookie) {
   }
 }
 
+// Multipart CSV upload (the suite's api() helper only speaks JSON). xlsx parses CSV buffers too.
+async function uploadCsv(path, csvText, cookie) {
+  const form = new FormData();
+  form.append('file', new Blob([csvText], { type: 'text/csv' }), 'ts.csv');
+  try {
+    const res = await fetch(`${BASE}${path}`, { method: 'POST', headers: { Cookie: cookie }, body: form });
+    let data; try { data = await res.json(); } catch { data = null; }
+    return { status: res.status, data };
+  } catch (e) {
+    fail(`FETCH ERROR POST ${path}: ${e.message}`);
+    return { status: 0, data: null };
+  }
+}
+
 function extractCookie(headers) {
   const sc = headers.get('set-cookie') || '';
   const m  = sc.match(/pdash_token=[^;]+/);
@@ -1052,6 +1066,147 @@ async function testTagLinking() {
   }
 }
 
+// ── Resource Matching (2026-09, Cycle 3b) ───────────────────────────────────────
+
+async function testResourceMatching() {
+  section('Resource Matching');
+
+  ok((await api('GET', '/api/resources/unmatched')).status === 401, 'MA-01 GET /api/resources/unmatched without auth → 401');
+  ok((await api('GET', '/api/resources/aliases')).status === 401, 'MA-01 GET /api/resources/aliases without auth → 401');
+
+  const ts = Date.now();
+  const last = `Zzmatch${ts}`;                 // unique so a fresh DB has no namesake
+  const unknownName = `Luca Sconosciuto${ts}`;
+  const unknownKey  = `luca sconosciuto${ts}`.split(' ').sort().join(' ');
+  const code = `TMATCH${ts}`;
+  const roundName = `Arrotondo${ts}`;
+  const roundKey = roundName.toLowerCase();
+
+  // Setup: a resource, and a project with a matching task/role so the upload passes validation
+  const rRes = await api('POST', '/api/resources',
+    { firstName: 'Mario', lastName: last, email: `mario.${ts}@test.local`, jobTitle: 'Consultant' }, adminCookie);
+  const resId = rRes.data?.id;
+  if (resId) later('DELETE', `/api/resources/${resId}`);
+  ok(!!resId, 'MA-setup resource created');
+
+  const rProj = await api('POST', '/api/projects', { name: `__test_match_proj_${ts}__`, code }, adminCookie);
+  const projId = rProj.data?.id;
+  if (projId) later('DELETE', `/api/projects/${projId}`);
+  if (projId) {
+    await api('PUT', `/api/projects/${projId}/tasks`,
+      [{ name: 'Analysis', resources: [{ role: 'Consultant', soldHours: 8 }] }], adminCookie);
+  }
+  later('DELETE', `/api/timesheets/${code}`);
+
+  // MA-02: input validation on POST /aliases
+  ok((await api('POST', '/api/resources/aliases', { name: 'X Y' }, adminCookie)).status === 400,
+    'MA-02 alias with neither resourceId nor ignore → 400');
+  ok((await api('POST', '/api/resources/aliases', { name: 'X Y', resourceId: resId, ignore: true }, adminCookie)).status === 400,
+    'MA-02 alias with both resourceId and ignore → 400');
+  ok((await api('POST', '/api/resources/aliases', { name: '  ', ignore: true }, adminCookie)).status === 400,
+    'MA-02 alias with an empty name → 400');
+  ok((await api('POST', '/api/resources/aliases', { name: '.,-', ignore: true }, adminCookie)).status === 400,
+    'MA-02 alias with a punctuation-only name → 400');
+  ok((await api('POST', '/api/resources/aliases', { name: 'X Y', resourceId: 'not-a-uuid' }, adminCookie)).status === 400,
+    'MA-02 alias with a non-UUID resourceId → 400');
+  ok((await api('POST', '/api/resources/aliases', { name: 'X Y', resourceId: '00000000-0000-0000-0000-000000000000' }, adminCookie)).status === 400,
+    'MA-02 alias with an unknown resourceId → 400');
+
+  if (!projId || !resId) { ok(false, 'MA-04… skipped — project or resource setup failed'); return; }
+
+  // Upload: an inverted-order match for Mario, an unknown person, and a blank-owner row
+  const csv = [
+    'projectId,date,task,role,owner,hours',
+    `${code},2026-01-15,Analysis,Consultant,${last.toUpperCase()}  Mario,4`,
+    `${code},2026-01-16,Analysis,Consultant,${unknownName},6`,
+    `${code},2026-01-17,Analysis,Consultant,,2`,
+    `${code},2026-01-18,Analysis,Consultant,${roundName},0.1`,
+    `${code},2026-01-19,Analysis,Consultant,${roundName},0.2`,
+  ].join('\n');
+  const rUp = await uploadCsv('/api/timesheets/upload', csv, adminCookie);
+  ok(rUp.status === 201, `MA-04 CSV timesheet upload → 201 (got ${rUp.status}${rUp.data?.error ? ': ' + rUp.data.error : ''})`);
+
+  const listUnmatched = async () => (await api('GET', '/api/resources/unmatched', null, adminCookie)).data || [];
+  let un = await listUnmatched();
+  const marioKey = `${last} Mario`.toLowerCase().split(' ').sort().join(' ');
+  ok(!un.some(u => u.name_normalized === marioKey),
+    'MA-05 inverted-order, differently-cased owner auto-matches the resource (not queued)');
+  const unknownRow = un.find(u => u.name_normalized === unknownKey);
+  ok(!!unknownRow && Number(unknownRow.hours) === 6 && unknownRow.projects === 1,
+    'MA-05 unknown owner is queued with its hours and project count');
+  ok(!un.some(u => u.name_normalized === ''), 'MA-05 blank owner never enters the queue');
+  const roundRow = un.find(u => u.name_normalized === roundKey);
+  ok(!!roundRow && roundRow.hours === 0.3, `MA-14 summed hours carry no floating-point noise (got ${roundRow?.hours})`);
+
+  // MA-06: assign → leaves the queue, listed as an alias
+  const rAlias = await api('POST', '/api/resources/aliases', { name: unknownName, resourceId: resId }, adminCookie);
+  const aliasId = rAlias.data?.id;
+  ok(rAlias.status === 201 && !!aliasId, 'MA-06 POST alias → 201');
+  un = await listUnmatched();
+  ok(!un.some(u => u.name_normalized === unknownKey), 'MA-06 assigned name leaves the queue');
+  const rAliases = await api('GET', '/api/resources/aliases', null, adminCookie);
+  ok((rAliases.data || []).some(a => a.id === aliasId && a.resource_id === resId),
+    'MA-06 GET aliases lists the new alias with its resource');
+  ok((rAliases.data || []).some(a => a.id === aliasId && a.display_name === unknownName),
+    'MA-12 the alias keeps the name as the admin saw it, not only the normalized key');
+
+  // MA-03: the same alias twice upserts, no 500 — and reports an update (200), not a create
+  const rAlias2 = await api('POST', '/api/resources/aliases', { name: unknownName.toUpperCase(), resourceId: resId }, adminCookie);
+  ok(rAlias2.status === 200, `MA-03 re-adding the same alias (different case) → 200 update, not 201/500 (got ${rAlias2.status})`);
+  const dupes = ((await api('GET', '/api/resources/aliases', null, adminCookie)).data || [])
+    .filter(a => a.alias_normalized === unknownKey);
+  ok(dupes.length === 1, 'MA-03 still exactly one alias row for that normalized name');
+
+  // MA-13: a re-assignment by another admin is recorded — created_by stays, updated_by changes
+  const rAlias3 = await api('POST', '/api/resources/aliases', { name: unknownName, resourceId: resId }, sysadminCookie);
+  const audited = ((await api('GET', '/api/resources/aliases', null, adminCookie)).data || [])
+    .find(a => a.alias_normalized === unknownKey);
+  ok(rAlias3.status === 200 && !!audited && !!audited.created_by && !!audited.updated_by
+      && audited.created_by !== audited.updated_by,
+    'MA-13 re-assignment by another admin updates updated_by and leaves created_by unchanged');
+
+  // MA-07: removing the alias returns the name to the queue
+  ok((await api('DELETE', `/api/resources/aliases/${dupes[0]?.id}`, null, adminCookie)).status === 200,
+    'MA-07 DELETE alias → 200');
+  un = await listUnmatched();
+  ok(un.some(u => u.name_normalized === unknownKey), 'MA-07 removed alias returns the name to the queue');
+  ok((await api('DELETE', `/api/resources/aliases/${dupes[0]?.id}`, null, adminCookie)).status === 404,
+    'MA-07 DELETE alias that no longer exists → 404');
+
+  // MA-08: ignore a name
+  const rIgn = await api('POST', '/api/resources/aliases', { name: unknownName, ignore: true }, adminCookie);
+  const ignId = rIgn.data?.id;
+  if (ignId) later('DELETE', `/api/resources/aliases/${ignId}`);
+  un = await listUnmatched();
+  ok(rIgn.status === 201 && !un.some(u => u.name_normalized === unknownKey),
+    'MA-08 ignored name leaves the queue');
+  if (ignId) await api('DELETE', `/api/resources/aliases/${ignId}`, null, adminCookie);
+
+  // MA-09: an inactive resource is not auto-matched; reactivating re-matches
+  await api('PATCH', `/api/resources/${resId}`, { status: 'inactive' }, adminCookie);
+  un = await listUnmatched();
+  ok(un.some(u => u.name_normalized === marioKey), 'MA-09 deactivated resource: its name goes back to the queue');
+
+  // MA-11: a leaver's name can still be assigned to the (inactive) resource explicitly
+  const rInact = await api('POST', '/api/resources/aliases', { name: `${last} Mario`, resourceId: resId }, adminCookie);
+  const inactAliasId = rInact.data?.id;
+  un = await listUnmatched();
+  ok(rInact.status === 201 && !un.some(u => u.name_normalized === marioKey),
+    'MA-11 alias to an inactive resource → 201 and the name leaves the queue');
+  if (inactAliasId) await api('DELETE', `/api/resources/aliases/${inactAliasId}`, null, adminCookie);
+
+  await api('PATCH', `/api/resources/${resId}`, { status: 'active' }, adminCookie);
+  un = await listUnmatched();
+  ok(!un.some(u => u.name_normalized === marioKey), 'MA-09 reactivated resource: its name matches again');
+
+  // MA-10: deleting the resource re-queues its names; rescan endpoint works
+  ok((await api('DELETE', `/api/resources/${resId}`, null, adminCookie)).status === 200, 'MA-10 DELETE resource → 200');
+  un = await listUnmatched();
+  ok(un.some(u => u.name_normalized === marioKey), 'MA-10 deleting the resource returns its name to the queue');
+  const rScan = await api('POST', '/api/resources/unmatched/rescan', null, adminCookie);
+  ok(rScan.status === 200 && rScan.data?.ok === true, 'MA-10 POST /unmatched/rescan → 200');
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -1079,6 +1234,7 @@ async function main() {
     await testAdminChangeOwner();
     await testCostGridReassignOwner();
     await testResourcesAndAttributeLists();
+    await testResourceMatching();
     await testTagLinking();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
