@@ -85,8 +85,8 @@ async function rebuildProfile(client, resourceId) {
 }
 
 // Inside an open transaction: replace only this code's contributions, rebuild the affected profiles.
-async function processCode(client, code) {
-  const ctx = await loadMatchContext(client);
+async function processCode(client, code, matchCtx) {
+  const ctx = matchCtx || await loadMatchContext(client);
   const ts = await client.query(
     `SELECT e FROM timesheets t
      CROSS JOIN LATERAL jsonb_array_elements(
@@ -119,7 +119,7 @@ async function processCode(client, code) {
 
 // One queued code per transaction. Returns null when the queue is empty, { code, resources } on
 // success, { code, error } when that code failed (it goes to the back of the queue with last_error).
-async function processNext(exclude) {
+async function processNext(exclude, matchCtx) {
   const client = await pool.connect();
   let code = null;
   try {
@@ -134,7 +134,7 @@ async function processNext(exclude) {
     );
     if (!claim.rows[0]) { await client.query('COMMIT'); return null; }
     code = claim.rows[0].project_code;
-    const out = await processCode(client, code);
+    const out = await processCode(client, code, matchCtx);
     await client.query(
       `UPDATE profile_project_state
        SET last_processed_at = now(), last_error = NULL, last_rows = $2, last_resources = $3
@@ -179,8 +179,11 @@ async function processQueue(trigger = 'scheduled') {
     let resources = 0;
     const errors = [];
     const failed = [];
+    // Built once per run; may go slightly stale mid-run, which is fine because any resource/alias
+    // change re-queues everything.
+    const matchCtx = await loadMatchContext(lockClient);
     for (;;) {
-      const r = await processNext(failed);
+      const r = await processNext(failed, matchCtx);
       if (!r) break;
       if (r.error) { failed.push(r.code); errors.push(`${r.code}: ${r.error}`); continue; }
       projects += 1;

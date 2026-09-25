@@ -1476,6 +1476,16 @@ async function testProfileEngineHooks() {
   ok(rCode.status === 200 && rRun.status === 200 && rRun.data?.errors?.length === 0,
     'PE-12 changing a project\'s code queues both codes and the run completes without errors');
   await api('PATCH', `/api/projects/${p1}`, { code: code1 }, adminCookie);   // restore for cleanup
+
+  // PE-14: renaming a project re-queues its code so the cached profile shows the new name
+  await runProfileJobs();
+  const newName = `__prof_proj_renamed_${ts}__`;
+  await api('PATCH', `/api/projects/${p1}`, { name: newName }, adminCookie);
+  await runProfileJobs();
+  prof = await getProfile(resId);
+  const pj = prof?.profile?.projects;
+  const entry = Array.isArray(pj) ? pj.find(x => x.code === code1) : pj?.[code1];
+  ok(entry?.name === newName, 'PE-14 renaming a project shows the new name in the profile after the next run');
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────

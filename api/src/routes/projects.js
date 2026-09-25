@@ -235,6 +235,7 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
 
     if (seedFromVersionId) await copyVersionTagsToProject(req.params.id, seedFromVersionId);
     if (seedFromVersionId) await enqueueProjectCode(req.params.id);
+    if (req.body.name !== undefined && req.body.code === undefined) await enqueueProjectCode(req.params.id);
     if (req.body.code !== undefined) {
       let newCode = null;
       try {
@@ -262,7 +263,14 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
     if (parseInt(timesheets.rows[0].count) > 0) {
       return res.status(400).json({ error: 'Cannot delete project with uploaded timesheet data' });
     }
+    let delCode = null;
+    try {
+      delCode = (await query('SELECT code FROM projects WHERE id = $1', [req.params.id])).rows[0]?.code ?? null;
+    } catch (err) {
+      console.warn('[projects] read code before delete:', err.message);
+    }
     await query('DELETE FROM projects WHERE id = $1', [req.params.id]);
+    if (delCode) await enqueueProjectsQuiet([delCode]);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
