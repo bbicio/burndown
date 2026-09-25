@@ -8,6 +8,10 @@
   <link rel="stylesheet" href="css/tokens.css?v=7">
   <link rel="stylesheet" href="css/style.css?v=13">
   <link rel="stylesheet" href="css/admin-crud.css?v=1">
+  <style>
+    .sortable-th { cursor: pointer; user-select: none; white-space: nowrap; }
+    .sortable-th:hover { text-decoration: underline; }
+  </style>
 </head>
 <body>
 
@@ -24,6 +28,18 @@
 
       <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
 
+      <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+          <button type="button" class="nav-link" :class="{ active: pageTab === 'team' }" @click="setPageTab('team')">Team</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link" :class="{ active: pageTab === 'unmatched' }" @click="setPageTab('unmatched')">
+            Unmatched names <span class="badge bg-secondary ms-1">{{ unmatched.length }}</span>
+          </button>
+        </li>
+      </ul>
+
+      <template v-if="pageTab === 'team'">
       <div class="d-flex gap-2 mb-3 align-items-center">
         <input v-model="filterText" type="text" class="form-control form-control-sm" style="max-width:280px"
                placeholder="Search name or email…">
@@ -38,16 +54,17 @@
           <table class="table table-hover" v-if="filteredResources.length">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
+                <th class="sortable-th" @click="sortBy('name')">Name {{ sortIndicator('name') }}</th>
+                <th class="sortable-th" @click="sortBy('email')">Email {{ sortIndicator('email') }}</th>
+                <th class="sortable-th" @click="sortBy('role')">Role {{ sortIndicator('role') }}</th>
                 <th>Linked user</th>
-                <th>Status</th>
+                <th class="sortable-th" @click="sortBy('status')">Status {{ sortIndicator('status') }}</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="r in filteredResources" :key="r.id">
+              <tr v-for="r in sortedResources" :key="r.id" style="cursor:pointer"
+                  :class="{ 'table-active': r.id === selectedId }" @click="openDetail(r)">
                 <td class="fw-semibold">{{ r.first_name }} {{ r.last_name }}</td>
                 <td class="text-muted">{{ r.email }}</td>
                 <td>{{ r.role_label }} <span class="text-muted small">({{ r.role_code }})</span></td>
@@ -56,7 +73,7 @@
                   <span v-else>—</span>
                 </td>
                 <td><span :class="'badge-st-' + r.status">{{ r.status }}</span></td>
-                <td class="text-end" style="white-space:nowrap">
+                <td class="text-end" style="white-space:nowrap" @click.stop>
                   <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!r._loading" @click="openEdit(r)">Edit</button>
                   <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!r._loading" @click="toggleStatus(r)">
                     {{ r.status === 'active' ? 'Deactivate' : 'Activate' }}
@@ -69,9 +86,10 @@
           <div class="empty" v-else>No resources match the current filter.</div>
         </div>
       </div>
+      </template>
 
       <!-- ── UNMATCHED NAMES ─────────────────────────────────── -->
-      <div class="card mt-4">
+      <div class="card" v-if="pageTab === 'unmatched'">
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h5 class="mb-0">Unmatched names <span class="text-muted fw-normal" style="font-size:.9rem">({{ unmatched.length }})</span></h5>
@@ -93,10 +111,8 @@
                 <td class="text-end">{{ u.hours }}</td>
                 <td class="text-end">{{ u.projects }}</td>
                 <td>
-                  <select class="form-select form-select-sm" style="min-width:220px" v-model="assignChoice[u.name_normalized]" :disabled="!!u._loading">
-                    <option :value="undefined">Select a resource…</option>
-                    <option v-for="r in assignOptions(u)" :key="r.id" :value="r.id">{{ r.first_name }} {{ r.last_name }}{{ r.status === 'active' ? '' : ' (inactive)' }}</option>
-                  </select>
+                  <combo-select v-model="assignChoice[u.name_normalized]" :options="comboOptions(u)"
+                                placeholder="Select a resource…" :disabled="!!u._loading"></combo-select>
                 </td>
                 <td class="text-end" style="white-space:nowrap">
                   <button class="btn btn-primary btn-action me-1" :disabled="!!u._loading || !assignChoice[u.name_normalized]" @click="assign(u)">Assign</button>
@@ -134,6 +150,70 @@
         <div style="font-size:2rem">🔒</div>
         <p class="mt-2">Admin access required.</p>
         <a href="/" class="btn btn-outline-secondary btn-sm">Go to app</a>
+      </div>
+    </div>
+
+    <!-- ── RESOURCE DETAIL PANEL ───────────────────────────── -->
+    <div id="resourceDetailPanel" v-if="selectedResource"
+         style="position:fixed;top:0;right:0;bottom:0;width:860px;max-width:100%;background:#fff;
+                border-left:2px solid #dee2e6;box-shadow:-4px 0 16px rgba(0,0,0,.12);z-index:1045;
+                display:flex;flex-direction:column">
+      <div class="d-flex align-items-center justify-content-between px-3 py-2 flex-shrink-0"
+           style="border-bottom:1px solid #dee2e6;background:#0B1840;color:#fff">
+        <span class="fw-semibold" style="font-size:var(--text-md)">
+          {{ selectedResource.first_name }} {{ selectedResource.last_name }}
+          <span :class="'badge-st-' + selectedResource.status" class="ms-2">{{ selectedResource.status }}</span>
+        </span>
+        <button class="btn btn-sm btn-link text-white p-0" style="font-size:1.1rem;line-height:1" title="Close" @click="closeDetail">×</button>
+      </div>
+      <ul class="nav nav-tabs px-3 pt-2 flex-shrink-0">
+        <li class="nav-item"><button type="button" class="nav-link" :class="{ active: detailTab === 'details' }" @click="detailTab = 'details'">Details</button></li>
+        <li class="nav-item"><button type="button" class="nav-link" :class="{ active: detailTab === 'aliases' }" @click="detailTab = 'aliases'">Aliases <span class="badge bg-secondary ms-1">{{ detailAliases.length }}</span></button></li>
+        <li class="nav-item"><button type="button" class="nav-link" :class="{ active: detailTab === 'profile' }" @click="detailTab = 'profile'">Experience profile</button></li>
+      </ul>
+      <div class="flex-grow-1 p-3" style="overflow-y:auto">
+        <div v-if="detailTab === 'details'">
+          <div class="d-flex justify-content-end mb-3">
+            <button class="btn btn-outline-secondary btn-sm" @click="openEdit(selectedResource)">Edit</button>
+          </div>
+          <dl class="row mb-0" style="font-size:.9rem">
+            <dt class="col-sm-3 text-muted fw-normal">Name</dt>
+            <dd class="col-sm-9 fw-semibold">{{ selectedResource.first_name }} {{ selectedResource.last_name }}</dd>
+            <dt class="col-sm-3 text-muted fw-normal">Email</dt>
+            <dd class="col-sm-9">{{ selectedResource.email }}</dd>
+            <dt class="col-sm-3 text-muted fw-normal">Role</dt>
+            <dd class="col-sm-9">{{ selectedResource.role_label }} <span class="text-muted small">({{ selectedResource.role_code }})</span></dd>
+            <dt class="col-sm-3 text-muted fw-normal">Linked user</dt>
+            <dd class="col-sm-9">
+              <span v-if="selectedResource.user_id">{{ selectedResource.linked_user_first_name }} {{ selectedResource.linked_user_last_name }} <span class="text-muted small">({{ selectedResource.linked_user_email }})</span></span>
+              <span v-else class="text-muted">—</span>
+            </dd>
+            <dt class="col-sm-3 text-muted fw-normal">Status</dt>
+            <dd class="col-sm-9"><span :class="'badge-st-' + selectedResource.status">{{ selectedResource.status }}</span></dd>
+            <dt class="col-sm-3 text-muted fw-normal">Job description</dt>
+            <dd class="col-sm-9" style="white-space:pre-line">
+              <span v-if="selectedResource.job_description">{{ selectedResource.job_description }}</span>
+              <span v-else class="text-muted">—</span>
+            </dd>
+          </dl>
+        </div>
+        <div v-else-if="detailTab === 'aliases'">
+          <p class="text-muted small">Names from uploaded actuals that resolve to this resource.</p>
+          <div v-if="unmatchedError" class="alert alert-danger alert-sm">{{ unmatchedError }}</div>
+          <table class="table table-sm" v-if="detailAliases.length">
+            <thead><tr><th>Name</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="a in detailAliases" :key="a.id">
+                <td>{{ a.display_name || a.alias_normalized }}</td>
+                <td class="text-end"><button class="btn btn-outline-danger btn-action" :disabled="!!a._loading" @click="removeAlias(a)">Remove</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="empty" v-else>No aliases for this resource.</div>
+        </div>
+        <div v-else class="text-muted" style="font-size:.9rem">
+          No experience data yet. It will be built from uploaded actuals.
+        </div>
       </div>
     </div>
 
@@ -215,6 +295,7 @@
 
   <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script type="module" src="js/lib/team-ui.js?v=1"></script>
   <script defer src="js/api.js?v=7"></script>
   <script defer src="js/core.js?v=5"></script>
   <script defer src="js/settings.js"></script>
@@ -222,7 +303,12 @@
   <script defer src="js/notifications.js?v=2"></script>
   <script defer src="js/nav.js?v=9"></script>
   <script type="module">
-    Vue.createApp({
+    // Outside-click / Esc handlers for the detail panel. Module-level (not reactive data): same
+    // approach as pipeline.html's _pbDetailOutsideClickHandler.
+    let detailOutsideHandler = null;
+    let detailKeyHandler = null;
+
+    const app = Vue.createApp({
       data() {
         return {
           ready: false,
@@ -241,6 +327,11 @@
           globalError: null,
           form: this.blankForm(),
           _resourceModal: null,
+          pageTab: 'team',
+          sortKey: 'name',
+          sortDir: 'asc',
+          selectedId: null,
+          detailTab: 'details',
         };
       },
       computed: {
@@ -253,6 +344,21 @@
             return hay.includes(q);
           });
         },
+        sortedResources() {
+          return window.sortResources(this.filteredResources, this.sortKey, this.sortDir);
+        },
+        // Looked up in `resources` (not the filtered/sorted list) so the panel follows reloads and
+        // is independent of the search box.
+        selectedResource() {
+          return this.selectedId ? (this.resources.find(r => r.id === this.selectedId) || null) : null;
+        },
+        detailAliases() {
+          return this.selectedId ? this.aliases.filter(a => a.resource_id === this.selectedId) : [];
+        },
+      },
+      watch: {
+        // The open resource vanished (deleted, or reloaded away): don't leave a stale, empty panel.
+        selectedResource(now) { if (this.selectedId && !now) this.closeDetail(); },
       },
       async created() {
         const user = await initNav('team', { breadcrumbs: [
@@ -277,6 +383,53 @@
         this._resourceModal = new bootstrap.Modal(document.getElementById('resourceModal'));
       },
       methods: {
+        setPageTab(tab) {
+          this.closeDetail();
+          this.pageTab = tab;
+        },
+        openDetail(r) {
+          this.selectedId = r.id;
+          this.detailTab = 'details';
+          this.removeDetailHandlers();
+          const outside = (e) => {
+            const panel = document.getElementById('resourceDetailPanel');
+            if (!panel || panel.contains(e.target)) return;
+            // Modals opened from the panel (Edit, Confirm) live outside it in the DOM.
+            if (e.target.closest('.modal') || e.target.classList.contains('modal-backdrop')) return;
+            this.closeDetail();
+          };
+          const onKey = (e) => {
+            if (e.key === 'Escape' && !document.querySelector('.modal.show')) this.closeDetail();
+          };
+          detailOutsideHandler = outside;
+          detailKeyHandler = onKey;
+          // Delayed registration: the click that opened the panel must not immediately close it,
+          // and a later openDetail() supersedes an earlier pending registration.
+          setTimeout(() => {
+            if (detailOutsideHandler === outside) {
+              document.addEventListener('mousedown', outside);
+              // Capture phase: Bootstrap hides a modal (removing .show) before a bubble-phase document listener runs.
+              document.addEventListener('keydown', onKey, true);
+            }
+          }, 200);
+        },
+        closeDetail() {
+          this.selectedId = null;
+          this.removeDetailHandlers();
+        },
+        removeDetailHandlers() {
+          if (detailOutsideHandler) document.removeEventListener('mousedown', detailOutsideHandler);
+          if (detailKeyHandler) document.removeEventListener('keydown', detailKeyHandler, true);
+          detailOutsideHandler = null;
+          detailKeyHandler = null;
+        },
+        sortBy(key) {
+          if (this.sortKey === key) this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+          else { this.sortKey = key; this.sortDir = 'asc'; }
+        },
+        sortIndicator(key) {
+          return this.sortKey === key ? (this.sortDir === 'asc' ? '▲' : '▼') : '';
+        },
         blankForm() {
           return { id: null, firstName: '', lastName: '', email: '', roleId: '',
                     jobDescription: '', userId: null, status: 'active', loading: false, error: null };
@@ -338,6 +491,12 @@
           const active = this.resources.filter(r => r.status === 'active');
           const inactive = this.resources.filter(r => r.status !== 'active');
           return [...active.filter(r => cand.has(r.id)), ...active.filter(r => !cand.has(r.id)), ...inactive];
+        },
+        comboOptions(u) {
+          return this.assignOptions(u).map(r => ({
+            id: r.id,
+            label: `${r.first_name} ${r.last_name}${r.status === 'active' ? '' : ' (inactive)'}`,
+          }));
         },
         async postAlias(u, body) {
           u._loading = true;
@@ -472,7 +631,96 @@
           }
         },
       },
-    }).mount('#app');
+    });
+
+    // Searchable select (no library, no build step). Option order is decided by the caller.
+    // Index 0 in the list is the "— none —" entry; visible options are 1..n.
+    app.component('combo-select', {
+      props: {
+        options: { type: Array, default: () => [] },
+        modelValue: { default: undefined },
+        placeholder: { type: String, default: 'Select…' },
+        disabled: { type: Boolean, default: false },
+      },
+      emits: ['update:modelValue'],
+      data() { return { open: false, query: '', active: 0 }; },
+      computed: {
+        selectedLabel() {
+          const o = this.options.find(o => o.id === this.modelValue);
+          return o ? o.label : '';
+        },
+        visible() { return window.filterComboOptions(this.options, this.query); },
+      },
+      methods: {
+        openList() {
+          if (this.disabled || this.open) return;
+          this.open = true;
+          this.query = '';
+          const idx = this.options.findIndex(o => o.id === this.modelValue);
+          this.active = idx >= 0 ? idx + 1 : 0;
+          document.addEventListener('mousedown', this.onDocDown);
+        },
+        closeList() {
+          this.open = false;
+          this.query = '';
+          document.removeEventListener('mousedown', this.onDocDown);
+        },
+        scrollActive() {
+          this.$nextTick(() => {
+            const el = this.$refs.list && this.$refs.list.querySelector('.active');
+            if (el) el.scrollIntoView({ block: 'nearest' });
+          });
+        },
+        onDocDown(e) { if (!this.$el.contains(e.target)) this.closeList(); },
+        onInput(e) {
+          if (!this.open) this.openList();
+          this.query = e.target.value;
+          this.active = this.visible.length ? 1 : 0;
+        },
+        pick(opt) {
+          this.$emit('update:modelValue', opt ? opt.id : undefined);
+          this.closeList();
+        },
+        onKey(e) {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (!this.open) this.openList();
+            else this.active = Math.min(this.active + 1, this.visible.length);
+            this.scrollActive();
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            this.active = Math.max(this.active - 1, 0);
+            this.scrollActive();
+          } else if (e.key === 'Enter' && this.open) {
+            e.preventDefault();
+            if (this.query.trim() && !this.visible.length) return;
+            if (this.active > this.visible.length) return;
+            this.pick(this.active === 0 ? null : this.visible[this.active - 1]);
+          } else if (e.key === 'Escape' && this.open) {
+            e.preventDefault();
+            this.closeList();
+          }
+        },
+      },
+      beforeUnmount() { document.removeEventListener('mousedown', this.onDocDown); },
+      template: `
+        <div class="position-relative" style="min-width:220px">
+          <input type="text" class="form-control form-control-sm" autocomplete="off"
+                 :placeholder="placeholder" :disabled="disabled"
+                 :value="open ? query : selectedLabel"
+                 @focus="openList" @blur="closeList" @click="openList" @input="onInput" @keydown="onKey">
+          <ul v-if="open" ref="list" @mousedown.prevent class="list-group position-absolute w-100 shadow-sm"
+              style="z-index:1050;max-height:240px;overflow-y:auto;top:100%">
+            <li class="list-group-item list-group-item-action py-1 small text-muted" :class="{ active: active === 0 }"
+                @mousedown.prevent="pick(null)">— none —</li>
+            <li v-for="(o, i) in visible" :key="o.id" class="list-group-item list-group-item-action py-1 small"
+                :class="{ active: active === i + 1 }" @mousedown.prevent="pick(o)">{{ o.label }}</li>
+            <li v-if="!visible.length" class="list-group-item py-1 small text-muted">No matches</li>
+          </ul>
+        </div>`,
+    });
+
+    app.mount('#app');
   </script>
 </body>
 </html>
