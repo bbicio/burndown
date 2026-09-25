@@ -4,15 +4,18 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const { normalizeName } = require('../lib/match-resource');
 const { refreshUnmatched } = require('../services/resource-matching');
+const { enqueueAllQuiet } = require('../services/profile-engine');
 
 const router = express.Router();
 
 router.use(requireAuth, requireAdmin);
 
-// Best-effort full rescan after an admin change that can alter which names match.
+// Best-effort after an admin change that can alter which names match: refresh the Unmatched names
+// list right away, and queue every project for a (background) profile recalculation.
 async function rescanAll() {
   try { await refreshUnmatched(null); }
   catch (err) { console.warn('[resources] refreshUnmatched:', err.message); }
+  await enqueueAllQuiet();
 }
 
 // Both role_id and user_id are FKs on `resources`; tell them apart by constraint name.

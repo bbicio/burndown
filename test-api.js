@@ -1387,6 +1387,83 @@ async function testProfileEngine() {
     'PE-09 P2\'s hours disappear from the profile (1 project, 2 h left)');
 }
 
+async function testProfileEngineHooks() {
+  section('Profile Engine — enqueue hooks');
+
+  const f = await profileFixture();
+  ok(f.ok, 'PE-setup (hooks) resource, two projects and a Market value created');
+  if (!f.ok) return;
+  const { ts, code1, code2, person, resId, p1, p2, itemId, itemLabel } = f;
+  await api('PUT', `/api/projects/${p1}/tags`, { itemIds: [itemId] }, adminCookie);
+
+  const aliasName = `Alias Person${ts}`;
+  await uploadCsv('/api/timesheets/upload', profileCsv([
+    [code1, '2026-01-15', person, 4], [code1, '2026-01-16', aliasName, 1], [code2, '2026-03-05', person, 3],
+  ]), adminCookie);
+  await runProfileJobs();
+  let prof = await getProfile(resId);
+  ok(prof?.profile?.totals?.hours === 7 && prof.profile.dimensions.market.values[0].hours === 4
+      && prof.profile.dimensions.market.untaggedHours === 3,
+    'PE-07 baseline: 7 h; Market covers P1 (4 h), P2 (3 h) is untagged');
+
+  // PE-07: tagging P2 as well re-queues its code
+  await api('PUT', `/api/projects/${p2}/tags`, { itemIds: [itemId] }, adminCookie);
+  await runProfileJobs();
+  prof = await getProfile(resId);
+  ok(prof?.profile?.dimensions?.market?.values?.[0]?.hours === 7 && prof.profile.dimensions.market.untaggedHours === 0,
+    'PE-07 tagging P2 as well: the Market value now covers 7 h and nothing is untagged');
+
+  // PE-08: assigning an alias queues every code
+  ok(prof?.profile?.totals?.hours === 7, 'PE-08 before the alias the extra name adds nothing (still 7 h)');
+  const rAlias = await api('POST', '/api/resources/aliases', { name: aliasName, resourceId: resId }, adminCookie);
+  if (rAlias.data?.id) later('DELETE', `/api/resources/aliases/${rAlias.data.id}`);
+  await runProfileJobs();
+  prof = await getProfile(resId);
+  ok(prof?.profile?.totals?.hours === 8, 'PE-08 after assigning the alias the extra name counts: 8 h');
+
+  // PE-10: a resource change re-queues everything and the rebuilt profile is identical
+  const shape = pr => JSON.stringify({ t: pr.totals, d: pr.dimensions, r: pr.roles, p: pr.projects });
+  const before = shape(prof.profile);
+  await api('PATCH', `/api/resources/${resId}`, { firstName: 'Prof' }, adminCookie);
+  await runProfileJobs();
+  prof = await getProfile(resId);
+  ok(shape(prof.profile) === before, 'PE-10 re-queuing everything and re-running reproduces the same profile');
+
+  // PE-11: a deactivated person keeps a profile only through an alias (auto name match excludes inactive)
+  const leaverName = `Old Timer${ts}`;
+  const role2 = await makeTestRole(`L${ts}`);
+  const rLeaver = await api('POST', '/api/resources',
+    { firstName: 'Old', lastName: `Timer${ts}`, email: `old.${ts}@test.local`, roleId: role2.id }, adminCookie);
+  const leaverId = rLeaver.data?.id;
+  if (leaverId) later('DELETE', `/api/resources/${leaverId}`);
+  await api('PATCH', `/api/resources/${leaverId}`, { status: 'inactive' }, adminCookie);
+  await uploadCsv(`/api/timesheets/upload?projectCode=${code1}`, profileCsv([
+    [code1, '2026-01-15', person, 4], [code1, '2026-01-16', aliasName, 1], [code1, '2026-05-01', leaverName, 5],
+  ]), adminCookie);
+  await runProfileJobs();
+  prof = await getProfile(leaverId);
+  ok(!!prof && prof.profile === null, 'PE-11 an inactive resource is not matched by name: no profile yet');
+  const rLeaverAlias = await api('POST', '/api/resources/aliases', { name: leaverName, resourceId: leaverId }, adminCookie);
+  if (rLeaverAlias.data?.id) later('DELETE', `/api/resources/aliases/${rLeaverAlias.data.id}`);
+  await runProfileJobs();
+  prof = await getProfile(leaverId);
+  ok(prof?.profile?.totals?.hours === 5 && prof.profile.totals.lastWorked === '2026-05',
+    'PE-11 …but an alias to the inactive resource gives it a profile (5 h)');
+
+  // PE-12: renaming a list value re-labels the profile; changing a project's code does not crash the run
+  const newLabel = `__prof_item_renamed_${ts}__`;
+  await api('PATCH', `/api/attribute-lists/${f.market.id}/items/${itemId}`, { label: newLabel }, adminCookie);
+  await runProfileJobs();
+  prof = await getProfile(resId);
+  ok(prof?.profile?.dimensions?.market?.values?.[0]?.value === newLabel && newLabel !== itemLabel,
+    'PE-12 renaming a list value shows the new label in the profile after the next run');
+  const rCode = await api('PATCH', `/api/projects/${p1}`, { code: `${code1}B` }, adminCookie);
+  const rRun = await runProfileJobs();
+  ok(rCode.status === 200 && rRun.status === 200 && rRun.data?.errors?.length === 0,
+    'PE-12 changing a project\'s code queues both codes and the run completes without errors');
+  await api('PATCH', `/api/projects/${p1}`, { code: code1 }, adminCookie);   // restore for cleanup
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -1416,6 +1493,7 @@ async function main() {
     await testResourcesAndAttributeLists();
     await testResourceMatching();
     await testProfileEngine();
+    await testProfileEngineHooks();
     await testTagLinking();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
