@@ -844,9 +844,9 @@ Sysadmin-exclusive hidden page (was admin-only before 2026-09) for bulk/targeted
 
 ### 16.7 Team (Resource Registry, 2026-09)
 
-Own page (`team.html`), admin or sysadmin, reachable from the "⚙ Admin" navbar dropdown. A standalone directory of people who can be allocated to work — first name, last name, email, job title, and a free-text job description — kept separate from PDash user accounts (a resource does not need a login to exist here) but with an optional link to one, when the person also happens to be a PDash user.
+Own page (`team.html`), admin or sysadmin, reachable from the "⚙ Admin" navbar dropdown. A standalone directory of people who can be allocated to work — first name, last name, email, role, and a free-text job description — kept separate from PDash user accounts (a resource does not need a login to exist here) but with an optional link to one, when the person also happens to be a PDash user.
 
-Job title is chosen from the same list of roles used elsewhere in the app (§7.6), so a resource's title stays consistent with the titles sold in cost grids; an "Other…" option allows a free-text title for anyone whose real title isn't in that list. Resources can be deactivated (hidden from the default list, kept for history) and reactivated, or deleted outright.
+Every resource has exactly one **role**, chosen from the same list of roles used elsewhere in the app (§7.6) and shown as "label (code)"; there is no free-text alternative — if a role is missing, an admin creates it first in Config → Roles. The link is to the role itself, not to its name, so renaming a role's label or code in Config updates every resource that has it, and a role that is assigned to a resource cannot be deleted (Config shows "Cannot delete role assigned to a team resource"). The role's code is the value found in the role column of uploaded actuals, which is why it matters for the later stages of resource allocation (2026-09-25). Resources can be deactivated (hidden from the default list, kept for history) and reactivated, or deleted outright.
 
 This is the first of four planned cycles toward AI-assisted resource allocation — nothing on this page is consumed by planning or the pipeline yet.
 

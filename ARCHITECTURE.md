@@ -278,7 +278,9 @@ resources (                           -- migration 020: standalone resource regi
   first_name      VARCHAR NOT NULL,
   last_name       VARCHAR NOT NULL,
   email           VARCHAR NOT NULL,
-  job_title       VARCHAR NOT NULL,   -- free text, not an FK to roles
+  role_id         UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,  -- migration 025 (2026-09-25):
+                                       -- replaced the free-text job_title; by id, so renaming a role's
+                                       -- label/code propagates, and a role in use cannot be deleted
   job_description TEXT,
   user_id         UUID REFERENCES users(id) ON DELETE SET NULL,  -- optional link to a PDash account
   status          VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
@@ -599,7 +601,7 @@ timesheets (
 | DELETE | /api/programs/:id | admin | Delete (blocked while any project is still linked) |
 | POST | /api/programs/:id/share | ✅ | Share every project in a program with a user; caller must be admin or owner/editor on at least one of the program's projects (2026-09 — this pre-existing route previously had no ownership check at all) |
 | GET/POST | /api/roles | admin | List / create — `GET` returns `rate_overrides` JSONB field |
-| PATCH/DELETE | /api/roles/:id | admin | Update / delete — `PATCH` accepts `rateOverrides` body field (saved to `rate_overrides` column) |
+| PATCH/DELETE | /api/roles/:id | admin | Update / delete — `PATCH` accepts `rateOverrides` body field (saved to `rate_overrides` column). `DELETE` → 400 if the role is used in cost grids (`task_roles`) or, since 2026-09-25, assigned to a team resource (`resources.role_id`; a race that trips the `resources` FK is mapped to the same 400, any other FK error falls through) |
 | GET | /api/ratecards | ✅ | List (all authenticated users) |
 | POST | /api/ratecards | admin | Create |
 | GET | /api/ratecards/:id | ✅ | Detail (all authenticated users) |
@@ -612,7 +614,7 @@ timesheets (
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | GET/POST | /api/resources | admin | List / create resource registry entries |
-| PATCH/DELETE | /api/resources/:id | admin | Update (validates non-empty on any of `firstName`/`lastName`/`email`/`jobTitle` present in the body, matching POST) / hard delete. Create, PATCH of `firstName`/`lastName`/`status`, and DELETE trigger a best-effort full rescan of the unmatched-names queue |
+| PATCH/DELETE | /api/resources/:id | admin | Update (validates non-empty on any of `firstName`/`lastName`/`email`/`roleId` present in the body, matching POST; `roleId` non-UUID or unknown → 400, told apart from a bad linked `userId` by FK constraint name) / hard delete. `GET /api/resources` returns `role_id`, `role_label`, `role_code` (JOIN on `roles`), no `job_title`. Create, PATCH of `firstName`/`lastName`/`status`, and DELETE trigger a best-effort full rescan of the unmatched-names queue |
 | GET | /api/resources/unmatched | admin | (2026-09, Cycle 3b) Owner names from uploaded actuals that could not be matched to a resource — `[{ name_normalized, display_name, hours, projects, candidate_resource_ids }]`, hours summed and rounded to 2 decimals, ordered by hours desc; a non-empty `candidate_resource_ids` means ambiguous |
 | POST | /api/resources/unmatched/rescan | admin | Recompute the whole queue from all uploaded actuals — `{ ok, unmatched }` |
 | GET/POST | /api/resources/aliases | admin | List aliases (with `display_name`, `created_by`/`updated_by`) / assign a name — body `{ name, resourceId }` or `{ name, ignore: true }`; upserts on the normalized name (201 on create, 200 on re-assignment, 400 on empty/punctuation-only name, both/neither of `resourceId`/`ignore`, non-UUID or unknown `resourceId`); may point at an inactive resource (a leaver's history) |
@@ -993,8 +995,9 @@ Current migrations:
 - `020_resources_attribute_lists.sql` — creates `resources`, `attribute_lists`, `attribute_list_items` (see §5.2); seeds 4 empty `attribute_lists` rows (Market, Brand, Therapeutic Area, Service Type)
 - `021_attribute_list_items_unique_label.sql` — case-insensitive unique index on `attribute_list_items(list_id, lower(label))`; disambiguates any pre-existing duplicate labels first so the index can never fail to create
 - `022_version_project_tags.sql` — creates `cost_grid_version_tags` and `project_tags` join tables (see §5.3/§5.4), each a composite-PK pair with a supporting index on `item_id`; Cycle 2 of the resource-allocation initiative
-- `024_resource_aliases_unmatched.sql` — creates `resource_aliases` and `profile_unmatched` (see §5; Cycle 3b, 2026-09-25); `profile_unmatched` is keyed by `project_code`, not project id
 - `023_backfill_project_tags.sql` — one-shot idempotent backfill: copies a version's tags into `project_tags` for every project with `cg_version_id` set and no tags (Cycle 3a, 2026-09-25); apply once, since a rerun would also refill deliberately cleared projects
+- `024_resource_aliases_unmatched.sql` — creates `resource_aliases` and `profile_unmatched` (see §5; Cycle 3b, 2026-09-25); `profile_unmatched` is keyed by `project_code`, not project id
+- `025_resource_role_id.sql` — `resources.role_id → roles(id)` NOT NULL replacing free-text `job_title`; backfill by `roles.code` then `roles.label`, aborts loudly on an unmatched row, re-runnable (Team role by id, 2026-09-25)
 
 ---
 
