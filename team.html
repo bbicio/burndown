@@ -211,8 +211,52 @@
           </table>
           <div class="empty" v-else>No aliases for this resource.</div>
         </div>
-        <div v-else class="text-muted" style="font-size:.9rem">
-          No experience data yet. It will be built from uploaded actuals.
+        <div v-else style="font-size:.9rem">
+          <div v-if="profileLoading" class="text-muted">Loading…</div>
+          <div v-else-if="profileError" class="alert alert-danger alert-sm">{{ profileError }}</div>
+          <div v-else-if="profileData && !profileData.profile_computed_at" class="text-muted">
+            Not calculated yet. The profile is built in the background from uploaded actuals.
+          </div>
+          <div v-else-if="profileData && !profileTree" class="text-muted">
+            No actuals matched to this person yet. Names that could not be matched are listed in the
+            <a href="#" @click.prevent="setPageTab('unmatched')">Unmatched names</a> tab.
+          </div>
+          <div v-else-if="profileTree">
+            <div class="d-flex flex-wrap gap-4 mb-3">
+              <div><div class="text-muted small">Hours</div><div class="fw-semibold">{{ fmtHours(profileTree.totals.hours) }}</div></div>
+              <div><div class="text-muted small">Projects</div><div class="fw-semibold">{{ profileTree.totals.projects }}</div></div>
+              <div><div class="text-muted small">First month</div><div class="fw-semibold">{{ profileTree.totals.firstWorked || '—' }}</div></div>
+              <div><div class="text-muted small">Last month</div><div class="fw-semibold">{{ profileTree.totals.lastWorked || '—' }}</div></div>
+            </div>
+            <div class="text-muted small mb-3">Last calculated: {{ fmtWhen(profileData.profile_computed_at) }}</div>
+
+            <details v-for="d in profileTree.dimensions" :key="d.slug" open class="mb-2">
+              <summary class="fw-semibold">{{ d.name }}
+                <span v-if="d.untaggedHours" class="text-muted fw-normal small ms-2">{{ fmtHours(d.untaggedHours) }} h on projects without a value</span>
+              </summary>
+              <div v-if="!d.values.length" class="text-muted small ms-3">No values yet.</div>
+              <details v-for="v in d.values" :key="v.key" class="ms-3 mt-1">
+                <summary>
+                  {{ v.label }}
+                  <span class="text-muted small ms-2">{{ fmtHours(v.hours) }} h · {{ fmtPct(v.share) }} · {{ v.projectCount }} project{{ v.projectCount === 1 ? '' : 's' }}<span v-if="v.last"> · last {{ v.last }}</span></span>
+                  <div style="height:4px;background:#e9ecef;border-radius:2px;max-width:240px"><div :style="{ height:'4px', borderRadius:'2px', background:'var(--brand-navy, #0B1840)', width: fmtPct(v.share) }"></div></div>
+                </summary>
+                <details v-for="p in v.projects" :key="p.code" class="ms-3 mt-1">
+                  <summary>{{ p.name }} <span class="text-muted small">({{ p.code }}) · {{ fmtHours(p.hours) }} h<span v-if="p.last"> · last {{ p.last }}</span></span></summary>
+                  <ul class="ms-3 mb-1 small"><li v-for="t in p.tasks" :key="t.name">{{ t.name }} — {{ fmtHours(t.hours) }} h</li></ul>
+                </details>
+              </details>
+            </details>
+
+            <details open class="mb-2">
+              <summary class="fw-semibold">Roles</summary>
+              <div v-if="!profileTree.roles.length" class="text-muted small ms-3">No roles recorded.</div>
+              <details v-for="r in profileTree.roles" :key="r.code" class="ms-3 mt-1">
+                <summary>{{ r.label }} <span class="text-muted small">({{ r.code }}) · {{ fmtHours(r.hours) }} h · {{ fmtPct(r.share) }} · {{ r.projectCount }} project{{ r.projectCount === 1 ? '' : 's' }}</span></summary>
+                <ul class="ms-3 mb-1 small"><li v-for="p in r.projects" :key="p.code">{{ p.name }} ({{ p.code }}) — {{ fmtHours(p.hours) }} h</li></ul>
+              </details>
+            </details>
+          </div>
         </div>
       </div>
     </div>
@@ -295,7 +339,7 @@
 
   <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script type="module" src="js/lib/team-ui.js?v=1"></script>
+  <script type="module" src="js/lib/team-ui.js?v=2"></script>
   <script defer src="js/api.js?v=7"></script>
   <script defer src="js/core.js?v=5"></script>
   <script defer src="js/settings.js"></script>
@@ -332,6 +376,9 @@
           sortDir: 'asc',
           selectedId: null,
           detailTab: 'details',
+          profileLoading: false,
+          profileError: null,
+          profileData: null,          // { profile, profile_computed_at } for the open resource
         };
       },
       computed: {
@@ -355,8 +402,17 @@
         detailAliases() {
           return this.selectedId ? this.aliases.filter(a => a.resource_id === this.selectedId) : [];
         },
+        profileTree() {
+          return this.profileData ? window.buildProfileTree(this.profileData.profile, this.roles) : null;
+        },
       },
       watch: {
+        detailTab(tab) { if (tab === 'profile') this.loadProfile(); },
+        selectedId() {
+          this.profileData = null;
+          this.profileError = null;
+          if (this.selectedId && this.detailTab === 'profile') this.loadProfile();
+        },
         // The open resource vanished (deleted, or reloaded away): don't leave a stale, empty panel.
         selectedResource(now) { if (this.selectedId && !now) this.closeDetail(); },
       },
@@ -383,6 +439,26 @@
         this._resourceModal = new bootstrap.Modal(document.getElementById('resourceModal'));
       },
       methods: {
+        async loadProfile() {
+          const id = this.selectedId;
+          if (!id) return;
+          this.profileLoading = true;
+          this.profileError = null;
+          try {
+            const res = await fetch(`/api/resources/${id}/profile`, { credentials: 'same-origin' });
+            const data = await res.json();
+            if (id !== this.selectedId) return;            // the panel moved on while we waited
+            if (!res.ok) { this.profileError = data.error || 'Failed to load the profile.'; return; }
+            this.profileData = data;
+          } catch {
+            if (id === this.selectedId) this.profileError = 'Network error.';
+          } finally {
+            if (id === this.selectedId) this.profileLoading = false;
+          }
+        },
+        fmtHours(h) { return (Math.round((Number(h) || 0) * 100) / 100).toLocaleString('en-US'); },
+        fmtPct(share) { return `${Math.round((Number(share) || 0) * 100)}%`; },
+        fmtWhen(iso) { return iso ? new Date(iso).toLocaleString() : '—'; },
         setPageTab(tab) {
           this.closeDetail();
           this.pageTab = tab;
