@@ -90,7 +90,7 @@ Le risorse inattive sono escluse dal match automatico ma un alias esplicito può
 **Revisione della versione iniziale** (fatta in fase di design 3c, su dati reali: 488 righe di actuals, 8 codici progetto, 15 progetti, nessun tag e nessuna risorsa ancora in uso; nessun `projects.code` condiviso, anche se il vincolo non esiste):
 - Contributi e coda sono chiavati per **`project_code`**, non `project_id` (come `profile_unmatched` in 3b): `timesheets` è chiavata per codice e `projects.code` non è unico. Il progetto di un codice è **il più vecchio** con quel codice (`ORDER BY created_at, id LIMIT 1`, senza filtro di visibilità: il worker non è un utente); se non esiste, il nome viene dagli actuals e non ci sono tag.
 - I **tag non si copiano** nei contributi: si leggono da `project_tags` quando si aggrega il profilo.
-- Il profilo si calcola anche per le risorse **inattive** (lo storico di chi è uscito serve al Ciclo 4).
+- Una risorsa **inattiva** ha un profilo per i nomi che la raggiungono tramite **alias**: l'abbinamento automatico per nome esclude le risorse inattive (regola di 3b), quindi disattivare una persona toglie dal suo profilo le ore che arrivavano per nome finché un admin non aggiunge l'alias.
 - Una **sola tabella** (`profile_project_state`) fa da coda e da stato per la console di 3d.
 
 **Modello: contributo per progetto, profilo come somma.** Un ricalcolo di un codice non deve cancellare l'esperienza maturata su altri codici.
@@ -98,7 +98,7 @@ Le risorse inattive sono escluse dal match automatico ma un alias esplicito può
 **Tabelle (migrazione `026`):**
 - `resource_project_contributions (resource_id UUID REFERENCES resources ON DELETE CASCADE, project_code VARCHAR(100), data JSONB, computed_at TIMESTAMPTZ, PRIMARY KEY (resource_id, project_code))`;
 - `profile_project_state (project_code VARCHAR(100) PRIMARY KEY, queued_at TIMESTAMPTZ NULL, last_processed_at TIMESTAMPTZ NULL, last_error TEXT NULL, last_rows INTEGER, last_resources INTEGER)` — **in coda = `queued_at IS NOT NULL`**;
-- `profile_job_runs (id BIGSERIAL PRIMARY KEY, started_at TIMESTAMPTZ, finished_at TIMESTAMPTZ NULL, trigger VARCHAR(20) CHECK (trigger IN ('scheduled','manual','bootstrap')), projects INTEGER, resources INTEGER, error TEXT NULL)`, potata alle ultime 50 righe a ogni esecuzione (scritta in 3c, mostrata in 3d);
+- `profile_job_runs (id BIGSERIAL PRIMARY KEY, started_at TIMESTAMPTZ, finished_at TIMESTAMPTZ NULL, trigger_type VARCHAR(20) CHECK (trigger_type IN ('scheduled','manual','bootstrap')), projects INTEGER, resources INTEGER, error TEXT NULL)`, potata alle ultime 50 righe a ogni esecuzione (scritta in 3c, mostrata in 3d);
 - `resources.profile JSONB`, `resources.profile_computed_at TIMESTAMPTZ`.
 - Impostazioni in `app_settings` (chiave/valore già esistente, valori testuali): `profile_job_interval_min` (default `10`), `profile_job_enabled` (default `true`); lette dal worker a ogni ciclo, quindi cambiano senza riavviare l'API. Il widget che le modifica è di 3d.
 
@@ -125,12 +125,13 @@ I ruoli sono i **codici** come negli actuals (`roles.code`); i task hanno chiave
 La lista "Unmatched names" resta aggiornata **subito** (`refreshUnmatched` in linea, come in 3b); solo il profilo segue in modo asincrono.
 
 **Worker** (`api/src/services/profile-worker.js`, avviato da `api/src/index.js` dopo `app.listen`):
-- controlla ogni 60 secondi se è ora di girare: `profile_job_enabled = 'true'` e trascorsi `profile_job_interval_min` minuti dall'inizio dell'ultima esecuzione; un giro elabora l'intera coda e scrive una riga in `profile_job_runs` (`trigger = 'scheduled'`);
+- controlla ogni 60 secondi se è ora di girare: `profile_job_enabled = 'true'` e trascorsi `profile_job_interval_min` minuti dall'inizio dell'ultima esecuzione; un giro elabora l'intera coda e scrive una riga in `profile_job_runs` (`trigger_type = 'scheduled'`);
 - un lock advisory (`pg_try_advisory_lock`) impedisce esecuzioni sovrapposte anche con più istanze;
-- **bootstrap** all'avvio: se `resource_project_contributions` è vuota ma `timesheets` no, mette in coda tutti i codici e fa un giro (`trigger = 'bootstrap'`), così dopo il deploy i profili non partono vuoti;
+- **bootstrap** all'avvio: se `resource_project_contributions` è vuota ma `timesheets` no, mette in coda tutti i codici e fa un giro (`trigger_type = 'bootstrap'`), così dopo il deploy i profili non partono vuoti;
 - un errore in un progetto non ferma il giro: quel progetto resta in coda con `last_error`, gli altri proseguono.
+- Le esecuzioni `scheduled` e `bootstrap` vengono registrate in `profile_job_runs` solo se hanno elaborato qualcosa o fallito; quelle `manual` sempre.
 
-**API in 3c** (`requireAdmin`): `GET /api/resources/:id/profile` → `{ profile, profile_computed_at }` (profilo `null` se non ancora calcolato; 404 per risorsa inesistente; sola lettura), e `POST /api/profile-jobs/run` (file `api/src/routes/profile-jobs.js`, che 3d estende) che svuota subito la coda con `trigger = 'manual'` e risponde `{ ok, projects, resources }` — serve ai test e alla futura console.
+**API in 3c** (`requireAdmin`): `GET /api/resources/:id/profile` → `{ profile, profile_computed_at }` (profilo `null` se non ancora calcolato; 404 per risorsa inesistente; sola lettura), e `POST /api/profile-jobs/run` (file `api/src/routes/profile-jobs.js`, che 3d estende) che svuota subito la coda con `trigger_type = 'manual'` e risponde `{ ok, projects, resources }` — serve ai test e alla futura console.
 
 **Profilo aggregato (`aggregateProfile`) — `resources.profile`:**
 ```json
@@ -139,7 +140,7 @@ La lista "Unmatched names" resta aggiornata **subito** (`refreshUnmatched` in li
   "dimensions": { "<list slug>": { "name": "Market", "untaggedHours": 95,
       "values": [ { "value": "Italy", "itemId": "…", "hours": 780, "share": 0.63,
                     "projects": 6, "last": "2026-08", "projectCodes": ["…"] } ] } },
-  "roles": [ { "code": "HWGDEV - DEVELOPER", "hours": 1000, "share": 0.81, "projects": 8, "last": "2026-08" } ],
+  "roles": [ { "code": "HWGDEV - DEVELOPER", "hours": 1000, "share": 0.81, "projects": 8, "last": "2026-08", "projectCodes": ["…"] } ],
   "projects": { "<project code>": { "name": "…", "projectId": "…|null", "hours": 420, "last": "2026-08",
                  "tags": { "<list slug>": ["Italy"] },
                  "tasks": [ { "name": "Literature review", "hours": 180 } ] } } }
