@@ -35,7 +35,9 @@ async function canEdit(userId, role, projectId) {
 // Copies a cost grid version's tags onto a project, only when the project has none yet.
 // One atomic statement. Best-effort: the project write it follows has already succeeded
 // (and js/api-sync.js treats a failed PATCH as "project missing"), so a failure here is
-// logged, not surfaced — re-running migration 023's statement heals a missed copy.
+// logged, not surfaced. A missed copy is repaired by re-running this same statement by
+// hand for that one project (NOT by re-running migration 023, which would also refill
+// every project whose tags were deliberately cleared).
 async function copyVersionTagsToProject(projectId, versionId) {
   try {
     await query(
@@ -185,24 +187,35 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     }
     if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
 
-    const cgTouched = req.body.cgVersionId !== undefined;
-    let prevCgVersionId = null;
-    if (cgTouched) {
-      const prev = await query('SELECT cg_version_id FROM projects WHERE id = $1', [req.params.id]);
-      prevCgVersionId = prev.rows[0]?.cg_version_id ?? null;
-    }
-
     params.push(req.params.id);
-    const { rows } = await query(
-      `UPDATE projects SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING id, name`,
-      params
-    );
+    const updateSql = `UPDATE projects SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING id, name`;
+
+    let rows;
+    let seedFromVersionId = null;
+    if (req.body.cgVersionId !== undefined) {
+      // Read the previous link and write the new one under one row lock, so two overlapping
+      // saves (js/api-sync.js re-sends cgVersionId on every save) cannot both observe
+      // "no link yet" and both seed tags — only the first link ever seeds them.
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const prev = await client.query('SELECT cg_version_id FROM projects WHERE id = $1 FOR UPDATE', [req.params.id]);
+        const prevCgVersionId = prev.rows[0]?.cg_version_id ?? null;
+        ({ rows } = await client.query(updateSql, params));
+        await client.query('COMMIT');
+        if (rows[0] && !prevCgVersionId && req.body.cgVersionId) seedFromVersionId = req.body.cgVersionId;
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
+      } finally {
+        client.release();
+      }
+    } else {
+      ({ rows } = await query(updateSql, params));
+    }
     if (!rows[0]) return res.status(404).json({ error: 'Project not found' });
 
-    // Only the first link seeds tags; js/api-sync.js re-sends cgVersionId on every save.
-    if (cgTouched && !prevCgVersionId && req.body.cgVersionId) {
-      await copyVersionTagsToProject(req.params.id, req.body.cgVersionId);
-    }
+    if (seedFromVersionId) await copyVersionTagsToProject(req.params.id, seedFromVersionId);
 
     res.json(rows[0]);
   } catch (err) { next(err); }

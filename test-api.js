@@ -1005,6 +1005,26 @@ async function testTagLinking() {
     ok(false, 'TAG-15 skipped — prerequisites unavailable');
   }
 
+  // TAG-19: two overlapping first-link saves both succeed and seed the tags exactly once
+  // (concurrency smoke test — the row lock in PATCH makes only one request see "no link yet")
+  if (cgId && vId && itemId) {
+    const rRace = await api('POST', '/api/projects', { name: '__test_tag_race_proj__' }, adminCookie);
+    const raceProjId = rRace.data?.id;
+    if (raceProjId) later('DELETE', `/api/projects/${raceProjId}`);
+    if (raceProjId) {
+      const [pa, pb] = await Promise.all([
+        api('PATCH', `/api/projects/${raceProjId}`, { cgVersionId: vId }, adminCookie),
+        api('PATCH', `/api/projects/${raceProjId}`, { cgVersionId: vId }, adminCookie),
+      ]);
+      const rRaceTags = await api('GET', `/api/projects/${raceProjId}/tags`, null, adminCookie);
+      ok(pa.status === 200 && pb.status === 200 && rRaceTags.status === 200
+        && (rRaceTags.data || []).length === 1 && rRaceTags.data[0].item_id === itemId,
+        'TAG-19 overlapping first-link PATCHes both succeed and seed the tags once');
+    } else {
+      ok(false, 'TAG-19 skipped — project could not be created');
+    }
+  }
+
   // TAG-18 (project half): a non-UUID itemId is a 400, not a 500
   if (standaloneProjId) {
     ok((await api('PUT', `/api/projects/${standaloneProjId}/tags`, { itemIds: ['not-a-uuid'] }, adminCookie)).status === 400,
