@@ -63,6 +63,17 @@ async function api(method, path, body, cookie) {
   }
 }
 
+// A throw-away role for resource tests. Registered for cleanup; because cleanup runs in reverse,
+// call this BEFORE creating the resources that use it so they are deleted first (roles that a
+// resource references cannot be deleted).
+async function makeTestRole(tag) {
+  const code = `TESTROLE${tag}`;
+  const label = `__test_role_${tag}__`;
+  const r = await api('POST', '/api/roles', { label, code }, adminCookie);
+  if (r.data?.id) later('DELETE', `/api/roles/${r.data.id}`);
+  return { id: r.data?.id, label, code };
+}
+
 // Multipart CSV upload (the suite's api() helper only speaks JSON). xlsx parses CSV buffers too.
 async function uploadCsv(path, csvText, cookie) {
   const form = new FormData();
@@ -786,13 +797,33 @@ async function testResourcesAndAttributeLists() {
   ok((await api('GET', '/api/resources')).status === 401,
     'TM-02 GET /api/resources without auth → 401');
 
-  const email = `__test_resource_${Date.now()}@example.test`;
+  const tsR = Date.now();
+  const roleA = await makeTestRole(`${tsR}A`);
+  const roleB = await makeTestRole(`${tsR}B`);
+  ok(!!roleA.id && !!roleB.id, 'TM-setup two test roles created');
+
+  const email = `__test_resource_${tsR}@example.test`;
   const rCreate = await api('POST', '/api/resources',
-    { firstName: 'Test', lastName: 'Resource', email, jobTitle: 'Project Manager' }, adminCookie);
+    { firstName: 'Test', lastName: 'Resource', email, roleId: roleA.id }, adminCookie);
   ok(rCreate.status === 201 && rCreate.data?.status === 'active',
-    'TM-04 POST /api/resources as admin → 201, status active');
+    'TM-04 POST /api/resources as admin (with roleId) → 201, status active');
   const resourceId = rCreate.data?.id;
   if (resourceId) later('DELETE', `/api/resources/${resourceId}`);
+
+  // TM-12: roleId validation on POST
+  const base = { firstName: 'X', lastName: 'Y', email: `__x_${tsR}@example.test` };
+  ok((await api('POST', '/api/resources', base, adminCookie)).status === 400,
+    'TM-12 POST without roleId → 400');
+  ok((await api('POST', '/api/resources', { ...base, roleId: 'not-a-uuid' }, adminCookie)).status === 400,
+    'TM-12 POST with a non-UUID roleId → 400');
+  const rUnknownRole = await api('POST', '/api/resources',
+    { ...base, roleId: '00000000-0000-0000-0000-000000000000' }, adminCookie);
+  ok(rUnknownRole.status === 400 && /role/i.test(rUnknownRole.data?.error || ''),
+    'TM-12 POST with an unknown roleId → 400 "Role not found"');
+  const rUnknownUser = await api('POST', '/api/resources',
+    { ...base, roleId: roleA.id, userId: '00000000-0000-0000-0000-000000000000' }, adminCookie);
+  ok(rUnknownUser.status === 400 && /user/i.test(rUnknownUser.data?.error || ''),
+    'TM-12 POST with an unknown linked userId → 400 about the user, not the role');
 
   if (resourceId) {
     const rEmpty = await api('PATCH', `/api/resources/${resourceId}`, { firstName: '' }, adminCookie);
@@ -808,6 +839,29 @@ async function testResourcesAndAttributeLists() {
     const rValid = await api('PATCH', `/api/resources/${resourceId}`, { firstName: 'Updated' }, adminCookie);
     ok(rValid.status === 200 && rValid.data?.first_name === 'Updated',
       'TM-10 valid PATCH still succeeds after the empty/null rejections above');
+
+    // TM-13: rows carry the role resolved by id
+    ok(row?.role_id === roleA.id && row?.role_code === roleA.code && row?.role_label === roleA.label
+        && !('job_title' in row),
+      'TM-13 GET /api/resources returns role_id, role_label and role_code (and no job_title)');
+
+    // TM-14: change the role; bad roleId values on PATCH
+    const rSwap = await api('PATCH', `/api/resources/${resourceId}`, { roleId: roleB.id }, adminCookie);
+    ok(rSwap.status === 200 && rSwap.data?.role_id === roleB.id, 'TM-14 PATCH roleId changes the role');
+    ok((await api('PATCH', `/api/resources/${resourceId}`, { roleId: '' }, adminCookie)).status === 400,
+      'TM-14 PATCH with an empty roleId → 400');
+    ok((await api('PATCH', `/api/resources/${resourceId}`, { roleId: 'not-a-uuid' }, adminCookie)).status === 400,
+      'TM-14 PATCH with a non-UUID roleId → 400');
+    ok((await api('PATCH', `/api/resources/${resourceId}`, { roleId: '00000000-0000-0000-0000-000000000000' }, adminCookie)).status === 400,
+      'TM-14 PATCH with an unknown roleId → 400');
+
+    // TM-15: renaming the role propagates (the link is by id, not by string)
+    const newLabel = `__renamed_${tsR}__`;
+    const newCode = `TESTROLE${tsR}C`;
+    await api('PATCH', `/api/roles/${roleB.id}`, { label: newLabel, code: newCode }, adminCookie);
+    const rowAfter = ((await api('GET', '/api/resources', null, adminCookie)).data || []).find(r => r.id === resourceId);
+    ok(rowAfter?.role_label === newLabel && rowAfter?.role_code === newCode,
+      'TM-15 renaming a role\'s label/code shows on the resource with no other action');
   }
 
   // ── Attribute Lists ──
@@ -1083,8 +1137,9 @@ async function testResourceMatching() {
   const roundKey = roundName.toLowerCase();
 
   // Setup: a resource, and a project with a matching task/role so the upload passes validation
+  const matchRole = await makeTestRole(`M${ts}`);
   const rRes = await api('POST', '/api/resources',
-    { firstName: 'Mario', lastName: last, email: `mario.${ts}@test.local`, jobTitle: 'Consultant' }, adminCookie);
+    { firstName: 'Mario', lastName: last, email: `mario.${ts}@test.local`, roleId: matchRole.id }, adminCookie);
   const resId = rRes.data?.id;
   if (resId) later('DELETE', `/api/resources/${resId}`);
   ok(!!resId, 'MA-setup resource created');

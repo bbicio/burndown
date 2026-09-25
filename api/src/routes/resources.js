@@ -15,6 +15,11 @@ async function rescanAll() {
   catch (err) { console.warn('[resources] refreshUnmatched:', err.message); }
 }
 
+// Both role_id and user_id are FKs on `resources`; tell them apart by constraint name.
+function fkErrorMessage(err) {
+  return /role_id/.test(err.constraint || '') ? 'Role not found' : 'Linked user not found';
+}
+
 // GET /api/resources/unmatched — owner names from actuals that need an admin's attention
 router.get('/unmatched', async (req, res, next) => {
   try {
@@ -103,12 +108,14 @@ router.delete('/aliases/:id', async (req, res, next) => {
 router.get('/', async (req, res, next) => {
   try {
     const { rows } = await query(
-      `SELECT r.id, r.first_name, r.last_name, r.email, r.job_title, r.job_description,
+      `SELECT r.id, r.first_name, r.last_name, r.email, r.job_description,
+              r.role_id, ro.label AS role_label, ro.code AS role_code,
               r.user_id, r.status, r.created_at,
               u.first_name AS linked_user_first_name,
               u.last_name  AS linked_user_last_name,
               u.email      AS linked_user_email
        FROM resources r
+       JOIN roles ro ON ro.id = r.role_id
        LEFT JOIN users u ON u.id = r.user_id
        ORDER BY r.last_name, r.first_name`
     );
@@ -119,20 +126,21 @@ router.get('/', async (req, res, next) => {
 // POST /api/resources
 router.post('/', async (req, res, next) => {
   try {
-    const { firstName, lastName, email, jobTitle, jobDescription, userId } = req.body;
-    if (!firstName?.trim() || !lastName?.trim() || !email?.trim() || !jobTitle?.trim()) {
-      return res.status(400).json({ error: 'firstName, lastName, email and jobTitle are required' });
+    const { firstName, lastName, email, roleId, jobDescription, userId } = req.body;
+    if (!firstName?.trim() || !lastName?.trim() || !email?.trim() || !roleId) {
+      return res.status(400).json({ error: 'firstName, lastName, email and roleId are required' });
     }
     const { rows } = await query(
-      `INSERT INTO resources (first_name, last_name, email, job_title, job_description, user_id)
+      `INSERT INTO resources (first_name, last_name, email, role_id, job_description, user_id)
        VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, first_name, last_name, email, job_title, job_description, user_id, status, created_at`,
-      [firstName.trim(), lastName.trim(), email.trim(), jobTitle.trim(), jobDescription?.trim() || null, userId || null]
+       RETURNING id, first_name, last_name, email, role_id, job_description, user_id, status, created_at`,
+      [firstName.trim(), lastName.trim(), email.trim(), roleId, jobDescription?.trim() || null, userId || null]
     );
     await rescanAll();
     res.status(201).json(rows[0]);
   } catch (err) {
-    if (err.code === '23503') return res.status(400).json({ error: 'Linked user not found' });
+    if (err.code === '23503') return res.status(400).json({ error: fkErrorMessage(err) });
+    if (err.code === '22P02') return res.status(400).json({ error: 'roleId and userId must be valid UUIDs' });
     next(err);
   }
 });
@@ -140,7 +148,7 @@ router.post('/', async (req, res, next) => {
 // PATCH /api/resources/:id
 router.patch('/:id', async (req, res, next) => {
   try {
-    const { firstName, lastName, email, jobTitle, jobDescription, userId, status } = req.body;
+    const { firstName, lastName, email, roleId, jobDescription, userId, status } = req.body;
     const fields = [];
     const values = [];
     let i = 1;
@@ -156,9 +164,9 @@ router.patch('/:id', async (req, res, next) => {
       if (!email?.trim()) return res.status(400).json({ error: 'email cannot be empty' });
       fields.push(`email = $${i++}`); values.push(email.trim());
     }
-    if (jobTitle !== undefined) {
-      if (!jobTitle?.trim()) return res.status(400).json({ error: 'jobTitle cannot be empty' });
-      fields.push(`job_title = $${i++}`); values.push(jobTitle.trim());
+    if (roleId !== undefined) {
+      if (!roleId) return res.status(400).json({ error: 'roleId cannot be empty' });
+      fields.push(`role_id = $${i++}`); values.push(roleId);
     }
     if (jobDescription !== undefined) { fields.push(`job_description = $${i++}`); values.push(jobDescription?.trim() || null); }
     if (userId !== undefined)         { fields.push(`user_id = $${i++}`);         values.push(userId || null); }
@@ -170,14 +178,15 @@ router.patch('/:id', async (req, res, next) => {
     values.push(req.params.id);
     const { rows } = await query(
       `UPDATE resources SET ${fields.join(', ')} WHERE id = $${i}
-       RETURNING id, first_name, last_name, email, job_title, job_description, user_id, status, created_at`,
+       RETURNING id, first_name, last_name, email, role_id, job_description, user_id, status, created_at`,
       values
     );
     if (!rows[0]) return res.status(404).json({ error: 'Resource not found' });
     if (firstName !== undefined || lastName !== undefined || status !== undefined) await rescanAll();
     res.json(rows[0]);
   } catch (err) {
-    if (err.code === '23503') return res.status(400).json({ error: 'Linked user not found' });
+    if (err.code === '23503') return res.status(400).json({ error: fkErrorMessage(err) });
+    if (err.code === '22P02') return res.status(400).json({ error: 'roleId and userId must be valid UUIDs' });
     next(err);
   }
 });
