@@ -1246,10 +1246,10 @@ async function testResourceMatching() {
     'MA-08 ignored name leaves the queue');
   if (ignId) await api('DELETE', `/api/resources/aliases/${ignId}`, null, adminCookie);
 
-  // MA-09: an inactive resource is not auto-matched; reactivating re-matches
+  // MA-09: an inactive resource still matches by name when no active namesake exists (history is kept)
   await api('PATCH', `/api/resources/${resId}`, { status: 'inactive' }, adminCookie);
   un = await listUnmatched();
-  ok(un.some(u => u.name_normalized === marioKey), 'MA-09 deactivated resource: its name goes back to the queue');
+  ok(!un.some(u => u.name_normalized === marioKey), 'MA-09 deactivated resource: its name stays matched (not queued)');
 
   // MA-11: a leaver's name can still be assigned to the (inactive) resource explicitly
   const rInact = await api('POST', '/api/resources/aliases', { name: `${last} Mario`, resourceId: resId }, adminCookie);
@@ -1439,7 +1439,7 @@ async function testProfileEngineHooks() {
   prof = await getProfile(resId);
   ok(shape(prof.profile) === before, 'PE-10 re-queuing everything and re-running reproduces the same profile');
 
-  // PE-11: a deactivated person keeps a profile only through an alias (auto name match excludes inactive)
+  // PE-11: a deactivated person keeps their history by name match alone (no alias needed)
   const leaverName = `Old Timer${ts}`;
   const role2 = await makeTestRole(`L${ts}`);
   const rLeaver = await api('POST', '/api/resources',
@@ -1452,13 +1452,17 @@ async function testProfileEngineHooks() {
   ]), adminCookie);
   await runProfileJobs();
   prof = await getProfile(leaverId);
-  ok(!!prof && prof.profile === null, 'PE-11 an inactive resource is not matched by name: no profile yet');
-  const rLeaverAlias = await api('POST', '/api/resources/aliases', { name: leaverName, resourceId: leaverId }, adminCookie);
-  if (rLeaverAlias.data?.id) later('DELETE', `/api/resources/aliases/${rLeaverAlias.data.id}`);
-  await runProfileJobs();
-  prof = await getProfile(leaverId);
   ok(prof?.profile?.totals?.hours === 5 && prof.profile.totals.lastWorked === '2026-05',
-    'PE-11 …but an alias to the inactive resource gives it a profile (5 h)');
+    'PE-11 an inactive resource is still matched by name: 5 h, last worked 2026-05, no alias');
+
+  // PE-11b: a resource with a computed profile keeps the same hours after being deactivated and re-run
+  await api('PATCH', `/api/resources/${resId}`, { status: 'inactive' }, adminCookie);
+  await runProfileJobs();
+  const deact = await getProfile(resId);
+  ok(deact?.profile?.totals?.hours === 8 && deact.profile.totals.hours > 0,
+    'PE-11b profile then deactivate then run: the hours are still there (8 h)');
+  await api('PATCH', `/api/resources/${resId}`, { status: 'active' }, adminCookie);
+  await runProfileJobs();
 
   // PE-12: renaming a list value re-labels the profile; changing a project's code does not crash the run
   const newLabel = `__prof_item_renamed_${ts}__`;

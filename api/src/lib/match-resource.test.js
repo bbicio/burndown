@@ -46,9 +46,24 @@ test('matchOwner: two active resources with the same normalized name are ambiguo
   assert.deepEqual(matchOwner('Mario Rossi', ctx), { kind: 'ambiguous', candidates: ['r1', 'r2'] });
 });
 
-test('matchOwner: inactive resource is excluded from automatic matching', () => {
+test('matchOwner: a single inactive resource still matches when there is no active one', () => {
   const ctx = buildMatchContext([R('r1', 'Mario', 'Rossi', 'inactive')], []);
-  assert.deepEqual(matchOwner('Mario Rossi', ctx), { kind: 'unmatched', candidates: [] });
+  assert.deepEqual(matchOwner('Mario Rossi', ctx), { kind: 'matched', resourceId: 'r1' });
+});
+
+test('matchOwner: two inactive namesakes are ambiguous', () => {
+  const ctx = buildMatchContext([R('r1', 'Mario', 'Rossi', 'inactive'), R('r2', 'Rossi', 'Mario', 'inactive')], []);
+  assert.deepEqual(matchOwner('Mario Rossi', ctx), { kind: 'ambiguous', candidates: ['r1', 'r2'] });
+});
+
+test('matchOwner: inverted name matches an inactive resource', () => {
+  const ctx = buildMatchContext([R('r1', 'Mario', 'Rossi', 'inactive')], []);
+  assert.deepEqual(matchOwner('ROSSI mario', ctx), { kind: 'matched', resourceId: 'r1' });
+});
+
+test('matchOwner: active namesake wins over two inactive ones', () => {
+  const ctx = buildMatchContext([R('r1', 'Mario', 'Rossi', 'inactive'), R('r3', 'Mario', 'Rossi', 'inactive'), R('r2', 'Mario', 'Rossi')], []);
+  assert.deepEqual(matchOwner('Mario Rossi', ctx), { kind: 'matched', resourceId: 'r2' });
 });
 
 test('matchOwner: an inactive resource plus an active namesake is not ambiguous', () => {

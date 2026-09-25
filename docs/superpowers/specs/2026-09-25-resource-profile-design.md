@@ -70,7 +70,7 @@ Ogni sottociclo ha valore autonomo: 3a permette al gestore di affinare i tag del
 2. nome+cognome di una risorsa **attiva**, normalizzati allo stesso modo;
 3. più candidati (omonimi) o nessuno → non abbinato. Un caso ambiguo non si abbina mai in automatico.
 
-Le risorse inattive sono escluse dal match automatico ma un alias esplicito può puntare anche a loro (per non perdere lo storico di chi ha lasciato).
+Il match per nome cerca prima tra le risorse **attive** (un solo candidato: abbinato; due o più: ambiguo, mai abbinato). Solo se **non esiste alcun candidato attivo** per quel nome ripiega sulle risorse **inattive** (uno solo: abbinato; due o più: ambiguo). Un omonimo attivo vince sempre su uno inattivo; un alias esplicito ha comunque priorità su tutto. Motivo: lo storico di chi ha lasciato va conservato: disattivare una risorsa la esclude dalle allocazioni FUTURE, mai dal calcolo.
 
 **Tabelle (migrazione):**
 - `resource_aliases (id, alias_normalized UNIQUE, resource_id NULL FK, created_by, created_at)`; `resource_id NULL` = nome **ignorato** (non è una persona, per es. "TBD").
@@ -90,7 +90,7 @@ Le risorse inattive sono escluse dal match automatico ma un alias esplicito può
 **Revisione della versione iniziale** (fatta in fase di design 3c, su dati reali: 488 righe di actuals, 8 codici progetto, 15 progetti, nessun tag e nessuna risorsa ancora in uso; nessun `projects.code` condiviso, anche se il vincolo non esiste):
 - Contributi e coda sono chiavati per **`project_code`**, non `project_id` (come `profile_unmatched` in 3b): `timesheets` è chiavata per codice e `projects.code` non è unico. Il progetto di un codice è **il più vecchio** con quel codice (`ORDER BY created_at, id LIMIT 1`, senza filtro di visibilità: il worker non è un utente); se non esiste, il nome viene dagli actuals e non ci sono tag.
 - I **tag non si copiano** nei contributi: si leggono da `project_tags` quando si aggrega il profilo.
-- Una risorsa **inattiva** ha un profilo per i nomi che la raggiungono tramite **alias**: l'abbinamento automatico per nome esclude le risorse inattive (regola di 3b), quindi disattivare una persona toglie dal suo profilo le ore che arrivavano per nome finché un admin non aggiunge l'alias.
+- Una risorsa **inattiva** mantiene il suo profilo: l'abbinamento per nome ripiega sulle risorse inattive quando non c'è alcun omonimo attivo (vedi sezione 4), quindi disattivare una persona non toglie le sue ore dal profilo al ricalcolo successivo.
 - Una **sola tabella** (`profile_project_state`) fa da coda e da stato per la console di 3d.
 
 **Modello: contributo per progetto, profilo come somma.** Un ricalcolo di un codice non deve cancellare l'esperienza maturata su altri codici.
