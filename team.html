@@ -8,6 +8,10 @@
   <link rel="stylesheet" href="css/tokens.css?v=7">
   <link rel="stylesheet" href="css/style.css?v=13">
   <link rel="stylesheet" href="css/admin-crud.css?v=1">
+  <style>
+    .sortable-th { cursor: pointer; user-select: none; white-space: nowrap; }
+    .sortable-th:hover { text-decoration: underline; }
+  </style>
 </head>
 <body>
 
@@ -24,6 +28,18 @@
 
       <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
 
+      <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+          <button type="button" class="nav-link" :class="{ active: pageTab === 'team' }" @click="setPageTab('team')">Team</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link" :class="{ active: pageTab === 'unmatched' }" @click="setPageTab('unmatched')">
+            Unmatched names <span class="badge bg-secondary ms-1">{{ unmatched.length }}</span>
+          </button>
+        </li>
+      </ul>
+
+      <template v-if="pageTab === 'team'">
       <div class="d-flex gap-2 mb-3 align-items-center">
         <input v-model="filterText" type="text" class="form-control form-control-sm" style="max-width:280px"
                placeholder="Search name or email…">
@@ -38,16 +54,16 @@
           <table class="table table-hover" v-if="filteredResources.length">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
+                <th class="sortable-th" @click="sortBy('name')">Name {{ sortIndicator('name') }}</th>
+                <th class="sortable-th" @click="sortBy('email')">Email {{ sortIndicator('email') }}</th>
+                <th class="sortable-th" @click="sortBy('role')">Role {{ sortIndicator('role') }}</th>
                 <th>Linked user</th>
-                <th>Status</th>
+                <th class="sortable-th" @click="sortBy('status')">Status {{ sortIndicator('status') }}</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="r in filteredResources" :key="r.id">
+              <tr v-for="r in sortedResources" :key="r.id">
                 <td class="fw-semibold">{{ r.first_name }} {{ r.last_name }}</td>
                 <td class="text-muted">{{ r.email }}</td>
                 <td>{{ r.role_label }} <span class="text-muted small">({{ r.role_code }})</span></td>
@@ -69,9 +85,10 @@
           <div class="empty" v-else>No resources match the current filter.</div>
         </div>
       </div>
+      </template>
 
       <!-- ── UNMATCHED NAMES ─────────────────────────────────── -->
-      <div class="card mt-4">
+      <div class="card" v-if="pageTab === 'unmatched'">
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h5 class="mb-0">Unmatched names <span class="text-muted fw-normal" style="font-size:.9rem">({{ unmatched.length }})</span></h5>
@@ -215,6 +232,7 @@
 
   <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script type="module" src="js/lib/team-ui.js?v=1"></script>
   <script defer src="js/api.js?v=7"></script>
   <script defer src="js/core.js?v=5"></script>
   <script defer src="js/settings.js"></script>
@@ -241,6 +259,9 @@
           globalError: null,
           form: this.blankForm(),
           _resourceModal: null,
+          pageTab: 'team',
+          sortKey: 'name',
+          sortDir: 'asc',
         };
       },
       computed: {
@@ -252,6 +273,9 @@
             const hay = `${r.first_name} ${r.last_name} ${r.email} ${r.role_label} ${r.role_code}`.toLowerCase();
             return hay.includes(q);
           });
+        },
+        sortedResources() {
+          return window.sortResources(this.filteredResources, this.sortKey, this.sortDir);
         },
       },
       async created() {
@@ -277,6 +301,16 @@
         this._resourceModal = new bootstrap.Modal(document.getElementById('resourceModal'));
       },
       methods: {
+        setPageTab(tab) {
+          this.pageTab = tab;
+        },
+        sortBy(key) {
+          if (this.sortKey === key) this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+          else { this.sortKey = key; this.sortDir = 'asc'; }
+        },
+        sortIndicator(key) {
+          return this.sortKey === key ? (this.sortDir === 'asc' ? '▲' : '▼') : '';
+        },
         blankForm() {
           return { id: null, firstName: '', lastName: '', email: '', roleId: '',
                     jobDescription: '', userId: null, status: 'active', loading: false, error: null };
