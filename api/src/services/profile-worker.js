@@ -10,6 +10,8 @@ const BOOTSTRAP_DELAY_MS = 5 * 1000;
 
 let lastRunStartedAt = null;
 let busy = false;
+let bootstrapped = false;
+let bootstrapping = false;
 
 async function readSettings() {
   const { rows } = await query(
@@ -21,6 +23,7 @@ async function tick() {
   if (busy) return;
   busy = true;
   try {
+    if (!bootstrapped) await bootstrap();
     const settings = await readSettings();
     if (!isJobDue(settings, lastRunStartedAt, new Date())) return;
     lastRunStartedAt = new Date();
@@ -35,6 +38,8 @@ async function tick() {
 // After a deploy the profiles start empty: if no contribution exists yet but actuals do, queue
 // every code and run once, whatever the on/off switch says (it is a one-time build).
 async function bootstrap() {
+  if (bootstrapped || bootstrapping) return;
+  bootstrapping = true;
   try {
     const { rows } = await query(
       `SELECT (SELECT count(*) FROM resource_project_contributions) AS contribs,
@@ -44,8 +49,11 @@ async function bootstrap() {
       lastRunStartedAt = new Date();
       await processQueue('bootstrap');
     }
+    bootstrapped = true;
   } catch (err) {
     console.warn('[profile-worker] bootstrap:', err.message);
+  } finally {
+    bootstrapping = false;
   }
 }
 

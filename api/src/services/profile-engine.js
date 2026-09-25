@@ -189,10 +189,17 @@ async function processQueue(trigger = 'scheduled') {
     if (trigger === 'manual' || projects > 0 || errors.length) {
       await recordRun(trigger, startedAt, projects, resources, errors);
     }
+    if (projects > 0) {
+      // "a run has passed since this resource was created": unmatched resources keep profile NULL
+      await query('UPDATE resources SET profile_computed_at = now() WHERE profile_computed_at IS NULL');
+    }
     return { skipped: false, projects, resources, errors };
   } finally {
-    await lockClient.query("SELECT pg_advisory_unlock(hashtext('profile_engine'))").catch(() => {});
-    lockClient.release();
+    let unlockFailed = false;
+    try {
+      await lockClient.query("SELECT pg_advisory_unlock(hashtext('profile_engine'))");
+    } catch (_) { unlockFailed = true; }
+    lockClient.release(unlockFailed ? true : undefined);
   }
 }
 

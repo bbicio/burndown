@@ -1385,6 +1385,16 @@ async function testProfileEngine() {
   prof = await getProfile(resId);
   ok(prof?.profile?.totals?.projects === 1 && prof.profile.projects[code2] === undefined && prof.profile.totals.hours === 2,
     'PE-09 P2\'s hours disappear from the profile (1 project, 2 h left)');
+
+  // PE-13: a resource matching no actuals is stamped computed (UI: "No actuals matched"), profile stays null
+  const rLone = await api('POST', '/api/resources',
+    { firstName: 'Lone', lastName: `Nomatch${ts}`, email: `lone.${ts}@test.local`, roleId: f.role.id }, adminCookie);
+  if (rLone.data?.id) later('DELETE', `/api/resources/${rLone.data.id}`);
+  await uploadCsv(`/api/timesheets/upload?projectCode=${code1}`, profileCsv([[code1, '2026-05-01', person, 1]]), adminCookie);
+  await runProfileJobs();
+  const lone = await getProfile(rLone.data?.id);
+  ok(!!lone && lone.profile === null && !!lone.profile_computed_at,
+    'PE-13 a resource with no matching actuals has profile null and a non-null profile_computed_at after a run');
 }
 
 async function testProfileEngineHooks() {
