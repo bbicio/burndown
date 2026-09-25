@@ -282,7 +282,10 @@ router.delete('/roles/:id', requireAdmin, async (req, res, next) => {
     res.json({ ok: true });
   } catch (err) {
     // A resource assigned to this role between the check and the delete: same answer, not a 500.
-    if (err.code === '23503') return res.status(400).json({ error: 'Cannot delete role assigned to a team resource' });
+    // Only for that FK — any other constraint must not be reported as a team-resource problem.
+    if (err.code === '23503' && /resources/.test(err.constraint || '')) {
+      return res.status(400).json({ error: 'Cannot delete role assigned to a team resource' });
+    }
     next(err);
   }
 });

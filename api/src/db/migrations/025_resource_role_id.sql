@@ -12,7 +12,7 @@ BEGIN
     WHERE table_schema = 'public' AND table_name = 'resources' AND column_name = 'job_title'
   ) THEN
     UPDATE resources r SET role_id = COALESCE(
-      (SELECT ro.id FROM roles ro WHERE lower(btrim(ro.code)) = lower(btrim(r.job_title)) LIMIT 1),
+      (SELECT ro.id FROM roles ro WHERE lower(btrim(ro.code)) = lower(btrim(r.job_title)) ORDER BY ro.id LIMIT 1),
       (SELECT ro.id FROM roles ro WHERE lower(btrim(ro.label)) = lower(btrim(r.job_title)) ORDER BY ro.code LIMIT 1)
     )
     WHERE r.role_id IS NULL;
