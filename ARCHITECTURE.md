@@ -416,11 +416,12 @@ project_tasks (
   sort_order           INTEGER DEFAULT 0
 )
 
-project_tags (                        -- migration 022: attribute_lists tags for a project with no
-                                       -- linked proposal (cg_version_id NULL). A project WITH
-                                       -- cg_version_id set reads tags live from cost_grid_version_tags
-                                       -- instead — this table's rows for such a project, if any exist
-                                       -- from before it acquired a link, are simply ignored, never read.
+project_tags (                        -- migration 022: attribute_lists tags of a project. Since Cycle 3a
+                                       -- (2026-09-25) this is the SOLE source of a project's tags, linked
+                                       -- to a proposal or not: seeded once from cost_grid_version_tags on
+                                       -- the first null -> value cg_version_id transition (only if the
+                                       -- project has no tags yet), then edited independently. Migration
+                                       -- 023 backfilled already-linked projects.
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   item_id    UUID NOT NULL REFERENCES attribute_list_items(id),
   PRIMARY KEY (project_id, item_id)
@@ -628,7 +629,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | GET/POST/DELETE | /api/cost-grids/:id/versions/:vId/linked-projects | owner/admin | Manage linked projects |
 | GET/POST/DELETE | /api/cost-grids/:id/shares | owner/admin | Manage sharing; `POST` (grant) emails and in-app-notifies the recipient (2026-09: in-app notification added — was email-only before); `DELETE` (revoke) still sends neither, unlike the equivalent project-share revoke |
 | PATCH | /api/cost-grids/:id/reassign-owner | admin/sysadmin | Reassign the proposal's owner (2026-09); also grants the new owner `editor` on every linked project and both emails and in-app-notifies them (2026-09: in-app notification added — was email-only before) — see its own note above |
-| GET/PUT | /api/cost-grids/:id/versions/:vId/tags | owner/admin | (2026-09, Cycle 2) Get / replace-all the version's `attribute_lists` tags — `PUT` body `{ itemIds: string[] }`, rejects with 400 if the version is `locked`, and with 400 (not 500) if an `itemId` doesn't exist (translated from the FK violation) |
+| GET/PUT | /api/cost-grids/:id/versions/:vId/tags | owner/admin | (2026-09, Cycle 2) Get / replace-all the version's `attribute_lists` tags — `PUT` body `{ itemIds: string[] }`, rejects with 400 if the version is `locked`, and with 400 (not 500) if an `itemId` doesn't exist (translated from the FK violation) or isn't a UUID. Since Cycle 3a both routes return **404** when `:vId` doesn't belong to `:id` (`versionInGrid` / `cost_grid_id = :id`), and `PUT` uses a bulk `unnest($2::uuid[])` insert |
 
 ### Projects
 
@@ -642,7 +643,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | PATCH | /api/projects/:id/planning | owner/admin | Update monthly hour planning |
 | PATCH | /api/projects/:id/groups | owner/admin | Update functional role groups |
 | GET/POST/DELETE | /api/projects/:id/shares | owner/admin | Manage sharing; both `POST` (grant) and `DELETE` (revoke) email + in-app-notify the affected user (2026-09: `DELETE` previously sent neither) |
-| GET/PUT | /api/projects/:id/tags | owner/admin | (2026-09, Cycle 2) Get / replace-all the project's own `attribute_lists` tags — `PUT` body `{ itemIds: string[] }`, rejects with **409** if the project has `cg_version_id` set (tags for a linked project are read-only here, managed from the proposal via the cost-grids route above instead), and 400 on an unknown `itemId` |
+| GET/PUT | /api/projects/:id/tags | owner/admin | (2026-09, Cycle 2) Get / replace-all the project's own `attribute_lists` tags — `PUT` body `{ itemIds: string[] }`. **Since Cycle 3a (2026-09-25) a linked project's tags are directly editable — the former 409 is gone** — `project_tags` is the sole source of a project's tags, seeded once by `copyVersionTagsToProject` (see `POST`/`PATCH /api/projects`). Bulk `unnest($2::uuid[])` insert; 400 on an unknown `itemId` (FK `23503`) or a non-UUID one (`22P02`) |
 
 ### Timesheet + Reporting
 
@@ -962,6 +963,7 @@ Current migrations:
 - `020_resources_attribute_lists.sql` — creates `resources`, `attribute_lists`, `attribute_list_items` (see §5.2); seeds 4 empty `attribute_lists` rows (Market, Brand, Therapeutic Area, Service Type)
 - `021_attribute_list_items_unique_label.sql` — case-insensitive unique index on `attribute_list_items(list_id, lower(label))`; disambiguates any pre-existing duplicate labels first so the index can never fail to create
 - `022_version_project_tags.sql` — creates `cost_grid_version_tags` and `project_tags` join tables (see §5.3/§5.4), each a composite-PK pair with a supporting index on `item_id`; Cycle 2 of the resource-allocation initiative
+- `023_backfill_project_tags.sql` — one-shot idempotent backfill: copies a version's tags into `project_tags` for every project with `cg_version_id` set and no tags (Cycle 3a, 2026-09-25); apply once, since a rerun would also refill deliberately cleared projects
 
 ---
 

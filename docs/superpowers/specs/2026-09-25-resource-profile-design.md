@@ -42,7 +42,7 @@ Ogni sottociclo ha valore autonomo: 3a permette al gestore di affinare i tag del
 
 ## 3. Sottociclo 3a — Tag del progetto autonomi
 
-**Copia iniziale.** Helper server-side `copyVersionTagsToProject(client, projectId, versionId)`:
+**Copia iniziale.** Helper server-side `copyVersionTagsToProject(projectId, versionId)`:
 - chiamato in `POST /api/projects` quando `cgVersionId` è valido, e in `PATCH /api/projects/:id` quando `cgVersionId` passa da nullo a valorizzato;
 - copia da `cost_grid_version_tags` a `project_tags` **solo se `project_tags` del progetto è vuota** (non sovrascrive tag già inseriti a mano);
 - una sola istruzione SQL atomica, best-effort (errore loggato, mai propagato: la scrittura del progetto è già riuscita e `js/api-sync.js` tratta un PATCH fallito come "progetto mancante"); un copy mancato si ripara rieseguendo la stessa istruzione a mano per quel singolo progetto (non rieseguendo la migrazione di backfill, che riempirebbe anche i progetti svuotati di proposito). La lettura del collegamento precedente e la sua scrittura in `PATCH` avvengono sotto un lock di riga (`SELECT … FOR UPDATE` in transazione), così due salvataggi sovrapposti non possono seedare due volte.
