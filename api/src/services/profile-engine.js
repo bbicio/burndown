@@ -1,6 +1,7 @@
 // DB-bound half of Cycle 3c: process queued project codes into per-resource contributions and
 // rebuild the affected resources' profiles. Pure logic lives in ../lib/resource-profile.js.
 const { pool, query } = require('../db/client');
+const { needsFreshContext } = require('../lib/job-schedule');
 const { buildMatchContext } = require('../lib/match-resource');
 const { buildContributions, aggregateProfile } = require('../lib/resource-profile');
 const { refreshUnmatched } = require('./resource-matching');
@@ -41,12 +42,15 @@ const enqueueAllQuiet = () => quiet('enqueueAll', enqueueAll);
 
 // ── Processing ────────────────────────────────────────────────────────────────────────────────
 
+// Returns { ctx, builtAt } — builtAt is DATABASE time taken just before the reads, so it can be
+// compared with queued_at (also DB time) without JS-clock skew.
 async function loadMatchContext(client) {
+  const builtAt = (await client.query('SELECT clock_timestamp() AS t')).rows[0].t;
   const [resources, aliases] = await Promise.all([
     client.query('SELECT id, first_name, last_name, status FROM resources'),
     client.query('SELECT alias_normalized, resource_id FROM resource_aliases'),
   ]);
-  return buildMatchContext(resources.rows, aliases.rows);
+  return { ctx: buildMatchContext(resources.rows, aliases.rows), builtAt };
 }
 
 // Rebuild ONE resource's profile from all of its contributions (NULL when it has none).
@@ -86,7 +90,7 @@ async function rebuildProfile(client, resourceId) {
 
 // Inside an open transaction: replace only this code's contributions, rebuild the affected profiles.
 async function processCode(client, code, matchCtx) {
-  const ctx = matchCtx || await loadMatchContext(client);
+  const ctx = matchCtx || (await loadMatchContext(client)).ctx;
   const ts = await client.query(
     `SELECT e FROM timesheets t
      CROSS JOIN LATERAL jsonb_array_elements(
@@ -119,22 +123,27 @@ async function processCode(client, code, matchCtx) {
 
 // One queued code per transaction. Returns null when the queue is empty, { code, resources } on
 // success, { code, error } when that code failed (it goes to the back of the queue with last_error).
-async function processNext(exclude, matchCtx) {
+async function processNext(exclude, holder) {
   const client = await pool.connect();
   let code = null;
   try {
     await client.query('BEGIN');
     const claim = await client.query(
-      `UPDATE profile_project_state SET queued_at = NULL
-       WHERE project_code = (SELECT project_code FROM profile_project_state
-                             WHERE queued_at IS NOT NULL AND project_code <> ALL($1::text[])
-                             ORDER BY queued_at, project_code FOR UPDATE SKIP LOCKED LIMIT 1)
-       RETURNING project_code`,
+      `WITH c AS (SELECT project_code, queued_at FROM profile_project_state
+                  WHERE queued_at IS NOT NULL AND project_code <> ALL($1::text[])
+                  ORDER BY queued_at, project_code FOR UPDATE SKIP LOCKED LIMIT 1)
+       UPDATE profile_project_state s SET queued_at = NULL
+       FROM c WHERE s.project_code = c.project_code
+       RETURNING s.project_code, c.queued_at AS claimed_queued_at`,
       [exclude]
     );
     if (!claim.rows[0]) { await client.query('COMMIT'); return null; }
     code = claim.rows[0].project_code;
-    const out = await processCode(client, code, matchCtx);
+    // Work re-queued after the context was built (e.g. an alias/resource added mid-run) needs a fresh one.
+    if (needsFreshContext(claim.rows[0].claimed_queued_at, holder.builtAt)) {
+      Object.assign(holder, await loadMatchContext(client));
+    }
+    const out = await processCode(client, code, holder.ctx);
     await client.query(
       `UPDATE profile_project_state
        SET last_processed_at = now(), last_error = NULL, last_rows = $2, last_resources = $3
@@ -179,11 +188,12 @@ async function processQueue(trigger = 'scheduled') {
     let resources = 0;
     const errors = [];
     const failed = [];
-    // Built once per run; may go slightly stale mid-run, which is fine because any resource/alias
-    // change re-queues everything.
-    const matchCtx = await loadMatchContext(lockClient);
+    // Built once per run (a bulk rebuild queued before the run reuses it), and reloaded only when a
+    // claimed code was re-queued after the build (see needsFreshContext). A code that failed in this
+    // run is re-queued with queued_at = now() but sits in `failed`, so it is never claimed again here.
+    const holder = await loadMatchContext(lockClient);
     for (;;) {
-      const r = await processNext(failed, matchCtx);
+      const r = await processNext(failed, holder);
       if (!r) break;
       if (r.error) { failed.push(r.code); errors.push(`${r.code}: ${r.error}`); continue; }
       projects += 1;

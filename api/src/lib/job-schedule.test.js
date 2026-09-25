@@ -48,3 +48,13 @@ test('isJobDue: due exactly at the interval boundary, not before', () => {
   assert.equal(isJobDue(s, start, new Date('2026-09-25T10:10:00Z')), true);
   assert.equal(isJobDue(s, start.toISOString(), new Date('2026-09-25T10:20:00Z')), true);
 });
+
+test('needsFreshContext: only work queued after the context was built', () => {
+  const { needsFreshContext } = require('./job-schedule');
+  const built = new Date('2026-09-25T10:00:00Z');
+  assert.equal(needsFreshContext(new Date('2026-09-25T10:00:01Z'), built), true);
+  assert.equal(needsFreshContext(new Date('2026-09-25T09:59:59Z'), built), false);
+  assert.equal(needsFreshContext(built, built), false);
+  assert.equal(needsFreshContext(null, built), false);
+  assert.equal(needsFreshContext(new Date(), null), true);
+});
