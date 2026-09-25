@@ -730,6 +730,27 @@ Third cycle toward AI-assisted resource allocation, first sub-cycle of the resou
 
 ---
 
+## 21. Team UX (2026-09-25)
+
+Frontend-only cycle for `team.html` (spec `docs/superpowers/specs/2026-09-25-team-ux-design.md`, `docs/pages/team.md`). The pure helpers are unit-tested with vitest (`js/lib/team-ui.test.js`, 17 cases — not counted as "Auto" here, which means `test-api.js` coverage); everything else is verified manually in the browser.
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| TU-01 | Sort helper (vitest) | `sortResources` by name/email/role/status, both directions, missing fields, equal rows | Last-then-first name order; case/accent-insensitive; desc flips only the primary key (ties stay name-ascending, then original order); input array not mutated; unknown key → name | |
+| TU-02 | Combo filter helper (vitest) | `filterComboOptions` with accents, capitals, several words, blank/no-match queries | Every query word must be in the label (any order); accents/case ignored; blank query returns a copy of all options in order; no match → empty | |
+| TU-03 | Page tabs | Open `/team.html`; click "Unmatched names" then "Team" | Opens on Team; the Unmatched tab shows a live counter that updates after Assign/Ignore/Rescan/Remove alias; switching tab closes an open detail panel | |
+| TU-04 | Sortable table | Click Name, Email, Role, Status headers, then again | First click ▲ ascending, second ▼ descending, arrow only on the active column; search and "Show inactive" keep working; Linked user is not sortable | |
+| TU-05 | Open/close the detail panel | Click a row; then ×, Esc, a click outside; then click a row's Edit/Deactivate/Delete | The panel opens for that resource; it closes with ×, Esc and an outside click; a row's action buttons do not open it (they close an open one and run their action); clicking another row switches resource | |
+| TU-06 | Details tab and Edit | In the panel, read the Details tab; click Edit; press Esc in the modal; click inside the modal; Save | All fields incl. job description and linked user; Edit opens the modal on top of the panel; clicking inside the modal does not close the panel; **Esc with the modal open closes only the modal**; after Save the panel shows the new values | |
+| TU-07 | Aliases tab | Open the panel of a resource with aliases; Remove one | Only this resource's aliases (as typed); Remove works and the name returns to the queue (tab counter updates); "No aliases for this resource." when empty; a failed Remove shows its error inside the panel | |
+| TU-08 | Experience profile tab | Open the tab | "No experience data yet. It will be built from uploaded actuals." | |
+| TU-09 | Panel follows the data | With the panel open, delete the resource (via the API or another session) / reload the list | The panel closes instead of showing stale data; after an Edit → Save it shows the new values | |
+| TU-10 | Searchable assign control | In Unmatched names, type in a row's "Assign to": an accented name, "surname name" in reverse order, part of a name | The list filters live; "(inactive)" resources are marked; possible namesakes are first; "No matches" when nothing fits | |
+| TU-11 | Assign control — choice and keyboard | Pick an option with the mouse; then clear via "— none —"; arrows/Enter/Esc; Tab through several rows | A mouse pick registers (not lost to the outside-click handler); "— none —" clears and **Assign** goes disabled again; arrows move (the active row scrolls into view), Enter picks, Esc closes; Tabbing away closes the list (no stacked lists); Enter on a no-match query does not clear an existing choice | |
+| TU-12 | No regression on the page | Create/edit/toggle/delete a resource, Rescan, Assign, Ignore | All work as before; narrow window (~700px): the panel takes the full width and is closable | |
+
+---
+
 ## 17. Regression — Cross-feature
 
 | ID | Scenario | Expected | Auto |

@@ -67,3 +67,11 @@ Two pure decision functions behind the browser-notification feature (see `docs/j
 `getBrowserNotifBannerState(permission, optedOut)` (2026-09, added in a same-cycle fix after manual testing found the original "Enable" button never updated once permission was granted): returns `{ visible, label }` — `label: 'Enable'` when permission is `default` or the user has locally opted out despite a `granted` permission, `label: 'Disable'` when granted and not opted out, `visible: false` when the browser itself denied permission (nothing this app can do about that).
 
 Loaded via `<script type="module">` on every one of the 10 authenticated pages that also load `js/notifications.js`.
+
+## team-ui.js (2026-09-25, Team UX cycle)
+
+Two pure helpers for `team.html` (only page that loads it, `<script type="module" src="js/lib/team-ui.js?v=1">`, bridged to `window.sortResources` / `window.filterComboOptions` and read only inside computeds/methods, never at parse time). Spec `docs/superpowers/specs/2026-09-25-team-ux-design.md`, plan `docs/superpowers/plans/2026-09-25-team-ux.md`; 17 vitest cases in `js/lib/team-ui.test.js`.
+
+`sortResources(list, key, dir = 'asc')`: returns a **new** array (input untouched). Keys: `name` (last name, then first), `email`, `role` (label, then code), `status` (active before anything else); an unknown key falls back to `name`. Comparison is case/accent-insensitive and numeric-aware (`localeCompare` with `sensitivity:'base'`, `numeric:true`); `null`/`undefined` count as `''`. `dir` (`'asc'|'desc'`) flips only the primary comparator — ties always fall back to name ascending, then to the original position, so switching direction never shuffles rows that compare equal.
+
+`filterComboOptions(options, query)`: `options` is `[{ id, label }]`. An option is kept when **every** whitespace-separated token of the query is a substring of its label (case- and accent-insensitive via NFD + `\p{M}`), so "rossi mario" finds "Mario Rossi"; a blank/absent query returns a copy of all options; input order is preserved. Design refinement over the spec's plain "substring" (decided while planning).
