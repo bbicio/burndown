@@ -18,11 +18,4 @@ function isJobDue(settings, lastRunStartedAt, now = new Date()) {
   return now.getTime() - new Date(lastRunStartedAt).getTime() >= settings.intervalMin * 60000;
 }
 
-// True when a claimed code was (re-)queued after the match context was built (both DB timestamps).
-function needsFreshContext(queuedAt, builtAt) {
-  if (!queuedAt) return false;
-  if (!builtAt) return true;
-  return new Date(queuedAt).getTime() > new Date(builtAt).getTime();
-}
-
-module.exports = { needsFreshContext, DEFAULT_INTERVAL_MIN, parseJobSettings, isJobDue };
+module.exports = { DEFAULT_INTERVAL_MIN, parseJobSettings, isJobDue };
