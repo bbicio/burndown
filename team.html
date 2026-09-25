@@ -409,7 +409,8 @@
           setTimeout(() => {
             if (detailOutsideHandler === outside) {
               document.addEventListener('mousedown', outside);
-              document.addEventListener('keydown', onKey);
+              // Capture phase: Bootstrap hides a modal (removing .show) before a bubble-phase document listener runs.
+              document.addEventListener('keydown', onKey, true);
             }
           }, 200);
         },
@@ -419,7 +420,7 @@
         },
         removeDetailHandlers() {
           if (detailOutsideHandler) document.removeEventListener('mousedown', detailOutsideHandler);
-          if (detailKeyHandler) document.removeEventListener('keydown', detailKeyHandler);
+          if (detailKeyHandler) document.removeEventListener('keydown', detailKeyHandler, true);
           detailOutsideHandler = null;
           detailKeyHandler = null;
         },
