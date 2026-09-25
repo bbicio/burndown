@@ -69,6 +69,61 @@
           <div class="empty" v-else>No resources match the current filter.</div>
         </div>
       </div>
+
+      <!-- ── UNMATCHED NAMES ─────────────────────────────────── -->
+      <div class="card mt-4">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="mb-0">Unmatched names <span class="text-muted fw-normal" style="font-size:.9rem">({{ unmatched.length }})</span></h5>
+            <button class="btn btn-outline-secondary btn-sm" :disabled="rescanning" @click="rescan">
+              <span v-if="rescanning" class="spinner-border spinner-border-sm me-1"></span>Rescan
+            </button>
+          </div>
+          <p class="text-muted small mb-3">Names found in uploaded actuals that could not be matched to a resource. Assign each to a resource, or ignore names that are not people.</p>
+          <div v-if="unmatchedError" class="alert alert-danger alert-sm mb-3">{{ unmatchedError }}</div>
+          <table class="table table-hover" v-if="unmatched.length">
+            <thead>
+              <tr><th>Name in actuals</th><th class="text-end">Hours</th><th class="text-end">Projects</th><th>Assign to</th><th></th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="u in unmatched" :key="u.name_normalized">
+                <td class="fw-semibold">{{ u.display_name }}
+                  <span v-if="u.candidate_resource_ids.length" class="badge bg-warning text-dark ms-1">ambiguous</span>
+                </td>
+                <td class="text-end">{{ u.hours }}</td>
+                <td class="text-end">{{ u.projects }}</td>
+                <td>
+                  <select class="form-select form-select-sm" style="min-width:220px" v-model="assignChoice[u.name_normalized]" :disabled="!!u._loading">
+                    <option :value="undefined" disabled>Select a resource…</option>
+                    <option v-for="r in assignOptions(u)" :key="r.id" :value="r.id">{{ r.first_name }} {{ r.last_name }}</option>
+                  </select>
+                </td>
+                <td class="text-end" style="white-space:nowrap">
+                  <button class="btn btn-primary btn-action me-1" :disabled="!!u._loading || !assignChoice[u.name_normalized]" @click="assign(u)">Assign</button>
+                  <button class="btn btn-outline-secondary btn-action" :disabled="!!u._loading" @click="ignoreName(u)">Ignore</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="empty" v-else>No unmatched names.</div>
+
+          <details class="mt-3" v-if="aliases.length">
+            <summary class="small text-muted" style="cursor:pointer">Existing aliases ({{ aliases.length }})</summary>
+            <table class="table table-sm mt-2">
+              <thead><tr><th>Name</th><th>Resolves to</th><th></th></tr></thead>
+              <tbody>
+                <tr v-for="a in aliases" :key="a.id">
+                  <td>{{ a.alias_normalized }}</td>
+                  <td><span v-if="a.resource_id">{{ a.first_name }} {{ a.last_name }}</span><span v-else class="text-muted">ignored</span></td>
+                  <td class="text-end">
+                    <button class="btn btn-outline-danger btn-action" :disabled="!!a._loading" @click="removeAlias(a)">Remove</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </details>
+        </div>
+      </div>
     </div>
 
     <div v-else-if="!accessDenied" class="d-flex align-items-center justify-content-center" style="height:60vh">
@@ -179,6 +234,11 @@
           resources: [],
           roles: [],
           users: [],
+          unmatched: [],
+          aliases: [],
+          assignChoice: {},
+          unmatchedError: null,
+          rescanning: false,
           filterText: '',
           showInactive: false,
           globalError: null,
@@ -212,6 +272,7 @@
         await this.loadResources(); if (this.globalError) { loadErrors.push(this.globalError); this.globalError = null; }
         await this.loadRoles(); if (this.globalError) { loadErrors.push(this.globalError); this.globalError = null; }
         await this.loadUsers(); if (this.globalError) { loadErrors.push(this.globalError); this.globalError = null; }
+        await this.loadUnmatched();
         if (loadErrors.length) this.globalError = loadErrors.join(' ');
         this.ready = true;
       },
@@ -257,6 +318,80 @@
           }
         },
 
+        async loadUnmatched() {
+          this.unmatchedError = null;
+          try {
+            const [uRes, aRes] = await Promise.all([
+              fetch('/api/resources/unmatched', { credentials: 'same-origin' }),
+              fetch('/api/resources/aliases', { credentials: 'same-origin' }),
+            ]);
+            const [u, a] = [await uRes.json(), await aRes.json()];
+            if (!uRes.ok || !aRes.ok) { this.unmatchedError = (u && u.error) || (a && a.error) || 'Failed to load unmatched names.'; return; }
+            this.unmatched = u;
+            this.aliases = a;
+          } catch {
+            this.unmatchedError = 'Network error.';
+          }
+        },
+        // Ambiguous candidates first, then the other active resources.
+        assignOptions(u) {
+          const active = this.resources.filter(r => r.status === 'active');
+          const cand = new Set(u.candidate_resource_ids || []);
+          return [...active.filter(r => cand.has(r.id)), ...active.filter(r => !cand.has(r.id))];
+        },
+        async postAlias(u, body) {
+          u._loading = true;
+          this.unmatchedError = null;
+          try {
+            const res = await fetch('/api/resources/aliases', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+              body: JSON.stringify({ name: u.display_name, ...body }),
+            });
+            const data = await res.json();
+            if (!res.ok) { this.unmatchedError = data.error || 'Save failed'; return; }
+            delete this.assignChoice[u.name_normalized];
+            await this.loadUnmatched();
+          } catch {
+            this.unmatchedError = 'Network error.';
+          } finally {
+            u._loading = false;
+          }
+        },
+        assign(u) {
+          const resourceId = this.assignChoice[u.name_normalized];
+          if (!resourceId) return;
+          return this.postAlias(u, { resourceId });
+        },
+        ignoreName(u) { return this.postAlias(u, { ignore: true }); },
+        async removeAlias(a) {
+          a._loading = true;
+          this.unmatchedError = null;
+          try {
+            const res = await fetch(`/api/resources/aliases/${a.id}`, { method: 'DELETE', credentials: 'same-origin' });
+            const data = await res.json();
+            if (!res.ok) { this.unmatchedError = data.error || 'Remove failed'; return; }
+            await this.loadUnmatched();
+          } catch {
+            this.unmatchedError = 'Network error.';
+          } finally {
+            a._loading = false;
+          }
+        },
+        async rescan() {
+          this.rescanning = true;
+          this.unmatchedError = null;
+          try {
+            const res = await fetch('/api/resources/unmatched/rescan', { method: 'POST', credentials: 'same-origin' });
+            const data = await res.json();
+            if (!res.ok) { this.unmatchedError = data.error || 'Rescan failed'; return; }
+            await this.loadUnmatched();
+          } catch {
+            this.unmatchedError = 'Network error.';
+          } finally {
+            this.rescanning = false;
+          }
+        },
+
         openCreate() {
           this.form = this.blankForm();
           this._resourceModal.show();
@@ -293,6 +428,7 @@
             if (!res.ok) { this.form.error = data.error || 'Save failed'; return; }
             this._resourceModal.hide();
             await this.loadResources();
+            await this.loadUnmatched();
           } catch {
             this.form.error = 'Network error. Please try again.';
           } finally {
@@ -312,6 +448,7 @@
             const data = await res.json();
             if (!res.ok) { this.globalError = data.error; return; }
             r.status = data.status;
+            await this.loadUnmatched();
           } catch {
             this.globalError = 'Network error.';
           } finally {
@@ -330,6 +467,7 @@
             const data = await res.json();
             if (!res.ok) { this.globalError = data.error; return; }
             await this.loadResources();
+            await this.loadUnmatched();
           } catch {
             this.globalError = 'Network error.';
           } finally {
