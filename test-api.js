@@ -1246,10 +1246,10 @@ async function testResourceMatching() {
     'MA-08 ignored name leaves the queue');
   if (ignId) await api('DELETE', `/api/resources/aliases/${ignId}`, null, adminCookie);
 
-  // MA-09: an inactive resource is not auto-matched; reactivating re-matches
+  // MA-09: an inactive resource still matches by name when no active namesake exists (history is kept)
   await api('PATCH', `/api/resources/${resId}`, { status: 'inactive' }, adminCookie);
   un = await listUnmatched();
-  ok(un.some(u => u.name_normalized === marioKey), 'MA-09 deactivated resource: its name goes back to the queue');
+  ok(!un.some(u => u.name_normalized === marioKey), 'MA-09 deactivated resource: its name stays matched (not queued)');
 
   // MA-11: a leaver's name can still be assigned to the (inactive) resource explicitly
   const rInact = await api('POST', '/api/resources/aliases', { name: `${last} Mario`, resourceId: resId }, adminCookie);
@@ -1269,6 +1269,223 @@ async function testResourceMatching() {
   ok(un.some(u => u.name_normalized === marioKey), 'MA-10 deleting the resource returns its name to the queue');
   const rScan = await api('POST', '/api/resources/unmatched/rescan', null, adminCookie);
   ok(rScan.status === 200 && rScan.data?.ok === true, 'MA-10 POST /unmatched/rescan → 200');
+}
+
+// ── Profile Engine (2026-09, Cycle 3c) ──────────────────────────────────────────
+
+// Drain the profile queue. A concurrent worker run makes the endpoint answer 409 — retry briefly.
+async function runProfileJobs() {
+  for (let i = 0; i < 10; i++) {
+    const r = await api('POST', '/api/profile-jobs/run', null, adminCookie);
+    if (r.status !== 409) return r;
+    await new Promise(res => setTimeout(res, 500));
+  }
+  return { status: 409, data: null };
+}
+
+async function getProfile(resourceId) {
+  const r = await api('GET', `/api/resources/${resourceId}/profile`, null, adminCookie);
+  return r.data;
+}
+
+// rows: [[projectCode, date, owner, hours], ...] — task/role are fixed to match the test projects' config.
+function profileCsv(rows) {
+  return ['projectId,date,task,role,owner,hours',
+    ...rows.map(([code, date, owner, hours]) => `${code},${date},Analysis,Consultant,${owner},${hours}`)].join('\n');
+}
+
+let _fixtureSeq = 0;
+
+// Shared setup: one resource, two projects (task/role valid for CSV uploads) and a Market list value.
+// Cleanup order matters (runs in reverse): role first registered → deleted last.
+async function profileFixture() {
+  const ts = `${Date.now()}${++_fixtureSeq}`;
+  const f = { ts, code1: `TPROF1${ts}`, code2: `TPROF2${ts}`, person: `Prof Tester${ts}` };
+  f.role = await makeTestRole(`P${ts}`);
+  const rRes = await api('POST', '/api/resources',
+    { firstName: 'Prof', lastName: `Tester${ts}`, email: `prof.${ts}@test.local`, roleId: f.role.id }, adminCookie);
+  f.resId = rRes.data?.id;
+  if (f.resId) later('DELETE', `/api/resources/${f.resId}`);
+
+  const mkProject = async (code) => {
+    const r = await api('POST', '/api/projects', { name: `__prof_proj_${code}__`, code }, adminCookie);
+    const id = r.data?.id;
+    if (id) {
+      later('DELETE', `/api/projects/${id}`);
+      await api('PUT', `/api/projects/${id}/tasks`,
+        [{ name: 'Analysis', resources: [{ role: 'Consultant', soldHours: 8 }] }], adminCookie);
+    }
+    return id;
+  };
+  f.p1 = await mkProject(f.code1);
+  f.p2 = await mkProject(f.code2);
+  later('DELETE', `/api/timesheets/${f.code1}`);   // registered after the projects → runs before their deletion
+  later('DELETE', `/api/timesheets/${f.code2}`);
+
+  const lists = (await api('GET', '/api/attribute-lists', null, adminCookie)).data || [];
+  f.market = lists.find(l => l.slug === 'market');
+  f.itemLabel = `__prof_item_${ts}__`;
+  const rItem = f.market
+    ? await api('POST', `/api/attribute-lists/${f.market.id}/items`, { label: f.itemLabel }, adminCookie)
+    : { data: null };
+  f.itemId = rItem.data?.id;
+  f.ok = !!(f.resId && f.p1 && f.p2 && f.itemId);
+  return f;
+}
+
+async function testProfileEngine() {
+  section('Profile Engine');
+
+  const NIL = '00000000-0000-0000-0000-000000000000';
+  ok((await api('POST', '/api/profile-jobs/run')).status === 401, 'PE-01 POST /api/profile-jobs/run without auth → 401');
+  ok((await api('GET', `/api/resources/${NIL}/profile`)).status === 401, 'PE-01 GET profile without auth → 401');
+  ok((await api('GET', `/api/resources/${NIL}/profile`, null, adminCookie)).status === 404, 'PE-02 GET profile of an unknown resource → 404');
+  ok((await api('GET', '/api/resources/not-a-uuid/profile', null, adminCookie)).status === 404, 'PE-02 GET profile with a non-UUID id → 404');
+
+  const f = await profileFixture();
+  ok(f.ok, 'PE-setup resource, two projects and a Market value created');
+  if (!f.ok) return;
+  const { ts, code1, code2, person, resId, p1, itemId, itemLabel } = f;
+  await api('PUT', `/api/projects/${p1}/tags`, { itemIds: [itemId] }, adminCookie);   // a tag on P1 only
+
+  // PE-03: upload → run → profile
+  const rUp = await uploadCsv('/api/timesheets/upload', profileCsv([
+    [code1, '2026-01-15', person, 4],
+    [code1, '2026-02-10', person, 6],
+    [code1, '2026-02-11', `Nobody${ts}`, 2],
+    [code2, '2026-03-05', person, 3],
+  ]), adminCookie);
+  ok(rUp.status === 201, `PE-03 upload of actuals for two project codes → 201 (got ${rUp.status}${rUp.data?.error ? ': ' + rUp.data.error : ''})`);
+  const rRun = await runProfileJobs();
+  ok(rRun.status === 200 && rRun.data?.ok === true, `PE-03 POST /api/profile-jobs/run → 200 (got ${rRun.status})`);
+
+  let prof = await getProfile(resId);
+  ok(!!prof?.profile && !!prof.profile_computed_at, 'PE-03 the resource has a profile after the run');
+  const p = prof?.profile;
+  ok(p?.totals?.hours === 13 && p?.totals?.projects === 2 && p?.totals?.firstWorked === '2026-01' && p?.totals?.lastWorked === '2026-03',
+    'PE-03 totals: 13 h over 2 projects, 2026-01 → 2026-03 (the unmatched owner is excluded)');
+  ok(p?.dimensions?.market?.name === 'Market' && p.dimensions.market.values[0]?.value === itemLabel
+      && p.dimensions.market.values[0]?.hours === 10 && p.dimensions.market.untaggedHours === 3,
+    'PE-04 Market dimension: tagged project P1 = 10 h, untagged P2 = 3 h');
+  ok(p?.projects?.[code1]?.tasks?.[0]?.name === 'Analysis' && p.projects[code1].tasks[0].hours === 10
+      && p?.roles?.[0]?.code === 'Consultant' && p.roles[0].hours === 13,
+    'PE-05 tasks are per project and roles are the actuals\' role codes');
+
+  // PE-06: isolation — re-uploading P1 must not disturb P2
+  const p2Before = JSON.stringify(p?.projects?.[code2]);
+  await uploadCsv(`/api/timesheets/upload?projectCode=${code1}`, profileCsv([[code1, '2026-04-01', person, 2]]), adminCookie);
+  await runProfileJobs();
+  prof = await getProfile(resId);
+  ok(prof?.profile?.totals?.hours === 5 && JSON.stringify(prof.profile.projects[code2]) === p2Before,
+    'PE-06 re-processing P1 (10 h → 2 h) leaves P2 untouched: total 5 h, P2 entry identical');
+
+  // PE-09: deleting a code's actuals removes its hours
+  ok((await api('DELETE', `/api/timesheets/${code2}`, null, adminCookie)).status === 200, 'PE-09 DELETE the actuals of P2 → 200');
+  await runProfileJobs();
+  prof = await getProfile(resId);
+  ok(prof?.profile?.totals?.projects === 1 && prof.profile.projects[code2] === undefined && prof.profile.totals.hours === 2,
+    'PE-09 P2\'s hours disappear from the profile (1 project, 2 h left)');
+
+  // PE-13: a resource matching no actuals is stamped computed (UI: "No actuals matched"), profile stays null
+  const rLone = await api('POST', '/api/resources',
+    { firstName: 'Lone', lastName: `Nomatch${ts}`, email: `lone.${ts}@test.local`, roleId: f.role.id }, adminCookie);
+  if (rLone.data?.id) later('DELETE', `/api/resources/${rLone.data.id}`);
+  await uploadCsv(`/api/timesheets/upload?projectCode=${code1}`, profileCsv([[code1, '2026-05-01', person, 1]]), adminCookie);
+  await runProfileJobs();
+  const lone = await getProfile(rLone.data?.id);
+  ok(!!lone && lone.profile === null && !!lone.profile_computed_at,
+    'PE-13 a resource with no matching actuals has profile null and a non-null profile_computed_at after a run');
+}
+
+async function testProfileEngineHooks() {
+  section('Profile Engine — enqueue hooks');
+
+  const f = await profileFixture();
+  ok(f.ok, 'PE-setup (hooks) resource, two projects and a Market value created');
+  if (!f.ok) return;
+  const { ts, code1, code2, person, resId, p1, p2, itemId, itemLabel } = f;
+  await api('PUT', `/api/projects/${p1}/tags`, { itemIds: [itemId] }, adminCookie);
+
+  const aliasName = `Alias Person${ts}`;
+  await uploadCsv('/api/timesheets/upload', profileCsv([
+    [code1, '2026-01-15', person, 4], [code1, '2026-01-16', aliasName, 1], [code2, '2026-03-05', person, 3],
+  ]), adminCookie);
+  await runProfileJobs();
+  let prof = await getProfile(resId);
+  ok(prof?.profile?.totals?.hours === 7 && prof.profile.dimensions.market.values[0].hours === 4
+      && prof.profile.dimensions.market.untaggedHours === 3,
+    'PE-07 baseline: 7 h; Market covers P1 (4 h), P2 (3 h) is untagged');
+
+  // PE-07: tagging P2 as well re-queues its code
+  await api('PUT', `/api/projects/${p2}/tags`, { itemIds: [itemId] }, adminCookie);
+  await runProfileJobs();
+  prof = await getProfile(resId);
+  ok(prof?.profile?.dimensions?.market?.values?.[0]?.hours === 7 && prof.profile.dimensions.market.untaggedHours === 0,
+    'PE-07 tagging P2 as well: the Market value now covers 7 h and nothing is untagged');
+
+  // PE-08: assigning an alias queues every code
+  ok(prof?.profile?.totals?.hours === 7, 'PE-08 before the alias the extra name adds nothing (still 7 h)');
+  const rAlias = await api('POST', '/api/resources/aliases', { name: aliasName, resourceId: resId }, adminCookie);
+  if (rAlias.data?.id) later('DELETE', `/api/resources/aliases/${rAlias.data.id}`);
+  await runProfileJobs();
+  prof = await getProfile(resId);
+  ok(prof?.profile?.totals?.hours === 8, 'PE-08 after assigning the alias the extra name counts: 8 h');
+
+  // PE-10: a resource change re-queues everything and the rebuilt profile is identical
+  const shape = pr => JSON.stringify({ t: pr.totals, d: pr.dimensions, r: pr.roles, p: pr.projects });
+  const before = shape(prof.profile);
+  await api('PATCH', `/api/resources/${resId}`, { firstName: 'Prof' }, adminCookie);
+  await runProfileJobs();
+  prof = await getProfile(resId);
+  ok(shape(prof.profile) === before, 'PE-10 re-queuing everything and re-running reproduces the same profile');
+
+  // PE-11: a deactivated person keeps their history by name match alone (no alias needed)
+  const leaverName = `Old Timer${ts}`;
+  const role2 = await makeTestRole(`L${ts}`);
+  const rLeaver = await api('POST', '/api/resources',
+    { firstName: 'Old', lastName: `Timer${ts}`, email: `old.${ts}@test.local`, roleId: role2.id }, adminCookie);
+  const leaverId = rLeaver.data?.id;
+  if (leaverId) later('DELETE', `/api/resources/${leaverId}`);
+  await api('PATCH', `/api/resources/${leaverId}`, { status: 'inactive' }, adminCookie);
+  await uploadCsv(`/api/timesheets/upload?projectCode=${code1}`, profileCsv([
+    [code1, '2026-01-15', person, 4], [code1, '2026-01-16', aliasName, 1], [code1, '2026-05-01', leaverName, 5],
+  ]), adminCookie);
+  await runProfileJobs();
+  prof = await getProfile(leaverId);
+  ok(prof?.profile?.totals?.hours === 5 && prof.profile.totals.lastWorked === '2026-05',
+    'PE-11 an inactive resource is still matched by name: 5 h, last worked 2026-05, no alias');
+
+  // PE-11b: a resource with a computed profile keeps the same hours after being deactivated and re-run
+  await api('PATCH', `/api/resources/${resId}`, { status: 'inactive' }, adminCookie);
+  await runProfileJobs();
+  const deact = await getProfile(resId);
+  ok(deact?.profile?.totals?.hours === 8 && deact.profile.totals.hours > 0,
+    'PE-11b profile then deactivate then run: the hours are still there (8 h)');
+  await api('PATCH', `/api/resources/${resId}`, { status: 'active' }, adminCookie);
+  await runProfileJobs();
+
+  // PE-12: renaming a list value re-labels the profile; changing a project's code does not crash the run
+  const newLabel = `__prof_item_renamed_${ts}__`;
+  await api('PATCH', `/api/attribute-lists/${f.market.id}/items/${itemId}`, { label: newLabel }, adminCookie);
+  await runProfileJobs();
+  prof = await getProfile(resId);
+  ok(prof?.profile?.dimensions?.market?.values?.[0]?.value === newLabel && newLabel !== itemLabel,
+    'PE-12 renaming a list value shows the new label in the profile after the next run');
+  const rCode = await api('PATCH', `/api/projects/${p1}`, { code: `${code1}B` }, adminCookie);
+  const rRun = await runProfileJobs();
+  ok(rCode.status === 200 && rRun.status === 200 && rRun.data?.errors?.length === 0,
+    'PE-12 changing a project\'s code queues both codes and the run completes without errors');
+  await api('PATCH', `/api/projects/${p1}`, { code: code1 }, adminCookie);   // restore for cleanup
+
+  // PE-14: renaming a project re-queues its code so the cached profile shows the new name
+  await runProfileJobs();
+  const newName = `__prof_proj_renamed_${ts}__`;
+  await api('PATCH', `/api/projects/${p1}`, { name: newName }, adminCookie);
+  await runProfileJobs();
+  prof = await getProfile(resId);
+  const pj = prof?.profile?.projects;
+  const entry = Array.isArray(pj) ? pj.find(x => x.code === code1) : pj?.[code1];
+  ok(entry?.name === newName, 'PE-14 renaming a project shows the new name in the profile after the next run');
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -1299,6 +1516,8 @@ async function main() {
     await testCostGridReassignOwner();
     await testResourcesAndAttributeLists();
     await testResourceMatching();
+    await testProfileEngine();
+    await testProfileEngineHooks();
     await testTagLinking();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));

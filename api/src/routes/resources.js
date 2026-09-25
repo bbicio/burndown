@@ -4,15 +4,18 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const { normalizeName } = require('../lib/match-resource');
 const { refreshUnmatched } = require('../services/resource-matching');
+const { enqueueAllQuiet } = require('../services/profile-engine');
 
 const router = express.Router();
 
 router.use(requireAuth, requireAdmin);
 
-// Best-effort full rescan after an admin change that can alter which names match.
+// Best-effort after an admin change that can alter which names match: refresh the Unmatched names
+// list right away, and queue every project for a (background) profile recalculation.
 async function rescanAll() {
   try { await refreshUnmatched(null); }
   catch (err) { console.warn('[resources] refreshUnmatched:', err.message); }
+  await enqueueAllQuiet();
 }
 
 // Both role_id and user_id are FKs on `resources`; tell them apart by constraint name.
@@ -100,6 +103,18 @@ router.delete('/aliases/:id', async (req, res, next) => {
     res.json({ ok: true });
   } catch (err) {
     if (err.code === '22P02') return res.status(404).json({ error: 'Alias not found' });
+    next(err);
+  }
+});
+
+// GET /api/resources/:id/profile — the cached experience profile (null until first calculated)
+router.get('/:id/profile', async (req, res, next) => {
+  try {
+    const { rows } = await query('SELECT profile, profile_computed_at FROM resources WHERE id = $1', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Resource not found' });
+    res.json({ profile: rows[0].profile, profile_computed_at: rows[0].profile_computed_at });
+  } catch (err) {
+    if (err.code === '22P02') return res.status(404).json({ error: 'Resource not found' });
     next(err);
   }
 });

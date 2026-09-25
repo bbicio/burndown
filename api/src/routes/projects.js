@@ -4,6 +4,7 @@ const { requireAuth } = require('../middleware/auth');
 const { sendShareNotification, sendShareRevokedEmail } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
 const { isAdminRole } = require('../lib/is-admin');
+const { enqueueProjectsQuiet } = require('../services/profile-engine');
 let _createNotification;
 
 const router = express.Router();
@@ -51,6 +52,16 @@ async function copyVersionTagsToProject(projectId, versionId) {
     );
   } catch (err) {
     console.warn('[projects] copyVersionTagsToProject:', err.message);
+  }
+}
+
+// Queue a profile recalculation for a project's code (best-effort; a project without a code has none).
+async function enqueueProjectCode(projectId) {
+  try {
+    const { rows } = await query('SELECT code FROM projects WHERE id = $1', [projectId]);
+    if (rows[0]?.code) await enqueueProjectsQuiet([rows[0].code]);
+  } catch (err) {
+    console.warn('[projects] enqueueProjectCode:', err.message);
   }
 }
 
@@ -158,6 +169,7 @@ router.post('/', requireAuth, async (req, res, next) => {
     );
 
     if (safeCgVersionId) await copyVersionTagsToProject(rows[0].id, safeCgVersionId);
+    if (code?.trim()) await enqueueProjectsQuiet([code.trim()]);
 
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }
@@ -186,6 +198,12 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       }
     }
     if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
+
+    let prevCode = null;
+    if (req.body.code !== undefined) {
+      const prev = await query('SELECT code FROM projects WHERE id = $1', [req.params.id]);
+      prevCode = prev.rows[0]?.code ?? null;
+    }
 
     params.push(req.params.id);
     const updateSql = `UPDATE projects SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING id, name`;
@@ -216,6 +234,17 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     if (!rows[0]) return res.status(404).json({ error: 'Project not found' });
 
     if (seedFromVersionId) await copyVersionTagsToProject(req.params.id, seedFromVersionId);
+    if (seedFromVersionId) await enqueueProjectCode(req.params.id);
+    if (req.body.name !== undefined && req.body.code === undefined) await enqueueProjectCode(req.params.id);
+    if (req.body.code !== undefined) {
+      let newCode = null;
+      try {
+        newCode = (await query('SELECT code FROM projects WHERE id = $1', [req.params.id])).rows[0]?.code ?? null;
+      } catch (err) {
+        console.warn('[projects] read new code:', err.message);
+      }
+      await enqueueProjectsQuiet([prevCode, newCode]);
+    }
 
     res.json(rows[0]);
   } catch (err) { next(err); }
@@ -234,7 +263,14 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
     if (parseInt(timesheets.rows[0].count) > 0) {
       return res.status(400).json({ error: 'Cannot delete project with uploaded timesheet data' });
     }
+    let delCode = null;
+    try {
+      delCode = (await query('SELECT code FROM projects WHERE id = $1', [req.params.id])).rows[0]?.code ?? null;
+    } catch (err) {
+      console.warn('[projects] read code before delete:', err.message);
+    }
     await query('DELETE FROM projects WHERE id = $1', [req.params.id]);
+    if (delCode) await enqueueProjectsQuiet([delCode]);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -509,6 +545,7 @@ router.put('/:id/tags', requireAuth, async (req, res, next) => {
         [req.params.id, itemIds]
       );
       await client.query('COMMIT');
+      await enqueueProjectCode(req.params.id);
       res.json({ ok: true });
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});

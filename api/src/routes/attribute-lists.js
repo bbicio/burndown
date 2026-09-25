@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { slugify } = require('../lib/slugify');
+const { enqueueAllQuiet } = require('../services/profile-engine');
 
 const router = express.Router();
 
@@ -109,6 +110,7 @@ router.patch('/:id/items/:itemId', requireAdmin, async (req, res, next) => {
       values
     );
     if (!rows[0]) return res.status(404).json({ error: 'Item not found' });
+    if (label !== undefined) await enqueueAllQuiet();   // profiles store the label at aggregation time
     res.json(rows[0]);
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'An item with this label already exists in this list' });

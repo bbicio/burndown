@@ -43,5 +43,44 @@ export function filterComboOptions(options, query) {
   });
 }
 
+// Turns a stored profile (resources.profile) into the nested structure the Experience profile tab
+// renders: dimension → value → project → task, plus roles → project. Pure; never mutates the input.
+export function buildProfileTree(profile, roles = []) {
+  if (!profile || !profile.totals) return null;
+  const projects = profile.projects || {};
+  const labelByCode = new Map((roles || []).map(r => [r.code, r.label]));
+
+  const node = (code) => {
+    const p = projects[code];
+    return p
+      ? { code, name: p.name, hours: p.hours, last: p.last, tasks: (p.tasks || []).map(t => ({ ...t })) }
+      : { code, name: code, hours: 0, last: null, tasks: [] };
+  };
+  const children = (codes) => (codes || []).map(node)
+    .sort((a, b) => b.hours - a.hours || a.name.localeCompare(b.name));
+
+  const dimensions = Object.entries(profile.dimensions || {})
+    .map(([slug, d]) => ({
+      slug,
+      name: d.name,
+      untaggedHours: d.untaggedHours || 0,
+      values: (d.values || [])
+        .map(v => ({
+          key: v.itemId || v.value, label: v.value, hours: v.hours, share: v.share, last: v.last,
+          projectCount: v.projects, projects: children(v.projectCodes),
+        }))
+        .sort((a, b) => b.hours - a.hours || a.label.localeCompare(b.label)),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const roleNodes = (profile.roles || []).map(r => ({
+    code: r.code, label: labelByCode.get(r.code) || r.code, hours: r.hours, share: r.share, last: r.last,
+    projectCount: r.projects, projects: children(r.projectCodes),
+  }));
+
+  return { totals: profile.totals, computedAt: profile.computedAt, dimensions, roles: roleNodes };
+}
+
 window.sortResources = sortResources;
+window.buildProfileTree = buildProfileTree;
 window.filterComboOptions = filterComboOptions;

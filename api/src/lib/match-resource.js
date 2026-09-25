@@ -15,19 +15,20 @@ function normalizeName(input) {
 }
 
 // resources: [{ id, first_name, last_name, status }]; aliases: [{ alias_normalized, resource_id }]
-// (resource_id null = "ignore this name"). Only ACTIVE resources take part in automatic matching.
+// (resource_id null = "ignore this name"). Active resources match first; inactive ones are a fallback when no active shares the name.
 function buildMatchContext(resources, aliases) {
   const aliasByKey = new Map();
   for (const a of aliases || []) aliasByKey.set(a.alias_normalized, a.resource_id ?? null);
   const activeByKey = new Map();
+  const inactiveByKey = new Map();
   for (const r of resources || []) {
-    if (r.status !== 'active') continue;
     const key = normalizeName(`${r.first_name} ${r.last_name}`);
     if (!key) continue;
-    if (!activeByKey.has(key)) activeByKey.set(key, []);
-    activeByKey.get(key).push(r.id);
+    const map = r.status === 'active' ? activeByKey : inactiveByKey;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(r.id);
   }
-  return { aliasByKey, activeByKey };
+  return { aliasByKey, activeByKey, inactiveByKey };
 }
 
 function matchOwner(name, ctx) {
@@ -37,7 +38,10 @@ function matchOwner(name, ctx) {
     const resourceId = ctx.aliasByKey.get(key);
     return resourceId ? { kind: 'alias', resourceId } : { kind: 'ignored' };
   }
-  const candidates = ctx.activeByKey.get(key) || [];
+  // Active resources first; only when there is NO active candidate fall back to inactive ones,
+  // so the history of people who left is kept (an active namesake always wins).
+  let candidates = ctx.activeByKey.get(key) || [];
+  if (candidates.length === 0) candidates = (ctx.inactiveByKey && ctx.inactiveByKey.get(key)) || [];
   if (candidates.length === 1) return { kind: 'matched', resourceId: candidates[0] };
   if (candidates.length > 1) return { kind: 'ambiguous', candidates: [...candidates] };
   return { kind: 'unmatched', candidates: [] };

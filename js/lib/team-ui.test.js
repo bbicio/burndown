@@ -1,5 +1,75 @@
 import { describe, it, expect } from 'vitest';
-import { sortResources, filterComboOptions } from './team-ui.js';
+import { sortResources, filterComboOptions, buildProfileTree } from './team-ui.js';
+
+describe('buildProfileTree', () => {
+  const profile = {
+    version: 1, computedAt: '2026-09-25T12:00:00.000Z',
+    totals: { hours: 13, projects: 2, firstWorked: '2026-01', lastWorked: '2026-03' },
+    dimensions: {
+      market: { name: 'Market', untaggedHours: 3, values: [
+        { value: 'Spain', itemId: 'm2', hours: 3, share: 0.2308, projects: 1, last: '2026-03', projectCodes: ['P2'] },
+        { value: 'Italy', itemId: 'm1', hours: 10, share: 0.7692, projects: 1, last: '2026-02', projectCodes: ['P1'] },
+      ] },
+      brand: { name: 'Brand', untaggedHours: 0, values: [] },
+    },
+    roles: [
+      { code: 'DEV', hours: 12, share: 0.9231, projects: 2, last: '2026-03', projectCodes: ['P2', 'P1'] },
+      { code: 'ODD', hours: 1, share: 0.0769, projects: 1, last: '2026-03', projectCodes: ['P2'] },
+    ],
+    projects: {
+      P1: { name: 'Alpha', hours: 10, last: '2026-02', tags: {}, tasks: [{ name: 'Analysis', hours: 10 }] },
+      P2: { name: 'Beta', hours: 3, last: '2026-03', tags: {}, tasks: [{ name: 'Kickoff', hours: 3 }] },
+    },
+  };
+  const roles = [{ id: 'r1', code: 'DEV', label: 'Developer' }];
+
+  it('returns null for a missing or empty profile', () => {
+    expect(buildProfileTree(null, roles)).toBeNull();
+    expect(buildProfileTree(undefined, roles)).toBeNull();
+    expect(buildProfileTree({}, roles)).toBeNull();
+  });
+
+  it('keeps totals and the computed date', () => {
+    const t = buildProfileTree(profile, roles);
+    expect(t.totals).toEqual(profile.totals);
+    expect(t.computedAt).toBe('2026-09-25T12:00:00.000Z');
+  });
+
+  it('builds dimension → value → project → task, values ordered by hours desc', () => {
+    const t = buildProfileTree(profile, roles);
+    expect(t.dimensions.map(d => d.slug)).toEqual(['brand', 'market']);      // by name
+    const market = t.dimensions.find(d => d.slug === 'market');
+    expect(market.untaggedHours).toBe(3);
+    expect(market.values.map(v => v.label)).toEqual(['Italy', 'Spain']);
+    expect(market.values[0]).toMatchObject({ label: 'Italy', hours: 10, share: 0.7692, projectCount: 1, last: '2026-02' });
+    expect(market.values[0].projects).toEqual([
+      { code: 'P1', name: 'Alpha', hours: 10, last: '2026-02', tasks: [{ name: 'Analysis', hours: 10 }] },
+    ]);
+  });
+
+  it('a dimension with no values is kept (empty list)', () => {
+    const brand = buildProfileTree(profile, roles).dimensions.find(d => d.slug === 'brand');
+    expect(brand.values).toEqual([]);
+  });
+
+  it('labels roles from the loaded roles, falls back to the code, orders projects by hours desc', () => {
+    const t = buildProfileTree(profile, roles);
+    expect(t.roles.map(r => [r.code, r.label])).toEqual([['DEV', 'Developer'], ['ODD', 'ODD']]);
+    expect(t.roles[0].projects.map(p => p.code)).toEqual(['P1', 'P2']);       // 10 h before 3 h
+    expect(t.roles[0].projectCount).toBe(2);
+  });
+
+  it('a project code missing from the index still produces a node', () => {
+    const t = buildProfileTree({ ...profile, roles: [{ code: 'X', hours: 1, share: 1, projects: 1, last: null, projectCodes: ['GONE'] }] }, []);
+    expect(t.roles[0].projects).toEqual([{ code: 'GONE', name: 'GONE', hours: 0, last: null, tasks: [] }]);
+  });
+
+  it('does not mutate the profile it is given', () => {
+    const copy = JSON.stringify(profile);
+    buildProfileTree(profile, roles);
+    expect(JSON.stringify(profile)).toBe(copy);
+  });
+});
 
 const R = (id, first, last, email, roleLabel, roleCode, status = 'active') =>
   ({ id, first_name: first, last_name: last, email, role_label: roleLabel, role_code: roleCode, status });
