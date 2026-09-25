@@ -718,7 +718,7 @@ Third cycle toward AI-assisted resource allocation, first sub-cycle of the resou
 | MA-06 | Assign a name | `POST` an alias for a queued name → resource | 201; the name leaves the queue; listed in `GET /aliases` | ✓ |
 | MA-07 | Remove an alias | `DELETE /api/resources/aliases/:id` | 200; the name returns to the queue; a second `DELETE` → 404 | ✓ |
 | MA-08 | Ignore a name | `POST` an alias with `ignore: true` | 201; the name leaves the queue | ✓ |
-| MA-09 | Inactive resource not auto-matched | Deactivate the matched resource, then reactivate | Its name returns to the queue, then matches again | ✓ |
+| MA-09 | Inactive resource matched only as a fallback (changed Cycle 3c) | Deactivate the matched resource, then reactivate; and create an active namesake of an inactive resource | An inactive resource still matches its name when no active one shares it (its history is kept, name stays out of the queue); an active namesake always wins; reactivating changes nothing | ✓ |
 | MA-10 | Resource delete re-queues its names | Delete the resource; `POST /api/resources/unmatched/rescan` | 200; its names are queued again (aliases cascade-deleted); rescan → `{ ok: true }` | ✓ |
 | MA-11 | Alias to an inactive resource | `POST` an alias pointing at an inactive resource (a leaver) | 201; the name leaves the queue | ✓ |
 | MA-12 | Alias keeps the typed name | `POST` an alias, then `GET /aliases` | `display_name` is the name as sent, not only the normalized key | ✓ |
@@ -742,12 +742,43 @@ Frontend-only cycle for `team.html` (spec `docs/superpowers/specs/2026-09-25-tea
 | TU-04 | Sortable table | Click Name, Email, Role, Status headers, then again | First click ▲ ascending, second ▼ descending, arrow only on the active column; search and "Show inactive" keep working; Linked user is not sortable | |
 | TU-05 | Open/close the detail panel | Click a row; then ×, Esc, a click outside; then click a row's Edit/Deactivate/Delete | The panel opens for that resource; it closes with ×, Esc and an outside click; a row's action buttons do not open it (they close an open one and run their action); clicking another row switches resource | |
 | TU-06 | Details tab and Edit | In the panel, read the Details tab; click Edit; press Esc in the modal; click inside the modal; Save | All fields incl. job description and linked user; Edit opens the modal on top of the panel; clicking inside the modal does not close the panel; **Esc with the modal open closes only the modal**; after Save the panel shows the new values | |
-| TU-07 | Aliases tab | Open the panel of a resource with aliases; Remove one | Only this resource's aliases (as typed); Remove works and the name returns to the queue (tab counter updates); "No aliases for this resource." when empty; a failed Remove shows its error inside the panel | |
-| TU-08 | Experience profile tab | Open the tab | "No experience data yet. It will be built from uploaded actuals." | |
+| TU-07 | Aliases accordion (moved 2026-09-25, Cycle 3c: from its own tab into a collapsed accordion at the bottom of Details) | Open the panel of a resource with aliases; expand the Aliases accordion; Remove one | Only this resource's aliases (as typed); Remove works and the name returns to the queue (tab counter updates); "No aliases for this resource." when empty; a failed Remove shows its error inside the panel | |
+| TU-08 | Experience profile tab | Open the tab (superseded by PE-15 to PE-18 in Cycle 3c: it now shows the calculated profile, not a placeholder) | Loading, then the tree, or "Not calculated yet" / "No actuals matched to this person yet" | |
 | TU-09 | Panel follows the data | With the panel open, delete the resource (via the API or another session) / reload the list | The panel closes instead of showing stale data; after an Edit → Save it shows the new values | |
 | TU-10 | Searchable assign control | In Unmatched names, type in a row's "Assign to": an accented name, "surname name" in reverse order, part of a name | The list filters live; "(inactive)" resources are marked; possible namesakes are first; "No matches" when nothing fits | |
 | TU-11 | Assign control — choice and keyboard | Pick an option with the mouse; then clear via "— none —"; arrows/Enter/Esc; Tab through several rows | A mouse pick registers (not lost to the outside-click handler); "— none —" clears and **Assign** goes disabled again; arrows move (the active row scrolls into view), Enter picks, Esc closes; Tabbing away closes the list (no stacked lists); Enter on a no-match query does not clear an existing choice | |
 | TU-12 | No regression on the page | Create/edit/toggle/delete a resource, Rescan, Assign, Ignore | All work as before; narrow window (~700px): the panel takes the full width and is closable | |
+
+---
+
+## 22. Profile Engine (2026-09-25, Cycle 3c)
+
+Third sub-cycle of the resource profile (`docs/api/profile-engine.md`, `docs/pages/team.md`). Per-person hours from matched actuals are computed in the background (queue plus a 60 s worker, 10-minute default interval) into a cached profile shown on `team.html`'s Experience profile tab. PE-01 to PE-14 are covered by `test-api.js`; PE-15 to PE-21 are the manual checklist. Pure logic is unit-tested with `node:test` (`resource-profile.test.js`, `job-schedule.test.js`, `match-resource.test.js`) and vitest (`buildProfileTree`).
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| PE-01 | Profile endpoints require auth | `POST /api/profile-jobs/run` and `GET /api/resources/:id/profile` with no session | 401 for both | ✓ |
+| PE-02 | Profile of an unknown resource | `GET /api/resources/:id/profile` with an unknown UUID and with a non-UUID id (admin) | 404 for both (not a 500) | ✓ |
+| PE-03 | Upload, run, profile | Upload actuals for two project codes (one owner matches a resource, one does not); `POST /api/profile-jobs/run`; `GET` the profile | 201, then 200 `{ ok: true }`; the resource has a profile and `profile_computed_at`; totals are 13 h over 2 projects, 2026-01 to 2026-03; the unmatched owner is excluded | ✓ |
+| PE-04 | Market dimension | Tag project P1 with a Market value, leave P2 untagged; run; read the profile | The Market value covers P1 (10 h); the 3 h of P2 are `untaggedHours` | ✓ |
+| PE-05 | Tasks and roles | Read the profile after PE-03 | Tasks are listed per project; roles are the role codes of the actuals | ✓ |
+| PE-06 | Project isolation | Re-upload P1 with fewer hours (10 h to 2 h); run | Total becomes 5 h; P2's entry is identical to before | ✓ |
+| PE-07 | Tag change re-queues | Tag P2 with the same Market value via the projects tags route; run | The value now covers 7 h and nothing is untagged, without a new upload | ✓ |
+| PE-08 | Alias change re-queues | Assign an extra owner name as an alias of the resource; run | Before the alias the hours are unchanged (7 h); after it the name's hours count (8 h) | ✓ |
+| PE-09 | Deleting actuals removes hours | `DELETE /api/timesheets/:projectCode` for P2; run | 200; P2 disappears from the profile (1 project, 2 h left) | ✓ |
+| PE-10 | Rebuild is reproducible | Trigger a resource change that queues every code; run | The rebuilt profile is identical to the previous one | ✓ |
+| PE-11 | Inactive resource keeps its name match | Create an inactive resource whose name is in the actuals; run | Matched by name with no alias: hours and last month present | ✓ |
+| PE-11b | Deactivating keeps the hours | Give a resource a profile, deactivate it, run | The hours are still there (8 h) | ✓ |
+| PE-12 | List value rename and project code change | Rename an attribute-list value; change a project's code; run | The new label shows in the profile; both the old and the new code are queued and the run completes without errors | ✓ |
+| PE-13 | Resource without matched actuals | Create a resource whose name is in no actuals; run | Profile is `null` but `profile_computed_at` is set (the UI reads "No actuals matched") | ✓ |
+| PE-14 | Project rename re-queues | Rename a project that has actuals; run | The profile shows the new project name | ✓ |
+| PE-15 | New people get a profile within the run interval | Upload actuals whose owners match new resources; wait for the worker (default 10 min) without pressing anything | Each person's Experience profile tab shows their hours after the next run |  |
+| PE-16 | Tags produce the tree | Tag projects with Market values; open a person's Experience profile tab | Tree Market, then value, then project, then tasks; hours and share per value; an "N h on projects without a value" note for untagged projects; a Roles block below |  |
+| PE-17 | Person without matched actuals | Open the tab for a person whose name is in no actuals, and for a brand-new person right after creating them | First: "No actuals matched to this person yet" with a link to the Unmatched names tab (link switches tab). Brand-new before any run: "Not calculated yet" |  |
+| PE-18 | Alias adds hours; deactivating keeps them | Assign an unmatched name to a person; wait for the next run; then deactivate that person and wait again | The hours appear after the run; after deactivation the name-matched hours are still shown |  |
+| PE-19 | Interval and on/off via app_settings | Change `profile_job_interval_min`, then set `profile_job_enabled` to `false`, then back to `true`, directly in `app_settings` (no API restart) | The worker follows the new interval; while `false` no scheduled run happens and the queue waits; on `true` it resumes within a minute |  |
+| PE-20 | Bootstrap rebuild | With actuals uploaded, empty `resource_project_contributions` and restart the API | About 5 s after start a `bootstrap` run rebuilds contributions and profiles (run row in `profile_job_runs`) |  |
+| PE-21 | Unmatched list and aliases accordion | Upload actuals with an unknown name; open the panel of a person | The name is in the Unmatched names list immediately (no wait for the worker); in the Details tab the Aliases accordion is collapsed by default with a count badge and opens to the person's aliases |  |
 
 ---
 

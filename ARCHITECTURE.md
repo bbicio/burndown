@@ -312,6 +312,36 @@ profile_unmatched (                   -- migration 024 (Cycle 3b): owner names f
   PRIMARY KEY (project_code, name_normalized)
 )
 
+-- Cycle 3c profile engine (migration 026; narrative: docs/api/profile-engine.md)
+resource_project_contributions (       -- one row per (resource, project code): that person's hours on that code
+  resource_id  UUID NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+  project_code VARCHAR(100) NOT NULL,
+  data         JSONB NOT NULL,          -- { projectName, hours, first, last, roles{}, tasks{} }
+  computed_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (resource_id, project_code)
+)
+
+profile_project_state (                -- the recalculation queue AND per-code state (in queue = queued_at IS NOT NULL)
+  project_code      VARCHAR(100) PRIMARY KEY,
+  queued_at         TIMESTAMPTZ,
+  last_processed_at TIMESTAMPTZ,
+  last_error        TEXT,
+  last_rows         INTEGER,
+  last_resources    INTEGER
+)
+
+profile_job_runs (                     -- run history, pruned to the latest 50 by the engine
+  id           BIGSERIAL PRIMARY KEY,
+  started_at   TIMESTAMPTZ NOT NULL,
+  finished_at  TIMESTAMPTZ,
+  trigger_type VARCHAR(20) NOT NULL CHECK (trigger_type IN ('scheduled','manual','bootstrap')),
+  projects     INTEGER NOT NULL DEFAULT 0,
+  resources    INTEGER NOT NULL DEFAULT 0,
+  error        TEXT
+)
+-- resources also gained (migration 026): profile JSONB (cached aggregated profile, NULL = none) and
+-- profile_computed_at TIMESTAMPTZ. app_settings gained defaults profile_job_interval_min='10', profile_job_enabled='true'.
+
 attribute_lists (                     -- migration 020: generic, agnostic tag/taxonomy system —
                                        -- seeded with 4 empty lists (Market, Brand, Therapeutic Area,
                                        -- Service Type); admin can create more via attribute-lists.html
@@ -617,6 +647,8 @@ timesheets (
 | PATCH/DELETE | /api/resources/:id | admin | Update (validates non-empty on any of `firstName`/`lastName`/`email`/`roleId` present in the body, matching POST; `roleId` non-UUID or unknown → 400, told apart from a bad linked `userId` by FK constraint name) / hard delete. `GET /api/resources` returns `role_id`, `role_label`, `role_code` (JOIN on `roles`), no `job_title`. Create, PATCH of `firstName`/`lastName`/`status`, and DELETE trigger a best-effort full rescan of the unmatched-names queue |
 | GET | /api/resources/unmatched | admin | (2026-09, Cycle 3b) Owner names from uploaded actuals that could not be matched to a resource — `[{ name_normalized, display_name, hours, projects, candidate_resource_ids }]`, hours summed and rounded to 2 decimals, ordered by hours desc; a non-empty `candidate_resource_ids` means ambiguous |
 | POST | /api/resources/unmatched/rescan | admin | Recompute the whole queue from all uploaded actuals — `{ ok, unmatched }` |
+| GET | /api/resources/:id/profile | admin | (2026-09, Cycle 3c) Cached experience profile — `{ profile, profile_computed_at }`; `profile` is `null` until calculated; 404 for an unknown or non-UUID id |
+| POST | /api/profile-jobs/run | admin | (2026-09, Cycle 3c) Drain the profile queue now (trigger `manual`) — `{ ok, projects, resources, errors }`; 409 if another run holds the advisory lock. See `docs/api/profile-engine.md` |
 | GET/POST | /api/resources/aliases | admin | List aliases (with `display_name`, `created_by`/`updated_by`) / assign a name — body `{ name, resourceId }` or `{ name, ignore: true }`; upserts on the normalized name (201 on create, 200 on re-assignment, 400 on empty/punctuation-only name, both/neither of `resourceId`/`ignore`, non-UUID or unknown `resourceId`); may point at an inactive resource (a leaver's history) |
 | DELETE | /api/resources/aliases/:id | admin | Remove an alias — the name returns to the queue (404 if absent) |
 | GET | /api/attribute-lists | ✅ | List (with active-item counts). 2026-09 (Cycle 2): relaxed from `admin` — `costgrid.html`/`project-config.html`'s Tags UI is used by non-admin editors, and the previous blanket admin-only guard silently broke it for them |
@@ -866,13 +898,15 @@ volumes:
 burndown/
   api/                    ← Node.js + Express backend
     src/
-      routes/             ← auth, users, config, cost-grids, projects, timesheets, reporting, exports, notifications, reset, attribute-lists, resources
+      routes/             ← auth, users, config, cost-grids, projects, timesheets, reporting, exports, notifications, reset, attribute-lists, resources, profile-jobs
       lib/                ← pure functions extracted for unit testing (node:test), mirroring the frontend's js/lib/
                             convention. Full narrative: docs/api/lib.md
       middleware/         ← auth guard (requireAuth, requireAdmin, requireSysAdmin — see §3.1)
       db/                 ← PostgreSQL pool client, migrations/
       services/           ← email (nodemailer), jwt, resource-matching (Cycle 3b: refreshUnmatched — DB half of
-                            actuals-owner-name matching; rules in lib/match-resource.js). See docs/api/resources.md
+                            actuals-owner-name matching; rules in lib/match-resource.js). See docs/api/resources.md;
+                            profile-engine (Cycle 3c: queue + per-code processing into contributions/profiles) and
+                            profile-worker (60 s self-scheduling tick, started from index.js). See docs/api/profile-engine.md
       create-admin.js     ← CLI bootstrap: create/reset admin user (always role='admin')
       promote-sysadmin.js ← CLI: promote an existing user to role='sysadmin'
     Dockerfile
@@ -900,7 +934,7 @@ burndown/
     lib/                  ← pure functions extracted for unit testing (vitest + jsdom), each an ES module
                             (`export function ...`) with a `window.<name> = <name>` bridge for classic-script
                             callers; modules: cfg-parse.js, planning-calc.js, status-rules.js, costgrid-calc.js,
-                            portfolio-calc.js, pipeline-calc.js, notif-browser.js, team-ui.js (team.html only).
+                            portfolio-calc.js, pipeline-calc.js, notif-browser.js, team-ui.js (team.html only; incl. buildProfileTree).
                             Full narrative: docs/js/lib.md
     roles.js              ← `loadRolesFromApi`/`saveRoles` (no-op)/`getRoles` only — its former roles-management modal UI was confirmed unreachable and deleted in the 2026-08 dead-code cleanup; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role — role shape: `{ id, label, code, rate, rateOverrides }`
     ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js; `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects per-role `rateOverrides` and sends them to the API
@@ -999,6 +1033,7 @@ Current migrations:
 - `023_backfill_project_tags.sql` — one-shot idempotent backfill: copies a version's tags into `project_tags` for every project with `cg_version_id` set and no tags (Cycle 3a, 2026-09-25); apply once, since a rerun would also refill deliberately cleared projects
 - `024_resource_aliases_unmatched.sql` — creates `resource_aliases` and `profile_unmatched` (see §5; Cycle 3b, 2026-09-25); `profile_unmatched` is keyed by `project_code`, not project id
 - `025_resource_role_id.sql` — `resources.role_id → roles(id)` NOT NULL replacing free-text `job_title`; backfill by `roles.code` then `roles.label`, aborts loudly on an unmatched row, re-runnable (Team role by id, 2026-09-25)
+- `026_profile_engine.sql` — `resource_project_contributions`, `profile_project_state`, `profile_job_runs`, `resources.profile`/`profile_computed_at`, and the `profile_job_interval_min`/`profile_job_enabled` defaults in `app_settings` (see §5; Cycle 3c, 2026-09-25). Idempotent (`IF NOT EXISTS` / `ON CONFLICT DO NOTHING`)
 
 ---
 

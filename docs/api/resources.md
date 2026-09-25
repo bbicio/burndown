@@ -16,3 +16,9 @@ Purpose: link the free-text `owner` in uploaded actuals to a `resources` row, as
 - **Aliases:** `POST /aliases` upserts on the normalized key (`xmax = 0` distinguishes insert → 201 from re-assignment → 200); `created_by` is kept, `updated_by`/`updated_at` record the re-assignment; `display_name` keeps the name as typed. `resource_id NULL` (`ignore: true`) marks a name that is not a person (e.g. "TBD"). A resource `DELETE` cascades its aliases, and the following rescan re-queues those names.
 - **Why `project_code`, not project id:** `timesheets` is keyed by `project_code` and `projects.code` has no uniqueness constraint, so an id cannot be resolved reliably from an upload.
 - **Sub-cycle 3c** will replace the inline full rescans with a queued background recalculation.
+
+## Experience profile and profile queue (Cycle 3c, 2026-09-25)
+
+- `GET /api/resources/:id/profile` returns `{ profile, profile_computed_at }` from the cached columns on `resources`; `profile` is `null` until calculated (or when no actuals match); 404 for an unknown or non-UUID id (`22P02` mapped to 404). Read-only.
+- `rescanAll()` (resource create / rename / status change / delete, alias add/remove, `POST /unmatched/rescan`) now also calls `enqueueAllQuiet()`: the Unmatched list still refreshes inline, immediately, and the profile recalculation follows in the background. The earlier "sub-cycle 3c will replace the inline rescans" note is superseded: the inline `refreshUnmatched` stays, the queue is added next to it.
+- Full design (queue, worker, settings, run history): `docs/api/profile-engine.md`.
