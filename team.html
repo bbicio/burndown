@@ -94,7 +94,7 @@
                 <td class="text-end">{{ u.projects }}</td>
                 <td>
                   <select class="form-select form-select-sm" style="min-width:220px" v-model="assignChoice[u.name_normalized]" :disabled="!!u._loading">
-                    <option :value="undefined" disabled>Select a resource…</option>
+                    <option :value="undefined">Select a resource…</option>
                     <option v-for="r in assignOptions(u)" :key="r.id" :value="r.id">{{ r.first_name }} {{ r.last_name }}{{ r.status === 'active' ? '' : ' (inactive)' }}</option>
                   </select>
                 </td>
