@@ -281,7 +281,6 @@
 </div>
 <div class="cfg-section" v-if="!isNewProject">
   <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>8. Tags <span class="fw-normal text-muted">(optional)</span></span></div>
-  <p v-if="pipelineLocked" class="text-muted small mb-2">Managed from the linked proposal — <a :href="'/costgrid.html?cgId=' + project.costGridRef.cgId + '&verId=' + project.costGridRef.versionId">open it to edit</a>.</p>
   <div v-if="!attributeLists.length" class="text-muted small">No tag lists configured yet.</div>
   <div class="tags-section" :class="{ 'tags-section--readonly': tagsReadOnly }">
   <div v-for="list in attributeLists" :key="list.id" class="tag-group mb-3">
@@ -442,7 +441,7 @@
       pipelineLocked() {
         return !!(this.project?.costGridRef?.cgId);
       },
-      tagsReadOnly() { return this.isViewer || this.pipelineLocked; },
+      tagsReadOnly() { return this.isViewer; },
       statusRule() {
         return this.project ? getStatusRule(this.project.pipeline) : { options: null, disabled: true };
       },
@@ -543,9 +542,7 @@
       },
       async loadTags() {
         try {
-          this.projectTags = this.pipelineLocked
-            ? await Api.costGrids.versions.tags.list(this.project.costGridRef.cgId, this.project.costGridRef.versionId)
-            : await Api.projects.tags.list(this.project.id);
+          this.projectTags = await Api.projects.tags.list(this.project.id);
         } catch (e) {
           console.warn('[project-config] loadTags:', e.message);
           this.projectTags = [];

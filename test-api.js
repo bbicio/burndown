@@ -922,37 +922,133 @@ async function testTagLinking() {
     }
   }
 
+  // A second Market-list item, to tell a manually assigned tag apart from a copied one
+  let itemId2 = null;
+  if (marketList) {
+    const rItem2 = await api('POST', `/api/attribute-lists/${marketList.id}/items`,
+      { label: `__test_tag_item2_${Date.now()}__` }, adminCookie);
+    itemId2 = rItem2.data?.id;
+  }
+
   // TAG-05: a standalone project (no linked proposal) has its own directly-editable tags
   const rProj = await api('POST', '/api/projects', { name: '__test_tag_proj__' }, adminCookie);
   const standaloneProjId = rProj.data?.id;
   if (standaloneProjId) later('DELETE', `/api/projects/${standaloneProjId}`);
 
-  if (standaloneProjId && itemId) {
-    const rSetP = await api('PUT', `/api/projects/${standaloneProjId}/tags`, { itemIds: [itemId] }, adminCookie);
+  if (standaloneProjId && itemId2) {
+    const rSetP = await api('PUT', `/api/projects/${standaloneProjId}/tags`, { itemIds: [itemId2] }, adminCookie);
     ok(rSetP.status === 200 && rSetP.data?.ok === true, 'TAG-05 PUT standalone project tags → 200');
 
     const rGetP = await api('GET', `/api/projects/${standaloneProjId}/tags`, null, adminCookie);
-    ok(rGetP.status === 200 && (rGetP.data || []).some(t => t.item_id === itemId),
+    ok(rGetP.status === 200 && (rGetP.data || []).some(t => t.item_id === itemId2),
       'TAG-05 GET standalone project tags includes the assigned item');
   } else {
     ok(false, 'TAG-05 skipped — standalone project or test item unavailable');
   }
 
-  // TAG-06: a linked project (cg_version_id set) rejects a direct tag write with 409
-  if (cgId && vId) {
-    const rLinkedProj = await api('POST', '/api/projects',
+  // TAG-13: creating a project already linked to a proposal copies the version's tags
+  let linkedProjId = null;
+  if (cgId && vId && itemId) {
+    await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags`, { itemIds: [itemId] }, adminCookie);
+    const rLinked = await api('POST', '/api/projects',
       { name: '__test_tag_linked_proj__', cgVersionId: vId }, adminCookie);
-    const linkedProjId = rLinkedProj.data?.id;
+    linkedProjId = rLinked.data?.id;
     if (linkedProjId) later('DELETE', `/api/projects/${linkedProjId}`);
-
-    if (linkedProjId) {
-      ok((await api('PUT', `/api/projects/${linkedProjId}/tags`, { itemIds: itemId ? [itemId] : [] }, adminCookie)).status === 409,
-        'TAG-06 PUT tags on a linked project → 409');
-    } else {
-      ok(false, 'TAG-06 skipped — linked project could not be created');
-    }
+    const rCopied = linkedProjId
+      ? await api('GET', `/api/projects/${linkedProjId}/tags`, null, adminCookie) : null;
+    ok(rCopied?.status === 200 && (rCopied.data || []).length === 1 && rCopied.data[0].item_id === itemId,
+      'TAG-13 project created with cgVersionId gets the version\'s tags copied');
   } else {
-    ok(false, 'TAG-06 skipped — cost grid version unavailable');
+    ok(false, 'TAG-13 skipped — cost grid version or test item unavailable');
+  }
+
+  // TAG-06 (revised, Cycle 3a): a linked project's tags are directly editable — no more 409
+  if (linkedProjId) {
+    const rClearLinked = await api('PUT', `/api/projects/${linkedProjId}/tags`, { itemIds: [] }, adminCookie);
+    ok(rClearLinked.status === 200, 'TAG-06 PUT tags on a linked project → 200 (no longer 409)');
+    const rEmpty = await api('GET', `/api/projects/${linkedProjId}/tags`, null, adminCookie);
+    ok(rEmpty.status === 200 && (rEmpty.data || []).length === 0,
+      'TAG-06 linked project tags can be cleared independently of the proposal');
+
+    // TAG-16: re-saving the link (the frontend sends cgVersionId on every save) must not re-seed
+    await api('PATCH', `/api/projects/${linkedProjId}`, { cgVersionId: vId }, adminCookie);
+    const rStill = await api('GET', `/api/projects/${linkedProjId}/tags`, null, adminCookie);
+    ok(rStill.status === 200 && (rStill.data || []).length === 0,
+      'TAG-16 re-sending the same cgVersionId does not resurrect cleared tags');
+  } else {
+    ok(false, 'TAG-06/16 skipped — linked project unavailable');
+  }
+
+  // TAG-14: linking an existing, untagged project (null → version) copies the version's tags
+  if (cgId && vId && itemId) {
+    const rEmptyProj = await api('POST', '/api/projects', { name: '__test_tag_link_later_proj__' }, adminCookie);
+    const laterProjId = rEmptyProj.data?.id;
+    if (laterProjId) later('DELETE', `/api/projects/${laterProjId}`);
+    if (laterProjId) {
+      await api('PATCH', `/api/projects/${laterProjId}`, { cgVersionId: vId }, adminCookie);
+      const rLater = await api('GET', `/api/projects/${laterProjId}/tags`, null, adminCookie);
+      ok(rLater.status === 200 && (rLater.data || []).some(t => t.item_id === itemId),
+        'TAG-14 PATCH linking an untagged project copies the version\'s tags');
+    } else {
+      ok(false, 'TAG-14 skipped — project could not be created');
+    }
+  }
+
+  // TAG-15: linking a project that already has manual tags must not overwrite them
+  if (standaloneProjId && itemId && itemId2 && cgId && vId) {
+    await api('PATCH', `/api/projects/${standaloneProjId}`, { cgVersionId: vId }, adminCookie);
+    const rKeep = await api('GET', `/api/projects/${standaloneProjId}/tags`, null, adminCookie);
+    const keepIds = (rKeep.data || []).map(t => t.item_id);
+    ok(rKeep.status === 200 && keepIds.length === 1 && keepIds[0] === itemId2,
+      'TAG-15 linking a project with its own tags keeps them (no overwrite)');
+  } else {
+    ok(false, 'TAG-15 skipped — prerequisites unavailable');
+  }
+
+  // TAG-19: two overlapping first-link saves both succeed and seed the tags exactly once
+  // (concurrency smoke test — the row lock in PATCH makes only one request see "no link yet")
+  if (cgId && vId && itemId) {
+    const rRace = await api('POST', '/api/projects', { name: '__test_tag_race_proj__' }, adminCookie);
+    const raceProjId = rRace.data?.id;
+    if (raceProjId) later('DELETE', `/api/projects/${raceProjId}`);
+    if (raceProjId) {
+      const [pa, pb] = await Promise.all([
+        api('PATCH', `/api/projects/${raceProjId}`, { cgVersionId: vId }, adminCookie),
+        api('PATCH', `/api/projects/${raceProjId}`, { cgVersionId: vId }, adminCookie),
+      ]);
+      const rRaceTags = await api('GET', `/api/projects/${raceProjId}/tags`, null, adminCookie);
+      ok(pa.status === 200 && pb.status === 200 && rRaceTags.status === 200
+        && (rRaceTags.data || []).length === 1 && rRaceTags.data[0].item_id === itemId,
+        'TAG-19 overlapping first-link PATCHes both succeed and seed the tags once');
+    } else {
+      ok(false, 'TAG-19 skipped — project could not be created');
+    }
+  }
+
+  // TAG-18 (project half): a non-UUID itemId is a 400, not a 500
+  if (standaloneProjId) {
+    ok((await api('PUT', `/api/projects/${standaloneProjId}/tags`, { itemIds: ['not-a-uuid'] }, adminCookie)).status === 400,
+      'TAG-18 PUT project tags with a non-UUID itemId → 400');
+  }
+
+  // TAG-17: a :vId that belongs to a different cost grid is rejected with 404 (GET and PUT)
+  if (cgId && vId) {
+    const rcg2 = await api('POST', '/api/cost-grids',
+      { name: '__test_tag_cg2__', pipelineYear: TEST_YEAR_C }, adminCookie);
+    const cgId2 = rcg2.data?.id;
+    if (cgId2) later('DELETE', `/api/cost-grids/${cgId2}`);
+    if (cgId2) {
+      ok((await api('GET', `/api/cost-grids/${cgId2}/versions/${vId}/tags`, null, adminCookie)).status === 404,
+        'TAG-17 GET tags with a version from another grid → 404');
+      ok((await api('PUT', `/api/cost-grids/${cgId2}/versions/${vId}/tags`, { itemIds: [] }, adminCookie)).status === 404,
+        'TAG-17 PUT tags with a version from another grid → 404');
+    } else {
+      ok(false, 'TAG-17 skipped — second cost grid could not be created');
+    }
+
+    // TAG-18 (version half): a non-UUID itemId is a 400, not a 500
+    ok((await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags`, { itemIds: ['not-a-uuid'] }, adminCookie)).status === 400,
+      'TAG-18 PUT version tags with a non-UUID itemId → 400');
   }
 }
 
