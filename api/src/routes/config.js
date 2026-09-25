@@ -271,9 +271,20 @@ router.delete('/roles/:id', requireAdmin, async (req, res, next) => {
     if (parseInt(linked.rows[0].count) > 0) {
       return res.status(400).json({ error: 'Cannot delete role used in cost grids' });
     }
+    const assigned = await query(
+      'SELECT COUNT(*) FROM resources WHERE role_id = $1',
+      [req.params.id]
+    );
+    if (parseInt(assigned.rows[0].count) > 0) {
+      return res.status(400).json({ error: 'Cannot delete role assigned to a team resource' });
+    }
     await query('DELETE FROM roles WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
-  } catch (err) { next(err); }
+  } catch (err) {
+    // A resource assigned to this role between the check and the delete: same answer, not a 500.
+    if (err.code === '23503') return res.status(400).json({ error: 'Cannot delete role assigned to a team resource' });
+    next(err);
+  }
 });
 
 // ── RATECARDS ─────────────────────────────────────────────────────────────────

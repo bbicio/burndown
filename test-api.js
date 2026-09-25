@@ -862,6 +862,15 @@ async function testResourcesAndAttributeLists() {
     const rowAfter = ((await api('GET', '/api/resources', null, adminCookie)).data || []).find(r => r.id === resourceId);
     ok(rowAfter?.role_label === newLabel && rowAfter?.role_code === newCode,
       'TM-15 renaming a role\'s label/code shows on the resource with no other action');
+
+    // TM-16: a role assigned to a resource cannot be deleted (400 with a clear message, not a 500)
+    const rDelBlocked = await api('DELETE', `/api/roles/${roleB.id}`, null, adminCookie);
+    ok(rDelBlocked.status === 400 && /team resource/i.test(rDelBlocked.data?.error || ''),
+      'TM-16 DELETE a role assigned to a team resource → 400 with a clear message');
+    const rMoveOff = await api('PATCH', `/api/resources/${resourceId}`, { roleId: roleA.id }, adminCookie);
+    ok(rMoveOff.status === 200, 'TM-16 setup: resource moved off the role');
+    ok((await api('DELETE', `/api/roles/${roleB.id}`, null, adminCookie)).status === 200,
+      'TM-16 the role can be deleted once no resource uses it');
   }
 
   // ── Attribute Lists ──
