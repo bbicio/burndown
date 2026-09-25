@@ -1276,6 +1276,12 @@ window.__cfgApp = Vue.createApp({
     this.ready = true;
   },
 
+  watch: {
+    // The banner lives at the top of the page, above the tabs: a failed action on a long list
+    // (e.g. a blocked role delete) would otherwise set the message where nobody is looking.
+    globalError(msg) { if (msg) window.scrollTo({ top: 0, behavior: 'smooth' }); },
+  },
+
   methods: {
     async loadAll() {
       this.globalError = null;
@@ -1620,6 +1626,7 @@ window.__cfgApp = Vue.createApp({
     async deleteRole(role) {
       if (!confirm(`Delete role "${role.label}"?\n\nCost grid columns using this role will remain but lose the registry link.`)) return;
       role._loading = true;
+      this.globalError = null;   // reset so a repeated identical failure still re-triggers the scroll-to-banner watcher
       try {
         await Api.roles.delete(role.id);
         this.roles = this.roles.filter(r => r.id !== role.id);
