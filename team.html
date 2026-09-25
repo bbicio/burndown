@@ -95,7 +95,7 @@
                 <td>
                   <select class="form-select form-select-sm" style="min-width:220px" v-model="assignChoice[u.name_normalized]" :disabled="!!u._loading">
                     <option :value="undefined" disabled>Select a resource…</option>
-                    <option v-for="r in assignOptions(u)" :key="r.id" :value="r.id">{{ r.first_name }} {{ r.last_name }}</option>
+                    <option v-for="r in assignOptions(u)" :key="r.id" :value="r.id">{{ r.first_name }} {{ r.last_name }}{{ r.status === 'active' ? '' : ' (inactive)' }}</option>
                   </select>
                 </td>
                 <td class="text-end" style="white-space:nowrap">
@@ -333,11 +333,14 @@
             this.unmatchedError = 'Network error.';
           }
         },
-        // Ambiguous candidates first, then the other active resources.
+        // Ambiguous candidates first, then the other active resources, then inactive ones (a
+        // leaver's historical actuals can only belong to an inactive resource, and the API
+        // accepts an alias to one — the automatic match ignores them, an explicit alias doesn't).
         assignOptions(u) {
-          const active = this.resources.filter(r => r.status === 'active');
           const cand = new Set(u.candidate_resource_ids || []);
-          return [...active.filter(r => cand.has(r.id)), ...active.filter(r => !cand.has(r.id))];
+          const active = this.resources.filter(r => r.status === 'active');
+          const inactive = this.resources.filter(r => r.status !== 'active');
+          return [...active.filter(r => cand.has(r.id)), ...active.filter(r => !cand.has(r.id)), ...inactive];
         },
         async postAlias(u, body) {
           u._loading = true;

@@ -1170,6 +1170,15 @@ async function testResourceMatching() {
   await api('PATCH', `/api/resources/${resId}`, { status: 'inactive' }, adminCookie);
   un = await listUnmatched();
   ok(un.some(u => u.name_normalized === marioKey), 'MA-09 deactivated resource: its name goes back to the queue');
+
+  // MA-11: a leaver's name can still be assigned to the (inactive) resource explicitly
+  const rInact = await api('POST', '/api/resources/aliases', { name: `${last} Mario`, resourceId: resId }, adminCookie);
+  const inactAliasId = rInact.data?.id;
+  un = await listUnmatched();
+  ok(rInact.status === 201 && !un.some(u => u.name_normalized === marioKey),
+    'MA-11 alias to an inactive resource → 201 and the name leaves the queue');
+  if (inactAliasId) await api('DELETE', `/api/resources/aliases/${inactAliasId}`, null, adminCookie);
+
   await api('PATCH', `/api/resources/${resId}`, { status: 'active' }, adminCookie);
   un = await listUnmatched();
   ok(!un.some(u => u.name_normalized === marioKey), 'MA-09 reactivated resource: its name matches again');
