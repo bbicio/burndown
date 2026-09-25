@@ -40,7 +40,7 @@
               <tr>
                 <th>Name</th>
                 <th>Email</th>
-                <th>Job title</th>
+                <th>Role</th>
                 <th>Linked user</th>
                 <th>Status</th>
                 <th></th>
@@ -50,7 +50,7 @@
               <tr v-for="r in filteredResources" :key="r.id">
                 <td class="fw-semibold">{{ r.first_name }} {{ r.last_name }}</td>
                 <td class="text-muted">{{ r.email }}</td>
-                <td>{{ r.job_title }}</td>
+                <td>{{ r.role_label }} <span class="text-muted small">({{ r.role_code }})</span></td>
                 <td class="text-muted">
                   <span v-if="r.user_id">{{ r.linked_user_first_name }} {{ r.linked_user_last_name }}</span>
                   <span v-else>—</span>
@@ -162,14 +162,11 @@
                   <input v-model="form.email" type="email" class="form-control" required>
                 </div>
                 <div class="col-12">
-                  <label class="form-label">Job title</label>
-                  <select v-model="form.jobTitleSelect" class="form-select" required>
-                    <option value="" disabled>Select a job title…</option>
-                    <option v-for="role in roles" :key="role.id" :value="role.label">{{ role.label }}</option>
-                    <option value="__other__">Other…</option>
+                  <label class="form-label">Role</label>
+                  <select v-model="form.roleId" class="form-select" required>
+                    <option value="" disabled>Select a role…</option>
+                    <option v-for="role in roles" :key="role.id" :value="role.id">{{ role.label }} ({{ role.code }})</option>
                   </select>
-                  <input v-if="form.jobTitleSelect === '__other__'" v-model="form.jobTitleOther"
-                         type="text" class="form-control mt-2" placeholder="Enter a custom job title" required>
                 </div>
                 <div class="col-12">
                   <label class="form-label">Job description</label>
@@ -252,7 +249,7 @@
           return this.resources.filter(r => {
             if (!this.showInactive && r.status !== 'active') return false;
             if (!q) return true;
-            const hay = `${r.first_name} ${r.last_name} ${r.email}`.toLowerCase();
+            const hay = `${r.first_name} ${r.last_name} ${r.email} ${r.role_label} ${r.role_code}`.toLowerCase();
             return hay.includes(q);
           });
         },
@@ -281,7 +278,7 @@
       },
       methods: {
         blankForm() {
-          return { id: null, firstName: '', lastName: '', email: '', jobTitleSelect: '', jobTitleOther: '',
+          return { id: null, firstName: '', lastName: '', email: '', roleId: '',
                     jobDescription: '', userId: null, status: 'active', loading: false, error: null };
         },
         async loadResources() {
@@ -400,11 +397,9 @@
           this._resourceModal.show();
         },
         openEdit(r) {
-          const knownLabel = this.roles.some(role => role.label === r.job_title);
           this.form = {
             id: r.id, firstName: r.first_name, lastName: r.last_name, email: r.email,
-            jobTitleSelect: knownLabel ? r.job_title : '__other__',
-            jobTitleOther: knownLabel ? '' : r.job_title,
+            roleId: r.role_id,
             jobDescription: r.job_description || '', userId: r.user_id, status: r.status,
             loading: false, error: null,
           };
@@ -414,11 +409,10 @@
         async submitForm() {
           this.form.loading = true;
           this.form.error = null;
-          const jobTitle = this.form.jobTitleSelect === '__other__' ? this.form.jobTitleOther.trim() : this.form.jobTitleSelect;
-          if (!jobTitle) { this.form.error = 'Job title is required'; this.form.loading = false; return; }
+          if (!this.form.roleId) { this.form.error = 'Role is required'; this.form.loading = false; return; }
           const payload = {
             firstName: this.form.firstName, lastName: this.form.lastName, email: this.form.email,
-            jobTitle, jobDescription: this.form.jobDescription, userId: this.form.userId,
+            roleId: this.form.roleId, jobDescription: this.form.jobDescription, userId: this.form.userId,
           };
           try {
             const url = this.form.id ? `/api/resources/${this.form.id}` : '/api/resources';
