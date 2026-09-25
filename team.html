@@ -199,6 +199,7 @@
         </div>
         <div v-else-if="detailTab === 'aliases'">
           <p class="text-muted small">Names from uploaded actuals that resolve to this resource.</p>
+          <div v-if="unmatchedError" class="alert alert-danger alert-sm">{{ unmatchedError }}</div>
           <table class="table table-sm" v-if="detailAliases.length">
             <thead><tr><th>Name</th><th></th></tr></thead>
             <tbody>
@@ -655,7 +656,8 @@
           if (this.disabled || this.open) return;
           this.open = true;
           this.query = '';
-          this.active = 0;
+          const idx = this.options.findIndex(o => o.id === this.modelValue);
+          this.active = idx >= 0 ? idx + 1 : 0;
           document.addEventListener('mousedown', this.onDocDown);
         },
         closeList() {
@@ -663,8 +665,15 @@
           this.query = '';
           document.removeEventListener('mousedown', this.onDocDown);
         },
+        scrollActive() {
+          this.$nextTick(() => {
+            const el = this.$refs.list && this.$refs.list.querySelector('.active');
+            if (el) el.scrollIntoView({ block: 'nearest' });
+          });
+        },
         onDocDown(e) { if (!this.$el.contains(e.target)) this.closeList(); },
         onInput(e) {
+          if (!this.open) this.openList();
           this.query = e.target.value;
           this.active = this.visible.length ? 1 : 0;
         },
@@ -677,11 +686,15 @@
             e.preventDefault();
             if (!this.open) this.openList();
             else this.active = Math.min(this.active + 1, this.visible.length);
+            this.scrollActive();
           } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             this.active = Math.max(this.active - 1, 0);
+            this.scrollActive();
           } else if (e.key === 'Enter' && this.open) {
             e.preventDefault();
+            if (this.query.trim() && !this.visible.length) return;
+            if (this.active > this.visible.length) return;
             this.pick(this.active === 0 ? null : this.visible[this.active - 1]);
           } else if (e.key === 'Escape' && this.open) {
             e.preventDefault();
@@ -695,8 +708,8 @@
           <input type="text" class="form-control form-control-sm" autocomplete="off"
                  :placeholder="placeholder" :disabled="disabled"
                  :value="open ? query : selectedLabel"
-                 @focus="openList" @click="openList" @input="onInput" @keydown="onKey">
-          <ul v-if="open" class="list-group position-absolute w-100 shadow-sm"
+                 @focus="openList" @blur="closeList" @click="openList" @input="onInput" @keydown="onKey">
+          <ul v-if="open" ref="list" @mousedown.prevent class="list-group position-absolute w-100 shadow-sm"
               style="z-index:1050;max-height:240px;overflow-y:auto;top:100%">
             <li class="list-group-item list-group-item-action py-1 small text-muted" :class="{ active: active === 0 }"
                 @mousedown.prevent="pick(null)">— none —</li>
