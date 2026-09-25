@@ -35,7 +35,7 @@ Ordine obbligato: **3a → 3b → 3c** (3c dipende da entrambi).
 | Sottociclo | Contenuto | Tocca |
 |---|---|---|
 | **3a — Tag del progetto autonomi** | Rimozione del 409 e della sola lettura, copia iniziale dei tag proposal→progetto, backfill, hardening delle tag route | `projects.js`, tag route di `cost-grids.js`, `project-config.html`, migrazione di backfill |
-| **3b — Matching e alias** | Normalizzazione nomi, `resource_aliases`, `profile_unmatched`, pannello "Unmatched names" in `team.html`, API | `resources.js`, `team.html`, `js/api.js`, nuova `lib/`, migrazione |
+| **3b — Matching e alias** | Normalizzazione nomi, `resource_aliases`, `profile_unmatched`, pannello "Unmatched names" in `team.html`, API | `resources.js`, `timesheets.js` (hook upload), `team.html` (fetch diretto, nessun `js/api.js`), nuova `lib/` + `services/`, migrazione |
 | **3c — Contributi, scheduler, profilo** | `resource_project_contributions`, coda di ricalcolo + worker, `resources.profile`, treeview, "Rebuild profiles"/"Recalculate now" | nuova `lib/`, worker in `api/src/index.js`, `resources.js`, `team.html`, migrazione |
 
 Ogni sottociclo ha valore autonomo: 3a permette al gestore di affinare i tag del progetto; 3b collega gli actuals alle risorse e mostra i nomi che non tornano; 3c produce il profilo. Il piano di 3a viene scritto subito dopo questa spec; i piani di 3b e 3c quando ci si arriva (con eventuale revisione di questa spec se emergono cambiamenti).
@@ -73,16 +73,16 @@ Le risorse inattive sono escluse dal match automatico ma un alias esplicito può
 
 **Tabelle (migrazione):**
 - `resource_aliases (id, alias_normalized UNIQUE, resource_id NULL FK, created_by, created_at)`; `resource_id NULL` = nome **ignorato** (non è una persona, per es. "TBD").
-- `profile_unmatched (project_id, name_normalized, display_name, hours, candidate_resource_ids JSONB)`, riscritta per progetto dal worker (3c); in 3b viene popolata dal calcolo del match invocato all'apertura del pannello/rebuild descritto sotto.
+- `profile_unmatched (project_code, name_normalized, display_name, hours, candidate_resource_ids JSONB)`, chiave `(project_code, name_normalized)`. **Chiavata per `project_code`, non `project_id`** (corretto in fase di piano 3b): `timesheets` è chiavata per codice e `projects.code` non è unico, quindi da un upload non si può risalire a un id in modo affidabile. Riscritta per codice da `refreshUnmatched`; in 3c la stessa funzione viene assorbita dal worker.
 
-**Sequenza in 3b:** il worker non esiste ancora. In 3b il calcolo del match è eseguito da una funzione `refreshUnmatched(projectIds)` chiamata all'upload (`timesheets.js`) e dal pulsante "Rescan"; in 3c la stessa funzione viene assorbita dal worker.
+**Sequenza in 3b:** il worker non esiste ancora. Il calcolo è `refreshUnmatched(codes | null)` in `api/src/services/resource-matching.js` (regole pure in `api/src/lib/match-resource.js`): l'upload (`timesheets.js`) ricalcola solo i codici caricati (best-effort: un errore non fa fallire l'upload); ogni modifica admin (risorsa creata/rinominata/disattivata/eliminata, alias aggiunto/rimosso) e il pulsante "Rescan" eseguono un **rescan completo** (poche decine di progetti; semplice e sempre coerente).
 
 **UI in `team.html` (admin e sysadmin):** pannello "Unmatched names":
 - elenco dei nomi distinti con ore totali e numero di progetti, ordinato per ore decrescenti;
 - per riga, un menu delle risorse attive (candidati ambigui in cima) e "Assign"; un pulsante "Ignore";
-- l'assegnazione salva un alias e riesegue il match dei progetti che contengono quel nome.
+- l'assegnazione salva un alias e innesca un rescan completo; un elenco degli alias esistenti (con "Remove") permette di annullare un'assegnazione.
 
-**API (`requireAdmin`):** `GET /api/resources/unmatched`, `POST /api/resources/aliases` (`{ name, resourceId }` oppure `{ name, ignore: true }`), `DELETE /api/resources/aliases/:id`, `POST /api/resources/unmatched/rescan`.
+**API (`requireAdmin`):** `GET /api/resources/unmatched`, `GET /api/resources/aliases`, `POST /api/resources/aliases` (`{ name, resourceId }` oppure `{ name, ignore: true }`), `DELETE /api/resources/aliases/:id`, `POST /api/resources/unmatched/rescan`.
 
 ## 5. Sottociclo 3c — Contributi, scheduler, profilo
 

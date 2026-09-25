@@ -6,6 +6,7 @@ const { requireAuth } = require('../middleware/auth');
 const { parseFlexibleDate } = require('../lib/date-parse');
 const { resolveFee } = require('../lib/rate-resolve');
 const { isAdminRole } = require('../lib/is-admin');
+const { refreshUnmatched } = require('../services/resource-matching');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -210,6 +211,10 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res, next
       );
     }
 
+    // Best-effort: a matching-queue failure must never fail (or roll back) an upload that already succeeded.
+    try { await refreshUnmatched(codes); }
+    catch (err) { console.warn('[timesheets] refreshUnmatched:', err.message); }
+
     res.status(201).json({
       ok: true,
       projectCodes: codes,
@@ -237,6 +242,7 @@ router.delete('/:projectCode', requireAuth, async (req, res, next) => {
       'DELETE FROM timesheets WHERE project_code = $1',
       [req.params.projectCode]
     );
+    await query('DELETE FROM profile_unmatched WHERE project_code = $1', [req.params.projectCode]);
     res.json({ ok: true, deleted: rowCount });
   } catch (err) { next(err); }
 });
