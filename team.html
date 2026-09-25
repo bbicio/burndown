@@ -63,7 +63,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="r in sortedResources" :key="r.id">
+              <tr v-for="r in sortedResources" :key="r.id" style="cursor:pointer"
+                  :class="{ 'table-active': r.id === selectedId }" @click="openDetail(r)">
                 <td class="fw-semibold">{{ r.first_name }} {{ r.last_name }}</td>
                 <td class="text-muted">{{ r.email }}</td>
                 <td>{{ r.role_label }} <span class="text-muted small">({{ r.role_code }})</span></td>
@@ -72,7 +73,7 @@
                   <span v-else>—</span>
                 </td>
                 <td><span :class="'badge-st-' + r.status">{{ r.status }}</span></td>
-                <td class="text-end" style="white-space:nowrap">
+                <td class="text-end" style="white-space:nowrap" @click.stop>
                   <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!r._loading" @click="openEdit(r)">Edit</button>
                   <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!r._loading" @click="toggleStatus(r)">
                     {{ r.status === 'active' ? 'Deactivate' : 'Activate' }}
@@ -151,6 +152,69 @@
         <div style="font-size:2rem">🔒</div>
         <p class="mt-2">Admin access required.</p>
         <a href="/" class="btn btn-outline-secondary btn-sm">Go to app</a>
+      </div>
+    </div>
+
+    <!-- ── RESOURCE DETAIL PANEL ───────────────────────────── -->
+    <div id="resourceDetailPanel" v-if="selectedResource"
+         style="position:fixed;top:0;right:0;bottom:0;width:860px;max-width:100%;background:#fff;
+                border-left:2px solid #dee2e6;box-shadow:-4px 0 16px rgba(0,0,0,.12);z-index:1045;
+                display:flex;flex-direction:column">
+      <div class="d-flex align-items-center justify-content-between px-3 py-2 flex-shrink-0"
+           style="border-bottom:1px solid #dee2e6;background:#0B1840;color:#fff">
+        <span class="fw-semibold" style="font-size:var(--text-md)">
+          {{ selectedResource.first_name }} {{ selectedResource.last_name }}
+          <span :class="'badge-st-' + selectedResource.status" class="ms-2">{{ selectedResource.status }}</span>
+        </span>
+        <button class="btn btn-sm btn-link text-white p-0" style="font-size:1.1rem;line-height:1" title="Close" @click="closeDetail">×</button>
+      </div>
+      <ul class="nav nav-tabs px-3 pt-2 flex-shrink-0">
+        <li class="nav-item"><button type="button" class="nav-link" :class="{ active: detailTab === 'details' }" @click="detailTab = 'details'">Details</button></li>
+        <li class="nav-item"><button type="button" class="nav-link" :class="{ active: detailTab === 'aliases' }" @click="detailTab = 'aliases'">Aliases <span class="badge bg-secondary ms-1">{{ detailAliases.length }}</span></button></li>
+        <li class="nav-item"><button type="button" class="nav-link" :class="{ active: detailTab === 'profile' }" @click="detailTab = 'profile'">Experience profile</button></li>
+      </ul>
+      <div class="flex-grow-1 p-3" style="overflow-y:auto">
+        <div v-if="detailTab === 'details'">
+          <div class="d-flex justify-content-end mb-3">
+            <button class="btn btn-outline-secondary btn-sm" @click="openEdit(selectedResource)">Edit</button>
+          </div>
+          <dl class="row mb-0" style="font-size:.9rem">
+            <dt class="col-sm-3 text-muted fw-normal">Name</dt>
+            <dd class="col-sm-9 fw-semibold">{{ selectedResource.first_name }} {{ selectedResource.last_name }}</dd>
+            <dt class="col-sm-3 text-muted fw-normal">Email</dt>
+            <dd class="col-sm-9">{{ selectedResource.email }}</dd>
+            <dt class="col-sm-3 text-muted fw-normal">Role</dt>
+            <dd class="col-sm-9">{{ selectedResource.role_label }} <span class="text-muted small">({{ selectedResource.role_code }})</span></dd>
+            <dt class="col-sm-3 text-muted fw-normal">Linked user</dt>
+            <dd class="col-sm-9">
+              <span v-if="selectedResource.user_id">{{ selectedResource.linked_user_first_name }} {{ selectedResource.linked_user_last_name }} <span class="text-muted small">({{ selectedResource.linked_user_email }})</span></span>
+              <span v-else class="text-muted">—</span>
+            </dd>
+            <dt class="col-sm-3 text-muted fw-normal">Status</dt>
+            <dd class="col-sm-9"><span :class="'badge-st-' + selectedResource.status">{{ selectedResource.status }}</span></dd>
+            <dt class="col-sm-3 text-muted fw-normal">Job description</dt>
+            <dd class="col-sm-9" style="white-space:pre-line">
+              <span v-if="selectedResource.job_description">{{ selectedResource.job_description }}</span>
+              <span v-else class="text-muted">—</span>
+            </dd>
+          </dl>
+        </div>
+        <div v-else-if="detailTab === 'aliases'">
+          <p class="text-muted small">Names from uploaded actuals that resolve to this resource.</p>
+          <table class="table table-sm" v-if="detailAliases.length">
+            <thead><tr><th>Name</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="a in detailAliases" :key="a.id">
+                <td>{{ a.display_name || a.alias_normalized }}</td>
+                <td class="text-end"><button class="btn btn-outline-danger btn-action" :disabled="!!a._loading" @click="removeAlias(a)">Remove</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="empty" v-else>No aliases for this resource.</div>
+        </div>
+        <div v-else class="text-muted" style="font-size:.9rem">
+          No experience data yet. It will be built from uploaded actuals.
+        </div>
       </div>
     </div>
 
@@ -240,6 +304,11 @@
   <script defer src="js/notifications.js?v=2"></script>
   <script defer src="js/nav.js?v=9"></script>
   <script type="module">
+    // Outside-click / Esc handlers for the detail panel. Module-level (not reactive data): same
+    // approach as pipeline.html's _pbDetailOutsideClickHandler.
+    let detailOutsideHandler = null;
+    let detailKeyHandler = null;
+
     Vue.createApp({
       data() {
         return {
@@ -262,6 +331,8 @@
           pageTab: 'team',
           sortKey: 'name',
           sortDir: 'asc',
+          selectedId: null,
+          detailTab: 'details',
         };
       },
       computed: {
@@ -277,6 +348,18 @@
         sortedResources() {
           return window.sortResources(this.filteredResources, this.sortKey, this.sortDir);
         },
+        // Looked up in `resources` (not the filtered/sorted list) so the panel follows reloads and
+        // is independent of the search box.
+        selectedResource() {
+          return this.selectedId ? (this.resources.find(r => r.id === this.selectedId) || null) : null;
+        },
+        detailAliases() {
+          return this.selectedId ? this.aliases.filter(a => a.resource_id === this.selectedId) : [];
+        },
+      },
+      watch: {
+        // The open resource vanished (deleted, or reloaded away): don't leave a stale, empty panel.
+        selectedResource(now) { if (this.selectedId && !now) this.closeDetail(); },
       },
       async created() {
         const user = await initNav('team', { breadcrumbs: [
@@ -302,7 +385,43 @@
       },
       methods: {
         setPageTab(tab) {
+          this.closeDetail();
           this.pageTab = tab;
+        },
+        openDetail(r) {
+          this.selectedId = r.id;
+          this.detailTab = 'details';
+          this.removeDetailHandlers();
+          const outside = (e) => {
+            const panel = document.getElementById('resourceDetailPanel');
+            if (!panel || panel.contains(e.target)) return;
+            // Modals opened from the panel (Edit, Confirm) live outside it in the DOM.
+            if (e.target.closest('.modal') || e.target.classList.contains('modal-backdrop')) return;
+            this.closeDetail();
+          };
+          const onKey = (e) => {
+            if (e.key === 'Escape' && !document.querySelector('.modal.show')) this.closeDetail();
+          };
+          detailOutsideHandler = outside;
+          detailKeyHandler = onKey;
+          // Delayed registration: the click that opened the panel must not immediately close it,
+          // and a later openDetail() supersedes an earlier pending registration.
+          setTimeout(() => {
+            if (detailOutsideHandler === outside) {
+              document.addEventListener('mousedown', outside);
+              document.addEventListener('keydown', onKey);
+            }
+          }, 200);
+        },
+        closeDetail() {
+          this.selectedId = null;
+          this.removeDetailHandlers();
+        },
+        removeDetailHandlers() {
+          if (detailOutsideHandler) document.removeEventListener('mousedown', detailOutsideHandler);
+          if (detailKeyHandler) document.removeEventListener('keydown', detailKeyHandler);
+          detailOutsideHandler = null;
+          detailKeyHandler = null;
         },
         sortBy(key) {
           if (this.sortKey === key) this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
