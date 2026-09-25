@@ -45,7 +45,7 @@ Ogni sottociclo ha valore autonomo: 3a permette al gestore di affinare i tag del
 **Copia iniziale.** Helper server-side `copyVersionTagsToProject(client, projectId, versionId)`:
 - chiamato in `POST /api/projects` quando `cgVersionId` è valido, e in `PATCH /api/projects/:id` quando `cgVersionId` passa da nullo a valorizzato;
 - copia da `cost_grid_version_tags` a `project_tags` **solo se `project_tags` del progetto è vuota** (non sovrascrive tag già inseriti a mano);
-- nella stessa transazione della modifica.
+- una sola istruzione SQL atomica, best-effort (errore loggato, mai propagato: la scrittura del progetto è già riuscita e `js/api-sync.js` tratta un PATCH fallito come "progetto mancante"); un copy mancato si ripara rieseguendo l'istruzione idempotente della migrazione di backfill.
 
 **Regola di modifica.**
 - `PUT /api/projects/:id/tags` non risponde più 409 per i progetti collegati (`projects.js:449-451` rimosso).

@@ -918,11 +918,22 @@ router.post('/:id/versions/:vId/refresh-rate', requireAuth, async (req, res, nex
 
 // ── TAGS ──────────────────────────────────────────────────────────────────────
 
+// True when the version belongs to the cost grid named in the URL.
+async function versionInGrid(cgId, vId) {
+  const { rows } = await query(
+    'SELECT 1 FROM cost_grid_versions WHERE id = $1 AND cost_grid_id = $2', [vId, cgId]
+  );
+  return rows.length > 0;
+}
+
 // GET /api/cost-grids/:id/versions/:vId/tags
 router.get('/:id/versions/:vId/tags', requireAuth, async (req, res, next) => {
   try {
     if (!await canAccess(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
+    }
+    if (!await versionInGrid(req.params.id, req.params.vId)) {
+      return res.status(404).json({ error: 'Version not found' });
     }
     const { rows } = await query(
       `SELECT ali.id AS item_id, ali.label, ali.status, al.id AS list_id, al.name AS list_name, al.slug AS list_slug
@@ -939,34 +950,40 @@ router.get('/:id/versions/:vId/tags', requireAuth, async (req, res, next) => {
 
 // PUT /api/cost-grids/:id/versions/:vId/tags — replace-all
 router.put('/:id/versions/:vId/tags', requireAuth, async (req, res, next) => {
-  if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
-  const locked = await query('SELECT locked FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
-  if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
-
-  const { itemIds = [] } = req.body;
-  if (!Array.isArray(itemIds)) return res.status(400).json({ error: 'itemIds must be an array' });
-
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-    await client.query('DELETE FROM cost_grid_version_tags WHERE version_id = $1', [req.params.vId]);
-    for (const itemId of itemIds) {
-      await client.query(
-        'INSERT INTO cost_grid_version_tags (version_id, item_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [req.params.vId, itemId]
-      );
+    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied' });
     }
-    await client.query('COMMIT');
-    res.json({ ok: true });
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {});
-    if (err.code === '23503') return res.status(400).json({ error: 'One or more tag items do not exist' });
-    next(err);
-  } finally {
-    client.release();
-  }
+    const ver = await query(
+      'SELECT locked FROM cost_grid_versions WHERE id = $1 AND cost_grid_id = $2',
+      [req.params.vId, req.params.id]
+    );
+    if (!ver.rows[0]) return res.status(404).json({ error: 'Version not found' });
+    if (ver.rows[0].locked) return res.status(400).json({ error: 'Version is locked' });
+
+    const { itemIds = [] } = req.body;
+    if (!Array.isArray(itemIds)) return res.status(400).json({ error: 'itemIds must be an array' });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM cost_grid_version_tags WHERE version_id = $1', [req.params.vId]);
+      await client.query(
+        `INSERT INTO cost_grid_version_tags (version_id, item_id)
+         SELECT $1::uuid, unnest($2::uuid[]) ON CONFLICT DO NOTHING`,
+        [req.params.vId, itemIds]
+      );
+      await client.query('COMMIT');
+      res.json({ ok: true });
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      if (err.code === '23503') return res.status(400).json({ error: 'One or more tag items do not exist' });
+      if (err.code === '22P02') return res.status(400).json({ error: 'itemIds must be valid UUIDs' });
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

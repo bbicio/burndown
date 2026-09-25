@@ -32,6 +32,26 @@ async function canEdit(userId, role, projectId) {
   return rows.length > 0;
 }
 
+// Copies a cost grid version's tags onto a project, only when the project has none yet.
+// One atomic statement. Best-effort: the project write it follows has already succeeded
+// (and js/api-sync.js treats a failed PATCH as "project missing"), so a failure here is
+// logged, not surfaced — re-running migration 023's statement heals a missed copy.
+async function copyVersionTagsToProject(projectId, versionId) {
+  try {
+    await query(
+      `INSERT INTO project_tags (project_id, item_id)
+       SELECT $1::uuid, cvt.item_id
+       FROM cost_grid_version_tags cvt
+       WHERE cvt.version_id = $2::uuid
+         AND NOT EXISTS (SELECT 1 FROM project_tags pt WHERE pt.project_id = $1::uuid)
+       ON CONFLICT DO NOTHING`,
+      [projectId, versionId]
+    );
+  } catch (err) {
+    console.warn('[projects] copyVersionTagsToProject:', err.message);
+  }
+}
+
 // ── PROJECTS ──────────────────────────────────────────────────────────────────
 
 // GET /api/projects
@@ -135,6 +155,8 @@ router.post('/', requireAuth, async (req, res, next) => {
       [rows[0].id, req.user.id]
     );
 
+    if (safeCgVersionId) await copyVersionTagsToProject(rows[0].id, safeCgVersionId);
+
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }
 });
@@ -163,12 +185,25 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     }
     if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
 
+    const cgTouched = req.body.cgVersionId !== undefined;
+    let prevCgVersionId = null;
+    if (cgTouched) {
+      const prev = await query('SELECT cg_version_id FROM projects WHERE id = $1', [req.params.id]);
+      prevCgVersionId = prev.rows[0]?.cg_version_id ?? null;
+    }
+
     params.push(req.params.id);
     const { rows } = await query(
       `UPDATE projects SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING id, name`,
       params
     );
     if (!rows[0]) return res.status(404).json({ error: 'Project not found' });
+
+    // Only the first link seeds tags; js/api-sync.js re-sends cgVersionId on every save.
+    if (cgTouched && !prevCgVersionId && req.body.cgVersionId) {
+      await copyVersionTagsToProject(req.params.id, req.body.cgVersionId);
+    }
+
     res.json(rows[0]);
   } catch (err) { next(err); }
 });
@@ -438,17 +473,15 @@ router.get('/:id/tags', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PUT /api/projects/:id/tags — replace-all; rejected when the project has a linked cost grid version
+// PUT /api/projects/:id/tags — replace-all. Project tags are autonomous from the linked
+// proposal (Cycle 3a): they are seeded once by copyVersionTagsToProject, then edited here.
 router.put('/:id/tags', requireAuth, async (req, res, next) => {
   try {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { rows: projRows } = await query('SELECT cg_version_id FROM projects WHERE id = $1', [req.params.id]);
+    const { rows: projRows } = await query('SELECT 1 FROM projects WHERE id = $1', [req.params.id]);
     if (!projRows[0]) return res.status(404).json({ error: 'Project not found' });
-    if (projRows[0].cg_version_id) {
-      return res.status(409).json({ error: 'Tags for this project are managed from its linked proposal' });
-    }
 
     const { itemIds = [] } = req.body;
     if (!Array.isArray(itemIds)) return res.status(400).json({ error: 'itemIds must be an array' });
@@ -457,17 +490,17 @@ router.put('/:id/tags', requireAuth, async (req, res, next) => {
     try {
       await client.query('BEGIN');
       await client.query('DELETE FROM project_tags WHERE project_id = $1', [req.params.id]);
-      for (const itemId of itemIds) {
-        await client.query(
-          'INSERT INTO project_tags (project_id, item_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-          [req.params.id, itemId]
-        );
-      }
+      await client.query(
+        `INSERT INTO project_tags (project_id, item_id)
+         SELECT $1::uuid, unnest($2::uuid[]) ON CONFLICT DO NOTHING`,
+        [req.params.id, itemIds]
+      );
       await client.query('COMMIT');
       res.json({ ok: true });
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
       if (err.code === '23503') return res.status(400).json({ error: 'One or more tag items do not exist' });
+      if (err.code === '22P02') return res.status(400).json({ error: 'itemIds must be valid UUIDs' });
       throw err;
     } finally {
       client.release();
