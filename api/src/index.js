@@ -73,4 +73,5 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`PDash API running on port ${PORT}`);
+  require('./services/profile-worker').start();
 });
