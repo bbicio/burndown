@@ -285,6 +285,31 @@ resources (                           -- migration 020: standalone resource regi
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 )
 
+resource_aliases (                    -- migration 024 (Cycle 3b): links a free-text owner name found in
+                                       -- uploaded actuals to a resource
+  id               UUID PRIMARY KEY,
+  alias_normalized TEXT NOT NULL UNIQUE, -- match key: lowercased, accent-stripped, tokens sorted
+  display_name     TEXT NOT NULL,        -- the name as the admin saw/typed it, for the UI
+  resource_id      UUID REFERENCES resources(id) ON DELETE CASCADE,  -- NULL = ignored name (not a person)
+  created_by       UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by       UUID REFERENCES users(id) ON DELETE SET NULL,     -- last (re)assignment
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)
+
+profile_unmatched (                   -- migration 024 (Cycle 3b): owner names from actuals that could not be
+                                       -- matched (or matched ambiguously), rebuilt by
+                                       -- api/src/services/resource-matching.js refreshUnmatched().
+                                       -- Keyed by project_code, NOT project id: timesheets are keyed by
+                                       -- project_code and projects.code is not unique.
+  project_code           VARCHAR(100) NOT NULL,
+  name_normalized        TEXT NOT NULL,
+  display_name           TEXT NOT NULL,
+  hours                  NUMERIC NOT NULL DEFAULT 0,
+  candidate_resource_ids JSONB NOT NULL DEFAULT '[]',  -- non-empty = ambiguous (several active namesakes)
+  PRIMARY KEY (project_code, name_normalized)
+)
+
 attribute_lists (                     -- migration 020: generic, agnostic tag/taxonomy system —
                                        -- seeded with 4 empty lists (Market, Brand, Therapeutic Area,
                                        -- Service Type); admin can create more via attribute-lists.html
@@ -587,7 +612,11 @@ timesheets (
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | GET/POST | /api/resources | admin | List / create resource registry entries |
-| PATCH/DELETE | /api/resources/:id | admin | Update (validates non-empty on any of `firstName`/`lastName`/`email`/`jobTitle` present in the body, matching POST) / hard delete |
+| PATCH/DELETE | /api/resources/:id | admin | Update (validates non-empty on any of `firstName`/`lastName`/`email`/`jobTitle` present in the body, matching POST) / hard delete. Create, PATCH of `firstName`/`lastName`/`status`, and DELETE trigger a best-effort full rescan of the unmatched-names queue |
+| GET | /api/resources/unmatched | admin | (2026-09, Cycle 3b) Owner names from uploaded actuals that could not be matched to a resource — `[{ name_normalized, display_name, hours, projects, candidate_resource_ids }]`, hours summed and rounded to 2 decimals, ordered by hours desc; a non-empty `candidate_resource_ids` means ambiguous |
+| POST | /api/resources/unmatched/rescan | admin | Recompute the whole queue from all uploaded actuals — `{ ok, unmatched }` |
+| GET/POST | /api/resources/aliases | admin | List aliases (with `display_name`, `created_by`/`updated_by`) / assign a name — body `{ name, resourceId }` or `{ name, ignore: true }`; upserts on the normalized name (201 on create, 200 on re-assignment, 400 on empty/punctuation-only name, both/neither of `resourceId`/`ignore`, non-UUID or unknown `resourceId`); may point at an inactive resource (a leaver's history) |
+| DELETE | /api/resources/aliases/:id | admin | Remove an alias — the name returns to the queue (404 if absent) |
 | GET | /api/attribute-lists | ✅ | List (with active-item counts). 2026-09 (Cycle 2): relaxed from `admin` — `costgrid.html`/`project-config.html`'s Tags UI is used by non-admin editors, and the previous blanket admin-only guard silently broke it for them |
 | POST | /api/attribute-lists | admin | Create a taxonomy list — `slug` is generated once via `slugify()` and rejected with 400 if it would exceed 100 characters |
 | PATCH | /api/attribute-lists/:id | admin | Rename only — `slug` is never touched |
@@ -840,7 +869,8 @@ burndown/
                             convention. Full narrative: docs/api/lib.md
       middleware/         ← auth guard (requireAuth, requireAdmin, requireSysAdmin — see §3.1)
       db/                 ← PostgreSQL pool client, migrations/
-      services/           ← email (nodemailer), jwt
+      services/           ← email (nodemailer), jwt, resource-matching (Cycle 3b: refreshUnmatched — DB half of
+                            actuals-owner-name matching; rules in lib/match-resource.js). See docs/api/resources.md
       create-admin.js     ← CLI bootstrap: create/reset admin user (always role='admin')
       promote-sysadmin.js ← CLI: promote an existing user to role='sysadmin'
     Dockerfile
@@ -963,6 +993,7 @@ Current migrations:
 - `020_resources_attribute_lists.sql` — creates `resources`, `attribute_lists`, `attribute_list_items` (see §5.2); seeds 4 empty `attribute_lists` rows (Market, Brand, Therapeutic Area, Service Type)
 - `021_attribute_list_items_unique_label.sql` — case-insensitive unique index on `attribute_list_items(list_id, lower(label))`; disambiguates any pre-existing duplicate labels first so the index can never fail to create
 - `022_version_project_tags.sql` — creates `cost_grid_version_tags` and `project_tags` join tables (see §5.3/§5.4), each a composite-PK pair with a supporting index on `item_id`; Cycle 2 of the resource-allocation initiative
+- `024_resource_aliases_unmatched.sql` — creates `resource_aliases` and `profile_unmatched` (see §5; Cycle 3b, 2026-09-25); `profile_unmatched` is keyed by `project_code`, not project id
 - `023_backfill_project_tags.sql` — one-shot idempotent backfill: copies a version's tags into `project_tags` for every project with `cg_version_id` set and no tags (Cycle 3a, 2026-09-25); apply once, since a rerun would also refill deliberately cleared projects
 
 ---

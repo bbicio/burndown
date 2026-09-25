@@ -698,6 +698,32 @@ Second of four planned resource-allocation cycles (see `docs/superpowers/specs/2
 
 ---
 
+## 20. Resource Matching (2026-09, Cycle 3b)
+
+Third cycle toward AI-assisted resource allocation, first sub-cycle of the resource profile (see `docs/superpowers/specs/2026-09-25-resource-profile-design.md` §4, `docs/api/resources.md`). The free-text owner names in uploaded actuals are matched to `resources` by an order-insensitive normalized name; names that don't match (or match ambiguously) land in a queue in `team.html`'s "Unmatched names" panel, where an admin assigns them to a resource or ignores them (an alias). Matching is exact — no fuzzy matching.
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| MA-01 | Endpoints require auth | `GET /api/resources/unmatched` and `/aliases` with no session | 401 | ✓ |
+| MA-02 | Alias input validation | `POST /api/resources/aliases` with neither `resourceId` nor `ignore`, with both, an empty name, a punctuation-only name, a non-UUID or an unknown `resourceId` | 400 for each | ✓ |
+| MA-03 | Re-adding an alias upserts | `POST` the same name again (different case) | 200 (an update, not 201 and not a 500); still exactly one alias row for that normalized name | ✓ |
+| MA-04 | Upload feeds the queue | Upload a CSV/XLS of actuals (task/role valid on the project) | 201; the upload is unaffected if the queue refresh fails | ✓ |
+| MA-05 | Automatic matching | Upload owners "SURNAME  Name" (inverted, different case) for an existing resource, an unknown person, and a blank owner | The inverted name is matched (not queued); the unknown person is queued with its hours and project count; the blank owner never enters the queue | ✓ |
+| MA-06 | Assign a name | `POST` an alias for a queued name → resource | 201; the name leaves the queue; listed in `GET /aliases` | ✓ |
+| MA-07 | Remove an alias | `DELETE /api/resources/aliases/:id` | 200; the name returns to the queue; a second `DELETE` → 404 | ✓ |
+| MA-08 | Ignore a name | `POST` an alias with `ignore: true` | 201; the name leaves the queue | ✓ |
+| MA-09 | Inactive resource not auto-matched | Deactivate the matched resource, then reactivate | Its name returns to the queue, then matches again | ✓ |
+| MA-10 | Resource delete re-queues its names | Delete the resource; `POST /api/resources/unmatched/rescan` | 200; its names are queued again (aliases cascade-deleted); rescan → `{ ok: true }` | ✓ |
+| MA-11 | Alias to an inactive resource | `POST` an alias pointing at an inactive resource (a leaver) | 201; the name leaves the queue | ✓ |
+| MA-12 | Alias keeps the typed name | `POST` an alias, then `GET /aliases` | `display_name` is the name as sent, not only the normalized key | ✓ |
+| MA-13 | Re-assignment is audited | Another admin re-assigns an existing alias | 200; `created_by` unchanged, `updated_by` is the second admin | ✓ |
+| MA-14 | Hours have no float noise | Upload rows of 0.1 and 0.2 h for one unknown owner | Queue shows 0.3, not 0.30000000000000004 | ✓ |
+| MA-15 | Panel end to end | In `team.html`, create a resource matching a name in the actuals, then press **Rescan** | The unmatched name lists with hours/projects; after creating the matching resource it disappears; **Assign**/**Ignore** remove a row and it appears under "Existing aliases" (showing the name as typed); **Remove** returns it | |
+| MA-16 | Assign menu covers leavers | Open the "Assign to" select for a queued name | Ambiguous candidates first, then active resources, then inactive ones marked "(inactive)" | |
+| MA-17 | Ambiguous name | Two active resources with the same name in different order; queue a matching owner | The row carries an "ambiguous" badge and is never auto-matched | |
+
+---
+
 ## 17. Regression — Cross-feature
 
 | ID | Scenario | Expected | Auto |
