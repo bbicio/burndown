@@ -1198,6 +1198,9 @@ async function testResourceMatching() {
   const unknownRow = un.find(u => u.name_normalized === unknownKey);
   ok(!!unknownRow && Number(unknownRow.hours) === 6 && unknownRow.projects === 1,
     'MA-05 unknown owner is queued with its hours and project count');
+  ok(!!unknownRow && Array.isArray(unknownRow.project_list) && unknownRow.project_list.length === 1
+    && unknownRow.project_list[0].code === code && unknownRow.project_list[0].name === `__test_match_proj_${ts}__`,
+    'MA-05b unmatched row carries its project_list (code + resolved name)');
   ok(!un.some(u => u.name_normalized === ''), 'MA-05 blank owner never enters the queue');
   const roundRow = un.find(u => u.name_normalized === roundKey);
   ok(!!roundRow && roundRow.hours === 0.3, `MA-14 summed hours carry no floating-point noise (got ${roundRow?.hours})`);

@@ -4,7 +4,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const { normalizeName } = require('../lib/match-resource');
 const { refreshUnmatched } = require('../services/resource-matching');
-const { enqueueAllQuiet } = require('../services/profile-engine');
+const { enqueueAllQuiet, OLDEST_PROJECT_ORDER_BY } = require('../services/profile-engine');
 
 const router = express.Router();
 
@@ -26,15 +26,28 @@ function fkErrorMessage(err) {
 // GET /api/resources/unmatched — owner names from actuals that need an admin's attention
 router.get('/unmatched', async (req, res, next) => {
   try {
+    // pj: one row per code with its OLDEST project's name (projects.code is not unique — same
+    // tie-break already used by profile-jobs.js's console listing). Falls back to the bare code
+    // when no project row exists for it (e.g. actuals for a project never created in PDash).
     const { rows } = await query(
-      `SELECT name_normalized,
-              (array_agg(display_name ORDER BY hours DESC))[1] AS display_name,
-              ROUND(SUM(hours), 2)::float AS hours,
-              COUNT(DISTINCT project_code)::int AS projects,
-              (array_agg(candidate_resource_ids))[1] AS candidate_resource_ids
-       FROM profile_unmatched
-       GROUP BY name_normalized
-       ORDER BY SUM(hours) DESC, name_normalized`
+      `WITH pj AS (
+         SELECT DISTINCT ON (code) code, name
+         FROM projects
+         WHERE code IS NOT NULL
+         ORDER BY code, ${OLDEST_PROJECT_ORDER_BY}
+       )
+       SELECT u.name_normalized,
+              (array_agg(u.display_name ORDER BY u.hours DESC))[1] AS display_name,
+              ROUND(SUM(u.hours), 2)::float AS hours,
+              COUNT(DISTINCT u.project_code)::int AS projects,
+              array_agg(DISTINCT jsonb_build_object(
+                'code', u.project_code, 'name', COALESCE(pj.name, u.project_code)
+              )) AS project_list,
+              (array_agg(u.candidate_resource_ids))[1] AS candidate_resource_ids
+       FROM profile_unmatched u
+       LEFT JOIN pj ON pj.code = u.project_code
+       GROUP BY u.name_normalized
+       ORDER BY SUM(u.hours) DESC, u.name_normalized`
     );
     res.json(rows);
   } catch (err) { next(err); }

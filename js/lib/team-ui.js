@@ -27,7 +27,33 @@ export function sortResources(list, key, dir = 'asc') {
     .map(entry => entry.item);
 }
 
-function fold(s) {
+// items: any array. Clamps `page` into [1, totalPages] (an empty list has exactly one, empty,
+// page — never zero, so callers never divide by zero or show "Page 1 of 0"). Does not mutate.
+export function paginate(items, page, pageSize) {
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const clampedPage = Math.min(Math.max(1, page), totalPages);
+  const start = (clampedPage - 1) * pageSize;
+  return { pageItems: items.slice(start, start + pageSize), totalPages, page: clampedPage };
+}
+
+const UNMATCHED_COMPARATORS = {
+  name: (a, b) => cmp(a.display_name, b.display_name),
+  hours: (a, b) => (Number(a.hours) || 0) - (Number(b.hours) || 0),
+  projects: (a, b) => (Number(a.projects) || 0) - (Number(b.projects) || 0),
+};
+
+// Same shape/stability contract as sortResources (new array, ties fall back to name ascending
+// then original position), over the /api/resources/unmatched row shape instead of a resource.
+export function sortUnmatched(list, key, dir = 'asc') {
+  const sign = dir === 'desc' ? -1 : 1;
+  const primary = UNMATCHED_COMPARATORS[key] || UNMATCHED_COMPARATORS.hours;
+  return list
+    .map((item, index) => ({ item, index }))
+    .sort((x, y) => (primary(x.item, y.item) * sign) || cmp(x.item.display_name, y.item.display_name) || (x.index - y.index))
+    .map(entry => entry.item);
+}
+
+export function fold(s) {
   return String(s ?? '').normalize('NFD').replace(/\p{M}+/gu, '').toLowerCase().trim();
 }
 
@@ -84,3 +110,6 @@ export function buildProfileTree(profile, roles = []) {
 window.sortResources = sortResources;
 window.buildProfileTree = buildProfileTree;
 window.filterComboOptions = filterComboOptions;
+window.paginate = paginate;
+window.sortUnmatched = sortUnmatched;
+window.foldText = fold;

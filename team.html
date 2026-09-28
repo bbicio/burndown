@@ -63,7 +63,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="r in sortedResources" :key="r.id" style="cursor:pointer"
+              <tr v-for="r in pagedResources.pageItems" :key="r.id" style="cursor:pointer"
                   :class="{ 'table-active': r.id === selectedId }" @click="openDetail(r)">
                 <td class="fw-semibold">{{ r.first_name }} {{ r.last_name }}</td>
                 <td class="text-muted">{{ r.email }}</td>
@@ -84,6 +84,11 @@
             </tbody>
           </table>
           <div class="empty" v-else>No resources match the current filter.</div>
+          <div class="d-flex justify-content-between align-items-center mt-2" v-if="pagedResources.totalPages > 1">
+            <button class="btn btn-outline-secondary btn-sm" :disabled="teamPage <= 1" @click="teamPage--">‹ Previous</button>
+            <span class="text-muted small">Page {{ pagedResources.page }} of {{ pagedResources.totalPages }}</span>
+            <button class="btn btn-outline-secondary btn-sm" :disabled="teamPage >= pagedResources.totalPages" @click="teamPage++">Next ›</button>
+          </div>
         </div>
       </div>
       </template>
@@ -97,19 +102,31 @@
               <span v-if="rescanning" class="spinner-border spinner-border-sm me-1"></span>Rescan
             </button>
           </div>
+          <input v-model="unmatchedFilterText" type="text" class="form-control form-control-sm mb-2" style="max-width:280px"
+                 placeholder="Search name…">
           <p class="text-muted small mb-3">Names found in uploaded actuals that could not be matched to a resource. Assign each to a resource, or ignore names that are not people.</p>
           <div v-if="unmatchedError" class="alert alert-danger alert-sm mb-3">{{ unmatchedError }}</div>
-          <table class="table table-hover" v-if="unmatched.length">
+          <table class="table table-hover" v-if="filteredUnmatched.length">
             <thead>
-              <tr><th>Name in actuals</th><th class="text-end">Hours</th><th class="text-end">Projects</th><th>Assign to</th><th></th></tr>
+              <tr>
+                <th class="sortable-th" @click="unmatchedSortBy('name')">Name in actuals {{ unmatchedSortIndicator('name') }}</th>
+                <th class="sortable-th text-end" @click="unmatchedSortBy('hours')">Hours {{ unmatchedSortIndicator('hours') }}</th>
+                <th class="sortable-th text-end" @click="unmatchedSortBy('projects')">Projects {{ unmatchedSortIndicator('projects') }}</th>
+                <th>Assign to</th><th></th>
+              </tr>
             </thead>
             <tbody>
-              <tr v-for="u in unmatched" :key="u.name_normalized">
+              <tr v-for="u in pagedUnmatched.pageItems" :key="u.name_normalized">
                 <td class="fw-semibold">{{ u.display_name }}
                   <span v-if="u.candidate_resource_ids.length" class="badge bg-warning text-dark ms-1">ambiguous</span>
                 </td>
                 <td class="text-end">{{ u.hours }}</td>
-                <td class="text-end">{{ u.projects }}</td>
+                <td class="text-end">
+                  <a href="#" @click.prevent="toggleProjects(u)">{{ u.projects }}</a>
+                  <div v-if="expandedProjects.has(u.name_normalized)" class="text-muted small mt-1">
+                    {{ formatProjectList(u) }}
+                  </div>
+                </td>
                 <td>
                   <combo-select v-model="assignChoice[u.name_normalized]" :options="comboOptions(u)"
                                 placeholder="Select a resource…" :disabled="!!u._loading"></combo-select>
@@ -121,7 +138,12 @@
               </tr>
             </tbody>
           </table>
-          <div class="empty" v-else>No unmatched names.</div>
+          <div class="empty" v-else>{{ unmatched.length ? 'No unmatched names match the search.' : 'No unmatched names.' }}</div>
+          <div class="d-flex justify-content-between align-items-center mt-2" v-if="pagedUnmatched.totalPages > 1">
+            <button class="btn btn-outline-secondary btn-sm" :disabled="unmatchedPage <= 1" @click="unmatchedPage--">‹ Previous</button>
+            <span class="text-muted small">Page {{ pagedUnmatched.page }} of {{ pagedUnmatched.totalPages }}</span>
+            <button class="btn btn-outline-secondary btn-sm" :disabled="unmatchedPage >= pagedUnmatched.totalPages" @click="unmatchedPage++">Next ›</button>
+          </div>
 
           <details class="mt-3" v-if="aliases.length">
             <summary class="small text-muted" style="cursor:pointer">Existing aliases ({{ aliases.length }})</summary>
@@ -341,7 +363,7 @@
 
   <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script type="module" src="js/lib/team-ui.js?v=2"></script>
+  <script type="module" src="js/lib/team-ui.js?v=4"></script>
   <script defer src="js/api.js?v=7"></script>
   <script defer src="js/core.js?v=5"></script>
   <script defer src="js/settings.js"></script>
@@ -367,6 +389,11 @@
           aliases: [],
           assignChoice: {},
           unmatchedError: null,
+          unmatchedFilterText: '',
+          unmatchedSortKey: 'hours',
+          unmatchedSortDir: 'desc',
+          unmatchedPage: 1,
+          expandedProjects: new Set(),
           rescanning: false,
           filterText: '',
           showInactive: false,
@@ -374,6 +401,7 @@
           form: this.blankForm(),
           _resourceModal: null,
           pageTab: 'team',
+          teamPage: 1,
           sortKey: 'name',
           sortDir: 'asc',
           selectedId: null,
@@ -396,6 +424,20 @@
         sortedResources() {
           return window.sortResources(this.filteredResources, this.sortKey, this.sortDir);
         },
+        pagedResources() {
+          return window.paginate(this.sortedResources, this.teamPage, 25);
+        },
+        filteredUnmatched() {
+          const q = window.foldText(this.unmatchedFilterText);
+          if (!q) return this.unmatched;
+          return this.unmatched.filter(u => window.foldText(u.display_name).includes(q));
+        },
+        sortedUnmatched() {
+          return window.sortUnmatched(this.filteredUnmatched, this.unmatchedSortKey, this.unmatchedSortDir);
+        },
+        pagedUnmatched() {
+          return window.paginate(this.sortedUnmatched, this.unmatchedPage, 25);
+        },
         // Looked up in `resources` (not the filtered/sorted list) so the panel follows reloads and
         // is independent of the search box.
         selectedResource() {
@@ -417,6 +459,11 @@
         },
         // The open resource vanished (deleted, or reloaded away): don't leave a stale, empty panel.
         selectedResource(now) { if (this.selectedId && !now) this.closeDetail(); },
+        filterText() { this.teamPage = 1; },
+        showInactive() { this.teamPage = 1; },
+        sortKey() { this.teamPage = 1; },
+        sortDir() { this.teamPage = 1; },
+        sortedUnmatched() { this.unmatchedPage = 1; },
       },
       async created() {
         const user = await initNav('team', { breadcrumbs: [
@@ -507,6 +554,26 @@
         },
         sortIndicator(key) {
           return this.sortKey === key ? (this.sortDir === 'asc' ? '▲' : '▼') : '';
+        },
+        unmatchedSortBy(key) {
+          if (this.unmatchedSortKey === key) this.unmatchedSortDir = this.unmatchedSortDir === 'asc' ? 'desc' : 'asc';
+          else { this.unmatchedSortKey = key; this.unmatchedSortDir = 'asc'; }
+        },
+        unmatchedSortIndicator(key) {
+          return this.unmatchedSortKey === key ? (this.unmatchedSortDir === 'asc' ? '▲' : '▼') : '';
+        },
+        toggleProjects(u) {
+          const key = u.name_normalized;
+          if (this.expandedProjects.has(key)) this.expandedProjects.delete(key);
+          else this.expandedProjects.add(key);
+        },
+        // "Project name (CODE)", alphabetical by name — friendlier than bare project codes.
+        formatProjectList(u) {
+          return (u.project_list || [])
+            .slice()
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map(p => `${p.name} (${p.code})`)
+            .join(', ');
         },
         blankForm() {
           return { id: null, firstName: '', lastName: '', email: '', roleId: '',
