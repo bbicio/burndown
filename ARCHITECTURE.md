@@ -67,6 +67,7 @@ Backend authorization has two middleware tiers (`api/src/middleware/auth.js`): `
 | Broadcast notification | ✅ | ✅ | ❌ |
 | Manage resource registry / attribute lists (`team.html`/`attribute-lists.html`, 2026-09) | ✅ | ✅ | ❌ |
 | Read attribute lists (assign tags on a proposal/project one has access to, 2026-09 Cycle 2) | ✅ | ✅ | ✅ |
+| Manage profile-engine jobs (`profile-jobs.html`, 2026-09 Cycle 3d) | ✅ | ✅ | ❌ |
 
 "Modify a sysadmin" mutations (`PATCH /api/users/:id`, `POST /:id/anonymize`, `DELETE /:id`) are guarded by `sysAdminTargetError()` (`api/src/routes/users.js`), checked against the actor's *live* DB role (not the JWT-cached one `requireAdmin` reads elsewhere) — closing the same stale-token window `requireSysAdmin` closes for the DB-wipe routes, applied here because these routes can also grant/revoke sysadmin itself.
 
@@ -649,6 +650,12 @@ timesheets (
 | POST | /api/resources/unmatched/rescan | admin | Recompute the whole queue from all uploaded actuals — `{ ok, unmatched }` |
 | GET | /api/resources/:id/profile | admin | (2026-09, Cycle 3c) Cached experience profile — `{ profile, profile_computed_at }`; `profile` is `null` until calculated; 404 for an unknown or non-UUID id |
 | POST | /api/profile-jobs/run | admin | (2026-09, Cycle 3c) Drain the profile queue now (trigger `manual`) — `{ ok, projects, resources, errors }`; 409 if another run holds the advisory lock. See `docs/api/profile-engine.md` |
+| GET | /api/profile-jobs | admin | (2026-09, Cycle 3d) Console state for `profile-jobs.html` — `{ settings, schedule: { state, lastRunAt, nextRunAt }, queuedCount, projects: [...] }`, one row per project code known to the engine, in a single aggregated query |
+| PUT | /api/profile-jobs/settings | admin | (Cycle 3d) `{ enabled: boolean, intervalMin: 1-1440 }`, strict JSON types (400 on numeric/boolean strings, floats, out-of-range); 200 echoes the saved settings, read back from `app_settings` |
+| POST | /api/profile-jobs/rebuild | admin | (Cycle 3d) Queue every project code, then drain — `{ ok, projects, resources, errors }`; 409 if busy (the codes stay queued) |
+| POST | /api/profile-jobs/projects/:code/process | admin | (Cycle 3d) Queue and process only one code (`processQueue('manual', { only: code })`); 404 if the code is unknown to the engine, 409 if busy |
+| DELETE | /api/profile-jobs/projects/:code/queue | admin | (Cycle 3d) Take one code out of the queue without touching its already-computed contributions/profile; 404 if not tracked |
+| GET | /api/profile-jobs/runs | admin | (Cycle 3d) Latest 50 recorded runs, newest first — `{ id, started_at, finished_at, trigger_type, projects, resources, error }` |
 | GET/POST | /api/resources/aliases | admin | List aliases (with `display_name`, `created_by`/`updated_by`) / assign a name — body `{ name, resourceId }` or `{ name, ignore: true }`; upserts on the normalized name (201 on create, 200 on re-assignment, 400 on empty/punctuation-only name, both/neither of `resourceId`/`ignore`, non-UUID or unknown `resourceId`); may point at an inactive resource (a leaver's history) |
 | DELETE | /api/resources/aliases/:id | admin | Remove an alias — the name returns to the queue (404 if absent) |
 | GET | /api/attribute-lists | ✅ | List (with active-item counts). 2026-09 (Cycle 2): relaxed from `admin` — `costgrid.html`/`project-config.html`'s Tags UI is used by non-admin editors, and the previous blanket admin-only guard silently broke it for them |
@@ -934,7 +941,8 @@ burndown/
     lib/                  ← pure functions extracted for unit testing (vitest + jsdom), each an ES module
                             (`export function ...`) with a `window.<name> = <name>` bridge for classic-script
                             callers; modules: cfg-parse.js, planning-calc.js, status-rules.js, costgrid-calc.js,
-                            portfolio-calc.js, pipeline-calc.js, notif-browser.js, team-ui.js (team.html only; incl. buildProfileTree).
+                            portfolio-calc.js, pipeline-calc.js, notif-browser.js, team-ui.js (team.html only; incl. buildProfileTree),
+                            profile-jobs-ui.js (profile-jobs.html only, 2026-09, Cycle 3d).
                             Full narrative: docs/js/lib.md
     roles.js              ← `loadRolesFromApi`/`saveRoles` (no-op)/`getRoles` only — its former roles-management modal UI was confirmed unreachable and deleted in the 2026-08 dead-code cleanup; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role — role shape: `{ id, label, code, rate, rateOverrides }`
     ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js; `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects per-role `rateOverrides` and sends them to the API
@@ -967,6 +975,7 @@ burndown/
   _terms-editor.html      ← sysadmin-exclusive hidden page — Terms & Conditions editor, moved out of admin.html; linked from the sysadmin-only navbar menu (initNav('termseditor', ...)) — see §5's App Settings section. Full narrative: docs/pages/terms-editor.md
   team.html               ← resource registry CRUD, Vue 3 (CDN, no build step, same pattern as admin.html), admin or sysadmin, linked from the ⚙ Admin dropdown (2026-09). First of four planned resource-allocation cycles — see docs/superpowers/specs/2026-09-23-team-attribute-lists-design.md
   attribute-lists.html    ← generic, agnostic tag/taxonomy admin console (lists + items, no physical delete), Vue 3 (CDN, no build step, same pattern as admin.html), admin or sysadmin, linked from the ⚙ Admin dropdown (2026-09). As of Cycle 2 (2026-09), its lists/items are consumed by costgrid.html/project-config.html's Tags sections via js/tags.js
+  profile-jobs.html       ← profile-engine job console, Vue 3 (CDN, no build step, same pattern as team.html/admin.html), hidden (no menu entry, reached only from a "Profile processing →" button on timesheets.html), admin or sysadmin (2026-09, Cycle 3d). Full narrative: docs/pages/profile-jobs.md
   nginx.conf              ← denies dev-only toolchain artifacts (node_modules/, package.json, package-lock.json,
                             vitest.config.js, *.test.js, *.spec.js) even though it bind-mounts the repo root
   docker-compose.yml

@@ -782,6 +782,35 @@ Third sub-cycle of the resource profile (`docs/api/profile-engine.md`, `docs/pag
 
 ---
 
+## 23. Profile Jobs Console (2026-09-28, Cycle 3d)
+
+Admin-only console for the profile engine (`docs/pages/profile-jobs.md`, `docs/api/profile-engine.md`): see the queue, force a recalculation (all/one code/a full rebuild), pull a code out of the queue, tune the worker schedule, read recent run history. Hidden page, no menu entry, reached only via a "Profile processing →" button on `timesheets.html`. PJ-01 to PJ-13 are covered by `test-api.js`; the rest are the manual checklist (§8 of the design spec calls these non-deterministic). Pure logic (`nextRunInfo`, `shouldRecordRun`, `jobSettingsError`, `deriveProjectStatus`) is unit-tested with `node:test` (`job-schedule.test.js`); the frontend helpers (`filterJobProjects`, `sortJobProjects`, etc.) with vitest (`profile-jobs-ui.test.js`).
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| PJ-01 | Console routes require auth | Every console route (`GET /`, `PUT /settings`, `POST /run`, `POST /rebuild`, `POST /projects/:code/process`, `DELETE /projects/:code/queue`, `GET /runs`) with no session | 401 for all | ✓ |
+| PJ-02 | Console routes require admin | Every console route as a plain (non-admin) user | 403 for all | ✓ |
+| PJ-03 | Console state shape | `GET /api/profile-jobs` | `{ settings, schedule: { state, lastRunAt, nextRunAt }, queuedCount, projects[] }`; `queuedCount` equals the number of rows with `queued_at`; each row carries code, name, row/resource counts, queue state, last error and status | ✓ |
+| PJ-04 | Settings validation | `PUT /api/profile-jobs/settings` with `enabled`/`intervalMin` of the wrong JSON type (strings, floats, 0, 1441, missing fields, empty body) | 400 for every case; the stored settings are left unchanged | ✓ |
+| PJ-05 | Settings bounds and pause | `PUT` with `intervalMin` 1 and 1440 (accepted); `enabled: false` | 200, echoes saved settings; `GET` reads them back and `schedule.state` is `'paused'` with `nextRunAt: null` | ✓ |
+| PJ-06 | Process one code | Upload actuals for two codes (both queued); `POST /projects/:code1/process` | 200, exactly one project processed; that code leaves the queue and is "updated"; the other code is still "queued"; recorded as a `manual` run with 1 project | ✓ |
+| PJ-07 | Remove from queue leaves the profile alone | `DELETE /projects/:code/queue` on a queued code | 200; the code is no longer queued; the already-computed profile is byte-identical to before | ✓ |
+| PJ-08 | Unknown/invalid codes | `process`/`queue` on an unknown code, a blank code, a 101-character code | 404 for unknown, 400 for blank/too-long; the unknown code never appears in the list | ✓ |
+| PJ-09 | Code with dots and a space | Create a project whose code has dots and a space (`HITA.000001586.001`-style); process it via the URL-encoded code | 200, processed; listed under its exact code with the project name, 0 rows, status "updated" | ✓ |
+| PJ-10 | Code known only to `profile_project_state` | Delete a project with no actuals (the delete hook re-queues its code) | The code stays listed with its own code as name, 0 rows, queued; still processable and removable from the queue | ✓ |
+| PJ-11 | Rebuild all | `POST /rebuild` | 200, every queued code processed, no errors; queue is empty afterward; recorded as one `manual` run with the same project count | ✓ |
+| PJ-12 | Run history cap | Run the engine 51+ times | `GET /runs` returns exactly 50 rows, newest first | ✓ |
+| PJ-13 | Concurrent actions never 500 | `Rebuild all` and `Process` on the same code at (nearly) the same time | Each answers 200, or 409 with "A profile job is already running — try again in a moment." plus a note that the codes stay queued — never a 500 or a duplicate run | ✓ (timing-tolerant) |
+| PJ-14 | Badge on Timesheets | Upload actuals for a new code, reload Timesheets | The "Profile processing →" button shows a badge with the queue count; hidden when the queue is empty |  |
+| PJ-15 | Settings widget, no restart | Toggle scheduled processing off, wait ~2 min, confirm no new `scheduled` history rows, toggle back on | Applies without an API restart; "Saved — applies on the next tick (within 60 s)" shown after every save |  |
+| PJ-16 | Filters and sort | Search by part of a code and by project name; filter by status; sort by Code/Status/Last processed | Matches only the expected rows; never-processed rows sort last in both directions |  |
+| PJ-17 | Error row expand | With a row in Error status, hover the badge and click it | Tooltip and expanded row show the full error message |  |
+| PJ-18 | Auto-refresh | Leave the page open across a worker tick; switch tabs for a minute and back | List updates within 15 s automatically; refreshes immediately on return to the tab |  |
+| PJ-19 | Network error banner | Stop the API container briefly (isolated branch stack only, never the main stack) while the page is open | A global network-error banner appears and clears on the next successful refresh |  |
+| PJ-20 | Non-admin permissions | Log in as a non-admin user, navigate to `/profile-jobs.html` | Redirected to `/pipeline.html`; `GET /api/profile-jobs` in devtools returns 403 |  |
+
+---
+
 ## 17. Regression — Cross-feature
 
 | ID | Scenario | Expected | Auto |
