@@ -23,6 +23,23 @@ export function distributeFutureResidual(residualH, totalFutureWeeks, weeksByMon
   return weeksByMonth.flatMap(m => m.weekKeys.map(key => ({ key, hours: hPerWeek, isPulse: false })));
 }
 
+// ownerTotals: { [name]: actualsHours }; ownerStatus: { [name]: 'active' | 'inactive' } (a name
+// absent from ownerStatus is treated as 'active' — fail-open if the status fetch failed or this
+// name wasn't in the request batch). Renormalizes proportions over eligible (non-'inactive')
+// owners only, so an inactive owner's future share is redistributed among the rest, preserving
+// their relative ratio. allInactive: true means the caller should route 100% of future hours to
+// the existing TBD placeholder row instead (mirrors the pre-existing "no owners at all" path).
+export function redistributeExcludingInactive(ownerTotals, ownerStatus) {
+  const eligible = Object.keys(ownerTotals).filter(n => (ownerStatus[n] || 'active') !== 'inactive');
+  const eligibleTotal = eligible.reduce((s, n) => s + (ownerTotals[n] || 0), 0);
+  if (eligible.length === 0 || eligibleTotal <= 0.01) {
+    return { props: {}, allInactive: true };
+  }
+  const props = {};
+  eligible.forEach(n => { props[n] = ownerTotals[n] / eligibleTotal; });
+  return { props, allInactive: false };
+}
+
 // ── CALENDAR WEEK HELPERS (relocated verbatim from js/planning.js:92-148) ────
 
 // Count future weeks (Mon-based, weekEnd >= todayMidnight) that overlap the task range.
@@ -147,6 +164,7 @@ export function sumChildBreakdownHours(roleWeekMap, weekKeys, project, task) {
 window.matchesTaskRole = matchesTaskRole;
 window.computeResidual = computeResidual;
 window.distributeFutureResidual = distributeFutureResidual;
+window.redistributeExcludingInactive = redistributeExcludingInactive;
 window.getCalendarWeeks = getCalendarWeeks;
 window.workingDaysInWeek = workingDaysInWeek;
 window.getPlanningPeriods = getPlanningPeriods;
