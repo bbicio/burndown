@@ -852,7 +852,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               taskExportRows.push({ v: ['', '', res.role, '', rnd(soldH), rnd(consumedH), rnd(roleTbp),
                 ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (roleWeekData[k]?.total || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'role' });
 
-              const displayOwners = hasOwners ? ownerNames : ['—'];
+              const displayOwners = hasOwners ? (allOwnersInactive ? [...ownerNames, '—'] : ownerNames) : ['—'];
               displayOwners.forEach(ownerName => {
                 const isPlaceholder = ownerName === '—';
                 const ownerActualsH = ownerTotals[ownerName] || 0;
