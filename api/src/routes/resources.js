@@ -2,11 +2,42 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
-const { normalizeName } = require('../lib/match-resource');
+const { normalizeName, buildMatchContext, matchOwner } = require('../lib/match-resource');
 const { refreshUnmatched } = require('../services/resource-matching');
 const { enqueueAllQuiet, OLDEST_PROJECT_ORDER_BY } = require('../services/profile-engine');
 
 const router = express.Router();
+
+// resources: [{ id, first_name, last_name, status }]; aliases: [{ alias_normalized, resource_id }]
+// Exported for unit testing (no DB access needed — see resources.test.js).
+function resolveOwnerStatuses(names, resources, aliases) {
+  const ctx = buildMatchContext(resources, aliases);
+  const statusById = new Map(resources.map(r => [r.id, r.status]));
+  const result = {};
+  for (const name of names) {
+    const m = matchOwner(name, ctx);
+    result[name] = ((m.kind === 'matched' || m.kind === 'alias') && statusById.get(m.resourceId) === 'inactive')
+      ? 'inactive' : 'active';
+  }
+  return result;
+}
+
+// POST /api/resources/match-owners — { names: string[] } -> { [name]: 'active' | 'inactive' }
+// requireAuth only (not requireAdmin, unlike every other route in this file): planning.html is
+// visible to every authenticated user, and this response carries no PII, only a status per name.
+router.post('/match-owners', requireAuth, async (req, res, next) => {
+  try {
+    const { names } = req.body;
+    if (!Array.isArray(names)) return res.status(400).json({ error: 'names must be an array' });
+    if (names.length === 0) return res.json({});
+    if (names.length > 2000) return res.status(400).json({ error: 'Too many names (max 2000)' });
+    const [resourcesResult, aliasesResult] = await Promise.all([
+      query('SELECT id, first_name, last_name, status FROM resources'),
+      query('SELECT alias_normalized, resource_id FROM resource_aliases'),
+    ]);
+    res.json(resolveOwnerStatuses(names, resourcesResult.rows, aliasesResult.rows));
+  } catch (err) { next(err); }
+});
 
 router.use(requireAuth, requireAdmin);
 
@@ -230,3 +261,4 @@ router.delete('/:id', async (req, res, next) => {
 });
 
 module.exports = router;
+module.exports.resolveOwnerStatuses = resolveOwnerStatuses;
