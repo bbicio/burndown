@@ -269,6 +269,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         refreshTick: 0, // bumped after an XLS upload to force grouping-view computeds to
                         // recompute — timesheetData/config.projects are plain globals mutated
                         // in place by refreshTimesheetDataFromApi(), not Vue-reactive on their own
+        ownerStatusMap: {}, // { [ownerName]: 'active' | 'inactive' }, from POST /api/resources/match-owners;
+                             // an absent name is treated as 'active' by redistributeExcludingInactive (fail-open)
       };
     },
     computed: {
@@ -1322,10 +1324,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.classList.toggle('pp-fullwidth', this.fullWidth);
       },
       bumpRefresh() { this.refreshTick++; },
+      async refreshOwnerStatuses() {
+        const names = [...new Set(
+          timesheetData
+            .map(r => r.owner?.trim())
+            .filter(name => name) // drop empty/whitespace-only — the '—' placeholder is
+                                   // synthesized client-side from a missing owner, never a
+                                   // real name sent to the matching endpoint
+        )];
+        if (!names.length) { this.ownerStatusMap = {}; return; }
+        try {
+          const res = await fetch('/api/resources/match-owners', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ names }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          this.ownerStatusMap = await res.json();
+        } catch (err) {
+          console.warn('[planning] refreshOwnerStatuses failed, treating all owners as active:', err.message);
+          this.ownerStatusMap = {};
+        }
+      },
       async onFileInputChange(e) {
         const f = e.target.files[0];
         e.target.value = '';
-        if (f) await readXLS(f, () => this.bumpRefresh());
+        if (f) await readXLS(f, async () => { await this.refreshOwnerStatuses(); this.bumpRefresh(); });
       },
       async exportCurrentView() {
         const rnd = v => Math.round(v * 10) / 10;
@@ -1497,6 +1522,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi()]);
       await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
+      await this.refreshOwnerStatuses();
       this.initWindowIfNeeded();
 
       const urlProjectId = new URLSearchParams(window.location.search).get('projectId');
