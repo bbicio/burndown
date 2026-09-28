@@ -1107,8 +1107,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             const displayOwners = hasOwners ? (allOwnersInactive ? (ownerNames.includes('—') ? ownerNames : [...ownerNames, '—']) : ownerNames) : ['—'];
             displayOwners.forEach(ownerName => {
               const isPlaceholder = ownerName === '—';
+              // Sold hours reflect budget already attributed to work actually done, so they use the
+              // original actuals-proportional split (same formula this view used before this cycle,
+              // unaffected by inactive status) — only the FUTURE ("to be planned") split below
+              // excludes inactive owners. This keeps ownerSold moving with ownerActuals for every
+              // owner, active or not, and gives the synthetic TBD placeholder row (no real actuals
+              // of its own) 0 Sold rather than inheriting an active owner's already-earned budget.
+              const ownerActualsProp = totalOwnerH > 0.01 ? (ownerTotals[ownerName] || 0) / totalOwnerH : (isPlaceholder ? 1 : 0);
               const ownerProp    = isPlaceholder && (allOwnersInactive || totalOwnerH <= 0.01) ? 1 : (ownerFutureProps[ownerName] || 0);
-              const ownerSold    = soldH * ownerProp;
+              const ownerSold    = soldH * ownerActualsProp;
               const ownerActuals = ownerTotals[ownerName] || 0;
               const ownerTbpH    = taskTbp * ownerProp;
 
