@@ -63,7 +63,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="r in sortedResources" :key="r.id" style="cursor:pointer"
+              <tr v-for="r in pagedResources.pageItems" :key="r.id" style="cursor:pointer"
                   :class="{ 'table-active': r.id === selectedId }" @click="openDetail(r)">
                 <td class="fw-semibold">{{ r.first_name }} {{ r.last_name }}</td>
                 <td class="text-muted">{{ r.email }}</td>
@@ -84,6 +84,11 @@
             </tbody>
           </table>
           <div class="empty" v-else>No resources match the current filter.</div>
+          <div class="d-flex justify-content-between align-items-center mt-2" v-if="pagedResources.totalPages > 1">
+            <button class="btn btn-outline-secondary btn-sm" :disabled="teamPage <= 1" @click="teamPage--">‹ Previous</button>
+            <span class="text-muted small">Page {{ pagedResources.page }} of {{ pagedResources.totalPages }}</span>
+            <button class="btn btn-outline-secondary btn-sm" :disabled="teamPage >= pagedResources.totalPages" @click="teamPage++">Next ›</button>
+          </div>
         </div>
       </div>
       </template>
@@ -374,6 +379,7 @@
           form: this.blankForm(),
           _resourceModal: null,
           pageTab: 'team',
+          teamPage: 1,
           sortKey: 'name',
           sortDir: 'asc',
           selectedId: null,
@@ -396,6 +402,9 @@
         sortedResources() {
           return window.sortResources(this.filteredResources, this.sortKey, this.sortDir);
         },
+        pagedResources() {
+          return window.paginate(this.sortedResources, this.teamPage, 25);
+        },
         // Looked up in `resources` (not the filtered/sorted list) so the panel follows reloads and
         // is independent of the search box.
         selectedResource() {
@@ -417,6 +426,7 @@
         },
         // The open resource vanished (deleted, or reloaded away): don't leave a stale, empty panel.
         selectedResource(now) { if (this.selectedId && !now) this.closeDetail(); },
+        sortedResources() { this.teamPage = 1; },
       },
       async created() {
         const user = await initNav('team', { breadcrumbs: [
