@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Profile processing</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/tokens.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=13">
+  <link rel="stylesheet" href="css/admin-crud.css?v=1">
+  <style>
+    .sortable-th { cursor: pointer; user-select: none; white-space: nowrap; }
+    .sortable-th:hover { text-decoration: underline; }
+    .job-st { font-size: var(--text-2xs); padding: .2rem .55rem; border-radius: var(--radius-full); font-weight: 600; white-space: nowrap; }
+    .job-st-error       { background: var(--color-danger-bg);  color: var(--color-danger); cursor: pointer; }
+    .job-st-queued      { background: var(--color-warning-bg); color: var(--color-warning-text); }
+    .job-st-updated     { background: var(--color-success-bg); color: var(--color-success); }
+    .job-st-unprocessed { background: var(--surface-medium);   color: var(--text-muted); }
+    .jobs-scroll { max-height: 60vh; overflow-y: auto; }
+    .jobs-scroll thead th { position: sticky; top: 0; z-index: 1; }
+    .error-detail td { background: var(--color-danger-bg); color: var(--color-danger); font-size: var(--text-xs); white-space: pre-wrap; }
+    .hint { font-size: var(--text-xs); color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+<div id="nav-container"></div>
+
+<div id="app" v-cloak>
+
+  <div class="page app-container" v-if="ready">
+
+    <div class="page-header">
+      <h1>Profile processing
+        <span class="text-muted fw-normal" style="font-size:1rem">({{ queuedCount }} queued)</span>
+      </h1>
+    </div>
+
+    <!-- Global alert: network failures / non-JSON responses (kept separate from action errors) -->
+    <div v-if="loadError" class="alert alert-danger alert-sm mb-3">{{ loadError }}</div>
+    <div v-if="actionError" class="alert alert-warning alert-sm mb-3 d-flex justify-content-between align-items-start">
+      <span>{{ actionError }}</span>
+      <button type="button" class="btn-close ms-2" aria-label="Dismiss" @click="actionError = null"></button>
+    </div>
+    <div v-if="actionInfo" class="alert alert-success alert-sm mb-3 d-flex justify-content-between align-items-start">
+      <span>{{ actionInfo }}</span>
+      <button type="button" class="btn-close ms-2" aria-label="Dismiss" @click="actionInfo = null"></button>
+    </div>
+
+    <p class="hint mb-3">
+      Resource experience profiles are rebuilt in the background from uploaded actuals, one project code at a time.
+      Uploads and changes to tags, aliases and resources put project codes in the queue; the worker processes the
+      queue on the schedule below.
+    </p>
+
+    <!-- ── SETTINGS + GLOBAL ACTIONS ─────────────────────────── -->
+    <div class="card mb-3">
+      <div class="p-3">
+        <div class="d-flex flex-wrap align-items-end gap-4">
+          <div class="form-check form-switch mb-1">
+            <input class="form-check-input" type="checkbox" role="switch" id="jobEnabled"
+                   v-model="form.enabled" :disabled="!!busyAction">
+            <label class="form-check-label" for="jobEnabled">Scheduled processing {{ form.enabled ? 'on' : 'off' }}</label>
+          </div>
+          <div>
+            <label class="form-label" for="jobInterval">Interval (minutes)</label>
+            <input id="jobInterval" type="number" min="1" max="1440" step="1"
+                   class="form-control form-control-sm" style="width:120px"
+                   :class="{ 'is-invalid': !intervalValid }"
+                   v-model.number="form.intervalMin" :disabled="!!busyAction">
+          </div>
+          <button class="btn btn-primary btn-sm" :disabled="!settingsDirty || !intervalValid || !!busyAction" @click="saveSettings">
+            <span v-if="busyAction === 'save'" class="spinner-border spinner-border-sm me-1"></span>Save
+          </button>
+          <div class="ms-auto d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" :disabled="!!busyAction" @click="recalculateNow">
+              <span v-if="busyAction === 'run'" class="spinner-border spinner-border-sm me-1"></span>Recalculate now
+            </button>
+            <button class="btn btn-outline-danger btn-sm" :disabled="!!busyAction" @click="confirmRebuild">
+              <span v-if="busyAction === 'rebuild'" class="spinner-border spinner-border-sm me-1"></span>Rebuild all
+            </button>
+          </div>
+        </div>
+        <div v-if="!intervalValid" class="text-danger small mt-1">Enter a whole number of minutes between 1 and 1440.</div>
+        <div class="small mt-2">
+          <strong>Next scheduled run:</strong> {{ nextRunText }}
+          <span v-if="schedule.lastRunAt" class="text-muted"> · last scheduled run {{ formatDateTime(schedule.lastRunAt) }}</span>
+        </div>
+        <div class="hint mt-1">
+          <strong>Recalculate now</strong> processes the queue immediately; <strong>Rebuild all</strong> queues every project code first.
+          The estimate restarts after an API restart, has the 60-second granularity of the worker tick, and manual runs do not move it.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PROJECT CODES ───────────────────────────────────────── -->
+    <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
+      <input v-model="search" type="text" class="form-control form-control-sm" style="max-width:280px"
+             placeholder="Search code or project…">
+      <select v-model="statusFilter" class="form-select form-select-sm" style="width:auto">
+        <option value="all">All statuses</option>
+        <option value="queued">Queued</option>
+        <option value="error">Error</option>
+        <option value="updated">Updated</option>
+      </select>
+      <span class="hint ms-auto">{{ visibleProjects.length }} of {{ projects.length }} project codes · refreshes every 15 s</span>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body jobs-scroll">
+        <table class="table table-hover" v-if="visibleProjects.length">
+          <thead>
+            <tr>
+              <th>Project</th>
+              <th class="sortable-th" @click="sortBy('code')">Code {{ sortIndicator('code') }}</th>
+              <th class="text-end">Actuals rows</th>
+              <th class="text-end">Matched resources</th>
+              <th class="sortable-th" @click="sortBy('status')">Status {{ sortIndicator('status') }}</th>
+              <th class="sortable-th" @click="sortBy('lastProcessed')">Last processed {{ sortIndicator('lastProcessed') }}</th>
+              <th>Next processing</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="p in visibleProjects" :key="p.project_code">
+              <tr>
+                <td>{{ p.project_name }}</td>
+                <td><code>{{ p.project_code }}</code></td>
+                <td class="text-end">{{ Number(p.row_count).toLocaleString('en-US') }}</td>
+                <td class="text-end">{{ p.resource_count }}</td>
+                <td style="white-space:nowrap">
+                  <span :class="jobStatusClass(p.status)" :title="p.last_error || ''"
+                        @click="p.last_error && toggleExpanded(p.project_code)">{{ jobStatusLabel(p.status) }}<span v-if="p.last_error"> {{ expanded[p.project_code] ? '▴' : '▾' }}</span></span>
+                  <span v-if="p.status === 'error' && p.queued_at" class="text-muted small ms-1">(queued)</span>
+                </td>
+                <td class="text-muted" style="white-space:nowrap">{{ formatDateTime(p.last_processed_at) }}</td>
+                <td class="text-muted" style="white-space:nowrap">{{ describeNextRun(schedule, p) }}</td>
+                <td class="text-end" style="white-space:nowrap">
+                  <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!busyAction" @click="processProject(p)">
+                    <span v-if="busyAction === 'process:' + p.project_code" class="spinner-border spinner-border-sm"></span>
+                    <span v-else>Process</span>
+                  </button>
+                  <button v-if="p.queued_at" class="btn btn-outline-danger btn-action" :disabled="!!busyAction" @click="confirmRemove(p)">
+                    <span v-if="busyAction === 'remove:' + p.project_code" class="spinner-border spinner-border-sm"></span>
+                    <span v-else>Remove from queue</span>
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="p.last_error && expanded[p.project_code]" class="error-detail">
+                <td colspan="8">{{ p.last_error }}</td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+        <div class="empty" v-else>{{ projects.length ? 'No project codes match the current filters.' : 'No actuals uploaded yet.' }}</div>
+      </div>
+    </div>
+
+    <!-- ── RUN HISTORY ─────────────────────────────────────────── -->
+    <details class="mb-4">
+      <summary class="fw-semibold" style="cursor:pointer">Run history <span class="text-muted fw-normal small">(last {{ runs.length }})</span></summary>
+      <div class="card mt-2">
+        <div class="card-body jobs-scroll">
+          <table class="table table-sm" v-if="runs.length">
+            <thead>
+              <tr>
+                <th>When</th><th>Type</th><th class="text-end">Projects</th><th class="text-end">Resource contributions</th>
+                <th>Duration</th><th>Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in runs" :key="r.id">
+                <td style="white-space:nowrap">{{ formatDateTime(r.started_at) }}</td>
+                <td>{{ r.trigger_type }}</td>
+                <td class="text-end">{{ r.projects }}</td>
+                <td class="text-end">{{ r.resources }}</td>
+                <td style="white-space:nowrap">{{ formatDuration(r.started_at, r.finished_at) }}</td>
+                <td class="small" :class="r.error ? 'text-danger' : 'text-muted'" style="max-width:420px;white-space:pre-wrap">{{ r.error || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="empty" v-else>No runs recorded yet.</div>
+        </div>
+      </div>
+    </details>
+
+  </div>
+
+  <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
+    <div class="spinner-border text-secondary"></div>
+  </div>
+
+  <!-- Confirm (used by showConfirm() in js/core.js) -->
+  <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+      <div class="modal-content shadow-lg">
+        <div class="modal-header border-0 pb-1">
+          <h6 class="modal-title fw-bold" id="confirmModalTitle">⚠️ Confirm</h6>
+        </div>
+        <div class="modal-body pt-1">
+          <p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p>
+        </div>
+        <div class="modal-footer border-0 pt-2">
+          <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-danger" id="confirmModalOk">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script type="module" src="js/lib/profile-jobs-ui.js?v=1"></script>
+<script defer src="js/api.js?v=7"></script>
+<script defer src="js/core.js?v=5"></script>
+<script defer src="js/settings.js"></script>
+<script type="module" src="js/lib/notif-browser.js?v=2"></script>
+<script defer src="js/notifications.js?v=2"></script>
+<script defer src="js/nav.js?v=9"></script>
+<script type="module">
+  // Module-level (not reactive): timers and the refresh sequence number.
+  let refreshTimer = null;
+  let onVisibility = null;
+  let refreshSeq = 0;
+
+  const REFRESH_MS = 15000;
+  const BUSY_TEXT = 'A profile job is already running — try again in a moment.';
+  const NETWORK_TEXT = 'Could not reach the server, or it returned an unexpected response. The page retries every 15 seconds.';
+
+  Vue.createApp({
+    data() {
+      return {
+        ready: false,
+        loadError: null,        // network / non-JSON failures (global alert)
+        actionError: null,      // failures of an action (validation, 404, 409)
+        actionInfo: null,       // confirmation of a completed action
+        settings: { enabled: true, intervalMin: 10 },   // as stored on the server
+        form: { enabled: true, intervalMin: 10 },       // the settings widget
+        schedule: { state: 'due', lastRunAt: null, nextRunAt: null },
+        queuedCount: 0,
+        projects: [],
+        runs: [],
+        search: '',
+        statusFilter: 'all',
+        sortKey: 'code',
+        sortDir: 'asc',
+        expanded: {},           // project_code → true when its error row is open
+        busyAction: null,       // anti double-click guard: the action in progress, or null
+      };
+    },
+
+    computed: {
+      visibleProjects() {
+        const filtered = window.filterJobProjects(this.projects, { search: this.search, status: this.statusFilter });
+        return window.sortJobProjects(filtered, this.sortKey, this.sortDir);
+      },
+      intervalValid() {
+        const v = this.form.intervalMin;
+        return typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 1440;
+      },
+      settingsDirty() {
+        return this.form.enabled !== this.settings.enabled || this.form.intervalMin !== this.settings.intervalMin;
+      },
+      nextRunText() {
+        return window.describeNextRun(this.schedule, null);
+      },
+    },
+
+    async created() {
+      const user = await initNav('timesheets', { breadcrumbs: [
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Timesheets', href: '/timesheets.html' },
+        { label: 'Profile processing' },
+      ]});
+      if (!user) return;
+      if (!['admin', 'sysadmin'].includes(user.role)) { window.location.href = '/pipeline.html'; return; }
+      await this.refresh();
+      this.ready = true;
+      this.startAutoRefresh();
+    },
+
+    beforeUnmount() {
+      this.stopAutoRefresh();
+    },
+
+    methods: {
+      jobStatusLabel(s) { return window.jobStatusLabel(s); },
+      jobStatusClass(s) { return window.jobStatusClass(s); },
+      describeNextRun(schedule, p) { return window.describeNextRun(schedule, p); },
+      formatDateTime(v) { return window.formatDateTime(v); },
+      formatDuration(a, b) { return window.formatDuration(a, b); },
+
+      // fetch wrapper: { ok, status, data, network }. network = true when the request failed or the
+      // response was not JSON (e.g. a proxy error page).
+      async request(method, url, body) {
+        const hasBody = body !== undefined && body !== null;
+        let res;
+        try {
+          res = await fetch(url, {
+            method,
+            credentials: 'same-origin',
+            headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
+            body: hasBody ? JSON.stringify(body) : undefined,
+          });
+        } catch {
+          return { ok: false, status: 0, data: null, network: true };
+        }
+        let data;
+        try { data = await res.json(); } catch { return { ok: false, status: res.status, data: null, network: true }; }
+        return { ok: res.ok, status: res.status, data, network: false };
+      },
+
+      async refresh() {
+        const seq = ++refreshSeq;
+        const [state, runs] = await Promise.all([
+          this.request('GET', '/api/profile-jobs'),
+          this.request('GET', '/api/profile-jobs/runs'),
+        ]);
+        if (seq !== refreshSeq) return;            // a newer refresh superseded this one
+        if (state.network || runs.network) { this.loadError = NETWORK_TEXT; return; }
+        if (!state.ok || !runs.ok) {
+          this.loadError = (state.data && state.data.error) || (runs.data && runs.data.error)
+            || 'Failed to load the profile processing state.';
+          return;
+        }
+        this.loadError = null;
+        const keepForm = this.settingsDirty;        // never overwrite unsaved edits
+        this.settings = { ...state.data.settings };
+        if (!keepForm) this.form = { ...state.data.settings };
+        this.schedule = state.data.schedule;
+        this.queuedCount = state.data.queuedCount;
+        this.projects = state.data.projects;
+        this.runs = runs.data;
+      },
+
+      startAutoRefresh() {
+        this.stopAutoRefresh();
+        const tick = () => {
+          if (document.visibilityState === 'visible' && !this.busyAction) this.refresh();
+        };
+        refreshTimer = setInterval(tick, REFRESH_MS);   // skipped while the tab is in the background
+        onVisibility = tick;                            // catch up as soon as the tab is visible again
+        document.addEventListener('visibilitychange', onVisibility);
+      },
+      stopAutoRefresh() {
+        if (refreshTimer) clearInterval(refreshTimer);
+        if (onVisibility) document.removeEventListener('visibilitychange', onVisibility);
+        refreshTimer = null;
+        onVisibility = null;
+      },
+
+      // Runs one action: guard, request, error routing, then always a refresh.
+      async runAction(name, method, url, body, { onSuccess, busyNote } = {}) {
+        if (this.busyAction) return;
+        this.busyAction = name;
+        this.actionError = null;
+        this.actionInfo = null;
+        try {
+          const r = await this.request(method, url, body);
+          // actionError (not loadError): the follow-up refresh() below runs regardless and, on
+          // success, clears loadError — a network/non-JSON failure on the action itself would
+          // otherwise vanish silently the moment that refresh succeeds (e.g. Rebuild all behind a
+          // proxy timeout: the server keeps working after the response is lost).
+          if (r.network) {
+            this.actionError = 'No response from the server — the action may still be running; the list refreshes automatically.';
+            return;
+          }
+          if (r.status === 409) { this.actionError = busyNote ? `${BUSY_TEXT} ${busyNote}` : BUSY_TEXT; return; }
+          if (!r.ok) { this.actionError = (r.data && r.data.error) || 'The action failed.'; return; }
+          if (onSuccess) onSuccess(r.data);
+        } finally {
+          this.busyAction = null;
+          await this.refresh();
+        }
+      },
+
+      runSummary(prefix, d) {
+        const n = d.projects || 0;
+        const r = d.resources || 0;
+        const e = (d.errors || []).length;
+        return `${prefix}: ${n} project code${n === 1 ? '' : 's'} processed, ${r} resource contribution${r === 1 ? '' : 's'} rebuilt`
+          + (e ? `, ${e} failed (see the Error rows).` : '.');
+      },
+
+      saveSettings() {
+        if (!this.settingsDirty || !this.intervalValid) return;
+        return this.runAction('save', 'PUT', '/api/profile-jobs/settings',
+          { enabled: this.form.enabled, intervalMin: this.form.intervalMin },
+          {
+            onSuccess: (data) => {
+              this.settings = { enabled: data.enabled, intervalMin: data.intervalMin };
+              this.form = { ...this.settings };
+              this.actionInfo = 'Saved — applies on the next tick (within 60 s).';
+            },
+          });
+      },
+
+      recalculateNow() {
+        return this.runAction('run', 'POST', '/api/profile-jobs/run', null, {
+          onSuccess: (d) => { this.actionInfo = this.runSummary('Recalculation finished', d); },
+        });
+      },
+
+      confirmRebuild() {
+        if (this.busyAction) return;
+        showConfirm(
+          'Rebuild every profile?\n\nAll project codes are queued and processed again now. On a large database this can take a while.',
+          () => this.rebuildAll(), null, '⚠️ Rebuild all');
+      },
+      rebuildAll() {
+        return this.runAction('rebuild', 'POST', '/api/profile-jobs/rebuild', null, {
+          busyNote: 'All project codes have been queued and will be processed by the running job or the next one.',
+          onSuccess: (d) => { this.actionInfo = this.runSummary('Rebuild finished', d); },
+        });
+      },
+
+      processProject(p) {
+        const code = p.project_code;
+        return this.runAction('process:' + code, 'POST',
+          `/api/profile-jobs/projects/${encodeURIComponent(code)}/process`, null, {
+            busyNote: 'This project code has been queued and will be processed by the running job or the next one.',
+            onSuccess: (d) => { this.actionInfo = this.runSummary(`${code} processed`, d); },
+          });
+      },
+
+      confirmRemove(p) {
+        if (this.busyAction) return;
+        const code = p.project_code;
+        showConfirm(
+          `Remove "${code}" from the queue?\n\nThe profile already calculated does not change until this project code is processed again (by a new upload, a change that queues it, Process or Rebuild all).`,
+          () => this.removeFromQueue(code), null, '⚠️ Remove from queue');
+      },
+      removeFromQueue(code) {
+        return this.runAction('remove:' + code, 'DELETE',
+          `/api/profile-jobs/projects/${encodeURIComponent(code)}/queue`, null, {
+            onSuccess: () => { this.actionInfo = `${code} removed from the queue.`; },
+          });
+      },
+
+      toggleExpanded(code) {
+        this.expanded = { ...this.expanded, [code]: !this.expanded[code] };
+      },
+      sortBy(key) {
+        if (this.sortKey === key) this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+        else { this.sortKey = key; this.sortDir = 'asc'; }
+      },
+      sortIndicator(key) {
+        return this.sortKey === key ? (this.sortDir === 'asc' ? '▲' : '▼') : '';
+      },
+    },
+  }).mount('#app');
+</script>
+</body>
+</html>

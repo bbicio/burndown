@@ -24,7 +24,7 @@ Hooks: timesheets upload/delete (uploaded/deleted codes); projects.js tags PUT, 
 - update the state row (`last_processed_at`, `last_rows`, `last_resources`, `last_error = NULL`), commit, then refresh the Unmatched list for that code (best-effort);
 - on failure: rollback, set `last_error` and re-queue the code, and exclude it for the rest of the run so the run terminates.
 
-After the loop: `profile_job_runs` gets a row for `manual` runs always, for `scheduled`/`bootstrap` only if they processed something or failed; history is pruned to the latest 50. If at least one code was processed, every resource with `profile_computed_at IS NULL` is stamped (so a person with no matched actuals reads "No actuals matched" instead of "Not calculated"). The advisory unlock is in `finally`; if it fails the connection is destroyed rather than returned to the pool.
+After the loop: `profile_job_runs` gets a row for `manual` runs always; for `scheduled`/`bootstrap`, only if they processed something, or failed with an error different from the last recorded run (`shouldRecordRun`, `job-schedule.js`) — a repeated identical failure is throttled rather than writing a row every interval. History is pruned to the latest 50. If at least one code was processed, every resource with `profile_computed_at IS NULL` is stamped (so a person with no matched actuals reads "No actuals matched" instead of "Not calculated"). The advisory unlock is in `finally`; if it fails the connection is destroyed rather than returned to the pool.
 
 ## Worker and settings
 
@@ -34,10 +34,10 @@ After the loop: `profile_job_runs` gets a row for `manual` runs always, for `sch
 
 `POST /api/profile-jobs/run` (`requireAuth, requireAdmin`): `processQueue('manual')`; `{ ok, projects, resources, errors }`, or 409 `A profile job is already running`. `GET /api/resources/:id/profile`: see `docs/api/resources.md`. Integration tests PE-01..PE-14 (+PE-11b) in `test-api.js`.
 
+Cycle 3d adds the rest of the console API in the same file (`api/src/routes/profile-jobs.js`): `GET /api/profile-jobs` (settings, next-run estimate, queue size, per-code list), `PUT /settings`, `POST /rebuild`, `POST /projects/:code/process` (single-code run via `processQueue(trigger, { only })`), `DELETE /projects/:code/queue` (`dequeueProject`), `GET /runs`. Page: `profile-jobs.html`, reached only from a button on `timesheets.html`. See `docs/pages/profile-jobs.md`.
+
 ## Known limits / follow-ups
 
-- No UI yet to force a recalculation: sub-cycle 3d (console `profile-jobs.html`) will add Recalculate now / Rebuild all / interval widget / history.
-- A permanently failing code re-queues itself and writes an error run row every interval, which eventually flushes the 50-row history.
 - The worker's last-run timestamp is in memory only (a restart runs a scheduled run on the first tick).
 - Attribute-list item active/inactive status change and resource `roleId`/`email` PATCH do not re-queue (no visible effect today).
 - `profile_job_enabled`: any value other than `'false'` counts as enabled.

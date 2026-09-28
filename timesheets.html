@@ -46,6 +46,11 @@
       <h1>Timesheets
         <span class="text-muted fw-normal" style="font-size:1rem" v-if="rows.length">({{ rows.length }} project{{ rows.length !== 1 ? 's' : '' }})</span>
       </h1>
+      <a href="/profile-jobs.html" class="btn btn-outline-secondary btn-sm">
+        Profile processing →
+        <span v-if="profileQueued > 0" class="badge bg-warning text-dark ms-1"
+              :title="profileQueued + ' project code' + (profileQueued === 1 ? '' : 's') + ' waiting for profile processing'">{{ profileQueued }}</span>
+      </a>
     </div>
 
     <!-- ── GLOBAL ERROR ──────────────────────────────────── -->
@@ -228,6 +233,7 @@
         codeFilter: '',
         sortBy: null,
         sortDir: 'asc',
+        profileQueued: 0,      // badge on "Profile processing →" (hidden when 0)
       };
     },
 
@@ -282,10 +288,20 @@
         : (this.pipelineYears.length ? this.pipelineYears[0].year : 0);
 
       this.ready = true;
+      this.loadProfileQueueCount();   // badge only: not awaited, never blocks the page
     },
 
     methods: {
       fmtMoney,
+      // One GET /api/profile-jobs for the badge; any failure is ignored (the badge just stays hidden).
+      async loadProfileQueueCount() {
+        try {
+          const res = await fetch('/api/profile-jobs', { credentials: 'same-origin' });
+          if (!res.ok) return;
+          const data = await res.json();
+          this.profileQueued = Number(data.queuedCount) || 0;
+        } catch { /* optional badge: ignore */ }
+      },
       toggleSort(field) {
         if (this.sortBy !== field) { this.sortBy = field; this.sortDir = 'asc'; return; }
         if (this.sortDir === 'asc') { this.sortDir = 'desc'; return; }
