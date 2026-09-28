@@ -16,7 +16,8 @@ A resource's Experience profile in `team.html` shows the **topics** of the work 
 6. Association is **presence-based, no hour weighting**: project topics → every resource with a contribution on that project code; task topics → only resources with actuals on that task (name match, same normalization as the engine).
 7. Only **approved** topics appear in profiles. Admin edits (rename, approve, reject, merge) apply to profiles **immediately** — names/status are resolved at read time.
 8. Topic management UI is a **"Topics (N)" tab in `attribute-lists.html`** (N = proposed count).
-9. **The LLM never blocks the system.** Saving a description never calls the LLM; extraction runs only in the worker; any LLM failure (no key, timeout, HTTP error, unparsable answer) is recorded and retried next tick while the rest of the profile (hours, tags, previously extracted topics) is still built.
+9. Topics are **competences, never attribute-list values**; equivalence and near-duplicates are judged by the LLM in the same single call per project (no second verification pass).
+10. **The LLM never blocks the system.** Saving a description never calls the LLM; extraction runs only in the worker; any LLM failure (no key, timeout, HTTP error, unparsable answer) is recorded and retried next tick while the rest of the profile (hours, tags, previously extracted topics) is still built.
 
 ## 3. Data
 
@@ -40,8 +41,22 @@ Migrations are applied by hand to the real `pdash-db` and to any test-branch sta
 
 - Runs **before** the per-code transaction in `processNext`, never inside it (no LLM call while row locks are held).
 - For the project resolved from the code (oldest by `created_at, id`, as the engine already does): compute a SHA-256 of the description and of each task description; compare with `description_topic_state.text_hash`. Unchanged or empty text → no call. A text that became empty deletes its state and links.
-- One request per project carries all changed texts plus the vocabulary (approved + proposed as reusable; rejected as "do not use"). Contract: per text, 0–5 topics, English, reuse existing names when pertinent; JSON output.
-- Response is validated strictly (schema, max 5, non-empty names, string length cap). A name whose `name_normalized` matches an existing topic links to it (following `merged_into`); a rejected match is silently dropped; anything else is created `proposed`.
+- One request **per project** (never per resource) carries all changed texts plus the context: the vocabulary (approved + proposed as reusable; rejected as "do not use") and **all active values of every attribute list** (Market, Brand, Therapeutic Area, Service Type, …).
+
+### Agent rules (the prompt contract)
+1. A **topic is a specific competence** required to carry out the task/project (e.g. "Medical writing", "Data visualization", "Video editing") — not a subject, client, market, brand or therapeutic area. One text may require several competences.
+2. 0–5 topics per text, the most characteristic ones, English, 1–4 words, nominal form. Vague/empty/too-short text → no topics; zero beats an invented topic. Only what the text states; nothing inferred from client or project names. No names of people, clients or products.
+3. **Reuse first:** if a candidate means the same as an existing topic, the agent returns that topic's id instead of a new name.
+4. **Attribute-list values are forbidden as topics.** A candidate that is semantically equivalent to any attribute-list value must be discarded. The agent classifies each candidate itself.
+5. Near-duplicate candidates within the same response are collapsed to one.
+6. Output is JSON: per text, a list of `{ name, existingTopicId | null, equivalentToListValue: boolean }`.
+
+### Server-side enforcement (the model can be wrong)
+- The server applies the verdicts: `equivalentToListValue` → discarded; `existingTopicId` valid (after following `merged_into`) → link to it; a `rejected` target → dropped silently; otherwise a new `proposed` topic.
+- Safety net independent of the model: any candidate whose normalized name equals an attribute-list value or list name is discarded, and near-duplicates inside one response are collapsed by normalized name.
+- The same list-value check applies to admin rename/merge into a name: 409 "matches an attribute-list value".
+- Semantic ("contains", synonym) similarity is the model's job only; there is no fuzzy matching on the server.
+- Cost: one call per project whose text changed, independent of team size; unchanged hash → no call.
 - Configuration: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (default a small/cheap model), optional `ANTHROPIC_BASE_URL` (used by tests). Timeout per call (~30 s). Passed through `docker-compose.yml`, documented in `.env.example`.
 - **Failure handling:** missing key or `topic_extraction_enabled = 'false'` → skipped (reported as "not configured/disabled", not as an error). Any other failure → `last_error` set on the state rows, hash NOT updated (so it retries next tick), processing continues. A repeated identical failure must not flood `profile_job_runs` (existing throttling rule, `shouldRecordRun`).
 - Extraction failures never re-queue the code in a way that could loop within a run.
