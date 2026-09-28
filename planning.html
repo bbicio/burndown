@@ -852,11 +852,11 @@ document.addEventListener('DOMContentLoaded', async () => {
               taskExportRows.push({ v: ['', '', res.role, '', rnd(soldH), rnd(consumedH), rnd(roleTbp),
                 ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (roleWeekData[k]?.total || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'role' });
 
-              const displayOwners = hasOwners ? (allOwnersInactive ? [...ownerNames, '—'] : ownerNames) : ['—'];
+              const displayOwners = hasOwners ? (allOwnersInactive ? (ownerNames.includes('—') ? ownerNames : [...ownerNames, '—']) : ownerNames) : ['—'];
               displayOwners.forEach(ownerName => {
                 const isPlaceholder = ownerName === '—';
                 const ownerActualsH = ownerTotals[ownerName] || 0;
-                const ownerProp     = isPlaceholder ? (allOwnersInactive || totalOwnerH <= 0.01 ? 1 : 0) : (ownerFutureProps[ownerName] || 0);
+                const ownerProp     = isPlaceholder && (allOwnersInactive || totalOwnerH <= 0.01) ? 1 : (ownerFutureProps[ownerName] || 0);
                 const ownerTbpH     = roleTbp * ownerProp;
 
                 const ownerPeriodCells = periods.map(p => {
@@ -1094,10 +1094,10 @@ document.addEventListener('DOMContentLoaded', async () => {
               });
             }
 
-            const displayOwners = hasOwners ? (allOwnersInactive ? [...ownerNames, '—'] : ownerNames) : ['—'];
+            const displayOwners = hasOwners ? (allOwnersInactive ? (ownerNames.includes('—') ? ownerNames : [...ownerNames, '—']) : ownerNames) : ['—'];
             displayOwners.forEach(ownerName => {
               const isPlaceholder = ownerName === '—';
-              const ownerProp    = isPlaceholder ? (allOwnersInactive || totalOwnerH <= 0.01 ? 1 : 0) : (ownerFutureProps[ownerName] || 0);
+              const ownerProp    = isPlaceholder && (allOwnersInactive || totalOwnerH <= 0.01) ? 1 : (ownerFutureProps[ownerName] || 0);
               const ownerSold    = soldH * ownerProp;
               const ownerActuals = ownerTotals[ownerName] || 0;
               const ownerTbpH    = taskTbp * ownerProp;
