@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sortResources, filterComboOptions, buildProfileTree, paginate, sortUnmatched } from './team-ui.js';
+import { sortResources, filterComboOptions, buildProfileTree, paginate, sortUnmatched, fold } from './team-ui.js';
 
 describe('buildProfileTree', () => {
   const profile = {
@@ -209,6 +209,23 @@ describe('paginate', () => {
   it('an empty list has exactly one (empty) page, never zero', () => {
     const r = paginate([], 1, 25);
     expect(r).toEqual({ pageItems: [], totalPages: 1, page: 1 });
+  });
+});
+
+describe('fold', () => {
+  it('strips accents and lowercases', () => {
+    expect(fold('Nicolò')).toBe(fold('Nicolo'));
+    expect(fold('Nicolò')).toBe('nicolo');
+    expect(fold('Nicolo')).toBe('nicolo');
+  });
+
+  it('trims surrounding whitespace', () => {
+    expect(fold('  Mario  ')).toBe('mario');
+  });
+
+  it('tolerates null/undefined', () => {
+    expect(fold(null)).toBe('');
+    expect(fold(undefined)).toBe('');
   });
 });
 

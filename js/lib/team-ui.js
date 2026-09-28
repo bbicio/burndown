@@ -53,7 +53,7 @@ export function sortUnmatched(list, key, dir = 'asc') {
     .map(entry => entry.item);
 }
 
-function fold(s) {
+export function fold(s) {
   return String(s ?? '').normalize('NFD').replace(/\p{M}+/gu, '').toLowerCase().trim();
 }
 
@@ -112,3 +112,4 @@ window.buildProfileTree = buildProfileTree;
 window.filterComboOptions = filterComboOptions;
 window.paginate = paginate;
 window.sortUnmatched = sortUnmatched;
+window.foldText = fold;
