@@ -5,6 +5,7 @@ const { sendShareNotification, sendShareRevokedEmail } = require('../services/em
 const { isValidSoldHours } = require('../lib/sold-hours');
 const { isAdminRole } = require('../lib/is-admin');
 const { enqueueProjectsQuiet } = require('../services/profile-engine');
+const { descriptionsSignature } = require('../lib/topic-extract');
 let _createNotification;
 
 const router = express.Router();
@@ -91,6 +92,7 @@ router.get('/', requireAuth, async (req, res, next) => {
       `SELECT p.id, p.code, p.name, p.program_id, p.client_id, p.pipeline, p.status,
               p.start_date, p.end_date, p.currency, p.cg_version_id, cgv.cost_grid_id AS cg_id, p.created_at,
               p.owner_id, p.phasing, p.ptc, p.planning, p.groups,
+              p.description,
               ${myPermCol}
               u.first_name || ' ' || u.last_name AS owner_name,
               c.name AS client_name,
@@ -103,7 +105,8 @@ router.get('/', requireAuth, async (req, res, next) => {
                    'startDate',            pt.start_date,
                    'endDate',              pt.end_date,
                    'monthlyDistribution',  pt.monthly_distribution,
-                   'resources',            pt.resources
+                   'resources',            pt.resources,
+                   'description',          pt.description
                  ) ORDER BY pt.sort_order)
                  FROM project_tasks pt WHERE pt.project_id = p.id),
                 '[]'::json
@@ -145,7 +148,7 @@ router.get('/:id', requireAuth, async (req, res, next) => {
 // POST /api/projects
 router.post('/', requireAuth, async (req, res, next) => {
   try {
-    const { id, name, code, programId, clientId, startDate, endDate, currency, pipeline, status, cgVersionId } = req.body;
+    const { id, name, code, programId, clientId, startDate, endDate, currency, pipeline, status, cgVersionId, description } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
 
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -153,12 +156,12 @@ router.post('/', requireAuth, async (req, res, next) => {
     const safeCgVersionId = cgVersionId && uuidRe.test(cgVersionId) ? cgVersionId : null;
 
     const { rows } = await query(
-      `INSERT INTO projects (id, code, name, program_id, client_id, start_date, end_date, currency, pipeline, status, cg_version_id, owner_id)
-       VALUES (COALESCE($1::uuid, uuid_generate_v4()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      `INSERT INTO projects (id, code, name, program_id, client_id, start_date, end_date, currency, pipeline, status, cg_version_id, owner_id, description)
+       VALUES (COALESCE($1::uuid, uuid_generate_v4()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING id, code, name, owner_id, created_at`,
       [id || null, code?.trim() || null, name.trim(), programId || null, safeClientId, startDate || null,
        endDate || null, currency || 'EUR', pipeline || null, status || null,
-       safeCgVersionId, req.user.id]
+       safeCgVersionId, req.user.id, String(description ?? '')]
     );
 
     // Register owner in resource_shares
@@ -182,8 +185,9 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     const allowed = ['name', 'code', 'programId', 'clientId', 'startDate', 'endDate',
-                     'currency', 'pipeline', 'status', 'cgVersionId'];
+                     'currency', 'pipeline', 'status', 'cgVersionId', 'description'];
     const map = {
+      description: 'description',
       name: 'name', code: 'code', programId: 'program_id', clientId: 'client_id',
       startDate: 'start_date', endDate: 'end_date', currency: 'currency',
       pipeline: 'pipeline', status: 'status', cgVersionId: 'cg_version_id'
@@ -193,7 +197,7 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     const params = [];
     for (const key of allowed) {
       if (req.body[key] !== undefined) {
-        params.push(req.body[key] || null);
+        params.push(key === 'description' ? String(req.body[key] ?? '') : (req.body[key] || null));
         fields.push(`${map[key]} = $${params.length}`);
       }
     }
@@ -203,6 +207,12 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     if (req.body.code !== undefined) {
       const prev = await query('SELECT code FROM projects WHERE id = $1', [req.params.id]);
       prevCode = prev.rows[0]?.code ?? null;
+    }
+
+    let prevDescription = null;
+    if (req.body.description !== undefined) {
+      const prev = await query('SELECT description FROM projects WHERE id = $1', [req.params.id]);
+      prevDescription = prev.rows[0]?.description ?? '';
     }
 
     params.push(req.params.id);
@@ -233,6 +243,9 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     }
     if (!rows[0]) return res.status(404).json({ error: 'Project not found' });
 
+    if (req.body.description !== undefined && String(req.body.description ?? '') !== prevDescription) {
+      await enqueueProjectCode(req.params.id);
+    }
     if (seedFromVersionId) await copyVersionTagsToProject(req.params.id, seedFromVersionId);
     if (seedFromVersionId) await enqueueProjectCode(req.params.id);
     if (req.body.name !== undefined && req.body.code === undefined) await enqueueProjectCode(req.params.id);
@@ -284,7 +297,7 @@ router.get('/:id/tasks', requireAuth, async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     const { rows } = await query(
-      `SELECT id, name, billable, completed, start_date, end_date,
+      `SELECT id, name, description, billable, completed, start_date, end_date,
               monthly_distribution, resources, sort_order
        FROM project_tasks WHERE project_id = $1 ORDER BY sort_order`,
       [req.params.id]
@@ -314,6 +327,7 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
       }
     }
 
+    const before = await query('SELECT name, description FROM project_tasks WHERE project_id = $1', [req.params.id]);
     await query('DELETE FROM project_tasks WHERE project_id = $1', [req.params.id]);
 
     for (let i = 0; i < tasks.length; i++) {
@@ -321,15 +335,17 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
       await query(
         `INSERT INTO project_tasks
          (project_id, name, billable, completed, start_date, end_date,
-          monthly_distribution, resources, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          monthly_distribution, resources, sort_order, description)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [req.params.id, (t.name || '').replace(/\s+/g, ' ').trim(), t.billable ?? true, t.completed ?? false,
          t.startDate ? t.startDate.replace(/-/g, '').slice(0, 8) || null : null,
          t.endDate   ? t.endDate.replace(/-/g, '').slice(0, 8)   || null : null,
          t.monthlyDistribution ? JSON.stringify(t.monthlyDistribution) : null,
-         t.resources ? JSON.stringify(t.resources) : null, i]
+         t.resources ? JSON.stringify(t.resources) : null, i, String(t.description ?? '')]
       );
     }
+    const after = tasks.map(t => ({ name: (t.name || '').replace(/\s+/g, ' ').trim(), description: String(t.description ?? '') }));
+    if (descriptionsSignature(before.rows) !== descriptionsSignature(after)) await enqueueProjectCode(req.params.id);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

@@ -1752,6 +1752,57 @@ async function testProfileJobsConsole() {
   }
 }
 
+// ── Project descriptions (2026-09, profile descriptions cycle) ──────────────────
+
+async function testProjectDescriptions() {
+  section('Project descriptions');
+  const ts = Date.now();
+  const code = `TPD${ts}`;
+  const r = await api('POST', '/api/projects',
+    { name: `__pd_${ts}__`, code, description: 'Oncology portal' }, adminCookie);
+  const id = r.data?.id;
+  if (!ok(r.status === 201 && id, `PD-01 POST /api/projects with description → 201 (got ${r.status})`)) return;
+  later('DELETE', `/api/projects/${id}`);
+  const get = async () => (await api('GET', `/api/projects/${id}`, null, adminCookie)).data;
+  ok((await get())?.description === 'Oncology portal', 'PD-01 description stored and returned by GET /:id');
+
+  ok((await api('PATCH', `/api/projects/${id}`, { description: 'Second version' }, adminCookie)).status === 200
+      && (await get())?.description === 'Second version', 'PD-02 PATCH description updates it');
+  ok((await api('PATCH', `/api/projects/${id}`, { description: '' }, adminCookie)).status === 200
+      && (await get())?.description === '', 'PD-03 PATCH description "" stores an empty string (not NULL, no error)');
+
+  const tasks = [
+    { name: 'Analysis', description: 'Analyse sources', resources: [] },
+    { name: 'Build', resources: [] },
+  ];
+  ok((await api('PUT', `/api/projects/${id}/tasks`, tasks, adminCookie)).status === 200, 'PD-04 PUT tasks with descriptions → 200');
+  const t = (await api('GET', `/api/projects/${id}/tasks`, null, adminCookie)).data || [];
+  ok(t.find(x => x.name === 'Analysis')?.description === 'Analyse sources'
+      && t.find(x => x.name === 'Build')?.description === '', 'PD-04 GET tasks returns descriptions ("" when none)');
+  const list = (await api('GET', '/api/projects', null, adminCookie)).data || [];
+  const inList = list.find(p => p.id === id);
+  ok(inList?.description === '' && inList?.tasks?.find(x => x.name === 'Analysis')?.description === 'Analyse sources',
+    'PD-04 GET /api/projects list carries project and task descriptions');
+
+  // Every description here is shorter than 20 characters on purpose: these projects must never reach the LLM.
+  // PD-05: enqueue only when a description actually changed
+  const queued = async () => {
+    const st = (await api('GET', '/api/profile-jobs', null, adminCookie)).data;
+    return !!st?.projects?.find(p => p.project_code === code)?.queued_at;
+  };
+  await api('DELETE', `/api/profile-jobs/projects/${encodeURIComponent(code)}/queue`, null, adminCookie);
+  await api('PUT', `/api/projects/${id}/tasks`, tasks, adminCookie);                       // identical → no enqueue
+  ok(!(await queued()), 'PD-05 saving identical task descriptions does not queue the project');
+  await api('PUT', `/api/projects/${id}/tasks`,
+    [{ ...tasks[0], description: 'Analyse deeply' }, tasks[1]], adminCookie);
+  ok(await queued(), 'PD-05 changing a task description queues the project code');
+  await api('DELETE', `/api/profile-jobs/projects/${encodeURIComponent(code)}/queue`, null, adminCookie);
+  await api('PATCH', `/api/projects/${id}`, { description: '' }, adminCookie);              // unchanged → no enqueue
+  ok(!(await queued()), 'PD-05 PATCH with an unchanged description does not queue the project');
+  await api('PATCH', `/api/projects/${id}`, { description: 'A new description' }, adminCookie);
+  ok(await queued(), 'PD-05 changing the project description queues the project code');
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -1784,6 +1835,7 @@ async function main() {
     await testProfileEngineHooks();
     await testProfileJobsConsole();
     await testTagLinking();
+    await testProjectDescriptions();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
     console.error(e.stack);
