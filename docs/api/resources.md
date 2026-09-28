@@ -1,6 +1,6 @@
 # api/src/routes/resources.js — and actuals-owner-name matching (Cycle 3b)
 
-`api/src/routes/resources.js` backs `team.html`. Every route is `requireAuth, requireAdmin` (admin **or** sysadmin) via a router-level guard. Full endpoint table: `ARCHITECTURE.md` §7.
+`api/src/routes/resources.js` backs `team.html`. Every route is `requireAuth, requireAdmin` (admin **or** sysadmin) via a router-level guard, **except** `POST /match-owners` (2026-09, see below), declared above that guard with `requireAuth` only. Full endpoint table: `ARCHITECTURE.md` §7.
 
 ## Resource registry CRUD (Cycle 1, 2026-09-23)
 
@@ -17,6 +17,12 @@ Purpose: link the free-text `owner` in uploaded actuals to a `resources` row, as
 - **Why `project_code`, not project id:** `timesheets` is keyed by `project_code` and `projects.code` has no uniqueness constraint, so an id cannot be resolved reliably from an upload.
 - **`project_list` added (2026-09-28, Team UX polish cycle; revised same day during manual verification):** `GET /api/resources/unmatched` now also returns `project_list: [{ code, name }]` per row, alongside the unchanged `projects` count — backs `team.html`'s expandable "which projects does this name appear in" list, rendered as "Project name (CODE)". `name` is resolved via a `DISTINCT ON (code) ... ORDER BY code, created_at, id` join against `projects` (the same "oldest project per code" tie-break as `profile-jobs.js`'s `OLDEST_PROJECT_ORDER_BY`, since `projects.code` has no uniqueness constraint), falling back to the bare code when no project row matches it. Originally shipped as a bare `project_codes: string[]` — changed after the user found codes alone impractical to read during manual verification. See `docs/pages/team.md`.
 - **Sub-cycle 3c** will replace the inline full rescans with a queued background recalculation.
+
+## Owner-name status lookup for planning.html (2026-09-28)
+
+`POST /match-owners` — `{ names: string[] }` → `{ [name]: 'active' | 'inactive' }` — resolves free-text actuals owner names to their resource's active/inactive status, so `planning.html` can stop giving an inactive (former) resource a share of future planned hours (spec: `docs/superpowers/specs/2026-09-28-planning-inactive-owners-design.md`). Reuses `matchOwner`/`buildMatchContext` from `api/src/lib/match-resource.js` unchanged — no new matching logic. The pure resolution step (`resolveOwnerStatuses(names, resources, aliases)`, exported for `node:test`) treats every outcome except an unambiguous exact/alias match to a currently-`inactive` resource as `'active'` — ambiguous, unmatched, an alias explicitly marked `ignore`, and an empty name all fail open toward `'active'`.
+
+`requireAuth` only (declared above the router's blanket `requireAdmin` gate) since `planning.html` is visible to every authenticated user and the response carries no PII beyond a status per name. Results are cached in-process for 30s (`getResourcesAndAliasesCached()`) since the route is hit on every `planning.html` page load and every XLS upload; `rescanAll()` (already run after any resource/alias create/update/delete) also drops this cache, so an admin's status change is visible immediately rather than waiting out the TTL.
 
 ## Experience profile and profile queue (Cycle 3c, 2026-09-25)
 

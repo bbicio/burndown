@@ -18,6 +18,8 @@ This file holds the full function-by-function reference and implementation narra
 
 `sumChildBreakdownHours(roleWeekMap, weekKeys, project, task)` (2026-09) — sums, across a set of week keys, only the `breakdown` entries belonging to one (project, task) child; `isPulse` is true only if a week that actually contributed matching hours was itself a pulse week (a pulse week with no matching entry doesn't taint an unrelated child's flag). Feeds `byRoleView()`'s By Role drill-down child rows — see `docs/pages/planning.md`'s "By Role project/task drill-down" section.
 
+`redistributeExcludingInactive(ownerTotals, ownerStatus)` (2026-09-28) — `ownerTotals: {[name]: actualsHours}`, `ownerStatus: {[name]: 'active'|'inactive'}` (a name absent from `ownerStatus` is treated as `'active'`, fail-open). Returns `{ props: {[name]: proportion}, allInactive: boolean }`: renormalizes each eligible (non-`'inactive'`) owner's proportion over the eligible pool's own total, so an inactive owner's share is redistributed among the rest while preserving their relative ratio; `allInactive: true` (empty pool, or its total ≤0.01) signals the caller to route 100% of future hours to the existing TBD placeholder row instead. Consumed by `byProjectView`/`byOwnerView` in place of their previous raw `ownerTotals[o]/totalOwnerH` proportional split — see `docs/pages/planning.md`'s "Inactive-owner handling" section for the full call-site narrative, including the `displayOwners` all-inactive-TBD-row fix and the By Owner Sold-hours carve-out.
+
 Loaded via `<script type="module">` on `planning.html`, before the inline `Vue.createApp` script.
 
 ## status-rules.js

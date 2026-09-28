@@ -184,7 +184,9 @@ api/src/routes/attribute-lists.js — generic tag/taxonomy CRUD (backs `attribut
                             resulting `23505` and return 409.
 api/src/routes/resources.js — resource registry CRUD (backs `team.html`) plus, since Cycle 3b (2026-09), the
                             actuals-owner-name matching queue (`/unmatched`, `/unmatched/rescan`, `/aliases`),
-                            all `requireAuth, requireAdmin`; plus `GET /:id/profile` (Cycle 3c, cached experience profile).
+                            all `requireAuth, requireAdmin`; plus `GET /:id/profile` (Cycle 3c, cached experience profile);
+                            plus `POST /match-owners` (2026-09-28, `requireAuth` only — backs `planning.html`'s
+                            inactive-owner handling, see `docs/pages/planning.md`).
                             Full narrative: [docs/api/resources.md](docs/api/resources.md).
 api/src/routes/profile-jobs.js — `POST /api/profile-jobs/run` (Cycle 3c, `requireAuth, requireAdmin`): drains the profile
                             queue now, 409 when busy. Cycle 3d (2026-09-28) adds the console API on this same file:
