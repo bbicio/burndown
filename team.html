@@ -124,7 +124,7 @@
                 <td class="text-end">
                   <a href="#" @click.prevent="toggleProjects(u)">{{ u.projects }}</a>
                   <div v-if="expandedProjects.has(u.name_normalized)" class="text-muted small mt-1">
-                    {{ (u.project_codes || []).join(', ') }}
+                    {{ formatProjectList(u) }}
                   </div>
                 </td>
                 <td>
@@ -566,6 +566,14 @@
           const key = u.name_normalized;
           if (this.expandedProjects.has(key)) this.expandedProjects.delete(key);
           else this.expandedProjects.add(key);
+        },
+        // "Project name (CODE)", alphabetical by name — friendlier than bare project codes.
+        formatProjectList(u) {
+          return (u.project_list || [])
+            .slice()
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map(p => `${p.name} (${p.code})`)
+            .join(', ');
         },
         blankForm() {
           return { id: null, firstName: '', lastName: '', email: '', roleId: '',
