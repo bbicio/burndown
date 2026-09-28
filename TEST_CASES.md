@@ -748,6 +748,12 @@ Frontend-only cycle for `team.html` (spec `docs/superpowers/specs/2026-09-25-tea
 | TU-10 | Searchable assign control | In Unmatched names, type in a row's "Assign to": an accented name, "surname name" in reverse order, part of a name | The list filters live; "(inactive)" resources are marked; possible namesakes are first; "No matches" when nothing fits | |
 | TU-11 | Assign control — choice and keyboard | Pick an option with the mouse; then clear via "— none —"; arrows/Enter/Esc; Tab through several rows | A mouse pick registers (not lost to the outside-click handler); "— none —" clears and **Assign** goes disabled again; arrows move (the active row scrolls into view), Enter picks, Esc closes; Tabbing away closes the list (no stacked lists); Enter on a no-match query does not clear an existing choice | |
 | TU-12 | No regression on the page | Create/edit/toggle/delete a resource, Rescan, Assign, Ignore | All work as before; narrow window (~700px): the panel takes the full width and is closable | |
+| TU-13 | Team tab paging | Team tab with 26+ active resources | Shows "Page 1 of 2" and Previous/Next controls; Next shows the remaining rows; changing the search text or clicking a sortable header resets to page 1 | |
+| TU-14 | Team tab paging — no controls under threshold | Team tab with 25 or fewer resources | No pagination controls shown | |
+| TU-15 | Unmatched names — search | Unmatched names tab: type in the search box | Filters rows by name (case/accent-insensitive); clearing it shows all rows again | |
+| TU-16 | Unmatched names — sort | Unmatched names tab: click the Name/Hours/Projects headers | Sorts ascending, a second click reverses it, with an arrow on the active header | |
+| TU-17 | Unmatched names — expandable project list | Unmatched names tab: click a row's Projects count | Expands a list of the project codes that name appears in; clicking again collapses it | |
+| TU-18 | Unmatched names — paging | Unmatched names tab with 26+ rows: page, then assign/ignore a name that empties the last page | Pagination controls shown; assigning/ignoring a name that empties the last page returns to a valid page instead of a blank one | |
 
 ---
 
