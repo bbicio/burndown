@@ -26,8 +26,13 @@ async function tick() {
     if (!bootstrapped) await bootstrap();
     const settings = await readSettings();
     if (!isJobDue(settings, lastRunStartedAt, new Date())) return;
+    const previousRunStartedAt = lastRunStartedAt;
     lastRunStartedAt = new Date();
-    await processQueue('scheduled');
+    const r = await processQueue('scheduled');
+    // Another run (e.g. a console action) held the lock: this tick did nothing, so it must not
+    // count as "the last scheduled run" — that would push the next one back a full interval and
+    // show a "last scheduled run" that never actually ran.
+    if (r.skipped) lastRunStartedAt = previousRunStartedAt;
   } catch (err) {
     console.warn('[profile-worker] tick:', err.message);
   } finally {

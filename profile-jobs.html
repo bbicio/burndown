@@ -361,7 +361,14 @@
         this.actionInfo = null;
         try {
           const r = await this.request(method, url, body);
-          if (r.network) { this.loadError = NETWORK_TEXT; return; }
+          // actionError (not loadError): the follow-up refresh() below runs regardless and, on
+          // success, clears loadError — a network/non-JSON failure on the action itself would
+          // otherwise vanish silently the moment that refresh succeeds (e.g. Rebuild all behind a
+          // proxy timeout: the server keeps working after the response is lost).
+          if (r.network) {
+            this.actionError = 'No response from the server — the action may still be running; the list refreshes automatically.';
+            return;
+          }
           if (r.status === 409) { this.actionError = busyNote ? `${BUSY_TEXT} ${busyNote}` : BUSY_TEXT; return; }
           if (!r.ok) { this.actionError = (r.data && r.data.error) || 'The action failed.'; return; }
           if (onSuccess) onSuccess(r.data);
