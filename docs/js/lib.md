@@ -80,6 +80,20 @@ Two pure helpers for `team.html` (only page that loads it, `<script type="module
 
 `buildProfileTree(profile, roles = [])` (bridged to `window.buildProfileTree`, `team-ui.js` is `?v=2` in `team.html`): turns a stored `resources.profile` into the tree the Experience profile tab renders, or `null` when the profile is absent or has no `totals`. Output `{ totals, computedAt, dimensions, roles }`: dimensions sorted by name, each with `untaggedHours` and `values[]` (`key`, `label`, `hours`, `share`, `last`, `projectCount`, `projects[]` = `{ code, name, hours, last, tasks[] }`), values and projects sorted by hours desc then name; role nodes carry `label` resolved from the `roles` list by code (fallback: the code) and their own `projects[]`. A code missing from `profile.projects` becomes a zero-hour node named by its code. Pure, never mutates its input; vitest cases in `js/lib/team-ui.test.js`.
 
+### paginate, sortUnmatched, fold (Team UX polish cycle, 2026-09-28)
+
+`team-ui.js` is `?v=4` in `team.html` (bumped twice this cycle — once for `paginate`/`sortUnmatched`, again when `fold` was exported mid-cycle after manual verification found the Unmatched search wasn't actually accent-insensitive as documented).
+
+`paginate(items, page, pageSize)` (bridged to `window.paginate`): returns `{ pageItems, totalPages, page }`. `totalPages` is `Math.max(1, Math.ceil(items.length / pageSize))` — an empty list still reports 1 page, never 0; `page` is clamped into `[1, totalPages]` before slicing. Pure, never mutates `items`.
+
+`sortUnmatched(list, key, dir = 'asc')` (bridged to `window.sortUnmatched`): same new-array/stable-tie-break contract as `sortResources`, but over `GET /api/resources/unmatched` rows instead of resources. Keys: `name` (`display_name`, via `fold`), `hours`, `projects` (both numeric, `Number(x) || 0` — not string comparison, so `9` sorts before `10`); an unknown key falls back to `hours`.
+
+`fold(s)` (bridged to `window.foldText`, kept as the internal name `fold` for other functions in this module — already used by `filterComboOptions`): lowercases and strips accents (NFD + `\p{M}` removal) and trims. Exported (was previously a private helper) so `team.html`'s Unmatched-names search can use the same accent-insensitive matching the Team tab's search already had via `filterComboOptions`.
+
+Used by `team.html` for: Team-tab pagination (wraps `sortedResources`, resets to page 1 only on `filterText`/`showInactive`/`sortKey`/`sortDir` changes — not on every list recompute, so editing/deactivating/deleting a row mid-page doesn't bounce the admin back to page 1); Unmatched-names search/sort/pagination (search and sort via `fold`/`sortUnmatched`, pagination resets on filter/sort/list-reload changes, since assign/ignore/rescan can shrink the queue); an expandable per-row project list (`GET /api/resources/unmatched`'s `project_list: [{code, name}]`, rendered "name (CODE)" — see `docs/api/resources.md`).
+
+Spec `docs/superpowers/specs/2026-09-28-team-ux-polish-design.md`, plan `docs/superpowers/plans/2026-09-28-team-ux-polish.md`; vitest cases for all three in `js/lib/team-ui.test.js`.
+
 ## profile-jobs-ui.js (Cycle 3d, 2026-09-28)
 
 Pure helpers for `profile-jobs.html` (only page that loads it, `<script type="module" src="js/lib/profile-jobs-ui.js?v=1">`, bridged to `window.*`). `filterJobProjects(list, { search, status })` (every whitespace-separated search token matches code or name, case/accent-insensitive), `sortJobProjects(list, key, dir)` (`'code'` numeric-aware, `'status'` by severity order error>queued>unprocessed>updated, `'lastProcessed'` with never-processed rows always last), `jobStatusLabel`/`jobStatusClass`, `describeNextRun(schedule, project?)`, `formatDateTime`, `formatDuration`. Spec `docs/superpowers/specs/2026-09-26-profile-jobs-console-design.md`, plan `docs/superpowers/plans/2026-09-26-profile-jobs-console.md`; 18 vitest cases in `js/lib/profile-jobs-ui.test.js`.

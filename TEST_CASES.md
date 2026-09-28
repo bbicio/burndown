@@ -752,8 +752,9 @@ Frontend-only cycle for `team.html` (spec `docs/superpowers/specs/2026-09-25-tea
 | TU-14 | Team tab paging — no controls under threshold | Team tab with 25 or fewer resources | No pagination controls shown | |
 | TU-15 | Unmatched names — search | Unmatched names tab: type in the search box | Filters rows by name (case/accent-insensitive); clearing it shows all rows again | |
 | TU-16 | Unmatched names — sort | Unmatched names tab: click the Name/Hours/Projects headers | Sorts ascending, a second click reverses it, with an arrow on the active header | |
-| TU-17 | Unmatched names — expandable project list | Unmatched names tab: click a row's Projects count | Expands a list of the project codes that name appears in; clicking again collapses it | |
+| TU-17 | Unmatched names — expandable project list | Unmatched names tab: click a row's Projects count | Expands "Project name (CODE)" for each project that name appears in, sorted alphabetically by name; clicking again collapses it | |
 | TU-18 | Unmatched names — paging | Unmatched names tab with 26+ rows: page, then assign/ignore a name that empties the last page | Pagination controls shown; assigning/ignoring a name that empties the last page returns to a valid page instead of a blank one | |
+| TU-19 | Team tab paging — edit does not reset the page | On page 2+ of the Team tab, Edit/Save, Activate/Deactivate, or Delete a row (without emptying the current page) | The current page stays the same — only changing the search text, "Show inactive", or clicking a sortable header resets to page 1 | |
 
 ---
 
