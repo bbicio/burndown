@@ -254,6 +254,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateAiButtonVisibility();
   refreshTimesheetData();
 
+  // Shared markup for the "inactive owner" badge — used both inline next to a rendered owner
+  // name (with a leading space) and standalone in help-text prose (INACTIVE_BADGE_HTML). Kept
+  // as one constant so a future style tweak only needs one edit, not four.
+  const INACTIVE_BADGE_HTML = '<span style="font-size:var(--text-2xs);background:#f3f4f6;border:1px solid #d1d5db;border-radius:var(--radius-xs);padding:0 4px;color:#6b7280">inactive</span>';
+  const inactiveBadgeSuffix = isInactive => isInactive ? ' ' + INACTIVE_BADGE_HTML : '';
+
   const app = Vue.createApp({
     data() {
       return {
@@ -873,8 +879,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                   return `<td style="background:${bg};border:1px solid var(--border-light);border-right:${borderR};text-align:center;padding:2px 3px">${dv}</td>`;
                 }).join('');
 
-                const inactiveBadge = (!isPlaceholder && this.ownerStatusMap[ownerName] === 'inactive')
-                  ? ' <span style="font-size:var(--text-2xs);background:#f3f4f6;border:1px solid #d1d5db;border-radius:var(--radius-xs);padding:0 4px;color:#6b7280">inactive</span>' : '';
+                const inactiveBadge = inactiveBadgeSuffix(!isPlaceholder && this.ownerStatusMap[ownerName] === 'inactive');
                 const ownerLabel = isPlaceholder ? '<span style="color:#aaa;font-style:italic">TBD</span>' : esc(ownerName) + inactiveBadge;
                 taskBodyHtml += `
                   <tr data-parent-group="${gid}" style="background:#fafafa">
@@ -967,7 +972,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             The table is structured as <strong>Project → Task → Role → Owner</strong>.
             <strong>Past weeks</strong> (grey) show <em>actual hours</em> from timesheets, broken down by owner.
             <strong>Current and future weeks</strong> show <em>residual hours</em> (sold − consumed) distributed linearly across the remaining task duration,
-            then split among owners <em>proportionally to their share of actuals</em> — an owner flagged <span style="font-size:var(--text-2xs);background:#f3f4f6;border:1px solid #d1d5db;border-radius:var(--radius-xs);padding:0 4px;color:#6b7280">inactive</span> no longer receives a future share; their past actuals are unaffected.
+            then split among owners <em>proportionally to their share of actuals</em> — an owner flagged ${INACTIVE_BADGE_HTML} no longer receives a future share; their past actuals are unaffected.
             When residual falls below 1h/week per role, hours are <strong>aggregated monthly</strong> —
             shown in <span style="background:var(--violet-100);padding:1px 5px;border-radius:var(--radius-xs);font-style:italic;color:var(--violet-600)">~italic lavender</span>.
             <span style="background:#c8e6ff;padding:1px 5px;border-radius:var(--radius-xs)">Blue</span> = current week / month.
@@ -1066,8 +1071,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const ownerNames = Object.entries(ownerTotals).filter(([, h]) => h > 0.01).sort((a, b) => b[1] - a[1]).map(([o]) => o);
             const hasOwners  = ownerNames.length > 0;
+            // Redistribute over the same >0.01h-filtered owner set as ownerNames/displayOwners —
+            // otherwise a near-zero owner (filtered out of display) could still receive a computed
+            // future-hours share that's never added to any displayed total, silently understating
+            // the view's summed "To be planned" vs. taskTbp.
+            const ownerTotalsForSplit = Object.fromEntries(Object.entries(ownerTotals).filter(([, h]) => h > 0.01));
             const { props: ownerFutureProps, allInactive: allOwnersInactive } =
-              redistributeExcludingInactive(ownerTotals, this.ownerStatusMap);
+              redistributeExcludingInactive(ownerTotalsForSplit, this.ownerStatusMap);
 
             if (taskTbp > 0.01) {
               const _owNow = new Date(); const _owTd = new Date(_owNow.getFullYear(), _owNow.getMonth(), _owNow.getDate());
@@ -1168,8 +1178,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         Object.entries(ownerMap).sort((a, b) => a[0].localeCompare(b[0])).forEach(([ownerName, om]) => {
           const oid = `owner-${ownerGroupIdx++}`;
           const isPlaceholder = ownerName === '—';
-          const inactiveBadge = (!isPlaceholder && this.ownerStatusMap[ownerName] === 'inactive')
-            ? ' <span style="font-size:var(--text-2xs);background:#f3f4f6;border:1px solid #d1d5db;border-radius:var(--radius-xs);padding:0 4px;color:#6b7280">inactive</span>' : '';
+          const inactiveBadge = inactiveBadgeSuffix(!isPlaceholder && this.ownerStatusMap[ownerName] === 'inactive');
           const displayName = isPlaceholder ? 'TBD' : ownerName;
           grandSold += om.sold; grandActuals += om.actuals; grandTbp += om.tbp;
 
@@ -1238,7 +1247,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <strong>Estimation logic (By Owner):</strong>
             The table is structured as <strong>Owner → Project → Task</strong>.
             <strong>Past weeks</strong> show <em>actual</em> hours from timesheets.
-            <strong>Future weeks</strong> show each owner's proportional share of remaining hours (sold − consumed), among owners who are not flagged <span style="font-size:var(--text-2xs);background:#f3f4f6;border:1px solid #d1d5db;border-radius:var(--radius-xs);padding:0 4px;color:#6b7280">inactive</span>.
+            <strong>Future weeks</strong> show each owner's proportional share of remaining hours (sold − consumed), among owners who are not flagged ${INACTIVE_BADGE_HTML}.
             If no owner is found in the actuals, or every owner is inactive, hours are assigned to a <em>TBD</em> placeholder.
           </div>
           <div class="d-flex justify-content-end gap-1 mb-2">
