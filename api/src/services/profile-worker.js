@@ -63,4 +63,10 @@ function start() {
   console.log('[profile-worker] started (tick every 60 s)');
 }
 
-module.exports = { start };
+// For the job console (same process as the API): the last scheduled/bootstrap start, in memory
+// only — null after a restart. Manual runs never set it, so they do not move the next run.
+function getLastRunStartedAt() {
+  return lastRunStartedAt;
+}
+
+module.exports = { start, readSettings, getLastRunStartedAt };

@@ -3,6 +3,7 @@
 const { pool, query } = require('../db/client');
 const { buildMatchContext } = require('../lib/match-resource');
 const { buildContributions, aggregateProfile } = require('../lib/resource-profile');
+const { composeRunError, shouldRecordRun } = require('../lib/job-schedule');
 const { refreshUnmatched } = require('./resource-matching');
 
 const MAX_RUNS_KEPT = 50;
@@ -38,6 +39,24 @@ async function quiet(label, fn) {
 }
 const enqueueProjectsQuiet = codes => quiet('enqueueProjects', () => enqueueProjects(codes));
 const enqueueAllQuiet = () => quiet('enqueueAll', enqueueAll);
+
+// Take one code out of the queue without touching its contributions or anyone's profile.
+// Waits for a row lock if that code is being processed right now. false = code not tracked.
+async function dequeueProject(code) {
+  const { rowCount } = await query(
+    'UPDATE profile_project_state SET queued_at = NULL WHERE project_code = $1', [code]);
+  return rowCount > 0;
+}
+
+// Is this a code the engine knows about (actuals uploaded, or already tracked)?
+async function isKnownProjectCode(code) {
+  const { rows } = await query(
+    `SELECT EXISTS (SELECT 1 FROM timesheets WHERE project_code = $1)
+         OR EXISTS (SELECT 1 FROM profile_project_state WHERE project_code = $1) AS known`,
+    [code]
+  );
+  return rows[0].known === true;
+}
 
 // ── Processing ────────────────────────────────────────────────────────────────────────────────
 
@@ -119,7 +138,7 @@ async function processCode(client, code) {
 
 // One queued code per transaction. Returns null when the queue is empty, { code, resources } on
 // success, { code, error } when that code failed (it goes to the back of the queue with last_error).
-async function processNext(exclude) {
+async function processNext(exclude, only = null) {
   const client = await pool.connect();
   let code = null;
   try {
@@ -128,9 +147,10 @@ async function processNext(exclude) {
       `UPDATE profile_project_state SET queued_at = NULL
        WHERE project_code = (SELECT project_code FROM profile_project_state
                              WHERE queued_at IS NOT NULL AND project_code <> ALL($1::text[])
+                               AND ($2::text IS NULL OR project_code = $2)
                              ORDER BY queued_at, project_code FOR UPDATE SKIP LOCKED LIMIT 1)
        RETURNING project_code`,
-      [exclude]
+      [exclude, only]
     );
     if (!claim.rows[0]) { await client.query('COMMIT'); return null; }
     code = claim.rows[0].project_code;
@@ -161,15 +181,18 @@ async function recordRun(trigger, startedAt, projects, resources, errors) {
   await query(
     `INSERT INTO profile_job_runs (started_at, finished_at, trigger_type, projects, resources, error)
      VALUES ($1, now(), $2, $3, $4, $5)`,
-    [startedAt, trigger, projects, resources, errors.length ? errors.join('; ').slice(0, 500) : null]
+    [startedAt, trigger, projects, resources, composeRunError(errors)]
   );
   await query(
     `DELETE FROM profile_job_runs WHERE id NOT IN (SELECT id FROM profile_job_runs ORDER BY id DESC LIMIT ${MAX_RUNS_KEPT})`);
 }
 
 // Drain the queue. A session-level advisory lock keeps two runs (or two API instances) apart.
-// Scheduled/bootstrap runs are recorded only if they did something; manual runs always.
-async function processQueue(trigger = 'scheduled') {
+// opts.only = one project code: only that code is claimed (the console's "Process"); such a run is
+// always a recorded manual run. Recording rules: see shouldRecordRun (lib/job-schedule.js).
+async function processQueue(trigger = 'scheduled', opts = {}) {
+  const only = opts.only ? String(opts.only).trim() : null;
+  const kind = only ? 'manual' : trigger;
   const lockClient = await pool.connect();
   const startedAt = new Date();
   try {
@@ -180,14 +203,19 @@ async function processQueue(trigger = 'scheduled') {
     const errors = [];
     const failed = [];
     for (;;) {
-      const r = await processNext(failed);
+      const r = await processNext(failed, only);
       if (!r) break;
       if (r.error) { failed.push(r.code); errors.push(`${r.code}: ${r.error}`); continue; }
       projects += 1;
       resources += r.resources;
     }
-    if (trigger === 'manual' || projects > 0 || errors.length) {
-      await recordRun(trigger, startedAt, projects, resources, errors);
+    let lastRunError = null;
+    if (errors.length && projects === 0 && kind !== 'manual') {
+      const last = await query('SELECT error FROM profile_job_runs ORDER BY id DESC LIMIT 1');
+      lastRunError = last.rows[0] ? last.rows[0].error : null;
+    }
+    if (shouldRecordRun({ trigger: kind, projects, errors, lastRunError })) {
+      await recordRun(kind, startedAt, projects, resources, errors);
     }
     if (projects > 0) {
       // "a run has passed since this resource was created": unmatched resources keep profile NULL
@@ -205,4 +233,5 @@ async function processQueue(trigger = 'scheduled') {
 
 module.exports = {
   enqueueProjects, enqueueAll, enqueueProjectsQuiet, enqueueAllQuiet, processQueue,
+  dequeueProject, isKnownProjectCode,
 };
