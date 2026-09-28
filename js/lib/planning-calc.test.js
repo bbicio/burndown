@@ -2,6 +2,7 @@ import { describe, it, expect, test } from 'vitest';
 import { matchesTaskRole, computeResidual, distributeFutureResidual } from './planning-calc.js';
 import { getCalendarWeeks, workingDaysInWeek, getPlanningPeriods, countFutureTaskWeeks } from './planning-calc.js';
 import { sumChildBreakdownHours } from './planning-calc.js';
+import { redistributeExcludingInactive } from './planning-calc.js';
 
 describe('sumChildBreakdownHours', () => {
   const weekMap = {
@@ -282,5 +283,55 @@ describe('countFutureTaskWeeks', () => {
 
   it('returns 0 when tEnd is null/undefined', () => {
     expect(countFutureTaskWeeks(today, null, today)).toBe(0);
+  });
+});
+
+describe('redistributeExcludingInactive', () => {
+  it('all-active owners: unchanged from the raw proportional split (regression guard)', () => {
+    const totals = { Alice: 60, Bob: 40 };
+    const status = { Alice: 'active', Bob: 'active' };
+    const { props, allInactive } = redistributeExcludingInactive(totals, status);
+    expect(allInactive).toBe(false);
+    expect(props.Alice).toBeCloseTo(0.6);
+    expect(props.Bob).toBeCloseTo(0.4);
+  });
+
+  it('one inactive among several: renormalizes over the remaining actives, preserving their relative ratio', () => {
+    const totals = { Alice: 30, Bob: 20, Carol: 50 }; // Carol inactive
+    const status = { Alice: 'active', Bob: 'active', Carol: 'inactive' };
+    const { props, allInactive } = redistributeExcludingInactive(totals, status);
+    expect(allInactive).toBe(false);
+    expect(props.Carol).toBeUndefined();
+    expect(props.Alice).toBeCloseTo(0.6); // 30 / (30+20)
+    expect(props.Bob).toBeCloseTo(0.4);   // 20 / (30+20)
+  });
+
+  it('every owner inactive: allInactive is true and props is empty (caller routes 100% to TBD)', () => {
+    const totals = { Carol: 50 };
+    const status = { Carol: 'inactive' };
+    const { props, allInactive } = redistributeExcludingInactive(totals, status);
+    expect(allInactive).toBe(true);
+    expect(props).toEqual({});
+  });
+
+  it('an owner name absent from the status map is treated as active (fail-open)', () => {
+    const totals = { Alice: 10 };
+    const status = {}; // e.g. the API call failed, or Alice wasn't in the request batch
+    const { props, allInactive } = redistributeExcludingInactive(totals, status);
+    expect(allInactive).toBe(false);
+    expect(props.Alice).toBeCloseTo(1);
+  });
+
+  it('a single eligible owner gets 100% even when an inactive owner also has actuals', () => {
+    const totals = { Alice: 10, Bob: 90 }; // Bob inactive
+    const status = { Alice: 'active', Bob: 'inactive' };
+    const { props } = redistributeExcludingInactive(totals, status);
+    expect(props.Alice).toBeCloseTo(1);
+  });
+
+  it('empty ownerTotals: allInactive is true (no eligible pool to distribute over)', () => {
+    const { props, allInactive } = redistributeExcludingInactive({}, {});
+    expect(allInactive).toBe(true);
+    expect(props).toEqual({});
   });
 });
