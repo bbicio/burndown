@@ -232,6 +232,6 @@ async function processQueue(trigger = 'scheduled', opts = {}) {
 }
 
 module.exports = {
-  enqueueProjects, enqueueAll, enqueueProjectsQuiet, enqueueAllQuiet, processQueue,
+  MAX_RUNS_KEPT, enqueueProjects, enqueueAll, enqueueProjectsQuiet, enqueueAllQuiet, processQueue,
   dequeueProject, isKnownProjectCode,
 };

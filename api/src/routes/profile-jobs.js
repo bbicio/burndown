@@ -2,7 +2,7 @@ const express = require('express');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { query } = require('../db/client');
 const {
-  processQueue, enqueueAll, enqueueProjects, dequeueProject, isKnownProjectCode,
+  MAX_RUNS_KEPT, processQueue, enqueueAll, enqueueProjects, dequeueProject, isKnownProjectCode,
 } = require('../services/profile-engine');
 const { readSettings, getLastRunStartedAt } = require('../services/profile-worker');
 const { nextRunInfo, jobSettingsError, deriveProjectStatus } = require('../lib/job-schedule');
@@ -13,7 +13,6 @@ router.use(requireAuth, requireAdmin);
 
 const BUSY = 'A profile job is already running — try again in a moment.';
 const MAX_CODE_LENGTH = 100;
-const MAX_RUNS = 50;
 
 // One row per project code with actuals or tracked by the engine, in ONE query. This read is the
 // only table access in this file that does not go through the engine (spec §7).
@@ -159,7 +158,7 @@ router.get('/runs', async (req, res, next) => {
     const { rows } = await query(
       `SELECT id, started_at, finished_at, trigger_type, projects, resources, error
        FROM profile_job_runs ORDER BY id DESC LIMIT $1`,
-      [MAX_RUNS]
+      [MAX_RUNS_KEPT]
     );
     res.json(rows);
   } catch (err) { next(err); }
