@@ -101,3 +101,15 @@ Candidate ranking/querying and the planning chatbot (Cycle 4); free-text summari
 ## 10. Docs to update
 
 New `docs/api/topics.md`; `docs/api/profile-engine.md`, `docs/pages/team.md`, `project-config.md`, `costgrid.md`, `profile-jobs.md`, `attribute-lists` entry in `CLAUDE.md`, the migrations table in `CLAUDE.md`, and the `docs/api/lib.md` list.
+
+## 11. Amendments found while planning (2026-09-29)
+
+The implementation plan (`docs/superpowers/plans/2026-09-29-profile-descriptions-topics.md`) refines the spec; where they differ the plan wins:
+
+1. Endpoints: project metadata (incl. `description`) is written by `PATCH /api/projects/:id`; task descriptions by `PUT /api/projects/:id/tasks` (bulk replace). Sections 6 mentions of `PUT /api/projects/:id` read accordingly.
+2. Backfill of task descriptions matches by normalised name against the linked version's tasks (no restriction to `cg_version_projects.task_ids`).
+3. `GET /api/topics` returns `usage_count` = linked descriptions (not resources).
+4. `POST /api/topics` lets an admin seed an approved topic.
+5. On an extraction error the code is re-queued after processing and excluded for the rest of the run (retried on the next scheduled run); the error appears in the console (`topic_error`), never in `profile_job_runs`.
+6. Extraction runs right before the next queued code is claimed ("peek"), so no row lock is held during the LLM call.
+7. `resources.profile.topics` is `[{ topicId, projectCodes }]`; `GET …/profile` returns `[{ id, name, projectCodes }]`.
