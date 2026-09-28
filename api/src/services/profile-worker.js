@@ -28,11 +28,17 @@ async function tick() {
     if (!isJobDue(settings, lastRunStartedAt, new Date())) return;
     const previousRunStartedAt = lastRunStartedAt;
     lastRunStartedAt = new Date();
-    const r = await processQueue('scheduled');
-    // Another run (e.g. a console action) held the lock: this tick did nothing, so it must not
-    // count as "the last scheduled run" — that would push the next one back a full interval and
-    // show a "last scheduled run" that never actually ran.
-    if (r.skipped) lastRunStartedAt = previousRunStartedAt;
+    try {
+      const r = await processQueue('scheduled');
+      // Another run (e.g. a console action) held the lock: this tick did nothing, so it must not
+      // count as "the last scheduled run" — that would push the next one back a full interval and
+      // show a "last scheduled run" that never actually ran.
+      if (r.skipped) lastRunStartedAt = previousRunStartedAt;
+    } catch (err) {
+      // processQueue threw (e.g. a DB error before any code was claimed): no run happened either.
+      lastRunStartedAt = previousRunStartedAt;
+      throw err;
+    }
   } catch (err) {
     console.warn('[profile-worker] tick:', err.message);
   } finally {
@@ -53,10 +59,16 @@ async function bootstrap() {
       await enqueueAll();
       const previousRunStartedAt = lastRunStartedAt;
       lastRunStartedAt = new Date();
-      const r = await processQueue('bootstrap');
-      // Same guard as tick(): losing the advisory-lock race means this bootstrap did no work, so
-      // it must not count as "the last run" either.
-      if (r.skipped) lastRunStartedAt = previousRunStartedAt;
+      try {
+        const r = await processQueue('bootstrap');
+        // Same guard as tick(): losing the advisory-lock race means this bootstrap did no work, so
+        // it must not count as "the last run" either.
+        if (r.skipped) lastRunStartedAt = previousRunStartedAt;
+      } catch (err) {
+        // processQueue threw before completing: no run happened either.
+        lastRunStartedAt = previousRunStartedAt;
+        throw err;
+      }
     }
     bootstrapped = true;
   } catch (err) {
