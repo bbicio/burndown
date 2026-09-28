@@ -27,8 +27,8 @@ A resource's Experience profile in `team.html` shows the **topics** of the work 
 
 ### Migration `028_topics.sql`
 - `topics(id UUID PK, name, name_normalized UNIQUE, status CHECK IN ('approved','proposed','rejected'), merged_into UUID NULL REFERENCES topics(id), created_by, updated_by, created_at, updated_at)`. **No physical delete.** "Delete" = `rejected` (kept so the agent is told not to re-propose it). `merged_into` non-null = absorbed (always points to a final, non-merged topic).
-- `description_topic_state(project_id UUID REFERENCES projects ON DELETE CASCADE, task_key TEXT NULL, text_hash TEXT, extracted_at, last_error)`. `task_key` = normalized task name; NULL = the project description. Keyed by name, **not** task id, because `PUT /api/projects/:id` deletes and re-inserts all `project_tasks` on every save (`projects.js`).
-- `description_topic_links(project_id ON DELETE CASCADE, task_key, topic_id REFERENCES topics, PRIMARY KEY (project_id, task_key-or-marker, topic_id))` (use a non-null marker for the project row, or a partial-unique pair, to make the PK valid).
+- `description_topic_state(project_id UUID REFERENCES projects ON DELETE CASCADE, task_key, text_hash TEXT, extracted_at, last_error)`. `task_key TEXT NOT NULL DEFAULT ''` = normalized task name; the empty string = the project description (never NULL, so it can sit in a primary key). `PRIMARY KEY (project_id, task_key)`. Keyed by name, **not** task id, because `PUT /api/projects/:id` deletes and re-inserts all `project_tasks` on every save (`projects.js`).
+- `description_topic_links(project_id ON DELETE CASCADE, task_key TEXT NOT NULL DEFAULT '' (same convention), topic_id REFERENCES topics, PRIMARY KEY (project_id, task_key, topic_id))`.
 - `app_settings` default `topic_extraction_enabled = 'true'`.
 - `resources.profile` JSONB gains `topics: [{ topicId, projects: [name…] }]` (ids only). Everything else is unchanged.
 
