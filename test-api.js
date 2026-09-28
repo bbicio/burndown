@@ -1535,6 +1535,7 @@ async function testProfileJobsConsole() {
   const routes = [
     ['GET', '/api/profile-jobs', null],
     ['PUT', '/api/profile-jobs/settings', { enabled: true, intervalMin: 10 }],
+    ['POST', '/api/profile-jobs/run', null],
     ['POST', '/api/profile-jobs/rebuild', null],
     ['POST', '/api/profile-jobs/projects/NOPE/process', null],
     ['DELETE', '/api/profile-jobs/projects/NOPE/queue', null],

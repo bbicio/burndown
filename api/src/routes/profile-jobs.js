@@ -106,8 +106,8 @@ router.put('/settings', async (req, res, next) => {
 router.post('/run', async (req, res, next) => {
   try {
     const r = await processQueue('manual');
-    if (r.skipped) return res.status(409).json({ error: 'A profile job is already running' });
-    res.json({ ok: true, projects: r.projects, resources: r.resources, errors: r.errors });
+    if (r.skipped) return res.status(409).json({ error: BUSY });
+    res.json(runResult(r));
   } catch (err) { next(err); }
 });
 
