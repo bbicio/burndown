@@ -789,9 +789,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 roleWeekData[key] = { total: tot, byOwner, isPulse: false, isPast: true };
               });
 
+              const { props: ownerFutureProps, allInactive: allOwnersInactive } =
+                redistributeExcludingInactive(ownerTotals, this.ownerStatusMap);
               const distribute = (byOwner, hours) => {
-                if (hasOwners && totalOwnerH > 0.01) {
-                  ownerNames.forEach(o => { byOwner[o] = (byOwner[o] || 0) + hours * (ownerTotals[o] / totalOwnerH); });
+                if (hasOwners && !allOwnersInactive) {
+                  Object.entries(ownerFutureProps).forEach(([o, prop]) => { byOwner[o] = (byOwner[o] || 0) + hours * prop; });
                 } else {
                   byOwner['—'] = (byOwner['—'] || 0) + hours;
                 }
@@ -854,7 +856,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               displayOwners.forEach(ownerName => {
                 const isPlaceholder = ownerName === '—';
                 const ownerActualsH = ownerTotals[ownerName] || 0;
-                const ownerProp     = totalOwnerH > 0.01 ? (ownerTotals[ownerName] || 0) / totalOwnerH : (isPlaceholder ? 1 : 0);
+                const ownerProp     = isPlaceholder ? (allOwnersInactive || totalOwnerH <= 0.01 ? 1 : 0) : (ownerFutureProps[ownerName] || 0);
                 const ownerTbpH     = roleTbp * ownerProp;
 
                 const ownerPeriodCells = periods.map(p => {
