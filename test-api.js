@@ -1488,6 +1488,238 @@ async function testProfileEngineHooks() {
   ok(entry?.name === newName, 'PE-14 renaming a project shows the new name in the profile after the next run');
 }
 
+// ── Profile Jobs Console (2026-09, Cycle 3d) ────────────────────────────────────
+
+// A plain-user session for the 403 checks. The suite has no non-admin account and invites need an
+// emailed token, so the sysadmin demotes the test admin to 'user', we log in (JWT role = user) and
+// the admin is promoted back at once. requireAdmin trusts the JWT role claim, so the existing
+// adminCookie keeps working throughout; the run-tests.sh stack is disposable.
+async function getPlainUserCookie() {
+  const me = await api('GET', '/api/auth/me', null, adminCookie);
+  const adminId = me.data?.id;
+  if (!adminId || !sysadminCookie) return '';
+  let cookie = '';
+  try {
+    const down = await api('PATCH', `/api/users/${adminId}`, { role: 'user' }, sysadminCookie);
+    if (down.status !== 200) return '';
+    const login = await api('POST', '/api/auth/login', { email: EMAIL, password: PASS });
+    cookie = login.status === 200 && login.data?.role === 'user' ? extractCookie(login.headers) : '';
+  } finally {
+    const back = await api('PATCH', `/api/users/${adminId}`, { role: 'admin' }, sysadminCookie);
+    ok(back.status === 200 && back.data?.role === 'admin', 'PJ-setup the test admin is restored to role admin');
+  }
+  return cookie;
+}
+
+// GET the console state, with the project rows indexed by code.
+async function getConsole() {
+  const r = await api('GET', '/api/profile-jobs', null, adminCookie);
+  const byCode = {};
+  for (const p of r.data?.projects || []) byCode[p.project_code] = p;
+  return { status: r.status, data: r.data, byCode };
+}
+
+// POST with the same 409 retry as runProfileJobs (a worker run may briefly hold the lock).
+async function postRetry(path) {
+  for (let i = 0; i < 10; i++) {
+    const r = await api('POST', path, null, adminCookie);
+    if (r.status !== 409) return r;
+    await new Promise(res => setTimeout(res, 500));
+  }
+  return { status: 409, data: null };
+}
+
+async function testProfileJobsConsole() {
+  section('Profile Jobs Console');
+
+  const routes = [
+    ['GET', '/api/profile-jobs', null],
+    ['PUT', '/api/profile-jobs/settings', { enabled: true, intervalMin: 10 }],
+    ['POST', '/api/profile-jobs/rebuild', null],
+    ['POST', '/api/profile-jobs/projects/NOPE/process', null],
+    ['DELETE', '/api/profile-jobs/projects/NOPE/queue', null],
+    ['GET', '/api/profile-jobs/runs', null],
+  ];
+  for (const [m, p, b] of routes) {
+    ok((await api(m, p, b)).status === 401, `PJ-01 ${m} ${p} without auth → 401`);
+  }
+  const userCookie = await getPlainUserCookie();
+  ok(!!userCookie, 'PJ-02 setup: a plain-user session was obtained');
+  if (userCookie) {
+    for (const [m, p, b] of routes) {
+      ok((await api(m, p, b, userCookie)).status === 403, `PJ-02 ${m} ${p} as a plain user → 403`);
+    }
+  }
+
+  // PJ-03: shape of the console state
+  const g = await getConsole();
+  const d = g.data;
+  ok(g.status === 200 && typeof d?.settings?.enabled === 'boolean' && Number.isInteger(d?.settings?.intervalMin)
+      && ['paused', 'due', 'scheduled'].includes(d?.schedule?.state)
+      && 'lastRunAt' in (d?.schedule || {}) && 'nextRunAt' in (d?.schedule || {})
+      && Number.isInteger(d?.queuedCount) && Array.isArray(d?.projects),
+    'PJ-03 GET /api/profile-jobs → settings, schedule { state, lastRunAt, nextRunAt }, queuedCount, projects');
+  ok(d?.queuedCount === (d?.projects || []).filter(p => p.queued_at).length,
+    'PJ-03 queuedCount equals the number of rows with queued_at');
+  const sample = (d?.projects || [])[0];
+  ok(!sample || ['project_code', 'project_name', 'row_count', 'resource_count', 'queued_at', 'last_processed_at', 'last_error', 'status']
+      .every(k => k in sample),
+    'PJ-03 each project row carries code, name, row/resource counts, queue state, last error and status');
+
+  const original = d?.settings
+    ? { enabled: d.settings.enabled, intervalMin: d.settings.intervalMin }
+    : { enabled: true, intervalMin: 10 };
+
+  try {
+    // PJ-04: strict validation (Review Focus 3)
+    const bad = [
+      [{ enabled: 'true', intervalMin: 10 }, 'enabled as the string "true"'],
+      [{ enabled: 1, intervalMin: 10 }, 'enabled as a number'],
+      [{ enabled: true, intervalMin: '10' }, 'intervalMin as a numeric string'],
+      [{ enabled: true, intervalMin: 10.5 }, 'a non-integer intervalMin'],
+      [{ enabled: true, intervalMin: 0 }, 'intervalMin 0'],
+      [{ enabled: true, intervalMin: 1441 }, 'intervalMin 1441'],
+      [{ enabled: true, intervalMin: null }, 'intervalMin null'],
+      [{ enabled: true }, 'intervalMin missing'],
+      [{ intervalMin: 10 }, 'enabled missing'],
+      [{}, 'an empty body'],
+    ];
+    for (const [body, label] of bad) {
+      ok((await api('PUT', '/api/profile-jobs/settings', body, adminCookie)).status === 400, `PJ-04 PUT settings with ${label} → 400`);
+    }
+    ok(JSON.stringify((await getConsole()).data?.settings) === JSON.stringify(original),
+      'PJ-04 rejected PUTs leave the stored settings unchanged');
+
+    // PJ-05: canonical writes at both bounds; switching off pauses the schedule. The worker stays OFF
+    // for the rest of this section so no scheduled run can race the assertions below.
+    let w = await api('PUT', '/api/profile-jobs/settings', { enabled: true, intervalMin: 1440 }, adminCookie);
+    ok(w.status === 200 && w.data?.enabled === true && w.data?.intervalMin === 1440,
+      'PJ-05 PUT { enabled: true, intervalMin: 1440 } → 200 and echoes the saved settings (upper bound)');
+    w = await api('PUT', '/api/profile-jobs/settings', { enabled: false, intervalMin: 1 }, adminCookie);
+    ok(w.status === 200 && w.data?.enabled === false && w.data?.intervalMin === 1,
+      'PJ-05 PUT { enabled: false, intervalMin: 1 } → 200 (lower bound)');
+    const g2 = await getConsole();
+    ok(g2.data?.settings?.enabled === false && g2.data?.settings?.intervalMin === 1 && g2.data?.schedule?.state === 'paused'
+        && g2.data?.schedule?.nextRunAt === null,
+      'PJ-05 GET reads the values back (enabled stored as "false") and the schedule is paused');
+    await runProfileJobs();   // wait out a scheduled run that may have started before the switch-off
+
+    // PJ-06 / PJ-07 / PJ-13 need two queued codes with actuals
+    const f = await profileFixture();
+    ok(f.ok, 'PJ-setup resource, two projects and a Market value created');
+    if (f.ok) {
+      const { code1, code2, person, resId } = f;
+      await runProfileJobs();   // creating the projects queued their codes: drain them first
+      const up = await uploadCsv('/api/timesheets/upload', profileCsv([
+        [code1, '2026-01-15', person, 4],
+        [code2, '2026-02-10', person, 3],
+      ]), adminCookie);
+      ok(up.status === 201, `PJ-06 upload actuals for two codes → 201 (got ${up.status})`);
+      let c = await getConsole();
+      ok(!!c.byCode[code1]?.queued_at && !!c.byCode[code2]?.queued_at, 'PJ-06 both uploaded codes are queued');
+
+      const pr = await postRetry(`/api/profile-jobs/projects/${encodeURIComponent(code1)}/process`);
+      ok(pr.status === 200 && pr.data?.ok === true && pr.data?.projects === 1 && pr.data?.errors?.length === 0,
+        `PJ-06 POST .../projects/:code/process → 200, exactly one project processed (got ${pr.status}, ${pr.data?.projects})`);
+      c = await getConsole();
+      ok(c.byCode[code1]?.queued_at === null && !!c.byCode[code1]?.last_processed_at && c.byCode[code1]?.status === 'updated',
+        'PJ-06 the processed code left the queue and is "updated"');
+      ok(!!c.byCode[code2]?.queued_at && c.byCode[code2]?.status === 'queued', 'PJ-06 the other code is still queued');
+      ok(c.byCode[code1]?.row_count === 1 && c.byCode[code1]?.resource_count === 1,
+        'PJ-06 list counts for the processed code: 1 actuals row, 1 matched resource');
+      const runs1 = await api('GET', '/api/profile-jobs/runs', null, adminCookie);
+      ok(runs1.data?.[0]?.trigger_type === 'manual' && runs1.data[0].projects === 1,
+        'PJ-06 the single-code run is recorded as manual with 1 project');
+
+      // PJ-07: removing from the queue leaves the computed profile alone
+      const before = await getProfile(resId);
+      const rm = await api('DELETE', `/api/profile-jobs/projects/${encodeURIComponent(code2)}/queue`, null, adminCookie);
+      ok(rm.status === 200 && rm.data?.ok === true, 'PJ-07 DELETE .../projects/:code/queue → 200');
+      c = await getConsole();
+      ok(c.byCode[code2]?.queued_at === null, 'PJ-07 the code is no longer queued');
+      const after = await getProfile(resId);
+      ok(JSON.stringify(after) === JSON.stringify(before) && after?.profile?.totals?.hours === 4,
+        'PJ-07 the profile is untouched (still 4 h, from the processed code only)');
+
+      // PJ-13: concurrent actions never fail with 500 (Review Focus 4; timing-tolerant)
+      await uploadCsv(`/api/timesheets/upload?projectCode=${code1}`, profileCsv([[code1, '2026-03-01', person, 2]]), adminCookie);
+      const [ra, rb] = await Promise.all([
+        api('POST', '/api/profile-jobs/rebuild', null, adminCookie),
+        api('POST', `/api/profile-jobs/projects/${encodeURIComponent(code1)}/process`, null, adminCookie),
+      ]);
+      const okOr409 = r => r.status === 200
+        || (r.status === 409 && /already running/.test(r.data?.error || '') && /queued/.test(r.data?.error || ''));
+      ok(okOr409(ra) && okOr409(rb),
+        `PJ-13 concurrent rebuild + process → each 200, or 409 saying the job is running and the codes stay queued (got ${ra.status}/${rb.status})`);
+      await runProfileJobs();   // whatever the race left queued
+    }
+
+    // PJ-08: code validation and unknown codes
+    const unknown = `NOPE${Date.now()}`;
+    ok((await api('POST', `/api/profile-jobs/projects/${unknown}/process`, null, adminCookie)).status === 404,
+      'PJ-08 process an unknown code → 404');
+    ok((await api('DELETE', `/api/profile-jobs/projects/${unknown}/queue`, null, adminCookie)).status === 404,
+      'PJ-08 remove an unknown code from the queue → 404');
+    ok((await getConsole()).byCode[unknown] === undefined, 'PJ-08 an unknown code is not added to the list');
+    ok((await api('POST', '/api/profile-jobs/projects/%20%20/process', null, adminCookie)).status === 400,
+      'PJ-08 a blank code → 400');
+    ok((await api('DELETE', `/api/profile-jobs/projects/${'X'.repeat(101)}/queue`, null, adminCookie)).status === 400,
+      'PJ-08 a code longer than 100 characters → 400');
+
+    // PJ-09 / PJ-10: a code with dots and a space, then the same code once only profile_project_state knows it
+    const oddTs = Date.now();
+    const odd = `PJ.${oddTs} X.001`;
+    const oddName = `__pj_odd_${oddTs}__`;
+    const rp = await api('POST', '/api/projects', { name: oddName, code: odd }, adminCookie);   // creation queues the code
+    const oddId = rp.data?.id;
+    if (oddId) later('DELETE', `/api/projects/${oddId}`);
+    ok(!!oddId, 'PJ-09 setup: a project whose code has dots and a space');
+    if (oddId) {
+      const pr = await postRetry(`/api/profile-jobs/projects/${encodeURIComponent(odd)}/process`);
+      ok(pr.status === 200 && pr.data?.projects === 1, `PJ-09 process a URL-encoded code with dots and a space → 200, 1 project (got ${pr.status})`);
+      let c = await getConsole();
+      const row = c.byCode[odd];
+      ok(row?.project_name === oddName && row?.row_count === 0 && row?.resource_count === 0 && row?.status === 'updated',
+        'PJ-09 listed under its exact code, with the project name, 0 rows, status "updated"');
+
+      ok((await api('DELETE', `/api/projects/${oddId}`, null, adminCookie)).status === 200,
+        'PJ-10 setup: delete the project (no actuals) — the delete hook re-queues its code');
+      c = await getConsole();
+      const orphan = c.byCode[odd];
+      ok(!!orphan && orphan.project_name === odd && orphan.row_count === 0 && !!orphan.queued_at,
+        'PJ-10 a code known only to profile_project_state is listed with its code as name, 0 rows, queued');
+      ok((await api('DELETE', `/api/profile-jobs/projects/${encodeURIComponent(odd)}/queue`, null, adminCookie)).status === 200,
+        'PJ-10 the orphan code can be removed from the queue → 200');
+      ok((await postRetry(`/api/profile-jobs/projects/${encodeURIComponent(odd)}/process`)).status === 200,
+        'PJ-10 the orphan code can still be processed → 200');
+    }
+
+    // PJ-11: rebuild queues everything and drains it in one recorded manual run
+    const runsBefore = await api('GET', '/api/profile-jobs/runs', null, adminCookie);
+    const topBefore = Number(runsBefore.data?.[0]?.id ?? 0);
+    const rbAll = await postRetry('/api/profile-jobs/rebuild');
+    ok(rbAll.status === 200 && rbAll.data?.ok === true && rbAll.data.projects > 0 && rbAll.data.errors?.length === 0,
+      `PJ-11 POST /rebuild → 200, projects processed, no errors (got ${rbAll.status})`);
+    ok((await getConsole()).data?.queuedCount === 0, 'PJ-11 after a rebuild the queue is empty');
+    const runsAfter = await api('GET', '/api/profile-jobs/runs', null, adminCookie);
+    ok(Number(runsAfter.data?.[0]?.id) > topBefore && runsAfter.data[0].trigger_type === 'manual'
+        && runsAfter.data[0].projects === rbAll.data?.projects,
+      'PJ-11 the rebuild is recorded as a manual run with the same project count');
+
+    // PJ-12: history is capped at 50, newest first (manual runs are always recorded)
+    for (let i = 0; i < 51; i++) await runProfileJobs();
+    const rr = (await api('GET', '/api/profile-jobs/runs', null, adminCookie)).data || [];
+    ok(rr.length === 50 && rr.every((r, i) => i === 0 || Number(rr[i - 1].id) > Number(r.id)),
+      `PJ-12 GET /runs → exactly 50 rows after 51 more runs, newest first (got ${rr.length})`);
+    ok(['id', 'started_at', 'finished_at', 'trigger_type', 'projects', 'resources', 'error'].every(k => rr[0] && k in rr[0]),
+      'PJ-12 run rows carry id, started_at, finished_at, trigger_type, projects, resources, error');
+  } finally {
+    const back = await api('PUT', '/api/profile-jobs/settings', original, adminCookie);
+    ok(back.status === 200 && back.data?.enabled === original.enabled && back.data?.intervalMin === original.intervalMin,
+      'PJ-cleanup the original worker settings are restored');
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -1518,6 +1750,7 @@ async function main() {
     await testResourceMatching();
     await testProfileEngine();
     await testProfileEngineHooks();
+    await testProfileJobsConsole();
     await testTagLinking();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
