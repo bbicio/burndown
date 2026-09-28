@@ -1904,7 +1904,7 @@ Append inside the existing `describe('buildProfileTree', …)` in `js/lib/team-u
     ] };
     const tree = buildProfileTree(withTopics, []);
     expect(tree.topics.map(t => [t.name, t.projectCount])).toEqual([['Medical writing', 2], ['Data visualization', 1]]);
-    expect(tree.topics[0].projects.map(p => p.code)).toEqual(['P1', 'P2'].sort((a, b) => 0) && tree.topics[0].projects.map(p => p.code));
+    expect(new Set(tree.topics[0].projects.map(p => p.code))).toEqual(new Set(['P1', 'P2']));
     expect(tree.topics[0].projects.every(p => typeof p.name === 'string')).toBe(true);
   });
 
