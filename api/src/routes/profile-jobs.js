@@ -2,7 +2,8 @@ const express = require('express');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { query } = require('../db/client');
 const {
-  MAX_RUNS_KEPT, processQueue, enqueueAll, enqueueProjects, dequeueProject, isKnownProjectCode,
+  MAX_RUNS_KEPT, OLDEST_PROJECT_ORDER_BY, processQueue, enqueueAll, enqueueProjects,
+  dequeueProject, isKnownProjectCode,
 } = require('../services/profile-engine');
 const { readSettings, getLastRunStartedAt } = require('../services/profile-worker');
 const { nextRunInfo, jobSettingsError, deriveProjectStatus } = require('../lib/job-schedule');
@@ -34,7 +35,7 @@ const PROJECTS_SQL = `
     SELECT DISTINCT ON (code) code, name
     FROM projects
     WHERE code IS NOT NULL
-    ORDER BY code, created_at, id
+    ORDER BY code, ${OLDEST_PROJECT_ORDER_BY}
   ),
   rc AS (
     SELECT project_code, COUNT(DISTINCT resource_id)::int AS resource_count

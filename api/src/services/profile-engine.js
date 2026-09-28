@@ -8,6 +8,11 @@ const { refreshUnmatched } = require('./resource-matching');
 
 const MAX_RUNS_KEPT = 50;
 
+// projects.code is not unique: when several projects share a code, the OLDEST one is the one that
+// "owns" it everywhere a code resolves to a project (a resource's rebuilt profile, the routes'
+// project-name lookups). Kept as one string so the SQL fragment can never drift between call sites.
+const OLDEST_PROJECT_ORDER_BY = 'created_at, id';
+
 // ── Queue ─────────────────────────────────────────────────────────────────────────────────────
 
 async function enqueueProjects(codes) {
@@ -83,7 +88,7 @@ async function rebuildProfile(client, resourceId) {
   // A code resolves to its OLDEST project (projects.code is not unique); tags come from project_tags.
   const info = await client.query(
     `WITH pj AS (SELECT DISTINCT ON (code) code, id, name FROM projects
-                 WHERE code = ANY($1::text[]) ORDER BY code, created_at, id)
+                 WHERE code = ANY($1::text[]) ORDER BY code, ${OLDEST_PROJECT_ORDER_BY})
      SELECT pj.code, pj.id AS project_id, pj.name,
             al.slug, al.name AS list_name, ali.id AS item_id, ali.label
      FROM pj
@@ -115,7 +120,7 @@ async function processCode(client, code) {
   );
   const rows = ts.rows.map(r => r.e);
   const proj = await client.query(
-    'SELECT name FROM projects WHERE code = $1 ORDER BY created_at, id LIMIT 1', [code]);
+    `SELECT name FROM projects WHERE code = $1 ORDER BY ${OLDEST_PROJECT_ORDER_BY} LIMIT 1`, [code]);
   const fromActuals = rows.map(r => String(r.projectName ?? '').trim()).find(Boolean);
   const projectName = proj.rows[0]?.name || fromActuals || code;
 
@@ -232,6 +237,6 @@ async function processQueue(trigger = 'scheduled', opts = {}) {
 }
 
 module.exports = {
-  MAX_RUNS_KEPT, enqueueProjects, enqueueAll, enqueueProjectsQuiet, enqueueAllQuiet, processQueue,
-  dequeueProject, isKnownProjectCode,
+  MAX_RUNS_KEPT, OLDEST_PROJECT_ORDER_BY, enqueueProjects, enqueueAll, enqueueProjectsQuiet,
+  enqueueAllQuiet, processQueue, dequeueProject, isKnownProjectCode,
 };
