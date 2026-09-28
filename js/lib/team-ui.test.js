@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sortResources, filterComboOptions, buildProfileTree } from './team-ui.js';
+import { sortResources, filterComboOptions, buildProfileTree, paginate, sortUnmatched } from './team-ui.js';
 
 describe('buildProfileTree', () => {
   const profile = {
@@ -175,5 +175,78 @@ describe('filterComboOptions', () => {
 
   it('preserves the input order of the matches', () => {
     expect(filterComboOptions(opts, 'i').map(o => o.id)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('paginate', () => {
+  it('returns everything on one page when it fits', () => {
+    const items = [1, 2, 3];
+    const r = paginate(items, 1, 25);
+    expect(r).toEqual({ pageItems: [1, 2, 3], totalPages: 1, page: 1 });
+  });
+
+  it('slices the requested page', () => {
+    const items = Array.from({ length: 30 }, (_, i) => i + 1);
+    const r = paginate(items, 2, 25);
+    expect(r.pageItems).toEqual([26, 27, 28, 29, 30]);
+    expect(r.totalPages).toBe(2);
+    expect(r.page).toBe(2);
+  });
+
+  it('clamps a page number below 1 up to 1', () => {
+    const r = paginate([1, 2, 3], 0, 25);
+    expect(r.page).toBe(1);
+    expect(r.pageItems).toEqual([1, 2, 3]);
+  });
+
+  it('clamps a page number past the end back to the last page', () => {
+    const items = Array.from({ length: 30 }, (_, i) => i + 1);
+    const r = paginate(items, 99, 25);
+    expect(r.page).toBe(2);
+    expect(r.pageItems).toEqual([26, 27, 28, 29, 30]);
+  });
+
+  it('an empty list has exactly one (empty) page, never zero', () => {
+    const r = paginate([], 1, 25);
+    expect(r).toEqual({ pageItems: [], totalPages: 1, page: 1 });
+  });
+});
+
+describe('sortUnmatched', () => {
+  const rows = [
+    { name_normalized: 'a', display_name: 'Bianchi Anna', hours: 9, projects: 2 },
+    { name_normalized: 'b', display_name: 'alighieri dante', hours: 10, projects: 1 },
+    { name_normalized: 'c', display_name: 'Verdi Carlo', hours: 3, projects: 10 },
+  ];
+
+  it('sorts by hours ascending, numerically not lexically (9 before 10)', () => {
+    const sorted = sortUnmatched(rows, 'hours', 'asc');
+    expect(sorted.map(r => r.hours)).toEqual([3, 9, 10]);
+  });
+
+  it('sorts by hours descending', () => {
+    const sorted = sortUnmatched(rows, 'hours', 'desc');
+    expect(sorted.map(r => r.hours)).toEqual([10, 9, 3]);
+  });
+
+  it('sorts by projects numerically (2 before 10, not "10" before "2")', () => {
+    const sorted = sortUnmatched(rows, 'projects', 'asc');
+    expect(sorted.map(r => r.projects)).toEqual([1, 2, 10]);
+  });
+
+  it('sorts by name, case/accent-insensitive', () => {
+    const sorted = sortUnmatched(rows, 'name', 'asc');
+    expect(sorted.map(r => r.display_name)).toEqual(['alighieri dante', 'Bianchi Anna', 'Verdi Carlo']);
+  });
+
+  it('does not mutate the input array', () => {
+    const copy = rows.slice();
+    sortUnmatched(rows, 'hours', 'asc');
+    expect(rows).toEqual(copy);
+  });
+
+  it('falls back to hours ordering for an unknown key', () => {
+    const sorted = sortUnmatched(rows, 'nonsense', 'asc');
+    expect(sorted.map(r => r.hours)).toEqual([3, 9, 10]);
   });
 });
