@@ -51,8 +51,12 @@ async function bootstrap() {
               (SELECT count(*) FROM timesheets) AS sheets`);
     if (Number(rows[0].contribs) === 0 && Number(rows[0].sheets) > 0) {
       await enqueueAll();
+      const previousRunStartedAt = lastRunStartedAt;
       lastRunStartedAt = new Date();
-      await processQueue('bootstrap');
+      const r = await processQueue('bootstrap');
+      // Same guard as tick(): losing the advisory-lock race means this bootstrap did no work, so
+      // it must not count as "the last run" either.
+      if (r.skipped) lastRunStartedAt = previousRunStartedAt;
     }
     bootstrapped = true;
   } catch (err) {
