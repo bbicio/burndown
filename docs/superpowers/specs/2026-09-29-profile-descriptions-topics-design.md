@@ -41,11 +41,12 @@ Migrations are applied by hand to the real `pdash-db` and to any test-branch sta
 
 - Runs **before** the per-code transaction in `processNext`, never inside it (no LLM call while row locks are held).
 - For the project resolved from the code (oldest by `created_at, id`, as the engine already does): compute a SHA-256 of the description and of each task description; compare with `description_topic_state.text_hash`. Unchanged or empty text → no call. A text that became empty deletes its state and links.
+- Texts shorter than a minimum length (constant `MIN_TEXT_CHARS = 20`, trimmed) are **not sent** to the LLM: they yield no topics, their state row is stored with the hash so they are not re-evaluated until edited, and any links from a previous longer version are removed.
 - One request **per project** (never per resource) carries all changed texts plus the context: the vocabulary (approved + proposed as reusable; rejected as "do not use") and **all active values of every attribute list** (Market, Brand, Therapeutic Area, Service Type, …).
 
 ### Agent rules (the prompt contract)
 1. A **topic is a specific competence** required to carry out the task/project (e.g. "Medical writing", "Data visualization", "Video editing") — not a subject, client, market, brand or therapeutic area. One text may require several competences.
-2. 0–5 topics per text, the most characteristic ones, English, 1–4 words, nominal form. Vague/empty/too-short text → no topics; zero beats an invented topic. Only what the text states; nothing inferred from client or project names. No names of people, clients or products.
+2. **Up to** 5 topics per text — 5 is a ceiling, never a target: the agent returns only the competences the text really supports, often fewer. The most characteristic ones, English, 1–4 words, nominal form. Vague/empty/too-short text → no topics; zero beats an invented topic. Only what the text states; nothing inferred from client or project names. No names of people, clients or products.
 3. **Reuse first:** if a candidate means the same as an existing topic, the agent returns that topic's id instead of a new name.
 4. **Attribute-list values are forbidden as topics.** A candidate that is semantically equivalent to any attribute-list value must be discarded. The agent classifies each candidate itself.
 5. Near-duplicate candidates within the same response are collapsed to one.
