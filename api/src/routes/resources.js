@@ -31,6 +31,7 @@ router.get('/unmatched', async (req, res, next) => {
               (array_agg(display_name ORDER BY hours DESC))[1] AS display_name,
               ROUND(SUM(hours), 2)::float AS hours,
               COUNT(DISTINCT project_code)::int AS projects,
+              array_agg(DISTINCT project_code ORDER BY project_code) AS project_codes,
               (array_agg(candidate_resource_ids))[1] AS candidate_resource_ids
        FROM profile_unmatched
        GROUP BY name_normalized
