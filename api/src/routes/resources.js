@@ -4,6 +4,8 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const { normalizeName, buildMatchContext, matchOwner } = require('../lib/match-resource');
 const { refreshUnmatched } = require('../services/resource-matching');
+const { loadVocabulary } = require('../services/topic-extraction');
+const { resolveProfileTopics } = require('../lib/topic-extract');
 const { enqueueAllQuiet, OLDEST_PROJECT_ORDER_BY } = require('../services/profile-engine');
 
 const router = express.Router();
@@ -176,7 +178,12 @@ router.get('/:id/profile', async (req, res, next) => {
   try {
     const { rows } = await query('SELECT profile, profile_computed_at FROM resources WHERE id = $1', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Resource not found' });
-    res.json({ profile: rows[0].profile, profile_computed_at: rows[0].profile_computed_at });
+    let profile = rows[0].profile;
+    if (profile) {
+      const vocab = await loadVocabulary();
+      profile = { ...profile, topics: resolveProfileTopics(profile.topics, vocab.topicsById) };
+    }
+    res.json({ profile, profile_computed_at: rows[0].profile_computed_at });
   } catch (err) {
     if (err.code === '22P02') return res.status(404).json({ error: 'Resource not found' });
     next(err);

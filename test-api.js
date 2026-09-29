@@ -1942,6 +1942,41 @@ async function testTopicExtraction() {
     ok(!names.includes(itemLabel), 'TX-04 a candidate equal to an attribute-list value is discarded server-side');
     ok(!names.includes(`Copy editing ${ts}`), 'TX-04 a rejected topic is not proposed again');
 
+    // PT: profile topics — only approved ones are visible, admin edits apply instantly
+    const proposedNow = (await api('GET', '/api/topics?status=proposed', null, adminCookie)).data || [];
+    const web = proposedNow.find(t => t.name === `Web development ${ts}`);
+    const stat = proposedNow.find(t => t.name === `Statistical modelling ${ts}`);
+    let prof = await getProfile(resId);
+    ok(Array.isArray(prof?.profile?.topics) && prof.profile.topics.length === 0, 'PT-01 proposed topics are not shown in the profile');
+    if (web && stat) {
+      await api('POST', `/api/topics/${web.id}/approve`, null, adminCookie);
+      await api('POST', `/api/topics/${stat.id}/approve`, null, adminCookie);
+      prof = await getProfile(resId);
+      const tn = prof?.profile?.topics || [];
+      ok(tn.some(t => t.name === `Web development ${ts}` && t.projectCodes.includes(code1)), 'PT-02 an approved project topic appears at once (no recalculation)');
+      ok(tn.some(t => t.name === `Statistical modelling ${ts}`), 'PT-02 an approved task topic appears for the person with actuals on that task');
+      await api('PATCH', `/api/topics/${web.id}`, { name: `Web engineering ${ts}` }, adminCookie);
+      ok((await getProfile(resId))?.profile?.topics?.some(t => t.name === `Web engineering ${ts}`), 'PT-03 a rename shows up at once');
+      const target = await api('POST', '/api/topics', { name: `Engineering ${ts}` }, adminCookie);
+      await api('POST', `/api/topics/${web.id}/merge`, { targetId: target.data.id }, adminCookie);
+      const merged = (await getProfile(resId))?.profile?.topics || [];
+      ok(merged.filter(t => t.name === `Engineering ${ts}`).length === 1 && !merged.some(t => t.name === `Web engineering ${ts}`),
+        'PT-04 a merge shows up at once, without duplicates');
+      await api('POST', `/api/topics/${stat.id}/reject`, null, adminCookie);
+      ok(!((await getProfile(resId))?.profile?.topics || []).some(t => t.name === `Statistical modelling ${ts}`), 'PT-05 a rejected topic disappears at once');
+    }
+    // a person with no actuals on the task gets the project topics but not the task topics
+    const rOther = await api('POST', '/api/resources',
+      { firstName: 'Other', lastName: `Person${ts}`, email: `other.${ts}@test.local`, roleId: f.role.id }, adminCookie);
+    if (rOther.data?.id) {
+      later('DELETE', `/api/resources/${rOther.data.id}`);
+      await uploadCsv(`/api/timesheets/upload?projectCode=${code1}`, profileCsv([
+        [code1, '2026-01-15', person, 4], [code1, '2026-02-01', `Other Person${ts}`, 3]]), adminCookie);
+      await runProfileJobs();
+      const other = await getProfile(rOther.data.id);
+      ok((other?.profile?.topics || []).some(t => t.name === `Engineering ${ts}`), 'PT-06 every contributor of the project receives the project topics');
+    }
+
     // unchanged text → no second call
     const before = stubBodies.length;
     await api('POST', `/api/profile-jobs/projects/${encodeURIComponent(code1)}/process`, null, adminCookie);

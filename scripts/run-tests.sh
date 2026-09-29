@@ -117,7 +117,7 @@ wait_healthy "$API_CONTAINER"
 echo "$CURRENT_HASH" > "$IMAGE_HASH_FILE"
 
 set +e
-$COMPOSE --profile test run --rm test
+$COMPOSE --profile test run --rm --use-aliases test
 exit_code=$?
 set -e
 
