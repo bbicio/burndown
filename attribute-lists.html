@@ -373,8 +373,8 @@
         async topicAction(t, action) {
           t._loading = true; this.topicsError = null;
           const r = await this.topicsRequest('POST', `/api/topics/${t.id}/${action}`);
-          if (!r.ok) this.topicsError = (r.data && r.data.error) || 'The action failed.';
           await this.loadTopics();
+          if (!r.ok) this.topicsError = (r.data && r.data.error) || 'The action failed.';
         },
         openMergeTopic(t) { this.mergeForm = { source: t, targetId: '', loading: false, error: null }; this._mergeModal.show(); },
         async submitMerge() {
