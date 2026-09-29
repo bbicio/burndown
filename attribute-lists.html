@@ -313,7 +313,7 @@
         rejectedTopics() { return this.topics.filter(t => t.status === 'rejected'); },
         mergeTargets() {
           const src = this.mergeForm.source;
-          return this.topics.filter(t => src && t.id !== src.id && t.status !== 'rejected');
+          return this.topics.filter(t => src && t.id !== src.id && t.status !== 'rejected' && (src.status !== 'approved' || t.status === 'approved'));
         },
         filteredItems() {
           return this.showInactiveItems ? this.items : this.items.filter(it => it.status === 'active');

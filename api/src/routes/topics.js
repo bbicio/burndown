@@ -136,6 +136,10 @@ router.post('/:id/merge', async (req, res, next) => {
       await client.query('ROLLBACK');
       return res.status(409).json({ error: 'Cannot merge into a rejected topic — restore it first.' });
     }
+    if (source.status === 'approved' && target.status !== 'approved') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'An approved topic can only be merged into an approved topic — approve the target first.' });
+    }
     await client.query(
       `INSERT INTO description_topic_links (project_id, task_key, topic_id)
        SELECT project_id, task_key, $2 FROM description_topic_links WHERE topic_id = $1

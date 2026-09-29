@@ -115,11 +115,18 @@ router.put('/settings', async (req, res, next) => {
 router.put('/topic-settings', async (req, res, next) => {
   try {
     if (typeof req.body?.enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be true or false' });
+    const prev = await query(`SELECT value FROM app_settings WHERE key = 'topic_extraction_enabled'`);
+    const wasEnabled = prev.rows[0] ? prev.rows[0].value !== 'false' : true;
     await query(
       `INSERT INTO app_settings (key, value, updated_at, updated_by) VALUES ('topic_extraction_enabled', $1, NOW(), $2)
        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW(), updated_by = EXCLUDED.updated_by`,
       [req.body.enabled ? 'true' : 'false', req.user.id]
     );
+    // texts edited while extraction was off were skipped and un-queued — process every code again
+    // (unchanged texts hit the hash cache, so this costs no LLM calls)
+    if (req.body.enabled && !wasEnabled) {
+      try { await enqueueAll(); } catch (e) { console.warn('[topic-settings] re-queue failed:', e.message); }
+    }
     res.json({ enabled: req.body.enabled });
   } catch (err) { next(err); }
 });

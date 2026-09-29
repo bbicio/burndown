@@ -2038,6 +2038,23 @@ async function testTopicExtraction() {
     await runProfileJobs();
     ok(stubBodies.length === n, 'TX-09 with extraction switched off the LLM is not called');
     await api('PUT', '/api/profile-jobs/topic-settings', { enabled: true }, adminCookie);
+    await runProfileJobs();
+    ok(stubSaw(`Disabled ${ts}`), 'TX-09 re-enabling extraction re-queues texts changed while it was off');
+
+    // TX-11: an approved topic cannot be merged into a non-approved target
+    const guardApproved = await api('POST', '/api/topics', { name: `Merge guard ${ts}` }, adminCookie);
+    const guardProposed = (await api('GET', '/api/topics?status=proposed', null, adminCookie)).data || [];
+    const proposedTarget = guardProposed.find(t => t.name === `Failure topic html200 ${ts}`) || guardProposed[0];
+    if (!guardApproved.data?.id || !proposedTarget) {
+      ok(false, 'TX-11 setup: an approved topic and a proposed topic must both exist');
+    } else {
+      const blocked = await api('POST', `/api/topics/${guardApproved.data.id}/merge`, { targetId: proposedTarget.id }, adminCookie);
+      ok(blocked.status === 409, 'TX-11 merging an approved topic into a proposed one is refused with 409');
+      const stillApproved = (await api('GET', '/api/topics?status=approved', null, adminCookie)).data || [];
+      ok(stillApproved.some(t => t.id === guardApproved.data.id), 'TX-11 the approved topic is still present after the refused merge');
+      const reverse = await api('POST', `/api/topics/${proposedTarget.id}/merge`, { targetId: guardApproved.data.id }, adminCookie);
+      ok(reverse.status === 200, 'TX-11 merging a proposed topic into an approved one is allowed');
+    }
     void resId;
   } finally {
     stubMode = 'ok';
