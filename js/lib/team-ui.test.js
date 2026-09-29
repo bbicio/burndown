@@ -69,6 +69,22 @@ describe('buildProfileTree', () => {
     buildProfileTree(profile, roles);
     expect(JSON.stringify(profile)).toBe(copy);
   });
+
+  it('adds a topics list: approved topics with the projects they appear in', () => {
+    const withTopics = { ...profile, topics: [
+      { id: 't2', name: 'Data visualization', projectCodes: ['P2'] },
+      { id: 't1', name: 'Medical writing', projectCodes: ['P1', 'P2'] },
+    ] };
+    const tree = buildProfileTree(withTopics, []);
+    expect(tree.topics.map(t => [t.name, t.projectCount])).toEqual([['Medical writing', 2], ['Data visualization', 1]]);
+    expect(new Set(tree.topics[0].projects.map(p => p.code))).toEqual(new Set(['P1', 'P2']));
+    expect(tree.topics[0].projects.every(p => typeof p.name === 'string')).toBe(true);
+  });
+
+  it('topics is an empty array when the profile has none (older profiles, nothing approved)', () => {
+    expect(buildProfileTree(profile, []).topics).toEqual([]);
+    expect(buildProfileTree({ ...profile, topics: [] }, []).topics).toEqual([]);
+  });
 });
 
 const R = (id, first, last, email, roleLabel, roleCode, status = 'active') =>

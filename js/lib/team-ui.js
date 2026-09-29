@@ -104,7 +104,11 @@ export function buildProfileTree(profile, roles = []) {
     projectCount: r.projects, projects: children(r.projectCodes),
   }));
 
-  return { totals: profile.totals, computedAt: profile.computedAt, dimensions, roles: roleNodes };
+  const topicNodes = (profile.topics || [])
+    .map(t => ({ id: t.id, name: t.name, projectCount: (t.projectCodes || []).length, projects: children(t.projectCodes) }))
+    .sort((a, b) => b.projectCount - a.projectCount || a.name.localeCompare(b.name));
+
+  return { totals: profile.totals, computedAt: profile.computedAt, dimensions, roles: roleNodes, topics: topicNodes };
 }
 
 window.sortResources = sortResources;
