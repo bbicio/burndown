@@ -1991,6 +1991,19 @@ async function testTopicExtraction() {
     await runProfileJobs();
     ok(!stubSaw('ZZSHORT'), 'TX-06 a text shorter than 20 characters is not sent to the LLM');
 
+    // TX-10: a persistent extraction failure is counted once, not on every run
+    stubMode = 'http500';
+    await api('PATCH', `/api/projects/${p1}`, { description: `Retry description for the persistent failure [[Retry topic ${ts}]]` }, adminCookie);
+    const run1 = await runProfileJobs();
+    ok(run1.data?.projects >= 1, 'TX-10 the first failed extraction is counted as work');
+    const run2 = await runProfileJobs();
+    const run3 = await runProfileJobs();
+    ok(run2.data?.projects === 0 && run3.data?.projects === 0, 'TX-10 repeated retries of the same failure are not counted as work');
+    ok((run2.data?.errors || []).length === 0 && (run3.data?.errors || []).length === 0, 'TX-10 repeated retries do not add run errors');
+    stubMode = 'ok';
+    const run4 = await runProfileJobs();
+    ok(run4.status === 200 && (run4.data?.errors || []).length === 0, 'TX-10 a later successful run completes cleanly');
+
     // failures never block: 500 and garbage answers
     for (const mode of ['http500', 'garbage', 'html200']) {
       stubMode = mode;

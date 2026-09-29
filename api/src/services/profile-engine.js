@@ -157,8 +157,10 @@ async function processCode(client, code) {
   return { rows: rows.length, resources: contribs.size };
 }
 
-// One queued code per transaction. Returns null when the queue is empty, { code, resources } on
-// success, { code, error } when that code failed (it goes to the back of the queue with last_error).
+// Codes whose topic extraction failed on their last processing. A code that fails again is still
+// re-queued but no longer counted as work, so a persistent failure cannot flood profile_job_runs.
+const topicRetryCodes = new Set();
+
 // Topic extraction for the code that is NEXT in the queue, done before we claim it so that no row lock
 // is held during the LLM call. Never throws. Returns the code when its extraction failed (the caller
 // re-queues it after processing, at most once per run), else null.
@@ -180,6 +182,10 @@ async function extractTopicsForNext(exclude, only) {
   }
 }
 
+// One queued code per transaction. Returns null when the queue is empty, { code, resources, topicRetry,
+// retryOnly } on success (topicRetry: its topic extraction failed and it was re-queued; retryOnly: it
+// had already failed the same way on its previous processing, so it must not be counted as work),
+// { code, error } when that code failed (it goes to the back of the queue with last_error).
 async function processNext(exclude, only = null) {
   const retryCode = await extractTopicsForNext(exclude, only);
   const client = await pool.connect();
@@ -207,12 +213,15 @@ async function processNext(exclude, only = null) {
     await client.query('COMMIT');
     // Keep the "Unmatched names" list for this code current (own transaction; best-effort).
     await quiet('refreshUnmatched', () => refreshUnmatched([code]));
-    if (retryCode && retryCode === code) {
+    const failedAgain = !!retryCode && retryCode === code;
+    const wasRetry = topicRetryCodes.has(code);
+    if (failedAgain) topicRetryCodes.add(code); else topicRetryCodes.delete(code);
+    if (failedAgain) {
       // extraction failed: look again on a later run (the loop excludes it for the rest of this one)
       await quiet('requeue after topic error', () => query(
         'UPDATE profile_project_state SET queued_at = now() WHERE project_code = $1', [code]));
     }
-    return { code, resources: out.resources, topicRetry: retryCode === code };
+    return { code, resources: out.resources, topicRetry: failedAgain, retryOnly: failedAgain && wasRetry };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     if (!code) throw err;                       // failure before a code was claimed
@@ -254,9 +263,10 @@ async function processQueue(trigger = 'scheduled', opts = {}) {
       const r = await processNext(failed, only);
       if (!r) break;
       if (r.error) { failed.push(r.code); errors.push(`${r.code}: ${r.error}`); continue; }
+      if (r.topicRetry) failed.push(r.code);
+      if (r.retryOnly) continue;      // already failed the same way last time: reprocessed, not counted
       projects += 1;
       resources += r.resources;
-      if (r.topicRetry) failed.push(r.code);
     }
     let lastRunError = null;
     if (errors.length && projects === 0 && kind !== 'manual') {
