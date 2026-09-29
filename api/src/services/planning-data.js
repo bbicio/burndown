@@ -36,11 +36,15 @@ async function getPlanningData() {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.data;
   if (inflight) return inflight;
   const startedAt = generation;
-  inflight = load().then(data => {
+  const p = load().then(data => {
     if (startedAt === generation) cache = { data, at: Date.now() };
     return data;
-  }).finally(() => { inflight = null; });
-  return inflight;
+  });
+  inflight = p;
+  // Only clear our own slot (an invalidate may have started a newer load); swallow here so the
+  // finally-branch never surfaces an unhandled rejection - callers still get p's rejection.
+  p.then(() => {}, () => {}).then(() => { if (inflight === p) inflight = null; });
+  return p;
 }
 
 function invalidatePlanningData() {

@@ -57,15 +57,13 @@ function getCalendarWeeks(start, end, today) {
 function countFutureTaskWeeks(tStart, tEnd, today) {
   if (!tEnd || tEnd < today) return 0;
   const effectiveStart = (tStart && tStart > today) ? tStart : today;
-  let count = 0;
-  for (let d = mondayOnOrBefore(effectiveStart); d <= tEnd; d = addDays(d, 7)) {
-    const wEnd = addDays(d, 6);
-    if (wEnd >= today && (!tStart || wEnd >= tStart)) count++;
-  }
-  return count;
+  // Closed form: every week visited from that Monday up to tEnd already has weekEnd >= today and
+  // weekEnd >= tStart (weekEnd = Monday + 6 >= effectiveStart >= max(today, tStart)), so just count them.
+  const mon = mondayOnOrBefore(effectiveStart);
+  return mon > tEnd ? 0 : Math.floor((tEnd.getTime() - mon.getTime()) / (7 * DAY_MS)) + 1;
 }
 
-// A task with no dates anywhere ends in year 9999 (~400k weeks): memoise per (start, end).
+// Memoise per (start, end): the same task dates recur across roles/owners within a request.
 function makeFutureWeekCounter(today) {
   const memo = new Map();
   return (tStart, tEnd) => {

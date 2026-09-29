@@ -2,7 +2,7 @@
 // Rule primitives of the planning model — ports of js/lib/planning-calc.js and of the inline
 // logic of planning.html's three views. Behaviour matches the browser except the deliberate
 // Phase 2 change in phasedSeries (monthly distribution independent of the visible window).
-const { getCalendarWeeks, utcDate } = require('./planning-calendar');
+const { getCalendarWeeks, utcDate, addDays } = require('./planning-calendar');
 
 function matchesTaskRole(record, taskName, role) {
   const roleMatches = (record.role || '').toLowerCase() === (role || '').toLowerCase();
@@ -47,11 +47,16 @@ function ymOf(week) {
 
 // Future weeks of a task inside the months its monthly distribution covers (independent of any
 // visible window). An undated task (end year 9999) is capped at the last month of the distribution.
+// Upper bound on how far ahead a monthly-distribution key can push the enumeration (guards keys like '999912').
+const MAX_FUTURE_DAYS = 20 * 366;
+
 function taskFutureWeeks(tStart, tEnd, pDist, today) {
   const months = Object.keys(pDist || {}).filter(ym => /^\d{6}$/.test(ym)).sort();
   if (!months.length) return [];
   const last = months[months.length - 1];
-  const distEnd = utcDate(parseInt(last.slice(0, 4), 10), parseInt(last.slice(4, 6), 10), 0); // last day of that month
+  const distEndRaw = utcDate(parseInt(last.slice(0, 4), 10), parseInt(last.slice(4, 6), 10), 0); // last day of that month
+  const horizon = addDays(today, MAX_FUTURE_DAYS);
+  const distEnd = distEndRaw < horizon ? distEndRaw : horizon;
   const end = tEnd < distEnd ? tEnd : distEnd;
   const start = tStart > today ? tStart : today;
   if (end < start) return [];

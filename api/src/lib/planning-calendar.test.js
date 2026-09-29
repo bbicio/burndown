@@ -58,3 +58,39 @@ test('makeFutureWeekCounter: memoised, and an undated task (end year 9999) stays
   assert.ok(a > 100000, `expected a huge week count for an undated task, got ${a}`);
   assert.ok(Date.now() - t0 < 2000, 'undated task count must not take seconds');
 });
+
+// Reference implementation: the original week-by-week loop the closed form replaced.
+function countFutureTaskWeeksLoop(tStart, tEnd, today) {
+  if (!tEnd || tEnd < today) return 0;
+  const effectiveStart = (tStart && tStart > today) ? tStart : today;
+  let count = 0;
+  for (let d = mondayOnOrBefore(effectiveStart); d <= tEnd; d = addDays(d, 7)) {
+    const wEnd = addDays(d, 6);
+    if (wEnd >= today && (!tStart || wEnd >= tStart)) count++;
+  }
+  return count;
+}
+
+test('countFutureTaskWeeks: closed form equals the original loop over a grid of combinations', () => {
+  // Sun 09-13, Mon 09-14, month end 09-30 as "today"; ends include month ends and Sundays/Mondays via offsets
+  const todays = ['2026-09-13', '2026-09-14', '2026-09-30'].map(D);
+  const offsets = [-40, -8, -7, -1, 0, 1, 6, 7, 8, 13, 14, 20, 45, 120];
+  let combos = 0;
+  for (const today of todays) {
+    const starts = [null, ...offsets.map(o => addDays(today, o))];
+    const ends = [null, ...offsets.map(o => addDays(today, o)), D('2026-10-31'), D('2027-02-28')];
+    for (const tStart of starts) for (const tEnd of ends) {
+      assert.equal(
+        countFutureTaskWeeks(tStart, tEnd, today),
+        countFutureTaskWeeksLoop(tStart, tEnd, today),
+        `today=${dateKey(today)} start=${tStart && dateKey(tStart)} end=${tEnd && dateKey(tEnd)}`);
+      combos++;
+    }
+  }
+  assert.ok(combos >= 200, `only ${combos} combos`);
+});
+
+test('countFutureTaskWeeks: a task that started in the past is counted from today\'s Monday', () => {
+  const today = D('2026-09-16'); // Wednesday, Monday is 09-14
+  assert.equal(countFutureTaskWeeks(D('2026-06-01'), D('2026-09-30'), today), 3); // 09-14, 09-21, 09-28
+});

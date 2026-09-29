@@ -83,3 +83,10 @@ test('phasedSeries (phase 2): no percentage in any future month falls back to an
   const out = phasedSeries({ residualH: 30, pDist: { '202612': 100 }, visibleFutureWeeks: wk, allFutureWeeks: [], fallbackWeekCount: () => 3 });
   assert.deepEqual(out.map(e => e.hours), wk.map(() => 10));
 });
+
+test('taskFutureWeeks: a pathological far-future distribution key on an undated task stays bounded and fast', () => {
+  const t0 = Date.now();
+  const weeks = taskFutureWeeks(new Date(0), new Date(Date.UTC(9999, 11, 31)), { '999912': 100 }, isoDate('2026-09-15'));
+  assert.ok(Date.now() - t0 < 1000, 'must not enumerate hundreds of thousands of weeks');
+  assert.ok(weeks.length > 0 && weeks.length < 1200, `got ${weeks.length} weeks`);
+});
