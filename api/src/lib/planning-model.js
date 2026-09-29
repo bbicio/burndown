@@ -270,9 +270,116 @@ function projectProjection({ projects, actuals, weeks, today, pulse, teams, owne
   return { projects: projectNodes };
 }
 
+// ── By Owner ──────────────────────────────────────────────────────────────────────────────
+// Port of byOwnerView's calculation block. The residual is per TASK over the roles that pass the
+// team filter; owners are aggregated over all those roles; no project-date fallback, no window skip.
+function ownerProjection({ projects, actuals, weeks, today, pulse, teams, ownerStatus }) {
+  const countFw = makeFutureWeekCounter(today);
+  const ownerMap = {};
+
+  for (const proj of projects) {
+    const projData = actuals.get(proj.id) || [];
+    for (const task of proj.tasks || []) {
+      if (task.completed) continue;
+      const tStart = task.startDate ? parseTaskDate(task.startDate, false) : null;
+      const tEnd   = task.endDate   ? parseTaskDate(task.endDate,   true)  : null;
+
+      const resources = (task.resources || []).filter(res => rolePassesTeams(teams, res.role));
+      if (!resources.length) continue;
+      const soldH = resources.reduce((s, res) => s + (res.soldHours || 0), 0);
+      const taskRecs = projData.filter(r => resources.some(res => matchesTaskRole(r, task.name, res.role)));
+
+      const taskWeekData = {};
+      const ownerTotals = {};
+      let totalOwnerH = 0;
+
+      for (const w of weeks) {
+        if (!w.isPast) continue;
+        const recs = taskRecs.filter(r => inWeek(r, w));
+        if (!recs.length) continue;
+        const byOwner = {};
+        for (const r of recs) { const o = ownerOf(r); byOwner[o] = (byOwner[o] || 0) + r.hours; }
+        taskWeekData[w.key] = { total: recs.reduce((s, r) => s + r.hours, 0), byOwner, isPulse: false, isPast: true };
+      }
+      for (const r of taskRecs) { const o = ownerOf(r); ownerTotals[o] = (ownerTotals[o] || 0) + r.hours; }
+      Object.values(ownerTotals).forEach(h => { totalOwnerH += h; });
+
+      const consumedH = totalOwnerH;
+      const taskTbp = computeResidual(soldH, consumedH);
+      if (soldH < 0.01 && consumedH < 0.01) continue;
+
+      const ownerNames = Object.entries(ownerTotals).filter(([, h]) => h > 0.01).sort((a, b) => b[1] - a[1]).map(([o]) => o);
+      const hasOwners = ownerNames.length > 0;
+      const ownerTotalsForSplit = Object.fromEntries(Object.entries(ownerTotals).filter(([, h]) => h > 0.01));
+      const { props: ownerFutureProps, allInactive: allOwnersInactive } = redistributeExcludingInactive(ownerTotalsForSplit, ownerStatus);
+
+      if (taskTbp > 0.01) {
+        const futureWeeks = weeks.filter(w => !w.isPast);
+        const taskWeeks = tStart && tEnd ? futureWeeks.filter(w => w.weekEnd >= tStart && w.weekStart <= tEnd) : futureWeeks;
+        const totalTaskFw = (tStart && tEnd) ? countFw(tStart, tEnd) : taskWeeks.length;
+        const distribute = (byOwner, hours) => {
+          if (!allOwnersInactive) {
+            for (const [o, prop] of Object.entries(ownerFutureProps)) byOwner[o] = (byOwner[o] || 0) + hours * prop;
+          } else {
+            byOwner[PLACEHOLDER] = (byOwner[PLACEHOLDER] || 0) + hours;
+          }
+        };
+        const byMonth = {};
+        for (const w of taskWeeks) (byMonth[w.monthKey] ||= []).push(w.key);
+        const weeksByMonth = Object.entries(byMonth).map(([monthKey, weekKeys]) => ({ monthKey, weekKeys }));
+        for (const entry of distributeFutureResidual(taskTbp, totalTaskFw, weeksByMonth, pulse)) {
+          if (!taskWeekData[entry.key]) taskWeekData[entry.key] = { total: 0, byOwner: {}, isPulse: entry.isPulse, isPast: false };
+          taskWeekData[entry.key].total += entry.hours;
+          if (entry.isPulse) taskWeekData[entry.key].isPulse = true;
+          distribute(taskWeekData[entry.key].byOwner, entry.hours);
+        }
+      }
+
+      const displayOwners = hasOwners
+        ? (allOwnersInactive ? (ownerNames.includes(PLACEHOLDER) ? ownerNames : [...ownerNames, PLACEHOLDER]) : ownerNames)
+        : [PLACEHOLDER];
+      for (const ownerName of displayOwners) {
+        const isPlaceholder = ownerName === PLACEHOLDER;
+        const ownerActualsProp = totalOwnerH > 0.01 ? (ownerTotals[ownerName] || 0) / totalOwnerH : (isPlaceholder ? 1 : 0);
+        const ownerProp = isPlaceholder && (allOwnersInactive || totalOwnerH <= 0.01) ? 1 : (ownerFutureProps[ownerName] || 0);
+        const ownerSold = soldH * ownerActualsProp;
+        const ownerActuals = ownerTotals[ownerName] || 0;
+        const ownerTbpH = taskTbp * ownerProp;
+
+        const om = (ownerMap[ownerName] ||= { sold: 0, actuals: 0, tbp: 0, weekTotals: {}, projects: {} });
+        om.sold += ownerSold; om.actuals += ownerActuals; om.tbp += ownerTbpH;
+        const pm = (om.projects[proj.id] ||= { name: proj.name || proj.id, sold: 0, actuals: 0, tbp: 0, weekTotals: {}, tasks: {} });
+        pm.sold += ownerSold; pm.actuals += ownerActuals; pm.tbp += ownerTbpH;
+        const tm = (pm.tasks[task.name] ||= { sold: 0, actuals: 0, tbp: 0, weekData: {} });
+        tm.sold += ownerSold; tm.actuals += ownerActuals; tm.tbp += ownerTbpH;
+
+        for (const w of weeks) {
+          const d = taskWeekData[w.key];
+          if (!d) continue;
+          const oh = d.byOwner[ownerName] || 0;
+          if (oh < 0.001) continue;
+          if (!tm.weekData[w.key]) tm.weekData[w.key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
+          tm.weekData[w.key].hours += oh;
+          if (!pm.weekTotals[w.key]) pm.weekTotals[w.key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
+          pm.weekTotals[w.key].hours += oh;
+          if (!om.weekTotals[w.key]) om.weekTotals[w.key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
+          om.weekTotals[w.key].hours += oh;
+        }
+      }
+    }
+  }
+  return { ownerMap };
+}
+
+function buildProjection(view, input) {
+  if (view === 'role') return roleProjection(input);
+  if (view === 'project') return projectProjection(input);
+  if (view === 'owner') return ownerProjection(input);
+  throw new Error('Unknown view');
+}
+
 module.exports = {
-  PLACEHOLDER, roleProjection, projectProjection, normalizeActuals, groupActualsByProject, uniqueOwnerNames,
+  PLACEHOLDER, normalizeActuals, groupActualsByProject, uniqueOwnerNames,
   inWeek, ownerOf, rolePassesTeams,
-  // projections are appended by the next tasks
-  _internals: { parseTaskDate, makeFutureWeekCounter, matchesTaskRole, computeResidual, distributeFutureResidual, redistributeExcludingInactive, hasValidPhasing, phasedSeries },
+  roleProjection, projectProjection, ownerProjection, buildProjection,
 };

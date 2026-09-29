@@ -202,3 +202,65 @@ test('projectProjection: blank owner rows are attributed to the TBD placeholder 
   assert.deepEqual(role.owners.map(o => o.name), ['—']);
   near(role.owners[0].actuals, 5);
 });
+
+const ROLES2 = () => PROJ({ tasks: [{ name: 'Build', startDate: '20260901', endDate: '20260930', completed: false,
+  resources: [{ role: 'DEV', soldHours: 60 }, { role: 'QA', soldHours: 40 }] }] });
+
+test('ownerProjection: task-level residual split among owners of ALL the task roles', () => {
+  const actuals = new Map([['p1', [rec('2026-09-08', 'Mario', 20, 'DEV'), rec('2026-09-09', 'Anna', 10, 'QA')]]]);
+  const { ownerMap } = M.ownerProjection({ projects: [ROLES2()], actuals, weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(), ownerStatus: {} });
+  const mario = ownerMap.Mario, anna = ownerMap.Anna;
+  near(mario.sold, 100 * (20 / 30));
+  near(mario.actuals, 20);
+  near(mario.tbp, 70 * (2 / 3));
+  near(anna.tbp, 70 * (1 / 3));
+  near(mario.weekTotals['2026-09-14'].hours, (70 / 3) * (2 / 3));
+  assert.equal(mario.weekTotals['2026-09-07'].isPast, true);
+  near(mario.projects.p1.tasks.Build.weekData['2026-09-14'].hours, (70 / 3) * (2 / 3));
+  assert.equal(mario.projects.p1.name, 'Alpha');
+});
+
+test('ownerProjection: the team filter changes the task residual (max(0, sum) is not a sum of maxes)', () => {
+  const actuals = new Map([['p1', [rec('2026-09-08', 'Mario', 70, 'HWGDEV - DEV')]]]);
+  const p = PROJ({ tasks: [{ name: 'Build', startDate: '20260901', endDate: '20260930', completed: false,
+    resources: [{ role: 'HWGDEV - DEV', soldHours: 60 }, { role: 'HWGQA - QA', soldHours: 40 }] }] });
+  const all = M.ownerProjection({ projects: [p], actuals, weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(), ownerStatus: {} });
+  near(all.ownerMap.Mario.tbp, 30);                         // 100 sold - 70 consumed
+  const dev = M.ownerProjection({ projects: [p], actuals, weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(['HWGDEV']), ownerStatus: {} });
+  near(dev.ownerMap.Mario.tbp, 0);                          // 60 sold - 70 consumed, floored
+});
+
+test('ownerProjection: inactive owners get no future share; nobody active -> TBD; no owners -> TBD', () => {
+  const actuals = new Map([['p1', [rec('2026-09-08', 'Anna', 10, 'DEV')]]]);
+  const inactive = M.ownerProjection({ projects: [ROLES2()], actuals, weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(), ownerStatus: { Anna: 'inactive' } });
+  assert.deepEqual(Object.keys(inactive.ownerMap).sort(), ['Anna', '—']);
+  near(inactive.ownerMap['—'].tbp, 90);
+  near(inactive.ownerMap.Anna.tbp, 0);
+  const none = M.ownerProjection({ projects: [ROLES2()], actuals: new Map(), weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(), ownerStatus: {} });
+  assert.deepEqual(Object.keys(none.ownerMap), ['—']);
+  near(none.ownerMap['—'].tbp, 100);
+  near(none.ownerMap['—'].sold, 100);
+});
+
+test('ownerProjection: a task without dates spreads over all visible future weeks; tasks with nothing to plan are skipped', () => {
+  const p = ROLES2(); p.tasks[0].startDate = ''; p.tasks[0].endDate = '';
+  const { ownerMap } = M.ownerProjection({ projects: [p], actuals: new Map(), weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(), ownerStatus: {} });
+  assert.deepEqual(Object.keys(ownerMap['—'].weekTotals), ['2026-09-14', '2026-09-21', '2026-09-28']);
+  near(ownerMap['—'].weekTotals['2026-09-14'].hours, 100 / 3);
+  const zero = ROLES2(); zero.tasks[0].resources = [{ role: 'DEV', soldHours: 0 }];
+  assert.deepEqual(M.ownerProjection({ projects: [zero], actuals: new Map(), weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(), ownerStatus: {} }).ownerMap, {});
+});
+
+test('ownerProjection: same-named tasks in one project merge (keyed by task name)', () => {
+  const p = ROLES2(); p.tasks.push({ ...p.tasks[0], resources: [{ role: 'DEV', soldHours: 10 }] });
+  const { ownerMap } = M.ownerProjection({ projects: [p], actuals: new Map(), weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(), ownerStatus: {} });
+  near(ownerMap['—'].projects.p1.tasks.Build.sold, 110);
+});
+
+test('buildProjection dispatches by view and rejects unknown views', () => {
+  const input = { projects: [], actuals: new Map(), weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(), ownerStatus: {} };
+  assert.deepEqual(M.buildProjection('role', input), { roles: [] });
+  assert.deepEqual(M.buildProjection('project', input), { projects: [] });
+  assert.deepEqual(M.buildProjection('owner', input), { ownerMap: {} });
+  assert.throws(() => M.buildProjection('nope', input), /Unknown view/);
+});
