@@ -141,3 +141,64 @@ test('roleProjection: two projects sharing a role merge into one role node with 
   assert.equal(roles[0].sold, 200);
   assert.deepEqual(roles[0].children.map(c => c.project), ['Alpha', 'Beta']);
 });
+
+const TWO_ROLES = () => PROJ({ tasks: [{ name: 'Build', startDate: '20260901', endDate: '20260930', completed: false,
+  monthlyDistribution: { '202609': 100 }, // ignored by By Project (uniform only)
+  resources: [{ role: 'DEV', soldHours: 100 }] }] });
+
+test('projectProjection: owner split by actuals, inactive owners excluded from the future share', () => {
+  const actuals = new Map([['p1', [rec('2026-09-08', 'Mario Rossi', 6), rec('2026-09-09', 'Anna Bianchi', 4)]]]);
+  const out = M.projectProjection({ projects: [TWO_ROLES()], actuals, weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(),
+    ownerStatus: { 'Anna Bianchi': 'inactive' } });
+  const role = out.projects[0].tasks[0].roles[0];
+  assert.equal(role.sold, 100);
+  assert.equal(role.consumed, 10);
+  near(role.tbp, 90);
+  assert.equal(role.hasOwners, true);
+  assert.equal(role.allOwnersInactive, false);
+  near(role.weekData['2026-09-14'].total, 30);                       // uniform, NOT the monthly distribution
+  near(role.weekData['2026-09-14'].byOwner['Mario Rossi'], 30);
+  assert.equal(role.weekData['2026-09-14'].byOwner['Anna Bianchi'], undefined);
+  near(role.weekData['2026-09-07'].byOwner['Anna Bianchi'], 4);      // past week keeps the inactive person
+  assert.deepEqual(role.owners.map(o => [o.name, o.actuals]), [['Mario Rossi', 6], ['Anna Bianchi', 4]]);
+  near(role.owners[0].tbp, 90);
+  near(role.owners[1].tbp, 0);
+});
+
+test('projectProjection: every owner inactive -> future hours go to the TBD row', () => {
+  const actuals = new Map([['p1', [rec('2026-09-08', 'Anna Bianchi', 10)]]]);
+  const out = M.projectProjection({ projects: [TWO_ROLES()], actuals, weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(),
+    ownerStatus: { 'Anna Bianchi': 'inactive' } });
+  const role = out.projects[0].tasks[0].roles[0];
+  assert.equal(role.allOwnersInactive, true);
+  assert.deepEqual(role.owners.map(o => o.name), ['Anna Bianchi', '—']);
+  assert.equal(role.owners[1].isPlaceholder, true);
+  near(role.owners[1].tbp, 90);
+  near(role.weekData['2026-09-14'].byOwner['—'], 30);
+});
+
+test('projectProjection: no actuals -> a single TBD row; totals are summed up the tree', () => {
+  const p = TWO_ROLES(); p.tasks.push({ name: 'Docs', startDate: '20260901', endDate: '20260930', completed: false, resources: [{ role: 'QA', soldHours: 30 }] });
+  const out = M.projectProjection({ projects: [p], actuals: new Map(), weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(), ownerStatus: {} });
+  const proj = out.projects[0];
+  assert.equal(proj.tasks.length, 2);
+  assert.equal(proj.tasks[0].roles[0].hasOwners, false);
+  assert.deepEqual(proj.tasks[0].roles[0].owners.map(o => o.name), ['—']);
+  assert.equal(proj.sold, 130);
+  near(proj.tbp, 130);
+  near(proj.weekTotals['2026-09-14'], 100 / 3 + 10);   // Build 100 h / 3 weeks + Docs 30 h / 3 weeks
+});
+
+test('projectProjection: a task with no matching role and a project with no tasks produce no nodes', () => {
+  const p = TWO_ROLES();
+  const out = M.projectProjection({ projects: [p], actuals: new Map(), weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(['NOPE']), ownerStatus: {} });
+  assert.deepEqual(out.projects, []);
+});
+
+test('projectProjection: blank owner rows are attributed to the TBD placeholder owner', () => {
+  const actuals = new Map([['p1', [rec('2026-09-08', '  ', 5)]]]);
+  const out = M.projectProjection({ projects: [TWO_ROLES()], actuals, weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(), ownerStatus: {} });
+  const role = out.projects[0].tasks[0].roles[0];
+  assert.deepEqual(role.owners.map(o => o.name), ['—']);
+  near(role.owners[0].actuals, 5);
+});

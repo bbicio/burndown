@@ -157,8 +157,121 @@ function roleProjection({ projects, actuals, weeks, today, pulse, teams }) {
   };
 }
 
+// ── By Project ────────────────────────────────────────────────────────────────────────────
+// Port of byProjectView's calculation block. Residual and owner split are per (task, role);
+// uniform spread only (no monthly distribution); dates fall back to the project's.
+function projectProjection({ projects, actuals, weeks, today, pulse, teams, ownerStatus }) {
+  const countFw = makeFutureWeekCounter(today);
+  const weekByKey = new Map(weeks.map(w => [w.key, w]));
+  const projectNodes = [];
+
+  for (const proj of projects) {
+    const projData = actuals.get(proj.id) || [];
+    let projSold = 0, projActuals = 0, projTbp = 0;
+    const projWeekTotals = {};
+    const taskNodes = [];
+
+    for (const task of proj.tasks || []) {
+      if (task.completed) continue;
+      const tStart = parseTaskDate(task.startDate || proj.startDate, false);
+      const tEnd   = parseTaskDate(task.endDate   || proj.endDate,   true);
+      const overlapWeeks = weeks.filter(w => w.weekEnd >= tStart && w.weekStart <= tEnd);
+      if (!overlapWeeks.length) continue;
+
+      let taskSold = 0, taskActuals = 0, taskTbp = 0;
+      const taskWeekTotals = {};
+      const roleNodes = [];
+
+      for (const res of task.resources || []) {
+        if (!res.role) continue;
+        if (!rolePassesTeams(teams, res.role)) continue;
+        const soldH = res.soldHours || 0;
+
+        const taskRoleRecs = projData.filter(r => matchesTaskRole(r, task.name, res.role));
+        const consumedH = taskRoleRecs.reduce((s, r) => s + r.hours, 0);
+        const residualH = computeResidual(soldH, consumedH);
+
+        const ownerTotals = {};
+        for (const r of taskRoleRecs) { const o = ownerOf(r); ownerTotals[o] = (ownerTotals[o] || 0) + r.hours; }
+        const totalOwnerH = Object.values(ownerTotals).reduce((s, v) => s + v, 0);
+        const ownerNames = Object.keys(ownerTotals).sort((a, b) => ownerTotals[b] - ownerTotals[a]);
+        const hasOwners = ownerNames.length > 0;
+
+        const pastWeeks   = overlapWeeks.filter(w => w.isPast);
+        const futureWeeks = overlapWeeks.filter(w => !w.isPast);
+        const totalFw = countFw(tStart, tEnd);
+
+        const roleWeekData = {};
+        for (const w of pastWeeks) {
+          const recs = taskRoleRecs.filter(r => inWeek(r, w));
+          const tot = recs.reduce((s, r) => s + r.hours, 0);
+          if (tot < 0.01) continue;
+          const byOwner = {};
+          for (const r of recs) { const o = ownerOf(r); byOwner[o] = (byOwner[o] || 0) + r.hours; }
+          roleWeekData[w.key] = { total: tot, byOwner, isPulse: false, isPast: true };
+        }
+
+        const { props: ownerFutureProps, allInactive: allOwnersInactive } = redistributeExcludingInactive(ownerTotals, ownerStatus);
+        const distribute = (byOwner, hours) => {
+          if (hasOwners && !allOwnersInactive) {
+            for (const [o, prop] of Object.entries(ownerFutureProps)) byOwner[o] = (byOwner[o] || 0) + hours * prop;
+          } else {
+            byOwner[PLACEHOLDER] = (byOwner[PLACEHOLDER] || 0) + hours;
+          }
+        };
+
+        if (futureWeeks.length > 0 && residualH > 0.01) {
+          const byMonth = {};
+          for (const w of futureWeeks) (byMonth[w.monthKey] ||= []).push(w.key);
+          const weeksByMonth = Object.entries(byMonth).map(([monthKey, weekKeys]) => ({ monthKey, weekKeys }));
+          for (const entry of distributeFutureResidual(residualH, totalFw, weeksByMonth, pulse)) {
+            if (!roleWeekData[entry.key]) roleWeekData[entry.key] = { total: 0, byOwner: {}, isPulse: entry.isPulse, isPast: false };
+            roleWeekData[entry.key].total += entry.hours;
+            if (entry.isPulse) roleWeekData[entry.key].isPulse = true;
+            distribute(roleWeekData[entry.key].byOwner, entry.hours);
+          }
+        }
+
+        const roleTbp = Object.entries(roleWeekData)
+          .filter(([key]) => weekByKey.has(key) && !weekByKey.get(key).isPast)
+          .reduce((s, [, d]) => s + d.total, 0);
+
+        taskSold += soldH; taskActuals += consumedH; taskTbp += roleTbp;
+        for (const [key, d] of Object.entries(roleWeekData)) taskWeekTotals[key] = (taskWeekTotals[key] || 0) + d.total;
+
+        const displayOwners = hasOwners
+          ? (allOwnersInactive ? (ownerNames.includes(PLACEHOLDER) ? ownerNames : [...ownerNames, PLACEHOLDER]) : ownerNames)
+          : [PLACEHOLDER];
+        const owners = displayOwners.map(name => {
+          const isPlaceholder = name === PLACEHOLDER;
+          const ownerProp = isPlaceholder && (allOwnersInactive || totalOwnerH <= 0.01) ? 1 : (ownerFutureProps[name] || 0);
+          return { name, isPlaceholder, actuals: ownerTotals[name] || 0, tbp: roleTbp * ownerProp };
+        });
+
+        roleNodes.push({
+          role: res.role, sold: soldH, consumed: consumedH, tbp: roleTbp,
+          hasOwners, allOwnersInactive, weekData: roleWeekData, owners,
+        });
+      }
+
+      if (!roleNodes.length) continue;
+      projSold += taskSold; projActuals += taskActuals; projTbp += taskTbp;
+      for (const [key, h] of Object.entries(taskWeekTotals)) projWeekTotals[key] = (projWeekTotals[key] || 0) + h;
+      taskNodes.push({
+        name: task.name, startDate: task.startDate, endDate: task.endDate,
+        sold: taskSold, actuals: taskActuals, tbp: taskTbp, weekTotals: taskWeekTotals, roles: roleNodes,
+      });
+    }
+
+    if (!taskNodes.length) continue;
+    projectNodes.push({ id: proj.id, sold: projSold, actuals: projActuals, tbp: projTbp, weekTotals: projWeekTotals, tasks: taskNodes });
+  }
+
+  return { projects: projectNodes };
+}
+
 module.exports = {
-  PLACEHOLDER, roleProjection, normalizeActuals, groupActualsByProject, uniqueOwnerNames,
+  PLACEHOLDER, roleProjection, projectProjection, normalizeActuals, groupActualsByProject, uniqueOwnerNames,
   inWeek, ownerOf, rolePassesTeams,
   // projections are appended by the next tasks
   _internals: { parseTaskDate, makeFutureWeekCounter, matchesTaskRole, computeResidual, distributeFutureResidual, redistributeExcludingInactive, hasValidPhasing, phasedSeries },
