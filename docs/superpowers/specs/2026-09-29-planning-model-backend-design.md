@@ -125,3 +125,22 @@ Nuovo `docs/api/planning-model.md`; aggiornati `docs/pages/planning.md` (nuovo f
 - **Payload:** misurato in Fase 0 prima di committare la forma della risposta.
 - **Cache e concorrenza:** scadenza breve e invalidazione best-effort; un evento non intercettato produce al massimo dati vecchi per 30 s.
 - **Le incoerenze tra le viste restano** (fuori scope): saranno esplicite nel codice ma non risolte.
+
+## 14. Emendamenti (2026-09-29, emersi scrivendo il piano: lettura completa delle tre viste)
+
+Questi punti **sostituiscono** quanto detto in §2 ("celle fini"), §5, §6, §7 e §8 dove in contrasto. Motivo: le tre viste non sono aggregazioni l'una dell'altra.
+
+**14.1 Una proiezione per vista, un solo endpoint.**
+- *Per ruolo*: residuo per (task, ruolo); distribuzione mensile se valida; nessun owner.
+- *Per progetto*: residuo per (task, ruolo); ripartizione tra gli owner **di quel ruolo**.
+- *Per owner*: residuo **a livello di task** = `max(0, Σ vendute − Σ consumate)` sui ruoli che passano il filtro team, ripartito tra gli owner di **tutti** quei ruoli (soglia owner > 0,01 h).
+
+Poiché `max(0, Σ) ≠ Σ max(0, …)`, celle a granularità (progetto, task, ruolo, owner, settimana) non bastano a riprodurre la vista per owner senza rifare il calcolo nel browser. Quindi: `GET /api/planning/model?view=role|project|owner&…`, con tre funzioni pure di proiezione (`roleProjection`, `projectProjection`, `ownerProjection`) che condividono le primitive (`matchesTaskRole`, `uniformSeries`, `phasedSeries`, `splitAmongActiveOwners`, `countFutureTaskWeeks`). Il payload è più piccolo (una proiezione per volta). In browser restano: filtri per progetto e pipeline, somma per periodo (settimane → mesi), arrotondamento, HTML, `exportRows`.
+
+**14.2 Il filtro team è un parametro del servizio** (`teams=`, stessa regola di `rolePassesTeamFilter`), non un filtro client: cambia il residuo della vista per owner. I dati caricati dal DB si cachano (30 s, azzerati dagli eventi di §7); la proiezione si calcola per richiesta e si memoizza per (`view`, `asOf`, `pulse`, `teams`, `from`, `to`).
+
+**14.3 La finestra resta un parametro di calcolo** (`from`/`to`), in entrambe le fasi: i task senza settimane nella finestra sono esclusi dai totali Sold/Actuals delle viste per ruolo e per progetto (scelta di visualizzazione da preservare). Cambia solo la Fase 2: la normalizzazione della distribuzione mensile smette di dipendere dai mesi visibili (§10). La frase di §5 "il calcolo copre sempre l'intero periodo" va letta di conseguenza: vale per le ore per settimana di un task, non per i totali per finestra.
+
+**14.4 Carico per persona per l'assistente (Cycle B).** `project` e `owner` danno numeri diversi per lo stesso lavoro (residuo per task+ruolo contro residuo di task). Quale usare, o se aggiungere una quarta proiezione `load` (per persona e settimana, su tutti i progetti, senza filtri), si decide nella spec del Cycle B.
+
+**14.5 Cattura golden (§9)** per vista, includendo le combinazioni del filtro team (che ora è un parametro del servizio).
