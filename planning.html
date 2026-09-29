@@ -314,6 +314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       modelRequest() {
         this.refreshTick; this.teamFilters; // reactive dependencies
         if (!this.windowStart || !this.windowEnd) return null;
+        if (this.windowStart > this.windowEnd) return null; // degenerate window: no fetch, views show their empty state
         return buildModelRequest({
           view: this.view, projectIds: this.filteredProjects.map(p => p.id), teams: this.teamFilters,
           windowStart: this.windowStart, windowEnd: this.windowEnd, today: new Date(), pulse: this.monthlyPulse,
@@ -367,8 +368,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // out of scope for this cycle, since no other page calls updatePpWindowWidget with this label.
       },
       byRoleView() {
-        this.teamFilters; // reactive dependency (rolePassesTeamFilter reads the plain global mirror)
         const weeks    = this.weeks;
+        if (!this.windowStart || !this.windowEnd || this.windowStart > this.windowEnd) {
+          return { html: '<div class="alert alert-info mb-0">No resource data found for the selected filters and date range.</div>', exportRows: [], periodMeta: [] };
+        }
         if (this.modelPending || !this.model || this.model.view !== 'role') return { html: this.modelPlaceholderHtml(), exportRows: [], periodMeta: [] };
 
         const { roleMap, roleSoldMap, roleActualsMap, roleChildMap } = adaptRoleModel(this.model.data, this.model.keyMap);
@@ -1258,7 +1261,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
           if (seq !== this.modelSeq) return;                       // a newer request superseded this one
-          this.ownerStatusMap = data.ownerStatus || {};
+          // Merge, not replace: the server's map covers only the requested projects' owners, while
+          // By Project/By Owner still run the old browser code on the full map from
+          // refreshOwnerStatuses(). This merge goes away when Tasks 13-14 migrate those views.
+          this.ownerStatusMap = { ...this.ownerStatusMap, ...(data.ownerStatus || {}) };
           // key: the request that produced this response, so a caller (the parity capture) can
           // check the loaded model matches the current modelRequest.
           this.model = { view: data.view, data, keyMap: buildKeyMap(this.weeks), key: JSON.stringify(req) };
@@ -1303,6 +1309,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (f) await readXLS(f, async () => { await this.refreshOwnerStatuses(); this.bumpRefresh(); });
       },
       async exportCurrentView() {
+        // Model-backed views (only By Role so far): nothing to export while loading or after a failed load.
+        if (this.view === 'byrole' && (this.modelPending || this.modelError)) return;
         const rnd = v => Math.round(v * 10) / 10;
         if (this.view === 'byrole') {
           const { exportRows, periodMeta } = this.byRoleView;
