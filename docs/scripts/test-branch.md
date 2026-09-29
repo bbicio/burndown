@@ -23,3 +23,7 @@ Reads `.env` via a manual line-by-line parser (never source/eval — real `.env`
 ## Snapshot file safety (2026-08, Cycle 3)
 
 The main-stack data-clone dump is written via `mktemp` (`600` permissions, no world-readable window) instead of a fixed `/tmp/pdash_branch_snapshot.dump` path (a stale, days-old dump was found under the old fixed path during this fix's own verification), and is now cleaned up via `trap 'rm -f "$DUMP_FILE"' EXIT` (added right after `mktemp`, replacing an earlier unconditional `rm -f` that only ran on the success path) so a mid-`pg_dump`/`pg_restore` failure doesn't leak the file — this is the only `EXIT` trap in the script.
+
+## Warning: real Anthropic key and cloned data (2026-09-29, profile descriptions cycle)
+
+Branch stacks inherit `ANTHROPIC_API_KEY` (and `ANTHROPIC_MODEL`/`ANTHROPIC_BASE_URL`) from the real `.env`. A stack that clones production data therefore has real project descriptions and a real key: the profile worker of that stack can send those descriptions to the real Anthropic API. If that is not wanted, switch topic extraction off from the branch stack's profile-jobs console ("Topic extraction" switch, `topic_extraction_enabled`) right after `up`, or blank the key in `.env` before running it. Also remember that `up` skips migrations on an existing schema: migrations `027`/`028` must be applied to the branch stack by hand (`027`'s backfill is apply-once).
