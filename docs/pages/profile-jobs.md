@@ -29,3 +29,11 @@ Before this cycle there was no UI for the profile engine (Cycle 3c): a recalcula
 ## No automated UI test
 
 This project has no browser/Vue runtime test harness. The page was verified by: a syntax check of its inline module script, a manual template/method-consistency re-read (every `v-model`/`@click`/interpolation checked against a defined data field or method), the frontend suite (helpers), the backend integration suite (`PJ-*` in `test-api.js`, `docs/api/profile-engine.md`), and a manual pass against an isolated branch stack with data cloned from `main` (settings widget, actions, filters, orphan code, error row, history, auto-refresh, the 409 race, a stopped-API network error, and non-admin permissions).
+
+
+## Topic extraction additions (profile descriptions cycle, 2026-09-29)
+
+- **On/off switch** in the settings card: "Topic extraction on/off" (`PUT /api/profile-jobs/topic-settings { enabled }`, runs through the same `runAction` guard as the other actions). Shows "(no API key configured)" while enabled and `ANTHROPIC_API_KEY` is unset (`topicSettings.keyConfigured` from `GET /api/profile-jobs`). Off means project descriptions are never sent to the AI service (privacy kill switch).
+- **Topics column** in the project codes table: "extraction failed" (tooltip = the error) when the code's description state rows carry a `last_error`, else a dash. The extraction error is separate from the row's own processing error (`last_error`) and is never written to run history; it clears on the next successful extraction. The expanded error row colspan is 9.
+- **Process re-extracts:** the per-row Process button clears the project's extraction hashes first, so its descriptions are sent to the LLM again even if unchanged.
+- Retry behaviour, `topicRetryCodes` and the not-counted-as-work rule: `docs/api/profile-engine.md`.

@@ -38,6 +38,9 @@ services:
       SMTP_PASS: ${SMTP_PASS}
       APP_URL: ${APP_URL:-http://localhost}
       NODE_ENV: ${NODE_ENV:-development}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
     ports:
       - "3000:3000"
     depends_on:

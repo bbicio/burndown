@@ -216,6 +216,7 @@ function _apiProjectToLocal(p) {
     currency:   ({ EUR: '€', USD: '$', GBP: '£' }[p.currency] || p.currency || '€'),
     pipeline:   p.pipeline     || '',
     status:     p.status       || '',
+    description: p.description  || '',
     tasks:      Array.isArray(p.tasks) ? p.tasks : [],
     phasing:    p.phasing      || {},
     planning:   p.planning     || {},

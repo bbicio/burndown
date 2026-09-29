@@ -59,7 +59,7 @@ function buildContributions(rows, ctx, projectName) {
 }
 
 // contribByCode: { [code]: contribution } for ONE resource.
-// projectsByCode[code] = { projectId, name, tags: [{ slug, listName, itemId, label }] }.
+// projectsByCode[code] = { projectId, name, tags: [...], topicIds?: string[], taskTopics?: { [taskKey]: string[] } }.
 function aggregateProfile(contribByCode, projectsByCode, now = new Date()) {
   const codes = Object.keys(contribByCode || {});
   if (!codes.length) return null;
@@ -70,6 +70,7 @@ function aggregateProfile(contribByCode, projectsByCode, now = new Date()) {
   const projects = {};
   const dims = {};
   const roleAcc = new Map();
+  const topicAcc = new Map();
 
   for (const code of codes) {
     const c = contribByCode[code];
@@ -93,6 +94,14 @@ function aggregateProfile(contribByCode, projectsByCode, now = new Date()) {
       v.hours += c.hours;
       if (c.last && (!v.last || c.last > v.last)) v.last = c.last;
       v.projectCodes.push(code);
+    }
+
+    const topicIds = new Set(info.topicIds || []);
+    for (const k of Object.keys(c.tasks || {})) for (const id of (info.taskTopics || {})[k] || []) topicIds.add(id);
+    for (const id of topicIds) {
+      let set = topicAcc.get(id);
+      if (!set) { set = new Set(); topicAcc.set(id, set); }
+      set.add(code);
     }
 
     projects[code] = {
@@ -153,6 +162,9 @@ function aggregateProfile(contribByCode, projectsByCode, now = new Date()) {
     totals: { hours: round2(totalHours), projects: codes.length, firstWorked, lastWorked },
     dimensions,
     roles,
+    topics: [...topicAcc.entries()]
+      .map(([topicId, set]) => ({ topicId, projectCodes: [...set] }))
+      .sort((a, b) => b.projectCodes.length - a.projectCodes.length || String(a.topicId).localeCompare(String(b.topicId))),
     projects: orderedProjects,
   };
 }

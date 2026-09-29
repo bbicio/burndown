@@ -55,6 +55,12 @@ services:
   api:
     container_name: ${API_CONTAINER}
     ports: !override []
+    environment:
+      ANTHROPIC_API_KEY: test-key
+      ANTHROPIC_BASE_URL: http://test:4010
+  test:
+    environment:
+      LLM_STUB_ENABLED: "1"
 EOF
 }
 
@@ -111,7 +117,7 @@ wait_healthy "$API_CONTAINER"
 echo "$CURRENT_HASH" > "$IMAGE_HASH_FILE"
 
 set +e
-$COMPOSE --profile test run --rm test
+$COMPOSE --profile test run --rm --use-aliases test
 exit_code=$?
 set -e
 

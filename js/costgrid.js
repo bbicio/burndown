@@ -1193,6 +1193,7 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
       if (!task.taskName?.trim()) return;
       tasks.push({
         name:      task.taskName.trim(),
+        description: (task.taskDescription || '').trim(),
         completed: false,
         billable:  true,
         startDate: task.taskStartDate ? task.taskStartDate.replace(/-/g, '') : '',
@@ -1240,6 +1241,7 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
     pipeline:  _cgDraft.pipeline || 'SIP',
     status:    '',
     note:      v.note     || '',
+    description: (v.note || '').trim(),
     tasks,
     phasing:   {},
     planning:  {},

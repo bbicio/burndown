@@ -83,6 +83,12 @@
           <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Pipeline</label><select class="form-select form-select-sm" v-model="project.pipeline" :disabled="isViewer || pipelineLocked" :title="pipelineLocked ? 'Pipeline is managed from the Cost Grid' : ''" @change="onPipelineChange"><option value="">— Select —</option><option value="SIP">SIP</option><option value="Expected">Expected</option><option value="Anticipated">Anticipated</option><option value="Committed">Committed</option><option value="Canceled">Canceled</option></select></div>
           <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Status</label><select class="form-select form-select-sm" v-model="project.status" :disabled="isViewer || statusRule.disabled"><option v-if="!statusRule.options || !statusRule.options.length" value=""> — Select —</option><option v-for="opt in (statusRule.options || [])" :key="opt" :value="opt">{{ opt }}</option></select></div>
         </div>
+        <div class="row g-3 mt-1">
+          <div class="col-12">
+            <label class="form-label small mb-1">Description <span class="text-muted">(used to extract competence topics for the team profiles)</span></label>
+            <textarea class="form-control form-control-sm" rows="3" v-model="project.description" :disabled="isViewer" placeholder="What is this project about? Scope, work performed, skills needed…"></textarea>
+          </div>
+        </div>
       </div>
 
       <div class="cfg-section">
@@ -126,6 +132,9 @@
         <label class="form-check-label small text-nowrap">Completed</label>
       </div>
       <button class="btn btn-sm btn-outline-danger flex-shrink-0" v-if="!isViewer" @click="confirmRemoveTask(ti)">🗑 Remove</button>
+    </div>
+    <div class="mb-2">
+      <textarea class="form-control form-control-sm" rows="2" v-model="task.description" :disabled="isViewer" placeholder="Task description — what is done and which competences it needs"></textarea>
     </div>
     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
       <span class="text-muted small text-nowrap">Period:</span>
@@ -393,7 +402,7 @@
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/status-rules.js?v=1"></script>
 <script type="module" src="js/lib/config-form-calc.js?v=1"></script>
-<script defer src="js/api-sync.js?v=15"></script>
+<script defer src="js/api-sync.js?v=16"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/nav.js?v=9"></script>
 <script type="module">
@@ -407,7 +416,7 @@
   }
 
   const BLANK_PROJECT = () => ({
-    id: '', code: '', name: '', startDate: '', endDate: '', currency: '€',
+    id: '', code: '', name: '', description: '', startDate: '', endDate: '', currency: '€',
     pipeline: '', status: '', tasks: [], phasing: {}, planning: {},
     ptc: [], groups: [], costGridRef: null, programId: null,
     clientId: '__unassigned__', my_permission: 'owner',
@@ -529,6 +538,8 @@
         // if the object itself is null. Normalize once here, matching the same default the "+ Add task"
         // button already uses for brand-new tasks.
         (this.project.tasks || []).forEach(t => { if (!t.monthlyDistribution) t.monthlyDistribution = {}; });
+        (this.project.tasks || []).forEach(t => { if (typeof t.description !== 'string') t.description = ''; });
+        if (typeof this.project.description !== 'string') this.project.description = '';
         // Legacy groups only had roles: string[] (no task association) -- seed
         // entries: [{role, task: ''}] (wildcard = "any task", matching the old
         // behavior) so this form can bind directly to grp.entries[].role/.task.
@@ -941,7 +952,7 @@
         return task.resources.reduce((s, r) => s + (r.soldHours || 0) * (r.hourlyRate || 0), 0);
       },
       addTask() {
-        this.project.tasks.push({ name: '', billable: true, completed: false, startDate: '', endDate: '', monthlyDistribution: {}, resources: [] });
+        this.project.tasks.push({ name: '', description: '', billable: true, completed: false, startDate: '', endDate: '', monthlyDistribution: {}, resources: [] });
       },
       async confirmRemoveTask(ti) {
         const name = this.project.tasks[ti].name.trim() || 'this task';

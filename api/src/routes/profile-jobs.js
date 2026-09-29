@@ -5,6 +5,7 @@ const {
   MAX_RUNS_KEPT, OLDEST_PROJECT_ORDER_BY, processQueue, enqueueAll, enqueueProjects,
   dequeueProject, isKnownProjectCode,
 } = require('../services/profile-engine');
+const { isExtractionEnabled } = require('../services/topic-extraction');
 const { readSettings, getLastRunStartedAt } = require('../services/profile-worker');
 const { nextRunInfo, jobSettingsError, deriveProjectStatus } = require('../lib/job-schedule');
 
@@ -41,16 +42,23 @@ const PROJECTS_SQL = `
     SELECT project_code, COUNT(DISTINCT resource_id)::int AS resource_count
     FROM resource_project_contributions
     GROUP BY project_code
+  ),
+  tp AS (
+    SELECT o.code, string_agg(DISTINCT s.last_error, '; ') AS topic_error
+    FROM (SELECT DISTINCT ON (code) code, id FROM projects WHERE code IS NOT NULL ORDER BY code, ${OLDEST_PROJECT_ORDER_BY}) o
+    JOIN description_topic_state s ON s.project_id = o.id AND s.last_error IS NOT NULL
+    GROUP BY o.code
   )
   SELECT c.project_code,
          COALESCE(pj.name, c.project_code) AS project_name,
          COALESCE(ts.row_count, 0)         AS row_count,
          COALESCE(rc.resource_count, 0)    AS resource_count,
-         s.queued_at, s.last_processed_at, s.last_error
+         s.queued_at, s.last_processed_at, s.last_error, tp.topic_error
   FROM codes c
   LEFT JOIN ts ON ts.project_code = c.project_code
   LEFT JOIN pj ON pj.code = c.project_code
   LEFT JOIN rc ON rc.project_code = c.project_code
+  LEFT JOIN tp ON tp.code = c.project_code
   LEFT JOIN profile_project_state s ON s.project_code = c.project_code
   ORDER BY c.project_code`;
 
@@ -69,8 +77,10 @@ router.get('/', async (req, res, next) => {
     const lastRunAt = getLastRunStartedAt();
     const info = nextRunInfo(settings, lastRunAt, new Date());
     const projects = list.rows.map(r => ({ ...r, status: deriveProjectStatus(r) }));
+    const topicEnabled = await isExtractionEnabled();
     res.json({
       settings,
+      topicSettings: { enabled: topicEnabled, keyConfigured: !!process.env.ANTHROPIC_API_KEY },
       schedule: {
         state: info.state,
         lastRunAt: lastRunAt ? new Date(lastRunAt).toISOString() : null,
@@ -98,6 +108,26 @@ router.put('/settings', async (req, res, next) => {
       [enabled ? 'true' : 'false', String(intervalMin), req.user.id]
     );
     res.json(await readSettings());
+  } catch (err) { next(err); }
+});
+
+// PUT /api/profile-jobs/topic-settings — { enabled: boolean }: kill switch for the LLM topic extraction
+router.put('/topic-settings', async (req, res, next) => {
+  try {
+    if (typeof req.body?.enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be true or false' });
+    const prev = await query(`SELECT value FROM app_settings WHERE key = 'topic_extraction_enabled'`);
+    const wasEnabled = prev.rows[0] ? prev.rows[0].value !== 'false' : true;
+    await query(
+      `INSERT INTO app_settings (key, value, updated_at, updated_by) VALUES ('topic_extraction_enabled', $1, NOW(), $2)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW(), updated_by = EXCLUDED.updated_by`,
+      [req.body.enabled ? 'true' : 'false', req.user.id]
+    );
+    // texts edited while extraction was off were skipped and un-queued — process every code again
+    // (unchanged texts hit the hash cache, so this costs no LLM calls)
+    if (req.body.enabled && !wasEnabled) {
+      try { await enqueueAll(); } catch (e) { console.warn('[topic-settings] re-queue failed:', e.message); }
+    }
+    res.json({ enabled: req.body.enabled });
   } catch (err) { next(err); }
 });
 
@@ -131,6 +161,11 @@ router.post('/projects/:code/process', async (req, res, next) => {
     const code = codeParam(req);
     if (!code) return res.status(400).json({ error: 'Invalid project code' });
     if (!await isKnownProjectCode(code)) return res.status(404).json({ error: 'Project code not found' });
+    await query(
+      `UPDATE description_topic_state SET text_hash = ''
+       WHERE project_id = (SELECT id FROM projects WHERE code = $1 ORDER BY ${OLDEST_PROJECT_ORDER_BY} LIMIT 1)`,
+      [code]
+    );
     await enqueueProjects([code]);
     const r = await processQueue('manual', { only: code });
     if (r.skipped) {

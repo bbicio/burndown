@@ -14,7 +14,8 @@
  */
 'use strict';
 
-const BASE  = process.env.API_URL             || 'http://api:3000';
+const http = require('http');
+const BASE = process.env.API_URL             || 'http://api:3000';
 const EMAIL = process.env.TEST_ADMIN_EMAIL    || 'test-admin@pdash.local';
 const PASS  = process.env.TEST_ADMIN_PASSWORD || 'TestAdmin123!';
 
@@ -1752,6 +1753,316 @@ async function testProfileJobsConsole() {
   }
 }
 
+// ── Project descriptions (2026-09, profile descriptions cycle) ──────────────────
+
+async function testProjectDescriptions() {
+  section('Project descriptions');
+  const ts = Date.now();
+  const code = `TPD${ts}`;
+  const r = await api('POST', '/api/projects',
+    { name: `__pd_${ts}__`, code, description: 'Oncology portal' }, adminCookie);
+  const id = r.data?.id;
+  if (!ok(r.status === 201 && id, `PD-01 POST /api/projects with description → 201 (got ${r.status})`)) return;
+  later('DELETE', `/api/projects/${id}`);
+  const get = async () => (await api('GET', `/api/projects/${id}`, null, adminCookie)).data;
+  ok((await get())?.description === 'Oncology portal', 'PD-01 description stored and returned by GET /:id');
+
+  ok((await api('PATCH', `/api/projects/${id}`, { description: 'Second version' }, adminCookie)).status === 200
+      && (await get())?.description === 'Second version', 'PD-02 PATCH description updates it');
+  ok((await api('PATCH', `/api/projects/${id}`, { description: '' }, adminCookie)).status === 200
+      && (await get())?.description === '', 'PD-03 PATCH description "" stores an empty string (not NULL, no error)');
+
+  const tasks = [
+    { name: 'Analysis', description: 'Analyse sources', resources: [] },
+    { name: 'Build', resources: [] },
+  ];
+  ok((await api('PUT', `/api/projects/${id}/tasks`, tasks, adminCookie)).status === 200, 'PD-04 PUT tasks with descriptions → 200');
+  const t = (await api('GET', `/api/projects/${id}/tasks`, null, adminCookie)).data || [];
+  ok(t.find(x => x.name === 'Analysis')?.description === 'Analyse sources'
+      && t.find(x => x.name === 'Build')?.description === '', 'PD-04 GET tasks returns descriptions ("" when none)');
+  const list = (await api('GET', '/api/projects', null, adminCookie)).data || [];
+  const inList = list.find(p => p.id === id);
+  ok(inList?.description === '' && inList?.tasks?.find(x => x.name === 'Analysis')?.description === 'Analyse sources',
+    'PD-04 GET /api/projects list carries project and task descriptions');
+
+  // Every description here is shorter than 20 characters on purpose: these projects must never reach the LLM.
+  // PD-05: enqueue only when a description actually changed
+  const queued = async () => {
+    const st = (await api('GET', '/api/profile-jobs', null, adminCookie)).data;
+    return !!st?.projects?.find(p => p.project_code === code)?.queued_at;
+  };
+  await api('DELETE', `/api/profile-jobs/projects/${encodeURIComponent(code)}/queue`, null, adminCookie);
+  await api('PUT', `/api/projects/${id}/tasks`, tasks, adminCookie);                       // identical → no enqueue
+  ok(!(await queued()), 'PD-05 saving identical task descriptions does not queue the project');
+  await api('PUT', `/api/projects/${id}/tasks`,
+    [{ ...tasks[0], description: 'Analyse deeply' }, tasks[1]], adminCookie);
+  ok(await queued(), 'PD-05 changing a task description queues the project code');
+  await api('DELETE', `/api/profile-jobs/projects/${encodeURIComponent(code)}/queue`, null, adminCookie);
+  await api('PATCH', `/api/projects/${id}`, { description: '' }, adminCookie);              // unchanged → no enqueue
+  ok(!(await queued()), 'PD-05 PATCH with an unchanged description does not queue the project');
+  await api('PATCH', `/api/projects/${id}`, { description: 'A new description' }, adminCookie);
+  ok(await queued(), 'PD-05 changing the project description queues the project code');
+}
+
+// ── Topics admin API ────────────────────────────────────────────────────────────
+
+async function testTopicsApi() {
+  section('Topics API');
+  const ts = Date.now();
+  ok((await api('GET', '/api/topics')).status === 401, 'TP-01 GET /api/topics without auth → 401');
+
+  const mk = async (name) => {
+    const r = await api('POST', '/api/topics', { name }, adminCookie);
+    return r;
+  };
+  const a = await mk(`Alpha skill ${ts}`);
+  ok(a.status === 201 && a.data?.status === 'approved', `TP-02 POST /api/topics creates an approved topic (got ${a.status})`);
+  if (!a.data?.id) return;
+  const b = await mk(`Beta skill ${ts}`);
+  const c = await mk(`Gamma skill ${ts}`);
+  ok((await mk(`ALPHA   skill ${ts}`)).status === 409, 'TP-02 a duplicate name (case/space-insensitive) → 409');
+  ok((await mk('')).status === 400 && (await mk('a b c d e')).status === 400, 'TP-02 empty / more than 4 words → 400');
+
+  // a value of an attribute list can never be a topic
+  const lists = (await api('GET', '/api/attribute-lists', null, adminCookie)).data || [];
+  const market = lists.find(l => l.slug === 'market');
+  const itemLabel = `__tp_item_${ts}__`;
+  if (market) {
+    const it = await api('POST', `/api/attribute-lists/${market.id}/items`, { label: itemLabel }, adminCookie);
+    ok((await mk(itemLabel)).status === 400, 'TP-03 a name equal to an attribute-list value → 400');
+    ok((await api('PATCH', `/api/topics/${a.data.id}`, { name: itemLabel }, adminCookie)).status === 400, 'TP-03 renaming to a list value → 400');
+    void it;
+  }
+
+  const rn = await api('PATCH', `/api/topics/${a.data.id}`, { name: `Alpha renamed ${ts}` }, adminCookie);
+  ok(rn.status === 200 && rn.data?.name === `Alpha renamed ${ts}`, 'TP-04 PATCH renames a topic');
+  ok((await api('PATCH', `/api/topics/${a.data.id}`, { name: `Beta skill ${ts}` }, adminCookie)).status === 409, 'TP-04 renaming onto an existing name → 409');
+
+  const listApproved = (await api('GET', '/api/topics?status=approved', null, adminCookie)).data || [];
+  ok(listApproved.some(t => t.id === a.data.id) && listApproved.every(t => t.status === 'approved'), 'TP-05 list filters by status');
+  ok((await api('GET', '/api/topics?status=bogus', null, adminCookie)).status === 400, 'TP-05 unknown status filter → 400');
+
+  ok((await api('POST', `/api/topics/${b.data.id}/reject`, null, adminCookie)).data?.status === 'rejected', 'TP-06 reject');
+  ok((await api('POST', `/api/topics/${b.data.id}/reject`, null, adminCookie)).status === 409, 'TP-06 rejecting twice → 409');
+  ok((await api('POST', `/api/topics/${b.data.id}/restore`, null, adminCookie)).data?.status === 'approved', 'TP-06 restore → approved');
+  ok((await api('POST', `/api/topics/${b.data.id}/approve`, null, adminCookie)).status === 409, 'TP-06 approving an approved topic → 409');
+
+  // merge: b → a, then a chain c → b (must land on a)
+  ok((await api('POST', `/api/topics/${b.data.id}/merge`, { targetId: b.data.id }, adminCookie)).status === 400, 'TP-07 merge into itself → 400');
+  ok((await api('POST', `/api/topics/${b.data.id}/merge`, { targetId: String(b.data.id).toUpperCase() }, adminCookie)).status === 400
+    && ((await api('GET', '/api/topics', null, adminCookie)).data || []).some(t => t.id === b.data.id),
+    'TP-07 merge into itself via an UPPERCASE id → 400, topic intact');
+  ok((await api('POST', `/api/topics/${b.data.id}/merge`, { targetId: a.data.id }, adminCookie)).status === 200, 'TP-07 merge b into a → 200');
+  const afterMerge = (await api('GET', '/api/topics', null, adminCookie)).data || [];
+  ok(!afterMerge.some(t => t.id === b.data.id), 'TP-07 a merged topic disappears from the list');
+  ok((await api('POST', `/api/topics/${c.data.id}/merge`, { targetId: b.data.id }, adminCookie)).status === 409, 'TP-07 merging into an already-merged topic → 409');
+  ok((await api('PATCH', `/api/topics/${b.data.id}`, { name: 'Whatever' }, adminCookie)).status === 409, 'TP-07 a merged topic cannot be renamed');
+  const rej = await api('POST', `/api/topics/${c.data.id}/reject`, null, adminCookie);
+  ok(rej.status === 200 && (await api('POST', `/api/topics/${a.data.id}/merge`, { targetId: c.data.id }, adminCookie)).status === 409,
+    'TP-07 merging into a rejected topic → 409');
+  ok((await api('GET', '/api/topics/not-a-uuid')).status === 401 && (await api('PATCH', '/api/topics/not-a-uuid', { name: 'X y' }, adminCookie)).status === 404,
+    'TP-08 malformed id → 404');
+}
+
+// ── Topic extraction (LLM stubbed) ──────────────────────────────────────────────
+// Only runs in the isolated stack (scripts/run-tests.sh sets LLM_STUB_ENABLED and points the api's
+// ANTHROPIC_BASE_URL at this process). Text markers drive the stub: [[Topic]] = a normal candidate,
+// ((Name)) = flagged equivalentToListValue, <<Name>> = candidate that is NOT flagged (server must still
+// neutralise it when it equals an attribute-list value).
+
+let stubMode = 'ok';                 // 'ok' | 'http500' | 'garbage' | 'html200'
+const stubBodies = [];
+
+function stubAnswer(ctx) {
+  const results = ctx.texts.map(t => {
+    const topics = [];
+    const push = (name, equivalent) => {
+      const ex = ctx.existingTopics.find(e => e.name.toLowerCase() === name.toLowerCase());
+      topics.push({ name, existingTopicId: ex ? ex.id : null, equivalentToListValue: equivalent });
+    };
+    for (const m of t.text.matchAll(/\[\[(.+?)\]\]/g)) push(m[1], false);
+    for (const m of t.text.matchAll(/\(\((.+?)\)\)/g)) push(m[1], true);
+    for (const m of t.text.matchAll(/<<(.+?)>>/g)) push(m[1], false);
+    return { ref: t.ref, topics };
+  });
+  return { results };
+}
+
+function startLlmStub(port) {
+  return new Promise(resolve => {
+    const server = http.createServer((req, res) => {
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', () => {
+        let parsed = null;
+        try { parsed = JSON.parse(body); } catch { /* ignore */ }
+        if (parsed) stubBodies.push(parsed);
+        if (stubMode === 'http500') { res.statusCode = 500; res.end('{}'); return; }
+        if (stubMode === 'html200') { res.setHeader('content-type', 'text/html'); res.end('<html>secret project text</html>'); return; }
+        res.setHeader('content-type', 'application/json');
+        if (stubMode === 'garbage') { res.end(JSON.stringify({ content: [{ type: 'text', text: 'sorry, no JSON today' }] })); return; }
+        const ctx = JSON.parse(parsed.messages[0].content);
+        res.end(JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(stubAnswer(ctx)) }] }));
+      });
+    });
+    server.listen(port, '0.0.0.0', () => resolve(server));
+  });
+}
+
+const stubSaw = marker => stubBodies.some(b => String(b.messages?.[0]?.content || '').includes(marker));
+
+async function testTopicExtraction() {
+  section('Topic extraction');
+  if (process.env.LLM_STUB_ENABLED !== '1') { pass('TX-skip LLM stub not enabled (run via scripts/run-tests.sh) — extraction cases skipped'); return; }
+  const server = await startLlmStub(4010);
+  try {
+    const f = await profileFixture();
+    ok(f.ok, 'TX-setup resource, two projects and a Market value created');
+    if (!f.ok) return;
+    const { ts, code1, person, resId, p1, itemLabel } = f;
+
+    const desc = `Portal build [[Web development ${ts}]] and ((Pharma marketing)) and <<${itemLabel}>> and [[Copy editing ${ts}]]`;
+    const taskDesc = `Deep analysis work [[Statistical modelling ${ts}]]`;
+    const putTasks = (d) => api('PUT', `/api/projects/${p1}/tasks`,
+      [{ name: 'Analysis', description: d, resources: [{ role: 'Consultant', soldHours: 8 }] }], adminCookie);
+    ok((await putTasks(taskDesc)).status === 200, 'TX-01 saving a task description works');
+    ok((await api('PATCH', `/api/projects/${p1}`, { description: desc }, adminCookie)).status === 200, 'TX-01 saving the project description works');
+    await uploadCsv('/api/timesheets/upload', profileCsv([[code1, '2026-01-15', person, 4]]), adminCookie);
+
+    // reject "Copy editing" beforehand: it must never be linked again
+    const rejected = await api('POST', '/api/topics', { name: `Copy editing ${ts}` }, adminCookie);
+    if (rejected.data?.id) await api('POST', `/api/topics/${rejected.data.id}/reject`, null, adminCookie);
+
+    const run = await runProfileJobs();
+    ok(run.status === 200, `TX-02 run completes (got ${run.status})`);
+    ok(stubSaw(`Web development ${ts}`), 'TX-02 the LLM was called for the project text');
+
+    const proposed = (await api('GET', '/api/topics?status=proposed', null, adminCookie)).data || [];
+    const names = proposed.map(t => t.name);
+    ok(names.includes(`Web development ${ts}`) && names.includes(`Statistical modelling ${ts}`),
+      'TX-03 new competences from the project and the task are created as proposed');
+    ok(!names.includes('Pharma marketing'), 'TX-04 a candidate flagged equivalent to a list value is discarded');
+    ok(!names.includes(itemLabel), 'TX-04 a candidate equal to an attribute-list value is discarded server-side');
+    ok(!names.includes(`Copy editing ${ts}`), 'TX-04 a rejected topic is not proposed again');
+
+    // PT: profile topics — only approved ones are visible, admin edits apply instantly
+    const proposedNow = (await api('GET', '/api/topics?status=proposed', null, adminCookie)).data || [];
+    const web = proposedNow.find(t => t.name === `Web development ${ts}`);
+    const stat = proposedNow.find(t => t.name === `Statistical modelling ${ts}`);
+    let prof = await getProfile(resId);
+    ok(Array.isArray(prof?.profile?.topics) && prof.profile.topics.length === 0, 'PT-01 proposed topics are not shown in the profile');
+    if (web && stat) {
+      await api('POST', `/api/topics/${web.id}/approve`, null, adminCookie);
+      await api('POST', `/api/topics/${stat.id}/approve`, null, adminCookie);
+      prof = await getProfile(resId);
+      const tn = prof?.profile?.topics || [];
+      ok(tn.some(t => t.name === `Web development ${ts}` && t.projectCodes.includes(code1)), 'PT-02 an approved project topic appears at once (no recalculation)');
+      ok(tn.some(t => t.name === `Statistical modelling ${ts}`), 'PT-02 an approved task topic appears for the person with actuals on that task');
+      await api('PATCH', `/api/topics/${web.id}`, { name: `Web engineering ${ts}` }, adminCookie);
+      ok((await getProfile(resId))?.profile?.topics?.some(t => t.name === `Web engineering ${ts}`), 'PT-03 a rename shows up at once');
+      const target = await api('POST', '/api/topics', { name: `Engineering ${ts}` }, adminCookie);
+      await api('POST', `/api/topics/${web.id}/merge`, { targetId: target.data.id }, adminCookie);
+      const merged = (await getProfile(resId))?.profile?.topics || [];
+      ok(merged.filter(t => t.name === `Engineering ${ts}`).length === 1 && !merged.some(t => t.name === `Web engineering ${ts}`),
+        'PT-04 a merge shows up at once, without duplicates');
+      await api('POST', `/api/topics/${stat.id}/reject`, null, adminCookie);
+      ok(!((await getProfile(resId))?.profile?.topics || []).some(t => t.name === `Statistical modelling ${ts}`), 'PT-05 a rejected topic disappears at once');
+    } else {
+      ok(false, 'PT-02..05 prerequisites missing (topics not proposed)');
+    }
+    // a person with no actuals on the task gets the project topics but not the task topics
+    const rOther = await api('POST', '/api/resources',
+      { firstName: 'Other', lastName: `Person${ts}`, email: `other.${ts}@test.local`, roleId: f.role.id }, adminCookie);
+    if (rOther.data?.id) {
+      later('DELETE', `/api/resources/${rOther.data.id}`);
+      await uploadCsv(`/api/timesheets/upload?projectCode=${code1}`, profileCsv([
+        [code1, '2026-01-15', person, 4], [code1, '2026-02-01', `Other Person${ts}`, 3]]), adminCookie);
+      await runProfileJobs();
+      const other = await getProfile(rOther.data.id);
+      ok((other?.profile?.topics || []).some(t => t.name === `Engineering ${ts}`), 'PT-06 every contributor of the project receives the project topics');
+    } else {
+      ok(false, 'PT-06 prerequisite missing (second resource)');
+    }
+
+    // unchanged text → no second call
+    const before = stubBodies.length;
+    await api('POST', `/api/profile-jobs/projects/${encodeURIComponent(code1)}/process`, null, adminCookie);
+    ok(stubBodies.length > before, 'TX-05 Process from the console re-extracts (hash cleared)');
+    const mid = stubBodies.length;
+    await api('PATCH', `/api/projects/${p1}`, { description: desc }, adminCookie);   // same text
+    await runProfileJobs();
+    ok(stubBodies.length === mid, 'TX-05 an unchanged text is not sent again');
+
+    // too-short text is never sent
+    await api('PATCH', `/api/projects/${p1}`, { description: '[[ZZSHORT]]' }, adminCookie);
+    await runProfileJobs();
+    ok(!stubSaw('ZZSHORT'), 'TX-06 a text shorter than 20 characters is not sent to the LLM');
+
+    // TX-10: a persistent extraction failure is counted once, not on every run
+    stubMode = 'http500';
+    await api('PATCH', `/api/projects/${p1}`, { description: `Retry description for the persistent failure [[Retry topic ${ts}]]` }, adminCookie);
+    const run1 = await runProfileJobs();
+    ok(run1.data?.projects >= 1, 'TX-10 the first failed extraction is counted as work');
+    const run2 = await runProfileJobs();
+    const run3 = await runProfileJobs();
+    ok(run2.data?.projects === 0 && run3.data?.projects === 0, 'TX-10 repeated retries of the same failure are not counted as work');
+    ok((run2.data?.errors || []).length === 0 && (run3.data?.errors || []).length === 0, 'TX-10 repeated retries do not add run errors');
+    stubMode = 'ok';
+    const run4 = await runProfileJobs();
+    ok(run4.status === 200 && (run4.data?.errors || []).length === 0, 'TX-10 a later successful run completes cleanly');
+
+    // failures never block: 500 and garbage answers
+    for (const mode of ['http500', 'garbage', 'html200']) {
+      stubMode = mode;
+      const longer = `Fresh description for failure ${mode} [[Failure topic ${mode} ${ts}]]`;
+      ok((await api('PATCH', `/api/projects/${p1}`, { description: longer }, adminCookie)).status === 200,
+        `TX-07 saving a description while the LLM answers "${mode}" still works`);
+      const r = await runProfileJobs();
+      ok(r.status === 200 && (r.data?.errors || []).length === 0, `TX-07 the run does not fail because of "${mode}"`);
+      const st = (await api('GET', '/api/profile-jobs', null, adminCookie)).data;
+      const topicError = st?.projects?.find(p => p.project_code === code1)?.topic_error;
+      ok(!!topicError, `TX-07 the console reports the extraction error for "${mode}"`);
+      if (mode === 'html200') ok(!String(topicError || '').includes('secret project text'), 'TX-07 the reported error does not echo the response body');
+    }
+    stubMode = 'ok';
+    await runProfileJobs();                                   // retry succeeds and clears the error
+    const st2 = (await api('GET', '/api/profile-jobs', null, adminCookie)).data;
+    ok(!st2?.projects?.find(p => p.project_code === code1)?.topic_error, 'TX-08 a later successful run clears the error');
+    const again = (await api('GET', '/api/topics?status=proposed', null, adminCookie)).data || [];
+    ok(again.some(t => t.name === `Failure topic html200 ${ts}`), 'TX-08 the retried text produced its topics');
+
+    // kill switch
+    await api('PUT', '/api/profile-jobs/topic-settings', { enabled: false }, adminCookie);
+    const n = stubBodies.length;
+    await api('PATCH', `/api/projects/${p1}`, { description: `Another long description [[Disabled ${ts}]]` }, adminCookie);
+    await runProfileJobs();
+    ok(stubBodies.length === n, 'TX-09 with extraction switched off the LLM is not called');
+    await api('PUT', '/api/profile-jobs/topic-settings', { enabled: true }, adminCookie);
+    await runProfileJobs();
+    ok(stubSaw(`Disabled ${ts}`), 'TX-09 re-enabling extraction re-queues texts changed while it was off');
+
+    // TX-11: an approved topic cannot be merged into a non-approved target
+    const guardApproved = await api('POST', '/api/topics', { name: `Merge guard ${ts}` }, adminCookie);
+    const guardProposed = (await api('GET', '/api/topics?status=proposed', null, adminCookie)).data || [];
+    const proposedTarget = guardProposed.find(t => t.name === `Failure topic html200 ${ts}`) || guardProposed[0];
+    if (!guardApproved.data?.id || !proposedTarget) {
+      ok(false, 'TX-11 setup: an approved topic and a proposed topic must both exist');
+    } else {
+      const blocked = await api('POST', `/api/topics/${guardApproved.data.id}/merge`, { targetId: proposedTarget.id }, adminCookie);
+      ok(blocked.status === 409, 'TX-11 merging an approved topic into a proposed one is refused with 409');
+      const stillApproved = (await api('GET', '/api/topics?status=approved', null, adminCookie)).data || [];
+      ok(stillApproved.some(t => t.id === guardApproved.data.id), 'TX-11 the approved topic is still present after the refused merge');
+      const reverse = await api('POST', `/api/topics/${proposedTarget.id}/merge`, { targetId: guardApproved.data.id }, adminCookie);
+      ok(reverse.status === 200, 'TX-11 merging a proposed topic into an approved one is allowed');
+    }
+    void resId;
+  } finally {
+    stubMode = 'ok';
+    await api('PUT', '/api/profile-jobs/topic-settings', { enabled: true }, adminCookie);
+    server.close();
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -1784,6 +2095,9 @@ async function main() {
     await testProfileEngineHooks();
     await testProfileJobsConsole();
     await testTagLinking();
+    await testProjectDescriptions();
+    await testTopicsApi();
+    await testTopicExtraction();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
     console.error(e.stack);

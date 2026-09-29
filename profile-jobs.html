@@ -72,6 +72,12 @@
           <button class="btn btn-primary btn-sm" :disabled="!settingsDirty || !intervalValid || !!busyAction" @click="saveSettings">
             <span v-if="busyAction === 'save'" class="spinner-border spinner-border-sm me-1"></span>Save
           </button>
+          <div class="form-check form-switch mb-1" title="When off, project descriptions are never sent to the AI service">
+            <input class="form-check-input" type="checkbox" role="switch" id="topicEnabled"
+                   :checked="topicSettings.enabled" :disabled="!!busyAction" @change="toggleTopicExtraction($event)">
+            <label class="form-check-label" for="topicEnabled">Topic extraction {{ topicSettings.enabled ? 'on' : 'off' }}
+              <span v-if="topicSettings.enabled && !topicSettings.keyConfigured" class="text-warning small">(no API key configured)</span></label>
+          </div>
           <div class="ms-auto d-flex gap-2">
             <button class="btn btn-outline-secondary btn-sm" :disabled="!!busyAction" @click="recalculateNow">
               <span v-if="busyAction === 'run'" class="spinner-border spinner-border-sm me-1"></span>Recalculate now
@@ -118,6 +124,7 @@
               <th class="sortable-th" @click="sortBy('status')">Status {{ sortIndicator('status') }}</th>
               <th class="sortable-th" @click="sortBy('lastProcessed')">Last processed {{ sortIndicator('lastProcessed') }}</th>
               <th>Next processing</th>
+              <th>Topics</th>
               <th></th>
             </tr>
           </thead>
@@ -135,6 +142,7 @@
                 </td>
                 <td class="text-muted" style="white-space:nowrap">{{ formatDateTime(p.last_processed_at) }}</td>
                 <td class="text-muted" style="white-space:nowrap">{{ describeNextRun(schedule, p) }}</td>
+                <td><span v-if="p.topic_error" class="text-danger small" :title="p.topic_error">⚠ extraction failed</span><span v-else class="text-muted">—</span></td>
                 <td class="text-end" style="white-space:nowrap">
                   <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!busyAction" @click="processProject(p)">
                     <span v-if="busyAction === 'process:' + p.project_code" class="spinner-border spinner-border-sm"></span>
@@ -147,7 +155,7 @@
                 </td>
               </tr>
               <tr v-if="p.last_error && expanded[p.project_code]" class="error-detail">
-                <td colspan="8">{{ p.last_error }}</td>
+                <td colspan="9">{{ p.last_error }}</td>
               </tr>
             </template>
           </tbody>
@@ -239,6 +247,7 @@
         settings: { enabled: true, intervalMin: 10 },   // as stored on the server
         form: { enabled: true, intervalMin: 10 },       // the settings widget
         schedule: { state: 'due', lastRunAt: null, nextRunAt: null },
+        topicSettings: { enabled: true, keyConfigured: true },
         queuedCount: 0,
         projects: [],
         runs: [],
@@ -330,6 +339,7 @@
         this.settings = { ...state.data.settings };
         if (!keepForm) this.form = { ...state.data.settings };
         this.schedule = state.data.schedule;
+        if (state.data.topicSettings) this.topicSettings = state.data.topicSettings;
         this.queuedCount = state.data.queuedCount;
         this.projects = state.data.projects;
         this.runs = runs.data;
@@ -382,6 +392,12 @@
         const e = (d.errors || []).length;
         return `${prefix}: ${n} project code${n === 1 ? '' : 's'} processed, ${r} resource contribution${r === 1 ? '' : 's'} rebuilt`
           + (e ? `, ${e} failed (see the Error rows).` : '.');
+      },
+
+      async toggleTopicExtraction(event) {
+        await this.runAction('topics', 'PUT', '/api/profile-jobs/topic-settings', { enabled: !this.topicSettings.enabled });
+        // Vue does not repatch :checked when the bound value is unchanged (failed PUT) - resync the DOM
+        if (event && event.target) event.target.checked = this.topicSettings.enabled;
       },
 
       saveSettings() {

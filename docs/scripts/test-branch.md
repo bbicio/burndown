@@ -23,3 +23,7 @@ Reads `.env` via a manual line-by-line parser (never source/eval — real `.env`
 ## Snapshot file safety (2026-08, Cycle 3)
 
 The main-stack data-clone dump is written via `mktemp` (`600` permissions, no world-readable window) instead of a fixed `/tmp/pdash_branch_snapshot.dump` path (a stale, days-old dump was found under the old fixed path during this fix's own verification), and is now cleaned up via `trap 'rm -f "$DUMP_FILE"' EXIT` (added right after `mktemp`, replacing an earlier unconditional `rm -f` that only ran on the success path) so a mid-`pg_dump`/`pg_restore` failure doesn't leak the file — this is the only `EXIT` trap in the script.
+
+## Warning: real Anthropic key and cloned data (2026-09-29, profile descriptions cycle)
+
+A branch stack may clone production data (real project descriptions), so the generated compose override blanks `ANTHROPIC_API_KEY` for the api service by default: topic extraction is skipped (`no-key`) and nothing is sent to the real Anthropic API. To deliberately allow LLM calls from a branch stack, export `TEST_BRANCH_ALLOW_LLM=1` before running `scripts/test-branch.sh up`; the key from `.env` is then inherited as before (you can still switch extraction off from the profile-jobs console, `topic_extraction_enabled`). Also remember that `up` skips migrations on an existing schema: migrations `027`/`028` must be applied to the branch stack by hand (`027`'s backfill is apply-once).

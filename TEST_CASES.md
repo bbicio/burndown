@@ -824,6 +824,49 @@ Admin-only console for the profile engine (`docs/pages/profile-jobs.md`, `docs/a
 
 ---
 
+## 24. Profile descriptions and topics (2026-09-29)
+
+Project/task descriptions, the shared competence-topic vocabulary and its LLM extraction (`docs/api/topics.md`, `docs/api/profile-engine.md`). `PD-*`, `TP-*`, `TX-*`, `PT-*` run in `test-api.js`; the `TX-*` extraction cases need the local LLM stub that only exists in the isolated stack (`scripts/run-tests.sh`, `docs/scripts/run-tests.md`) and are skipped elsewhere. Pure logic is unit-tested with `node:test` (`topic-extract.test.js`, `resource-profile.test.js`) and `buildProfileTree` topics with vitest (`team-ui.test.js`).
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| PD-01 | Project description stored | Create a project with a `description`; `GET /api/projects/:id` | The description is returned | ✓ |
+| PD-02 | PATCH updates it | `PATCH /api/projects/:id { description }` | 200; the new text is returned | ✓ |
+| PD-03 | Empty description | `PATCH` with `description: ""` | 200; stored as an empty string (not NULL) | ✓ |
+| PD-04 | Task descriptions | `PUT /api/projects/:id/tasks` with per-task `description`; `GET .../tasks` and `GET /api/projects` | Descriptions round-trip; `""` when none | ✓ |
+| PD-05 | Queue only on change | Save identical task descriptions / an unchanged project description, then change each | The project code is queued only when a description actually changed | ✓ |
+| PD-06 | Description in project-config | Open a project, type a project and a task description, Save, reload | Both persist; a viewer sees them disabled |  |
+| PD-07 | Generate project copies text | In a proposal fill Description and a task description, Generate project, open the project | Project and task descriptions are pre-filled; editing them later does not change the proposal |  |
+| TP-01 | Topics API requires auth | `GET /api/topics` with no session | 401 | ✓ |
+| TP-02 | Create validation | `POST /api/topics` with a duplicate name (case/space-insensitive), an empty name, more than 4 words | 409 for the duplicate; 400 for the others | ✓ |
+| TP-03 | Attribute-list values are not topics | Create or rename a topic to the label of an active attribute-list item | 400 | ✓ |
+| TP-04 | Rename | `PATCH /api/topics/:id` with a new name; with a name already used | 200 renamed; 409 on the duplicate | ✓ |
+| TP-05 | List filter | `GET /api/topics?status=approved`; `?status=bogus` | Only approved topics with `usage_count`; 400 for an unknown status | ✓ |
+| TP-06 | Reject / restore / approve | reject, reject again, restore, approve an approved topic | 200 rejected; 409; 200 approved; 409 | ✓ |
+| TP-07 | Merge | Merge into itself; merge b into a; re-merge / merge into a merged or a rejected topic; rename a merged topic | 400; 200 and b leaves the list; 409 for the others | ✓ |
+| TP-08 | Malformed id | Any `/api/topics/:id/...` with a non-UUID id | 404 | ✓ |
+| TP-09 | Topics tab | In `attribute-lists.html` open the Topics tab; approve, rename, merge, reject, restore a topic | Queue/approved/rejected lists update; server errors are shown; the tab badge counts proposed topics |  |
+| TX-01 | Saving never calls the LLM | Save project and task descriptions (also with no API key) | 200, no error | ✓ |
+| TX-02 | Extraction on the worker | Run the profile queue after a description change | The stub LLM received the project text | ✓ |
+| TX-03 | New topics are proposed | Answer with new competences for the project and a task | Created as `proposed` | ✓ |
+| TX-04 | Server-side filtering | Stub answers with a list-value equivalent, a name equal to a list value, and a rejected topic | None of them is created or linked | ✓ |
+| TX-05 | Process re-extracts | Unchanged text: run the queue (no call); `POST /projects/:code/process` | No call for the unchanged text; Process sends it again | ✓ |
+| TX-06 | Short text | A description under 20 characters | Never sent to the LLM | ✓ |
+| TX-07 | Errors do not leak | Stub answers with an HTML body / an HTTP 500 / a text answer that is not JSON | Profile still built; `topic_error` set; the message does not echo the response body | ✓ |
+| TX-08 | Retry clears the error | After a failure, the stub works again; run again | `topic_error` cleared; topics created | ✓ |
+| TX-09 | Kill switch | `PUT /api/profile-jobs/topic-settings { enabled: false }`, change a description, run | The LLM is not called | ✓ |
+| TX-10 | Persistent failure is not work | Stub keeps failing; run three times, then succeed | The first failure counts as work, repeats do not and add no run errors; the later run is clean | ✓ |
+| TX-11 | Console UI | On `profile-jobs.html` toggle Topic extraction; provoke a failure | "extraction failed" with the error as tooltip; the switch state persists |  |
+| PT-01 | Proposed topics hidden | `GET /api/resources/:id/profile` while topics are proposed | `profile.topics` is an empty array | ✓ |
+| PT-02 | Approve shows at once | Approve a project topic and a task topic | Project topic appears for contributors; task topic only for the person with actuals on that task; no recalculation | ✓ |
+| PT-03 | Rename shows at once | Rename an approved topic | New name in the profile | ✓ |
+| PT-04 | Merge shows at once | Merge two approved topics | One chip, no duplicates | ✓ |
+| PT-05 | Reject removes at once | Reject an approved topic | Gone from the profile | ✓ |
+| PT-06 | Every contributor | Two people with actuals on the same project | Both receive the project topics | ✓ |
+| PT-07 | Topics block | Open team.html, a person, Experience profile | "Topics" chips with project counts and a project tooltip; "No topics yet." when empty |  |
+
+---
+
 ## 17. Regression — Cross-feature
 
 | ID | Scenario | Expected | Auto |

@@ -145,3 +145,24 @@ test('aggregateProfile: values are ordered by hours (desc) then label; the resul
   assert.deepEqual(a.dimensions.market.values.map(v => v.value), ['Alpha', 'Zed']);
   assert.deepEqual(a, b);
 });
+
+test('aggregateProfile: topics — project topics reach every contributor, task topics only the tasks worked on', () => {
+  const contribByCode = {
+    P1: { projectName: 'P1', hours: 6, first: '2026-01', last: '2026-02', roles: {}, tasks: { analysis: { name: 'Analysis', hours: 6 } } },
+    P2: { projectName: 'P2', hours: 2, first: '2026-03', last: '2026-03', roles: {}, tasks: { build: { name: 'Build', hours: 2 } } },
+  };
+  const projectsByCode = {
+    P1: { projectId: 'x1', name: 'P1', tags: [], topicIds: ['tp'], taskTopics: { analysis: ['ta'], other: ['tz'] } },
+    P2: { projectId: 'x2', name: 'P2', tags: [], topicIds: ['tp'], taskTopics: { analysis: ['ta'] } },   // 'analysis' not worked on in P2
+  };
+  const p = aggregateProfile(contribByCode, projectsByCode, new Date('2026-09-29T00:00:00Z'));
+  assert.deepEqual(p.topics, [
+    { topicId: 'tp', projectCodes: ['P1', 'P2'] },
+    { topicId: 'ta', projectCodes: ['P1'] },
+  ]);
+});
+
+test('aggregateProfile: topics is an empty array when nothing is linked', () => {
+  const p = aggregateProfile({ P1: { projectName: 'P1', hours: 1, first: null, last: null, roles: {}, tasks: {} } }, {}, new Date());
+  assert.deepEqual(p.topics, []);
+});

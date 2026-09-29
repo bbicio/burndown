@@ -73,6 +73,13 @@ ADMINER_PORT="${TEST_BRANCH_ADMINER_PORT:-8082}"
 # (Compose Specification merge tag, supported since Compose v2.24) forces
 # a full replace instead.
 write_override() {
+  # The branch stack may hold cloned production data: never let it reach the real Anthropic API
+  # unless the operator explicitly opts in with TEST_BRANCH_ALLOW_LLM=1.
+  local api_env=""
+  if [ "${TEST_BRANCH_ALLOW_LLM:-}" != "1" ]; then
+    api_env="    environment:
+      ANTHROPIC_API_KEY: \"\""
+  fi
   cat > "$OVERRIDE_FILE" <<EOF
 services:
   db:
@@ -81,6 +88,7 @@ services:
   api:
     container_name: ${API_CONTAINER}
     ports: !override ["${API_PORT}:3000"]
+${api_env}
   nginx:
     container_name: pdash-nginx-${SANITIZED}
     ports: !override ["${FRONTEND_PORT}:80"]

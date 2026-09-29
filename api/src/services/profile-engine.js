@@ -5,6 +5,7 @@ const { buildMatchContext } = require('../lib/match-resource');
 const { buildContributions, aggregateProfile } = require('../lib/resource-profile');
 const { composeRunError, shouldRecordRun } = require('../lib/job-schedule');
 const { refreshUnmatched } = require('./resource-matching');
+const { extractForCode } = require('./topic-extraction');
 
 const MAX_RUNS_KEPT = 50;
 
@@ -103,6 +104,21 @@ async function rebuildProfile(client, resourceId) {
     if (r.item_id) projectsByCode[r.code].tags.push({ slug: r.slug, listName: r.list_name, itemId: r.item_id, label: r.label });
   }
 
+  const projectIds = Object.values(projectsByCode).map(p => p.projectId).filter(Boolean);
+  if (projectIds.length) {
+    const links = await client.query(
+      'SELECT project_id, task_key, topic_id FROM description_topic_links WHERE project_id = ANY($1::uuid[])',
+      [projectIds]
+    );
+    const byId = new Map(Object.values(projectsByCode).map(p => [p.projectId, p]));
+    for (const l of links.rows) {
+      const p = byId.get(l.project_id);
+      if (!p) continue;
+      if (l.task_key === '') (p.topicIds = p.topicIds || []).push(l.topic_id);
+      else ((p.taskTopics = p.taskTopics || {})[l.task_key] = (p.taskTopics[l.task_key] || [])).push(l.topic_id);
+    }
+  }
+
   const profile = aggregateProfile(contribByCode, projectsByCode, new Date());
   await client.query('UPDATE resources SET profile = $2::jsonb, profile_computed_at = now() WHERE id = $1',
     [resourceId, JSON.stringify(profile)]);
@@ -141,9 +157,37 @@ async function processCode(client, code) {
   return { rows: rows.length, resources: contribs.size };
 }
 
-// One queued code per transaction. Returns null when the queue is empty, { code, resources } on
-// success, { code, error } when that code failed (it goes to the back of the queue with last_error).
+// Codes whose topic extraction failed on their last processing. A code that fails again is still
+// re-queued but no longer counted as work, so a persistent failure cannot flood profile_job_runs.
+const topicRetryCodes = new Set();
+
+// Topic extraction for the code that is NEXT in the queue, done before we claim it so that no row lock
+// is held during the LLM call. Never throws. Returns the code when its extraction failed (the caller
+// re-queues it after processing, at most once per run), else null.
+async function extractTopicsForNext(exclude, only) {
+  try {
+    const { rows } = await query(
+      `SELECT project_code FROM profile_project_state
+       WHERE queued_at IS NOT NULL AND project_code <> ALL($1::text[])
+         AND ($2::text IS NULL OR project_code = $2)
+       ORDER BY queued_at, project_code LIMIT 1`,
+      [exclude, only]
+    );
+    if (!rows[0]) return null;
+    const r = await extractForCode(rows[0].project_code);
+    return r.status === 'error' ? rows[0].project_code : null;
+  } catch (err) {
+    console.warn('[profile] topic extraction:', err.message);
+    return null;
+  }
+}
+
+// One queued code per transaction. Returns null when the queue is empty, { code, resources, topicRetry,
+// retryOnly } on success (topicRetry: its topic extraction failed and it was re-queued; retryOnly: it
+// had already failed the same way on its previous processing, so it must not be counted as work),
+// { code, error } when that code failed (it goes to the back of the queue with last_error).
 async function processNext(exclude, only = null) {
+  const retryCode = await extractTopicsForNext(exclude, only);
   const client = await pool.connect();
   let code = null;
   try {
@@ -169,7 +213,15 @@ async function processNext(exclude, only = null) {
     await client.query('COMMIT');
     // Keep the "Unmatched names" list for this code current (own transaction; best-effort).
     await quiet('refreshUnmatched', () => refreshUnmatched([code]));
-    return { code, resources: out.resources };
+    const failedAgain = !!retryCode && retryCode === code;
+    const wasRetry = topicRetryCodes.has(code);
+    if (failedAgain) topicRetryCodes.add(code); else topicRetryCodes.delete(code);
+    if (failedAgain) {
+      // extraction failed: look again on a later run (the loop excludes it for the rest of this one)
+      await quiet('requeue after topic error', () => query(
+        'UPDATE profile_project_state SET queued_at = now() WHERE project_code = $1', [code]));
+    }
+    return { code, resources: out.resources, topicRetry: failedAgain, retryOnly: failedAgain && wasRetry };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     if (!code) throw err;                       // failure before a code was claimed
@@ -211,6 +263,8 @@ async function processQueue(trigger = 'scheduled', opts = {}) {
       const r = await processNext(failed, only);
       if (!r) break;
       if (r.error) { failed.push(r.code); errors.push(`${r.code}: ${r.error}`); continue; }
+      if (r.topicRetry) failed.push(r.code);
+      if (r.retryOnly) continue;      // already failed the same way last time: reprocessed, not counted
       projects += 1;
       resources += r.resources;
     }

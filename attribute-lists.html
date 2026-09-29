@@ -21,8 +21,14 @@
 
     <div class="page app-container" v-if="ready">
 
+      <ul class="nav nav-tabs mb-3" v-if="!currentList">
+        <li class="nav-item"><button type="button" class="nav-link" :class="{ active: pageTab === 'lists' }" @click="pageTab = 'lists'">Lists</button></li>
+        <li class="nav-item"><button type="button" class="nav-link" :class="{ active: pageTab === 'topics' }" @click="openTopicsTab">
+          Topics <span v-if="proposedTopics.length" class="badge text-bg-warning ms-1">{{ proposedTopics.length }}</span></button></li>
+      </ul>
+
       <!-- ── LIST-OF-LISTS VIEW ────────────────────────────── -->
-      <template v-if="!currentList">
+      <template v-if="!currentList && pageTab === 'lists'">
         <div class="page-header">
           <h1>Attribute Lists <span class="text-muted fw-normal" style="font-size:1rem">({{ lists.length }})</span></h1>
           <button class="btn btn-primary" @click="openNewList">+ New list</button>
@@ -57,8 +63,71 @@
         </div>
       </template>
 
+      <!-- ── TOPICS TAB ────────────────────────────────────── -->
+      <template v-if="!currentList && pageTab === 'topics'">
+        <div class="page-header">
+          <h1>Topics <span class="text-muted fw-normal" style="font-size:1rem">competences extracted from project descriptions</span></h1>
+          <button class="btn btn-primary" @click="openNewTopic">+ New topic</button>
+        </div>
+        <div v-if="topicsError" class="alert alert-danger alert-sm mb-3">{{ topicsError }}</div>
+
+        <div class="card mb-3" v-if="proposedTopics.length">
+          <div class="card-body">
+            <h6 class="mb-2">Proposed <span class="text-muted fw-normal">— not shown in profiles until approved</span></h6>
+            <table class="table table-hover">
+              <thead><tr><th>Name</th><th class="text-end">Used in</th><th></th></tr></thead>
+              <tbody>
+                <tr v-for="t in proposedTopics" :key="t.id">
+                  <td class="fw-semibold">{{ t.name }}</td>
+                  <td class="text-end text-muted">{{ t.usage_count }} description{{ t.usage_count === 1 ? '' : 's' }}</td>
+                  <td class="text-end" style="white-space:nowrap">
+                    <button class="btn btn-outline-primary btn-action me-1" :disabled="t._loading" @click="topicAction(t, 'approve')">Approve</button>
+                    <button class="btn btn-outline-secondary btn-action me-1" :disabled="t._loading" @click="openRenameTopic(t)">Rename</button>
+                    <button class="btn btn-outline-secondary btn-action me-1" :disabled="t._loading" @click="openMergeTopic(t)">Merge into…</button>
+                    <button class="btn btn-outline-danger btn-action" :disabled="t._loading" @click="topicAction(t, 'reject')">Reject</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-body">
+            <h6 class="mb-2">Approved</h6>
+            <table class="table table-hover" v-if="approvedTopics.length">
+              <thead><tr><th>Name</th><th class="text-end">Used in</th><th></th></tr></thead>
+              <tbody>
+                <tr v-for="t in approvedTopics" :key="t.id">
+                  <td class="fw-semibold">{{ t.name }}</td>
+                  <td class="text-end text-muted">{{ t.usage_count }} description{{ t.usage_count === 1 ? '' : 's' }}</td>
+                  <td class="text-end" style="white-space:nowrap">
+                    <button class="btn btn-outline-secondary btn-action me-1" :disabled="t._loading" @click="openRenameTopic(t)">Rename</button>
+                    <button class="btn btn-outline-secondary btn-action me-1" :disabled="t._loading" @click="openMergeTopic(t)">Merge into…</button>
+                    <button class="btn btn-outline-danger btn-action" :disabled="t._loading" @click="topicAction(t, 'reject')">Reject</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="empty" v-else>No approved topics yet.</div>
+          </div>
+        </div>
+
+        <details class="mb-4" v-if="rejectedTopics.length">
+          <summary class="text-muted">Rejected ({{ rejectedTopics.length }}) — never proposed again</summary>
+          <table class="table table-sm mt-2">
+            <tbody>
+              <tr v-for="t in rejectedTopics" :key="t.id">
+                <td>{{ t.name }}</td>
+                <td class="text-end"><button class="btn btn-outline-secondary btn-action" :disabled="t._loading" @click="topicAction(t, 'restore')">Restore</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </details>
+      </template>
+
       <!-- ── LIST DRILL-IN VIEW ───────────────────────────── -->
-      <template v-else>
+      <template v-else-if="currentList">
         <div class="page-header">
           <div>
             <button class="btn btn-outline-secondary btn-sm mb-2" @click="backToLists">← All lists</button>
@@ -166,6 +235,46 @@
       </div>
     </div>
 
+    <div class="modal fade" id="topicModal" tabindex="-1">
+      <div class="modal-dialog"><div class="modal-content">
+        <form @submit.prevent="submitTopicForm">
+          <div class="modal-header border-0"><h5 class="modal-title">{{ topicForm.id ? 'Rename topic' : 'New topic' }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div v-if="topicForm.error" class="alert alert-danger alert-sm">{{ topicForm.error }}</div>
+            <label class="form-label">Name <span class="text-muted">(a competence, 1–4 words, English)</span></label>
+            <input v-model="topicForm.name" type="text" class="form-control" maxlength="60" required>
+          </div>
+          <div class="modal-footer border-0 pt-0">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary" :disabled="topicForm.loading">
+              <span v-if="topicForm.loading" class="spinner-border spinner-border-sm me-2"></span>{{ topicForm.id ? 'Save' : 'Create' }}</button>
+          </div>
+        </form>
+      </div></div>
+    </div>
+
+    <div class="modal fade" id="mergeModal" tabindex="-1">
+      <div class="modal-dialog"><div class="modal-content">
+        <form @submit.prevent="submitMerge">
+          <div class="modal-header border-0"><h5 class="modal-title">Merge “{{ mergeForm.source?.name }}” into…</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div v-if="mergeForm.error" class="alert alert-danger alert-sm">{{ mergeForm.error }}</div>
+            <p class="text-muted small">All descriptions using this topic will use the target instead; this topic disappears.</p>
+            <select v-model="mergeForm.targetId" class="form-select" required>
+              <option value="" disabled>Choose the topic to keep…</option>
+              <option v-for="t in mergeTargets" :key="t.id" :value="t.id">{{ t.name }}{{ t.status === 'proposed' ? ' (proposed)' : '' }}</option>
+            </select>
+          </div>
+          <div class="modal-footer border-0 pt-0">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary" :disabled="mergeForm.loading || !mergeForm.targetId">Merge</button>
+          </div>
+        </form>
+      </div></div>
+    </div>
+
   </div><!-- #app -->
 
   <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -192,9 +301,20 @@
           itemForm: { id: null, label: '', loading: false, error: null },
           _listModal: null,
           _itemModal: null,
+          pageTab: 'lists', topics: [], topicsError: null,
+          topicForm: { id: null, name: '', loading: false, error: null },
+          mergeForm: { source: null, targetId: '', loading: false, error: null },
+          _topicModal: null, _mergeModal: null,
         };
       },
       computed: {
+        proposedTopics() { return this.topics.filter(t => t.status === 'proposed'); },
+        approvedTopics() { return this.topics.filter(t => t.status === 'approved'); },
+        rejectedTopics() { return this.topics.filter(t => t.status === 'rejected'); },
+        mergeTargets() {
+          const src = this.mergeForm.source;
+          return this.topics.filter(t => src && t.id !== src.id && t.status !== 'rejected' && (src.status !== 'approved' || t.status === 'approved'));
+        },
         filteredItems() {
           return this.showInactiveItems ? this.items : this.items.filter(it => it.status === 'active');
         },
@@ -208,13 +328,64 @@
         this.me = user;
         if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
         await this.loadLists();
+        await this.loadTopics();
         this.ready = true;
       },
       mounted() {
+        this._topicModal = new bootstrap.Modal(document.getElementById('topicModal'));
+        this._mergeModal = new bootstrap.Modal(document.getElementById('mergeModal'));
         this._listModal = new bootstrap.Modal(document.getElementById('listModal'));
         this._itemModal = new bootstrap.Modal(document.getElementById('itemModal'));
       },
       methods: {
+        async topicsRequest(method, url, body) {
+          try {
+            const res = await fetch(url, {
+              method, credentials: 'same-origin',
+              headers: body ? { 'Content-Type': 'application/json' } : undefined,
+              body: body ? JSON.stringify(body) : undefined,
+            });
+            const data = await res.json().catch(() => null);
+            return { ok: res.ok, data };
+          } catch {
+            return { ok: false, data: { error: 'Network error.' } };
+          }
+        },
+        async loadTopics() {
+          const r = await this.topicsRequest('GET', '/api/topics');
+          if (!r.ok) { this.topicsError = (r.data && r.data.error) || 'Failed to load topics.'; return; }
+          this.topicsError = null;
+          this.topics = r.data.map(t => ({ ...t, _loading: false }));
+        },
+        async openTopicsTab() { this.pageTab = 'topics'; await this.loadTopics(); },
+        openNewTopic() { this.topicForm = { id: null, name: '', loading: false, error: null }; this._topicModal.show(); },
+        openRenameTopic(t) { this.topicForm = { id: t.id, name: t.name, loading: false, error: null }; this._topicModal.show(); },
+        async submitTopicForm() {
+          this.topicForm.loading = true; this.topicForm.error = null;
+          const r = this.topicForm.id
+            ? await this.topicsRequest('PATCH', `/api/topics/${this.topicForm.id}`, { name: this.topicForm.name })
+            : await this.topicsRequest('POST', '/api/topics', { name: this.topicForm.name });
+          this.topicForm.loading = false;
+          if (!r.ok) { this.topicForm.error = (r.data && r.data.error) || 'Save failed'; return; }
+          this._topicModal.hide();
+          await this.loadTopics();
+        },
+        async topicAction(t, action) {
+          t._loading = true; this.topicsError = null;
+          const r = await this.topicsRequest('POST', `/api/topics/${t.id}/${action}`);
+          await this.loadTopics();
+          if (!r.ok) this.topicsError = (r.data && r.data.error) || 'The action failed.';
+        },
+        openMergeTopic(t) { this.mergeForm = { source: t, targetId: '', loading: false, error: null }; this._mergeModal.show(); },
+        async submitMerge() {
+          this.mergeForm.loading = true; this.mergeForm.error = null;
+          const r = await this.topicsRequest('POST', `/api/topics/${this.mergeForm.source.id}/merge`, { targetId: this.mergeForm.targetId });
+          this.mergeForm.loading = false;
+          if (!r.ok) { this.mergeForm.error = (r.data && r.data.error) || 'Merge failed'; return; }
+          this._mergeModal.hide();
+          await this.loadTopics();
+        },
+
         async loadLists() {
           this.globalError = null;
           try {
