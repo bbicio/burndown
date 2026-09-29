@@ -2022,7 +2022,7 @@ async function testTopicExtraction() {
     const st2 = (await api('GET', '/api/profile-jobs', null, adminCookie)).data;
     ok(!st2?.projects?.find(p => p.project_code === code1)?.topic_error, 'TX-08 a later successful run clears the error');
     const again = (await api('GET', '/api/topics?status=proposed', null, adminCookie)).data || [];
-    ok(again.some(t => t.name === `Failure topic garbage ${ts}`), 'TX-08 the retried text produced its topics');
+    ok(again.some(t => t.name === `Failure topic html200 ${ts}`), 'TX-08 the retried text produced its topics');
 
     // kill switch
     await api('PUT', '/api/profile-jobs/topic-settings', { enabled: false }, adminCookie);
