@@ -1803,6 +1803,63 @@ async function testProjectDescriptions() {
   ok(await queued(), 'PD-05 changing the project description queues the project code');
 }
 
+// ── Topics admin API ────────────────────────────────────────────────────────────
+
+async function testTopicsApi() {
+  section('Topics API');
+  const ts = Date.now();
+  ok((await api('GET', '/api/topics')).status === 401, 'TP-01 GET /api/topics without auth → 401');
+
+  const mk = async (name) => {
+    const r = await api('POST', '/api/topics', { name }, adminCookie);
+    return r;
+  };
+  const a = await mk(`Alpha skill ${ts}`);
+  ok(a.status === 201 && a.data?.status === 'approved', `TP-02 POST /api/topics creates an approved topic (got ${a.status})`);
+  if (!a.data?.id) return;
+  const b = await mk(`Beta skill ${ts}`);
+  const c = await mk(`Gamma skill ${ts}`);
+  ok((await mk(`ALPHA   skill ${ts}`)).status === 409, 'TP-02 a duplicate name (case/space-insensitive) → 409');
+  ok((await mk('')).status === 400 && (await mk('a b c d e')).status === 400, 'TP-02 empty / more than 4 words → 400');
+
+  // a value of an attribute list can never be a topic
+  const lists = (await api('GET', '/api/attribute-lists', null, adminCookie)).data || [];
+  const market = lists.find(l => l.slug === 'market');
+  const itemLabel = `__tp_item_${ts}__`;
+  if (market) {
+    const it = await api('POST', `/api/attribute-lists/${market.id}/items`, { label: itemLabel }, adminCookie);
+    ok((await mk(itemLabel)).status === 400, 'TP-03 a name equal to an attribute-list value → 400');
+    ok((await api('PATCH', `/api/topics/${a.data.id}`, { name: itemLabel }, adminCookie)).status === 400, 'TP-03 renaming to a list value → 400');
+    void it;
+  }
+
+  const rn = await api('PATCH', `/api/topics/${a.data.id}`, { name: `Alpha renamed ${ts}` }, adminCookie);
+  ok(rn.status === 200 && rn.data?.name === `Alpha renamed ${ts}`, 'TP-04 PATCH renames a topic');
+  ok((await api('PATCH', `/api/topics/${a.data.id}`, { name: `Beta skill ${ts}` }, adminCookie)).status === 409, 'TP-04 renaming onto an existing name → 409');
+
+  const listApproved = (await api('GET', '/api/topics?status=approved', null, adminCookie)).data || [];
+  ok(listApproved.some(t => t.id === a.data.id) && listApproved.every(t => t.status === 'approved'), 'TP-05 list filters by status');
+  ok((await api('GET', '/api/topics?status=bogus', null, adminCookie)).status === 400, 'TP-05 unknown status filter → 400');
+
+  ok((await api('POST', `/api/topics/${b.data.id}/reject`, null, adminCookie)).data?.status === 'rejected', 'TP-06 reject');
+  ok((await api('POST', `/api/topics/${b.data.id}/reject`, null, adminCookie)).status === 409, 'TP-06 rejecting twice → 409');
+  ok((await api('POST', `/api/topics/${b.data.id}/restore`, null, adminCookie)).data?.status === 'approved', 'TP-06 restore → approved');
+  ok((await api('POST', `/api/topics/${b.data.id}/approve`, null, adminCookie)).status === 409, 'TP-06 approving an approved topic → 409');
+
+  // merge: b → a, then a chain c → b (must land on a)
+  ok((await api('POST', `/api/topics/${b.data.id}/merge`, { targetId: b.data.id }, adminCookie)).status === 400, 'TP-07 merge into itself → 400');
+  ok((await api('POST', `/api/topics/${b.data.id}/merge`, { targetId: a.data.id }, adminCookie)).status === 200, 'TP-07 merge b into a → 200');
+  const afterMerge = (await api('GET', '/api/topics', null, adminCookie)).data || [];
+  ok(!afterMerge.some(t => t.id === b.data.id), 'TP-07 a merged topic disappears from the list');
+  ok((await api('POST', `/api/topics/${c.data.id}/merge`, { targetId: b.data.id }, adminCookie)).status === 409, 'TP-07 merging into an already-merged topic → 409');
+  ok((await api('PATCH', `/api/topics/${b.data.id}`, { name: 'Whatever' }, adminCookie)).status === 409, 'TP-07 a merged topic cannot be renamed');
+  const rej = await api('POST', `/api/topics/${c.data.id}/reject`, null, adminCookie);
+  ok(rej.status === 200 && (await api('POST', `/api/topics/${a.data.id}/merge`, { targetId: c.data.id }, adminCookie)).status === 409,
+    'TP-07 merging into a rejected topic → 409');
+  ok((await api('GET', '/api/topics/not-a-uuid')).status === 401 && (await api('PATCH', '/api/topics/not-a-uuid', { name: 'X y' }, adminCookie)).status === 404,
+    'TP-08 malformed id → 404');
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -1836,6 +1893,7 @@ async function main() {
     await testProfileJobsConsole();
     await testTagLinking();
     await testProjectDescriptions();
+    await testTopicsApi();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
     console.error(e.stack);
