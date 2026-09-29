@@ -66,6 +66,16 @@ function inWeek(rec, week) {
   return rec.date !== null && rec.date >= week.weekStart && rec.date <= week.weekEnd;
 }
 
+// Legacy week membership used ONLY by By Role and By Project to place an actuals row into a past
+// week cell. The old browser code parsed row dates as UTC midnight but compared them with
+// local-midnight Monday-Sunday weeks, so in UTC+ zones a Sunday row fell in no week cell (it still
+// counted in the consumed totals). Replicated here for zero visible change (parity); weekEnd is
+// exclusive so Sunday rows are dropped. By Owner uses the inclusive inWeek. This browser quirk is
+// to be fixed later as a deliberate, visible change.
+function inWeekLegacy(rec, week) {
+  return rec.date !== null && rec.date >= week.weekStart && rec.date < week.weekEnd;
+}
+
 // Port of js/core.js rolePassesTeamFilter: the team is the role text before ' - '.
 function rolePassesTeams(teams, role) {
   if (!teams || teams.size === 0) return true;
@@ -114,7 +124,7 @@ function roleProjection({ projects, actuals, weeks, today, pulse, teams }) {
         const cellOf = (key, isPast, isPulse) => (roleMap[role][key] ||= { hours: 0, breakdown: [], isPast, isPulse });
 
         for (const w of overlapWeeks.filter(w => w.isPast)) {
-          const actualH = taskRoleRecs.filter(r => inWeek(r, w)).reduce((s, r) => s + r.hours, 0);
+          const actualH = taskRoleRecs.filter(r => inWeekLegacy(r, w)).reduce((s, r) => s + r.hours, 0);
           if (actualH < 0.01) continue;
           const cell = cellOf(w.key, true, false);
           cell.hours += actualH;
@@ -203,7 +213,7 @@ function projectProjection({ projects, actuals, weeks, today, pulse, teams, owne
 
         const roleWeekData = {};
         for (const w of pastWeeks) {
-          const recs = taskRoleRecs.filter(r => inWeek(r, w));
+          const recs = taskRoleRecs.filter(r => inWeekLegacy(r, w));
           const tot = recs.reduce((s, r) => s + r.hours, 0);
           if (tot < 0.01) continue;
           const byOwner = {};
@@ -380,6 +390,6 @@ function buildProjection(view, input) {
 
 module.exports = {
   PLACEHOLDER, normalizeActuals, groupActualsByProject, uniqueOwnerNames,
-  inWeek, ownerOf, rolePassesTeams,
+  inWeek, inWeekLegacy, ownerOf, rolePassesTeams,
   roleProjection, projectProjection, ownerProjection, buildProjection,
 };

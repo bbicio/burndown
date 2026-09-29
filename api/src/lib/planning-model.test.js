@@ -46,6 +46,15 @@ test('inWeek: Sunday belongs to its own Monday-Sunday week (calendar semantics)'
   assert.equal(M.inWeek({ date: null }, w), false);
 });
 
+test('inWeekLegacy: Sunday is excluded (browser quirk), Monday-Saturday included', () => {
+  const [w] = getCalendarWeeks(isoDate('2026-09-07'), isoDate('2026-09-07'), isoDate('2026-09-30'));
+  assert.equal(M.inWeekLegacy({ date: isoDate('2026-09-07') }, w), true);   // Monday
+  assert.equal(M.inWeekLegacy({ date: isoDate('2026-09-12') }, w), true);   // Saturday
+  assert.equal(M.inWeekLegacy({ date: isoDate('2026-09-13') }, w), false);  // Sunday
+  assert.equal(M.inWeekLegacy({ date: isoDate('2026-09-14') }, w), false);  // next Monday
+  assert.equal(M.inWeekLegacy({ date: null }, w), false);
+});
+
 test('ownerOf and rolePassesTeams', () => {
   assert.equal(M.ownerOf({ owner: '  Ann ' }), 'Ann');
   assert.equal(M.ownerOf({ owner: '   ' }), M.PLACEHOLDER);
@@ -128,10 +137,12 @@ test('roleProjection: a task with no dates anywhere yields a tiny hours/week and
   assert.equal(Object.values(roles[0].cells).every(c => c.isPulse), true); // hours/week << 1 -> pulse
 });
 
-test('roleProjection: a Sunday actuals row is counted in its own week (Review Focus #1)', () => {
+test('legacy: a Sunday row is counted in consumed but not placed in a week cell (By Role)', () => {
   const actuals = new Map([['p1', [rec('2026-09-13', 'Ann', 4)]]]); // Sunday of the week starting 2026-09-07
   const { roles } = M.roleProjection({ projects: [PROJ()], actuals, weeks: WEEKS, today: TODAY, pulse: true, teams: new Set() });
-  near(roles[0].cells['2026-09-07'].hours, 4);
+  const cell = roles[0].cells['2026-09-07'];
+  assert.ok(cell === undefined || cell.hours === 0, 'Sunday row must not appear in the week cell');
+  assert.equal(roles[0].actuals, 4); // still consumed
 });
 
 test('roleProjection: two projects sharing a role merge into one role node with two children', () => {
@@ -163,6 +174,15 @@ test('projectProjection: owner split by actuals, inactive owners excluded from t
   assert.deepEqual(role.owners.map(o => [o.name, o.actuals]), [['Mario Rossi', 6], ['Anna Bianchi', 4]]);
   near(role.owners[0].tbp, 90);
   near(role.owners[1].tbp, 0);
+});
+
+test('legacy: a Sunday row is counted in consumed but not placed in a week cell (By Project)', () => {
+  const actuals = new Map([['p1', [rec('2026-09-13', 'Mario Rossi', 4)]]]);
+  const out = M.projectProjection({ projects: [TWO_ROLES()], actuals, weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(), ownerStatus: {} });
+  const role = out.projects[0].tasks[0].roles[0];
+  assert.equal(role.weekData['2026-09-07'], undefined);
+  assert.equal(role.consumed, 4);
+  assert.equal(role.owners.find(o => o.name === 'Mario Rossi').actuals, 4);
 });
 
 test('projectProjection: every owner inactive -> future hours go to the TBD row', () => {
@@ -218,6 +238,12 @@ test('ownerProjection: task-level residual split among owners of ALL the task ro
   assert.equal(mario.weekTotals['2026-09-07'].isPast, true);
   near(mario.projects.p1.tasks.Build.weekData['2026-09-14'].hours, (70 / 3) * (2 / 3));
   assert.equal(mario.projects.p1.name, 'Alpha');
+});
+
+test('ownerProjection: a Sunday row IS included in the owner week cell (inclusive rule)', () => {
+  const actuals = new Map([['p1', [rec('2026-09-13', 'Mario', 4, 'DEV')]]]);
+  const { ownerMap } = M.ownerProjection({ projects: [ROLES2()], actuals, weeks: WEEKS, today: TODAY, pulse: false, teams: new Set(), ownerStatus: {} });
+  near(ownerMap.Mario.weekTotals['2026-09-07'].hours, 4);
 });
 
 test('ownerProjection: the team filter changes the task residual (max(0, sum) is not a sum of maxes)', () => {
