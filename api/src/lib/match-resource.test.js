@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeName, buildMatchContext, matchOwner, aggregateUnmatched } = require('./match-resource');
+const { normalizeName, buildMatchContext, matchOwner, aggregateUnmatched, resolveOwnerStatuses } = require('./match-resource');
 
 const R = (id, first, last, status = 'active') => ({ id, first_name: first, last_name: last, status });
 

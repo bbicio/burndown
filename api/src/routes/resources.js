@@ -2,27 +2,13 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
-const { normalizeName, buildMatchContext, matchOwner } = require('../lib/match-resource');
+const { normalizeName, buildMatchContext, matchOwner, resolveOwnerStatuses } = require('../lib/match-resource');
 const { refreshUnmatched } = require('../services/resource-matching');
 const { loadVocabulary } = require('../services/topic-extraction');
 const { resolveProfileTopics } = require('../lib/topic-extract');
 const { enqueueAllQuiet, OLDEST_PROJECT_ORDER_BY } = require('../services/profile-engine');
 
 const router = express.Router();
-
-// resources: [{ id, first_name, last_name, status }]; aliases: [{ alias_normalized, resource_id }]
-// Exported for unit testing (no DB access needed — see resources.test.js).
-function resolveOwnerStatuses(names, resources, aliases) {
-  const ctx = buildMatchContext(resources, aliases);
-  const statusById = new Map(resources.map(r => [r.id, r.status]));
-  const result = {};
-  for (const name of names) {
-    const m = matchOwner(name, ctx);
-    result[name] = ((m.kind === 'matched' || m.kind === 'alias') && statusById.get(m.resourceId) === 'inactive')
-      ? 'inactive' : 'active';
-  }
-  return result;
-}
 
 // resources/aliases change slowly (admin-only edits), but this route is hit on every planning.html
 // page load and XLS upload for every user — cache the two source tables for a short window instead

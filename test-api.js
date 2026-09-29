@@ -2063,6 +2063,59 @@ async function testTopicExtraction() {
   }
 }
 
+async function testPlanningModel() {
+  section('Planning model');
+  const ts = `${Date.now()}${++_fixtureSeq}`;
+  const code = `TPLAN${ts}`;
+  const body = (over = {}) => ({ view: 'role', projectIds: [], teams: [], from: '2099-01-01', to: '2099-03-31', asOf: '2099-01-10', pulse: false, ...over });
+
+  ok((await api('POST', '/api/planning/model', body())).status === 401, 'PM-01 POST /api/planning/model without auth → 401');
+  const bad = await api('POST', '/api/planning/model', { ...body(), view: 'nope', from: 'x' }, adminCookie);
+  ok(bad.status === 400 && bad.data?.fields?.view && bad.data?.fields?.from, 'PM-02 invalid view/from → 400 with per-field errors');
+
+  const rP = await api('POST', '/api/projects', { name: `__plan_${code}__`, code, startDate: '209901', endDate: '209903' }, adminCookie);
+  const pid = rP.data?.id;
+  if (!ok(!!pid, 'PM-setup project created')) return;
+  later('DELETE', `/api/projects/${pid}`);
+  await api('PUT', `/api/projects/${pid}/tasks`,
+    [{ name: 'Analysis', startDate: '20990105', endDate: '20990329', resources: [{ role: 'Consultant', soldHours: 100 }] }], adminCookie);
+  later('DELETE', `/api/timesheets/${code}`);
+  const csv = ['projectId,date,task,role,owner,hours',
+    `${code},2099-01-05,Analysis,Consultant,Plan Tester${ts},10`].join('\n');
+  ok((await uploadCsv('/api/timesheets/upload', csv, adminCookie)).status === 201, 'PM-setup actuals uploaded');
+
+  // PM-03: role view — actuals in the past week, residual spread over the future weeks
+  const r = await api('POST', '/api/planning/model', body({ projectIds: [pid, pid, '00000000-0000-0000-0000-000000000000'] }), adminCookie);
+  const role = r.data?.roles?.find(x => x.role === 'Consultant');
+  ok(r.status === 200 && r.data?.view === 'role' && !!role, 'PM-03 role view returns the Consultant role (duplicate and unknown ids ignored)');
+  ok(role?.sold === 100 && role?.actuals === 10, 'PM-03 sold 100, actuals 10');
+  ok(Object.keys(role?.cells || {}).length > 1, 'PM-03 cells cover several weeks');
+  const totalPlanned = Object.values(role?.cells || {}).filter(c => !c.isPast).reduce((s, c) => s + c.hours, 0);
+  ok(Math.abs(totalPlanned - 90) < 1e-6, `PM-03 planned hours add up to the residual (got ${totalPlanned})`);
+
+  // PM-04: project and owner views
+  const rp = await api('POST', '/api/planning/model', body({ view: 'project', projectIds: [pid] }), adminCookie);
+  ok(rp.status === 200 && rp.data?.projects?.[0]?.id === pid && rp.data.projects[0].tasks[0]?.roles?.[0]?.consumed === 10, 'PM-04 project view returns the task/role tree');
+  const ro = await api('POST', '/api/planning/model', body({ view: 'owner', projectIds: [pid] }), adminCookie);
+  ok(ro.status === 200 && !!ro.data?.ownerMap?.[`Plan Tester${ts}`], 'PM-04 owner view returns the owner map');
+  ok(ro.data?.ownerStatus?.[`Plan Tester${ts}`] === 'active', 'PM-04 owner status is included (unmatched = active)');
+
+  // PM-05: team filter is a server input
+  const rt = await api('POST', '/api/planning/model', body({ teams: ['NoSuchTeam'], projectIds: [pid] }), adminCookie);
+  ok(rt.status === 200 && (rt.data?.roles || []).length === 0, 'PM-05 a team filter that matches no role gives no roles');
+
+  // PM-06: cache is invalidated by a write (new actuals appear immediately)
+  const csv2 = ['projectId,date,task,role,owner,hours',
+    `${code},2099-01-05,Analysis,Consultant,Plan Tester${ts},10`,
+    `${code},2099-01-06,Analysis,Consultant,Plan Tester${ts},5`].join('\n');
+  await uploadCsv(`/api/timesheets/upload?projectCode=${code}`, csv2, adminCookie);
+  const r2 = await api('POST', '/api/planning/model', body({ projectIds: [pid] }), adminCookie);
+  ok(r2.data?.roles?.find(x => x.role === 'Consultant')?.actuals === 15, 'PM-06 a new upload is visible right away (cache invalidated)');
+
+  // PM-07: a non-admin who neither owns nor was shared the project gets an empty result, not an error
+  // (covered by the visibility rule; the suite has no second regular user helper for projects)
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -2098,6 +2151,7 @@ async function main() {
     await testProjectDescriptions();
     await testTopicsApi();
     await testTopicExtraction();
+    await testPlanningModel();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
     console.error(e.stack);

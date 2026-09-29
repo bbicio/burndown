@@ -868,6 +868,20 @@ Project/task descriptions, the shared competence-topic vocabulary and its LLM ex
 
 ---
 
+## 25. Planning model (2026-09-29)
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| PM-01 | Auth required | `POST /api/planning/model` with no session | 401 | ✓ |
+| PM-02 | Request validation | POST with an unknown `view` and an unparseable `from` | 400 with per-field errors (`fields.view`, `fields.from`) | ✓ |
+| PM-03 | Role view | Project with a 100 h Consultant task and 10 h of actuals; POST `view: "role"` with a duplicate and an unknown project id | 200; Consultant role with sold 100, actuals 10, cells over several weeks whose planned hours add up to the 90 h residual; duplicate/unknown ids ignored | ✓ |
+| PM-04 | Project and owner views | POST `view: "project"` and `view: "owner"` for the same project | Project view returns the task/role tree with consumed hours; owner view returns the owner map and `ownerStatus` (unmatched owner = active) | ✓ |
+| PM-05 | Team filter | POST with `teams: ["NoSuchTeam"]` | 200 with no roles | ✓ |
+| PM-06 | Cache invalidation | Re-upload actuals for the project, then POST again | The new hours are visible immediately (write invalidates the 30 s cache) | ✓ |
+| PM-07 | Visibility | As a non-admin user who is neither owner nor shared on a project, request the model with that project id | 200 with an empty projection |  |
+
+---
+
 ## 17. Regression — Cross-feature
 
 | ID | Scenario | Expected | Auto |

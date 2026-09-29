@@ -75,4 +75,18 @@ function aggregateUnmatched(rowsByCode, ctx) {
       : a.nameNormalized < b.nameNormalized ? -1 : a.nameNormalized > b.nameNormalized ? 1 : 0);
 }
 
-module.exports = { normalizeName, buildMatchContext, matchOwner, aggregateUnmatched };
+// names -> { [name]: 'active' | 'inactive' }: inactive only when the name resolves (alias or exact
+// match) to an inactive resource; everything else — unmatched, ambiguous, ignored — counts as active.
+function resolveOwnerStatuses(names, resources, aliases) {
+  const ctx = buildMatchContext(resources, aliases);
+  const statusById = new Map(resources.map(r => [r.id, r.status]));
+  const result = {};
+  for (const name of names) {
+    const m = matchOwner(name, ctx);
+    result[name] = ((m.kind === 'matched' || m.kind === 'alias') && statusById.get(m.resourceId) === 'inactive')
+      ? 'inactive' : 'active';
+  }
+  return result;
+}
+
+module.exports = { normalizeName, buildMatchContext, matchOwner, aggregateUnmatched, resolveOwnerStatuses };
