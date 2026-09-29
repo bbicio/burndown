@@ -273,11 +273,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         aiSidebarOpen: false,
         aiMessages: [], aiInput: '', aiSending: false,
         returnToBurndown: false, singleProjectId: null,
-        refreshTick: 0, // bumped after an XLS upload to force grouping-view computeds to
-                        // recompute — timesheetData/config.projects are plain globals mutated
-                        // in place by refreshTimesheetDataFromApi(), not Vue-reactive on their own
-        ownerStatusMap: {}, // { [ownerName]: 'active' | 'inactive' }, from POST /api/resources/match-owners;
-                             // an absent name is treated as 'active' by redistributeExcludingInactive (fail-open)
+        refreshTick: 0, // bumped after an XLS upload to force a new modelRequest (refetch of the
+                        // planning model) and to recompute computeds reading config.projects, a
+                        // plain global not Vue-reactive on its own
+        ownerStatusMap: {}, // { [ownerName]: 'active' | 'inactive' }, from POST /api/planning/model
+                             // (ownerStatus of the last loaded model); used only for the inactive badges
         model: null, modelPending: false, modelError: null, modelSeq: 0, // server projection of the active view (spec §14)
       };
     },
@@ -821,9 +821,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { html, exportRows, periodMeta };
       },
       byOwnerView() {
-        this.teamFilters; // reactive dependency (rolePassesTeamFilter reads the plain global mirror)
-        const projects = this.filteredProjects;
         const weeks    = this.weeks;
+        if (!this.windowStart || !this.windowEnd || this.windowStart > this.windowEnd) {
+          return { html: '<div class="alert alert-info mb-0">No owner data found for the selected filters.</div>', exportRows: [], periodMeta: [] };
+        }
+        if (this.modelPending || !this.model || this.model.view !== 'owner') return { html: this.modelPlaceholderHtml(), exportRows: [], periodMeta: [] };
         const fmtPH = v => v > 0.005 ? (this.roundHours ? Math.round(v) : v.toFixed(2)) + 'h' : '';
         const rnd   = v => Math.round(v * 10) / 10;
         const SH = 'position:sticky;z-index:4;';
@@ -858,118 +860,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           }).join('');
         }
 
-        const ownerMap = {};
-
-        projects.forEach(proj => {
-          const projData = timesheetData.filter(r => r.projectId === proj.id);
-          (proj.tasks || []).forEach(task => {
-            if (task.completed) return;
-            const tStart = task.startDate ? parseTaskDate(task.startDate, false) : null;
-            const tEnd   = task.endDate   ? parseTaskDate(task.endDate,   true)  : null;
-
-            const resources = (task.resources || []).filter(res => rolePassesTeamFilter(res.role));
-            if (!resources.length) return;
-            const soldH    = resources.reduce((s, res) => s + (res.soldHours || 0), 0);
-            const taskRecs = projData.filter(r => resources.some(res => matchesTaskRole(r, task.name, res.role)));
-
-            const taskWeekData = {};
-            const ownerTotals  = {};
-            let totalOwnerH    = 0;
-
-            weeks.forEach(w => {
-              if (!w.isPast) return;
-              const key  = w.weekStart.toISOString();
-              const recs = taskRecs.filter(r => { const d = new Date(r.date); d.setHours(0,0,0,0); return d >= w.weekStart && d <= w.weekEnd; });
-              if (!recs.length) return;
-              const byOwner = {};
-              recs.forEach(r => { const o = r.owner?.trim() || '—'; byOwner[o] = (byOwner[o] || 0) + r.hours; });
-              taskWeekData[key] = { total: recs.reduce((s, r) => s + r.hours, 0), byOwner, isPulse: false, isPast: true };
-            });
-            taskRecs.forEach(r => { const o = r.owner?.trim() || '—'; ownerTotals[o] = (ownerTotals[o] || 0) + r.hours; });
-            Object.values(ownerTotals).forEach(h => { totalOwnerH += h; });
-
-            const consumedH = totalOwnerH;
-            const taskTbp   = computeResidual(soldH, consumedH);
-            if (soldH < 0.01 && consumedH < 0.01) return;
-
-            const ownerNames = Object.entries(ownerTotals).filter(([, h]) => h > 0.01).sort((a, b) => b[1] - a[1]).map(([o]) => o);
-            const hasOwners  = ownerNames.length > 0;
-            // Redistribute over the same >0.01h-filtered owner set as ownerNames/displayOwners —
-            // otherwise a near-zero owner (filtered out of display) could still receive a computed
-            // future-hours share that's never added to any displayed total, silently understating
-            // the view's summed "To be planned" vs. taskTbp.
-            const ownerTotalsForSplit = Object.fromEntries(Object.entries(ownerTotals).filter(([, h]) => h > 0.01));
-            const { props: ownerFutureProps, allInactive: allOwnersInactive } =
-              redistributeExcludingInactive(ownerTotalsForSplit, this.ownerStatusMap);
-
-            if (taskTbp > 0.01) {
-              const _owNow = new Date(); const _owTd = new Date(_owNow.getFullYear(), _owNow.getMonth(), _owNow.getDate());
-              const futureWeeks = weeks.filter(w => !w.isPast);
-              const taskWeeks   = tStart && tEnd ? futureWeeks.filter(w => w.weekEnd >= tStart && w.weekStart <= tEnd) : futureWeeks;
-              const totalTaskFw = (tStart && tEnd) ? countFutureTaskWeeks(tStart, tEnd, _owTd) : taskWeeks.length;
-              const distribute  = (byOwner, hours) => {
-                if (!allOwnersInactive) Object.entries(ownerFutureProps).forEach(([o, prop]) => { byOwner[o] = (byOwner[o] || 0) + hours * prop; });
-                else byOwner['—'] = (byOwner['—'] || 0) + hours;
-              };
-
-              const monthMap = {};
-              taskWeeks.forEach(w => {
-                if (!monthMap[w.monthKey]) monthMap[w.monthKey] = [];
-                monthMap[w.monthKey].push(w.weekStart.toISOString());
-              });
-              const weeksByMonth = Object.entries(monthMap).map(([monthKey, weekKeys]) => ({ monthKey, weekKeys }));
-
-              distributeFutureResidual(taskTbp, totalTaskFw, weeksByMonth, this.monthlyPulse).forEach(entry => {
-                if (!taskWeekData[entry.key]) taskWeekData[entry.key] = { total: 0, byOwner: {}, isPulse: entry.isPulse, isPast: false };
-                taskWeekData[entry.key].total += entry.hours;
-                if (entry.isPulse) taskWeekData[entry.key].isPulse = true;
-                distribute(taskWeekData[entry.key].byOwner, entry.hours);
-              });
-            }
-
-            const displayOwners = hasOwners ? (allOwnersInactive ? (ownerNames.includes('—') ? ownerNames : [...ownerNames, '—']) : ownerNames) : ['—'];
-            displayOwners.forEach(ownerName => {
-              const isPlaceholder = ownerName === '—';
-              // Sold hours reflect budget already attributed to work actually done, so they use the
-              // original actuals-proportional split (same formula this view used before this cycle,
-              // unaffected by inactive status) — only the FUTURE ("to be planned") split below
-              // excludes inactive owners. This keeps ownerSold moving with ownerActuals for every
-              // owner, active or not, and gives the synthetic TBD placeholder row (no real actuals
-              // of its own) 0 Sold rather than inheriting an active owner's already-earned budget.
-              const ownerActualsProp = totalOwnerH > 0.01 ? (ownerTotals[ownerName] || 0) / totalOwnerH : (isPlaceholder ? 1 : 0);
-              const ownerProp    = isPlaceholder && (allOwnersInactive || totalOwnerH <= 0.01) ? 1 : (ownerFutureProps[ownerName] || 0);
-              const ownerSold    = soldH * ownerActualsProp;
-              const ownerActuals = ownerTotals[ownerName] || 0;
-              const ownerTbpH    = taskTbp * ownerProp;
-
-              if (!ownerMap[ownerName]) ownerMap[ownerName] = { sold: 0, actuals: 0, tbp: 0, weekTotals: {}, projects: {} };
-              const om = ownerMap[ownerName];
-              om.sold += ownerSold; om.actuals += ownerActuals; om.tbp += ownerTbpH;
-
-              if (!om.projects[proj.id]) om.projects[proj.id] = { name: proj.name || proj.id, sold: 0, actuals: 0, tbp: 0, weekTotals: {}, tasks: {} };
-              const pm = om.projects[proj.id];
-              pm.sold += ownerSold; pm.actuals += ownerActuals; pm.tbp += ownerTbpH;
-
-              if (!pm.tasks[task.name]) pm.tasks[task.name] = { sold: 0, actuals: 0, tbp: 0, weekData: {} };
-              const tm = pm.tasks[task.name];
-              tm.sold += ownerSold; tm.actuals += ownerActuals; tm.tbp += ownerTbpH;
-
-              weeks.forEach(w => {
-                const key = w.weekStart.toISOString();
-                const d   = taskWeekData[key];
-                if (!d) return;
-                const oh = d.byOwner[ownerName] || 0;
-                if (oh < 0.001) return;
-                if (!tm.weekData[key]) tm.weekData[key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
-                tm.weekData[key].hours += oh;
-                if (!pm.weekTotals[key]) pm.weekTotals[key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
-                pm.weekTotals[key].hours += oh;
-                if (!om.weekTotals[key]) om.weekTotals[key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
-                om.weekTotals[key].hours += oh;
-              });
-            });
-          });
-        });
+        const ownerMap = adaptOwnerModel(this.model.data, this.model.keyMap);
 
         if (Object.keys(ownerMap).length === 0) {
           return { html: '<div class="alert alert-info mb-0">No owner data found for the selected filters.</div>', exportRows: [], periodMeta: [] };
@@ -1186,10 +1077,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
           if (seq !== this.modelSeq) return;                       // a newer request superseded this one
-          // Merge, not replace: the server's map covers only the requested projects' owners, while
-          // By Project/By Owner still run the old browser code on the full map from
-          // refreshOwnerStatuses(). This merge goes away when Tasks 13-14 migrate those views.
-          this.ownerStatusMap = { ...this.ownerStatusMap, ...(data.ownerStatus || {}) };
+          // Replace: every view renders from the server model, whose ownerStatus covers exactly
+          // the owners that model shows (badges only; the split itself is done server-side).
+          this.ownerStatusMap = data.ownerStatus || {};
           // key: the request that produced this response, so a caller (the parity capture) can
           // check the loaded model matches the current modelRequest.
           this.model = { view: data.view, data, keyMap: buildKeyMap(this.weeks), key: JSON.stringify(req) };
@@ -1205,37 +1095,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (this.modelError) return `<div class="alert alert-danger mb-0">Could not load the planning data (${esc(this.modelError)}). Try reloading the page.</div>`;
         return '<div class="text-muted p-3">Loading planning data…</div>';
       },
-      async refreshOwnerStatuses() {
-        const names = [...new Set(
-          timesheetData
-            .map(r => r.owner?.trim())
-            .filter(name => name) // drop empty/whitespace-only — the '—' placeholder is
-                                   // synthesized client-side from a missing owner, never a
-                                   // real name sent to the matching endpoint
-        )];
-        if (!names.length) { this.ownerStatusMap = {}; return; }
-        try {
-          const res = await fetch('/api/resources/match-owners', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify({ names }),
-          });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          this.ownerStatusMap = await res.json();
-        } catch (err) {
-          console.warn('[planning] refreshOwnerStatuses failed, treating all owners as active:', err.message);
-          this.ownerStatusMap = {};
-        }
-      },
       async onFileInputChange(e) {
         const f = e.target.files[0];
         e.target.value = '';
-        if (f) await readXLS(f, async () => { await this.refreshOwnerStatuses(); this.bumpRefresh(); });
+        if (f) await readXLS(f, async () => { this.bumpRefresh(); });
       },
       async exportCurrentView() {
-        // Model-backed views (only By Role so far): nothing to export while loading or after a failed load.
-        if (this.view === 'byrole' && (this.modelPending || this.modelError)) return;
+        // Every view is model-backed: nothing to export while loading or after a failed load.
+        if (this.modelPending || this.modelError) return;
         const rnd = v => Math.round(v * 10) / 10;
         if (this.view === 'byrole') {
           const { exportRows, periodMeta } = this.byRoleView;
@@ -1405,8 +1272,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!user) return;
 
       await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi()]);
+      // refreshTimesheetDataFromApi() stays: the views no longer read the browser copy of the
+      // actuals, but the AI sidebar's buildPlanningContext() (js/ai.js) still does.
       await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
-      await this.refreshOwnerStatuses();
       this.initWindowIfNeeded();
 
       const urlProjectId = new URLSearchParams(window.location.search).get('projectId');
