@@ -134,7 +134,7 @@ Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as 
 - Start date / End date
 - Currency (€, $, £, CHF) — whenever a non-EUR currency is selected, the field shows the offer's own frozen "1 EUR = X" exchange rate underneath it (the rate this offer was last saved with, not a live lookup — see §7.7 for why)
 - Client and rate card selection (drives the effective rate for each role column)
-- Notes
+- Description (free text; labelled "Notes" before 2026-09-29). "Generate project" copies it into the new project's Description once (§7.1)
 - Linked projects (multi-select from configured projects)
 
 **Structure:** Phases → Tasks → Roles
@@ -334,6 +334,7 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 | Client | select | Optional |
 | Program | select | Optional |
 | Cost Grid Ref | auto | Set when generated from cost grid |
+| Description | textarea | (2026-09-29) Free text on what the project is about; read-only for viewers. "Generate project" pre-fills it once from the proposal's Description, and existing linked projects were backfilled once when this shipped; after that it is independent of the proposal. Feeds the competence topics of the team profiles (§16.11) |
 
 **Task fields:**
 
@@ -343,6 +344,7 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 | Billable | boolean | Include in budget calculations |
 | Completed | boolean | Locks monthly distribution |
 | Start / End date | DD/MM/YYYY | Full date, not month-only; defaults to project dates |
+| Description | textarea | (2026-09-29) Free text on what the task covers; read-only for viewers; pre-filled once by "Generate project" from the proposal task's description. Feeds the competence topics (§16.11) |
 | Monthly distribution | % per month | Required for multi-month tasks |
 | Resources | role + sold hours + rate | Breakdown of sold effort |
 
@@ -706,6 +708,7 @@ Project {
   phasing: { "YYYYMM": amount }
   ptc: [{ label, amount, month }]
   groups: [{ label, roles[] }]
+  description         // free text (2026-09-29); tasks carry their own description too
 }
 ```
 
@@ -859,6 +862,8 @@ This is the first of four planned cycles toward AI-assisted resource allocation 
 
 **Experience profile (2026-09-25, Cycle 3c).** The Experience profile tab summarises the hours a person has worked, taken from the uploaded actuals whose owner name matches them (by name or by an alias). It shows total hours, number of projects and first/last month worked, then one collapsible block per attribute list (Market, Brand, ...): each value the person has worked on with its hours, share of their total, number of projects and last month, expandable to the projects and, inside them, the tasks; hours on projects that carry no value from that list are noted as "N h on projects without a value". A "Roles" block groups the same hours by role code. The profile is calculated in the background, so a new upload, a change of tags or a new alias appears after the next run (every 10 minutes by default); the Unmatched names list still updates immediately. A person with no matching actuals sees "No actuals matched to this person yet" with a link to the Unmatched names tab; a person created since the last run sees "Not calculated yet". Deactivating a person keeps the hours matched by their name, so the history of people who left is preserved (an active person with the same name takes precedence). An admin can force an immediate recalculation, or a full rebuild, from the Profile Processing console (§16.9a).
 
+**Topics in the Experience profile (2026-09-29).** Above the tag lists the tab shows a "Topics" block: the competences (§16.11) attached to the projects and tasks the person worked on, as chips with the number of projects each comes from and a tooltip naming those projects; "No topics yet." when there are none. Project-level topics reach everyone with actuals on the project, task-level topics only those with actuals on that task. Only admin-approved topics appear, and an admin's rename, approval, rejection or merge shows up on the next load, with no wait for the background run.
+
 ### 16.8 Attribute Lists (Tag Taxonomy, 2026-09)
 
 Own page (`attribute-lists.html`), admin or sysadmin, reachable from the same "⚙ Admin" dropdown as Team. A generic, admin-managed system of named lists and their items — seeded on first deploy with four lists (Market, Brand, Therapeutic Area, Service Type), each empty until an admin populates it. An admin can create additional lists at any time directly from the UI, with no further development needed.
@@ -866,6 +871,8 @@ Own page (`attribute-lists.html`), admin or sysadmin, reachable from the same "�
 Each list's items can be renamed and toggled active/inactive, but never deleted outright — once a tag exists, it can be retired but not erased, so a future feature that has already applied it to a proposal or project can't have that reference silently vanish. A list's own display name can be renamed too; its underlying identifier is fixed at creation and never changes, even across a rename. An item's label must be unique within its list (case-insensitive) — adding or renaming to a label that already exists in that list is rejected with an error (2026-09).
 
 As of Cycle 2 (2026-09, §16.9), these lists and items are what a proposal/project's Tags section reads from — no other page consumes them yet, and the AI-assisted resource suggestion this taxonomy is ultimately meant to feed remains a later cycle.
+
+The page has two tabs, **Lists** (everything above) and **Topics** (2026-09-29, §16.11), the latter carrying a badge with the number of topics waiting for review.
 
 ### 16.9 Tag Assignment on Proposals & Projects (2026-09, Cycle 2)
 
@@ -889,6 +896,16 @@ Every person's Experience profile (§16.7) is rebuilt in the background from upl
 - **Run history**: a collapsible list of the most recent runs (up to 50) — when, how it was triggered (scheduled/manual/on startup), how many project codes and resource contributions were touched, how long it took, and any error.
 
 A code whose actuals were deleted (or whose project was deleted) but that hasn't been cleaned up yet still appears in the list, listed by its code, with zero rows — it can still be processed or removed from the queue like any other.
+
+**Topic extraction controls (2026-09-29, §16.11).** The schedule card also has a **Topic extraction on/off** switch (with a "no API key configured" hint when the server has no AI key): when off, project descriptions are never sent to the AI service, and turning it back on picks up descriptions edited in the meantime. The code list gains a **Topics** column showing "extraction failed" (the error as tooltip) for a code whose last extraction failed — this does not stop the profile hours from being built and is retried on the next run. **Process** on a row now also sends that project's descriptions to the AI service again, even if unchanged.
+
+### 16.11 Descriptions and Competence Topics (2026-09-29)
+
+Projects and their tasks now carry a free-text **Description** (§7.1), and the proposal field previously called "Notes" is called Description (§4.9). From these texts the system derives **topics**: short competences such as "Medical writing" or "Data visualization", so that a person's Experience profile (§16.7) can say not only where they worked (tags) but what they did.
+
+- **Extraction.** Saving a description never calls the AI service by itself; it only queues the project. The background worker (§16.10) then sends the changed texts of that project to an AI service (Anthropic API, configured on the server) and receives suggested topics. Very short texts (under 20 characters) are ignored. Suggestions that duplicate an attribute-list value (§16.8) are discarded, rejected topics are never proposed again, and an existing similar topic is reused. New suggestions start as **proposed** and are invisible in profiles until an admin approves them.
+- **Topics tab** in the Attribute Lists page (admin or sysadmin): the review queue of proposed topics (Approve, Rename, Merge into..., Reject), the approved list (Rename, Merge, Reject), a collapsed list of rejected topics (Restore), and **+ New topic** to seed the vocabulary by hand. Topic names are 1 to 4 words and unique regardless of case and spacing; a name equal to an attribute-list name or item is refused. Merging moves everything onto the target topic; an approved topic can only be merged into another approved topic. Nothing is ever deleted: rejecting keeps the topic so it is not proposed again.
+- **Privacy switch.** Extraction can be turned off from the Profile Processing console (§16.10) and is skipped entirely when the server has no AI key.
 
 ---
 

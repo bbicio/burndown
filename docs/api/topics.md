@@ -30,7 +30,7 @@ All `requireAuth, requireAdmin` (admin or sysadmin). Malformed ids answer 404 (`
 | `POST /api/topics/:id/approve` | proposed to approved. |
 | `POST /api/topics/:id/reject` | proposed or approved to rejected. |
 | `POST /api/topics/:id/restore` | rejected to approved. Wrong source status, or a merged topic: 409. |
-| `POST /api/topics/:id/merge { targetId }` | Absorb `:id` into `targetId` in one transaction (both rows locked in id order): links moved to the target without duplicates, `merged_into` set, topics that pointed at the source repointed. 400 self-merge; 409 either side already merged, or target rejected; 404 unknown. |
+| `POST /api/topics/:id/merge { targetId }` | Absorb `:id` into `targetId` in one transaction (both rows locked in id order): links moved to the target without duplicates, `merged_into` set, topics that pointed at the source repointed. 400 self-merge; 409 either side already merged, or target rejected, or an **approved** source into a non-approved (proposed) target (an approved topic must not silently lose its approval; the UI lists only approved targets for an approved source); 404 unknown. |
 
 ## Read-time resolution
 
@@ -42,4 +42,4 @@ The page has two page tabs, Lists and Topics (badge = proposed count). The Topic
 
 ## Tests
 
-Integration `PD-01..05` (descriptions API and queue-on-change), `TP-01..08` (this API), `TX-01..10` (extraction against a local LLM stub), `PT-01..06` (profile cascade) in `test-api.js`; unit tests in `api/src/lib/topic-extract.test.js` and `resource-profile.test.js`.
+Integration `PD-01..05` (descriptions API and queue-on-change), `TP-01..08` (this API), `TX-01..10` (extraction against a local LLM stub; `test-api.js` also labels the merge-guard checks `TX-11`, catalogued as `TP-10`), `PT-01..06` (profile cascade) in `test-api.js`; unit tests in `api/src/lib/topic-extract.test.js` and `resource-profile.test.js`.

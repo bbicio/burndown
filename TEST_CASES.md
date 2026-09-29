@@ -846,6 +846,7 @@ Project/task descriptions, the shared competence-topic vocabulary and its LLM ex
 | TP-07 | Merge | Merge into itself; merge b into a; re-merge / merge into a merged or a rejected topic; rename a merged topic | 400; 200 and b leaves the list; 409 for the others | ✓ |
 | TP-08 | Malformed id | Any `/api/topics/:id/...` with a non-UUID id | 404 | ✓ |
 | TP-09 | Topics tab | In `attribute-lists.html` open the Topics tab; approve, rename, merge, reject, restore a topic | Queue/approved/rejected lists update; server errors are shown; the tab badge counts proposed topics |  |
+| TP-10 | Approved topic cannot be merged into a non-approved one | Merge an approved topic into a proposed topic; then a proposed topic into an approved one | 409 and the approved topic is untouched; 200 for the reverse (labelled `TX-11` in `test-api.js`) | ✓ |
 | TX-01 | Saving never calls the LLM | Save project and task descriptions (also with no API key) | 200, no error | ✓ |
 | TX-02 | Extraction on the worker | Run the profile queue after a description change | The stub LLM received the project text | ✓ |
 | TX-03 | New topics are proposed | Answer with new competences for the project and a task | Created as `proposed` | ✓ |
@@ -854,7 +855,7 @@ Project/task descriptions, the shared competence-topic vocabulary and its LLM ex
 | TX-06 | Short text | A description under 20 characters | Never sent to the LLM | ✓ |
 | TX-07 | Errors do not leak | Stub answers with an HTML body / an HTTP 500 / a text answer that is not JSON | Profile still built; `topic_error` set; the message does not echo the response body | ✓ |
 | TX-08 | Retry clears the error | After a failure, the stub works again; run again | `topic_error` cleared; topics created | ✓ |
-| TX-09 | Kill switch | `PUT /api/profile-jobs/topic-settings { enabled: false }`, change a description, run | The LLM is not called | ✓ |
+| TX-09 | Kill switch | `PUT /api/profile-jobs/topic-settings { enabled: false }`, change a description, run; then `{ enabled: true }` and run again | While off the LLM is not called; on re-enabling, texts edited meanwhile are re-queued and extracted | ✓ |
 | TX-10 | Persistent failure is not work | Stub keeps failing; run three times, then succeed | The first failure counts as work, repeats do not and add no run errors; the later run is clean | ✓ |
 | TX-11 | Console UI | On `profile-jobs.html` toggle Topic extraction; provoke a failure | "extraction failed" with the error as tooltip; the switch state persists |  |
 | PT-01 | Proposed topics hidden | `GET /api/resources/:id/profile` while topics are proposed | `profile.topics` is an empty array | ✓ |

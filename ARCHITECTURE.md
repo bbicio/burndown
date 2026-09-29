@@ -343,6 +343,24 @@ profile_job_runs (                     -- run history, pruned to the latest 50 b
 -- resources also gained (migration 026): profile JSONB (cached aggregated profile, NULL = none) and
 -- profile_computed_at TIMESTAMPTZ. app_settings gained defaults profile_job_interval_min='10', profile_job_enabled='true'.
 
+-- Profile descriptions -> topics cycle (migration 028; narrative: docs/api/topics.md, docs/api/profile-engine.md)
+topics (                               -- shared, admin-curated competence vocabulary; never physically deleted
+  id              UUID PRIMARY KEY,
+  name            VARCHAR(100) NOT NULL,
+  name_normalized VARCHAR(100) NOT NULL UNIQUE,
+  status          VARCHAR(20) NOT NULL DEFAULT 'proposed' CHECK (status IN ('approved','proposed','rejected')),
+  merged_into     UUID REFERENCES topics(id),   -- non-null = absorbed by another topic
+  created_by / updated_by UUID REFERENCES users(id), created_at / updated_at TIMESTAMPTZ
+)
+description_topic_state (              -- per description extraction cache/error; task_key '' = project description,
+  project_id UUID, task_key TEXT,      -- else the normalised task name (task ids are not stable)
+  text_hash TEXT, extracted_at TIMESTAMPTZ, last_error TEXT,   -- PK (project_id, task_key)
+)
+description_topic_links (              -- which topics a description produced
+  project_id UUID, task_key TEXT, topic_id UUID REFERENCES topics(id)   -- PK of all three
+)
+-- app_settings gained topic_extraction_enabled='true' (kill switch for the LLM extraction).
+
 attribute_lists (                     -- migration 020: generic, agnostic tag/taxonomy system —
                                        -- seeded with 4 empty lists (Market, Brand, Therapeutic Area,
                                        -- Service Type); admin can create more via attribute-lists.html
@@ -454,6 +472,7 @@ projects (
   status        VARCHAR,
   owner_id      UUID NOT NULL REFERENCES users(id),
   cg_version_id UUID REFERENCES cost_grid_versions(id),
+  description   TEXT NOT NULL DEFAULT '',  -- migration 027 (profile descriptions cycle): free text, feeds topic extraction
   phasing       JSONB,              -- { "YYYYMM": amount }
   ptc           JSONB,              -- [{ label, amount, month }]
   planning      JSONB,              -- { "YYYYMM": hours } monthly hour planning
@@ -471,7 +490,8 @@ project_tasks (
   end_date             CHAR(8),     -- YYYYMMDD (migration 012 widened from CHAR(6)/YYYYMM)
   monthly_distribution JSONB,       -- { "YYYYMM": percent }
   resources            JSONB,       -- [{ role, soldHours, hourlyRate }]
-  sort_order           INTEGER DEFAULT 0
+  sort_order           INTEGER DEFAULT 0,
+  description          TEXT NOT NULL DEFAULT ''  -- migration 027 (backfilled once from the proposal note / task descriptions)
 )
 
 project_tags (                        -- migration 022: attribute_lists tags of a project. Since Cycle 3a
@@ -649,7 +669,7 @@ timesheets (
 | PATCH/DELETE | /api/resources/:id | admin | Update (validates non-empty on any of `firstName`/`lastName`/`email`/`roleId` present in the body, matching POST; `roleId` non-UUID or unknown → 400, told apart from a bad linked `userId` by FK constraint name) / hard delete. `GET /api/resources` returns `role_id`, `role_label`, `role_code` (JOIN on `roles`), no `job_title`. Create, PATCH of `firstName`/`lastName`/`status`, and DELETE trigger a best-effort full rescan of the unmatched-names queue |
 | GET | /api/resources/unmatched | admin | (2026-09, Cycle 3b; `project_list` added in the Team UX polish cycle) Owner names from uploaded actuals that could not be matched to a resource — `[{ name_normalized, display_name, hours, projects, project_list: [{code, name}], candidate_resource_ids }]`, hours summed and rounded to 2 decimals, ordered by hours desc; a non-empty `candidate_resource_ids` means ambiguous. `project_list` resolves each code's name via the same "oldest project per code" tie-break as `profile-jobs.js` (`projects.code` has no uniqueness constraint) — see `docs/api/resources.md` |
 | POST | /api/resources/unmatched/rescan | admin | Recompute the whole queue from all uploaded actuals — `{ ok, unmatched }` |
-| GET | /api/resources/:id/profile | admin | (2026-09, Cycle 3c) Cached experience profile — `{ profile, profile_computed_at }`; `profile` is `null` until calculated; 404 for an unknown or non-UUID id |
+| GET | /api/resources/:id/profile | admin | (2026-09, Cycle 3c) Cached experience profile — `{ profile, profile_computed_at }`; `profile` is `null` until calculated; 404 for an unknown or non-UUID id. Since the topics cycle `profile.topics` is resolved against `topics` at read time (approved only, merges followed). |
 | POST | /api/profile-jobs/run | admin | (2026-09, Cycle 3c) Drain the profile queue now (trigger `manual`) — `{ ok, projects, resources, errors }`; 409 if another run holds the advisory lock. See `docs/api/profile-engine.md` |
 | GET | /api/profile-jobs | admin | (2026-09, Cycle 3d) Console state for `profile-jobs.html` — `{ settings, schedule: { state, lastRunAt, nextRunAt }, queuedCount, projects: [...] }`, one row per project code known to the engine, in a single aggregated query |
 | PUT | /api/profile-jobs/settings | admin | (Cycle 3d) `{ enabled: boolean, intervalMin: 1-1440 }`, strict JSON types (400 on numeric/boolean strings, floats, out-of-range); 200 echoes the saved settings, read back from `app_settings` |
@@ -657,6 +677,12 @@ timesheets (
 | POST | /api/profile-jobs/projects/:code/process | admin | (Cycle 3d) Queue and process only one code (`processQueue('manual', { only: code })`); 404 if the code is unknown to the engine, 409 if busy |
 | DELETE | /api/profile-jobs/projects/:code/queue | admin | (Cycle 3d) Take one code out of the queue without touching its already-computed contributions/profile; 404 if not tracked |
 | GET | /api/profile-jobs/runs | admin | (Cycle 3d) Latest 50 recorded runs, newest first — `{ id, started_at, finished_at, trigger_type, projects, resources, error }` |
+| PUT | /api/profile-jobs/topic-settings | admin | (Topics cycle, 2026-09-29) `{ enabled: boolean }` — kill switch for the LLM topic extraction (`app_settings.topic_extraction_enabled`); re-enabling re-queues every code. `GET /api/profile-jobs` also returns `topicSettings` and a per-code `topic_error`. See `docs/api/profile-engine.md` |
+| GET | /api/topics | admin | (Topics cycle) Live topics with `usage_count`; `?status=approved\|proposed\|rejected` (400 otherwise). See `docs/api/topics.md` |
+| POST | /api/topics | admin | Seed an approved topic `{ name }` — 400 invalid name or attribute-list value, 409 duplicate |
+| PATCH | /api/topics/:id | admin | Rename `{ name }` — 409 on a duplicate or a merged topic |
+| POST | /api/topics/:id/(approve\|reject\|restore) | admin | Status transitions; 409 on a wrong source status |
+| POST | /api/topics/:id/merge | admin | `{ targetId }` — absorb into the target in one transaction; 400 self-merge, 409 merged/rejected target or an approved source into a non-approved target |
 | GET/POST | /api/resources/aliases | admin | List aliases (with `display_name`, `created_by`/`updated_by`) / assign a name — body `{ name, resourceId }` or `{ name, ignore: true }`; upserts on the normalized name (201 on create, 200 on re-assignment, 400 on empty/punctuation-only name, both/neither of `resourceId`/`ignore`, non-UUID or unknown `resourceId`); may point at an inactive resource (a leaver's history) |
 | DELETE | /api/resources/aliases/:id | admin | Remove an alias — the name returns to the queue (404 if absent) |
 | GET | /api/attribute-lists | ✅ | List (with active-item counts). 2026-09 (Cycle 2): relaxed from `admin` — `costgrid.html`/`project-config.html`'s Tags UI is used by non-admin editors, and the previous blanket admin-only guard silently broke it for them |
@@ -906,7 +932,7 @@ volumes:
 burndown/
   api/                    ← Node.js + Express backend
     src/
-      routes/             ← auth, users, config, cost-grids, projects, timesheets, reporting, exports, notifications, reset, attribute-lists, resources, profile-jobs
+      routes/             ← auth, users, config, cost-grids, projects, timesheets, reporting, exports, notifications, reset, attribute-lists, resources, profile-jobs, topics
       lib/                ← pure functions extracted for unit testing (node:test), mirroring the frontend's js/lib/
                             convention. Full narrative: docs/api/lib.md
       middleware/         ← auth guard (requireAuth, requireAdmin, requireSysAdmin — see §3.1)
@@ -914,7 +940,9 @@ burndown/
       services/           ← email (nodemailer), jwt, resource-matching (Cycle 3b: refreshUnmatched — DB half of
                             actuals-owner-name matching; rules in lib/match-resource.js). See docs/api/resources.md;
                             profile-engine (Cycle 3c: queue + per-code processing into contributions/profiles) and
-                            profile-worker (60 s self-scheduling tick, started from index.js). See docs/api/profile-engine.md
+                            profile-worker (60 s self-scheduling tick, started from index.js). See docs/api/profile-engine.md;
+                            topic-extraction (topics cycle: LLM extraction of competence topics from descriptions via the
+                            Anthropic Messages API, called by the engine; rules in lib/topic-extract.js). See docs/api/topics.md
       create-admin.js     ← CLI bootstrap: create/reset admin user (always role='admin')
       promote-sysadmin.js ← CLI: promote an existing user to role='sysadmin'
     Dockerfile
