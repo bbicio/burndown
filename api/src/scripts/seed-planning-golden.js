@@ -6,6 +6,7 @@
 const url = process.env.SEED_URL, email = process.env.SEED_EMAIL, password = process.env.SEED_PASSWORD;
 if (!url || !email || !password) { console.error('Set SEED_URL, SEED_EMAIL, SEED_PASSWORD'); process.exit(2); }
 const u = new URL(url);
+if (!['localhost', '127.0.0.1'].includes(u.hostname)) { console.error('Refusing to seed: SEED_URL host must be localhost or 127.0.0.1.'); process.exit(2); }
 if (!u.port || u.port === '80') { console.error('Refusing to seed: SEED_URL must be an isolated stack with an explicit non-80 port (never the main stack).'); process.exit(2); }
 
 let cookie = '';
@@ -36,11 +37,14 @@ async function main() {
 
   if (process.argv.includes('--remove')) {
     const projects = (await api('GET', '/api/projects')).data || [];
-    for (const p of projects.filter(p => (p.code || '').startsWith('GOLD-') || (p.name || '').startsWith('GOLD '))) {
-      await api('DELETE', `/api/timesheets/${p.code}`); await api('DELETE', `/api/projects/${p.id}`);
+    // Only exact seeded artefacts: project code GOLD-*, resources @golden.local with last name exactly Golden.
+    for (const p of projects.filter(p => typeof p.code === 'string' && /^GOLD-/.test(p.code))) {
+      await api('DELETE', `/api/timesheets/${encodeURIComponent(p.code)}`); await api('DELETE', `/api/projects/${p.id}`);
     }
     const resources = (await api('GET', '/api/resources')).data || [];
-    for (const r of resources.filter(r => (r.last_name || r.lastName || '').startsWith('Golden'))) await api('DELETE', `/api/resources/${r.id}`);
+    for (const r of resources.filter(r => (r.last_name ?? r.lastName) === 'Golden' && typeof r.email === 'string' && r.email.toLowerCase().endsWith('@golden.local'))) {
+      await api('DELETE', `/api/resources/${r.id}`);
+    }
     console.log('removed GOLD data'); return;
   }
 
