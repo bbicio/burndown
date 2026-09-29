@@ -117,7 +117,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 
 ## Gate 5 — SYNC-DOCS + REPORT (after merge, shared human gate)
 
-1. On `main` (post-merge), invoke `/sync-docs`. Let it run its existing, unmodified scope (ARCHITECTURE.md, CLAUDE.md, TEST_CASES.md, test-cases.html, test-api.js, PRD.md-conditional) — do not reimplement or narrow it here.
+1. On `main` (post-merge), invoke `/sync-docs`. Let it run its existing, unmodified scope (ARCHITECTURE.md, CLAUDE.md, TEST_CASES.md, test-cases.html, test-api.js, PRD.md-conditional, and — since 2026-09-29 — project memory in section 8) — do not reimplement or narrow it here. The memory update lives outside the repo, so it is NOT part of the `git diff` shown in step 3 and is never committed: it is applied by `/sync-docs` itself and appears only in that command's summary. Copy its "Memory" line into the report (step 2) so the change is at least recorded somewhere persistent.
 2. Create the report file at `docs/superpowers/reports/<YYYY-MM-DD>-<branch-sanitized>-finish-cycle.md` (today's date; `<branch-sanitized>` from pre-flight step 4) with this structure:
 
    ```markdown
@@ -141,6 +141,10 @@ Run the full closeout sequence for the current feature branch: test, optional ma
    ## Sync-docs outcome
 
    <which files /sync-docs updated and which it didn't, with reasoning — copied directly from /sync-docs's own summary output in step 1>
+
+   ## Memory outcome
+
+   <the "Memory" line from /sync-docs's summary: each memory file changed (before → after) and any item left "unverified", or "evaluated, no change" with the files checked. Memory is outside the repo, so this section is its only persistent record.>
    ```
 
 3. Show the combined diff (`git diff`, covers both `/sync-docs`'s edits and the new report file, since neither has been committed yet).
@@ -157,6 +161,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 
 Print in chat:
 - The path to the just-committed report file.
+- One line for project memory (e.g. "Memory: 2 files updated, 1 item unverified" or "Memory: evaluated, no change").
 - One line per gate (1 through 5) stating its outcome (e.g. "Gate 1: passed (frontend + backend)", "Gate 3: 1 finding, fixed and re-verified", "Gate 4: merged, merge commit (main had diverged), pdash-api restarted and healthy" — or, if the restart was declined, "Gate 4: merged; pdash-api NOT restarted, backend change not yet live").
 - An explicit pointer: "See the Roadmap notes section of `<report path>` for open items."
 - **REQUIRED, as the literal last line, with nothing after it:** `Cycle closed and pushed. If this was the last of a series of related cycles (e.g. a multi-cycle audit), consider a cold review before moving on to the next work.` This is a fixed, unconditional closing line, not optional trailing commentary — it is a text suggestion for the user to weigh, not a decision this command makes: never try to determine from repo state, commit history, or anything else whether this cycle actually was the last of a series — always print the same line, and never act on it (no starting a review, no reading other reports) beyond printing it.

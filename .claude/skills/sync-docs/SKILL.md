@@ -61,9 +61,22 @@ If PRD.md was touched above, check whether any of the changed sections fall with
 
 A cycle that merely *executes* the process as documented — the large majority of cycles — is not material for this file; it stays in that cycle's own report, not here.
 
+### 8. Project memory (always evaluated, every run — added 2026-09-29)
+
+The auto-memory directory named in the session's system prompt (`~/.claude/projects/<project>/memory/`, with its `MEMORY.md` index) lives **outside the repo**: it never appears in `git diff`, is never committed, and no other step of this command or of `/finish-cycle` touches it. Left alone, its `project`-type files describe the state of the world at the moment they were written and go stale as cycles close — on 2026-09-29 the backlog file still listed "Team UX polish" as NEXT after that cycle and two more had already been merged. This step exists to close that gap. It is applied **automatically, with no confirmation prompt** (the memory is working state, not a shipped artifact, and every change is grounded in facts already verified by the merge) — but never silently: every change is reported, see below.
+
+1. **Find candidates.** Read `MEMORY.md`, then open every `project`-type file whose name, description or body mentions this cycle's branch, topic, migrations, pages/files touched, or a backlog/next-cycle list that the cycle affects. Skip `user`, `feedback` and `reference` files unless the cycle directly contradicts them (a rule that turned out wrong, a URL that changed).
+2. **Update only what the cycle verifiably changed**, using facts available from the merge itself — commit/merge hashes, the report path, migration numbers, the diff, decisions taken in the conversation:
+   - cycle status (in progress → merged, with date, merge hash and `docs/superpowers/reports/` path); rewrite stale "not merged yet / next step is /finish-cycle" wording rather than appending contradicting lines;
+   - backlog / priority lists: mark finished items done and restate the real NEXT order — including a decision the user took during this cycle;
+   - deploy prerequisites and known limitations: mark closed what this cycle closed; carry over what is still open;
+   - delete or merge a memory that is now fully superseded (and drop its `MEMORY.md` line); fix a `MEMORY.md` line whose hook no longer matches its file.
+3. **Never invent.** If the merge does not establish a fact (was an item done? is a limitation fixed?), leave the memory as it is and list it in the summary as "unverified — needs the user". Do not record things already derivable from the repo (code structure, git history, this file's own docs), and do not create a new memory just to narrate the cycle — the finish-cycle report is that record. A genuinely new non-obvious decision or constraint that surfaced in the cycle may become a new memory, following the memory format in the session's system prompt.
+4. **Report every change** in the final summary (see Process, step 4), since there is no diff for it: per file touched, the path and the one or two lines changed, as *before → after*. If nothing needed changing, say "Memory: evaluated, no change" and name the files that were checked.
+
 ## Process
 
 1. Read the current state of each file before editing.
 2. Cross-reference against the actual code (js/, api/src/routes/, costgrid.html, config.html, etc.) to verify what changed.
 3. Make targeted edits — do not rewrite sections that are still accurate.
-4. Report a brief summary at the end: which files were updated and what changed in each. Always explicitly state whether PRD.md was evaluated and the outcome — updated / not necessary (internal-only change) / ambiguous (needs human verification) — even when PRD.md itself was left untouched. Always explicitly state the PROCESS.md gate's answer (which of the three conditions applied, or none) — even when PROCESS.md itself was left untouched.
+4. Report a brief summary at the end: which files were updated and what changed in each. Always explicitly state whether PRD.md was evaluated and the outcome — updated / not necessary (internal-only change) / ambiguous (needs human verification) — even when PRD.md itself was left untouched. Always explicitly state the PROCESS.md gate's answer (which of the three conditions applied, or none) — even when PROCESS.md itself was left untouched. Always include a "Memory" line (section 8): each memory file changed with its before → after, plus any item left as "unverified", or "evaluated, no change" naming the files checked.
