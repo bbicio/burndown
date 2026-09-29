@@ -37,10 +37,10 @@ The three views never shared one algorithm in the browser and the port preserves
 | Task dates missing | fall back to the project's dates | fall back to the project's dates | no fallback: a task without both dates spreads over every future week of the window |
 | Task not overlapping the window | skipped (its sold/actuals do not count in the totals) | skipped | not skipped |
 | Residual (`max(0, sold - consumed)`) | per (task, role) | per (task, role) | per TASK, over the roles that pass the team filter: `max(0, sum sold - sum consumed)` |
-| Owners | of that (task, role) | of that (task, role) | of all the task's (team-filtered) roles together |
+| Owners | n/a (no owner split) | of that (task, role) | of all the task's (team-filtered) roles together |
 | Past-week placement of a Sunday actuals row | not placed (see "Calendar semantics") | not placed | placed |
 
-Common to all: completed tasks are skipped; an actuals row matches a (task, role) case-insensitively on both (`matchesTaskRole`); the team of a role is the text before ` - ` (`rolePassesTeams`), an empty `teams` set lets everything through; future hours of a task+role are split among owners by their actuals share, excluding `inactive` owners (all inactive or no owner: the `—` placeholder row); Monthly Pulse puts a month's hours on its first week when the per-week figure is below 1.
+Common to all: completed tasks are skipped; an actuals row matches a (task, role) case-insensitively on both (`matchesTaskRole`); the team of a role is the text before ` - ` (`rolePassesTeams`), an empty `teams` set lets everything through; in By Project and By Owner (By Role has no owner split) future hours are split among owners by their actuals share, excluding `inactive` owners (all inactive or no owner: the `—` placeholder row); Monthly Pulse puts a month's hours on its first week when the per-week figure is below 1.
 
 `teams` and the window are therefore calculation inputs, not display filters: the team set changes By Owner's residual, and the window decides which tasks count in the Sold/Actuals totals of By Role/By Project and which weeks exist at all.
 
@@ -63,11 +63,13 @@ Invalidation is one write-middleware in `api/src/index.js`: after any successful
 
 A "calendar date" is a Date at 00:00 UTC, so nothing depends on the server's time zone. Weeks run Monday to Sunday; a week is past when its Sunday is before `asOf`; `monthKey` (e.g. `Sep 2026`) is derived from the week's Monday. `asOf` and the window come from the client's local date (`localYmd`), which is what the old browser code used.
 
+The server reproduces the behaviour of a browser in a UTC+ time zone (Europe/Rome for the real users). A browser in a UTC-west zone used to shift rows differently in the old code (By Role/By Project: Monday rows into the previous week; By Owner: every row one day earlier); that is not replicated.
+
 **Known quirk, replicated on purpose:** in By Role and By Project an actuals row dated on a Sunday counts in the consumed/actuals totals but is NOT placed in any week cell. The old browser code parsed row dates as UTC midnight and compared them with local-midnight Monday-Sunday weeks, so in UTC+ zones a Sunday row fell outside every week. `inWeekLegacy` (week end exclusive) reproduces that so the migration is a zero-visible-change one; By Owner uses the inclusive `inWeek` and does place Sunday rows. The controller ruled to keep the quirk for parity; fixing it (Sunday rows shown in By Role/By Project) is a deliberate, visible follow-up change, not a bug of this cycle.
 
 ## Phase 2 behaviour change (By Role only, user-approved)
 
-A task's `monthlyDistribution` no longer depends on the visible window. Percentages are normalised over ALL future months of the task (`taskFutureWeeks`, capped at the last month of the distribution; each month's hours are divided by that month's full week count) and the window only decides which cells are shown (`phasedSeries`). Before, the percentages were normalised over the visible months only: a 40/30/30 distribution seen through a window with two months became 57/43 and the hidden month's hours were re-scaled onto the visible ones.
+A task's `monthlyDistribution` no longer depends on the visible window. Percentages are normalised over ALL future months of the task (`taskFutureWeeks`, capped at the last month of the distribution; each month's hours are divided by the number of the task's future weeks in that month, inside the task range; past weeks of the current month are excluded) and the window only decides which cells are shown (`phasedSeries`). Before, the percentages were normalised over the visible months only: a 40/30/30 distribution seen through a window with two months became 57/43 and the hidden month's hours were re-scaled onto the visible ones.
 
 Observed consequences (parity capture):
 - In narrow windows the By Role "To be planned" column, which sums the visible future cells, is smaller because hours outside the window are no longer re-scaled onto the visible months (example on the seeded dataset: a DEV role row in a narrow window went from 270.9 to 190.9 to be planned). Sold and From actuals are unchanged; By Project and By Owner are unchanged.
@@ -75,13 +77,14 @@ Observed consequences (parity capture):
 
 ## Verification
 
-- Unit: `node:test` for `planning-calendar`, `planning-distribution`, `planning-model`, `planning-request`, `match-resource` (incl. `resolveOwnerStatuses`); vitest for `js/lib/planning-model-ui.js`; integration `PM-01..PM-06` in `test-api.js` (PM-07 manual): `TEST_CASES.md` section 25.
+- Unit: `node:test` for `planning-calendar`, `planning-distribution`, `planning-model`, `planning-request`, `match-resource` (incl. `resolveOwnerStatuses`); vitest for `js/lib/planning-model-ui.js`; integration `PM-01..PM-07` in `test-api.js` (PM-08 is manual): `TEST_CASES.md` section 25.
 - Phase 1 mechanical parity gate: 144 combinations (3 views x 3 windows x 4 team sets x 2 pulse x 2 interval) captured with the OLD browser code as baseline and again with the migrated page, same calendar day, dataset seeded by `api/src/scripts/seed-planning-golden.js`, capture by `scripts/planning-golden-capture.js` (on `/planning.html`, run `window.__planningGoldenStart({label})` detached in the console and poll `window.__golden`; the migrated page contract is `vm.model.key === JSON.stringify(vm.modelRequest)`). Result: 144/144 identical on `exportRows`, `periodMeta` and HTML hash. Phase 2: 116/144 identical, the 28 that differ are all By Role.
 - Benchmark (`api/src/scripts/bench-planning-model.js`; 200 projects, 150 owners, about 300k actuals rows, 6-month window): compute 0.55-0.8 s per view; payload raw 0.34 MB (role) / 3.0 MB (project) / 7.5 MB (owner), gzip 0.02 / 0.11 / 0.47 MB.
 - Running the branch stack: `scripts/test-branch.sh` mounts the worktree's `api/src` into the API container but the container does not hot-reload; restart the isolated branch API container after server changes (never the main stack).
 
 ## Follow-ups
 
+- Known limits: a request carries at most 2000 project ids, so an admin with more eligible projects than that gets a 400 error; countFutureTaskWeeks uses a closed form (constant time), so an undated task (end year 9999) costs nothing; 	askFutureWeeks clamps the distribution end to about 20 years ahead.
 - Sunday quirk above (deliberate visible fix).
 - `POST /api/resources/match-owners` stays in the API but the page no longer calls it (owner status now ships with the model): candidate for removal.
 - `refreshTimesheetDataFromApi()` is still called by `planning.html` only because `js/ai.js` (`buildPlanningContext`) reads `timesheetData`; `js/ai.js` is scheduled for removal in the next cycle (the team assistant).

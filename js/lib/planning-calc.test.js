@@ -168,8 +168,7 @@ describe('getPlanningPeriods', () => {
     const cfg = { startDate: '20260101', endDate: '20260301' };
     // getPlanningPeriods relies on the global getMonthRangeFromCfg (js/portfolio.js) — the real
     // function is loaded as a page global, not imported, so this test stubs it directly on
-    // globalThis exactly like the existing distributeFutureResidual tests stub no globals (this
-    // is the first planning-calc function with an external global dependency).
+    // globalThis (this    // is the first planning-calc function with an external global dependency).
     globalThis.getMonthRangeFromCfg = c => ['202601', '202602', '202603'];
     const periods = getPlanningPeriods(cfg, 'monthly');
     expect(periods).toHaveLength(3);

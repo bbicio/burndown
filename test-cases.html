@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -2254,6 +2254,35 @@ const SECTIONS = [
     {id:'PT-07',scenario:'Topics block',
      steps:'Open team.html, a person, Experience profile',
      expected:'"Topics" chips with project counts and a project tooltip; "No topics yet." when empty'},
+  ]
+},
+{
+  id:'planning_model', title:'26. Planning model (2026-09-29)',
+  cases:[
+    {id:'PM-01',scenario:'Auth required',
+     steps:'POST /api/planning/model with no session',
+     expected:'401',auto:true},
+    {id:'PM-02',scenario:'Request validation',
+     steps:'POST with an unknown view and an unparseable from',
+     expected:'400 with per-field errors (fields.view, fields.from)',auto:true},
+    {id:'PM-03',scenario:'Role view',
+     steps:'Project with a 100 h Consultant task and 10 h of actuals; POST view "role" with a duplicate and an unknown project id',
+     expected:'200; Consultant role with sold 100, actuals 10, cells over several weeks whose planned hours add up to the 90 h residual; duplicate/unknown ids ignored',auto:true},
+    {id:'PM-04',scenario:'Project and owner views',
+     steps:'POST view "project" and view "owner" for the same project',
+     expected:'Project view returns the task/role tree with consumed hours; owner view returns the owner map and ownerStatus (unmatched owner = active)',auto:true},
+    {id:'PM-05',scenario:'Team filter',
+     steps:'POST with teams ["NoSuchTeam"]',
+     expected:'200 with no roles',auto:true},
+    {id:'PM-06',scenario:'Cache invalidation',
+     steps:'Re-upload actuals for the project, then POST again',
+     expected:'The new hours are visible immediately (write invalidates the 30 s cache)',auto:true},
+    {id:'PM-07',scenario:'Visibility',
+     steps:'As a non-admin user who is neither owner nor shared on a project, request the model with that project id',
+     expected:'200 with an empty projection (roles/projects [], ownerMap {}, ownerStatus {}: no owner name leaks)',auto:true},
+    {id:'PM-08',scenario:'Loading and error states',
+     steps:'On /planning.html switch view/window quickly; then make POST /api/planning/model fail (devtools request blocking) and change a filter',
+     expected:'Only the latest response is rendered; while loading the view shows "Loading planning data…"; on failure a red "Could not load the planning data" message and Export XLS does nothing'},
   ]
 },
 {

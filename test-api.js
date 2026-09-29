@@ -2113,7 +2113,30 @@ async function testPlanningModel() {
   ok(r2.data?.roles?.find(x => x.role === 'Consultant')?.actuals === 15, 'PM-06 a new upload is visible right away (cache invalidated)');
 
   // PM-07: a non-admin who neither owns nor was shared the project gets an empty result, not an error
-  // (covered by the visibility rule; the suite has no second regular user helper for projects)
+  // The plain user is the demoted test admin (getPlainUserCookie), who owns `pid`; so the project the
+  // plain user must NOT see is created by the sysadmin (a different account) with its own actuals.
+  const code7 = `TPLANX${ts}`;
+  const r7 = sysadminCookie ? await api('POST', '/api/projects', { name: `__plan_${code7}__`, code: code7, startDate: '209901', endDate: '209903' }, sysadminCookie) : null;
+  const pid7 = r7?.data?.id;
+  if (!ok(!!pid7, 'PM-07 setup: a project owned by another account was created')) return;
+  later('DELETE', `/api/projects/${pid7}`);
+  await api('PUT', `/api/projects/${pid7}/tasks`,
+    [{ name: 'Analysis', startDate: '20990105', endDate: '20990329', resources: [{ role: 'Consultant', soldHours: 100 }] }], sysadminCookie);
+  later('DELETE', `/api/timesheets/${code7}`);
+  const csv7 = ['projectId,date,task,role,owner,hours', `${code7},2099-01-05,Analysis,Consultant,Secret Owner${ts},10`].join('\n');
+  ok((await uploadCsv('/api/timesheets/upload', csv7, sysadminCookie)).status === 201, 'PM-07 setup: actuals uploaded for the other account\'s project');
+  const asAdmin7 = await api('POST', '/api/planning/model', body({ projectIds: [pid7] }), adminCookie);
+  ok((asAdmin7.data?.roles || []).length === 1, 'PM-07 setup: an admin does see that project');
+
+  const plainCookie = await getPlainUserCookie();
+  if (!ok(!!plainCookie, 'PM-07 setup: a plain-user session was obtained')) return;
+  const p7r = await api('POST', '/api/planning/model', body({ projectIds: [pid7] }), plainCookie);
+  ok(p7r.status === 200 && Array.isArray(p7r.data?.roles) && p7r.data.roles.length === 0, 'PM-07 plain user, foreign project, role view → 200 with roles []');
+  ok(JSON.stringify(p7r.data?.ownerStatus) === '{}', 'PM-07 ownerStatus is {} (no owner name leaks)');
+  const p7p = await api('POST', '/api/planning/model', body({ view: 'project', projectIds: [pid7] }), plainCookie);
+  ok(p7p.status === 200 && Array.isArray(p7p.data?.projects) && p7p.data.projects.length === 0, 'PM-07 project view → projects []');
+  const p7o = await api('POST', '/api/planning/model', body({ view: 'owner', projectIds: [pid7] }), plainCookie);
+  ok(p7o.status === 200 && JSON.stringify(p7o.data?.ownerMap) === '{}' && JSON.stringify(p7o.data?.ownerStatus) === '{}', 'PM-07 owner view → ownerMap {} and ownerStatus {}');
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
