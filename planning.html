@@ -226,6 +226,7 @@
 <script defer src="js/notifications.js?v=2"></script>
 <script defer src="js/roles.js"></script>
 <script type="module" src="js/lib/planning-calc.js?v=4"></script>
+<script type="module" src="js/lib/planning-model-ui.js?v=1"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/portfolio.js"></script>
@@ -277,6 +278,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         // in place by refreshTimesheetDataFromApi(), not Vue-reactive on their own
         ownerStatusMap: {}, // { [ownerName]: 'active' | 'inactive' }, from POST /api/resources/match-owners;
                              // an absent name is treated as 'active' by redistributeExcludingInactive (fail-open)
+        model: null, modelPending: false, modelError: null, modelSeq: 0, // server projection of the active view (spec §14)
       };
     },
     computed: {
@@ -308,6 +310,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       filteredProjects() {
         return this.eligibleProjects.filter(p => this.projectFilters.size === 0 || this.projectFilters.has(p.id));
+      },
+      modelRequest() {
+        this.refreshTick; this.teamFilters; // reactive dependencies
+        if (!this.windowStart || !this.windowEnd) return null;
+        return buildModelRequest({
+          view: this.view, projectIds: this.filteredProjects.map(p => p.id), teams: this.teamFilters,
+          windowStart: this.windowStart, windowEnd: this.windowEnd, today: new Date(), pulse: this.monthlyPulse,
+        });
       },
       planningTitle() {
         if (this.returnToBurndown) {
@@ -358,125 +368,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       byRoleView() {
         this.teamFilters; // reactive dependency (rolePassesTeamFilter reads the plain global mirror)
-        const projects = this.filteredProjects;
         const weeks    = this.weeks;
-        const now = new Date();
-        const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if (this.modelPending || !this.model || this.model.view !== 'role') return { html: this.modelPlaceholderHtml(), exportRows: [], periodMeta: [] };
 
-        const roleMap = {};
-        const roleSoldMap = {};
-        const roleActualsMap = {};
-        // Per-role breakdown by (project, task) — one entry per child row in the drill-down.
-        // Sold/actual are accumulated here at the same point as roleSoldMap/roleActualsMap above
-        // (the same soldH/consumedH values, just also kept partitioned by child instead of only
-        // merged into the role-wide total); "to be planned" per child is derived at render time
-        // via computeResidual(sold, actual), not stored, since it's fully determined by the two.
-        const roleChildMap = {};
-
-        projects.forEach(proj => {
-          const projData = timesheetData.filter(r => r.projectId === proj.id);
-          const projLabel = proj.name || proj.id;
-
-          (proj.tasks || []).forEach(task => {
-            if (task.completed) return;
-            const tStart = parseTaskDate(task.startDate || proj.startDate, false);
-            const tEnd   = parseTaskDate(task.endDate   || proj.endDate,   true);
-            const overlapWeeks = weeks.filter(w => w.weekEnd >= tStart && w.weekStart <= tEnd);
-            if (!overlapWeeks.length) return;
-
-            (task.resources || []).forEach(res => {
-              if (!res.role) return;
-              if (!rolePassesTeamFilter(res.role)) return;
-              const soldH = res.soldHours || 0;
-
-              roleSoldMap[res.role] = (roleSoldMap[res.role] || 0) + soldH;
-
-              const consumedH = projData
-                .filter(r => matchesTaskRole(r, task.name, res.role))
-                .reduce((s, r) => s + r.hours, 0);
-              roleActualsMap[res.role] = (roleActualsMap[res.role] || 0) + consumedH;
-
-              if (!roleChildMap[res.role]) roleChildMap[res.role] = {};
-              const childKey = `${projLabel}::${task.name}`;
-              if (!roleChildMap[res.role][childKey]) {
-                roleChildMap[res.role][childKey] = { project: projLabel, task: task.name, sold: 0, actual: 0 };
-              }
-              roleChildMap[res.role][childKey].sold   += soldH;
-              roleChildMap[res.role][childKey].actual += consumedH;
-
-              const residualH = computeResidual(soldH, consumedH);
-
-              if (!roleMap[res.role]) roleMap[res.role] = {};
-
-              const pastWeeks = overlapWeeks.filter(w => w.isPast);
-              pastWeeks.forEach(w => {
-                const actualH = projData
-                  .filter(r => matchesTaskRole(r, task.name, res.role) &&
-                               r.date >= w.weekStart && r.date <= w.weekEnd)
-                  .reduce((s, r) => s + r.hours, 0);
-                if (actualH < 0.01) return;
-                const key = w.weekStart.toISOString();
-                if (!roleMap[res.role][key]) roleMap[res.role][key] = { hours: 0, breakdown: [], isPast: true, isPulse: false };
-                roleMap[res.role][key].hours += actualH;
-                roleMap[res.role][key].breakdown.push({ project: proj.name || proj.id, task: task.name, hours: actualH });
-              });
-
-              const futureWeeks = overlapWeeks.filter(w => !w.isPast);
-              if (!futureWeeks.length || residualH < 0.01) return;
-
-              const pDist    = task.monthlyDistribution;
-              const pDistSum = pDist ? Object.values(pDist).reduce((s, v) => s + v, 0) : 0;
-              const usePDist = pDist && Math.abs(pDistSum - 100) < 0.5;
-
-              if (usePDist) {
-                const futureMthWks = {};
-                futureWeeks.forEach(w => {
-                  const ym = `${w.weekStart.getFullYear()}${String(w.weekStart.getMonth()+1).padStart(2,'0')}`;
-                  if (!futureMthWks[ym]) futureMthWks[ym] = [];
-                  futureMthWks[ym].push(w);
-                });
-                const futureDistTotal = Object.keys(futureMthWks).reduce((s, ym) => s + (pDist[ym] || 0), 0);
-                if (futureDistTotal < 0.01) {
-                  const totalFutureWeeks = countFutureTaskWeeks(tStart, tEnd, todayMidnight);
-                  const hPerWeek = totalFutureWeeks > 0 ? residualH / totalFutureWeeks : residualH / futureWeeks.length;
-                  futureWeeks.forEach(w => {
-                    const key = w.weekStart.toISOString();
-                    if (!roleMap[res.role][key]) roleMap[res.role][key] = { hours: 0, breakdown: [], isPast: false, isPulse: false };
-                    roleMap[res.role][key].hours += hPerWeek;
-                    roleMap[res.role][key].breakdown.push({ project: proj.name || proj.id, task: task.name, hours: hPerWeek });
-                  });
-                } else {
-                  Object.entries(futureMthWks).forEach(([ym, mWeeks]) => {
-                    const mPct   = (pDist[ym] || 0) / futureDistTotal;
-                    const mHours = residualH * mPct;
-                    const hPerWk = mHours / mWeeks.length;
-                    mWeeks.forEach(w => {
-                      const key = w.weekStart.toISOString();
-                      if (!roleMap[res.role][key]) roleMap[res.role][key] = { hours: 0, breakdown: [], isPast: false, isPulse: false };
-                      roleMap[res.role][key].hours += hPerWk;
-                      roleMap[res.role][key].breakdown.push({ project: proj.name || proj.id, task: task.name, hours: hPerWk });
-                    });
-                  });
-                }
-              } else {
-                const totalFutureWeeks = countFutureTaskWeeks(tStart, tEnd, todayMidnight);
-                const byMonth = {};
-                futureWeeks.forEach(w => {
-                  if (!byMonth[w.monthKey]) byMonth[w.monthKey] = [];
-                  byMonth[w.monthKey].push(w.weekStart.toISOString());
-                });
-                const weeksByMonth = Object.entries(byMonth).map(([monthKey, weekKeys]) => ({ monthKey, weekKeys }));
-
-                distributeFutureResidual(residualH, totalFutureWeeks, weeksByMonth, this.monthlyPulse).forEach(entry => {
-                  if (!roleMap[res.role][entry.key]) roleMap[res.role][entry.key] = { hours: 0, breakdown: [], isPast: false, isPulse: entry.isPulse };
-                  if (entry.isPulse) roleMap[res.role][entry.key].isPulse = true;
-                  roleMap[res.role][entry.key].hours += entry.hours;
-                  roleMap[res.role][entry.key].breakdown.push({ project: proj.name || proj.id, task: task.name, hours: entry.hours });
-                });
-              }
-            });
-          });
-        });
+        const { roleMap, roleSoldMap, roleActualsMap, roleChildMap } = adaptRoleModel(this.model.data, this.model.keyMap);
 
         const roles = Object.keys(roleMap).sort();
         const fmtPH = v => v > 0.005 ? (this.roundHours ? Math.round(v) : v.toFixed(2)) + 'h' : '';
@@ -1351,6 +1246,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.classList.toggle('pp-fullwidth', this.fullWidth);
       },
       bumpRefresh() { this.refreshTick++; },
+      async loadModel() {
+        const req = this.modelRequest;
+        if (!req) return;
+        const seq = ++this.modelSeq;
+        this.modelPending = true; this.modelError = null;
+        try {
+          const res = await fetch('/api/planning/model', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(req),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          if (seq !== this.modelSeq) return;                       // a newer request superseded this one
+          this.ownerStatusMap = data.ownerStatus || {};
+          // key: the request that produced this response, so a caller (the parity capture) can
+          // check the loaded model matches the current modelRequest.
+          this.model = { view: data.view, data, keyMap: buildKeyMap(this.weeks), key: JSON.stringify(req) };
+        } catch (err) {
+          if (seq !== this.modelSeq) return;
+          console.warn('[planning] model load failed:', err.message);
+          this.modelError = err.message; this.model = null;
+        } finally {
+          if (seq === this.modelSeq) this.modelPending = false;
+        }
+      },
+      modelPlaceholderHtml() {
+        if (this.modelError) return `<div class="alert alert-danger mb-0">Could not load the planning data (${esc(this.modelError)}). Try reloading the page.</div>`;
+        return '<div class="text-muted p-3">Loading planning data…</div>';
+      },
       async refreshOwnerStatuses() {
         const names = [...new Set(
           timesheetData
@@ -1539,6 +1462,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // keeps rolePassesTeamFilter's behavior correct without reimplementing its logic in Vue
       // or modifying js/core.js (out of scope — shared by every page).
       teamFilters: { handler(v) { portfolioTeamFilters = v; }, immediate: true },
+      modelRequest() { this.loadModel(); },
     },
     async created() {
       const user = await initNav('planning', { breadcrumbs: [
