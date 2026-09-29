@@ -55,6 +55,12 @@ services:
   api:
     container_name: ${API_CONTAINER}
     ports: !override []
+    environment:
+      ANTHROPIC_API_KEY: test-key
+      ANTHROPIC_BASE_URL: http://test:4010
+  test:
+    environment:
+      LLM_STUB_ENABLED: "1"
 EOF
 }
 

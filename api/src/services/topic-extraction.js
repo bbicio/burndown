@@ -1,9 +1,14 @@
 // DB-bound half of the topic-extraction feature. Pure logic lives in ../lib/topic-extract.js.
+// Called by the profile engine right BEFORE a project code is processed, never inside a request
+// and never inside the per-code transaction (no row lock is held during the LLM call).
 const { pool, query } = require('../db/client');
-const { buildVocabulary } = require('../lib/topic-extract');
+const {
+  buildVocabulary, buildItems, buildPrompt, parseExtraction, resolveCandidates, hashText, isExtractable,
+  normalizeTopicName, finalTopic,
+} = require('../lib/topic-extract');
 
-// q = query or a transaction client's bound query. Vocabulary = every topic row + every attribute
-// list name and ACTIVE item label (the values a topic may never equal).
+const LLM_TIMEOUT_MS = 30000;
+
 async function loadVocabulary(q = query) {
   const [topics, lists] = await Promise.all([
     q('SELECT id, name, name_normalized, status, merged_into FROM topics'),
@@ -14,4 +19,142 @@ async function loadVocabulary(q = query) {
   return buildVocabulary(topics.rows, lists.rows);
 }
 
-module.exports = { loadVocabulary };
+async function isExtractionEnabled() {
+  const { rows } = await query("SELECT value FROM app_settings WHERE key = 'topic_extraction_enabled'");
+  return !rows[0] || rows[0].value !== 'false';
+}
+
+// One Messages API call. Error messages never include the response body (it may echo project text).
+async function callAnthropic({ system, user }) {
+  const base = (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/+$/, '');
+  const res = await fetch(`${base}/v1/messages`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY || '',
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
+      system,
+      messages: [{ role: 'user', content: user }],
+    }),
+    signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`LLM request failed (HTTP ${res.status})`);
+  const data = await res.json();
+  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+  if (!text) throw new Error('LLM answer was empty');
+  return text;
+}
+
+async function markFailed(projectId, items, message) {
+  const msg = String(message || 'extraction failed').slice(0, 500);
+  for (const it of items) {
+    await query(
+      `INSERT INTO description_topic_state (project_id, task_key, last_error) VALUES ($1, $2, $3)
+       ON CONFLICT (project_id, task_key) DO UPDATE SET last_error = EXCLUDED.last_error`,
+      [projectId, it.key, msg]
+    ).catch(() => {});
+  }
+}
+
+// Extract topics for the OLDEST project that owns `code` (same rule as the profile engine).
+async function extractForCode(code) {
+  if (!(await isExtractionEnabled())) return { status: 'skipped', reason: 'disabled' };
+  if (!process.env.ANTHROPIC_API_KEY) return { status: 'skipped', reason: 'no-key' };
+
+  const proj = await query(
+    'SELECT id, description FROM projects WHERE code = $1 ORDER BY created_at, id LIMIT 1', [code]);
+  if (!proj.rows[0]) return { status: 'skipped', reason: 'no-project' };
+  const projectId = proj.rows[0].id;
+  const taskRows = (await query('SELECT name, description FROM project_tasks WHERE project_id = $1', [projectId])).rows;
+  const items = buildItems(proj.rows[0].description, taskRows);
+  const state = new Map((await query(
+    'SELECT task_key, text_hash FROM description_topic_state WHERE project_id = $1', [projectId]
+  )).rows.map(r => [r.task_key, r.text_hash]));
+
+  const keys = new Set(items.map(i => i.key));
+  const gone = [...state.keys()].filter(k => !keys.has(k));
+  const todo = [];              // extractable and changed → LLM
+  const cleared = [];           // changed but too short/empty → drop links, remember the hash
+  for (const it of items) {
+    const h = hashText(it.text);
+    if (state.get(it.key) === h) continue;
+    if (!state.has(it.key) && !it.text) continue;       // never had text, still none
+    it.hash = h;
+    (isExtractable(it.text) ? todo : cleared).push(it);
+  }
+
+  for (const k of gone) {
+    await query('DELETE FROM description_topic_links WHERE project_id = $1 AND task_key = $2', [projectId, k]);
+    await query('DELETE FROM description_topic_state WHERE project_id = $1 AND task_key = $2', [projectId, k]);
+  }
+  for (const it of cleared) {
+    await query('DELETE FROM description_topic_links WHERE project_id = $1 AND task_key = $2', [projectId, it.key]);
+    await query(
+      `INSERT INTO description_topic_state (project_id, task_key, text_hash, extracted_at, last_error)
+       VALUES ($1, $2, $3, now(), NULL)
+       ON CONFLICT (project_id, task_key) DO UPDATE SET text_hash = EXCLUDED.text_hash, extracted_at = now(), last_error = NULL`,
+      [projectId, it.key, it.hash]
+    );
+  }
+  if (!todo.length) return { status: 'done', extracted: 0 };
+
+  let candidatesByRef;
+  try {
+    const vocab = await loadVocabulary();
+    const { system, user } = buildPrompt({ items: todo, vocab });
+    const raw = await callAnthropic({ system, user });
+    candidatesByRef = parseExtraction(raw, new Set(todo.map(i => i.ref)));
+  } catch (err) {
+    await markFailed(projectId, todo, err.name === 'TimeoutError' ? 'LLM request timed out' : err.message);
+    return { status: 'error', error: err.message };
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const q = client.query.bind(client);
+    let vocab = await loadVocabulary(q);
+    const resolved = new Map(todo.map(it => [it.ref, resolveCandidates(candidatesByRef.get(it.ref) || [], vocab)]));
+    const newNames = new Map();                          // normalised → display name
+    for (const list of resolved.values()) for (const r of list) if (r.newName) newNames.set(normalizeTopicName(r.newName), r.newName);
+    for (const [norm, name] of newNames) {
+      await q(`INSERT INTO topics (name, name_normalized, status) VALUES ($1, $2, 'proposed')
+               ON CONFLICT (name_normalized) DO NOTHING`, [name, norm]);
+    }
+    if (newNames.size) vocab = await loadVocabulary(q);
+    for (const it of todo) {
+      const ids = new Set();
+      for (const r of resolved.get(it.ref)) {
+        const target = r.topicId
+          ? finalTopic(r.topicId, vocab.topicsById)
+          : finalTopic(vocab.topicsByNorm.get(normalizeTopicName(r.newName))?.id, vocab.topicsById);
+        if (target && target.status !== 'rejected') ids.add(target.id);
+      }
+      await q('DELETE FROM description_topic_links WHERE project_id = $1 AND task_key = $2', [projectId, it.key]);
+      if (ids.size) {
+        await q(`INSERT INTO description_topic_links (project_id, task_key, topic_id)
+                 SELECT $1, $2, x FROM unnest($3::uuid[]) x ON CONFLICT DO NOTHING`, [projectId, it.key, [...ids]]);
+      }
+      await q(
+        `INSERT INTO description_topic_state (project_id, task_key, text_hash, extracted_at, last_error)
+         VALUES ($1, $2, $3, now(), NULL)
+         ON CONFLICT (project_id, task_key) DO UPDATE SET text_hash = EXCLUDED.text_hash, extracted_at = now(), last_error = NULL`,
+        [projectId, it.key, it.hash]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    await markFailed(projectId, todo, err.message);
+    return { status: 'error', error: err.message };
+  } finally {
+    client.release();
+  }
+  return { status: 'done', extracted: todo.length };
+}
+
+module.exports = { loadVocabulary, isExtractionEnabled, callAnthropic, extractForCode };

@@ -14,7 +14,8 @@
  */
 'use strict';
 
-const BASE  = process.env.API_URL             || 'http://api:3000';
+const http = require('http');
+const BASE = process.env.API_URL             || 'http://api:3000';
 const EMAIL = process.env.TEST_ADMIN_EMAIL    || 'test-admin@pdash.local';
 const PASS  = process.env.TEST_ADMIN_PASSWORD || 'TestAdmin123!';
 
@@ -1860,6 +1861,133 @@ async function testTopicsApi() {
     'TP-08 malformed id → 404');
 }
 
+// ── Topic extraction (LLM stubbed) ──────────────────────────────────────────────
+// Only runs in the isolated stack (scripts/run-tests.sh sets LLM_STUB_ENABLED and points the api's
+// ANTHROPIC_BASE_URL at this process). Text markers drive the stub: [[Topic]] = a normal candidate,
+// ((Name)) = flagged equivalentToListValue, <<Name>> = candidate that is NOT flagged (server must still
+// neutralise it when it equals an attribute-list value).
+
+let stubMode = 'ok';                 // 'ok' | 'http500' | 'garbage'
+const stubBodies = [];
+
+function stubAnswer(ctx) {
+  const results = ctx.texts.map(t => {
+    const topics = [];
+    const push = (name, equivalent) => {
+      const ex = ctx.existingTopics.find(e => e.name.toLowerCase() === name.toLowerCase());
+      topics.push({ name, existingTopicId: ex ? ex.id : null, equivalentToListValue: equivalent });
+    };
+    for (const m of t.text.matchAll(/\[\[(.+?)\]\]/g)) push(m[1], false);
+    for (const m of t.text.matchAll(/\(\((.+?)\)\)/g)) push(m[1], true);
+    for (const m of t.text.matchAll(/<<(.+?)>>/g)) push(m[1], false);
+    return { ref: t.ref, topics };
+  });
+  return { results };
+}
+
+function startLlmStub(port) {
+  return new Promise(resolve => {
+    const server = http.createServer((req, res) => {
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', () => {
+        let parsed = null;
+        try { parsed = JSON.parse(body); } catch { /* ignore */ }
+        if (parsed) stubBodies.push(parsed);
+        if (stubMode === 'http500') { res.statusCode = 500; res.end('{}'); return; }
+        res.setHeader('content-type', 'application/json');
+        if (stubMode === 'garbage') { res.end(JSON.stringify({ content: [{ type: 'text', text: 'sorry, no JSON today' }] })); return; }
+        const ctx = JSON.parse(parsed.messages[0].content);
+        res.end(JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(stubAnswer(ctx)) }] }));
+      });
+    });
+    server.listen(port, '0.0.0.0', () => resolve(server));
+  });
+}
+
+const stubSaw = marker => stubBodies.some(b => String(b.messages?.[0]?.content || '').includes(marker));
+
+async function testTopicExtraction() {
+  section('Topic extraction');
+  if (process.env.LLM_STUB_ENABLED !== '1') { pass('TX-skip LLM stub not enabled (run via scripts/run-tests.sh) — extraction cases skipped'); return; }
+  const server = await startLlmStub(4010);
+  try {
+    const f = await profileFixture();
+    ok(f.ok, 'TX-setup resource, two projects and a Market value created');
+    if (!f.ok) return;
+    const { ts, code1, person, resId, p1, itemLabel } = f;
+
+    const desc = `Portal build [[Web development ${ts}]] and ((Pharma marketing)) and <<${itemLabel}>> and [[Copy editing ${ts}]]`;
+    const taskDesc = `Deep analysis work [[Statistical modelling ${ts}]]`;
+    const putTasks = (d) => api('PUT', `/api/projects/${p1}/tasks`,
+      [{ name: 'Analysis', description: d, resources: [{ role: 'Consultant', soldHours: 8 }] }], adminCookie);
+    ok((await putTasks(taskDesc)).status === 200, 'TX-01 saving a task description works');
+    ok((await api('PATCH', `/api/projects/${p1}`, { description: desc }, adminCookie)).status === 200, 'TX-01 saving the project description works');
+    await uploadCsv('/api/timesheets/upload', profileCsv([[code1, '2026-01-15', person, 4]]), adminCookie);
+
+    // reject "Copy editing" beforehand: it must never be linked again
+    const rejected = await api('POST', '/api/topics', { name: `Copy editing ${ts}` }, adminCookie);
+    if (rejected.data?.id) await api('POST', `/api/topics/${rejected.data.id}/reject`, null, adminCookie);
+
+    const run = await runProfileJobs();
+    ok(run.status === 200, `TX-02 run completes (got ${run.status})`);
+    ok(stubSaw(`Web development ${ts}`), 'TX-02 the LLM was called for the project text');
+
+    const proposed = (await api('GET', '/api/topics?status=proposed', null, adminCookie)).data || [];
+    const names = proposed.map(t => t.name);
+    ok(names.includes(`Web development ${ts}`) && names.includes(`Statistical modelling ${ts}`),
+      'TX-03 new competences from the project and the task are created as proposed');
+    ok(!names.includes('Pharma marketing'), 'TX-04 a candidate flagged equivalent to a list value is discarded');
+    ok(!names.includes(itemLabel), 'TX-04 a candidate equal to an attribute-list value is discarded server-side');
+    ok(!names.includes(`Copy editing ${ts}`), 'TX-04 a rejected topic is not proposed again');
+
+    // unchanged text → no second call
+    const before = stubBodies.length;
+    await api('POST', `/api/profile-jobs/projects/${encodeURIComponent(code1)}/process`, null, adminCookie);
+    ok(stubBodies.length > before, 'TX-05 Process from the console re-extracts (hash cleared)');
+    const mid = stubBodies.length;
+    await api('PATCH', `/api/projects/${p1}`, { description: desc }, adminCookie);   // same text
+    await runProfileJobs();
+    ok(stubBodies.length === mid, 'TX-05 an unchanged text is not sent again');
+
+    // too-short text is never sent
+    await api('PATCH', `/api/projects/${p1}`, { description: '[[ZZSHORT]]' }, adminCookie);
+    await runProfileJobs();
+    ok(!stubSaw('ZZSHORT'), 'TX-06 a text shorter than 20 characters is not sent to the LLM');
+
+    // failures never block: 500 and garbage answers
+    for (const mode of ['http500', 'garbage']) {
+      stubMode = mode;
+      const longer = `Fresh description for failure ${mode} [[Failure topic ${mode} ${ts}]]`;
+      ok((await api('PATCH', `/api/projects/${p1}`, { description: longer }, adminCookie)).status === 200,
+        `TX-07 saving a description while the LLM answers "${mode}" still works`);
+      const r = await runProfileJobs();
+      ok(r.status === 200 && (r.data?.errors || []).length === 0, `TX-07 the run does not fail because of "${mode}"`);
+      const st = (await api('GET', '/api/profile-jobs', null, adminCookie)).data;
+      ok(!!st?.projects?.find(p => p.project_code === code1)?.topic_error, `TX-07 the console reports the extraction error for "${mode}"`);
+    }
+    stubMode = 'ok';
+    await runProfileJobs();                                   // retry succeeds and clears the error
+    const st2 = (await api('GET', '/api/profile-jobs', null, adminCookie)).data;
+    ok(!st2?.projects?.find(p => p.project_code === code1)?.topic_error, 'TX-08 a later successful run clears the error');
+    const again = (await api('GET', '/api/topics?status=proposed', null, adminCookie)).data || [];
+    ok(again.some(t => t.name === `Failure topic garbage ${ts}`), 'TX-08 the retried text produced its topics');
+
+    // kill switch
+    await api('PUT', '/api/profile-jobs/topic-settings', { enabled: false }, adminCookie);
+    const n = stubBodies.length;
+    await api('PATCH', `/api/projects/${p1}`, { description: `Another long description [[Disabled ${ts}]]` }, adminCookie);
+    await runProfileJobs();
+    ok(stubBodies.length === n, 'TX-09 with extraction switched off the LLM is not called');
+    await api('PUT', '/api/profile-jobs/topic-settings', { enabled: true }, adminCookie);
+    void resId;
+  } finally {
+    stubMode = 'ok';
+    await api('PUT', '/api/profile-jobs/topic-settings', { enabled: true }, adminCookie);
+    server.close();
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -1894,6 +2022,7 @@ async function main() {
     await testTagLinking();
     await testProjectDescriptions();
     await testTopicsApi();
+    await testTopicExtraction();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
     console.error(e.stack);
