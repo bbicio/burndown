@@ -5,7 +5,7 @@
 const { isoDate, parseTaskDate, makeFutureWeekCounter } = require('./planning-calendar');
 const {
   matchesTaskRole, computeResidual, distributeFutureResidual,
-  redistributeExcludingInactive, hasValidPhasing, phasedSeries,
+  redistributeExcludingInactive, hasValidPhasing, phasedSeries, taskFutureWeeks,
 } = require('./planning-distribution');
 
 const PLACEHOLDER = '—'; // "no owner" / TBD row
@@ -136,7 +136,11 @@ function roleProjection({ projects, actuals, weeks, today, pulse, teams }) {
 
         const pDist = task.monthlyDistribution;
         if (hasValidPhasing(pDist)) {
-          for (const { key, hours } of phasedSeries({ residualH, pDist, futureWeeks, fallbackWeekCount: () => countFw(tStart, tEnd) })) {
+          for (const { key, hours } of phasedSeries({
+            residualH, pDist, visibleFutureWeeks: futureWeeks,
+            allFutureWeeks: taskFutureWeeks(tStart, tEnd, pDist, today),
+            fallbackWeekCount: () => countFw(tStart, tEnd),
+          })) {
             const cell = cellOf(key, false, false);
             cell.hours += hours;
             cell.breakdown.push({ project: projLabel, task: task.name, hours });

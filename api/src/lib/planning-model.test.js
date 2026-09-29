@@ -290,3 +290,13 @@ test('buildProjection dispatches by view and rejects unknown views', () => {
   assert.deepEqual(M.buildProjection('owner', input), { ownerMap: {} });
   assert.throws(() => M.buildProjection('nope', input), /Unknown view/);
 });
+
+test('roleProjection (phase 2): a valid monthly distribution gives the same hours whatever the window shows', () => {
+  const p = PROJ(); p.tasks[0].monthlyDistribution = { '202609': 40, '202610': 30, '202611': 30 };
+  p.tasks[0].endDate = '20261130'; p.endDate = '202611';
+  const wide = weeksOf(isoDate('2026-09-01'), isoDate('2026-11-30'), TODAY);
+  const narrow = weeksOf(isoDate('2026-09-01'), isoDate('2026-10-31'), TODAY);
+  const a = M.roleProjection({ projects: [p], actuals: new Map(), weeks: wide, today: TODAY, pulse: false, teams: new Set() }).roles[0].cells;
+  const b = M.roleProjection({ projects: [p], actuals: new Map(), weeks: narrow, today: TODAY, pulse: false, teams: new Set() }).roles[0].cells;
+  for (const [k, c] of Object.entries(b)) near(c.hours, a[k].hours);
+});

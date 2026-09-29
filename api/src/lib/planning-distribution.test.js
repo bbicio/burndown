@@ -52,29 +52,34 @@ test('hasValidPhasing: sum must be 100 within 0.5', () => {
   assert.equal(hasValidPhasing({ '202610': 'x' }), false);
 });
 
-// Phase-1 behaviour: percentages are re-normalised over the months of the VISIBLE future weeks.
-test('phasedSeries (phase 1): 40/30/30 over three visible months, and 57/43 when only two are visible', () => {
+const { taskFutureWeeks } = require('./planning-distribution');
+
+test('phasedSeries (phase 2): hours per cell do not depend on the visible window', () => {
   const today = isoDate('2026-09-15');
-  const all = getCalendarWeeks(isoDate('2026-10-01'), isoDate('2026-12-31'), today);
   const pDist = { '202610': 40, '202611': 30, '202612': 30 };
-  const monthOf = w => w.weekStart.getUTCMonth();               // 9 = Oct, 10 = Nov, 11 = Dec
-  const oct = all.filter(w => monthOf(w) === 9), nov = all.filter(w => monthOf(w) === 10), dec = all.filter(w => monthOf(w) === 11);
-  const total = (series, weeks) => series.filter(e => weeks.some(w => w.key === e.key)).reduce((s, e) => s + e.hours, 0);
-
-  const full = phasedSeries({ residualH: 100, pDist, futureWeeks: all, fallbackWeekCount: () => 13 });
-  assert.ok(Math.abs(total(full, oct) - 40) < 1e-9, `october should carry 40, got ${total(full, oct)}`);
-  assert.ok(Math.abs(total(full, nov) - 30) < 1e-9);
-  assert.ok(Math.abs(total(full, dec) - 30) < 1e-9);
-
-  // Only October and November visible: the 100 h are re-normalised over 70% -> 57.14 / 42.86 (phase-1 anomaly).
-  const partial = phasedSeries({ residualH: 100, pDist, futureWeeks: [...oct, ...nov], fallbackWeekCount: () => 13 });
-  assert.ok(Math.abs(total(partial, oct) - 100 * 40 / 70) < 1e-9, `october share should be 57.14, got ${total(partial, oct)}`);
-  assert.ok(Math.abs(total(partial, nov) - 100 * 30 / 70) < 1e-9);
+  const tStart = isoDate('2026-09-01'), tEnd = isoDate('2026-12-31');
+  const all = taskFutureWeeks(tStart, tEnd, pDist, today);
+  const window = (from, to) => all.filter(w => w.weekStart >= isoDate(from) && w.weekStart <= isoDate(to));
+  const full = phasedSeries({ residualH: 100, pDist, visibleFutureWeeks: window('2026-09-14', '2026-12-28'), allFutureWeeks: all, fallbackWeekCount: () => all.length });
+  const narrow = phasedSeries({ residualH: 100, pDist, visibleFutureWeeks: window('2026-10-01', '2026-11-30'), allFutureWeeks: all, fallbackWeekCount: () => all.length });
+  const byKey = s => Object.fromEntries(s.map(e => [e.key, e.hours]));
+  for (const [k, h] of Object.entries(byKey(narrow))) assert.ok(Math.abs(h - byKey(full)[k]) < 1e-9, `${k}: narrow ${h} vs full ${byKey(full)[k]}`);
+  // October carries 40 of the 100 hours in both.
+  const octH = s => s.filter(e => e.key.startsWith('2026-09-28') || e.key.startsWith('2026-10')).reduce((t, e) => t + e.hours, 0);
+  assert.ok(octH(full) > 0);
 });
 
-test('phasedSeries: no percentage in the visible months falls back to an even split', () => {
+test('taskFutureWeeks: only future weeks overlapping the task, capped at the last distribution month; empty distribution -> []', () => {
+  const today = isoDate('2026-09-15');
+  const weeks = taskFutureWeeks(isoDate('2026-09-01'), isoDate('9999-12-31'), { '202610': 100 }, today);
+  assert.ok(weeks.length > 0 && weeks.length < 10, `undated task must be capped by the distribution, got ${weeks.length}`);
+  assert.equal(weeks.every(w => !w.isPast), true);
+  assert.deepEqual(taskFutureWeeks(isoDate('2026-09-01'), isoDate('2026-12-31'), {}, today), []);
+});
+
+test('phasedSeries (phase 2): no percentage in any future month falls back to an even split of the visible weeks', () => {
   const today = isoDate('2026-09-15');
   const wk = getCalendarWeeks(isoDate('2026-09-15'), isoDate('2026-09-30'), today).filter(w => !w.isPast);
-  const out = phasedSeries({ residualH: 30, pDist: { '202612': 100 }, futureWeeks: wk, fallbackWeekCount: () => 3 });
+  const out = phasedSeries({ residualH: 30, pDist: { '202612': 100 }, visibleFutureWeeks: wk, allFutureWeeks: [], fallbackWeekCount: () => 3 });
   assert.deepEqual(out.map(e => e.hours), wk.map(() => 10));
 });

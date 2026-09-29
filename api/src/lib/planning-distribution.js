@@ -1,6 +1,8 @@
 'use strict';
 // Rule primitives of the planning model — ports of js/lib/planning-calc.js and of the inline
-// logic of planning.html's three views. Keep behaviour identical (Phase 1 = zero visible change).
+// logic of planning.html's three views. Behaviour matches the browser except the deliberate
+// Phase 2 change in phasedSeries (monthly distribution independent of the visible window).
+const { getCalendarWeeks, utcDate } = require('./planning-calendar');
 
 function matchesTaskRole(record, taskName, role) {
   const roleMatches = (record.role || '').toLowerCase() === (role || '').toLowerCase();
@@ -43,28 +45,41 @@ function ymOf(week) {
   return `${week.weekStart.getUTCFullYear()}${String(week.weekStart.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
-// PHASE 1 (parity): the percentages are normalised over the months of the *visible* future weeks
-// (this is the browser's window-dependent behaviour; Task 17 replaces it on purpose).
+// Future weeks of a task inside the months its monthly distribution covers (independent of any
+// visible window). An undated task (end year 9999) is capped at the last month of the distribution.
+function taskFutureWeeks(tStart, tEnd, pDist, today) {
+  const months = Object.keys(pDist || {}).filter(ym => /^\d{6}$/.test(ym)).sort();
+  if (!months.length) return [];
+  const last = months[months.length - 1];
+  const distEnd = utcDate(parseInt(last.slice(0, 4), 10), parseInt(last.slice(4, 6), 10), 0); // last day of that month
+  const end = tEnd < distEnd ? tEnd : distEnd;
+  const start = tStart > today ? tStart : today;
+  if (end < start) return [];
+  return getCalendarWeeks(start, end, today).filter(w => !w.isPast && w.weekEnd >= tStart && w.weekStart <= tEnd);
+}
+
+// PHASE 2: percentages are normalised over ALL future months of the task and hours per week use the
+// full week count of each month; the visible window only decides which cells are emitted.
 // fallbackWeekCount: () => number (canonical future-week count of the task).
-function phasedSeries({ residualH, pDist, futureWeeks, fallbackWeekCount }) {
+function phasedSeries({ residualH, pDist, visibleFutureWeeks, allFutureWeeks, fallbackWeekCount }) {
   const byMonth = {};
-  for (const w of futureWeeks) (byMonth[ymOf(w)] ||= []).push(w);
-  const futureDistTotal = Object.keys(byMonth).reduce((s, ym) => s + (pDist[ym] || 0), 0);
-  if (futureDistTotal < 0.01) {
+  for (const w of allFutureWeeks) (byMonth[ymOf(w)] ||= []).push(w);
+  const distTotal = Object.keys(byMonth).reduce((s, ym) => s + (pDist[ym] || 0), 0);
+  if (distTotal < 0.01) {
     const count = fallbackWeekCount();
-    const hPerWeek = count > 0 ? residualH / count : residualH / futureWeeks.length;
-    return futureWeeks.map(w => ({ key: w.key, hours: hPerWeek }));
+    const hPerWeek = count > 0 ? residualH / count : residualH / visibleFutureWeeks.length;
+    return visibleFutureWeeks.map(w => ({ key: w.key, hours: hPerWeek }));
   }
+  const visible = new Set(visibleFutureWeeks.map(w => w.key));
   const out = [];
   for (const [ym, mWeeks] of Object.entries(byMonth)) {
-    const mHours = residualH * ((pDist[ym] || 0) / futureDistTotal);
-    const hPerWk = mHours / mWeeks.length;
-    for (const w of mWeeks) out.push({ key: w.key, hours: hPerWk });
+    const hPerWk = (residualH * ((pDist[ym] || 0) / distTotal)) / mWeeks.length;
+    for (const w of mWeeks) if (visible.has(w.key)) out.push({ key: w.key, hours: hPerWk });
   }
   return out;
 }
 
 module.exports = {
   matchesTaskRole, computeResidual, distributeFutureResidual,
-  redistributeExcludingInactive, hasValidPhasing, phasedSeries,
+  redistributeExcludingInactive, hasValidPhasing, phasedSeries, taskFutureWeeks,
 };
