@@ -43,7 +43,8 @@ async function callAnthropic({ system, user }) {
     signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`LLM request failed (HTTP ${res.status})`);
-  const data = await res.json();
+  let data;
+  try { data = await res.json(); } catch { throw new Error('LLM answer is not JSON'); }
   const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
   if (!text) throw new Error('LLM answer was empty');
   return text;

@@ -1867,7 +1867,7 @@ async function testTopicsApi() {
 // ((Name)) = flagged equivalentToListValue, <<Name>> = candidate that is NOT flagged (server must still
 // neutralise it when it equals an attribute-list value).
 
-let stubMode = 'ok';                 // 'ok' | 'http500' | 'garbage'
+let stubMode = 'ok';                 // 'ok' | 'http500' | 'garbage' | 'html200'
 const stubBodies = [];
 
 function stubAnswer(ctx) {
@@ -1895,6 +1895,7 @@ function startLlmStub(port) {
         try { parsed = JSON.parse(body); } catch { /* ignore */ }
         if (parsed) stubBodies.push(parsed);
         if (stubMode === 'http500') { res.statusCode = 500; res.end('{}'); return; }
+        if (stubMode === 'html200') { res.setHeader('content-type', 'text/html'); res.end('<html>secret project text</html>'); return; }
         res.setHeader('content-type', 'application/json');
         if (stubMode === 'garbage') { res.end(JSON.stringify({ content: [{ type: 'text', text: 'sorry, no JSON today' }] })); return; }
         const ctx = JSON.parse(parsed.messages[0].content);
@@ -1956,7 +1957,7 @@ async function testTopicExtraction() {
     ok(!stubSaw('ZZSHORT'), 'TX-06 a text shorter than 20 characters is not sent to the LLM');
 
     // failures never block: 500 and garbage answers
-    for (const mode of ['http500', 'garbage']) {
+    for (const mode of ['http500', 'garbage', 'html200']) {
       stubMode = mode;
       const longer = `Fresh description for failure ${mode} [[Failure topic ${mode} ${ts}]]`;
       ok((await api('PATCH', `/api/projects/${p1}`, { description: longer }, adminCookie)).status === 200,
@@ -1964,7 +1965,9 @@ async function testTopicExtraction() {
       const r = await runProfileJobs();
       ok(r.status === 200 && (r.data?.errors || []).length === 0, `TX-07 the run does not fail because of "${mode}"`);
       const st = (await api('GET', '/api/profile-jobs', null, adminCookie)).data;
-      ok(!!st?.projects?.find(p => p.project_code === code1)?.topic_error, `TX-07 the console reports the extraction error for "${mode}"`);
+      const topicError = st?.projects?.find(p => p.project_code === code1)?.topic_error;
+      ok(!!topicError, `TX-07 the console reports the extraction error for "${mode}"`);
+      if (mode === 'html200') ok(!String(topicError || '').includes('secret project text'), 'TX-07 the reported error does not echo the response body');
     }
     stubMode = 'ok';
     await runProfileJobs();                                   // retry succeeds and clears the error
