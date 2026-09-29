@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { normalizeTask } = require('./resource-profile');
 const {
   MIN_TEXT_CHARS, MAX_TOPICS_PER_TEXT, normalizeTopicName, cleanTopicName, taskKey, hashText, isExtractable,
-  descriptionsSignature, buildItems, buildVocabulary, buildPrompt, parseExtraction, finalTopic,
+  descriptionsSignature, buildItems, chunk, buildVocabulary, buildPrompt, parseExtraction, finalTopic,
   resolveCandidates, resolveProfileTopics, topicNameError,
 } = require('./topic-extract');
 
@@ -156,4 +156,12 @@ test('buildPrompt: user message is JSON with reusable topics, rejected names, li
   assert.equal(ctx.attributeListValues.length, 2);
   assert.deepEqual(ctx.texts.map(t => t.ref), ['project', 'task:analysis']);
   assert.equal(ctx.texts[1].taskName, 'Analysis');
+});
+
+test('chunk: empty, exact multiple, remainder, size <= 0 gives one chunk', () => {
+  assert.deepEqual(chunk([], 10), []);
+  assert.deepEqual(chunk([1, 2, 3, 4], 2), [[1, 2], [3, 4]]);
+  assert.deepEqual(chunk(Array.from({ length: 23 }, (_, i) => i), 10).map(c => c.length), [10, 10, 3]);
+  assert.deepEqual(chunk([1, 2, 3], 0), [[1, 2, 3]]);
+  assert.deepEqual(chunk([1, 2, 3], -5), [[1, 2, 3]]);
 });

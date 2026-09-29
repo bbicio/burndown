@@ -198,7 +198,17 @@ function topicNameError(name, vocab) {
   return null;
 }
 
+// Split an array into consecutive chunks of at most `size` items (size <= 0 or invalid: one chunk).
+function chunk(array, size) {
+  if (!array.length) return [];
+  if (!(size > 0)) return [array.slice()];
+  const out = [];
+  for (let i = 0; i < array.length; i += size) out.push(array.slice(i, i + size));
+  return out;
+}
+
 module.exports = {
+  chunk,
   MIN_TEXT_CHARS, MAX_TOPICS_PER_TEXT, MAX_TOPIC_WORDS, MAX_TOPIC_CHARS, PROJECT_REF,
   normalizeTopicName, cleanTopicName, taskKey, hashText, isExtractable, descriptionsSignature, buildItems,
   buildVocabulary, buildPrompt, parseExtraction, finalTopic, resolveCandidates, resolveProfileTopics, topicNameError,

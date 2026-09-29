@@ -1849,6 +1849,9 @@ async function testTopicsApi() {
 
   // merge: b → a, then a chain c → b (must land on a)
   ok((await api('POST', `/api/topics/${b.data.id}/merge`, { targetId: b.data.id }, adminCookie)).status === 400, 'TP-07 merge into itself → 400');
+  ok((await api('POST', `/api/topics/${b.data.id}/merge`, { targetId: String(b.data.id).toUpperCase() }, adminCookie)).status === 400
+    && ((await api('GET', '/api/topics', null, adminCookie)).data || []).some(t => t.id === b.data.id),
+    'TP-07 merge into itself via an UPPERCASE id → 400, topic intact');
   ok((await api('POST', `/api/topics/${b.data.id}/merge`, { targetId: a.data.id }, adminCookie)).status === 200, 'TP-07 merge b into a → 200');
   const afterMerge = (await api('GET', '/api/topics', null, adminCookie)).data || [];
   ok(!afterMerge.some(t => t.id === b.data.id), 'TP-07 a merged topic disappears from the list');
@@ -1964,6 +1967,8 @@ async function testTopicExtraction() {
         'PT-04 a merge shows up at once, without duplicates');
       await api('POST', `/api/topics/${stat.id}/reject`, null, adminCookie);
       ok(!((await getProfile(resId))?.profile?.topics || []).some(t => t.name === `Statistical modelling ${ts}`), 'PT-05 a rejected topic disappears at once');
+    } else {
+      ok(false, 'PT-02..05 prerequisites missing (topics not proposed)');
     }
     // a person with no actuals on the task gets the project topics but not the task topics
     const rOther = await api('POST', '/api/resources',
@@ -1975,6 +1980,8 @@ async function testTopicExtraction() {
       await runProfileJobs();
       const other = await getProfile(rOther.data.id);
       ok((other?.profile?.topics || []).some(t => t.name === `Engineering ${ts}`), 'PT-06 every contributor of the project receives the project topics');
+    } else {
+      ok(false, 'PT-06 prerequisite missing (second resource)');
     }
 
     // unchanged text → no second call

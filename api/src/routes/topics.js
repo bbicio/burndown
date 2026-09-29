@@ -71,9 +71,10 @@ router.patch('/:id', async (req, res, next) => {
     }
     const { rows } = await query(
       `UPDATE topics SET name = $2, name_normalized = $3, updated_by = $4, updated_at = now()
-       WHERE id = $1 RETURNING ${COLS}`,
+       WHERE id = $1 AND merged_into IS NULL RETURNING ${COLS}`,
       [t.id, name, norm, req.user.id]
     );
+    if (!rows[0]) return res.status(409).json({ error: 'This topic was merged into another one.' });
     res.json(rows[0]);
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'A topic with this name already exists — use merge instead.' });
@@ -97,9 +98,10 @@ for (const [action, rule] of Object.entries(TRANSITIONS)) {
         return res.status(409).json({ error: `A ${t.status} topic cannot be moved to ${rule.to}.` });
       }
       const { rows } = await query(
-        `UPDATE topics SET status = $2, updated_by = $3, updated_at = now() WHERE id = $1 RETURNING ${COLS}`,
+        `UPDATE topics SET status = $2, updated_by = $3, updated_at = now() WHERE id = $1 AND merged_into IS NULL RETURNING ${COLS}`,
         [t.id, rule.to, req.user.id]
       );
+      if (!rows[0]) return res.status(409).json({ error: 'This topic was merged into another one.' });
       res.json(rows[0]);
     } catch (err) { next(err); }
   });
@@ -107,19 +109,25 @@ for (const [action, rule] of Object.entries(TRANSITIONS)) {
 
 // POST /api/topics/:id/merge { targetId } — absorb :id into targetId
 router.post('/:id/merge', async (req, res, next) => {
-  const targetId = req.body?.targetId;
   if (!UUID_RE.test(String(req.params.id))) return res.status(404).json({ error: 'Topic not found' });
-  if (!UUID_RE.test(String(targetId ?? ''))) return res.status(400).json({ error: 'targetId is required' });
-  if (targetId === req.params.id) return res.status(400).json({ error: 'A topic cannot be merged into itself' });
-  const client = await pool.connect();
+  if (!UUID_RE.test(String(req.body?.targetId ?? ''))) return res.status(400).json({ error: 'targetId is required' });
+  const srcId = String(req.params.id).toLowerCase();
+  const targetId = String(req.body.targetId).toLowerCase();
+  if (targetId === srcId) return res.status(400).json({ error: 'A topic cannot be merged into itself' });
+  let client;
   try {
+    client = await pool.connect();
     await client.query('BEGIN');
     // lock both rows in a fixed order so two concurrent merges cannot deadlock
-    const ids = [req.params.id, targetId].sort();
+    const ids = [srcId, targetId].sort();
     await client.query('SELECT id FROM topics WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE', [ids]);
-    const source = await getTopic(req.params.id, client.query.bind(client));
+    const source = await getTopic(srcId, client.query.bind(client));
     const target = await getTopic(targetId, client.query.bind(client));
     if (!source || !target) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Topic not found' }); }
+    if (source.id === target.id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'A topic cannot be merged into itself' });
+    }
     if (source.merged_into || target.merged_into) {
       await client.query('ROLLBACK');
       return res.status(409).json({ error: 'A merged topic cannot take part in a merge.' });
@@ -139,10 +147,10 @@ router.post('/:id/merge', async (req, res, next) => {
     await client.query('COMMIT');
     res.json({ ok: true, targetId: target.id });
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => {});
+    if (client) await client.query('ROLLBACK').catch(() => {});
     next(err);
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 

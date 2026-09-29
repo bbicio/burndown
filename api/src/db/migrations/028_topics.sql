@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS topics (
   created_by      UUID REFERENCES users(id),
   updated_by      UUID REFERENCES users(id),
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT topics_no_self_merge CHECK (merged_into IS NULL OR merged_into <> id)
 );
 CREATE INDEX IF NOT EXISTS idx_topics_status ON topics(status);
 
