@@ -100,9 +100,13 @@ router.get('/all-data', requireAuth, async (req, res, next) => {
 // GET /api/timesheets/:projectCode
 router.get('/:projectCode', requireAuth, async (req, res, next) => {
   try {
-    const codes = await visibleCodes(req.user.id, req.user.role);
-    if (!codes.includes(req.params.projectCode)) {
-      return res.status(403).json({ error: 'Access denied' });
+    // An admin may ask for any code: no actuals means an empty list, not "access denied". visibleCodes() only
+    // lists codes that already have timesheets for an admin, so it cannot be the gate for them (2026-09-30).
+    if (!isAdminRole(req.user.role)) {
+      const codes = await visibleCodes(req.user.id, req.user.role);
+      if (!codes.includes(req.params.projectCode)) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
     }
     const { rows } = await query(
       `SELECT id, project_code, uploaded_at,
