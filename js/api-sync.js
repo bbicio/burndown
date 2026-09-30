@@ -273,14 +273,18 @@ async function _pushProjectToApiDetailed(project) {
     }
   }
 
-  // Sub-resources: tasks, phasing, PTC, monthly hour planning, functional role groups
+  // Sub-resources: tasks, phasing, PTC, monthly hour planning, functional role groups.
+  // A section is pushed whenever the project object carries it, even when empty: an empty array/object
+  // is how the user clears a section, and skipping it left the old data on the server. Only a section
+  // that is absent (undefined/null) is left alone. config.projects items always carry all five
+  // (_apiProjectToLocal normalises them), so this never wipes a section the page did not load.
   const failed = [];
   const steps = [
-    ['tasks',    tasks && tasks.length,                    () => Api.projects.saveTasks(project.id, tasks)],
-    ['phasing',  phasing && Object.keys(phasing).length,   () => Api.projects.phasing(project.id, phasing)],
-    ['ptc',      ptc && ptc.length,                        () => Api.projects.ptc(project.id, ptc)],
-    ['planning', planning && Object.keys(planning).length, () => Api.projects.planning(project.id, planning)],
-    ['groups',   groups && groups.length,                  () => Api.projects.groups(project.id, groups)],
+    ['tasks',    Array.isArray(tasks),                     () => Api.projects.saveTasks(project.id, tasks)],
+    ['phasing',  phasing != null && typeof phasing === 'object', () => Api.projects.phasing(project.id, phasing)],
+    ['ptc',      Array.isArray(ptc),                       () => Api.projects.ptc(project.id, ptc)],
+    ['planning', planning != null && typeof planning === 'object', () => Api.projects.planning(project.id, planning)],
+    ['groups',   Array.isArray(groups),                    () => Api.projects.groups(project.id, groups)],
   ];
   for (const [part, present, run] of steps) {
     if (!present) continue;
