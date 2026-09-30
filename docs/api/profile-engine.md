@@ -69,3 +69,9 @@ Spec: `docs/superpowers/specs/2026-09-29-profile-descriptions-topics-design.md` 
 **Deploy.** Migrations `027` (its backfill is apply-once) and `028` must be applied by hand to the real `pdash-db` and to any `test-branch.sh` stack (it skips migrations on an existing schema); set `ANTHROPIC_API_KEY` in the server `.env`. Backfilled descriptions are extracted as their codes flow through the queue (no automatic mass re-extraction).
 
 Integration tests: `PD-*`, `TP-*`, `TX-*`, `PT-*` in `test-api.js` (`TEST_CASES.md` section 24).
+
+## Profile version 2: topic provenance (Planning team assistant cycle, 2026-09-30)
+
+`aggregateProfile` (`api/src/lib/resource-profile.js`) now stores `version: 2`. Each entry of `profile.topics` keeps `topicId` and `projectCodes` and gains the provenance the team assistant scores on: `direct: { hours, projectCodes }` (the topic comes from a task the person logged hours on; hours = sum over those tasks) and `context: { projectCodes }` (the topic only comes from the project description, on a project the person worked on). A topic that is direct on a code is not also listed as context for it.
+
+`resolveProfileTopics` (`api/src/lib/topic-extract.js`) passes `direct`/`context` through at read time (approved topics only, merged topics followed, codes and hours unioned). **Version 1 fallback:** profiles stored before this cycle have entries without `direct`/`context`; they still resolve (plain `{ id, name, projectCodes }`), `team-ui.js` puts them in the "legacy" group and the assistant treats them as context with the row flag "topic provenance not available, recalculate profiles". **Rebuild required:** run "Rebuild" from `profile-jobs.html` once after deploy so every stored profile becomes version 2 (the queue/worker otherwise only rewrites a profile when one of its projects is reprocessed). The Experience tab of `team.html` shows the result in two groups ("Direct experience" / "Project context"), see `docs/pages/team.md`.

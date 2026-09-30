@@ -6,7 +6,7 @@ This file holds the full implementation narrative for this page — cycle-by-cyc
 
 ## Base state
 
-Folds in the former `js/portfolio.js` + `js/dashboard.js` (both now unloaded by this page — `js/dashboard.js` was exclusive to `portfolio.html` and is now fully orphaned dead code; `js/portfolio.js` remains loaded elsewhere, see its own entry in `CLAUDE.md`'s File Structure section). No longer loads `js/roles.js` (confirmed unused) or `js/config-form.js` (only needed for the now-removed, previously-unreachable `#configModal` + nested clients/programs/roles CRUD modals). Adds `js/lib/portfolio-calc.js`. `cardData(cfg)` hoisted into a `cardDataMap` computed (was called ~29x/row per project card). Includes the shared `#confirmModal` markup (2026-07 fix — it was missing from this page even though `js/ai.js`'s `openAiAnalysis()` no-API-key dialog, loaded here, depends on it; `showConfirm()`/`showInfo()` calls from this page silently threw before this fix).
+Folds in the former `js/portfolio.js` + `js/dashboard.js` (both now unloaded by this page — `js/dashboard.js` was exclusive to `portfolio.html` and is now fully orphaned dead code; `js/portfolio.js` remains loaded elsewhere, see its own entry in `CLAUDE.md`'s File Structure section). No longer loads `js/roles.js` (confirmed unused) or `js/config-form.js` (only needed for the now-removed, previously-unreachable `#configModal` + nested clients/programs/roles CRUD modals). Adds `js/lib/portfolio-calc.js`. `cardData(cfg)` hoisted into a `cardDataMap` computed (was called ~29x/row per project card). Includes the shared `#confirmModal` markup (2026-07 fix — it was missing from this page even though `js/ai.js`'s `openAiAnalysis()` no-API-key dialog, loaded here at the time, depended on it; `showConfirm()`/`showInfo()` calls from this page silently threw before this fix).
 
 ## List-view project cards restructured (2026-09)
 
@@ -14,7 +14,7 @@ The user, using the product as an actual analyst, reported never reading the per
 
 Each card (grouped-program-child and ungrouped) now shows only identity (title, code, pipeline/status badges, an actuals-availability badge relabeled `No actuals available`, was `no XLS data`) plus a compact stats row — Duration (`monthLabel(cfg.startDate) + ' – ' + monthLabel(cfg.endDate)`), Sold (`cardDataMap[cfg.id].totalPhasing`), Spent (`totalSpent`), Variance (`totalVar`, colored via the unchanged `varColor()`) — no monthly breakdown, no PTC column.
 
-The single remaining button, `Project Dashboard` (was `📊 View Report →`, then `Open project →` until a 2026-09 rename), is now always enabled (previously `:disabled="!hasData"`), since at the time it was the only path into the detail page, which also hosts `📂 Load Actuals` and `＋/✓ Summary` (both added to the detail header's existing Configure/Planning/AI Analysis/Share row, `portfolio.html:205-214`, neither gated on `hasData`).
+The single remaining button, `Project Dashboard` (was `📊 View Report →`, then `Open project →` until a 2026-09 rename), is now always enabled (previously `:disabled="!hasData"`), since at the time it was the only path into the detail page, which also hosts `📂 Load Actuals` and `＋/✓ Summary` (both added to the detail header's existing Configure/Planning/Share row (the AI Analysis button was removed in Cycle B), `portfolio.html:205-214`, neither gated on `hasData`).
 
 **`⚙️ Configure` returned to the list cards in a later 2026-09 cycle** (see "List-view search/Status filter + Configure button" below) — the original "detail-only, deliberately not kept" decision was explicitly reversed on user request; treat that decision as superseded, not as a description of current behavior.
 
@@ -63,3 +63,7 @@ Cache-bust: `js/lib/portfolio-calc.js?v=1` → `?v=3` across this cycle.
 ## Symmetric back-navigation (2026-09)
 
 The detail view's top `← Portfolio` button (`showOverview`) is now duplicated at the bottom of the page too, after Task detail — both call the same unchanged method; the bottom one carries `mt-4 mb-4` so it isn't flush against the footer. A first attempt placed the new bottom button *after* the dashboard's own `<template v-else>` closing tag instead of before it, making it an unconditional sibling of both view templates (rendered on the list view too, not just the dashboard) — caught during manual verification, not by any automated check, and fixed by moving it inside the block.
+
+## AI Analysis removed (Planning team assistant cycle, 2026-09-30)
+
+The detail page's "AI Analysis" button, its `js/ai.js` dependency (`openAiAnalysis()`, `buildProjectSummary()`) and the related markup/methods were removed together with the personal API keys (the browser-side AI no longer exists; the only LLM features are server-side, see `docs/api/planning-assistant.md`). `js/ai.js` is no longer loaded by this page. No other behaviour of the page changed.

@@ -1,6 +1,6 @@
 # api/src/routes/resources.js — and actuals-owner-name matching (Cycle 3b)
 
-`api/src/routes/resources.js` backs `team.html`. Every route is `requireAuth, requireAdmin` (admin **or** sysadmin) via a router-level guard, **except** `POST /match-owners` (2026-09, see below), declared above that guard with `requireAuth` only. Full endpoint table: `ARCHITECTURE.md` §7.
+`api/src/routes/resources.js` backs `team.html`. Every route is `requireAuth, requireAdmin` (admin **or** sysadmin) via a router-level guard. Full endpoint table: `ARCHITECTURE.md` §7.
 
 ## Resource registry CRUD (Cycle 1, 2026-09-23)
 
@@ -20,11 +20,11 @@ Purpose: link the free-text `owner` in uploaded actuals to a `resources` row, as
 
 ## Owner-name status lookup for planning.html (2026-09-28)
 
-`POST /match-owners` — `{ names: string[] }` → `{ [name]: 'active' | 'inactive' }` — resolves free-text actuals owner names to their resource's active/inactive status, so `planning.html` can stop giving an inactive (former) resource a share of future planned hours (spec: `docs/superpowers/specs/2026-09-28-planning-inactive-owners-design.md`). Reuses `matchOwner`/`buildMatchContext` from `api/src/lib/match-resource.js` unchanged — no new matching logic. The pure resolution step (`resolveOwnerStatuses(names, resources, aliases)`, exported for `node:test`) treats every outcome except an unambiguous exact/alias match to a currently-`inactive` resource as `'active'` — ambiguous, unmatched, an alias explicitly marked `ignore`, and an empty name all fail open toward `'active'`.
+**Removed 2026-09-30 (Cycle B):** `POST /match-owners` (`{ names }` to a per-name `'active' | 'inactive'` map, `requireAuth` only, cached 30 s via `getResourcesAndAliasesCached()`) had no frontend caller since the Planning model cycle (owner status ships with `POST /api/planning/model`) and was deleted with its cache. `resolveOwnerStatuses(names, resources, aliases)` (`api/src/lib/match-resource.js`) stays: it treats every outcome except an unambiguous exact/alias match to a currently-`inactive` resource as `'active'`, and is used by `planning-compute.js`.
 
 **Since the Planning model cycle (2026-09-29):** `resolveOwnerStatuses` lives in `api/src/lib/match-resource.js` (still exported for `node:test`), owner status now ships with `POST /api/planning/model` (`docs/api/planning-model.md`), and `planning.html` no longer calls this route; it stays in the API with no frontend caller (removal candidate).
 
-`requireAuth` only (declared above the router's blanket `requireAdmin` gate) since `planning.html` is visible to every authenticated user and the response carries no PII beyond a status per name. Results are cached in-process for 30s (`getResourcesAndAliasesCached()`) since the route is hit on every `planning.html` page load and every XLS upload; `rescanAll()` (already run after any resource/alias create/update/delete) also drops this cache, so an admin's status change is visible immediately rather than waiting out the TTL.
+The router's blanket `requireAdmin` guard now covers every route in the file; `rescanAll()` (run after any resource/alias create/update/delete) refreshes the Unmatched list and re-queues the profile jobs.
 
 ## Experience profile and profile queue (Cycle 3c, 2026-09-25)
 

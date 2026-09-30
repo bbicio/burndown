@@ -153,7 +153,6 @@ async function testSecurity() {
     ['GET', '/api/cost-grids'],
     ['GET', '/api/projects'],
     ['GET', '/api/ratecards'],       // requireAuth — unauthenticated still gets 401
-    ['POST', '/api/resources/match-owners'], // requireAuth only (not requireAdmin) — see MA-17
   ]) {
     ok((await api(m, p)).status === 401, `SEC-01 ${m} ${p} → 401`);
   }
@@ -1267,33 +1266,6 @@ async function testResourceMatching() {
   await api('PATCH', `/api/resources/${resId}`, { status: 'active' }, adminCookie);
   un = await listUnmatched();
   ok(!un.some(u => u.name_normalized === marioKey), 'MA-09 reactivated resource: its name matches again');
-
-  // MA-15 (2026-09-28, planning.html inactive-owner handling): POST /api/resources/match-owners
-  await api('PATCH', `/api/resources/${resId}`, { status: 'inactive' }, adminCookie);
-  const marioFullName = `${last} Mario`;
-  const rMatch = await api('POST', '/api/resources/match-owners',
-    { names: [marioFullName, unknownName] }, adminCookie);
-  ok(rMatch.status === 200 && rMatch.data?.[marioFullName] === 'inactive',
-    `MA-15 match-owners resolves an inactive resource's name to inactive (got ${JSON.stringify(rMatch.data)})`);
-  ok(rMatch.data?.[unknownName] === 'active',
-    'MA-15 match-owners resolves an unmatched name to active (fail-open)');
-  await api('PATCH', `/api/resources/${resId}`, { status: 'active' }, adminCookie);
-  const rMatch2 = await api('POST', '/api/resources/match-owners', { names: [marioFullName] }, adminCookie);
-  ok(rMatch2.data?.[marioFullName] === 'active', 'MA-15 reactivated resource: match-owners now resolves active');
-
-  ok((await api('POST', '/api/resources/match-owners', { names: 'not-an-array' }, adminCookie)).status === 400,
-    'MA-16 match-owners with non-array names → 400');
-  ok((await api('POST', '/api/resources/match-owners', { names: [] }, adminCookie)).status === 200,
-    'MA-16 match-owners with empty names array → 200 (empty object)');
-
-  // MA-17: reachable by a non-admin authenticated user, unlike every other route in this file —
-  // planning.html is visible to everyone, so this one route sits above the router's admin gate.
-  const userCookie = await getPlainUserCookie();
-  ok(!!userCookie, 'MA-17 setup: a plain-user session was obtained');
-  if (userCookie) {
-    ok((await api('POST', '/api/resources/match-owners', { names: [marioFullName] }, userCookie)).status === 200,
-      'MA-17 match-owners as a plain (non-admin) user → 200, not 403');
-  }
 
   // MA-10: deleting the resource re-queues its names; rescan endpoint works
   ok((await api('DELETE', `/api/resources/${resId}`, null, adminCookie)).status === 200, 'MA-10 DELETE resource → 200');

@@ -19,3 +19,7 @@ Trigger styling (`.nav-role-menu-trigger` in `css/style.css`): white background 
 ## Browser-notification opt-in banner (2026-09)
 
 The injected notification dropdown markup gained a `#nav-notif-browser-banner` row (between the panel header and the notification list), hidden by default and shown/wired entirely by `js/notifications.js`'s `wireBrowserNotifBanner()` — this file only carries the static markup, no logic. See `docs/js/notifications.md` for the full feature.
+
+## Settings modal: Data Manager only (Planning team assistant cycle, 2026-09-30)
+
+The injected settings modal no longer has tabs: the "🔑 API & Integrations" tab (AI provider/model selects and the Anthropic/OpenAI/Gemini key fields), its tab-switching, provider-change and Save wiring, and the "API keys are saved in your browser's localStorage" footer are gone. What is left is the Data Manager content (`#stgTabData`, exports/backup/restore) shown directly, with a single "Close" button. `openSettingsModal()` in `js/settings.js` is wired as before; `saveSettingsModal`/`stgUpdateModelDropdown` no longer exist. `?v=` of `js/nav.js` (and `js/settings.js`) was bumped on every page.

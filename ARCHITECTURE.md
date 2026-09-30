@@ -664,7 +664,6 @@ timesheets (
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | /api/resources/match-owners | ✅ | (2026-09) `{ names: string[] }` → `{ [name]: 'active' \| 'inactive' }`, resolving free-text actuals owner names to a resource's status via the same `matchOwner` matching as the Unmatched names queue; only an exact/alias match to a currently-inactive resource resolves `'inactive'` (ambiguous/unmatched/ignored/empty all resolve `'active'`). Declared above this router's blanket admin gate — `planning.html` is visible to every authenticated user and the response carries no PII. Backs `planning.html`'s inactive-owner exclusion from future-hours redistribution; results are cached in-process for 30s (invalidated on any resource/alias write) since the route is hit on every page load. See `docs/pages/planning.md` |
 | GET/POST | /api/resources | admin | List / create resource registry entries |
 | PATCH/DELETE | /api/resources/:id | admin | Update (validates non-empty on any of `firstName`/`lastName`/`email`/`roleId` present in the body, matching POST; `roleId` non-UUID or unknown → 400, told apart from a bad linked `userId` by FK constraint name) / hard delete. `GET /api/resources` returns `role_id`, `role_label`, `role_code` (JOIN on `roles`), no `job_title`. Create, PATCH of `firstName`/`lastName`/`status`, and DELETE trigger a best-effort full rescan of the unmatched-names queue |
 | GET | /api/resources/unmatched | admin | (2026-09, Cycle 3b; `project_list` added in the Team UX polish cycle) Owner names from uploaded actuals that could not be matched to a resource — `[{ name_normalized, display_name, hours, projects, project_list: [{code, name}], candidate_resource_ids }]`, hours summed and rounded to 2 decimals, ordered by hours desc; a non-empty `candidate_resource_ids` means ambiguous. `project_list` resolves each code's name via the same "oldest project per code" tie-break as `profile-jobs.js` (`projects.code` has no uniqueness constraint) — see `docs/api/resources.md` |
@@ -754,6 +753,8 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | GET | /api/reporting/projects/:id | ✅ | Single project reporting |
 | GET | /api/reporting/planning | ✅ | Resource planning aggregates |
 | POST | /api/planning/model | ✅ | (2026-09-30, Cycle A) The hours calculation behind `planning.html`'s three views, computed server-side. Body `{ view: 'role'\|'project'\|'owner', projectIds, teams?, from, to, asOf, pulse }`; visibility = same rule as `GET /api/projects` (unknown / not-visible ids are ignored silently); returns the projection of the requested view plus `ownerStatus`. Data-only 30 s cache cleared by a write-middleware in `api/src/index.js`. See `docs/api/planning-model.md` |
+| POST | /api/planning-assistant/rank | ✅ admin | (2026-09-30, Cycle B) `{ projectId, asOf, params }` → `{ requirement, tables, params }`: the best / alternative / available team tables per required role (deterministic, no LLM). 400 invalid body/params, 404 unknown project, 422 project without planned role hours. Full narrative: `docs/api/planning-assistant.md` |
+| POST | /api/planning-assistant/chat | ✅ admin | (2026-09-30, Cycle B) `{ projectId, asOf, params, messages }` → `{ reply, params, tables, requirement }`: LLM (Anthropic, server key) with tools `rank_team`/`explain_resource`; 503 `Assistant unavailable` when `ANTHROPIC_API_KEY` is unset or the call fails |
 | GET | /api/reporting/pipeline | ✅ | Pipeline kanban data |
 | GET | /api/reporting/phasing?year= | admin | Monthly hours+amount breakdown for all versions in the year (all pipeline stages) |
 | GET | /api/reporting/project-phasing?year= | admin | Same breakdown read directly from `projects.phasing` (reflects Reforecast if run+saved); excludes Draft and Canceled |
@@ -984,7 +985,6 @@ burndown/
     ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js; `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects per-role `rateOverrides` and sends them to the API
     upload.js             ← XLS parsing
     settings.js           ← settings modal logic (openSettingsModal, stgExport, downloadFullBackup)
-    ai.js                 ← AI sidebar chat + project analysis. Full narrative: docs/js/ai.md
     tags.js                ← (2026-09, Cycle 2) `loadActiveAttributeListsForTagging()`, shared by
                             costgrid.html/project-config.html's Tags sections; fetches lists + active items
                             in parallel via raw fetch() (not Api.*), matching attribute-lists.html's own
@@ -1038,7 +1038,6 @@ The `migration.html` tool was used for the one-time migration of existing localS
 New users start fresh: an admin creates an account via the invite flow, then uses the app directly against the API.
 
 **Current localStorage usage** (only genuinely client-side keys remain):
-- `PDash_settings` — AI provider API keys (Anthropic/OpenAI/Gemini), stored per-device
 - `PDash_summary` — portfolio summary project selection (UI preference)
 - `reforecast_snapshot_<projectId>` — no longer written; `project-config.html`'s Vue 3 rewrite confirmed the rollback/snapshot feature was already unreachable on that page (no rollback button existed in its markup) and did not port it. The mechanism still exists in `js/config-form.js` (unchanged); `portfolio.html`'s own copy of that config modal was confirmed unreachable dead code and dropped entirely in its own Vue migration, and `planning.html`'s own Vue migration confirmed `js/config-form.js` was dead there too (no reachable `#configModal`) and dropped its `<script>` tag — no page in the repo loads `js/config-form.js` reachably anymore, though the file itself is kept for reference.
 
