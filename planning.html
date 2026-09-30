@@ -150,7 +150,7 @@
   <div class="p-2 border-bottom d-flex gap-2 align-items-end" style="flex-shrink:0" v-if="taProjectId">
     <textarea v-model="taInput" class="form-control form-control-sm" rows="2" :disabled="taBusy"
       placeholder="e.g. exclude Mario and only people with oncology experience" style="resize:none"
-      @keydown.enter="e => { if (!e.shiftKey) { e.preventDefault(); taSend(); } }"></textarea>
+      @keydown.enter="e => { if (shouldSendOnEnter(e)) { e.preventDefault(); taSend(); } }"></textarea>
     <button class="btn btn-primary btn-sm" :disabled="taBusy || !taInput.trim()" @click="taSend()">{{ taBusy ? '…' : 'Send' }}</button>
   </div>
   <div class="ta-tables">
@@ -248,7 +248,7 @@
 <script defer src="js/roles.js"></script>
 <script type="module" src="js/lib/planning-calc.js?v=5"></script>
 <script type="module" src="js/lib/planning-model-ui.js?v=1"></script>
-<script type="module" src="js/lib/team-assistant-ui.js?v=2"></script>
+<script type="module" src="js/lib/team-assistant-ui.js?v=3"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/portfolio.js"></script>
@@ -1023,6 +1023,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       esc, fmtProjectTitle,
       // Vue 3 templates do not see arbitrary window globals: thin wrappers for the template.
       renderChatText(t) { return window.renderChatText(t); },
+      shouldSendOnEnter(e) { return window.shouldSendOnEnter(e); },
       rowView(r) { return window.rowView(r); },
       tableTitle(k) { return window.tableTitle(k); },
       taNewChat() { this.taMessages = []; this.taInput = ''; this.taTables = null; this.taParams = {}; this.taError = null; this.taRoles = []; },
@@ -1301,6 +1302,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       // or modifying js/core.js (out of scope — shared by every page).
       teamFilters: { handler(v) { portfolioTeamFilters = v; }, immediate: true },
       modelRequest() { this.loadModel(); },
+      // The assistant's project select follows the page filters; if a filter removes the selected
+      // project, reset to "no project" (same effect as changing project) instead of leaving chat/tables
+      // for a project that is no longer selectable.
+      taProjectOptions() {
+        if (!window.selectionStillValid(this.taProjectId, this.taProjectOptions)) {
+          this.taProjectId = '';
+          this.taNewChat();
+        }
+      },
     },
     async created() {
       const user = await initNav('planning', { breadcrumbs: [

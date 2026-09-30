@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderChatText, rowView, projectOptions, starterPrompts, tableTitle, isStaleResponse, chatPayload } from './team-assistant-ui.js';
+import { renderChatText, rowView, projectOptions, starterPrompts, tableTitle, isStaleResponse, chatPayload, selectionStillValid, shouldSendOnEnter } from './team-assistant-ui.js';
 
 describe('renderChatText', () => {
   it('escapes HTML from the model before applying bold and line breaks', () => {
@@ -90,5 +90,40 @@ describe('chatPayload', () => {
   it('trims before filtering nothing away from the window: local bubbles do not shrink the 20-message window', () => {
     const msgs = mk(25).map((m, i) => (i === 24 ? m : i % 5 === 0 ? { ...m, local: true } : m));
     expect(chatPayload(msgs).length).toBeLessThanOrEqual(20);
+  });
+});
+
+describe('selectionStillValid', () => {
+  const opts = [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }];
+  it('accepts an empty selection', () => {
+    expect(selectionStillValid('', opts)).toBe(true);
+    expect(selectionStillValid('', [])).toBe(true);
+  });
+  it('accepts a selection still in the options', () => {
+    expect(selectionStillValid('b', opts)).toBe(true);
+  });
+  it('rejects a selection missing from the options', () => {
+    expect(selectionStillValid('c', opts)).toBe(false);
+    expect(selectionStillValid('a', [])).toBe(false);
+    expect(selectionStillValid('a', null)).toBe(false);
+  });
+});
+
+describe('shouldSendOnEnter', () => {
+  it('sends on plain Enter', () => {
+    expect(shouldSendOnEnter({ key: 'Enter', shiftKey: false, isComposing: false, keyCode: 13 })).toBe(true);
+  });
+  it('does not send on Shift+Enter', () => {
+    expect(shouldSendOnEnter({ key: 'Enter', shiftKey: true, isComposing: false, keyCode: 13 })).toBe(false);
+  });
+  it('does not send while an IME composition is active', () => {
+    expect(shouldSendOnEnter({ key: 'Enter', shiftKey: false, isComposing: true, keyCode: 13 })).toBe(false);
+  });
+  it('does not send on the IME-confirming Enter reported as keyCode 229', () => {
+    expect(shouldSendOnEnter({ key: 'Enter', shiftKey: false, isComposing: false, keyCode: 229 })).toBe(false);
+  });
+  it('does not send for other keys or a missing event', () => {
+    expect(shouldSendOnEnter({ key: 'a', shiftKey: false, isComposing: false, keyCode: 65 })).toBe(false);
+    expect(shouldSendOnEnter(null)).toBe(false);
   });
 });
