@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Settings</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/tokens.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=14">
+  <style>
+    body { background: var(--bs-white); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .page { margin: 3rem auto; }
+  </style>
+</head>
+<body>
+
+<!-- Navbar (injected by nav.js) -->
+<div id="nav-container"></div>
+
+<div id="app" v-cloak>
+
+  <div v-if="ready" class="page app-container">
+    <h4 class="fw-bold mb-0">Settings</h4>
+  </div>
+
+  <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
+    <div class="spinner-border text-secondary"></div>
+  </div>
+
+</div>
+
+<script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script defer src="js/api.js?v=7"></script>
+<script defer src="js/core.js?v=7"></script>
+<script type="module" src="js/lib/notif-browser.js?v=2"></script>
+<script defer src="js/notifications.js?v=2"></script>
+<script defer src="js/nav.js?v=11"></script>
+<script type="module">
+  Vue.createApp({
+    data() {
+      return { ready: false };
+    },
+    async created() {
+      const user = await initNav('settings', { breadcrumbs: [
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Settings' },
+      ]});
+      if (!user) return;
+      this.ready = true;
+    },
+  }).mount('#app');
+</script>
+</body>
+</html>
