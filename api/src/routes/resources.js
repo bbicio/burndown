@@ -2,7 +2,7 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
-const { normalizeName, buildMatchContext, matchOwner, resolveOwnerStatuses } = require('../lib/match-resource');
+const { normalizeName } = require('../lib/match-resource');
 const { refreshUnmatched } = require('../services/resource-matching');
 const { loadVocabulary } = require('../services/topic-extraction');
 const { resolveProfileTopics } = require('../lib/topic-extract');
@@ -237,4 +237,3 @@ router.delete('/:id', async (req, res, next) => {
 });
 
 module.exports = router;
-module.exports.resolveOwnerStatuses = resolveOwnerStatuses;

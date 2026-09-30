@@ -130,3 +130,64 @@ test('aggregateUnmatched: ambiguous names carry their candidates; bad hours coun
     { projectCode: 'P1', nameNormalized: 'mario rossi', displayName: 'Mario Rossi', hours: 0, candidateResourceIds: ['r1', 'r2'] },
   ]);
 });
+
+// resolveOwnerStatuses (moved from routes/resources.test.js when the route stopped using it)
+const ownerResources = [
+  { id: 'r1', first_name: 'Jane', last_name: 'Doe', status: 'active' },
+  { id: 'r2', first_name: 'John', last_name: 'Smith', status: 'inactive' },
+  { id: 'r3', first_name: 'Jane', last_name: 'Doe', status: 'inactive' }, // ambiguous namesake, see below
+];
+const ownerAliases = [];
+
+
+test('resolveOwnerStatuses: exact match to an active resource resolves active', () => {
+  const result = resolveOwnerStatuses(['Jane Doe'], [ownerResources[0]], ownerAliases);
+  assert.equal(result['Jane Doe'], 'active');
+});
+
+test('resolveOwnerStatuses: exact unambiguous match to an inactive resource resolves inactive', () => {
+  const result = resolveOwnerStatuses(['John Smith'], [ownerResources[1]], ownerAliases);
+  assert.equal(result['John Smith'], 'inactive');
+});
+
+test('resolveOwnerStatuses: no match resolves active (fail-open, per agreed rule)', () => {
+  const result = resolveOwnerStatuses(['Nobody Here'], ownerResources, ownerAliases);
+  assert.equal(result['Nobody Here'], 'active');
+});
+
+test('resolveOwnerStatuses: ambiguous match (active + inactive namesakes) resolves active, not inactive', () => {
+  // matchOwner prefers active candidates first; with one active + one inactive sharing the
+  // normalized name "jane doe", the active one wins unambiguously — not actually ambiguous.
+  // A genuinely ambiguous case is two *active* namesakes:
+  const twoActive = [
+    { id: 'a1', first_name: 'Jane', last_name: 'Doe', status: 'active' },
+    { id: 'a2', first_name: 'Jane', last_name: 'Doe', status: 'active' },
+  ];
+  const result = resolveOwnerStatuses(['Jane Doe'], twoActive, ownerAliases);
+  assert.equal(result['Jane Doe'], 'active');
+});
+
+test('resolveOwnerStatuses: an alias explicitly marked ignore resolves active, not inactive', () => {
+  const ignoredAlias = [{ alias_normalized: 'ghost name', resource_id: null }];
+  const result = resolveOwnerStatuses(['Ghost Name'], ownerResources, ignoredAlias);
+  assert.equal(result['Ghost Name'], 'active');
+});
+
+test('resolveOwnerStatuses: an alias pointing at an inactive resource resolves inactive', () => {
+  const aliasToInactive = [{ alias_normalized: 'jsmith', resource_id: 'r2' }];
+  const result = resolveOwnerStatuses(['jsmith'], [ownerResources[1]], aliasToInactive);
+  assert.equal(result.jsmith, 'inactive');
+});
+
+test('resolveOwnerStatuses: only active-then-inactive fallback matters when the active candidate exists — active resource with the same name as an inactive one resolves active', () => {
+  const activeAndInactiveSameName = [
+    { id: 'x1', first_name: 'Sam', last_name: 'Lee', status: 'active' },
+    { id: 'x2', first_name: 'Sam', last_name: 'Lee', status: 'inactive' },
+  ];
+  const result = resolveOwnerStatuses(['Sam Lee'], activeAndInactiveSameName, ownerAliases);
+  assert.equal(result['Sam Lee'], 'active');
+});
+
+test('resolveOwnerStatuses: handles an empty names array', () => {
+  assert.deepEqual(resolveOwnerStatuses([], ownerResources, ownerAliases), {});
+});
