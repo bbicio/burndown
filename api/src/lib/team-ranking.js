@@ -5,6 +5,7 @@ const { getCalendarWeeks } = require('./planning-calendar');
 const { availabilityForWindow, currentLoad } = require('./team-load');
 const { scoreResource, matchedTagHours, MIN_ALT_SCORE, LOW_SCORE } = require('./team-scoring');
 const { normalizeName } = require('./match-resource');
+const { slugify } = require('./slugify');
 
 const lc = s => String(s || '').trim().toLowerCase();
 const round1 = n => Math.round(n * 10) / 10;
@@ -27,7 +28,15 @@ function rationale(row) {
 // Shared by rankTeam and explainResource so both always score and filter the same way.
 function scoringTags(requirement, params) {
   const preferTags = ((params && params.preferTags) || []).map(t => ({ list: t.list, label: t.value }));
-  return [...requirement.tags.map(t => ({ slug: t.slug, list: t.listName, itemId: t.itemId, label: t.label })), ...preferTags];
+  const all = [...requirement.tags.map(t => ({ slug: t.slug, list: t.listName, itemId: t.itemId, label: t.label })), ...preferTags];
+  // A preferred value the project already carries must not weigh twice: de-duplicate by dimension and value.
+  const seen = new Set();
+  return all.filter(t => {
+    const key = `${slugify(t.slug || t.list)}|${lc(t.label)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 function poolPredicate(params, excludedIds) {
   const mustHave = ((params && params.requireTags) || []).map(t => ({ list: t.list, label: t.value }));
@@ -136,6 +145,7 @@ function explainResource({ requirement, resources, loads, asOf, params, projectH
     ...(notInPool ? { notInPool } : {}),
     components: Object.entries(sc.components).map(([component, c]) => ({ component, weight: c.weight, value: Math.round(c.value * 1000) / 1000 })),
     evidence: sc.evidence,
+    minAlternativeScore: MIN_ALT_SCORE, lowScoreThreshold: LOW_SCORE,
     freeAvg: av ? av.freeAvg : null, freeMin: av ? av.freeMin : null,
     currentLoad: currentLoad(loads.get(r.id), asOf), hoursOnProject: projectHours.get(r.id) || 0,
   };

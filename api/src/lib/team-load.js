@@ -29,8 +29,15 @@ function roleWindow(tasks, project, asOf) {
 }
 
 // union: { from, to } | null → the window of the single planning-model call.
+// `to` is never before asOf: a window that ended already must still yield the recent weeks (current load).
 function loadWindow(union, asOf) {
-  return { from: addDays(mondayOnOrBefore(asOf), -7 * CURRENT_LOAD_WEEKS), to: union ? union.to : asOf };
+  return { from: addDays(mondayOnOrBefore(asOf), -7 * CURRENT_LOAD_WEEKS), to: union && union.to > asOf ? union.to : asOf };
+}
+
+// roles: requirement roles ({ window: { from, to } | null }) → { from: null, to: latest end } | null.
+function unionWindow(roles) {
+  const ends = (roles || []).filter(r => r.window).map(r => r.window.to);
+  return ends.length ? { from: null, to: ends.reduce((m, e) => (e > m ? e : m), ends[0]) } : null;
 }
 
 // ownerMap: the `owner` projection's ownerMap; ctx: match-resource buildMatchContext(...).
@@ -73,5 +80,5 @@ function availabilityForWindow(load, weeks) {
 
 module.exports = {
   WEEKLY_TARGET_HOURS, MAX_WINDOW_WEEKS, CURRENT_LOAD_WEEKS,
-  roleWindow, capWindow, loadWindow, loadByResource, currentLoad, availabilityForWindow,
+  roleWindow, capWindow, loadWindow, unionWindow, loadByResource, currentLoad, availabilityForWindow,
 };

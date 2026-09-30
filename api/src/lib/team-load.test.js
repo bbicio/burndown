@@ -83,3 +83,15 @@ test('availabilityForWindow: no future week (past window) → null, never NaN', 
   assert.equal(L.availabilityForWindow({ weeks: {} }, getCalendarWeeks(d('2098-01-01'), d('2098-02-01'), asOf)), null);
   assert.equal(L.availabilityForWindow({ weeks: {} }, []), null);
 });
+
+test('loadWindow: a union ending before asOf still reaches asOf (current load stays computable)', () => {
+  const asOf = d('2099-01-10');
+  assert.equal(ymd(L.loadWindow({ from: null, to: d('2099-01-02') }, asOf).to), '2099-01-10');
+});
+
+test('unionWindow: latest end over every role window, null when none has a window', () => {
+  const roles = [{ code: 'A', window: { from: d('2099-01-10'), to: d('2099-02-01') } }, { code: 'B', window: { from: d('2099-01-10'), to: d('2099-04-01') } }, { code: 'C', window: null }];
+  assert.equal(ymd(L.unionWindow(roles).to), '2099-04-01');
+  assert.equal(L.unionWindow([{ window: null }]), null);
+  assert.equal(L.unionWindow([]), null);
+});

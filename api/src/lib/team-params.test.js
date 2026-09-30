@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseParams, resolveExcluded } = require('./team-params');
+const { parseParams, resolveExcluded, checkTags } = require('./team-params');
 
 test('parseParams: empty/undefined/null give the defaults', () => {
   for (const input of [undefined, null, {}]) {
@@ -110,4 +110,18 @@ test('resolveExcluded: handles null/undefined names gracefully with nullish coal
   // Should resolve both names correctly despite null/undefined fields
   assert.deepEqual([...r.ids].sort(), ['r1', 'r2'], 'should resolve r1 (Rossi, null) and r2 (null, Anna)');
   assert.equal(r.errors.length, 0, 'should have no errors');
+});
+
+const lists = [
+  { slug: 'market', name: 'Market', items: ['Italy', 'Spain'] },
+  { slug: 'therapeutic-area', name: 'Therapeutic Area', items: ['Oncology', 'Cardiology'] },
+];
+test('checkTags: matches list by slug or name and value by label, case-insensitively', () => {
+  assert.deepEqual(checkTags([{ list: 'market', value: 'ITALY' }, { list: 'Therapeutic Area', value: 'oncology' }, { list: 'therapeutic-area', value: 'Cardiology' }], lists), []);
+});
+test('checkTags: unknown list or value is an error that names the entry and lists the valid values', () => {
+  const e = checkTags([{ list: 'Therapeutic Area', value: 'Oncologia' }, { list: 'Brand', value: 'X' }], lists);
+  assert.equal(e.length, 2);
+  assert.match(e[0], /Unknown value "Oncologia" in list "Therapeutic Area"\. Valid values: Oncology, Cardiology/);
+  assert.match(e[1], /Unknown list "Brand"\. Valid lists: Market, Therapeutic Area/);
 });

@@ -3,6 +3,7 @@
 // (spec 2026-09-29-planning-team-assistant §8), plus exact-name resolution for excludeResources.
 const { isoDate, dateKey } = require('./planning-calendar');
 const { normalizeName } = require('./match-resource');
+const { slugify } = require('./slugify');
 
 const MAX_LIST = 20, MAX_EXCLUDED = 50, MAX_STR = 200;
 const { MAX_WINDOW_WEEKS } = require('./team-load');
@@ -98,4 +99,19 @@ function resolveExcluded(names, resources) {
   return { ids, errors };
 }
 
-module.exports = { MAX_WINDOW_WEEKS, parseParams, resolveExcluded };
+// list: [{ list, value }] typed by the admin/LLM; attributeLists: [{ slug, name, items: [label] }].
+// Unknown lists or values are errors that name the entry and list what is valid, so the model can self-correct.
+function checkTags(list, attributeLists) {
+  const errors = [];
+  for (const t of list || []) {
+    const want = slugify(t.list);
+    const al = (attributeLists || []).find(a => a.slug === want || slugify(a.name) === want);
+    if (!al) { errors.push(`Unknown list "${t.list}". Valid lists: ${(attributeLists || []).map(a => a.name).join(', ') || 'none'}`); continue; }
+    if (!al.items.some(i => String(i).trim().toLowerCase() === String(t.value).trim().toLowerCase())) {
+      errors.push(`Unknown value "${t.value}" in list "${al.name}". Valid values: ${al.items.join(', ') || 'none'}`);
+    }
+  }
+  return errors;
+}
+
+module.exports = { MAX_WINDOW_WEEKS, parseParams, resolveExcluded, checkTags };

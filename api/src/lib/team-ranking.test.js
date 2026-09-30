@@ -178,3 +178,18 @@ test('explainResource: ambiguous name is an error', () => {
   const rs = [person('a', 'Alice', 'DEV', prof(1, 1)), person('b', 'Alice', 'DEV', prof(2, 2))];
   assert.match(explainResource({ ...base, resources: rs, name: 'Alice T', roleCode: 'DEV' }).error, /more than one resource/);
 });
+
+test('a preferTags entry equal to a project tag is not counted twice', () => {
+  const tagged = { ...prof(100, 20), dimensions: { market: { name: 'Market', values: [{ value: 'Italy', itemId: 'i', hours: 50 }] } } };
+  const rs = [person('b', 'Bob', 'DEV', tagged)];
+  const req = { ...requirement, tags: [{ slug: 'market', listName: 'Market', itemId: 'i', label: 'Italy' }] };
+  const plain = rankTeam({ ...base, requirement: req, resources: rs }).best[0].rows[0];
+  const dup = rankTeam({ ...base, requirement: req, resources: rs, params: { ...base.params, preferTags: [{ list: 'market', value: 'italy' }] } }).best[0].rows[0];
+  assert.equal(dup.score, plain.score);
+});
+
+test('explainResource reports the thresholds used to judge the score', () => {
+  const e = explainResource({ ...base, name: 'Bob T', roleCode: 'DEV' });
+  assert.equal(typeof e.minAlternativeScore, 'number');
+  assert.equal(typeof e.lowScoreThreshold, 'number');
+});

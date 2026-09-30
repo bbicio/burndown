@@ -9,9 +9,9 @@ const { finalTopic, resolveProfileTopics } = require('../lib/topic-extract');
 const { computePlanningModel } = require('../lib/planning-compute');
 const { buildMatchContext, matchOwner } = require('../lib/match-resource');
 const { isoDate, dateKey } = require('../lib/planning-calendar');
-const { resolveExcluded } = require('../lib/team-params');
+const { resolveExcluded, checkTags } = require('../lib/team-params');
 const { buildRequirement } = require('../lib/team-requirement');
-const { loadWindow, loadByResource } = require('../lib/team-load');
+const { loadWindow, unionWindow, loadByResource } = require('../lib/team-load');
 const { rankTeam, explainResource } = require('../lib/team-ranking');
 
 const fail = (status, message, fields) => Object.assign(new Error(message), { status, fields });
@@ -22,7 +22,7 @@ async function prepare({ projectId }) {
   const project = data.projects.get(projectId);
   if (!project) throw fail(404, 'Project not found');
 
-  const [tagsRes, linksRes, resRes, vocab] = await Promise.all([
+  const [tagsRes, linksRes, resRes, vocab, listsRes] = await Promise.all([
     query(`SELECT al.slug, al.name AS list_name, ali.id AS item_id, ali.label
            FROM project_tags pt
            JOIN attribute_list_items ali ON ali.id = pt.item_id
@@ -32,7 +32,16 @@ async function prepare({ projectId }) {
     query(`SELECT r.id, r.first_name, r.last_name, r.status, ro.code AS role_code, r.profile
            FROM resources r JOIN roles ro ON ro.id = r.role_id`),
     loadVocabulary(),
+    query(`SELECT al.slug, al.name AS list_name, ali.label
+           FROM attribute_lists al LEFT JOIN attribute_list_items ali ON ali.list_id = al.id
+           ORDER BY al.name, ali.label`),
   ]);
+
+  const listMap = new Map();
+  for (const r of listsRes.rows) {
+    if (!listMap.has(r.slug)) listMap.set(r.slug, { slug: r.slug, name: r.list_name, items: [] });
+    if (r.label != null) listMap.get(r.slug).items.push(r.label);
+  }
 
   const topicOf = id => {
     const t = finalTopic(id, vocab.topicsById);
@@ -55,7 +64,7 @@ async function prepare({ projectId }) {
   return {
     data, project, projectId,
     tags: tagsRes.rows.map(t => ({ slug: t.slug, listName: t.list_name, itemId: t.item_id, label: t.label })),
-    projectTopics, taskTopics, resources,
+    projectTopics, taskTopics, resources, attributeLists: [...listMap.values()],
     matchCtx: buildMatchContext(data.resources, data.aliases),
     actuals: data.actuals.get(projectId) || [],
   };
@@ -85,20 +94,29 @@ function compute(ctx, { params, asOfStr }) {
   }
   const excluded = resolveExcluded(params.excludeResources, ctx.data.resources);
   if (excluded.errors.length) fields.excludeResources = excluded.errors.join('; ');
+  for (const k of ['requireTags', 'preferTags']) {
+    const errs = params[k] ? checkTags(params[k], ctx.attributeLists) : [];
+    if (errs.length) fields[k] = errs.join('; ');
+  }
   if (Object.keys(fields).length) throw fail(400, 'Invalid request', fields);
 
   // One planning-model call for everybody: every project "as Planning sees it", minus the target.
-  const wanted = params.roles ? new Set(params.roles.map(lc)) : null;
-  const windows = requirement.roles.filter(r => r.window && (!wanted || wanted.has(lc(r.code)))).map(r => r.window);
-  const union = windows.length ? { from: null, to: windows.reduce((m, w) => (w.to > m ? w.to : m), windows[0].to) } : null;
-  const lw = loadWindow(union, asOf);
-  const projectIds = [...ctx.data.projects.values()]
-    .filter(p => p.id !== ctx.projectId && p.pipeline !== 'Canceled' && p.status !== 'Completed')
-    .map(p => p.id);
-  const model = computePlanningModel(ctx.data, null, {
-    view: 'owner', projectIds, teams: [], from: lw.from, to: lw.to, asOf, pulse: false,
-  });
-  const loads = loadByResource(model.ownerMap, ctx.matchCtx);
+  // The window covers ALL requirement roles (explain_resource may ask about a role outside params.roles)
+  // and is memoized on ctx, so one request runs at most one projection per distinct window.
+  const lw = loadWindow(unionWindow(requirement.roles), asOf);
+  const memoKey = `${dateKey(lw.to)}|${dateKey(asOf)}`;
+  if (!ctx.loadsMemo) ctx.loadsMemo = new Map();
+  let loads = ctx.loadsMemo.get(memoKey);
+  if (!loads) {
+    const projectIds = [...ctx.data.projects.values()]
+      .filter(p => p.id !== ctx.projectId && p.pipeline !== 'Canceled' && p.status !== 'Completed')
+      .map(p => p.id);
+    const model = computePlanningModel(ctx.data, null, {
+      view: 'owner', projectIds, teams: [], from: lw.from, to: lw.to, asOf, pulse: false,
+    });
+    loads = loadByResource(model.ownerMap, ctx.matchCtx);
+    ctx.loadsMemo.set(memoKey, loads);
+  }
 
   const projectHours = new Map();
   for (const a of ctx.actuals) {
