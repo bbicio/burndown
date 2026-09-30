@@ -1,5 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import { deriveDistribution, reforecastDistribution } from './config-form-calc.js';
+import { deriveDistribution, reforecastDistribution, isProjectDirty } from './config-form-calc.js';
+
+describe('isProjectDirty', () => {
+  const p = { id: 'x', name: 'A', tasks: [{ name: 't', resources: [] }], phasing: { '202601': 10 } };
+  it('is false when the project equals the snapshot', () => {
+    expect(isProjectDirty(JSON.stringify(p), JSON.parse(JSON.stringify(p)))).toBe(false);
+  });
+  it('is true after any change, including nested ones', () => {
+    const q = JSON.parse(JSON.stringify(p));
+    q.phasing['202601'] = 11;
+    expect(isProjectDirty(JSON.stringify(p), q)).toBe(true);
+    const r = JSON.parse(JSON.stringify(p));
+    r.tasks.push({ name: 'u', resources: [] });
+    expect(isProjectDirty(JSON.stringify(p), r)).toBe(true);
+  });
+  it('is false when there is no snapshot or no project', () => {
+    expect(isProjectDirty(null, p)).toBe(false);
+    expect(isProjectDirty(JSON.stringify(p), null)).toBe(false);
+  });
+});
 
 describe('deriveDistribution', () => {
   it('distributes a single-month task fully into that month', () => {

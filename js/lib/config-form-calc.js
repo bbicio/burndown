@@ -175,5 +175,12 @@ export function reforecastDistribution(tasks, months, actualsRows, currentYm) {
   return { newPhasing, newPlanning, distError: null, remainingBudget, remainingHours, distributedRemainingHours, pastMonths, futureMonths };
 }
 
+// True when the project no longer matches its last loaded/saved JSON snapshot; no snapshot or no project means nothing to lose.
+export function isProjectDirty(savedJson, project) {
+  if (savedJson == null || project == null) return false;
+  return JSON.stringify(project) !== savedJson;
+}
+
 window.deriveDistribution = deriveDistribution;
 window.reforecastDistribution = reforecastDistribution;
+window.isProjectDirty = isProjectDirty;
