@@ -209,7 +209,7 @@
         <div class="cfg-month-label">{{ monthLabel(ym) }}</div>
         <input type="text" class="form-control form-control-sm text-end"
                :readonly="isViewer" :value="project.phasing[ym] > 0 ? fmtMoney(project.phasing[ym]) : ''"
-               @focus="e => { e.target.value = project.phasing[ym] > 0 ? project.phasing[ym] : ''; }"
+               @focus="e => { e.target.value = moneyInput(project.phasing[ym]); }"
                @blur="e => { const v = parseMoney(e.target.value); if (v > 0) project.phasing[ym] = v; else delete project.phasing[ym]; e.target.value = v > 0 ? fmtMoney(v) : ''; }">
       </div>
     </div>
@@ -253,7 +253,7 @@
       <div class="col-sm-2"><label class="form-label small text-muted mb-1">Amount</label>
         <input type="text" class="form-control form-control-sm text-end" :readonly="isViewer"
                :value="item.amount > 0 ? fmtMoney(item.amount) : ''"
-               @focus="e => { e.target.value = item.amount > 0 ? item.amount : ''; }"
+               @focus="e => { e.target.value = moneyInput(item.amount); }"
                @blur="e => { item.amount = parseMoney(e.target.value); e.target.value = item.amount > 0 ? fmtMoney(item.amount) : ''; }">
       </div>
       <div class="col-sm-2"><label class="form-label small text-muted mb-1">Month</label>
@@ -912,20 +912,10 @@
           this.programModal.saving = false;
         }
       },
-      // Currency formatting — config-form.js-specific, not extracted to js/lib (no other page needs it after this migration).
-      cfgCurrencyLocale(cur) { return (cur === '$' || cur === '£') ? 'en-US' : 'de-DE'; },
-      fmtMoney(amount) {
-        const cur = this.project?.currency || '€';
-        const f = new Intl.NumberFormat(this.cfgCurrencyLocale(cur), { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
-        return cur === 'CHF' ? `CHF ${f}` : `${cur} ${f}`;
-      },
-      parseMoney(str) {
-        const cur = this.project?.currency || '€';
-        const digits = String(str).trim().replace(/^(CHF|[€$£])\s*/i, '');
-        return this.cfgCurrencyLocale(cur) === 'de-DE'
-          ? parseFloat(digits.replace(/\./g, '').replace(',', '.')) || 0
-          : parseFloat(digits.replace(/,/g, '')) || 0;
-      },
+      // Money formatting/parsing: one implementation in js/lib/money.js, driven by the locale of the project currency.
+      fmtMoney(amount, cur) { return window.formatMoney(amount || 0, cur || this.project?.currency, window.__currencies); },
+      moneyInput(amount) { return window.formatMoneyInput(amount, this.project?.currency, window.__currencies); },
+      parseMoney(str) { return window.parseMoney(str, this.project?.currency, window.__currencies); },
       ymdToIt(ymd) {
         if (!ymd || ymd.length < 8) return '';
         return `${ymd.slice(6,8)}/${ymd.slice(4,6)}/${ymd.slice(0,4)}`;

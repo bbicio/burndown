@@ -325,8 +325,8 @@
                   <td style="padding:3px 5px;border:1px solid var(--border-light);min-width:120px;vertical-align:middle">
                     <input type="text" class="form-control" style="border:1px solid var(--border-light);font-size:var(--text-md);padding:4px 6px;height:32px;text-align:right"
                       :value="ptcFocusedTask === task.taskId ? ptcRaw : (task.ptc > 0 ? fmtCur(task.ptc) : '')" placeholder="—" :disabled="isLocked"
-                      @focus="ptcFocusedTask = task.taskId; ptcRaw = task.ptc > 0 ? String(task.ptc) : ''"
-                      @input="ptcRaw = $event.target.value; task.ptc = parseFloat($event.target.value) || 0; cgScheduleAutoSave()"
+                      @focus="ptcFocusedTask = task.taskId; ptcRaw = moneyInput(task.ptc)"
+                      @input="ptcRaw = $event.target.value; task.ptc = parseMoneyInput($event.target.value); cgScheduleAutoSave()"
                       @blur="ptcFocusedTask = null; ptcRaw = ''">
                   </td>
                   <td style="text-align:right;padding:6px 10px;border:1px solid var(--border-light);font-size:var(--text-md);white-space:nowrap;background:var(--sand-50);vertical-align:middle">
@@ -1215,6 +1215,8 @@ Vue.createApp({
     exportXls() { cgExportXls(); },
     generateProject() { cgGenerateProject(); },
     fmtCur(amount) { return cgFmtCurrency(amount, this.draft?.currency || 'EUR'); },
+    moneyInput(amount) { return window.formatMoneyInput(amount, this.draft?.currency || 'EUR', window.__currencies); },
+    parseMoneyInput(text) { return window.parseMoney(text, this.draft?.currency || 'EUR', window.__currencies); },
     addPhase() {
       this.draft.phases.push({ phaseId: cgNewPhId(), phaseName: 'New phase', tasks: [] });
       cgScheduleAutoSave();
