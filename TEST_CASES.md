@@ -246,6 +246,8 @@
 | PC-18 | Save returns to the saved project's own detail view | Edit an existing project's name → Save | Browser lands on that project's Project Reporting detail view (KPIs, burndown) via `portfolio.html?projectId=<id>`, not the bare project list | |
 | PC-19 | Delete actuals as a non-admin owner/editor succeeds | Log in as a non-admin user who owns (or has editor access to) a project with imported actuals; click 🗑 Delete actuals → confirm | Delete succeeds (200), same as for an admin — not a 403 | |
 | PC-20 | Confirm dialog ignores a fast repeat click | Trigger any confirmation dialog on this page (e.g. 🗑 Delete actuals, Delete task, Remove resource) → double-click "Confirm" in quick succession | The confirmed action runs only once, not twice | |
+| PC-21 | Leave-page prompt on unsaved changes (2026-09-30) | Open an existing project; (a) leave without edits; (b) click ⟳ Derive from task dates, confirm, then reload; (c) edit a field, click 💾 Save | (a) no prompt; (b) the browser's native leave-page prompt; (c) lands on the portfolio with no prompt | |
+| PC-22 | No leave-page prompt for viewers | Open a project as a viewer, then reload | No prompt (editing is disabled) | |
 
 ---
 
@@ -296,11 +298,13 @@
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
 | CN-01 | Tab order (2026-09) | Open config.html | Tabs appear left to right: Currencies, Roles, Clients, Client Groups, Pipelines & POTs | |
-| CN-02 | Programs tab hidden from nav (2026-09) | Open config.html, inspect the tab bar | No "Programs" tab button — Currencies through Pipelines & POTs only; the underlying panel/data/API remain functional but have no UI entry point | |
+| CN-02 | Programs tab visible (2026-09-30, was hidden 2026-09) | Open config.html, inspect the tab bar | A "🗂 Programs (N)" tab button after Pipelines & POTs; clicking it shows the program list with ✏️ Edit and Delete | |
 | CN-03 | Rate-update confirmation modal appears (2026-09) | On the Currencies tab, change an active currency's rate value and click Save | A confirmation modal opens ("Update exchange rate?") showing the old and new rate and explaining the change does not retroactively affect existing proposals/projects — the rate is not yet saved | |
 | CN-04 | Rate-update confirmation — Cancel does not save | Trigger CN-03's modal, then click Cancel | Modal closes; the currency's rate in the table is unchanged | |
 | CN-05 | Rate-update confirmation — Confirm saves | Trigger CN-03's modal, then click Confirm | Modal closes; the currency's rate and Last Updated date update in the table | |
 | CN-06 | Rate-update confirmation ignores a fast repeat click | Trigger CN-03's modal, then click Confirm twice in quick succession before the first request resolves | Only one rate-update request reaches the API; the button shows a spinner and is disabled for the duration of the save | |
+| CN-07 | Program rename | As admin, Programs tab → ✏️ Edit a program, change the name, Save | Name updates in the list; the ID field stays disabled | |
+| CN-08 | Program delete confirm text and refusal | Delete a program that has projects linked; then delete one with none | Confirm text says a program with linked projects cannot be deleted; with linked projects the server message "Cannot delete program with linked projects" is shown and the program stays listed; an empty program is removed | |
 
 ---
 
@@ -901,6 +905,8 @@ Project/task descriptions, the shared competence-topic vocabulary and its LLM ex
 | PA-M4 | Plain user does not get the assistant | Log in as a plain user and open `/planning.html`; then call `POST /api/planning-assistant/rank` from the console | No "Team assistant" button; the API answers 403 |  |
 | PA-M5 | Profile version 2 after Rebuild | Run "Rebuild" from `profile-jobs.html`, then open a person with topics in `team.html` → Experience profile | Topics appear under "Direct experience" and "Project context"; before Rebuild they show as "Topics (provenance not available — recalculate profiles)" |  |
 | PA-M6 | Old personal AI keys are wiped | In a browser that still has a `PDash_settings` entry in localStorage, load any page | The key is gone after the first load; Settings shows only the Data Manager content |  |
+| PA-M7 | Selection resets when a filter removes the project (2026-09-30) | In `planning.html` open the Team assistant, select a project, then change a page filter so that project disappears; repeat with a filter that keeps it | Removed: select returns to "Select a project…" and chat/tables clear; kept: nothing changes. **Not yet verified in a browser (no Planning data at the time)** | |
+| PA-M8 | Enter during IME composition does not send (2026-09-30) | In the assistant textarea compose text with an IME and press Enter to confirm; then Shift+Enter; then plain Enter | IME-confirming Enter does not send; Shift+Enter inserts a newline; plain Enter sends. **Not yet verified in a browser** | |
 
 ---
 
