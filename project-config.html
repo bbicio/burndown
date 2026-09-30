@@ -401,7 +401,8 @@
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/status-rules.js?v=1"></script>
 <script type="module" src="js/lib/config-form-calc.js?v=2"></script>
-<script defer src="js/api-sync.js?v=16"></script>
+<script type="module" src="js/lib/project-push-result.js?v=1"></script>
+<script defer src="js/api-sync.js?v=17"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/nav.js?v=11"></script>
 <script type="module">
@@ -837,16 +838,20 @@
         try {
           // config/cfgEditConfig/persistConfig are the existing in-memory-state contract (js/core.js, no-ops
           // by design per CLAUDE.md's "Data strategy" section) — mirror the original's single-project write-back.
-          if (this.isNewProject) {
-            config.projects.push(this.project);
-          } else {
-            const idx = config.projects.findIndex(p => p.id === this.project.id);
-            if (idx >= 0) config.projects[idx] = this.project; else config.projects.push(this.project);
-          }
+          // Replace-or-push for new projects too: after a failed save the user stays here and may press Save
+          // again, and a plain push would add the same new project to config.projects a second time.
+          const idx = config.projects.findIndex(p => p.id === this.project.id);
+          if (idx >= 0) config.projects[idx] = this.project; else config.projects.push(this.project);
           persistConfig();
 
-          if (typeof _pushProjectToApi !== 'undefined') {
-            await _pushProjectToApi(this.project).catch(e => console.warn('[sync] project push:', e.message));
+          const push = await _pushProjectToApiDetailed(this.project);
+          const outcome = summarizePushResult(push.failed);
+          if (!outcome.ok) {
+            // Not confirmed by the server: stay on the page, keep the leave-page prompt armed (savedSnapshot untouched).
+            this.jsonError = outcome.message;
+            this.saving = false;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
           }
           // Saved: the redirect below must not trigger the leave-page prompt. Reached only when nothing above threw.
           this.savedSnapshot = JSON.stringify(this.project);

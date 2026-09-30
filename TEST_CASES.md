@@ -251,6 +251,10 @@
 | PC-20 | Confirm dialog ignores a fast repeat click | Trigger any confirmation dialog on this page (e.g. 🗑 Delete actuals, Delete task, Remove resource) → double-click "Confirm" in quick succession | The confirmed action runs only once, not twice | |
 | PC-21 | Leave-page prompt on unsaved changes (2026-09-30) | Open an existing project; (a) leave without edits; (b) click ⟳ Derive from task dates, confirm, then reload; (c) edit a field, click 💾 Save | (a) no prompt; (b) the browser's native leave-page prompt; (c) lands on the portfolio with no prompt | |
 | PC-22 | No leave-page prompt for viewers | Open a project as a viewer, then reload | No prompt (editing is disabled) | |
+| PC-23 | A failed sub-resource save does not look successful (2026-09-30) | On `project-config.html` make `PATCH /api/projects/:id/phasing` answer 500 (console fetch override), press 💾 Save | No redirect; red alert "Save failed: phasing was not saved. Fix the issue and press Save again."; Save enabled again; the other sub-resources were still attempted; form data intact. Verified in a browser 2026-09-30 | |
+| PC-24 | A failed core save stops before the sub-resources (2026-09-30) | Make both `PATCH /api/projects/:id` and `POST /api/projects` answer 500, press 💾 Save | Alert "Save failed: project details were not saved…"; no tasks/phasing/ptc/planning/groups request is sent; no redirect. Verified in a browser 2026-09-30 | |
+| PC-25 | Retry after a failed save (2026-09-30) | After PC-23/PC-24 remove the failure and press 💾 Save again (also for a new, never-saved project) | Redirect to the portfolio; the project exists once in `config.projects` (no duplicate for a new project). Existing project verified 2026-09-30; new-project path by code only | |
+| PC-26 | Leave-page prompt stays armed after a failed save (2026-09-30) | After PC-23 leave the page with unsaved edits | The native leave-page prompt still appears (`savedSnapshot` is not refreshed on failure) | |
 
 ---
 

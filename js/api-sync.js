@@ -237,13 +237,14 @@ async function loadConfigFromApi() {
   }
 }
 
-// Upsert a single project and its sub-resources to the API (fire-and-forget).
-// Returns true once the project's core metadata is confirmed to exist server-side, false if that
-// upsert itself failed (never throws) — sub-resource pushes below (tasks/phasing/etc.) stay
-// best-effort and don't affect this return value. Callers that need to know whether the project
-// is genuinely safe to link to / navigate to (e.g. cgDoGenerateProject) should check it.
-async function _pushProjectToApi(project) {
-  if (!project?.id) return false;
+// Upsert a single project and its sub-resources to the API. Never throws: resolves to
+// { ok, failed } where `failed` lists every step that did not reach the server as
+// { part, error } (part: 'project' | 'tasks' | 'phasing' | 'ptc' | 'planning' | 'groups').
+// If the core metadata upsert fails the sub-resources are not attempted. Callers that must not
+// report success on a partial save (project-config.html's onSave) use this one; the others use
+// _pushProjectToApi() below.
+async function _pushProjectToApiDetailed(project) {
+  if (!project?.id) return { ok: false, failed: [{ part: 'project', error: 'Missing project id' }] };
   const { tasks, phasing, planning, ptc, groups, costGridRef, ...meta } = project;
 
   // Carry the cost-grid version link into the API payload
@@ -266,40 +267,41 @@ async function _pushProjectToApi(project) {
     await Api.projects.update(project.id, meta);
   } catch {
     try { await Api.projects.create({ ...meta, id: project.id }); }
-    catch (e) { console.warn('[sync] project upsert failed:', e.message); return false; }
+    catch (e) {
+      console.warn('[sync] project upsert failed:', e.message);
+      return { ok: false, failed: [{ part: 'project', error: e.message }] };
+    }
   }
 
-  // Tasks
-  if (tasks && tasks.length) {
-    try { await Api.projects.saveTasks(project.id, tasks); }
-    catch (e) { console.warn('[sync] tasks save failed:', e.message); }
+  // Sub-resources: tasks, phasing, PTC, monthly hour planning, functional role groups
+  const failed = [];
+  const steps = [
+    ['tasks',    tasks && tasks.length,                    () => Api.projects.saveTasks(project.id, tasks)],
+    ['phasing',  phasing && Object.keys(phasing).length,   () => Api.projects.phasing(project.id, phasing)],
+    ['ptc',      ptc && ptc.length,                        () => Api.projects.ptc(project.id, ptc)],
+    ['planning', planning && Object.keys(planning).length, () => Api.projects.planning(project.id, planning)],
+    ['groups',   groups && groups.length,                  () => Api.projects.groups(project.id, groups)],
+  ];
+  for (const [part, present, run] of steps) {
+    if (!present) continue;
+    try { await run(); }
+    catch (e) {
+      console.warn(`[sync] ${part} save failed:`, e.message);
+      failed.push({ part, error: e.message });
+    }
   }
+  return { ok: failed.length === 0, failed };
+}
 
-  // Phasing
-  if (phasing && Object.keys(phasing).length) {
-    try { await Api.projects.phasing(project.id, phasing); }
-    catch (e) { console.warn('[sync] phasing save failed:', e.message); }
-  }
-
-  // PTC
-  if (ptc && ptc.length) {
-    try { await Api.projects.ptc(project.id, ptc); }
-    catch (e) { console.warn('[sync] ptc save failed:', e.message); }
-  }
-
-  // Monthly hour planning
-  if (planning && Object.keys(planning).length) {
-    try { await Api.projects.planning(project.id, planning); }
-    catch (e) { console.warn('[sync] planning save failed:', e.message); }
-  }
-
-  // Functional role groups
-  if (groups && groups.length) {
-    try { await Api.projects.groups(project.id, groups); }
-    catch (e) { console.warn('[sync] groups save failed:', e.message); }
-  }
-
-  return true;
+// Upsert a single project and its sub-resources to the API (fire-and-forget).
+// Returns true once the project's core metadata is confirmed to exist server-side, false if that
+// upsert itself failed (never throws) — sub-resource failures stay best-effort and don't affect
+// this return value (see _pushProjectToApiDetailed() for the full outcome). Callers that need to
+// know whether the project is genuinely safe to link to / navigate to (e.g. cgDoGenerateProject)
+// should check it.
+async function _pushProjectToApi(project) {
+  const { failed } = await _pushProjectToApiDetailed(project);
+  return !failed.some(f => f.part === 'project');
 }
 
 // Delete a project from the API (fire-and-forget).
