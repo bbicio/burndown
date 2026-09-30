@@ -19,7 +19,7 @@ async function initNav(activeTab, opts = {}) {
     return null;
   }
 
-  // Store user globally so settings.js and notifications.js can access it
+  // Store user globally so notifications.js can access it
   window.__navUser = user;
 
   const tabs = [
@@ -290,47 +290,6 @@ async function initNav(activeTab, opts = {}) {
     document.body.appendChild(notifEl.firstElementChild);
   }
 
-  // ── SETTINGS MODAL (injected once by nav.js) ────────────────────────────────
-  if (!document.getElementById('settingsModal')) {
-    const stgEl = document.createElement('div');
-    stgEl.innerHTML = `
-      <div class="modal fade" id="settingsModal" tabindex="-1">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-          <div class="modal-content">
-            <div class="modal-header border-0 pb-1">
-              <h5 class="modal-title fw-bold">⚙ App Settings</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-0">
-              <div id="stgTabData" class="p-3">
-                <div class="mb-4">
-                  <div class="fw-semibold mb-1" style="font-size:.875rem">Data Exports</div>
-                  <p class="text-muted small mb-3">Exported files are sent by email to <strong><span class="stg-export-email">—</span></strong></p>
-                  <div class="d-flex gap-2 flex-wrap">
-                    <button class="btn btn-sm btn-outline-secondary" id="btnExport_cost-grids">⬇ Cost Grids</button>
-                    <button class="btn btn-sm btn-outline-secondary" id="btnExport_portfolio">⬇ Project Portfolio</button>
-                    <button class="btn btn-sm btn-outline-secondary stg-admin-only" id="btnExport_ratecards" style="display:none">⬇ Roles in Rate Cards</button>
-                  </div>
-                  <div id="stgExportStatus" style="display:none" class="alert py-2 px-3 small mt-2"></div>
-                </div>
-                <div class="pt-3 border-top">
-                  <div class="fw-semibold mb-2" style="font-size:.875rem">Backup</div>
-                  <div class="d-flex gap-2 flex-wrap">
-                    <button class="btn btn-sm btn-outline-secondary" id="btnFullBackup">⬇ Full Backup (.json)</button>
-                    <button class="btn btn-sm btn-outline-secondary stg-admin-only" id="btnRestoreBackup" style="display:none">⬆ Restore from Backup</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="modal-footer border-0">
-              <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-            </div>
-          </div>
-        </div>
-      </div>`;
-    document.body.appendChild(stgEl.firstElementChild);
-  }
-
   // ── WIRE EVENTS ─────────────────────────────────────────────────────────────
   document.getElementById('nav-logout-btn').addEventListener('click', async () => {
     try { await Api.auth.logout(); } catch (e) {}
@@ -458,36 +417,10 @@ async function initNav(activeTab, opts = {}) {
     });
   });
 
-  // ── SETTINGS MODAL EVENTS (wired once) ──────────────────────────────────────
+  // ── SETTINGS BUTTON (wired once) ────────────────────────────────────────────
   if (!document.getElementById('stgAlreadyWired')) {
-    // Settings open button
     document.getElementById('nav-settings-btn').addEventListener('click', () => {
-      if (typeof openSettingsModal === 'function') openSettingsModal();
-    });
-
-    // Export buttons
-    ['cost-grids', 'portfolio', 'ratecards'].forEach(type => {
-      const btn = document.getElementById(`btnExport_${type}`);
-      if (btn) btn.addEventListener('click', () => {
-        if (typeof stgExport === 'function') stgExport(type);
-      });
-    });
-
-    // Full backup
-    const backupBtn = document.getElementById('btnFullBackup');
-    if (backupBtn) backupBtn.addEventListener('click', () => {
-      if (typeof downloadFullBackup === 'function') downloadFullBackup();
-    });
-
-    // Restore backup
-    const restoreBtn = document.getElementById('btnRestoreBackup');
-    if (restoreBtn) restoreBtn.addEventListener('click', () => {
-      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json';
-      inp.onchange = e => {
-        const file = e.target.files[0];
-        if (file && typeof restoreFromBackup === 'function') restoreFromBackup(file);
-      };
-      inp.click();
+      window.location.href = '/settings.html';
     });
 
     // Mark wired
