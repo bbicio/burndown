@@ -29,3 +29,7 @@ Any inconsistency (deduplicated by `[projectCode, task, role]`) rejects the **en
 ## resolveColumnMap
 
 See `docs/api/lib.md`'s `api/src/lib/` entry for the column-header-resolution algorithm exported from this file for direct `node:test` coverage.
+
+## GET /:projectCode — admin rule (2026-09-30)
+
+An admin or sysadmin is never denied on this route: a project code with no actuals answers `200 []` (before, `visibleCodes()` listed only codes that have timesheets for an admin, so the access check returned 403 and `project-config.html` logged an error). The non-admin rule is unchanged (403 when the code is not visible to the user). Automated as `TS-01`/`TS-02`.

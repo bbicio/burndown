@@ -917,6 +917,20 @@ Project/task descriptions, the shared competence-topic vocabulary and its LLM ex
 | PA-M8 | Enter during IME composition does not send (2026-09-30) | In the assistant textarea compose text with an IME and press Enter to confirm; then Shift+Enter; then plain Enter | IME-confirming Enter does not send; Shift+Enter inserts a newline; plain Enter sends. Verified in a browser 2026-09-30. | |
 | PA-M9 | Planning shows data right after load (regression fixed 2026-09-30) | With at least one active project, open `/planning.html` | The views list the projects at once (not "No resource data found") and the Team assistant project select lists them | |
 
+## 27. Hardening (2026-09-30)
+
+Closing of the open findings of the tag cycle (`docs/superpowers/specs/2026-09-30-hardening-open-findings-design.md`). `HD-01..HD-03` run in `test-api.js` (`VS-01..VS-16`, `PV-01..PV-05`, `TS-01/TS-02`); `api-sync.js`'s `skipEmpty` is unit-tested in `js/api-sync.test.js`; `HD-04..HD-07` are manual.
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| HD-01 | Version routes are scoped to their grid | As a user with access to grid A, call each of the nine cross-grid routes (PATCH/DELETE/duplicate of a version, structure GET/PUT, linked-projects GET/POST/DELETE, refresh-rate, publish, tags) with a version id that belongs to grid B, and with a non-UUID version id | 404 `{ error: 'Version not found' }` for every route; no change to grid B; order is 401, then 404, then 403 | ✓ |
+| HD-02 | PATCH project rejects a non-UUID link id | `PATCH /api/projects/:id` with `cgVersionId: 'abc'`, then `clientId: 'abc'`; then with `cgVersionId: null` and `''` | 400 `<field> must be a valid UUID` for the malformed values; null and empty string still unlink the version/client | ✓ |
+| HD-03 | Admin reading a project without actuals | `GET /api/timesheets/:projectCode` for a code with no actuals as an admin, then as a plain user without access to it | Admin/sysadmin: 200 `[]`; plain user: 403 (rule unchanged) | ✓ |
+| HD-04 | Tag rollback ignores a version switch | Open a version with a tag in `costgrid.html`; in the console make `PUT .../tags` answer 500 after a 2-second delay (`fetch` override); click a tag, then switch to another version within 2 s | The other version's tags and checkboxes stay as loaded (the failed PUT's rollback is not applied to the wrong version) |  |
+| HD-05 | No 403 for an admin on a project without actuals | As an admin open `project-config.html` for a project that has no actuals and watch the console/network | No 403 on `GET /api/timesheets/:code`; the page loads normally |  |
+| HD-06 | Stale copy cannot wipe project sections | Tab 1: open `costgrid.html` (leave it). Tab 2: in `project-config.html` set a phasing and save. Tab 1: press "Add tasks to project" (and, separately, Generate project) | After reopening `project-config.html` the phasing (and PTC/planning/groups) is still there; clearing a section in `project-config.html` itself still works |  |
+| HD-07 | Regression walk of costgrid.html | Open a grid, switch versions, duplicate a version, link a project, delete a Draft version, refresh the rate, add tasks, Generate project | All actions work with no console errors |  |
+
 ---
 
 ## 17. Regression — Cross-feature
