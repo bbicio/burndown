@@ -1322,6 +1322,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       // refreshTimesheetDataFromApi() stays: the views no longer read the browser copy of the
       // actuals; it only keeps the shared timesheetData cache populated for js/upload.js.
       await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
+      // `config` is a plain global, not reactive: computeds that read it (eligibleProjects, taProjectOptions)
+      // depend only on refreshTick and may already have been evaluated (e.g. by the taProjectOptions watcher at
+      // creation) while config.projects was still empty, so force a recompute now that the data is in.
+      this.refreshTick++;
       this.initWindowIfNeeded();
 
       const urlProjectId = new URLSearchParams(window.location.search).get('projectId');
