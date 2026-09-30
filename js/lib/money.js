@@ -34,7 +34,9 @@ export function formatMoney(amount, code, currencies, { rounded = false } = {}) 
   const info = currencyInfo(code, currencies);
   const digits = rounded ? 0 : info.digits;
   const n = parseFloat(amount);
-  const nf = numberFormat(info.locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  // useGrouping 'always': some locales (it, es, pl, pt) skip the separator for 4-digit numbers by default;
+  // amounts are always written with it (€ 1.234,50), in the separator of each currency's locale.
+  const nf = numberFormat(info.locale, { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: 'always' });
   return `${info.symbol} ${nf.format(Number.isFinite(n) ? n : 0)}`;
 }
 

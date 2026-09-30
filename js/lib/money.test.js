@@ -33,6 +33,15 @@ describe('formatMoney', () => {
     expect(formatMoney(12345, 'EUR', C)).toBe('€ 12.345,00');
     expect(formatMoney(12345, 'USD', C)).toBe('$ 12,345.00');
   });
+  it('always separates the thousands, even for 4-digit amounts, with the separator of the currency locale', () => {
+    expect(formatMoney(1234.5, 'EUR', C)).toBe('€ 1.234,50');
+    expect(formatMoney(1234.5, 'USD', C)).toBe('$ 1,234.50');
+    expect(formatMoney(1234.5, 'CHF', C)).toBe("CHF 1'234.50"); // ICU 78: de-CH groups with an ASCII apostrophe
+    expect(formatMoney(1234.5, 'SEK', C)).toBe('kr 1 234,50');
+    expect(formatMoney(1234, 'JPY', C)).toBe('¥ 1,234');
+    expect(formatMoney(1234.5, 'EUR', C, { rounded: true })).toBe('€ 1.235');
+    expect(formatMoney(999.5, 'EUR', C)).toBe('€ 999,50');
+  });
   it('uses the currency fraction digits (JPY has none)', () => {
     expect(formatMoney(12345.6, 'JPY', C)).toBe('¥ 12,346');
   });

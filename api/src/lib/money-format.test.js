@@ -12,6 +12,13 @@ test('money-format: formats with the locale of the currency', () => {
   assert.equal(formatMoney(12345, USD), '$ 12,345.00');
 });
 
+test('money-format: always separates the thousands, even for 4-digit amounts', () => {
+  assert.equal(formatMoney(1234.5, EUR), '€ 1.234,50');
+  assert.equal(formatMoney(1234.5, USD), '$ 1,234.50');
+  assert.equal(formatMoney(1234.5, EUR, { rounded: true }), '€ 1.235');
+  assert.equal(formatMoney(999.5, EUR), '€ 999,50');
+});
+
 test('money-format: uses the currency fraction digits', () => {
   assert.equal(formatMoney(12345.6, JPY), '¥ 12,346');
 });

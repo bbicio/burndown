@@ -19,7 +19,8 @@ function formatMoney(amount, { code, symbol, locale } = {}, { rounded = false } 
   const sym = symbol || (c === 'EUR' ? '€' : c);
   const digits = rounded ? 0 : currencyDigits(loc, c);
   const n = parseFloat(amount);
-  const nf = numberFormat(loc, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  // 'always': amounts keep the thousands separator even for 4-digit numbers (same as js/lib/money.js).
+  const nf = numberFormat(loc, { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: 'always' });
   return `${sym} ${nf.format(Number.isFinite(n) ? n : 0)}`;
 }
 
