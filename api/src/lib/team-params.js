@@ -1,7 +1,7 @@
 'use strict';
 // Validation of the flat `params` object shared by POST /rank, POST /chat and the LLM tools
 // (spec 2026-09-29-planning-team-assistant §8), plus exact-name resolution for excludeResources.
-const { isoDate } = require('./planning-calendar');
+const { isoDate, dateKey } = require('./planning-calendar');
 const { normalizeName } = require('./match-resource');
 
 const MAX_LIST = 20, MAX_EXCLUDED = 50, MAX_STR = 200;
@@ -59,12 +59,18 @@ function parseParams(input) {
   }
   if (has('window')) {
     const w = src.window;
-    const from = w && typeof w === 'object' ? isoDate(w.from) : null;
-    const to = w && typeof w === 'object' ? isoDate(w.to) : null;
-    if (!from || !to) errors.window = 'must be { from, to } with YYYY-MM-DD dates';
-    else if (from > to) errors.window = 'from must not be after to';
-    else if ((to - from) / 86400000 > MAX_WINDOW_WEEKS * 7) errors.window = `window is too long (max ${MAX_WINDOW_WEEKS} weeks)`;
-    else value.window = { from: w.from.slice(0, 10), to: w.to.slice(0, 10) };
+    const isValidDateStr = str => typeof str === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(str);
+    const fromStr = isValidDateStr(w?.from) ? w.from : null;
+    const toStr = isValidDateStr(w?.to) ? w.to : null;
+    if (!fromStr || !toStr) errors.window = 'must be { from, to } with YYYY-MM-DD dates';
+    else {
+      const from = isoDate(fromStr);
+      const to = isoDate(toStr);
+      if (!from || !to) errors.window = 'invalid date (e.g. Feb 31)';
+      else if (from > to) errors.window = 'from must not be after to';
+      else if ((to - from) / 86400000 > MAX_WINDOW_WEEKS * 7) errors.window = `window is too long (max ${MAX_WINDOW_WEEKS} weeks)`;
+      else value.window = { from: dateKey(from), to: dateKey(to) };
+    }
   }
 
   return Object.keys(errors).length ? { ok: false, errors } : { ok: true, value };
@@ -76,7 +82,7 @@ function parseParams(input) {
 function resolveExcluded(names, resources) {
   const byKey = new Map();
   for (const r of resources || []) {
-    const key = normalizeName(`${r.first_name} ${r.last_name}`);
+    const key = normalizeName(`${r.first_name ?? ''} ${r.last_name ?? ''}`);
     if (!key) continue;
     if (!byKey.has(key)) byKey.set(key, []);
     byKey.get(key).push(r.id);
