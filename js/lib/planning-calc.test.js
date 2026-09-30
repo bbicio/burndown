@@ -1,8 +1,7 @@
 import { describe, it, expect, test } from 'vitest';
-import { matchesTaskRole, computeResidual, distributeFutureResidual } from './planning-calc.js';
-import { getCalendarWeeks, workingDaysInWeek, getPlanningPeriods, countFutureTaskWeeks } from './planning-calc.js';
+import { matchesTaskRole, computeResidual } from './planning-calc.js';
+import { getCalendarWeeks, workingDaysInWeek, getPlanningPeriods } from './planning-calc.js';
 import { sumChildBreakdownHours } from './planning-calc.js';
-import { redistributeExcludingInactive } from './planning-calc.js';
 
 describe('sumChildBreakdownHours', () => {
   const weekMap = {
@@ -94,66 +93,6 @@ test('per-task floor can make aggregate To-be-planned exceed aggregate Sold-Actu
   expect(aggregateTbp).toBeGreaterThan(aggregateSoldMinusActuals);
 });
 
-describe('distributeFutureResidual', () => {
-  it('activates pulse based on canonical totalFutureWeeks, independent of the visible week window', () => {
-    // residual 5h over 10 canonical future weeks = 0.5h/week (<1, pulse should activate)
-    // even though the visible window (weeksByMonth) only covers 3 weeks total — this is
-    // exactly the case the old by-owner bug (roleTbp < taskWeeks.length) got wrong:
-    // 5 < 3 is false, so the old code would NOT have activated pulse here.
-    const weeksByMonth = [{ monthKey: '202601', weekKeys: ['w1', 'w2', 'w3'] }];
-    const result = distributeFutureResidual(5, 10, weeksByMonth, true);
-    expect(result).toEqual([{ key: 'w1', hours: 1.5, isPulse: true }]); // 0.5 * 3 weeks
-  });
-
-  it('does not activate pulse when hPerWeek >= 1, regardless of visible window', () => {
-    const weeksByMonth = [{ monthKey: '202601', weekKeys: ['w1', 'w2'] }];
-    const result = distributeFutureResidual(20, 10, weeksByMonth, true); // hPerWeek = 2
-    expect(result.every(r => !r.isPulse)).toBe(true);
-    expect(result).toHaveLength(2);
-  });
-
-  it('distributes proportional to calendar weeks per month, not equally per month', () => {
-    // month1 has 2 weeks, month2 has 1 week — should NOT split 50/50
-    const weeksByMonth = [
-      { monthKey: '202601', weekKeys: ['w1', 'w2'] },
-      { monthKey: '202602', weekKeys: ['w3'] },
-    ];
-    const result = distributeFutureResidual(1.5, 3, weeksByMonth, true); // hPerWeek = 0.5
-    expect(result).toEqual([
-      { key: 'w1', hours: 1.0, isPulse: true },  // 0.5 * 2 weeks
-      { key: 'w3', hours: 0.5, isPulse: true },  // 0.5 * 1 week
-    ]);
-  });
-
-  it('places the pulse-aggregated entry on the first week of the month, not the last', () => {
-    const weeksByMonth = [{ monthKey: '202601', weekKeys: ['w1', 'w2', 'w3'] }];
-    const result = distributeFutureResidual(1, 10, weeksByMonth, true);
-    expect(result[0].key).toBe('w1');
-  });
-
-  it('falls back to even split across all weeks when pulseEnabled is false', () => {
-    const weeksByMonth = [{ monthKey: '202601', weekKeys: ['w1', 'w2'] }];
-    const result = distributeFutureResidual(1, 10, weeksByMonth, false); // hPerWeek = 0.1, but pulse disabled
-    expect(result).toEqual([
-      { key: 'w1', hours: 0.1, isPulse: false },
-      { key: 'w2', hours: 0.1, isPulse: false },
-    ]);
-  });
-
-  it('falls back to residual / visible-week-count when totalFutureWeeks is 0', () => {
-    const weeksByMonth = [{ monthKey: '202601', weekKeys: ['w1', 'w2'] }];
-    const result = distributeFutureResidual(4, 0, weeksByMonth, false);
-    expect(result).toEqual([
-      { key: 'w1', hours: 2, isPulse: false },
-      { key: 'w2', hours: 2, isPulse: false },
-    ]);
-  });
-
-  it('returns an empty array when weeksByMonth is empty', () => {
-    expect(distributeFutureResidual(5, 10, [], true)).toEqual([]);
-  });
-});
-
 describe('getCalendarWeeks', () => {
   it('anchors the first week to the Monday on or before startDate', () => {
     // 2026-01-07 is a Wednesday; the Monday on/before it is 2026-01-05
@@ -229,8 +168,7 @@ describe('getPlanningPeriods', () => {
     const cfg = { startDate: '20260101', endDate: '20260301' };
     // getPlanningPeriods relies on the global getMonthRangeFromCfg (js/portfolio.js) — the real
     // function is loaded as a page global, not imported, so this test stubs it directly on
-    // globalThis exactly like the existing distributeFutureResidual tests stub no globals (this
-    // is the first planning-calc function with an external global dependency).
+    // globalThis — the first planning-calc function with an external global dependency.
     globalThis.getMonthRangeFromCfg = c => ['202601', '202602', '202603'];
     const periods = getPlanningPeriods(cfg, 'monthly');
     expect(periods).toHaveLength(3);
@@ -259,79 +197,5 @@ describe('getPlanningPeriods', () => {
     expect(periods[periods.length - 1].start).toEqual(new Date(2026, 0, 26));
     expect(periods[periods.length - 1].end).toEqual(new Date(2026, 1, 1));
     delete globalThis.getMonthRangeFromCfg;
-  });
-});
-
-describe('countFutureTaskWeeks', () => {
-  const today = new Date(2026, 0, 5); // Monday
-
-  it('returns 0 when the task already ended before today', () => {
-    expect(countFutureTaskWeeks(new Date(2025, 11, 1), new Date(2025, 11, 20), today)).toBe(0);
-  });
-
-  it('counts weeks from today\'s Monday through the task end when the task started in the past', () => {
-    // Task ends 2026-01-18 (Sunday) — 2 full weeks from today's Monday (5th-11th, 12th-18th)
-    const count = countFutureTaskWeeks(new Date(2025, 11, 1), new Date(2026, 0, 18), today);
-    expect(count).toBe(2);
-  });
-
-  it('anchors to the task\'s own start when it starts in the future, not to today', () => {
-    // Task starts 2026-02-02 (Monday), ends 2026-02-08 (Sunday) — exactly 1 week
-    const count = countFutureTaskWeeks(new Date(2026, 1, 2), new Date(2026, 1, 8), today);
-    expect(count).toBe(1);
-  });
-
-  it('returns 0 when tEnd is null/undefined', () => {
-    expect(countFutureTaskWeeks(today, null, today)).toBe(0);
-  });
-});
-
-describe('redistributeExcludingInactive', () => {
-  it('all-active owners: unchanged from the raw proportional split (regression guard)', () => {
-    const totals = { Alice: 60, Bob: 40 };
-    const status = { Alice: 'active', Bob: 'active' };
-    const { props, allInactive } = redistributeExcludingInactive(totals, status);
-    expect(allInactive).toBe(false);
-    expect(props.Alice).toBeCloseTo(0.6);
-    expect(props.Bob).toBeCloseTo(0.4);
-  });
-
-  it('one inactive among several: renormalizes over the remaining actives, preserving their relative ratio', () => {
-    const totals = { Alice: 30, Bob: 20, Carol: 50 }; // Carol inactive
-    const status = { Alice: 'active', Bob: 'active', Carol: 'inactive' };
-    const { props, allInactive } = redistributeExcludingInactive(totals, status);
-    expect(allInactive).toBe(false);
-    expect(props.Carol).toBeUndefined();
-    expect(props.Alice).toBeCloseTo(0.6); // 30 / (30+20)
-    expect(props.Bob).toBeCloseTo(0.4);   // 20 / (30+20)
-  });
-
-  it('every owner inactive: allInactive is true and props is empty (caller routes 100% to TBD)', () => {
-    const totals = { Carol: 50 };
-    const status = { Carol: 'inactive' };
-    const { props, allInactive } = redistributeExcludingInactive(totals, status);
-    expect(allInactive).toBe(true);
-    expect(props).toEqual({});
-  });
-
-  it('an owner name absent from the status map is treated as active (fail-open)', () => {
-    const totals = { Alice: 10 };
-    const status = {}; // e.g. the API call failed, or Alice wasn't in the request batch
-    const { props, allInactive } = redistributeExcludingInactive(totals, status);
-    expect(allInactive).toBe(false);
-    expect(props.Alice).toBeCloseTo(1);
-  });
-
-  it('a single eligible owner gets 100% even when an inactive owner also has actuals', () => {
-    const totals = { Alice: 10, Bob: 90 }; // Bob inactive
-    const status = { Alice: 'active', Bob: 'inactive' };
-    const { props } = redistributeExcludingInactive(totals, status);
-    expect(props.Alice).toBeCloseTo(1);
-  });
-
-  it('empty ownerTotals: allInactive is true (no eligible pool to distribute over)', () => {
-    const { props, allInactive } = redistributeExcludingInactive({}, {});
-    expect(allInactive).toBe(true);
-    expect(props).toEqual({});
   });
 });

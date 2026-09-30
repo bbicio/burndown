@@ -878,7 +878,7 @@ test('projectProjection: no actuals -> a single TBD row; totals are summed up th
   assert.deepEqual(proj.tasks[0].roles[0].owners.map(o => o.name), ['—']);
   assert.equal(proj.sold, 130);
   near(proj.tbp, 130);
-  near(proj.weekTotals['2026-09-14'], 30 + 10);
+  near(proj.weekTotals['2026-09-14'], 100 / 3 + 10);   // Build 100 h / 3 weeks + Docs 30 h / 3 weeks
 });
 
 test('projectProjection: a task with no matching role and a project with no tasks produce no nodes', () => {

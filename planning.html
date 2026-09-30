@@ -225,7 +225,8 @@
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script defer src="js/notifications.js?v=2"></script>
 <script defer src="js/roles.js"></script>
-<script type="module" src="js/lib/planning-calc.js?v=4"></script>
+<script type="module" src="js/lib/planning-calc.js?v=5"></script>
+<script type="module" src="js/lib/planning-model-ui.js?v=1"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/portfolio.js"></script>
@@ -272,11 +273,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         aiSidebarOpen: false,
         aiMessages: [], aiInput: '', aiSending: false,
         returnToBurndown: false, singleProjectId: null,
-        refreshTick: 0, // bumped after an XLS upload to force grouping-view computeds to
-                        // recompute — timesheetData/config.projects are plain globals mutated
-                        // in place by refreshTimesheetDataFromApi(), not Vue-reactive on their own
-        ownerStatusMap: {}, // { [ownerName]: 'active' | 'inactive' }, from POST /api/resources/match-owners;
-                             // an absent name is treated as 'active' by redistributeExcludingInactive (fail-open)
+        refreshTick: 0, // bumped after an XLS upload to force a new modelRequest (refetch of the
+                        // planning model) and to recompute computeds reading config.projects, a
+                        // plain global not Vue-reactive on its own
+        ownerStatusMap: {}, // { [ownerName]: 'active' | 'inactive' }, from POST /api/planning/model
+                             // (ownerStatus of the last loaded model); used only for the inactive badges
+        model: null, modelPending: false, modelError: null, modelSeq: 0, // server projection of the active view (spec §14)
       };
     },
     computed: {
@@ -308,6 +310,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       filteredProjects() {
         return this.eligibleProjects.filter(p => this.projectFilters.size === 0 || this.projectFilters.has(p.id));
+      },
+      modelRequest() {
+        this.refreshTick; this.teamFilters; // reactive dependencies
+        if (!this.windowStart || !this.windowEnd) return null;
+        if (this.windowStart > this.windowEnd) return null; // degenerate window: no fetch, views show their empty state
+        return buildModelRequest({
+          view: this.view, projectIds: this.filteredProjects.map(p => p.id), teams: this.teamFilters,
+          windowStart: this.windowStart, windowEnd: this.windowEnd, today: new Date(), pulse: this.monthlyPulse,
+        });
       },
       planningTitle() {
         if (this.returnToBurndown) {
@@ -357,126 +368,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         // out of scope for this cycle, since no other page calls updatePpWindowWidget with this label.
       },
       byRoleView() {
-        this.teamFilters; // reactive dependency (rolePassesTeamFilter reads the plain global mirror)
-        const projects = this.filteredProjects;
         const weeks    = this.weeks;
-        const now = new Date();
-        const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if (!this.windowStart || !this.windowEnd || this.windowStart > this.windowEnd) {
+          return { html: '<div class="alert alert-info mb-0">No resource data found for the selected filters and date range.</div>', exportRows: [], periodMeta: [] };
+        }
+        if (this.modelPending || !this.model || this.model.view !== 'role') return { html: this.modelPlaceholderHtml(), exportRows: [], periodMeta: [] };
 
-        const roleMap = {};
-        const roleSoldMap = {};
-        const roleActualsMap = {};
-        // Per-role breakdown by (project, task) — one entry per child row in the drill-down.
-        // Sold/actual are accumulated here at the same point as roleSoldMap/roleActualsMap above
-        // (the same soldH/consumedH values, just also kept partitioned by child instead of only
-        // merged into the role-wide total); "to be planned" per child is derived at render time
-        // via computeResidual(sold, actual), not stored, since it's fully determined by the two.
-        const roleChildMap = {};
-
-        projects.forEach(proj => {
-          const projData = timesheetData.filter(r => r.projectId === proj.id);
-          const projLabel = proj.name || proj.id;
-
-          (proj.tasks || []).forEach(task => {
-            if (task.completed) return;
-            const tStart = parseTaskDate(task.startDate || proj.startDate, false);
-            const tEnd   = parseTaskDate(task.endDate   || proj.endDate,   true);
-            const overlapWeeks = weeks.filter(w => w.weekEnd >= tStart && w.weekStart <= tEnd);
-            if (!overlapWeeks.length) return;
-
-            (task.resources || []).forEach(res => {
-              if (!res.role) return;
-              if (!rolePassesTeamFilter(res.role)) return;
-              const soldH = res.soldHours || 0;
-
-              roleSoldMap[res.role] = (roleSoldMap[res.role] || 0) + soldH;
-
-              const consumedH = projData
-                .filter(r => matchesTaskRole(r, task.name, res.role))
-                .reduce((s, r) => s + r.hours, 0);
-              roleActualsMap[res.role] = (roleActualsMap[res.role] || 0) + consumedH;
-
-              if (!roleChildMap[res.role]) roleChildMap[res.role] = {};
-              const childKey = `${projLabel}::${task.name}`;
-              if (!roleChildMap[res.role][childKey]) {
-                roleChildMap[res.role][childKey] = { project: projLabel, task: task.name, sold: 0, actual: 0 };
-              }
-              roleChildMap[res.role][childKey].sold   += soldH;
-              roleChildMap[res.role][childKey].actual += consumedH;
-
-              const residualH = computeResidual(soldH, consumedH);
-
-              if (!roleMap[res.role]) roleMap[res.role] = {};
-
-              const pastWeeks = overlapWeeks.filter(w => w.isPast);
-              pastWeeks.forEach(w => {
-                const actualH = projData
-                  .filter(r => matchesTaskRole(r, task.name, res.role) &&
-                               r.date >= w.weekStart && r.date <= w.weekEnd)
-                  .reduce((s, r) => s + r.hours, 0);
-                if (actualH < 0.01) return;
-                const key = w.weekStart.toISOString();
-                if (!roleMap[res.role][key]) roleMap[res.role][key] = { hours: 0, breakdown: [], isPast: true, isPulse: false };
-                roleMap[res.role][key].hours += actualH;
-                roleMap[res.role][key].breakdown.push({ project: proj.name || proj.id, task: task.name, hours: actualH });
-              });
-
-              const futureWeeks = overlapWeeks.filter(w => !w.isPast);
-              if (!futureWeeks.length || residualH < 0.01) return;
-
-              const pDist    = task.monthlyDistribution;
-              const pDistSum = pDist ? Object.values(pDist).reduce((s, v) => s + v, 0) : 0;
-              const usePDist = pDist && Math.abs(pDistSum - 100) < 0.5;
-
-              if (usePDist) {
-                const futureMthWks = {};
-                futureWeeks.forEach(w => {
-                  const ym = `${w.weekStart.getFullYear()}${String(w.weekStart.getMonth()+1).padStart(2,'0')}`;
-                  if (!futureMthWks[ym]) futureMthWks[ym] = [];
-                  futureMthWks[ym].push(w);
-                });
-                const futureDistTotal = Object.keys(futureMthWks).reduce((s, ym) => s + (pDist[ym] || 0), 0);
-                if (futureDistTotal < 0.01) {
-                  const totalFutureWeeks = countFutureTaskWeeks(tStart, tEnd, todayMidnight);
-                  const hPerWeek = totalFutureWeeks > 0 ? residualH / totalFutureWeeks : residualH / futureWeeks.length;
-                  futureWeeks.forEach(w => {
-                    const key = w.weekStart.toISOString();
-                    if (!roleMap[res.role][key]) roleMap[res.role][key] = { hours: 0, breakdown: [], isPast: false, isPulse: false };
-                    roleMap[res.role][key].hours += hPerWeek;
-                    roleMap[res.role][key].breakdown.push({ project: proj.name || proj.id, task: task.name, hours: hPerWeek });
-                  });
-                } else {
-                  Object.entries(futureMthWks).forEach(([ym, mWeeks]) => {
-                    const mPct   = (pDist[ym] || 0) / futureDistTotal;
-                    const mHours = residualH * mPct;
-                    const hPerWk = mHours / mWeeks.length;
-                    mWeeks.forEach(w => {
-                      const key = w.weekStart.toISOString();
-                      if (!roleMap[res.role][key]) roleMap[res.role][key] = { hours: 0, breakdown: [], isPast: false, isPulse: false };
-                      roleMap[res.role][key].hours += hPerWk;
-                      roleMap[res.role][key].breakdown.push({ project: proj.name || proj.id, task: task.name, hours: hPerWk });
-                    });
-                  });
-                }
-              } else {
-                const totalFutureWeeks = countFutureTaskWeeks(tStart, tEnd, todayMidnight);
-                const byMonth = {};
-                futureWeeks.forEach(w => {
-                  if (!byMonth[w.monthKey]) byMonth[w.monthKey] = [];
-                  byMonth[w.monthKey].push(w.weekStart.toISOString());
-                });
-                const weeksByMonth = Object.entries(byMonth).map(([monthKey, weekKeys]) => ({ monthKey, weekKeys }));
-
-                distributeFutureResidual(residualH, totalFutureWeeks, weeksByMonth, this.monthlyPulse).forEach(entry => {
-                  if (!roleMap[res.role][entry.key]) roleMap[res.role][entry.key] = { hours: 0, breakdown: [], isPast: false, isPulse: entry.isPulse };
-                  if (entry.isPulse) roleMap[res.role][entry.key].isPulse = true;
-                  roleMap[res.role][entry.key].hours += entry.hours;
-                  roleMap[res.role][entry.key].breakdown.push({ project: proj.name || proj.id, task: task.name, hours: entry.hours });
-                });
-              }
-            });
-          });
-        });
+        const { roleMap, roleSoldMap, roleActualsMap, roleChildMap } = adaptRoleModel(this.model.data, this.model.keyMap);
 
         const roles = Object.keys(roleMap).sort();
         const fmtPH = v => v > 0.005 ? (this.roundHours ? Math.round(v) : v.toFixed(2)) + 'h' : '';
@@ -672,9 +570,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { html, exportRows, periodMeta };
       },
       byProjectView() {
-        this.teamFilters; // reactive dependency (rolePassesTeamFilter reads the plain global mirror)
-        const projects = this.filteredProjects;
         const weeks    = this.weeks;
+        if (!this.windowStart || !this.windowEnd || this.windowStart > this.windowEnd) {
+          return { html: '<div class="alert alert-info mb-0">No resource data found for the selected filters and date range.</div>', exportRows: [], periodMeta: [] };
+        }
+        if (this.modelPending || !this.model || this.model.view !== 'project') return { html: this.modelPlaceholderHtml(), exportRows: [], periodMeta: [] };
+        const projectTree = adaptProjectModel(this.model.data, this.model.keyMap).projects;
         const fmtPH = v => v > 0.005 ? (this.roundHours ? Math.round(v) : v.toFixed(2)) + 'h' : '';
         const fmtDate = str => {
           if (!str) return '';
@@ -734,101 +635,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         const exportRows = [{ v: ['Project', 'Task', 'Role', 'Owner', 'Sold', 'From actuals', 'To be planned', ...periodLabels], level: 'header' }];
 
         let tbodyHtml = '';
-        let projGroupIdx = 0;
         let grandSold = 0, grandActuals = 0, grandTbp = 0;
         const grandWeekTotals = {};
         weeks.forEach(w => { grandWeekTotals[w.weekStart.toISOString()] = 0; });
 
-        projects.forEach(proj => {
-          const gid = `proj-${projGroupIdx++}`;
-          const projData = timesheetData.filter(r => r.projectId === proj.id);
-          let projSold = 0, projActuals = 0, projTbp = 0;
-          const projWeekTotals = {};
-          weeks.forEach(w => { projWeekTotals[w.weekStart.toISOString()] = 0; });
+        projectTree.forEach(pNode => {
+          // The server omits projects with no rows; the group index stays the project's position
+          // in filteredProjects, exactly as the old loop numbered it (skipped projects left gaps).
+          const projGroupIdx = this.filteredProjects.findIndex(p => p.id === pNode.id);
+          const proj = this.filteredProjects[projGroupIdx];
+          if (!proj) return;
+          const gid = `proj-${projGroupIdx}`;
+          const projSold = pNode.sold, projActuals = pNode.actuals, projTbp = pNode.tbp;
+          const projWeekTotals = pNode.weekTotals;
 
           let projBodyHtml = '';
           const projExportRows = [];
 
-          (proj.tasks || []).forEach(task => {
-            if (task.completed) return;
-            const tStart = parseTaskDate(task.startDate || proj.startDate, false);
-            const tEnd   = parseTaskDate(task.endDate   || proj.endDate,   true);
-            const overlapWeeks = weeks.filter(w => w.weekEnd >= tStart && w.weekStart <= tEnd);
-            if (!overlapWeeks.length) return;
+          pNode.tasks.forEach(tNode => {
+            const task = { name: tNode.name, startDate: tNode.startDate, endDate: tNode.endDate };
 
-            let taskSold = 0, taskActuals = 0, taskTbp = 0;
-            const taskWeekTotals = {};
-            weeks.forEach(w => { taskWeekTotals[w.weekStart.toISOString()] = 0; });
+            const taskSold = tNode.sold, taskActuals = tNode.actuals, taskTbp = tNode.tbp;
+            const taskWeekTotals = tNode.weekTotals;
 
             let taskBodyHtml = '';
             const taskExportRows = [];
 
-            (task.resources || []).forEach(res => {
-              if (!res.role) return;
-              if (!rolePassesTeamFilter(res.role)) return;
-              const soldH = res.soldHours || 0;
-
-              const taskRoleRecs = projData.filter(r => matchesTaskRole(r, task.name, res.role));
-              const consumedH = taskRoleRecs.reduce((s, r) => s + r.hours, 0);
-              const residualH = computeResidual(soldH, consumedH);
-
-              const ownerTotals = {};
-              taskRoleRecs.forEach(r => { const o = r.owner?.trim() || '—'; ownerTotals[o] = (ownerTotals[o] || 0) + r.hours; });
-              const totalOwnerH = Object.values(ownerTotals).reduce((s, v) => s + v, 0);
-              const ownerNames = Object.keys(ownerTotals).sort((a, b) => ownerTotals[b] - ownerTotals[a]);
-              const hasOwners = ownerNames.length > 0;
-
-              const pastWeeks   = overlapWeeks.filter(w => w.isPast);
-              const futureWeeks = overlapWeeks.filter(w => !w.isPast);
-              const _now = new Date(); const _td = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate());
-              const _totalFw = countFutureTaskWeeks(tStart, tEnd, _td);
-
-              const roleWeekData = {};
-
-              pastWeeks.forEach(w => {
-                const key  = w.weekStart.toISOString();
-                const recs = taskRoleRecs.filter(r => r.date >= w.weekStart && r.date <= w.weekEnd);
-                const tot  = recs.reduce((s, r) => s + r.hours, 0);
-                if (tot < 0.01) return;
-                const byOwner = {};
-                recs.forEach(r => { const o = r.owner?.trim() || '—'; byOwner[o] = (byOwner[o] || 0) + r.hours; });
-                roleWeekData[key] = { total: tot, byOwner, isPulse: false, isPast: true };
-              });
-
-              const { props: ownerFutureProps, allInactive: allOwnersInactive } =
-                redistributeExcludingInactive(ownerTotals, this.ownerStatusMap);
-              const distribute = (byOwner, hours) => {
-                if (hasOwners && !allOwnersInactive) {
-                  Object.entries(ownerFutureProps).forEach(([o, prop]) => { byOwner[o] = (byOwner[o] || 0) + hours * prop; });
-                } else {
-                  byOwner['—'] = (byOwner['—'] || 0) + hours;
-                }
-              };
-
-              if (futureWeeks.length > 0 && residualH > 0.01) {
-                const byMonth = {};
-                futureWeeks.forEach(w => {
-                  if (!byMonth[w.monthKey]) byMonth[w.monthKey] = [];
-                  byMonth[w.monthKey].push(w.weekStart.toISOString());
-                });
-                const weeksByMonth = Object.entries(byMonth).map(([monthKey, weekKeys]) => ({ monthKey, weekKeys }));
-
-                distributeFutureResidual(residualH, _totalFw, weeksByMonth, this.monthlyPulse).forEach(entry => {
-                  if (!roleWeekData[entry.key]) roleWeekData[entry.key] = { total: 0, byOwner: {}, isPulse: entry.isPulse, isPast: false };
-                  roleWeekData[entry.key].total += entry.hours;
-                  if (entry.isPulse) roleWeekData[entry.key].isPulse = true;
-                  distribute(roleWeekData[entry.key].byOwner, entry.hours);
-                });
-              }
-
-              const roleTbp = Object.entries(roleWeekData)
-                .filter(([key]) => weeks.find(w => w.weekStart.toISOString() === key && !w.isPast))
-                .reduce((s, [, d]) => s + d.total, 0);
-
-              taskSold    += soldH;
-              taskActuals += consumedH;
-              taskTbp     += roleTbp;
-              Object.entries(roleWeekData).forEach(([key, d]) => { taskWeekTotals[key] = (taskWeekTotals[key] || 0) + d.total; });
+            tNode.roles.forEach(rNode => {
+              const res = { role: rNode.role };
+              const soldH = rNode.sold, consumedH = rNode.consumed, roleTbp = rNode.tbp, hasOwners = rNode.hasOwners, allOwnersInactive = rNode.allOwnersInactive;
+              const roleWeekData = rNode.weekData;
 
               const noOwnerBadge = !hasOwners ? ' <span style="font-size:var(--text-2xs);background:var(--color-warning-bg);border:1px solid #ffc107;border-radius:var(--radius-xs);padding:0 4px;color:var(--color-warning-text)">no owner</span>' : '';
               const roleStyle    = !hasOwners ? 'color:#dc6500;font-style:italic;' : '';
@@ -858,12 +694,8 @@ document.addEventListener('DOMContentLoaded', async () => {
               taskExportRows.push({ v: ['', '', res.role, '', rnd(soldH), rnd(consumedH), rnd(roleTbp),
                 ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (roleWeekData[k]?.total || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'role' });
 
-              const displayOwners = hasOwners ? (allOwnersInactive ? (ownerNames.includes('—') ? ownerNames : [...ownerNames, '—']) : ownerNames) : ['—'];
-              displayOwners.forEach(ownerName => {
-                const isPlaceholder = ownerName === '—';
-                const ownerActualsH = ownerTotals[ownerName] || 0;
-                const ownerProp     = isPlaceholder && (allOwnersInactive || totalOwnerH <= 0.01) ? 1 : (ownerFutureProps[ownerName] || 0);
-                const ownerTbpH     = roleTbp * ownerProp;
+              rNode.owners.forEach(o => {
+                const ownerName = o.name, isPlaceholder = o.isPlaceholder, ownerActualsH = o.actuals, ownerTbpH = o.tbp;
 
                 const ownerPeriodCells = periods.map(p => {
                   const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()];
@@ -896,13 +728,6 @@ document.addEventListener('DOMContentLoaded', async () => {
               });
             });
 
-            if (!taskBodyHtml) return;
-
-            projSold    += taskSold;
-            projActuals += taskActuals;
-            projTbp     += taskTbp;
-            Object.entries(taskWeekTotals).forEach(([key, h]) => { projWeekTotals[key] = (projWeekTotals[key] || 0) + h; });
-
             projExportRows.push(
               { v: ['', task.name, '', '', rnd(taskSold), rnd(taskActuals), rnd(taskTbp),
                 ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (taskWeekTotals[k] || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'task' },
@@ -919,8 +744,6 @@ document.addEventListener('DOMContentLoaded', async () => {
               </tr>
               ${taskBodyHtml}`;
           });
-
-          if (!projBodyHtml) return;
 
           grandSold    += projSold;
           grandActuals += projActuals;
@@ -998,9 +821,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { html, exportRows, periodMeta };
       },
       byOwnerView() {
-        this.teamFilters; // reactive dependency (rolePassesTeamFilter reads the plain global mirror)
-        const projects = this.filteredProjects;
         const weeks    = this.weeks;
+        if (!this.windowStart || !this.windowEnd || this.windowStart > this.windowEnd) {
+          return { html: '<div class="alert alert-info mb-0">No owner data found for the selected filters.</div>', exportRows: [], periodMeta: [] };
+        }
+        if (this.modelPending || !this.model || this.model.view !== 'owner') return { html: this.modelPlaceholderHtml(), exportRows: [], periodMeta: [] };
         const fmtPH = v => v > 0.005 ? (this.roundHours ? Math.round(v) : v.toFixed(2)) + 'h' : '';
         const rnd   = v => Math.round(v * 10) / 10;
         const SH = 'position:sticky;z-index:4;';
@@ -1035,118 +860,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           }).join('');
         }
 
-        const ownerMap = {};
-
-        projects.forEach(proj => {
-          const projData = timesheetData.filter(r => r.projectId === proj.id);
-          (proj.tasks || []).forEach(task => {
-            if (task.completed) return;
-            const tStart = task.startDate ? parseTaskDate(task.startDate, false) : null;
-            const tEnd   = task.endDate   ? parseTaskDate(task.endDate,   true)  : null;
-
-            const resources = (task.resources || []).filter(res => rolePassesTeamFilter(res.role));
-            if (!resources.length) return;
-            const soldH    = resources.reduce((s, res) => s + (res.soldHours || 0), 0);
-            const taskRecs = projData.filter(r => resources.some(res => matchesTaskRole(r, task.name, res.role)));
-
-            const taskWeekData = {};
-            const ownerTotals  = {};
-            let totalOwnerH    = 0;
-
-            weeks.forEach(w => {
-              if (!w.isPast) return;
-              const key  = w.weekStart.toISOString();
-              const recs = taskRecs.filter(r => { const d = new Date(r.date); d.setHours(0,0,0,0); return d >= w.weekStart && d <= w.weekEnd; });
-              if (!recs.length) return;
-              const byOwner = {};
-              recs.forEach(r => { const o = r.owner?.trim() || '—'; byOwner[o] = (byOwner[o] || 0) + r.hours; });
-              taskWeekData[key] = { total: recs.reduce((s, r) => s + r.hours, 0), byOwner, isPulse: false, isPast: true };
-            });
-            taskRecs.forEach(r => { const o = r.owner?.trim() || '—'; ownerTotals[o] = (ownerTotals[o] || 0) + r.hours; });
-            Object.values(ownerTotals).forEach(h => { totalOwnerH += h; });
-
-            const consumedH = totalOwnerH;
-            const taskTbp   = computeResidual(soldH, consumedH);
-            if (soldH < 0.01 && consumedH < 0.01) return;
-
-            const ownerNames = Object.entries(ownerTotals).filter(([, h]) => h > 0.01).sort((a, b) => b[1] - a[1]).map(([o]) => o);
-            const hasOwners  = ownerNames.length > 0;
-            // Redistribute over the same >0.01h-filtered owner set as ownerNames/displayOwners —
-            // otherwise a near-zero owner (filtered out of display) could still receive a computed
-            // future-hours share that's never added to any displayed total, silently understating
-            // the view's summed "To be planned" vs. taskTbp.
-            const ownerTotalsForSplit = Object.fromEntries(Object.entries(ownerTotals).filter(([, h]) => h > 0.01));
-            const { props: ownerFutureProps, allInactive: allOwnersInactive } =
-              redistributeExcludingInactive(ownerTotalsForSplit, this.ownerStatusMap);
-
-            if (taskTbp > 0.01) {
-              const _owNow = new Date(); const _owTd = new Date(_owNow.getFullYear(), _owNow.getMonth(), _owNow.getDate());
-              const futureWeeks = weeks.filter(w => !w.isPast);
-              const taskWeeks   = tStart && tEnd ? futureWeeks.filter(w => w.weekEnd >= tStart && w.weekStart <= tEnd) : futureWeeks;
-              const totalTaskFw = (tStart && tEnd) ? countFutureTaskWeeks(tStart, tEnd, _owTd) : taskWeeks.length;
-              const distribute  = (byOwner, hours) => {
-                if (!allOwnersInactive) Object.entries(ownerFutureProps).forEach(([o, prop]) => { byOwner[o] = (byOwner[o] || 0) + hours * prop; });
-                else byOwner['—'] = (byOwner['—'] || 0) + hours;
-              };
-
-              const monthMap = {};
-              taskWeeks.forEach(w => {
-                if (!monthMap[w.monthKey]) monthMap[w.monthKey] = [];
-                monthMap[w.monthKey].push(w.weekStart.toISOString());
-              });
-              const weeksByMonth = Object.entries(monthMap).map(([monthKey, weekKeys]) => ({ monthKey, weekKeys }));
-
-              distributeFutureResidual(taskTbp, totalTaskFw, weeksByMonth, this.monthlyPulse).forEach(entry => {
-                if (!taskWeekData[entry.key]) taskWeekData[entry.key] = { total: 0, byOwner: {}, isPulse: entry.isPulse, isPast: false };
-                taskWeekData[entry.key].total += entry.hours;
-                if (entry.isPulse) taskWeekData[entry.key].isPulse = true;
-                distribute(taskWeekData[entry.key].byOwner, entry.hours);
-              });
-            }
-
-            const displayOwners = hasOwners ? (allOwnersInactive ? (ownerNames.includes('—') ? ownerNames : [...ownerNames, '—']) : ownerNames) : ['—'];
-            displayOwners.forEach(ownerName => {
-              const isPlaceholder = ownerName === '—';
-              // Sold hours reflect budget already attributed to work actually done, so they use the
-              // original actuals-proportional split (same formula this view used before this cycle,
-              // unaffected by inactive status) — only the FUTURE ("to be planned") split below
-              // excludes inactive owners. This keeps ownerSold moving with ownerActuals for every
-              // owner, active or not, and gives the synthetic TBD placeholder row (no real actuals
-              // of its own) 0 Sold rather than inheriting an active owner's already-earned budget.
-              const ownerActualsProp = totalOwnerH > 0.01 ? (ownerTotals[ownerName] || 0) / totalOwnerH : (isPlaceholder ? 1 : 0);
-              const ownerProp    = isPlaceholder && (allOwnersInactive || totalOwnerH <= 0.01) ? 1 : (ownerFutureProps[ownerName] || 0);
-              const ownerSold    = soldH * ownerActualsProp;
-              const ownerActuals = ownerTotals[ownerName] || 0;
-              const ownerTbpH    = taskTbp * ownerProp;
-
-              if (!ownerMap[ownerName]) ownerMap[ownerName] = { sold: 0, actuals: 0, tbp: 0, weekTotals: {}, projects: {} };
-              const om = ownerMap[ownerName];
-              om.sold += ownerSold; om.actuals += ownerActuals; om.tbp += ownerTbpH;
-
-              if (!om.projects[proj.id]) om.projects[proj.id] = { name: proj.name || proj.id, sold: 0, actuals: 0, tbp: 0, weekTotals: {}, tasks: {} };
-              const pm = om.projects[proj.id];
-              pm.sold += ownerSold; pm.actuals += ownerActuals; pm.tbp += ownerTbpH;
-
-              if (!pm.tasks[task.name]) pm.tasks[task.name] = { sold: 0, actuals: 0, tbp: 0, weekData: {} };
-              const tm = pm.tasks[task.name];
-              tm.sold += ownerSold; tm.actuals += ownerActuals; tm.tbp += ownerTbpH;
-
-              weeks.forEach(w => {
-                const key = w.weekStart.toISOString();
-                const d   = taskWeekData[key];
-                if (!d) return;
-                const oh = d.byOwner[ownerName] || 0;
-                if (oh < 0.001) return;
-                if (!tm.weekData[key]) tm.weekData[key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
-                tm.weekData[key].hours += oh;
-                if (!pm.weekTotals[key]) pm.weekTotals[key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
-                pm.weekTotals[key].hours += oh;
-                if (!om.weekTotals[key]) om.weekTotals[key] = { hours: 0, isPulse: d.isPulse, isPast: d.isPast };
-                om.weekTotals[key].hours += oh;
-              });
-            });
-          });
-        });
+        const ownerMap = adaptOwnerModel(this.model.data, this.model.keyMap);
 
         if (Object.keys(ownerMap).length === 0) {
           return { html: '<div class="alert alert-info mb-0">No owner data found for the selected filters.</div>', exportRows: [], periodMeta: [] };
@@ -1351,35 +1065,44 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.classList.toggle('pp-fullwidth', this.fullWidth);
       },
       bumpRefresh() { this.refreshTick++; },
-      async refreshOwnerStatuses() {
-        const names = [...new Set(
-          timesheetData
-            .map(r => r.owner?.trim())
-            .filter(name => name) // drop empty/whitespace-only — the '—' placeholder is
-                                   // synthesized client-side from a missing owner, never a
-                                   // real name sent to the matching endpoint
-        )];
-        if (!names.length) { this.ownerStatusMap = {}; return; }
+      async loadModel() {
+        const req = this.modelRequest;
+        if (!req) return;
+        const seq = ++this.modelSeq;
+        this.modelPending = true; this.modelError = null;
         try {
-          const res = await fetch('/api/resources/match-owners', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify({ names }),
+          const res = await fetch('/api/planning/model', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(req),
           });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          this.ownerStatusMap = await res.json();
+          const data = await res.json();
+          if (seq !== this.modelSeq) return;                       // a newer request superseded this one
+          // Replace: every view renders from the server model, whose ownerStatus covers exactly
+          // the owners that model shows (badges only; the split itself is done server-side).
+          this.ownerStatusMap = data.ownerStatus || {};
+          // key: the request that produced this response, so a caller (the parity capture) can
+          // check the loaded model matches the current modelRequest.
+          this.model = { view: data.view, data, keyMap: buildKeyMap(this.weeks), key: JSON.stringify(req) };
         } catch (err) {
-          console.warn('[planning] refreshOwnerStatuses failed, treating all owners as active:', err.message);
-          this.ownerStatusMap = {};
+          if (seq !== this.modelSeq) return;
+          console.warn('[planning] model load failed:', err.message);
+          this.modelError = err.message; this.model = null;
+        } finally {
+          if (seq === this.modelSeq) this.modelPending = false;
         }
+      },
+      modelPlaceholderHtml() {
+        if (this.modelError) return `<div class="alert alert-danger mb-0">Could not load the planning data (${esc(this.modelError)}). Try reloading the page.</div>`;
+        return '<div class="text-muted p-3">Loading planning data…</div>';
       },
       async onFileInputChange(e) {
         const f = e.target.files[0];
         e.target.value = '';
-        if (f) await readXLS(f, async () => { await this.refreshOwnerStatuses(); this.bumpRefresh(); });
+        if (f) await readXLS(f, async () => { this.bumpRefresh(); });
       },
       async exportCurrentView() {
+        // Every view is model-backed: nothing to export while loading or after a failed load.
+        if (this.modelPending || this.modelError) return;
         const rnd = v => Math.round(v * 10) / 10;
         if (this.view === 'byrole') {
           const { exportRows, periodMeta } = this.byRoleView;
@@ -1539,6 +1262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // keeps rolePassesTeamFilter's behavior correct without reimplementing its logic in Vue
       // or modifying js/core.js (out of scope — shared by every page).
       teamFilters: { handler(v) { portfolioTeamFilters = v; }, immediate: true },
+      modelRequest() { this.loadModel(); },
     },
     async created() {
       const user = await initNav('planning', { breadcrumbs: [
@@ -1548,8 +1272,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!user) return;
 
       await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi()]);
+      // refreshTimesheetDataFromApi() stays: the views no longer read the browser copy of the
+      // actuals, but the AI sidebar's buildPlanningContext() (js/ai.js) still does.
       await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
-      await this.refreshOwnerStatuses();
       this.initWindowIfNeeded();
 
       const urlProjectId = new URLSearchParams(window.location.search).get('projectId');
