@@ -753,6 +753,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | GET | /api/reporting/portfolio | ✅ | Portfolio budget overview |
 | GET | /api/reporting/projects/:id | ✅ | Single project reporting |
 | GET | /api/reporting/planning | ✅ | Resource planning aggregates |
+| POST | /api/planning/model | ✅ | (2026-09-30, Cycle A) The hours calculation behind `planning.html`'s three views, computed server-side. Body `{ view: 'role'\|'project'\|'owner', projectIds, teams?, from, to, asOf, pulse }`; visibility = same rule as `GET /api/projects` (unknown / not-visible ids are ignored silently); returns the projection of the requested view plus `ownerStatus`. Data-only 30 s cache cleared by a write-middleware in `api/src/index.js`. See `docs/api/planning-model.md` |
 | GET | /api/reporting/pipeline | ✅ | Pipeline kanban data |
 | GET | /api/reporting/phasing?year= | admin | Monthly hours+amount breakdown for all versions in the year (all pipeline stages) |
 | GET | /api/reporting/project-phasing?year= | admin | Same breakdown read directly from `projects.phasing` (reflects Reforecast if run+saved); excludes Draft and Canceled |
@@ -932,7 +933,7 @@ volumes:
 burndown/
   api/                    ← Node.js + Express backend
     src/
-      routes/             ← auth, users, config, cost-grids, projects, timesheets, reporting, exports, notifications, reset, attribute-lists, resources, profile-jobs, topics
+      routes/             ← auth, users, config, cost-grids, projects, timesheets, reporting, exports, notifications, reset, attribute-lists, resources, profile-jobs, topics, planning
       lib/                ← pure functions extracted for unit testing (node:test), mirroring the frontend's js/lib/
                             convention. Full narrative: docs/api/lib.md
       middleware/         ← auth guard (requireAuth, requireAdmin, requireSysAdmin — see §3.1)
@@ -942,7 +943,10 @@ burndown/
                             profile-engine (Cycle 3c: queue + per-code processing into contributions/profiles) and
                             profile-worker (60 s self-scheduling tick, started from index.js). See docs/api/profile-engine.md;
                             topic-extraction (topics cycle: LLM extraction of competence topics from descriptions via the
-                            Anthropic Messages API, called by the engine; rules in lib/topic-extract.js). See docs/api/topics.md
+                            Anthropic Messages API, called by the engine; rules in lib/topic-extract.js). See docs/api/topics.md;
+                            planning-data (Cycle A, 2026-09-30: loads + caches projects/actuals/resources for the planning
+                            model; rules in lib/planning-model.js, planning-calendar.js, planning-distribution.js,
+                            planning-request.js). See docs/api/planning-model.md
       create-admin.js     ← CLI bootstrap: create/reset admin user (always role='admin')
       promote-sysadmin.js ← CLI: promote an existing user to role='sysadmin'
     Dockerfile
@@ -971,7 +975,10 @@ burndown/
                             (`export function ...`) with a `window.<name> = <name>` bridge for classic-script
                             callers; modules: cfg-parse.js, planning-calc.js, status-rules.js, costgrid-calc.js,
                             portfolio-calc.js, pipeline-calc.js, notif-browser.js, team-ui.js (team.html only; incl. buildProfileTree),
-                            profile-jobs-ui.js (profile-jobs.html only, 2026-09, Cycle 3d).
+                            profile-jobs-ui.js (profile-jobs.html only, 2026-09, Cycle 3d),
+                            planning-model-ui.js (planning.html only, 2026-09-30: request builder + response adapters for the server
+                            planning model; planning-calc.js kept only matchesTaskRole/computeResidual/getCalendarWeeks/
+                            sumChildBreakdownHours after the hours calculation moved to the backend).
                             Full narrative: docs/js/lib.md
     roles.js              ← `loadRolesFromApi`/`saveRoles` (no-op)/`getRoles` only — its former roles-management modal UI was confirmed unreachable and deleted in the 2026-08 dead-code cleanup; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role — role shape: `{ id, label, code, rate, rateOverrides }`
     ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js; `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects per-role `rateOverrides` and sends them to the API
@@ -990,7 +997,9 @@ burndown/
   planning.html           ← resource planning (filters, By Role/By Project/By Owner grouping views,
                             monthly/weekly interval, monthly pulse, rounded-hours toggle, XLS
                             export/upload, AI Planning Sidebar), Vue 3 (CDN, no build step, same
-                            pattern as pipeline.html/costgrid.html). Full narrative: docs/pages/planning.md
+                            pattern as pipeline.html/costgrid.html); since 2026-09-30 the views render the
+                            server planning model (`POST /api/planning/model`) instead of calculating in the
+                            browser. Full narrative: docs/pages/planning.md
   costgrid.html           ← cost grid editor (phase/task/role table, phasing panel, version tabs,
                             toolbar), Vue 3 (CDN, no build step, same pattern as pipeline.html/
                             portfolio.html). Full narrative: docs/pages/costgrid.md
