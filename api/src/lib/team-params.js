@@ -5,7 +5,7 @@ const { isoDate, dateKey } = require('./planning-calendar');
 const { normalizeName } = require('./match-resource');
 
 const MAX_LIST = 20, MAX_EXCLUDED = 50, MAX_STR = 200;
-const MAX_WINDOW_WEEKS = 104;
+const { MAX_WINDOW_WEEKS } = require('./team-load');
 const KEYS = ['roles', 'excludeResources', 'requireTags', 'preferTags', 'minFreeHoursPerWeek', 'topN', 'window', 'includeAlternatives'];
 
 const okStr = s => typeof s === 'string' && s.trim() !== '' && s.length <= MAX_STR;
