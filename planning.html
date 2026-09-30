@@ -131,7 +131,7 @@
   </div>
   <div class="p-3 border-bottom" style="flex-shrink:0">
     <div class="d-flex gap-2 align-items-center mb-2">
-      <select class="form-select form-select-sm" style="max-width:420px" v-model="taProjectId" @change="taNewChat()">
+      <select class="form-select form-select-sm" style="max-width:420px" v-model="taProjectId" :disabled="taBusy" @change="taNewChat()">
         <option value="">Select a project…</option>
         <option v-for="o in taProjectOptions" :key="o.id" :value="o.id">{{ o.label }}</option>
       </select>
@@ -248,7 +248,7 @@
 <script defer src="js/roles.js"></script>
 <script type="module" src="js/lib/planning-calc.js?v=5"></script>
 <script type="module" src="js/lib/planning-model-ui.js?v=1"></script>
-<script type="module" src="js/lib/team-assistant-ui.js?v=1"></script>
+<script type="module" src="js/lib/team-assistant-ui.js?v=2"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/portfolio.js"></script>
@@ -1046,25 +1046,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       async taRank() {
         if (!this.taProjectId || this.taBusy) return;
+        const projectId = this.taProjectId;
         this.taBusy = true; this.taError = null;
         try {
-          this.taApply(await this.taCall('rank', { projectId: this.taProjectId, asOf: localYmd(new Date()), params: this.taParams }));
-        } catch (err) { this.taError = err.message; }
+          const data = await this.taCall('rank', { projectId, asOf: localYmd(new Date()), params: this.taParams });
+          if (!isStaleResponse(projectId, this.taProjectId)) this.taApply(data);
+        } catch (err) { if (!isStaleResponse(projectId, this.taProjectId)) this.taError = err.message; }
         finally { this.taBusy = false; }
       },
       async taSend() {
         const text = this.taInput.trim();
         if (!text || !this.taProjectId || this.taBusy) return;
+        const projectId = this.taProjectId;
         this.taMessages.push({ role: 'user', content: text });
         this.taInput = ''; this.taBusy = true; this.taError = null;
         try {
           const data = await this.taCall('chat', {
-            projectId: this.taProjectId, asOf: localYmd(new Date()), params: this.taParams, messages: this.taMessages,
+            projectId, asOf: localYmd(new Date()), params: this.taParams, messages: chatPayload(this.taMessages),
           });
-          this.taMessages.push({ role: 'assistant', content: data.reply });
-          this.taApply(data);
+          if (!isStaleResponse(projectId, this.taProjectId)) {
+            this.taMessages.push({ role: 'assistant', content: data.reply });
+            this.taApply(data);
+          }
         } catch (err) {
-          this.taMessages.push({ role: 'assistant', content: `Sorry, the assistant could not answer (${err.message}). You can still press "Calculate team".` });
+          // local: true keeps this bubble out of the history sent back to the server (chatPayload).
+          if (!isStaleResponse(projectId, this.taProjectId)) this.taMessages.push({ role: 'assistant', local: true, content: `Sorry, the assistant could not answer (${err.message}). You can still press "Calculate team".` });
         } finally {
           this.taBusy = false;
           this.$nextTick(() => { const el = this.$refs.taChatEl; if (el) el.scrollTop = el.scrollHeight; });

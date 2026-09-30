@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderChatText, rowView, projectOptions, starterPrompts, tableTitle } from './team-assistant-ui.js';
+import { renderChatText, rowView, projectOptions, starterPrompts, tableTitle, isStaleResponse, chatPayload } from './team-assistant-ui.js';
 
 describe('renderChatText', () => {
   it('escapes HTML from the model before applying bold and line breaks', () => {
@@ -64,5 +64,31 @@ describe('starterPrompts / tableTitle', () => {
     expect(tableTitle('best')).toBe('Best team');
     expect(tableTitle('alternative')).toBe('Alternative team');
     expect(tableTitle('available')).toBe('Available team');
+  });
+});
+
+describe('isStaleResponse', () => {
+  it('is stale when the selected project changed while the request was in flight', () => {
+    expect(isStaleResponse('a', 'b')).toBe(true);
+    expect(isStaleResponse('a', '')).toBe(true);
+    expect(isStaleResponse('a', 'a')).toBe(false);
+  });
+});
+
+describe('chatPayload', () => {
+  const mk = (n, extra = {}) => Array.from({ length: n }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: `m${i}`, ...extra }));
+  it('sends at most the last 20 messages, as { role, content } only', () => {
+    const out = chatPayload(mk(30));
+    expect(out.length).toBe(20);
+    expect(out[19].content).toBe('m29');
+    expect(Object.keys(out[0]).sort()).toEqual(['content', 'role']);
+  });
+  it('excludes local error bubbles', () => {
+    const msgs = [{ role: 'user', content: 'a' }, { role: 'assistant', content: 'Sorry', local: true }, { role: 'user', content: 'b' }];
+    expect(chatPayload(msgs).map(m => m.content)).toEqual(['a', 'b']);
+  });
+  it('trims before filtering nothing away from the window: local bubbles do not shrink the 20-message window', () => {
+    const msgs = mk(25).map((m, i) => (i === 24 ? m : i % 5 === 0 ? { ...m, local: true } : m));
+    expect(chatPayload(msgs).length).toBeLessThanOrEqual(20);
   });
 });

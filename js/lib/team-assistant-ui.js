@@ -51,8 +51,20 @@ export function tableTitle(key) {
   return { best: 'Best team', alternative: 'Alternative team', available: 'Available team' }[key] || key;
 }
 
+// A response that belongs to a project other than the one now selected must be discarded.
+export function isStaleResponse(requestedProjectId, currentProjectId) {
+  return requestedProjectId !== currentProjectId;
+}
+
+// What /chat receives: the last 20 real exchanges ({ role, content } only); local error bubbles never go back to the server.
+export function chatPayload(messages) {
+  return (messages || []).filter(m => !m.local).slice(-20).map(m => ({ role: m.role, content: m.content }));
+}
+
 window.renderChatText = renderChatText;
 window.rowView = rowView;
 window.projectOptions = projectOptions;
 window.starterPrompts = starterPrompts;
 window.tableTitle = tableTitle;
+window.isStaleResponse = isStaleResponse;
+window.chatPayload = chatPayload;
