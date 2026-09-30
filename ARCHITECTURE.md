@@ -725,6 +725,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | GET/POST/DELETE | /api/cost-grids/:id/versions/:vId/linked-projects | owner/admin | Manage linked projects |
 | GET/POST/DELETE | /api/cost-grids/:id/shares | owner/admin | Manage sharing; `POST` (grant) emails and in-app-notifies the recipient (2026-09: in-app notification added — was email-only before); `DELETE` (revoke) still sends neither, unlike the equivalent project-share revoke |
 | PATCH | /api/cost-grids/:id/reassign-owner | admin/sysadmin | Reassign the proposal's owner (2026-09); also grants the new owner `editor` on every linked project and both emails and in-app-notifies them (2026-09: in-app notification added — was email-only before) — see its own note above |
+| ANY | /api/cost-grids/:id/versions/:vId/... | per route | (2026-09-30) Every route with a `:vId` passes through a router-level guard (`versionScope`, registered after `requireAuth`): a version that is not in grid `:id`, or a non-UUID `:id`/`:vId`, answers **404 `Version not found`**. Order: 401 → 404 → 403 (`canEdit`/`canAccess` stay in each handler). Covers PATCH, DELETE, `duplicate`, `publish`, `structure` GET/PUT, `linked-projects` GET/POST/DELETE, `refresh-rate`, `tags` GET/PUT |
 | GET/PUT | /api/cost-grids/:id/versions/:vId/tags | owner/admin | (2026-09, Cycle 2) Get / replace-all the version's `attribute_lists` tags — `PUT` body `{ itemIds: string[] }`, rejects with 400 if the version is `locked`, and with 400 (not 500) if an `itemId` doesn't exist (translated from the FK violation) or isn't a UUID. Since Cycle 3a both routes return **404** when `:vId` doesn't belong to `:id` (`versionInGrid` / `cost_grid_id = :id`), and `PUT` uses a bulk `unnest($2::uuid[])` insert |
 
 ### Projects
@@ -732,7 +733,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | GET/POST | /api/projects | ✅ | List / create — list response includes `my_permission` computed for the calling user |
-| PATCH/DELETE | /api/projects/:id | owner/admin | Update / delete |
+| PATCH/DELETE | /api/projects/:id | owner/admin | Update / delete; `PATCH` answers 400 (`<field> must be a valid UUID`) for a non-UUID `cgVersionId` or `clientId` (null / `''` still unlink; `programId` is `VARCHAR`, not validated) — 2026-09-30 |
 | GET/PUT | /api/projects/:id/tasks | owner/admin | Get / save bulk tasks |
 | PATCH | /api/projects/:id/phasing | owner/admin | Update phasing |
 | PATCH | /api/projects/:id/ptc | owner/admin | Update PTC |
@@ -748,6 +749,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | GET | /api/timesheets | ✅ | List uploaded timesheets (summary), one row per `project_code`; each row also carries `client_name`, `project_name`, `currency`, `pipeline_year` (visibility-scoped, see §5.8) |
 | GET | /api/timesheets/all-data | ✅ | All timesheet rows merged (for dashboard seed) |
 | POST | /api/timesheets/upload | ✅ | Upload XLS file; rejects the entire file (400, no partial writes) if any row's date cannot be resolved to a valid calendar date |
+| GET | /api/timesheets/:projectCode | ✅ | Uploads for one project code. Admin/sysadmin: never denied, no actuals → `200 []` (2026-09-30; before, `visibleCodes()` only listed codes that had timesheets, so an admin got a 403). Non-admin: 403 unless the project is visible to them |
 | DELETE | /api/timesheets/:projectCode | owner/admin | Remove timesheet data |
 | GET | /api/reporting/portfolio | ✅ | Portfolio budget overview |
 | GET | /api/reporting/projects/:id | ✅ | Single project reporting |
