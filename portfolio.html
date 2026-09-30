@@ -486,7 +486,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script defer src="js/api.js?v=7"></script>
-<script defer src="js/core.js?v=6"></script>
+<script defer src="js/core.js?v=7"></script>
 <script defer src="js/settings.js?v=1"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script defer src="js/notifications.js?v=2"></script>
@@ -909,11 +909,6 @@
           this.refreshTick++;
           if (this.view === 'dashboard') this.$nextTick(() => this.renderBurndownChart());
         }
-      });
-
-      document.getElementById('btnCopyAi').addEventListener('click', () => {
-        const text = document.getElementById('aiResult').textContent;
-        if (text) navigator.clipboard.writeText(text).catch(() => {});
       });
 
       const params = new URLSearchParams(window.location.search);

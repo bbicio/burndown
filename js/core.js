@@ -113,10 +113,6 @@ function addToDataIndex()        { /* no-op: Map tracks keys automatically */ }
 function removeFromDataIndex(pid){ _timesheetProjectData.delete(pid); }
 function saveProjectData(pid, rows) { _timesheetProjectData.set(pid, rows); }
 function loadProjectData(pid)    { return _timesheetProjectData.get(pid) || []; }
-function refreshTimesheetData() {
-  timesheetData = [];
-  _timesheetProjectData.forEach(rows => timesheetData.push(...rows));
-}
 function clearProjectData(pid) {
   _timesheetProjectData.delete(pid);
   timesheetData = timesheetData.filter(r => r.projectId !== pid && r.projectName !== pid);
