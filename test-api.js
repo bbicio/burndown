@@ -2139,6 +2139,29 @@ async function testPlanningModel() {
   ok(p7o.status === 200 && JSON.stringify(p7o.data?.ownerMap) === '{}' && JSON.stringify(p7o.data?.ownerStatus) === '{}', 'PM-07 owner view → ownerMap {} and ownerStatus {}');
 }
 
+function startAssistantStub(port, state) {
+  return new Promise(resolve => {
+    const server = http.createServer((req, res) => {
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', () => {
+        let parsed = {};
+        try { parsed = JSON.parse(body); } catch { /* ignore */ }
+        state.bodies.push(parsed);
+        if (state.mode === 'http500') { res.statusCode = 500; res.end('secret'); return; }
+        res.setHeader('content-type', 'application/json');
+        const sawResult = JSON.stringify(parsed.messages || []).includes('tool_result');
+        if (state.mode === 'tool' && !sawResult) {
+          res.end(JSON.stringify({ stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'tu1', name: 'rank_team', input: state.input || { topN: 2 } }] }));
+        } else {
+          res.end(JSON.stringify({ content: [{ type: 'text', text: 'Summary: the suggested team is ready.' }] }));
+        }
+      });
+    });
+    server.listen(port, '0.0.0.0', () => resolve(server));
+  });
+}
+
 async function testPlanningAssistant() {
   section('Planning assistant');
   const ts = `${Date.now()}${++_fixtureSeq}`;
@@ -2206,6 +2229,34 @@ async function testPlanningAssistant() {
   ok(r4.status === 400 && r4.data?.fields?.excludeResources, 'PA-07 unknown excluded name → 400 with a field error');
   const r5 = await rank({ params: { roles: ['NOPE'] } });
   ok(r5.status === 400 && r5.data?.fields?.roles, 'PA-07 unknown role → 400 with a field error');
+
+  // ── /chat (LLM stub) ──
+  const chatBody = (over = {}) => ({ projectId: target, asOf: '2099-01-10', params: {}, messages: [{ role: 'user', content: 'Who is the best team?' }], ...over });
+  ok((await api('POST', '/api/planning-assistant/chat', chatBody())).status === 401, 'PA-08 chat without auth → 401');
+  ok((await api('POST', '/api/planning-assistant/chat', chatBody({ messages: [] }), adminCookie)).status === 400, 'PA-08 empty messages → 400');
+  ok((await api('POST', '/api/planning-assistant/chat', chatBody({ messages: [{ role: 'assistant', content: 'hi' }] }), adminCookie)).status === 400, 'PA-08 last message must be from the user → 400');
+
+  if (process.env.LLM_STUB_ENABLED !== '1') { pass('PA-09 LLM stub not enabled (run via scripts/run-tests.sh) — chat cases skipped'); return; }
+  const state = { mode: 'tool', bodies: [], input: { topN: 2 } };
+  const server = await startAssistantStub(4010, state);
+  try {
+    const c1 = await api('POST', '/api/planning-assistant/chat', chatBody(), adminCookie);
+    ok(c1.status === 200 && /suggested team/.test(c1.data?.reply || ''), 'PA-09 chat returns the model summary');
+    ok(c1.data?.params?.topN === 2, 'PA-09 params come from the validated tool call');
+    ok(Array.isArray(c1.data?.tables?.best) && c1.data.tables.best.length > 0, 'PA-09 tables come from the backend ranking, not from the text');
+    ok(state.bodies.length === 2 && JSON.stringify(state.bodies[1].messages).includes('tool_result'), 'PA-09 the tool result was fed back to the model');
+    ok(JSON.stringify(state.bodies[0].system).includes('<project_data>') && JSON.stringify(state.bodies[0].system).includes(`__pa_target_${ts}__`), 'PA-09 the project summary is sent inside the data block');
+
+    state.bodies.length = 0; state.input = { topN: 99 };            // invalid tool params → error goes back to the model
+    const c2 = await api('POST', '/api/planning-assistant/chat', chatBody(), adminCookie);
+    ok(c2.status === 200 && c2.data?.tables === null, 'PA-10 invalid tool params: no tables, conversation continues');
+    ok(JSON.stringify(state.bodies[1]?.messages || []).includes('Invalid parameters'), 'PA-10 the model is told which parameter was invalid');
+
+    state.mode = 'http500';
+    const c3 = await api('POST', '/api/planning-assistant/chat', chatBody(), adminCookie);
+    ok(c3.status === 503 && c3.data?.error === 'Assistant unavailable' && !JSON.stringify(c3.data).includes('secret'), 'PA-11 LLM failure → 503 without the response body');
+    ok((await rank({})).status === 200, 'PA-11 /rank keeps working while the assistant is down');
+  } finally { server.close(); }
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────

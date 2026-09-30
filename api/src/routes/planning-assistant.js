@@ -2,9 +2,13 @@ const express = require('express');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { isoDate } = require('../lib/planning-calendar');
 const { parseParams } = require('../lib/team-params');
+const { SYSTEM_PROMPT, TOOLS, buildContextBlock, compactRankResult, runChat } = require('../lib/assistant-chat');
 const svc = require('../services/planning-assistant');
 
-function makeRouter() {
+const MAX_MESSAGES = 40, MAX_CONTENT = 4000;
+
+function makeRouter(deps = {}) {
+  const llm = deps.llm || require('../services/llm');
   const router = express.Router();
   router.use(requireAuth, requireAdmin);
 
@@ -33,6 +37,57 @@ function makeRouter() {
       const ctx = await svc.prepare({ projectId: base.projectId });
       res.json(svc.rank(ctx, { params: p.value, asOf: base.asOf }));
     } catch (err) { sendError(res, next, err); }
+  });
+
+  // POST /api/planning-assistant/chat — { projectId, asOf, messages, params } → { reply, params, tables, requirement }
+  router.post('/chat', async (req, res, next) => {
+    try {
+      const base = parseBase(req.body);
+      if (base.error) return res.status(400).json(base.error);
+      const p = parseParams(req.body.params);
+      if (!p.ok) return res.status(400).json({ error: 'Invalid request', fields: p.errors });
+      const msgs = req.body.messages;
+      const okMsgs = Array.isArray(msgs) && msgs.length >= 1 && msgs.length <= MAX_MESSAGES &&
+        msgs.every(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim() && m.content.length <= MAX_CONTENT) &&
+        msgs[msgs.length - 1].role === 'user';
+      if (!okMsgs) return res.status(400).json({ error: 'Invalid request', fields: { messages: `must be 1-${MAX_MESSAGES} user/assistant messages (max ${MAX_CONTENT} chars), the last one from the user` } });
+      if (!llm.isConfigured()) return res.status(503).json({ error: 'Assistant unavailable' });
+
+      const ctx = await svc.prepare({ projectId: base.projectId });
+      const summary = svc.summarize(svc.describe(ctx, { params: p.value, asOf: base.asOf }).requirement);
+
+      let params = p.value;
+      let lastRank = null;
+      const runTool = async (name, input) => {
+        if (name === 'rank_team') {
+          const merged = parseParams(input);
+          if (!merged.ok) return { content: JSON.stringify({ error: 'Invalid parameters', fields: merged.errors }) };
+          try {
+            lastRank = svc.rank(ctx, { params: merged.value, asOf: base.asOf });
+            params = merged.value;
+            return { content: JSON.stringify(compactRankResult(lastRank)) };
+          } catch (err) {
+            if (err && err.status === 400) return { content: JSON.stringify({ error: err.message, fields: err.fields }) };
+            throw err;
+          }
+        }
+        if (name === 'explain_resource') {
+          if (typeof input.name !== 'string' || typeof input.role !== 'string') return { content: JSON.stringify({ error: 'name and role are required' }) };
+          return { content: JSON.stringify(svc.explain(ctx, { name: input.name, role: input.role, params, asOf: base.asOf })) };
+        }
+        return { content: JSON.stringify({ error: `Unknown tool ${name}` }) };
+      };
+
+      const system = `${SYSTEM_PROMPT}\n\n${buildContextBlock(summary)}`;
+      const { reply } = await runChat({ llm, system, history: msgs, tools: TOOLS, runTool });
+      res.json({
+        reply: reply || 'I could not produce an answer. Please rephrase or use "Calculate team".',
+        params, tables: lastRank ? lastRank.tables : null, requirement: lastRank ? lastRank.requirement : summary,
+      });
+    } catch (err) {
+      if (err && (err.code === 'LLM_ERROR' || err.code === 'LLM_NOT_CONFIGURED')) return res.status(503).json({ error: 'Assistant unavailable' });
+      sendError(res, next, err);
+    }
   });
 
   return router;
