@@ -2,10 +2,10 @@ const express = require('express');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { isoDate } = require('../lib/planning-calendar');
 const { parseParams } = require('../lib/team-params');
-const { SYSTEM_PROMPT, TOOLS, buildContextBlock, compactRankResult, runChat } = require('../lib/assistant-chat');
+const { SYSTEM_PROMPT, TOOLS, buildContextBlock, compactRankResult, runChat, normalizeMessages } = require('../lib/assistant-chat');
 const svc = require('../services/planning-assistant');
 
-const MAX_MESSAGES = 40, MAX_CONTENT = 4000;
+const CHAT_DEADLINE_MS = 80_000;   // whole /chat request; each LLM call also keeps its own 30 s timeout
 
 function makeRouter(deps = {}) {
   const llm = deps.llm || require('../services/llm');
@@ -46,11 +46,9 @@ function makeRouter(deps = {}) {
       if (base.error) return res.status(400).json(base.error);
       const p = parseParams(req.body.params);
       if (!p.ok) return res.status(400).json({ error: 'Invalid request', fields: p.errors });
-      const msgs = req.body.messages;
-      const okMsgs = Array.isArray(msgs) && msgs.length >= 1 && msgs.length <= MAX_MESSAGES &&
-        msgs.every(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim() && m.content.length <= MAX_CONTENT) &&
-        msgs[msgs.length - 1].role === 'user';
-      if (!okMsgs) return res.status(400).json({ error: 'Invalid request', fields: { messages: `must be 1-${MAX_MESSAGES} user/assistant messages (max ${MAX_CONTENT} chars), the last one from the user` } });
+      const norm = normalizeMessages(req.body.messages);
+      if (!norm.messages) return res.status(400).json({ error: 'Invalid request', fields: { messages: norm.error } });
+      const msgs = norm.messages;
       if (!llm.isConfigured()) return res.status(503).json({ error: 'Assistant unavailable' });
 
       const ctx = await svc.prepare({ projectId: base.projectId });
@@ -58,6 +56,10 @@ function makeRouter(deps = {}) {
 
       let params = p.value;
       let lastRank = null;
+      const fallback = () => ({
+        reply: 'The assistant could not finish, but the team tables below are up to date.',
+        params, tables: lastRank.tables, requirement: lastRank.requirement,
+      });
       const runTool = async (name, input) => {
         if (name === 'rank_team') {
           // Constraints persist across turns because the system prompt tells the model to repeat all of them on every call.
@@ -79,8 +81,15 @@ function makeRouter(deps = {}) {
         return { content: JSON.stringify({ error: `Unknown tool ${name}` }) };
       };
 
-      const system = `${SYSTEM_PROMPT}\n\n${buildContextBlock(summary)}`;
-      const { reply } = await runChat({ llm, system, history: msgs, tools: TOOLS, runTool });
+      const system = `${SYSTEM_PROMPT}\n\n${buildContextBlock(summary, p.value)}`;
+      let reply;
+      try {
+        ({ reply } = await runChat({ llm, system, history: msgs, tools: TOOLS, runTool, signal: AbortSignal.timeout(CHAT_DEADLINE_MS) }));
+      } catch (err) {
+        // A ranking already computed is still valid: keep the tables even though the model failed afterwards.
+        if (lastRank && err && (err.code === 'LLM_ERROR' || err.code === 'LLM_NOT_CONFIGURED')) return res.json(fallback());
+        throw err;
+      }
       res.json({
         reply: reply || 'I could not produce an answer. Please rephrase or use "Calculate team".',
         params, tables: lastRank ? lastRank.tables : null, requirement: lastRank ? lastRank.requirement : summary,

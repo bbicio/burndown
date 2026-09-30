@@ -83,3 +83,24 @@ test('chat: an empty tools list omits the tools field', async () => {
   });
   assert.equal(seen.tools, undefined);
 });
+
+test('chat: tool_choice is sent only when requested', async () => {
+  const seen = [];
+  await withStub((body, res) => { seen.push(body); res.end(JSON.stringify({ content: [{ type: 'text', text: 'ok' }] })); }, async () => {
+    const tools = [{ name: 't', description: 'd', input_schema: { type: 'object', properties: {} } }];
+    await llm.chat({ system: 's', messages: [{ role: 'user', content: 'x' }], tools });
+    await llm.chat({ system: 's', messages: [{ role: 'user', content: 'x' }], tools, toolChoice: { type: 'none' } });
+  });
+  assert.equal(seen[0].tool_choice, undefined);
+  assert.deepEqual(seen[1].tool_choice, { type: 'none' });
+  assert.equal(seen[1].tools.length, 1);
+});
+
+test('chat: a passed signal is added to the per-call timeout, not a replacement', async () => {
+  await withStub((_b, res) => { setTimeout(() => res.end('{}'), 300); }, async () => {
+    const ac = new AbortController();
+    setTimeout(() => ac.abort(), 30);
+    await assert.rejects(llm.chat({ system: 's', messages: [{ role: 'user', content: 'x' }], tools: [], signal: ac.signal }), e => e.code === 'LLM_ERROR');
+  });
+  assert.equal(typeof llm.composeSignal(new AbortController().signal, 1000).aborted, 'boolean');
+});

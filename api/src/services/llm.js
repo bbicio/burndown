@@ -1,5 +1,5 @@
 'use strict';
-// One interface for the team assistant's LLM: chat({ system, messages, tools, signal }) → { text, toolCalls }.
+// One interface for the team assistant's LLM: chat({ system, messages, tools, toolChoice, signal }) → { text, toolCalls }.
 // Today a single backend (Anthropic Messages API with tool use, plain fetch, no dependency); a local
 // model (LM Studio) is a later second backend behind the same interface. Error messages never
 // include the response body (it may echo project text).
@@ -37,7 +37,10 @@ function fromAnthropicResponse(data) {
   };
 }
 
-async function chat({ system, messages, tools, signal }) {
+// A caller signal (e.g. the route's overall deadline) is ADDED to the per-call timeout.
+const composeSignal = (signal, ms = LLM_TIMEOUT_MS) => (signal ? AbortSignal.any([signal, AbortSignal.timeout(ms)]) : AbortSignal.timeout(ms));
+
+async function chat({ system, messages, tools, toolChoice, signal }) {
   if (!isConfigured()) throw llmError('LLM is not configured', 'LLM_NOT_CONFIGURED');
   const base = (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/+$/, '');
   const body = {
@@ -47,16 +50,17 @@ async function chat({ system, messages, tools, signal }) {
     messages: toAnthropicMessages(messages),
   };
   if (tools && tools.length) body.tools = tools;
+  if (toolChoice) body.tool_choice = toolChoice;
   let res;
   try {
     res = await fetch(`${base}/v1/messages`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify(body),
-      signal: signal || AbortSignal.timeout(LLM_TIMEOUT_MS),
+      signal: composeSignal(signal),
     });
   } catch (err) {
-    throw llmError(err && err.name === 'TimeoutError' ? 'LLM request timed out' : 'LLM request failed');
+    throw llmError(err && (err.name === 'TimeoutError' || err.name === 'AbortError') ? 'LLM request timed out' : 'LLM request failed');
   }
   if (!res.ok) throw llmError(`LLM request failed (HTTP ${res.status})`);
   let data;
@@ -64,4 +68,4 @@ async function chat({ system, messages, tools, signal }) {
   return fromAnthropicResponse(data);
 }
 
-module.exports = { isConfigured, chat, toAnthropicMessages, fromAnthropicResponse };
+module.exports = { isConfigured, chat, composeSignal, toAnthropicMessages, fromAnthropicResponse };
