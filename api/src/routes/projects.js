@@ -184,6 +184,13 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    for (const key of ['cgVersionId', 'clientId']) {
+      const v = req.body[key];
+      if (v && (typeof v !== 'string' || !uuidRe.test(v))) {
+        return res.status(400).json({ error: `${key} must be a valid UUID` });
+      }
+    }
     const allowed = ['name', 'code', 'programId', 'clientId', 'startDate', 'endDate',
                      'currency', 'pipeline', 'status', 'cgVersionId', 'description'];
     const map = {

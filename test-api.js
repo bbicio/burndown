@@ -2249,6 +2249,120 @@ async function testPlanningAssistant() {
   } finally { server.close(); }
 }
 
+// ── Version routes are scoped to their grid (2026-09-30 hardening) ──────────────
+
+async function testVersionScope() {
+  section('Version scope');
+  const FAKE = '00000000-0000-0000-0000-000000000000';
+
+  const rpy = await api('POST', '/api/pipeline-years', { year: TEST_YEAR_C }, adminCookie);
+  if (![201, 409].includes(rpy.status)) { ok(false, 'VS-setup pipeline year unavailable'); return; }
+  if (rpy.status === 201 && rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
+
+  const mk = async (name, label) => {
+    const g = await api('POST', '/api/cost-grids', { name, pipelineYear: TEST_YEAR_C }, adminCookie);
+    if (g.data?.id) later('DELETE', `/api/cost-grids/${g.data.id}`);
+    const v = g.data?.id
+      ? await api('POST', `/api/cost-grids/${g.data.id}/versions`, { label }, adminCookie)
+      : { data: null };
+    return { cgId: g.data?.id, vId: v.data?.id };
+  };
+  const A = await mk('__test_vs_a__', 'vA');
+  const B = await mk('__test_vs_b__', 'vB');
+  if (!(A.cgId && A.vId && B.cgId && B.vId)) { ok(false, 'VS-setup two grids with one version each'); return; }
+
+  const cross = `/api/cost-grids/${A.cgId}/versions/${B.vId}`; // grid A's id, grid B's version
+  const cases = [
+    ['VS-01 PATCH version',            'PATCH',  cross,                              { label: 'hijack' }],
+    ['VS-03 POST duplicate',           'POST',   `${cross}/duplicate`,               null],
+    ['VS-04 GET structure',            'GET',    `${cross}/structure`,               null],
+    ['VS-05 PUT structure',            'PUT',    `${cross}/structure`,               { phases: [] }],
+    ['VS-06 GET linked-projects',      'GET',    `${cross}/linked-projects`,         null],
+    ['VS-07 POST linked-projects',     'POST',   `${cross}/linked-projects`,         { projectId: FAKE }],
+    ['VS-08 DELETE linked-projects',   'DELETE', `${cross}/linked-projects/${FAKE}`, null],
+    ['VS-09 POST refresh-rate',        'POST',   `${cross}/refresh-rate`,            null],
+    ['VS-14 POST publish',             'POST',   `${cross}/publish`,                 null],
+    ['VS-15 GET tags',                 'GET',    `${cross}/tags`,                    null],
+    ['VS-16 PUT tags',                 'PUT',    `${cross}/tags`,                    { itemIds: [] }],
+  ];
+  for (const [label, method, path, body] of cases) {
+    const r = await api(method, path, body, adminCookie);
+    ok(r.status === 404, `${label} with another grid's version → 404 (got ${r.status})`);
+  }
+
+  // The 404s must also have changed nothing
+  const listB = await api('GET', `/api/cost-grids/${B.cgId}/versions`, null, adminCookie);
+  const listA = await api('GET', `/api/cost-grids/${A.cgId}/versions`, null, adminCookie);
+  ok(listB.status === 200 && listB.data?.length === 1 && listB.data[0].id === B.vId && listB.data[0].label === 'vB',
+    "VS-10 grid B's version still exists, same label");
+  ok(listA.status === 200 && listA.data?.length === 1, 'VS-10 grid A did not gain a duplicated version');
+
+  // Destructive cross-grid DELETE goes last, so every case above ran while vB still existed
+  const rDel = await api('DELETE', cross, null, adminCookie);
+  ok(rDel.status === 404, `VS-02 DELETE version with another grid's version → 404 (got ${rDel.status})`);
+  const listB2 = await api('GET', `/api/cost-grids/${B.cgId}/versions`, null, adminCookie);
+  ok(listB2.status === 200 && listB2.data?.length === 1 && listB2.data[0].id === B.vId,
+    "VS-02 grid B's version still exists after the cross-grid DELETE");
+
+  // Same-grid requests keep working
+  const okPatch = await api('PATCH', `/api/cost-grids/${A.cgId}/versions/${A.vId}`, { label: 'vA2' }, adminCookie);
+  ok(okPatch.status === 200 && okPatch.data?.label === 'vA2', 'VS-11 PATCH with the version of the same grid → 200');
+  ok((await api('GET', `/api/cost-grids/${A.cgId}/versions/${A.vId}/structure`, null, adminCookie)).status === 200,
+    'VS-11 GET structure with the version of the same grid → 200');
+
+  // Malformed ids never reach Postgres
+  ok((await api('GET', `/api/cost-grids/${A.cgId}/versions/not-a-uuid/structure`, null, adminCookie)).status === 404,
+    'VS-12 malformed :vId → 404, not 500');
+  ok((await api('GET', `/api/cost-grids/not-a-uuid/versions/${A.vId}/structure`, null, adminCookie)).status === 404,
+    'VS-12 malformed :id → 404, not 500');
+
+  // Auth is checked before the scope guard
+  ok((await api('GET', `${cross}/structure`, null, '')).status === 401, 'VS-13 no session → 401, not 404');
+}
+
+// ── PATCH /api/projects/:id input validation (2026-09-30 hardening) ─────────────
+
+async function testProjectPatchValidation() {
+  section('Project PATCH validation');
+  const r = await api('POST', '/api/projects', { name: '__test_patch_validation__' }, adminCookie);
+  const id = r.data?.id;
+  if (!id) { ok(false, 'PV-setup project created'); return; }
+  later('DELETE', `/api/projects/${id}`);
+
+  const bad1 = await api('PATCH', `/api/projects/${id}`, { cgVersionId: 'not-a-uuid' }, adminCookie);
+  ok(bad1.status === 400 && /cgVersionId/.test(bad1.data?.error || ''), `PV-01 non-UUID cgVersionId → 400 (got ${bad1.status})`);
+  const bad2 = await api('PATCH', `/api/projects/${id}`, { clientId: 'not-a-uuid' }, adminCookie);
+  ok(bad2.status === 400 && /clientId/.test(bad2.data?.error || ''), `PV-02 non-UUID clientId → 400 (got ${bad2.status})`);
+  const bad3 = await api('PATCH', `/api/projects/${id}`, { cgVersionId: 12345 }, adminCookie);
+  ok(bad3.status === 400, `PV-03 non-string cgVersionId → 400 (got ${bad3.status})`);
+
+  ok((await api('PATCH', `/api/projects/${id}`, { cgVersionId: null }, adminCookie)).status === 200,
+    'PV-04 cgVersionId null still unlinks → 200');
+  ok((await api('PATCH', `/api/projects/${id}`, { cgVersionId: '', clientId: '' }, adminCookie)).status === 200,
+    "PV-04 empty string still unlinks → 200");
+  ok((await api('PATCH', `/api/projects/${id}`, { name: '__test_patch_validation_2__' }, adminCookie)).status === 200,
+    'PV-05 an ordinary field update is unchanged → 200');
+}
+
+// ── GET /api/timesheets/:projectCode without actuals (2026-09-30 hardening) ─────
+
+async function testTimesheetsNoActuals() {
+  section('Timesheets without actuals');
+  const code = '__NO_SUCH_CODE_HD__';
+
+  const a = await api('GET', `/api/timesheets/${code}`, null, adminCookie);
+  ok(a.status === 200 && Array.isArray(a.data) && a.data.length === 0,
+    `TS-01 admin, code without actuals → 200 [] (got ${a.status})`);
+
+  const userCookie = await getPlainUserCookie();
+  if (userCookie) {
+    const u = await api('GET', `/api/timesheets/${code}`, null, userCookie);
+    ok(u.status === 403, `TS-02 plain user, code not visible to them → 403 (got ${u.status})`);
+  } else {
+    ok(false, 'TS-02 skipped — plain-user session unavailable');
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -2281,6 +2395,9 @@ async function main() {
     await testProfileEngineHooks();
     await testProfileJobsConsole();
     await testTagLinking();
+    await testVersionScope();
+    await testProjectPatchValidation();
+    await testTimesheetsNoActuals();
     await testProjectDescriptions();
     await testTopicsApi();
     await testTopicExtraction();

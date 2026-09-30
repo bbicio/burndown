@@ -243,7 +243,7 @@ async function loadConfigFromApi() {
 // If the core metadata upsert fails the sub-resources are not attempted. Callers that must not
 // report success on a partial save (project-config.html's onSave) use this one; the others use
 // _pushProjectToApi() below.
-async function _pushProjectToApiDetailed(project) {
+async function _pushProjectToApiDetailed(project, { skipEmpty = false } = {}) {
   if (!project?.id) return { ok: false, failed: [{ part: 'project', error: 'Missing project id' }] };
   const { tasks, phasing, planning, ptc, groups, costGridRef, ...meta } = project;
 
@@ -278,16 +278,22 @@ async function _pushProjectToApiDetailed(project) {
   // is how the user clears a section, and skipping it left the old data on the server. Only a section
   // that is absent (undefined/null) is left alone. config.projects items always carry all five
   // (_apiProjectToLocal normalises them), so this never wipes a section the page did not load.
+  // Exception: with { skipEmpty: true } (js/costgrid.js) empty sections are not pushed.
+  // skipEmpty: costgrid.js callers re-send a whole, possibly stale, in-memory project and never edit these
+  // sections, so for them "empty" means "not touched" and must not overwrite the server's data (2026-09-30).
+  const nonEmpty = v => Array.isArray(v) ? v.length > 0 : v != null && typeof v === 'object' && Object.keys(v).length > 0;
+  const present  = v => Array.isArray(v) || (v != null && typeof v === 'object');
+  const wanted   = v => skipEmpty ? nonEmpty(v) : present(v);
   const failed = [];
   const steps = [
-    ['tasks',    Array.isArray(tasks),                     () => Api.projects.saveTasks(project.id, tasks)],
-    ['phasing',  phasing != null && typeof phasing === 'object', () => Api.projects.phasing(project.id, phasing)],
-    ['ptc',      Array.isArray(ptc),                       () => Api.projects.ptc(project.id, ptc)],
-    ['planning', planning != null && typeof planning === 'object', () => Api.projects.planning(project.id, planning)],
-    ['groups',   Array.isArray(groups),                    () => Api.projects.groups(project.id, groups)],
+    ['tasks',    tasks,    () => Api.projects.saveTasks(project.id, tasks)],
+    ['phasing',  phasing,  () => Api.projects.phasing(project.id, phasing)],
+    ['ptc',      ptc,      () => Api.projects.ptc(project.id, ptc)],
+    ['planning', planning, () => Api.projects.planning(project.id, planning)],
+    ['groups',   groups,   () => Api.projects.groups(project.id, groups)],
   ];
-  for (const [part, present, run] of steps) {
-    if (!present) continue;
+  for (const [part, value, run] of steps) {
+    if (!wanted(value)) continue;
     try { await run(); }
     catch (e) {
       console.warn(`[sync] ${part} save failed:`, e.message);
@@ -303,8 +309,8 @@ async function _pushProjectToApiDetailed(project) {
 // this return value (see _pushProjectToApiDetailed() for the full outcome). Callers that need to
 // know whether the project is genuinely safe to link to / navigate to (e.g. cgDoGenerateProject)
 // should check it.
-async function _pushProjectToApi(project) {
-  const { failed } = await _pushProjectToApiDetailed(project);
+async function _pushProjectToApi(project, opts) {
+  const { failed } = await _pushProjectToApiDetailed(project, opts);
   return !failed.some(f => f.part === 'project');
 }
 

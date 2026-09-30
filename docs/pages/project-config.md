@@ -56,3 +56,10 @@ The project header form has a **Description** textarea (`project.description`) a
 ## Unsaved-changes warning (2026-09-30)
 
 `savedSnapshot` holds `JSON.stringify(this.project)`, taken at the very end of `created()` (after `resolveProject`'s normalisations, just before `ready = true`). A `beforeunload` listener registered at the start of `created()` calls `preventDefault()`/sets `returnValue` when `!isViewer && window.isProjectDirty(savedSnapshot, project)` (`isProjectDirty` in `js/lib/config-form-calc.js?v=2`, pure, vitest-covered). `onSave` refreshes the snapshot right before its `location.href` redirect, so a successful Save never prompts; a Save that throws earlier, or fails on the server (see below), leaves the page dirty. Covers any edit, including Derive/Reforecast results. Tags, actuals upload/delete and the client/program modals persist immediately and live outside `this.project`. Spec `docs/superpowers/specs/2026-09-30-ui-defects-data-loss-design.md`.
+
+## Hardening notes (2026-09-30)
+
+- **Decision D7 (docs only):** `config.projects` in `project-config.html` is a page-level cache. A failed save does not roll it back; this is harmless because the next navigation is a full page load and nothing reached the server.
+- `PATCH /api/projects/:id` answers 400 `<field> must be a valid UUID` for a non-UUID `cgVersionId`/`clientId` (null and `''` still unlink; `programId` is VARCHAR and not validated).
+- The 403 an admin used to get from `GET /api/timesheets/:code` for a project without actuals is gone: it now answers `200 []` (see [docs/api/timesheets.md](../api/timesheets.md)).
+- This page does not pass `skipEmpty` to `_pushProjectToApi`, so clearing a section here still persists.

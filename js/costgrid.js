@@ -1070,7 +1070,7 @@ async function cgDoAddTasksToProject(projId, selectedTaskIds) {
   // Append tasks to project in memory and push to API
   if (!proj.tasks) proj.tasks = [];
   proj.tasks.push(...newTasks);
-  await _pushProjectToApi(proj).catch(e => console.warn('[sync] addTasksToProject failed:', e.message));
+  await _pushProjectToApi(proj, { skipEmpty: true }).catch(e => console.warn('[sync] addTasksToProject failed:', e.message));
 
   // Update task_ids + task_names_direct in cg_version_projects (upsert via POST)
   const lp = (_cgDraft.linkedProjects || []).find(l => l.projectId === projId);
@@ -1273,7 +1273,7 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
   // convention for those fields, so they don't gate this success check.
   let pushedOk = false;
   try {
-    pushedOk = await _pushProjectToApi(newProject);
+    pushedOk = await _pushProjectToApi(newProject, { skipEmpty: true });
     if (pushedOk) {
       await Api.costGrids.versions.linkedProjects.add(_cgActiveCgId, _cgActiveVersionId, { projectId: generatedId, taskIds: selectedTaskIds, taskNames: selectedTaskNames });
     }

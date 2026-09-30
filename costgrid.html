@@ -670,8 +670,8 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=5"></script>
-<script defer src="js/costgrid.js?v=33"></script>
-<script defer src="js/api-sync.js?v=18"></script>
+<script defer src="js/costgrid.js?v=34"></script>
+<script defer src="js/api-sync.js?v=19"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>
 <script defer src="js/shares.js"></script>
@@ -1137,6 +1137,7 @@ Vue.createApp({
       const idx = this.versionTagItemIds.indexOf(itemId);
       const prevItemIds = [...this.versionTagItemIds];
       const prevRows = [...this.versionTagRows];
+      const savingForVerId = this.verId;   // the rollback below must not paint this version's tags on another one
       if (idx === -1) {
         this.versionTagItemIds.push(itemId);
       } else {
@@ -1148,8 +1149,10 @@ Vue.createApp({
         await Api.costGrids.versions.tags.replace(this.cgId, this.verId, this.versionTagItemIds);
       } catch (e) {
         console.warn('[costgrid] saveTags:', e.message);
-        this.versionTagItemIds = prevItemIds;
-        this.versionTagRows = prevRows;
+        if (this.verId === savingForVerId) {
+          this.versionTagItemIds = prevItemIds;
+          this.versionTagRows = prevRows;
+        }
       } finally {
         this.tagSaving = false;
       }
