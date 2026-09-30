@@ -86,7 +86,7 @@ Observed consequences (parity capture):
 
 - Known limits: a request carries at most 2000 project ids, so an admin with more eligible projects than that gets a 400 error; countFutureTaskWeeks uses a closed form (constant time), so an undated task (end year 9999) costs nothing; taskFutureWeeks clamps the distribution end to about 20 years ahead.
 - Sunday quirk above (deliberate visible fix).
-- `POST /api/resources/match-owners` was removed in Cycle B (2026-09-30, no caller left; `resolveOwnerStatuses` is still exported from `routes/resources.js` and used by the model).
+- `POST /api/resources/match-owners` was removed in Cycle B (2026-09-30, no caller left; `resolveOwnerStatuses` lives in `api/src/lib/match-resource.js` and is used by the model; the `routes/resources.js` re-export exists only for `resources.test.js`).
 - `js/ai.js` was removed in Cycle B. `planning.html` still calls `refreshTimesheetDataFromApi()` on load only to keep the shared `timesheetData` cache populated for `js/upload.js`; candidate for removal.
 
 ## Cycle B additions (2026-09-30)
