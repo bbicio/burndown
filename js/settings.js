@@ -1,22 +1,7 @@
 // ── SETTINGS MODAL ────────────────────────────────────────────────────────────
 
-function _stgSet(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.value = val;
-}
-
 function openSettingsModal() {
   const user = window.__navUser;
-
-  // Fill AI key fields (only on pages that have core.js / appSettings)
-  if (typeof appSettings !== 'undefined') {
-    _stgSet('stgAnthropicKey',  appSettings.anthropicApiKey || '');
-    _stgSet('stgOpenaiKey',     appSettings.openaiApiKey    || '');
-    _stgSet('stgGeminiKey',     appSettings.geminiApiKey    || '');
-    _stgSet('stgAiProvider',    appSettings.aiProvider      || 'anthropic');
-    stgUpdateModelDropdown(appSettings.aiProvider || 'anthropic', appSettings.aiModel || '');
-    _stgSet('stgGithubPat',       appSettings.githubPat       || '');
-  }
 
   // Show/hide admin-only elements
   const isAdmin = ['admin', 'sysadmin'].includes(user?.role);
@@ -29,43 +14,7 @@ function openSettingsModal() {
     el.textContent = user?.email || '—';
   });
 
-  // Reset to API tab
-  document.querySelectorAll('.stg-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'api'));
-  const tabApi  = document.getElementById('stgTabApi');
-  const tabData = document.getElementById('stgTabData');
-  if (tabApi)  tabApi.style.display  = 'block';
-  if (tabData) tabData.style.display = 'none';
-
   bootstrap.Modal.getOrCreateInstance(document.getElementById('settingsModal')).show();
-}
-
-function stgUpdateModelDropdown(provider, selectedModel) {
-  const sel = document.getElementById('stgAiModel');
-  if (!sel) return;
-  if (typeof AI_MODELS === 'undefined') return;
-  const models = AI_MODELS[provider] || [];
-  sel.innerHTML = models.map(m =>
-    `<option value="${m.id}"${m.id === selectedModel ? ' selected' : ''}>${m.label}</option>`
-  ).join('');
-  if (!sel.value && models.length) sel.value = models[0].id;
-}
-
-function _stgGet(id) {
-  return (document.getElementById(id)?.value || '').trim();
-}
-
-function saveSettingsModal() {
-  if (typeof appSettings !== 'undefined') {
-    appSettings.anthropicApiKey = _stgGet('stgAnthropicKey');
-    appSettings.openaiApiKey    = _stgGet('stgOpenaiKey');
-    appSettings.geminiApiKey    = _stgGet('stgGeminiKey');
-    appSettings.aiProvider      = _stgGet('stgAiProvider') || 'anthropic';
-    appSettings.aiModel         = _stgGet('stgAiModel');
-    appSettings.githubPat       = _stgGet('stgGithubPat');
-    if (typeof persistSettings === 'function') persistSettings();
-  }
-  if (typeof updateAiButtonVisibility === 'function') updateAiButtonVisibility();
-  bootstrap.Modal.getInstance(document.getElementById('settingsModal'))?.hide();
 }
 
 // ── DATA EXPORTS ──────────────────────────────────────────────────────────────
@@ -138,18 +87,15 @@ function restoreFromBackup(file) {
         'Restore from backup?\n\nThis will overwrite local data.\nXLS timesheet data is not affected.',
         () => {
           const s = backup.stores;
-          if (typeof appSettings !== 'undefined') {
-            if (s.config)    { if (typeof config !== 'undefined') { config = s.config; } if (typeof persistConfig === 'function') persistConfig(); }
-            if (s.roles)     { if (typeof roles !== 'undefined')  { roles = s.roles; }  if (typeof saveRoles === 'function')    saveRoles(); }
-            if (s.programs)  { if (typeof _programs !== 'undefined') { _programs = s.programs; } if (typeof savePrograms === 'function') savePrograms(); }
-            if (s.clients)   { if (typeof _clients !== 'undefined')  { _clients  = s.clients;  } if (typeof saveClients === 'function')  saveClients(); }
-            if (s.costgrids) {
-              if (typeof cgSaveIndex === 'function') cgSaveIndex(s.costgrids.index || []);
-              if (typeof cgSave === 'function') (s.costgrids.grids || []).forEach(cg => cgSave(cg));
-            }
-            if (s.settings)  { appSettings = { ...appSettings, ...s.settings }; if (typeof persistSettings === 'function') persistSettings(); if (typeof updateAiButtonVisibility === 'function') updateAiButtonVisibility(); }
-            if (s.summary)   { if (typeof portfolioSummaryProjects !== 'undefined') portfolioSummaryProjects = new Set(s.summary); if (typeof saveSummarySelection === 'function') saveSummarySelection(); }
+          if (s.config)    { if (typeof config !== 'undefined') { config = s.config; } if (typeof persistConfig === 'function') persistConfig(); }
+          if (s.roles)     { if (typeof roles !== 'undefined')  { roles = s.roles; }  if (typeof saveRoles === 'function')    saveRoles(); }
+          if (s.programs)  { if (typeof _programs !== 'undefined') { _programs = s.programs; } if (typeof savePrograms === 'function') savePrograms(); }
+          if (s.clients)   { if (typeof _clients !== 'undefined')  { _clients  = s.clients;  } if (typeof saveClients === 'function')  saveClients(); }
+          if (s.costgrids) {
+            if (typeof cgSaveIndex === 'function') cgSaveIndex(s.costgrids.index || []);
+            if (typeof cgSave === 'function') (s.costgrids.grids || []).forEach(cg => cgSave(cg));
           }
+          if (s.summary)   { if (typeof portfolioSummaryProjects !== 'undefined') portfolioSummaryProjects = new Set(s.summary); if (typeof saveSummarySelection === 'function') saveSummarySelection(); }
           bootstrap.Modal.getInstance(document.getElementById('settingsModal'))?.hide();
           if (typeof showPortfolioView === 'function') showPortfolioView();
         },

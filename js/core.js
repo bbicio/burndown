@@ -1,7 +1,7 @@
 // ── LEGACY LOCALSTORAGE CLEANUP ───────────────────────────────────────────────
 // Remove all PDash_* keys except the ones that are still legitimately client-side.
 (function cleanLegacyStorage() {
-  const keep = new Set(['PDash_settings', 'PDash_summary', 'PDash_browserNotifDisabled']);
+  const keep = new Set(['PDash_summary', 'PDash_browserNotifDisabled']);
   Object.keys(localStorage)
     .filter(k => k.startsWith('PDash') && !keep.has(k))
     .forEach(k => localStorage.removeItem(k));
@@ -29,36 +29,11 @@ let ppViewInterval   = 'monthly'; // 'monthly' | 'weekly'
 let planningReturnToBurndown = false; // true when planning opened from burndown view
 let portfolioTeamFilters = new Set(); // selected teams (empty = all)
 const SUMMARY_KEY    = 'PDash_summary';
-const SETTINGS_KEY   = 'PDash_settings';
 
 let _jsonViewerOnSave   = null;
 let _jsonViewerFilename = 'export.json';
 
-let appSettings = {
-  aiProvider: 'anthropic', aiModel: '',
-  anthropicApiKey: '', openaiApiKey: '', geminiApiKey: ''
-};
-
 let portfolioSummaryProjects = new Set(); // project IDs selected for the summary table
-
-const AI_MODELS = {
-  anthropic: [
-    { id: 'claude-opus-4-7',           label: 'Claude Opus 4.7 (powerful)' },
-    { id: 'claude-sonnet-4-6',         label: 'Claude Sonnet 4.6 (balanced)' },
-    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (fast)' },
-  ],
-  openai: [
-    { id: 'gpt-4o',        label: 'GPT-4o (powerful)' },
-    { id: 'gpt-4o-mini',   label: 'GPT-4o Mini (fast)' },
-    { id: 'gpt-4-turbo',   label: 'GPT-4 Turbo' },
-    { id: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (economical)' },
-  ],
-  gemini: [
-    { id: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash (fast)' },
-    { id: 'gemini-1.5-pro',       label: 'Gemini 1.5 Pro (powerful)' },
-    { id: 'gemini-1.5-flash',     label: 'Gemini 1.5 Flash (economical)' },
-  ],
-};
 
 // ── TEAM FILTER HELPER ────────────────────────────────────────────────────────
 function rolePassesTeamFilter(role) {
@@ -156,28 +131,6 @@ function loadSummarySelection() {
 }
 function saveSummarySelection() { storageSet(SUMMARY_KEY, JSON.stringify([...portfolioSummaryProjects])); }
 
-function loadSettings() {
-  try {
-    const s = storageGet(SETTINGS_KEY);
-    if (s) {
-      appSettings = { ...appSettings, ...JSON.parse(s) };
-    } else if (config.anthropicApiKey || config.openaiApiKey) {
-      // One-time migration from legacy config object
-      appSettings.anthropicApiKey = config.anthropicApiKey || '';
-      appSettings.openaiApiKey    = config.openaiApiKey    || '';
-      appSettings.geminiApiKey    = config.geminiApiKey    || '';
-      appSettings.aiProvider      = config.aiProvider      || 'anthropic';
-      appSettings.aiModel         = config.aiModel         || '';
-      persistSettings();
-    }
-  } catch(e) {}
-}
-function persistSettings() { storageSet(SETTINGS_KEY, JSON.stringify(appSettings)); }
-
-function hasAiKey() {
-  return !!(appSettings.anthropicApiKey || appSettings.openaiApiKey || appSettings.geminiApiKey);
-}
-
 // ── JSON VIEWER ───────────────────────────────────────────────────────────────
 
 function openJsonViewer(title, data, onSave, filename) {
@@ -208,24 +161,6 @@ function updatePortfolioCacheBadge() {
   el.innerHTML = n > 0
     ? `<span class="badge bg-success" style="font-size:var(--text-sm);padding:4px 8px">✅ ${n} rows in cache</span>`
     : `<span class="text-muted small">No XLS loaded</span>`;
-}
-
-function updateAiButtonVisibility() {
-  const navBtn = document.getElementById('btnToggleAiSidebar');
-  if (navBtn) navBtn.style.display = hasAiKey() ? '' : 'none';
-  updateAiProviderBadge();
-}
-
-function updateAiProviderBadge() {
-  const el = document.getElementById('aiProviderBadge');
-  if (!el) return;
-  const provider = appSettings.aiProvider || 'anthropic';
-  const model    = appSettings.aiModel    || '';
-  const icons = { anthropic: '🟣', openai: '🟢', gemini: '🔵' };
-  const names = { anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Gemini' };
-  const models = AI_MODELS[provider] || [];
-  const modelLabel = (models.find(m => m.id === model)?.label || model || models[0]?.label || '').replace(/ \(.*\)/, '');
-  el.textContent = `${icons[provider] || '🤖'} ${names[provider] || provider} · ${modelLabel}`;
 }
 
 // ── UTILITIES ────────────────────────────────────────────────────────────────
