@@ -72,3 +72,28 @@ describe('_pushProjectToApi (legacy contract)', () => {
     expect(await _pushProjectToApi({ ...base })).toBe(false);
   });
 });
+
+describe('skipEmpty', () => {
+  beforeEach(() => { calls = []; failing = new Set(); });
+
+  it('does not push empty sections, but still pushes non-empty ones', async () => {
+    const { _pushProjectToApiDetailed } = loadSync();
+    const r = await _pushProjectToApiDetailed(
+      { ...base, tasks: [{ name: 't' }], phasing: {}, ptc: [], planning: { '2026-09': 5 }, groups: [] },
+      { skipEmpty: true });
+    expect(r.ok).toBe(true);
+    expect(calls).toEqual(['update', 'saveTasks', 'planning']);
+  });
+
+  it('pushes empty sections when the option is absent (project-config clearing a section)', async () => {
+    const { _pushProjectToApiDetailed } = loadSync();
+    await _pushProjectToApiDetailed({ ...base, tasks: [], phasing: {}, ptc: [], planning: {}, groups: [] });
+    expect(calls).toEqual(['update', 'saveTasks', 'phasing', 'ptc', 'planning', 'groups']);
+  });
+
+  it('_pushProjectToApi forwards the option and keeps its boolean contract', async () => {
+    const { _pushProjectToApi } = loadSync();
+    expect(await _pushProjectToApi({ ...base, tasks: [], phasing: {} }, { skipEmpty: true })).toBe(true);
+    expect(calls).toEqual(['update']);
+  });
+});
