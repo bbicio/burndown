@@ -55,11 +55,7 @@ function cgMigrateVersion(v) {
 // ── CURRENCY FORMAT ───────────────────────────────────────────────────────────
 
 function cgFmtCurrency(amount, code) {
-  const n    = parseFloat(amount) || 0;
-  const opts = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-  const cur  = (window.__currencies || []).find(c => c.code === code)
-    || { symbol: code === 'EUR' ? '€' : (code || 'EUR'), locale: 'it-IT' };
-  return `${cur.symbol} ${new Intl.NumberFormat(cur.locale, opts).format(n)}`;
+  return window.formatMoney(amount, code, window.__currencies);
 }
 
 function cgFmtMonth(isoDate) {

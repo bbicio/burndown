@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { pbFmtMoney } from './pipeline-calc.js';
+import './money.js'; // sets window.formatMoney, which the wrappers read at call time
 
 // core.js and costgrid.js are classic scripts full of globals: pull one top-level function out of the
 // source text and build it with the globals it reads passed in as parameters. Path is relative to the

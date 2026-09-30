@@ -211,11 +211,7 @@ function billableData(data, cfg) {
 
 function fmtMoney(n, currencyCode) {
   if (n === null || n === undefined) return '—';
-  const code = currencyCode || currentCfg?.currency || 'EUR';
-  const opts = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-  const cur  = (window.__currencies || []).find(c => c.code === code)
-    || { symbol: code === 'EUR' ? '€' : code, locale: 'it-IT' };
-  return `${cur.symbol} ${new Intl.NumberFormat(cur.locale, opts).format(n)}`;
+  return window.formatMoney(n, currencyCode || currentCfg?.currency || 'EUR', window.__currencies);
 }
 
 function fmtH(n)         { return (n !== null && n !== undefined) ? n.toFixed(2) + 'h' : '—'; }
