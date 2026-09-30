@@ -84,7 +84,7 @@ Observed consequences (parity capture):
 
 ## Follow-ups
 
-- Known limits: a request carries at most 2000 project ids, so an admin with more eligible projects than that gets a 400 error; countFutureTaskWeeks uses a closed form (constant time), so an undated task (end year 9999) costs nothing; 	askFutureWeeks clamps the distribution end to about 20 years ahead.
+- Known limits: a request carries at most 2000 project ids, so an admin with more eligible projects than that gets a 400 error; countFutureTaskWeeks uses a closed form (constant time), so an undated task (end year 9999) costs nothing; taskFutureWeeks clamps the distribution end to about 20 years ahead.
 - Sunday quirk above (deliberate visible fix).
 - `POST /api/resources/match-owners` stays in the API but the page no longer calls it (owner status now ships with the model): candidate for removal.
 - `refreshTimesheetDataFromApi()` is still called by `planning.html` only because `js/ai.js` (`buildPlanningContext`) reads `timesheetData`; `js/ai.js` is scheduled for removal in the next cycle (the team assistant).
