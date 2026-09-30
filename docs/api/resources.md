@@ -22,7 +22,7 @@ Purpose: link the free-text `owner` in uploaded actuals to a `resources` row, as
 
 **Removed 2026-09-30 (Cycle B):** `POST /match-owners` (`{ names }` to a per-name `'active' | 'inactive'` map, `requireAuth` only, cached 30 s via `getResourcesAndAliasesCached()`) had no frontend caller since the Planning model cycle (owner status ships with `POST /api/planning/model`) and was deleted with its cache. `resolveOwnerStatuses(names, resources, aliases)` (`api/src/lib/match-resource.js`) stays: it treats every outcome except an unambiguous exact/alias match to a currently-`inactive` resource as `'active'`, and is used by `planning-compute.js`.
 
-**Since the Planning model cycle (2026-09-29):** owner status ships with `POST /api/planning/model` (`docs/api/planning-model.md`); `resolveOwnerStatuses` lives in `api/src/lib/match-resource.js` (re-exported from `routes/resources.js` only for `resources.test.js`).
+**Since the Planning model cycle (2026-09-29):** owner status ships with `POST /api/planning/model` (`docs/api/planning-model.md`); `resolveOwnerStatuses` lives in `api/src/lib/match-resource.js` (unit-tested in `match-resource.test.js`; the route no longer re-exports it).
 
 The router's blanket `requireAdmin` guard now covers every route in the file; `rescanAll()` (run after any resource/alias create/update/delete) refreshes the Unmatched list and re-queues the profile jobs.
 

@@ -2123,7 +2123,8 @@ function startAssistantStub(port, state) {
         if (state.mode === 'http500') { res.statusCode = 500; res.end('secret'); return; }
         res.setHeader('content-type', 'application/json');
         const sawResult = JSON.stringify(parsed.messages || []).includes('tool_result');
-        if (state.mode === 'tool' && !sawResult) {
+        if (state.mode === 'toolThen500' && sawResult) { res.statusCode = 500; res.end('secret'); return; }
+        if ((state.mode === 'tool' || state.mode === 'toolThen500') && !sawResult) {
           res.end(JSON.stringify({ stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'tu1', name: 'rank_team', input: state.input || { topN: 2 } }] }));
         } else {
           res.end(JSON.stringify({ content: [{ type: 'text', text: 'Summary: the suggested team is ready.' }] }));
@@ -2201,12 +2202,24 @@ async function testPlanningAssistant() {
   ok(r4.status === 400 && r4.data?.fields?.excludeResources, 'PA-07 unknown excluded name → 400 with a field error');
   const r5 = await rank({ params: { roles: ['NOPE'] } });
   ok(r5.status === 400 && r5.data?.fields?.roles, 'PA-07 unknown role → 400 with a field error');
+  const market = ((await api('GET', '/api/attribute-lists', null, adminCookie)).data || []).find(l => l.slug === 'market');
+  if (market) {
+    const r6 = await rank({ params: { requireTags: [{ list: 'Market', value: '__no_such_value__' }] } });
+    ok(r6.status === 400 && typeof r6.data?.fields?.requireTags === 'string', 'PA-12 unknown tag value → 400 with fields.requireTags');
+    const r7 = await rank({ params: { preferTags: [{ list: '__no_such_list__', value: 'x' }] } });
+    ok(r7.status === 400 && /Unknown list/.test(r7.data?.fields?.preferTags || ''), 'PA-12 unknown tag list → 400 with fields.preferTags');
+  } else pass('PA-12 no "market" attribute list seeded — skipped');
 
   // ── /chat (LLM stub) ──
   const chatBody = (over = {}) => ({ projectId: target, asOf: '2099-01-10', params: {}, messages: [{ role: 'user', content: 'Who is the best team?' }], ...over });
   ok((await api('POST', '/api/planning-assistant/chat', chatBody())).status === 401, 'PA-08 chat without auth → 401');
   ok((await api('POST', '/api/planning-assistant/chat', chatBody({ messages: [] }), adminCookie)).status === 400, 'PA-08 empty messages → 400');
   ok((await api('POST', '/api/planning-assistant/chat', chatBody({ messages: [{ role: 'assistant', content: 'hi' }] }), adminCookie)).status === 400, 'PA-08 last message must be from the user → 400');
+  const longText = 'x'.repeat(4500);
+  const longUser = await api('POST', '/api/planning-assistant/chat', chatBody({ messages: [{ role: 'user', content: longText }] }), adminCookie);
+  ok(longUser.status === 400 && longUser.data?.fields?.messages, 'PA-08 a user message over 4000 chars → 400 fields.messages');
+  const longAsst = await api('POST', '/api/planning-assistant/chat', chatBody({ messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: longText }, { role: 'user', content: 'again' }] }), adminCookie);
+  ok(longAsst.status !== 400, 'PA-08 an over-long assistant message is truncated, not rejected');
 
   if (process.env.LLM_STUB_ENABLED !== '1') { pass('PA-09 LLM stub not enabled (run via scripts/run-tests.sh) — chat cases skipped'); return; }
   const state = { mode: 'tool', bodies: [], input: { topN: 2 } };
@@ -2218,6 +2231,7 @@ async function testPlanningAssistant() {
     ok(Array.isArray(c1.data?.tables?.best) && c1.data.tables.best.length > 0, 'PA-09 tables come from the backend ranking, not from the text');
     ok(state.bodies.length === 2 && JSON.stringify(state.bodies[1].messages).includes('tool_result'), 'PA-09 the tool result was fed back to the model');
     ok(JSON.stringify(state.bodies[0].system).includes('<project_data>') && JSON.stringify(state.bodies[0].system).includes(`__pa_target_${ts}__`), 'PA-09 the project summary is sent inside the data block');
+    ok(JSON.stringify(state.bodies[0].system).includes('current_params'), 'PA-09 the current params are sent inside the data block');
 
     state.bodies.length = 0; state.input = { topN: 99 };            // invalid tool params → error goes back to the model
     const c2 = await api('POST', '/api/planning-assistant/chat', chatBody(), adminCookie);
@@ -2228,6 +2242,10 @@ async function testPlanningAssistant() {
     const c3 = await api('POST', '/api/planning-assistant/chat', chatBody(), adminCookie);
     ok(c3.status === 503 && c3.data?.error === 'Assistant unavailable' && !JSON.stringify(c3.data).includes('secret'), 'PA-11 LLM failure → 503 without the response body');
     ok((await rank({})).status === 200, 'PA-11 /rank keeps working while the assistant is down');
+
+    state.mode = 'toolThen500'; state.input = { topN: 2 };          // ranking computed, then the model fails
+    const c4 = await api('POST', '/api/planning-assistant/chat', chatBody(), adminCookie);
+    ok(c4.status === 200 && Array.isArray(c4.data?.tables?.best) && /could not finish/.test(c4.data?.reply || ''), 'PA-11 LLM failure after a ranking → 200 with the tables and a fallback reply');
   } finally { server.close(); }
 }
 
