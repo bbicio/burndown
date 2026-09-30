@@ -2319,6 +2319,49 @@ async function testVersionScope() {
   ok((await api('GET', `${cross}/structure`, null, '')).status === 401, 'VS-13 no session → 401, not 404');
 }
 
+// ── PATCH /api/projects/:id input validation (2026-09-30 hardening) ─────────────
+
+async function testProjectPatchValidation() {
+  section('Project PATCH validation');
+  const r = await api('POST', '/api/projects', { name: '__test_patch_validation__' }, adminCookie);
+  const id = r.data?.id;
+  if (!id) { ok(false, 'PV-setup project created'); return; }
+  later('DELETE', `/api/projects/${id}`);
+
+  const bad1 = await api('PATCH', `/api/projects/${id}`, { cgVersionId: 'not-a-uuid' }, adminCookie);
+  ok(bad1.status === 400 && /cgVersionId/.test(bad1.data?.error || ''), `PV-01 non-UUID cgVersionId → 400 (got ${bad1.status})`);
+  const bad2 = await api('PATCH', `/api/projects/${id}`, { clientId: 'not-a-uuid' }, adminCookie);
+  ok(bad2.status === 400 && /clientId/.test(bad2.data?.error || ''), `PV-02 non-UUID clientId → 400 (got ${bad2.status})`);
+  const bad3 = await api('PATCH', `/api/projects/${id}`, { cgVersionId: 12345 }, adminCookie);
+  ok(bad3.status === 400, `PV-03 non-string cgVersionId → 400 (got ${bad3.status})`);
+
+  ok((await api('PATCH', `/api/projects/${id}`, { cgVersionId: null }, adminCookie)).status === 200,
+    'PV-04 cgVersionId null still unlinks → 200');
+  ok((await api('PATCH', `/api/projects/${id}`, { cgVersionId: '', clientId: '' }, adminCookie)).status === 200,
+    "PV-04 empty string still unlinks → 200");
+  ok((await api('PATCH', `/api/projects/${id}`, { name: '__test_patch_validation_2__' }, adminCookie)).status === 200,
+    'PV-05 an ordinary field update is unchanged → 200');
+}
+
+// ── GET /api/timesheets/:projectCode without actuals (2026-09-30 hardening) ─────
+
+async function testTimesheetsNoActuals() {
+  section('Timesheets without actuals');
+  const code = '__NO_SUCH_CODE_HD__';
+
+  const a = await api('GET', `/api/timesheets/${code}`, null, adminCookie);
+  ok(a.status === 200 && Array.isArray(a.data) && a.data.length === 0,
+    `TS-01 admin, code without actuals → 200 [] (got ${a.status})`);
+
+  const userCookie = await getPlainUserCookie();
+  if (userCookie) {
+    const u = await api('GET', `/api/timesheets/${code}`, null, userCookie);
+    ok(u.status === 403, `TS-02 plain user, code not visible to them → 403 (got ${u.status})`);
+  } else {
+    ok(false, 'TS-02 skipped — plain-user session unavailable');
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -2352,6 +2395,8 @@ async function main() {
     await testProfileJobsConsole();
     await testTagLinking();
     await testVersionScope();
+    await testProjectPatchValidation();
+    await testTimesheetsNoActuals();
     await testProjectDescriptions();
     await testTopicsApi();
     await testTopicExtraction();
