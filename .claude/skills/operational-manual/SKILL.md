@@ -146,8 +146,7 @@ Write this with the same walkthrough treatment as Resource Planning above:
 8. **Reviewing/managing what was uploaded, afterward.** The admin-only Timesheet Management page's columns (Client/Project/Project code, Uploads, Rows, Last uploaded) are independently sortable (ascending → descending → unsorted); its pipeline-year selector defaults to the current calendar year if active, otherwise the most recently active year, with an explicit "All years" option. Downloaded exports use the filename pattern `<Client>_<Project>_<ProjectCode>_<YYYYMMDD>.xlsx`.
 
 **§9 Settings**
-- The full Exports table (what each of the three export types contains, and who can run it — Roles in Rate Cards is admin-only).
-- **That "Restore from Backup" does not actually work, and the full reason why** — two compounding causes: a key-name mismatch for project/cost-grid data, and — even for the fields that *do* line up — the underlying save functions are no-ops left over from before this app was fully API-backed.
+- **Settings is now a page, `settings.html` (2026-09-30)** — opened from the account dropdown's "⚙ Settings"; currently blank apart from the standard navbar/footer and the title "Settings" (any authenticated user). The former modal and its CSV exports, Full Backup and Restore from Backup were removed; do not describe them. The server export routes still exist but have no UI.
 
 **§11 Team assistant (2026-09-30)**
 - **Who sees it and where.** The "🤖 Team assistant" button in the Resource Planning toolbar, visible to admin and sysadmin only (the server answers 403 to anyone else). It replaced the former AI sidebar ("AI Chat", personal API keys stored in the browser) and the portfolio "AI Analysis" button — both removed; **never describe either, and never mention a "Settings → API & Integrations" tab or personal AI keys: they no longer exist** (Settings now only holds the Data Manager).

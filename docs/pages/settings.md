@@ -1,0 +1,5 @@
+# settings.html
+
+Settings page, added 2026-09-30 (spec `docs/superpowers/specs/2026-09-30-settings-page-design.md`, plan `docs/superpowers/plans/2026-09-30-settings-page.md`). Vue 3 (CDN, no build), same pattern as `_terms-editor.html`: `initNav('settings', { breadcrumbs: Home › Settings })`, `v-cloak` root, spinner until `ready`. Content: the standard navbar/footer/breadcrumb and a `.page-header` with the `h1` "Settings" (styled by `css/admin-crud.css`, so its size matches the other admin pages; the body is forced to white). Open to any authenticated user. Loads `api.js`, `core.js`, `notifications.js`, `nav.js?v=11`; no `api-sync.js`.
+
+It replaced the Settings modal. Removed in the same cycle: the modal itself, CSV exports (Cost Grids, Project Portfolio, Roles in Rate Cards), Full Backup (.json), Restore from Backup (which never worked: key-name mismatch plus no-op save functions), and `js/settings.js` with its 13 `<script>` tags. The server routes `/api/exports/*` are unchanged and have no UI. Nothing else lives on the page yet; future settings go here.

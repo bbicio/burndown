@@ -35,7 +35,10 @@
 |---|---|---|---|---|
 | N-01 | Nav tabs | Click each top tab: Pipeline, Reporting, Planning | Correct page loads; active tab highlighted; others inactive | |
 | N-02 | Account dropdown | Click user avatar/name top-right | Dropdown shows name, Settings, Change Password, Logout | |
-| N-03 | Settings modal | Open Settings | The modal shows the Data Manager content (exports, backup, restore) directly, with a Close button and no tabs (the "API & Integrations" tab was removed 2026-09-30) | |
+| N-03 | Settings opens a page (2026-09-30) | Click ⚙ Settings in the account dropdown | Navigates to `/settings.html`; no modal opens | |
+| ST-01 | Settings page content | Open `/settings.html` | Standard navbar, footer and breadcrumb Home › Settings; white content area whose only content is the title "Settings", sized like other admin page titles | |
+| ST-02 | Settings requires login | Log out, open `/settings.html` | Redirected to login | |
+| ST-03 | No stale settings.js | Open any of the 14 pages with the console open | No 404 for `js/settings.js`, no JS errors | |
 | N-04 | Non-admin config.html | Navigate to `/config.html` as role=user | "Admin access required" — tabs not accessible | |
 | N-05 | Non-admin admin.html | Navigate to `/admin.html` as role=user | "Admin access required" or redirect | |
 | N-06 | Non-admin timesheets.html | Navigate to `/timesheets.html` as role=user | Redirected to pipeline.html or access denied | |
@@ -527,20 +530,20 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | NT-20 | Re-enabling after a local disable doesn't re-prompt the browser | With popups locally disabled (NT-19) and permission already granted, click "Enable" | Popups resume immediately — no browser permission prompt appears again, since permission was never actually revoked | |
 | NT-21 | Row hidden entirely if the browser itself denies permission | Deny the browser's permission prompt (or block this origin in the browser's own site settings), then open the panel | No row shown at all — this app has no way to override a browser-level block | ✓ (vitest, getBrowserNotifBannerState) |
 | NT-22 | Disable survives navigating to another page (2026-09) | With permission granted, click "Disable", then navigate to a different PDash page (full page load, not the same tab's SPA state) | Row still reads "Enable" on the new page — the opt-out is not silently wiped by `js/core.js`'s legacy-localStorage cleanup, which runs on every page load | |
-| NT-23 | Export ready notifies the requester in-app too (2026-09) | Trigger any of the three exports (Settings → Data Manager → Portfolio/Cost Grids/Rate Cards CSV) | Alongside the existing email, an in-app notification appears for the requester themselves — "Your export is ready" — previously email only | |
+| NT-23 | Export ready notifies the requester in-app too (2026-09) | `POST /api/exports/{portfolio|cost-grids|ratecards}` (no UI since 2026-09-30) | Alongside the existing email, an in-app notification appears for the requester themselves — "Your export is ready" — previously email only | |
 
 ---
 
-## 14. Exports (Settings → Data Manager)
+## 14. Exports (OBSOLETE 2026-09-30 — UI removed; `/api/exports/*` routes kept without UI)
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
-| EX-01 | Portfolio CSV | Settings → Data Manager → Export Portfolio | Email received with CSV attachment | |
-| EX-02 | Cost Grids CSV | Click Export Cost Grids | Email with CSV: one row per task, role-code columns | |
-| EX-03 | Rate Cards CSV (admin) | Click Export Rate Cards as admin | Email with matrix CSV: roles × clients | |
-| EX-04 | Rate Cards hidden (non-admin) | Open Settings as role=user | Export Rate Cards button absent | |
-| EX-05 | Full backup | Click Download Full Backup | JSON file downloaded with timestamp in filename | |
-| EX-06 | Restore (admin) | Upload valid backup JSON | Data restored; success message shown | |
+| EX-01 | OBSOLETE: Portfolio CSV | Settings → Data Manager → Export Portfolio | Email received with CSV attachment | |
+| EX-02 | OBSOLETE: Cost Grids CSV | Click Export Cost Grids | Email with CSV: one row per task, role-code columns | |
+| EX-03 | OBSOLETE: Rate Cards CSV (admin) | Click Export Rate Cards as admin | Email with matrix CSV: roles × clients | |
+| EX-04 | OBSOLETE: Rate Cards hidden (non-admin) | Open Settings as role=user | Export Rate Cards button absent | |
+| EX-05 | OBSOLETE: Full backup | Click Download Full Backup | JSON file downloaded with timestamp in filename | |
+| EX-06 | OBSOLETE: Restore (admin) | Upload valid backup JSON | Data restored; success message shown | |
 
 ---
 
@@ -904,7 +907,7 @@ Project/task descriptions, the shared competence-topic vocabulary and its LLM ex
 | PA-M3 | /rank response time on real data (Gate 2) | Press "Calculate team" twice (second call with a warm planning cache) and read the request time in devtools | Under 3 s with a warm cache; record the measured numbers (cold and warm) |  |
 | PA-M4 | Plain user does not get the assistant | Log in as a plain user and open `/planning.html`; then call `POST /api/planning-assistant/rank` from the console | No "Team assistant" button; the API answers 403 |  |
 | PA-M5 | Profile version 2 after Rebuild | Run "Rebuild" from `profile-jobs.html`, then open a person with topics in `team.html` → Experience profile | Topics appear under "Direct experience" and "Project context"; before Rebuild they show as "Topics (provenance not available — recalculate profiles)" |  |
-| PA-M6 | Old personal AI keys are wiped | In a browser that still has a `PDash_settings` entry in localStorage, load any page | The key is gone after the first load; Settings shows only the Data Manager content |  |
+| PA-M6 | Old personal AI keys are wiped | In a browser that still has a `PDash_settings` entry in localStorage, load any page | The key is gone after the first load |  |
 | PA-M7 | Selection resets when a filter removes the project (2026-09-30) | In `planning.html` open the Team assistant, select a project, then change a page filter so that project disappears; repeat with a filter that keeps it | Removed: select returns to "Select a project…" and chat/tables clear; kept: nothing changes. **Not yet verified in a browser (no Planning data at the time)** | |
 | PA-M8 | Enter during IME composition does not send (2026-09-30) | In the assistant textarea compose text with an IME and press Enter to confirm; then Shift+Enter; then plain Enter | IME-confirming Enter does not send; Shift+Enter inserts a newline; plain Enter sends. **Not yet verified in a browser** | |
 

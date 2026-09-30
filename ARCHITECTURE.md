@@ -984,7 +984,6 @@ burndown/
     roles.js              ← `loadRolesFromApi`/`saveRoles` (no-op)/`getRoles` only — its former roles-management modal UI was confirmed unreachable and deleted in the 2026-08 dead-code cleanup; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role — role shape: `{ id, label, code, rate, rateOverrides }`
     ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js; `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects per-role `rateOverrides` and sends them to the API
     upload.js             ← XLS parsing
-    settings.js           ← settings modal logic (openSettingsModal, stgExport, downloadFullBackup)
     tags.js                ← (2026-09, Cycle 2) `loadActiveAttributeListsForTagging()`, shared by
                             costgrid.html/project-config.html's Tags sections; fetches lists + active items
                             in parallel via raw fetch() (not Api.*), matching attribute-lists.html's own
@@ -1011,6 +1010,7 @@ burndown/
   login.html / activate.html / reset-password.html
   _db-reset.html          ← sysadmin-exclusive (2026-09, was admin-only) hidden page for bulk DB data deletion by scope, Vue 3 (CDN, no build step, same pattern as admin.html), linked from the sysadmin-only navbar menu (initNav('dbreset', ...))
   _terms-editor.html      ← sysadmin-exclusive hidden page — Terms & Conditions editor, moved out of admin.html; linked from the sysadmin-only navbar menu (initNav('termseditor', ...)) — see §5's App Settings section. Full narrative: docs/pages/terms-editor.md
+  settings.html           ← Settings page (2026-09-30), Vue 3 (CDN, no build step), blank apart from navbar/footer and the title; replaced the former Settings modal (see docs/pages/settings.md)
   team.html               ← resource registry CRUD, Vue 3 (CDN, no build step, same pattern as admin.html), admin or sysadmin, linked from the ⚙ Admin dropdown (2026-09). First of four planned resource-allocation cycles — see docs/superpowers/specs/2026-09-23-team-attribute-lists-design.md
   attribute-lists.html    ← generic, agnostic tag/taxonomy admin console (lists + items, no physical delete), Vue 3 (CDN, no build step, same pattern as admin.html), admin or sysadmin, linked from the ⚙ Admin dropdown (2026-09). As of Cycle 2 (2026-09), its lists/items are consumed by costgrid.html/project-config.html's Tags sections via js/tags.js
   profile-jobs.html       ← profile-engine job console, Vue 3 (CDN, no build step, same pattern as team.html/admin.html), hidden (no menu entry, reached only from a "Profile processing →" button on timesheets.html), admin or sysadmin (2026-09, Cycle 3d). Full narrative: docs/pages/profile-jobs.md

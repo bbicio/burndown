@@ -526,28 +526,11 @@ Lists every project code that has uploaded timesheet data, for review and cleanu
 
 ## 9. Settings
 
-Accessed via **account dropdown → ⚙ Settings** (available on all pages).
+Accessed via **account dropdown → ⚙ Settings** (available on all pages). Since 2026-09-30 this opens its own page, `/settings.html`, instead of a modal. The page currently has the standard navbar, footer and breadcrumb (Home › Settings) and a blank white content area whose only content is the title "Settings"; any authenticated user can open it, and a logged-out visit redirects to login.
 
-### 9.1 API & Integrations Tab (removed)
+### 9.1 Removed from Settings (2026-09-30)
 
-Removed 2026-09-30 (Planning team assistant cycle): users no longer enter personal AI provider keys, and nothing is stored in the browser for this. The settings modal shows only the Data Manager below. The remaining AI features run on the server with the server's own key (§11).
-
-### 9.2 Data Manager Tab
-
-#### Exports (CSV — sent to user's email as attachments)
-
-| Export | Contents | Access |
-|---|---|---|
-| Cost Grids | One row per task — Grid, Version, Pipeline, Start Date, End Date, Currency, Phase, Task, one column per role-code (days) | All users (own/shared grids only) |
-| Project Portfolio | One row per project — ID, Name, Program, Program ID, Client, Pipeline, Status, Start Date, End Date, Currency | All users (own/shared projects only) |
-| Roles in Rate Cards | One row per role — Role Code, Role Label, Default rate, one column per client ratecard | Admin only |
-
-Clicking an export button triggers a server-side CSV generation; the file is sent immediately as an email attachment to the logged-in user's address.
-
-#### Backup
-
-- **Full Backup (.json):** Downloads a dated JSON snapshot of all API data (projects, roles, programs, clients, cost grids)
-- **Restore from Backup:** Admin-only. ⚠️ Non-functional as implemented, for two compounding reasons — not just the one below: `restoreFromBackup()` reads a key shape (`s.config`/`s.costgrids`) that doesn't match what Full Backup actually writes (`stores.projects`/`stores.costGrids`) for the project/cost-grid data; and even for the keys that *do* line up (roles/programs/clients), the functions that would apply them are documented no-ops left over from before this app was fully API-backed, and every page reloads its state fresh from the API on the next load regardless. No data is persisted back to the API by this button, for any of its fields.
+The former Settings modal and everything in it were removed: the personal AI provider keys (removed earlier the same day; the remaining AI features run on the server with the server's own key, §11), the three CSV exports (Cost Grids, Project Portfolio, Roles in Rate Cards), **Full Backup (.json)** and **Restore from Backup** (which never worked). The server routes `POST /api/exports/{portfolio|cost-grids|ratecards}` and `GET /api/exports/phasing` are unchanged; the three CSV ones now have no UI entry point, while the phasing XLS is still reachable from Configuration. Future settings will be added to `settings.html`.
 
 #### Send Notification
 
@@ -579,7 +562,7 @@ Clicking a notification marks it as read and navigates to the linked URL if pres
 
 | Trigger | Description |
 |---|---|
-| Export ready | Sent automatically when a CSV export is requested — both an email (with the file attached) and an in-app notification (2026-09) to the requester themselves |
+| Export ready | Sent automatically when a CSV export is requested through the API (no UI triggers it since 2026-09-30) — both an email (with the file attached) and an in-app notification (2026-09) to the requester themselves |
 | Sent notification | Any user composes a message targeting a specific colleague; broadcast to all users is admin/sysadmin-only |
 | Share granted | When a cost grid, project, or program is shared with you — both an email and an in-app notification, for all three resource types (2026-09: previously cost grid share sent only the email) |
 | Share revoked (2026-09) | When your access to a project is removed — both an email and an in-app notification to the person whose access was removed (previously silent on both channels); program-level access is granted and revoked per-project under the hood, so this same trigger covers both |

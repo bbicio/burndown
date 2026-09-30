@@ -23,3 +23,7 @@ The injected notification dropdown markup gained a `#nav-notif-browser-banner` r
 ## Settings modal: Data Manager only (Planning team assistant cycle, 2026-09-30)
 
 The injected settings modal no longer has tabs: the "🔑 API & Integrations" tab (AI provider/model selects and the Anthropic/OpenAI/Gemini key fields), its tab-switching, provider-change and Save wiring, and the "API keys are saved in your browser's localStorage" footer are gone. What is left is the Data Manager content (`#stgTabData`, exports/backup/restore) shown directly, with a single "Close" button. `openSettingsModal()` in `js/settings.js` is wired as before; `saveSettingsModal`/`stgUpdateModelDropdown` no longer exist. `?v=` of `js/nav.js` (and `js/settings.js`) was bumped on every page.
+
+## Settings button opens settings.html (2026-09-30)
+
+The Settings modal injection (`#settingsModal`) and its export/backup/restore wiring were removed from `js/nav.js`, together with `js/settings.js` (deleted). `#nav-settings-btn` now does `window.location.href = '/settings.html'`; the `stgAlreadyWired` marker is kept so the handler is wired once. `nav.js` is `?v=11` in every page that loads it (14 pages including `settings.html`). The earlier "Settings modal: Data Manager only" section above is historical.
