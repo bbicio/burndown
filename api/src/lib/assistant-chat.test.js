@@ -82,6 +82,17 @@ test('runChat: only the last 20 history messages are sent', async () => {
   history.push({ role: 'user', content: 'last' });
   const llm = fakeLlm([{ text: 'ok', toolCalls: [] }]);
   await C.runChat({ llm, system: 's', history, tools: C.TOOLS, runTool: async () => ({ content: '{}' }) });
-  assert.equal(llm.calls[0].messages.length, 20);
+  assert.ok(llm.calls[0].messages.length <= 20);
   assert.equal(llm.calls[0].messages.at(-1).content, 'last');
+});
+
+test('runChat: the trimmed history always starts with a user message and keeps the last one', async () => {
+  const history = Array.from({ length: 30 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: `m${i}` }));
+  history.push({ role: 'user', content: 'last' });          // natural 20-slice starts on an assistant message
+  const llm = fakeLlm([{ text: 'ok', toolCalls: [] }]);
+  await C.runChat({ llm, system: 's', history, tools: C.TOOLS, runTool: async () => ({ content: '{}' }) });
+  const sent = llm.calls[0].messages;
+  assert.equal(sent[0].role, 'user');
+  assert.ok(sent.length <= 20 && sent.length >= 1);
+  assert.equal(sent.at(-1).content, 'last');
 });

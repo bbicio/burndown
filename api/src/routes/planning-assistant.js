@@ -60,11 +60,12 @@ function makeRouter(deps = {}) {
       let lastRank = null;
       const runTool = async (name, input) => {
         if (name === 'rank_team') {
-          const merged = parseParams(input);
-          if (!merged.ok) return { content: JSON.stringify({ error: 'Invalid parameters', fields: merged.errors }) };
+          // Constraints persist across turns because the system prompt tells the model to repeat all of them on every call.
+          const parsed = parseParams(input);
+          if (!parsed.ok) return { content: JSON.stringify({ error: 'Invalid parameters', fields: parsed.errors }) };
           try {
-            lastRank = svc.rank(ctx, { params: merged.value, asOf: base.asOf });
-            params = merged.value;
+            lastRank = svc.rank(ctx, { params: parsed.value, asOf: base.asOf });
+            params = parsed.value;
             return { content: JSON.stringify(compactRankResult(lastRank)) };
           } catch (err) {
             if (err && err.status === 400) return { content: JSON.stringify({ error: err.message, fields: err.fields }) };

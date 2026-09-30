@@ -67,6 +67,9 @@ function compactRankResult(result) {
 // history: [{ role: 'user'|'assistant', content }]; llm: { chat }; runTool(name, input) → { content: string }.
 async function runChat({ llm, system, history, tools, runTool, maxTurns = MAX_TOOL_TURNS }) {
   const messages = history.slice(-MAX_HISTORY).map(m => ({ role: m.role, content: m.content }));
+  // The Messages API requires the first message to be from the user; the cut may land on an assistant one.
+  // The last message is a user message (route-validated), so this never empties the list.
+  while (messages.length > 1 && messages[0].role !== 'user') messages.shift();
   for (let turn = 0; ; turn++) {
     const offer = turn < maxTurns ? tools : [];
     const res = await llm.chat({ system, messages, tools: offer });
