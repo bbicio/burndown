@@ -147,3 +147,34 @@ test('explainResource: breakdown, both scores, position in the best list, availa
   assert.match(explainResource({ ...base, name: 'Nobody', roleCode: 'DEV' }).error, /No resource named/);
   assert.match(explainResource({ ...base, name: 'Bob T', roleCode: 'XX' }).error, /not required/);
 });
+
+test('explainResource honours preferTags: same score as rankTeam best for the same params', () => {
+  const tagged = { ...prof(100, 20), dimensions: { market: { name: 'Market', values: [{ value: 'Italy', itemId: 'i', hours: 50 }] } } };
+  const rs = [person('a', 'Alice', 'DEV', prof(400, 200)), person('b', 'Bob', 'DEV', tagged)];
+  const params = { ...base.params, preferTags: [{ list: 'Market', value: 'Italy' }] };
+  const bob = rankTeam({ ...base, resources: rs, params }).best[0].rows.find(r => r.name === 'Bob T');
+  const plain = rankTeam({ ...base, resources: rs }).best[0].rows.find(r => r.name === 'Bob T');
+  assert.ok(bob.score > plain.score);
+  const e = explainResource({ ...base, resources: rs, params, name: 'Bob T', roleCode: 'DEV' });
+  assert.equal(e.score, bob.score);
+});
+
+test('explainResource positionInBest uses the filtered pool; out-of-pool resource gets null and notInPool', () => {
+  const tagged = { ...prof(400, 200), dimensions: { market: { name: 'Market', values: [{ value: 'Italy', itemId: 'i', hours: 50 }] } } };
+  const rs = [person('a', 'Alice', 'DEV', prof(10, 1)), person('b', 'Bob', 'DEV', prof(400, 200)), person('c', 'Cara', 'DEV', tagged)];
+  const params = { ...base.params, requireTags: [{ list: 'Market', value: 'Italy' }] };
+  const bob = explainResource({ ...base, resources: rs, params, name: 'Bob T', roleCode: 'DEV' });
+  const cara = explainResource({ ...base, resources: rs, params, name: 'Cara T', roleCode: 'DEV' });
+  assert.equal(cara.positionInBest, 1);
+  assert.equal(bob.positionInBest, null);
+  assert.match(bob.notInPool, /requireTags/);
+  assert.ok(bob.score > 0);
+  const ex = explainResource({ ...base, resources: rs, excludedIds: new Set(['b']), name: 'Bob T', roleCode: 'DEV' });
+  assert.equal(ex.notInPool, 'excluded');
+  assert.equal(ex.positionInBest, null);
+});
+
+test('explainResource: ambiguous name is an error', () => {
+  const rs = [person('a', 'Alice', 'DEV', prof(1, 1)), person('b', 'Alice', 'DEV', prof(2, 2))];
+  assert.match(explainResource({ ...base, resources: rs, name: 'Alice T', roleCode: 'DEV' }).error, /more than one resource/);
+});
