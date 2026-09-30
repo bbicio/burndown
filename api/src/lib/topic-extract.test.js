@@ -165,3 +165,14 @@ test('chunk: empty, exact multiple, remainder, size <= 0 gives one chunk', () =>
   assert.deepEqual(chunk([1, 2, 3], 0), [[1, 2, 3]]);
   assert.deepEqual(chunk([1, 2, 3], -5), [[1, 2, 3]]);
 });
+
+test('resolveProfileTopics: provenance is carried only when present, merged topics combine, direct wins over context', () => {
+  const out = resolveProfileTopics([
+    { topicId: 't1', projectCodes: ['A'], direct: { hours: 6, projectCodes: ['A'] }, context: { projectCodes: [] } },
+    { topicId: 't4', projectCodes: ['A', 'B'], direct: { hours: 0, projectCodes: [] }, context: { projectCodes: ['A', 'B'] } },
+  ], vocab.topicsById);                                   // t4 is merged into t1
+  assert.deepEqual(out, [{
+    id: 't1', name: 'Medical writing', projectCodes: ['A', 'B'],
+    direct: { hours: 6, projectCodes: ['A'] }, context: { projectCodes: ['B'] },
+  }]);
+});

@@ -179,11 +179,29 @@ function resolveProfileTopics(entries, topicsById) {
     const t = finalTopic(e.topicId, topicsById);
     if (!t || t.status !== 'approved') continue;
     let cur = byId.get(t.id);
-    if (!cur) { cur = { id: t.id, name: t.name, projectCodes: new Set() }; byId.set(t.id, cur); }
+    if (!cur) { cur = { id: t.id, name: t.name, projectCodes: new Set(), direct: null, context: null }; byId.set(t.id, cur); }
     for (const c of e.projectCodes || []) cur.projectCodes.add(c);
+    if (e.direct) {
+      cur.direct = cur.direct || { hours: 0, codes: new Set() };
+      cur.direct.hours += Number(e.direct.hours) || 0;
+      for (const c of e.direct.projectCodes || []) cur.direct.codes.add(c);
+    }
+    if (e.context) {
+      cur.context = cur.context || new Set();
+      for (const c of e.context.projectCodes || []) cur.context.add(c);
+    }
   }
   return [...byId.values()]
-    .map(x => ({ id: x.id, name: x.name, projectCodes: [...x.projectCodes].sort() }))
+    .map(x => {
+      const base = { id: x.id, name: x.name, projectCodes: [...x.projectCodes].sort() };
+      if (!x.direct && !x.context) return base;
+      const directCodes = x.direct ? x.direct.codes : new Set();
+      return {
+        ...base,
+        direct: { hours: Math.round(((x.direct ? x.direct.hours : 0) + Number.EPSILON) * 100) / 100, projectCodes: [...directCodes].sort() },
+        context: { projectCodes: [...(x.context || [])].filter(c => !directCodes.has(c)).sort() },
+      };
+    })
     .sort((a, b) => b.projectCodes.length - a.projectCodes.length || a.name.localeCompare(b.name));
 }
 
