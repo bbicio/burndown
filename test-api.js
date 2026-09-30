@@ -2257,6 +2257,7 @@ async function testVersionScope() {
 
   const rpy = await api('POST', '/api/pipeline-years', { year: TEST_YEAR_C }, adminCookie);
   if (![201, 409].includes(rpy.status)) { ok(false, 'VS-setup pipeline year unavailable'); return; }
+  if (rpy.status === 201 && rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
 
   const mk = async (name, label) => {
     const g = await api('POST', '/api/cost-grids', { name, pipelineYear: TEST_YEAR_C }, adminCookie);
