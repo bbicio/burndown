@@ -2273,7 +2273,6 @@ async function testVersionScope() {
   const cross = `/api/cost-grids/${A.cgId}/versions/${B.vId}`; // grid A's id, grid B's version
   const cases = [
     ['VS-01 PATCH version',            'PATCH',  cross,                              { label: 'hijack' }],
-    ['VS-02 DELETE version',           'DELETE', cross,                              null],
     ['VS-03 POST duplicate',           'POST',   `${cross}/duplicate`,               null],
     ['VS-04 GET structure',            'GET',    `${cross}/structure`,               null],
     ['VS-05 PUT structure',            'PUT',    `${cross}/structure`,               { phases: [] }],
@@ -2281,6 +2280,9 @@ async function testVersionScope() {
     ['VS-07 POST linked-projects',     'POST',   `${cross}/linked-projects`,         { projectId: FAKE }],
     ['VS-08 DELETE linked-projects',   'DELETE', `${cross}/linked-projects/${FAKE}`, null],
     ['VS-09 POST refresh-rate',        'POST',   `${cross}/refresh-rate`,            null],
+    ['VS-14 POST publish',             'POST',   `${cross}/publish`,                 null],
+    ['VS-15 GET tags',                 'GET',    `${cross}/tags`,                    null],
+    ['VS-16 PUT tags',                 'PUT',    `${cross}/tags`,                    { itemIds: [] }],
   ];
   for (const [label, method, path, body] of cases) {
     const r = await api(method, path, body, adminCookie);
@@ -2293,6 +2295,13 @@ async function testVersionScope() {
   ok(listB.status === 200 && listB.data?.length === 1 && listB.data[0].id === B.vId && listB.data[0].label === 'vB',
     "VS-10 grid B's version still exists, same label");
   ok(listA.status === 200 && listA.data?.length === 1, 'VS-10 grid A did not gain a duplicated version');
+
+  // Destructive cross-grid DELETE goes last, so every case above ran while vB still existed
+  const rDel = await api('DELETE', cross, null, adminCookie);
+  ok(rDel.status === 404, `VS-02 DELETE version with another grid's version → 404 (got ${rDel.status})`);
+  const listB2 = await api('GET', `/api/cost-grids/${B.cgId}/versions`, null, adminCookie);
+  ok(listB2.status === 200 && listB2.data?.length === 1 && listB2.data[0].id === B.vId,
+    "VS-02 grid B's version still exists after the cross-grid DELETE");
 
   // Same-grid requests keep working
   const okPatch = await api('PATCH', `/api/cost-grids/${A.cgId}/versions/${A.vId}`, { label: 'vA2' }, adminCookie);
