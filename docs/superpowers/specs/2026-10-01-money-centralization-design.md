@@ -30,7 +30,7 @@ One locale-driven implementation of money formatting and parsing, used by every 
 
 All functions are pure and receive the currency list (`window.__currencies` shape: `{ code, symbol, locale, ... }`).
 
-- `currencyInfo(code, currencies)` -> `{ code, symbol, locale, digits }`. `digits` from `new Intl.NumberFormat(locale, { style: 'currency', currency: code }).resolvedOptions().maximumFractionDigits`. Unknown code: `{ symbol: code, locale: 'it-IT', digits: 2 }` (the existing fallback, now in one place).
+- `currencyInfo(code, currencies)` -> `{ code, symbol, locale, digits }`. `digits` from `new Intl.NumberFormat(locale, { style: 'currency', currency: code }).resolvedOptions().maximumFractionDigits`, with a `try/catch` defaulting to 2 (Intl throws on a non-ISO code such as a stray `€`). A falsy code means `EUR`. Code not in the list: `{ symbol: code === 'EUR' ? '€' : code, locale: 'it-IT', digits }` (the existing fallback, now in one place).
 - `formatMoney(amount, code, currencies, { rounded } = {})` -> `€ 12.345,00`; with `rounded`, no decimals (`€ 12.345`). Symbol prefix and a space, as today.
 - `formatMoneyInput(amount, code, currencies)` -> bare number in the locale format, no symbol, no grouping, currency digits (`350,28`). Empty for 0/null.
 - `parseMoney(text, code, currencies)` -> number. Group and decimal separators derived from the locale with `formatToParts`. A leading symbol or ISO code is tolerated. Rounded to the currency digits. Empty or unparseable text returns 0.
@@ -40,7 +40,7 @@ Server: `api/src/lib/money-format.js` (CommonJS) exporting `formatMoney(amount, 
 
 ## 5. Loading currencies
 
-Every page with money calls `loadCurrenciesFromApi()` (`js/api-sync.js:73`) before the first render, in parallel with the other startup fetches. Added to `portfolio.html` and `project-config.html`; `config.html:1272` and `timesheets.html:276-280` switch to the same function instead of assigning `window.__currencies` by hand. The error fallback stays (EUR only, `it-IT`) with the existing `console.warn`. `window.__currencies` remains an in-memory per-page cache, no localStorage. Every page that uses a wrapper loads `<script type="module" src="js/lib/money.js?v=1">` before the scripts that call it.
+Every page with money calls `loadCurrenciesFromApi()` (`js/api-sync.js:73`) before the first render, in parallel with the other startup fetches. Added to `portfolio.html`, `project-config.html` and `planning.html` (all three already load `api-sync.js`). `config.html:1272` and `timesheets.html:276-280` keep their own direct `Api.currencies.active()` load: neither page loads `api-sync.js`, and both already load before first use. The error fallback stays (EUR only, `it-IT`) with the existing `console.warn`. `window.__currencies` remains an in-memory per-page cache, no localStorage. Every page that uses a wrapper loads `<script type="module" src="js/lib/money.js?v=1">` before the scripts that call it.
 
 ## 6. In-memory currency model (ISO codes)
 
@@ -61,9 +61,9 @@ Three text inputs migrate; all behave the same:
 
 ## 8. Outputs and guard
 
-- **Wrappers (same signature, one-line bodies calling the module):** `fmtMoney` (`js/core.js:212`, keeps its `currentCfg?.currency` default and the `—` for null/undefined), `cgFmtCurrency` (`js/costgrid.js:57`), `pbFmtMoney` (`js/lib/pipeline-calc.js:85-91`, via native ES `import`), the two copies in `config.html:1104` and `:1197`.
-- **Hardcoded spots moved to the module** (with `rounded: true` where they round today): `costgrid.html:1362` and `js/costgrid.js:633` (phasing amounts), `costgrid.html:1401` (`fmtR`), `pipeline.html:749` (`potFmtMoney`, EUR), `config.html:1953/1956` (`fmtAmount`/`fmtAmt`), the `€/h` labels at `config.html:877/2015` and the equivalents in `js/ratecards.js` (use the real symbol).
-- **Excluded, not amounts:** exchange rates (4-6 decimals: `costgrid.html:108`, `config.html:751/1341/1342`, `pipeline.html:219/789`), hours, counts.
+- **Wrappers (same signature, one-line bodies calling the module):** `fmtMoney` (`js/core.js:212`, keeps its `currentCfg?.currency` default and the `—` for null/undefined), `cgFmtCurrency` (`js/costgrid.js:57`), `pbFmtMoney` (`js/lib/pipeline-calc.js:85-92`, via native ES `import { formatMoney } from './money.js?v=1'`: same URL as the page's script tag so the module is evaluated once, and the `?v=N` in the import is bumped together with the others), the two copies in `config.html:1104` and `:1197`.
+- **Hardcoded spots moved to the module** (with `rounded: true` where they round today): `costgrid.html:1362` and `js/costgrid.js:633` (phasing amounts), `costgrid.html:1401` (`fmtR`), `pipeline.html:749` (`potFmtMoney`, EUR), `config.html:1956` (`fmtAmount`, EUR).
+- **Excluded, not amounts:** per-hour rate labels and values in EUR (`config.html:877/920/2015/2054`, `js/ratecards.js:292/302`: role rates are EUR by definition and already show the real symbol in the other-currency columns), `fmtRate` (`config.html:1952`), exchange rates (4-6 decimals: `costgrid.html:108`, `config.html:751/1341/1342`, `pipeline.html:219/789`), hours, counts.
 - **Server:** `api/src/routes/cost-grids.js:21` adds `cu.locale` to the query, `:37` uses `money-format.js` with `rounded: true`. The notification text changes from `€ 12,345` to `€ 12.345` (same as the app).
 - **Guard test (vitest):** reads `js/`, `*.html` and `api/src/` and fails if `Intl.NumberFormat` appears outside `js/lib/money.js` and `api/src/lib/money-format.js`. `toLocaleString` has legitimate non-money uses (hours, counts, rates), so it cannot be banned wholesale; for it the review of the listed spots applies.
 
