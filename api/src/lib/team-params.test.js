@@ -82,13 +82,13 @@ test('parseParams: minFreeHoursPerWeek NaN and Infinity are rejected', () => {
 });
 
 test('parseParams: window of exactly 104 weeks (728 days) is accepted, 729 days rejected', () => {
-  // 104 weeks = 728 days exactly (104 * 7)
-  const r104 = parseParams({ window: { from: '2026-01-01', to: '2027-10-13' } });
-  assert.equal(r104.ok, true, 'should accept window within 104 weeks');
+  // 104 weeks = 728 days exactly: 2026-01-01 to 2027-12-30
+  const r728 = parseParams({ window: { from: '2026-01-01', to: '2027-12-30' } });
+  assert.equal(r728.ok, true, 'should accept exactly 728 days (104 weeks)');
 
-  // 729+ days should be rejected (104 weeks + 1 day)
-  const r729 = parseParams({ window: { from: '2026-01-01', to: '2030-01-01' } });
-  assert.ok(r729.errors.window, 'should reject window longer than 104 weeks');
+  // 729 days should be rejected: 2026-01-01 to 2027-12-31
+  const r729 = parseParams({ window: { from: '2026-01-01', to: '2027-12-31' } });
+  assert.ok(r729.errors.window, 'should reject 729 days (exceeds 104 weeks)');
 });
 
 test('resolveExcluded: resolves an inactive resource when included in the list', () => {
@@ -103,10 +103,11 @@ test('resolveExcluded: resolves an inactive resource when included in the list',
 
 test('resolveExcluded: handles null/undefined names gracefully with nullish coalescing', () => {
   const resources = [
-    { id: 'r1', first_name: null, last_name: 'Rossi' },
-    { id: 'r2', first_name: 'Anna', last_name: undefined },
+    { id: 'r1', first_name: 'Rossi', last_name: null },
+    { id: 'r2', first_name: null, last_name: 'Anna' },
   ];
   const r = resolveExcluded(['rossi', 'anna'], resources);
-  // Should handle null/undefined gracefully without throwing
-  assert.ok(Array.isArray(r.errors));
+  // Should resolve both names correctly despite null/undefined fields
+  assert.deepEqual([...r.ids].sort(), ['r1', 'r2'], 'should resolve r1 (Rossi, null) and r2 (null, Anna)');
+  assert.equal(r.errors.length, 0, 'should have no errors');
 });
