@@ -75,6 +75,18 @@ test('scoreResource: tag dimensions are weighted (therapeutic-area/brand 3, mark
   assert.ok(Math.abs(r.components.tag.value - (3 * sat(100, 100) + 2 * 0) / 5) < 1e-9);
 });
 
+test('scoreResource: a listName-only tag (as buildRequirement returns) scores like the equivalent list tag', () => {
+  const r1 = S.scoreResource(profile, role, [{ listName: 'Market', itemId: 'i-it', label: 'Italy' }], { includeRole: true });
+  const r2 = S.scoreResource(profile, role, [{ list: 'Market', itemId: 'i-it', label: 'Italy' }], { includeRole: true });
+  assert.ok(r1.components.tag.value > 0.6);
+  assert.equal(r1.score, r2.score);
+  assert.deepEqual(r1.evidence.tags, [{ list: 'Market', value: 'Italy', hours: 100 }]);
+});
+
+test('matchedTagHours: a listName-only tag resolves its dimension', () => {
+  assert.equal(S.matchedTagHours(profile, { listName: 'Market', label: 'Italy' }), 100);
+});
+
 test('matchedTagHours: by itemId, or by label when the tag is typed free-form (list name or slug)', () => {
   assert.equal(S.matchedTagHours(profile, { slug: 'market', list: 'Market', itemId: 'i-es', label: 'Spain' }), 40);
   assert.equal(S.matchedTagHours(profile, { list: 'market', label: 'ITALY' }), 100);

@@ -32,8 +32,9 @@ function jaccard(a, b) {
 }
 
 // A requirement/param tag { slug?, list, itemId?, label } → the profile dimension it names (by slug or list name).
+const tagKey = tag => slugify(tag.slug || tag.list || tag.listName);
 function dimensionOf(profile, tag) {
-  const want = slugify(tag.slug || tag.list);
+  const want = tagKey(tag);
   for (const [slug, d] of Object.entries((profile && profile.dimensions) || {})) {
     if (slugify(slug) === want || slugify(d.name) === want) return { slug, dim: d };
   }
@@ -53,7 +54,7 @@ function matchedTagHours(profile, tag) {
 function tagComponent(profile, reqTags) {
   const groups = new Map();                              // dimension key → tags
   for (const t of reqTags) {
-    const key = slugify(t.slug || t.list);
+    const key = tagKey(t);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(t);
   }
