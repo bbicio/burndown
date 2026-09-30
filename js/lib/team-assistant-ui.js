@@ -61,6 +61,17 @@ export function chatPayload(messages) {
   return (messages || []).filter(m => !m.local).slice(-20).map(m => ({ role: m.role, content: m.content }));
 }
 
+// The project select follows the page filters: an empty selection is always valid, a chosen one only while it is still an option.
+export function selectionStillValid(selectedId, options) {
+  if (!selectedId) return true;
+  return (options || []).some(o => o.id === selectedId);
+}
+
+// Enter sends; Shift+Enter is a newline; Enter that confirms an IME composition must not send (some IMEs report keyCode 229 with isComposing false).
+export function shouldSendOnEnter(e) {
+  return !!e && e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229;
+}
+
 window.renderChatText = renderChatText;
 window.rowView = rowView;
 window.projectOptions = projectOptions;
@@ -68,3 +79,5 @@ window.starterPrompts = starterPrompts;
 window.tableTitle = tableTitle;
 window.isStaleResponse = isStaleResponse;
 window.chatPayload = chatPayload;
+window.selectionStillValid = selectionStillValid;
+window.shouldSendOnEnter = shouldSendOnEnter;

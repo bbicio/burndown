@@ -401,7 +401,7 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/status-rules.js?v=1"></script>
-<script type="module" src="js/lib/config-form-calc.js?v=1"></script>
+<script type="module" src="js/lib/config-form-calc.js?v=2"></script>
 <script defer src="js/api-sync.js?v=16"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/nav.js?v=10"></script>
@@ -429,6 +429,7 @@
         notFound: false,
         project: null,
         isNewProject: false,
+        savedSnapshot: null,
         jsonError: '',
         attributeLists: [],
         projectTags: [],
@@ -482,6 +483,14 @@
       totalPtc() { return (this.project?.ptc || []).reduce((s, p) => s + (p.amount || 0), 0); },
     },
     async created() {
+      // Leave-page warning for unsaved edits (incl. Derive/Reforecast, which only change on-screen values until Save).
+      window.addEventListener('beforeunload', e => {
+        if (this.isViewer) return;
+        if (window.isProjectDirty(this.savedSnapshot, this.project)) {
+          e.preventDefault();
+          e.returnValue = '';
+        }
+      });
       const user = await initNav('portfolio', { breadcrumbs: [
         { label: 'Home', href: '/pipeline.html' },
         { label: 'Project Portfolio', href: '/portfolio.html' },
@@ -505,6 +514,8 @@
         this.attributeLists = await loadActiveAttributeListsForTagging().catch(e => { console.warn('[project-config] loadActiveAttributeListsForTagging:', e.message); return []; });
         await this.loadTags();
       }
+      // Snapshot last, after resolveProject's normalisations, so those never count as user edits.
+      if (this.project && !this.notFound) this.savedSnapshot = JSON.stringify(this.project);
       this.ready = true;
     },
     methods: {
@@ -838,6 +849,8 @@
           if (typeof _pushProjectToApi !== 'undefined') {
             await _pushProjectToApi(this.project).catch(e => console.warn('[sync] project push:', e.message));
           }
+          // Saved: the redirect below must not trigger the leave-page prompt. Reached only when nothing above threw.
+          this.savedSnapshot = JSON.stringify(this.project);
           window.location.href = '/portfolio.html?projectId=' + this.project.id;
         } catch (e) {
           this.jsonError = 'Save failed: ' + e.message;

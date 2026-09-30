@@ -104,10 +104,9 @@
       <button class="cfg-tab-btn" :class="{ active: activeTab === 'pots'     }" @click="activeTab = 'pots'; activePipeline = null">
         🗓 Pipelines &amp; POTs
       </button>
-      <!-- "Programs" tab intentionally hidden from nav (2026-09) — creation now happens
-           elsewhere (project-config.html "+ New program", Generate Project's auto-link
-           flow); the panel/data/CRUD methods below are untouched and still functional,
-           just unreachable from this nav until rename/delete get a new home. -->
+      <button class="cfg-tab-btn" :class="{ active: activeTab === 'programs' }" @click="activeTab = 'programs'">
+        🗂 Programs <span class="fw-normal text-muted">({{ programs.length }})</span>
+      </button>
     </div>
 
     <!-- ════════════════════════════════════════════════════════ -->
@@ -1561,7 +1560,7 @@ window.__cfgApp = Vue.createApp({
     },
 
     async deleteProgram(prog) {
-      if (!confirm(`Delete program "${prog.name}"?\n\nProjects in this program will lose the program reference.`)) return;
+      if (!confirm(`Delete program "${prog.name}"?\n\nThis cannot be undone. A program that still has projects linked cannot be deleted — the request will be refused.`)) return;
       prog._loading = true;
       try {
         await Api.programs.delete(prog.id);
