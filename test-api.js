@@ -2249,6 +2249,67 @@ async function testPlanningAssistant() {
   } finally { server.close(); }
 }
 
+// ── Version routes are scoped to their grid (2026-09-30 hardening) ──────────────
+
+async function testVersionScope() {
+  section('Version scope');
+  const FAKE = '00000000-0000-0000-0000-000000000000';
+
+  const rpy = await api('POST', '/api/pipeline-years', { year: TEST_YEAR_C }, adminCookie);
+  if (![201, 409].includes(rpy.status)) { ok(false, 'VS-setup pipeline year unavailable'); return; }
+
+  const mk = async (name, label) => {
+    const g = await api('POST', '/api/cost-grids', { name, pipelineYear: TEST_YEAR_C }, adminCookie);
+    if (g.data?.id) later('DELETE', `/api/cost-grids/${g.data.id}`);
+    const v = g.data?.id
+      ? await api('POST', `/api/cost-grids/${g.data.id}/versions`, { label }, adminCookie)
+      : { data: null };
+    return { cgId: g.data?.id, vId: v.data?.id };
+  };
+  const A = await mk('__test_vs_a__', 'vA');
+  const B = await mk('__test_vs_b__', 'vB');
+  if (!(A.cgId && A.vId && B.cgId && B.vId)) { ok(false, 'VS-setup two grids with one version each'); return; }
+
+  const cross = `/api/cost-grids/${A.cgId}/versions/${B.vId}`; // grid A's id, grid B's version
+  const cases = [
+    ['VS-01 PATCH version',            'PATCH',  cross,                              { label: 'hijack' }],
+    ['VS-02 DELETE version',           'DELETE', cross,                              null],
+    ['VS-03 POST duplicate',           'POST',   `${cross}/duplicate`,               null],
+    ['VS-04 GET structure',            'GET',    `${cross}/structure`,               null],
+    ['VS-05 PUT structure',            'PUT',    `${cross}/structure`,               { phases: [] }],
+    ['VS-06 GET linked-projects',      'GET',    `${cross}/linked-projects`,         null],
+    ['VS-07 POST linked-projects',     'POST',   `${cross}/linked-projects`,         { projectId: FAKE }],
+    ['VS-08 DELETE linked-projects',   'DELETE', `${cross}/linked-projects/${FAKE}`, null],
+    ['VS-09 POST refresh-rate',        'POST',   `${cross}/refresh-rate`,            null],
+  ];
+  for (const [label, method, path, body] of cases) {
+    const r = await api(method, path, body, adminCookie);
+    ok(r.status === 404, `${label} with another grid's version → 404 (got ${r.status})`);
+  }
+
+  // The 404s must also have changed nothing
+  const listB = await api('GET', `/api/cost-grids/${B.cgId}/versions`, null, adminCookie);
+  const listA = await api('GET', `/api/cost-grids/${A.cgId}/versions`, null, adminCookie);
+  ok(listB.status === 200 && listB.data?.length === 1 && listB.data[0].id === B.vId && listB.data[0].label === 'vB',
+    "VS-10 grid B's version still exists, same label");
+  ok(listA.status === 200 && listA.data?.length === 1, 'VS-10 grid A did not gain a duplicated version');
+
+  // Same-grid requests keep working
+  const okPatch = await api('PATCH', `/api/cost-grids/${A.cgId}/versions/${A.vId}`, { label: 'vA2' }, adminCookie);
+  ok(okPatch.status === 200 && okPatch.data?.label === 'vA2', 'VS-11 PATCH with the version of the same grid → 200');
+  ok((await api('GET', `/api/cost-grids/${A.cgId}/versions/${A.vId}/structure`, null, adminCookie)).status === 200,
+    'VS-11 GET structure with the version of the same grid → 200');
+
+  // Malformed ids never reach Postgres
+  ok((await api('GET', `/api/cost-grids/${A.cgId}/versions/not-a-uuid/structure`, null, adminCookie)).status === 404,
+    'VS-12 malformed :vId → 404, not 500');
+  ok((await api('GET', `/api/cost-grids/not-a-uuid/versions/${A.vId}/structure`, null, adminCookie)).status === 404,
+    'VS-12 malformed :id → 404, not 500');
+
+  // Auth is checked before the scope guard
+  ok((await api('GET', `${cross}/structure`, null, '')).status === 401, 'VS-13 no session → 401, not 404');
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -2281,6 +2342,7 @@ async function main() {
     await testProfileEngineHooks();
     await testProfileJobsConsole();
     await testTagLinking();
+    await testVersionScope();
     await testProjectDescriptions();
     await testTopicsApi();
     await testTopicExtraction();

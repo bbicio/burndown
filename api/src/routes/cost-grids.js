@@ -316,6 +316,24 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
 
 // ── VERSIONS ──────────────────────────────────────────────────────────────────
 
+// Every /:id/versions/:vId/... route is scoped to its grid: a version that is not in grid :id answers 404,
+// whatever the handler below does (2026-09-30 hardening; closes the tag-cycle ":vId not checked against :id"
+// finding for structure, linked-projects, duplicate, patch, delete and refresh-rate). Registered after
+// requireAuth so an anonymous request still gets 401; canEdit/canAccess stay in each handler.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+async function versionScope(req, res, next) {
+  try {
+    const { id, vId } = req.params;
+    if (!UUID_RE.test(id) || !UUID_RE.test(vId)) return res.status(404).json({ error: 'Version not found' });
+    const { rows } = await query(
+      'SELECT 1 FROM cost_grid_versions WHERE id = $1 AND cost_grid_id = $2', [vId, id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Version not found' });
+    next();
+  } catch (err) { next(err); }
+}
+router.use('/:id/versions/:vId', requireAuth, versionScope);
+
 // GET /api/cost-grids/:id/versions
 router.get('/:id/versions', requireAuth, async (req, res, next) => {
   try {
