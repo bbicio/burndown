@@ -626,7 +626,7 @@ function renderCgPhasing() {
   });
 
   const cur   = v.currency || 'EUR';
-  const fmtA  = n => cur + ' ' + Math.round(n).toLocaleString('en');
+  const fmtA  = n => window.formatMoney(n, cur, window.__currencies, { rounded: true });
   const fmtH  = n => (Math.round(n * 10) / 10) + ' h';
   const fmtMo = mo => {
     const [my, mm] = mo.split('-');

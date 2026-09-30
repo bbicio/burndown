@@ -1944,7 +1944,7 @@ window.__cfgApp = Vue.createApp({
       return Number(n).toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     },
     fmtAmount(n) {
-      return '€ ' + new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n));
+      return window.formatMoney(n, 'EUR', window.__currencies);
     },
     fmtDate(iso) {
       if (!iso) return '—';

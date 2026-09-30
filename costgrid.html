@@ -941,7 +941,7 @@ Vue.createApp({
         ...r,
         already,
         effectiveRate: resolved.effectiveRate,
-        curSym: (this.currencies || []).find(c => c.code === currency)?.symbol || '€',
+        curSym: window.currencyInfo(currency, this.currencies).symbol,
         hasOverride: resolved.isOverride,
         hasCustom: this.isClientRatecard && rcRate !== undefined && rcRate !== (r.rate || 0),
         zeroRate: !resolved.effectiveRate || resolved.effectiveRate === 0,
@@ -1362,7 +1362,7 @@ Vue.createApp({
       bootstrap.Modal.getInstance(document.getElementById('cgAddToProjectModal'))?.hide();
       await cgDoAddTasksToProject(projId, taskIds);
     },
-    phasingFmtAmount(n) { return (this.draft.currency || 'EUR') + ' ' + Math.round(n).toLocaleString('en'); },
+    phasingFmtAmount(n) { return window.formatMoney(n, this.draft.currency || 'EUR', window.__currencies, { rounded: true }); },
     phasingFmtHours(n) { return fmtH(n); },
     phasingFmtMonth(mo) {
       const [my, mm] = mo.split('-');
@@ -1397,17 +1397,13 @@ Vue.createApp({
       }
 
       const preview = cgPreviewRateChange(newCurrency);
-      const newEntry = (this.currencies || []).find(c => c.code === newCurrency);
-      const prevEntry = (this.currencies || []).find(c => c.code === prevCurrency);
-      const newSym = newEntry?.symbol || newCurrency;
-      const prevSym = prevEntry?.symbol || prevCurrency;
-      const fmtR = (n, sym) => `${sym} ${Number(n).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const fmtR = (n, code) => window.formatMoney(n, code, window.__currencies);
       const hasCustom = preview.some(r => r.isCustom);
       const roleRows = preview.map(r =>
         `<tr>
           <td style="padding:3px 8px;font-size:.82rem">${esc(r.roleLabel)}</td>
-          <td style="padding:3px 8px;font-size:.82rem;text-align:right;color:#6b7280">${fmtR(r.currentRate, prevSym)}</td>
-          <td style="padding:3px 8px;font-size:.82rem;text-align:right;font-weight:600">${fmtR(r.newRate, newSym)}</td>
+          <td style="padding:3px 8px;font-size:.82rem;text-align:right;color:#6b7280">${fmtR(r.currentRate, prevCurrency)}</td>
+          <td style="padding:3px 8px;font-size:.82rem;text-align:right;font-weight:600">${fmtR(r.newRate, newCurrency)}</td>
           ${r.isCustom ? `<td style="padding:3px 8px;font-size:.75rem;color:#dc3545">custom → reset</td>` : '<td></td>'}
         </tr>`
       ).join('');

@@ -691,7 +691,7 @@ Vue.createApp({
     },
     cardBudgetHtml(card) {
       const grand = pbGetVersionBudget(card.v, cgComputeGrandTotals, getPipelineBudget);
-      const cur = card.v.currency || '€';
+      const cur = card.v.currency || 'EUR';
       const currencyRate = grand.currencyRate || card.v.currencyRate || 1.0;
       const eurEquivStr = cur !== 'EUR' && grand.fee > 0
         ? `<div style="font-size:var(--text-2xs);color:#888;margin-top:1px">≈ ${pbFmtMoney(grand.fee / currencyRate, 'EUR', window.__currencies)}</div>` : '';
@@ -747,7 +747,7 @@ Vue.createApp({
     verStageBadgeColor(ver) {
       return (PB_STAGE_STYLE[pbGetStage(ver)] || PB_STAGE_STYLE.SIP).badge;
     },
-    potFmtMoney(n) { return '€ ' + Number(n).toLocaleString('en', { maximumFractionDigits: 0 }); },
+    potFmtMoney(n) { return window.formatMoney(n, 'EUR', window.__currencies, { rounded: true }); },
     async loadPotSection(v, stage) {
       this.potState = null;
       const year = v.pipelineYear;
