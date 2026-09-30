@@ -32,7 +32,6 @@ Brief → /brainstorming → Spec (committata) → /writing-plans → Piano (com
 - **Automatico, non silenzioso:** nessuna conferma (è stato di lavoro, non un artefatto rilasciato, e ogni modifica poggia su fatti già verificati dal merge), ma ogni modifica va riportata come *prima → dopo* nel riepilogo di `/sync-docs` e nella sezione "Memory outcome" del report del ciclo — l'unica traccia persistente, visto che non c'è diff.
 - **Mai inventare:** un fatto che il merge non stabilisce resta com'è ed è elencato come "unverified"; la memoria non duplica ciò che il repo già registra (il report del ciclo è quel registro).
 - Le memorie `user`/`feedback`/`reference` non fanno parte di questo giro, salvo contraddizione diretta da parte del ciclo.
-- **Da verificare (aperto dal 2026-09-29):** la regola non è ancora mai stata eseguita. Al primo `/finish-cycle` che la usa (il ciclo sulla lettura dei dati di planning/profilo risorse) controllare che: la sezione 8 giri davvero, il riepilogo abbia la riga "Memory" con *prima → dopo*, il report abbia la sezione "Memory outcome", e le modifiche siano corrette e non inventate. Poi rimuovere questa voce (o correggere la regola se qualcosa non torna).
 
 ---
 
