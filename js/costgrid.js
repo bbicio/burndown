@@ -877,7 +877,7 @@ async function cgCreateNewGrid() {
         projectName:    name,
         startDate:      '',
         endDate:        '',
-        currency:       '€',
+        currency:       'EUR',
         note:           '',
         roles:          [],
         phases:         [{ phaseId: cgNewPhId(), phaseName: 'Phase 1', tasks: [] }],

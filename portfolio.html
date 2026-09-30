@@ -898,7 +898,7 @@
       ]});
       if (!user) return;
 
-      await Promise.all([loadClientsFromApi(), loadProgramsFromApi()]);
+      await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadCurrenciesFromApi()]);
       await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
       this.refreshTick++; // mount() runs before this async data load resolves, so `projects` (and everything chained off it) must be nudged once data is actually in
 

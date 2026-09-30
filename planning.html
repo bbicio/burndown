@@ -1319,7 +1319,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       ]});
       if (!user) return;
 
-      await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi()]);
+      await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi(), loadCurrenciesFromApi()]);
       // refreshTimesheetDataFromApi() stays: the views no longer read the browser copy of the
       // actuals; it only keeps the shared timesheetData cache populated for js/upload.js.
       await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);

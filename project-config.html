@@ -77,7 +77,7 @@
           <div class="col-md-8"><label class="form-label small mb-1">Project Name</label><input type="text" class="form-control form-control-sm" v-model="project.name" :disabled="isViewer" placeholder="e.g. Bayer AG - BERMITS 2026" @input="onNameInput"></div>
           <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Start month</label><input type="month" class="form-control form-control-sm" v-model="startMonthInput" :disabled="isViewer" @change="onDateChange"></div>
           <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">End month</label><input type="month" class="form-control form-control-sm" v-model="endMonthInput" :disabled="isViewer" @change="onDateChange"></div>
-          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Currency</label><select class="form-select form-select-sm" v-model="project.currency" :disabled="isViewer"><option value="€">€ Euro</option><option value="$">$ Dollar</option><option value="£">£ Pound</option><option value="CHF">CHF Swiss Franc</option></select></div>
+          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Currency</label><select class="form-select form-select-sm" v-model="project.currency" :disabled="isViewer"><option v-for="cu in currencyOptions" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.name }}</option></select></div>
         </div>
         <div class="row g-3 mt-1">
           <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Pipeline</label><select class="form-select form-select-sm" v-model="project.pipeline" :disabled="isViewer || pipelineLocked" :title="pipelineLocked ? 'Pipeline is managed from the Cost Grid' : ''" @change="onPipelineChange"><option value="">— Select —</option><option value="SIP">SIP</option><option value="Expected">Expected</option><option value="Anticipated">Anticipated</option><option value="Committed">Committed</option><option value="Canceled">Canceled</option></select></div>
@@ -417,7 +417,7 @@
   }
 
   const BLANK_PROJECT = () => ({
-    id: '', code: '', name: '', description: '', startDate: '', endDate: '', currency: '€',
+    id: '', code: '', name: '', description: '', startDate: '', endDate: '', currency: 'EUR',
     pipeline: '', status: '', tasks: [], phasing: {}, planning: {},
     ptc: [], groups: [], costGridRef: null, programId: null,
     clientId: '__unassigned__', my_permission: 'owner',
@@ -427,6 +427,7 @@
     data() {
       return {
         ready: false,
+        currencies: [],
         notFound: false,
         project: null,
         isNewProject: false,
@@ -448,6 +449,12 @@
     computed: {
       isViewer() {
         return this.project?.my_permission === 'viewer';
+      },
+      currencyOptions() {
+        const list = (this.currencies || []).slice();
+        const cur = this.project?.currency;
+        if (cur && !list.some(cu => cu.code === cur)) list.push({ code: cur, symbol: cur, name: '(inactive)' });
+        return list;
       },
       pipelineLocked() {
         return !!(this.project?.costGridRef?.cgId);
@@ -499,7 +506,8 @@
       ]});
       if (!user) return;
 
-      await Promise.all([loadClientsFromApi(), loadProgramsFromApi()]);
+      await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadCurrenciesFromApi()]);
+      this.currencies = window.__currencies || [];
       await loadConfigFromApi();
 
       if (config.projects.length === 0 && new URLSearchParams(window.location.search).get('projectId')) {
