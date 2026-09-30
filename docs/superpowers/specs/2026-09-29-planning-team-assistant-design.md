@@ -1,6 +1,6 @@
 # Planning team assistant (Cycle 4) — design
 
-Data: 2026-09-29. Stato: bozza per revisione. Ciclo 4 dell'iniziativa resource-allocation (1 team/attribute lists, 2 tag linking, 3 profilo risorsa, **4 assistente di allocazione**). Precede: `docs/superpowers/specs/2026-09-25-resource-profile-design.md`, `2026-09-29-profile-descriptions-topics-design.md`.
+Data: 2026-09-29. Stato: bozza per revisione (§6 aggiornata 2026-09-30 dopo il Ciclo A). Ciclo 4 dell'iniziativa resource-allocation (1 team/attribute lists, 2 tag linking, 3 profilo risorsa, **4 assistente di allocazione**). Precede: `docs/superpowers/specs/2026-09-25-resource-profile-design.md`, `2026-09-29-profile-descriptions-topics-design.md`.
 
 ## 1. Obiettivo
 
@@ -18,7 +18,7 @@ I criteri, in ordine: profilo storico (actuals + tag + topic), corrispondenza jo
 - Razionale per riga: **template deterministico** costruito dal backend con le prove numeriche (opzione A).
 - Accesso: **solo admin e sysadmin**, controllato lato server (`requireAuth, requireAdmin`).
 - Chiave LLM: solo `ANTHROPIC_API_KEY` del server (`.env`). **Le chiavi personali nel browser vengono eliminate** (§4). Un adattatore per modelli locali (LM Studio) è un ciclo successivo; il design lo rende possibile (§9).
-- Disponibilità: soglia di carico target **32 h/settimana** (costante configurabile nel codice). Ore libere di una settimana = `max(0, 32 − carico)`, dove il carico è actuals + pianificato futuro.
+- Disponibilità: soglia di carico target **32 h/settimana** (costante configurabile nel codice). Ore libere di una settimana = `max(0, 32 − carico)`, dove il carico è actuals + pianificato futuro, letto dalla proiezione `owner` del servizio di Planning (§6).
 - Pool candidato: solo **risorse registrate e attive** (`team.html`). I nomi degli actuals non abbinati non sono candidabili; contano solo nel calcolo del carico se abbinati.
 - Layout UI: pannello largo con le tre tabelle **impilate** (§10).
 
@@ -58,28 +58,25 @@ Nuova forma di ogni elemento: `{ topicId, projectCodes, direct: { hours, project
 
 ## 6. Curva di carico
 
-Modulo puro `api/src/lib/planning-load.js`, più un servizio `api/src/services/planning-data.js` che carica i dati (nessuna logica di calcolo nel servizio).
+**Aggiornato 2026-09-30** (Ciclo A mergiato, `a07c7b8`): il carico per persona **non si ricalcola**, viene dal servizio di Planning (`docs/api/planning-model.md`, proiezione `owner`). Nessun `planning-load.js`, nessuna fixture condivisa, nessun port del calcolo: la regola resta una sola.
 
-**Input** (caricati dal servizio, in poche query, cache in-process di 30 s come `getResourcesAndAliasesCached`):
-- progetti con `code`, task (`name`, `start_date`/`end_date` `YYYYMMDD`, `completed`, `resources` JSONB: `[{ role, soldHours }]`) e `project_tags`;
-- righe actuals (`timesheets.data`: `{ owner, role, task, hours, date }`), risolte in `resourceId` con `matchOwner` (alias o nome esatto) e collegate al progetto più vecchio per quel `code` (stessa regola del profile engine);
-- risorse (id, ruolo, stato) e alias.
+**Helper condiviso.** Dalla route `POST /api/planning/model` si estrae in `api/src/services/planning-data.js` (o modulo vicino) `computePlanningModel({ view, projectIds, teams, from, to, asOf, pulse, user })`: carica i dati dalla cache di 30 s, filtra i progetti per visibilità, costruisce le settimane, calcola `ownerStatus` e chiama `buildProjection`. La route diventa un sottile involucro; l'assistente lo chiama **in-process** (nessuna chiamata HTTP verso sé stesso). Comportamento e risposta della route restano identici (test PM-01..PM-07 invariati).
 
-**Calcolo** (port della logica già presente in `planning.html` "By Owner", senza le parti di visualizzazione: filtri team, pulse mensile, HTML):
-1. Per ogni task non completato e ogni ruolo previsto: `sold` = somma `soldHours` del ruolo; `consumed` = ore actuals che soddisfano `matchesTaskRole` (ruolo e task, case-insensitive); `residual = max(0, sold − consumed)`.
-2. Settimane future del task = `countFutureTaskWeeks` (lunedì-based). Ore/settimana = `residual / settimane`; nessuna settimana futura: le ore non vengono distribuite (come oggi il fallback su `totalWeeks`).
-3. Le ore future si ripartono tra i **soli owner attivi** in proporzione alle ore actuals di quel task+ruolo (`redistributeExcludingInactive`); se nessun owner attivo resta, le ore vanno al segnaposto "TBD" e **non contano nel carico di nessuna risorsa**.
-4. Carico settimanale di una risorsa = actuals delle settimane passate (per data) + pianificato futuro, sommato su tutti i progetti.
+**Carico di una persona** = una chiamata `computePlanningModel` con `view: 'owner'`, `teams: []`, `pulse: false`, `asOf` = oggi (data locale del client, come per Planning), e:
+- `projectIds` = tutti i progetti "come Planning": non `Canceled`, non `Completed`, **in qualsiasi stadio di pipeline** (SIP/Expected compresi, decisione utente 2026-09-30), **escluso il progetto target**. Il target si esclude omettendolo: la proiezione `owner` calcola il residuo per task, quindi l'esclusione è esatta. L'assistente è admin/sysadmin, quindi la visibilità copre ogni progetto.
+- finestra `from` = lunedì di (oggi − 4 settimane), `to` = fine della finestra del target (§ sotto).
+- Risultato: `ownerMap[nome].weekTotals[lunedì] = { hours, isPast }`, dove `hours` = actuals per le settimane passate e pianificato futuro per le altre, sommati su tutti i progetti. Le settimane con `isPast` danno il `currentLoad` (media delle ultime 4 settimane completate, solo actuals); le altre danno il carico pianificato.
+- I nomi owner si convertono in `resourceId` con `matchOwner` (alias o nome esatto) su `data.resources`/`data.aliases`; nomi non abbinati o ambigui non contano nel carico di nessuna risorsa e non sono candidabili. Se più nomi puntano alla stessa risorsa, le ore si sommano. Il segnaposto "—" (nessun owner attivo) non è una persona e si ignora.
 
-Le funzioni di calendario/ripartizione esistono già in `js/lib/planning-calc.js` (ES module lato browser). Il backend è CommonJS in un container separato e non può importarle: si **riscrivono** le funzioni necessarie in `planning-load.js`, e la parità si garantisce con **fixture condivise**: un JSON di casi (task con date, sold, actuals, stati owner) con i risultati attesi calcolati una volta con `planning-calc.js`; lo stesso file è caricato da un test vitest (frontend) e da un test `node:test` (backend). Rischio residuo di divergenza futura: documentato in `docs/api/lib.md` e nel commento di testa di entrambi i file.
+**Regole ereditate dalla vista By Owner (volute, il planner vede lo stesso numero):** un task senza date non ha fallback sul progetto e si distribuisce su tutte le settimane future della finestra; il residuo è per task sull'insieme dei ruoli; le righe actuals di domenica sono collocate in settimana; gli owner `inactive` non ricevono pianificato futuro. Le eventuali correzioni (seguito "By Owner e weekend") valgono automaticamente anche per l'assistente.
 
-**Uscita:** `loadByResource[resourceId] = { weeks: { 'YYYY-MM-DD(lunedì)': { actual, planned } } }`, più `currentLoad` (media delle ultime 4 settimane completate, solo actuals).
+**Finestra del progetto target** (funzione pura `targetWindow`, nel modulo di ranking): dal max(oggi, inizio più precoce dei task del ruolo) alla fine più tarda, come settimane lunedì-domenica; senza date sui task, il periodo del progetto (mesi minimo/massimo di `monthly_distribution`/date). Progetto già iniziato: solo settimane future.
 
-**Disponibilità per un progetto target** (funzione pura `availabilityForWindow`):
-- Finestra = settimane dal max(oggi, inizio più precoce dei task del ruolo) alla fine più tarda; senza date sui task, il periodo del progetto (`getMonthRangeFromCfg` equivalente: mesi minimo/massimo di `monthly_distribution`/date). Progetto già iniziato: solo settimane future.
-- Il **pianificato del progetto target è escluso** dal carico (si sta decidendo chi allocare); l'ore già svolte da una persona sul target compaiono in una colonna dedicata.
-- `freeAvg = media(max(0, 32 − planned_w))` sulle settimane della finestra; `freeMin` = minimo.
-- `neededPerWeek` per ruolo = ore residue (o previste, se senza actuals) del ruolo sul target divise per le settimane della sua finestra.
+**Ore già sul progetto target:** somma delle ore actuals per risorsa sugli actuals del target (`groupActualsByProject` + `matchOwner`), letti dalla stessa cache; colonna dedicata, mai sottratte al carico (il target non è nel carico).
+
+**Disponibilità** (funzione pura `availabilityForWindow`, in `team-ranking.js`): per ogni settimana della finestra del target, libere = `max(0, 32 − hours)` con `hours` dal `weekTotals` della risorsa (0 se assente). `freeAvg` = media, `freeMin` = minimo. `neededPerWeek` per ruolo = ore residue (o previste, se senza actuals) del ruolo sul target diviso per le settimane della sua finestra.
+
+**Prestazioni:** una chiamata `owner` costa 0,55-0,8 s di calcolo (benchmark del Ciclo A, payload fino a 7,5 MB non compresso, irrilevante in-process). `/rank` ne fa una sola; `/chat` fino a 3 giri, quindi ~2 s di calcolo in più nel caso peggiore. Da misurare al Gate 2. Se troppo lento: restringere con `teams`/ruoli richiesti o pre-aggregare, come ciclo successivo.
 
 ## 7. Ranking
 
@@ -150,10 +147,10 @@ Nuovo `api/src/routes/planning-assistant.js`, montato su `/api/planning-assistan
 
 ## 12. Test
 
-- `node:test` puri: `resource-profile.test.js` (provenienza topic, v2), `planning-load.test.js` (ripartizione, owner inattivi, finestre, esclusione del progetto target, parità con fixture condivise), `team-ranking.test.js` (componenti, saturazione, rinormalizzazione, tre liste, razionale, casi limite di §11), validazione dei `params`.
+- `node:test` puri: `resource-profile.test.js` (provenienza topic, v2), `planning-data`/`computePlanningModel` (helper estratto: stessa risposta della route; route PM-01..PM-07 invariate), test di `targetWindow`/`availabilityForWindow` (finestre, esclusione del target, nomi non abbinati, somma di più alias sulla stessa risorsa, settimane senza carico), `team-ranking.test.js` (componenti, saturazione, rinormalizzazione, tre liste, razionale, casi limite di §11), validazione dei `params`.
 - Route con `llm.js` **finto** (iniettabile): `/rank`, `/chat` (giri di tool, parametro non valido, 503, limite di 3 giri), autorizzazione (utente semplice → 403).
 - Integrazione in stack isolato (`scripts/run-tests.sh`): casi in `test-api.js`, con l'LLM stub via `ANTHROPIC_BASE_URL`. La suite non chiama mai l'API vera.
-- vitest: `team-assistant-ui.js`, `buildProfileTree` con la provenienza, parità della fixture con `planning-calc.js`.
+- vitest: `team-assistant-ui.js`, `buildProfileTree` con la provenienza.
 - Gate 2 di `/finish-cycle` (manuale, dati reali): taratura dei pesi su ~150 persone, tempi di risposta di `/rank` (carica tutti i timesheet), chat vera con Anthropic.
 
 ## 13. Documentazione, deploy, memoria
@@ -163,7 +160,7 @@ Nuovo `docs/api/planning-assistant.md`; aggiornati `docs/pages/planning.md`, `do
 ## 14. Rischi e limiti accettati
 
 - **Taratura dei pesi**: i valori di §7 sono ipotesi; l'evidenza per riga (componenti) è esposta proprio per correggerli. Cambiarli è una modifica di codice.
-- **Divergenza con Planning**: il calcolo del pianificato è duplicato (browser e backend); mitigato da fixture condivise, non eliminato.
-- **Prestazioni**: `/rank` legge tutti i timesheet; cache di 30 s e misura al Gate 2. Se troppo lento: pre-aggregazione settimanale nel profile engine (ciclo successivo).
+- **Divergenza con Planning**: nessuna, il carico viene dal servizio di Planning. Contropartita: l'assistente eredita le regole della vista By Owner (§6), comprese quelle discusse nei seguiti.
+- **Prestazioni**: `/rank` esegue una proiezione `owner` su tutti i progetti attivi (~0,6-0,8 s); cache dati di 30 s e misura al Gate 2.
 - **Privacy**: dati delle persone verso l'API Anthropic fino al modello locale.
 - Nomi degli actuals non abbinati: non candidabili e assenti dal carico finché non collegati a una risorsa.
