@@ -528,15 +528,9 @@ Lists every project code that has uploaded timesheet data, for review and cleanu
 
 Accessed via **account dropdown → ⚙ Settings** (available on all pages).
 
-### 9.1 API & Integrations Tab
+### 9.1 API & Integrations Tab (removed)
 
-| Provider | Fields |
-|---|---|
-| Anthropic | API Key + model selection |
-| OpenAI | API Key + model selection |
-| Google Gemini | API Key + model selection |
-
-Keys are persisted in the browser's `localStorage` (`PDash_settings`).
+Removed 2026-09-30 (Planning team assistant cycle): users no longer enter personal AI provider keys, and nothing is stored in the browser for this. The settings modal shows only the Data Manager below. The remaining AI features run on the server with the server's own key (§11).
 
 ### 9.2 Data Manager Tab
 
@@ -603,38 +597,20 @@ When enabled, a new notification arriving via the existing SSE stream shows a po
 
 ---
 
-## 11. AI Sidebar
+## 11. Team assistant
 
-Accessed via the "🤖 AI Chat" button in the top-right of the navbar.
+Accessed via the "🤖 Team assistant" button in the `planning.html` toolbar, visible to admin and sysadmin only (the API answers 403 to anyone else). It replaces the former AI sidebar (personal-key chat, "AI Chat" button) and the portfolio "AI Analysis" button, both removed 2026-09-30.
 
-### 11.1 Planning Assistant (Chat)
+### 11.1 What it does
 
-- Chat interface with conversation history
-- Context automatically built from: project config, task breakdown, role assignments, monthly allocation, owner totals
-- Calculates forward-looking allocation estimates (next 6 months)
-- User can ask free-form planning questions
+- The admin picks one project already in Planning and presses **Calculate team**, or asks in the chat (for example "Exclude Anna and recalculate", "Only people with experience in the same market", "Why is X not among the best?").
+- The result is three tables per required role: **Best team** (people with that job title, ranked by experience score), **Alternative team** (people with another job title and relevant experience) and **Available team** (ranked by experience and free hours over the project window).
+- The experience score combines hours with the job title, hours on the project's tags (market, brand, therapeutic area, service type...), hours on similar tasks and matching competence topics; availability is 32 h per week minus the planned and actual load of everything else in Planning.
+- The chat only turns sentences into constraints and writes a summary; every number and table comes from the server's calculation.
 
-### 11.2 Project Analysis
+### 11.2 Where the request goes
 
-- Triggered per project from the Reporting view
-- Calls the configured AI provider with a structured project summary
-- Returns:
-  - RAG status (Red / Amber / Green) with rationale
-  - Burn rate analysis
-  - Budget risk assessment
-  - Planning variance
-  - Task-level performance notes
-  - Concrete recommendations
-
-### 11.3 Supported AI Providers, and where the request actually goes
-
-- Anthropic Claude (`https://api.anthropic.com/v1/messages`)
-- OpenAI (`https://api.openai.com/v1/chat/completions`)
-- Google Gemini (`https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`)
-
-**These calls go directly from the browser to the provider, not through PDash's own backend.** The API key entered in Settings (§9.1) and the full request payload (including, for Project Analysis, financial project figures) are sent client-side straight to the provider's own endpoint — PDash's servers never see the prompt or the response.
-
-(2026-09 correction: an earlier version of this PRD described a "Resource Allocation Analysis" feature here — detecting overlapping task allocations and flagging overallocation via AI, at a >28h/week threshold. Audited and confirmed this does not exist anywhere in the codebase. The only real overallocation-related behavior in the app is unrelated and non-AI: Resource Planning's own table (§5) statically color-codes a row red once its load exceeds 30h/week — a fixed display rule, not an AI analysis. This section previously conflated the two.)
+Chat calls go to the PDash backend (`POST /api/planning-assistant/chat`), which calls the Anthropic API with the server's key (`ANTHROPIC_API_KEY` in the server `.env`). Person names, hours, load and project names/tasks are therefore sent to Anthropic until a local model exists. "Calculate team" (`POST /api/planning-assistant/rank`) uses no LLM. See `docs/api/planning-assistant.md`.
 
 ---
 
@@ -644,11 +620,10 @@ The source of truth is PostgreSQL. On each page load, the frontend seeds an **in
 
 ### 12.1 localStorage keys (client-only settings, not server data)
 
-`localStorage` is **not** used for server data — every project, cost grid, role, client, and timesheet row lives only in the in-memory cache described above, seeded fresh from the API on every page load. Only two genuinely client-side keys exist:
+`localStorage` is **not** used for server data — every project, cost grid, role, client, and timesheet row lives only in the in-memory cache described above, seeded fresh from the API on every page load. Only genuinely client-side keys exist:
 
 | Key | Contents |
 |---|---|
-| `PDash_settings` | AI provider keys, display preferences |
 | `PDash_summary` | Portfolio summary view selection |
 
 ### 12.2 CostGrid Shape

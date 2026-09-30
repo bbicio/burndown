@@ -96,12 +96,19 @@ function aggregateProfile(contribByCode, projectsByCode, now = new Date()) {
       v.projectCodes.push(code);
     }
 
-    const topicIds = new Set(info.topicIds || []);
-    for (const k of Object.keys(c.tasks || {})) for (const id of (info.taskTopics || {})[k] || []) topicIds.add(id);
-    for (const id of topicIds) {
-      let set = topicAcc.get(id);
-      if (!set) { set = new Set(); topicAcc.set(id, set); }
-      set.add(code);
+    // direct = the topic comes from a task the person logged hours on (hours = sum over those tasks);
+    // context = it only comes from the project description (spec §5).
+    const directHours = new Map();
+    for (const [k, task] of Object.entries(c.tasks || {})) {
+      for (const id of (info.taskTopics || {})[k] || []) directHours.set(id, (directHours.get(id) || 0) + task.hours);
+    }
+    const ids = new Set([...directHours.keys(), ...(info.topicIds || [])]);
+    for (const id of ids) {
+      let acc = topicAcc.get(id);
+      if (!acc) { acc = { codes: new Set(), directHours: 0, directCodes: new Set(), contextCodes: new Set() }; topicAcc.set(id, acc); }
+      acc.codes.add(code);
+      if (directHours.has(id)) { acc.directHours += directHours.get(id); acc.directCodes.add(code); }
+      else acc.contextCodes.add(code);
     }
 
     projects[code] = {
@@ -157,13 +164,18 @@ function aggregateProfile(contribByCode, projectsByCode, now = new Date()) {
   }
 
   return {
-    version: 1,
+    version: 2,
     computedAt: now.toISOString(),
     totals: { hours: round2(totalHours), projects: codes.length, firstWorked, lastWorked },
     dimensions,
     roles,
     topics: [...topicAcc.entries()]
-      .map(([topicId, set]) => ({ topicId, projectCodes: [...set] }))
+      .map(([topicId, a]) => ({
+        topicId,
+        projectCodes: [...a.codes],
+        direct: { hours: round2(a.directHours), projectCodes: [...a.directCodes] },
+        context: { projectCodes: [...a.contextCodes] },
+      }))
       .sort((a, b) => b.projectCodes.length - a.projectCodes.length || String(a.topicId).localeCompare(String(b.topicId))),
     projects: orderedProjects,
   };

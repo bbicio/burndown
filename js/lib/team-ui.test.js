@@ -85,6 +85,20 @@ describe('buildProfileTree', () => {
     expect(buildProfileTree(profile, []).topics).toEqual([]);
     expect(buildProfileTree({ ...profile, topics: [] }, []).topics).toEqual([]);
   });
+
+  it('groups topics by provenance: direct experience, project context, legacy (no provenance)', () => {
+    const p = { ...profile, topics: [
+      { id: 'a', name: 'Medical writing', projectCodes: ['P1', 'P2'],
+        direct: { hours: 12, projectCodes: ['P1'] }, context: { projectCodes: ['P2'] } },
+      { id: 'b', name: 'Copy editing', projectCodes: ['P2'], direct: { hours: 0, projectCodes: [] }, context: { projectCodes: ['P2'] } },
+      { id: 'c', name: 'Old topic', projectCodes: ['P1'] },
+    ] };
+    const tree = buildProfileTree(p, []);
+    expect(tree.topicGroups.direct.map(t => [t.name, t.directHours])).toEqual([['Medical writing', 12]]);
+    expect(tree.topicGroups.context.map(t => t.name).sort()).toEqual(['Copy editing', 'Medical writing']);
+    expect(tree.topicGroups.legacy.map(t => t.name)).toEqual(['Old topic']);
+    expect(tree.topics.find(t => t.id === 'a').direct.map(n => n.code)).toEqual(['P1']);
+  });
 });
 
 const R = (id, first, last, email, roleLabel, roleCode, status = 'active') =>

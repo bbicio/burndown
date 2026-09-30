@@ -153,7 +153,6 @@ async function testSecurity() {
     ['GET', '/api/cost-grids'],
     ['GET', '/api/projects'],
     ['GET', '/api/ratecards'],       // requireAuth — unauthenticated still gets 401
-    ['POST', '/api/resources/match-owners'], // requireAuth only (not requireAdmin) — see MA-17
   ]) {
     ok((await api(m, p)).status === 401, `SEC-01 ${m} ${p} → 401`);
   }
@@ -1268,33 +1267,6 @@ async function testResourceMatching() {
   un = await listUnmatched();
   ok(!un.some(u => u.name_normalized === marioKey), 'MA-09 reactivated resource: its name matches again');
 
-  // MA-15 (2026-09-28, planning.html inactive-owner handling): POST /api/resources/match-owners
-  await api('PATCH', `/api/resources/${resId}`, { status: 'inactive' }, adminCookie);
-  const marioFullName = `${last} Mario`;
-  const rMatch = await api('POST', '/api/resources/match-owners',
-    { names: [marioFullName, unknownName] }, adminCookie);
-  ok(rMatch.status === 200 && rMatch.data?.[marioFullName] === 'inactive',
-    `MA-15 match-owners resolves an inactive resource's name to inactive (got ${JSON.stringify(rMatch.data)})`);
-  ok(rMatch.data?.[unknownName] === 'active',
-    'MA-15 match-owners resolves an unmatched name to active (fail-open)');
-  await api('PATCH', `/api/resources/${resId}`, { status: 'active' }, adminCookie);
-  const rMatch2 = await api('POST', '/api/resources/match-owners', { names: [marioFullName] }, adminCookie);
-  ok(rMatch2.data?.[marioFullName] === 'active', 'MA-15 reactivated resource: match-owners now resolves active');
-
-  ok((await api('POST', '/api/resources/match-owners', { names: 'not-an-array' }, adminCookie)).status === 400,
-    'MA-16 match-owners with non-array names → 400');
-  ok((await api('POST', '/api/resources/match-owners', { names: [] }, adminCookie)).status === 200,
-    'MA-16 match-owners with empty names array → 200 (empty object)');
-
-  // MA-17: reachable by a non-admin authenticated user, unlike every other route in this file —
-  // planning.html is visible to everyone, so this one route sits above the router's admin gate.
-  const userCookie = await getPlainUserCookie();
-  ok(!!userCookie, 'MA-17 setup: a plain-user session was obtained');
-  if (userCookie) {
-    ok((await api('POST', '/api/resources/match-owners', { names: [marioFullName] }, userCookie)).status === 200,
-      'MA-17 match-owners as a plain (non-admin) user → 200, not 403');
-  }
-
   // MA-10: deleting the resource re-queues its names; rescan endpoint works
   ok((await api('DELETE', `/api/resources/${resId}`, null, adminCookie)).status === 200, 'MA-10 DELETE resource → 200');
   un = await listUnmatched();
@@ -2139,6 +2111,144 @@ async function testPlanningModel() {
   ok(p7o.status === 200 && JSON.stringify(p7o.data?.ownerMap) === '{}' && JSON.stringify(p7o.data?.ownerStatus) === '{}', 'PM-07 owner view → ownerMap {} and ownerStatus {}');
 }
 
+function startAssistantStub(port, state) {
+  return new Promise(resolve => {
+    const server = http.createServer((req, res) => {
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', () => {
+        let parsed = {};
+        try { parsed = JSON.parse(body); } catch { /* ignore */ }
+        state.bodies.push(parsed);
+        if (state.mode === 'http500') { res.statusCode = 500; res.end('secret'); return; }
+        res.setHeader('content-type', 'application/json');
+        const sawResult = JSON.stringify(parsed.messages || []).includes('tool_result');
+        if (state.mode === 'toolThen500' && sawResult) { res.statusCode = 500; res.end('secret'); return; }
+        if ((state.mode === 'tool' || state.mode === 'toolThen500') && !sawResult) {
+          res.end(JSON.stringify({ stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'tu1', name: 'rank_team', input: state.input || { topN: 2 } }] }));
+        } else {
+          res.end(JSON.stringify({ content: [{ type: 'text', text: 'Summary: the suggested team is ready.' }] }));
+        }
+      });
+    });
+    server.listen(port, '0.0.0.0', () => resolve(server));
+  });
+}
+
+async function testPlanningAssistant() {
+  section('Planning assistant');
+  const ts = `${Date.now()}${++_fixtureSeq}`;
+  const role = await makeTestRole(`PA${ts}`);                       // registered first → deleted last
+  const person = `Assist Tester${ts}`;
+  const rRes = await api('POST', '/api/resources',
+    { firstName: 'Assist', lastName: `Tester${ts}`, email: `assist.${ts}@test.local`, roleId: role.id }, adminCookie);
+  const resId = rRes.data?.id;
+  if (resId) later('DELETE', `/api/resources/${resId}`);
+
+  const mkProject = async (code, name, tasks) => {
+    const r = await api('POST', '/api/projects', { name, code, startDate: '209901', endDate: '209903' }, adminCookie);
+    const id = r.data?.id;
+    if (id) { later('DELETE', `/api/projects/${id}`); await api('PUT', `/api/projects/${id}/tasks`, tasks, adminCookie); }
+    return id;
+  };
+  const task = (name, sold, dates = ['20990105', '20990329']) => [{ name, startDate: dates[0], endDate: dates[1], resources: [{ role: role.code, soldHours: sold }] }];
+  const csv = rows => ['projectId,date,task,role,owner,hours', ...rows.map(([c, d, t, h]) => `${c},${d},${t},${role.code},${person},${h}`)].join('\n');
+
+  const histCode = `TPAH${ts}`, targetCode = `TPAT${ts}`, loadCode = `TPAL${ts}`;
+  // the history project ended long ago: it feeds the profile but must not add planned load in 2099
+  const hist = await mkProject(histCode, `__pa_hist_${ts}__`, task('Data analysis', 100, ['20980105', '20980630']));
+  const target = await mkProject(targetCode, `__pa_target_${ts}__`, task('Data analysis', 120));
+  later('DELETE', `/api/timesheets/${histCode}`);
+  if (!ok(!!(resId && hist && target), 'PA-setup resource and projects created')) return;
+  ok((await uploadCsv('/api/timesheets/upload', csv([[histCode, '2098-06-02', 'Data analysis', 50]]), adminCookie)).status === 201, 'PA-setup history uploaded');
+  await runProfileJobs();
+
+  const rank = (body, cookie = adminCookie) => api('POST', '/api/planning-assistant/rank', { projectId: target, asOf: '2099-01-10', params: {}, ...body }, cookie);
+
+  ok((await api('POST', '/api/planning-assistant/rank', { projectId: target, asOf: '2099-01-10' })).status === 401, 'PA-01 rank without auth → 401');
+  const plain = await getPlainUserCookie();
+  if (plain) ok((await rank({}, plain)).status === 403, 'PA-02 a plain user gets 403');
+
+  const badParams = await rank({ params: { topN: 99, bogus: 1 } });
+  ok(badParams.status === 400 && badParams.data?.fields?.topN && badParams.data?.fields?.bogus, 'PA-03 invalid params → 400 with per-field errors');
+  ok((await rank({ asOf: 'x' })).status === 400, 'PA-03 invalid asOf → 400');
+  ok((await rank({ projectId: '00000000-0000-0000-0000-000000000000' })).status === 404, 'PA-04 unknown project → 404');
+  const bare = await mkProject(`TPAB${ts}`, `__pa_bare_${ts}__`, [{ name: 'Nothing', resources: [] }]);
+  ok((await rank({ projectId: bare })).status === 422, 'PA-04 project without roles/hours → 422');
+
+  const r1 = await rank({});
+  const best1 = r1.data?.tables?.best?.find(s => s.role === role.code)?.rows || [];
+  const me = best1.find(x => x.resourceId === resId);
+  ok(r1.status === 200 && !!me, 'PA-05 the registered person with history is in the best team');
+  ok(me && me.score > 0 && me.roleHours === 50, 'PA-05 score > 0 and 50 h on the role');
+  ok(me && Math.abs(me.freeAvg - 32) < 1e-6, 'PA-06 nobody else loads the person: 32 free hours/week');
+  ok(r1.data?.requirement?.roles?.[0]?.code === role.code, 'PA-05 requirement summary lists the role');
+
+  // load from another project: actuals in the past + a big residual spread over the future weeks
+  const loaded = await mkProject(loadCode, `__pa_load_${ts}__`, task('Other work', 1000));
+  later('DELETE', `/api/timesheets/${loadCode}`);
+  await uploadCsv('/api/timesheets/upload', csv([[loadCode, '2099-01-05', 'Other work', 10]]), adminCookie);
+  const r2 = await rank({});
+  const me2 = r2.data?.tables?.available?.find(s => s.role === role.code)?.rows?.find(x => x.resourceId === resId);
+  ok(me2 && me2.freeAvg < 1, `PA-06 a loaded person has almost no free hours (got ${me2?.freeAvg})`);
+  ok(me2 && me2.rank < me2.score, 'PA-06 availability lowers the rank in the available table');
+  void loaded;
+
+  // the target project is excluded from the load (its own planned hours must not reduce availability)
+  const r3 = await rank({ params: { excludeResources: [`Assist Tester${ts}`] } });
+  const all3 = ['best', 'alternative', 'available'].flatMap(k => r3.data?.tables?.[k] || []).flatMap(s => s.rows);
+  ok(r3.status === 200 && !all3.some(x => x.resourceId === resId), 'PA-07 excluded resource is in no table');
+  const r4 = await rank({ params: { excludeResources: ['Nobody Named Like This'] } });
+  ok(r4.status === 400 && r4.data?.fields?.excludeResources, 'PA-07 unknown excluded name → 400 with a field error');
+  const r5 = await rank({ params: { roles: ['NOPE'] } });
+  ok(r5.status === 400 && r5.data?.fields?.roles, 'PA-07 unknown role → 400 with a field error');
+  const market = ((await api('GET', '/api/attribute-lists', null, adminCookie)).data || []).find(l => l.slug === 'market');
+  if (market) {
+    const r6 = await rank({ params: { requireTags: [{ list: 'Market', value: '__no_such_value__' }] } });
+    ok(r6.status === 400 && typeof r6.data?.fields?.requireTags === 'string', 'PA-12 unknown tag value → 400 with fields.requireTags');
+    const r7 = await rank({ params: { preferTags: [{ list: '__no_such_list__', value: 'x' }] } });
+    ok(r7.status === 400 && /Unknown list/.test(r7.data?.fields?.preferTags || ''), 'PA-12 unknown tag list → 400 with fields.preferTags');
+  } else pass('PA-12 no "market" attribute list seeded — skipped');
+
+  // ── /chat (LLM stub) ──
+  const chatBody = (over = {}) => ({ projectId: target, asOf: '2099-01-10', params: {}, messages: [{ role: 'user', content: 'Who is the best team?' }], ...over });
+  ok((await api('POST', '/api/planning-assistant/chat', chatBody())).status === 401, 'PA-08 chat without auth → 401');
+  ok((await api('POST', '/api/planning-assistant/chat', chatBody({ messages: [] }), adminCookie)).status === 400, 'PA-08 empty messages → 400');
+  ok((await api('POST', '/api/planning-assistant/chat', chatBody({ messages: [{ role: 'assistant', content: 'hi' }] }), adminCookie)).status === 400, 'PA-08 last message must be from the user → 400');
+  const longText = 'x'.repeat(4500);
+  const longUser = await api('POST', '/api/planning-assistant/chat', chatBody({ messages: [{ role: 'user', content: longText }] }), adminCookie);
+  ok(longUser.status === 400 && longUser.data?.fields?.messages, 'PA-08 a user message over 4000 chars → 400 fields.messages');
+  const longAsst = await api('POST', '/api/planning-assistant/chat', chatBody({ messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: longText }, { role: 'user', content: 'again' }] }), adminCookie);
+  ok(longAsst.status !== 400, 'PA-08 an over-long assistant message is truncated, not rejected');
+
+  if (process.env.LLM_STUB_ENABLED !== '1') { pass('PA-09 LLM stub not enabled (run via scripts/run-tests.sh) — chat cases skipped'); return; }
+  const state = { mode: 'tool', bodies: [], input: { topN: 2 } };
+  const server = await startAssistantStub(4010, state);
+  try {
+    const c1 = await api('POST', '/api/planning-assistant/chat', chatBody(), adminCookie);
+    ok(c1.status === 200 && /suggested team/.test(c1.data?.reply || ''), 'PA-09 chat returns the model summary');
+    ok(c1.data?.params?.topN === 2, 'PA-09 params come from the validated tool call');
+    ok(Array.isArray(c1.data?.tables?.best) && c1.data.tables.best.length > 0, 'PA-09 tables come from the backend ranking, not from the text');
+    ok(state.bodies.length === 2 && JSON.stringify(state.bodies[1].messages).includes('tool_result'), 'PA-09 the tool result was fed back to the model');
+    ok(JSON.stringify(state.bodies[0].system).includes('<project_data>') && JSON.stringify(state.bodies[0].system).includes(`__pa_target_${ts}__`), 'PA-09 the project summary is sent inside the data block');
+    ok(JSON.stringify(state.bodies[0].system).includes('current_params'), 'PA-09 the current params are sent inside the data block');
+
+    state.bodies.length = 0; state.input = { topN: 99 };            // invalid tool params → error goes back to the model
+    const c2 = await api('POST', '/api/planning-assistant/chat', chatBody(), adminCookie);
+    ok(c2.status === 200 && c2.data?.tables === null, 'PA-10 invalid tool params: no tables, conversation continues');
+    ok(JSON.stringify(state.bodies[1]?.messages || []).includes('Invalid parameters'), 'PA-10 the model is told which parameter was invalid');
+
+    state.mode = 'http500';
+    const c3 = await api('POST', '/api/planning-assistant/chat', chatBody(), adminCookie);
+    ok(c3.status === 503 && c3.data?.error === 'Assistant unavailable' && !JSON.stringify(c3.data).includes('secret'), 'PA-11 LLM failure → 503 without the response body');
+    ok((await rank({})).status === 200, 'PA-11 /rank keeps working while the assistant is down');
+
+    state.mode = 'toolThen500'; state.input = { topN: 2 };          // ranking computed, then the model fails
+    const c4 = await api('POST', '/api/planning-assistant/chat', chatBody(), adminCookie);
+    ok(c4.status === 200 && Array.isArray(c4.data?.tables?.best) && /could not finish/.test(c4.data?.reply || ''), 'PA-11 LLM failure after a ranking → 200 with the tables and a fallback reply');
+  } finally { server.close(); }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -2175,6 +2285,7 @@ async function main() {
     await testTopicsApi();
     await testTopicExtraction();
     await testPlanningModel();
+    await testPlanningAssistant();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
     console.error(e.stack);

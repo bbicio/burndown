@@ -86,5 +86,10 @@ Observed consequences (parity capture):
 
 - Known limits: a request carries at most 2000 project ids, so an admin with more eligible projects than that gets a 400 error; countFutureTaskWeeks uses a closed form (constant time), so an undated task (end year 9999) costs nothing; taskFutureWeeks clamps the distribution end to about 20 years ahead.
 - Sunday quirk above (deliberate visible fix).
-- `POST /api/resources/match-owners` stays in the API but the page no longer calls it (owner status now ships with the model): candidate for removal.
-- `refreshTimesheetDataFromApi()` is still called by `planning.html` only because `js/ai.js` (`buildPlanningContext`) reads `timesheetData`; `js/ai.js` is scheduled for removal in the next cycle (the team assistant).
+- `POST /api/resources/match-owners` was removed in Cycle B (2026-09-30, no caller left; `resolveOwnerStatuses` lives in `api/src/lib/match-resource.js` and is used by the model; its unit tests are in `api/src/lib/match-resource.test.js`).
+- `js/ai.js` was removed in Cycle B. `planning.html` still calls `refreshTimesheetDataFromApi()` on load only to keep the shared `timesheetData` cache populated for `js/upload.js`; candidate for removal.
+
+## Cycle B additions (2026-09-30)
+
+- The calculation moved out of the route into the pure `computePlanningModel(data, visible, req)` in `api/src/lib/planning-compute.js`; `POST /api/planning/model` is now parse + load + `computePlanningModel`, and the team assistant (`docs/api/planning-assistant.md`) calls the same function with `view: 'owner'` so there is one implementation of the load.
+- `getPlanningData().projects` entries now also carry `pipeline` and `status` (the assistant treats a project "as Planning" as not `Canceled` and not `Completed`). No change to any projection.

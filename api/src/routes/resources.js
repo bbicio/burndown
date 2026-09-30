@@ -2,7 +2,7 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
-const { normalizeName, buildMatchContext, matchOwner, resolveOwnerStatuses } = require('../lib/match-resource');
+const { normalizeName } = require('../lib/match-resource');
 const { refreshUnmatched } = require('../services/resource-matching');
 const { loadVocabulary } = require('../services/topic-extraction');
 const { resolveProfileTopics } = require('../lib/topic-extract');
@@ -10,48 +10,11 @@ const { enqueueAllQuiet, OLDEST_PROJECT_ORDER_BY } = require('../services/profil
 
 const router = express.Router();
 
-// resources/aliases change slowly (admin-only edits), but this route is hit on every planning.html
-// page load and XLS upload for every user — cache the two source tables for a short window instead
-// of re-querying both in full on every call. 30s is enough to absorb a burst of page loads without
-// meaningfully delaying visibility of an admin's status change.
-const MATCH_OWNERS_CACHE_MS = 30_000;
-let matchOwnersCache = null; // { resources, aliases, fetchedAt }
-
-async function getResourcesAndAliasesCached() {
-  const now = Date.now();
-  if (matchOwnersCache && (now - matchOwnersCache.fetchedAt) < MATCH_OWNERS_CACHE_MS) {
-    return matchOwnersCache;
-  }
-  const [resourcesResult, aliasesResult] = await Promise.all([
-    query('SELECT id, first_name, last_name, status FROM resources'),
-    query('SELECT alias_normalized, resource_id FROM resource_aliases'),
-  ]);
-  matchOwnersCache = { resources: resourcesResult.rows, aliases: aliasesResult.rows, fetchedAt: now };
-  return matchOwnersCache;
-}
-
-// POST /api/resources/match-owners — { names: string[] } -> { [name]: 'active' | 'inactive' }
-// requireAuth only (not requireAdmin, unlike every other route in this file): planning.html is
-// visible to every authenticated user, and this response carries no PII, only a status per name.
-router.post('/match-owners', requireAuth, async (req, res, next) => {
-  try {
-    const { names } = req.body;
-    if (!Array.isArray(names)) return res.status(400).json({ error: 'names must be an array' });
-    if (names.length === 0) return res.json({});
-    if (names.length > 2000) return res.status(400).json({ error: 'Too many names (max 2000)' });
-    const { resources, aliases } = await getResourcesAndAliasesCached();
-    res.json(resolveOwnerStatuses(names, resources, aliases));
-  } catch (err) { next(err); }
-});
-
 router.use(requireAuth, requireAdmin);
 
 // Best-effort after an admin change that can alter which names match: refresh the Unmatched names
-// list right away, queue every project for a (background) profile recalculation, and drop the
-// match-owners cache above so an admin's status/alias change is visible on the next planning.html
-// load rather than waiting out MATCH_OWNERS_CACHE_MS.
+// list right away and queue every project for a (background) profile recalculation.
 async function rescanAll() {
-  matchOwnersCache = null;
   try { await refreshUnmatched(null); }
   catch (err) { console.warn('[resources] refreshUnmatched:', err.message); }
   await enqueueAllQuiet();
@@ -274,4 +237,3 @@ router.delete('/:id', async (req, res, next) => {
 });
 
 module.exports = router;
-module.exports.resolveOwnerStatuses = resolveOwnerStatuses;

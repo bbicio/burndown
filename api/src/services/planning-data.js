@@ -15,7 +15,7 @@ let generation = 0;    // bumped on invalidate so a load that started before it 
 
 async function load() {
   const [projectsRes, sheetsRes, resourcesRes, aliasesRes] = await Promise.all([
-    query(`SELECT p.id, p.code, p.name, p.start_date AS "startDate", p.end_date AS "endDate",
+    query(`SELECT p.id, p.code, p.name, p.pipeline, p.status, p.start_date AS "startDate", p.end_date AS "endDate",
                   COALESCE((SELECT json_agg(json_build_object(
                       'name', pt.name, 'completed', pt.completed,
                       'startDate', pt.start_date, 'endDate', pt.end_date,

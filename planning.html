@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="https://ik.imagekit.io/6ezjgrjjf/00_Home_Page/letter-f.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/tokens.css?v=7">
-  <link rel="stylesheet" href="css/style.css?v=13">
+  <link rel="stylesheet" href="css/style.css?v=14">
 </head>
 <body class="pp-fullwidth">
 
@@ -15,50 +15,11 @@
 <div id="nav-container"></div>
 
 <div id="planningApp" v-cloak>
-<div style="display:none">
-  <textarea id="aiPlanInput"></textarea>
-  <button id="btnAiPlanSend"></button>
-  <div id="aiPlanMessages"></div>
-</div>
 
 <!-- Hidden file input for XLS upload -->
 <input type="file" id="fileInput" ref="fileInput" accept=".xls,.xlsx" style="display:none" @change="onFileInputChange">
 <span id="fileStatus" style="display:none;font-size:var(--text-xs);margin-right:8px"></span>
 
-<!-- AI Planning Sidebar -->
-<div id="aiPlanSidebar" :class="{ open: aiSidebarOpen }">
-  <div style="padding:12px 16px;border-bottom:1px solid #dee2e6;background:#0B1840;color:white;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-    <span style="font-weight:600;font-size:.95rem">🤖 AI Planning Assistant</span>
-    <button class="btn-close btn-close-white btn-sm" @click="aiSidebarOpen = false"></button>
-  </div>
-  <div style="padding:5px 14px;background:#f0f1f3;border-bottom:1px solid #dee2e6;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-    <span style="font-size:.78rem;color:#495057;font-weight:500">{{ aiProviderBadgeText }}</span>
-    <button onclick="openSettingsModal()" class="btn btn-link btn-sm p-0" style="font-size:.75rem;color:#6c757d;text-decoration:none" title="Configure AI provider">⚙️ Settings</button>
-  </div>
-  <div ref="aiMessagesEl">
-    <div style="background:#f0f4ff;border-radius:8px;padding:10px 12px;font-size:.82rem;color:#444;border-left:3px solid #6c757d">
-      Hello! I'm your planning assistant. You can ask me, for example:<br>
-      • <em>Who is available in the next 2 months?</em><br>
-      • <em>How many hours has [name] allocated to [month]?</em><br>
-      • <em>Which project has the most remaining hours?</em>
-    </div>
-    <div v-for="(m, i) in aiMessages" :key="i"
-      :style="m.role === 'user'
-        ? 'align-self:flex-end;max-width:85%;background:#0d6efd;color:white;border-radius:12px 12px 2px 12px;padding:8px 12px;font-size:.85rem'
-        : 'align-self:flex-start;max-width:90%;background:#f1f3f5;border-radius:2px 12px 12px 12px;padding:8px 12px;font-size:.85rem;color:#212529'"
-      v-html="m.role === 'user' ? esc(m.content) : m.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')">
-    </div>
-  </div>
-  <div style="padding:10px 12px;border-top:1px solid #dee2e6;display:flex;gap:8px;align-items:flex-end;flex-shrink:0">
-    <textarea v-model="aiInput" class="form-control form-control-sm" rows="2"
-      placeholder="Ask a question about planning..." style="resize:none;font-size:.83rem"
-      @keydown.enter="e => { if (!e.shiftKey) { e.preventDefault(); sendAiMessage(); } }"></textarea>
-    <div class="d-flex flex-column gap-1">
-      <button class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:64px" :disabled="aiSending" @click="sendAiMessage">{{ aiSending ? '…' : 'Send' }}</button>
-      <button class="btn btn-outline-secondary btn-sm" style="font-size:.72rem" @click="clearAiMessages">Clear</button>
-    </div>
-  </div>
-</div>
 
 <div class="app-container">
 
@@ -151,8 +112,8 @@
         </div>
       </div>
       <div class="page-toolbar-right">
+        <button v-if="isAdminUser" class="btn btn-outline-secondary btn-sm" title="Find the best people to allocate to a project" @click="taOpen = !taOpen">🤖 Team assistant</button>
         <button class="btn btn-outline-secondary btn-sm" @click="$refs.fileInput.click()">📂 Load XLS</button>
-        <button id="btnToggleAiSidebar" class="btn btn-outline-secondary btn-sm" title="Ask questions about resource availability, allocations and planning" @click="aiSidebarOpen = !aiSidebarOpen">🤖 AI Chat</button>
         <button class="btn btn-outline-secondary btn-sm" title="Toggle full browser width" @click="toggleFullWidth">{{ fullWidth ? '⊡ Compact' : '⛶ Full width' }}</button>
         <button class="btn btn-sm btn-outline-secondary" @click="exportCurrentView">⬇ Export XLS</button>
       </div>
@@ -162,6 +123,66 @@
     </div>
     </template>
   </div>
+
+<div id="teamAssistantPanel" v-if="isAdminUser" :class="{ open: taOpen }">
+  <div class="ta-header">
+    <span style="font-weight:600">🤖 Team assistant</span>
+    <button class="btn-close btn-close-white btn-sm" @click="taOpen = false"></button>
+  </div>
+  <div class="p-3 border-bottom" style="flex-shrink:0">
+    <div class="d-flex gap-2 align-items-center mb-2">
+      <select class="form-select form-select-sm" style="max-width:420px" v-model="taProjectId" :disabled="taBusy" @change="taNewChat()">
+        <option value="">Select a project…</option>
+        <option v-for="o in taProjectOptions" :key="o.id" :value="o.id">{{ o.label }}</option>
+      </select>
+      <button class="btn btn-primary btn-sm" :disabled="!taProjectId || taBusy" @click="taRank()">Calculate team</button>
+      <button class="btn btn-outline-secondary btn-sm" :disabled="taBusy" @click="taNewChat()">New chat</button>
+    </div>
+    <div v-if="taProjectId && !taMessages.length" class="d-flex flex-wrap gap-1">
+      <button v-for="s in taStarters" :key="s" class="btn btn-outline-secondary btn-sm" style="font-size:.75rem" :disabled="taBusy" @click="taInput = s">{{ s }}</button>
+    </div>
+    <div v-if="!taProjectId" class="text-muted small">What do you want to do? Pick a project already in Planning, then ask for a team or press "Calculate team".</div>
+  </div>
+  <div class="ta-chat" ref="taChatEl" v-if="taMessages.length">
+    <div v-for="(m, i) in taMessages" :key="i" :class="['ta-msg', m.role === 'user' ? 'ta-msg--user' : 'ta-msg--bot']"
+         v-html="renderChatText(m.content)"></div>
+  </div>
+  <div class="p-2 border-bottom d-flex gap-2 align-items-end" style="flex-shrink:0" v-if="taProjectId">
+    <textarea v-model="taInput" class="form-control form-control-sm" rows="2" :disabled="taBusy"
+      placeholder="e.g. exclude Mario and only people with oncology experience" style="resize:none"
+      @keydown.enter="e => { if (!e.shiftKey) { e.preventDefault(); taSend(); } }"></textarea>
+    <button class="btn btn-primary btn-sm" :disabled="taBusy || !taInput.trim()" @click="taSend()">{{ taBusy ? '…' : 'Send' }}</button>
+  </div>
+  <div class="ta-tables">
+    <div v-if="taError" class="alert alert-warning py-2 small">{{ taError }}</div>
+    <template v-if="taTables">
+      <div v-for="key in ['best', 'alternative', 'available']" :key="key" class="mb-4">
+        <h6 class="fw-bold">{{ tableTitle(key) }}</h6>
+        <div v-for="section in taTables[key]" :key="key + section.role" class="mb-2">
+          <div class="small fw-semibold">{{ section.role }}</div>
+          <div v-if="!section.rows.length" class="text-muted small">{{ section.note || 'Nobody.' }}</div>
+          <div v-else class="table-responsive">
+            <table class="table table-sm table-bordered ta-table mb-1">
+              <thead><tr>
+                <th>Resource</th><th>Role</th><th>Score</th><th>h on role</th><th>Tags</th><th>Similar projects</th>
+                <th>Similar tasks</th><th>Topics</th><th>Free h/wk</th><th>Current load</th><th>h on project</th><th>Rationale</th>
+              </tr></thead>
+              <tbody>
+                <tr v-for="row in section.rows" :key="row.resourceId">
+                  <td>{{ rowView(row).name }}<div v-if="rowView(row).flags" class="text-danger" style="font-size:.7rem">{{ rowView(row).flags }}</div></td>
+                  <td>{{ rowView(row).role }}</td><td>{{ rowView(row).score }}</td><td>{{ rowView(row).roleHours }}</td>
+                  <td>{{ rowView(row).tags }}</td><td>{{ rowView(row).projects }}</td><td>{{ rowView(row).tasks }}</td>
+                  <td>{{ rowView(row).topics }}</td><td>{{ rowView(row).free }}</td><td>{{ rowView(row).load }}</td>
+                  <td>{{ rowView(row).onProject }}</td><td>{{ rowView(row).rationale }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>
 
 </div><!-- /app-container -->
 </div><!-- /planningApp -->
@@ -220,20 +241,20 @@
 <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script defer src="js/api.js?v=7"></script>
-<script defer src="js/core.js?v=5"></script>
-<script defer src="js/settings.js"></script>
+<script defer src="js/core.js?v=7"></script>
+<script defer src="js/settings.js?v=1"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script defer src="js/notifications.js?v=2"></script>
 <script defer src="js/roles.js"></script>
 <script type="module" src="js/lib/planning-calc.js?v=5"></script>
 <script type="module" src="js/lib/planning-model-ui.js?v=1"></script>
+<script type="module" src="js/lib/team-assistant-ui.js?v=2"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/portfolio.js"></script>
 <script defer src="js/upload.js"></script>
-<script defer src="js/ai.js?v=1"></script>
 <script defer src="js/api-sync.js?v=16"></script>
-<script defer src="js/nav.js?v=9"></script>
+<script defer src="js/nav.js?v=10"></script>
 
 <script type="module">
 window.showPortfolioView = function () {
@@ -251,9 +272,6 @@ window.updateNavState = function () {};
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
   loadConfig();
-  loadSettings();
-  updateAiButtonVisibility();
-  refreshTimesheetData();
 
   // Shared markup for the "inactive owner" badge — used both inline next to a rendered owner
   // name (with a leading space) and standalone in help-text prose (INACTIVE_BADGE_HTML). Kept
@@ -270,8 +288,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         windowStart: null, windowEnd: null,
         monthlyPulse: true, roundHours: true,
         fullWidth: true,
-        aiSidebarOpen: false,
-        aiMessages: [], aiInput: '', aiSending: false,
         returnToBurndown: false, singleProjectId: null,
         refreshTick: 0, // bumped after an XLS upload to force a new modelRequest (refetch of the
                         // planning model) and to recompute computeds reading config.projects, a
@@ -279,9 +295,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         ownerStatusMap: {}, // { [ownerName]: 'active' | 'inactive' }, from POST /api/planning/model
                              // (ownerStatus of the last loaded model); used only for the inactive badges
         model: null, modelPending: false, modelError: null, modelSeq: 0, // server projection of the active view (spec §14)
+        taOpen: false, taProjectId: '', taMessages: [], taInput: '', taBusy: false, taTables: null, taParams: {}, taError: null, taRoles: [],
       };
     },
     computed: {
+      // window.__navUser is set by initNav() in created(), after the first render; `loading` flips to
+      // false only after it, so reading it makes this computed re-evaluate once the user is known.
+      isAdminUser() { this.loading; return ['admin', 'sysadmin'].includes(window.__navUser?.role); },
+      taProjectOptions() { this.refreshTick; return projectOptions(this.eligibleProjects); },
+      taStarters() { return starterPrompts(this.taRoles); },
       allPipelines() {
         this.refreshTick; // reactive dependency
         return [...new Set((config.projects || []).map(p => p.pipeline || '').filter(p => p && p !== 'Canceled'))].sort();
@@ -996,18 +1018,64 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (this.view === 'byproject') return this.byProjectView.html;
         return this.byOwnerView.html;
       },
-      aiProviderBadgeText() {
-        const provider = appSettings.aiProvider || 'anthropic';
-        const model    = appSettings.aiModel    || '';
-        const icons  = { anthropic: '🟣', openai: '🟢', gemini: '🔵' };
-        const names  = { anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Gemini' };
-        const models = AI_MODELS[provider] || [];
-        const modelLabel = (models.find(m => m.id === model)?.label || model || models[0]?.label || '').replace(/ \(.*\)/, '');
-        return `${icons[provider] || '🤖'} ${names[provider] || provider} · ${modelLabel}`;
-      },
     },
     methods: {
       esc, fmtProjectTitle,
+      // Vue 3 templates do not see arbitrary window globals: thin wrappers for the template.
+      renderChatText(t) { return window.renderChatText(t); },
+      rowView(r) { return window.rowView(r); },
+      tableTitle(k) { return window.tableTitle(k); },
+      taNewChat() { this.taMessages = []; this.taInput = ''; this.taTables = null; this.taParams = {}; this.taError = null; this.taRoles = []; },
+      async taCall(path, payload) {
+        const res = await fetch(`/api/planning-assistant/${path}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+          body: JSON.stringify(payload), signal: AbortSignal.timeout(120000),
+        });
+        let data = null;
+        try { data = await res.json(); } catch { /* keep null */ }
+        if (!res.ok) {
+          const fields = data && data.fields ? Object.values(data.fields).join(' ') : '';
+          throw new Error((data && data.error ? data.error : `HTTP ${res.status}`) + (fields ? `: ${fields}` : ''));
+        }
+        return data;
+      },
+      taApply(data) {
+        if (data.tables) this.taTables = data.tables;
+        if (data.params) this.taParams = data.params;
+        if (data.requirement) this.taRoles = data.requirement.roles.map(r => r.code);
+      },
+      async taRank() {
+        if (!this.taProjectId || this.taBusy) return;
+        const projectId = this.taProjectId;
+        this.taBusy = true; this.taError = null;
+        try {
+          const data = await this.taCall('rank', { projectId, asOf: localYmd(new Date()), params: this.taParams });
+          if (!isStaleResponse(projectId, this.taProjectId)) this.taApply(data);
+        } catch (err) { if (!isStaleResponse(projectId, this.taProjectId)) this.taError = err.message; }
+        finally { this.taBusy = false; }
+      },
+      async taSend() {
+        const text = this.taInput.trim();
+        if (!text || !this.taProjectId || this.taBusy) return;
+        const projectId = this.taProjectId;
+        this.taMessages.push({ role: 'user', content: text });
+        this.taInput = ''; this.taBusy = true; this.taError = null;
+        try {
+          const data = await this.taCall('chat', {
+            projectId, asOf: localYmd(new Date()), params: this.taParams, messages: chatPayload(this.taMessages),
+          });
+          if (!isStaleResponse(projectId, this.taProjectId)) {
+            this.taMessages.push({ role: 'assistant', content: data.reply });
+            this.taApply(data);
+          }
+        } catch (err) {
+          // local: true keeps this bubble out of the history sent back to the server (chatPayload).
+          if (!isStaleResponse(projectId, this.taProjectId)) this.taMessages.push({ role: 'assistant', local: true, content: `Sorry, the assistant could not answer (${err.message}). You can still press "Calculate team".` });
+        } finally {
+          this.taBusy = false;
+          this.$nextTick(() => { const el = this.$refs.taChatEl; if (el) el.scrollTop = el.scrollHeight; });
+        }
+      },
       isPipelineActive(p) { return this.pipelineFilters.size === 0 || this.pipelineFilters.has(p); },
       togglePipelineFilter(p) {
         const next = new Set(this.pipelineFilters);
@@ -1178,36 +1246,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(url);
       },
-      async sendAiMessage() {
-        const msg = this.aiInput.trim();
-        if (!msg) return;
-        // aiPlanSend() (js/ai.js, unchanged) reads document.getElementById('aiPlanInput').value
-        // and the module-level aiPlanMessages array directly, and toggles #btnAiPlanSend's
-        // disabled/textContent while in flight. Rather than duplicate its provider-dispatch/fetch
-        // logic here, this shim feeds it what it expects via the hidden compatibility elements
-        // added in Step 4 below, then copies its result back into this.aiMessages once it resolves.
-        // aiPlanSend() checks for a configured API key FIRST and returns immediately (without
-        // consuming the message) if none is set — in that case the typed question must remain in
-        // the textarea, matching the original vanilla behavior. So this.aiInput is only cleared
-        // once aiPlanMessages has actually grown, proving aiPlanSend() consumed the message
-        // (rather than duplicating its provider/key-lookup logic here).
-        aiPlanMessages = [...this.aiMessages];
-        const lenBefore = aiPlanMessages.length;
-        document.getElementById('aiPlanInput').value = msg;
-        this.aiSending = true;
-        try {
-          await aiPlanSend();
-          if (aiPlanMessages.length > lenBefore) this.aiInput = '';
-        } finally {
-          this.aiMessages = [...aiPlanMessages];
-          this.aiSending = false;
-          this.$nextTick(() => { const el = this.$refs.aiMessagesEl; if (el) el.scrollTop = el.scrollHeight; });
-        }
-      },
-      clearAiMessages() {
-        aiPlanMessages = [];
-        this.aiMessages = [];
-      },
       initTooltipsAndToggles() {
         const container = this.$refs.planningContainer;
         if (!container) return;
@@ -1273,7 +1311,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadRolesFromApi()]);
       // refreshTimesheetDataFromApi() stays: the views no longer read the browser copy of the
-      // actuals, but the AI sidebar's buildPlanningContext() (js/ai.js) still does.
+      // actuals; it only keeps the shared timesheetData cache populated for js/upload.js.
       await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
       this.initWindowIfNeeded();
 

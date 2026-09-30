@@ -23,6 +23,7 @@ const resourcesRoutes = require('./routes/resources');
 const profileJobsRoutes = require('./routes/profile-jobs');
 const topicsRoutes = require('./routes/topics');
 const planningRoutes = require('./routes/planning');
+const planningAssistantRoutes = require('./routes/planning-assistant');
 const { invalidatePlanningData } = require('./services/planning-data');
 
 const app = express();
@@ -76,6 +77,7 @@ app.use('/api/resources',       resourcesRoutes);
 app.use('/api/profile-jobs',    profileJobsRoutes);
 app.use('/api/topics',           topicsRoutes);
 app.use('/api/planning',        planningRoutes);
+app.use('/api/planning-assistant', planningAssistantRoutes);
 app.use('/api',               configRoutes);
 
 // 404

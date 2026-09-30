@@ -302,43 +302,7 @@ async function initNav(activeTab, opts = {}) {
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-0">
-              <ul class="nav nav-tabs px-3 pt-2 mb-0">
-                <li class="nav-item"><button class="nav-link active stg-tab-btn" data-tab="api">🔑 API &amp; Integrations</button></li>
-                <li class="nav-item"><button class="nav-link stg-tab-btn" data-tab="data">💾 Data Manager</button></li>
-              </ul>
-              <div id="stgTabApi" class="p-3">
-                <form autocomplete="off" onsubmit="return false">
-                <div class="cfg-section mb-3">
-                  <div class="cfg-section-title">🤖 AI Assistant</div>
-                  <div class="row g-2 align-items-center mb-2">
-                    <div class="col-auto" style="min-width:160px"><label class="form-label small mb-0 fw-semibold">Active provider</label></div>
-                    <div class="col-auto">
-                      <select class="form-select form-select-sm" id="stgAiProvider" style="min-width:200px">
-                        <option value="anthropic">🟣 Anthropic (Claude)</option>
-                        <option value="openai">🟢 OpenAI (GPT)</option>
-                        <option value="gemini">🔵 Google Gemini</option>
-                      </select>
-                    </div>
-                    <div class="col-auto">
-                      <select class="form-select form-select-sm" id="stgAiModel" style="min-width:260px"></select>
-                    </div>
-                  </div>
-                  <div class="row g-2 align-items-center mt-1">
-                    <div class="col-auto" style="min-width:160px"><label class="form-label small mb-0 fw-semibold">🟣 Anthropic API Key</label></div>
-                    <div class="col"><input type="password" class="form-control form-control-sm" id="stgAnthropicKey" placeholder="sk-ant-..." autocomplete="off" style="max-width:480px"></div>
-                  </div>
-                  <div class="row g-2 align-items-center mt-1">
-                    <div class="col-auto" style="min-width:160px"><label class="form-label small mb-0 fw-semibold">🟢 OpenAI API Key</label></div>
-                    <div class="col"><input type="password" class="form-control form-control-sm" id="stgOpenaiKey" placeholder="sk-..." autocomplete="off" style="max-width:480px"></div>
-                  </div>
-                  <div class="row g-2 align-items-center mt-1">
-                    <div class="col-auto" style="min-width:160px"><label class="form-label small mb-0 fw-semibold">🔵 Gemini API Key</label></div>
-                    <div class="col"><input type="password" class="form-control form-control-sm" id="stgGeminiKey" placeholder="AIza..." autocomplete="off" style="max-width:480px"></div>
-                  </div>
-                </div>
-                </form>
-              </div>
-              <div id="stgTabData" class="p-3" style="display:none">
+              <div id="stgTabData" class="p-3">
                 <div class="mb-4">
                   <div class="fw-semibold mb-1" style="font-size:.875rem">Data Exports</div>
                   <p class="text-muted small mb-3">Exported files are sent by email to <strong><span class="stg-export-email">—</span></strong></p>
@@ -358,12 +322,8 @@ async function initNav(activeTab, opts = {}) {
                 </div>
               </div>
             </div>
-            <div class="modal-footer border-0 d-flex justify-content-between">
-              <small class="text-muted">API keys are saved in your browser's localStorage.</small>
-              <div class="d-flex gap-2">
-                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                <button class="btn btn-primary btn-sm" id="btnSaveSettings">💾 Save</button>
-              </div>
+            <div class="modal-footer border-0">
+              <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
             </div>
           </div>
         </div>
@@ -500,32 +460,6 @@ async function initNav(activeTab, opts = {}) {
 
   // ── SETTINGS MODAL EVENTS (wired once) ──────────────────────────────────────
   if (!document.getElementById('stgAlreadyWired')) {
-    // Tab switching
-    document.querySelectorAll('.stg-tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.stg-tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const tabApi  = document.getElementById('stgTabApi');
-        const tabData = document.getElementById('stgTabData');
-        if (tabApi)  tabApi.style.display  = btn.dataset.tab === 'api'  ? 'block' : 'none';
-        if (tabData) tabData.style.display = btn.dataset.tab === 'data' ? 'block' : 'none';
-      });
-    });
-
-    // AI provider change
-    const providerSel = document.getElementById('stgAiProvider');
-    if (providerSel) {
-      providerSel.addEventListener('change', e => {
-        if (typeof stgUpdateModelDropdown === 'function') stgUpdateModelDropdown(e.target.value, '');
-      });
-    }
-
-    // Settings save button
-    const saveBtn = document.getElementById('btnSaveSettings');
-    if (saveBtn) saveBtn.addEventListener('click', () => {
-      if (typeof saveSettingsModal === 'function') saveSettingsModal();
-    });
-
     // Settings open button
     document.getElementById('nav-settings-btn').addEventListener('click', () => {
       if (typeof openSettingsModal === 'function') openSettingsModal();

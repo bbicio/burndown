@@ -92,7 +92,7 @@ test('aggregateProfile: totals, project index, dimensions, roles and untagged ho
     P2: { projectId: 'id2', name: 'Beta', tags: [] },
   };
   const p = aggregateProfile(contrib, projects, NOW);
-  assert.equal(p.version, 1);
+  assert.equal(p.version, 2);
   assert.equal(p.computedAt, NOW.toISOString());
   assert.deepEqual(p.totals, { hours: 13, projects: 2, firstWorked: '2026-01', lastWorked: '2026-03' });
   assert.deepEqual(Object.keys(p.projects), ['P1', 'P2']);            // ordered by hours desc
@@ -157,12 +157,36 @@ test('aggregateProfile: topics — project topics reach every contributor, task 
   };
   const p = aggregateProfile(contribByCode, projectsByCode, new Date('2026-09-29T00:00:00Z'));
   assert.deepEqual(p.topics, [
-    { topicId: 'tp', projectCodes: ['P1', 'P2'] },
-    { topicId: 'ta', projectCodes: ['P1'] },
+    { topicId: 'tp', projectCodes: ['P1', 'P2'], direct: { hours: 0, projectCodes: [] }, context: { projectCodes: ['P1', 'P2'] } },
+    { topicId: 'ta', projectCodes: ['P1'], direct: { hours: 6, projectCodes: ['P1'] }, context: { projectCodes: [] } },
   ]);
 });
 
 test('aggregateProfile: topics is an empty array when nothing is linked', () => {
   const p = aggregateProfile({ P1: { projectName: 'P1', hours: 1, first: null, last: null, roles: {}, tasks: {} } }, {}, new Date());
   assert.deepEqual(p.topics, []);
+});
+
+test('aggregateProfile v2: topic provenance is direct (task with hours) or context (project text only)', () => {
+  const contrib = {
+    A: { hours: 10, first: '2026-01', last: '2026-02', roles: { DEV: 10 },
+         tasks: { build: { name: 'Build', hours: 6 }, test: { name: 'Test', hours: 4 } } },
+    B: { hours: 5, first: null, last: null, roles: {}, tasks: { doc: { name: 'Doc', hours: 5 } } },
+  };
+  const projects = {
+    A: { projectId: 'pa', name: 'Alpha', tags: [], topicIds: ['t-ctx', 't-both'],
+         taskTopics: { build: ['t-both', 't-dir'], other: ['t-never'] } },
+    B: { projectId: 'pb', name: 'Beta', tags: [], topicIds: ['t-ctx'] },
+  };
+  const p = aggregateProfile(contrib, projects, new Date('2026-09-30T00:00:00Z'));
+  assert.equal(p.version, 2);
+  const by = Object.fromEntries(p.topics.map(t => [t.topicId, t]));
+  assert.equal(by['t-never'], undefined);                       // the person has no hours on that task
+  assert.deepEqual(by['t-dir'].direct, { hours: 6, projectCodes: ['A'] });
+  assert.deepEqual(by['t-dir'].context, { projectCodes: [] });
+  assert.deepEqual(by['t-both'].direct, { hours: 6, projectCodes: ['A'] });   // project + task level → direct
+  assert.deepEqual(by['t-both'].context, { projectCodes: [] });
+  assert.deepEqual(by['t-ctx'].direct, { hours: 0, projectCodes: [] });
+  assert.deepEqual(by['t-ctx'].context.projectCodes.sort(), ['A', 'B']);
+  assert.deepEqual(by['t-ctx'].projectCodes.sort(), ['A', 'B']);             // union kept for team.html
 });

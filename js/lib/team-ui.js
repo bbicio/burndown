@@ -105,10 +105,22 @@ export function buildProfileTree(profile, roles = []) {
   }));
 
   const topicNodes = (profile.topics || [])
-    .map(t => ({ id: t.id, name: t.name, projectCount: (t.projectCodes || []).length, projects: children(t.projectCodes) }))
+    .map(t => ({
+      id: t.id, name: t.name, projectCount: (t.projectCodes || []).length, projects: children(t.projectCodes),
+      hasProvenance: !!t.direct,
+      directHours: t.direct ? t.direct.hours : 0,
+      direct: children(t.direct && t.direct.projectCodes),
+      context: children(t.context && t.context.projectCodes),
+    }))
     .sort((a, b) => b.projectCount - a.projectCount || a.name.localeCompare(b.name));
 
-  return { totals: profile.totals, computedAt: profile.computedAt, dimensions, roles: roleNodes, topics: topicNodes };
+  const topicGroups = {
+    direct: topicNodes.filter(t => t.hasProvenance && t.direct.length),
+    context: topicNodes.filter(t => t.hasProvenance && t.context.length),
+    legacy: topicNodes.filter(t => !t.hasProvenance),
+  };
+
+  return { totals: profile.totals, computedAt: profile.computedAt, dimensions, roles: roleNodes, topics: topicNodes, topicGroups };
 }
 
 window.sortResources = sortResources;
