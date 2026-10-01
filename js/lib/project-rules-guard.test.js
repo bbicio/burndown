@@ -24,9 +24,11 @@ describe('project rules are wired into the pages', () => {
     expect(t).toMatch(/currencyLocked\(\)\s*\{\s*return this\.isLocked \|\| this\.versionHasProjects/);
   });
 
-  it('project-config.html keeps the currency menu read-only and redirects the new-project form', () => {
+  it('project-config.html locks the currency menu for existing projects and viewers, and redirects the new-project form', () => {
     const t = read('project-config.html');
-    expect(t).toMatch(/v-model="project\.currency"[^>]*disabled/);
+    expect(t).toMatch(/v-model="project\.currency"[^>]*:disabled="currencyLocked"/);
+    // Only a brand-new project (reachable again when direct creation is re-enabled) may pick its currency.
+    expect(t).toMatch(/currencyLocked\(\)\s*\{\s*return this\.isViewer \|\| !this\.isNewProject/);
     expect(t).toMatch(/DIRECT_PROJECT_CREATION_ENABLED/);
   });
 
