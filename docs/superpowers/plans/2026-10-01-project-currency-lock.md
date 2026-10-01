@@ -810,15 +810,7 @@ In `resolveProject()`, the new-project branch (`if (!projectId) {`) starts with 
 
 - [ ] **Step 4: `portfolio.html` — the button, the empty state and the redirect notice**
 
-Replace the button at line 34 with a wrapper that carries the tooltip (a disabled button does not always show its own `title`):
-
-```html
-        <span :title="directCreationEnabled ? '' : directCreationMessage"><button class="btn btn-primary btn-sm" :disabled="!directCreationEnabled" onclick="window.location.href='/project-config.html'">＋ New project</button></span>
-```
-
-(the inline `onclick` stays only for the re-enabled case; the guard test checks the exact old string, so keep this form of the attribute: `onclick="window.location.href='/project-config.html'"` must not appear alone on the button. Use instead the Vue handler below.)
-
-Use this form (it replaces the line above, no inline `onclick`):
+Replace the button at line 34 (which has an inline `onclick`) with a wrapper that carries the tooltip (a disabled button does not always show its own `title`) and a Vue handler:
 
 ```html
         <span :title="directCreationEnabled ? '' : directCreationMessage"><button class="btn btn-primary btn-sm" :disabled="!directCreationEnabled" @click="goNewProject">＋ New project</button></span>
