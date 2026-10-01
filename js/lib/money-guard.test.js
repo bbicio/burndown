@@ -27,10 +27,16 @@ describe('money guard', () => {
   });
 
   it('every page that loads core.js and uses a money function also loads js/lib/money.js', () => {
-    const uses = /\b(fmtMoney|cgFmtCurrency|pbFmtMoney|formatMoney|formatMoneyInput|parseMoney|fmtAmtC)\(|js\/costgrid\.js|js\/lib\/pipeline-calc\.js|js\/portfolio\.js/;
+    const uses = /\b(formatMoney|formatMoneyInput|parseMoney)\(|js\/costgrid\.js|js\/lib\/pipeline-calc\.js|js\/portfolio\.js/;
     const offenders = files
       .filter(f => /^[^/]+\.html$/.test(f))
       .filter(f => { const t = read(f); return /js\/core\.js/.test(t) && uses.test(t) && !/js\/lib\/money\.js/.test(t); });
+    expect(offenders).toEqual([]);
+  });
+
+  it('the removed money wrappers are not defined or called anywhere', () => {
+    const removed = /\b(fmtMoney|cgFmtCurrency|pbFmtMoney|fmtAmtC|fmtAmount|fmtCur|currentCfg)\b/;
+    const offenders = sources.filter(f => removed.test(read(f)));
     expect(offenders).toEqual([]);
   });
 

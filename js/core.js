@@ -12,7 +12,6 @@ let timesheetData = [];
 let config = { projects: [] };
 let burndownChartInst = null;
 let selectedProjectId = null;
-let currentCfg = null;
 let burndownInterval = 'monthly';
 let portfolioOpen = false;
 let planningInterval = 'monthly';
@@ -207,11 +206,6 @@ function billableData(data, cfg) {
   const norm = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
   const allowed = new Set(cfg.tasks.filter(t => t.billable !== false).map(t => norm(t.name)));
   return data.filter(r => allowed.has(norm(r.task)));
-}
-
-function fmtMoney(n, currencyCode) {
-  if (n === null || n === undefined) return '—';
-  return window.formatMoney(n, currencyCode || currentCfg?.currency || 'EUR', window.__currencies);
 }
 
 function fmtH(n)         { return (n !== null && n !== undefined) ? n.toFixed(2) + 'h' : '—'; }
