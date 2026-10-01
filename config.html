@@ -997,8 +997,9 @@
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 </script>
-<script defer src="js/core.js?v=7"></script>
+<script defer src="js/core.js?v=8"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
+<script type="module" src="js/lib/money.js?v=1"></script>
 <script defer src="js/notifications.js?v=2"></script>
 <script defer src="js/nav.js?v=11"></script>
 
@@ -1094,14 +1095,9 @@ window.__cfgApp = Vue.createApp({
         const [y, m] = mo.split('-');
         return new Date(parseInt(y), parseInt(m) - 1).toLocaleString('en', { month: 'short' });
       };
-      const opts = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
       const fmtAmtC = (n, cur) => {
         if (!n) return '—';
-        const code   = (cur || 'EUR').trim();
-        const entry  = (window.__currencies || []).find(c => c.code === code);
-        const symbol = entry?.symbol || (code === 'EUR' ? '€' : code);
-        const locale = entry?.locale || 'it-IT';
-        return `${symbol} ${new Intl.NumberFormat(locale, opts).format(n)}`;
+        return window.formatMoney(n, (cur || 'EUR').trim(), window.__currencies);
       };
       const fmtAmt  = (n) => fmtAmtC(n, 'EUR');
       const fmtH    = (n) => n ? Math.round(n * 10) / 10 + ' h' : '—';
@@ -1187,14 +1183,9 @@ window.__cfgApp = Vue.createApp({
         const [y, m] = mo.split('-');
         return new Date(parseInt(y), parseInt(m) - 1).toLocaleString('en', { month: 'short', year: '2-digit' });
       };
-      const opts = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
       const fmtAmtC = (n, cur) => {
         if (n == null || n === 0) return '—';
-        const code   = (cur || 'EUR').trim();
-        const entry  = (window.__currencies || []).find(c => c.code === code);
-        const symbol = entry?.symbol || (code === 'EUR' ? '€' : code);
-        const locale = entry?.locale || 'it-IT';
-        return `${symbol} ${new Intl.NumberFormat(locale, opts).format(n)}`;
+        return window.formatMoney(n, (cur || 'EUR').trim(), window.__currencies);
       };
       const fmtAmt  = (n) => fmtAmtC(n, 'EUR');
       const escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -1953,7 +1944,7 @@ window.__cfgApp = Vue.createApp({
       return Number(n).toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     },
     fmtAmount(n) {
-      return '€ ' + new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n));
+      return window.formatMoney(n, 'EUR', window.__currencies);
     },
     fmtDate(iso) {
       if (!iso) return '—';

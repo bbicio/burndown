@@ -1,5 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { computeKpis, computeBurndownPoints, buildSummaryCols, summaryTotals, normalizeGroupEntries, entryMatchesRow } from './portfolio-calc.js';
+import { computeKpis, computeBurndownPoints, buildSummaryCols, summaryTotals, normalizeGroupEntries, entryMatchesRow, commonCurrency } from './portfolio-calc.js';
+
+describe('commonCurrency', () => {
+  it('returns the currency code shared by all the projects', () => {
+    expect(commonCurrency([{ currency: 'CHF' }, { currency: 'CHF' }])).toBe('CHF');
+    expect(commonCurrency([{ currency: 'USD' }])).toBe('USD');
+  });
+  it('treats a missing currency as EUR', () => {
+    expect(commonCurrency([{}, { currency: 'EUR' }])).toBe('EUR');
+  });
+  it('falls back to EUR when the projects mix currencies or the list is empty', () => {
+    expect(commonCurrency([{ currency: 'CHF' }, { currency: 'EUR' }])).toBe('EUR');
+    expect(commonCurrency([])).toBe('EUR');
+    expect(commonCurrency(undefined)).toBe('EUR');
+  });
+});
 
 // Minimal fakes for the three injected helper functions — real behavior confirmed
 // against js/core.js during Step 1; kept simple here since these tests exercise

@@ -325,8 +325,8 @@
                   <td style="padding:3px 5px;border:1px solid var(--border-light);min-width:120px;vertical-align:middle">
                     <input type="text" class="form-control" style="border:1px solid var(--border-light);font-size:var(--text-md);padding:4px 6px;height:32px;text-align:right"
                       :value="ptcFocusedTask === task.taskId ? ptcRaw : (task.ptc > 0 ? fmtCur(task.ptc) : '')" placeholder="—" :disabled="isLocked"
-                      @focus="ptcFocusedTask = task.taskId; ptcRaw = task.ptc > 0 ? String(task.ptc) : ''"
-                      @input="ptcRaw = $event.target.value; task.ptc = parseFloat($event.target.value) || 0; cgScheduleAutoSave()"
+                      @focus="ptcFocusedTask = task.taskId; ptcRaw = moneyInput(task.ptc)"
+                      @input="ptcRaw = $event.target.value; task.ptc = parseMoneyInput($event.target.value); cgScheduleAutoSave()"
                       @blur="ptcFocusedTask = null; ptcRaw = ''">
                   </td>
                   <td style="text-align:right;padding:6px 10px;border:1px solid var(--border-light);font-size:var(--text-md);white-space:nowrap;background:var(--sand-50);vertical-align:middle">
@@ -662,16 +662,17 @@
 <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script defer src="js/api.js?v=7"></script>
-<script defer src="js/core.js?v=7"></script>
+<script defer src="js/core.js?v=8"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
+<script type="module" src="js/lib/money.js?v=1"></script>
 <script defer src="js/notifications.js?v=2"></script>
 <script defer src="js/roles.js"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=5"></script>
-<script defer src="js/costgrid.js?v=34"></script>
-<script defer src="js/api-sync.js?v=19"></script>
+<script defer src="js/costgrid.js?v=35"></script>
+<script defer src="js/api-sync.js?v=20"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>
 <script defer src="js/shares.js"></script>
@@ -940,7 +941,7 @@ Vue.createApp({
         ...r,
         already,
         effectiveRate: resolved.effectiveRate,
-        curSym: (this.currencies || []).find(c => c.code === currency)?.symbol || '€',
+        curSym: window.currencyInfo(currency, this.currencies).symbol,
         hasOverride: resolved.isOverride,
         hasCustom: this.isClientRatecard && rcRate !== undefined && rcRate !== (r.rate || 0),
         zeroRate: !resolved.effectiveRate || resolved.effectiveRate === 0,
@@ -1214,6 +1215,8 @@ Vue.createApp({
     exportXls() { cgExportXls(); },
     generateProject() { cgGenerateProject(); },
     fmtCur(amount) { return cgFmtCurrency(amount, this.draft?.currency || 'EUR'); },
+    moneyInput(amount) { return window.formatMoneyInput(amount, this.draft?.currency || 'EUR', window.__currencies); },
+    parseMoneyInput(text) { return window.parseMoney(text, this.draft?.currency || 'EUR', window.__currencies); },
     addPhase() {
       this.draft.phases.push({ phaseId: cgNewPhId(), phaseName: 'New phase', tasks: [] });
       cgScheduleAutoSave();
@@ -1359,7 +1362,7 @@ Vue.createApp({
       bootstrap.Modal.getInstance(document.getElementById('cgAddToProjectModal'))?.hide();
       await cgDoAddTasksToProject(projId, taskIds);
     },
-    phasingFmtAmount(n) { return (this.draft.currency || 'EUR') + ' ' + Math.round(n).toLocaleString('en'); },
+    phasingFmtAmount(n) { return window.formatMoney(n, this.draft.currency || 'EUR', window.__currencies, { rounded: true }); },
     phasingFmtHours(n) { return fmtH(n); },
     phasingFmtMonth(mo) {
       const [my, mm] = mo.split('-');
@@ -1394,17 +1397,13 @@ Vue.createApp({
       }
 
       const preview = cgPreviewRateChange(newCurrency);
-      const newEntry = (this.currencies || []).find(c => c.code === newCurrency);
-      const prevEntry = (this.currencies || []).find(c => c.code === prevCurrency);
-      const newSym = newEntry?.symbol || newCurrency;
-      const prevSym = prevEntry?.symbol || prevCurrency;
-      const fmtR = (n, sym) => `${sym} ${Number(n).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const fmtR = (n, code) => window.formatMoney(n, code, window.__currencies);
       const hasCustom = preview.some(r => r.isCustom);
       const roleRows = preview.map(r =>
         `<tr>
           <td style="padding:3px 8px;font-size:.82rem">${esc(r.roleLabel)}</td>
-          <td style="padding:3px 8px;font-size:.82rem;text-align:right;color:#6b7280">${fmtR(r.currentRate, prevSym)}</td>
-          <td style="padding:3px 8px;font-size:.82rem;text-align:right;font-weight:600">${fmtR(r.newRate, newSym)}</td>
+          <td style="padding:3px 8px;font-size:.82rem;text-align:right;color:#6b7280">${fmtR(r.currentRate, prevCurrency)}</td>
+          <td style="padding:3px 8px;font-size:.82rem;text-align:right;font-weight:600">${fmtR(r.newRate, newCurrency)}</td>
           ${r.isCustom ? `<td style="padding:3px 8px;font-size:.75rem;color:#dc3545">custom → reset</td>` : '<td></td>'}
         </tr>`
       ).join('');
@@ -1463,7 +1462,7 @@ Vue.createApp({
       document.getElementById(`${modalId}Confirm`).onclick = () => {
         bsModal.hide();
         cgSyncRoleRatesToBaseline(true); // mutates _cgDraft.roles[].rate in place — this.draft IS _cgDraft
-        this.draft.currencyRate = parseFloat(newEntry?.current_rate) || 1.0;
+        this.draft.currencyRate = parseFloat((this.currencies || []).find(c => c.code === newCurrency)?.current_rate) || 1.0;
         this.prevCurrency = newCurrency;
         this.$forceUpdate();
         cgAutoSave();

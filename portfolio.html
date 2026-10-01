@@ -122,9 +122,9 @@
         </div>
         <div class="d-flex gap-4 flex-wrap p-3" v-if="programStatsMap[prog.id]?.summary">
           <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ programStatsMap[prog.id].duration ? (monthLabel(programStatsMap[prog.id].duration.start) + ' – ' + monthLabel(programStatsMap[prog.id].duration.end)) : '—' }}</div></div>
-          <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ fmtMoney(programStatsMap[prog.id].summary.grandEst) }}</div></div>
-          <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ fmtMoney(programStatsMap[prog.id].summary.grandSpent) }}</div></div>
-          <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: varColor(programStatsMap[prog.id].summary.grandVar)}">{{ fmtVar(programStatsMap[prog.id].summary.grandVar) }}</div></div>
+          <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ fmtMoney(programStatsMap[prog.id].summary.grandEst, programStatsMap[prog.id].summary.currency) }}</div></div>
+          <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ fmtMoney(programStatsMap[prog.id].summary.grandSpent, programStatsMap[prog.id].summary.currency) }}</div></div>
+          <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: varColor(programStatsMap[prog.id].summary.grandVar)}">{{ fmtVar(programStatsMap[prog.id].summary.grandVar, programStatsMap[prog.id].summary.currency) }}</div></div>
         </div>
         <!-- Auto-expanded while a search/status filter is active (round-2 code-review fix) — a
              matching child project must not stay hidden behind a manual "Show Child Projects" click. -->
@@ -150,9 +150,9 @@
               </div>
               <div class="d-flex gap-4 flex-wrap p-3">
                 <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ cfg.startDate && cfg.endDate ? (monthLabel(cfg.startDate) + ' – ' + monthLabel(cfg.endDate)) : '—' }}</div></div>
-                <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cardDataMap[cfg.id].totalPhasing) : '—' }}</div></div>
-                <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].totalSpent) : '—' }}</div></div>
-                <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? varColor(cardDataMap[cfg.id].totalVar) : undefined}">{{ (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? fmtVar(cardDataMap[cfg.id].totalVar) : '—' }}</div></div>
+                <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cardDataMap[cfg.id].totalPhasing, cfg.currency || 'EUR') : '—' }}</div></div>
+                <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].totalSpent, cfg.currency || 'EUR') : '—' }}</div></div>
+                <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? varColor(cardDataMap[cfg.id].totalVar) : undefined}">{{ (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? fmtVar(cardDataMap[cfg.id].totalVar, cfg.currency || 'EUR') : '—' }}</div></div>
               </div>
             </div>
             </div>
@@ -183,9 +183,9 @@
         </div>
         <div class="d-flex gap-4 flex-wrap p-3">
           <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ cfg.startDate && cfg.endDate ? (monthLabel(cfg.startDate) + ' – ' + monthLabel(cfg.endDate)) : '—' }}</div></div>
-          <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cardDataMap[cfg.id].totalPhasing) : '—' }}</div></div>
-          <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].totalSpent) : '—' }}</div></div>
-          <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? varColor(cardDataMap[cfg.id].totalVar) : undefined}">{{ (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? fmtVar(cardDataMap[cfg.id].totalVar) : '—' }}</div></div>
+          <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasPhasing ? fmtMoney(cardDataMap[cfg.id].totalPhasing, cfg.currency || 'EUR') : '—' }}</div></div>
+          <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasData ? fmtMoney(cardDataMap[cfg.id].totalSpent, cfg.currency || 'EUR') : '—' }}</div></div>
+          <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? varColor(cardDataMap[cfg.id].totalVar) : undefined}">{{ (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? fmtVar(cardDataMap[cfg.id].totalVar, cfg.currency || 'EUR') : '—' }}</div></div>
         </div>
       </div>
       </div>
@@ -486,15 +486,16 @@
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script defer src="js/api.js?v=7"></script>
-<script defer src="js/core.js?v=7"></script>
+<script defer src="js/core.js?v=8"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
+<script type="module" src="js/lib/money.js?v=1"></script>
 <script defer src="js/notifications.js?v=2"></script>
 <script defer src="js/upload.js"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/shares.js"></script>
-<script type="module" src="js/lib/portfolio-calc.js?v=3"></script>
-<script defer src="js/api-sync.js?v=19"></script>
+<script type="module" src="js/lib/portfolio-calc.js?v=4"></script>
+<script defer src="js/api-sync.js?v=20"></script>
 <script defer src="js/nav.js?v=11"></script>
 <script type="module">
   const ExportButtons = {
@@ -897,7 +898,7 @@
       ]});
       if (!user) return;
 
-      await Promise.all([loadClientsFromApi(), loadProgramsFromApi()]);
+      await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadCurrenciesFromApi()]);
       await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
       this.refreshTick++; // mount() runs before this async data load resolves, so `projects` (and everything chained off it) must be nudged once data is actually in
 
@@ -1013,7 +1014,7 @@
         return new Date(parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))-1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
       },
       varColor(v) { return v > 0 ? 'var(--color-success)' : v < 0 ? 'var(--color-danger)' : 'var(--text-muted)'; },
-      fmtVar(v) { return `${v >= 0 ? '+' : ''}${fmtMoney(v)}`; },
+      fmtVar(v, cur) { return `${v >= 0 ? '+' : ''}${fmtMoney(v, cur)}`; },
       fmtProjectTitle(cfg) {
         const client = getClientName(cfg.clientId);
         const name = cfg.name || cfg.id;
@@ -1036,7 +1037,7 @@
         });
         const grandEst = months.reduce((s, ym) => s + phasing[ym], 0);
         const grandSpent = months.reduce((s, ym) => s + spent[ym], 0);
-        return { grandEst, grandSpent, grandVar: grandEst - grandSpent };
+        return { grandEst, grandSpent, grandVar: grandEst - grandSpent, currency: commonCurrency(cfgs) };
       },
       programDuration(cfgs) {
         const starts = cfgs.map(cfg => cfg.startDate).filter(Boolean).sort();
@@ -1067,8 +1068,9 @@
         const displayFee = totalBudget > 0 ? totalBudget : (apiBudget?.fee || 0);
         const displayHours = totalHours > 0 ? totalHours : 0;
         const displayTotal = displayFee + totalPtc;
+        const cur = cfg.currency || 'EUR';
         const budgetBadgeHtml = (displayFee > 0 || displayHours > 0)
-          ? `<span class="portfolio-budget-badge">${displayHours > 0 ? displayHours.toLocaleString('en-US') + ' h &nbsp;/&nbsp; ' : ''}${fmtMoney(displayTotal)}${totalPtc > 0 ? `<span class="text-muted" style="font-size:.8em;font-weight:400"> &nbsp;(${fmtMoney(displayFee)} fees + ${fmtMoney(totalPtc)} PTC)</span>` : ''}${apiBudget && totalBudget === 0 ? '<span class="text-muted" style="font-size:.75em;margin-left:4px">(from cost grid)</span>' : ''}</span>`
+          ? `<span class="portfolio-budget-badge">${displayHours > 0 ? displayHours.toLocaleString('en-US') + ' h &nbsp;/&nbsp; ' : ''}${fmtMoney(displayTotal, cur)}${totalPtc > 0 ? `<span class="text-muted" style="font-size:.8em;font-weight:400"> &nbsp;(${fmtMoney(displayFee, cur)} fees + ${fmtMoney(totalPtc, cur)} PTC)</span>` : ''}${apiBudget && totalBudget === 0 ? '<span class="text-muted" style="font-size:.75em;margin-left:4px">(from cost grid)</span>' : ''}</span>`
           : '';
         return { hasData, hasPhasing, totalSpent, totalPhasing, totalVar, budgetBadgeHtml };
       },

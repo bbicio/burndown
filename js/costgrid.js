@@ -55,11 +55,7 @@ function cgMigrateVersion(v) {
 // ── CURRENCY FORMAT ───────────────────────────────────────────────────────────
 
 function cgFmtCurrency(amount, code) {
-  const n    = parseFloat(amount) || 0;
-  const opts = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-  const cur  = (window.__currencies || []).find(c => c.code === code)
-    || { symbol: code === 'EUR' ? '€' : (code || 'EUR'), locale: 'it-IT' };
-  return `${cur.symbol} ${new Intl.NumberFormat(cur.locale, opts).format(n)}`;
+  return window.formatMoney(amount, code, window.__currencies);
 }
 
 function cgFmtMonth(isoDate) {
@@ -630,7 +626,7 @@ function renderCgPhasing() {
   });
 
   const cur   = v.currency || 'EUR';
-  const fmtA  = n => cur + ' ' + Math.round(n).toLocaleString('en');
+  const fmtA  = n => window.formatMoney(n, cur, window.__currencies, { rounded: true });
   const fmtH  = n => (Math.round(n * 10) / 10) + ' h';
   const fmtMo = mo => {
     const [my, mm] = mo.split('-');
@@ -881,7 +877,7 @@ async function cgCreateNewGrid() {
         projectName:    name,
         startDate:      '',
         endDate:        '',
-        currency:       '€',
+        currency:       'EUR',
         note:           '',
         roles:          [],
         phases:         [{ phaseId: cgNewPhId(), phaseName: 'Phase 1', tasks: [] }],

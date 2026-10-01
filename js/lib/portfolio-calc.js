@@ -200,6 +200,14 @@ export function entryMatchesRow(entries, role, task) {
   return entries.some(e => (e.role || '').toLowerCase() === roleLower && (!e.task || e.task.toLowerCase() === taskLower));
 }
 
+// Currency code to show a total that sums several projects' amounts (which are in each project's own
+// currency): the shared code when every project has the same one, else EUR (no single meaningful currency).
+export function commonCurrency(cfgs) {
+  const codes = new Set((cfgs || []).map(c => c.currency || 'EUR'));
+  return codes.size === 1 ? [...codes][0] : 'EUR';
+}
+
+window.commonCurrency = commonCurrency;
 window.computeKpis = computeKpis;
 window.computeBurndownPoints = computeBurndownPoints;
 window.buildSummaryCols = buildSummaryCols;

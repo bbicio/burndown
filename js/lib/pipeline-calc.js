@@ -1,3 +1,5 @@
+import { formatMoney } from './money.js?v=1';
+
 // ── Pure aggregation/formatting logic extracted from js/pipeline-board.js ──
 // cgComputeGrandTotals/getPipelineBudget are injected (not imported) so this module has
 // zero DOM/global dependencies and can be unit-tested in isolation — same pattern as
@@ -83,12 +85,7 @@ export function pbCardMatchesFilters(card, filters, cgComputeGrandTotals, getPip
 }
 
 export function pbFmtMoney(n, code, currencies) {
-  const parsed = parseFloat(n);
-  const opts   = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-  const cur    = (currencies || []).find(c => c.code === code)
-    || { symbol: code === 'EUR' ? '€' : (code || '€'), locale: 'it-IT' };
-  if (!isFinite(parsed)) return `${cur.symbol} 0,00`;
-  return `${cur.symbol} ${new Intl.NumberFormat(cur.locale, opts).format(parsed)}`;
+  return formatMoney(n, code, currencies);
 }
 
 export function pbFmtDate(iso) {

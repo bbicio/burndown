@@ -4,6 +4,7 @@ const { requireAuth } = require('../middleware/auth');
 const { sendShareNotification, sendOwnerReassignedEmail, APP_URL } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
 const { isAdminRole } = require('../lib/is-admin');
+const { formatMoney } = require('../lib/money-format');
 
 let _pushToUser;
 let _createNotification;
@@ -19,6 +20,7 @@ async function notifyAdminsPipelineChange(cgId, vId, oldPipeline, newPipeline) {
              COALESCE(c.name, '') AS client_name,
              cgv.currency,
              COALESCE(cu.symbol, cgv.currency, '€') AS currency_symbol,
+             cu.locale AS currency_locale,
              COALESCE(SUM(tr.days * COALESCE(tr.rate_override, r.hourly_rate, 0)), 0) AS fee
       FROM cost_grid_versions cgv
       JOIN cost_grids cg ON cg.id = cgv.cost_grid_id
@@ -29,12 +31,12 @@ async function notifyAdminsPipelineChange(cgId, vId, oldPipeline, newPipeline) {
       LEFT JOIN task_roles tr ON tr.task_id = t.id
       LEFT JOIN roles r ON r.id = tr.role_id
       WHERE cgv.id = $1
-      GROUP BY cg.name, c.name, cgv.currency, cu.symbol
+      GROUP BY cg.name, c.name, cgv.currency, cu.symbol, cu.locale
     `, [vId]);
     if (!info[0]) return;
 
-    const { cg_name, client_name, currency_symbol, fee } = info[0];
-    const feeStr = currency_symbol + ' ' + Math.round(parseFloat(fee)).toLocaleString('en-US');
+    const { cg_name, client_name, currency, currency_symbol, currency_locale, fee } = info[0];
+    const feeStr = formatMoney(fee, { code: currency, symbol: currency_symbol, locale: currency_locale }, { rounded: true });
 
     const title = `Pipeline: ${cg_name}`;
     const body = `${client_name ? client_name + ' — ' : ''}${cg_name}\n${oldPipeline} → ${newPipeline}\nValue: ${feeStr}`;

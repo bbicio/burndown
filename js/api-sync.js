@@ -213,7 +213,7 @@ function _apiProjectToLocal(p) {
     clientId:   p.clientId     || p.client_id   || '',
     startDate:  p.startDate    || p.start_date  || '',
     endDate:    p.endDate      || p.end_date    || '',
-    currency:   ({ EUR: '€', USD: '$', GBP: '£' }[p.currency] || p.currency || '€'),
+    currency:   p.currency || 'EUR',
     pipeline:   p.pipeline     || '',
     status:     p.status       || '',
     description: p.description  || '',
@@ -249,13 +249,6 @@ async function _pushProjectToApiDetailed(project, { skipEmpty = false } = {}) {
 
   // Carry the cost-grid version link into the API payload
   if (costGridRef?.versionId) meta.cgVersionId = costGridRef.versionId;
-
-  // Convert currency symbol to ISO code for the currencies FK column
-  const currencySymbolMap = { '€': 'EUR', '$': 'USD', '£': 'GBP' };
-  if (meta.currency) {
-    const trimmed = meta.currency.trim();
-    meta.currency = currencySymbolMap[trimmed] || trimmed || 'EUR';
-  }
 
   // Sanitize clientId: the frontend uses sentinel values like '__unassigned__'
   // which are not valid UUIDs and would cause a PostgreSQL type error.

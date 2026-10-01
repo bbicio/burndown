@@ -6,10 +6,12 @@ import { readFileSync } from 'node:fs';
 const src = readFileSync('js/api-sync.js', 'utf8');
 let calls;
 let failing;
+let argsByPart = {};
 
 function loadSync() {
   const fake = new Proxy({}, { get: (_, part) => (...args) => {
     calls.push(part);
+    argsByPart[part] = args;
     if (failing.has(part)) return Promise.reject(new Error(`${part} down`));
     return Promise.resolve({});
   } });
@@ -17,10 +19,27 @@ function loadSync() {
     update: fake.update, create: fake.create, saveTasks: fake.saveTasks,
     phasing: fake.phasing, ptc: fake.ptc, planning: fake.planning, groups: fake.groups,
   } };
-  return new Function('Api', `${src}\nreturn { _pushProjectToApiDetailed, _pushProjectToApi };`)(Api);
+  return new Function('Api', `${src}\nreturn { _pushProjectToApiDetailed, _pushProjectToApi, _apiProjectToLocal };`)(Api);
 }
 
-const base = { id: 'p1', name: 'P', currency: '€', clientId: null };
+const base = { id: 'p1', name: 'P', currency: 'EUR', clientId: null };
+
+describe('project currency is an ISO code in memory and on the wire', () => {
+  beforeEach(() => { calls = []; failing = new Set(); argsByPart = {}; });
+
+  it('keeps the code when loading a project from the API', () => {
+    const { _apiProjectToLocal } = loadSync();
+    expect(_apiProjectToLocal({ id: 'p', currency: 'USD' }).currency).toBe('USD');
+    expect(_apiProjectToLocal({ id: 'p', currency: 'CHF' }).currency).toBe('CHF');
+    expect(_apiProjectToLocal({ id: 'p' }).currency).toBe('EUR');
+  });
+
+  it('sends the code unchanged when saving', async () => {
+    const { _pushProjectToApiDetailed } = loadSync();
+    await _pushProjectToApiDetailed({ ...base, currency: 'GBP', tasks: [] });
+    expect(argsByPart.update[1].currency).toBe('GBP');
+  });
+});
 
 describe('_pushProjectToApiDetailed', () => {
   beforeEach(() => { calls = []; failing = new Set(); });
