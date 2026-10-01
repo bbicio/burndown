@@ -2501,6 +2501,29 @@ async function testProjectCurrencyLock() {
   ok((await vc(adminCookie, vId, 'EUR')).status === 200, 'PR-09 admin: restore it → 200');
   ok((await api('DELETE', verPath(v2Id), null, adminCookie)).status === 200, 'PR-09 admin: a version without projects can be deleted → 200');
   ok((await api('DELETE', verPath(vId), null, adminCookie)).status === 200, 'PR-09 admin: so can the former project version → 200');
+
+  // PR-14: concurrency smoke test. A currency change and a link to the same version, fired together, must
+  // never leave a project and its version in different currencies (the per-version lock serialises them).
+  // Either order is legal: the project is created and the change is refused, or the change wins and the link is refused.
+  let violations = 0, rounds = 0;
+  for (let i = 0; i < 6; i++) {
+    const rv = await api('POST', `/api/cost-grids/${cgId}/versions`, { label: `race${i}` }, adminCookie);
+    const rId = rv.data?.id;
+    if (!rId) continue;
+    rounds++;
+    const [pa, pb] = await Promise.all([
+      api('PATCH', verPath(rId), { currency: 'USD' }, adminCookie),
+      api('POST', '/api/projects', { name: `__test_pr_race_${i}__`, cgVersionId: rId, currency: 'EUR' }, adminCookie),
+    ]);
+    if (pb.data?.id) later('DELETE', `/api/projects/${pb.data.id}`);
+    const list = (await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || [];
+    const cur = list.find(v => v.id === rId)?.currency;
+    const consistent = pb.status === 201
+      ? (cur === 'EUR' && pa.status === 400)
+      : (pb.status === 400 && pa.status === 200 && cur === 'USD');
+    if (!consistent) { violations++; process.stdout.write(`    race ${i}: PATCH ${pa.status}, POST ${pb.status}, version currency ${cur}\n`); }
+  }
+  ok(rounds > 0 && violations === 0, `PR-14 a currency change and a link fired together never diverge (${rounds} rounds, ${violations} violations)`);
 }
 
 async function main() {

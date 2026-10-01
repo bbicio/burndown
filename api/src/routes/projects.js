@@ -2,6 +2,7 @@ const express = require('express');
 const { query, pool } = require('../db/client');
 const { requireAuth, liveRole } = require('../middleware/auth');
 const rules = require('../lib/project-rules');
+const { withVersionLock, lockVersion } = require('../lib/version-lock');
 const { sendShareNotification, sendShareRevokedEmail } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
 const { isAdminRole } = require('../lib/is-admin');
@@ -162,21 +163,28 @@ router.post('/', requireAuth, async (req, res, next) => {
     const role = await liveRole(req.user.id);
     const createErr = rules.projectCreateError({ role, versionId: safeCgVersionId });
     if (createErr) return refuse(res, createErr);
-    if (safeCgVersionId) {
-      const { rows: [ver] } = await query('SELECT currency FROM cost_grid_versions WHERE id = $1', [safeCgVersionId]);
-      if (!ver) return refuse(res, rules.MESSAGES.versionNotFound);
-      const linkErr = rules.linkCurrencyError({ role, projectCurrency: currency, versionCurrency: ver.currency });
-      if (linkErr) return refuse(res, linkErr);
-    }
 
-    const { rows } = await query(
-      `INSERT INTO projects (id, code, name, program_id, client_id, start_date, end_date, currency, pipeline, status, cg_version_id, owner_id, description)
+    const insertSql = `INSERT INTO projects (id, code, name, program_id, client_id, start_date, end_date, currency, pipeline, status, cg_version_id, owner_id, description)
        VALUES (COALESCE($1::uuid, uuid_generate_v4()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-       RETURNING id, code, name, owner_id, created_at`,
-      [id || null, code?.trim() || null, name.trim(), programId || null, safeClientId, startDate || null,
+       RETURNING id, code, name, owner_id, created_at`;
+    const insertParams = [id || null, code?.trim() || null, name.trim(), programId || null, safeClientId, startDate || null,
        endDate || null, currency || 'EUR', pipeline || null, status || null,
-       safeCgVersionId, req.user.id, String(description ?? '')]
-    );
+       safeCgVersionId, req.user.id, String(description ?? '')];
+    let rows;
+    if (safeCgVersionId) {
+      // Linked at creation: the version must exist and share the currency, checked and written under the version lock.
+      const out = await withVersionLock(safeCgVersionId, async client => {
+        const ver = (await client.query('SELECT currency FROM cost_grid_versions WHERE id = $1', [safeCgVersionId])).rows[0];
+        if (!ver) return { err: rules.MESSAGES.versionNotFound };
+        const linkErr = rules.linkCurrencyError({ role, projectCurrency: currency, versionCurrency: ver.currency });
+        if (linkErr) return { err: linkErr };
+        return { rows: (await client.query(insertSql, insertParams)).rows };
+      });
+      if (out.err) return refuse(res, out.err);
+      rows = out.rows;
+    } else {
+      ({ rows } = await query(insertSql, insertParams));
+    }
 
     // Register owner in resource_shares
     await query(
@@ -205,10 +213,11 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
         return res.status(400).json({ error: `${key} must be a valid UUID` });
       }
     }
-    if (req.body.currency !== undefined || req.body.cgVersionId !== undefined) {
+    const needsRules = req.body.currency !== undefined || req.body.cgVersionId !== undefined;
+    const role = needsRules ? await liveRole(req.user.id) : null;
+    if (needsRules) {
       const { rows: [stored] } = await query('SELECT currency, cg_version_id FROM projects WHERE id = $1', [req.params.id]);
       if (stored) {
-        const role = await liveRole(req.user.id);
         if (req.body.currency !== undefined) {
           const err = rules.projectCurrencyChangeError({ role, currentCurrency: stored.currency, newCurrency: req.body.currency });
           if (err) return refuse(res, err);
@@ -268,19 +277,36 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       // saves (js/api-sync.js re-sends cgVersionId on every save) cannot both observe
       // "no link yet" and both seed tags — only the first link ever seeds them.
       const client = await pool.connect();
+      let refusedByLock = null;
       try {
         await client.query('BEGIN');
+        // Linking: take the version lock first (before the project row lock) so the currency check below
+        // cannot interleave with a currency change of that version (see lib/version-lock.js).
+        const target = req.body.cgVersionId || null;
+        if (target) await lockVersion(client, target);
         const prev = await client.query('SELECT cg_version_id FROM projects WHERE id = $1 FOR UPDATE', [req.params.id]);
         const prevCgVersionId = prev.rows[0]?.cg_version_id ?? null;
-        ({ rows } = await client.query(updateSql, params));
-        await client.query('COMMIT');
-        if (rows[0] && !prevCgVersionId && req.body.cgVersionId) seedFromVersionId = req.body.cgVersionId;
+        if (target && String(target).toLowerCase() !== String(prevCgVersionId || '').toLowerCase()) {
+          const ver = (await client.query('SELECT currency FROM cost_grid_versions WHERE id = $1', [target])).rows[0];
+          const projCurrency = (await client.query('SELECT currency FROM projects WHERE id = $1', [req.params.id])).rows[0]?.currency;
+          refusedByLock = !ver
+            ? rules.MESSAGES.versionNotFound
+            : rules.linkCurrencyError({ role, projectCurrency: projCurrency, versionCurrency: ver.currency });
+        }
+        if (refusedByLock) {
+          await client.query('ROLLBACK');
+        } else {
+          ({ rows } = await client.query(updateSql, params));
+          await client.query('COMMIT');
+          if (rows[0] && !prevCgVersionId && req.body.cgVersionId) seedFromVersionId = req.body.cgVersionId;
+        }
       } catch (err) {
         await client.query('ROLLBACK').catch(() => {});
         throw err;
       } finally {
         client.release();
       }
+      if (refusedByLock) return refuse(res, refusedByLock);
     } else {
       ({ rows } = await query(updateSql, params));
     }
