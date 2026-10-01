@@ -720,7 +720,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | PATCH/DELETE | /api/cost-grids/:id | owner/admin | Update / delete |
 | GET/POST | /api/cost-grids/:id/versions | ✅ | List / create version — both accept `clientId` |
 | PATCH/DELETE | /api/cost-grids/:id/versions/:vId | owner/admin | Update / delete version — PATCH accepts `clientId`, `ratecardId`, `label`, `pipeline`, `startDate`, `endDate`, `note` |
-| POST | /api/cost-grids/:id/versions/:vId/duplicate | owner/admin | Duplicate version |
+| POST | /api/cost-grids/:id/versions/:vId/duplicate | owner/admin | Full copy of a version (backs the editor's "+ New version", 2026-10) `{ label }` (required, trimmed; 400 if blank) → 201 `{ id }`. One transaction: header incl. the source's `currency_rate` snapshot, client, project name, note, rate card, dates; phases → tasks → task_roles (fresh ids, hours/rates/months); tags. The copy is always Draft, no pipeline year, unlocked, no project links; any failure rolls back (no half-built version) |
 | GET/PUT | /api/cost-grids/:id/versions/:vId/structure | owner/admin | Get / save bulk structure |
 | GET/POST/DELETE | /api/cost-grids/:id/versions/:vId/linked-projects | owner/admin | Manage linked projects |
 | GET/POST/DELETE | /api/cost-grids/:id/shares | owner/admin | Manage sharing; `POST` (grant) emails and in-app-notifies the recipient (2026-09: in-app notification added — was email-only before); `DELETE` (revoke) still sends neither, unlike the equivalent project-share revoke |

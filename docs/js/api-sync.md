@@ -26,3 +26,7 @@ This file holds the full implementation narrative for `js/api-sync.js` — funct
 ## A rule refusal is final (2026-10-01, project currency lock cycle)
 
 `_pushProjectToApiDetailed` used to retry the core upsert as `Api.projects.create` after **any** failure of `Api.projects.update` (it means "the project is not there yet"). A `400` refusal by the project rules (body `code: 'PROJECT_RULE'`, readable as `err.data.code` because `apiFetch` attaches the parsed body) would then end in a duplicate-key error hiding the rule's message, so such a refusal now returns `{ ok: false, failed: [{ part: 'project', error: <message> }] }` without the retry; every other failure still falls back to create. Covered by `js/api-sync.test.js` (`'a refusal by the project rules is final'`). `?v=21`.
+
+## Strict upsert (2026-10-01, new-version-full-copy cycle)
+
+`_cgUpsertVersionToApi(cgId, versionId, opts)` takes `{ strict: true }`: the three failure branches (grid upsert, version upsert, structure save) then rethrow after logging instead of swallowing. Only `cgAutoSave(true)` uses it (via `cgCreateNewVersion`, which must not copy server data older than the editor); every other caller keeps the log-and-continue behaviour. `?v=22`.
