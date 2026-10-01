@@ -52,12 +52,6 @@ function cgMigrateVersion(v) {
   return v;
 }
 
-// ── CURRENCY FORMAT ───────────────────────────────────────────────────────────
-
-function cgFmtCurrency(amount, code) {
-  return window.formatMoney(amount, code, window.__currencies);
-}
-
 function cgFmtMonth(isoDate) {
   if (!isoDate) return '';
   const d = new Date(isoDate + (isoDate.length === 10 ? 'T00:00:00' : ''));
@@ -206,7 +200,7 @@ function renderCostGridList() {
       const linkedBadge = _lps.length > 0
         ? `<span class="badge" style="background:#0dcaf0;color:#000;font-size:var(--text-xs)">🔗 ${_lps.length} project${_lps.length > 1 ? 's' : ''}</span>` : '';
       const totals      = cgComputeGrandTotals(v);
-      const fmt         = a => cgFmtCurrency(a, v.currency || 'EUR');
+      const fmt         = a => window.formatMoney(a, v.currency || 'EUR', window.__currencies);
       const dateRange   = [v.startDate && cgFmtDate(v.startDate), v.endDate && cgFmtDate(v.endDate)].filter(Boolean).join(' – ');
       return `
         <tr>

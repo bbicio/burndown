@@ -19,7 +19,6 @@ function extractFn(src, name) {
 }
 
 const coreSrc = readFileSync('js/core.js', 'utf8');
-const costgridSrc = readFileSync('js/costgrid.js', 'utf8');
 
 // After Task 4 the wrappers call window.formatMoney; the bridge is read at call time.
 const bridge = () => ({ formatMoney: window.formatMoney });
@@ -27,10 +26,6 @@ const bridge = () => ({ formatMoney: window.formatMoney });
 function loadFmtMoney(currencies, currentCfg = null) {
   const win = { __currencies: currencies, ...bridge() };
   return new Function('window', 'currentCfg', `${extractFn(coreSrc, 'fmtMoney')}; return fmtMoney;`)(win, currentCfg);
-}
-function loadCgFmtCurrency(currencies) {
-  const win = { __currencies: currencies, ...bridge() };
-  return new Function('window', `${extractFn(costgridSrc, 'cgFmtCurrency')}; return cgFmtCurrency;`)(win);
 }
 
 const USD = { code: 'USD', symbol: '$', locale: 'en-US' };
@@ -54,17 +49,6 @@ describe('fmtMoney (js/core.js) — current behaviour', () => {
 
   it('defaults the currency to currentCfg.currency', () => {
     expect(loadFmtMoney([USD], { currency: 'USD' })(10)).toBe('$ 10.00');
-  });
-});
-
-describe('cgFmtCurrency (js/costgrid.js) — current behaviour', () => {
-  it.each([
-    [1234.5, 'USD', [USD], '$ 1,234.50'],
-    [12345.5, 'EUR', [], '€ 12.345,50'],
-    [5, 'XYZ', [], 'XYZ 5,00'],
-    ['abc', 'EUR', [], '€ 0,00'],
-  ])('cgFmtCurrency(%s, %s) -> %s', (n, code, currencies, expected) => {
-    expect(loadCgFmtCurrency(currencies)(n, code)).toBe(expected);
   });
 });
 

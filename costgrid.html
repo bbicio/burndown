@@ -225,17 +225,17 @@
               </tr>
               <tr v-show="!summaryCollapsed" style="background:var(--sand-200)">
                 <td colspan="6" style="padding:5px 12px;border:1px solid var(--sand-border);font-weight:700;font-size:var(--text-base);color:#444">Total Fee by Role</td>
-                <td v-for="r in draft.roles" :key="'fee-'+r.roleCode" style="text-align:center;background:var(--sand-200);font-weight:700;border:1px solid var(--sand-border);padding:5px 4px;font-size:var(--text-base)">{{ (colTotals[r.roleCode]?.fee > 0) ? fmtCur(colTotals[r.roleCode].fee) : '—' }}</td>
+                <td v-for="r in draft.roles" :key="'fee-'+r.roleCode" style="text-align:center;background:var(--sand-200);font-weight:700;border:1px solid var(--sand-border);padding:5px 4px;font-size:var(--text-base)">{{ (colTotals[r.roleCode]?.fee > 0) ? formatMoney(colTotals[r.roleCode].fee, draft.currency || 'EUR', currencies) : '—' }}</td>
               </tr>
               <tr v-show="!summaryCollapsed" style="background:var(--sand-100)">
                 <td style="padding:6px 12px;border:1px solid var(--sand-border);vertical-align:middle">
                   <span style="background:var(--brand-navy);color:#fff;border-radius:var(--radius-xs);padding:3px 10px;font-size:var(--text-base);font-weight:700;letter-spacing:.04em">{{ draft.currency || 'EUR' }}</span>
                 </td>
                 <td style="border:1px solid var(--sand-border)"></td>
-                <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-weight:700;font-size:var(--text-lg);white-space:nowrap"><strong>{{ fmtCur(grand.fee + grand.ptc) }}</strong></td>
-                <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-size:var(--text-md);white-space:nowrap">{{ grand.ptc > 0 ? fmtCur(grand.ptc) : '—' }}</td>
+                <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-weight:700;font-size:var(--text-lg);white-space:nowrap"><strong>{{ formatMoney(grand.fee + grand.ptc, draft.currency || 'EUR', currencies) }}</strong></td>
+                <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-size:var(--text-md);white-space:nowrap">{{ grand.ptc > 0 ? formatMoney(grand.ptc, draft.currency || 'EUR', currencies) : '—' }}</td>
                 <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-weight:700;font-size:var(--text-lg);white-space:nowrap">{{ grand.hrs > 0 ? grand.hrs + 'h' : '—' }}</td>
-                <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-size:var(--text-md);white-space:nowrap">{{ grand.fee > 0 ? fmtCur(grand.fee) : '—' }}</td>
+                <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-size:var(--text-md);white-space:nowrap">{{ grand.fee > 0 ? formatMoney(grand.fee, draft.currency || 'EUR', currencies) : '—' }}</td>
                 <td v-for="r in draft.roles" :key="'rate-'+r.roleCode" :style="{ textAlign:'center', background: (!r.rate || r.rate === 0) ? '#fff0f0' : (r.rateIsCustom ? '#fffbe6' : 'var(--sand-50)'), border: '1px solid ' + ((!r.rate || r.rate === 0) ? '#f5c6cb' : (r.rateIsCustom ? '#ffe58f' : 'var(--sand-border)')), padding:'3px 4px' }">
                   <div style="font-size:var(--text-xs);color:#aaa;margin-bottom:1px">{{ draft.currency || 'EUR' }}/h</div>
                   <input type="number" min="0" step="1" :value="r.rate" @change="onRateChange(r, $event)" :disabled="isLocked"
@@ -289,10 +289,10 @@
                   <td style="background:var(--brand-navy);border:1px solid var(--brand-dark);padding:4px 8px;vertical-align:middle">
                     <span style="font-size:var(--text-xs);color:#93c5fd;font-weight:400">{{ phaseDatesLabel(phase) }}</span>
                   </td>
-                  <td style="text-align:right;padding:6px 10px;border:1px solid var(--brand-dark);font-weight:700;font-size:var(--text-md);white-space:nowrap;background:var(--brand-mid);color:#e2e8ff">{{ (phaseTotals(phase).fee + phaseTotals(phase).ptc) > 0 ? fmtCur(phaseTotals(phase).fee + phaseTotals(phase).ptc) : '—' }}</td>
-                  <td style="text-align:right;padding:6px 10px;border:1px solid var(--brand-dark);font-weight:600;font-size:var(--text-md);white-space:nowrap;background:var(--brand-mid);color:#e2e8ff">{{ phaseTotals(phase).ptc > 0 ? fmtCur(phaseTotals(phase).ptc) : '—' }}</td>
+                  <td style="text-align:right;padding:6px 10px;border:1px solid var(--brand-dark);font-weight:700;font-size:var(--text-md);white-space:nowrap;background:var(--brand-mid);color:#e2e8ff">{{ (phaseTotals(phase).fee + phaseTotals(phase).ptc) > 0 ? formatMoney(phaseTotals(phase).fee + phaseTotals(phase).ptc, draft.currency || 'EUR', currencies) : '—' }}</td>
+                  <td style="text-align:right;padding:6px 10px;border:1px solid var(--brand-dark);font-weight:600;font-size:var(--text-md);white-space:nowrap;background:var(--brand-mid);color:#e2e8ff">{{ phaseTotals(phase).ptc > 0 ? formatMoney(phaseTotals(phase).ptc, draft.currency || 'EUR', currencies) : '—' }}</td>
                   <td style="text-align:right;padding:6px 10px;border:1px solid var(--brand-dark);font-weight:700;font-size:var(--text-md);white-space:nowrap;background:var(--brand-mid);color:#e2e8ff">{{ phaseTotals(phase).hrs > 0 ? phaseTotals(phase).hrs + 'h' : '—' }}</td>
-                  <td style="text-align:right;padding:6px 10px;border:1px solid var(--brand-dark);font-weight:600;font-size:var(--text-md);white-space:nowrap;background:var(--brand-mid);color:#e2e8ff">{{ phaseTotals(phase).fee > 0 ? fmtCur(phaseTotals(phase).fee) : '—' }}</td>
+                  <td style="text-align:right;padding:6px 10px;border:1px solid var(--brand-dark);font-weight:600;font-size:var(--text-md);white-space:nowrap;background:var(--brand-mid);color:#e2e8ff">{{ phaseTotals(phase).fee > 0 ? formatMoney(phaseTotals(phase).fee, draft.currency || 'EUR', currencies) : '—' }}</td>
                   <td v-for="r in draft.roles" :key="'ph-'+r.roleCode" style="text-align:center;vertical-align:middle;background:var(--brand-mid);color:#c8d0ee;font-weight:600;border:1px solid var(--brand-dark);padding:6px 4px;font-size:var(--text-md)">{{ (phaseTotals(phase).byRole[r.roleCode] || 0) > 0 ? phaseTotals(phase).byRole[r.roleCode] : '' }}</td>
                 </tr>
                 <tr v-for="task in phase.tasks" :key="task.taskId" class="cg-task-row">
@@ -320,11 +320,11 @@
                     <textarea class="form-control" rows="3" style="border:none;font-size:var(--text-md);background:transparent;color:#555;padding:3px 4px;resize:vertical;min-height:72px" placeholder="Description…" v-model="task.taskDescription" :disabled="isLocked" @change="cgScheduleAutoSave()"></textarea>
                   </td>
                   <td style="text-align:right;padding:6px 10px;border:1px solid var(--border-light);font-size:var(--text-md);white-space:nowrap;background:var(--sand-50);vertical-align:middle">
-                    <strong v-if="taskTotals(task).totalCostAndFee > 0">{{ fmtCur(taskTotals(task).totalCostAndFee) }}</strong><span v-else style="color:#bbb">—</span>
+                    <strong v-if="taskTotals(task).totalCostAndFee > 0">{{ formatMoney(taskTotals(task).totalCostAndFee, draft.currency || 'EUR', currencies) }}</strong><span v-else style="color:#bbb">—</span>
                   </td>
                   <td style="padding:3px 5px;border:1px solid var(--border-light);min-width:120px;vertical-align:middle">
                     <input type="text" class="form-control" style="border:1px solid var(--border-light);font-size:var(--text-md);padding:4px 6px;height:32px;text-align:right"
-                      :value="ptcFocusedTask === task.taskId ? ptcRaw : (task.ptc > 0 ? fmtCur(task.ptc) : '')" placeholder="—" :disabled="isLocked"
+                      :value="ptcFocusedTask === task.taskId ? ptcRaw : (task.ptc > 0 ? formatMoney(task.ptc, draft.currency || 'EUR', currencies) : '')" placeholder="—" :disabled="isLocked"
                       @focus="ptcFocusedTask = task.taskId; ptcRaw = moneyInput(task.ptc)"
                       @input="ptcRaw = $event.target.value; task.ptc = parseMoneyInput($event.target.value); cgScheduleAutoSave()"
                       @blur="ptcFocusedTask = null; ptcRaw = ''">
@@ -333,7 +333,7 @@
                     <strong v-if="taskTotals(task).totalHrs > 0">{{ taskTotals(task).totalHrs }}h</strong><span v-else style="color:#bbb">—</span>
                   </td>
                   <td style="text-align:right;padding:6px 10px;border:1px solid var(--border-light);font-size:var(--text-md);white-space:nowrap;background:var(--sand-50);vertical-align:middle">
-                    <span v-if="taskTotals(task).totalFee > 0">{{ fmtCur(taskTotals(task).totalFee) }}</span><span v-else style="color:#bbb">—</span>
+                    <span v-if="taskTotals(task).totalFee > 0">{{ formatMoney(taskTotals(task).totalFee, draft.currency || 'EUR', currencies) }}</span><span v-else style="color:#bbb">—</span>
                   </td>
                   <td v-for="r in draft.roles" :key="'th-'+r.roleCode" style="border:1px solid var(--border-light);padding:2px 3px;text-align:center;vertical-align:middle">
                     <input type="number" class="form-control p-1" style="border:none;text-align:center;font-size:var(--text-md);background:transparent;min-width:70px;height:34px"
@@ -353,10 +353,10 @@
               <tr style="background:var(--indigo-50)">
                 <td style="position:sticky;left:0;z-index:3;background:var(--indigo-50);font-weight:700;padding:7px 12px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);font-size:var(--text-md)">TOTAL</td>
                 <td style="border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--indigo-50)"></td>
-                <td style="text-align:right;font-weight:700;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-lg);white-space:nowrap"><strong>{{ fmtCur(grand.fee + grand.ptc) }}</strong></td>
-                <td style="text-align:right;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-md);white-space:nowrap">{{ grand.ptc > 0 ? fmtCur(grand.ptc) : '—' }}</td>
+                <td style="text-align:right;font-weight:700;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-lg);white-space:nowrap"><strong>{{ formatMoney(grand.fee + grand.ptc, draft.currency || 'EUR', currencies) }}</strong></td>
+                <td style="text-align:right;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-md);white-space:nowrap">{{ grand.ptc > 0 ? formatMoney(grand.ptc, draft.currency || 'EUR', currencies) : '—' }}</td>
                 <td style="text-align:right;font-weight:700;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-lg);white-space:nowrap">{{ grand.hrs > 0 ? grand.hrs + 'h' : '—' }}</td>
-                <td style="text-align:right;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-md);white-space:nowrap">{{ grand.fee > 0 ? fmtCur(grand.fee) : '—' }}</td>
+                <td style="text-align:right;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-md);white-space:nowrap">{{ grand.fee > 0 ? formatMoney(grand.fee, draft.currency || 'EUR', currencies) : '—' }}</td>
                 <td v-for="r in draft.roles" :key="'foot-'+r.roleCode" style="text-align:center;font-weight:700;padding:7px 4px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-50);font-size:var(--text-md)">{{ (colTotals[r.roleCode]?.hrs || 0) > 0 ? colTotals[r.roleCode].hrs : '' }}</td>
               </tr>
             </tfoot>
@@ -672,7 +672,7 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=5"></script>
-<script defer src="js/costgrid.js?v=37"></script>
+<script defer src="js/costgrid.js?v=38"></script>
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>
@@ -715,7 +715,7 @@ Vue.createApp({
       cg: null, draft: null,
       shareListRefreshTick: 0, // bumped when #shareModal closes, to reload the inline share-list
       loading: true, loadError: null,
-      clients: [], currencies: [],
+      clients: [], currencies: [], formatMoney: window.formatMoney,
       ratecardMap: {}, ratecardOverrides: {}, isClientRatecard: false, allRatecards: [],
       offerDetailsCollapsed: false, summaryCollapsed: false, sharingCollapsed: false, tagsCollapsed: false,
       attributeLists: [], versionTagItemIds: [], versionTagRows: [], tagSaving: false,
@@ -1224,7 +1224,6 @@ Vue.createApp({
     openLinkedProject(projId) { cgAutoSave(); showDashboardView(projId); },
     exportXls() { cgExportXls(); },
     generateProject() { cgGenerateProject(); },
-    fmtCur(amount) { return cgFmtCurrency(amount, this.draft?.currency || 'EUR'); },
     moneyInput(amount) { return window.formatMoneyInput(amount, this.draft?.currency || 'EUR', window.__currencies); },
     parseMoneyInput(text) { return window.parseMoney(text, this.draft?.currency || 'EUR', window.__currencies); },
     addPhase() {
