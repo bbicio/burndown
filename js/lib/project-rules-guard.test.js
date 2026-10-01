@@ -16,6 +16,14 @@ describe('project rules are wired into the pages', () => {
     expect(t).toMatch(/versionCurrencyLocked\(/);
   });
 
+  it('costgrid.html reads this.cg when deciding whether the version has projects (Vue reactivity)', () => {
+    // Generate project mutates the raw _cgDraft.linkedProjects and then reassigns the reactive `cg`
+    // (renderCgVersionTabs); the lock must depend on `cg`, otherwise it stays stale until a reload.
+    const t = read('costgrid.html');
+    expect(t).toMatch(/versionHasProjects\(\)\s*\{[^}]*this\.cg\b/);
+    expect(t).toMatch(/currencyLocked\(\)\s*\{\s*return this\.isLocked \|\| this\.versionHasProjects/);
+  });
+
   it('project-config.html keeps the currency menu read-only and redirects the new-project form', () => {
     const t = read('project-config.html');
     expect(t).toMatch(/v-model="project\.currency"[^>]*disabled/);

@@ -776,8 +776,15 @@ Vue.createApp({
       return cgGetVersionLockState(this.cgId, this.verId);
     },
     isLocked() { return this.lockState.locked; },
-    currencyLocked() { return this.isLocked || window.versionCurrencyLocked(this.draft?.linkedProjects); },
-    currencyLockTitle() { return window.versionCurrencyLocked(this.draft?.linkedProjects) ? window.PROJECT_RULE_MESSAGES.costgridCurrency : ''; },
+    // Whether a project has been generated from this version. Reads `this.cg` first: "Generate project" pushes
+    // into the raw _cgDraft.linkedProjects (invisible to Vue) and then reassigns `cg` (renderCgVersionTabs),
+    // which is the signal that makes this recompute without a reload.
+    versionHasProjects() {
+      const stored = (this.cg?.versions || []).find(v => v.versionId === this.verId);
+      return window.versionCurrencyLocked(stored?.linkedProjects) || window.versionCurrencyLocked(this.draft?.linkedProjects);
+    },
+    currencyLocked() { return this.isLocked || this.versionHasProjects; },
+    currencyLockTitle() { return this.versionHasProjects ? window.PROJECT_RULE_MESSAGES.costgridCurrency : ''; },
     isDraft() { return this.draft?.pipeline === 'Draft'; },
     hasFreeTasks() {
       if (!this.draft) return false;
