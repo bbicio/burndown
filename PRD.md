@@ -132,7 +132,7 @@ Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as 
 - Version label
 - Pipeline stage (SIP / Expected / Anticipated / Committed / Canceled)
 - Start date / End date
-- Currency (any currency an admin has activated, see §7.7) — whenever a non-EUR currency is selected, the field shows the offer's own frozen "1 EUR = X" exchange rate underneath it (the rate this offer was last saved with, not a live lookup — see §7.7 for why)
+- Currency (any currency an admin has activated, see §7.7). **Locked once a project has been generated from the offer** (2026-10-01, any pipeline stage; the rest of the offer stays editable): the menu is disabled with the tooltip "Currency is locked: a project has already been generated from this proposal." — it locks right after "Generate project", and a sysadmin can still correct it through the API. Whenever a non-EUR currency is selected, the field shows the offer's own frozen "1 EUR = X" exchange rate underneath it (the rate this offer was last saved with, not a live lookup — see §7.7 for why)
 - Client and rate card selection (drives the effective rate for each role column)
 - Description (free text; labelled "Notes" before 2026-09-29). "Generate project" copies it into the new project's Description once (§7.1)
 - Linked projects (multi-select from configured projects)
@@ -259,7 +259,7 @@ Note the two tables are not interchangeable: the portfolio summary's "Budget Est
 **Burndown chart:** a line chart on the detail page, filterable to a single task (or the whole project) and to a monthly or weekly interval. Its solid main line is the actual consumption trend — labeled "Remaining Hours" if the project has a budget to burn down against, or "Cumulative Hours" if it doesn't. Up to two dashed reference lines can appear alongside it: "Estimated Budget (phasing)" (orange, when the project's `phasing` data is available) and/or "Estimated Hours" (green, from the `planning` grid) — these are the plan the actual line is being compared against, letting a reader see at a glance whether consumption is running ahead of or behind what was planned.
 
 **Toolbar actions:**
-- **＋ New project** — the only page-level toolbar action; navigates to `project-config.html`
+- **＋ New project** — the only page-level toolbar action; **temporarily disabled** (2026-10-01): projects are created from a proposal (Generate project, §4). The button shows the tooltip "Projects are created from a proposal (Generate project). Creating a project directly is temporarily disabled." and opening the project form without a project by URL redirects back here with the same message. The function stays in the product and will be re-enabled together with currency conversion for projects without a proposal.
 
 **Per-project card** (2026-09 redesign): identity (title, code, pipeline/status badges, an actuals-availability badge — `No actuals available` when the project has no uploaded timesheet data) plus a compact totals row — Duration (project start–end month range), Sold (`phasing` total), Spent (actual-hours-to-date total), and Variance (Sold − Spent, colored green when positive/under-budget and red when negative/over-budget) — with no per-month breakdown on the card itself. The only action on the card is a single **Project Dashboard** button (renamed from `Open project →`, 2026-09), always clickable (not gated on the project having actuals), which navigates into that project's detail view (§6.2).
 
@@ -328,7 +328,7 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 | Name | text | Must match D365 Project Name in XLS |
 | Start date | YYYYMM | |
 | End date | YYYYMM | |
-| Currency | select | The currencies an admin has activated (§7.7), shown as symbol + name; a project whose currency was deactivated since still shows it and keeps it on save. Changing it here does not convert amounts or touch the exchange rate (see §7.7 "Number format") |
+| Currency | select | **Read-only** (2026-10-01): a project takes the currency of the proposal it was generated from, and amounts are not converted yet, so the menu is disabled with the hint "Currency cannot be changed here: amounts are not converted yet. Contact a sysadmin if it must be corrected." (only a sysadmin can correct it, through the API). The menu lists the currencies an admin has activated (§7.7), symbol + name (see §7.7 "Number format") |
 | Pipeline | select | Inherited from cost grid if linked |
 | Status | select | Project status; allowed values depend on Pipeline (e.g. `Started At Risk` is available for `Committed`, `Expected`, and `Anticipated`; `SIP` disables the field entirely; `Canceled` disables it and preserves the current value) |
 | Client | select | Optional |

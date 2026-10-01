@@ -132,3 +132,7 @@ Pure formatting helpers for the Team assistant panel in `planning.html` (only pa
 ## config-form-calc.js (project-config helpers)
 
 Derive/Reforecast distribution maths for `project-config.html` (`deriveDistribution`, `reforecastDistribution`) plus, since 2026-09-30, `isProjectDirty(savedJson, project)` — true when `JSON.stringify(project)` differs from the snapshot taken after load/save, false when either is null; drives the leave-page prompt (see `docs/pages/project-config.md`). Only `project-config.html` loads it (`?v=2`). `team-assistant-ui.js` gained `selectionStillValid` and `shouldSendOnEnter` the same day (see `docs/pages/planning.md`).
+
+## project-rules.js (2026-10-01, project currency lock cycle)
+
+Browser side of the project currency lock (`?v=1`, `<script type="module">`, `window.*` bridges, loaded only by `costgrid.html`, `project-config.html` and `portfolio.html`; a vitest guard checks that the three pages load it and use it). `DIRECT_PROJECT_CREATION_ENABLED` (`false`, the UI's single switch-back point, keep in sync with `api/src/lib/project-rules.js`), `PROJECT_RULE_MESSAGES` (`costgridCurrency`, `projectConfigCurrency`, `directCreation`: the approved texts) and `versionCurrencyLocked(linkedProjects)` (true when a project is linked). The server is the authority (`docs/api/lib.md`); this only drives what the UI shows. Tests: `project-rules.test.js`, `project-rules-guard.test.js`.

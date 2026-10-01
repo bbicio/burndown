@@ -939,8 +939,10 @@ burndown/
       routes/             ← auth, users, config, cost-grids, projects, timesheets, reporting, exports, notifications, reset, attribute-lists, resources, profile-jobs, topics, planning
       lib/                ← pure functions extracted for unit testing (node:test), mirroring the frontend's js/lib/
                             convention; money-format.js (2026-10-01) is the server twin of js/lib/money.js's formatMoney
-                            (pipeline-change notification amounts). Full narrative: docs/api/lib.md
-      middleware/         ← auth guard (requireAuth, requireAdmin, requireSysAdmin — see §3.1)
+                            (pipeline-change notification amounts); project-rules.js + version-lock.js (2026-10-01) are the
+                            project currency lock (rules called by routes/projects.js and routes/cost-grids.js, a per-version
+                            advisory lock). Full narrative: docs/api/lib.md
+      middleware/         ← auth guard (requireAuth, requireAdmin, requireSysAdmin — see §3.1; liveRole(userId), 2026-10-01: role read from the DB for the project rules' sysadmin exception)
       db/                 ← PostgreSQL pool client, migrations/
       services/           ← email (nodemailer), jwt, resource-matching (Cycle 3b: refreshUnmatched — DB half of
                             actuals-owner-name matching; rules in lib/match-resource.js). See docs/api/resources.md;
@@ -986,7 +988,10 @@ burndown/
                             money.js (2026-10-01: the single implementation of currency formatting and parsing, driven by the
                             locale of each currency in `window.__currencies`; `fmtMoney`/`cgFmtCurrency`/`pbFmtMoney` and the
                             config.html copies are one-line wrappers around it; a vitest guard forbids `Intl.NumberFormat`
-                            outside it and its server twin). Full narrative: docs/js/lib.md
+                            outside it and its server twin),
+                            project-rules.js (2026-10-01: browser side of the project currency lock — version-currency lock
+                            predicate, approved messages, the direct-creation flag; costgrid/project-config/portfolio only).
+                            Full narrative: docs/js/lib.md
     roles.js              ← `loadRolesFromApi`/`saveRoles` (no-op)/`getRoles` only — its former roles-management modal UI was confirmed unreachable and deleted in the 2026-08 dead-code cleanup; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role — role shape: `{ id, label, code, rate, rateOverrides }`
     ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js; `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects per-role `rateOverrides` and sends them to the API
     upload.js             ← XLS parsing
