@@ -123,8 +123,8 @@
         </div>
         <div class="d-flex gap-4 flex-wrap p-3" v-if="programStatsMap[prog.id]?.summary">
           <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ programStatsMap[prog.id].duration ? (monthLabel(programStatsMap[prog.id].duration.start) + ' – ' + monthLabel(programStatsMap[prog.id].duration.end)) : '—' }}</div></div>
-          <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ formatMoney(programStatsMap[prog.id].summary.grandEst, programStatsMap[prog.id].summary.currency, currencies) }}</div></div>
-          <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ formatMoney(programStatsMap[prog.id].summary.grandSpent, programStatsMap[prog.id].summary.currency, currencies) }}</div></div>
+          <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ programStatsMap[prog.id].summary.grandEst == null ? '—' : formatMoney(programStatsMap[prog.id].summary.grandEst, programStatsMap[prog.id].summary.currency, currencies) }}</div></div>
+          <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ programStatsMap[prog.id].summary.grandSpent == null ? '—' : formatMoney(programStatsMap[prog.id].summary.grandSpent, programStatsMap[prog.id].summary.currency, currencies) }}</div></div>
           <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: varColor(programStatsMap[prog.id].summary.grandVar)}">{{ fmtVar(programStatsMap[prog.id].summary.grandVar, programStatsMap[prog.id].summary.currency) }}</div></div>
         </div>
         <!-- Auto-expanded while a search/status filter is active (round-2 code-review fix) — a
@@ -292,7 +292,7 @@
                 <td class="text-end border-start">{{ dashboardProject ? fmtH(m.estimatedHours) : '—' }}</td>
                 <td class="text-end">{{ fmtH(m.hours) }}</td>
                 <td class="text-end" :class="{'text-danger fw-bold': m.hVar !== null && m.hVar < 0}">{{ m.hVar !== null ? fmtH(m.hVar) : '—' }}</td>
-                <td class="text-end border-start">{{ dashboardProject ? formatMoney(m.estimated, dashCurrency, currencies) : '—' }}</td>
+                <td class="text-end border-start">{{ dashboardProject && m.estimated != null ? formatMoney(m.estimated, dashCurrency, currencies) : '—' }}</td>
                 <td class="text-end">{{ m.spent !== null ? formatMoney(m.spent, dashCurrency, currencies) : '—' }}</td>
                 <td :class="[monthlySummary.hasPtc ? 'text-end' : 'text-end pe-3', {'text-danger fw-bold': m.bVar !== null && m.bVar < 0}]">{{ m.bVar !== null ? formatMoney(m.bVar, dashCurrency, currencies) : '—' }}</td>
                 <td v-if="monthlySummary.hasPtc" class="text-end pe-3 border-start">{{ m.ptc > 0 ? formatMoney(m.ptc, dashCurrency, currencies) : '—' }}</td>
@@ -326,7 +326,7 @@
                 <td class="text-muted small">{{ p.note || '' }}</td>
                 <td class="text-end pe-3 fw-semibold">{{ formatMoney(p.amount || 0, dashCurrency, currencies) }}</td>
               </tr>
-              <tr class="fw-bold" style="background:var(--surface-medium);"><td class="ps-3" colspan="3">TOTAL</td><td class="text-end pe-3">{{ formatMoney(ptcReport.total, dashCurrency, currencies) }}</td></tr>
+              <tr class="fw-bold" style="background:var(--surface-medium);"><td class="ps-3" colspan="3">TOTAL</td><td class="text-end pe-3">{{ ptcReport.total == null ? '—' : formatMoney(ptcReport.total, dashCurrency, currencies) }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -358,9 +358,9 @@
           <table ref="summaryByTaskTable" class="table table-sm align-middle mb-0 tbl-fixed">
             <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByTask" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
             <tbody>
-              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ formatMoney(c.soldEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totSold) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByTask, filterHasFilter).totSoldEur, dashCurrency, currencies) }}</span></td></tr>
+              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ c.soldEur == null ? '—' : formatMoney(c.soldEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totSold) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByTask, filterHasFilter).totSoldEur, dashCurrency, currencies) }}</span></td></tr>
               <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totSpent) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByTask, filterHasFilter).totSpentEur, dashCurrency, currencies) }}</span></td></tr>
-              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ formatMoney(c.inPeriodEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByTask, filterHasFilter).totInPeriod) : '—' }}</td></tr>
+              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ c.inPeriodEur == null ? '—' : formatMoney(c.inPeriodEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByTask, filterHasFilter).totInPeriod) : '—' }}</td></tr>
               <tr style="background:var(--surface-medium);"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByTask" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(c.soldEur - c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByTask, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totResidual) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByTask, filterHasFilter).totResidualEur, dashCurrency, currencies) }}</span></td></tr>
             </tbody>
           </table>
@@ -375,9 +375,9 @@
           <table ref="summaryByRoleTable" class="table table-sm align-middle mb-0 tbl-fixed">
             <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByRole" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
             <tbody>
-              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ formatMoney(c.soldEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totSold) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByRole, filterHasFilter).totSoldEur, dashCurrency, currencies) }}</span></td></tr>
+              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ c.soldEur == null ? '—' : formatMoney(c.soldEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totSold) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByRole, filterHasFilter).totSoldEur, dashCurrency, currencies) }}</span></td></tr>
               <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totSpent) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByRole, filterHasFilter).totSpentEur, dashCurrency, currencies) }}</span></td></tr>
-              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ formatMoney(c.inPeriodEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByRole, filterHasFilter).totInPeriod) : '—' }}</td></tr>
+              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ c.inPeriodEur == null ? '—' : formatMoney(c.inPeriodEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByRole, filterHasFilter).totInPeriod) : '—' }}</td></tr>
               <tr style="background:var(--surface-medium);"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByRole" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(c.soldEur - c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByRole, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totResidual) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByRole, filterHasFilter).totResidualEur, dashCurrency, currencies) }}</span></td></tr>
             </tbody>
           </table>
@@ -392,9 +392,9 @@
           <table ref="summaryByGroupTable" class="table table-sm align-middle mb-0 tbl-fixed">
             <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByGroup" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
             <tbody>
-              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ formatMoney(c.soldEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totSold) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByGroup, filterHasFilter).totSoldEur, dashCurrency, currencies) }}</span></td></tr>
+              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ c.soldEur == null ? '—' : formatMoney(c.soldEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totSold) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByGroup, filterHasFilter).totSoldEur, dashCurrency, currencies) }}</span></td></tr>
               <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totSpent) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByGroup, filterHasFilter).totSpentEur, dashCurrency, currencies) }}</span></td></tr>
-              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ formatMoney(c.inPeriodEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByGroup, filterHasFilter).totInPeriod) : '—' }}</td></tr>
+              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ c.inPeriodEur == null ? '—' : formatMoney(c.inPeriodEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByGroup, filterHasFilter).totInPeriod) : '—' }}</td></tr>
               <tr style="background:var(--surface-medium);"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(c.soldEur - c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByGroup, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totResidual) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByGroup, filterHasFilter).totResidualEur, dashCurrency, currencies) }}</span></td></tr>
             </tbody>
           </table>
@@ -417,14 +417,14 @@
               <tr v-for="(r, i) in entry.rows" :key="i" :class="{'table-danger': r.remaining !== null && r.remaining < 0}">
                 <td class="ps-3">{{ r.label }}</td>
                 <td class="text-end">{{ r.soldHours !== null ? fmtH(r.soldHours) : '—' }}<span v-if="r.soldEur !== null" class="eur-sub">{{ formatMoney(r.soldEur, dashCurrency, currencies) }}</span></td>
-                <td class="text-end">{{ fmtH(r.consumedPeriod) }}<span class="eur-sub">{{ formatMoney(r.consumedPeriodEur, dashCurrency, currencies) }}</span></td>
+                <td class="text-end">{{ fmtH(r.consumedPeriod) }}<span class="eur-sub">{{ r.consumedPeriodEur == null ? '—' : formatMoney(r.consumedPeriodEur, dashCurrency, currencies) }}</span></td>
                 <td class="text-end pe-3" :class="{'fw-bold text-danger': r.remaining !== null && r.remaining < 0}">{{ r.remaining !== null ? fmtH(r.remaining) : '—' }}<span v-if="r.remainingEur !== null" class="eur-sub" :class="{danger: r.remainingEur < 0}">{{ formatMoney(r.remainingEur, dashCurrency, currencies) }}</span></td>
               </tr>
               <tr class="fw-bold" style="background:var(--surface-medium);">
                 <td class="ps-3">TOTAL</td>
-                <td class="text-end">{{ fmtH(entry.totSold) }}<span class="eur-sub">{{ formatMoney(entry.totSoldEur, dashCurrency, currencies) }}</span></td>
-                <td class="text-end">{{ fmtH(entry.totPeriod) }}<span class="eur-sub">{{ formatMoney(entry.totPeriodEur, dashCurrency, currencies) }}</span></td>
-                <td class="text-end pe-3" :class="{'text-danger': entry.totRemaining < 0}">{{ fmtH(entry.totRemaining) }}<span class="eur-sub" :class="{danger: entry.totRemainingEur < 0}">{{ formatMoney(entry.totRemainingEur, dashCurrency, currencies) }}</span></td>
+                <td class="text-end">{{ fmtH(entry.totSold) }}<span class="eur-sub">{{ entry.totSoldEur == null ? '—' : formatMoney(entry.totSoldEur, dashCurrency, currencies) }}</span></td>
+                <td class="text-end">{{ fmtH(entry.totPeriod) }}<span class="eur-sub">{{ entry.totPeriodEur == null ? '—' : formatMoney(entry.totPeriodEur, dashCurrency, currencies) }}</span></td>
+                <td class="text-end pe-3" :class="{'text-danger': entry.totRemaining < 0}">{{ fmtH(entry.totRemaining) }}<span class="eur-sub" :class="{danger: entry.totRemainingEur < 0}">{{ entry.totRemainingEur == null ? '—' : formatMoney(entry.totRemainingEur, dashCurrency, currencies) }}</span></td>
               </tr>
             </tbody>
           </table>
@@ -448,7 +448,7 @@
                 <template v-else v-for="(row, i) in taskDetailRows(entry, taskState(entry.task.name).groupMode)" :key="i">
                   <tr v-if="row.isGroupHeader" :style="{background: taskState(entry.task.name).groupMode === 'role' ? 'var(--indigo-50)' : 'var(--color-warning-bg)'}">
                     <td class="ps-3 fw-semibold small" colspan="2">{{ row.label }}</td>
-                    <td class="text-end fw-semibold small">{{ fmtH(row.hours) }}<span class="eur-sub">{{ formatMoney(row.eur, dashCurrency, currencies) }}</span></td>
+                    <td class="text-end fw-semibold small">{{ fmtH(row.hours) }}<span class="eur-sub">{{ row.eur == null ? '—' : formatMoney(row.eur, dashCurrency, currencies) }}</span></td>
                     <td></td>
                   </tr>
                   <tr v-else>
@@ -655,7 +655,7 @@
           : 'total to date';
       },
       kpiBudgetEurSub() {
-        return this.kpis.totalPtc > 0 ? `${this.formatMoney(this.kpis.feesOnly, this.dashCurrency, this.currencies)} fees + ${this.formatMoney(this.kpis.totalPtc, this.dashCurrency, this.currencies)} PTC` : 'hours × hourly rate';
+        return this.kpis.totalPtc > 0 ? `${this.kpis.feesOnly == null ? '—' : this.formatMoney(this.kpis.feesOnly, this.dashCurrency, this.currencies)} fees + ${this.formatMoney(this.kpis.totalPtc, this.dashCurrency, this.currencies)} PTC` : 'hours × hourly rate';
       },
       kpiBudgetLeftSub() {
         return this.kpis.totalPtc > 0 ? '(fees + PTC) − consumed' : 'budget − consumed';
@@ -1085,7 +1085,7 @@
         const displayTotal = displayFee + totalPtc;
         const cur = cfg.currency || 'EUR';
         const budgetBadgeHtml = (displayFee > 0 || displayHours > 0)
-          ? `<span class="portfolio-budget-badge">${displayHours > 0 ? displayHours.toLocaleString('en-US') + ' h &nbsp;/&nbsp; ' : ''}${window.formatMoney(displayTotal, cur, window.__currencies)}${totalPtc > 0 ? `<span class="text-muted" style="font-size:.8em;font-weight:400"> &nbsp;(${window.formatMoney(displayFee, cur, window.__currencies)} fees + ${window.formatMoney(totalPtc, cur, window.__currencies)} PTC)</span>` : ''}${apiBudget && totalBudget === 0 ? '<span class="text-muted" style="font-size:.75em;margin-left:4px">(from cost grid)</span>' : ''}</span>`
+          ? `<span class="portfolio-budget-badge">${displayHours > 0 ? displayHours.toLocaleString('en-US') + ' h &nbsp;/&nbsp; ' : ''}${displayTotal == null ? '—' : window.formatMoney(displayTotal, cur, window.__currencies)}${totalPtc > 0 ? `<span class="text-muted" style="font-size:.8em;font-weight:400"> &nbsp;(${displayFee == null ? '—' : window.formatMoney(displayFee, cur, window.__currencies)} fees + ${window.formatMoney(totalPtc, cur, window.__currencies)} PTC)</span>` : ''}${apiBudget && totalBudget === 0 ? '<span class="text-muted" style="font-size:.75em;margin-left:4px">(from cost grid)</span>' : ''}</span>`
           : '';
         return { hasData, hasPhasing, totalSpent, totalPhasing, totalVar, budgetBadgeHtml };
       },
@@ -1187,7 +1187,7 @@
                     if (tooltipBudgetConsumed) {
                       lines.push('', '── Budget ─────────────────');
                       const consumed = tooltipBudgetConsumed[i] ?? 0;
-                      lines.push(`  Consumed:   ${window.formatMoney(consumed, currencyForChart, window.__currencies)}`);
+                      lines.push(`  Consumed:   ${consumed == null ? '—' : window.formatMoney(consumed, currencyForChart, window.__currencies)}`);
                       lines.push(`  Remaining:  ${window.formatMoney(totalBudgetEur - consumed, currencyForChart, window.__currencies)}`);
                       if (tooltipPhasingEur?.[i] != null) lines.push(`  Estimated:  ${window.formatMoney(tooltipPhasingEur[i], currencyForChart, window.__currencies)}`);
                     }
