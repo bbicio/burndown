@@ -1,5 +1,3 @@
-import { formatMoney } from './money.js?v=1';
-
 // ── Pure aggregation/formatting logic extracted from js/pipeline-board.js ──
 // cgComputeGrandTotals/getPipelineBudget are injected (not imported) so this module has
 // zero DOM/global dependencies and can be unit-tested in isolation — same pattern as
@@ -84,10 +82,6 @@ export function pbCardMatchesFilters(card, filters, cgComputeGrandTotals, getPip
   return true;
 }
 
-export function pbFmtMoney(n, code, currencies) {
-  return formatMoney(n, code, currencies);
-}
-
 export function pbFmtDate(iso) {
   if (!iso) return '—';
   try {
@@ -116,7 +110,6 @@ window.pbGetVersionBudget = pbGetVersionBudget;
 window.pbComputeColumnTotals = pbComputeColumnTotals;
 window.pbPriceBucketKey = pbPriceBucketKey;
 window.pbCardMatchesFilters = pbCardMatchesFilters;
-window.pbFmtMoney = pbFmtMoney;
 window.pbFmtDate = pbFmtDate;
 window.pbFmtTaskDate = pbFmtTaskDate;
 window.pbComputePotPercentages = pbComputePotPercentages;

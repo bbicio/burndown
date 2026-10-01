@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { pbFmtMoney } from './pipeline-calc.js';
 import './money.js'; // sets window.formatMoney, which the wrappers read at call time
 
 // core.js and costgrid.js are classic scripts full of globals: pull one top-level function out of the
@@ -52,13 +51,3 @@ describe('fmtMoney (js/core.js) — current behaviour', () => {
   });
 });
 
-describe('pbFmtMoney (js/lib/pipeline-calc.js) — current behaviour', () => {
-  it.each([
-    [1234.5, 'USD', [USD], '$ 1,234.50'],
-    [12345.5, 'EUR', [], '€ 12.345,50'],
-    [5, 'XYZ', [], 'XYZ 5,00'],
-    [NaN, 'EUR', [], '€ 0,00'],
-  ])('pbFmtMoney(%s, %s) -> %s', (n, code, currencies, expected) => {
-    expect(pbFmtMoney(n, code, currencies)).toBe(expected);
-  });
-});
