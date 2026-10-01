@@ -938,7 +938,8 @@ burndown/
     src/
       routes/             ← auth, users, config, cost-grids, projects, timesheets, reporting, exports, notifications, reset, attribute-lists, resources, profile-jobs, topics, planning
       lib/                ← pure functions extracted for unit testing (node:test), mirroring the frontend's js/lib/
-                            convention. Full narrative: docs/api/lib.md
+                            convention; money-format.js (2026-10-01) is the server twin of js/lib/money.js's formatMoney
+                            (pipeline-change notification amounts). Full narrative: docs/api/lib.md
       middleware/         ← auth guard (requireAuth, requireAdmin, requireSysAdmin — see §3.1)
       db/                 ← PostgreSQL pool client, migrations/
       services/           ← email (nodemailer), jwt, resource-matching (Cycle 3b: refreshUnmatched — DB half of
@@ -968,7 +969,7 @@ burndown/
   js/
     api.js                ← Api.* namespace, apiFetch wrapper
     api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData). Full narrative: docs/js/api-sync.md
-    core.js               ← state, in-memory helpers (loadConfig/persistConfig no-ops), shared helpers, showConfirm()/showInfo() modal idioms, findRate(). Full narrative: docs/js/core.md
+    core.js               ← state, in-memory helpers (loadConfig/persistConfig no-ops), shared helpers (`fmtMoney()` is a thin wrapper around js/lib/money.js since 2026-10-01), showConfirm()/showInfo() modal idioms, findRate(). Full narrative: docs/js/core.md
     nav.js                ← navbar injection, initNav(); injects settings, change-pwd, and "My Profile" modals; T&C gate; calls initNotifications(). Full narrative: docs/js/nav.md
     shares.js             ← generic share modal
     notifications.js      ← SSE client, bell badge, notification dropdown panel; also drives browser/desktop notifications. Full narrative: docs/js/notifications.md
@@ -981,8 +982,11 @@ burndown/
                             profile-jobs-ui.js (profile-jobs.html only, 2026-09, Cycle 3d),
                             planning-model-ui.js (planning.html only, 2026-09-30: request builder + response adapters for the server
                             planning model; planning-calc.js kept only matchesTaskRole/computeResidual/getCalendarWeeks/
-                            sumChildBreakdownHours after the hours calculation moved to the backend).
-                            Full narrative: docs/js/lib.md
+                            sumChildBreakdownHours after the hours calculation moved to the backend),
+                            money.js (2026-10-01: the single implementation of currency formatting and parsing, driven by the
+                            locale of each currency in `window.__currencies`; `fmtMoney`/`cgFmtCurrency`/`pbFmtMoney` and the
+                            config.html copies are one-line wrappers around it; a vitest guard forbids `Intl.NumberFormat`
+                            outside it and its server twin). Full narrative: docs/js/lib.md
     roles.js              ← `loadRolesFromApi`/`saveRoles` (no-op)/`getRoles` only — its former roles-management modal UI was confirmed unreachable and deleted in the 2026-08 dead-code cleanup; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role — role shape: `{ id, label, code, rate, rateOverrides }`
     ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js; `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects per-role `rateOverrides` and sends them to the API
     upload.js             ← XLS parsing

@@ -63,3 +63,7 @@ The project header form has a **Description** textarea (`project.description`) a
 - `PATCH /api/projects/:id` answers 400 `<field> must be a valid UUID` for a non-UUID `cgVersionId`/`clientId` (null and `''` still unlink; `programId` is VARCHAR and not validated).
 - The 403 an admin used to get from `GET /api/timesheets/:code` for a project without actuals is gone: it now answers `200 []` (see [docs/api/timesheets.md](../api/timesheets.md)).
 - This page does not pass `skipEmpty` to `_pushProjectToApi`, so clearing a section here still persists.
+
+## Money fields and currency menu (2026-10-01, money centralization cycle)
+
+The Currency menu is built from the active currencies (`currencies` data property filled from `loadCurrenciesFromApi()`, computed `currencyOptions`; a project's own currency is added as an extra `(inactive)` option when it is no longer active, so a save never erases it); `project.currency` is an ISO code (new-project default `'EUR'`). `cfgCurrencyLocale`/the old `fmtMoney`/`parseMoney` were removed: `fmtMoney(amount, cur?)`, `moneyInput(amount)` and `parseMoney(str)` are one-line methods over `js/lib/money.js`. The phasing cells and the PTC Amount show `moneyInput(...)` on focus (`350,28`) and `parseMoney` on blur, so focus + blur no longer multiplies a euro value by 100 (the bug that started the cycle). Changing the currency does not convert amounts or touch a rate; a project's currency is independent of its proposal's (follow-up cycle planned). See `docs/js/lib.md`, `TEST_CASES.md` MN-01..MN-05.

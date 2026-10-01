@@ -21,3 +21,7 @@ See `CLAUDE.md`'s own "Filter bar" subsection (near "Pipeline board layout") for
 ## Linked-project button rename (2026-09)
 
 Linked-project button in the detail panel's "Linked projects" section (`pbGoToPortfolio`) relabeled "📊 Portfolio" → "📊 Project Dashboard", matching `costgrid.html`'s identical rename in its own linked-projects area.
+
+## Money formatting (2026-10-01, money centralization cycle)
+
+Card/detail/footer amounts keep passing an explicit currency code to `pbFmtMoney` (now a wrapper over `js/lib/money.js`); `potFmtMoney` formats POT amounts in EUR with `{ rounded: true }`; the default currency of a card with no currency is `'EUR'` (it was the symbol `'€'`, which made the following `cur !== 'EUR'` test wrongly true). See `docs/js/lib.md`.

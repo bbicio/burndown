@@ -25,3 +25,7 @@ This file holds the full implementation narrative for `js/core.js` — function-
 ## Personal AI settings removed (Planning team assistant cycle, 2026-09-30)
 
 Removed from `js/core.js`: `SETTINGS_KEY`/`appSettings`, `AI_MODELS`, `loadSettings()`/`persistSettings()`, `hasAiKey()`, `updateAiButtonVisibility()`/`updateAiProviderBadge()` and the unused `refreshTimesheetData()`. `cleanLegacyStorage()`'s `keep` set is now just `PDash_summary` and `PDash_browserNotifDisabled`, so a browser that still holds `PDash_settings` (the old personal API keys) has it wiped on its first page load, on every page. The only LLM calls left go through the server (`docs/api/planning-assistant.md`, `docs/api/topics.md`). `?v=` of `js/core.js` was bumped on every page that loads it.
+
+## fmtMoney (2026-10-01, money centralization cycle)
+
+`fmtMoney(n, currencyCode)` is now a thin wrapper: `null`/`undefined` still gives an em dash, otherwise it calls `window.formatMoney(n, currencyCode || currentCfg?.currency || 'EUR', window.__currencies)` from `js/lib/money.js` (see `docs/js/lib.md`). The page-specific default (`currentCfg`, a plain global set when a dashboard opens and empty in a list view) is the one thing the wrapper still owns; a caller that shows a project's amounts in a list must pass the project's currency explicitly (`portfolio.html`'s list cards did not, and showed every project in EUR format until 2026-10-01). `?v=8`.

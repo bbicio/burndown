@@ -67,6 +67,10 @@ Pure rules of the topic feature, no DB, no network (DB/LLM half: `api/src/servic
 
 The frontend counterpart is `buildProfileTree`'s `topics` list in `js/lib/team-ui.js` (`docs/js/lib.md`).
 
+## money-format.js (2026-10-01, money centralization cycle)
+
+`formatMoney(amount, { code, symbol, locale } = {}, { rounded } = {})` — the server twin of `js/lib/money.js`'s `formatMoney` (CommonJS, no build step so the browser module cannot be required): same output for the same inputs (`€ 12.345,00`, `$ 12,345.00`, `¥ 12,346`; `useGrouping: 'always'`; digits from `Intl`, `rounded` drops decimals; missing `code`/`symbol`/`locale` fall back to EUR/`€`/`it-IT`; non-finite amount → zero; never throws on a non-ISO code). Consumed by `api/src/routes/cost-grids.js`'s `notifyAdminsPipelineChange` (the in-app notification admins get when a version's pipeline stage changes — its query now also selects `cu.locale`): `Value: € 21.555` (rounded) instead of the former `symbol + toLocaleString('en-US')`. The two test tables (`money-format.test.js` and `js/lib/money.test.js`) are kept in sync by hand.
+
 ## planning-calendar.js, planning-distribution.js, planning-model.js, planning-request.js (2026-09-29, Planning model cycle)
 
 Pure, DB-free modules behind `POST /api/planning/model` (route: `api/src/routes/planning.js`; DB/cache half: `api/src/services/planning-data.js`; contract, per-view rules and verification: [docs/api/planning-model.md](planning-model.md)). This calculation now exists once: the browser copy in `planning.html` / `js/lib/planning-calc.js` was removed in the same cycle. All are `node:test`-covered (`*.test.js` next to each file).

@@ -132,7 +132,7 @@ Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as 
 - Version label
 - Pipeline stage (SIP / Expected / Anticipated / Committed / Canceled)
 - Start date / End date
-- Currency (€, $, £, CHF) — whenever a non-EUR currency is selected, the field shows the offer's own frozen "1 EUR = X" exchange rate underneath it (the rate this offer was last saved with, not a live lookup — see §7.7 for why)
+- Currency (any currency an admin has activated, see §7.7) — whenever a non-EUR currency is selected, the field shows the offer's own frozen "1 EUR = X" exchange rate underneath it (the rate this offer was last saved with, not a live lookup — see §7.7 for why)
 - Client and rate card selection (drives the effective rate for each role column)
 - Description (free text; labelled "Notes" before 2026-09-29). "Generate project" copies it into the new project's Description once (§7.1)
 - Linked projects (multi-select from configured projects)
@@ -328,7 +328,7 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 | Name | text | Must match D365 Project Name in XLS |
 | Start date | YYYYMM | |
 | End date | YYYYMM | |
-| Currency | select | €, $, £, CHF |
+| Currency | select | The currencies an admin has activated (§7.7), shown as symbol + name; a project whose currency was deactivated since still shows it and keeps it on save. Changing it here does not convert amounts or touch the exchange rate (see §7.7 "Number format") |
 | Pipeline | select | Inherited from cost grid if linked |
 | Status | select | Project status; allowed values depend on Pipeline (e.g. `Started At Risk` is available for `Committed`, `Expected`, and `Anticipated`; `SIP` disables the field entirely; `Canceled` disables it and preserves the current value) |
 | Client | select | Optional |
@@ -471,6 +471,8 @@ Accessed via the "💱 Currencies" tab in **config.html**, alongside Roles, Clie
 EUR is the fixed base currency (always 1:1, not editable, always active). Any other currency starts **inactive** — offered on offer/project currency dropdowns only once an admin activates it here. **"+ Activate currency"** picks an inactive currency and sets its exchange rate as "1 EUR = X"; once activated it appears in the active-currencies table alongside EUR, with its own symbol, name, rate, and last-updated date. An active currency's rate can be updated at any time directly in that table (a Save button per row); every update is timestamped. A **History** button (not available for EUR, whose rate never changes) opens a log of that currency's past rates over time.
 
 Clicking Save on a rate change opens a confirmation dialog showing the old and new rate before it takes effect, explaining explicitly that the update does **not** retroactively change any proposal or project already in the system — each offer's own exchange rate is fixed the moment the offer is created (or last saved with that currency selected), and only applies going forward to new offers (an existing offer's rate can only change if it is re-saved with that currency selected again, which recomputes it from the then-current admin rate — there is no separate, user-facing "refresh rate" action). This mirrors, in the offer editor itself, the rate display described in §4.9 below.
+
+**Number format (2026-10-01).** Every amount in the app is written and read with the number convention of its own currency, taken from the currency's locale: `€ 1.234,50` for EUR, `$ 1,234.50` for USD, `CHF 1'234.50` for CHF, `¥ 1,235` for JPY (currencies without fractional units show no decimals). The thousands separator is always shown for amounts of 1.000 or more. The same applies to input: in a money field (project phasing and PTC, a cost-grid task's PTC) the value is shown while editing in the same convention it is read back in (e.g. `350,28` for EUR), so clicking into a field and leaving it never changes the stored amount; a value typed in another convention is **not** guessed (typing `350.28` in an EUR field is read as 35.028 — the field then shows what was read). The pipeline-change notification sent to admins uses the same format. Known limitation: a program that mixes projects in different currencies totals them as raw sums (shown in EUR), without conversion.
 
 This exchange rate is the same one used throughout the app wherever a non-EUR figure needs a EUR-equivalent — the pipeline board's mixed-currency column totals (§4.2), the rate card's per-currency columns (§7.2), and any other cross-currency aggregation all read this same admin-managed rate, not a separately configured one.
 

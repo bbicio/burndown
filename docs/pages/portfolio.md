@@ -67,3 +67,7 @@ The detail view's top `← Portfolio` button (`showOverview`) is now duplicated 
 ## AI Analysis removed (Planning team assistant cycle, 2026-09-30)
 
 The detail page's "AI Analysis" button, its `js/ai.js` dependency (`openAiAnalysis()`, `buildProjectSummary()`) and the related markup/methods were removed together with the personal API keys (the browser-side AI no longer exists; the only LLM features are server-side, see `docs/api/planning-assistant.md`). `js/ai.js` is no longer loaded by this page. No other behaviour of the page changed.
+
+## Currency of the list view (2026-10-01, money centralization cycle)
+
+The per-project cards of the list view (Sold / Spent / Variance and the budget badge) called `fmtMoney(x)` without a currency, so they fell back to the global `currentCfg` (empty in a list -> EUR) and showed every project's amounts, which are in the project's own currency, as euro. They now pass `cfg.currency` (`cardData` carries `cur` for the badge, `fmtVar(v, cur)`); program-level totals use `commonCurrency(cfgs)` from `js/lib/portfolio-calc.js` (the shared code when all the program's projects have one currency, else `EUR`; the sums are still raw, unconverted numbers — known limitation). The detail view was already correct (`currentCfg` is set when a dashboard opens). The page loads `loadCurrenciesFromApi()` before rendering. `portfolio-calc.js?v=4`.
