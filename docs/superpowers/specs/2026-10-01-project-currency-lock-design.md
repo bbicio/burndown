@@ -17,7 +17,7 @@ A project and the proposal (cost-grid version) it was generated from can end up 
 
 ## 2. Goal and invariant
 
-**A project linked to a proposal always has the proposal's currency, and neither side can change it afterwards.** Everything that could break the invariant (creating a project without a proposal, unlinking, deleting, changing a currency, linking a project of another currency) is inhibited for everyone except a sysadmin. Exchange-rate handling and conversion for projects without a proposal are NOT built now (separate later cycle); creating such projects is switched off instead. Project deletion/unlinking gets its own later cycle; until then no path to them is exposed.
+**A project generated from a proposal gets the proposal's currency at generation, and from then on neither side can change it.** Everything that could break this (creating a project without a proposal, unlinking, deleting, changing a currency) is inhibited for everyone except a sysadmin. Exchange-rate handling and conversion for projects without a proposal are NOT built now (separate later cycle); creating such projects is switched off instead. Project deletion/unlinking gets its own later cycle; until then no path to them is exposed.
 
 ## 3. Decisions taken with the user
 
@@ -26,10 +26,10 @@ A project and the proposal (cost-grid version) it was generated from can end up 
 3. Creating projects without a proposal is temporarily inhibited, in the UI **and** on the server, with a sysadmin exception. The feature stays in the code; one flag per side switches it back on.
 4. Deleting a project and unlinking it from a proposal are inhibited the same way (UI has nothing to hide; the API refuses).
 5. API enforcement with sysadmin exception for all of the above (a UI-only lock can be bypassed by stale tabs and direct calls); rejections are `400` with a message, like the existing business-rule refusals (`403` stays for permissions).
-6. Messages approved (section 7).
+6. Messages approved (section 6).
 7. "Linked" means **either** a `cg_version_projects` row **or** a project with `cg_version_id` pointing at the version (conservative; the two are consistent in real data).
 8. No migration and no data realignment.
-9. Small addition derived from the invariant (not asked for explicitly): linking a project to a version is allowed only when both have the same currency (project POST with `cgVersionId`, project PATCH null→version, linked-projects POST); sysadmin exempt.
+9. Deliberately NOT included (user decision): a check that a project and the version it is linked to have the same currency at link time. Linking a project of another currency stays possible; it is not part of this cycle.
 
 ## 4. Rules (server)
 
@@ -37,10 +37,9 @@ New pure module `api/src/lib/project-rules.js` (CommonJS, `node:test`), one func
 
 | Function | Refuses (non-sysadmin) |
 |---|---|
-| `projectCreateError({ role, versionId, projectCurrency, versionCurrency })` | no `versionId` while `DIRECT_PROJECT_CREATION_ENABLED` is false; with a `versionId` whose currency differs from the project's |
+| `projectCreateError({ role, versionId })` | no `versionId` while `DIRECT_PROJECT_CREATION_ENABLED` is false |
 | `projectCurrencyChangeError({ role, currentCurrency, newCurrency })` | any change of the stored currency (a re-sent identical value passes; a missing/empty value counts as `EUR`, the column default) |
-| `projectLinkChangeError({ role, currentVersionId, newVersionId, projectCurrency, versionCurrency })` | clearing the link, pointing it at another version, or linking (null → version) a project of a different currency; re-sending the same `cgVersionId` passes |
-| `linkCreateError({ role, projectCurrency, versionCurrency })` | adding a link between a project and a version of different currencies |
+| `projectLinkChangeError({ role, currentVersionId, newVersionId })` | clearing the link or pointing it at another version; linking an unlinked project (null → version) and re-sending the same `cgVersionId` pass |
 | `versionCurrencyChangeError({ role, currentCurrency, newCurrency, hasProjects })` | changing the currency of a version that has projects (identical value passes) |
 | `projectRemovalError({ role })`, `linkRemovalError({ role })` | always, while `PROJECT_REMOVAL_ENABLED` is false |
 | `versionRemovalError({ role, hasProjects })` | deleting a version, or a proposal with any version, that has projects (`projects.cg_version_id` is `ON DELETE SET NULL`: it would unlink silently) |
@@ -51,12 +50,12 @@ Constants (`DIRECT_PROJECT_CREATION_ENABLED = false`, `PROJECT_REMOVAL_ENABLED =
 
 Enforcement points (each rule runs after the existing 404/403 checks, so error precedence does not change):
 
-- `POST /api/projects` — `projectCreateError` (the version's currency is read when `cgVersionId` is a valid UUID). "Generate project" keeps working: its first `PATCH` fails (the project does not exist yet) and the fallback `POST` carries `cgVersionId` and the version's currency.
+- `POST /api/projects` — `projectCreateError` (a `cgVersionId` that is not a valid UUID counts as missing, as the route already sanitises it). "Generate project" keeps working: its first `PATCH` fails (the project does not exist yet) and the fallback `POST` carries `cgVersionId` and the version's currency.
 - `PATCH /api/projects/:id` — `projectCurrencyChangeError` when `currency` is in the body, `projectLinkChangeError` when `cgVersionId` is in the body (stored values read under the existing row lock where applicable).
 - `DELETE /api/projects/:id` — `projectRemovalError`.
 - `PATCH /api/cost-grids/:id/versions/:vId` — `versionCurrencyChangeError` when `currency` is in the body (`currencyRate` alone is not restricted; `refresh-rate` is unchanged).
 - `DELETE /api/cost-grids/:id/versions/:vId` and `DELETE /api/cost-grids/:id` — `versionRemovalError`.
-- `POST …/linked-projects` — `linkCreateError`; `DELETE …/linked-projects/:projectId` — `linkRemovalError`.
+- `DELETE …/linked-projects/:projectId` — `linkRemovalError` (`POST …/linked-projects` is unchanged).
 - Sysadmin tools (`_db-reset.html`, `/api/admin/reset/*`) are untouched.
 
 ## 5. Client
@@ -73,18 +72,18 @@ New twin module `js/lib/project-rules.js` (ES module + `window.*` bridge, vitest
 1. Costgrid menu tooltip: `Currency is locked: a project has already been generated from this proposal.`
 2. project-config hint: `Currency cannot be changed here: amounts are not converted yet. Contact a sysadmin if it must be corrected.`
 3. `＋ New project` tooltip and redirect message: `Projects are created from a proposal (Generate project). Creating a project directly is temporarily disabled.`
-4. API: `Currency cannot be changed: projects are linked to this proposal` (version), `Currency cannot be changed: amounts are not converted yet` (project), `Projects must be created from a proposal`, `Deleting a project or unlinking it from its proposal is temporarily disabled`, `The project and the proposal must have the same currency`.
+4. API: `Currency cannot be changed: projects are linked to this proposal` (version), `Currency cannot be changed: amounts are not converted yet` (project), `Projects must be created from a proposal`, `Deleting a project or unlinking it from its proposal is temporarily disabled`.
 
 ## 7. Tests
 
 - `node:test` `api/src/lib/project-rules.test.js`: every rule, sysadmin pass, identical-value pass, empty-currency-as-EUR, both flags.
 - vitest `js/lib/project-rules.test.js` (`versionCurrencyLocked`, messages) and a page guard that `costgrid.html`/`project-config.html`/`portfolio.html` use the module (same style as `money-guard`).
-- `test-api.js`: new section (create without proposal as admin → 400 / sysadmin → 201 / with `cgVersionId` and the same currency → 201 / different currency → 400; currency change on project and on a linked version; clearing/re-pointing `cgVersionId`; link with different currency; delete project, delete link, delete version/proposal with projects; identical re-sent values pass; the fallback `POST` of "Generate project"). **Existing tests to adapt:** ~14 places create projects with only a name (switch to the sysadmin cookie), cleanup `DELETE /api/projects` calls (sysadmin), PV-04/PV-05 (`cgVersionId` null/empty unlink), VS-08 (cross-grid linked-projects delete: the 404 scope check still comes first), the tag tests that link later by PATCH (same currency, allowed).
+- `test-api.js`: new section (create without proposal as admin → 400 / sysadmin → 201 / with `cgVersionId` → 201; currency change on a project and on a version with projects; clearing/re-pointing `cgVersionId`; linking an unlinked project by PATCH still allowed; delete project, delete link, delete version/proposal with projects; identical re-sent values pass; the fallback `POST` of "Generate project"). **Existing tests to adapt:** ~14 places create projects with only a name (switch to the sysadmin cookie), cleanup `DELETE /api/projects` calls (sysadmin), PV-04/PV-05 (`cgVersionId` null/empty unlink), VS-08 (cross-grid linked-projects delete: the 404 scope check still comes first).
 - Manual cases in `TEST_CASES.md`/`test-cases.html` (locked menus, disabled button, redirect) and a browser check on a branch stack.
 
 ## 8. Rollout
 
-No migration. Backend changes: `pdash-api` must be restarted after the merge (Gate 4). Docs: `docs/api/lib.md`, `docs/js/lib.md`, page docs for costgrid/project-config/portfolio, `CLAUDE.md`, `PRD.md` (project Currency field, New project, linking rule), `TEST_CASES.md`/`test-cases.html`.
+No migration. Backend changes: `pdash-api` must be restarted after the merge (Gate 4). Docs: `docs/api/lib.md`, `docs/js/lib.md`, page docs for costgrid/project-config/portfolio, `CLAUDE.md`, `PRD.md` (project Currency field, New project), `TEST_CASES.md`/`test-cases.html`.
 
 ## 9. Acceptance criteria
 
@@ -92,10 +91,9 @@ No migration. Backend changes: `pdash-api` must be restarted after the merge (Ga
 2. The project-config Currency menu is disabled for every project and shows the hint.
 3. `＋ New project` is disabled with the tooltip; opening `project-config.html` without `projectId` redirects with the message; "Generate project" still creates and links a project.
 4. API (non-sysadmin): refusals with the section 6 messages for every row of the section 4 table; identical re-sent `currency`/`cgVersionId` values are accepted; sysadmin is allowed everywhere.
-5. A project can only be linked to a version of its own currency (non-sysadmin).
-6. No removal UI is exposed; `DELETE /api/projects/:id`, `DELETE …/linked-projects/:projectId`, unlinking by PATCH and deleting a version/proposal with projects are refused.
-7. All unit tests and the adapted `test-api.js` pass; the isolated backend suite passes.
-8. Verified in a browser on a branch stack.
+5. No removal UI is exposed; `DELETE /api/projects/:id`, `DELETE …/linked-projects/:projectId`, unlinking by PATCH and deleting a version/proposal with projects are refused.
+6. All unit tests and the adapted `test-api.js` pass; the isolated backend suite passes.
+7. Verified in a browser on a branch stack.
 
 ## 10. Excluded scope
 
