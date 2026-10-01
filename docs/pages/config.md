@@ -20,4 +20,4 @@ The modal does not close on Confirm click (`data-bs-dismiss` removed) — `updat
 
 ## Money formatting (2026-10-01, money centralization cycle)
 
-The two `fmtAmtC` copies in the Proposal/Project Phasing views and `fmtAmount` (POT amounts, EUR) are one-line wrappers over `window.formatMoney` (`docs/js/lib.md`); per-hour EUR rate labels (`€/h`) and exchange-rate displays are unchanged by design. The Currencies tab still loads `window.__currencies` itself (the page does not load `api-sync.js`).
+The Proposal/Project Phasing views and the POT amounts (EUR) call `formatMoney(amount, code, currencies)` directly (the former `fmtAmtC`/`fmtAmount` wrappers were removed; `docs/js/lib.md`); per-hour EUR rate labels (`€/h`) and exchange-rate displays are unchanged by design. The Currencies tab still loads `window.__currencies` itself (the page does not load `api-sync.js`).

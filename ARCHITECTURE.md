@@ -971,7 +971,7 @@ burndown/
   js/
     api.js                ← Api.* namespace, apiFetch wrapper
     api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData). Full narrative: docs/js/api-sync.md
-    core.js               ← state, in-memory helpers (loadConfig/persistConfig no-ops), shared helpers (`fmtMoney()` is a thin wrapper around js/lib/money.js since 2026-10-01), showConfirm()/showInfo() modal idioms, findRate(). Full narrative: docs/js/core.md
+    core.js               ← state, in-memory helpers (loadConfig/persistConfig no-ops), shared helpers, showConfirm()/showInfo() modal idioms, findRate(). Full narrative: docs/js/core.md
     nav.js                ← navbar injection, initNav(); injects settings, change-pwd, and "My Profile" modals; T&C gate; calls initNotifications(). Full narrative: docs/js/nav.md
     shares.js             ← generic share modal
     notifications.js      ← SSE client, bell badge, notification dropdown panel; also drives browser/desktop notifications. Full narrative: docs/js/notifications.md
@@ -986,8 +986,8 @@ burndown/
                             planning model; planning-calc.js kept only matchesTaskRole/computeResidual/getCalendarWeeks/
                             sumChildBreakdownHours after the hours calculation moved to the backend),
                             money.js (2026-10-01: the single implementation of currency formatting and parsing, driven by the
-                            locale of each currency in `window.__currencies`; `fmtMoney`/`cgFmtCurrency`/`pbFmtMoney` and the
-                            config.html copies are one-line wrappers around it; a vitest guard forbids `Intl.NumberFormat`
+                            locale of each currency in `window.__currencies`; call sites call `formatMoney` from it
+                            directly (the former one-line wrappers were removed 2026-10); a vitest guard forbids `Intl.NumberFormat`
                             outside it and its server twin),
                             project-rules.js (2026-10-01: browser side of the project currency lock — version-currency lock
                             predicate, approved messages, the direct-creation flag; costgrid/project-config/portfolio only).

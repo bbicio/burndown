@@ -8,7 +8,7 @@ Cross-cutting board-layout/detail-panel/filter-bar architecture that spans more 
 
 ## Base state
 
-Folds in the former `js/pipeline-board.js` (760 lines, now deleted — confirmed exclusive to this page). Adds `js/lib/pipeline-calc.js` (`pbGetVersionBudget`/`pbComputeColumnTotals`/`pbFmtMoney`/`pbFmtDate`/`pbFmtTaskDate`/`pbComputePotPercentages`). `js/costgrid.js`/`js/core.js` and the 4 shared static modals (`#confirmModal`/`#cgNewGridModal`/`#cgCloneModal`/`#jsonViewerModal`) remain unmodified Vanilla, called as globals — `costgrid.html`/`planning.html` still depend on them as-is. Detail panel shows a loading spinner while phase/task structure fetches and an explicit "Could not load cost grid" message if it fails. Outside-click-to-close on the detail panel ignores clicks inside any Bootstrap modal spawned from the panel (Share/Clone/Confirm), since those modals live outside `#pbDetailPanel` in the DOM.
+Folds in the former `js/pipeline-board.js` (760 lines, now deleted — confirmed exclusive to this page). Adds `js/lib/pipeline-calc.js` (`pbGetVersionBudget`/`pbComputeColumnTotals`/`pbFmtDate`/`pbFmtTaskDate`/`pbComputePotPercentages`). `js/costgrid.js`/`js/core.js` and the 4 shared static modals (`#confirmModal`/`#cgNewGridModal`/`#cgCloneModal`/`#jsonViewerModal`) remain unmodified Vanilla, called as globals — `costgrid.html`/`planning.html` still depend on them as-is. Detail panel shows a loading spinner while phase/task structure fetches and an explicit "Could not load cost grid" message if it fails. Outside-click-to-close on the detail panel ignores clicks inside any Bootstrap modal spawned from the panel (Share/Clone/Confirm), since those modals live outside `#pbDetailPanel` in the DOM.
 
 ## Detail panel owner/created-at line + inline share list (2026-09)
 
@@ -24,4 +24,4 @@ Linked-project button in the detail panel's "Linked projects" section (`pbGoToPo
 
 ## Money formatting (2026-10-01, money centralization cycle)
 
-Card/detail/footer amounts keep passing an explicit currency code to `pbFmtMoney` (now a wrapper over `js/lib/money.js`); `potFmtMoney` formats POT amounts in EUR with `{ rounded: true }`; the default currency of a card with no currency is `'EUR'` (it was the symbol `'€'`, which made the following `cur !== 'EUR'` test wrongly true). See `docs/js/lib.md`.
+Card/detail/footer amounts call `formatMoney(amount, code, currencies)` directly with an explicit currency code (the Vue instance exposes `formatMoney` and `currencies`; the former `pbFmtMoney` wrapper was removed); `potFmtMoney` formats POT amounts in EUR with `{ rounded: true }`; the default currency of a card with no currency is `'EUR'` (it was the symbol `'€'`, which made the following `cur !== 'EUR'` test wrongly true). See `docs/js/lib.md`.
