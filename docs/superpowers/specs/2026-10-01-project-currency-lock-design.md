@@ -51,7 +51,7 @@ Constants (`DIRECT_PROJECT_CREATION_ENABLED = false`, `PROJECT_REMOVAL_ENABLED =
 
 Enforcement points (each rule runs after the existing 404/403 checks, so error precedence does not change):
 
-- `POST /api/projects` — `projectCreateError` (the version's currency is read when `cgVersionId` is a valid UUID). "Generate project" keeps working: its first `PATCH` answers 404 and the fallback `POST` carries `cgVersionId` and the version's currency.
+- `POST /api/projects` — `projectCreateError` (the version's currency is read when `cgVersionId` is a valid UUID). "Generate project" keeps working: its first `PATCH` fails (the project does not exist yet) and the fallback `POST` carries `cgVersionId` and the version's currency.
 - `PATCH /api/projects/:id` — `projectCurrencyChangeError` when `currency` is in the body, `projectLinkChangeError` when `cgVersionId` is in the body (stored values read under the existing row lock where applicable).
 - `DELETE /api/projects/:id` — `projectRemovalError`.
 - `PATCH /api/cost-grids/:id/versions/:vId` — `versionCurrencyChangeError` when `currency` is in the body (`currencyRate` alone is not restricted; `refresh-rate` is unchanged).
