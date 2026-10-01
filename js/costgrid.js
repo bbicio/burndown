@@ -683,7 +683,8 @@ function renderCgPhasing() {
 
 // ── SAVE ──────────────────────────────────────────────────────────────────────
 
-function cgAutoSave() {
+// strict = true: the returned promise rejects when the save fails (default: log and resolve).
+function cgAutoSave(strict) {
   if (!_cgActiveCgId || !_cgActiveVersionId || !_cgDraft) return Promise.resolve();
   cgSyncHeaderFromForm();
   const cg = cgLoad(_cgActiveCgId);
@@ -692,8 +693,8 @@ function cgAutoSave() {
   if (idx >= 0) cg.versions[idx] = _cgDraft;
   cgSave(cg);
   if (typeof _cgUpsertVersionToApi !== 'undefined') {
-    return _cgUpsertVersionToApi(_cgActiveCgId, _cgActiveVersionId)
-      .catch(e => console.warn('[sync] cgAutoSave:', e.message));
+    return _cgUpsertVersionToApi(_cgActiveCgId, _cgActiveVersionId, strict ? { strict: true } : undefined)
+      .catch(e => { console.warn('[sync] cgAutoSave:', e.message); if (strict) throw e; });
   }
   return Promise.resolve();
 }
@@ -777,42 +778,36 @@ async function cgCreateNewVersion() {
   }
   if (errEl) errEl.classList.add('d-none');
 
-  // Save current version before branching
-  cgAutoSave();
+  const cgId = _cgActiveCgId;
+  const srcVerId = _cgActiveVersionId;
+  const src = _cgDraft;
 
-  // Create on the server first to get a server-assigned UUID.
-  // This prevents duplicate rows from repeated upsert attempts with a client UUID.
-  let serverId;
+  // The copy is made by the server from the saved state, so flush the editor's pending changes first.
+  // Strict: a failed flush aborts here instead of silently copying the last saved (older) state.
+  clearTimeout(_cgAutoSaveTimer);
   try {
-    const src = _cgDraft;
-    const created = await Api.costGrids.versions.create(_cgActiveCgId, {
-      label,
-      currency:    src.currency    || 'EUR',
-      clientId:    (src.clientId && src.clientId !== '__unassigned__') ? src.clientId : null,
-      ratecardId:  src.ratecardId  || null,
-      startDate:   src.startDate   || null,
-      endDate:     src.endDate     || null,
-      note:        src.note        || '',
-      projectName: src.projectName || '',
-    });
-    serverId = created.id;
+    await cgAutoSave(true);
   } catch(e) {
-    if (errEl) { errEl.textContent = 'API error: ' + e.message; errEl.classList.remove('d-none'); }
+    if (errEl) { errEl.textContent = 'Could not save your latest changes, so no new version was created: ' + e.message; errEl.classList.remove('d-none'); }
     return;
   }
 
-  // Copy phases/roles structure to the new version
-  if ((_cgDraft.phases || []).length > 0) {
-    await Api.costGrids.versions.saveStructure(_cgActiveCgId, serverId, {
-      phases: _cgDraft.phases,
-      roles:  _cgDraft.roles || [],
-    }).catch(e => console.warn('[sync] cgCreateNewVersion saveStructure:', e.message));
+  // One atomic server-side copy (header, phases, tasks, roles/rates, tags): on failure nothing is
+  // created, so there is no half-built version to clean up -- just show the error.
+  let serverId;
+  try {
+    const created = await Api.costGrids.versions.duplicate(cgId, srcVerId, { label });
+    serverId = created.id;
+  } catch(e) {
+    if (errEl) { errEl.textContent = 'New version failed: ' + e.message; errEl.classList.remove('d-none'); }
+    return;
   }
 
-  // Store in localStorage using the server UUID
-  const cg = cgLoad(_cgActiveCgId);
+  // Seed the local store with the header only; phases (with the server's fresh task ids) are loaded
+  // from the API right below, so no stale source taskId is ever held in memory.
+  const cg = cgLoad(cgId);
   if (!cg) return;
-  const newVer = JSON.parse(JSON.stringify(_cgDraft));
+  const newVer = JSON.parse(JSON.stringify(src));
   newVer.versionId      = serverId;
   newVer.versionLabel   = label;
   newVer.createdAt      = new Date().toISOString();
@@ -820,13 +815,22 @@ async function cgCreateNewVersion() {
   newVer.pipeline       = 'Draft';
   newVer.pipelineYear   = null;
   newVer.linkedProjects = [];
+  newVer.phases         = [];
   delete newVer.linkedProjectId;
   cg.versions.push(newVer);
   cgSave(cg);
 
+  const structureLoaded = await cgLoadStructureFromApi(cgId, serverId);
+  if (!structureLoaded && !window.__pdashAuthRedirecting) {
+    showInfo(
+      'The new version was created, but its structure may not have loaded correctly. Please reload the page to verify.',
+      '⚠️ New version incomplete'
+    );
+  }
+
   bootstrap.Modal.getInstance(document.getElementById('cgNewVersionModal'))?.hide();
   document.getElementById('cgNewVersionLabel').value = '';
-  showCostGridEditorView(_cgActiveCgId, serverId);
+  showCostGridEditorView(cgId, serverId);
 }
 
 // ── CREATE NEW GRID ───────────────────────────────────────────────────────────
