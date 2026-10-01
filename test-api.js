@@ -99,7 +99,7 @@ async function runCleanup() {
   if (!cleanupQueue.length) return;
   section('Cleanup');
   for (const { method, path } of [...cleanupQueue].reverse()) {
-    const r = await api(method, path, null, adminCookie);
+    const r = await api(method, path, null, sysadminCookie || adminCookie);
     const success = [200, 204, 404].includes(r.status);
     process.stdout.write(`  ${success ? green('✓') : red('✗')} ${method} ${path} → ${r.status}\n`);
   }
@@ -688,7 +688,10 @@ async function testCostGridReassignOwner() {
       vId = rv.data?.id;
     }
 
-    const rproj = await api('POST', '/api/projects', { name: '__test_reassign_proj__' }, adminCookie);
+    // Created linked to the version (an admin may do that): a project without a proposal is sysadmin-only,
+    // and CGR-08 below needs the admin to be the project's owner.
+    const rproj = await api('POST', '/api/projects',
+      { name: '__test_reassign_proj__', ...(vId ? { cgVersionId: vId } : {}) }, adminCookie);
     projId = rproj.data?.id;
     if (projId) later('DELETE', `/api/projects/${projId}`);
 
@@ -1009,7 +1012,7 @@ async function testTagLinking() {
   }
 
   // TAG-05: a standalone project (no linked proposal) has its own directly-editable tags
-  const rProj = await api('POST', '/api/projects', { name: '__test_tag_proj__' }, adminCookie);
+  const rProj = await api('POST', '/api/projects', { name: '__test_tag_proj__' }, sysadminCookie);
   const standaloneProjId = rProj.data?.id;
   if (standaloneProjId) later('DELETE', `/api/projects/${standaloneProjId}`);
 
@@ -1059,7 +1062,7 @@ async function testTagLinking() {
 
   // TAG-14: linking an existing, untagged project (null → version) copies the version's tags
   if (cgId && vId && itemId) {
-    const rEmptyProj = await api('POST', '/api/projects', { name: '__test_tag_link_later_proj__' }, adminCookie);
+    const rEmptyProj = await api('POST', '/api/projects', { name: '__test_tag_link_later_proj__' }, sysadminCookie);
     const laterProjId = rEmptyProj.data?.id;
     if (laterProjId) later('DELETE', `/api/projects/${laterProjId}`);
     if (laterProjId) {
@@ -1086,7 +1089,7 @@ async function testTagLinking() {
   // TAG-19: two overlapping first-link saves both succeed and seed the tags exactly once
   // (concurrency smoke test — the row lock in PATCH makes only one request see "no link yet")
   if (cgId && vId && itemId) {
-    const rRace = await api('POST', '/api/projects', { name: '__test_tag_race_proj__' }, adminCookie);
+    const rRace = await api('POST', '/api/projects', { name: '__test_tag_race_proj__' }, sysadminCookie);
     const raceProjId = rRace.data?.id;
     if (raceProjId) later('DELETE', `/api/projects/${raceProjId}`);
     if (raceProjId) {
@@ -1154,7 +1157,7 @@ async function testResourceMatching() {
   if (resId) later('DELETE', `/api/resources/${resId}`);
   ok(!!resId, 'MA-setup resource created');
 
-  const rProj = await api('POST', '/api/projects', { name: `__test_match_proj_${ts}__`, code }, adminCookie);
+  const rProj = await api('POST', '/api/projects', { name: `__test_match_proj_${ts}__`, code }, sysadminCookie);
   const projId = rProj.data?.id;
   if (projId) later('DELETE', `/api/projects/${projId}`);
   if (projId) {
@@ -1312,7 +1315,7 @@ async function profileFixture() {
   if (f.resId) later('DELETE', `/api/resources/${f.resId}`);
 
   const mkProject = async (code) => {
-    const r = await api('POST', '/api/projects', { name: `__prof_proj_${code}__`, code }, adminCookie);
+    const r = await api('POST', '/api/projects', { name: `__prof_proj_${code}__`, code }, sysadminCookie);
     const id = r.data?.id;
     if (id) {
       later('DELETE', `/api/projects/${id}`);
@@ -1675,7 +1678,7 @@ async function testProfileJobsConsole() {
     const oddTs = Date.now();
     const odd = `PJ.${oddTs} X.001`;
     const oddName = `__pj_odd_${oddTs}__`;
-    const rp = await api('POST', '/api/projects', { name: oddName, code: odd }, adminCookie);   // creation queues the code
+    const rp = await api('POST', '/api/projects', { name: oddName, code: odd }, sysadminCookie);   // creation queues the code
     const oddId = rp.data?.id;
     if (oddId) later('DELETE', `/api/projects/${oddId}`);
     ok(!!oddId, 'PJ-09 setup: a project whose code has dots and a space');
@@ -1687,7 +1690,7 @@ async function testProfileJobsConsole() {
       ok(row?.project_name === oddName && row?.row_count === 0 && row?.resource_count === 0 && row?.status === 'updated',
         'PJ-09 listed under its exact code, with the project name, 0 rows, status "updated"');
 
-      ok((await api('DELETE', `/api/projects/${oddId}`, null, adminCookie)).status === 200,
+      ok((await api('DELETE', `/api/projects/${oddId}`, null, sysadminCookie)).status === 200,
         'PJ-10 setup: delete the project (no actuals) — the delete hook re-queues its code');
       c = await getConsole();
       const orphan = c.byCode[odd];
@@ -1732,7 +1735,7 @@ async function testProjectDescriptions() {
   const ts = Date.now();
   const code = `TPD${ts}`;
   const r = await api('POST', '/api/projects',
-    { name: `__pd_${ts}__`, code, description: 'Oncology portal' }, adminCookie);
+    { name: `__pd_${ts}__`, code, description: 'Oncology portal' }, sysadminCookie);
   const id = r.data?.id;
   if (!ok(r.status === 201 && id, `PD-01 POST /api/projects with description → 201 (got ${r.status})`)) return;
   later('DELETE', `/api/projects/${id}`);
@@ -2045,7 +2048,7 @@ async function testPlanningModel() {
   const bad = await api('POST', '/api/planning/model', { ...body(), view: 'nope', from: 'x' }, adminCookie);
   ok(bad.status === 400 && bad.data?.fields?.view && bad.data?.fields?.from, 'PM-02 invalid view/from → 400 with per-field errors');
 
-  const rP = await api('POST', '/api/projects', { name: `__plan_${code}__`, code, startDate: '209901', endDate: '209903' }, adminCookie);
+  const rP = await api('POST', '/api/projects', { name: `__plan_${code}__`, code, startDate: '209901', endDate: '209903' }, sysadminCookie);
   const pid = rP.data?.id;
   if (!ok(!!pid, 'PM-setup project created')) return;
   later('DELETE', `/api/projects/${pid}`);
@@ -2085,7 +2088,7 @@ async function testPlanningModel() {
   ok(r2.data?.roles?.find(x => x.role === 'Consultant')?.actuals === 15, 'PM-06 a new upload is visible right away (cache invalidated)');
 
   // PM-07: a non-admin who neither owns nor was shared the project gets an empty result, not an error
-  // The plain user is the demoted test admin (getPlainUserCookie), who owns `pid`; so the project the
+  // The plain user is the demoted test admin (getPlainUserCookie); the project the
   // plain user must NOT see is created by the sysadmin (a different account) with its own actuals.
   const code7 = `TPLANX${ts}`;
   const r7 = sysadminCookie ? await api('POST', '/api/projects', { name: `__plan_${code7}__`, code: code7, startDate: '209901', endDate: '209903' }, sysadminCookie) : null;
@@ -2146,7 +2149,7 @@ async function testPlanningAssistant() {
   if (resId) later('DELETE', `/api/resources/${resId}`);
 
   const mkProject = async (code, name, tasks) => {
-    const r = await api('POST', '/api/projects', { name, code, startDate: '209901', endDate: '209903' }, adminCookie);
+    const r = await api('POST', '/api/projects', { name, code, startDate: '209901', endDate: '209903' }, sysadminCookie);
     const id = r.data?.id;
     if (id) { later('DELETE', `/api/projects/${id}`); await api('PUT', `/api/projects/${id}/tasks`, tasks, adminCookie); }
     return id;
@@ -2324,7 +2327,7 @@ async function testVersionScope() {
 
 async function testProjectPatchValidation() {
   section('Project PATCH validation');
-  const r = await api('POST', '/api/projects', { name: '__test_patch_validation__' }, adminCookie);
+  const r = await api('POST', '/api/projects', { name: '__test_patch_validation__' }, sysadminCookie);
   const id = r.data?.id;
   if (!id) { ok(false, 'PV-setup project created'); return; }
   later('DELETE', `/api/projects/${id}`);
@@ -2365,6 +2368,164 @@ async function testTimesheetsNoActuals() {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
+// ── Project currency lock (2026-10-01) ─────────────────────────────────────────
+
+async function testProjectCurrencyLock() {
+  section('Project currency lock');
+  if (!sysadminCookie) { ok(false, 'PR-setup sysadmin account unavailable'); return; }
+
+  const rpy = await api('POST', '/api/pipeline-years', { year: TEST_YEAR_C }, adminCookie);
+  if (![201, 409].includes(rpy.status)) { ok(false, 'PR-setup pipeline year unavailable'); return; }
+  if (rpy.status === 201 && rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
+
+  // Registered first, so cleanup (reverse order) deletes the projects before the proposal.
+  const rcg = await api('POST', '/api/cost-grids', { name: '__test_pr_cg__', pipelineYear: TEST_YEAR_C }, adminCookie);
+  const cgId = rcg.data?.id;
+  if (cgId) later('DELETE', `/api/cost-grids/${cgId}`);
+  const mkVersion = async label => (cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label }, adminCookie)).data?.id : null);
+  const vId = await mkVersion('v1');     // will get a project
+  const v2Id = await mkVersion('v2');    // stays without projects
+  if (!ok(!!(cgId && vId && v2Id), 'PR-setup proposal with two versions created')) return;
+  const verPath = id => `/api/cost-grids/${cgId}/versions/${id}`;
+
+  // PR-01 / PR-02: a project without a proposal
+  const direct = await api('POST', '/api/projects', { name: '__test_pr_direct__' }, adminCookie);
+  ok(direct.status === 400 && direct.data?.error === 'Projects must be created from a proposal' && direct.data?.code === 'PROJECT_RULE',
+    `PR-01 admin: project without a proposal → 400 with the PROJECT_RULE code (got ${direct.status})`);
+  const directSys = await api('POST', '/api/projects', { name: '__test_pr_direct_sys__' }, sysadminCookie);
+  ok(directSys.status === 201, `PR-02 sysadmin: project without a proposal → 201 (got ${directSys.status})`);
+  const dId = directSys.data?.id;
+  if (dId) later('DELETE', `/api/projects/${dId}`);
+
+  // PR-03: what "Generate project" does (POST with cgVersionId, then POST linked-projects) is allowed for an admin
+  const gen = await api('POST', '/api/projects', { name: '__test_pr_linked__', cgVersionId: vId, currency: 'EUR' }, adminCookie);
+  ok(gen.status === 201, `PR-03 admin: project created with a proposal → 201 (got ${gen.status})`);
+  const pId = gen.data?.id;
+  if (pId) later('DELETE', `/api/projects/${pId}`);
+  if (!pId) return;
+  const lnk = await api('POST', `${verPath(vId)}/linked-projects`, { projectId: pId, taskIds: [], taskNames: [] }, adminCookie);
+  ok(lnk.status === 201, `PR-03 admin: link the generated project → 201 (got ${lnk.status})`);
+
+  // PR-04: project currency
+  const curPatch = (cookie, currency) => api('PATCH', `/api/projects/${pId}`, { currency }, cookie);
+  const c1 = await curPatch(adminCookie, 'USD');
+  ok(c1.status === 400 && c1.data?.error === 'Currency cannot be changed: amounts are not converted yet',
+    `PR-04 admin: change the project currency → 400 (got ${c1.status})`);
+  ok((await curPatch(adminCookie, 'EUR')).status === 200, 'PR-04 admin: re-sending the same currency → 200');
+  ok((await api('PATCH', `/api/projects/${pId}`, { currency: 'EUR', cgVersionId: vId, name: '__test_pr_linked__' }, adminCookie)).status === 200,
+    'PR-04 admin: a whole-project re-save with unchanged currency and link → 200');
+  ok((await curPatch(sysadminCookie, 'USD')).status === 200, 'PR-04 sysadmin: change the project currency → 200');
+  ok((await curPatch(sysadminCookie, 'EUR')).status === 200, 'PR-04 sysadmin: restore it → 200');
+
+  // PR-05: version currency
+  const vc = (cookie, id, currency) => api('PATCH', verPath(id), { currency }, cookie);
+  const v1 = await vc(adminCookie, vId, 'USD');
+  ok(v1.status === 400 && v1.data?.error === 'Currency cannot be changed: projects are linked to this proposal',
+    `PR-05 admin: change the currency of a version with projects → 400 (got ${v1.status})`);
+  ok((await vc(adminCookie, vId, 'EUR')).status === 200, 'PR-05 admin: re-sending the same version currency → 200');
+  ok((await vc(adminCookie, v2Id, 'USD')).status === 200, 'PR-05 admin: a version without projects can change currency → 200');
+  ok((await vc(adminCookie, v2Id, 'EUR')).status === 200, 'PR-05 admin: restore it → 200');
+  ok((await vc(sysadminCookie, vId, 'USD')).status === 200, 'PR-05 sysadmin: change the currency of a version with projects → 200');
+  ok((await vc(sysadminCookie, vId, 'EUR')).status === 200, 'PR-05 sysadmin: restore it → 200');
+
+  // PR-06: unlinking / re-pointing
+  const lp = (cookie, cgVersionId) => api('PATCH', `/api/projects/${pId}`, { cgVersionId }, cookie);
+  const u1 = await lp(adminCookie, null);
+  ok(u1.status === 400 && u1.data?.error === 'Deleting a project or unlinking it from its proposal is temporarily disabled',
+    `PR-06 admin: clearing cgVersionId → 400 (got ${u1.status})`);
+  ok((await lp(adminCookie, '')).status === 400, 'PR-06 admin: empty cgVersionId → 400');
+  ok((await lp(adminCookie, v2Id)).status === 400, 'PR-06 admin: pointing the project at another version → 400');
+  ok((await lp(adminCookie, vId)).status === 200, 'PR-06 admin: re-sending the same cgVersionId → 200');
+  ok((await lp(adminCookie, vId.toUpperCase())).status === 200, 'PR-06 admin: same id in another letter case → 200');
+  ok((await lp(sysadminCookie, v2Id)).status === 200, 'PR-06 sysadmin: re-pointing → 200');
+  ok((await lp(sysadminCookie, vId)).status === 200, 'PR-06 sysadmin: restore → 200');
+
+  // PR-07: linking a project that has no proposal is still allowed
+  if (dId) ok((await api('PATCH', `/api/projects/${dId}`, { cgVersionId: v2Id }, adminCookie)).status === 200,
+    'PR-07 admin: linking an unlinked project to a version → 200');
+
+  // PR-10..PR-13: a project and its version must share the currency at link time; an unknown version is refused
+  const v3Id = await mkVersion('v3');   // no projects: an admin may set its currency
+  ok((await vc(adminCookie, v3Id, 'USD')).status === 200, 'PR-10 setup: version v3 in USD');
+  const NOVER = '00000000-0000-0000-0000-000000000001';
+  const mism = await api('POST', '/api/projects', { name: '__test_pr_mismatch__', cgVersionId: v3Id, currency: 'EUR' }, adminCookie);
+  ok(mism.status === 400 && mism.data?.error === 'The project and the proposal must have the same currency' && mism.data?.code === 'PROJECT_RULE',
+    `PR-10 admin: POST a EUR project linked to a USD version → 400 (got ${mism.status})`);
+  if (mism.data?.id) later('DELETE', `/api/projects/${mism.data.id}`);
+  const match = await api('POST', '/api/projects', { name: '__test_pr_match__', cgVersionId: v3Id, currency: 'USD' }, adminCookie);
+  ok(match.status === 201, `PR-10 admin: POST a USD project linked to the USD version → 201 (got ${match.status})`);
+  const xId = match.data?.id;
+  if (xId) later('DELETE', `/api/projects/${xId}`);
+  const sysMism = await api('POST', '/api/projects', { name: '__test_pr_mismatch_sys__', cgVersionId: v3Id, currency: 'EUR' }, sysadminCookie);
+  ok(sysMism.status === 201, `PR-10 sysadmin: the same mismatch is allowed → 201 (got ${sysMism.status})`);
+  if (sysMism.data?.id) later('DELETE', `/api/projects/${sysMism.data.id}`);
+
+  const nov = await api('POST', '/api/projects', { name: '__test_pr_nover__', cgVersionId: NOVER, currency: 'EUR' }, adminCookie);
+  ok(nov.status === 400 && nov.data?.error === 'Proposal version not found', `PR-11 admin: POST with an unknown cgVersionId → 400 (got ${nov.status})`);
+  const novSys = await api('POST', '/api/projects', { name: '__test_pr_nover_sys__', cgVersionId: NOVER }, sysadminCookie);
+  ok(novSys.status === 400 && novSys.data?.error === 'Proposal version not found', `PR-11 sysadmin: an unknown version is refused too → 400 (got ${novSys.status})`);
+
+  const d2 = await api('POST', '/api/projects', { name: '__test_pr_direct2__' }, sysadminCookie);
+  const d2Id = d2.data?.id;
+  if (d2Id) later('DELETE', `/api/projects/${d2Id}`);
+  if (d2Id) {
+    const pm = await api('PATCH', `/api/projects/${d2Id}`, { cgVersionId: v3Id }, adminCookie);
+    ok(pm.status === 400 && pm.data?.error === 'The project and the proposal must have the same currency',
+      `PR-12 admin: PATCH linking a EUR project to a USD version → 400 (got ${pm.status})`);
+    const pn = await api('PATCH', `/api/projects/${d2Id}`, { cgVersionId: NOVER }, adminCookie);
+    ok(pn.status === 400 && pn.data?.error === 'Proposal version not found', `PR-12 admin: PATCH linking to an unknown version → 400 (got ${pn.status})`);
+    const lm = await api('POST', `${verPath(v3Id)}/linked-projects`, { projectId: d2Id, taskIds: [], taskNames: [] }, adminCookie);
+    ok(lm.status === 400 && lm.data?.error === 'The project and the proposal must have the same currency',
+      `PR-13 admin: POST linked-projects between a EUR project and a USD version → 400 (got ${lm.status})`);
+    ok((await api('PATCH', `/api/projects/${d2Id}`, { cgVersionId: v3Id }, sysadminCookie)).status === 200,
+      'PR-12 sysadmin: the same link is allowed → 200');
+  }
+  if (xId) ok((await api('POST', `${verPath(v3Id)}/linked-projects`, { projectId: xId, taskIds: [], taskNames: [] }, adminCookie)).status === 201,
+    'PR-13 admin: POST linked-projects between a USD project and the USD version → 201');
+
+  // PR-08: removals are refused for an admin
+  const del = await api('DELETE', `/api/projects/${pId}`, null, adminCookie);
+  ok(del.status === 400 && /temporarily disabled/.test(del.data?.error || ''), `PR-08 admin: DELETE project → 400 (got ${del.status})`);
+  const unl = await api('DELETE', `${verPath(vId)}/linked-projects/${pId}`, null, adminCookie);
+  ok(unl.status === 400, `PR-08 admin: DELETE linked-projects → 400 (got ${unl.status})`);
+  const dv = await api('DELETE', verPath(vId), null, adminCookie);
+  ok(dv.status === 400, `PR-08 admin: DELETE a version that has projects → 400 (got ${dv.status})`);
+  const dg = await api('DELETE', `/api/cost-grids/${cgId}`, null, adminCookie);
+  ok(dg.status === 400, `PR-08 admin: DELETE a proposal that has projects → 400 (got ${dg.status})`);
+
+  // PR-09: the sysadmin may; deleting a project removes its link rows, so the version is free again
+  ok((await api('DELETE', `${verPath(vId)}/linked-projects/${pId}`, null, sysadminCookie)).status === 200, 'PR-09 sysadmin: DELETE linked-projects → 200');
+  ok((await api('DELETE', `/api/projects/${pId}`, null, sysadminCookie)).status === 200, 'PR-09 sysadmin: DELETE project → 200');
+  if (dId) ok((await api('DELETE', `/api/projects/${dId}`, null, sysadminCookie)).status === 200, 'PR-09 sysadmin: DELETE the other project → 200');
+  ok((await vc(adminCookie, vId, 'USD')).status === 200, 'PR-09 admin: with no project left the version currency can change again → 200');
+  ok((await vc(adminCookie, vId, 'EUR')).status === 200, 'PR-09 admin: restore it → 200');
+  ok((await api('DELETE', verPath(v2Id), null, adminCookie)).status === 200, 'PR-09 admin: a version without projects can be deleted → 200');
+  ok((await api('DELETE', verPath(vId), null, adminCookie)).status === 200, 'PR-09 admin: so can the former project version → 200');
+
+  // PR-14: concurrency smoke test. A currency change and a link to the same version, fired together, must
+  // never leave a project and its version in different currencies (the per-version lock serialises them).
+  // Either order is legal: the project is created and the change is refused, or the change wins and the link is refused.
+  let violations = 0, rounds = 0;
+  for (let i = 0; i < 6; i++) {
+    const rv = await api('POST', `/api/cost-grids/${cgId}/versions`, { label: `race${i}` }, adminCookie);
+    const rId = rv.data?.id;
+    if (!rId) continue;
+    rounds++;
+    const [pa, pb] = await Promise.all([
+      api('PATCH', verPath(rId), { currency: 'USD' }, adminCookie),
+      api('POST', '/api/projects', { name: `__test_pr_race_${i}__`, cgVersionId: rId, currency: 'EUR' }, adminCookie),
+    ]);
+    if (pb.data?.id) later('DELETE', `/api/projects/${pb.data.id}`);
+    const list = (await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || [];
+    const cur = list.find(v => v.id === rId)?.currency;
+    const consistent = pb.status === 201
+      ? (cur === 'EUR' && pa.status === 400)
+      : (pb.status === 400 && pa.status === 200 && cur === 'USD');
+    if (!consistent) { violations++; process.stdout.write(`    race ${i}: PATCH ${pa.status}, POST ${pb.status}, version currency ${cur}\n`); }
+  }
+  ok(rounds > 0 && violations === 0, `PR-14 a currency change and a link fired together never diverge (${rounds} rounds, ${violations} violations)`);
+}
+
 async function main() {
   process.stdout.write(`\n${bold('PDash API Integration Tests')} — ${BASE}\n`);
   process.stdout.write(`Admin: ${EMAIL}\n`);
@@ -2397,6 +2558,7 @@ async function main() {
     await testTagLinking();
     await testVersionScope();
     await testProjectPatchValidation();
+    await testProjectCurrencyLock();
     await testTimesheetsNoActuals();
     await testProjectDescriptions();
     await testTopicsApi();

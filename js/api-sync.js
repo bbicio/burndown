@@ -258,7 +258,13 @@ async function _pushProjectToApiDetailed(project, { skipEmpty = false } = {}) {
   // Upsert core metadata
   try {
     await Api.projects.update(project.id, meta);
-  } catch {
+  } catch (updateErr) {
+    // A refusal by the project rules (currency lock, link rules) is final: retrying it as a create would only
+    // end in a duplicate-key error that hides the message. Any other failure is treated as "project not there yet".
+    if (updateErr?.data?.code === 'PROJECT_RULE') {
+      console.warn('[sync] project update refused:', updateErr.message);
+      return { ok: false, failed: [{ part: 'project', error: updateErr.message }] };
+    }
     try { await Api.projects.create({ ...meta, id: project.id }); }
     catch (e) {
       console.warn('[sync] project upsert failed:', e.message);

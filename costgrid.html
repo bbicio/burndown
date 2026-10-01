@@ -101,7 +101,7 @@
             </div>
             <div class="col-md-2">
               <label class="form-label small fw-semibold mb-1">Currency</label>
-              <select class="form-select" id="cgCurrency" v-model="draft.currency" @change="onCurrencyChange" :disabled="isLocked">
+              <select class="form-select" id="cgCurrency" v-model="draft.currency" @change="onCurrencyChange" :disabled="currencyLocked" :title="currencyLockTitle">
                 <option v-for="cu in (currencies.length ? currencies : [{code:'EUR',symbol:'€',name:'Euro'}])" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.code }} — {{ cu.name }}</option>
               </select>
               <div v-if="draft.currency && draft.currency !== 'EUR'" class="text-muted" style="font-size:.72rem;margin-top:2px">
@@ -665,6 +665,7 @@
 <script defer src="js/core.js?v=8"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script type="module" src="js/lib/money.js?v=1"></script>
+<script type="module" src="js/lib/project-rules.js?v=1"></script>
 <script defer src="js/notifications.js?v=2"></script>
 <script defer src="js/roles.js"></script>
 <script defer src="js/clients.js"></script>
@@ -672,7 +673,7 @@
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=5"></script>
 <script defer src="js/costgrid.js?v=35"></script>
-<script defer src="js/api-sync.js?v=20"></script>
+<script defer src="js/api-sync.js?v=21"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>
 <script defer src="js/shares.js"></script>
@@ -775,6 +776,15 @@ Vue.createApp({
       return cgGetVersionLockState(this.cgId, this.verId);
     },
     isLocked() { return this.lockState.locked; },
+    // Whether a project has been generated from this version. Reads `this.cg` first: "Generate project" pushes
+    // into the raw _cgDraft.linkedProjects (invisible to Vue) and then reassigns `cg` (renderCgVersionTabs),
+    // which is the signal that makes this recompute without a reload.
+    versionHasProjects() {
+      const stored = (this.cg?.versions || []).find(v => v.versionId === this.verId);
+      return window.versionCurrencyLocked(stored?.linkedProjects) || window.versionCurrencyLocked(this.draft?.linkedProjects);
+    },
+    currencyLocked() { return this.isLocked || this.versionHasProjects; },
+    currencyLockTitle() { return this.versionHasProjects ? window.PROJECT_RULE_MESSAGES.costgridCurrency : ''; },
     isDraft() { return this.draft?.pipeline === 'Draft'; },
     hasFreeTasks() {
       if (!this.draft) return false;

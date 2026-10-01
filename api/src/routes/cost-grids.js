@@ -1,6 +1,11 @@
 const express = require('express');
 const { query, pool } = require('../db/client');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, liveRole } = require('../middleware/auth');
+const rules = require('../lib/project-rules');
+const { withVersionLock } = require('../lib/version-lock');
+
+// A refusal by the project rules: 400 with a code, so a client can tell it from other errors.
+const refuse = (res, error) => res.status(400).json({ error, code: rules.RULE_CODE });
 const { sendShareNotification, sendOwnerReassignedEmail, APP_URL } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
 const { isAdminRole } = require('../lib/is-admin');
@@ -85,6 +90,24 @@ async function canEdit(userId, role, cgId) {
     [userId, cgId]
   );
   return rows.length > 0;
+}
+
+// A version "has projects" when a cg_version_projects row or a project's cg_version_id points at it.
+// `q` is the query runner: the pool by default, a transaction client when called under the version lock.
+async function versionHasProjects(versionId, q = query) {
+  const { rows } = await q(
+    `SELECT (EXISTS (SELECT 1 FROM cg_version_projects WHERE cost_grid_version_id = $1)
+          OR EXISTS (SELECT 1 FROM projects WHERE cg_version_id = $1)) AS has`, [versionId]);
+  return rows[0].has;
+}
+async function gridHasProjects(gridId) {
+  const { rows } = await query(
+    `SELECT EXISTS (
+       SELECT 1 FROM cost_grid_versions v
+       WHERE v.cost_grid_id = $1
+         AND (EXISTS (SELECT 1 FROM cg_version_projects cvp WHERE cvp.cost_grid_version_id = v.id)
+           OR EXISTS (SELECT 1 FROM projects p WHERE p.cg_version_id = v.id))) AS has`, [gridId]);
+  return rows[0].has;
 }
 
 // ── COST GRIDS ────────────────────────────────────────────────────────────────
@@ -311,6 +334,8 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
     if (nonDraft.rows.length > 0) {
       return res.status(400).json({ error: 'Cannot delete a proposal that has been published to the pipeline' });
     }
+    const delErr = rules.versionRemovalError({ role: await liveRole(req.user.id), hasProjects: await gridHasProjects(req.params.id) });
+    if (delErr) return refuse(res, delErr);
     await query('DELETE FROM cost_grids WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
   } catch (err) { next(err); }
@@ -389,7 +414,7 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const locked = await query('SELECT locked, pipeline AS old_pipeline FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
+    const locked = await query('SELECT locked, pipeline AS old_pipeline, currency AS old_currency FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
     if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
     const oldPipeline = locked.rows[0]?.old_pipeline;
 
@@ -410,10 +435,27 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
     if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
 
     params.push(req.params.vId);
-    const { rows } = await query(
-      `UPDATE cost_grid_versions SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING *`,
-      params
-    );
+    const updateSql = `UPDATE cost_grid_versions SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING *`;
+    let rows;
+    if (currency !== undefined) {
+      // The currency rule and the write run under the version lock, so a project cannot be linked in between.
+      const role = await liveRole(req.user.id);
+      const out = await withVersionLock(req.params.vId, async client => {
+        const stored = (await client.query('SELECT currency FROM cost_grid_versions WHERE id = $1', [req.params.vId])).rows[0];
+        const err = rules.versionCurrencyChangeError({
+          role,
+          currentCurrency: stored?.currency,
+          newCurrency: currency,
+          hasProjects: await versionHasProjects(req.params.vId, client.query.bind(client)),
+        });
+        if (err) return { err };
+        return { rows: (await client.query(updateSql, params)).rows };
+      });
+      if (out.err) return refuse(res, out.err);
+      rows = out.rows;
+    } else {
+      ({ rows } = await query(updateSql, params));
+    }
     if (!rows[0]) return res.status(404).json({ error: 'Version not found' });
 
     if (pipeline !== undefined && oldPipeline && pipeline !== oldPipeline) {
@@ -438,6 +480,8 @@ router.delete('/:id/versions/:vId', requireAuth, async (req, res, next) => {
     if (rows[0].pipeline !== 'Draft') {
       return res.status(400).json({ error: 'Only Draft versions can be deleted' });
     }
+    const delErr = rules.versionRemovalError({ role: await liveRole(req.user.id), hasProjects: await versionHasProjects(req.params.vId) });
+    if (delErr) return refuse(res, delErr);
 
     await query('DELETE FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
     res.json({ ok: true });
@@ -694,15 +738,26 @@ router.post('/:id/versions/:vId/linked-projects', requireAuth, async (req, res, 
       return res.status(403).json({ error: 'Access denied' });
     }
     const { projectId, taskIds, taskNames } = req.body;
-    const proj = await query('SELECT name FROM projects WHERE id = $1', [projectId]);
-    if (!proj.rows[0]) return res.status(404).json({ error: 'Project not found' });
-
-    await query(
-      `INSERT INTO cg_version_projects (cost_grid_version_id, project_id, project_name, task_ids, task_names_direct)
-       VALUES ($1, $2, $3, $4, $5) ON CONFLICT (cost_grid_version_id, project_id)
-       DO UPDATE SET task_ids = EXCLUDED.task_ids, task_names_direct = EXCLUDED.task_names_direct`,
-      [req.params.vId, projectId, proj.rows[0].name, JSON.stringify(taskIds || []), JSON.stringify(taskNames || [])]
-    );
+    const role = await liveRole(req.user.id);
+    // The currency check and the insert run under the version lock (see lib/version-lock.js).
+    const out = await withVersionLock(req.params.vId, async client => {
+      const proj = await client.query('SELECT name, currency FROM projects WHERE id = $1', [projectId]);
+      if (!proj.rows[0]) return { status: 404, error: 'Project not found' };
+      const ver = await client.query('SELECT currency FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
+      // versionScope already answers 404 for a version that is not in this grid; this only keeps the handler safe on its own.
+      if (!ver.rows[0]) return { status: 404, error: 'Version not found' };
+      const linkErr = rules.linkCurrencyError({ role, projectCurrency: proj.rows[0].currency, versionCurrency: ver.rows[0].currency });
+      if (linkErr) return { rule: linkErr };
+      await client.query(
+        `INSERT INTO cg_version_projects (cost_grid_version_id, project_id, project_name, task_ids, task_names_direct)
+         VALUES ($1, $2, $3, $4, $5) ON CONFLICT (cost_grid_version_id, project_id)
+         DO UPDATE SET task_ids = EXCLUDED.task_ids, task_names_direct = EXCLUDED.task_names_direct`,
+        [req.params.vId, projectId, proj.rows[0].name, JSON.stringify(taskIds || []), JSON.stringify(taskNames || [])]
+      );
+      return { ok: true };
+    });
+    if (out.rule) return refuse(res, out.rule);
+    if (out.status) return res.status(out.status).json({ error: out.error });
     res.status(201).json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -712,6 +767,8 @@ router.delete('/:id/versions/:vId/linked-projects/:projectId', requireAuth, asyn
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
+    const unlinkErr = rules.linkRemovalError({ role: await liveRole(req.user.id) });
+    if (unlinkErr) return refuse(res, unlinkErr);
     await query(
       'DELETE FROM cg_version_projects WHERE cost_grid_version_id = $1 AND project_id = $2',
       [req.params.vId, req.params.projectId]

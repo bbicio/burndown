@@ -39,4 +39,11 @@ function requireSysAdmin(req, res, next) {
   });
 }
 
-module.exports = { requireAuth, requireAdmin, requireSysAdmin };
+// The role of a user read from the database, not from the JWT claim. The project rules let only a
+// sysadmin through, so a sysadmin demoted after login loses the exception at once.
+async function liveRole(userId) {
+  const { rows } = await query('SELECT role FROM users WHERE id = $1', [userId]);
+  return rows[0] ? rows[0].role : null;
+}
+
+module.exports = { requireAuth, requireAdmin, requireSysAdmin, liveRole };

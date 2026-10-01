@@ -2,6 +2,8 @@
 'use strict';
 // Seeds the Planning parity dataset through the public API. DEV TOOL — isolated stacks only.
 //   SEED_URL=http://localhost:8081 SEED_EMAIL=... SEED_PASSWORD=... node seed-planning-golden.js [--remove]
+// SEED_EMAIL must be a SYSADMIN account: creating a project without a proposal and deleting a project are
+// restricted to sysadmins (project currency lock, 2026-10-01).
 // Everything is created with the GOLD- prefix and removed again by --remove.
 const url = process.env.SEED_URL, email = process.env.SEED_EMAIL, password = process.env.SEED_PASSWORD;
 if (!url || !email || !password) { console.error('Set SEED_URL, SEED_EMAIL, SEED_PASSWORD'); process.exit(2); }
