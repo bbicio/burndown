@@ -173,14 +173,14 @@
             <td><input type="text" class="form-control form-control-sm" v-model="res.role" :disabled="isViewer" placeholder="e.g. HWGDEV - DEVELOPER"></td>
             <td><input type="number" class="form-control form-control-sm text-end" min="0" step="0.5" v-model.number="res.soldHours" :disabled="isViewer"></td>
             <td><input type="number" class="form-control form-control-sm text-end" min="0" step="1" v-model.number="res.hourlyRate" :disabled="isViewer"></td>
-            <td class="text-end small fw-semibold align-middle">{{ res.soldHours > 0 && res.hourlyRate > 0 ? fmtMoney(res.soldHours * res.hourlyRate) : '—' }}</td>
+            <td class="text-end small fw-semibold align-middle">{{ res.soldHours > 0 && res.hourlyRate > 0 ? formatMoney(res.soldHours * res.hourlyRate, project.currency, currencies) : '—' }}</td>
             <td class="text-center"><button class="btn btn-sm btn-link text-danger p-0" v-if="!isViewer" @click="confirmRemoveResource(ti, ri)">✕</button></td>
           </tr>
         </tbody>
         <tfoot>
           <tr style="background:var(--surface-light)">
             <td colspan="3" class="text-end small fw-bold py-1">Task total</td>
-            <td class="text-end fw-bold py-1">{{ taskTotal(task) > 0 ? fmtMoney(taskTotal(task)) : '—' }}</td>
+            <td class="text-end fw-bold py-1">{{ taskTotal(task) > 0 ? formatMoney(taskTotal(task), project.currency, currencies) : '—' }}</td>
             <td></td>
           </tr>
         </tfoot>
@@ -191,7 +191,7 @@
 
   <div class="d-flex justify-content-end gap-4 px-2 py-2 mt-1 border-top fw-bold small" style="background:#f8f9fa;border-radius:0 0 6px 6px">
     <span>Total hours: {{ grandTotalHours > 0 ? grandTotalHours.toLocaleString('en-US') : '—' }}</span>
-    <span>Total budget: {{ grandTotalBudget > 0 ? fmtMoney(grandTotalBudget) : '—' }}</span>
+    <span>Total budget: {{ grandTotalBudget > 0 ? formatMoney(grandTotalBudget, project.currency, currencies) : '—' }}</span>
   </div>
 </div>
       <div class="cfg-section">
@@ -208,13 +208,13 @@
       <div class="cfg-month-cell" v-for="ym in projectMonths" :key="ym">
         <div class="cfg-month-label">{{ monthLabel(ym) }}</div>
         <input type="text" class="form-control form-control-sm text-end"
-               :readonly="isViewer" :value="project.phasing[ym] > 0 ? fmtMoney(project.phasing[ym]) : ''"
+               :readonly="isViewer" :value="project.phasing[ym] > 0 ? formatMoney(project.phasing[ym], project.currency, currencies) : ''"
                @focus="e => { e.target.value = moneyInput(project.phasing[ym]); }"
-               @blur="e => { const v = parseMoney(e.target.value); if (v > 0) project.phasing[ym] = v; else delete project.phasing[ym]; e.target.value = v > 0 ? fmtMoney(v) : ''; }">
+               @blur="e => { const v = parseMoney(e.target.value); if (v > 0) project.phasing[ym] = v; else delete project.phasing[ym]; e.target.value = v > 0 ? formatMoney(v, project.currency, currencies) : ''; }">
       </div>
     </div>
     <div class="d-flex align-items-center gap-2 mt-2" style="font-size:var(--text-base)">
-      <span class="text-muted">=</span><strong>{{ phasingSum > 0 ? fmtMoney(phasingSum) : '—' }}{{ grandTotalBudget > 0 ? ' / ' + fmtMoney(grandTotalBudget) : '' }}</strong>
+      <span class="text-muted">=</span><strong>{{ phasingSum > 0 ? formatMoney(phasingSum, project.currency, currencies) : '—' }}{{ grandTotalBudget > 0 ? ' / ' + formatMoney(grandTotalBudget, project.currency, currencies) : '' }}</strong>
     </div>
   </div>
   <p class="text-muted small mb-0" v-else>Set Start and End month first.</p>
@@ -252,9 +252,9 @@
       <div class="col-sm-4"><label class="form-label small text-muted mb-1">Note</label><input type="text" class="form-control form-control-sm" v-model="item.note" :disabled="isViewer" placeholder="optional description"></div>
       <div class="col-sm-2"><label class="form-label small text-muted mb-1">Amount</label>
         <input type="text" class="form-control form-control-sm text-end" :readonly="isViewer"
-               :value="item.amount > 0 ? fmtMoney(item.amount) : ''"
+               :value="item.amount > 0 ? formatMoney(item.amount, project.currency, currencies) : ''"
                @focus="e => { e.target.value = moneyInput(item.amount); }"
-               @blur="e => { item.amount = parseMoney(e.target.value); e.target.value = item.amount > 0 ? fmtMoney(item.amount) : ''; }">
+               @blur="e => { item.amount = parseMoney(e.target.value); e.target.value = item.amount > 0 ? formatMoney(item.amount, project.currency, currencies) : ''; }">
       </div>
       <div class="col-sm-2"><label class="form-label small text-muted mb-1">Month</label>
         <select class="form-select form-select-sm" v-model="item.month" :disabled="isViewer">
@@ -265,7 +265,7 @@
       <div class="col-sm-1 d-flex align-items-end"><button class="btn btn-sm btn-outline-danger w-100" v-if="!isViewer" @click="confirmRemovePtc(pi)">🗑</button></div>
     </div>
   </div>
-  <div class="d-flex justify-content-end px-2 py-2 mt-1 border-top fw-bold small" style="background:#fff3cd;border-radius:0 0 6px 6px">Total PTC: {{ totalPtc > 0 ? fmtMoney(totalPtc) : '—' }}</div>
+  <div class="d-flex justify-content-end px-2 py-2 mt-1 border-top fw-bold small" style="background:#fff3cd;border-radius:0 0 6px 6px">Total PTC: {{ totalPtc > 0 ? formatMoney(totalPtc, project.currency, currencies) : '—' }}</div>
 </div>
 <div class="cfg-section">
   <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>7. Functional Groups <span class="fw-normal text-muted">(optional)</span></span><button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addGroup">+ Add group</button></div>
@@ -362,8 +362,8 @@
               <tr v-for="(row, i) in actuals.exportRows" :key="i">
                 <td>{{ row.date }}</td><td>{{ row.owner }}</td><td>{{ row.role }}</td><td>{{ row.task }}</td>
                 <td class="text-end">{{ row.hours }}</td><td>{{ row.notes }}</td>
-                <td class="text-end">{{ fmtMoney(row.fee || 0, project.currency) }}</td>
-                <td class="text-end fw-semibold">{{ fmtMoney((row.fee || 0) * (row.hours || 0), project.currency) }}</td>
+                <td class="text-end">{{ formatMoney(row.fee || 0, project.currency, currencies) }}</td>
+                <td class="text-end fw-semibold">{{ formatMoney((row.fee || 0) * (row.hours || 0), project.currency, currencies) }}</td>
               </tr>
             </tbody>
           </table>
@@ -429,6 +429,7 @@
       return {
         ready: false,
         currencies: [],
+        formatMoney: window.formatMoney,
         notFound: false,
         project: null,
         isNewProject: false,
@@ -922,7 +923,6 @@
         }
       },
       // Money formatting/parsing: one implementation in js/lib/money.js, driven by the locale of the project currency.
-      fmtMoney(amount, cur) { return window.formatMoney(amount || 0, cur || this.project?.currency, window.__currencies); },
       moneyInput(amount) { return window.formatMoneyInput(amount, this.project?.currency, window.__currencies); },
       parseMoney(str) { return window.parseMoney(str, this.project?.currency, window.__currencies); },
       ymdToIt(ymd) {
@@ -1033,7 +1033,7 @@
         const months = this.projectMonths;
         if (!months.length) { this.phasingActionError = 'Set project dates first.'; return; }
         const result = deriveDistribution(tasks, months, this.project.startDate, this.project.endDate);
-        const fmtB = n => this.fmtMoney(n);
+        const fmtB = n => window.formatMoney(n || 0, this.project?.currency, window.__currencies);
         const message = `Phasing and planning will be computed from task date ranges, distributing each task's budget proportionally to the days of overlap with each month.\n\n`
           + `Total budget distributed: ${fmtB(result.totalBudget)} across ${months.length} months\n`
           + `Total hours distributed: ${result.totalHours.toLocaleString('en-US')} h`;
@@ -1060,7 +1060,7 @@
         const result = reforecastDistribution(tasks, months, actualsRows, currentYm);
         if (result.distError) { this.phasingActionError = 'Cannot reforecast:\n\n' + result.distError; return; }
 
-        const fmtB = n => this.fmtMoney(Math.abs(n));
+        const fmtB = n => window.formatMoney(Math.abs(n) || 0, this.project?.currency, window.__currencies);
         const fmtH = n => `${+(Math.round(Math.abs(n) + 'e1') + 'e-1')} h`;
         const pastCount = result.pastMonths.length, futureCount = result.futureMonths.length;
         const distTaskCount = tasks.filter(t => {
