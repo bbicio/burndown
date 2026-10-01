@@ -148,7 +148,9 @@ async function cgLoadStructureFromApi(cgId, versionId) {
 
 // Upsert a cost grid + one version to the API.
 // Used by cgAutoSave and version create/duplicate operations.
-async function _cgUpsertVersionToApi(cgId, versionId) {
+// opts.strict = true: a failed upsert throws instead of being logged and swallowed.
+async function _cgUpsertVersionToApi(cgId, versionId, opts) {
+  const strict = !!(opts && opts.strict);
   const cg = cgLoad(cgId);
   if (!cg) return;
   const ver = cg.versions.find(v => v.versionId === versionId);
@@ -159,7 +161,7 @@ async function _cgUpsertVersionToApi(cgId, versionId) {
     await Api.costGrids.update(cgId, { name: cg.name });
   } catch {
     try { await Api.costGrids.create({ id: cgId, name: cg.name }); }
-    catch (e) { console.warn('[sync] grid upsert failed:', e.message); return; }
+    catch (e) { console.warn('[sync] grid upsert failed:', e.message); if (strict) throw e; return; }
   }
 
   // Upsert the version metadata
@@ -182,7 +184,7 @@ async function _cgUpsertVersionToApi(cgId, versionId) {
     await Api.costGrids.versions.update(cgId, versionId, serverMeta);
   } catch {
     try { await Api.costGrids.versions.create(cgId, { id: versionId, ...serverMeta }); }
-    catch (e) { console.warn('[sync] version upsert failed:', e.message); return; }
+    catch (e) { console.warn('[sync] version upsert failed:', e.message); if (strict) throw e; return; }
   }
 
   // Save phase/task/role structure only if it was explicitly loaded this session.
@@ -195,6 +197,7 @@ async function _cgUpsertVersionToApi(cgId, versionId) {
       });
     } catch (e) {
       console.warn('[sync] structure save failed:', e.message);
+      if (strict) throw e;
     }
   }
 }

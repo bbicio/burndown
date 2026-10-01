@@ -93,6 +93,18 @@ describe('cgCreateNewVersion (full copy of the version)', () => {
     expect(opened).toHaveLength(0);
   });
 
+  it('flushes in strict mode and, if the flush fails, shows the error and does not copy stale server data', async () => {
+    const { fn, stubs } = build();
+    stubs.cgAutoSave.mockRejectedValueOnce(new Error('save down'));
+    await fn();
+    expect(stubs.cgAutoSave).toHaveBeenCalledWith(true);
+    expect(api.duplicate).not.toHaveBeenCalled();
+    const err = document.getElementById('cgNewVersionError');
+    expect(err.classList.contains('d-none')).toBe(false);
+    expect(err.textContent).toContain('save down');
+    expect(opened).toHaveLength(0);
+  });
+
   it('an empty label is refused before anything is called', async () => {
     document.getElementById('cgNewVersionLabel').value = '  ';
     const { fn, stubs } = build();

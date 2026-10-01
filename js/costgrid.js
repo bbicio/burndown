@@ -683,7 +683,8 @@ function renderCgPhasing() {
 
 // ── SAVE ──────────────────────────────────────────────────────────────────────
 
-function cgAutoSave() {
+// strict = true: the returned promise rejects when the save fails (default: log and resolve).
+function cgAutoSave(strict) {
   if (!_cgActiveCgId || !_cgActiveVersionId || !_cgDraft) return Promise.resolve();
   cgSyncHeaderFromForm();
   const cg = cgLoad(_cgActiveCgId);
@@ -692,8 +693,8 @@ function cgAutoSave() {
   if (idx >= 0) cg.versions[idx] = _cgDraft;
   cgSave(cg);
   if (typeof _cgUpsertVersionToApi !== 'undefined') {
-    return _cgUpsertVersionToApi(_cgActiveCgId, _cgActiveVersionId)
-      .catch(e => console.warn('[sync] cgAutoSave:', e.message));
+    return _cgUpsertVersionToApi(_cgActiveCgId, _cgActiveVersionId, strict ? { strict: true } : undefined)
+      .catch(e => { console.warn('[sync] cgAutoSave:', e.message); if (strict) throw e; });
   }
   return Promise.resolve();
 }
@@ -782,8 +783,14 @@ async function cgCreateNewVersion() {
   const src = _cgDraft;
 
   // The copy is made by the server from the saved state, so flush the editor's pending changes first.
+  // Strict: a failed flush aborts here instead of silently copying the last saved (older) state.
   clearTimeout(_cgAutoSaveTimer);
-  await cgAutoSave();
+  try {
+    await cgAutoSave(true);
+  } catch(e) {
+    if (errEl) { errEl.textContent = 'Could not save your latest changes, so no new version was created: ' + e.message; errEl.classList.remove('d-none'); }
+    return;
+  }
 
   // One atomic server-side copy (header, phases, tasks, roles/rates, tags): on failure nothing is
   // created, so there is no half-built version to clean up -- just show the error.
