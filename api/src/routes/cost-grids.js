@@ -2,6 +2,9 @@ const express = require('express');
 const { query, pool } = require('../db/client');
 const { requireAuth, liveRole } = require('../middleware/auth');
 const rules = require('../lib/project-rules');
+
+// A refusal by the project rules: 400 with a code, so a client can tell it from other errors.
+const refuse = (res, error) => res.status(400).json({ error, code: rules.RULE_CODE });
 const { sendShareNotification, sendOwnerReassignedEmail, APP_URL } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
 const { isAdminRole } = require('../lib/is-admin');
@@ -330,7 +333,7 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
       return res.status(400).json({ error: 'Cannot delete a proposal that has been published to the pipeline' });
     }
     const delErr = rules.versionRemovalError({ role: await liveRole(req.user.id), hasProjects: await gridHasProjects(req.params.id) });
-    if (delErr) return res.status(400).json({ error: delErr });
+    if (delErr) return refuse(res, delErr);
     await query('DELETE FROM cost_grids WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
   } catch (err) { next(err); }
@@ -421,7 +424,7 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
         newCurrency: currency,
         hasProjects: await versionHasProjects(req.params.vId),
       });
-      if (err) return res.status(400).json({ error: err });
+      if (err) return refuse(res, err);
     }
     const fields = [];
     const params = [];
@@ -468,7 +471,7 @@ router.delete('/:id/versions/:vId', requireAuth, async (req, res, next) => {
       return res.status(400).json({ error: 'Only Draft versions can be deleted' });
     }
     const delErr = rules.versionRemovalError({ role: await liveRole(req.user.id), hasProjects: await versionHasProjects(req.params.vId) });
-    if (delErr) return res.status(400).json({ error: delErr });
+    if (delErr) return refuse(res, delErr);
 
     await query('DELETE FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
     res.json({ ok: true });
@@ -725,8 +728,15 @@ router.post('/:id/versions/:vId/linked-projects', requireAuth, async (req, res, 
       return res.status(403).json({ error: 'Access denied' });
     }
     const { projectId, taskIds, taskNames } = req.body;
-    const proj = await query('SELECT name FROM projects WHERE id = $1', [projectId]);
+    const proj = await query('SELECT name, currency FROM projects WHERE id = $1', [projectId]);
     if (!proj.rows[0]) return res.status(404).json({ error: 'Project not found' });
+    const ver = await query('SELECT currency FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
+    const linkErr = rules.linkCurrencyError({
+      role: await liveRole(req.user.id),
+      projectCurrency: proj.rows[0].currency,
+      versionCurrency: ver.rows[0]?.currency,
+    });
+    if (linkErr) return refuse(res, linkErr);
 
     await query(
       `INSERT INTO cg_version_projects (cost_grid_version_id, project_id, project_name, task_ids, task_names_direct)
@@ -744,7 +754,7 @@ router.delete('/:id/versions/:vId/linked-projects/:projectId', requireAuth, asyn
       return res.status(403).json({ error: 'Access denied' });
     }
     const unlinkErr = rules.linkRemovalError({ role: await liveRole(req.user.id) });
-    if (unlinkErr) return res.status(400).json({ error: unlinkErr });
+    if (unlinkErr) return refuse(res, unlinkErr);
     await query(
       'DELETE FROM cg_version_projects WHERE cost_grid_version_id = $1 AND project_id = $2',
       [req.params.vId, req.params.projectId]

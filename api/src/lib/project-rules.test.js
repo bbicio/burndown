@@ -42,6 +42,20 @@ test('projectLinkChangeError: clearing or re-pointing is refused; linking, same 
   assert.equal(rules.projectLinkChangeError({ role: SYS, currentVersionId: V1, newVersionId: null }), null);
 });
 
+test('linkCurrencyError: a project and its version must share the currency (non-sysadmin)', () => {
+  const m = rules.MESSAGES.linkCurrency;
+  assert.equal(rules.linkCurrencyError({ role: ADMIN, projectCurrency: 'EUR', versionCurrency: 'USD' }), m);
+  assert.equal(rules.linkCurrencyError({ role: ADMIN, projectCurrency: 'USD', versionCurrency: 'USD' }), null);
+  assert.equal(rules.linkCurrencyError({ role: ADMIN, projectCurrency: undefined, versionCurrency: 'EUR' }), null);
+  assert.equal(rules.linkCurrencyError({ role: ADMIN, projectCurrency: '', versionCurrency: 'USD' }), m);
+  assert.equal(rules.linkCurrencyError({ role: SYS, projectCurrency: 'EUR', versionCurrency: 'USD' }), null);
+});
+
+test('rule messages are carried with the PROJECT_RULE code constant', () => {
+  assert.equal(rules.RULE_CODE, 'PROJECT_RULE');
+  assert.equal(rules.MESSAGES.versionNotFound, 'Proposal version not found');
+});
+
 test('versionCurrencyChangeError: only a version with projects is protected', () => {
   const m = rules.MESSAGES.versionCurrency;
   assert.equal(rules.versionCurrencyChangeError({ role: ADMIN, currentCurrency: 'EUR', newCurrency: 'USD', hasProjects: true }), m);

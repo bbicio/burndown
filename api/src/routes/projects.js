@@ -11,6 +11,9 @@ let _createNotification;
 
 const router = express.Router();
 
+// A refusal by the project rules: 400 with a code, so a client can tell it from other errors.
+const refuse = (res, error) => res.status(400).json({ error, code: rules.RULE_CODE });
+
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
 async function canAccess(userId, role, projectId) {
@@ -156,8 +159,15 @@ router.post('/', requireAuth, async (req, res, next) => {
     const safeClientId    = clientId    && uuidRe.test(clientId)    ? clientId    : null;
     const safeCgVersionId = cgVersionId && uuidRe.test(cgVersionId) ? cgVersionId : null;
 
-    const createErr = rules.projectCreateError({ role: await liveRole(req.user.id), versionId: safeCgVersionId });
-    if (createErr) return res.status(400).json({ error: createErr });
+    const role = await liveRole(req.user.id);
+    const createErr = rules.projectCreateError({ role, versionId: safeCgVersionId });
+    if (createErr) return refuse(res, createErr);
+    if (safeCgVersionId) {
+      const { rows: [ver] } = await query('SELECT currency FROM cost_grid_versions WHERE id = $1', [safeCgVersionId]);
+      if (!ver) return refuse(res, rules.MESSAGES.versionNotFound);
+      const linkErr = rules.linkCurrencyError({ role, projectCurrency: currency, versionCurrency: ver.currency });
+      if (linkErr) return refuse(res, linkErr);
+    }
 
     const { rows } = await query(
       `INSERT INTO projects (id, code, name, program_id, client_id, start_date, end_date, currency, pipeline, status, cg_version_id, owner_id, description)
@@ -201,11 +211,19 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
         const role = await liveRole(req.user.id);
         if (req.body.currency !== undefined) {
           const err = rules.projectCurrencyChangeError({ role, currentCurrency: stored.currency, newCurrency: req.body.currency });
-          if (err) return res.status(400).json({ error: err });
+          if (err) return refuse(res, err);
         }
         if (req.body.cgVersionId !== undefined) {
           const err = rules.projectLinkChangeError({ role, currentVersionId: stored.cg_version_id, newVersionId: req.body.cgVersionId });
-          if (err) return res.status(400).json({ error: err });
+          if (err) return refuse(res, err);
+          // A new link (not a re-send of the current one): the version must exist and share the currency.
+          const newVersionId = req.body.cgVersionId;
+          if (newVersionId && String(newVersionId).toLowerCase() !== String(stored.cg_version_id || '').toLowerCase()) {
+            const { rows: [ver] } = await query('SELECT currency FROM cost_grid_versions WHERE id = $1', [newVersionId]);
+            if (!ver) return refuse(res, rules.MESSAGES.versionNotFound);
+            const linkErr = rules.linkCurrencyError({ role, projectCurrency: stored.currency, versionCurrency: ver.currency });
+            if (linkErr) return refuse(res, linkErr);
+          }
         }
       }
     }
@@ -295,7 +313,7 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     const delErr = rules.projectRemovalError({ role: await liveRole(req.user.id) });
-    if (delErr) return res.status(400).json({ error: delErr });
+    if (delErr) return refuse(res, delErr);
     const timesheets = await query(
       'SELECT COUNT(*) FROM timesheets t JOIN projects p ON p.code = t.project_code WHERE p.id = $1',
       [req.params.id]

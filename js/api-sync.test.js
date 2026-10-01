@@ -7,11 +7,13 @@ const src = readFileSync('js/api-sync.js', 'utf8');
 let calls;
 let failing;
 let argsByPart = {};
+let refused = new Set();   // parts the server answers with a project-rule refusal (400, code PROJECT_RULE)
 
 function loadSync() {
   const fake = new Proxy({}, { get: (_, part) => (...args) => {
     calls.push(part);
     argsByPart[part] = args;
+    if (refused.has(part)) return Promise.reject(Object.assign(new Error(`${part} refused by a rule`), { data: { code: 'PROJECT_RULE' } }));
     if (failing.has(part)) return Promise.reject(new Error(`${part} down`));
     return Promise.resolve({});
   } });
@@ -24,8 +26,29 @@ function loadSync() {
 
 const base = { id: 'p1', name: 'P', currency: 'EUR', clientId: null };
 
+describe('a refusal by the project rules is final (not retried as a create)', () => {
+  beforeEach(() => { calls = []; failing = new Set(); argsByPart = {}; refused = new Set(); });
+
+  it('does not fall back to create after a PROJECT_RULE refusal and reports its message', async () => {
+    refused.add('update');
+    const { _pushProjectToApiDetailed } = loadSync();
+    const r = await _pushProjectToApiDetailed({ ...base, currency: 'USD', tasks: [] });
+    expect(r.ok).toBe(false);
+    expect(r.failed).toEqual([{ part: 'project', error: 'update refused by a rule' }]);
+    expect(calls).toEqual(['update']);
+  });
+
+  it('still falls back to create for any other failure of the update (a project that does not exist yet)', async () => {
+    failing.add('update');
+    const { _pushProjectToApiDetailed } = loadSync();
+    const r = await _pushProjectToApiDetailed({ ...base, tasks: [] });
+    expect(r.ok).toBe(true);
+    expect(calls.slice(0, 2)).toEqual(['update', 'create']);
+  });
+});
+
 describe('project currency is an ISO code in memory and on the wire', () => {
-  beforeEach(() => { calls = []; failing = new Set(); argsByPart = {}; });
+  beforeEach(() => { calls = []; failing = new Set(); argsByPart = {}; refused = new Set(); });
 
   it('keeps the code when loading a project from the API', () => {
     const { _apiProjectToLocal } = loadSync();

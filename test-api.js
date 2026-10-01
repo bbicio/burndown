@@ -2390,8 +2390,8 @@ async function testProjectCurrencyLock() {
 
   // PR-01 / PR-02: a project without a proposal
   const direct = await api('POST', '/api/projects', { name: '__test_pr_direct__' }, adminCookie);
-  ok(direct.status === 400 && direct.data?.error === 'Projects must be created from a proposal',
-    `PR-01 admin: project without a proposal → 400 (got ${direct.status})`);
+  ok(direct.status === 400 && direct.data?.error === 'Projects must be created from a proposal' && direct.data?.code === 'PROJECT_RULE',
+    `PR-01 admin: project without a proposal → 400 with the PROJECT_RULE code (got ${direct.status})`);
   const directSys = await api('POST', '/api/projects', { name: '__test_pr_direct_sys__' }, sysadminCookie);
   ok(directSys.status === 201, `PR-02 sysadmin: project without a proposal → 201 (got ${directSys.status})`);
   const dId = directSys.data?.id;
@@ -2443,6 +2443,45 @@ async function testProjectCurrencyLock() {
   // PR-07: linking a project that has no proposal is still allowed
   if (dId) ok((await api('PATCH', `/api/projects/${dId}`, { cgVersionId: v2Id }, adminCookie)).status === 200,
     'PR-07 admin: linking an unlinked project to a version → 200');
+
+  // PR-10..PR-13: a project and its version must share the currency at link time; an unknown version is refused
+  const v3Id = await mkVersion('v3');   // no projects: an admin may set its currency
+  ok((await vc(adminCookie, v3Id, 'USD')).status === 200, 'PR-10 setup: version v3 in USD');
+  const NOVER = '00000000-0000-0000-0000-000000000001';
+  const mism = await api('POST', '/api/projects', { name: '__test_pr_mismatch__', cgVersionId: v3Id, currency: 'EUR' }, adminCookie);
+  ok(mism.status === 400 && mism.data?.error === 'The project and the proposal must have the same currency' && mism.data?.code === 'PROJECT_RULE',
+    `PR-10 admin: POST a EUR project linked to a USD version → 400 (got ${mism.status})`);
+  if (mism.data?.id) later('DELETE', `/api/projects/${mism.data.id}`);
+  const match = await api('POST', '/api/projects', { name: '__test_pr_match__', cgVersionId: v3Id, currency: 'USD' }, adminCookie);
+  ok(match.status === 201, `PR-10 admin: POST a USD project linked to the USD version → 201 (got ${match.status})`);
+  const xId = match.data?.id;
+  if (xId) later('DELETE', `/api/projects/${xId}`);
+  const sysMism = await api('POST', '/api/projects', { name: '__test_pr_mismatch_sys__', cgVersionId: v3Id, currency: 'EUR' }, sysadminCookie);
+  ok(sysMism.status === 201, `PR-10 sysadmin: the same mismatch is allowed → 201 (got ${sysMism.status})`);
+  if (sysMism.data?.id) later('DELETE', `/api/projects/${sysMism.data.id}`);
+
+  const nov = await api('POST', '/api/projects', { name: '__test_pr_nover__', cgVersionId: NOVER, currency: 'EUR' }, adminCookie);
+  ok(nov.status === 400 && nov.data?.error === 'Proposal version not found', `PR-11 admin: POST with an unknown cgVersionId → 400 (got ${nov.status})`);
+  const novSys = await api('POST', '/api/projects', { name: '__test_pr_nover_sys__', cgVersionId: NOVER }, sysadminCookie);
+  ok(novSys.status === 400 && novSys.data?.error === 'Proposal version not found', `PR-11 sysadmin: an unknown version is refused too → 400 (got ${novSys.status})`);
+
+  const d2 = await api('POST', '/api/projects', { name: '__test_pr_direct2__' }, sysadminCookie);
+  const d2Id = d2.data?.id;
+  if (d2Id) later('DELETE', `/api/projects/${d2Id}`);
+  if (d2Id) {
+    const pm = await api('PATCH', `/api/projects/${d2Id}`, { cgVersionId: v3Id }, adminCookie);
+    ok(pm.status === 400 && pm.data?.error === 'The project and the proposal must have the same currency',
+      `PR-12 admin: PATCH linking a EUR project to a USD version → 400 (got ${pm.status})`);
+    const pn = await api('PATCH', `/api/projects/${d2Id}`, { cgVersionId: NOVER }, adminCookie);
+    ok(pn.status === 400 && pn.data?.error === 'Proposal version not found', `PR-12 admin: PATCH linking to an unknown version → 400 (got ${pn.status})`);
+    const lm = await api('POST', `${verPath(v3Id)}/linked-projects`, { projectId: d2Id, taskIds: [], taskNames: [] }, adminCookie);
+    ok(lm.status === 400 && lm.data?.error === 'The project and the proposal must have the same currency',
+      `PR-13 admin: POST linked-projects between a EUR project and a USD version → 400 (got ${lm.status})`);
+    ok((await api('PATCH', `/api/projects/${d2Id}`, { cgVersionId: v3Id }, sysadminCookie)).status === 200,
+      'PR-12 sysadmin: the same link is allowed → 200');
+  }
+  if (xId) ok((await api('POST', `${verPath(v3Id)}/linked-projects`, { projectId: xId, taskIds: [], taskNames: [] }, adminCookie)).status === 201,
+    'PR-13 admin: POST linked-projects between a USD project and the USD version → 201');
 
   // PR-08: removals are refused for an admin
   const del = await api('DELETE', `/api/projects/${pId}`, null, adminCookie);
