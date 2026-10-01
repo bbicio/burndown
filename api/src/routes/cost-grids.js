@@ -1,6 +1,7 @@
 const express = require('express');
 const { query, pool } = require('../db/client');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, liveRole } = require('../middleware/auth');
+const rules = require('../lib/project-rules');
 const { sendShareNotification, sendOwnerReassignedEmail, APP_URL } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
 const { isAdminRole } = require('../lib/is-admin');
@@ -85,6 +86,23 @@ async function canEdit(userId, role, cgId) {
     [userId, cgId]
   );
   return rows.length > 0;
+}
+
+// A version "has projects" when a cg_version_projects row or a project's cg_version_id points at it.
+async function versionHasProjects(versionId) {
+  const { rows } = await query(
+    `SELECT (EXISTS (SELECT 1 FROM cg_version_projects WHERE cost_grid_version_id = $1)
+          OR EXISTS (SELECT 1 FROM projects WHERE cg_version_id = $1)) AS has`, [versionId]);
+  return rows[0].has;
+}
+async function gridHasProjects(gridId) {
+  const { rows } = await query(
+    `SELECT EXISTS (
+       SELECT 1 FROM cost_grid_versions v
+       WHERE v.cost_grid_id = $1
+         AND (EXISTS (SELECT 1 FROM cg_version_projects cvp WHERE cvp.cost_grid_version_id = v.id)
+           OR EXISTS (SELECT 1 FROM projects p WHERE p.cg_version_id = v.id))) AS has`, [gridId]);
+  return rows[0].has;
 }
 
 // ── COST GRIDS ────────────────────────────────────────────────────────────────
@@ -311,6 +329,8 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
     if (nonDraft.rows.length > 0) {
       return res.status(400).json({ error: 'Cannot delete a proposal that has been published to the pipeline' });
     }
+    const delErr = rules.versionRemovalError({ role: await liveRole(req.user.id), hasProjects: await gridHasProjects(req.params.id) });
+    if (delErr) return res.status(400).json({ error: delErr });
     await query('DELETE FROM cost_grids WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
   } catch (err) { next(err); }
@@ -389,11 +409,20 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const locked = await query('SELECT locked, pipeline AS old_pipeline FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
+    const locked = await query('SELECT locked, pipeline AS old_pipeline, currency AS old_currency FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
     if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
     const oldPipeline = locked.rows[0]?.old_pipeline;
 
     const { label, pipeline, startDate, endDate, currency, currencyRate, note, ratecardId, clientId, projectName } = req.body;
+    if (currency !== undefined) {
+      const err = rules.versionCurrencyChangeError({
+        role: await liveRole(req.user.id),
+        currentCurrency: locked.rows[0]?.old_currency,
+        newCurrency: currency,
+        hasProjects: await versionHasProjects(req.params.vId),
+      });
+      if (err) return res.status(400).json({ error: err });
+    }
     const fields = [];
     const params = [];
     if (label !== undefined)       { params.push(label.trim());       fields.push(`label = $${params.length}`); }
@@ -438,6 +467,8 @@ router.delete('/:id/versions/:vId', requireAuth, async (req, res, next) => {
     if (rows[0].pipeline !== 'Draft') {
       return res.status(400).json({ error: 'Only Draft versions can be deleted' });
     }
+    const delErr = rules.versionRemovalError({ role: await liveRole(req.user.id), hasProjects: await versionHasProjects(req.params.vId) });
+    if (delErr) return res.status(400).json({ error: delErr });
 
     await query('DELETE FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
     res.json({ ok: true });
@@ -712,6 +743,8 @@ router.delete('/:id/versions/:vId/linked-projects/:projectId', requireAuth, asyn
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
+    const unlinkErr = rules.linkRemovalError({ role: await liveRole(req.user.id) });
+    if (unlinkErr) return res.status(400).json({ error: unlinkErr });
     await query(
       'DELETE FROM cg_version_projects WHERE cost_grid_version_id = $1 AND project_id = $2',
       [req.params.vId, req.params.projectId]

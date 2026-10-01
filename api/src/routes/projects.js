@@ -1,6 +1,7 @@
 const express = require('express');
 const { query, pool } = require('../db/client');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, liveRole } = require('../middleware/auth');
+const rules = require('../lib/project-rules');
 const { sendShareNotification, sendShareRevokedEmail } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
 const { isAdminRole } = require('../lib/is-admin');
@@ -155,6 +156,9 @@ router.post('/', requireAuth, async (req, res, next) => {
     const safeClientId    = clientId    && uuidRe.test(clientId)    ? clientId    : null;
     const safeCgVersionId = cgVersionId && uuidRe.test(cgVersionId) ? cgVersionId : null;
 
+    const createErr = rules.projectCreateError({ role: await liveRole(req.user.id), versionId: safeCgVersionId });
+    if (createErr) return res.status(400).json({ error: createErr });
+
     const { rows } = await query(
       `INSERT INTO projects (id, code, name, program_id, client_id, start_date, end_date, currency, pipeline, status, cg_version_id, owner_id, description)
        VALUES (COALESCE($1::uuid, uuid_generate_v4()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
@@ -189,6 +193,20 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       const v = req.body[key];
       if (v && (typeof v !== 'string' || !uuidRe.test(v))) {
         return res.status(400).json({ error: `${key} must be a valid UUID` });
+      }
+    }
+    if (req.body.currency !== undefined || req.body.cgVersionId !== undefined) {
+      const { rows: [stored] } = await query('SELECT currency, cg_version_id FROM projects WHERE id = $1', [req.params.id]);
+      if (stored) {
+        const role = await liveRole(req.user.id);
+        if (req.body.currency !== undefined) {
+          const err = rules.projectCurrencyChangeError({ role, currentCurrency: stored.currency, newCurrency: req.body.currency });
+          if (err) return res.status(400).json({ error: err });
+        }
+        if (req.body.cgVersionId !== undefined) {
+          const err = rules.projectLinkChangeError({ role, currentVersionId: stored.cg_version_id, newVersionId: req.body.cgVersionId });
+          if (err) return res.status(400).json({ error: err });
+        }
       }
     }
     const allowed = ['name', 'code', 'programId', 'clientId', 'startDate', 'endDate',
@@ -276,6 +294,8 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
+    const delErr = rules.projectRemovalError({ role: await liveRole(req.user.id) });
+    if (delErr) return res.status(400).json({ error: delErr });
     const timesheets = await query(
       'SELECT COUNT(*) FROM timesheets t JOIN projects p ON p.code = t.project_code WHERE p.id = $1',
       [req.params.id]
