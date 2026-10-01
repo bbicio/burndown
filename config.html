@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -313,18 +313,18 @@
                   </span>
                 </td>
                 <td class="text-end fw-semibold" style="font-size:.9rem">
-                  {{ yearTotals[py.year] ? fmtAmount(yearTotals[py.year].pot_total) : '—' }}
+                  {{ yearTotals[py.year] ? formatMoney(yearTotals[py.year].pot_total, 'EUR', activeCurrencies) : '—' }}
                 </td>
                 <td class="text-end" style="font-size:.9rem">
                   <template v-if="yearTotals[py.year] && yearTotals[py.year].pot_total > 0">
                     <div class="fw-semibold" style="color:#1a1a2e">
                       {{ Math.round(yearTotals[py.year].achieved_total / yearTotals[py.year].pot_total * 100) }}%
-                      <span class="text-muted fw-normal" style="font-size:.75rem">({{ fmtAmount(yearTotals[py.year].achieved_total) }})</span>
+                      <span class="text-muted fw-normal" style="font-size:.75rem">({{ formatMoney(yearTotals[py.year].achieved_total, 'EUR', activeCurrencies) }})</span>
                     </div>
                     <div style="font-size:.72rem;margin-top:2px">
-                      <span style="color:#198754">C: {{ fmtAmount(yearTotals[py.year].committed_total || 0) }}</span>
+                      <span style="color:#198754">C: {{ formatMoney(yearTotals[py.year].committed_total || 0, 'EUR', activeCurrencies) }}</span>
                       <span class="text-muted mx-1">·</span>
-                      <span style="color:#fd7e14">A: {{ fmtAmount(yearTotals[py.year].anticipated_total || 0) }}</span>
+                      <span style="color:#fd7e14">A: {{ formatMoney(yearTotals[py.year].anticipated_total || 0, 'EUR', activeCurrencies) }}</span>
                     </div>
                   </template>
                   <span v-else class="text-muted">—</span>
@@ -378,12 +378,12 @@
           <div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:10px;padding:.6rem 1.2rem;display:inline-flex;align-items:center;gap:1.5rem">
             <div>
               <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280">Total POT Target</div>
-              <div style="font-size:1.1rem;font-weight:700;color:#1a1a2e">{{ fmtAmount(pots.reduce((s,p) => s + Number(p.amount), 0)) }}</div>
+              <div style="font-size:1.1rem;font-weight:700;color:#1a1a2e">{{ formatMoney(pots.reduce((s,p) => s + Number(p.amount), 0), 'EUR', activeCurrencies) }}</div>
             </div>
             <div v-if="pots.reduce((s,p) => s + Number(p.amount), 0) > 0">
               <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#2e7d32">Committed + Anticipated</div>
               <div style="font-size:1.1rem;font-weight:700;color:#2e7d32">
-                {{ fmtAmount(pipelineSummary.filter(s => ['Committed','Anticipated'].includes(s.pipeline)).reduce((s,r) => s + r.total, 0)) }}
+                {{ formatMoney(pipelineSummary.filter(s => ['Committed','Anticipated'].includes(s.pipeline)).reduce((s,r) => s + r.total, 0), 'EUR', activeCurrencies) }}
                 <span style="font-size:.8rem;font-weight:400;color:#6b7280;margin-left:.4rem">
                   ({{ Math.round(pipelineSummary.filter(s => ['Committed','Anticipated'].includes(s.pipeline)).reduce((s,r) => s + r.total, 0) / pots.reduce((s,p) => s + Number(p.amount), 0) * 100) }}% of target)
                 </span>
@@ -400,7 +400,7 @@
             <div class="card-body" style="padding:1rem!important">
               <div class="fw-bold mb-1" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em"
                    :style="`color:${stageColor(s.pipeline)}`">{{ s.pipeline }}</div>
-              <div class="fw-bold" style="font-size:1.15rem;color:#1a1a2e;line-height:1.2">{{ fmtAmount(s.total) }}</div>
+              <div class="fw-bold" style="font-size:1.15rem;color:#1a1a2e;line-height:1.2">{{ formatMoney(s.total, 'EUR', activeCurrencies) }}</div>
               <div class="text-muted" style="font-size:.75rem;margin-top:2px">({{ s.count }})</div>
             </div>
           </div>
@@ -501,10 +501,10 @@
                     {{ pot.special_label ? 'General' : pot.client_group_id ? 'Group' : 'Client' }}
                   </span>
                 </td>
-                <td class="text-end fw-semibold">{{ fmtAmount(pot.amount) }}</td>
-                <td class="text-end fw-semibold">{{ fmtAmount(+pot.achieved_total || 0) }}</td>
-                <td class="text-end" style="color:#198754;font-weight:600">{{ fmtAmount(+pot.committed_total || 0) }}</td>
-                <td class="text-end" style="color:#fd7e14;font-weight:600">{{ fmtAmount(+pot.anticipated_total || 0) }}</td>
+                <td class="text-end fw-semibold">{{ formatMoney(pot.amount, 'EUR', activeCurrencies) }}</td>
+                <td class="text-end fw-semibold">{{ formatMoney(+pot.achieved_total || 0, 'EUR', activeCurrencies) }}</td>
+                <td class="text-end" style="color:#198754;font-weight:600">{{ formatMoney(+pot.committed_total || 0, 'EUR', activeCurrencies) }}</td>
+                <td class="text-end" style="color:#fd7e14;font-weight:600">{{ formatMoney(+pot.anticipated_total || 0, 'EUR', activeCurrencies) }}</td>
                 <td class="text-end" style="white-space:nowrap">
                   <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
                           @click="openPotDetails(pot)">🔍 View Details</button>
@@ -552,7 +552,7 @@
             <div class="card-body" style="padding:1rem!important">
               <div class="fw-bold mb-1" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em"
                    :style="`color:${stageColor(s.pipeline)}`">{{ s.pipeline }}</div>
-              <div class="fw-bold" style="font-size:1.15rem;color:#1a1a2e;line-height:1.2">{{ fmtAmount(s.total) }}</div>
+              <div class="fw-bold" style="font-size:1.15rem;color:#1a1a2e;line-height:1.2">{{ formatMoney(s.total, 'EUR', activeCurrencies) }}</div>
               <div class="text-muted" style="font-size:.75rem;margin-top:2px">({{ s.count }})</div>
             </div>
           </div>
@@ -997,9 +997,9 @@
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 </script>
-<script defer src="js/core.js?v=8"></script>
+<script defer src="js/core.js?v=9"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
-<script type="module" src="js/lib/money.js?v=1"></script>
+<script type="module" src="js/lib/money.js?v=2"></script>
 <script defer src="js/notifications.js?v=2"></script>
 <script defer src="js/nav.js?v=11"></script>
 
@@ -1053,6 +1053,8 @@ window.__cfgApp = Vue.createApp({
 
       // Currency state
       currencies:    [],
+      activeCurrencies: [],
+      formatMoney: window.formatMoney,
       crf: { show: false, code: '', rate: '1', error: null, loading: false },
       crEdit: {},
       crHistory: { show: false, code: '', name: '', rows: [], loading: false },
@@ -1095,11 +1097,6 @@ window.__cfgApp = Vue.createApp({
         const [y, m] = mo.split('-');
         return new Date(parseInt(y), parseInt(m) - 1).toLocaleString('en', { month: 'short' });
       };
-      const fmtAmtC = (n, cur) => {
-        if (!n) return '—';
-        return window.formatMoney(n, (cur || 'EUR').trim(), window.__currencies);
-      };
-      const fmtAmt  = (n) => fmtAmtC(n, 'EUR');
       const fmtH    = (n) => n ? Math.round(n * 10) / 10 + ' h' : '—';
       const fmtDate = (s) => s && s.length >= 6 ? s.slice(0, 4) + '/' + s.slice(4, 6) : '—';
       const escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -1133,14 +1130,14 @@ window.__cfgApp = Vue.createApp({
       const colTot = col + ';background:#f1f3f5;font-weight:700';
       const totalCols = d.months.map(mo => {
         const t = filteredTotals[mo] || {};
-        return `<td style="${col};font-weight:700">${t.amount ? fmtAmt(t.amount) : '<span style="color:#ccc">—</span>'}</td>`;
+        return `<td style="${col};font-weight:700">${t.amount ? window.formatMoney(t.amount, 'EUR', window.__currencies) : '<span style="color:#ccc">—</span>'}</td>`;
       }).join('');
       const grandTotalEur = Object.values(filteredTotals).reduce((s, t) => s + (t.amount || 0), 0);
       const totalRow = `<tr style="background:#f8f9fa;border-top:2px solid #dee2e6">
         <td style="${lbl};font-weight:700;min-width:220px">TOTAL <span style="font-size:.7rem;font-weight:400;color:#6b7280">(€)</span></td>
         <td style="${lbl}"></td><td style="${lbl}"></td><td style="${lbl}"></td>
         ${totalCols}
-        <td style="${colTot}">${fmtAmt(grandTotalEur)}</td></tr>`;
+        <td style="${colTot}">${(!(grandTotalEur) ? '—' : window.formatMoney(grandTotalEur, 'EUR', window.__currencies))}</td></tr>`;
       if (!projects.length) return '<p style="padding:1rem;color:#6b7280;font-size:.85rem">No proposals match the current filters.</p>';
       const projectRows = projects.map(p => {
         const rate       = p.currencyRate || 1.0;
@@ -1148,13 +1145,13 @@ window.__cfgApp = Vue.createApp({
         const rowTotal   = d.months.reduce((s, mo) => s + (p.months[mo]?.amount || 0), 0);
         const rowTotalEur = rowTotal / rate;
         const totalCell  = isNonEur
-          ? `${fmtAmtC(rowTotal, p.currency)}<br><span style="font-size:.7rem;color:#6b7280">(${fmtAmt(rowTotalEur)})</span>`
-          : (rowTotal ? fmtAmt(rowTotal) : '<span style="color:#ccc">—</span>');
+          ? `${(!(rowTotal) ? '—' : window.formatMoney(rowTotal, (p.currency || 'EUR').trim(), window.__currencies))}<br><span style="font-size:.7rem;color:#6b7280">(${(!(rowTotalEur) ? '—' : window.formatMoney(rowTotalEur, 'EUR', window.__currencies))})</span>`
+          : (rowTotal ? window.formatMoney(rowTotal, 'EUR', window.__currencies) : '<span style="color:#ccc">—</span>');
         const moCols = d.months.map(mo => {
           const val = p.months[mo] || {};
           if (!val.amount) return `<td style="${col}"><span style="color:#ccc">—</span></td>`;
-          const localStr = fmtAmtC(val.amount, p.currency);
-          const eurStr   = isNonEur ? `<br><span style="font-size:.7rem;color:#6b7280">(${fmtAmt(val.amount / rate)})</span>` : '';
+          const localStr = (!(val.amount) ? '—' : window.formatMoney(val.amount, (p.currency || 'EUR').trim(), window.__currencies));
+          const eurStr   = isNonEur ? `<br><span style="font-size:.7rem;color:#6b7280">(${(!(val.amount / rate) ? '—' : window.formatMoney(val.amount / rate, 'EUR', window.__currencies))})</span>` : '';
           return `<td style="${col}">${localStr}${eurStr}</td>`;
         }).join('');
         return `<tr style="border-top:1px solid #e5e7eb">
@@ -1183,11 +1180,6 @@ window.__cfgApp = Vue.createApp({
         const [y, m] = mo.split('-');
         return new Date(parseInt(y), parseInt(m) - 1).toLocaleString('en', { month: 'short', year: '2-digit' });
       };
-      const fmtAmtC = (n, cur) => {
-        if (n == null || n === 0) return '—';
-        return window.formatMoney(n, (cur || 'EUR').trim(), window.__currencies);
-      };
-      const fmtAmt  = (n) => fmtAmtC(n, 'EUR');
       const escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       const cell = 'text-align:right;padding:5px 8px;font-size:.78rem;white-space:nowrap;min-width:80px;border-left:1px solid #e5e7eb';
       const lbl  = 'padding:5px 10px;font-size:.78rem;white-space:nowrap';
@@ -1211,13 +1203,13 @@ window.__cfgApp = Vue.createApp({
         `<th style="${cell};font-weight:700;border-bottom:2px solid #dee2e6;background:#f1f3f5">${fmtM(mo)}</th>`
       ).join('');
       const totalCols = d.months.map(mo =>
-        `<td style="${cell};font-weight:700">${fmtAmt(ft[mo])}</td>`
+        `<td style="${cell};font-weight:700">${(((ft[mo]) == null || (ft[mo]) === 0) ? '—' : window.formatMoney(ft[mo], 'EUR', window.__currencies))}</td>`
       ).join('');
       const totalRow = `<tr style="background:#f8f9fa;border-top:2px solid #dee2e6">
         <td style="${lbl};font-weight:700;min-width:220px">TOTAL <span style="font-size:.7rem;font-weight:400;color:#6b7280">(€)</span></td>
         <td style="${lbl}"></td>
         ${totalCols}
-        <td style="${cellTotal}">${fmtAmt(grandTotal)}</td></tr>`;
+        <td style="${cellTotal}">${(((grandTotal) == null || (grandTotal) === 0) ? '—' : window.formatMoney(grandTotal, 'EUR', window.__currencies))}</td></tr>`;
 
       if (!projects.length) return '<p style="padding:1rem;color:#6b7280;font-size:.85rem">No projects match the current filters.</p>';
       const projectRows = projects.map(p => {
@@ -1226,13 +1218,13 @@ window.__cfgApp = Vue.createApp({
         const rowTotal = d.months.reduce((s, mo) => s + (p.months[mo] || 0), 0);
         const rowTotalEur = rowTotal / rate;
         const totalCellContent = isNonEur
-          ? `${fmtAmtC(rowTotal, p.currency)}<br><span style="font-size:.7rem;color:#6b7280">(${fmtAmt(rowTotalEur)})</span>`
-          : fmtAmtC(rowTotal, p.currency);
+          ? `${(((rowTotal) == null || (rowTotal) === 0) ? '—' : window.formatMoney(rowTotal, (p.currency || 'EUR').trim(), window.__currencies))}<br><span style="font-size:.7rem;color:#6b7280">(${(((rowTotalEur) == null || (rowTotalEur) === 0) ? '—' : window.formatMoney(rowTotalEur, 'EUR', window.__currencies))})</span>`
+          : (((rowTotal) == null || (rowTotal) === 0) ? '—' : window.formatMoney(rowTotal, (p.currency || 'EUR').trim(), window.__currencies));
         const moCols = d.months.map(mo => {
           const v = p.months[mo] || 0;
           if (!v) return `<td style="${cell}"><span style="color:#ccc">—</span></td>`;
-          const localStr = fmtAmtC(v, p.currency);
-          const eurStr   = isNonEur ? `<br><span style="font-size:.7rem;color:#6b7280">(${fmtAmt(v / rate)})</span>` : '';
+          const localStr = (((v) == null || (v) === 0) ? '—' : window.formatMoney(v, (p.currency || 'EUR').trim(), window.__currencies));
+          const eurStr   = isNonEur ? `<br><span style="font-size:.7rem;color:#6b7280">(${(((v / rate) == null || (v / rate) === 0) ? '—' : window.formatMoney(v / rate, 'EUR', window.__currencies))})</span>` : '';
           return `<td style="${cell}">${localStr}${eurStr}</td>`;
         }).join('');
         return `<tr style="border-top:1px solid #e5e7eb">
@@ -1261,6 +1253,7 @@ window.__cfgApp = Vue.createApp({
     if (!user) return;
     if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
     try { window.__currencies = await Api.currencies.active(); } catch {}
+    this.activeCurrencies = window.__currencies || [];
     await this.loadAll();
     this.ready = true;
   },
@@ -1843,9 +1836,9 @@ window.__cfgApp = Vue.createApp({
               <tr>
                 <td style="white-space:nowrap">${this.fmtDate(h.changed_at)}</td>
                 <td>${esc(h.changed_by_name || '—')}</td>
-                <td class="text-muted">${h.old_value != null ? this.fmtAmount(h.old_value) : '—'}</td>
+                <td class="text-muted">${h.old_value != null ? window.formatMoney(h.old_value, 'EUR', window.__currencies) : '—'}</td>
                 <td class="text-muted px-1" style="font-size:1rem">→</td>
-                <td class="fw-semibold">${this.fmtAmount(h.new_value)}</td>
+                <td class="fw-semibold">${window.formatMoney(h.new_value, 'EUR', window.__currencies)}</td>
                 <td class="text-muted" style="max-width:220px">${esc(h.note || '—')}</td>
               </tr>`).join('')
           : '<tr><td colspan="6" class="text-muted">No history yet.</td></tr>';
@@ -1857,7 +1850,7 @@ window.__cfgApp = Vue.createApp({
                 <td style="white-space:nowrap">${this.fmtDate(p.created_at)}</td>
                 <td>${esc(p.owner_name || '—')}</td>
                 <td><span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:600;background:${this.stageBg(p.pipeline)};color:${this.stageColor(p.pipeline)}">${esc(p.pipeline)}</span></td>
-                <td class="text-end fw-semibold">${this.fmtAmount(p.value)}</td>
+                <td class="text-end fw-semibold">${window.formatMoney(p.value, 'EUR', window.__currencies)}</td>
                 <td class="text-end" style="white-space:nowrap"><a href="/costgrid.html?cgId=${encodeURIComponent(p.cg_id)}&verId=${encodeURIComponent(p.version_id)}" target="_blank" style="font-size:.75rem">↗ Open</a></td>
               </tr>`).join('')
           : '<tr><td colspan="7" class="text-muted">No proposals for this target in this year.</td></tr>';
@@ -1873,7 +1866,7 @@ window.__cfgApp = Vue.createApp({
               <div class="card mb-0" style="border-top:3px solid #6b7280;border-radius:10px">
                 <div class="card-body" style="padding:.9rem">
                   <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;font-weight:700;margin-bottom:4px">Target</div>
-                  <div style="font-size:1.3rem;font-weight:700;color:#1a1a2e">${this.fmtAmount(d.pot.amount)}</div>
+                  <div style="font-size:1.3rem;font-weight:700;color:#1a1a2e">${window.formatMoney(d.pot.amount, 'EUR', window.__currencies)}</div>
                 </div>
               </div>
             </div>
@@ -1881,7 +1874,7 @@ window.__cfgApp = Vue.createApp({
               <div class="card mb-0" style="border-top:3px solid #1a1a2e;border-radius:10px">
                 <div class="card-body" style="padding:.9rem">
                   <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:#1a1a2e;font-weight:700;margin-bottom:4px">Total (C+A)</div>
-                  <div style="font-size:1.3rem;font-weight:700;color:#1a1a2e">${this.fmtAmount(achievedTotal)}</div>
+                  <div style="font-size:1.3rem;font-weight:700;color:#1a1a2e">${window.formatMoney(achievedTotal, 'EUR', window.__currencies)}</div>
                   ${pctTot ? `<div style="font-size:.78rem;color:#6b7280">${pctTot}% of target</div>` : ''}
                 </div>
               </div>
@@ -1890,7 +1883,7 @@ window.__cfgApp = Vue.createApp({
               <div class="card mb-0" style="border-top:3px solid #198754;border-radius:10px">
                 <div class="card-body" style="padding:.9rem">
                   <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:#198754;font-weight:700;margin-bottom:4px">Committed</div>
-                  <div style="font-size:1.3rem;font-weight:700;color:#198754">${this.fmtAmount(d.committed_total)}</div>
+                  <div style="font-size:1.3rem;font-weight:700;color:#198754">${window.formatMoney(d.committed_total, 'EUR', window.__currencies)}</div>
                   ${pctC ? `<div style="font-size:.78rem;color:#6b7280">${pctC}% of target</div>` : ''}
                 </div>
               </div>
@@ -1899,7 +1892,7 @@ window.__cfgApp = Vue.createApp({
               <div class="card mb-0" style="border-top:3px solid #fd7e14;border-radius:10px">
                 <div class="card-body" style="padding:.9rem">
                   <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:#fd7e14;font-weight:700;margin-bottom:4px">Anticipated</div>
-                  <div style="font-size:1.3rem;font-weight:700;color:#fd7e14">${this.fmtAmount(anticipatedTotal)}</div>
+                  <div style="font-size:1.3rem;font-weight:700;color:#fd7e14">${window.formatMoney(anticipatedTotal, 'EUR', window.__currencies)}</div>
                   ${pctA ? `<div style="font-size:.78rem;color:#6b7280">+${pctA}% potential</div>` : ''}
                 </div>
               </div>
@@ -1942,9 +1935,6 @@ window.__cfgApp = Vue.createApp({
 
     fmtRate(n) {
       return Number(n).toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    },
-    fmtAmount(n) {
-      return window.formatMoney(n, 'EUR', window.__currencies);
     },
     fmtDate(iso) {
       if (!iso) return '—';

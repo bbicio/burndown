@@ -1,7 +1,7 @@
 // js/lib/money.js
 // The single implementation of currency formatting and parsing. Loaded as a native ES module
 // (<script type="module" src="js/lib/money.js?v=N">) and bridged onto `window` so the classic-script
-// wrappers (fmtMoney, cgFmtCurrency, …) and the Vue pages can call it. Pure: the currency list
+// scripts and the Vue pages can call it. Pure: the currency list
 // (window.__currencies shape, { code, symbol, locale, … }[]) is always passed in.
 
 const FALLBACK_LOCALE = 'it-IT';

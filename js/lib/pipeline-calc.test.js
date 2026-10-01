@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  pbGetVersionBudget, pbComputeColumnTotals, pbFmtMoney, pbFmtDate, pbFmtTaskDate, pbComputePotPercentages,
+  pbGetVersionBudget, pbComputeColumnTotals, pbFmtDate, pbFmtTaskDate, pbComputePotPercentages,
   pbPriceBucketKey, pbCardMatchesFilters,
 } from './pipeline-calc.js';
 
@@ -68,27 +68,6 @@ describe('pbComputeColumnTotals', () => {
     expect(result.byCurrency).toEqual({});
     expect(result.totalEur).toBe(0);
     expect(result.totalEurPtc).toBe(0);
-  });
-});
-
-describe('pbFmtMoney', () => {
-  it('formats using the matching currency entry (symbol + locale)', () => {
-    const currencies = [{ code: 'USD', symbol: '$', locale: 'en-US' }];
-    expect(pbFmtMoney(1234.5, 'USD', currencies)).toBe('$ 1,234.50');
-  });
-
-  it('falls back to a EUR-like default when no currency entry matches', () => {
-    expect(pbFmtMoney(10, 'EUR', [])).toBe('€ 10,00');
-  });
-
-  it('returns "<symbol> 0,00" for a non-finite amount', () => {
-    expect(pbFmtMoney(NaN, 'EUR', [])).toBe('€ 0,00');
-    expect(pbFmtMoney(undefined, 'EUR', [])).toBe('€ 0,00');
-  });
-
-  it('uses the raw code as the symbol when no currency entry matches a non-EUR code', () => {
-    expect(pbFmtMoney(5, 'XYZ', [])).toBe('XYZ 0,00'.length > 0 ? pbFmtMoney(5, 'XYZ', []) : ''); // sanity call
-    expect(pbFmtMoney(5, 'XYZ', [])).toMatch(/^XYZ /);
   });
 });
 

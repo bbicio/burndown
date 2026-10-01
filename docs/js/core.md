@@ -1,6 +1,6 @@
 # js/core.js
 
-State, in-memory helpers (`loadConfig`/`persistConfig` are no-ops), shared badges, `esc()`, `fmtH()`, `fmtMoney()`.
+State, in-memory helpers (`loadConfig`/`persistConfig` are no-ops), shared badges, `esc()`, `fmtH()`.
 
 This file holds the full implementation narrative for `js/core.js` — function-by-function detail, cycle-by-cycle fixes, first-attempt bugs. `CLAUDE.md`'s File structure entry keeps only a one-line pointer; when working on this file, read this file, not that line, for the detail. See `/sync-docs`'s routing rule for where future changes to this file should be written.
 
@@ -26,6 +26,6 @@ This file holds the full implementation narrative for `js/core.js` — function-
 
 Removed from `js/core.js`: `SETTINGS_KEY`/`appSettings`, `AI_MODELS`, `loadSettings()`/`persistSettings()`, `hasAiKey()`, `updateAiButtonVisibility()`/`updateAiProviderBadge()` and the unused `refreshTimesheetData()`. `cleanLegacyStorage()`'s `keep` set is now just `PDash_summary` and `PDash_browserNotifDisabled`, so a browser that still holds `PDash_settings` (the old personal API keys) has it wiped on its first page load, on every page. The only LLM calls left go through the server (`docs/api/planning-assistant.md`, `docs/api/topics.md`). `?v=` of `js/core.js` was bumped on every page that loads it.
 
-## fmtMoney (2026-10-01, money centralization cycle)
+## Money formatting (2026-10, money wrapper cleanup)
 
-`fmtMoney(n, currencyCode)` is now a thin wrapper: `null`/`undefined` still gives an em dash, otherwise it calls `window.formatMoney(n, currencyCode || currentCfg?.currency || 'EUR', window.__currencies)` from `js/lib/money.js` (see `docs/js/lib.md`). The page-specific default (`currentCfg`, a plain global set when a dashboard opens and empty in a list view) is the one thing the wrapper still owns; a caller that shows a project's amounts in a list must pass the project's currency explicitly (`portfolio.html`'s list cards did not, and showed every project in EUR format until 2026-10-01). `?v=8`.
+`js/core.js` no longer defines `fmtMoney` or the `currentCfg` global (removed in the wrapper cleanup, after being a one-line wrapper since the 2026-10-01 centralization cycle). Every call site calls `formatMoney(amount, code, currencies)` from `js/lib/money.js` directly (see `docs/js/lib.md`), passing the amount's own currency explicitly; there is no implicit page-level default currency. `js/core.js` is `?v=9`.

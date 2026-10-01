@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -222,15 +222,15 @@
           </div>
           <div class="col-6">
             <div class="text-muted" style="font-size:var(--text-xs)">Professional fees</div>
-            <div class="fw-semibold">{{ detailBudget.fee > 0 ? pbFmtMoney(detailBudget.fee, selectedVersion.currency || 'EUR', currencies) : '—' }}</div>
+            <div class="fw-semibold">{{ detailBudget.fee > 0 ? formatMoney(detailBudget.fee, selectedVersion.currency || 'EUR', currencies) : '—' }}</div>
           </div>
           <div class="col-6">
             <div class="text-muted" style="font-size:var(--text-xs)">PTC</div>
-            <div class="fw-semibold">{{ detailBudget.ptc > 0 ? pbFmtMoney(detailBudget.ptc, selectedVersion.currency || 'EUR', currencies) : '—' }}</div>
+            <div class="fw-semibold">{{ detailBudget.ptc > 0 ? formatMoney(detailBudget.ptc, selectedVersion.currency || 'EUR', currencies) : '—' }}</div>
           </div>
           <div class="col-12">
             <div class="text-muted" style="font-size:var(--text-xs)">Total budget</div>
-            <div class="fw-bold" style="font-size:var(--text-xl)">{{ (detailBudget.fee + detailBudget.ptc) > 0 ? pbFmtMoney(detailBudget.fee + detailBudget.ptc, selectedVersion.currency || 'EUR', currencies) : '—' }}</div>
+            <div class="fw-bold" style="font-size:var(--text-xl)">{{ (detailBudget.fee + detailBudget.ptc) > 0 ? formatMoney(detailBudget.fee + detailBudget.ptc, selectedVersion.currency || 'EUR', currencies) : '—' }}</div>
           </div>
         </div>
         <div v-if="selectedVersion.note" class="mb-3 p-2 rounded" style="background:var(--surface-light);font-size:var(--text-sm);white-space:pre-wrap">{{ selectedVersion.note }}</div>
@@ -287,13 +287,13 @@
         <div v-for="ph in (selectedVersion.phases || [])" :key="ph.phaseId" class="mb-4">
           <div class="d-flex align-items-center justify-content-between mb-2 pb-1" style="border-bottom:2px solid var(--indigo-200)">
             <span class="fw-bold" style="font-size:var(--text-md);color:var(--indigo-600)">{{ ph.phaseName || ph.phaseId }}</span>
-            <span v-if="phaseTotal(ph) > 0" style="font-size:var(--text-sm);font-weight:600">{{ pbFmtMoney(phaseTotal(ph), selectedVersion.currency || 'EUR', currencies) }}</span>
+            <span v-if="phaseTotal(ph) > 0" style="font-size:var(--text-sm);font-weight:600">{{ formatMoney(phaseTotal(ph), selectedVersion.currency || 'EUR', currencies) }}</span>
           </div>
           <div v-for="task in (ph.tasks || [])" :key="task.taskId" class="d-flex align-items-baseline gap-3 py-2 border-bottom" style="font-size:var(--text-base)">
             <span class="flex-grow-1">{{ task.taskName || task.taskId }}</span>
             <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">{{ taskDateRange(task) }}</span>
             <span style="white-space:nowrap;min-width:44px;text-align:right;font-size:var(--text-xs);color:var(--text-muted)">{{ taskTotals(task).totalHrs > 0 ? taskTotals(task).totalHrs + 'h' : '—' }}</span>
-            <span class="fw-semibold" style="white-space:nowrap;min-width:80px;text-align:right">{{ taskTotals(task).totalCostAndFee > 0 ? pbFmtMoney(taskTotals(task).totalCostAndFee, selectedVersion.currency || 'EUR', currencies) : '—' }}</span>
+            <span class="fw-semibold" style="white-space:nowrap;min-width:80px;text-align:right">{{ taskTotals(task).totalCostAndFee > 0 ? formatMoney(taskTotals(task).totalCostAndFee, selectedVersion.currency || 'EUR', currencies) : '—' }}</span>
           </div>
         </div>
       </div>
@@ -411,15 +411,15 @@
 <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script defer src="js/api.js?v=8"></script>
-<script defer src="js/core.js?v=8"></script>
+<script defer src="js/core.js?v=9"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
-<script type="module" src="js/lib/money.js?v=1"></script>
+<script type="module" src="js/lib/money.js?v=2"></script>
 <script defer src="js/notifications.js?v=2"></script>
 <script defer src="js/roles.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=5"></script>
-<script type="module" src="js/lib/pipeline-calc.js?v=3"></script>
-<script defer src="js/costgrid.js?v=37"></script>
+<script type="module" src="js/lib/pipeline-calc.js?v=4"></script>
+<script defer src="js/costgrid.js?v=38"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/api-sync.js?v=22"></script>
@@ -482,6 +482,7 @@ Vue.createApp({
       selectedVerId: null,
       detailLoading: false,
       currencies: [],
+      formatMoney: window.formatMoney,
       potState: null,
       clientGroups: [],
       filterSearch: '',
@@ -578,14 +579,14 @@ Vue.createApp({
         const currencyLines = Object.entries(byCurrency)
           .sort(([a], [b]) => a === 'EUR' ? -1 : b === 'EUR' ? 1 : a.localeCompare(b))
           .map(([cur, { fee, ptc, rate }]) => {
-            const localStr = `<span class="fw-bold">${pbFmtMoney(fee, cur, window.__currencies)}</span>`;
-            const eurEquiv = cur !== 'EUR' ? ` <span style="color:#888;font-size:var(--text-2xs)">(≈ ${pbFmtMoney(fee / rate, 'EUR', window.__currencies)})</span>` : '';
-            const ptcStr = ptc > 0 ? `<div class="text-muted" style="font-size:var(--text-2xs)">${pbFmtMoney(ptc, cur, window.__currencies)} PTC</div>` : '';
+            const localStr = `<span class="fw-bold">${window.formatMoney(fee, cur, window.__currencies)}</span>`;
+            const eurEquiv = cur !== 'EUR' ? ` <span style="color:#888;font-size:var(--text-2xs)">(≈ ${window.formatMoney(fee / rate, 'EUR', window.__currencies)})</span>` : '';
+            const ptcStr = ptc > 0 ? `<div class="text-muted" style="font-size:var(--text-2xs)">${window.formatMoney(ptc, cur, window.__currencies)} PTC</div>` : '';
             return `<div class="text-end">${localStr}${eurEquiv}${ptcStr}</div>`;
           });
         if (multiCurrency) {
-          const totPtcStr = totalEurPtc > 0 ? `<div class="text-muted" style="font-size:var(--text-2xs)">+ ${pbFmtMoney(totalEurPtc, 'EUR', window.__currencies)} PTC</div>` : '';
-          currencyLines.push(`<div class="text-end fw-bold" style="border-top:1px solid #ddd;margin-top:3px;padding-top:3px">TOT ${pbFmtMoney(totalEur, 'EUR', window.__currencies)}${totPtcStr}</div>`);
+          const totPtcStr = totalEurPtc > 0 ? `<div class="text-muted" style="font-size:var(--text-2xs)">+ ${window.formatMoney(totalEurPtc, 'EUR', window.__currencies)} PTC</div>` : '';
+          currencyLines.push(`<div class="text-end fw-bold" style="border-top:1px solid #ddd;margin-top:3px;padding-top:3px">TOT ${window.formatMoney(totalEur, 'EUR', window.__currencies)}${totPtcStr}</div>`);
         }
         return { stage, st, cards, totalsHtml: currencyLines.join('') || '<span class="text-muted" style="font-size:var(--text-xs)">—</span>' };
       });
@@ -694,12 +695,12 @@ Vue.createApp({
       const cur = card.v.currency || 'EUR';
       const currencyRate = grand.currencyRate || card.v.currencyRate || 1.0;
       const eurEquivStr = cur !== 'EUR' && grand.fee > 0
-        ? `<div style="font-size:var(--text-2xs);color:#888;margin-top:1px">≈ ${pbFmtMoney(grand.fee / currencyRate, 'EUR', window.__currencies)}</div>` : '';
+        ? `<div style="font-size:var(--text-2xs);color:#888;margin-top:1px">≈ ${window.formatMoney(grand.fee / currencyRate, 'EUR', window.__currencies)}</div>` : '';
       const feeStr = grand.fee > 0
-        ? `<div class="fw-bold" style="font-size:var(--text-base)">${pbFmtMoney(grand.fee, cur, window.__currencies)}</div>`
+        ? `<div class="fw-bold" style="font-size:var(--text-base)">${window.formatMoney(grand.fee, cur, window.__currencies)}</div>`
         : '<div class="text-muted" style="font-size:var(--text-sm)">No budget</div>';
       const ptcStr = grand.ptc > 0
-        ? `<div style="font-size:var(--text-2xs);color:var(--text-muted);margin-top:1px">+ ${pbFmtMoney(grand.ptc, cur, window.__currencies)} PTC</div>` : '';
+        ? `<div style="font-size:var(--text-2xs);color:var(--text-muted);margin-top:1px">+ ${window.formatMoney(grand.ptc, cur, window.__currencies)} PTC</div>` : '';
       return feeStr + eurEquivStr + ptcStr;
     },
     selectYear(year) {
@@ -808,10 +809,6 @@ Vue.createApp({
     },
     statusBadgeLarge,
     getProjectPipeline,
-    // pbFmtMoney is called bare in this task's template interpolations (e.g. {{ pbFmtMoney(...) }})
-    // — per Global Constraint 5, it must be a real methods: entry (not just relied on as a global),
-    // since Vue's runtime-compiled template scope never falls through to window for it.
-    pbFmtMoney(n, code) { return window.pbFmtMoney(n, code, this.currencies); },
     pbGoToPortfolio(projectId) {
       window.location.href = '/portfolio.html?projectId=' + encodeURIComponent(projectId);
     },

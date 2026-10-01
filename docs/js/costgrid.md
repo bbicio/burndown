@@ -44,4 +44,4 @@ Non-EUR role rate 3-level fallback (ratecard override → `role.rateOverrides[cu
 
 ## Money formatting (2026-10-01, money centralization cycle)
 
-`cgFmtCurrency(amount, code)` is a one-line wrapper around `window.formatMoney` (`docs/js/lib.md`); the rounded phasing amounts (`fmtA` in the phasing export helper) use `formatMoney(..., { rounded: true })`; a new draft version defaults to `currency: 'EUR'` (was the symbol `'€'`). `?v=35`.
+`cgFmtCurrency` was removed (money wrapper cleanup): call sites call `window.formatMoney(amount, code, window.__currencies)` directly (`docs/js/lib.md`); the rounded phasing amounts (`fmtA` in the phasing export helper) use `formatMoney(..., { rounded: true })`; a new draft version defaults to `currency: 'EUR'` (was the symbol `'€'`). `?v=38`.
