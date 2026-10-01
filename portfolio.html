@@ -31,11 +31,12 @@
         <span class="text-muted small">Budget Spent vs Estimated by month — all configured projects</span>
       </div>
       <div class="page-toolbar-right">
-        <button class="btn btn-primary btn-sm" onclick="window.location.href='/project-config.html'">＋ New project</button>
+        <span :title="directCreationEnabled ? '' : directCreationMessage"><button class="btn btn-primary btn-sm" :disabled="!directCreationEnabled" @click="goNewProject">＋ New project</button></span>
       </div>
     </div>
 
-    <div v-if="!projects.length" class="alert alert-info">No projects configured. Click <strong>＋ New project</strong> to add one.</div>
+    <div v-if="notice" class="alert alert-info">{{ notice }}</div>
+    <div v-if="!projects.length" class="alert alert-info">{{ directCreationEnabled ? 'No projects configured. Click ＋ New project to add one.' : 'No projects configured. Projects are created from a proposal (Generate project).' }}</div>
 
     <template v-else>
       <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
@@ -489,6 +490,7 @@
 <script defer src="js/core.js?v=8"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script type="module" src="js/lib/money.js?v=1"></script>
+<script type="module" src="js/lib/project-rules.js?v=1"></script>
 <script defer src="js/notifications.js?v=2"></script>
 <script defer src="js/upload.js"></script>
 <script defer src="js/clients.js"></script>
@@ -526,6 +528,9 @@
         filterStart: '',
         filterEnd: '',
         taskDetailState: {}, // { [taskName]: { expanded: bool, groupMode: 'flat'|'role'|'owner' } }
+        notice: '',
+        directCreationEnabled: window.DIRECT_PROJECT_CREATION_ENABLED,
+        directCreationMessage: window.PROJECT_RULE_MESSAGES.directCreation,
         refreshTick: 0, // bumped after mutating non-reactive globals (config.projects/timesheetData/portfolioSummaryProjects) that Vue can't see; forces computed re-evaluation
       };
     },
@@ -898,6 +903,10 @@
       ]});
       if (!user) return;
 
+      if (new URLSearchParams(window.location.search).get('notice') === 'direct-creation-disabled') {
+        this.notice = window.PROJECT_RULE_MESSAGES.directCreation;
+        window.history.replaceState(null, '', window.location.pathname);
+      }
       await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadCurrenciesFromApi()]);
       await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
       this.refreshTick++; // mount() runs before this async data load resolves, so `projects` (and everything chained off it) must be nudged once data is actually in
@@ -1014,6 +1023,7 @@
         return new Date(parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))-1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
       },
       varColor(v) { return v > 0 ? 'var(--color-success)' : v < 0 ? 'var(--color-danger)' : 'var(--text-muted)'; },
+      goNewProject() { if (this.directCreationEnabled) window.location.href = '/project-config.html'; },
       fmtVar(v, cur) { return `${v >= 0 ? '+' : ''}${fmtMoney(v, cur)}`; },
       fmtProjectTitle(cfg) {
         const client = getClientName(cfg.clientId);

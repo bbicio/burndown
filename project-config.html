@@ -77,7 +77,7 @@
           <div class="col-md-8"><label class="form-label small mb-1">Project Name</label><input type="text" class="form-control form-control-sm" v-model="project.name" :disabled="isViewer" placeholder="e.g. Bayer AG - BERMITS 2026" @input="onNameInput"></div>
           <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Start month</label><input type="month" class="form-control form-control-sm" v-model="startMonthInput" :disabled="isViewer" @change="onDateChange"></div>
           <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">End month</label><input type="month" class="form-control form-control-sm" v-model="endMonthInput" :disabled="isViewer" @change="onDateChange"></div>
-          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Currency</label><select class="form-select form-select-sm" v-model="project.currency" :disabled="isViewer"><option v-for="cu in currencyOptions" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.name }}</option></select></div>
+          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Currency</label><select class="form-select form-select-sm" v-model="project.currency" disabled><option v-for="cu in currencyOptions" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.name }}</option></select><div class="form-text" style="font-size:.72rem">{{ currencyHint }}</div></div>
         </div>
         <div class="row g-3 mt-1">
           <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Pipeline</label><select class="form-select form-select-sm" v-model="project.pipeline" :disabled="isViewer || pipelineLocked" :title="pipelineLocked ? 'Pipeline is managed from the Cost Grid' : ''" @change="onPipelineChange"><option value="">— Select —</option><option value="SIP">SIP</option><option value="Expected">Expected</option><option value="Anticipated">Anticipated</option><option value="Committed">Committed</option><option value="Canceled">Canceled</option></select></div>
@@ -396,6 +396,7 @@
 <script defer src="js/core.js?v=8"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script type="module" src="js/lib/money.js?v=1"></script>
+<script type="module" src="js/lib/project-rules.js?v=1"></script>
 <script defer src="js/notifications.js?v=2"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
@@ -450,6 +451,7 @@
       isViewer() {
         return this.project?.my_permission === 'viewer';
       },
+      currencyHint() { return window.PROJECT_RULE_MESSAGES.projectConfigCurrency; },
       currencyOptions() {
         const list = (this.currencies || []).slice();
         const cur = this.project?.currency;
@@ -540,6 +542,10 @@
         const params = new URLSearchParams(window.location.search);
         const projectId = params.get('projectId');
         if (!projectId) {
+          if (!window.DIRECT_PROJECT_CREATION_ENABLED) {
+            window.location.replace('/portfolio.html?notice=direct-creation-disabled');
+            return;
+          }
           this.project = BLANK_PROJECT();
           this.isNewProject = true;
           this.updateBreadcrumb('New Project');
