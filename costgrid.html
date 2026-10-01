@@ -1462,7 +1462,7 @@ Vue.createApp({
       document.getElementById(`${modalId}Confirm`).onclick = () => {
         bsModal.hide();
         cgSyncRoleRatesToBaseline(true); // mutates _cgDraft.roles[].rate in place — this.draft IS _cgDraft
-        this.draft.currencyRate = parseFloat(newEntry?.current_rate) || 1.0;
+        this.draft.currencyRate = parseFloat((this.currencies || []).find(c => c.code === newCurrency)?.current_rate) || 1.0;
         this.prevCurrency = newCurrency;
         this.$forceUpdate();
         cgAutoSave();
