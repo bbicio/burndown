@@ -494,47 +494,59 @@ router.post('/:id/versions/:vId/duplicate', requireAuth, async (req, res, next) 
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
+    const label = typeof req.body?.label === 'string' ? req.body.label.trim() : '';
+    if (!label) return res.status(400).json({ error: 'label is required' });
     const src = await query('SELECT * FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
     if (!src.rows[0]) return res.status(404).json({ error: 'Version not found' });
     const s = src.rows[0];
 
-    // Clone version
-    const newV = await query(
-      `INSERT INTO cost_grid_versions (cost_grid_id, label, pipeline, start_date, end_date, currency, note, ratecard_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-      [s.cost_grid_id, s.label + ' (copy)', s.pipeline, s.start_date, s.end_date, s.currency, s.note, s.ratecard_id]
-    );
-    const newVId = newV.rows[0].id;
-
-    // Clone phases → tasks → task_roles
-    const phases = await query('SELECT * FROM phases WHERE version_id = $1 ORDER BY sort_order', [req.params.vId]);
-    for (const ph of phases.rows) {
-      const newPh = await query(
-        'INSERT INTO phases (version_id, title, sort_order) VALUES ($1, $2, $3) RETURNING id',
-        [newVId, ph.title, ph.sort_order]
+    // One transaction: any failure rolls everything back, so no half-copied version is ever left behind.
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Full copy of the header, always a Draft: no pipeline year, unlocked, no links to generated projects.
+      const newV = await client.query(
+        `INSERT INTO cost_grid_versions
+           (cost_grid_id, label, pipeline, start_date, end_date, currency, currency_rate, note, ratecard_id, client_id, project_name)
+         VALUES ($1, $2, 'Draft', $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+        [s.cost_grid_id, label, s.start_date, s.end_date, s.currency, s.currency_rate, s.note, s.ratecard_id, s.client_id, s.project_name]
       );
-      const tasks = await query('SELECT * FROM tasks WHERE phase_id = $1 ORDER BY sort_order', [ph.id]);
-      for (const tk of tasks.rows) {
-        const newTk = await query(
-          'INSERT INTO tasks (phase_id, title, description, start_date, end_date, ptc, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
-          [newPh.rows[0].id, tk.title, tk.description || '', tk.start_date || '', tk.end_date || '', tk.ptc, tk.sort_order]
+      const newVId = newV.rows[0].id;
+
+      // Phases → tasks → task_roles (fresh ids everywhere)
+      const phases = await client.query('SELECT * FROM phases WHERE version_id = $1 ORDER BY sort_order', [req.params.vId]);
+      for (const ph of phases.rows) {
+        const newPh = await client.query(
+          'INSERT INTO phases (version_id, title, sort_order) VALUES ($1, $2, $3) RETURNING id',
+          [newVId, ph.title, ph.sort_order]
         );
-        await query(
-          `INSERT INTO task_roles (task_id, role_id, days, rate_override, months)
-           SELECT $1, role_id, days, rate_override, months FROM task_roles WHERE task_id = $2`,
-          [newTk.rows[0].id, tk.id]
-        );
+        const tasks = await client.query('SELECT * FROM tasks WHERE phase_id = $1 ORDER BY sort_order', [ph.id]);
+        for (const tk of tasks.rows) {
+          const newTk = await client.query(
+            'INSERT INTO tasks (phase_id, title, description, start_date, end_date, ptc, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+            [newPh.rows[0].id, tk.title, tk.description || '', tk.start_date || '', tk.end_date || '', tk.ptc, tk.sort_order]
+          );
+          await client.query(
+            `INSERT INTO task_roles (task_id, role_id, days, rate_override, months)
+             SELECT $1, role_id, days, rate_override, months FROM task_roles WHERE task_id = $2`,
+            [newTk.rows[0].id, tk.id]
+          );
+        }
       }
+
+      await client.query(
+        `INSERT INTO cost_grid_version_tags (version_id, item_id)
+         SELECT $1, item_id FROM cost_grid_version_tags WHERE version_id = $2`,
+        [newVId, req.params.vId]
+      );
+      await client.query('COMMIT');
+      res.status(201).json({ id: newVId });
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
     }
-
-    // Clone tags
-    await query(
-      `INSERT INTO cost_grid_version_tags (version_id, item_id)
-       SELECT $1, item_id FROM cost_grid_version_tags WHERE version_id = $2`,
-      [newVId, req.params.vId]
-    );
-
-    res.status(201).json({ id: newVId });
   } catch (err) { next(err); }
 });
 

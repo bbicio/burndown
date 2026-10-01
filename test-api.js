@@ -992,7 +992,7 @@ async function testTagLinking() {
   // TAG-10: duplicating a version copies its tags
   if (cgId && vId && itemId) {
     await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags`, { itemIds: [itemId] }, adminCookie);
-    const rDup = await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/duplicate`, null, adminCookie);
+    const rDup = await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/duplicate`, { label: 'tag copy' }, adminCookie);
     const newVId = rDup.data?.id;
     if (newVId) {
       const rDupTags = await api('GET', `/api/cost-grids/${cgId}/versions/${newVId}/tags`, null, adminCookie);
@@ -2526,6 +2526,97 @@ async function testProjectCurrencyLock() {
   ok(rounds > 0 && violations === 0, `PR-14 a currency change and a link fired together never diverge (${rounds} rounds, ${violations} violations)`);
 }
 
+// ── "New version" is a full copy of the source version (2026-10-01) ─────────────
+
+async function testVersionDuplicate() {
+  section('Version duplicate (full copy)');
+
+  const rpy = await api('POST', '/api/pipeline-years', { year: TEST_YEAR_C }, adminCookie);
+  if (![201, 409].includes(rpy.status)) { ok(false, 'ND-setup pipeline year unavailable'); return; }
+  if (rpy.status === 201 && rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
+
+  const role = await makeTestRole('ND');
+  const g = await api('POST', '/api/cost-grids', { name: '__test_nd__', pipelineYear: TEST_YEAR_C }, adminCookie);
+  const cgId = g.data?.id;
+  if (cgId) later('DELETE', `/api/cost-grids/${cgId}`);
+  const v = cgId ? await api('POST', `/api/cost-grids/${cgId}/versions`,
+    { label: 'v1', currency: 'EUR', note: 'source note', projectName: 'Source project', startDate: '202601', endDate: '202612' }, adminCookie) : null;
+  const srcId = v?.data?.id;
+  if (!(cgId && srcId && role.id)) { ok(false, 'ND-setup grid, version and role'); return; }
+
+  // Source content: 1 phase, 2 tasks, one with a custom rate override
+  const put = await api('PUT', `/api/cost-grids/${cgId}/versions/${srcId}/structure`, {
+    phases: [{ title: 'Phase A', tasks: [
+      { title: 'Task 1', description: 'first', start_date: '2026-02-01', end_date: '2026-03-15', ptc: 123.5,
+        roles: [{ roleId: role.id, days: 10.5, rateOverride: 77 }] },
+      { title: 'Task 2', ptc: 0, roles: [{ roleId: role.id, days: 4 }] },
+    ] }],
+  }, adminCookie);
+  ok(put.status === 200, 'ND-setup source structure saved');
+
+  const list = await api('GET', '/api/attribute-lists', null, adminCookie);
+  const marketList = (list.data || []).find(l => l.slug === 'market') || (list.data || [])[0];
+  let itemId = null;
+  if (marketList) {
+    const ri = await api('POST', `/api/attribute-lists/${marketList.id}/items`, { label: `__test_nd_item_${Date.now()}__` }, adminCookie);
+    itemId = ri.data?.id;
+  }
+  if (itemId) await api('PUT', `/api/cost-grids/${cgId}/versions/${srcId}/tags`, { itemIds: [itemId] }, adminCookie);
+
+  // Give the source a frozen rate snapshot different from the live one
+  await api('PATCH', `/api/cost-grids/${cgId}/versions/${srcId}`, { currencyRate: 1.2345 }, adminCookie);
+
+  const srcStructBefore = (await api('GET', `/api/cost-grids/${cgId}/versions/${srcId}/structure`, null, adminCookie)).data;
+
+  // ND-01: label is required
+  const r0 = await api('POST', `/api/cost-grids/${cgId}/versions/${srcId}/duplicate`, null, adminCookie);
+  ok(r0.status === 400, `ND-01 duplicate without a label → 400 (got ${r0.status})`);
+  const r0b = await api('POST', `/api/cost-grids/${cgId}/versions/${srcId}/duplicate`, { label: '   ' }, adminCookie);
+  ok(r0b.status === 400, `ND-01 duplicate with a blank label → 400 (got ${r0b.status})`);
+  const countAfter400 = (await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data?.length;
+  ok(countAfter400 === 1, 'ND-01 a refused duplicate left no version behind');
+
+  // ND-02: full copy
+  const r = await api('POST', `/api/cost-grids/${cgId}/versions/${srcId}/duplicate`, { label: ' v2 ' }, adminCookie);
+  ok(r.status === 201 && !!r.data?.id && r.data.id !== srcId, 'ND-02 duplicate with a label → 201 and a new id');
+  const newId = r.data?.id;
+  if (!newId) return;
+
+  const versions = (await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || [];
+  const nv = versions.find(x => x.id === newId);
+  ok(nv && nv.label === 'v2', 'ND-02 new version has the trimmed label');
+  ok(nv && nv.pipeline === 'Draft' && !nv.pipeline_year && nv.locked === false, 'ND-03 new version is a Draft, no pipeline year, unlocked');
+  ok(nv && nv.project_name === 'Source project' && nv.note === 'source note' && nv.currency === 'EUR'
+     && nv.start_date === '202601' && nv.end_date === '202612', 'ND-04 header info copied (project name, note, currency, dates)');
+  const budgets = (await api('GET', '/api/cost-grids/budgets', null, adminCookie)).data || {};
+  ok(budgets[newId] && Math.abs(budgets[newId].currencyRate - 1.2345) < 1e-6, 'ND-05 the exchange-rate snapshot of the source is inherited');
+
+  const st = (await api('GET', `/api/cost-grids/${cgId}/versions/${newId}/structure`, null, adminCookie)).data;
+  const ph = st?.phases?.[0];
+  ok(st?.phases?.length === 1 && ph.title === 'Phase A' && ph.tasks.length === 2, 'ND-06 phases and tasks copied');
+  const t1 = ph?.tasks?.[0];
+  ok(t1 && t1.title === 'Task 1' && t1.description === 'first' && t1.start_date === '2026-02-01'
+     && t1.end_date === '2026-03-15' && t1.ptc === 123.5, 'ND-07 task title, description, dates and PTC copied');
+  const r1 = t1?.roles?.[0];
+  ok(r1 && r1.role_id === role.id && parseFloat(r1.days) === 10.5 && parseFloat(r1.rate_override) === 77, 'ND-08 role hours and custom rate copied');
+  const r2 = ph?.tasks?.[1]?.roles?.[0];
+  ok(r2 && parseFloat(r2.days) === 4, 'ND-08 second task role hours copied');
+  const newTaskIds = ph.tasks.map(t => t.id);
+  const srcTaskIds = srcStructBefore.phases[0].tasks.map(t => t.id);
+  ok(newTaskIds.every(id => !srcTaskIds.includes(id)), 'ND-09 the copy has fresh task ids');
+
+  if (itemId) {
+    const tg = (await api('GET', `/api/cost-grids/${cgId}/versions/${newId}/tags`, null, adminCookie)).data || [];
+    ok(tg.some(t => t.item_id === itemId), 'ND-10 tags copied');
+  }
+
+  // ND-11: source untouched
+  const srcStructAfter = (await api('GET', `/api/cost-grids/${cgId}/versions/${srcId}/structure`, null, adminCookie)).data;
+  ok(JSON.stringify(srcStructAfter) === JSON.stringify(srcStructBefore), 'ND-11 the source structure is unchanged');
+  const srcAfter = versions.find(x => x.id === srcId);
+  ok(srcAfter && srcAfter.label === 'v1', 'ND-11 the source label is unchanged');
+}
+
 async function main() {
   process.stdout.write(`\n${bold('PDash API Integration Tests')} — ${BASE}\n`);
   process.stdout.write(`Admin: ${EMAIL}\n`);
@@ -2557,6 +2648,7 @@ async function main() {
     await testProfileJobsConsole();
     await testTagLinking();
     await testVersionScope();
+    await testVersionDuplicate();
     await testProjectPatchValidation();
     await testProjectCurrencyLock();
     await testTimesheetsNoActuals();
