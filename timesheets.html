@@ -185,8 +185,8 @@
                   <td>{{ row.task }}</td>
                   <td class="text-end fw-semibold">{{ row.hours }}</td>
                   <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" :title="row.notes">{{ row.notes }}</td>
-                  <td class="text-end">{{ fmtMoney(row.fee || 0, modal.currency) }}</td>
-                  <td class="text-end fw-semibold">{{ fmtMoney((row.fee || 0) * (row.hours || 0), modal.currency) }}</td>
+                  <td class="text-end">{{ formatMoney(row.fee || 0, modal.currency || 'EUR', currencies) }}</td>
+                  <td class="text-end fw-semibold">{{ formatMoney((row.fee || 0) * (row.hours || 0), modal.currency || 'EUR', currencies) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -223,6 +223,8 @@
     data() {
       return {
         ready: false,
+        formatMoney: window.formatMoney,
+        currencies: [],
         rows:  [],
         error: null,
         modal: { show: false, loading: false, code: '', rows: [], currency: null },
@@ -281,6 +283,7 @@
       window.__currencies = currenciesResult.status === 'fulfilled'
         ? currenciesResult.value
         : [{ code: 'EUR', symbol: '€', locale: 'it-IT' }];
+      this.currencies = window.__currencies;
 
       const currentYear = new Date().getFullYear();
       const hasCurrentYear = this.pipelineYears.some(py => py.year === currentYear);
@@ -292,7 +295,6 @@
     },
 
     methods: {
-      fmtMoney,
       // One GET /api/profile-jobs for the badge; any failure is ignored (the badge just stays hidden).
       async loadProfileQueueCount() {
         try {
