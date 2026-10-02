@@ -173,6 +173,16 @@
   --z-modal:        500;
   --z-notification: 700;
   --z-tooltip:      800;
+
+  /* ── Navigation (cycle B2, 2026-10) ── */
+  --brand-magenta-tint:       #fdf0f5;
+  --brand-magenta-tint-hover: #f9e8f0;
+  --icon-size-sm: 14px;
+  --icon-size-md: 16px;
+  --nav-text-muted:      rgba(255,255,255,.65);
+  --nav-item-hover-bg:   rgba(255,255,255,.07);
+  --nav-item-active-bg:  rgba(255,255,255,.12);
+  --nav-sep:             rgba(255,255,255,.12);
 }
 
 [v-cloak] {

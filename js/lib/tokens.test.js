@@ -42,6 +42,9 @@ color-danger-hover color-danger-active focus-ring font-family-base weight-regula
 weight-bold leading-tight leading-base leading-relaxed z-tooltip status-not-started-bg status-started-bg
 status-at-risk-bg status-on-hold-bg status-completed-bg status-text chart-actual chart-committed chart-phasing`.split(/\s+/);
 
+const NAV = `brand-magenta-tint brand-magenta-tint-hover icon-size-sm icon-size-md nav-text-muted
+nav-item-hover-bg nav-item-active-bg nav-sep`.split(/\s+/);
+
 describe('tokens.css', () => {
   it('keeps every previously defined token', () => {
     expect(PREVIOUS.filter(n => !(n in tokens))).toEqual([]);
@@ -89,5 +92,22 @@ describe('tokens.css', () => {
       ['danger-active', '#ffffff', value('color-danger-active')],
     ];
     expect(pairs.filter(([, a, b]) => ratio(a, b) < 4.5).map(p => p[0])).toEqual([]);
+  });
+
+  it('defines the navigation tokens (cycle B2)', () => {
+    expect(NAV.filter(n => !(n in tokens))).toEqual([]);
+    expect(tokens['brand-magenta-tint']).toBe('#fdf0f5');
+    expect(tokens['icon-size-sm']).toBe('14px');
+    expect(tokens['icon-size-md']).toBe('16px');
+  });
+
+  it('navigation text meets AA on navy; the unread bell red meets 3:1 on white (non-text)', () => {
+    // nav-text-muted is rgba(255,255,255,.65) over navy: blend it by hand
+    const navy = value('brand-navy');
+    const a = Number(tokens['nav-text-muted'].match(/,\s*([0-9.]+)\)/)[1]);
+    const ch = i => Math.round(255 * a + parseInt(navy.slice(i, i + 2), 16) * (1 - a));
+    const blended = '#' + [1, 3, 5].map(i => ch(i).toString(16).padStart(2, '0')).join('');
+    expect(ratio(blended, navy)).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(value('color-danger'), value('surface-white'))).toBeGreaterThanOrEqual(3);
   });
 });
