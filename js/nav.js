@@ -63,7 +63,9 @@ function navInitials(user) {
 
 function navItemHtml(it, activeTab, size) {
   const active = activeTab === it.id;
-  return `<a class="pd-nav-item${active ? ' active' : ''}" href="${it.href}"${active ? ' aria-current="page"' : ''} title="${esc(it.label)}">` +
+  // aria-label: the visible label is hidden in the rail, so the name must not depend on it.
+  // title: native tooltip, removed in the rail by navApplyTitles() (the custom tooltip takes over from data-tip).
+  return `<a class="pd-nav-item${active ? ' active' : ''}" href="${it.href}"${active ? ' aria-current="page"' : ''} aria-label="${esc(it.label)}" data-tip="${esc(it.label)}" title="${esc(it.label)}">` +
     `${navIcon(it.icon, size)}<span class="pd-nav-label">${esc(it.label)}</span></a>`;
 }
 
@@ -92,7 +94,7 @@ function buildNavHtml(user, activeTab) {
     <div class="pd-nav-items">${main}${groups}</div>
     <div class="pd-nav-actions">
       <div class="dropdown pd-account">
-        <button type="button" class="pd-account-btn" id="nav-account-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+        <button type="button" class="pd-account-btn" id="nav-account-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu" data-tip="${esc(user.email || 'Account menu')}">
           <span class="pd-avatar" id="nav-avatar">${esc(navInitials(user))}</span>
           <span class="pd-account-email" id="nav-account-email">${esc(user.email || '')}</span>
         </button>
@@ -108,7 +110,7 @@ function buildNavHtml(user, activeTab) {
         </ul>
       </div>
       <div class="dropdown pd-bell" id="navNotifWrapper">
-        <button type="button" class="pd-bell-btn" id="nav-notif-btn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside" aria-label="Notifications">
+        <button type="button" class="pd-bell-btn" id="nav-notif-btn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside" aria-label="Notifications" data-tip="Notifications">
           ${navIcon('bell', 'md')}<span id="nav-notif-badge" class="pd-badge" style="display:none"></span>
         </button>
         <div class="dropdown-menu pd-notif-panel p-0">
@@ -155,6 +157,55 @@ function navSetCollapsed(collapsed) {
     if (collapsed) localStorage.setItem(NAV_COLLAPSE_KEY, '1'); else localStorage.removeItem(NAV_COLLAPSE_KEY);
   } catch (e) { /* storage blocked: the state is simply not remembered */ }
   navSyncCollapseButton();
+  navApplyTitles();
+}
+
+// Rail (collapsed sidebar, >= 1024px): the native title is replaced by the custom tooltip (navWireTooltips),
+// so it is removed there and restored everywhere else (open sidebar, small screens keep the native one).
+function navApplyTitles() {
+  const rail = navLayout() === 'rail';
+  document.querySelectorAll('.pd-nav-item[data-tip]').forEach(el => {
+    if (rail) el.removeAttribute('title'); else el.setAttribute('title', el.getAttribute('data-tip'));
+  });
+}
+
+// One tooltip element, appended to <body> and positioned with fixed coordinates: the items container scrolls
+// (overflow-y:auto) and would clip a tooltip drawn inside it. Shown only in the rail, to the right of the
+// hovered/focused [data-tip] element and centred on it (the CSS translates it up by half its own height).
+function navWireTooltips(root) {
+  let tip = null;
+  const hide = () => { if (tip) tip.classList.remove('show'); };
+  const target = e => (e.target && e.target.closest ? e.target.closest('[data-tip]') : null);
+  const show = el => {
+    if (navLayout() !== 'rail') return;
+    const text = el.getAttribute('data-tip');
+    if (!text) return;
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'pd-tooltip';
+      tip.setAttribute('role', 'tooltip');
+      document.body.appendChild(tip);
+    }
+    tip.textContent = text;
+    const r = el.getBoundingClientRect();
+    tip.style.left = (r.right + 10) + 'px';
+    tip.style.top = (r.top + r.height / 2) + 'px';
+    tip.classList.add('show');
+  };
+  root.addEventListener('mouseover', e => { const el = target(e); if (el && root.contains(el)) show(el); });
+  root.addEventListener('mouseout', e => { const el = target(e); if (el && !el.contains(e.relatedTarget)) hide(); });
+  root.addEventListener('focusin', e => { const el = target(e); if (el && root.contains(el)) show(el); });
+  root.addEventListener('focusout', hide);
+  root.addEventListener('click', hide);
+  root.addEventListener('show.bs.dropdown', hide);
+  root.addEventListener('scroll', hide, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(); });
+  // rail <-> small (or open) changes which tooltip applies: re-apply the titles
+  if (window.matchMedia) {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    if (mq && mq.addEventListener) mq.addEventListener('change', () => { hide(); navApplyTitles(); });
+    else if (mq && mq.addListener) mq.addListener(() => { hide(); navApplyTitles(); });
+  }
 }
 
 // Bootstrap evaluates `popperConfig` each time the menu opens; the placement
@@ -217,6 +268,8 @@ function navRefreshAccount(u) {
   if (av) av.textContent = navInitials(u);
   const em = document.getElementById('nav-account-email');
   if (em) em.textContent = u.email || '';
+  const btn = document.getElementById('nav-account-btn');
+  if (btn) btn.setAttribute('data-tip', u.email || 'Account menu');
 }
 
 async function initNav(activeTab, opts = {}) {
@@ -243,6 +296,8 @@ async function initNav(activeTab, opts = {}) {
     navSetCollapsed(document.documentElement.getAttribute('data-sidebar') !== 'collapsed');
   });
   navWireGroups(document.getElementById('nav-container'));
+  navApplyTitles();
+  navWireTooltips(document.getElementById('nav-container'));
   if (typeof bootstrap !== 'undefined') {
     ['nav-account-btn', 'nav-notif-btn'].forEach(id => {
       bootstrap.Dropdown.getOrCreateInstance(document.getElementById(id), { popperConfig: navPopperConfig });

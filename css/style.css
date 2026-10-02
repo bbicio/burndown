@@ -100,6 +100,12 @@ html[data-sidebar="collapsed"] .pd-nav-collapse .nav-icon:last-child { display: 
 .pd-account-menu { min-width: 230px; }
 .pd-notif-panel { width: 400px; max-width: calc(100vw - 20px); max-height: 480px; overflow: hidden; }
 
+/* Rail tooltip (js/nav.js navWireTooltips): one element in <body>, positioned with fixed coordinates to the
+   right of the hovered/focused icon (the scrolling items container would clip anything drawn inside it).
+   Above the raised nav (1050), below Bootstrap modals (1055). Shown only in the collapsed sidebar. */
+#pd-tooltip { position: fixed; z-index: 1051; transform: translateY(-50%); max-width: 280px; padding: 6px 10px; border-radius: var(--radius-sm); background: var(--brand-navy); color: var(--text-inverse); font-size: var(--text-sm); font-weight: var(--weight-medium); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: var(--shadow-md); pointer-events: none; visibility: hidden; opacity: 0; transition: opacity var(--duration-fast); }
+#pd-tooltip.show { visibility: visible; opacity: 1; }
+
 /* Sidebar (>= 1024px) */
 @media (min-width: 1024px) {
   .pd-nav { height: 100%; display: flex; flex-direction: column; }
