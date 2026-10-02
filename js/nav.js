@@ -4,6 +4,132 @@
 // injects the change-password modal and settings modal, and returns the user object.
 // 401 → apiFetch already redirects to /login.html.
 
+// ── NAVIGATION MODEL ─────────────────────────────────────────────────────────
+// Menu entry, <title> and breadcrumb of a page use the same label (cycle B2).
+const NAV_MAIN = [
+  { id: 'pipeline',  label: 'Pipeline',  href: '/pipeline.html',  icon: 'pipeline'  },
+  { id: 'portfolio', label: 'Portfolio', href: '/portfolio.html', icon: 'portfolio' },
+  { id: 'planning',  label: 'Planning',  href: '/planning.html',  icon: 'planning'  },
+];
+
+const NAV_GROUPS = [
+  { id: 'admin', title: 'Admin', icon: 'config', roles: ['admin', 'sysadmin'], items: [
+    { id: 'config',         label: 'Master Data',     href: '/config.html',          icon: 'config'     },
+    { id: 'timesheets',     label: 'Timesheets',      href: '/timesheets.html',      icon: 'timesheets' },
+    { id: 'admin',          label: 'User Admin',      href: '/admin.html',           icon: 'user'       },
+    { id: 'team',           label: 'Team',            href: '/team.html',            icon: 'team'       },
+    { id: 'attributelists', label: 'Attribute Lists', href: '/attribute-lists.html', icon: 'tag'        },
+  ] },
+  { id: 'sysadmin', title: 'Sysadmin', icon: 'lock', roles: ['sysadmin'], items: [
+    { id: 'dbreset',     label: 'DB Reset',           href: '/_db-reset.html',     icon: 'dbreset' },
+    { id: 'termseditor', label: 'Terms & Conditions', href: '/_terms-editor.html', icon: 'terms'   },
+  ] },
+];
+
+// Inner markup of the 16x16 line icons (stroke/fill = currentColor, see handoff §15).
+const NAV_ICON_PATHS = {
+  pipeline:  '<path d="M2 12V8M8 12V4M14 12V6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  portfolio: '<rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/>',
+  planning:  '<rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+  config:    '<circle cx="8" cy="8" r="2.4" stroke="currentColor" stroke-width="1.3"/><path d="M8 2v1.6M8 12.4V14M14 8h-1.6M3.6 8H2M12.1 3.9l-1.1 1.1M5 9.9l-1.1 1.1M12.1 12.1l-1.1-1.1M5 6.1L3.9 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>',
+  timesheets:'<rect x="2" y="4" width="12" height="9" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M2 4l1.6-2h8.8L14 4" stroke="currentColor" stroke-width="1.3"/>',
+  user:      '<circle cx="8" cy="5.5" r="2.3" stroke="currentColor" stroke-width="1.3"/><path d="M3 14c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" stroke="currentColor" stroke-width="1.3"/>',
+  team:      '<circle cx="5.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="11" cy="6.5" r="1.6" stroke="currentColor" stroke-width="1.2"/><path d="M2 14c0-2.3 1.7-3.8 3.9-3.8 1.6 0 2.9.8 3.5 2M9.6 10.3c1.6 0 3 1.1 3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>',
+  tag:       '<path d="M2 2h5.5L14 8.5 7.5 15 2 9.5V2Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><circle cx="5" cy="5" r="1" fill="currentColor"/>',
+  dbreset:   '<ellipse cx="8" cy="3.5" rx="5.2" ry="1.8" stroke="currentColor" stroke-width="1.2"/><path d="M2.8 3.5v9c0 1 2.3 1.8 5.2 1.8s5.2-.8 5.2-1.8v-9M2.8 8c0 1 2.3 1.8 5.2 1.8s5.2-.8 5.2-1.8" stroke="currentColor" stroke-width="1.2"/>',
+  terms:     '<path d="M4 2h5.5L13 5.5V14H4V2Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M6 8h5M6 10.5h5M6 5.5h2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>',
+  notify:    '<path d="M2 6.5v3l2.5.5L9 12.5V3.5L4.5 6 2 6.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M11 6.3c.8.5 1.3 1.3 1.3 2.2s-.5 1.7-1.3 2.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M4.5 10v2.3c0 .7.6 1.2 1.2 1l.8-.3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>',
+  key:       '<circle cx="5" cy="9" r="2.6" stroke="currentColor" stroke-width="1.2"/><path d="M7 7.2 13 1.2M11.2 3l1.6 1.6M9.4 4.8 11 6.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  signout:   '<path d="M6.5 2H3.3c-.7 0-1.3.6-1.3 1.3v9.4c0 .7.6 1.3 1.3 1.3h3.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.5 11l3-3-3-3M13 8H6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  bell:      '<path d="M8 2.2c-.3 0-.6.1-.8.3-1.7.4-3 2-3 3.9v2.1c0 .5-.2 1-.5 1.4L3 10.6c-.3.3-.1.9.3.9h9.4c.4 0 .6-.6.3-.9l-.7-.7c-.3-.4-.5-.9-.5-1.4V6.4c0-1.9-1.3-3.5-3-3.9-.2-.2-.5-.3-.8-.3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M6.3 13c.3.6.9 1 1.7 1s1.4-.4 1.7-1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  lock:      '<rect x="3.5" y="7" width="9" height="6.5" rx="1.3" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>',
+  chevronLeft:  '<path d="M10 3.5L5.5 8 10 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+  chevronRight: '<path d="M6 3.5L10.5 8 6 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+};
+
+function navIcon(name, size = 'sm') {
+  const paths = NAV_ICON_PATHS[name];
+  if (!paths) return '';
+  return `<svg class="nav-icon nav-icon-${size}" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">${paths}</svg>`;
+}
+
+function navInitials(user) {
+  const f = String(user.firstName || user.first_name || '').trim();
+  const l = String(user.lastName || user.last_name || '').trim();
+  const pair = ((f[0] || '') + (l[0] || '')).toUpperCase();
+  if (pair) return pair;
+  return (String(user.email || '').trim()[0] || '?').toUpperCase();
+}
+
+function navItemHtml(it, activeTab, size) {
+  const active = activeTab === it.id;
+  return `<a class="pd-nav-item${active ? ' active' : ''}" href="${it.href}"${active ? ' aria-current="page"' : ''} title="${esc(it.label)}">` +
+    `${navIcon(it.icon, size)}<span class="pd-nav-label">${esc(it.label)}</span></a>`;
+}
+
+function navGroupHtml(g, activeTab) {
+  const groupActive = g.items.some(i => i.id === activeTab);
+  return `<span class="pd-nav-sep"></span>` +
+    `<section class="pd-nav-group" data-group="${g.id}">` +
+      `<button type="button" class="pd-nav-group-toggle${groupActive ? ' active' : ''}" aria-expanded="false" ` +
+        `aria-controls="pd-nav-panel-${g.id}" aria-label="${esc(g.title)}" title="${esc(g.title)}">` +
+        `${navIcon(g.icon, 'md')}<span class="pd-nav-dot"></span></button>` +
+      `<div class="pd-nav-group-panel" id="pd-nav-panel-${g.id}">` +
+        `<div class="pd-nav-group-title">${esc(g.title)}</div>` +
+        g.items.map(i => navItemHtml(i, activeTab, 'sm')).join('') +
+      `</div>` +
+    `</section>`;
+}
+
+function buildNavHtml(user, activeTab) {
+  const main = NAV_MAIN.map(it => navItemHtml(it, activeTab, 'md')).join('');
+  const groups = NAV_GROUPS.filter(g => g.roles.includes(user.role)).map(g => navGroupHtml(g, activeTab)).join('');
+  return `<aside class="pd-nav" aria-label="Main navigation">
+    <div class="pd-nav-brand">
+      <a class="pd-logo" href="/pipeline.html" aria-label="PDash home"><span class="pd-logo-full"><span class="pd-logo-p">P</span>Dash</span><span class="pd-logo-mini pd-logo-p">P</span></a>
+      <button type="button" class="pd-nav-collapse" id="nav-collapse-btn" aria-label="Collapse sidebar" aria-expanded="true">${navIcon('chevronLeft', 'md')}${navIcon('chevronRight', 'md')}</button>
+    </div>
+    <div class="pd-nav-items">${main}${groups}</div>
+    <div class="pd-nav-actions">
+      <div class="dropdown pd-account">
+        <button type="button" class="pd-account-btn" id="nav-account-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+          <span class="pd-avatar" id="nav-avatar">${esc(navInitials(user))}</span>
+          <span class="pd-account-email" id="nav-account-email">${esc(user.email || '')}</span>
+        </button>
+        <ul class="dropdown-menu pd-account-menu">
+          <li><button class="dropdown-item" id="nav-profile-btn">${navIcon('user')}My Profile</button></li>
+          <li><button class="dropdown-item" id="nav-settings-btn">${navIcon('config')}Settings</button></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><button class="dropdown-item" id="nav-send-notif-btn">${navIcon('notify')}Send Notification</button></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><button class="dropdown-item" id="nav-change-pwd-btn">${navIcon('key')}Change password</button></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><button class="dropdown-item text-danger" id="nav-logout-btn">${navIcon('signout')}Sign out</button></li>
+        </ul>
+      </div>
+      <div class="dropdown pd-bell" id="navNotifWrapper">
+        <button type="button" class="pd-bell-btn" id="nav-notif-btn" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside" aria-label="Notifications">
+          ${navIcon('bell', 'md')}<span id="nav-notif-badge" class="pd-badge" style="display:none"></span>
+        </button>
+        <div class="dropdown-menu pd-notif-panel p-0">
+          <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+            <span class="fw-semibold" style="font-size:.875rem">Notifications</span>
+            <button class="btn btn-link btn-sm p-0 text-muted" id="nav-notif-read-all" style="font-size:.78rem;text-decoration:none">Mark all read</button>
+          </div>
+          <div id="nav-notif-browser-banner" class="px-3 py-2 border-bottom d-flex align-items-center justify-content-between gap-2" style="display:none;font-size:.78rem;background:var(--indigo-50,#eef2ff)">
+            <span id="nav-notif-browser-label">${navIcon('bell')}Enable desktop notifications?</span>
+            <button class="btn btn-primary btn-sm py-0 px-2" id="nav-notif-browser-enable" style="font-size:.75rem">Enable</button>
+          </div>
+          <div id="nav-notif-list" style="overflow-y:auto;max-height:420px">
+            <div class="text-center text-muted py-4" style="font-size:.875rem">No notifications yet</div>
+          </div>
+        </div>
+      </div>
+      <div class="pd-copyright">© 2026 PDash</div>
+    </div>
+  </aside>`;
+}
+
 async function initNav(activeTab, opts = {}) {
   let user;
   try {
