@@ -139,8 +139,13 @@ async function initNav(activeTab, opts = {}) {
       bar.id = 'breadcrumb-bar';
       bar.className = 'breadcrumb-bar';
       bar.setAttribute('aria-label', 'breadcrumb');
-      const navCont = document.getElementById('nav-container');
-      navCont.parentNode.insertBefore(bar, navCont.nextSibling);
+      const main = document.getElementById('app-main');
+      if (main) {
+        main.insertBefore(bar, main.firstChild);
+      } else {
+        const navCont = document.getElementById('nav-container');
+        navCont.parentNode.insertBefore(bar, navCont.nextSibling);
+      }
       document.body.classList.add('has-breadcrumbs');
     }
     bar.innerHTML = _navBcHtml(items);
