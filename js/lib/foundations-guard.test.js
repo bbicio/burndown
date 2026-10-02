@@ -87,3 +87,33 @@ describe('css/style.css', () => {
     expect(bad).toEqual([]);
   });
 });
+
+describe('admin-crud.css and the public pages', () => {
+  const admin = read('css/admin-crud.css');
+  it('admin-crud.css uses tokens for font, card, muted text and primary hover', () => {
+    expect(admin).toMatch(/body\s*\{[^}]*font-family:\s*var\(--font-family-base\)/);
+    expect(admin).toMatch(/\.card\s*\{[^}]*border:\s*1px solid var\(--border-light\)[^}]*box-shadow:\s*var\(--shadow-sm\)/);
+    expect(admin).toMatch(/\.table thead th\s*\{[^}]*color:\s*var\(--text-muted\)/);
+    expect(admin).toContain('background: var(--brand-magenta-hover)');
+    expect(admin).toContain('box-shadow: 0 0 0 3px var(--focus-ring)');
+    expect(admin).not.toMatch(/#d01f6a|rgba\(240,\s*40,\s*122/i);
+  });
+  for (const f of ['login.html', 'activate.html', 'reset-password.html']) {
+    it(`${f} uses the hover and focus tokens`, () => {
+      const t = read(f);
+      expect(t).not.toMatch(/#d01f6a|rgba\(240,\s*40,\s*122/i);
+      expect(t).toContain('var(--brand-magenta-hover)');
+      expect(t).toContain('var(--focus-ring)');
+    });
+  }
+  it('every var() used by the public pages is defined in tokens.css', () => {
+    const tokens = read('css/tokens.css');
+    const missing = [];
+    for (const f of ['login.html', 'activate.html', 'reset-password.html', 'terms.html']) {
+      for (const m of read(f).matchAll(/var\(--([a-z0-9-]+)\)/g)) {
+        if (!new RegExp(`--${m[1]}\\s*:`).test(tokens)) missing.push(`${f}: ${m[1]}`);
+      }
+    }
+    expect([...new Set(missing)]).toEqual([]);
+  });
+});
