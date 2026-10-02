@@ -24,13 +24,17 @@ The app is backed by a Node.js/Express REST API and a PostgreSQL database, with 
 
 ## 3. Views and Navigation
 
-The application has three primary views accessible from the top navigation bar, plus a full-screen editor overlay.
+The application has three primary views accessible from the main navigation, plus a full-screen editor overlay.
 
-| Nav Tab | View |
+**Navigation (2026-10-02, replaces the former top navbar and footer):** on screens at least 1024px wide a **left sidebar** is shown, open by default and collapsible to a narrow icon rail with a button at the top; the choice is remembered across pages and visits. The sidebar lists the three views, then — for admins and sysadmins — an **ADMIN** section and — for sysadmins only — a **SYSADMIN** section, always expanded (no dropdowns); the current page is highlighted with a magenta marker. At its bottom it shows the user's initials and email (opening the account menu: My Profile, Settings, Send Notification, Change password, Sign out), the notification bell, and a "© 2026 PDash" line (open sidebar only). On narrower screens (phones, portrait tablets) the navigation becomes a dark top bar with icons only: logo, bell and initials on the right, an icon per view, and one icon (with a small dot) for each of Admin and Sysadmin, which opens a full-width panel listing their pages. The breadcrumb is shown only on wide screens, and there is no footer anywhere in the application. A page's menu name, browser-tab title and breadcrumb are the same.
+
+| Menu entry | View |
 |---|---|
 | Pipeline | Kanban board of cost grid offers organised by deal stage |
-| Resource Planning | Cross-project hours distribution by role, project or owner |
-| Project Reporting | Portfolio budget overview — estimated vs. spent |
+| Portfolio | Portfolio budget overview — estimated vs. spent (described in §6 "Project Reporting"; formerly named Project Reporting in the menu) |
+| Planning | Cross-project hours distribution by role, project or owner (described in §5 "Resource Planning"; formerly named Resource Planning in the menu) |
+
+Admin section entries: **Master Data** (the Config page, formerly "Config"), **Timesheets** (formerly "Actuals Repository"), **User Admin**, **Team**, **Attribute Lists**. Sysadmin section entries: **DB Reset**, **Terms & Conditions**.
 
 **Default view on load:** Pipeline.
 
@@ -529,7 +533,7 @@ Lists every project code that has uploaded timesheet data, for review and cleanu
 
 ## 9. Settings
 
-Accessed via **account dropdown → ⚙ Settings** (available on all pages). Since 2026-09-30 this opens its own page, `/settings.html`, instead of a modal. The page currently has the standard navbar, footer and breadcrumb (Home › Settings) and a blank white content area whose only content is the title "Settings"; any authenticated user can open it, and a logged-out visit redirects to login.
+Accessed via **account dropdown → ⚙ Settings** (available on all pages). Since 2026-09-30 this opens its own page, `/settings.html`, instead of a modal. The page currently has the standard navigation and breadcrumb (Home › Settings) and a blank white content area whose only content is the title "Settings"; any authenticated user can open it, and a logged-out visit redirects to login.
 
 ### 9.1 Removed from Settings (2026-09-30)
 
@@ -545,7 +549,7 @@ Any authenticated user can compose and send a notification to a specific colleag
 
 ### 10.1 Bell Icon
 
-A 🔔 bell icon in the navbar top bar shows the unread notification count. Clicking it opens a dropdown panel listing the last 50 notifications.
+A bell icon (at the bottom of the sidebar, or in the top bar on narrow screens — always visible, never inside the account menu) shows the unread notification count; while any notification is unread the bell turns white with a red icon and border. Clicking it opens a panel next to it listing the last 50 notifications (unread ones highlighted in pink with a magenta edge).
 
 ### 10.2 Real-Time Delivery
 
@@ -791,7 +795,7 @@ Moved out of `admin.html` (2026-09) to its own page — sysadmin-exclusive, reac
 
 ### 16.6 DB Reset
 
-Sysadmin-exclusive hidden page (was admin-only before 2026-09) for bulk/targeted destructive DB operations. Reachable from the same sysadmin-only navbar menu as §16.5. Every destructive action on this page — every scope below, plus the single-proposal delete — requires typing the literal word **DELETE** into a confirmation field before it can proceed, not just a click-through dialog.
+Sysadmin-exclusive hidden page (was admin-only before 2026-09) for bulk/targeted destructive DB operations. Reachable from the same sysadmin-only "Sysadmin" navigation section as §16.5 (menu name "DB Reset"). Every destructive action on this page — every scope below, plus the single-proposal delete — requires typing the literal word **DELETE** into a confirmation field before it can proceed, not just a click-through dialog.
 
 **Reset by scope** — 7 independently-triggered, differently-scoped bulk deletions, each with its own stated effect and carve-outs:
 
@@ -811,7 +815,7 @@ Sysadmin-exclusive hidden page (was admin-only before 2026-09) for bulk/targeted
 
 ### 16.7 Team (Resource Registry, 2026-09)
 
-Own page (`team.html`), admin or sysadmin, reachable from the "⚙ Admin" navbar dropdown. A standalone directory of people who can be allocated to work — first name, last name, email, role, and a free-text job description — kept separate from PDash user accounts (a resource does not need a login to exist here) but with an optional link to one, when the person also happens to be a PDash user.
+Own page (`team.html`), admin or sysadmin, reachable from the "Admin" section of the navigation. A standalone directory of people who can be allocated to work — first name, last name, email, role, and a free-text job description — kept separate from PDash user accounts (a resource does not need a login to exist here) but with an optional link to one, when the person also happens to be a PDash user.
 
 Every resource has exactly one **role**, chosen from the same list of roles used elsewhere in the app (§7.6) and shown as "label (code)"; there is no free-text alternative — if a role is missing, an admin creates it first in Config → Roles. The link is to the role itself, not to its name, so renaming a role's label or code in Config updates every resource that has it, and a role that is assigned to a resource cannot be deleted (Config shows "Cannot delete role assigned to a team resource"). The role's code is the value found in the role column of uploaded actuals, which is why it matters for the later stages of resource allocation (2026-09-25). Resources can be deactivated (hidden from the default list, kept for history) and reactivated, or deleted outright.
 
@@ -827,7 +831,7 @@ This is the first of four planned cycles toward AI-assisted resource allocation 
 
 ### 16.8 Attribute Lists (Tag Taxonomy, 2026-09)
 
-Own page (`attribute-lists.html`), admin or sysadmin, reachable from the same "⚙ Admin" dropdown as Team. A generic, admin-managed system of named lists and their items — seeded on first deploy with four lists (Market, Brand, Therapeutic Area, Service Type), each empty until an admin populates it. An admin can create additional lists at any time directly from the UI, with no further development needed.
+Own page (`attribute-lists.html`), admin or sysadmin, reachable from the same "Admin" navigation section as Team. A generic, admin-managed system of named lists and their items — seeded on first deploy with four lists (Market, Brand, Therapeutic Area, Service Type), each empty until an admin populates it. An admin can create additional lists at any time directly from the UI, with no further development needed.
 
 Each list's items can be renamed and toggled active/inactive, but never deleted outright — once a tag exists, it can be retired but not erased, so a future feature that has already applied it to a proposal or project can't have that reference silently vanish. A list's own display name can be renamed too; its underlying identifier is fixed at creation and never changes, even across a rename. An item's label must be unique within its list (case-insensitive) — adding or renaming to a label that already exists in that list is rejected with an error (2026-09).
 
@@ -847,7 +851,7 @@ Filtering the pipeline board or portfolio reporting by these tags is not part of
 
 ### 16.10 Profile Processing Console (2026-09-28, Cycle 3d)
 
-Own page (`profile-jobs.html`), admin or sysadmin — a **hidden page with no navbar entry**, reachable only through a "Profile processing →" button in the header of the Excel Timesheet Upload page (§8), which carries a badge showing how many project codes are currently waiting to be processed (hidden when none are).
+Own page (`profile-jobs.html`), admin or sysadmin — a **hidden page with no navigation entry**, reachable only through a "Profile processing →" button in the header of the Excel Timesheet Upload page (§8), which carries a badge showing how many project codes are currently waiting to be processed (hidden when none are).
 
 Every person's Experience profile (§16.7) is rebuilt in the background from uploaded actuals, one project code at a time, on a schedule (every 10 minutes by default). Until this cycle there was no way to see that queue or influence its timing from the product itself. This page gives an admin:
 

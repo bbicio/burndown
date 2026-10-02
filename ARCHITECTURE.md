@@ -962,7 +962,11 @@ burndown/
                             (2026-07, repo-wide FOUC fix) — see CLAUDE.md's "v-cloak" section for the full rationale.
                             Design foundations (2026-10-02): project-status, chart, focus, typography tokens and AA-checked
                             stage text colours — see CLAUDE.md's "Design tokens"; `js/lib/tokens.test.js` pins them
-    style.css             ← includes `.pb-board-root` (2026-07) — extracted from pipeline.html's former inline
+                            Navigation tokens (Nav B2, 2026-10-02, `?v=9`): `--brand-magenta-tint(-hover)`, `--icon-size-sm/md`,
+                            `--nav-text-muted`, `--nav-item-hover-bg`, `--nav-item-active-bg`, `--nav-sep`
+    style.css             ← Navigation (Nav B2, `?v=19`): `.pd-nav*` sidebar / icon-navbar rules, `--sidebar-w`/`--nav-top-h` media
+                            queries, `#nav-container` reservation (see CLAUDE.md's "Navigation: sidebar and icon navbar");
+                            includes `.pb-board-root` (2026-07) — extracted from pipeline.html's former inline
                             style so the `[v-cloak]` rule above could win via cascade without `!important`;
                             `.tag-pill`/`.tag-group`/`.tag-pill--inactive`/`.tags-section--readonly` (2026-09,
                             Cycle 2) — the tag-pill/chip component shared by costgrid.html/project-config.html's
@@ -976,9 +980,9 @@ burndown/
     api.js                ← Api.* namespace, apiFetch wrapper
     api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData). Full narrative: docs/js/api-sync.md
     core.js               ← state, in-memory helpers (loadConfig/persistConfig no-ops), shared helpers, showConfirm()/showInfo() modal idioms, findRate(). Full narrative: docs/js/core.md
-    nav.js                ← navbar injection, initNav(); injects settings, change-pwd, and "My Profile" modals; T&C gate; calls initNotifications(). Full narrative: docs/js/nav.md
+    nav.js                ← navigation injection, initNav(): one `<aside class="pd-nav">` (sidebar ≥ 1024px, icon navbar below, no footer; Nav B2 2026-10-02) built by buildNavHtml; SVG icons; injects change-pwd, send-notification and "My Profile" modals; T&C gate; calls initNotifications(). Full narrative: docs/js/nav.md
     shares.js             ← generic share modal
-    notifications.js      ← SSE client, bell badge, notification dropdown panel; also drives browser/desktop notifications. Full narrative: docs/js/notifications.md
+    notifications.js      ← SSE client, bell badge (and unread bell state), notification dropdown panel; also drives browser/desktop notifications. Full narrative: docs/js/notifications.md
     costgrid.js           ← shared cost-grid business-logic library, loaded unmodified by `pipeline.html` as globals, and by `costgrid.html`'s own Vue rewrite via the bridge pattern; decided 2026-07 this file is a permanent shared Vanilla service layer, not migration debt — see `docs/superpowers/specs/2026-07-27-costgrid-js-fate-design.md`. Full narrative: docs/js/costgrid.md
     portfolio.js          ← mostly dead code since portfolio.html's Vue rewrite folded its rendering logic in directly; only 2 exports remain reachable — `fmtProjectTitle`/`getMonthRangeFromCfg`, both consumed by planning.html
     lib/                  ← pure functions extracted for unit testing (vitest + jsdom), each an ES module
@@ -1023,9 +1027,9 @@ burndown/
   admin.html              ← user management; "🗑 Anonymize" button on disabled non-anonymized users; role toggle (admin↔user) + sysadmin grant/revoke toggle (sysadmin viewers only). T&C editor moved out (2026-09) to _terms-editor.html
   terms.html              ← standalone T&C acceptance page (no initNav), Vue 3 (CDN, no build step, same pattern as login.html); shown by gate in initNav() when user.terms_version < current; loaded from /api/app-settings/terms; POST /api/auth/accept-terms on confirm
   login.html / activate.html / reset-password.html
-  _db-reset.html          ← sysadmin-exclusive (2026-09, was admin-only) hidden page for bulk DB data deletion by scope, Vue 3 (CDN, no build step, same pattern as admin.html), linked from the sysadmin-only navbar menu (initNav('dbreset', ...))
-  _terms-editor.html      ← sysadmin-exclusive hidden page — Terms & Conditions editor, moved out of admin.html; linked from the sysadmin-only navbar menu (initNav('termseditor', ...)) — see §5's App Settings section. Full narrative: docs/pages/terms-editor.md
-  settings.html           ← Settings page (2026-09-30), Vue 3 (CDN, no build step), blank apart from navbar/footer and the title; replaced the former Settings modal (see docs/pages/settings.md)
+  _db-reset.html          ← sysadmin-exclusive (2026-09, was admin-only) hidden page for bulk DB data deletion by scope, Vue 3 (CDN, no build step, same pattern as admin.html), linked from the sysadmin-only "Sysadmin" navigation group (initNav('dbreset', ...), menu name "DB Reset")
+  _terms-editor.html      ← sysadmin-exclusive hidden page — Terms & Conditions editor, moved out of admin.html; linked from the sysadmin-only "Sysadmin" navigation group (initNav('termseditor', ...)) — see §5's App Settings section. Full narrative: docs/pages/terms-editor.md
+  settings.html           ← Settings page (2026-09-30), Vue 3 (CDN, no build step), blank apart from the navigation, breadcrumb and the title; replaced the former Settings modal (see docs/pages/settings.md)
   team.html               ← resource registry CRUD, Vue 3 (CDN, no build step, same pattern as admin.html), admin or sysadmin, linked from the ⚙ Admin dropdown (2026-09). First of four planned resource-allocation cycles — see docs/superpowers/specs/2026-09-23-team-attribute-lists-design.md
   attribute-lists.html    ← generic, agnostic tag/taxonomy admin console (lists + items, no physical delete), Vue 3 (CDN, no build step, same pattern as admin.html), admin or sysadmin, linked from the ⚙ Admin dropdown (2026-09). As of Cycle 2 (2026-09), its lists/items are consumed by costgrid.html/project-config.html's Tags sections via js/tags.js
   profile-jobs.html       ← profile-engine job console, Vue 3 (CDN, no build step, same pattern as team.html/admin.html), hidden (no menu entry, reached only from a "Profile processing →" button on timesheets.html), admin or sysadmin (2026-09, Cycle 3d). Full narrative: docs/pages/profile-jobs.md
