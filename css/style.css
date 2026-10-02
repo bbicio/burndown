@@ -17,6 +17,8 @@ body {
 /* ── Breadcrumb bar ── */
 :root { --breadcrumb-h: 0px; }
 body.has-breadcrumbs { --breadcrumb-h: 33px; }
+:root { --sidebar-w: 0px; }
+#app-main { margin-left: var(--sidebar-w); }
 .breadcrumb-bar {
   background: var(--surface-white);
   border-bottom: 1px solid var(--border-light);
