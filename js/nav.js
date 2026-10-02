@@ -1,6 +1,6 @@
 // ── SHARED NAVIGATION ────────────────────────────────────────────────────────
 // Call initNav(activeTab) from each page's DOMContentLoaded handler.
-// Fetches /api/auth/me, renders the top navbar into #nav-container,
+// Fetches /api/auth/me, renders the sidebar / small-screen navbar into #nav-container,
 // injects the change-password modal and settings modal, and returns the user object.
 // 401 → apiFetch already redirects to /login.html.
 
@@ -130,6 +130,77 @@ function buildNavHtml(user, activeTab) {
   </aside>`;
 }
 
+// ── NAVIGATION BEHAVIOUR ─────────────────────────────────────────────────────
+const NAV_COLLAPSE_KEY = 'PDash_sidebarCollapsed';
+
+// 'small' (< 1024px navbar), 'open' (sidebar) or 'rail' (collapsed sidebar).
+function navLayout() {
+  if (typeof window.matchMedia !== 'function') return 'open';
+  if (!window.matchMedia('(min-width: 1024px)').matches) return 'small';
+  return document.documentElement.getAttribute('data-sidebar') === 'collapsed' ? 'rail' : 'open';
+}
+
+function navSyncCollapseButton() {
+  const collapsed = document.documentElement.getAttribute('data-sidebar') === 'collapsed';
+  const btn = document.getElementById('nav-collapse-btn');
+  if (!btn) return;
+  btn.setAttribute('aria-expanded', String(!collapsed));
+  btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+}
+
+function navSetCollapsed(collapsed) {
+  const html = document.documentElement;
+  if (collapsed) html.setAttribute('data-sidebar', 'collapsed'); else html.removeAttribute('data-sidebar');
+  try {
+    if (collapsed) localStorage.setItem(NAV_COLLAPSE_KEY, '1'); else localStorage.removeItem(NAV_COLLAPSE_KEY);
+  } catch (e) { /* storage blocked: the state is simply not remembered */ }
+  navSyncCollapseButton();
+}
+
+// Bootstrap evaluates `popperConfig` each time the menu opens; the placement
+// depends on the layout active at that moment. Bootstrap passes the default
+// config as the first or the second argument depending on the version, so take
+// the first object argument.
+function navPopperConfig(...args) {
+  const defaults = args.find(a => a && typeof a === 'object') || {};
+  const small = navLayout() === 'small';
+  const modifiers = (defaults.modifiers || []).filter(m => !['offset', 'preventOverflow', 'flip'].includes(m.name));
+  modifiers.push({ name: 'offset', options: { offset: [0, small ? 8 : 10] } });
+  modifiers.push({ name: 'preventOverflow', options: { padding: 10 } });
+  modifiers.push({ name: 'flip', enabled: small });
+  return { ...defaults, placement: small ? 'bottom-end' : 'right-end', modifiers };
+}
+
+// Admin/Sysadmin panels of the small navbar: one open at a time; closed by a tap
+// outside the groups or by Escape. (On large screens the CSS shows the panels
+// permanently and the toggle buttons are hidden, so this has no visible effect.)
+function navWireGroups(root) {
+  const groups = [...root.querySelectorAll('.pd-nav-group')];
+  const setOpen = (g, open) => {
+    g.classList.toggle('open', open);
+    g.querySelector('.pd-nav-group-toggle').setAttribute('aria-expanded', String(open));
+  };
+  const closeAll = except => groups.forEach(g => { if (g !== except) setOpen(g, false); });
+  groups.forEach(g => {
+    g.querySelector('.pd-nav-group-toggle').addEventListener('click', () => {
+      const open = !g.classList.contains('open');
+      closeAll(g);
+      setOpen(g, open);
+    });
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest || !e.target.closest('.pd-nav-group')) closeAll(null);
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(null); });
+}
+
+function navRefreshAccount(u) {
+  const av = document.getElementById('nav-avatar');
+  if (av) av.textContent = navInitials(u);
+  const em = document.getElementById('nav-account-email');
+  if (em) em.textContent = u.email || '';
+}
+
 async function initNav(activeTab, opts = {}) {
   let user;
   try {
@@ -148,102 +219,17 @@ async function initNav(activeTab, opts = {}) {
   // Store user globally so notifications.js can access it
   window.__navUser = user;
 
-  const tabs = [
-    { id: 'pipeline',   label: 'Pipeline',          href: '/pipeline.html'   },
-    { id: 'portfolio',  label: 'Project Reporting',  href: '/portfolio.html'  },
-    { id: 'planning',   label: 'Resource Planning',  href: '/planning.html'   },
-  ];
-
-  const tabsHtml = tabs.map(t =>
-    `<a class="nav-main-tab${activeTab === t.id ? ' active' : ''}" href="${t.href}">${esc(t.label)}</a>`
-  ).join('');
-
-  const adminPageIds = ['config', 'timesheets', 'admin', 'team', 'attributelists'];
-  const adminHtml = (user.role === 'admin' || user.role === 'sysadmin')
-    ? `<span style="border-left:1px solid rgba(255,255,255,.15);margin:8px 6px;align-self:stretch"></span>` +
-      `<div class="dropdown">
-        <a class="nav-main-tab nav-role-menu-trigger dropdown-toggle${adminPageIds.includes(activeTab) ? ' active' : ''}"
-           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">⚙ Admin</a>
-        <ul class="dropdown-menu">
-          <li><a class="dropdown-item${activeTab === 'config'          ? ' active' : ''}" href="/config.html">⚙ Config</a></li>
-          <li><a class="dropdown-item${activeTab === 'timesheets'      ? ' active' : ''}" href="/timesheets.html">📂 Actuals Repository</a></li>
-          <li><a class="dropdown-item${activeTab === 'admin'           ? ' active' : ''}" href="/admin.html">👤 User Admin</a></li>
-          <li><a class="dropdown-item${activeTab === 'team'            ? ' active' : ''}" href="/team.html">👥 Team</a></li>
-          <li><a class="dropdown-item${activeTab === 'attributelists'  ? ' active' : ''}" href="/attribute-lists.html">🏷 Attribute Lists</a></li>
-        </ul>
-      </div>`
-    : '';
-
-  const sysAdminPageIds = ['dbreset', 'termseditor'];
-  const sysAdminHtml = user.role === 'sysadmin'
-    ? `<span style="border-left:1px solid rgba(255,255,255,.15);margin:8px 6px;align-self:stretch"></span>` +
-      `<div class="dropdown">
-        <a class="nav-main-tab nav-role-menu-trigger dropdown-toggle${sysAdminPageIds.includes(activeTab) ? ' active' : ''}"
-           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">🔒 Sysadmin</a>
-        <ul class="dropdown-menu">
-          <li><a class="dropdown-item${activeTab === 'dbreset'     ? ' active' : ''}" href="/_db-reset.html">🗄 DB Reset</a></li>
-          <li><a class="dropdown-item${activeTab === 'termseditor' ? ' active' : ''}" href="/_terms-editor.html">📄 Terms &amp; Conditions</a></li>
-        </ul>
-      </div>`
-    : '';
-
-  const displayName = esc([user.firstName, user.lastName].filter(Boolean).join(' ') || user.email);
-
-  document.getElementById('nav-container').innerHTML = `
-    <nav class="navbar navbar-dark"
-         style="background:var(--brand-navy);border-bottom:3px solid var(--brand-magenta);padding:10px 0 0;flex-direction:column;align-items:stretch">
-      <div class="d-flex align-items-center justify-content-between px-4" style="height:44px">
-        <a class="d-flex align-items-center gap-2 text-white text-decoration-none" href="/pipeline.html">
-          <span class="fw-bold" style="font-size:2.25rem;letter-spacing:-.02em;line-height:1"><span style="color:var(--brand-magenta)">P</span>Dash</span>
-        </a>
-        <div class="d-flex gap-2 align-items-center">
-          <!-- Notification bell -->
-          <div class="dropdown" id="navNotifWrapper">
-            <button class="btn btn-outline-light btn-sm position-relative" id="nav-notif-btn"
-                    data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
-              🔔
-              <span id="nav-notif-badge" class="badge rounded-pill bg-danger position-absolute top-0 start-100 translate-middle"
-                    style="display:none;font-size:.6rem;min-width:1.2em;padding:.2em .4em"></span>
-            </button>
-            <div class="dropdown-menu dropdown-menu-end p-0" style="width:360px;max-height:480px;overflow:hidden">
-              <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
-                <span class="fw-semibold" style="font-size:.875rem">Notifications</span>
-                <button class="btn btn-link btn-sm p-0 text-muted" id="nav-notif-read-all" style="font-size:.78rem;text-decoration:none">Mark all read</button>
-              </div>
-              <div id="nav-notif-browser-banner" class="px-3 py-2 border-bottom d-flex align-items-center justify-content-between gap-2" style="display:none;font-size:.78rem;background:var(--indigo-50,#eef2ff)">
-                <span id="nav-notif-browser-label">🔔 Enable desktop notifications?</span>
-                <button class="btn btn-primary btn-sm py-0 px-2" id="nav-notif-browser-enable" style="font-size:.75rem">Enable</button>
-              </div>
-              <div id="nav-notif-list" style="overflow-y:auto;max-height:420px">
-                <div class="text-center text-muted py-4" style="font-size:.875rem">No notifications yet</div>
-              </div>
-            </div>
-          </div>
-          <!-- Account dropdown -->
-          <div class="dropdown">
-            <button class="btn btn-outline-light btn-sm dropdown-toggle" id="nav-account-btn"
-                    data-bs-toggle="dropdown" aria-expanded="false">
-              ${displayName}
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end" style="min-width:180px">
-              <li><button class="dropdown-item" id="nav-profile-btn">👤 My Profile</button></li>
-              <li><button class="dropdown-item" id="nav-settings-btn">⚙ Settings</button></li>
-              <li><hr class="dropdown-divider"></li>
-              <li><button class="dropdown-item" id="nav-send-notif-btn">📣 Send Notification</button></li>
-              <li><hr class="dropdown-divider"></li>
-              <li><button class="dropdown-item" id="nav-change-pwd-btn">🔑 Change password</button></li>
-              <li><hr class="dropdown-divider"></li>
-              <li><button class="dropdown-item text-danger" id="nav-logout-btn">Sign out</button></li>
-            </ul>
-          </div>
-        </div>
-      </div>
-      <div class="d-flex align-items-stretch px-2" style="border-top:1px solid rgba(255,255,255,.1);padding-bottom:8px">
-        ${tabsHtml}
-        ${adminHtml}
-        ${sysAdminHtml}
-      </div>
-    </nav>`;
+  document.getElementById('nav-container').innerHTML = buildNavHtml(user, activeTab);
+  navSyncCollapseButton();
+  document.getElementById('nav-collapse-btn').addEventListener('click', () => {
+    navSetCollapsed(document.documentElement.getAttribute('data-sidebar') !== 'collapsed');
+  });
+  navWireGroups(document.getElementById('nav-container'));
+  if (typeof bootstrap !== 'undefined') {
+    ['nav-account-btn', 'nav-notif-btn'].forEach(id => {
+      bootstrap.Dropdown.getOrCreateInstance(document.getElementById(id), { popperConfig: navPopperConfig });
+    });
+  }
 
   // ── BREADCRUMBS ─────────────────────────────────────────────────────────────
   function _navBcHtml(items) {
@@ -281,16 +267,6 @@ async function initNav(activeTab, opts = {}) {
     window.updateBreadcrumbs(opts.breadcrumbs);
   }
 
-  // ── FOOTER ──────────────────────────────────────────────────────────────────
-  if (!document.getElementById('app-footer')) {
-    const footer = document.createElement('footer');
-    footer.id = 'app-footer';
-    footer.className = 'app-footer';
-    footer.innerHTML = `2026 <span style="margin-left:.35em"><span style="color:var(--brand-magenta)">P</span>Dash</span>`;
-    document.body.appendChild(footer);
-    document.body.style.paddingBottom = '100px';
-  }
-
   // ── CHANGE PASSWORD MODAL ───────────────────────────────────────────────────
   if (!document.getElementById('navChangePwdModal')) {
     const modalEl = document.createElement('div');
@@ -299,7 +275,7 @@ async function initNav(activeTab, opts = {}) {
         <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
           <div class="modal-content">
             <div class="modal-header" style="padding:14px 18px">
-              <h6 class="modal-title fw-semibold mb-0">Change Password</h6>
+              <h6 class="modal-title fw-semibold mb-0">${navIcon('key')}Change Password</h6>
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body" style="padding:18px">
@@ -336,7 +312,7 @@ async function initNav(activeTab, opts = {}) {
         <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
           <div class="modal-content">
             <div class="modal-header" style="padding:14px 18px">
-              <h6 class="modal-title fw-semibold mb-0">👤 My Profile</h6>
+              <h6 class="modal-title fw-semibold mb-0">${navIcon('user')}My Profile</h6>
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body" style="padding:18px">
@@ -375,7 +351,7 @@ async function initNav(activeTab, opts = {}) {
         <div class="modal-dialog modal-dialog-centered" style="max-width:520px">
           <div class="modal-content">
             <div class="modal-header border-0 pb-1">
-              <h6 class="modal-title fw-bold">📣 Send Notification</h6>
+              <h6 class="modal-title fw-bold">${navIcon('notify')}Send Notification</h6>
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -463,9 +439,10 @@ async function initNav(activeTab, opts = {}) {
       if (window.__navUser) {
         window.__navUser.first_name = updated.first_name;
         window.__navUser.last_name  = updated.last_name;
+        window.__navUser.firstName  = updated.first_name;
+        window.__navUser.lastName   = updated.last_name;
         window.__navUser.email      = updated.email;
-        const nameEl = document.getElementById('nav-account-btn');
-        if (nameEl) nameEl.textContent = `${updated.first_name} ${updated.last_name} ▾`;
+        navRefreshAccount(window.__navUser);
       }
       okEl.classList.remove('d-none');
       setTimeout(() => {
