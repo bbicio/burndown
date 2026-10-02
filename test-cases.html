@@ -282,6 +282,12 @@ const SECTIONS = [
     {id:'N-06',scenario:'Non-admin access to timesheets.html',
      steps:'Log in as role=user; navigate to /timesheets.html',
      expected:'Redirected to /pipeline.html or "access denied" shown'},
+    {id:'N-07',scenario:'Page shell leaves layout unchanged (2026-10-02, Nav B1)',
+     steps:'On each of the 14 authenticated pages compare layout, sticky/fixed panels (team detail, Team assistant, project-config viewer banner, cost-grid selection bar), an open modal and the account menu against the previous version',
+     expected:'Identical: the #app-shell/#app-main wrapper changes nothing visible; breadcrumb sits right under the navbar'},
+    {id:'N-08',scenario:'Sidebar-state key is inert and survives navigation (2026-10-02, Nav B1)',
+     steps:'In the console run localStorage.setItem("PDash_sidebarCollapsed","1"), navigate to another page, then check document.documentElement.dataset.sidebar and the key',
+     expected:'dataset.sidebar is "collapsed", the key is still stored, nothing looks different; a stray PDash_* key is removed on the same navigation'},
   ]
 },
 {

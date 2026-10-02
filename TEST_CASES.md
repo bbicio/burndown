@@ -42,6 +42,8 @@
 | N-04 | Non-admin config.html | Navigate to `/config.html` as role=user | "Admin access required" — tabs not accessible | |
 | N-05 | Non-admin admin.html | Navigate to `/admin.html` as role=user | "Admin access required" or redirect | |
 | N-06 | Non-admin timesheets.html | Navigate to `/timesheets.html` as role=user | Redirected to pipeline.html or access denied | |
+| N-07 | Page shell leaves layout unchanged (2026-10-02, Nav B1) | On each of the 14 authenticated pages compare layout, fixed/sticky panels, an open modal and the account menu with the previous version | Identical; `#app-shell`/`#app-main` change nothing visible; breadcrumb right under the navbar | |
+| N-08 | Sidebar-state key inert and kept (2026-10-02, Nav B1) | Set `PDash_sidebarCollapsed=1` in `localStorage`, change page, read `document.documentElement.dataset.sidebar` and the key | `data-sidebar="collapsed"`, key kept, no visible change; a stray `PDash_*` key is removed | |
 
 ---
 

@@ -27,3 +27,7 @@ The injected settings modal no longer has tabs: the "🔑 API & Integrations" ta
 ## Settings button opens settings.html (2026-09-30)
 
 The Settings modal injection (`#settingsModal`) and its export/backup/restore wiring were removed from `js/nav.js`, together with `js/settings.js` (deleted). `#nav-settings-btn` now does `window.location.href = '/settings.html'`; the `stgAlreadyWired` marker is kept so the handler is wired once. `nav.js` is `?v=11` in every page that loads it (14 pages including `settings.html`). The earlier "Settings modal: Data Manager only" section above is historical.
+
+## Page shell and breadcrumb placement (Navigation Cycle B1, 2026-10-02)
+
+`window.updateBreadcrumbs` now creates the `#breadcrumb-bar` as the **first child of `#app-main`** (the wrapper every authenticated page has around its content, see CLAUDE.md "Page shell"); on a page without `#app-main` it falls back to the old position, right after `#nav-container`. The visual order navbar → breadcrumb → content is unchanged. `body.has-breadcrumbs` / `--breadcrumb-h` are as before. The footer is untouched (Cycle B2 removes it). Tests: `js/lib/nav-shell.test.js` (placement, update in place, fallback, `keep` key survival, `--sidebar-w` rule) and `js/lib/nav-shell-guard.test.js` (14-page structure, head snippet, no layout-breaking CSS on the wrapper, `?v=` agreement). Cache versions after this cycle: `nav.js?v=12`, `core.js?v=11`, `style.css?v=16`.
