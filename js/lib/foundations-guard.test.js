@@ -73,8 +73,7 @@ describe('css/style.css', () => {
     expect(css).toMatch(/\.btn \.spinner-border[^{]*\{[^}]*color:\s*inherit/);
   });
   it('keeps the layout invariants', () => {
-    expect(css).toMatch(/height:\s*44px/);
-    expect(css).toContain('calc(100vh - 206px)');
+    expect(css).toContain('calc(100vh - var(--nav-top-h) - var(--breadcrumb-h))');
     expect(css).toContain('right: -960px');
   });
   it('is loaded after Bootstrap on every page that links it', () => {

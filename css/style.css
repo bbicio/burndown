@@ -19,6 +19,15 @@ body {
 body.has-breadcrumbs { --breadcrumb-h: 33px; }
 :root { --sidebar-w: 0px; }
 #app-main { margin-left: var(--sidebar-w); }
+:root { --sidebar-w-open: 240px; --sidebar-w-rail: 68px; --nav-top-h: 111px; }
+@media (min-width: 1024px) {
+  :root { --sidebar-w: var(--sidebar-w-open); --nav-top-h: 0px; }
+  html[data-sidebar="collapsed"] { --sidebar-w: var(--sidebar-w-rail); }
+}
+@media (max-width: 1023.98px) {
+  .breadcrumb-bar { display: none; }
+  body.has-breadcrumbs { --breadcrumb-h: 0px; }
+}
 .breadcrumb-bar {
   background: var(--surface-white);
   border-bottom: 1px solid var(--border-light);
@@ -30,64 +39,122 @@ body.has-breadcrumbs { --breadcrumb-h: 33px; }
 .breadcrumb-bar .breadcrumb-item.active { color: var(--text-secondary); }
 .breadcrumb-bar .breadcrumb-item + .breadcrumb-item::before { color: var(--text-disabled); }
 
-/* ── App footer ── */
-.app-footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 100px;
-  background: var(--brand-navy);
-  border-top: 3px solid var(--brand-magenta);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-inverse);
-  font-size: var(--text-md);
-  font-weight: 500;
-  z-index: var(--z-fixed);
-}
-
 /* ── Notification panel ── */
 .notif-item { transition: background var(--duration-fast); }
 .notif-item:hover { background: var(--surface-subtle); }
-.notif-item.unread { border-left: 3px solid var(--brand-magenta); background: #fdf0f5; }
-.notif-item.unread:hover { background: #f9e8f0; }
+.notif-item.unread { border-left: 3px solid var(--brand-magenta); background: var(--brand-magenta-tint); }
+.notif-item.unread:hover { background: var(--brand-magenta-tint-hover); }
 
-/* ── Primary nav tabs ── */
-.nav-main-tab {
-  color: rgba(255,255,255,.55);
-  background: transparent;
-  border: none;
-  border-bottom: 3px solid transparent;
-  border-radius: 0;
-  padding: 8px 18px;
-  font-size: var(--text-md);
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color var(--duration-fast), border-color var(--duration-fast), background var(--duration-fast);
-  height: 44px;
+/* ── Navigation: sidebar (>= 1024px) / icon navbar (< 1024px) ──
+   One DOM (js/nav.js buildNavHtml), two layouts. #nav-container owns its size
+   and navy background from CSS alone so the page never jumps when the script
+   renders the aside. Heights below 1024px are fixed (--nav-top-h) so
+   .pb-board-root can be computed exactly. ── */
+#nav-container { background: var(--brand-navy); }
+@media (min-width: 1024px) {
+  #nav-container { position: fixed; top: 0; bottom: 0; left: 0; width: var(--sidebar-w); z-index: var(--z-fixed); }
 }
-.nav-main-tab:hover  { color: rgba(255,255,255,.9); background: rgba(255,255,255,.07); }
-.nav-main-tab.active { color: var(--text-inverse); border-bottom-color: var(--text-inverse); }
-a.nav-main-tab { display: inline-flex; align-items: center; text-decoration: none; }
+@media (max-width: 1023.98px) {
+  #nav-container { height: var(--nav-top-h); }
+}
 
-/* ── Role-menu dropdown triggers (Admin / Sysadmin) ──
-   No vertical margin here: the trigger <a> is wrapped in a <div class="dropdown">
-   for Bootstrap's dropdown JS, which becomes the actual flex child in the tabs
-   row — a margin on the <a> would not collapse through that wrapper and would
-   grow the row's flex-line height beyond the other tabs' fixed 44px (breaking
-   the navbar height math pipeline.html's .pb-board-root calc relies on).
-   The already-inherited .nav-main-tab height:44px keeps this trigger the same
-   size as its siblings; border-radius + background alone give the pill look. */
-.nav-role-menu-trigger {
-  background: var(--surface-white);
-  color: var(--text-primary);
-  border-radius: var(--radius-sm);
+.nav-icon { display: inline-block; flex: 0 0 auto; vertical-align: -2px; }
+.nav-icon-sm { width: var(--icon-size-sm); height: var(--icon-size-sm); }
+.nav-icon-md { width: var(--icon-size-md); height: var(--icon-size-md); }
+.dropdown-item .nav-icon,
+.modal-title .nav-icon,
+#nav-notif-browser-label .nav-icon { margin-right: 8px; }
+.dropdown-item .nav-icon { color: var(--text-muted); }
+.dropdown-item.text-danger .nav-icon { color: inherit; }
+
+.pd-nav { position: relative; z-index: var(--z-fixed); box-sizing: border-box; background: var(--brand-navy); color: var(--nav-text-muted); font-size: var(--text-md); }
+.pd-logo { color: var(--text-inverse); text-decoration: none; font-weight: 700; letter-spacing: -.02em; line-height: 1; }
+.pd-logo-p { color: var(--brand-magenta); }
+.pd-logo-mini { display: none; }
+.pd-nav-collapse { background: transparent; border: 0; color: var(--nav-text-muted); padding: 6px; border-radius: var(--radius-md); line-height: 0; cursor: pointer; }
+.pd-nav-collapse:hover { background: var(--nav-item-hover-bg); color: var(--text-inverse); }
+.pd-nav-collapse .nav-icon:last-child { display: none; }
+html[data-sidebar="collapsed"] .pd-nav-collapse .nav-icon:first-child { display: none; }
+html[data-sidebar="collapsed"] .pd-nav-collapse .nav-icon:last-child { display: inline-block; }
+.pd-nav-item { display: flex; align-items: center; gap: 12px; color: var(--nav-text-muted); text-decoration: none; font-weight: var(--weight-medium); white-space: nowrap; transition: color var(--duration-fast), background var(--duration-fast); }
+.pd-nav-item:hover { color: var(--text-inverse); background: var(--nav-item-hover-bg); }
+.pd-nav-item.active { color: var(--text-inverse); background: var(--nav-item-active-bg); }
+.pd-nav-item:focus-visible, .pd-nav-group-toggle:focus-visible, .pd-account-btn:focus-visible,
+.pd-bell-btn:focus-visible, .pd-nav-collapse:focus-visible { outline: 2px solid var(--text-inverse); outline-offset: -2px; }
+.pd-nav-group-title { font-size: var(--text-2xs); font-weight: var(--weight-semibold); letter-spacing: .08em; text-transform: uppercase; color: var(--nav-text-muted); }
+.pd-nav-group-toggle { background: transparent; border: 0; color: var(--nav-text-muted); cursor: pointer; }
+.pd-nav-dot { position: absolute; right: 7px; bottom: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--nav-text-muted); }
+.pd-account { min-width: 0; }
+.pd-account-btn { display: flex; align-items: center; gap: 12px; min-width: 0; max-width: 100%; background: transparent; border: 0; border-radius: var(--radius-md); padding: 4px; color: var(--text-inverse); cursor: pointer; }
+.pd-account-btn:hover { background: var(--nav-item-hover-bg); }
+.pd-avatar { width: 36px; height: 36px; flex: 0 0 auto; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--nav-item-active-bg); color: var(--text-inverse); font-size: var(--text-sm); font-weight: 700; }
+.pd-account-email { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+.pd-bell-btn { position: relative; width: 36px; height: 36px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--nav-sep); border-radius: var(--radius-md); color: var(--text-inverse); cursor: pointer; }
+.pd-bell-btn:hover { background: var(--nav-item-hover-bg); }
+.pd-bell-btn.has-unread { background: var(--surface-white); border-color: var(--color-danger); color: var(--color-danger); }
+.pd-badge { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--color-danger); color: var(--text-inverse); font-size: .65rem; font-weight: 700; line-height: 18px; text-align: center; }
+.pd-copyright { font-size: var(--text-2xs); color: var(--nav-text-muted); padding: 0 4px; }
+.pd-account-menu { min-width: 230px; }
+.pd-notif-panel { width: 400px; max-width: calc(100vw - 20px); max-height: 480px; overflow: hidden; }
+
+/* Sidebar (>= 1024px) */
+@media (min-width: 1024px) {
+  .pd-nav { height: 100%; display: flex; flex-direction: column; }
+  .pd-nav-brand { position: relative; flex: 0 0 auto; height: 72px; display: flex; align-items: center; padding: 0 20px; border-bottom: 3px solid var(--brand-magenta); }
+  .pd-logo { font-size: 2.25rem; }
+  .pd-nav-collapse { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); }
+  .pd-nav-items { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding: 14px 12px; }
+  .pd-nav-item { height: 44px; padding: 0 12px; border-left: 3px solid transparent; border-radius: var(--radius-md); }
+  .pd-nav-item.active { border-left-color: var(--brand-magenta); }
+  .pd-nav-group-toggle, .pd-nav-dot { display: none; }
+  .pd-nav-sep { flex: 0 0 auto; height: 1px; margin: 10px 8px; background: var(--nav-sep); }
+  .pd-nav-group { display: block; }
+  .pd-nav-group-title { padding: 4px 15px 6px; }
+  .pd-nav-group .pd-nav-item { height: 40px; font-size: var(--text-sm); }
+  .pd-nav-actions { flex: 0 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 12px; border-top: 1px solid var(--nav-sep); }
+  .pd-copyright { grid-column: 1 / -1; }
+  .pd-notif-panel { max-width: calc(100vw - var(--sidebar-w) - 20px); }
+
+  /* Rail (collapsed) */
+  html[data-sidebar="collapsed"] .pd-logo-full,
+  html[data-sidebar="collapsed"] .pd-nav-label,
+  html[data-sidebar="collapsed"] .pd-nav-group-title,
+  html[data-sidebar="collapsed"] .pd-account-email,
+  html[data-sidebar="collapsed"] .pd-copyright { display: none; }
+  html[data-sidebar="collapsed"] .pd-logo-mini { display: inline; font-size: 2rem; }
+  html[data-sidebar="collapsed"] .pd-nav-brand { justify-content: center; padding: 0; }
+  html[data-sidebar="collapsed"] .pd-nav-collapse { top: 84px; right: auto; left: 50%; transform: translateX(-50%); }
+  html[data-sidebar="collapsed"] .pd-nav-items { padding-top: 54px; }
+  html[data-sidebar="collapsed"] .pd-nav-item { justify-content: center; gap: 0; padding: 0; border-left-width: 0; }
+  html[data-sidebar="collapsed"] .pd-nav-actions { grid-template-columns: 1fr; justify-items: center; }
 }
-.nav-role-menu-trigger:hover  { background: var(--surface-white); color: var(--text-primary); opacity: .85; }
-.nav-role-menu-trigger.active { background: var(--surface-white); color: var(--text-primary); border-bottom-color: var(--brand-magenta); }
+
+/* Icon navbar (< 1024px): two fixed rows, in normal flow */
+@media (max-width: 1023.98px) {
+  .pd-nav { height: var(--nav-top-h); display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 56px 52px; border-bottom: 3px solid var(--brand-magenta); }
+  .pd-nav-brand { grid-area: 1 / 1; display: flex; align-items: center; padding: 0 16px; }
+  .pd-logo { font-size: 1.75rem; }
+  .pd-nav-collapse, .pd-account-email, .pd-copyright { display: none; }
+  .pd-nav-actions { grid-area: 1 / 2; display: flex; align-items: center; gap: 8px; padding-right: 16px; }
+  .pd-bell { order: -1; }
+  .pd-nav-items { grid-area: 2 / 1 / 3 / 3; display: flex; align-items: center; gap: 4px; padding: 0 12px; }
+  .pd-nav-item, .pd-nav-group-toggle { position: relative; width: 44px; height: 44px; justify-content: center; align-items: center; display: inline-flex; padding: 0; gap: 0; border-radius: var(--radius-md); }
+  .pd-nav-label { display: none; }
+  .pd-nav-group-toggle.active { background: var(--nav-item-active-bg); color: var(--text-inverse); }
+  .pd-nav-sep { width: 1px; height: 28px; margin: 0 8px; background: var(--nav-sep); }
+  .pd-nav-sep ~ .pd-nav-sep { display: none; }
+  .pd-nav-group { display: inline-flex; }
+  .pd-nav-group-panel { display: none; position: absolute; top: 100%; left: 10px; right: 10px; margin-top: 8px; padding: 8px 0; background: var(--surface-white); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); }
+  .pd-nav-group.open .pd-nav-group-panel { display: block; }
+  .pd-nav-group-panel .pd-nav-group-title { padding: 10px 20px 8px; color: var(--text-muted); }
+  .pd-nav-group-panel .pd-nav-item { display: flex; width: auto; height: 48px; justify-content: flex-start; gap: 14px; padding: 0 20px; border-radius: 0; color: var(--text-secondary); font-size: var(--text-md); }
+  .pd-nav-group-panel .pd-nav-label { display: inline; }
+  .pd-nav-group-panel .pd-nav-item:hover { background: var(--surface-subtle); color: var(--text-primary); }
+  .pd-nav-group-panel .pd-nav-item.active { background: var(--brand-magenta-tint); color: var(--text-primary); font-weight: var(--weight-semibold); }
+  .pd-nav-group-panel .pd-nav-item.active .nav-icon { color: var(--brand-magenta); }
+  .pd-account-menu { width: 230px; }
+  .pd-notif-panel { width: calc(100vw - 20px); }
+}
 
 /* ── KPI cards ── */
 .kpi-card { border: none; border-left: 4px solid; border-radius: var(--radius-lg); }
@@ -364,7 +431,7 @@ body.pp-fullwidth .app-container { max-width: 100% !important; padding: 0 12px !
 /* ── Pipeline board root (extracted from inline style so v-cloak's plain
    display:none rule can win via normal cascade, no !important needed) ── */
 .pb-board-root {
-  height: calc(100vh - 206px);
+  height: calc(100vh - var(--nav-top-h) - var(--breadcrumb-h));
   display: flex;
   flex-direction: column;
   overflow: hidden;
