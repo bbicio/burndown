@@ -49,3 +49,41 @@ describe('burndown chart colours (portfolio.html)', () => {
     expect(html).toMatch(/chartColor\(name, fallback\)\s*\{[\s\S]*?getComputedStyle\(document\.documentElement\)[\s\S]*?\|\|\s*fallback/);
   });
 });
+
+describe('css/style.css', () => {
+  const css = read('css/style.css');
+  it('body uses the shared font stack', () => {
+    expect(css).toMatch(/body\s*\{[^}]*font-family:\s*var\(--font-family-base\)/);
+    expect(css).not.toContain("'Segoe UI', system-ui");
+  });
+  it('has no leftover magenta hover/active literals', () => {
+    expect(css).not.toMatch(/#d01f6a|#b81860/i);
+  });
+  it('defines the new and restyled components', () => {
+    for (const sel of ['.btn-danger', '.btn-ghost', '.btn-icon', '.spinner-border', '.alert-success', '.alert-danger',
+      '.alert-warning', '.alert-info', '.dropdown-menu', '.modal {']) {
+      expect(css).toContain(sel);
+    }
+  });
+  it('modal variables are set on .modal (Bootstrap derives the inner radius there), not .modal-content', () => {
+    expect(css).toMatch(/\.modal\s*\{[^}]*--bs-modal-border-radius/);
+    expect(css).not.toMatch(/\.modal-content\s*\{[^}]*--bs-modal-/);
+  });
+  it('spinners inside buttons keep the button colour', () => {
+    expect(css).toMatch(/\.btn \.spinner-border[^{]*\{[^}]*color:\s*inherit/);
+  });
+  it('keeps the layout invariants', () => {
+    expect(css).toMatch(/height:\s*44px/);
+    expect(css).toContain('calc(100vh - 206px)');
+    expect(css).toContain('right: -960px');
+  });
+  it('is loaded after Bootstrap on every page that links it', () => {
+    const bad = pages.filter(f => {
+      const t = read(f);
+      const s = t.indexOf('css/style.css');
+      const b = t.indexOf('bootstrap.min.css');
+      return s >= 0 && !(b >= 0 && b < s);
+    });
+    expect(bad).toEqual([]);
+  });
+});
