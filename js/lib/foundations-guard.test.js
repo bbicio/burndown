@@ -137,3 +137,15 @@ describe('cache-busting', () => {
     });
   }
 });
+
+describe('exact-match literals in CSS', () => {
+  it('css/style.css has no #fff literal (use --text-inverse / --surface-white)', () => {
+    expect(read('css/style.css')).not.toMatch(/#fff\b/i);
+  });
+  for (const f of ['login.html', 'activate.html', 'reset-password.html']) {
+    it(`${f} <style> block has no literal that equals an existing token`, () => {
+      const style = (read(f).match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
+      expect(style).not.toMatch(/#fff\b|#e5e7eb|#6b7280/i);
+    });
+  }
+});

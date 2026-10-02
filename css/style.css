@@ -40,7 +40,7 @@ body.has-breadcrumbs { --breadcrumb-h: 33px; }
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--text-inverse);
   font-size: var(--text-md);
   font-weight: 500;
   z-index: var(--z-fixed);
@@ -68,7 +68,7 @@ body.has-breadcrumbs { --breadcrumb-h: 33px; }
   height: 44px;
 }
 .nav-main-tab:hover  { color: rgba(255,255,255,.9); background: rgba(255,255,255,.07); }
-.nav-main-tab.active { color: var(--text-inverse); border-bottom-color: #fff; }
+.nav-main-tab.active { color: var(--text-inverse); border-bottom-color: var(--text-inverse); }
 a.nav-main-tab { display: inline-flex; align-items: center; text-decoration: none; }
 
 /* ── Role-menu dropdown triggers (Admin / Sysadmin) ──
@@ -80,12 +80,12 @@ a.nav-main-tab { display: inline-flex; align-items: center; text-decoration: non
    The already-inherited .nav-main-tab height:44px keeps this trigger the same
    size as its siblings; border-radius + background alone give the pill look. */
 .nav-role-menu-trigger {
-  background: #fff;
+  background: var(--surface-white);
   color: var(--text-primary);
   border-radius: var(--radius-sm);
 }
-.nav-role-menu-trigger:hover  { background: #fff; color: var(--text-primary); opacity: .85; }
-.nav-role-menu-trigger.active { background: #fff; color: var(--text-primary); border-bottom-color: var(--brand-magenta); }
+.nav-role-menu-trigger:hover  { background: var(--surface-white); color: var(--text-primary); opacity: .85; }
+.nav-role-menu-trigger.active { background: var(--surface-white); color: var(--text-primary); border-bottom-color: var(--brand-magenta); }
 
 /* ── KPI cards ── */
 .kpi-card { border: none; border-left: 4px solid; border-radius: var(--radius-lg); }

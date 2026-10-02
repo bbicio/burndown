@@ -50,12 +50,12 @@ Chart.js does not resolve `var()`. Add one small function in `portfolio.html`'s 
 ## 5. Components (`css/style.css`, `?v=14` → `?v=15`)
 
 Pattern: extend Bootstrap through `--bs-*` custom properties; never replace classes. Global overrides live in `style.css`; `admin-crud.css` stays scoped.
-- `.btn-primary` / `.btn-outline-primary`: hover/active use the new tokens (replaces the literals at style.css:201–204, 213–214); `:focus-visible` gets `box-shadow: 0 0 0 3px var(--focus-ring)`.
-- **New** `.btn-danger` (bg `--color-danger`, hover/active tokens above, same focus ring); **new** `.btn-ghost` (transparent, `--text-secondary` text, `--surface-subtle` hover) and `.btn-icon` (square, ghost-style, icon-only, `aria-label` required by the page author); **new** spinner colour (`.spinner-border` → `--bs-spinner-*` = `--brand-magenta`).
+- `.btn-primary` / `.btn-outline-primary`: hover/active use the new tokens (replaces the literals at style.css:201–204, 213–214); buttons keep Bootstrap's visible focus ring through `--bs-btn-focus-shadow-rgb` (magenta for primary/outline/ghost, red for danger); `--focus-ring` (12 % alpha, too weak for a button) is used for form-control focus in `admin-crud.css` and the three public pages.
+- `.btn-danger` (exists in Bootstrap; re-pointed at `--color-danger` / `-hover` / `-active`); **new** `.btn-ghost` (transparent, `--text-secondary` text, `--surface-subtle` hover) and `.btn-icon` (square, ghost-style, icon-only, `aria-label` required by the page author); **new** spinner colour (`.spinner-border` → `--bs-spinner-*` = `--brand-magenta`).
 - All five new/updated button kinds define default / hover / active / focus-visible / disabled (`opacity:.65`, as today).
-- `.alert-success/-danger/-warning/-info`: `--bs-alert-bg/-color/-border-color` from `--color-*-bg` / `-text` tokens. `.dropdown-menu`: border/shadow/radius from `--border-light` / `--shadow-md` / `--radius-md`. `.modal-content`: radius/shadow from tokens.
+- `.alert-success/-danger/-warning/-info`: `--bs-alert-bg/-color/-border-color` from `--color-*-bg` / `-text` tokens. `.dropdown-menu`: border/shadow/radius from `--border-light` / `--shadow-md` / `--radius-md`. `.modal`: border/radius/shadow from tokens (set on `.modal`, not `.modal-content`, because Bootstrap derives the inner radius from the variables on `.modal`).
 - Body font: `font-family: var(--font-family-base)` in `style.css` (line 7) and `admin-crud.css` (line 4). The monospace stack at style.css:182 is untouched.
-- `.pp-tooltip` z-index → `var(--z-tooltip)`; the local `--z-*` and Bootstrap's z-index scales are not renumbered into each other.
+- `--z-tooltip` is defined but not applied: `.pp-tooltip` has no z-index and Bootstrap's tooltip is at 1080, so applying 800 would put tooltips under modals (1055). The local `--z-*` and Bootstrap's z-index scales are not renumbered into each other.
 - `admin-crud.css` (`?v=1` → `?v=2`, 5 pages): `.card` border/shadow literals → `--border-light` / `--shadow-sm`; `.table thead th` colour literal → `var(--text-muted)`; hover literal at line 20 → `var(--brand-magenta-hover)`.
 
 ## 6. Public pages
@@ -84,7 +84,7 @@ Automated: `npm test` passes; a vitest file `js/lib/tokens.test.js` parses `css/
 - `tokens.css` **is** versioned (`?v=7`); the CLAUDE.md "exempt" statement is outdated.
 - `#d01f6a` also appears in the inline `<style>` of three public pages and in `admin-crud.css:20`, not only in `style.css`.
 - Contrast figures were wrong: Expected 1.98 (not 2.3), Anticipated 2.81 (not 3.9), Canceled 4.23 (fails, not passes). The proposed `--status-not-started` (`#9ca3af` + white, 2.54) and `--status-on-hold` (`#d97706` + white, 3.19) failed AA and are replaced above.
-- `.btn-danger` and a ghost button do not exist (confirmed).
+- A ghost button does not exist (confirmed); `.btn-danger` exists in Bootstrap and only lacked token wiring.
 - The `#pbColumnsContainer` dependency cited in handoff §7 is obsolete; the 44px / 206px / 100px values stay as invariants anyway.
 
 ## 11. Out of scope (confirmed)
