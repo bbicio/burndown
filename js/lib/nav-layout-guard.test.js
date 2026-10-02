@@ -64,6 +64,32 @@ describe('navigation CSS (css/style.css)', () => {
   });
 });
 
+describe('rail tooltip CSS (#pd-tooltip)', () => {
+  const block = (css.match(/#pd-tooltip\s*\{([^}]*)\}/) || [])[1] || '';
+  it('is a fixed, non-interactive element, centred on the anchor point, hidden until .show', () => {
+    expect(block).toMatch(/position:\s*fixed/);
+    expect(block).toMatch(/transform:\s*translateY\(-50%\)/);
+    expect(block).toMatch(/pointer-events:\s*none/);
+    expect(block).toMatch(/visibility:\s*hidden/);
+    expect(css).toMatch(/#pd-tooltip\.show\s*\{[^}]*visibility:\s*visible/);
+  });
+  it('sits above the raised navigation (1050) and below Bootstrap modals (1055)', () => {
+    const z = Number((block.match(/z-index:\s*(\d+)/) || [])[1]);
+    expect(z).toBeGreaterThan(1050);
+    expect(z).toBeLessThan(1055);
+  });
+  it('uses design tokens only (navy background, white text), no literal colours', () => {
+    expect(block).toMatch(/background:\s*var\(--brand-navy\)/);
+    expect(block).toMatch(/color:\s*var\(--text-inverse\)/);
+    expect(block).not.toMatch(/#[0-9a-fA-F]{3,6}\b/);
+  });
+  it('keeps a long email on one line with an ellipsis', () => {
+    expect(block).toMatch(/white-space:\s*nowrap/);
+    expect(block).toMatch(/text-overflow:\s*ellipsis/);
+    expect(block).toMatch(/max-width:\s*\d+px/);
+  });
+});
+
 describe('public pages carry no fixed footer', () => {
   for (const f of ['login.html', 'activate.html', 'reset-password.html', 'terms.html']) {
     it(`${f} has no <footer>`, () => expect(read(f)).not.toMatch(/<footer/i));
