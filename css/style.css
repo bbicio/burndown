@@ -69,6 +69,7 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
 
 /* While one of its menus/panels is open the whole navigation rises above page-level fixed panels (z 1045), still below modals (1055). */
 #nav-container:has(.dropdown-menu.show, .pd-nav-group.open) { z-index: 1050; }
+.pd-nav:has(.dropdown-menu.show, .pd-nav-group.open) { z-index: 1050; }
 .pd-nav { position: relative; z-index: var(--z-fixed); box-sizing: border-box; background: var(--brand-navy); color: var(--nav-text-muted); font-size: var(--text-md); }
 .pd-logo { color: var(--text-inverse); text-decoration: none; font-weight: 700; letter-spacing: -.02em; line-height: 1; }
 .pd-logo-p { color: var(--brand-magenta); }

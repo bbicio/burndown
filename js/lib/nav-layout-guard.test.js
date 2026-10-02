@@ -24,10 +24,19 @@ describe('navigation CSS (css/style.css)', () => {
     expect(css).toMatch(/#nav-container\s*\{[^}]*position:\s*fixed[^}]*width:\s*var\(--sidebar-w\)/);
     expect(css).toMatch(/#nav-container\s*\{\s*height:\s*var\(--nav-top-h\);\s*\}/);
   });
-  it('keeps the sidebar and its panels below Bootstrap modals (z-index token <= 1030)', () => {
+  it('keeps the navigation below Bootstrap modals (1055): base token, raised to 1050 only while a menu or panel is open', () => {
     const tokens = read('css/tokens.css');
     const z = Number(tokens.match(/--z-fixed:\s*(\d+)/)[1]);
-    expect(z).toBeLessThanOrEqual(1030);
+    expect(z).toBeLessThan(1055);
+    const raise = sel => {
+      const m = css.match(new RegExp(sel + ':has\\(\\.dropdown-menu\\.show, \\.pd-nav-group\\.open\\)\\s*\\{\\s*z-index:\\s*(\\d+)'));
+      expect(m, sel).not.toBeNull();
+      const v = Number(m[1]);
+      expect(v).toBeLessThan(1055);
+      expect(v).toBeGreaterThan(1045);
+    };
+    raise('#nav-container');
+    raise('\\.pd-nav');
     expect(css).toMatch(/#nav-container\s*\{[^}]*z-index:\s*var\(--z-fixed\)/);
     expect(css).toMatch(/\.pd-nav\s*\{[^}]*z-index:\s*var\(--z-fixed\)/);
   });

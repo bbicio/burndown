@@ -123,6 +123,37 @@ describe('navWireGroups', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect(groups.map(isOpen)).toEqual([false, false]);
   });
+  it('closes every group when the viewport grows to the large layout', () => {
+    let handler = null;
+    window.matchMedia = q => ({ matches: false, media: q, addEventListener: (type, fn) => { if (type === 'change') handler = fn; } });
+    document.body.innerHTML = nav.buildNavHtml(user('sysadmin'), 'pipeline'); // fresh toggles: wired exactly once
+    nav.navWireGroups(document.body);
+    toggles = [...document.querySelectorAll('.pd-nav-group-toggle')];
+    groups = [...document.querySelectorAll('.pd-nav-group')];
+    expect(typeof handler).toBe('function');
+    toggles[0].click();
+    expect(isOpen(groups[0])).toBe(true);
+    handler({ matches: true });
+    expect(groups.map(isOpen)).toEqual([false, false]);
+    expect(toggles[0].getAttribute('aria-expanded')).toBe('false');
+  });
+  it('Escape returns focus to the toggle when focus was inside the open panel', () => {
+    toggles[0].click();
+    const link = groups[0].querySelector('.pd-nav-group-panel a');
+    link.focus();
+    expect(document.activeElement).toBe(link);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(isOpen(groups[0])).toBe(false);
+    expect(document.activeElement).toBe(toggles[0]);
+  });
+  it('Escape does not steal focus when focus is elsewhere', () => {
+    const other = document.createElement('input');
+    document.body.appendChild(other);
+    toggles[0].click();
+    other.focus();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(document.activeElement).toBe(other);
+  });
 });
 
 describe('navRefreshAccount', () => {

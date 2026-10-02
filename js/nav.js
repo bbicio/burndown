@@ -191,7 +191,25 @@ function navWireGroups(root) {
   document.addEventListener('click', e => {
     if (!e.target.closest || !e.target.closest('.pd-nav-group')) closeAll(null);
   });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(null); });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    // Focus inside a panel (or on its toggle) goes back to the toggle, so it is not left on a hidden link.
+    groups.forEach(g => {
+      if (!g.classList.contains('open')) return;
+      const toggle = g.querySelector('.pd-nav-group-toggle');
+      const panel = g.querySelector('.pd-nav-group-panel');
+      const a = document.activeElement;
+      if (a && (a === toggle || (panel && panel.contains(a)))) toggle.focus();
+    });
+    closeAll(null);
+  });
+  // Growing to the large layout shows every panel permanently: drop any leftover open state.
+  if (window.matchMedia) {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = () => closeAll(null);
+    if (mq && mq.addEventListener) mq.addEventListener('change', onChange);
+    else if (mq && mq.addListener) mq.addListener(onChange);
+  }
 }
 
 function navRefreshAccount(u) {
