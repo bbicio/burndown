@@ -1,4 +1,6 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+﻿import { describe, it, expect, afterEach, vi } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 export const SNIPPET =
   "<script>try{if(localStorage.getItem('PDash_sidebarCollapsed')==='1')document.documentElement.setAttribute('data-sidebar','collapsed')}catch(e){}</script>";
@@ -34,5 +36,44 @@ describe('sidebar-state head snippet', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
     expect(run).not.toThrow();
     expect(document.documentElement.hasAttribute('data-sidebar')).toBe(false);
+  });
+});
+
+const PAGES = ['pipeline','portfolio','planning','costgrid','project-config','team','config',
+  'timesheets','admin','attribute-lists','profile-jobs','settings','_db-reset','_terms-editor'];
+const readPage = n => readFileSync(join(process.cwd(), n + '.html'), 'utf8');
+const OPEN = '<div id="app-shell">';
+const CLOSE = '<!-- /#app-shell -->';
+
+describe.each(PAGES)('page shell: %s.html', name => {
+  const html = readPage(name);
+
+  it('has the sidebar-state snippet once, inside <head>', () => {
+    expect(html.split(SNIPPET).length - 1).toBe(1);
+    expect(html.indexOf(SNIPPET)).toBeLessThan(html.indexOf('</head>'));
+    expect(html.indexOf(SNIPPET)).toBeGreaterThan(html.indexOf('<head>'));
+  });
+
+  it('has #app-shell > #nav-container + #app-main in that order', () => {
+    expect(html).toMatch(/<div id="app-shell">\s*<div id="nav-container"><\/div>\s*<div id="app-main">/);
+  });
+
+  it('closes the shell before the first script and keeps its divs balanced', () => {
+    const start = html.indexOf(OPEN);
+    const end = html.indexOf(CLOSE);
+    expect(end).toBeGreaterThan(start);
+    expect(html.slice(start, end)).not.toMatch(/<script/i);
+    expect(html.slice(end)).toMatch(/<script/i);
+    const inner = html.slice(start, end);
+    expect((inner.match(/<div[\s>]/g) || []).length).toBe((inner.match(/<\/div>/g) || []).length);
+  });
+});
+
+describe('shell containers carry no layout-breaking CSS (css/style.css)', () => {
+  const css = readFileSync(join(process.cwd(), 'css/style.css'), 'utf8');
+  const blocks = [...css.matchAll(/(^|\})\s*([^{}]*#app-(?:shell|main)[^{}]*)\{([^}]*)\}/g)].map(m => m[3]);
+  it('has a rule for #app-main', () => expect(blocks.length).toBeGreaterThan(0));
+  it('uses none of overflow/transform/filter/contain/will-change/position on them', () => {
+    for (const b of blocks) expect(b).not.toMatch(/\b(overflow|transform|filter|contain|will-change|position)\s*:/);
   });
 });
