@@ -110,6 +110,17 @@ describe('the custom tooltip (rail only)', () => {
     a.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
     expect(tip().classList.contains('show')).toBe(true);
   });
+  it('also tooltips the Admin / Sysadmin entries: in the rail the group panels are permanent, label-less rows, not a flyout', () => {
+    mount(); stubMedia(true); setRail();
+    nav.navApplyTitles();
+    const g = document.querySelector('.pd-nav-group-panel .pd-nav-item');
+    expect(g).not.toBeNull();
+    rect(g, { top: 300, height: 40, right: 68 });
+    fire(g, 'mouseover');
+    expect(tip().textContent).toBe(g.getAttribute('data-tip'));
+    expect(tip().classList.contains('show')).toBe(true);
+    expect(g.hasAttribute('title')).toBe(false);
+  });
   it('tooltips the avatar (email) and the bell in the rail', () => {
     mount(); stubMedia(true); setRail();
     const av = document.getElementById('nav-account-btn');
@@ -175,6 +186,24 @@ describe('the custom tooltip (rail only)', () => {
     it('when the items container scrolls', () => {
       document.querySelector('.pd-nav-items').dispatchEvent(new Event('scroll'));
       expect(tip().classList.contains('show')).toBe(false);
+    });
+    it('on window resize (it was positioned once, from the old geometry)', () => {
+      window.dispatchEvent(new Event('resize'));
+      expect(tip().classList.contains('show')).toBe(false);
+    });
+    it('when navSetCollapsed is called programmatically (not only through the collapse button)', () => {
+      nav.navSetCollapsed(false);
+      expect(tip().classList.contains('show')).toBe(false);
+    });
+    it('when the hovered element leaves the DOM (navigation re-rendered under the pointer)', async () => {
+      a.remove();
+      await new Promise(r => setTimeout(r, 0)); // MutationObserver callbacks are asynchronous
+      expect(tip().classList.contains('show')).toBe(false);
+    });
+    it('not when an unrelated element leaves the DOM', async () => {
+      document.querySelector('.pd-logo').remove();
+      await new Promise(r => setTimeout(r, 0));
+      expect(tip().classList.contains('show')).toBe(true);
     });
     it('reuses one element for later hovers', () => {
       fire(a, 'mouseout', { relatedTarget: document.body });

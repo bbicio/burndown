@@ -158,6 +158,8 @@ function navSetCollapsed(collapsed) {
   } catch (e) { /* storage blocked: the state is simply not remembered */ }
   navSyncCollapseButton();
   navApplyTitles();
+  const tip = document.getElementById('pd-tooltip'); // a visible tooltip belongs to the old layout
+  if (tip) tip.classList.remove('show');
 }
 
 // Rail (collapsed sidebar, >= 1024px): the native title is replaced by the custom tooltip (navWireTooltips),
@@ -174,7 +176,8 @@ function navApplyTitles() {
 // hovered/focused [data-tip] element and centred on it (the CSS translates it up by half its own height).
 function navWireTooltips(root) {
   let tip = null;
-  const hide = () => { if (tip) tip.classList.remove('show'); };
+  let anchor = null; // the element the visible tooltip belongs to
+  const hide = () => { anchor = null; if (tip) tip.classList.remove('show'); };
   const target = e => (e.target && e.target.closest ? e.target.closest('[data-tip]') : null);
   const show = el => {
     if (navLayout() !== 'rail') return;
@@ -191,6 +194,7 @@ function navWireTooltips(root) {
     tip.style.left = (r.right + 10) + 'px';
     tip.style.top = (r.top + r.height / 2) + 'px';
     tip.classList.add('show');
+    anchor = el;
   };
   root.addEventListener('mouseover', e => { const el = target(e); if (el && root.contains(el)) show(el); });
   root.addEventListener('mouseout', e => { const el = target(e); if (el && !el.contains(e.relatedTarget)) hide(); });
@@ -200,6 +204,13 @@ function navWireTooltips(root) {
   root.addEventListener('show.bs.dropdown', hide);
   root.addEventListener('scroll', hide, true);
   document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(); });
+  // The tooltip is positioned once, from the geometry at show time: a resize makes it stale.
+  window.addEventListener('resize', hide);
+  // If the element it points at leaves the DOM (navigation re-rendered under the pointer) no mouse event
+  // fires on it any more, so the tooltip would stay on screen.
+  if (typeof MutationObserver === 'function') {
+    new MutationObserver(() => { if (anchor && !anchor.isConnected) hide(); }).observe(root, { childList: true, subtree: true });
+  }
   // rail <-> small (or open) changes which tooltip applies: re-apply the titles
   if (window.matchMedia) {
     const mq = window.matchMedia('(min-width: 1024px)');
