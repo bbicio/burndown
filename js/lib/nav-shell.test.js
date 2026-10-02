@@ -64,4 +64,8 @@ describe('--sidebar-w rule (css/style.css)', () => {
     expect(css).toMatch(/:root\s*\{\s*--sidebar-w:\s*0px;\s*\}/);
     expect(css).toMatch(/#app-main\s*\{\s*margin-left:\s*var\(--sidebar-w\);\s*\}/);
   });
+  it('still has the base 0px rule, and sets the width from the media query', () => {
+    expect(css).toMatch(/:root\s*\{\s*--sidebar-w:\s*0px;\s*\}/);
+    expect(css).toContain('--sidebar-w: var(--sidebar-w-open)');
+  });
 });

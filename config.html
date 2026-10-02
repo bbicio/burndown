@@ -4,10 +4,10 @@
 <script>try{if(localStorage.getItem('PDash_sidebarCollapsed')==='1')document.documentElement.setAttribute('data-sidebar','collapsed')}catch(e){}</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDash — Configuration</title>
+  <title>PDash — Master Data</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="css/tokens.css?v=8">
-  <link rel="stylesheet" href="css/style.css?v=16">
+  <link rel="stylesheet" href="css/tokens.css?v=9">
+  <link rel="stylesheet" href="css/style.css?v=19">
   <style>
     body { background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 
@@ -1006,8 +1006,8 @@
 <script defer src="js/core.js?v=11"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script type="module" src="js/lib/money.js?v=2"></script>
-<script defer src="js/notifications.js?v=2"></script>
-<script defer src="js/nav.js?v=12"></script>
+<script defer src="js/notifications.js?v=3"></script>
+<script defer src="js/nav.js?v=14"></script>
 
 <script type="module">
 window.__cfgApp = Vue.createApp({
@@ -1254,7 +1254,7 @@ window.__cfgApp = Vue.createApp({
   async created() {
     const user = await initNav('config', { breadcrumbs: [
       { label: 'Home', href: '/pipeline.html' },
-      { label: 'Configuration' },
+      { label: 'Master Data' },
     ]});
     if (!user) return;
     if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }

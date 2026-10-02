@@ -73,8 +73,7 @@ describe('css/style.css', () => {
     expect(css).toMatch(/\.btn \.spinner-border[^{]*\{[^}]*color:\s*inherit/);
   });
   it('keeps the layout invariants', () => {
-    expect(css).toMatch(/height:\s*44px/);
-    expect(css).toContain('calc(100vh - 206px)');
+    expect(css).toContain('calc(100vh - var(--nav-top-h) - var(--breadcrumb-h))');
     expect(css).toContain('right: -960px');
   });
   it('is loaded after Bootstrap on every page that links it', () => {
@@ -119,7 +118,7 @@ describe('admin-crud.css and the public pages', () => {
 });
 
 describe('cache-busting', () => {
-  const MIN = { 'css/tokens.css': 8, 'css/style.css': 15, 'css/admin-crud.css': 2, 'js/core.js': 10 };
+  const MIN = { 'css/tokens.css': 9, 'css/style.css': 15, 'css/admin-crud.css': 2, 'js/core.js': 10 };
   for (const [file, min] of Object.entries(MIN)) {
     it(`every reference to ${file} carries one shared ?v=N, at least ${min}`, () => {
       const versions = new Set();

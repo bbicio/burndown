@@ -44,7 +44,7 @@ Existing IDs are unchanged: `#nav-notif-btn`, `#nav-account-btn`, `#nav-profile-
 
 **< 1024px (navbar):** `aside` is a two-row grid in normal flow (not fixed: it scrolls away, reclaiming the space). Row 1: logo left, bell and avatar right. Row 2: icon-only destinations, a separator, then the two group buttons with a dot. `--sidebar-w` is 0. The breadcrumb is hidden. Magenta bottom border as today. Landscape tablets (≥ 1024px) get the sidebar; portrait tablets and phones the navbar.
 
-**Group panels (< 1024px):** each group button is a plain `<button>` with `aria-expanded`; the panel is absolutely positioned at the bottom of the `aside`, `left/right: 10px`, `z-index ≤ 1030`. One open at a time; closes on outside tap, `Esc` or entry selection. ~20 lines of JS, no Bootstrap component.
+**Group panels (< 1024px):** each group button is a plain `<button>` with `aria-expanded`; the panel is absolutely positioned at the bottom of the `aside`, `left/right: 10px`, z-index below Bootstrap modals (1055): base `--z-fixed` (300), raised to 1050 only while a dropdown or group panel is open. One open at a time; closes on outside tap, `Esc` or entry selection. ~20 lines of JS, no Bootstrap component.
 
 ### 3.3 Account menu and notification panel
 
@@ -77,7 +77,7 @@ CSS gives `#nav-container` its size and navy background from the first paint, fr
 
 ## 4. Constraints
 
-- Sidebar and panels below Bootstrap modals (z-index ≤ 1030).
+- Sidebar and panels below Bootstrap modals (1055): base `--z-fixed` (300), raised to 1050 only while a dropdown or group panel is open.
 - `#app-shell`/`#app-main` never get `overflow`, `transform`, `filter`, `contain`, `will-change` or `position` (pinned by `nav-shell-guard.test.js`).
 - Every edited versioned file: bump every `?v=` reference on all pages (`nav.js` 12→13, `style.css` 16→17, `notifications.js` 2→3, `tokens.css` 8→9 and `core.js` only if changed); `foundations-guard.test.js` enforces agreement.
 - All user-facing text in English. Worktree + `/finish-cycle`; Docker main-stack safety rules of `CLAUDE.md` apply (frontend only, no `pdash-api` restart expected).

@@ -78,9 +78,9 @@ describe('shell containers carry no layout-breaking CSS (css/style.css)', () => 
   });
 });
 
-describe('?v= references of the files edited in B1', () => {
+describe('?v= references of the files edited in B1 and B2', () => {
   const all = readdirSync(process.cwd()).filter(f => /^[^/]+\.html$/.test(f));
-  for (const file of ['css/style.css', 'js/core.js', 'js/nav.js']) {
+  for (const file of ['css/style.css', 'js/core.js', 'js/nav.js', 'js/notifications.js']) {
     it(`${file} is referenced with one version on every page`, () => {
       const re = new RegExp(file.replace(/[./]/g, '\\$&') + '\\?v=(\\d+)', 'g');
       const versions = new Set();
@@ -90,8 +90,10 @@ describe('?v= references of the files edited in B1', () => {
   }
   it('uses the bumped versions', () => {
     const p = readFileSync(join(process.cwd(), 'pipeline.html'), 'utf8');
-    expect(p).toContain('css/style.css?v=16');
+    expect(p).toContain('css/style.css?v=19');
     expect(p).toContain('js/core.js?v=11');
-    expect(p).toContain('js/nav.js?v=12');
+    expect(p).toContain('js/nav.js?v=14');
+    expect(p).toContain('js/notifications.js?v=3');
+    expect(p).toContain('css/tokens.css?v=9');
   });
 });

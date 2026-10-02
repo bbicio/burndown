@@ -42,12 +42,13 @@ function refreshBrowserNotifBanner() {
   banner.style.display = state.visible ? '' : 'none';
   if (!state.visible) return;
 
+  const icon = typeof navIcon === 'function' ? navIcon('bell') : '';
   if (state.label === 'Enable') {
-    label.textContent = '🔔 Enable desktop notifications?';
+    label.innerHTML = icon + 'Enable desktop notifications?';
     btn.textContent = 'Enable';
     btn.className = 'btn btn-primary btn-sm py-0 px-2';
   } else {
-    label.textContent = '🔔 Desktop notifications on';
+    label.innerHTML = icon + 'Desktop notifications on';
     btn.textContent = 'Disable';
     btn.className = 'btn btn-outline-secondary btn-sm py-0 px-2';
   }
@@ -88,6 +89,8 @@ function loadUnreadCount() {
 
 function updateBadge(count) {
   const badge = document.getElementById('nav-notif-badge');
+  const bell = document.getElementById('nav-notif-btn');
+  if (bell) bell.classList.toggle('has-unread', count > 0);
   if (!badge) return;
   if (count > 0) {
     badge.textContent = count > 99 ? '99+' : count;

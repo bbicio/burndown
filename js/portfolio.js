@@ -37,7 +37,7 @@ function showDashboardView(pid) {
   const cfg = cfgForProject(pid);
   if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
     { label: 'Home', href: '/pipeline.html' },
-    { label: 'Project Portfolio', href: '/portfolio.html' },
+    { label: 'Portfolio', href: '/portfolio.html' },
     { label: cfg?.name || pid },
   ]);
   document.getElementById('portfolioSection').style.display          = 'none';
