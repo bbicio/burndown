@@ -117,3 +117,23 @@ describe('admin-crud.css and the public pages', () => {
     expect([...new Set(missing)]).toEqual([]);
   });
 });
+
+describe('cache-busting', () => {
+  const MIN = { 'css/tokens.css': 8, 'css/style.css': 15, 'css/admin-crud.css': 2, 'js/core.js': 10 };
+  for (const [file, min] of Object.entries(MIN)) {
+    it(`every reference to ${file} carries one shared ?v=N, at least ${min}`, () => {
+      const versions = new Set();
+      const unversioned = [];
+      for (const f of pages) {
+        const t = read(f);
+        // Only real asset references (src/href attributes), not comments or prose that mention the file.
+        for (const m of t.matchAll(new RegExp('(?:src|href)="[^"]*' + file.replace('.', '\\.') + '(\\?v=(\\d+))?', 'g'))) {
+          if (m[2]) versions.add(Number(m[2])); else if (f !== 'test-cases.html') unversioned.push(f);
+        }
+      }
+      expect(unversioned).toEqual([]);
+      expect([...versions].length).toBe(1);
+      expect([...versions][0]).toBeGreaterThanOrEqual(min);
+    });
+  }
+});
