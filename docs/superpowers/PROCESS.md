@@ -33,6 +33,8 @@ Brief → /brainstorming → Spec (committata) → /writing-plans → Piano (com
 - **Mai inventare:** un fatto che il merge non stabilisce resta com'è ed è elencato come "unverified"; la memoria non duplica ciò che il repo già registra (il report del ciclo è quel registro).
 - Le memorie `user`/`feedback`/`reference` non fanno parte di questo giro, salvo contraddizione diretta da parte del ciclo.
 
+**Nota — handoff di design come input del Brief (2026-10-02):** i cicli di redesign UI (fondamenta, navigazione, una pagina per volta) partono da un documento di handoff prodotto in Claude Design e salvato in `docs/superpowers/design/<data>-<ciclo>-handoff.md`, committato prima di aprire il worktree. L'handoff è un **input** della fase Brief (`feature-brief` lo legge e lo traduce nel Brief), non un sostituto di Brief/Spec: le sue affermazioni sul codice vanno **verificate contro il codice** in `/brainstorming` (nel primo ciclo erano sbagliati i contrasti calcolati, un token dato per inutilizzato e una dipendenza di layout obsoleta). Un ciclo per volta, nell'ordine fondamenta → navigazione → pagine, ciascuno in un worktree creato dopo il merge del precedente.
+
 ---
 
 ## 2. I tre scenari

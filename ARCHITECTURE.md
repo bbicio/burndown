@@ -958,13 +958,17 @@ burndown/
     Dockerfile
     package.json
   css/
-    tokens.css            ← design tokens (single source of truth); also carries `[v-cloak] { display: none; }`
-                            (2026-07, repo-wide FOUC fix) — see CLAUDE.md's "v-cloak" section for the full rationale
+    tokens.css            ← design tokens (single source of truth, versioned `?v=8`); also carries `[v-cloak] { display: none; }`
+                            (2026-07, repo-wide FOUC fix) — see CLAUDE.md's "v-cloak" section for the full rationale.
+                            Design foundations (2026-10-02): project-status, chart, focus, typography tokens and AA-checked
+                            stage text colours — see CLAUDE.md's "Design tokens"; `js/lib/tokens.test.js` pins them
     style.css             ← includes `.pb-board-root` (2026-07) — extracted from pipeline.html's former inline
                             style so the `[v-cloak]` rule above could win via cascade without `!important`;
                             `.tag-pill`/`.tag-group`/`.tag-pill--inactive`/`.tags-section--readonly` (2026-09,
                             Cycle 2) — the tag-pill/chip component shared by costgrid.html/project-config.html's
-                            Tags sections. Full narrative: docs/pages/costgrid.md's "Tags" section
+                            Tags sections. Full narrative: docs/pages/costgrid.md's "Tags" section.
+                            Since 2026-10-02 also the token-driven `.btn-danger`/`.btn-ghost`/`.btn-icon`, a magenta
+                            spinner and `--bs-*` overrides for alerts, dropdowns and modals (CLAUDE.md "Design tokens")
     admin-crud.css        ← shared layout for simple admin CRUD pages (page-header/card/table/badges/
                             btn-primary/form-*/empty/alert-sm), extracted 2026-09 from duplicated inline
                             `<style>` blocks in admin.html/team.html/attribute-lists.html
