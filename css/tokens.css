@@ -11,12 +11,14 @@
   --brand-dark:    #1E3A8A;
   --brand-magenta: #F0287A;
   --brand-gold:    #C88A00;
+  --brand-magenta-hover:  #d01f6a;
+  --brand-magenta-active: #b81860;
 
   /* ── Text ── */
   --text-primary:   #1a1a2e;
   --text-secondary: #444444;
   --text-body:      #555555;
-  --text-muted:     #6c757d;
+  --text-muted:     #6b7280;
   --text-faint:     #888888;
   --text-disabled:  #adb5bd;
   --text-placeholder: #bbbbbb;
@@ -29,7 +31,7 @@
   --surface-medium: #e9ecef;
 
   /* ── Borders ── */
-  --border-light:   #dee2e6;
+  --border-light:   #e5e7eb;
   --border-medium:  #ced4da;
   --border-dark:    #9ca3af;
 
@@ -70,6 +72,12 @@
   --color-warning-text: #856404;
   --color-info:         #0dcaf0;
   --color-info-bg:      #cff4fc;
+  --color-success-text: #0f5132;
+  --color-danger-text:  #842029;
+  --color-info-text:    #055160;
+  --color-danger-hover:  #bb2d3b;
+  --color-danger-active: #a52834;
+  --focus-ring:         rgba(240, 40, 122, 0.12);
 
   /* ── Portfolio summary table tints (Budget Summary / program rollup tables) ── */
   --portfolio-totals-bg:        #f0f0f0;
@@ -86,15 +94,28 @@
 
   /* ── Pipeline stage colours (single source of truth) ── */
   --pipeline-sip-bg:              #e8f0fe;
-  --pipeline-sip-color:           #4285f4;
+  --pipeline-sip-color:           #1a56c4;
   --pipeline-expected-bg:         #fff8e1;
-  --pipeline-expected-color:      #e6a817;
+  --pipeline-expected-color:      #8a5d00;
   --pipeline-anticipated-bg:      #fff3e0;
-  --pipeline-anticipated-color:   #ef6c00;
+  --pipeline-anticipated-color:   #a34700;
   --pipeline-committed-bg:        #e8f5e9;
   --pipeline-committed-color:     #2e7d32;
   --pipeline-canceled-bg:         #f5f5f5;
-  --pipeline-canceled-color:      #757575;
+  --pipeline-canceled-color:      #6b6b6b;
+
+  /* ── Project status colours (badges; white text on every background, all ≥ 4.5:1) ── */
+  --status-not-started-bg: #6b7280;
+  --status-started-bg:     var(--color-success);
+  --status-at-risk-bg:     var(--color-danger);
+  --status-on-hold-bg:     #b45309;
+  --status-completed-bg:   var(--brand-navy);
+  --status-text:           #ffffff;
+
+  /* ── Chart colours (read by Chart.js through getComputedStyle, see portfolio.html chartColor()) ── */
+  --chart-actual:    var(--kpi-blue);
+  --chart-committed: var(--pipeline-committed-color);
+  --chart-phasing:   #FF6F00;
 
   /* ── Typography scale ── */
   --text-2xs:  0.70rem;   /* 11.2px — very small badges, fine print */
@@ -105,6 +126,16 @@
   --text-lg:   1.0625rem; /* 17px   — section headers                */
   --text-xl:   1.125rem;  /* 18px   — card/page titles               */
   --text-2xl:  1.25rem;   /* 20px   — modal/view headings            */
+
+  /* ── Font family, weights, line heights ── */
+  --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --leading-tight:   1.3;
+  --leading-base:    1.5;
+  --leading-relaxed: 1.6;
 
   /* ── Border radius ── */
   --radius-xs: 3px;
@@ -141,6 +172,7 @@
   --z-fixed:        300;
   --z-modal:        500;
   --z-notification: 700;
+  --z-tooltip:      800;
 }
 
 [v-cloak] {
