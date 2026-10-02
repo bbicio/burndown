@@ -333,6 +333,15 @@ const SECTIONS = [
     {id:'N-23',scenario:'Open menus are not clipped by page panels (Nav B2)',
      steps:'On /team.html open a resource detail panel, then open the account menu and the bell panel',
      expected:'Both menus appear above the panel (not hidden behind it); a modal still appears above the navigation'},
+    {id:'N-24',scenario:'Rail tooltips (2026-10-02, follow-up to B2)',
+     steps:'Collapse the sidebar (1024px or wider); hover each icon (Pipeline, Portfolio, Planning, the Admin/Sysadmin entries), the initials and the bell; also Tab to one',
+     expected:'A small navy tooltip appears 10px to the right of the rail, vertically centred on the icon: the entry name, the user email for the initials, Notifications for the bell; no browser tooltip appears at the same time (the items have no title in the rail)'},
+    {id:'N-25',scenario:'Rail tooltips hide correctly (follow-up to B2)',
+     steps:'With a tooltip visible: move the pointer away; press Esc; click the initials or the bell; scroll the items list; resize the window; expand the sidebar',
+     expected:'The tooltip disappears each time and never overlaps the avatar/bell menu; it never stays stuck on screen'},
+    {id:'N-26',scenario:'Native title stays elsewhere (follow-up to B2)',
+     steps:'Hover the icons with the sidebar open (240px) and below 1024px',
+     expected:'No custom tooltip; the items carry the standard browser title (and every item has an aria-label in all layouts)'},
   ]
 },
 {

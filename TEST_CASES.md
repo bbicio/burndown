@@ -59,6 +59,9 @@
 | N-21 | No layout jump on load (Nav B2) | Reload `/pipeline.html` with network throttling | The navy sidebar column (or top bar) is present from the first paint and the content does not shift when the navigation appears | |
 | N-22 | Initials follow a profile edit (Nav B2) | Edit first/last name in My Profile and save | The avatar initials and the email in the account block update immediately, without reload | |
 | N-23 | Open menus are not clipped by page panels (Nav B2) | On `/team.html` open a resource's detail panel, then open the account menu and the bell panel | Both menus appear above the panel (not hidden behind it); a modal still appears above the navigation | |
+| N-24 | Rail tooltips (2026-10-02, follow-up to B2) | Collapse the sidebar (≥ 1024px); hover each icon (Pipeline, Portfolio, Planning, the Admin/Sysadmin entries), the initials and the bell; also Tab to one | A small navy tooltip appears 10px to the right of the rail, vertically centred on the icon: the entry name, the user's email for the initials, "Notifications" for the bell; no browser tooltip appears at the same time (the items have no `title` in the rail) | |
+| N-25 | Rail tooltips hide correctly (follow-up to B2) | With a tooltip visible: move the pointer away; press Esc; click the initials or the bell; scroll the items list; resize the window; expand the sidebar | The tooltip disappears each time and never overlaps the avatar/bell menu; it never stays stuck on screen | |
+| N-26 | Native title stays elsewhere (follow-up to B2) | Hover the icons with the sidebar open (240px) and below 1024px | No custom tooltip; the items carry the standard browser `title` (and every item has an `aria-label` in all layouts) | |
 
 ---
 

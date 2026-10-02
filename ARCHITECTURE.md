@@ -964,7 +964,7 @@ burndown/
                             stage text colours — see CLAUDE.md's "Design tokens"; `js/lib/tokens.test.js` pins them
                             Navigation tokens (Nav B2, 2026-10-02, `?v=9`): `--brand-magenta-tint(-hover)`, `--icon-size-sm/md`,
                             `--nav-text-muted`, `--nav-item-hover-bg`, `--nav-item-active-bg`, `--nav-sep`
-    style.css             ← Navigation (Nav B2, `?v=19`): `.pd-nav*` sidebar / icon-navbar rules, `--sidebar-w`/`--nav-top-h` media
+    style.css             ← Navigation (Nav B2 + rail tooltip `#pd-tooltip`, `?v=20`): `.pd-nav*` sidebar / icon-navbar rules, `--sidebar-w`/`--nav-top-h` media
                             queries, `#nav-container` reservation (see CLAUDE.md's "Navigation: sidebar and icon navbar");
                             includes `.pb-board-root` (2026-07) — extracted from pipeline.html's former inline
                             style so the `[v-cloak]` rule above could win via cascade without `!important`;
@@ -980,7 +980,7 @@ burndown/
     api.js                ← Api.* namespace, apiFetch wrapper
     api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData). Full narrative: docs/js/api-sync.md
     core.js               ← state, in-memory helpers (loadConfig/persistConfig no-ops), shared helpers, showConfirm()/showInfo() modal idioms, findRate(). Full narrative: docs/js/core.md
-    nav.js                ← navigation injection, initNav(): one `<aside class="pd-nav">` (sidebar ≥ 1024px, icon navbar below, no footer; Nav B2 2026-10-02) built by buildNavHtml; SVG icons; injects change-pwd, send-notification and "My Profile" modals; T&C gate; calls initNotifications(). Full narrative: docs/js/nav.md
+    nav.js                ← navigation injection, initNav(): one `<aside class="pd-nav">` (sidebar ≥ 1024px, icon navbar below, no footer; Nav B2 2026-10-02) built by buildNavHtml; SVG icons; custom tooltips in the collapsed rail (navWireTooltips, `?v=16`); injects change-pwd, send-notification and "My Profile" modals; T&C gate; calls initNotifications(). Full narrative: docs/js/nav.md
     shares.js             ← generic share modal
     notifications.js      ← SSE client, bell badge (and unread bell state), notification dropdown panel; also drives browser/desktop notifications. Full narrative: docs/js/notifications.md
     costgrid.js           ← shared cost-grid business-logic library, loaded unmodified by `pipeline.html` as globals, and by `costgrid.html`'s own Vue rewrite via the bridge pattern; decided 2026-07 this file is a permanent shared Vanilla service layer, not migration debt — see `docs/superpowers/specs/2026-07-27-costgrid-js-fate-design.md`. Full narrative: docs/js/costgrid.md
