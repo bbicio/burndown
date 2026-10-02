@@ -16,7 +16,7 @@ body {
 
 /* ── Breadcrumb bar ── */
 :root { --breadcrumb-h: 0px; }
-body.has-breadcrumbs { --breadcrumb-h: 33px; }
+body.has-breadcrumbs { --breadcrumb-h: 32px; }
 :root { --sidebar-w: 0px; }
 #app-main { margin-left: var(--sidebar-w); }
 :root { --sidebar-w-open: 240px; --sidebar-w-rail: 68px; --nav-top-h: 111px; }
@@ -67,6 +67,8 @@ body.has-breadcrumbs { --breadcrumb-h: 33px; }
 .dropdown-item .nav-icon { color: var(--text-muted); }
 .dropdown-item.text-danger .nav-icon { color: inherit; }
 
+/* While one of its menus/panels is open the whole navigation rises above page-level fixed panels (z 1045), still below modals (1055). */
+#nav-container:has(.dropdown-menu.show, .pd-nav-group.open) { z-index: 1050; }
 .pd-nav { position: relative; z-index: var(--z-fixed); box-sizing: border-box; background: var(--brand-navy); color: var(--nav-text-muted); font-size: var(--text-md); }
 .pd-logo { color: var(--text-inverse); text-decoration: none; font-weight: 700; letter-spacing: -.02em; line-height: 1; }
 .pd-logo-p { color: var(--brand-magenta); }
@@ -149,6 +151,7 @@ html[data-sidebar="collapsed"] .pd-nav-collapse .nav-icon:last-child { display: 
   .pd-nav-group-panel .pd-nav-group-title { padding: 10px 20px 8px; color: var(--text-muted); }
   .pd-nav-group-panel .pd-nav-item { display: flex; width: auto; height: 48px; justify-content: flex-start; gap: 14px; padding: 0 20px; border-radius: 0; color: var(--text-secondary); font-size: var(--text-md); }
   .pd-nav-group-panel .pd-nav-label { display: inline; }
+  .pd-nav-group-panel .pd-nav-item:focus-visible { outline-color: var(--brand-magenta); }
   .pd-nav-group-panel .pd-nav-item:hover { background: var(--surface-subtle); color: var(--text-primary); }
   .pd-nav-group-panel .pd-nav-item.active { background: var(--brand-magenta-tint); color: var(--text-primary); font-weight: var(--weight-semibold); }
   .pd-nav-group-panel .pd-nav-item.active .nav-icon { color: var(--brand-magenta); }
