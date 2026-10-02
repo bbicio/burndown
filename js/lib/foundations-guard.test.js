@@ -32,3 +32,20 @@ describe('status badges (js/core.js)', () => {
     });
   }
 });
+
+describe('burndown chart colours (portfolio.html)', () => {
+  const html = read('portfolio.html');
+  it('contains no hardcoded line colours', () => {
+    for (const lit of ["'#0d6efd'", "'#FF6F00'", "'#2E7D32'", "'var(--text-disabled)'"]) {
+      expect(html).not.toContain(lit);
+    }
+  });
+  it('reads the chart tokens through chartColor()', () => {
+    for (const t of ['--chart-actual', '--chart-phasing', '--chart-committed', '--text-disabled']) {
+      expect(html).toContain(`chartColor('${t}'`);
+    }
+  });
+  it('chartColor falls back when the token is empty', () => {
+    expect(html).toMatch(/chartColor\(name, fallback\)\s*\{[\s\S]*?getComputedStyle\(document\.documentElement\)[\s\S]*?\|\|\s*fallback/);
+  });
+});
