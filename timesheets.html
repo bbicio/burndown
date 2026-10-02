@@ -63,7 +63,7 @@
     <p class="text-muted mb-3" style="font-size:.78rem">
       Each row represents one project code. Uploading a new XLS for a project replaces all previous data for that code.
       <strong>Delete actuals</strong> permanently removes every timesheet row for that project from the database.
-      Use <strong>Load XLS</strong> in Project Reporting to import new data.
+      Use <strong>Load XLS</strong> in Portfolio to import new data.
     </p>
 
     <!-- ── FILTERS ───────────────────────────────────────────── -->
@@ -152,7 +152,7 @@
         <div class="empty" v-else>
           <div style="font-size:2rem">📂</div>
           <p class="mt-2 mb-0">{{ rows.length ? 'No timesheets match the current filters.' : 'No timesheets uploaded yet.' }}</p>
-          <p class="text-muted small" v-if="!rows.length">Use <strong>Load XLS</strong> in the Project Reporting view to import timesheets.</p>
+          <p class="text-muted small" v-if="!rows.length">Use <strong>Load XLS</strong> in the Portfolio view to import timesheets.</p>
         </div>
       </div>
     </div>

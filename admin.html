@@ -4,7 +4,7 @@
 <script>try{if(localStorage.getItem('PDash_sidebarCollapsed')==='1')document.documentElement.setAttribute('data-sidebar','collapsed')}catch(e){}</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDash — Admin</title>
+  <title>PDash — User Admin</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="css/tokens.css?v=9">
   <link rel="stylesheet" href="css/style.css?v=16">
@@ -243,7 +243,7 @@
       async created() {
         const user = await initNav('admin', { breadcrumbs: [
           { label: 'Home', href: '/pipeline.html' },
-          { label: 'Administration' },
+          { label: 'User Admin' },
         ]});
         if (!user) return;
         this.me = user;

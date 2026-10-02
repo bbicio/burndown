@@ -175,7 +175,7 @@
     async created() {
       const user = await initNav('dbreset', { breadcrumbs: [
         { label: 'Home', href: '/pipeline.html' },
-        { label: 'Database Reset' },
+        { label: 'DB Reset' },
       ]});
       if (!user) return;
       this.me = user;
