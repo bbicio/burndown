@@ -77,3 +77,21 @@ describe('shell containers carry no layout-breaking CSS (css/style.css)', () => 
     for (const b of blocks) expect(b).not.toMatch(/\b(overflow|transform|filter|contain|will-change|position)\s*:/);
   });
 });
+
+describe('?v= references of the files edited in B1', () => {
+  const all = readdirSync(process.cwd()).filter(f => /^[^/]+\.html$/.test(f));
+  for (const file of ['css/style.css', 'js/core.js', 'js/nav.js']) {
+    it(`${file} is referenced with one version on every page`, () => {
+      const re = new RegExp(file.replace(/[./]/g, '\\$&') + '\\?v=(\\d+)', 'g');
+      const versions = new Set();
+      for (const p of all) for (const m of readFileSync(join(process.cwd(), p), 'utf8').matchAll(re)) versions.add(m[1]);
+      expect([...versions]).toHaveLength(1);
+    });
+  }
+  it('uses the bumped versions', () => {
+    const p = readFileSync(join(process.cwd(), 'pipeline.html'), 'utf8');
+    expect(p).toContain('css/style.css?v=16');
+    expect(p).toContain('js/core.js?v=11');
+    expect(p).toContain('js/nav.js?v=12');
+  });
+});
