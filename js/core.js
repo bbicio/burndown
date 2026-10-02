@@ -264,9 +264,9 @@ function getProjectPipeline(projectId) {
 
 function statusBadge(status) {
   const s = status || 'Not started yet';
-  const style = { 'Not started yet':'background:var(--text-disabled);color:#fff', 'Started':'background:var(--color-success);color:#fff',
-    'Started At Risk':'background:var(--color-danger);color:#fff', 'Put on hold':'background:var(--color-warning);color:#000',
-    'Completed':'background:var(--brand-navy);color:#fff' }[s] || 'background:var(--text-disabled);color:#fff';
+  const style = { 'Not started yet':'background:var(--status-not-started-bg);color:var(--status-text)', 'Started':'background:var(--status-started-bg);color:var(--status-text)',
+    'Started At Risk':'background:var(--status-at-risk-bg);color:var(--status-text)', 'Put on hold':'background:var(--status-on-hold-bg);color:var(--status-text)',
+    'Completed':'background:var(--status-completed-bg);color:var(--status-text)' }[s] || 'background:var(--status-not-started-bg);color:var(--status-text)';
   return `<span style="font-size:var(--text-2xs);border-radius:var(--radius-xs);padding:1px 7px;font-weight:600;${style}">${esc(s)}</span>`;
 }
 
@@ -274,12 +274,12 @@ function statusBadge(status) {
 function statusBadgeLarge(status) {
   const s = status || 'Not started yet';
   const style = {
-    'Not started yet': 'background:#9ca3af;color:#fff',
-    'Started':         'background:var(--color-success);color:#fff',
-    'Started At Risk': 'background:var(--color-danger);color:#fff',
-    'Put on hold':     'background:#d97706;color:#fff',
-    'Completed':       'background:var(--brand-navy);color:#fff',
-  }[s] || 'background:#9ca3af;color:#fff';
+    'Not started yet': 'background:var(--status-not-started-bg);color:var(--status-text)',
+    'Started':         'background:var(--status-started-bg);color:var(--status-text)',
+    'Started At Risk': 'background:var(--status-at-risk-bg);color:var(--status-text)',
+    'Put on hold':     'background:var(--status-on-hold-bg);color:var(--status-text)',
+    'Completed':       'background:var(--status-completed-bg);color:var(--status-text)',
+  }[s] || 'background:var(--status-not-started-bg);color:var(--status-text)';
   return `<span style="font-size:var(--text-xs);border-radius:var(--radius-xs);padding:2px 8px;font-weight:600;${style}">${esc(s)}</span>`;
 }
 

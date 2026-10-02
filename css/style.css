@@ -4,7 +4,7 @@
 
 body {
   background: var(--surface-subtle);
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font-family-base);
   color: var(--text-secondary);
   display: flex;
   flex-direction: column;
@@ -40,7 +40,7 @@ body.has-breadcrumbs { --breadcrumb-h: 33px; }
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--text-inverse);
   font-size: var(--text-md);
   font-weight: 500;
   z-index: var(--z-fixed);
@@ -68,7 +68,7 @@ body.has-breadcrumbs { --breadcrumb-h: 33px; }
   height: 44px;
 }
 .nav-main-tab:hover  { color: rgba(255,255,255,.9); background: rgba(255,255,255,.07); }
-.nav-main-tab.active { color: var(--text-inverse); border-bottom-color: #fff; }
+.nav-main-tab.active { color: var(--text-inverse); border-bottom-color: var(--text-inverse); }
 a.nav-main-tab { display: inline-flex; align-items: center; text-decoration: none; }
 
 /* ── Role-menu dropdown triggers (Admin / Sysadmin) ──
@@ -76,16 +76,16 @@ a.nav-main-tab { display: inline-flex; align-items: center; text-decoration: non
    for Bootstrap's dropdown JS, which becomes the actual flex child in the tabs
    row — a margin on the <a> would not collapse through that wrapper and would
    grow the row's flex-line height beyond the other tabs' fixed 44px (breaking
-   the navbar height math pipeline.html's #pbColumnsContainer calc relies on).
+   the navbar height math pipeline.html's .pb-board-root calc relies on).
    The already-inherited .nav-main-tab height:44px keeps this trigger the same
    size as its siblings; border-radius + background alone give the pill look. */
 .nav-role-menu-trigger {
-  background: #fff;
+  background: var(--surface-white);
   color: var(--text-primary);
   border-radius: var(--radius-sm);
 }
-.nav-role-menu-trigger:hover  { background: #fff; color: var(--text-primary); opacity: .85; }
-.nav-role-menu-trigger.active { background: #fff; color: var(--text-primary); border-bottom-color: var(--brand-magenta); }
+.nav-role-menu-trigger:hover  { background: var(--surface-white); color: var(--text-primary); opacity: .85; }
+.nav-role-menu-trigger.active { background: var(--surface-white); color: var(--text-primary); border-bottom-color: var(--brand-magenta); }
 
 /* ── KPI cards ── */
 .kpi-card { border: none; border-left: 4px solid; border-radius: var(--radius-lg); }
@@ -198,10 +198,10 @@ thead .gantt-label-col { background: var(--indigo-50); z-index: 3; }
 .btn-primary {
   --bs-btn-bg:                 var(--brand-magenta);
   --bs-btn-border-color:       var(--brand-magenta);
-  --bs-btn-hover-bg:           #d01f6a;
-  --bs-btn-hover-border-color: #d01f6a;
-  --bs-btn-active-bg:          #b81860;
-  --bs-btn-active-border-color:#b81860;
+  --bs-btn-hover-bg:           var(--brand-magenta-hover);
+  --bs-btn-hover-border-color: var(--brand-magenta-hover);
+  --bs-btn-active-bg:          var(--brand-magenta-active);
+  --bs-btn-active-border-color:var(--brand-magenta-active);
   --bs-btn-focus-shadow-rgb:   240, 40, 122;
 }
 .btn-outline-primary {
@@ -209,10 +209,63 @@ thead .gantt-label-col { background: var(--indigo-50); z-index: 3; }
   --bs-btn-border-color:       var(--brand-magenta);
   --bs-btn-hover-bg:           var(--brand-magenta);
   --bs-btn-hover-border-color: var(--brand-magenta);
-  --bs-btn-hover-color:        #fff;
-  --bs-btn-active-bg:          #d01f6a;
-  --bs-btn-active-border-color:#d01f6a;
+  --bs-btn-hover-color:        var(--text-inverse);
+  --bs-btn-active-bg:          var(--brand-magenta-hover);
+  --bs-btn-active-border-color:var(--brand-magenta-hover);
   --bs-btn-focus-shadow-rgb:   240, 40, 122;
+}
+
+/* ── Danger button ── */
+.btn-danger {
+  --bs-btn-bg:                 var(--color-danger);
+  --bs-btn-border-color:       var(--color-danger);
+  --bs-btn-hover-bg:           var(--color-danger-hover);
+  --bs-btn-hover-border-color: var(--color-danger-hover);
+  --bs-btn-active-bg:          var(--color-danger-active);
+  --bs-btn-active-border-color:var(--color-danger-active);
+  --bs-btn-focus-shadow-rgb:   220, 53, 69;
+}
+
+/* ── Ghost / icon-only buttons (use on top of .btn; icon-only needs an aria-label) ── */
+.btn-ghost {
+  --bs-btn-color:              var(--text-secondary);
+  --bs-btn-bg:                 transparent;
+  --bs-btn-border-color:       transparent;
+  --bs-btn-hover-color:        var(--text-primary);
+  --bs-btn-hover-bg:           var(--surface-subtle);
+  --bs-btn-hover-border-color: transparent;
+  --bs-btn-active-color:       var(--text-primary);
+  --bs-btn-active-bg:          var(--surface-medium);
+  --bs-btn-active-border-color:transparent;
+  --bs-btn-disabled-color:     var(--text-disabled);
+  --bs-btn-disabled-bg:        transparent;
+  --bs-btn-disabled-border-color: transparent;
+  --bs-btn-focus-shadow-rgb:   240, 40, 122;
+}
+.btn-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2rem; height: 2rem; padding: 0;
+}
+
+/* ── Spinner → brand magenta (inside a button it keeps the button's colour) ── */
+.spinner-border, .spinner-grow { color: var(--brand-magenta); }
+.btn .spinner-border, .btn .spinner-grow { color: inherit; }
+
+/* ── Bootstrap component overrides through tokens ── */
+.alert-success { --bs-alert-color: var(--color-success-text); --bs-alert-bg: var(--color-success-bg); --bs-alert-link-color: var(--color-success-text); }
+.alert-danger  { --bs-alert-color: var(--color-danger-text);  --bs-alert-bg: var(--color-danger-bg);  --bs-alert-link-color: var(--color-danger-text); }
+.alert-warning { --bs-alert-color: var(--color-warning-text); --bs-alert-bg: var(--color-warning-bg); --bs-alert-link-color: var(--color-warning-text); }
+.alert-info    { --bs-alert-color: var(--color-info-text);    --bs-alert-bg: var(--color-info-bg);    --bs-alert-link-color: var(--color-info-text); }
+.dropdown-menu {
+  --bs-dropdown-border-color:  var(--border-light);
+  --bs-dropdown-border-radius: var(--radius-md);
+  --bs-dropdown-box-shadow:    var(--shadow-md);
+}
+/* Set on .modal, not .modal-content: Bootstrap derives --bs-modal-inner-border-radius from these on .modal. */
+.modal {
+  --bs-modal-border-color:  var(--border-light);
+  --bs-modal-border-radius: var(--radius-md);
+  --bs-modal-box-shadow:    var(--shadow-lg);
 }
 
 /* ── Resource planning table ── */
