@@ -1,8 +1,30 @@
-# config.html
+# Master Data pages (formerly config.html)
 
-Config UI (currencies / roles / clients / client groups / pipelines & POT targets; admin only).
+Master Data UI — five pages, one per functionality: `master-clients.html` (Clients), `master-client-groups.html` (Client Groups), `master-pipelines.html` (Pipelines & POT targets), `master-roles.html` (Roles & rates), `master-currencies.html` (Currencies); admin **or sysadmin** only. `config.html` is now only a redirect to `/master-clients.html`.
 
-This file holds the full implementation narrative for this page — cycle-by-cycle detail, methods involved, first-attempt bugs, and report references. `CLAUDE.md`'s Pages table keeps only a one-line purpose description; when working on this page, read this file, not that row, for the detail. See `/sync-docs`'s routing rule for where future changes to this page should be written.
+This file holds the full implementation narrative for these pages — cycle-by-cycle detail, methods involved, first-attempt bugs, and report references. `CLAUDE.md`'s Pages table keeps only a one-line purpose description; when working on these pages, read this file, not that row, for the detail. See `/sync-docs`'s routing rule for where future changes to these pages should be written. **The sections below the "Split" section predate the split (2026-10-05) and were written when everything lived in `config.html`; each one now applies to the page named in the split table.**
+
+## Split into five pages (2026-10-05)
+
+The former single Vue app `config.html` (six `v-show` tab panels, one `loadAll()` for everything) was split into five pages; spec `docs/superpowers/specs/2026-10-05-master-data-split-design.md`, plan `docs/superpowers/plans/2026-10-05-master-data-split.md`, report `docs/superpowers/reports/2026-10-05-worktree-master-data-split-finish-cycle.md`. Priority of the cycle was "the split works": no redesign, no shared code, duplication across the pages accepted (a radical UI redesign was announced for the following days).
+
+| Page | Former tab | Own data / API namespaces | Specifics |
+|---|---|---|---|
+| `master-clients.html` | Clients | `Api.clients`, `Api.ratecards`, `Api.roles`, `Api.currencies.active()` | `#clientRcModal` (outside `#app`) + `openClientRatecard`/`saveClientRatecard`; preloads `window.__currencies` and loads the roles list (the rate card builds its non-EUR columns and "agency default" placeholders from them) |
+| `master-client-groups.html` | Client Groups | `Api.clientGroups`, `Api.clients` | assign/remove clients |
+| `master-pipelines.html` | Pipelines & POTs | `Api.pipelineYears`, `Api.pots`, `Api.reporting`, `Api.clients`, `Api.clientGroups`, `Api.currencies.active()` | `#potDetailsModal`, phasing views, `phasingTableHtml`/`projectPhasingTableHtml`, money preload |
+| `master-roles.html` | Roles | `Api.roles`, `Api.currencies.list()` | per-currency rate fields filter `currencies` on `active`; delete guard + `globalError` scroll watcher |
+| `master-currencies.html` | Currencies | `Api.currencies` | `#crHistoryModal`, `#crRateConfirmModal`, `crEdit` built from the loaded list |
+
+- **How it was built:** `docs/superpowers/plans/2026-10-05-master-data-split/split-config.mjs` sliced the original `config.html` (so every moved method/panel is byte-identical) and `check-split.mjs` verified syntax, balanced divs and that each page defines every member it uses. The generator cannot run any more (`config.html` is now a redirect); it stays as the record. After the final review two things were hand-adjusted in `master-clients.html` (the `window.__currencies` preload and the roles load).
+- **Shell and naming:** every page is a standard page shell (`#app-shell` > `#nav-container` + `#app-main`) calling `initNav('config', …)`, `<title>PDash — Master Data</title>`, breadcrumb Home > Master Data (so the Admin menu keeps highlighting "Master Data", `js/lib/page-names.test.js` maps the five files to id `config`). `js/nav.js`'s `config` entry points to `/master-clients.html`.
+- **Lateral sub-menu:** hand-written `<nav class="md-subnav">` (same five links in every page, own page marked `class="active" aria-current="page"`) inside `<div class="md-layout"> … <div class="md-content"><div id="app" v-cloak>`; styles in `css/style.css` (`.md-layout`/`.md-subnav`/`.md-content`): a row above the content below 1024px, a 200px sticky column beside the main sidebar from 1024px up (the divider is a `border-left` on `.md-content`, not on the menu, because a stretched menu cannot be sticky). **Adding a Master Data page means adding its link to all five pages** (`js/lib/master-data-guard.test.js` pins the five links, their order and the active marker).
+- **Programs:** removed from the Config UI only (tab, panel, state, methods, `Api.programs.list()` in the load). DB, `/programs*` API, `js/programs.js` and the other pages (portfolio grouping and share, costgrid Generate Project, project-config "0. Program") are unchanged; consequence: no UI can rename or delete a program any more, programs can only be created from project-config/costgrid.
+- **Redirect:** `config.html` = meta refresh + `location.replace('/master-clients.html')`, no shell, no Vue.
+- **Versions:** `css/style.css?v=21`, `js/nav.js?v=17` on every page.
+- **Final review fixes (before merge):** the Clients page originally lost the rate card's non-EUR columns (nothing set `window.__currencies`) so saving would have overwritten stored per-currency overrides with `{}`, and its "agency default" placeholders (roles not loaded/mapped); the sub-menu was not sticky (`align-self: stretch`). Pinned by `master-data-guard.test.js`; manual case `MD-08`.
+- **Known leftovers (deferred minors):** the breadcrumb does not name the current page; load error text is "Failed to load data."; `deleteRole` still uses a native `confirm()`; manual-case wording drift (section headings in `TEST_CASES.md` still say `config.html`).
+- **Tests:** `js/lib/master-data-guard.test.js` (sub-menu CSS, per-page structure/links/names/access check/API namespaces/required pieces, redirect, nav entry), `page-names.test.js`, `nav-shell-guard.test.js`; manual cases `MD-01…MD-08`, `N-04`, `CN-01`, `CN-02`.
 
 ## Base state
 

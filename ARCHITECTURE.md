@@ -695,7 +695,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 
 **Ratecard integration in the cost grid editor**
 
-- Client-specific rates are set via the **💲 Costgrid** button on each client row in `config.html` → Clients tab. The modal lists all roles; custom rates override the agency default for that client.
+- Client-specific rates are set via the **💲 Costgrid** button on each client row in `master-clients.html` (Master Data → Clients). The modal lists all roles; custom rates override the agency default for that client.
 - The cost grid version form has a **Rate card** dropdown. When a ratecard is selected, `costgrid.js` populates `_cgActiveRatecardMap` (roleId → rate) via `cgUpdateActiveRatecardMap()` (backed by the `loadRatecardsForDropdown()` cache in `ratecards.js`).
 - Rate cells in the grid use this map as the **baseline**: a cell is only marked yellow (`✎ custom`) when the user manually enters a value that differs from the ratecard rate. Clearing the cell restores the ratecard rate (not the bare agency default).
 - The **👥 Add role** modal applies the same map: roles with a custom ratecard entry are highlighted with an indigo badge (`✦ rate €/h`) and a light purple row background. The rate stored in `_cgDraft.roles` on add is the ratecard rate, so no false positive "custom" flag on first render.
@@ -1022,7 +1022,9 @@ burndown/
                             toolbar), Vue 3 (CDN, no build step, same pattern as pipeline.html/
                             portfolio.html). Full narrative: docs/pages/costgrid.md
   timesheets.html          ← admin-only timesheet upload management, Vue 3 (CDN, no build step). Full narrative: docs/pages/timesheets.md
-  config.html             ← admin config (clients, programs, roles, pipelines & POTs); Role edit form shows per-currency rate fields populated from `rateOverrides`; "Proposal Phasing" view (was "Phasing") excludes Canceled/Draft stages; monthly cells show local amount + EUR equivalent for non-EUR proposals; `phasingTableHtml` adds Total column and removes collapsible detail; `openClientRatecard` fixed filter and shows agency default per-currency placeholder
+  config.html             ← redirect stub (no shell, no Vue) to /master-clients.html (2026-10-05)
+  master-clients.html, master-client-groups.html, master-pipelines.html, master-roles.html, master-currencies.html
+                          ← Master Data: the former config.html split into five admin (or sysadmin) pages, one per functionality (Clients incl. the client rate card, Client Groups, Pipelines & POTs incl. phasing, Roles & per-currency rates, Currencies), each a Vue 3 CDN page loading only its own data and sharing a hand-written lateral sub-menu (`.md-subnav`, css/style.css); Programs management removed from this UI only. Full narrative: docs/pages/config.md
   project-config.html     ← full-page project config form, Vue 3 (CDN, no build step, same pattern as admin.html); manages a single reactive project object (not an array — the original's hidden multi-project dropdown/New/Delete machinery was confirmed dead on this page); unknown ?projectId= shows an explicit not-found state. Full narrative: docs/pages/project-config.md
   admin.html              ← user management; "🗑 Anonymize" button on disabled non-anonymized users; role toggle (admin↔user) + sysadmin grant/revoke toggle (sysadmin viewers only). T&C editor moved out (2026-09) to _terms-editor.html
   terms.html              ← standalone T&C acceptance page (no initNav), Vue 3 (CDN, no build step, same pattern as login.html); shown by gate in initNav() when user.terms_version < current; loaded from /api/app-settings/terms; POST /api/auth/accept-terms on confirm

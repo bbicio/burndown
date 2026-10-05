@@ -318,7 +318,7 @@ Task detail (the per-task role breakdown further down the page) is unaffected by
 
 ## 7. Configuration
 
-All configuration screens described in this section are admin-only and accessible via the **config.html** page (tabbed layout), which also manages Pipeline years and POT targets. (A separate `admin.html` page exists for user management and is out of scope for this section.)
+All configuration screens described in this section are admin-only and accessible via the **Master Data** pages (2026-10-05: the former single, tabbed `config.html` is now five pages — Clients, Client Groups, Pipelines & POTs, Roles & rates, Currencies — linked by a lateral sub-menu next to the sidebar; `/config.html` redirects to the Clients page), which also manage Pipeline years and POT targets. (A separate `admin.html` page exists for user management and is out of scope for this section.)
 
 ### 7.1 Project Configuration
 
@@ -420,7 +420,7 @@ Named bundles of clients (e.g. "Italian Public Sector"). Used as the target for 
 
 **What a POT is:** a Client POT is the total target revenue — the maximum "wallet potential" — allocated to a specific client (or client group) for a given forecasting year. It is the financial benchmark the organization aims to capture from that client, combining existing recurring business with identified upsell/cross-sell growth opportunities. Everything below (the POT banner, the POT table, the View Details modal, the history log) is different views onto that one number and how actual/anticipated pipeline is tracking against it.
 
-Master/detail tab in config.html:
+Master/detail on the Pipelines & POTs page (`master-pipelines.html`):
 
 **View A — Pipeline list:** table of all pipeline years with Visible / Hidden status badge. Actions: toggle visibility (Show/Hide), delete (blocked if cost grid versions reference the year), "POTs →" (drills into View B), "📊 Proposal Phasing", "📋 Project Phasing", + Add year.
 
@@ -449,15 +449,15 @@ POT progress is also visible in the Pipeline board detail panel for linked offer
 
 ### 7.5 Programs
 
-Simple registry: ID + name. Groups projects across the portfolio and reporting view. **A program's ID is permanently fixed once created** — the field is disabled in the edit form from that point on, with no way to change it later; a typo made at creation time cannot be corrected on this program, only worked around by creating a new one and migrating its projects.
+Simple registry: ID + name. Groups projects across the portfolio and reporting view. **A program's ID is permanently fixed once created** — it cannot be changed later (until 2026-10-05 the Programs tab's edit form showed the field disabled); a typo made at creation time cannot be corrected on this program, only worked around by creating a new one and migrating its projects.
 
-**Deleting a program is blocked outright while any project is still linked to it** — the delete does not proceed and does not unlink the projects; every linked project must be moved off the program first. The confirm dialog says so (2026-09-30: "A program that still has projects linked cannot be deleted — the request will be refused."), and a refused delete shows the server's message ("Cannot delete program with linked projects") while the program stays listed.
+**Deleting a program is blocked outright while any project is still linked to it** — the delete does not proceed and does not unlink the projects; every linked project must be moved off the program first. Until 2026-10-05 the Programs tab's confirm dialog said so and a refused delete showed the server's message ("Cannot delete program with linked projects") while the program stayed listed; that screen was removed with the split of `config.html`, the API rule is unchanged.
 
-**Programs tab restored in config.html (2026-09-30):** the tab had been hidden in 2026-09 (programs can also be established from `project-config.html`'s "+ New program" or Generate Project's auto-link flow, §4.9), which left renaming and deleting an existing program with no UI entry point. The tab ("🗂 Programs (N)") is back after Pipelines & POTs, with the list, ✏️ Edit (name only — the ID stays fixed) and Delete, in the admin-only Configuration page.
+**Programs are no longer managed from Master Data (2026-10-05):** the Programs tab of the former `config.html` was removed together with the split of that page. Programs are still created from `project-config.html`'s "+ New program" or Generate Project's auto-link flow (§4.9) and still group projects in the portfolio; the API (including rename and delete) and the data are unchanged, but **no screen can rename or delete a program any more**.
 
 ### 7.6 Roles Registry
 
-Accessed via the "Roles" tab in **config.html** (Configuration), alongside Currencies, Clients, Client Groups, and Pipelines & POTs.
+Accessed via the **Roles & rates** page (`master-roles.html`, Master Data), alongside Currencies, Clients, Client Groups, and Pipelines & POTs.
 
 | Field | Notes |
 |---|---|
@@ -471,7 +471,7 @@ Actions: Add, edit, delete.
 
 ### 7.7 Currencies
 
-Accessed via the "💱 Currencies" tab in **config.html**, alongside Roles, Clients, Client Groups, and Pipelines & POTs — previously undocumented in this PRD despite being a distinct admin tab.
+Accessed via the **Currencies** page (`master-currencies.html`, Master Data), alongside Roles, Clients, Client Groups, and Pipelines & POTs.
 
 EUR is the fixed base currency (always 1:1, not editable, always active). Any other currency starts **inactive** — offered on offer/project currency dropdowns only once an admin activates it here. **"+ Activate currency"** picks an inactive currency and sets its exchange rate as "1 EUR = X"; once activated it appears in the active-currencies table alongside EUR, with its own symbol, name, rate, and last-updated date. An active currency's rate can be updated at any time directly in that table (a Save button per row); every update is timestamped. A **History** button (not available for EUR, whose rate never changes) opens a log of that currency's past rates over time.
 

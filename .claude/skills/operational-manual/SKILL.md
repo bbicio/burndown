@@ -129,8 +129,8 @@ Write this section as a genuine walkthrough, not a compressed formula restatemen
 - **Functional Groups** — the `{role, task}` membership model, the "— any task —" wildcard; cross-reference the dual-rate example already used under Summary by role rather than re-explaining it.
 - **A Program's ID is permanently fixed after creation** — no way to correct a typo later; the only workaround is creating a new program and migrating its projects.
 - **Deleting a Program is blocked outright while any project is still linked to it** — and the confirm dialog says so since 2026-09-30 (a refused delete shows the server message and the program stays listed).
-- **Programs tab restored in Configuration (2026-09-30)** — list, ✏️ Edit (name only, ID fixed) and Delete are reachable again (admin only), after being hidden earlier in 2026-09.
-- **Configuration's tab order (2026-09)**: Currencies, Roles, Clients, Client Groups, Pipelines & POTs — worth naming explicitly if the manual walks through this page tab-by-tab, since it no longer matches an older left-to-right assumption.
+- **Programs are no longer managed in Master Data (2026-10-05)** — the Programs tab of the former Configuration page was removed; programs are only created (project-config "+ New program", Generate Project) and no screen can rename or delete one.
+- **Master Data is five pages (2026-10-05)**: Clients, Client Groups, Pipelines & POTs, Roles & rates, Currencies — each with its own URL (`/master-*.html`), joined by a lateral sub-menu next to the sidebar (Admin → Master Data); the old single, tabbed Configuration page and its tab order no longer exist (`/config.html` redirects to Clients).
 - **Deleting a Client Group only ungroups its member clients** — doesn't delete them. A client belongs to at most one group at a time.
 
 **§8 Timesheet Upload**

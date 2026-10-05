@@ -61,3 +61,7 @@ Branch `worktree-navigation-rail-tooltips`, merge `af16592`, frontend only, no s
 **Review and verification.** Verified in a real browser on the isolated branch stack (gap 10px and vertical offset 0 on every tested item, the avatar and the bell; no `title` in the rail; no custom tooltip with the open sidebar or in iframes below 1024px). The code review's round 1 (3 low findings) was fixed in the same cycle: resize and programmatic collapse now hide the tooltip, and a re-render of the navigation under the pointer is handled; its finding that group entries "duplicate a visible flyout label" was a false positive (no flyout in the rail) and is pinned by a regression test instead of a behaviour change. Round 2: no findings. Cache versions after this change: `nav.js?v=16`, `style.css?v=20`.
 
 **Not verified / open.** A real Tab key press (the browser check used programmatic `focus()`/`blur()`); windows shorter than 640px; after a click hides the tooltip it reappears only after the pointer leaves and re-enters the item (accepted).
+
+## Master Data entry (2026-10-05)
+
+The Admin group's `config` entry (label "Master Data", id `config`) now points to `/master-clients.html`; the five `master-*.html` pages all call `initNav('config', …)`, so the entry stays highlighted on each of them (page names/title/breadcrumb: see CLAUDE.md "Navigation: sidebar and icon navbar" and `docs/pages/config.md`). The Master Data lateral sub-menu is not rendered by `nav.js`: it is hand-written in each page. `nav.js?v=17`.
