@@ -8,7 +8,9 @@ const nav = new Function(read('js/nav.js') + '\nreturn { NAV_MAIN, NAV_GROUPS };
 // page file -> activeTab id passed to initNav
 const PAGES = {
   'pipeline.html': 'pipeline', 'portfolio.html': 'portfolio', 'planning.html': 'planning',
-  'config.html': 'config', 'timesheets.html': 'timesheets', 'admin.html': 'admin', 'team.html': 'team',
+  'master-clients.html': 'config', 'master-client-groups.html': 'config', 'master-pipelines.html': 'config',
+  'master-roles.html': 'config', 'master-currencies.html': 'config',
+  'timesheets.html': 'timesheets', 'admin.html': 'admin', 'team.html': 'team',
   'attribute-lists.html': 'attributelists', '_db-reset.html': 'dbreset', '_terms-editor.html': 'termseditor',
 };
 const labelOf = id => [...nav.NAV_MAIN, ...nav.NAV_GROUPS.flatMap(g => g.items)].find(i => i.id === id).label;
