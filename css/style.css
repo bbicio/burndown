@@ -39,6 +39,35 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
 .breadcrumb-bar .breadcrumb-item.active { color: var(--text-secondary); }
 .breadcrumb-bar .breadcrumb-item + .breadcrumb-item::before { color: var(--text-disabled); }
 
+/* ── Master Data sub-navigation (2026-10, config.html split) ──
+   Row of links above the content on small screens, a column beside the
+   main sidebar from 1024px up. The markup is hand-written in each page. */
+.md-layout { display: block; }
+.md-subnav {
+  display: flex; gap: var(--space-1); overflow-x: auto;
+  padding: var(--space-2) var(--space-6);
+  background: var(--surface-white); border-bottom: 1px solid var(--border-light);
+}
+.md-subnav a {
+  white-space: nowrap; padding: .4rem .8rem; border-radius: 6px;
+  font-size: var(--text-sm); font-weight: 600;
+  color: var(--text-muted); text-decoration: none;
+}
+.md-subnav a:hover { color: var(--brand-navy); background: var(--surface-subtle); }
+.md-subnav a.active { color: var(--brand-magenta); background: var(--brand-magenta-tint); }
+.md-content { min-width: 0; }
+@media (min-width: 1024px) {
+  .md-layout { display: flex; align-items: flex-start; }
+  .md-subnav {
+    flex: 0 0 200px; flex-direction: column; overflow: visible;
+    position: sticky; top: 0; align-self: flex-start;
+    padding: var(--space-4) .75rem;
+    border-bottom: 0;
+  }
+  /* the divider lives on the content, so it still runs the full height while the menu stays sticky */
+  .md-content { flex: 1 1 0; border-left: 1px solid var(--border-light); }
+}
+
 /* ── Notification panel ── */
 .notif-item { transition: background var(--duration-fast); }
 .notif-item:hover { background: var(--surface-subtle); }

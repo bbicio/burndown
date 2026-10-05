@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>try{if(localStorage.getItem('PDash_sidebarCollapsed')==='1')document.documentElement.setAttribute('data-sidebar','collapsed')}catch(e){}</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Master Data</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/tokens.css?v=9">
+  <link rel="stylesheet" href="css/style.css?v=21">
+  <style>
+    body { background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+    .page { margin: 2rem auto; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
+    .page-header h1 { font-size: 2.5rem; font-weight: 700; margin: 0; color: var(--brand-navy); }
+
+    .section-title {
+      font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+      color: #6b7280; margin-bottom: .75rem; display: flex; align-items: center;
+      justify-content: space-between;
+    }
+
+    .card { border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.05); margin-bottom: 2rem; }
+    .card-body { padding: 0; }
+
+    .table { margin: 0; font-size: .875rem; }
+    .table thead th {
+      background: #f9fafb; border-bottom: 1px solid #e5e7eb;
+      font-size: .78rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .04em; color: #6b7280; padding: .65rem 1rem;
+    }
+    .table tbody td { padding: .75rem 1rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6; }
+    .table tbody tr:last-child td { border-bottom: none; }
+    .table tbody tr:hover td { background: #fafafa; }
+
+    .team-sep td { background: #f0f2ff; font-size: .75rem; font-weight: 700; color: #5468c4;
+                   padding: 4px 1rem; border-top: 2px solid #c5cef7; }
+
+    .form-card {
+      border: 1px solid #e5e7eb; border-radius: 8px;
+      background: #fff; padding: 1rem 1.25rem; margin-bottom: 1.25rem;
+    }
+    .form-card-title { font-size: .82rem; font-weight: 700; color: var(--brand-navy); margin-bottom: .75rem; }
+
+    .cfg-tabs { border-bottom: 2px solid var(--border-light); margin-bottom: 1.5rem; display: flex; gap: 0; }
+    .cfg-tab-btn { background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
+                   padding: .6rem 1.25rem; font-size: .88rem; font-weight: 600; color: #6b7280; cursor: pointer; }
+    .cfg-tab-btn:hover { color: var(--brand-navy); }
+    .cfg-tab-btn.active { color: var(--brand-magenta); border-bottom-color: var(--brand-magenta); }
+
+    .empty { text-align: center; padding: 2.5rem 1rem; color: #9ca3af; font-size: .875rem; }
+    .alert-sm { font-size: .83rem; padding: .5rem .75rem; }
+    code { background: #f3f4f6; border-radius: 4px; padding: 1px 5px; font-size: .82rem; color: #374151; }
+
+    .rate-warn { color: #dc3545; font-size: .75rem; }
+  </style>
+</head>
+<body>
+
+<div id="app-shell">
+<div id="nav-container"></div>
+<div id="app-main">
+
+<div class="md-layout">
+<nav class="md-subnav" aria-label="Master Data">
+  <a href="/master-clients.html">Clients</a>
+  <a href="/master-client-groups.html">Client Groups</a>
+  <a href="/master-pipelines.html">Pipelines &amp; POTs</a>
+  <a href="/master-roles.html" class="active" aria-current="page">Roles &amp; rates</a>
+  <a href="/master-currencies.html">Currencies</a>
+</nav>
+<div class="md-content">
+
+<div id="app" v-cloak>
+
+  <!-- ── LOADING / ACCESS DENIED ──────────────────────────────── -->
+  <div v-if="!ready && !accessDenied"
+       class="d-flex align-items-center justify-content-center" style="height:60vh">
+    <div class="spinner-border text-secondary"></div>
+  </div>
+  <div v-else-if="accessDenied"
+       class="d-flex align-items-center justify-content-center" style="height:60vh">
+    <div class="text-center text-muted">
+      <div style="font-size:2rem">🔒</div>
+      <p class="mt-2">Admin access required.</p>
+      <a href="/" class="btn btn-outline-secondary btn-sm">Go to app</a>
+    </div>
+  </div>
+
+  <!-- ── PAGE ────────────────────────────────────────────────── -->
+  <div class="page app-container" v-else>
+
+    <div class="page-header">
+      <div>
+        <h1>Roles &amp; rates</h1>
+        <p class="text-muted mb-0 mt-1" style="font-size:.83rem">Manage roles and their hourly rates per currency.</p>
+      </div>
+    </div>
+
+    <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
+
+    <div>
+    <div class="section-title">
+      <span>Roles <span class="fw-normal text-muted">({{ roles.length }})</span></span>
+      <button class="btn btn-primary btn-sm" @click="openRoleForm()">+ Add role</button>
+    </div>
+
+    <!-- Role form -->
+    <div class="form-card" v-if="rf.show">
+      <div class="form-card-title">{{ rf.id ? 'Edit role' : 'New role' }}</div>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold" style="font-size:.82rem">Label</label>
+          <input type="text" class="form-control form-control-sm" v-model="rf.label"
+                 placeholder="e.g. Project Manager" ref="rfLabel" autocomplete="off">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold" style="font-size:.82rem">
+            Code
+            <span class="fw-normal text-muted" style="font-size:.75rem">TEAM - Role</span>
+          </label>
+          <input type="text" class="form-control form-control-sm" v-model="rf.code"
+                 placeholder="e.g. PM - Project Manager" autocomplete="off">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold" style="font-size:.82rem">Default rate (€/h)</label>
+          <input type="number" min="0" step="1" class="form-control form-control-sm" v-model="rf.rate"
+                 @keydown.enter="saveRole" placeholder="e.g. 150">
+        </div>
+        <div class="col-md-2" v-for="cu in currencies.filter(c => c.code !== 'EUR' && c.active)" :key="cu.code">
+          <label class="form-label fw-semibold" style="font-size:.82rem">Default rate ({{ cu.symbol }}/h)</label>
+          <input type="number" min="0" step="0.01" class="form-control form-control-sm"
+                 :value="rf.rateOverrides[cu.code] || ''"
+                 @input="e => { if(e.target.value) rf.rateOverrides[cu.code] = e.target.value; else delete rf.rateOverrides[cu.code]; }"
+                 :placeholder="'e.g. ' + Math.round((rf.rate || 0) * cu.current_rate)">
+        </div>
+        <div class="col-auto d-flex gap-2">
+          <button class="btn btn-primary btn-sm" @click="saveRole" :disabled="rf.loading">
+            <span v-if="rf.loading" class="spinner-border spinner-border-sm me-1"></span>
+            {{ rf.id ? 'Save' : 'Create' }}
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" @click="rf.show = false">Cancel</button>
+        </div>
+      </div>
+      <div v-if="rf.error" class="alert alert-danger alert-sm mt-2">{{ rf.error }}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <table class="table" v-if="roles.length">
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Code</th>
+              <th>Team</th>
+              <th class="text-end">Default rate</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="(group, team) in groupedRoles" :key="team">
+              <tr class="team-sep"><td colspan="5">{{ team }}</td></tr>
+              <tr v-for="r in group" :key="r.id">
+                <td class="fw-semibold">{{ r.label }}</td>
+                <td><code>{{ r.code }}</code></td>
+                <td class="text-muted" style="font-size:.82rem">{{ extractTeam(r.code) }}</td>
+                <td class="text-end">
+                  <span v-if="!r.rate || r.rate === 0" class="rate-warn">⚠️ Not set</span>
+                  <span v-else class="fw-semibold">{{ fmtRate(r.rate) }} €/h</span>
+                </td>
+                <td class="text-end" style="white-space:nowrap">
+                  <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
+                          @click="openRoleForm(r)">✏️ Edit</button>
+                  <button class="btn btn-outline-danger btn-sm" style="font-size:.75rem"
+                          :disabled="r._loading" @click="deleteRole(r)">
+                    <span v-if="r._loading" class="spinner-border spinner-border-sm"></span>
+                    <span v-else>🗑</span>
+                  </button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+        <div class="empty" v-else>
+          No roles yet. Roles define columns in Cost Grid and drive rate calculations.
+        </div>
+      </div>
+    </div>
+
+    </div><!-- /roles tab -->
+
+  </div><!-- .page -->
+</div><!-- #app -->
+</div><!-- /.md-content -->
+</div><!-- /.md-layout -->
+
+</div><!-- /#app-main -->
+</div><!-- /#app-shell -->
+
+<script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script defer src="js/api.js?v=8"></script>
+<script>
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+<script defer src="js/core.js?v=11"></script>
+<script type="module" src="js/lib/notif-browser.js?v=2"></script>
+<script type="module" src="js/lib/money.js?v=2"></script>
+<script defer src="js/notifications.js?v=3"></script>
+<script defer src="js/nav.js?v=17"></script>
+
+<script type="module">
+window.__cfgApp = Vue.createApp({
+  data() {
+    return {
+      ready:        false,
+      accessDenied: false,
+      globalError:  null,
+
+      roles:    [],
+
+      // Role form state
+      rf: { show: false, id: null, label: '', code: '', rate: '', rateOverrides: {}, error: null, loading: false },
+
+      currencies:    [],
+
+    };
+  },
+
+  computed: {
+    groupedRoles() {
+      const sorted = [...this.roles].sort((a, b) => {
+        const ta = this.extractTeam(a.code), tb = this.extractTeam(b.code);
+        return ta.localeCompare(tb) || a.label.localeCompare(b.label);
+      });
+      const groups = {};
+      sorted.forEach(r => {
+        const t = this.extractTeam(r.code);
+        (groups[t] = groups[t] || []).push(r);
+      });
+      return groups;
+    },
+  },
+
+  async created() {
+    const user = await initNav('config', { breadcrumbs: [
+      { label: 'Home', href: '/pipeline.html' },
+      { label: 'Master Data' },
+    ]});
+    if (!user) return;
+    if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
+    await this.loadAll();
+    this.ready = true;
+  },
+
+  watch: {
+    // The banner lives at the top of the page, above the tabs: a failed action on a long list
+    // (e.g. a blocked role delete) would otherwise set the message where nobody is looking.
+    globalError(msg) { if (msg) window.scrollTo({ top: 0, behavior: 'smooth' }); },
+  },
+
+  methods: {
+    async loadAll() {
+      this.globalError = null;
+      try {
+        const [roles, currencies] = await Promise.all([
+          Api.roles.list(),
+          Api.currencies.list(),
+        ]);
+        this.roles    = roles.map(r => ({ id: r.id, label: r.label, code: r.code, rate: r.hourly_rate || 0, rateOverrides: r.rate_overrides || {} }));
+        this.currencies    = currencies;
+      } catch (e) {
+        this.globalError = e.message || 'Failed to load data.';
+      }
+    },
+
+    openRoleForm(role) {
+      this.rf = {
+        show:         true,
+        id:           role?.id    || null,
+        label:        role?.label || '',
+        code:         role?.code  || '',
+        rate:         role?.rate  != null ? role.rate : '',
+        rateOverrides: role?.rateOverrides ? { ...role.rateOverrides } : {},
+        error: null, loading: false,
+      };
+      this.$nextTick(() => this.$refs.rfLabel?.focus());
+    },
+
+    async saveRole() {
+      const label = this.rf.label.trim();
+      const code  = this.rf.code.trim();
+      const rate  = parseFloat(this.rf.rate);
+      this.rf.error = null;
+
+      if (!label) { this.rf.error = 'Label is required.'; return; }
+      if (!code)  { this.rf.error = 'Code is required.'; return; }
+      if (isNaN(rate) || rate < 0) { this.rf.error = 'Enter a valid rate (≥ 0).'; return; }
+
+      const dup = this.roles.find(r => r.code.toLowerCase() === code.toLowerCase() && r.id !== this.rf.id);
+      if (dup) { this.rf.error = `Code "${code}" is already used by role "${dup.label}".`; return; }
+
+      this.rf.loading = true;
+      try {
+        const rateOverrides = {};
+        for (const [cur, val] of Object.entries(this.rf.rateOverrides)) {
+          const v = parseFloat(val);
+          if (v > 0) rateOverrides[cur] = v;
+        }
+        if (this.rf.id) {
+          await Api.roles.update(this.rf.id, { label, code, hourlyRate: rate, rateOverrides });
+          const r = this.roles.find(r => r.id === this.rf.id);
+          if (r) { r.label = label; r.code = code; r.rate = rate; r.rateOverrides = rateOverrides; }
+        } else {
+          const created = await Api.roles.create({ label, code, hourlyRate: rate });
+          this.roles.push({ id: created.id, label, code, rate, rateOverrides: {} });
+        }
+        this.rf.show = false;
+      } catch (e) {
+        this.rf.error = e.message || 'Save failed.';
+      } finally {
+        this.rf.loading = false;
+      }
+    },
+
+    async deleteRole(role) {
+      if (!confirm(`Delete role "${role.label}"?\n\nCost grid columns using this role will remain but lose the registry link.`)) return;
+      role._loading = true;
+      this.globalError = null;   // reset so a repeated identical failure still re-triggers the scroll-to-banner watcher
+      try {
+        await Api.roles.delete(role.id);
+        this.roles = this.roles.filter(r => r.id !== role.id);
+      } catch (e) {
+        this.globalError = e.message || 'Delete failed.';
+        role._loading = false;
+      }
+    },
+
+    extractTeam(code) {
+      if (!code) return '—';
+      const idx = code.indexOf(' - ');
+      return idx > 0 ? code.slice(0, idx).trim() : (code.split(/[\s_-]/)[0] || '—');
+    },
+
+    fmtRate(n) {
+      return Number(n).toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    },
+  },
+}).mount('#app');
+</script>
+</body>
+</html>

@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>try{if(localStorage.getItem('PDash_sidebarCollapsed')==='1')document.documentElement.setAttribute('data-sidebar','collapsed')}catch(e){}</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Master Data</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/tokens.css?v=9">
+  <link rel="stylesheet" href="css/style.css?v=21">
+  <style>
+    body { background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+    .page { margin: 2rem auto; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
+    .page-header h1 { font-size: 2.5rem; font-weight: 700; margin: 0; color: var(--brand-navy); }
+
+    .section-title {
+      font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+      color: #6b7280; margin-bottom: .75rem; display: flex; align-items: center;
+      justify-content: space-between;
+    }
+
+    .card { border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.05); margin-bottom: 2rem; }
+    .card-body { padding: 0; }
+
+    .table { margin: 0; font-size: .875rem; }
+    .table thead th {
+      background: #f9fafb; border-bottom: 1px solid #e5e7eb;
+      font-size: .78rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .04em; color: #6b7280; padding: .65rem 1rem;
+    }
+    .table tbody td { padding: .75rem 1rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6; }
+    .table tbody tr:last-child td { border-bottom: none; }
+    .table tbody tr:hover td { background: #fafafa; }
+
+    .team-sep td { background: #f0f2ff; font-size: .75rem; font-weight: 700; color: #5468c4;
+                   padding: 4px 1rem; border-top: 2px solid #c5cef7; }
+
+    .form-card {
+      border: 1px solid #e5e7eb; border-radius: 8px;
+      background: #fff; padding: 1rem 1.25rem; margin-bottom: 1.25rem;
+    }
+    .form-card-title { font-size: .82rem; font-weight: 700; color: var(--brand-navy); margin-bottom: .75rem; }
+
+    .cfg-tabs { border-bottom: 2px solid var(--border-light); margin-bottom: 1.5rem; display: flex; gap: 0; }
+    .cfg-tab-btn { background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
+                   padding: .6rem 1.25rem; font-size: .88rem; font-weight: 600; color: #6b7280; cursor: pointer; }
+    .cfg-tab-btn:hover { color: var(--brand-navy); }
+    .cfg-tab-btn.active { color: var(--brand-magenta); border-bottom-color: var(--brand-magenta); }
+
+    .empty { text-align: center; padding: 2.5rem 1rem; color: #9ca3af; font-size: .875rem; }
+    .alert-sm { font-size: .83rem; padding: .5rem .75rem; }
+    code { background: #f3f4f6; border-radius: 4px; padding: 1px 5px; font-size: .82rem; color: #374151; }
+
+    .rate-warn { color: #dc3545; font-size: .75rem; }
+  </style>
+</head>
+<body>
+
+<div id="app-shell">
+<div id="nav-container"></div>
+<div id="app-main">
+
+<div class="md-layout">
+<nav class="md-subnav" aria-label="Master Data">
+  <a href="/master-clients.html">Clients</a>
+  <a href="/master-client-groups.html">Client Groups</a>
+  <a href="/master-pipelines.html">Pipelines &amp; POTs</a>
+  <a href="/master-roles.html">Roles &amp; rates</a>
+  <a href="/master-currencies.html" class="active" aria-current="page">Currencies</a>
+</nav>
+<div class="md-content">
+
+<div id="app" v-cloak>
+
+  <!-- ── LOADING / ACCESS DENIED ──────────────────────────────── -->
+  <div v-if="!ready && !accessDenied"
+       class="d-flex align-items-center justify-content-center" style="height:60vh">
+    <div class="spinner-border text-secondary"></div>
+  </div>
+  <div v-else-if="accessDenied"
+       class="d-flex align-items-center justify-content-center" style="height:60vh">
+    <div class="text-center text-muted">
+      <div style="font-size:2rem">🔒</div>
+      <p class="mt-2">Admin access required.</p>
+      <a href="/" class="btn btn-outline-secondary btn-sm">Go to app</a>
+    </div>
+  </div>
+
+  <!-- ── PAGE ────────────────────────────────────────────────── -->
+  <div class="page app-container" v-else>
+
+    <div class="page-header">
+      <div>
+        <h1>Currencies</h1>
+        <p class="text-muted mb-0 mt-1" style="font-size:.83rem">Activate currencies and manage their exchange rates.</p>
+      </div>
+    </div>
+
+    <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
+
+    <div>
+
+      <div class="section-title">
+        <span>Currencies</span>
+        <button class="btn btn-primary btn-sm" @click="crf.show = true">+ Activate currency</button>
+      </div>
+
+      <!-- Activate form -->
+      <div class="form-card" v-if="crf.show">
+        <div class="form-card-title">Activate a currency</div>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold" style="font-size:.82rem">Currency</label>
+            <select class="form-select form-select-sm" v-model="crf.code">
+              <option value="">— select —</option>
+              <option v-for="cur in currencies.filter(c => !c.active && c.code !== 'EUR')" :key="cur.code" :value="cur.code">
+                {{ cur.code }} — {{ cur.name }}
+              </option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold" style="font-size:.82rem">1 EUR =</label>
+            <div class="input-group input-group-sm">
+              <input type="number" step="0.000001" min="0.000001" class="form-control" v-model="crf.rate" placeholder="e.g. 1.20">
+              <span class="input-group-text" style="font-size:.8rem">{{ currencies.find(c => c.code === crf.code)?.symbol || '?' }}</span>
+            </div>
+          </div>
+          <div class="col-auto d-flex gap-2">
+            <button class="btn btn-primary btn-sm" @click="activateCurrency" :disabled="crf.loading || !crf.code">
+              <span v-if="crf.loading" class="spinner-border spinner-border-sm me-1"></span>
+              Activate
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" @click="crf.show = false; crf.error = null">Cancel</button>
+          </div>
+        </div>
+        <div v-if="crf.error" class="alert alert-danger alert-sm mt-2">{{ crf.error }}</div>
+      </div>
+
+      <!-- Active currencies table -->
+      <div class="card">
+        <div class="card-body p-0">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th style="font-size:.82rem">Code</th>
+                <th style="font-size:.82rem">Symbol</th>
+                <th style="font-size:.82rem">Name</th>
+                <th style="font-size:.82rem">1 EUR =</th>
+                <th style="font-size:.82rem">Last updated</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="cur in currencies.filter(c => c.active)" :key="cur.code">
+                <td class="fw-bold" style="font-size:.9rem">{{ cur.code }}</td>
+                <td>{{ cur.symbol }}</td>
+                <td>{{ cur.name }}</td>
+                <td style="min-width:200px">
+                  <template v-if="cur.code === 'EUR'">
+                    <span class="text-muted" style="font-size:.85rem">Fixed 1:1</span>
+                  </template>
+                  <template v-else>
+                    <div class="d-flex align-items-center gap-2">
+                      <input type="number" step="0.000001" min="0.000001" class="form-control form-control-sm" style="max-width:120px"
+                             v-model="crEdit[cur.code].rate">
+                      <span style="font-size:.82rem;color:#6b7280">{{ cur.symbol }}</span>
+                      <button class="btn btn-sm btn-outline-primary" style="font-size:.72rem;white-space:nowrap"
+                              @click="confirmUpdateCurrencyRate(cur)" :disabled="crEdit[cur.code]?.saving">
+                        <span v-if="crEdit[cur.code]?.saving" class="spinner-border spinner-border-sm"></span>
+                        <span v-else>Save</span>
+                      </button>
+                    </div>
+                    <div v-if="crEdit[cur.code]?.error" class="text-danger" style="font-size:.75rem;margin-top:2px">{{ crEdit[cur.code].error }}</div>
+                  </template>
+                </td>
+                <td style="font-size:.82rem;color:#6b7280">
+                  {{ cur.last_updated ? new Date(cur.last_updated).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}) : '—' }}
+                </td>
+                <td class="text-end">
+                  <button v-if="cur.code !== 'EUR'" class="btn btn-outline-secondary btn-sm" style="font-size:.72rem"
+                          @click="openCurrencyHistory(cur)">History</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="empty" v-if="!currencies.some(c => c.active)">No active currencies.</div>
+        </div>
+      </div>
+
+    </div><!-- /currencies tab -->
+
+    <!-- Rate history modal -->
+    <div class="modal fade" id="crHistoryModal" tabindex="-1">
+      <div class="modal-dialog modal-md">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Rate History — {{ crHistory.name }} ({{ crHistory.code }})</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div v-if="crHistory.loading" class="text-center py-3"><div class="spinner-border text-primary"></div></div>
+            <table v-else-if="crHistory.rows.length" class="table table-sm mb-0">
+              <thead>
+                <tr>
+                  <th style="font-size:.82rem">Date</th>
+                  <th style="font-size:.82rem">1 EUR =</th>
+                  <th style="font-size:.82rem">Updated by</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in crHistory.rows" :key="row.id">
+                  <td style="font-size:.82rem">{{ new Date(row.created_at).toLocaleString('en-GB') }}</td>
+                  <td style="font-size:.82rem;font-weight:600">{{ Number(row.rate).toLocaleString('en', {minimumFractionDigits:6}) }}</td>
+                  <td style="font-size:.82rem;color:#6b7280">{{ row.updated_by || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p v-else class="text-muted" style="font-size:.85rem">No rate history yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rate update confirmation modal -->
+    <div class="modal fade" id="crRateConfirmModal" tabindex="-1">
+      <div class="modal-dialog modal-md">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Update exchange rate?</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" style="font-size:.88rem">
+            <p>You're about to change 1 EUR = <strong>{{ crRateConfirm.oldRate }}</strong> → <strong>{{ crRateConfirm.newRate }}</strong> {{ crRateConfirm.symbol }} for {{ crRateConfirm.code }}.</p>
+            <p class="mb-0">This update does <strong>not</strong> affect any proposal or project already in the system — it only applies to new ones created from now on (or to an existing cost grid version if a "refresh rate" is explicitly run on it).</p>
+            <p v-if="crEdit[crRateConfirm.code]?.error" class="text-danger mb-0 mt-2" style="font-size:.8rem">{{ crEdit[crRateConfirm.code].error }}</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" :disabled="crEdit[crRateConfirm.code]?.saving">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm" @click="updateCurrencyRate(crRateConfirm.code)" :disabled="crEdit[crRateConfirm.code]?.saving">
+              <span v-if="crEdit[crRateConfirm.code]?.saving" class="spinner-border spinner-border-sm me-1"></span>
+              Confirm
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- .page -->
+</div><!-- #app -->
+</div><!-- /.md-content -->
+</div><!-- /.md-layout -->
+
+</div><!-- /#app-main -->
+</div><!-- /#app-shell -->
+
+<script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script defer src="js/api.js?v=8"></script>
+<script>
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+<script defer src="js/core.js?v=11"></script>
+<script type="module" src="js/lib/notif-browser.js?v=2"></script>
+<script type="module" src="js/lib/money.js?v=2"></script>
+<script defer src="js/notifications.js?v=3"></script>
+<script defer src="js/nav.js?v=17"></script>
+
+<script type="module">
+window.__cfgApp = Vue.createApp({
+  data() {
+    return {
+      ready:        false,
+      accessDenied: false,
+      globalError:  null,
+
+      activeCurrencies: [],
+      formatMoney: window.formatMoney,
+
+      currencies:    [],
+
+      crf: { show: false, code: '', rate: '1', error: null, loading: false },
+      crEdit: {},
+      crHistory: { show: false, code: '', name: '', rows: [], loading: false },
+      crRateConfirm: { code: '', symbol: '', oldRate: '', newRate: '' },
+
+    };
+  },
+
+  async created() {
+    const user = await initNav('config', { breadcrumbs: [
+      { label: 'Home', href: '/pipeline.html' },
+      { label: 'Master Data' },
+    ]});
+    if (!user) return;
+    if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
+    try { window.__currencies = await Api.currencies.active(); } catch {}
+    this.activeCurrencies = window.__currencies || [];
+    await this.loadAll();
+    this.ready = true;
+  },
+
+  watch: {
+    // The banner lives at the top of the page, above the tabs: a failed action on a long list
+    // (e.g. a blocked role delete) would otherwise set the message where nobody is looking.
+    globalError(msg) { if (msg) window.scrollTo({ top: 0, behavior: 'smooth' }); },
+  },
+
+  methods: {
+    async loadAll() {
+      this.globalError = null;
+      try {
+        const [currencies] = await Promise.all([
+          Api.currencies.list(),
+        ]);
+        this.currencies    = currencies;
+        this.crEdit        = Object.fromEntries(currencies.map(c => [c.code, { rate: String(c.current_rate), saving: false, error: null }]));
+      } catch (e) {
+        this.globalError = e.message || 'Failed to load data.';
+      }
+    },
+
+    async loadCurrencies() {
+      const all = await Api.currencies.list();
+      this.currencies = all;
+      this.crEdit = Object.fromEntries(all.map(c => [c.code, { rate: String(c.current_rate), saving: false, error: null }]));
+    },
+
+    async activateCurrency() {
+      const rate = parseFloat(this.crf.rate);
+      if (!isFinite(rate) || rate <= 0) { this.crf.error = 'Rate must be a positive number'; return; }
+      if (!this.crf.code) { this.crf.error = 'Select a currency'; return; }
+      this.crf.loading = true; this.crf.error = null;
+      try {
+        await Api.currencies.activate(this.crf.code, rate);
+        this.crf = { show: false, code: '', rate: '1', error: null, loading: false };
+        await this.loadCurrencies();
+      } catch (e) {
+        this.crf.error = e.message || 'Failed to activate currency';
+      }
+      this.crf.loading = false;
+    },
+
+    confirmUpdateCurrencyRate(cur) {
+      const ed = this.crEdit[cur.code];
+      if (!ed) return;
+      const rate = parseFloat(ed.rate);
+      if (!isFinite(rate) || rate <= 0) { ed.error = 'Rate must be a positive number'; return; }
+      ed.error = null;
+      this.crRateConfirm = {
+        code: cur.code,
+        symbol: cur.symbol,
+        oldRate: Number(cur.current_rate).toLocaleString('en', { minimumFractionDigits: 6 }),
+        newRate: rate.toLocaleString('en', { minimumFractionDigits: 6 }),
+      };
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('crRateConfirmModal')).show();
+    },
+
+    async updateCurrencyRate(code) {
+      const ed = this.crEdit[code];
+      if (!ed || ed.saving) return;
+      const rate = parseFloat(ed.rate);
+      if (!isFinite(rate) || rate <= 0) { ed.error = 'Rate must be a positive number'; return; }
+      ed.saving = true; ed.error = null;
+      try {
+        await Api.currencies.updateRate(code, rate);
+        await this.loadCurrencies();
+        bootstrap.Modal.getInstance(document.getElementById('crRateConfirmModal'))?.hide();
+      } catch (e) {
+        ed.error = e.message || 'Failed to update rate';
+      }
+      ed.saving = false;
+    },
+
+    async openCurrencyHistory(cur) {
+      this.crHistory = { show: true, code: cur.code, name: cur.name, rows: [], loading: true };
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('crHistoryModal')).show();
+      try {
+        this.crHistory.rows = await Api.currencies.history(cur.code);
+      } catch (e) {
+        this.crHistory.rows = [];
+      }
+      this.crHistory.loading = false;
+    },
+  },
+}).mount('#app');
+</script>
+</body>
+</html>
