@@ -39,7 +39,7 @@
 | ST-01 | Settings page content | Open `/settings.html` | Standard navigation and breadcrumb Home › Settings (no footer); white content area whose only content is the title "Settings", sized like other admin page titles | |
 | ST-02 | Settings requires login | Log out, open `/settings.html` | Redirected to login | |
 | ST-03 | No stale settings.js | Open any of the 14 pages with the console open | No 404 for `js/settings.js`, no JS errors | |
-| N-04 | Non-admin config.html | Navigate to `/config.html` as role=user | "Admin access required" — tabs not accessible | |
+| N-04 | Non-admin access to the Master Data pages | Navigate to `/master-clients.html` as role=user (repeat for `/master-client-groups.html`, `/master-pipelines.html`, `/master-roles.html`, `/master-currencies.html`) | "Admin access required" on each page — no panel content accessible (the sub-menu stays visible) | |
 | N-05 | Non-admin admin.html | Navigate to `/admin.html` as role=user | "Admin access required" or redirect | |
 | N-06 | Non-admin timesheets.html | Navigate to `/timesheets.html` as role=user | Redirected to pipeline.html or access denied | |
 | N-07 | Page shell leaves layout unchanged (2026-10-02, Nav B1) | On each of the 14 authenticated pages compare layout, fixed/sticky panels, an open modal and the account menu with the previous version | Identical; `#app-shell`/`#app-main` change nothing visible; breadcrumb right under the navbar | |
@@ -326,14 +326,19 @@
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
-| CN-01 | Tab order (2026-09) | Open config.html | Tabs appear left to right: Currencies, Roles, Clients, Client Groups, Pipelines & POTs | |
-| CN-02 | Programs tab visible (2026-09-30, was hidden 2026-09) | Open config.html, inspect the tab bar | A "🗂 Programs (N)" tab button after Pipelines & POTs; clicking it shows the program list with ✏️ Edit and Delete | |
-| CN-03 | Rate-update confirmation modal appears (2026-09) | On the Currencies tab, change an active currency's rate value and click Save | A confirmation modal opens ("Update exchange rate?") showing the old and new rate and explaining the change does not retroactively affect existing proposals/projects — the rate is not yet saved | |
+| CN-01 | Sub-menu order (2026-10, replaces the tab bar) | Open any Master Data page and look at the lateral menu next to the sidebar | Links from top to bottom: Clients, Client Groups, Pipelines & POTs, Roles & rates, Currencies; the current page is highlighted | |
+| CN-02 | No Programs entry in Master Data (2026-10, Programs removed from Config) | Open any Master Data page, inspect the lateral menu and the page | No Programs link or panel anywhere in Master Data (programs are still managed from project-config.html / costgrid.html / portfolio.html) | |
+| CN-03 | Rate-update confirmation modal appears (2026-09) | On the Currencies page (`master-currencies.html`), change an active currency's rate value and click Save | A confirmation modal opens ("Update exchange rate?") showing the old and new rate and explaining the change does not retroactively affect existing proposals/projects — the rate is not yet saved | |
 | CN-04 | Rate-update confirmation — Cancel does not save | Trigger CN-03's modal, then click Cancel | Modal closes; the currency's rate in the table is unchanged | |
 | CN-05 | Rate-update confirmation — Confirm saves | Trigger CN-03's modal, then click Confirm | Modal closes; the currency's rate and Last Updated date update in the table | |
 | CN-06 | Rate-update confirmation ignores a fast repeat click | Trigger CN-03's modal, then click Confirm twice in quick succession before the first request resolves | Only one rate-update request reaches the API; the button shows a spinner and is disabled for the duration of the save | |
-| CN-07 | Program rename | As admin, Programs tab → ✏️ Edit a program, change the name, Save | Name updates in the list; the ID field stays disabled | |
-| CN-08 | Program delete confirm text and refusal | Delete a program that has projects linked; then delete one with none | Confirm text says a program with linked projects cannot be deleted; with linked projects the server message "Cannot delete program with linked projects" is shown and the program stays listed; an empty program is removed | |
+| MD-01 | Master Data — open /config.html | As admin, open `/config.html` (e.g. an old bookmark) | Lands on `/master-clients.html`; the Admin group of the sidebar shows "Master Data" highlighted | |
+| MD-02 | Master Data — sub-menu on all five pages | On each of the five pages look at the lateral menu next to the sidebar, then click each link | Five links on every page, the current one highlighted; each link opens its page; no "Programs" entry anywhere | |
+| MD-03 | Master Data — Clients and Client Groups | Create, rename and delete a client; open 💲 Costgrid on a client and save rates; on Client Groups create a group, assign and remove a client, delete the group | Every action behaves as it did on the old Config page | |
+| MD-04 | Master Data — Pipelines & POTs | Create a pipeline year, open it, add/edit/delete a POT, open View Details, open the Proposal Phasing and Project Phasing views | Same behavior and totals as on the old Config page | |
+| MD-05 | Master Data — Roles & rates | Create a role with a rate in each active currency, edit it, delete one that is unused and try to delete one assigned to a team resource | Rate fields appear for every active non-EUR currency; the blocked delete shows its error banner and scrolls to the top | |
+| MD-06 | Master Data — Currencies | Activate a currency, change a rate (Cancel then Confirm in the confirmation modal), open a currency history | Same behavior as CN-03…CN-05 | |
+| MD-07 | Master Data — layouts | On each page check three layouts: sidebar open, sidebar collapsed to the rail, and a window narrower than 1024px | The lateral menu is a column beside the sidebar at ≥1024px (also with the rail) and a scrollable row above the content below 1024px; no horizontal page scroll, no overlap with the sidebar or the breadcrumb | |
 
 ---
 
@@ -341,7 +346,7 @@
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
-| CF-01 | Clients tab loads | Open config.html → Clients tab | All clients listed alphabetically; each row has 💲 Costgrid · ✏️ Edit · 🗑 buttons | ✓ |
+| CF-01 | Clients page loads | Open `/master-clients.html` | All clients listed alphabetically; each row has 💲 Costgrid · ✏️ Edit · 🗑 buttons | ✓ |
 | CF-02 | Add client | Click + Add client → submit name | Client appears; persisted to API | ✓ |
 | CF-03 | Rename client | Click ✏️ Edit → change name → save | Name updated in list and all dropdowns | ✓ |
 | CF-04 | Duplicate name blocked | Create a client with an existing name (case-insensitive) | API 409; inline "already exists" error — no duplicate | ✓ |
@@ -365,7 +370,7 @@
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
-| CG-G-01 | Groups tab loads | Click Client Groups tab | All groups listed with assigned clients | ✓ |
+| CG-G-01 | Client Groups page loads | Open `/master-client-groups.html` | All groups listed with assigned clients | ✓ |
 | CG-G-02 | Create group | Click + Add group → submit | New group appears with zero clients | ✓ |
 | CG-G-03 | Rename group | Click ✏️ Rename → change name → save | Name updated | |
 | CG-G-04 | Assign client | Select unassigned client from dropdown → Add | Client badge appears in group | ✓ |
@@ -381,7 +386,7 @@
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
-| PP-01 | Pipeline list loads | Click Pipelines & POTs tab | All years listed with Visible/Hidden badges, POT Target column, Achievement column | ✓ |
+| PP-01 | Pipeline list loads | Open `/master-pipelines.html` | All years listed with Visible/Hidden badges, POT Target column, Achievement column | ✓ |
 | PP-02 | Add year | Click + Add year → enter year → Create | New year in list, active by default | ✓ |
 | PP-03 | Duplicate year | Add a year that already exists | Inline error; API 409 | ✓ |
 | PP-04 | Invalid year | Enter year < 2000 or > 2100 | Validation error; API 400 | ✓ |
@@ -424,10 +429,10 @@
 | PP-36 | POT section — proposal without linked project | Create a proposal with `clientId` set but no linked project; open the detail panel | POT section is shown (uses `v.clientId` as fallback — no linked project required) | |
 | PP-37 | POT totalBudget — Committed+Anticipated only | Pipeline board with a SIP and a Committed proposal for the same client | POT progress bar totalBudget uses only Committed+Anticipated; SIP amount not included | |
 | PP-38 | POT totalBudget — EUR conversion | Non-EUR (USD) Committed proposal; open detail panel | POT section shows EUR-equivalent value (converted via `b?.currencyRate`), not raw USD amount | |
-| PP-39 | Phasing — Canceled/Draft excluded | Open "Proposal Phasing" view in config.html | Canceled and Draft proposals not shown in the table regardless of stage filter applied | |
+| PP-39 | Phasing — Canceled/Draft excluded | Open "Proposal Phasing" view in `master-pipelines.html` | Canceled and Draft proposals not shown in the table regardless of stage filter applied | |
 | PP-40 | Phasing — non-EUR EUR equivalent | Non-EUR proposal in Phasing view | Monthly cells show local amount on first line and EUR equivalent in parentheses below; Total column also shows EUR equivalent | |
 | PP-41 | POT split — proposal preview panel | Open detail panel for a CG with a POT; client has both Committed and Anticipated proposals | POT section shows: "X% total" label + dual-segment progress bar (green=Committed, orange=Anticipated); three rows below bar: Total (C+A) with color, Committed in green, Anticipated in orange (only if > 0) | |
-| PP-42 | POT split — config.html POT list | Open Config → Pipelines & POTs → POT list for a year with proposals | Table shows three columns: "Total (C+A)" / "Committed" / "Anticipated" — all as EUR amounts; no single "Achievement" column | |
+| PP-42 | POT split — master-pipelines.html POT list | Open Master Data → Pipelines & POTs → POT list for a year with proposals | Table shows three columns: "Total (C+A)" / "Committed" / "Anticipated" — all as EUR amounts; no single "Achievement" column | |
 | PP-43 | POT split — year overview row | Pipeline list for year with POTs | Achievement cell shows total% + C+A amount on first line; secondary line shows "C: €X · A: €Y" in green/orange | |
 | PP-44 | POT split — detail modal four cards | View Details modal for POT with Committed + Anticipated proposals | Four KPI cards rendered: Target (grey border) / Total C+A (dark border, total%) / Committed (green border, C%) / Anticipated (orange border, A%); no single "Current (Committed)" card | |
 
@@ -445,7 +450,7 @@
 | AD-06 | Disable user | Click Disable on an active user | Status → disabled; user cannot log in | |
 | AD-07 | Enable user | Click Enable on a disabled user | Status → active; user can log in again | |
 | AD-08 | Cannot modify self | View own row in user list | No role/status buttons — "(you)" label shown instead | |
-| AD-09 | Pipeline years absent | Open admin.html | No pipeline years section — managed in config.html | |
+| AD-09 | Pipeline years absent | Open admin.html | No pipeline years section — managed in Master Data → Pipelines & POTs (`master-pipelines.html`) | |
 | AD-11 | Rate Cards button absent | Open admin.html | No "💲 Rate Cards" button — rate card management moved to Config → Clients | |
 | AD-12 | Anonymize button — only on disabled non-anonymized | View a disabled user row that has a real email | "🗑 Anonymize" button visible; "anonymized" badge absent | |
 | AD-13 | Anonymize button — hidden on active user | View an active user row | "🗑 Anonymize" button not shown | |
@@ -962,7 +967,7 @@ Spec: `docs/superpowers/specs/2026-10-01-money-centralization-design.md`. One mo
 | MN-02 | A value typed in the currency's own format is stored as typed | In an EUR project type `150,75` in a phasing cell and in a PTC Amount; save and reload | `€ 150,75`; stored 150.75 | |
 | MN-03 | Other currencies use their own convention | Projects in USD, CHF and JPY: same fields | USD `$ 1,234.50`; CHF `CHF 1'234.50` (de-CH); JPY `¥ 1,235` (no decimals); focus/blur never changes the value (JPY rounds a fractional stored value to whole units, by design) | |
 | MN-04 | Thousands are always separated | Any amount of 1.000 or more in an EUR currency, e.g. 1234,5 | `€ 1.234,50` (not `€ 1234,50`); focus text for editing stays without separators | |
-| MN-05 | The Currency menu follows the active currencies | Activate USD/CHF/JPY in `config.html` → Currencies; open a proposal without generated projects in `costgrid.html` (and, read-only, a project in `project-config.html`) | The menu lists exactly the active currencies (symbol + name); in `project-config.html` it is read-only since the currency lock (PL-03) but still shows the project's currency, even if it was deactivated since | |
+| MN-05 | The Currency menu follows the active currencies | Activate USD/CHF/JPY in `master-currencies.html`; open a proposal without generated projects in `costgrid.html` (and, read-only, a project in `project-config.html`) | The menu lists exactly the active currencies (symbol + name); in `project-config.html` it is read-only since the currency lock (PL-03) but still shows the project's currency, even if it was deactivated since | |
 | MN-06 | Per-task PTC in the cost grid | `costgrid.html`, EUR grid: type `150,75` in a task's PTC; type `1.234,5` | `150,75` is used as 150.75 (totals update while typing, no longer truncated to 150); `1.234,5` ends as `€ 1.234,50`; focus/blur leaves the value unchanged | |
 | MN-07 | Changing the currency of a cost grid (only possible while no project was generated from the version, PL-01) | `costgrid.html`, a proposal without projects: change the Currency select (e.g. CHF → USD) → confirm in the modal; then reload | The modal lists each role rate in both currencies' formats; confirming applies the new currency, the rate shown under the select is the admin rate (`1 EUR = 1.300000 $`), amounts re-render in `$`, no console error; reload shows the saved currency and rate (regression 2026-10-01: the confirm handler threw `newEntry is not defined`). Automated: `costgrid-currency-change.test.js` | |
 | MN-08 | Portfolio list and detail use each project's currency | `portfolio.html`: projects in EUR/USD/CHF/JPY; open one project's dashboard | List cards (Sold/Spent/Variance, budget badge) and the dashboard show the project's own currency and format (not `€` for every project); a program whose projects share one currency totals in it, a mixed-currency program totals in `€` (raw sums, no conversion: known limitation) | |
