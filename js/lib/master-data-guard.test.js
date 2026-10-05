@@ -76,3 +76,24 @@ describe.each(PAGES)('Master Data page: $file', ({ file, href, api, must }) => {
     for (const s of must) expect(html, s).toContain(s);
   });
 });
+
+describe('config.html is only a redirect to the Clients page', () => {
+  const html = read('config.html');
+  it('redirects (meta refresh + script) to /master-clients.html', () => {
+    expect(html).toContain('http-equiv="refresh" content="0; url=/master-clients.html"');
+    expect(html).toContain("location.replace('/master-clients.html')");
+  });
+  it('runs no Vue and has no shell', () => {
+    expect(html).not.toMatch(/vue/i);
+    expect(html).not.toContain('app-shell');
+  });
+});
+
+describe('Admin menu entry', () => {
+  it('Master Data leads to the Clients page', () => {
+    const nav = new Function(read('js/nav.js') + '\nreturn { NAV_GROUPS };')();
+    const item = nav.NAV_GROUPS.flatMap(g => g.items).find(i => i.id === 'config');
+    expect(item.label).toBe('Master Data');
+    expect(item.href).toBe('/master-clients.html');
+  });
+});

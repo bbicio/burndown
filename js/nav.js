@@ -14,7 +14,7 @@ const NAV_MAIN = [
 
 const NAV_GROUPS = [
   { id: 'admin', title: 'Admin', icon: 'config', roles: ['admin', 'sysadmin'], items: [
-    { id: 'config',         label: 'Master Data',     href: '/config.html',          icon: 'config'     },
+    { id: 'config',         label: 'Master Data',     href: '/master-clients.html',  icon: 'config'     },
     { id: 'timesheets',     label: 'Timesheets',      href: '/timesheets.html',      icon: 'timesheets' },
     { id: 'admin',          label: 'User Admin',      href: '/admin.html',           icon: 'user'       },
     { id: 'team',           label: 'Team',            href: '/team.html',            icon: 'team'       },
