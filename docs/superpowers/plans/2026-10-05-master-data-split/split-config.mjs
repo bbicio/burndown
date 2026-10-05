@@ -34,7 +34,11 @@ const PAGES = [
     desc: 'Manage the clients used across the app.', panel: 'clients',
     data: ['clients', 'roles', 'cf'], computed: ['sortedClients'],
     methods: ['openClientForm', 'saveClient', 'deleteClient', 'openClientRatecard', 'saveClientRatecard'],
-    modals: ['clientRc'], loads: ['clients'] },
+    // NOTE (final review fix): the committed master-clients.html additionally preloads window.__currencies
+    // (only that line, no activeCurrencies) and loads the roles list, both needed by the client rate card.
+    // This generator no longer runs against the repo (config.html is now a redirect); the entry below
+    // records the intended loads.
+    modals: ['clientRc'], loads: ['clients', 'roles'] },
   { id: 'groups', file: 'master-client-groups.html', h1: 'Client Groups',
     desc: 'Manage client groups and assign clients to them.', panel: 'groups',
     data: ['clients', 'groups', 'gf'], computed: ['sortedClients', 'sortedGroups'],

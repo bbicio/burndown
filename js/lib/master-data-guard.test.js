@@ -16,12 +16,23 @@ describe('Master Data sub-menu styles (css/style.css)', () => {
     const wide = css.slice(css.indexOf('/* ── Master Data sub-navigation'));
     expect(wide).toMatch(/@media \(min-width: 1024px\)\s*\{[\s\S]*\.md-subnav[\s\S]*flex-direction:\s*column/);
   });
+  it('is really sticky from 1024px up: not stretched to the full height of its container', () => {
+    const block = css.slice(css.indexOf('/* ── Master Data sub-navigation'));
+    const wide = block.slice(block.indexOf('@media (min-width: 1024px)'));
+    const subnav = wide.match(/\.md-subnav\s*\{([^}]*)\}/)[1];
+    expect(subnav).toMatch(/position:\s*sticky/);
+    expect(subnav).not.toMatch(/align-self:\s*stretch/);
+    expect(subnav).toMatch(/align-self:\s*flex-start/);
+  });
 });
 
 const PAGES = [
   { file: 'master-clients.html',       href: '/master-clients.html',
-    api: ['clients', 'ratecards', 'roles'],
-    must: ['id="clientRcModal"', 'window.__cfgApp'] },
+    api: ['clients', 'currencies', 'ratecards', 'roles'],
+    // the rate card builds its non-EUR columns from window.__currencies and its
+    // "agency default" placeholders from the mapped roles (rateOverrides)
+    must: ['id="clientRcModal"', 'window.__cfgApp',
+      'window.__currencies = await Api.currencies.active()', 'this.roles    = roles.map('] },
   { file: 'master-client-groups.html', href: '/master-client-groups.html',
     api: ['clientGroups', 'clients'],
     must: ['this.clients  = clients;', 'this.groups   = groups.map('] },

@@ -237,6 +237,8 @@ window.__cfgApp = Vue.createApp({
     ]});
     if (!user) return;
     if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
+    // the client rate card builds its non-EUR columns from window.__currencies
+    try { window.__currencies = await Api.currencies.active(); } catch {}
     await this.loadAll();
     this.ready = true;
   },
@@ -251,10 +253,12 @@ window.__cfgApp = Vue.createApp({
     async loadAll() {
       this.globalError = null;
       try {
-        const [clients] = await Promise.all([
+        const [clients, roles] = await Promise.all([
           Api.clients.list(),
+          Api.roles.list(),
         ]);
         this.clients  = clients;
+        this.roles    = roles.map(r => ({ id: r.id, label: r.label, code: r.code, rate: r.hourly_rate || 0, rateOverrides: r.rate_overrides || {} }));
       } catch (e) {
         this.globalError = e.message || 'Failed to load data.';
       }
