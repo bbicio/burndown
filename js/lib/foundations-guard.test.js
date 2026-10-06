@@ -108,7 +108,7 @@ describe('admin-crud.css and the public pages', () => {
   it('every var() used by the public pages is defined in tokens.css', () => {
     const tokens = read('css/tokens.css');
     const missing = [];
-    for (const f of ['login.html', 'activate.html', 'reset-password.html', 'terms.html']) {
+    for (const f of ['login.html', 'activate.html', 'reset-password.html', 'terms.html', 'css/auth.css']) {
       for (const m of read(f).matchAll(/var\(--([a-z0-9-]+)\)/g)) {
         if (!new RegExp(`--${m[1]}\\s*:`).test(tokens)) missing.push(`${f}: ${m[1]}`);
       }
