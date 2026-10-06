@@ -122,6 +122,18 @@ body {
 
 /* ── Buttons and links ── */
 .btn-primary {
+  --bs-btn-bg: var(--brand-magenta);
+  --bs-btn-border-color: var(--brand-magenta);
+  --bs-btn-color: var(--text-inverse);
+  --bs-btn-hover-bg: var(--brand-magenta-hover);
+  --bs-btn-hover-border-color: var(--brand-magenta-hover);
+  --bs-btn-hover-color: var(--text-inverse);
+  --bs-btn-active-bg: var(--brand-magenta-active);
+  --bs-btn-active-border-color: var(--brand-magenta-active);
+  --bs-btn-active-color: var(--text-inverse);
+  --bs-btn-disabled-bg: var(--brand-magenta);
+  --bs-btn-disabled-border-color: var(--brand-magenta);
+  --bs-btn-disabled-color: var(--text-inverse);
   background: var(--brand-magenta);
   border: none;
   color: var(--text-inverse);

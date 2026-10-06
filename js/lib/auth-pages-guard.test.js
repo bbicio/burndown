@@ -5,7 +5,7 @@ import { join } from 'node:path';
 const read = f => readFileSync(join(process.cwd(), f), 'utf8');
 
 // Pages migrated to css/auth.css (Tasks 2-4 of the pre-login restyling append theirs).
-const AUTH_PAGES = [];
+const AUTH_PAGES = ['login.html'];
 
 describe('css/auth.css', () => {
   const css = read('css/auth.css');
@@ -67,6 +67,12 @@ describe('css/auth.css', () => {
     expect(css).toMatch(/\.btn \.spinner-border\s*\{[^}]*color:\s*inherit/);
   });
 
+  it('sets the Bootstrap button variables so active and disabled stay magenta', () => {
+    const btn = block('.btn-primary');
+    expect(btn).toContain('--bs-btn-active-bg: var(--brand-magenta-active)');
+    expect(btn).toContain('--bs-btn-disabled-bg: var(--brand-magenta)');
+  });
+
   it('has the 480px phone rules', () => {
     const start = css.indexOf('@media (max-width: 480px)');
     expect(start).toBeGreaterThanOrEqual(0);
@@ -93,8 +99,53 @@ describe('migrated auth pages', () => {
     for (const f of AUTH_PAGES) expect(() => read(f)).not.toThrow();
   });
   for (const f of AUTH_PAGES) {
-    it(`${f} loads css/auth.css`, () => {
-      expect(read(f)).toContain('css/auth.css');
+    describe(f, () => {
+      const t = read(f);
+      it('links Bootstrap, tokens.css then auth.css', () => {
+        const bs = t.indexOf('bootstrap@5.3.2/dist/css/bootstrap.min.css');
+        const tok = t.indexOf('css/tokens.css?v=9');
+        const auth = t.indexOf('css/auth.css?v=1');
+        expect(bs).toBeGreaterThanOrEqual(0);
+        expect(tok).toBeGreaterThan(bs);
+        expect(auth).toBeGreaterThan(tok);
+      });
+      it('has no inline styles', () => {
+        expect(t).not.toMatch(/<style[\s>]/);
+        expect(t).not.toMatch(/\sstyle="/);
+        expect(t).not.toMatch(/:style=/);
+      });
+      it('has no hex literal', () => {
+        expect(t).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+      });
+      it('has no emoji', () => {
+        expect(t.replace(/©/g, '')).not.toMatch(/\p{Extended_Pictographic}/u);
+      });
+      it('drops the old utility and brand classes', () => {
+        for (const c of ['text-secondary', 'btn-sm', 'btn-outline-secondary', 'brand-name', 'brand-sub']) {
+          expect(t).not.toContain(c);
+        }
+      });
+      it('has the shared stack, logo and copyright', () => {
+        expect(t).toContain('class="auth-stack"');
+        expect(t).toContain('class="auth-logo-mark" aria-hidden="true">P</span>');
+        expect(t).toContain('<div class="auth-logo-sub">Project Dashboard</div>');
+        expect(t).toContain('class="auth-copyright"');
+        expect(t).toContain('year: new Date().getFullYear()');
+      });
+      it('keeps v-cloak on #app', () => {
+        expect(t).toContain('<div id="app" v-cloak>');
+      });
     });
   }
+
+  describe('login.html specifics', () => {
+    const t = read('login.html');
+    it('pre-fills the Forgot email without overwriting it', () => {
+      const line = t.split('\n').find(l => l.includes('switchToForgot()'));
+      expect(line).toContain('this.forgotEmail ||= this.email');
+    });
+    it('compacts the logo in the Forgot view', () => {
+      expect(t).toContain("'auth-logo--compact': view === 'forgot'");
+    });
+  });
 });

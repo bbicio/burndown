@@ -97,7 +97,7 @@ describe('admin-crud.css and the public pages', () => {
     expect(admin).toContain('box-shadow: 0 0 0 3px var(--focus-ring)');
     expect(admin).not.toMatch(/#d01f6a|rgba\(240,\s*40,\s*122/i);
   });
-  for (const f of ['login.html', 'activate.html', 'reset-password.html']) {
+  for (const f of ['activate.html', 'reset-password.html']) {
     it(`${f} uses the hover and focus tokens`, () => {
       const t = read(f);
       expect(t).not.toMatch(/#d01f6a|rgba\(240,\s*40,\s*122/i);
@@ -118,7 +118,7 @@ describe('admin-crud.css and the public pages', () => {
 });
 
 describe('cache-busting', () => {
-  const MIN = { 'css/tokens.css': 9, 'css/style.css': 15, 'css/admin-crud.css': 2, 'js/core.js': 10 };
+  const MIN = { 'css/tokens.css': 9, 'css/style.css': 15, 'css/admin-crud.css': 2, 'js/core.js': 10, 'css/auth.css': 1 };
   for (const [file, min] of Object.entries(MIN)) {
     it(`every reference to ${file} carries one shared ?v=N, at least ${min}`, () => {
       const versions = new Set();
@@ -141,7 +141,7 @@ describe('exact-match literals in CSS', () => {
   it('css/style.css has no #fff literal (use --text-inverse / --surface-white)', () => {
     expect(read('css/style.css')).not.toMatch(/#fff\b/i);
   });
-  for (const f of ['login.html', 'activate.html', 'reset-password.html']) {
+  for (const f of ['activate.html', 'reset-password.html']) {
     it(`${f} <style> block has no literal that equals an existing token`, () => {
       const style = (read(f).match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
       expect(style).not.toMatch(/#fff\b|#e5e7eb|#6b7280/i);

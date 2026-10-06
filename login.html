@@ -6,62 +6,37 @@
   <title>PDash — Sign In</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="css/tokens.css?v=9">
-  <style>
-    body {
-      background: var(--brand-navy);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    .auth-card {
-      background: var(--surface-white);
-      border-radius: 12px;
-      padding: 2.5rem 2.25rem;
-      width: 100%;
-      max-width: 400px;
-      box-shadow: 0 24px 64px rgba(0,0,0,0.35);
-    }
-    .brand-name { font-weight: 700; font-size: 3.2rem; letter-spacing: -0.5px; color: var(--brand-navy); line-height: 1; }
-    .brand-name .p { color: var(--brand-magenta); }
-    .brand-sub { font-size: 0.78rem; color: #9ca3af; letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px; }
-    .form-label { font-size: 0.82rem; font-weight: 600; color: #374151; margin-bottom: 0.3rem; }
-    .form-control { font-size: 0.9rem; border-color: var(--border-light); }
-    .form-control:focus { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
-    .btn-primary { background: var(--brand-magenta); border: none; color: var(--text-inverse); font-weight: 600; font-size: 0.9rem; padding: 0.6rem 1rem; }
-    .btn-primary:hover:not(:disabled) { background: var(--brand-magenta-hover); color: var(--text-inverse); }
-    .btn-primary:disabled { opacity: 0.65; color: var(--text-inverse); }
-    .link-muted { color: var(--text-muted); font-size: 0.83rem; cursor: pointer; text-decoration: none; }
-    .link-muted:hover { color: var(--brand-magenta); }
-    .divider { border-top: 1px solid #f3f4f6; margin: 1.5rem 0; }
-  </style>
+  <link rel="stylesheet" href="css/auth.css?v=1">
 </head>
 <body>
   <div id="app" v-cloak>
+    <div class="auth-stack">
     <div class="auth-card">
 
-      <div class="text-center mb-4">
-        <div class="brand-name"><span class="p">P</span>Dash</div>
-        <div class="brand-sub">Project Dashboard</div>
+      <div class="auth-logo" :class="{ 'auth-logo--compact': view === 'forgot' }">
+        <div class="auth-logo-row">
+          <span class="auth-logo-mark" aria-hidden="true">P</span>
+          <span class="auth-logo-name">Dash</span>
+        </div>
+        <div class="auth-logo-sub">Project Dashboard</div>
       </div>
 
       <!-- ── LOGIN FORM ─────────────────────────────────────────── -->
       <form v-if="view === 'login'" @submit.prevent="login" novalidate>
-        <div v-if="error" class="alert alert-danger py-2 px-3 small mb-3">{{ error }}</div>
+        <div v-if="error" class="alert alert-danger mb-3">{{ error }}</div>
 
-        <div class="mb-3">
+        <div class="auth-field">
           <label class="form-label">Email</label>
           <input v-model="email" type="email" class="form-control" required
                  autocomplete="email" autofocus placeholder="you@company.com">
         </div>
 
-        <div class="mb-4">
+        <div class="auth-field auth-field--24">
           <div class="d-flex justify-content-between align-items-center">
-            <label class="form-label mb-0">Password</label>
+            <label class="form-label">Password</label>
             <a class="link-muted" @click="switchToForgot">Forgot password?</a>
           </div>
-          <input v-model="password" type="password" class="form-control mt-1" required
+          <input v-model="password" type="password" class="form-control" required
                  autocomplete="current-password" placeholder="••••••••">
         </div>
 
@@ -73,17 +48,17 @@
 
       <!-- ── FORGOT PASSWORD FORM ───────────────────────────────── -->
       <div v-else>
-        <a class="link-muted d-inline-flex align-items-center gap-1 mb-3" @click="switchToLogin">
+        <a class="link-muted auth-back" @click="switchToLogin">
           ← Back to sign in
         </a>
-        <h6 class="fw-bold mb-1">Reset your password</h6>
-        <p class="text-muted small mb-3">Enter your email and we'll send you a link to reset your password.</p>
+        <h6 class="auth-title">Reset your password</h6>
+        <p class="auth-subtitle">Enter your email and we'll send you a link to reset your password.</p>
 
-        <div v-if="error"   class="alert alert-danger  py-2 px-3 small mb-3">{{ error }}</div>
-        <div v-if="success" class="alert alert-success py-2 px-3 small mb-3">{{ success }}</div>
+        <div v-if="error"   class="alert alert-danger mb-3">{{ error }}</div>
+        <div v-if="success" class="alert alert-success mb-3">{{ success }}</div>
 
         <form @submit.prevent="forgotPassword" novalidate>
-          <div class="mb-3">
+          <div class="auth-field auth-field--22">
             <label class="form-label">Email</label>
             <input v-model="forgotEmail" type="email" class="form-control" required
                    autocomplete="email" placeholder="you@company.com" :disabled="!!success">
@@ -95,6 +70,8 @@
         </form>
       </div>
 
+    </div>
+    <div class="auth-copyright">© {{ year }} PDash</div>
     </div>
   </div>
 
@@ -110,10 +87,11 @@
           loading: false,
           error: null,
           success: null,
+          year: new Date().getFullYear(),
         };
       },
       methods: {
-        switchToForgot() { this.view = 'forgot'; this.error = null; this.success = null; },
+        switchToForgot() { this.forgotEmail ||= this.email; this.view = 'forgot'; this.error = null; this.success = null; },
         switchToLogin()  { this.view = 'login';  this.error = null; this.success = null; },
 
         async login() {
