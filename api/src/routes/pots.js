@@ -128,7 +128,7 @@ router.get('/summary', requireAuth, async (req, res, next) => {
         (SELECT re.hourly_rate FROM ratecard_entries re
          WHERE re.ratecard_id = ${a}.ratecard_id AND re.role_id = tr.role_id LIMIT 1),
         ro.hourly_rate, 0))
-      / COALESCE(${a}.currency_rate, 1)
+      / COALESCE(NULLIF(${a}.currency_rate, 0), 1)
       FROM phases ph2
       JOIN tasks tk2 ON tk2.phase_id = ph2.id
       JOIN task_roles tr ON tr.task_id = tk2.id
@@ -176,19 +176,7 @@ router.get('/summary', requireAuth, async (req, res, next) => {
     const proposalsResult = await query(proposalsQ, proposalsParams);
 
     // Compute fee totals server-side across ALL proposals (not just those visible to caller)
-    const feeExpr = `COALESCE((
-      SELECT SUM(tr.days * COALESCE(
-        tr.rate_override,
-        (SELECT re.hourly_rate FROM ratecard_entries re
-         WHERE re.ratecard_id = cgv2.ratecard_id AND re.role_id = tr.role_id LIMIT 1),
-        ro.hourly_rate, 0))
-      / COALESCE(cgv2.currency_rate, 1)
-      FROM phases ph2
-      JOIN tasks tk2 ON tk2.phase_id = ph2.id
-      JOIN task_roles tr ON tr.task_id = tk2.id
-      JOIN roles ro ON ro.id = tr.role_id
-      WHERE ph2.version_id = cgv2.id
-    ), 0)`;
+    const feeExpr = feeFor('cgv2');
 
     let totalsQ, totalsParams;
     if (clientGroupId) {

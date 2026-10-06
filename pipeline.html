@@ -239,7 +239,7 @@
   <div id="pbDetailPanel"
        v-if="selectedCgId"
        class="pb-panel"
-       role="dialog" aria-label="Offer detail"
+       role="region" aria-label="Offer detail"
        :style="{ borderTopColor: detailStageStyle.border }">
     <div v-if="detailLoading || !selectedCg || !selectedVersion" class="pb-panel-bare">
       <button type="button" class="pb-close" aria-label="Close" @click="closeDetailPanel">
@@ -847,7 +847,7 @@ Vue.createApp({
     openShareModal,
     showCostGridEditorView,
     deleteGridCard(cgId, name) {
-      cgConfirmDeleteGrid(cgId, name, () => { this.refreshTick++; });
+      cgConfirmDeleteGrid(cgId, name, () => { if (cgId === this.selectedCgId) this.closeDetailPanel(); this.refreshTick++; });
     },
     cardClientName(card) {
       const clientId = card.v.clientId;
@@ -953,8 +953,9 @@ Vue.createApp({
       }
       this.refreshTick++; // structure just loaded into _cgStore — see Global Constraint 4
       this.detailLoading = false;
+      this.potRequestSeq = (this.potRequestSeq || 0) + 1;
       const v = this.selectedVersion;
-      if (v) this.loadPotSection(v, pbGetStage(v));
+      if (v) this.loadPotSection(v, pbGetStage(v), this.potRequestSeq);
     },
     closeDetailPanel() {
       this.selectedCgId = null;
@@ -967,7 +968,8 @@ Vue.createApp({
     verStageBadgeColor(ver) {
       return (PB_STAGE_STYLE[pbGetStage(ver)] || PB_STAGE_STYLE.SIP).badge;
     },
-    async loadPotSection(v, stage) {
+    async loadPotSection(v, stage, seq) {
+      const isStale = () => this.selectedCgId === null || seq !== this.potRequestSeq;
       this.potState = { kind: 'loading' };
       const year = v.pipelineYear;
       if (stage === 'Draft') { this.potState = { kind: 'draft' }; return; }
@@ -988,11 +990,11 @@ Vue.createApp({
       try {
         const summary = await Api.pots.summary(params);
         // A newer openDetailPanel() may have replaced the selection while the request was in flight.
-        if (this.selectedVerId !== v.versionId) return;
+        if (isStale()) return;
         if (!summary.pot) { this.potState = { kind: 'noTarget', targetName, year }; return; }
         this.potState = { kind: 'ok', targetName, year, view: pbPotView(summary) };
       } catch (e) {
-        if (this.selectedVerId !== v.versionId) return;
+        if (isStale()) return;
         this.potState = { kind: 'error' };
       }
     },
@@ -1084,7 +1086,7 @@ Vue.createApp({
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape') return;
       // Capture phase: runs before Bootstrap removes `.show`, so an open modal/offcanvas still counts. Then Bootstrap closes only that.
-      if (document.querySelector('.modal.show, .offcanvas.show')) return;
+      if (document.querySelector('.modal.show, .offcanvas.show, .dropdown-menu.show')) return;
       // Esc closes one layer: the search/year menu first, else the panel.
       if (this.yearDropdownOpen || this.searchOpen) { this.yearDropdownOpen = false; this.searchOpen = false; return; }
       if (this.selectedCgId) this.closeDetailPanel();

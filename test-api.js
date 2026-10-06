@@ -578,6 +578,49 @@ async function testPotSummaryExtended() {
   }
 
   ok(!rows.some(r => r.cg_id === draft.cgId), 'POT-11 Draft-only proposal absent from proposals');
+
+  // POT-12 — client-group target: two clients, one published proposal each
+  const rg = await api('POST', '/api/client-groups', { name: '__test_pot_group__' }, adminCookie);
+  const gid = rg.data?.id;
+  if (gid) later('DELETE', `/api/client-groups/${gid}`);
+  const gClients = [];
+  for (const n of ['__test_pot_grp_c1__', '__test_pot_grp_c2__']) {
+    const c = await api('POST', '/api/clients', { name: n }, adminCookie);
+    if (c.data?.id) {
+      later('DELETE', `/api/clients/${c.data.id}`);
+      await api('PUT', `/api/client-groups/${gid}/clients/${c.data.id}`, null, adminCookie);
+      gClients.push(c.data.id);
+    }
+  }
+  if (!gid || gClients.length !== 2) { fail('POT-12: group setup failed — skipping'); return; }
+  const rgp = await api('POST', '/api/pots', { clientGroupId: gid, year, amount: 500000 }, adminCookie);
+  if (rgp.data?.id) later('DELETE', `/api/pots/${rgp.data.id}`);
+
+  const gMade = [];
+  for (const [i, cid] of gClients.entries()) {
+    const g = await api('POST', '/api/cost-grids', { name: `__test_pot_grp_prop${i}__` }, adminCookie);
+    const cgId = g.data?.id;
+    if (!cgId) continue;
+    later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+    const v = await api('POST', `/api/cost-grids/${cgId}/versions`,
+      { label: 'v1', clientId: cid, currency: 'EUR', currencyRate: 1 }, adminCookie);
+    const vId = v.data?.id;
+    if (!vId) continue;
+    await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+      phases: [{ title: 'P1', tasks: [{ title: 'T1', roles: [{ roleId: role.id, days: i + 2, rateOverride: 100 }] }] }],
+    }, adminCookie);
+    await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/publish`, null, adminCookie);
+    await api('PATCH', `/api/cost-grids/${cgId}/versions/${vId}`, { pipeline: 'Committed' }, adminCookie);
+    gMade.push({ cgId, vId });
+  }
+  if (gMade.length !== 2) { fail('POT-12: proposal setup failed — skipping'); return; }
+
+  const rgs = await api('GET', `/api/pots/summary?year=${year}&clientGroupId=${gid}`, null, adminCookie);
+  const gRows = rgs.data?.proposals || [];
+  const gSum = gRows.filter(r => r.pipeline === 'Committed').reduce((a, r) => a + r.value, 0);
+  ok(rgs.status === 200 && gRows.length === 2 && gMade.every(m => gRows.some(r => r.cg_id === m.cgId)) &&
+     gSum > 0 && Math.abs(rgs.data.committed_total - gSum) < 0.01,
+    'POT-12 client-group summary returns both proposals and totals equal to the sum of their values');
 }
 
 // ── Cost Grid Budgets ─────────────────────────────────────────────────────────
