@@ -14,7 +14,36 @@ router.get('/', requireAuth, async (req, res, next) => {
     const { rows } = await query(
       `SELECT id, year, active, created_at FROM pipeline_years ${whereClause} ORDER BY year DESC`
     );
-    res.json(rows);
+
+    // offers per year: visible proposals whose display version is not Canceled.
+    // Display version mirrors pbGetDisplayVersion (pipeline.html): among non-Draft versions, one with
+    // linked projects first, then the newest. Visibility mirrors GET /api/cost-grids (the non-Draft
+    // version is guaranteed by the join): admin sees all, a user only what they own or that is shared.
+    const visibility = isAdmin ? '' : `AND (
+        cg.owner_id = $1
+        OR EXISTS(SELECT 1 FROM resource_shares rs
+                  WHERE rs.resource_type = 'cost_grid' AND rs.resource_id = cg.id AND rs.user_id = $1)
+      )`;
+    const { rows: counts } = await query(
+      `WITH disp AS (
+         SELECT DISTINCT ON (cg.id) cg.id, v.pipeline
+         FROM cost_grids cg
+         JOIN cost_grid_versions v ON v.cost_grid_id = cg.id AND v.pipeline <> 'Draft'
+         WHERE 1=1 ${visibility}
+         ORDER BY cg.id,
+                  EXISTS(SELECT 1 FROM cg_version_projects cvp WHERE cvp.cost_grid_version_id = v.id) DESC,
+                  v.created_at DESC
+       )
+       SELECT y.pipeline_year AS year, COUNT(DISTINCT d.id)::int AS offers
+       FROM disp d
+       JOIN (SELECT DISTINCT cost_grid_id, pipeline_year
+             FROM cost_grid_versions WHERE pipeline <> 'Draft') y ON y.cost_grid_id = d.id
+       WHERE d.pipeline <> 'Canceled'
+       GROUP BY y.pipeline_year`,
+      isAdmin ? [] : [req.user.id]
+    );
+    const byYear = new Map(counts.map(c => [Number(c.year), c.offers]));
+    res.json(rows.map(r => ({ ...r, offers: byYear.get(Number(r.year)) || 0 })));
   } catch (err) { next(err); }
 });
 
