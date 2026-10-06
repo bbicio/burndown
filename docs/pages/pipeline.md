@@ -24,7 +24,7 @@ Linked-project button in the detail panel's "Linked projects" section (`pbGoToPo
 
 ## Money formatting (2026-10-01, money centralization cycle)
 
-Card/detail/footer amounts call `formatMoney(amount, code, currencies)` directly with an explicit currency code (the Vue instance exposes `formatMoney` and `currencies`; the former `pbFmtMoney` wrapper was removed); `potFmtMoney` formats POT amounts in EUR with `{ rounded: true }`; the default currency of a card with no currency is `'EUR'` (it was the symbol `'€'`, which made the following `cur !== 'EUR'` test wrongly true). See `docs/js/lib.md`.
+Card/detail/footer amounts call `formatMoney(amount, code, currencies)` directly with an explicit currency code (the Vue instance exposes `formatMoney` and `currencies`; the former `pbFmtMoney` wrapper was removed); POT amounts are formatted in EUR (the former `potFmtMoney` was removed in the 2026-10-06 panel redesign); the default currency of a card with no currency is `'EUR'` (it was the symbol `'€'`, which made the following `cur !== 'EUR'` test wrongly true). See `docs/js/lib.md`.
 
 ## Board redesign, cycle 1 of 2 (2026-10-06)
 
@@ -44,4 +44,14 @@ Decisions (from the brief, applying to the board):
 4. Amounts has no persistence (no `localStorage`, no `core.js` bump).
 5. Copy: "Original currency" / "All in EUR" on all breakpoints, "Clients" in the suggestions.
 
-Known pre-existing behaviour (not changed): a non-admin only receives active years from `GET /api/pipeline-years`, so selecting an inactive year (e.g. via a stale value) gets a 403 from the cost-grids load.
+Known pre-existing behaviour (not changed, board cycle): a non-admin only receives active years from `GET /api/pipeline-years`, so selecting an inactive year (e.g. via a stale value) gets a 403 from the cost-grids load.
+
+## Detail panel redesign, cycle 2 of 2 (2026-10-06)
+
+Panel only (boards 4.10-4.13); spec `docs/superpowers/specs/2026-10-06-pipeline-detail-panel-redesign-design.md`, plan `docs/superpowers/plans/2026-10-06-pipeline-detail-panel-redesign.md`. Container modes, header, tabs, POT and closing rules are described in `CLAUDE.md`'s "Detail panel"; here the cycle's decisions:
+1. **POT lists are limited to the pipeline year.** "Other proposals · not in total" = the target's SIP and Expected proposals of the same year; other years never appear (reverses the brief's "of any vintage" note on board 4.13).
+2. **No double counting in POT.** The UI allows only one non-Draft version per proposal (`+ New version` only on a Draft; Publish deletes the other Drafts; a published version cannot return to Draft; the real DB had 0 proposals with more than one non-Draft version), so one POT row per proposal. Missing server-side enforcement is recorded for the clone-bug cycle (out of scope).
+3. **POT lists show every proposal of the target** (owner and amount included), even those not shared with the user; rows are therefore not clickable.
+4. **Panel width 480px**, side by side when the board keeps >= 560px.
+
+Implementation notes: `GET /api/pots/summary` extended backward-compatibly (`expected_total`, `sip_total`, per-proposal `client_name`/`value`); `pbPotView`/`pbFmtMonth` in `pipeline-calc.js` (values arrive as strings or null; a target of 0 gives 0% and `gap.over` true whenever C+A exceeds it; bad dates print "—"); `potState.kind` state machine; `loadPotSection` ignores a response that arrives after another version was selected. `totColor`/`pctC`/`pctA`/`nContrib`/`potFmtMoney` removed (`pbComputePotPercentages` stays in the lib, now unused by the page). No automated screenshots: verified at Gate 2.

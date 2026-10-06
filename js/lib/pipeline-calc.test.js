@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   pbGetVersionBudget, pbComputeColumnTotals, pbFmtDate, pbFmtTaskDate, pbComputePotPercentages,
   pbPriceBucketKey, pbCardMatchesFilters,
+  pbFmtMonth, pbPotView,
   pbCardAmount, pbColumnHeader, pbOpenPipelineTotal, pbHighlight, pbSearchSuggestions,
 } from './pipeline-calc.js';
 
@@ -392,5 +393,63 @@ describe('pbSearchSuggestions', () => {
     const r = pbSearchSuggestions([card], 'xyz', deps);
     expect(r.proposals[0].clientName).toBe('—');
     expect(r.clients).toEqual([]);
+  });
+});
+
+describe('pbFmtMonth', () => {
+  it('formats the accepted shapes', () => {
+    expect(pbFmtMonth('202605')).toBe('May 2026');
+    expect(pbFmtMonth('20260501')).toBe('May 2026');
+    expect(pbFmtMonth('2026-05-01')).toBe('May 2026');
+    expect(pbFmtMonth('202612')).toBe('Dec 2026');
+  });
+  it('returns null for missing or malformed values', () => {
+    for (const v of [null, undefined, '', '2026', 'abc', '202613', '202600']) expect(pbFmtMonth(v)).toBeNull();
+  });
+});
+
+describe('pbPotView', () => {
+  const row = (id, pipeline, value) => ({ version_id: id, proposal_name: 'P' + id, client_name: 'C', pipeline_year: 2026, pipeline, value });
+  it('under target', () => {
+    const v = pbPotView({ pot: { amount: 400000 }, committed_total: '95000.00', anticipated_total: 216630, expected_total: 38000, sip_total: 45000, proposals: [] });
+    expect(v.pct).toBe(78);
+    expect(v.committed).toEqual({ value: 95000, pctOfTarget: 24 });
+    expect(v.anticipated.pctOfTarget).toBe(54);
+    expect(v.total).toBe(311630);
+    expect(v.gap).toEqual({ over: false, value: 88370, pctOfTarget: 22 });
+    expect(v.targetPos).toBe(100);
+    expect(v.segments.map(s => s.stage)).toEqual(['Committed', 'Anticipated', 'Expected', 'SIP']);
+    expect(v.segments.reduce((x, s) => x + s.width, 0)).toBeCloseTo(98.66, 1);
+  });
+  it('over target', () => {
+    const v = pbPotView({ pot: { amount: 100000 }, committed_total: 80000, anticipated_total: 40000, expected_total: null, sip_total: null, proposals: [] });
+    expect(v.pct).toBe(120);
+    expect(v.gap.over).toBe(true);
+    expect(v.gap.value).toBe(20000);
+    expect(v.targetPos).toBeCloseTo(83.33, 1);
+    expect(v.segments[0].width).toBeCloseTo(66.67, 1);
+    expect(v.segments[1].width).toBeCloseTo(33.33, 1);
+  });
+  it('target 0 or missing gives no Infinity/NaN', () => {
+    for (const pot of [{ amount: 0 }, null]) {
+      const v = pbPotView({ pot, committed_total: 50000, anticipated_total: 0, expected_total: 0, sip_total: 0, proposals: [] });
+      expect(v.pct).toBe(0);
+      expect(v.committed.pctOfTarget).toBe(0);
+      expect(v.gap.pctOfTarget).toBe(0);
+      expect(v.gap.over).toBe(true);
+      expect(v.gap.value).toBe(50000);
+      expect(v.segments[0].width).toBe(100);
+      expect(JSON.stringify(v)).not.toMatch(/NaN|Infinity/);
+    }
+  });
+  it('parses string values in rows', () => {
+    const v = pbPotView({ pot: null, proposals: [row(1, 'Committed', '1200.5')] });
+    expect(v.contributing[0].value).toBe(1200.5);
+    expect(v.contributing[0]).toMatchObject({ versionId: 1, name: 'P1', clientName: 'C', year: 2026, stage: 'Committed' });
+  });
+  it('splits and sorts the lists', () => {
+    const v = pbPotView({ pot: null, proposals: [row(1, 'Committed', 10), row(2, 'Anticipated', 30), row(3, 'Expected', 5), row(4, 'SIP', 50), row(5, 'Canceled', 99), row(6, 'Draft', 99)] });
+    expect(v.contributing.map(r => r.versionId)).toEqual([2, 1]);
+    expect(v.other.map(r => r.versionId)).toEqual([4, 3]);
   });
 });

@@ -9,7 +9,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/tokens.css?v=9">
   <link rel="stylesheet" href="css/style.css?v=21">
-  <link rel="stylesheet" href="css/pipeline.css?v=1">
+  <link rel="stylesheet" href="css/pipeline.css?v=2">
 </head>
 <body>
 
@@ -139,6 +139,7 @@
       <span v-for="p in activeMobileCol.header.pills" :key="p.code" class="pb-pill pb-pill-cur">{{ p.text }}</span>
     </div>
   </div>
+  <div class="pb-main">
   <div class="pb-board">
     <div v-for="col in stagesData" :key="col.stage" class="pb-col"
          :class="{ 'pb-col--collapsed': isCollapsed(col.stage), 'pb-col--mobile-active': col.stage === activeMobileStage }" :style="{ borderTopColor: col.st.border }">
@@ -234,143 +235,205 @@
       <button type="button" class="pb-sheet-apply" data-bs-dismiss="offcanvas">Show results</button>
     </div>
   </div>
+  <div v-if="selectedCgId" class="pb-panel-scrim" @click="closeDetailPanel"></div>
   <div id="pbDetailPanel"
        v-if="selectedCgId"
-       style="position:absolute;top:0;right:0;bottom:0;width:860px;max-width:100%;
-              background:#fff;border-left:2px solid #dee2e6;box-shadow:-4px 0 16px rgba(0,0,0,.12);
-              z-index:200;display:flex;flex-direction:column">
-    <div class="d-flex align-items-center justify-content-between px-3 py-2 flex-shrink-0"
-         style="border-bottom:1px solid #dee2e6;background:#0B1840;color:#fff">
-      <span class="fw-semibold" style="font-size:var(--text-md)">Offer detail</span>
-      <div class="d-flex gap-2 align-items-center">
-        <template v-if="!detailLoading && selectedCg && selectedVersion">
-          <button v-if="detailStage === 'Draft' && selectedCg.myPermission !== 'viewer'" class="btn btn-sm btn-outline-danger px-3" style="font-size:var(--text-xs);font-weight:600" title="Delete this Draft version" @click="deleteSelectedVersion">🗑 Delete</button>
-          <button v-if="selectedCg.myPermission !== 'viewer'" class="btn btn-sm btn-light px-3" style="font-size:var(--text-xs);font-weight:600" title="Clone this version as a new proposal" @click="openCloneModal(selectedCgId, selectedVerId)">⧉ Clone</button>
-          <button v-if="detailStage !== 'Draft'" class="btn btn-sm btn-light px-3" style="font-size:var(--text-xs);font-weight:600" title="Share this cost grid" @click="openShareModal('cost_grid', selectedCgId, selectedCg.name)">🔗 Share</button>
-          <button v-if="selectedCg.myPermission !== 'viewer'" class="btn btn-sm btn-light px-3" style="font-size:var(--text-xs);font-weight:600" title="Open full cost grid editor" @click="showCostGridEditorView(selectedCgId, selectedVerId)">✏️ Edit</button>
-        </template>
-        <button class="btn btn-sm btn-link text-white p-0" @click="closeDetailPanel" style="font-size:1.1rem;line-height:1" title="Close">×</button>
-      </div>
-    </div>
-    <div v-if="detailLoading" class="d-flex align-items-center justify-content-center flex-grow-1">
-      <div class="spinner-border text-secondary"></div>
-    </div>
-    <div v-else-if="!selectedCg || !selectedVersion" class="d-flex align-items-center justify-content-center flex-grow-1 text-danger p-4 text-center" style="font-size:var(--text-sm)">
-      Could not load cost grid. Try reloading the page.
+       class="pb-panel"
+       role="region" aria-label="Offer detail"
+       :style="{ borderTopColor: detailStageStyle.border }">
+    <div v-if="detailLoading || !selectedCg || !selectedVersion" class="pb-panel-bare">
+      <button type="button" class="pb-close" aria-label="Close" @click="closeDetailPanel">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div v-if="detailLoading" class="pb-panel-center"><div class="spinner-border text-secondary"></div></div>
+      <div v-else class="pb-panel-center pb-panel-error">Could not load cost grid. Try reloading the page.</div>
     </div>
     <template v-else>
-    <div v-if="selectedCg.versions.length > 0" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 18px;border-bottom:1px solid var(--border-light);background:var(--surface-light);flex-shrink:0">
-      <span class="text-muted" style="font-size:var(--text-xs)">Version:</span>
-      <button v-for="ver in selectedCg.versions" :key="ver.versionId"
-              class="btn btn-sm" :class="ver.versionId === selectedVerId ? 'btn-primary' : 'btn-outline-secondary'"
-              style="font-size:var(--text-xs);padding:2px 10px;gap:4px"
-              @click="openDetailPanel(selectedCgId, ver.versionId)">
-        {{ ver.versionLabel }}<span :style="{ display:'inline-block', width:'7px', height:'7px', borderRadius:'50%', background: verStageBadgeColor(ver), verticalAlign:'middle', marginLeft:'4px' }"></span>
-      </button>
+    <div class="pb-panel-head">
+      <div class="pb-panel-row1">
+        <span class="pb-stage-pill" :style="stagePillStyle(detailStage)">{{ detailStage }}</span>
+        <span v-if="detailLinkedProjects.length" class="pb-pill pb-pill-linked">Linked project</span>
+        <span class="pb-panel-spacer"></span>
+        <template v-if="selectedCg.versions.length > 0">
+          <span class="pb-ver-label">Version</span>
+          <div class="pb-seg pb-ver-seg" role="group" aria-label="Version">
+            <button v-for="ver in selectedCg.versions" :key="ver.versionId" type="button"
+                    :class="{ active: ver.versionId === selectedVerId }"
+                    :aria-pressed="ver.versionId === selectedVerId ? 'true' : 'false'"
+                    @click="openDetailPanel(selectedCgId, ver.versionId)">
+              {{ ver.versionLabel }}<span class="pb-ver-dot" :style="{ background: verStageBadgeColor(ver) }"></span>
+            </button>
+          </div>
+        </template>
+        <button type="button" class="pb-close" aria-label="Close" @click="closeDetailPanel">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div v-if="detailClientName" class="pb-panel-client">{{ detailClientName }}</div>
+      <div class="pb-panel-title">{{ selectedVersion.projectName || selectedCg.name }}</div>
+      <div class="pb-panel-owner">Owner <strong>{{ selectedCg.ownerName || '—' }}</strong> · Created on {{ pbFmtDate(selectedVersion.createdAt) }}</div>
+      <div class="pb-panel-actions">
+        <button v-if="selectedCg.myPermission !== 'viewer'" type="button" class="pb-btn pb-btn-primary" title="Open full cost grid editor" @click="showCostGridEditorView(selectedCgId, selectedVerId)">Edit</button>
+        <button v-if="selectedCg.myPermission !== 'viewer'" type="button" class="pb-btn pb-btn-outline" title="Clone this version as a new proposal" @click="openCloneModal(selectedCgId, selectedVerId)">Clone</button>
+        <button v-if="detailStage !== 'Draft'" type="button" class="pb-btn pb-btn-outline" title="Share this cost grid" @click="openShareModal('cost_grid', selectedCgId, selectedCg.name)">Share</button>
+        <span class="pb-panel-spacer"></span>
+        <button v-if="detailStage === 'Draft' && selectedCg.myPermission !== 'viewer'" type="button" class="pb-btn pb-btn-danger" title="Delete this Draft version" @click="deleteSelectedVersion">Delete</button>
+      </div>
     </div>
-    <div class="d-flex flex-grow-1" style="min-height:0">
-      <div style="width:50%;padding:20px 18px;overflow-y:auto;border-right:1px solid var(--border-light)">
-        <div class="mb-3">
-          <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-            <span class="badge rounded-pill text-white" :style="{ background: detailStageStyle.badge, fontSize:'var(--text-xs)' }">{{ detailStage }}</span>
-            <span v-if="detailLinkedProjects.length" class="badge" style="background:var(--text-muted);color:#fff;font-size:var(--text-xs)">🔗 Linked project</span>
-          </div>
-          <div v-if="detailClientName" class="text-muted" style="font-size:var(--text-xs)">{{ detailClientName }}</div>
-          <div class="fw-bold" style="font-size:var(--text-lg)">{{ selectedVersion.projectName || selectedCg.name }}</div>
-          <div class="text-muted" style="font-size:var(--text-xs)">Owner: 👤 {{ selectedCg.ownerName || '—' }}, Created at: {{ pbFmtDate(selectedVersion.createdAt) }}</div>
+    <div class="pb-tabs-panel" role="tablist" aria-label="Offer detail sections">
+      <button type="button" role="tab" class="pb-ptab" :class="{ active: detailTab === 'overview' }" :aria-selected="detailTab === 'overview' ? 'true' : 'false'" @click="detailTab = 'overview'">Overview</button>
+      <button type="button" role="tab" class="pb-ptab" :class="{ active: detailTab === 'tasks' }" :aria-selected="detailTab === 'tasks' ? 'true' : 'false'" @click="detailTab = 'tasks'">Tasks<span class="pb-ptab-count">{{ detailTaskCount }}</span></button>
+      <button type="button" role="tab" class="pb-ptab" :class="{ active: detailTab === 'linked' }" :aria-selected="detailTab === 'linked' ? 'true' : 'false'" @click="detailTab = 'linked'">Linked projects<span class="pb-ptab-count">{{ detailLinkedProjects.length }}</span></button>
+      <button type="button" role="tab" class="pb-ptab" :class="{ active: detailTab === 'pot' }" :aria-selected="detailTab === 'pot' ? 'true' : 'false'" @click="detailTab = 'pot'">POT</button>
+    </div>
+
+    <div v-if="detailTab === 'overview'" class="pb-tab-body pb-overview" role="tabpanel">
+      <div class="pb-amount-boxes">
+        <div class="pb-amount-box">
+          <div class="pb-label">PROFESSIONAL FEES</div>
+          <div class="pb-amount-value">{{ detailBudget.fee > 0 ? formatMoney(detailBudget.fee, selectedVersion.currency || 'EUR', currencies) : '—' }}</div>
+          <div v-if="eurEquivalent(detailBudget.fee)" class="pb-amount-eur">{{ eurEquivalent(detailBudget.fee) }}</div>
         </div>
-        <hr style="border-color:var(--border-light);margin:12px 0">
-        <div class="row g-2 mb-3" style="font-size:var(--text-base)">
-          <div class="col-6">
-            <div class="text-muted" style="font-size:var(--text-xs)">Period</div>
-            <div>{{ selectedVersion.startDate ? selectedVersion.startDate.slice(0,4)+'/'+selectedVersion.startDate.slice(4,6) : '—' }} – {{ selectedVersion.endDate ? selectedVersion.endDate.slice(0,4)+'/'+selectedVersion.endDate.slice(4,6) : '—' }}</div>
-          </div>
-          <div class="col-6">
-            <div class="text-muted" style="font-size:var(--text-xs)">Currency</div>
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-              <span>{{ selectedVersion.currency || 'EUR' }}<span v-if="selectedVersion.currencyRate && selectedVersion.currency !== 'EUR'"> · 1 € = {{ Number(selectedVersion.currencyRate).toLocaleString('en', {minimumFractionDigits:4,maximumFractionDigits:4}) }} {{ selectedVersion.currency }}</span></span>
-              <button v-if="rateStale" class="btn btn-outline-warning" style="font-size:var(--text-2xs);padding:1px 6px;line-height:1.4" title="Rate snapshot is outdated — click to update" @click="confirmRefreshRate">↺ Refresh rate</button>
-            </div>
-          </div>
-          <div class="col-6">
-            <div class="text-muted" style="font-size:var(--text-xs)">Professional fees</div>
-            <div class="fw-semibold">{{ detailBudget.fee > 0 ? formatMoney(detailBudget.fee, selectedVersion.currency || 'EUR', currencies) : '—' }}</div>
-          </div>
-          <div class="col-6">
-            <div class="text-muted" style="font-size:var(--text-xs)">PTC</div>
-            <div class="fw-semibold">{{ detailBudget.ptc > 0 ? formatMoney(detailBudget.ptc, selectedVersion.currency || 'EUR', currencies) : '—' }}</div>
-          </div>
-          <div class="col-12">
-            <div class="text-muted" style="font-size:var(--text-xs)">Total budget</div>
-            <div class="fw-bold" style="font-size:var(--text-xl)">{{ (detailBudget.fee + detailBudget.ptc) > 0 ? formatMoney(detailBudget.fee + detailBudget.ptc, selectedVersion.currency || 'EUR', currencies) : '—' }}</div>
-          </div>
+        <div class="pb-amount-box">
+          <div class="pb-label">PTC</div>
+          <div class="pb-amount-value">{{ detailBudget.ptc > 0 ? formatMoney(detailBudget.ptc, selectedVersion.currency || 'EUR', currencies) : '—' }}</div>
+          <div v-if="eurEquivalent(detailBudget.ptc)" class="pb-amount-eur">{{ eurEquivalent(detailBudget.ptc) }}</div>
         </div>
-        <div v-if="selectedVersion.note" class="mb-3 p-2 rounded" style="background:var(--surface-light);font-size:var(--text-sm);white-space:pre-wrap">{{ selectedVersion.note }}</div>
-        <div style="border-top:1px solid var(--border-light);padding-top:10px;margin-top:4px;margin-bottom:12px">
-          <share-list :key="'sl-' + selectedCgId + '-' + shareListRefreshTick" resource-type="cost_grid" :resource-id="selectedCgId" :can-manage="selectedCg.myPermission !== 'viewer'"></share-list>
-        </div>
-        <div v-if="potState" style="border-top:1px solid var(--border-light);padding-top:10px;margin-top:4px">
-          <div class="d-flex align-items-center justify-content-between mb-1">
-            <span class="fw-semibold" style="font-size:var(--text-sm)">🎯 POT — {{ potState.targetName }} {{ potState.year }}</span>
-            <span :style="{ fontSize:'var(--text-xs)', color: potState.totColor, fontWeight:700 }">{{ potState.pct }}% total</span>
-          </div>
-          <div v-if="potState.pot" style="height:8px;background:#e9ecef;border-radius:3px;overflow:hidden;margin-bottom:6px;display:flex">
-            <div :style="{ height:'100%', width: potState.pctC + '%', background:'#198754' }"></div>
-            <div :style="{ height:'100%', width: potState.pctA + '%', background:'#fd7e14', opacity:.75 }"></div>
-          </div>
-          <div v-if="potState.pot" style="font-size:var(--text-xs);color:var(--text-muted);display:flex;flex-direction:column;gap:3px">
-            <div class="d-flex justify-content-between">
-              <span>Total (C+A): <strong :style="{ color: potState.totColor }">{{ potFmtMoney(potState.totalBudget) }}</strong></span>
-              <span>Target: <strong style="color:#1a1a2e">{{ potFmtMoney(potState.pot.amount) }}</strong></span>
-            </div>
-            <div style="padding-left:8px;border-left:3px solid #198754">
-              Committed: <strong style="color:#198754">{{ potFmtMoney(potState.committedTotal) }}</strong> <span style="color:#888">({{ potState.pctC }}%)</span>
-            </div>
-            <div v-if="potState.anticipatedTotal > 0" style="padding-left:8px;border-left:3px solid #fd7e14">
-              Anticipated: <strong style="color:#fd7e14">+ {{ potFmtMoney(potState.anticipatedTotal) }}</strong> <span style="color:#888">({{ potState.pctA }}%)</span>
-            </div>
-          </div>
-          <div v-if="!potState.pot" class="text-muted" style="font-size:var(--text-xs)">No POT target for <strong>{{ potState.targetName }}</strong> in {{ potState.year }}.</div>
-          <div v-if="potState.nContrib > 1" class="text-muted mt-1" style="font-size:var(--text-2xs)">{{ potState.nContrib }} proposals contribute to this POT</div>
-        </div>
-        <hr style="border-color:var(--border-light);margin:16px 0">
-        <div class="fw-semibold mb-2" style="font-size:var(--text-md)">🔗 Linked projects</div>
-        <div v-if="!detailLinkedProjects.length" class="text-muted" style="font-size:var(--text-sm)">No projects linked.</div>
-        <div v-for="lp in detailLinkedProjects" :key="lp.navId" class="p-2 mb-2 rounded border" style="font-size:var(--text-sm);background:var(--surface-light)">
-          <div class="d-flex align-items-start justify-content-between gap-2">
-            <div class="flex-grow-1">
-              <div class="fw-semibold">{{ lp.pname }}</div>
-              <div v-if="lp.pcode" style="font-size:var(--text-xs);color:var(--text-muted);font-family:'SFMono-Regular',monospace">{{ lp.pcode }}</div>
-              <div class="d-flex gap-1 flex-wrap mt-1">
-                <span v-if="lp.pipeline" v-html="pipelineBadge(lp.pipeline)"></span>
-                <span v-html="statusBadgeLarge(lp.projStatus)"></span>
-              </div>
-              <div v-if="lp.taskNames.length" style="font-size:var(--text-xs);color:var(--text-muted);margin-top:5px"><span style="font-weight:600">Tasks:</span> {{ lp.taskNames.join(', ') }}</div>
-            </div>
-            <div class="d-flex gap-1 flex-shrink-0">
-              <button class="btn btn-xs btn-outline-secondary" @click="pbGoToPortfolio(lp.navId)">📊 Project Dashboard</button>
-            </div>
-          </div>
+        <div class="pb-amount-box pb-amount-box--total">
+          <div class="pb-label">TOTAL BUDGET</div>
+          <div class="pb-amount-value">{{ (detailBudget.fee + detailBudget.ptc) > 0 ? formatMoney(detailBudget.fee + detailBudget.ptc, selectedVersion.currency || 'EUR', currencies) : '—' }}</div>
+          <div v-if="eurEquivalent(detailBudget.fee + detailBudget.ptc)" class="pb-amount-eur">{{ eurEquivalent(detailBudget.fee + detailBudget.ptc) }}</div>
         </div>
       </div>
-      <div style="flex:1;padding:20px 18px;overflow-y:auto">
-        <div class="fw-semibold mb-3" style="font-size:var(--text-md)">📋 Tasks by phase</div>
-        <div v-if="!detailHasTasks" class="text-muted" style="font-size:var(--text-sm)">No tasks defined.</div>
-        <div v-for="ph in (selectedVersion.phases || [])" :key="ph.phaseId" class="mb-4">
-          <div class="d-flex align-items-center justify-content-between mb-2 pb-1" style="border-bottom:2px solid var(--indigo-200)">
-            <span class="fw-bold" style="font-size:var(--text-md);color:var(--indigo-600)">{{ ph.phaseName || ph.phaseId }}</span>
-            <span v-if="phaseTotal(ph) > 0" style="font-size:var(--text-sm);font-weight:600">{{ formatMoney(phaseTotal(ph), selectedVersion.currency || 'EUR', currencies) }}</span>
+      <div class="pb-meta-grid">
+        <div>
+          <div class="pb-label">PERIOD</div>
+          <div class="pb-meta-value">{{ pbFmtMonth(selectedVersion.startDate) || '—' }} – {{ pbFmtMonth(selectedVersion.endDate) || '—' }}</div>
+        </div>
+        <div>
+          <div class="pb-label">CURRENCY</div>
+          <div class="pb-meta-value">
+            {{ selectedVersion.currency || 'EUR' }}<span v-if="selectedVersion.currencyRate && selectedVersion.currency !== 'EUR'" class="pb-meta-sub"> · 1 € = {{ Number(selectedVersion.currencyRate).toLocaleString('en', {minimumFractionDigits:4,maximumFractionDigits:4}) }} {{ selectedVersion.currency }}</span>
           </div>
-          <div v-for="task in (ph.tasks || [])" :key="task.taskId" class="d-flex align-items-baseline gap-3 py-2 border-bottom" style="font-size:var(--text-base)">
-            <span class="flex-grow-1">{{ task.taskName || task.taskId }}</span>
-            <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">{{ taskDateRange(task) }}</span>
-            <span style="white-space:nowrap;min-width:44px;text-align:right;font-size:var(--text-xs);color:var(--text-muted)">{{ taskTotals(task).totalHrs > 0 ? taskTotals(task).totalHrs + 'h' : '—' }}</span>
-            <span class="fw-semibold" style="white-space:nowrap;min-width:80px;text-align:right">{{ taskTotals(task).totalCostAndFee > 0 ? formatMoney(taskTotals(task).totalCostAndFee, selectedVersion.currency || 'EUR', currencies) : '—' }}</span>
-          </div>
+          <button v-if="rateStale" type="button" class="pb-btn pb-btn-outline pb-btn-sm" title="Rate snapshot is outdated — click to update" @click="confirmRefreshRate">Refresh rate</button>
         </div>
       </div>
+      <div v-if="selectedVersion.note" class="pb-note">{{ selectedVersion.note }}</div>
+      <div class="pb-shared">
+        <div class="pb-label">SHARED WITH</div>
+        <share-list :key="'sl-' + selectedCgId + '-' + shareListRefreshTick" resource-type="cost_grid" :resource-id="selectedCgId" :can-manage="selectedCg.myPermission !== 'viewer'"></share-list>
+      </div>
+    </div>
+
+    <div v-if="detailTab === 'tasks'" class="pb-tab-body pb-tasks" role="tabpanel">
+      <div v-if="!detailHasTasks" class="pb-muted">No tasks defined in this version's cost grid.</div>
+      <div v-for="ph in (selectedVersion.phases || [])" :key="ph.phaseId" class="pb-phase">
+        <div class="pb-phase-head">
+          <span class="pb-phase-name">{{ ph.phaseName || ph.phaseId }}</span>
+          <span v-if="phaseTotal(ph) > 0" class="pb-phase-total">{{ formatMoney(phaseTotal(ph), selectedVersion.currency || 'EUR', currencies) }}</span>
+        </div>
+        <template v-if="(ph.tasks || []).length">
+          <div class="pb-task-row pb-task-cols">
+            <span>TASK</span><span>PERIOD</span><span class="pb-num">HOURS</span><span class="pb-num">AMOUNT</span>
+          </div>
+          <div v-for="task in ph.tasks" :key="task.taskId" class="pb-task-row">
+            <span class="pb-task-name">{{ task.taskName || task.taskId }}</span>
+            <span class="pb-task-period">{{ taskDateRange(task) }}</span>
+            <span class="pb-num pb-task-hours">{{ taskTotals(task).totalHrs > 0 ? taskTotals(task).totalHrs + 'h' : '—' }}</span>
+            <span class="pb-num pb-task-amount">{{ taskTotals(task).totalCostAndFee > 0 ? formatMoney(taskTotals(task).totalCostAndFee, selectedVersion.currency || 'EUR', currencies) : '—' }}</span>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <div v-if="detailTab === 'linked'" class="pb-tab-body pb-linked" role="tabpanel">
+      <div v-if="!detailLinkedProjects.length" class="pb-muted">No linked projects. Projects are generated from the Cost Grid with "Generate project".</div>
+      <div v-for="lp in detailLinkedProjects" :key="lp.navId" class="pb-linked-card">
+        <div class="pb-linked-top">
+          <div class="pb-linked-id">
+            <div class="pb-linked-name">{{ lp.pname }}</div>
+            <div v-if="lp.pcode" class="pb-linked-code">{{ lp.pcode }}</div>
+          </div>
+          <button type="button" class="pb-link" @click="pbGoToPortfolio(lp.navId)">Project Dashboard →</button>
+        </div>
+        <div class="pb-linked-pills">
+          <span v-if="lp.pipeline" class="pb-stage-pill" :style="stagePillStyle(lp.pipeline)">{{ lp.pipeline }}</span>
+          <span class="pb-stage-pill" :style="projectStatusStyle(lp.projStatus)">{{ lp.projStatus || 'Not started yet' }}</span>
+        </div>
+        <div v-if="lp.taskNames.length" class="pb-linked-tasks"><strong>Tasks:</strong> {{ lp.taskNames.join(', ') }}</div>
+      </div>
+    </div>
+
+    <div v-if="detailTab === 'pot'" class="pb-tab-body pb-pot" role="tabpanel">
+      <div v-if="!potState || potState.kind === 'loading'" class="pb-panel-center"><div class="spinner-border text-secondary"></div></div>
+      <div v-else-if="potState.kind === 'draft'" class="pb-muted">Draft proposals don't count toward the POT.</div>
+      <div v-else-if="potState.kind === 'noClient'" class="pb-muted">This proposal has no client, so it has no POT.</div>
+      <div v-else-if="potState.kind === 'noTarget'" class="pb-muted">No POT target for {{ potState.targetName }} in {{ potState.year }}.</div>
+      <div v-else-if="potState.kind === 'error'" class="pb-muted pb-pot-error">Could not load the POT.</div>
+      <template v-else>
+        <div class="pb-label">POTENTIAL (POT)</div>
+        <div class="pb-pot-head">
+          <div class="pb-pot-name">{{ potState.targetName }} {{ potState.year }}</div>
+          <div class="pb-pot-pct">{{ Math.round(potState.view.pct) }}%</div>
+        </div>
+        <div class="pb-pot-sub">of target reached by Committed + Anticipated</div>
+        <div class="pb-pot-bar-wrap">
+          <div class="pb-pot-bar">
+            <span v-for="seg in potState.view.segments" :key="seg.stage" class="pb-pot-seg" :class="'pb-pot-seg--' + seg.stage.toLowerCase()" :style="{ width: seg.width + '%' }"></span>
+          </div>
+          <div class="pb-pot-notch" :style="{ left: potState.view.targetPos + '%' }"><span class="pb-pot-notch-label">Target</span></div>
+        </div>
+        <div class="pb-pot-legend">
+          <span v-for="seg in potState.view.segments" :key="'lg-' + seg.stage" class="pb-pot-legend-item">
+            <span class="pb-pot-swatch" :class="'pb-pot-seg--' + seg.stage.toLowerCase()"></span>{{ seg.stage }} <strong>{{ formatMoney(seg.value, 'EUR', currencies) }}</strong>
+          </span>
+        </div>
+        <div class="pb-pot-note">Progress and gap count Committed + Anticipated only. SIP and Expected are upcoming pipeline.</div>
+        <div class="pb-pot-grid">
+          <div class="pb-pot-box pb-pot-box--committed">
+            <div class="pb-label">COMMITTED</div>
+            <div class="pb-amount-value">{{ formatMoney(potState.view.committed.value, 'EUR', currencies) }}</div>
+            <div class="pb-amount-eur">{{ Math.round(potState.view.committed.pctOfTarget) }}% of target</div>
+          </div>
+          <div class="pb-pot-box pb-pot-box--anticipated">
+            <div class="pb-label">ANTICIPATED</div>
+            <div class="pb-amount-value">{{ formatMoney(potState.view.anticipated.value, 'EUR', currencies) }}</div>
+            <div class="pb-amount-eur">{{ Math.round(potState.view.anticipated.pctOfTarget) }}% of target</div>
+          </div>
+          <div class="pb-pot-box">
+            <div class="pb-label">TOTAL (C+A)</div>
+            <div class="pb-amount-value">{{ formatMoney(potState.view.total, 'EUR', currencies) }}</div>
+          </div>
+          <div class="pb-pot-box">
+            <div class="pb-label">{{ potState.view.gap.over ? 'OVER TARGET' : 'GAP TO TARGET' }}</div>
+            <div class="pb-amount-value" :class="{ 'pb-pot-over': potState.view.gap.over }">{{ potState.view.gap.over ? '+ ' : '' }}{{ formatMoney(potState.view.gap.value, 'EUR', currencies) }}</div>
+            <div class="pb-amount-eur">{{ Math.round(potState.view.gap.pctOfTarget) }}% of target</div>
+          </div>
+        </div>
+        <div class="pb-label pb-pot-list-title">CONTRIBUTING PROPOSALS</div>
+        <div v-if="!potState.view.contributing.length" class="pb-muted pb-pot-none">None.</div>
+        <div v-for="p in potState.view.contributing" :key="p.versionId" class="pb-pot-row">
+          <div class="pb-pot-row-main">
+            <div class="pb-pot-row-name">{{ p.name }}</div>
+            <div class="pb-pot-row-sub">{{ p.clientName || '—' }} · Pipeline {{ p.year }}</div>
+          </div>
+          <span class="pb-stage-pill" :style="stagePillStyle(p.stage)">{{ p.stage }}</span>
+          <span class="pb-pot-row-amount">{{ formatMoney(p.value, 'EUR', currencies) }}</span>
+        </div>
+        <div class="pb-label pb-pot-list-title">OTHER PROPOSALS · NOT IN TOTAL</div>
+        <div v-if="!potState.view.other.length" class="pb-muted pb-pot-none">None.</div>
+        <div v-for="p in potState.view.other" :key="p.versionId" class="pb-pot-row pb-pot-row--other">
+          <div class="pb-pot-row-main">
+            <div class="pb-pot-row-name">{{ p.name }}</div>
+            <div class="pb-pot-row-sub">{{ p.clientName || '—' }} · Pipeline {{ p.year }}</div>
+          </div>
+          <span class="pb-stage-pill" :style="stagePillStyle(p.stage)">{{ p.stage }}</span>
+          <span class="pb-pot-row-amount">{{ formatMoney(p.value, 'EUR', currencies) }}</span>
+        </div>
+      </template>
     </div>
     </template>
+  </div>
   </div>
 </div>
 
@@ -493,7 +556,7 @@
 <script defer src="js/roles.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=5"></script>
-<script type="module" src="js/lib/pipeline-calc.js?v=5"></script>
+<script type="module" src="js/lib/pipeline-calc.js?v=6"></script>
 <script defer src="js/costgrid.js?v=38"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
@@ -556,6 +619,7 @@ Vue.createApp({
       selectedCgId: null,
       selectedVerId: null,
       detailLoading: false,
+      detailTab: 'overview', // 'overview' | 'tasks' | 'linked' | 'pot'
       currencies: [],
       formatMoney: window.formatMoney,
       potState: null,
@@ -761,6 +825,9 @@ Vue.createApp({
       const phases = this.selectedVersion?.phases || [];
       return phases.some(ph => ph.tasks?.length);
     },
+    detailTaskCount() {
+      return (this.selectedVersion?.phases || []).reduce((n, ph) => n + (ph.tasks?.length || 0), 0);
+    },
     liveRate() {
       if (!this.selectedVersion || this.selectedVersion.currency === 'EUR') return null;
       const entry = this.currencies.find(c => c.code === this.selectedVersion.currency);
@@ -775,11 +842,12 @@ Vue.createApp({
     esc,
     pipelineBadge,
     pbFmtDate,
+    pbFmtMonth,
     getClientName,
     openShareModal,
     showCostGridEditorView,
     deleteGridCard(cgId, name) {
-      cgConfirmDeleteGrid(cgId, name, () => { this.refreshTick++; });
+      cgConfirmDeleteGrid(cgId, name, () => { if (cgId === this.selectedCgId) this.closeDetailPanel(); this.refreshTick++; });
     },
     cardClientName(card) {
       const clientId = card.v.clientId;
@@ -792,6 +860,25 @@ Vue.createApp({
     offersLabel(py) {
       if (typeof py.offers !== 'number') return '';
       return py.offers === 1 ? '1 offer' : py.offers + ' offers';
+    },
+    stagePillStyle(stage) {
+      if (!PB_STAGE_STYLE[stage] || stage === 'Draft') return { background: 'var(--surface-light)', color: 'var(--text-muted)' };
+      const k = stage.toLowerCase();
+      return { background: 'var(--pipeline-' + k + '-bg)', color: 'var(--pipeline-' + k + '-color)' };
+    },
+    projectStatusStyle(status) {
+      const key = {
+        'Not started yet': 'not-started', 'Started': 'started', 'Started At Risk': 'at-risk',
+        'Put on hold': 'on-hold', 'Completed': 'completed',
+      }[status || 'Not started yet'] || 'not-started';
+      return { background: 'var(--status-' + key + '-bg)', color: 'var(--status-text)' };
+    },
+    eurEquivalent(n) {
+      const v = this.selectedVersion;
+      if (!v || !(n > 0) || !v.currency || v.currency === 'EUR') return '';
+      const rate = parseFloat(v.currencyRate);
+      if (!(rate > 0)) return '';
+      return '≈ ' + window.formatMoney(n / rate, 'EUR', this.currencies);
     },
     stageDotColor(stage) {
       return (PB_STAGE_STYLE[stage] || PB_STAGE_STYLE.SIP).badge;
@@ -840,6 +927,7 @@ Vue.createApp({
       this.selectedCgId = cgId;
       this.selectedVerId = verId;
       this.detailLoading = true;
+      this.detailTab = 'overview';
 
       // Delayed registration avoids the same click that opened the panel
       // (e.g. a card click) immediately triggering the outside-click close.
@@ -850,6 +938,8 @@ Vue.createApp({
         // Modals opened from the panel (Share/Clone/Confirm/etc.) live outside
         // #pbDetailPanel in the DOM — a click inside one of them must not close the panel.
         if (e.target.closest('.modal') || e.target.classList.contains('modal-backdrop')) return;
+        // Clicking another card or a search suggestion switches the panel's content (openDetailPanel) instead of closing it.
+        if (e.target.closest('.pb-card') || e.target.closest('.pb-suggest')) return;
         this.closeDetailPanel();
       };
       _pbDetailOutsideClickHandler = handler;
@@ -863,8 +953,9 @@ Vue.createApp({
       }
       this.refreshTick++; // structure just loaded into _cgStore — see Global Constraint 4
       this.detailLoading = false;
+      this.potRequestSeq = (this.potRequestSeq || 0) + 1;
       const v = this.selectedVersion;
-      if (v) this.loadPotSection(v, pbGetStage(v));
+      if (v) this.loadPotSection(v, pbGetStage(v), this.potRequestSeq);
     },
     closeDetailPanel() {
       this.selectedCgId = null;
@@ -877,11 +968,12 @@ Vue.createApp({
     verStageBadgeColor(ver) {
       return (PB_STAGE_STYLE[pbGetStage(ver)] || PB_STAGE_STYLE.SIP).badge;
     },
-    potFmtMoney(n) { return window.formatMoney(n, 'EUR', window.__currencies, { rounded: true }); },
-    async loadPotSection(v, stage) {
-      this.potState = null;
+    async loadPotSection(v, stage, seq) {
+      const isStale = () => this.selectedCgId === null || seq !== this.potRequestSeq;
+      this.potState = { kind: 'loading' };
       const year = v.pipelineYear;
-      if (!year || stage === 'Draft') return;
+      if (stage === 'Draft') { this.potState = { kind: 'draft' }; return; }
+      if (!year) { this.potState = { kind: 'noClient' }; return; }
 
       let clientId = null;
       for (const lp of (v.linkedProjects || [])) {
@@ -889,24 +981,21 @@ Vue.createApp({
         if (proj?.clientId) { clientId = proj.clientId; break; }
       }
       if (!clientId) clientId = v.clientId || null;
-      if (!clientId) return;
+      if (!clientId) { this.potState = { kind: 'noClient' }; return; }
 
       const group = this.clientGroups.find(g => (g.clients || []).some(c => c.id === clientId));
       const params = group ? { year, clientGroupId: group.id } : { year, clientId };
       const targetName = group ? group.name : getClientName(clientId);
 
       try {
-        const { pot, proposals, committed_total, anticipated_total } = await Api.pots.summary(params);
-        if (!pot) { this.potState = { pot: null, year, targetName }; return; }
-        const committedTotal = parseFloat(committed_total || 0);
-        const anticipatedTotal = parseFloat(anticipated_total || 0);
-        const totalBudget = committedTotal + anticipatedTotal;
-        const { pct, pctC, pctA } = pbComputePotPercentages(totalBudget, committedTotal, pot.amount);
-        const totColor = pct >= 100 ? '#198754' : pct >= 75 ? '#fd7e14' : '#0d6efd';
-        const nContrib = proposals.filter(p => p.pipeline === 'Committed' || p.pipeline === 'Anticipated').length;
-        this.potState = { pot, year, targetName, committedTotal, anticipatedTotal, totalBudget, pct, pctC, pctA, totColor, nContrib };
+        const summary = await Api.pots.summary(params);
+        // A newer openDetailPanel() may have replaced the selection while the request was in flight.
+        if (isStale()) return;
+        if (!summary.pot) { this.potState = { kind: 'noTarget', targetName, year }; return; }
+        this.potState = { kind: 'ok', targetName, year, view: pbPotView(summary) };
       } catch (e) {
-        this.potState = null;
+        if (isStale()) return;
+        this.potState = { kind: 'error' };
       }
     },
     deleteSelectedVersion() {
@@ -949,7 +1038,7 @@ Vue.createApp({
       return cgComputeTaskTotals(task, this.selectedVersion.roles);
     },
     taskDateRange(task) {
-      return [pbFmtTaskDate(task.taskStartDate), pbFmtTaskDate(task.taskEndDate)].filter(Boolean).join(' – ') || '—';
+      return [pbFmtMonth(task.taskStartDate), pbFmtMonth(task.taskEndDate)].filter(Boolean).join(' – ') || '—';
     },
     openNewProposalModal() {
       document.getElementById('cgNewGridName').value = '';
@@ -995,8 +1084,13 @@ Vue.createApp({
 
     document.addEventListener('click', () => { this.yearDropdownOpen = false; });
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') { this.yearDropdownOpen = false; this.searchOpen = false; }
-    });
+      if (e.key !== 'Escape') return;
+      // Capture phase: runs before Bootstrap removes `.show`, so an open modal/offcanvas still counts. Then Bootstrap closes only that.
+      if (document.querySelector('.modal.show, .offcanvas.show, .dropdown-menu.show')) return;
+      // Esc closes one layer: the search/year menu first, else the panel.
+      if (this.yearDropdownOpen || this.searchOpen) { this.yearDropdownOpen = false; this.searchOpen = false; return; }
+      if (this.selectedCgId) this.closeDetailPanel();
+    }, true);
     document.addEventListener('mousedown', e => {
       if (this.searchOpen && !(e.target.closest && e.target.closest('.pb-search'))) this.searchOpen = false;
     });

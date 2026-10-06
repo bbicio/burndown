@@ -514,6 +514,113 @@ async function testPots() {
   // Non-existent POT → 404
   ok((await api('GET', `/api/pots/00000000-0000-0000-0000-000000000000/details?year=${TEST_YEAR_B}`, null, adminCookie)).status === 404,
     'POT-06c details for unknown POT id → 404');
+
+  await testPotSummaryExtended();
+}
+
+// POT-08..POT-11 — GET /api/pots/summary: expected/SIP totals + per-proposal value/client_name
+async function testPotSummaryExtended() {
+  const CLIENT_NAME = '__test_pot_summary_client__';
+  const year = new Date().getFullYear();   // publish stamps the current calendar year
+
+  const role = await makeTestRole(`PS${Date.now()}`);
+  const rpy = await api('POST', '/api/pipeline-years', { year }, adminCookie);
+  if (rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
+  const rc = await api('POST', '/api/clients', { name: CLIENT_NAME }, adminCookie);
+  const clientId = rc.data?.id;
+  if (clientId) later('DELETE', `/api/clients/${clientId}`);
+  if (!role.id || !clientId) { fail('POT-08..11: setup failed — skipping'); return; }
+  const rp = await api('POST', '/api/pots', { clientId, year, amount: 1000000 }, adminCookie);
+  if (rp.data?.id) later('DELETE', `/api/pots/${rp.data.id}`);
+
+  async function makeProposal(name, stage, days) {
+    const g = await api('POST', '/api/cost-grids', { name }, adminCookie);
+    const cgId = g.data?.id;
+    if (!cgId) return null;
+    later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+    const v = await api('POST', `/api/cost-grids/${cgId}/versions`,
+      { label: 'v1', clientId, currency: 'EUR', currencyRate: 1 }, adminCookie);
+    const vId = v.data?.id;
+    if (!vId) return null;
+    if (days) {
+      await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+        phases: [{ title: 'P1', tasks: [{ title: 'T1', roles: [{ roleId: role.id, days, rateOverride: 100 }] }] }],
+      }, adminCookie);
+    }
+    if (stage) {
+      await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/publish`, null, adminCookie);
+      await api('PATCH', `/api/cost-grids/${cgId}/versions/${vId}`, { pipeline: stage }, adminCookie);
+    }
+    return { cgId, vId, stage };
+  }
+
+  const defs = [['SIP', 1], ['Expected', 2], ['Anticipated', 3], ['Committed', 4]];
+  const made = [];
+  for (const [stage, days] of defs) made.push(await makeProposal(`__test_pot_sum_${stage}__`, stage, days));
+  const draft = await makeProposal('__test_pot_sum_draft__', null, 5);
+  if (made.some(m => !m) || !draft) { fail('POT-08..11: proposal setup failed — skipping'); return; }
+
+  const rs = await api('GET', `/api/pots/summary?year=${year}&clientId=${clientId}`, null, adminCookie);
+  ok(rs.status === 200, 'POT-08 summary → 200');
+  ok(typeof rs.data?.expected_total === 'number' && typeof rs.data?.sip_total === 'number',
+    'POT-08 expected_total and sip_total are numbers');
+
+  const rows = rs.data?.proposals || [];
+  ok(rows.length > 0 && rows.every(r => typeof r.value === 'number' && r.client_name === CLIENT_NAME),
+    'POT-09 every proposal has numeric value and client_name');
+
+  const sumOf = st => rows.filter(r => r.pipeline === st).reduce((a, r) => a + r.value, 0);
+  const totals = { SIP: rs.data?.sip_total, Expected: rs.data?.expected_total,
+                   Anticipated: rs.data?.anticipated_total, Committed: rs.data?.committed_total };
+  for (const st of Object.keys(totals)) {
+    ok(totals[st] > 0 && Math.abs(totals[st] - sumOf(st)) < 0.01,
+      `POT-10 ${st} total equals sum of its rows and is > 0`);
+  }
+
+  ok(!rows.some(r => r.cg_id === draft.cgId), 'POT-11 Draft-only proposal absent from proposals');
+
+  // POT-12 — client-group target: two clients, one published proposal each
+  const rg = await api('POST', '/api/client-groups', { name: '__test_pot_group__' }, adminCookie);
+  const gid = rg.data?.id;
+  if (gid) later('DELETE', `/api/client-groups/${gid}`);
+  const gClients = [];
+  for (const n of ['__test_pot_grp_c1__', '__test_pot_grp_c2__']) {
+    const c = await api('POST', '/api/clients', { name: n }, adminCookie);
+    if (c.data?.id) {
+      later('DELETE', `/api/clients/${c.data.id}`);
+      await api('PUT', `/api/client-groups/${gid}/clients/${c.data.id}`, null, adminCookie);
+      gClients.push(c.data.id);
+    }
+  }
+  if (!gid || gClients.length !== 2) { fail('POT-12: group setup failed — skipping'); return; }
+  const rgp = await api('POST', '/api/pots', { clientGroupId: gid, year, amount: 500000 }, adminCookie);
+  if (rgp.data?.id) later('DELETE', `/api/pots/${rgp.data.id}`);
+
+  const gMade = [];
+  for (const [i, cid] of gClients.entries()) {
+    const g = await api('POST', '/api/cost-grids', { name: `__test_pot_grp_prop${i}__` }, adminCookie);
+    const cgId = g.data?.id;
+    if (!cgId) continue;
+    later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+    const v = await api('POST', `/api/cost-grids/${cgId}/versions`,
+      { label: 'v1', clientId: cid, currency: 'EUR', currencyRate: 1 }, adminCookie);
+    const vId = v.data?.id;
+    if (!vId) continue;
+    await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+      phases: [{ title: 'P1', tasks: [{ title: 'T1', roles: [{ roleId: role.id, days: i + 2, rateOverride: 100 }] }] }],
+    }, adminCookie);
+    await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/publish`, null, adminCookie);
+    await api('PATCH', `/api/cost-grids/${cgId}/versions/${vId}`, { pipeline: 'Committed' }, adminCookie);
+    gMade.push({ cgId, vId });
+  }
+  if (gMade.length !== 2) { fail('POT-12: proposal setup failed — skipping'); return; }
+
+  const rgs = await api('GET', `/api/pots/summary?year=${year}&clientGroupId=${gid}`, null, adminCookie);
+  const gRows = rgs.data?.proposals || [];
+  const gSum = gRows.filter(r => r.pipeline === 'Committed').reduce((a, r) => a + r.value, 0);
+  ok(rgs.status === 200 && gRows.length === 2 && gMade.every(m => gRows.some(r => r.cg_id === m.cgId)) &&
+     gSum > 0 && Math.abs(rgs.data.committed_total - gSum) < 0.01,
+    'POT-12 client-group summary returns both proposals and totals equal to the sum of their values');
 }
 
 // ── Cost Grid Budgets ─────────────────────────────────────────────────────────
