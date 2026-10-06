@@ -12,7 +12,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 
 ## Gate 1 — TEST (blocking, automatic, no confirmation)
 
-1. Run `npm test`.
+1. Run `npm test` natively (host Node ≥ 20.12). In a worktree with no `node_modules`, run `npm ci` once first. Use the `docker run ... node:22` one-liner from `CLAUDE.md` only if the host Node is older than 20.12.
    - If it fails: stop immediately, show the failing output verbatim. Do not start Docker. Require a fix and a re-run of `/finish-cycle` from the top.
 2. If it passes, run `git diff --stat main...HEAD` and inspect the listed paths.
    - If any path starts with `api/` (including `api/src/db/migrations/`), or if any touched path's relevance to backend behavior is unclear/ambiguous, proceed to step 3.
@@ -45,6 +45,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 
 ## Gate 3 — CODE REVIEW (conditional human gate, max 3 rounds by default)
 
+0. **Skip check (no double review of the same diff, PROCESS.md §6.4).** If, earlier in this same session, a whole-branch review covered `main...HEAD` (e.g. the final review of `superpowers:subagent-driven-development`), and every commit after the reviewed HEAD only applies fixes from that review and has itself been re-reviewed, do not run `/code-review`. State explicitly: "Code review: skipped — the final whole-branch review at `<sha>` already covers this diff (fixes `<sha..sha>` re-reviewed)." Carry that review's accepted follow-ups into `code_review_followups`, note the skip in the report's Roadmap notes, and proceed to Gate 4. If any condition is not met, or the review happened in another session, run step 1 normally.
 1. Run `/code-review` at medium effort, scoped to the diff between the current branch and `main`. This is round 1. Maintain a running list, `code_review_followups`, starting empty.
 2. If the review reports zero findings: state this explicitly ("Code review: no findings.") and proceed automatically to Gate 4 — no confirmation needed.
 3. If the review reports one or more findings:

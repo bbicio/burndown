@@ -22,8 +22,8 @@ Brief → /brainstorming → Spec (committata) → /writing-plans → Piano (com
 | **Spec (committata)** | Documento di design: problema, comportamento atteso, vincoli, criteri di accettazione, scope escluso. Committata prima di procedere. |
 | **`/writing-plans`** | Trasforma la Spec in un piano di esecuzione a step, ciascuno verificabile. |
 | **Piano (committato)** | Sequenza di task eseguibili, committato prima dell'esecuzione. |
-| **Esecuzione** | Subagent-driven, segue il piano passo per passo. Guardie specifiche per scenario (vedi §2). Il completamento dell'esecuzione (anche quando guidato da `superpowers:subagent-driven-development`, la cui skill generica termina normalmente con `superpowers:finishing-a-development-branch`) sfocia **sempre** in `/finish-cycle`, mai nella skill generica — vedi nota sotto. |
-| **`/finish-cycle`** | Terminale di ogni esecuzione in questo progetto — sostituisce `superpowers:finishing-a-development-branch`, non la segue. Gate condizionali: `npm test` → suite Docker backend (se il diff tocca `api/`) → verifica manuale (ambiente Docker isolato per il branch rilevato automaticamente via scripts/test-branch.sh status — riuso o rebuild se già attivo; ricerca spec/piano, sempre conferma, mai euristica) → `/code-review` (max 3 round) → merge `--no-ff` con riepilogo pre-merge esplicito e pulizia worktree → `/sync-docs` + report persistito in `docs/superpowers/reports/` con conferma esplicita di push → report finale in chat. `/sync-docs` aggiorna anche la **memoria di progetto** (vedi nota sotto), senza conferma ma sempre riportata nel report. Ogni gate di giudizio si ferma sempre; solo test/preflight sono automatici. |
+| **Esecuzione** | Subagent-driven o nativa, scelta in base alla dimensione del ciclo (vedi §6), segue il piano passo per passo. Guardie specifiche per scenario (vedi §2). Il completamento dell'esecuzione (anche quando guidato da `superpowers:subagent-driven-development`, la cui skill generica termina normalmente con `superpowers:finishing-a-development-branch`) sfocia **sempre** in `/finish-cycle`, mai nella skill generica — vedi nota sotto. |
+| **`/finish-cycle`** | Terminale di ogni esecuzione in questo progetto — sostituisce `superpowers:finishing-a-development-branch`, non la segue. Gate condizionali: `npm test` → suite Docker backend (se il diff tocca `api/`) → verifica manuale (ambiente Docker isolato per il branch rilevato automaticamente via scripts/test-branch.sh status — riuso o rebuild se già attivo; ricerca spec/piano, sempre conferma, mai euristica) → `/code-review` (max 3 round; saltato se la revisione finale dell'intero branch copre già l'HEAD corrente, vedi §6) → merge `--no-ff` con riepilogo pre-merge esplicito e pulizia worktree → `/sync-docs` + report persistito in `docs/superpowers/reports/` con conferma esplicita di push → report finale in chat. `/sync-docs` aggiorna anche la **memoria di progetto** (vedi nota sotto), senza conferma ma sempre riportata nel report. Ogni gate di giudizio si ferma sempre; solo test/preflight sono automatici. |
 
 **Nota — perché non `finishing-a-development-branch`:** quella skill (di plugin, generica) non conosce i gate specifici di questo progetto (test, `/code-review`, `/sync-docs`, report persistito). Usarla al posto di `/finish-cycle` significa mergiare/pushare senza quei controlli. La regola è applicata anche in `CLAUDE.md` (che ha precedenza sulle skill), non solo qui.
 
@@ -108,7 +108,34 @@ Tutte e tre costruite. Non una per scenario ma una per tipo di gap — ciascuna 
 
 ---
 
-## 6. Criterio di aggiornamento di questo documento
+## 6. Esecuzione proporzionata al ciclo (2026-10-06)
+
+**Origine:** il ciclo pre-login restyling (7 file, solo CSS/markup) è durato 3h28m. Il tempo è andato in: 38 esecuzioni dei test in un container `node:22` che rifaceva `npm ci` ogni volta (44 min); verifica visiva con 3 giri di screenshot più un subagent dedicato a una correzione CSS di una riga (39 min); revisioni ripetute sullo stesso diff (4 per task, finale Opus, ri-revisione, poi di nuovo il Gate 3 di `/finish-cycle`); una discussione di processo a metà ciclo (17 min). Le regole sotto valgono per tutti e tre gli scenari.
+
+**1. Modalità e modello, scelti al passaggio Piano → Esecuzione.**
+- **Ciclo piccolo** (indicativamente ≤ 5 file, nessuna migrazione, nessuna nuova API, task fortemente sequenziali): esecuzione **nativa** (`superpowers:executing-plans`), oppure pochi task più grandi. Il costo fisso di ogni task subagent-driven (dispatch, pacchetto di revisione, revisore: 5–10 min) non si ripaga su modifiche di poche righe.
+- **Ciclo grande o con task indipendenti:** subagent-driven.
+- **Modello:** in subagent-driven gli implementatori girano su **Sonnet** (`model: sonnet`), mentre il coordinatore e la revisione finale dell'intero branch restano su Opus. In nativa l'utente cambia a mano il modello della sessione (`/model sonnet`) prima di implementare, e torna su Opus per la revisione finale e `/finish-cycle`. Brainstorming, spec, debugging e code review restano su Opus.
+
+**2. Test.**
+- Node dell'host ≥ 20.12 (dal 2026-10-06 il PC ha Node 24): `npm test` gira nativo, circa 48 s per la suite completa e circa 10 s per un singolo file. Il comando Docker `node:22` di `CLAUDE.md` resta solo come fallback per un host con Node vecchio.
+- Un worktree nuovo non ha `node_modules`: subito dopo averlo creato, eseguire `npm ci` una volta (insieme alla copia di `.env`).
+- **Durante i task si lanciano solo i file di test toccati o aggiunti** (`npx vitest run <file>`; backend: `docker exec pdash-api node --test src/<file>`). La suite completa gira **una volta** a fine esecuzione, nel coordinatore, e poi al Gate 1. Mai due suite complete in parallelo.
+
+**3. Una sola verifica visiva per ciclo.**
+- Di default la verifica visiva è quella dell'utente al Gate 2 di `/finish-cycle`; il Piano non include un task di screenshot automatici.
+- Gli screenshot automatici si fanno solo se decisi esplicitamente in `/brainstorming` (es. confronto con le tavole di un handoff di design a più larghezze) e scritti nel Piano, con gli stati e le larghezze da coprire. Lo script e il server simulato vanno scritti una volta sola, all'inizio della verifica.
+- Un difetto visivo piccolo trovato in verifica (poche righe di CSS/markup) si corregge direttamente nella sessione principale, con il test mirato: niente subagent dedicato.
+
+**4. Niente revisioni doppie sullo stesso diff.** Se la revisione finale dell'intero branch (es. quella di subagent-driven) copre `main...HEAD` all'HEAD corrente, il Gate 3 di `/finish-cycle` non rilancia `/code-review`: lo dichiara e lo annota nel report. Valgono anche i commit successivi che contengono solo le correzioni di quella revisione, purché già ri-revisionati. In esecuzione nativa non c'è revisione per task: resta la sola revisione finale (o il Gate 3).
+
+**5. Brief e processo fuori dal ciclo.**
+- Il Brief (e l'eventuale handoff di design) è pronto e committato **prima** di aprire il ciclo. Se arriva un brief nuovo che sostituisce quello in discussione, si riparte da `/brainstorming`, senza riconciliare i ragionamenti precedenti.
+- Una modifica al processo emersa a metà ciclo si annota (in memoria o nel report) e si applica dopo `/finish-cycle`, con un commit `docs:` dedicato: non si discute durante l'esecuzione.
+
+---
+
+## 7. Criterio di aggiornamento di questo documento
 
 `/sync-docs` aggiorna questo file **solo se** il ciclo appena chiuso soddisfa almeno una di queste condizioni:
 - Ha introdotto o modificato una delle skill di processo (`feature-brief`, `domain-audit`, `audit-to-brief`).
