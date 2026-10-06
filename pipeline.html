@@ -9,6 +9,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/tokens.css?v=9">
   <link rel="stylesheet" href="css/style.css?v=21">
+  <link rel="stylesheet" href="css/pipeline.css?v=1">
 </head>
 <body>
 
@@ -19,106 +20,101 @@
 
 <!-- Pipeline Board -->
 <div id="pipelineBoardSection" v-cloak class="pb-board-root">
-  <div class="d-flex align-items-center justify-content-between px-4 py-2 flex-shrink-0"
-       style="border-bottom:1px solid #dee2e6">
-    <div class="position-relative">
-      <button class="d-flex flex-column align-items-start border-0 bg-transparent p-0"
-              style="cursor:pointer;text-align:left;line-height:1.35"
+  <div class="pb-header flex-shrink-0">
+    <div class="pb-year-wrap">
+      <button type="button" class="pb-title-btn" :aria-expanded="yearDropdownOpen ? 'true' : 'false'"
               @click.stop="yearDropdownOpen = !yearDropdownOpen">
-        <span class="fw-bold d-flex align-items-center gap-1" style="font-size:2.5rem;color:var(--brand-navy)">
-          Pipeline&nbsp;<span>{{ selectedYear }}</span>
-          <span v-if="pipelineYears.length"
-                style="display:inline-block;width:0;height:0;margin-left:10px;vertical-align:middle;
-                       border-left:8px solid transparent;border-right:8px solid transparent;
-                       border-top:10px solid #4b5563"></span>
+        <span class="pb-title">
+          Pipeline {{ selectedYear }}
+          <svg v-if="pipelineYears.length" class="pb-chevron" :class="{ open: yearDropdownOpen }" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
         </span>
-        <span class="text-muted" style="font-size:.8rem">{{ pipelineYears.length ? 'All cost grid offers organised by deal stage' : 'No active pipelines' }}</span>
+        <span class="pb-subtitle">{{ pipelineYears.length ? 'All cost grid offers organised by deal stage' : 'No active pipelines' }}</span>
       </button>
-      <div v-if="yearDropdownOpen"
-           style="position:absolute;top:calc(100% + 6px);left:0;z-index:500;
-                  background:#fff;border:1px solid #dee2e6;border-radius:8px;
-                  box-shadow:0 6px 20px rgba(0,0,0,.13);min-width:200px;padding:4px 0">
-        <button v-for="py in pipelineYears" :key="py.year" type="button"
-                @click="selectYear(py.year)"
-                :style="{ display:'block', width:'100%', textAlign:'left', border:'none',
-                          background: py.year === selectedYear ? '#f0f4ff' : 'transparent',
-                          color: py.year === selectedYear ? 'var(--brand-navy)' : '#374151',
-                          fontWeight: py.year === selectedYear ? 700 : 400,
-                          padding:'8px 16px', fontSize:'.875rem', cursor:'pointer' }">
-          Pipeline {{ py.year }}{{ py.year === selectedYear ? ' ✓' : '' }}
+      <div v-if="yearDropdownOpen" class="pb-year-menu" @click.stop>
+        <div class="pb-year-menu-head">AVAILABLE PIPELINES</div>
+        <button v-for="py in pipelineYears" :key="py.year" type="button" class="pb-year-row"
+                :class="{ current: py.year === selectedYear }" @click="selectYear(py.year)">
+          <span class="pb-year-row-main">
+            <span class="pb-year-row-name">Pipeline {{ py.year }}</span>
+            <span v-if="offersLabel(py)" class="pb-year-row-offers">{{ offersLabel(py) }}</span>
+          </span>
+          <span v-if="py.year === selectedYear" class="pb-pill pb-pill-current">Current</span>
+          <span v-else-if="py.active === false" class="pb-pill pb-pill-closed">Closed</span>
         </button>
       </div>
     </div>
-    <div class="d-flex gap-2 align-items-center">
-      <button class="btn btn-primary btn-sm" v-if="newProposalVisible" @click="openNewProposalModal">+ New Proposal</button>
+    <div class="pb-header-right">
+      <div class="pb-open">
+        <div class="pb-open-label">OPEN PIPELINE</div>
+        <div class="pb-open-value">{{ openPipeline.approx ? '≈ ' : '' }}{{ openPipeline.text }}</div>
+      </div>
+      <button type="button" class="pb-btn-new" v-if="newProposalVisible" @click="openNewProposalModal">+ New Proposal</button>
     </div>
   </div>
-  <div class="d-flex align-items-center gap-2 px-4 py-2 flex-shrink-0 flex-wrap"
-       style="background:var(--surface-light);border-bottom:1px solid #dee2e6">
-    <input type="text" class="form-control form-control-sm" style="max-width:220px"
-           placeholder="🔍 Search proposal or client…" v-model="filterSearch">
+  <div class="pb-toolbar flex-shrink-0">
+    <div class="pb-search" @focusout="onSearchFocusOut">
+      <svg class="pb-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" class="pb-search-input" autocomplete="off"
+             placeholder="Search proposal or client…" aria-label="Search proposal or client"
+             v-model="filterSearch" @focus="searchOpen = true" @input="searchOpen = true">
+      <div v-if="searchOpen" class="pb-suggest" @mousedown.prevent>
+        <div v-if="searchSuggestions.empty" class="pb-suggest-empty">Search by proposal title or client name in Pipeline {{ selectedYear }}.</div>
+        <div v-else-if="!searchSuggestions.clients.length && !searchSuggestions.proposals.length" class="pb-suggest-empty">No results for "{{ filterSearch.trim() }}"</div>
+        <template v-else>
+          <div v-if="searchSuggestions.clients.length">
+            <div class="pb-suggest-head">CLIENTS</div>
+            <button v-for="c in searchSuggestions.clients" :key="c.id" type="button" class="pb-suggest-row" @click="pickClient(c)">
+              <span class="pb-suggest-main"><span v-for="(s, i) in c.segments" :key="i" :class="{ 'pb-hit': s.hit }">{{ s.text }}</span></span>
+              <span class="pb-suggest-meta">{{ c.count }} {{ c.count === 1 ? 'proposal' : 'proposals' }}</span>
+            </button>
+          </div>
+          <div v-if="searchSuggestions.proposals.length">
+            <div class="pb-suggest-head">PROPOSALS</div>
+            <button v-for="p in searchSuggestions.proposals" :key="p.cgId + '-' + p.verId" type="button" class="pb-suggest-row" @click="pickProposal(p)">
+              <span class="pb-suggest-stack">
+                <span class="pb-suggest-main"><span v-for="(s, i) in p.segments" :key="i" :class="{ 'pb-hit': s.hit }">{{ s.text }}</span></span>
+                <span class="pb-suggest-sub">
+                  <span class="pb-stage-dot" :style="{ background: stageDotColor(p.stage) }"></span>{{ p.stage }} · {{ p.clientName }}
+                </span>
+              </span>
+              <span class="pb-suggest-meta pb-suggest-amount">{{ p.amount }}</span>
+            </button>
+          </div>
+          <div v-if="searchSuggestions.more > 0" class="pb-suggest-more">{{ searchSuggestions.more }} more {{ searchSuggestions.more === 1 ? 'result' : 'results' }} — refine your search</div>
+        </template>
+      </div>
+    </div>
 
-    <div class="dropdown">
-      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
-              data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-        Owner<span v-if="filterOwnerIds.length" class="badge bg-secondary ms-1">{{ filterOwnerIds.length }}</span>
+    <div v-for="g in filterGroups" :key="g.key" class="dropdown">
+      <button class="pb-filter-trigger" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+        {{ g.label }}<span v-if="$data[g.model].length" class="pb-count">{{ $data[g.model].length }}</span>
+        <svg class="pb-trigger-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
-      <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:220px">
-        <li v-if="!ownerOptions.length" class="text-muted px-2" style="font-size:var(--text-sm)">No options</li>
-        <li v-for="opt in ownerOptions" :key="opt.value" class="form-check">
-          <input class="form-check-input" type="checkbox" :id="'flt-owner-' + opt.value" :value="opt.value" v-model="filterOwnerIds">
-          <label class="form-check-label" :for="'flt-owner-' + opt.value" style="font-size:var(--text-sm)">{{ opt.label }}</label>
+      <ul class="dropdown-menu pb-filter-menu p-2">
+        <li v-if="!g.options.length" class="pb-filter-none">No options</li>
+        <li v-for="opt in g.options" :key="opt.value" class="form-check">
+          <input class="form-check-input" type="checkbox" :id="'flt-bar-' + g.key + '-' + opt.value" :value="opt.value" v-model="$data[g.model]">
+          <label class="form-check-label" :for="'flt-bar-' + g.key + '-' + opt.value">{{ opt.label }}</label>
         </li>
+        <template v-if="g.withPtc">
+          <li><hr class="dropdown-divider"></li>
+          <li class="form-check">
+            <input class="form-check-input" type="checkbox" id="flt-bar-include-ptc" v-model="filterIncludePtc">
+            <label class="form-check-label" for="flt-bar-include-ptc">Include PTC in value</label>
+          </li>
+        </template>
       </ul>
     </div>
 
-    <div class="dropdown">
-      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
-              data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-        Client<span v-if="filterClientIds.length" class="badge bg-secondary ms-1">{{ filterClientIds.length }}</span>
-      </button>
-      <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:220px">
-        <li v-if="!clientOptions.length" class="text-muted px-2" style="font-size:var(--text-sm)">No options</li>
-        <li v-for="opt in clientOptions" :key="opt.value" class="form-check">
-          <input class="form-check-input" type="checkbox" :id="'flt-client-' + opt.value" :value="opt.value" v-model="filterClientIds">
-          <label class="form-check-label" :for="'flt-client-' + opt.value" style="font-size:var(--text-sm)">{{ opt.label }}</label>
-        </li>
-      </ul>
+    <button v-if="filtersActive" type="button" class="pb-clear" @click="clearFilters">Clear filters</button>
+    <div class="pb-toolbar-spacer"></div>
+    <div class="pb-amounts">
+      <span class="pb-amounts-label">Amounts</span>
+      <div class="pb-seg" role="group" aria-label="Amounts">
+        <button type="button" :class="{ active: currencyMode === 'original' }" :aria-pressed="currencyMode === 'original' ? 'true' : 'false'" @click="currencyMode = 'original'">Original currency</button>
+        <button type="button" :class="{ active: currencyMode === 'eur' }" :aria-pressed="currencyMode === 'eur' ? 'true' : 'false'" @click="currencyMode = 'eur'">All in EUR</button>
+      </div>
     </div>
-
-    <div class="dropdown">
-      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
-              data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-        Currency<span v-if="filterCurrencies.length" class="badge bg-secondary ms-1">{{ filterCurrencies.length }}</span>
-      </button>
-      <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:160px">
-        <li v-if="!currencyOptions.length" class="text-muted px-2" style="font-size:var(--text-sm)">No options</li>
-        <li v-for="opt in currencyOptions" :key="opt.value" class="form-check">
-          <input class="form-check-input" type="checkbox" :id="'flt-cur-' + opt.value" :value="opt.value" v-model="filterCurrencies">
-          <label class="form-check-label" :for="'flt-cur-' + opt.value" style="font-size:var(--text-sm)">{{ opt.label }}</label>
-        </li>
-      </ul>
-    </div>
-
-    <div class="dropdown">
-      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
-              data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-        Value<span v-if="filterPriceBuckets.length" class="badge bg-secondary ms-1">{{ filterPriceBuckets.length }}</span>
-      </button>
-      <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:200px">
-        <li v-for="opt in priceBucketOptions" :key="opt.value" class="form-check">
-          <input class="form-check-input" type="checkbox" :id="'flt-price-' + opt.value" :value="opt.value" v-model="filterPriceBuckets">
-          <label class="form-check-label" :for="'flt-price-' + opt.value" style="font-size:var(--text-sm)">{{ opt.label }}</label>
-        </li>
-        <li><hr class="dropdown-divider"></li>
-        <li class="form-check">
-          <input class="form-check-input" type="checkbox" id="flt-include-ptc" v-model="filterIncludePtc">
-          <label class="form-check-label" for="flt-include-ptc" style="font-size:var(--text-sm)">Include PTC in value</label>
-        </li>
-      </ul>
-    </div>
-
-    <button v-if="filtersActive" class="btn btn-sm btn-link text-danger" @click="clearFilters">✕ Clear filters</button>
   </div>
   <div class="d-flex gap-0" style="flex:1;min-height:0;overflow-x:auto;overflow-y:hidden;align-items:stretch">
     <div v-for="col in stagesData" :key="col.stage" class="pb-column d-flex flex-column" :style="{ borderTop: '3px solid ' + col.st.border }">
@@ -424,7 +420,7 @@
 <script defer src="js/roles.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=5"></script>
-<script type="module" src="js/lib/pipeline-calc.js?v=4"></script>
+<script type="module" src="js/lib/pipeline-calc.js?v=5"></script>
 <script defer src="js/costgrid.js?v=38"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
@@ -497,9 +493,38 @@ Vue.createApp({
       filterCurrencies: [],
       filterPriceBuckets: [],
       filterIncludePtc: false,
+      currencyMode: 'original', // 'original' | 'eur'
+      searchOpen: false,
     };
   },
   computed: {
+    filterGroups() {
+      return [
+        { key: 'owner',    label: 'Owner',    options: this.ownerOptions,       model: 'filterOwnerIds' },
+        { key: 'client',   label: 'Client',   options: this.clientOptions,      model: 'filterClientIds' },
+        { key: 'currency', label: 'Currency', options: this.currencyOptions,    model: 'filterCurrencies' },
+        { key: 'value',    label: 'Value',    options: this.priceBucketOptions, model: 'filterPriceBuckets', withPtc: true },
+      ];
+    },
+    yearCards() {
+      this.refreshTick;
+      const index = cgGetIndex();
+      const cards = [];
+      index.forEach(cgId => {
+        const cg = cgLoad(cgId);
+        if (!cg || !cg.versions?.length) return;
+        const v = pbGetDisplayVersion(cg);
+        if (!v) return;
+        cards.push({ cg, v, stage: pbGetStage(v) });
+      });
+      return cards;
+    },
+    openPipeline() {
+      return pbOpenPipelineTotal(this.stagesData, this.pbDeps());
+    },
+    searchSuggestions() {
+      return pbSearchSuggestions(this.yearCards, this.filterSearch, this.pbDeps());
+    },
     filterableCards() {
       this.refreshTick;
       const index = cgGetIndex();
@@ -688,6 +713,30 @@ Vue.createApp({
       const name = clientId ? getClientName(clientId) : '';
       return name && name !== 'Unassigned' ? name : '';
     },
+    pbDeps() {
+      return { cgComputeGrandTotals, getPipelineBudget, getClientName, formatMoney: window.formatMoney, currencies: window.__currencies };
+    },
+    offersLabel(py) {
+      if (typeof py.offers !== 'number') return '';
+      return py.offers === 1 ? '1 offer' : py.offers + ' offers';
+    },
+    stageDotColor(stage) {
+      return (PB_STAGE_STYLE[stage] || PB_STAGE_STYLE.SIP).badge;
+    },
+    onSearchFocusOut(e) {
+      const wrap = e.currentTarget;
+      if (e.relatedTarget && wrap.contains(e.relatedTarget)) return;
+      this.searchOpen = false;
+    },
+    pickClient(c) {
+      this.filterClientIds = [c.id];
+      this.filterSearch = '';
+      this.searchOpen = false;
+    },
+    pickProposal(p) {
+      this.searchOpen = false;
+      this.openDetailPanel(p.cgId, p.verId);
+    },
     clearFilters() {
       this.filterSearch = '';
       this.filterOwnerIds = [];
@@ -871,6 +920,12 @@ Vue.createApp({
     this.newProposalVisible = selPy?.active !== false;
 
     document.addEventListener('click', () => { this.yearDropdownOpen = false; });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { this.yearDropdownOpen = false; this.searchOpen = false; }
+    });
+    document.addEventListener('mousedown', e => {
+      if (this.searchOpen && !(e.target.closest && e.target.closest('.pb-search'))) this.searchOpen = false;
+    });
     document.addEventListener('hidden.bs.modal', e => {
       if (e.target && e.target.id === 'shareModal') this.shareListRefreshTick++;
     });
