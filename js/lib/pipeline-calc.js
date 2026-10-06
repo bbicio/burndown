@@ -298,7 +298,7 @@ export function pbPotView(summary) {
     committed: { value: c, pctOfTarget: pctOf(c) },
     anticipated: { value: a, pctOfTarget: pctOf(a) },
     total,
-    gap: { over: target > 0 && total > target, value: gapValue, pctOfTarget: pctOf(gapValue) },
+    gap: { over: total > target, value: gapValue, pctOfTarget: pctOf(gapValue) },
     contributing: pick(['Committed', 'Anticipated']),
     other: pick(['SIP', 'Expected']),
   };

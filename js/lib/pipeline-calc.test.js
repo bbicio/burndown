@@ -427,6 +427,8 @@ describe('pbPotView', () => {
     expect(v.gap.over).toBe(true);
     expect(v.gap.value).toBe(20000);
     expect(v.targetPos).toBeCloseTo(83.33, 1);
+    expect(v.segments[0].width).toBeCloseTo(66.67, 1);
+    expect(v.segments[1].width).toBeCloseTo(33.33, 1);
   });
   it('target 0 or missing gives no Infinity/NaN', () => {
     for (const pot of [{ amount: 0 }, null]) {
@@ -434,6 +436,8 @@ describe('pbPotView', () => {
       expect(v.pct).toBe(0);
       expect(v.committed.pctOfTarget).toBe(0);
       expect(v.gap.pctOfTarget).toBe(0);
+      expect(v.gap.over).toBe(true);
+      expect(v.gap.value).toBe(50000);
       expect(v.segments[0].width).toBe(100);
       expect(JSON.stringify(v)).not.toMatch(/NaN|Infinity/);
     }
