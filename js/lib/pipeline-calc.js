@@ -246,6 +246,66 @@ export function pbSearchSuggestions(cards, query, deps) {
   return { empty: false, clients, proposals, more: Math.max(0, matched.length - 4) };
 }
 
+const PB_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// '202605' | '20260501' | '2026-05-01' -> 'May 2026'; anything else -> null.
+export function pbFmtMonth(d) {
+  if (d == null) return null;
+  const m = /^(\d{4})-?(\d{2})(?:-?\d{2})?$/.exec(String(d).trim());
+  if (!m) return null;
+  const mo = parseInt(m[2], 10);
+  if (mo < 1 || mo > 12) return null;
+  return PB_MONTHS[mo - 1] + ' ' + m[1];
+}
+
+function pbNum(x) {
+  const n = typeof x === 'number' ? x : parseFloat(x);
+  return Number.isFinite(n) ? n : 0;
+}
+
+// View model of the POT tab from GET /api/pots/summary.
+export function pbPotView(summary) {
+  const s = summary || {};
+  const target = pbNum(s.pot && s.pot.amount);
+  const c = pbNum(s.committed_total);
+  const a = pbNum(s.anticipated_total);
+  const e = pbNum(s.expected_total);
+  const sip = pbNum(s.sip_total);
+  const total = c + a;
+  const pctOf = v => (target > 0 ? Math.round(v / target * 100) : 0);
+  const scale = Math.max(target, c + a + e + sip);
+  const w = v => (scale > 0 ? v / scale * 100 : 0);
+  const segments = [
+    { stage: 'Committed', value: c, width: w(c) },
+    { stage: 'Anticipated', value: a, width: w(a) },
+    { stage: 'Expected', value: e, width: w(e) },
+    { stage: 'SIP', value: sip, width: w(sip) },
+  ];
+  const gapValue = Math.abs(target - total);
+  const rows = (Array.isArray(s.proposals) ? s.proposals : []).map(p => ({
+    versionId: p.version_id,
+    name: p.proposal_name,
+    clientName: p.client_name,
+    year: p.pipeline_year,
+    stage: p.pipeline,
+    value: pbNum(p.value),
+  }));
+  const pick = stages => rows.filter(r => stages.includes(r.stage)).sort((x, y) => y.value - x.value);
+  return {
+    pct: pctOf(total),
+    segments,
+    targetPos: scale > 0 ? target / scale * 100 : 0,
+    committed: { value: c, pctOfTarget: pctOf(c) },
+    anticipated: { value: a, pctOfTarget: pctOf(a) },
+    total,
+    gap: { over: target > 0 && total > target, value: gapValue, pctOfTarget: pctOf(gapValue) },
+    contributing: pick(['Committed', 'Anticipated']),
+    other: pick(['SIP', 'Expected']),
+  };
+}
+
+window.pbFmtMonth = pbFmtMonth;
+window.pbPotView = pbPotView;
 window.pbCardAmount = pbCardAmount;
 window.pbColumnHeader = pbColumnHeader;
 window.pbOpenPipelineTotal = pbOpenPipelineTotal;
