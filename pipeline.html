@@ -48,7 +48,7 @@
         <div class="pb-open-label">OPEN PIPELINE</div>
         <div class="pb-open-value">{{ openPipeline.approx ? '≈ ' : '' }}{{ openPipeline.text }}</div>
       </div>
-      <button type="button" class="pb-btn-new" v-if="newProposalVisible" @click="openNewProposalModal">+ New Proposal</button>
+      <button type="button" class="pb-btn-new" v-if="newProposalVisible" @click="openNewProposalModal"><span class="pb-lbl-wide">+ New Proposal</span><span class="pb-lbl-narrow">+ New</span></button>
     </div>
   </div>
   <div class="pb-toolbar flex-shrink-0">
@@ -85,7 +85,11 @@
       </div>
     </div>
 
-    <div v-for="g in filterGroups" :key="g.key" class="dropdown">
+    <button type="button" class="pb-filters-btn" data-bs-toggle="offcanvas" data-bs-target="#pbFiltersSheet" aria-controls="pbFiltersSheet">
+      Filters<span v-if="activeFilterCount" class="pb-count">{{ activeFilterCount }}</span>
+    </button>
+
+    <div v-for="g in filterGroups" :key="g.key" class="dropdown pb-filter-dd">
       <button class="pb-filter-trigger" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
         {{ g.label }}<span v-if="$data[g.model].length" class="pb-count">{{ $data[g.model].length }}</span>
         <svg class="pb-trigger-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
@@ -116,9 +120,28 @@
       </div>
     </div>
   </div>
+  <div class="pb-tabs flex-shrink-0" role="group" aria-label="Stages">
+    <button v-for="col in stagesData" :key="col.stage" type="button" class="pb-tab"
+            :class="{ active: col.stage === activeMobileStage }"
+            :aria-pressed="col.stage === activeMobileStage ? 'true' : 'false'"
+            :style="col.stage === activeMobileStage ? { borderBottomColor: col.st.border } : null"
+            @click="mobileStage = col.stage">
+      {{ col.stage }}<span class="pb-tab-count">{{ col.header.count }}</span>
+    </button>
+  </div>
+  <div class="pb-stage-summary flex-shrink-0">
+    <div class="pb-stage-summary-main">
+      <span class="pb-stage-summary-name">{{ activeMobileCol.stage }}</span>
+      <span class="pb-stage-summary-count">{{ activeMobileCol.header.count }} {{ activeMobileCol.header.count === 1 ? 'offer' : 'offers' }}</span>
+      <span v-if="activeMobileCol.header.total" class="pb-stage-summary-total">{{ activeMobileCol.header.approx ? '≈ ' : '' }}{{ activeMobileCol.header.total }}</span>
+    </div>
+    <div v-if="activeMobileCol.header.pills.length" class="pb-col-pills">
+      <span v-for="p in activeMobileCol.header.pills" :key="p.code" class="pb-pill pb-pill-cur">{{ p.text }}</span>
+    </div>
+  </div>
   <div class="pb-board">
     <div v-for="col in stagesData" :key="col.stage" class="pb-col"
-         :class="{ 'pb-col--collapsed': isCollapsed(col.stage) }" :style="{ borderTopColor: col.st.border }">
+         :class="{ 'pb-col--collapsed': isCollapsed(col.stage), 'pb-col--mobile-active': col.stage === activeMobileStage }" :style="{ borderTopColor: col.st.border }">
       <button type="button" class="pb-col-head" :style="{ background: col.st.bg }"
               :aria-expanded="isCollapsed(col.stage) ? 'false' : 'true'"
               :title="isCollapsed(col.stage) ? 'Expand column' : 'Collapse column'"
@@ -140,7 +163,7 @@
           </span>
         </template>
       </button>
-      <div v-if="!isCollapsed(col.stage)" class="pb-col-body">
+      <div v-if="!isCollapsed(col.stage) || col.stage === activeMobileStage" class="pb-col-body">
         <div v-if="!col.cards.length" class="pb-empty">No offers</div>
         <div v-for="card in col.cards" :key="card.cg.id + card.v.versionId"
              class="pb-card" :class="{ 'pb-card--draft': card.v.pipeline === 'Draft', 'pb-card--selected': selectedCgId === card.cg.id }"
@@ -175,6 +198,40 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+  <div class="offcanvas offcanvas-bottom pb-sheet" tabindex="-1" id="pbFiltersSheet" aria-labelledby="pbFiltersSheetTitle">
+    <div class="offcanvas-header pb-sheet-head">
+      <h5 class="offcanvas-title" id="pbFiltersSheetTitle">Filters</h5>
+      <button type="button" class="pb-sheet-close" data-bs-dismiss="offcanvas">Close</button>
+    </div>
+    <div class="offcanvas-body pb-sheet-body">
+      <div class="pb-sheet-label">AMOUNTS</div>
+      <div class="pb-seg pb-seg--block" role="group" aria-label="Amounts">
+        <button type="button" :class="{ active: currencyMode === 'original' }" :aria-pressed="currencyMode === 'original' ? 'true' : 'false'" @click="currencyMode = 'original'">Original currency</button>
+        <button type="button" :class="{ active: currencyMode === 'eur' }" :aria-pressed="currencyMode === 'eur' ? 'true' : 'false'" @click="currencyMode = 'eur'">All in EUR</button>
+      </div>
+      <div class="pb-sheet-grid">
+        <details v-for="g in filterGroups" :key="g.key" class="pb-sheet-group">
+          <summary class="pb-filter-trigger">
+            {{ g.label }}<span v-if="$data[g.model].length" class="pb-count">{{ $data[g.model].length }}</span>
+            <svg class="pb-trigger-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </summary>
+          <ul class="pb-sheet-list">
+            <li v-if="!g.options.length" class="pb-filter-none">No options</li>
+            <li v-for="opt in g.options" :key="opt.value" class="form-check">
+              <input class="form-check-input" type="checkbox" :id="'flt-sheet-' + g.key + '-' + opt.value" :value="opt.value" v-model="$data[g.model]">
+              <label class="form-check-label" :for="'flt-sheet-' + g.key + '-' + opt.value">{{ opt.label }}</label>
+            </li>
+            <li v-if="g.withPtc" class="form-check pb-sheet-ptc">
+              <input class="form-check-input" type="checkbox" id="flt-sheet-include-ptc" v-model="filterIncludePtc">
+              <label class="form-check-label" for="flt-sheet-include-ptc">Include PTC in value</label>
+            </li>
+          </ul>
+        </details>
+      </div>
+      <button v-if="filtersActive" type="button" class="pb-clear" @click="clearFilters">Clear filters</button>
+      <button type="button" class="pb-sheet-apply" data-bs-dismiss="offcanvas">Show results</button>
     </div>
   </div>
   <div id="pbDetailPanel"
@@ -512,9 +569,21 @@ Vue.createApp({
       currencyMode: 'original', // 'original' | 'eur'
       searchOpen: false,
       collapsedStages: [], // stage names; emptied-on-load columns start collapsed (see created)
+      mobileStage: null, // smartphone: selected stage tab (null = first stage with cards)
     };
   },
   computed: {
+    activeMobileStage() {
+      if (this.mobileStage) return this.mobileStage;
+      const first = this.stagesData.find(c => c.cards.length);
+      return first ? first.stage : 'Draft';
+    },
+    activeMobileCol() {
+      return this.stagesData.find(c => c.stage === this.activeMobileStage) || this.stagesData[0];
+    },
+    activeFilterCount() {
+      return this.filterOwnerIds.length + this.filterClientIds.length + this.filterCurrencies.length + this.filterPriceBuckets.length;
+    },
     filterGroups() {
       return [
         { key: 'owner',    label: 'Owner',    options: this.ownerOptions,       model: 'filterOwnerIds' },

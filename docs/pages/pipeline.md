@@ -25,3 +25,22 @@ Linked-project button in the detail panel's "Linked projects" section (`pbGoToPo
 ## Money formatting (2026-10-01, money centralization cycle)
 
 Card/detail/footer amounts call `formatMoney(amount, code, currencies)` directly with an explicit currency code (the Vue instance exposes `formatMoney` and `currencies`; the former `pbFmtMoney` wrapper was removed); `potFmtMoney` formats POT amounts in EUR with `{ rounded: true }`; the default currency of a card with no currency is `'EUR'` (it was the symbol `'€'`, which made the following `cur !== 'EUR'` test wrongly true). See `docs/js/lib.md`.
+## Board redesign, cycle 1 of 2 (2026-10-06)
+
+Board only; the detail panel is unchanged (cycle 2: panel container, tabs, POT API). Spec `docs/superpowers/specs/2026-10-06-pipeline-board-redesign-design.md`, input `docs/superpowers/design/2026-10-06-pipeline-brief.md` (boards 4.4-4.9).
+
+What changed:
+- **CSS:** page styles moved to `css/pipeline.css` (tokens only, `?v=1`, only `pipeline.html`), guarded by `js/lib/pipeline-guard.test.js` (no hex, emoji or `v-html` in the board region).
+- **Header:** title + subtitle, year menu (AVAILABLE PIPELINES, Current/Closed pills, "N offers" per year from `GET /api/pipeline-years` `offers`), "OPEN PIPELINE" total, "+ New Proposal".
+- **Toolbar:** search with suggestions (clients and proposals, highlighted hits, "N more results"), the four filter dropdowns from `filterGroups`, "Clear filters", and the Amounts toggle (Original currency / All in EUR, `currencyMode`, not persisted).
+- **Columns and cards:** footer removed, totals in the column header with currency pills; collapsible columns (`collapsedStages`); restyled cards, with Edit/Clone/Share/Delete revealed on hover (pointer devices) or keyboard focus only, none on touch.
+- **Smartphone (< 768px):** compact header ("+ New"), search + "Filters" button, scrollable stage tabs, stage summary, one full-width column at a time, `#pbFiltersSheet` bottom sheet (Amounts, 2×2 filter groups with `flt-sheet-` ids, "Show results"). The sheet uses `<details>` groups instead of Bootstrap dropdowns because the offcanvas body would clip an absolutely positioned menu.
+
+Decisions (from the brief, applying to the board):
+1. Search stays a live filter; the suggestions menu is a shortcut (client row sets the client filter, proposal row opens the panel); no "Press Enter" footer.
+2. Open pipeline = SIP + Expected + Anticipated; Draft stays visible with the existing server rule (each user, admins included, sees only their own Drafts).
+3. The year-menu counts come from an API extension (Draft and Canceled excluded).
+4. Amounts has no persistence (no `localStorage`, no `core.js` bump).
+5. Copy: "Original currency" / "All in EUR" on all breakpoints, "Clients" in the suggestions.
+
+Known pre-existing behaviour (not changed): a non-admin only receives active years from `GET /api/pipeline-years`, so selecting an inactive year (e.g. via a stale value) gets a 403 from the cost-grids load.
