@@ -5,7 +5,9 @@ import { join } from 'node:path';
 const read = f => readFileSync(join(process.cwd(), f), 'utf8');
 
 // Pages migrated to css/auth.css (Tasks 2-4 of the pre-login restyling append theirs).
-const AUTH_PAGES = ['login.html'];
+const AUTH_PAGES = ['login.html', 'reset-password.html'];
+// Pages with the position-coloured strength meter (Task 4 appends activate.html).
+const STRENGTH_PAGES = ['reset-password.html'];
 
 describe('css/auth.css', () => {
   const css = read('css/auth.css');
@@ -134,6 +136,38 @@ describe('migrated auth pages', () => {
       });
       it('keeps v-cloak on #app', () => {
         expect(t).toContain('<div id="app" v-cloak>');
+      });
+    });
+  }
+
+  for (const f of STRENGTH_PAGES) {
+    describe(`${f} strength meter and states`, () => {
+      const t = read(f);
+      it('uses strengthClass, not strengthColor', () => {
+        expect(t).toContain("strengthClass() { return 'strength-' + this.strength; }");
+        expect(t).toContain(':class="strengthClass"');
+        expect(t).not.toContain('strengthColor');
+      });
+      it('has the meter markup', () => {
+        expect(t).toContain('class="strength-meter"');
+        expect(t).toContain('<span v-for="i in 4" :key="i" class="strength-seg"></span>');
+        expect(t).toContain('class="strength-label"');
+      });
+      it('uses the wide card and compact logo', () => {
+        expect(t).toContain('class="auth-card auth-card--wide"');
+        expect(t).toContain('class="auth-logo auth-logo--compact"');
+      });
+      it('has the danger and success state icons as decorative SVGs', () => {
+        for (const m of ['danger', 'success']) {
+          const tag = t.match(new RegExp(`<svg[^>]*auth-state-icon auth-state-icon--${m}[^>]*>`));
+          expect(tag, m).not.toBeNull();
+          expect(tag[0]).toContain('stroke="currentColor"');
+          expect(tag[0]).toContain('aria-hidden="true"');
+        }
+      });
+      it('keeps checkStrength() unchanged', () => {
+        expect(t).toContain('if (p.length >= 12) score++;');
+        expect(t).toContain('/[0-9!@#$%^&*]/');
       });
     });
   }
