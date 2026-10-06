@@ -82,10 +82,10 @@
 | P-07 | Draft visible to creator | Create Draft; remain logged in | Draft appears on creator's own board | |
 | P-08 | New Cost Grid button | Click "+ New Cost Grid" on an active year | Modal opens; grid created and appears on board on submit | |
 | P-09 | New CG hidden on inactive year | Admin views an inactive year board | "+ New Cost Grid" button not displayed | |
-| P-10 | Detail panel opens | Click a cost grid card | Panel slides in with offer metadata + task/phase breakdown | |
-| P-11 | Detail panel closes | Click × in detail panel | Panel closes; full board visible | |
-| P-12 | POT summary — with target | Open detail for CG whose client has a POT this year | POT section shows target amount and progress bar | |
-| P-13 | POT summary — no target | Open detail for CG whose client has no POT | POT section absent or shows "No target set" | |
+| P-10 | Detail panel opens | Click a cost grid card | Panel opens (480px, 2026-10-07) on the Overview tab, with header, version segments and the Overview · Tasks · Linked projects · POT tabs | |
+| P-11 | Detail panel closes | Click the ✕ in the panel header | Panel closes; full board visible | |
+| P-12 | POT tab — with target | Open detail for CG whose client has a POT this year, tab POT | Percentage, segmented bar (Committed/Anticipated/Expected/SIP) with "Target" notch, 2×2 grid, Contributing and Other lists | |
+| P-13 | POT tab — no target | Open detail for CG whose client has no POT this year, tab POT | "No POT target for {target} in {year}." | |
 | P-14 | Edit button | Click ✏️ Edit in detail panel | Navigates to `/costgrid.html?cgId=...&verId=...` | |
 | P-15 | Share button | Click 🔗 Share in detail panel | Share modal opens | |
 | P-16 | Column totals | Multiple grids in same stage | Column header total = correct sum of budgets for that stage | |
@@ -97,8 +97,8 @@
 | P-22 | Column total — fee only | Grid with both fees and PTC in same column | Column header main value = professional fees only; no PTC included in main total | |
 | P-23 | Column total — PTC secondary line | Grid with PTC > 0 in the same column | PTC shown as a smaller muted "+ € X PTC" line under the header total ("+ ≈ € X PTC" when the column has a non-EUR card) | |
 | P-24 | Column total — no PTC line when zero | Grid with no PTC | Only the fee line shown; no empty PTC line | |
-| P-25 | Version tabs in detail panel — single version | Open detail for a grid with only one version | No version tab row rendered above the two-column body | |
-| P-26 | Version tabs in detail panel — multiple versions | Open detail for a grid with V1 and V2 | Version tab row appears; each tab shows a colored stage dot and the version label | |
+| P-25 | Version selector — single version | Open detail for a grid with only one version | Header shows "Version" with a single segment (label + stage dot) | |
+| P-26 | Version selector — multiple versions | Open detail for a grid with V1 and V2 | "Version" segmented control with one segment per version (label + stage dot), active one in magenta | |
 | P-27 | Version tab switch | Click a different version tab | Panel content reloads for that version; clicked tab highlighted as active | |
 | P-28 | Clone from detail panel | Click ⧉ Clone in the detail panel header | Modal opens pre-filled with CG name + "— Copy"; source name shows currently viewed version | |
 | P-29 | Clone creates v1 | Clone any version (V2, V3, etc.) | Resulting new cost grid has a single version labelled "v1", not the source label | |
@@ -110,7 +110,7 @@
 | P-35 | Delete Draft — from panel success | Confirm deletion of a Draft version that has siblings | Version deleted via API; panel closes; board re-renders without that version | |
 | P-36 | Pipeline stage on the board | View a card for a Committed proposal | Card sits in the Committed column (green top border); since 2026-10-06 cards carry no stage badge — the column is the stage; the project status "Started" is never used as the stage | |
 | P-37 | POT visible to non-owner user | User A has Committed proposal for a client; User B (who can't see User A's proposal) opens any proposal for the same client | POT section shows full committed+anticipated total including User A's proposal; not 0 | |
-| P-38 | Detail panel closes on click outside | Open a detail panel; click anywhere on the pipeline board outside the `#pbDetailPanel` element | Panel closes (`mousedown` outside the panel, 200ms delayed registration) | |
+| P-38 | Detail panel closes on click outside | Open a detail panel; click an empty area of the board outside the panel (not a card) | Panel closes (`mousedown` outside the panel, 200ms delayed registration); a click on another card switches content instead (2026-10-07) | |
 | P-39 | Task list in linked-project chips — detail panel (R5) | Open detail panel for a cost grid whose linked project has assigned tasks | Each linked-project chip in the left column shows the assigned task names from `lp.taskNames` | |
 | P-40 | Delete proposal from card | Click 🗑 on a Draft card | Confirm modal appears; on confirm, the whole cost grid is deleted via API and the card disappears from the board — no error alert | |
 | P-41 | Detail panel Edit button navigates correctly | Open a detail panel, click ✏️ Edit | Navigates to `costgrid.html?cgId=<real-id>&verId=<real-id>` — not `cgId=null&verId=null` | |
@@ -141,7 +141,14 @@
 | P-66 | Selected card | Open the detail panel from a card | That card has a magenta border while the panel is open | |
 | P-67 | Smartphone stage tabs (< 768px) | Open the board at 390px | Compact header ("+ New"), full-width search + Filters button; stage tabs with counts; one column at a time with a summary (name, N offers, total, pills) | |
 | P-68 | Smartphone Filters sheet | At 390px tap "Filters", pick a filter, tap "Show results" | Bottom sheet with Amounts and Owner/Client/Currency/Value in a 2×2 grid; Show results closes it and the list is filtered (same filters as desktop) | |
-
+| P-69 | Panel layout modes (2026-10-07) | Open a card at 1440 and 1280 (sidebar open), 1200 (open, then collapsed), 1024, 390 | Side by side (board shrinks) at ≥ 1280 open / ≥ 1108 collapsed; overlay with grey scrim below that (scrim click closes); full screen below 768px | |
+| P-70 | Panel switches on another card | With the panel open, click another card or a search-suggestion proposal | Content switches without closing; tab returns to Overview | |
+| P-71 | Esc layering | Panel open: press Esc with the search menu open, with a filter dropdown open, with Share/Clone/Confirm open, then with nothing open | Only the menu / dropdown / modal closes in the first three cases; the panel closes in the last | |
+| P-72 | Delete the open Draft from its card | Panel open on own Draft; hover its card → Delete → confirm | Card removed and panel closed (no "Could not load cost grid") | |
+| P-73 | Overview tab | Open a proposal in a non-EUR currency with a note | Three boxes (Total budget navy) with "≈ € …" lines; PERIOD "May 2026 – Dec 2026"; CURRENCY with "1 € = …" (and Refresh rate for an admin when stale); note; SHARED WITH list | |
+| P-74 | Tasks and Linked projects tabs | Open a proposal with tasks and generated projects | Tasks: per phase TASK · PERIOD · HOURS · AMOUNT; Linked: one card per project with code, stage + status pills and "Project Dashboard →"; empty-state texts when none | |
+| P-75 | POT special states | Tab POT on a Draft, on a proposal with no client, over a reached target | "Draft proposals don't count toward the POT."; "This proposal has no client, so it has no POT."; "OVER TARGET + € …" in green | |
+| P-76 | `/api/pots/summary` extended fields | GET summary for a client and a client-group target with SIP/Expected/Anticipated/Committed proposals + a Draft | `expected_total`/`sip_total` numeric; every row has numeric `value` and `client_name`; stage totals = sum of row values; Draft absent; group target returns both clients' proposals (test-api POT-08..POT-12) | ✓ |
 ---
 
 ## 4. Cost Grid Editor

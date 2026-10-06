@@ -799,7 +799,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | PATCH | /api/pots/:id | admin | Update amount (logs to pot_history) |
 | DELETE | /api/pots/:id | admin | Delete POT |
 | GET | /api/pots/:id/history | admin | Amount change history |
-| GET | /api/pots/summary | ✅ | Aggregated pipeline value vs. POT target for a client/group + year; returns `committed_total` and `anticipated_total` computed server-side across **all** proposals (regardless of caller visibility), so every user sees the same POT progress |
+| GET | /api/pots/summary | ✅ | Aggregated pipeline value vs. POT target for a client/group + year; returns `committed_total` and `anticipated_total` computed server-side across **all** proposals (regardless of caller visibility), so every user sees the same POT progress; since 2026-10-07 also `expected_total`, `sip_total` and, per proposal row, `value` (EUR fee, same formula) and `client_name` (backs the detail panel's POT tab) |
 | GET | /api/pots/pipeline-summary?year= | admin | Per-stage count + professional-fee total for a pipeline year (all 5 stages, Draft excluded) |
 | GET | /api/pots/year-totals | admin | `{ year: { pot_total, committed_total, anticipated_total, achieved_total } }` for all years — achieved = committed + anticipated |
 | GET | /api/pots/:id/details?year= | admin | POT metadata + change history + `committed_total` + `anticipated_total` + all scoped proposals (matched via `cgv.client_id`; Canceled included, Draft excluded) |
@@ -973,9 +973,9 @@ burndown/
                             Tags sections. Full narrative: docs/pages/costgrid.md's "Tags" section.
                             Since 2026-10-02 also the token-driven `.btn-danger`/`.btn-ghost`/`.btn-icon`, a magenta
                             spinner and `--bs-*` overrides for alerts, dropdowns and modals (CLAUDE.md "Design tokens")
-    pipeline.css          ← (2026-10-06, `?v=1`) page stylesheet of pipeline.html only (board header, year menu,
-                            toolbar, search suggestions, Amounts toggle, columns, cards, smartphone stage tabs and
-                            Filters sheet); tokens only; loaded after style.css and overrides its legacy `.pb-*`
+    pipeline.css          ← (2026-10-06, `?v=2` since the 2026-10-07 detail-panel cycle) page stylesheet of pipeline.html
+                            only (board header, year menu, toolbar, search suggestions, Amounts toggle, columns, cards,
+                            smartphone stage tabs and Filters sheet; detail panel modes, header, tabs, POT view); tokens only; loaded after style.css and overrides its legacy `.pb-*`
                             rules; `js/lib/pipeline-guard.test.js` pins it. Full narrative: docs/pages/pipeline.md
     admin-crud.css        ← shared layout for simple admin CRUD pages (page-header/card/table/badges/
                             btn-primary/form-*/empty/alert-sm), extracted 2026-09 from duplicated inline

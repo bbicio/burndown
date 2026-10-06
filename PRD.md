@@ -90,28 +90,16 @@ A filter bar sits below the title, above the columns, so the board stays readabl
 
 ### 4.4 Detail Panel
 
-A fixed right-side panel (860 px wide) with two scrollable columns.
+**Since 2026-10-07** the panel is a 480px column. On wide screens (from 1280px with the sidebar open, from about 1110px with it collapsed) it sits beside the board, which shrinks; on narrower screens it slides over the board with a light grey veil (clicking the veil closes it); on phones (< 768px) it fills the screen. Clicking another card (or a proposal in the search suggestions) switches the panel to that offer without closing it; clicking elsewhere closes it; Esc closes it — but if a menu, a filter dropdown or a dialog opened from the panel is showing, Esc closes only that.
 
-**Header:** 🗑 Delete (Draft stage only) · ⧉ Clone · 🔗 Share · ✏️ Edit · ×. A row of version tabs (colour-coded stage dot + label) always appears above the two-column body, even for a single-version proposal; clicking a tab reloads the panel for that version. Deleting a proposal's only remaining version deletes the entire proposal, since every proposal always has at least one version. Viewer permission hides Clone, Share, and Edit from the header (see §18.3).
+**Header:** stage pill, "Linked project" pill when projects were generated, and a **Version** selector with one segment per version (label + stage dot; clicking one reloads the panel for that version); the client, the offer title and "Owner … · Created on …"; the actions **Edit** and **Clone** (hidden for viewers), **Share** (not on Draft) and **Delete** (Draft only, with edit permission). Deleting a proposal's only remaining version deletes the entire proposal, since every proposal always has at least one version (see §18.3 for viewer rules).
 
-**Left column — Offer metadata + Linked Projects**
+**Tabs** (the panel always opens on Overview):
 
-- Offer name, pipeline stage badge
-- Version label, creation date
-- Start date / end date
-- Currency
-- Rate card name, if one is set on the version
-- Notes
-- Total budget (€) broken down as: Fee + Pass-Through Costs (PTC)
-- JSON export button for the raw cost grid data
-- **Linked Projects** list: for each linked project shows project ID (resolved from config), project name, status badge, assigned task names (if any tasks have been assigned to the project), and a "📊 Project Dashboard" button (renamed from "Portfolio", 2026-09) that navigates to that project's reporting view (only visible when timesheet data exists for the project)
-
-**Right column — Task and Phase breakdown**
-
-- Phase headers (bold, indigo) with total hours and total budget
-- Per-task rows: task name, role breakdown (hours per role), task total
-- Role column totals at the bottom of each phase
-- Grand total row
+- **Overview** — Professional fees, PTC and Total budget in the offer's currency (with "≈ €" for a non-EUR offer); Period ("May 2026 – Dec 2026"); Currency with its "1 € = x" snapshot rate and, for admins when the snapshot is out of date, a **Refresh rate** button; the version note; **Shared with** (who has access, with removal for those who can manage it).
+- **Tasks (n)** — per phase, its total and one row per task: name, period, hours, amount.
+- **Linked projects (n)** — one card per generated project: name, project code, stage and project-status pills, the tasks assigned to it, and a "Project Dashboard →" link to that project's reporting view. Without projects the tab explains they are created from the Cost Grid with "Generate project".
+- **POT** — see §4.8.
 
 ### 4.5 Board Toolbar
 
@@ -129,7 +117,14 @@ Admin-managed via **Configuration → Pipelines & POTs**. Each year is either Vi
 
 ### 4.8 POT Summary in Detail Panel
 
-When a cost grid is linked to a client (or client group), the detail panel shows a POT section: Total % (Committed + Anticipated) against the POT target for the selected year, rendered as a dual-segment progress bar (Committed in green, Anticipated in orange), with the Total, Committed, and Anticipated amounts listed below the bar.
+The detail panel's **POT** tab (2026-10-07) compares the offer's client (or client group) target for the offer's pipeline year with the proposals of that target in that year only:
+
+- the percentage of the target reached by **Committed + Anticipated** (it can exceed 100%);
+- a bar split into Committed, Anticipated, Expected and SIP (SIP striped) with a "Target" mark, and a legend with each amount; only Committed + Anticipated count toward progress and gap — SIP and Expected are shown as upcoming pipeline;
+- four figures: Committed and Anticipated (each with % of target), Total (C+A), and **Gap to target** — or **Over target** in green once the target is exceeded;
+- **Contributing proposals** (Committed and Anticipated) and **Other proposals · not in total** (SIP and Expected, greyed), each with client, year, stage and amount. These lists include every proposal of the target, also those not shared with you, so their rows cannot be opened.
+
+When there is nothing to compare, the tab says so: Draft versions don't count toward the POT; an offer without a client has no POT; a client without a target for that year shows "No POT target for … in …".
 
 ### 4.9 Cost Grid Editor (overlay)
 
