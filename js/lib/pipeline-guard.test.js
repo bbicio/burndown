@@ -8,13 +8,15 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 const html = read('pipeline.html');
 const css = read('css/pipeline.css');
 const start = html.indexOf('id="pipelineBoardSection"');
-const end = html.indexOf('id="pbDetailPanel"');
+// Whole page root: from the board section to the first modal (board AND detail panel).
+const end = html.indexOf('<div class="modal', start);
 const board = html.slice(start, end);
 
 describe('pipeline board guard', () => {
   it('locates the board template', () => {
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
+    expect(board).toContain('id="pbDetailPanel"');
   });
 
   it('pipeline.css is linked (versioned) by pipeline.html only', () => {
@@ -38,13 +40,25 @@ describe('pipeline board guard', () => {
     expect(board).not.toMatch(/\p{Extended_Pictographic}/u);
   });
 
-  it('every pipeline-calc.js reference is ?v=5', () => {
+  it('every pipeline-calc.js reference is ?v=6', () => {
     const pages = fs.readdirSync(root).filter(f => f.endsWith('.html'));
     let found = 0;
     pages.forEach(f => {
       for (const m of read(f).matchAll(/pipeline-calc\.js\?v=(\d+)/g)) {
         found++;
-        expect(m[1], f).toBe('5');
+        expect(m[1], f).toBe('6');
+      }
+    });
+    expect(found).toBeGreaterThan(0);
+  });
+
+  it('every pipeline.css reference is ?v=2', () => {
+    const pages = fs.readdirSync(root).filter(f => f.endsWith('.html'));
+    let found = 0;
+    pages.forEach(f => {
+      for (const m of read(f).matchAll(/pipeline\.css\?v=(\d+)/g)) {
+        found++;
+        expect(m[1], f).toBe('2');
       }
     });
     expect(found).toBeGreaterThan(0);
