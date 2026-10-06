@@ -16,6 +16,10 @@ describe('css/auth.css', () => {
     return start < 0 ? '' : css.slice(start, css.indexOf('}', start));
   };
 
+  it('lets the Vue root span the page so the card reaches its max-width', () => {
+    expect(css).toMatch(/#app\s*\{[^}]*width:\s*100%/);
+  });
+
   it('has no hex literal', () => {
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
