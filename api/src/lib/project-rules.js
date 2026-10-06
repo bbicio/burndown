@@ -15,11 +15,16 @@ const MESSAGES = {
   removal: 'Deleting a project or unlinking it from its proposal is temporarily disabled',
   linkCurrency: 'The project and the proposal must have the same currency',
   versionNotFound: 'Proposal version not found',
+  versionCreation: 'A published proposal cannot get a new version.',
 };
 
 // Carried in the body of every 400 these rules produce, so a client can tell a refusal from other
 // errors (js/api-sync.js does not retry a refused PATCH as a POST).
 const RULE_CODE = 'PROJECT_RULE';
+
+// Carried in the body of the version-creation refusal below — a distinct code from RULE_CODE so a
+// client can tell this rule apart from the project-currency-lock rules above.
+const VERSION_RULE_CODE = 'VERSION_RULE';
 
 const isSysadmin = role => role === 'sysadmin';
 // The column default: a missing/empty currency means EUR.
@@ -65,8 +70,16 @@ function versionRemovalError({ role, hasProjects, enabled = PROJECT_REMOVAL_ENAB
   return (isSysadmin(role) || enabled || !hasProjects) ? null : MESSAGES.removal;
 }
 
+// A proposal that already has a published (non-Draft) version cannot get another version — the UI
+// already enforces this (New version only on a Draft, Publish deletes the other Drafts), this closes
+// the gap on direct API calls. A sysadmin may still create one (2026-10-07).
+function versionCreationError({ role, hasPublishedVersion }) {
+  if (isSysadmin(role) || !hasPublishedVersion) return null;
+  return MESSAGES.versionCreation;
+}
+
 module.exports = {
-  DIRECT_PROJECT_CREATION_ENABLED, PROJECT_REMOVAL_ENABLED, MESSAGES, RULE_CODE,
+  DIRECT_PROJECT_CREATION_ENABLED, PROJECT_REMOVAL_ENABLED, MESSAGES, RULE_CODE, VERSION_RULE_CODE,
   projectCreateError, projectCurrencyChangeError, projectLinkChangeError, linkCurrencyError, versionCurrencyChangeError,
-  projectRemovalError, linkRemovalError, versionRemovalError,
+  projectRemovalError, linkRemovalError, versionRemovalError, versionCreationError,
 };

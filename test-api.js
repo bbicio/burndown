@@ -2687,6 +2687,49 @@ async function testProjectCurrencyLock() {
   ok(rounds > 0 && violations === 0, `PR-14 a currency change and a link fired together never diverge (${rounds} rounds, ${violations} violations)`);
 }
 
+// ── Version creation refused once a proposal has a published version (2026-10-07) ──
+
+async function testVersionRule() {
+  section('Version rule (no new version once published)');
+
+  const rpy = await api('POST', '/api/pipeline-years', { year: TEST_YEAR_C }, adminCookie);
+  if (![201, 409].includes(rpy.status)) { ok(false, 'VR-setup pipeline year unavailable'); return; }
+  if (rpy.status === 201 && rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
+
+  // Published proposal: create, add a version, publish it (stamps the current year).
+  const g1 = await api('POST', '/api/cost-grids', { name: '__test_vr_published__', pipelineYear: TEST_YEAR_C }, adminCookie);
+  const cg1Id = g1.data?.id;
+  if (cg1Id) later('POST', `/api/admin/reset/cost-grid/${cg1Id}`);
+  const v1 = cg1Id ? await api('POST', `/api/cost-grids/${cg1Id}/versions`, { label: 'v1' }, adminCookie) : null;
+  const v1Id = v1?.data?.id;
+  if (!(cg1Id && v1Id)) { ok(false, 'VR-setup published grid+version'); return; }
+  const pub = await api('POST', `/api/cost-grids/${cg1Id}/versions/${v1Id}/publish`, null, adminCookie);
+  ok(pub.status === 200, 'VR-setup publish → 200');
+
+  // VR-01: admin cannot create a new version on a published proposal
+  const vr01 = await api('POST', `/api/cost-grids/${cg1Id}/versions`, { label: 'v2' }, adminCookie);
+  ok(vr01.status === 400 && vr01.data?.code === 'VERSION_RULE', 'VR-01 admin POST /versions on published proposal → 400 VERSION_RULE');
+
+  // VR-02: admin cannot duplicate a version on a published proposal
+  const vr02 = await api('POST', `/api/cost-grids/${cg1Id}/versions/${v1Id}/duplicate`, { label: 'v2' }, adminCookie);
+  ok(vr02.status === 400 && vr02.data?.code === 'VERSION_RULE', 'VR-02 admin POST /duplicate on published proposal → 400 VERSION_RULE');
+
+  // VR-03: sysadmin is exempt
+  const vr03 = await api('POST', `/api/cost-grids/${cg1Id}/versions`, { label: 'v9' }, sysadminCookie);
+  ok(vr03.status === 201, 'VR-03 sysadmin POST /versions on published proposal → 201');
+
+  // VR-04: a Draft-only proposal is unaffected
+  const g2 = await api('POST', '/api/cost-grids', { name: '__test_vr_draft_only__', pipelineYear: TEST_YEAR_C }, adminCookie);
+  const cg2Id = g2.data?.id;
+  if (cg2Id) later('POST', `/api/admin/reset/cost-grid/${cg2Id}`);
+  if (cg2Id) {
+    const vr04 = await api('POST', `/api/cost-grids/${cg2Id}/versions`, { label: 'v2' }, adminCookie);
+    ok(vr04.status === 201, 'VR-04 admin POST /versions on Draft-only proposal → 201');
+  } else {
+    ok(false, 'VR-04 setup: draft-only grid');
+  }
+}
+
 // ── "New version" is a full copy of the source version (2026-10-01) ─────────────
 
 async function testVersionDuplicate() {
@@ -2809,6 +2852,7 @@ async function main() {
     await testProfileJobsConsole();
     await testTagLinking();
     await testVersionScope();
+    await testVersionRule();
     await testVersionDuplicate();
     await testProjectPatchValidation();
     await testProjectCurrencyLock();
