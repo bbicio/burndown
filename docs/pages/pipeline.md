@@ -25,6 +25,7 @@ Linked-project button in the detail panel's "Linked projects" section (`pbGoToPo
 ## Money formatting (2026-10-01, money centralization cycle)
 
 Card/detail/footer amounts call `formatMoney(amount, code, currencies)` directly with an explicit currency code (the Vue instance exposes `formatMoney` and `currencies`; the former `pbFmtMoney` wrapper was removed); `potFmtMoney` formats POT amounts in EUR with `{ rounded: true }`; the default currency of a card with no currency is `'EUR'` (it was the symbol `'€'`, which made the following `cur !== 'EUR'` test wrongly true). See `docs/js/lib.md`.
+
 ## Board redesign, cycle 1 of 2 (2026-10-06)
 
 Board only; the detail panel is unchanged (cycle 2: panel container, tabs, POT API). Spec `docs/superpowers/specs/2026-10-06-pipeline-board-redesign-design.md`, input `docs/superpowers/design/2026-10-06-pipeline-brief.md` (boards 4.4-4.9).

@@ -157,7 +157,7 @@
             <span class="pb-count-pill" :style="{ background: col.st.badge }">{{ col.header.count }}</span>
             <span v-if="col.header.total" class="pb-col-total">{{ col.header.approx ? '≈ ' : '' }}{{ col.header.total }}</span>
           </span>
-          <span v-if="col.header.ptc" class="pb-col-ptc">{{ col.header.approx ? '≈ ' : '' }}{{ col.header.ptc }}</span>
+          <span v-if="col.header.ptc" class="pb-col-ptc">{{ col.header.ptc }}</span>
           <span v-if="col.header.pills.length" class="pb-col-pills">
             <span v-for="p in col.header.pills" :key="p.code" class="pb-pill pb-pill-cur">{{ p.text }}</span>
           </span>

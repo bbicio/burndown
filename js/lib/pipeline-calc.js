@@ -175,7 +175,7 @@ export function pbColumnHeader(cards, mode, deps) {
     count,
     total: money(totalEur, 'EUR'),
     approx: anyForeign,
-    ptc: totalEurPtc > 0 ? '+ ' + money(totalEurPtc, 'EUR') + ' PTC' : null,
+    ptc: totalEurPtc > 0 ? '+ ' + (anyForeign ? '≈ ' : '') + money(totalEurPtc, 'EUR') + ' PTC' : null,
     pills,
   };
 }
@@ -240,7 +240,7 @@ export function pbSearchSuggestions(cards, query, deps) {
       segments: pbHighlight(title, query),
       amount: pbCardAmount(c, 'original', deps).main,
       stage: c.stage,
-      clientName: clientNameOf(c.v) || '—',
+      clientName: (() => { const n = clientNameOf(c.v); return n && n !== 'Unassigned' ? n : '—'; })(),
     };
   });
   return { empty: false, clients, proposals, more: Math.max(0, matched.length - 4) };

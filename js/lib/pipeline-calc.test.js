@@ -304,6 +304,9 @@ describe('pbColumnHeader', () => {
   it('ptc row only when > 0; bad rate gives no Infinity', () => {
     const d = mkDeps({ a: { fee: 100, ptc: 20 } });
     expect(pbColumnHeader([mkCard('a')], 'original', d).ptc).toBe('+ EUR 20.00 PTC');
+    const d2 = mkDeps({ a: { fee: 100, ptc: 20 }, b: { fee: 110, ptc: 0 } });
+    const mixed = [mkCard('a'), mkCard('b', { v: { currency: 'CHF', currencyRate: 1.1 } })];
+    expect(pbColumnHeader(mixed, 'original', d2).ptc).toBe('+ ≈ EUR 20.00 PTC');
     const r = pbColumnHeader([mkCard('a', { v: { currency: 'CHF', currencyRate: 0 } })], 'eur', d);
     expect(JSON.stringify(r)).not.toMatch(/Infinity|NaN/);
   });
@@ -380,6 +383,13 @@ describe('pbSearchSuggestions', () => {
   it('missing client falls back to a dash', () => {
     const card = mkCard('a', { v: { projectName: 'Xyz', clientId: null } });
     const r = pbSearchSuggestions([card], 'xyz', mkDeps({}, {}));
+    expect(r.proposals[0].clientName).toBe('—');
+    expect(r.clients).toEqual([]);
+  });
+  it('"Unassigned" from getClientName is shown as a dash', () => {
+    const card = mkCard('a', { v: { projectName: 'Xyz', clientId: 'c9' } });
+    const deps = { ...mkDeps({}, {}), getClientName: () => 'Unassigned' };
+    const r = pbSearchSuggestions([card], 'xyz', deps);
     expect(r.proposals[0].clientName).toBe('—');
     expect(r.clients).toEqual([]);
   });
