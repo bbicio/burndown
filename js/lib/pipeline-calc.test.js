@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   pbGetVersionBudget, pbComputeColumnTotals, pbFmtDate, pbFmtTaskDate, pbComputePotPercentages,
   pbPriceBucketKey, pbCardMatchesFilters,
+  pbCardAmount, pbColumnHeader, pbOpenPipelineTotal, pbHighlight, pbSearchSuggestions,
 } from './pipeline-calc.js';
 
 describe('pbGetVersionBudget', () => {
@@ -229,5 +230,157 @@ describe('pbComputePotPercentages', () => {
 
   it('returns all zeros when potAmount is 0', () => {
     expect(pbComputePotPercentages(100, 50, 0)).toEqual({ pct: 0, pctC: 0, pctA: 0 });
+  });
+});
+
+// ── View-model functions ──
+const formatMoney = (n, code) => code + ' ' + n.toFixed(2);
+const mkDeps = (budgets = {}, clients = {}) => ({
+  cgComputeGrandTotals: (v) => budgets[v.versionId] || { fee: 0, ptc: 0, hrs: 0 },
+  getPipelineBudget: () => null,
+  getClientName: (id) => clients[id] || '',
+  formatMoney,
+  currencies: [],
+});
+// card with a phase so cgComputeGrandTotals is used
+const mkCard = (id, over = {}, stage = 'SIP') => ({
+  stage,
+  cg: { id, name: over.cgName ?? 'Grid ' + id, ownerId: 'o1' },
+  v: { versionId: id, phases: [{}], currency: 'EUR', currencyRate: 1, projectName: 'Proj ' + id, clientId: 'c1', ...over.v },
+});
+
+describe('pbCardAmount', () => {
+  it('EUR card, original mode', () => {
+    const d = mkDeps({ a: { fee: 100, ptc: 0 } });
+    expect(pbCardAmount(mkCard('a'), 'original', d)).toEqual({ noBudget: false, main: 'EUR 100.00', approx: null, from: null, ptc: null });
+  });
+  it('CHF card, original mode shows EUR approximation', () => {
+    const d = mkDeps({ a: { fee: 110, ptc: 0 } });
+    const r = pbCardAmount(mkCard('a', { v: { currency: 'CHF', currencyRate: 1.1 } }), 'original', d);
+    expect(r.main).toBe('CHF 110.00');
+    expect(r.approx).toBe('≈ EUR 100.00');
+    expect(r.from).toBeNull();
+  });
+  it('CHF card, eur mode shows from line', () => {
+    const d = mkDeps({ a: { fee: 110, ptc: 11 } });
+    const r = pbCardAmount(mkCard('a', { v: { currency: 'CHF', currencyRate: 1.1 } }), 'eur', d);
+    expect(r).toEqual({ noBudget: false, main: 'EUR 100.00', approx: null, from: 'from CHF 110.00', ptc: '+ EUR 10.00 PTC' });
+  });
+  it('fee 0 with PTC > 0 is "no budget" but keeps the PTC line', () => {
+    const d = mkDeps({ a: { fee: 0, ptc: 5 } });
+    const r = pbCardAmount(mkCard('a'), 'original', d);
+    expect(r).toEqual({ noBudget: true, main: null, approx: null, from: null, ptc: '+ EUR 5.00 PTC' });
+  });
+  it('rate 0, negative, NaN or missing never produces Infinity/NaN', () => {
+    for (const rate of [0, -2, NaN, undefined, null]) {
+      const d = mkDeps({ a: { fee: 100, ptc: 10 } });
+      for (const mode of ['original', 'eur']) {
+        const r = pbCardAmount(mkCard('a', { v: { currency: 'CHF', currencyRate: rate } }), mode, d);
+        expect(JSON.stringify(r)).not.toMatch(/Infinity|NaN/);
+      }
+    }
+  });
+});
+
+describe('pbColumnHeader', () => {
+  it('empty column', () => {
+    const r = pbColumnHeader([], 'original', mkDeps());
+    expect(r).toMatchObject({ count: 0, total: null, pills: [] });
+  });
+  it('two EUR cards: no approx, no pills, no ptc', () => {
+    const d = mkDeps({ a: { fee: 100, ptc: 0 }, b: { fee: 50, ptc: 0 } });
+    const r = pbColumnHeader([mkCard('a'), mkCard('b')], 'original', d);
+    expect(r).toEqual({ count: 2, total: 'EUR 150.00', approx: false, ptc: null, pills: [] });
+  });
+  it('EUR + CHF: approx and pills EUR first; eur mode has no pills', () => {
+    const d = mkDeps({ a: { fee: 100, ptc: 0 }, b: { fee: 110, ptc: 0 } });
+    const cards = [mkCard('b', { v: { currency: 'CHF', currencyRate: 1.1 } }), mkCard('a')];
+    const r = pbColumnHeader(cards, 'original', d);
+    expect(r.approx).toBe(true);
+    expect(r.total).toBe('EUR 200.00');
+    expect(r.pills).toEqual([{ code: 'EUR', text: 'EUR 100.00' }, { code: 'CHF', text: 'CHF 110.00' }]);
+    expect(pbColumnHeader(cards, 'eur', d).pills).toEqual([]);
+  });
+  it('ptc row only when > 0; bad rate gives no Infinity', () => {
+    const d = mkDeps({ a: { fee: 100, ptc: 20 } });
+    expect(pbColumnHeader([mkCard('a')], 'original', d).ptc).toBe('+ EUR 20.00 PTC');
+    const r = pbColumnHeader([mkCard('a', { v: { currency: 'CHF', currencyRate: 0 } })], 'eur', d);
+    expect(JSON.stringify(r)).not.toMatch(/Infinity|NaN/);
+  });
+});
+
+describe('pbOpenPipelineTotal', () => {
+  const stages = ['SIP', 'Expected', 'Anticipated', 'Committed', 'Canceled', 'Draft'];
+  const cols = (over = {}) => stages.map((stage, i) => ({ stage, cards: [mkCard('s' + i, over[stage] || {}, stage)] }));
+  const budgets = Object.fromEntries(stages.map((_, i) => ['s' + i, { fee: 100, ptc: 0 }]));
+  it('sums only SIP, Expected, Anticipated', () => {
+    expect(pbOpenPipelineTotal(cols(), mkDeps(budgets))).toEqual({ text: 'EUR 300.00', approx: false });
+  });
+  it('CHF in Committed does not set approx; CHF in SIP does', () => {
+    const chf = { v: { currency: 'CHF', currencyRate: 1 } };
+    expect(pbOpenPipelineTotal(cols({ Committed: chf }), mkDeps(budgets)).approx).toBe(false);
+    expect(pbOpenPipelineTotal(cols({ SIP: chf }), mkDeps(budgets)).approx).toBe(true);
+  });
+  it('bad rate gives no Infinity', () => {
+    const r = pbOpenPipelineTotal(cols({ SIP: { v: { currency: 'CHF', currencyRate: 0 } } }), mkDeps(budgets));
+    expect(r.text).not.toMatch(/Infinity|NaN/);
+  });
+});
+
+describe('pbHighlight', () => {
+  it('highlights case-insensitively keeping original casing', () => {
+    expect(pbHighlight('Bayer AG', 'bay')).toEqual([{ text: 'Bay', hit: true }, { text: 'er AG', hit: false }]);
+  });
+  it('treats regex characters literally', () => {
+    const r = pbHighlight('a.(b a.(b', 'A.(B');
+    expect(r.filter(s => s.hit)).toHaveLength(2);
+    expect(r.map(s => s.text).join('')).toBe('a.(b a.(b');
+  });
+  it('blank query gives one non-hit segment', () => {
+    expect(pbHighlight('abc', '  ')).toEqual([{ text: 'abc', hit: false }]);
+  });
+});
+
+describe('pbSearchSuggestions', () => {
+  const clients = { c1: 'Bayer', c2: 'Pfizer', c3: 'Unassigned' };
+  it('blank query is empty', () => {
+    expect(pbSearchSuggestions([mkCard('a')], ' ', mkDeps({}, clients))).toEqual({ empty: true, clients: [], proposals: [], more: 0 });
+  });
+  it('limits proposals to 4 and reports more', () => {
+    const cards = ['a', 'b', 'c', 'd', 'e', 'f'].map(i => mkCard(i));
+    const r = pbSearchSuggestions(cards, 'proj', mkDeps({ a: { fee: 10, ptc: 0 } }, clients));
+    expect(r.proposals).toHaveLength(4);
+    expect(r.more).toBe(2);
+    expect(r.proposals[0]).toMatchObject({ cgId: 'a', verId: 'a', title: 'Proj a', amount: 'EUR 10.00', clientName: 'Bayer' });
+    expect(r.proposals[1].amount).toBeNull();
+  });
+  it('Draft-only client is not suggested, but its Draft proposal is', () => {
+    const cards = [mkCard('a', { v: { clientId: 'c2', projectName: 'Alpha' } }, 'Draft'), mkCard('b', { v: { clientId: 'c1', projectName: 'Beta' } })];
+    const r = pbSearchSuggestions(cards, 'pfiz', mkDeps({}, clients));
+    expect(r.clients).toEqual([]);
+    expect(r.proposals).toHaveLength(1);
+    expect(r.proposals[0].title).toBe('Alpha');
+  });
+  it('client count counts all non-Draft cards of the client, sorted by name, Unassigned excluded', () => {
+    const cards = [
+      mkCard('a', { v: { clientId: 'c1' } }), mkCard('b', { v: { clientId: 'c1', projectName: 'zzz' } }),
+      mkCard('c', { v: { clientId: 'c1' } }, 'Draft'), mkCard('d', { v: { clientId: 'c2' } }),
+      mkCard('e', { v: { clientId: 'c3' } }),
+    ];
+    const r = pbSearchSuggestions(cards, 'e', mkDeps({}, clients));
+    expect(r.clients.map(c => [c.id, c.name, c.count])).toEqual([['c1', 'Bayer', 2], ['c2', 'Pfizer', 1]]);
+    expect(r.clients[0].segments.map(s => s.text).join('')).toBe('Bayer');
+  });
+  it('missing title falls back to a dash', () => {
+    const card = mkCard('a', { cgName: '', v: { projectName: '', clientId: 'c1' } });
+    const r = pbSearchSuggestions([card], 'bay', mkDeps({}, clients));
+    expect(r.proposals[0].title).toBe('—');
+    expect(JSON.stringify(r)).not.toMatch(/undefined|"null"/);
+  });
+  it('missing client falls back to a dash', () => {
+    const card = mkCard('a', { v: { projectName: 'Xyz', clientId: null } });
+    const r = pbSearchSuggestions([card], 'xyz', mkDeps({}, {}));
+    expect(r.proposals[0].clientName).toBe('—');
+    expect(r.clients).toEqual([]);
   });
 });
