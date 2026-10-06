@@ -214,6 +214,60 @@ async function testPipelineYears() {
   // Unknown year → 404
   ok((await api('GET', '/api/cost-grids?year=9998', null, adminCookie)).status === 404,
     'PY-07 unknown year on GET /cost-grids → 404');
+
+  // ── offers count per year (PY-10..PY-14) ──
+  const rowsAll = (await api('GET', '/api/pipeline-years', null, adminCookie)).data || [];
+  ok(rowsAll.length > 0 && rowsAll.every(r => Number.isInteger(r.offers) && r.offers >= 0),
+    'PY-10 every row has an integer offers >= 0');
+
+  // publish always stamps the current calendar year, so that is the year the fixtures land in.
+  const offYear = new Date().getFullYear();
+  if (!rowsAll.find(r => r.year === offYear)) {
+    const ry = await api('POST', '/api/pipeline-years', { year: offYear }, adminCookie);
+    if (ry.data?.id) later('DELETE', `/api/pipeline-years/${ry.data.id}`);
+  }
+  const offersFor = async (cookie, year) =>
+    ((await api('GET', '/api/pipeline-years', null, cookie)).data || []).find(r => r.year === year)?.offers;
+
+  const me = await api('GET', '/api/auth/me', null, adminCookie);
+  const plain = await getPlainUserCookie();
+  const base = { admin: await offersFor(adminCookie, offYear), plain: await offersFor(plain, offYear) };
+
+  // Fixtures are owned by the sysadmin so the (demoted) test admin is neither owner nor shared.
+  const mkCg = async (tag, published = true) => {
+    const g = await api('POST', '/api/cost-grids', { name: `__test_py_offers_${tag}__` }, sysadminCookie);
+    const cgId = g.data?.id;
+    if (cgId) later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+    const v = await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'v1' }, sysadminCookie);
+    const vId = v.data?.id;
+    if (published) await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/publish`, null, sysadminCookie);
+    return { cgId, vId };
+  };
+  const cancel = (c, vId) =>
+    api('PATCH', `/api/cost-grids/${c.cgId}/versions/${vId}`, { pipeline: 'Canceled' }, sysadminCookie);
+
+  const A = await mkCg('a');
+  const B = await mkCg('b'); await cancel(B, B.vId);
+  await mkCg('c', false);
+  const D = await mkCg('d');
+  const d2 = await api('POST', `/api/cost-grids/${D.cgId}/versions`, { label: 'v2' }, sysadminCookie);
+  await api('POST', `/api/cost-grids/${D.cgId}/versions/${d2.data?.id}/publish`, null, sysadminCookie);
+  await cancel(D, d2.data?.id);
+
+  ok((await offersFor(adminCookie, offYear)) - base.admin === 1,
+    'PY-11 admin offers delta = 1 (Canceled / Draft-only / Canceled display version not counted)');
+  ok((await offersFor(plain, offYear)) - base.plain === 0,
+    'PY-12 plain user offers delta = 0 for CGs neither owned nor shared');
+  const sh = await api('POST', `/api/cost-grids/${A.cgId}/shares`,
+    { userId: me.data?.id, permission: 'viewer' }, sysadminCookie);
+  ok(sh.status === 200 || sh.status === 201, 'PY-13 setup share to plain user');
+  ok((await offersFor(plain, offYear)) - base.plain === 1,
+    'PY-13 plain user offers delta = 1 after the proposal is shared with them');
+
+  const emptyYear = 2096;   // unused elsewhere (2097 is TEST_YEAR_C)
+  const re = await api('POST', '/api/pipeline-years', { year: emptyYear }, adminCookie);
+  if (re.data?.id) later('DELETE', `/api/pipeline-years/${re.data.id}`);
+  ok((await offersFor(adminCookie, emptyYear)) === 0, 'PY-14 year with no proposals has offers = 0');
 }
 
 // ── Clients ───────────────────────────────────────────────────────────────────
