@@ -774,7 +774,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | /api/pipeline-years | ✅ | List years (admin: all; user: active only) |
+| GET | /api/pipeline-years | ✅ | List years (admin: all; user: active only); each row has `offers` (2026-10-06) = proposals the caller would see in that year's SIP…Committed board columns (board visibility, display version not Canceled) |
 | POST | /api/pipeline-years | admin | Create year (2000–2100) |
 | PATCH | /api/pipeline-years/:id | admin | Toggle active/inactive |
 | DELETE | /api/pipeline-years/:id | admin | Delete (blocked if versions reference it) |
@@ -973,6 +973,10 @@ burndown/
                             Tags sections. Full narrative: docs/pages/costgrid.md's "Tags" section.
                             Since 2026-10-02 also the token-driven `.btn-danger`/`.btn-ghost`/`.btn-icon`, a magenta
                             spinner and `--bs-*` overrides for alerts, dropdowns and modals (CLAUDE.md "Design tokens")
+    pipeline.css          ← (2026-10-06, `?v=1`) page stylesheet of pipeline.html only (board header, year menu,
+                            toolbar, search suggestions, Amounts toggle, columns, cards, smartphone stage tabs and
+                            Filters sheet); tokens only; loaded after style.css and overrides its legacy `.pb-*`
+                            rules; `js/lib/pipeline-guard.test.js` pins it. Full narrative: docs/pages/pipeline.md
     admin-crud.css        ← shared layout for simple admin CRUD pages (page-header/card/table/badges/
                             btn-primary/form-*/empty/alert-sm), extracted 2026-09 from duplicated inline
                             `<style>` blocks in admin.html/team.html/attribute-lists.html

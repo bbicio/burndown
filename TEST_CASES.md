@@ -73,7 +73,7 @@
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
-| P-01 | Board renders | Open `/pipeline.html` | Five kanban columns (SIP, Expected, Anticipated, Committed, Canceled) with budget totals | |
+| P-01 | Board renders | Open `/pipeline.html` | Six columns (Draft, SIP, Expected, Anticipated, Committed, Canceled), each with its count and total in the column header (no footer row, 2026-10-06) | |
 | P-02 | Year dropdown | Click the pipeline year selector | Only visible (active) years listed — hidden years absent | |
 | P-03 | Year switch | Select a different year | URL updates to `?year=YYYY`; board reloads with that year's cost grids | |
 | P-04 | Invalid year in URL | Navigate to `?year=9999` | Redirected to default active year silently | |
@@ -88,14 +88,14 @@
 | P-13 | POT summary — no target | Open detail for CG whose client has no POT | POT section absent or shows "No target set" | |
 | P-14 | Edit button | Click ✏️ Edit in detail panel | Navigates to `/costgrid.html?cgId=...&verId=...` | |
 | P-15 | Share button | Click 🔗 Share in detail panel | Share modal opens | |
-| P-16 | Column totals | Multiple grids in same stage | Footer total = correct sum of budgets for that stage | |
+| P-16 | Column totals | Multiple grids in same stage | Column header total = correct sum of budgets for that stage | |
 | P-17 | Budget on card — all version types | Open board with a Draft cost grid that has tasks/roles | Card shows a fee amount (not "No budget") — `/api/cost-grids/budgets` covers Draft versions | |
 | P-18 | PTC shown separately | Open board with a proposal that has pass-through costs | Fee shown on first line; PTC shown on second line as "+ €X PTC"; not merged into fee | |
 | P-19 | Client on card after reload | Set client on a cost grid version → save → reload board | Client name appears below the pipeline badge on the card | |
 | P-20 | Rate card in detail panel | Set a rate card on a version → open detail panel | "Rate card: [name]" appears below client name in the panel header | |
 | P-21 | Project name on card after reload | Enter a project name in the editor → save → reload board | Card shows the saved project name (not the cost grid name) | |
-| P-22 | Column total — fee only | Grid with both fees and PTC in same column | Column footer main value = professional fees only; no PTC included in main total | |
-| P-23 | Column total — PTC secondary line | Grid with PTC > 0 in the same column | PTC shown as a smaller muted line below the fee total; no standalone € symbol before the value | |
+| P-22 | Column total — fee only | Grid with both fees and PTC in same column | Column header main value = professional fees only; no PTC included in main total | |
+| P-23 | Column total — PTC secondary line | Grid with PTC > 0 in the same column | PTC shown as a smaller muted "+ € X PTC" line under the header total ("+ ≈ € X PTC" when the column has a non-EUR card) | |
 | P-24 | Column total — no PTC line when zero | Grid with no PTC | Only the fee line shown; no empty PTC line | |
 | P-25 | Version tabs in detail panel — single version | Open detail for a grid with only one version | No version tab row rendered above the two-column body | |
 | P-26 | Version tabs in detail panel — multiple versions | Open detail for a grid with V1 and V2 | Version tab row appears; each tab shows a colored stage dot and the version label | |
@@ -108,7 +108,7 @@
 | P-33 | Delete Draft — confirmation | Click `🗑 Delete` on a Draft version in the panel | Confirm modal appears before any deletion | |
 | P-34 | Delete Draft — only version blocked | Click `🗑 Delete` on a Draft that is the only version of its cost grid | Alert shown: "Cannot delete the only version"; no deletion occurs | |
 | P-35 | Delete Draft — from panel success | Confirm deletion of a Draft version that has siblings | Version deleted via API; panel closes; board re-renders without that version | |
-| P-36 | Pipeline stage badge on card | View a card for a Committed proposal | Card shows a "Committed" stage badge (green), not the project status "Started" | |
+| P-36 | Pipeline stage on the board | View a card for a Committed proposal | Card sits in the Committed column (green top border); since 2026-10-06 cards carry no stage badge — the column is the stage; the project status "Started" is never used as the stage | |
 | P-37 | POT visible to non-owner user | User A has Committed proposal for a client; User B (who can't see User A's proposal) opens any proposal for the same client | POT section shows full committed+anticipated total including User A's proposal; not 0 | |
 | P-38 | Detail panel closes on click outside | Open a detail panel; click anywhere on the pipeline board outside the `#pbDetailPanel` element | Panel closes (`mousedown` outside the panel, 200ms delayed registration) | |
 | P-39 | Task list in linked-project chips — detail panel (R5) | Open detail panel for a cost grid whose linked project has assigned tasks | Each linked-project chip in the left column shows the assigned task names from `lp.taskNames` | |
@@ -118,7 +118,7 @@
 | P-43 | Detail panel loading state | Open a detail panel for a version whose structure isn't yet cached | A spinner shows while phases/tasks load, before content appears | |
 | P-44 | Detail panel load-failure state | Open a detail panel for a `cgId` that fails to resolve (e.g. stale/missing cost grid) | An explicit "Could not load cost grid. Try reloading the page." message shows instead of a silently empty/missing panel | |
 | P-45 | Refresh-rate failure uses in-app modal | Trigger a refresh-rate failure (e.g. API error) | Error shown via the app's own confirm-style modal, not a native browser `alert()` | |
-| P-46 | Filter bar layout (2026-09) | Open `/pipeline.html` | A filter bar appears below the title, above the columns: search field first, then Owner/Client/Currency/Value dropdowns in that order, enclosed in its own bordered/background strip | |
+| P-46 | Toolbar layout (2026-10-06) | Open `/pipeline.html` at ≥ 768px | Below the header: search field first, then Owner/Client/Currency/Value dropdowns in that order, then on the right "Amounts" with Original currency / All in EUR | |
 | P-47 | Free-text search — live filtering | Type a substring of a proposal's name into the search field | Board updates immediately (no button/reload) to only the columns/cards whose name or client matches, case-insensitive | |
 | P-48 | Free-text search — matches client name | Type a substring of a client name (not the proposal name) | Matching proposals for that client remain visible | |
 | P-49 | Owner/Client filters — multi-select OR | Select two different owners in the Owner dropdown | Cards from either selected owner are shown (OR within the filter); the dropdown stays open after each checkbox click | |
@@ -126,9 +126,21 @@
 | P-51 | Owner/Client option lists exclude Draft | Create a Draft-only proposal for an owner/client with no other non-Draft proposals | That owner/client does not appear as a selectable option in the Owner/Client dropdowns | |
 | P-52 | Draft column never filtered | Apply any combination of filters that would exclude all other columns' cards | The Draft column still shows all of the current user's own Draft proposals, unaffected | |
 | P-53 | Value (price bucket) filter + Include PTC | Select a price bucket; toggle "Include PTC in value" on and off | With PTC off, bucketing uses fee-only totals (same total the card's main value already shows); with PTC on, bucketing uses fee+PTC — results change accordingly, not two separate filters | |
-| P-54 | Column counts/totals reflect filters | Apply any filter that hides some cards in a column | That column's numeric badge and footer total both drop to match only the visible (filtered) cards | |
-| P-55 | Clear filters | With at least one filter active, click "✕ Clear filters" | All filters (search, Owner, Client, Currency, Value, Include PTC) reset to empty/off; full board returns; the Clear-filters link disappears | |
+| P-54 | Column counts/totals reflect filters | Apply any filter that hides some cards in a column | That column's numeric badge and header total both drop to match only the visible (filtered) cards | |
+| P-55 | Clear filters | With at least one filter active, click "Clear filters" | All filters (search, Owner, Client, Currency, Value, Include PTC) reset to empty/off; full board returns; the Clear-filters link disappears | |
 | P-56 | Filters reset on reload | Apply filters, then reload the page | All filters are back to empty — no persistence in the URL or storage | |
+| P-57 | Year menu — offers, Current, Closed (2026-10-06) | Click the "Pipeline YYYY" title | Menu "AVAILABLE PIPELINES": one row per year with "N offers" (SIP…Committed proposals you can see; Draft and Canceled excluded); the open year has the "Current" pill; inactive years (admin only) a "Closed" pill; Esc and outside click close it | |
+| P-58 | `offers` count follows board visibility | `GET /api/pipeline-years` as admin and as plain user, with an admin-owned SIP proposal, a Canceled one, a Draft-only one, one whose newest version is Canceled, then share the SIP one with the user | Every row has integer `offers`; admin counts only the SIP proposal; the user counts it only after the share; a year with no proposals returns 0 (test-api PY-10..PY-14) | ✓ |
+| P-59 | Open pipeline total | Read "OPEN PIPELINE" in the header; apply a filter; switch Amounts | Value = SIP + Expected + Anticipated fees in EUR ("≈" when something was converted); follows filters; unchanged by Amounts | |
+| P-60 | Search suggestions | Focus the search field, then type part of a client name | Empty field shows the hint text; typing shows CLIENTS ("N proposals") and up to 4 PROPOSALS with the matched text highlighted, plus "N more results — refine your search" when more; no match shows `No results for "…"`; Esc / outside click close it | |
+| P-61 | Search suggestion clicks | Click a client row; then type again and click a proposal row | Client: the board is filtered to that client (Client badge 1) and the search field clears; proposal: the detail panel opens on it | |
+| P-62 | Amounts toggle | Switch to "All in EUR", then back | EUR mode: cards and column headers in EUR, foreign cards show "from CHF …"; Original: foreign cards show their currency with "≈ € …"; not persisted across reloads | |
+| P-63 | Collapsible columns | Load the board; click a column header twice; create or clone a proposal | Empty columns start collapsed (44px strip, vertical name); a click collapses/expands; after create/clone the Draft column is expanded; a column emptied by a filter shows "No offers" | |
+| P-64 | Column header pills | Column with at least one non-EUR card, Amounts = Original | Header shows "≈ € total" and one pill per currency (EUR first); in EUR mode no pills | |
+| P-65 | Card hover / keyboard actions | Hover a card as owner; hover a Draft; hover a card shared as viewer; Tab to a card | Date is replaced by Edit · Clone · Share (owner), Edit · Clone · Delete (Draft, no Share), Share only (viewer); Tab reveals the same actions, Enter/Space open the panel, Enter on Edit only opens the editor; no actions on a touch tap | |
+| P-66 | Selected card | Open the detail panel from a card | That card has a magenta border while the panel is open | |
+| P-67 | Smartphone stage tabs (< 768px) | Open the board at 390px | Compact header ("+ New"), full-width search + Filters button; stage tabs with counts; one column at a time with a summary (name, N offers, total, pills) | |
+| P-68 | Smartphone Filters sheet | At 390px tap "Filters", pick a filter, tap "Show results" | Bottom sheet with Amounts and Owner/Client/Currency/Value in a 2×2 grid; Show results closes it and the list is filtered (same filters as desktop) | |
 
 ---
 

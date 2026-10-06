@@ -61,25 +61,32 @@ Six fixed stages, displayed left to right:
 | Committed | Deal signed / Committed revenue |
 | Canceled | Opportunity withdrawn or lost |
 
-Each column (except Draft) has a sticky footer showing the total budget value of all offers in that column. **Mixed currencies within one column (2026-09 clarification, no behavior change):** if every offer in a column shares the same currency, the footer shows one plain total in that currency. If a column holds offers in more than one currency, the footer instead shows one subtotal line per currency (in that currency's own figures, with a small grey EUR-equivalent shown next to any non-EUR line), followed by a bold combined "TOT" line — the sum of every offer's fee converted to its EUR-equivalent via that offer's own exchange rate, not a naive sum of raw numbers across currencies. Pass-through costs (PTC) follow the same per-currency-then-EUR-equivalent pattern, shown as a secondary line under each subtotal.
+**Column header totals (2026-10-06, replaces the former footer row):** each column's header shows its name, the number of offers and the fee total of the offers in it (PTC on a smaller "+ € X PTC" line). If every offer in the column is in EUR, the total is a plain EUR figure. If at least one offer is in another currency, the total is "≈ € …" — every offer's fee converted to EUR with that offer's own exchange rate, not a naive sum of raw numbers — and, with Amounts set to Original currency, one pill per currency underneath shows that currency's own subtotal. Clicking a header collapses the column to a narrow strip (name and total shown vertically) and clicking again expands it; columns that are empty when the page loads start collapsed, and the Draft column opens again after a new proposal is created or cloned.
+
+**Open pipeline (2026-10-06):** the header of the board shows "OPEN PIPELINE ≈ € …", the fee total in EUR of the SIP, Expected and Anticipated columns (Draft, Committed and Canceled are not part of it). It follows the active filters and is always in EUR.
 
 ### 4.3 Offer Cards
 
-Each card represents one cost grid (the active/locked version). Cards display:
+Each card represents one cost grid (the version shown on the board). Since 2026-10-06 a card shows, top to bottom:
 
-- Offer name
-- Pipeline stage badge (colour-coded)
-- Total budget (€)
-- Number of phases and tasks
-- Linked project(s) with status badge
-- Edit (✏️) action button; Delete (🗑) action button only on Draft-stage cards with edit permission
-- Viewer permission hides Edit and Delete entirely (see §18.3)
+- Client name, a "Linked" pill when the version has generated projects, and the version label
+- Offer name (at most two lines; the full name appears on mouse-over)
+- Fee amount in the offer's currency, with "≈ € …" next to it for a non-EUR offer ("No budget" when there is none); "+ X PTC" underneath when there are pass-through costs
+- Creation date and owner
 
-Clicking a card (anywhere other than the action buttons) opens the **Detail Panel**.
+The column is the stage (no stage badge on the card); Draft cards have a dashed border; the card whose detail panel is open has a magenta border. With a mouse, hovering a card replaces the date with text actions: **Edit** and **Clone** (hidden for viewers), **Share** (not on Draft) and **Delete** (red, Draft only, with edit permission — see §18.3). The same actions appear when the card is reached with the keyboard (Tab); on touch screens the card shows no actions and the detail panel carries them.
+
+Clicking a card (anywhere other than the actions), or pressing Enter/Space on it, opens the **Detail Panel**.
 
 ### 4.3a Filtering (2026-09)
 
 A filter bar sits below the title, above the columns, so the board stays readable as the number of offers grows. In order: a free-text search box (matches offer name or client name), then four multi-select dropdown filters — Owner, Client, Currency, and Value (deal size, bucketed €0–20K / €20K–50K / €50K–100K / €100K–200K / €200K+, with an "Include PTC" toggle deciding whether pass-through costs count toward the bucket). Selecting multiple values within one filter is an OR (e.g. two owners at once); different filters combine as AND. All filtering updates the board instantly as selections change, and a "Clear filters" control appears once any filter is active. Filters never change which offers a user is allowed to see (§3.3/§18) — they only narrow what's already visible — and the Draft column is always shown in full, unaffected by any filter, since it's a private working copy. Filters reset whenever the page is reloaded.
+
+**Search suggestions (2026-10-06):** while the search box has focus, a menu under it suggests matches in the selected pipeline year: CLIENTS (with their number of proposals — clicking one filters the board to that client and clears the search text) and up to four PROPOSALS (amount, stage, client — clicking one opens its detail panel), with "N more results — refine your search" when there are more. The board keeps filtering as you type; the menu is only a shortcut. Esc or a click elsewhere closes it.
+
+**Amounts (2026-10-06):** an "Amounts" switch on the right of the filter bar toggles cards and column headers between **Original currency** (each offer in its own currency, "≈ € …" beside foreign ones) and **All in EUR** (every amount converted with the offer's own exchange rate, with "from CHF …" under foreign ones). It is not remembered across page loads and does not change the Value filter or the Open pipeline figure.
+
+**Small screens (< 768px, 2026-10-06):** the board shows one stage at a time, chosen from a row of scrollable stage tabs (each with its count), with a summary of the selected stage (number of offers, total, currency pills) above the cards. The search box stays visible; the four filters and the Amounts switch move into a **Filters** panel that slides up from the bottom and closes with **Show results**.
 
 ### 4.4 Detail Panel
 
@@ -108,7 +115,8 @@ A fixed right-side panel (860 px wide) with two scrollable columns.
 
 ### 4.5 Board Toolbar
 
-- **Pipeline year dropdown** (replaces the static "Pipeline" title) — shows the selected year and a caret; clicking opens a menu of all visible pipeline years. Switching year reloads the board via `?year=YYYY` URL param.
+- **Pipeline year dropdown** (replaces the static "Pipeline" title) — shows the selected year and a caret; clicking opens the "Available pipelines" menu with one row per visible pipeline year and, under each, the number of offers it holds for you (the proposals you can see in its SIP…Committed columns — Draft and Canceled are not counted). The open year is marked "Current"; an admin also sees inactive years, marked "Closed". Esc or a click elsewhere closes it. Switching year reloads the board via `?year=YYYY` URL param.
+- **Open pipeline** figure — see §4.2.
 - **+ New Proposal** button — opens the Cost Grid Editor with a blank grid (hidden for non-admins on inactive years)
 
 ### 4.6 Pipeline Stages
