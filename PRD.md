@@ -715,7 +715,9 @@ Project {
 
 Email + password. On success: httpOnly JWT cookie set, user profile returned. Wrong password or unknown email both return a generic "invalid credentials" error (no field hint, no user enumeration). Disabled accounts are refused even with correct credentials. **A session lasts 8 hours** from login before the user is automatically signed out (no in-app warning as it approaches — the next action simply gets a 401 and redirects to login).
 
-**Password requirement:** every password-setting flow (activation, reset, change) requires a minimum of 8 characters — enforced both in the UI and, authoritatively, on the server.
+**Password requirement:** every password-setting flow (activation, reset, change) requires a minimum of 8 characters — enforced both in the UI and, authoritatively, on the server. On the activation and reset pages a four-segment strength indicator (Weak / Fair / Good / Strong) fills as the user types; it is guidance only — the button enables as soon as the password has 8 characters and the confirmation matches.
+
+**Look of the public pages (2026-10-06):** sign-in, password recovery, reset and activation share one look — a white card centred on the navy page with the PDash logo, the copyright under the card, a single magenta action button per view and icons (not emoji) for the expired-link and success messages.
 
 ### 15.2 Invite Flow
 
@@ -725,7 +727,7 @@ Admin fills first name, last name, email, role → user created in `pending` sta
 
 ### 15.3 Password Reset
 
-Self-service. Requesting a reset always returns success, regardless of whether the email matches an account (no enumeration). If it does match, a reset link is emailed, valid for **2 hours**. Following it lets the user set a new password (same 8-character minimum).
+Self-service, from "Forgot password?" on the sign-in page, which switches the same page to a recovery view (and back with "← Back to sign in"); the email already typed on sign-in is pre-filled there. Requesting a reset always returns success, regardless of whether the email matches an account (no enumeration). If it does match, a reset link is emailed, valid for **2 hours**. Following it lets the user set a new password (same 8-character minimum).
 
 ### 15.4 Change Password
 

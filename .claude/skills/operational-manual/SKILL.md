@@ -69,6 +69,7 @@ This is the living answer to Step 5 for this project — not a fixed checklist, 
 
 **§2 Getting started**
 - **Login and password recovery — anti-enumeration behavior.** Both login failures and password-reset requests respond identically whether or not the email matches a real account, specifically so no one can use either form to discover which emails are registered. Worth a short `<details>` even with little extra prose to add, since it's a real applicative flow worth keeping in scope.
+- **Password recovery and setting a password (PRD §15.1/§15.3, 2026-10-06).** "Forgot password?" switches the sign-in page to a recovery view (back with "← Back to sign in") and pre-fills the email already typed; on the activation and reset pages a four-segment strength indicator (Weak/Fair/Good/Strong) is guidance only — the button enables at 8 characters with a matching confirmation.
 
 **§4 Pipeline**
 - **Offer cards** — the exact visibility rule for the Delete button (Draft-stage cards only, and only with edit permission), not just "editing/deleting needs edit access."

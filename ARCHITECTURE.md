@@ -976,6 +976,11 @@ burndown/
     admin-crud.css        ← shared layout for simple admin CRUD pages (page-header/card/table/badges/
                             btn-primary/form-*/empty/alert-sm), extracted 2026-09 from duplicated inline
                             `<style>` blocks in admin.html/team.html/attribute-lists.html
+    auth.css              ← shared stylesheet of the public auth pages (login/activate/reset-password), extracted
+                            2026-10-06 from three duplicated inline `<style>` blocks; loaded after Bootstrap 5.3.2 +
+                            tokens.css, overrides the few Bootstrap classes they use (incl. `--bs-btn-*` on
+                            .btn-primary) and adds logo, card stack, strength meter (colour by segment position),
+                            state icons and copyright; colours only via tokens (`?v=1`)
   js/
     api.js                ← Api.* namespace, apiFetch wrapper
     api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData). Full narrative: docs/js/api-sync.md
@@ -1028,7 +1033,7 @@ burndown/
   project-config.html     ← full-page project config form, Vue 3 (CDN, no build step, same pattern as admin.html); manages a single reactive project object (not an array — the original's hidden multi-project dropdown/New/Delete machinery was confirmed dead on this page); unknown ?projectId= shows an explicit not-found state. Full narrative: docs/pages/project-config.md
   admin.html              ← user management; "🗑 Anonymize" button on disabled non-anonymized users; role toggle (admin↔user) + sysadmin grant/revoke toggle (sysadmin viewers only). T&C editor moved out (2026-09) to _terms-editor.html
   terms.html              ← standalone T&C acceptance page (no initNav), Vue 3 (CDN, no build step, same pattern as login.html); shown by gate in initNav() when user.terms_version < current; loaded from /api/app-settings/terms; POST /api/auth/accept-terms on confirm
-  login.html / activate.html / reset-password.html
+  login.html / activate.html / reset-password.html ← public auth pages, Vue 3 (CDN), Bootstrap 5.3.2 CSS + tokens.css + css/auth.css (no inline <style>, no style.css); login holds the Sign In and Forgot views (Forgot pre-fills the Sign In email); activate/reset share the strength meter (`strengthClass`). Guards: js/lib/auth-pages-guard.test.js
   _db-reset.html          ← sysadmin-exclusive (2026-09, was admin-only) hidden page for bulk DB data deletion by scope, Vue 3 (CDN, no build step, same pattern as admin.html), linked from the sysadmin-only "Sysadmin" navigation group (initNav('dbreset', ...), menu name "DB Reset")
   _terms-editor.html      ← sysadmin-exclusive hidden page — Terms & Conditions editor, moved out of admin.html; linked from the sysadmin-only "Sysadmin" navigation group (initNav('termseditor', ...)) — see §5's App Settings section. Full narrative: docs/pages/terms-editor.md
   settings.html           ← Settings page (2026-09-30), Vue 3 (CDN, no build step), blank apart from the navigation, breadcrumb and the title; replaced the former Settings modal (see docs/pages/settings.md)

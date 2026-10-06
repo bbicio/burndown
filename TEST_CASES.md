@@ -26,6 +26,10 @@
 | A-11 | Reset token expired | Use reset link older than 2 h | 400/401 — "Token expired" error shown | |
 | A-12 | Change password — correct current | Supply correct current password + new password in modal | Password updated; old password no longer works | |
 | A-13 | Change password — wrong current | Supply an incorrect current password | 400/403 — password unchanged, error shown inline | |
+| A-14 | Public pages look (pre-login restyling, 2026-10-06) | Open `/login.html`, `/reset-password.html` and `/activate.html` (no token) at 1440, 1024 and 390px | Navy page, white card centred (400px login, 420px reset/activate; `calc(100% - 32px)` on a phone), same "P / Dash / PROJECT DASHBOARD" logo on all three, "© <year> PDash" under the card, one magenta button per view, no emoji, no Bootstrap blue on hover/press | |
+| A-15 | Forgot password pre-fills the email | Type an email on Sign In → click "Forgot password?" → "← Back to sign in" → change the email in Sign In → "Forgot password?" again | The Forgot email shows the Sign In email the first time; an email already typed in Forgot is kept (never overwritten) | |
+| A-16 | Password strength meter | On the reset or activate form type `abcdefgh`, `abcdefgh1`, `Abcdefgh1`, `Abcdefgh1234!`, then clear the field | 4 segments coloured by position: Weak = 1 red; Fair = red + amber; Good = red + amber + green; Strong = all four (last two green); empty = all grey, label blank; the confirm field does not move | |
+| A-17 | Link states with icons | Open `/reset-password.html?token=x` and `/activate.html?token=x`; complete a reset with a valid link | Invalid: red warning icon, "Link expired or invalid", full-width magenta button to sign in; success: green check icon and full-width "Go to sign in"; mismatched confirm: red border + "Passwords do not match." | |
 
 ---
 
