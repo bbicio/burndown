@@ -364,7 +364,74 @@
       </div>
     </div>
 
-    <div v-if="detailTab === 'pot'" class="pb-tab-body pb-pot" role="tabpanel"></div>
+    <div v-if="detailTab === 'pot'" class="pb-tab-body pb-pot" role="tabpanel">
+      <div v-if="!potState || potState.kind === 'loading'" class="pb-panel-center"><div class="spinner-border text-secondary"></div></div>
+      <div v-else-if="potState.kind === 'draft'" class="pb-muted">Draft proposals don't count toward the POT.</div>
+      <div v-else-if="potState.kind === 'noClient'" class="pb-muted">This proposal has no client, so it has no POT.</div>
+      <div v-else-if="potState.kind === 'noTarget'" class="pb-muted">No POT target for {{ potState.targetName }} in {{ potState.year }}.</div>
+      <div v-else-if="potState.kind === 'error'" class="pb-muted pb-pot-error">Could not load the POT.</div>
+      <template v-else>
+        <div class="pb-label">POTENTIAL (POT)</div>
+        <div class="pb-pot-head">
+          <div class="pb-pot-name">{{ potState.targetName }} {{ potState.year }}</div>
+          <div class="pb-pot-pct">{{ Math.round(potState.view.pct) }}%</div>
+        </div>
+        <div class="pb-pot-sub">of target reached by Committed + Anticipated</div>
+        <div class="pb-pot-bar-wrap">
+          <div class="pb-pot-bar">
+            <span v-for="seg in potState.view.segments" :key="seg.stage" class="pb-pot-seg" :class="'pb-pot-seg--' + seg.stage.toLowerCase()" :style="{ width: seg.width + '%' }"></span>
+          </div>
+          <div class="pb-pot-notch" :style="{ left: potState.view.targetPos + '%' }"><span class="pb-pot-notch-label">Target</span></div>
+        </div>
+        <div class="pb-pot-legend">
+          <span v-for="seg in potState.view.segments" :key="'lg-' + seg.stage" class="pb-pot-legend-item">
+            <span class="pb-pot-swatch" :class="'pb-pot-seg--' + seg.stage.toLowerCase()"></span>{{ seg.stage }} <strong>{{ formatMoney(seg.value, 'EUR', currencies) }}</strong>
+          </span>
+        </div>
+        <div class="pb-pot-note">Progress and gap count Committed + Anticipated only. SIP and Expected are upcoming pipeline.</div>
+        <div class="pb-pot-grid">
+          <div class="pb-pot-box pb-pot-box--committed">
+            <div class="pb-label">COMMITTED</div>
+            <div class="pb-amount-value">{{ formatMoney(potState.view.committed.value, 'EUR', currencies) }}</div>
+            <div class="pb-amount-eur">{{ Math.round(potState.view.committed.pctOfTarget) }}% of target</div>
+          </div>
+          <div class="pb-pot-box pb-pot-box--anticipated">
+            <div class="pb-label">ANTICIPATED</div>
+            <div class="pb-amount-value">{{ formatMoney(potState.view.anticipated.value, 'EUR', currencies) }}</div>
+            <div class="pb-amount-eur">{{ Math.round(potState.view.anticipated.pctOfTarget) }}% of target</div>
+          </div>
+          <div class="pb-pot-box">
+            <div class="pb-label">TOTAL (C+A)</div>
+            <div class="pb-amount-value">{{ formatMoney(potState.view.total, 'EUR', currencies) }}</div>
+          </div>
+          <div class="pb-pot-box">
+            <div class="pb-label">{{ potState.view.gap.over ? 'OVER TARGET' : 'GAP TO TARGET' }}</div>
+            <div class="pb-amount-value" :class="{ 'pb-pot-over': potState.view.gap.over }">{{ potState.view.gap.over ? '+ ' : '' }}{{ formatMoney(potState.view.gap.value, 'EUR', currencies) }}</div>
+            <div class="pb-amount-eur">{{ Math.round(potState.view.gap.pctOfTarget) }}% of target</div>
+          </div>
+        </div>
+        <div class="pb-label pb-pot-list-title">CONTRIBUTING PROPOSALS</div>
+        <div v-if="!potState.view.contributing.length" class="pb-muted pb-pot-none">None.</div>
+        <div v-for="p in potState.view.contributing" :key="p.versionId" class="pb-pot-row">
+          <div class="pb-pot-row-main">
+            <div class="pb-pot-row-name">{{ p.name }}</div>
+            <div class="pb-pot-row-sub">{{ p.clientName || '—' }} · Pipeline {{ p.year }}</div>
+          </div>
+          <span class="pb-stage-pill" :style="stagePillStyle(p.stage)">{{ p.stage }}</span>
+          <span class="pb-pot-row-amount">{{ formatMoney(p.value, 'EUR', currencies) }}</span>
+        </div>
+        <div class="pb-label pb-pot-list-title">OTHER PROPOSALS · NOT IN TOTAL</div>
+        <div v-if="!potState.view.other.length" class="pb-muted pb-pot-none">None.</div>
+        <div v-for="p in potState.view.other" :key="p.versionId" class="pb-pot-row pb-pot-row--other">
+          <div class="pb-pot-row-main">
+            <div class="pb-pot-row-name">{{ p.name }}</div>
+            <div class="pb-pot-row-sub">{{ p.clientName || '—' }} · Pipeline {{ p.year }}</div>
+          </div>
+          <span class="pb-stage-pill" :style="stagePillStyle(p.stage)">{{ p.stage }}</span>
+          <span class="pb-pot-row-amount">{{ formatMoney(p.value, 'EUR', currencies) }}</span>
+        </div>
+      </template>
+    </div>
     </template>
   </div>
   </div>
@@ -900,11 +967,11 @@ Vue.createApp({
     verStageBadgeColor(ver) {
       return (PB_STAGE_STYLE[pbGetStage(ver)] || PB_STAGE_STYLE.SIP).badge;
     },
-    potFmtMoney(n) { return window.formatMoney(n, 'EUR', window.__currencies, { rounded: true }); },
     async loadPotSection(v, stage) {
-      this.potState = null;
+      this.potState = { kind: 'loading' };
       const year = v.pipelineYear;
-      if (!year || stage === 'Draft') return;
+      if (stage === 'Draft') { this.potState = { kind: 'draft' }; return; }
+      if (!year) { this.potState = { kind: 'noClient' }; return; }
 
       let clientId = null;
       for (const lp of (v.linkedProjects || [])) {
@@ -912,24 +979,21 @@ Vue.createApp({
         if (proj?.clientId) { clientId = proj.clientId; break; }
       }
       if (!clientId) clientId = v.clientId || null;
-      if (!clientId) return;
+      if (!clientId) { this.potState = { kind: 'noClient' }; return; }
 
       const group = this.clientGroups.find(g => (g.clients || []).some(c => c.id === clientId));
       const params = group ? { year, clientGroupId: group.id } : { year, clientId };
       const targetName = group ? group.name : getClientName(clientId);
 
       try {
-        const { pot, proposals, committed_total, anticipated_total } = await Api.pots.summary(params);
-        if (!pot) { this.potState = { pot: null, year, targetName }; return; }
-        const committedTotal = parseFloat(committed_total || 0);
-        const anticipatedTotal = parseFloat(anticipated_total || 0);
-        const totalBudget = committedTotal + anticipatedTotal;
-        const { pct, pctC, pctA } = pbComputePotPercentages(totalBudget, committedTotal, pot.amount);
-        const totColor = pct >= 100 ? '#198754' : pct >= 75 ? '#fd7e14' : '#0d6efd';
-        const nContrib = proposals.filter(p => p.pipeline === 'Committed' || p.pipeline === 'Anticipated').length;
-        this.potState = { pot, year, targetName, committedTotal, anticipatedTotal, totalBudget, pct, pctC, pctA, totColor, nContrib };
+        const summary = await Api.pots.summary(params);
+        // A newer openDetailPanel() may have replaced the selection while the request was in flight.
+        if (this.selectedVerId !== v.versionId) return;
+        if (!summary.pot) { this.potState = { kind: 'noTarget', targetName, year }; return; }
+        this.potState = { kind: 'ok', targetName, year, view: pbPotView(summary) };
       } catch (e) {
-        this.potState = null;
+        if (this.selectedVerId !== v.versionId) return;
+        this.potState = { kind: 'error' };
       }
     },
     deleteSelectedVersion() {
