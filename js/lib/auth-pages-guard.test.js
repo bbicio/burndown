@@ -56,7 +56,16 @@ describe('css/auth.css', () => {
     expect(css).toMatch(/:nth-child\(3\)[^{]*\{[^}]*var\(--color-success\)/);
     expect(css).toMatch(/:nth-child\(4\)[^{]*\{[^}]*var\(--color-success\)/);
     expect(block('.strength-seg')).toContain('background: var(--border-light)');
-    expect(block('.strength-label')).toContain('min-height');
+    expect(block('.strength-label')).toContain('min-height: 1.5em');
+    expect(block('.strength-label')).toContain('line-height: 1.5');
+  });
+
+  it('keeps the input text navy on focus', () => {
+    expect(block('.form-control:focus')).toContain('color: var(--brand-navy)');
+  });
+
+  it('spaces the loading text from the spinner', () => {
+    expect(css).toMatch(/\.auth-state \.spinner-border \+ \.auth-subtitle\s*\{[^}]*margin-top:\s*10px/);
   });
 
   it('neutralises Bootstrap invalid styling', () => {

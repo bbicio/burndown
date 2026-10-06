@@ -106,6 +106,7 @@ body {
 }
 .form-control::placeholder { color: var(--border-dark); opacity: 1; }
 .form-control:focus {
+  color: var(--brand-navy);
   border-color: var(--brand-magenta);
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
@@ -174,6 +175,7 @@ body {
 /* ── Loading / invalid / success states ── */
 .auth-state { text-align: center; padding: 8px 0; }
 .auth-state .auth-title { margin-top: 10px; }
+.auth-state .spinner-border + .auth-subtitle { margin-top: 10px; }
 .auth-state-icon { width: 30px; height: 30px; }
 .auth-state-icon--danger { color: var(--color-danger); }
 .auth-state-icon--success { color: var(--color-success); }
@@ -215,7 +217,8 @@ body {
   font-size: 11px;
   color: var(--text-muted);
   margin-top: 5px;
-  min-height: 1em;
+  line-height: 1.5;
+  min-height: 1.5em;
 }
 
 /* ── Copyright ── */
