@@ -5,9 +5,9 @@ import { join } from 'node:path';
 const read = f => readFileSync(join(process.cwd(), f), 'utf8');
 
 // Pages migrated to css/auth.css (Tasks 2-4 of the pre-login restyling append theirs).
-const AUTH_PAGES = ['login.html', 'reset-password.html'];
-// Pages with the position-coloured strength meter (Task 4 appends activate.html).
-const STRENGTH_PAGES = ['reset-password.html'];
+const AUTH_PAGES = ['login.html', 'reset-password.html', 'activate.html'];
+// Pages with the position-coloured strength meter.
+const STRENGTH_PAGES = ['reset-password.html', 'activate.html'];
 
 describe('css/auth.css', () => {
   const css = read('css/auth.css');
@@ -171,6 +171,38 @@ describe('migrated auth pages', () => {
       });
     });
   }
+
+  it('the logo markup is identical in the three pages', () => {
+    const END = '<div class="auth-logo-sub">Project Dashboard</div>';
+    const logo = f => {
+      const t = read(f);
+      const start = t.indexOf('<div class="auth-logo-row">');
+      expect(start, f).toBeGreaterThanOrEqual(0);
+      return t.slice(start, t.indexOf(END) + END.length);
+    };
+    const [a, b, c] = ['login.html', 'reset-password.html', 'activate.html'].map(logo);
+    expect(b).toBe(a);
+    expect(c).toBe(a);
+  });
+
+  describe('activate.html specifics', () => {
+    const t = read('activate.html');
+    it('has the user chip with a decorative envelope SVG', () => {
+      const m = t.match(/class="user-chip[^"]*"[^>]*>([\s\S]*?)<\/div>/);
+      expect(m).not.toBeNull();
+      const svg = m[1].match(/<svg[^>]*>/);
+      expect(svg).not.toBeNull();
+      expect(svg[0]).toContain('aria-hidden="true"');
+      expect(svg[0]).toContain('stroke="currentColor"');
+    });
+    it('uses a primary full-width button in the invalid state', () => {
+      expect(t).not.toContain('btn-outline-secondary');
+      expect(t).toMatch(/<a href="\/login\.html" class="btn btn-primary w-100 mt-2">Go to sign in<\/a>/);
+    });
+    it('keeps the loading copy', () => {
+      expect(t).toContain('Validating invitation…');
+    });
+  });
 
   describe('login.html specifics', () => {
     const t = read('login.html');
