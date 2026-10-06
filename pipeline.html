@@ -1019,10 +1019,12 @@ Vue.createApp({
     document.addEventListener('click', () => { this.yearDropdownOpen = false; });
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape') return;
-      // Esc closes one layer: the search/year menu first, else the panel (never while a Bootstrap modal is showing).
+      // Capture phase: runs before Bootstrap removes `.show`, so an open modal/offcanvas still counts. Then Bootstrap closes only that.
+      if (document.querySelector('.modal.show, .offcanvas.show')) return;
+      // Esc closes one layer: the search/year menu first, else the panel.
       if (this.yearDropdownOpen || this.searchOpen) { this.yearDropdownOpen = false; this.searchOpen = false; return; }
-      if (this.selectedCgId && !document.querySelector('.modal.show')) this.closeDetailPanel();
-    });
+      if (this.selectedCgId) this.closeDetailPanel();
+    }, true);
     document.addEventListener('mousedown', e => {
       if (this.searchOpen && !(e.target.closest && e.target.closest('.pb-search'))) this.searchOpen = false;
     });
