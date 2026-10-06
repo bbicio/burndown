@@ -146,7 +146,8 @@
              class="pb-card" :class="{ 'pb-card--draft': card.v.pipeline === 'Draft', 'pb-card--selected': selectedCgId === card.cg.id }"
              role="button" tabindex="0" :title="cardTitle(card)"
              @click="openDetailPanel(card.cg.id, card.v.versionId)"
-             @keydown.enter="openDetailPanel(card.cg.id, card.v.versionId)">
+             @keydown.enter.self="openDetailPanel(card.cg.id, card.v.versionId)"
+             @keydown.space.self.prevent="openDetailPanel(card.cg.id, card.v.versionId)">
           <div class="pb-card-top">
             <span class="pb-card-client">{{ cardClientName(card) || '—' }}</span>
             <span v-if="(card.v.linkedProjects || []).length" class="pb-pill pb-pill-linked">Linked</span>

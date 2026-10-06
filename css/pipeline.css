@@ -234,8 +234,10 @@
 .pb-act:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); border-radius: var(--radius-sm); }
 .pb-act-danger, .pb-act-danger:hover { color: var(--color-danger); }
 
-/* Hover/focus swaps the date for the actions (pointer devices); touch gets them in the panel. */
+/* Focus (keyboard) swaps the date for the actions on every device; hover only on pointer devices. */
+.pb-card:focus .pb-card-date, .pb-card:focus-within .pb-card-date { display: none; }
+.pb-card:focus .pb-card-actions, .pb-card:focus-within .pb-card-actions { display: flex; }
 @media (hover: hover) {
-  .pb-card:hover .pb-card-date, .pb-card:focus-within .pb-card-date { display: none; }
-  .pb-card:hover .pb-card-actions, .pb-card:focus-within .pb-card-actions { display: flex; }
+  .pb-card:hover .pb-card-date { display: none; }
+  .pb-card:hover .pb-card-actions { display: flex; }
 }
