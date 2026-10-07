@@ -993,6 +993,13 @@ burndown/
     shares.js             ← generic share modal
     notifications.js      ← SSE client, bell badge (and unread bell state), notification dropdown panel; also drives browser/desktop notifications. Full narrative: docs/js/notifications.md
     costgrid.js           ← shared cost-grid business-logic library, loaded unmodified by `pipeline.html` as globals, and by `costgrid.html`'s own Vue rewrite via the bridge pattern; decided 2026-07 this file is a permanent shared Vanilla service layer, not migration debt — see `docs/superpowers/specs/2026-07-27-costgrid-js-fate-design.md`. Full narrative: docs/js/costgrid.md
+    cg-controls.js        ← (2026-10-07, `?v=2`, costgrid.html only) three presentational Vue components —
+                            `<cg-date-picker>` (month/day), `<cg-select>`, `<cg-people-picker>` — registered on
+                            that page's app like share-list, replacing its native selects and month inputs. No
+                            business logic: the page's existing handlers run through thin adapters. Popovers are
+                            `<Teleport to="body">` + fixed position from the trigger's rect, and take focus when
+                            no text field holds it (Tab order never walks into a teleported node). Full narrative:
+                            docs/pages/costgrid.md
     portfolio.js          ← mostly dead code since portfolio.html's Vue rewrite folded its rendering logic in directly; only 2 exports remain reachable — `fmtProjectTitle`/`getMonthRangeFromCfg`, both consumed by planning.html
     lib/                  ← pure functions extracted for unit testing (vitest + jsdom), each an ES module
                             (`export function ...`) with a `window.<name> = <name>` bridge for classic-script
@@ -1006,6 +1013,9 @@ burndown/
                             locale of each currency in `window.__currencies`; call sites call `formatMoney` from it
                             directly (the former one-line wrappers were removed 2026-10); a vitest guard forbids `Intl.NumberFormat`
                             outside it and its server twin),
+                            cg-controls-calc.js (2026-10-07: the pure helpers behind the three custom controls —
+                            monthGridYear/dayGridMonth with min/max bounds, parseItDate/formatItDate,
+                            parseMonthInput/formatMonthInput; all date arithmetic via Date.UTC only),
                             project-rules.js (2026-10-01: browser side of the project currency lock — version-currency lock
                             predicate, approved messages, the direct-creation flag; costgrid/project-config/portfolio only).
                             Full narrative: docs/js/lib.md
@@ -1030,7 +1040,9 @@ burndown/
   costgrid.html           ← cost grid editor (header card, collapsible Offer details/Tags/Sharing,
                             phase/task/role table, Monthly Phasing), Vue 3 (CDN, no build step, same
                             pattern as pipeline.html/portfolio.html); own stylesheet css/costgrid.css
-                            (2026-10-07 redesign). Full narrative: docs/pages/costgrid.md
+                            (2026-10-07 redesign) and its own form controls from js/cg-controls.js (2026-10-07
+                            fidelity cycle — no native select or month input is left in the editor region).
+                            Full narrative: docs/pages/costgrid.md
   timesheets.html          ← admin-only timesheet upload management, Vue 3 (CDN, no build step). Full narrative: docs/pages/timesheets.md
   config.html             ← redirect stub (no shell, no Vue) to /master-clients.html (2026-10-05)
   master-clients.html, master-client-groups.html, master-pipelines.html, master-roles.html, master-currencies.html

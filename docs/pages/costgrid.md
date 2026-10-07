@@ -267,3 +267,63 @@ it) and the Offer-details Start month and the task From field are now capped by 
 own End value. Validation of a **hand-typed** out-of-order date remains deliberately out
 of scope (D2 → the "cycle C dates" backlog item, which plans the check app-wide, server
 and UI).
+
+### Code review rounds (2026-10-07, same cycle)
+
+Three rounds, all on the same theme once the Gate 2 fixes were in: the parts of the editor
+the control swap did *not* reach.
+
+**The teleported popovers were unreachable by keyboard.** All three controls put their
+popover in `<Teleport to="body">`, so Tab order never walks into it: the `keydown` handlers
+written on the listbox and on the calendar grid could never fire. A non-searchable
+`<cg-select>` opened with Space accepted nothing but Esc — a regression against the native
+`<select>` it replaced, and against the spec's "All keyboard-operable". A listbox with no
+search box now focuses itself; the calendar button is back in the tab order (it had
+`tabindex="-1"`) and moves focus to the selected cell. Clicking the date text input
+deliberately still keeps focus there, or the typed `dd/mm/yyyy` path would break.
+
+**`activeIndex` indexed a list that shrinks.** It was set once when the popover opened,
+against the *unfiltered* options; typing in the searchable Client picker then left it
+pointing at an unrelated row (Enter picked the wrong client) or past the end (Enter did
+nothing). A `query` watcher re-anchors it.
+
+**`isReadOnly()` replaced a half-applied viewer guard.** `isLocked` is `cgGetVersionLockState`
+and knows nothing about sharing, so the swapped controls spelled out
+`isLocked || myPermission === 'viewer'` while the grid inputs around them kept a bare
+`:disabled="isLocked"`. One computed now covers both. The server already refused a viewer's
+writes (`routes/cost-grids.js:89` allows owner and editor only), so the grid merely *looked*
+editable while autosaves failed silently — which is also why the remaining gap below matters.
+
+**Smaller:** the role-modal checkboxes are plain DOM inputs Vue does not own, so ticks
+survived an Esc dismissal and filtering the list discarded checked rows while the counter
+still counted them; both are reconciled on open and in watchers. The ratecard "None" row
+claimed EUR on a non-EUR proposal. `.cg-role-col-header` declared `position: sticky` and
+then `relative` in the same rule, so the role headers were never sticky — inert only while
+`.cg-grid-frame` has no height.
+
+**A trim that had to move.** The first Gate 2 fix normalised `projectName`/`note` inside
+`cgSyncHeaderFromForm()`, i.e. on the debounced autosave path — but that function mutates
+the object Vue binds to the inputs, and the 2 s debounce is also kicked by unrelated
+controls, so a trailing space typed into Description could vanish mid-edit. Trimming
+happens in `onHeaderFieldChange` (which runs on blur) instead.
+
+### Open follow-ups
+
+- **A viewer can still perform structural edits.** Every structural control is gated on
+  `v-if="!isLocked"` alone: Add roles, Add phase, the role ⋮ menu, + Task, Delete phase,
+  Delete task, the "+ Add task" row, the selection bar and Generate project. A viewer on an
+  unlocked version can delete a task: the local draft mutates, the row disappears, the PUT is
+  refused, and `cgAutoSave`'s `.catch(e => console.warn(...))` swallows it — so the edit looks
+  like it stuck until a reload. Note `js/lib/cg-controls-ui.test.js`'s "one read-only predicate
+  for every editable field" only asserts the absence of `:disabled="isLocked"`; it does **not**
+  cover these `v-if` paths, and its name overstates what it checks.
+- **Four global listeners per picker instance** (`cgPopover.mounted`): document `mousedown`
+  and `keydown`, window `scroll` in capture and `resize`. Two pickers per task row means
+  ~500 listeners on a 60-task grid, with the capture-phase scroll handler invoked once per
+  instance on every scroll. A single shared dispatcher keyed on the open popover would fix it;
+  the role ⋮ menu this was modelled on had exactly one instance, so the pattern did not scale.
+- **`Home`/`End` `preventDefault()` unconditionally** in `onListKey`, including when focus is
+  in the search box: in the Client picker the caret will not jump to the start of the query.
+- **`commitTyped` ignores `min`/`max`** — the component accepts typed what its own picker
+  refuses. Assigned to the "cycle C dates" backlog item, together with item 11 (task dates
+  bounded by the project/proposal months).
