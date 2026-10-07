@@ -352,11 +352,11 @@
 .cg-rate-note--zero { color: var(--color-danger); }
 
 /* ── Grid: role column header + ⋮ menu (Task 3) ── */
-.cg-role-col-header { text-align: center; background: var(--brand-navy); color: #fff; border: 1px solid #333; font-weight: var(--weight-semibold); position: relative; }
+.cg-role-col-header { text-align: center; background: var(--brand-navy); color: var(--text-inverse); border: 1px solid color-mix(in srgb, var(--brand-navy) 40%, var(--text-primary) 60%); font-weight: var(--weight-semibold); position: relative; }
 .cg-role-col-header.is-zero { background: color-mix(in srgb, var(--color-danger) 55%, var(--brand-navy) 45%); }
 .cg-role-col-name { cursor: default; }
 .cg-role-col-code { font-size: var(--text-xs); color: var(--indigo-300); font-weight: var(--weight-regular); margin-top: 1px; }
-.cg-role-col-missing { font-size: var(--text-xs); color: #ffb3b3; font-weight: var(--weight-regular); margin-top: 2px; }
+.cg-role-col-missing { font-size: var(--text-xs); color: color-mix(in srgb, var(--color-danger) 40%, var(--text-inverse) 60%); font-weight: var(--weight-regular); margin-top: 2px; }
 .cg-col-menu-btn {
   border: none;
   background: transparent;
@@ -368,7 +368,7 @@
   margin-top: 4px;
   border-radius: var(--radius-xs);
 }
-.cg-col-menu-btn:hover { background: rgba(255, 255, 255, .15); color: #fff; }
+.cg-col-menu-btn:hover { background: rgba(255, 255, 255, .15); color: var(--text-inverse); }
 .cg-col-menu {
   position: fixed;
   z-index: var(--z-fixed);

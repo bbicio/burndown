@@ -317,7 +317,7 @@
                 <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 10px;min-width:115px;text-align:right;font-size:var(--text-base)">Total Pass<br>through Costs</th>
                 <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 10px;min-width:75px;text-align:right;font-size:var(--text-base)">Total<br>hrs</th>
                 <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 10px;min-width:120px;text-align:right;font-size:var(--text-base)">Total<br>fees</th>
-                <th v-for="(r, rIdx) in draft.roles" :key="r.roleCode" class="cg-role-col-header" :class="{ 'is-zero': !r.rate || r.rate === 0 }" :style="{ position:'sticky', top:0, zIndex:2, padding: compactHeader ? '3px 2px':'8px 4px', minWidth: compactHeader ? '80px':'100px', verticalAlign: compactHeader?'middle':'top' }">
+                <th v-for="r in draft.roles" :key="r.roleCode" class="cg-role-col-header" :class="{ 'is-zero': !r.rate || r.rate === 0 }" :style="{ position:'sticky', top:0, zIndex:2, padding: compactHeader ? '3px 2px':'8px 4px', minWidth: compactHeader ? '80px':'100px', verticalAlign: compactHeader?'middle':'top' }">
                   <div class="cg-role-col-name" :title="r.roleCode" :style="compactHeader ? 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px' : ''">{{ r.roleLabel }}</div>
                   <div v-if="!compactHeader" class="cg-role-col-code">{{ r.roleCode }}</div>
                   <div v-if="!compactHeader && (!r.rate || r.rate === 0)" class="cg-role-col-missing">Missing rate</div>
@@ -1388,15 +1388,11 @@ Vue.createApp({
     },
     onRateChange(role, event) {
       const val = event.target.value.trim();
+      if (val === '') { this.resetRoleRate(role); return; }
       const baseline = this.roleBaseline(role);
-      if (val === '') {
-        role.rate = baseline.effectiveRate;
-        role.rateIsCustom = false;
-      } else {
-        const newRate = parseFloat(val) || 0;
-        role.rate = newRate;
-        role.rateIsCustom = newRate !== baseline.effectiveRate;
-      }
+      const newRate = parseFloat(val) || 0;
+      role.rate = newRate;
+      role.rateIsCustom = newRate !== baseline.effectiveRate;
       cgScheduleAutoSave();
     },
     moveRole(role, dir) {
