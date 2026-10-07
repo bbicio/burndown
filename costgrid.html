@@ -42,7 +42,7 @@
           <button v-if="isDraft" type="button" class="cg-version-seg-new" @click="createNewVersionDirect">+ New version</button>
           <div v-for="v in cg.versions" :key="v.versionId" class="cg-version-seg-item" :class="{ 'cg-version-seg-item--active': v.versionId === verId }">
             <template v-if="v.versionId === verId && editingVersionLabel && !isLocked && cg?.myPermission !== 'viewer'">
-              <input type="text" class="cg-version-label-input" v-model="draft.versionLabel"
+              <input type="text" id="cgVersionLabelInput" class="cg-version-label-input" v-model="draft.versionLabel"
                      @blur="commitVersionLabelEdit" @keyup.enter="commitVersionLabelEdit" @keyup.esc="cancelVersionLabelEdit" autofocus>
             </template>
             <template v-else>
@@ -324,7 +324,7 @@
                   <button v-if="!isLocked && !selectionMode" type="button" class="cg-col-menu-btn" :title="'Actions for ' + r.roleLabel" :aria-label="'Actions for ' + r.roleLabel" @click.stop="openRoleMenu(r.roleCode); positionRoleMenu($event)">⋮</button>
                 </th>
                 <th v-if="draft.roles.length === 0" class="cg-col-placeholder cg-col-placeholder--header">
-                  <button v-if="!isLocked" type="button" class="btn btn-sm btn-outline-light" @click="addRoleColumn">+ Add roles</button>
+                  <button v-if="!isLocked && !selectionMode" type="button" class="btn btn-sm btn-outline-secondary" @click="addRoleColumn">+ Add roles</button>
                 </th>
               </tr>
             </thead>
@@ -410,14 +410,14 @@
             </tbody>
             <tfoot>
               <tr class="cg-row-total">
-                <td class="cg-col-fixed" style="background:var(--indigo-50);font-weight:700;padding:7px 12px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);font-size:var(--text-md)">TOTAL</td>
-                <td style="border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--indigo-50)"></td>
-                <td style="text-align:right;font-weight:700;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-lg);white-space:nowrap"><strong>{{ formatMoney(grand.fee + grand.ptc, draft.currency || 'EUR', currencies) }}</strong></td>
-                <td style="text-align:right;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-md);white-space:nowrap">{{ grand.ptc > 0 ? formatMoney(grand.ptc, draft.currency || 'EUR', currencies) : '—' }}</td>
-                <td style="text-align:right;font-weight:700;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-lg);white-space:nowrap">{{ grand.hrs > 0 ? grand.hrs + 'h' : '—' }}</td>
-                <td style="text-align:right;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-md);white-space:nowrap">{{ grand.fee > 0 ? formatMoney(grand.fee, draft.currency || 'EUR', currencies) : '—' }}</td>
-                <td v-for="r in draft.roles" :key="'foot-'+r.roleCode" style="text-align:center;font-weight:700;padding:7px 4px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-50);font-size:var(--text-md)">{{ (colTotals[r.roleCode]?.hrs || 0) > 0 ? colTotals[r.roleCode].hrs : '' }}</td>
-                <td v-if="draft.roles.length === 0" class="cg-col-placeholder" style="background:var(--sand-50);border:1px solid #c0c8e8"></td>
+                <td class="cg-col-fixed" style="background:var(--indigo-50);font-weight:700;padding:7px 12px;font-size:var(--text-md)">TOTAL</td>
+                <td style="background:var(--indigo-50)"></td>
+                <td style="text-align:right;font-weight:700;padding:7px 10px;background:var(--sand-100);font-size:var(--text-lg);white-space:nowrap"><strong>{{ formatMoney(grand.fee + grand.ptc, draft.currency || 'EUR', currencies) }}</strong></td>
+                <td style="text-align:right;padding:7px 10px;background:var(--sand-100);font-size:var(--text-md);white-space:nowrap">{{ grand.ptc > 0 ? formatMoney(grand.ptc, draft.currency || 'EUR', currencies) : '—' }}</td>
+                <td style="text-align:right;font-weight:700;padding:7px 10px;background:var(--sand-100);font-size:var(--text-lg);white-space:nowrap">{{ grand.hrs > 0 ? grand.hrs + 'h' : '—' }}</td>
+                <td style="text-align:right;padding:7px 10px;background:var(--sand-100);font-size:var(--text-md);white-space:nowrap">{{ grand.fee > 0 ? formatMoney(grand.fee, draft.currency || 'EUR', currencies) : '—' }}</td>
+                <td v-for="r in draft.roles" :key="'foot-'+r.roleCode" style="text-align:center;font-weight:700;padding:7px 4px;background:var(--sand-50);font-size:var(--text-md)">{{ (colTotals[r.roleCode]?.hrs || 0) > 0 ? colTotals[r.roleCode].hrs : '' }}</td>
+                <td v-if="draft.roles.length === 0" class="cg-col-placeholder" style="background:var(--sand-50)"></td>
               </tr>
             </tfoot>
           </table>
@@ -1141,9 +1141,8 @@ Vue.createApp({
     },
     confirmRoleSelection() { cgAddSelectedRoles(); },
     versionTabLabel(v) {
-      const badge = cgLiveVersionBadge(v);
       const projCount = (v.linkedProjects || []).length;
-      return v.versionLabel + badge.icon + (projCount > 0 ? ` (${projCount})` : '');
+      return v.versionLabel + (projCount > 0 ? ` (${projCount})` : '');
     },
     versionTabTitle(v) {
       const lockState = cgGetVersionLockState(this.cgId, v.versionId);
@@ -1272,6 +1271,11 @@ Vue.createApp({
     startEditingVersionLabel() {
       this.versionLabelBeforeEdit = this.draft?.versionLabel || '';
       this.editingVersionLabel = true;
+      this.$nextTick(() => {
+        const el = document.getElementById('cgVersionLabelInput');
+        el?.focus();
+        el?.select();
+      });
     },
     commitVersionLabelEdit() {
       if (this.draft) {

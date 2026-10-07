@@ -419,7 +419,7 @@
 /* ── Grid: assigned-task lock + badge, TOTAL row, filled/empty cells (Task 3) ── */
 .cg-task-lock { color: var(--text-disabled); flex-shrink: 0; margin-top: 4px; display: inline-flex; }
 .cg-task-assigned-note { font-size: var(--text-2xs); color: var(--text-muted); margin-top: 2px; }
-.cg-row-total > td { border-top: 2px solid var(--indigo-500); }
+.cg-row-total > td { border: 1px solid var(--indigo-200); border-top: 2px solid var(--indigo-500); }
 .cg-cell-filled { font-weight: var(--weight-bold); color: var(--text-primary); }
 .cg-cell-empty { color: var(--text-disabled); font-weight: var(--weight-regular); }
 
