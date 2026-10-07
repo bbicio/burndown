@@ -207,10 +207,15 @@ up() {
     if schema_exists; then
       echo "schema already present — skipping migrations."
     else
+      # One psql session for all migrations, with a \echo marker per file so the
+      # last "applying ..." line names the migration that failed (psql line
+      # numbers refer to the concatenated stream). The trailing newline keeps a
+      # file without one from fusing into the next.
       for f in api/src/db/migrations/*.sql; do
-        echo "  applying $(basename "$f")"
-        docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" < "$f"
-      done
+        printf '%s\n' "\\echo applying $(basename "$f")"   # %s: printf would read \e as ESC
+        cat "$f"
+        printf '\n'
+      done | docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1
     fi
     $COMPOSE up -d --build api nginx adminer
     wait_healthy "$API_CONTAINER"

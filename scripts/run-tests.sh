@@ -99,10 +99,15 @@ $COMPOSE up -d db
 wait_healthy "$DB_CONTAINER"
 
 echo "Applying migrations to the fresh test database..."
+# One psql session for all migrations (30 docker execs cost ~20-45s on Windows),
+# but a \echo marker per file so the last "applying ..." line names the migration
+# that failed — psql line numbers refer to the concatenated stream, not the file.
+# The trailing newline keeps a file without one from fusing into the next.
 for f in api/src/db/migrations/*.sql; do
-  echo "  applying $(basename "$f")"
-  docker exec -i "$DB_CONTAINER" psql -U "${POSTGRES_USER:-pdash}" -d "${POSTGRES_DB:-pdash}" < "$f"
-done
+  printf '%s\n' "\\echo applying $(basename "$f")"   # %s: printf would read \e as ESC
+  cat "$f"
+  printf '\n'
+done | docker exec -i "$DB_CONTAINER" psql -U "${POSTGRES_USER:-pdash}" -d "${POSTGRES_DB:-pdash}" -v ON_ERROR_STOP=1
 
 IMAGE_HASH_FILE=".run-tests-image-hash"
 CURRENT_HASH=$(cat api/Dockerfile api/package.json | sha256sum | cut -d' ' -f1)
