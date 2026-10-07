@@ -43,7 +43,7 @@
           <div v-for="v in cg.versions" :key="v.versionId" class="cg-version-seg-item" :class="{ 'cg-version-seg-item--active': v.versionId === verId }">
             <template v-if="v.versionId === verId && editingVersionLabel && !isLocked && cg?.myPermission !== 'viewer'">
               <input type="text" class="cg-version-label-input" v-model="draft.versionLabel"
-                     @blur="commitVersionLabelEdit" @keyup.enter="commitVersionLabelEdit" @keyup.esc="editingVersionLabel = false" autofocus>
+                     @blur="commitVersionLabelEdit" @keyup.enter="commitVersionLabelEdit" @keyup.esc="cancelVersionLabelEdit" autofocus>
             </template>
             <template v-else>
               <button type="button" class="cg-version-seg-btn" :title="versionTabTitle(v)" @click="switchVersion(v.versionId)">{{ versionTabLabel(v) }}</button>
@@ -1185,10 +1185,21 @@ Vue.createApp({
     commitVersionLabelEdit() {
       if (this.draft) {
         const trimmed = (this.draft.versionLabel || '').trim();
-        this.draft.versionLabel = trimmed || this.versionLabelBeforeEdit || '';
+        const finalLabel = trimmed || this.versionLabelBeforeEdit || '';
+        this.draft.versionLabel = finalLabel;
+        // `this.cg` is a separate clone from `this.draft`/`_cgDraft` (see openVersion) — the
+        // segmented control's non-editing display reads versionTabLabel(v) off `cg.versions`,
+        // not off `draft`, so without this the label would revert to the stale value as soon
+        // as editingVersionLabel flips false, only catching up after a version switch/reload.
+        const verInCg = (this.cg?.versions || []).find(v => v.versionId === this.verId);
+        if (verInCg) verInCg.versionLabel = finalLabel;
       }
       this.editingVersionLabel = false;
       cgScheduleAutoSave();
+    },
+    cancelVersionLabelEdit() {
+      if (this.draft) this.draft.versionLabel = this.versionLabelBeforeEdit || this.draft.versionLabel || '';
+      this.editingVersionLabel = false;
     },
     async createNewVersionDirect() {
       await cgCreateNewVersionDirect();
