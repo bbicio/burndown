@@ -49,3 +49,38 @@ describe('date pickers bound both ways', () => {
     ends.forEach(p => expect(p, p.slice(0, 70)).toMatch(/:min=/));
   });
 });
+
+// Round 1 code review: the popovers are teleported to <body>, so Tab order never reaches
+// them and every keydown handler written for them was unreachable.
+describe('popovers are keyboard reachable', () => {
+  it('the listbox is focusable and takes focus when there is no search box', () => {
+    expect(js).toMatch(/role="listbox" tabindex="-1"/);
+    expect(js).toMatch(/else if \(this\.\$refs\.pop\) this\.\$refs\.pop\.focus\(\)/);
+  });
+
+  it('the calendar button is in the tab order and focuses a grid cell', () => {
+    expect(js).not.toMatch(/cg-ctl-iconbtn[^>]*tabindex="-1"/);
+    expect(js).toMatch(/@click="openFromButton"/);
+    expect(js).toMatch(/focusGridCell\(\)\s*\{/);
+  });
+
+  it('a changing search query re-anchors the active row', () => {
+    expect(js).toMatch(/query\(\)\s*\{\s*this\.activeIndex = this\.visibleOptions\.findIndex/);
+  });
+});
+
+// Round 1 code review: the role-modal checkboxes are plain DOM inputs Vue does not own.
+describe('role select modal selection state', () => {
+  it('clears the checkboxes on open and counts the same set that is added', () => {
+    expect(html).toMatch(/cg-role-checkbox'\)\.forEach\(cb => \{ cb\.checked = false; \}\)/);
+    expect(html).toMatch(/cg-role-checkbox:checked:not\(:disabled\)/);
+  });
+});
+
+// Round 1 code review: Currency was the only Offer-details control without the viewer guard.
+describe('viewer guard covers every Offer-details control', () => {
+  it('the currency select is disabled for a viewer', () => {
+    const cur = region.match(/<cg-select[^>]*aria-label="Currency"[\s\S]*?><\/cg-select>/)[0];
+    expect(cur).toMatch(/myPermission === 'viewer'/);
+  });
+});

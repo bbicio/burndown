@@ -184,6 +184,7 @@
               <div class="col-md-4">
                 <label class="form-label small fw-semibold mb-1">Currency</label>
                 <cg-select :model-value="draft.currency || 'EUR'" :options="currencyOptions" aria-label="Currency"
+                           :disabled="cg?.myPermission === 'viewer'"
                            :locked="currencyLocked" :locked-title="currencyLockTitle"
                            @update:model-value="onCurrencySelect"></cg-select>
                 <div v-if="draft.currency && draft.currency !== 'EUR'" class="text-muted" style="font-size:.72rem;margin-top:2px">
@@ -1241,6 +1242,10 @@ Vue.createApp({
       this.isClientRatecard = _cgIsClientRatecard;
       this.roleSelectionCount = 0;
       this.roleRcName = '';
+      // Vue binds :disabled/:value on these inputs but not `checked`, so ticks survive an
+      // Esc/Cancel dismissal. Clearing them here keeps the DOM and roleSelectionCount in
+      // step — otherwise the reopened modal shows checked rows with "Add selected" greyed.
+      document.querySelectorAll('#cgRoleSelectModal .cg-role-checkbox').forEach(cb => { cb.checked = false; });
       const rcId = this.draft?.ratecardId;
       if (rcId) {
         const rc = this.allRatecards.find(r => String(r.id) === String(rcId));
@@ -1252,7 +1257,7 @@ Vue.createApp({
     // The checkboxes are plain DOM inputs read back by cgAddSelectedRoles(); this only
     // mirrors how many are checked so the footer button can be disabled (G-28).
     refreshRoleSelectionCount() {
-      this.roleSelectionCount = document.querySelectorAll('#cgRoleSelectModal .cg-role-checkbox:checked').length;
+      this.roleSelectionCount = document.querySelectorAll('#cgRoleSelectModal .cg-role-checkbox:checked:not(:disabled)').length;
     },
     confirmRoleSelection() { cgAddSelectedRoles(); },
     versionTabLabel(v) {

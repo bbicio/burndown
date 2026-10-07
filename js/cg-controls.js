@@ -194,6 +194,21 @@
         while (m > 12) { m -= 12; y++; }
         this.viewMonth = m; this.viewYear = y;
       },
+      // Opening from the calendar button (mouse or keyboard) moves focus into the grid, so
+      // the arrow keys in onGridKey() can actually reach it: the popover is teleported to
+      // <body>, so Tab order never walks into it. Clicking the text input deliberately does
+      // NOT do this — focus has to stay there for the typed dd/mm/yyyy path.
+      openFromButton() {
+        if (this.cgOpen) { this.cgClosePopover(true); return; }
+        this.cgOpenPopover();
+        this.$nextTick(() => this.focusGridCell());
+      },
+      focusGridCell() {
+        const grid = this.$refs.grid;
+        if (!grid) return;
+        const cells = Array.from(grid.querySelectorAll('button')).filter(b => !b.disabled);
+        (cells.find(b => b.classList.contains('is-selected')) || cells[0])?.focus();
+      },
       onGridKey(e) {
         const map = this.isDay
           ? { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }
@@ -213,8 +228,9 @@
                  @input="text = $event.target.value" @blur="commitTyped"
                  @keydown.enter.prevent="commitTyped" @keydown.esc.prevent.stop="onEsc"
                  @click="cgOpenPopover()">
-          <button type="button" class="cg-ctl-iconbtn" :disabled="disabled" tabindex="-1"
-                  aria-label="Open calendar" @mousedown.prevent @click="cgTogglePopover">
+          <button type="button" class="cg-ctl-iconbtn" :disabled="disabled"
+                  :aria-expanded="cgOpen ? 'true' : 'false'"
+                  aria-label="Open calendar" @mousedown.prevent @click="openFromButton">
             ${SVG.calendar}
           </button>
         </div>
@@ -294,6 +310,10 @@
       },
     },
     watch: {
+      // activeIndex indexes visibleOptions, which shrinks as the user types: left alone it
+      // would point at an unrelated row (Enter picks the wrong option) or past the end
+      // (Enter silently does nothing). Re-anchor it on the first selectable row.
+      query() { this.activeIndex = this.visibleOptions.findIndex(o => !o.disabled); },
       cgOpen(v) {
         if (!v) { this.query = ''; this.activeIndex = -1; return; }
         const el = this.$refs.trigger;
@@ -301,7 +321,11 @@
         this.activeIndex = this.visibleOptions.findIndex(o => String(o.value) === String(this.modelValue));
         this.$nextTick(() => {
           this.cgReposition();
+          // Without a search box nothing would hold focus: the popover is teleported to
+          // <body>, so focus would stay on the trigger and onListKey() — arrows, Home/End,
+          // Enter, type-ahead — could never fire. The listbox takes focus itself instead.
           if (this.searchable && this.$refs.search) this.$refs.search.focus();
+          else if (this.$refs.pop) this.$refs.pop.focus();
         });
       },
     },
@@ -359,7 +383,7 @@
         </button>
         <Teleport to="body">
           <div v-if="cgOpen" ref="pop" class="cg-pop cg-pop-list" :style="cgPopStyle"
-               role="listbox" @mousedown.stop @keydown="onListKey">
+               role="listbox" tabindex="-1" @mousedown.stop @keydown="onListKey">
             <div v-if="searchable" class="cg-pop-search">
               ${SVG.search}
               <input ref="search" type="text" class="cg-pop-search-input" v-model="query"
