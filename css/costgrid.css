@@ -512,6 +512,14 @@
 .cg-head-row > th.cg-col-fixed--header { font-size: var(--text-md); }
 .cg-head-th--desc { min-width: 150px; }
 .cg-head-th--num { text-align: right; }
+/* G-15: the four totals columns are the other half of the horizontal budget — trimming
+   their side padding buys ~8px each without touching the amounts themselves. */
+.cg-head-th--num,
+.cg-num,
+.cg-task-num,
+.cg-phase-num,
+.cg-summary-cell,
+.cg-total-cell { padding-left: 6px; padding-right: 6px; }
 
 /* ── Grid: role column header + ⋮ menu (Task 3; G-16 reshapes it) ── */
 .cg-role-col-header {
@@ -526,8 +534,8 @@
   font-weight: var(--weight-semibold);
   position: relative;
   min-width: 92px;
-  max-width: 130px;
-  padding: 8px 22px 8px 8px;
+  max-width: 112px;
+  padding: 8px 22px 8px 6px;
   height: 65px;
 }
 .cg-role-col-header.is-compact { min-width: 76px; padding: 4px 20px 4px 6px; vertical-align: middle; }
@@ -605,18 +613,18 @@
 .cg-col-menu-sep { height: 1px; background: var(--border-light); margin: 4px 2px; }
 
 /* ── Grid: no-roles placeholder column (Task 3) ── */
+/* Board 5.21 shows one continuous empty column that takes each row's own look (navy in
+   the header row, sand in the summary band): no per-cell dashed outline, which rendered
+   as a stack of separate boxes. Only width and centring are set here. */
 .cg-col-placeholder {
   width: 260px;
   min-width: 260px;
-  border: 2px dashed var(--border-medium);
-  background: var(--surface-light);
   text-align: center;
   vertical-align: middle;
   color: var(--text-muted);
   font-size: var(--text-sm);
   padding: 16px 12px;
 }
-.cg-col-placeholder--header { background: var(--surface-light); }
 .cg-col-placeholder--task { font-size: var(--text-xs); }
 
 /* ── Grid: phase band (G-21) ── */
@@ -670,6 +678,13 @@
 /* ── Grid: task rows (G-22, G-23, G-24) ── */
 :where(.cg-task-row) > :where(td) { background: var(--surface-white); border: 1px solid var(--border-light); vertical-align: middle; }
 .cg-task-head { vertical-align: top; padding: 6px; background: var(--surface-white); }
+/* Selection mode (board 5.18): a picked row is tinted, including the sticky first
+   column, whose own background would otherwise win over the row rule. */
+.cg-task-row--selected > td,
+.cg-task-row--selected > td.cg-task-head { background: var(--brand-magenta-tint); }
+.cg-task-check { cursor: pointer; }
+.cg-task-check:checked { background-color: var(--brand-magenta); border-color: var(--brand-magenta); }
+.cg-task-check:disabled { opacity: .4; cursor: default; }
 .cg-task-name {
   flex: 1;
   min-width: 0;
@@ -763,7 +778,7 @@ input.cg-cell-box.cg-cell-filled { border-color: var(--text-disabled); }
 .cg-total-label { background: var(--indigo-50); font-weight: var(--weight-bold); padding: 7px 12px; font-size: var(--text-md); }
 .cg-total-cell { background: var(--sand-100); padding: 7px 10px; }
 .cg-total-cell--num { text-align: right; white-space: nowrap; font-size: var(--text-md); }
-.cg-total-cell--strong { font-weight: var(--weight-bold); font-size: var(--text-lg); }
+.cg-total-cell--strong { font-weight: var(--weight-bold); font-size: var(--text-md); }
 .cg-total-cell--role { background: var(--sand-50); text-align: center; font-weight: var(--weight-bold); font-size: var(--text-md); }
 .cg-cell-filled { font-weight: var(--weight-bold); color: var(--text-primary); }
 .cg-cell-empty { color: var(--text-disabled); font-weight: var(--weight-regular); }
@@ -892,9 +907,12 @@ input.cg-cell-box.cg-cell-filled { border-color: var(--text-disabled); }
 .cg-btn-secondary:disabled { color: var(--text-disabled); cursor: not-allowed; }
 
 .cg-field-hint { font-size: var(--text-2xs); color: var(--text-muted); margin-top: 3px; }
-.cg-task-date .cg-ctl { width: 112px; }
-.cg-task-date .cg-ctl-field { min-height: 26px; padding: 0 6px; }
-.cg-task-date .cg-ctl-input { font-size: var(--text-xs); padding: 3px 0; }
+/* G-15: narrower task date pickers, so the From/To row stops being the widest thing in
+   the sticky first column. (Measured: this alone does NOT shrink that column below
+   323px — see the G-15 note in docs/pages/costgrid.md — but it frees the row.) */
+.cg-task-date .cg-ctl { width: 84px; }
+.cg-task-date .cg-ctl-field { min-height: 26px; padding: 0 4px; gap: 3px; }
+.cg-task-date .cg-ctl-input { font-size: var(--text-2xs); padding: 3px 0; }
 
 .cg-ctl { position: relative; display: block; width: 100%; }
 .cg-ctl-field {
@@ -911,8 +929,12 @@ input.cg-cell-box.cg-cell-filled { border-color: var(--text-disabled); }
   color: var(--text-primary);
   text-align: left;
 }
+/* The boards (5.13, 5.14, monthlypicker) show a magenta border while the popover is
+   open, not only while the trigger itself holds focus — the search box inside a
+   searchable list takes focus away from the trigger. */
 .cg-ctl-field:focus-within,
-button.cg-ctl-field:focus-visible {
+button.cg-ctl-field:focus-visible,
+.cg-ctl--open > .cg-ctl-field {
   border-color: var(--brand-magenta);
   box-shadow: 0 0 0 3px var(--focus-ring);
   outline: none;
@@ -972,7 +994,9 @@ button.cg-ctl-field:focus-visible {
   margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-light);
 }
 .cg-pop-foot-btn {
-  flex: 1;
+  flex: 0 0 auto;
+  white-space: nowrap;      /* "Next month" must stay on one line (board monthlypicker) */
+  padding: 0 9px;
   height: 28px;
   background: var(--surface-white);
   border: 1px solid var(--border-light);

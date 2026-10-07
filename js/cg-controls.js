@@ -117,7 +117,7 @@
     },
     computed: {
       isDay() { return this.mode === 'day'; },
-      cgPopWidth() { return this.isDay ? 252 : 246; },
+      cgPopWidth() { return this.isDay ? 252 : 272; },
       cgPopHeight() { return this.isDay ? 290 : 230; },
       cgAlignRight() { return false; },
       locked() { return false; },
@@ -201,7 +201,7 @@
       },
     },
     template: `
-      <div class="cg-ctl cg-ctl-date" :class="{ 'cg-ctl--disabled': disabled }">
+      <div class="cg-ctl cg-ctl-date" :class="{ 'cg-ctl--disabled': disabled, 'cg-ctl--open': cgOpen }">
         <div class="cg-ctl-field">
           <input ref="trigger" type="text" class="cg-ctl-input" :value="text" :placeholder="ph"
                  :disabled="disabled" :aria-label="ariaLabel" autocomplete="off" inputmode="numeric"
@@ -343,7 +343,7 @@
       },
     },
     template: `
-      <div class="cg-ctl cg-ctl-select" :class="{ 'cg-ctl--disabled': disabled, 'cg-ctl--locked': locked }">
+      <div class="cg-ctl cg-ctl-select" :class="{ 'cg-ctl--disabled': disabled, 'cg-ctl--locked': locked, 'cg-ctl--open': cgOpen }">
         <button ref="trigger" type="button" class="cg-ctl-field cg-ctl-trigger"
                 :disabled="disabled || locked" :title="locked ? lockedTitle : ''" :aria-label="ariaLabel"
                 :aria-expanded="cgOpen ? 'true' : 'false'" aria-haspopup="listbox"

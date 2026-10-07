@@ -55,7 +55,9 @@ function cgFmtMonth(isoDate) {
   if (!isoDate) return '';
   const d = new Date(isoDate + (isoDate.length === 10 ? 'T00:00:00' : ''));
   if (isNaN(d)) return '';
-  return d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+  // 'en-GB', not 'it-IT': all user-facing text is English (CLAUDE.md), and the phase
+  // band this feeds was rendering "11 mag 2026 – 31 dic 2026".
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 // dd/mm/yyyy ↔ yyyy-mm-dd helpers for task date inputs

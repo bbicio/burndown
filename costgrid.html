@@ -129,7 +129,7 @@
             </template>
           </div>
           <div class="row g-2 mb-2">
-            <div class="col-md-6">
+            <div class="col-12">
               <label class="form-label small fw-semibold mb-1">Proposal name</label>
               <input type="text" class="form-control" id="cgProjectName" v-model="draft.projectName" placeholder="Proposal name" @change="onHeaderFieldChange" :disabled="isLocked">
             </div>
@@ -352,7 +352,7 @@
                     <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true"><circle cx="8" cy="3.4" r="1.25"/><circle cx="8" cy="8" r="1.25"/><circle cx="8" cy="12.6" r="1.25"/></svg>
                   </button>
                 </th>
-                <th v-if="draft.roles.length === 0" class="cg-col-placeholder cg-col-placeholder--header">
+                <th v-if="draft.roles.length === 0" class="cg-col-placeholder cg-head-th">
                   <button v-if="!isLocked && !selectionMode" type="button" class="cg-btn-secondary" @click="addRoleColumn">+ Add roles</button>
                 </th>
               </tr>
@@ -376,10 +376,11 @@
                   <td v-for="r in draft.roles" :key="'ph-'+r.roleCode" class="cg-phase-role">{{ (phaseTotals(phase).byRole[r.roleCode] || 0) > 0 ? phaseTotals(phase).byRole[r.roleCode] : '' }}</td>
                   <td v-if="draft.roles.length === 0" class="cg-col-placeholder cg-phase-role"></td>
                 </tr>
-                <tr v-for="task in phase.tasks" :key="task.taskId" class="cg-task-row">
+                <tr v-for="task in phase.tasks" :key="task.taskId" class="cg-task-row"
+                    :class="{ 'cg-task-row--selected': selectionMode && !isTaskAssigned(task) && selectedTaskIds.has(task.taskId) }">
                   <td class="cg-col-fixed cg-task-head">
                     <div v-if="selectionMode" class="mb-1 d-flex align-items-center gap-1">
-                      <input type="checkbox" class="form-check-input" :checked="isTaskAssigned(task) || selectedTaskIds.has(task.taskId)" :disabled="isTaskAssigned(task)" :style="isTaskAssigned(task) ? 'opacity:.4' : ''" @change="toggleTaskSelection(task)">
+                      <input type="checkbox" class="form-check-input cg-task-check" :checked="isTaskAssigned(task) || selectedTaskIds.has(task.taskId)" :disabled="isTaskAssigned(task)" @change="toggleTaskSelection(task)">
                       <span v-if="isTaskAssigned(task)" style="font-size:var(--text-xs);color:var(--text-disabled)">already assigned</span>
                     </div>
                     <div class="d-flex align-items-center gap-1">
@@ -494,8 +495,8 @@
                    :disabled="isLocked" @update:model-value="addToProjectSel = $event"></cg-select>
         <span class="cg-header-divider" style="background:rgba(255,255,255,.3)"></span>
         <button v-if="!isLocked" class="btn btn-sm btn-outline-light py-0 px-3" style="font-size:var(--text-base)" @click="cancelSelection">Cancel</button>
-        <button v-if="!isLocked && addToProjectMode === 'new'" class="btn btn-sm btn-success py-0 px-3" style="font-size:var(--text-base)" :disabled="selectedTaskIds.size === 0" @click="confirmAndGenerate">Create project</button>
-        <button v-if="!isLocked && addToProjectMode === 'existing'" class="btn btn-sm btn-warning py-0 px-3" style="font-size:var(--text-base)" :disabled="selectedTaskIds.size === 0 || !addToProjectSel" @click="addToProject">Add {{ selectedTaskIds.size }} to project</button>
+        <button v-if="!isLocked && addToProjectMode === 'new'" class="btn btn-sm btn-primary py-0 px-3" style="font-size:var(--text-base)" :disabled="selectedTaskIds.size === 0" @click="confirmAndGenerate">Create project</button>
+        <button v-if="!isLocked && addToProjectMode === 'existing'" class="btn btn-sm btn-primary py-0 px-3" style="font-size:var(--text-base)" :disabled="selectedTaskIds.size === 0 || !addToProjectSel" @click="addToProject">Add {{ selectedTaskIds.size }} to project</button>
       </div>
     </div>
 
@@ -584,7 +585,7 @@
                 </label>
                 <span v-if="row.isSource" class="cg-rm-tag">current</span>
                 <span v-else-if="row.already" class="cg-rm-tag">already added</span>
-                <span class="cg-rm-rate" :class="{ 'is-zero': row.zeroRate, 'is-custom': !row.zeroRate && (row.hasOverride || row.hasCustom) }">{{ row.effectiveRate }} {{ row.curSym }}/h</span>
+                <span class="cg-rm-rate" :class="{ 'is-zero': row.zeroRate, 'is-custom': !row.zeroRate && (row.hasOverride || row.hasCustom) }">{{ row.effectiveRate }} {{ row.curCode }}/h</span>
               </div>
             </div>
           </div>
@@ -755,7 +756,7 @@
 <script type="module" src="js/lib/costgrid-calc.js?v=7"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=1"></script>
 <script defer src="js/cg-controls.js?v=1"></script>
-<script defer src="js/costgrid.js?v=41"></script>
+<script defer src="js/costgrid.js?v=42"></script>
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>
@@ -958,7 +959,9 @@ Vue.createApp({
     },
     ratecardOptions() {
       const cur = this.draft?.currency || 'EUR';
-      const list = [{ value: '', label: 'None', sub: 'EUR · Master Data default rates' }];
+      // Label matches the closed Offer-details summary and board 5.13 ("None — global rates"),
+      // so the trigger and the summary never disagree.
+      const list = [{ value: '', label: '— None (use global role rates) —', sub: 'EUR · Master Data default rates' }];
       (this.filteredRatecards || []).forEach(rc => {
         // No role count is invented: when the loaded entry carries no entries array, the
         // sub-line is the currency alone.
@@ -1153,7 +1156,7 @@ Vue.createApp({
         ...r,
         already,
         effectiveRate: resolved.effectiveRate,
-        curSym: window.currencyInfo(currency, this.currencies).symbol,
+        curCode: currency,   // board 5.16 shows the ISO code ("135.00 EUR/h"), not the symbol
         hasOverride: resolved.isOverride,
         hasCustom: this.isClientRatecard && rcRate !== undefined && rcRate !== (r.rate || 0),
         zeroRate: !resolved.effectiveRate || resolved.effectiveRate === 0,

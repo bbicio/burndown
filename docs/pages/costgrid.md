@@ -192,3 +192,53 @@ Writing these as ordinary descendant selectors would recreate the exact bug they
 **Deferred, stated so it cannot resurface as a Gate 2 surprise:** portrait tablet inherits the
 mobile layout, which does not exist for this page yet, so it is deferred together with the
 smartphone cycle (D1/D4). Verified widths are 1440 / 1024 / 768 only.
+
+### Render-vs-board pass (Task 7, 2026-10-07)
+
+Captured with `scripts/shoot.mjs` against an isolated `scripts/test-branch.sh` stack — **not**
+`http://localhost`, which serves the main checkout (`docker-compose.yml:100` mounts `./` of the
+directory the stack was started from, so a worktree's edits are invisible there). Interactive
+states came from `--eval-file`; because the popovers close on `mousedown`, two that do not overlap
+on screen can be opened in one capture.
+
+Ten deviations were fixed in a follow-up commit: the full-width Proposal name field, the Ratecard
+trigger label ("— None (use global role rates) —", so the control and the closed summary agree),
+the month-picker footer on one line, the magenta border while a popover is open (`.cg-ctl--open`,
+not only `:focus-within` — a searchable list moves focus into its own search box), the magenta
+tint + magenta checkbox on a selected task row, the magenta (was green/yellow) selection-bar CTAs,
+`EUR/h` instead of the currency symbol in the Add-roles rate pill, the no-roles placeholder column
+(one continuous column taking each row's own look, instead of a per-cell dashed outline that
+rendered as a stack of boxes), the English phase-band date range, and the G-15 width trim below.
+
+**`cgFmtMonth` formatted with `'it-IT'`** (`js/costgrid.js`), so the phase band read
+"11 mag 2026 – 31 dic 2026". Pre-existing, not introduced by the redesign; now `'en-GB'`, per the
+English-only constraint.
+
+**G-15 is only partially met, by measurement.** Target: 5-6 role columns visible at 1440. Measured
+before: fixed column 323px, Description 150, totals 128/77/69/112, role columns 130 → **2 of 10
+visible**. After trimming the role-header cap to 112px, the totals columns' side padding, the TOTAL
+row's font and the task date pickers (112 → 84px): table scroll width 2030 → 1853px, **3-4 role
+columns visible**. The sticky first column stays at **323px** and is the remaining blocker: probing
+it in the browser (`min-width:1px !important`, emptying each cell in turn) showed the floor comes
+from the phase-header and task-header cells, but neither narrowing the date pickers nor removing
+the `<input>` intrinsic contribution (`width:1px`, `width:100%`) moves it — the column absorbs the
+freed space instead. Reaching the board's density needs the task cell restructured (or a
+`table-layout`/explicit-`<colgroup>` approach), which is a cycle of its own. The boards themselves
+show only 2 role columns, with shorter role names and amounts without cents.
+
+**Accepted, not changed** (recorded so they are not re-found as bugs): Reassign avatars are navy
+with white initials and the current-owner row is grey-tinted, where the board has light-grey
+avatars and a magenta row; the grid card header has no leading icon and no "Missing rate (0)"
+count (neither is in G-01…G-28); at 1024px the collapsed Offer-details summary wraps and "Edit"
+drops to its own line; the day picker keeps a fixed 6-week height, so a 5-week month leaves a gap
+below the grid (variable height would move the popover between months and is pinned by
+`dayGridMonth`'s tests); the phase "Select free (n)" pill is magenta where the board is amber and
+"Select all free (n)" is a button where the board has a link; the grid's horizontal scrollbar
+could not be verified from a render at all (headless Chrome does not paint overlay scrollbars) —
+`overflow-x: auto` is set, so this is a Gate 2 manual check, not a code change.
+
+**Open, deliberately not fixed here:** a **disabled `.btn-primary` renders Bootstrap blue**, because
+`css/style.css`'s `.btn-primary` block overrides `--bs-btn-bg`/`-hover`/`-active` but not
+`--bs-btn-disabled-bg`/`--bs-btn-disabled-border-color`. Visible on this page as the greyed-out
+"Add selected" in the Add-roles modal, where board 5.16 shows pale magenta. It is app-wide and
+fixing it means bumping `style.css`'s `?v=` on every page, so it belongs to its own cycle.

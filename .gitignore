@@ -29,3 +29,6 @@ docker-compose.test.yml
 
 # scripts/backup-db.sh writes real DB dumps here (PII) — never source-controlled
 backups/
+
+# scripts/shoot.mjs renders of the running app (real data) — verification artefacts only
+shots/
