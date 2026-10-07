@@ -142,12 +142,10 @@ Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page i
 ### File structure
 
 ```
-HTML pages               — every page is listed in the Pages table above: route, one-line purpose, and — for the
-                            pages that have one — a link to its docs/pages/<page>.md narrative. That table is the
-                            page index; do not restate per-page detail here. Pages with no docs/pages/ file yet:
-                            index.html, login.html, activate.html, reset-password.html, attribute-lists.html
-                            (index.html is a 9-line redirect to pipeline.html; config.html is a redirect stub to
-                            /master-clients.html and is covered by docs/pages/config.md).
+HTML pages               — the Pages table above is the page index: route, one-line purpose, and a docs/pages/
+                            link where that page has a narrative file (not all do). Do not restate per-page
+                            detail here. The table does not claim to be exhaustive of every .html file at the
+                            repo root — test-cases.html, for one, is not in it.
 css/                     — six stylesheets: tokens.css (design tokens, also `[v-cloak]`), style.css (components
                             + navigation), admin-crud.css, auth.css, pipeline.css, costgrid.css. Detail:
                             [docs/css/stylesheets.md](docs/css/stylesheets.md). App-wide rules stay in "Design
@@ -179,7 +177,9 @@ js/lib/                  — pure functions extracted for unit testing (vitest +
 api/src/routes/          — Express routes (auth, users, config, cost-grids, projects, timesheets,
                             reporting, exports, notifications, pipeline-years, client-groups, pots, reset,
                             app-settings, currencies, attribute-lists, resources, planning, planning-assistant).
-                            Per-route detail: docs/api/<name>.md.
+                            Several have a docs/api/<name>.md with the route-by-route detail — the entries below
+                            link theirs. The rest (auth, client-groups, cost-grids, pots, projects, reporting)
+                            have no docs file: read the route itself.
 api/src/routes/config.js — clients / client groups / programs / roles / ratecards CRUD (backs the Master Data pages). Full narrative: [docs/api/config.md](docs/api/config.md).
 api/src/routes/currencies.js — currencies admin surface (backs `master-currencies.html`). Detail: [docs/api/currencies.md](docs/api/currencies.md).
 api/src/routes/attribute-lists.js — generic tag/taxonomy CRUD; reads are requireAuth, writes requireAdmin, no DELETE by design. Detail: [docs/api/attribute-lists.md](docs/api/attribute-lists.md).

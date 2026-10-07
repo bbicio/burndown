@@ -1,6 +1,8 @@
 # api/src/routes/config.js
 
-Clients / client groups / programs / roles / ratecards CRUD (backs `config.html`).
+Clients / client groups / programs / roles / ratecards CRUD. It backs the Master Data pages (`master-clients.html`, `master-client-groups.html`, `master-pipelines.html`, `master-roles.html`, `master-currencies.html`) since the 2026-10-05 split; `config.html` itself is now only a redirect stub to `/master-clients.html`.
+
+**The `/programs*` routes are the exception:** no Master Data page uses them any more. Their only live callers are `project-config.html`, `costgrid.html` and `portfolio.html`. Anyone removing or changing Programs handling needs to look there, not at the `master-*` pages.
 
 This file holds the full implementation narrative for `api/src/routes/config.js` — route-by-route detail, cycle-by-cycle fixes, security findings. `CLAUDE.md`'s File structure entry keeps only a one-line pointer; when working on this file, read this file, not that line, for the detail. See `/sync-docs`'s routing rule for where future changes to this file should be written.
 
