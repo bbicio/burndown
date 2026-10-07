@@ -64,12 +64,23 @@ docker exec pdash-db rm /tmp/restore.dump
 
 **Full recreation from scratch** (empty volume, no backup — e.g. first-ever setup, or genuine data loss with no dump available): apply every migration file in `api/src/db/migrations/` in filename order, then bootstrap the first admin user:
 
-```powershell
-for f in api/src/db/migrations/*.sql; do docker exec -i pdash-db psql -U pdash -d pdash < "$f"; done
+Run this in **Bash** (the loop is bash syntax, not PowerShell):
+
+```bash
+for f in api/src/db/migrations/*.sql; do
+  printf '%s\n' "\\echo applying $(basename "$f")"   # %s: printf would read \e as ESC
+  cat "$f"
+  printf '\n'
+done | docker exec -i pdash-db psql -U pdash -d pdash -v ON_ERROR_STOP=1
 docker exec pdash-api node /app/src/create-admin.js <email> <password> [firstName] [lastName]
 ```
 
-This is the same migration-loop pattern `scripts/test-branch.sh` and `scripts/run-tests.sh` already use internally for their own isolated stacks — nothing in the running app (`api/Dockerfile`, `api/src/index.js`, `create-admin.js`) applies migrations automatically, so a genuinely empty `pdash-db` stays schema-less until this loop is run by hand.
+This is the same pattern `scripts/test-branch.sh` and `scripts/run-tests.sh` use internally for their own isolated stacks — nothing in the running app (`api/Dockerfile`, `api/src/index.js`, `create-admin.js`) applies migrations automatically, so a genuinely empty `pdash-db` stays schema-less until this is run by hand.
+
+**Three things that must stay this way, in all three copies** (2026-10-07; the per-file `docker exec` loop this replaced is still quoted in older specs/plans under `docs/superpowers/` as a historical record — do not copy it from there):
+1. **One piped `psql` session, not one `docker exec` per file.** A `docker exec` costs ~1.2 s on this machine (measured), so 30 files cost ~37 s per stack creation instead of ~1 s.
+2. **`-v ON_ERROR_STOP=1`.** Without it a failing migration is ignored and the run continues, leaving an incomplete schema with no error — the actual bug this fixed, worse than the lost time.
+3. **The `\echo applying …` marker and the trailing `printf '\n'`.** `psql` reports line numbers against the concatenated stream, so without the marker a failure never names the migration that broke; the trailing newline stops a file lacking one from fusing into the next. The marker must use `printf '%s\n'` — written as a format string, `printf '\\echo …'` makes printf emit `<ESC>cho applying …`, which `psql` ignores, silently losing every marker.
 
 To test a feature branch in isolation before merging (separate containers/ports, doesn't touch the `main` stack):
 
