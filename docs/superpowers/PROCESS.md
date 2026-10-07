@@ -113,6 +113,8 @@ Tutte e tre costruite. Non una per scenario ma una per tipo di gap — ciascuna 
 **Origine:** il ciclo pre-login restyling (7 file, solo CSS/markup) è durato 3h28m. Il tempo è andato in: 38 esecuzioni dei test in un container `node:22` che rifaceva `npm ci` ogni volta (44 min); verifica visiva con 3 giri di screenshot più un subagent dedicato a una correzione CSS di una riga (39 min); revisioni ripetute sullo stesso diff (4 per task, finale Opus, ri-revisione, poi di nuovo il Gate 3 di `/finish-cycle`); una discussione di processo a metà ciclo (17 min). Le regole sotto valgono per tutti e tre gli scenari.
 
 **1. Modalità e modello, scelti al passaggio Piano → Esecuzione.**
+- **La modalità va dichiarata, non dedotta da una parola dell'utente.** Al passaggio Piano → Esecuzione Claude dichiara in chat la modalità che applicherebbe *e la regola di questo paragrafo che la giustifica* (es. "4 file di produzione, nessuna migrazione, nessuna nuova API, i 4 task toccano gli stessi 2 file → **nativa** per §6.1; confermi?"), e attende la conferma. Una richiesta secca dell'utente ("subagent-driven") resta vincolante, ma va prima messa a confronto con la regola: nel ciclo Cost Grid A (2026-10-07) la richiesta è stata eseguita un secondo dopo senza verifica e i 4 implementatori sono poi girati **in serie, con zero sovrapposizione** — pagando per quattro volte il costo fisso del dispatch senza ottenere l'unico vantaggio della modalità, il parallelismo.
+- **Il Piano deve dire se i task sono indipendenti.** Subagent-driven presuppone task indipendenti: se il Piano non lo afferma esplicitamente (il Piano del ciclo Cost Grid A non lo diceva da nessuna parte), la precondizione non è soddisfatta e si va in nativa.
 - **Ciclo piccolo** (indicativamente ≤ 5 file, nessuna migrazione, nessuna nuova API, task fortemente sequenziali): esecuzione **nativa** (`superpowers:executing-plans`), oppure pochi task più grandi. Il costo fisso di ogni task subagent-driven (dispatch, pacchetto di revisione, revisore: 5–10 min) non si ripaga su modifiche di poche righe.
 - **Ciclo grande o con task indipendenti:** subagent-driven.
 - **Modello:** in subagent-driven gli implementatori girano su **Sonnet** (`model: sonnet`), mentre il coordinatore e la revisione finale dell'intero branch restano su Opus. In nativa l'utente cambia a mano il modello della sessione (`/model sonnet`) prima di implementare, e torna su Opus per la revisione finale e `/finish-cycle`. Brainstorming, spec, debugging e code review restano su Opus.
@@ -124,7 +126,8 @@ Tutte e tre costruite. Non una per scenario ma una per tipo di gap — ciascuna 
 
 **3. Una sola verifica visiva per ciclo.**
 - Di default la verifica visiva è quella dell'utente al Gate 2 di `/finish-cycle`; il Piano non include un task di screenshot automatici.
-- Gli screenshot automatici si fanno solo se decisi esplicitamente in `/brainstorming` (es. confronto con le tavole di un handoff di design a più larghezze) e scritti nel Piano, con gli stati e le larghezze da coprire. Lo script e il server simulato vanno scritti una volta sola, all'inizio della verifica.
+- Gli screenshot automatici si fanno solo se decisi esplicitamente in `/brainstorming` (es. confronto con le tavole di un handoff di design a più larghezze) e scritti nel Piano, con gli stati e le larghezze da coprire. **Lo strumento esiste già e non va reinventato: `scripts/shoot.mjs`** (vedi §6.6) — niente script usa-e-getta né server simulato, tranne per le pagine pubbliche se si vuole evitare il login.
+- **Non è vero che "in questo ambiente non si può rendere la pagina".** Claude in Chrome è bloccato per `localhost` da policy aziendale, ma **Chrome headless funziona** contro lo stack reale (verificato 2026-10-07 su `http://localhost/login.html`). L'affermazione contraria, scritta nel messaggio di commit `e0ae807` e nella memoria di progetto al merge del ciclo Cost Grid A, è stata corretta: non va più usata come motivazione per non verificare.
 - Un difetto visivo piccolo trovato in verifica (poche righe di CSS/markup) si corregge direttamente nella sessione principale, con il test mirato: niente subagent dedicato.
 
 **4. Niente revisioni doppie sullo stesso diff.** Se la revisione finale dell'intero branch (es. quella di subagent-driven) copre `main...HEAD` all'HEAD corrente, il Gate 3 di `/finish-cycle` non rilancia `/code-review`: lo dichiara e lo annota nel report. Valgono anche i commit successivi che contengono solo le correzioni di quella revisione, purché già ri-revisionati. In esecuzione nativa non c'è revisione per task: resta la sola revisione finale (o il Gate 3).
@@ -132,6 +135,33 @@ Tutte e tre costruite. Non una per scenario ma una per tipo di gap — ciascuna 
 **5. Brief e processo fuori dal ciclo.**
 - Il Brief (e l'eventuale handoff di design) è pronto e committato **prima** di aprire il ciclo. Se arriva un brief nuovo che sostituisce quello in discussione, si riparte da `/brainstorming`, senza riconciliare i ragionamenti precedenti.
 - Una modifica al processo emersa a metà ciclo si annota (in memoria o nel report) e si applica dopo `/finish-cycle`, con un commit `docs:` dedicato: non si discute durante l'esecuzione.
+
+---
+
+## 6.6 Cicli con tavole di design (2026-10-07)
+
+**Origine:** il ciclo Cost Grid redesign A è durato 4h30 e al Gate 2 l'UI è risultata "lontanissima dalle tavole". La retrospettiva (report in `~/.superpowers/diagnosing-superpowers/bc81e68a-6f44-4f39-90b5-1647f09afdbb/report.md`) ha stabilito che **nessun implementatore e nessun revisore ha mai aperto una tavola** (verificato su tutte e 23 le trascrizioni dei subagent) e che `/brainstorming` ne ha lette **5 su 24**, dichiarando poi "they match the brief precisely". Dei tre scostamenti trovati al Gate 2, due non richiedevano alcun browser: uno era una riga di spec non implementata (`Stage box, side by side, 280px stage box`) che il revisore del task ha comunque approvato come "Spec compliance ✅", gli altri due erano casi in cui l'implementatore **aveva seguito la spec** e la spec aveva divergito dalle tavole. Il punto cieco era l'immagine di riferimento mancante, non il motore di rendering.
+
+**1. In `/brainstorming` si leggono TUTTE le tavole, non un campione.**
+- Prima di scrivere la spec: `ls` della cartella design, poi una `Read` per **ogni** file immagine. Niente lettura a campione, e niente "le ho viste, corrispondono al brief" come conclusione.
+- Output obbligatorio: una **mappa tavola → sezione di spec** che la implementa. Ogni tavola senza sezione corrispondente diventa una domanda esplicita all'utente ("la 5.11 mostra un datepicker custom: dentro o fuori scope?"), non un'omissione silenziosa.
+- Un controllo nativo lasciato come fallback (`<select>`, `<input type="month">`) è una **decisione di fedeltà visiva**, non una scorciatoia di implementazione: va dichiarata per *ogni* campo a cui si applica e confermata dall'utente. Nel ciclo A il brief la ammetteva solo per Reassign e il tema è emerso come sorpresa al Gate 2 per Stage/Client/Ratecard e le date.
+
+**2. Ogni task del Piano porta le sue tavole.**
+- Ogni Task del Piano ha una riga `Boards:` con i path delle tavole che quel task deve riprodurre.
+- Il prompt di dispatch (o, in nativa, il passo di implementazione) include quei path con l'istruzione di **aprirli e confrontare il proprio markup con l'immagine** prima di chiudere il task. Costo: zero agenti in più, due righe di prompt.
+- Lo stesso vale per la revisione: un revisore senza l'immagine di riferimento può solo verificare la spec, non la fedeltà. Nel ciclo A nessuno dei 14 prompt di dispatch nominava una tavola.
+
+**3. Un passo di verifica va assegnato a chi può eseguirlo.**
+- Il Piano del ciclo A assegnava passi "Manual smoke check (desktop + 1024px + tablet)" a subagent senza browser: non sono stati eseguiti e nessuno ha dichiarato di averli saltati. Un passo di verifica va assegnato all'esecutore che può compierlo (screenshot via `scripts/shoot.mjs`, oppure esplicitamente il Gate 2 dell'utente) — mai a un esecutore che non ha lo strumento.
+- Non si eredita la verifica di qualcun altro: la revisione finale del ciclo A ha scritto "the per-task manual smoke checks covered it, so I didn't re-verify in a browser" mentre gli implementatori avevano tutti dichiarato di non averli eseguiti.
+
+**4. Strumento: `scripts/shoot.mjs`.**
+```bash
+node scripts/shoot.mjs --url /costgrid.html?cgId=UUID --out shots/costgrid \
+  --widths 1440,1024,768 --email <admin> --password <pwd>
+```
+Node puro, nessuna dipendenza (usa `fetch` e `WebSocket` globali, Node ≥ 22 — l'host ha Node 24): fa il login via `POST /api/auth/login`, inietta il cookie `pdash_token` via CDP, emula ogni larghezza richiesta e salva un PNG per larghezza. `--full` per la pagina intera, `--settle` per i ms di attesa dopo il load (Vue monta dopo `DOMContentLoaded`, quindi un'attesa serve sempre). Credenziali anche da `SHOOT_EMAIL`/`SHOOT_PASSWORD`. Senza credenziali rende solo le pagine pubbliche. **I PNG vanno poi riletti con `Read` e confrontati davvero con le tavole** — generarli e non guardarli non è una verifica.
 
 ---
 
