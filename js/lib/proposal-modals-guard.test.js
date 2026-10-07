@@ -38,3 +38,14 @@ describe('version label inline edit is gated', () => {
     expect(costgrid).toMatch(/editingVersionLabel[\s\S]{0,400}(isLocked|myPermission\s*===\s*'viewer')/);
   });
 });
+
+describe('grid safety rules', () => {
+  it('deletePhase checks task assignment before confirming', () => {
+    const fn = costgrid.match(/deletePhase\(phase\)\s*\{([\s\S]*?)\n\s*\},/)?.[1] || '';
+    expect(fn).toMatch(/isTaskAssigned/);
+  });
+
+  it('removeColumnConfirm is reset when a different role menu opens', () => {
+    expect(costgrid).toMatch(/openRoleMenu\(code\)\s*\{[\s\S]{0,200}removeColumnConfirm\s*=\s*null/);
+  });
+});
