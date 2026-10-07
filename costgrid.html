@@ -545,43 +545,54 @@
   <div class="modal fade" id="cgRoleSelectModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered" style="max-width:760px">
       <div class="modal-content">
-        <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold">{{ roleModalMode === 'change' ? '⇄ Change role' : roleModalMode === 'duplicate' ? '⊕ Duplicate column' : '👥 Add roles' }}</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-header border-0 pb-1">
+          <h6 class="modal-title fw-bold cg-rm-title">
+            <svg v-if="roleModalMode === 'change'" viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true"><path d="M2.5 5.5h9M9 3l2.5 2.5L9 8M13.5 10.5h-9M7 8l-2.5 2.5L7 13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg v-else-if="roleModalMode === 'duplicate'" viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true"><rect x="2.5" y="2.5" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 13.5h7a1 1 0 0 0 1-1v-7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            <svg v-else viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true"><circle cx="6" cy="5.2" r="2.4" stroke="currentColor" stroke-width="1.3"/><path d="M1.8 13c0-2.3 1.9-3.8 4.2-3.8s4.2 1.5 4.2 3.8M12.4 6.2v3.4M14.1 7.9h-3.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            <span>{{ roleModalMode === 'change' ? 'Change role' : roleModalMode === 'duplicate' ? 'Duplicate column' : 'Add roles' }}</span>
+            <span class="cg-rm-title-sub">· {{ roleRcName || 'None — global rates' }}</span>
+          </h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
         <div class="modal-body">
           <div class="mb-3">
-            <input type="text" id="cgRoleSearch" class="form-control form-control-sm mb-2" placeholder="Search by name or code..." v-model="roleSearch">
-            <div class="d-flex flex-wrap gap-1">
-              <button v-for="t in roleModalTeams" :key="t || 'All'" type="button" class="btn btn-sm py-0 px-2" :class="roleActiveTeam === t ? 'btn-primary' : 'btn-outline-secondary'" style="font-size:var(--text-sm)" @click="roleActiveTeam = t">{{ t || 'All' }}</button>
+            <div class="cg-rm-search">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.4" stroke="currentColor" stroke-width="1.3"/><path d="M10.4 10.4L14 14" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+              <input type="text" id="cgRoleSearch" placeholder="Search by name or code" v-model="roleSearch">
+            </div>
+            <div class="cg-rm-chips">
+              <button v-for="t in roleModalTeams" :key="t || 'All'" type="button" class="cg-rm-chip" :class="{ 'is-active': roleActiveTeam === t }" @click="roleActiveTeam = t">{{ t || 'All' }}</button>
             </div>
           </div>
-          <p class="small text-muted mb-2">
-            {{ roleModalMode === 'add' ? 'Roles already added are disabled.' : 'Select a single role. Roles already in the grid are disabled.' }}
-            <span v-if="roleRcName" style="color:var(--indigo-600,#4f46e5)">&#10022; Custom rates from <strong>{{ roleRcName }}</strong> applied.</span>
+          <p class="cg-rm-hint">
+            {{ roleModalMode === 'add' ? '' : 'Select a single role. ' }}
+            <span v-if="roleRcName">Custom rates from <strong>{{ roleRcName }}</strong> applied.</span>
           </p>
-          <div style="max-height:460px;overflow-y:auto">
-            <div v-if="!roleAllRoles.length" class="text-muted small text-center py-3">No roles available. Configure them in <strong>⚙ Config → Roles</strong>.</div>
+          <div class="cg-rm-list">
+            <div v-if="!roleAllRoles.length" class="text-muted small text-center py-3">No roles available. Configure them in <strong>Master Data → Roles</strong>.</div>
             <div v-else-if="!roleModalFilteredGroups.length" class="text-muted small text-center py-3">No results.</div>
             <div v-for="g in roleModalFilteredGroups" :key="g.team" class="mb-2">
-              <div style="font-size:var(--text-xs);font-weight:700;color:var(--indigo-500);text-transform:uppercase;letter-spacing:.04em;padding:2px 0 4px">{{ g.team }}</div>
-              <div v-for="row in g.roles" :key="row.code" class="form-check mb-1" :style="row.hasCustom && !row.already ? 'background:#f5f3ff;border-radius:4px;' : ''">
+              <div class="cg-rm-group">{{ g.team }}</div>
+              <div v-for="row in g.roles" :key="row.code" class="cg-rm-row" :class="{ 'is-custom': row.hasCustom && !row.already, 'is-disabled': row.already }">
                 <input class="form-check-input cg-role-checkbox" :type="row.isSingleMode ? 'radio' : 'checkbox'"
                   :id="'cgrc_' + row.id" :value="row.code" :data-label="row.label" :data-rate="row.effectiveRate"
-                  :name="row.isSingleMode ? 'cgRoleSelectSingle' : null" :disabled="row.already">
-                <label class="form-check-label" :for="'cgrc_' + row.id" :style="row.already ? 'color:var(--text-disabled)' : ''">
-                  <strong style="font-size:var(--text-md)">{{ row.label }}</strong>
-                  <span class="text-muted ms-1" style="font-size:var(--text-sm)">{{ row.code }}</span>
-                  <span v-if="row.zeroRate" class="ms-1 badge" style="background:#fff0f0;color:var(--color-danger);font-size:var(--text-xs)">⚠️ 0/h</span>
-                  <span v-else-if="row.hasOverride || row.hasCustom" class="ms-1 badge" style="background:#eef2ff;color:#4f46e5;border:1px solid #c7d2fe;font-size:var(--text-xs)">&#10022; {{ row.effectiveRate }} {{ row.curSym }}/h</span>
-                  <span v-else class="ms-1 badge" style="background:var(--sand-50);color:#666;font-size:var(--text-xs)">{{ row.effectiveRate }} {{ row.curSym }}/h</span>
-                  <span v-if="row.isSource" class="ms-1 badge" style="background:var(--text-muted);color:#fff;font-size:var(--text-xs)">current</span>
-                  <span v-if="row.already && !row.isSource" class="ms-1 text-muted" style="font-size:var(--text-xs)">(already added)</span>
+                  :name="row.isSingleMode ? 'cgRoleSelectSingle' : null" :disabled="row.already" @change="refreshRoleSelectionCount">
+                <label class="cg-rm-row-label" :for="'cgrc_' + row.id">
+                  <span class="cg-rm-row-name">{{ row.label }}</span>
+                  <span class="cg-rm-row-code">{{ row.code }}</span>
                 </label>
+                <span v-if="row.isSource" class="cg-rm-tag">current</span>
+                <span v-else-if="row.already" class="cg-rm-tag">already added</span>
+                <span class="cg-rm-rate" :class="{ 'is-zero': row.zeroRate, 'is-custom': !row.zeroRate && (row.hasOverride || row.hasCustom) }">{{ row.effectiveRate }} {{ row.curSym }}/h</span>
               </div>
             </div>
           </div>
         </div>
-        <div class="modal-footer border-0 pt-0">
-          <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-          <button class="btn btn-primary btn-sm" id="btnCgAddSelectedRoles" @click="confirmRoleSelection">Add selected</button>
+        <div class="modal-footer border-0 pt-0 cg-rm-footer">
+          <span class="cg-rm-footnote">Roles already in the grid are disabled.</span>
+          <button class="cg-btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-sm btn-primary" id="btnCgAddSelectedRoles" :disabled="roleSelectionCount === 0" @click="confirmRoleSelection">Add selected</button>
         </div>
       </div>
     </div>
@@ -617,7 +628,7 @@
   <div class="modal fade" id="cgProjectNameModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
       <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title fw-bold">🚀 Generate project</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-header"><h5 class="modal-title fw-bold">Generate project</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
           <div v-if="projectNameModal.error" class="alert alert-danger py-2">{{ projectNameModal.error }}</div>
           <div class="mb-3"><label class="form-label small fw-semibold">Project name</label><input type="text" class="form-control form-control-sm" v-model="projectNameModal.name" @input="projectNameModal.error=''" @keyup.enter="submitProjectNameModal" placeholder="e.g. Acme Corp — Phase 1"></div>
@@ -658,7 +669,7 @@
 <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
     <div class="modal-content shadow-lg">
-      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold" id="confirmModalTitle">⚠️ Confirm</h6></div>
+      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold" id="confirmModalTitle">Confirm</h6></div>
       <div class="modal-body pt-1"><p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p></div>
       <div class="modal-footer border-0 pt-2">
         <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
@@ -674,10 +685,10 @@
     <div class="modal-content">
       <div class="modal-header border-0 pb-1"><h5 class="modal-title fw-bold font-monospace" id="jsonViewerTitle">{ } JSON</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body p-0">
-        <div class="px-3 py-2 d-flex gap-2 align-items-center border-bottom" style="background:#f8f9fa">
-          <button class="btn btn-outline-secondary btn-sm" id="btnJsonCopy">📋 Copy</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btnJsonExport">⬇ Export .json</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btnJsonImport">⬆ Import .json</button>
+        <div class="px-3 py-2 d-flex gap-2 align-items-center border-bottom" style="background:var(--surface-light)">
+          <button class="btn btn-outline-secondary btn-sm" id="btnJsonCopy">Copy</button>
+          <button class="btn btn-outline-secondary btn-sm" id="btnJsonExport">Export .json</button>
+          <button class="btn btn-outline-secondary btn-sm" id="btnJsonImport">Import .json</button>
           <span class="text-muted small ms-auto">The textarea is editable — modify and click <strong>Apply</strong>.</span>
         </div>
         <div class="p-3"><textarea id="jsonViewerContent" class="form-control font-monospace" style="min-height:480px;font-size:.82rem;line-height:1.5;resize:vertical" spellcheck="false" autocomplete="off"></textarea><div id="jsonViewerError" class="text-danger small mt-2 d-none"></div></div>
@@ -691,11 +702,11 @@
 <div class="modal fade" id="clientsModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title fw-bold">👥 Clients</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-header"><h5 class="modal-title fw-bold">Clients</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body p-0">
         <div class="p-3 border-bottom d-flex justify-content-end"><button class="btn btn-sm btn-primary" onclick="openClientEditModal(null)">＋ New client</button></div>
         <table class="table table-sm align-middle mb-0">
-          <thead style="background:#f8f9fa"><tr><th class="ps-3">Name</th><th></th></tr></thead>
+          <thead style="background:var(--surface-light)"><tr><th class="ps-3">Name</th><th></th></tr></thead>
           <tbody id="clientsTableBody"><tr id="clientsEmptyRow"><td colspan="2" class="text-center text-muted py-4">No clients. Click <strong>＋ New client</strong>.</td></tr></tbody>
         </table>
       </div>
@@ -720,7 +731,7 @@
 <!-- Toast -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999">
   <div id="cgAutoSaveToast" class="toast align-items-center text-bg-secondary border-0" role="alert" data-bs-delay="2000">
-    <div class="d-flex"><div class="toast-body" style="font-size:.85rem">💾 Auto-saved</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
+    <div class="d-flex"><div class="toast-body" style="font-size:.85rem">Auto-saved</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
   </div>
 </div>
 
@@ -817,6 +828,7 @@ Vue.createApp({
       cloneGridName: '', cloneError: '', cloneSourceName: '',
       prevCurrency: 'EUR', // last-committed currency, used by Task 5's onCurrencyChange to detect+revert a change
       roleModalMode: 'add', roleModalSourceCode: null, roleSearch: '', roleActiveTeam: '', roleAllRoles: [], roleRcName: '',
+      roleSelectionCount: 0, // G-28: "Add selected" stays disabled until something is checked
       myRole: '',
       reassignOwnerOptions: [], reassignOwnerOptionsLoaded: false, reassignOwnerBusy: false,
       // Reactive copy of js/programs.js's own module-level cache — getPrograms() itself is a
@@ -1123,7 +1135,7 @@ Vue.createApp({
         if (this.cg) { this.cg.ownerId = newOwnerId; this.cg.ownerName = result.newOwner; }
         this.shareListRefreshTick++;
       } catch (e) {
-        showInfo(`Failed to reassign owner: ${e.message}`, '⚠️ Reassignment failed');
+        showInfo(`Failed to reassign owner: ${e.message}`, 'Reassignment failed');
       } finally {
         this.reassignOwnerBusy = false;
       }
@@ -1222,6 +1234,7 @@ Vue.createApp({
       this.ratecardMap = { ..._cgActiveRatecardMap };
       this.ratecardOverrides = { ..._cgActiveRatecardOverrides };
       this.isClientRatecard = _cgIsClientRatecard;
+      this.roleSelectionCount = 0;
       this.roleRcName = '';
       const rcId = this.draft?.ratecardId;
       if (rcId) {
@@ -1230,6 +1243,11 @@ Vue.createApp({
       }
       bootstrap.Modal.getOrCreateInstance(document.getElementById('cgRoleSelectModal')).show();
       this.$nextTick(() => document.getElementById('cgRoleSearch')?.focus());
+    },
+    // The checkboxes are plain DOM inputs read back by cgAddSelectedRoles(); this only
+    // mirrors how many are checked so the footer button can be disabled (G-28).
+    refreshRoleSelectionCount() {
+      this.roleSelectionCount = document.querySelectorAll('#cgRoleSelectModal .cg-role-checkbox:checked').length;
     },
     confirmRoleSelection() { cgAddSelectedRoles(); },
     versionTabLabel(v) {
@@ -1790,9 +1808,9 @@ Vue.createApp({
       const roleRows = preview.map(r =>
         `<tr>
           <td style="padding:3px 8px;font-size:.82rem">${esc(r.roleLabel)}</td>
-          <td style="padding:3px 8px;font-size:.82rem;text-align:right;color:#6b7280">${fmtR(r.currentRate, prevCurrency)}</td>
+          <td style="padding:3px 8px;font-size:.82rem;text-align:right;color:var(--text-muted)">${fmtR(r.currentRate, prevCurrency)}</td>
           <td style="padding:3px 8px;font-size:.82rem;text-align:right;font-weight:600">${fmtR(r.newRate, newCurrency)}</td>
-          ${r.isCustom ? `<td style="padding:3px 8px;font-size:.75rem;color:#dc3545">custom → reset</td>` : '<td></td>'}
+          ${r.isCustom ? `<td style="padding:3px 8px;font-size:.75rem;color:var(--color-danger-text)">custom → reset</td>` : '<td></td>'}
         </tr>`
       ).join('');
 
@@ -1826,10 +1844,10 @@ Vue.createApp({
       document.getElementById(`${modalId}Body`).innerHTML = `
         <p style="font-size:var(--text-sm);margin-bottom:8px">
           All role rates will be reset to their <strong>${esc(newCurrency)} baseline</strong>.
-          ${hasCustom ? '<span style="color:#dc3545">Custom rates will be lost.</span>' : ''}
+          ${hasCustom ? '<span style="color:var(--color-danger-text)">Custom rates will be lost.</span>' : ''}
         </p>
-        <table style="width:100%;border-collapse:collapse;border:1px solid #dee2e6;border-radius:4px;overflow:hidden">
-          <thead style="background:#f1f3f5">
+        <table style="width:100%;border-collapse:collapse;border:1px solid var(--border-light);border-radius:4px;overflow:hidden">
+          <thead style="background:var(--surface-light)">
             <tr>
               <th style="padding:4px 8px;font-size:.75rem;font-weight:600;text-align:left">Role</th>
               <th style="padding:4px 8px;font-size:.75rem;font-weight:600;text-align:right">Current (${esc(prevCurrency)})</th>

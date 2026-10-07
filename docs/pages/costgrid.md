@@ -91,3 +91,104 @@ Full visual/behavioral spec: `docs/superpowers/specs/2026-10-07-costgrid-redesig
 **Known, deliberately deferred to a separate future cycle (not a bug in this one):** the native browser controls for the month date pickers (`<input type="month">`), the Stage/Client/Ratecard `<select>` dropdowns, and the Reassign-owner `<select>` all render as plain OS/browser chrome — the design boards (5.11–5.15) show a custom calendar, a custom styled dropdown list, and a searchable people-picker with avatars respectively. The original brief explicitly allowed keeping a plain `<select>` for Reassign as a fallback; it did not flag the same gap for Stage/Client/Ratecard or the date inputs, and nothing in the build process could render the page to catch how far those would look from the boards until a human checked after merge. Matching the boards here means building shared custom form-control components (a date-picker, a styled dropdown-list, a people-picker) — real new scope for its own brainstorm/spec/plan cycle, not a quick restyle. The `#cgRoleSelectModal` ("Add roles") modal's plain `<select>`-era look is unrelated and was already explicitly out of scope per the original brief (§12).
 
 **Code review follow-ups accepted, not fixed this cycle** (see the finish-cycle report for this branch): `openRoleMenuCode`/`removeColumnConfirm` not reset on a version switch (could let a stale armed "remove" fire on the wrong role if the new version happens to reuse a role code); the structure-save API route has no server-side mirror of the new "can't delete an assigned phase/task" rule (client-only guard, consistent with this cycle's "no API changes" scope); the Sharing card's closed-summary avatars go stale after the share modal closes without a version switch; a default new-version label (`v{n+1}`) can collide with an existing label after a Draft is deleted; `hasFreeTasks`/`isTaskAssigned` still duplicate `cgFreeTasksOf`'s matching rule inline instead of calling it; `phaseFreeState`/`selectAllFreeState` duplicate the same none/some/all logic at two scopes with no shared helper.
+
+## Fidelity cycle (2026-10-07): the boards, pixel by pixel, and three custom form controls
+
+Spec: `docs/superpowers/specs/2026-10-07-costgrid-fidelity-design.md` (from the gap report
+`docs/superpowers/design/costgrid/2026-10-07-costgrid-fidelity-gap-report.md`, findings G-01…G-28
+plus user decisions D1–D4). Follow-up to cycle A above: that cycle built the structure, this one
+closes the distance to the boards and replaces the native form controls cycle A left behind — the
+item its own "deliberately deferred" paragraph named.
+
+### The three custom controls
+
+`js/cg-controls.js` (`?v=1`, loaded only by this page) defines three presentational Vue components,
+registered on the page's app exactly like `share-list`:
+
+| Component | Tag | Props | Emits |
+|---|---|---|---|
+| `window.CgDatePicker` | `<cg-date-picker>` | `modelValue`, `mode` (`'month'`\|`'day'`), `min`, `disabled`, `placeholder`, `ariaLabel` | `update:modelValue` — `'YYYYMM'` (month) or `'YYYY-MM-DD'` (day), `''` when cleared, **nothing** when the typed text is unparseable |
+| `window.CgSelect` | `<cg-select>` | `modelValue`, `options` (`{ value, label, sub?, dot?, disabled?, disabledReason? }`), `disabled`, `locked`, `lockedTitle`, `searchable`, `placeholder`, `ariaLabel`, `width` | `update:modelValue` |
+| `window.CgPeoplePicker` | `<cg-people-picker>` | `people` (`{ id, name, email }`), `currentId`, `disabled`, `footerNote`, `label` | `select` with the chosen id |
+
+They hold no business logic. Every existing handler (`onHeaderFieldChange`, `onPipelineChange`,
+`onClientChange`, `onRatecardChange`, `onCurrencyChange`, `onTaskDateChange`) is unchanged; thin
+adapter methods (`onPeriodChange`, `onStageSelect`, `onClientSelect`, `onRatecardSelect`,
+`onCurrencySelect`) write the emitted value and then call them, so each handler still reads the
+value back from `this.draft` the way the native `@change` left it. Pure logic lives in
+`js/lib/cg-controls-calc.js` (`?v=1`, vitest).
+
+Three things to know before touching them:
+
+1. **Bind the event as `@update:model-value`, hyphenated.** In an in-DOM template (this page has no
+   build step) the browser lowercases attribute names, so `@update:modelValue` never matches. Vue's
+   `emit()` falls back to the hyphenated handler name for model listeners, which is why the
+   hyphenated form works. Do **not** combine `v-model` with an explicit `@update:modelValue` on the
+   same component: `emit()` short-circuits on the first match, so only one of the two handlers runs.
+2. **The popover mechanism is the role ⋮ menu's**, copied deliberately: `<Teleport to="body">` plus a
+   `position: fixed` box computed from the trigger's `getBoundingClientRect()`, recomputed on
+   `scroll` (capture) and `resize`, closed on outside `mousedown`, on Escape (restoring focus) and on
+   select. That is what keeps a task date picker from being clipped by the horizontally scrolling
+   grid. It lives in one `cgPopover` mixin inside the file — do not invent a second one.
+3. **The Offer-details month pickers bind `draft.startDate`/`draft.endDate` directly** (`'YYYYMM'`).
+   The old `startDateInput`/`endDateInput` computeds existed only to convert to `<input
+   type="month">`'s `'YYYY-MM'` and were deleted with it.
+
+### G-14: why the role headers rendered sand instead of navy
+
+`#cgGridTable` carried Bootstrap's `table` class, whose `.table > :not(caption) > * > *` rule has
+specificity (0,1,1) and therefore beat every (0,1,0) per-cell rule in `css/costgrid.css` —
+`.cg-role-col-header { background: var(--brand-navy) }` among them. The class is gone
+(`<table class="cg-grid mb-0">`) and the handful of base rules the grid actually relied on
+(`border-collapse`, cell padding, `vertical-align`) are carried over **as
+`:where(.cg-grid) :where(th, td)`**. `:where()` contributes nothing to specificity, so the base layer
+sits at 0 and every per-cell class wins without `!important`. The row-level rules
+(`:where(.cg-task-row) > :where(td)` and friends) are written the same way for the same reason.
+Writing these as ordinary descendant selectors would recreate the exact bug they replace.
+
+### What else changed
+
+- **Header card:** Save/Clone/Export XLS/Share and the back link are one white `.cg-btn-secondary`
+  family; the only magenta button is the single state action (Publish to SIP / Generate project).
+  The row-1/row-2 hairline is gone, the stage pill lost its border (`CG_HEADER_STAGE_STYLE` no longer
+  carries a `border` key), and outside Draft the tray shows an inert "New version" segment with a
+  padlock plus the note "Published · versions locked after Publish to SIP" — a visual statement of
+  cycle A's existing rule, not a change to it.
+- **Offer details:** the closed summary stacks an uppercase micro-label above a bold value in three
+  hairline-separated groups with "Edit" vertically centred at the far right; the Owner row reads
+  `Owner: **name**  Created: **Oct 4, 2026**` with the Reassign trigger right-aligned; the Ratecard
+  field gained the hint "Optional · filtered by client"; every control is one ~36px height.
+- **The Reassign footer note from board 5.15 is deliberately NOT rendered.** The spec made it
+  conditional on the backend actually doing what it claims. It does not:
+  `PATCH /api/cost-grids/:id/reassign-owner` (`api/src/routes/cost-grids.js`) DELETEs the previous
+  owner's `'owner'` `resource_shares` row and creates no replacement share for them — only the *new*
+  owner gets editor grants on the linked projects. The line would be false, so it is omitted rather
+  than reworded into another unverified claim. If the backend ever grants the outgoing owner an
+  editor share, pass `footer-note="…"` to the component and the note appears.
+- **Grid:** fixed column 225px (the former 220px tablet override is dropped — one width above the
+  mobile breakpoint), Description 150px, totals columns ~95/75/50/70px, a ~65px header row with a
+  2-line clamped role name, an ellipsised code and the ⋮ as a bordered 24px square button at the
+  cell's top-right. "Compact columns" moved out of the "Phase / Task" cell into a toggle switch in
+  the grid-card header (same `compactHeader` state and persistence). Copy: "Totals by role" /
+  "Hours by role" / "Fees by role", "Total cost & fee", "Pass-through", "Hrs", "Fees",
+  "+ Add task", "Add roles". Task names are single-line bordered bold inputs, descriptions are
+  borderless two-line fields with no resize handle, "In {project}" is a short grey pill with a link
+  icon, hours and PTC are bordered boxes that go bold with a darker border when filled.
+- **Monthly Phasing:** the budget bar is navy on the light-grey track (was magenta).
+- **Add-roles modal** (`#cgRoleSelectModal`, same id, same handlers): SVG icons instead of the three
+  emoji titles, a magnifier search box, group filters as pill chips with "All" first and magenta
+  active, rows of checkbox + bold name + muted code + a right-aligned rate pill, the footnote
+  "Roles already in the grid are disabled.", and "Add selected" disabled until something is checked
+  (`roleSelectionCount`, refreshed by `refreshRoleSelectionCount` — the checkboxes are still plain
+  DOM inputs read back by `cgAddSelectedRoles()`).
+- **No hex, no emoji** anywhere from `#costGridEditorSection` to the end of the file, including the
+  JSON-viewer/Clients/Confirm modals, the autosave toast and the currency-change modal built in JS.
+  `js/lib/costgrid-guard.test.js` pins it, together with the `?v=` references and G-14's class swap.
+- **`scripts/shoot.mjs --eval` / `--eval-file` / `--eval-settle`** were added in the same cycle so the
+  interaction-dependent states (an open picker, the role menu, the modal) can be captured and
+  compared at all — the gap that produced cycle A's Gate 2 surprises. See `CLAUDE.md` and
+  `PROCESS.md` §6.6.
+
+**Deferred, stated so it cannot resurface as a Gate 2 surprise:** portrait tablet inherits the
+mobile layout, which does not exist for this page yet, so it is deferred together with the
+smartphone cycle (D1/D4). Verified widths are 1440 / 1024 / 768 only.
