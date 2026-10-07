@@ -403,15 +403,72 @@
 .cg-legend-swatch--zero { background: var(--color-danger-bg); border: 1px solid var(--color-danger); }
 .cg-legend-icon { color: var(--text-muted); flex-shrink: 0; }
 
-/* ── Grid: sticky first column (Task 3) ── */
+/* ── Grid: base table rules (G-14) ──
+   #cgGridTable no longer carries Bootstrap's `table` class: `.table > :not(caption) > * > *`
+   (specificity 0,1,1) overrode every themed cell rule here (0,1,0), which is why the role
+   headers rendered sand instead of navy. These are the only base rules the grid relied on. */
+.cg-grid {
+  width: 100%;
+  min-width: 700px;
+  border-collapse: collapse;
+  color: var(--text-primary);
+}
+/* :where() keeps this base layer at specificity 0, so every per-cell class below
+   wins without needing !important — the mistake Bootstrap's `.table` made here. */
+:where(.cg-grid) :where(th, td) {
+  padding: 6px 10px;
+  vertical-align: middle;
+  border: 1px solid var(--sand-border);
+}
+/* G-25: the table sits in a padded, rounded inner frame with a visible scrollbar. */
+.cg-grid-frame {
+  overflow-x: auto;
+  margin: 12px 14px 14px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  scrollbar-width: auto;
+}
+
+/* ── Grid: sticky first column (Task 3; G-15 narrows it to 225px) ── */
 .cg-col-fixed {
   position: sticky;
   left: 0;
   z-index: var(--z-sticky);
-  min-width: 280px;
+  min-width: 225px;
+  width: 225px;
   box-shadow: 2px 0 4px -2px rgba(0, 0, 0, .18);
 }
 .cg-col-fixed--header { z-index: calc(var(--z-sticky) + 1); }
+
+/* ── Grid: Totals-by-role collapsible bar + summary rows (G-19) ── */
+.cg-summary-bar { cursor: pointer; user-select: none; }
+.cg-summary-bar > td {
+  background: var(--surface-light);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-weight: var(--weight-semibold);
+  padding: 4px 12px;
+}
+.cg-summary-bar .cg-section-chevron { vertical-align: -2px; margin-right: 4px; }
+:where(.cg-summary-row) > :where(td) { background: var(--sand-200); }
+.cg-summary-label { font-weight: var(--weight-bold); font-size: var(--text-base); color: var(--text-secondary); padding-left: 12px; }
+.cg-summary-cell { text-align: center; font-weight: var(--weight-bold); font-size: var(--text-md); }
+
+/* ── Grid: hourly-rate row ── */
+:where(.cg-rate-row) > :where(td) { background: var(--sand-100); }
+.cg-rate-row-head { background: var(--sand-100); }
+.cg-currency-chip {
+  background: var(--brand-navy);
+  color: var(--text-inverse);
+  border-radius: var(--radius-xs);
+  padding: 3px 10px;
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  letter-spacing: .04em;
+}
+.cg-rate-row-caption { color: var(--text-muted); font-size: var(--text-xs); margin-left: 4px; }
+.cg-num { text-align: right; white-space: nowrap; font-size: var(--text-md); }
+.cg-num--strong { font-weight: var(--weight-bold); font-size: var(--text-lg); }
 
 /* ── Grid: rate-row custom/zero states (Task 3) ── */
 .cg-rate-cell {
@@ -439,24 +496,82 @@
 .cg-rate-note--custom { color: var(--color-warning-text); cursor: pointer; text-decoration: underline; }
 .cg-rate-note--zero { color: var(--color-danger); }
 
-/* ── Grid: role column header + ⋮ menu (Task 3) ── */
-.cg-role-col-header { text-align: center; background: var(--brand-navy); color: var(--text-inverse); border: 1px solid color-mix(in srgb, var(--brand-navy) 40%, var(--text-primary) 60%); font-weight: var(--weight-semibold); position: relative; }
+/* ── Grid: navy header row (G-16, G-20) ── */
+:where(.cg-head-row) > :where(th) {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--brand-navy);
+  color: var(--text-inverse);
+  border: 1px solid color-mix(in srgb, var(--brand-navy) 40%, var(--text-primary) 60%);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  vertical-align: bottom;
+  height: 65px;
+}
+.cg-head-row > th.cg-col-fixed--header { font-size: var(--text-md); }
+.cg-head-th--desc { min-width: 150px; }
+.cg-head-th--num { text-align: right; }
+
+/* ── Grid: role column header + ⋮ menu (Task 3; G-16 reshapes it) ── */
+.cg-role-col-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  text-align: center;
+  vertical-align: top;
+  background: var(--brand-navy);
+  color: var(--text-inverse);
+  border: 1px solid color-mix(in srgb, var(--brand-navy) 40%, var(--text-primary) 60%);
+  font-weight: var(--weight-semibold);
+  position: relative;
+  min-width: 92px;
+  max-width: 130px;
+  padding: 8px 22px 8px 8px;
+  height: 65px;
+}
+.cg-role-col-header.is-compact { min-width: 76px; padding: 4px 20px 4px 6px; vertical-align: middle; }
 .cg-role-col-header.is-zero { background: color-mix(in srgb, var(--color-danger) 55%, var(--brand-navy) 45%); }
-.cg-role-col-name { cursor: default; }
-.cg-role-col-code { font-size: var(--text-xs); color: var(--indigo-300); font-weight: var(--weight-regular); margin-top: 1px; }
-.cg-role-col-missing { font-size: var(--text-xs); color: color-mix(in srgb, var(--color-danger) 40%, var(--text-inverse) 60%); font-weight: var(--weight-regular); margin-top: 2px; }
-.cg-col-menu-btn {
-  border: none;
-  background: transparent;
+.cg-role-col-name {
+  cursor: default;
+  text-align: left;
+  font-size: var(--text-sm);
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cg-role-col-header.is-compact .cg-role-col-name { -webkit-line-clamp: 1; white-space: nowrap; text-overflow: ellipsis; }
+.cg-role-col-code {
+  font-size: var(--text-2xs);
   color: var(--indigo-300);
-  font-size: var(--text-md);
+  font-weight: var(--weight-regular);
+  margin-top: 1px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cg-role-col-missing { font-size: var(--text-2xs); color: color-mix(in srgb, var(--color-danger) 40%, var(--text-inverse) 60%); font-weight: var(--weight-regular); margin-top: 2px; text-align: left; }
+.cg-col-menu-btn {
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--text-inverse) 35%, transparent);
+  background: transparent;
+  color: var(--text-inverse);
   line-height: 1;
   cursor: pointer;
-  padding: 2px 4px;
-  margin-top: 4px;
+  padding: 0;
   border-radius: var(--radius-xs);
 }
-.cg-col-menu-btn:hover { background: rgba(255, 255, 255, .15); color: var(--text-inverse); }
+.cg-col-menu-btn:hover { background: color-mix(in srgb, var(--text-inverse) 15%, transparent); }
 .cg-col-menu {
   position: fixed;
   z-index: var(--z-fixed);
@@ -504,12 +619,182 @@
 .cg-col-placeholder--header { background: var(--surface-light); }
 .cg-col-placeholder--task { font-size: var(--text-xs); }
 
+/* ── Grid: phase band (G-21) ── */
+:where(.cg-phase-row) > :where(td) { background: var(--brand-mid); border: 1px solid var(--brand-dark); color: var(--indigo-100, var(--text-inverse)); }
+.cg-phase-head { background: var(--brand-navy); padding: 5px 8px; }
+.cg-phase-name {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-inverse);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  padding: 2px 4px;
+  height: 30px;
+}
+.cg-phase-name:focus { outline: none; box-shadow: 0 0 0 2px var(--focus-ring); border-radius: var(--radius-xs); }
+.cg-phase-pill {
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--text-inverse) 16%, transparent);
+  color: var(--text-inverse);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  padding: 3px 9px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.cg-phase-pill:hover:not(:disabled) { background: color-mix(in srgb, var(--text-inverse) 28%, transparent); }
+.cg-phase-pill:disabled { color: color-mix(in srgb, var(--text-inverse) 45%, transparent); cursor: not-allowed; }
+.cg-phase-pill--select { background: var(--brand-magenta); }
+.cg-phase-del {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: color-mix(in srgb, var(--text-inverse) 55%, transparent);
+  font-size: var(--text-xs);
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+.cg-phase-del:hover:not(:disabled) { color: var(--text-inverse); }
+.cg-phase-del:disabled { color: color-mix(in srgb, var(--text-inverse) 25%, transparent); cursor: not-allowed; }
+.cg-phase-dates { padding: 4px 8px; }
+.cg-phase-dates span { font-size: var(--text-xs); color: var(--indigo-300); font-weight: var(--weight-regular); }
+.cg-phase-num { text-align: right; white-space: nowrap; font-size: var(--text-md); font-weight: var(--weight-semibold); color: var(--indigo-100, var(--text-inverse)); }
+.cg-phase-num--strong { font-weight: var(--weight-bold); }
+.cg-phase-role { text-align: center; font-weight: var(--weight-semibold); font-size: var(--text-md); color: var(--indigo-200); }
+
+/* ── Grid: task rows (G-22, G-23, G-24) ── */
+:where(.cg-task-row) > :where(td) { background: var(--surface-white); border: 1px solid var(--border-light); vertical-align: middle; }
+.cg-task-head { vertical-align: top; padding: 6px; background: var(--surface-white); }
+.cg-task-name {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--surface-white);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+  padding: 3px 8px;
+}
+.cg-task-name:focus { outline: none; border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
+.cg-task-name:disabled { background: var(--surface-light); color: var(--text-muted); }
+.cg-task-del {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--text-disabled);
+  font-size: var(--text-xs);
+  line-height: 1;
+  padding: 2px 3px;
+  cursor: pointer;
+}
+.cg-task-del:hover { color: var(--color-danger); }
+.cg-task-desc-cell { vertical-align: top; min-width: 150px; padding: 6px; }
+.cg-task-desc {
+  width: 100%;
+  border: none;
+  background: transparent;
+  resize: none;
+  font-size: var(--text-sm);
+  line-height: 1.35;
+  color: var(--text-secondary);
+  padding: 2px 2px;
+  min-height: 38px;
+}
+.cg-task-desc:focus { outline: none; background: var(--surface-light); border-radius: var(--radius-xs); }
+.cg-task-num { text-align: right; white-space: nowrap; font-size: var(--text-sm); background: var(--sand-50); }
+.cg-task-ptc-cell { padding: 3px 5px; }
+.cg-task-hours-cell { padding: 3px 4px; text-align: center; }
+.cg-cell-box {
+  width: 100%;
+  min-width: 62px;
+  height: 30px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--surface-white);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  padding: 2px 6px;
+}
+.cg-cell-box--money { text-align: right; }
+.cg-cell-box:focus { outline: none; border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
+.cg-cell-box:disabled { background: var(--surface-light); color: var(--text-muted); }
+input.cg-cell-box.cg-cell-filled { border-color: var(--text-disabled); }
+
+/* ── Grid: "+ Add task" row (G-20) ── */
+:where(.cg-add-task-row) > :where(td) { background: var(--surface-light); border: 1px solid var(--border-light); padding: 3px 10px; }
+.cg-add-task-btn {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  padding: 0;
+  cursor: pointer;
+}
+.cg-add-task-btn:hover { color: var(--brand-navy); text-decoration: underline; }
+
 /* ── Grid: assigned-task lock + badge, TOTAL row, filled/empty cells (Task 3) ── */
-.cg-task-lock { color: var(--text-disabled); flex-shrink: 0; margin-top: 4px; display: inline-flex; }
-.cg-task-assigned-note { font-size: var(--text-2xs); color: var(--text-muted); margin-top: 2px; }
-.cg-row-total > td { border: 1px solid var(--indigo-200); border-top: 2px solid var(--indigo-500); }
+.cg-task-lock { color: var(--text-disabled); flex-shrink: 0; display: inline-flex; }
+/* G-23: a short grey pill with a link icon, single line, truncated. */
+.cg-task-assigned-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--surface-medium);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.cg-task-assigned-note span { overflow: hidden; text-overflow: ellipsis; }
+.cg-task-assigned-note svg { flex-shrink: 0; }
+:where(.cg-row-total) > :where(td) { border: 1px solid var(--indigo-200); border-top: 2px solid var(--indigo-500); }
+.cg-total-label { background: var(--indigo-50); font-weight: var(--weight-bold); padding: 7px 12px; font-size: var(--text-md); }
+.cg-total-cell { background: var(--sand-100); padding: 7px 10px; }
+.cg-total-cell--num { text-align: right; white-space: nowrap; font-size: var(--text-md); }
+.cg-total-cell--strong { font-weight: var(--weight-bold); font-size: var(--text-lg); }
+.cg-total-cell--role { background: var(--sand-50); text-align: center; font-weight: var(--weight-bold); font-size: var(--text-md); }
 .cg-cell-filled { font-weight: var(--weight-bold); color: var(--text-primary); }
 .cg-cell-empty { color: var(--text-disabled); font-weight: var(--weight-regular); }
+
+/* ── Compact-columns toggle switch (G-17) ── */
+.cg-switch { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; user-select: none; }
+.cg-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.cg-switch-track {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--surface-medium);
+  transition: background var(--duration-fast) var(--ease-out);
+  flex-shrink: 0;
+}
+.cg-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+  background: var(--surface-white);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.cg-switch input:checked + .cg-switch-track { background: var(--brand-magenta); }
+.cg-switch input:checked + .cg-switch-track .cg-switch-knob { transform: translateX(14px); }
+.cg-switch input:focus-visible + .cg-switch-track { box-shadow: 0 0 0 3px var(--focus-ring); }
+.cg-switch-label { font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }
 
 /* ── Selection bar (Task 4, 2026-10-07) ── */
 .cg-selection-bar {
@@ -577,7 +862,8 @@
 .cg-phasing-td-amount { text-align: right; padding: 5px 8px; min-width: 90px; }
 .cg-phasing-amount-cell { font-size: var(--text-sm); font-weight: var(--weight-bold); white-space: nowrap; }
 .cg-phasing-bar-track { margin-top: 3px; height: 4px; border-radius: var(--radius-full); background: var(--surface-medium); overflow: hidden; }
-.cg-phasing-bar-fill { height: 100%; background: var(--brand-magenta); border-radius: var(--radius-full); }
+/* G-27: navy fill on the light-grey track (was magenta). */
+.cg-phasing-bar-fill { height: 100%; background: var(--brand-navy); border-radius: var(--radius-full); }
 .cg-phasing-row-hours { background: var(--surface-light); }
 .cg-phasing-td-hours { text-align: right; padding: 3px 8px; font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
 
@@ -818,6 +1104,8 @@ button.cg-ctl-field:focus-visible {
 @media (max-width: 1024px) {
   .cg-header-row2 { flex-direction: column; align-items: stretch; }
   .cg-header-actions { flex-wrap: wrap; }
-  .cg-col-fixed { min-width: 220px; }
+  /* G-15 brought the desktop fixed column down to 225px, so the former 220px
+     override here is redundant and dropped: one column width above the mobile
+     breakpoint (spec §7). */
   .cg-legend { display: none; }
 }
