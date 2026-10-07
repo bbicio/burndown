@@ -344,6 +344,7 @@ Pipeline stage is stored on `costGridVersion.pipeline`. These locations must sta
 - `js/core.js` `pipelineBadge()` — uses `var(--pipeline-*-color)`
 - `js/costgrid.js` switch block — uses `var(--pipeline-*-color)`
 - `pipeline.html`'s inline `PB_STAGE_STYLE` const — uses `var(--pipeline-*-bg/color)`
+- `costgrid.html`'s inline `CG_HEADER_STAGE_STYLE` const (2026-10-07, costgrid redesign cycle A) — same `var(--pipeline-*-bg/color)` pattern as `pipeline.html`'s `PB_STAGE_STYLE`, for the header's own light-pill stage badge (the header pill needs the light look the design boards show, unlike `js/core.js`'s `pipelineBadge()`, which stays the solid secondary-badge style used for Linked projects cards elsewhere on the same page)
 
 Valid stages: `SIP`, `Expected`, `Anticipated`, `Committed`, `Canceled`.
 

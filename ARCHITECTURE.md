@@ -1027,9 +1027,10 @@ burndown/
                             pattern as pipeline.html/costgrid.html); since 2026-09-30 the views render the
                             server planning model (`POST /api/planning/model`) instead of calculating in the
                             browser. Full narrative: docs/pages/planning.md
-  costgrid.html           ← cost grid editor (phase/task/role table, phasing panel, version tabs,
-                            toolbar), Vue 3 (CDN, no build step, same pattern as pipeline.html/
-                            portfolio.html). Full narrative: docs/pages/costgrid.md
+  costgrid.html           ← cost grid editor (header card, collapsible Offer details/Tags/Sharing,
+                            phase/task/role table, Monthly Phasing), Vue 3 (CDN, no build step, same
+                            pattern as pipeline.html/portfolio.html); own stylesheet css/costgrid.css
+                            (2026-10-07 redesign). Full narrative: docs/pages/costgrid.md
   timesheets.html          ← admin-only timesheet upload management, Vue 3 (CDN, no build step). Full narrative: docs/pages/timesheets.md
   config.html             ← redirect stub (no shell, no Vue) to /master-clients.html (2026-10-05)
   master-clients.html, master-client-groups.html, master-pipelines.html, master-roles.html, master-currencies.html
