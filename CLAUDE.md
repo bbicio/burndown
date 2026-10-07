@@ -109,7 +109,7 @@ Still no linter on the frontend or backend.
 
 ## Architecture
 
-Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page is Vue 3 (loaded via CDN, no build step) except the 9-line `index.html` redirect — the Vue migration (tracked page-by-page below) completed 2026-08-05 when `planning.html`, the last holdout, moved over. A handful of shared library files (`js/costgrid.js`, `js/clients.js`, `js/roles.js`, `js/programs.js`, `js/ratecards.js`, `js/upload.js`, `js/shares.js`, `js/notifications.js`, `js/nav.js`, `js/core.js`, `js/api.js`, `js/api-sync.js`) remain classic (non-Vue) scripts loaded as globals by the Vue pages — see the file-by-file notes below for which pages load which.
+Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page is Vue 3 (loaded via CDN, no build step) except the 9-line `index.html` redirect — the Vue migration (tracked page-by-page below) completed 2026-08-05 when `planning.html`, the last holdout, moved over. A handful of shared library files (`js/costgrid.js`, `js/clients.js`, `js/roles.js`, `js/programs.js`, `js/ratecards.js`, `js/upload.js`, `js/shares.js`, `js/notifications.js`, `js/nav.js`, `js/core.js`, `js/api.js`, `js/api-sync.js`) remain classic (non-Vue) scripts loaded as globals by the Vue pages — for which pages load which, see [docs/js/shared-libs.md](docs/js/shared-libs.md) and the per-file `docs/js/` files pointed at from the File structure block below.
 
 ### Pages
 
@@ -181,7 +181,7 @@ api/src/routes/          — Express routes (auth, users, config, cost-grids, pr
 api/src/routes/config.js — clients / client groups / programs / roles / ratecards CRUD (backs the Master Data pages). Full narrative: [docs/api/config.md](docs/api/config.md).
 api/src/routes/currencies.js — currencies admin surface (backs `master-currencies.html`). Detail: [docs/api/currencies.md](docs/api/currencies.md).
 api/src/routes/attribute-lists.js — generic tag/taxonomy CRUD; reads are requireAuth, writes requireAdmin, no DELETE by design. Detail: [docs/api/attribute-lists.md](docs/api/attribute-lists.md).
-api/src/routes/pipeline-years.js — `GET /api/pipeline-years` returns `id, year, active, created_at` plus, since 2026-10-06, `offers` per year: the visible proposals (same visibility as `GET /api/cost-grids`) whose display version is not Draft and not Canceled; feeds the year menu "N offers". Non-admins only see active years.
+api/src/routes/pipeline-years.js — `GET /api/pipeline-years` returns `id, year, active, created_at` plus, since 2026-10-06, `offers` per year: the visible proposals (same visibility as `GET /api/cost-grids`) whose display version is not Draft and not Canceled; feeds the year menu "N offers". Non-admins only see active years (what happens when one selects an inactive year anyway: [docs/pages/pipeline.md](docs/pages/pipeline.md)).
 api/src/routes/users.js  — PATCH /:id (role/status), POST /:id/anonymize, DELETE /:id. Detail: [docs/api/users.md](docs/api/users.md).
 api/src/routes/exports.js — POST /api/exports/{portfolio|cost-grids|ratecards} + GET /api/exports/phasing. Detail: [docs/api/exports.md](docs/api/exports.md).
 api/src/routes/timesheets.js     — GET / (summary), POST /upload (XLS ingest + role/task validation gate), DELETE /:projectCode. Full narrative: [docs/api/timesheets.md](docs/api/timesheets.md).
@@ -198,7 +198,7 @@ api/src/lib/              — pure functions extracted for unit testing (node:te
                             and history: [docs/api/lib.md](docs/api/lib.md). project-rules.js + version-lock.js have
                             their own section below ("Project currency lock").
 api/src/services/        — email (nodemailer) and jwt, plus resource-matching, profile-engine/worker, llm,
-                            planning-assistant and planning-data. Index and detail:
+                            planning-assistant, planning-data and topic-extraction. Index and detail:
                             [docs/api/services.md](docs/api/services.md).
 api/src/middleware/auth.js — `requireAuth` (JWT cookie → `req.user`), `requireAdmin` (`role === 'admin' ||
                             role === 'sysadmin'`, JWT-cached — trusts the token's role claim for up to its 8h
@@ -309,7 +309,7 @@ Pipeline stage is stored on `costGridVersion.pipeline`. These locations must sta
 
 Valid stages: `SIP`, `Expected`, `Anticipated`, `Committed`, `Canceled`.
 
-Kept in sync on `config.projects[].pipeline` (a separate field from `costGridVersion.pipeline`) by `cgPropagatePipelineToProjects()` (`js/costgrid.js`), which runs on every change of the cost grid editor's Pipeline `<select>` and updates every project in `linkedProjects` — the only path that ever changes a version's pipeline stage. `getProjectPipeline(projectId)` (`js/core.js`) resolves the authoritative value for a given project: the linked cost grid version's `pipeline` if `costGridRef` is set, else `config.projects[].pipeline` directly. `planning.html`'s Resource Planning view (this logic lived in `js/planning.js` before that file was deleted during the page's Vue migration — see `planning.html`'s own file-structure entry above) deliberately reads `config.projects[].pipeline` directly rather than via `getProjectPipeline()` — by design, since resource planning applies once a task is converted into a project, not before — this is safe because of the propagation above, not despite it (verified: `docs/superpowers/audits/2026-07-09-project-pipeline-direct-reads-audit.md`).
+Kept in sync on `config.projects[].pipeline` (a separate field from `costGridVersion.pipeline`) by `cgPropagatePipelineToProjects()` (`js/costgrid.js`), which runs on every change of the cost grid editor's Pipeline `<select>` and updates every project in `linkedProjects` — the only path that ever changes a version's pipeline stage. `getProjectPipeline(projectId)` (`js/core.js`) resolves the authoritative value for a given project: the linked cost grid version's `pipeline` if `costGridRef` is set, else `config.projects[].pipeline` directly. `planning.html`'s Resource Planning view (this logic lived in `js/planning.js` before that file was deleted during the page's Vue migration — see [docs/pages/planning.md](docs/pages/planning.md)) deliberately reads `config.projects[].pipeline` directly rather than via `getProjectPipeline()` — by design, since resource planning applies once a task is converted into a project, not before — this is safe because of the propagation above, not despite it (verified: `docs/superpowers/audits/2026-07-09-project-pipeline-direct-reads-audit.md`).
 
 Do not confuse pipeline **stage** (`SIP`/`Expected`/.../`Canceled`, this section) with project **status** (`Not started yet`/`Started`/`Started At Risk`/`Put on hold`/`Completed` — a separate field, whose allowed values per pipeline stage are defined by `js/lib/status-rules.js`'s `getStatusRule()`).
 
@@ -401,7 +401,7 @@ The **Draft column is never filtered** — `stagesData`'s per-card filter check 
 
 **Redesign (2026-10-06):** the bar is now `.pb-toolbar` in `pipeline.html`: a search box with a suggestions menu (live filter as before; the menu is a shortcut — a client row sets `filterClientIds`, a proposal row opens the detail panel, "N more results — refine your search"; `pbSearchSuggestions`/`pbHighlight` in `pipeline-calc.js`), the four dropdowns rendered from the `filterGroups` computed (id prefix `flt-bar-`), "Clear filters" and the Amounts segmented control (`.pb-seg`). Below 768px the dropdowns and Amounts are hidden and a "Filters" button opens the bottom sheet `#pbFiltersSheet` (Bootstrap `offcanvas-bottom`): Amounts control, the same four groups in a 2×2 grid (id prefix `flt-sheet-`, same `filter*` state), "Show results". Draft stays unfiltered.
 
-Filter matching logic lives in `js/lib/pipeline-calc.js` (pure, vitest-covered) — see that file's own entry below for `pbPriceBucketKey`/`pbCardMatchesFilters`. Stage/pipeline-column filtering and a board-vs-scrolling-list view toggle were both explicitly discussed and deferred to a future cycle, not implemented here.
+Filter matching logic lives in `js/lib/pipeline-calc.js` (pure, vitest-covered) — see [docs/js/lib.md](docs/js/lib.md) for `pbPriceBucketKey`/`pbCardMatchesFilters`. Stage/pipeline-column filtering and a board-vs-scrolling-list view toggle were both explicitly discussed and deferred to a future cycle, not implemented here.
 
 ### Detail panel
 

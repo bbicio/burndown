@@ -12,7 +12,7 @@ It also carries `[v-cloak] { display: none; }` (2026-07). That rule is kept here
 
 ## css/style.css
 
-Component styles referencing tokens, loaded by every authenticated page.
+Component styles referencing tokens. Loaded by the authenticated pages that have the app shell — **not** by `terms.html`, which is authenticated but standalone (no navbar, no `initNav`) and links `tokens.css` only; that is precisely why the `[v-cloak]` rule lives in `tokens.css`, as the paragraph above explains.
 
 - `.pb-board-root` (2026-07) — extracted from `pipeline.html`'s former inline `style` attribute specifically so the `[v-cloak]` rule can win via the normal CSS cascade without needing `!important`.
 - `.tag-pill`/`.tag-group`/`.tag-pill--inactive`/`.tags-section--readonly` (2026-09, Cycle 2) — the tag-pill/chip component shared by `costgrid.html`/`project-config.html`'s Tags sections. See [docs/pages/costgrid.md](../pages/costgrid.md)'s "Tags" section for the component detail, the readonly-contrast decision, and a `:has()`-specificity bug found and fixed during the redesign.

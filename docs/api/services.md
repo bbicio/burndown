@@ -9,6 +9,7 @@ What lives in `api/src/services/`, and where each one is documented. `CLAUDE.md`
 | `profile-engine.js`, `profile-worker.js` | [docs/api/profile-engine.md](profile-engine.md) |
 | `llm.js`, `planning-assistant.js` | [docs/api/planning-assistant.md](planning-assistant.md) |
 | `planning-data.js` | [docs/api/planning-model.md](planning-model.md) |
+| `topic-extraction.js` | [docs/api/topics.md](topics.md) |
 
 ## email.js
 
@@ -29,3 +30,4 @@ Token signing/verification behind the `pdash_token` cookie. The middleware that 
 - `llm.js` (2026-09-30) — one `chat({ system, messages, tools })` interface over the Anthropic Messages API.
 - `planning-assistant.js` (2026-09-30) — DB loading and orchestration of the team assistant.
 - `planning-data.js` (2026-09-29) — loads projects/tasks, actuals, resources and aliases for the planning model and caches them for 30 s (`getPlanningData`, `invalidatePlanningData`, `visibleProjectIds`).
+- `topic-extraction.js` (2026-09-29) — extracts the competence vocabulary from project/task descriptions for the profile worker; the pure rules live in `api/src/lib/topic-extract.js` and the LLM call goes through `llm.js`.
