@@ -80,8 +80,8 @@
 | P-05 | Inactive year (non-admin) | Navigate to URL with a hidden year | 403 from API; empty board or error shown | |
 | P-06 | Draft invisible to others | Create Draft as User A; log in as User B | User B does not see User A's Draft grid | |
 | P-07 | Draft visible to creator | Create Draft; remain logged in | Draft appears on creator's own board | |
-| P-08 | New Cost Grid button | Click "+ New Cost Grid" on an active year | Modal opens; grid created and appears on board on submit | |
-| P-09 | New CG hidden on inactive year | Admin views an inactive year board | "+ New Cost Grid" button not displayed | |
+| P-08 | New Proposal button | Click "+ New Proposal" on an active year | Proposal created at once as "New proposal" (no modal, 2026-10-07) and opens in the editor with the name field focused/selected; appears on board on return | |
+| P-09 | New Proposal hidden on inactive year | Admin views an inactive year board | "+ New Proposal" button not displayed | |
 | P-10 | Detail panel opens | Click a cost grid card | Panel opens (480px, 2026-10-07) on the Overview tab, with header, version segments and the Overview · Tasks · Linked projects · POT tabs | |
 | P-11 | Detail panel closes | Click the ✕ in the panel header | Panel closes; full board visible | |
 | P-12 | POT tab — with target | Open detail for CG whose client has a POT this year, tab POT | Percentage, segmented bar (Committed/Anticipated/Expected/SIP) with "Target" notch, 2×2 grid, Contributing and Other lists | |
@@ -100,7 +100,7 @@
 | P-25 | Version selector — single version | Open detail for a grid with only one version | Header shows "Version" with a single segment (label + stage dot) | |
 | P-26 | Version selector — multiple versions | Open detail for a grid with V1 and V2 | "Version" segmented control with one segment per version (label + stage dot), active one in magenta | |
 | P-27 | Version tab switch | Click a different version tab | Panel content reloads for that version; clicked tab highlighted as active | |
-| P-28 | Clone from detail panel | Click ⧉ Clone in the detail panel header | Modal opens pre-filled with CG name + "— Copy"; source name shows currently viewed version | |
+| P-28 | Clone from detail panel | Click ⧉ Clone in the detail panel header | Clone created at once, named "{source name} — Copy" (no modal, 2026-10-07) | |
 | P-29 | Clone creates v1 | Clone any version (V2, V3, etc.) | Resulting new cost grid has a single version labelled "v1", not the source label | |
 | P-30 | Clone result opens editor | Complete clone flow | Navigated to `costgrid.html?cgId=<new>&verId=<new>`; editor shows cloned structure | |
 | P-31 | Delete button hidden for non-Draft | Open detail panel for a version in SIP/Expected/Anticipated/Committed/Canceled | `🗑 Delete` button absent from panel header | |
@@ -114,7 +114,7 @@
 | P-39 | Task list in linked-project chips — detail panel (R5) | Open detail panel for a cost grid whose linked project has assigned tasks | Each linked-project chip in the left column shows the assigned task names from `lp.taskNames` | |
 | P-40 | Delete proposal from card | Click 🗑 on a Draft card | Confirm modal appears; on confirm, the whole cost grid is deleted via API and the card disappears from the board — no error alert | |
 | P-41 | Detail panel Edit button navigates correctly | Open a detail panel, click ✏️ Edit | Navigates to `costgrid.html?cgId=<real-id>&verId=<real-id>` — not `cgId=null&verId=null` | |
-| P-42 | Outside-click ignores clicks inside spawned modals | Open a detail panel, click 🗑 Delete/⧉ Clone/🔗 Share to open the respective modal, then click inside that modal (e.g. its Confirm/input field) | Detail panel stays open; the modal's own action completes normally | |
+| P-42 | Outside-click ignores clicks inside spawned modals | Open a detail panel, click 🗑 Delete/🔗 Share to open the respective modal, then click inside that modal (e.g. its Confirm/input field) | Detail panel stays open; the modal's own action completes normally (⧉ Clone no longer opens a modal, 2026-10-07 — it acts at once and navigates to the editor) | |
 | P-43 | Detail panel loading state | Open a detail panel for a version whose structure isn't yet cached | A spinner shows while phases/tasks load, before content appears | |
 | P-44 | Detail panel load-failure state | Open a detail panel for a `cgId` that fails to resolve (e.g. stale/missing cost grid) | An explicit "Could not load cost grid. Try reloading the page." message shows instead of a silently empty/missing panel | |
 | P-45 | Refresh-rate failure uses in-app modal | Trigger a refresh-rate failure (e.g. API error) | Error shown via the app's own confirm-style modal, not a native browser `alert()` | |
@@ -149,6 +149,8 @@
 | P-74 | Tasks and Linked projects tabs | Open a proposal with tasks and generated projects | Tasks: per phase TASK · PERIOD · HOURS · AMOUNT; Linked: one card per project with code, stage + status pills and "Project Dashboard →"; empty-state texts when none | |
 | P-75 | POT special states | Tab POT on a Draft, on a proposal with no client, over a reached target | "Draft proposals don't count toward the POT."; "This proposal has no client, so it has no POT."; "OVER TARGET + € …" in green | |
 | P-76 | `/api/pots/summary` extended fields | GET summary for a client and a client-group target with SIP/Expected/Anticipated/Committed proposals + a Draft | `expected_total`/`sip_total` numeric; every row has numeric `value` and `client_name`; stage totals = sum of row values; Draft absent; group target returns both clients' proposals (test-api POT-08..POT-12) | ✓ |
+| P-77 | New Proposal focus flows into the editor (2026-10-07) | Click "+ New Proposal" on the board | Editor opens at `costgrid.html?cgId=…&verId=…&focus=name`; the Project name field is focused and its text selected; the URL loses `focus=name` right after (a reload doesn't repeat the focus) | |
+| P-78 | Clone a proposal with no client (2026-10-07) | Set a proposal's Client to "Unassigned" in the editor, save, then Clone it from the board or from the editor | Clone succeeds with no error; the copy's Client is also empty — not an API error (was `Clone failed: invalid input syntax for type uuid: "__unassigned__"`) | |
 ---
 
 ## 4. Cost Grid Editor
@@ -176,9 +178,9 @@
 | CG-18 | Hours display after API reload | Save 10 hours for a role; reload the page; reopen the grid | Hours cell shows `10,00` — no leading zeros or string-concatenation artefacts | |
 | CG-19 | PTC totals after API reload | Save a task with PTC €2,000; reload the page; reopen the grid | Task PTC, phase total, and grand total all show `€2,000.00` — no inflated values caused by string coercion | |
 | CG-20 | Version tab switch in editor | Open a grid with V1 + V2; click V1 tab while on V2 | V1 structure loaded from API; editor renders V1 phases/tasks; URL updated to V1 verId | |
-| CG-21 | Clone from editor toolbar | Click ⧉ Clone in editor toolbar | Modal opens; source name shows current CG + version label; cloned grid opens in editor with v1 label | |
+| CG-21 | Clone from editor toolbar | Click ⧉ Clone in editor toolbar | Clone created at once, named "{source name} — Copy" (no modal, 2026-10-07); cloned grid opens in editor with v1 label | |
 | CG-22 | Clone does not corrupt source | Clone from editor; navigate back to original grid | Original grid phases/tasks intact; no data loss or loop | |
-| CG-23 | Clone autosave safety | Edit a task → wait for autosave to trigger → immediately clone | Clone completes cleanly; source not saved mid-clone; no 500 errors | |
+| CG-23 | Clone autosave safety | Edit a task → immediately click ⧉ Clone, before the autosave timer fires | The pending edit is flushed (saved) first, then the clone is created from that saved state — the clone includes the edit; no 500 errors (2026-10-07; skipped for a viewer, who cannot save the source) | |
 | CG-24 | Delete Draft button — hidden for non-Draft | Open a version in any non-Draft stage (SIP, Committed, etc.) in the editor | `🗑 Delete version` button not displayed in the toolbar | |
 | CG-25 | Delete Draft button — visible for Draft | Open a Draft version in the editor | `🗑 Delete version` button visible in the toolbar (red outline style) | |
 | CG-26 | Delete Draft — only version blocked | Click `🗑 Delete version` on a Draft that is the only version of its cost grid | Alert shown: "Cannot delete the only version"; no deletion; user stays in editor | |
@@ -204,9 +206,9 @@
 | CG-53 | "+ New" client save ignores a fast repeat click | In the editor, click "+ New" next to the Client dropdown, type a name, then click Save twice in quick succession (or trigger the save call twice before the first resolves) | Only one client is created, not two | |
 | CG-54 | Save button reflects real completion, ignores a fast repeat click | Click "💾 Save" in the editor toolbar twice in quick succession before the first save resolves | The button disables for the duration of the actual save (not just a fixed timer); "✓ Saved" appears only once the save has really completed; the second click is ignored, not a second save attempt | |
 | CG-55 | Publish ignores a fast repeat confirm click | Click "🚀 Publish to SIP", then click "Confirm" in the dialog twice in quick succession before the first publish resolves | Only one publish attempt reaches the API; the second click is a no-op — no duplicate delete/publish calls | |
-| CG-56 | "+ New Proposal" ignores a fast repeat click | On the pipeline board, click "+ New Proposal", enter a name, then click "Create" twice in quick succession before the first request resolves | Only one new proposal is created, not two | |
-| CG-57 | Clone (toolbar/board) ignores a fast repeat click | Open the Clone modal (pipeline board or editor toolbar), enter a name, then click the Clone button twice in quick succession before the first request resolves | Only one cloned proposal is created, not two | |
-| CG-44 | Clone blocks if the source version's structure fails to load | Click ⧉ Clone on a version whose structure isn't already in memory; force that fetch to fail | Clone is blocked with an inline "Could not load the source proposal's structure. Please try again." error; no new cost grid/version is created on the API | |
+| CG-56 | "+ New Proposal" ignores a fast repeat click | On the pipeline board, click "+ New Proposal" twice in quick succession before the first request resolves (no modal, 2026-10-07) | Only one new proposal is created, not two | |
+| CG-57 | Clone (toolbar/board/panel) ignores a fast repeat click | Click a Clone control (pipeline board, detail panel or editor toolbar) twice in quick succession before the first request resolves (no modal, 2026-10-07) | Only one cloned proposal is created, not two | |
+| CG-44 | Clone blocks if the source version's structure fails to load | Click ⧉ Clone on a version whose structure isn't already in memory; force that fetch to fail | Clone is blocked with an app info-modal "Could not clone the proposal: could not load the source proposal's structure. Please try again." error (2026-10-07); no new cost grid/version is created on the API | |
 | CG-45 | Deleting a proposal's only version deletes the whole proposal | On a cost grid with exactly one version, trigger the version-delete action | The "Delete Cost Grid" confirmation appears (not a blocking alert); confirming deletes the entire proposal | |
 | CG-46 | Version tabs visible with a single version | Open a cost grid with exactly one version in the editor and in the pipeline board's detail panel | A version tab/label is shown in both views (previously hidden until a 2nd version existed) | |
 | CG-47 | Publish failure shows a styled dialog, not a native alert | Trigger a Publish failure (e.g. a stale local copy attempting to publish an already-non-Draft version) | A "⚠️ Publish failed" dialog appears with the error message, not a native browser alert | |
@@ -226,6 +228,8 @@
 | CG-68 | Sync-failure warning shown if project generation doesn't persist server-side | Complete Generate Project while the project's core API upsert fails (e.g. network interruption) | A "⚠️ Sync failed" info dialog appears instead of the normal success/navigate confirm; the selection toolbar has already exited | |
 | CG-69 | Exchange-rate display next to Currency field (2026-09) | Open a proposal in the editor; set Currency to a non-EUR currency (e.g. USD) | "1 EUR = X.XXXXXX" appears in small text under the Currency field, formatted to 6 decimals, using the offer's own frozen rate — not shown at all when Currency is EUR | |
 | CG-70 | Exchange-rate display updates live on currency change | Continuing from CG-69, switch Currency from EUR to a non-EUR currency inside the editor (no page reload) | The rate line appears immediately with the currency's current admin-set rate — not stale/`1.000000` until a reload | |
+| CG-71 | API refuses a new version on a published proposal (2026-10-07) | As admin, `POST /api/cost-grids/:id/versions` or `.../versions/:vId/duplicate` on a proposal that already has a non-Draft version | `400 { error, code: 'VERSION_RULE' }`; as sysadmin the same calls succeed (`201`); on a Draft-only proposal they succeed for admin too (test-api VR-01..VR-04) | ✓ |
+| CG-72 | A viewer can still clone the version open in another user's editor (2026-10-07) | As a viewer (shared, non-edit access) on a proposal, open it and click ⧉ Clone | Clone succeeds; the pending-autosave flush that precedes Clone is skipped for a viewer (who cannot save the source), so it does not 403 and abort the clone | |
 
 ---
 
