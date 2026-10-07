@@ -129,3 +129,60 @@ Page today: Start/End = native `<input type="month">` (`#cgStartDate`, `#cgEndDa
 | **Total** | **30** | | **Total** | **30** |
 
 **Shape of the work.** For desktop the page is structurally close to the boards (header card, three closed cards, rate row, phase bands, phasing card all exist and mostly look right). What is left is **mostly S-sized CSS/copy polish plus three M restructurings** (closed Offer-details summary, role header, task row inputs). The one real defect is **G-14 (white role headers)**, a CSS specificity bug that makes the grid look far from the board on its own, together with G-15/G-16 (column widths and header height) that push the role columns off-screen; fixing those three would remove most of the perceived distance. Nine items are plain implementation misses against an already-correct spec (incl. copy never applied and hex left behind). Real component work is confined to the **custom controls (L)** and the **smartphone cycle (L)**; the Add-roles modal restyle is M and optional. Still to verify interactively: everything listed under "Needs interactive capture", which may add further small items.
+
+---
+
+## Decisions taken by the user, 2026-10-07 (binding for the next cycle)
+
+These close the four open design questions this report raised. They were taken
+before `/brainstorming`, deliberately, so the spec cannot diverge from the boards
+the way cycle A's did.
+
+**D1 — Tablet: ignore `5.20-tablet-view.png` (it is a duplicate, no tablet board exists).**
+The rule is **orientation, not a dedicated tablet design**: in landscape a tablet
+behaves as **desktop**, in portrait as **mobile**.
+→ *Implementation note:* the existing width breakpoints already produce this with
+no orientation media query, because a landscape tablet is ≥ 1024px (desktop path)
+and a portrait one is < 1024px (mobile path). **Do not build
+`@media (orientation: …)` detection** — verify the two widths instead.
+→ *Consequence to respect:* combined with D4, a tablet **in portrait** inherits the
+mobile layout, which does not exist yet for this page — so portrait tablet is
+**deferred with the smartphone cycle**, not delivered here. Say this explicitly in
+the spec; it is exactly the kind of implied-but-unstated scope that surfaced as a
+surprise at cycle A's Gate 2.
+
+**D2 — Date granularity stays MONTH, and a board now exists:
+`docs/superpowers/design/costgrid/monthlypicker.jpg`.**
+(Note the filename: `monthlypicker.jpg`, not `monthypicker.jpg`.) This supersedes
+boards 5.11/5.12, which show day-granular calendars and must **not** be used as the
+target for this control. What the new board shows:
+- The `PERIOD` group is a **boxed/shaded panel** with an uppercase muted section
+  label — independent confirmation of G-08 and of spec §3.4's "Stage box".
+- Two fields side by side, **labels stacked above** the inputs ("Start month",
+  "End month"), placeholder `mm/yyyy`, a small calendar glyph inside the field on
+  the right. Helper text to the right of the group (truncated in the capture,
+  appears to be a duration in months).
+- Focus state: **magenta border plus a magenta glow ring**; unfocused is a light
+  grey border.
+- Popover: white, ~8px radius, drop shadow, ~250px wide. Header `‹  2026  ›`
+  (year centred, bold navy, chevrons for year navigation — no month-name header).
+  Body is a **3-column × 4-row grid of month abbreviations** (Jan…Dec), navy
+  semibold.
+- Selected month is an **outline pill** — magenta border, magenta bold text, white
+  fill (*not* a filled magenta chip).
+- Footer, visually separated: two small light outline buttons **"This month"** and
+  **"Next month"**, and a muted **"Clear"** text link right-aligned.
+
+**D3 — Canonical Offer-details layout is the one in `5.21-situazione-di-partenza-dopo-create.png`.**
+Where boards 5.11–5.15 show the older arrangement (G-13), 5.21 wins. The month
+picker board (D2) is consistent with it.
+
+**D4 — Smartphone stays out of scope.** Not a fidelity item; it is its own
+responsive cycle (G-30 stays deferred). See the portrait-tablet consequence in D1.
+
+**Scope agreed for the next cycle:** the 24 S items + the 4 M items + the custom
+form controls (L: month picker per D2, styled dropdown list for Stage/Client/
+Ratecard, searchable people-picker for Reassign) in **one single cycle** — chosen
+over two separate cycles because both touch the same two files (`costgrid.html`,
+`css/costgrid.css`) and the per-cycle fixed overhead would otherwise be paid
+twice. Smartphone and portrait tablet excluded.
