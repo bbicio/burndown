@@ -9,6 +9,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/tokens.css?v=9">
   <link rel="stylesheet" href="css/style.css?v=21">
+  <link rel="stylesheet" href="css/costgrid.css?v=1">
 </head>
 <body>
 
@@ -25,61 +26,90 @@
     {{ loadError }} <a href="/pipeline.html">← Back to Pipeline</a>
   </div>
   <template v-else>
-    <div class="page-title-bar">
-      <h4 class="fw-bold mb-0">{{ cg?.name || 'Cost Grid' }}</h4>
-    </div>
-    <div class="page-toolbar mb-2">
-      <div class="page-toolbar-left">
-        <button class="btn btn-outline-secondary btn-sm" @click="goBack" :disabled="backSaving">{{ backSaving ? '💾 Saving…' : '← Pipeline' }}</button>
+    <a href="#" class="cg-back-link" @click.prevent="goBack">{{ backSaving ? 'Saving…' : '← Pipeline' }}</a>
+
+    <div class="cg-header">
+      <div class="cg-header-row1">
+        <div class="cg-header-titlebox">
+          <h4 class="cg-header-name">{{ cg?.name || 'Cost Grid' }}</h4>
+          <div class="cg-header-subtitle">Cost Grid · Client: {{ resolvedClientName || 'Unassigned' }} · {{ (draft?.linkedProjects || []).length ? (draft.linkedProjects.length + ' linked project' + (draft.linkedProjects.length > 1 ? 's' : '')) : 'No linked projects' }}</div>
+        </div>
+        <span class="cg-stage-pill" v-html="pipelineBadge(draft?.pipeline)"></span>
       </div>
-      <div class="page-toolbar-right">
-        <button v-if="isDraft" class="btn btn-sm btn-outline-danger" @click="deleteVersion" title="Delete this Draft version">🗑 Delete version</button>
-        <button v-if="isDraft" class="btn btn-sm btn-primary" @click="publishDraft">🚀 Publish to SIP →</button>
-        <button v-if="isDraft" class="btn btn-sm btn-primary" @click="openNewVersionModal">+ New version</button>
-        <button class="btn btn-sm btn-outline-secondary" :disabled="proposalBusy" @click="cloneProposal" title="Clone this version as a new proposal">⧉ Clone</button>
-        <button v-if="!isDraft" class="btn btn-sm btn-outline-secondary" @click="openShareModal('cost_grid', cgId, cg.name)" title="Share this cost grid">🔗 Share</button>
-        <button class="btn btn-sm btn-outline-secondary" @click="exportXls">⬇ Export XLS</button>
-        <button v-if="!isLocked && !isDraft && hasFreeTasks" class="btn btn-sm btn-outline-secondary" @click="generateProject" title="Generate project in SIP">🚀 Generate Project</button>
-        <button id="btnCgSave" class="btn btn-sm btn-primary" @click="saveVersion">💾 Save</button>
-      </div>
-    </div>
-    <!-- Version tabs -->
-    <div v-if="cg && cg.versions.length > 0" class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-      <span class="small text-muted">Version:</span>
-      <div class="d-flex gap-1 flex-wrap">
-        <button v-for="v in cg.versions" :key="v.versionId"
-          class="btn btn-sm" :class="v.versionId === verId ? 'btn-primary' : 'btn-outline-secondary'"
-          style="font-size:.85rem" :title="versionTabTitle(v)" @click="switchVersion(v.versionId)">
-          {{ versionTabLabel(v) }}
-        </button>
+
+      <div class="cg-header-row2">
+        <div v-if="cg && cg.versions.length > 0" class="cg-version-seg">
+          <button v-if="isDraft" type="button" class="cg-version-seg-new" @click="createNewVersionDirect">+ New version</button>
+          <div v-for="v in cg.versions" :key="v.versionId" class="cg-version-seg-item" :class="{ 'cg-version-seg-item--active': v.versionId === verId }">
+            <template v-if="v.versionId === verId && editingVersionLabel && !isLocked && cg?.myPermission !== 'viewer'">
+              <input type="text" class="cg-version-label-input" v-model="draft.versionLabel"
+                     @blur="commitVersionLabelEdit" @keyup.enter="commitVersionLabelEdit" @keyup.esc="editingVersionLabel = false" autofocus>
+            </template>
+            <template v-else>
+              <button type="button" class="cg-version-seg-btn" :title="versionTabTitle(v)" @click="switchVersion(v.versionId)">{{ versionTabLabel(v) }}</button>
+              <svg v-if="versionIsLocked(v)" class="cg-version-lock-icon" viewBox="0 0 16 16" width="11" height="11" fill="none" :aria-label="versionTabTitle(v)">
+                <path d="M4 7V5a4 4 0 1 1 8 0v2M3.5 7h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3"/>
+              </svg>
+              <button v-if="v.versionId === verId && !isLocked && cg?.myPermission !== 'viewer'" type="button" class="cg-version-edit-btn"
+                      @click.stop="startEditingVersionLabel()" title="Rename version" aria-label="Rename version">
+                <svg viewBox="0 0 16 16" width="11" height="11" fill="none"><path d="M11.5 2.5l2 2L5 13l-2.6.6.6-2.6 8.5-8.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <div class="cg-header-actions">
+          <button id="btnCgSave" class="btn btn-sm btn-primary" @click="saveVersion">Save</button>
+          <button class="btn btn-sm btn-outline-secondary" :disabled="proposalBusy" @click="cloneProposal" title="Clone this version as a new proposal">Clone</button>
+          <button class="btn btn-sm btn-outline-secondary" @click="exportXls">Export XLS</button>
+          <button v-if="!isDraft" class="btn btn-sm btn-outline-secondary" @click="openShareModal('cost_grid', cgId, cg.name)" title="Share this cost grid">Share</button>
+          <span class="cg-header-divider"></span>
+          <button v-if="isDraft" class="btn btn-sm btn-primary" @click="publishDraft">Publish to SIP →</button>
+          <button v-else-if="!isLocked && hasFreeTasks && !selectionMode" class="btn btn-sm btn-outline-secondary" @click="generateProject" title="Generate project in SIP">Generate project</button>
+          <button v-else-if="selectionMode" class="btn btn-sm btn-outline-secondary" disabled>Selecting tasks…</button>
+          <span v-else-if="!isDraft && !hasFreeTasks" class="text-muted cg-header-muted-action">All tasks are in projects</span>
+        </div>
       </div>
     </div>
 
-    <div v-if="isLocked" class="alert mb-3 py-2 px-3 d-flex align-items-center gap-2"
-         style="background:var(--color-warning-bg);border:1px solid #ffc107;border-radius:var(--radius-sm);font-size:var(--text-base)">
-      <span>🔒</span>
+    <div v-if="isLocked" class="cg-banner cg-banner--warning">
+      <svg class="cg-banner-icon" viewBox="0 0 16 16" width="14" height="14" fill="none"><path d="M4 7V5a4 4 0 1 1 8 0v2M3.5 7h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3"/></svg>
       <span class="fw-semibold">{{ lockState.message }}</span>
     </div>
-    <div v-else-if="isDraft" class="alert mb-3 py-2 px-3 d-flex align-items-center justify-content-between gap-2"
-         style="background:#f8f9fa;border:1px solid #adb5bd;border-radius:var(--radius-sm);font-size:var(--text-base)">
-      <div class="d-flex align-items-center gap-2">
-        <span>✏️</span>
-        <span class="fw-semibold">Draft — private to you. Publish to make it visible in the shared pipeline.</span>
-      </div>
+    <div v-else-if="isDraft" class="cg-banner cg-banner--draft">
+      <span class="fw-semibold">Draft — private to you. Publish to make it visible in the shared pipeline.</span>
+      <button type="button" class="cg-banner-delete-link" @click="deleteVersion" title="Delete this Draft version">Delete version</button>
     </div>
 
     <!-- Editor body -->
     <div id="cgEditorBody">
       <!-- Header form -->
-      <div class="section-card mb-3">
-        <div class="section-header d-flex align-items-center" style="cursor:pointer;user-select:none" @click="offerDetailsCollapsed = !offerDetailsCollapsed">
-          <span style="font-size:var(--text-sm);margin-right:6px;color:var(--text-muted)">{{ offerDetailsCollapsed ? '▶' : '▼' }}</span>
-          <span>📄 Offer details</span>
-          <span v-if="offerDetailsCollapsed" class="text-muted ms-3" style="font-size:var(--text-base);font-weight:400">{{ offerDetailsSummary }}</span>
+      <div class="section-card cg-section-card mb-3">
+        <div class="section-header cg-section-header" role="button" tabindex="0" :aria-expanded="!offerDetailsCollapsed"
+             @click="toggleOfferDetails" @keydown.enter.prevent="toggleOfferDetails" @keydown.space.prevent="toggleOfferDetails">
+          <svg class="cg-section-chevron" :class="{ 'cg-section-chevron--collapsed': offerDetailsCollapsed }" viewBox="0 0 12 12" width="12" height="12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="cg-section-title">Offer details</span>
+          <div v-if="offerDetailsCollapsed" class="cg-offer-summary">
+            <div class="cg-offer-summary-group">
+              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Period</span><span class="cg-offer-summary-value">{{ offerDetailsSummary.period }}</span></span>
+              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Stage</span><span class="cg-offer-summary-value">{{ offerDetailsSummary.stage }}</span></span>
+            </div>
+            <span class="cg-offer-summary-sep"></span>
+            <div class="cg-offer-summary-group">
+              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Client</span><span class="cg-offer-summary-value">{{ offerDetailsSummary.client }}</span></span>
+              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Ratecard</span><span class="cg-offer-summary-value">{{ offerDetailsSummary.ratecard }}</span></span>
+              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Currency</span><span class="cg-offer-summary-value">{{ offerDetailsSummary.currency }}</span></span>
+            </div>
+            <span class="cg-offer-summary-sep"></span>
+            <div class="cg-offer-summary-group">
+              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Owner</span><span class="cg-offer-summary-value">{{ cg?.ownerName || '—' }}</span></span>
+            </div>
+          </div>
+          <span class="cg-section-toggle-label">{{ offerDetailsCollapsed ? 'Edit' : 'Collapse' }}</span>
         </div>
         <div v-show="!offerDetailsCollapsed" class="p-3">
           <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" style="font-size:var(--text-xs)">
-            <span class="text-muted">Owner: 👤 {{ cg?.ownerName || '—' }}, Created at: {{ draft?.createdAt ? new Date(draft.createdAt).toLocaleDateString() : '—' }}</span>
+            <span class="text-muted">Owner: {{ cg?.ownerName || '—' }}, Created at: {{ draft?.createdAt ? new Date(draft.createdAt).toLocaleDateString() : '—' }}</span>
             <template v-if="isAdminUser">
               <select class="form-select form-select-sm" style="width:auto;max-width:260px" :disabled="reassignOwnerBusy"
                       @change="onReassignOwnerChange">
@@ -89,38 +119,31 @@
               <span v-if="reassignOwnerBusy" class="text-muted">Reassigning…</span>
             </template>
           </div>
-          <div class="row g-2 align-items-end mb-2">
-            <div class="col-md-4">
-              <label class="form-label small fw-semibold mb-1">Project name</label>
-              <input type="text" class="form-control" id="cgProjectName" v-model="draft.projectName" placeholder="Project name" @change="onHeaderFieldChange" :disabled="isLocked">
+          <div class="row g-2 mb-2">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold mb-1">Proposal name</label>
+              <input type="text" class="form-control" id="cgProjectName" v-model="draft.projectName" placeholder="Proposal name" @change="onHeaderFieldChange" :disabled="isLocked">
             </div>
-            <div class="col-md-2">
+          </div>
+          <div class="row g-2 align-items-end mb-2">
+            <div class="col-md-3">
               <label class="form-label small fw-semibold mb-1">Start</label>
               <input type="month" class="form-control" id="cgStartDate" v-model="startDateInput" @change="onHeaderFieldChange" :disabled="isLocked">
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
               <label class="form-label small fw-semibold mb-1">End</label>
               <input type="month" class="form-control" id="cgEndDate" v-model="endDateInput" @change="onHeaderFieldChange" :disabled="isLocked">
             </div>
-            <div class="col-md-2">
-              <label class="form-label small fw-semibold mb-1">Currency</label>
-              <select class="form-select" id="cgCurrency" v-model="draft.currency" @change="onCurrencyChange" :disabled="currencyLocked" :title="currencyLockTitle">
-                <option v-for="cu in (currencies.length ? currencies : [{code:'EUR',symbol:'€',name:'Euro'}])" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.code }} — {{ cu.name }}</option>
-              </select>
-              <div v-if="draft.currency && draft.currency !== 'EUR'" class="text-muted" style="font-size:.72rem;margin-top:2px">
-                1 EUR = {{ Number(draft.currencyRate).toLocaleString('en', { minimumFractionDigits: 6 }) }} {{ (currencies.find(cu => cu.code === draft.currency) || {}).symbol || '' }}
-              </div>
-            </div>
-            <div class="col-md-2">
+            <div class="col-md-3" style="max-width:280px">
               <label class="form-label small fw-semibold mb-1">Pipeline stage</label>
-              <div v-if="isDraft" class="form-control-plaintext ps-2 fw-semibold" style="font-size:var(--text-md);color:#6c757d">✏️ Draft</div>
+              <div v-if="isDraft" class="form-control-plaintext ps-2 fw-semibold" style="font-size:var(--text-md);color:var(--text-muted)">Draft</div>
               <select v-else class="form-select" id="cgPipeline" v-model="draft.pipeline" @change="onPipelineChange" :disabled="isLocked">
                 <option v-for="p in ['SIP','Expected','Anticipated','Committed','Canceled']" :key="p" :value="p">{{ p }}</option>
               </select>
             </div>
           </div>
-          <div class="row g-2 mt-1 align-items-end">
-            <div class="col-md-6">
+          <div class="row g-2 mt-1 align-items-end mb-2">
+            <div class="col-md-4">
               <label class="form-label small fw-semibold mb-1">Client</label>
               <div class="d-flex gap-2">
                 <select class="form-select form-select-sm" id="cgClientId" v-model="clientIdInput" @change="onClientChange" :disabled="isLocked">
@@ -129,12 +152,21 @@
                 <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" @click="openClientsModal" style="white-space:nowrap">+ New</button>
               </div>
             </div>
-            <div class="col-md-6" id="cgRatecardCol">
+            <div class="col-md-4" id="cgRatecardCol">
               <label class="form-label small fw-semibold mb-1">Rate card <span class="text-muted fw-normal">(optional)</span></label>
               <select class="form-select form-select-sm" id="cgRatecardId" v-model="ratecardIdInput" @change="onRatecardChange" :disabled="isLocked">
                 <option value="">— None (use global role rates) —</option>
                 <option v-for="rc in filteredRatecards" :key="rc.id" :value="String(rc.id)">{{ rc.client_name ? rc.name + ' (' + rc.client_name + ')' : rc.name }}</option>
               </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold mb-1">Currency</label>
+              <select class="form-select" id="cgCurrency" v-model="draft.currency" @change="onCurrencyChange" :disabled="currencyLocked" :title="currencyLockTitle">
+                <option v-for="cu in (currencies.length ? currencies : [{code:'EUR',symbol:'€',name:'Euro'}])" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.code }} — {{ cu.name }}</option>
+              </select>
+              <div v-if="draft.currency && draft.currency !== 'EUR'" class="text-muted" style="font-size:.72rem;margin-top:2px">
+                1 EUR = {{ Number(draft.currencyRate).toLocaleString('en', { minimumFractionDigits: 6 }) }} {{ (currencies.find(cu => cu.code === draft.currency) || {}).symbol || '' }}
+              </div>
             </div>
           </div>
           <div class="row g-2">
@@ -145,7 +177,7 @@
           </div>
 
           <div v-if="(draft.linkedProjects || []).length" class="mt-3 pt-2 border-top">
-            <div class="small fw-semibold text-muted mb-2">🔗 Linked projects ({{ draft.linkedProjects.length }})</div>
+            <div class="small fw-semibold text-muted mb-2">Linked projects ({{ draft.linkedProjects.length }})</div>
             <div class="d-flex flex-wrap gap-2">
               <div v-for="lp in linkedProjectDisplay" :key="lp.currentProjId" class="border rounded p-2" style="font-size:var(--text-sm);background:var(--surface-light);min-width:220px">
                 <div class="d-flex align-items-start justify-content-between gap-2">
@@ -158,7 +190,7 @@
                     </div>
                     <div v-if="lp.taskNames.length" style="font-size:var(--text-xs);color:var(--text-muted);margin-top:5px"><span style="font-weight:600">Tasks:</span> {{ lp.taskNames.join(', ') }}</div>
                   </div>
-                  <button v-if="lp.hasProj" class="btn btn-xs btn-outline-secondary flex-shrink-0" @click="openLinkedProject(lp.currentProjId)" style="font-size:var(--text-xs);white-space:nowrap">📊 Project Dashboard</button>
+                  <button v-if="lp.hasProj" class="btn btn-xs btn-outline-secondary flex-shrink-0" @click="openLinkedProject(lp.currentProjId)" style="font-size:var(--text-xs);white-space:nowrap">Project Dashboard</button>
                 </div>
               </div>
             </div>
@@ -167,10 +199,16 @@
       </div>
 
       <!-- Tags -->
-      <div class="section-card mb-3">
-        <div class="section-header d-flex align-items-center" style="cursor:pointer;user-select:none" @click="tagsCollapsed = !tagsCollapsed">
-          <span style="font-size:var(--text-sm);margin-right:6px;color:var(--text-muted)">{{ tagsCollapsed ? '▶' : '▼' }}</span>
-          <span>🏷 Tags</span>
+      <div class="section-card cg-section-card mb-3">
+        <div class="section-header cg-section-header" role="button" tabindex="0" :aria-expanded="!tagsCollapsed"
+             @click="toggleTagsCollapsed" @keydown.enter.prevent="toggleTagsCollapsed" @keydown.space.prevent="toggleTagsCollapsed">
+          <svg class="cg-section-chevron" :class="{ 'cg-section-chevron--collapsed': tagsCollapsed }" viewBox="0 0 12 12" width="12" height="12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="cg-section-title">Tags</span>
+          <div v-if="tagsCollapsed" class="cg-tag-summary">
+            <span v-if="!tagsSummaryGroups.length" class="text-muted">None selected</span>
+            <span v-for="g in tagsSummaryGroups" :key="g.name" class="cg-tag-summary-pill">{{ g.name }} · {{ g.labels.join(', ') }}</span>
+          </div>
+          <span class="cg-section-toggle-label">{{ tagsCollapsed ? 'Edit' : 'Collapse' }}</span>
         </div>
         <div v-show="!tagsCollapsed" class="p-3" :class="{ 'tags-section--readonly': isLocked || cg?.myPermission === 'viewer' }">
           <div v-if="!attributeLists.length" class="text-muted" style="font-size:var(--text-sm)">No tag lists configured yet.</div>
@@ -194,10 +232,19 @@
       </div>
 
       <!-- Sharing -->
-      <div class="section-card mb-3">
-        <div class="section-header d-flex align-items-center" style="cursor:pointer;user-select:none" @click="sharingCollapsed = !sharingCollapsed">
-          <span style="font-size:var(--text-sm);margin-right:6px;color:var(--text-muted)">{{ sharingCollapsed ? '▶' : '▼' }}</span>
-          <span>📤 Sharing</span>
+      <div class="section-card cg-section-card mb-3">
+        <div class="section-header cg-section-header" role="button" tabindex="0" :aria-expanded="!sharingCollapsed"
+             @click="toggleSharingCollapsed" @keydown.enter.prevent="toggleSharingCollapsed" @keydown.space.prevent="toggleSharingCollapsed">
+          <svg class="cg-section-chevron" :class="{ 'cg-section-chevron--collapsed': sharingCollapsed }" viewBox="0 0 12 12" width="12" height="12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="cg-section-title">Sharing</span>
+          <div v-if="sharingCollapsed" class="cg-share-summary">
+            <div class="cg-share-avatars">
+              <span v-for="(ini, i) in shareSummary.initials" :key="i" class="cg-share-avatar">{{ ini }}</span>
+              <span v-if="shareSummary.count > 4" class="cg-share-avatar cg-share-avatar--more">+{{ shareSummary.count - 4 }}</span>
+            </div>
+            <span class="cg-share-summary-text">{{ shareSummary.count }} {{ shareSummary.count === 1 ? 'person' : 'people' }} · you are {{ shareSummary.myRole || 'viewer' }}</span>
+          </div>
+          <span class="cg-section-toggle-label">{{ sharingCollapsed ? 'Manage' : 'Collapse' }}</span>
         </div>
         <div v-show="!sharingCollapsed" class="p-3">
           <share-list :key="'sl-' + cgId + '-' + shareListRefreshTick" resource-type="cost_grid" :resource-id="cgId" :can-manage="cg?.myPermission !== 'viewer'"></share-list>
@@ -544,25 +591,6 @@
   </div>
 </div>
 
-<!-- New Version -->
-<div class="modal fade" id="cgNewVersionModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold">+ New version</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <label class="form-label small fw-semibold mb-1">Version label</label>
-        <input type="text" class="form-control form-control-sm" id="cgNewVersionLabel" placeholder="e.g. v2 client" autofocus>
-        <div class="form-text">The new version will be a copy of the current one.</div>
-        <div id="cgNewVersionError" class="text-danger small mt-2 d-none"></div>
-      </div>
-      <div class="modal-footer border-0 pt-0">
-        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-primary btn-sm" id="btnCgCreateVersion">Create</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- JSON Viewer -->
 <div class="modal fade" id="jsonViewerModal" tabindex="-1">
   <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:860px">
@@ -637,7 +665,7 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=7"></script>
-<script defer src="js/costgrid.js?v=39"></script>
+<script defer src="js/costgrid.js?v=40"></script>
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>
@@ -690,7 +718,8 @@ Vue.createApp({
       addToProjectModal: { projId: '', projName: '', taskNames: [], taskIds: [] },
       backSaving: false,
       proposalBusy: false, // true while cloneProposal is in flight (2026-10-07)
-      newVersionLabel: '', newVersionError: '',
+      editingVersionLabel: false, versionLabelBeforeEdit: '', // Task 2, 2026-10-07: inline version-label rename
+      shareSummary: { count: 0, initials: [], myRole: '' }, // Task 2, 2026-10-07: Sharing card closed-state summary
       cloneGridName: '', cloneError: '', cloneSourceName: '',
       prevCurrency: 'EUR', // last-committed currency, used by Task 5's onCurrencyChange to detect+revert a change
       roleModalMode: 'add', roleModalSourceCode: null, roleSearch: '', roleActiveTeam: '', roleAllRoles: [], roleRcName: '',
@@ -762,9 +791,25 @@ Vue.createApp({
     },
     grand() { return this.draft ? cgComputeGrandTotals(this.draft) : { hrs: 0, fee: 0, ptc: 0 }; },
     colTotals() { return this.draft ? cgComputeColumnTotals(this.draft) : {}; },
+    resolvedClientName() {
+      if (!this.draft?.clientId) return '';
+      return this.clients.find(c => c.id === this.draft.clientId)?.name || '';
+    },
+    resolvedRatecardName() {
+      if (!this.draft?.ratecardId) return '';
+      const rc = this.allRatecards.find(r => String(r.id) === String(this.draft.ratecardId));
+      return rc ? (rc.client_name ? rc.name + ' (' + rc.client_name + ')' : rc.name) : '';
+    },
     offerDetailsSummary() {
-      const v = this.draft; if (!v) return '';
-      return `${v.projectName || ''}${v.startDate ? '  ·  ' + v.startDate.slice(0,4)+'/'+v.startDate.slice(4,6) : ''}${v.endDate ? ' – ' + v.endDate.slice(0,4)+'/'+v.endDate.slice(4,6) : ''}  ·  ${v.currency || 'EUR'}`;
+      if (!this.draft) return { period: '', stage: '', client: '', ratecard: '', currency: '', owner: '' };
+      return window.cgOfferDetailsSummary(this.draft, { clientName: this.resolvedClientName, ratecardName: this.resolvedRatecardName });
+    },
+    tagsSummaryGroups() {
+      return this.attributeLists.map(list => {
+        const active = (list.items || []).filter(it => this.versionTagItemIds.includes(it.id)).map(it => it.label);
+        const inactive = this.inactiveAssignedForList(list.id).map(r => r.label);
+        return { name: list.name, labels: [...active, ...inactive] };
+      }).filter(g => g.labels.length);
     },
     startDateInput: {
       get() { return this.draft?.startDate ? this.draft.startDate.slice(0,4)+'-'+this.draft.startDate.slice(4,6) : ''; },
@@ -1011,8 +1056,7 @@ Vue.createApp({
     versionTabLabel(v) {
       const badge = cgLiveVersionBadge(v);
       const projCount = (v.linkedProjects || []).length;
-      const lockState = cgGetVersionLockState(this.cgId, v.versionId);
-      return v.versionLabel + badge.icon + (projCount > 0 ? ` (${projCount})` : '') + (lockState.locked ? ' 🔒' : '');
+      return v.versionLabel + badge.icon + (projCount > 0 ? ` (${projCount})` : '');
     },
     versionTabTitle(v) {
       const lockState = cgGetVersionLockState(this.cgId, v.versionId);
@@ -1050,7 +1094,21 @@ Vue.createApp({
       _cgActiveCgId = cgId; _cgActiveVersionId = resolvedVerId;
       _cgDraft = cgMigrateVersion(JSON.parse(JSON.stringify(version)));
       _cgSelectionMode = false; _cgSelectedTaskIds = new Set();
-      this.offerDetailsCollapsed = false; this.summaryCollapsed = false;
+      this.editingVersionLabel = false;
+      this.summaryCollapsed = false;
+      {
+        const isDraftVersion = version.pipeline === 'Draft';
+        const defaults = window.cgSectionDefaults(isDraftVersion);
+        let stored = null;
+        try {
+          const raw = localStorage.getItem('PDash_cgSections:' + cgId);
+          const parsed = raw ? JSON.parse(raw) : null;
+          stored = (parsed && typeof parsed === 'object') ? parsed : null;
+        } catch (e) { stored = null; }
+        this.offerDetailsCollapsed = stored?.od ?? defaults.od;
+        this.tagsCollapsed = stored?.tags ?? defaults.tags;
+        this.sharingCollapsed = stored?.sh ?? defaults.sh;
+      }
       this.cg = cgRec;
       // `this.draft` is assigned the SAME object as `_cgDraft` — not a clone of it — and this
       // is the ONLY place that reference is ever swapped (see Global Constraint 9). Every
@@ -1089,7 +1147,51 @@ Vue.createApp({
       window.history.replaceState(null, '', url.toString());
       document.title = 'PDash — ' + (this.cg?.name || 'Cost Grid');
 
+      this.loadShareSummary();
+
       this.loading = false;
+    },
+    async loadShareSummary() {
+      if (!this.cgId) { this.shareSummary = { count: 0, initials: [], myRole: '' }; return; }
+      try {
+        const rows = await Api.costGrids.shares.list(this.cgId);
+        const myRole = this.cg?.myPermission || (window.__navUser?.id === this.cg?.ownerId ? 'owner' : '');
+        this.shareSummary = {
+          count: rows.length,
+          initials: rows.slice(0, 4).map(r => navInitials(r)),
+          myRole,
+        };
+      } catch (e) {
+        console.warn('[costgrid] loadShareSummary failed:', e.message);
+        this.shareSummary = { count: 0, initials: [], myRole: '' };
+      }
+    },
+    persistSectionState() {
+      if (!this.cgId) return;
+      try {
+        localStorage.setItem('PDash_cgSections:' + this.cgId, JSON.stringify({
+          od: this.offerDetailsCollapsed, tags: this.tagsCollapsed, sh: this.sharingCollapsed,
+        }));
+      } catch (e) { /* storage unavailable — non-fatal */ }
+    },
+    toggleOfferDetails() { this.offerDetailsCollapsed = !this.offerDetailsCollapsed; this.persistSectionState(); },
+    toggleTagsCollapsed() { this.tagsCollapsed = !this.tagsCollapsed; this.persistSectionState(); },
+    toggleSharingCollapsed() { this.sharingCollapsed = !this.sharingCollapsed; this.persistSectionState(); },
+    versionIsLocked(v) { return cgGetVersionLockState(this.cgId, v.versionId).locked; },
+    startEditingVersionLabel() {
+      this.versionLabelBeforeEdit = this.draft?.versionLabel || '';
+      this.editingVersionLabel = true;
+    },
+    commitVersionLabelEdit() {
+      if (this.draft) {
+        const trimmed = (this.draft.versionLabel || '').trim();
+        this.draft.versionLabel = trimmed || this.versionLabelBeforeEdit || '';
+      }
+      this.editingVersionLabel = false;
+      cgScheduleAutoSave();
+    },
+    async createNewVersionDirect() {
+      await cgCreateNewVersionDirect();
     },
     async switchVersion(verId) {
       if (verId === this.verId) return;
@@ -1343,11 +1445,6 @@ Vue.createApp({
       const [my, mm] = mo.split('-');
       return new Date(parseInt(my), parseInt(mm) - 1).toLocaleString('en', { month: 'short' }) + ' ' + my;
     },
-    openNewVersionModal() {
-      document.getElementById('cgNewVersionLabel').value = '';
-      document.getElementById('cgNewVersionError').classList.add('d-none');
-      bootstrap.Modal.getOrCreateInstance(document.getElementById('cgNewVersionModal')).show();
-    },
     async cloneProposal() {
       if (!this.cgId || !this.verId) return;
       this.proposalBusy = true;
@@ -1484,10 +1581,6 @@ Vue.createApp({
 
     _cgVueApp = this; // wire the bridge — Global Constraint 7
 
-    document.getElementById('cgNewVersionModal').addEventListener('shown.bs.modal', () => {
-      document.getElementById('cgNewVersionLabel').focus();
-    });
-    document.getElementById('btnCgCreateVersion').addEventListener('click', cgCreateNewVersion);
     document.addEventListener('hidden.bs.modal', e => {
       if (e.target && e.target.id === 'shareModal') this.shareListRefreshTick++;
       // Any dismissal path (Cancel, X, backdrop, Esc) must abort the whole pending generation —
