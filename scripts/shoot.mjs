@@ -40,6 +40,10 @@ if (!args.url || args.help) {
   console.error('usage: node scripts/shoot.mjs --url <path-or-url> --out <dir> [--widths 1440,1024,768]');
   console.error('                              [--base http://localhost] [--height 900] [--full]');
   console.error('                              [--email X --password Y] [--settle 1500]');
+  console.error('                              [--eval "<js>" | --eval-file <path>] [--eval-settle 400]');
+  console.error('  --eval / --eval-file run JavaScript in the page after the settle wait and');
+  console.error('  before the capture, so interaction-dependent states (an open popover, a modal)');
+  console.error('  can be captured. A page exception fails the run instead of saving a PNG.');
   process.exit(args.help ? 0 : 2);
 }
 
@@ -50,6 +54,14 @@ const widths = String(args.widths || '1440,1024,768').split(',').map(s => parseI
 const height = parseInt(args.height || '900', 10);
 const settle = parseInt(args.settle || '1500', 10);
 const fullPage = Boolean(args.full);
+if (args.eval && args['eval-file']) { console.error('Use either --eval or --eval-file, not both.'); process.exit(2); }
+let evalSnippet = typeof args.eval === 'string' ? args.eval : null;
+if (args['eval-file']) {
+  const p = resolve(String(args['eval-file']));
+  if (!existsSync(p)) { console.error('--eval-file not found: ' + p); process.exit(2); }
+  evalSnippet = readFileSync(p, 'utf8');
+}
+const evalSettle = parseInt(args['eval-settle'] || '400', 10);
 // Read .env directly rather than relying on the shell: values there are not
 // always shell-safe (an unquoted value with a space breaks `. ./.env`).
 function fromDotEnv(key) {
@@ -174,6 +186,17 @@ try {
     }
     // Vue mounts after DOMContentLoaded and v-cloak only lifts then, so always settle.
     await new Promise(r => setTimeout(r, settle));
+
+    if (evalSnippet) {
+      const res = await rpc(ws, pending, 'Runtime.evaluate', {
+        expression: evalSnippet, awaitPromise: true, returnByValue: true,
+      }, sessionId);
+      if (res.exceptionDetails) {
+        const d = res.exceptionDetails;
+        throw new Error('--eval failed: ' + (d.exception?.description || d.text));
+      }
+      await new Promise(r => setTimeout(r, evalSettle));
+    }
 
     const shot = await rpc(ws, pending, 'Page.captureScreenshot', {
       format: 'png', captureBeyondViewport: fullPage,

@@ -55,7 +55,9 @@ function cgFmtMonth(isoDate) {
   if (!isoDate) return '';
   const d = new Date(isoDate + (isoDate.length === 10 ? 'T00:00:00' : ''));
   if (isNaN(d)) return '';
-  return d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+  // 'en-GB', not 'it-IT': all user-facing text is English (CLAUDE.md), and the phase
+  // band this feeds was rendering "11 mag 2026 – 31 dic 2026".
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 // dd/mm/yyyy ↔ yyyy-mm-dd helpers for task date inputs
@@ -385,21 +387,23 @@ function cgPreviewRateChange(targetCurrency) {
   }).filter(Boolean);
 }
 
+// Normalises the header fields before a save. It used to read them back out of the DOM
+// by id, which was correct while the editor was vanilla; since the 2026-10-07 fidelity
+// cycle the header is rendered by costgrid.html's Vue instance -- the proposal name and
+// description through v-model, stage/client/ratecard/currency/period through the
+// on*Select/onPeriodChange adapters -- and `this.draft` IS this module's `_cgDraft`, so
+// the object is already current. The DOM reads survived that change and, because
+// #cgPipeline/#cgCurrency/#cgClientId/#cgRatecardId/#cgStartDate/#cgEndDate no longer
+// exist, their `|| default` fallbacks silently reset the stage to SIP, the currency to
+// EUR, the client to __unassigned__, the ratecard to null and the period to empty on
+// every single autosave. Never reintroduce a getElementById here -- costgrid-guard.test.js
+// fails if one comes back.
 function cgSyncHeaderFromForm() {
   if (!_cgDraft) return;
-  _cgDraft.projectName = document.getElementById('cgProjectName')?.value.trim() || '';
-  const sd = document.getElementById('cgStartDate')?.value;
-  const ed = document.getElementById('cgEndDate')?.value;
-  _cgDraft.startDate   = sd ? sd.replace('-','') : '';
-  _cgDraft.endDate     = ed ? ed.replace('-','') : '';
-  _cgDraft.currency    = document.getElementById('cgCurrency')?.value || 'EUR';
-  // Preserve Draft stage — the dropdown is hidden for Draft versions
-  if (_cgDraft.pipeline !== 'Draft') {
-    _cgDraft.pipeline = document.getElementById('cgPipeline')?.value || 'SIP';
-  }
-  _cgDraft.note        = document.getElementById('cgNote')?.value.trim() || '';
-  _cgDraft.clientId    = document.getElementById('cgClientId')?.value || '__unassigned__';
-  _cgDraft.ratecardId  = document.getElementById('cgRatecardId')?.value || null;
+  // Nothing to copy any more, and deliberately nothing to normalise either: _cgDraft is
+  // the object Vue has bound to the inputs, so trimming here (as this did briefly) let a
+  // debounced autosave rewrite a field the user was still typing into, eating the space
+  // just entered. Trimming happens on blur, in costgrid.html's onHeaderFieldChange().
   renderCgPhasing();
 }
 

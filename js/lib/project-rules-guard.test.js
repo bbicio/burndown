@@ -10,9 +10,12 @@ describe('project rules are wired into the pages', () => {
     });
   }
 
-  it('costgrid.html disables the currency menu with the version lock', () => {
+  it('costgrid.html locks the currency menu with the version lock', () => {
+    // 2026-10-07: the native <select id="cgCurrency"> became <cg-select>, whose `locked`
+    // prop renders the padlocked, non-opening box and keeps `currencyLockTitle` as the title.
     const t = read('costgrid.html');
-    expect(t).toMatch(/id="cgCurrency"[^>]*:disabled="currencyLocked"/);
+    expect(t).toMatch(/<cg-select[^>]*:options="currencyOptions"[\s\S]{0,200}?:locked="currencyLocked"/);
+    expect(t).toMatch(/:locked-title="currencyLockTitle"/);
     expect(t).toMatch(/versionCurrencyLocked\(/);
   });
 
