@@ -25,7 +25,7 @@ describe('New Proposal / Clone modals removed', () => {
 
     expect(costgridJsVersion(pipeline)).toBe('39');
     expect(costgridJsVersion(costgrid)).toBe('39');
-    expect(costgridCalcVersion(pipeline)).toBe('6');
-    expect(costgridCalcVersion(costgrid)).toBe('6');
+    expect(costgridCalcVersion(pipeline)).toBe('7');
+    expect(costgridCalcVersion(costgrid)).toBe('7');
   });
 });

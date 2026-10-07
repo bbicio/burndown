@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+﻿import { describe, it, expect } from 'vitest';
 import {
   resolveRoleRate, cgComputeTaskTotals, cgComputePhaseTotals, cgComputeGrandTotals, cgComputeColumnTotals,
   versionHasFreeTasks, isVersionCommittedLocked, stripCloneTaskIds, findExistingProgramForProposal,
-  cgApiClientId,
+  cgApiClientId, cgFreeTasksOf, cgOfferDetailsSummary, cgSectionDefaults,
 } from './costgrid-calc.js';
 
 describe('findExistingProgramForProposal', () => {
@@ -300,4 +300,58 @@ describe('cgApiClientId', () => {
   it('turns an arbitrary non-UUID string into null', () => {
     expect(cgApiClientId('abc')).toBeNull();
   });
+});
+
+describe('cgFreeTasksOf', () => {
+  const linkedProjects = [{ taskIds: ['t1'], taskNames: ['UX Research'] }];
+
+  it('excludes a task assigned by id', () => {
+    const tasks = [{ taskId: 't1', taskName: 'Kickoff' }, { taskId: 't2', taskName: 'Build' }];
+    expect(cgFreeTasksOf(tasks, linkedProjects).map(t => t.taskId)).toEqual(['t2']);
+  });
+
+  it('excludes a task assigned by name alias only (not id)', () => {
+    const tasks = [{ taskId: 't9', taskName: 'UX Research' }, { taskId: 't2', taskName: 'Build' }];
+    expect(cgFreeTasksOf(tasks, linkedProjects).map(t => t.taskId)).toEqual(['t2']);
+  });
+
+  it('excludes a nameless or whitespace-only task', () => {
+    const tasks = [{ taskId: 't3', taskName: '' }, { taskId: 't4', taskName: '   ' }, { taskId: 't2', taskName: 'Build' }];
+    expect(cgFreeTasksOf(tasks, linkedProjects).map(t => t.taskId)).toEqual(['t2']);
+  });
+
+  it('returns everything free when linkedProjects is empty', () => {
+    const tasks = [{ taskId: 't2', taskName: 'Build' }];
+    expect(cgFreeTasksOf(tasks, []).length).toBe(1);
+  });
+});
+
+describe('versionHasFreeTasks (regression after refactor)', () => {
+  it('still returns true/false consistently with cgFreeTasksOf', () => {
+    const ver = { phases: [{ tasks: [{ taskId: 't1', taskName: 'A' }] }], linkedProjects: [] };
+    expect(versionHasFreeTasks(ver)).toBe(true);
+    ver.linkedProjects = [{ taskIds: ['t1'], taskNames: [] }];
+    expect(versionHasFreeTasks(ver)).toBe(false);
+  });
+});
+
+describe('cgOfferDetailsSummary', () => {
+  it('formats a fully-populated draft', () => {
+    const draft = { startDate: '202605', endDate: '202612', pipeline: 'SIP', clientId: 'c1', ratecardId: 'r1', currency: 'USD' };
+    const out = cgOfferDetailsSummary(draft, { clientName: 'Acme', ratecardName: 'Standard 2026' });
+    expect(out).toEqual({ period: expect.stringContaining('2026'), stage: 'SIP', client: 'Acme', ratecard: 'Standard 2026', currency: 'USD', owner: expect.any(String) });
+  });
+
+  it('falls back to placeholders when empty', () => {
+    const draft = { startDate: '', endDate: '', pipeline: 'Draft', clientId: null, ratecardId: null, currency: 'EUR' };
+    const out = cgOfferDetailsSummary(draft, { clientName: null, ratecardName: null });
+    expect(out.period).toBe('Not set');
+    expect(out.client).toBe('Unassigned');
+    expect(out.ratecard).toBe('— None (use global role rates) —');
+  });
+});
+
+describe('cgSectionDefaults', () => {
+  it('Draft defaults to all open', () => { expect(cgSectionDefaults(true)).toEqual({ od: false, tags: false, sh: false }); });
+  it('non-Draft defaults to all closed', () => { expect(cgSectionDefaults(false)).toEqual({ od: true, tags: true, sh: true }); });
 });
