@@ -8,7 +8,10 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 const pipeline = read('pipeline.html');
 const costgrid = read('costgrid.html');
 
-const REMOVED_IDS = ['cgNewGridModal', 'cgCloneModal', 'cgNewGridName', 'cgCloneGridName', 'btnCgCreateGrid', 'btnCgClone'];
+const REMOVED_IDS = [
+  'cgNewGridModal', 'cgCloneModal', 'cgNewGridName', 'cgCloneGridName', 'btnCgCreateGrid', 'btnCgClone',
+  'cgNewVersionModal', 'cgNewVersionLabel', 'cgNewVersionError', 'openNewVersionModal',
+];
 
 describe('New Proposal / Clone modals removed', () => {
   it('pipeline.html contains none of the removed modal ids', () => {
@@ -23,9 +26,26 @@ describe('New Proposal / Clone modals removed', () => {
     const costgridJsVersion = (html) => html.match(/js\/costgrid\.js\?v=(\d+)/)?.[1];
     const costgridCalcVersion = (html) => html.match(/js\/lib\/costgrid-calc\.js\?v=(\d+)/)?.[1];
 
-    expect(costgridJsVersion(pipeline)).toBe('39');
-    expect(costgridJsVersion(costgrid)).toBe('39');
-    expect(costgridCalcVersion(pipeline)).toBe('6');
-    expect(costgridCalcVersion(costgrid)).toBe('6');
+    expect(costgridJsVersion(pipeline)).toBe('41');
+    expect(costgridJsVersion(costgrid)).toBe('41');
+    expect(costgridCalcVersion(pipeline)).toBe('7');
+    expect(costgridCalcVersion(costgrid)).toBe('7');
+  });
+});
+
+describe('version label inline edit is gated', () => {
+  it('costgrid.html gates the version-label edit control on isLocked and viewer permission', () => {
+    expect(costgrid).toMatch(/editingVersionLabel[\s\S]{0,400}(isLocked|myPermission\s*===\s*'viewer')/);
+  });
+});
+
+describe('grid safety rules', () => {
+  it('deletePhase checks task assignment before confirming', () => {
+    const fn = costgrid.match(/deletePhase\(phase\)\s*\{([\s\S]*?)\n\s*\},/)?.[1] || '';
+    expect(fn).toMatch(/isTaskAssigned/);
+  });
+
+  it('removeColumnConfirm is reset when a different role menu opens', () => {
+    expect(costgrid).toMatch(/openRoleMenu\(code\)\s*\{[\s\S]{0,200}removeColumnConfirm\s*=\s*null/);
   });
 });

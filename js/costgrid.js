@@ -761,69 +761,73 @@ async function cgPublishDraft() {
 }
 
 // ── NEW VERSION ───────────────────────────────────────────────────────────────
+// No modal (2026-10-07, cost grid redesign cycle A): "+ New version" creates at once
+// with a default label ('v{n}') and opens the editor on the new version, whose label
+// is then inline-editable (see costgrid.html's editingVersionLabel/commitVersionLabelEdit).
 
-async function cgCreateNewVersion() {
-  const label = document.getElementById('cgNewVersionLabel')?.value.trim();
-  const errEl = document.getElementById('cgNewVersionError');
-  if (!label) {
-    if (errEl) { errEl.textContent = 'Please enter a label.'; errEl.classList.remove('d-none'); }
-    return;
-  }
-  if (errEl) errEl.classList.add('d-none');
+let _cgNewVersionInFlight = false;
+
+async function cgCreateNewVersionDirect() {
+  if (_cgNewVersionInFlight) return; // already in flight -- ignore a fast repeat click
+  _cgNewVersionInFlight = true;
 
   const cgId = _cgActiveCgId;
   const srcVerId = _cgActiveVersionId;
   const src = _cgDraft;
 
-  // The copy is made by the server from the saved state, so flush the editor's pending changes first.
-  // Strict: a failed flush aborts here instead of silently copying the last saved (older) state.
-  clearTimeout(_cgAutoSaveTimer);
   try {
-    await cgAutoSave(true);
-  } catch(e) {
-    if (errEl) { errEl.textContent = 'Could not save your latest changes, so no new version was created: ' + e.message; errEl.classList.remove('d-none'); }
-    return;
+    const cg = cgLoad(cgId);
+    if (!cg) return;
+    const label = `v${cg.versions.length + 1}`;
+
+    // The copy is made by the server from the saved state, so flush the editor's pending changes first.
+    // Strict: a failed flush aborts here instead of silently copying the last saved (older) state.
+    clearTimeout(_cgAutoSaveTimer);
+    try {
+      await cgAutoSave(true);
+    } catch(e) {
+      showInfo('Could not save your latest changes, so no new version was created: ' + e.message);
+      return;
+    }
+
+    // One atomic server-side copy (header, phases, tasks, roles/rates, tags): on failure nothing is
+    // created, so there is no half-built version to clean up -- just show the error.
+    let serverId;
+    try {
+      const created = await Api.costGrids.versions.duplicate(cgId, srcVerId, { label });
+      serverId = created.id;
+    } catch(e) {
+      showInfo('New version failed: ' + e.message);
+      return;
+    }
+
+    // Seed the local store with the header only; phases (with the server's fresh task ids) are loaded
+    // from the API right below, so no stale source taskId is ever held in memory.
+    const newVer = JSON.parse(JSON.stringify(src));
+    newVer.versionId      = serverId;
+    newVer.versionLabel   = label;
+    newVer.createdAt      = new Date().toISOString();
+    newVer.status         = 'draft';
+    newVer.pipeline       = 'Draft';
+    newVer.pipelineYear   = null;
+    newVer.linkedProjects = [];
+    newVer.phases         = [];
+    delete newVer.linkedProjectId;
+    cg.versions.push(newVer);
+    cgSave(cg);
+
+    const structureLoaded = await cgLoadStructureFromApi(cgId, serverId);
+    if (!structureLoaded && !window.__pdashAuthRedirecting) {
+      showInfo(
+        'The new version was created, but its structure may not have loaded correctly. Please reload the page to verify.',
+        '⚠️ New version incomplete'
+      );
+    }
+
+    showCostGridEditorView(cgId, serverId);
+  } finally {
+    _cgNewVersionInFlight = false;
   }
-
-  // One atomic server-side copy (header, phases, tasks, roles/rates, tags): on failure nothing is
-  // created, so there is no half-built version to clean up -- just show the error.
-  let serverId;
-  try {
-    const created = await Api.costGrids.versions.duplicate(cgId, srcVerId, { label });
-    serverId = created.id;
-  } catch(e) {
-    if (errEl) { errEl.textContent = 'New version failed: ' + e.message; errEl.classList.remove('d-none'); }
-    return;
-  }
-
-  // Seed the local store with the header only; phases (with the server's fresh task ids) are loaded
-  // from the API right below, so no stale source taskId is ever held in memory.
-  const cg = cgLoad(cgId);
-  if (!cg) return;
-  const newVer = JSON.parse(JSON.stringify(src));
-  newVer.versionId      = serverId;
-  newVer.versionLabel   = label;
-  newVer.createdAt      = new Date().toISOString();
-  newVer.status         = 'draft';
-  newVer.pipeline       = 'Draft';
-  newVer.pipelineYear   = null;
-  newVer.linkedProjects = [];
-  newVer.phases         = [];
-  delete newVer.linkedProjectId;
-  cg.versions.push(newVer);
-  cgSave(cg);
-
-  const structureLoaded = await cgLoadStructureFromApi(cgId, serverId);
-  if (!structureLoaded && !window.__pdashAuthRedirecting) {
-    showInfo(
-      'The new version was created, but its structure may not have loaded correctly. Please reload the page to verify.',
-      '⚠️ New version incomplete'
-    );
-  }
-
-  bootstrap.Modal.getInstance(document.getElementById('cgNewVersionModal'))?.hide();
-  document.getElementById('cgNewVersionLabel').value = '';
-  showCostGridEditorView(cgId, serverId);
 }
 
 // ── CREATE NEW GRID ───────────────────────────────────────────────────────────
@@ -1026,8 +1030,7 @@ function cgGenerateProject() {
   if (!v.projectName) { showInfo('Enter a project name before generating.'); return; }
 
   // Count free tasks (not yet assigned to any project)
-  const assignedIds = cgGetAssignedTaskIds();
-  const freeTasks = (v.phases || []).flatMap(ph => ph.tasks).filter(t => t.taskName?.trim() && !assignedIds.has(t.taskId));
+  const freeTasks = window.cgFreeTasksOf((v.phases || []).flatMap(ph => ph.tasks), v.linkedProjects);
   if (freeTasks.length === 0) {
     showInfo('All tasks have already been assigned to existing projects.');
     return;

@@ -1,9 +1,9 @@
 // ── LEGACY LOCALSTORAGE CLEANUP ───────────────────────────────────────────────
 // Remove all PDash_* keys except the ones that are still legitimately client-side.
 (function cleanLegacyStorage() {
-  const keep = new Set(['PDash_summary', 'PDash_browserNotifDisabled', 'PDash_sidebarCollapsed']);
+  const keep = new Set(['PDash_summary', 'PDash_browserNotifDisabled', 'PDash_sidebarCollapsed', 'PDash_cgCompactHeader']);
   Object.keys(localStorage)
-    .filter(k => k.startsWith('PDash') && !keep.has(k))
+    .filter(k => k.startsWith('PDash') && !keep.has(k) && !k.startsWith('PDash_cgSections:'))
     .forEach(k => localStorage.removeItem(k));
 })();
 

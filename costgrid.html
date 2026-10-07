@@ -9,6 +9,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/tokens.css?v=9">
   <link rel="stylesheet" href="css/style.css?v=21">
+  <link rel="stylesheet" href="css/costgrid.css?v=1">
 </head>
 <body>
 
@@ -25,61 +26,90 @@
     {{ loadError }} <a href="/pipeline.html">← Back to Pipeline</a>
   </div>
   <template v-else>
-    <div class="page-title-bar">
-      <h4 class="fw-bold mb-0">{{ cg?.name || 'Cost Grid' }}</h4>
-    </div>
-    <div class="page-toolbar mb-2">
-      <div class="page-toolbar-left">
-        <button class="btn btn-outline-secondary btn-sm" @click="goBack" :disabled="backSaving">{{ backSaving ? '💾 Saving…' : '← Pipeline' }}</button>
+    <a href="#" class="cg-back-link" @click.prevent="goBack">{{ backSaving ? 'Saving…' : '← Pipeline' }}</a>
+
+    <div class="cg-header">
+      <div class="cg-header-row1">
+        <div class="cg-header-titlebox">
+          <h4 class="cg-header-name">{{ cg?.name || 'Cost Grid' }}</h4>
+          <div class="cg-header-subtitle">Cost Grid · Client: {{ resolvedClientName || 'Unassigned' }} · {{ (draft?.linkedProjects || []).length ? (draft.linkedProjects.length + ' linked project' + (draft.linkedProjects.length > 1 ? 's' : '')) : 'No linked projects' }}</div>
+        </div>
+        <span class="cg-stage-pill" :style="{ background: headerStageStyle.bg, color: headerStageStyle.color, border: '1px solid ' + headerStageStyle.border }">{{ draft?.pipeline || 'Draft' }}</span>
       </div>
-      <div class="page-toolbar-right">
-        <button v-if="isDraft" class="btn btn-sm btn-outline-danger" @click="deleteVersion" title="Delete this Draft version">🗑 Delete version</button>
-        <button v-if="isDraft" class="btn btn-sm btn-primary" @click="publishDraft">🚀 Publish to SIP →</button>
-        <button v-if="isDraft" class="btn btn-sm btn-primary" @click="openNewVersionModal">+ New version</button>
-        <button class="btn btn-sm btn-outline-secondary" :disabled="proposalBusy" @click="cloneProposal" title="Clone this version as a new proposal">⧉ Clone</button>
-        <button v-if="!isDraft" class="btn btn-sm btn-outline-secondary" @click="openShareModal('cost_grid', cgId, cg.name)" title="Share this cost grid">🔗 Share</button>
-        <button class="btn btn-sm btn-outline-secondary" @click="exportXls">⬇ Export XLS</button>
-        <button v-if="!isLocked && !isDraft && hasFreeTasks" class="btn btn-sm btn-outline-secondary" @click="generateProject" title="Generate project in SIP">🚀 Generate Project</button>
-        <button id="btnCgSave" class="btn btn-sm btn-primary" @click="saveVersion">💾 Save</button>
-      </div>
-    </div>
-    <!-- Version tabs -->
-    <div v-if="cg && cg.versions.length > 0" class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-      <span class="small text-muted">Version:</span>
-      <div class="d-flex gap-1 flex-wrap">
-        <button v-for="v in cg.versions" :key="v.versionId"
-          class="btn btn-sm" :class="v.versionId === verId ? 'btn-primary' : 'btn-outline-secondary'"
-          style="font-size:.85rem" :title="versionTabTitle(v)" @click="switchVersion(v.versionId)">
-          {{ versionTabLabel(v) }}
-        </button>
+
+      <div class="cg-header-row2">
+        <div v-if="cg && cg.versions.length > 0" class="cg-version-seg">
+          <button v-if="isDraft" type="button" class="cg-version-seg-new" @click="createNewVersionDirect">+ New version</button>
+          <div v-for="v in cg.versions" :key="v.versionId" class="cg-version-seg-item" :class="{ 'cg-version-seg-item--active': v.versionId === verId }">
+            <template v-if="v.versionId === verId && editingVersionLabel && !isLocked && cg?.myPermission !== 'viewer'">
+              <input type="text" id="cgVersionLabelInput" class="cg-version-label-input" v-model="draft.versionLabel"
+                     @blur="commitVersionLabelEdit" @keyup.enter="commitVersionLabelEdit" @keyup.esc="cancelVersionLabelEdit" autofocus>
+            </template>
+            <template v-else>
+              <button type="button" class="cg-version-seg-btn" :title="versionTabTitle(v)" @click="switchVersion(v.versionId)">{{ versionTabLabel(v) }}</button>
+              <svg v-if="versionIsLocked(v)" class="cg-version-lock-icon" viewBox="0 0 16 16" width="11" height="11" fill="none" :aria-label="versionTabTitle(v)">
+                <path d="M4 7V5a4 4 0 1 1 8 0v2M3.5 7h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3"/>
+              </svg>
+              <button v-if="v.versionId === verId && !isLocked && cg?.myPermission !== 'viewer'" type="button" class="cg-version-edit-btn"
+                      @click.stop="startEditingVersionLabel()" title="Rename version" aria-label="Rename version">
+                <svg viewBox="0 0 16 16" width="11" height="11" fill="none"><path d="M11.5 2.5l2 2L5 13l-2.6.6.6-2.6 8.5-8.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <div class="cg-header-actions">
+          <button id="btnCgSave" class="btn btn-sm btn-primary" @click="saveVersion">Save</button>
+          <button class="btn btn-sm btn-outline-secondary" :disabled="proposalBusy" @click="cloneProposal" title="Clone this version as a new proposal">Clone</button>
+          <button class="btn btn-sm btn-outline-secondary" @click="exportXls">Export XLS</button>
+          <button v-if="!isDraft" class="btn btn-sm btn-outline-secondary" @click="openShareModal('cost_grid', cgId, cg.name)" title="Share this cost grid">Share</button>
+          <span class="cg-header-divider"></span>
+          <button v-if="isDraft" class="btn btn-sm btn-primary" @click="publishDraft">Publish to SIP →</button>
+          <button v-else-if="!isLocked && hasFreeTasks && !selectionMode" class="btn btn-sm btn-outline-secondary" @click="generateProject" title="Generate project in SIP">Generate project</button>
+          <button v-else-if="selectionMode" class="btn btn-sm btn-outline-secondary" disabled>Selecting tasks…</button>
+          <span v-else-if="!isDraft && !hasFreeTasks" class="text-muted cg-header-muted-action">All tasks are in projects</span>
+        </div>
       </div>
     </div>
 
-    <div v-if="isLocked" class="alert mb-3 py-2 px-3 d-flex align-items-center gap-2"
-         style="background:var(--color-warning-bg);border:1px solid #ffc107;border-radius:var(--radius-sm);font-size:var(--text-base)">
-      <span>🔒</span>
+    <div v-if="isLocked" class="cg-banner cg-banner--warning">
+      <svg class="cg-banner-icon" viewBox="0 0 16 16" width="14" height="14" fill="none"><path d="M4 7V5a4 4 0 1 1 8 0v2M3.5 7h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3"/></svg>
       <span class="fw-semibold">{{ lockState.message }}</span>
     </div>
-    <div v-else-if="isDraft" class="alert mb-3 py-2 px-3 d-flex align-items-center justify-content-between gap-2"
-         style="background:#f8f9fa;border:1px solid #adb5bd;border-radius:var(--radius-sm);font-size:var(--text-base)">
-      <div class="d-flex align-items-center gap-2">
-        <span>✏️</span>
-        <span class="fw-semibold">Draft — private to you. Publish to make it visible in the shared pipeline.</span>
-      </div>
+    <div v-else-if="isDraft" class="cg-banner cg-banner--draft">
+      <span class="fw-semibold">Draft — private to you. Publish to make it visible in the shared pipeline.</span>
+      <button type="button" class="cg-banner-delete-link" @click="deleteVersion" title="Delete this Draft version">Delete version</button>
     </div>
 
     <!-- Editor body -->
     <div id="cgEditorBody">
       <!-- Header form -->
-      <div class="section-card mb-3">
-        <div class="section-header d-flex align-items-center" style="cursor:pointer;user-select:none" @click="offerDetailsCollapsed = !offerDetailsCollapsed">
-          <span style="font-size:var(--text-sm);margin-right:6px;color:var(--text-muted)">{{ offerDetailsCollapsed ? '▶' : '▼' }}</span>
-          <span>📄 Offer details</span>
-          <span v-if="offerDetailsCollapsed" class="text-muted ms-3" style="font-size:var(--text-base);font-weight:400">{{ offerDetailsSummary }}</span>
+      <div class="section-card cg-section-card mb-3">
+        <div class="section-header cg-section-header" role="button" tabindex="0" :aria-expanded="!offerDetailsCollapsed"
+             @click="toggleOfferDetails" @keydown.enter.prevent="toggleOfferDetails" @keydown.space.prevent="toggleOfferDetails">
+          <svg class="cg-section-chevron" :class="{ 'cg-section-chevron--collapsed': offerDetailsCollapsed }" viewBox="0 0 12 12" width="12" height="12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="cg-section-title">Offer details</span>
+          <div v-if="offerDetailsCollapsed" class="cg-offer-summary">
+            <div class="cg-offer-summary-group">
+              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Period</span><span class="cg-offer-summary-value">{{ offerDetailsSummary.period }}</span></span>
+              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Stage</span><span class="cg-offer-summary-value">{{ offerDetailsSummary.stage }}</span></span>
+            </div>
+            <span class="cg-offer-summary-sep"></span>
+            <div class="cg-offer-summary-group">
+              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Client</span><span class="cg-offer-summary-value">{{ offerDetailsSummary.client }}</span></span>
+              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Ratecard</span><span class="cg-offer-summary-value">{{ offerDetailsSummary.ratecard }}</span></span>
+              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Currency</span><span class="cg-offer-summary-value">{{ offerDetailsSummary.currency }}</span></span>
+            </div>
+            <span class="cg-offer-summary-sep"></span>
+            <div class="cg-offer-summary-group">
+              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Owner</span><span class="cg-offer-summary-value">{{ cg?.ownerName || '—' }}</span></span>
+            </div>
+          </div>
+          <span class="cg-section-toggle-label">{{ offerDetailsCollapsed ? 'Edit' : 'Collapse' }}</span>
         </div>
         <div v-show="!offerDetailsCollapsed" class="p-3">
           <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" style="font-size:var(--text-xs)">
-            <span class="text-muted">Owner: 👤 {{ cg?.ownerName || '—' }}, Created at: {{ draft?.createdAt ? new Date(draft.createdAt).toLocaleDateString() : '—' }}</span>
+            <span class="text-muted">Owner: {{ cg?.ownerName || '—' }}, Created at: {{ draft?.createdAt ? new Date(draft.createdAt).toLocaleDateString() : '—' }}</span>
             <template v-if="isAdminUser">
               <select class="form-select form-select-sm" style="width:auto;max-width:260px" :disabled="reassignOwnerBusy"
                       @change="onReassignOwnerChange">
@@ -89,52 +119,62 @@
               <span v-if="reassignOwnerBusy" class="text-muted">Reassigning…</span>
             </template>
           </div>
-          <div class="row g-2 align-items-end mb-2">
-            <div class="col-md-4">
-              <label class="form-label small fw-semibold mb-1">Project name</label>
-              <input type="text" class="form-control" id="cgProjectName" v-model="draft.projectName" placeholder="Project name" @change="onHeaderFieldChange" :disabled="isLocked">
+          <div class="row g-2 mb-2">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold mb-1">Proposal name</label>
+              <input type="text" class="form-control" id="cgProjectName" v-model="draft.projectName" placeholder="Proposal name" @change="onHeaderFieldChange" :disabled="isLocked">
             </div>
-            <div class="col-md-2">
-              <label class="form-label small fw-semibold mb-1">Start</label>
-              <input type="month" class="form-control" id="cgStartDate" v-model="startDateInput" @change="onHeaderFieldChange" :disabled="isLocked">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label small fw-semibold mb-1">End</label>
-              <input type="month" class="form-control" id="cgEndDate" v-model="endDateInput" @change="onHeaderFieldChange" :disabled="isLocked">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label small fw-semibold mb-1">Currency</label>
-              <select class="form-select" id="cgCurrency" v-model="draft.currency" @change="onCurrencyChange" :disabled="currencyLocked" :title="currencyLockTitle">
-                <option v-for="cu in (currencies.length ? currencies : [{code:'EUR',symbol:'€',name:'Euro'}])" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.code }} — {{ cu.name }}</option>
-              </select>
-              <div v-if="draft.currency && draft.currency !== 'EUR'" class="text-muted" style="font-size:.72rem;margin-top:2px">
-                1 EUR = {{ Number(draft.currencyRate).toLocaleString('en', { minimumFractionDigits: 6 }) }} {{ (currencies.find(cu => cu.code === draft.currency) || {}).symbol || '' }}
+          </div>
+          <div class="cg-field-row mb-2">
+            <div class="cg-field-box">
+              <div class="cg-field-box-label">Period</div>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label small fw-semibold mb-1">Start</label>
+                  <input type="month" class="form-control" id="cgStartDate" v-model="startDateInput" @change="onHeaderFieldChange" :disabled="isLocked">
+                </div>
+                <div class="col-6">
+                  <label class="form-label small fw-semibold mb-1">End</label>
+                  <input type="month" class="form-control" id="cgEndDate" v-model="endDateInput" @change="onHeaderFieldChange" :disabled="isLocked">
+                </div>
               </div>
             </div>
-            <div class="col-md-2">
-              <label class="form-label small fw-semibold mb-1">Pipeline stage</label>
-              <div v-if="isDraft" class="form-control-plaintext ps-2 fw-semibold" style="font-size:var(--text-md);color:#6c757d">✏️ Draft</div>
+            <div class="cg-field-box cg-field-box--stage">
+              <div class="cg-field-box-label">Stage</div>
+              <div v-if="isDraft" class="form-control-plaintext ps-2 fw-semibold" style="font-size:var(--text-md);color:var(--text-muted)">Draft</div>
               <select v-else class="form-select" id="cgPipeline" v-model="draft.pipeline" @change="onPipelineChange" :disabled="isLocked">
                 <option v-for="p in ['SIP','Expected','Anticipated','Committed','Canceled']" :key="p" :value="p">{{ p }}</option>
               </select>
             </div>
           </div>
-          <div class="row g-2 mt-1 align-items-end">
-            <div class="col-md-6">
-              <label class="form-label small fw-semibold mb-1">Client</label>
-              <div class="d-flex gap-2">
-                <select class="form-select form-select-sm" id="cgClientId" v-model="clientIdInput" @change="onClientChange" :disabled="isLocked">
-                  <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
-                </select>
-                <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" @click="openClientsModal" style="white-space:nowrap">+ New</button>
+          <div class="cg-field-box mb-2">
+            <div class="cg-field-box-label">Client &amp; rates</div>
+            <div class="row g-2 align-items-end">
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold mb-1">Client</label>
+                <div class="d-flex gap-2">
+                  <select class="form-select form-select-sm" id="cgClientId" v-model="clientIdInput" @change="onClientChange" :disabled="isLocked">
+                    <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
+                  </select>
+                  <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" @click="openClientsModal" style="white-space:nowrap">+ New</button>
+                </div>
               </div>
-            </div>
-            <div class="col-md-6" id="cgRatecardCol">
-              <label class="form-label small fw-semibold mb-1">Rate card <span class="text-muted fw-normal">(optional)</span></label>
-              <select class="form-select form-select-sm" id="cgRatecardId" v-model="ratecardIdInput" @change="onRatecardChange" :disabled="isLocked">
-                <option value="">— None (use global role rates) —</option>
-                <option v-for="rc in filteredRatecards" :key="rc.id" :value="String(rc.id)">{{ rc.client_name ? rc.name + ' (' + rc.client_name + ')' : rc.name }}</option>
-              </select>
+              <div class="col-md-4" id="cgRatecardCol">
+                <label class="form-label small fw-semibold mb-1">Rate card <span class="text-muted fw-normal">(optional)</span></label>
+                <select class="form-select form-select-sm" id="cgRatecardId" v-model="ratecardIdInput" @change="onRatecardChange" :disabled="isLocked">
+                  <option value="">— None (use global role rates) —</option>
+                  <option v-for="rc in filteredRatecards" :key="rc.id" :value="String(rc.id)">{{ rc.client_name ? rc.name + ' (' + rc.client_name + ')' : rc.name }}</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold mb-1">Currency</label>
+                <select class="form-select" id="cgCurrency" v-model="draft.currency" @change="onCurrencyChange" :disabled="currencyLocked" :title="currencyLockTitle">
+                  <option v-for="cu in (currencies.length ? currencies : [{code:'EUR',symbol:'€',name:'Euro'}])" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.code }} — {{ cu.name }}</option>
+                </select>
+                <div v-if="draft.currency && draft.currency !== 'EUR'" class="text-muted" style="font-size:.72rem;margin-top:2px">
+                  1 EUR = {{ Number(draft.currencyRate).toLocaleString('en', { minimumFractionDigits: 6 }) }} {{ (currencies.find(cu => cu.code === draft.currency) || {}).symbol || '' }}
+                </div>
+              </div>
             </div>
           </div>
           <div class="row g-2">
@@ -145,7 +185,7 @@
           </div>
 
           <div v-if="(draft.linkedProjects || []).length" class="mt-3 pt-2 border-top">
-            <div class="small fw-semibold text-muted mb-2">🔗 Linked projects ({{ draft.linkedProjects.length }})</div>
+            <div class="small fw-semibold text-muted mb-2">Linked projects ({{ draft.linkedProjects.length }})</div>
             <div class="d-flex flex-wrap gap-2">
               <div v-for="lp in linkedProjectDisplay" :key="lp.currentProjId" class="border rounded p-2" style="font-size:var(--text-sm);background:var(--surface-light);min-width:220px">
                 <div class="d-flex align-items-start justify-content-between gap-2">
@@ -158,7 +198,7 @@
                     </div>
                     <div v-if="lp.taskNames.length" style="font-size:var(--text-xs);color:var(--text-muted);margin-top:5px"><span style="font-weight:600">Tasks:</span> {{ lp.taskNames.join(', ') }}</div>
                   </div>
-                  <button v-if="lp.hasProj" class="btn btn-xs btn-outline-secondary flex-shrink-0" @click="openLinkedProject(lp.currentProjId)" style="font-size:var(--text-xs);white-space:nowrap">📊 Project Dashboard</button>
+                  <button v-if="lp.hasProj" class="btn btn-xs btn-outline-secondary flex-shrink-0" @click="openLinkedProject(lp.currentProjId)" style="font-size:var(--text-xs);white-space:nowrap">Project Dashboard</button>
                 </div>
               </div>
             </div>
@@ -167,37 +207,54 @@
       </div>
 
       <!-- Tags -->
-      <div class="section-card mb-3">
-        <div class="section-header d-flex align-items-center" style="cursor:pointer;user-select:none" @click="tagsCollapsed = !tagsCollapsed">
-          <span style="font-size:var(--text-sm);margin-right:6px;color:var(--text-muted)">{{ tagsCollapsed ? '▶' : '▼' }}</span>
-          <span>🏷 Tags</span>
+      <div class="section-card cg-section-card mb-3">
+        <div class="section-header cg-section-header" role="button" tabindex="0" :aria-expanded="!tagsCollapsed"
+             @click="toggleTagsCollapsed" @keydown.enter.prevent="toggleTagsCollapsed" @keydown.space.prevent="toggleTagsCollapsed">
+          <svg class="cg-section-chevron" :class="{ 'cg-section-chevron--collapsed': tagsCollapsed }" viewBox="0 0 12 12" width="12" height="12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="cg-section-title">Tags</span>
+          <div v-if="tagsCollapsed" class="cg-tag-summary">
+            <span v-if="!tagsSummaryGroups.length" class="text-muted">None selected</span>
+            <span v-for="g in tagsSummaryGroups" :key="g.name" class="cg-tag-summary-pill">{{ g.name }} · {{ g.labels.join(', ') }}</span>
+          </div>
+          <span class="cg-section-toggle-label">{{ tagsCollapsed ? 'Edit' : 'Collapse' }}</span>
         </div>
         <div v-show="!tagsCollapsed" class="p-3" :class="{ 'tags-section--readonly': isLocked || cg?.myPermission === 'viewer' }">
           <div v-if="!attributeLists.length" class="text-muted" style="font-size:var(--text-sm)">No tag lists configured yet.</div>
-          <div v-for="list in attributeLists" :key="list.id" class="tag-group mb-3">
-            <div class="tag-group__label">{{ list.name }}</div>
-            <div v-if="!list.items.length" class="text-muted" style="font-size:var(--text-xs)">No active items in this list.</div>
-            <div class="tag-group__list">
-              <label v-for="item in list.items" :key="item.id" class="tag-pill">
-                <input type="checkbox" :checked="versionTagItemIds.includes(item.id)" :disabled="isLocked || cg?.myPermission === 'viewer' || tagSaving" @change="toggleTag(item.id, $event)">
-                <svg class="tag-pill__check" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.8 8.8L10 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span>{{ item.label }}</span>
-              </label>
-              <label v-for="row in inactiveAssignedForList(list.id)" :key="row.item_id" class="tag-pill tag-pill--inactive">
-                <input type="checkbox" checked :disabled="isLocked || cg?.myPermission === 'viewer' || tagSaving" @change="toggleTag(row.item_id, $event)">
-                <span>{{ row.label }}</span>
-                <span class="tag-pill__suffix">inactive</span>
-              </label>
+          <div class="cg-tag-groups">
+            <div v-for="list in attributeLists" :key="list.id" class="tag-group">
+              <div class="tag-group__label">{{ list.name }}</div>
+              <div v-if="!list.items.length" class="text-muted" style="font-size:var(--text-xs)">No active items in this list.</div>
+              <div class="tag-group__list">
+                <label v-for="item in list.items" :key="item.id" class="tag-pill">
+                  <input type="checkbox" :checked="versionTagItemIds.includes(item.id)" :disabled="isLocked || cg?.myPermission === 'viewer' || tagSaving" @change="toggleTag(item.id, $event)">
+                  <svg class="tag-pill__check" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.8 8.8L10 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span>{{ item.label }}</span>
+                </label>
+                <label v-for="row in inactiveAssignedForList(list.id)" :key="row.item_id" class="tag-pill tag-pill--inactive">
+                  <input type="checkbox" checked :disabled="isLocked || cg?.myPermission === 'viewer' || tagSaving" @change="toggleTag(row.item_id, $event)">
+                  <span>{{ row.label }}</span>
+                  <span class="tag-pill__suffix">inactive</span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Sharing -->
-      <div class="section-card mb-3">
-        <div class="section-header d-flex align-items-center" style="cursor:pointer;user-select:none" @click="sharingCollapsed = !sharingCollapsed">
-          <span style="font-size:var(--text-sm);margin-right:6px;color:var(--text-muted)">{{ sharingCollapsed ? '▶' : '▼' }}</span>
-          <span>📤 Sharing</span>
+      <div class="section-card cg-section-card mb-3">
+        <div class="section-header cg-section-header" role="button" tabindex="0" :aria-expanded="!sharingCollapsed"
+             @click="toggleSharingCollapsed" @keydown.enter.prevent="toggleSharingCollapsed" @keydown.space.prevent="toggleSharingCollapsed">
+          <svg class="cg-section-chevron" :class="{ 'cg-section-chevron--collapsed': sharingCollapsed }" viewBox="0 0 12 12" width="12" height="12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="cg-section-title">Sharing</span>
+          <div v-if="sharingCollapsed" class="cg-share-summary">
+            <div class="cg-share-avatars">
+              <span v-for="(ini, i) in shareSummary.initials" :key="i" class="cg-share-avatar">{{ ini }}</span>
+              <span v-if="shareSummary.count > 4" class="cg-share-avatar cg-share-avatar--more">+{{ shareSummary.count - 4 }}</span>
+            </div>
+            <span class="cg-share-summary-text">{{ shareSummary.count }} {{ shareSummary.count === 1 ? 'person' : 'people' }} · you are {{ shareSummary.myRole || 'viewer' }}</span>
+          </div>
+          <span class="cg-section-toggle-label">{{ sharingCollapsed ? 'Manage' : 'Collapse' }}</span>
         </div>
         <div v-show="!sharingCollapsed" class="p-3">
           <share-list :key="'sl-' + cgId + '-' + shareListRefreshTick" resource-type="cost_grid" :resource-id="cgId" :can-manage="cg?.myPermission !== 'viewer'"></share-list>
@@ -205,19 +262,26 @@
       </div>
 
       <!-- Grid -->
-      <div class="section-card">
-        <div class="section-header d-flex justify-content-between align-items-center">
-          <span>📊 Cost Grid</span>
+      <div class="section-card cg-grid-card">
+        <div class="cg-grid-card-header">
+          <div class="d-flex align-items-center gap-3">
+            <span class="cg-section-title">Cost Grid</span>
+            <div v-if="!selectionMode" class="cg-legend">
+              <span class="cg-legend-item"><span class="cg-legend-swatch cg-legend-swatch--custom"></span>Custom rate</span>
+              <span class="cg-legend-item"><span class="cg-legend-swatch cg-legend-swatch--zero"></span>Missing rate</span>
+              <span class="cg-legend-item"><svg class="cg-legend-icon" viewBox="0 0 16 16" width="12" height="12" fill="none"><path d="M4 7V5a4 4 0 1 1 8 0v2M3.5 7h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3"/></svg>Task in a project</span>
+            </div>
+          </div>
           <div class="d-flex gap-2">
-            <button v-if="!isLocked" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:var(--text-base)" @click="addRoleColumn">👥 + Add role</button>
-            <button v-if="!isLocked" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:var(--text-base)" @click="addPhase">+ Add phase</button>
+            <button v-if="!isLocked && !selectionMode" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:var(--text-base)" @click="addRoleColumn">+ Add role</button>
+            <button v-if="!isLocked && !selectionMode" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:var(--text-base)" @click="addPhase">+ Add phase</button>
           </div>
         </div>
-        <div style="overflow:auto;max-height:calc(100vh - 300px)">
+        <div style="overflow-x:auto">
           <table class="table mb-0" id="cgGridTable" style="min-width:700px;border-collapse:collapse">
             <thead>
               <tr style="background:var(--sand-200);cursor:pointer;user-select:none" :title="summaryCollapsed ? 'Expand summary' : 'Collapse summary'" @click="toggleSummaryCollapsed">
-                <td :colspan="6 + draft.roles.length" style="padding:3px 12px;border:1px solid var(--sand-border);font-size:var(--text-sm);color:#888;font-weight:600">
+                <td :colspan="gridColspan" style="padding:3px 12px;border:1px solid var(--sand-border);font-size:var(--text-sm);color:#888;font-weight:600">
                   <span style="font-size:var(--text-xs);margin-right:4px">{{ summaryCollapsed ? '▶' : '▼' }}</span>
                   {{ summaryCollapsed ? 'Summary (click to expand)' : 'Summary (click to collapse)' }}
                 </td>
@@ -225,31 +289,34 @@
               <tr v-show="!summaryCollapsed" style="background:var(--sand-200)">
                 <td colspan="6" style="padding:5px 12px;border:1px solid var(--sand-border);font-weight:700;font-size:var(--text-base);color:#444">Total Hrs by Role</td>
                 <td v-for="r in draft.roles" :key="'hrs-'+r.roleCode" style="text-align:center;background:var(--sand-200);font-weight:700;border:1px solid var(--sand-border);padding:5px 4px;font-size:var(--text-md)">{{ colTotals[r.roleCode]?.hrs || 0 }}</td>
+                <td v-if="draft.roles.length === 0" class="cg-col-placeholder"></td>
               </tr>
               <tr v-show="!summaryCollapsed" style="background:var(--sand-200)">
                 <td colspan="6" style="padding:5px 12px;border:1px solid var(--sand-border);font-weight:700;font-size:var(--text-base);color:#444">Total Fee by Role</td>
                 <td v-for="r in draft.roles" :key="'fee-'+r.roleCode" style="text-align:center;background:var(--sand-200);font-weight:700;border:1px solid var(--sand-border);padding:5px 4px;font-size:var(--text-base)">{{ (colTotals[r.roleCode]?.fee > 0) ? formatMoney(colTotals[r.roleCode].fee, draft.currency || 'EUR', currencies) : '—' }}</td>
+                <td v-if="draft.roles.length === 0" class="cg-col-placeholder"></td>
               </tr>
               <tr v-show="!summaryCollapsed" style="background:var(--sand-100)">
-                <td style="padding:6px 12px;border:1px solid var(--sand-border);vertical-align:middle">
+                <td class="cg-col-fixed" style="padding:6px 12px;border:1px solid var(--sand-border);vertical-align:middle;background:var(--sand-100)">
                   <span style="background:var(--brand-navy);color:#fff;border-radius:var(--radius-xs);padding:3px 10px;font-size:var(--text-base);font-weight:700;letter-spacing:.04em">{{ draft.currency || 'EUR' }}</span>
+                  <span style="color:var(--text-muted);font-size:var(--text-xs);margin-left:4px">Hourly rates</span>
                 </td>
                 <td style="border:1px solid var(--sand-border)"></td>
                 <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-weight:700;font-size:var(--text-lg);white-space:nowrap"><strong>{{ formatMoney(grand.fee + grand.ptc, draft.currency || 'EUR', currencies) }}</strong></td>
                 <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-size:var(--text-md);white-space:nowrap">{{ grand.ptc > 0 ? formatMoney(grand.ptc, draft.currency || 'EUR', currencies) : '—' }}</td>
                 <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-weight:700;font-size:var(--text-lg);white-space:nowrap">{{ grand.hrs > 0 ? grand.hrs + 'h' : '—' }}</td>
                 <td style="text-align:right;padding:6px 10px;border:1px solid var(--sand-border);font-size:var(--text-md);white-space:nowrap">{{ grand.fee > 0 ? formatMoney(grand.fee, draft.currency || 'EUR', currencies) : '—' }}</td>
-                <td v-for="r in draft.roles" :key="'rate-'+r.roleCode" :style="{ textAlign:'center', background: (!r.rate || r.rate === 0) ? '#fff0f0' : (r.rateIsCustom ? '#fffbe6' : 'var(--sand-50)'), border: '1px solid ' + ((!r.rate || r.rate === 0) ? '#f5c6cb' : (r.rateIsCustom ? '#ffe58f' : 'var(--sand-border)')), padding:'3px 4px' }">
-                  <div style="font-size:var(--text-xs);color:#aaa;margin-bottom:1px">{{ draft.currency || 'EUR' }}/h</div>
-                  <input type="number" min="0" step="1" :value="r.rate" @change="onRateChange(r, $event)" :disabled="isLocked"
-                    :title="r.rateIsCustom ? 'Custom (baseline: ' + (draft.currency||'EUR') + ' ' + roleBaseline(r).effectiveRate + '/h) — clear to restore' : 'Rate from roles registry / ratecard'"
-                    :style="{ width:'100%', border:'1px solid ' + ((!r.rate||r.rate===0)?'#f5c6cb':(r.rateIsCustom?'#ffe58f':'var(--sand-border)')), borderRadius:'var(--radius-xs)', textAlign:'center', fontSize:'var(--text-md)', fontWeight: (!r.rate||r.rate===0||r.rateIsCustom) ? '700':'400', color: (!r.rate||r.rate===0) ? 'var(--color-danger)' : (r.rateIsCustom ? 'var(--color-warning-text)':'#555'), background:'transparent', padding:'1px 4px' }">
-                  <div v-if="r.rateIsCustom" style="font-size:var(--text-2xs);color:var(--color-warning-text);margin-top:2px">✎ custom</div>
-                  <div v-if="!r.rate || r.rate === 0" style="font-size:var(--text-2xs);color:var(--color-danger);margin-top:2px">⚠️ 0</div>
+                <td v-for="r in draft.roles" :key="'rate-'+r.roleCode" class="cg-rate-cell" :class="{ 'is-custom': r.rateIsCustom, 'is-zero': !r.rate || r.rate === 0 }">
+                  <div class="cg-rate-cell-currency">{{ draft.currency || 'EUR' }}/h</div>
+                  <input type="number" min="0" step="1" :value="r.rate" @change="onRateChange(r, $event)" :disabled="isLocked" class="cg-rate-input"
+                    :title="r.rateIsCustom ? 'Custom (baseline: ' + (draft.currency||'EUR') + ' ' + roleBaseline(r).effectiveRate + '/h) — clear to restore' : 'Rate from roles registry / ratecard'">
+                  <div v-if="r.rateIsCustom" class="cg-rate-note cg-rate-note--custom" role="button" tabindex="0" @click="resetRoleRate(r)" @keydown.enter="resetRoleRate(r)">Custom · reset {{ roleBaseline(r).effectiveRate }}</div>
+                  <div v-else-if="!r.rate || r.rate === 0" class="cg-rate-note cg-rate-note--zero">Missing rate</div>
                 </td>
+                <td v-if="draft.roles.length === 0" class="cg-col-placeholder"></td>
               </tr>
               <tr style="background:var(--brand-navy)">
-                <th style="position:sticky;top:0;left:0;z-index:4;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 12px;min-width:200px;font-size:var(--text-md)">
+                <th class="cg-col-fixed cg-col-fixed--header" style="position:sticky;top:0;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 12px;font-size:var(--text-md)">
                   <div class="d-flex align-items-center justify-content-between">
                     <span>Phase / Task</span>
                     <button style="background:none;border:none;color:#93c5fd;font-size:12px;cursor:pointer;padding:0;line-height:1;margin-left:6px" :title="compactHeader ? 'Expand header' : 'Compact header'" @click.stop="toggleCompactHeader">{{ compactHeader ? '⊞' : '⊟' }}</button>
@@ -260,33 +327,26 @@
                 <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 10px;min-width:115px;text-align:right;font-size:var(--text-base)">Total Pass<br>through Costs</th>
                 <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 10px;min-width:75px;text-align:right;font-size:var(--text-base)">Total<br>hrs</th>
                 <th style="position:sticky;top:0;z-index:2;background:var(--brand-navy);color:#fff;border:1px solid #333;padding:8px 10px;min-width:120px;text-align:right;font-size:var(--text-base)">Total<br>fees</th>
-                <th v-for="(r, rIdx) in draft.roles" :key="r.roleCode" :style="{ position:'sticky', top:0, zIndex:2, textAlign:'center', background: (!r.rate||r.rate===0) ? '#7f0b0b' : 'var(--brand-navy)', color:'#fff', border:'1px solid #333', padding: compactHeader ? '3px 2px':'8px 4px', minWidth: compactHeader ? '80px':'100px', fontSize: compactHeader ? '10px':'var(--text-base)', fontWeight:600, verticalAlign: compactHeader?'middle':'top' }">
-                  <div :title="r.roleCode" :style="compactHeader ? 'cursor:default;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px' : 'cursor:default'">{{ r.roleLabel }}<template v-if="compactHeader && (!r.rate||r.rate===0)"> ⚠️</template></div>
-                  <div v-if="!compactHeader && (!r.rate||r.rate===0)" style="font-size:var(--text-xs);color:#ffb3b3;font-weight:400">⚠️ rate 0</div>
-                  <template v-if="!compactHeader">
-                    <div v-if="!isLocked" class="d-flex justify-content-center gap-2 mt-1">
-                      <button class="btn btn-link p-0" :disabled="rIdx === 0" :style="{ color: rIdx > 0 ? '#93c5fd' : '#444', fontSize:'var(--text-sm)', lineHeight:1 }" title="Move left" @click="moveRole(r, -1)">◀</button>
-                      <button class="btn btn-link p-0" :disabled="rIdx === draft.roles.length - 1" :style="{ color: rIdx < draft.roles.length - 1 ? '#93c5fd' : '#444', fontSize:'var(--text-sm)', lineHeight:1 }" title="Move right" @click="moveRole(r, 1)">▶</button>
-                    </div>
-                    <div v-if="!isLocked" class="d-flex justify-content-center gap-1 mt-1 flex-wrap">
-                      <button class="btn btn-link p-0" style="color:#93c5fd;font-size:var(--text-2xs);line-height:1.3" title="Replace this role with another" @click="changeRole(r.roleCode)">⇄ change</button>
-                      <button class="btn btn-link p-0" style="color:#86efac;font-size:var(--text-2xs);line-height:1.3" title="Duplicate column with a different role" @click="duplicateRole(r.roleCode)">⊕ dup</button>
-                      <button class="btn btn-link p-0" style="color:#f8877a;font-size:var(--text-2xs);line-height:1.3" title="Remove column" @click="removeRoleColumn(r.roleCode)">✕ remove</button>
-                    </div>
-                  </template>
+                <th v-for="r in draft.roles" :key="r.roleCode" class="cg-role-col-header" :class="{ 'is-zero': !r.rate || r.rate === 0 }" :style="{ position:'sticky', top:0, zIndex:2, padding: compactHeader ? '3px 2px':'8px 4px', minWidth: compactHeader ? '80px':'100px', verticalAlign: compactHeader?'middle':'top' }">
+                  <div class="cg-role-col-name" :title="r.roleCode" :style="compactHeader ? 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px' : ''">{{ r.roleLabel }}</div>
+                  <div v-if="!compactHeader" class="cg-role-col-code">{{ r.roleCode }}</div>
+                  <div v-if="!compactHeader && (!r.rate || r.rate === 0)" class="cg-role-col-missing">Missing rate</div>
+                  <button v-if="!isLocked && !selectionMode" type="button" class="cg-col-menu-btn" :title="'Actions for ' + r.roleLabel" :aria-label="'Actions for ' + r.roleLabel" @click.stop="openRoleMenu(r.roleCode); positionRoleMenu($event)">⋮</button>
+                </th>
+                <th v-if="draft.roles.length === 0" class="cg-col-placeholder cg-col-placeholder--header">
+                  <button v-if="!isLocked && !selectionMode" type="button" class="btn btn-sm btn-outline-secondary" @click="addRoleColumn">+ Add roles</button>
                 </th>
               </tr>
             </thead>
             <tbody id="cgGridBody">
-              <tr v-if="draft.roles.length === 0"><td colspan="6" class="text-center text-muted py-2" style="font-size:var(--text-base);border:1px solid var(--border-light)">No roles added yet. Click <strong>👥 + Add role</strong> to add role columns.</td></tr>
               <template v-for="phase in draft.phases" :key="phase.phaseId">
                 <tr class="cg-phase-row">
-                  <td style="padding:6px 8px;border:1px solid var(--brand-dark);background:var(--brand-navy);vertical-align:middle">
+                  <td class="cg-col-fixed" style="padding:6px 8px;border:1px solid var(--brand-dark);background:var(--brand-navy);vertical-align:middle">
                     <div class="d-flex align-items-center gap-1">
                       <input type="text" class="form-control" style="border:none;font-size:var(--text-lg);background:transparent;color:#fff;font-weight:700;flex:1;padding:2px 4px;height:32px" v-model="phase.phaseName" placeholder="Phase name" :disabled="isLocked" @change="cgScheduleAutoSave()">
-                      <button v-if="!isLocked" class="btn btn-link p-0" style="color:#93c5fd;font-size:var(--text-sm);white-space:nowrap" title="Add task" @click="addTask(phase)">+ task</button>
-                      <button v-if="selectionMode && !isLocked" class="btn btn-link p-0" style="color:#fcd34d;font-size:var(--text-xs);white-space:nowrap" title="Select all free tasks in this phase" @click="selectAllFreeInPhase(phase)">☑ free</button>
-                      <button v-if="!isLocked" class="btn btn-link p-0" style="color:#f8877a;font-size:var(--text-xs)" title="Delete phase" @click="deletePhase(phase)">✕</button>
+                      <button v-if="!isLocked && !selectionMode" class="btn btn-link p-0" style="color:#93c5fd;font-size:var(--text-sm);white-space:nowrap" title="Add task" @click="addTask(phase)">+ task</button>
+                      <button v-if="selectionMode" type="button" class="btn btn-link p-0" style="color:#fcd34d;font-size:var(--text-xs);white-space:nowrap" :disabled="phaseFreeState(phase) === 'none'" @click="toggleFreeInPhase(phase)">{{ phaseFreeLabel(phase) }}</button>
+                      <button v-if="!isLocked && !selectionMode" class="btn btn-link p-0" style="color:#f8877a;font-size:var(--text-xs)" :disabled="phase.tasks.some(t => isTaskAssigned(t))" :title="phase.tasks.some(t => isTaskAssigned(t)) ? 'Can\'t delete: this phase has tasks linked to a project' : 'Delete phase'" @click="deletePhase(phase)">✕</button>
                     </div>
                   </td>
                   <td style="background:var(--brand-navy);border:1px solid var(--brand-dark);padding:4px 8px;vertical-align:middle">
@@ -297,9 +357,10 @@
                   <td style="text-align:right;padding:6px 10px;border:1px solid var(--brand-dark);font-weight:700;font-size:var(--text-md);white-space:nowrap;background:var(--brand-mid);color:#e2e8ff">{{ phaseTotals(phase).hrs > 0 ? phaseTotals(phase).hrs + 'h' : '—' }}</td>
                   <td style="text-align:right;padding:6px 10px;border:1px solid var(--brand-dark);font-weight:600;font-size:var(--text-md);white-space:nowrap;background:var(--brand-mid);color:#e2e8ff">{{ phaseTotals(phase).fee > 0 ? formatMoney(phaseTotals(phase).fee, draft.currency || 'EUR', currencies) : '—' }}</td>
                   <td v-for="r in draft.roles" :key="'ph-'+r.roleCode" style="text-align:center;vertical-align:middle;background:var(--brand-mid);color:#c8d0ee;font-weight:600;border:1px solid var(--brand-dark);padding:6px 4px;font-size:var(--text-md)">{{ (phaseTotals(phase).byRole[r.roleCode] || 0) > 0 ? phaseTotals(phase).byRole[r.roleCode] : '' }}</td>
+                  <td v-if="draft.roles.length === 0" class="cg-col-placeholder" style="background:var(--brand-mid);border:1px solid var(--brand-dark)"></td>
                 </tr>
                 <tr v-for="task in phase.tasks" :key="task.taskId" class="cg-task-row">
-                  <td style="padding:4px 6px;border:1px solid var(--border-light);min-width:200px;vertical-align:top">
+                  <td class="cg-col-fixed" style="padding:4px 6px;border:1px solid var(--border-light);vertical-align:top;background:var(--surface-white)">
                     <div v-if="selectionMode" class="mb-1 d-flex align-items-center gap-1">
                       <input type="checkbox" class="form-check-input" :checked="isTaskAssigned(task) || selectedTaskIds.has(task.taskId)" :disabled="isTaskAssigned(task)" :style="isTaskAssigned(task) ? 'opacity:.4' : ''" @change="toggleTaskSelection(task)">
                       <span v-if="isTaskAssigned(task)" style="font-size:var(--text-xs);color:var(--text-disabled)">already assigned</span>
@@ -307,7 +368,11 @@
                     <div class="d-flex align-items-start gap-1">
                       <textarea class="form-control" rows="2" style="border:none;font-size:var(--text-md);font-weight:700;background:transparent;flex:1;padding:3px 4px;resize:vertical;min-height:48px" placeholder="Task name" v-model="task.taskName" :disabled="isLocked" @change="cgScheduleAutoSave()"></textarea>
                       <button v-if="!isTaskAssigned(task) && !isLocked" class="btn btn-link p-0" style="color:var(--color-danger);font-size:var(--text-xs);line-height:1;flex-shrink:0;margin-top:4px" title="Delete task" @click="deleteTask(phase, task)">✕</button>
+                      <span v-else-if="isTaskAssigned(task)" class="cg-task-lock" title="Linked to a project: it can't be deleted" aria-label="Linked to a project: it can't be deleted">
+                        <svg viewBox="0 0 16 16" width="13" height="13" fill="none"><path d="M4 7V5a4 4 0 1 1 8 0v2M3.5 7h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3"/></svg>
+                      </span>
                     </div>
+                    <div v-if="isTaskAssigned(task)" class="cg-task-assigned-note">In {{ taskAssignedProjectName(task) }}</div>
                     <div class="d-flex gap-2 mt-1 align-items-center">
                       <div class="d-flex align-items-center gap-1">
                         <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">From</span>
@@ -323,7 +388,7 @@
                     <textarea class="form-control" rows="3" style="border:none;font-size:var(--text-md);background:transparent;color:#555;padding:3px 4px;resize:vertical;min-height:72px" placeholder="Description…" v-model="task.taskDescription" :disabled="isLocked" @change="cgScheduleAutoSave()"></textarea>
                   </td>
                   <td style="text-align:right;padding:6px 10px;border:1px solid var(--border-light);font-size:var(--text-md);white-space:nowrap;background:var(--sand-50);vertical-align:middle">
-                    <strong v-if="taskTotals(task).totalCostAndFee > 0">{{ formatMoney(taskTotals(task).totalCostAndFee, draft.currency || 'EUR', currencies) }}</strong><span v-else style="color:#bbb">—</span>
+                    <strong v-if="taskTotals(task).totalCostAndFee > 0" class="cg-cell-filled">{{ formatMoney(taskTotals(task).totalCostAndFee, draft.currency || 'EUR', currencies) }}</strong><span v-else class="cg-cell-empty">—</span>
                   </td>
                   <td style="padding:3px 5px;border:1px solid var(--border-light);min-width:120px;vertical-align:middle">
                     <input type="text" class="form-control" style="border:1px solid var(--border-light);font-size:var(--text-md);padding:4px 6px;height:32px;text-align:right"
@@ -333,10 +398,10 @@
                       @blur="ptcFocusedTask = null; ptcRaw = ''">
                   </td>
                   <td style="text-align:right;padding:6px 10px;border:1px solid var(--border-light);font-size:var(--text-md);white-space:nowrap;background:var(--sand-50);vertical-align:middle">
-                    <strong v-if="taskTotals(task).totalHrs > 0">{{ taskTotals(task).totalHrs }}h</strong><span v-else style="color:#bbb">—</span>
+                    <strong v-if="taskTotals(task).totalHrs > 0" class="cg-cell-filled">{{ taskTotals(task).totalHrs }}h</strong><span v-else class="cg-cell-empty">—</span>
                   </td>
                   <td style="text-align:right;padding:6px 10px;border:1px solid var(--border-light);font-size:var(--text-md);white-space:nowrap;background:var(--sand-50);vertical-align:middle">
-                    <span v-if="taskTotals(task).totalFee > 0">{{ formatMoney(taskTotals(task).totalFee, draft.currency || 'EUR', currencies) }}</span><span v-else style="color:#bbb">—</span>
+                    <span v-if="taskTotals(task).totalFee > 0" class="cg-cell-filled">{{ formatMoney(taskTotals(task).totalFee, draft.currency || 'EUR', currencies) }}</span><span v-else class="cg-cell-empty">—</span>
                   </td>
                   <td v-for="r in draft.roles" :key="'th-'+r.roleCode" style="border:1px solid var(--border-light);padding:2px 3px;text-align:center;vertical-align:middle">
                     <input type="number" class="form-control p-1" style="border:none;text-align:center;font-size:var(--text-md);background:transparent;min-width:70px;height:34px"
@@ -344,75 +409,110 @@
                       @focus="hoursEditing = { taskId: task.taskId, roleCode: r.roleCode, raw: String(task.hours[r.roleCode] ?? '') }"
                       @input="onHoursInput(task, r.roleCode, $event)" @blur="onHoursBlur(task, r.roleCode, $event)">
                   </td>
+                  <td v-if="draft.roles.length === 0" class="cg-col-placeholder cg-col-placeholder--task">Add roles to estimate hours for each task.</td>
                 </tr>
                 <tr v-if="!isLocked" class="cg-add-task-row">
-                  <td :colspan="6 + draft.roles.length" style="padding:3px 10px;border:1px solid var(--border-light);background:var(--surface-light)">
+                  <td class="cg-col-fixed" :colspan="gridColspan" style="padding:3px 10px;border:1px solid var(--border-light);background:var(--surface-light)">
                     <button class="btn btn-link btn-sm p-0" style="font-size:var(--text-base);color:var(--text-muted)" @click="addTask(phase)">+ add task</button>
                   </td>
                 </tr>
               </template>
             </tbody>
             <tfoot>
-              <tr style="background:var(--indigo-50)">
-                <td style="position:sticky;left:0;z-index:3;background:var(--indigo-50);font-weight:700;padding:7px 12px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);font-size:var(--text-md)">TOTAL</td>
-                <td style="border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--indigo-50)"></td>
-                <td style="text-align:right;font-weight:700;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-lg);white-space:nowrap"><strong>{{ formatMoney(grand.fee + grand.ptc, draft.currency || 'EUR', currencies) }}</strong></td>
-                <td style="text-align:right;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-md);white-space:nowrap">{{ grand.ptc > 0 ? formatMoney(grand.ptc, draft.currency || 'EUR', currencies) : '—' }}</td>
-                <td style="text-align:right;font-weight:700;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-lg);white-space:nowrap">{{ grand.hrs > 0 ? grand.hrs + 'h' : '—' }}</td>
-                <td style="text-align:right;padding:7px 10px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-100);font-size:var(--text-md);white-space:nowrap">{{ grand.fee > 0 ? formatMoney(grand.fee, draft.currency || 'EUR', currencies) : '—' }}</td>
-                <td v-for="r in draft.roles" :key="'foot-'+r.roleCode" style="text-align:center;font-weight:700;padding:7px 4px;border:1px solid #c0c8e8;border-top:2px solid var(--indigo-500);background:var(--sand-50);font-size:var(--text-md)">{{ (colTotals[r.roleCode]?.hrs || 0) > 0 ? colTotals[r.roleCode].hrs : '' }}</td>
+              <tr class="cg-row-total">
+                <td class="cg-col-fixed" style="background:var(--indigo-50);font-weight:700;padding:7px 12px;font-size:var(--text-md)">TOTAL</td>
+                <td style="background:var(--indigo-50)"></td>
+                <td style="text-align:right;font-weight:700;padding:7px 10px;background:var(--sand-100);font-size:var(--text-lg);white-space:nowrap"><strong>{{ formatMoney(grand.fee + grand.ptc, draft.currency || 'EUR', currencies) }}</strong></td>
+                <td style="text-align:right;padding:7px 10px;background:var(--sand-100);font-size:var(--text-md);white-space:nowrap">{{ grand.ptc > 0 ? formatMoney(grand.ptc, draft.currency || 'EUR', currencies) : '—' }}</td>
+                <td style="text-align:right;font-weight:700;padding:7px 10px;background:var(--sand-100);font-size:var(--text-lg);white-space:nowrap">{{ grand.hrs > 0 ? grand.hrs + 'h' : '—' }}</td>
+                <td style="text-align:right;padding:7px 10px;background:var(--sand-100);font-size:var(--text-md);white-space:nowrap">{{ grand.fee > 0 ? formatMoney(grand.fee, draft.currency || 'EUR', currencies) : '—' }}</td>
+                <td v-for="r in draft.roles" :key="'foot-'+r.roleCode" style="text-align:center;font-weight:700;padding:7px 4px;background:var(--sand-50);font-size:var(--text-md)">{{ (colTotals[r.roleCode]?.hrs || 0) > 0 ? colTotals[r.roleCode].hrs : '' }}</td>
+                <td v-if="draft.roles.length === 0" class="cg-col-placeholder" style="background:var(--sand-50)"></td>
               </tr>
             </tfoot>
           </table>
         </div>
       </div>
+
+      <Teleport to="body">
+        <div v-if="activeMenuRole" class="cg-col-menu" :style="{ top: roleMenuPos.top + 'px', left: roleMenuPos.left + 'px' }" @click.stop>
+          <div class="cg-col-menu-header">
+            <div class="cg-col-menu-role">{{ activeMenuRole.roleLabel }}</div>
+            <div class="cg-col-menu-code">{{ activeMenuRole.roleCode }}</div>
+            <div class="cg-col-menu-hrs">{{ colTotals[activeMenuRole.roleCode]?.hrs || 0 }}h planned</div>
+          </div>
+          <button type="button" class="cg-col-menu-item" :disabled="draft.roles.findIndex(r => r.roleCode === activeMenuRole.roleCode) === 0" @click="moveRole(activeMenuRole, -1)">Move left</button>
+          <button type="button" class="cg-col-menu-item" :disabled="draft.roles.findIndex(r => r.roleCode === activeMenuRole.roleCode) === draft.roles.length - 1" @click="moveRole(activeMenuRole, 1)">Move right</button>
+          <button type="button" class="cg-col-menu-item" @click="changeRole(activeMenuRole.roleCode); openRoleMenuCode = null">Change role…</button>
+          <button type="button" class="cg-col-menu-item" @click="duplicateRole(activeMenuRole.roleCode); openRoleMenuCode = null">Duplicate with another role…</button>
+          <button type="button" v-if="activeMenuRole.rateIsCustom" class="cg-col-menu-item" @click="resetRoleRate(activeMenuRole); openRoleMenuCode = null">Reset rate to {{ roleBaseline(activeMenuRole).effectiveRate }}</button>
+          <div class="cg-col-menu-sep"></div>
+          <button type="button" class="cg-col-menu-item cg-col-menu-item--danger" @click="onRemoveColumnClick(activeMenuRole)">{{ removeColumnConfirm === activeMenuRole.roleCode ? ('Click again to remove · ' + (colTotals[activeMenuRole.roleCode]?.hrs || 0) + 'h across all tasks will be deleted') : 'Remove column' }}</button>
+        </div>
+      </Teleport>
     </div>
 
-    <div v-if="selectionMode" style="position:sticky;bottom:0;left:0;right:0;z-index:100;background:var(--brand-navy);color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:3px solid var(--indigo-500)">
+    <div v-if="selectionMode" class="cg-selection-bar">
       <div class="d-flex align-items-center gap-3">
         <span style="font-size:var(--text-md)"><strong>{{ selectedTaskIds.size }}</strong> tasks selected</span>
-        <button v-if="!isLocked" class="btn btn-sm btn-outline-light py-0 px-2" style="font-size:var(--text-sm)" @click="selectAllFree">☑ All free tasks</button>
+        <button v-if="!isLocked" type="button" class="btn btn-sm btn-outline-light py-0 px-2" style="font-size:var(--text-sm)" :disabled="selectAllFreeState() === 'none'" @click="toggleSelectAllFree">{{ selectAllFreeLabel() }}</button>
       </div>
       <div class="d-flex gap-2 align-items-center flex-wrap">
-        <template v-if="(draft.linkedProjects || []).length">
-          <select v-model="addToProjectSel" class="form-select form-select-sm py-0" style="width:auto;min-width:180px;height:30px;font-size:var(--text-sm)">
-            <option value="">— Add to existing project —</option>
-            <option v-for="lp in draft.linkedProjects" :key="lp.projectId" :value="lp.projectId">{{ lp.projectName || lp.projectId }}</option>
-          </select>
-          <button class="btn btn-sm btn-warning py-0 px-3" style="font-size:var(--text-base)" @click="addToProject">＋ Add to project</button>
-        </template>
-        <button v-if="!isLocked" class="btn btn-sm btn-outline-secondary py-0 px-3" style="font-size:var(--text-base)" @click="cancelSelection">Cancel</button>
-        <button v-if="!isLocked" class="btn btn-sm btn-success py-0 px-3" style="font-size:var(--text-base)" @click="confirmAndGenerate">▶ Create project</button>
+        <div class="cg-addmode-seg" role="group" aria-label="Add to new or existing project">
+          <button type="button" class="cg-addmode-seg-btn" :class="{ 'cg-addmode-seg-btn--active': addToProjectMode === 'new' }" @click="addToProjectMode = 'new'">New project</button>
+          <button type="button" class="cg-addmode-seg-btn" :class="{ 'cg-addmode-seg-btn--active': addToProjectMode === 'existing' }"
+                  :disabled="!(draft.linkedProjects || []).length" :title="!(draft.linkedProjects || []).length ? 'No linked projects yet' : ''"
+                  @click="setAddToProjectMode('existing')">Existing project</button>
+        </div>
+        <select v-if="addToProjectMode === 'existing'" v-model="addToProjectSel" class="form-select form-select-sm py-0" style="width:auto;min-width:180px;height:30px;font-size:var(--text-sm)">
+          <option value="">— Select project —</option>
+          <option v-for="lp in draft.linkedProjects" :key="lp.projectId" :value="lp.projectId">{{ lp.projectName || lp.projectId }}</option>
+        </select>
+        <span class="cg-header-divider" style="background:rgba(255,255,255,.3)"></span>
+        <button v-if="!isLocked" class="btn btn-sm btn-outline-light py-0 px-3" style="font-size:var(--text-base)" @click="cancelSelection">Cancel</button>
+        <button v-if="!isLocked && addToProjectMode === 'new'" class="btn btn-sm btn-success py-0 px-3" style="font-size:var(--text-base)" :disabled="selectedTaskIds.size === 0" @click="confirmAndGenerate">Create project</button>
+        <button v-if="!isLocked && addToProjectMode === 'existing'" class="btn btn-sm btn-warning py-0 px-3" style="font-size:var(--text-base)" :disabled="selectedTaskIds.size === 0 || !addToProjectSel" @click="addToProject">Add {{ selectedTaskIds.size }} to project</button>
       </div>
     </div>
 
-    <!-- Phasing panel -->
-    <div v-if="phasingMonths.length" style="margin-top:2rem;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
-      <div style="background:#0B1840;color:#fff;padding:.5rem 1rem;font-size:.82rem;font-weight:700;display:flex;align-items:center;justify-content:space-between">
-        <span>📅 Monthly Phasing</span>
-        <span style="font-weight:400;font-size:.75rem;color:#93c5fd">
-          Total: {{ phasingFmtAmount(phasingTotals.totalAmt) }} · {{ phasingFmtHours(phasingTotals.totalH) }} · {{ phasingMonths.length }} month{{ phasingMonths.length !== 1 ? 's' : '' }}
+    <!-- Phasing panel (Task 4, 2026-10-07: always visible, own empty-period message) -->
+    <div class="cg-phasing">
+      <div class="cg-phasing-header" role="button" tabindex="0" :aria-expanded="!phasingCollapsed"
+           @click="togglePhasingCollapsed" @keydown.enter.prevent="togglePhasingCollapsed" @keydown.space.prevent="togglePhasingCollapsed">
+        <svg class="cg-section-chevron cg-phasing-chevron" :class="{ 'cg-section-chevron--collapsed': phasingCollapsed }" viewBox="0 0 12 12" width="12" height="12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="cg-phasing-title">Monthly Phasing</span>
+        <span class="cg-phasing-summary">
+          <template v-if="phasingMonths.length">Total: {{ phasingFmtAmount(phasingTotals.totalAmt) }} · {{ phasingFmtHours(phasingTotals.totalH) }} · {{ phasingMonths.length }} month{{ phasingMonths.length !== 1 ? 's' : '' }}</template>
+          <template v-else>no period set</template>
         </span>
       </div>
-      <div style="overflow-x:auto">
-        <table style="border-collapse:collapse;width:100%">
-          <thead>
-            <tr style="background:#f8f9fa">
-              <th style="text-align:left;padding:5px 10px;font-size:.75rem;font-weight:700;border-bottom:2px solid #dee2e6;white-space:nowrap">Metric</th>
-              <th v-for="mo in phasingMonths" :key="'h-'+mo" style="text-align:right;padding:5px 8px;font-size:.75rem;font-weight:700;white-space:nowrap;min-width:90px;border-bottom:2px solid #dee2e6">{{ phasingFmtMonth(mo) }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style="padding:5px 10px;font-size:.78rem;font-weight:700;white-space:nowrap">Budget ({{ draft.currency || 'EUR' }})</td>
-              <td v-for="mo in phasingMonths" :key="'a-'+mo" style="text-align:right;padding:5px 8px;font-size:.78rem;font-weight:700;white-space:nowrap">{{ phasingFmtAmount(phasingByMonth.amount[mo] || 0) }}</td>
-            </tr>
-            <tr style="background:#fafbfc">
-              <td style="padding:3px 10px;font-size:.72rem;color:#6b7280;white-space:nowrap">Hours</td>
-              <td v-for="mo in phasingMonths" :key="'hr-'+mo" style="text-align:right;padding:3px 8px;font-size:.72rem;color:#6b7280;white-space:nowrap">{{ phasingFmtHours(phasingByMonth.hours[mo] || 0) }}</td>
-            </tr>
-          </tbody>
-        </table>
+      <div v-show="!phasingCollapsed">
+        <div v-if="!phasingMonths.length" class="cg-phasing-empty">Set Start and End in Offer details to see the monthly breakdown. Values fill in as you add roles and hours.</div>
+        <div v-else class="cg-phasing-scroll">
+          <table class="cg-phasing-table">
+            <thead>
+              <tr>
+                <th class="cg-phasing-th-metric">Metric</th>
+                <th v-for="mo in phasingMonths" :key="'h-'+mo" class="cg-phasing-th-month">{{ phasingFmtMonth(mo) }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="cg-phasing-td-metric">Budget ({{ draft.currency || 'EUR' }})</td>
+                <td v-for="mo in phasingMonths" :key="'a-'+mo" class="cg-phasing-td-amount">
+                  <div class="cg-phasing-amount-cell">
+                    <span>{{ phasingFmtAmount(phasingByMonth.amount[mo] || 0) }}</span>
+                    <div class="cg-phasing-bar-track"><div class="cg-phasing-bar-fill" :style="{ width: (maxMonthAmount > 0 ? (phasingByMonth.amount[mo] || 0) / maxMonthAmount * 100 : 0) + '%' }"></div></div>
+                  </div>
+                </td>
+              </tr>
+              <tr class="cg-phasing-row-hours">
+                <td class="cg-phasing-td-metric cg-phasing-td-metric--muted">Hours</td>
+                <td v-for="mo in phasingMonths" :key="'hr-'+mo" class="cg-phasing-td-hours">{{ phasingFmtHours(phasingByMonth.hours[mo] || 0) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </template>
@@ -544,25 +644,6 @@
   </div>
 </div>
 
-<!-- New Version -->
-<div class="modal fade" id="cgNewVersionModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold">+ New version</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <label class="form-label small fw-semibold mb-1">Version label</label>
-        <input type="text" class="form-control form-control-sm" id="cgNewVersionLabel" placeholder="e.g. v2 client" autofocus>
-        <div class="form-text">The new version will be a copy of the current one.</div>
-        <div id="cgNewVersionError" class="text-danger small mt-2 d-none"></div>
-      </div>
-      <div class="modal-footer border-0 pt-0">
-        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-primary btn-sm" id="btnCgCreateVersion">Create</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- JSON Viewer -->
 <div class="modal fade" id="jsonViewerModal" tabindex="-1">
   <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:860px">
@@ -627,7 +708,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script defer src="js/api.js?v=8"></script>
-<script defer src="js/core.js?v=11"></script>
+<script defer src="js/core.js?v=12"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script type="module" src="js/lib/money.js?v=2"></script>
 <script type="module" src="js/lib/project-rules.js?v=1"></script>
@@ -636,8 +717,8 @@
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
-<script type="module" src="js/lib/costgrid-calc.js?v=6"></script>
-<script defer src="js/costgrid.js?v=39"></script>
+<script type="module" src="js/lib/costgrid-calc.js?v=7"></script>
+<script defer src="js/costgrid.js?v=41"></script>
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>
@@ -673,6 +754,19 @@ function renderPipelineBoard() {
   window.location.href = '/pipeline.html';
 }
 
+// Light bg+border+text pill for the header's own prominent stage pill — same
+// light-pill pattern as pipeline.html's PB_STAGE_STYLE (the header pill needs
+// the light look boards 5.17-5.21 show, unlike js/core.js's pipelineBadge(),
+// which stays the solid secondary-badge style used for Linked projects/etc.).
+const CG_HEADER_STAGE_STYLE = {
+  Draft:       { bg: 'var(--surface-light)',            border: 'var(--text-disabled)',               color: 'var(--text-muted)' },
+  SIP:         { bg: 'var(--pipeline-sip-bg)',          border: 'var(--pipeline-sip-color)',          color: 'var(--pipeline-sip-color)' },
+  Expected:    { bg: 'var(--pipeline-expected-bg)',     border: 'var(--pipeline-expected-color)',     color: 'var(--pipeline-expected-color)' },
+  Anticipated: { bg: 'var(--pipeline-anticipated-bg)',  border: 'var(--pipeline-anticipated-color)',  color: 'var(--pipeline-anticipated-color)' },
+  Committed:   { bg: 'var(--pipeline-committed-bg)',    border: 'var(--pipeline-committed-color)',    color: 'var(--pipeline-committed-color)' },
+  Canceled:    { bg: 'var(--pipeline-canceled-bg)',     border: 'var(--pipeline-canceled-color)',     color: 'var(--pipeline-canceled-color)' },
+};
+
 Vue.createApp({
   data() {
     return {
@@ -685,12 +779,15 @@ Vue.createApp({
       offerDetailsCollapsed: false, summaryCollapsed: false, sharingCollapsed: false, tagsCollapsed: false,
       attributeLists: [], versionTagItemIds: [], versionTagRows: [], tagSaving: false,
       compactHeader: localStorage.getItem('PDash_cgCompactHeader') === '1',
-      selectionMode: false, selectedTaskIds: new Set(),
+      selectionMode: false, selectedTaskIds: new Set(), addToProjectMode: 'new', // Task 4, 2026-10-07: 'new' | 'existing' segmented control
+      phasingCollapsed: false, // Task 4, 2026-10-07: Monthly Phasing card collapse (not persisted)
+      openRoleMenuCode: null, removeColumnConfirm: null, roleMenuPos: { top: 0, left: 0 }, // Task 3, 2026-10-07: role ⋮ menu
       ptcFocusedTask: null, ptcRaw: '', hoursEditing: null, addToProjectSel: '',
       addToProjectModal: { projId: '', projName: '', taskNames: [], taskIds: [] },
       backSaving: false,
       proposalBusy: false, // true while cloneProposal is in flight (2026-10-07)
-      newVersionLabel: '', newVersionError: '',
+      editingVersionLabel: false, versionLabelBeforeEdit: '', // Task 2, 2026-10-07: inline version-label rename
+      shareSummary: { count: 0, initials: [], myRole: '' }, // Task 2, 2026-10-07: Sharing card closed-state summary
       cloneGridName: '', cloneError: '', cloneSourceName: '',
       prevCurrency: 'EUR', // last-committed currency, used by Task 5's onCurrencyChange to detect+revert a change
       roleModalMode: 'add', roleModalSourceCode: null, roleSearch: '', roleActiveTeam: '', roleAllRoles: [], roleRcName: '',
@@ -752,6 +849,7 @@ Vue.createApp({
     currencyLocked() { return this.isLocked || this.versionHasProjects; },
     currencyLockTitle() { return this.versionHasProjects ? window.PROJECT_RULE_MESSAGES.costgridCurrency : ''; },
     isDraft() { return this.draft?.pipeline === 'Draft'; },
+    headerStageStyle() { return CG_HEADER_STAGE_STYLE[this.draft?.pipeline] || CG_HEADER_STAGE_STYLE.Draft; },
     hasFreeTasks() {
       if (!this.draft) return false;
       const assignedIds = cgGetAssignedTaskIds();
@@ -762,9 +860,36 @@ Vue.createApp({
     },
     grand() { return this.draft ? cgComputeGrandTotals(this.draft) : { hrs: 0, fee: 0, ptc: 0 }; },
     colTotals() { return this.draft ? cgComputeColumnTotals(this.draft) : {}; },
+    // Task 3, 2026-10-07: total column count for full-width colspan rows, including the extra
+    // no-roles placeholder column when there are no role columns to span instead.
+    gridColspan() {
+      const roleCount = this.draft?.roles?.length || 0;
+      return 6 + roleCount + (roleCount === 0 ? 1 : 0);
+    },
+    // Task 3, 2026-10-07: the role whose ⋮ menu (Teleported to body) is currently open, or null.
+    activeMenuRole() {
+      if (!this.openRoleMenuCode || !this.draft) return null;
+      return this.draft.roles.find(r => r.roleCode === this.openRoleMenuCode) || null;
+    },
+    resolvedClientName() {
+      if (!this.draft?.clientId) return '';
+      return this.clients.find(c => c.id === this.draft.clientId)?.name || '';
+    },
+    resolvedRatecardName() {
+      if (!this.draft?.ratecardId) return '';
+      const rc = this.allRatecards.find(r => String(r.id) === String(this.draft.ratecardId));
+      return rc ? (rc.client_name ? rc.name + ' (' + rc.client_name + ')' : rc.name) : '';
+    },
     offerDetailsSummary() {
-      const v = this.draft; if (!v) return '';
-      return `${v.projectName || ''}${v.startDate ? '  ·  ' + v.startDate.slice(0,4)+'/'+v.startDate.slice(4,6) : ''}${v.endDate ? ' – ' + v.endDate.slice(0,4)+'/'+v.endDate.slice(4,6) : ''}  ·  ${v.currency || 'EUR'}`;
+      if (!this.draft) return { period: '', stage: '', client: '', ratecard: '', currency: '', owner: '' };
+      return window.cgOfferDetailsSummary(this.draft, { clientName: this.resolvedClientName, ratecardName: this.resolvedRatecardName });
+    },
+    tagsSummaryGroups() {
+      return this.attributeLists.map(list => {
+        const active = (list.items || []).filter(it => this.versionTagItemIds.includes(it.id)).map(it => it.label);
+        const inactive = this.inactiveAssignedForList(list.id).map(r => r.label);
+        return { name: list.name, labels: [...active, ...inactive] };
+      }).filter(g => g.labels.length);
     },
     startDateInput: {
       get() { return this.draft?.startDate ? this.draft.startDate.slice(0,4)+'-'+this.draft.startDate.slice(4,6) : ''; },
@@ -871,6 +996,37 @@ Vue.createApp({
         totalH: months.reduce((s, mo) => s + (hours[mo] || 0), 0),
       };
     },
+    // Task 4, 2026-10-07: largest monthly Budget amount, used to size the proportional bar under
+    // each month's Budget cell (0 when there's no period / no amounts, so the bars don't divide by zero).
+    maxMonthAmount() {
+      const vals = Object.values(this.phasingByMonth.amount || {});
+      return vals.length ? Math.max(...vals) : 0;
+    },
+  },
+  // Task 3, 2026-10-07: role ⋮ menu — close on outside click/Escape, reposition on scroll/resize
+  // while open. Registered once; the menu's own open/close state lives in openRoleMenuCode.
+  mounted() {
+    this._cgRoleMenuOutsideClick = (e) => {
+      if (this.openRoleMenuCode && !e.target.closest('.cg-col-menu') && !e.target.closest('.cg-col-menu-btn')) {
+        this.openRoleMenuCode = null;
+      }
+    };
+    this._cgRoleMenuEscape = (e) => {
+      if (e.key === 'Escape' && this.openRoleMenuCode) this.openRoleMenuCode = null;
+    };
+    this._cgRoleMenuReposition = () => {
+      if (this.openRoleMenuCode && this._cgRoleMenuBtnEl) this.positionRoleMenu({ currentTarget: this._cgRoleMenuBtnEl });
+    };
+    document.addEventListener('click', this._cgRoleMenuOutsideClick);
+    document.addEventListener('keydown', this._cgRoleMenuEscape);
+    window.addEventListener('scroll', this._cgRoleMenuReposition, true);
+    window.addEventListener('resize', this._cgRoleMenuReposition);
+  },
+  beforeUnmount() {
+    document.removeEventListener('click', this._cgRoleMenuOutsideClick);
+    document.removeEventListener('keydown', this._cgRoleMenuEscape);
+    window.removeEventListener('scroll', this._cgRoleMenuReposition, true);
+    window.removeEventListener('resize', this._cgRoleMenuReposition);
   },
   methods: {
     esc, pipelineBadge, statusBadgeLarge, cgScheduleAutoSave, cgIsoToIt, cgItToIso, openShareModal,
@@ -1009,10 +1165,8 @@ Vue.createApp({
     },
     confirmRoleSelection() { cgAddSelectedRoles(); },
     versionTabLabel(v) {
-      const badge = cgLiveVersionBadge(v);
       const projCount = (v.linkedProjects || []).length;
-      const lockState = cgGetVersionLockState(this.cgId, v.versionId);
-      return v.versionLabel + badge.icon + (projCount > 0 ? ` (${projCount})` : '') + (lockState.locked ? ' 🔒' : '');
+      return v.versionLabel + (projCount > 0 ? ` (${projCount})` : '');
     },
     versionTabTitle(v) {
       const lockState = cgGetVersionLockState(this.cgId, v.versionId);
@@ -1028,7 +1182,9 @@ Vue.createApp({
       // only on writes that go through its own proxy) — $forceUpdate() supplies that without
       // touching the reference. See Global Constraint 9.
       if (_cgActiveCgId) this.cg = cgLoad(_cgActiveCgId);
+      const wasSelecting = this.selectionMode;
       this.selectionMode = _cgSelectionMode;
+      if (this.selectionMode && !wasSelecting) this.addToProjectMode = 'new';
       this.selectedTaskIds = new Set(_cgSelectedTaskIds);
       this.$forceUpdate();
     },
@@ -1050,7 +1206,21 @@ Vue.createApp({
       _cgActiveCgId = cgId; _cgActiveVersionId = resolvedVerId;
       _cgDraft = cgMigrateVersion(JSON.parse(JSON.stringify(version)));
       _cgSelectionMode = false; _cgSelectedTaskIds = new Set();
-      this.offerDetailsCollapsed = false; this.summaryCollapsed = false;
+      this.editingVersionLabel = false;
+      this.summaryCollapsed = false;
+      {
+        const isDraftVersion = version.pipeline === 'Draft';
+        const defaults = window.cgSectionDefaults(isDraftVersion);
+        let stored = null;
+        try {
+          const raw = localStorage.getItem('PDash_cgSections:' + cgId);
+          const parsed = raw ? JSON.parse(raw) : null;
+          stored = (parsed && typeof parsed === 'object') ? parsed : null;
+        } catch (e) { stored = null; }
+        this.offerDetailsCollapsed = stored?.od ?? defaults.od;
+        this.tagsCollapsed = stored?.tags ?? defaults.tags;
+        this.sharingCollapsed = stored?.sh ?? defaults.sh;
+      }
       this.cg = cgRec;
       // `this.draft` is assigned the SAME object as `_cgDraft` — not a clone of it — and this
       // is the ONLY place that reference is ever swapped (see Global Constraint 9). Every
@@ -1059,7 +1229,7 @@ Vue.createApp({
       // `_cgDraft` directly) always sees the current edited state.
       this.draft = _cgDraft;
       this.prevCurrency = this.draft.currency || 'EUR';
-      this.selectionMode = false; this.selectedTaskIds = new Set();
+      this.selectionMode = false; this.selectedTaskIds = new Set(); this.addToProjectMode = 'new';
 
       try {
         const tagRows = await Api.costGrids.versions.tags.list(cgId, resolvedVerId);
@@ -1089,7 +1259,69 @@ Vue.createApp({
       window.history.replaceState(null, '', url.toString());
       document.title = 'PDash — ' + (this.cg?.name || 'Cost Grid');
 
+      this.loadShareSummary();
+
       this.loading = false;
+    },
+    async loadShareSummary() {
+      if (!this.cgId) { this.shareSummary = { count: 0, initials: [], myRole: '' }; return; }
+      try {
+        const rows = await Api.costGrids.shares.list(this.cgId);
+        const myRole = this.cg?.myPermission || (window.__navUser?.id === this.cg?.ownerId ? 'owner' : '');
+        this.shareSummary = {
+          count: rows.length,
+          initials: rows.slice(0, 4).map(r => navInitials(r)),
+          myRole,
+        };
+      } catch (e) {
+        console.warn('[costgrid] loadShareSummary failed:', e.message);
+        this.shareSummary = { count: 0, initials: [], myRole: '' };
+      }
+    },
+    persistSectionState() {
+      if (!this.cgId) return;
+      try {
+        localStorage.setItem('PDash_cgSections:' + this.cgId, JSON.stringify({
+          od: this.offerDetailsCollapsed, tags: this.tagsCollapsed, sh: this.sharingCollapsed,
+        }));
+      } catch (e) { /* storage unavailable — non-fatal */ }
+    },
+    toggleOfferDetails() { this.offerDetailsCollapsed = !this.offerDetailsCollapsed; this.persistSectionState(); },
+    toggleTagsCollapsed() { this.tagsCollapsed = !this.tagsCollapsed; this.persistSectionState(); },
+    toggleSharingCollapsed() { this.sharingCollapsed = !this.sharingCollapsed; this.persistSectionState(); },
+    // Task 4, 2026-10-07: Monthly Phasing's own collapse — not persisted (spec §6), default open.
+    togglePhasingCollapsed() { this.phasingCollapsed = !this.phasingCollapsed; },
+    versionIsLocked(v) { return cgGetVersionLockState(this.cgId, v.versionId).locked; },
+    startEditingVersionLabel() {
+      this.versionLabelBeforeEdit = this.draft?.versionLabel || '';
+      this.editingVersionLabel = true;
+      this.$nextTick(() => {
+        const el = document.getElementById('cgVersionLabelInput');
+        el?.focus();
+        el?.select();
+      });
+    },
+    commitVersionLabelEdit() {
+      if (this.draft) {
+        const trimmed = (this.draft.versionLabel || '').trim();
+        const finalLabel = trimmed || this.versionLabelBeforeEdit || '';
+        this.draft.versionLabel = finalLabel;
+        // `this.cg` is a separate clone from `this.draft`/`_cgDraft` (see openVersion) — the
+        // segmented control's non-editing display reads versionTabLabel(v) off `cg.versions`,
+        // not off `draft`, so without this the label would revert to the stale value as soon
+        // as editingVersionLabel flips false, only catching up after a version switch/reload.
+        const verInCg = (this.cg?.versions || []).find(v => v.versionId === this.verId);
+        if (verInCg) verInCg.versionLabel = finalLabel;
+      }
+      this.editingVersionLabel = false;
+      cgScheduleAutoSave();
+    },
+    cancelVersionLabelEdit() {
+      if (this.draft) this.draft.versionLabel = this.versionLabelBeforeEdit || this.draft.versionLabel || '';
+      this.editingVersionLabel = false;
+    },
+    async createNewVersionDirect() {
+      await cgCreateNewVersionDirect();
     },
     async switchVersion(verId) {
       if (verId === this.verId) return;
@@ -1211,15 +1443,11 @@ Vue.createApp({
     },
     onRateChange(role, event) {
       const val = event.target.value.trim();
+      if (val === '') { this.resetRoleRate(role); return; }
       const baseline = this.roleBaseline(role);
-      if (val === '') {
-        role.rate = baseline.effectiveRate;
-        role.rateIsCustom = false;
-      } else {
-        const newRate = parseFloat(val) || 0;
-        role.rate = newRate;
-        role.rateIsCustom = newRate !== baseline.effectiveRate;
-      }
+      const newRate = parseFloat(val) || 0;
+      role.rate = newRate;
+      role.rateIsCustom = newRate !== baseline.effectiveRate;
       cgScheduleAutoSave();
     },
     moveRole(role, dir) {
@@ -1230,13 +1458,39 @@ Vue.createApp({
       [roles[idx], roles[newIdx]] = [roles[newIdx], roles[idx]];
       cgScheduleAutoSave();
     },
-    removeRoleColumn(code) {
-      const label = this.draft.roles.find(r => r.roleCode === code)?.roleLabel || code;
-      showConfirm(`Remove column "${label}"?\n\nHours entered for this role will be deleted.`, () => {
-        this.draft.roles = this.draft.roles.filter(r => r.roleCode !== code);
-        this.draft.phases.forEach(ph => ph.tasks.forEach(t => delete t.hours[code]));
-        cgScheduleAutoSave();
-      }, null, '✕ Remove column');
+    // Task 3, 2026-10-07: role ⋮ menu — the only way the menu opens/closes. Outside-click/Escape/
+    // scroll handlers (registered in mounted()) close the menu by setting openRoleMenuCode = null
+    // directly, bypassing this method, so they deliberately do NOT reset removeColumnConfirm —
+    // only opening a (possibly different) menu via this method does.
+    openRoleMenu(code) {
+      this.removeColumnConfirm = null;
+      this.openRoleMenuCode = this.openRoleMenuCode === code ? null : code;
+    },
+    positionRoleMenu(event) {
+      const btn = event?.currentTarget;
+      if (!btn) return;
+      this._cgRoleMenuBtnEl = btn;
+      const rect = btn.getBoundingClientRect();
+      const menuWidth = 260;
+      this.roleMenuPos = {
+        top: rect.bottom + 4,
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8)),
+      };
+    },
+    resetRoleRate(role) {
+      const baseline = this.roleBaseline(role);
+      role.rate = baseline.effectiveRate;
+      role.rateIsCustom = false;
+      cgScheduleAutoSave();
+    },
+    onRemoveColumnClick(role) {
+      const code = role.roleCode;
+      if (this.removeColumnConfirm !== code) { this.removeColumnConfirm = code; return; }
+      this.draft.roles = this.draft.roles.filter(r => r.roleCode !== code);
+      this.draft.phases.forEach(ph => ph.tasks.forEach(t => delete t.hours[code]));
+      cgScheduleAutoSave();
+      this.removeColumnConfirm = null;
+      this.openRoleMenuCode = null;
     },
     addRoleColumn() { this.openRoleModal('add', null); },
     changeRole(code) { this.openRoleModal('change', code); },
@@ -1257,7 +1511,24 @@ Vue.createApp({
       const assignedNames = cgGetAssignedTaskNames();
       return assignedIds.has(task.taskId) || assignedNames.has(task.taskName?.trim().toLowerCase());
     },
+    // Task 3, 2026-10-07: returns the linked project's display name for an assigned task, or ''
+    // for a free task — resolved the same way linkedProjectDisplay resolves its taskNames (an
+    // id match first, falling back to a case-insensitive name match, since older linked-project
+    // records only carry taskNames).
+    taskAssignedProjectName(task) {
+      if (!this.draft) return '';
+      const nameLower = task.taskName?.trim().toLowerCase();
+      const lp = (this.draft.linkedProjects || []).find(l =>
+        (l.taskIds || []).includes(task.taskId) ||
+        (l.taskNames || []).some(n => n?.trim().toLowerCase() === nameLower)
+      );
+      return lp ? (lp.projectName || lp.projectId || '') : '';
+    },
     deletePhase(phase) {
+      if (phase.tasks.some(t => this.isTaskAssigned(t))) {
+        showInfo("Can't delete: this phase has tasks linked to a project.");
+        return;
+      }
       showConfirm(`Delete phase "${phase.phaseName}" and all its tasks?`, () => {
         this.draft.phases = this.draft.phases.filter(p => p.phaseId !== phase.phaseId);
         cgScheduleAutoSave();
@@ -1290,7 +1561,7 @@ Vue.createApp({
     onHoursBlur(task, roleCode, event) {
       const val = parseFloat(event.target.value) || 0;
       if (val > 0 && !isValidSoldHours(val)) {
-        alert(`Invalid sold hours "${val}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`);
+        showInfo(`Invalid sold hours "${val}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`);
         delete task.hours[roleCode];
         event.target.value = '';
         cgScheduleAutoSave();
@@ -1302,19 +1573,67 @@ Vue.createApp({
       else { this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId); }
     },
     selectAllFreeInPhase(phase) {
-      const assignedIds = cgGetAssignedTaskIds();
-      phase.tasks.forEach(task => {
-        if (!assignedIds.has(task.taskId)) { this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId); }
+      window.cgFreeTasksOf(phase.tasks, this.draft.linkedProjects).forEach(task => {
+        this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId);
       });
     },
     selectAllFree() {
-      const assignedIds = cgGetAssignedTaskIds();
-      (this.draft.phases || []).flatMap(ph => ph.tasks).forEach(task => {
-        if (!assignedIds.has(task.taskId)) { this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId); }
+      window.cgFreeTasksOf((this.draft.phases || []).flatMap(ph => ph.tasks), this.draft.linkedProjects).forEach(task => {
+        this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId);
       });
+    },
+    // Task 4, 2026-10-07: id+name-correct {none|some|all} state for a phase's "Select free"/"Clear phase" toggle.
+    phaseFreeState(phase) {
+      const free = window.cgFreeTasksOf(phase.tasks, this.draft.linkedProjects);
+      if (!free.length) return 'none';
+      return free.every(t => this.selectedTaskIds.has(t.taskId)) ? 'all' : 'some';
+    },
+    toggleFreeInPhase(phase) {
+      if (this.phaseFreeState(phase) === 'all') {
+        window.cgFreeTasksOf(phase.tasks, this.draft.linkedProjects).forEach(task => {
+          this.selectedTaskIds.delete(task.taskId); _cgSelectedTaskIds.delete(task.taskId);
+        });
+      } else {
+        this.selectAllFreeInPhase(phase);
+      }
+    },
+    phaseFreeLabel(phase) {
+      const state = this.phaseFreeState(phase);
+      if (state === 'none') return 'All in projects';
+      if (state === 'all') return 'Clear phase';
+      return `Select free (${window.cgFreeTasksOf(phase.tasks, this.draft.linkedProjects).length})`;
+    },
+    // Whole-draft mirror of phaseFreeState/toggleFreeInPhase.
+    selectAllFreeState() {
+      const free = window.cgFreeTasksOf((this.draft.phases || []).flatMap(ph => ph.tasks), this.draft.linkedProjects);
+      if (!free.length) return 'none';
+      return free.every(t => this.selectedTaskIds.has(t.taskId)) ? 'all' : 'some';
+    },
+    toggleSelectAllFree() {
+      if (this.selectAllFreeState() === 'all') {
+        window.cgFreeTasksOf((this.draft.phases || []).flatMap(ph => ph.tasks), this.draft.linkedProjects).forEach(task => {
+          this.selectedTaskIds.delete(task.taskId); _cgSelectedTaskIds.delete(task.taskId);
+        });
+      } else {
+        this.selectAllFree();
+      }
+    },
+    selectAllFreeLabel() {
+      const state = this.selectAllFreeState();
+      if (state === 'all') return 'Clear selection';
+      const n = window.cgFreeTasksOf((this.draft.phases || []).flatMap(ph => ph.tasks), this.draft.linkedProjects).length;
+      return `Select all free (${n})`;
     },
     cancelSelection() { cgExitSelectionMode(); },
     confirmAndGenerate() { cgConfirmAndGenerate(); },
+    // Task 4, 2026-10-07: switching to "Existing project" preselects the single linked project
+    // when there's exactly one, so the dropdown isn't a pointless extra step.
+    setAddToProjectMode(mode) {
+      this.addToProjectMode = mode;
+      if (mode === 'existing' && (this.draft.linkedProjects || []).length === 1) {
+        this.addToProjectSel = this.draft.linkedProjects[0].projectId;
+      }
+    },
     addToProject() {
       const projId = this.addToProjectSel;
       if (!projId) { showInfo('Select a project from the dropdown.'); return; }
@@ -1342,11 +1661,6 @@ Vue.createApp({
     phasingFmtMonth(mo) {
       const [my, mm] = mo.split('-');
       return new Date(parseInt(my), parseInt(mm) - 1).toLocaleString('en', { month: 'short' }) + ' ' + my;
-    },
-    openNewVersionModal() {
-      document.getElementById('cgNewVersionLabel').value = '';
-      document.getElementById('cgNewVersionError').classList.add('d-none');
-      bootstrap.Modal.getOrCreateInstance(document.getElementById('cgNewVersionModal')).show();
     },
     async cloneProposal() {
       if (!this.cgId || !this.verId) return;
@@ -1484,10 +1798,6 @@ Vue.createApp({
 
     _cgVueApp = this; // wire the bridge — Global Constraint 7
 
-    document.getElementById('cgNewVersionModal').addEventListener('shown.bs.modal', () => {
-      document.getElementById('cgNewVersionLabel').focus();
-    });
-    document.getElementById('btnCgCreateVersion').addEventListener('click', cgCreateNewVersion);
     document.addEventListener('hidden.bs.modal', e => {
       if (e.target && e.target.id === 'shareModal') this.shareListRefreshTick++;
       // Any dismissal path (Cancel, X, backdrop, Esc) must abort the whole pending generation —

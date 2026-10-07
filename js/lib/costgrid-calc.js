@@ -1,21 +1,52 @@
-export function versionHasFreeTasks(ver) {
+// ── FREE TASKS (Task 1, 2026-10-07) ──────────────────────────────────────────
+export function cgFreeTasksOf(tasks, linkedProjects) {
   const assignedIds = new Set();
   const assignedNames = new Set();
-  (ver.linkedProjects || []).forEach(lp => {
+  (linkedProjects || []).forEach(lp => {
     (lp.taskIds || []).forEach(id => assignedIds.add(id));
     (lp.taskNames || []).forEach(n => { if (n?.trim()) assignedNames.add(n.trim().toLowerCase()); });
   });
-  return (ver.phases || []).flatMap(ph => ph.tasks || []).some(t =>
+  return (tasks || []).filter(t =>
     t.taskName?.trim() && !assignedIds.has(t.taskId) && !assignedNames.has(t.taskName.trim().toLowerCase())
   );
+}
+
+export function versionHasFreeTasks(ver) {
+  return cgFreeTasksOf((ver.phases || []).flatMap(ph => ph.tasks || []), ver.linkedProjects).length > 0;
 }
 
 export function isVersionCommittedLocked(ver) {
   return ver?.pipeline === 'Committed' && !versionHasFreeTasks(ver);
 }
 
+// ── OFFER DETAILS SUMMARY (Task 1, 2026-10-07) ───────────────────────────────
+export function cgOfferDetailsSummary(draft, { clientName, ratecardName }) {
+  const period = !draft.startDate && !draft.endDate
+    ? 'Not set'
+    : `${draft.startDate ? draft.startDate.slice(0,4)+'/'+draft.startDate.slice(4,6) : ''}${draft.endDate ? ' – ' + draft.endDate.slice(0,4)+'/'+draft.endDate.slice(4,6) : ''}`.trim();
+
+  return {
+    period,
+    stage: draft.pipeline || 'Draft',
+    client: clientName || 'Unassigned',
+    ratecard: ratecardName || '— None (use global role rates) —',
+    currency: draft.currency || 'EUR',
+    owner: ''
+  };
+}
+
+// ── SECTION COLLAPSE DEFAULTS (Task 1, 2026-10-07) ────────────────────────────
+export function cgSectionDefaults(isDraft) {
+  return isDraft
+    ? { od: false, tags: false, sh: false }
+    : { od: true, tags: true, sh: true };
+}
+
+window.cgFreeTasksOf = cgFreeTasksOf;
 window.versionHasFreeTasks = versionHasFreeTasks;
 window.isVersionCommittedLocked = isVersionCommittedLocked;
+window.cgOfferDetailsSummary = cgOfferDetailsSummary;
+window.cgSectionDefaults = cgSectionDefaults;
 
 // ── RATE RESOLUTION ──────────────────────────────────────────────────────────
 // Deduplicates the 3-tier rate chain (ratecard per-currency override → role-level

@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 
-// js/costgrid.js is a classic script, so cgCreateNewVersion is cut out of the file and run against stubs.
-// Contract (2026-10-01): "+ New version" asks the server for ONE atomic full copy of the source version;
-// it never re-sends the source's phases (task id collision bug) and never leaves a half-built version.
+// js/costgrid.js is a classic script, so cgCreateNewVersionDirect is cut out of the file and run against stubs.
+// Contract (2026-10-07, cost grid redesign cycle A, Task 2): "+ New version" asks the server for ONE atomic
+// full copy of the source version, with no name-prompt modal — the label is a default ('v{n}') computed from
+// the current version count, editable afterwards inline on the header's segmented control. It never re-sends
+// the source's phases (task id collision bug) and never leaves a half-built version.
 const js = readFileSync('js/costgrid.js', 'utf8');
 
 function extractFunction(src, name) {
@@ -18,7 +20,7 @@ function extractFunction(src, name) {
   return src.slice(start, i);
 }
 
-let api, store, saved, shownInfo, opened, hidden;
+let api, store, saved, shownInfo, opened;
 
 function build() {
   const cg = { id: 'cg1', versions: [{ versionId: 'v1' }] };
@@ -32,32 +34,31 @@ function build() {
     cgLoadStructureFromApi: vi.fn(async () => true),
     showInfo: (...a) => { shownInfo.push(a); },
     showCostGridEditorView: (...a) => { opened.push(a); },
-    bootstrap: { Modal: { getInstance: () => ({ hide: () => { hidden++; } }) } },
     _cgActiveCgId: 'cg1',
     _cgActiveVersionId: 'v1',
     _cgDraft: { versionId: 'v1', currency: 'CHF', phases: [{ tasks: [{ taskId: 'T1' }] }], roles: [{ roleCode: 'PM' }], projectName: 'P' },
     _cgAutoSaveTimer: null,
+    _cgNewVersionInFlight: false,
   };
   const names = Object.keys(stubs);
-  const fn = new Function(...names, 'document', 'window', `${extractFunction(js, 'cgCreateNewVersion')}; return cgCreateNewVersion;`)(
+  const fn = new Function(...names, 'document', 'window', `${extractFunction(js, 'cgCreateNewVersionDirect')}; return cgCreateNewVersionDirect;`)(
     ...names.map(n => stubs[n]), document, window);
   return { fn, stubs };
 }
 
-describe('cgCreateNewVersion (full copy of the version)', () => {
+describe('cgCreateNewVersionDirect (no-modal full copy of the version)', () => {
   beforeEach(() => {
-    document.body.innerHTML =
-      '<input id="cgNewVersionLabel" value=" v2 "><div id="cgNewVersionError" class="d-none"></div>';
+    document.body.innerHTML = '';
     api = {
       duplicate: vi.fn(async () => ({ id: 'v2id' })),
       create: vi.fn(),
       saveStructure: vi.fn(),
     };
-    shownInfo = []; opened = []; hidden = 0;
+    shownInfo = []; opened = [];
     window.__pdashAuthRedirecting = false;
   });
 
-  it('flushes the autosave, then calls the server duplicate with the label, and never re-sends the structure', async () => {
+  it('computes the default label from the current version count, flushes the autosave, then calls the server duplicate, never re-sending the structure', async () => {
     const { fn, stubs } = build();
     await fn();
     expect(stubs.cgAutoSave).toHaveBeenCalledTimes(1);
@@ -77,39 +78,38 @@ describe('cgCreateNewVersion (full copy of the version)', () => {
     expect(added.currency).toBe('CHF');
     expect(stubs.cgLoadStructureFromApi).toHaveBeenCalledWith('cg1', 'v2id');
     expect(opened).toEqual([['cg1', 'v2id']]);
-    expect(hidden).toBe(1);
   });
 
-  it('on a server error shows it, changes nothing locally and does not navigate', async () => {
+  it('on a server error, shows it via showInfo, changes nothing locally and does not navigate', async () => {
     api.duplicate = vi.fn(async () => { throw new Error('boom'); });
     const { fn, stubs } = build();
     await fn();
-    const err = document.getElementById('cgNewVersionError');
-    expect(err.classList.contains('d-none')).toBe(false);
-    expect(err.textContent).toContain('boom');
+    expect(shownInfo.some(a => String(a[0]).includes('boom'))).toBe(true);
     expect(store.versions).toHaveLength(1);
     expect(saved).toHaveLength(0);
     expect(stubs.cgLoadStructureFromApi).not.toHaveBeenCalled();
     expect(opened).toHaveLength(0);
   });
 
-  it('flushes in strict mode and, if the flush fails, shows the error and does not copy stale server data', async () => {
+  it('flushes in strict mode and, if the flush fails, shows the error via showInfo and does not copy stale server data', async () => {
     const { fn, stubs } = build();
     stubs.cgAutoSave.mockRejectedValueOnce(new Error('save down'));
     await fn();
     expect(stubs.cgAutoSave).toHaveBeenCalledWith(true);
     expect(api.duplicate).not.toHaveBeenCalled();
-    const err = document.getElementById('cgNewVersionError');
-    expect(err.classList.contains('d-none')).toBe(false);
-    expect(err.textContent).toContain('save down');
+    expect(shownInfo.some(a => String(a[0]).includes('save down'))).toBe(true);
     expect(opened).toHaveLength(0);
   });
 
-  it('an empty label is refused before anything is called', async () => {
-    document.getElementById('cgNewVersionLabel').value = '  ';
-    const { fn, stubs } = build();
-    await fn();
-    expect(stubs.cgAutoSave).not.toHaveBeenCalled();
-    expect(api.duplicate).not.toHaveBeenCalled();
+  it('a fast repeat call is ignored while one is already in flight', async () => {
+    const { fn } = build();
+    let resolveDuplicate;
+    const pending = new Promise(res => { resolveDuplicate = () => res({ id: 'v2id' }); });
+    api.duplicate = vi.fn(() => pending);
+    const first = fn();
+    const second = fn(); // should no-op immediately — the in-flight guard
+    resolveDuplicate();
+    await Promise.all([first, second]);
+    expect(api.duplicate).toHaveBeenCalledTimes(1);
   });
 });

@@ -354,7 +354,9 @@ git commit -m "feat(costgrid): grid restyle, role menu, sticky column, phase-del
 
 **Files:**
 - Modify: `costgrid.html` (selection bar/modals §5, Monthly Phasing §6, Vue methods)
-- Modify: `js/costgrid.js` (`cgGenerateProject`'s free-task count; `onHoursBlur`'s `alert()` → `showInfo()`)
+- Modify: `js/costgrid.js` (`?v=40` → `?v=41`: `cgGenerateProject`'s free-task count; `onHoursBlur`'s `alert()` → `showInfo()`)
+- Modify (version bump only): `pipeline.html` — `js/costgrid.js?v=40` → `?v=41`
+- Modify: `js/lib/proposal-modals-guard.test.js` — update `costgridJsVersion` expectations from `'40'` to `'41'`
 - Modify: `css/costgrid.css` (`?v=1`, same version — tablet media query, selection bar, phasing bar styles)
 - Modify: `CLAUDE.md` (costgrid.html row + file-structure block for `css/costgrid.css`; "Version tab switching (editor)" section)
 - Modify: `docs/pages/costgrid.md`
@@ -434,8 +436,9 @@ Change the panel's `v-if="phasingMonths.length"` (`:390`) to render unconditiona
 
 `@media (max-width: 1023px)`: `.cg-col-fixed { min-width: 220px; }`, hide `.cg-legend`. No other behavior changes — `flex-wrap` on the offer-summary and selection-bar rows is enough for wrapping (verify visually in Step 12, don't add new markup).
 
-- [ ] **Step 11: Run full test suite**
+- [ ] **Step 11: Bump `js/costgrid.js` version and run full suite**
 
+Bump `js/costgrid.js?v=40` → `?v=41` in `costgrid.html` and `pipeline.html` (this task changes `cgGenerateProject` and `onHoursBlur`, so the version must move again from Task 2's `?v=40`); update `proposal-modals-guard.test.js`'s `costgridJsVersion` expectations to `'41'`.
 Run: `npm test`
 Expected: PASS.
 
@@ -450,7 +453,7 @@ At 1440/1024px, on: new empty Draft, filled Draft, SIP with linked projects, loc
 - [ ] **Step 14: Commit**
 
 ```bash
-git add costgrid.html js/costgrid.js css/costgrid.css js/lib/costgrid-calc.test.js CLAUDE.md docs/pages/costgrid.md
+git add costgrid.html pipeline.html js/costgrid.js css/costgrid.css js/lib/costgrid-calc.test.js js/lib/proposal-modals-guard.test.js CLAUDE.md docs/pages/costgrid.md
 git commit -m "feat(costgrid): single-CTA selection bar, free-task bug fix, always-visible phasing, docs"
 ```
 
