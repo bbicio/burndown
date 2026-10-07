@@ -26,7 +26,10 @@
     {{ loadError }} <a href="/pipeline.html">← Back to Pipeline</a>
   </div>
   <template v-else>
-    <a href="#" class="cg-back-link" @click.prevent="goBack">{{ backSaving ? 'Saving…' : '← Pipeline' }}</a>
+    <a href="#" class="cg-back-link cg-btn-secondary" @click.prevent="goBack">
+      <svg viewBox="0 0 16 16" width="13" height="13" fill="none" aria-hidden="true"><path d="M9.5 3.5L5 8l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>{{ backSaving ? 'Saving…' : 'Pipeline' }}</span>
+    </a>
 
     <div class="cg-header">
       <div class="cg-header-row1">
@@ -34,12 +37,16 @@
           <h4 class="cg-header-name">{{ cg?.name || 'Cost Grid' }}</h4>
           <div class="cg-header-subtitle">Cost Grid · Client: {{ resolvedClientName || 'Unassigned' }} · {{ (draft?.linkedProjects || []).length ? (draft.linkedProjects.length + ' linked project' + (draft.linkedProjects.length > 1 ? 's' : '')) : 'No linked projects' }}</div>
         </div>
-        <span class="cg-stage-pill" :style="{ background: headerStageStyle.bg, color: headerStageStyle.color, border: '1px solid ' + headerStageStyle.border }">{{ draft?.pipeline || 'Draft' }}</span>
+        <span class="cg-stage-pill" :style="{ background: headerStageStyle.bg, color: headerStageStyle.color }">{{ draft?.pipeline || 'Draft' }}</span>
       </div>
 
       <div class="cg-header-row2">
         <div v-if="cg && cg.versions.length > 0" class="cg-version-seg">
           <button v-if="isDraft" type="button" class="cg-version-seg-new" @click="createNewVersionDirect">+ New version</button>
+          <span v-else class="cg-version-seg-new cg-version-seg-new--locked" aria-disabled="true">
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" aria-hidden="true"><path d="M4 7V5a4 4 0 1 1 8 0v2M3.5 7h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3"/></svg>
+            <span>New version</span>
+          </span>
           <div v-for="v in cg.versions" :key="v.versionId" class="cg-version-seg-item" :class="{ 'cg-version-seg-item--active': v.versionId === verId }">
             <template v-if="v.versionId === verId && editingVersionLabel && !isLocked && cg?.myPermission !== 'viewer'">
               <input type="text" id="cgVersionLabelInput" class="cg-version-label-input" v-model="draft.versionLabel"
@@ -56,17 +63,18 @@
               </button>
             </template>
           </div>
+          <span v-if="!isDraft" class="cg-version-seg-note">Published · versions locked after Publish to SIP</span>
         </div>
 
         <div class="cg-header-actions">
-          <button id="btnCgSave" class="btn btn-sm btn-primary" @click="saveVersion">Save</button>
-          <button class="btn btn-sm btn-outline-secondary" :disabled="proposalBusy" @click="cloneProposal" title="Clone this version as a new proposal">Clone</button>
-          <button class="btn btn-sm btn-outline-secondary" @click="exportXls">Export XLS</button>
-          <button v-if="!isDraft" class="btn btn-sm btn-outline-secondary" @click="openShareModal('cost_grid', cgId, cg.name)" title="Share this cost grid">Share</button>
+          <button id="btnCgSave" class="cg-btn-secondary" @click="saveVersion">Save</button>
+          <button class="cg-btn-secondary" :disabled="proposalBusy" @click="cloneProposal" title="Clone this version as a new proposal">Clone</button>
+          <button class="cg-btn-secondary" @click="exportXls">Export XLS</button>
+          <button v-if="!isDraft" class="cg-btn-secondary" @click="openShareModal('cost_grid', cgId, cg.name)" title="Share this cost grid">Share</button>
           <span class="cg-header-divider"></span>
           <button v-if="isDraft" class="btn btn-sm btn-primary" @click="publishDraft">Publish to SIP →</button>
-          <button v-else-if="!isLocked && hasFreeTasks && !selectionMode" class="btn btn-sm btn-outline-secondary" @click="generateProject" title="Generate project in SIP">Generate project</button>
-          <button v-else-if="selectionMode" class="btn btn-sm btn-outline-secondary" disabled>Selecting tasks…</button>
+          <button v-else-if="!isLocked && hasFreeTasks && !selectionMode" class="btn btn-sm btn-primary" @click="generateProject" title="Generate project in SIP">Generate project</button>
+          <button v-else-if="selectionMode" class="cg-btn-secondary" disabled>Selecting tasks…</button>
           <span v-else-if="!isDraft && !hasFreeTasks" class="text-muted cg-header-muted-action">All tasks are in projects</span>
         </div>
       </div>
@@ -92,7 +100,7 @@
           <div v-if="offerDetailsCollapsed" class="cg-offer-summary">
             <div class="cg-offer-summary-group">
               <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Period</span><span class="cg-offer-summary-value">{{ offerDetailsSummary.period }}</span></span>
-              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Stage</span><span class="cg-offer-summary-value">{{ offerDetailsSummary.stage }}</span></span>
+              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Stage</span><span class="cg-offer-summary-value"><span class="cg-offer-summary-dot" :style="{ background: headerStageStyle.color }"></span>{{ offerDetailsSummary.stage }}</span></span>
             </div>
             <span class="cg-offer-summary-sep"></span>
             <div class="cg-offer-summary-group">
@@ -108,8 +116,10 @@
           <span class="cg-section-toggle-label">{{ offerDetailsCollapsed ? 'Edit' : 'Collapse' }}</span>
         </div>
         <div v-show="!offerDetailsCollapsed" class="p-3">
-          <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" style="font-size:var(--text-xs)">
-            <span class="text-muted">Owner: {{ cg?.ownerName || '—' }}, Created at: {{ draft?.createdAt ? new Date(draft.createdAt).toLocaleDateString() : '—' }}</span>
+          <div class="cg-owner-row">
+            <span class="cg-owner-fact">Owner: <strong>{{ cg?.ownerName || '—' }}</strong></span>
+            <span class="cg-owner-fact">Created: <strong>{{ createdAtLong }}</strong></span>
+            <span class="cg-owner-spacer"></span>
             <template v-if="isAdminUser">
               <cg-people-picker :people="reassignOwnerPeople" :current-id="cg?.ownerId || ''"
                                 :disabled="reassignOwnerBusy || !reassignOwnerOptionsLoaded"
@@ -145,6 +155,7 @@
             </div>
             <div class="cg-field-box cg-field-box--stage">
               <div class="cg-field-box-label">Stage</div>
+              <label class="form-label small fw-semibold mb-1">Pipeline stage</label>
               <cg-select :model-value="draft.pipeline || 'Draft'" :options="stageOptions" aria-label="Pipeline stage"
                          :disabled="isLocked || cg?.myPermission === 'viewer'"
                          @update:model-value="onStageSelect"></cg-select>
@@ -768,12 +779,12 @@ function renderPipelineBoard() {
 // the light look boards 5.17-5.21 show, unlike js/core.js's pipelineBadge(),
 // which stays the solid secondary-badge style used for Linked projects/etc.).
 const CG_HEADER_STAGE_STYLE = {
-  Draft:       { bg: 'var(--surface-light)',            border: 'var(--text-disabled)',               color: 'var(--text-muted)' },
-  SIP:         { bg: 'var(--pipeline-sip-bg)',          border: 'var(--pipeline-sip-color)',          color: 'var(--pipeline-sip-color)' },
-  Expected:    { bg: 'var(--pipeline-expected-bg)',     border: 'var(--pipeline-expected-color)',     color: 'var(--pipeline-expected-color)' },
-  Anticipated: { bg: 'var(--pipeline-anticipated-bg)',  border: 'var(--pipeline-anticipated-color)',  color: 'var(--pipeline-anticipated-color)' },
-  Committed:   { bg: 'var(--pipeline-committed-bg)',    border: 'var(--pipeline-committed-color)',    color: 'var(--pipeline-committed-color)' },
-  Canceled:    { bg: 'var(--pipeline-canceled-bg)',     border: 'var(--pipeline-canceled-color)',     color: 'var(--pipeline-canceled-color)' },
+  Draft:       { bg: 'var(--surface-light)',           color: 'var(--text-muted)' },
+  SIP:         { bg: 'var(--pipeline-sip-bg)',         color: 'var(--pipeline-sip-color)' },
+  Expected:    { bg: 'var(--pipeline-expected-bg)',    color: 'var(--pipeline-expected-color)' },
+  Anticipated: { bg: 'var(--pipeline-anticipated-bg)', color: 'var(--pipeline-anticipated-color)' },
+  Committed:   { bg: 'var(--pipeline-committed-bg)',   color: 'var(--pipeline-committed-color)' },
+  Canceled:    { bg: 'var(--pipeline-canceled-bg)',    color: 'var(--pipeline-canceled-color)' },
 };
 
 Vue.createApp({
@@ -947,6 +958,12 @@ Vue.createApp({
     },
     linkedProjectOptions() {
       return (this.draft?.linkedProjects || []).map(lp => ({ value: lp.projectId, label: lp.projectName || lp.projectId }));
+    },
+    createdAtLong() {
+      if (!this.draft?.createdAt) return '—';
+      const d = new Date(this.draft.createdAt);
+      if (isNaN(d)) return '—';
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     },
     reassignOwnerPeople() {
       return (this.reassignOwnerOptions || []).map(u => ({ id: u.id, name: u.name, email: u.email }));
