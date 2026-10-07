@@ -1,4 +1,6 @@
 ﻿import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   resolveRoleRate, cgComputeTaskTotals, cgComputePhaseTotals, cgComputeGrandTotals, cgComputeColumnTotals,
   versionHasFreeTasks, isVersionCommittedLocked, stripCloneTaskIds, findExistingProgramForProposal,
@@ -354,4 +356,13 @@ describe('cgOfferDetailsSummary', () => {
 describe('cgSectionDefaults', () => {
   it('Draft defaults to all open', () => { expect(cgSectionDefaults(true)).toEqual({ od: false, tags: false, sh: false }); });
   it('non-Draft defaults to all closed', () => { expect(cgSectionDefaults(false)).toEqual({ od: true, tags: true, sh: true }); });
+});
+
+describe('cgGenerateProject uses cgFreeTasksOf (bug regression)', () => {
+  it('js/costgrid.js counts free tasks via cgFreeTasksOf, not raw assignedIds', () => {
+    const src = fs.readFileSync(path.resolve(__dirname, '..', '..', 'js', 'costgrid.js'), 'utf8');
+    const fn = src.match(/function cgGenerateProject\(\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
+    expect(fn).toMatch(/cgFreeTasksOf/);
+    expect(fn).not.toMatch(/assignedIds\.has\(t\.taskId\)/);
+  });
 });

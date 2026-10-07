@@ -1030,8 +1030,7 @@ function cgGenerateProject() {
   if (!v.projectName) { showInfo('Enter a project name before generating.'); return; }
 
   // Count free tasks (not yet assigned to any project)
-  const assignedIds = cgGetAssignedTaskIds();
-  const freeTasks = (v.phases || []).flatMap(ph => ph.tasks).filter(t => t.taskName?.trim() && !assignedIds.has(t.taskId));
+  const freeTasks = window.cgFreeTasksOf((v.phases || []).flatMap(ph => ph.tasks), v.linkedProjects);
   if (freeTasks.length === 0) {
     showInfo('All tasks have already been assigned to existing projects.');
     return;

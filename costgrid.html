@@ -334,9 +334,9 @@
                   <td class="cg-col-fixed" style="padding:6px 8px;border:1px solid var(--brand-dark);background:var(--brand-navy);vertical-align:middle">
                     <div class="d-flex align-items-center gap-1">
                       <input type="text" class="form-control" style="border:none;font-size:var(--text-lg);background:transparent;color:#fff;font-weight:700;flex:1;padding:2px 4px;height:32px" v-model="phase.phaseName" placeholder="Phase name" :disabled="isLocked" @change="cgScheduleAutoSave()">
-                      <button v-if="!isLocked" class="btn btn-link p-0" style="color:#93c5fd;font-size:var(--text-sm);white-space:nowrap" title="Add task" @click="addTask(phase)">+ task</button>
-                      <button v-if="selectionMode && !isLocked" class="btn btn-link p-0" style="color:#fcd34d;font-size:var(--text-xs);white-space:nowrap" title="Select all free tasks in this phase" @click="selectAllFreeInPhase(phase)">☑ free</button>
-                      <button v-if="!isLocked" class="btn btn-link p-0" style="color:#f8877a;font-size:var(--text-xs)" :disabled="phase.tasks.some(t => isTaskAssigned(t))" :title="phase.tasks.some(t => isTaskAssigned(t)) ? 'Can\'t delete: this phase has tasks linked to a project' : 'Delete phase'" @click="deletePhase(phase)">✕</button>
+                      <button v-if="!isLocked && !selectionMode" class="btn btn-link p-0" style="color:#93c5fd;font-size:var(--text-sm);white-space:nowrap" title="Add task" @click="addTask(phase)">+ task</button>
+                      <button v-if="selectionMode" type="button" class="btn btn-link p-0" style="color:#fcd34d;font-size:var(--text-xs);white-space:nowrap" :disabled="phaseFreeState(phase) === 'none'" @click="toggleFreeInPhase(phase)">{{ phaseFreeLabel(phase) }}</button>
+                      <button v-if="!isLocked && !selectionMode" class="btn btn-link p-0" style="color:#f8877a;font-size:var(--text-xs)" :disabled="phase.tasks.some(t => isTaskAssigned(t))" :title="phase.tasks.some(t => isTaskAssigned(t)) ? 'Can\'t delete: this phase has tasks linked to a project' : 'Delete phase'" @click="deletePhase(phase)">✕</button>
                     </div>
                   </td>
                   <td style="background:var(--brand-navy);border:1px solid var(--brand-dark);padding:4px 8px;vertical-align:middle">
@@ -442,51 +442,67 @@
       </Teleport>
     </div>
 
-    <div v-if="selectionMode" style="position:sticky;bottom:0;left:0;right:0;z-index:100;background:var(--brand-navy);color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:3px solid var(--indigo-500)">
+    <div v-if="selectionMode" class="cg-selection-bar">
       <div class="d-flex align-items-center gap-3">
         <span style="font-size:var(--text-md)"><strong>{{ selectedTaskIds.size }}</strong> tasks selected</span>
-        <button v-if="!isLocked" class="btn btn-sm btn-outline-light py-0 px-2" style="font-size:var(--text-sm)" @click="selectAllFree">☑ All free tasks</button>
+        <button v-if="!isLocked" type="button" class="btn btn-sm btn-outline-light py-0 px-2" style="font-size:var(--text-sm)" :disabled="selectAllFreeState() === 'none'" @click="toggleSelectAllFree">{{ selectAllFreeLabel() }}</button>
       </div>
       <div class="d-flex gap-2 align-items-center flex-wrap">
-        <template v-if="(draft.linkedProjects || []).length">
-          <select v-model="addToProjectSel" class="form-select form-select-sm py-0" style="width:auto;min-width:180px;height:30px;font-size:var(--text-sm)">
-            <option value="">— Add to existing project —</option>
-            <option v-for="lp in draft.linkedProjects" :key="lp.projectId" :value="lp.projectId">{{ lp.projectName || lp.projectId }}</option>
-          </select>
-          <button class="btn btn-sm btn-warning py-0 px-3" style="font-size:var(--text-base)" @click="addToProject">＋ Add to project</button>
-        </template>
-        <button v-if="!isLocked" class="btn btn-sm btn-outline-secondary py-0 px-3" style="font-size:var(--text-base)" @click="cancelSelection">Cancel</button>
-        <button v-if="!isLocked" class="btn btn-sm btn-success py-0 px-3" style="font-size:var(--text-base)" @click="confirmAndGenerate">▶ Create project</button>
+        <div class="cg-addmode-seg" role="group" aria-label="Add to new or existing project">
+          <button type="button" class="cg-addmode-seg-btn" :class="{ 'cg-addmode-seg-btn--active': addToProjectMode === 'new' }" @click="addToProjectMode = 'new'">New project</button>
+          <button type="button" class="cg-addmode-seg-btn" :class="{ 'cg-addmode-seg-btn--active': addToProjectMode === 'existing' }"
+                  :disabled="!(draft.linkedProjects || []).length" :title="!(draft.linkedProjects || []).length ? 'No linked projects yet' : ''"
+                  @click="setAddToProjectMode('existing')">Existing project</button>
+        </div>
+        <select v-if="addToProjectMode === 'existing'" v-model="addToProjectSel" class="form-select form-select-sm py-0" style="width:auto;min-width:180px;height:30px;font-size:var(--text-sm)">
+          <option value="">— Select project —</option>
+          <option v-for="lp in draft.linkedProjects" :key="lp.projectId" :value="lp.projectId">{{ lp.projectName || lp.projectId }}</option>
+        </select>
+        <span class="cg-header-divider" style="background:rgba(255,255,255,.3)"></span>
+        <button v-if="!isLocked" class="btn btn-sm btn-outline-light py-0 px-3" style="font-size:var(--text-base)" @click="cancelSelection">Cancel</button>
+        <button v-if="!isLocked && addToProjectMode === 'new'" class="btn btn-sm btn-success py-0 px-3" style="font-size:var(--text-base)" :disabled="selectedTaskIds.size === 0" @click="confirmAndGenerate">Create project</button>
+        <button v-if="!isLocked && addToProjectMode === 'existing'" class="btn btn-sm btn-warning py-0 px-3" style="font-size:var(--text-base)" :disabled="selectedTaskIds.size === 0 || !addToProjectSel" @click="addToProject">Add {{ selectedTaskIds.size }} to project</button>
       </div>
     </div>
 
-    <!-- Phasing panel -->
-    <div v-if="phasingMonths.length" style="margin-top:2rem;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
-      <div style="background:#0B1840;color:#fff;padding:.5rem 1rem;font-size:.82rem;font-weight:700;display:flex;align-items:center;justify-content:space-between">
-        <span>📅 Monthly Phasing</span>
-        <span style="font-weight:400;font-size:.75rem;color:#93c5fd">
-          Total: {{ phasingFmtAmount(phasingTotals.totalAmt) }} · {{ phasingFmtHours(phasingTotals.totalH) }} · {{ phasingMonths.length }} month{{ phasingMonths.length !== 1 ? 's' : '' }}
+    <!-- Phasing panel (Task 4, 2026-10-07: always visible, own empty-period message) -->
+    <div class="cg-phasing">
+      <div class="cg-phasing-header" role="button" tabindex="0" :aria-expanded="!phasingCollapsed"
+           @click="togglePhasingCollapsed" @keydown.enter.prevent="togglePhasingCollapsed" @keydown.space.prevent="togglePhasingCollapsed">
+        <svg class="cg-section-chevron cg-phasing-chevron" :class="{ 'cg-section-chevron--collapsed': phasingCollapsed }" viewBox="0 0 12 12" width="12" height="12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="cg-phasing-title">Monthly Phasing</span>
+        <span class="cg-phasing-summary">
+          <template v-if="phasingMonths.length">Total: {{ phasingFmtAmount(phasingTotals.totalAmt) }} · {{ phasingFmtHours(phasingTotals.totalH) }} · {{ phasingMonths.length }} month{{ phasingMonths.length !== 1 ? 's' : '' }}</template>
+          <template v-else>no period set</template>
         </span>
       </div>
-      <div style="overflow-x:auto">
-        <table style="border-collapse:collapse;width:100%">
-          <thead>
-            <tr style="background:#f8f9fa">
-              <th style="text-align:left;padding:5px 10px;font-size:.75rem;font-weight:700;border-bottom:2px solid #dee2e6;white-space:nowrap">Metric</th>
-              <th v-for="mo in phasingMonths" :key="'h-'+mo" style="text-align:right;padding:5px 8px;font-size:.75rem;font-weight:700;white-space:nowrap;min-width:90px;border-bottom:2px solid #dee2e6">{{ phasingFmtMonth(mo) }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style="padding:5px 10px;font-size:.78rem;font-weight:700;white-space:nowrap">Budget ({{ draft.currency || 'EUR' }})</td>
-              <td v-for="mo in phasingMonths" :key="'a-'+mo" style="text-align:right;padding:5px 8px;font-size:.78rem;font-weight:700;white-space:nowrap">{{ phasingFmtAmount(phasingByMonth.amount[mo] || 0) }}</td>
-            </tr>
-            <tr style="background:#fafbfc">
-              <td style="padding:3px 10px;font-size:.72rem;color:#6b7280;white-space:nowrap">Hours</td>
-              <td v-for="mo in phasingMonths" :key="'hr-'+mo" style="text-align:right;padding:3px 8px;font-size:.72rem;color:#6b7280;white-space:nowrap">{{ phasingFmtHours(phasingByMonth.hours[mo] || 0) }}</td>
-            </tr>
-          </tbody>
-        </table>
+      <div v-show="!phasingCollapsed">
+        <div v-if="!phasingMonths.length" class="cg-phasing-empty">Set Start and End in Offer details to see the monthly breakdown. Values fill in as you add roles and hours.</div>
+        <div v-else class="cg-phasing-scroll">
+          <table class="cg-phasing-table">
+            <thead>
+              <tr>
+                <th class="cg-phasing-th-metric">Metric</th>
+                <th v-for="mo in phasingMonths" :key="'h-'+mo" class="cg-phasing-th-month">{{ phasingFmtMonth(mo) }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="cg-phasing-td-metric">Budget ({{ draft.currency || 'EUR' }})</td>
+                <td v-for="mo in phasingMonths" :key="'a-'+mo" class="cg-phasing-td-amount">
+                  <div class="cg-phasing-amount-cell">
+                    <span>{{ phasingFmtAmount(phasingByMonth.amount[mo] || 0) }}</span>
+                    <div class="cg-phasing-bar-track"><div class="cg-phasing-bar-fill" :style="{ width: (maxMonthAmount > 0 ? (phasingByMonth.amount[mo] || 0) / maxMonthAmount * 100 : 0) + '%' }"></div></div>
+                  </div>
+                </td>
+              </tr>
+              <tr class="cg-phasing-row-hours">
+                <td class="cg-phasing-td-metric cg-phasing-td-metric--muted">Hours</td>
+                <td v-for="mo in phasingMonths" :key="'hr-'+mo" class="cg-phasing-td-hours">{{ phasingFmtHours(phasingByMonth.hours[mo] || 0) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </template>
@@ -692,7 +708,7 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=7"></script>
-<script defer src="js/costgrid.js?v=40"></script>
+<script defer src="js/costgrid.js?v=41"></script>
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>
@@ -740,7 +756,8 @@ Vue.createApp({
       offerDetailsCollapsed: false, summaryCollapsed: false, sharingCollapsed: false, tagsCollapsed: false,
       attributeLists: [], versionTagItemIds: [], versionTagRows: [], tagSaving: false,
       compactHeader: localStorage.getItem('PDash_cgCompactHeader') === '1',
-      selectionMode: false, selectedTaskIds: new Set(),
+      selectionMode: false, selectedTaskIds: new Set(), addToProjectMode: 'new', // Task 4, 2026-10-07: 'new' | 'existing' segmented control
+      phasingCollapsed: false, // Task 4, 2026-10-07: Monthly Phasing card collapse (not persisted)
       openRoleMenuCode: null, removeColumnConfirm: null, roleMenuPos: { top: 0, left: 0 }, // Task 3, 2026-10-07: role ⋮ menu
       ptcFocusedTask: null, ptcRaw: '', hoursEditing: null, addToProjectSel: '',
       addToProjectModal: { projId: '', projName: '', taskNames: [], taskIds: [] },
@@ -955,6 +972,12 @@ Vue.createApp({
         totalH: months.reduce((s, mo) => s + (hours[mo] || 0), 0),
       };
     },
+    // Task 4, 2026-10-07: largest monthly Budget amount, used to size the proportional bar under
+    // each month's Budget cell (0 when there's no period / no amounts, so the bars don't divide by zero).
+    maxMonthAmount() {
+      const vals = Object.values(this.phasingByMonth.amount || {});
+      return vals.length ? Math.max(...vals) : 0;
+    },
   },
   // Task 3, 2026-10-07: role ⋮ menu — close on outside click/Escape, reposition on scroll/resize
   // while open. Registered once; the menu's own open/close state lives in openRoleMenuCode.
@@ -1136,7 +1159,9 @@ Vue.createApp({
       // only on writes that go through its own proxy) — $forceUpdate() supplies that without
       // touching the reference. See Global Constraint 9.
       if (_cgActiveCgId) this.cg = cgLoad(_cgActiveCgId);
+      const wasSelecting = this.selectionMode;
       this.selectionMode = _cgSelectionMode;
+      if (this.selectionMode && !wasSelecting) this.addToProjectMode = 'new';
       this.selectedTaskIds = new Set(_cgSelectedTaskIds);
       this.$forceUpdate();
     },
@@ -1181,7 +1206,7 @@ Vue.createApp({
       // `_cgDraft` directly) always sees the current edited state.
       this.draft = _cgDraft;
       this.prevCurrency = this.draft.currency || 'EUR';
-      this.selectionMode = false; this.selectedTaskIds = new Set();
+      this.selectionMode = false; this.selectedTaskIds = new Set(); this.addToProjectMode = 'new';
 
       try {
         const tagRows = await Api.costGrids.versions.tags.list(cgId, resolvedVerId);
@@ -1241,6 +1266,8 @@ Vue.createApp({
     toggleOfferDetails() { this.offerDetailsCollapsed = !this.offerDetailsCollapsed; this.persistSectionState(); },
     toggleTagsCollapsed() { this.tagsCollapsed = !this.tagsCollapsed; this.persistSectionState(); },
     toggleSharingCollapsed() { this.sharingCollapsed = !this.sharingCollapsed; this.persistSectionState(); },
+    // Task 4, 2026-10-07: Monthly Phasing's own collapse — not persisted (spec §6), default open.
+    togglePhasingCollapsed() { this.phasingCollapsed = !this.phasingCollapsed; },
     versionIsLocked(v) { return cgGetVersionLockState(this.cgId, v.versionId).locked; },
     startEditingVersionLabel() {
       this.versionLabelBeforeEdit = this.draft?.versionLabel || '';
@@ -1506,7 +1533,7 @@ Vue.createApp({
     onHoursBlur(task, roleCode, event) {
       const val = parseFloat(event.target.value) || 0;
       if (val > 0 && !isValidSoldHours(val)) {
-        alert(`Invalid sold hours "${val}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`);
+        showInfo(`Invalid sold hours "${val}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`);
         delete task.hours[roleCode];
         event.target.value = '';
         cgScheduleAutoSave();
@@ -1518,19 +1545,67 @@ Vue.createApp({
       else { this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId); }
     },
     selectAllFreeInPhase(phase) {
-      const assignedIds = cgGetAssignedTaskIds();
-      phase.tasks.forEach(task => {
-        if (!assignedIds.has(task.taskId)) { this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId); }
+      window.cgFreeTasksOf(phase.tasks, this.draft.linkedProjects).forEach(task => {
+        this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId);
       });
     },
     selectAllFree() {
-      const assignedIds = cgGetAssignedTaskIds();
-      (this.draft.phases || []).flatMap(ph => ph.tasks).forEach(task => {
-        if (!assignedIds.has(task.taskId)) { this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId); }
+      window.cgFreeTasksOf((this.draft.phases || []).flatMap(ph => ph.tasks), this.draft.linkedProjects).forEach(task => {
+        this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId);
       });
+    },
+    // Task 4, 2026-10-07: id+name-correct {none|some|all} state for a phase's "Select free"/"Clear phase" toggle.
+    phaseFreeState(phase) {
+      const free = window.cgFreeTasksOf(phase.tasks, this.draft.linkedProjects);
+      if (!free.length) return 'none';
+      return free.every(t => this.selectedTaskIds.has(t.taskId)) ? 'all' : 'some';
+    },
+    toggleFreeInPhase(phase) {
+      if (this.phaseFreeState(phase) === 'all') {
+        window.cgFreeTasksOf(phase.tasks, this.draft.linkedProjects).forEach(task => {
+          this.selectedTaskIds.delete(task.taskId); _cgSelectedTaskIds.delete(task.taskId);
+        });
+      } else {
+        this.selectAllFreeInPhase(phase);
+      }
+    },
+    phaseFreeLabel(phase) {
+      const state = this.phaseFreeState(phase);
+      if (state === 'none') return 'All in projects';
+      if (state === 'all') return 'Clear phase';
+      return `Select free (${window.cgFreeTasksOf(phase.tasks, this.draft.linkedProjects).length})`;
+    },
+    // Whole-draft mirror of phaseFreeState/toggleFreeInPhase.
+    selectAllFreeState() {
+      const free = window.cgFreeTasksOf((this.draft.phases || []).flatMap(ph => ph.tasks), this.draft.linkedProjects);
+      if (!free.length) return 'none';
+      return free.every(t => this.selectedTaskIds.has(t.taskId)) ? 'all' : 'some';
+    },
+    toggleSelectAllFree() {
+      if (this.selectAllFreeState() === 'all') {
+        window.cgFreeTasksOf((this.draft.phases || []).flatMap(ph => ph.tasks), this.draft.linkedProjects).forEach(task => {
+          this.selectedTaskIds.delete(task.taskId); _cgSelectedTaskIds.delete(task.taskId);
+        });
+      } else {
+        this.selectAllFree();
+      }
+    },
+    selectAllFreeLabel() {
+      const state = this.selectAllFreeState();
+      if (state === 'all') return 'Clear selection';
+      const n = window.cgFreeTasksOf((this.draft.phases || []).flatMap(ph => ph.tasks), this.draft.linkedProjects).length;
+      return `Select all free (${n})`;
     },
     cancelSelection() { cgExitSelectionMode(); },
     confirmAndGenerate() { cgConfirmAndGenerate(); },
+    // Task 4, 2026-10-07: switching to "Existing project" preselects the single linked project
+    // when there's exactly one, so the dropdown isn't a pointless extra step.
+    setAddToProjectMode(mode) {
+      this.addToProjectMode = mode;
+      if (mode === 'existing' && (this.draft.linkedProjects || []).length === 1) {
+        this.addToProjectSel = this.draft.linkedProjects[0].projectId;
+      }
+    },
     addToProject() {
       const projId = this.addToProjectSel;
       if (!projId) { showInfo('Select a project from the dropdown.'); return; }
