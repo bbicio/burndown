@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveRoleRate, cgComputeTaskTotals, cgComputePhaseTotals, cgComputeGrandTotals, cgComputeColumnTotals,
   versionHasFreeTasks, isVersionCommittedLocked, stripCloneTaskIds, findExistingProgramForProposal,
+  cgApiClientId,
 } from './costgrid-calc.js';
 
 describe('findExistingProgramForProposal', () => {
@@ -272,5 +273,31 @@ describe('stripCloneTaskIds', () => {
   it('handles a phase whose tasks array is missing entirely', () => {
     expect(stripCloneTaskIds([{ phaseId: 'ph1', phaseName: 'No tasks key' }]))
       .toEqual([{ phaseName: 'No tasks key', tasks: [] }]);
+  });
+});
+
+describe('cgApiClientId', () => {
+  it('keeps a valid UUID', () => {
+    expect(cgApiClientId('3f2a9c1e-8b7d-4e6f-9a0b-1c2d3e4f5a6b')).toBe('3f2a9c1e-8b7d-4e6f-9a0b-1c2d3e4f5a6b');
+  });
+
+  it('turns the "__unassigned__" sentinel into null', () => {
+    expect(cgApiClientId('__unassigned__')).toBeNull();
+  });
+
+  it('turns an empty string into null', () => {
+    expect(cgApiClientId('')).toBeNull();
+  });
+
+  it('turns null into null', () => {
+    expect(cgApiClientId(null)).toBeNull();
+  });
+
+  it('turns undefined into null', () => {
+    expect(cgApiClientId(undefined)).toBeNull();
+  });
+
+  it('turns an arbitrary non-UUID string into null', () => {
+    expect(cgApiClientId('abc')).toBeNull();
   });
 });

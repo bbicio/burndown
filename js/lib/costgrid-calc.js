@@ -140,3 +140,14 @@ export function findExistingProgramForProposal(linkedProjects, projects, cgId, v
 }
 
 window.findExistingProgramForProposal = findExistingProgramForProposal;
+
+// ── CLIENT ID SANITIZATION (2026-10-07) ────────────────────────────────────────
+// The frontend uses sentinel values like '__unassigned__' for "no client" in <select>
+// elements; these are not valid UUIDs and must never be sent to the API (a uuid column
+// would reject them). Same regex as js/api-sync.js's existing sanitization.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function cgApiClientId(id) {
+  return (id && UUID_RE.test(id)) ? id : null;
+}
+
+window.cgApiClientId = cgApiClientId;
