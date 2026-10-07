@@ -43,3 +43,24 @@ describe('cost grid guard', () => {
     expect(region).toContain('<table class="cg-grid mb-0" id="cgGridTable"');
   });
 });
+
+// 2026-10-07, Gate 2 regression: cgSyncHeaderFromForm() read the header fields back out
+// of the DOM by id on every cgAutoSave(). The fidelity cycle replaced six of those native
+// controls with <cg-select>/<cg-date-picker>, so getElementById returned null and the
+// `|| default` fallbacks silently reset stage, currency, client, ratecard and period on
+// every save. The header is now read from _cgDraft, which Vue already keeps current.
+describe('cgSyncHeaderFromForm does not depend on the DOM', () => {
+  const costgridJs = read('js/costgrid.js');
+  const fn = costgridJs.slice(
+    costgridJs.indexOf('function cgSyncHeaderFromForm'),
+    costgridJs.indexOf('function cgPropagatePipelineToProjects'));
+
+  it('locates the function', () => {
+    expect(fn.length).toBeGreaterThan(50);
+  });
+
+  it('reads no element id out of the editor header', () => {
+    const ids = [...fn.matchAll(/getElementById\(\s*'([^']+)'/g)].map(m => m[1]);
+    expect(ids).toEqual([]);
+  });
+});

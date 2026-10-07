@@ -107,6 +107,10 @@
       modelValue: { type: String, default: '' },
       mode: { type: String, default: 'month' },     // 'month' | 'day'
       min: { type: String, default: '' },
+      // Upper bound, the mirror of `min`: it caps a Start field with its End value so an
+      // invalid span cannot be *chosen* in either direction (spec 1.2). Validation of a
+      // hand-typed value stays with the separate "cycle C dates" backlog item.
+      max: { type: String, default: '' },
       disabled: { type: Boolean, default: false },
       placeholder: { type: String, default: '' },
       ariaLabel: { type: String, default: '' },
@@ -125,10 +129,10 @@
       display() {
         return this.isDay ? window.formatItDate(this.modelValue) : window.formatMonthInput(this.modelValue);
       },
-      monthCells() { return window.monthGridYear(this.viewYear, { min: this.min || undefined }); },
+      monthCells() { return window.monthGridYear(this.viewYear, { min: this.min || undefined, max: this.max || undefined }); },
       dayCells() {
         return window.dayGridMonth(this.viewYear, this.viewMonth, {
-          min: this.min || undefined, selected: this.modelValue || undefined,
+          min: this.min || undefined, max: this.max || undefined, selected: this.modelValue || undefined,
         });
       },
       dayFlat() {

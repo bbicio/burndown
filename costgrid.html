@@ -141,6 +141,7 @@
                 <div class="col-6">
                   <label class="form-label small fw-semibold mb-1">Start month</label>
                   <cg-date-picker mode="month" :model-value="draft.startDate || ''" aria-label="Start month"
+                                  :max="draft.endDate || ''"
                                   :disabled="isLocked || cg?.myPermission === 'viewer'"
                                   @update:model-value="onPeriodChange('startDate', $event)"></cg-date-picker>
                 </div>
@@ -398,6 +399,7 @@
                       <div class="d-flex align-items-center gap-1 cg-task-date">
                         <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">From</span>
                         <cg-date-picker mode="day" :model-value="task.taskStartDate || ''" aria-label="Task start date"
+                                        :max="task.taskEndDate || ''"
                                         :disabled="isLocked || cg?.myPermission === 'viewer'"
                                         @update:model-value="onTaskDateChange(task, 'taskStartDate', $event)"></cg-date-picker>
                       </div>
@@ -755,8 +757,8 @@
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=7"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=1"></script>
-<script defer src="js/cg-controls.js?v=1"></script>
-<script defer src="js/costgrid.js?v=42"></script>
+<script defer src="js/cg-controls.js?v=2"></script>
+<script defer src="js/costgrid.js?v=43"></script>
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>

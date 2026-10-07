@@ -30,3 +30,22 @@ describe('cost grid custom controls', () => {
     controls.forEach(c => expect(c, c.slice(0, 80)).toMatch(/:disabled=|:locked=/));
   });
 });
+
+// 2026-10-07, Gate 2 finding: only the To/End picker carried :min, so a Start could be
+// picked after the End ("the picker prevents choosing an invalid value", spec §1.2).
+describe('date pickers bound both ways', () => {
+  it('CgDatePicker declares a max prop and honours it', () => {
+    expect(js).toMatch(/max:\s*\{\s*type:\s*String/);
+    expect(js).toMatch(/:max="max"|max:\s*this\.max|max:\s*this\.max\s*\|\|/);
+  });
+
+  it('each start picker is capped by its end value and each end picker floored by its start', () => {
+    const pickers = region.match(/<cg-date-picker[\s\S]*?><\/cg-date-picker>/g) || [];
+    const starts = pickers.filter(p => /startDate|taskStartDate/.test(p.match(/:model-value="[^"]*"/)[0]));
+    const ends = pickers.filter(p => /endDate|taskEndDate/.test(p.match(/:model-value="[^"]*"/)[0]));
+    expect(starts.length).toBe(2);
+    expect(ends.length).toBe(2);
+    starts.forEach(p => expect(p, p.slice(0, 70)).toMatch(/:max=/));
+    ends.forEach(p => expect(p, p.slice(0, 70)).toMatch(/:min=/));
+  });
+});

@@ -242,3 +242,28 @@ could not be verified from a render at all (headless Chrome does not paint overl
 `--bs-btn-disabled-bg`/`--bs-btn-disabled-border-color`. Visible on this page as the greyed-out
 "Add selected" in the Add-roles modal, where board 5.16 shows pale magenta. It is app-wide and
 fixing it means bumping `style.css`'s `?v=` on every page, so it belongs to its own cycle.
+
+### Gate 2 findings (2026-10-07)
+
+**`cgSyncHeaderFromForm()` silently reset the whole header on every autosave.** The
+function (`js/costgrid.js`) read the header fields back out of the DOM by id, which was
+right while the editor was vanilla. This cycle replaced six of those native controls with
+`<cg-select>`/`<cg-date-picker>`, so `#cgPipeline`, `#cgCurrency`, `#cgClientId`,
+`#cgRatecardId`, `#cgStartDate` and `#cgEndDate` no longer exist — `getElementById`
+returned `null` and each `|| default` fallback wrote a default back into `_cgDraft` on
+*every* `cgAutoSave()`: stage → `SIP`, currency → `EUR`, client → `__unassigned__`,
+ratecard → `null`, period → empty. The reported symptom ("the Stage dropdown will not
+change value") was only its most visible facet; measured on a populated proposal, one
+autosave also wiped the client and both period months. The header now comes from
+`_cgDraft`, which the Vue instance already keeps current (`this.draft` **is** `_cgDraft`,
+`costgrid.html:1319`) — `#cgProjectName`/`#cgNote` are `v-model`-bound and the custom
+controls write through the `on*Select`/`onPeriodChange` adapters. `costgrid-guard.test.js`
+now fails if any `getElementById` reappears in that function.
+
+**The Start pickers had no upper bound.** Only the To/End pickers carried `:min`, so a
+Start could be *picked* after the End — against §1.2's "the picker prevents choosing an
+invalid value". `CgDatePicker` gained a `max` prop (both pure helpers already supported
+it) and the Offer-details Start month and the task From field are now capped by their
+own End value. Validation of a **hand-typed** out-of-order date remains deliberately out
+of scope (D2 → the "cycle C dates" backlog item, which plans the check app-wide, server
+and UI).
