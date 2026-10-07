@@ -178,8 +178,9 @@ api/src/routes/          — Express routes (auth, users, config, cost-grids, pr
                             reporting, exports, notifications, pipeline-years, client-groups, pots, reset,
                             app-settings, currencies, attribute-lists, resources, planning, planning-assistant).
                             Several have a docs/api/<name>.md with the route-by-route detail — the entries below
-                            link theirs. The rest (auth, client-groups, cost-grids, pots, projects, reporting)
-                            have no docs file: read the route itself.
+                            link theirs. The rest (auth, client-groups, cost-grids, pots, projects, reporting,
+                            pipeline-years) have no docs/api file: read the route itself — pipeline-years is
+                            the one whose entry below points at a docs/pages file instead.
 api/src/routes/config.js — clients / client groups / programs / roles / ratecards CRUD (backs the Master Data pages). Full narrative: [docs/api/config.md](docs/api/config.md).
 api/src/routes/currencies.js — currencies admin surface (backs `master-currencies.html`). Detail: [docs/api/currencies.md](docs/api/currencies.md).
 api/src/routes/attribute-lists.js — generic tag/taxonomy CRUD; reads are requireAuth, writes requireAdmin, no DELETE by design. Detail: [docs/api/attribute-lists.md](docs/api/attribute-lists.md).

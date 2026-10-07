@@ -70,7 +70,7 @@ Loaded via `<script type="module">` on `pipeline.html`, before the inline `Vue.c
 
 ## money.js (2026-10-01, money centralization cycle)
 
-The single implementation of currency formatting and parsing (`?v=1`, `<script type="module">`, `window.*` bridge for each export). Pure: the currency list (`window.__currencies` shape `{ code, symbol, locale, … }[]`, may be `undefined`/`[]`) is always passed in. Loaded by `pipeline`, `portfolio`, `costgrid`, `project-config`, `config`, `timesheets` and `planning` (a vitest guard fails if a page that loads `core.js` and uses a money function lacks the tag, or if the `money.js?v=N` references diverge, or if `Intl.NumberFormat` appears outside `money.js`/`api/src/lib/money-format.js`).
+The single implementation of currency formatting and parsing (`?v=2`, `<script type="module">`, `window.*` bridge for each export). Pure: the currency list (`window.__currencies` shape `{ code, symbol, locale, … }[]`, may be `undefined`/`[]`) is always passed in. Loaded by `pipeline`, `portfolio`, `costgrid`, `project-config`, `config`, `timesheets` and `planning` (a vitest guard fails if a page that loads `core.js` and uses a money function lacks the tag, or if the `money.js?v=N` references diverge, or if `Intl.NumberFormat` appears outside `money.js`/`api/src/lib/money-format.js`).
 
 - `currencyInfo(code, currencies)` → `{ code, symbol, locale, digits }`. A falsy code means `EUR`; a code not in the list falls back to `{ symbol: code (or '€' for EUR), locale: 'it-IT' }`; `digits` comes from `Intl` (`style: 'currency'`, e.g. JPY 0, most 2) with a `try/catch` defaulting to 2 (Intl throws on a non-ISO code such as a stray `€`).
 - `formatMoney(amount, code, currencies, { rounded })` → `€ 1.234,50` (symbol + space + number in the locale of the currency). `useGrouping: 'always'`: the thousands separator is shown even for 4-digit amounts (some locales — it, es, pl, pt — skip it by default for 4 digits); `rounded` drops the decimals (`€ 1.235`); a non-finite amount renders as zero.
@@ -136,3 +136,7 @@ Derive/Reforecast distribution maths for `project-config.html` (`deriveDistribut
 ## project-rules.js (2026-10-01, project currency lock cycle)
 
 Browser side of the project currency lock (`?v=1`, `<script type="module">`, `window.*` bridges, loaded only by `costgrid.html`, `project-config.html` and `portfolio.html`; a vitest guard checks that the three pages load it and use it). `DIRECT_PROJECT_CREATION_ENABLED` (`false`, the UI's single switch-back point, keep in sync with `api/src/lib/project-rules.js`), `PROJECT_RULE_MESSAGES` (`costgridCurrency`, `projectConfigCurrency`, `directCreation`: the approved texts) and `versionCurrencyLocked(linkedProjects)` (true when a project is linked). The server is the authority (`docs/api/lib.md`); this only drives what the UI shows. Tests: `project-rules.test.js`, `project-rules-guard.test.js`.
+
+## cg-controls-calc.js (2026-10-07, Cost Grid fidelity cycle)
+
+Documented with the components it serves, not here: [docs/js/cg-controls.md](cg-controls.md). It is a module of `js/lib/` like the others (`?v=1`, pure, vitest-covered via `cg-controls-calc.test.js`), so it belongs in this index — the detail just lives next to `js/cg-controls.js`, whose three Vue controls are its only consumer.
