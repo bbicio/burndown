@@ -532,7 +532,6 @@
   color: var(--text-inverse);
   border: 1px solid color-mix(in srgb, var(--brand-navy) 40%, var(--text-primary) 60%);
   font-weight: var(--weight-semibold);
-  position: relative;
   min-width: 92px;
   max-width: 112px;
   padding: 8px 22px 8px 6px;

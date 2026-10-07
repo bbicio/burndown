@@ -400,8 +400,10 @@ function cgPreviewRateChange(targetCurrency) {
 // fails if one comes back.
 function cgSyncHeaderFromForm() {
   if (!_cgDraft) return;
-  _cgDraft.projectName = (_cgDraft.projectName || '').trim();
-  _cgDraft.note = (_cgDraft.note || '').trim();
+  // Nothing to copy any more, and deliberately nothing to normalise either: _cgDraft is
+  // the object Vue has bound to the inputs, so trimming here (as this did briefly) let a
+  // debounced autosave rewrite a field the user was still typing into, eating the space
+  // just entered. Trimming happens on blur, in costgrid.html's onHeaderFieldChange().
   renderCgPhasing();
 }
 

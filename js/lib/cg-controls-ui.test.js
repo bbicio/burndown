@@ -81,6 +81,25 @@ describe('role select modal selection state', () => {
 describe('viewer guard covers every Offer-details control', () => {
   it('the currency select is disabled for a viewer', () => {
     const cur = region.match(/<cg-select[^>]*aria-label="Currency"[\s\S]*?><\/cg-select>/)[0];
-    expect(cur).toMatch(/myPermission === 'viewer'/);
+    // isReadOnly() == isLocked || myPermission === 'viewer' (costgrid.html), the single
+    // predicate every editable field now shares.
+    expect(cur).toMatch(/:disabled="isReadOnly"/);
+  });
+});
+
+// Round 2 code review: the viewer guard was only on the controls this cycle swapped, so
+// hours, PTC, task name/description and rate inputs stayed editable for a viewer.
+describe('one read-only predicate for every editable field', () => {
+  it('no editable field is guarded by isLocked alone', () => {
+    expect(region).not.toMatch(/:disabled="isLocked"/);
+  });
+
+  it('isReadOnly combines the lock state with the viewer permission', () => {
+    expect(html).toMatch(/isReadOnly\(\)\s*\{\s*return this\.isLocked \|\| this\.cg\?\.myPermission === 'viewer'/);
+  });
+
+  it('filtering the role list recounts the surviving checkboxes', () => {
+    expect(html).toMatch(/roleSearch\(\) \{ this\.\$nextTick/);
+    expect(html).toMatch(/roleActiveTeam\(\) \{ this\.\$nextTick/);
   });
 });

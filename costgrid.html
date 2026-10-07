@@ -9,7 +9,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/tokens.css?v=9">
   <link rel="stylesheet" href="css/style.css?v=21">
-  <link rel="stylesheet" href="css/costgrid.css?v=2">
+  <link rel="stylesheet" href="css/costgrid.css?v=3">
 </head>
 <body>
 
@@ -131,7 +131,7 @@
           <div class="row g-2 mb-2">
             <div class="col-12">
               <label class="form-label small fw-semibold mb-1">Proposal name</label>
-              <input type="text" class="form-control" id="cgProjectName" v-model="draft.projectName" placeholder="Proposal name" @change="onHeaderFieldChange" :disabled="isLocked">
+              <input type="text" class="form-control" id="cgProjectName" v-model="draft.projectName" placeholder="Proposal name" @change="onHeaderFieldChange" :disabled="isReadOnly">
             </div>
           </div>
           <div class="cg-field-row mb-2">
@@ -142,14 +142,14 @@
                   <label class="form-label small fw-semibold mb-1">Start month</label>
                   <cg-date-picker mode="month" :model-value="draft.startDate || ''" aria-label="Start month"
                                   :max="draft.endDate || ''"
-                                  :disabled="isLocked || cg?.myPermission === 'viewer'"
+                                  :disabled="isReadOnly"
                                   @update:model-value="onPeriodChange('startDate', $event)"></cg-date-picker>
                 </div>
                 <div class="col-6">
                   <label class="form-label small fw-semibold mb-1">End month</label>
                   <cg-date-picker mode="month" :model-value="draft.endDate || ''" aria-label="End month"
                                   :min="draft.startDate || ''"
-                                  :disabled="isLocked || cg?.myPermission === 'viewer'"
+                                  :disabled="isReadOnly"
                                   @update:model-value="onPeriodChange('endDate', $event)"></cg-date-picker>
                 </div>
               </div>
@@ -158,7 +158,7 @@
               <div class="cg-field-box-label">Stage</div>
               <label class="form-label small fw-semibold mb-1">Pipeline stage</label>
               <cg-select :model-value="draft.pipeline || 'Draft'" :options="stageOptions" aria-label="Pipeline stage"
-                         :disabled="isLocked || cg?.myPermission === 'viewer'"
+                         :disabled="isReadOnly"
                          @update:model-value="onStageSelect"></cg-select>
             </div>
           </div>
@@ -169,7 +169,7 @@
                 <label class="form-label small fw-semibold mb-1">Client</label>
                 <div class="d-flex gap-2">
                   <cg-select searchable :model-value="clientIdInput" :options="clientOptions" aria-label="Client"
-                             placeholder="Unassigned" :disabled="isLocked || cg?.myPermission === 'viewer'"
+                             placeholder="Unassigned" :disabled="isReadOnly"
                              @update:model-value="onClientSelect"></cg-select>
                   <button type="button" class="cg-btn-secondary flex-shrink-0" @click="openClientsModal" style="white-space:nowrap">+ New</button>
                 </div>
@@ -177,14 +177,14 @@
               <div class="col-md-4" id="cgRatecardCol">
                 <label class="form-label small fw-semibold mb-1">Rate card <span class="text-muted fw-normal">(optional)</span></label>
                 <cg-select :model-value="ratecardIdInput" :options="ratecardOptions" aria-label="Rate card"
-                           :disabled="isLocked || cg?.myPermission === 'viewer'"
+                           :disabled="isReadOnly"
                            @update:model-value="onRatecardSelect"></cg-select>
                 <div class="cg-field-hint">Optional · filtered by client</div>
               </div>
               <div class="col-md-4">
                 <label class="form-label small fw-semibold mb-1">Currency</label>
                 <cg-select :model-value="draft.currency || 'EUR'" :options="currencyOptions" aria-label="Currency"
-                           :disabled="cg?.myPermission === 'viewer'"
+                           :disabled="isReadOnly"
                            :locked="currencyLocked" :locked-title="currencyLockTitle"
                            @update:model-value="onCurrencySelect"></cg-select>
                 <div v-if="draft.currency && draft.currency !== 'EUR'" class="text-muted" style="font-size:.72rem;margin-top:2px">
@@ -196,7 +196,7 @@
           <div class="row g-2">
             <div class="col-12">
               <label class="form-label small fw-semibold mb-1">Description</label>
-              <textarea class="form-control" id="cgNote" v-model="draft.note" rows="3" placeholder="Notes, conditions, scope of work…" @change="onHeaderFieldChange" :disabled="isLocked"></textarea>
+              <textarea class="form-control" id="cgNote" v-model="draft.note" rows="3" placeholder="Notes, conditions, scope of work…" @change="onHeaderFieldChange" :disabled="isReadOnly"></textarea>
             </div>
           </div>
 
@@ -332,7 +332,7 @@
                 <td class="cg-num">{{ grand.fee > 0 ? formatMoney(grand.fee, draft.currency || 'EUR', currencies) : '—' }}</td>
                 <td v-for="r in draft.roles" :key="'rate-'+r.roleCode" class="cg-rate-cell" :class="{ 'is-custom': r.rateIsCustom, 'is-zero': !r.rate || r.rate === 0 }">
                   <div class="cg-rate-cell-currency">{{ draft.currency || 'EUR' }}/h</div>
-                  <input type="number" min="0" step="1" :value="r.rate" @change="onRateChange(r, $event)" :disabled="isLocked" class="cg-rate-input"
+                  <input type="number" min="0" step="1" :value="r.rate" @change="onRateChange(r, $event)" :disabled="isReadOnly" class="cg-rate-input"
                     :title="r.rateIsCustom ? 'Custom (baseline: ' + (draft.currency||'EUR') + ' ' + roleBaseline(r).effectiveRate + '/h) — clear to restore' : 'Rate from roles registry / ratecard'">
                   <div v-if="r.rateIsCustom" class="cg-rate-note cg-rate-note--custom" role="button" tabindex="0" @click="resetRoleRate(r)" @keydown.enter="resetRoleRate(r)">Custom · reset {{ roleBaseline(r).effectiveRate }}</div>
                   <div v-else-if="!r.rate || r.rate === 0" class="cg-rate-note cg-rate-note--zero">Missing rate</div>
@@ -364,7 +364,7 @@
                 <tr class="cg-phase-row">
                   <td class="cg-col-fixed cg-phase-head">
                     <div class="d-flex align-items-center gap-1">
-                      <input type="text" class="cg-phase-name" v-model="phase.phaseName" placeholder="Phase name" :disabled="isLocked" @change="cgScheduleAutoSave()">
+                      <input type="text" class="cg-phase-name" v-model="phase.phaseName" placeholder="Phase name" :disabled="isReadOnly" @change="cgScheduleAutoSave()">
                       <button v-if="!isLocked && !selectionMode" type="button" class="cg-phase-pill" title="Add task" @click="addTask(phase)">+ Task</button>
                       <button v-if="selectionMode" type="button" class="cg-phase-pill cg-phase-pill--select" :disabled="phaseFreeState(phase) === 'none'" @click="toggleFreeInPhase(phase)">{{ phaseFreeLabel(phase) }}</button>
                       <button v-if="!isLocked && !selectionMode" type="button" class="cg-phase-del" :disabled="phase.tasks.some(t => isTaskAssigned(t))" :title="phase.tasks.some(t => isTaskAssigned(t)) ? 'Can\'t delete: this phase has tasks linked to a project' : 'Delete phase'" @click="deletePhase(phase)">✕</button>
@@ -386,7 +386,7 @@
                       <span v-if="isTaskAssigned(task)" style="font-size:var(--text-xs);color:var(--text-disabled)">already assigned</span>
                     </div>
                     <div class="d-flex align-items-center gap-1">
-                      <input type="text" class="cg-task-name" placeholder="Task name" v-model="task.taskName" :disabled="isLocked" @change="cgScheduleAutoSave()">
+                      <input type="text" class="cg-task-name" placeholder="Task name" v-model="task.taskName" :disabled="isReadOnly" @change="cgScheduleAutoSave()">
                       <button v-if="!isTaskAssigned(task) && !isLocked" type="button" class="cg-task-del" title="Delete task" @click="deleteTask(phase, task)">✕</button>
                       <span v-else-if="isTaskAssigned(task)" class="cg-task-lock" title="Linked to a project: it can't be deleted" aria-label="Linked to a project: it can't be deleted">
                         <svg viewBox="0 0 16 16" width="13" height="13" fill="none"><path d="M4 7V5a4 4 0 1 1 8 0v2M3.5 7h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3"/></svg>
@@ -401,27 +401,27 @@
                         <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">From</span>
                         <cg-date-picker mode="day" :model-value="task.taskStartDate || ''" aria-label="Task start date"
                                         :max="task.taskEndDate || ''"
-                                        :disabled="isLocked || cg?.myPermission === 'viewer'"
+                                        :disabled="isReadOnly"
                                         @update:model-value="onTaskDateChange(task, 'taskStartDate', $event)"></cg-date-picker>
                       </div>
                       <div class="d-flex align-items-center gap-1 cg-task-date">
                         <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">To</span>
                         <cg-date-picker mode="day" :model-value="task.taskEndDate || ''" aria-label="Task end date"
                                         :min="task.taskStartDate || ''"
-                                        :disabled="isLocked || cg?.myPermission === 'viewer'"
+                                        :disabled="isReadOnly"
                                         @update:model-value="onTaskDateChange(task, 'taskEndDate', $event)"></cg-date-picker>
                       </div>
                     </div>
                   </td>
                   <td class="cg-task-desc-cell">
-                    <textarea class="cg-task-desc" rows="2" placeholder="Description…" v-model="task.taskDescription" :disabled="isLocked" @change="cgScheduleAutoSave()"></textarea>
+                    <textarea class="cg-task-desc" rows="2" placeholder="Description…" v-model="task.taskDescription" :disabled="isReadOnly" @change="cgScheduleAutoSave()"></textarea>
                   </td>
                   <td class="cg-task-num">
                     <strong v-if="taskTotals(task).totalCostAndFee > 0" class="cg-cell-filled">{{ formatMoney(taskTotals(task).totalCostAndFee, draft.currency || 'EUR', currencies) }}</strong><span v-else class="cg-cell-empty">—</span>
                   </td>
                   <td class="cg-task-ptc-cell">
                     <input type="text" class="cg-cell-box cg-cell-box--money" :class="{ 'cg-cell-filled': task.ptc > 0 }"
-                      :value="ptcFocusedTask === task.taskId ? ptcRaw : (task.ptc > 0 ? formatMoney(task.ptc, draft.currency || 'EUR', currencies) : '')" placeholder="—" :disabled="isLocked"
+                      :value="ptcFocusedTask === task.taskId ? ptcRaw : (task.ptc > 0 ? formatMoney(task.ptc, draft.currency || 'EUR', currencies) : '')" placeholder="—" :disabled="isReadOnly"
                       @focus="ptcFocusedTask = task.taskId; ptcRaw = moneyInput(task.ptc)"
                       @input="ptcRaw = $event.target.value; task.ptc = parseMoneyInput($event.target.value); cgScheduleAutoSave()"
                       @blur="ptcFocusedTask = null; ptcRaw = ''">
@@ -434,7 +434,7 @@
                   </td>
                   <td v-for="r in draft.roles" :key="'th-'+r.roleCode" class="cg-task-hours-cell">
                     <input type="number" class="cg-cell-box" :class="{ 'cg-cell-filled': (task.hours[r.roleCode] || 0) > 0 }"
-                      :value="hoursEditing && hoursEditing.taskId === task.taskId && hoursEditing.roleCode === r.roleCode ? hoursEditing.raw : (task.hours[r.roleCode] || '')" min="0" step="0.5" placeholder="—" :disabled="isLocked"
+                      :value="hoursEditing && hoursEditing.taskId === task.taskId && hoursEditing.roleCode === r.roleCode ? hoursEditing.raw : (task.hours[r.roleCode] || '')" min="0" step="0.5" placeholder="—" :disabled="isReadOnly"
                       @focus="hoursEditing = { taskId: task.taskId, roleCode: r.roleCode, raw: String(task.hours[r.roleCode] ?? '') }"
                       @input="onHoursInput(task, r.roleCode, $event)" @blur="onHoursBlur(task, r.roleCode, $event)">
                   </td>
@@ -495,7 +495,7 @@
         </div>
         <cg-select v-if="addToProjectMode === 'existing'" :model-value="addToProjectSel" :options="linkedProjectOptions"
                    placeholder="Select project…" aria-label="Target project" style="width:200px"
-                   :disabled="isLocked" @update:model-value="addToProjectSel = $event"></cg-select>
+                   :disabled="isReadOnly" @update:model-value="addToProjectSel = $event"></cg-select>
         <span class="cg-header-divider" style="background:rgba(255,255,255,.3)"></span>
         <button v-if="!isLocked" class="btn btn-sm btn-outline-light py-0 px-3" style="font-size:var(--text-base)" @click="cancelSelection">Cancel</button>
         <button v-if="!isLocked && addToProjectMode === 'new'" class="btn btn-sm btn-primary py-0 px-3" style="font-size:var(--text-base)" :disabled="selectedTaskIds.size === 0" @click="confirmAndGenerate">Create project</button>
@@ -881,6 +881,12 @@ Vue.createApp({
       return cgGetVersionLockState(this.cgId, this.verId);
     },
     isLocked() { return this.lockState.locked; },
+    // isLocked is the version's own lock state (cgGetVersionLockState) and knows nothing
+    // about sharing, so every editable field has to combine it with the viewer check. The
+    // server already refuses a viewer's writes (routes/cost-grids.js:89 allows owner and
+    // editor only); without this the grid merely *looked* editable and autosaves failed
+    // silently, while the neighbouring swapped controls were correctly read-only.
+    isReadOnly() { return this.isLocked || this.cg?.myPermission === 'viewer'; },
     // Whether a project has been generated from this version. Reads `this.cg` first: "Generate project" pushes
     // into the raw _cgDraft.linkedProjects (invisible to Vue) and then reassigns `cg` (renderCgVersionTabs),
     // which is the signal that makes this recompute without a reload.
@@ -964,7 +970,7 @@ Vue.createApp({
       const cur = this.draft?.currency || 'EUR';
       // Label matches the closed Offer-details summary and board 5.13 ("None — global rates"),
       // so the trigger and the summary never disagree.
-      const list = [{ value: '', label: '— None (use global role rates) —', sub: 'EUR · Master Data default rates' }];
+      const list = [{ value: '', label: '— None (use global role rates) —', sub: cur + ' · Master Data default rates' }];
       (this.filteredRatecards || []).forEach(rc => {
         // No role count is invented: when the loaded entry carries no entries array, the
         // sub-line is the currency alone.
@@ -1108,6 +1114,14 @@ Vue.createApp({
     document.removeEventListener('keydown', this._cgRoleMenuEscape);
     window.removeEventListener('scroll', this._cgRoleMenuReposition, true);
     window.removeEventListener('resize', this._cgRoleMenuReposition);
+  },
+  watch: {
+    // The role-modal checkboxes live in the DOM, not in Vue state, so filtering the list
+    // destroys the checked rows while roleSelectionCount still counts them: "Add selected"
+    // stayed enabled for a selection that no longer existed, and cgAddSelectedRoles() then
+    // added only whatever happened to be visible. Recount once the filtered list is drawn.
+    roleSearch() { this.$nextTick(() => this.refreshRoleSelectionCount()); },
+    roleActiveTeam() { this.$nextTick(() => this.refreshRoleSelectionCount()); },
   },
   methods: {
     esc, pipelineBadge, statusBadgeLarge, cgScheduleAutoSave, cgIsoToIt, cgItToIso, openShareModal,
@@ -1430,7 +1444,16 @@ Vue.createApp({
       await new Promise(r => setTimeout(r, 500));
       window.location.href = '/pipeline.html';
     },
-    onHeaderFieldChange() { cgScheduleAutoSave(); },
+    onHeaderFieldChange() {
+      // @change fires on blur, so trimming here cannot rewrite an input the user is still
+      // typing into — unlike cgAutoSave(), whose 2 s debounce is also kicked by unrelated
+      // controls (hours, PTC, task fields) and used to eat a just-typed trailing space.
+      if (this.draft) {
+        this.draft.projectName = (this.draft.projectName || '').trim();
+        this.draft.note = (this.draft.note || '').trim();
+      }
+      cgScheduleAutoSave();
+    },
     // ── <cg-select> / <cg-date-picker> adapters (2026-10-07) ──────────────────
     // Each writes the value the control emitted and then calls the unchanged handler,
     // which reads it back from this.draft exactly as the native control's @change did.
