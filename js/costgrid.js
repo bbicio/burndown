@@ -22,7 +22,6 @@ let _cgRoleModalSourceCode   = null;    // roleCode being changed/duplicated
 let _cgActiveRatecardMap     = {};      // roleId → EUR hourly_rate from the ratecard selected for the current version
 let _cgActiveRatecardOverrides = {};   // roleId → { USD: 216, GBP: 200, ... } per-currency rate overrides
 let _cgIsClientRatecard      = false;   // true when selected ratecard is client-specific (not agency-wide)
-let _pbCloneSource           = null;    // { cgId, verId, name } — shared between pipeline board and editor
 
 // ── PERSISTENCE ───────────────────────────────────────────────────────────────
 
@@ -828,20 +827,17 @@ async function cgCreateNewVersion() {
 }
 
 // ── CREATE NEW GRID ───────────────────────────────────────────────────────────
+// No modal (2026-10-07): "+ New Proposal" creates the proposal at once with a
+// placeholder name and opens the editor with that name focused/selected for an
+// immediate rename (see showCostGridEditorView's focusName option on pipeline.html).
+
+let _cgCreateInFlight = false;
 
 async function cgCreateNewGrid() {
-  const btn = document.getElementById('btnCgCreateGrid');
-  if (btn && btn.disabled) return; // already in flight -- ignore a fast repeat click
+  if (_cgCreateInFlight) return; // already in flight -- ignore a fast repeat click
+  _cgCreateInFlight = true;
 
-  const name  = document.getElementById('cgNewGridName')?.value.trim();
-  const errEl = document.getElementById('cgNewGridError');
-  if (!name) {
-    if (errEl) { errEl.textContent = 'Please enter a name.'; errEl.classList.remove('d-none'); }
-    return;
-  }
-  if (errEl) errEl.classList.add('d-none');
-  if (btn) btn.disabled = true;
-
+  const name = 'New proposal';
   try {
     // Create on the API first to get server-assigned IDs.
     // POST /api/cost-grids ignores any client-provided id, so we must use the
@@ -857,7 +853,7 @@ async function cgCreateNewGrid() {
         roles:  [],
       }).catch(() => {});
     } catch (e) {
-      if (errEl) { errEl.textContent = 'API error: ' + e.message; errEl.classList.remove('d-none'); }
+      showInfo('Could not create the proposal: ' + e.message, 'Error');
       return;
     }
 
@@ -885,65 +881,81 @@ async function cgCreateNewGrid() {
     if (!idx.includes(cgId)) idx.push(cgId);
     cgSaveIndex(idx);
     cgSave(cg);
-    bootstrap.Modal.getInstance(document.getElementById('cgNewGridModal'))?.hide();
-    document.getElementById('cgNewGridName').value = '';
-    showCostGridEditorView(cgId, verId);
+    showCostGridEditorView(cgId, verId, { focusName: true });
   } finally {
-    if (btn) btn.disabled = false;
+    _cgCreateInFlight = false;
   }
 }
 
 // ── CLONE GRID ────────────────────────────────────────────────────────────────
+// No modal (2026-10-07): Clone creates the copy at once as "{source name} — Copy",
+// with exactly the same content the modal-driven flow used to produce (header
+// fields, phases/tasks/roles; no exchange-rate snapshot, no tags), and opens the
+// editor on it. If the source version is the one currently open in the editor,
+// its pending autosave is flushed first so the clone carries the latest edits.
 
-async function cgCloneGrid() {
-  const btn = document.getElementById('btnCgClone');
-  if (btn && btn.disabled) return; // already in flight -- ignore a fast repeat click
+let _cgCloneInFlight = false;
 
-  const name  = document.getElementById('cgCloneGridName')?.value.trim();
-  const errEl = document.getElementById('cgCloneError');
-  if (!name) {
-    if (errEl) { errEl.textContent = 'Please enter a name.'; errEl.classList.remove('d-none'); }
-    return;
-  }
-  if (errEl) errEl.classList.add('d-none');
-
-  const { cgId: srcCgId, verId: srcVerId } = _pbCloneSource || {};
+async function cgCloneGrid(srcCgId, srcVerId) {
+  if (_cgCloneInFlight) return; // already in flight -- ignore a fast repeat click
   if (!srcCgId || !srcVerId) return;
+  _cgCloneInFlight = true;
 
-  if (btn) btn.disabled = true;
   try {
-    // Cancel any pending autosave before starting async clone operations
-    clearTimeout(_cgAutoSaveTimer);
+    // Flush a pending autosave of the open source version first, so the clone carries the
+    // latest edits — but only when the user can actually save it: a viewer has no edit
+    // permission on the source grid, so the flush's PATCH/POST calls would 403 and abort
+    // the whole clone (a regression found in review — a viewer's clone worked before this
+    // flush existed, since there was nothing to save on their behalf).
+    const srcCanEdit = cgLoad(srcCgId)?.myPermission !== 'viewer';
+    if (srcCanEdit && _cgActiveCgId === srcCgId && _cgActiveVersionId === srcVerId) {
+      clearTimeout(_cgAutoSaveTimer);
+      try {
+        await cgAutoSave(true);
+      } catch (e) {
+        showInfo('Could not clone the proposal: ' + e.message, 'Error');
+        return;
+      }
+    }
 
     // Load full structure from API if not already in memory
     if (typeof cgLoadStructureFromApi === 'function') {
       const srcStructureLoaded = await cgLoadStructureFromApi(srcCgId, srcVerId);
       if (!srcStructureLoaded) {
-        if (errEl) { errEl.textContent = 'Could not load the source proposal\'s structure. Please try again.'; errEl.classList.remove('d-none'); }
+        showInfo('Could not clone the proposal: could not load the source proposal\'s structure. Please try again.', 'Error');
         return;
       }
     }
     const srcCg  = cgLoad(srcCgId);
     const srcVer = srcCg?.versions.find(v => v.versionId === srcVerId);
     if (!srcVer) {
-      if (errEl) { errEl.textContent = 'Source proposal not found.'; errEl.classList.remove('d-none'); }
+      showInfo('Could not clone the proposal: source proposal not found.', 'Error');
       return;
     }
 
+    const name = srcCg.name + ' — Copy';
+    const clientId = cgApiClientId(srcVer.clientId);
+
     // 1. Create new cost grid and version on the API
-    const newCg  = await Api.costGrids.create({ name });
-    const cgId   = newCg.id;
-    const newVer = await Api.costGrids.versions.create(cgId, {
-      label:      'v1',
-      currency:   srcVer.currency    || 'EUR',
-      clientId:   srcVer.clientId    || null,
-      ratecardId: srcVer.ratecardId  || null,
-      startDate:  srcVer.startDate   || '',
-      endDate:    srcVer.endDate     || '',
-      note:       srcVer.note        || '',
-      projectName: name,
-    });
-    const verId = newVer.id;
+    let cgId, verId;
+    try {
+      const newCg  = await Api.costGrids.create({ name });
+      cgId = newCg.id;
+      const newVer = await Api.costGrids.versions.create(cgId, {
+        label:      'v1',
+        currency:   srcVer.currency    || 'EUR',
+        clientId,
+        ratecardId: srcVer.ratecardId  || null,
+        startDate:  srcVer.startDate   || '',
+        endDate:    srcVer.endDate     || '',
+        note:       srcVer.note        || '',
+        projectName: name,
+      });
+      verId = newVer.id;
+    } catch (e) {
+      showInfo('Could not clone the proposal: ' + e.message, 'Error');
+      return;
+    }
 
     // 2. Copy phase/task/role structure — strip taskId/phaseId so the backend mints fresh UUIDs
     //    instead of reusing the source version's (still-live) ones (see stripCloneTaskIds above).
@@ -968,7 +980,7 @@ async function cgCloneGrid() {
         pipelineYear:   null,
         linkedProjects: [],
         projectName:    name,
-        clientId:       srcVer.clientId    || null,
+        clientId,
         ratecardId:     srcVer.ratecardId  || null,
         startDate:      srcVer.startDate   || '',
         endDate:        srcVer.endDate     || '',
@@ -990,7 +1002,6 @@ async function cgCloneGrid() {
       );
     }
 
-    bootstrap.Modal.getInstance(document.getElementById('cgCloneModal'))?.hide();
     showCostGridEditorView(cgId, verId);
     // On costgrid.html, showCostGridEditorView re-renders in place without changing the URL.
     // Update URL to point to the new clone so refresh/back button work correctly.
@@ -1001,9 +1012,9 @@ async function cgCloneGrid() {
       window.history.replaceState(null, '', curUrl.toString());
     }
   } catch(e) {
-    if (errEl) { errEl.textContent = 'Clone failed: ' + e.message; errEl.classList.remove('d-none'); }
+    showInfo('Could not clone the proposal: ' + e.message, 'Error');
   } finally {
-    if (btn) btn.disabled = false;
+    _cgCloneInFlight = false;
   }
 }
 

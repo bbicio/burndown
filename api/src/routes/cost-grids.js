@@ -385,6 +385,16 @@ router.post('/:id/versions', requireAuth, async (req, res, next) => {
     const { label, pipeline, startDate, endDate, currency, currencyRate, note, ratecardId, clientId, projectName } = req.body;
     if (!label?.trim()) return res.status(400).json({ error: 'label is required' });
 
+    const { rows: pubRows } = await query(
+      `SELECT 1 FROM cost_grid_versions WHERE cost_grid_id = $1 AND pipeline <> 'Draft' LIMIT 1`,
+      [req.params.id]
+    );
+    const versionErr = rules.versionCreationError({
+      role: await liveRole(req.user.id),
+      hasPublishedVersion: pubRows.length > 0,
+    });
+    if (versionErr) return res.status(400).json({ error: versionErr, code: rules.VERSION_RULE_CODE });
+
     // Resolve currency_rate: use provided value, else look up live rate from currencies table
     const resolvedCurrency = currency || 'EUR';
     let resolvedRate = parseFloat(currencyRate) || null;
@@ -499,6 +509,16 @@ router.post('/:id/versions/:vId/duplicate', requireAuth, async (req, res, next) 
     const src = await query('SELECT * FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
     if (!src.rows[0]) return res.status(404).json({ error: 'Version not found' });
     const s = src.rows[0];
+
+    const { rows: pubRows } = await query(
+      `SELECT 1 FROM cost_grid_versions WHERE cost_grid_id = $1 AND pipeline <> 'Draft' LIMIT 1`,
+      [req.params.id]
+    );
+    const versionErr = rules.versionCreationError({
+      role: await liveRole(req.user.id),
+      hasPublishedVersion: pubRows.length > 0,
+    });
+    if (versionErr) return res.status(400).json({ error: versionErr, code: rules.VERSION_RULE_CODE });
 
     // One transaction: any failure rolls everything back, so no half-copied version is ever left behind.
     const client = await pool.connect();

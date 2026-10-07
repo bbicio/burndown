@@ -79,3 +79,15 @@ test('removal rules: refused for non-sysadmin while the flag is off', () => {
 test('a missing role (deleted user) is treated as non-sysadmin', () => {
   assert.equal(rules.projectRemovalError({ role: null }), rules.MESSAGES.removal);
 });
+
+test('versionCreationError: a published proposal refuses a new version for non-sysadmin only', () => {
+  const m = 'A published proposal cannot get a new version.';
+  assert.equal(rules.versionCreationError({ role: ADMIN, hasPublishedVersion: false }), null);
+  assert.equal(rules.versionCreationError({ role: ADMIN, hasPublishedVersion: true }), m);
+  assert.equal(rules.versionCreationError({ role: 'user', hasPublishedVersion: true }), m);
+  assert.equal(rules.versionCreationError({ role: SYS, hasPublishedVersion: true }), null);
+});
+
+test('VERSION_RULE_CODE constant', () => {
+  assert.equal(rules.VERSION_RULE_CODE, 'VERSION_RULE');
+});

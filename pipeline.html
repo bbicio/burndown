@@ -48,7 +48,7 @@
         <div class="pb-open-label">OPEN PIPELINE</div>
         <div class="pb-open-value">{{ openPipeline.approx ? '≈ ' : '' }}{{ openPipeline.text }}</div>
       </div>
-      <button type="button" class="pb-btn-new" v-if="newProposalVisible" @click="openNewProposalModal"><span class="pb-lbl-wide">+ New Proposal</span><span class="pb-lbl-narrow">+ New</span></button>
+      <button type="button" class="pb-btn-new" v-if="newProposalVisible" :disabled="proposalBusy" @click="createNewProposal"><span class="pb-lbl-wide">+ New Proposal</span><span class="pb-lbl-narrow">+ New</span></button>
     </div>
   </div>
   <div class="pb-toolbar flex-shrink-0">
@@ -191,7 +191,7 @@
             <span class="pb-card-date">{{ pbFmtDate(card.v.createdAt) }}</span>
             <span class="pb-card-actions">
               <button v-if="card.cg.myPermission !== 'viewer'" type="button" class="pb-act" title="Open in editor" @click.stop="showCostGridEditorView(card.cg.id, card.v.versionId)">Edit</button>
-              <button v-if="card.cg.myPermission !== 'viewer'" type="button" class="pb-act" title="Clone proposal" @click.stop="openCloneModal(card.cg.id, card.v.versionId)">Clone</button>
+              <button v-if="card.cg.myPermission !== 'viewer'" type="button" class="pb-act" :disabled="proposalBusy" title="Clone proposal" @click.stop="cloneProposal(card.cg.id, card.v.versionId)">Clone</button>
               <button v-if="card.v.pipeline !== 'Draft'" type="button" class="pb-act" title="Share" @click.stop="openShareModal('cost_grid', card.cg.id, card.cg.name)">Share</button>
               <button v-if="card.v.pipeline === 'Draft' && card.cg.myPermission !== 'viewer'" type="button" class="pb-act pb-act-danger" title="Delete proposal" @click.stop="deleteGridCard(card.cg.id, card.cg.name)">Delete</button>
             </span>
@@ -274,7 +274,7 @@
       <div class="pb-panel-owner">Owner <strong>{{ selectedCg.ownerName || '—' }}</strong> · Created on {{ pbFmtDate(selectedVersion.createdAt) }}</div>
       <div class="pb-panel-actions">
         <button v-if="selectedCg.myPermission !== 'viewer'" type="button" class="pb-btn pb-btn-primary" title="Open full cost grid editor" @click="showCostGridEditorView(selectedCgId, selectedVerId)">Edit</button>
-        <button v-if="selectedCg.myPermission !== 'viewer'" type="button" class="pb-btn pb-btn-outline" title="Clone this version as a new proposal" @click="openCloneModal(selectedCgId, selectedVerId)">Clone</button>
+        <button v-if="selectedCg.myPermission !== 'viewer'" type="button" class="pb-btn pb-btn-outline" :disabled="proposalBusy" title="Clone this version as a new proposal" @click="cloneProposal(selectedCgId, selectedVerId)">Clone</button>
         <button v-if="detailStage !== 'Draft'" type="button" class="pb-btn pb-btn-outline" title="Share this cost grid" @click="openShareModal('cost_grid', selectedCgId, selectedCg.name)">Share</button>
         <span class="pb-panel-spacer"></span>
         <button v-if="detailStage === 'Draft' && selectedCg.myPermission !== 'viewer'" type="button" class="pb-btn pb-btn-danger" title="Delete this Draft version" @click="deleteSelectedVersion">Delete</button>
@@ -457,51 +457,6 @@
   </div>
 </div>
 
-<!-- New Proposal -->
-<div class="modal fade" id="cgNewGridModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1">
-        <h6 class="modal-title fw-bold">📋 New Proposal</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <label class="form-label small fw-semibold mb-1">Proposal name</label>
-        <input type="text" class="form-control form-control-sm" id="cgNewGridName"
-               placeholder="e.g. Project Alpha — Proposal" autofocus>
-        <div id="cgNewGridError" class="text-danger small mt-2 d-none"></div>
-      </div>
-      <div class="modal-footer border-0 pt-0">
-        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-primary btn-sm" id="btnCgCreateGrid">Create</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Clone Proposal -->
-<div class="modal fade" id="cgCloneModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1">
-        <h6 class="modal-title fw-bold">⧉ Clone Proposal</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <p class="text-muted small mb-2">Cloning: <strong id="cgCloneSourceName"></strong></p>
-        <label class="form-label small fw-semibold mb-1">New proposal name</label>
-        <input type="text" class="form-control form-control-sm" id="cgCloneGridName"
-               placeholder="e.g. Project Alpha — Proposal v2" autofocus>
-        <div id="cgCloneError" class="text-danger small mt-2 d-none"></div>
-      </div>
-      <div class="modal-footer border-0 pt-0">
-        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-primary btn-sm" id="btnCgClone">Clone</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- JSON Viewer (reusable) -->
 <div class="modal fade" id="jsonViewerModal" tabindex="-1">
   <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:860px">
@@ -555,9 +510,9 @@
 <script defer src="js/notifications.js?v=3"></script>
 <script defer src="js/roles.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
-<script type="module" src="js/lib/costgrid-calc.js?v=5"></script>
+<script type="module" src="js/lib/costgrid-calc.js?v=6"></script>
 <script type="module" src="js/lib/pipeline-calc.js?v=6"></script>
-<script defer src="js/costgrid.js?v=38"></script>
+<script defer src="js/costgrid.js?v=39"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/api-sync.js?v=22"></script>
@@ -566,8 +521,10 @@
 <script defer src="js/nav.js?v=17"></script>
 
 <script type="module">
-window.showCostGridEditorView = function (cgId, versionId) {
-  const p = new URLSearchParams({ cgId, verId: versionId });
+window.showCostGridEditorView = function (cgId, versionId, opts) {
+  const params = { cgId, verId: versionId };
+  if (opts && opts.focusName) params.focus = 'name';
+  const p = new URLSearchParams(params);
   window.location.href = '/costgrid.html?' + p;
 };
 </script>
@@ -634,6 +591,7 @@ Vue.createApp({
       searchOpen: false,
       collapsedStages: [], // stage names; emptied-on-load columns start collapsed (see created)
       mobileStage: null, // smartphone: selected stage tab (null = first stage with cards)
+      proposalBusy: false, // true while createNewProposal/cloneProposal is in flight (2026-10-07)
     };
   },
   computed: {
@@ -1040,20 +998,25 @@ Vue.createApp({
     taskDateRange(task) {
       return [pbFmtMonth(task.taskStartDate), pbFmtMonth(task.taskEndDate)].filter(Boolean).join(' – ') || '—';
     },
-    openNewProposalModal() {
-      document.getElementById('cgNewGridName').value = '';
-      document.getElementById('cgNewGridError').classList.add('d-none');
-      bootstrap.Modal.getOrCreateInstance(document.getElementById('cgNewGridModal')).show();
+    async createNewProposal() {
+      this.proposalBusy = true;
+      try {
+        await cgCreateNewGrid();
+        this.refreshTick++;
+        this.collapsedStages = this.collapsedStages.filter(st => st !== 'Draft');
+      } finally {
+        this.proposalBusy = false;
+      }
     },
-    openCloneModal(cgId, verId) {
-      const cg = cgLoad(cgId);
-      if (!cg) return;
-      const v = cg.versions.find(ver => ver.versionId === verId);
-      _pbCloneSource = { cgId, verId, name: cg.name };
-      document.getElementById('cgCloneSourceName').textContent = cg.name + (v?.versionLabel ? ' — ' + v.versionLabel : '');
-      document.getElementById('cgCloneGridName').value = cg.name + ' — Copy';
-      document.getElementById('cgCloneError').classList.add('d-none');
-      bootstrap.Modal.getOrCreateInstance(document.getElementById('cgCloneModal')).show();
+    async cloneProposal(cgId, verId) {
+      this.proposalBusy = true;
+      try {
+        await cgCloneGrid(cgId, verId);
+        this.refreshTick++;
+        this.collapsedStages = this.collapsedStages.filter(st => st !== 'Draft');
+      } finally {
+        this.proposalBusy = false;
+      }
     },
   },
   async created() {
@@ -1106,23 +1069,6 @@ Vue.createApp({
     this.refreshTick++; // initial load completed — see Global Constraint 4
     // Columns without cards start collapsed (once). Later changes are user actions only.
     this.collapsedStages = this.stagesData.filter(c => !c.cards.length).map(c => c.stage);
-
-    document.getElementById('cgNewGridModal').addEventListener('shown.bs.modal', () => {
-      document.getElementById('cgNewGridName').focus();
-    });
-    document.getElementById('btnCgCreateGrid').addEventListener('click', async () => {
-      await cgCreateNewGrid();
-      this.refreshTick++;
-      this.collapsedStages = this.collapsedStages.filter(st => st !== 'Draft');
-    });
-    document.getElementById('cgCloneModal').addEventListener('shown.bs.modal', () => {
-      document.getElementById('cgCloneGridName').focus();
-    });
-    document.getElementById('btnCgClone').addEventListener('click', async () => {
-      await cgCloneGrid();
-      this.refreshTick++;
-      this.collapsedStages = this.collapsedStages.filter(st => st !== 'Draft');
-    });
   },
 })
   .component('share-list', window.ShareListComponent)

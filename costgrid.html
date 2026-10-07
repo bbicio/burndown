@@ -36,7 +36,7 @@
         <button v-if="isDraft" class="btn btn-sm btn-outline-danger" @click="deleteVersion" title="Delete this Draft version">🗑 Delete version</button>
         <button v-if="isDraft" class="btn btn-sm btn-primary" @click="publishDraft">🚀 Publish to SIP →</button>
         <button v-if="isDraft" class="btn btn-sm btn-primary" @click="openNewVersionModal">+ New version</button>
-        <button class="btn btn-sm btn-outline-secondary" @click="openCloneModal" title="Clone this version as a new proposal">⧉ Clone</button>
+        <button class="btn btn-sm btn-outline-secondary" :disabled="proposalBusy" @click="cloneProposal" title="Clone this version as a new proposal">⧉ Clone</button>
         <button v-if="!isDraft" class="btn btn-sm btn-outline-secondary" @click="openShareModal('cost_grid', cgId, cg.name)" title="Share this cost grid">🔗 Share</button>
         <button class="btn btn-sm btn-outline-secondary" @click="exportXls">⬇ Export XLS</button>
         <button v-if="!isLocked && !isDraft && hasFreeTasks" class="btn btn-sm btn-outline-secondary" @click="generateProject" title="Generate project in SIP">🚀 Generate Project</button>
@@ -544,24 +544,6 @@
   </div>
 </div>
 
-<!-- New Cost Grid -->
-<div class="modal fade" id="cgNewGridModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold">📋 New Cost Grid</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <label class="form-label small fw-semibold mb-1">Grid name</label>
-        <input type="text" class="form-control form-control-sm" id="cgNewGridName" placeholder="e.g. Project Alpha — Proposal" autofocus>
-        <div id="cgNewGridError" class="text-danger small mt-2 d-none"></div>
-      </div>
-      <div class="modal-footer border-0 pt-0">
-        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-primary btn-sm" id="btnCgCreateGrid">Create</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- New Version -->
 <div class="modal fade" id="cgNewVersionModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
@@ -576,29 +558,6 @@
       <div class="modal-footer border-0 pt-0">
         <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
         <button class="btn btn-primary btn-sm" id="btnCgCreateVersion">Create</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Clone Proposal -->
-<div class="modal fade" id="cgCloneModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1">
-        <h6 class="modal-title fw-bold">⧉ Clone proposal</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <p class="text-muted small mb-2">Cloning: <strong id="cgCloneSourceName"></strong></p>
-        <label class="form-label small fw-semibold mb-1">New proposal name</label>
-        <input type="text" class="form-control form-control-sm" id="cgCloneGridName"
-               placeholder="e.g. Project Alpha — Proposal v2" autofocus>
-        <div id="cgCloneError" class="text-danger small mt-2 d-none"></div>
-      </div>
-      <div class="modal-footer border-0 pt-0">
-        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-primary btn-sm" id="btnCgClone">⧉ Clone</button>
       </div>
     </div>
   </div>
@@ -677,8 +636,8 @@
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
-<script type="module" src="js/lib/costgrid-calc.js?v=5"></script>
-<script defer src="js/costgrid.js?v=38"></script>
+<script type="module" src="js/lib/costgrid-calc.js?v=6"></script>
+<script defer src="js/costgrid.js?v=39"></script>
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>
@@ -730,6 +689,7 @@ Vue.createApp({
       ptcFocusedTask: null, ptcRaw: '', hoursEditing: null, addToProjectSel: '',
       addToProjectModal: { projId: '', projName: '', taskNames: [], taskIds: [] },
       backSaving: false,
+      proposalBusy: false, // true while cloneProposal is in flight (2026-10-07)
       newVersionLabel: '', newVersionError: '',
       cloneGridName: '', cloneError: '', cloneSourceName: '',
       prevCurrency: 'EUR', // last-committed currency, used by Task 5's onCurrencyChange to detect+revert a change
@@ -1388,14 +1348,14 @@ Vue.createApp({
       document.getElementById('cgNewVersionError').classList.add('d-none');
       bootstrap.Modal.getOrCreateInstance(document.getElementById('cgNewVersionModal')).show();
     },
-    openCloneModal() {
-      if (!this.cg) return;
-      const ver = this.cg.versions.find(v => v.versionId === this.verId);
-      _pbCloneSource = { cgId: this.cgId, verId: this.verId, name: this.cg.name };
-      document.getElementById('cgCloneSourceName').textContent = this.cg.name + (ver?.versionLabel ? ' — ' + ver.versionLabel : '');
-      document.getElementById('cgCloneGridName').value = this.cg.name + ' — Copy';
-      document.getElementById('cgCloneError').classList.add('d-none');
-      bootstrap.Modal.getOrCreateInstance(document.getElementById('cgCloneModal')).show();
+    async cloneProposal() {
+      if (!this.cgId || !this.verId) return;
+      this.proposalBusy = true;
+      try {
+        await cgCloneGrid(this.cgId, this.verId);
+      } finally {
+        this.proposalBusy = false;
+      }
     },
     onCurrencyChange() {
       const newCurrency = this.draft.currency;
@@ -1528,10 +1488,6 @@ Vue.createApp({
       document.getElementById('cgNewVersionLabel').focus();
     });
     document.getElementById('btnCgCreateVersion').addEventListener('click', cgCreateNewVersion);
-    document.getElementById('cgCloneModal').addEventListener('shown.bs.modal', () => {
-      document.getElementById('cgCloneGridName').focus();
-    });
-    document.getElementById('btnCgClone').addEventListener('click', cgCloneGrid);
     document.addEventListener('hidden.bs.modal', e => {
       if (e.target && e.target.id === 'shareModal') this.shareListRefreshTick++;
       // Any dismissal path (Cancel, X, backdrop, Esc) must abort the whole pending generation —
@@ -1549,6 +1505,18 @@ Vue.createApp({
       { label: 'Pipeline', href: '/pipeline.html' },
       { label: this.cg.name },
     ]);
+
+    // "+ New Proposal" (pipeline.html) opens here with focus=name so the placeholder name
+    // can be renamed at once (2026-10-07) — removed from the URL so a reload doesn't repeat it.
+    if (params.get('focus') === 'name') {
+      this.$nextTick(() => {
+        const nameInput = document.getElementById('cgProjectName');
+        if (nameInput && !nameInput.disabled) { nameInput.focus(); nameInput.select(); }
+      });
+      const curUrl = new URL(window.location.href);
+      curUrl.searchParams.delete('focus');
+      window.history.replaceState(null, '', curUrl.toString());
+    }
   },
 })
   .component('share-list', window.ShareListComponent)
