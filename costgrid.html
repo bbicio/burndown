@@ -9,7 +9,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/tokens.css?v=9">
   <link rel="stylesheet" href="css/style.css?v=21">
-  <link rel="stylesheet" href="css/costgrid.css?v=1">
+  <link rel="stylesheet" href="css/costgrid.css?v=2">
 </head>
 <body>
 
@@ -111,11 +111,10 @@
           <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" style="font-size:var(--text-xs)">
             <span class="text-muted">Owner: {{ cg?.ownerName || '—' }}, Created at: {{ draft?.createdAt ? new Date(draft.createdAt).toLocaleDateString() : '—' }}</span>
             <template v-if="isAdminUser">
-              <select class="form-select form-select-sm" style="width:auto;max-width:260px" :disabled="reassignOwnerBusy"
-                      @change="onReassignOwnerChange">
-                <option value="">{{ !reassignOwnerOptionsLoaded ? 'Loading users…' : 'Reassign to…' }}</option>
-                <option v-for="u in reassignOwnerOptions" :key="u.id" :value="u.id" :disabled="u.id === cg?.ownerId">{{ u.label }}</option>
-              </select>
+              <cg-people-picker :people="reassignOwnerPeople" :current-id="cg?.ownerId || ''"
+                                :disabled="reassignOwnerBusy || !reassignOwnerOptionsLoaded"
+                                :label="reassignOwnerOptionsLoaded ? 'Reassign' : 'Loading users…'"
+                                @select="onReassignOwnerChange"></cg-people-picker>
               <span v-if="reassignOwnerBusy" class="text-muted">Reassigning…</span>
             </template>
           </div>
@@ -130,21 +129,25 @@
               <div class="cg-field-box-label">Period</div>
               <div class="row g-2">
                 <div class="col-6">
-                  <label class="form-label small fw-semibold mb-1">Start</label>
-                  <input type="month" class="form-control" id="cgStartDate" v-model="startDateInput" @change="onHeaderFieldChange" :disabled="isLocked">
+                  <label class="form-label small fw-semibold mb-1">Start month</label>
+                  <cg-date-picker mode="month" :model-value="draft.startDate || ''" aria-label="Start month"
+                                  :disabled="isLocked || cg?.myPermission === 'viewer'"
+                                  @update:model-value="onPeriodChange('startDate', $event)"></cg-date-picker>
                 </div>
                 <div class="col-6">
-                  <label class="form-label small fw-semibold mb-1">End</label>
-                  <input type="month" class="form-control" id="cgEndDate" v-model="endDateInput" @change="onHeaderFieldChange" :disabled="isLocked">
+                  <label class="form-label small fw-semibold mb-1">End month</label>
+                  <cg-date-picker mode="month" :model-value="draft.endDate || ''" aria-label="End month"
+                                  :min="draft.startDate || ''"
+                                  :disabled="isLocked || cg?.myPermission === 'viewer'"
+                                  @update:model-value="onPeriodChange('endDate', $event)"></cg-date-picker>
                 </div>
               </div>
             </div>
             <div class="cg-field-box cg-field-box--stage">
               <div class="cg-field-box-label">Stage</div>
-              <div v-if="isDraft" class="form-control-plaintext ps-2 fw-semibold" style="font-size:var(--text-md);color:var(--text-muted)">Draft</div>
-              <select v-else class="form-select" id="cgPipeline" v-model="draft.pipeline" @change="onPipelineChange" :disabled="isLocked">
-                <option v-for="p in ['SIP','Expected','Anticipated','Committed','Canceled']" :key="p" :value="p">{{ p }}</option>
-              </select>
+              <cg-select :model-value="draft.pipeline || 'Draft'" :options="stageOptions" aria-label="Pipeline stage"
+                         :disabled="isLocked || cg?.myPermission === 'viewer'"
+                         @update:model-value="onStageSelect"></cg-select>
             </div>
           </div>
           <div class="cg-field-box mb-2">
@@ -153,24 +156,24 @@
               <div class="col-md-4">
                 <label class="form-label small fw-semibold mb-1">Client</label>
                 <div class="d-flex gap-2">
-                  <select class="form-select form-select-sm" id="cgClientId" v-model="clientIdInput" @change="onClientChange" :disabled="isLocked">
-                    <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
-                  </select>
-                  <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" @click="openClientsModal" style="white-space:nowrap">+ New</button>
+                  <cg-select searchable :model-value="clientIdInput" :options="clientOptions" aria-label="Client"
+                             placeholder="Unassigned" :disabled="isLocked || cg?.myPermission === 'viewer'"
+                             @update:model-value="onClientSelect"></cg-select>
+                  <button type="button" class="cg-btn-secondary flex-shrink-0" @click="openClientsModal" style="white-space:nowrap">+ New</button>
                 </div>
               </div>
               <div class="col-md-4" id="cgRatecardCol">
                 <label class="form-label small fw-semibold mb-1">Rate card <span class="text-muted fw-normal">(optional)</span></label>
-                <select class="form-select form-select-sm" id="cgRatecardId" v-model="ratecardIdInput" @change="onRatecardChange" :disabled="isLocked">
-                  <option value="">— None (use global role rates) —</option>
-                  <option v-for="rc in filteredRatecards" :key="rc.id" :value="String(rc.id)">{{ rc.client_name ? rc.name + ' (' + rc.client_name + ')' : rc.name }}</option>
-                </select>
+                <cg-select :model-value="ratecardIdInput" :options="ratecardOptions" aria-label="Rate card"
+                           :disabled="isLocked || cg?.myPermission === 'viewer'"
+                           @update:model-value="onRatecardSelect"></cg-select>
+                <div class="cg-field-hint">Optional · filtered by client</div>
               </div>
               <div class="col-md-4">
                 <label class="form-label small fw-semibold mb-1">Currency</label>
-                <select class="form-select" id="cgCurrency" v-model="draft.currency" @change="onCurrencyChange" :disabled="currencyLocked" :title="currencyLockTitle">
-                  <option v-for="cu in (currencies.length ? currencies : [{code:'EUR',symbol:'€',name:'Euro'}])" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.code }} — {{ cu.name }}</option>
-                </select>
+                <cg-select :model-value="draft.currency || 'EUR'" :options="currencyOptions" aria-label="Currency"
+                           :locked="currencyLocked" :locked-title="currencyLockTitle"
+                           @update:model-value="onCurrencySelect"></cg-select>
                 <div v-if="draft.currency && draft.currency !== 'EUR'" class="text-muted" style="font-size:.72rem;margin-top:2px">
                   1 EUR = {{ Number(draft.currencyRate).toLocaleString('en', { minimumFractionDigits: 6 }) }} {{ (currencies.find(cu => cu.code === draft.currency) || {}).symbol || '' }}
                 </div>
@@ -374,13 +377,18 @@
                     </div>
                     <div v-if="isTaskAssigned(task)" class="cg-task-assigned-note">In {{ taskAssignedProjectName(task) }}</div>
                     <div class="d-flex gap-2 mt-1 align-items-center">
-                      <div class="d-flex align-items-center gap-1">
+                      <div class="d-flex align-items-center gap-1 cg-task-date">
                         <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">From</span>
-                        <input type="text" class="form-control form-control-sm p-1" style="font-size:var(--text-xs);height:24px;border:1px solid var(--border-light);width:100px" placeholder="gg/mm/aaaa" maxlength="10" :value="cgIsoToIt(task.taskStartDate)" :disabled="isLocked" @change="onTaskDateChange(task, 'taskStartDate', $event)">
+                        <cg-date-picker mode="day" :model-value="task.taskStartDate || ''" aria-label="Task start date"
+                                        :disabled="isLocked || cg?.myPermission === 'viewer'"
+                                        @update:model-value="onTaskDateChange(task, 'taskStartDate', $event)"></cg-date-picker>
                       </div>
-                      <div class="d-flex align-items-center gap-1">
+                      <div class="d-flex align-items-center gap-1 cg-task-date">
                         <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">To</span>
-                        <input type="text" class="form-control form-control-sm p-1" style="font-size:var(--text-xs);height:24px;border:1px solid var(--border-light);width:100px" placeholder="gg/mm/aaaa" maxlength="10" :value="cgIsoToIt(task.taskEndDate)" :disabled="isLocked" @change="onTaskDateChange(task, 'taskEndDate', $event)">
+                        <cg-date-picker mode="day" :model-value="task.taskEndDate || ''" aria-label="Task end date"
+                                        :min="task.taskStartDate || ''"
+                                        :disabled="isLocked || cg?.myPermission === 'viewer'"
+                                        @update:model-value="onTaskDateChange(task, 'taskEndDate', $event)"></cg-date-picker>
                       </div>
                     </div>
                   </td>
@@ -464,10 +472,9 @@
                   :disabled="!(draft.linkedProjects || []).length" :title="!(draft.linkedProjects || []).length ? 'No linked projects yet' : ''"
                   @click="setAddToProjectMode('existing')">Existing project</button>
         </div>
-        <select v-if="addToProjectMode === 'existing'" v-model="addToProjectSel" class="form-select form-select-sm py-0" style="width:auto;min-width:180px;height:30px;font-size:var(--text-sm)">
-          <option value="">— Select project —</option>
-          <option v-for="lp in draft.linkedProjects" :key="lp.projectId" :value="lp.projectId">{{ lp.projectName || lp.projectId }}</option>
-        </select>
+        <cg-select v-if="addToProjectMode === 'existing'" :model-value="addToProjectSel" :options="linkedProjectOptions"
+                   placeholder="Select project…" aria-label="Target project" style="width:200px"
+                   :disabled="isLocked" @update:model-value="addToProjectSel = $event"></cg-select>
         <span class="cg-header-divider" style="background:rgba(255,255,255,.3)"></span>
         <button v-if="!isLocked" class="btn btn-sm btn-outline-light py-0 px-3" style="font-size:var(--text-base)" @click="cancelSelection">Cancel</button>
         <button v-if="!isLocked && addToProjectMode === 'new'" class="btn btn-sm btn-success py-0 px-3" style="font-size:var(--text-base)" :disabled="selectedTaskIds.size === 0" @click="confirmAndGenerate">Create project</button>
@@ -718,6 +725,8 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=7"></script>
+<script type="module" src="js/lib/cg-controls-calc.js?v=1"></script>
+<script defer src="js/cg-controls.js?v=1"></script>
 <script defer src="js/costgrid.js?v=41"></script>
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/tags.js?v=2"></script>
@@ -891,14 +900,6 @@ Vue.createApp({
         return { name: list.name, labels: [...active, ...inactive] };
       }).filter(g => g.labels.length);
     },
-    startDateInput: {
-      get() { return this.draft?.startDate ? this.draft.startDate.slice(0,4)+'-'+this.draft.startDate.slice(4,6) : ''; },
-      set(val) { if (this.draft) this.draft.startDate = val ? val.replace('-','') : ''; },
-    },
-    endDateInput: {
-      get() { return this.draft?.endDate ? this.draft.endDate.slice(0,4)+'-'+this.draft.endDate.slice(4,6) : ''; },
-      set(val) { if (this.draft) this.draft.endDate = val ? val.replace('-','') : ''; },
-    },
     ratecardIdInput: {
       get() { return this.draft?.ratecardId ? String(this.draft.ratecardId) : ''; },
       set(val) { if (this.draft) this.draft.ratecardId = val || null; },
@@ -910,6 +911,45 @@ Vue.createApp({
     filteredRatecards() {
       const clientId = this.draft?.clientId && this.draft.clientId !== '__unassigned__' ? String(this.draft.clientId) : null;
       return this.allRatecards.filter(rc => rc.client_id == null || (clientId && String(rc.client_id) === clientId));
+    },
+    // ── Option lists for the <cg-select> controls (2026-10-07 fidelity cycle) ──
+    stageOptions() {
+      // In Draft a 'Draft' row is present and selected and every real stage is disabled:
+      // the control looks and behaves as read-only until the proposal is published (G-12).
+      const inDraft = this.isDraft;
+      const list = ['SIP', 'Expected', 'Anticipated', 'Committed', 'Canceled'].map(p => ({
+        value: p, label: p, dot: 'var(--pipeline-' + p.toLowerCase() + '-color)',
+        disabled: inDraft, disabledReason: inDraft ? 'Publish the Draft to choose a stage' : '',
+      }));
+      if (inDraft) list.unshift({ value: 'Draft', label: 'Draft', dot: 'var(--text-disabled)' });
+      return list;
+    },
+    clientOptions() {
+      return (this.clients || []).map(c => ({ value: c.id, label: c.name }));
+    },
+    ratecardOptions() {
+      const cur = this.draft?.currency || 'EUR';
+      const list = [{ value: '', label: 'None', sub: 'EUR · Master Data default rates' }];
+      (this.filteredRatecards || []).forEach(rc => {
+        // No role count is invented: when the loaded entry carries no entries array, the
+        // sub-line is the currency alone.
+        const count = Array.isArray(rc.entries) ? rc.entries.length : null;
+        const parts = [cur];
+        if (count !== null) parts.push(count + ' role' + (count === 1 ? '' : 's'));
+        if (rc.client_name) parts.push('client-specific');
+        list.push({ value: String(rc.id), label: rc.name, sub: parts.join(' · ') });
+      });
+      return list;
+    },
+    currencyOptions() {
+      const list = this.currencies.length ? this.currencies : [{ code: 'EUR', symbol: '€', name: 'Euro' }];
+      return list.map(cu => ({ value: cu.code, label: `${cu.symbol} ${cu.code} — ${cu.name}` }));
+    },
+    linkedProjectOptions() {
+      return (this.draft?.linkedProjects || []).map(lp => ({ value: lp.projectId, label: lp.projectName || lp.projectId }));
+    },
+    reassignOwnerPeople() {
+      return (this.reassignOwnerOptions || []).map(u => ({ id: u.id, name: u.name, email: u.email }));
     },
     linkedProjectDisplay() {
       if (!this.draft) return [];
@@ -1033,7 +1073,12 @@ Vue.createApp({
     async loadReassignOwnerOptions() {
       try {
         const users = await Api.users.activeList();
-        this.reassignOwnerOptions = users.map(u => ({ id: u.id, label: `${u.first_name} ${u.last_name} (${u.email})` }));
+        this.reassignOwnerOptions = users.map(u => ({
+          id: u.id,
+          name: `${u.first_name} ${u.last_name}`.trim() || u.email,
+          email: u.email,
+          label: `${u.first_name} ${u.last_name} (${u.email})`,
+        }));
       } catch (e) {
         console.warn('[reassign-owner] failed to load active users:', e.message);
         this.reassignOwnerOptions = [];
@@ -1041,9 +1086,9 @@ Vue.createApp({
         this.reassignOwnerOptionsLoaded = true;
       }
     },
-    onReassignOwnerChange(e) {
-      const newOwnerId = e.target.value;
-      e.target.value = ''; // always reset to the placeholder — the dropdown is a trigger, not a persistent selection
+    // 2026-10-07: takes the chosen user id from <cg-people-picker>'s `select` event; the
+    // picker is a trigger, not a persistent selection, so there is nothing to reset.
+    onReassignOwnerChange(newOwnerId) {
       if (!newOwnerId) return;
       const label = this.reassignOwnerOptions.find(u => u.id === newOwnerId)?.label || 'this user';
       showConfirm(`Reassign this proposal to ${label}?\n\nThey will become the owner, and will gain editor access to every project already linked to this proposal.`, () => this.reassignOwner(newOwnerId));
@@ -1335,6 +1380,34 @@ Vue.createApp({
       window.location.href = '/pipeline.html';
     },
     onHeaderFieldChange() { cgScheduleAutoSave(); },
+    // ── <cg-select> / <cg-date-picker> adapters (2026-10-07) ──────────────────
+    // Each writes the value the control emitted and then calls the unchanged handler,
+    // which reads it back from this.draft exactly as the native control's @change did.
+    onPeriodChange(field, value) {
+      if (!this.draft) return;
+      this.draft[field] = value || '';
+      this.onHeaderFieldChange();
+    },
+    onStageSelect(value) {
+      if (!this.draft || !value || value === this.draft.pipeline) return;
+      this.draft.pipeline = value;
+      this.onPipelineChange();
+    },
+    onClientSelect(value) {
+      if (!this.draft) return;
+      this.clientIdInput = value;
+      return this.onClientChange();
+    },
+    onRatecardSelect(value) {
+      if (!this.draft) return;
+      this.ratecardIdInput = value;
+      return this.onRatecardChange();
+    },
+    onCurrencySelect(value) {
+      if (!this.draft || !value) return;
+      this.draft.currency = value;
+      this.onCurrencyChange();
+    },
     async toggleTag(itemId, event) {
       if (this.isLocked || this.cg?.myPermission === 'viewer') return;
       // In-flight guard: the checkbox is also :disabled while tagSaving is true, so this
@@ -1544,9 +1617,12 @@ Vue.createApp({
       phase.tasks.push({ taskId: cgNewTkId(), taskName: '', taskDescription: '', ptc: 0, taskStartDate: '', taskEndDate: '', hours: {} });
       cgScheduleAutoSave();
     },
-    onTaskDateChange(task, field, event) {
-      const iso = cgItToIso(event.target.value);
-      event.target.value = iso ? cgIsoToIt(iso) : '';
+    // 2026-10-07: accepts either the ISO value emitted by <cg-date-picker> or a native
+    // input event, so the method's older call shape keeps working.
+    onTaskDateChange(task, field, valueOrEvent) {
+      const iso = (valueOrEvent && valueOrEvent.target)
+        ? cgItToIso(valueOrEvent.target.value)
+        : (valueOrEvent || '');
       task[field] = iso;
       cgScheduleAutoSave();
     },
@@ -1830,6 +1906,9 @@ Vue.createApp({
   },
 })
   .component('share-list', window.ShareListComponent)
+  .component('cg-date-picker', window.CgDatePicker)
+  .component('cg-select', window.CgSelect)
+  .component('cg-people-picker', window.CgPeoplePicker)
   .mount('#costGridEditorSection');
 
 }); // end DOMContentLoaded
