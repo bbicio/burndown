@@ -34,7 +34,7 @@
           <h4 class="cg-header-name">{{ cg?.name || 'Cost Grid' }}</h4>
           <div class="cg-header-subtitle">Cost Grid · Client: {{ resolvedClientName || 'Unassigned' }} · {{ (draft?.linkedProjects || []).length ? (draft.linkedProjects.length + ' linked project' + (draft.linkedProjects.length > 1 ? 's' : '')) : 'No linked projects' }}</div>
         </div>
-        <span class="cg-stage-pill" v-html="pipelineBadge(draft?.pipeline)"></span>
+        <span class="cg-stage-pill" :style="{ background: headerStageStyle.bg, color: headerStageStyle.color, border: '1px solid ' + headerStageStyle.border }">{{ draft?.pipeline || 'Draft' }}</span>
       </div>
 
       <div class="cg-header-row2">
@@ -220,20 +220,22 @@
         </div>
         <div v-show="!tagsCollapsed" class="p-3" :class="{ 'tags-section--readonly': isLocked || cg?.myPermission === 'viewer' }">
           <div v-if="!attributeLists.length" class="text-muted" style="font-size:var(--text-sm)">No tag lists configured yet.</div>
-          <div v-for="list in attributeLists" :key="list.id" class="tag-group mb-3">
-            <div class="tag-group__label">{{ list.name }}</div>
-            <div v-if="!list.items.length" class="text-muted" style="font-size:var(--text-xs)">No active items in this list.</div>
-            <div class="tag-group__list">
-              <label v-for="item in list.items" :key="item.id" class="tag-pill">
-                <input type="checkbox" :checked="versionTagItemIds.includes(item.id)" :disabled="isLocked || cg?.myPermission === 'viewer' || tagSaving" @change="toggleTag(item.id, $event)">
-                <svg class="tag-pill__check" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.8 8.8L10 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span>{{ item.label }}</span>
-              </label>
-              <label v-for="row in inactiveAssignedForList(list.id)" :key="row.item_id" class="tag-pill tag-pill--inactive">
-                <input type="checkbox" checked :disabled="isLocked || cg?.myPermission === 'viewer' || tagSaving" @change="toggleTag(row.item_id, $event)">
-                <span>{{ row.label }}</span>
-                <span class="tag-pill__suffix">inactive</span>
-              </label>
+          <div class="cg-tag-groups">
+            <div v-for="list in attributeLists" :key="list.id" class="tag-group">
+              <div class="tag-group__label">{{ list.name }}</div>
+              <div v-if="!list.items.length" class="text-muted" style="font-size:var(--text-xs)">No active items in this list.</div>
+              <div class="tag-group__list">
+                <label v-for="item in list.items" :key="item.id" class="tag-pill">
+                  <input type="checkbox" :checked="versionTagItemIds.includes(item.id)" :disabled="isLocked || cg?.myPermission === 'viewer' || tagSaving" @change="toggleTag(item.id, $event)">
+                  <svg class="tag-pill__check" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.8 8.8L10 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span>{{ item.label }}</span>
+                </label>
+                <label v-for="row in inactiveAssignedForList(list.id)" :key="row.item_id" class="tag-pill tag-pill--inactive">
+                  <input type="checkbox" checked :disabled="isLocked || cg?.myPermission === 'viewer' || tagSaving" @change="toggleTag(row.item_id, $event)">
+                  <span>{{ row.label }}</span>
+                  <span class="tag-pill__suffix">inactive</span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -752,6 +754,19 @@ function renderPipelineBoard() {
   window.location.href = '/pipeline.html';
 }
 
+// Light bg+border+text pill for the header's own prominent stage pill — same
+// light-pill pattern as pipeline.html's PB_STAGE_STYLE (the header pill needs
+// the light look boards 5.17-5.21 show, unlike js/core.js's pipelineBadge(),
+// which stays the solid secondary-badge style used for Linked projects/etc.).
+const CG_HEADER_STAGE_STYLE = {
+  Draft:       { bg: 'var(--surface-light)',            border: 'var(--text-disabled)',               color: 'var(--text-muted)' },
+  SIP:         { bg: 'var(--pipeline-sip-bg)',          border: 'var(--pipeline-sip-color)',          color: 'var(--pipeline-sip-color)' },
+  Expected:    { bg: 'var(--pipeline-expected-bg)',     border: 'var(--pipeline-expected-color)',     color: 'var(--pipeline-expected-color)' },
+  Anticipated: { bg: 'var(--pipeline-anticipated-bg)',  border: 'var(--pipeline-anticipated-color)',  color: 'var(--pipeline-anticipated-color)' },
+  Committed:   { bg: 'var(--pipeline-committed-bg)',    border: 'var(--pipeline-committed-color)',    color: 'var(--pipeline-committed-color)' },
+  Canceled:    { bg: 'var(--pipeline-canceled-bg)',     border: 'var(--pipeline-canceled-color)',     color: 'var(--pipeline-canceled-color)' },
+};
+
 Vue.createApp({
   data() {
     return {
@@ -834,6 +849,7 @@ Vue.createApp({
     currencyLocked() { return this.isLocked || this.versionHasProjects; },
     currencyLockTitle() { return this.versionHasProjects ? window.PROJECT_RULE_MESSAGES.costgridCurrency : ''; },
     isDraft() { return this.draft?.pipeline === 'Draft'; },
+    headerStageStyle() { return CG_HEADER_STAGE_STYLE[this.draft?.pipeline] || CG_HEADER_STAGE_STYLE.Draft; },
     hasFreeTasks() {
       if (!this.draft) return false;
       const assignedIds = cgGetAssignedTaskIds();
