@@ -9,7 +9,7 @@
 // Credentials may also come from SHOOT_EMAIL / SHOOT_PASSWORD. Without them only
 // public pages (login, activate, reset-password) will render.
 
-import { mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, rmSync, readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -50,8 +50,23 @@ const widths = String(args.widths || '1440,1024,768').split(',').map(s => parseI
 const height = parseInt(args.height || '900', 10);
 const settle = parseInt(args.settle || '1500', 10);
 const fullPage = Boolean(args.full);
-const email = args.email || process.env.SHOOT_EMAIL;
-const password = args.password || process.env.SHOOT_PASSWORD;
+// Read .env directly rather than relying on the shell: values there are not
+// always shell-safe (an unquoted value with a space breaks `. ./.env`).
+function fromDotEnv(key) {
+  for (const p of ['.env', join('..', '.env')]) {
+    try {
+      for (const line of readFileSync(resolve(p), 'utf8').split(/\r?\n/)) {
+        const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
+        if (!m || m[1] !== key) continue;
+        return m[2].trim().replace(/^(['"])([\s\S]*)\1$/, '$2');
+      }
+    } catch { /* no .env here */ }
+  }
+  return undefined;
+}
+
+const email = args.email || process.env.SHOOT_EMAIL || fromDotEnv('SHOOT_EMAIL');
+const password = args.password || process.env.SHOOT_PASSWORD || fromDotEnv('SHOOT_PASSWORD');
 
 const chrome = CHROME_CANDIDATES.find(p => existsSync(p));
 if (!chrome) { console.error('No Chrome/Edge binary found. Checked:\n  ' + CHROME_CANDIDATES.join('\n  ')); process.exit(1); }
