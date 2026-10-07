@@ -142,10 +142,12 @@ Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page i
 ### File structure
 
 ```
-HTML pages               — every page is listed in the Pages table above: route, one-line purpose, and a link to
-                            its docs/pages/<page>.md narrative. That table is the page index; do not restate
-                            per-page detail here. (index.html is a 9-line redirect to pipeline.html;
-                            config.html is a redirect stub to /master-clients.html.)
+HTML pages               — every page is listed in the Pages table above: route, one-line purpose, and — for the
+                            pages that have one — a link to its docs/pages/<page>.md narrative. That table is the
+                            page index; do not restate per-page detail here. Pages with no docs/pages/ file yet:
+                            index.html, login.html, activate.html, reset-password.html, attribute-lists.html
+                            (index.html is a 9-line redirect to pipeline.html; config.html is a redirect stub to
+                            /master-clients.html and is covered by docs/pages/config.md).
 css/                     — six stylesheets: tokens.css (design tokens, also `[v-cloak]`), style.css (components
                             + navigation), admin-crud.css, auth.css, pipeline.css, costgrid.css. Detail:
                             [docs/css/stylesheets.md](docs/css/stylesheets.md). App-wide rules stay in "Design

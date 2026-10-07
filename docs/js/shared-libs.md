@@ -50,7 +50,7 @@ The rate cards admin modal, plus the `loadRatecardsForDropdown()` cache used by 
 
 Excel timesheet parsing. `readXLS()` (`planning.html`'s "📂 Load XLS") and `readXLSForProject()` (`portfolio.html`'s "Load Actuals") both check `e.data && e.data.inconsistencies` in their catch block (2026-09) and show `formatUploadInconsistencies(e.data.inconsistencies)` via `js/core.js`'s `showInfo()`, before falling back to the pre-existing `#fileStatus` text flash. The backend validation this surfaces: [docs/api/timesheets.md](../api/timesheets.md).
 
-Its `.stg-admin-only` sections are gated on `['admin','sysadmin'].includes(role)` (2026-09, was admin-only).
+(The old CLAUDE.md entry carried a trailing line about `.stg-admin-only` sections being gated on `['admin','sysadmin'].includes(role)`. That class exists nowhere in the codebase any more — it belonged to the deleted `js/settings.js`, and the line had been left behind as an orphan under this entry. Dropped rather than relocated.)
 
 ## js/tags.js
 
