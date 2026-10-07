@@ -902,7 +902,13 @@ async function cgCloneGrid(srcCgId, srcVerId) {
   _cgCloneInFlight = true;
 
   try {
-    if (_cgActiveCgId === srcCgId && _cgActiveVersionId === srcVerId) {
+    // Flush a pending autosave of the open source version first, so the clone carries the
+    // latest edits — but only when the user can actually save it: a viewer has no edit
+    // permission on the source grid, so the flush's PATCH/POST calls would 403 and abort
+    // the whole clone (a regression found in review — a viewer's clone worked before this
+    // flush existed, since there was nothing to save on their behalf).
+    const srcCanEdit = cgLoad(srcCgId)?.myPermission !== 'viewer';
+    if (srcCanEdit && _cgActiveCgId === srcCgId && _cgActiveVersionId === srcVerId) {
       clearTimeout(_cgAutoSaveTimer);
       try {
         await cgAutoSave(true);
