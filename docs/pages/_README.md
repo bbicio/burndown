@@ -19,3 +19,12 @@ the binding routing rule for future cycles.
 First split (2026-09-22): `portfolio.html` → `docs/pages/portfolio.md`, as a trial before extending
 to the other pages. Extend the same pattern to the next page only once a real cycle has proven a
 future `/sync-docs` run actually writes to the right place.
+
+Completed (2026-10-08): the per-page entries were removed from `CLAUDE.md`'s File Structure block
+entirely, since the Pages table already held route, purpose and the `docs/pages/` link — the block
+listed every page a second time. The same cycle applied the routing rule to the non-page entries that
+had never been split (`css/`, the shared classic `js/*.js` scripts, `api/src/services/`, user
+administration, `scripts/shoot.mjs`, and a few routes), taking the block from 38 KB to ~11 KB and
+`CLAUDE.md` from 115 KB to ~88 KB. The rule that keeps it there is in `.claude/skills/sync-docs/SKILL.md`
+section 2: the block is an index of one- or two-line entries, and an entry that outgrows that is a
+regression to fix in the same `/sync-docs` run.
