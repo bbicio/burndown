@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeKpis, computeBurndownPoints, buildSummaryCols, summaryTotals, normalizeGroupEntries, entryMatchesRow, commonCurrency } from './portfolio-calc.js';
+import { computeKpis, computeBurndownPoints, buildSummaryCols, summaryTotals, normalizeGroupEntries, entryMatchesRow, commonCurrency, buildPortfolioRows, spentPercent, spentBarState, programAtRisk, readLayoutPreference, columnsForWidth, resolveExpandedProgramId } from './portfolio-calc.js';
 
 describe('commonCurrency', () => {
   it('returns the currency code shared by all the projects', () => {
@@ -273,5 +273,117 @@ describe('entryMatchesRow', () => {
     const entries = [{ role: '', task: 'Overall Coordination' }, { role: 'Account Director', task: '' }];
     expect(() => entryMatchesRow(entries, 'Account Director', 'Overall Coordination')).not.toThrow();
     expect(entryMatchesRow(entries, 'Account Director', 'Overall Coordination')).toBe(true);
+  });
+});
+
+describe('buildPortfolioRows', () => {
+  const rows = [
+    { kind: 'project', id: 'p1', name: 'TEST PROPOSAL', clientName: 'Bayer AG' },
+    { kind: 'project', id: 'p2', name: 'BERMITS', clientName: 'Bayer AG' },
+    { kind: 'program', id: 'g1', name: 'Field Force', clientName: 'Bayer AG' },
+    { kind: 'project', id: 'p3', name: 'Pharmacovigilance', clientName: 'Angelini Pharma' },
+  ];
+
+  it('sorts by client asc, then programs before projects within a client, then name', () => {
+    expect(buildPortfolioRows(rows, 'client').map(r => r.id)).toEqual(['p3', 'g1', 'p2', 'p1']);
+  });
+
+  it('sorts by name only when sortMode is name, programs and projects undistinguished', () => {
+    expect(buildPortfolioRows(rows, 'name').map(r => r.name)).toEqual(['BERMITS', 'Field Force', 'Pharmacovigilance', 'TEST PROPOSAL']);
+  });
+
+  it('does not throw on an empty clientName, sorting it first', () => {
+    expect(() => buildPortfolioRows([{ kind: 'project', id: 'x', name: 'X', clientName: '' }], 'client')).not.toThrow();
+  });
+
+  it('does not mutate the input array', () => {
+    const input = [...rows];
+    buildPortfolioRows(input, 'client');
+    expect(input).toEqual(rows);
+  });
+});
+
+describe('spentPercent', () => {
+  it('returns 0 when sold is set but nothing has been spent yet — Review Focus 4', () => {
+    expect(spentPercent(0, 1000)).toBe(0);
+  });
+  it('returns the percentage spent relative to sold', () => {
+    expect(spentPercent(500, 1000)).toBe(50);
+    expect(spentPercent(1200, 1000)).toBe(120);
+  });
+  it('returns null when sold is falsy or missing', () => {
+    expect(spentPercent(100, 0)).toBeNull();
+    expect(spentPercent(100, null)).toBeNull();
+    expect(spentPercent(100, undefined)).toBeNull();
+  });
+});
+
+describe('spentBarState', () => {
+  it('returns the exact boundary states', () => {
+    expect(spentBarState(null)).toBe('none');
+    expect(spentBarState(0)).toBe('normal');
+    expect(spentBarState(84)).toBe('normal');
+    expect(spentBarState(85)).toBe('warning');
+    expect(spentBarState(100)).toBe('warning');
+    expect(spentBarState(101)).toBe('danger');
+  });
+});
+
+describe('programAtRisk', () => {
+  it('counts children whose status is exactly "Started At Risk"', () => {
+    expect(programAtRisk([{ status: 'Started At Risk' }, { status: 'Started' }, {}])).toBe(1);
+  });
+  it('returns 0 for an empty children array', () => {
+    expect(programAtRisk([])).toBe(0);
+  });
+});
+
+describe('readLayoutPreference', () => {
+  it('reads a valid stored layout', () => {
+    expect(readLayoutPreference('list')).toBe('list');
+    expect(readLayoutPreference('card')).toBe('card');
+  });
+  it('falls back to card for null, empty, or any unrecognized value — Review Focus 1', () => {
+    expect(readLayoutPreference(null)).toBe('card');
+    expect(readLayoutPreference('')).toBe('card');
+    expect(readLayoutPreference('grid')).toBe('card');
+  });
+});
+
+describe('columnsForWidth', () => {
+  it('returns 3 columns at or above 1000px', () => {
+    expect(columnsForWidth(1200)).toBe(3);
+    expect(columnsForWidth(1000)).toBe(3);
+  });
+  it('returns 2 columns between 640px and 999px', () => {
+    expect(columnsForWidth(999)).toBe(2);
+    expect(columnsForWidth(640)).toBe(2);
+  });
+  it('returns 1 column below 640px', () => {
+    expect(columnsForWidth(639)).toBe(1);
+    expect(columnsForWidth(0)).toBe(1);
+  });
+});
+
+describe('resolveExpandedProgramId', () => {
+  const live = [{ kind: 'program', id: 'g1', name: 'A', clientName: 'C' }];
+  it('keeps the id when its program row is still present', () => {
+    expect(resolveExpandedProgramId('g1', live)).toBe('g1');
+  });
+  it('resolves to null when the program row is gone — Review Focus 2', () => {
+    expect(resolveExpandedProgramId('gone', live)).toBeNull();
+  });
+  it('returns null when no id is currently expanded', () => {
+    expect(resolveExpandedProgramId(null, live)).toBeNull();
+  });
+  it('does not count a project with the same id as a program', () => {
+    expect(resolveExpandedProgramId('p1', [{ kind: 'project', id: 'p1', name: 'P', clientName: 'C' }])).toBeNull();
+  });
+});
+
+describe('commonCurrency — characterization for Review Focus 5', () => {
+  it('falls back to EUR for a program whose children have different currencies', () => {
+    expect(commonCurrency([{ currency: 'CHF' }, { currency: 'CHF' }])).toBe('CHF');
+    expect(commonCurrency([{ currency: 'CHF' }, { currency: 'USD' }])).toBe('EUR');
   });
 });
