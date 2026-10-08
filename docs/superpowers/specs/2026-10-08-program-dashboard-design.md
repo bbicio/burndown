@@ -79,7 +79,7 @@ Verificati il 2026-10-08 prima di scrivere questa spec. Guidano le decisioni §3
 | D1 | Dove vive | **Pagina nuova `program.html`**, non una terza vista di `portfolio.html` (richiesta esplicita dell'utente). Il brief §1/§9.1 proponeva la vista interna. |
 | D2 | Backend | **Nessun endpoint nuovo, nessun SQL nuovo.** Calcolo client-side come il Portfolio (fatto §2.1). Il brief §7.1 è annullato. |
 | D3 | Fonte di `Sold` | **Budget dei task** (Σ `soldHours × hourlyRate`), come il reporting di progetto, con fallback `getPipelineBudget(versionId).fee`. Scelta delegata dall'utente e decisa sui dati (fatto §2.3): il phasing coincide col budget quando c'è, ma manca su 5 progetti su 15, dove darebbe 0. La colonna `Sold` del Portfolio **non** viene cambiata in questo ciclo: lì `Sold` è il termine di confronto della colonna `Variance` (= phasing − spent), cambiarne la fonte romperebbe quella relazione in una pagina mergiata il giorno prima. Resta item aperto per la review finale del Portfolio (§16). |
-| D4 | Valute miste | Valuta del programma = `commonCurrency(progetti)` (già in `portfolio-calc.js`). Se `null`, le cifre in denaro mostrano `"Mixed currencies"` e le ore restano. Nessun enforcement nuovo lato DB/API. L'utente afferma che il caso non si verifica. |
+| D4 | Valute miste | Valuta del programma = nuova `programCurrency(cfgs)` in `program-calc.js`, che torna il codice solo se unico e **`null`** se le valute divergono. Non si riusa `commonCurrency` di `portfolio-calc.js`: quella torna `'EUR'` sulle valute miste (`:205-208`), cioè maschera il caso invece di segnalarlo. Se `null`, le cifre in denaro mostrano `"Mixed currencies"` e le ore restano. Nessun enforcement nuovo lato DB/API. L'utente afferma che il caso non si verifica. |
 | D5 | Visibilità | La dashboard aggrega i **progetti visibili all'utente** (`config.projects` è già filtrato lato API); `"Showing N of M projects"` nella testata **solo se N < M**, quindi nel caso normale non appare mai. Nessun accesso negato. Vincolo che lega questa scelta a D2: includere progetti **non** visibili richiederebbe per forza un endpoint server (il browser non li riceve), cioè rinunciare a D2. La regola alternativa "chi vede il programma vede tutti i suoi progetti" resta possibile in futuro, ma è una modifica del modello di permessi, non di questa pagina. |
 | D6 | Share | **Riuso della modale attuale** (`openShareModal('program', id, name)`), con i suoi limiti noti (per i programmi mostra solo testo, il remove è un no-op). Lo Share vero è il Ciclo 2 del Portfolio e sistemerà entrambe le pagine insieme. |
 | D7 | Export | **Solo PNG del burndown** (icona di download sul grafico, come nel reporting di progetto). Nessun Export PDF di pagina: il brief §3/§9.6 è annullato. |
@@ -130,6 +130,7 @@ pure, nessun accesso a `config`/`timesheetData` globali: tutto per parametro, co
 
 | Funzione | Firma | Cosa fa |
 |---|---|---|
+| `programCurrency` | `(cfgs) → code \| null` | Codice valuta se unico fra i progetti, `null` se divergono (D4). |
 | `programRange` | `(cfgs) → { startYm, endYm, startDate, endDate, months[] }` | Primo `startDate` e ultima `endDate` fra i progetti (formato `YYYYMM`); `months` = elenco dei mesi inclusi. `null` se nessun progetto ha date. |
 | `projectMetrics` | `(cfg, rows, deps) → { soldHours, soldMoney, spentHours, spentMoney, remainingHours, remainingMoney, consumptionPct, timePct, vsTime, hasBudget, hasActuals, started }` | Metriche di una riga. `deps` = `{ findRate, billableTasks, billableData, getPipelineBudget, today }`. |
 | `programTotals` | `(metrics[]) → { soldHours, soldMoney, spentHours, spentMoney, remainingHours, remainingMoney, consumptionPct }` | Somme; `consumptionPct` = Σspent / Σsold (**non** media delle percentuali). I progetti senza budget sono esclusi dal denominatore ma contati nel numero progetti. |
@@ -139,7 +140,7 @@ pure, nessun accesso a `config`/`timesheetData` globali: tutto per parametro, co
 | `timelineBars` | `(cfgs, metrics[], range) → bars[]` | Per ogni progetto: offset e larghezza in % sull'asse mesi, % di riempimento, stato colore, `started`. |
 | `sortProjectRows` | `(rows, needsAttentionIds, sortMode) → rows[]` | Default: critici in cima, poi per data di inizio. |
 
-Riuso senza duplicare: `commonCurrency`, `spentPercent`, `spentBarState` da `portfolio-calc.js`;
+Riuso senza duplicare: `spentPercent`, `spentBarState` da `portfolio-calc.js`;
 `findRate`, `billableTasks`, `billableData`, `fmtH`, `statusBadge` da `core.js`; `formatMoney` da
 `money.js`. **Nessun `Intl.NumberFormat`** fuori da `money.js` (guard esistente).
 
@@ -181,7 +182,7 @@ Tutte le misure sono prese dalla 7.5a salvo diversa indicazione.
 | L1 | 7.5a riga 86 | `‹ Project Portfolio` | Link compatto, `--text-muted`, torna a `/portfolio.html` |
 | L2 | 7.5a riga 104 | Etichetta `PROGRAM DASHBOARD` | maiuscoletto, `--text-2xs`, `--text-muted`, letter-spacing |
 | L3 | 7.5a riga 128 | Titolo + pillola stadio | 26px/700 `--brand-navy`; pillola = stadio pipeline del programma (`domPipeline`, primo figlio per id — stessa regola del Portfolio, D7 del ciclo Portfolio) |
-| L4 | 7.5a riga 156 | Meta `Novartis Farma · 9 projects · Jan 2026 – Mar 2027 · EUR` | cliente dal primo progetto con cliente; range da `programRange`; valuta da `commonCurrency`; `Showing N of M projects` appeso solo se N < M (D5) |
+| L4 | 7.5a riga 156 | Meta `Novartis Farma · 9 projects · Jan 2026 – Mar 2027 · EUR` | cliente dal primo progetto con cliente; range da `programRange`; valuta da `programCurrency`; `Showing N of M projects` appeso solo se N < M (D5) |
 | L5 | 7.5a destra | Azioni `Export`, `Share` | 32px, icona SVG inline, nessuna emoji. Export = PNG del burndown (D7); Share = `openShareModal('program', …)` (D6) |
 | L6 | 7.5a tile 1 | **BUDGET** | `€ 295.350` grande + `of € 577.850`, barra, `51% spent` a sinistra, `€ 282.500 left` a destra in `--color-success-text` |
 | L7 | 7.5a tile 2 | **HOURS** | `2569h` + `of 5025h`, barra, `51% consumed`, `2457h left` |
@@ -207,7 +208,7 @@ colonna è **fuori scope** (il brief lo dà facoltativo).
    `consumptionPct` e `vsTime` `—`; escluso dal denominatore dei totali, contato nei progetti.
 4. **Progetto senza registrazioni** — SPENT `0.00h` / `€ 0,00`, pillola neutra `No actuals`.
 5. **Progetto non ancora iniziato** — tacca a 0, `vs time` `—`, barra tratteggiata in Timeline.
-6. **Valuta mista** (`commonCurrency === null`) — ogni cifra in denaro, tile comprese, mostra
+6. **Valuta mista** (`programCurrency === null`) — ogni cifra in denaro, tile comprese, mostra
    `Mixed currencies`; ore, consumo e vs time restano pieni.
 7. **Programma inesistente / id non valido** — redirect `/portfolio.html?notice=…`.
 8. **Nessun progetto con date** (`programRange === null`) — tile Time elapsed `—`, burndown
@@ -253,8 +254,7 @@ da 1024 in su, sotto sparisce il segmentato e resta la List.
 somma delle righe = riga Total; `consumptionPct` di programma = Σspent/Σsold e **non** media;
 progetto senza budget escluso dal denominatore ma contato; soglie D10 ai bordi (84.9/85/100/100.1,
 +9.9/+10/+10.1); `vsTime` `null` senza date; `programRange` con progetti senza date;
-`programBurndown` che estende prima/dopo l'asse di un progetto; valuta mista → `null` da
-`commonCurrency`; `timeElapsed` prima dell'inizio e dopo la fine; `sortProjectRows` stabile.
+`programBurndown` che estende prima/dopo l'asse di un progetto; valuta mista → `null` da `programCurrency`; `timeElapsed` prima dell'inizio e dopo la fine; `sortProjectRows` stabile.
 
 **Guard (`js/lib/program-guard.test.js`)**: shell `#app-shell`/`#app-main` senza
 `overflow`/`position`/`transform`, head snippet presente, `v-cloak` sul root, `?v=` concordi,
