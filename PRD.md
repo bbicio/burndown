@@ -36,6 +36,8 @@ The application has three primary views accessible from the main navigation, plu
 
 Admin section entries: **Master Data** (the Config page, formerly "Config"), **Timesheets** (formerly "Actuals Repository"), **User Admin**, **Team**, **Attribute Lists**. Sysadmin section entries: **DB Reset**, **Terms & Conditions**.
 
+Some pages have no menu entry at all and are reached only in context from the page that owns them — the project configuration form and the **Program Dashboard** (§6.1a) from the Portfolio, the profile-processing console from Timesheets.
+
 **Default view on load:** Pipeline.
 
 A secondary sub-navigation row (`appSubnav`) appears within the Reporting view for additional configuration panels.
@@ -275,7 +277,7 @@ Note the two tables are not interchangeable: the portfolio summary's "Budget Est
 
 **Project card** (Card view): a `PROJECT` label and the pipeline-stage pill, then client name, project title and code, a 2×2 block of Duration / Sold / Spent / Variance, a divider, a spend bar with `N% spent` beneath it, and a footer with the status pill, `Configure` (hidden for viewers) and `Dashboard`. A project with no phasing still appears, with `—` in place of the figures and `No budget` under an empty bar — previously such a project was omitted from the page entirely. `0% spent` and `No budget` mean different things: the first is a budgeted project that has not been billed against yet, the second a project with nothing sold. The bar turns amber from 85% and red above 100%. The `No actuals available` badge remains on cards with no uploaded timesheet data.
 
-**Program card** (Card view): the same shape, labelled `PROGRAM · N PROJECTS`, with figures aggregated across the program's projects, and a footer offering `Share`, `Show N projects` / `Hide projects`, and a `Dashboard` that is **inactive** — the program-level dashboard does not exist yet and the button says so. Opening a program reveals a full-width panel below its row listing the child projects as compact cards (name, code, status, spent/sold, bar, `Configure` and `Dashboard →`). Only one program is open at a time in Card view.
+**Program card** (Card view): the same shape, labelled `PROGRAM · N PROJECTS`, with figures aggregated across the program's projects, and a footer offering `Share`, `Show N projects` / `Hide projects`, and a `Dashboard` that opens the Program Dashboard (§6.1a; the button was inactive until 2026-10-08, when that page was built). Opening a program reveals a full-width panel below its row listing the child projects as compact cards (name, code, status, spent/sold, bar, `Configure` and `Dashboard →`). Only one program is open at a time in Card view.
 
 **List view:** a table-like grid with `Program / Project`, `Stage`, `Status`, `Duration`, `Sold`, `Spent`, `Variance` and row actions. A chevron expands a program's children in place, and several programs can be open at once here. A program's `Status` cell is textual — `N at risk` when any child is at risk, otherwise `N projects`. Child rows are indented and leave `Stage` and `Duration` empty; `Configure` is not offered in this view. Below roughly 1024px of available width the `Duration` and `Spent` columns are dropped.
 
@@ -306,6 +308,35 @@ Configure and Load Actuals are hidden for viewers (see §18.3). Load Actuals rem
 - A program group whose children include a search/Status match auto-expands, so a matching project is never left hidden behind a manual "Show Child Projects" click; the manual toggle is unavailable (replaced by a "▼ Shown (filtered)" indicator) while any filter is active, to avoid a control that looks clickable but has no visible effect (2026-09)
 - Cards lay out in a 2-column grid — a program group spans the full row width, its own child projects render in a nested 2-column grid, and ungrouped projects fill the remaining cells two per row (2026-09)
 - The list view's URL stays in sync with the project being viewed (`?projectId=<id>` while on a detail view, bare `/portfolio.html` on the list), matching every other page that links into this view (2026-09)
+
+### 6.1a Program Dashboard (2026-10-08)
+
+**Purpose:** Answer, for one program, the questions the per-project views cannot: is the program as a whole on budget, is it on schedule, and which of its projects needs attention first. It aggregates the program's projects rather than adding any new data — everything is computed from the same project configuration and uploaded actuals the Portfolio already uses, so there is no separate program-level budget to maintain.
+
+**How it is reached:** it has no menu entry. From the Portfolio Overview (§6.1) via a program's `Dashboard` in either layout, or `Program Dashboard →` in the expanded children panel; and from a project's own reporting view via the program name in the breadcrumb, the program row's `Program Dashboard →` link, and the sibling-projects dropdown. Opening it for a program that does not exist returns to the Portfolio with the notice "Program not found."
+
+**Visibility:** it aggregates the projects of the program the user can already see. A program all of whose projects are invisible to the user shows "No projects in this program are visible to you." rather than denying access.
+
+**Four KPI tiles:**
+
+| Tile | Shows |
+|---|---|
+| Budget | Money spent of money sold across the program, a spend bar, `N% spent` and the amount left |
+| Hours | Hours consumed of hours sold, the same bar, `N% consumed` and the hours left |
+| Time elapsed | How much of the program's own date range has passed, the range itself, how many of its projects have started, and whether consumption is running above or below elapsed time |
+| Needs attention | How many projects are flagged and the worst one with its reason; clicking the tile filters the project list to the flagged ones |
+
+A project is flagged as needing attention when its status is `Started At Risk`, **or** its consumption has reached 85%, **or** its consumption is more than 10 points ahead of elapsed time. Spend bars turn amber from 85% and red above 100%, the same thresholds the Portfolio cards use.
+
+**Program burndown:** a chart summing the remaining hours of the program's projects across the program's months, with the actual trend alongside the planned one derived from each project's phasing, and a `Download PNG` action. A program with no dated project shows "No dated projects in this program" instead.
+
+**Two views of the member projects:**
+- **List** — one row per project with status, Sold / Spent / Remaining (hours and money), a consumption bar carrying a notch at the elapsed-time position so plan and actual are comparable in one glance, and `Vs time` in percentage points (red more than 10 points ahead of pace, green more than 10 behind). A final `PROGRAM TOTAL` row carries the same figures for the program. `Reporting →` opens that project's own reporting view.
+- **Timeline** — one bar per project positioned and sized by its dates inside the program range, filled by its consumption, with a `Today` line. Projects without dates have no position on a time axis and are therefore not shown here; the view is unavailable altogether for a program with no dated project.
+
+Money across projects in differing currencies is not converted: every money figure reads "Mixed currencies" instead, while hours, consumption and pace remain meaningful. A project with nothing sold shows `No budget` and is excluded from the program's consumption percentage while still counting as one of its projects.
+
+Task-, role- and entry-level analysis is deliberately not duplicated here — it stays in each project's own reporting view, and the page says so.
 
 ### 6.2 Monthly Summary Table
 

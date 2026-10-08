@@ -74,7 +74,7 @@ from `portfolio-calc.js` rather than re-deriving them.
 | `timeElapsed(range, metrics[], today)` | `{ pct, startedCount, totalCount }` |
 | `needsAttention(entries, thresholds)` | `{ ids[], reasons: { [id]: string } }`, D10's rule |
 | `sortProjectRows(rows, attentionIds)` | flagged rows first, then by start date; does not mutate its input |
-| `programBurndown(range, projects, deps)` | `{ labels, actual[], planned[], todayIndex, todayRemaining }` — projects each other's `computeBurndownPoints()` series onto the shared axis (holding a project's first value before it starts, last value after it ends), then sums |
+| `programBurndown(range, projects, deps)` | `{ labels, actual[], planned[], todayIndex, todayRemaining }` — projects each other's `computeBurndownPoints()` series onto the shared axis (holding a project's first value before it starts, last value after it ends), then sums. A project is included when it has both dates **or** at least one actual row: without dates `computeBurndownPoints()` derives the axis from the rows, so only a project with neither has no position at all (and would throw on that function's initial-value-less `reduce`). See the burndown caveats under Known gaps |
 | `timelineBars(range, rows)` | per-project `{ leftPct, widthPct, fillPct, state, started, ... }` for the Timeline view |
 | `todayPosition(range, today)` | `today`'s `%` position on the axis, `null` if outside it |
 
@@ -85,8 +85,10 @@ Standard page shell (`#app-shell` > `#nav-container` + `#app-main`, `v-cloak`, h
 is reachable only via a URL, not its own menu item, same pattern as `profile-jobs.html`.
 `programId` missing, or the programme not found, redirects to `/portfolio.html?notice=program-not-found`
 (the same `?notice=` mechanism `portfolio.html` already handles for `direct-creation-disabled`, extended
-by this cycle with the new code). A programme that resolves but has zero visible projects stays on the
-page and shows the empty-state message instead of redirecting — see D5 above.
+by this cycle with the new code), where it reads exactly `Program not found.` — deliberately without a
+"or it has no projects visible to you" clause, since that case never redirects: a programme that
+resolves but has zero visible projects stays on the page and shows the empty-state message instead —
+see D5 above.
 
 Loads a slightly trimmed version of `portfolio.html`'s script list: no `xlsx`, no `js/upload.js` (no
 Load Actuals entry point here), adds `js/lib/program-calc.js`. Also needs
@@ -147,3 +149,30 @@ says optional, out of scope); no real programme Share (reuses the project/cost-g
 for a programme target); the `GET /api/reporting/*` dead-code removal; the `Sold` semantics
 divergence between this page and Portfolio's own Card/List. All revisited together in the
 end-of-restyling Portfolio review (D14).
+
+### Undated projects in the burndown (open, accepted 2026-10-08)
+
+Three findings from the `/finish-cycle` review were accepted as follow-ups rather than fixed, because
+the root cause is structural: `computeBurndownPoints()`'s no-dates fallback was built for a single
+project's own chart, not for aggregation onto a programme axis, so **any** placement of an undated
+project on a shared time axis is partly fabricated. Both available behaviours are wrong in opposite
+directions — excluding such a project drops real remaining hours from the chart while `programTotals()`
+still counts them; including it fabricates a position. This cycle ships the including variant.
+
+1. **Phantom tail (medium).** The fallback axis is `first actual's month + 14 months` — a fixed cap,
+   not the actuals' real extent. For an undated project whose actuals span more than 14 months,
+   `programBurndown` holds its stale `lastBurn` for every later programme month, overstating remaining
+   hours. Deriving `axisEnd` from the actuals' max date would fix it, but that function is shared with
+   `portfolio.html`'s own burndown.
+2. **Synthetic `planned` ramp (low).** `computeBurndownPoints()` returns `idealValues` whenever a
+   budget exists, so an undated project without phasing contributes a linear budget→0 ramp over that
+   arbitrary 14-month window, positioned purely by when its first timesheet row happens to fall.
+3. **`vsTime` sentinel collision (low).** `needsAttention()` maps a missing percentage to `-1` so the
+   comparator cannot return `NaN` (the previous `-Infinity` made `-Infinity - -Infinity` `NaN`, leaving
+   `Array#sort` order implementation-defined). `-1` is outside `consumptionPct`'s range but is a
+   legitimate `vsTime`, so in the third-level tie-break an unknown pace outranks a genuinely
+   behind-pace project.
+
+Note that `timelineBars()` skips undated projects outright, so the Timeline and the burndown currently
+disagree on whether an undated project exists. Resolving items 1-3 together with that inconsistency is
+the natural shape of the follow-up cycle.
