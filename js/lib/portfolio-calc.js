@@ -271,15 +271,16 @@ export function resolveExpandedProgramId(currentId, rows) {
 
 // Keeps the two views' expansion state in step when the layout switches. The Card shows
 // one program at a time and the List several, so the mapping is asymmetric: going to the
-// List adds the card's open program to the set (without closing the others), and coming
-// back to the Card adopts the most recently opened one — a Set's iteration order is its
-// insertion order, and re-opening a program re-adds it, so "last" means "most recent".
-// The list's own set is never pruned, so switching back and forth loses nothing.
+// List moves the card's open program to the END of the list's order, and coming back to
+// the Card adopts whatever is last. Moving rather than merely inserting is what makes the
+// round trip honour the user's latest choice: an id already in the set would otherwise
+// keep its old position and some other program would still be "last". The set is never
+// pruned, so switching back and forth never closes the other programs.
 export function syncExpansionOnLayoutChange(layout, expandedProgramId, listExpandedIds) {
   const ids = [...(listExpandedIds || [])];
   if (layout === 'list') {
-    if (expandedProgramId && !ids.includes(expandedProgramId)) ids.push(expandedProgramId);
-    return { expandedProgramId, listExpandedIds: ids };
+    if (!expandedProgramId) return { expandedProgramId, listExpandedIds: ids };
+    return { expandedProgramId, listExpandedIds: ids.filter(x => x !== expandedProgramId).concat(expandedProgramId) };
   }
   return { expandedProgramId: ids.length ? ids[ids.length - 1] : null, listExpandedIds: ids };
 }

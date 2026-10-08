@@ -390,6 +390,20 @@ describe('syncExpansionOnLayoutChange', () => {
     expect(syncExpansionOnLayoutChange('list', 'g1', ['g2', 'g1'])).toEqual({ expandedProgramId: 'g1', listExpandedIds: ['g2', 'g1'] });
   });
 
+  it('moves an already-open program to the end so it counts as the most recent', () => {
+    // Without this the Card's explicit choice is lost on the way back: it keeps its old
+    // position and some other program is still "last".
+    expect(syncExpansionOnLayoutChange('list', 'g1', ['g1', 'g2'])).toEqual({ expandedProgramId: 'g1', listExpandedIds: ['g2', 'g1'] });
+  });
+
+  it('brings the Card\'s chosen program back when several are open in the list', () => {
+    // List: g1 then g2 open. Card adopts g2, user explicitly opens g1 instead.
+    const toList = syncExpansionOnLayoutChange('list', 'g1', ['g1', 'g2']);
+    const back = syncExpansionOnLayoutChange('card', toList.expandedProgramId, toList.listExpandedIds);
+    expect(back.expandedProgramId).toBe('g1');
+    expect(back.listExpandedIds).toEqual(['g2', 'g1']);
+  });
+
   it('leaves the list untouched when nothing is open in the card', () => {
     expect(syncExpansionOnLayoutChange('list', null, ['g2'])).toEqual({ expandedProgramId: null, listExpandedIds: ['g2'] });
   });
