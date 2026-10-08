@@ -151,7 +151,7 @@
                 <div class="pf-card-footer">
                   <button class="btn btn-sm btn-outline-secondary" @click="openShareModal('program', row.id, row.name)">Share</button>
                   <div class="pf-card-actions">
-                    <button v-if="!portfolioFiltersActive" class="btn btn-sm" :class="expandedProgramId === row.id ? 'btn-primary' : 'btn-outline-secondary'" @click="toggleProgramExpanded(row.id)">{{ expandedProgramId === row.id ? 'Hide projects' : 'Show ' + row.children.length + ' projects' }}</button>
+                    <button v-if="!portfolioFiltersActive" class="btn btn-sm" :class="expandedProgramId === row.id ? 'pf-btn-navy' : 'btn-outline-secondary'" @click="toggleProgramExpanded(row.id)">{{ expandedProgramId === row.id ? 'Hide projects' : 'Show ' + row.children.length + ' projects' }}</button>
                     <span v-else class="pf-shown-filtered" title="Program Dashboard — coming soon">Shown (filtered)</span>
                     <button class="btn btn-sm btn-outline-secondary" disabled title="Program Dashboard — coming soon">Dashboard</button>
                   </div>
@@ -182,7 +182,7 @@
                   <span v-html="statusBadgeLarge(row.cfg.status)" class="pf-status-pill"></span>
                   <div class="pf-card-actions">
                     <button v-if="row.cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="goConfigure(row.cfg.id)">Configure</button>
-                    <button class="btn btn-sm btn-primary" @click="showDashboard(row.cfg.id)">Dashboard</button>
+                    <button class="btn btn-sm pf-btn-navy" @click="showDashboard(row.cfg.id)">Dashboard</button>
                   </div>
                 </div>
               </div>
@@ -271,10 +271,7 @@
                 <div class="pf-list-sub" v-if="cfg.code">{{ cfg.code }}</div>
               </div>
               <div class="pf-list-stage"></div>
-              <div class="pf-list-status">
-                <span class="pf-status-pill" v-html="statusBadgeLarge(cfg.status)"></span>
-                <span v-if="!cardDataMap[cfg.id].hasData" class="pf-badge-neutral">No actuals available</span>
-              </div>
+              <div class="pf-list-status"><span class="pf-status-pill" v-html="statusBadgeLarge(cfg.status)"></span></div>
               <div class="pf-list-duration"></div>
               <div class="pf-list-sold">{{ (cardDataMap[cfg.id].hasDuration && cardDataMap[cfg.id].hasPhasing) ? formatMoney(cardDataMap[cfg.id].totalPhasing, cfg.currency || 'EUR', currencies) : '—' }}</div>
               <div class="pf-list-spent">
@@ -298,10 +295,7 @@
               <div class="pf-list-sub">{{ row.clientName }}{{ row.clientName && row.cfg.code ? ' · ' : '' }}{{ row.cfg.code }}</div>
             </div>
             <div class="pf-list-stage"><span class="pf-stage-pill" v-html="pipelineBadge(getProjectPipeline(row.cfg.id) || row.cfg.pipeline)"></span></div>
-            <div class="pf-list-status">
-              <span class="pf-status-pill" v-html="statusBadgeLarge(row.cfg.status)"></span>
-              <span v-if="!row.card.hasData" class="pf-badge-neutral">No actuals available</span>
-            </div>
+            <div class="pf-list-status"><span class="pf-status-pill" v-html="statusBadgeLarge(row.cfg.status)"></span></div>
             <div class="pf-list-duration">{{ row.card.hasDuration ? (monthLabel(row.cfg.startDate) + ' – ' + monthLabel(row.cfg.endDate)) : '—' }}</div>
             <div class="pf-list-sold">{{ (row.card.hasDuration && row.card.hasPhasing) ? formatMoney(row.card.totalPhasing, row.cfg.currency || 'EUR', currencies) : '—' }}</div>
             <div class="pf-list-spent">
