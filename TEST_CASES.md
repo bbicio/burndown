@@ -253,8 +253,8 @@
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
-| R-01 | Portfolio loads | Open `/portfolio.html` | All accessible projects listed, each as a card in a 2-column grid (a program group spans the full row width; its child projects render in their own nested 2-column grid) | |
-| R-02 | Filter by client | Select a client filter | Only projects for that client shown | |
+| R-01 | Portfolio loads | Open `/portfolio.html` | Header shows "Project Portfolio" and "N programs · N projects"; all accessible programs and projects listed in the Card grid (uniform cards, 3/2/1 columns by container width), mixed into one alphabetical order — corrected 2026-10-08, the former 2-column Bootstrap grid with full-width program rows and nested child grids is gone | |
+| R-02 | Filter by client | Open the `Client` dropdown and tick one or more clients | Only projects of the ticked clients shown; the trigger reads "Client: N selected" and a "Clear filters" link appears — corrected 2026-10-08, the filter is a multi-select checkbox dropdown, no longer a single-select `<select>` | |
 | R-03 | KPI cards | View project with phasing + actuals | Budget Estimated, Spent, Variance correctly calculated | |
 | R-04 | Upload XLS actuals | On a project's detail page, click 📂 Load Actuals → select Excel file | Rows parsed and stored; KPIs and burndown chart update (chart redraws even when the upload happens without leaving the detail page) — corrected 2026-09, Load Actuals moved from the list-view card to the detail page's header action row | |
 | R-05 | Burndown chart | Project with multi-month data | Estimated vs. spent per month rendered correctly | |
@@ -286,6 +286,21 @@
 | R-34 | No-match empty state (2026-09) | Type a search term that matches no project | "No projects match the current filters." appears; no project cards are shown | |
 | R-35 | Program groups auto-expand while filtering; manual toggle disabled (2026-09) | Search for a term that matches only a project inside a collapsed program group | The group expands automatically and shows the matching child, with no manual click needed; the "Show/Hide Child Projects" button is replaced by a non-interactive "▼ Shown (filtered)" badge while any filter is active; clearing the filter reverts the group to its last manually-set collapsed/expanded state | |
 | R-36 | List-view Configure button (2026-09) | On a project card (grouped-child or ungrouped) where the viewer has owner/editor access, click "⚙️ Configure" | Navigates to `/project-config.html?projectId=<that project's id>`; the button is hidden entirely on a card where the viewer's permission on that project is `viewer` | |
+| R-37 | Card/List toggle persists (2026-10-08) | Click `List` in the toolbar's segmented control, then reload the page (F5) | The List view is still selected after the reload (stored in `localStorage['PDash_portfolioLayout']`) | |
+| R-38 | Invalid stored layout (2026-10-08) | Delete `PDash_portfolioLayout` (or set it to a junk value like `grid`), reload; repeat in a private window where storage throws | The overview opens in Card view, never blank | |
+| R-39 | Same order in both views (2026-10-08) | Set `Sort: Client A–Z`, note the order in Card, switch to List | Identical order in both views (one shared row list); within the same client, programs come before projects | |
+| R-40 | Alphabetical sort ignores kind (2026-10-08) | Set `Sort: Alphabetical` | Programs and projects interleave by name only, with no program-first grouping | |
+| R-41 | Project without phasing (2026-10-08) | Open the overview with a project that has dates but no phasing and no actuals | The card is shown (not hidden) with `—` in Sold/Spent/Variance and `No budget` under an empty bar; a project with sold > 0 and nothing spent instead reads `0% spent` with an empty bar | |
+| R-42 | Stage filter (2026-10-08) | Open the `Stage` dropdown and tick e.g. `Committed` | Only projects whose pipeline stage matches remain; combines with Client/Status/search by AND, multiple ticks within one filter by OR | |
+| R-43 | New Project stays disabled (2026-10-08) | Hover and click `+ New Project` | Visibly disabled, shows the direct-creation tooltip, does not navigate | |
+| R-44 | Program Dashboard inactive (2026-10-08) | Click a program card's `Dashboard`, and `Program Dashboard →` in the children panel | Neither navigates; both show `Program Dashboard — coming soon`. A project card's `Dashboard` does open the project detail | |
+| R-45 | One program open at a time in Card (2026-10-08) | Click `Show N projects` on a program, then on another one; repeat at window widths giving 3, 2 and 1 columns | Only the second stays open; the children panel spans the full grid width and sits below the complete row containing its card, never mid-row | |
+| R-46 | Children always visible while filtering (2026-10-08) | Type anything in the search box | Every program's children panel is shown, the footer toggle is replaced by the non-interactive `Shown (filtered)` label, and the panel's `Close` link is hidden (it would have nothing to close) | |
+| R-47 | Expansion shared by the two views (2026-10-08) | Open a program in Card, switch to List, switch back to Card; then close it in Card (either `Hide projects` or the panel's `Close`) and switch to List and back | It is expanded in List and still open on return; after closing, it is collapsed in List and does not re-open on return — the close propagates through both close paths | |
+| R-48 | Filtered-out open program (2026-10-08) | Open a program in Card, then apply a filter that excludes it | No orphan children panel is left behind | |
+| R-49 | List child rows (2026-10-08) | In List, expand a program | Child rows are indented on a grey background, with empty Stage and Duration cells, a status pill, Sold/Spent/Variance and `Dashboard →`; no `Configure` anywhere in List | |
+| R-50 | List program status text (2026-10-08) | In List, look at a program whose children include a `Started At Risk` one | The Status cell reads `N at risk` in dark navy (never red); with none at risk it reads `N projects` | |
+| R-51 | Overview responsive (2026-10-08) | Narrow the window to ~390px in Card, then switch to List | Card: one column, no horizontal page scroll, cards and their stage pills fully visible. List: the `Duration` and `Spent` columns are hidden and the table scrolls horizontally within its own box | |
 
 ---
 

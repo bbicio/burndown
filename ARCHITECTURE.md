@@ -977,6 +977,10 @@ burndown/
                             only (board header, year menu, toolbar, search suggestions, Amounts toggle, columns, cards,
                             smartphone stage tabs and Filters sheet; detail panel modes, header, tabs, POT view); tokens only; loaded after style.css and overrides its legacy `.pb-*`
                             rules; `js/lib/pipeline-guard.test.js` pins it. Full narrative: docs/pages/pipeline.md
+    portfolio.css         ← (2026-10-08, `?v=1`) page stylesheet of portfolio.html only (overview header and
+                            toolbar, Card grid with the stacked program card and the full-width children panel,
+                            List grid-table with its sidebar-aware column hiding); tokens only; loaded after
+                            style.css; `js/lib/portfolio-guard.test.js` pins it. Detail: docs/css/stylesheets.md
     admin-crud.css        ← shared layout for simple admin CRUD pages (page-header/card/table/badges/
                             btn-primary/form-*/empty/alert-sm), extracted 2026-09 from duplicated inline
                             `<style>` blocks in admin.html/team.html/attribute-lists.html
@@ -1030,7 +1034,7 @@ burndown/
   index.html              ← redirect → pipeline.html
   pipeline.html           ← kanban pipeline board, Vue 3 (CDN, no build step, same pattern as portfolio.html/
                             project-config.html). Full narrative: docs/pages/pipeline.md
-  portfolio.html          ← portfolio overview + per-project dashboard, Vue 3 (CDN, no build step, same pattern as project-config.html); folds in the former js/portfolio.js + js/dashboard.js; adds js/lib/portfolio-calc.js (KPI/burndown math extraction, vitest-covered); no longer loads js/roles.js or js/config-form.js (the latter only served this page's own now-removed, previously-unreachable #configModal + nested CRUD modals); overview list-view project cards restructured (2026-09) to show identity + a Duration/Sold/Spent/Variance stats row (no monthly table) and a single always-enabled entry button into the detail page, laid out in a 2-column Bootstrap grid; list-view filter row (2026-09) also gained a free-text search input (matches project name/code/client name) and a Status multi-select dropdown, plus a `⚙️ Configure` button back on each card (a prior "detail-only" decision from the card-restructure cycle, since reversed) — full implementation narrative: `docs/pages/portfolio.md`
+  portfolio.html          ← portfolio overview + per-project dashboard, Vue 3 (CDN, no build step, same pattern as project-config.html); folds in the former js/portfolio.js + js/dashboard.js; adds js/lib/portfolio-calc.js (KPI/burndown math plus the overview's row model and layout helpers, vitest-covered); own stylesheet css/portfolio.css; does not load js/roles.js or js/config-form.js. The overview offers two layouts, Card and List, driven by one shared ordered row list and persisted in `PDash_portfolioLayout`. Full implementation narrative: `docs/pages/portfolio.md`
   planning.html           ← resource planning (filters, By Role/By Project/By Owner grouping views,
                             monthly/weekly interval, monthly pulse, rounded-hours toggle, XLS
                             export/upload, AI Planning Sidebar), Vue 3 (CDN, no build step, same
@@ -1082,6 +1086,7 @@ New users start fresh: an admin creates an account via the invite flow, then use
 
 **Current localStorage usage** (only genuinely client-side keys remain):
 - `PDash_summary` — portfolio summary project selection (UI preference)
+- `PDash_portfolioLayout` — portfolio overview layout, `'card'` or `'list'` (UI preference, 2026-10-08). Like every other kept key it must stay in `js/core.js`'s `cleanLegacyStorage()` `keep` Set, or it is wiped on the next page load.
 - `reforecast_snapshot_<projectId>` — no longer written; `project-config.html`'s Vue 3 rewrite confirmed the rollback/snapshot feature was already unreachable on that page (no rollback button existed in its markup) and did not port it. The mechanism still exists in `js/config-form.js` (unchanged); `portfolio.html`'s own copy of that config modal was confirmed unreachable dead code and dropped entirely in its own Vue migration, and `planning.html`'s own Vue migration confirmed `js/config-form.js` was dead there too (no reachable `#configModal`) and dropped its `<script>` tag — no page in the repo loads `js/config-form.js` reachably anymore, though the file itself is kept for reference.
 
 All server data (cost grids, projects, clients, programs, roles, timesheets) is fetched from the API on every page load into in-memory variables. No stale cross-session data is possible.

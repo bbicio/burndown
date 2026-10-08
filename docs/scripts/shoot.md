@@ -24,6 +24,7 @@ Put `SHOOT_EMAIL`/`SHOOT_PASSWORD` in the gitignored `.env` — the script parse
 
 ## Gotchas that have actually bitten
 
+- **From Git Bash on Windows, prefix the command with `MSYS_NO_PATHCONV=1`** (2026-10-08). MSYS rewrites any argument that looks like a Unix path, so `--url /portfolio.html` reaches the script as `C:/Users/.../Git/portfolio.html`; the URL built from it 404s, nginx's `try_files … /index.html` serves the redirect stub instead, and the capture silently shows **pipeline.html** — a plausible-looking screenshot of the wrong page, with no error. Diagnosed from the nginx access log, where the referer reads `http://localhost:8081/C:/Users/…/portfolio.html`. The same `MSYS_NO_PATHCONV=1` guard already used for the `docker run` one-liner in CLAUDE.md.
 - **From a worktree, `--base http://localhost` renders the main checkout, not the worktree** (`docker-compose.yml:100` mounts `./` of the directory the stack was started from): bring up `scripts/test-branch.sh up` first and pass `--base http://localhost:8081`.
 - Use `--settle 3000` or more — at the default settle the page renders half-loaded, complete-looking but showing another source's data.
 - **Claude in Chrome is blocked for `localhost` by org policy here, but headless Chrome is not** — so "the page can't be rendered in this environment" is not a valid reason to skip visual verification. The PNGs must then actually be read back and compared.
