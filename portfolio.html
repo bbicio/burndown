@@ -166,6 +166,7 @@
                 <div class="pf-card-client" v-if="row.clientName">{{ row.clientName }}</div>
                 <div class="pf-card-title">{{ fmtProjectTitle(row.cfg) }}</div>
                 <div class="pf-card-code" v-if="row.cfg.code">{{ row.cfg.code }}</div>
+                <span v-if="!row.card.hasData" class="pf-badge-neutral">No actuals available</span>
                 <div class="pf-card-metrics">
                   <div><div class="pf-metric-label">Duration</div><div class="pf-metric-value">{{ row.card.hasDuration ? (monthLabel(row.cfg.startDate) + ' – ' + monthLabel(row.cfg.endDate)) : '—' }}</div></div>
                   <div><div class="pf-metric-label">Sold</div><div class="pf-metric-value">{{ (row.card.hasDuration && row.card.hasPhasing) ? formatMoney(row.card.totalPhasing, row.cfg.currency || 'EUR', currencies) : '—' }}</div></div>
@@ -187,34 +188,38 @@
               </div>
             </template>
           </div>
-          <!-- Full-width children panel, placed after the entire row that contains the open program (§13) -->
-          <div v-if="expandedProgram && chunk.some(r => r.id === expandedProgram.id && r.kind === 'program')" class="pf-children-panel">
-            <div class="pf-children-panel-head">
-              <div>
-                <div class="pf-children-panel-title">{{ expandedProgram.name }}</div>
-                <div class="pf-children-panel-sub">Program · {{ expandedProgram.children.length }} project{{ expandedProgram.children.length === 1 ? '' : 's' }}</div>
-              </div>
-              <div class="pf-children-panel-actions">
-                <button class="pf-clear-link" disabled title="Program Dashboard — coming soon">Program Dashboard →</button>
-                <button class="pf-clear-link" @click="expandedProgramId = null">Close</button>
-              </div>
-            </div>
-            <div class="pf-children-grid">
-              <div v-for="cfg in expandedProgram.children" :key="cfg.id" class="pf-mini-card">
-                <div class="pf-mini-card-name">{{ cfg.name || cfg.id }}</div>
-                <div class="pf-mini-card-code" v-if="cfg.code">{{ cfg.code }}</div>
-                <span v-html="statusBadgeLarge(cfg.status)" class="pf-status-pill"></span>
-                <div class="pf-mini-card-amounts">{{ fmtK(cardDataMap[cfg.id].totalSpent, cfg.currency || 'EUR') }} / {{ fmtK(cardDataMap[cfg.id].totalPhasing, cfg.currency || 'EUR') }}</div>
-                <div class="pf-spent-bar pf-spent-thin" :class="'pf-spent-' + spentBarState(cardSpentPct(cardDataMap[cfg.id]))">
-                  <div class="pf-spent-bar-fill" :style="{width: Math.min(100, cardSpentPct(cardDataMap[cfg.id]) || 0) + '%'}"></div>
+          <!-- Full-width children panel(s), placed after the entire row that contains the open program(s) (§13).
+               One panel per qualifying program row in this chunk — plural because, while a filter is active,
+               every program's children must stay visible (spec §10), not just the manually-expanded one. -->
+          <template v-for="panelRow in chunk.filter(r => r.kind === 'program' && expandedProgramIds.has(r.id))" :key="'panel-' + panelRow.id">
+            <div class="pf-children-panel">
+              <div class="pf-children-panel-head">
+                <div>
+                  <div class="pf-children-panel-title">{{ panelRow.name }}</div>
+                  <div class="pf-children-panel-sub">Program · {{ panelRow.children.length }} project{{ panelRow.children.length === 1 ? '' : 's' }}</div>
                 </div>
-                <div class="pf-mini-card-footer">
-                  <button v-if="cfg.my_permission !== 'viewer'" class="pf-clear-link" @click="goConfigure(cfg.id)">Configure</button>
-                  <button class="pf-clear-link" @click="showDashboard(cfg.id)">Dashboard →</button>
+                <div class="pf-children-panel-actions">
+                  <button class="pf-clear-link" disabled title="Program Dashboard — coming soon">Program Dashboard →</button>
+                  <button class="pf-clear-link" @click="expandedProgramId = null">Close</button>
                 </div>
               </div>
+              <div class="pf-children-grid">
+                <div v-for="cfg in panelRow.children" :key="cfg.id" class="pf-mini-card">
+                  <div class="pf-mini-card-name">{{ cfg.name || cfg.id }}</div>
+                  <div class="pf-mini-card-code" v-if="cfg.code">{{ cfg.code }}</div>
+                  <span v-html="statusBadgeLarge(cfg.status)" class="pf-status-pill"></span>
+                  <div class="pf-mini-card-amounts">{{ fmtK(cardDataMap[cfg.id].totalSpent, cfg.currency || 'EUR') }} / {{ fmtK(cardDataMap[cfg.id].totalPhasing, cfg.currency || 'EUR') }}</div>
+                  <div class="pf-spent-bar pf-spent-thin" :class="'pf-spent-' + spentBarState(cardSpentPct(cardDataMap[cfg.id]))">
+                    <div class="pf-spent-bar-fill" :style="{width: Math.min(100, cardSpentPct(cardDataMap[cfg.id]) || 0) + '%'}"></div>
+                  </div>
+                  <div class="pf-mini-card-footer">
+                    <button v-if="cfg.my_permission !== 'viewer'" class="pf-clear-link" @click="goConfigure(cfg.id)">Configure</button>
+                    <button class="pf-clear-link" @click="showDashboard(cfg.id)">Dashboard →</button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          </template>
         </template>
       </div>
 
@@ -266,7 +271,10 @@
                 <div class="pf-list-sub" v-if="cfg.code">{{ cfg.code }}</div>
               </div>
               <div class="pf-list-stage"></div>
-              <div class="pf-list-status"><span class="pf-status-pill" v-html="statusBadgeLarge(cfg.status)"></span></div>
+              <div class="pf-list-status">
+                <span class="pf-status-pill" v-html="statusBadgeLarge(cfg.status)"></span>
+                <span v-if="!cardDataMap[cfg.id].hasData" class="pf-badge-neutral">No actuals available</span>
+              </div>
               <div class="pf-list-duration"></div>
               <div class="pf-list-sold">{{ (cardDataMap[cfg.id].hasDuration && cardDataMap[cfg.id].hasPhasing) ? formatMoney(cardDataMap[cfg.id].totalPhasing, cfg.currency || 'EUR', currencies) : '—' }}</div>
               <div class="pf-list-spent">
@@ -290,7 +298,10 @@
               <div class="pf-list-sub">{{ row.clientName }}{{ row.clientName && row.cfg.code ? ' · ' : '' }}{{ row.cfg.code }}</div>
             </div>
             <div class="pf-list-stage"><span class="pf-stage-pill" v-html="pipelineBadge(getProjectPipeline(row.cfg.id) || row.cfg.pipeline)"></span></div>
-            <div class="pf-list-status"><span class="pf-status-pill" v-html="statusBadgeLarge(row.cfg.status)"></span></div>
+            <div class="pf-list-status">
+              <span class="pf-status-pill" v-html="statusBadgeLarge(row.cfg.status)"></span>
+              <span v-if="!row.card.hasData" class="pf-badge-neutral">No actuals available</span>
+            </div>
             <div class="pf-list-duration">{{ row.card.hasDuration ? (monthLabel(row.cfg.startDate) + ' – ' + monthLabel(row.cfg.endDate)) : '—' }}</div>
             <div class="pf-list-sold">{{ (row.card.hasDuration && row.card.hasPhasing) ? formatMoney(row.card.totalPhasing, row.cfg.currency || 'EUR', currencies) : '—' }}</div>
             <div class="pf-list-spent">
@@ -791,9 +802,16 @@
         }));
         return buildPortfolioRows([...programRows, ...projectRows], this.portfolioSort);
       },
-      expandedProgram() {
+      // Card: which program ids currently show a children panel. While a filter is active
+      // every program's children stay visible (spec §10, mirrored from the List view's
+      // auto-expand-all) — otherwise just the one manually expanded program, if it still
+      // resolves to a present row (Review Focus 2).
+      expandedProgramIds() {
+        if (this.portfolioFiltersActive) {
+          return new Set(this.portfolioRows.filter(r => r.kind === 'program').map(r => r.id));
+        }
         const id = resolveExpandedProgramId(this.expandedProgramId, this.portfolioRows);
-        return id ? this.portfolioRows.find(r => r.kind === 'program' && r.id === id) : null;
+        return id ? new Set([id]) : new Set();
       },
       // Rows chunked into gridColumns-sized groups so the full-width children panel
       // can be inserted after a complete grid row rather than mid-row (spec §13).
@@ -1138,6 +1156,8 @@
       getProjectPipeline,
       statusBadgeLarge,
       openShareModal,
+      spentPercent,
+      spentBarState,
       isPinnedSummary(id) {
         // template expressions resolve bare identifiers through the component instance only (never
         // fall through to window in Vue 3's runtime-compiled mode), so the global Set must be read
@@ -1471,6 +1491,10 @@
       burndownTaskFilter() { this.renderBurndownChart(); },
       portfolioLayout() { this.attachCardGridObserver(); },
       refreshTick() { this.attachCardGridObserver(); },
+      // The grid container only exists while view === 'overview' (showDashboard swaps the whole
+      // template out); without this, returning from the dashboard (or landing on it first via
+      // ?projectId= and then going "back to portfolio") leaves gridColumns stuck at its last value.
+      view() { this.attachCardGridObserver(); },
     },
   }).mount('#app');
 </script>
