@@ -40,14 +40,26 @@ Verificati il 2026-10-08 prima di scrivere questa spec. Guidano le decisioni §3
 2. **La visibilità è per progetto, non per programma.** `POST /programs/:id/share`
    (`api/src/routes/config.js:124`) fa fan-out creando una `resource_shares` per ogni progetto
    *esistente in quel momento*; un progetto aggiunto dopo non eredita nulla, e un progetto può
-   essere condiviso singolarmente. La visibilità parziale è quindi possibile, anche se non è il
-   flusso voluto.
-3. **"Sold"/"Spent" del Portfolio e del reporting di progetto misurano cose diverse.** Nella List
-   del Portfolio `Sold` è il **totale phasing** (`cardData().totalPhasing`, `portfolio.html:278`),
-   mentre il KPI del reporting di progetto è il **budget venduto** (Σ `soldHours × hourlyRate`,
-   `computeKpis`). Il brief §7.2 chiede coerenza con entrambi: impossibile.
-4. **`phasing` è denaro al mese, non ore.** Le "ore residue previste" del burndown si ricavano da
-   `budget × (1 − cumPhasing / totalBudgetEur)` (`computeBurndownPoints`), non da ore di phasing.
+   essere condiviso singolarmente. Non è una contraddizione del brief ma **terreno nuovo**: una
+   vista di programma non è mai esistita, quindi la semantica di visibilità di programma si
+   decide qui (D5).
+3. **`Sold` del Portfolio e `Sold` del reporting di progetto hanno fonti diverse, che in pratica
+   coincidono.** Nella List del Portfolio `Sold` è il **totale phasing**
+   (`cardData().totalPhasing`, `portfolio.html:278`), nel reporting di progetto è il **budget
+   venduto** (Σ `soldHours × hourlyRate`, `computeKpis`). Misurato sui dati reali il 2026-10-08:
+   dei 15 progetti, i 10 che hanno un phasing lo hanno **esattamente uguale** al budget dei task
+   (179.340 = 179.340, 60.020 = 60.020, …); i 5 senza phasing hanno phasing 0 e budget non nullo
+   (21.555, 14.625, …). `project-config.html:220` mostra infatti `phasingSum / grandTotalBudget`
+   affiancati, ma nulla impedisce di salvare con phasing vuoto (`:858`, solo un confirm).
+   → La fonte robusta è il **budget dei task**: esiste sempre, coincide col phasing quando il
+   phasing c'è.
+4. **`phasing` è denaro al mese, non ore — ed è esattamente ore × tariffa.** Le "ore residue
+   previste" del burndown si ricavano da `budget × (1 − cumPhasing / totalBudgetEur)`
+   (`computeBurndownPoints`): poiché Σphasing = Σ(ore × tariffa) (fatto 3), quella formula è
+   già la conversione in ore della distribuzione temporale del denaro, cioè ciò che serve.
+   L'alternativa "distribuire le ore dalle date dei task" **non è percorribile**:
+   `project_tasks.monthly_distribution` esiste ma nei dati reali contiene stringhe vuote
+   (`{"202607": ""}`), non è una distribuzione utilizzabile.
 5. **Nessun vincolo di valuta unica per programma.** `projects.currency` è per progetto, il
    programma non ha valuta. Nei dati reali al 2026-10-08 tutti e 5 i programmi sono a valuta
    singola (EUR).
@@ -63,9 +75,9 @@ Verificati il 2026-10-08 prima di scrivere questa spec. Guidano le decisioni §3
 |---|---|---|
 | D1 | Dove vive | **Pagina nuova `program.html`**, non una terza vista di `portfolio.html` (richiesta esplicita dell'utente). Il brief §1/§9.1 proponeva la vista interna. |
 | D2 | Backend | **Nessun endpoint nuovo, nessun SQL nuovo.** Calcolo client-side come il Portfolio (fatto §2.1). Il brief §7.1 è annullato. |
-| D3 | Coerenza numeri | Allineamento al **reporting di progetto** (sold = budget venduto). La divergenza della colonna Sold del Portfolio (phasing) resta e va segnalata come item aperto per il ciclo Portfolio. Il brief §7.2 è soddisfatto solo su questo lato. |
+| D3 | Fonte di `Sold` | **Budget dei task** (Σ `soldHours × hourlyRate`), come il reporting di progetto, con fallback `getPipelineBudget(versionId).fee`. Scelta delegata dall'utente e decisa sui dati (fatto §2.3): il phasing coincide col budget quando c'è, ma manca su 5 progetti su 15, dove darebbe 0. La colonna `Sold` del Portfolio **non** viene cambiata in questo ciclo: lì `Sold` è il termine di confronto della colonna `Variance` (= phasing − spent), cambiarne la fonte romperebbe quella relazione in una pagina mergiata il giorno prima. Resta item aperto per la review finale del Portfolio (§16). |
 | D4 | Valute miste | Valuta del programma = `commonCurrency(progetti)` (già in `portfolio-calc.js`). Se `null`, le cifre in denaro mostrano `"Mixed currencies"` e le ore restano. Nessun enforcement nuovo lato DB/API. L'utente afferma che il caso non si verifica. |
-| D5 | Visibilità parziale | Totali e KPI sui **soli progetti visibili**; `"Showing N of M projects"` nella testata **solo se N < M** (nel caso normale non appare). Nessun accesso negato. |
+| D5 | Visibilità | La dashboard aggrega i **progetti visibili all'utente** (`config.projects` è già filtrato lato API); `"Showing N of M projects"` nella testata **solo se N < M**, quindi nel caso normale non appare mai. Nessun accesso negato. Vincolo che lega questa scelta a D2: includere progetti **non** visibili richiederebbe per forza un endpoint server (il browser non li riceve), cioè rinunciare a D2. La regola alternativa "chi vede il programma vede tutti i suoi progetti" resta possibile in futuro, ma è una modifica del modello di permessi, non di questa pagina. |
 | D6 | Share | **Riuso della modale attuale** (`openShareModal('program', id, name)`), con i suoi limiti noti (per i programmi mostra solo testo, il remove è un no-op). Lo Share vero è il Ciclo 2 del Portfolio e sistemerà entrambe le pagine insieme. |
 | D7 | Export | **Solo PNG del burndown** (icona di download sul grafico, come nel reporting di progetto). Nessun Export PDF di pagina: il brief §3/§9.6 è annullato. |
 | D8 | Needs attention | Il click sulla tile **filtra** la card Projects (List e Timeline) sui progetti critici, con modo di togliere il filtro. |
@@ -73,6 +85,8 @@ Verificati il 2026-10-08 prima di scrivere questa spec. Guidano le decisioni §3
 | D10 | Soglie | `vs time`: rosso oltre **+10 pt**, verde sotto **−10 pt**, neutro in mezzo. `Needs attention`: status `Started At Risk` **oppure** consumo ≥ **85%** **oppure** (consumo% − tempo%) > **10**. Barra: navy < 85%, ambra ≥ 85%, rosso > 100%. |
 | D11 | CSS | **`css/portfolio.css` condiviso** fra le due pagine (classi nuove `.pg-*` nello stesso foglio), guard aggiornato a "portfolio.html + program.html", `?v=` allineato su entrambe. |
 | D12 | Controlli | Stile dei controlli = quello del Portfolio (`.pf-*`). L'uniformazione ai controlli costgrid (`<cg-select>` ecc.) resta il **ciclo dedicato** che tratterà entrambe le pagine. |
+| D13 | Codice morto | `GET /api/reporting/portfolio` e `/reporting/projects/:id` **restano**, ma smettono di ingannare: un commento in testa a ciascuna rotta (`api/src/routes/reporting.js:74`, `:122`) e una nota nella tabella di `ARCHITECTURE.md:754-755` dicono che nessuna pagina li chiama e che il reporting è client-side. Cancellarli è una modifica backend (restart di `pdash-api`) estranea al rischio di questa pagina: va nella review finale §16. Il costo di lasciarli senza nota è dimostrato — hanno indotto in errore il brief stesso (§7.1). |
+| D14 | Perimetro di review e test | **Code review e test limitati ai file toccati da questo ciclo** (richiesta esplicita dell'utente). Niente review allargata alla codebase: una review completa del portale si farà in un ciclo a sé **al termine del restyling della sezione Portfolio**. Vale anche per i reviewer dispatchati: il loro perimetro è il diff del branch, non il resto del repo. |
 
 ## 4. Pagina, shell, routing
 
@@ -243,10 +257,21 @@ progetto senza budget escluso dal denominatore ma contato; soglie D10 ai bordi (
 `overflow`/`position`/`transform`, head snippet presente, `v-cloak` sul root, `?v=` concordi,
 nessun hex, nessuna emoji, nessun `Intl.NumberFormat`, nessun `alert(`/`confirm(` nativo.
 
-**Guard aggiornati**: `portfolio-guard.test.js` (due pagine), `nav-shell-guard.test.js` (19 pagine),
-`money-guard.test.js` e `page-names.test.js` devono continuare a passare.
+**Guard aggiornati**: `portfolio-guard.test.js` (due pagine), `nav-shell-guard.test.js` (19 pagine)
+e `page-names.test.js`, che prende `program.html → 'portfolio'` nella mappa `PAGES` così anche la
+pagina nuova è vincolata a "voce di menu = `<title>` = breadcrumb". L'asserzione attuale cerca la
+stringa esatta `{ label: 'Portfolio' }`: qui la voce Portfolio è intermedia e porta un `href`,
+quindi il controllo va reso tollerante all'`href` (prefisso `{ label: 'Portfolio'`), senza
+indebolirlo per le altre pagine. `money-guard.test.js` deve continuare a passare.
 
-**Backend**: nessuna modifica, quindi nessun nuovo test `node:test`.
+**Backend**: nessuna modifica di comportamento (solo i commenti D13), quindi nessun nuovo test
+`node:test` e nessun restart di `pdash-api` necessario per la logica — il commento viene comunque
+ricaricato da nodemon.
+
+**Perimetro (D14)**: la suite da far girare è quella frontend completa (`npm test`, è veloce e i
+guard sono trasversali), ma **i test nuovi e la code review coprono solo i file di questo ciclo**:
+`program.html`, `js/lib/program-calc.js`, `css/portfolio.css`, `portfolio.html`, i guard toccati,
+`api/src/routes/reporting.js` (solo commenti). Nessuna incursione nel resto della codebase.
 
 **Verifica visiva** (PROCESS.md §6.3/§6.6): `scripts/shoot.mjs` a **1440, 1024, 390** contro le
 tavole 7.5a e 7.5b, su un programma reale con più progetti (`MEN_26_AURORA…` ne ha 4), più un
@@ -270,7 +295,22 @@ ragione valida — `scripts/shoot.mjs` e headless Chrome funzionano.
 - `docs/js/lib.md` — voce `program-calc.js`.
 - `ARCHITECTURE.md` — se la sezione pagine lo richiede (nessun endpoint nuovo da documentare).
 
-## 16. Fuori scope
+## 16. Item aperti per la review finale del Portfolio
+
+Da raccogliere nel ciclo di code review sull'intera codebase, previsto **al termine del restyling
+della sezione Portfolio** (D14):
+
+1. Cancellare `GET /api/reporting/portfolio` e `/reporting/projects/:id` più i wrapper
+   `js/api.js:202-203` e le righe di `ARCHITECTURE.md`, se nel frattempo nessuno li ha adottati (D13).
+2. Decidere la fonte di `Sold` nelle Card/List del Portfolio: oggi è il phasing, che vale 0 sui
+   progetti senza phasing (5 su 15 al 2026-10-08), mentre il reporting e la Program Dashboard usano
+   il budget dei task. Cambiarla implica rivedere anche la colonna `Variance` (D3).
+3. `.pf-list-actions` con `overflow:hidden` taglierebbe il bottone più a sinistra (follow-up
+   accettato del ciclo Portfolio 1).
+4. Uniformazione dei controlli allo stile costgrid su entrambe le pagine (D12).
+5. Lo Share di programma vero (Ciclo 2 del Portfolio), che sostituirà il riuso D6.
+
+## 17. Fuori scope
 
 Reporting di progetto 7.4 oltre ai link; filtro Period, filtro task, Breakdown ed Entries a
 livello programma; Share di programma vero (Ciclo 2 del Portfolio); Export PDF di pagina;
