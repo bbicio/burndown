@@ -51,6 +51,9 @@ Verificati il 2026-10-08 prima di scrivere questa spec. Guidano le decisioni §3
    (179.340 = 179.340, 60.020 = 60.020, …); i 5 senza phasing hanno phasing 0 e budget non nullo
    (21.555, 14.625, …). `project-config.html:220` mostra infatti `phasingSum / grandTotalBudget`
    affiancati, ma nulla impedisce di salvare con phasing vuoto (`:858`, solo un confirm).
+   Controllato se il phasing mancante dipendesse dalle date (ipotesi dell'utente, 2026-10-08):
+   **no** — quei 5 progetti hanno date di progetto (`202609–202612`) e zero task senza date; il
+   phasing semplicemente non è stato compilato, caso riproducibile da un utente reale.
    → La fonte robusta è il **budget dei task**: esiste sempre, coincide col phasing quando il
    phasing c'è.
 4. **`phasing` è denaro al mese, non ore — ed è esattamente ore × tariffa.** Le "ore residue
