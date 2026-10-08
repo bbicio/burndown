@@ -207,6 +207,104 @@ export function commonCurrency(cfgs) {
   return codes.size === 1 ? [...codes][0] : 'EUR';
 }
 
+// Overview redesign (Cycle 1) — row model, card metrics and layout helpers for
+// portfolio.html's Card/List views. See docs/superpowers/specs/2026-10-08-portfolio-overview-cycle1-views-design.md.
+
+// Sorts a copy of `rows` ('client': clientName asc, then programs before projects
+// within the same client, then name; 'name': name only, kind ignored). localeCompare
+// throughout so an empty clientName sorts first without throwing.
+export function buildPortfolioRows(rows, sortMode) {
+  const copy = [...rows];
+  if (sortMode === 'name') {
+    return copy.sort((a, b) => a.name.localeCompare(b.name));
+  }
+  return copy.sort((a, b) => {
+    const clientCmp = (a.clientName || '').localeCompare(b.clientName || '');
+    if (clientCmp !== 0) return clientCmp;
+    const kindCmp = (a.kind === 'program' ? 0 : 1) - (b.kind === 'program' ? 0 : 1);
+    if (kindCmp !== 0) return kindCmp;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+// Percentage of `sold` consumed by `spent`. null when there is nothing sold to
+// measure against (Review Focus 4: sold > 0 and spent === 0 is 0%, not null).
+export function spentPercent(spent, sold) {
+  if (!sold || sold <= 0) return null;
+  return Math.round((spent / sold) * 100);
+}
+
+// Bar color state for a spentPercent() result, thresholds from spec §6.3 (85/100).
+export function spentBarState(pct) {
+  if (pct === null || pct === undefined) return 'none';
+  if (pct < 85) return 'normal';
+  if (pct <= 100) return 'warning';
+  return 'danger';
+}
+
+// Count of a program's children currently "Started At Risk" (exact spelling from
+// js/lib/status-rules.js's statusFilterOptions).
+export function programAtRisk(children) {
+  return (children || []).filter(c => c.status === 'Started At Risk').length;
+}
+
+// Validates a stored 'PDash_portfolioLayout' value, falling back to 'card' for
+// anything else (Review Focus 1: missing/invalid storage opens in Card, not blank).
+export function readLayoutPreference(raw) {
+  return raw === 'list' ? 'list' : 'card';
+}
+
+// Grid column count for a given container width, thresholds from spec §13.
+export function columnsForWidth(width) {
+  if (width >= 1000) return 3;
+  if (width >= 640) return 2;
+  return 1;
+}
+
+// Resolves the currently-expanded program id against the live row set (Review Focus
+// 2: a program removed by a filter must not leave the children panel orphaned).
+export function resolveExpandedProgramId(currentId, rows) {
+  if (!currentId) return null;
+  const stillPresent = (rows || []).some(r => r.kind === 'program' && r.id === currentId);
+  return stillPresent ? currentId : null;
+}
+
+// Keeps the two views' expansion state in step when the layout switches. The Card shows
+// one program at a time and the List several, so the mapping is asymmetric: going to the
+// List moves the card's open program to the END of the list's order, and coming back to
+// the Card adopts whatever is last. Moving rather than merely inserting is what makes the
+// round trip honour the user's latest choice: an id already in the set would otherwise
+// keep its old position and some other program would still be "last". The set is never
+// pruned, so switching back and forth never closes the other programs.
+export function syncExpansionOnLayoutChange(layout, expandedProgramId, listExpandedIds) {
+  const ids = [...(listExpandedIds || [])];
+  if (layout === 'list') {
+    if (!expandedProgramId) return { expandedProgramId, listExpandedIds: ids };
+    return { expandedProgramId, listExpandedIds: ids.filter(x => x !== expandedProgramId).concat(expandedProgramId) };
+  }
+  return { expandedProgramId: ids.length ? ids[ids.length - 1] : null, listExpandedIds: ids };
+}
+
+// The Card's expand/collapse toggle, keeping the List's set in step as it goes. Opening
+// moves the program to the end of the list order (so a later switch to Card adopts it);
+// closing removes it, which is what makes a collapse propagate — otherwise the id stayed
+// in the set and the next round trip silently re-opened the panel the user just closed.
+export function toggleCardExpansion(id, expandedProgramId, listExpandedIds) {
+  const rest = [...(listExpandedIds || [])].filter(x => x !== id);
+  if (expandedProgramId === id) return { expandedProgramId: null, listExpandedIds: rest };
+  return { expandedProgramId: id, listExpandedIds: rest.concat(id) };
+}
+
+window.toggleCardExpansion = toggleCardExpansion;
+window.syncExpansionOnLayoutChange = syncExpansionOnLayoutChange;
+window.buildPortfolioRows = buildPortfolioRows;
+window.spentPercent = spentPercent;
+window.spentBarState = spentBarState;
+window.programAtRisk = programAtRisk;
+window.readLayoutPreference = readLayoutPreference;
+window.columnsForWidth = columnsForWidth;
+window.resolveExpandedProgramId = resolveExpandedProgramId;
+
 window.commonCurrency = commonCurrency;
 window.computeKpis = computeKpis;
 window.computeBurndownPoints = computeBurndownPoints;

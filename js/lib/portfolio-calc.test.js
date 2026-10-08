@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeKpis, computeBurndownPoints, buildSummaryCols, summaryTotals, normalizeGroupEntries, entryMatchesRow, commonCurrency } from './portfolio-calc.js';
+import { computeKpis, computeBurndownPoints, buildSummaryCols, summaryTotals, normalizeGroupEntries, entryMatchesRow, commonCurrency, buildPortfolioRows, spentPercent, spentBarState, programAtRisk, readLayoutPreference, columnsForWidth, resolveExpandedProgramId, syncExpansionOnLayoutChange, toggleCardExpansion } from './portfolio-calc.js';
 
 describe('commonCurrency', () => {
   it('returns the currency code shared by all the projects', () => {
@@ -273,5 +273,193 @@ describe('entryMatchesRow', () => {
     const entries = [{ role: '', task: 'Overall Coordination' }, { role: 'Account Director', task: '' }];
     expect(() => entryMatchesRow(entries, 'Account Director', 'Overall Coordination')).not.toThrow();
     expect(entryMatchesRow(entries, 'Account Director', 'Overall Coordination')).toBe(true);
+  });
+});
+
+describe('buildPortfolioRows', () => {
+  const rows = [
+    { kind: 'project', id: 'p1', name: 'TEST PROPOSAL', clientName: 'Bayer AG' },
+    { kind: 'project', id: 'p2', name: 'BERMITS', clientName: 'Bayer AG' },
+    { kind: 'program', id: 'g1', name: 'Field Force', clientName: 'Bayer AG' },
+    { kind: 'project', id: 'p3', name: 'Pharmacovigilance', clientName: 'Angelini Pharma' },
+  ];
+
+  it('sorts by client asc, then programs before projects within a client, then name', () => {
+    expect(buildPortfolioRows(rows, 'client').map(r => r.id)).toEqual(['p3', 'g1', 'p2', 'p1']);
+  });
+
+  it('sorts by name only when sortMode is name, programs and projects undistinguished', () => {
+    expect(buildPortfolioRows(rows, 'name').map(r => r.name)).toEqual(['BERMITS', 'Field Force', 'Pharmacovigilance', 'TEST PROPOSAL']);
+  });
+
+  it('does not throw on an empty clientName, sorting it first', () => {
+    expect(() => buildPortfolioRows([{ kind: 'project', id: 'x', name: 'X', clientName: '' }], 'client')).not.toThrow();
+  });
+
+  it('does not mutate the input array', () => {
+    const input = [...rows];
+    buildPortfolioRows(input, 'client');
+    expect(input).toEqual(rows);
+  });
+});
+
+describe('spentPercent', () => {
+  it('returns 0 when sold is set but nothing has been spent yet — Review Focus 4', () => {
+    expect(spentPercent(0, 1000)).toBe(0);
+  });
+  it('returns the percentage spent relative to sold', () => {
+    expect(spentPercent(500, 1000)).toBe(50);
+    expect(spentPercent(1200, 1000)).toBe(120);
+  });
+  it('returns null when sold is falsy or missing', () => {
+    expect(spentPercent(100, 0)).toBeNull();
+    expect(spentPercent(100, null)).toBeNull();
+    expect(spentPercent(100, undefined)).toBeNull();
+  });
+});
+
+describe('spentBarState', () => {
+  it('returns the exact boundary states', () => {
+    expect(spentBarState(null)).toBe('none');
+    expect(spentBarState(0)).toBe('normal');
+    expect(spentBarState(84)).toBe('normal');
+    expect(spentBarState(85)).toBe('warning');
+    expect(spentBarState(100)).toBe('warning');
+    expect(spentBarState(101)).toBe('danger');
+  });
+});
+
+describe('programAtRisk', () => {
+  it('counts children whose status is exactly "Started At Risk"', () => {
+    expect(programAtRisk([{ status: 'Started At Risk' }, { status: 'Started' }, {}])).toBe(1);
+  });
+  it('returns 0 for an empty children array', () => {
+    expect(programAtRisk([])).toBe(0);
+  });
+});
+
+describe('readLayoutPreference', () => {
+  it('reads a valid stored layout', () => {
+    expect(readLayoutPreference('list')).toBe('list');
+    expect(readLayoutPreference('card')).toBe('card');
+  });
+  it('falls back to card for null, empty, or any unrecognized value — Review Focus 1', () => {
+    expect(readLayoutPreference(null)).toBe('card');
+    expect(readLayoutPreference('')).toBe('card');
+    expect(readLayoutPreference('grid')).toBe('card');
+  });
+});
+
+describe('columnsForWidth', () => {
+  it('returns 3 columns at or above 1000px', () => {
+    expect(columnsForWidth(1200)).toBe(3);
+    expect(columnsForWidth(1000)).toBe(3);
+  });
+  it('returns 2 columns between 640px and 999px', () => {
+    expect(columnsForWidth(999)).toBe(2);
+    expect(columnsForWidth(640)).toBe(2);
+  });
+  it('returns 1 column below 640px', () => {
+    expect(columnsForWidth(639)).toBe(1);
+    expect(columnsForWidth(0)).toBe(1);
+  });
+});
+
+describe('resolveExpandedProgramId', () => {
+  const live = [{ kind: 'program', id: 'g1', name: 'A', clientName: 'C' }];
+  it('keeps the id when its program row is still present', () => {
+    expect(resolveExpandedProgramId('g1', live)).toBe('g1');
+  });
+  it('resolves to null when the program row is gone — Review Focus 2', () => {
+    expect(resolveExpandedProgramId('gone', live)).toBeNull();
+  });
+  it('returns null when no id is currently expanded', () => {
+    expect(resolveExpandedProgramId(null, live)).toBeNull();
+  });
+  it('does not count a project with the same id as a program', () => {
+    expect(resolveExpandedProgramId('p1', [{ kind: 'project', id: 'p1', name: 'P', clientName: 'C' }])).toBeNull();
+  });
+});
+
+describe('syncExpansionOnLayoutChange', () => {
+  it('carries the card\'s open program into the list when switching to List', () => {
+    expect(syncExpansionOnLayoutChange('list', 'g1', [])).toEqual({ expandedProgramId: 'g1', listExpandedIds: ['g1'] });
+  });
+
+  it('does not duplicate a program already open in the list', () => {
+    expect(syncExpansionOnLayoutChange('list', 'g1', ['g2', 'g1'])).toEqual({ expandedProgramId: 'g1', listExpandedIds: ['g2', 'g1'] });
+  });
+
+  it('moves an already-open program to the end so it counts as the most recent', () => {
+    // Without this the Card's explicit choice is lost on the way back: it keeps its old
+    // position and some other program is still "last".
+    expect(syncExpansionOnLayoutChange('list', 'g1', ['g1', 'g2'])).toEqual({ expandedProgramId: 'g1', listExpandedIds: ['g2', 'g1'] });
+  });
+
+  it('brings the Card\'s chosen program back when several are open in the list', () => {
+    // List: g1 then g2 open. Card adopts g2, user explicitly opens g1 instead.
+    const toList = syncExpansionOnLayoutChange('list', 'g1', ['g1', 'g2']);
+    const back = syncExpansionOnLayoutChange('card', toList.expandedProgramId, toList.listExpandedIds);
+    expect(back.expandedProgramId).toBe('g1');
+    expect(back.listExpandedIds).toEqual(['g2', 'g1']);
+  });
+
+  it('leaves the list untouched when nothing is open in the card', () => {
+    expect(syncExpansionOnLayoutChange('list', null, ['g2'])).toEqual({ expandedProgramId: null, listExpandedIds: ['g2'] });
+  });
+
+  it('adopts the most recently opened list program when switching to Card', () => {
+    // Card shows one program at a time, so of several open in List the newest wins;
+    // the list's own set is preserved so switching back does not collapse the others.
+    expect(syncExpansionOnLayoutChange('card', null, ['g1', 'g2', 'g3'])).toEqual({ expandedProgramId: 'g3', listExpandedIds: ['g1', 'g2', 'g3'] });
+  });
+
+  it('closes the card program when the list has nothing open', () => {
+    expect(syncExpansionOnLayoutChange('card', 'g1', [])).toEqual({ expandedProgramId: null, listExpandedIds: [] });
+  });
+
+  it('round-trips a single program without losing it', () => {
+    const toList = syncExpansionOnLayoutChange('list', 'g1', []);
+    const back = syncExpansionOnLayoutChange('card', toList.expandedProgramId, toList.listExpandedIds);
+    expect(back.expandedProgramId).toBe('g1');
+  });
+
+  it('does not mutate the array it is given', () => {
+    const ids = ['g2'];
+    syncExpansionOnLayoutChange('list', 'g1', ids);
+    expect(ids).toEqual(['g2']);
+  });
+});
+
+describe('toggleCardExpansion', () => {
+  it('opening a program also expands it in the list, at the end', () => {
+    expect(toggleCardExpansion('g1', null, ['g2'])).toEqual({ expandedProgramId: 'g1', listExpandedIds: ['g2', 'g1'] });
+  });
+
+  it('closing the open program also collapses it in the list', () => {
+    // Without this a close never propagates: the id stayed in the list set and the next
+    // Card <-> List round trip re-opened the panel the user had explicitly closed.
+    expect(toggleCardExpansion('g1', 'g1', ['g2', 'g1'])).toEqual({ expandedProgramId: null, listExpandedIds: ['g2'] });
+  });
+
+  it('switching to another program leaves the previous one expanded in the list', () => {
+    expect(toggleCardExpansion('g2', 'g1', ['g1'])).toEqual({ expandedProgramId: 'g2', listExpandedIds: ['g1', 'g2'] });
+  });
+
+  it('re-opening a program already in the list moves it to the end', () => {
+    expect(toggleCardExpansion('g1', null, ['g1', 'g2'])).toEqual({ expandedProgramId: 'g1', listExpandedIds: ['g2', 'g1'] });
+  });
+
+  it('does not mutate the array it is given', () => {
+    const ids = ['g1', 'g2'];
+    toggleCardExpansion('g1', 'g1', ids);
+    expect(ids).toEqual(['g1', 'g2']);
+  });
+});
+
+describe('commonCurrency — characterization for Review Focus 5', () => {
+  it('falls back to EUR for a program whose children have different currencies', () => {
+    expect(commonCurrency([{ currency: 'CHF' }, { currency: 'CHF' }])).toBe('CHF');
+    expect(commonCurrency([{ currency: 'CHF' }, { currency: 'USD' }])).toBe('EUR');
   });
 });

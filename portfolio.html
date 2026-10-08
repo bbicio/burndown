@@ -10,6 +10,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="css/tokens.css?v=9">
   <link rel="stylesheet" href="css/style.css?v=21">
+  <link rel="stylesheet" href="css/portfolio.css?v=1">
   <style>
     .app-container { padding: 0 12px; }
   </style>
@@ -26,15 +27,13 @@
 <div id="app" v-cloak class="app-container">
 
   <template v-if="view === 'overview'">
-    <div class="page-title-bar">
-      <h4 class="fw-bold mb-0">📋 Project Portfolio</h4>
-    </div>
-    <div class="page-toolbar">
-      <div class="page-toolbar-left">
-        <span class="text-muted small">Budget Spent vs Estimated by month — all configured projects</span>
+    <div class="pf-header">
+      <div>
+        <h1 class="pf-header-title">Project Portfolio</h1>
+        <div class="pf-header-sub">{{ portfolioCounts }}</div>
       </div>
-      <div class="page-toolbar-right">
-        <span :title="directCreationEnabled ? '' : directCreationMessage"><button class="btn btn-primary btn-sm" :disabled="!directCreationEnabled" @click="goNewProject">＋ New project</button></span>
+      <div class="pf-header-actions">
+        <span :title="directCreationEnabled ? '' : directCreationMessage"><button class="btn btn-primary" :disabled="!directCreationEnabled" @click="goNewProject">+ New Project</button></span>
       </div>
     </div>
 
@@ -42,27 +41,40 @@
     <div v-if="!projects.length" class="alert alert-info">{{ directCreationEnabled ? 'No projects configured. Click ＋ New project to add one.' : 'No projects configured. Projects are created from a proposal (Generate project).' }}</div>
 
     <template v-else>
-      <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
-        <input type="text" class="form-control form-control-sm" style="max-width:240px" aria-label="Search projects"
-               placeholder="🔍 Search project, code, or client…" v-model="portfolioSearch">
-        <div class="d-flex align-items-center gap-2">
-          <span class="small text-muted">Sort:</span>
-          <select class="form-select form-select-sm" v-model="portfolioSort" style="width:auto">
-            <option value="name">Alphabetical</option>
-            <option value="client">Client name</option>
-          </select>
-        </div>
-        <div class="d-flex align-items-center gap-2">
-          <span class="small text-muted">Client:</span>
-          <select class="form-select form-select-sm" v-model="portfolioClientFilter" style="width:auto">
-            <option value="">All clients</option>
-            <option v-for="cid in allClientIds" :key="cid" :value="cid">{{ getClientName(cid) }}</option>
-          </select>
+      <div class="pf-toolbar">
+        <div class="pf-search">
+          <pf-icon name="search" :size="14"></pf-icon>
+          <input type="text" class="form-control form-control-sm" aria-label="Search projects"
+                 placeholder="Search project, code or client…" v-model="portfolioSearch">
         </div>
         <div class="dropdown">
-          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle pf-filter-btn" type="button"
                   data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-            Status<span v-if="portfolioStatusFilter.length" class="badge bg-secondary ms-1">{{ portfolioStatusFilter.length }}</span>
+            Client: {{ portfolioClientFilter.length ? portfolioClientFilter.length + ' selected' : 'All' }}
+          </button>
+          <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:200px">
+            <li v-for="cid in allClientIds" :key="cid" class="form-check">
+              <input class="form-check-input" type="checkbox" :id="'flt-client-' + cid" :value="cid" v-model="portfolioClientFilter">
+              <label class="form-check-label" :for="'flt-client-' + cid" style="font-size:var(--text-sm)">{{ getClientName(cid) }}</label>
+            </li>
+          </ul>
+        </div>
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle pf-filter-btn" type="button"
+                  data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+            Stage: {{ portfolioStageFilter.length ? portfolioStageFilter.length + ' selected' : 'All' }}
+          </button>
+          <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:200px">
+            <li v-for="opt in stageFilterOptions" :key="opt" class="form-check">
+              <input class="form-check-input" type="checkbox" :id="'flt-stage-' + opt" :value="opt" v-model="portfolioStageFilter">
+              <label class="form-check-label" :for="'flt-stage-' + opt" style="font-size:var(--text-sm)">{{ opt }}</label>
+            </li>
+          </ul>
+        </div>
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle pf-filter-btn" type="button"
+                  data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+            Status: {{ portfolioStatusFilter.length ? portfolioStatusFilter.length + ' selected' : 'All' }}
           </button>
           <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:200px">
             <li v-for="opt in statusFilterOptions" :key="opt" class="form-check">
@@ -71,10 +83,22 @@
             </li>
           </ul>
         </div>
-        <button v-if="portfolioFiltersActive" class="btn btn-sm btn-link text-danger" @click="clearPortfolioFilters">✕ Clear filters</button>
+        <div class="pf-toolbar-spacer"></div>
+        <div class="pf-sort">
+          <span class="pf-sort-label">Sort:</span>
+          <select class="form-select form-select-sm" v-model="portfolioSort" style="width:auto">
+            <option value="client">Client A–Z</option>
+            <option value="name">Alphabetical</option>
+          </select>
+        </div>
+        <div class="pf-view-seg" role="group" aria-label="Layout">
+          <button type="button" class="pf-view-btn" :class="{active: portfolioLayout === 'card'}" @click="setLayout('card')"><pf-icon name="grid" :size="14"></pf-icon> Card</button>
+          <button type="button" class="pf-view-btn" :class="{active: portfolioLayout === 'list'}" @click="setLayout('list')"><pf-icon name="list" :size="14"></pf-icon> List</button>
+        </div>
+        <button v-if="portfolioFiltersActive" type="button" class="pf-clear-link" @click="clearPortfolioFilters">Clear filters</button>
       </div>
 
-      <div v-if="!visibleProgramGroups.length && !ungroupedProjects.length" class="alert alert-info">No projects match the current filters.</div>
+      <div v-if="!portfolioRows.length" class="alert alert-info">No projects match the current filters.</div>
 
       <!-- Budget Summary panel (pinned-project comparison table) hidden 2026-09 per user request, along with its ＋/✓ Summary toggle button in the detail header — toggleSummary()/pinnedSummary/portfolioSummaryProjects logic left intact for an easy restore
       <div class="section-card mb-4" style="border:2px solid var(--indigo-500)" v-if="pinnedSummary">
@@ -101,99 +125,193 @@
       -->
 
 
-      <div class="row g-3 mb-4">
-      <!-- Program groups -->
-      <div class="col-12" v-for="prog in visibleProgramGroups" :key="prog.id">
-      <div class="section-card mb-0" style="border:5px solid var(--violet-500)">
-        <div class="section-header d-flex justify-content-between align-items-center">
-          <div class="d-flex align-items-center gap-3">
-            <span style="font-size:var(--text-xl)">📂</span>
-            <div>
-              <span v-if="prog.domClientName" class="fw-bold" style="font-size:var(--text-2xl)">{{ prog.domClientName }} —</span>
-              <span class="fw-bold" style="font-size:var(--text-2xl)">{{ prog.name }}</span>
-              <span class="text-muted ms-2" style="font-size:var(--text-sm);font-family:monospace">{{ prog.id }}</span>
-            </div>
-            <span v-html="pipelineBadge(prog.domPipeline)"></span>
-            <span class="badge" style="background:var(--portfolio-violet-tint-bg);color:var(--violet-500);font-size:var(--text-xs)">{{ prog.children.length }} project{{ prog.children.length===1?'':'s' }}</span>
-          </div>
-          <div class="d-flex align-items-center gap-2">
-            <button class="btn btn-sm" style="font-size:var(--text-sm);background:var(--violet-500);color:#fff;border-color:var(--violet-500)" @click="openShareModal('program', prog.id, prog.name)">🔗 Share Program</button>
-            <button v-if="!portfolioFiltersActive" class="btn btn-sm" style="font-size:var(--text-sm);background:var(--violet-500);color:#fff;border-color:var(--violet-500)" @click="toggleProgramExpanded(prog.id)">
-              {{ expandedPrograms.has(prog.id) ? '▼ Hide Child Projects' : '▶ Show Child Projects' }}
-            </button>
-            <span v-else class="badge" style="background:var(--violet-500);font-size:var(--text-xs)" title="Child projects are shown automatically while a filter is active">▼ Shown (filtered)</span>
-          </div>
-        </div>
-        <div class="d-flex gap-4 flex-wrap p-3" v-if="programStatsMap[prog.id]?.summary">
-          <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ programStatsMap[prog.id].duration ? (monthLabel(programStatsMap[prog.id].duration.start) + ' – ' + monthLabel(programStatsMap[prog.id].duration.end)) : '—' }}</div></div>
-          <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ programStatsMap[prog.id].summary.grandEst == null ? '—' : formatMoney(programStatsMap[prog.id].summary.grandEst, programStatsMap[prog.id].summary.currency, currencies) }}</div></div>
-          <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ programStatsMap[prog.id].summary.grandSpent == null ? '—' : formatMoney(programStatsMap[prog.id].summary.grandSpent, programStatsMap[prog.id].summary.currency, currencies) }}</div></div>
-          <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: varColor(programStatsMap[prog.id].summary.grandVar)}">{{ fmtVar(programStatsMap[prog.id].summary.grandVar, programStatsMap[prog.id].summary.currency) }}</div></div>
-        </div>
-        <!-- Auto-expanded while a search/status filter is active (round-2 code-review fix) — a
-             matching child project must not stay hidden behind a manual "Show Child Projects" click. -->
-        <div v-if="expandedPrograms.has(prog.id) || portfolioFiltersActive" class="prog-children">
-          <div class="prog-project-list px-2 pb-2 pt-1">
-            <div class="row g-3">
-            <template v-for="cfg in prog.children" :key="cfg.id">
-            <div class="col-md-6" v-if="cardDataMap[cfg.id]">
-            <div class="section-card mb-0 h-100" style="border:1px solid var(--border-dark)">
-              <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                  <span style="font-size:var(--text-2xl)">📁 {{ fmtProjectTitle(cfg) }}</span>
-                  <span v-if="cfg.code" class="text-muted small">{{ cfg.code }}</span>
-                  <span v-html="pipelineBadge(getProjectPipeline(cfg.id) || cfg.pipeline)"></span>
-                  <span v-html="statusBadgeLarge(cfg.status)"></span>
-                  <span v-if="!cardDataMap[cfg.id].hasData" class="badge bg-warning text-dark">No actuals available</span>
-                  <span v-if="cardDataMap[cfg.id].budgetBadgeHtml" v-html="cardDataMap[cfg.id].budgetBadgeHtml"></span>
+      <div v-if="portfolioLayout === 'card'" class="pf-card-grid" ref="cardGrid" :style="{'--pf-cols': gridColumns}">
+        <template v-for="(chunk, ci) in cardChunks" :key="ci">
+          <div style="display:contents">
+            <template v-for="row in chunk" :key="row.id">
+              <!-- Program card -->
+              <div v-if="row.kind === 'program'" class="pf-card pf-card-program" :class="{'pf-card-open': expandedProgramIds.has(row.id)}">
+                <div class="pf-card-top">
+                  <span class="pf-card-label">Program · {{ row.children.length }} project{{ row.children.length === 1 ? '' : 's' }}</span>
+                  <span class="pf-stage-pill" v-html="pipelineBadge(row.pipeline)"></span>
                 </div>
-                <div class="d-flex gap-2">
-                  <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="goConfigure(cfg.id)">⚙️ Configure</button>
-                  <button class="btn btn-sm btn-primary" @click="showDashboard(cfg.id)">Project Dashboard</button>
+                <div class="pf-card-client" v-if="row.clientName">{{ row.clientName }}</div>
+                <div class="pf-card-title">{{ row.name }}</div>
+                <div class="pf-card-metrics">
+                  <div><div class="pf-metric-label">Duration</div><div class="pf-metric-value">{{ row.duration ? (monthLabel(row.duration.start) + ' – ' + monthLabel(row.duration.end)) : '—' }}</div></div>
+                  <div><div class="pf-metric-label">Sold</div><div class="pf-metric-value">{{ row.stats?.grandEst == null ? '—' : formatMoney(row.stats.grandEst, row.stats.currency, currencies) }}</div></div>
+                  <div><div class="pf-metric-label">Spent</div><div class="pf-metric-value">{{ row.stats?.grandSpent == null ? '—' : formatMoney(row.stats.grandSpent, row.stats.currency, currencies) }}</div></div>
+                  <div><div class="pf-metric-label">Variance</div><div class="pf-metric-value" :style="{color: row.stats ? varColor(row.stats.grandVar) : undefined}">{{ row.stats == null ? '—' : fmtVar(row.stats.grandVar, row.stats.currency) }}</div></div>
+                </div>
+                <div class="pf-card-divider"></div>
+                <div class="pf-spent-bar" :class="'pf-spent-' + spentBarState(spentPercent(row.stats?.grandSpent ?? 0, row.stats?.grandEst ?? 0))">
+                  <div class="pf-spent-bar-fill" :style="{width: Math.min(100, spentPercent(row.stats?.grandSpent ?? 0, row.stats?.grandEst ?? 0) || 0) + '%'}"></div>
+                </div>
+                <div class="pf-spent-label">{{ spentPercent(row.stats?.grandSpent ?? 0, row.stats?.grandEst ?? 0) === null ? 'No budget' : spentPercent(row.stats.grandSpent, row.stats.grandEst) + '% spent' }}</div>
+                <div class="pf-card-footer">
+                  <button class="btn btn-sm btn-outline-secondary" @click="openShareModal('program', row.id, row.name)">Share</button>
+                  <div class="pf-card-actions">
+                    <button v-if="!portfolioFiltersActive" class="btn btn-sm" :class="expandedProgramId === row.id ? 'pf-btn-navy' : 'btn-outline-secondary'" @click="toggleProgramExpanded(row.id)">{{ expandedProgramId === row.id ? 'Hide projects' : 'Show ' + row.children.length + ' projects' }}</button>
+                    <span v-else class="pf-shown-filtered" title="Program Dashboard — coming soon">Shown (filtered)</span>
+                    <button class="btn btn-sm btn-outline-secondary" disabled title="Program Dashboard — coming soon">Dashboard</button>
+                  </div>
                 </div>
               </div>
-              <div class="d-flex gap-4 flex-wrap p-3">
-                <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ cfg.startDate && cfg.endDate ? (monthLabel(cfg.startDate) + ' – ' + monthLabel(cfg.endDate)) : '—' }}</div></div>
-                <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasPhasing ? formatMoney(cardDataMap[cfg.id].totalPhasing, cfg.currency || 'EUR', currencies) : '—' }}</div></div>
-                <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasData ? formatMoney(cardDataMap[cfg.id].totalSpent, cfg.currency || 'EUR', currencies) : '—' }}</div></div>
-                <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? varColor(cardDataMap[cfg.id].totalVar) : undefined}">{{ (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? fmtVar(cardDataMap[cfg.id].totalVar, cfg.currency || 'EUR') : '—' }}</div></div>
+              <!-- Project card -->
+              <div v-else class="pf-card">
+                <div class="pf-card-top">
+                  <span class="pf-card-label">Project</span>
+                  <span class="pf-stage-pill" v-html="pipelineBadge(getProjectPipeline(row.cfg.id) || row.cfg.pipeline)"></span>
+                </div>
+                <div class="pf-card-client" v-if="row.clientName">{{ row.clientName }}</div>
+                <div class="pf-card-title">{{ fmtProjectTitle(row.cfg) }}</div>
+                <div class="pf-card-code" v-if="row.cfg.code">{{ row.cfg.code }}</div>
+                <span v-if="!row.card.hasData" class="pf-badge-neutral">No actuals available</span>
+                <div class="pf-card-metrics">
+                  <div><div class="pf-metric-label">Duration</div><div class="pf-metric-value">{{ row.card.hasDuration ? (monthLabel(row.cfg.startDate) + ' – ' + monthLabel(row.cfg.endDate)) : '—' }}</div></div>
+                  <div><div class="pf-metric-label">Sold</div><div class="pf-metric-value">{{ (row.card.hasDuration && row.card.hasPhasing) ? formatMoney(row.card.totalPhasing, row.cfg.currency || 'EUR', currencies) : '—' }}</div></div>
+                  <div><div class="pf-metric-label">Spent</div><div class="pf-metric-value">{{ (row.card.hasDuration && row.card.hasData) ? formatMoney(row.card.totalSpent, row.cfg.currency || 'EUR', currencies) : '—' }}</div></div>
+                  <div><div class="pf-metric-label">Variance</div><div class="pf-metric-value" :style="{color: (row.card.hasDuration && row.card.hasData && row.card.hasPhasing) ? varColor(row.card.totalVar) : undefined}">{{ (row.card.hasDuration && row.card.hasData && row.card.hasPhasing) ? fmtVar(row.card.totalVar, row.cfg.currency || 'EUR') : '—' }}</div></div>
+                </div>
+                <div class="pf-card-divider"></div>
+                <div class="pf-spent-bar" :class="'pf-spent-' + spentBarState(cardSpentPct(row.card))">
+                  <div class="pf-spent-bar-fill" :style="{width: Math.min(100, cardSpentPct(row.card) || 0) + '%'}"></div>
+                </div>
+                <div class="pf-spent-label">{{ cardSpentLabel(cardSpentPct(row.card)) }}</div>
+                <div class="pf-card-footer">
+                  <span v-html="statusBadgeLarge(row.cfg.status)" class="pf-status-pill"></span>
+                  <div class="pf-card-actions">
+                    <button v-if="row.cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="goConfigure(row.cfg.id)">Configure</button>
+                    <button class="btn btn-sm pf-btn-navy" @click="showDashboard(row.cfg.id)">Dashboard</button>
+                  </div>
+                </div>
               </div>
-            </div>
-            </div>
             </template>
-            </div>
           </div>
-        </div>
-      </div>
+          <!-- Full-width children panel(s), placed after the entire row that contains the open program(s) (§13).
+               One panel per qualifying program row in this chunk — plural because, while a filter is active,
+               every program's children must stay visible (spec §10), not just the manually-expanded one. -->
+          <template v-for="panelRow in chunk.filter(r => r.kind === 'program' && expandedProgramIds.has(r.id))" :key="'panel-' + panelRow.id">
+            <div class="pf-children-panel">
+              <div class="pf-children-panel-head">
+                <div>
+                  <div class="pf-children-panel-title">{{ panelRow.name }}</div>
+                  <div class="pf-children-panel-sub">Program · {{ panelRow.children.length }} project{{ panelRow.children.length === 1 ? '' : 's' }}</div>
+                </div>
+                <div class="pf-children-panel-actions">
+                  <button class="pf-clear-link" disabled title="Program Dashboard — coming soon">Program Dashboard →</button>
+                  <!-- While a filter is active every program's children stay open by design,
+                       so Close has nothing to close: hidden rather than left inert. -->
+                  <button v-if="!portfolioFiltersActive" class="pf-clear-link" @click="toggleProgramExpanded(panelRow.id)">Close</button>
+                </div>
+              </div>
+              <div class="pf-children-grid">
+                <div v-for="cfg in panelRow.children" :key="cfg.id" class="pf-mini-card">
+                  <div class="pf-mini-card-name">{{ cfg.name || cfg.id }}</div>
+                  <div class="pf-mini-card-code" v-if="cfg.code">{{ cfg.code }}</div>
+                  <span v-html="statusBadgeLarge(cfg.status)" class="pf-status-pill"></span>
+                  <div class="pf-mini-card-amounts">{{ fmtK(cardDataMap[cfg.id].totalSpent, cfg.currency || 'EUR') }} / {{ fmtK(cardDataMap[cfg.id].totalPhasing, cfg.currency || 'EUR') }}</div>
+                  <div class="pf-spent-bar pf-spent-thin" :class="'pf-spent-' + spentBarState(cardSpentPct(cardDataMap[cfg.id]))">
+                    <div class="pf-spent-bar-fill" :style="{width: Math.min(100, cardSpentPct(cardDataMap[cfg.id]) || 0) + '%'}"></div>
+                  </div>
+                  <div class="pf-mini-card-footer">
+                    <button v-if="cfg.my_permission !== 'viewer'" class="pf-clear-link" @click="goConfigure(cfg.id)">Configure</button>
+                    <button class="pf-clear-link" @click="showDashboard(cfg.id)">Dashboard →</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </template>
       </div>
 
-      <!-- Ungrouped projects -->
-      <template v-for="cfg in ungroupedProjects" :key="cfg.id">
-      <div class="col-md-6" v-if="cardDataMap[cfg.id]">
-      <div class="section-card mb-0 h-100" style="border:1px solid var(--border-dark)">
-        <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <div class="d-flex align-items-center gap-2 flex-wrap">
-            <span style="font-size:var(--text-2xl)">📁 {{ fmtProjectTitle(cfg) }}</span>
-            <span v-if="cfg.code" class="text-muted small">{{ cfg.code }}</span>
-            <span v-html="pipelineBadge(getProjectPipeline(cfg.id) || cfg.pipeline)"></span>
-            <span v-html="statusBadgeLarge(cfg.status)"></span>
-            <span v-if="!cardDataMap[cfg.id].hasData" class="badge bg-warning text-dark">No actuals available</span>
-            <span v-if="cardDataMap[cfg.id].budgetBadgeHtml" v-html="cardDataMap[cfg.id].budgetBadgeHtml"></span>
-          </div>
-          <div class="d-flex gap-2">
-            <button v-if="cfg.my_permission !== 'viewer'" class="btn btn-sm btn-outline-secondary" @click="goConfigure(cfg.id)">⚙️ Configure</button>
-            <button class="btn btn-sm btn-primary" @click="showDashboard(cfg.id)">Project Dashboard</button>
-          </div>
+      <div v-else class="pf-list">
+        <div class="pf-list-row pf-list-header">
+          <div></div>
+          <div>Program / Project</div>
+          <div class="pf-list-stage">Stage</div>
+          <div>Status</div>
+          <div class="pf-list-duration">Duration</div>
+          <div class="pf-list-sold">Sold</div>
+          <div class="pf-list-spent">Spent</div>
+          <div class="pf-list-variance">Variance</div>
+          <div></div>
         </div>
-        <div class="d-flex gap-4 flex-wrap p-3">
-          <div><div class="text-muted small mb-1">Duration</div><div class="fw-bold">{{ cfg.startDate && cfg.endDate ? (monthLabel(cfg.startDate) + ' – ' + monthLabel(cfg.endDate)) : '—' }}</div></div>
-          <div><div class="text-muted small mb-1">Sold</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasPhasing ? formatMoney(cardDataMap[cfg.id].totalPhasing, cfg.currency || 'EUR', currencies) : '—' }}</div></div>
-          <div><div class="text-muted small mb-1">Spent</div><div class="fw-bold">{{ cardDataMap[cfg.id].hasData ? formatMoney(cardDataMap[cfg.id].totalSpent, cfg.currency || 'EUR', currencies) : '—' }}</div></div>
-          <div><div class="text-muted small mb-1">Variance</div><div class="fw-bold" :style="{color: (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? varColor(cardDataMap[cfg.id].totalVar) : undefined}">{{ (cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? fmtVar(cardDataMap[cfg.id].totalVar, cfg.currency || 'EUR') : '—' }}</div></div>
-        </div>
-      </div>
-      </div>
-      </template>
+        <template v-for="row in portfolioRows" :key="row.id">
+          <!-- Program row -->
+          <div v-if="row.kind === 'program'" class="pf-list-row pf-list-row-program">
+            <button type="button" class="pf-list-chevron" :disabled="portfolioFiltersActive" @click="toggleListExpanded(row.id)">
+              <pf-icon :name="(listExpandedPrograms.has(row.id) || portfolioFiltersActive) ? 'chevron-down' : 'chevron-right'" :size="14"></pf-icon>
+            </button>
+            <div class="pf-list-main">
+              <div class="pf-list-name">{{ row.name }}</div>
+              <div class="pf-list-sub">{{ row.clientName }}{{ row.clientName ? ' · ' : '' }}{{ row.children.length }} project{{ row.children.length === 1 ? '' : 's' }}</div>
+            </div>
+            <div class="pf-list-stage"><span class="pf-stage-pill" v-html="pipelineBadge(row.pipeline)"></span></div>
+            <div class="pf-list-status pf-list-status-count">{{ row.atRisk > 0 ? row.atRisk + ' at risk' : row.children.length + ' project' + (row.children.length === 1 ? '' : 's') }}</div>
+            <div class="pf-list-duration">{{ row.duration ? (monthLabel(row.duration.start) + ' – ' + monthLabel(row.duration.end)) : '—' }}</div>
+            <div class="pf-list-sold">{{ row.stats?.grandEst == null ? '—' : formatMoney(row.stats.grandEst, row.stats.currency, currencies) }}</div>
+            <div class="pf-list-spent">
+              <div>{{ row.stats?.grandSpent == null ? '—' : formatMoney(row.stats.grandSpent, row.stats.currency, currencies) }}</div>
+              <div v-if="row.stats && spentPercent(row.stats.grandSpent, row.stats.grandEst) !== null" class="pf-spent-bar pf-spent-thin" :class="'pf-spent-' + spentBarState(spentPercent(row.stats.grandSpent, row.stats.grandEst))">
+                <div class="pf-spent-bar-fill" :style="{width: Math.min(100, spentPercent(row.stats.grandSpent, row.stats.grandEst)) + '%'}"></div>
+              </div>
+            </div>
+            <div class="pf-list-variance" :style="{color: row.stats ? varColor(row.stats.grandVar) : undefined}">{{ row.stats == null ? '—' : fmtVar(row.stats.grandVar, row.stats.currency) }}</div>
+            <div class="pf-list-actions">
+              <button type="button" class="pf-clear-link" @click="openShareModal('program', row.id, row.name)">Share</button>
+              <button type="button" class="pf-clear-link" disabled title="Program Dashboard — coming soon">Dashboard →</button>
+            </div>
+          </div>
+          <!-- Child rows -->
+          <template v-if="row.kind === 'program' && (listExpandedPrograms.has(row.id) || portfolioFiltersActive)">
+          <template v-for="cfg in row.children" :key="cfg.id">
+            <div class="pf-list-row pf-list-row-child">
+              <div></div>
+              <div class="pf-list-main">
+                <div class="pf-list-name">{{ cfg.name || cfg.id }}</div>
+                <div class="pf-list-sub" v-if="cfg.code">{{ cfg.code }}</div>
+              </div>
+              <div class="pf-list-stage"></div>
+              <div class="pf-list-status"><span class="pf-status-pill" v-html="statusBadgeLarge(cfg.status)"></span></div>
+              <div class="pf-list-duration"></div>
+              <div class="pf-list-sold">{{ (cardDataMap[cfg.id].hasDuration && cardDataMap[cfg.id].hasPhasing) ? formatMoney(cardDataMap[cfg.id].totalPhasing, cfg.currency || 'EUR', currencies) : '—' }}</div>
+              <div class="pf-list-spent">
+                <div>{{ (cardDataMap[cfg.id].hasDuration && cardDataMap[cfg.id].hasData) ? formatMoney(cardDataMap[cfg.id].totalSpent, cfg.currency || 'EUR', currencies) : '—' }}</div>
+                <div v-if="cardSpentPct(cardDataMap[cfg.id]) !== null" class="pf-spent-bar pf-spent-thin" :class="'pf-spent-' + spentBarState(cardSpentPct(cardDataMap[cfg.id]))">
+                  <div class="pf-spent-bar-fill" :style="{width: Math.min(100, cardSpentPct(cardDataMap[cfg.id])) + '%'}"></div>
+                </div>
+              </div>
+              <div class="pf-list-variance" :style="{color: (cardDataMap[cfg.id].hasDuration && cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? varColor(cardDataMap[cfg.id].totalVar) : undefined}">{{ (cardDataMap[cfg.id].hasDuration && cardDataMap[cfg.id].hasData && cardDataMap[cfg.id].hasPhasing) ? fmtVar(cardDataMap[cfg.id].totalVar, cfg.currency || 'EUR') : '—' }}</div>
+              <div class="pf-list-actions">
+                <button type="button" class="pf-clear-link" @click="showDashboard(cfg.id)">Dashboard →</button>
+              </div>
+            </div>
+          </template>
+          </template>
+          <!-- Ungrouped project row -->
+          <div v-if="row.kind === 'project'" class="pf-list-row">
+            <div></div>
+            <div class="pf-list-main">
+              <div class="pf-list-name">{{ fmtProjectTitle(row.cfg) }}</div>
+              <div class="pf-list-sub">{{ row.clientName }}{{ row.clientName && row.cfg.code ? ' · ' : '' }}{{ row.cfg.code }}</div>
+            </div>
+            <div class="pf-list-stage"><span class="pf-stage-pill" v-html="pipelineBadge(getProjectPipeline(row.cfg.id) || row.cfg.pipeline)"></span></div>
+            <div class="pf-list-status"><span class="pf-status-pill" v-html="statusBadgeLarge(row.cfg.status)"></span></div>
+            <div class="pf-list-duration">{{ row.card.hasDuration ? (monthLabel(row.cfg.startDate) + ' – ' + monthLabel(row.cfg.endDate)) : '—' }}</div>
+            <div class="pf-list-sold">{{ (row.card.hasDuration && row.card.hasPhasing) ? formatMoney(row.card.totalPhasing, row.cfg.currency || 'EUR', currencies) : '—' }}</div>
+            <div class="pf-list-spent">
+              <div>{{ (row.card.hasDuration && row.card.hasData) ? formatMoney(row.card.totalSpent, row.cfg.currency || 'EUR', currencies) : '—' }}</div>
+              <div v-if="cardSpentPct(row.card) !== null" class="pf-spent-bar pf-spent-thin" :class="'pf-spent-' + spentBarState(cardSpentPct(row.card))">
+                <div class="pf-spent-bar-fill" :style="{width: Math.min(100, cardSpentPct(row.card)) + '%'}"></div>
+              </div>
+            </div>
+            <div class="pf-list-variance" :style="{color: (row.card.hasDuration && row.card.hasData && row.card.hasPhasing) ? varColor(row.card.totalVar) : undefined}">{{ (row.card.hasDuration && row.card.hasData && row.card.hasPhasing) ? fmtVar(row.card.totalVar, row.cfg.currency || 'EUR') : '—' }}</div>
+            <div class="pf-list-actions">
+              <button type="button" class="pf-clear-link" @click="showDashboard(row.cfg.id)">Dashboard →</button>
+            </div>
+          </div>
+        </template>
       </div>
     </template>
   </template>
@@ -493,7 +611,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script defer src="js/api.js?v=8"></script>
-<script defer src="js/core.js?v=12"></script>
+<script defer src="js/core.js?v=13"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script type="module" src="js/lib/money.js?v=2"></script>
 <script type="module" src="js/lib/project-rules.js?v=1"></script>
@@ -502,7 +620,7 @@
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/shares.js"></script>
-<script type="module" src="js/lib/portfolio-calc.js?v=4"></script>
+<script type="module" src="js/lib/portfolio-calc.js?v=5"></script>
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/nav.js?v=17"></script>
 <script type="module">
@@ -516,18 +634,43 @@
       </div>`,
   };
 
+  // Inline SVG icon set for the overview (Card/List redesign) — no emoji, same
+  // conventions as js/nav.js's navIcon(): viewBox 16x16, stroke="currentColor".
+  const PF_ICON_PATHS = {
+    search: '<circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11L14.5 14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+    'chevron-right': '<path d="M6 3.5L10.5 8 6 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    'chevron-down': '<path d="M3.5 6L8 10.5 12.5 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    grid: '<rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="9" width="4.5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.4"/>',
+    list: '<path d="M2.5 4H13.5M2.5 8H13.5M2.5 12H13.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+    gear: '<circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 2.5V4M8 12V13.5M13.5 8H12M4 8H2.5M11.8 4.2L10.8 5.2M5.2 10.8L4.2 11.8M11.8 11.8L10.8 10.8M5.2 5.2L4.2 4.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+    'arrow-right': '<path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    close: '<path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  };
+  const PfIcon = {
+    props: { name: { type: String, required: true }, size: { type: Number, default: 16 } },
+    template: `<svg class="pf-icon" :width="size" :height="size" viewBox="0 0 16 16" fill="none" aria-hidden="true" v-html="paths"></svg>`,
+    computed: { paths() { return PF_ICON_PATHS[this.name] || ''; } },
+  };
+
   Vue.createApp({
-    components: { ExportButtons },
+    components: { ExportButtons, PfIcon },
     data() {
       return {
         formatMoney: window.formatMoney,
         currencies: [],
         view: 'overview',
         portfolioSort: 'name',
-        portfolioClientFilter: '',
+        portfolioClientFilter: [],
+        portfolioStageFilter: [],
         portfolioSearch: '',
         portfolioStatusFilter: [],
-        expandedPrograms: new Set(),
+        portfolioLayout: (() => {
+          try { return readLayoutPreference(localStorage.getItem('PDash_portfolioLayout')); }
+          catch (e) { return 'card'; }
+        })(),
+        expandedProgramId: null,
+        listExpandedPrograms: new Set(),
+        gridColumns: 3,
         dashboardProjectId: null,
         dashboardReady: false,
         burndownInterval: 'monthly',
@@ -558,8 +701,11 @@
       statusFilterOptions() {
         return ['Not started yet', 'Started', 'Started At Risk', 'Put on hold', 'Completed'];
       },
+      stageFilterOptions() {
+        return ['SIP', 'Expected', 'Anticipated', 'Committed', 'Canceled'];
+      },
       portfolioFiltersActive() {
-        return !!this.portfolioSearch.trim() || !!this.portfolioClientFilter || this.portfolioStatusFilter.length > 0;
+        return !!this.portfolioSearch.trim() || this.portfolioClientFilter.length > 0 || this.portfolioStageFilter.length > 0 || this.portfolioStatusFilter.length > 0;
       },
       sortedFilteredProjects() {
         const sortFn = this.portfolioSort === 'client'
@@ -567,7 +713,8 @@
           : (a, b) => (a.name||a.id).localeCompare(b.name||b.id);
         const term = this.portfolioSearch.trim().toLowerCase();
         return [...this.projects]
-          .filter(p => !this.portfolioClientFilter || p.clientId === this.portfolioClientFilter)
+          .filter(p => !this.portfolioClientFilter.length || this.portfolioClientFilter.includes(p.clientId))
+          .filter(p => !this.portfolioStageFilter.length || this.portfolioStageFilter.includes(getProjectPipeline(p.id) || p.pipeline))
           // p.status || 'Not started yet' matches statusBadgeLarge()'s own default (js/core.js) — a
           // project with no status stored still displays as "Not started yet" on its card, so it must
           // match that same filter option, not disappear from it.
@@ -619,6 +766,57 @@
           map[prog.id] = { summary: this.programSummary(prog.children), duration: this.programDuration(prog.children) };
         });
         return map;
+      },
+      // "N programs · N projects" (spec §6.5) — both follow the active filters;
+      // the project count includes every program's children.
+      portfolioCounts() {
+        const progCount = this.visibleProgramGroups.length;
+        const projCount = this.sortedFilteredProjects.length;
+        return `${progCount} program${progCount === 1 ? '' : 's'} · ${projCount} project${projCount === 1 ? '' : 's'}`;
+      },
+      // Single ordered row list consumed by both the Card and List views, so their
+      // order can never diverge (spec §6.2).
+      portfolioRows() {
+        const programRows = this.visibleProgramGroups.map(prog => ({
+          kind: 'program',
+          id: prog.id,
+          name: prog.name,
+          clientName: prog.domClientName,
+          children: prog.children,
+          stats: this.programStatsMap[prog.id]?.summary,
+          duration: this.programStatsMap[prog.id]?.duration,
+          pipeline: prog.domPipeline,
+          atRisk: programAtRisk(prog.children),
+        }));
+        const projectRows = this.ungroupedProjects.map(cfg => ({
+          kind: 'project',
+          id: cfg.id,
+          name: cfg.name || cfg.id,
+          clientName: (cfg.clientId && cfg.clientId !== '__unassigned__') ? getClientName(cfg.clientId) : '',
+          cfg,
+          card: this.cardDataMap[cfg.id],
+        }));
+        return buildPortfolioRows([...programRows, ...projectRows], this.portfolioSort);
+      },
+      // Card: which program ids currently show a children panel. While a filter is active
+      // every program's children stay visible (spec §10, mirrored from the List view's
+      // auto-expand-all) — otherwise just the one manually expanded program, if it still
+      // resolves to a present row (Review Focus 2).
+      expandedProgramIds() {
+        if (this.portfolioFiltersActive) {
+          return new Set(this.portfolioRows.filter(r => r.kind === 'program').map(r => r.id));
+        }
+        const id = resolveExpandedProgramId(this.expandedProgramId, this.portfolioRows);
+        return id ? new Set([id]) : new Set();
+      },
+      // Rows chunked into gridColumns-sized groups so the full-width children panel
+      // can be inserted after a complete grid row rather than mid-row (spec §13).
+      cardChunks() {
+        const cols = Math.max(1, this.gridColumns);
+        const rows = this.portfolioRows;
+        const chunks = [];
+        for (let i = 0; i < rows.length; i += cols) chunks.push(rows.slice(i, i + cols));
+        return chunks;
       },
       pinnedSummary() {
         const cfgs = this.projects.filter(p => portfolioSummaryProjects.has(p.id));
@@ -940,6 +1138,12 @@
         this.showOverview();
       }
     },
+    mounted() {
+      this.attachCardGridObserver();
+    },
+    beforeUnmount() {
+      if (this._cardGridObserver) { this._cardGridObserver.disconnect(); this._cardGridObserver = null; }
+    },
     methods: {
       getClientName,
       pipelineBadge,
@@ -948,6 +1152,8 @@
       getProjectPipeline,
       statusBadgeLarge,
       openShareModal,
+      spentPercent,
+      spentBarState,
       isPinnedSummary(id) {
         // template expressions resolve bare identifiers through the component instance only (never
         // fall through to window in Vue 3's runtime-compiled mode), so the global Set must be read
@@ -1018,8 +1224,14 @@
         ]);
       },
       toggleProgramExpanded(id) {
-        if (this.expandedPrograms.has(id)) this.expandedPrograms.delete(id);
-        else this.expandedPrograms.add(id);
+        // Keeps the List's set in step, so a collapse here propagates there too.
+        const next = toggleCardExpansion(id, this.expandedProgramId, [...this.listExpandedPrograms]);
+        this.expandedProgramId = next.expandedProgramId;
+        this.listExpandedPrograms = new Set(next.listExpandedIds);
+      },
+      toggleListExpanded(id) {
+        if (this.listExpandedPrograms.has(id)) this.listExpandedPrograms.delete(id);
+        else this.listExpandedPrograms.add(id);
       },
       getMonthRangeFromCfg(cfg) {
         if (!cfg?.startDate || !cfg?.endDate) return [];
@@ -1069,7 +1281,7 @@
       cardData(cfg) {
         const data = timesheetData.filter(r => r.projectId === cfg.id);
         const months = this.getMonthRangeFromCfg(cfg);
-        if (!months.length) return null;
+        const hasDuration = months.length > 0;
         const monthSpend = {};
         data.forEach(r => {
           if (!r.date) return;
@@ -1093,7 +1305,7 @@
         const budgetBadgeHtml = (displayFee > 0 || displayHours > 0)
           ? `<span class="portfolio-budget-badge">${displayHours > 0 ? displayHours.toLocaleString('en-US') + ' h &nbsp;/&nbsp; ' : ''}${displayTotal == null ? '—' : window.formatMoney(displayTotal, cur, window.__currencies)}${totalPtc > 0 ? `<span class="text-muted" style="font-size:.8em;font-weight:400"> &nbsp;(${displayFee == null ? '—' : window.formatMoney(displayFee, cur, window.__currencies)} fees + ${window.formatMoney(totalPtc, cur, window.__currencies)} PTC)</span>` : ''}${apiBudget && totalBudget === 0 ? '<span class="text-muted" style="font-size:.75em;margin-left:4px">(from cost grid)</span>' : ''}</span>`
           : '';
-        return { hasData, hasPhasing, totalSpent, totalPhasing, totalVar, budgetBadgeHtml };
+        return { hasData, hasPhasing, hasDuration, totalSpent, totalPhasing, totalVar, budgetBadgeHtml };
       },
       toggleSummary(id) {
         if (portfolioSummaryProjects.has(id)) portfolioSummaryProjects.delete(id); else portfolioSummaryProjects.add(id);
@@ -1112,8 +1324,38 @@
       },
       clearPortfolioFilters() {
         this.portfolioSearch = '';
-        this.portfolioClientFilter = '';
+        this.portfolioClientFilter = [];
+        this.portfolioStageFilter = [];
         this.portfolioStatusFilter = [];
+      },
+      setLayout(v) {
+        this.portfolioLayout = v;
+        try { localStorage.setItem('PDash_portfolioLayout', v); } catch (e) {}
+      },
+      // Review Focus 3: the Card grid isn't mounted while in List, and the initial
+      // mount can happen before the project data has loaded (projects.length === 0),
+      // so re-measuring is triggered again whenever the layout switches back to
+      // Card or the data load bumps refreshTick — not just once at mounted().
+      attachCardGridObserver() {
+        if (this._cardGridObserver) { this._cardGridObserver.disconnect(); this._cardGridObserver = null; }
+        if (this.portfolioLayout !== 'card') return;
+        this.$nextTick(() => {
+          const el = this.$refs.cardGrid;
+          if (!el) return;
+          this._cardGridObserver = new ResizeObserver(entries => {
+            for (const entry of entries) this.gridColumns = columnsForWidth(entry.contentRect.width);
+          });
+          this._cardGridObserver.observe(el);
+        });
+      },
+      cardSpentPct(card) {
+        return spentPercent(card?.totalSpent ?? 0, card?.hasPhasing ? card.totalPhasing : 0);
+      },
+      cardSpentLabel(pct) {
+        return pct === null ? 'No budget' : pct + '% spent';
+      },
+      fmtK(n, cur) {
+        return `${currencyInfo(cur, this.currencies).symbol} ${Math.round((n || 0) / 1000)}k`;
       },
       esc,
       kpiLeftColor(left, total) {
@@ -1246,6 +1488,20 @@
     watch: {
       burndownInterval() { this.renderBurndownChart(); },
       burndownTaskFilter() { this.renderBurndownChart(); },
+      portfolioLayout(v) {
+        // Card and List keep their own expansion state (one open vs. many); this carries
+        // it across when the layout switches, so a program opened in one view is still
+        // open in the other. See syncExpansionOnLayoutChange for the asymmetric mapping.
+        const next = syncExpansionOnLayoutChange(v, this.expandedProgramId, [...this.listExpandedPrograms]);
+        this.expandedProgramId = next.expandedProgramId;
+        this.listExpandedPrograms = new Set(next.listExpandedIds);
+        this.attachCardGridObserver();
+      },
+      refreshTick() { this.attachCardGridObserver(); },
+      // The grid container only exists while view === 'overview' (showDashboard swaps the whole
+      // template out); without this, returning from the dashboard (or landing on it first via
+      // ?projectId= and then going "back to portfolio") leaves gridColumns stuck at its last value.
+      view() { this.attachCardGridObserver(); },
     },
   }).mount('#app');
 </script>

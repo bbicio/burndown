@@ -121,7 +121,7 @@ Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page i
 |---|---|---|
 | `index.html` | `/` | Redirect → `/pipeline.html` |
 | `pipeline.html` | `/pipeline.html` | Pipeline board + cost grid editor access, Vue 3 (CDN, no build step, same pattern as `portfolio.html`/`project-config.html`). Full narrative: [docs/pages/pipeline.md](docs/pages/pipeline.md) |
-| `portfolio.html` | `/portfolio.html` | Project reporting dashboard (portfolio overview + per-project KPI/burndown), Vue 3 (CDN, no build step, same pattern as `admin.html`/`project-config.html`). Full narrative: [docs/pages/portfolio.md](docs/pages/portfolio.md) |
+| `portfolio.html` | `/portfolio.html` | Project reporting dashboard (portfolio overview + per-project KPI/burndown), Vue 3 (CDN, no build step, same pattern as `admin.html`/`project-config.html`); the `overview` view's Card and List layouts were redesigned 2026-10-08 (cycle 1: the views) — own stylesheet `css/portfolio.css`. Full narrative: [docs/pages/portfolio.md](docs/pages/portfolio.md) |
 | `planning.html` | `/planning.html` | Resource planning view, Vue 3 (CDN, no build step, same pattern as `pipeline.html`/`costgrid.html`); since 2026-09-29 the three views render from the server's planning model (`POST /api/planning/model`). Full narrative: [docs/pages/planning.md](docs/pages/planning.md) |
 | `costgrid.html` | `/costgrid.html?cgId=&verId=` | Cost grid editor (full-page), Vue 3 (CDN, no build step, same pattern as `pipeline.html`/`portfolio.html`); redesigned 2026-10-07 (cycle A: desktop + tablet) around one header card, three collapsible cards (Offer details/Tags/Sharing) with per-proposal persistence, a sticky-first-column grid with a role ⋮ menu, and a single-CTA task-selection flow — own stylesheet `css/costgrid.css`. Full narrative: [docs/pages/costgrid.md](docs/pages/costgrid.md) |
 | `timesheets.html` | `/timesheets.html` | XLS timesheet upload management. Full narrative: [docs/pages/timesheets.md](docs/pages/timesheets.md) |
@@ -146,8 +146,8 @@ HTML pages               — the Pages table above is the page index: route, one
                             link where that page has a narrative file (not all do). Do not restate per-page
                             detail here. The table does not claim to be exhaustive of every .html file at the
                             repo root — test-cases.html, for one, is not in it.
-css/                     — six stylesheets: tokens.css (design tokens, also `[v-cloak]`), style.css (components
-                            + navigation), admin-crud.css, auth.css, pipeline.css, costgrid.css. Detail:
+css/                     — seven stylesheets: tokens.css (design tokens, also `[v-cloak]`), style.css (components
+                            + navigation), admin-crud.css, auth.css, pipeline.css, costgrid.css, portfolio.css. Detail:
                             [docs/css/stylesheets.md](docs/css/stylesheets.md). App-wide rules stay in "Design
                             tokens" and "Cache-busting" below.
 js/api.js                — Api.* namespace + apiFetch wrapper (401 → login redirect; parsed error body attached
