@@ -1,6 +1,6 @@
 # /finish-cycle — Development Cycle Closeout Command
 
-Run the full closeout sequence for the current feature branch: test, optional manual-verification gate, code review, merge to main, backend restart (if applicable), doc sync, and a persisted report. Every judgment gate (code review findings, merge, the backend restart, the doc-sync/report push) always stops for explicit confirmation. Only objective gates (test pass/fail, pre-flight checks) block or unblock without asking.
+Run the full closeout sequence for the current feature branch: test, optional manual-verification gate — with `/code-review` launched in the background when that gate *opens*, so it runs while the human verifies — then the code-review gate itself, merge to main, backend restart (if applicable), doc sync, and a persisted report. Every judgment gate (code review findings, merge, the backend restart, the doc-sync/report push) always stops for explicit confirmation. Only objective gates (test pass/fail, pre-flight checks) block or unblock without asking.
 
 ## Pre-flight (automatic, no confirmation)
 
@@ -26,6 +26,11 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 
 **Teardown is a one-way door gated on the human's own "yes" — nothing else ever triggers it.** `scripts/test-branch.sh down` for this branch's environment may run ONLY at the exact point step 6 below says so, immediately after the user has explicitly answered "yes" to the literal question "Have you manually verified this in the browser?". No other moment qualifies — not after your own exploratory use of the environment (implementation testing, debugging, a pre-check you ran to save the user time), not because you consider your own check equivalent to the user's, not as routine cleanup once you're "done" with it, not between two separate `/finish-cycle` invocations in the same conversation. If you used the environment yourself for any reason before reaching this gate, leave it running and let step 1 below discover it as already `up` — do not tear it down first "to keep things tidy" and re-spin it. Two real incidents in one session (2026-09-15, `worktree-costgrid-owner-reassign` and `worktree-planning-role-task-breakdown`) were both this exact mistake: the agent's own browser verification was mistaken for satisfying this gate, and the environment was torn down before the user had answered the question at all.
 
+0. **Launch the code review now, in the background, so it runs during this gate — it becomes Gate 3's round 1.** `/code-review` is read-only: it cannot affect the branch, the stack, or the user's verification, so starting it here takes its wall-clock off the critical path instead of adding it after the "yes".
+   - **Skip this** if Gate 3's step 0 skip check already applies (a whole-branch review earlier in this same session covers `main...HEAD` and its findings were shown and handled): that review stands, and Gate 3 step 0 records the skip (PROCESS.md §6.4).
+   - Otherwise run `/code-review` at medium effort, scoped to the diff between the current branch and `main`, **as a background agent**, and continue to step 1 immediately. Note the HEAD it covers — that is the `<reviewed-sha>` Gate 3's step 0b needs if HEAD moves during this gate.
+     - If it genuinely cannot be backgrounded in the current harness, say so in one line and leave it to Gate 3, unchanged. Do **not** run it in the foreground here: that serialises it *ahead* of the human wait, saving nothing while making the gate look parallel.
+   - **Do not show the findings, and do not apply a single fix, inside this gate.** A commit landing while the user is verifying would mean they verified a tree that no longer exists. They are shown and handled at Gate 3, and the question in step 6 is asked and answered exactly as before — a finished review is no input to it.
 1. Run `scripts/test-branch.sh status`.
    - If `down` (exit 1): ask explicitly "Spin up an isolated test environment for this branch now? [yes/no]"
      - If yes: run `scripts/test-branch.sh up`. Record `<branch-env-active>` = true.
@@ -41,14 +46,16 @@ Run the full closeout sequence for the current feature branch: test, optional ma
    - More than one → state explicitly: "Found N candidates: [list] — no automatic selection."
    - Zero → state explicitly: "No spec/plan reference found in this branch's commits."
 6. Regardless of the outcome in step 5, always ask explicitly: "Have you manually verified this in the browser? [yes/no]" — this question must reach the user and receive their actual answer; your own use of the environment earlier in this gate or anywhere else in the session is not a substitute answer, however thorough.
-   - If the answer is "no" or anything other than a clear yes: stop and wait. Do not proceed. Do not tear down the branch environment if `<branch-env-active>` is true — leave it running so the user can keep testing.
+   - If the answer is "no" or anything other than a clear yes: stop and wait. Do not proceed. Do not tear down the branch environment if `<branch-env-active>` is true — leave it running so the user can keep testing. If step 0 launched a background review, keep whatever it produced for the re-run: findings in hand, never a reason to skip a review of the commits that then fix the defect.
    - If "yes": if `<branch-env-active>` is true, run `scripts/test-branch.sh down` to tear down the test stack — this is the only point in the entire command where that teardown may happen. Then proceed to Gate 3.
 
 ## Gate 3 — CODE REVIEW (conditional human gate, max 3 rounds by default)
 
+**First, collect the background review.** If Gate 2 step 0 launched one, wait for it and treat its findings as this gate's round 1: start `code_review_followups` as an empty list (step 1 declares it, and that step is skipped on this path) and go to step 2 with them. If it produced nothing usable — the agent died, timed out, or returned no readable findings — say so in one line and treat the diff as **not reviewed**, running step 1 normally. A run that cannot be read is never a clean review, and nothing below may conclude otherwise.
+
 0. **Skip check (no double review of the same diff, PROCESS.md §6.4).** If, earlier in this same session, a whole-branch review covered `main...HEAD` (e.g. the final review of `superpowers:subagent-driven-development`), and every commit after the reviewed HEAD only applies fixes from that review and has itself been re-reviewed, do not run `/code-review`. State explicitly: "Code review: skipped — the final whole-branch review at `<sha>` already covers this diff (fixes `<sha..sha>` re-reviewed)." Carry that review's accepted follow-ups into `code_review_followups`, note the skip in the report's Roadmap notes, and proceed to Gate 4. If any condition is not met, or the review happened in another session, run step 1 normally.
-0b. **Scoped-review path (partial skip).** If a whole-branch review covered `main...HEAD` earlier in this session but HEAD has since moved by commits that are *not* fixes of that review (typically Gate 2 visual corrections), do not re-review the whole branch: run `/code-review` scoped to **only those commits** (`<reviewed-sha>..HEAD`). State explicitly: "Code review: scoped to `<sha>..HEAD` — the whole-branch review at `<sha>` already covers the rest." Rationale (PROCESS.md §6, "esecuzione proporzionata"): in the Cost Grid A cycle the full `medium main...HEAD` sweep ran after the Opus whole-branch review for two small CSS/markup commits (+119/−48), took 18 minutes across 10 agents, and produced **zero** code changes — 3 of its 8 findings were already parked by the earlier review, one restated another, and one was outside the spec's scope.
-1. Run `/code-review` at medium effort, scoped to the diff between the current branch and `main`. This is round 1. Maintain a running list, `code_review_followups`, starting empty.
+0b. **Scoped-review path (partial skip).** If a whole-branch review covered `main...HEAD` earlier in this session but HEAD has since moved by commits that are *not* fixes of that review (typically Gate 2 visual corrections), do not re-review the whole branch: run `/code-review` scoped to **only those commits** (`<reviewed-sha>..HEAD`). State explicitly: "Code review: scoped to `<sha>..HEAD` — the whole-branch review at `<sha>` already covers the rest." Since the review now starts at Gate 2, a fix born at that gate is by construction newer than the reviewed HEAD, so for those fixes this scoped path is the **norm, not a case to argue each time**. Rationale (PROCESS.md §6, "esecuzione proporzionata"): in the Cost Grid A cycle the full `medium main...HEAD` sweep ran after the Opus whole-branch review for two small CSS/markup commits (+119/−48), took 18 minutes across 10 agents, and produced **zero** code changes — 3 of its 8 findings were already parked by the earlier review, one restated another, and one was outside the spec's scope.
+1. Unless round 1 was already collected from Gate 2 (see the paragraph above), run `/code-review` at medium effort, scoped to the diff between the current branch and `main`. This is round 1. Maintain a running list, `code_review_followups`, starting empty.
 2. If the review reports zero findings: state this explicitly ("Code review: no findings.") and proceed automatically to Gate 4 — no confirmation needed.
 3. If the review reports one or more findings:
    - Show all findings.
@@ -132,7 +139,11 @@ Run the full closeout sequence for the current feature branch: test, optional ma
    **Merged at:** <merged-at>  (Gate 4's merge commit)
    **Gate durations:** Gate 1 <N>m · Gate 2 <N>m · Gate 3 <N>m · Gate 4 <N>m · Gate 5 <N>m — total <N>m
    <!-- Wall-clock, human wait time included (pre-flight step 6). Write `unknown` for a gate whose
-        timestamp was not captured; a gate that self-skipped gets `0m (skipped)`. -->
+        timestamp was not captured; a gate that self-skipped gets `0m (skipped)`.
+        Since 2026-10-08 the code review runs in the background during Gate 2, so Gate 2's figure
+        absorbs most of it and Gate 3's covers the findings discussion and any fixes — these two
+        gates' numbers are not comparable with cycles closed before that date, and the split
+        between them is approximate. -->
 
    ## What was done
 
