@@ -71,6 +71,15 @@ describe('portfolio overview guard', () => {
     decls.slice(1).forEach(d => expect(countTracks(d)).toBe(7)); // the three narrow breakpoints
   });
 
+  it('activates the Program Dashboard entry points (Task 7)', () => {
+    expect(html).not.toContain('Program Dashboard — coming soon');
+    const links = [...html.matchAll(/\/program\.html\?programId=/g)];
+    expect(links.length).toBeGreaterThanOrEqual(3);
+  });
+  it('the project reporting view links to its program (Task 7)', () => {
+    expect(html).toContain('Program Dashboard →');
+  });
+
   it('spentPercent and spentBarState, called bare in the overview template, are registered in methods', () => {
     expect(overviewActive).toMatch(/\bspentPercent\(/);
     expect(overviewActive).toMatch(/\bspentBarState\(/);

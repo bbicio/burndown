@@ -112,3 +112,17 @@ Replaced the `overview` view's old 2-column Bootstrap grid (purple-bordered `sec
 **Known gap, not in this cycle's scope:** the initial `cardData()` percent calc (`spentPercent`) rounds with `Math.round` per spec §6.3 — the plan's own Step-1 test assertions happened to only use exact-integer inputs, so this was caught only by reading the spec text, not by the plan's tests failing.
 
 Cache-bust: `js/lib/portfolio-calc.js?v=4` → `?v=5` (sole reference, this page); `js/core.js?v=12` → `?v=13` (all 18 pages that load it, plus the hardcoded `?v=12` expectation in `js/lib/nav-shell-guard.test.js`, which the plan's own cache-busting step did not call out and had to be found by running the suite); new `css/portfolio.css?v=1` (this page only).
+
+## Program Dashboard cycle (2026-10-08)
+
+The three "Program Dashboard — coming soon" entries listed above as an accepted deviation are now live, landing on the new `program.html?programId=<id>` page (see `docs/pages/program.md`). No change to this page's own layout or data — only entry/exit wiring:
+
+- **Card footer** (program card) and the **full-width children panel header**: the `Dashboard`/`Program Dashboard →` buttons lose `disabled` and their "coming soon" `title`; both call a new `goProgramDashboard(id)` method (`window.location.href = '/program.html?programId=' + encodeURIComponent(id)`), the same pattern as `goConfigure`/`goPlanningForProject`.
+- **List view** program row's `Dashboard →` action: same activation, same method.
+- **`pf-shown-filtered`** (List view's "Shown (filtered)" badge, shown instead of the expand toggle while a filter is active): only the stale "coming soon" `title` is removed — the text itself is unchanged.
+- **Project reporting view breadcrumb**: `Portfolio / <Project>` becomes `Portfolio / <Program> / <Project>` when the project has a `programId` — a new computed, `dashboardProgram()`, resolves the program object once (`getPrograms().find(p => p.id === cfg.programId)`) and is reused by both the breadcrumb's middle crumb and `dashboardProgramRow`, so there is a single source of the program lookup, not two.
+- **`dashboardProgramRow`** (the "Client — Program" line above the project title): appends `· Program Dashboard →` as a plain `<a href="/program.html?programId=...">` once a program is resolved — it can't be a Vue `@click` method since the whole string is rendered via `v-html`, so it's a real anchor instead (no JS handler needed, consistent with how every other v-html'd badge/link on this page already works).
+
+**`css/portfolio.css` is no longer exclusive to this page** (D11 of the Program Dashboard spec): `program.html` links it too (bumped to `?v=2` on both pages), and its `.pg-*` classes at the bottom of the file belong to `program.html`, not this one — see `docs/pages/program.md` for that half of the sheet.
+
+No endpoint, no SQL, no `pdash-api` restart for this cycle.

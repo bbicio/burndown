@@ -58,6 +58,42 @@ Loaded via `<script type="module">` on every page that can render version lock s
 
 Loaded via `<script type="module">` on `portfolio.html`, before the inline `Vue.createApp` script.
 
+## program-calc.js (2026-10-08, Program Dashboard cycle)
+
+Program-level metrics for `program.html`, built on `portfolio-calc.js`'s `spentPercent`/
+`spentBarState`/`computeBurndownPoints` (real ES `import`, not the `window` bridge — the one place
+in `js/lib/` where one module imports another). `programCurrency(cfgs)`: shared currency code, or
+`null` on a mismatch — deliberately not `commonCurrency()`'s EUR-default fallback, since a programme
+page showing a silently-wrong EUR total on mixed-currency data is worse than showing
+`Mixed currencies` literally. `programRange(cfgs)`: `{ startYm, endYm, startDate, endDate, months[] }`
+spanning every dated project, `null` if none are dated. `projectMetrics(cfg, rows, deps)`: one row's
+sold/spent/remaining hours+money, `consumptionPct`/`timePct`/`vsTime`, `hasBudget`/`hasActuals`/
+`started` — `deps = { findRate, billableTasks, billableData, pipelineBudget, today }`, all injected
+(no global reads) so the module stays pure. `programTotals(metrics[])`: Σspent/Σsold, never the mean
+of the rows' own percentages; a project with `soldHours === 0` contributes its spend but is excluded
+from that ratio's denominator. `timeElapsed(range, metrics[], today)`: `{ pct, startedCount,
+totalCount }`. `needsAttention(entries, thresholds)`: `{ ids[], reasons: {[id]: string} }` — status
+`Started At Risk`, or consumption ≥85%, or `(consumption − time) > 10pt`. `sortProjectRows(rows,
+attentionIds)`: flagged first, then by start date, non-mutating.
+
+`programBurndown(range, projects, deps)`: the one function here that composes another `js/lib/`
+export rather than just reusing it — calls `computeBurndownPoints()` once per project, then projects
+each project's own series onto the shared programme month axis: a month before a project's own start
+holds at that project's first value (full budget, nothing consumed yet); a month after its end holds
+at the last value (final residual); the month-indexed values across all projects are then summed.
+Returns `{ labels, actual[], planned[], todayIndex, todayRemaining }`; `planned` is `null` only if no
+project produces `idealValues` (in practice `computeBurndownPoints` always does, phasing or not — the
+no-phasing case is just its linear-ramp fallback). `todayPosition(range, today)`: `%` position of
+`today` on the axis, `null` outside it — drives both the burndown chart's point placement and the
+Timeline's vertical line, so the two can never disagree about where "now" is. `timelineBars(range,
+rows)`: per-project `{ leftPct, widthPct, fillPct, state, started, consumptionPct }` for the Timeline
+view, computed from month *offsets* (`monthDiff` + `clamp`) rather than an `Array.indexOf` lookup
+into `range.months`, so a project whose own dates run past the programme's displayed axis doesn't
+silently produce `-1`/`NaN` geometry; skips undated projects outright.
+
+Loaded via `<script type="module">` on `program.html` only, after `portfolio-calc.js`. Full
+page-level narrative: `docs/pages/program.md`.
+
 ## pipeline-calc.js
 
 `pbGetVersionBudget(v, cgComputeGrandTotals, getPipelineBudget)` / `pbComputeColumnTotals(cards, cgComputeGrandTotals, getPipelineBudget)`: extracted from the former `js/pipeline-board.js`'s own aggregation logic, with the shared `js/costgrid.js` globals passed in as parameters (dependency injection) rather than read directly, matching `portfolio-calc.js`'s precedent — keeps the module DOM-free and independently testable. `pbFmtDate(iso)` / `pbFmtTaskDate(iso)` / `pbComputePotPercentages(totalBudget, committedTotal, potAmount)`: pure formatting/POT-math helpers, also ported verbatim.

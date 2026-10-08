@@ -72,6 +72,10 @@ router.get('/pipeline', requireAuth, async (req, res, next) => {
 
 // ── PORTFOLIO ─────────────────────────────────────────────────────────────────
 // GET /api/reporting/portfolio
+// Dead code on the frontend (2026-10-08): no page calls it — js/api.js:202 wraps it but
+// nothing invokes the wrapper. portfolio.html computes its reporting client-side from
+// timesheetData/config.projects; program.html (the Program Dashboard) does the same via
+// js/lib/program-calc.js. Removal deferred to the Portfolio section's end-of-restyling review.
 router.get('/portfolio', requireAuth, async (req, res, next) => {
   try {
     const isAdmin = isAdminRole(req.user.role);
@@ -120,6 +124,10 @@ router.get('/portfolio', requireAuth, async (req, res, next) => {
 
 // ── SINGLE PROJECT ────────────────────────────────────────────────────────────
 // GET /api/reporting/projects/:id
+// Dead code on the frontend (2026-10-08): no page calls it — js/api.js:203 wraps it but
+// nothing invokes the wrapper. The project reporting view in portfolio.html computes
+// everything client-side instead. Removal deferred to the Portfolio section's
+// end-of-restyling review.
 router.get('/projects/:id', requireAuth, async (req, res, next) => {
   try {
     const isAdmin = isAdminRole(req.user.role);
