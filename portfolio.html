@@ -1224,7 +1224,10 @@
         ]);
       },
       toggleProgramExpanded(id) {
-        this.expandedProgramId = (this.expandedProgramId === id ? null : id);
+        // Keeps the List's set in step, so a collapse here propagates there too.
+        const next = toggleCardExpansion(id, this.expandedProgramId, [...this.listExpandedPrograms]);
+        this.expandedProgramId = next.expandedProgramId;
+        this.listExpandedPrograms = new Set(next.listExpandedIds);
       },
       toggleListExpanded(id) {
         if (this.listExpandedPrograms.has(id)) this.listExpandedPrograms.delete(id);

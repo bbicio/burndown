@@ -74,9 +74,14 @@ describe('portfolio overview guard', () => {
   it('spentPercent and spentBarState, called bare in the overview template, are registered in methods', () => {
     expect(overviewActive).toMatch(/\bspentPercent\(/);
     expect(overviewActive).toMatch(/\bspentBarState\(/);
+    // Scan the whole `methods` object (up to the sibling `watch` option) rather than a
+    // fixed character window: adding a method above these would otherwise push them out
+    // of the window and fail the guard with a misleading message.
     const methodsStart = html.indexOf('methods: {');
     expect(methodsStart).toBeGreaterThan(-1);
-    const methodsBlock = html.slice(methodsStart, methodsStart + 600);
+    const methodsEnd = html.indexOf('watch: {', methodsStart);
+    expect(methodsEnd).toBeGreaterThan(methodsStart);
+    const methodsBlock = html.slice(methodsStart, methodsEnd);
     expect(methodsBlock).toMatch(/\bspentPercent,/);
     expect(methodsBlock).toMatch(/\bspentBarState,/);
   });

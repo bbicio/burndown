@@ -194,7 +194,7 @@
 }
 .pf-list-row {
   display: grid;
-  grid-template-columns: 28px minmax(160px, 2fr) 80px 110px 120px 120px 140px 130px 160px;
+  grid-template-columns: 28px minmax(160px, 2fr) 80px 110px 120px minmax(120px, auto) minmax(140px, auto) minmax(130px, auto) 160px;
   align-items: center; gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-top: 1px solid var(--border-light);
@@ -224,34 +224,30 @@
 }
 .pf-list-status-count { color: var(--brand-navy); font-weight: var(--weight-semibold); font-size: var(--text-sm); }
 
-/* min-width: 0 + clipping: right-aligned content that outgrows its track would otherwise
-   overflow leftwards into the neighbouring cell (seen at 1440px: "+€ 202.365,00" and the
-   Share/Dashboard pair printed on top of each other). */
+/* Money is never truncated: an ellipsis sits at the end of the inline direction, so a
+   right-aligned amount would lose its least significant digits and read as a different
+   number (CHF 1.202.3…). The three money tracks are minmax(…, auto) instead, so they grow
+   for an unusually large amount — .pf-list scrolls if the row then outgrows the page. */
 .pf-list-sold, .pf-list-variance, .pf-list-spent {
-  text-align: right; font-size: var(--text-sm);
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-align: right; font-size: var(--text-sm); white-space: nowrap;
 }
-/* The Spent cell holds two block children (amount + bar), so the ellipsis declared on the
-   cell can never apply to the amount — it would be hard-clipped mid-digit, which reads as
-   a wrong number rather than a truncated one. Put the truncation on the amount itself. */
-.pf-list-spent > div:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pf-list-actions {
   display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2);
   min-width: 0; overflow: hidden;
 }
 
 /* 7 visible tracks once Duration and Spent are hidden: chevron, main, stage, status, sold, variance, actions. */
-@media (max-width: 1263px) {
-  html:not([data-sidebar="collapsed"]) .pf-list-row { grid-template-columns: 28px minmax(160px, 2fr) 80px 110px 120px 130px 160px; }
+@media (max-width: 1401px) {
+  html:not([data-sidebar="collapsed"]) .pf-list-row { grid-template-columns: 28px minmax(160px, 2fr) 80px 110px minmax(120px, auto) minmax(130px, auto) 160px; }
   html:not([data-sidebar="collapsed"]) .pf-list-duration,
   html:not([data-sidebar="collapsed"]) .pf-list-spent { display: none; }
 }
-@media (max-width: 1091px) {
-  html[data-sidebar="collapsed"] .pf-list-row { grid-template-columns: 28px minmax(160px, 2fr) 80px 110px 120px 130px 160px; }
+@media (max-width: 1229px) {
+  html[data-sidebar="collapsed"] .pf-list-row { grid-template-columns: 28px minmax(160px, 2fr) 80px 110px minmax(120px, auto) minmax(130px, auto) 160px; }
   html[data-sidebar="collapsed"] .pf-list-duration,
   html[data-sidebar="collapsed"] .pf-list-spent { display: none; }
 }
 @media (max-width: 1023px) {
-  .pf-list-row { grid-template-columns: 28px minmax(160px, 2fr) 80px 110px 120px 130px 160px; }
+  .pf-list-row { grid-template-columns: 28px minmax(160px, 2fr) 80px 110px minmax(120px, auto) minmax(130px, auto) 160px; }
   .pf-list-duration, .pf-list-spent { display: none; }
 }

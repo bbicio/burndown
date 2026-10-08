@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeKpis, computeBurndownPoints, buildSummaryCols, summaryTotals, normalizeGroupEntries, entryMatchesRow, commonCurrency, buildPortfolioRows, spentPercent, spentBarState, programAtRisk, readLayoutPreference, columnsForWidth, resolveExpandedProgramId, syncExpansionOnLayoutChange } from './portfolio-calc.js';
+import { computeKpis, computeBurndownPoints, buildSummaryCols, summaryTotals, normalizeGroupEntries, entryMatchesRow, commonCurrency, buildPortfolioRows, spentPercent, spentBarState, programAtRisk, readLayoutPreference, columnsForWidth, resolveExpandedProgramId, syncExpansionOnLayoutChange, toggleCardExpansion } from './portfolio-calc.js';
 
 describe('commonCurrency', () => {
   it('returns the currency code shared by all the projects', () => {
@@ -428,6 +428,32 @@ describe('syncExpansionOnLayoutChange', () => {
     const ids = ['g2'];
     syncExpansionOnLayoutChange('list', 'g1', ids);
     expect(ids).toEqual(['g2']);
+  });
+});
+
+describe('toggleCardExpansion', () => {
+  it('opening a program also expands it in the list, at the end', () => {
+    expect(toggleCardExpansion('g1', null, ['g2'])).toEqual({ expandedProgramId: 'g1', listExpandedIds: ['g2', 'g1'] });
+  });
+
+  it('closing the open program also collapses it in the list', () => {
+    // Without this a close never propagates: the id stayed in the list set and the next
+    // Card <-> List round trip re-opened the panel the user had explicitly closed.
+    expect(toggleCardExpansion('g1', 'g1', ['g2', 'g1'])).toEqual({ expandedProgramId: null, listExpandedIds: ['g2'] });
+  });
+
+  it('switching to another program leaves the previous one expanded in the list', () => {
+    expect(toggleCardExpansion('g2', 'g1', ['g1'])).toEqual({ expandedProgramId: 'g2', listExpandedIds: ['g1', 'g2'] });
+  });
+
+  it('re-opening a program already in the list moves it to the end', () => {
+    expect(toggleCardExpansion('g1', null, ['g1', 'g2'])).toEqual({ expandedProgramId: 'g1', listExpandedIds: ['g2', 'g1'] });
+  });
+
+  it('does not mutate the array it is given', () => {
+    const ids = ['g1', 'g2'];
+    toggleCardExpansion('g1', 'g1', ids);
+    expect(ids).toEqual(['g1', 'g2']);
   });
 });
 

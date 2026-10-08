@@ -285,6 +285,17 @@ export function syncExpansionOnLayoutChange(layout, expandedProgramId, listExpan
   return { expandedProgramId: ids.length ? ids[ids.length - 1] : null, listExpandedIds: ids };
 }
 
+// The Card's expand/collapse toggle, keeping the List's set in step as it goes. Opening
+// moves the program to the end of the list order (so a later switch to Card adopts it);
+// closing removes it, which is what makes a collapse propagate — otherwise the id stayed
+// in the set and the next round trip silently re-opened the panel the user just closed.
+export function toggleCardExpansion(id, expandedProgramId, listExpandedIds) {
+  const rest = [...(listExpandedIds || [])].filter(x => x !== id);
+  if (expandedProgramId === id) return { expandedProgramId: null, listExpandedIds: rest };
+  return { expandedProgramId: id, listExpandedIds: rest.concat(id) };
+}
+
+window.toggleCardExpansion = toggleCardExpansion;
 window.syncExpansionOnLayoutChange = syncExpansionOnLayoutChange;
 window.buildPortfolioRows = buildPortfolioRows;
 window.spentPercent = spentPercent;
