@@ -129,7 +129,7 @@
             <div class="pg-card-title">Projects</div>
             <div class="pg-view-seg">
               <button type="button" class="pg-view-btn" :class="{active: layout === 'list'}" @click="layout = 'list'">List</button>
-              <button type="button" class="pg-view-btn" :class="{active: layout === 'timeline'}" :disabled="!rangeData" @click="rangeData && (layout = 'timeline')">Timeline</button>
+              <button type="button" class="pg-view-btn pg-view-btn-timeline" :class="{active: layout === 'timeline'}" :disabled="!rangeData" @click="rangeData && (layout = 'timeline')">Timeline</button>
             </div>
           </div>
           <div class="pg-projects-head-right">
@@ -220,6 +220,37 @@
           </div>
         </div>
         </template>
+
+        <template v-else-if="layout === 'timeline' && rangeData">
+        <div class="pg-timeline">
+          <div class="pg-timeline-axis">
+            <div class="pg-timeline-axis-spacer"></div>
+            <div class="pg-timeline-axis-track">
+              <span v-for="(m, i) in rangeData.months" :key="m" class="pg-timeline-month" :style="{left: (i / rangeData.months.length * 100) + '%'}">{{ fmtMonthShort(m) }}</span>
+            </div>
+          </div>
+          <div v-for="bar in timelineBarsData" :key="bar.id" class="pg-timeline-row" @click="goProjectReporting(bar.id)">
+            <div class="pg-timeline-row-label">
+              <div class="pg-list-name">{{ bar.name }}</div>
+              <div class="pg-list-sub">{{ bar.started ? 'Started' : 'Not started' }} · {{ bar.consumptionPct !== null ? bar.consumptionPct : 0 }}% consumed</div>
+            </div>
+            <div class="pg-timeline-row-track">
+              <div class="pg-timeline-bar" :class="['pf-spent-' + bar.state, { 'pg-timeline-bar-notstarted': !bar.started }]" :style="{left: bar.leftPct + '%', width: bar.widthPct + '%'}">
+                <div class="pg-timeline-bar-fill pf-spent-bar-fill" :style="{width: bar.fillPct + '%'}"></div>
+              </div>
+            </div>
+          </div>
+          <template v-if="timelineTodayLeft">
+            <div class="pg-timeline-today-line" :style="{left: timelineTodayLeft}"></div>
+            <div class="pg-timeline-today-label" :style="{left: timelineTodayLeft}">Today</div>
+          </template>
+        </div>
+        <div class="pg-timeline-legend">
+          <span class="pg-legend-item"><span class="pg-legend-swatch pg-legend-duration"></span>Project duration</span>
+          <span class="pg-legend-item"><span class="pg-legend-swatch pg-legend-consumed"></span>Budget consumed (amber ≥85%, red over sold)</span>
+          <span class="pg-legend-item"><span class="pg-legend-swatch pg-legend-notstarted"></span>Not started</span>
+        </div>
+        </template>
       </div>
     </template>
   </template>
@@ -291,6 +322,15 @@
       },
       visibleRows() {
         return this.attentionFilter ? this.rows.filter(r => r.flagged) : this.rows;
+      },
+      timelineBarsData() { return timelineBars(this.rangeData, this.visibleRows); },
+      todayPct() { return todayPosition(this.rangeData, this.today); },
+      // The label column is a fixed 220px; the track beyond it is the remaining width —
+      // calc() lets one percentage (0-100, from todayPosition) place a single marker
+      // correctly against that mixed px+% layout without knowing the rendered width in JS.
+      timelineTodayLeft() {
+        if (this.todayPct === null) return null;
+        return `calc(220px + (100% - 220px) * ${(this.todayPct / 100).toFixed(4)})`;
       },
       domPipeline() {
         const pipelines = this.children.map(c => getProjectPipeline(c.id) || c.pipeline).filter(Boolean);

@@ -339,6 +339,9 @@
 .pg-view-btn + .pg-view-btn { border-left: 1px solid var(--border-light); }
 .pg-view-btn.active { background: var(--brand-navy); color: var(--surface-white); }
 .pg-view-btn:disabled { cursor: not-allowed; color: var(--text-faint); }
+/* Timeline is 1024px+ only (spec §12): below it the segmented control itself
+   disappears and only the List view remains, not just the Timeline button. */
+@media (max-width: 1023px) { .pg-view-seg { display: none; } }
 
 .pg-list {
   border: 1px solid var(--border-light); border-radius: var(--radius-lg);
@@ -405,4 +408,38 @@
     padding: var(--space-3);
   }
   .pg-cell-action { text-align: left; }
+}
+
+/* ---- Program Dashboard: Timeline view (Task 5), 1024px+ only ---- */
+@media (min-width: 1024px) {
+  .pg-timeline { position: relative; }
+  .pg-timeline-axis { display: grid; grid-template-columns: 220px 1fr; }
+  .pg-timeline-axis-track { position: relative; height: 24px; border-bottom: 1px solid var(--border-light); }
+  .pg-timeline-month {
+    position: absolute; top: 0; font-size: var(--text-2xs); color: var(--text-muted); white-space: nowrap;
+  }
+  .pg-timeline-row {
+    display: grid; grid-template-columns: 220px 1fr; align-items: center; gap: var(--space-3);
+    padding: var(--space-2) 0; border-top: 1px solid var(--border-light); cursor: pointer;
+  }
+  .pg-timeline-row:hover { background: var(--surface-light); }
+  .pg-timeline-row-label { min-width: 0; }
+  .pg-timeline-row-track { position: relative; height: 16px; }
+  .pg-timeline-bar {
+    position: absolute; top: 0; height: 16px; border-radius: var(--radius-full);
+    background: var(--surface-medium); overflow: hidden;
+  }
+  .pg-timeline-bar-notstarted { background: transparent; border: 1px dashed var(--border-medium); }
+  .pg-timeline-bar-fill { height: 100%; border-radius: var(--radius-full); }
+  .pg-timeline-today-line { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--color-danger-text); }
+  .pg-timeline-today-label {
+    position: absolute; bottom: -18px; font-size: var(--text-2xs); font-weight: var(--weight-semibold);
+    color: var(--color-danger-text); transform: translateX(-50%);
+  }
+  .pg-timeline-legend { display: flex; gap: var(--space-4); margin-top: var(--space-5); flex-wrap: wrap; }
+  .pg-legend-item { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); color: var(--text-muted); }
+  .pg-legend-swatch { display: inline-block; width: 14px; height: 8px; border-radius: var(--radius-full); }
+  .pg-legend-duration { background: var(--surface-medium); }
+  .pg-legend-consumed { background: var(--brand-navy); }
+  .pg-legend-notstarted { background: transparent; border: 1px dashed var(--border-medium); }
 }

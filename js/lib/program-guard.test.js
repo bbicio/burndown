@@ -58,3 +58,16 @@ describe('program.html List view', () => {
     expect(html).toContain('>Timeline<');
   });
 });
+
+describe('program.html Timeline view', () => {
+  it('has the legend and the Today label', () => {
+    expect(html).toContain('Project duration');
+    expect(html).toContain('Budget consumed (amber ≥85%, red over sold)');
+    expect(html).toContain('Not started');
+    expect(html).toContain('Today');
+  });
+  it('is only shown from min-width: 1024px in css/portfolio.css', () => {
+    const css = readFileSync(join(process.cwd(), 'css', 'portfolio.css'), 'utf8');
+    expect(css).toMatch(/@media\s*\(min-width:\s*1024px\)\s*\{[^}]*\.pg-timeline/s);
+  });
+});
