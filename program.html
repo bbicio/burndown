@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>try{if(localStorage.getItem('PDash_sidebarCollapsed')==='1')document.documentElement.setAttribute('data-sidebar','collapsed')}catch(e){}</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Portfolio</title>
+  <link rel="icon" type="image/png" href="https://ik.imagekit.io/6ezjgrjjf/00_Home_Page/letter-f.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="css/tokens.css?v=9">
+  <link rel="stylesheet" href="css/style.css?v=21">
+  <link rel="stylesheet" href="css/portfolio.css?v=2">
+  <style>
+    .app-container { padding: 0 12px; }
+  </style>
+</head>
+<body>
+
+<div id="app-shell">
+<div id="nav-container"></div>
+<div id="app-main">
+
+<div id="app" v-cloak class="app-container">
+
+  <div v-if="loading" class="pg-skeleton">
+    <div class="pg-skeleton-tile"></div>
+    <div class="pg-skeleton-tile"></div>
+    <div class="pg-skeleton-tile"></div>
+    <div class="pg-skeleton-tile"></div>
+  </div>
+
+  <template v-else>
+    <div class="pg-topline">
+      <a href="/portfolio.html" class="pg-topline-link">‹ Project Portfolio</a>
+    </div>
+    <div class="pg-header-row">
+      <div>
+        <div class="pg-label">PROGRAM DASHBOARD</div>
+        <div class="pg-title-row">
+          <h1 class="pg-title">{{ program.name }}</h1>
+          <span v-if="domPipeline" class="pg-stage-pill" v-html="pipelineBadge(domPipeline)"></span>
+        </div>
+        <div class="pg-meta">{{ metaLine }}</div>
+      </div>
+      <div class="pg-header-actions">
+        <button type="button" class="btn btn-sm btn-outline-secondary" @click="exportBurndownPng">Export</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" @click="openShareModal('program', programId, program.name)">Share</button>
+      </div>
+    </div>
+
+    <div v-if="!children.length" class="alert alert-info">
+      No projects in this program are visible to you.
+    </div>
+
+    <template v-else>
+      <div class="pg-kpis">
+        <div class="pg-tile">
+          <div class="pg-tile-label">Budget</div>
+          <div class="pg-tile-value">{{ currency ? formatMoney(totals.spentMoney, currency, currencies) : 'Mixed currencies' }}
+            <span v-if="currency" class="pg-tile-of">of {{ formatMoney(totals.soldMoney, currency, currencies) }}</span>
+          </div>
+          <div class="pf-spent-bar" :class="'pf-spent-' + spentBarState(totals.consumptionPct)">
+            <div class="pf-spent-bar-fill" :style="{width: Math.min(100, totals.consumptionPct || 0) + '%'}"></div>
+          </div>
+          <div class="pg-tile-foot">
+            <span>{{ totals.consumptionPct !== null ? totals.consumptionPct + '% spent' : '—' }}</span>
+            <span class="pg-tile-right pg-text-success">{{ currency ? formatMoney(totals.remainingMoney, currency, currencies) + ' left' : 'Mixed currencies' }}</span>
+          </div>
+        </div>
+
+        <div class="pg-tile">
+          <div class="pg-tile-label">Hours</div>
+          <div class="pg-tile-value">{{ fmtH(totals.spentHours) }}
+            <span class="pg-tile-of">of {{ fmtH(totals.soldHours) }}</span>
+          </div>
+          <div class="pf-spent-bar" :class="'pf-spent-' + spentBarState(totals.consumptionPct)">
+            <div class="pf-spent-bar-fill" :style="{width: Math.min(100, totals.consumptionPct || 0) + '%'}"></div>
+          </div>
+          <div class="pg-tile-foot">
+            <span>{{ totals.consumptionPct !== null ? totals.consumptionPct + '% consumed' : '—' }}</span>
+            <span class="pg-tile-right">{{ fmtH(totals.remainingHours) }} left</span>
+          </div>
+        </div>
+
+        <div class="pg-tile">
+          <div class="pg-tile-label">Time elapsed</div>
+          <div class="pg-tile-value">{{ timeElapsedData.pct !== null ? timeElapsedData.pct + '%' : '—' }}
+            <span v-if="rangeData" class="pg-tile-of">{{ fmtMonthFull(rangeData.startYm) }} – {{ fmtMonthFull(rangeData.endYm) }}</span>
+          </div>
+          <div class="pg-progress-bar">
+            <div class="pg-progress-fill" :style="{width: (timeElapsedData.pct || 0) + '%'}"></div>
+          </div>
+          <div class="pg-tile-foot">
+            <span>{{ timeElapsedData.startedCount }} of {{ timeElapsedData.totalCount }} projects started</span>
+            <span class="pg-tile-right" v-if="programVsTime !== null">{{ programVsTime > 0 ? 'Consumption above time' : 'Consumption below time' }}</span>
+          </div>
+        </div>
+
+        <button type="button" class="pg-tile pg-tile-attention" :class="{ 'pg-tile-attention-empty': !attention.ids.length }" :disabled="!attention.ids.length" @click="toggleAttentionFilter">
+          <div class="pg-tile-label">{{ attention.ids.length ? ('Needs attention · ' + attention.ids.length) : 'Needs attention' }}</div>
+          <div v-if="attention.ids.length" class="pg-attention-row">
+            <div>
+              <div class="pg-attention-name">{{ attentionWorstName }}</div>
+              <div class="pg-attention-reason">{{ attention.reasons[attention.ids[0]] }}</div>
+            </div>
+            <span class="pg-attention-chevron">›</span>
+          </div>
+          <div v-else class="pg-tile-foot"><span>No projects need attention</span></div>
+        </button>
+      </div>
+
+      <div class="pg-card pg-burndown-card">
+        <div class="pg-card-head">
+          <div>
+            <div class="pg-card-title">Program burndown</div>
+            <div class="pg-card-sub">Sum of remaining hours across {{ children.length }} project{{ children.length === 1 ? '' : 's' }}</div>
+          </div>
+          <div v-if="rangeData" class="pg-burndown-legend">
+            <span class="pg-legend-item"><span class="pg-legend-line pg-legend-line-actual"></span>Remaining hours (actual)</span>
+            <span class="pg-legend-item"><span class="pg-legend-line pg-legend-line-planned"></span>Remaining hours planned (phasing)</span>
+            <button type="button" class="pf-clear-link pg-download-btn" title="Download PNG" @click="exportBurndownPng">Download PNG</button>
+          </div>
+        </div>
+        <div v-if="!rangeData" class="pg-empty-chart">No dated projects in this program</div>
+        <div v-else class="pg-chart-container">
+          <canvas ref="burndownCanvas"></canvas>
+        </div>
+      </div>
+
+      <div class="pg-card pg-projects-card">
+        <div class="pg-card-head">
+          <div class="pg-projects-head-left">
+            <div class="pg-card-title">Projects</div>
+            <div class="pg-view-seg">
+              <button type="button" class="pg-view-btn" :class="{active: layout === 'list'}" @click="layout = 'list'">List</button>
+              <button type="button" class="pg-view-btn pg-view-btn-timeline" :class="{active: layout === 'timeline'}" :disabled="!rangeData" @click="rangeData && (layout = 'timeline')">Timeline</button>
+            </div>
+          </div>
+          <div class="pg-projects-head-right">
+            <button v-if="attentionFilter" type="button" class="pf-clear-link" @click="attentionFilter = false">Showing flagged only · Clear</button>
+            <span class="pg-reporting-note">Task, role and entry analysis is in each project's reporting</span>
+          </div>
+        </div>
+
+        <template v-if="layout === 'list'">
+        <div class="pg-list">
+          <div class="pg-list-row pg-list-header">
+            <div class="pg-cell-name">Project</div>
+            <div class="pg-cell-status">Status</div>
+            <div class="pg-cell-sold pg-list-amount">Sold</div>
+            <div class="pg-cell-spent pg-list-amount">Spent</div>
+            <div class="pg-cell-remaining pg-list-amount">Remaining</div>
+            <div class="pg-cell-consumption">Consumption</div>
+            <div class="pg-cell-vstime pg-list-amount">Vs time</div>
+            <div class="pg-cell-action"></div>
+          </div>
+          <div v-for="row in visibleRows" :key="row.id" class="pg-list-row" :class="{ 'pg-list-row-flagged': row.flagged }">
+            <div class="pg-cell-name pg-list-main">
+              <div class="pg-list-name">{{ row.cfg.name }}</div>
+              <div class="pg-list-sub">{{ row.cfg.code }}{{ row.cfg.code && row.cfg.startDate ? ' · ' : '' }}{{ row.cfg.startDate && row.cfg.endDate ? (fmtMonthShort(row.cfg.startDate) + ' – ' + fmtMonthShort(row.cfg.endDate)) : '' }}</div>
+            </div>
+            <div class="pg-cell-status"><span v-html="statusBadgeLarge(row.cfg.status)"></span></div>
+            <div class="pg-cell-sold pg-list-amount">
+              <template v-if="row.metrics.hasBudget">
+                <div class="pg-list-amount-main">{{ fmtH(row.metrics.soldHours) }}</div>
+                <div class="pg-list-amount-sub">{{ currency ? formatMoney(row.metrics.soldMoney, currency, currencies) : 'Mixed currencies' }}</div>
+              </template>
+              <template v-else>—</template>
+            </div>
+            <div class="pg-cell-spent pg-list-amount">
+              <div class="pg-list-amount-main">{{ fmtH(row.metrics.spentHours) }}</div>
+              <div class="pg-list-amount-sub">{{ currency ? formatMoney(row.metrics.spentMoney, currency, currencies) : 'Mixed currencies' }}</div>
+              <div v-if="row.metrics.started && !row.metrics.hasActuals" class="pf-badge-neutral">No actuals</div>
+            </div>
+            <div class="pg-cell-remaining pg-list-amount">
+              <template v-if="row.metrics.hasBudget">
+                <div class="pg-list-amount-main">{{ fmtH(row.metrics.remainingHours) }}</div>
+                <div class="pg-list-amount-sub">{{ currency ? formatMoney(row.metrics.remainingMoney, currency, currencies) : 'Mixed currencies' }}</div>
+              </template>
+              <template v-else>—</template>
+            </div>
+            <div class="pg-cell-consumption pg-list-consumption">
+              <template v-if="row.metrics.hasBudget">
+                <div class="pg-tick-bar" :class="'pf-spent-' + spentBarState(row.metrics.consumptionPct)">
+                  <div class="pg-tick-fill pf-spent-bar-fill" :style="{width: Math.min(100, row.metrics.consumptionPct || 0) + '%'}"></div>
+                  <div v-if="row.metrics.timePct !== null" class="pg-tick-mark" :style="{left: Math.min(100, row.metrics.timePct) + '%'}"></div>
+                </div>
+                <div class="pg-list-sub">{{ row.metrics.consumptionPct }}%</div>
+              </template>
+              <div v-else class="pf-badge-neutral">No budget</div>
+            </div>
+            <div class="pg-cell-vstime pg-list-amount" :class="vsTimeClass(row.metrics)">
+              {{ fmtVsTime(row.metrics) }}
+            </div>
+            <div class="pg-cell-action">
+              <button type="button" class="pf-clear-link" @click="goProjectReporting(row.id)">Reporting →</button>
+            </div>
+          </div>
+          <div class="pg-list-row pg-list-total">
+            <div class="pg-cell-name">PROGRAM TOTAL</div>
+            <div class="pg-cell-status"></div>
+            <div class="pg-cell-sold pg-list-amount">
+              <div class="pg-list-amount-main">{{ fmtH(totals.soldHours) }}</div>
+              <div class="pg-list-amount-sub">{{ currency ? formatMoney(totals.soldMoney, currency, currencies) : 'Mixed currencies' }}</div>
+            </div>
+            <div class="pg-cell-spent pg-list-amount">
+              <div class="pg-list-amount-main">{{ fmtH(totals.spentHours) }}</div>
+              <div class="pg-list-amount-sub">{{ currency ? formatMoney(totals.spentMoney, currency, currencies) : 'Mixed currencies' }}</div>
+            </div>
+            <div class="pg-cell-remaining pg-list-amount">
+              <div class="pg-list-amount-main">{{ fmtH(totals.remainingHours) }}</div>
+              <div class="pg-list-amount-sub">{{ currency ? formatMoney(totals.remainingMoney, currency, currencies) : 'Mixed currencies' }}</div>
+            </div>
+            <div class="pg-cell-consumption pg-list-consumption">
+              <div class="pg-tick-bar" :class="'pf-spent-' + spentBarState(totals.consumptionPct)">
+                <div class="pg-tick-fill pf-spent-bar-fill" :style="{width: Math.min(100, totals.consumptionPct || 0) + '%'}"></div>
+              </div>
+              <div class="pg-list-sub">{{ totals.consumptionPct !== null ? totals.consumptionPct + '%' : '—' }}</div>
+            </div>
+            <div class="pg-cell-vstime pg-list-amount" :class="vsTimeClass({ vsTime: programVsTime, started: true })">
+              {{ programVsTime !== null ? (programVsTime > 0 ? '+' : '') + programVsTime + ' pt' : '—' }}
+            </div>
+            <div class="pg-cell-action"></div>
+          </div>
+        </div>
+        </template>
+
+        <template v-else-if="layout === 'timeline' && rangeData">
+        <div class="pg-timeline">
+          <div class="pg-timeline-axis">
+            <div class="pg-timeline-axis-spacer"></div>
+            <div class="pg-timeline-axis-track">
+              <span v-for="(m, i) in rangeData.months" :key="m" class="pg-timeline-month" :style="{left: (i / rangeData.months.length * 100) + '%'}">{{ fmtMonthShort(m) }}</span>
+            </div>
+          </div>
+          <div v-for="bar in timelineBarsData" :key="bar.id" class="pg-timeline-row" @click="goProjectReporting(bar.id)">
+            <div class="pg-timeline-row-label">
+              <div class="pg-list-name">{{ bar.name }}</div>
+              <div class="pg-list-sub">{{ bar.started ? 'Started' : 'Not started' }} · {{ bar.consumptionPct !== null ? bar.consumptionPct : 0 }}% consumed</div>
+            </div>
+            <div class="pg-timeline-row-track">
+              <div class="pg-timeline-bar" :class="['pf-spent-' + bar.state, { 'pg-timeline-bar-notstarted': !bar.started }]" :style="{left: bar.leftPct + '%', width: bar.widthPct + '%'}">
+                <div class="pg-timeline-bar-fill pf-spent-bar-fill" :style="{width: bar.fillPct + '%'}"></div>
+              </div>
+            </div>
+          </div>
+          <template v-if="timelineTodayLeft">
+            <div class="pg-timeline-today-line" :style="{left: timelineTodayLeft}"></div>
+            <div class="pg-timeline-today-label" :style="{left: timelineTodayLeft}">Today</div>
+          </template>
+        </div>
+        <div class="pg-timeline-legend">
+          <span class="pg-legend-item"><span class="pg-legend-swatch pg-legend-duration"></span>Project duration</span>
+          <span class="pg-legend-item"><span class="pg-legend-swatch pg-legend-consumed"></span>Budget consumed (amber ≥85%, red over sold)</span>
+          <span class="pg-legend-item"><span class="pg-legend-swatch pg-legend-notstarted"></span>Not started</span>
+        </div>
+        </template>
+      </div>
+    </template>
+  </template>
+</div>
+
+</div><!-- /#app-main -->
+</div><!-- /#app-shell -->
+
+<script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script defer src="js/api.js?v=8"></script>
+<script defer src="js/core.js?v=13"></script>
+<script type="module" src="js/lib/money.js?v=2"></script>
+<script type="module" src="js/lib/notif-browser.js?v=2"></script>
+<script defer src="js/notifications.js?v=3"></script>
+<script defer src="js/clients.js"></script>
+<script defer src="js/programs.js"></script>
+<script defer src="js/shares.js"></script>
+<script type="module" src="js/lib/portfolio-calc.js?v=5"></script>
+<script type="module" src="js/lib/program-calc.js?v=1"></script>
+<script defer src="js/api-sync.js?v=22"></script>
+<script defer src="js/nav.js?v=17"></script>
+<script type="module">
+  Vue.createApp({
+    data() {
+      return {
+        formatMoney: window.formatMoney,
+        currencies: [],
+        loading: true,
+        programId: null,
+        program: null,
+        children: [],
+        today: new Date(),
+        layout: 'list',
+        attentionFilter: false,
+      };
+    },
+    computed: {
+      deps() {
+        return { findRate, billableTasks, billableData, pipelineBudget: getPipelineBudget, today: this.today };
+      },
+      metricsList() {
+        return this.children.map(cfg => {
+          const rows = timesheetData.filter(r => r.projectId === cfg.id);
+          return { id: cfg.id, cfg, rows, metrics: projectMetrics(cfg, rows, this.deps) };
+        });
+      },
+      rangeData() { return programRange(this.children); },
+      currency() { return programCurrency(this.children); },
+      totals() { return programTotals(this.metricsList.map(m => m.metrics)); },
+      timeElapsedData() { return timeElapsed(this.rangeData, this.metricsList.map(m => m.metrics), this.today); },
+      programVsTime() {
+        return (this.totals.consumptionPct !== null && this.timeElapsedData.pct !== null)
+          ? this.totals.consumptionPct - this.timeElapsedData.pct
+          : null;
+      },
+      attentionEntries() {
+        return this.metricsList.map(m => ({ id: m.id, name: m.cfg.name, status: m.cfg.status, metrics: m.metrics, endYm: m.cfg.endDate }));
+      },
+      attention() { return needsAttention(this.attentionEntries, { consumption: 85, vsTime: 10 }); },
+      attentionWorstName() {
+        const id = this.attention.ids[0];
+        const entry = this.attentionEntries.find(e => e.id === id);
+        return entry ? (entry.name || entry.id) : '';
+      },
+      rows() {
+        const raw = this.metricsList.map(m => ({ id: m.id, cfg: m.cfg, metrics: m.metrics, flagged: this.attention.ids.includes(m.id) }));
+        return sortProjectRows(raw, this.attention.ids);
+      },
+      visibleRows() {
+        return this.attentionFilter ? this.rows.filter(r => r.flagged) : this.rows;
+      },
+      timelineBarsData() { return timelineBars(this.rangeData, this.visibleRows); },
+      burndownSeries() {
+        const projects = this.metricsList.map(m => ({ cfg: m.cfg, rows: m.rows }));
+        return programBurndown(this.rangeData, projects, this.deps);
+      },
+      todayPct() { return todayPosition(this.rangeData, this.today); },
+      // The label column is a fixed 220px; the track beyond it is the remaining width —
+      // calc() lets one percentage (0-100, from todayPosition) place a single marker
+      // correctly against that mixed px+% layout without knowing the rendered width in JS.
+      timelineTodayLeft() {
+        if (this.todayPct === null) return null;
+        return `calc(220px + (100% - 220px) * ${(this.todayPct / 100).toFixed(4)})`;
+      },
+      domPipeline() {
+        const pipelines = this.children.map(c => getProjectPipeline(c.id) || c.pipeline).filter(Boolean);
+        return pipelines.length ? pipelines[0] : '';
+      },
+      domClientName() {
+        const ids = this.children.map(c => c.clientId).filter(c => c && c !== '__unassigned__');
+        return ids.length ? getClientName(ids[0]) : '';
+      },
+      metaLine() {
+        const parts = [];
+        if (this.domClientName) parts.push(this.domClientName);
+        parts.push(`${this.children.length} project${this.children.length === 1 ? '' : 's'}`);
+        if (this.rangeData) parts.push(`${this.fmtMonthFull(this.rangeData.startYm)} – ${this.fmtMonthFull(this.rangeData.endYm)}`);
+        if (this.currency) parts.push(this.currency);
+        return parts.join(' · ');
+      },
+    },
+    async created() {
+      this._burndownChart = null;
+
+      const user = await initNav('portfolio', { breadcrumbs: [
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Portfolio', href: '/portfolio.html' },
+      ]});
+      if (!user) return;
+
+      const params = new URLSearchParams(window.location.search);
+      this.programId = params.get('programId');
+      // programs.id is a free-form code (e.g. "HITA.000001823"), not a UUID — unlike
+      // projects.id/clients.id. Presence + an existence lookup below is the real check.
+      if (!this.programId) {
+        window.location.href = '/portfolio.html?notice=program-not-found';
+        return;
+      }
+
+      await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadCurrenciesFromApi()]);
+      this.currencies = window.__currencies || [];
+      await Promise.all([loadConfigFromApi(), refreshTimesheetDataFromApi(), loadPipelineBudgetsFromApi()]);
+
+      this.program = getPrograms().find(p => p.id === this.programId) || null;
+      if (!this.program) {
+        window.location.href = '/portfolio.html?notice=program-not-found';
+        return;
+      }
+
+      this.children = (config.projects || [])
+        .filter(p => p.id && p.programId === this.programId)
+        .sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+
+      this.today = new Date();
+      this.loading = false;
+
+      if (typeof updateBreadcrumbs === 'function') updateBreadcrumbs([
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Portfolio', href: '/portfolio.html' },
+        { label: this.program.name },
+      ]);
+
+      this.$nextTick(() => this.renderBurndownChart());
+    },
+    methods: {
+      getClientName,
+      pipelineBadge,
+      getProjectPipeline,
+      statusBadgeLarge,
+      fmtH,
+      spentPercent,
+      spentBarState,
+      openShareModal,
+      fmtMonthFull(ym) {
+        return new Date(parseInt(ym.slice(0, 4), 10), parseInt(ym.slice(4, 6), 10) - 1, 1)
+          .toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      },
+      fmtMonthShort(ym) {
+        return new Date(parseInt(ym.slice(0, 4), 10), parseInt(ym.slice(4, 6), 10) - 1, 1)
+          .toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      },
+      // D10: red past +10pt, green past -10pt, neutral between. A project that hasn't
+      // started yet always shows '—' (Review Focus 5) rather than a misleading 0pt.
+      fmtVsTime(metrics) {
+        if (!metrics.started || metrics.vsTime === null) return '—';
+        return (metrics.vsTime > 0 ? '+' : '') + metrics.vsTime + ' pt';
+      },
+      vsTimeClass(metrics) {
+        if (!metrics.started || metrics.vsTime === null) return '';
+        if (metrics.vsTime > 10) return 'pg-vstime-danger';
+        if (metrics.vsTime < -10) return 'pg-vstime-success';
+        return '';
+      },
+      goPortfolio() { window.location.href = '/portfolio.html'; },
+      goProjectReporting(id) { window.location.href = '/portfolio.html?projectId=' + encodeURIComponent(id); },
+      toggleAttentionFilter() {
+        if (!this.attention.ids.length) return;
+        this.attentionFilter = !this.attentionFilter;
+      },
+      // Chart.js cannot resolve var(); read the token's computed value instead.
+      chartColor(name, fallback) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+      },
+      renderBurndownChart() {
+        if (this._burndownChart) { this._burndownChart.destroy(); this._burndownChart = null; }
+        if (!this.rangeData || !this.$refs.burndownCanvas) return;
+
+        const { labels, actual, planned, todayIndex, todayRemaining } = this.burndownSeries;
+        const datasets = [{
+          label: 'Remaining hours (actual)',
+          data: actual,
+          borderColor: this.chartColor('--chart-actual', 'gray'), backgroundColor: 'rgba(13,110,253,0.07)',
+          fill: true, tension: 0.2, pointRadius: 0, pointHoverRadius: 4,
+        }];
+        if (planned) {
+          datasets.push({
+            label: 'Remaining hours planned (phasing)',
+            data: planned,
+            borderColor: this.chartColor('--chart-phasing', 'gray'), borderDash: [6, 4], borderWidth: 2,
+            fill: false, pointRadius: 0, tension: 0,
+          });
+        }
+        if (todayIndex !== null) {
+          datasets[0].pointRadius = labels.map((_, i) => i === todayIndex ? 5 : 0);
+          datasets[0].pointBackgroundColor = this.chartColor('--brand-navy', 'navy');
+        }
+
+        const todayLabelPlugin = {
+          id: 'pgTodayLabel',
+          afterDraw: chart => {
+            if (todayIndex === null) return;
+            const point = chart.getDatasetMeta(0).data[todayIndex];
+            if (!point) return;
+            const { ctx } = chart;
+            const text = `${fmtH(todayRemaining)} left · ${labels[todayIndex]}`;
+            ctx.save();
+            ctx.font = '600 11px sans-serif';
+            const textWidth = ctx.measureText(text).width;
+            const padX = 7, boxW = textWidth + padX * 2, boxH = 20;
+            const x = point.x, y = point.y - 12;
+            ctx.fillStyle = this.chartColor('--brand-navy', 'navy');
+            const r = 4;
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(x - boxW / 2, y - boxH, boxW, boxH, r);
+            else ctx.rect(x - boxW / 2, y - boxH, boxW, boxH);
+            ctx.fill();
+            ctx.fillStyle = this.chartColor('--surface-white', 'white');
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, x, y - boxH / 2);
+            ctx.restore();
+          },
+        };
+
+        this._burndownChart = new Chart(this.$refs.burndownCanvas, {
+          type: 'line',
+          data: { labels, datasets },
+          plugins: [todayLabelPlugin],
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                mode: 'index', intersect: false, filter: item => item.datasetIndex === 0,
+                callbacks: {
+                  label: context => `${fmtH(context.raw)} left`,
+                  afterLabel: context => context.dataIndex === todayIndex ? `Today · ${fmtH(todayRemaining)} left` : '',
+                },
+              },
+            },
+            scales: {
+              x: { ticks: { maxRotation: 0, autoSkip: true } },
+              y: { beginAtZero: true, title: { display: true, text: 'Hours' } },
+            },
+          },
+        });
+      },
+      exportBurndownPng() {
+        if (!this._burndownChart) return;
+        const a = document.createElement('a');
+        a.href = this._burndownChart.toBase64Image('image/png', 1);
+        a.download = `program-burndown-${(this.program?.name || 'program')}.png`;
+        a.click();
+      },
+    },
+  }).mount('#app');
+</script>
+</body>
+</html>

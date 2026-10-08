@@ -751,8 +751,8 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | POST | /api/timesheets/upload | ✅ | Upload XLS file; rejects the entire file (400, no partial writes) if any row's date cannot be resolved to a valid calendar date |
 | GET | /api/timesheets/:projectCode | ✅ | Uploads for one project code. Admin/sysadmin: never denied, no actuals → `200 []` (2026-09-30; before, `visibleCodes()` only listed codes that had timesheets, so an admin got a 403). Non-admin: 403 unless the project is visible to them |
 | DELETE | /api/timesheets/:projectCode | owner/admin | Remove timesheet data |
-| GET | /api/reporting/portfolio | ✅ | Portfolio budget overview |
-| GET | /api/reporting/projects/:id | ✅ | Single project reporting |
+| GET | /api/reporting/portfolio | ✅ | Dead code on the frontend (2026-10-08): no page calls it, see the route's own comment in `api/src/routes/reporting.js` |
+| GET | /api/reporting/projects/:id | ✅ | Dead code on the frontend (2026-10-08): no page calls it, see the route's own comment in `api/src/routes/reporting.js` |
 | GET | /api/reporting/planning | ✅ | Resource planning aggregates |
 | POST | /api/planning/model | ✅ | (2026-09-30, Cycle A) The hours calculation behind `planning.html`'s three views, computed server-side. Body `{ view: 'role'\|'project'\|'owner', projectIds, teams?, from, to, asOf, pulse }`; visibility = same rule as `GET /api/projects` (unknown / not-visible ids are ignored silently); returns the projection of the requested view plus `ownerStatus`. Data-only 30 s cache cleared by a write-middleware in `api/src/index.js`. See `docs/api/planning-model.md` |
 | POST | /api/planning-assistant/rank | ✅ admin | (2026-09-30, Cycle B) `{ projectId, asOf, params }` → `{ requirement, tables, params }`: the best / alternative / available team tables per required role (deterministic, no LLM). 400 invalid body/params, 404 unknown project, 422 project without planned role hours. Full narrative: `docs/api/planning-assistant.md` |
@@ -977,9 +977,11 @@ burndown/
                             only (board header, year menu, toolbar, search suggestions, Amounts toggle, columns, cards,
                             smartphone stage tabs and Filters sheet; detail panel modes, header, tabs, POT view); tokens only; loaded after style.css and overrides its legacy `.pb-*`
                             rules; `js/lib/pipeline-guard.test.js` pins it. Full narrative: docs/pages/pipeline.md
-    portfolio.css         ← (2026-10-08, `?v=1`) page stylesheet of portfolio.html only (overview header and
-                            toolbar, Card grid with the stacked program card and the full-width children panel,
-                            List grid-table with its sidebar-aware column hiding); tokens only; loaded after
+    portfolio.css         ← (2026-10-08, `?v=2`) shared by portfolio.html and program.html (Program Dashboard
+                            cycle, same day): portfolio.html's own overview header/toolbar, Card grid with the
+                            stacked program card and the full-width children panel, List grid-table with its
+                            sidebar-aware column hiding; program.html's `.pg-*` KPI tiles, List, Timeline
+                            (scoped to `min-width: 1024px`) and burndown-chart legend; tokens only; loaded after
                             style.css; `js/lib/portfolio-guard.test.js` pins it. Detail: docs/css/stylesheets.md
     admin-crud.css        ← shared layout for simple admin CRUD pages (page-header/card/table/badges/
                             btn-primary/form-*/empty/alert-sm), extracted 2026-09 from duplicated inline
@@ -1034,7 +1036,8 @@ burndown/
   index.html              ← redirect → pipeline.html
   pipeline.html           ← kanban pipeline board, Vue 3 (CDN, no build step, same pattern as portfolio.html/
                             project-config.html). Full narrative: docs/pages/pipeline.md
-  portfolio.html          ← portfolio overview + per-project dashboard, Vue 3 (CDN, no build step, same pattern as project-config.html); folds in the former js/portfolio.js + js/dashboard.js; adds js/lib/portfolio-calc.js (KPI/burndown math plus the overview's row model and layout helpers, vitest-covered); own stylesheet css/portfolio.css; does not load js/roles.js or js/config-form.js. The overview offers two layouts, Card and List, driven by one shared ordered row list and persisted in `PDash_portfolioLayout`. Full implementation narrative: `docs/pages/portfolio.md`
+  portfolio.html          ← portfolio overview + per-project dashboard, Vue 3 (CDN, no build step, same pattern as project-config.html); folds in the former js/portfolio.js + js/dashboard.js; adds js/lib/portfolio-calc.js (KPI/burndown math plus the overview's row model and layout helpers, vitest-covered); stylesheet css/portfolio.css, shared with program.html; does not load js/roles.js or js/config-form.js. The overview offers two layouts, Card and List, driven by one shared ordered row list and persisted in `PDash_portfolioLayout`. Full implementation narrative: `docs/pages/portfolio.md`
+  program.html            ← Program Dashboard (2026-10-08), Vue 3 (CDN, no build step, same pattern as portfolio.html); no menu entry, reached only from portfolio.html's Program Dashboard entries and the project reporting view's program row; adds js/lib/program-calc.js (programme-level KPI/burndown/timeline math, vitest-covered, reuses portfolio-calc.js's spentPercent/spentBarState/computeBurndownPoints); shares css/portfolio.css. No new endpoint — client-side only, same `config.projects`/`timesheetData` inputs as portfolio.html. Full implementation narrative: `docs/pages/program.md`
   planning.html           ← resource planning (filters, By Role/By Project/By Owner grouping views,
                             monthly/weekly interval, monthly pulse, rounded-hours toggle, XLS
                             export/upload, AI Planning Sidebar), Vue 3 (CDN, no build step, same

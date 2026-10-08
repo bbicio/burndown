@@ -10,7 +10,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="css/tokens.css?v=9">
   <link rel="stylesheet" href="css/style.css?v=21">
-  <link rel="stylesheet" href="css/portfolio.css?v=1">
+  <link rel="stylesheet" href="css/portfolio.css?v=2">
   <style>
     .app-container { padding: 0 12px; }
   </style>
@@ -152,8 +152,8 @@
                   <button class="btn btn-sm btn-outline-secondary" @click="openShareModal('program', row.id, row.name)">Share</button>
                   <div class="pf-card-actions">
                     <button v-if="!portfolioFiltersActive" class="btn btn-sm" :class="expandedProgramId === row.id ? 'pf-btn-navy' : 'btn-outline-secondary'" @click="toggleProgramExpanded(row.id)">{{ expandedProgramId === row.id ? 'Hide projects' : 'Show ' + row.children.length + ' projects' }}</button>
-                    <span v-else class="pf-shown-filtered" title="Program Dashboard — coming soon">Shown (filtered)</span>
-                    <button class="btn btn-sm btn-outline-secondary" disabled title="Program Dashboard — coming soon">Dashboard</button>
+                    <span v-else class="pf-shown-filtered">Shown (filtered)</span>
+                    <button class="btn btn-sm btn-outline-secondary" @click="goProgramDashboard(row.id)">Dashboard</button>
                   </div>
                 </div>
               </div>
@@ -199,7 +199,7 @@
                   <div class="pf-children-panel-sub">Program · {{ panelRow.children.length }} project{{ panelRow.children.length === 1 ? '' : 's' }}</div>
                 </div>
                 <div class="pf-children-panel-actions">
-                  <button class="pf-clear-link" disabled title="Program Dashboard — coming soon">Program Dashboard →</button>
+                  <button class="pf-clear-link" @click="goProgramDashboard(panelRow.id)">Program Dashboard →</button>
                   <!-- While a filter is active every program's children stay open by design,
                        so Close has nothing to close: hidden rather than left inert. -->
                   <button v-if="!portfolioFiltersActive" class="pf-clear-link" @click="toggleProgramExpanded(panelRow.id)">Close</button>
@@ -260,7 +260,7 @@
             <div class="pf-list-variance" :style="{color: row.stats ? varColor(row.stats.grandVar) : undefined}">{{ row.stats == null ? '—' : fmtVar(row.stats.grandVar, row.stats.currency) }}</div>
             <div class="pf-list-actions">
               <button type="button" class="pf-clear-link" @click="openShareModal('program', row.id, row.name)">Share</button>
-              <button type="button" class="pf-clear-link" disabled title="Program Dashboard — coming soon">Dashboard →</button>
+              <button type="button" class="pf-clear-link" @click="goProgramDashboard(row.id)">Dashboard →</button>
             </div>
           </div>
           <!-- Child rows -->
@@ -321,6 +321,7 @@
       <nav aria-label="breadcrumb" class="mb-2">
         <ol class="breadcrumb mb-0" style="font-size:var(--text-xs)">
           <li class="breadcrumb-item"><a href="#" class="text-muted text-decoration-none" @click.prevent="showOverview">Portfolio</a></li>
+          <li v-if="dashboardProgram" class="breadcrumb-item"><a :href="'/program.html?programId=' + encodeURIComponent(dashboardProgram.id)" class="text-muted text-decoration-none">{{ dashboardProgram.name }}</a></li>
           <li class="breadcrumb-item active text-muted" aria-current="page">{{ dashboardProject?.name || dashboardProject?.code || dashboardProjectId }}</li>
         </ol>
       </nav>
@@ -338,6 +339,10 @@
                 <span v-if="s.code && s.name" class="text-muted small" style="font-family:monospace">{{ s.code }}</span>
                 <span class="ms-auto d-inline-flex gap-1" v-html="s.badgesHtml"></span>
               </a>
+            </li>
+            <li v-if="dashboardProgram"><hr class="dropdown-divider"></li>
+            <li v-if="dashboardProgram">
+              <a class="dropdown-item" href="#" @click.prevent="goProgramDashboard(dashboardProgram.id)">Program Dashboard →</a>
             </li>
           </ul>
         </div>
@@ -864,16 +869,21 @@
       kpiBudgetLeftSub() {
         return this.kpis.totalPtc > 0 ? '(fees + PTC) − consumed' : 'budget − consumed';
       },
+      dashboardProgram() {
+        const cfg = this.dashboardProject;
+        return cfg?.programId ? (getPrograms().find(p => p.id === cfg.programId) || null) : null;
+      },
       dashboardProgramRow() {
         const cfg = this.dashboardProject;
-        const prog = cfg?.programId ? getPrograms().find(p => p.id === cfg.programId) : null;
+        const prog = this.dashboardProgram;
         const clientName = cfg?.clientId ? getClientName(cfg.clientId) : '';
         const hasClient = clientName && clientName !== 'Unassigned';
         if (!hasClient && !prog) return '';
         const clientPart = hasClient ? `<span class="fw-semibold">${esc(clientName)}</span>` : '';
         const sep = hasClient && prog ? ' — ' : '';
         const progPart = prog ? `<span class="fw-semibold">${esc(prog.name)}</span>` : '';
-        return clientPart + sep + progPart;
+        const dashboardLink = prog ? ` · <a href="/program.html?programId=${encodeURIComponent(prog.id)}" class="text-decoration-none">Program Dashboard →</a>` : '';
+        return clientPart + sep + progPart + dashboardLink;
       },
       dashboardMetaHtml() {
         if (!this.dashboardProjectId) return '';
@@ -1112,8 +1122,12 @@
       ]});
       if (!user) return;
 
-      if (new URLSearchParams(window.location.search).get('notice') === 'direct-creation-disabled') {
+      const noticeCode = new URLSearchParams(window.location.search).get('notice');
+      if (noticeCode === 'direct-creation-disabled') {
         this.notice = window.PROJECT_RULE_MESSAGES.directCreation;
+        window.history.replaceState(null, '', window.location.pathname);
+      } else if (noticeCode === 'program-not-found') {
+        this.notice = 'Program not found.';
         window.history.replaceState(null, '', window.location.pathname);
       }
       await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadCurrenciesFromApi()]);
@@ -1321,6 +1335,9 @@
       },
       goConfigure(id) {
         window.location.href = '/project-config.html?projectId=' + encodeURIComponent(id);
+      },
+      goProgramDashboard(id) {
+        window.location.href = '/program.html?programId=' + encodeURIComponent(id);
       },
       clearPortfolioFilters() {
         this.portfolioSearch = '';

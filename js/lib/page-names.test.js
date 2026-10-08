@@ -12,6 +12,7 @@ const PAGES = {
   'master-roles.html': 'config', 'master-currencies.html': 'config',
   'timesheets.html': 'timesheets', 'admin.html': 'admin', 'team.html': 'team',
   'attribute-lists.html': 'attributelists', '_db-reset.html': 'dbreset', '_terms-editor.html': 'termseditor',
+  'program.html': 'portfolio',
 };
 const labelOf = id => [...nav.NAV_MAIN, ...nav.NAV_GROUPS.flatMap(g => g.items)].find(i => i.id === id).label;
 
@@ -23,7 +24,10 @@ describe('menu entry = <title> = breadcrumb', () => {
       expect(html).toContain(`<title>PDash — ${label}</title>`);
       const start = html.indexOf(`initNav('${id}'`);
       const call = html.slice(start, html.indexOf(']});', start));
-      expect(call).toContain(`{ label: '${label}' }`);
+      // Tolerant to a trailing `href` on the entry (program.html's "Portfolio" crumb is
+      // intermediate and carries one) without weakening the check for any other page,
+      // whose own entry is still required to start with this exact prefix.
+      expect(call).toContain(`{ label: '${label}'`);
     });
   }
   it('labels match the agreed list', () => {

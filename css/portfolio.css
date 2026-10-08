@@ -264,3 +264,188 @@
   .pf-list-row { grid-template-columns: 28px minmax(160px, 2fr) 80px 110px minmax(120px, auto) minmax(130px, auto) 160px; }
   .pf-list-duration, .pf-list-spent { display: none; }
 }
+
+/* ---- Program Dashboard (program.html) ---- */
+.pg-skeleton { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); }
+.pg-skeleton-tile { height: 110px; border-radius: var(--radius-lg); background: var(--surface-light); }
+
+.pg-topline { margin-bottom: var(--space-2); }
+.pg-topline-link { font-size: var(--text-sm); color: var(--text-muted); text-decoration: none; }
+.pg-topline-link:hover { text-decoration: underline; }
+
+.pg-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); flex-wrap: wrap; }
+.pg-header-actions { display: flex; gap: var(--space-2); }
+
+.pg-label {
+  font-size: var(--text-2xs); font-weight: var(--weight-semibold); text-transform: uppercase;
+  letter-spacing: .06em; color: var(--text-muted);
+}
+.pg-title-row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-top: 2px; }
+.pg-title { font-size: 1.625rem; font-weight: var(--weight-bold); color: var(--brand-navy); margin: 0; }
+.pg-meta { font-size: var(--text-sm); color: var(--text-muted); margin-top: var(--space-1); }
+
+.pg-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); margin-bottom: var(--space-4); }
+.pg-tile {
+  background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+  padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2);
+  text-align: left; min-width: 0;
+}
+.pg-tile-label {
+  font-size: var(--text-2xs); font-weight: var(--weight-semibold); text-transform: uppercase;
+  letter-spacing: .06em; color: var(--text-muted);
+}
+.pg-tile-value { font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--brand-navy); }
+.pg-tile-of { font-size: var(--text-sm); font-weight: var(--weight-normal); color: var(--text-muted); margin-left: var(--space-1); }
+.pg-tile-foot { display: flex; justify-content: space-between; gap: var(--space-2); font-size: var(--text-xs); color: var(--text-muted); }
+.pg-tile-right.pg-text-success { color: var(--color-success-text); }
+
+.pg-progress-bar { height: 6px; border-radius: var(--radius-full); background: var(--surface-medium); overflow: hidden; }
+.pg-progress-fill { height: 100%; border-radius: var(--radius-full); background: var(--brand-navy); }
+
+.pg-tile-attention { border: 1px solid var(--border-light); cursor: pointer; }
+.pg-tile-attention:disabled { cursor: default; }
+.pg-tile-attention-empty .pg-tile-label { color: var(--text-muted); }
+.pg-tile-attention:not(.pg-tile-attention-empty) .pg-tile-label { color: var(--color-danger-text); }
+.pg-attention-row { display: flex; align-items: center; gap: var(--space-2); }
+.pg-attention-name { font-weight: var(--weight-semibold); color: var(--brand-navy); font-size: var(--text-sm); }
+.pg-attention-reason { font-size: var(--text-xs); color: var(--color-danger-text); }
+.pg-attention-chevron { margin-left: auto; color: var(--text-muted); }
+
+.pg-card {
+  background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+  padding: var(--space-4); margin-bottom: var(--space-4);
+}
+.pg-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); margin-bottom: var(--space-3); flex-wrap: wrap; }
+.pg-card-title { font-weight: var(--weight-bold); color: var(--brand-navy); }
+.pg-card-sub { font-size: var(--text-xs); color: var(--text-muted); }
+.pg-empty-chart { padding: var(--space-6) 0; text-align: center; color: var(--text-muted); font-size: var(--text-sm); }
+.pg-chart-container { position: relative; height: 320px; }
+
+.pg-burndown-legend { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+.pg-legend-line { display: inline-block; width: 16px; height: 2px; }
+.pg-legend-line-actual { background: var(--chart-actual); }
+.pg-legend-line-planned { background: var(--chart-phasing); border-top: 2px dashed var(--chart-phasing); background: none; }
+.pg-download-btn { font-size: var(--text-xs); }
+
+@media (max-width: 1279px) { .pg-kpis { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 767px) { .pg-kpis { grid-template-columns: 1fr; } }
+
+/* ---- Program Dashboard: Projects card (List + Timeline, Task 4/5) ---- */
+.pg-projects-head-left { display: flex; align-items: center; gap: var(--space-3); }
+.pg-projects-head-right { display: flex; align-items: center; gap: var(--space-3); }
+.pg-reporting-note { font-size: var(--text-xs); color: var(--text-muted); }
+
+.pg-view-seg {
+  display: inline-flex; border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow: hidden;
+}
+.pg-view-btn {
+  border: 0; background: var(--surface-white); color: var(--text-secondary);
+  padding: var(--space-1) var(--space-3); font-size: var(--text-sm); cursor: pointer;
+}
+.pg-view-btn + .pg-view-btn { border-left: 1px solid var(--border-light); }
+.pg-view-btn.active { background: var(--brand-navy); color: var(--surface-white); }
+.pg-view-btn:disabled { cursor: not-allowed; color: var(--text-faint); }
+/* Timeline is 1024px+ only (spec §12): below it the segmented control itself
+   disappears and only the List view remains, not just the Timeline button. */
+@media (max-width: 1023px) { .pg-view-seg { display: none; } }
+
+.pg-list {
+  border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+  overflow-x: auto; background: var(--surface-white);
+}
+.pg-list-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) 128px 100px 100px 100px minmax(160px, auto) 90px 110px;
+  grid-template-areas: "name status sold spent remaining consumption vstime action";
+  align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border-light);
+}
+.pg-list-row:first-child { border-top: 0; }
+.pg-list-header {
+  background: var(--surface-light); text-transform: uppercase; letter-spacing: .06em;
+  font-size: var(--text-2xs); font-weight: var(--weight-semibold); color: var(--text-muted);
+}
+.pg-list-row-flagged { background: var(--surface-subtle); }
+.pg-list-total { background: var(--surface-medium); font-weight: var(--weight-bold); }
+
+.pg-cell-name { grid-area: name; min-width: 0; }
+.pg-cell-status { grid-area: status; }
+.pg-cell-status span { white-space: nowrap; }
+.pg-cell-sold { grid-area: sold; }
+.pg-cell-spent { grid-area: spent; }
+.pg-cell-remaining { grid-area: remaining; }
+.pg-cell-consumption { grid-area: consumption; }
+.pg-cell-vstime { grid-area: vstime; }
+.pg-cell-action { grid-area: action; text-align: right; }
+
+.pg-list-name {
+  font-weight: var(--weight-semibold); color: var(--brand-navy);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pg-list-sub { font-size: var(--text-xs); color: var(--text-muted); }
+.pg-list-amount { text-align: right; font-size: var(--text-sm); }
+.pg-list-amount-main { font-weight: var(--weight-semibold); }
+.pg-list-amount-sub { font-size: var(--text-xs); color: var(--text-muted); }
+
+.pg-list-consumption { display: flex; flex-direction: column; gap: 2px; }
+.pg-tick-bar { position: relative; height: 5px; border-radius: var(--radius-full); overflow: visible; background: var(--surface-medium); }
+.pg-tick-mark { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--text-muted); }
+
+.pg-vstime-danger { color: var(--color-danger-text); font-weight: var(--weight-semibold); }
+.pg-vstime-success { color: var(--color-success-text); font-weight: var(--weight-semibold); }
+
+@media (max-width: 1023px) {
+  .pg-list-row {
+    grid-template-columns: minmax(160px, 2fr) 90px 100px 100px minmax(130px, auto) 110px;
+    grid-template-areas: "name status sold spent consumption action";
+  }
+  .pg-cell-remaining, .pg-cell-vstime { display: none; }
+}
+@media (max-width: 767px) {
+  .pg-list-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "name name"
+      "status action"
+      "consumption consumption"
+      "sold spent";
+    row-gap: var(--space-1);
+    padding: var(--space-3);
+  }
+  .pg-cell-action { text-align: left; }
+}
+
+/* ---- Program Dashboard: Timeline view (Task 5), 1024px+ only ---- */
+@media (min-width: 1024px) {
+  .pg-timeline { position: relative; }
+  .pg-timeline-axis { display: grid; grid-template-columns: 220px 1fr; }
+  .pg-timeline-axis-track { position: relative; height: 24px; border-bottom: 1px solid var(--border-light); }
+  .pg-timeline-month {
+    position: absolute; top: 0; font-size: var(--text-2xs); color: var(--text-muted); white-space: nowrap;
+  }
+  .pg-timeline-row {
+    display: grid; grid-template-columns: 220px 1fr; align-items: center; gap: var(--space-3);
+    padding: var(--space-2) 0; border-top: 1px solid var(--border-light); cursor: pointer;
+  }
+  .pg-timeline-row:hover { background: var(--surface-light); }
+  .pg-timeline-row-label { min-width: 0; }
+  .pg-timeline-row-track { position: relative; height: 16px; }
+  .pg-timeline-bar {
+    position: absolute; top: 0; height: 16px; border-radius: var(--radius-full);
+    background: var(--surface-medium); overflow: hidden;
+  }
+  .pg-timeline-bar-notstarted { background: transparent; border: 1px dashed var(--border-medium); }
+  .pg-timeline-bar-fill { height: 100%; border-radius: var(--radius-full); }
+  .pg-timeline-today-line { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--color-danger-text); }
+  .pg-timeline-today-label {
+    position: absolute; bottom: -18px; font-size: var(--text-2xs); font-weight: var(--weight-semibold);
+    color: var(--color-danger-text); transform: translateX(-50%);
+  }
+  .pg-timeline-legend { display: flex; gap: var(--space-4); margin-top: var(--space-5); flex-wrap: wrap; }
+  .pg-legend-item { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); color: var(--text-muted); }
+  .pg-legend-swatch { display: inline-block; width: 14px; height: 8px; border-radius: var(--radius-full); }
+  .pg-legend-duration { background: var(--surface-medium); }
+  .pg-legend-consumed { background: var(--brand-navy); }
+  .pg-legend-notstarted { background: transparent; border: 1px dashed var(--border-medium); }
+}
