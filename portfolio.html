@@ -202,7 +202,7 @@
                   <button class="pf-clear-link" disabled title="Program Dashboard — coming soon">Program Dashboard →</button>
                   <!-- While a filter is active every program's children stay open by design,
                        so Close has nothing to close: hidden rather than left inert. -->
-                  <button v-if="!portfolioFiltersActive" class="pf-clear-link" @click="expandedProgramId = null">Close</button>
+                  <button v-if="!portfolioFiltersActive" class="pf-clear-link" @click="toggleProgramExpanded(panelRow.id)">Close</button>
                 </div>
               </div>
               <div class="pf-children-grid">

@@ -125,10 +125,23 @@
 .pf-card-actions { display: flex; align-items: center; gap: var(--space-2); }
 /* Spec §7: the project card's Dashboard and the open program's "Hide projects" are navy-filled,
    not magenta — magenta (.btn-primary here) is reserved for the page-level "+ New Project" CTA. */
+/* Driven through Bootstrap's own --bs-btn-* variables, like .btn-primary in style.css:
+   overriding background/color directly loses to .btn:first-child:active (0,3,0), which
+   made the button flash transparent with dark text while pressed. */
 .pf-btn-navy {
-  background: var(--brand-navy); color: var(--surface-white); border: 1px solid var(--brand-navy);
+  --bs-btn-bg:                  var(--brand-navy);
+  --bs-btn-color:               var(--surface-white);
+  --bs-btn-border-color:        var(--brand-navy);
+  --bs-btn-hover-bg:            var(--brand-navy);
+  --bs-btn-hover-color:         var(--surface-white);
+  --bs-btn-hover-border-color:  var(--brand-navy);
+  --bs-btn-active-bg:           var(--brand-navy);
+  --bs-btn-active-color:        var(--surface-white);
+  --bs-btn-active-border-color: var(--brand-navy);
+  --bs-btn-disabled-bg:         var(--brand-navy);
+  --bs-btn-disabled-color:      var(--surface-white);
+  --bs-btn-disabled-border-color: var(--brand-navy);
 }
-.pf-btn-navy:hover, .pf-btn-navy:focus { background: var(--brand-navy); color: var(--surface-white); }
 .pf-shown-filtered {
   font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--brand-navy);
 }
