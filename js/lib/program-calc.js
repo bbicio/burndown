@@ -3,7 +3,7 @@
 // Portfolio (spentPercent/spentBarState from portfolio-calc.js). See
 // docs/superpowers/specs/2026-10-08-program-dashboard-design.md §6.
 
-import { spentPercent } from './portfolio-calc.js';
+import { spentPercent, spentBarState, computeBurndownPoints } from './portfolio-calc.js';
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -153,6 +153,100 @@ export function sortProjectRows(rows, attentionIds) {
   });
 }
 
+function monthDiff(ymA, ymB) {
+  const ay = parseInt(ymA.slice(0, 4), 10), am = parseInt(ymA.slice(4, 6), 10);
+  const by = parseInt(ymB.slice(0, 4), 10), bm = parseInt(ymB.slice(4, 6), 10);
+  return (by - ay) * 12 + (bm - am);
+}
+function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+// Aggregated remaining-hours burndown across every project in the program (§7):
+// each project's own computeBurndownPoints() series is projected onto the program's
+// month axis, holding the project's first value before it starts and its last value
+// after it ends, then the series are summed.
+export function programBurndown(range, projects, deps) {
+  if (!range) return { labels: [], actual: [], planned: null, todayIndex: null, todayRemaining: null };
+  const { billableData, billableTasks, findRate, today } = deps;
+  const months = range.months;
+  const labels = months.map(ym => ymToDate(ym).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
+
+  const perProject = (projects || []).map(({ cfg, rows }) => {
+    const series = computeBurndownPoints(rows, cfg, '', 'monthly', billableData, billableTasks, findRate);
+    const yms = series.points.map(dateToYm);
+    const burnByYm = {};
+    const idealByYm = {};
+    yms.forEach((ym, i) => {
+      burnByYm[ym] = series.burnValues[i];
+      if (series.idealValues) idealByYm[ym] = series.idealValues[i];
+    });
+    const firstYm = yms[0];
+    const lastYm = yms[yms.length - 1];
+    return {
+      burnByYm, idealByYm, firstYm, lastYm,
+      firstBurn: burnByYm[firstYm], lastBurn: burnByYm[lastYm],
+      firstIdeal: series.idealValues ? idealByYm[firstYm] : null,
+      lastIdeal: series.idealValues ? idealByYm[lastYm] : null,
+      hasIdeal: !!series.idealValues,
+    };
+  });
+
+  const actual = months.map(ym => perProject.reduce((sum, p) => {
+    if (ym in p.burnByYm) return sum + p.burnByYm[ym];
+    if (ym < p.firstYm) return sum + p.firstBurn;
+    return sum + p.lastBurn;
+  }, 0));
+
+  const anyIdeal = perProject.some(p => p.hasIdeal);
+  const planned = anyIdeal ? months.map(ym => perProject.reduce((sum, p) => {
+    if (!p.hasIdeal) return sum;
+    if (ym in p.idealByYm) return sum + p.idealByYm[ym];
+    if (ym < p.firstYm) return sum + p.firstIdeal;
+    return sum + p.lastIdeal;
+  }, 0)) : null;
+
+  const todayYm = dateToYm(today);
+  const todayIndex = months.indexOf(todayYm) !== -1 ? months.indexOf(todayYm) : null;
+  const todayRemaining = todayIndex !== null ? actual[todayIndex] : null;
+
+  return { labels, actual, planned, todayIndex, todayRemaining };
+}
+
+// Percentage position of `today` on the program's month axis, null outside it —
+// used to place/omit the Timeline's and the burndown chart's "Today" marker.
+export function todayPosition(range, today) {
+  if (!range) return null;
+  if (today < range.startDate || today > range.endDate) return null;
+  return ((today - range.startDate) / (range.endDate - range.startDate)) * 100;
+}
+
+// One Timeline bar per dated project: offset/width in % of the program's month
+// axis, fill % from consumption, and the same amber/red thresholds as the List
+// (spentBarState). Undated projects are skipped (Review Focus 3).
+export function timelineBars(range, rows) {
+  if (!range) return [];
+  const months = range.months;
+  return (rows || [])
+    .filter(r => r.cfg.startDate && r.cfg.endDate)
+    .map(r => {
+      const startIdx = clamp(monthDiff(range.startYm, r.cfg.startDate), 0, months.length - 1);
+      const endIdx = clamp(monthDiff(range.startYm, r.cfg.endDate), startIdx, months.length - 1);
+      const span = endIdx - startIdx + 1;
+      const fillPct = r.metrics.started ? (r.metrics.consumptionPct ?? 0) : 0;
+      return {
+        id: r.id,
+        name: r.cfg.name,
+        code: r.cfg.code,
+        status: r.cfg.status,
+        leftPct: (startIdx / months.length) * 100,
+        widthPct: (span / months.length) * 100,
+        fillPct,
+        state: spentBarState(r.metrics.consumptionPct),
+        started: r.metrics.started,
+        consumptionPct: r.metrics.consumptionPct,
+      };
+    });
+}
+
 window.programCurrency = programCurrency;
 window.programRange = programRange;
 window.projectMetrics = projectMetrics;
@@ -160,3 +254,6 @@ window.programTotals = programTotals;
 window.timeElapsed = timeElapsed;
 window.needsAttention = needsAttention;
 window.sortProjectRows = sortProjectRows;
+window.programBurndown = programBurndown;
+window.todayPosition = todayPosition;
+window.timelineBars = timelineBars;

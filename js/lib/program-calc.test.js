@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { programCurrency, programRange, projectMetrics, programTotals, timeElapsed, needsAttention, sortProjectRows } from './program-calc.js';
+import { programCurrency, programRange, projectMetrics, programTotals, timeElapsed, needsAttention, sortProjectRows, programBurndown, timelineBars, todayPosition } from './program-calc.js';
 
 const deps = {
   findRate: (r, cfg) => 100,
@@ -127,5 +127,66 @@ describe('sortProjectRows', () => {
       { id: 'c', cfg: { startDate: '202602' } },
     ];
     expect(sortProjectRows(rows, ['b']).map(r => r.id)).toEqual(['b', 'a', 'c']);
+  });
+});
+
+describe('programBurndown', () => {
+  const range = programRange([cfg({ startDate: '202601', endDate: '202603' })]);
+  it('has one label per month of the program range', () => {
+    const s = programBurndown(range, [{ cfg: cfg({ startDate: '202601', endDate: '202603' }), rows: [] }], deps);
+    expect(s.labels.length).toBe(3);
+  });
+  it('sums the remaining hours of all projects', () => {
+    const a = { cfg: cfg({ tasks: [task(100, 100)], startDate: '202601', endDate: '202603' }), rows: [] };
+    const b = { cfg: cfg({ tasks: [task(50, 100)], startDate: '202601', endDate: '202603' }), rows: [] };
+    expect(programBurndown(range, [a, b], deps).actual[0]).toBe(150);
+  });
+  it('holds a project at its full budget for months before it starts', () => {
+    const early = { cfg: cfg({ tasks: [task(100, 100)], startDate: '202601', endDate: '202601' }), rows: [] };
+    const late = { cfg: cfg({ tasks: [task(40, 100)], startDate: '202603', endDate: '202603' }), rows: [] };
+    expect(programBurndown(range, [early, late], deps).actual[0]).toBe(140);
+  });
+  it('holds a finished project at its last value for months after it ends', () => {
+    const done = { cfg: cfg({ tasks: [task(100, 100)], startDate: '202601', endDate: '202601' }), rows: [{ hours: 30, date: new Date(2026, 0, 15) }] };
+    const s = programBurndown(range, [done], deps);
+    expect(s.actual[2]).toBe(s.actual[0]);
+  });
+  it('returns empty series without a range', () => {
+    expect(programBurndown(null, [], deps).labels).toEqual([]);
+  });
+});
+
+describe('todayPosition', () => {
+  it('is null when today is outside the range', () => {
+    expect(todayPosition(programRange([cfg({ startDate: '202701', endDate: '202703' })]), deps.today)).toBeNull();
+  });
+  it('is a percentage inside the range', () => {
+    const p = todayPosition(programRange([cfg({ startDate: '202601', endDate: '202612' })]), deps.today);
+    expect(p).toBeGreaterThan(0);
+    expect(p).toBeLessThan(100);
+  });
+});
+
+describe('timelineBars', () => {
+  const range = programRange([cfg({ startDate: '202601', endDate: '202612' })]);
+  it('places a bar proportionally to its months', () => {
+    const [bar] = timelineBars(range, [{ id: 'a', cfg: cfg({ startDate: '202604', endDate: '202606' }), metrics: { consumptionPct: 50, started: true } }]);
+    expect(bar.leftPct).toBeCloseTo(25, 0);
+    expect(bar.widthPct).toBeCloseTo(25, 0);
+    expect(bar.fillPct).toBe(50);
+  });
+  it('uses the amber state at 85 and the danger state above 100', () => {
+    const mk = pct => timelineBars(range, [{ id: 'a', cfg: cfg(), metrics: { consumptionPct: pct, started: true } }])[0].state;
+    expect(mk(84)).toBe('normal');
+    expect(mk(85)).toBe('warning');
+    expect(mk(101)).toBe('danger');
+  });
+  it('marks a not-started project with no fill', () => {
+    const [bar] = timelineBars(range, [{ id: 'a', cfg: cfg({ status: 'Not started yet' }), metrics: { consumptionPct: 0, started: false } }]);
+    expect(bar.started).toBe(false);
+    expect(bar.fillPct).toBe(0);
+  });
+  it('skips an undated project', () => {
+    expect(timelineBars(range, [{ id: 'a', cfg: cfg({ startDate: null, endDate: null }), metrics: { consumptionPct: 10, started: true } }])).toEqual([]);
   });
 });
