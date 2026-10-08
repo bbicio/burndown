@@ -9,6 +9,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 3. Run `git log main..HEAD --oneline`. If empty, stop: "No commits to close out on this branch."
 4. Determine the branch name (`git branch --show-current`) and sanitize it for filesystem use: replace every `/` with `-`. Store the result as `<branch-sanitized>` — it is used in the Gate 5 report filename.
 5. **Informational, non-blocking:** run `git merge-base main HEAD` and `git rev-parse main`. If they differ, run `git rev-list --count <merge-base>..main` and report: "main has advanced N commits since this branch diverged — Gate 4's merge will produce a merge commit, not a fast-forward." Do not block on this.
+6. **Timing capture (feeds the Gate 5 report's duration fields).** Record the current wall-clock time (`date '+%Y-%m-%d %H:%M'`) as `<started-at>`, and record it again at every gate boundary from here on — when each of Gates 1-5 is entered, at the moment Gate 4's merge commit is created (`<merged-at>`), and when Gate 5's report is written. Keep the values in the session; nothing is written to disk before Gate 5. These are **elapsed wall-clock** durations and deliberately include time spent waiting for a human answer at a gate — do not try to subtract it, and do not split a gate into "work" and "wait". If a timestamp was genuinely not captured (e.g. `/finish-cycle` was interrupted and resumed in a later session), write `unknown` for that one gate in the report — never reconstruct or estimate it after the fact. Purpose: PROCESS.md §6/§6.6 currently rest on two retrospectively reconstructed anecdotes; these fields are the measured baseline meant to replace them.
 
 ## Gate 1 — TEST (blocking, automatic, no confirmation)
 
@@ -127,6 +128,11 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 
    **Date:** <YYYY-MM-DD>
    **Branch:** <branch> → main
+   **Execution started:** <started-at>  (pre-flight step 6)
+   **Merged at:** <merged-at>  (Gate 4's merge commit)
+   **Gate durations:** Gate 1 <N>m · Gate 2 <N>m · Gate 3 <N>m · Gate 4 <N>m · Gate 5 <N>m — total <N>m
+   <!-- Wall-clock, human wait time included (pre-flight step 6). Write `unknown` for a gate whose
+        timestamp was not captured; a gate that self-skipped gets `0m (skipped)`. -->
 
    ## What was done
 
