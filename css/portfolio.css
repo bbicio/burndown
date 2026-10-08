@@ -64,20 +64,27 @@
 /* min-width: 0 — a grid item defaults to min-width:auto, so without this the widest
    card's min-content sets the whole column's floor and the grid overflows the viewport
    (found at 390px: an unbreakable 389px project name made every card 423px wide). */
+/* No z-index here on purpose: `position: relative` alone does not open a stacking
+   context, so the stacked pseudo-elements below (z-index: -1/-2) really paint *behind*
+   the card. With a z-index the card became the stacking root and they painted over its
+   own border instead — which is what made the open card's navy border look broken. */
 .pf-card {
-  position: relative; z-index: 1; min-width: 0;
+  position: relative; min-width: 0;
   display: flex; flex-direction: column; gap: var(--space-2);
-  background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+  background: var(--surface-white); border: 1px solid var(--border-medium); border-radius: var(--radius-lg);
   padding: var(--space-4);
 }
 .pf-card-program { margin-bottom: var(--space-2); }
 .pf-card-program::before, .pf-card-program::after {
   content: ''; position: absolute; inset: 0; z-index: -1;
-  background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+  background: var(--surface-white); border: 1px solid var(--border-medium); border-radius: var(--radius-lg);
 }
 .pf-card-program::before { transform: translate(4px, 4px); }
 .pf-card-program::after { transform: translate(8px, 8px); z-index: -2; }
 .pf-card-program.pf-card-open { border: 2px solid var(--brand-navy); }
+/* Open: the children panel below already says "this is a program", and the board shows a
+   single clean navy-bordered card — the offset layers only muddied that outline. */
+.pf-card-program.pf-card-open::before, .pf-card-program.pf-card-open::after { display: none; }
 
 .pf-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); }
 .pf-card-label {
@@ -141,9 +148,11 @@
 }
 
 /* ---- Full-width children panel ---- */
+/* Board: the panel is a white box with a visible border, holding grey mini-cards —
+   not a grey box holding white ones. */
 .pf-children-panel {
   grid-column: 1 / -1;
-  background: var(--surface-subtle); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+  background: var(--surface-white); border: 1px solid var(--border-medium); border-radius: var(--radius-lg);
   padding: var(--space-4); margin-top: calc(-1 * var(--space-2));
 }
 .pf-children-panel-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: var(--space-3); }
@@ -154,7 +163,7 @@
 
 .pf-children-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); }
 .pf-mini-card {
-  background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-md);
+  background: var(--surface-light); border: 1px solid var(--border-light); border-radius: var(--radius-md);
   padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-1);
   min-width: 0; /* same grid min-content trap as .pf-card — the names below are ellipsised */
 }
