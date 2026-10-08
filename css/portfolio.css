@@ -1,0 +1,56 @@
+/* Portfolio overview page styles (portfolio.html only). Tokens only, no colour literals. */
+
+/* ---- Header ---- */
+.pf-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.pf-header-title {
+  font-size: 1.625rem; font-weight: var(--weight-bold); color: var(--brand-navy);
+  margin: 0; line-height: 1.2;
+}
+.pf-header-sub { font-size: var(--text-sm); color: var(--text-muted); margin-top: 2px; }
+
+/* ---- Toolbar ---- */
+.pf-toolbar {
+  display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+.pf-search { position: relative; width: 300px; max-width: 100%; }
+.pf-search .pf-icon {
+  position: absolute; left: var(--space-2); top: 50%; transform: translateY(-50%);
+  color: var(--text-muted); pointer-events: none;
+}
+.pf-search input { padding-left: calc(var(--space-2) + 16px + var(--space-1)); }
+
+.pf-filter-btn { white-space: nowrap; }
+.pf-filter-badge {
+  display: inline-block; margin-left: var(--space-1); padding: 0 6px;
+  border-radius: var(--radius-full); background: var(--brand-navy); color: var(--surface-white);
+  font-size: var(--text-2xs); font-weight: var(--weight-semibold);
+}
+
+.pf-toolbar-spacer { flex: 1 1 auto; }
+
+.pf-sort { display: flex; align-items: center; gap: var(--space-2); }
+.pf-sort-label { font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }
+
+.pf-view-seg {
+  display: inline-flex; border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow: hidden;
+}
+.pf-view-btn {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  border: 0; background: var(--surface-white); color: var(--text-secondary);
+  padding: var(--space-1) var(--space-3); font-size: var(--text-sm); cursor: pointer;
+}
+.pf-view-btn + .pf-view-btn { border-left: 1px solid var(--border-light); }
+.pf-view-btn.active { background: var(--brand-navy); color: var(--surface-white); }
+.pf-view-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
+.pf-clear-link {
+  border: 0; background: transparent; color: var(--text-secondary); font-size: var(--text-sm);
+  text-decoration: none; white-space: nowrap;
+}
+.pf-clear-link:hover { text-decoration: underline; }
+
+.pf-icon { display: inline-block; vertical-align: middle; }

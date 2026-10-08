@@ -10,6 +10,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="css/tokens.css?v=9">
   <link rel="stylesheet" href="css/style.css?v=21">
+  <link rel="stylesheet" href="css/portfolio.css?v=1">
   <style>
     .app-container { padding: 0 12px; }
   </style>
@@ -26,15 +27,13 @@
 <div id="app" v-cloak class="app-container">
 
   <template v-if="view === 'overview'">
-    <div class="page-title-bar">
-      <h4 class="fw-bold mb-0">📋 Project Portfolio</h4>
-    </div>
-    <div class="page-toolbar">
-      <div class="page-toolbar-left">
-        <span class="text-muted small">Budget Spent vs Estimated by month — all configured projects</span>
+    <div class="pf-header">
+      <div>
+        <h1 class="pf-header-title">Project Portfolio</h1>
+        <div class="pf-header-sub">{{ portfolioCounts }}</div>
       </div>
-      <div class="page-toolbar-right">
-        <span :title="directCreationEnabled ? '' : directCreationMessage"><button class="btn btn-primary btn-sm" :disabled="!directCreationEnabled" @click="goNewProject">＋ New project</button></span>
+      <div class="pf-header-actions">
+        <span :title="directCreationEnabled ? '' : directCreationMessage"><button class="btn btn-primary" :disabled="!directCreationEnabled" @click="goNewProject">+ New Project</button></span>
       </div>
     </div>
 
@@ -42,20 +41,16 @@
     <div v-if="!projects.length" class="alert alert-info">{{ directCreationEnabled ? 'No projects configured. Click ＋ New project to add one.' : 'No projects configured. Projects are created from a proposal (Generate project).' }}</div>
 
     <template v-else>
-      <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
-        <input type="text" class="form-control form-control-sm" style="max-width:240px" aria-label="Search projects"
-               placeholder="🔍 Search project, code, or client…" v-model="portfolioSearch">
-        <div class="d-flex align-items-center gap-2">
-          <span class="small text-muted">Sort:</span>
-          <select class="form-select form-select-sm" v-model="portfolioSort" style="width:auto">
-            <option value="name">Alphabetical</option>
-            <option value="client">Client name</option>
-          </select>
+      <div class="pf-toolbar">
+        <div class="pf-search">
+          <pf-icon name="search" :size="14"></pf-icon>
+          <input type="text" class="form-control form-control-sm" aria-label="Search projects"
+                 placeholder="Search project, code or client…" v-model="portfolioSearch">
         </div>
         <div class="dropdown">
-          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle pf-filter-btn" type="button"
                   data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-            Client<span v-if="portfolioClientFilter.length" class="badge bg-secondary ms-1">{{ portfolioClientFilter.length }}</span>
+            Client: {{ portfolioClientFilter.length ? portfolioClientFilter.length + ' selected' : 'All' }}
           </button>
           <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:200px">
             <li v-for="cid in allClientIds" :key="cid" class="form-check">
@@ -65,9 +60,9 @@
           </ul>
         </div>
         <div class="dropdown">
-          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle pf-filter-btn" type="button"
                   data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-            Stage<span v-if="portfolioStageFilter.length" class="badge bg-secondary ms-1">{{ portfolioStageFilter.length }}</span>
+            Stage: {{ portfolioStageFilter.length ? portfolioStageFilter.length + ' selected' : 'All' }}
           </button>
           <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:200px">
             <li v-for="opt in stageFilterOptions" :key="opt" class="form-check">
@@ -77,9 +72,9 @@
           </ul>
         </div>
         <div class="dropdown">
-          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle pf-filter-btn" type="button"
                   data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-            Status<span v-if="portfolioStatusFilter.length" class="badge bg-secondary ms-1">{{ portfolioStatusFilter.length }}</span>
+            Status: {{ portfolioStatusFilter.length ? portfolioStatusFilter.length + ' selected' : 'All' }}
           </button>
           <ul class="dropdown-menu p-2" style="max-height:280px;overflow-y:auto;min-width:200px">
             <li v-for="opt in statusFilterOptions" :key="opt" class="form-check">
@@ -88,10 +83,22 @@
             </li>
           </ul>
         </div>
-        <button v-if="portfolioFiltersActive" class="btn btn-sm btn-link text-danger" @click="clearPortfolioFilters">✕ Clear filters</button>
+        <div class="pf-toolbar-spacer"></div>
+        <div class="pf-sort">
+          <span class="pf-sort-label">Sort:</span>
+          <select class="form-select form-select-sm" v-model="portfolioSort" style="width:auto">
+            <option value="client">Client A–Z</option>
+            <option value="name">Alphabetical</option>
+          </select>
+        </div>
+        <div class="pf-view-seg" role="group" aria-label="Layout">
+          <button type="button" class="pf-view-btn" :class="{active: portfolioLayout === 'card'}" @click="setLayout('card')"><pf-icon name="grid" :size="14"></pf-icon> Card</button>
+          <button type="button" class="pf-view-btn" :class="{active: portfolioLayout === 'list'}" @click="setLayout('list')"><pf-icon name="list" :size="14"></pf-icon> List</button>
+        </div>
+        <button v-if="portfolioFiltersActive" type="button" class="pf-clear-link" @click="clearPortfolioFilters">Clear filters</button>
       </div>
 
-      <div v-if="!visibleProgramGroups.length && !ungroupedProjects.length" class="alert alert-info">No projects match the current filters.</div>
+      <div v-if="!portfolioRows.length" class="alert alert-info">No projects match the current filters.</div>
 
       <!-- Budget Summary panel (pinned-project comparison table) hidden 2026-09 per user request, along with its ＋/✓ Summary toggle button in the detail header — toggleSummary()/pinnedSummary/portfolioSummaryProjects logic left intact for an easy restore
       <div class="section-card mb-4" style="border:2px solid var(--indigo-500)" v-if="pinnedSummary">
@@ -533,8 +540,26 @@
       </div>`,
   };
 
+  // Inline SVG icon set for the overview (Card/List redesign) — no emoji, same
+  // conventions as js/nav.js's navIcon(): viewBox 16x16, stroke="currentColor".
+  const PF_ICON_PATHS = {
+    search: '<circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11L14.5 14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+    'chevron-right': '<path d="M6 3.5L10.5 8 6 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    'chevron-down': '<path d="M3.5 6L8 10.5 12.5 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    grid: '<rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="9" width="4.5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.4"/>',
+    list: '<path d="M2.5 4H13.5M2.5 8H13.5M2.5 12H13.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+    gear: '<circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 2.5V4M8 12V13.5M13.5 8H12M4 8H2.5M11.8 4.2L10.8 5.2M5.2 10.8L4.2 11.8M11.8 11.8L10.8 10.8M5.2 5.2L4.2 4.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+    'arrow-right': '<path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    close: '<path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  };
+  const PfIcon = {
+    props: { name: { type: String, required: true }, size: { type: Number, default: 16 } },
+    template: `<svg class="pf-icon" :width="size" :height="size" viewBox="0 0 16 16" fill="none" aria-hidden="true" v-html="paths"></svg>`,
+    computed: { paths() { return PF_ICON_PATHS[this.name] || ''; } },
+  };
+
   Vue.createApp({
-    components: { ExportButtons },
+    components: { ExportButtons, PfIcon },
     data() {
       return {
         formatMoney: window.formatMoney,
@@ -647,6 +672,13 @@
           map[prog.id] = { summary: this.programSummary(prog.children), duration: this.programDuration(prog.children) };
         });
         return map;
+      },
+      // "N programs · N projects" (spec §6.5) — both follow the active filters;
+      // the project count includes every program's children.
+      portfolioCounts() {
+        const progCount = this.visibleProgramGroups.length;
+        const projCount = this.sortedFilteredProjects.length;
+        return `${progCount} program${progCount === 1 ? '' : 's'} · ${projCount} project${projCount === 1 ? '' : 's'}`;
       },
       // Single ordered row list consumed by both the Card and List views, so their
       // order can never diverge (spec §6.2).
@@ -1170,6 +1202,10 @@
         this.portfolioClientFilter = [];
         this.portfolioStageFilter = [];
         this.portfolioStatusFilter = [];
+      },
+      setLayout(v) {
+        this.portfolioLayout = v;
+        try { localStorage.setItem('PDash_portfolioLayout', v); } catch (e) {}
       },
       esc,
       kpiLeftColor(left, total) {
