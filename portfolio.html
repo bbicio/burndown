@@ -1483,7 +1483,15 @@
     watch: {
       burndownInterval() { this.renderBurndownChart(); },
       burndownTaskFilter() { this.renderBurndownChart(); },
-      portfolioLayout() { this.attachCardGridObserver(); },
+      portfolioLayout(v) {
+        // Card and List keep their own expansion state (one open vs. many); this carries
+        // it across when the layout switches, so a program opened in one view is still
+        // open in the other. See syncExpansionOnLayoutChange for the asymmetric mapping.
+        const next = syncExpansionOnLayoutChange(v, this.expandedProgramId, [...this.listExpandedPrograms]);
+        this.expandedProgramId = next.expandedProgramId;
+        this.listExpandedPrograms = new Set(next.listExpandedIds);
+        this.attachCardGridObserver();
+      },
       refreshTick() { this.attachCardGridObserver(); },
       // The grid container only exists while view === 'overview' (showDashboard swaps the whole
       // template out); without this, returning from the dashboard (or landing on it first via

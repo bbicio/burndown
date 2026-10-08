@@ -269,6 +269,22 @@ export function resolveExpandedProgramId(currentId, rows) {
   return stillPresent ? currentId : null;
 }
 
+// Keeps the two views' expansion state in step when the layout switches. The Card shows
+// one program at a time and the List several, so the mapping is asymmetric: going to the
+// List adds the card's open program to the set (without closing the others), and coming
+// back to the Card adopts the most recently opened one — a Set's iteration order is its
+// insertion order, and re-opening a program re-adds it, so "last" means "most recent".
+// The list's own set is never pruned, so switching back and forth loses nothing.
+export function syncExpansionOnLayoutChange(layout, expandedProgramId, listExpandedIds) {
+  const ids = [...(listExpandedIds || [])];
+  if (layout === 'list') {
+    if (expandedProgramId && !ids.includes(expandedProgramId)) ids.push(expandedProgramId);
+    return { expandedProgramId, listExpandedIds: ids };
+  }
+  return { expandedProgramId: ids.length ? ids[ids.length - 1] : null, listExpandedIds: ids };
+}
+
+window.syncExpansionOnLayoutChange = syncExpansionOnLayoutChange;
 window.buildPortfolioRows = buildPortfolioRows;
 window.spentPercent = spentPercent;
 window.spentBarState = spentBarState;

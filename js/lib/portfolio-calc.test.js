@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeKpis, computeBurndownPoints, buildSummaryCols, summaryTotals, normalizeGroupEntries, entryMatchesRow, commonCurrency, buildPortfolioRows, spentPercent, spentBarState, programAtRisk, readLayoutPreference, columnsForWidth, resolveExpandedProgramId } from './portfolio-calc.js';
+import { computeKpis, computeBurndownPoints, buildSummaryCols, summaryTotals, normalizeGroupEntries, entryMatchesRow, commonCurrency, buildPortfolioRows, spentPercent, spentBarState, programAtRisk, readLayoutPreference, columnsForWidth, resolveExpandedProgramId, syncExpansionOnLayoutChange } from './portfolio-calc.js';
 
 describe('commonCurrency', () => {
   it('returns the currency code shared by all the projects', () => {
@@ -378,6 +378,42 @@ describe('resolveExpandedProgramId', () => {
   });
   it('does not count a project with the same id as a program', () => {
     expect(resolveExpandedProgramId('p1', [{ kind: 'project', id: 'p1', name: 'P', clientName: 'C' }])).toBeNull();
+  });
+});
+
+describe('syncExpansionOnLayoutChange', () => {
+  it('carries the card\'s open program into the list when switching to List', () => {
+    expect(syncExpansionOnLayoutChange('list', 'g1', [])).toEqual({ expandedProgramId: 'g1', listExpandedIds: ['g1'] });
+  });
+
+  it('does not duplicate a program already open in the list', () => {
+    expect(syncExpansionOnLayoutChange('list', 'g1', ['g2', 'g1'])).toEqual({ expandedProgramId: 'g1', listExpandedIds: ['g2', 'g1'] });
+  });
+
+  it('leaves the list untouched when nothing is open in the card', () => {
+    expect(syncExpansionOnLayoutChange('list', null, ['g2'])).toEqual({ expandedProgramId: null, listExpandedIds: ['g2'] });
+  });
+
+  it('adopts the most recently opened list program when switching to Card', () => {
+    // Card shows one program at a time, so of several open in List the newest wins;
+    // the list's own set is preserved so switching back does not collapse the others.
+    expect(syncExpansionOnLayoutChange('card', null, ['g1', 'g2', 'g3'])).toEqual({ expandedProgramId: 'g3', listExpandedIds: ['g1', 'g2', 'g3'] });
+  });
+
+  it('closes the card program when the list has nothing open', () => {
+    expect(syncExpansionOnLayoutChange('card', 'g1', [])).toEqual({ expandedProgramId: null, listExpandedIds: [] });
+  });
+
+  it('round-trips a single program without losing it', () => {
+    const toList = syncExpansionOnLayoutChange('list', 'g1', []);
+    const back = syncExpansionOnLayoutChange('card', toList.expandedProgramId, toList.listExpandedIds);
+    expect(back.expandedProgramId).toBe('g1');
+  });
+
+  it('does not mutate the array it is given', () => {
+    const ids = ['g2'];
+    syncExpansionOnLayoutChange('list', 'g1', ids);
+    expect(ids).toEqual(['g2']);
   });
 });
 
