@@ -35,3 +35,26 @@ describe('program.html shell', () => {
     expect(html).toContain('No dated projects in this program');
   });
 });
+
+describe('program.html List view', () => {
+  it('has the eight column headers (title case, CSS text-transform:uppercase per .pf-list-header convention) and the PROGRAM TOTAL row', () => {
+    expect(html).toMatch(/>Project</);
+    expect(html).toMatch(/>Status</);
+    expect(html).toMatch(/>Sold</);
+    expect(html).toMatch(/>Spent</);
+    expect(html).toMatch(/>Remaining</);
+    expect(html).toMatch(/>Consumption</);
+    expect(html).toMatch(/>Vs time</);
+    expect(html).toContain('PROGRAM TOTAL');
+  });
+  it('shows the no-budget/no-actuals/mixed-currency states and the reporting-scope note', () => {
+    expect(html).toContain('No budget');
+    expect(html).toContain('No actuals');
+    expect(html).toContain('Mixed currencies');
+    expect(html).toContain("Task, role and entry analysis is in each project's reporting");
+  });
+  it('has a List | Timeline segmented control', () => {
+    expect(html).toContain('>List<');
+    expect(html).toContain('>Timeline<');
+  });
+});

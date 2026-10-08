@@ -323,3 +323,86 @@
 
 @media (max-width: 1279px) { .pg-kpis { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 767px) { .pg-kpis { grid-template-columns: 1fr; } }
+
+/* ---- Program Dashboard: Projects card (List + Timeline, Task 4/5) ---- */
+.pg-projects-head-left { display: flex; align-items: center; gap: var(--space-3); }
+.pg-projects-head-right { display: flex; align-items: center; gap: var(--space-3); }
+.pg-reporting-note { font-size: var(--text-xs); color: var(--text-muted); }
+
+.pg-view-seg {
+  display: inline-flex; border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow: hidden;
+}
+.pg-view-btn {
+  border: 0; background: var(--surface-white); color: var(--text-secondary);
+  padding: var(--space-1) var(--space-3); font-size: var(--text-sm); cursor: pointer;
+}
+.pg-view-btn + .pg-view-btn { border-left: 1px solid var(--border-light); }
+.pg-view-btn.active { background: var(--brand-navy); color: var(--surface-white); }
+.pg-view-btn:disabled { cursor: not-allowed; color: var(--text-faint); }
+
+.pg-list {
+  border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+  overflow-x: auto; background: var(--surface-white);
+}
+.pg-list-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) 128px 100px 100px 100px minmax(160px, auto) 90px 110px;
+  grid-template-areas: "name status sold spent remaining consumption vstime action";
+  align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border-light);
+}
+.pg-list-row:first-child { border-top: 0; }
+.pg-list-header {
+  background: var(--surface-light); text-transform: uppercase; letter-spacing: .06em;
+  font-size: var(--text-2xs); font-weight: var(--weight-semibold); color: var(--text-muted);
+}
+.pg-list-row-flagged { background: var(--surface-subtle); }
+.pg-list-total { background: var(--surface-medium); font-weight: var(--weight-bold); }
+
+.pg-cell-name { grid-area: name; min-width: 0; }
+.pg-cell-status { grid-area: status; }
+.pg-cell-status span { white-space: nowrap; }
+.pg-cell-sold { grid-area: sold; }
+.pg-cell-spent { grid-area: spent; }
+.pg-cell-remaining { grid-area: remaining; }
+.pg-cell-consumption { grid-area: consumption; }
+.pg-cell-vstime { grid-area: vstime; }
+.pg-cell-action { grid-area: action; text-align: right; }
+
+.pg-list-name {
+  font-weight: var(--weight-semibold); color: var(--brand-navy);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pg-list-sub { font-size: var(--text-xs); color: var(--text-muted); }
+.pg-list-amount { text-align: right; font-size: var(--text-sm); }
+.pg-list-amount-main { font-weight: var(--weight-semibold); }
+.pg-list-amount-sub { font-size: var(--text-xs); color: var(--text-muted); }
+
+.pg-list-consumption { display: flex; flex-direction: column; gap: 2px; }
+.pg-tick-bar { position: relative; height: 5px; border-radius: var(--radius-full); overflow: visible; background: var(--surface-medium); }
+.pg-tick-mark { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--text-muted); }
+
+.pg-vstime-danger { color: var(--color-danger-text); font-weight: var(--weight-semibold); }
+.pg-vstime-success { color: var(--color-success-text); font-weight: var(--weight-semibold); }
+
+@media (max-width: 1023px) {
+  .pg-list-row {
+    grid-template-columns: minmax(160px, 2fr) 90px 100px 100px minmax(130px, auto) 110px;
+    grid-template-areas: "name status sold spent consumption action";
+  }
+  .pg-cell-remaining, .pg-cell-vstime { display: none; }
+}
+@media (max-width: 767px) {
+  .pg-list-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "name name"
+      "status action"
+      "consumption consumption"
+      "sold spent";
+    row-gap: var(--space-1);
+    padding: var(--space-3);
+  }
+  .pg-cell-action { text-align: left; }
+}

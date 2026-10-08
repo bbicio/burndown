@@ -124,6 +124,102 @@
       </div>
 
       <div class="pg-card pg-projects-card">
+        <div class="pg-card-head">
+          <div class="pg-projects-head-left">
+            <div class="pg-card-title">Projects</div>
+            <div class="pg-view-seg">
+              <button type="button" class="pg-view-btn" :class="{active: layout === 'list'}" @click="layout = 'list'">List</button>
+              <button type="button" class="pg-view-btn" :class="{active: layout === 'timeline'}" :disabled="!rangeData" @click="rangeData && (layout = 'timeline')">Timeline</button>
+            </div>
+          </div>
+          <div class="pg-projects-head-right">
+            <button v-if="attentionFilter" type="button" class="pf-clear-link" @click="attentionFilter = false">Showing flagged only · Clear</button>
+            <span class="pg-reporting-note">Task, role and entry analysis is in each project's reporting</span>
+          </div>
+        </div>
+
+        <template v-if="layout === 'list'">
+        <div class="pg-list">
+          <div class="pg-list-row pg-list-header">
+            <div class="pg-cell-name">Project</div>
+            <div class="pg-cell-status">Status</div>
+            <div class="pg-cell-sold pg-list-amount">Sold</div>
+            <div class="pg-cell-spent pg-list-amount">Spent</div>
+            <div class="pg-cell-remaining pg-list-amount">Remaining</div>
+            <div class="pg-cell-consumption">Consumption</div>
+            <div class="pg-cell-vstime pg-list-amount">Vs time</div>
+            <div class="pg-cell-action"></div>
+          </div>
+          <div v-for="row in visibleRows" :key="row.id" class="pg-list-row" :class="{ 'pg-list-row-flagged': row.flagged }">
+            <div class="pg-cell-name pg-list-main">
+              <div class="pg-list-name">{{ row.cfg.name }}</div>
+              <div class="pg-list-sub">{{ row.cfg.code }}{{ row.cfg.code && row.cfg.startDate ? ' · ' : '' }}{{ row.cfg.startDate && row.cfg.endDate ? (fmtMonthShort(row.cfg.startDate) + ' – ' + fmtMonthShort(row.cfg.endDate)) : '' }}</div>
+            </div>
+            <div class="pg-cell-status"><span v-html="statusBadgeLarge(row.cfg.status)"></span></div>
+            <div class="pg-cell-sold pg-list-amount">
+              <template v-if="row.metrics.hasBudget">
+                <div class="pg-list-amount-main">{{ fmtH(row.metrics.soldHours) }}</div>
+                <div class="pg-list-amount-sub">{{ currency ? formatMoney(row.metrics.soldMoney, currency, currencies) : 'Mixed currencies' }}</div>
+              </template>
+              <template v-else>—</template>
+            </div>
+            <div class="pg-cell-spent pg-list-amount">
+              <div class="pg-list-amount-main">{{ fmtH(row.metrics.spentHours) }}</div>
+              <div class="pg-list-amount-sub">{{ currency ? formatMoney(row.metrics.spentMoney, currency, currencies) : 'Mixed currencies' }}</div>
+              <div v-if="row.metrics.started && !row.metrics.hasActuals" class="pf-badge-neutral">No actuals</div>
+            </div>
+            <div class="pg-cell-remaining pg-list-amount">
+              <template v-if="row.metrics.hasBudget">
+                <div class="pg-list-amount-main">{{ fmtH(row.metrics.remainingHours) }}</div>
+                <div class="pg-list-amount-sub">{{ currency ? formatMoney(row.metrics.remainingMoney, currency, currencies) : 'Mixed currencies' }}</div>
+              </template>
+              <template v-else>—</template>
+            </div>
+            <div class="pg-cell-consumption pg-list-consumption">
+              <template v-if="row.metrics.hasBudget">
+                <div class="pg-tick-bar" :class="'pf-spent-' + spentBarState(row.metrics.consumptionPct)">
+                  <div class="pg-tick-fill pf-spent-bar-fill" :style="{width: Math.min(100, row.metrics.consumptionPct || 0) + '%'}"></div>
+                  <div v-if="row.metrics.timePct !== null" class="pg-tick-mark" :style="{left: Math.min(100, row.metrics.timePct) + '%'}"></div>
+                </div>
+                <div class="pg-list-sub">{{ row.metrics.consumptionPct }}%</div>
+              </template>
+              <div v-else class="pf-badge-neutral">No budget</div>
+            </div>
+            <div class="pg-cell-vstime pg-list-amount" :class="vsTimeClass(row.metrics)">
+              {{ fmtVsTime(row.metrics) }}
+            </div>
+            <div class="pg-cell-action">
+              <button type="button" class="pf-clear-link" @click="goProjectReporting(row.id)">Reporting →</button>
+            </div>
+          </div>
+          <div class="pg-list-row pg-list-total">
+            <div class="pg-cell-name">PROGRAM TOTAL</div>
+            <div class="pg-cell-status"></div>
+            <div class="pg-cell-sold pg-list-amount">
+              <div class="pg-list-amount-main">{{ fmtH(totals.soldHours) }}</div>
+              <div class="pg-list-amount-sub">{{ currency ? formatMoney(totals.soldMoney, currency, currencies) : 'Mixed currencies' }}</div>
+            </div>
+            <div class="pg-cell-spent pg-list-amount">
+              <div class="pg-list-amount-main">{{ fmtH(totals.spentHours) }}</div>
+              <div class="pg-list-amount-sub">{{ currency ? formatMoney(totals.spentMoney, currency, currencies) : 'Mixed currencies' }}</div>
+            </div>
+            <div class="pg-cell-remaining pg-list-amount">
+              <div class="pg-list-amount-main">{{ fmtH(totals.remainingHours) }}</div>
+              <div class="pg-list-amount-sub">{{ currency ? formatMoney(totals.remainingMoney, currency, currencies) : 'Mixed currencies' }}</div>
+            </div>
+            <div class="pg-cell-consumption pg-list-consumption">
+              <div class="pg-tick-bar" :class="'pf-spent-' + spentBarState(totals.consumptionPct)">
+                <div class="pg-tick-fill pf-spent-bar-fill" :style="{width: Math.min(100, totals.consumptionPct || 0) + '%'}"></div>
+              </div>
+              <div class="pg-list-sub">{{ totals.consumptionPct !== null ? totals.consumptionPct + '%' : '—' }}</div>
+            </div>
+            <div class="pg-cell-vstime pg-list-amount" :class="vsTimeClass({ vsTime: programVsTime, started: true })">
+              {{ programVsTime !== null ? (programVsTime > 0 ? '+' : '') + programVsTime + ' pt' : '—' }}
+            </div>
+            <div class="pg-cell-action"></div>
+          </div>
+        </div>
+        </template>
       </div>
     </template>
   </template>
@@ -189,6 +285,13 @@
         const entry = this.attentionEntries.find(e => e.id === id);
         return entry ? (entry.name || entry.id) : '';
       },
+      rows() {
+        const raw = this.metricsList.map(m => ({ id: m.id, cfg: m.cfg, metrics: m.metrics, flagged: this.attention.ids.includes(m.id) }));
+        return sortProjectRows(raw, this.attention.ids);
+      },
+      visibleRows() {
+        return this.attentionFilter ? this.rows.filter(r => r.flagged) : this.rows;
+      },
       domPipeline() {
         const pipelines = this.children.map(c => getProjectPipeline(c.id) || c.pipeline).filter(Boolean);
         return pipelines.length ? pipelines[0] : '';
@@ -253,6 +356,7 @@
       getClientName,
       pipelineBadge,
       getProjectPipeline,
+      statusBadgeLarge,
       fmtH,
       spentPercent,
       spentBarState,
@@ -260,6 +364,22 @@
       fmtMonthFull(ym) {
         return new Date(parseInt(ym.slice(0, 4), 10), parseInt(ym.slice(4, 6), 10) - 1, 1)
           .toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      },
+      fmtMonthShort(ym) {
+        return new Date(parseInt(ym.slice(0, 4), 10), parseInt(ym.slice(4, 6), 10) - 1, 1)
+          .toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      },
+      // D10: red past +10pt, green past -10pt, neutral between. A project that hasn't
+      // started yet always shows '—' (Review Focus 5) rather than a misleading 0pt.
+      fmtVsTime(metrics) {
+        if (!metrics.started || metrics.vsTime === null) return '—';
+        return (metrics.vsTime > 0 ? '+' : '') + metrics.vsTime + ' pt';
+      },
+      vsTimeClass(metrics) {
+        if (!metrics.started || metrics.vsTime === null) return '';
+        if (metrics.vsTime > 10) return 'pg-vstime-danger';
+        if (metrics.vsTime < -10) return 'pg-vstime-success';
+        return '';
       },
       goPortfolio() { window.location.href = '/portfolio.html'; },
       goProjectReporting(id) { window.location.href = '/portfolio.html?projectId=' + encodeURIComponent(id); },
