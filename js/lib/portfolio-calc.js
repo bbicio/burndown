@@ -230,8 +230,8 @@ export function buildPortfolioRows(rows, sortMode) {
 // Percentage of `sold` consumed by `spent`. null when there is nothing sold to
 // measure against (Review Focus 4: sold > 0 and spent === 0 is 0%, not null).
 export function spentPercent(spent, sold) {
-  if (!sold) return null;
-  return (spent / sold) * 100;
+  if (!sold || sold <= 0) return null;
+  return Math.round((spent / sold) * 100);
 }
 
 // Bar color state for a spentPercent() result, thresholds from spec §6.3 (85/100).
