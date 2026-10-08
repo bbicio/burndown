@@ -340,6 +340,10 @@
                 <span class="ms-auto d-inline-flex gap-1" v-html="s.badgesHtml"></span>
               </a>
             </li>
+            <li v-if="dashboardProgram"><hr class="dropdown-divider"></li>
+            <li v-if="dashboardProgram">
+              <a class="dropdown-item" href="#" @click.prevent="goProgramDashboard(dashboardProgram.id)">Program Dashboard →</a>
+            </li>
           </ul>
         </div>
       </div>
@@ -1118,8 +1122,12 @@
       ]});
       if (!user) return;
 
-      if (new URLSearchParams(window.location.search).get('notice') === 'direct-creation-disabled') {
+      const noticeCode = new URLSearchParams(window.location.search).get('notice');
+      if (noticeCode === 'direct-creation-disabled') {
         this.notice = window.PROJECT_RULE_MESSAGES.directCreation;
+        window.history.replaceState(null, '', window.location.pathname);
+      } else if (noticeCode === 'program-not-found') {
+        this.notice = 'Program not found, or it has no projects visible to you.';
         window.history.replaceState(null, '', window.location.pathname);
       }
       await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadCurrenciesFromApi()]);

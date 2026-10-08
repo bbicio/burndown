@@ -79,6 +79,16 @@ describe('portfolio overview guard', () => {
   it('the project reporting view links to its program (Task 7)', () => {
     expect(html).toContain('Program Dashboard →');
   });
+  it('the sibling-project switcher dropdown has a Program Dashboard entry at the bottom (final review finding 3)', () => {
+    const start = html.indexOf('dashboardSiblings.length');
+    const end = html.indexOf('</div>', html.indexOf('</ul>', start));
+    const dropdown = html.slice(start, end);
+    expect(dropdown).toContain('goProgramDashboard');
+    expect(dropdown).toContain('Program Dashboard →');
+  });
+  it('redirects an invalid/missing programId with a notice the Portfolio page displays (final review finding 2)', () => {
+    expect(html).toContain("'program-not-found'");
+  });
 
   it('spentPercent and spentBarState, called bare in the overview template, are registered in methods', () => {
     expect(overviewActive).toMatch(/\bspentPercent\(/);

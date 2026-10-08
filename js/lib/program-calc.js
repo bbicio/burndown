@@ -3,7 +3,10 @@
 // Portfolio (spentPercent/spentBarState from portfolio-calc.js). See
 // docs/superpowers/specs/2026-10-08-program-dashboard-design.md §6.
 
-import { spentPercent, spentBarState, computeBurndownPoints } from './portfolio-calc.js';
+// ?v=5 matches program.html's own <script src="js/lib/portfolio-calc.js?v=5"> tag — bumping
+// one without the other would leave this import resolving to a stale cached copy while the
+// page's own direct references pick up the new one (CLAUDE.md's "Cache-busting" section).
+import { spentPercent, spentBarState, computeBurndownPoints } from './portfolio-calc.js?v=5';
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -120,7 +123,7 @@ export function timeElapsed(range, metrics, today) {
 // Needs-attention rule (D10): Started At Risk, or consumption >= 85%, or
 // (consumption - time) > 10 points. entries = [{ id, name, status, metrics, endYm }].
 export function needsAttention(entries, thresholds = { consumption: 85, vsTime: 10 }) {
-  const ids = [];
+  const flagged = [];
   const reasons = {};
   (entries || []).forEach(e => {
     const { consumptionPct, vsTime } = e.metrics;
@@ -128,7 +131,7 @@ export function needsAttention(entries, thresholds = { consumption: 85, vsTime: 
     const overConsumption = consumptionPct !== null && consumptionPct >= thresholds.consumption;
     const overPace = vsTime !== null && vsTime > thresholds.vsTime;
     if (atRisk || overConsumption || overPace) {
-      ids.push(e.id);
+      flagged.push({ id: e.id, atRisk, consumptionPct: consumptionPct ?? -Infinity, vsTime: vsTime ?? -Infinity });
       const parts = [];
       if (atRisk) parts.push('At risk');
       else if (overConsumption) parts.push('High consumption');
@@ -138,7 +141,10 @@ export function needsAttention(entries, thresholds = { consumption: 85, vsTime: 
       reasons[e.id] = `${parts[0]} · ${pctText}${endText}`;
     }
   });
-  return { ids, reasons };
+  // Worst first (L9: the tile shows "the worst project"): status beats everything,
+  // then the highest consumption, then the widest vs-time gap.
+  flagged.sort((a, b) => (b.atRisk - a.atRisk) || (b.consumptionPct - a.consumptionPct) || (b.vsTime - a.vsTime));
+  return { ids: flagged.map(f => f.id), reasons };
 }
 
 // Default row order (D8/L9): flagged projects first, then by start date. Does not
@@ -170,7 +176,9 @@ export function programBurndown(range, projects, deps) {
   const months = range.months;
   const labels = months.map(ym => ymToDate(ym).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
 
-  const perProject = (projects || []).map(({ cfg, rows }) => {
+  // An undated project has no position on the shared axis (and computeBurndownPoints()
+  // would throw trying to build one from an empty rows array) — exclude it from the sum.
+  const perProject = (projects || []).filter(({ cfg }) => cfg.startDate && cfg.endDate).map(({ cfg, rows }) => {
     const series = computeBurndownPoints(rows, cfg, '', 'monthly', billableData, billableTasks, findRate);
     const yms = series.points.map(dateToYm);
     const burnByYm = {};

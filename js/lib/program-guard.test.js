@@ -88,3 +88,15 @@ describe('program.html Program burndown chart', () => {
     expect(html).toMatch(/chartColor\(\s*'--chart-phasing'/);
   });
 });
+
+describe('program-calc.js\'s portfolio-calc.js import stays cache-bust-aligned (final review finding 5)', () => {
+  it('the ES import version matches the <script> tag version program.html loads', () => {
+    const programCalc = readFileSync(join(process.cwd(), 'js', 'lib', 'program-calc.js'), 'utf8');
+    const importMatch = programCalc.match(/from '\.\/portfolio-calc\.js(\?v=(\d+))?'/);
+    const scriptMatch = html.match(/js\/lib\/portfolio-calc\.js\?v=(\d+)/);
+    expect(importMatch, 'program-calc.js must import portfolio-calc.js').not.toBeNull();
+    expect(scriptMatch, 'program.html must load portfolio-calc.js via a versioned <script> tag').not.toBeNull();
+    expect(importMatch[2], 'the import has no ?v= — a future bump to the script tag would silently miss it').toBeDefined();
+    expect(importMatch[2]).toBe(scriptMatch[1]);
+  });
+});

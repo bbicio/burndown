@@ -117,6 +117,16 @@ describe('needsAttention', () => {
     expect(needsAttention([entry('a', 'Started At Risk', 95, 80)]).reasons.a).toContain('95%');
   });
   it('ignores a project with null percentages', () => expect(needsAttention([entry('a', 'Not started yet', null, null)]).ids).toEqual([]));
+  it('ranks ids worst-first (final review finding 4): at-risk status beats a high consumption-only flag', () => {
+    const mild = entry('mild', 'Started', 90, 85); // flagged on consumption, vsTime only +5
+    const risky = entry('risky', 'Started At Risk', 92, 90); // flagged on status, vsTime only +2
+    expect(needsAttention([mild, risky]).ids).toEqual(['risky', 'mild']);
+  });
+  it('among non-at-risk flags, ranks the higher consumption first', () => {
+    const lower = entry('lower', 'Started', 86, 80);
+    const higher = entry('higher', 'Started', 99, 80);
+    expect(needsAttention([lower, higher]).ids).toEqual(['higher', 'lower']);
+  });
 });
 
 describe('sortProjectRows', () => {
@@ -153,6 +163,16 @@ describe('programBurndown', () => {
   });
   it('returns empty series without a range', () => {
     expect(programBurndown(null, [], deps).labels).toEqual([]);
+  });
+  it('does not crash on an undated project with no actuals (final review finding 1)', () => {
+    const undated = { cfg: cfg({ startDate: null, endDate: null, tasks: [task(10, 100)] }), rows: [] };
+    const dated = { cfg: cfg({ startDate: '202601', endDate: '202603', tasks: [task(50, 100)] }), rows: [] };
+    expect(() => programBurndown(range, [dated, undated], deps)).not.toThrow();
+  });
+  it('excludes an undated project from the aggregated sum (it has no position on the axis)', () => {
+    const undated = { cfg: cfg({ startDate: null, endDate: null, tasks: [task(999, 100)] }), rows: [] };
+    const dated = { cfg: cfg({ startDate: '202601', endDate: '202603', tasks: [task(50, 100)] }), rows: [] };
+    expect(programBurndown(range, [dated, undated], deps).actual[0]).toBe(50);
   });
 });
 
