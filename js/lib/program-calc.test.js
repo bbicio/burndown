@@ -127,6 +127,14 @@ describe('needsAttention', () => {
     const higher = entry('higher', 'Started', 99, 80);
     expect(needsAttention([lower, higher]).ids).toEqual(['higher', 'lower']);
   });
+  it('treats two at-risk projects with no budget as equal instead of comparing -Infinity to itself', () => {
+    // -Infinity - -Infinity is NaN, which makes Array#sort order implementation-defined
+    // and the "Needs attention" tile show an arbitrary one of them.
+    const a = entry('a', 'Started At Risk', null, null);
+    const b = entry('b', 'Started At Risk', null, null);
+    expect(needsAttention([a, b]).ids).toEqual(['a', 'b']);
+    expect(needsAttention([b, a]).ids).toEqual(['b', 'a']);
+  });
 });
 
 describe('sortProjectRows', () => {
@@ -173,6 +181,13 @@ describe('programBurndown', () => {
     const undated = { cfg: cfg({ startDate: null, endDate: null, tasks: [task(999, 100)] }), rows: [] };
     const dated = { cfg: cfg({ startDate: '202601', endDate: '202603', tasks: [task(50, 100)] }), rows: [] };
     expect(programBurndown(range, [dated, undated], deps).actual[0]).toBe(50);
+  });
+  it('still includes an undated project that has actuals: its axis comes from the rows, so it has a position', () => {
+    const dated = { cfg: cfg({ startDate: '202601', endDate: '202603', tasks: [task(50, 100)] }), rows: [] };
+    const undatedWithActuals = { cfg: cfg({ id: 'p2', startDate: null, endDate: null, tasks: [task(100, 100)] }), rows: [{ hours: 10, date: new Date(2026, 0, 15) }] };
+    const withIt = programBurndown(range, [dated, undatedWithActuals], deps).actual[0];
+    const without = programBurndown(range, [dated], deps).actual[0];
+    expect(withIt).toBeGreaterThan(without);
   });
 });
 

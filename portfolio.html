@@ -1127,7 +1127,7 @@
         this.notice = window.PROJECT_RULE_MESSAGES.directCreation;
         window.history.replaceState(null, '', window.location.pathname);
       } else if (noticeCode === 'program-not-found') {
-        this.notice = 'Program not found, or it has no projects visible to you.';
+        this.notice = 'Program not found.';
         window.history.replaceState(null, '', window.location.pathname);
       }
       await Promise.all([loadClientsFromApi(), loadProgramsFromApi(), loadCurrenciesFromApi()]);

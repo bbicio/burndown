@@ -131,7 +131,9 @@ export function needsAttention(entries, thresholds = { consumption: 85, vsTime: 
     const overConsumption = consumptionPct !== null && consumptionPct >= thresholds.consumption;
     const overPace = vsTime !== null && vsTime > thresholds.vsTime;
     if (atRisk || overConsumption || overPace) {
-      flagged.push({ id: e.id, atRisk, consumptionPct: consumptionPct ?? -Infinity, vsTime: vsTime ?? -Infinity });
+      // Finite sentinel: -Infinity would make the comparator below return NaN when two
+      // flagged projects both lack a budget, leaving Array#sort order undefined.
+      flagged.push({ id: e.id, atRisk, consumptionPct: consumptionPct ?? -1, vsTime: vsTime ?? -1 });
       const parts = [];
       if (atRisk) parts.push('At risk');
       else if (overConsumption) parts.push('High consumption');
@@ -176,9 +178,9 @@ export function programBurndown(range, projects, deps) {
   const months = range.months;
   const labels = months.map(ym => ymToDate(ym).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
 
-  // An undated project has no position on the shared axis (and computeBurndownPoints()
-  // would throw trying to build one from an empty rows array) — exclude it from the sum.
-  const perProject = (projects || []).filter(({ cfg }) => cfg.startDate && cfg.endDate).map(({ cfg, rows }) => {
+  // Without dates computeBurndownPoints() derives the axis from the rows, so only a
+  // project with neither has no position at all (and would throw on the empty reduce).
+  const perProject = (projects || []).filter(({ cfg, rows }) => (cfg.startDate && cfg.endDate) || (rows || []).length).map(({ cfg, rows }) => {
     const series = computeBurndownPoints(rows, cfg, '', 'monthly', billableData, billableTasks, findRate);
     const yms = series.points.map(dateToYm);
     const burnByYm = {};

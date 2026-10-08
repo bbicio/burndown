@@ -89,6 +89,13 @@ describe('portfolio overview guard', () => {
   it('redirects an invalid/missing programId with a notice the Portfolio page displays (final review finding 2)', () => {
     expect(html).toContain("'program-not-found'");
   });
+  it('the program-not-found notice does not claim a visibility case program.html never redirects for', () => {
+    // program.html redirects only on a missing programId or a program that does not
+    // exist; zero visible projects renders the empty state instead of bouncing back.
+    const start = html.indexOf("'program-not-found'");
+    expect(start).toBeGreaterThan(-1);
+    expect(html.slice(start, start + 200)).not.toMatch(/no projects visible/i);
+  });
 
   it('spentPercent and spentBarState, called bare in the overview template, are registered in methods', () => {
     expect(overviewActive).toMatch(/\bspentPercent\(/);
