@@ -22,9 +22,9 @@ describe('portfolio overview guard', () => {
     expect(overview).toContain('pf-list');
   });
 
-  it('portfolio.css is linked (versioned) by portfolio.html only', () => {
+  it('portfolio.css is linked (versioned) by portfolio.html and program.html', () => {
     expect(html).toMatch(/css\/portfolio\.css\?v=\d+/);
-    const others = fs.readdirSync(root).filter(f => f.endsWith('.html') && f !== 'portfolio.html');
+    const others = fs.readdirSync(root).filter(f => f.endsWith('.html') && f !== 'portfolio.html' && f !== 'program.html');
     others.forEach(f => expect(read(f), f).not.toContain('portfolio.css'));
   });
 
@@ -37,13 +37,13 @@ describe('portfolio overview guard', () => {
     expect(overviewActive).not.toMatch(/\p{Extended_Pictographic}/u);
   });
 
-  it('every portfolio.css reference is ?v=1', () => {
+  it('every portfolio.css reference is ?v=2', () => {
     const pages = fs.readdirSync(root).filter(f => f.endsWith('.html'));
     let found = 0;
     pages.forEach(f => {
       for (const m of read(f).matchAll(/portfolio\.css\?v=(\d+)/g)) {
         found++;
-        expect(m[1], f).toBe('1');
+        expect(m[1], f).toBe('2');
       }
     });
     expect(found).toBeGreaterThan(0);
