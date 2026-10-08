@@ -71,3 +71,20 @@ describe('program.html Timeline view', () => {
     expect(css).toMatch(/@media\s*\(min-width:\s*1024px\)\s*\{[^}]*\.pg-timeline/s);
   });
 });
+
+describe('program.html Program burndown chart', () => {
+  it('has the title, subtitle and legend labels', () => {
+    expect(html).toContain('Program burndown');
+    expect(html).toContain('Sum of remaining hours across');
+    expect(html).toContain('Remaining hours (actual)');
+    expect(html).toContain('Remaining hours planned (phasing)');
+  });
+  it('has the no-dated-projects message and a PNG download button', () => {
+    expect(html).toContain('No dated projects in this program');
+    expect(html).toMatch(/download\s+PNG/i);
+  });
+  it('reads series colors through chartColor(), never a hex literal', () => {
+    expect(html).toMatch(/chartColor\(\s*'--chart-actual'/);
+    expect(html).toMatch(/chartColor\(\s*'--chart-phasing'/);
+  });
+});

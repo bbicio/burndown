@@ -321,6 +321,12 @@
 .pg-empty-chart { padding: var(--space-6) 0; text-align: center; color: var(--text-muted); font-size: var(--text-sm); }
 .pg-chart-container { position: relative; height: 320px; }
 
+.pg-burndown-legend { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+.pg-legend-line { display: inline-block; width: 16px; height: 2px; }
+.pg-legend-line-actual { background: var(--chart-actual); }
+.pg-legend-line-planned { background: var(--chart-phasing); border-top: 2px dashed var(--chart-phasing); background: none; }
+.pg-download-btn { font-size: var(--text-xs); }
+
 @media (max-width: 1279px) { .pg-kpis { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 767px) { .pg-kpis { grid-template-columns: 1fr; } }
 
