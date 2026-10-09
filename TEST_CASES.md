@@ -1034,7 +1034,7 @@ Spec: `docs/superpowers/specs/2026-10-01-money-centralization-design.md`. One mo
 
 ## 29. Project currency lock (2026-10-01)
 
-Spec: `docs/superpowers/specs/2026-10-01-project-currency-lock-design.md`. A project generated from a proposal keeps its currency, and creating a project without a proposal, deleting a project and unlinking it are inhibited, for everyone except a sysadmin. `PL-05..PL-08` run in `test-api.js` (`PR-01..PR-14`), the rules in `api/src/lib/project-rules.test.js` and `js/lib/project-rules*.test.js`, the api-sync retry in `js/api-sync.test.js`; `PL-01..PL-04` and `PL-09` are manual (browser). Verified in a browser on a branch stack 2026-10-01.
+Spec: `docs/superpowers/specs/2026-10-01-project-currency-lock-design.md`. A project generated from a proposal keeps its currency, and creating a project without a proposal, deleting a project and unlinking it are inhibited, for everyone except a sysadmin. `PCL-05..PCL-08` run in `test-api.js` (`PR-01..PR-14`), the rules in `api/src/lib/project-rules.test.js` and `js/lib/project-rules*.test.js`, the api-sync retry in `js/api-sync.test.js`; `PCL-01..PCL-04` and `PCL-09` are manual (browser). Verified in a browser on a branch stack 2026-10-01.
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
