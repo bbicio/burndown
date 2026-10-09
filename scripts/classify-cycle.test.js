@@ -79,6 +79,23 @@ describe('classifyNameStatus', () => {
     expect(classifyNameStatus(Z('M', '.claude/settings.json')).kind).toBe('ordinary');
   });
 
+  it('refuses a record whose status has no path rather than dropping it', () => {
+    // A truncated stream is the ONE shape that can fabricate a no-code verdict:
+    // dropping the dangling 'M' would leave only docs/a.md and hide whatever
+    // path belonged to it. Not reachable through main() today (execFileSync
+    // throws on a non-zero exit and on maxBuffer overflow), but this is an
+    // exported function and the next caller may stream.
+    expect(classifyNameStatus(Z('M', 'docs/a.md', 'M')).kind).toBe('ordinary');
+  });
+
+  it('a browser-only deliverable under docs/ is code', () => {
+    // docs/OPERATIONAL_MANUAL.html is the file the guard rationale names: it can
+    // be verified only in a browser, so a cycle regenerating it must keep the
+    // browser question. Today the shared .md check covers it; this pins it
+    // against a later refactor that splits the clauses and relaxes docs/.
+    expect(classifyNameStatus(Z('M', 'docs/OPERATIONAL_MANUAL.html')).kind).toBe('ordinary');
+  });
+
   it('treats a named exception as code', () => {
     const r = classifyNameStatus(Z('M', 'TEST_CASES.md'), ['TEST_CASES.md']);
     expect(r.kind).toBe('ordinary');
@@ -192,6 +209,21 @@ describe('classify-cycle.mjs end to end', () => {
     const r = run(wt);
     expect(firstLine(r.stdout)).toBe('no-code');
     expect(r.stdout).toContain('docs/b.md');
+  }, 30000);
+
+  it('reports a git failure once, not twice', () => {
+    // execFileSync forwards the child's stderr to the parent even with the
+    // default 'pipe', so git's own message was printed raw AND again inside the
+    // wrapper. Outside a repository git implies --no-index and dumps its whole
+    // option list, which turned the end of a green `npm test` into a wall of
+    // help text that reads like a crash.
+    const d = repo();
+    write(d, 'docs/a.md', 'x\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'base');
+
+    const r = run(d, 'nosuchbranch...HEAD');
+    expect(r.stderr.match(/fatal:/g) ?? []).toHaveLength(1);
   }, 30000);
 
   it('never prints no-code when it cannot read a repository', () => {

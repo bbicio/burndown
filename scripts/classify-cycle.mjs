@@ -58,9 +58,13 @@ export function classifyNameStatus(z, exceptions = RUNTIME_LOADED_ROOT_MD) {
     const status = fields[i++];
     // A rename or copy record carries two paths; everything else carries one.
     const take = /^[RC]/.test(status) ? 2 : 1;
-    for (let n = 0; n < take; n++) {
-      if (i < fields.length) paths.push(fields[i++]);
+    if (i + take > fields.length) {
+      // A status token with no path left is a truncated stream, and dropping it
+      // is the one way this function can fabricate a `no-code`: the paths that
+      // belonged to it would simply be missing from the verdict. Refuse instead.
+      return { kind: 'ordinary', paths };
     }
+    for (let n = 0; n < take; n++) paths.push(fields[i++]);
   }
 
   // An empty diff must not qualify vacuously: "every path qualifies" is true of
@@ -92,6 +96,12 @@ export function main(argv = process.argv) {
   const range = argv[2] ?? 'main...HEAD';
   const z = execFileSync('git', ['diff', '--name-status', '--find-renames', '-z', range], {
     encoding: 'utf8',
+    // Capture the child's stderr instead of letting it through: execFileSync
+    // forwards it to the parent even with the default 'pipe', so git's own
+    // message would be printed raw and again inside the wrapper below — and
+    // outside a repository git implies --no-index and dumps its whole option
+    // list, which made the end of a green `npm test` read like a crash.
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
   const { kind, paths } = classifyNameStatus(z);
   process.stdout.write([kind, ...paths].join('\n') + '\n');

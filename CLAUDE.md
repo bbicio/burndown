@@ -91,7 +91,7 @@ scripts/test-branch.sh status  # "up" (exit 0) or "down" (exit 1) — both conta
                                 # for "up" (2026-08: previously just checked they existed via `docker ps`)
 ```
 
-`/finish-cycle`'s Gate 2 calls `status` automatically to detect a branch environment still running from an earlier `/finish-cycle` attempt on the same branch, and asks to reuse or rebuild it instead of the plain "spin up now?" question. **This is the ordinary branch only** (2026-10-09): on a **no-code cycle** — every path in `git diff --name-status --find-renames main...HEAD` being a `.md` under `.claude/` or under `docs/`, or a root-level `*.md` — Gate 2 skips its steps 1-5, so it never offers a stack at all; it runs `status` read-only after the user confirms the classification and *reports* a stack left running by an earlier attempt rather than reusing, rebuilding or tearing it down.
+`/finish-cycle`'s Gate 2 calls `status` automatically to detect a branch environment still running from an earlier `/finish-cycle` attempt on the same branch, and asks to reuse or rebuild it instead of the plain "spin up now?" question. **This is the ordinary branch only** (2026-10-09): on a **no-code cycle** — as classified by `node scripts/classify-cycle.mjs`, whose rule is pinned by `scripts/classify-cycle.test.js` and explained in `PROCESS.md` §6 point 4c — Gate 2 skips its steps 1-5, so it never offers a stack at all; it runs `status` read-only after the user confirms the classification and *reports* a stack left running by an earlier attempt rather than reusing, rebuilding or tearing it down.
 
 No bundler, no build step for the **runtime** — nginx serves `js/`/`css/` files exactly as they are on disk, and this must stay true.
 
