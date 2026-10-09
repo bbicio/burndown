@@ -40,7 +40,12 @@ function readAuto(cell) {
 }
 
 export function parseTestCases(markdown) {
-  const lines = String(markdown ?? '').replace(/^﻿/, '').split(/\r?\n/);
+  // HTML comments are invisible in any Markdown reader; escaped into the page
+  // they would show up as content (e.g. "## 13. Timesheets <!-- was 12 -->").
+  const lines = String(markdown ?? '')
+    .replace(/^﻿/, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .split(/\r?\n/);
 
   const sections = [];
   const warnings = [];

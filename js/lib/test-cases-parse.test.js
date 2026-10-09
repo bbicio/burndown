@@ -101,6 +101,11 @@ describe('parseTestCases', () => {
     expect(warnings).toEqual([]);
   });
 
+  it('drops HTML comments, which a Markdown reader never shows', () => {
+    const { sections } = parseTestCases('## 13. Timesheets <!-- was 12 -->\n');
+    expect(sections[0].title).toBe('13. Timesheets');
+  });
+
   it('disambiguates colliding slugs', () => {
     const { sections } = parseTestCases('## Same\n\n## Same\n');
     expect(sections.map((s) => s.id)).toEqual(['same', 'same-2']);
