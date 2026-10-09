@@ -24,7 +24,7 @@ The app is backed by a Node.js/Express REST API and a PostgreSQL database, with 
 
 ## 3. Views and Navigation
 
-The application has three primary views accessible from the main navigation, plus a full-screen editor overlay.
+The application has three primary views accessible from the main navigation.
 
 **Navigation (2026-10-02, replaces the former top navbar and footer):** on screens at least 1024px wide a **left sidebar** is shown, open by default and collapsible to a narrow icon rail with a button at the top; the choice is remembered across pages and visits. The sidebar lists the three views, then — for admins and sysadmins — an **ADMIN** section and — for sysadmins only — a **SYSADMIN** section, always expanded (no dropdowns); the current page is highlighted with a magenta marker. At its bottom it shows the user's initials and email (opening the account menu: My Profile, Settings, Send Notification, Change password, Sign out), the notification bell, and a "© 2026 PDash" line (open sidebar only). In the collapsed icon rail, hovering (or tabbing to) an icon, the initials or the bell shows a small dark tooltip to the right of the rail with its name (the user's email for the initials, "Notifications" for the bell); with the sidebar open, and on narrow screens, the browser's standard tooltip is used instead. On narrower screens (phones, portrait tablets) the navigation becomes a dark top bar with icons only: logo, bell and initials on the right, an icon per view, and one icon (with a small dot) for each of Admin and Sysadmin, which opens a full-width panel listing their pages. The breadcrumb is shown only on wide screens, and there is no footer anywhere in the application. A page's menu name, browser-tab title and breadcrumb are the same.
 
@@ -39,8 +39,6 @@ Admin section entries: **Master Data** (the Config page, formerly "Config"), **T
 Some pages have no menu entry at all and are reached only in context from the page that owns them — the project configuration form and the **Program Dashboard** (§6.1a) from the Portfolio, the profile-processing console from Timesheets.
 
 **Default view on load:** Pipeline.
-
-A secondary sub-navigation row (`appSubnav`) appears within the Reporting view for additional configuration panels.
 
 ---
 
@@ -82,7 +80,7 @@ Clicking a card (anywhere other than the actions), or pressing Enter/Space on it
 
 ### 4.3a Filtering (2026-09)
 
-A filter bar sits below the title, above the columns, so the board stays readable as the number of offers grows. In order: a free-text search box (matches offer name or client name), then four multi-select dropdown filters — Owner, Client, Currency, and Value (deal size, bucketed €0–20K / €20K–50K / €50K–100K / €100K–200K / €200K+, with an "Include PTC" toggle deciding whether pass-through costs count toward the bucket). Selecting multiple values within one filter is an OR (e.g. two owners at once); different filters combine as AND. All filtering updates the board instantly as selections change, and a "Clear filters" control appears once any filter is active. Filters never change which offers a user is allowed to see (§3.3/§18) — they only narrow what's already visible — and the Draft column is always shown in full, unaffected by any filter, since it's a private working copy. Filters reset whenever the page is reloaded.
+A filter bar sits below the title, above the columns, so the board stays readable as the number of offers grows. In order: a free-text search box (matches offer name or client name), then four multi-select dropdown filters — Owner, Client, Currency, and Value (deal size, bucketed €0–20K / €20K–50K / €50K–100K / €100K–200K / €200K+, with an "Include PTC" toggle deciding whether pass-through costs count toward the bucket). Selecting multiple values within one filter is an OR (e.g. two owners at once); different filters combine as AND. All filtering updates the board instantly as selections change, and a "Clear filters" control appears once any filter is active. Filters never change which offers a user is allowed to see (§18) — they only narrow what's already visible — and the Draft column is always shown in full, unaffected by any filter, since it's a private working copy. Filters reset whenever the page is reloaded.
 
 **Search suggestions (2026-10-06):** while the search box has focus, a menu under it suggests matches in the selected pipeline year: CLIENTS (with their number of proposals — clicking one filters the board to that client and clears the search text) and up to four PROPOSALS (amount, stage, client — clicking one opens its detail panel), with "N more results — refine your search" when there are more. The board keeps filtering as you type; the menu is only a shortcut. Esc or a click elsewhere closes it.
 
