@@ -35,14 +35,32 @@ Review all recent code changes in this session (and git diff if needed) and upda
 - If an endpoint's auth changed (e.g. requireAdmin → requireAuth), update the SEC-01 loop or add a new security assertion.
 - Call new test functions from main() in a logical order.
 
-### 5. PRD.md (only if user-visible behaviour changed)
+### 5. PRD.md + docs/prd/ (only if user-visible behaviour changed)
+
+**The PRD is a set of files, not one** (2026-10-09). `PRD.md` holds the product-wide sections (§1 Overview, §2 Users, §3 Views and Navigation, §13 Non-functional requirements) and an Index; each product area lives in its own file under `docs/prd/`. Update the file that owns the area you changed, and touch `PRD.md` itself only for a product-wide fact or an Index row. Routing:
+
+| Area changed | File |
+|---|---|
+| Pipeline board, offer cards, detail panel, offer editor | `docs/prd/pipeline.md` (§4) |
+| Resource planning | `docs/prd/planning.md` (§5) |
+| Project reporting, Program Dashboard | `docs/prd/reporting.md` (§6) |
+| Project configuration form | `docs/prd/project-config.md` (§7.1) |
+| Clients, client groups, pipelines & POTs, roles, currencies | `docs/prd/master-data.md` (§7.2–§7.7) |
+| Timesheet upload | `docs/prd/timesheets.md` (§8) |
+| Settings, notifications, Team assistant | `docs/prd/notifications.md` (§9–§11) |
+| User admin, Team, attribute lists, profile processing | `docs/prd/administration.md` (§16) |
+| Authentication, GDPR, sharing & permissions | `docs/prd/access.md` (§15, §17, §18) |
+
+**Section numbers are stable and never renumbered.** §12 and §14 were removed on 2026-10-09 (they duplicated `ARCHITECTURE.md` §5 and `css/tokens.css`), so those two numbers are simply unused — do not close the gap. Other documents cite these numbers, notably `operational-manual`'s inlined reference (see §5b), and renumbering would silently invalidate all of them.
+
+- **Two cases are user-visible by definition — update, do not ask** (2026-10-09): a page added to or removed from `CLAUDE.md`'s Pages table, and a control a user can see or click added or removed. Both change what a user can do or see, so there is nothing to weigh: write the change into the matching file in the same cycle. **A page added or removed also belongs in `PRD.md` §3** (the menu entry, and whether the page has no menu entry and is reached only in context) — §3 is product-wide and is therefore not in the routing table above, so a cycle that only updates the area file leaves the navigation description wrong. This replaces asking in the one place where the answer was never in doubt; everything below still applies to the genuinely ambiguous cases.
 - Trigger only when the change alters what a user can do, see, or experience: a new page/view, a new feature, a changed user flow, a changed permission/role behaviour, or a UI element added/removed that affects how the product is used.
 - Do NOT trigger for internal refactors, extracted modules, added tests, dev tooling, or changes to files/functions that produce byte-identical user-facing behaviour — even if extensive.
 - If the change is a bugfix, update PRD.md only if the PRD's description of the feature was itself inaccurate (i.e. the bug meant the PRD never matched reality); do not update it for fixes that restore documented behaviour.
 - **When in doubt whether a change is "user-visible," ask the user explicitly, one targeted question, rather than silently leaving PRD.md untouched.** (2026-09 revision — the previous "flagging beats guessing" rule let genuine gaps accumulate silently over many cycles; a 2026-09-16 `domain-audit` of `PRD.md` against the live app found 14 such gaps, several of them entire undocumented features. Silent omission is no longer acceptable for anything that touches a real, new user-facing screen, tab, button, or modal — ask instead of skip. A change that's genuinely internal after the user confirms it is still fine to leave undocumented; the fix is asking, not defaulting either way.)
 
-### 5b. `.claude/skills/operational-manual/SKILL.md`'s inlined detail-content reference (only if PRD.md was updated in this cycle)
-If PRD.md was touched above, check whether any of the changed sections fall within the manual's own scope (this skill's "PDash detail-content reference" section mirrors `PRD.md` section-by-section) and update that reference to match — same content, same level of care as when it was first built. This keeps the skill's own reference from silently going stale the same way `PRD.md` itself did before 2026-09-16, even though the manual (`docs/OPERATIONAL_MANUAL.html`) itself stays regenerated only on explicit request, not on every cycle.
+### 5b. `.claude/skills/operational-manual/SKILL.md`'s inlined detail-content reference (only if `PRD.md` or any `docs/prd/` file was updated in this cycle)
+If `PRD.md` **or any `docs/prd/` file** was touched above, check whether any of the changed sections fall within the manual's own scope (that skill's "PDash detail-content reference" section mirrors the PRD area by area, but its headings are the **manual's own** chapter numbers, which are not a one-to-one map onto the PRD's — one of them reads `§13/§16 Administration`, where PRD §13 is Non-functional requirements. Match by subject, never by assuming `§N` means the same thing on both sides. The `PRD §N` citations *inside* those bullets are the PRD's, and §5 above keeps that numbering stable, so a moved section does not invalidate them) and update that reference to match. **Name the area file whose change triggered this**, so the next run can tell what was already reconciled — same content, same level of care as when it was first built. This keeps the skill's own reference from silently going stale the same way `PRD.md` itself did before 2026-09-16, even though the manual (`docs/OPERATIONAL_MANUAL.html`) itself stays regenerated only on explicit request, not on every cycle.
 
 ### 6. docs/superpowers/PROCESS.md (only if the cycle changed the development *process* itself, not the product)
 
@@ -74,4 +92,4 @@ The auto-memory directory named in the session's system prompt (`~/.claude/proje
 1. Read the current state of each file before editing.
 2. Cross-reference against the actual code (js/, api/src/routes/, costgrid.html, config.html, etc.) to verify what changed.
 3. Make targeted edits — do not rewrite sections that are still accurate.
-4. Report a brief summary at the end: which files were updated and what changed in each. Always explicitly state whether PRD.md was evaluated and the outcome — updated / not necessary (internal-only change) / ambiguous (needs human verification) — even when PRD.md itself was left untouched. Always explicitly state the PROCESS.md gate's answer (which of the three conditions applied, or none) — even when PROCESS.md itself was left untouched. Always include a "Memory" line (section 7): each memory file changed with its before → after, plus any item left as "unverified", or "evaluated, no change" naming the files checked.
+4. Report a brief summary at the end: which files were updated and what changed in each. Always explicitly state whether the PRD (`PRD.md` **and** `docs/prd/`) was evaluated and the outcome — updated, naming which area file / not necessary (internal-only change) / ambiguous (needs human verification) — even when none of them was touched. Always explicitly state the PROCESS.md gate's answer (which of the three conditions applied, or none) — even when PROCESS.md itself was left untouched. Always include a "Memory" line (section 7): each memory file changed with its before → after, plus any item left as "unverified", or "evaluated, no change" naming the files checked.
