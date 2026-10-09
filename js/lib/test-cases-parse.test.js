@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { parseTestCases, formatCell } from './test-cases-parse.js';
 
 const MD = [
@@ -127,5 +128,30 @@ describe('formatCell', () => {
 
   it('escapes an ampersand first, so an entity is not double-decoded', () => {
     expect(formatCell('a & b')).toBe('a &amp; b');
+  });
+});
+
+// The page renders this exact file, so these are the tests that stop a future
+// /sync-docs from breaking it by writing malformed Markdown.
+describe('the real TEST_CASES.md', () => {
+  const parsed = parseTestCases(readFileSync('TEST_CASES.md', 'utf8'));
+  const allCases = parsed.sections.flatMap((s) => s.cases);
+
+  it('parses with no warnings', () => {
+    expect(parsed.warnings).toEqual([]);
+  });
+
+  it('yields at least 797 cases across at least 35 sections', () => {
+    expect(allCases.length).toBeGreaterThanOrEqual(797);
+    expect(parsed.sections.length).toBeGreaterThanOrEqual(35);
+  });
+
+  it('gives every case a non-empty steps', () => {
+    expect(allCases.filter((c) => !c.steps).map((c) => c.id)).toEqual([]);
+  });
+
+  it('has no duplicate case id', () => {
+    const ids = allCases.map((c) => c.id);
+    expect(ids.length).toBe(new Set(ids).size);
   });
 });

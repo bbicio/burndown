@@ -317,7 +317,7 @@
 | PC-07 | Planning | Edit monthly planning hours → save | Resource planning page reflects updated hours | |
 | PC-08 | Functional groups | Add group with roles → save | Group persisted; visible on next form load | |
 | PC-09 | Status change persists | Open project config; change Status dropdown from "Started" to "Put on hold" → Save | DB `status` column updated; reopening form shows new status; no FK constraint error from currency symbol | |
-| PC-10 | Currency is read-only and survives a save (changed 2026-10-01: ISO codes in memory, then the currency lock) | Open a project: the Currency menu is disabled (hint under it); change another field, save; reload | The menu still shows the project's currency; DB keeps the ISO code (`EUR`, `USD`, …) and so does the in-memory project (no symbol↔code translation); the save sends the unchanged currency and is accepted (no 400, no FK violation). See PL-03 | |
+| PC-10 | Currency is read-only and survives a save (changed 2026-10-01: ISO codes in memory, then the currency lock) | Open a project: the Currency menu is disabled (hint under it); change another field, save; reload | The menu still shows the project's currency; DB keeps the ISO code (`EUR`, `USD`, …) and so does the in-memory project (no symbol↔code translation); the save sends the unchanged currency and is accepted (no 400, no FK violation). See PCL-03 | |
 | PC-11 | Status options follow Pipeline — Committed includes Started At Risk | Set Pipeline to "Committed"; open the Status dropdown | Options include "Started At Risk" (alongside "Started", "Put on hold", "Completed") — same as "Expected"/"Anticipated" | |
 | PC-12 | Completed status — badge and Planning exclusion | Set Status to "Completed"; save; view the project's badge elsewhere; open Resource Planning | Badge renders navy ("Completed" style, not the default/grey fallback); project does not appear in Resource Planning's eligible-projects list | |
 | PC-13 | "+ New client"/"+ New program" Save ignores a fast repeat click | Click "+ New client" (or "+ New program") next to the respective dropdown, enter a name, then click Save twice in quick succession before the first request resolves | Only one client (or program) is created, not two; the button shows "Saving…" and is disabled for the duration of the real request | |
@@ -620,7 +620,7 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | NT-20 | Re-enabling after a local disable doesn't re-prompt the browser | With popups locally disabled (NT-19) and permission already granted, click "Enable" | Popups resume immediately — no browser permission prompt appears again, since permission was never actually revoked | |
 | NT-21 | Row hidden entirely if the browser itself denies permission | Deny the browser's permission prompt (or block this origin in the browser's own site settings), then open the panel | No row shown at all — this app has no way to override a browser-level block | ✓ (vitest, getBrowserNotifBannerState) |
 | NT-22 | Disable survives navigating to another page (2026-09) | With permission granted, click "Disable", then navigate to a different PDash page (full page load, not the same tab's SPA state) | Row still reads "Enable" on the new page — the opt-out is not silently wiped by `js/core.js`'s legacy-localStorage cleanup, which runs on every page load | |
-| NT-23 | Export ready notifies the requester in-app too (2026-09) | `POST /api/exports/{portfolio|cost-grids|ratecards}` (no UI since 2026-09-30) | Alongside the existing email, an in-app notification appears for the requester themselves — "Your export is ready" — previously email only | |
+| NT-23 | Export ready notifies the requester in-app too (2026-09) | `POST /api/exports/{portfolio\|cost-grids\|ratecards}` (no UI since 2026-09-30) | Alongside the existing email, an in-app notification appears for the requester themselves — "Your export is ready" — previously email only | |
 
 ---
 
@@ -665,16 +665,18 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 
 ## 16. API — Security and Validation
 
-| ID | Scenario | Expected | Auto |
-|---|---|---|---|
-| SEC-01 | Unauthenticated request to any `/api/*` (except auth endpoints) | 401 | ✓ |
-| SEC-02 | `user` role calls admin-only endpoint | 403 | |
-| SEC-03 | User requests another user's private (Draft) CG by ID | 403 | |
-| SEC-04 | GET `/api/cost-grids?year=YYYY` where year is inactive | 403 | ✓ |
-| SEC-05 | GET `/api/cost-grids?year=YYYY` where year is not in pipeline_years | 404 | ✓ |
-| SEC-06 | POST `/api/pots` with non-existent clientId | 400 / 404 | |
-| SEC-07 | POST `/api/pots` — duplicate (same client + year) | 409 | ✓ |
-| SEC-08 | DELETE `/api/pipeline-years/:id` where year has CG versions | 409 | |
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| SEC-01 | Unauthenticated request to any `/api/*` (except auth endpoints) | Send GET/POST/PATCH/DELETE to any `/api/*` endpoint without a session cookie | 401 | ✓ |
+| SEC-02 | `user` role calls admin-only endpoint | Log in as role=user; call `POST /api/clients`, `POST /api/pipeline-years`, `GET /api/users` | 403 | |
+| SEC-03 | User requests another user's private (Draft) CG by ID | As user B, GET or edit a Draft cost grid owned by user A | 403 — grid not returned, and not visible on user B's board | |
+| SEC-04 | GET `/api/cost-grids?year=YYYY` where year is inactive | `GET /api/cost-grids?year=YYYY` where that year is in `pipeline_years` but `active=false` | 403 | ✓ |
+| SEC-05 | GET `/api/cost-grids?year=YYYY` where year is not in pipeline_years | `GET /api/cost-grids?year=9998`, a year not in `pipeline_years` at all | 404 | ✓ |
+| SEC-06 | POST `/api/pots` with non-existent clientId | `POST /api/pots` with a `clientId` that does not exist | 400 / 404 | |
+| SEC-07 | POST `/api/pots` — duplicate (same client + year) | `POST /api/pots` for a `clientId` + year that already has a POT | 409 | ✓ |
+| SEC-08 | DELETE `/api/pipeline-years/:id` where year has CG versions | `DELETE /api/pipeline-years/:id` for a year with at least one `cost_grid_version` referencing it | 409 | |
+| SEC-09 | JWT cookie not accessible from JavaScript (`document.cookie`) | In the browser DevTools console run `document.cookie` | `pdash_token` value not listed — httpOnly flag prevents JS access | |
+| SEC-10 | Non-admin can read ratecards | Log in as `user` role; `GET /api/ratecards` and `GET /api/ratecards/:id` | 200 — read access is requireAuth; POST/PATCH/DELETE still return 403 (unauthenticated write → 401 checked in auto suite) | |
 
 ---
 
@@ -703,8 +705,6 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | DR-14b | Change owner — plain admin rejected | PATCH `/api/admin/reset/cost-grid/:cgId/owner` as role=admin | 403 "Sysadmin access required" | ✓ |
 | DR-15 | Change owner widget — unknown UUID | Enter a UUID that does not match any cost grid; click Assign (as sysadmin) | API returns 404; error message shown; no change made | ✓ |
 | DR-16 | Change owner — resource_shares stays in sync (2026-09) | PATCH `/api/admin/reset/cost-grid/:cgId/owner` to reassign to a genuinely different user, then GET `/api/cost-grids/:id/shares` | Previous owner's `resource_shares` row is gone; new owner has a `resource_shares` row with `permission: 'owner'`; exactly one `owner` row exists — fixes a bug where the old owner kept a stale owner row forever (un-shareable, and the real new owner never appeared in "who has access") | ✓ |
-| SEC-09 | JWT cookie not accessible from JavaScript (`document.cookie`) | `pdash_token` value not listed — httpOnly flag prevents JS access | |
-| SEC-10 | Non-admin can read ratecards | Log in as `user` role; GET /api/ratecards and GET /api/ratecards/:id | 200 — read access is requireAuth; POST/PATCH/DELETE still return 403 (unauthenticated write → 401 checked in auto suite) | |
 
 ---
 
@@ -1009,7 +1009,7 @@ Closing of the open findings of the tag cycle (`docs/superpowers/specs/2026-09-3
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
 | HD-01 | Version routes are scoped to their grid | As a user with access to grid A, call each of the cross-grid routes (PATCH/DELETE/duplicate of a version, structure GET/PUT, linked-projects GET/POST/DELETE, refresh-rate, publish, tags GET/PUT) with a version id that belongs to grid B, and with a non-UUID version id | 404 `{ error: 'Version not found' }` for every route; no change to grid B; 401 before 404 (automated by VS-13); the 403 for a user without access stays in the handlers (canEdit/canAccess), unchanged | ✓ |
-| HD-02 | PATCH project rejects a non-UUID link id | `PATCH /api/projects/:id` with `cgVersionId: 'abc'`, then `clientId: 'abc'`; then with `cgVersionId: null` and an empty string | 400 `<field> must be a valid UUID` (field = cgVersionId or clientId) for the malformed values; null and empty string still unlink the client, and the version of a project that has none (a project that is linked to a proposal can no longer be unlinked by a non-sysadmin, see PL-05 / `PR-06`) | ✓ |
+| HD-02 | PATCH project rejects a non-UUID link id | `PATCH /api/projects/:id` with `cgVersionId: 'abc'`, then `clientId: 'abc'`; then with `cgVersionId: null` and an empty string | 400 `<field> must be a valid UUID` (field = cgVersionId or clientId) for the malformed values; null and empty string still unlink the client, and the version of a project that has none (a project that is linked to a proposal can no longer be unlinked by a non-sysadmin, see PCL-05 / `PR-06`) | ✓ |
 | HD-03 | Admin reading a project without actuals | `GET /api/timesheets/:projectCode` for a code with no actuals as an admin, then as a plain user without access to it | Admin/sysadmin: 200 `[]`; plain user: 403 (rule unchanged) | ✓ |
 | HD-04 | Tag rollback ignores a version switch | Open a version with a tag in `costgrid.html`; in the console make `PUT .../tags` answer 500 after a 2-second delay (`fetch` override); click a tag, then switch to another version within 2 s | The other version's tags and checkboxes stay as loaded (the failed PUT's rollback is not applied to the wrong version) |  |
 | HD-05 | No 403 for an admin on a project without actuals | As an admin open `project-config.html` for a project that has no actuals and watch the console/network | No 403 on `GET /api/timesheets/:code`; the page loads normally |  |
@@ -1026,9 +1026,9 @@ Spec: `docs/superpowers/specs/2026-10-01-money-centralization-design.md`. One mo
 | MN-02 | A value typed in the currency's own format is stored as typed | In an EUR project type `150,75` in a phasing cell and in a PTC Amount; save and reload | `€ 150,75`; stored 150.75 | |
 | MN-03 | Other currencies use their own convention | Projects in USD, CHF and JPY: same fields | USD `$ 1,234.50`; CHF `CHF 1'234.50` (de-CH); JPY `¥ 1,235` (no decimals); focus/blur never changes the value (JPY rounds a fractional stored value to whole units, by design) | |
 | MN-04 | Thousands are always separated | Any amount of 1.000 or more in an EUR currency, e.g. 1234,5 | `€ 1.234,50` (not `€ 1234,50`); focus text for editing stays without separators | |
-| MN-05 | The Currency menu follows the active currencies | Activate USD/CHF/JPY in `master-currencies.html`; open a proposal without generated projects in `costgrid.html` (and, read-only, a project in `project-config.html`) | The menu lists exactly the active currencies (symbol + name); in `project-config.html` it is read-only since the currency lock (PL-03) but still shows the project's currency, even if it was deactivated since | |
+| MN-05 | The Currency menu follows the active currencies | Activate USD/CHF/JPY in `master-currencies.html`; open a proposal without generated projects in `costgrid.html` (and, read-only, a project in `project-config.html`) | The menu lists exactly the active currencies (symbol + name); in `project-config.html` it is read-only since the currency lock (PCL-03) but still shows the project's currency, even if it was deactivated since | |
 | MN-06 | Per-task PTC in the cost grid | `costgrid.html`, EUR grid: type `150,75` in a task's PTC; type `1.234,5` | `150,75` is used as 150.75 (totals update while typing, no longer truncated to 150); `1.234,5` ends as `€ 1.234,50`; focus/blur leaves the value unchanged | |
-| MN-07 | Changing the currency of a cost grid (only possible while no project was generated from the version, PL-01) | `costgrid.html`, a proposal without projects: change the Currency select (e.g. CHF → USD) → confirm in the modal; then reload | The modal lists each role rate in both currencies' formats; confirming applies the new currency, the rate shown under the select is the admin rate (`1 EUR = 1.300000 $`), amounts re-render in `$`, no console error; reload shows the saved currency and rate (regression 2026-10-01: the confirm handler threw `newEntry is not defined`). Automated: `costgrid-currency-change.test.js` | |
+| MN-07 | Changing the currency of a cost grid (only possible while no project was generated from the version, PCL-01) | `costgrid.html`, a proposal without projects: change the Currency select (e.g. CHF → USD) → confirm in the modal; then reload | The modal lists each role rate in both currencies' formats; confirming applies the new currency, the rate shown under the select is the admin rate (`1 EUR = 1.300000 $`), amounts re-render in `$`, no console error; reload shows the saved currency and rate (regression 2026-10-01: the confirm handler threw `newEntry is not defined`). Automated: `costgrid-currency-change.test.js` | |
 | MN-08 | Portfolio list and detail use each project's currency | `portfolio.html`: projects in EUR/USD/CHF/JPY; open one project's dashboard | List cards (Sold/Spent/Variance, budget badge) and the dashboard show the project's own currency and format (not `€` for every project); a program whose projects share one currency totals in it, a mixed-currency program totals in `€` (raw sums, no conversion: known limitation) | |
 | MN-09 | Pipeline-change notification amount | Change a version's pipeline stage (e.g. SIP → Expected) and open the admin bell | `Value: € 21.555` (locale format of the version currency, no decimals), not `€ 21,555` | |
 
@@ -1038,15 +1038,15 @@ Spec: `docs/superpowers/specs/2026-10-01-project-currency-lock-design.md`. A pro
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
-| PL-01 | Costgrid Currency menu locks when a project exists | `costgrid.html`, a proposal with a generated project (e.g. SIP): look at the Currency menu; then a proposal without projects | Disabled with the tooltip "Currency is locked: a project has already been generated from this proposal." on the first (client, pipeline and description stay editable); enabled on the second | |
-| PL-02 | The lock appears right after Generate project | On a proposal without projects select tasks → ▶ Create project → confirm; do not reload; then reload | The Currency menu is disabled immediately after the creation (no reload needed) and stays disabled after the reload; "＋ Add to project" still works | |
-| PL-03 | project-config Currency is read-only | Open any project in `project-config.html` | Menu disabled, hint "Currency cannot be changed here: amounts are not converted yet. Contact a sysadmin if it must be corrected."; changing another field and saving works (the unchanged currency is accepted) | |
-| PL-04 | Direct project creation is off | `portfolio.html`: look at `＋ New project`; type `/project-config.html` without `?projectId=` in the URL bar | Button disabled with the tooltip "Projects are created from a proposal (Generate project). Creating a project directly is temporarily disabled."; the URL redirects to the portfolio, an info alert shows the same message and disappears on reload | |
-| PL-05 | The API refuses what the lock forbids (non-sysadmin) | As an admin: `POST /api/projects` without `cgVersionId`; `PATCH` a linked project with another `currency`; `PATCH {cgVersionId: null}` or another version; `DELETE /api/projects/:id`; `DELETE …/linked-projects/:projectId`; `PATCH` the currency of a version with projects; `DELETE` a version/proposal that has projects | `400` `{ error, code: 'PROJECT_RULE' }` with the approved message each time ("Projects must be created from a proposal", "Currency cannot be changed: amounts are not converted yet", "Currency cannot be changed: projects are linked to this proposal", "Deleting a project or unlinking it from its proposal is temporarily disabled"); re-sending the same `currency`/`cgVersionId` is accepted (200); linking an unlinked project is still allowed | ✓ |
-| PL-06 | A sysadmin may | The same requests as a sysadmin | They succeed (the sysadmin role is read from the DB, so a demoted sysadmin loses the exception at once) | ✓ |
-| PL-07 | A project and its proposal share the currency at link time | As an admin: `POST /api/projects` with a `cgVersionId` and another `currency`; `PATCH` linking a project of another currency; `POST …/linked-projects` of another currency; a `cgVersionId` that points at no version | `400` "The project and the proposal must have the same currency" (sysadmin exempt); `400` "Proposal version not found" for an unknown version (also for a sysadmin); same-currency links succeed (what "Generate project" does) | ✓ |
-| PL-08 | Currency change and linking cannot diverge under concurrency | Fire `PATCH` version currency and `POST /api/projects` linked to that version at the same time, several times | In every round either the project is created and the currency change is refused, or the change wins and the link is refused; never a project and a version in different currencies (`PR-14`) | ✓ |
-| PL-09 | A refused save shows the rule's message | With a tampered request (e.g. console) make `PATCH /api/projects/:id` answer a rule refusal during a project-config save | The save fails with the rule's message in the usual error alert; no `POST`/duplicate-key error (api-sync does not retry a `PROJECT_RULE` refusal). Automated: `js/api-sync.test.js` | |
+| PCL-01 | Costgrid Currency menu locks when a project exists | `costgrid.html`, a proposal with a generated project (e.g. SIP): look at the Currency menu; then a proposal without projects | Disabled with the tooltip "Currency is locked: a project has already been generated from this proposal." on the first (client, pipeline and description stay editable); enabled on the second | |
+| PCL-02 | The lock appears right after Generate project | On a proposal without projects select tasks → ▶ Create project → confirm; do not reload; then reload | The Currency menu is disabled immediately after the creation (no reload needed) and stays disabled after the reload; "＋ Add to project" still works | |
+| PCL-03 | project-config Currency is read-only | Open any project in `project-config.html` | Menu disabled, hint "Currency cannot be changed here: amounts are not converted yet. Contact a sysadmin if it must be corrected."; changing another field and saving works (the unchanged currency is accepted) | |
+| PCL-04 | Direct project creation is off | `portfolio.html`: look at `＋ New project`; type `/project-config.html` without `?projectId=` in the URL bar | Button disabled with the tooltip "Projects are created from a proposal (Generate project). Creating a project directly is temporarily disabled."; the URL redirects to the portfolio, an info alert shows the same message and disappears on reload | |
+| PCL-05 | The API refuses what the lock forbids (non-sysadmin) | As an admin: `POST /api/projects` without `cgVersionId`; `PATCH` a linked project with another `currency`; `PATCH {cgVersionId: null}` or another version; `DELETE /api/projects/:id`; `DELETE …/linked-projects/:projectId`; `PATCH` the currency of a version with projects; `DELETE` a version/proposal that has projects | `400` `{ error, code: 'PROJECT_RULE' }` with the approved message each time ("Projects must be created from a proposal", "Currency cannot be changed: amounts are not converted yet", "Currency cannot be changed: projects are linked to this proposal", "Deleting a project or unlinking it from its proposal is temporarily disabled"); re-sending the same `currency`/`cgVersionId` is accepted (200); linking an unlinked project is still allowed | ✓ |
+| PCL-06 | A sysadmin may | The same requests as a sysadmin | They succeed (the sysadmin role is read from the DB, so a demoted sysadmin loses the exception at once) | ✓ |
+| PCL-07 | A project and its proposal share the currency at link time | As an admin: `POST /api/projects` with a `cgVersionId` and another `currency`; `PATCH` linking a project of another currency; `POST …/linked-projects` of another currency; a `cgVersionId` that points at no version | `400` "The project and the proposal must have the same currency" (sysadmin exempt); `400` "Proposal version not found" for an unknown version (also for a sysadmin); same-currency links succeed (what "Generate project" does) | ✓ |
+| PCL-08 | Currency change and linking cannot diverge under concurrency | Fire `PATCH` version currency and `POST /api/projects` linked to that version at the same time, several times | In every round either the project is created and the currency change is refused, or the change wins and the link is refused; never a project and a version in different currencies (`PR-14`) | ✓ |
+| PCL-09 | A refused save shows the rule's message | With a tampered request (e.g. console) make `PATCH /api/projects/:id` answer a rule refusal during a project-config save | The save fails with the rule's message in the usual error alert; no `POST`/duplicate-key error (api-sync does not retry a `PROJECT_RULE` refusal). Automated: `js/api-sync.test.js` | |
 
 ---
 
@@ -1080,14 +1080,14 @@ Known limitation accepted as a follow-up at merge: an undated project that has a
 
 ## 17. Regression — Cross-feature
 
-| ID | Scenario | Expected | Auto |
-|---|---|---|---|
-| REG-01 | Pipeline board after year switch | Offers load for new year; totals recalculate; no bleed from other years | |
-| REG-02 | Detail panel POT after client group rename | POT section still resolves and displays the updated group name | |
-| REG-03 | Config pipeline toggle reflected on board | Hidden year disappears from board dropdown for all users on next load | |
-| REG-04 | admin.html no longer shows pipeline section | Only user management shown — no pipeline years section anywhere | |
-| REG-05 | project-config.html save + portfolio refresh | Portfolio KPIs and title reflect saved values | |
-| REG-06 | Notification count consistent across pages | Bell badge count identical on Pipeline, Reporting, and Planning pages | |
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| REG-01 | Pipeline board after year switch | Switch year on the board; wait for the reload | Offers load for new year; totals recalculate; no bleed from other years | |
+| REG-02 | Detail panel POT after client group rename | Rename a client group, then open the detail panel for a CG linked to a client in that group | POT section still resolves and displays the updated group name | |
+| REG-03 | Config pipeline toggle reflected on board | An admin hides a pipeline year in `master-pipelines.html`; another user reloads the board | Hidden year disappears from board dropdown for all users on next load | |
+| REG-04 | admin.html no longer shows pipeline section | Open `/admin.html` and inspect the page | Only user management shown — no pipeline years section anywhere | |
+| REG-05 | project-config.html save + portfolio refresh | Edit project metadata or phasing in `project-config.html`, save, then navigate to the portfolio | Portfolio KPIs and title reflect saved values | |
+| REG-06 | Notification count consistent across pages | With unread notifications, navigate between Pipeline, Reporting and Planning | Bell badge count identical on Pipeline, Reporting, and Planning pages | |
 | REG-07 | Cost grid totals after API reload — no string coercion | Save multi-task grid; reload page; reopen grid | All hours and fee totals are numeric; no leading zeros, no concatenated values (e.g. "10005" instead of 15) | |
 | REG-08 | Detail panel shows linked projects | Open detail panel for a version linked to a project via `costGridRef` | Linked project names are listed; client name is resolved; POT section uses the correct client | |
 | REG-09 | Client and ratecard persist across reloads | Set client + ratecard on a version; reload page; reopen cost grid editor | Client dropdown and ratecard dropdown both show the previously saved values; client-specific ratecard is not reset to None | |
