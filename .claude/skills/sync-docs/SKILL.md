@@ -27,30 +27,24 @@ Review all recent code changes in this session (and git diff if needed) and upda
 - For every new feature or bug fix, add one or more test cases in the appropriate section.
 - For changed behaviour, update the existing test case description and expected result.
 - For removed features, remove or mark the test case as obsolete.
-- Mark automated cases with ✓ in the Auto column if they are covered by test-api.js.
+- Mark automated cases with ✓ in the Auto column if they are covered by test-api.js; write `✓ (vitest)` when the coverage is a frontend unit test instead, which the page renders as its own badge.
+- **This file is code** (2026-10-09): `test-cases.html` fetches and parses it at load, so there is no longer a second copy to mirror — the former section 4 of this skill is gone. Two consequences. A malformed table (an unescaped `|` in a cell, a row whose cell count does not match its header, a duplicate case id) now degrades a page, and `js/lib/test-cases-parse.test.js` fails on it: run `npm test` after editing this file. That test also asserts the **exact** case and section counts, deliberately not a floor, so legitimately adding or removing a case fails it with no table defect present: raise (or lower) the two numbers in that test's characterization block in the same commit — never relax the assertion to a floor, and never drop the case to make the suite green. And a cycle that touches only `TEST_CASES.md` classifies as `ordinary`, not `no-code` — `scripts/classify-cycle.mjs` lists it in `RUNTIME_LOADED_ROOT_MD`.
 
-### 4. test-cases.html
-- Mirror every change made to TEST_CASES.md exactly:
-  - New cases → add `{id, scenario, steps, expected, auto}` objects to the correct section array.
-  - Updated cases → update the matching object fields.
-  - Removed cases → remove the object.
-  - `auto:true` only when the case is covered by an automated API test in test-api.js.
-
-### 5. test-api.js (only if new API endpoints were added or auth rules changed)
+### 4. test-api.js (only if new API endpoints were added or auth rules changed)
 - Add test functions for new endpoints following the existing pattern (section header, ok() assertions, cleanup via later()).
 - If an endpoint's auth changed (e.g. requireAdmin → requireAuth), update the SEC-01 loop or add a new security assertion.
 - Call new test functions from main() in a logical order.
 
-### 6. PRD.md (only if user-visible behaviour changed)
+### 5. PRD.md (only if user-visible behaviour changed)
 - Trigger only when the change alters what a user can do, see, or experience: a new page/view, a new feature, a changed user flow, a changed permission/role behaviour, or a UI element added/removed that affects how the product is used.
 - Do NOT trigger for internal refactors, extracted modules, added tests, dev tooling, or changes to files/functions that produce byte-identical user-facing behaviour — even if extensive.
 - If the change is a bugfix, update PRD.md only if the PRD's description of the feature was itself inaccurate (i.e. the bug meant the PRD never matched reality); do not update it for fixes that restore documented behaviour.
 - **When in doubt whether a change is "user-visible," ask the user explicitly, one targeted question, rather than silently leaving PRD.md untouched.** (2026-09 revision — the previous "flagging beats guessing" rule let genuine gaps accumulate silently over many cycles; a 2026-09-16 `domain-audit` of `PRD.md` against the live app found 14 such gaps, several of them entire undocumented features. Silent omission is no longer acceptable for anything that touches a real, new user-facing screen, tab, button, or modal — ask instead of skip. A change that's genuinely internal after the user confirms it is still fine to leave undocumented; the fix is asking, not defaulting either way.)
 
-### 6b. `.claude/skills/operational-manual/SKILL.md`'s inlined detail-content reference (only if PRD.md was updated in this cycle)
+### 5b. `.claude/skills/operational-manual/SKILL.md`'s inlined detail-content reference (only if PRD.md was updated in this cycle)
 If PRD.md was touched above, check whether any of the changed sections fall within the manual's own scope (this skill's "PDash detail-content reference" section mirrors `PRD.md` section-by-section) and update that reference to match — same content, same level of care as when it was first built. This keeps the skill's own reference from silently going stale the same way `PRD.md` itself did before 2026-09-16, even though the manual (`docs/OPERATIONAL_MANUAL.html`) itself stays regenerated only on explicit request, not on every cycle.
 
-### 7. docs/superpowers/PROCESS.md (only if the cycle changed the development *process* itself, not the product)
+### 6. docs/superpowers/PROCESS.md (only if the cycle changed the development *process* itself, not the product)
 
 **PROCESS.md gate** — answer this as an explicit yes/no before deciding whether to touch the file. Does the cycle just closed satisfy **at least one** of:
 1. It introduced or modified one of the process skills (`feature-brief`, the audit skill, `audit-to-brief`).
@@ -62,7 +56,7 @@ If PRD.md was touched above, check whether any of the changed sections fall with
 
 A cycle that merely *executes* the process as documented — the large majority of cycles — is not material for this file; it stays in that cycle's own report, not here.
 
-### 8. Project memory (always evaluated, every run — added 2026-09-29)
+### 7. Project memory (always evaluated, every run — added 2026-09-29)
 
 The auto-memory directory named in the session's system prompt (`~/.claude/projects/<project>/memory/`, with its `MEMORY.md` index) lives **outside the repo**: it never appears in `git diff`, is never committed, and no other step of this command or of `/finish-cycle` touches it. Left alone, its `project`-type files describe the state of the world at the moment they were written and go stale as cycles close — on 2026-09-29 the backlog file still listed "Team UX polish" as NEXT after that cycle and two more had already been merged. This step exists to close that gap. It is applied **automatically, with no confirmation prompt** (the memory is working state, not a shipped artifact, and every change is grounded in facts already verified by the merge) — but never silently: every change is reported, see below.
 
@@ -80,4 +74,4 @@ The auto-memory directory named in the session's system prompt (`~/.claude/proje
 1. Read the current state of each file before editing.
 2. Cross-reference against the actual code (js/, api/src/routes/, costgrid.html, config.html, etc.) to verify what changed.
 3. Make targeted edits — do not rewrite sections that are still accurate.
-4. Report a brief summary at the end: which files were updated and what changed in each. Always explicitly state whether PRD.md was evaluated and the outcome — updated / not necessary (internal-only change) / ambiguous (needs human verification) — even when PRD.md itself was left untouched. Always explicitly state the PROCESS.md gate's answer (which of the three conditions applied, or none) — even when PROCESS.md itself was left untouched. Always include a "Memory" line (section 8): each memory file changed with its before → after, plus any item left as "unverified", or "evaluated, no change" naming the files checked.
+4. Report a brief summary at the end: which files were updated and what changed in each. Always explicitly state whether PRD.md was evaluated and the outcome — updated / not necessary (internal-only change) / ambiguous (needs human verification) — even when PRD.md itself was left untouched. Always explicitly state the PROCESS.md gate's answer (which of the three conditions applied, or none) — even when PROCESS.md itself was left untouched. Always include a "Memory" line (section 7): each memory file changed with its before → after, plus any item left as "unverified", or "evaluated, no change" naming the files checked.

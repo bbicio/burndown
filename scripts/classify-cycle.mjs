@@ -37,11 +37,13 @@ import { pathToFileURL } from 'node:url';
 
 /**
  * Root-level .md files the running app loads at runtime, which therefore count
- * as code. Empty today: nothing fetches a .md yet (test-cases.html inlines its
- * data). The planned test-cases.html <- TEST_CASES.md cycle must add
- * 'TEST_CASES.md' here, in that same cycle.
+ * as code: editing one changes what a page renders, so the cycle keeps the
+ * browser-verification question instead of being waved through as no-code.
+ * TEST_CASES.md is here because test-cases.html fetches and parses it at load
+ * (2026-10-09). Only add a file a page actually loads — a .md that is merely
+ * read by a human belongs nowhere near this list.
  */
-export const RUNTIME_LOADED_ROOT_MD = [];
+export const RUNTIME_LOADED_ROOT_MD = ['TEST_CASES.md'];
 
 /**
  * @param {string} z stdout of `git diff --name-status --find-renames -z`:
