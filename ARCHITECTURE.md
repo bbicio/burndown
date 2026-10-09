@@ -1075,6 +1075,7 @@ burndown/
     test-branch.sh        ← isolated Docker Compose stack (`up`/`down`/`status`) for testing the current feature branch before merge; distinct container names/ports from the main stack. Full narrative: docs/scripts/test-branch.md
     run-tests.sh           ← ephemeral, fully isolated stack (distinct `-p pdash_test` project name, no host ports) for the `docker-compose.yml` integration-test profile; always applies all migrations to a fresh DB; is `/finish-cycle` Gate 1's documented test command. Full narrative: docs/scripts/run-tests.md
     backup-db.sh          ← pg_dump -Fc snapshot of the main stack's pdash-db into backups/ (gitignored), timestamped to the second, keeps only the 3 most recent dumps; non-blocking (warns + exits 0 if pdash-db isn't running). Run standalone, or automatically by /finish-cycle Gate 4 right after merge — see "Docker main-stack safety" above for the incident this exists to guard against
+    classify-cycle.mjs    ← classifies a branch for /finish-cycle's Gate 2 (`no-code` vs `ordinary`); pure `classifyNameStatus()` pinned by scripts/classify-cycle.test.js
 ```
 
 ---
