@@ -1023,7 +1023,11 @@ burndown/
                             monthGridYear/dayGridMonth with min/max bounds, parseItDate/formatItDate,
                             parseMonthInput/formatMonthInput; all date arithmetic via Date.UTC only),
                             project-rules.js (2026-10-01: browser side of the project currency lock — version-currency lock
-                            predicate, approved messages, the direct-creation flag; costgrid/project-config/portfolio only).
+                            predicate, approved messages, the direct-creation flag; costgrid/project-config/portfolio only),
+                            test-cases-parse.js (2026-10-09: turns TEST_CASES.md into the section/case model
+                            test-cases.html renders, plus a warning list; tolerant — a malformed row or a duplicate id
+                            warns instead of throwing — and `formatCell` escapes before it formats. The one module with
+                            no `window.` bridge: its only consumer imports it).
                             Full narrative: docs/js/lib.md
     roles.js              ← `loadRolesFromApi`/`saveRoles` (no-op)/`getRoles` only — its former roles-management modal UI was confirmed unreachable and deleted in the 2026-08 dead-code cleanup; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role — role shape: `{ id, label, code, rate, rateOverrides }`
     ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js; `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects per-role `rateOverrides` and sends them to the API
@@ -1064,6 +1068,7 @@ burndown/
   team.html               ← resource registry CRUD, Vue 3 (CDN, no build step, same pattern as admin.html), admin or sysadmin, linked from the ⚙ Admin dropdown (2026-09). First of four planned resource-allocation cycles — see docs/superpowers/specs/2026-09-23-team-attribute-lists-design.md
   attribute-lists.html    ← generic, agnostic tag/taxonomy admin console (lists + items, no physical delete), Vue 3 (CDN, no build step, same pattern as admin.html), admin or sysadmin, linked from the ⚙ Admin dropdown (2026-09). As of Cycle 2 (2026-09), its lists/items are consumed by costgrid.html/project-config.html's Tags sections via js/tags.js
   profile-jobs.html       ← profile-engine job console, Vue 3 (CDN, no build step, same pattern as team.html/admin.html), hidden (no menu entry, reached only from a "Profile processing →" button on timesheets.html), admin or sysadmin (2026-09, Cycle 3d). Full narrative: docs/pages/profile-jobs.md
+  test-cases.html         ← dev-only manual test checklist, no navigation, results per case id in localStorage (`pdash_test_state_v1`). Holds no case data since 2026-10-09: it fetches `TEST_CASES.md` and renders it through js/lib/test-cases-parse.js, judging the response by its payload (nginx's try_files and 401 error_page both answer 200 with HTML, so `res.ok` would not do). The only page that makes a root `*.md` file runtime code — see scripts/classify-cycle.mjs
   nginx.conf              ← denies dev-only toolchain artifacts (node_modules/, package.json, package-lock.json,
                             vitest.config.js, *.test.js, *.spec.js) even though it bind-mounts the repo root
   docker-compose.yml
@@ -1075,7 +1080,7 @@ burndown/
     test-branch.sh        ← isolated Docker Compose stack (`up`/`down`/`status`) for testing the current feature branch before merge; distinct container names/ports from the main stack. Full narrative: docs/scripts/test-branch.md
     run-tests.sh           ← ephemeral, fully isolated stack (distinct `-p pdash_test` project name, no host ports) for the `docker-compose.yml` integration-test profile; always applies all migrations to a fresh DB; is `/finish-cycle` Gate 1's documented test command. Full narrative: docs/scripts/run-tests.md
     backup-db.sh          ← pg_dump -Fc snapshot of the main stack's pdash-db into backups/ (gitignored), timestamped to the second, keeps only the 3 most recent dumps; non-blocking (warns + exits 0 if pdash-db isn't running). Run standalone, or automatically by /finish-cycle Gate 4 right after merge — see "Docker main-stack safety" above for the incident this exists to guard against
-    classify-cycle.mjs    ← classifies a branch for /finish-cycle's Gate 2 (`no-code` vs `ordinary`); pure `classifyNameStatus()` pinned by scripts/classify-cycle.test.js
+    classify-cycle.mjs    ← classifies a branch for /finish-cycle's Gate 2 (`no-code` vs `ordinary`); pure `classifyNameStatus()` pinned by scripts/classify-cycle.test.js. `RUNTIME_LOADED_ROOT_MD` names the root `*.md` files the app loads at runtime, which therefore count as code — `TEST_CASES.md` since 2026-10-09, because test-cases.html fetches it
 ```
 
 ---
