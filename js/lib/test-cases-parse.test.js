@@ -68,6 +68,13 @@ describe('parseTestCases', () => {
     expect(sections[0].cases[0].scenario).toBe('a|b');
   });
 
+  it('reads a table row indented by up to three spaces, which GFM allows', () => {
+    const md = '## S\n\n| ID | Scenario | Steps | Expected | Auto |\n|---|---|---|---|---|\n  | X-01 | a | s | e | |';
+    const { sections, warnings } = parseTestCases(md);
+    expect(sections[0].cases.map((c) => c.id)).toEqual(['X-01']);
+    expect(warnings).toEqual([]);
+  });
+
   it('warns and skips a row whose cell count does not match its header', () => {
     const md = '## S\n\n| ID | Scenario | Steps | Expected | Auto |\n|---|---|---|---|---|\n| X-01 | a|b | s | e | |';
     const { sections, warnings } = parseTestCases(md);
@@ -146,9 +153,12 @@ describe('the real TEST_CASES.md', () => {
     expect(parsed.warnings).toEqual([]);
   });
 
-  it('yields at least 797 cases across at least 35 sections', () => {
-    expect(allCases.length).toBeGreaterThanOrEqual(797);
-    expect(parsed.sections.length).toBeGreaterThanOrEqual(35);
+  // Pinned to the real counts, not to a floor: a floor below the truth is a
+  // budget of cases that can disappear while the suite stays green. Raise these
+  // deliberately when /sync-docs adds cases — that edit is the point.
+  it('yields exactly the cases the file contains', () => {
+    expect(allCases.length).toBe(806);
+    expect(parsed.sections.length).toBe(35);
   });
 
   it('gives every case a non-empty steps', () => {

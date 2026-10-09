@@ -1,6 +1,6 @@
 # PDash — Test Cases
 
-**Updated:** 2026-07-01 (rev 8)  
+**Updated:** 2026-10-09 (rev 9)  
 **Coverage scope:** All authenticated pages + API routes. Manual execution unless noted.
 
 > **Auto** = covered by `scripts/run-tests.sh` (test-api.js).  

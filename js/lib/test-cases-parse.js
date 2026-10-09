@@ -83,12 +83,16 @@ export function parseTestCases(markdown) {
       return;
     }
 
-    if (!line.startsWith('|')) {
+    // GFM allows a table row to be indented; matching only column 0 would make
+    // an indented row close the table and vanish without a warning — the one
+    // shape that could lose a case silently.
+    const row = line.trimStart();
+    if (!row.startsWith('|')) {
       layout = null;
       return;
     }
 
-    const cs = cells(line);
+    const cs = cells(row);
     if (isSeparator(cs)) return;
 
     if (layout === null) {
