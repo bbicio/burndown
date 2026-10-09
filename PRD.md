@@ -648,108 +648,17 @@ Chat calls go to the PDash backend (`POST /api/planning-assistant/chat`), which 
 
 ---
 
-## 12. Data Model
-
-The source of truth is PostgreSQL. On each page load, the frontend seeds an **in-memory** cache (module-level JS variables, not localStorage) from the API; user actions update the in-memory state immediately and fire an async write to the API in the background. See ARCHITECTURE.md section 5 for the full DB schema and CLAUDE.md's "Data strategy (in-memory cache)" section for the sync functions.
-
-### 12.1 localStorage keys (client-only settings, not server data)
-
-`localStorage` is **not** used for server data — every project, cost grid, role, client, and timesheet row lives only in the in-memory cache described above, seeded fresh from the API on every page load. Only genuinely client-side keys exist:
-
-| Key | Contents |
-|---|---|
-| `PDash_summary` | Portfolio summary view selection |
-
-### 12.2 CostGrid Shape
-
-```
-CostGrid {
-  id
-  name
-  versions: [
-    {
-      versionId
-      label
-      pipeline           // "Draft" | "SIP" | "Expected" | "Anticipated" | "Committed" | "Canceled"
-      startDate, endDate
-      currency
-      note
-      linkedProjects: [{ projectId, projectName, taskIds, taskNames }]  // taskIds/taskNames = tasks assigned to this project
-      phases: [
-        {
-          id, title
-          tasks: [
-            {
-              id, title
-              ptc            // pass-through costs
-              roles: [{ roleId, days, months }]
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-```
-
-### 12.3 Project Shape
-
-```
-Project {
-  id
-  name
-  startDate, endDate   // YYYYMM
-  currency
-  pipeline
-  status
-  programId
-  clientId
-  costGridRef: { cgId, versionId }   // link to cost grid version
-  tasks: [
-    {
-      name
-      billable, completed
-      startDate, endDate
-      monthlyDistribution: { "YYYYMM": percent }
-      resources: [{ role, soldHours, hourlyRate }]
-    }
-  ]
-  phasing: { "YYYYMM": amount }
-  ptc: [{ label, amount, month }]
-  groups: [{ label, roles[] }]
-  description         // free text (2026-09-29); tasks carry their own description too
-}
-```
-
----
-
 ## 13. Non-Functional Requirements
 
 | Requirement | Detail |
 |---|---|
 | Runtime | Docker Compose (nginx + Node.js/Express + PostgreSQL); no frontend build step |
-| Persistence | PostgreSQL (source of truth); in-memory JS cache seeded from the API on each page load (see §12.1) — localStorage holds only client-side settings, not server data |
+| Persistence | PostgreSQL (source of truth); in-memory JS cache seeded from the API on each page load — localStorage holds only client-side settings, not server data |
 | Auth | JWT in httpOnly cookie; 401 → redirect to login |
 | Dependencies (frontend) | Bootstrap 5.3.2 (CDN), Chart.js, SheetJS (XLS parsing) |
 | Dependencies (backend) | Express, pg, bcryptjs, jsonwebtoken, nodemailer, multer, xlsx |
 | Language | All UI text, alerts, and labels must be in English |
 | Design tokens | All colours and type sizes must reference CSS custom properties in `css/tokens.css` — no hardcoded hex values in JS or CSS |
-
----
-
-## 14. Design System
-
-| Token group | Description |
-|---|---|
-| `--brand-navy` `--brand-magenta` | Primary brand colours (#0B1840, #F0287A) |
-| `--indigo-*` | Steel blue palette — project cards, planning |
-| `--violet-*` | Slate blue palette — program panels, aggregate rows |
-| `--sand-*` | Warm sand — cost grid tables |
-| `--pipeline-{stage}-bg/color` | Pipeline stage colours (single source of truth) |
-| `--text-2xs` → `--text-2xl` | Typography scale (0.70 rem → 1.25 rem) |
-| `--space-1` → `--space-6` | 8px grid spacing (4px → 24px) |
-| `--radius-xs` → `--radius-full` | Border radius scale |
-| `--shadow-xs` → `--shadow-xl` | Elevation shadows |
 
 ---
 
