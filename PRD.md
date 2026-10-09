@@ -8,7 +8,7 @@
 
 ## Index
 
-This document holds the product-wide sections; each product area lives in its own file under [`docs/prd/`](docs/prd/). Section numbers are stable and are **not** renumbered when a section moves — §12 (Data Model) and §14 (Design System) were removed on 2026-10-09 because they duplicated `ARCHITECTURE.md` §5 and `css/tokens.css`, so those two numbers are unused. Use the table to resolve any in-text "see §N" reference to the file that carries it.
+This document holds the product-wide sections; each product area lives in its own file under [`docs/prd/`](docs/prd/). Section numbers are stable and are **not** renumbered when a section moves — §12 (Data Model) and §14 (Design System) were removed on 2026-10-09 because they duplicated `ARCHITECTURE.md` §5 and `css/tokens.css`, so those two numbers are unused. Use the table to resolve an in-text "see §N" reference to the file that carries it. Two caveats: a bare "§7" may mean either `project-config.md` (§7.1) or `master-data.md` (§7.2–§7.7), and two citations predating the split point at sections that never existed — "§11.3" in `planning.md` (§11 has only 11.1 and 11.2) and "§16.9a" in `administration.md` (the Profile Processing console is §16.10).
 
 | Sections | Area | File |
 |---|---|---|

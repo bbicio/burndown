@@ -936,7 +936,7 @@ volumes:
 burndown/
   api/                    ← Node.js + Express backend
     src/
-      routes/             ← auth, users, config, cost-grids, projects, timesheets, reporting, exports, notifications, reset, attribute-lists, resources, profile-jobs, topics, planning
+      routes/             ← app-settings, attribute-lists, auth, client-groups, config, cost-grids, currencies, exports, notifications, pipeline-years, planning, planning-assistant, pots, profile-jobs, projects, reporting, reset, resources, timesheets, topics, users
       lib/                ← pure functions for unit testing (node:test), mirroring the frontend's js/lib/. Detail: docs/api/lib.md
       middleware/         ← auth guard: requireAuth, requireAdmin, requireSysAdmin (see §3.1), liveRole(userId)
       db/                 ← PostgreSQL pool client, migrations/
@@ -962,7 +962,7 @@ burndown/
     costgrid.js           ← shared cost-grid business-logic library, a permanent Vanilla service layer loaded by pipeline.html and costgrid.html. Detail: docs/js/costgrid.md
     cg-controls.js        ← costgrid.html's three custom Vue controls; pure helpers in js/lib/cg-controls-calc.js. Detail: docs/js/cg-controls.md
     portfolio.js          ← two exports still reachable, both consumed by planning.html. Detail: docs/js/shared-libs.md
-    lib/                  ← pure functions for unit testing (vitest + jsdom), each an ES module with a `window.<name>` bridge. Module index: docs/js/lib.md
+    lib/                  ← pure functions for unit testing (vitest + jsdom), ES modules, most with a `window.<name>` bridge for classic-script callers. Module index: docs/js/lib.md
     shares.js, share-list-component.js, clients.js, roles.js, programs.js, ratecards.js, upload.js, tags.js
                           ← the other shared classic scripts loaded as globals by the Vue pages. Detail: docs/js/shared-libs.md
   index.html              ← redirect → pipeline.html
@@ -997,7 +997,7 @@ burndown/
     test-branch.sh        ← isolated Docker Compose stack (up/down/status) for the current branch. Detail: docs/scripts/test-branch.md
     run-tests.sh          ← ephemeral isolated stack for the integration-test profile; Gate 1's test command. Detail: docs/scripts/run-tests.md
     backup-db.sh          ← pg_dump -Fc snapshot of pdash-db into backups/ (gitignored), non-blocking; see "Docker main-stack safety" above
-    classify-cycle.mjs    ← classifies a branch for /finish-cycle's Gate 2; the rule lives in scripts/classify-cycle.test.js, not in prose
+    classify-cycle.mjs    ← classifies a branch for /finish-cycle's Gate 2 (no-code vs ordinary); the rule is code here, pinned by scripts/classify-cycle.test.js, never prose
     shoot.mjs             ← renders pages of the running app with headless Chrome, one PNG per width. Detail: docs/scripts/shoot.md
 ```
 
