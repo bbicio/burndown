@@ -937,60 +937,29 @@ burndown/
   api/                    ← Node.js + Express backend
     src/
       routes/             ← auth, users, config, cost-grids, projects, timesheets, reporting, exports, notifications, reset, attribute-lists, resources, profile-jobs, topics, planning
-      lib/                ← pure functions extracted for unit testing (node:test), mirroring the frontend's js/lib/
-                            convention; money-format.js (2026-10-01) is the server twin of js/lib/money.js's formatMoney
-                            (pipeline-change notification amounts); project-rules.js + version-lock.js (2026-10-01) are the
-                            project currency lock (rules called by routes/projects.js and routes/cost-grids.js, a per-version
-                            advisory lock). Full narrative: docs/api/lib.md
-      middleware/         ← auth guard (requireAuth, requireAdmin, requireSysAdmin — see §3.1; liveRole(userId), 2026-10-01: role read from the DB for the project rules' sysadmin exception)
+      lib/                ← pure functions for unit testing (node:test), mirroring the frontend's js/lib/. Detail: docs/api/lib.md
+      middleware/         ← auth guard: requireAuth, requireAdmin, requireSysAdmin (see §3.1), liveRole(userId)
       db/                 ← PostgreSQL pool client, migrations/
-      services/           ← email (nodemailer), jwt, resource-matching (Cycle 3b: refreshUnmatched — DB half of
-                            actuals-owner-name matching; rules in lib/match-resource.js). See docs/api/resources.md;
-                            profile-engine (Cycle 3c: queue + per-code processing into contributions/profiles) and
-                            profile-worker (60 s self-scheduling tick, started from index.js). See docs/api/profile-engine.md;
-                            topic-extraction (topics cycle: LLM extraction of competence topics from descriptions via the
-                            Anthropic Messages API, called by the engine; rules in lib/topic-extract.js). See docs/api/topics.md;
-                            planning-data (Cycle A, 2026-09-30: loads + caches projects/actuals/resources for the planning
-                            model; rules in lib/planning-model.js, planning-calendar.js, planning-distribution.js,
-                            planning-request.js). See docs/api/planning-model.md
+      services/           ← email, jwt, resource-matching, profile-engine/worker, llm, planning-assistant,
+                            planning-data, topic-extraction. Index: docs/api/services.md
       create-admin.js     ← CLI bootstrap: create/reset admin user (always role='admin')
       promote-sysadmin.js ← CLI: promote an existing user to role='sysadmin'
     Dockerfile
     package.json
   css/
-    tokens.css            ← design tokens (single source of truth, versioned `?v=8`); also carries `[v-cloak] { display: none; }`
-                            (2026-07, repo-wide FOUC fix) — see CLAUDE.md's "v-cloak" section for the full rationale.
-                            Design foundations (2026-10-02): project-status, chart, focus, typography tokens and AA-checked
-                            stage text colours — see CLAUDE.md's "Design tokens"; `js/lib/tokens.test.js` pins them
-                            Navigation tokens (Nav B2, 2026-10-02, `?v=9`): `--brand-magenta-tint(-hover)`, `--icon-size-sm/md`,
-                            `--nav-text-muted`, `--nav-item-hover-bg`, `--nav-item-active-bg`, `--nav-sep`
-    style.css             ← Navigation (Nav B2 + rail tooltip `#pd-tooltip`, `?v=20`): `.pd-nav*` sidebar / icon-navbar rules, `--sidebar-w`/`--nav-top-h` media
-                            queries, `#nav-container` reservation (see CLAUDE.md's "Navigation: sidebar and icon navbar");
-                            includes `.pb-board-root` (2026-07) — extracted from pipeline.html's former inline
-                            style so the `[v-cloak]` rule above could win via cascade without `!important`;
-                            `.tag-pill`/`.tag-group`/`.tag-pill--inactive`/`.tags-section--readonly` (2026-09,
-                            Cycle 2) — the tag-pill/chip component shared by costgrid.html/project-config.html's
-                            Tags sections. Full narrative: docs/pages/costgrid.md's "Tags" section.
-                            Since 2026-10-02 also the token-driven `.btn-danger`/`.btn-ghost`/`.btn-icon`, a magenta
-                            spinner and `--bs-*` overrides for alerts, dropdowns and modals (CLAUDE.md "Design tokens")
-    pipeline.css          ← (2026-10-06, `?v=2` since the 2026-10-07 detail-panel cycle) page stylesheet of pipeline.html
-                            only (board header, year menu, toolbar, search suggestions, Amounts toggle, columns, cards,
-                            smartphone stage tabs and Filters sheet; detail panel modes, header, tabs, POT view); tokens only; loaded after style.css and overrides its legacy `.pb-*`
-                            rules; `js/lib/pipeline-guard.test.js` pins it. Full narrative: docs/pages/pipeline.md
-    portfolio.css         ← (2026-10-08, `?v=2`) shared by portfolio.html and program.html (Program Dashboard
-                            cycle, same day): portfolio.html's own overview header/toolbar, Card grid with the
-                            stacked program card and the full-width children panel, List grid-table with its
-                            sidebar-aware column hiding; program.html's `.pg-*` KPI tiles, List, Timeline
-                            (scoped to `min-width: 1024px`) and burndown-chart legend; tokens only; loaded after
-                            style.css; `js/lib/portfolio-guard.test.js` pins it. Detail: docs/css/stylesheets.md
-    admin-crud.css        ← shared layout for simple admin CRUD pages (page-header/card/table/badges/
-                            btn-primary/form-*/empty/alert-sm), extracted 2026-09 from duplicated inline
-                            `<style>` blocks in admin.html/team.html/attribute-lists.html
-    auth.css              ← shared stylesheet of the public auth pages (login/activate/reset-password), extracted
-                            2026-10-06 from three duplicated inline `<style>` blocks; loaded after Bootstrap 5.3.2 +
-                            tokens.css, overrides the few Bootstrap classes they use (incl. `--bs-btn-*` on
-                            .btn-primary) and adds logo, card stack, strength meter (colour by segment position),
-                            state icons and copyright; colours only via tokens (`?v=1`)
+    tokens.css            ← design tokens, the single source of truth for colour and type; also carries
+                            `[v-cloak] { display: none; }`. Detail: docs/css/stylesheets.md
+    style.css             ← component styles, plus the `.pd-nav*` sidebar / icon-navbar rules, the
+                            `--sidebar-w`/`--nav-top-h` media queries and `#pd-tooltip`. Detail: docs/css/stylesheets.md
+    pipeline.css          ← page stylesheet of pipeline.html only (board, toolbar, columns, cards, detail
+                            panel). Detail: docs/pages/pipeline.md
+    costgrid.css          ← page stylesheet of costgrid.html only (header card, section cards, grid,
+                            selection bar, custom controls). Detail: docs/pages/costgrid.md
+    portfolio.css         ← page stylesheet shared by portfolio.html and program.html (overview Card and
+                            List views; the program KPI tiles and Timeline). Detail: docs/css/stylesheets.md
+    admin-crud.css        ← shared layout for the simple admin CRUD pages. Detail: docs/css/stylesheets.md
+    auth.css              ← shared stylesheet of the public auth pages (login/activate/reset-password).
+                            Detail: docs/css/stylesheets.md
   js/
     api.js                ← Api.* namespace, apiFetch wrapper
     api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData). Full narrative: docs/js/api-sync.md
