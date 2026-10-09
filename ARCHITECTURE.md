@@ -940,87 +940,65 @@ burndown/
       lib/                ← pure functions for unit testing (node:test), mirroring the frontend's js/lib/. Detail: docs/api/lib.md
       middleware/         ← auth guard: requireAuth, requireAdmin, requireSysAdmin (see §3.1), liveRole(userId)
       db/                 ← PostgreSQL pool client, migrations/
-      services/           ← email, jwt, resource-matching, profile-engine/worker, llm, planning-assistant,
-                            planning-data, topic-extraction. Index: docs/api/services.md
+      services/           ← email, jwt, resource-matching, profile-engine/worker, llm, planning-assistant, planning-data, topic-extraction. Index: docs/api/services.md
       create-admin.js     ← CLI bootstrap: create/reset admin user (always role='admin')
       promote-sysadmin.js ← CLI: promote an existing user to role='sysadmin'
     Dockerfile
     package.json
   css/
-    tokens.css            ← design tokens, the single source of truth for colour and type; also carries
-                            `[v-cloak] { display: none; }`. Detail: docs/css/stylesheets.md
-    style.css             ← component styles, plus the `.pd-nav*` sidebar / icon-navbar rules, the
-                            `--sidebar-w`/`--nav-top-h` media queries and `#pd-tooltip`. Detail: docs/css/stylesheets.md
-    pipeline.css          ← page stylesheet of pipeline.html only (board, toolbar, columns, cards, detail
-                            panel). Detail: docs/pages/pipeline.md
-    costgrid.css          ← page stylesheet of costgrid.html only (header card, section cards, grid,
-                            selection bar, custom controls). Detail: docs/pages/costgrid.md
-    portfolio.css         ← page stylesheet shared by portfolio.html and program.html (overview Card and
-                            List views; the program KPI tiles and Timeline). Detail: docs/css/stylesheets.md
+    tokens.css            ← design tokens, single source of truth for colour and type; also `[v-cloak] { display: none; }`. Detail: docs/css/stylesheets.md
+    style.css             ← component styles, plus the `.pd-nav*` sidebar/navbar rules, the `--sidebar-w`/`--nav-top-h` media queries and `#pd-tooltip`. Detail: docs/css/stylesheets.md
+    pipeline.css          ← page stylesheet of pipeline.html only (board, toolbar, columns, cards, detail panel). Detail: docs/pages/pipeline.md
+    costgrid.css          ← page stylesheet of costgrid.html only (header card, section cards, grid, selection bar, controls). Detail: docs/pages/costgrid.md
+    portfolio.css         ← page stylesheet shared by portfolio.html and program.html. Detail: docs/css/stylesheets.md
     admin-crud.css        ← shared layout for the simple admin CRUD pages. Detail: docs/css/stylesheets.md
-    auth.css              ← shared stylesheet of the public auth pages (login/activate/reset-password).
-                            Detail: docs/css/stylesheets.md
+    auth.css              ← shared stylesheet of the public auth pages (login/activate/reset-password). Detail: docs/css/stylesheets.md
   js/
     api.js                ← Api.* namespace, apiFetch wrapper. Detail: docs/js/shared-libs.md
     api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData). Detail: docs/js/api-sync.md
-    core.js               ← state, in-memory helpers, shared badges, showConfirm()/showInfo() modal idioms,
-                            findRate(). Detail: docs/js/core.md
-    nav.js                ← navigation injection, initNav(): the one `<aside class="pd-nav">`, SVG icons, rail
-                            tooltips, the shared modals and the T&C gate. Detail: docs/js/nav.md
+    core.js               ← state, in-memory helpers, shared badges, showConfirm()/showInfo() idioms, findRate(). Detail: docs/js/core.md
+    nav.js                ← navigation injection, initNav(): the one `<aside class="pd-nav">`, SVG icons, rail tooltips, shared modals, T&C gate. Detail: docs/js/nav.md
     notifications.js      ← SSE client, bell badge, notification panel, browser notifications. Detail: docs/js/notifications.md
-    costgrid.js           ← shared cost-grid business-logic library — a permanent shared Vanilla service layer,
-                            loaded by pipeline.html and costgrid.html. Detail: docs/js/costgrid.md
-    cg-controls.js        ← costgrid.html's three custom Vue controls (date picker, select, people picker);
-                            pure helpers in js/lib/cg-controls-calc.js. Detail: docs/js/cg-controls.md
+    costgrid.js           ← shared cost-grid business-logic library, a permanent Vanilla service layer loaded by pipeline.html and costgrid.html. Detail: docs/js/costgrid.md
+    cg-controls.js        ← costgrid.html's three custom Vue controls; pure helpers in js/lib/cg-controls-calc.js. Detail: docs/js/cg-controls.md
     portfolio.js          ← two exports still reachable, both consumed by planning.html. Detail: docs/js/shared-libs.md
-    lib/                  ← pure functions extracted for unit testing (vitest + jsdom), each an ES module with a
-                            `window.<name>` bridge for classic-script callers. Module index: docs/js/lib.md
+    lib/                  ← pure functions for unit testing (vitest + jsdom), each an ES module with a `window.<name>` bridge. Module index: docs/js/lib.md
     shares.js, share-list-component.js, clients.js, roles.js, programs.js, ratecards.js, upload.js, tags.js
                           ← the other shared classic scripts loaded as globals by the Vue pages. Detail: docs/js/shared-libs.md
   index.html              ← redirect → pipeline.html
-  pipeline.html           ← kanban pipeline board, Vue 3 (CDN, no build step, same pattern as portfolio.html/
-                            project-config.html). Full narrative: docs/pages/pipeline.md
-  portfolio.html          ← portfolio overview + per-project dashboard, Vue 3 (CDN, no build step, same pattern as project-config.html); folds in the former js/portfolio.js + js/dashboard.js; adds js/lib/portfolio-calc.js (KPI/burndown math plus the overview's row model and layout helpers, vitest-covered); stylesheet css/portfolio.css, shared with program.html; does not load js/roles.js or js/config-form.js. The overview offers two layouts, Card and List, driven by one shared ordered row list and persisted in `PDash_portfolioLayout`. Full implementation narrative: `docs/pages/portfolio.md`
-  program.html            ← Program Dashboard (2026-10-08), Vue 3 (CDN, no build step, same pattern as portfolio.html); no menu entry, reached only from portfolio.html's Program Dashboard entries and the project reporting view's program row; adds js/lib/program-calc.js (programme-level KPI/burndown/timeline math, vitest-covered, reuses portfolio-calc.js's spentPercent/spentBarState/computeBurndownPoints); shares css/portfolio.css. No new endpoint — client-side only, same `config.projects`/`timesheetData` inputs as portfolio.html. Full implementation narrative: `docs/pages/program.md`
-  planning.html           ← resource planning (filters, By Role/By Project/By Owner grouping views,
-                            monthly/weekly interval, monthly pulse, rounded-hours toggle, XLS
-                            export/upload, AI Planning Sidebar), Vue 3 (CDN, no build step, same
-                            pattern as pipeline.html/costgrid.html); since 2026-09-30 the views render the
-                            server planning model (`POST /api/planning/model`) instead of calculating in the
-                            browser. Full narrative: docs/pages/planning.md
-  costgrid.html           ← cost grid editor (header card, collapsible Offer details/Tags/Sharing,
-                            phase/task/role table, Monthly Phasing), Vue 3 (CDN, no build step, same
-                            pattern as pipeline.html/portfolio.html); own stylesheet css/costgrid.css
-                            (2026-10-07 redesign) and its own form controls from js/cg-controls.js (2026-10-07
-                            fidelity cycle — no native select or month input is left in the editor region).
-                            Full narrative: docs/pages/costgrid.md
-  timesheets.html          ← admin-only timesheet upload management, Vue 3 (CDN, no build step). Full narrative: docs/pages/timesheets.md
-  config.html             ← redirect stub (no shell, no Vue) to /master-clients.html (2026-10-05)
+  pipeline.html           ← kanban pipeline board. Detail: docs/pages/pipeline.md
+  portfolio.html          ← portfolio overview + per-project dashboard; adds js/lib/portfolio-calc.js, stylesheet css/portfolio.css. Detail: docs/pages/portfolio.md
+  program.html            ← Program Dashboard, no menu entry; adds js/lib/program-calc.js, shares css/portfolio.css; no endpoint of its own. Detail: docs/pages/program.md
+  planning.html           ← resource planning; the three views render the server model (POST /api/planning/model). Detail: docs/pages/planning.md
+  costgrid.html           ← cost grid editor; own stylesheet css/costgrid.css and form controls from js/cg-controls.js. Detail: docs/pages/costgrid.md
+  timesheets.html         ← admin-only timesheet upload management. Detail: docs/pages/timesheets.md
+  config.html             ← redirect stub (no shell, no Vue) to /master-clients.html
   master-clients.html, master-client-groups.html, master-pipelines.html, master-roles.html, master-currencies.html
-                          ← Master Data: the former config.html split into five admin (or sysadmin) pages, one per functionality (Clients incl. the client rate card, Client Groups, Pipelines & POTs incl. phasing, Roles & per-currency rates, Currencies), each a Vue 3 CDN page loading only its own data and sharing a hand-written lateral sub-menu (`.md-subnav`, css/style.css); Programs management removed from this UI only. Full narrative: docs/pages/config.md
-  project-config.html     ← full-page project config form, Vue 3 (CDN, no build step, same pattern as admin.html); manages a single reactive project object (not an array — the original's hidden multi-project dropdown/New/Delete machinery was confirmed dead on this page); unknown ?projectId= shows an explicit not-found state. Full narrative: docs/pages/project-config.md
-  admin.html              ← user management; "🗑 Anonymize" button on disabled non-anonymized users; role toggle (admin↔user) + sysadmin grant/revoke toggle (sysadmin viewers only). T&C editor moved out (2026-09) to _terms-editor.html
-  terms.html              ← standalone T&C acceptance page (no initNav), Vue 3 (CDN, no build step, same pattern as login.html); shown by gate in initNav() when user.terms_version < current; loaded from /api/app-settings/terms; POST /api/auth/accept-terms on confirm
-  login.html / activate.html / reset-password.html ← public auth pages, Vue 3 (CDN), Bootstrap 5.3.2 CSS + tokens.css + css/auth.css (no inline <style>, no style.css); login holds the Sign In and Forgot views (Forgot pre-fills the Sign In email); activate/reset share the strength meter (`strengthClass`). Guards: js/lib/auth-pages-guard.test.js
-  _db-reset.html          ← sysadmin-exclusive (2026-09, was admin-only) hidden page for bulk DB data deletion by scope, Vue 3 (CDN, no build step, same pattern as admin.html), linked from the sysadmin-only "Sysadmin" navigation group (initNav('dbreset', ...), menu name "DB Reset")
-  _terms-editor.html      ← sysadmin-exclusive hidden page — Terms & Conditions editor, moved out of admin.html; linked from the sysadmin-only "Sysadmin" navigation group (initNav('termseditor', ...)) — see §5's App Settings section. Full narrative: docs/pages/terms-editor.md
-  settings.html           ← Settings page (2026-09-30), Vue 3 (CDN, no build step), blank apart from the navigation, breadcrumb and the title; replaced the former Settings modal (see docs/pages/settings.md)
-  team.html               ← resource registry CRUD, Vue 3 (CDN, no build step, same pattern as admin.html), admin or sysadmin, linked from the ⚙ Admin dropdown (2026-09). First of four planned resource-allocation cycles — see docs/superpowers/specs/2026-09-23-team-attribute-lists-design.md
-  attribute-lists.html    ← generic, agnostic tag/taxonomy admin console (lists + items, no physical delete), Vue 3 (CDN, no build step, same pattern as admin.html), admin or sysadmin, linked from the ⚙ Admin dropdown (2026-09). As of Cycle 2 (2026-09), its lists/items are consumed by costgrid.html/project-config.html's Tags sections via js/tags.js
-  profile-jobs.html       ← profile-engine job console, Vue 3 (CDN, no build step, same pattern as team.html/admin.html), hidden (no menu entry, reached only from a "Profile processing →" button on timesheets.html), admin or sysadmin (2026-09, Cycle 3d). Full narrative: docs/pages/profile-jobs.md
-  test-cases.html         ← dev-only manual test checklist, no navigation, results per case id in localStorage (`pdash_test_state_v1`). Holds no case data since 2026-10-09: it fetches `TEST_CASES.md` and renders it through js/lib/test-cases-parse.js, judging the response by its payload (nginx's try_files and 401 error_page both answer 200 with HTML, so `res.ok` would not do). The only page that makes a root `*.md` file runtime code — see scripts/classify-cycle.mjs
-  nginx.conf              ← denies dev-only toolchain artifacts (node_modules/, package.json, package-lock.json,
-                            vitest.config.js, *.test.js, *.spec.js) even though it bind-mounts the repo root
+                          ← Master Data: five admin pages, one per functionality, sharing a lateral sub-menu (.md-subnav). Detail: docs/pages/config.md
+  project-config.html     ← full-page project config form, one reactive project object. Detail: docs/pages/project-config.md
+  admin.html              ← user management: role toggles, disable, anonymize. Detail: docs/pages/admin.md
+  terms.html              ← standalone T&C acceptance page (no initNav), shown by initNav()'s gate. Detail: docs/pages/terms.md
+  login.html / activate.html / reset-password.html
+                          ← public auth pages; Bootstrap + tokens.css + css/auth.css, no style.css. Guards: js/lib/auth-pages-guard.test.js
+  _db-reset.html          ← sysadmin-exclusive hidden page, bulk DB data deletion by scope. Detail: docs/pages/db-reset.md
+  _terms-editor.html      ← sysadmin-exclusive hidden page, T&C editor (see §5's App Settings). Detail: docs/pages/terms-editor.md
+  settings.html           ← Settings page, blank apart from the navigation, breadcrumb and title. Detail: docs/pages/settings.md
+  team.html               ← resource registry CRUD, admin or sysadmin. Detail: docs/pages/team.md
+  attribute-lists.html    ← generic tag/taxonomy admin console (lists + items, no physical delete); its items feed the Tags sections via js/tags.js
+  profile-jobs.html       ← profile-engine job console, hidden (reached from timesheets.html). Detail: docs/pages/profile-jobs.md
+  test-cases.html         ← dev-only manual test checklist; fetches TEST_CASES.md and renders it via js/lib/test-cases-parse.js, which is why that file counts as code. Detail: docs/js/lib.md
+  nginx.conf              ← denies dev-only toolchain artifacts even though it bind-mounts the repo root
   docker-compose.yml
   .env.example
-  .gitattributes          ← pins *.sh to LF line endings on checkout regardless of local core.autocrlf
+  .gitattributes          ← pins *.sh to LF line endings regardless of local core.autocrlf
   package.json            ← dev-only vitest + jsdom test toolchain for js/lib/ (never bundled, never served)
   vitest.config.js
   scripts/
-    test-branch.sh        ← isolated Docker Compose stack (`up`/`down`/`status`) for testing the current feature branch before merge; distinct container names/ports from the main stack. Full narrative: docs/scripts/test-branch.md
-    run-tests.sh           ← ephemeral, fully isolated stack (distinct `-p pdash_test` project name, no host ports) for the `docker-compose.yml` integration-test profile; always applies all migrations to a fresh DB; is `/finish-cycle` Gate 1's documented test command. Full narrative: docs/scripts/run-tests.md
-    backup-db.sh          ← pg_dump -Fc snapshot of the main stack's pdash-db into backups/ (gitignored), timestamped to the second, keeps only the 3 most recent dumps; non-blocking (warns + exits 0 if pdash-db isn't running). Run standalone, or automatically by /finish-cycle Gate 4 right after merge — see "Docker main-stack safety" above for the incident this exists to guard against
-    classify-cycle.mjs    ← classifies a branch for /finish-cycle's Gate 2 (`no-code` vs `ordinary`); pure `classifyNameStatus()` pinned by scripts/classify-cycle.test.js. `RUNTIME_LOADED_ROOT_MD` names the root `*.md` files the app loads at runtime, which therefore count as code — `TEST_CASES.md` since 2026-10-09, because test-cases.html fetches it
+    test-branch.sh        ← isolated Docker Compose stack (up/down/status) for the current branch. Detail: docs/scripts/test-branch.md
+    run-tests.sh          ← ephemeral isolated stack for the integration-test profile; Gate 1's test command. Detail: docs/scripts/run-tests.md
+    backup-db.sh          ← pg_dump -Fc snapshot of pdash-db into backups/ (gitignored), non-blocking; see "Docker main-stack safety" above
+    classify-cycle.mjs    ← classifies a branch for /finish-cycle's Gate 2; the rule lives in scripts/classify-cycle.test.js, not in prose
+    shoot.mjs             ← renders pages of the running app with headless Chrome, one PNG per width. Detail: docs/scripts/shoot.md
 ```
 
 ---
