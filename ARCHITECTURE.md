@@ -961,51 +961,22 @@ burndown/
     auth.css              ← shared stylesheet of the public auth pages (login/activate/reset-password).
                             Detail: docs/css/stylesheets.md
   js/
-    api.js                ← Api.* namespace, apiFetch wrapper
-    api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData). Full narrative: docs/js/api-sync.md
-    core.js               ← state, in-memory helpers (loadConfig/persistConfig no-ops), shared helpers, showConfirm()/showInfo() modal idioms, findRate(). Full narrative: docs/js/core.md
-    nav.js                ← navigation injection, initNav(): one `<aside class="pd-nav">` (sidebar ≥ 1024px, icon navbar below, no footer; Nav B2 2026-10-02) built by buildNavHtml; SVG icons; custom tooltips in the collapsed rail (navWireTooltips, `?v=16`); injects change-pwd, send-notification and "My Profile" modals; T&C gate; calls initNotifications(). Full narrative: docs/js/nav.md
-    shares.js             ← generic share modal
-    notifications.js      ← SSE client, bell badge (and unread bell state), notification dropdown panel; also drives browser/desktop notifications. Full narrative: docs/js/notifications.md
-    costgrid.js           ← shared cost-grid business-logic library, loaded unmodified by `pipeline.html` as globals, and by `costgrid.html`'s own Vue rewrite via the bridge pattern; decided 2026-07 this file is a permanent shared Vanilla service layer, not migration debt — see `docs/superpowers/specs/2026-07-27-costgrid-js-fate-design.md`. Full narrative: docs/js/costgrid.md
-    cg-controls.js        ← (2026-10-07, `?v=2`, costgrid.html only) three presentational Vue components —
-                            `<cg-date-picker>` (month/day), `<cg-select>`, `<cg-people-picker>` — registered on
-                            that page's app like share-list, replacing its native selects and month inputs. No
-                            business logic: the page's existing handlers run through thin adapters. Popovers are
-                            `<Teleport to="body">` + fixed position from the trigger's rect, and take focus when
-                            no text field holds it (Tab order never walks into a teleported node). Full narrative:
-                            docs/pages/costgrid.md
-    portfolio.js          ← mostly dead code since portfolio.html's Vue rewrite folded its rendering logic in directly; only 2 exports remain reachable — `fmtProjectTitle`/`getMonthRangeFromCfg`, both consumed by planning.html
-    lib/                  ← pure functions extracted for unit testing (vitest + jsdom), each an ES module
-                            (`export function ...`) with a `window.<name> = <name>` bridge for classic-script
-                            callers; modules: cfg-parse.js, planning-calc.js, status-rules.js, costgrid-calc.js,
-                            portfolio-calc.js, pipeline-calc.js, notif-browser.js, team-ui.js (team.html only; incl. buildProfileTree),
-                            profile-jobs-ui.js (profile-jobs.html only, 2026-09, Cycle 3d),
-                            planning-model-ui.js (planning.html only, 2026-09-30: request builder + response adapters for the server
-                            planning model; planning-calc.js kept only matchesTaskRole/computeResidual/getCalendarWeeks/
-                            sumChildBreakdownHours after the hours calculation moved to the backend),
-                            money.js (2026-10-01: the single implementation of currency formatting and parsing, driven by the
-                            locale of each currency in `window.__currencies`; call sites call `formatMoney` from it
-                            directly (the former one-line wrappers were removed 2026-10); a vitest guard forbids `Intl.NumberFormat`
-                            outside it and its server twin),
-                            cg-controls-calc.js (2026-10-07: the pure helpers behind the three custom controls —
-                            monthGridYear/dayGridMonth with min/max bounds, parseItDate/formatItDate,
-                            parseMonthInput/formatMonthInput; all date arithmetic via Date.UTC only),
-                            project-rules.js (2026-10-01: browser side of the project currency lock — version-currency lock
-                            predicate, approved messages, the direct-creation flag; costgrid/project-config/portfolio only),
-                            test-cases-parse.js (2026-10-09: turns TEST_CASES.md into the section/case model
-                            test-cases.html renders, plus a warning list; tolerant — a malformed row or a duplicate id
-                            warns instead of throwing — and `formatCell` escapes before it formats. The one module with
-                            no `window.` bridge: its only consumer imports it).
-                            Full narrative: docs/js/lib.md
-    roles.js              ← `loadRolesFromApi`/`saveRoles` (no-op)/`getRoles` only — its former roles-management modal UI was confirmed unreachable and deleted in the 2026-08 dead-code cleanup; `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role — role shape: `{ id, label, code, rate, rateOverrides }`
-    ratecards.js          ← rate cards admin modal; exports loadRatecardsForDropdown() (cached) used by costgrid.js; `_rcRenderEntries` pre-populates non-EUR column placeholders with agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects per-role `rateOverrides` and sends them to the API
-    upload.js             ← XLS parsing
-    tags.js                ← (2026-09, Cycle 2) `loadActiveAttributeListsForTagging()`, shared by
-                            costgrid.html/project-config.html's Tags sections; fetches lists + active items
-                            in parallel via raw fetch() (not Api.*), matching attribute-lists.html's own
-                            call style for these endpoints. Full narrative: docs/pages/costgrid.md's "Tags" section
-    clients.js / programs.js
+    api.js                ← Api.* namespace, apiFetch wrapper. Detail: docs/js/shared-libs.md
+    api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData). Detail: docs/js/api-sync.md
+    core.js               ← state, in-memory helpers, shared badges, showConfirm()/showInfo() modal idioms,
+                            findRate(). Detail: docs/js/core.md
+    nav.js                ← navigation injection, initNav(): the one `<aside class="pd-nav">`, SVG icons, rail
+                            tooltips, the shared modals and the T&C gate. Detail: docs/js/nav.md
+    notifications.js      ← SSE client, bell badge, notification panel, browser notifications. Detail: docs/js/notifications.md
+    costgrid.js           ← shared cost-grid business-logic library — a permanent shared Vanilla service layer,
+                            loaded by pipeline.html and costgrid.html. Detail: docs/js/costgrid.md
+    cg-controls.js        ← costgrid.html's three custom Vue controls (date picker, select, people picker);
+                            pure helpers in js/lib/cg-controls-calc.js. Detail: docs/js/cg-controls.md
+    portfolio.js          ← two exports still reachable, both consumed by planning.html. Detail: docs/js/shared-libs.md
+    lib/                  ← pure functions extracted for unit testing (vitest + jsdom), each an ES module with a
+                            `window.<name>` bridge for classic-script callers. Module index: docs/js/lib.md
+    shares.js, share-list-component.js, clients.js, roles.js, programs.js, ratecards.js, upload.js, tags.js
+                          ← the other shared classic scripts loaded as globals by the Vue pages. Detail: docs/js/shared-libs.md
   index.html              ← redirect → pipeline.html
   pipeline.html           ← kanban pipeline board, Vue 3 (CDN, no build step, same pattern as portfolio.html/
                             project-config.html). Full narrative: docs/pages/pipeline.md
