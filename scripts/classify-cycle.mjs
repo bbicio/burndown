@@ -32,6 +32,9 @@
 //     list below is the single place to add one, and the cycle that introduces
 //     such a fetch is the cycle that must add it.
 
+import { execFileSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
+
 /**
  * Root-level .md files the running app loads at runtime, which therefore count
  * as code. Empty today: nothing fetches a .md yet (test-cases.html inlines its
@@ -76,4 +79,31 @@ function qualifies(path, exceptions) {
   // Prefix, never substring: api/docs/helper.md contains "docs/" but is a file
   // under api/, so it is code.
   return path.startsWith('.claude/') || path.startsWith('docs/') || !path.includes('/');
+}
+
+// ── CLI ─────────────────────────────────────────────────────────────────────
+// The contract Gate 2 depends on: the first stdout line is `no-code` or
+// `ordinary`, the paths follow one per line, errors go to stderr and the exit
+// code is non-zero. The gate grants the no-code branch ONLY on the literal
+// token `no-code`, so every failure mode here — a throw, an empty stdout, a
+// missing file — lands on "ordinary cycle" without needing a rule of its own.
+
+export function main(argv = process.argv) {
+  const range = argv[2] ?? 'main...HEAD';
+  const z = execFileSync('git', ['diff', '--name-status', '--find-renames', '-z', range], {
+    encoding: 'utf8',
+  });
+  const { kind, paths } = classifyNameStatus(z);
+  process.stdout.write([kind, ...paths].join('\n') + '\n');
+}
+
+// Runs only as a program, never when a test imports the pure function.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    main();
+  } catch (e) {
+    // Nothing on stdout: a half-written first line could read as a verdict.
+    process.stderr.write(`classify-cycle: ${e.stderr || e.message}\n`);
+    process.exit(1);
+  }
 }

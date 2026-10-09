@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { classifyNameStatus, RUNTIME_LOADED_ROOT_MD } from './classify-cycle.mjs';
 
 // Builds the exact shape of `git diff --name-status --find-renames -z` stdout:
@@ -82,5 +82,127 @@ describe('classifyNameStatus', () => {
   it('treats a named exception as code', () => {
     const r = classifyNameStatus(Z('M', 'TEST_CASES.md'), ['TEST_CASES.md']);
     expect(r.kind).toBe('ordinary');
+  });
+});
+
+// ── Integration: these run the script against throwaway git repositories. ────
+// Only these can pin the git command itself; the unit tests above take its
+// output as given. Without them, reintroducing --name-only (which hides a
+// rename's old path) would pass the whole suite.
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
+
+// Resolved from the project root rather than import.meta.url: under vitest's
+// transform that is not a file: URL, so fileURLToPath rejects it. vitest runs
+// with the project root as cwd (vitest.config.js lives there).
+const SCRIPT = join(process.cwd(), 'scripts', 'classify-cycle.mjs');
+const made = [];
+
+function repo() {
+  const dir = mkdtempSync(join(tmpdir(), 'cc-'));
+  made.push(dir);
+  git(dir, 'init', '-q', '-b', 'main', '.');
+  return dir;
+}
+
+function git(cwd, ...args) {
+  return execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], {
+    cwd,
+    encoding: 'utf8',
+  });
+}
+
+function write(dir, rel, body) {
+  mkdirSync(dirname(join(dir, rel)), { recursive: true });
+  writeFileSync(join(dir, rel), body);
+}
+
+function run(cwd, ...args) {
+  try {
+    const stdout = execFileSync(process.execPath, [SCRIPT, ...args], { cwd, encoding: 'utf8' });
+    return { status: 0, stdout, stderr: '' };
+  } catch (e) {
+    return { status: e.status ?? 1, stdout: e.stdout ?? '', stderr: e.stderr ?? '' };
+  }
+}
+
+const firstLine = (s) => s.split(/\r?\n/)[0];
+
+afterEach(() => {
+  while (made.length) rmSync(made.pop(), { recursive: true, force: true, maxRetries: 3 });
+});
+
+describe('classify-cycle.mjs end to end', () => {
+  it('sees both sides of a rename that moves a live file into docs/', () => {
+    const d = repo();
+    write(d, 'api/src/foo.js', 'console.log(1);\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'base');
+    mkdirSync(join(d, 'docs'), { recursive: true }); // git mv needs the destination dir
+    git(d, 'mv', 'api/src/foo.js', 'docs/foo.md');
+    git(d, 'commit', '-qm', 'move');
+
+    const r = run(d, 'HEAD~1...HEAD');
+    expect(firstLine(r.stdout)).toBe('ordinary');
+    expect(r.stdout).toContain('api/src/foo.js');
+    expect(r.stdout).toContain('docs/foo.md');
+  });
+
+  it('does not qualify when the diff is empty although commits exist', () => {
+    const d = repo();
+    write(d, 'docs/a.md', 'one\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'base');
+    write(d, 'docs/a.md', 'two\n');
+    git(d, 'commit', '-qam', 'change');
+    write(d, 'docs/a.md', 'one\n');
+    git(d, 'commit', '-qam', 'revert');
+
+    const r = run(d, 'HEAD~2...HEAD');
+    expect(firstLine(r.stdout)).toBe('ordinary');
+  });
+
+  it('is ordinary on a mixed diff', () => {
+    const d = repo();
+    write(d, 'docs/a.md', 'x\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'base');
+    write(d, 'docs/x.md', 'x\n');
+    write(d, 'js/y.js', 'x\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'mixed');
+
+    expect(firstLine(run(d, 'HEAD~1...HEAD').stdout)).toBe('ordinary');
+  });
+
+  it('classifies the diff of a linked worktree it is invoked from', () => {
+    // Review Focus 4: this is where /finish-cycle actually runs.
+    const d = repo();
+    write(d, 'docs/a.md', 'x\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'base');
+    const wt = join(d, 'wt');
+    git(d, 'worktree', 'add', '-q', wt, '-b', 'feature');
+    write(wt, 'docs/b.md', 'y\n');
+    git(wt, 'add', '-A');
+    git(wt, 'commit', '-qm', 'docs only');
+
+    const r = run(wt);
+    expect(firstLine(r.stdout)).toBe('no-code');
+    expect(r.stdout).toContain('docs/b.md');
+  });
+
+  it('never prints no-code when it cannot read a repository', () => {
+    // Review Focus 5: fail closed. The gate grants the branch only on the
+    // literal token, so anything else here means "ordinary cycle".
+    const d = mkdtempSync(join(tmpdir(), 'cc-norepo-'));
+    made.push(d);
+
+    const r = run(d);
+    expect(firstLine(r.stdout)).not.toBe('no-code');
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).not.toBe('');
   });
 });
