@@ -45,16 +45,15 @@ Measured, not estimated:
 
 | Finding | Detail | Action |
 |---|---|---|
-| Ids only in the HTML | `PL-30`, `PL-31`, `PL-33` | None — they exist in the Markdown as `PM-09`, `PM-10`, `PM-11` with equivalent text |
-| Id only in the HTML, with no Markdown twin | `PL-32` "Planning model — loading and error states" | Added to the Markdown as `PM-12` |
-| Ids only in the Markdown | `PM-09/10/11`, `PA-12`, `PA-M7/M8/M9` | None — the page gains them |
+| Ids only in the HTML | `PL-30`, `PL-31`, `PL-32`, `PL-33` | None — all four exist in the Markdown under §25 Planning model with equivalent text: `PM-09`, `PM-10`, `PM-08`, `PM-11` respectively. No case is lost and none has to be added. |
+| Ids only in the Markdown | `PM-08/09/10/11`, `PA-12`, `PA-M7/M8/M9` | None — the page gains the ones it did not have |
 | Duplicate ids, in **both** files | `PL-01…PL-09`, used by both §7 Resource Planning and §29 Project currency lock | §29 is renamed to `PCL-01…PCL-09`. §7 keeps `PL-`: five historical reports under `docs/superpowers/reports/` cite `PL-0x` meaning Planning. Those reports are records and are not rewritten. |
 | Two sections have a 4-column table, with no `Steps` | §API Security (`SEC-01…09`) and §Regression (`REG-01…06`), 24 data rows | A `Steps` column is added to both tables, copied from the corresponding objects in today's HTML |
 | One row has an unescaped pipe | `NT-23`: `` `POST /api/exports/{portfolio|cost-grids|ratecards}` `` yields 7 cells | Escaped as `\|` in the Markdown |
 | Field text diverges throughout | The HTML wording is often longer (e.g. `A-01`) | **Out of scope.** The Markdown is authoritative as it stands; ~790 texts are not rewritten. |
 
-After these repairs the set of cases the page renders is a superset of today's, minus the
-three renamed ids, and with `PCL-` in place of the colliding `PL-`.
+After these repairs the set of cases the page renders is a superset of today's, with `PCL-`
+in place of the colliding `PL-`.
 
 ## 4. The parser — `js/lib/test-cases-parse.js`
 
@@ -141,9 +140,14 @@ therefore code. In this same cycle:
 - `scripts/classify-cycle.mjs:44` becomes
   `export const RUNTIME_LOADED_ROOT_MD = ['TEST_CASES.md'];`, and the comment above it is
   rewritten — it no longer describes a planned future cycle.
-- `scripts/classify-cycle.test.js` gains a case pinning the consequence: a diff touching only
-  `TEST_CASES.md` classifies as `ordinary`, not `no-code`. A second case confirms an unrelated
-  root `.md` still classifies as `no-code`, so the exception stays narrow.
+- `scripts/classify-cycle.test.js` test 7 ("a root .md qualifies while the named-exception
+  list is empty") currently asserts both that the list is empty and that `TEST_CASES.md` is
+  `no-code`. It is **rewritten**, not supplemented: the list now equals `['TEST_CASES.md']`,
+  a diff touching only `TEST_CASES.md` classifies as `ordinary`, and another root `.md`
+  (`PRD.md`) still classifies as `no-code`, so the exception stays narrow.
+
+The file is a vitest test (`vitest.config.js` includes `scripts/**/*.test.js`), so it runs
+under `npm test` — not `node --test`.
 
 Without this, a future cycle editing only `TEST_CASES.md` would be classified as a no-code
 cycle and would skip human verification while changing what a page renders.
@@ -177,7 +181,8 @@ backticked span that itself contains `<` (escape first, format second).
 `warnings.length === 0` and at least 797 cases. This is the test that stops a future
 `/sync-docs` from breaking the page by writing malformed Markdown.
 
-**Node (`node --test`):** the new `scripts/classify-cycle.test.js` cases.
+**Classifier:** the rewritten `scripts/classify-cycle.test.js` test 7, which `npm test` runs
+alongside the frontend suite.
 
 **Manual, in a browser — required, no §3 waiver:** the page opened on the running stack;
 section and case counts; both filter dimensions; the three-state toggle; persistence across a
@@ -201,8 +206,8 @@ showing the message rather than a blank page.
 7. `npm test` passes, including the new parser tests and the characterization test.
 8. `.claude/skills/sync-docs/SKILL.md` has no §4 about `test-cases.html`, is renumbered with no
    gaps, and no internal reference points at a number that no longer exists.
-9. `scripts/classify-cycle.mjs` exports `RUNTIME_LOADED_ROOT_MD = ['TEST_CASES.md']` and
-   `node --test scripts/classify-cycle.test.js` passes with the new cases.
+9. `scripts/classify-cycle.mjs` exports `RUNTIME_LOADED_ROOT_MD = ['TEST_CASES.md']`, and the
+   rewritten test 7 of `scripts/classify-cycle.test.js` passes under `npm test`.
 
 ## 10. Explicitly out of scope
 
