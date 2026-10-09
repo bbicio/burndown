@@ -219,6 +219,10 @@ api/src/db/migrations/   — numbered SQL migration files
 scripts/test-branch.sh   — isolated Docker Compose stack for testing the current feature branch before merge; up/down/status subcommands. Full narrative: [docs/scripts/test-branch.md](docs/scripts/test-branch.md).
 scripts/run-tests.sh     — ephemeral, fully isolated Docker Compose stack for the integration-test profile (no host ports, disposable volume, auto-teardown via trap). Full narrative: [docs/scripts/run-tests.md](docs/scripts/run-tests.md).
 scripts/backup-db.sh     — pg_dump -Fc snapshot of the main stack's pdash-db into backups/ (gitignored), timestamped to the second, keeps only the 3 most recent dumps; non-blocking (warns + exits 0 if pdash-db isn't running). Run standalone, or automatically by /finish-cycle Gate 4 right after merge — see "Database backup & full recreation" above.
+scripts/classify-cycle.mjs — classifies a branch for `/finish-cycle`'s Gate 2: prints `no-code` or
+                            `ordinary` plus the paths it judged. Exports the pure
+                            `classifyNameStatus()`; the rule it encodes is pinned by
+                            `scripts/classify-cycle.test.js` (read the test, not a paraphrase).
 scripts/shoot.mjs        — renders pages of the running app with headless Chrome, one PNG per width, for comparing a
                             redesign against its design boards. **Reading the PNGs back is part of visual
                             verification — "the page can't be rendered here" is not a valid reason to skip it.**

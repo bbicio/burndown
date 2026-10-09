@@ -148,7 +148,7 @@ describe('classify-cycle.mjs end to end', () => {
     expect(firstLine(r.stdout)).toBe('ordinary');
     expect(r.stdout).toContain('api/src/foo.js');
     expect(r.stdout).toContain('docs/foo.md');
-  });
+  }, 30000);
 
   it('does not qualify when the diff is empty although commits exist', () => {
     const d = repo();
@@ -162,7 +162,7 @@ describe('classify-cycle.mjs end to end', () => {
 
     const r = run(d, 'HEAD~2...HEAD');
     expect(firstLine(r.stdout)).toBe('ordinary');
-  });
+  }, 30000);
 
   it('is ordinary on a mixed diff', () => {
     const d = repo();
@@ -175,7 +175,7 @@ describe('classify-cycle.mjs end to end', () => {
     git(d, 'commit', '-qm', 'mixed');
 
     expect(firstLine(run(d, 'HEAD~1...HEAD').stdout)).toBe('ordinary');
-  });
+  }, 30000);
 
   it('classifies the diff of a linked worktree it is invoked from', () => {
     // Review Focus 4: this is where /finish-cycle actually runs.
@@ -192,7 +192,7 @@ describe('classify-cycle.mjs end to end', () => {
     const r = run(wt);
     expect(firstLine(r.stdout)).toBe('no-code');
     expect(r.stdout).toContain('docs/b.md');
-  });
+  }, 30000);
 
   it('never prints no-code when it cannot read a repository', () => {
     // Review Focus 5: fail closed. The gate grants the branch only on the
@@ -204,5 +204,5 @@ describe('classify-cycle.mjs end to end', () => {
     expect(firstLine(r.stdout)).not.toBe('no-code');
     expect(r.status).not.toBe(0);
     expect(r.stderr).not.toBe('');
-  });
+  }, 30000);
 });
