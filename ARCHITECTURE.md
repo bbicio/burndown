@@ -657,6 +657,7 @@ timesheets (
 | POST | /api/ratecards | admin | Create |
 | GET | /api/ratecards/:id | ✅ | Detail (all authenticated users) |
 | POST | /api/ratecards/clone | admin | Clone global → per client |
+| PATCH | /api/ratecards/:id | admin | Rename / update the rate card itself |
 | PATCH | /api/ratecards/:id/entries | admin | Bulk update entries |
 | DELETE | /api/ratecards/:id | admin | Delete |
 
@@ -721,9 +722,13 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | GET/POST | /api/cost-grids/:id/versions | ✅ | List / create version — both accept `clientId` |
 | PATCH/DELETE | /api/cost-grids/:id/versions/:vId | owner/admin | Update / delete version — PATCH accepts `clientId`, `ratecardId`, `label`, `pipeline`, `startDate`, `endDate`, `note` |
 | POST | /api/cost-grids/:id/versions/:vId/duplicate | owner/admin | Full copy of a version (backs the editor's "+ New version", 2026-10) `{ label }` (required, trimmed; 400 if blank) → 201 `{ id }`. One transaction: header incl. the source's `currency_rate` snapshot, client, project name, note, rate card, dates; phases → tasks → task_roles (fresh ids, hours/rates/months); tags. The copy is always Draft, no pipeline year, unlocked, no project links; any failure rolls back (no half-built version) |
+| POST | /api/cost-grids/:id/versions/:vId/publish | owner/admin | Publish a Draft version to SIP — one-way, and permanently deletes the proposal's other Draft versions |
+| POST | /api/cost-grids/:id/versions/:vId/refresh-rate | owner/admin | Re-snapshot the version's `currency_rate` from the current `currency_rates` table |
 | GET/PUT | /api/cost-grids/:id/versions/:vId/structure | owner/admin | Get / save bulk structure |
-| GET/POST/DELETE | /api/cost-grids/:id/versions/:vId/linked-projects | owner/admin | Manage linked projects |
-| GET/POST/DELETE | /api/cost-grids/:id/shares | owner/admin | Manage sharing; `POST` (grant) emails and in-app-notifies the recipient (2026-09: in-app notification added — was email-only before); `DELETE` (revoke) still sends neither, unlike the equivalent project-share revoke |
+| GET/POST | /api/cost-grids/:id/versions/:vId/linked-projects | owner/admin | List / link projects |
+| DELETE | /api/cost-grids/:id/versions/:vId/linked-projects/:projectId | owner/admin | Unlink one project (refused for non-sysadmin by the project currency lock — see §5's `project-rules.js`) |
+| GET/POST | /api/cost-grids/:id/shares | owner/admin | List shares / grant one; `POST` emails and in-app-notifies the recipient (2026-09: in-app notification added — was email-only before) |
+| DELETE | /api/cost-grids/:id/shares/:userId | owner/admin | Revoke one share — sends neither email nor in-app notification, unlike the equivalent project-share revoke |
 | PATCH | /api/cost-grids/:id/reassign-owner | admin/sysadmin | Reassign the proposal's owner (2026-09); also grants the new owner `editor` on every linked project and both emails and in-app-notifies them (2026-09: in-app notification added — was email-only before) — see its own note above |
 | ANY | /api/cost-grids/:id/versions/:vId/... | per route | (2026-09-30) Every route with a `:vId` passes through a router-level guard (`versionScope`, registered after `requireAuth`): a version that is not in grid `:id`, or a non-UUID `:id`/`:vId`, answers **404 `Version not found`**. Order: 401 → 404 → 403 (`canEdit`/`canAccess` stay in each handler). Covers PATCH, DELETE, `duplicate`, `publish`, `structure` GET/PUT, `linked-projects` GET/POST/DELETE, `refresh-rate`, `tags` GET/PUT |
 | GET/PUT | /api/cost-grids/:id/versions/:vId/tags | owner/admin | (2026-09, Cycle 2) Get / replace-all the version's `attribute_lists` tags — `PUT` body `{ itemIds: string[] }`, rejects with 400 if the version is `locked`, and with 400 (not 500) if an `itemId` doesn't exist (translated from the FK violation) or isn't a UUID. Since Cycle 3a both routes return **404** when `:vId` doesn't belong to `:id` (`versionInGrid` / `cost_grid_id = :id`), and `PUT` uses a bulk `unnest($2::uuid[])` insert |
@@ -733,13 +738,14 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | GET/POST | /api/projects | ✅ | List / create — list response includes `my_permission` computed for the calling user |
-| PATCH/DELETE | /api/projects/:id | owner/admin | Update / delete; `PATCH` answers 400 (`<field> must be a valid UUID`) for a non-UUID `cgVersionId` or `clientId` (null / `''` still unlink; `programId` is `VARCHAR`, not validated) — 2026-09-30 |
+| GET/PATCH/DELETE | /api/projects/:id | owner/admin | Detail / update / delete; `PATCH` answers 400 (`<field> must be a valid UUID`) for a non-UUID `cgVersionId` or `clientId` (null / `''` still unlink; `programId` is `VARCHAR`, not validated) — 2026-09-30 |
 | GET/PUT | /api/projects/:id/tasks | owner/admin | Get / save bulk tasks |
 | PATCH | /api/projects/:id/phasing | owner/admin | Update phasing |
 | PATCH | /api/projects/:id/ptc | owner/admin | Update PTC |
 | PATCH | /api/projects/:id/planning | owner/admin | Update monthly hour planning |
 | PATCH | /api/projects/:id/groups | owner/admin | Update functional role groups |
-| GET/POST/DELETE | /api/projects/:id/shares | owner/admin | Manage sharing; both `POST` (grant) and `DELETE` (revoke) email + in-app-notify the affected user (2026-09: `DELETE` previously sent neither) |
+| GET/POST | /api/projects/:id/shares | owner/admin | List shares / grant one; `POST` emails + in-app-notifies the recipient |
+| DELETE | /api/projects/:id/shares/:userId | owner/admin | Revoke one share — emails + in-app-notifies the affected user (2026-09: previously sent neither) |
 | GET/PUT | /api/projects/:id/tags | owner/admin | (2026-09, Cycle 2) Get / replace-all the project's own `attribute_lists` tags — `PUT` body `{ itemIds: string[] }`. **Since Cycle 3a (2026-09-25) a linked project's tags are directly editable — the former 409 is gone** — `project_tags` is the sole source of a project's tags, seeded once by `copyVersionTagsToProject` (see `POST`/`PATCH /api/projects`). Bulk `unnest($2::uuid[])` insert; 400 on an unknown `itemId` (FK `23503`) or a non-UUID one (`22P02`) |
 
 ### Timesheet + Reporting
@@ -783,12 +789,12 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | /api/client-groups | admin | List all groups with member clients |
+| GET | /api/client-groups | ✅ | List all groups with member clients — `requireAuth` only, not admin (the POT/pipeline views read it) |
 | POST | /api/client-groups | admin | Create group |
 | PATCH | /api/client-groups/:id | admin | Rename group |
 | DELETE | /api/client-groups/:id | admin | Delete group |
-| POST | /api/client-groups/:id/members | admin | Assign client to group |
-| DELETE | /api/client-groups/:id/members/:clientId | admin | Remove client from group |
+| PUT | /api/client-groups/:id/clients/:clientId | admin | Assign client to group (idempotent) |
+| DELETE | /api/client-groups/:id/clients/:clientId | admin | Remove client from group |
 
 ### POT Targets
 
@@ -998,6 +1004,7 @@ burndown/
     run-tests.sh          ← ephemeral isolated stack for the integration-test profile; Gate 1's test command. Detail: docs/scripts/run-tests.md
     backup-db.sh          ← pg_dump -Fc snapshot of pdash-db into backups/ (gitignored), non-blocking; see "Docker main-stack safety" above
     classify-cycle.mjs    ← classifies a branch for /finish-cycle's Gate 2 (no-code vs ordinary); the rule is code here, pinned by scripts/classify-cycle.test.js, never prose
+    architecture-guard.test.js ← fails when §5/§6 of this file drift from the code (routes, tables, added columns); its own header names what it deliberately does not check
     shoot.mjs             ← renders pages of the running app with headless Chrome, one PNG per width. Detail: docs/scripts/shoot.md
 ```
 
