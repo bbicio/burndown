@@ -146,7 +146,11 @@ Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page i
 HTML pages               — the Pages table above is the page index: route, one-line purpose, and a docs/pages/
                             link where that page has a narrative file (not all do). Do not restate per-page
                             detail here. The table does not claim to be exhaustive of every .html file at the
-                            repo root — test-cases.html, for one, is not in it.
+                            repo root — test-cases.html, for one, is not in it. That page (a dev-only manual
+                            test checklist, no navigation, results in localStorage) has held no case data
+                            since 2026-10-09: it fetches TEST_CASES.md and parses it with
+                            js/lib/test-cases-parse.js. Hence TEST_CASES.md counts as code for
+                            scripts/classify-cycle.mjs, and /sync-docs no longer mirrors edits into the HTML.
 css/                     — seven stylesheets: tokens.css (design tokens, also `[v-cloak]`), style.css (components
                             + navigation), admin-crud.css, auth.css, pipeline.css, costgrid.css, portfolio.css. Detail:
                             [docs/css/stylesheets.md](docs/css/stylesheets.md). App-wide rules stay in "Design
@@ -174,7 +178,9 @@ js/lib/                  — pure functions extracted for unit testing (vitest +
                             (`export function ...`) with a `window.<name> = <name>` bridge for classic-script
                             callers. The module-by-module index and history: [docs/js/lib.md](docs/js/lib.md).
                             Two of them have their own cross-cutting sections below: money.js ("Money formatting
-                            and parsing") and project-rules.js ("Project currency lock").
+                            and parsing") and project-rules.js ("Project currency lock"). One, test-cases-parse.js
+                            (2026-10-09), is the exception to the "bridge" rule — its only consumer,
+                            test-cases.html, imports it as a module, so it has no `window.` bridge.
 api/src/routes/          — Express routes (auth, users, config, cost-grids, projects, timesheets,
                             reporting, exports, notifications, pipeline-years, client-groups, pots, reset,
                             app-settings, currencies, attribute-lists, resources, planning, planning-assistant).

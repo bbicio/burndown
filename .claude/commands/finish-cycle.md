@@ -140,7 +140,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 
 ## Gate 5 — SYNC-DOCS + REPORT (after merge, shared human gate)
 
-1. On `main` (post-merge), invoke `/sync-docs`. Let it run its existing, unmodified scope (ARCHITECTURE.md, CLAUDE.md, TEST_CASES.md, test-cases.html, test-api.js, PRD.md-conditional, and — since 2026-09-29 — project memory in section 8) — do not reimplement or narrow it here. The memory update lives outside the repo, so it is NOT part of the `git diff` shown in step 3 and is never committed: it is applied by `/sync-docs` itself and appears only in that command's summary. Copy its "Memory" line into the report (step 2) so the change is at least recorded somewhere persistent.
+1. On `main` (post-merge), invoke `/sync-docs`. Let it run its existing, unmodified scope (ARCHITECTURE.md, CLAUDE.md, TEST_CASES.md, test-api.js, PRD.md-conditional, and — since 2026-09-29 — project memory, in section 7 since the 2026-10-09 renumbering) — do not reimplement or narrow it here. The memory update lives outside the repo, so it is NOT part of the `git diff` shown in step 3 and is never committed: it is applied by `/sync-docs` itself and appears only in that command's summary. Copy its "Memory" line into the report (step 2) so the change is at least recorded somewhere persistent.
 2. Create the report file at `docs/superpowers/reports/<YYYY-MM-DD>-<branch-sanitized>-finish-cycle.md` (today's date; `<branch-sanitized>` from pre-flight step 4) with this structure:
 
    ```markdown
