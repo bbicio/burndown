@@ -42,9 +42,12 @@ describe('classifyNameStatus', () => {
     expect(r.paths).toEqual(['docs/a.md', 'docs/b.md']);
   });
 
-  it('7: a root .md qualifies while the named-exception list is empty', () => {
-    expect(RUNTIME_LOADED_ROOT_MD).toEqual([]);
-    expect(classifyNameStatus(Z('M', 'TEST_CASES.md')).kind).toBe('no-code');
+  it('7: TEST_CASES.md is runtime-loaded code, other root .md files are not', () => {
+    // test-cases.html fetches it and parses it at load (2026-10-09), so a cycle
+    // touching only this file still changes what a page renders.
+    expect(RUNTIME_LOADED_ROOT_MD).toEqual(['TEST_CASES.md']);
+    expect(classifyNameStatus(Z('M', 'TEST_CASES.md')).kind).toBe('ordinary');
+    expect(classifyNameStatus(Z('M', 'PRD.md')).kind).toBe('no-code');
   });
 
   it('8: an empty diff does not qualify vacuously', () => {
