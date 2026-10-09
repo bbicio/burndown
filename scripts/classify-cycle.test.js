@@ -128,6 +128,9 @@ function git(cwd, ...args) {
   return execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], {
     cwd,
     encoding: 'utf8',
+    // Same reason as run() below: without it the throwaway repos' CRLF warnings
+    // are forwarded into the suite's own stderr.
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
 }
 
@@ -138,7 +141,15 @@ function write(dir, rel, body) {
 
 function run(cwd, ...args) {
   try {
-    const stdout = execFileSync(process.execPath, [SCRIPT, ...args], { cwd, encoding: 'utf8' });
+    // Same explicit stdio as main() uses, and for the same reason: with the
+    // default, execFileSync forwards the child's stderr to the parent, so the
+    // non-repo case (git implies --no-index and dumps its whole option list)
+    // ends a green `npm test` in a wall of help text that reads like a crash.
+    const stdout = execFileSync(process.execPath, [SCRIPT, ...args], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     return { status: 0, stdout, stderr: '' };
   } catch (e) {
     return { status: e.status ?? 1, stdout: e.stdout ?? '', stderr: e.stderr ?? '' };
