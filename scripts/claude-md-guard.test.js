@@ -5,8 +5,8 @@
 // at every session start, so its size is a cost paid per session, not per
 // cycle. Phases 1+2 of the context-size split (merge 8b24f9c, 2026-10-08) took
 // it from 115,196 B to 88,827 B. Two days later it was back at 91,694 B: +2,867 B
-// in three cycles, and the File structure block had drifted from ~11,300 to
-// 12,563 B. One of those regressions was an 8-line entry added by the very
+// across the three cycles in between, and the File structure block had drifted
+// from ~11,300 to 12,563 LF bytes. One of those regressions was an 8-line entry added by the very
 // session that had just been told the rule, and it was shrunk (39f2d8d) only
 // because a human noticed. Phase 3 then moved another 32,972 B out. Nothing
 // failed while any of that happened, which is the whole problem: the routing
@@ -21,6 +21,16 @@
 // purpose by lowering the number here, not something that happens quietly.
 //
 // WHAT IS DELIBERATELY NOT CHECKED, and why -- named limits, not gaps:
+//   * The pointer regex only catches a name quoted right after "CLAUDE.md"
+//     (optionally via 's / own / an arrow). It MISSES `CLAUDE.md, section "X"`,
+//     `CLAUDE.md (section "X")`, and the 2nd and later names in a list such as
+//     `CLAUDE.md's "A", "B" and "C"` — only "A" is checked. Widening it swept up
+//     `CLAUDE.md`'s Pages table ... the "Purpose" column, a table column rather
+//     than a section, so the narrow form is deliberate. `startsWith` also accepts
+//     any heading with the cited name as a prefix.
+//   * Scope is docs/ and .claude/ only. Pointers in TEST_CASES.md,
+//     ARCHITECTURE.md, js/** comments and *.html are NOT checked (all were
+//     verified clean by hand at 2026-10-10, but nothing keeps them that way).
 //   * docs/superpowers/ is excluded from the pointer check. Specs, plans,
 //     reports and audits are an immutable record of what was true when written;
 //     they are supposed to name sections that have since moved or been renamed,
@@ -44,8 +54,15 @@ const read = p => readFileSync(join(ROOT, p), 'utf8');
 const CLAUDE = read('CLAUDE.md');
 
 // --- the File structure fenced block -------------------------------------
+// Line endings: these files are CRLF in this working tree, but the git blobs are
+// LF and `autocrlf` is per-machine, so a CI or Linux checkout sees LF. Split on
+// either and measure in a normalised LF unit, otherwise the pins are off by one
+// byte per line and the heading lookup silently finds nothing. Same convention as
+// architecture-guard.test.js and classify-cycle.test.js.
+const LINES = s => s.split(/\r?\n/);
+
 function fileStructureBlock() {
-  const lines = CLAUDE.split('\r\n');
+  const lines = LINES(CLAUDE);
   const h = lines.findIndex(l => l.startsWith('### File structure'));
   expect(h, '### File structure heading').toBeGreaterThan(-1);
   const open = lines.findIndex((l, i) => i > h && l.startsWith('```'));
@@ -72,22 +89,24 @@ function entries(block) {
 }
 
 describe('CLAUDE.md size (it is loaded in full every session)', () => {
-  it('stays at or under 64,000 B', () => {
-    // 58,722 B after phase 3. The ceiling leaves ~5 KB of headroom: about three
-    // cycles of ordinary growth, so a legitimate new entry does not fail the
-    // suite, but the +2,867 B/2 cycles drift that motivated this guard does.
-    const bytes = Buffer.byteLength(CLAUDE, 'utf8');
+  it('stays at or under 64,000 B (a ceiling, not an exact pin)', () => {
+    // Measured in LF bytes so the figure does not depend on the checkout's line
+    // endings. The ceiling was NOT raised when the C1 review finding put 3,345 B
+    // of testing/tooling rules back into the file: raising a limit to fit content
+    // is precisely what sync-docs §2 forbids. Headroom is therefore ~2 cycles of
+    // ordinary growth, not the ~5 KB originally planned.
+    const bytes = Buffer.byteLength(LINES(CLAUDE).join('\n'), 'utf8');
     expect(bytes, `CLAUDE.md is ${bytes} B. Move narrative out to its docs/ file per
       .claude/skills/sync-docs/SKILL.md §2 -- do not raise this ceiling to fit it`)
       .toBeLessThanOrEqual(64_000);
   });
 
-  it('keeps the File structure block at exactly 12,629 B', () => {
-    const bytes = Buffer.byteLength(fileStructureBlock().join('\r\n'), 'utf8');
-    expect(bytes, `the File structure block is ${bytes} B, pinned at 12,629. It is an INDEX:
+  it('keeps the File structure block at exactly 12,538 LF bytes', () => {
+    const bytes = Buffer.byteLength(fileStructureBlock().join('\n'), 'utf8');
+    expect(bytes, `the File structure block is ${bytes} LF bytes, pinned at 12,538. It is an INDEX:
       one or two lines per entry, pointing at the docs/ file that holds the narrative.
       If you shrank it on purpose, lower this number in the same commit`)
-      .toBe(12_629);
+      .toBe(12_538);
   });
 
   it('keeps exactly 13 entries longer than two lines', () => {
@@ -121,11 +140,19 @@ describe('CLAUDE.md pointers resolve', () => {
 });
 
 // --- live documents must not name a section CLAUDE.md no longer has -------
+const SKIP_DIRS = new Set([
+  'docs/superpowers',    // immutable record -- see the header
+  '.claude/worktrees',   // other branches' checkouts: their docs belong to THEIR
+                         // CLAUDE.md, not this one. Without this, running the
+                         // suite on main scans every live worktree, and a branch
+                         // cut before this cycle (still naming "Filter bar") turns
+                         // main's npm test red for a reason that is not main's.
+]);
+
 function liveMarkdown(dir, acc = []) {
   for (const name of readdirSync(join(ROOT, dir))) {
     const rel = `${dir}/${name}`;
-    // docs/superpowers/ is an immutable record -- see the header.
-    if (rel === 'docs/superpowers') continue;
+    if (SKIP_DIRS.has(rel)) continue;
     if (statSync(join(ROOT, rel)).isDirectory()) liveMarkdown(rel, acc);
     else if (name.endsWith('.md')) acc.push(rel);
   }

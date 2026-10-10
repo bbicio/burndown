@@ -30,7 +30,7 @@ The **Draft column is never filtered** — `stagesData`'s per-card filter check 
 
 **Redesign (2026-10-06):** the bar is now `.pb-toolbar` in `pipeline.html`: a search box with a suggestions menu (live filter as before; the menu is a shortcut — a client row sets `filterClientIds`, a proposal row opens the detail panel, "N more results — refine your search"; `pbSearchSuggestions`/`pbHighlight` in `pipeline-calc.js`), the four dropdowns rendered from the `filterGroups` computed (id prefix `flt-bar-`), "Clear filters" and the Amounts segmented control (`.pb-seg`). Below 768px the dropdowns and Amounts are hidden and a "Filters" button opens the bottom sheet `#pbFiltersSheet` (Bootstrap `offcanvas-bottom`): Amounts control, the same four groups in a 2×2 grid (id prefix `flt-sheet-`, same `filter*` state), "Show results". Draft stays unfiltered.
 
-Filter matching logic lives in `js/lib/pipeline-calc.js` (pure, vitest-covered) — see [docs/js/lib.md](docs/js/lib.md) for `pbPriceBucketKey`/`pbCardMatchesFilters`. Stage/pipeline-column filtering and a board-vs-scrolling-list view toggle were both explicitly discussed and deferred to a future cycle, not implemented here.
+Filter matching logic lives in `js/lib/pipeline-calc.js` (pure, vitest-covered) — see [docs/js/lib.md](../js/lib.md) for `pbPriceBucketKey`/`pbCardMatchesFilters`. Stage/pipeline-column filtering and a board-vs-scrolling-list view toggle were both explicitly discussed and deferred to a future cycle, not implemented here.
 
 ### Detail panel
 

@@ -42,6 +42,37 @@ docker exec pdash-db psql -U pdash -d pdash -f /path/to/migration.sql
 
 Restoring a dump, and recreating a stack from scratch by applying every migration in order (the one piped `psql` session, `-v ON_ERROR_STOP=1`, and the `\echo applying …` marker — three things that must stay as they are): [docs/ops/database.md](docs/ops/database.md).
 
+### Testing & tooling
+
+(Heading added 2026-10-10. These paragraphs sat under "Database backup & full recreation" purely by
+position and have nothing to do with the database — which is how phase 3 of the split first moved them
+into `docs/ops/database.md` by mistake, caught in review. They are standing rules: keep them here.)
+
+To test a feature branch in isolation before merging (separate containers/ports, doesn't touch the `main` stack):
+
+```bash
+scripts/test-branch.sh up      # build + start, clone data from main if running
+scripts/test-branch.sh down    # tear down
+scripts/test-branch.sh status  # "up" (exit 0) or "down" (exit 1) — both containers must be Docker-healthy
+                                # for "up" (2026-08: previously just checked they existed via `docker ps`)
+```
+
+`/finish-cycle`'s Gate 2 calls `status` automatically to detect a branch environment still running from an earlier `/finish-cycle` attempt on the same branch, and asks to reuse or rebuild it instead of the plain "spin up now?" question. **This is the ordinary branch only** (2026-10-09): on a **no-code cycle** — as classified by `node scripts/classify-cycle.mjs`, whose rule is pinned by `scripts/classify-cycle.test.js` and explained in `PROCESS.md` §6 point 4c — Gate 2 skips its steps 1-5, so it never offers a stack at all; it runs `status` read-only after the user confirms the classification and *reports* a stack left running by an earlier attempt rather than reusing, rebuilding or tearing it down.
+
+No bundler, no build step for the **runtime** — nginx serves `js/`/`css/` files exactly as they are on disk, and this must stay true.
+
+A dev-only test toolchain exists for the frontend: root `package.json` + vitest + jsdom, isolated from the runtime (see `js/lib/` below). It is never bundled, never served — `node_modules/`, `package.json`, `package-lock.json`, `vitest.config.js`, and any `*.test.js`/`*.spec.js` file are explicitly denied in `nginx.conf`. Run tests with `npm test` (single run) or `npm run test:watch`. Vitest 4 needs Node ≥ 20.12 (it crashes at startup with `does not provide an export named 'styleText'` on older versions): if the host Node is older, run the suite in a throwaway container instead — no change to `package.json` or the scripts, the host `node_modules` is untouched (the anonymous volume keeps the Linux dependencies off it), and the main Docker stack is not involved:
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/app" -v /app/node_modules -w /app node:22 sh -c 'npm ci --no-audit --no-fund >/dev/null 2>&1 && npm test'
+```
+
+The backend has its own, separate unit-test toolchain: Node's built-in `node:test` runner (zero new dependency), scoped to `api/src/**/*.test.js` via `api/package.json`'s `"test"` script (`node --test src/**/*.test.js`, run from inside `api/`). This is deliberately kept independent from the frontend's `vitest` config — `vitest.config.js`'s `include` is `['js/**/*.test.js', 'scripts/**/*.test.js']` (the second pattern since `scripts/classify-cycle.test.js`), so it never picks up `api/` files, and the backend runner never touches `js/`. A new test under `scripts/` therefore needs no config change. Files that `require()` Express/DB modules (e.g. `api/src/routes/timesheets.test.js`, which imports `./timesheets`) need `api`'s `node_modules` present — run via `docker exec pdash-api node --test src/...` (the container already has them and volume-mounts `api/src` live) if the host has no `api/node_modules` installed. Pure `api/src/lib/*.test.js` files have no such dependency and run anywhere.
+
+Still no linter on the frontend or backend.
+
+---
+
 ## Architecture
 
 Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page is Vue 3 (loaded via CDN, no build step) except the 9-line `index.html` redirect — the Vue migration (tracked page-by-page below) completed 2026-08-05 when `planning.html`, the last holdout, moved over. A handful of shared library files (`js/costgrid.js`, `js/clients.js`, `js/roles.js`, `js/programs.js`, `js/ratecards.js`, `js/upload.js`, `js/shares.js`, `js/notifications.js`, `js/nav.js`, `js/core.js`, `js/api.js`, `js/api-sync.js`) remain classic (non-Vue) scripts loaded as globals by the Vue pages — for which pages load which, see [docs/js/shared-libs.md](docs/js/shared-libs.md) and the per-file `docs/js/` files pointed at from the File structure block below.
@@ -293,10 +324,10 @@ Never use `lp.projectId` raw as the display ID — always resolve to `proj.id`.
 
 ### Invariants
 
-One-line rules whose explanation moved to a `docs/` file in phase 3 of the context-size split (2026-10-10). Each one is repeated here because **no guard test pins it**; where a test does, the test is named instead of the rule being restated.
+One-line rules whose explanation moved to a `docs/` file in phase 3 of the context-size split (2026-10-10). A rule is restated here only when **no guard test pins it**; where a test does, the test is named instead.
 
 - **Pipeline board columns row.** **Critical**: do NOT add `h-100` to the columns row. Bootstrap's `.h-100` applies `height:100%!important`, which would override the flex sizing and can hide the column below `overflow:hidden`. Full height math and board structure: [docs/pages/pipeline.md](docs/pages/pipeline.md) — "Current state".
-- **Navigation.** never render a second navigation; the 14 element IDs (`#nav-notif-btn`, `#nav-account-btn`, `#nav-profile-btn`, `#nav-settings-btn`, `#nav-send-notif-btn`, `#nav-change-pwd-btn`, `#nav-logout-btn`, `#nav-notif-badge`, …) are consumed by `notifications.js` and the wiring. No guard test asserts this set, so the list stays here. Sidebar/navbar widths, the 1024px switch, breadcrumb height and the stacking order are pinned by `js/lib/nav-layout-guard.test.js` instead of being restated. Full description: [docs/js/nav.md](docs/js/nav.md) — "Current state".
+- **Navigation.** Never render a second navigation. The element IDs it must emit are consumed by `notifications.js` and the nav wiring, and are pinned as a set by `js/lib/nav-model.test.js` ("keeps every existing element id") — read the list there, it is not restated here. Sidebar/navbar widths, the 1024px switch, breadcrumb height and the stacking order are pinned by `js/lib/nav-layout-guard.test.js`. Full description: [docs/js/nav.md](docs/js/nav.md) — "Current state".
 
 ### Settings page
 
