@@ -227,14 +227,9 @@ scripts/run-tests.sh     — ephemeral, fully isolated Docker Compose stack for 
 scripts/backup-db.sh     — pg_dump -Fc snapshot of the main stack's pdash-db into backups/ (gitignored), timestamped to the second, keeps only the 3 most recent dumps; non-blocking (warns + exits 0 if pdash-db isn't running). Run standalone, or automatically by /finish-cycle Gate 4 right after merge — see "Database backup & full recreation" above.
 scripts/classify-cycle.mjs — classifies a branch for `/finish-cycle`'s Gate 2 (`no-code` vs `ordinary`,
                             plus the paths judged); the rule is pinned by its own `.test.js`, not by prose.
-scripts/architecture-guard.test.js — (2026-10-10) fails when `ARCHITECTURE.md` §5/§6 drift from the code:
-                            every mounted route handler must have a §6 row and vice versa, every table and
-                            `ALTER … ADD COLUMN` in the migrations must be named in §5, and the tree's
-                            `routes/` line must list every mounted route file. Deliberately does **not**
-                            check §6's `Auth` or `Description` columns, nor column types — 7 of 21 route
-                            files guard with `router.use(...)`, so a per-handler auth reading would be
-                            wrong a third of the time, and the current schema is not derivable from the
-                            `CREATE TABLE`s (33 `ALTER TABLE`). Those limits are named in the file.
+scripts/architecture-guard.test.js — (2026-10-10) fails when `ARCHITECTURE.md` §5/§6 drift from the code
+                            (routes, tables, added columns). What it deliberately does not check, and why,
+                            is in the file's own header — read it there, not from a paraphrase.
 scripts/shoot.mjs        — renders pages of the running app with headless Chrome, one PNG per width, for comparing a
                             redesign against its design boards. **Reading the PNGs back is part of visual
                             verification — "the page can't be rendered here" is not a valid reason to skip it.**
