@@ -44,9 +44,7 @@ Restoring a dump, and recreating a stack from scratch by applying every migratio
 
 ### Testing & tooling
 
-(Heading added 2026-10-10. These paragraphs sat under "Database backup & full recreation" purely by
-position and have nothing to do with the database — which is how phase 3 of the split first moved them
-into `docs/ops/database.md` by mistake, caught in review. They are standing rules: keep them here.)
+(These are standing rules — keep them here. The heading exists because they sat under "Database backup & full recreation" by position only, which is how the 2026-10-10 split briefly moved them into `docs/ops/database.md`.)
 
 To test a feature branch in isolation before merging (separate containers/ports, doesn't touch the `main` stack):
 

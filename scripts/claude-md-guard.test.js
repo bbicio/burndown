@@ -5,8 +5,11 @@
 // at every session start, so its size is a cost paid per session, not per
 // cycle. Phases 1+2 of the context-size split (merge 8b24f9c, 2026-10-08) took
 // it from 115,196 B to 88,827 B. Two days later it was back at 91,694 B: +2,867 B
-// across the three cycles in between, and the File structure block had drifted
-// from ~11,300 to 12,563 LF bytes. One of those regressions was an 8-line entry added by the very
+// across the three cycles in between. Those three historical figures are CRLF
+// byte counts, as originally measured; the pins below are LF, so they are not
+// directly comparable (91,694 CRLF is 91,147 LF at 8580c3f). The File structure
+// block had drifted from ~11,300 to 12,563 LF bytes over the same window.
+// One of those regressions was an 8-line entry added by the very
 // session that had just been told the rule, and it was shrunk (39f2d8d) only
 // because a human noticed. Phase 3 then moved another 32,972 B out. Nothing
 // failed while any of that happened, which is the whole problem: the routing
@@ -14,11 +17,12 @@
 // Same shape as scripts/architecture-guard.test.js and scripts/classify-cycle.test.js
 // -- the rule lives in a test, not in prose nobody re-reads.
 //
-// The pins are EXACT, not floors or ceilings. That is deliberate and comes from
-// a measured mistake: js/lib/test-cases-parse.test.js first used a 797-case
-// floor, and nine cases disappeared with the suite green. An exact pin fails in
-// both directions, so shrinking the block is a decision somebody takes on
-// purpose by lowering the number here, not something that happens quietly.
+// The block-size and entry-count pins are EXACT, not floors; only the total-size
+// check is a ceiling, for the reason given at that test. Exactness is deliberate
+// and comes from a measured mistake: js/lib/test-cases-parse.test.js first used a
+// 797-case floor, and nine cases disappeared with the suite green. An exact pin
+// fails in both directions, so shrinking the block is a decision somebody takes
+// on purpose by lowering the number here, not something that happens quietly.
 //
 // WHAT IS DELIBERATELY NOT CHECKED, and why -- named limits, not gaps:
 //   * The pointer regex only catches a name quoted right after "CLAUDE.md"
