@@ -194,6 +194,8 @@ scripts/classify-cycle.mjs — classifies a branch for `/finish-cycle`'s Gate 2 
 scripts/architecture-guard.test.js — (2026-10-10) fails when `ARCHITECTURE.md` §5/§6 drift from the code
                             (routes, tables, added columns). What it deliberately does not check, and why,
                             is in the file's own header — read it there, not from a paraphrase.
+scripts/claude-md-guard.test.js — (2026-10-10) fails when this file regrows past its ceiling, or when a
+                            live `docs/`/`.claude/` pointer names a section it no longer has. Limits: own header.
 scripts/shoot.mjs        — renders pages of the running app with headless Chrome, one PNG per width, for comparing a
                             redesign against its design boards. **Reading the PNGs back is part of visual
                             verification — "the page can't be rendered here" is not a valid reason to skip it.**

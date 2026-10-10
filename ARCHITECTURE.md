@@ -1005,6 +1005,7 @@ burndown/
     backup-db.sh          ← pg_dump -Fc snapshot of pdash-db into backups/ (gitignored), non-blocking; see "Docker main-stack safety" above
     classify-cycle.mjs    ← classifies a branch for /finish-cycle's Gate 2 (no-code vs ordinary); the rule is code here, pinned by scripts/classify-cycle.test.js, never prose
     architecture-guard.test.js ← fails when §5/§6 of this file drift from the code (routes, tables, added columns); its own header names what it deliberately does not check
+    claude-md-guard.test.js ← fails when CLAUDE.md regrows past its ceiling or a live docs/ or .claude/ pointer names a section it no longer has; its own header names what it deliberately does not check
     shoot.mjs             ← renders pages of the running app with headless Chrome, one PNG per width. Detail: docs/scripts/shoot.md
 ```
 
@@ -1026,6 +1027,8 @@ New users start fresh: an admin creates an account via the invite flow, then use
 All server data (cost grids, projects, clients, programs, roles, timesheets) is fetched from the API on every page load into in-memory variables. No stale cross-session data is possible.
 
 ### DB migrations
+
+> **The maintained per-file index is [docs/db/migrations.md](docs/db/migrations.md)** (moved out of `CLAUDE.md` on 2026-10-10). The list below is an older parallel copy kept for the architectural narrative around each migration; it is **known to lag** — `027` and `028` are missing from it as of 2026-10-10. Prefer the `docs/db/` table for "what exists and what it did".
 
 Numbered SQL files in `api/src/db/migrations/`. Apply individually via:
 
