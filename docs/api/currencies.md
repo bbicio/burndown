@@ -16,4 +16,4 @@ The currencies admin surface, backing `master-currencies.html`. `CLAUDE.md`'s Fi
 
 Every rate change — whether it comes from `activate` or from `rate` — both updates `currencies.current_rate` and inserts a `currency_rates` row. The history table is therefore complete by construction; nothing reconstructs it after the fact.
 
-Schema: `012_currencies.sql` (see `CLAUDE.md` → "DB migrations").
+Schema: `012_currencies.sql` (see [docs/db/migrations.md](../db/migrations.md)).
