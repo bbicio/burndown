@@ -262,9 +262,15 @@ forbids elsewhere.
 
 ## 8. `CLAUDE.md` — three edits under a hard byte ceiling
 
-`CLAUDE.md` is **62,813 B** against a **64,000 B** ceiling pinned at
+`CLAUDE.md` is **62,391 LF bytes** against a **64,000 B** ceiling pinned at
 `scripts/claude-md-guard.test.js:96`, whose own comment says the ceiling must not be raised to fit new
-content. **~1,187 B is the entire budget for all three edits**, and one of them replaces existing text.
+content. Headroom is therefore **1,609 B**.
+
+*Corrected 2026-10-12, after this spec was first committed:* the original figure here was 62,813 B
+with ~1,187 B of headroom. That was a **CRLF** count taken with `wc -c`; the guard measures LF
+(`Buffer.byteLength(LINES(CLAUDE).join('\n'), 'utf8')`). The three edits below measure ~650 B, so they
+**fit without freeing anything** — the ceiling is not the binding constraint this spec first claimed,
+and §8.1 is justified on its own merits instead (see there).
 
 **The ceiling stays as the guard has it** (user decision, 2026-10-12). It was weighed and kept: the
 file is the only document loaded in full at every session start, it has already regrown on its own
@@ -286,11 +292,16 @@ change the guard that constrains it.
    naming `PROCESS.md` §6b as taking precedence over `superpowers:brainstorming`'s `<HARD-GATE>` and
    `superpowers:writing-plans`' Execution Handoff. Two or three lines at most.
 
-### 8.1 Paying for them: deletion of obsolete content, bounded
+### 8.1 Deletion of obsolete content, bounded
 
-The budget is paid the way the guard's own failure message prescribes — by taking content out, not by
-raising the pin. Four rules, because an unbounded cleanup is a free-judgment operation and this
-project has measured what those cost:
+**Motivation, corrected.** This was first written as the way to pay §8's byte cost. With the headroom
+figure corrected above, the edits fit on their own, so this section no longer buys space it needs —
+it is kept because the two candidates below are **wrong or dead content**, which is worth removing
+whatever the byte count is, and removing it restores headroom for the next cycle. The user asked for
+it explicitly on 2026-10-12.
+
+Four rules, because an unbounded cleanup is a free-judgment operation and this project has measured
+what those cost:
 
 1. **Deletion only, never rewriting to shorten.** Compressing prose here is the documented way 10 of
    16 findings in one cycle became fabricated universal claims: shortening a sentence almost always
@@ -302,10 +313,10 @@ project has measured what those cost:
 3. **The candidate list is closed during planning, not during execution.** The implementer verifies
    and deletes from that list and does not extend it on discovery; anything else found goes to the
    report's Roadmap notes.
-4. **The target is freeing what §8 needs plus a stated margin, not cleaning `CLAUDE.md`.** A general
-   sweep is its own cycle.
+4. **The list is the two measured candidates below and nothing else.** A general sweep of
+   `CLAUDE.md` is its own cycle. Measured total: **328 LF bytes** (161 + 167).
 
-**Two candidates are already verified** and open the list:
+**The two candidates, measured 2026-10-12:**
 
 - **`CLAUDE.md:376`, "Current cache versions: …"** — of the five `?v=N` values it states, **two are
   already false**: `js/costgrid.js` is at `?v=43` (stated 39) and `js/lib/pipeline-calc.js` at `?v=6`
@@ -318,8 +329,8 @@ project has measured what those cost:
   own bullet earlier in the same section, and the cycle's narrative is in `docs/js/lib.md`. Delete the
   historical clause, keep the live rule and keep the "Known open items" clause, which is still true.
 
-The planning phase extends this list until the measured total covers the §8 edits plus margin, then
-closes it.
+**The list is closed at these two.** Net effect on the file: −328 B of deletions against ~+650 B of
+§8 edits, ending near 62,700 LF bytes with ~1,300 B of headroom left.
 
 ## 9. Tests and verification
 
@@ -334,9 +345,10 @@ closes it.
 
 ## 10. Risks
 
-- **The byte ceiling (§8) is the binding constraint**, not a formality. A plan task that writes the
-  `CLAUDE.md` edits without first measuring them will discover this at Gate 1. The planning phase
-  must close §8.1's candidate list with a **measured** total, not an estimated one.
+- **The byte ceiling (§8) is close, though no longer binding** after the LF/CRLF correction: ~1,300 B
+  of headroom remain once this cycle lands. A `CLAUDE.md` edit written without measuring it first
+  still risks a Gate 1 red, and the measurement must be in **LF**, which is the mistake this spec
+  itself made.
 - **The cleanup (§8.1) is the cycle's most defect-prone task**, because deciding something is
   obsolete is a judgment. Its four rules are the mitigation; the one that matters most is rule 1,
   since a single "while I'm here, let me tighten this sentence" reintroduces the exact failure mode
@@ -389,11 +401,13 @@ backlog item right after this one.
 4. **The guard checks each entry's shape, not the ledger's completeness (§7).** Alternativa scartata:
    checking only that the section exists. Perché: the three fields are what make an entry a decision,
    and verifying their presence is a form check, not a quality judgment — the boundary §4(d) states.
-5. **The ceiling is kept, and paid with a bounded deletion rather than a raise or a compression
+5. **The ceiling is kept, and the cleanup stays even after it stopped being needed for bytes
    (§8, §8.1).** Alternativa scartata: raising the pin once with a stated reason, or compressing the
-   prose being edited. Perché: raising it restores the condition that produced a 115 KB file, and
-   compressing is this project's measured worst operation on these documents. Reshaping the ceiling
-   to separate index bytes from narrative bytes is a real problem, deferred to its own backlog item.
+   prose being edited; and — once the LF correction showed §8 fits unaided — dropping §8.1 entirely.
+   Perché: raising it restores the condition that produced a 115 KB file; compressing is this
+   project's measured worst operation on these documents; and the two candidates are false or dead
+   content, which is worth deleting regardless of the budget. Reshaping the ceiling to separate index
+   bytes from narrative bytes is a real problem, deferred to its own backlog item.
 6. **A closed four-file exemption list rather than a 2026-10-13 cutoff (§7).** *Surfaced while writing
    the spec, not in the chat design — the §5.1 case.* Alternativa scartata: moving the cutoff one day
    forward. Perché: that would exempt this cycle's own spec and plan, the two files the guard most
