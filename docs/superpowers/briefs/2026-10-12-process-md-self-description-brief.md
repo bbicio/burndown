@@ -13,23 +13,48 @@
 ## Current behavior
 
 **F7 — §1 omette tre step del Gate 4, due dei quali scritti dopo incidenti reali.**
-La riga `/finish-cycle` di §1 (`PROCESS.md:26`) descrive la coda della sequenza come «… → merge `--no-ff` con riepilogo pre-merge esplicito e pulizia worktree → `/sync-docs` + report persistito». Il Gate 4 esegue invece, in ordine: riepilogo pre-merge → merge → **`scripts/backup-db.sh`** (`finish-cycle.md:97`, automatico) → **applicazione delle nuove migrazioni** (`:116`) → **restart del backend** (`:124`, gate umano che può lasciare codice backend mergiato ma non vivo) → pulizia worktree → cancellazione branch. `grep -c "backup-db\|pdash-api\|migrazion"` su `PROCESS.md` dà cinque hit, **nessuna in §1 e nessuna sul Gate 4**.
+La riga `/finish-cycle` di §1 descrive la coda della sequenza come «… → merge `--no-ff` con riepilogo pre-merge esplicito e pulizia worktree → `/sync-docs` + report persistito». Il Gate 4 esegue invece, nell'ordine reale dei suoi step numerati:
+
+| step | cosa |
+|---|---|
+| 1-2 | riepilogo pre-merge + «Proceed with merge? [yes/no]» |
+| **3** | **`scripts/backup-db.sh`** — automatico, senza conferma, e il testo dice esplicitamente *«before any merge state changes»* |
+| 4 | CWD safety check (se il checkout è un worktree collegato, `cd` alla root del repo principale) |
+| **5** | `git checkout main` / `git merge --no-ff` / `git push` |
+| **6** | **applicazione delle nuove migrazioni**, solo se il diff tocca `api/src/db/migrations/` |
+| **7** | **restart del backend**, solo se il diff tocca `api/` — gate umano, il cui "no" lascia codice backend mergiato ma non vivo |
+| 8-9 | pulizia worktree, cancellazione branch |
+
+**Il backup sta prima del merge, non dopo.** La prima stesura di questo Brief lo collocava dopo, ed è precisamente l'errore che F7 documenta: descrivere il Gate 4 a memoria invece che trascrivendolo. Tre di questi step non compaiono in §1 (3, 6, 7); altri due non vi compaiono e non devono comparirvi (4 è dettaglio implementativo, 9 è una riga).
+
+`grep -c "backup-db\|pdash-api\|migrazion"` su `PROCESS.md` dà **sette** hit (righe 69, 90, 107, 113, 136, 138, 145) — **nessuna in §1 e nessuna sul Gate 4**, che è il punto. Il conteggio va ri-eseguito al momento dell'esecuzione, non ripreso da qui.
 Origine: gli step arrivano da `bf95d9f`, `bc561d0` e `41bab43`, nessuno dei quali tocca `PROCESS.md`; la condizione 3 di §7 li copriva già allora e non fu applicata. Il risultato è un documento asimmetrico — §1 descrive il ramo più recente (no-code cycle, 2026-10-09) in una clausola propria, mentre tre step più vecchi mancano.
 
 **F8 — §6 usa due schemi di numerazione contemporaneamente, ed entrambi sono citati.**
-Dentro `## 6.` (`:112`) le suddivisioni sono punti in grassetto `1, 2, 3, 4, 4b, 4c, 5` (`:116`, `:134`, `:153`), citati come `§6.1` (`PROCESS.md:117`) e `§6.4` (`finish-cycle.md:35`, `:36`, `:69`). Ma `## 6.6` (`:159`) è un **heading di primo livello**, fratello di `## 6.`, con i propri punti 1-5, citato come «PROCESS.md 6.6.5» (commit `eb36f2a`). `finish-cycle.md:12` cita i due schemi nella stessa frase: «PROCESS.md §6/§6.6». Quindi `§6.4` significa «punto 4 dentro §6» mentre `§6.6` significa «la sezione dopo §6», e `§6.5` sarebbe irrisolvibile. Tutte le citazioni esistenti risolvono oggi: il difetto è che lo schema non è seguibile da un lettore a freddo.
+Dentro `## 6.` le suddivisioni sono punti in grassetto `1, 2, 3, 4, 4b, 4c, 5`, citati come `§6.1` e `§6.4`. Ma `## 6.6` è un **heading di primo livello**, fratello di `## 6.`, con i propri punti 1-5, citato come «PROCESS.md 6.6.5» (commit `eb36f2a`) e come «§6.3/§6.6» (`CLAUDE.md`). `finish-cycle.md` cita i due schemi nella stessa frase: «PROCESS.md §6/§6.6». Quindi `§6.4` significa «punto 4 dentro §6» mentre `§6.6` significa «la sezione dopo §6», e `§6.5` sarebbe irrisolvibile. Tutte le citazioni esistenti risolvono oggi: il difetto è che lo schema non è seguibile da un lettore a freddo.
+
+**Le forme di citazione in circolazione sono tre, non due.** Oltre a `§6.N` e `§6.6` esiste **`§6 4c` / «§6 point 4c»** — spazio invece del punto — in quattro punti misurati: `PROCESS.md` (due volte, dentro §4b e dentro §6 stessa), `finish-cycle.md` e `CLAUDE.md`. Sotto lo schema proposto diventano `§6.4c`: sono quattro frasi che cambiano **per costruzione**, e vanno nell'elenco del punto 3 delle Expected behavior fin dall'inizio, non scoperte durante l'esecuzione.
 
 ## Expected behavior
 
 1. **F7** — la riga `/finish-cycle` di §1 nomina i tre step mancanti del Gate 4 nella loro posizione reale (backup DB automatico, applicazione migrazioni, restart backend come gate umano), **più i due fatti nuovi del Ciclo 1**: il `npm test` bloccante al Gate 5 e l'esistenza di §4b. Una clausola, non un paragrafo: §1 resta un sommario. **Si ri-deriva trascrivendo i gate reali di `finish-cycle.md`, non riassumendo a memoria** — F7 esiste perché tre step furono aggiunti al comando senza che nessuno riaprisse §1.
-2. **F8** — lo schema di §6 diventa univoco **con la modifica minima**. Opzione raccomandata, da confermare in `/brainstorming`: promuovere i punti in grassetto di §6 a heading `### 6.1 … 6.5` (con `6.4b`/`6.4c`) e degradare `## 6.6` a `### 6.6` dentro §6 — così `§6.1…§6.6` sono coerenti e **tutte le citazioni oggi esistenti continuano a risolvere senza essere toccate**, incluso «6.6.5». Il Ciclo 1 ha aggiunto `## 4b.`: va riconciliata con lo schema scelto nello stesso passaggio, non lasciata come terza convenzione.
+2. **F8** — lo schema di §6 diventa univoco **con la modifica minima**. Opzione raccomandata, da confermare in `/brainstorming`: promuovere i punti in grassetto di §6 a heading `### 6.1 … 6.5` (con `6.4b`/`6.4c`) e degradare `## 6.6` a `### 6.6` dentro §6 — così `§6.1…§6.6` sono coerenti e **tutte le citazioni oggi esistenti continuano a risolvere**, incluso «6.6.5», tranne le quattro in forma `§6 4c` che vanno aggiornate a `§6.4c`.
+
+   **Domanda aperta da decidere in `/brainstorming`, non da liquidare in una clausola: la collisione `## 4b.` ↔ `### 6.4b`.** Il Ciclo 1 ha aggiunto `## 4b. Guardie meccaniche` al primo livello, e §6 ha già un punto `4b.` (il Gate 3 in parallelo). L'opzione raccomandata **non risolve** questa ambiguità: la crea in forma stabile, perché il documento conterrà `## 4b.` e `### 6.4b` insieme. In forma piena sono distinguibili; «4b» a secco no — ed è esattamente il tipo di riferimento che F8 lamenta. Il vincolo «niente rinumerazione dei `## N` esistenti» esclude di rinominare `## 4b.`, quindi le direzioni praticabili sono due: accettare l'ambiguità residua dichiarando una **regola di citazione in forma piena** (`§4b` o `§6.4b`, mai «4b»), oppure scegliere per i punti di §6 una forma che non collida. Chiudere F8 aprendo il suo gemello non è un esito accettabile di questo ciclo.
 3. **La disciplina che rende questo una ristrutturazione e non una riscrittura.** Ogni paragrafo esistente riceve una destinazione sotto il nuovo schema e **viene spostato, non riformulato**: una frase o sopravvive identica, o il suo cambiamento compare in un elenco esplicito e numerato, con una riga di motivazione ciascuno. Nessuna regola «detta meglio», nessun passaggio datato compresso, nessuna lezione dell'esperienza corrente aggiunta — quell'esclusione *è* la differenza fra le due operazioni.
-4. **La disciplina al punto 3 va dimostrata, non dichiarata.** Uno script usa-e-getta confronta l'insieme (multiset) delle righe non vuote prima e dopo: deve risultare identico a meno dell'elenco al punto 3. Nessun test può giudicare la prosa di `PROCESS.md`, ma **può provare che niente è stato riformulato di nascosto** — che è esattamente il modo in cui i cicli precedenti su questo file hanno prodotto 9, 10 e 5 finding. Senza questo controllo «a frasi preservate» resta un'intenzione.
+4. **La disciplina al punto 3 va dimostrata, non dichiarata — e il confronto va fatto su testo normalizzato.** Uno script usa-e-getta confronta l'insieme (multiset) delle righe non vuote prima e dopo. Ma il confronto grezzo è inutilizzabile: promuovere `**1. Modalità e modello…**` a `### 6.1 Modalità e modello…` cambia la riga **per costruzione**, e con una dozzina di heading più la riga di §1 più le quattro citazioni l'«elenco delle eccezioni» diventa abbastanza lungo da non provare più niente. Quindi:
+   - lo script confronta il multiset **dopo normalizzazione** — rimozione dei `#` iniziali, dei `**` di apertura/chiusura e trim — così il **corpo** risulta identico davvero;
+   - le trasformazioni di heading si riportano a parte, come mappa 1:1 vecchio → nuovo, verificabile a colpo d'occhio;
+   - l'elenco esplicito delle modifiche di sostanza resta quindi corto e leggibile: la riga di §1, le quattro citazioni in forma `§6 4c`, e nient'altro.
+
+   Nessun test può giudicare la prosa di `PROCESS.md`, ma questo **può provare che niente è stato riformulato di nascosto** — che è esattamente il modo in cui i cicli precedenti su questo file hanno prodotto 9, 10 e 5 finding. Senza questo controllo «a frasi preservate» resta un'intenzione.
+
+5. **Vincolo di forma su §1, da risolvere consapevolmente.** La riga `/finish-cycle` di §1 è già la cella più pesante del file: **1437 caratteri**. Il punto 1 le aggiunge cinque fatti. `/brainstorming` decide esplicitamente fra una clausola compatta e un elenco puntato dentro la cella — ma non ristruttura §1, che resta fuori scope.
 
 ## Constraints
 
 - **Niente rinumerazione di §7 e oltre**, e nessun numero di sezione esistente cambia significato: `sync-docs` SKILL.md:55 stabilisce che i numeri di sezione sono stabili e mai rinumerati, perché altri documenti li citano.
-- Nessuna citazione esterna va invalidata; se la variante scelta ne sposta qualcuna, va aggiornata nello stesso commit (`finish-cycle.md:12`, `:35`, `:36`, `:69` e `PROCESS.md:117` sono l'elenco completo misurato dall'audit).
+- Nessuna citazione esterna va invalidata; se la variante scelta ne sposta qualcuna, va aggiornata nello stesso commit. **L'elenco che l'audit dava per completo non lo è**, e i suoi numeri di riga sono già scivolati — non vanno riusati. Mancavano, misurate il 2026-10-12: una citazione in più in `finish-cycle.md` («§6 point 4c», nel paragrafo di classificazione del Gate 2), le due occorrenze di `§6 4c` dentro `PROCESS.md` stessa, il «vedi §6.6» di §6 punto 3, e **`CLAUDE.md` per intero** — che ne ha due, «§6 point 4c» e «§6.3/§6.6». Quindi: **l'elenco si ri-deriva all'esecuzione con un `grep -rn "§6" --include=*.md` su tutto il repo**, non si copia da qui; `docs/handoff-ciclo*.md` e `docs/scripts/shoot.md` citano `PROCESS.md` e vanno inclusi nella passata.
 - Solo prosa: nessun file di codice, **nessun test nuovo committato**. Lo script di verifica del punto 4 è usa-e-getta, vive nello scratchpad e non entra nel repo — altrimenti sarebbe un test di prosa, che è ciò che l'audit ha stabilito non esistere.
 - Nessun contenuto nuovo di processo: si descrive ciò che i gate **già fanno**, non si cambia cosa fanno.
 - **Il ciclo è `no-code`** se tocca solo `PROCESS.md` e le citazioni in `.claude/` (lo decide `node scripts/classify-cycle.mjs`, mai questa frase): il Gate 2 prenderà il suo ramo breve.
@@ -38,7 +63,9 @@ Dentro `## 6.` (`:112`) le suddivisioni sono punti in grassetto `1, 2, 3, 4, 4b,
 
 - [ ] §1 nomina backup DB, applicazione migrazioni e restart backend nella riga `/finish-cycle`, nell'ordine reale del Gate 4.
 - [ ] Dentro §6 un riferimento `§6.N` ha un solo significato possibile, e `§6.6` non è più ambiguo tra «punto 6 di §6» e «sezione dopo §6».
-- [ ] Ogni citazione di `§6.x` in `finish-cycle.md` e `PROCESS.md` risolve.
+- [ ] Ogni citazione di `§6.x` **in tutto il repo** risolve — `PROCESS.md`, `finish-cycle.md`, `CLAUDE.md`, `.claude/skills/`, `docs/` — verificata con una passata `grep` ri-eseguita, non con l'elenco di questo Brief.
+- [ ] Le quattro citazioni in forma `§6 4c` / «§6 point 4c» sono passate alla forma unica scelta.
+- [ ] La collisione `## 4b.` ↔ `### 6.4b` è stata decisa esplicitamente in `/brainstorming`, e l'esito (regola di citazione in forma piena, o forma alternativa per i punti di §6) è scritto nel report.
 - [ ] Nessun numero di sezione `## N` oltre il 6 è cambiato.
 - [ ] `## 4b.` è riconciliata con lo schema di numerazione scelto.
 - [ ] L'insieme delle righe non vuote di `PROCESS.md` è invariato a meno di un elenco esplicito di modifiche, ciascuna con la sua motivazione (punti 3 e 4 sopra), e quell'elenco è nel report del ciclo.
