@@ -193,9 +193,9 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 
 ## Gate 6 — FINAL REPORT (in chat)
 
-Print in chat:
+**The report file written at Gate 5 is the register — this gate does not restate it.** It is the only persistent artefact, and for the project memory it is the only trace that exists at all. Until 2026-10-12 this gate reprinted the per-gate outcomes and the memory line, both of which are already in the file; that duplication is what PROCESS.md §6b removed. Print in chat only:
+
 - The path to the just-committed report file.
-- One line for project memory (e.g. "Memory: 2 files updated, 1 item unverified" or "Memory: evaluated, no change").
-- One line per gate (1 through 5) stating its outcome (e.g. "Gate 1: passed (frontend + backend)", "Gate 3: 1 finding, fixed and re-verified", "Gate 4: merged, merge commit (main had diverged), pdash-api restarted and healthy" — or, if the restart was declined, "Gate 4: merged; pdash-api NOT restarted, backend change not yet live").
-- An explicit pointer: "See the Roadmap notes section of `<report path>` for open items."
+- **One** outcome line for the whole cycle, naming only what was not routine (e.g. "Merged and pushed; 1 review finding fixed, 2 deferred" or "Merged and pushed; clean"). Not one line per gate.
+- The items that need a **human action after this cycle** — accepted code-review follow-ups and anything in Roadmap notes that is a task rather than an observation — or "nothing open" when there are none, followed by: "See the Roadmap notes section of `<report path>` for the full list."
 - **REQUIRED, as the literal last line, with nothing after it:** `Cycle closed and pushed. If this was the last of a series of related cycles (e.g. a multi-cycle audit), consider a cold review before moving on to the next work.` This is a fixed, unconditional closing line, not optional trailing commentary — it is a text suggestion for the user to weigh, not a decision this command makes: never try to determine from repo state, commit history, or anything else whether this cycle actually was the last of a series — always print the same line, and never act on it (no starting a review, no reading other reports) beyond printing it.
