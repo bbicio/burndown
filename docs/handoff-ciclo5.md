@@ -183,7 +183,7 @@ Dai cicli 2 e 3:
 - Contraddizione preesistente `:27`-vs-`:49` in `finish-cycle.md` (il preambolo sul teardown dice
   "solo allo step 6", ma il ramo `rebuild` dello step 1 lo esegue pure).
 - Riduzione di prosa del paragrafo di classificazione del Gate 2 (~1.200 parole per una regola a tre
-  clausole, metà già in `PROCESS.md` 4c).
+  clausole, metà già in `PROCESS.md` §6.4c).
 - I tre low rinviati dal ciclo 3 (parser: commenti multi-riga e badge `node:test`; `formatCell` dentro
   `data-id`).
 

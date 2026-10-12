@@ -86,7 +86,7 @@ qualificano, quindi `node scripts/classify-cycle.mjs` dovrebbe dire `no-code`. D
 - I due follow-up del ciclo 2, entrambi no-code: la contraddizione preesistente `:27`-vs-`:49` in
   `finish-cycle.md` (il preambolo sul teardown dice "solo allo step 6", ma il ramo `rebuild` dello
   step 1 lo esegue pure), e la riduzione di prosa del paragrafo di classificazione del Gate 2
-  (~1.200 parole per una regola a tre clausole, metà già in PROCESS.md 4c).
+  (~1.200 parole per una regola a tre clausole, metà già in PROCESS.md §6.4c).
 - I tre low rinviati dal ciclo 3 (parser: commenti multi-riga e badge `node:test`; `formatCell` dentro
   `data-id`) — sono nella sezione "Code review follow-ups" del report del ciclo 3.
 - Ciclo 5 (`ARCHITECTURE.md` §5/§6 generati da uno script: 437 + 231 righe) e ciclo 6 (`CLAUDE.md`
