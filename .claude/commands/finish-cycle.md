@@ -1,6 +1,6 @@
 # /finish-cycle — Development Cycle Closeout Command
 
-Run the full closeout sequence for the current feature branch: test, optional manual-verification gate — with `/code-review` launched in the background when that gate *opens*, so it runs while the human verifies — then the code-review gate itself, merge to main, backend restart (if applicable), doc sync, and a persisted report. Every judgment gate (code review findings, merge, the backend restart, the doc-sync/report push) always stops for explicit confirmation. Only objective gates (test pass/fail, pre-flight checks) block or unblock without asking.
+Run the full closeout sequence for the current feature branch: test, optional manual-verification gate — with `/code-review` launched in the background when that gate *opens*, so it runs while the human verifies — then the code-review gate itself, merge to main, backend restart (if applicable), doc sync, and a persisted report. Every judgment gate (code review findings, merge, the doc-sync/report push) always stops for explicit confirmation. Only objective gates (test pass/fail, pre-flight checks) block or unblock without asking. Since 2026-10-12 the backend restart and the local-branch deletion are **not** judgment gates and no longer ask — Gate 4 steps 7 and 9 say why, PROCESS.md §6b is the rule.
 
 ## Pre-flight (automatic, no confirmation)
 
@@ -73,7 +73,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 2. If the review reports zero findings: state this explicitly ("Code review: no findings.") and proceed automatically to Gate 4 — no confirmation needed.
 3. If the review reports one or more findings:
    - Show all findings.
-   - Ask explicitly: "Fix now, accept as follow-up, or a mix (specify which)?"
+   - **Round 1 asks; later rounds may not need to.** Ask explicitly: "Fix now, accept as follow-up, or a mix (specify which)?" From round 2 on, if the round-1 answer stated a **rule** rather than a list ("all follow-up except correctness"), apply it instead of re-asking, report the application ("round 2: 3 findings, 1 fixed under your rule, 2 to follow-up"), and stop only on a finding the rule does not cover. **If round 1 was decided finding by finding, no rule is inferred from it** — same "never inferred" principle as PROCESS.md §6.4c and `feature-brief`'s scenario question. PROCESS.md §6b calls this a class-D gate: the decisions are real, the repeated question is not.
    - For every finding the user accepts as follow-up, append it to `code_review_followups`, tagged with the current round number.
    - For every finding the user chooses to fix now, apply the fix.
    - If any fix was applied and the round just completed was round 1 or round 2: run `/code-review` again on the same scope (this becomes the next round) and repeat step 2/3 for it.
@@ -95,7 +95,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
    - Include the pre-flight divergence note from check 5, if it fired.
 2. Show the full summary. Ask explicitly: "Proceed with merge? [yes/no]"
    - If the answer is anything other than a clear yes: stop and wait.
-3. **DB backup (automatic, no confirmation):** run `scripts/backup-db.sh` — takes a `pg_dump` snapshot of the main stack's database into `backups/` (gitignored) before any merge state changes, keeping only the 3 most recent dumps. This is a read-only safety net, not a gate: report the script's own output (backup file path/size, and any old backup it pruned) in chat, but never block or ask for confirmation on it — including when it warns that `pdash-db` isn't running and skips (that's expected if the main stack happens to be stopped, e.g. local dev).
+3. **DB backup (automatic, no confirmation) — only when the stack is about to be touched.** Run `scripts/backup-db.sh` if **either** the diff adds a file under `api/src/db/migrations/` (step 6 will apply it) **or** the diff touches `api/` (step 7 will restart `pdash-api`). Otherwise skip it and say so in one line: a merge that touches neither does not go near the database, and tying the snapshot to merge frequency was tying it to the wrong variable — protection against a destructive command run by hand depends on elapsed time, not on how many merges happened. Those are the exact moments `CLAUDE.md`'s Infrastructure-safety rule 2 ("snapshot before touching it") names, so this narrows the trigger without loosening that rule. When it does run: `pg_dump` snapshot into `backups/` (gitignored) before any merge state changes, keeping only the 3 most recent dumps. It is a read-only safety net, not a gate: report the script's own output (backup file path/size, and any old backup it pruned) in chat, but never block or ask for confirmation on it — including when it warns that `pdash-db` isn't running and skips (that's expected if the main stack happens to be stopped, e.g. local dev).
 4. **CWD safety check (worktrees):** run:
    ```bash
    GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
@@ -123,9 +123,8 @@ Run the full closeout sequence for the current feature branch: test, optional ma
      ```
      Report each file's output. This project's migration convention (`CREATE TABLE IF NOT EXISTS`, `INSERT ... ON CONFLICT DO NOTHING`) makes re-running an already-applied migration a safe no-op, so there is no need to first check whether it was already applied. If a migration errors, stop immediately, show the error verbatim, and do not proceed to the backend restart below until it's resolved — an error here means the schema and the merged code are now out of sync.
 7. **Backend restart (only if Gate 1 step 2 determined the diff touches `api/`):** `pdash-api` runs as a plain `node src/index.js` process (`api/Dockerfile`) with no hot-reload — the `./api/src:/app/src` volume mount keeps the file on disk current, but the running process keeps serving whatever was in memory at container start until it is explicitly restarted. Merging a backend change to `main` does not make it take effect on its own.
-   - Ask explicitly: "This cycle touched `api/`. Restart `pdash-api` now so the merged code actually takes effect? [yes/no]"
-   - If yes: run `docker compose restart api`, then poll `docker inspect pdash-api --format '{{.State.Health.Status}}'` (a few seconds apart, up to the container's own healthcheck window) until it reports `healthy`. Report the new `docker inspect pdash-api --format '{{.State.StartedAt}}'` timestamp as confirmation.
-   - If no: state explicitly, as a visible warning (not a footnote): "`pdash-api` was NOT restarted — it will keep serving pre-merge backend code until it is. Any backend fix in this cycle is not actually live yet."  Record this warning for Gate 6's per-gate summary.
+   - **Automatic since 2026-10-12, no confirmation.** Run `docker compose restart api`, then poll `docker inspect pdash-api --format '{{.State.Health.Status}}'` (a few seconds apart, up to the container's own healthcheck window) until it reports `healthy`. Report the new `docker inspect pdash-api --format '{{.State.StartedAt}}'` timestamp as confirmation.
+   - **Why it no longer asks:** the only other outcome was backend code merged but not live, which is a hazard nobody wants — asking was asking whether to create it. `CLAUDE.md`'s Infrastructure-safety rule 3 normally requires explicit confirmation for `docker compose` against the main stack; it carries a **named derogation for this step alone** — never `down`, never `-v`, no other command, no other moment. Step 3 above has already taken the snapshot rule 2 asks for.
    - If Gate 1 step 2 determined the diff does *not* touch `api/`: skip this step entirely, no mention needed.
 8. **Worktree cleanup (only if step 4 detected a linked worktree):** the branch just merged was checked out in a linked worktree at some path `<worktree-path>`. Before deleting the branch (step 9), remove the worktree — `git branch -d` fails while a worktree still references the branch.
    - Only remove worktrees whose path is under `.worktrees/`, `worktrees/`, or `.claude/worktrees/` — this project's own worktree conventions. If the path doesn't match, do not remove it; note that cleanup was skipped because the worktree isn't one this process owns.
@@ -135,9 +134,8 @@ Run the full closeout sequence for the current feature branch: test, optional ma
      git worktree prune
      ```
    - If removal fails (a recurring, known issue in this environment — locked files, leftover `node_modules`, or a stale IDE handle): this is non-blocking. Report the failure, confirm via `git status --short` inside the worktree path that nothing uncommitted would be lost, and continue — git itself already deregisters the worktree correctly even when the physical directory can't be deleted; leaving the orphaned directory does not block the rest of the cycle.
-9. After a successful push (migration apply, worktree cleanup, and backend restart, if applicable), ask explicitly: "Delete the local branch `<branch>`? [yes/no]" — no default either way.
-   - If yes: run `git branch -d <branch>`.
-   - If no: leave the branch as-is.
+9. **Branch deletion (automatic since 2026-10-12, no confirmation).** After a successful push (migration apply, worktree cleanup, and backend restart, if applicable), run `git branch -d <branch>`. It does not ask because it is reversible: the `--no-ff` merge commit of step 5 holds every commit the branch had.
+   - If `git branch -d` refuses, report the refusal verbatim and do **not** force it with `-D`. After step 5 a refusal means the branch is not actually merged, which is a signal, not an obstacle to push past.
 
 ## Gate 5 — SYNC-DOCS + REPORT (after merge, shared human gate)
 
