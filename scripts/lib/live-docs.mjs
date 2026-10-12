@@ -22,6 +22,29 @@ export const SKIP_DIRS = new Set([
                          // main's npm test red for a reason that is not main's.
 ]);
 
+// A cited path is "rooted" when its first segment is a real top-level
+// directory of this repository. The documents also cite shorthand forms
+// (`routes/projects.js`, `middleware/auth.js`, `services/llm.js`) that are
+// abbreviations rather than resolvable paths; resolving those would mean
+// guessing a base directory, which is a judgment about content.
+const ROOTED = /^(?:docs|js|css|api|scripts|backups|\.claude)\//;
+const EXT = 'md|html|js|mjs|css|sql|sh|json|png';
+// Both anchors are deliberately tight: a closing backtick, or `](` ... `)`,
+// immediately after the extension. See this module's consumers for the two
+// citation forms this therefore does not match.
+const FORMS = [
+  new RegExp('`([A-Za-z0-9._/-]+\\.(?:' + EXT + '))`', 'g'),
+  new RegExp('\\]\\(([A-Za-z0-9._/-]+\\.(?:' + EXT + '))\\)', 'g'),
+];
+
+/** The distinct repo-rooted file paths cited in `text`, in both forms. */
+export function citedPaths(text) {
+  const out = new Set();
+  for (const re of FORMS)
+    for (const m of text.matchAll(re)) if (ROOTED.test(m[1])) out.add(m[1]);
+  return [...out];
+}
+
 /** Repo-relative paths of every `.md` file under `dir`, recursively. */
 export function liveMarkdown(dir, acc = []) {
   for (const name of readdirSync(join(ROOT, dir))) {
