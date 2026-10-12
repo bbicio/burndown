@@ -98,6 +98,25 @@ Regola permanente (non un'eccezione una tantum), applicabile alla fase Esecuzion
 
 ---
 
+## 4b. Guardie meccaniche — i guard dentro `npm test` (2026-10-12)
+
+Accanto alla guardia infrastrutturale di §4, che è una regola di condotta, ci sono tre guardie che non dipendono dall'attenzione di nessuno: sono test, girano dentro `npm test`, e fermano il ciclo da sole.
+
+| Guard | Diventa rosso quando |
+|---|---|
+| `scripts/architecture-guard.test.js` | un route handler, una tabella creata da una migrazione o una colonna aggiunta da un `ALTER TABLE` non è documentata in `ARCHITECTURE.md` §5/§6 |
+| `scripts/claude-md-guard.test.js` | `CLAUDE.md` supera il proprio tetto, il blocco File structure si scosta dal pin esatto, o un documento vivo punta a una sua sezione che non esiste più |
+| `scripts/doc-paths-guard.test.js` | un documento vivo cita un path di file del repo che non esiste e non è nella allowlist `GONE` |
+
+Due conseguenze operative, che valgono per tutti e tre gli scenari:
+
+1. **Un rosso di `architecture-guard` si corregge sul branch, mai al Gate 5.** Il guard blocca il Gate 1; lo step che aggiorna `ARCHITECTURE.md` (`/sync-docs` §1) gira al Gate 5, cioè *dopo* il merge. Chi aggiunge un endpoint o una migrazione documenta §5/§6 prima di chiudere, altrimenti il Gate 1 non diventa verde. Lo dicono anche `/finish-cycle` Gate 1 e la skill `sync-docs` §1.
+2. **Il Gate 5 esegue `npm test` prima di mostrare il diff.** È lo step che modifica i numeri che i guard pinnano, ed è anche quello che pusha su `main`: prima del 2026-10-12 non c'era nessuna verifica in mezzo, e un commit ha cambiato `CLAUDE.md` e un pin nello stesso commit non testato (`3edd128`). Un rosso lì si corregge su `main` e si rientra nel gate — non è un "rilancia `/finish-cycle` da capo", perché il merge è già avvenuto.
+
+**Il valore corrente dei pin non sta qui, sta nei test.** Questa sezione non riporta nessun numero e nessun conteggio: sono esattamente le affermazioni che invecchiano in silenzio, per la stessa ragione data in §6 4c. Chi deve sapere cosa un guard accetta oggi legge il file, mai una parafrasi — e ogni guard dichiara nella propria intestazione i limiti che **non** copre, che è la parte più facile da scambiare per copertura.
+
+---
+
 ## 5. Skill di processo
 
 Tutte e tre costruite. Non una per scenario ma una per tipo di gap — ciascuna in `.claude/skills/<nome>/SKILL.md`:
