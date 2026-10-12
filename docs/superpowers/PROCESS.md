@@ -135,7 +135,7 @@ Tutte e tre costruite. Non una per scenario ma una per tipo di gap — ciascuna 
 **Origine:** il ciclo pre-login restyling (7 file, solo CSS/markup) è durato 3h28m. Il tempo è andato in: 38 esecuzioni dei test in un container `node:22` che rifaceva `npm ci` ogni volta (44 min); verifica visiva con 3 giri di screenshot più un subagent dedicato a una correzione CSS di una riga (39 min); revisioni ripetute sullo stesso diff (4 per task, finale Opus, ri-revisione, poi di nuovo il Gate 3 di `/finish-cycle`); una discussione di processo a metà ciclo (17 min). Le regole sotto valgono per tutti e tre gli scenari.
 
 ### 6.1 Modalità e modello, scelti al passaggio Piano → Esecuzione
-- **La modalità va dichiarata, non dedotta da una parola dell'utente.** Al passaggio Piano → Esecuzione Claude dichiara in chat la modalità che applicherebbe *e la regola di questo paragrafo che la giustifica* (es. "4 file di produzione, nessuna migrazione, nessuna nuova API, i 4 task toccano gli stessi 2 file → **nativa** per §6.1; confermi?"), e attende la conferma. Una richiesta secca dell'utente ("subagent-driven") resta vincolante, ma va prima messa a confronto con la regola: nel ciclo Cost Grid A (2026-10-07) la richiesta è stata eseguita un secondo dopo senza verifica e i 4 implementatori sono poi girati **in serie, con zero sovrapposizione** — pagando per quattro volte il costo fisso del dispatch senza ottenere l'unico vantaggio della modalità, il parallelismo.
+- **La modalità va dichiarata, non dedotta da una parola dell'utente.** Claude dichiara la modalità che applicherebbe *e la regola di questo paragrafo che la giustifica* (es. "4 file di produzione, nessuna migrazione, nessuna nuova API, i 4 task toccano gli stessi 2 file → **nativa** per §6.1"). **Dal 2026-10-12 questa dichiarazione non è un turno a sé: viaggia dentro il passaggio di consegne di `/writing-plans`**, insieme al path del Piano e alle sue decisioni aperte — una sola fermata invece di due domande sullo stesso istante (§6b). Una richiesta secca dell'utente ("subagent-driven") resta vincolante, ma va prima messa a confronto con la regola: nel ciclo Cost Grid A (2026-10-07) la richiesta è stata eseguita un secondo dopo senza verifica e i 4 implementatori sono poi girati **in serie, con zero sovrapposizione** — pagando per quattro volte il costo fisso del dispatch senza ottenere l'unico vantaggio della modalità, il parallelismo.
 - **Il Piano deve dire se i task sono indipendenti.** Subagent-driven presuppone task indipendenti: se il Piano non lo afferma esplicitamente (il Piano del ciclo Cost Grid A non lo diceva da nessuna parte), la precondizione non è soddisfatta e si va in nativa.
 - **Ciclo piccolo** (indicativamente ≤ 5 file, nessuna migrazione, nessuna nuova API, task fortemente sequenziali): esecuzione **nativa** (`superpowers:executing-plans`), oppure pochi task più grandi. Il costo fisso di ogni task subagent-driven (dispatch, pacchetto di revisione, revisore: 5–10 min) non si ripaga su modifiche di poche righe.
 - **Ciclo grande o con task indipendenti:** subagent-driven.
@@ -218,6 +218,50 @@ Node puro, nessuna dipendenza (usa `fetch` e `WebSocket` globali, Node ≥ 22 �
 - **Misurare, non stimare.** Per le domande di layout ("quanto è larga *davvero* questa colonna?") uno snippet che sostituisce il body con le misure (`document.body.innerHTML = '<pre>…'`) costa una run e dà numeri esatti invece di pixel contati a occhio su un PNG. Lo stesso snippet, iniettando un `<style>` con override `!important` e rimisurando dopo ogni override, permette di **sondare** quale cella impone un vincolo: è così che in G-15 si è localizzato il blocco della colonna fissa a 323px — e poi si è stabilito che tre fix plausibili non lo spostavano.
 - **Il risultato si presenta come elenco di scostamenti, uno per uno, con una proposta fix-ora / accetta-e-registra, e si aspetta la decisione.** Non si corregge tutto d'ufficio: una buona metà sono scelte, non difetti. Gli "accetta" vanno scritti in `docs/pages/<pagina>.md` **con il motivo**, altrimenti riemergono come bug al ciclo dopo.
 - **Un obiettivo numerico della spec si chiude con un numero misurato, non con "fatto".** G-15 chiedeva "5-6 colonne ruolo visibili a 1440": misurate 2 prima, 3-4 dopo i fix. Registrato come parzialmente raggiunto, con la causa residua e il perché resta — non spuntato.
+
+---
+
+## 6b. Economia delle approvazioni (2026-10-12)
+
+**Origine:** un ciclo attraversa venti punti distinti in cui si ferma per una risposta umana, parecchi dei quali si ripetono più volte nello stesso ciclo. Non sono della stessa natura, e trattarli come se lo fossero è il motivo per cui la lista è cresciuta: ogni ciclo che ha aggiunto una tutela ha aggiunto una domanda, perché dall'interno di una checklist una tutela ha la forma di una domanda. Il ciclo CR2 (`a31a2f9`) è il caso limite: sola prosa, 3 file, e ha pagato Brief → Spec → Piano → 5 task → 3 round di revisione → 5 gate di approvazione.
+
+### Le quattro nature di una fermata
+
+Una fermata nuova si classifica qui dentro, non si inventa.
+
+- **A — cancello su azione irreversibile.** Il merge, il push, il restart del backend. Un "no" ha conseguenze materiali. Non si tocca.
+- **B — cancello informativo:** l'umano sa qualcosa che il processo non può derivare — la classificazione dello scenario, lo scope escluso, i chiarimenti, la verifica browser del Gate 2, la domanda "è user-visible?" di `/sync-docs`. La risposta è un **input**, non un assenso: toglierla non fa risparmiare, fa indovinare.
+- **C — cancello di ratifica:** all'umano si chiede di benedire un artefatto che deve prima leggere. È la natura che la regola sotto trasforma.
+- **D — cancello di disposizione:** cosa farne dei finding. Ogni finding è una decisione reale, ma la *domanda* non va ripetuta identica a ogni round (Gate 3, vedi `.claude/commands/finish-cycle.md`).
+
+### La regola della ratifica
+
+**Un gate di classe C non chiede «approvi?».** Presenta le decisioni che potevano andare diversamente e chiede se qualcuna va cambiata. **Con N=0 lo dichiara e procede senza attendere.** «Approvi?» su un documento di trecento righe scarica sul lettore il compito di trovare cosa potrebbe essere sbagliato; nominare le decisioni lo riporta su chi le ha prese.
+
+**Cos'è «una decisione che poteva andare diversamente»** — senza una definizione operativa N si gonfia o si svuota a piacere. È una scelta che **non** è imposta dal Brief, da un artefatto a monte o da una regola scritta del progetto, **e** che un lettore informato potrebbe ragionevolmente volere diversa. Non lo sono: le conseguenze meccaniche di una decisione già nel ledger; le convenzioni del progetto; ciò che è già stato confermato in una fermata di classe B.
+
+**Il confine dei guard.** Un guard può pretendere che l'artefatto **porti** l'informazione; non può mai giudicare se l'informazione è **corretta**. È la stessa linea che §6.4c traccia per `classify-cycle.mjs` ("il test è la lista dei path, mai un giudizio su di cosa parla il ciclo").
+
+### Dove si applica
+
+- **`/brainstorming`: una fermata, non N+2.** Il design si presenta **una volta sola, intero**, chiuso dal ledger; la scelta fra i 2-3 approcci è la prima voce del ledger, non una fermata propria. Niente approvazioni sezione per sezione.
+- **Un contenuto si ratifica una volta sola; trascriverlo in un file non è contenuto nuovo.** Dopo quell'unica fermata la spec si scrive, si committa, se ne dichiara il path e si prosegue: **non viene ri-ratificata**. Unica eccezione, meccanica e non discrezionale: **se scrivendo la spec nasce una decisione che non era nel ledger di chat, quella è N>0** e il gate si riapre su quelle sole voci.
+- **`/writing-plans` + §6.1: una fermata, non due.** Il passaggio di consegne del Piano porta in un solo messaggio il path, le N decisioni aperte, la **modalità con citata la regola di §6.1 che la giustifica** e il modello. La dichiarazione di §6.1 vive lì dentro, non in un turno a sé.
+- **Gate 3 e Gate 4** di `/finish-cycle`: la regola di disposizione e le tre automazioni stanno nel comando, non qui.
+
+### Il ledger
+
+Sezione finale obbligatoria di **ogni Spec e ogni Piano**, intitolata esattamente `## Decisioni aperte`:
+
+```markdown
+## Decisioni aperte
+
+1. **<la scelta fatta>.** Alternativa scartata: <cosa non si è fatto>. Perché: <una frase>.
+```
+
+L'unico corpo alternativo, quando non ce ne sono, è la sentinella `Nessuna.` — esito legittimo, non una scappatoia: un ciclo in cui ogni scelta era imposta dal Brief non ne ha davvero.
+
+`scripts/decision-ledger-guard.test.js` lo pinna, con il suo taglio a data e la sua lista di esenzioni **chiusa**. Quello che il guard non vede, e non può vedere, è se il ledger è **completo**: due voci impeccabili dove le decisioni erano cinque passano ogni test. Il limite è dichiarato nell'intestazione del guard; i soli presìdi sono che il ledger è committato e che il Piano rilegge la Spec.
 
 ---
 
