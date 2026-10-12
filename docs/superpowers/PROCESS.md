@@ -96,19 +96,20 @@ Regola permanente (non un'eccezione una tantum), applicabile alla fase Esecuzion
 **Regole (vincolanti, ripetute anche in `CLAUDE.md` §Infrastructure safety che ha precedenza sulle skill):**
 1. Nessun `-v`/`--volumes` contro il main stack in nessuna circostanza; ogni dispatch che istruisce un agente a eseguire `docker compose down/up/restart` sul progetto principale deve vietarlo esplicitamente e imporre di fermarsi ed escalare (mai improvvisare un comando più aggressivo) se qualcosa non si comporta come atteso.
 2. Snapshot (`pg_dump`) esplicito prima di qualunque operazione Docker-lifecycle delegata sul main stack — mai fare affidamento su un dump incidentale lasciato da un ciclo scollegato.
-3. `docker compose down/up/restart` sul main stack, anche senza `-v`, richiede conferma esplicita dell'utente come qualunque azione ad alto rischio — non va trattato come "sicuro perché reversibile in teoria". Preferire, quando il piano lo consente, la verifica contro uno stack isolato invece di toccare il main stack.
+3. `docker compose down/up/restart` sul main stack, anche senza `-v`, richiede conferma esplicita dell'utente come qualunque azione ad alto rischio — non va trattato come "sicuro perché reversibile in teoria". **Unica deroga nominata (2026-10-12), identica a quella scritta in `CLAUDE.md`:** il `docker compose restart api` post-merge del Gate 4 step 7 gira senza chiedere — quel comando solo, in quel momento solo, mai `down`, mai `-v`. Preferire, quando il piano lo consente, la verifica contro uno stack isolato invece di toccare il main stack.
 
 ---
 
 ## 4b. Guardie meccaniche — i guard sulla documentazione (2026-10-12)
 
-Accanto alla guardia infrastrutturale di §4, che è una regola di condotta, ci sono guardie che non dipendono dall'attenzione di nessuno: sono test, girano dentro `npm test`, e fermano il ciclo da sole. Le tre qui sotto sono quelle che sorvegliano **la documentazione**, e sono le sole di cui questo documento ha qualcosa da dire; `npm test` ne contiene altre, di prodotto (sotto `js/lib/`, sui token, sulla navigazione, sulle pagine), che non riguardano il processo. Il conteggio corrente non sta qui: `ls js/lib/*-guard.test.js scripts/*-guard.test.js`.
+Accanto alla guardia infrastrutturale di §4, che è una regola di condotta, ci sono guardie che non dipendono dall'attenzione di nessuno: sono test, girano dentro `npm test`, e fermano il ciclo da sole. Quelle qui sotto sorvegliano **la documentazione e il processo**; `npm test` ne contiene altre, di prodotto (sotto `js/lib/`, sui token, sulla navigazione, sulle pagine), che non riguardano il processo. Né il conteggio né l'esaustività di questa tabella sono garantiti da nulla: la lista autorevole è `ls scripts/*-guard.test.js`, e un ciclo che aggiunge un guard di processo **aggiunge anche la sua riga qui**. La versione precedente di questa frase diceva "le tre qui sotto … sono le sole", e il ciclo stesso che ha aggiunto il quarto guard l'ha resa falsa nello stesso commit — motivo per cui ora la frase non afferma più un numero.
 
 | Guard | Diventa rosso quando |
 |---|---|
 | `scripts/architecture-guard.test.js` | un route handler, una tabella creata da una migrazione o una colonna aggiunta da un `ALTER TABLE` non è documentata in `ARCHITECTURE.md` §5/§6 |
 | `scripts/claude-md-guard.test.js` | `CLAUDE.md` supera il proprio tetto, il blocco File structure si scosta dal pin esatto, o un documento vivo punta a una sua sezione che non esiste più |
 | `scripts/doc-paths-guard.test.js` | un documento vivo cita un path di file del repo che non esiste e non è nella allowlist `GONE` |
+| `scripts/decision-ledger-guard.test.js` | una Spec o un Piano datato dal 2026-10-12 non porta la sezione `## Decisioni aperte`, o ne porta una con una voce incompleta (§6b) |
 
 Due conseguenze operative — la prima specifica di `architecture-guard`, la seconda valida per tutti i cicli:
 
@@ -126,7 +127,7 @@ Tutte e tre costruite. Non una per scenario ma una per tipo di gap — ciascuna 
 - **`feature-brief`**: converte una richiesta grezza in un Brief strutturato per gli scenari 1 e 2. Primo passo sempre una domanda esplicita di classificazione dello scenario, mai inferita.
 - **`domain-audit`**: conduce l'audit di dominio per lo scenario 3 — scope negoziato prima di leggere codice, evidenza file:linea per ogni claim, root-cause analysis, mai fix durante l'audit, finding fuori scope isolati in sezione dedicata. Non sovrappone la skill di sicurezza (`security-review`); tassonomia dei finding libera, decisa per singolo audit. Vedi anche la cadenza raccomandata in §2 per il suo uso come audit di riconciliazione `PRD.md`-vs-codice.
 - **`audit-to-brief`**: prende un report d'audit già chiuso (generato da `domain-audit`) e costruisce il/i Brief di fix per lo scenario 3 — raggruppamento dei finding in cicli proposto e confermato con l'utente, mai deciso unilateralmente; finding di natura diversa (es. design vs. correttezza) segnalati e trattati con un Brief in forma Scenario 2. Costruita e testata sui due casi reali disponibili (audit Resource Planning, audit `js/ai.js`) dopo che il secondo caso si è accumulato — come previsto, per evitare di generalizzare da un solo audit.
-- **`operational-manual`** (2026-09-16, aggiunta): non fa parte della catena Brief→Spec→Piano — produce `docs/OPERATIONAL_MANUAL.html`, il manuale operativo utente-facing, **solo su richiesta esplicita**, mai automaticamente. Ha però un obbligo di sincronizzazione permanente con il PRD (`PRD.md` più `docs/prd/`): la skill contiene, inlineata al proprio interno (sezione "PDash detail-content reference", non solo referenziata da uno spec esterno — scelta deliberata per sopravvivere anche se lo spec viene archiviato/perso), l'elenco dettagliato di cosa documentare per ciascuna area del prodotto, mantenuto verificato contro il PRD. **`/sync-docs` (sezione 5b del proprio file) aggiorna questa sezione ogni volta che `PRD.md` o un file `docs/prd/` viene toccato nello stesso ciclo** — così le due fonti non divergono di nuovo silenziosamente come accaduto prima del 2026-09-16. Il numero di sezione è citato per nome e non come «§6b» (com'era prima del 2026-10-09) perché quei numeri si sono già spostati una volta: leggere gli heading del file, non un numero in prosa. La generazione vera e propria dell'HTML resta un trigger separato e resta a richiesta.
+- **`operational-manual`** (2026-09-16, aggiunta): non fa parte della catena Brief→Spec→Piano — produce `docs/OPERATIONAL_MANUAL.html`, il manuale operativo utente-facing, **solo su richiesta esplicita**, mai automaticamente. Ha però un obbligo di sincronizzazione permanente con il PRD (`PRD.md` più `docs/prd/`): la skill contiene, inlineata al proprio interno (sezione "PDash detail-content reference", non solo referenziata da uno spec esterno — scelta deliberata per sopravvivere anche se lo spec viene archiviato/perso), l'elenco dettagliato di cosa documentare per ciascuna area del prodotto, mantenuto verificato contro il PRD. **`/sync-docs` (sezione 5b del proprio file) aggiorna questa sezione ogni volta che `PRD.md` o un file `docs/prd/` viene toccato nello stesso ciclo** — così le due fonti non divergono di nuovo silenziosamente come accaduto prima del 2026-09-16. Il numero di sezione della skill `sync-docs` è citato per nome e non come «§6b di quel file» (com'era prima del 2026-10-09; e da oggi quel token indica una sezione *di questo* documento, il che lo renderebbe ambiguo due volte) perché quei numeri si sono già spostati una volta: leggere gli heading del file, non un numero in prosa. La generazione vera e propria dell'HTML resta un trigger separato e resta a richiesta.
 
 ---
 
@@ -229,7 +230,7 @@ Node puro, nessuna dipendenza (usa `fetch` e `WebSocket` globali, Node ≥ 22 �
 
 Una fermata nuova si classifica qui dentro, non si inventa.
 
-- **A — cancello su azione irreversibile.** Il merge, il push, il restart del backend. Un "no" ha conseguenze materiali. Non si tocca.
+- **A — cancello su azione irreversibile.** Il merge e il push: un "no" ha conseguenze materiali, e non si toccano. **Attenzione al criterio, che è l'irreversibilità e non la gravità:** il restart del backend *sembra* appartenere a questa classe e invece no — è reversibile (si riavvia di nuovo) e il suo "no" produceva l'unico stato che nessuno vuole, codice mergiato e non vivo, quindi dal 2026-10-12 è automatico. Allo stesso modo la cancellazione del branch locale, reversibile perché il merge commit `--no-ff` conserva tutto. Una fermata entra in A solo se il "no" è l'esito *sicuro*.
 - **B — cancello informativo:** l'umano sa qualcosa che il processo non può derivare — la classificazione dello scenario, lo scope escluso, i chiarimenti, la verifica browser del Gate 2, la domanda "è user-visible?" di `/sync-docs`. La risposta è un **input**, non un assenso: toglierla non fa risparmiare, fa indovinare.
 - **C — cancello di ratifica:** all'umano si chiede di benedire un artefatto che deve prima leggere. È la natura che la regola sotto trasforma.
 - **D — cancello di disposizione:** cosa farne dei finding. Ogni finding è una decisione reale, ma la *domanda* non va ripetuta identica a ogni round (Gate 3, vedi `.claude/commands/finish-cycle.md`).
@@ -251,7 +252,7 @@ Una fermata nuova si classifica qui dentro, non si inventa.
 
 ### Il ledger
 
-Sezione finale obbligatoria di **ogni Spec e ogni Piano**, intitolata esattamente `## Decisioni aperte`:
+Sezione finale obbligatoria di **ogni Spec e ogni Piano datato dal 2026-10-12** (i documenti precedenti non ne hanno e non vanno modificati), intitolata esattamente `## Decisioni aperte`:
 
 ```markdown
 ## Decisioni aperte

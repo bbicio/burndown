@@ -934,7 +934,7 @@ volumes:
   pgdata:
 ```
 
-**Docker main-stack safety.** Commands run directly against this main stack (`pdash-db`/`pdash-api`/`pdash-nginx`/`pdash-adminer`, as opposed to the isolated stacks `scripts/test-branch.sh`/`scripts/run-tests.sh` create) are subject to a permanent operational guardrail — no `-v`/`--volumes` ever, a `pg_dump` snapshot before any lifecycle operation, and explicit human confirmation even for a plain restart. The rule exists because of a real 2026-08-05 incident that wiped the `pgdata` volume; see CLAUDE.md's "Infrastructure safety" section (top of file) for the full, binding text — this note is informational only, CLAUDE.md is the source of truth.
+**Docker main-stack safety.** Commands run directly against this main stack (`pdash-db`/`pdash-api`/`pdash-nginx`/`pdash-adminer`, as opposed to the isolated stacks `scripts/test-branch.sh`/`scripts/run-tests.sh` create) are subject to a permanent operational guardrail — no `-v`/`--volumes` ever, a `pg_dump` snapshot before any lifecycle operation, and explicit human confirmation even for a plain restart — with one named exception since 2026-10-12, `/finish-cycle` Gate 4's post-merge `docker compose restart api`, which runs unconfirmed. The rule exists because of a real 2026-08-05 incident that wiped the `pgdata` volume; see CLAUDE.md's "Infrastructure safety" section (top of file) for the full, binding text — this note is informational only, CLAUDE.md is the source of truth.
 
 ### Directory structure
 

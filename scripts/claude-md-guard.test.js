@@ -97,28 +97,41 @@ describe('CLAUDE.md size (it is loaded in full every session)', () => {
     // Measured in LF bytes so the figure does not depend on the checkout's line
     // endings. The ceiling was NOT raised when the C1 review finding put 3,345 B
     // of testing/tooling rules back into the file: raising a limit to fit content
-    // is precisely what sync-docs §2 forbids. Headroom is therefore ~2 cycles of
+    // is precisely what sync-docs §2 forbids. Headroom was then ~2 cycles of
     // ordinary growth, not the ~5 KB originally planned.
+    // 2026-10-12, approval-economy cycle: the file is at 63,488 B, so headroom
+    // is ~500 B -- LESS THAN ONE cycle of the +955 B/cycle measured above. The
+    // next /sync-docs that adds an index line can turn this red, and Gate 5
+    // runs npm test AFTER the merge, so that red lands on main. Reshaping the
+    // ceiling (the ~20 KB of irreducible index here is summed with ~43 KB of
+    // narrative, so index growth squeezes narrative) is an open backlog item.
+    // Until it is done, a cycle adding a file should expect to move content out
+    // in the same commit. Do not raise this number to make room.
     const bytes = Buffer.byteLength(LINES(CLAUDE).join('\n'), 'utf8');
     expect(bytes, `CLAUDE.md is ${bytes} B. Move narrative out to its docs/ file per
       .claude/skills/sync-docs/SKILL.md §2 -- do not raise this ceiling to fit it`)
       .toBeLessThanOrEqual(64_000);
   });
 
-  it('keeps the File structure block at exactly 13,156 LF bytes', () => {
+  it('keeps the File structure block at exactly 13,399 LF bytes', () => {
     // 12,538 at the phase-3 merge; raised to 12,758 by the same /sync-docs run,
     // for this file's own 2-line index entry. That is the allowed kind of growth
     // -- a new file needs an index line -- and it is why the pin is exact rather
     // than a ceiling: raising it is a visible decision, not a silent drift.
     // 13,156 on 2026-10-12, for doc-paths-guard.test.js and lib/live-docs.mjs.
+    // 13,399 later the same day, for decision-ledger-guard.test.js's own index
+    // line (+237) plus 6 B of correction: the backup-db.sh entry still said the
+    // Gate 4 snapshot runs "right after merge", which that cycle made false.
+    // Both are the allowed kind of growth -- a new file needs an index line,
+    // and a false sentence has to be fixed where it is.
     // That raise is also the first thing Gate 5's new `npm test` ever caught:
     // before it existed, /sync-docs edited CLAUDE.md and this pin in the same
     // unverified commit and pushed (3edd128).
     const bytes = Buffer.byteLength(fileStructureBlock().join('\n'), 'utf8');
-    expect(bytes, `the File structure block is ${bytes} LF bytes, pinned at 13,156. It is an INDEX:
+    expect(bytes, `the File structure block is ${bytes} LF bytes, pinned at 13,399. It is an INDEX:
       one or two lines per entry, pointing at the docs/ file that holds the narrative.
       If you shrank it on purpose, lower this number in the same commit`)
-      .toBe(13_156);
+      .toBe(13_399);
   });
 
   it('keeps exactly 13 entries longer than two lines', () => {

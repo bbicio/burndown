@@ -190,7 +190,7 @@ api/src/promote-sysadmin.js — CLI script to promote an existing user to `role=
 api/src/db/migrations/   — numbered SQL migration files
 scripts/test-branch.sh   — isolated Docker Compose stack for testing the current feature branch before merge; up/down/status subcommands. Full narrative: [docs/scripts/test-branch.md](docs/scripts/test-branch.md).
 scripts/run-tests.sh     — ephemeral, fully isolated Docker Compose stack for the integration-test profile (no host ports, disposable volume, auto-teardown via trap). Full narrative: [docs/scripts/run-tests.md](docs/scripts/run-tests.md).
-scripts/backup-db.sh     — pg_dump -Fc snapshot of the main stack's pdash-db into backups/ (gitignored), timestamped to the second, keeps only the 3 most recent dumps; non-blocking (warns + exits 0 if pdash-db isn't running). Run standalone, or automatically by /finish-cycle Gate 4 right after merge — see "Database backup & full recreation" above.
+scripts/backup-db.sh     — pg_dump -Fc snapshot of the main stack's pdash-db into backups/ (gitignored), timestamped to the second, keeps only the 3 most recent dumps; non-blocking (warns + exits 0 if pdash-db isn't running). Run standalone, or by /finish-cycle Gate 4 when the stack is about to be touched — see "Database backup & full recreation" above.
 scripts/classify-cycle.mjs — classifies a branch for `/finish-cycle`'s Gate 2 (`no-code` vs `ordinary`,
                             plus the paths judged); the rule is pinned by its own `.test.js`, not by prose.
 scripts/architecture-guard.test.js — (2026-10-10) fails when `ARCHITECTURE.md` §5/§6 drift from the code
@@ -200,8 +200,10 @@ scripts/claude-md-guard.test.js — (2026-10-10) fails when this file regrows pa
                             live `docs/`/`.claude/` pointer names a section it no longer has. Limits: own header.
 scripts/doc-paths-guard.test.js — (2026-10-12) fails when a live document cites a repo file path that does
                             not exist and is not in its `GONE` allowlist. Limits: own header.
-scripts/lib/live-docs.mjs — the walk (`liveMarkdown`, `SKIP_DIRS`) and the citation matcher shared by the
-                            two guards above, so the scanned scope has one definition.
+scripts/decision-ledger-guard.test.js — (2026-10-12) fails when a Spec or Plan dated 2026-10-12 or later
+                            lacks a valid `## Decisioni aperte` section (PROCESS.md §6b). Limits: own header.
+scripts/lib/live-docs.mjs — the walk (`liveMarkdown`, `SKIP_DIRS`) and the citation matcher shared by
+                            `claude-md-guard` and `doc-paths-guard`, so the scanned scope has one definition.
 scripts/shoot.mjs        — renders pages of the running app with headless Chrome, one PNG per width, for comparing a
                             redesign against its design boards. **Reading the PNGs back is part of visual
                             verification — "the page can't be rendered here" is not a valid reason to skip it.**

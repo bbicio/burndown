@@ -25,6 +25,21 @@
 //     no retroactive sweep, by design.
 //   * Documents outside docs/superpowers/{specs,plans}. Briefs, audits,
 //     reports and design handoffs are not decision artefacts in §6b's sense.
+//   * SUBDIRECTORIES of those two are not walked -- only files directly in
+//     them. docs/superpowers/plans/2026-10-05-master-data-split/ already
+//     exists; it holds no .md, so nothing is missed today, but a future
+//     multi-file plan directory dated after the cutoff would be silently
+//     exempt. Found by the 2026-10-12 review of this file's own branch.
+//   * The heading must match BYTE-EXACTLY: `## Decisioni aperte`, one space,
+//     no suffix. `## Decisioni aperte (3)` and a two-space variant both read
+//     as missing. Entries must be `N. `-numbered; `- ` bullets read as
+//     malformed. Both are deliberate -- a fuzzy match here is the start of
+//     judging content -- but they are strict, not lenient, so a reader does
+//     not assume the format is negotiable.
+//   * Fence handling covers ``` and ~~~ of any length >= 3, with CommonMark's
+//     same-char/at-least-as-long closing rule. An UNCLOSED fence blanks
+//     everything after it and reports `missing-section` rather than something
+//     diagnostic. Fail-closed, but the message will not say why.
 //
 // THE EXEMPT LIST BELOW IS CLOSED. The four files in it carry this cycle's
 // own date but predate the rule. The cutoff cannot simply be moved one day
@@ -71,10 +86,19 @@ function checkLedger(markdown) {
   // Blank out fenced code blocks first: a document that documents the ledger
   // format carries the heading as an example too, and the example must not be
   // mistaken for the real section.
-  let fenced = false;
+  // CommonMark fences: ``` or ~~~, three or more; a fence closes only on the
+  // same character and at least the same length, so a ``` inside a ```` block
+  // is content. Both halves matter here -- a document documenting this very
+  // format reaches for ~~~ precisely because its example contains backticks.
+  let open = null; // { char, len } while inside a fence
   const lines = markdown.replace(/\r\n/g, '\n').split('\n').map((l) => {
-    if (/^\s*```/.test(l)) { fenced = !fenced; return ''; }
-    return fenced ? '' : l;
+    const m = /^\s*(`{3,}|~{3,})/.exec(l);
+    if (m) {
+      const fence = { char: m[1][0], len: m[1].length };
+      if (open === null) { open = fence; return ''; }
+      if (fence.char === open.char && fence.len >= open.len) { open = null; return ''; }
+    }
+    return open === null ? l : '';
   });
   const start = lines.findIndex((l) => /^## Decisioni aperte\s*$/.test(l));
   if (start === -1) return { ok: false, reason: 'missing-section' };
@@ -155,6 +179,21 @@ describe('checkLedger', () => {
     // thing the live sweep caught.
     const md = `# T\n\n## Formato\n\n\`\`\`markdown\n## Decisioni aperte\n\n1. **X.** senza campi.\n\`\`\`\n\n${OK}`;
     expect(checkLedger(md)).toEqual({ ok: true });
+  });
+
+  it('ignores a ledger heading inside a tilde fence too', () => {
+    // ~~~ is standard CommonMark and is the natural choice exactly here: an
+    // example that itself contains backticks. Handling only ``` let a document
+    // with no real ledger PASS on a well-formed ~~~-fenced example of one.
+    const md = `# T\n\n~~~markdown\n## Decisioni aperte\n\n1. **X.** Alternativa scartata: Y. Perché: z.\n~~~\n\n## Altro\n\nx\n`;
+    expect(checkLedger(md).reason).toBe('missing-section');
+  });
+
+  it('treats a shorter fence inside a longer one as content, per CommonMark', () => {
+    // A 4-backtick fence is how you show a ``` block. The inner ``` must not
+    // close the outer one, or everything after it is read as live markup.
+    const md = `# T\n\n\`\`\`\`markdown\n\`\`\`\n## Decisioni aperte\n\nNessuna.\n\`\`\`\n\`\`\`\`\n\n## Altro\n\nx\n`;
+    expect(checkLedger(md).reason).toBe('missing-section');
   });
 
   it('rejects a document whose only ledger heading is inside a fence', () => {

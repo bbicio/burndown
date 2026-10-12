@@ -86,7 +86,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
      - On (c): stop `/finish-cycle` entirely.
 4. Once the gate is passed (zero findings, or all remaining findings accepted as follow-up), proceed to Gate 4, carrying `code_review_followups` forward for use in Gate 5.
 
-## Gate 4 — MERGE (always an explicit human gate, never automatic)
+## Gate 4 — MERGE (the merge itself is always an explicit human gate; steps 3, 7, 8 and 9 are automatic)
 
 1. Build the pre-merge summary:
    - Commit count: `git log main..HEAD --oneline | wc -l`
@@ -95,7 +95,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
    - Include the pre-flight divergence note from check 5, if it fired.
 2. Show the full summary. Ask explicitly: "Proceed with merge? [yes/no]"
    - If the answer is anything other than a clear yes: stop and wait.
-3. **DB backup (automatic, no confirmation) — only when the stack is about to be touched.** Run `scripts/backup-db.sh` if **either** the diff adds a file under `api/src/db/migrations/` (step 6 will apply it) **or** the diff touches `api/` (step 7 will restart `pdash-api`). Otherwise skip it and say so in one line: a merge that touches neither does not go near the database, and tying the snapshot to merge frequency was tying it to the wrong variable — protection against a destructive command run by hand depends on elapsed time, not on how many merges happened. Those are the exact moments `CLAUDE.md`'s Infrastructure-safety rule 2 ("snapshot before touching it") names, so this narrows the trigger without loosening that rule. When it does run: `pg_dump` snapshot into `backups/` (gitignored) before any merge state changes, keeping only the 3 most recent dumps. It is a read-only safety net, not a gate: report the script's own output (backup file path/size, and any old backup it pruned) in chat, but never block or ask for confirmation on it — including when it warns that `pdash-db` isn't running and skips (that's expected if the main stack happens to be stopped, e.g. local dev).
+3. **DB backup (automatic, no confirmation) — only when the stack is about to be touched.** Run `scripts/backup-db.sh` if **either** the diff adds a file under `api/src/db/migrations/` (step 6 will apply it) **or** the diff touches `api/` (step 7 will restart `pdash-api`). Otherwise skip it and say so in one line: a merge that touches neither does not go near the database, and tying the snapshot to merge frequency was tying it to the wrong variable — protection against a destructive command run by hand depends on elapsed time, not on how many merges happened. Those are the two moments in this gate that touch the stack, which is the spirit of `CLAUDE.md`'s Infrastructure-safety rule 2 ("snapshot before touching it") — though not literally its scope: rule 2 covers agent-run Docker-lifecycle operations in a verification or test step, and neither of these is that (step 6 is `docker exec … psql`, not a lifecycle operation). The two sets overlap without either containing the other. Rule 2 is untouched and still applies wherever it applied before. When it does run: `pg_dump` snapshot into `backups/` (gitignored) before any merge state changes, keeping only the 3 most recent dumps. It is a read-only safety net, not a gate: report the script's own output (backup file path/size, and any old backup it pruned) in chat, but never block or ask for confirmation on it — including when it warns that `pdash-db` isn't running and skips (that's expected if the main stack happens to be stopped, e.g. local dev).
 4. **CWD safety check (worktrees):** run:
    ```bash
    GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
@@ -124,7 +124,8 @@ Run the full closeout sequence for the current feature branch: test, optional ma
      Report each file's output. This project's migration convention (`CREATE TABLE IF NOT EXISTS`, `INSERT ... ON CONFLICT DO NOTHING`) makes re-running an already-applied migration a safe no-op, so there is no need to first check whether it was already applied. If a migration errors, stop immediately, show the error verbatim, and do not proceed to the backend restart below until it's resolved — an error here means the schema and the merged code are now out of sync.
 7. **Backend restart (only if Gate 1 step 2 determined the diff touches `api/`):** `pdash-api` runs as a plain `node src/index.js` process (`api/Dockerfile`) with no hot-reload — the `./api/src:/app/src` volume mount keeps the file on disk current, but the running process keeps serving whatever was in memory at container start until it is explicitly restarted. Merging a backend change to `main` does not make it take effect on its own.
    - **Automatic since 2026-10-12, no confirmation.** Run `docker compose restart api`, then poll `docker inspect pdash-api --format '{{.State.Health.Status}}'` (a few seconds apart, up to the container's own healthcheck window) until it reports `healthy`. Report the new `docker inspect pdash-api --format '{{.State.StartedAt}}'` timestamp as confirmation.
-   - **Why it no longer asks:** the only other outcome was backend code merged but not live, which is a hazard nobody wants — asking was asking whether to create it. `CLAUDE.md`'s Infrastructure-safety rule 3 normally requires explicit confirmation for `docker compose` against the main stack; it carries a **named derogation for this step alone** — never `down`, never `-v`, no other command, no other moment. Step 3 above has already taken the snapshot rule 2 asks for.
+   - **Why it no longer asks:** the only other outcome was backend code merged but not live, which is a hazard nobody wants — asking was asking whether to create it. `CLAUDE.md`'s Infrastructure-safety rule 3 normally requires explicit confirmation for `docker compose` against the main stack; it carries a **named derogation for this step alone** — never `down`, never `-v`, no other command, no other moment.
+   - **One honest caveat about that derogation's basis.** It is often justified by "step 3 already took a snapshot", but step 3 is deliberately non-blocking: `scripts/backup-db.sh` warns and exits 0 if `pdash-db` isn't running, and a `pg_dump` failure does not stop the gate. So if step 3 did **not** produce a snapshot, say so in one line here before restarting, rather than letting the unstated premise carry the decision. The restart touches no volume either way, which is why this is a disclosure and not a block.
    - If Gate 1 step 2 determined the diff does *not* touch `api/`: skip this step entirely, no mention needed.
 8. **Worktree cleanup (only if step 4 detected a linked worktree):** the branch just merged was checked out in a linked worktree at some path `<worktree-path>`. Before deleting the branch (step 9), remove the worktree — `git branch -d` fails while a worktree still references the branch.
    - Only remove worktrees whose path is under `.worktrees/`, `worktrees/`, or `.claude/worktrees/` — this project's own worktree conventions. If the path doesn't match, do not remove it; note that cleanup was skipped because the worktree isn't one this process owns.
@@ -161,6 +162,16 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 
    <commit count and one-line-per-commit summary, from Gate 4's `git log main..HEAD --oneline` output captured before the merge>
 
+   ## Gate outcomes
+
+   <one line per gate, 1 through 5, stating its outcome — e.g. "Gate 1: passed (frontend + backend)",
+    "Gate 2: no-code branch, classification confirmed", "Gate 3: 1 finding, fixed and re-verified",
+    "Gate 4: merged, merge commit (main had diverged), migration 031 applied, pdash-api restarted and
+    healthy at <StartedAt>", "Gate 5: sync-docs touched 2 files". Added 2026-10-12: Gate 6 used to
+    print these in chat and nowhere else, so whether the backend was restarted, whether a migration
+    ran, and whether the merge was a true merge all vanished with the conversation. This section is
+    where they live now — Gate 6 points at it rather than restating it.>
+
    ## Code review follow-ups
 
    <one bullet per entry in code_review_followups, each noting: round number, finding summary, file/line if available. Write "None." if the list is empty.>
@@ -193,9 +204,9 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 
 ## Gate 6 — FINAL REPORT (in chat)
 
-**The report file written at Gate 5 is the register — this gate does not restate it.** It is the only persistent artefact, and for the project memory it is the only trace that exists at all. Until 2026-10-12 this gate reprinted the per-gate outcomes and the memory line, both of which are already in the file; that duplication is what PROCESS.md §6b removed. Print in chat only:
+**The report file written at Gate 5 is the register — this gate does not restate it.** It is the only persistent artefact, and for the project memory it is the only trace that exists at all. Until 2026-10-12 this gate printed the memory line, which was already in the file, and a per-gate outcome line that was **not** anywhere in it — so removing the duplication required adding the report's own "Gate outcomes" section (step 2 above) rather than simply dropping the lines. PROCESS.md §6b is the rule. Print in chat only:
 
 - The path to the just-committed report file.
 - **One** outcome line for the whole cycle, naming only what was not routine (e.g. "Merged and pushed; 1 review finding fixed, 2 deferred" or "Merged and pushed; clean"). Not one line per gate.
-- The items that need a **human action after this cycle** — accepted code-review follow-ups and anything in Roadmap notes that is a task rather than an observation — or "nothing open" when there are none, followed by: "See the Roadmap notes section of `<report path>` for the full list."
+- The items that need a **human action after this cycle** — accepted code-review follow-ups and anything in Roadmap notes that is a task rather than an observation — or "nothing open" when there are none, followed by: "See the Gate outcomes and Roadmap notes sections of `<report path>` for the per-gate detail and the full list."
 - **REQUIRED, as the literal last line, with nothing after it:** `Cycle closed and pushed. If this was the last of a series of related cycles (e.g. a multi-cycle audit), consider a cold review before moving on to the next work.` This is a fixed, unconditional closing line, not optional trailing commentary — it is a text suggestion for the user to weigh, not a decision this command makes: never try to determine from repo state, commit history, or anything else whether this cycle actually was the last of a series — always print the same line, and never act on it (no starting a review, no reading other reports) beyond printing it.
