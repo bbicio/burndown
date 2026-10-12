@@ -81,7 +81,8 @@ Raised by the user during brainstorming, outside the backlog's text:
 ## 2. Scope
 
 **In scope:** class C in full (5, 6, 7, 8, 9) · the Gate 5 / Gate 6 duplication · class D partially
-(12 only) · Gate 4 steps 3, 7 and 9 · the `CLAUDE.md` amendment those require.
+(12 only) · Gate 4 steps 3, 7 and 9 · the `CLAUDE.md` amendments those require, and the bounded
+deletion of obsolete content that pays for them in bytes (§8.1).
 
 **Out of scope, explicitly:** Gate 2 in its entirety · Gate 4 step 2 (the merge question) · all of
 class B · the 3-round cap (13) · **M6**, the light path for prose-only cycles: this cycle does not
@@ -264,7 +265,15 @@ forbids elsewhere.
 `CLAUDE.md` is **62,813 B** against a **64,000 B** ceiling pinned at
 `scripts/claude-md-guard.test.js:96`, whose own comment says the ceiling must not be raised to fit new
 content. **~1,187 B is the entire budget for all three edits**, and one of them replaces existing text.
-If the three do not fit, the answer is tightening the prose being edited — never raising the pin.
+
+**The ceiling stays as the guard has it** (user decision, 2026-10-12). It was weighed and kept: the
+file is the only document loaded in full at every session start, it has already regrown on its own
+(+2,867 B over three cycles, one of them an entry added by the session that had just been told the
+rule), and the guard exists because the routing rule was enforced by attention alone. The ceiling's
+*shape* is a separate, real problem — it sums ~20 KB of irreducible index (`### File structure`,
+13,068 B and separately pinned exact; `### Pages`, 7,241 B) with ~42 KB of narrative, so index growth
+squeezes narrative — but reshaping it is a backlog item, not a subtask of M7: this cycle does not
+change the guard that constrains it.
 
 1. **Infrastructure safety, rule 3 (`CLAUDE.md:12`)** — a named derogation for the Gate 4 post-merge
    restart of `pdash-api` only: never `down`, never `-v`, never another command, never another moment.
@@ -276,6 +285,41 @@ If the three do not fit, the answer is tightening the prose being edited — nev
 3. **A "Process override — approvals" pointer**, next to the existing closing-a-branch override,
    naming `PROCESS.md` §6b as taking precedence over `superpowers:brainstorming`'s `<HARD-GATE>` and
    `superpowers:writing-plans`' Execution Handoff. Two or three lines at most.
+
+### 8.1 Paying for them: deletion of obsolete content, bounded
+
+The budget is paid the way the guard's own failure message prescribes — by taking content out, not by
+raising the pin. Four rules, because an unbounded cleanup is a free-judgment operation and this
+project has measured what those cost:
+
+1. **Deletion only, never rewriting to shorten.** Compressing prose here is the documented way 10 of
+   16 findings in one cycle became fabricated universal claims: shortening a sentence almost always
+   drops the clause that made it true in some particular case, and the result reads *better* than the
+   original, which is what makes it invisible in review. A sentence is removed whole or kept whole.
+   Relocation to a `docs/` file is allowed and is byte-identical when used.
+2. **Only content verified obsolete against the repo, with the verification shown in the task.**
+   "Looks old" does not qualify.
+3. **The candidate list is closed during planning, not during execution.** The implementer verifies
+   and deletes from that list and does not extend it on discovery; anything else found goes to the
+   report's Roadmap notes.
+4. **The target is freeing what §8 needs plus a stated margin, not cleaning `CLAUDE.md`.** A general
+   sweep is its own cycle.
+
+**Two candidates are already verified** and open the list:
+
+- **`CLAUDE.md:376`, "Current cache versions: …"** — of the five `?v=N` values it states, **two are
+  already false**: `js/costgrid.js` is at `?v=43` (stated 39) and `js/lib/pipeline-calc.js` at `?v=6`
+  (stated 5), measured 2026-10-12 against the `.html` files. The sentence is also redundant: the
+  authoritative value is in each page's `<script src>`, and `js/lib/foundations-guard.test.js` already
+  pins the agreement between references. Delete the sentence.
+- **`CLAUDE.md:376`, "The one-line wrappers (…) and the `currentCfg` global were removed (2026-10,
+  money wrapper cleanup)"** — obsolete by nature: it documents what no longer exists. The live rule
+  (call `formatMoney(amount, code, currencies)` directly, currency explicit) is already stated as its
+  own bullet earlier in the same section, and the cycle's narrative is in `docs/js/lib.md`. Delete the
+  historical clause, keep the live rule and keep the "Known open items" clause, which is still true.
+
+The planning phase extends this list until the measured total covers the §8 edits plus margin, then
+closes it.
 
 ## 9. Tests and verification
 
@@ -291,7 +335,12 @@ If the three do not fit, the answer is tightening the prose being edited — nev
 ## 10. Risks
 
 - **The byte ceiling (§8) is the binding constraint**, not a formality. A plan task that writes the
-  `CLAUDE.md` edits without first measuring them will discover this at Gate 1.
+  `CLAUDE.md` edits without first measuring them will discover this at Gate 1. The planning phase
+  must close §8.1's candidate list with a **measured** total, not an estimated one.
+- **The cleanup (§8.1) is the cycle's most defect-prone task**, because deciding something is
+  obsolete is a judgment. Its four rules are the mitigation; the one that matters most is rule 1,
+  since a single "while I'm here, let me tighten this sentence" reintroduces the exact failure mode
+  that produced 10 fabricated claims in one cycle.
 - **Removing the spec-review stop (§5.1) is the single largest change** and the one with no undo
   inside the cycle: a spec that drifts from the approved design reaches `/writing-plans` unreviewed.
   Accepted, with the §5.1 exception as the mitigation.
@@ -340,7 +389,12 @@ backlog item right after this one.
 4. **The guard checks each entry's shape, not the ledger's completeness (§7).** Alternativa scartata:
    checking only that the section exists. Perché: the three fields are what make an entry a decision,
    and verifying their presence is a form check, not a quality judgment — the boundary §4(d) states.
-5. **A closed four-file exemption list rather than a 2026-10-13 cutoff (§7).** *Surfaced while writing
+5. **The ceiling is kept, and paid with a bounded deletion rather than a raise or a compression
+   (§8, §8.1).** Alternativa scartata: raising the pin once with a stated reason, or compressing the
+   prose being edited. Perché: raising it restores the condition that produced a 115 KB file, and
+   compressing is this project's measured worst operation on these documents. Reshaping the ceiling
+   to separate index bytes from narrative bytes is a real problem, deferred to its own backlog item.
+6. **A closed four-file exemption list rather than a 2026-10-13 cutoff (§7).** *Surfaced while writing
    the spec, not in the chat design — the §5.1 case.* Alternativa scartata: moving the cutoff one day
    forward. Perché: that would exempt this cycle's own spec and plan, the two files the guard most
    needs to cover, in order to spare four files that will never be edited again.
