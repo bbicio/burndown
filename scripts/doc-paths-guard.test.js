@@ -38,10 +38,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT, liveMarkdown, citedPaths } from './lib/live-docs.mjs';
+import { ROOT, liveMarkdown, citedPaths, unresolved } from './lib/live-docs.mjs';
 
-// Paths the live documents cite that deliberately do not resolve. Eight are
-// files that were deleted and are now mentioned only in the past tense; two
+// Paths the live documents cite that deliberately do not resolve. Nine are
+// files that were deleted and are now mentioned only in the past tense; one
 // never existed. Each entry is a decision somebody took on purpose -- adding
 // one is how you record "this file is gone and its mentions are historical".
 const GONE = new Map([
@@ -53,7 +53,12 @@ const GONE = new Map([
   ['js/pipeline-board.js',       'deleted 5a5cef5 (pipeline.html Vue migration)'],
   ['js/planning.js',             'deleted aed9679 (folded into planning.html)'],
   ['js/settings.js',             'deleted d79b6aa (Settings page cycle)'],
-  ['docs/OPERATIONAL_MANUAL.md', 'an OUTPUT path of the operational-manual skill, not a citation'],
+  ['docs/OPERATIONAL_MANUAL.md',
+    'added bd32246, deleted 8cac1ab (2026-09-16, first generation superseded); ' +
+    'now an OUTPUT path of the operational-manual skill rather than a citation. ' +
+    'The one entry here whose trigger is a NORMAL workflow: running that skill ' +
+    'recreates the file and turns the "exists again" assertion red. Removing ' +
+    'this line is then the correct fix, not a workaround'],
   ['scripts/gen-architecture.mjs',
     'never existed: cited only inside docs/handoff-ciclo5.md, in the quoted ' +
     'cycle-5 proposal that was rejected in favour of architecture-guard.test.js'],
@@ -75,19 +80,40 @@ function citations() {
   return out;
 }
 
+const CITED = citations();
+
+describe('unresolved', () => {
+  // Without these, a future edit that breaks the filter below -- inverting it,
+  // or keying GONE differently -- would make the repo-wide assertion
+  // vacuously green, and the floors (which only count citations) would not
+  // notice. The guard would be dead and the suite would stay green.
+  const cited = new Map([['js/nope.js', ['a.md', 'b.md']], ['js/real.js', ['a.md']]]);
+  const exists = p => p === 'js/real.js';
+
+  it('reports a cited path that does not exist, naming its documents', () =>
+    expect(unresolved(cited, new Map(), exists)).toEqual(['js/nope.js (cited by a.md, b.md)']));
+
+  it('stays silent about a path that exists', () =>
+    expect(unresolved(new Map([['js/real.js', ['a.md']]]), new Map(), exists)).toEqual([]));
+
+  it('stays silent about a missing path that is allowlisted', () =>
+    expect(unresolved(cited, new Map([['js/nope.js', 'gone']]), exists)).toEqual([]));
+});
+
 describe('every file path the live documents cite resolves', () => {
   it('scans a non-trivial set of documents and citations', () => {
     // Floors, not pins: without them a walk that silently reaches nothing
-    // would make every assertion below vacuously green. Measured 2026-10-12:
-    // 70 documents, 261 distinct rooted citations.
+    // would make every assertion below vacuously green. Order of magnitude at
+    // the time of writing: ~70 documents, ~260 distinct rooted citations --
+    // deliberately not an exact figure, which would be one more numeric prose
+    // claim to keep true (this one had already drifted by 1 inside its own
+    // branch, when a later commit cited this very file).
     expect(DOCS.length, 'documents scanned').toBeGreaterThan(40);
-    expect(citations().size, 'distinct rooted citations').toBeGreaterThan(150);
+    expect(CITED.size, 'distinct rooted citations').toBeGreaterThan(150);
   });
 
   it('every cited rooted path exists, unless allowlisted as GONE', () => {
-    const missing = [...citations()]
-      .filter(([p]) => !GONE.has(p) && !existsSync(join(ROOT, p)))
-      .map(([p, by]) => `${p} (cited by ${by.join(', ')})`);
+    const missing = unresolved(CITED, GONE, p => existsSync(join(ROOT, p)));
     expect(missing, `fix the path, or -- if the file is genuinely gone and the
       mentions are historical -- add it to GONE with its deletion commit`)
       .toEqual([]);

@@ -45,6 +45,22 @@ export function citedPaths(text) {
   return [...out];
 }
 
+/**
+ * The cited paths that neither resolve nor are allowlisted, each rendered with
+ * the documents citing it. `exists` is injected so the rule can be tested
+ * without a filesystem -- the composition here is the whole guard, so leaving
+ * it inline in a test would leave it unpinned.
+ *
+ * @param {Map<string,string[]>} citations path -> documents citing it
+ * @param {Map<string,string>} gone allowlist: path -> why it does not resolve
+ * @param {(path: string) => boolean} exists
+ */
+export function unresolved(citations, gone, exists) {
+  return [...citations]
+    .filter(([p]) => !gone.has(p) && !exists(p))
+    .map(([p, by]) => `${p} (cited by ${by.join(', ')})`);
+}
+
 /** Repo-relative paths of every `.md` file under `dir`, recursively. */
 export function liveMarkdown(dir, acc = []) {
   for (const name of readdirSync(join(ROOT, dir))) {
