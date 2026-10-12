@@ -140,7 +140,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 
 ## Gate 5 — SYNC-DOCS + REPORT (after merge, shared human gate)
 
-1. On `main` (post-merge), invoke `/sync-docs`. Let it run its existing, unmodified scope (ARCHITECTURE.md, CLAUDE.md, TEST_CASES.md, test-api.js, PRD.md-conditional, and — since 2026-09-29 — project memory, in section 7 since the 2026-10-09 renumbering) — do not reimplement or narrow it here. The memory update lives outside the repo, so it is NOT part of the `git diff` shown in step 3 and is never committed: it is applied by `/sync-docs` itself and appears only in that command's summary. Copy its "Memory" line into the report (step 2) so the change is at least recorded somewhere persistent.
+1. On `main` (post-merge), invoke `/sync-docs`. Let it run its existing, unmodified scope (ARCHITECTURE.md, CLAUDE.md, TEST_CASES.md, test-api.js, PRD.md-conditional, and — since 2026-09-29 — project memory, in section 7 since the 2026-10-09 renumbering) — do not reimplement or narrow it here. The memory update lives outside the repo, so it is NOT part of the `git diff` shown in step 4 and is never committed: it is applied by `/sync-docs` itself and appears only in that command's summary. Copy its "Memory" line into the report (step 2) so the change is at least recorded somewhere persistent.
 2. Create the report file at `docs/superpowers/reports/<YYYY-MM-DD>-<branch-sanitized>-finish-cycle.md` (today's date; `<branch-sanitized>` from pre-flight step 4) with this structure:
 
    ```markdown
@@ -179,10 +179,13 @@ Run the full closeout sequence for the current feature branch: test, optional ma
    <the "Memory" line from /sync-docs's summary: each memory file changed (before → after) and any item left "unverified", or "evaluated, no change" with the files checked. Memory is outside the repo, so this section is its only persistent record.>
    ```
 
-3. Show the combined diff (`git diff`, covers both `/sync-docs`'s edits and the new report file, since neither has been committed yet).
-4. Ask explicitly: "Commit and push these doc/report changes to main? [yes/no]"
+3. **Run `npm test` (blocking, no confirmation).** Same semantics as Gate 1 step 1: if it fails, stop immediately, show the failing output verbatim, and run **no** `git add`, `git commit` or `git push`.
+   - **Why this exists, so it is not read as ceremony:** `/sync-docs` edits exactly what the guards pin — `scripts/claude-md-guard.test.js`'s exact block-size and entry-count pins, `scripts/architecture-guard.test.js`'s §5/§6 coverage, and `js/lib/test-cases-parse.test.js`'s exact case and section counts, which §3 of that command adjusts at this very point. All three are inside this one run, because `vitest.config.js`'s `include` is `['js/**/*.test.js', 'scripts/**/*.test.js']`. Before this step existed, nothing verified them: `3edd128` changed `CLAUDE.md` **and** a pin in `claude-md-guard.test.js` in the same untested commit.
+   - **One deliberate difference from Gate 1:** the merge has already happened, so a failure here is **not** a "re-run `/finish-cycle` from the top" case. Fix it on `main` — usually by correcting the edit `/sync-docs` just made, or by lowering a pin in the same commit if the shrink was deliberate — then re-enter this gate from its step 1. Never make the suite green by relaxing an assertion or raising a pin to fit new content.
+4. Show the combined diff (`git diff`, covers both `/sync-docs`'s edits and the new report file, since neither has been committed yet).
+5. Ask explicitly: "Commit and push these doc/report changes to main? [yes/no]"
    - If the answer is anything other than a clear yes: stop and wait, leaving the changes uncommitted locally.
-5. If confirmed, run in sequence:
+6. If confirmed, run in sequence:
    ```bash
    git add <files changed by sync-docs> docs/superpowers/reports/<report-filename>
    git commit -m "docs: sync docs + finish-cycle report for <branch>"
