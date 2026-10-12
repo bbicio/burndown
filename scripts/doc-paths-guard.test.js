@@ -54,11 +54,9 @@ const GONE = new Map([
   ['js/planning.js',             'deleted aed9679 (folded into planning.html)'],
   ['js/settings.js',             'deleted d79b6aa (Settings page cycle)'],
   ['docs/OPERATIONAL_MANUAL.md',
-    'added bd32246, deleted 8cac1ab (2026-09-16, first generation superseded); ' +
-    'now an OUTPUT path of the operational-manual skill rather than a citation. ' +
-    'The one entry here whose trigger is a NORMAL workflow: running that skill ' +
-    'recreates the file and turns the "exists again" assertion red. Removing ' +
-    'this line is then the correct fix, not a workaround'],
+    'added bd32246, deleted 8cac1ab (2026-09-16); superseded by ' +
+    'docs/OPERATIONAL_MANUAL.html, which is what the operational-manual skill ' +
+    'produces now (its SKILL.md:60 says so). Cited only in the past tense, there'],
   ['scripts/gen-architecture.mjs',
     'never existed: cited only inside docs/handoff-ciclo5.md, in the quoted ' +
     'cycle-5 proposal that was rejected in favour of architecture-guard.test.js'],
@@ -83,10 +81,12 @@ function citations() {
 const CITED = citations();
 
 describe('unresolved', () => {
-  // Without these, a future edit that breaks the filter below -- inverting it,
-  // or keying GONE differently -- would make the repo-wide assertion
-  // vacuously green, and the floors (which only count citations) would not
-  // notice. The guard would be dead and the suite would stay green.
+  // These pin the composition that IS the guard. The dangerous edit class is
+  // OVER-filtering -- `() => []`, or any predicate no real path satisfies:
+  // the repo-wide assertion then goes green on an empty list and the floors,
+  // which only count citations, cannot notice. The guard would be dead and
+  // the suite green. (Under-filtering, e.g. inverting the GONE test, is loud:
+  // all 10 allowlisted paths reappear and the assertion fails.)
   const cited = new Map([['js/nope.js', ['a.md', 'b.md']], ['js/real.js', ['a.md']]]);
   const exists = p => p === 'js/real.js';
 
