@@ -50,10 +50,10 @@
 //     is the activity that produced six false claims in the PRD-split cycle, so
 //     the debt is held visible and measured instead.
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { ROOT, liveMarkdown } from './lib/live-docs.mjs';
 
-const ROOT = join(import.meta.dirname, '..');
 const read = p => readFileSync(join(ROOT, p), 'utf8');
 const CLAUDE = read('CLAUDE.md');
 
@@ -148,24 +148,8 @@ describe('CLAUDE.md pointers resolve', () => {
 });
 
 // --- live documents must not name a section CLAUDE.md no longer has -------
-const SKIP_DIRS = new Set([
-  'docs/superpowers',    // immutable record -- see the header
-  '.claude/worktrees',   // other branches' checkouts: their docs belong to THEIR
-                         // CLAUDE.md, not this one. Without this, running the
-                         // suite on main scans every live worktree, and a branch
-                         // cut before this cycle (still naming "Filter bar") turns
-                         // main's npm test red for a reason that is not main's.
-]);
-
-function liveMarkdown(dir, acc = []) {
-  for (const name of readdirSync(join(ROOT, dir))) {
-    const rel = `${dir}/${name}`;
-    if (SKIP_DIRS.has(rel)) continue;
-    if (statSync(join(ROOT, rel)).isDirectory()) liveMarkdown(rel, acc);
-    else if (name.endsWith('.md')) acc.push(rel);
-  }
-  return acc;
-}
+// The walk itself (and the two reasons for its skip list) lives in
+// scripts/lib/live-docs.mjs, shared with scripts/doc-paths-guard.test.js.
 
 describe('live documents do not point at a CLAUDE.md section that is gone', () => {
   // Named targets in CLAUDE.md: its headings, plus the bold labels it uses for
