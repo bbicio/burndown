@@ -1006,6 +1006,8 @@ burndown/
     classify-cycle.mjs    ← classifies a branch for /finish-cycle's Gate 2 (no-code vs ordinary); the rule is code here, pinned by scripts/classify-cycle.test.js, never prose
     architecture-guard.test.js ← fails when §5/§6 of this file drift from the code (routes, tables, added columns); its own header names what it deliberately does not check
     claude-md-guard.test.js ← fails when CLAUDE.md regrows past its ceiling or a live docs/ or .claude/ pointer names a section it no longer has; its own header names what it deliberately does not check
+    doc-paths-guard.test.js ← fails when a live document cites a repo file path that does not exist and is not in its GONE allowlist; its own header names what it deliberately does not check
+    lib/live-docs.mjs     ← the document walk and citation matcher shared by the two guards above, so the scanned scope has one definition
     shoot.mjs             ← renders pages of the running app with headless Chrome, one PNG per width. Detail: docs/scripts/shoot.md
 ```
 
