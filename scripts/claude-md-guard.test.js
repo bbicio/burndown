@@ -202,6 +202,28 @@ describe('live documents do not point at a CLAUDE.md section that is gone', () =
     expect(files.length).toBeGreaterThan(40);
   });
 
+  // What the 2026-10-13 narrowing actually bought, demonstrated rather than
+  // asserted in a comment (brief 2026-10-12-guard-matcher-precision, criterion
+  // 4). Before it, every bold span was a target, so a pointer could name any of
+  // these and resolve while naming no section at all. The case is DERIVED from
+  // the file, not hardcoded: a hardcoded string would silently stop proving
+  // anything the day CLAUDE.md stopped containing it.
+  it('rejects a bold span that is neither a heading nor allowlisted', () => {
+    const resolves = (name) => targets.some(t => t === name || t.startsWith(name));
+    const headings = [...CLAUDE.matchAll(/^#{2,4} (.+)$/gm)].map(m => m[1].trim());
+    const covered = (list, s) => list.some(x => x === s || x.startsWith(s));
+    const vacuous = [...CLAUDE.matchAll(/\*\*([^*]{3,120})\*\*/g)]
+      .map(m => m[1].trim())
+      .filter(s => !covered(headings, s) && !covered(BOLD_BLOCK_TARGETS, s));
+
+    expect(vacuous.length,
+      'CLAUDE.md has no bold span outside its headings and the allowlist, so this test proves nothing -- check whether the narrowing is still needed')
+      .toBeGreaterThan(0);
+    expect(vacuous.filter(resolves),
+      `these bold spans are accepted as pointer targets but name no CLAUDE.md section: ${vacuous.filter(resolves).join(' | ')}`)
+      .toEqual([]);
+  });
+
   it.each(files)('%s', rel => {
     const text = read(rel);
     // A pointer is "CLAUDE.md" immediately followed by a quoted name, allowing
