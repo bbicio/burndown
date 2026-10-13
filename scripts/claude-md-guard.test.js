@@ -175,12 +175,21 @@ describe('CLAUDE.md pointers resolve', () => {
 // scripts/lib/live-docs.mjs, shared with scripts/doc-paths-guard.test.js.
 
 describe('live documents do not point at a CLAUDE.md section that is gone', () => {
-  // Named targets in CLAUDE.md: its headings, plus the bold labels it uses for
-  // blocks that are not headings ("Infrastructure safety ...", which several
-  // files cite by name and which must never become a heading-only check).
+  // Named targets in CLAUDE.md: its headings, plus an explicit allowlist of the
+  // bold blocks that are cited as if they were sections and are not headings.
+  // The allowlist used to be the whole bold class -- every **span** in the file.
+  // That admitted 69 targets where one was wanted (measured at ef9c2bf; the
+  // 2026-10-12 audit, finding F6, counted 65 a month earlier -- the drift of
+  // that number is itself the argument against using the class), so a pointer
+  // naming "Snapshot before touching it." resolved while naming no section.
+  // Measured before narrowing: of the 13 live pointers, 11 resolve on a heading
+  // and 2 resolve only here, and both are Infrastructure safety -- the one case
+  // the class was ever there to cover. Matching stays prefix-based below, so the
+  // entry is the start of that block's bold label, not the whole sentence.
+  const BOLD_BLOCK_TARGETS = ['Infrastructure safety'];
   const targets = [
     ...[...CLAUDE.matchAll(/^#{2,4} (.+)$/gm)].map(m => m[1].trim()),
-    ...[...CLAUDE.matchAll(/\*\*([^*]{3,120})\*\*/g)].map(m => m[1].trim()),
+    ...BOLD_BLOCK_TARGETS,
   ];
   // .claude/ is included as well as docs/: finish-cycle.md and the sync-docs
   // skill cite CLAUDE.md sections by name, and an agent executes those files.
