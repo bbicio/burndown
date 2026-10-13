@@ -99,7 +99,7 @@ mai posto sull'insieme:
    era stata infilata in una checklist sincrona. La versione tenuta è minima proprio per questo: la
    domanda è se il minimo sia ancora coerente dopo altre tre modifiche sopra.
 2. **`PROCESS.md` descrive ancora il processo che `/finish-cycle` esegue davvero?** Sono due documenti
-   separati, aggiornati da cicli diversi, e `PROCESS.md` §7 limita quando può essere toccato. Il
+   separati, aggiornati da cicli diversi, e quando `PROCESS.md` può essere toccato è limitato da un gate a tre condizioni — dal 2026-10-13 in una sola copia, nella sezione `docs/superpowers/PROCESS.md` di `.claude/skills/sync-docs/SKILL.md`, con §7 che vi rimanda. Il
    ciclo 5 ha esplicitamente giudicato il proprio gate §7 "non scattato" su una lettura stretta,
    annotando la tensione residua invece di risolverla.
 3. **Le tre guardie (`classify-cycle`, `architecture-guard`, `claude-md-guard`) si contraddicono o si
