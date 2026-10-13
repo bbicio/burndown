@@ -87,9 +87,9 @@ git commit -m "docs: open the cycle follow-up backlog, with the rows this cycle 
 Run:
 ```bash
 for f in docs/superpowers/reports/2026-10-*.md; do \
-  sed -n '/## Code review follow-ups/,/^## /p' "$f" | grep -qE '^\s*[-*] ' && echo "$f"; done
+  sed -n '/## Code review follow-ups/,/^## /p' "$f" | grep -qE '^\s*([-*]|[0-9]+\.) ' && echo "$f"; done
 ```
-Expected: 21 paths. Two are already done (Task 1 handled this cycle's own and the `proposal-create-clone-direct` one), leaving 19.
+Expected: 23 paths. (The first version of this command matched `[-*]` only and returned 21, silently excluding two reports whose follow-ups are numbered `1.`-`8.` and `1.`-`3.` — 10 accepted, unfixed items. Corrected after the whole-branch review caught it.) Two are already done (Task 1 handled this cycle's own and the `proposal-create-clone-direct` one), leaving 19.
 
 - [ ] **Step 2: Separate the sections that record only fixes**
 
