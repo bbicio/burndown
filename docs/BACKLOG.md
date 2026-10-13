@@ -19,7 +19,7 @@ rather than checking the code is not triage — the column is what makes the dif
 Five rules, each of them a failure this file cannot detect on its own:
 
 1. **Write a path bare and backticked, with the line number outside it** — `` `api/src/routes/cost-grids.js` line 58 ``, never `` `api/src/routes/cost-grids.js:58` ``. `scripts/doc-paths-guard.test.js` requires a closing backtick immediately after the extension; the second form is silently never validated, so the row looks checked when it is not.
-2. **A root-level file is never validated**, however it is written, and a large minority of the rows below cite one. There is deliberately **no per-row marker** for this: an earlier version flagged some of them and not others, and a marker present on some rows makes its absence read as "this one is machine-checked". No count is given here because it changes with every row added — derive it from the `Where` column when you need it. The rule covers every row; check the `Where` column yourself. The guard's `ROOTED` test requires a real top-level directory as the first path segment, so `costgrid.html` and `index.html` are outside its reach. Re-check those by hand.
+2. **A path outside `ROOTED` is never validated**, however it is written. `scripts/lib/live-docs.mjs` enumerates seven directories — `docs`, `js`, `css`, `api`, `scripts`, `backups`, `.claude` — and a path whose first segment is anything else is invisible to the guard: every root-level file (`costgrid.html`, `test-api.js`, `TEST_CASES.md`, `ARCHITECTURE.md`…) and anything under a directory not on that list, `assets/` included. There is deliberately **no per-row marker**: an earlier version flagged some such rows and not others, and a marker present on some makes its absence read as "this one is machine-checked". To know which rows are affected, read the `Where` column — no figure is given here, because it moves with every row added. The guard's `ROOTED` test requires a real top-level directory as the first path segment, so `costgrid.html` and `index.html` are outside its reach. Re-check those by hand.
 3. **Never move a row to `closed` from a report's own wording.** Run something. The `Verified how` cell carries what you ran.
 4. **Never reuse a `B-NNN` id**, including after deleting a row. Two rows sharing an id make "which item did we close" unanswerable, and nothing checks uniqueness.
 5. **A closeout with no accepted follow-ups and nothing closed writes nothing here** and says so in one line instead. A tracker that accumulates an empty row per cycle stops being readable.
@@ -30,12 +30,17 @@ happened.
 
 ## Triage coverage
 
-Reports from **2026-10-01** onward have been triaged: 23 of them carry a non-empty follow-ups section.
+Reports from **2026-10-01** onward have been triaged. The set is not frozen — Gate 5 writes a new report with a follow-ups section at nearly every closeout and step `2b` does not update a count here — so derive it rather than read it:
+
+```bash
+for f in docs/superpowers/reports/2026-10-*.md; do \n  sed -n '/## Code review follow-ups/,/^## /p' "$f" | grep -qE '^\s*([-*]|[0-9]+\.) ' && echo "$f"; done
+```
+
 **Reports before 2026-10-01 have not** — they carry roughly four dozen such sections and no verdict has
 been passed on any of their items. That is a declared gap, not an implied absence; the count is
 deliberately approximate because nothing turns on it.
 
-**A correction to this very claim, on day one.** It first read "21 of them", because the command that
+**A correction to this very claim, on day one.** It first read "21 of them" — a figure since replaced by the command above — because the command that
 listed the reports matched `-`/`*` bullets only and silently skipped two whose follow-ups are numbered
 `1.`-`8.` and `1.`-`3.`: `2026-10-07-…-costgrid-redesign-cycle-a` and `2026-10-08-…-program-dashboard`,
 holding **10 accepted and unfixed items between them** — B-043 to B-050 below, one of which is a
@@ -48,7 +53,6 @@ or accepted as a design residual inside their own cycle:
 `2026-10-01-…-project-currency-lock` (6 findings over 3 rounds, all fixed in-cycle) ·
 `2026-10-08-…-claudemd-split` (17 findings over four rounds, 16 fixed and one rejected — that report's own
 summary says "all 15 confirmed findings", which is its error, not this file's: 7+4+3+3 = 17) ·
-`2026-10-12-…-guards-enforcement-set` (12 findings over 2 rounds, all fixed in-cycle) ·
 `2026-10-12-…-process-md-self-description` has open items and is in the table below, not here.
 
 **One correction made during this triage, recorded because it is the method under test:** the three
@@ -56,8 +60,8 @@ reports `2026-10-06-…-pipeline-board-redesign`, `2026-10-07-…-costgrid-fidel
 `2026-10-07-…-pipeline-detail-panel` were first classified here as round narratives with nothing open,
 on a keyword heuristic rather than a read. Reading them showed **23 open items**, including the most
 serious entry in this file (B-029). The heuristic was wrong in the permissive direction, which is the
-direction that loses work. All 23 of those items are now rows — the two that the first pass still dropped
-are B-055.
+direction that loses work. All 23 of those items are now carried, by rows B-029 to B-042 plus B-055 — fewer rows than items, because
+B-030, B-041 and B-055 each bundle several. The two the first pass still dropped are both in B-055.
 
 **Closed by a later cycle, recorded because the closure was invisible until this triage:**
 `2026-10-09-…-no-code-gate2`'s first item — the `:27`-vs-`:49` contradiction in `finish-cycle.md` — was
@@ -122,8 +126,9 @@ work; a row would misrepresent them as pending.
 | B-048 | `2026-10-07-…-costgrid-redesign-cycle-a` | `phaseFreeState`/`toggleFreeInPhase`/`phaseFreeLabel` duplicate the three draft-scoped `selectAllFree*` functions almost verbatim | `costgrid.html` | open | unverified — needs reading the six functions |
 | B-049 | `2026-10-08-…-program-dashboard` | Program burndown: a phantom tail on the no-dates fallback axis, and a synthetic `planned` ramp in `computeBurndownPoints()` | `js/lib/program-calc.js` | open | unverified — both accepted as follow-ups by the user at round 2. Line numbers dropped: the report's `:183` and `:136` do not match their subjects at HEAD (183 holds the `vsTime` push, 136 a `perProject` filter), so citing them would point a reader at the wrong code |
 | B-050 | `2026-10-08-…-program-dashboard` | `needsAttention()`'s `vsTime` sentinel can collide with a real value | `js/lib/program-calc.js` | open | unverified — needs reading the sentinel; see B-049 on why the report's line numbers are not carried |
-| B-051 | `2026-10-02-…-navigation-b2-sidebar` | **Possible stored XSS, pre-existing and still live:** the Send Notification recipient `<option>`s are built by string interpolation of `first_name`/`last_name`/`email` into `innerHTML` with no `esc()`, and those names come from a user-editable profile field | `js/nav.js` line 650 | open | read the interpolation, 2026-10-14 — unescaped, while `esc()` exists in `core.js` and is used elsewhere in the same file. Named in that report's Roadmap notes and nowhere else since 2026-10-02 |
+| B-051 | `2026-10-02-…-navigation-b2-sidebar` | **Markup injection into the Send Notification recipient list, pre-existing and still live.** The `<option>`s are built by interpolating `first_name`/`last_name`/`email` into `innerHTML` with no `esc()`, and any authenticated user can set those names via `PATCH /api/auth/profile`. **Not script execution:** the sink is a `<select>`, so `innerHTML` parses in insertion mode "in select", which discards every start tag but `option`/`optgroup`/`hr`/`script`/`template`, and a `<script>` inserted by `innerHTML` does not run. The reachable harm is a crafted name closing its own `<option>` and adding a misleading one — recipient-list corruption, not XSS. That report's Roadmap notes call it "possible stored XSS"; this row deliberately does not | `js/nav.js` line 650 | open | read the interpolation, 2026-10-14 — unescaped, while `esc()` exists in `core.js` and is used elsewhere in the same file. Named in that report's Roadmap notes and nowhere else since 2026-10-02 |
 | B-052 | `2026-10-02-…-navigation-b2-sidebar` | Six deferred findings this file first dropped: `navWireGroups` listeners with no once-guard, a 1050 z-index literal, the unpinned 32px breadcrumb height, the account button's `aria-label` replacing its visible email, `nav-model.test.js`'s identity `esc` stub, `notifications-ui.test.js` leaking globals | `js/nav.js`, `css/style.css`, `js/lib/nav-model.test.js` | open | unverified — listed in that report's follow-ups paragraph, not re-derived here |
 | B-053 | `2026-10-08-…-portfolio-overview-cycle1` | `.pf-list-actions` can clip its leftmost control under `overflow: hidden`. **Accepted as follow-up**, not fixed — fixing it means retuning tracks that had just been verified on screen | `css/portfolio.css` | open | read the report's own wording, 2026-10-14 — this file first listed the report as having nothing open, which was a disposition taken from a misread |
 | B-054 | `2026-10-09-…-test-cases-from-markdown` | Four items carried over from that branch's pre-finish-cycle review and explicitly still open: Safari < 16.4 lookbehind blanks the page, an empty section shows a green dot, the error path leaves the stats bar empty, and the `PL-*`→`PCL-*` rename resets recorded results | `js/lib/test-cases-parse.js`, `test-cases.html` | open | unverified — the Safari one is the only user-facing break among them |
 | B-055 | `2026-10-07-…-pipeline-detail-panel` | Two items this file first dropped: the scrim's redundant `@click`, and the spinner flash when switching cards | `pipeline.html` | open | unverified — both were called harmless in the report |
+| B-056 | `2026-10-12-…-guards-enforcement-set` | `existsSync` case asymmetry, deferred by that cycle as pre-existing and outside its scope, and still unnamed where it also applies | `scripts/claude-md-guard.test.js` line 158 | open | read the line, 2026-10-14 — bare `existsSync`, no case handling. That report's follow-ups end with an explicit "deferred, not fixed" paragraph; this file first listed the report as having nothing open, the same disposition failure B-053 exists to correct |
