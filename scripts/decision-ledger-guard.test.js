@@ -36,10 +36,13 @@
 //     malformed. Both are deliberate -- a fuzzy match here is the start of
 //     judging content -- but they are strict, not lenient, so a reader does
 //     not assume the format is negotiable.
-//   * Fence handling covers ``` and ~~~ of any length >= 3, with CommonMark's
-//     same-char/at-least-as-long closing rule. An UNCLOSED fence blanks
-//     everything after it and reports `missing-section` rather than something
-//     diagnostic. Fail-closed, but the message will not say why.
+//   * Fence handling covers ``` and ~~~ of any length >= 3, with four of
+//     CommonMark's rules: same closing char, closing length >= opening, no
+//     info string on the closing fence, and at most 3 spaces of indent. It is
+//     not a full CommonMark parser -- fences inside list items keep the
+//     document's own indentation accounting, which this ignores. An UNCLOSED
+//     fence blanks everything after it and reports `missing-section` rather
+//     than something diagnostic. Fail-closed, but the message will not say why.
 //
 // THE EXEMPT LIST BELOW IS CLOSED. The four files in it carry this cycle's
 // own date but predate the rule. The cutoff cannot simply be moved one day
@@ -92,11 +95,15 @@ function checkLedger(markdown) {
   // format reaches for ~~~ precisely because its example contains backticks.
   let open = null; // { char, len } while inside a fence
   const lines = markdown.replace(/\r\n/g, '\n').split('\n').map((l) => {
-    const m = /^\s*(`{3,}|~{3,})/.exec(l);
+    // Indent is capped at 3 spaces; 4+ is an indented code block, not a fence.
+    const m = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(l);
     if (m) {
       const fence = { char: m[1][0], len: m[1].length };
+      const info = m[2].trim();
       if (open === null) { open = fence; return ''; }
-      if (fence.char === open.char && fence.len >= open.len) { open = null; return ''; }
+      // A closing fence carries nothing but whitespace after it, so a
+      // ```markdown line inside a ```text block does not close it.
+      if (info === '' && fence.char === open.char && fence.len >= open.len) { open = null; return ''; }
     }
     return open === null ? l : '';
   });
@@ -194,6 +201,23 @@ describe('checkLedger', () => {
     // close the outer one, or everything after it is read as live markup.
     const md = `# T\n\n\`\`\`\`markdown\n\`\`\`\n## Decisioni aperte\n\nNessuna.\n\`\`\`\n\`\`\`\`\n\n## Altro\n\nx\n`;
     expect(checkLedger(md).reason).toBe('missing-section');
+  });
+
+  it('does not let a fence carrying an info string close an open fence', () => {
+    // CommonMark: a closing fence has nothing but whitespace after it. Without
+    // that rule a ```text block illustrating a ```markdown block is read as
+    // closed at the inner line, and the example ledger after it counts as real
+    // -- a document with no ledger PASSING. Verified as a false green before
+    // this test existed.
+    const md = '# T\n\n```text\n```markdown\n## Decisioni aperte\n\nNessuna.\n```\n```\n\n## Altro\n\nx\n';
+    expect(checkLedger(md).reason).toBe('missing-section');
+  });
+
+  it('does not treat a line indented 4+ spaces as a fence', () => {
+    // 4 spaces is an indented code block, not a fence. Treating it as one lets
+    // an indented example toggle the real fence state.
+    const md = '# T\n\n    ```\n\n## Decisioni aperte\n\nNessuna.\n';
+    expect(checkLedger(md)).toEqual({ ok: true });
   });
 
   it('rejects a document whose only ledger heading is inside a fence', () => {

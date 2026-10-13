@@ -119,11 +119,14 @@ describe('CLAUDE.md size (it is loaded in full every session)', () => {
     // -- a new file needs an index line -- and it is why the pin is exact rather
     // than a ceiling: raising it is a visible decision, not a silent drift.
     // 13,156 on 2026-10-12, for doc-paths-guard.test.js and lib/live-docs.mjs.
-    // 13,399 later the same day, for decision-ledger-guard.test.js's own index
-    // line (+237) plus 6 B of correction: the backup-db.sh entry still said the
-    // Gate 4 snapshot runs "right after merge", which that cycle made false.
-    // Both are the allowed kind of growth -- a new file needs an index line,
-    // and a false sentence has to be fixed where it is.
+    // 13,399 later the same day: +243 B in three parts, measured, not
+    // estimated -- 218 B for decision-ledger-guard.test.js's own two-line index
+    // entry; 6 B correcting the backup-db.sh entry, which still said the Gate 4
+    // snapshot runs "right after merge" after that cycle made it conditional;
+    // 19 B rewriting the lib/live-docs.mjs entry, whose "the two guards above"
+    // had become ambiguous once a fourth guard was listed. All three are the
+    // allowed kind of growth -- a new file needs an index line, and a false
+    // sentence has to be fixed where it is.
     // That raise is also the first thing Gate 5's new `npm test` ever caught:
     // before it existed, /sync-docs edited CLAUDE.md and this pin in the same
     // unverified commit and pushed (3edd128).
