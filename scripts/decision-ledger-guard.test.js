@@ -30,8 +30,8 @@
 //     exists; it holds no .md, so nothing is missed today, but a future
 //     multi-file plan directory dated after the cutoff would be silently
 //     exempt. Found by the 2026-10-12 review of this file's own branch.
-//   * The heading must match BYTE-EXACTLY: `## Decisioni aperte`, one space,
-//     no suffix. `## Decisioni aperte (3)` and a two-space variant both read
+//   * The heading must match `## Decisioni aperte` exactly but for trailing
+//     whitespace: one space between the words, no suffix. `## Decisioni aperte (3)` and a two-space variant both read
 //     as missing. Entries must be `N. `-numbered; `- ` bullets read as
 //     malformed. Both are deliberate -- a fuzzy match here is the start of
 //     judging content -- but they are strict, not lenient, so a reader does
@@ -39,8 +39,13 @@
 //   * Fence handling covers ``` and ~~~ of any length >= 3, with four of
 //     CommonMark's rules: same closing char, closing length >= opening, no
 //     info string on the closing fence, and at most 3 spaces of indent. It is
-//     not a full CommonMark parser -- fences inside list items keep the
-//     document's own indentation accounting, which this ignores. An UNCLOSED
+//     not a full CommonMark parser. Two known false-pass vectors remain, both
+//     found by the 2026-10-12 round-2 review and judged not worth more
+//     machinery: a fence opened inside a BLOCKQUOTE (`> ```markdown`), and a
+//     fence opened at 4+ spaces of indent with an unindented body. Fences
+//     inside list items keep the document's own indentation accounting, which
+//     this ignores. HTML comments ARE stripped first, since a commented-out
+//     draft ledger is the likeliest accident of the three. An UNCLOSED
 //     fence blanks everything after it and reports `missing-section` rather
 //     than something diagnostic. Fail-closed, but the message will not say why.
 //
@@ -94,7 +99,11 @@ function checkLedger(markdown) {
   // is content. Both halves matter here -- a document documenting this very
   // format reaches for ~~~ precisely because its example contains backticks.
   let open = null; // { char, len } while inside a fence
-  const lines = markdown.replace(/\r\n/g, '\n').split('\n').map((l) => {
+  const lines = markdown
+    // A commented-out ledger is not a ledger. Stripped before fences, since a
+    // comment is the likelier accident: drafting one and never uncommenting.
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\r\n/g, '\n').split('\n').map((l) => {
     // Indent is capped at 3 spaces; 4+ is an indented code block, not a fence.
     const m = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(l);
     if (m) {
@@ -210,6 +219,13 @@ describe('checkLedger', () => {
     // -- a document with no ledger PASSING. Verified as a false green before
     // this test existed.
     const md = '# T\n\n```text\n```markdown\n## Decisioni aperte\n\nNessuna.\n```\n```\n\n## Altro\n\nx\n';
+    expect(checkLedger(md).reason).toBe('missing-section');
+  });
+
+  it('ignores a ledger commented out in an HTML comment', () => {
+    // The realistic way to end up with no ledger while looking like you have
+    // one: drafting it, commenting it out, and never uncommenting.
+    const md = '# T\n\n<!--\n## Decisioni aperte\n\nNessuna.\n-->\n\n## Altro\n\nx\n';
     expect(checkLedger(md).reason).toBe('missing-section');
   });
 

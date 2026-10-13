@@ -99,8 +99,11 @@ describe('CLAUDE.md size (it is loaded in full every session)', () => {
     // of testing/tooling rules back into the file: raising a limit to fit content
     // is precisely what sync-docs §2 forbids. Headroom was then ~2 cycles of
     // ordinary growth, not the ~5 KB originally planned.
-    // 2026-10-12, approval-economy cycle: the file is at 63,488 B, so headroom
-    // is ~500 B -- LESS THAN ONE cycle of the +955 B/cycle measured above. The
+    // 2026-10-12, approval-economy cycle: the file ended at 63,585 B, so
+    // headroom is 415 B -- LESS THAN HALF ONE cycle of the +955 B/cycle
+    // measured above. (This comment first said 63,488 / ~500 B, measured at
+    // the commit that wrote it rather than at the end of the cycle, which
+    // then added 97 B more. Re-measure at HEAD, last, after every edit.) The
     // next /sync-docs that adds an index line can turn this red, and Gate 5
     // runs npm test AFTER the merge, so that red lands on main. Reshaping the
     // ceiling (the ~20 KB of irreducible index here is summed with ~43 KB of

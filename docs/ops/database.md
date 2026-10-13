@@ -16,7 +16,7 @@ There was previously no documented procedure for this — added 2026-08-05 after
 scripts/backup-db.sh
 ```
 
-Writes a timestamped `pg_dump -Fc` snapshot to `backups/` (gitignored — real data, including PII, must never reach git), keeping only the 3 most recent dumps and pruning older ones automatically. Non-blocking by design: if `pdash-db` isn't running, it warns and exits 0 rather than failing whatever called it. `/finish-cycle`'s Gate 4 (2026-09) runs this automatically, with no confirmation prompt, right after merge is confirmed and before any merge state changes — so every merge to `main` leaves a fresh data snapshot behind, not just a structural one recoverable from `api/src/db/migrations/`.
+Writes a timestamped `pg_dump -Fc` snapshot to `backups/` (gitignored — real data, including PII, must never reach git), keeping only the 3 most recent dumps and pruning older ones automatically. Non-blocking by design: if `pdash-db` isn't running, it warns and exits 0 rather than failing whatever called it. `/finish-cycle`'s Gate 4 runs this automatically, with no confirmation prompt, after merge is confirmed and before any merge state changes — but since 2026-10-12 **only when that cycle is about to touch the stack**, i.e. it has a migration to apply or will restart `pdash-api`. **Do not assume a snapshot from the last merge exists:** a docs-only or frontend-only merge leaves none, and the step is non-blocking even when it does run. Take one by hand before anything risky.
 
 **Backup (manual fallback — equivalent to what the script above does):**
 
