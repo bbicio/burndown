@@ -41,12 +41,17 @@
 //     seven this guard exists for. No column passes vacuously today: the
 //     2026-10-12 cold review (finding F5) checked all four whose name appears
 //     outside their own block and found all four genuinely documented.
-//     The fix is NOT a §5 parser, and re-proposing one is not progress: §5's
-//     table boundaries are not machine-readable, so scoping the match needs
-//     exactly the parser this header declines at the top, for the measured
-//     reason given there — §5's 104 hand-written semantic comments, which no
-//     generator reproduces. The limit is named here instead, because this list
-//     is what a reader uses to decide whether the guard covers their case.
+//     Scoping the match to the checked table's own block IS feasible, and this
+//     limit is not an argument that it is not: measured at ef9c2bf, §5's blocks
+//     have 38 openers (`^[a-z_]+ *\(`) and 38 closers (`^\)$`) against exactly
+//     38 distinct tables created by the migrations, one-to-one. It was left out
+//     because changing the matcher was outside the scope of the cycle that
+//     added this paragraph, not because it cannot be done. What stays declined
+//     is the GENERATOR described at the top of this header -- a different
+//     thing, which would have to reproduce §5's 104 hand-written semantic
+//     comments, and whose rejection says nothing about slicing blocks. The
+//     limit is named here because this list is what a reader uses to decide
+//     whether the guard covers their case.
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';

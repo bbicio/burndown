@@ -81,12 +81,12 @@ If `PRD.md` **or any `docs/prd/` file** was touched above, check whether any of 
 
 ### 6. docs/superpowers/PROCESS.md (only if the cycle changed the development *process* itself, not the product)
 
-**This gate is the only copy of this rule** (2026-10-13). `PROCESS.md` §7 used to carry a second one, and the two had already diverged on condition 1 below; §7 now points here. Nothing about the rule is to be read from anywhere else.
+**This gate is the only copy of this rule** (2026-10-13). `PROCESS.md` §7 used to carry a second one, and the two had already diverged — on condition 1, where the skill named three process skills and §5 has listed four since 2026-09-16, and on condition 3, where only §7 carried the `/finish-cycle`-gate clause now restored below; §7 now points here. Nothing about the rule is to be read from anywhere else.
 
 **PROCESS.md gate** — answer this as an explicit yes/no before deciding whether to touch the file. Does the cycle just closed satisfy **at least one** of:
-1. It introduced or modified one of the **process skills listed in `PROCESS.md` §5** — read that list, do not reproduce it here. It had been copied into this condition as three names (`feature-brief`, the audit skill, `audit-to-brief`) and §5 has listed four since 2026-09-16, when `operational-manual` was added and neither copy was updated: a condition that names its members goes stale the next time §5 gains one, which is the defect, not the omission.
+1. It introduced or modified one of the **process skills listed in `PROCESS.md` §5** — read that list, do not reproduce it here. It had been copied into this condition as three names (`feature-brief`, the audit skill, `audit-to-brief`), missing `operational-manual`: a condition that names its members goes stale the next time §5 gains one, which is the defect, not the omission.
 2. It introduced an exception to the standard process expected to be **recurring** (not a one-off already documented in that single cycle's own report).
-3. It modified the common 7-phase skeleton, or the scenario-specific guardrails for one of the three scenarios (new feature / evolution / audit-fix).
+3. It modified the common 7-phase skeleton, or the scenario-specific guardrails for one of the three scenarios (new feature / evolution / audit-fix). **This includes a change to any `/finish-cycle` gate or to any `/sync-docs` output** — as the 2026-09-29 addition of project memory did. That clause was carried only by the `PROCESS.md` §7 copy and was dropped when the two were merged on 2026-10-13, which would have made a gate-only cycle answer "no" to all three; restored the same day by the review that caught it.
 
 - If **none** of the three is true → do not touch `PROCESS.md`; proceed normally with the other `/sync-docs` outputs.
 - If **at least one** is true → update the relevant section of `PROCESS.md`, and note in the cycle's own report which of the three conditions triggered the update.
