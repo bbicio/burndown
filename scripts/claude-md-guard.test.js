@@ -190,6 +190,11 @@ describe('live documents do not point at a CLAUDE.md section that is gone', () =
   // the class was ever there to cover. Matching stays prefix-based below, so the
   // entry is the start of that block's bold label, not the whole sentence.
   const BOLD_BLOCK_TARGETS = ['Infrastructure safety'];
+  // One definition of "a pointer", shared by the file scan below and by the
+  // allowlist-minimality test. Two copies could drift, which is the defect
+  // class these guards exist to catch.
+  const POINTER =
+    /CLAUDE\.md`?(?:'s|’s)?(?: own)?(?: ?(?:→|->))?[ \t]{0,2}"([^"\n]{3,120})"/g;
   const targets = [
     ...[...CLAUDE.matchAll(/^#{2,4} (.+)$/gm)].map(m => m[1].trim()),
     ...BOLD_BLOCK_TARGETS,
@@ -202,12 +207,19 @@ describe('live documents do not point at a CLAUDE.md section that is gone', () =
     expect(files.length).toBeGreaterThan(40);
   });
 
-  // What the 2026-10-13 narrowing actually bought, demonstrated rather than
-  // asserted in a comment (brief 2026-10-12-guard-matcher-precision, criterion
-  // 4). Before it, every bold span was a target, so a pointer could name any of
-  // these and resolve while naming no section at all. The case is DERIVED from
-  // the file, not hardcoded: a hardcoded string would silently stop proving
-  // anything the day CLAUDE.md stopped containing it.
+  // What the 2026-10-13 narrowing bought, demonstrated rather than asserted in
+  // a comment (brief 2026-10-12-guard-matcher-precision, criterion 4). Before
+  // it, every bold span was a target, so a pointer could name any of these and
+  // resolve while naming no section at all. The case is DERIVED from the file,
+  // not hardcoded: a hardcoded string would silently stop proving anything the
+  // day CLAUDE.md stopped containing it.
+  //
+  // What this test does and does not reach, measured rather than assumed. It
+  // catches a WIDENING of `targets` -- restore the whole bold class and it goes
+  // red on 68 spans, among them ones as meaningless as "not", "all" and "API".
+  // It cannot catch BLOAT of the allowlist: `vacuous` excludes whatever
+  // BOLD_BLOCK_TARGETS contains, so adding junk entries keeps it green. That
+  // hole is closed by the next test, not by this one.
   it('rejects a bold span that is neither a heading nor allowlisted', () => {
     const resolves = (name) => targets.some(t => t === name || t.startsWith(name));
     const headings = [...CLAUDE.matchAll(/^#{2,4} (.+)$/gm)].map(m => m[1].trim());
@@ -224,6 +236,25 @@ describe('live documents do not point at a CLAUDE.md section that is gone', () =
       .toEqual([]);
   });
 
+  // The allowlist is the one hand-maintained part of the target set, so it is
+  // the one part that can rot. Every entry must earn its place: a heading entry
+  // would be redundant (headings are already targets), and an entry nothing
+  // cites is dead weight that only widens what resolves. This is what stops the
+  // allowlist from drifting back towards the bold class it replaced.
+  it('every allowlist entry is a non-heading that some live document cites', () => {
+    const headings = [...CLAUDE.matchAll(/^#{2,4} (.+)$/gm)].map(m => m[1].trim());
+    const cited = files.flatMap(rel => [...read(rel).matchAll(POINTER)].map(m => m[1].trim()));
+
+    for (const entry of BOLD_BLOCK_TARGETS) {
+      expect(headings.some(h => h === entry || h.startsWith(entry)),
+        `"${entry}" is already reachable as a heading -- drop it from BOLD_BLOCK_TARGETS`)
+        .toBe(false);
+      expect(cited.some(c => entry === c || entry.startsWith(c)),
+        `no live document cites "${entry}" -- an allowlist entry nothing cites only widens what resolves`)
+        .toBe(true);
+    }
+  });
+
   it.each(files)('%s', rel => {
     const text = read(rel);
     // A pointer is "CLAUDE.md" immediately followed by a quoted name, allowing
@@ -231,9 +262,7 @@ describe('live documents do not point at a CLAUDE.md section that is gone', () =
     // backtick, a possessive, " own", and an arrow. Near-adjacency is the point:
     // a wider window swept up `CLAUDE.md`'s Pages table ... the "Purpose" column,
     // which names a table column, not a section.
-    const claimed = [...text.matchAll(
-      /CLAUDE\.md`?(?:'s|’s)?(?: own)?(?: ?(?:→|->))?[ \t]{0,2}"([^"\n]{3,120})"/g)]
-      .map(m => m[1].trim());
+    const claimed = [...text.matchAll(POINTER)].map(m => m[1].trim());
     const dangling = claimed.filter(
       name => !targets.some(t => t === name || t.startsWith(name)));
     expect(dangling, `${rel} points at CLAUDE.md section(s) that no longer exist: ${

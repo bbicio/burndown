@@ -1,6 +1,6 @@
 # Processo di sviluppo — burndown (PDash)
 
-> Documenta il workflow spec-driven come applicato finora. Le tre skill di processo del ciclo spec-driven (§5) sono tutte costruite: `feature-brief`, `domain-audit`, `audit-to-brief`. Una quarta skill, `operational-manual`, produce documentazione utente su richiesta — non fa parte della catena Brief→Spec→Piano, ma va mantenuta sincronizzata con il PRD, che dal 2026-10-09 è un insieme di file: `PRD.md` (sezioni trasversali + Indice) più `docs/prd/<area>.md` (vedi §5).
+> Documenta il workflow spec-driven come applicato finora. Le skill di processo del ciclo spec-driven sono tutte costruite; **l'elenco autorevole è §5**, che da oggi è anche la definizione a cui rimanda il gate di `/sync-docs` — questa riga non lo duplica e non ne afferma il numero, perché una seconda copia che conta è proprio ciò che il 2026-10-13 ha rimosso altrove. Fra quelle skill, `operational-manual` produce documentazione utente su richiesta — non fa parte della catena Brief→Spec→Piano, ma va mantenuta sincronizzata con il PRD, che dal 2026-10-09 è un insieme di file: `PRD.md` (sezioni trasversali + Indice) più `docs/prd/<area>.md` (vedi §5).
 >
 > Aggiornato via `/sync-docs`, ma solo quando un ciclo introduce un cambiamento reale al processo — non ad ogni esecuzione. Vedi criterio di aggiornamento in fondo al documento.
 >
