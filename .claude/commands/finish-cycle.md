@@ -13,6 +13,13 @@ Run the full closeout sequence for the current feature branch: test, optional ma
 
 ## Gate 1 — TEST (blocking, automatic, no confirmation)
 
+0. **Claims pre-check (automatic, no confirmation) — over the `*.md` this branch changed.** Run `git diff main...HEAD -- '*.md'`. If it is empty, say so in one line and go to step 1. Otherwise, over its added and modified lines, run these four checks and fix what they find, committing the fixes as one `docs:` commit before leaving this gate. It runs *before* `npm test` so the suite — and the documentation guards in it — sees the corrected text, and still runs once.
+   1. **Grep every predicate you touched.** For each sentence asserting something about the repo ("only X does Y", "every Z has W", "no test covers this"), run the grep that would falsify it, over the live repo, and read the hits. Fix the predicate, not the line the sentence sits on.
+   2. **Re-measure every number at HEAD** — sizes, counts, margins — against the current tree, never trusting the commit that first wrote the number.
+   3. **`git log` every SHA and every adjacency claim.** A cited `<sha>` must exist and be what the sentence says it is; "the next cycle", "the same day", "merged before" are claims about order that `git log` settles.
+   4. **Re-check enumerations as a class.** A list of guards, pages, gates or files asserts completeness: regenerate it from the repo (`ls scripts/*-guard.test.js`, the Pages table, …) and compare the whole list, not the entry you edited.
+   - These four reach mechanical defects only. Judgement prose — whether a rule is right, whether a rationale holds — belongs to Gate 3; do not argue it here.
+   - Record the wall-clock minutes this took and the number of defects it fixed. Gate 5's report has a field for both, because this step is an experiment with a stated success criterion (PROCESS.md §6.4d).
 1. Run `npm test` natively (host Node ≥ 20.12). In a worktree with no `node_modules`, run `npm ci` once first. Use the `docker run ... node:22` one-liner from `CLAUDE.md` only if the host Node is older than 20.12.
    - If it fails: stop immediately, show the failing output verbatim. Do not start Docker. Require a fix and a re-run of `/finish-cycle` from the top.
    - **A red from `scripts/architecture-guard.test.js` is not a code defect** — it means this branch added a route handler, a migration-created table, or an `ALTER TABLE` column that `ARCHITECTURE.md` §5/§6 does not document. The fix is that documentation edit, **on this branch**, before `/finish-cycle` runs again. It is never deferred to Gate 5's `/sync-docs`: that step runs post-merge, which is a gate too late for a check that blocks here. The other documentation guards in this run — `scripts/claude-md-guard.test.js`, `scripts/doc-paths-guard.test.js` and `scripts/decision-ledger-guard.test.js` — say in their own failure messages what they want. That list is not guaranteed complete; `ls scripts/*-guard.test.js` is (PROCESS.md §4b).
@@ -151,12 +158,15 @@ Run the full closeout sequence for the current feature branch: test, optional ma
    **Execution started:** <started-at>  (pre-flight step 6)
    **Merged at:** <merged-at>  (Gate 4's merge commit)
    **Gate durations:** Gate 1 <N>m · Gate 2 <N>m · Gate 3 <N>m · Gate 4 <N>m · Gate 5 <N>m — total <N>m
+   **Claims pre-check:** <N>m · <N> defects fixed · round 1 produced <N> findings
    <!-- Wall-clock, human wait time included (pre-flight step 6). Write `unknown` for a gate whose
         timestamp was not captured; a gate that self-skipped gets `0m (skipped)`.
         Since 2026-10-08 the code review runs in the background during Gate 2, so Gate 2's figure
         absorbs most of it and Gate 3's covers the findings discussion and any fixes — these two
         gates' numbers are not comparable with cycles closed before that date, and the split
-        between them is approximate. -->
+        between them is approximate.
+        The claims pre-check line is Gate 1 step 0's own measurement (PROCESS.md §6.4d): `n/a` when
+        the branch changed no `*.md`. Its three numbers are what decides whether the step is kept. -->
 
    ## What was done
 
