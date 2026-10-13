@@ -178,10 +178,13 @@ describe('live documents do not point at a CLAUDE.md section that is gone', () =
   // Named targets in CLAUDE.md: its headings, plus an explicit allowlist of the
   // bold blocks that are cited as if they were sections and are not headings.
   // The allowlist used to be the whole bold class -- every **span** in the file.
-  // That admitted 69 targets where one was wanted (measured at ef9c2bf; the
-  // 2026-10-12 audit, finding F6, counted 65 a month earlier -- the drift of
-  // that number is itself the argument against using the class), so a pointer
-  // naming "Snapshot before touching it." resolved while naming no section.
+  // That admitted 69 targets where one was wanted (measured at ef9c2bf). The
+  // 2026-10-12 cold review, finding F6, counted 65 at c3354d8 -- five commits
+  // to CLAUDE.md over the following day took it to 69, headings unchanged at
+  // 25. That a target set grows by four in a day, from edits that touch no
+  // section structure, is itself the argument against using the bold class as
+  // one. So a pointer naming "Snapshot before touching it." resolved while
+  // naming no section.
   // Measured before narrowing: of the 13 live pointers, 11 resolve on a heading
   // and 2 resolve only here, and both are Infrastructure safety -- the one case
   // the class was ever there to cover. Matching stays prefix-based below, so the
