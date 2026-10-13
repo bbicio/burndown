@@ -2,7 +2,7 @@
 
 Backup, restore, and full recreation of the `pdash-db` database. Moved verbatim out of `CLAUDE.md` on 2026-10-10 (phase 3 of the context-size split).
 
-`CLAUDE.md` keeps the entry point (`scripts/backup-db.sh`, run automatically by `/finish-cycle` Gate 4) and — unchanged and deliberately still loaded every session — the **Infrastructure safety** block, which is the rule that makes a snapshot mandatory before any Docker-lifecycle operation on the main stack. That block was written after a real incident on 2026-08-05 in which the main stack's data volume was wiped and recovery depended on an incidental leftover dump. Read it there; this file is the procedure, not the rule.
+`CLAUDE.md` keeps the entry point (`scripts/backup-db.sh`, run by `/finish-cycle` Gate 4 when that cycle is about to touch the stack — a migration to apply or a `pdash-api` restart — and not on a merge that touches neither, since 2026-10-12) and — unchanged and deliberately still loaded every session — the **Infrastructure safety** block, which is the rule that makes a snapshot mandatory before an agent-run Docker-lifecycle operation on the main stack in a verification or test step — that qualifier is the rule's actual scope, and `/finish-cycle` Gate 4's own backup trigger is a different, overlapping set. That block was written after a real incident on 2026-08-05 in which the main stack's data volume was wiped and recovery depended on an incidental leftover dump. Read it there; this file is the procedure, not the rule.
 
 What each migration file does: [docs/db/migrations.md](../db/migrations.md).
 
@@ -16,7 +16,7 @@ There was previously no documented procedure for this — added 2026-08-05 after
 scripts/backup-db.sh
 ```
 
-Writes a timestamped `pg_dump -Fc` snapshot to `backups/` (gitignored — real data, including PII, must never reach git), keeping only the 3 most recent dumps and pruning older ones automatically. Non-blocking by design: if `pdash-db` isn't running, it warns and exits 0 rather than failing whatever called it. `/finish-cycle`'s Gate 4 (2026-09) runs this automatically, with no confirmation prompt, right after merge is confirmed and before any merge state changes — so every merge to `main` leaves a fresh data snapshot behind, not just a structural one recoverable from `api/src/db/migrations/`.
+Writes a timestamped `pg_dump -Fc` snapshot to `backups/` (gitignored — real data, including PII, must never reach git), keeping only the 3 most recent dumps and pruning older ones automatically. Non-blocking by design: if `pdash-db` isn't running, it warns and exits 0 rather than failing whatever called it. `/finish-cycle`'s Gate 4 runs this automatically, with no confirmation prompt, after merge is confirmed and before any merge state changes — but since 2026-10-12 **only when that cycle is about to touch the stack**, i.e. it has a migration to apply or will restart `pdash-api`. **Do not assume a snapshot from the last merge exists:** a docs-only or frontend-only merge leaves none, and the step is non-blocking even when it does run. Take one by hand before anything risky.
 
 **Backup (manual fallback — equivalent to what the script above does):**
 

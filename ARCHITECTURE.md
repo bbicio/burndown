@@ -934,7 +934,7 @@ volumes:
   pgdata:
 ```
 
-**Docker main-stack safety.** Commands run directly against this main stack (`pdash-db`/`pdash-api`/`pdash-nginx`/`pdash-adminer`, as opposed to the isolated stacks `scripts/test-branch.sh`/`scripts/run-tests.sh` create) are subject to a permanent operational guardrail — no `-v`/`--volumes` ever, a `pg_dump` snapshot before any lifecycle operation, and explicit human confirmation even for a plain restart. The rule exists because of a real 2026-08-05 incident that wiped the `pgdata` volume; see CLAUDE.md's "Infrastructure safety" section (top of file) for the full, binding text — this note is informational only, CLAUDE.md is the source of truth.
+**Docker main-stack safety.** Commands run directly against this main stack (`pdash-db`/`pdash-api`/`pdash-nginx`/`pdash-adminer`, as opposed to the isolated stacks `scripts/test-branch.sh`/`scripts/run-tests.sh` create) are subject to a permanent operational guardrail — no `-v`/`--volumes` ever, a `pg_dump` snapshot before any lifecycle operation, and explicit human confirmation even for a plain restart. Since 2026-10-12 the confirmation requirement has one named exception: `/finish-cycle` Gate 4's post-merge `docker compose restart api` runs unconfirmed. The snapshot rule is **not** derogated — it simply never covered this step, since its scope is an agent-run lifecycle operation in a verification or test step; Gate 4 takes its own snapshot, non-blocking, and discloses a missing one rather than assuming it. The rule exists because of a real 2026-08-05 incident that wiped the `pgdata` volume; see CLAUDE.md's "Infrastructure safety" section (top of file) for the full, binding text — this note is informational only, CLAUDE.md is the source of truth.
 
 ### Directory structure
 
@@ -1007,7 +1007,8 @@ burndown/
     architecture-guard.test.js ← fails when §5/§6 of this file drift from the code (routes, tables, added columns); its own header names what it deliberately does not check
     claude-md-guard.test.js ← fails when CLAUDE.md regrows past its ceiling or a live docs/ or .claude/ pointer names a section it no longer has; its own header names what it deliberately does not check
     doc-paths-guard.test.js ← fails when a live document cites a repo file path that does not exist and is not in its GONE allowlist; its own header names what it deliberately does not check
-    lib/live-docs.mjs     ← the document walk and citation matcher shared by the two guards above, so the scanned scope has one definition
+    decision-ledger-guard.test.js ← fails when a Spec or Plan dated 2026-10-12 or later lacks a valid "## Decisioni aperte" section (PROCESS.md §6b); its own header names what it deliberately does not check
+    lib/live-docs.mjs     ← the document walk and citation matcher shared by claude-md-guard and doc-paths-guard, so the scanned scope has one definition
     shoot.mjs             ← renders pages of the running app with headless Chrome, one PNG per width. Detail: docs/scripts/shoot.md
 ```
 
