@@ -86,7 +86,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
      - On (c): stop `/finish-cycle` entirely.
 4. Once the gate is passed (zero findings, or all remaining findings accepted as follow-up), proceed to Gate 4, carrying `code_review_followups` forward for use in Gate 5.
 
-## Gate 4 — MERGE (step 2, the merge itself, is the only human gate here; every other step is automatic)
+## Gate 4 — MERGE (step 2's confirmation is the only human gate here; every other step, the merge at step 5 included, runs automatically once it is given)
 
 1. Build the pre-merge summary:
    - Commit count: `git log main..HEAD --oneline | wc -l`
@@ -135,7 +135,7 @@ Run the full closeout sequence for the current feature branch: test, optional ma
      git worktree prune
      ```
    - If removal fails (a recurring, known issue in this environment — locked files, leftover `node_modules`, or a stale IDE handle): this is non-blocking. Report the failure, confirm via `git status --short` inside the worktree path that nothing uncommitted would be lost, and continue — git itself already deregisters the worktree correctly even when the physical directory can't be deleted; leaving the orphaned directory does not block the rest of the cycle.
-9. **Branch deletion (automatic since 2026-10-12, no confirmation).** After a successful push (migration apply, worktree cleanup, and backend restart, if applicable), run `git branch -d <branch>`. It does not ask because it is reversible: the `--no-ff` merge commit of step 5 holds every commit the branch had.
+9. **Branch deletion (automatic since 2026-10-12, no confirmation).** After a successful push (migration apply, worktree cleanup, and backend restart, if applicable), run `git branch -d <branch>`. It does not ask because both outcomes are harmless — the `--no-ff` merge commit of step 5 holds every commit the branch had, so there is nothing for an answer to protect (PROCESS.md §6b, class A).
    - If `git branch -d` refuses, report the refusal verbatim and do **not** force it with `-D`. After step 5 a refusal means the branch is not actually merged, which is a signal, not an obstacle to push past.
 
 ## Gate 5 — SYNC-DOCS + REPORT (after merge, shared human gate)

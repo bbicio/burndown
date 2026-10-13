@@ -39,13 +39,13 @@
 //   * Fence handling covers ``` and ~~~ of any length >= 3, with four of
 //     CommonMark's rules: same closing char, closing length >= opening, no
 //     info string on the closing fence, and at most 3 spaces of indent. It is
-//     not a full CommonMark parser. Two known false-pass vectors remain, both
-//     found by the 2026-10-12 round-2 review and judged not worth more
-//     machinery: a fence opened inside a BLOCKQUOTE (`> ```markdown`), and a
-//     fence opened at 4+ spaces of indent with an unindented body. Fences
-//     inside list items keep the document's own indentation accounting, which
-//     this ignores. HTML comments ARE stripped first, since a commented-out
-//     draft ledger is the likeliest accident of the three. An UNCLOSED
+//     not a full CommonMark parser. ONE known false-pass vector remains,
+//     judged not worth more machinery: a fence opened inside a BLOCKQUOTE
+//     (`> ```markdown`). Fences inside list items keep the document's own
+//     indentation accounting, which this ignores. HTML comments are stripped
+//     AFTER fence blanking, terminated or not -- see the comment at that line
+//     for why the order matters; getting it backwards cost one false pass and
+//     one false fail in the same review round. An UNCLOSED
 //     fence blanks everything after it and reports `missing-section` rather
 //     than something diagnostic. Fail-closed, but the message will not say why.
 //
@@ -99,11 +99,7 @@ function checkLedger(markdown) {
   // is content. Both halves matter here -- a document documenting this very
   // format reaches for ~~~ precisely because its example contains backticks.
   let open = null; // { char, len } while inside a fence
-  const lines = markdown
-    // A commented-out ledger is not a ledger. Stripped before fences, since a
-    // comment is the likelier accident: drafting one and never uncommenting.
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/\r\n/g, '\n').split('\n').map((l) => {
+  const lines = markdown.replace(/\r\n/g, '\n').split('\n').map((l) => {
     // Indent is capped at 3 spaces; 4+ is an indented code block, not a fence.
     const m = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(l);
     if (m) {
@@ -116,10 +112,15 @@ function checkLedger(markdown) {
     }
     return open === null ? l : '';
   });
-  const start = lines.findIndex((l) => /^## Decisioni aperte\s*$/.test(l));
+  // A commented-out ledger is not a ledger. Stripped AFTER fence blanking, so
+  // a `<!--` shown inside a code fence cannot pair with a later real comment's
+  // `-->` and delete the genuine ledger between them. An unterminated comment
+  // runs to the end: it hides everything after it in a renderer too.
+  const stripped = lines.join('\n').replace(/<!--[\s\S]*?-->|<!--[\s\S]*$/g, '').split('\n');
+  const start = stripped.findIndex((l) => /^## Decisioni aperte\s*$/.test(l));
   if (start === -1) return { ok: false, reason: 'missing-section' };
 
-  const rest = lines.slice(start + 1);
+  const rest = stripped.slice(start + 1);
   const end = rest.findIndex((l) => /^## /.test(l));
   const body = (end === -1 ? rest : rest.slice(0, end)).join('\n').trim();
   if (body === '') return { ok: false, reason: 'empty-section' };
@@ -227,6 +228,20 @@ describe('checkLedger', () => {
     // one: drafting it, commenting it out, and never uncommenting.
     const md = '# T\n\n<!--\n## Decisioni aperte\n\nNessuna.\n-->\n\n## Altro\n\nx\n';
     expect(checkLedger(md).reason).toBe('missing-section');
+  });
+
+  it('ignores a ledger inside an UNTERMINATED HTML comment', () => {
+    // One keystroke from the case above, and the likelier typo of the two.
+    const md = '# T\n\n<!--\n## Decisioni aperte\n\nNessuna.\n';
+    expect(checkLedger(md).reason).toBe('missing-section');
+  });
+
+  it('does not let a <!-- inside a code fence swallow the real ledger', () => {
+    // A document SHOWING html. Stripping comments before handling fences let
+    // this `<!--` pair with a later genuine comment's `-->`, deleting the real
+    // ledger in between -- a false FAIL, introduced by the first comment fix.
+    const md = '# T\n\n```text\n<!-- oops\n```\n\n## Decisioni aperte\n\nNessuna.\n\n<!-- nota -->\n';
+    expect(checkLedger(md)).toEqual({ ok: true });
   });
 
   it('does not treat a line indented 4+ spaces as a fence', () => {
