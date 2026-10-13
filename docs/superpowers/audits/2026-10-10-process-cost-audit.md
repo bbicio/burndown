@@ -2,7 +2,11 @@
      Written 2026-10-10 (dated from its own baseline: "Tier 0 + Cicli 1-5 mergiati", with programme
      cycle 6 still open). Committed unchanged on 2026-10-12, apart from this header.
      Re-baselined 2026-10-12 in conversation; what changed since it was written:
-       - F1 (two Superpowers installs) is CLOSED — .claude/settings.local.json no longer has enabledPlugins.
+       - F1 (two Superpowers installs): CORRECTED 2026-10-13. The 2026-10-12 line above claimed it was
+         closed; that was false — .claude/settings.local.json still carried enabledPlugins and both
+         installs were enabled, with writing-plans diverging between them. A1 was actually applied by
+         hand on 2026-10-13 (enabledPlugins removed); only superpowers@superpowers-marketplace 6.4.2,
+         enabled at user scope, resolves now. The claim is true as of 2026-10-13, not before.
        - CLAUDE.md is 62 KB, not 89.5 KB (programme cycle 6 merged 639f57a, 2026-10-10).
        - Gate 5 now runs a blocking npm test (cold-review fix cycle 1, b96b0a0, 2026-10-12).
        - Every line number it cites has shifted (PROCESS.md +4 KB, finish-cycle.md +1.7 KB).
