@@ -207,8 +207,8 @@ scripts/claude-md-guard.test.js — (2026-10-10) fails when this file regrows pa
                             live `docs/`/`.claude/` pointer names a section it no longer has. Limits: own header.
 scripts/doc-paths-guard.test.js — (2026-10-12) fails when a live document cites a repo file path that does
                             not exist and is not in its `GONE` allowlist. Limits: own header.
-scripts/decision-ledger-guard.test.js — (2026-10-12) fails when a Spec or Plan dated 2026-10-12 or later
-                            lacks a valid `## Decisioni aperte` section (PROCESS.md §6b). Limits: own header.
+scripts/decision-ledger-guard.test.js — (2026-10-12) fails when a Spec or Plan dated 2026-10-12+
+                            lacks its PROCESS.md §6b ledger (Specs from 10-14: `Brief started`). Limits: own header.
 scripts/lib/live-docs.mjs — the walk (`liveMarkdown`, `SKIP_DIRS`) and the citation matcher shared by
                             `claude-md-guard` and `doc-paths-guard`, so the scanned scope has one definition.
 scripts/shoot.mjs        — renders pages of the running app with headless Chrome, one PNG per width, for comparing a
