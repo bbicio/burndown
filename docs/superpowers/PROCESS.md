@@ -150,7 +150,7 @@ Tutte costruite. Non una per scenario ma una per tipo di gap — ciascuna in `.c
   - **`standard`** — tutto il resto.
 - **Nel dubbio, la classe più alta.**
 - **La classe va dichiarata, non dedotta**, con la categoria che la giustifica, nella stessa forma della modalità di §6.1 e nella stessa fermata di `/writing-plans` (§6b).
-- **L'header del Piano porta tre righe**, lette da `/finish-cycle` al Gate 2 e pretese da `scripts/decision-ledger-guard.test.js`:
+- **L'header del Piano porta tre righe**, lette da `/finish-cycle` al Gate 2; `scripts/decision-ledger-guard.test.js` pretende `**Branch:**` e `**Risk class:**`:
 
   ```markdown
   **Spec:** `docs/superpowers/specs/<file>-design.md`
@@ -159,7 +159,7 @@ Tutte costruite. Non una per scenario ma una per tipo di gap — ciascuna in `.c
   ```
 
   L'esecuzione crea il branch con esattamente il nome dichiarato.
-- **Effort di ogni `/code-review` del ciclo:** `low-risk` → low, `standard` → medium, `high-risk` → high. Classe assente o fuori da questi tre valori → `standard`. In `high-risk` la review non si salta. Come `/finish-cycle` lo applica: Gate 2 e Gate 3 di `.claude/commands/finish-cycle.md`.
+- **Effort di ogni `/code-review` del ciclo:** `low-risk` → low, `standard` → medium, `high-risk` → high. Classe assente o fuori da questi tre valori → `standard`. In `high-risk` lo skip completo del Gate 3 non si applica. Come `/finish-cycle` lo applica: Gate 2 e Gate 3 di `.claude/commands/finish-cycle.md`.
 
 ### 6.2 Test
 - Node dell'host ≥ 20.12 (dal 2026-10-06 il PC ha Node 24): `npm test` gira nativo, circa 48 s per la suite completa e circa 10 s per un singolo file. Il comando Docker `node:22` di `CLAUDE.md` resta solo come fallback per un host con Node vecchio.
