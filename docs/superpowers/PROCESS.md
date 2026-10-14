@@ -141,7 +141,7 @@ Tutte costruite. Non una per scenario ma una per tipo di gap — ciascuna in `.c
 - **Ciclo piccolo** (indicativamente ≤ 5 file, nessuna migrazione, nessuna nuova API, task fortemente sequenziali): esecuzione **nativa** (`superpowers:executing-plans`), oppure pochi task più grandi. Il costo fisso di ogni task subagent-driven (dispatch, pacchetto di revisione, revisore: 5–10 min) non si ripaga su modifiche di poche righe.
 - **Ciclo grande o con task indipendenti:** subagent-driven.
 - **Modello:** in subagent-driven gli implementatori girano su **Sonnet** (`model: sonnet`), mentre il coordinatore e la revisione finale dell'intero branch restano su Opus. In nativa l'utente cambia a mano il modello della sessione (`/model sonnet`) prima di implementare, e torna su Opus per la revisione finale e `/finish-cycle`. Brainstorming, spec, debugging e code review restano su Opus.
-- **Contesto dei file nei dispatch.** Il prompt di dispatch di un implementer copia dal Piano la lista dei file del suo task e gli chiede di aprirli prima di modificare; il prompt di un reviewer riceve la stessa lista e il range di commit da rivedere. In esecuzione nativa non c'è dispatch e il punto non si applica.
+- **Contesto dei file nei dispatch.** Il prompt di dispatch di un implementer riporta il path assoluto del worktree (§6.1b), copia dal Piano la lista dei file del suo task e gli chiede di aprirli prima di modificare; il prompt di un reviewer riceve lo stesso path, la stessa lista e il range di commit da rivedere. In esecuzione nativa non c'è dispatch e il punto non si applica.
 
 ### 6.1b Classe di rischio, dichiarata al passaggio Piano → Esecuzione
 - **Tre classi, per categoria e non per lista di file:**
@@ -157,8 +157,14 @@ Tutte costruite. Non una per scenario ma una per tipo di gap — ciascuna in `.c
   **Branch:** `<nome esatto del branch>`
   **Risk class:** <low-risk|standard|high-risk> — <categoria che la giustifica>
   ```
+- **Il worktree di esecuzione si crea con il nome dichiarato.** Dal checkout principale, su `main` locale, con Spec e Piano già committati, dove `<nome>` è il `**Branch:**` del Piano:
 
-  L'esecuzione crea il branch con esattamente il nome dichiarato.
+  ```bash
+  git worktree add .claude/worktrees/<nome> -b <nome>
+  git -C .claude/worktrees/<nome> branch --show-current
+  ```
+
+  Se il secondo comando non stampa `<nome>`: `git -C .claude/worktrees/<nome> branch -m <nome>`, e si ripete il controllo prima di qualunque modifica. Mai `EnterWorktree` con `name`. La sessione lavora sul path del worktree senza entrarci con `EnterWorktree`. In subagent-driven il worktree lo crea il coordinatore.
 - **Effort di ogni `/code-review` del ciclo:** `low-risk` → low, `standard` → medium, `high-risk` → high. Piano non identificato dal Gate 2 → la classe si chiede all'utente; Piano identificato con classe assente o fuori da questi tre valori → `standard`. In `high-risk` lo skip completo del Gate 3 non si applica. Come `/finish-cycle` lo applica: Gate 2 e Gate 3 di `.claude/commands/finish-cycle.md`.
 
 ### 6.2 Test
