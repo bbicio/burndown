@@ -21,11 +21,11 @@ del Piano, si cancella. Al suo posto, un punto nuovo subito dopo:
 
 - dal checkout principale, su `main` locale, con Spec e Piano già committati:
   `git worktree add .claude/worktrees/<nome> -b <nome>`, dove `<nome>` è il `**Branch:**` del Piano;
-- subito dopo, `git -C .claude/worktrees/<nome> branch --show-current` deve stampare `<nome>`; se no,
-  `git -C .claude/worktrees/<nome> branch -m <nome>` e si ripete il controllo, prima di qualunque
-  modifica;
-- mai `EnterWorktree` con `name`; la sessione lavora sul path del worktree senza entrarci con
-  `EnterWorktree`;
+- subito dopo, `git -C .claude/worktrees/<nome> branch --show-current` deve stampare `<nome>`; se
+  l'add fallisce o il controllo non stampa `<nome>`, ci si ferma prima di qualunque modifica
+  (cambiata al Gate 3 round 1);
+- mai `EnterWorktree`; la sessione entra nel worktree con `cd` e usa i path del worktree anche negli
+  strumenti di file (cambiata ai Gate 3 round 1 e 2);
 - in subagent-driven il worktree lo crea il coordinatore.
 
 ## 3. `PROCESS.md` §6.1 — dispatch
@@ -57,8 +57,8 @@ Il passo memoria di `/sync-docs` al Gate 5 rimuove `feedback_worktree_branch_nam
 
 ## Decisioni aperte
 
-1. **La sessione non entra nel worktree con `EnterWorktree(path=…)`, lavora sul path.** Alternativa scartata: crearlo con `git` e poi entrarci con `path=`. Perché: è come ha lavorato M4 senza problemi, mentre una sessione dentro un worktree rifiuta i comandi composti e richiede `ExitWorktree keep` prima del merge.
+1. **La sessione entra nel worktree con `cd`, non con `EnterWorktree(path=…)` (cambiata al Gate 3 round 1).** Alternativa scartata: entrarci con `path=`, o lavorare sul path restando nel checkout principale. Perché: una sessione `EnterWorktree` rifiuta i comandi composti e richiede `ExitWorktree keep` prima del merge; restando nel checkout principale il pre-flight di `/finish-cycle` legge `main` e si ferma.
 2. **Sede unica in §6.1b.** Alternativa scartata: §6.2, dove c'è già `npm ci`. Perché: §6.1b contiene già la regola sul nome, e il come la completa.
-3. **Se la verifica fallisce si rinomina con `git branch -m`, non ci si ferma.** Alternativa scartata: fermarsi e chiedere. Perché: appena creato, il branch non ha commit, quindi la rinomina non perde nulla.
+3. **Se l'add fallisce o la verifica non coincide, ci si ferma (cambiata al Gate 3 round 1).** Alternativa scartata: rinominare con `git branch -m`. Perché: un nome con prefisso `worktree-` viene da `EnterWorktree`, con base `origin/main`, che la rinomina non corregge; e se l'add fallisce su una cartella residua senza `.git`, `git -C` risale al checkout principale e la rinomina toccherebbe `main`.
 4. **Base `main` locale, esplicita nella regola.** Alternativa scartata: tacerla. Perché: Spec e Piano si pushano solo al merge, quindi un worktree basato su `origin/main` non li conterrebbe.
 5. **Override in `CLAUDE.md` di una riga, con rimando.** Alternativa scartata: ripetere il comando in `CLAUDE.md`. Perché: una regola sta in un solo file, e `CLAUDE.md` deve solo garantire che la regola sia in contesto a ogni sessione.

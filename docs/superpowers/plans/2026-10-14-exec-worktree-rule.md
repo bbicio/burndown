@@ -25,7 +25,7 @@
 
 ## Review Focus
 
-1. The verification command targets the path `.claude/worktrees/<nome>`: a worktree made by `EnterWorktree(name=<nome>)` sits at that same path on branch `worktree-<nome>`, so the check catches it and `branch -m` repairs it (Task 1 text).
+1. The verification command targets the path `.claude/worktrees/<nome>`: a worktree made by `EnterWorktree(name=<nome>)` sits at that same path on branch `worktree-<nome>`, so the check catches it and execution stops (Task 1 text; the `branch -m` repair was dropped at Gate 3 round 1).
 2. A reader on `superpowers:executing-plans` follows `using-git-worktrees` first: the `CLAUDE.md` line must name that skill and `EnterWorktree` so the override is recognisable (Task 2).
 3. No sentence elsewhere in the repo still says the branch is created by `EnterWorktree` or restates the removed sentence (grep in Task 1 Step 3).
 
@@ -49,7 +49,7 @@
     git -C .claude/worktrees/<nome> branch --show-current
     ```
 
-    Se il secondo comando non stampa `<nome>`: `git -C .claude/worktrees/<nome> branch -m <nome>`, e si ripete il controllo prima di qualunque modifica. Mai `EnterWorktree` con `name`. La sessione lavora sul path del worktree senza entrarci con `EnterWorktree`. In subagent-driven il worktree lo crea il coordinatore.
+    Se il primo comando fallisce, o il secondo non stampa `<nome>`, ci si ferma prima di qualunque modifica. Mai `EnterWorktree`: la sessione entra nel worktree con `cd` e usa i path del worktree anche negli strumenti di file. In subagent-driven il worktree lo crea il coordinatore.
   ````
 - [ ] **Step 2:** In §6.1 «Contesto dei file nei dispatch», change «il prompt di un reviewer riceve la stessa lista e il range di commit da rivedere» so both prompts also carry the worktree's absolute path: «Il prompt di dispatch di un implementer riporta il path assoluto del worktree (§6.1b), copia dal Piano …; il prompt di un reviewer riceve lo stesso path, la stessa lista e il range di commit da rivedere.»
 - [ ] **Step 3:** `grep -rn "esattamente il nome dichiarato\|EnterWorktree" docs/superpowers/PROCESS.md .claude/commands CLAUDE.md` → hits only in the new bullet (and Task 2's line once written).
