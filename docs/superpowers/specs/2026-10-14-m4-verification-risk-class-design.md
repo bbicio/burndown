@@ -59,9 +59,10 @@ quel nome esatto.
 1. Cerca in `docs/superpowers/plans/*.md` (solo file diretti) le righe che iniziano con
    `` **Branch:** `<branch corrente>` ``. Esattamente un file → è il Piano del ciclo; da lì legge
    `**Spec:**` e `**Risk class:**`.
-2. Zero o più di un file, o riga `**Risk class:**` assente o con un valore fuori dalle tre classi →
-   classe `standard`, dichiarato in una riga con il motivo.
-3. Mostra in una riga classe, fonte ed effort risultante. Non chiede nulla.
+2. Zero o più di un file → nessun Piano identificato; la classe si chiede all'utente (Gate 3 round 1,
+   finding sul fallback silenzioso). Un solo file con riga `**Risk class:**` assente o con un valore
+   fuori dalle tre classi → classe `standard`, dichiarato in una riga con il motivo.
+3. Mostra in una riga classe, fonte ed effort risultante. Non chiede altro.
 
 Registra `<risk-class>` e `<review-effort>`, usati dal Gate 2 step 0 e dal Gate 3.
 
@@ -87,7 +88,7 @@ alimenta solo la classe, e il controllo out-of-scope del Gate 4 continua a non s
 Nuova riga nell'header del template, dopo `**Cycle counters:**`:
 
 ```markdown
-**Risk class:** <classe> (<fonte: Piano | non dichiarata → standard>) · review effort <low|medium|high>
+**Risk class:** <classe> (<fonte: Piano | risposta dell'utente | motivo del fallback → standard>) · review effort <low|medium|high>
 ```
 
 ## 7. Contesto dei file nei dispatch — `PROCESS.md` §6.1
@@ -120,7 +121,7 @@ regola e i suoi limiti come per le prime due.
 
 1. **Il riferimento sta nell'header del Piano (`**Branch:**`), non nel Brief.** Alternativa scartata: il Brief, come proponeva l'handoff. Perché: il Brief è scritto prima di Spec e Piano e non tutti i cicli ne hanno uno, mentre i Piani recenti portano già `**Branch:**`.
 2. **Path scope escluso da M4.** Alternativa scartata: usare il path target di `/code-review` per le classi inferiori. Perché: non è verificato se un path target rivede il diff o i file interi, e restringere per path lascia parti del diff non revisionate, che il Gate 3 non considera mai una review pulita.
-3. **Tre classi con fallback `standard`.** Alternativa scartata: chiedere all'utente quando la classe manca. Perché: il fallback coincide con il comportamento di oggi, quindi nessuna regressione e nessuna fermata nuova.
+3. **Tre classi con fallback `standard` quando il Piano c'è ma la classe manca; domanda all'utente quando il Piano non si trova (cambiata al Gate 3 round 1).** Alternativa scartata: fallback silenzioso anche sul Piano non trovato, che faceva rivedere a medium un ciclo dichiarato `high-risk`. Perché: un Piano non trovato non dice nulla sulla classe, e la domanda (§6b, classe B) compare solo in quel caso; con il Piano trovato il fallback coincide con il comportamento di oggi.
 4. **In `high-risk` lo step 0b resta ammesso, ma solo dopo una review a effort high.** Alternativa scartata: vietare anche lo scope ridotto. Perché: rivedere di nuovo ciò che è già coperto a high sarebbe la review doppia che §6.4 vieta.
 5. **Nessun classificatore automatico.** Alternativa scartata: uno script che suggerisce la classe dal diff. Perché: un suggerimento condiziona una dichiarazione che deve restare dichiarata, e quando si scrive il Piano il diff non esiste ancora.
 6. **`scripts/cycle-times.mjs` non si tocca.** Alternativa scartata: fargli leggere `**Branch:**`. Perché: preferisce già lo slug esatto del branch.

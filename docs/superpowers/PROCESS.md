@@ -159,7 +159,7 @@ Tutte costruite. Non una per scenario ma una per tipo di gap — ciascuna in `.c
   ```
 
   L'esecuzione crea il branch con esattamente il nome dichiarato.
-- **Effort di ogni `/code-review` del ciclo:** `low-risk` → low, `standard` → medium, `high-risk` → high. Classe assente o fuori da questi tre valori → `standard`. In `high-risk` lo skip completo del Gate 3 non si applica. Come `/finish-cycle` lo applica: Gate 2 e Gate 3 di `.claude/commands/finish-cycle.md`.
+- **Effort di ogni `/code-review` del ciclo:** `low-risk` → low, `standard` → medium, `high-risk` → high. Piano non identificato dal Gate 2 → la classe si chiede all'utente; Piano identificato con classe assente o fuori da questi tre valori → `standard`. In `high-risk` lo skip completo del Gate 3 non si applica. Come `/finish-cycle` lo applica: Gate 2 e Gate 3 di `.claude/commands/finish-cycle.md`.
 
 ### 6.2 Test
 - Node dell'host ≥ 20.12 (dal 2026-10-06 il PC ha Node 24): `npm test` gira nativo, circa 48 s per la suite completa e circa 10 s per un singolo file. Il comando Docker `node:22` di `CLAUDE.md` resta solo come fallback per un host con Node vecchio.

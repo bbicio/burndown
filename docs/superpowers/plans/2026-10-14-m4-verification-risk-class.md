@@ -17,7 +17,7 @@
 ## Global Constraints
 
 - Class values, exactly: `low-risk`, `standard`, `high-risk`. Effort mapping: `low-risk` → low, `standard` → medium, `high-risk` → high.
-- Fallback on a missing, ambiguous or out-of-set class: `standard` (medium), stated in one line with the reason. No new question to the user.
+- Fallback on a missing or out-of-set class in an identified Plan: `standard` (medium), stated in one line with the reason. No Plan identified (zero or several matches): the class is asked of the user (changed at Gate 3 round 1).
 - Plan header lines read by `/finish-cycle`, verbatim shape: `` **Branch:** `<name>` `` and `**Risk class:** <value> — <category>`.
 - `CLAUDE.md` is not touched. `scripts/cycle-times.mjs` is not touched. No `superpowers` plugin file is touched.
 - The no-code branch keeps skipping Gate 2 steps 2-5, and Gate 4's out-of-scope check keeps not firing there.
@@ -29,7 +29,7 @@
 ## Review Focus
 
 1. A Plan whose `**Branch:**` line carries a trailing explanation (as M1's does: `` `name` — the name must… ``) — Gate 2's lookup must still match on the backticked name (prose rule in Task 3; guard test in Task 1).
-2. Two Plans declaring the same branch — Gate 2 must fall back to `standard` and to steps 2-4, not take the first (Task 3).
+2. Two Plans declaring the same branch — Gate 2 must not take the first: it falls back to steps 2-4 and asks the user for the class (Task 3; the question was added at Gate 3 round 1).
 3. `**Risk class:** High-risk` (wrong case) or `medium` — out of set: the guard fails it, Gate 2 falls back to `standard` (test in Task 1; prose in Task 3).
 4. A `high-risk` cycle whose earlier whole-branch `/code-review` ran at medium — step 0b must not apply; step 1 runs a full review at high (Task 4).
 5. Gate 3 entered in a session where Gate 2 did not run — the class is identified there before step 0 (Task 4).

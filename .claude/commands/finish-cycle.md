@@ -44,8 +44,9 @@ Run the full closeout sequence for the current feature branch: a mechanical pre-
 **Identification — the cycle's Plan, Spec and risk class (read-only, on both paths, before step 0).** The class rule and its effort mapping are `docs/superpowers/PROCESS.md` §6.1b; this step applies them.
 - List the files directly in `docs/superpowers/plans/` (not subdirectories) that have a line starting with `` **Branch:** `<current branch>` `` — the backticked name must equal the current branch exactly; text after the closing backtick is allowed.
 - Exactly one file → it is the cycle's Plan. Read its `**Spec:**` line (the Spec) and its `**Risk class:**` line.
-- Zero files, more than one, or a `**Risk class:**` line absent or whose first word after the label is not `low-risk`, `standard` or `high-risk` → the class is `standard`. With zero or more than one file, no Plan is identified here.
-- Say in one line: the class, its source (the Plan's path, or the reason for the fallback) and the resulting effort. Ask nothing.
+- Zero files or more than one → no Plan is identified here. Say so in one line, with the matching files if any, and ask explicitly: "Which risk class does this cycle have? [low-risk/standard/high-risk]". The answer is the class.
+- Exactly one file whose `**Risk class:**` line is absent or whose first word after the label is not `low-risk`, `standard` or `high-risk` → the class is `standard`.
+- Say in one line: the class, its source (the Plan's path, the user's answer, or the reason for the fallback) and the resulting effort. Ask nothing beyond the question above.
 - Record `<risk-class>` and `<review-effort>` (low, medium or high, per §6.1b). Every `/code-review` in Gate 2 and Gate 3 runs at `<review-effort>`.
 
 0. **Launch the code review now, in the background, so it runs during this gate — it becomes Gate 3's round 1.** `/code-review` is read-only: it cannot affect the branch, the stack, or the user's verification, so starting it here takes its wall-clock off the critical path instead of adding it after the "yes".
@@ -179,7 +180,7 @@ Run the full closeout sequence for the current feature branch: a mechanical pre-
    **Merged at:** <merged-at>  (Gate 4's merge commit)
    **Gate durations:** Gate 1 <N>m · Gate 2 <N>m · Gate 3 <N>m · Gate 4 <N>m · Gate 5 <N>m — total <N>m
    **Cycle counters:** subagent dispatches <N> · review rounds <N> · full test-suite runs <N>
-   **Risk class:** <class> (<source: the Plan's path | fallback reason → standard>) · review effort <low|medium|high>
+   **Risk class:** <class> (<source: the Plan's path | the user's answer | fallback reason → standard>) · review effort <low|medium|high>
    **Claims pre-check:** <one line of prose: what it cost at Gate 1 and at the Gate 3 re-checks, what it caught at each, and how many of round 1's findings were mechanical>
    <!-- Wall-clock, human wait time included (pre-flight step 6). Write `unknown` for a gate whose
         timestamp was not captured; a gate that self-skipped gets `0m (skipped)`.
