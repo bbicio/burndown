@@ -56,7 +56,7 @@ Il passo memoria di `/sync-docs` al Gate 5 rimuove `feedback_worktree_branch_nam
 
 ## Decisioni aperte
 
-1. **La sessione entra nel worktree con `cd`, non con `EnterWorktree(path=…)` (cambiata al Gate 3 round 1).** Alternative scartate: entrarci con `path=`; lavorare sul path restando nel checkout principale. Perché: una sessione `EnterWorktree` rifiuta i comandi composti e richiede `ExitWorktree keep` prima del merge; restando nel checkout principale il pre-flight di `/finish-cycle` legge `main` e si ferma.
+1. **La sessione entra nel worktree con `cd`, non con `EnterWorktree(path=…)` (cambiata al Gate 3 round 1).** Alternativa scartata: entrarci con `path=`, o lavorare sul path restando nel checkout principale. Perché: una sessione `EnterWorktree` rifiuta i comandi composti e richiede `ExitWorktree keep` prima del merge; restando nel checkout principale il pre-flight di `/finish-cycle` legge `main` e si ferma.
 2. **Sede unica in §6.1b.** Alternativa scartata: §6.2, dove c'è già `npm ci`. Perché: §6.1b contiene già la regola sul nome, e il come la completa.
 3. **Se l'add fallisce o la verifica non coincide, ci si ferma (cambiata al Gate 3 round 1).** Alternativa scartata: rinominare con `git branch -m`. Perché: un nome con prefisso `worktree-` viene da `EnterWorktree`, con base `origin/main`, che la rinomina non corregge; e se l'add fallisce su una cartella residua senza `.git`, `git -C` risale al checkout principale e la rinomina toccherebbe `main`.
 4. **Base `main` locale, esplicita nella regola.** Alternativa scartata: tacerla. Perché: Spec e Piano si pushano solo al merge, quindi un worktree basato su `origin/main` non li conterrebbe.
