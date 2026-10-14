@@ -49,6 +49,11 @@
 //     fence blanks everything after it and reports `missing-section` rather
 //     than something diagnostic. Fail-closed, but the message will not say why.
 //
+// SECOND RULE (2026-10-14, M1): every spec dated from BRIEF_CUTOFF carries a
+// `**Brief started:**` line, a `YYYY-MM-DD HH:MM` time or `unknown`. Not
+// checked: whether the time is correct, and plans (only specs carry it). The
+// line is matched anywhere in the file, fences and comments included.
+//
 // THE EXEMPT LIST BELOW IS CLOSED. The four files in it carry this cycle's
 // own date but predate the rule. The cutoff cannot simply be moved one day
 // forward, because that would exempt this cycle's own spec and plan -- the two
@@ -133,6 +138,25 @@ function checkLedger(markdown) {
   const complete = (e) => e.includes('Alternativa scartata:') && e.includes('Perché:');
   if (!parts.slice(1).every(complete)) return { ok: false, reason: 'malformed-entry' };
   return { ok: true };
+}
+
+// Second rule, same files: a spec's header carries the time its Brief (or its
+// brainstorming, when there is no Brief) started. scripts/cycle-times.mjs
+// reads it. Specs only, from its own cutoff; no exemptions.
+const BRIEF_CUTOFF = '2026-10-14';
+
+function briefInScope(relPath) {
+  const slash = relPath.lastIndexOf('/');
+  if (relPath.slice(0, slash) !== 'docs/superpowers/specs') return false;
+  const name = relPath.slice(slash + 1);
+  if (!name.endsWith('.md') || name.endsWith('-brief.md')) return false;
+  const date = /^(\d{4}-\d{2}-\d{2})-/.exec(name)?.[1];
+  return date !== undefined && date >= BRIEF_CUTOFF;
+}
+
+function checkBriefStarted(markdown) {
+  return markdown.replace(/\r\n/g, '\n').split('\n')
+    .some((l) => /^\*\*Brief started:\*\* (\d{4}-\d{2}-\d{2} \d{2}:\d{2}|unknown)\s*$/.test(l));
 }
 
 const OK = `## Decisioni aperte
@@ -302,5 +326,37 @@ describe('live specs and plans', () => {
       (PROCESS.md 6b). Add one, or "Nessuna." if the cycle genuinely took no
       decision that could have gone another way:\n  ${failures.join('\n  ')}`)
       .toEqual([]);
+  });
+});
+
+describe('checkBriefStarted', () => {
+  it('accepts a timestamp and unknown, CRLF tolerated', () => {
+    expect(checkBriefStarted('# S\n**Brief started:** 2026-10-14 11:17\n')).toBe(true);
+    expect(checkBriefStarted('# S\r\n**Brief started:** unknown\r\n')).toBe(true);
+  });
+
+  it('rejects a malformed value and a missing line', () => {
+    expect(checkBriefStarted('**Brief started:** 2026-10-14 9:05\n')).toBe(false);
+    expect(checkBriefStarted('# S\n**Date:** 2026-10-14\n')).toBe(false);
+  });
+});
+
+describe('briefInScope', () => {
+  it('covers specs dated from the Brief cutoff, never plans or briefs', () => {
+    expect(briefInScope(`docs/superpowers/specs/${BRIEF_CUTOFF}-x-design.md`)).toBe(true);
+    expect(briefInScope('docs/superpowers/specs/2026-10-13-backlog-follow-up-design.md')).toBe(false);
+    expect(briefInScope(`docs/superpowers/plans/${BRIEF_CUTOFF}-x.md`)).toBe(false);
+    expect(briefInScope(`docs/superpowers/specs/${BRIEF_CUTOFF}-x-brief.md`)).toBe(false);
+  });
+});
+
+describe('live specs: Brief started', () => {
+  it('every in-scope spec carries a Brief started line', () => {
+    const dir = 'docs/superpowers/specs';
+    const failures = readdirSync(join(ROOT, dir))
+      .map((name) => `${dir}/${name}`)
+      .filter((rel) => briefInScope(rel) && !checkBriefStarted(readFileSync(join(ROOT, rel), 'utf8')));
+    expect(failures, `these specs have no "**Brief started:** YYYY-MM-DD HH:MM" (or "unknown")
+      line (PROCESS.md 6b, Il ledger):\n  ${failures.join('\n  ')}`).toEqual([]);
   });
 });

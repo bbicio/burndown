@@ -9,7 +9,7 @@ Run the full closeout sequence for the current feature branch: a mechanical pre-
 3. Run `git log main..HEAD --oneline`. If empty, stop: "No commits to close out on this branch."
 4. Determine the branch name (`git branch --show-current`) and sanitize it for filesystem use: replace every `/` with `-`. Store the result as `<branch-sanitized>` — it is used in the Gate 5 report filename.
 5. **Informational, non-blocking:** run `git merge-base main HEAD` and `git rev-parse main`. If they differ, run `git rev-list --count <merge-base>..main` and report: "main has advanced N commits since this branch diverged — Gate 4's merge will produce a merge commit, not a fast-forward." Do not block on this.
-6. **Timing capture (feeds the Gate 5 report's duration fields).** Record the current wall-clock time (`date '+%Y-%m-%d %H:%M'`) as `<started-at>`, and record it again at every gate boundary from here on — when each of Gates 1-5 is entered, at the moment Gate 4's merge commit is created (`<merged-at>`), and when Gate 5's report is written. Keep the values in the session; nothing is written to disk before Gate 5. These are **elapsed wall-clock** durations and deliberately include time spent waiting for a human answer at a gate — do not try to subtract it, and do not split a gate into "work" and "wait". If a timestamp was genuinely not captured (e.g. `/finish-cycle` was interrupted and resumed in a later session), write `unknown` for that one gate in the report — never reconstruct or estimate it after the fact. Purpose: PROCESS.md §6/§6.6 currently rest on two retrospectively reconstructed anecdotes; these fields are the measured baseline meant to replace them.
+6. **Timing capture (feeds the Gate 5 report's duration fields).** Record the current wall-clock time (`date '+%Y-%m-%d %H:%M'`) as `<started-at>`, and record it again at every gate boundary from here on — when each of Gates 1-5 is entered, at the moment Gate 4's merge commit is created (`<merged-at>`), and when Gate 5's report is written. Keep the values in the session; nothing is written to disk before Gate 5. These are **elapsed wall-clock** durations and deliberately include time spent waiting for a human answer at a gate — do not try to subtract it, and do not split a gate into "work" and "wait". If a timestamp was genuinely not captured (e.g. `/finish-cycle` was interrupted and resumed in a later session), write `unknown` for that one gate in the report — never reconstruct or estimate it after the fact. Purpose: PROCESS.md §6/§6.6 currently rest on two retrospectively reconstructed anecdotes; these fields are the measured baseline meant to replace them. The report's cycle counters cover the span from the start of plan execution, which precedes this command: fill them from what this session observed, and write `unknown` for a counter whose whole span it did not observe.
 
 ## Gate 1 — TEST (blocking, automatic, no confirmation)
 
@@ -167,6 +167,7 @@ Run the full closeout sequence for the current feature branch: a mechanical pre-
    **Execution started:** <started-at>  (pre-flight step 6)
    **Merged at:** <merged-at>  (Gate 4's merge commit)
    **Gate durations:** Gate 1 <N>m · Gate 2 <N>m · Gate 3 <N>m · Gate 4 <N>m · Gate 5 <N>m — total <N>m
+   **Cycle counters:** subagent dispatches <N> · review rounds <N> · full test-suite runs <N>
    **Claims pre-check:** <one line of prose: what it cost at Gate 1 and at the Gate 3 re-checks, what it caught at each, and how many of round 1's findings were mechanical>
    <!-- Wall-clock, human wait time included (pre-flight step 6). Write `unknown` for a gate whose
         timestamp was not captured; a gate that self-skipped gets `0m (skipped)`.
@@ -180,7 +181,11 @@ Run the full closeout sequence for the current feature branch: a mechanical pre-
         not slots: a cycle where part of it did not happen says so instead of filling a field with a
         zero that would later read as a measurement. Keep the Gate 1 and Gate 3 figures distinct —
         one mechanism's catch must not vouch for the other's. Read after three cycles, by judgement;
-        there is deliberately no formula, and §6.4d says why. -->
+        there is deliberately no formula, and §6.4d says why.
+        Cycle counters, from the start of plan execution to Gate 5: subagent dispatches = calls to the
+        Agent tool; review rounds = Gate 3 rounds; full test-suite runs = complete runs of `npm test`
+        or of the backend suite (`node --test` over `api/`), targeted single-file runs excluded. A
+        counter the session did not observe in full is `unknown`. -->
 
    ## What was done
 

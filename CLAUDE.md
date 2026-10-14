@@ -71,6 +71,13 @@ The backend has its own, separate unit-test toolchain: Node's built-in `node:tes
 
 Still no linter on the frontend or backend.
 
+### Writing documentation
+
+- State a rule without its justification.
+- No numbers or counts in prose: cite the command or test that measures them.
+- A rule lives in one file; other files link to it.
+- When review finds a false sentence, consider deleting it before rewording it.
+
 ---
 
 ## Architecture
@@ -321,14 +328,6 @@ This has caused two real production incidents: `css/style.css` and `js/nav.js` w
 3. Single-project unambiguous fallback
 
 Never use `lp.projectId` raw as the display ID — always resolve to `proj.id`.
-
-### Cost grid editor ↔ pipeline board integration
-
-- `costgrid.html` is a separate page. The back button navigates to `pipeline.html`.
-- After delete (grid or version): `cgConfirmDeleteGrid`/`cgConfirmDeleteVersion` call their `onSuccess` callback if given, else fall back to a bare `renderPipelineBoard()` — a global that no longer exists on `pipeline.html` (its Vue rewrite passes a callback that bumps `refreshTick` instead); `costgrid.html` still defines its own local `renderPipelineBoard()` override, so the fallback remains safe there.
-- After JSON import: `cgImportAll()` calls `renderPipelineBoard()` guarded by a `typeof` check, for the same reason.
-- `showCostGridEditorView(cgId, verId, opts)` redirects to `costgrid.html?cgId=...&verId=...` on `pipeline.html` (a page-local override, plain redirect); `opts.focusName` appends `&focus=name` to the URL (2026-10-07, see [docs/pages/costgrid.md](docs/pages/costgrid.md) → "New Proposal / Clone"). On `costgrid.html` itself, `js/costgrid.js`'s own `showCostGridEditorView` is instead a thin bridge delegating into the page's mounted Vue instance (`_cgVueApp.openVersion(cgId, versionId)`) — no longer a single-page-app DOM-render function.
-- On `costgrid.html` cold load: call `cgSyncFromApi()` before reading URL params to avoid empty `_cgStore`
 
 ### Invariants
 

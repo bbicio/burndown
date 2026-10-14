@@ -7,7 +7,7 @@
 
 ## 1. Perimetro
 
-Cinque interventi, tutti nel Brief:
+Gli interventi, tutti nel Brief:
 
 1. script `scripts/cycle-times.mjs`, lanciato a mano;
 2. riga `**Brief started:**` nell'header di ogni Spec, con guard;
@@ -26,26 +26,28 @@ d'uso stanno nel commento d'header dello script.
 **Elenco dei cicli.** Un ciclo per ogni file `docs/superpowers/reports/*-finish-cycle.md`. Dal report
 si legge il branch dalla riga `**Branch:** <branch> → main` (il testo dopo `→ main` è ignorato).
 
-**Merge.** `git log --merges --first-parent main --grep "^Merge branch '<branch>'" --format=%H`.
+**Merge.** Fra i merge di `git log --merges --first-parent main`, quello il cui soggetto è
+`Merge branch '<branch>'`, da solo o seguito da `: <descrizione>`, confrontato come testo letterale.
 Nessun risultato, o più di uno → tutti i campi git del ciclo sono `unknown`.
 
-**Commit di esecuzione.** `git rev-list M^1..M^2`, esclusi i commit il cui unico contenuto è un file
+**Commit di esecuzione.** `git log --no-merges M^1..M^2`, esclusi i commit i cui file stanno tutti
 sotto `docs/superpowers/specs/`, `docs/superpowers/plans/` o `docs/superpowers/briefs/`. Primo e
 ultimo per author date.
 
-**Spec e Piano.** Il file in `docs/superpowers/specs/` (risp. `plans/`) con nome
-`YYYY-MM-DD-<slug>-design.md` (risp. `YYYY-MM-DD-<slug>.md`) tale che `<slug>` è contenuto nel nome
-del branch. Esattamente una corrispondenza → author date del commit che ha aggiunto il file
-(`git log --diff-filter=A --format=%aI -- <file>`); zero o più di una → `unknown`.
+**Spec e Piano.** Fra i file in `docs/superpowers/specs/` (risp. `plans/`) con nome
+`YYYY-MM-DD-<slug>-design.md` (risp. `YYYY-MM-DD-<slug>.md`) e `<slug>` contenuto nel nome del
+branch: quello il cui `<slug>` è uguale al nome del branch, con o senza i suoi prefissi `worktree-`.
+Altrimenti, fra quelli aggiunti (`git log --diff-filter=A --format=%aI -- <file>`) dopo il merge
+precedente su `main` e non oltre il merge del ciclo, quello con lo slug più lungo. Nessuno, o due
+slug più lunghi a pari lunghezza → `unknown`.
 
 **Brief started.** Letto dalla riga `**Brief started:**` della Spec trovata; assente → `unknown`.
 
-**Output.** Una riga per ciclo, ordinata per data di merge: branch, i sei momenti (Brief, Spec, Piano,
+**Output.** Una riga per ciclo, ordinata per data di merge: branch, i momenti (Brief, Spec, Piano,
 primo commit di esecuzione, ultimo commit, merge) e gli intervalli fra momenti consecutivi in
 minuti. Un intervallo con un estremo `unknown` è `unknown`. Mai stime.
 
-**Struttura.** Funzioni pure esportate — lettura del branch dal report, corrispondenza dello slug,
-calcolo degli intervalli, formattazione della riga — e un involucro sottile che chiama `git` via
+**Struttura.** Funzioni pure esportate e un involucro sottile che chiama `git` via
 `execFileSync`. Stesso schema di `scripts/classify-cycle.mjs`.
 
 **Test.** `scripts/cycle-times.test.js` (vitest, già incluso da `vitest.config.js`) copre le
@@ -85,7 +87,7 @@ contatori accanto ai timestamp che già raccoglie.
 ## 5. Regole di scrittura in `CLAUDE.md`
 
 Nuova sottosezione `### Writing documentation`, ultima di `## Development` (dopo
-`### Testing & tooling`). Quattro righe:
+`### Testing & tooling`):
 
 - State a rule without its justification.
 - No numbers or counts in prose: cite the command or test that measures them.
@@ -99,7 +101,8 @@ Nessun rimando da altri file.
 `### Cost grid editor ↔ pipeline board integration` (`CLAUDE.md`, dall'intestazione alla riga prima
 di `### Invariants`) diventa `## Cost grid editor ↔ pipeline board integration` in
 `docs/pages/costgrid.md`, inserita prima di `## Base state`. Il corpo è byte-identico; cambia solo il
-livello dell'intestazione. Nessun puntatore residuo in `CLAUDE.md`: la riga `costgrid.html` della
+livello dell'intestazione. Unica eccezione, decisa al Gate 3 round 1: il link a `docs/pages/costgrid.md`
+nel quarto punto, che dal nuovo file puntava a se stesso, diventa `see "New Proposal / Clone" above`. Nessun puntatore residuo in `CLAUDE.md`: la riga `costgrid.html` della
 tabella Pages punta già a `docs/pages/costgrid.md`.
 
 Prima dello spostamento: verificare che fra l'intestazione e `### Invariants` ci sia solo il blocco
@@ -113,11 +116,11 @@ voluto, e che nessun file vivo citi la sezione per nome
 - `node scripts/cycle-times.mjs` stampa una riga per ogni report; controllo a mano di un ciclo con
   Spec e Piano (`backlog-follow-up`) e di uno senza (`m3-m2-process-dedup`).
 - Corpo spostato: `diff` fra il blocco estratto da `CLAUDE.md` a `main` e quello in
-  `docs/pages/costgrid.md`, escluse le intestazioni.
+  `docs/pages/costgrid.md`, escluse le intestazioni: l'unica differenza è la riga dell'eccezione di §6.
 
 ## Decisioni aperte
 
-1. **Ciclo↔Spec/Piano per slug contenuto nel nome del branch.** Alternativa scartata: leggere i path dal report, o un file di mappatura a mano. Perché: i report li citano in modo incoerente e un file di mappatura è un'altra cosa da mantenere.
+1. **Ciclo↔Spec/Piano per slug uguale al nome del branch; altrimenti slug più lungo contenuto nel nome, aggiunto fra il merge precedente su `main` e quello del ciclo** (Gate 3, 2026-10-14: la sola sottostringa attribuiva a un ciclo documenti di cicli più vecchi, round 1; la sola finestra scartava Spec e Piano propri quando un altro ciclo era entrato nel frattempo, round 2). Alternativa scartata: leggere i path dal report, o un file di mappatura a mano. Perché: i report li citano in modo incoerente e un file di mappatura è un'altra cosa da mantenere.
 2. **Esecuzione = `M^1..M^2` meno i commit di sola Spec/Piano/Brief.** Alternativa scartata: `Execution started` del report. Perché: quel campo segna l'inizio del closeout, non dell'esecuzione.
 3. **Guard sulla riga `Brief started`, nelle sole Spec, dal 2026-10-14.** Alternativa scartata: nessun guard. Perché: lo skill di brainstorming è un plugin che non conosce la regola.
 4. **«Ripetizioni dei test» = esecuzioni complete della suite.** Alternativa scartata: contare anche quelle mirate. Perché: le esecuzioni mirate sono la disciplina di §6.2, non un costo.
