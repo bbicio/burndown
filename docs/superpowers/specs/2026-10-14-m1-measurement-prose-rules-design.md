@@ -26,7 +26,8 @@ d'uso stanno nel commento d'header dello script.
 **Elenco dei cicli.** Un ciclo per ogni file `docs/superpowers/reports/*-finish-cycle.md`. Dal report
 si legge il branch dalla riga `**Branch:** <branch> → main` (il testo dopo `→ main` è ignorato).
 
-**Merge.** `git log --merges --first-parent main --grep "^Merge branch '<branch>'" --format=%H`.
+**Merge.** Fra i merge di `git log --merges --first-parent main`, quello il cui soggetto è
+`Merge branch '<branch>'`, da solo o seguito da `: <descrizione>`, confrontato come testo letterale.
 Nessun risultato, o più di uno → tutti i campi git del ciclo sono `unknown`.
 
 **Commit di esecuzione.** `git rev-list M^1..M^2`, esclusi i commit il cui unico contenuto è un file
@@ -35,8 +36,9 @@ ultimo per author date.
 
 **Spec e Piano.** Il file in `docs/superpowers/specs/` (risp. `plans/`) con nome
 `YYYY-MM-DD-<slug>-design.md` (risp. `YYYY-MM-DD-<slug>.md`) tale che `<slug>` è contenuto nel nome
-del branch. Esattamente una corrispondenza → author date del commit che ha aggiunto il file
-(`git log --diff-filter=A --format=%aI -- <file>`); zero o più di una → `unknown`.
+del branch, aggiunto (`git log --diff-filter=A --format=%aI -- <file>`) dopo il merge precedente su
+`main` e non oltre il merge del ciclo. Fra questi vale lo slug più lungo; nessuno, o due slug più
+lunghi a pari lunghezza → `unknown`.
 
 **Brief started.** Letto dalla riga `**Brief started:**` della Spec trovata; assente → `unknown`.
 
@@ -99,7 +101,8 @@ Nessun rimando da altri file.
 `### Cost grid editor ↔ pipeline board integration` (`CLAUDE.md`, dall'intestazione alla riga prima
 di `### Invariants`) diventa `## Cost grid editor ↔ pipeline board integration` in
 `docs/pages/costgrid.md`, inserita prima di `## Base state`. Il corpo è byte-identico; cambia solo il
-livello dell'intestazione. Nessun puntatore residuo in `CLAUDE.md`: la riga `costgrid.html` della
+livello dell'intestazione. Unica eccezione, decisa al Gate 3 round 1: il link a `docs/pages/costgrid.md`
+nel quarto punto, che dal nuovo file puntava a se stesso, diventa `see "New Proposal / Clone" above`. Nessun puntatore residuo in `CLAUDE.md`: la riga `costgrid.html` della
 tabella Pages punta già a `docs/pages/costgrid.md`.
 
 Prima dello spostamento: verificare che fra l'intestazione e `### Invariants` ci sia solo il blocco
@@ -117,7 +120,7 @@ voluto, e che nessun file vivo citi la sezione per nome
 
 ## Decisioni aperte
 
-1. **Ciclo↔Spec/Piano per slug contenuto nel nome del branch.** Alternativa scartata: leggere i path dal report, o un file di mappatura a mano. Perché: i report li citano in modo incoerente e un file di mappatura è un'altra cosa da mantenere.
+1. **Ciclo↔Spec/Piano per slug più lungo contenuto nel nome del branch, aggiunto fra il merge precedente su `main` e quello del ciclo** (finestra aggiunta al Gate 3 round 1, 2026-10-14: la sola sottostringa attribuiva a un ciclo documenti di cicli più vecchi). Alternativa scartata: leggere i path dal report, o un file di mappatura a mano. Perché: i report li citano in modo incoerente e un file di mappatura è un'altra cosa da mantenere.
 2. **Esecuzione = `M^1..M^2` meno i commit di sola Spec/Piano/Brief.** Alternativa scartata: `Execution started` del report. Perché: quel campo segna l'inizio del closeout, non dell'esecuzione.
 3. **Guard sulla riga `Brief started`, nelle sole Spec, dal 2026-10-14.** Alternativa scartata: nessun guard. Perché: lo skill di brainstorming è un plugin che non conosce la regola.
 4. **«Ripetizioni dei test» = esecuzioni complete della suite.** Alternativa scartata: contare anche quelle mirate. Perché: le esecuzioni mirate sono la disciplina di §6.2, non un costo.

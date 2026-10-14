@@ -2,11 +2,16 @@
 //
 // Usage: node scripts/cycle-times.mjs
 //
-// One cycle per docs/superpowers/reports/*-finish-cycle.md. Columns: branch;
-// six moments (Brief started, Spec committed, Plan committed, first and last
-// execution commit, merge); then the five intervals between consecutive
-// moments, in minutes. A value git cannot give is `unknown`, never estimated.
-// Run by hand; no gate runs it and it writes no file.
+// One cycle per docs/superpowers/reports/*-finish-cycle.md. Columns: branch,
+// the moments in MOMENTS, then the interval in minutes between each pair of
+// consecutive moments (the header row names them). A value git cannot give is
+// `unknown`, never estimated. Run by hand; no gate runs it and it writes no file.
+//
+// A spec or plan belongs to a cycle when its slug is the longest one contained
+// in the branch name and it was added after the previous merge on main and no
+// later than the cycle's own merge. A commit counts as planning only when every
+// file it touches is a spec, plan or brief: a spec committed together with any
+// other file counts as execution, which can make plan→exec negative.
 // Spec: docs/superpowers/specs/2026-10-14-m1-measurement-prose-rules-design.md
 
 import { execFileSync } from 'node:child_process';
@@ -38,22 +43,44 @@ export function parseBriefStarted(md) {
 }
 
 export function mergeSubjectMatches(subject, branch) {
-  return subject === `Merge branch '${branch}'`;
+  const exact = `Merge branch '${branch}'`;
+  return subject === exact || subject.startsWith(`${exact}: `);
 }
+
+const slugOf = (name, suffix) => name.replace(DATED, '').slice(0, -suffix.length);
 
 /**
  * @param {string[]} names bare filenames
  * @param {string} suffix '-design.md' for specs, '.md' for plans
- * @returns {string|null} the one name whose slug `branch` contains, else null
+ * @returns {string[]} the names whose slug `branch` contains
  */
-export function matchBySlug(branch, names, suffix) {
-  const hits = names.filter((n) => {
+export function containedSlugs(branch, names, suffix) {
+  return names.filter((n) => {
     if (!DATED.test(n) || !n.endsWith(suffix)) return false;
     if (suffix === '.md' && (n.endsWith('-design.md') || n.endsWith('-brief.md'))) return false;
-    const slug = n.replace(DATED, '').slice(0, -suffix.length);
+    const slug = slugOf(n, suffix);
     return slug !== '' && branch.includes(slug);
   });
-  return hits.length === 1 ? hits[0] : null;
+}
+
+/**
+ * Among candidates added after `from` and no later than `to`, the one with the
+ * longest slug contained in `branch`; null on a tie, a missing bound, or none.
+ * @param {{name: string, addedAt: string|null}[]} candidates
+ */
+export function pickBySlug(branch, candidates, suffix, from, to) {
+  const lo = toDate(from);
+  const hi = toDate(to);
+  if (lo === null || hi === null) return null;
+  const inWindow = candidates.filter((c) => {
+    const d = toDate(c.addedAt);
+    return containedSlugs(branch, [c.name], suffix).length === 1 && d !== null && d > lo && d <= hi;
+  });
+  if (inWindow.length === 0) return null;
+  const len = (c) => slugOf(c.name, suffix).length;
+  const max = Math.max(...inWindow.map(len));
+  const best = inWindow.filter((c) => len(c) === max);
+  return best.length === 1 ? best[0].name : null;
 }
 
 export function isPlanningOnly(files) {
@@ -92,12 +119,21 @@ export function buildRow(c) {
   return cells.join('\t');
 }
 
-// ── CLI ─────────────────────────────────────────────────────────────────────
-
-function git(args) {
-  return execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+/** Sort comparator: by merge time, rows without a merge last. */
+export function compareByMerge(a, b) {
+  const t = (r) => toDate(r.merge)?.getTime() ?? Infinity;
+  return t(a) === t(b) ? 0 : t(a) < t(b) ? -1 : 1;
 }
 
+// ── CLI ─────────────────────────────────────────────────────────────────────
+
+let ROOT;
+
+function git(args) {
+  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+// Newest first, as `git log` prints them.
 function mergeLog() {
   return git(['log', '--merges', '--first-parent', 'main', '--format=%H%x09%aI%x09%s'])
     .split('\n')
@@ -105,9 +141,13 @@ function mergeLog() {
     .filter(([, , s]) => s !== undefined);
 }
 
+/** The cycle's merge, plus the first-parent merge before it (the window's start). */
 function findMerge(merges, branch) {
-  const hits = merges.filter(([, , s]) => mergeSubjectMatches(s, branch));
-  return hits.length === 1 ? { sha: hits[0][0], at: hits[0][1] } : null;
+  const idx = merges.flatMap(([, , s], i) => (mergeSubjectMatches(s, branch) ? [i] : []));
+  if (idx.length !== 1) return null;
+  const [sha, at] = merges[idx[0]];
+  const prev = merges[idx[0] + 1];
+  return { sha, at, prevAt: prev ? prev[1] : null };
 }
 
 function execRange(sha) {
@@ -126,28 +166,36 @@ function addedAt(path) {
   return out[out.length - 1] || null;
 }
 
-function cycle(root, report, specs, plans, merges) {
-  const branch = parseReportBranch(readFileSync(join(root, report), 'utf8'));
+function pick(branch, dir, names, suffix, merge) {
+  const candidates = containedSlugs(branch, names, suffix)
+    .map((name) => ({ name, addedAt: addedAt(`${dir}/${name}`) }));
+  const name = pickBySlug(branch, candidates, suffix, merge.prevAt, merge.at);
+  return name ? candidates.find((c) => c.name === name) : null;
+}
+
+function cycle(report, specs, plans, merges) {
+  const branch = parseReportBranch(readFileSync(join(ROOT, report), 'utf8'));
   const c = { branch: branch ?? report, brief: null, spec: null, plan: null, execFirst: null, execLast: null, merge: null };
   if (branch === null) return c;
-  const spec = matchBySlug(branch, specs, '-design.md');
-  const plan = matchBySlug(branch, plans, '.md');
-  if (spec) {
-    c.spec = addedAt(`docs/superpowers/specs/${spec}`);
-    c.brief = parseBriefStarted(readFileSync(join(root, 'docs/superpowers/specs', spec), 'utf8'));
-  }
-  if (plan) c.plan = addedAt(`docs/superpowers/plans/${plan}`);
   const merge = findMerge(merges, branch);
-  if (merge) {
-    c.merge = merge.at;
-    const ex = execRange(merge.sha);
-    if (ex) { c.execFirst = ex.first; c.execLast = ex.last; }
+  // No merge, no window: every git field stays unknown.
+  if (merge === null) return c;
+  c.merge = merge.at;
+  const ex = execRange(merge.sha);
+  if (ex) { c.execFirst = ex.first; c.execLast = ex.last; }
+  const spec = pick(branch, 'docs/superpowers/specs', specs, '-design.md', merge);
+  if (spec) {
+    c.spec = spec.addedAt;
+    c.brief = parseBriefStarted(readFileSync(join(ROOT, 'docs/superpowers/specs', spec.name), 'utf8'));
   }
+  const plan = pick(branch, 'docs/superpowers/plans', plans, '.md', merge);
+  if (plan) c.plan = plan.addedAt;
   return c;
 }
 
 export function main() {
-  const root = git(['rev-parse', '--show-toplevel']).trim();
+  ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const root = ROOT;
   const ls = (d) => readdirSync(join(root, d));
   const specs = ls('docs/superpowers/specs');
   const plans = ls('docs/superpowers/plans');
@@ -155,9 +203,8 @@ export function main() {
     .filter((n) => n.endsWith('-finish-cycle.md'))
     .map((n) => `docs/superpowers/reports/${n}`);
   const merges = mergeLog();
-  const rows = reports.map((r) => cycle(root, r, specs, plans, merges));
-  const t = (r) => toDate(r.merge)?.getTime() ?? Infinity;
-  rows.sort((a, b) => (t(a) === t(b) ? 0 : t(a) < t(b) ? -1 : 1));
+  const rows = reports.map((r) => cycle(r, specs, plans, merges));
+  rows.sort(compareByMerge);
   const header = ['branch', ...MOMENTS, 'brief→spec', 'spec→plan', 'plan→exec', 'exec', 'exec→merge'];
   process.stdout.write([header.join('\t'), ...rows.map(buildRow)].join('\n') + '\n');
 }

@@ -3,7 +3,9 @@ import {
   parseReportBranch,
   parseBriefStarted,
   mergeSubjectMatches,
-  matchBySlug,
+  containedSlugs,
+  pickBySlug,
+  compareByMerge,
   isPlanningOnly,
   minutesBetween,
   buildRow,
@@ -39,26 +41,55 @@ describe('mergeSubjectMatches', () => {
     expect(mergeSubjectMatches("Merge branch 'a.b'", 'a.b')).toBe(true);
     expect(mergeSubjectMatches("Merge branch 'axb'", 'a.b')).toBe(false);
   });
-  it('rejects a subject with a suffix', () => {
+  it('rejects a subject with any other suffix', () => {
     expect(mergeSubjectMatches("Merge branch 'm1-x' into main", 'm1-x')).toBe(false);
+  });
+  it('accepts a subject carrying a description after ": "', () => {
+    expect(mergeSubjectMatches("Merge branch 'worktree-money': centralize money", 'worktree-money')).toBe(true);
+    expect(mergeSubjectMatches("Merge branch 'worktree-money-x': y", 'worktree-money')).toBe(false);
   });
 });
 
-describe('matchBySlug', () => {
-  it('returns the single file whose slug the branch contains', () => {
+describe('containedSlugs', () => {
+  it('lists every dated file whose slug the branch contains', () => {
     const names = ['2026-10-13-backlog-follow-up-design.md', '2026-10-12-approval-economy-design.md'];
-    expect(matchBySlug('backlog-follow-up', names, '-design.md')).toBe('2026-10-13-backlog-follow-up-design.md');
-  });
-  it('returns null when two slugs are contained in the branch', () => {
-    const names = ['2026-09-25-team-ux-design.md', '2026-09-28-team-ux-polish-design.md'];
-    expect(matchBySlug('worktree-team-ux-polish', names, '-design.md')).toBeNull();
-  });
-  it('returns null on no hit', () => {
-    expect(matchBySlug('m3-m2-process-dedup', ['2026-10-13-backlog-follow-up-design.md'], '-design.md')).toBeNull();
+    expect(containedSlugs('backlog-follow-up', names, '-design.md')).toEqual(['2026-10-13-backlog-follow-up-design.md']);
   });
   it('for plans, skips design and brief files', () => {
     const names = ['2026-10-13-backlog-follow-up.md', '2026-10-13-backlog-follow-up-design.md', '2026-10-13-backlog-brief.md'];
-    expect(matchBySlug('backlog-follow-up', names, '.md')).toBe('2026-10-13-backlog-follow-up.md');
+    expect(containedSlugs('backlog-follow-up', names, '.md')).toEqual(['2026-10-13-backlog-follow-up.md']);
+  });
+});
+
+describe('pickBySlug', () => {
+  const from = '2026-10-01T00:00:00+02:00';
+  const to = '2026-10-10T00:00:00+02:00';
+  const inside = '2026-10-05T10:00:00+02:00';
+  it('takes the longest contained slug', () => {
+    const c = [
+      { name: '2026-07-02-finish-cycle-design.md', addedAt: inside },
+      { name: '2026-10-05-finish-cycle-gate2-retry-design.md', addedAt: inside },
+    ];
+    expect(pickBySlug('worktree-finish-cycle-gate2-retry', c, '-design.md', from, to)).toBe('2026-10-05-finish-cycle-gate2-retry-design.md');
+  });
+  it('rejects a file added outside the cycle window', () => {
+    const c = [{ name: '2026-07-27-dead-code-cleanup-design.md', addedAt: '2026-07-27T10:00:00+02:00' }];
+    expect(pickBySlug('worktree-dead-code-cleanup-and-tooltip-wording', c, '-design.md', from, to)).toBeNull();
+  });
+  it('is null on a tie in slug length, and without a window', () => {
+    const c = [
+      { name: '2026-10-05-aa-design.md', addedAt: inside },
+      { name: '2026-10-06-bb-design.md', addedAt: inside },
+    ];
+    expect(pickBySlug('aa-bb', c, '-design.md', from, to)).toBeNull();
+    expect(pickBySlug('aa', [c[0]], '-design.md', null, to)).toBeNull();
+  });
+});
+
+describe('compareByMerge', () => {
+  it('orders by merge time, unknown last', () => {
+    const rows = [{ merge: null }, { merge: '2026-10-14T00:36:00+02:00' }, { merge: '2026-10-13T22:48:00+02:00' }];
+    expect(rows.sort(compareByMerge).map((r) => r.merge)).toEqual(['2026-10-13T22:48:00+02:00', '2026-10-14T00:36:00+02:00', null]);
   });
 });
 

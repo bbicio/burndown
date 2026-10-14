@@ -15,7 +15,7 @@
 ## Global Constraints
 
 - The ceiling in `scripts/claude-md-guard.test.js` is not raised; the `File structure` pin is not touched (the script does not enter that index).
-- Moved block: body byte-identical; only the heading level changes (`###` → `##`).
+- Moved block: body byte-identical; only the heading level changes (`###` → `##`). Exception decided at Gate 3 round 1: the self-pointing link in the fourth bullet (spec §6).
 - Never an estimate: any value not derivable prints `unknown`.
 - No new dependency. User-facing text in English.
 - The four writing rules apply to every line this cycle writes: no justification, no counts in prose, one home per rule, delete before rewording.
@@ -25,7 +25,7 @@
 
 1. A report or spec saved with CRLF line endings — parsers must still read `**Branch:**` and `**Brief started:**` (test in Task 1, Task 2).
 2. A branch name with regex metacharacters (`.`, `+`) — the merge lookup must match the subject literally, not as a pattern (test in Task 1: `mergeSubjectMatches`).
-3. Two specs whose slugs are both contained in one branch name (e.g. `team-ux` and `team-ux-polish`) — result is `unknown`, not the first hit (test in Task 1).
+3. Two specs whose slugs are both contained in one branch name (e.g. `team-ux` and `team-ux-polish`) — result is `unknown`, not the first hit (test in Task 1). Superseded at Gate 3 round 1: the longest slug added inside the cycle's merge window wins; see the spec §2.
 4. A report whose branch never produced a merge commit (direct commits on `main`) — every git field `unknown`, the row still printed (test in Task 1: `buildRow`).
 5. `**Brief started:** unknown` and a malformed value (`2026-10-14 9:05`) — the first passes the guard, the second fails it (test in Task 2).
 
