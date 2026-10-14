@@ -30,7 +30,7 @@ si legge il branch dalla riga `**Branch:** <branch> → main` (il testo dopo `�
 `Merge branch '<branch>'`, da solo o seguito da `: <descrizione>`, confrontato come testo letterale.
 Nessun risultato, o più di uno → tutti i campi git del ciclo sono `unknown`.
 
-**Commit di esecuzione.** `git log --no-merges M^1..M^2`, esclusi i commit il cui unico contenuto è un file
+**Commit di esecuzione.** `git log --no-merges M^1..M^2`, esclusi i commit i cui file stanno tutti
 sotto `docs/superpowers/specs/`, `docs/superpowers/plans/` o `docs/superpowers/briefs/`. Primo e
 ultimo per author date.
 

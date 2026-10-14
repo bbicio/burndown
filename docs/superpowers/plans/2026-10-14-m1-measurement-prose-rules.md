@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Measure every closed cycle's pre-closeout timeline from git, record three counters per cycle from now on, and put four prose-writing rules in `CLAUDE.md`.
+**Goal:** Measure every closed cycle's pre-closeout timeline from git, record the cycle counters per cycle from now on, and put the prose-writing rules in `CLAUDE.md`.
 
 **Architecture:** One on-demand script (`scripts/cycle-times.mjs`, pure functions + thin `git` wrapper, same shape as `scripts/classify-cycle.mjs`); one extra check in `scripts/decision-ledger-guard.test.js`; prose edits to `PROCESS.md` §6b, the Gate 5 report template and `CLAUDE.md`; one verbatim block move into `docs/pages/costgrid.md`.
 
@@ -18,7 +18,7 @@
 - Moved block: body byte-identical; only the heading level changes (`###` → `##`). Exception decided at Gate 3 round 1: the self-pointing link in the fourth bullet (spec §6).
 - Never an estimate: any value not derivable prints `unknown`.
 - No new dependency. User-facing text in English.
-- The four writing rules apply to every line this cycle writes: no justification, no counts in prose, one home per rule, delete before rewording.
+- The writing rules apply to every line this cycle writes: no justification, no counts in prose, one home per rule, delete before rewording.
 - Tasks are **sequential**, not independent: Task 4 measures `CLAUDE.md` after Task 3's prose is in.
 
 ## Review Focus
@@ -45,7 +45,7 @@
   - `matchBySlug` — superseded at Gate 3 by `containedSlugs` + `pickBySlug`: spec §2 and `scripts/cycle-times.mjs` are the reference.
   - `isPlanningOnly(files: string[]): boolean` — true when non-empty and every path starts with `docs/superpowers/specs/`, `docs/superpowers/plans/` or `docs/superpowers/briefs/`.
   - `minutesBetween(a: string | null, b: string | null): number | null` — accepts ISO-with-offset and `'YYYY-MM-DD HH:MM'` (local); `null` if either is `null`.
-  - `buildRow(c: {branch, brief, spec, plan, execFirst, execLast, merge}): string` — tab-separated: branch, the six moments (`unknown` for `null`, ISO values shown as `YYYY-MM-DD HH:MM` local), then five consecutive intervals in minutes (`unknown` for `null`).
+  - `buildRow(c: {branch, brief, spec, plan, execFirst, execLast, merge}): string` — tab-separated: branch, the moments (`unknown` for `null`, ISO values shown as `YYYY-MM-DD HH:MM` local), then the intervals between consecutive moments, in minutes (`unknown` for `null`).
   - `main(): void` — reads every `docs/superpowers/reports/*-finish-cycle.md`, gathers the moments via `git` (`execFileSync`, stderr captured as in `classify-cycle.mjs`), prints a header line then rows sorted by merge time (`unknown` last).
 
 - [ ] **Step 1: Write the failing tests** in `scripts/cycle-times.test.js`, one `it` per behaviour:
@@ -58,7 +58,7 @@
   - `buildRow` with all `null` except `branch` → branch followed by only `unknown` cells.
 
 - [ ] **Step 2:** `npx vitest run scripts/cycle-times.test.js` → FAIL (module not found).
-- [ ] **Step 3:** Implement the exports and `main()`, plus the header comment carrying the usage line `node scripts/cycle-times.mjs`. `main()` runs only when invoked directly (same `import.meta.url` guard as `classify-cycle.mjs`). Git calls: merges `git log --merges --first-parent main --format=%H%x09%s` filtered with `mergeSubjectMatches`; exec commits `git log --format=%H%x09%aI --name-only <M>^1..<M>^2` filtered with `isPlanningOnly`; spec/plan date `git log --diff-filter=A --format=%aI -- <path>` (last line).
+- [ ] **Step 3:** Implement the exports and `main()`, plus the header comment carrying the usage line `node scripts/cycle-times.mjs`. `main()` runs only when invoked directly (same `import.meta.url` guard as `classify-cycle.mjs`). Git calls: superseded at Gate 3, `scripts/cycle-times.mjs` is the reference.
 - [ ] **Step 4:** `npx vitest run scripts/cycle-times.test.js` → PASS.
 - [ ] **Step 5:** `node scripts/cycle-times.mjs` → one row per report. Check by hand: `backlog-follow-up` has spec 2026-10-13 23:25 and plan 23:28; `m3-m2-process-dedup` has spec and plan `unknown`.
 - [ ] **Step 6:** Commit `feat: scripts/cycle-times.mjs — per-cycle timeline from git (M1)`.
@@ -84,8 +84,8 @@
 - Modify: `.claude/commands/finish-cycle.md` (pre-flight step 6; report template under `**Gate durations:**`)
 
 - [ ] **Step 1:** In `### Il ledger`, after its last paragraph, add one paragraph: every Spec's header carries `**Brief started:** YYYY-MM-DD HH:MM` (or `unknown`), the start of `/feature-brief`, or of `/brainstorming` when there is no Brief; `scripts/cycle-times.mjs` reads it; `scripts/decision-ledger-guard.test.js` requires it. Rule only, no justification.
-- [ ] **Step 2:** In the template, under `**Gate durations:**`, add `**Cycle counters:** subagent dispatches <N> · review rounds <N> · full test-suite runs <N>`, and in the template's comment block one line each defining the three counters exactly as spec §4, plus `unknown` for a value the session did not observe in full.
-- [ ] **Step 3:** In pre-flight step 6, one sentence: the three counters are kept in session from the start of plan execution, alongside the timestamps.
+- [ ] **Step 2:** In the template, under `**Gate durations:**`, add `**Cycle counters:** subagent dispatches <N> · review rounds <N> · full test-suite runs <N>`, and in the template's comment block one line each defining the counters exactly as spec §4, plus `unknown` for a value the session did not observe in full.
+- [ ] **Step 3:** In pre-flight step 6, one sentence on the cycle counters (wording superseded at Gate 3: `.claude/commands/finish-cycle.md` is the reference).
 - [ ] **Step 4:** `npx vitest run scripts/ js/lib/test-cases-parse.test.js` → PASS.
 - [ ] **Step 5:** Commit `docs: Brief started line and cycle counters in the process (M1)`.
 
@@ -95,9 +95,9 @@
 - Modify: `CLAUDE.md` (new `### Writing documentation` as last subsection of `## Development`; remove `### Cost grid editor ↔ pipeline board integration`)
 - Modify: `docs/pages/costgrid.md` (new `## Cost grid editor ↔ pipeline board integration` before `## Base state`)
 
-- [ ] **Step 1:** `grep -rn "Cost grid editor ↔ pipeline board integration" --include=*.md .` — expected: only `CLAUDE.md` and this cycle's spec/plan. Check that the lines between that heading and `### Invariants` are the five bullets only.
+- [ ] **Step 1:** `grep -rn "Cost grid editor ↔ pipeline board integration" --include=*.md .` — expected: only `CLAUDE.md` and this cycle's spec/plan. Check that the lines between that heading and `### Invariants` are the intended bullets only.
 - [ ] **Step 2:** Save the block body (heading excluded) from `main` to the scratchpad; move it, changing only `###` → `##`.
-- [ ] **Step 3:** Add `### Writing documentation` after `### Testing & tooling`'s last line and before `---`, with the four bullets copied verbatim from spec §5.
+- [ ] **Step 3:** Add `### Writing documentation` after `### Testing & tooling`'s last line and before `---`, with the bullets copied verbatim from spec §5.
 - [ ] **Step 4:** `diff` the saved body with the body now in `docs/pages/costgrid.md` → no output.
 - [ ] **Step 5:** `npx vitest run scripts/` → PASS, `claude-md-guard` included. Then `tr -d '\r' < CLAUDE.md | wc -c` → ≤ 64000.
 - [ ] **Step 6:** Commit `docs: prose-writing rules in CLAUDE.md; move cost-grid/pipeline integration to its page doc (M1)`.
