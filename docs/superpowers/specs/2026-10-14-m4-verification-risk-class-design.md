@@ -59,9 +59,10 @@ quel nome esatto.
 1. Cerca in `docs/superpowers/plans/*.md` (solo file diretti) le righe che iniziano con
    `` **Branch:** `<branch corrente>` ``. Esattamente un file → è il Piano del ciclo; da lì legge
    `**Spec:**` e `**Risk class:**`.
-2. Zero o più di un file, o riga `**Risk class:**` assente o con un valore fuori dalle tre classi →
-   classe `standard`, dichiarato in una riga con il motivo.
-3. Mostra in una riga classe, fonte ed effort risultante. Non chiede nulla.
+2. Zero o più di un file → nessun Piano identificato; la classe si chiede all'utente (Gate 3 round 1,
+   finding sul fallback silenzioso). Un solo file con riga `**Risk class:**` assente o con un valore
+   fuori dalle tre classi → classe `standard`, dichiarato in una riga con il motivo.
+3. Mostra in una riga classe, fonte ed effort risultante. Non chiede altro.
 
 Registra `<risk-class>` e `<review-effort>`, usati dal Gate 2 step 0 e dal Gate 3.
 
@@ -87,7 +88,7 @@ alimenta solo la classe, e il controllo out-of-scope del Gate 4 continua a non s
 Nuova riga nell'header del template, dopo `**Cycle counters:**`:
 
 ```markdown
-**Risk class:** <classe> (<fonte: Piano | non dichiarata → standard>) · review effort <low|medium|high>
+**Risk class:** <classe> (<fonte: Piano | risposta dell'utente | motivo del fallback → standard>) · review effort <low|medium|high>
 ```
 
 ## 7. Contesto dei file nei dispatch — `PROCESS.md` §6.1
@@ -99,10 +100,10 @@ di commit da rivedere. In esecuzione nativa non c'è dispatch e il punto non si 
 ## 8. Guard — `scripts/decision-ledger-guard.test.js`
 
 Terza regola, sui soli Piani datati da `PLAN_CUTOFF = '2026-10-14'`: l'header porta una riga
-`` **Branch:** `<nome>` `` e una riga `**Risk class:** ` seguita da uno dei tre valori. Non verifica
+`` **Branch:** `<nome>` `` e una sola riga `**Risk class:** ` seguita da uno dei tre valori. Non verifica
 che la classe sia giusta né che il branch esista (§6b). Esenzione chiusa e separata da `EXEMPT`: il
 Piano di M1, che ha la stessa data e precede la regola. Test unitari su forma valida, valore fuori
-insieme, riga assente; test live su tutti i Piani in scope. L'intestazione del file documenta la
+insieme, riga assente, righe multiple; test live su tutti i Piani in scope. L'intestazione del file documenta la
 regola e i suoi limiti come per le prime due.
 
 ## 9. Classe di M4
@@ -120,10 +121,10 @@ regola e i suoi limiti come per le prime due.
 
 1. **Il riferimento sta nell'header del Piano (`**Branch:**`), non nel Brief.** Alternativa scartata: il Brief, come proponeva l'handoff. Perché: il Brief è scritto prima di Spec e Piano e non tutti i cicli ne hanno uno, mentre i Piani recenti portano già `**Branch:**`.
 2. **Path scope escluso da M4.** Alternativa scartata: usare il path target di `/code-review` per le classi inferiori. Perché: non è verificato se un path target rivede il diff o i file interi, e restringere per path lascia parti del diff non revisionate, che il Gate 3 non considera mai una review pulita.
-3. **Tre classi con fallback `standard`.** Alternativa scartata: chiedere all'utente quando la classe manca. Perché: il fallback coincide con il comportamento di oggi, quindi nessuna regressione e nessuna fermata nuova.
+3. **Tre classi con fallback `standard` quando il Piano c'è ma la classe manca; domanda all'utente quando il Piano non si trova (cambiata al Gate 3 round 1).** Alternativa scartata: fallback silenzioso anche sul Piano non trovato, che faceva rivedere a medium un ciclo dichiarato `high-risk`. Perché: un Piano non trovato non dice nulla sulla classe, e la domanda (§6b, classe B) compare solo in quel caso; con il Piano trovato il fallback coincide con il comportamento di oggi.
 4. **In `high-risk` lo step 0b resta ammesso, ma solo dopo una review a effort high.** Alternativa scartata: vietare anche lo scope ridotto. Perché: rivedere di nuovo ciò che è già coperto a high sarebbe la review doppia che §6.4 vieta.
 5. **Nessun classificatore automatico.** Alternativa scartata: uno script che suggerisce la classe dal diff. Perché: un suggerimento condiziona una dichiarazione che deve restare dichiarata, e quando si scrive il Piano il diff non esiste ancora.
 6. **`scripts/cycle-times.mjs` non si tocca.** Alternativa scartata: fargli leggere `**Branch:**`. Perché: preferisce già lo slug esatto del branch.
-7. **Il guard pretende la presenza di `**Branch:**` e `**Risk class:**`.** Alternativa scartata: nessun guard. Perché: il passo nuovo del Gate 2 dipende da quelle due righe, e un Piano che le omette ricadrebbe in silenzio sul fallback.
+7. **Il guard pretende la presenza di `**Branch:**` e `**Risk class:**`.** Alternativa scartata: nessun guard. Perché: il passo nuovo del Gate 2 legge quelle due righe.
 8. **Esenzione chiusa e separata per il Piano di M1, con cutoff 2026-10-14.** Alternativa scartata: cutoff al 2026-10-15. Perché: esenterebbe il Piano di M4 stesso, il primo che la regola deve coprire.
 9. **Il passo di identificazione precede lo step 0 e gira anche sul ramo no-code.** Alternativa scartata: lasciarlo agli steps 2-4. Perché: lo step 0 lancia la review e ha bisogno dell'effort prima; sul ramo no-code la review parte comunque.

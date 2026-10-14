@@ -17,7 +17,7 @@
 ## Global Constraints
 
 - Class values, exactly: `low-risk`, `standard`, `high-risk`. Effort mapping: `low-risk` → low, `standard` → medium, `high-risk` → high.
-- Fallback on a missing, ambiguous or out-of-set class: `standard` (medium), stated in one line with the reason. No new question to the user.
+- Fallback on a missing or out-of-set class in an identified Plan: `standard` (medium), stated in one line with the reason. No Plan identified (zero or several matches): the class is asked of the user (changed at Gate 3 round 1).
 - Plan header lines read by `/finish-cycle`, verbatim shape: `` **Branch:** `<name>` `` and `**Risk class:** <value> — <category>`.
 - `CLAUDE.md` is not touched. `scripts/cycle-times.mjs` is not touched. No `superpowers` plugin file is touched.
 - The no-code branch keeps skipping Gate 2 steps 2-5, and Gate 4's out-of-scope check keeps not firing there.
@@ -29,7 +29,7 @@
 ## Review Focus
 
 1. A Plan whose `**Branch:**` line carries a trailing explanation (as M1's does: `` `name` — the name must… ``) — Gate 2's lookup must still match on the backticked name (prose rule in Task 3; guard test in Task 1).
-2. Two Plans declaring the same branch — Gate 2 must fall back to `standard` and to steps 2-4, not take the first (Task 3).
+2. Two Plans declaring the same branch — Gate 2 must not take the first: it falls back to steps 2-4 and asks the user for the class (Task 3; the question was added at Gate 3 round 1).
 3. `**Risk class:** High-risk` (wrong case) or `medium` — out of set: the guard fails it, Gate 2 falls back to `standard` (test in Task 1; prose in Task 3).
 4. A `high-risk` cycle whose earlier whole-branch `/code-review` ran at medium — step 0b must not apply; step 1 runs a full review at high (Task 4).
 5. Gate 3 entered in a session where Gate 2 did not run — the class is identified there before step 0 (Task 4).
@@ -80,7 +80,7 @@
 - Consumes: §6.1b (Task 2).
 - Produces: `<risk-class>`, `<review-effort>`, and «the identification step» as a name Task 4 cites.
 
-- [ ] **Step 1:** Add the identification step per spec §4: runs on both branches, read-only; lists `docs/superpowers/plans/*.md` (direct files only) whose line starts with `` **Branch:** `<current branch>` `` (the backticked name, any trailing text allowed); exactly one → the cycle's Plan, read `**Spec:**` and `**Risk class:**`; zero, more than one, or a class absent / outside the three values → `standard`, said in one line with the reason; one line shows class, source, effort; no question. Records `<risk-class>` and `<review-effort>` per §6.1b's mapping.
+- [ ] **Step 1:** Add the identification step per spec §4: runs on both branches, read-only; lists `docs/superpowers/plans/*.md` (direct files only) whose line starts with `` **Branch:** `<current branch>` `` (the backticked name, any trailing text allowed); exactly one → the cycle's Plan, read `**Spec:**` and `**Risk class:**`; zero or more than one → no Plan identified, the class is asked of the user; one Plan whose class is absent or outside the three values → `standard`, said in one line with the reason; one line shows class, source, effort. Records `<risk-class>` and `<review-effort>` per §6.1b's mapping. (Revised at Gate 3 rounds 1-2.)
 - [ ] **Step 2:** Step 0's last bullet: `/code-review` at `<review-effort>` instead of medium. Its "Skip this" bullet: in `high-risk` the skip does not apply, and the 0b bullet applies only if the review defining `<reviewed-sha>` ran at high (same conditions as Gate 3, Task 4 — state them once in Gate 3 and link from here).
 - [ ] **Step 3:** Steps 2-4: prefix "Only when the identification step found no Plan" and keep their text; step 5 receives the declared Plan and Spec when the identification step found them.
 - [ ] **Step 4:** `grep -n "medium" .claude/commands/finish-cycle.md` → the only remaining hits are Gate 3 step 1 (Task 4) and the historical rationale in step 0b.
@@ -98,7 +98,7 @@
 - [ ] **Step 1:** Gate 3 head: if `<risk-class>` was not recorded in this session, run Gate 2's identification step first.
 - [ ] **Step 2:** Step 0: in `high-risk` the full skip does not apply. Step 0b: in `high-risk` applies only if the review defining `<reviewed-sha>` ran at high; otherwise step 1.
 - [ ] **Step 3:** Step 1, the scoped review in the collection paragraph, and the re-round bullet: `/code-review` at `<review-effort>`.
-- [ ] **Step 4:** Gate 5 template: add `**Risk class:** <class> (<source: Plan | not declared → standard>) · review effort <low|medium|high>` after `**Cycle counters:**`; one comment line: the value is the one the identification step recorded.
+- [ ] **Step 4:** Gate 5 template: add `**Risk class:** <class> (<source: the Plan's path | the user's answer | fallback reason → standard>) · review effort <low|medium|high>` after `**Cycle counters:**`; one comment line: the value is the one the identification step recorded.
 - [ ] **Step 5:** `grep -n "medium effort" .claude/commands/finish-cycle.md` → no hit outside the step 0b historical rationale.
 - [ ] **Step 6:** `npm test` → PASS.
 - [ ] **Step 7:** Commit `docs: finish-cycle Gate 3 effort by risk class, no skip in high-risk; report line (M4)`.

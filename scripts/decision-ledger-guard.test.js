@@ -54,6 +54,14 @@
 // checked: whether the time is correct, and plans (only specs carry it). The
 // line is matched anywhere in the file, fences and comments included.
 //
+// THIRD RULE (2026-10-14, M4): every plan dated from PLAN_CUTOFF carries a
+// `**Branch:** `<name>`` line and exactly one `**Risk class:**` line, whose
+// value is low-risk, standard or high-risk. /finish-cycle's Gate 2 reads both. Not
+// checked: whether the class is right, whether the branch exists, and specs.
+// Lines are matched anywhere in the file, fences and comments included.
+// PLAN_EXEMPT is closed, like EXEMPT below: it holds the one plan that shares
+// the cutoff date and predates the rule.
+//
 // THE EXEMPT LIST BELOW IS CLOSED. The four files in it carry this cycle's
 // own date but predate the rule. The cutoff cannot simply be moved one day
 // forward, because that would exempt this cycle's own spec and plan -- the two
@@ -157,6 +165,38 @@ function briefInScope(relPath) {
 function checkBriefStarted(markdown) {
   return markdown.replace(/\r\n/g, '\n').split('\n')
     .some((l) => /^\*\*Brief started:\*\* (\d{4}-\d{2}-\d{2} \d{2}:\d{2}|unknown)\s*$/.test(l));
+}
+
+// Third rule, plans only: the header carries the two lines /finish-cycle's
+// Gate 2 reads to find the cycle's Plan and its risk class (PROCESS.md 6.1b).
+// From its own cutoff, with its own closed exemption.
+const PLAN_CUTOFF = '2026-10-14';
+const PLAN_EXEMPT = new Set([
+  'docs/superpowers/plans/2026-10-14-m1-measurement-prose-rules.md',
+]);
+
+function planInScope(relPath) {
+  if (PLAN_EXEMPT.has(relPath)) return false;
+  const slash = relPath.lastIndexOf('/');
+  if (relPath.slice(0, slash) !== 'docs/superpowers/plans') return false;
+  const name = relPath.slice(slash + 1);
+  if (!name.endsWith('.md')) return false;
+  const date = /^(\d{4}-\d{2}-\d{2})-/.exec(name)?.[1];
+  return date !== undefined && date >= PLAN_CUTOFF;
+}
+
+/**
+ * @returns {{ok: true} | {ok: false, reason: 'missing-branch'|'missing-risk-class'|'multiple-risk-class'}}
+ */
+function checkPlanHeader(markdown) {
+  const lines = markdown.replace(/\r\n/g, '\n').split('\n');
+  if (!lines.some((l) => /^\*\*Branch:\*\* `[^`]+`/.test(l))) return { ok: false, reason: 'missing-branch' };
+  const classLines = lines.filter((l) => /^\*\*Risk class:\*\*/.test(l));
+  if (classLines.length > 1) return { ok: false, reason: 'multiple-risk-class' };
+  if (!classLines.some((l) => /^\*\*Risk class:\*\* (low-risk|standard|high-risk)(\s|$)/.test(l))) {
+    return { ok: false, reason: 'missing-risk-class' };
+  }
+  return { ok: true };
 }
 
 const OK = `## Decisioni aperte
@@ -358,5 +398,59 @@ describe('live specs: Brief started', () => {
       .filter((rel) => briefInScope(rel) && !checkBriefStarted(readFileSync(join(ROOT, rel), 'utf8')));
     expect(failures, `these specs have no "**Brief started:** YYYY-MM-DD HH:MM" (or "unknown")
       line (PROCESS.md 6b, Il ledger):\n  ${failures.join('\n  ')}`).toEqual([]);
+  });
+});
+
+describe('checkPlanHeader', () => {
+  const HEAD = '# P\n\n**Branch:** `x`\n\n**Risk class:** standard — r\n';
+
+  it('accepts a backticked Branch and an in-set Risk class, CRLF tolerated', () => {
+    expect(checkPlanHeader(HEAD)).toEqual({ ok: true });
+    expect(checkPlanHeader(HEAD.replace(/\n/g, '\r\n'))).toEqual({ ok: true });
+  });
+
+  it('accepts a Branch line with a trailing explanation', () => {
+    const md = '**Branch:** `x` — the name must contain the slug\n**Risk class:** high-risk — migration\n';
+    expect(checkPlanHeader(md)).toEqual({ ok: true });
+  });
+
+  it('rejects a Risk class outside the three values, case included', () => {
+    expect(checkPlanHeader('**Branch:** `x`\n**Risk class:** High-risk — r\n').reason).toBe('missing-risk-class');
+    expect(checkPlanHeader('**Branch:** `x`\n**Risk class:** medium\n').reason).toBe('missing-risk-class');
+  });
+
+  it('rejects a plan with more than one Risk class line', () => {
+    // Gate 2 reads "its" Risk class line: two of them, e.g. a quoted header
+    // template before the real declaration, leave that read ambiguous.
+    const md = '**Branch:** `x`\n**Risk class:** <low-risk|standard|high-risk> — c\n**Risk class:** high-risk — m\n';
+    expect(checkPlanHeader(md).reason).toBe('multiple-risk-class');
+  });
+
+  it('rejects a missing Branch line and one without backticks', () => {
+    expect(checkPlanHeader('**Risk class:** standard — r\n').reason).toBe('missing-branch');
+    expect(checkPlanHeader('**Branch:** x\n**Risk class:** standard — r\n').reason).toBe('missing-branch');
+  });
+});
+
+describe('planInScope', () => {
+  it('covers plans dated from the plan cutoff, minus the closed exemption, never specs', () => {
+    expect(planInScope('docs/superpowers/plans/2026-10-14-m4-verification-risk-class.md')).toBe(true);
+    expect(planInScope('docs/superpowers/plans/2026-10-14-m1-measurement-prose-rules.md')).toBe(false);
+    expect(planInScope('docs/superpowers/plans/2026-10-13-backlog-follow-up.md')).toBe(false);
+    expect(planInScope('docs/superpowers/specs/2026-10-14-m4-verification-risk-class-design.md')).toBe(false);
+  });
+});
+
+describe('live plans: Branch and Risk class', () => {
+  it('every in-scope plan carries both header lines', () => {
+    const dir = 'docs/superpowers/plans';
+    const failures = readdirSync(join(ROOT, dir))
+      .map((name) => `${dir}/${name}`)
+      .filter((rel) => planInScope(rel))
+      .map((rel) => [rel, checkPlanHeader(readFileSync(join(ROOT, rel), 'utf8'))])
+      .filter(([, res]) => !res.ok)
+      .map(([rel, res]) => `${rel} -- ${res.reason}`);
+    expect(failures, `these plans fail the Plan header rule -- one "**Branch:** \`<name>\`" line and exactly one
+      "**Risk class:** low-risk|standard|high-risk" line (PROCESS.md 6.1b):\n  ${failures.join('\n  ')}`).toEqual([]);
   });
 });

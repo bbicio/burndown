@@ -141,6 +141,25 @@ Tutte costruite. Non una per scenario ma una per tipo di gap — ciascuna in `.c
 - **Ciclo piccolo** (indicativamente ≤ 5 file, nessuna migrazione, nessuna nuova API, task fortemente sequenziali): esecuzione **nativa** (`superpowers:executing-plans`), oppure pochi task più grandi. Il costo fisso di ogni task subagent-driven (dispatch, pacchetto di revisione, revisore: 5–10 min) non si ripaga su modifiche di poche righe.
 - **Ciclo grande o con task indipendenti:** subagent-driven.
 - **Modello:** in subagent-driven gli implementatori girano su **Sonnet** (`model: sonnet`), mentre il coordinatore e la revisione finale dell'intero branch restano su Opus. In nativa l'utente cambia a mano il modello della sessione (`/model sonnet`) prima di implementare, e torna su Opus per la revisione finale e `/finish-cycle`. Brainstorming, spec, debugging e code review restano su Opus.
+- **Contesto dei file nei dispatch.** Il prompt di dispatch di un implementer copia dal Piano la lista dei file del suo task e gli chiede di aprirli prima di modificare; il prompt di un reviewer riceve la stessa lista e il range di commit da rivedere. In esecuzione nativa non c'è dispatch e il punto non si applica.
+
+### 6.1b Classe di rischio, dichiarata al passaggio Piano → Esecuzione
+- **Tre classi, per categoria e non per lista di file:**
+  - **`high-risk`** — il Piano tocca almeno una di: migrazione DB; autenticazione o permessi; money o valute; file condivisi caricati da più pagine; operazioni distruttive (reset, script Docker o di backup).
+  - **`low-risk`** — nessuna categoria `high-risk`, nessuna route API, nessun modulo `js/lib/` o `api/src/lib/`, nessun file di processo (`docs/superpowers/PROCESS.md`, `.claude/`, `scripts/`).
+  - **`standard`** — tutto il resto.
+- **Nel dubbio, la classe più alta.**
+- **La classe va dichiarata, non dedotta**, con la categoria che la giustifica, nella stessa forma della modalità di §6.1 e nella stessa fermata di `/writing-plans` (§6b).
+- **L'header del Piano porta tre righe**, lette da `/finish-cycle` al Gate 2; `scripts/decision-ledger-guard.test.js` pretende `**Branch:**` e `**Risk class:**`:
+
+  ```markdown
+  **Spec:** `docs/superpowers/specs/<file>-design.md`
+  **Branch:** `<nome esatto del branch>`
+  **Risk class:** <low-risk|standard|high-risk> — <categoria che la giustifica>
+  ```
+
+  L'esecuzione crea il branch con esattamente il nome dichiarato.
+- **Effort di ogni `/code-review` del ciclo:** `low-risk` → low, `standard` → medium, `high-risk` → high. Piano non identificato dal Gate 2 → la classe si chiede all'utente; Piano identificato con classe assente o fuori da questi tre valori → `standard`. In `high-risk` lo skip completo del Gate 3 non si applica. Come `/finish-cycle` lo applica: Gate 2 e Gate 3 di `.claude/commands/finish-cycle.md`.
 
 ### 6.2 Test
 - Node dell'host ≥ 20.12 (dal 2026-10-06 il PC ha Node 24): `npm test` gira nativo, circa 48 s per la suite completa e circa 10 s per un singolo file. Il comando Docker `node:22` di `CLAUDE.md` resta solo come fallback per un host con Node vecchio.
@@ -156,7 +175,7 @@ Tutte costruite. Non una per scenario ma una per tipo di gap — ciascuna in `.c
 
 ### 6.4 Niente revisioni doppie sullo stesso diff
 
-Se la revisione finale dell'intero branch (es. quella di subagent-driven) copre `main...HEAD` all'HEAD corrente, il Gate 3 di `/finish-cycle` non rilancia `/code-review`: lo dichiara e lo annota nel report. Valgono anche i commit successivi che contengono solo le correzioni di quella revisione, purché già ri-revisionati. In esecuzione nativa non c'è revisione per task: resta la sola revisione finale (o il Gate 3).
+Se la revisione finale dell'intero branch (es. quella di subagent-driven) copre `main...HEAD` all'HEAD corrente, il Gate 3 di `/finish-cycle` non rilancia `/code-review`, salvo in `high-risk` (§6.1b): lo dichiara e lo annota nel report. Valgono anche i commit successivi che contengono solo le correzioni di quella revisione, purché già ri-revisionati. In esecuzione nativa non c'è revisione per task: resta la sola revisione finale (o il Gate 3).
 
 ### 6.4b Il Gate 3 parte in parallelo al Gate 2 (2026-10-08)
 
@@ -175,7 +194,7 @@ Prima di ogni altra cosa il Gate 2 classifica il ciclo in modo **meccanico**, es
 - **Perché i guard sono quelli.** Un `*.md` di root che l'app carica a runtime conta come codice, perché cambiarlo cambia ciò che una pagina rende: `docker-compose.yml` monta la root del repo in nginx e `location /` la serve. Sotto `docs/` qualificano solo i `.md` — 66 file tracciati lì non lo sono, e `docs/OPERATIONAL_MANUAL.html` è verificabile *solo* in un browser. Sotto `.claude/` idem, e per una ragione più scomoda: a proteggere la regola non è `.gitignore` (che ignora il solo `settings.local.json`) ma il fatto che `.claude/settings.json` — il file condiviso con hook e permessi — oggi non esista. La lista delle eccezioni nominate è la costante `RUNTIME_LOADED_ROOT_MD` dello script: la aggiorna il ciclo stesso che introduce il `fetch`. Il primo caso è `TEST_CASES.md`, aggiunto il 2026-10-09 dal ciclo che fa rendere `test-cases.html` dal Markdown a runtime — da allora un ciclo che tocca solo `TEST_CASES.md` è **ordinario**, non senza codice. Il contenuto corrente della costante sta nello script, non qui.
 - **Il nome è "ciclo senza codice", non "process-only":** `PRD.md` e `docs/prd/` sono documentazione di prodotto, che "process-only" classificherebbe male.
 - **Cosa NON cambia.** Lo step 0 (lancio di `/code-review` in background, §6.4b) si applica in **entrambi** i rami — con le sue stesse condizioni di skip e di scoping, che il ramo senza codice non altera — e **il Gate 3 non si salta per il fatto di essere un ciclo senza codice**: un diff di sola prosa è esattamente dove la revisione rende — un ciclo di split documentale ha prodotto 10 dei suoi 16 finding su prosa. Restano invariati il preambolo del Gate 2 sul teardown, la domanda del browser sul ramo ordinario, e `npm test` al Gate 1 in ogni ciclo.
-- **Una cosa invece si perde, e va annotata nel report:** saltando gli step 2-5 non viene identificato alcun artefatto — né Piano né Spec — quindi il **controllo out-of-scope del Gate 4 non scatta**, e l'estensione di quel controllo alla Spec (2026-10-13) non cambia nulla qui, perché non è il Piano a mancare ma la ricerca a non girare. E un chiarimento sul teardown: il ramo senza codice **non smonta nulla**, perché dei due punti in cui quel preambolo licenzia un `down` nessuno è raggiungibile qui — la domanda *letterale* del browser non viene posta, e lo step 1, che contiene l'altro (il ramo "rebuild"), è saltato; esegue `status` in sola lettura e, se trova uno stack acceso da un tentativo precedente, lo **dichiara** invece di rimuoverlo. Infine, un "no" alla domanda di classificazione non ferma il ciclo: significa "la classificazione è sbagliata", quindi si degrada al ramo ordinario (step 1-5 più la domanda del browser).
+- **Una cosa invece si perde, e va annotata nel report:** saltando gli step 2-5 lo step 5 non raccoglie candidati — né Piano né Spec; il Piano trovato dall'identificazione del Gate 2 alimenta solo la classe di rischio — quindi il **controllo out-of-scope del Gate 4 non scatta**, e l'estensione di quel controllo alla Spec (2026-10-13) non cambia nulla qui, perché non è il Piano a mancare ma la ricerca a non girare. E un chiarimento sul teardown: il ramo senza codice **non smonta nulla**, perché dei due punti in cui quel preambolo licenzia un `down` nessuno è raggiungibile qui — la domanda *letterale* del browser non viene posta, e lo step 1, che contiene l'altro (il ramo "rebuild"), è saltato; esegue `status` in sola lettura e, se trova uno stack acceso da un tentativo precedente, lo **dichiara** invece di rimuoverlo. Infine, un "no" alla domanda di classificazione non ferma il ciclo: significa "la classificazione è sbagliata", quindi si degrada al ramo ordinario (step 1-5 più la domanda del browser).
 
 - **Il caso simmetrico: un ciclo `ordinary` che il browser non può mostrare (2026-10-10, ciclo 6).** Un ciclo di sola documentazione che aggiunge *un test di guardia* contiene un `.js`, quindi il classificatore dice `ordinary` — correttamente, perché la regola è la lista dei path e non un giudizio sul contenuto — e il Gate 2 pone la domanda sul browser su un diff in cui nessun file viene servito da nginx (un `*.test.js` non raggiunge mai una pagina). Non è un difetto del classificatore e **non va "risolto" allargandone la regola**: renderebbe il classificatore un giudice del contenuto, che è esattamente ciò che §6.4c vieta. Si tratta invece come quello che è — una **deroga §3**, decisa esplicitamente in conversazione e annotata nel report, senza stack e senza verifica browser. È successo due volte (ciclo 5, in forma Tier 0 senza Gate 2; ciclo 6, con deroga esplicita): se dovesse diventare frequente, la risposta è una domanda del Gate 2 formulata diversamente, non una modifica della classificazione.
 
@@ -258,7 +277,7 @@ Una fermata nuova si classifica qui dentro, non si inventa.
 
 - **`/brainstorming`: una fermata, non N+2.** Il design si presenta **una volta sola, intero**, chiuso dal ledger; la scelta fra i 2-3 approcci è la prima voce del ledger, non una fermata propria. Niente approvazioni sezione per sezione.
 - **Un contenuto si ratifica una volta sola; trascriverlo in un file non è contenuto nuovo.** Dopo quell'unica fermata la spec si scrive, si committa, se ne dichiara il path e si prosegue: **non viene ri-ratificata**. Unica eccezione, meccanica e non discrezionale: **se scrivendo la spec nasce una decisione che non era nel ledger di chat, quella è N>0** e il gate si riapre su quelle sole voci.
-- **`/writing-plans` + §6.1: una fermata, non due.** Il passaggio di consegne del Piano porta in un solo messaggio il path, le N decisioni aperte, la **modalità con citata la regola di §6.1 che la giustifica** e il modello. La dichiarazione di §6.1 vive lì dentro, non in un turno a sé.
+- **`/writing-plans` + §6.1: una fermata, non due.** Il passaggio di consegne del Piano porta in un solo messaggio il path, le N decisioni aperte, la **modalità con citata la regola di §6.1 che la giustifica**, il modello e la **classe di rischio con la categoria di §6.1b che la giustifica**. La dichiarazione di §6.1 vive lì dentro, non in un turno a sé.
 - **Gate 3 e Gate 4** di `/finish-cycle`: la regola di disposizione e le tre automazioni stanno nel comando, non qui.
 
 ### Il ledger
