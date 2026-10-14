@@ -76,13 +76,18 @@ describe('pickBySlug', () => {
     const c = [{ name: '2026-07-27-dead-code-cleanup-design.md', addedAt: '2026-07-27T10:00:00+02:00' }];
     expect(pickBySlug('worktree-dead-code-cleanup-and-tooltip-wording', c, '-design.md', from, to)).toBeNull();
   });
+  it('takes an exact slug (branch, minus any worktree- prefixes) even outside the window', () => {
+    const c = [{ name: '2026-07-18-portfolio-vue-migration-design.md', addedAt: '2026-07-18T12:13:00+02:00' }];
+    expect(pickBySlug('worktree-portfolio-vue-migration', c, '-design.md', from, to)).toBe(c[0].name);
+    expect(pickBySlug('worktree-worktree-portfolio-vue-migration', c, '-design.md', null, null)).toBe(c[0].name);
+  });
   it('is null on a tie in slug length, and without a window', () => {
     const c = [
       { name: '2026-10-05-aa-design.md', addedAt: inside },
       { name: '2026-10-06-bb-design.md', addedAt: inside },
     ];
     expect(pickBySlug('aa-bb', c, '-design.md', from, to)).toBeNull();
-    expect(pickBySlug('aa', [c[0]], '-design.md', null, to)).toBeNull();
+    expect(pickBySlug('x-aa', [c[0]], '-design.md', null, to)).toBeNull();
   });
 });
 

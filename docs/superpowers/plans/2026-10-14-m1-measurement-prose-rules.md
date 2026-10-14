@@ -25,7 +25,7 @@
 
 1. A report or spec saved with CRLF line endings — parsers must still read `**Branch:**` and `**Brief started:**` (test in Task 1, Task 2).
 2. A branch name with regex metacharacters (`.`, `+`) — the merge lookup must match the subject literally, not as a pattern (test in Task 1: `mergeSubjectMatches`).
-3. Two specs whose slugs are both contained in one branch name (e.g. `team-ux` and `team-ux-polish`) — result is `unknown`, not the first hit (test in Task 1). Superseded at Gate 3 round 1: the longest slug added inside the cycle's merge window wins; see the spec §2.
+3. Two specs whose slugs are both contained in one branch name (e.g. `team-ux` and `team-ux-polish`) — result is `unknown`, not the first hit (test in Task 1). Superseded at Gate 3: see the spec §2.
 4. A report whose branch never produced a merge commit (direct commits on `main`) — every git field `unknown`, the row still printed (test in Task 1: `buildRow`).
 5. `**Brief started:** unknown` and a malformed value (`2026-10-14 9:05`) — the first passes the guard, the second fails it (test in Task 2).
 
@@ -41,8 +41,8 @@
 - Produces (all exported, all pure):
   - `parseReportBranch(md: string): string | null` — text after `**Branch:** ` up to ` → main`; tolerates `\r\n`.
   - `parseBriefStarted(md: string): string | null` — `'YYYY-MM-DD HH:MM'` or `null` (absent or `unknown`).
-  - `mergeSubjectMatches(subject: string, branch: string): boolean` — exact equality with `Merge branch '<branch>'`.
-  - `matchBySlug(branch: string, names: string[], suffix: string): string | null` — `names` are bare filenames; slug = name minus `YYYY-MM-DD-` prefix minus `suffix`; exactly one slug contained in `branch` → that name, else `null`. Specs use `suffix = '-design.md'`, plans `'.md'` excluding names ending `-design.md` or `-brief.md`.
+  - `mergeSubjectMatches(subject: string, branch: string): boolean` — `Merge branch '<branch>'`, alone or followed by `: <description>`, compared literally.
+  - `matchBySlug` — superseded at Gate 3 by `containedSlugs` + `pickBySlug`: spec §2 and `scripts/cycle-times.mjs` are the reference.
   - `isPlanningOnly(files: string[]): boolean` — true when non-empty and every path starts with `docs/superpowers/specs/`, `docs/superpowers/plans/` or `docs/superpowers/briefs/`.
   - `minutesBetween(a: string | null, b: string | null): number | null` — accepts ISO-with-offset and `'YYYY-MM-DD HH:MM'` (local); `null` if either is `null`.
   - `buildRow(c: {branch, brief, spec, plan, execFirst, execLast, merge}): string` — tab-separated: branch, the six moments (`unknown` for `null`, ISO values shown as `YYYY-MM-DD HH:MM` local), then five consecutive intervals in minutes (`unknown` for `null`).
@@ -52,10 +52,10 @@
   - `parseReportBranch('**Branch:** backlog-follow-up → main\r\n')` → `'backlog-follow-up'`; with suffix `→ main (merge \`639f57a\`)` → branch only; no Branch line → `null`.
   - `parseBriefStarted` → `'2026-10-14 11:17'`; `'**Brief started:** unknown'` → `null`; absent → `null`; CRLF tolerated.
   - `mergeSubjectMatches("Merge branch 'a.b'", 'a.b')` → true; `("Merge branch 'axb'", 'a.b')` → false; `("Merge branch 'm1-x' into main", 'm1-x')` → false.
-  - `matchBySlug('backlog-follow-up', ['2026-10-13-backlog-follow-up-design.md', '2026-10-12-approval-economy-design.md'], '-design.md')` → the first name; `matchBySlug('worktree-team-ux-polish', ['2026-09-25-team-ux-design.md', '2026-09-28-team-ux-polish-design.md'], '-design.md')` → `null`; no hit → `null`.
+  - `matchBySlug` tests — superseded at Gate 3 by `containedSlugs` + `pickBySlug`: spec §2 and `scripts/cycle-times.mjs` are the reference.
   - `isPlanningOnly(['docs/superpowers/specs/x.md'])` → true; with `scripts/a.js` added → false; `[]` → false.
   - `minutesBetween('2026-10-13T23:25:00+02:00', '2026-10-13T23:28:00+02:00')` → 3; `(null, x)` → `null`.
-  - `buildRow` with all `null` except `branch` → branch followed by eleven `unknown` cells.
+  - `buildRow` with all `null` except `branch` → branch followed by only `unknown` cells.
 
 - [ ] **Step 2:** `npx vitest run scripts/cycle-times.test.js` → FAIL (module not found).
 - [ ] **Step 3:** Implement the exports and `main()`, plus the header comment carrying the usage line `node scripts/cycle-times.mjs`. `main()` runs only when invoked directly (same `import.meta.url` guard as `classify-cycle.mjs`). Git calls: merges `git log --merges --first-parent main --format=%H%x09%s` filtered with `mergeSubjectMatches`; exec commits `git log --format=%H%x09%aI --name-only <M>^1..<M>^2` filtered with `isPlanningOnly`; spec/plan date `git log --diff-filter=A --format=%aI -- <path>` (last line).
@@ -104,5 +104,5 @@
 
 ## Decisioni aperte
 
-1. **Merge cercato su `git log --first-parent main` e filtrato in JS per soggetto esatto.** Alternativa scartata: `--grep "^Merge branch '<branch>'"` come scritto nella spec. Perché: un nome di branch con `.` o `+` verrebbe letto come regex.
+1. **Merge cercato su `git log --first-parent main` e filtrato in JS per soggetto letterale (`Merge branch '<branch>'`, da solo o seguito da `: `).** Alternativa scartata: `--grep "^Merge branch '<branch>'"` come scritto nella spec. Perché: un nome di branch con `.` o `+` verrebbe letto come regex.
 2. **Esecuzione nativa, quattro task in serie.** Alternativa scartata: subagent-driven. Perché: §6.1 «ciclo piccolo» — sette file, nessuna migrazione, nessuna API, task sequenziali (Task 4 misura dopo Task 3).

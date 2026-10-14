@@ -7,9 +7,10 @@
 // consecutive moments (the header row names them). A value git cannot give is
 // `unknown`, never estimated. Run by hand; no gate runs it and it writes no file.
 //
-// A spec or plan belongs to a cycle when its slug is the longest one contained
-// in the branch name and it was added after the previous merge on main and no
-// later than the cycle's own merge. A commit counts as planning only when every
+// A spec or plan belongs to a cycle when its slug equals the branch name, with
+// or without its `worktree-` prefixes. Failing that: among the files added after
+// the previous merge on main and no later than the cycle's own merge, the one
+// whose slug is the longest contained in the branch name. A commit counts as planning only when every
 // file it touches is a spec, plan or brief: a spec committed together with any
 // other file counts as execution, which can make plan→exec negative.
 // Spec: docs/superpowers/specs/2026-10-14-m1-measurement-prose-rules-design.md
@@ -64,11 +65,19 @@ export function containedSlugs(branch, names, suffix) {
 }
 
 /**
- * Among candidates added after `from` and no later than `to`, the one with the
- * longest slug contained in `branch`; null on a tie, a missing bound, or none.
+ * The one candidate whose slug equals the branch name, with or without its
+ * `worktree-` prefixes. Otherwise, among candidates added after `from` and no
+ * later than `to`, the one with the longest slug contained in `branch`; null on
+ * a tie, a missing bound, or none.
  * @param {{name: string, addedAt: string|null}[]} candidates
  */
 export function pickBySlug(branch, candidates, suffix, from, to) {
+  const bare = branch.replace(/^(worktree-)+/, '');
+  const exact = candidates.filter((c) => {
+    const s = slugOf(c.name, suffix);
+    return containedSlugs(branch, [c.name], suffix).length === 1 && (s === branch || s === bare);
+  });
+  if (exact.length === 1) return exact[0].name;
   const lo = toDate(from);
   const hi = toDate(to);
   if (lo === null || hi === null) return null;
