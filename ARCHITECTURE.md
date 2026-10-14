@@ -1007,7 +1007,7 @@ burndown/
     architecture-guard.test.js ← fails when §5/§6 of this file drift from the code (routes, tables, added columns); its own header names what it deliberately does not check
     claude-md-guard.test.js ← fails when CLAUDE.md regrows past its ceiling or a live docs/ or .claude/ pointer names a section it no longer has; its own header names what it deliberately does not check
     doc-paths-guard.test.js ← fails when a live document cites a repo file path that does not exist and is not in its GONE allowlist; its own header names what it deliberately does not check
-    decision-ledger-guard.test.js ← fails when a Spec or Plan dated 2026-10-12 or later lacks a valid "## Decisioni aperte" section, or a Spec dated 2026-10-14 or later lacks a "**Brief started:**" line (PROCESS.md §6b); its own header names what it deliberately does not check
+    decision-ledger-guard.test.js ← fails when a Spec or Plan dated 2026-10-12 or later lacks a valid "## Decisioni aperte" section, or a Spec dated 2026-10-14 or later lacks a "**Brief started:**" line (PROCESS.md §6b), or a Plan dated 2026-10-14 or later lacks a "**Branch:**" line or exactly one valid "**Risk class:**" line (PROCESS.md §6.1b); its own header names what it deliberately does not check
     cycle-times.mjs       ← run by hand: prints each closed cycle's timeline (Brief, Spec, Plan, execution, merge) from git; usage and matching rules in its own header
     lib/live-docs.mjs     ← the document walk and citation matcher shared by claude-md-guard and doc-paths-guard, so the scanned scope has one definition
     shoot.mjs             ← renders pages of the running app with headless Chrome, one PNG per width. Detail: docs/scripts/shoot.md
