@@ -43,7 +43,7 @@ Run the full closeout sequence for the current feature branch: a mechanical pre-
 
 **Identification — the cycle's Plan, Spec and risk class (read-only, on both paths, before step 0).** The class rule and its effort mapping are `docs/superpowers/PROCESS.md` §6.1b; this step applies them.
 - List the files directly in `docs/superpowers/plans/` (not subdirectories) that have a line starting with `` **Branch:** `<current branch>` `` — the backticked name must equal the current branch exactly; text after the closing backtick is allowed.
-- Exactly one file → it is the cycle's Plan. Read its `**Spec:**` line (the Spec) and its `**Risk class:**` line.
+- Exactly one file → it is the cycle's Plan. Read its `**Spec:**` line (the Spec) and its `**Risk class:**` line — `scripts/decision-ledger-guard.test.js` holds a Plan to one.
 - Zero files or more than one → no Plan is identified here. Say so in one line, with the matching files if any, and ask explicitly: "Which risk class does this cycle have? [low-risk/standard/high-risk]". The answer is the class.
 - Exactly one file whose `**Risk class:**` line is absent or whose first word after the label is not `low-risk`, `standard` or `high-risk` → the class is `standard`.
 - Say in one line: the class, its source (the Plan's path, the user's answer, or the reason for the fallback) and the resulting effort. Ask nothing beyond the question above.

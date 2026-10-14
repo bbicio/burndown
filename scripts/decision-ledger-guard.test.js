@@ -55,8 +55,8 @@
 // line is matched anywhere in the file, fences and comments included.
 //
 // THIRD RULE (2026-10-14, M4): every plan dated from PLAN_CUTOFF carries a
-// `**Branch:** `<name>`` line and a `**Risk class:**` line whose value is
-// low-risk, standard or high-risk. /finish-cycle's Gate 2 reads both. Not
+// `**Branch:** `<name>`` line and exactly one `**Risk class:**` line, whose
+// value is low-risk, standard or high-risk. /finish-cycle's Gate 2 reads both. Not
 // checked: whether the class is right, whether the branch exists, and specs.
 // Lines are matched anywhere in the file, fences and comments included.
 // PLAN_EXEMPT is closed, like EXEMPT below: it holds the one plan that shares
@@ -186,12 +186,14 @@ function planInScope(relPath) {
 }
 
 /**
- * @returns {{ok: true} | {ok: false, reason: 'missing-branch'|'missing-risk-class'}}
+ * @returns {{ok: true} | {ok: false, reason: 'missing-branch'|'missing-risk-class'|'multiple-risk-class'}}
  */
 function checkPlanHeader(markdown) {
   const lines = markdown.replace(/\r\n/g, '\n').split('\n');
   if (!lines.some((l) => /^\*\*Branch:\*\* `[^`]+`/.test(l))) return { ok: false, reason: 'missing-branch' };
-  if (!lines.some((l) => /^\*\*Risk class:\*\* (low-risk|standard|high-risk)(\s|$)/.test(l))) {
+  const classLines = lines.filter((l) => /^\*\*Risk class:\*\*/.test(l));
+  if (classLines.length > 1) return { ok: false, reason: 'multiple-risk-class' };
+  if (!classLines.some((l) => /^\*\*Risk class:\*\* (low-risk|standard|high-risk)(\s|$)/.test(l))) {
     return { ok: false, reason: 'missing-risk-class' };
   }
   return { ok: true };
@@ -415,6 +417,13 @@ describe('checkPlanHeader', () => {
   it('rejects a Risk class outside the three values, case included', () => {
     expect(checkPlanHeader('**Branch:** `x`\n**Risk class:** High-risk — r\n').reason).toBe('missing-risk-class');
     expect(checkPlanHeader('**Branch:** `x`\n**Risk class:** medium\n').reason).toBe('missing-risk-class');
+  });
+
+  it('rejects a plan with more than one Risk class line', () => {
+    // Gate 2 reads "its" Risk class line: two of them, e.g. a quoted header
+    // template before the real declaration, leave that read ambiguous.
+    const md = '**Branch:** `x`\n**Risk class:** <low-risk|standard|high-risk> — c\n**Risk class:** high-risk — m\n';
+    expect(checkPlanHeader(md).reason).toBe('multiple-risk-class');
   });
 
   it('rejects a missing Branch line and one without backticks', () => {

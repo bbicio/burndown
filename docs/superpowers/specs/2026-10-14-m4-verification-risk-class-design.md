@@ -100,7 +100,7 @@ di commit da rivedere. In esecuzione nativa non c'è dispatch e il punto non si 
 ## 8. Guard — `scripts/decision-ledger-guard.test.js`
 
 Terza regola, sui soli Piani datati da `PLAN_CUTOFF = '2026-10-14'`: l'header porta una riga
-`` **Branch:** `<nome>` `` e una riga `**Risk class:** ` seguita da uno dei tre valori. Non verifica
+`` **Branch:** `<nome>` `` e una sola riga `**Risk class:** ` seguita da uno dei tre valori. Non verifica
 che la classe sia giusta né che il branch esista (§6b). Esenzione chiusa e separata da `EXEMPT`: il
 Piano di M1, che ha la stessa data e precede la regola. Test unitari su forma valida, valore fuori
 insieme, riga assente; test live su tutti i Piani in scope. L'intestazione del file documenta la
@@ -125,6 +125,6 @@ regola e i suoi limiti come per le prime due.
 4. **In `high-risk` lo step 0b resta ammesso, ma solo dopo una review a effort high.** Alternativa scartata: vietare anche lo scope ridotto. Perché: rivedere di nuovo ciò che è già coperto a high sarebbe la review doppia che §6.4 vieta.
 5. **Nessun classificatore automatico.** Alternativa scartata: uno script che suggerisce la classe dal diff. Perché: un suggerimento condiziona una dichiarazione che deve restare dichiarata, e quando si scrive il Piano il diff non esiste ancora.
 6. **`scripts/cycle-times.mjs` non si tocca.** Alternativa scartata: fargli leggere `**Branch:**`. Perché: preferisce già lo slug esatto del branch.
-7. **Il guard pretende la presenza di `**Branch:**` e `**Risk class:**`.** Alternativa scartata: nessun guard. Perché: il passo nuovo del Gate 2 dipende da quelle due righe, e un Piano che le omette ricadrebbe in silenzio sul fallback.
+7. **Il guard pretende la presenza di `**Branch:**` e `**Risk class:**`.** Alternativa scartata: nessun guard. Perché: il passo nuovo del Gate 2 legge quelle due righe.
 8. **Esenzione chiusa e separata per il Piano di M1, con cutoff 2026-10-14.** Alternativa scartata: cutoff al 2026-10-15. Perché: esenterebbe il Piano di M4 stesso, il primo che la regola deve coprire.
 9. **Il passo di identificazione precede lo step 0 e gira anche sul ramo no-code.** Alternativa scartata: lasciarlo agli steps 2-4. Perché: lo step 0 lancia la review e ha bisogno dell'effort prima; sul ramo no-code la review parte comunque.
