@@ -275,6 +275,8 @@ L'unico corpo alternativo, quando non ce ne sono, è la sentinella `Nessuna.` �
 
 `scripts/decision-ledger-guard.test.js` lo pinna, con il suo taglio a data e la sua lista di esenzioni **chiusa**. Quello che il guard non vede, e non può vedere, è se il ledger è **completo**: due voci impeccabili dove le decisioni erano cinque passano ogni test. Il limite è dichiarato nell'intestazione del guard; i soli presìdi sono che il ledger è committato e che il Piano rilegge la Spec.
 
+**Header della Spec (dal 2026-10-14).** Ogni Spec porta nell'header la riga `**Brief started:** YYYY-MM-DD HH:MM`, oppure `**Brief started:** unknown`: l'ora di inizio di `/feature-brief`, o di `/brainstorming` quando il ciclo non ha Brief. La legge `scripts/cycle-times.mjs`; la pretende `scripts/decision-ledger-guard.test.js`.
+
 ---
 
 ## 7. Criterio di aggiornamento di questo documento
