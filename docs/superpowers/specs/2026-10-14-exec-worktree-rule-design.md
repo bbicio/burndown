@@ -24,7 +24,8 @@ del Piano, si cancella. Al suo posto, un punto nuovo subito dopo:
 - subito dopo, `git -C .claude/worktrees/<nome> branch --show-current` deve stampare `<nome>`; se
   l'add fallisce o il controllo non stampa `<nome>`, ci si ferma prima di qualunque modifica
   (cambiata al Gate 3 round 1);
-- mai `EnterWorktree`; la sessione entra nel worktree con `cd` (cambiata al Gate 3 round 1);
+- mai `EnterWorktree`; la sessione entra nel worktree con `cd` e usa i path del worktree anche negli
+  strumenti di file (cambiata ai Gate 3 round 1 e 2);
 - in subagent-driven il worktree lo crea il coordinatore.
 
 ## 3. `PROCESS.md` §6.1 — dispatch

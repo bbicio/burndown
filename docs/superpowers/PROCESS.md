@@ -164,7 +164,7 @@ Tutte costruite. Non una per scenario ma una per tipo di gap — ciascuna in `.c
   git -C .claude/worktrees/<nome> branch --show-current
   ```
 
-  Se il primo comando fallisce, o il secondo non stampa `<nome>`, ci si ferma prima di qualunque modifica. Mai `EnterWorktree`: la sessione entra nel worktree con `cd`. In subagent-driven il worktree lo crea il coordinatore.
+  Se il primo comando fallisce, o il secondo non stampa `<nome>`, ci si ferma prima di qualunque modifica. Mai `EnterWorktree`: la sessione entra nel worktree con `cd` e usa i path del worktree anche negli strumenti di file. In subagent-driven il worktree lo crea il coordinatore.
 - **Effort di ogni `/code-review` del ciclo:** `low-risk` → low, `standard` → medium, `high-risk` → high. Piano non identificato dal Gate 2 → la classe si chiede all'utente; Piano identificato con classe assente o fuori da questi tre valori → `standard`. In `high-risk` lo skip completo del Gate 3 non si applica. Come `/finish-cycle` lo applica: Gate 2 e Gate 3 di `.claude/commands/finish-cycle.md`.
 
 ### 6.2 Test

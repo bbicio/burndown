@@ -49,7 +49,7 @@
     git -C .claude/worktrees/<nome> branch --show-current
     ```
 
-    Se il primo comando fallisce, o il secondo non stampa `<nome>`, ci si ferma prima di qualunque modifica. Mai `EnterWorktree`: la sessione entra nel worktree con `cd`. In subagent-driven il worktree lo crea il coordinatore.
+    Se il primo comando fallisce, o il secondo non stampa `<nome>`, ci si ferma prima di qualunque modifica. Mai `EnterWorktree`: la sessione entra nel worktree con `cd` e usa i path del worktree anche negli strumenti di file. In subagent-driven il worktree lo crea il coordinatore.
   ````
 - [ ] **Step 2:** In §6.1 «Contesto dei file nei dispatch», change «il prompt di un reviewer riceve la stessa lista e il range di commit da rivedere» so both prompts also carry the worktree's absolute path: «Il prompt di dispatch di un implementer riporta il path assoluto del worktree (§6.1b), copia dal Piano …; il prompt di un reviewer riceve lo stesso path, la stessa lista e il range di commit da rivedere.»
 - [ ] **Step 3:** `grep -rn "esattamente il nome dichiarato\|EnterWorktree" docs/superpowers/PROCESS.md .claude/commands CLAUDE.md` → hits only in the new bullet (and Task 2's line once written).
