@@ -141,6 +141,25 @@ Tutte costruite. Non una per scenario ma una per tipo di gap — ciascuna in `.c
 - **Ciclo piccolo** (indicativamente ≤ 5 file, nessuna migrazione, nessuna nuova API, task fortemente sequenziali): esecuzione **nativa** (`superpowers:executing-plans`), oppure pochi task più grandi. Il costo fisso di ogni task subagent-driven (dispatch, pacchetto di revisione, revisore: 5–10 min) non si ripaga su modifiche di poche righe.
 - **Ciclo grande o con task indipendenti:** subagent-driven.
 - **Modello:** in subagent-driven gli implementatori girano su **Sonnet** (`model: sonnet`), mentre il coordinatore e la revisione finale dell'intero branch restano su Opus. In nativa l'utente cambia a mano il modello della sessione (`/model sonnet`) prima di implementare, e torna su Opus per la revisione finale e `/finish-cycle`. Brainstorming, spec, debugging e code review restano su Opus.
+- **Contesto dei file nei dispatch.** Il prompt di dispatch di un implementer copia dal Piano la lista dei file del suo task e gli chiede di aprirli prima di modificare; il prompt di un reviewer riceve la stessa lista e il range di commit da rivedere. In esecuzione nativa non c'è dispatch e il punto non si applica.
+
+### 6.1b Classe di rischio, dichiarata al passaggio Piano → Esecuzione
+- **Tre classi, per categoria e non per lista di file:**
+  - **`high-risk`** — il Piano tocca almeno una di: migrazione DB; autenticazione o permessi; money o valute; file condivisi caricati da più pagine; operazioni distruttive (reset, script Docker o di backup).
+  - **`low-risk`** — nessuna categoria `high-risk`, nessuna route API, nessun modulo `js/lib/` o `api/src/lib/`, nessun file di processo (`docs/superpowers/PROCESS.md`, `.claude/`, `scripts/`).
+  - **`standard`** — tutto il resto.
+- **Nel dubbio, la classe più alta.**
+- **La classe va dichiarata, non dedotta**, con la categoria che la giustifica, nella stessa forma della modalità di §6.1 e nella stessa fermata di `/writing-plans` (§6b).
+- **L'header del Piano porta tre righe**, lette da `/finish-cycle` al Gate 2 e pretese da `scripts/decision-ledger-guard.test.js`:
+
+  ```markdown
+  **Spec:** `docs/superpowers/specs/<file>-design.md`
+  **Branch:** `<nome esatto del branch>`
+  **Risk class:** <low-risk|standard|high-risk> — <categoria che la giustifica>
+  ```
+
+  L'esecuzione crea il branch con esattamente il nome dichiarato.
+- **Effort di ogni `/code-review` del ciclo:** `low-risk` → low, `standard` → medium, `high-risk` → high. Classe assente o fuori da questi tre valori → `standard`. In `high-risk` la review non si salta. Come `/finish-cycle` lo applica: Gate 2 e Gate 3 di `.claude/commands/finish-cycle.md`.
 
 ### 6.2 Test
 - Node dell'host ≥ 20.12 (dal 2026-10-06 il PC ha Node 24): `npm test` gira nativo, circa 48 s per la suite completa e circa 10 s per un singolo file. Il comando Docker `node:22` di `CLAUDE.md` resta solo come fallback per un host con Node vecchio.
@@ -258,7 +277,7 @@ Una fermata nuova si classifica qui dentro, non si inventa.
 
 - **`/brainstorming`: una fermata, non N+2.** Il design si presenta **una volta sola, intero**, chiuso dal ledger; la scelta fra i 2-3 approcci è la prima voce del ledger, non una fermata propria. Niente approvazioni sezione per sezione.
 - **Un contenuto si ratifica una volta sola; trascriverlo in un file non è contenuto nuovo.** Dopo quell'unica fermata la spec si scrive, si committa, se ne dichiara il path e si prosegue: **non viene ri-ratificata**. Unica eccezione, meccanica e non discrezionale: **se scrivendo la spec nasce una decisione che non era nel ledger di chat, quella è N>0** e il gate si riapre su quelle sole voci.
-- **`/writing-plans` + §6.1: una fermata, non due.** Il passaggio di consegne del Piano porta in un solo messaggio il path, le N decisioni aperte, la **modalità con citata la regola di §6.1 che la giustifica** e il modello. La dichiarazione di §6.1 vive lì dentro, non in un turno a sé.
+- **`/writing-plans` + §6.1: una fermata, non due.** Il passaggio di consegne del Piano porta in un solo messaggio il path, le N decisioni aperte, la **modalità con citata la regola di §6.1 che la giustifica**, il modello e la **classe di rischio con la categoria di §6.1b che la giustifica**. La dichiarazione di §6.1 vive lì dentro, non in un turno a sé.
 - **Gate 3 e Gate 4** di `/finish-cycle`: la regola di disposizione e le tre automazioni stanno nel comando, non qui.
 
 ### Il ledger
