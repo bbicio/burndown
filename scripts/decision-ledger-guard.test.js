@@ -450,7 +450,7 @@ describe('live plans: Branch and Risk class', () => {
       .map((rel) => [rel, checkPlanHeader(readFileSync(join(ROOT, rel), 'utf8'))])
       .filter(([, res]) => !res.ok)
       .map(([rel, res]) => `${rel} -- ${res.reason}`);
-    expect(failures, `these plans lack a "**Branch:** \`<name>\`" line or a "**Risk class:**
-      low-risk|standard|high-risk" line (PROCESS.md 6.1b):\n  ${failures.join('\n  ')}`).toEqual([]);
+    expect(failures, `these plans fail the Plan header rule -- one "**Branch:** \`<name>\`" line and exactly one
+      "**Risk class:** low-risk|standard|high-risk" line (PROCESS.md 6.1b):\n  ${failures.join('\n  ')}`).toEqual([]);
   });
 });

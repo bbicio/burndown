@@ -103,7 +103,7 @@ Terza regola, sui soli Piani datati da `PLAN_CUTOFF = '2026-10-14'`: l'header po
 `` **Branch:** `<nome>` `` e una sola riga `**Risk class:** ` seguita da uno dei tre valori. Non verifica
 che la classe sia giusta né che il branch esista (§6b). Esenzione chiusa e separata da `EXEMPT`: il
 Piano di M1, che ha la stessa data e precede la regola. Test unitari su forma valida, valore fuori
-insieme, riga assente; test live su tutti i Piani in scope. L'intestazione del file documenta la
+insieme, riga assente, righe multiple; test live su tutti i Piani in scope. L'intestazione del file documenta la
 regola e i suoi limiti come per le prime due.
 
 ## 9. Classe di M4
