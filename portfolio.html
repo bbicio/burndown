@@ -441,7 +441,7 @@
             <button type="button" class="pr-icon-btn" title="Export PNG" @click="exportChartPng"><pf-icon name="download" :size="14"></pf-icon></button>
           </div>
           <div v-if="dashboardData.length && progressView === 'monthly' && monthlySummary" class="pr-toolbar">
-            <button type="button" class="pr-icon-btn" title="Export XLS" @click="exportTableXls($refs.monthlyTable, 'monthly_summary')"><pf-icon name="download" :size="14"></pf-icon></button>
+            <button type="button" class="pr-icon-btn" title="Export XLS" @click="exportMonthlyXls()"><pf-icon name="download" :size="14"></pf-icon></button>
           </div>
         </div>
 
@@ -461,11 +461,11 @@
           </div>
 
           <div v-else-if="progressView === 'monthly' && monthlySummary" class="table-responsive pr-table-wrap">
-            <table ref="monthlyTable" class="table table-sm align-middle mb-0 pr-table">
+            <table class="table table-sm align-middle mb-0 pr-table">
               <thead>
                 <tr>
                   <th>Month</th>
-                  <th class="text-end">Est. hours</th>
+                  <th class="text-end" title="From the project's resource plan (Planning), not from the burndown's phasing">Planned hours (resource plan)</th>
                   <th class="text-end">Consumed</th>
                   <th class="text-end">Variance</th>
                   <th class="text-end">Est. budget</th>
@@ -661,6 +661,7 @@
             </template>
           </template>
         </div>
+        <p v-if="breakdownView === 'area' && breakdownAreaOverlap" class="pr-bd-note">Some roles belong to more than one area: their hours count in each area and once in the Total.</p>
       </div><!-- /pr-breakdown -->
     </div>
 
@@ -1152,14 +1153,22 @@
         if (this.breakdownView === 'area' && cfg.groups?.length) {
           const cols = this.summaryByGroup || [];
           const tasks = billableTasks(cfg);
-          const { rows, total } = breakdownRows(cols, hasFilter);
-          return { total, rows: rows.map((r, i) => ({ ...r, key: 'g:' + i, subtitle: groupSubtitle(cfg.groups[i], tasks) })) };
+          // Areas may overlap, so the Total is computed once over every billable entry (B-073).
+          const totalCol = areaTotalColumn(this.dashboardData, cfg, this.filterRange, { billableData, billableTasks, findRate });
+          const { rows, total } = breakdownRows(cols, hasFilter, totalCol);
+          return { total, rows: rows.map((r, i) => cols[i].ungrouped
+            ? { ...r, key: 'g:ungrouped', subtitle: 'Not in any functional area' }
+            : { ...r, key: 'g:' + i, subtitle: groupSubtitle(cfg.groups[i], tasks) }) };
         }
         const tasks = billableTasks(cfg);
         const { rows, total } = breakdownRows(this.summaryByTask || [], hasFilter);
         return { total, rows: rows.map((r, i) => ({ ...r, key: 't:' + tasks[i].name, taskName: tasks[i].name, subtitle: taskSubtitle(tasks[i], cfg.groups || []) })) };
       },
       // The Breakdown's rendered sequence: rows, Total, then (By task only) the non-billable tasks.
+      breakdownAreaOverlap() {
+        const cfg = this.dashboardProject;
+        return !!cfg?.groups?.length && areaOverlap(this.dashboardData, cfg, { billableData, billableTasks, findRate });
+      },
       breakdownItems() {
         const b = this.breakdown;
         if (!b) return [];
@@ -1671,10 +1680,31 @@
         });
       },
       monthState(ym, today) { return monthState(ym, today); },
-      exportTableXls(tbl, filename) {
-        if (!tbl) return;
-        const wb = XLSX.utils.table_to_book(tbl, { sheet: 'Data' });
-        XLSX.writeFile(wb, filename + '.xlsx');
+      // Built from monthlySummary, not from the rendered table (B-075): numbers stay numbers, the
+      // "current" pill and the future months' "—" are not exported.
+      exportMonthlyXls() {
+        const ms = this.monthlySummary;
+        if (!ms) return;
+        const cur = this.dashCurrency, hasCfg = !!this.dashboardProject;
+        const digits = currencyInfo(cur, this.currencies).digits;
+        const h = v => (v == null ? '' : Math.round(v * 100) / 100);
+        const money = v => (v == null ? '' : Number(v.toFixed(digits)));
+        const head = ['Month', 'Planned hours (resource plan)', 'Consumed h', 'Hours variance', `Est. budget (${cur})`, `Spent (${cur})`, `Budget variance (${cur})`];
+        if (ms.hasPtc) head.push(`PTC (${cur})`);
+        const aoa = [head];
+        ms.months.forEach(m => {
+          const future = monthState(m.ym, this.reportToday) === 'future';
+          const line = [m.label, hasCfg ? h(m.estimatedHours) : '', future ? '' : h(m.hours), future ? '' : h(m.hVar),
+            hasCfg ? money(m.estimated) : '', future ? '' : money(m.spent), future ? '' : money(m.bVar)];
+          if (ms.hasPtc) line.push(m.ptc > 0 ? money(m.ptc) : '');
+          aoa.push(line);
+        });
+        const total = ['Total', h(ms.totEstimatedHours), h(ms.totHours), h(ms.totHoursVariance), money(ms.totEstimated), money(ms.totSpent), money(ms.totBudgetVariance)];
+        if (ms.hasPtc) total.push(money(ms.totPtc));
+        aoa.push(total);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Data');
+        XLSX.writeFile(wb, 'monthly_summary.xlsx');
       },
       exportChartPng() {
         if (!this._burndownChart) return;

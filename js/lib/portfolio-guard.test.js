@@ -309,3 +309,25 @@ describe('project reporting view — calculations fix (B-071, B-072, B-074)', ()
     expect(render).toContain('item.datasetIndex === (burnValues[item.dataIndex] == null ? 1 : 0)');
   });
 });
+
+describe('project reporting view — Breakdown and Monthly fixes (B-073, B-075, B-076)', () => {
+  it('computes the By area Total once and labels the Ungrouped row', () => {
+    expect(html).toContain('areaTotalColumn(');
+    expect(html).toContain("'Not in any functional area'");
+  });
+  it('explains overlapping areas under the table', () => {
+    expect(dashboardActive).toContain(`v-if="breakdownView === 'area' && breakdownAreaOverlap"`);
+    expect(dashboardActive).toContain('Some roles belong to more than one area: their hours count in each area and once in the Total.');
+  });
+  it('names the hours column after its source', () => {
+    expect(dashboardActive).toMatch(/<th class="text-end" title="[^"]+">Planned hours \(resource plan\)<\/th>/);
+    expect(dashboardActive).not.toContain('Est. hours');
+  });
+  it('exports the Monthly summary from data, not from the rendered table', () => {
+    expect(dashboardActive).toContain('@click="exportMonthlyXls()"');
+    expect(html).not.toContain('table_to_book');
+  });
+  it('uses an existing font-weight token', () => {
+    expect(css).not.toContain('--weight-normal');
+  });
+});
