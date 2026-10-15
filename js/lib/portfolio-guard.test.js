@@ -259,7 +259,7 @@ describe('project reporting view — Gate 3 review fixes', () => {
   });
   it('shows no Today marker without project dates and bounds it by the axis', () => {
     expect(html).toMatch(/if \(!s \|\| !cfg\?\.startDate \|\| !cfg\?\.endDate\) return null;/);
-    expect(html).toContain('todayIndex(s.points, this.reportToday, { start: s.axisStart, end: s.axisEnd })');
+    expect(html).toContain('return s.todayIndex;');
   });
   it('resets the period filter and the task expansion on a project switch', () => {
     const m = html.match(/showDashboard\(pid\) \{([\s\S]*?)\n      \},/);
@@ -281,5 +281,31 @@ describe('project reporting view — Gate 3 review fixes', () => {
   it('computes the sibling metrics only while the switch menu is open', () => {
     expect(html).toMatch(/if \(!this\.switchMenuOpen \|\| !list\.length\) return \[\];/);
     expect(dashboardActive).toContain('<template v-if="switchMenuOpen">');
+  });
+});
+
+describe('project reporting view — calculations fix (B-071, B-072, B-074)', () => {
+  const rStart = html.indexOf('renderBurndownChart() {');
+  const render = html.slice(rStart, html.indexOf('exportChartPng() {', rStart));
+  it('measures the Budget tile on fees only', () => {
+    expect(dashboardActive).toContain('<template v-if="kpis.feesOnly">');
+    expect(dashboardActive).toContain('of {{ formatMoney(kpis.feesOnly');
+    expect(dashboardActive).toContain('kpiLeftColor(kpis.feesLeft, kpis.feesOnly)');
+    expect(html).toContain('spentPercent(this.kpis.consumedEur, this.kpis.feesOnly)');
+    expect(dashboardActive).not.toContain('kpis.budgetTotal');
+  });
+  it('shows "+ X PTC" outside the budget branches, so also under "No budget" (Review Focus 5)', () => {
+    expect(dashboardActive).toMatch(/<span>No budget<\/span><\/div>\s*<\/template>\s*<div v-if="kpis.totalPtc > 0" class="pr-kpi-note">\+ \{\{ formatMoney\(kpis.totalPtc/);
+    expect(dashboardActive).not.toContain('incl. {{');
+  });
+  it('passes today to the burndown and labels the pill with the value as of today', () => {
+    expect(html).toContain('billableData, billableTasks, findRate, this.reportToday)');
+    expect(render).toContain('todayValue');
+    expect(html).not.toContain('planningData');
+  });
+  it('labels the tooltip plan "Planned" and switches to it on future points', () => {
+    expect(render).toContain('Planned:');
+    expect(render).not.toContain('Estimated:');
+    expect(render).toContain('item.datasetIndex === (burnValues[item.dataIndex] == null ? 1 : 0)');
   });
 });

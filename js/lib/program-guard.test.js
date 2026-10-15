@@ -83,6 +83,10 @@ describe('program.html Program burndown chart', () => {
     expect(html).toContain('No dated projects in this program');
     expect(html).toMatch(/download\s+PNG/i);
   });
+  it('switches the tooltip to the planned line where the actual line has stopped (B-071)', () => {
+    expect(html).toContain('item.datasetIndex === (actual[item.dataIndex] == null ? 1 : 0)');
+    expect(html).toContain('Planned: ');
+  });
   it('reads series colors through chartColor(), never a hex literal', () => {
     expect(html).toMatch(/chartColor\(\s*'--chart-actual'/);
     expect(html).toMatch(/chartColor\(\s*'--chart-phasing'/);

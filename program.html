@@ -482,9 +482,10 @@
             plugins: {
               legend: { display: false },
               tooltip: {
-                mode: 'index', intersect: false, filter: item => item.datasetIndex === 0,
+                // After today the actual line has no value: show the planned line's point instead.
+                mode: 'index', intersect: false, filter: item => item.datasetIndex === (actual[item.dataIndex] == null ? 1 : 0),
                 callbacks: {
-                  label: context => `${fmtH(context.raw)} left`,
+                  label: context => context.datasetIndex === 0 ? `${fmtH(context.raw)} left` : `Planned: ${fmtH(context.raw)} left`,
                   afterLabel: context => context.dataIndex === todayIndex ? `Today · ${fmtH(todayRemaining)} left` : '',
                 },
               },
