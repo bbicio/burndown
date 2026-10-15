@@ -202,7 +202,10 @@ export function areaColumns(data, cfg, filterRange, deps) {
   // What no group claims (B-073), shown only when there is something in it.
   const unclaimed = x => !groupEntries.some(e => entryMatchesRow(e, x.role, x.task));
   const ungrouped = areaColumn('Ungrouped', unclaimed, bData, bTasks, filterRange, cfg, findRate);
-  if (ungrouped.soldHours > 0 || ungrouped.totalConsumed > 0) cols.push({ ...ungrouped, ungrouped: true });
+  // Nothing sold in it (only roles not configured on their task): no sold reference, so the row
+  // reads "—" like By role's unconfigured pairs instead of "Over sold" (review round 2).
+  if (ungrouped.soldHours > 0) cols.push({ ...ungrouped, ungrouped: true });
+  else if (ungrouped.totalConsumed > 0) cols.push({ ...ungrouped, ungrouped: true, soldHours: null, soldEur: null });
   return cols;
 }
 

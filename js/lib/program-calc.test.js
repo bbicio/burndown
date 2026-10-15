@@ -167,7 +167,7 @@ describe('programBurndown', () => {
   it('holds a finished project at its last value for months after it ends', () => {
     const done = { cfg: cfg({ tasks: [task(100, 100)], startDate: '202601', endDate: '202601' }), rows: [{ hours: 30, date: new Date(2026, 0, 15) }] };
     const s = programBurndown(range, [done], deps);
-    // Held at its remaining as of its last day (100 − 30), not at the value on the 1st.
+    // After its end: its remaining at the start of each month (100 − 30), not the value on the 1st of its last month.
     expect(s.actual.slice(1)).toEqual([70, 70]);
   });
   it('returns empty series without a range', () => {
@@ -225,6 +225,13 @@ describe('programBurndown — as of today (B-071)', () => {
     const other = cfg({ id: 'p2', startDate: '202601', endDate: '202612', tasks: [task(10, 100)] });
     const s = programBurndown(programRange([done, other]), [{ cfg: done, rows: [{ hours: 80, date: new Date(2026, 5, 30, 15, 0) }] }, { cfg: other, rows: [] }], deps);
     expect(s.actual[6]).toBe(30);
+  });
+  it('hours logged after a project ends land in the month they were logged, not in today’s (review round 2)', () => {
+    const done = cfg({ startDate: '202601', endDate: '202603', tasks: [task(100, 100)] });
+    const other = cfg({ id: 'p2', startDate: '202601', endDate: '202612', tasks: [task(10, 100)] });
+    const rows = [{ hours: 10, date: new Date(2026, 2, 10) }, { hours: 30, date: new Date(2026, 4, 10) }];
+    const s = programBurndown(programRange([done, other]), [{ cfg: done, rows }, { cfg: other, rows: [] }], deps);
+    expect(s.actual.slice(3, 9)).toEqual([100, 100, 70, 70, 70, 70]);
   });
   it('a range wholly in the past is not cut', () => {
     const c = cfg({ startDate: '202601', endDate: '202603', tasks: [task(100, 100)] });

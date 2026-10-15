@@ -288,7 +288,10 @@ describe('Breakdown totals agree across views (B-073)', () => {
   });
   it('By area adds an Ungrouped row for hours no group claims', () => {
     const ung = areaColumns(F_ROWS, F, NO_RANGE, DEPS)[2];
-    expect([ung.label, ung.ungrouped, ung.totalConsumed, ung.soldHours]).toEqual(['Ungrouped', true, 3, 0]);
+    expect([ung.label, ung.ungrouped, ung.totalConsumed, ung.soldHours]).toEqual(['Ungrouped', true, 3, null]);
+    // Nothing sold in it: no sold reference, so "—" and no "Over sold" (review round 2).
+    const row = breakdownRows(areaColumns(F_ROWS, F, NO_RANGE, DEPS), false).rows[2];
+    expect([row.soldKnown, row.overSold]).toEqual([false, false]);
   });
   it('flags an overlap only when something is claimed by two groups', () => {
     expect(areaOverlap(F_ROWS, F, DEPS)).toBe(true);

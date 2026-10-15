@@ -18,11 +18,6 @@ function ymEndDate(ym) {
   const y = parseInt(ym.slice(0, 4), 10), m = parseInt(ym.slice(4, 6), 10);
   return new Date(y, m, 0);
 }
-// Last millisecond of a month, local time (DST-safe, unlike adding 24h to ymEndDate()).
-function ymLastMoment(ym) {
-  const y = parseInt(ym.slice(0, 4), 10), m = parseInt(ym.slice(4, 6), 10);
-  return new Date(y, m, 0, 23, 59, 59, 999);
-}
 function dateToYm(d) {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
@@ -199,12 +194,7 @@ export function programBurndown(range, projects, deps) {
     return {
       cfg, rows: rows || [],
       burnByYm, idealByYm, firstYm, lastYm,
-      // After its last month a project holds its remaining as of that month's last day — not the
-      // value on the 1st, which leaves the last month's hours out and made today's month drop
-      // (last day through 23:59:59.999, so an entry's time of day never matters)
-      // when the line started stopping at today (review round 1).
       firstBurn: burnByYm[firstYm],
-      lastBurn: remainingAsOf(rows || [], cfg, '', ymLastMoment(lastYm), billableData, billableTasks),
       firstIdeal: series.idealValues ? idealByYm[firstYm] : null,
       lastIdeal: series.idealValues ? idealByYm[lastYm] : null,
       hasIdeal: !!series.idealValues,
@@ -214,7 +204,10 @@ export function programBurndown(range, projects, deps) {
   const actual = months.map(ym => perProject.reduce((sum, p) => {
     if (ym in p.burnByYm) return sum + p.burnByYm[ym];
     if (ym < p.firstYm) return sum + p.firstBurn;
-    return sum + p.lastBurn;
+    // After its last month: the project's remaining at the start of each month, the same rule as
+    // its own points. Its last month's hours and any entry logged after its end then land in the
+    // month they were logged, never in today's (review rounds 1-2).
+    return sum + remainingAsOf(p.rows, p.cfg, '', ymToDate(ym), billableData, billableTasks);
   }, 0));
 
   const anyIdeal = perProject.some(p => p.hasIdeal);
