@@ -37,13 +37,13 @@ describe('portfolio overview guard', () => {
     expect(overviewActive).not.toMatch(/\p{Extended_Pictographic}/u);
   });
 
-  it('every portfolio.css reference is ?v=3', () => {
+  it('every portfolio.css reference is ?v=4', () => {
     const pages = fs.readdirSync(root).filter(f => f.endsWith('.html'));
     let found = 0;
     pages.forEach(f => {
       for (const m of read(f).matchAll(/portfolio\.css\?v=(\d+)/g)) {
         found++;
-        expect(m[1], f).toBe('3');
+        expect(m[1], f).toBe('4');
       }
     });
     expect(found).toBeGreaterThan(0);
@@ -259,7 +259,7 @@ describe('project reporting view — Gate 3 review fixes', () => {
   });
   it('shows no Today marker without project dates and bounds it by the axis', () => {
     expect(html).toMatch(/if \(!s \|\| !cfg\?\.startDate \|\| !cfg\?\.endDate\) return null;/);
-    expect(html).toContain('todayIndex(s.points, this.reportToday, { start: s.axisStart, end: s.axisEnd })');
+    expect(html).toContain('return s.todayIndex;');
   });
   it('resets the period filter and the task expansion on a project switch', () => {
     const m = html.match(/showDashboard\(pid\) \{([\s\S]*?)\n      \},/);
@@ -281,5 +281,53 @@ describe('project reporting view — Gate 3 review fixes', () => {
   it('computes the sibling metrics only while the switch menu is open', () => {
     expect(html).toMatch(/if \(!this\.switchMenuOpen \|\| !list\.length\) return \[\];/);
     expect(dashboardActive).toContain('<template v-if="switchMenuOpen">');
+  });
+});
+
+describe('project reporting view — calculations fix (B-071, B-072, B-074)', () => {
+  const rStart = html.indexOf('renderBurndownChart() {');
+  const render = html.slice(rStart, html.indexOf('exportChartPng() {', rStart));
+  it('measures the Budget tile on fees only', () => {
+    expect(dashboardActive).toContain('<template v-if="kpis.feesOnly">');
+    expect(dashboardActive).toContain('of {{ formatMoney(kpis.feesOnly');
+    expect(dashboardActive).toContain('kpiLeftColor(kpis.feesLeft, kpis.feesOnly)');
+    expect(html).toContain('spentPercent(this.kpis.consumedEur, this.kpis.feesOnly)');
+    expect(dashboardActive).not.toContain('kpis.budgetTotal');
+  });
+  it('shows "+ X PTC" outside the budget branches, so also under "No budget" (Review Focus 5)', () => {
+    expect(dashboardActive).toMatch(/<span>No budget<\/span><\/div>\s*<\/template>\s*<div v-if="kpis.totalPtc > 0" class="pr-kpi-note">\+ \{\{ formatMoney\(kpis.totalPtc/);
+    expect(dashboardActive).not.toContain('incl. {{');
+  });
+  it('passes today to the burndown and labels the pill with the value as of today', () => {
+    expect(html).toContain('billableData, billableTasks, findRate, this.reportToday)');
+    expect(render).toContain('todayValue');
+    expect(html).not.toContain('planningData');
+  });
+  it('labels the tooltip plan "Planned" and switches to it on future points', () => {
+    expect(render).toContain('Planned:');
+    expect(render).not.toContain('Estimated:');
+    expect(render).toContain('item.datasetIndex === (burnValues[item.dataIndex] == null ? 1 : 0)');
+  });
+});
+
+describe('project reporting view — Breakdown and Monthly fixes (B-073, B-075, B-076)', () => {
+  it('computes the By area Total once and labels the Ungrouped row', () => {
+    expect(html).toContain('areaTotalColumn(');
+    expect(html).toContain("'Not in any functional area'");
+  });
+  it('explains overlapping areas under the table', () => {
+    expect(dashboardActive).toContain(`v-if="breakdownView === 'area' && breakdownAreaOverlap"`);
+    expect(dashboardActive).toContain('Some roles belong to more than one area: their hours count in each area and once in the Total.');
+  });
+  it('names the hours column after its source', () => {
+    expect(dashboardActive).toMatch(/<th class="text-end" title="[^"]+">Planned hours \(resource plan\)<\/th>/);
+    expect(dashboardActive).not.toContain('Est. hours');
+  });
+  it('exports the Monthly summary from data, not from the rendered table', () => {
+    expect(dashboardActive).toContain('@click="exportMonthlyXls()"');
+    expect(html).not.toContain('table_to_book');
+  });
+  it('uses an existing font-weight token', () => {
+    expect(css).not.toContain('--weight-normal');
   });
 });

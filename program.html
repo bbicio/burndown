@@ -10,7 +10,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="css/tokens.css?v=9">
   <link rel="stylesheet" href="css/style.css?v=21">
-  <link rel="stylesheet" href="css/portfolio.css?v=3">
+  <link rel="stylesheet" href="css/portfolio.css?v=4">
   <style>
     .app-container { padding: 0 12px; }
   </style>
@@ -274,9 +274,9 @@
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/shares.js"></script>
-<script type="module" src="js/lib/portfolio-calc.js?v=6"></script>
-<script type="module" src="js/lib/program-calc.js?v=2"></script>
-<script type="module" src="js/lib/chart-today.js?v=1"></script>
+<script type="module" src="js/lib/portfolio-calc.js?v=7"></script>
+<script type="module" src="js/lib/program-calc.js?v=3"></script>
+<script type="module" src="js/lib/chart-today.js?v=2"></script>
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/nav.js?v=17"></script>
 <script type="module">
@@ -482,9 +482,10 @@
             plugins: {
               legend: { display: false },
               tooltip: {
-                mode: 'index', intersect: false, filter: item => item.datasetIndex === 0,
+                // After today the actual line has no value: show the planned line's point instead.
+                mode: 'index', intersect: false, filter: item => item.datasetIndex === (actual[item.dataIndex] == null ? 1 : 0),
                 callbacks: {
-                  label: context => `${fmtH(context.raw)} left`,
+                  label: context => context.datasetIndex === 0 ? `${fmtH(context.raw)} left` : `Planned: ${fmtH(context.raw)} left`,
                   afterLabel: context => context.dataIndex === todayIndex ? `Today · ${fmtH(todayRemaining)} left` : '',
                 },
               },

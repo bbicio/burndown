@@ -2,8 +2,8 @@
 // pace judgment, Breakdown rows, row subtitles, entries per month and the Today index.
 // See docs/superpowers/specs/2026-10-15-project-reporting-redesign-design.md §4.
 
-// ?v=6 matches portfolio.html's own <script src="js/lib/portfolio-calc.js?v=6"> tag (CLAUDE.md "Cache-busting").
-import { spentPercent, spentBarState, normalizeGroupEntries, entryMatchesRow } from './portfolio-calc.js?v=6';
+// ?v=7 matches portfolio.html's own <script src="js/lib/portfolio-calc.js?v=7"> tag (CLAUDE.md "Cache-busting").
+import { spentPercent, spentBarState, normalizeGroupEntries, entryMatchesRow, buildSummaryCols, todayIndex } from './portfolio-calc.js?v=7';
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function ymOf(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`; }
@@ -22,6 +22,16 @@ export function paceJudgment(vsTime, threshold = 10) {
 function r2(n) { return Math.round(n * 100) / 100 + 0; } // + 0 turns -0 into 0
 
 function toRow(label, soldHours, soldAmount, totalConsumed, totalConsumedAmount, inPeriod, inPeriodAmount, hasFilter) {
+  // No sold reference at all (a role logged on a task where it is not configured): "—" rather
+  // than "Over sold", which stays reserved for a configured role sold 0 or fewer hours.
+  if (soldHours === null) {
+    return {
+      label, soldHours, soldAmount, remainingHours: null, remainingAmount: null,
+      spentHours: hasFilter ? inPeriod : totalConsumed,
+      spentAmount: hasFilter ? inPeriodAmount : totalConsumedAmount,
+      pct: null, barState: 'none', overSold: false, soldKnown: false,
+    };
+  }
   const pct = spentPercent(totalConsumed, soldHours);
   const overSold = r2(totalConsumed) > r2(soldHours);
   return {
@@ -41,11 +51,14 @@ function toRow(label, soldHours, soldAmount, totalConsumed, totalConsumedAmount,
 
 // `cols` are buildSummaryCols()/summaryByGroup columns. Spent follows the period filter,
 // Remaining and the consumption % always use the whole-project consumption.
-export function breakdownRows(cols, hasFilter) {
+// `totalCol` (optional): a column the Total is computed from instead of the sum of `cols` — the
+// By area view, whose rows may overlap.
+export function breakdownRows(cols, hasFilter, totalCol = null) {
   const list = cols || [];
   const rows = list.map(c => toRow(c.label, c.soldHours, c.soldEur, c.totalConsumed, c.totalConsumedEur, c.inPeriod, c.inPeriodEur, hasFilter));
   const sum = k => list.reduce((s, c) => s + (c[k] || 0), 0);
-  const total = toRow('Total', sum('soldHours'), sum('soldEur'), sum('totalConsumed'), sum('totalConsumedEur'), sum('inPeriod'), sum('inPeriodEur'), hasFilter);
+  const t = totalCol || { soldHours: sum('soldHours'), soldEur: sum('soldEur'), totalConsumed: sum('totalConsumed'), totalConsumedEur: sum('totalConsumedEur'), inPeriod: sum('inPeriod'), inPeriodEur: sum('inPeriodEur') };
+  const total = toRow('Total', t.soldHours, t.soldEur, t.totalConsumed, t.totalConsumedEur, t.inPeriod, t.inPeriodEur, hasFilter);
   return { rows, total };
 }
 
@@ -121,26 +134,115 @@ export function monthState(ym, today) {
   return key < cur ? 'past' : 'future';
 }
 
-// Index of the last axis point on or before today; null before the axis, or beyond the
-// last point by more than one interval (31 days with a single point). With `bounds`
-// ({ start, end }, the burndown's axisStart/axisEnd), today must instead fall inside
-// [start, end] — end counts as a whole day — since the last interval can be longer
-// than the step between the last two points (a 31-day month after a 28-day one).
-export function todayIndex(points, today, bounds) {
-  if (!points || !points.length || !today) return null;
-  if (bounds && bounds.start && bounds.end) {
-    const endOfDay = new Date(bounds.end.getFullYear(), bounds.end.getMonth(), bounds.end.getDate() + 1);
-    if (today < bounds.start || today >= endOfDay) return null;
+// todayIndex() lives in portfolio-calc.js (computeBurndownPoints needs it); re-exported here
+// so this module's callers and the window.todayIndex bridge are unchanged.
+export { todayIndex } from './portfolio-calc.js?v=7';
+
+// The rows the Breakdown counts: billable, and with a task name By task can match (lower-case
+// equality, as summaryByTask and findRate do). billableData() alone also collapses whitespace and
+// keeps every row of a project with no tasks; By role and By area would then count rows By task
+// cannot, and the three Totals would disagree (review round 1).
+function reportRows(data, cfg, deps) {
+  const names = new Set(deps.billableTasks(cfg).map(t => t.name.toLowerCase()));
+  return deps.billableData(data, cfg).filter(r => names.has((r.task || '').toLowerCase()));
+}
+
+// Breakdown "By role" columns. `deps` = { billableData, billableTasks, findRate } (js/core.js globals).
+// Composite key (role + task): a role sold at a different rate_override on two
+// different tasks (task_roles is per (task, role), not a single global rate per
+// role — verified on the Bayer AG "BERMITS Maintenance 2026" project, where
+// "Account Director" resolves to 168/h on "Overall Coordination" and, via
+// findRate()'s task-scoped fallback, 130/h on "Project Management") previously
+// landed in ONE blended column here, summing hours billed at two different rates
+// under a single total that could never be reconciled against the cost grid.
+// Splitting the key by task keeps every column internally consistent (one rate).
+export function roleColumns(data, cfg, filterRange, deps) {
+  const { billableTasks, findRate } = deps;
+  const roleTaskMap = new Map();
+  billableTasks(cfg).forEach(t => t.resources.forEach(res => {
+    const key = res.role.toLowerCase() + '|' + t.name.toLowerCase();
+    if (!roleTaskMap.has(key)) roleTaskMap.set(key, { key, label: `${res.role} — ${t.name}`, role: res.role, task: t.name, soldHours: 0, soldEur: 0 });
+    roleTaskMap.get(key).soldHours += res.soldHours;
+    roleTaskMap.get(key).soldEur += res.soldHours * res.hourlyRate;
+  }));
+  const bData = reportRows(data, cfg, deps);
+  const byKeyFn = r => r.role.toLowerCase() + '|' + r.task.toLowerCase();
+  // Pairs logged but not configured (B-073): one column each, no sold reference, after the
+  // configured ones in task order then role order, so the Total matches By task.
+  const taskOrder = new Map(billableTasks(cfg).map((t, i) => [t.name.toLowerCase(), i]));
+  const extra = new Map();
+  bData.forEach(r => {
+    const key = byKeyFn(r);
+    if (!roleTaskMap.has(key) && !extra.has(key)) extra.set(key, { key, label: `${r.role} — ${r.task}`, role: r.role, task: r.task, soldHours: null, soldEur: null });
+  });
+  const extraSorted = [...extra.values()].sort((a, b) =>
+    (taskOrder.get(a.task.toLowerCase()) ?? Infinity) - (taskOrder.get(b.task.toLowerCase()) ?? Infinity)
+    || a.role.toLowerCase().localeCompare(b.role.toLowerCase()));
+  const entries = [...roleTaskMap.values(), ...extraSorted];
+  // role/task carried alongside each column for the Breakdown's By role rows (label and subtitle).
+  return buildSummaryCols(bData, byKeyFn, entries, filterRange, cfg, findRate)
+    .map((c, i) => ({ ...c, role: entries[i].role, task: entries[i].task }));
+}
+
+// Breakdown "By functional area" columns, one per group. Correctness comes from each group's own
+// `entries: [{role, task}]` (normalizeGroupEntries()/entryMatchesRow(), js/lib/portfolio-calc.js),
+// not from splitting the output by task: a group can claim a role's hours on one specific task
+// while leaving another task's hours for the same role out entirely (the Bayer case —
+// "HWGACCSVS - DIRECTOR" billed at 168/h on Overall Coordination vs 130/h on Project Management).
+// Legacy groups with only `roles: string[]` normalize to wildcard entries (task: '') and sum
+// across every task.
+export function areaColumns(data, cfg, filterRange, deps) {
+  const { billableTasks, findRate } = deps;
+  const bData = reportRows(data, cfg, deps);
+  const bTasks = billableTasks(cfg);
+  const groupEntries = cfg.groups.map(normalizeGroupEntries);
+  const cols = cfg.groups.map((grp, i) => {
+    const { resources, ...col } = areaColumn(grp.name, res => entryMatchesRow(groupEntries[i], res.role, res.task), bData, bTasks, filterRange, cfg, findRate);
+    return col;
+  });
+  // What no group claims (B-073), shown only when there is something in it.
+  const unclaimed = x => !groupEntries.some(e => entryMatchesRow(e, x.role, x.task));
+  const { resources, ...ungrouped } = areaColumn('Ungrouped', unclaimed, bData, bTasks, filterRange, cfg, findRate);
+  // No configured resource in it (only roles logged where they are not configured): no sold
+  // reference, so the row reads "—" like By role's unconfigured pairs. A configured role sold 0h
+  // keeps its Sold and its "Over sold", as in By role (review rounds 2-3).
+  if (ungrouped.soldHours > 0 || ungrouped.totalConsumed > 0) {
+    cols.push(resources > 0 ? { ...ungrouped, ungrouped: true } : { ...ungrouped, ungrouped: true, soldHours: null, soldEur: null });
   }
-  let idx = null;
-  for (let i = 0; i < points.length; i++) if (points[i] <= today) idx = i;
-  if (idx === null) return null;
-  const last = points.length - 1;
-  if (idx === last && !(bounds && bounds.start && bounds.end)) {
-    const step = points.length > 1 ? points[last] - points[last - 1] : 31 * 24 * 3600 * 1000;
-    if (today - points[last] > step) return null;
-  }
-  return idx;
+  return cols;
+}
+
+// The By area Total: every billable resource and entry counted once, whatever the overlaps.
+export function areaTotalColumn(data, cfg, filterRange, deps) {
+  const { billableTasks, findRate } = deps;
+  const { resources, ...col } = areaColumn('Total', () => true, reportRows(data, cfg, deps), billableTasks(cfg), filterRange, cfg, findRate);
+  return col;
+}
+
+// True when a billable resource or entry is claimed by two or more groups.
+export function areaOverlap(data, cfg, deps) {
+  const { billableTasks } = deps;
+  const groupEntries = (cfg.groups || []).map(normalizeGroupEntries);
+  const claims = (role, task) => groupEntries.filter(e => entryMatchesRow(e, role, task)).length;
+  return billableTasks(cfg).some(t => t.resources.some(res => claims(res.role, t.name) > 1))
+    || reportRows(data, cfg, deps).some(r => claims(r.role, r.task) > 1);
+}
+
+// One area column: `claims({role, task})` selects the resources (with their task name) and the entries.
+// `resources` counts the configured resources claimed; callers strip it from the column.
+function areaColumn(label, claims, bData, bTasks, filterRange, cfg, findRate) {
+  const { start, end } = filterRange;
+  let soldHours = 0, soldEur = 0, resources = 0;
+  bTasks.forEach(task => task.resources.forEach(res => {
+    if (claims({ role: res.role, task: task.name })) { soldHours += res.soldHours; soldEur += res.soldHours * res.hourlyRate; resources++; }
+  }));
+  const rows = bData.filter(r => claims(r));
+  const totalConsumed = rows.reduce((s, r) => s + r.hours, 0);
+  const totalConsumedEur = rows.reduce((s, r) => s + r.hours * (findRate(r, cfg) ?? 0), 0);
+  const periodRows = rows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
+  const inPeriod = periodRows.reduce((s, r) => s + r.hours, 0);
+  const inPeriodEur = periodRows.reduce((s, r) => s + r.hours * (findRate(r, cfg) ?? 0), 0);
+  return { label, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur, resources };
 }
 
 window.paceJudgment = paceJudgment;
@@ -151,4 +253,8 @@ window.groupSubtitle = groupSubtitle;
 window.entriesByMonth = entriesByMonth;
 window.hoursByMonth = hoursByMonth;
 window.monthState = monthState;
+window.roleColumns = roleColumns;
+window.areaColumns = areaColumns;
+window.areaTotalColumn = areaTotalColumn;
+window.areaOverlap = areaOverlap;
 window.todayIndex = todayIndex;

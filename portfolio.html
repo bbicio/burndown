@@ -10,7 +10,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="css/tokens.css?v=9">
   <link rel="stylesheet" href="css/style.css?v=21">
-  <link rel="stylesheet" href="css/portfolio.css?v=3">
+  <link rel="stylesheet" href="css/portfolio.css?v=4">
   <style>
     .app-container { padding: 0 12px; }
   </style>
@@ -392,20 +392,20 @@
         </div>
         <div class="pg-tile">
           <div class="pg-tile-label">Budget</div>
-          <template v-if="kpis.budgetTotal">
-            <div class="pg-tile-value">{{ formatMoney(kpis.consumedEur, dashCurrency, currencies) }}<span class="pg-tile-of">of {{ formatMoney(kpis.budgetTotal, dashCurrency, currencies) }}</span></div>
+          <template v-if="kpis.feesOnly">
+            <div class="pg-tile-value">{{ formatMoney(kpis.consumedEur, dashCurrency, currencies) }}<span class="pg-tile-of">of {{ formatMoney(kpis.feesOnly, dashCurrency, currencies) }}</span></div>
             <div class="pf-spent-bar pr-kpi-bar" :class="'pf-spent-' + spentBarState(kpiBudgetPct)"><div class="pf-spent-bar-fill" :style="{ width: Math.min(100, kpiBudgetPct || 0) + '%' }"></div></div>
             <div class="pg-tile-foot">
               <span>{{ kpiBudgetPct }}% spent</span>
-              <span :style="{ color: kpiLeftColor(kpis.budgetLeft, kpis.budgetTotal) }">{{ formatMoney(kpis.budgetLeft, dashCurrency, currencies) }} left</span>
+              <span :style="{ color: kpiLeftColor(kpis.feesLeft, kpis.feesOnly) }">{{ formatMoney(kpis.feesLeft, dashCurrency, currencies) }} left</span>
             </div>
-            <div v-if="kpis.totalPtc > 0" class="pr-kpi-note">incl. {{ formatMoney(kpis.totalPtc, dashCurrency, currencies) }} PTC</div>
           </template>
           <template v-else>
             <div class="pg-tile-value">—</div>
             <div class="pf-spent-bar pf-spent-none pr-kpi-bar"><div class="pf-spent-bar-fill"></div></div>
             <div class="pg-tile-foot"><span>No budget</span></div>
           </template>
+          <div v-if="kpis.totalPtc > 0" class="pr-kpi-note">+ {{ formatMoney(kpis.totalPtc, dashCurrency, currencies) }} PTC</div>
         </div>
         <div class="pg-tile">
           <div class="pg-tile-label">Time elapsed</div>
@@ -441,7 +441,7 @@
             <button type="button" class="pr-icon-btn" title="Export PNG" @click="exportChartPng"><pf-icon name="download" :size="14"></pf-icon></button>
           </div>
           <div v-if="dashboardData.length && progressView === 'monthly' && monthlySummary" class="pr-toolbar">
-            <button type="button" class="pr-icon-btn" title="Export XLS" @click="exportTableXls($refs.monthlyTable, 'monthly_summary')"><pf-icon name="download" :size="14"></pf-icon></button>
+            <button type="button" class="pr-icon-btn" title="Export XLS" @click="exportMonthlyXls()"><pf-icon name="download" :size="14"></pf-icon></button>
           </div>
         </div>
 
@@ -461,11 +461,11 @@
           </div>
 
           <div v-else-if="progressView === 'monthly' && monthlySummary" class="table-responsive pr-table-wrap">
-            <table ref="monthlyTable" class="table table-sm align-middle mb-0 pr-table">
+            <table class="table table-sm align-middle mb-0 pr-table">
               <thead>
                 <tr>
                   <th>Month</th>
-                  <th class="text-end">Est. hours</th>
+                  <th class="text-end" title="From the project's resource plan (Planning), not from the burndown's phasing">Planned hours (resource plan)</th>
                   <th class="text-end">Consumed</th>
                   <th class="text-end">Variance</th>
                   <th class="text-end">Est. budget</th>
@@ -661,6 +661,7 @@
             </template>
           </template>
         </div>
+        <p v-if="breakdownView === 'area' && breakdownAreaOverlap" class="pr-bd-note">Some roles belong to more than one area: their hours count in each area and once in the Total.</p>
       </div><!-- /pr-breakdown -->
     </div>
 
@@ -697,10 +698,10 @@
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/shares.js"></script>
-<script type="module" src="js/lib/portfolio-calc.js?v=6"></script>
-<script type="module" src="js/lib/program-calc.js?v=2"></script>
-<script type="module" src="js/lib/project-report-calc.js?v=1"></script>
-<script type="module" src="js/lib/chart-today.js?v=1"></script>
+<script type="module" src="js/lib/portfolio-calc.js?v=7"></script>
+<script type="module" src="js/lib/program-calc.js?v=3"></script>
+<script type="module" src="js/lib/project-report-calc.js?v=2"></script>
+<script type="module" src="js/lib/chart-today.js?v=2"></script>
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/nav.js?v=17"></script>
 <script type="module">
@@ -938,7 +939,8 @@
         return spentPercent(this.kpis.consumedHours, this.kpis.soldHours);
       },
       kpiBudgetPct() {
-        return spentPercent(this.kpis.consumedEur, this.kpis.budgetTotal);
+        // Fees only (B-072): consumedEur holds no pass-through cost, so PTC stay out of both sides.
+        return spentPercent(this.kpis.consumedEur, this.kpis.feesOnly);
       },
       // Same deps object as program.html's projectMetrics() calls, so the Time elapsed tile,
       // the pace judgment and the sibling switch agree with the Program Dashboard.
@@ -1001,13 +1003,14 @@
       // The burndown series of the current view, shared by the chart and the HTML legend.
       burndownSeries() {
         if (!this.dashboardData.length) return null;
-        return computeBurndownPoints(this.dashboardData, this.dashboardProject, this.burndownTaskFilter, this.burndownInterval, billableData, billableTasks, findRate);
+        return computeBurndownPoints(this.dashboardData, this.dashboardProject, this.burndownTaskFilter, this.burndownInterval, billableData, billableTasks, findRate, this.reportToday);
       },
       burndownTodayIndex() {
         const s = this.burndownSeries, cfg = this.dashboardProject;
         // No project dates: the axis is synthetic (14 months from the first actual), so no Today.
         if (!s || !cfg?.startDate || !cfg?.endDate) return null;
-        return todayIndex(s.points, this.reportToday, { start: s.axisStart, end: s.axisEnd });
+        // computeBurndownPoints() already placed today on the axis (and stopped the line there).
+        return s.todayIndex;
       },
       billableTaskNames() {
         return this.dashboardReady ? billableTasks(this.dashboardProject).map(t => t.name) : [];
@@ -1117,63 +1120,15 @@
         }));
         return buildSummaryCols(this.dashboardData, r => r.task.toLowerCase(), entries, this.filterRange, cfg, findRate);
       },
-      // Composite key (role + task): a role sold at a different rate_override on two
-      // different tasks (task_roles is per (task, role), not a single global rate per
-      // role — verified on the Bayer AG "BERMITS Maintenance 2026" project, where
-      // "Account Director" resolves to 168/h on "Overall Coordination" and, via
-      // findRate()'s task-scoped fallback, 130/h on "Project Management") previously
-      // landed in ONE blended column here, summing hours billed at two different rates
-      // under a single total that could never be reconciled against the cost grid.
-      // Splitting the key by task keeps every column internally consistent (one rate).
+      // Logic and rationale: roleColumns()/areaColumns() in js/lib/project-report-calc.js.
       summaryByRole() {
-        if (!this.dashboardProject) return null;
         const cfg = this.dashboardProject;
-        const roleTaskMap = new Map();
-        billableTasks(cfg).forEach(t => t.resources.forEach(res => {
-          const key = res.role.toLowerCase() + '|' + t.name.toLowerCase();
-          if (!roleTaskMap.has(key)) roleTaskMap.set(key, { key, label: `${res.role} — ${t.name}`, role: res.role, task: t.name, soldHours: 0, soldEur: 0 });
-          roleTaskMap.get(key).soldHours += res.soldHours;
-          roleTaskMap.get(key).soldEur += res.soldHours * res.hourlyRate;
-        }));
-        const bData = billableData(this.dashboardData, cfg);
-        const byKeyFn = r => r.role.toLowerCase() + '|' + r.task.toLowerCase();
-        const entries = [...roleTaskMap.values()];
-        // role/task carried alongside each column for the Breakdown's By role rows (label and subtitle).
-        return buildSummaryCols(bData, byKeyFn, entries, this.filterRange, cfg, findRate)
-          .map((c, i) => ({ ...c, role: entries[i].role, task: entries[i].task }));
+        return cfg ? roleColumns(this.dashboardData, cfg, this.filterRange, { billableData, billableTasks, findRate }) : null;
       },
-      // One column per functional area — correctness comes from each group's own
-      // `entries: [{role, task}]` (normalizeGroupEntries()/entryMatchesRow(),
-      // js/lib/portfolio-calc.js), not from splitting the output by task: a group
-      // can claim a role's hours on one specific task while leaving another task's
-      // hours for the same role out entirely (the Bayer case — "HWGACCSVS - DIRECTOR"
-      // billed at 168/h on Overall Coordination vs 130/h on Project Management —
-      // was previously only resolvable by fragmenting this card into as many
-      // columns as summaryByRole(); now the group definition itself decides what
-      // counts, and the card stays one coherent column per area). Legacy groups
-      // with only `roles: string[]` (no task association) normalize to wildcard
-      // entries (task: '') and keep summing across every task, matching pre-change
-      // behavior exactly until someone re-edits them in project-config.html.
       summaryByGroup() {
         const cfg = this.dashboardProject;
         if (!cfg || !cfg.groups?.length) return null;
-        const bData = billableData(this.dashboardData, cfg);
-        const bTasks = billableTasks(cfg);
-        const { start, end } = this.filterRange;
-        return cfg.groups.map(grp => {
-          const grpEntries = normalizeGroupEntries(grp);
-          let soldHours = 0, soldEur = 0;
-          bTasks.forEach(task => task.resources.forEach(res => {
-            if (entryMatchesRow(grpEntries, res.role, task.name)) { soldHours += res.soldHours; soldEur += res.soldHours * res.hourlyRate; }
-          }));
-          const grpRows = bData.filter(r => entryMatchesRow(grpEntries, r.role, r.task));
-          const totalConsumed = grpRows.reduce((s,r) => s+r.hours, 0);
-          const totalConsumedEur = grpRows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0);
-          const periodRows = grpRows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
-          const inPeriod = periodRows.reduce((s,r) => s+r.hours, 0);
-          const inPeriodEur = periodRows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0);
-          return { label: grp.name, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
-        });
+        return areaColumns(this.dashboardData, cfg, this.filterRange, { billableData, billableTasks, findRate });
       },
       // Rows of the Breakdown card for the current view (spec §6 "Card Breakdown"): Spent follows
       // the period filter, Remaining and the consumption % stay on the whole project.
@@ -1198,14 +1153,22 @@
         if (this.breakdownView === 'area' && cfg.groups?.length) {
           const cols = this.summaryByGroup || [];
           const tasks = billableTasks(cfg);
-          const { rows, total } = breakdownRows(cols, hasFilter);
-          return { total, rows: rows.map((r, i) => ({ ...r, key: 'g:' + i, subtitle: groupSubtitle(cfg.groups[i], tasks) })) };
+          // Areas may overlap, so the Total is computed once over every billable entry (B-073).
+          const totalCol = areaTotalColumn(this.dashboardData, cfg, this.filterRange, { billableData, billableTasks, findRate });
+          const { rows, total } = breakdownRows(cols, hasFilter, totalCol);
+          return { total, rows: rows.map((r, i) => cols[i].ungrouped
+            ? { ...r, key: 'g:ungrouped', subtitle: 'Not in any functional area' }
+            : { ...r, key: 'g:' + i, subtitle: groupSubtitle(cfg.groups[i], tasks) }) };
         }
         const tasks = billableTasks(cfg);
         const { rows, total } = breakdownRows(this.summaryByTask || [], hasFilter);
         return { total, rows: rows.map((r, i) => ({ ...r, key: 't:' + tasks[i].name, taskName: tasks[i].name, subtitle: taskSubtitle(tasks[i], cfg.groups || []) })) };
       },
       // The Breakdown's rendered sequence: rows, Total, then (By task only) the non-billable tasks.
+      breakdownAreaOverlap() {
+        const cfg = this.dashboardProject;
+        return !!cfg?.groups?.length && areaOverlap(this.dashboardData, cfg, { billableData, billableTasks, findRate });
+      },
       breakdownItems() {
         const b = this.breakdown;
         if (!b) return [];
@@ -1644,7 +1607,7 @@
         if (!series || !this.$refs.burndownCanvas) return;
 
         const currencyForChart = this.dashCurrency;
-        const { labels, burnValues, idealValues, planningData, budget, totalBudgetEur, tooltipBudgetConsumed, tooltipPhasingEur } = series;
+        const { labels, burnValues, idealValues, budget, totalBudgetEur, tooltipBudgetConsumed, tooltipPhasingEur, hasPhasingEur, todayValue } = series;
         const index = this.burndownTodayIndex;
 
         const datasets = [{
@@ -1666,7 +1629,7 @@
         const todayPlugin = window.todayLabelPlugin({
           id: 'prTodayLabel',
           index,
-          text: index !== null ? `${fmtH(burnValues[index])} ${budget !== null ? 'left' : 'consumed'}` : '',
+          text: index !== null ? `${fmtH(todayValue)} ${budget !== null ? 'left' : 'consumed'}` : '',
           bg: this.chartColor('--brand-navy', 'navy'),
           fg: this.chartColor('--surface-white', 'white'),
         });
@@ -1680,26 +1643,29 @@
             plugins: {
               tooltip: {
                 mode: 'index', intersect: false,
-                filter: item => item.datasetIndex === 0,
+                // After today the actual line has no value: show the planned line's point instead.
+                filter: item => item.datasetIndex === (burnValues[item.dataIndex] == null ? 1 : 0),
                 displayColors: false,
                 callbacks: {
                   label: context => {
                     const i = context.dataIndex;
+                    const future = burnValues[i] == null;
                     const lines = ['── Hours ──────────────────'];
-                    if (budget !== null) {
+                    if (!future && budget !== null) {
                       lines.push(`  Consumed:   ${fmtH(Math.max(0, budget - burnValues[i]))}`);
                       lines.push(`  Remaining:  ${fmtH(Math.max(0, burnValues[i]))}`);
-                      if (planningData) lines.push(`  Estimated:  ${fmtH(planningData[i])}`);
-                    } else {
+                    } else if (!future) {
                       lines.push(`  Consumed:   ${fmtH(burnValues[i])}`);
                     }
-                    if (tooltipBudgetConsumed) {
-                      lines.push('', '── Budget ─────────────────');
+                    if (idealValues) lines.push(`  Planned:    ${fmtH(idealValues[i])}`);
+                    const budgetLines = [];
+                    if (tooltipBudgetConsumed && !future) {
                       const consumed = tooltipBudgetConsumed[i] ?? 0;
-                      lines.push(`  Consumed:   ${consumed == null ? '—' : window.formatMoney(consumed, currencyForChart, window.__currencies)}`);
-                      lines.push(`  Remaining:  ${window.formatMoney(totalBudgetEur - consumed, currencyForChart, window.__currencies)}`);
-                      if (tooltipPhasingEur?.[i] != null) lines.push(`  Estimated:  ${window.formatMoney(tooltipPhasingEur[i], currencyForChart, window.__currencies)}`);
+                      budgetLines.push(`  Consumed:   ${window.formatMoney(consumed, currencyForChart, window.__currencies)}`);
+                      budgetLines.push(`  Remaining:  ${window.formatMoney(totalBudgetEur - consumed, currencyForChart, window.__currencies)}`);
                     }
+                    if (tooltipBudgetConsumed && hasPhasingEur && tooltipPhasingEur?.[i] != null) budgetLines.push(`  Planned:    ${window.formatMoney(tooltipPhasingEur[i], currencyForChart, window.__currencies)}`);
+                    if (budgetLines.length) lines.push('', '── Budget ─────────────────', ...budgetLines);
                     return lines;
                   },
                 },
@@ -1714,10 +1680,31 @@
         });
       },
       monthState(ym, today) { return monthState(ym, today); },
-      exportTableXls(tbl, filename) {
-        if (!tbl) return;
-        const wb = XLSX.utils.table_to_book(tbl, { sheet: 'Data' });
-        XLSX.writeFile(wb, filename + '.xlsx');
+      // Built from monthlySummary, not from the rendered table (B-075): numbers stay numbers, the
+      // "current" pill and the future months' "—" are not exported.
+      exportMonthlyXls() {
+        const ms = this.monthlySummary;
+        if (!ms) return;
+        const cur = this.dashCurrency, hasCfg = !!this.dashboardProject;
+        const digits = currencyInfo(cur, this.currencies).digits;
+        const h = v => (v == null ? '' : Math.round(v * 100) / 100);
+        const money = v => (v == null ? '' : Number(v.toFixed(digits)));
+        const head = ['Month', 'Planned hours (resource plan)', 'Consumed h', 'Hours variance', `Est. budget (${cur})`, `Spent (${cur})`, `Budget variance (${cur})`];
+        if (ms.hasPtc) head.push(`PTC (${cur})`);
+        const aoa = [head];
+        ms.months.forEach(m => {
+          const future = monthState(m.ym, this.reportToday) === 'future';
+          const line = [m.label, hasCfg ? h(m.estimatedHours) : '', future ? '' : h(m.hours), future ? '' : h(m.hVar),
+            hasCfg ? money(m.estimated) : '', future ? '' : money(m.spent), future ? '' : money(m.bVar)];
+          if (ms.hasPtc) line.push(m.ptc > 0 ? money(m.ptc) : '');
+          aoa.push(line);
+        });
+        const total = ['Total', h(ms.totEstimatedHours), h(ms.totHours), h(ms.totHoursVariance), money(ms.totEstimated), money(ms.totSpent), money(ms.totBudgetVariance)];
+        if (ms.hasPtc) total.push(money(ms.totPtc));
+        aoa.push(total);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Data');
+        XLSX.writeFile(wb, 'monthly_summary.xlsx');
       },
       exportChartPng() {
         if (!this._burndownChart) return;

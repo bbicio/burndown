@@ -10,7 +10,7 @@ export function computeKpis(data, cfg, billableData, billableTasks, findRate) {
   const maxDate = bData.length ? bData.reduce((max, r) => r.date > max ? r.date : max, bData[0].date) : null;
 
   if (!cfg) {
-    return { consumedHours, maxDate, soldHours: null, budgetTotal: null, consumedEur: null, hoursLeft: null, budgetLeft: null, feesOnly: null, totalPtc: null };
+    return { consumedHours, maxDate, soldHours: null, budgetTotal: null, consumedEur: null, hoursLeft: null, budgetLeft: null, feesOnly: null, feesLeft: null, totalPtc: null };
   }
 
   const bTasks = billableTasks(cfg);
@@ -21,8 +21,10 @@ export function computeKpis(data, cfg, billableData, billableTasks, findRate) {
   const budgetTotal = feesOnly + totalPtc;
   const hoursLeft = soldHours - consumedHours;
   const budgetLeft = budgetTotal - consumedEur;
+  // The Budget tile measures fees only (B-072): consumedEur never includes PTC.
+  const feesLeft = feesOnly - consumedEur;
 
-  return { consumedHours, maxDate, soldHours, budgetTotal, consumedEur, hoursLeft, budgetLeft, feesOnly, totalPtc };
+  return { consumedHours, maxDate, soldHours, budgetTotal, consumedEur, hoursLeft, budgetLeft, feesOnly, feesLeft, totalPtc };
 }
 
 // Local replicas of js/core.js's pad()/fmtDateLabel() (core.js:297-300): the brief's
@@ -35,18 +37,56 @@ export function computeKpis(data, cfg, billableData, billableTasks, findRate) {
 function pad(n) { return String(n).padStart(2, '0'); }
 function fmtDateLabel(d) { return d ? `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}` : ''; }
 
-export function computeBurndownPoints(data, cfg, taskFilter, interval, billableData, billableTasks, findRate) {
-  const bData = billableData(data, cfg);
-  const filteredData = taskFilter
-    ? bData.filter(r => r.task.toLowerCase() === taskFilter.toLowerCase())
-    : bData;
+// Index of the last axis point on or before today; null before the axis, or beyond the
+// last point by more than one interval (31 days with a single point). With `bounds`
+// ({ start, end }, the burndown's axisStart/axisEnd), today must instead fall inside
+// [start, end] — end counts as a whole day — since the last interval can be longer
+// than the step between the last two points (a 31-day month after a 28-day one).
+export function todayIndex(points, today, bounds) {
+  if (!points || !points.length || !today) return null;
+  if (bounds && bounds.start && bounds.end) {
+    const endOfDay = new Date(bounds.end.getFullYear(), bounds.end.getMonth(), bounds.end.getDate() + 1);
+    if (today < bounds.start || today >= endOfDay) return null;
+  }
+  let idx = null;
+  for (let i = 0; i < points.length; i++) if (points[i] <= today) idx = i;
+  if (idx === null) return null;
+  const last = points.length - 1;
+  if (idx === last && !(bounds && bounds.start && bounds.end)) {
+    const step = points.length > 1 ? points[last] - points[last - 1] : 31 * 24 * 3600 * 1000;
+    if (today - points[last] > step) return null;
+  }
+  return idx;
+}
 
-  const budget = cfg
-    ? taskFilter
-      ? (cfg.tasks.find(t => t.name.toLowerCase() === taskFilter.toLowerCase())
-           ?.resources.reduce((s, r) => s + r.soldHours, 0) ?? 0)
-      : billableTasks(cfg).reduce((s, t) => s + t.resources.reduce((ss, r) => ss + r.soldHours, 0), 0)
-    : null;
+// The burndown's rows (billable, optionally one task) and its hours budget (null without cfg).
+function burndownRows(data, cfg, taskFilter, billableData) {
+  const bData = billableData(data, cfg);
+  return taskFilter ? bData.filter(r => r.task.toLowerCase() === taskFilter.toLowerCase()) : bData;
+}
+function burndownBudget(cfg, taskFilter, billableTasks) {
+  if (!cfg) return null;
+  return taskFilter
+    ? (cfg.tasks.find(t => t.name.toLowerCase() === taskFilter.toLowerCase())
+         ?.resources.reduce((s, r) => s + r.soldHours, 0) ?? 0)
+    : billableTasks(cfg).reduce((s, t) => s + t.resources.reduce((ss, r) => ss + r.soldHours, 0), 0);
+}
+
+// Remaining hours as of `date` (sold − hours dated on or before it, clamped at 0), or the
+// cumulative hours without cfg — the burndown's own rule, at an arbitrary date (B-071).
+export function remainingAsOf(data, cfg, taskFilter, date, billableData, billableTasks) {
+  const consumed = burndownRows(data, cfg, taskFilter, billableData).filter(r => r.date <= date).reduce((s, r) => s + r.hours, 0);
+  const budget = burndownBudget(cfg, taskFilter, billableTasks);
+  return budget !== null ? Math.max(0, budget - consumed) : consumed;
+}
+
+// `today` (optional, B-071): for a project with dates, the point whose interval contains today
+// takes the value as of today and the later points are null, so the actual line stops at today;
+// with today before the axis every point is null. Without `today` the series is the
+// start-of-interval one, unchanged.
+export function computeBurndownPoints(data, cfg, taskFilter, interval, billableData, billableTasks, findRate, today = null) {
+  const filteredData = burndownRows(data, cfg, taskFilter, billableData);
+  const budget = burndownBudget(cfg, taskFilter, billableTasks);
 
   let axisStart, axisEnd;
   if (cfg?.startDate && cfg?.endDate) {
@@ -104,29 +144,33 @@ export function computeBurndownPoints(data, cfg, taskFilter, interval, billableD
     });
   }
 
-  let planningData = null;
-  if (budget !== null && !taskFilter && cfg?.planning && Object.keys(cfg.planning).length > 0) {
-    planningData = points.map(d => {
-      let cumPlanning = 0;
-      Object.entries(cfg.planning).forEach(([ym, val]) => {
-        const y = parseInt(ym.slice(0, 4)), m = parseInt(ym.slice(4, 6));
-        if (new Date(y, m - 1, 1) <= d) cumPlanning += val;
-      });
-      return parseFloat(Math.max(0, budget - cumPlanning).toFixed(2));
-    });
-  }
-
   const tooltipBudgetConsumed = cfg
     ? points.map(d => filteredData.filter(r => r.date <= d).reduce((s, r) => s + r.hours * (findRate(r, cfg) ?? 0), 0))
     : null;
   const tooltipPhasingEur = idealData ? idealData.map(v => v.phasingEur) : null;
+
+  let todayIdx = null, todayValue = null;
+  if (today && cfg?.startDate && cfg?.endDate) {
+    todayValue = remainingAsOf(data, cfg, taskFilter, today, billableData, billableTasks);
+    todayIdx = todayIndex(points, today, { start: axisStart, end: axisEnd });
+    const cutFrom = todayIdx !== null ? todayIdx + 1 : (today < axisStart ? 0 : points.length);
+    if (todayIdx !== null) {
+      burnValues[todayIdx] = todayValue;
+      if (tooltipBudgetConsumed) tooltipBudgetConsumed[todayIdx] = filteredData.filter(r => r.date <= today).reduce((s, r) => s + r.hours * (findRate(r, cfg) ?? 0), 0);
+    }
+    for (let j = cutFrom; j < points.length; j++) {
+      burnValues[j] = null;
+      if (tooltipBudgetConsumed) tooltipBudgetConsumed[j] = null;
+    }
+  }
 
   return {
     points, budget, axisStart, axisEnd, interval,
     burnValues,
     idealValues: idealData ? idealData.map(v => v.y) : null,
     hasPhasingEur: idealData ? idealData.some(v => v.phasingEur !== null) : false,
-    planningData,
+    todayIndex: todayIdx,
+    todayValue,
     totalBudgetEur,
     tooltipBudgetConsumed,
     tooltipPhasingEur,
@@ -291,6 +335,7 @@ window.resolveExpandedProgramId = resolveExpandedProgramId;
 window.commonCurrency = commonCurrency;
 window.computeKpis = computeKpis;
 window.computeBurndownPoints = computeBurndownPoints;
+window.remainingAsOf = remainingAsOf;
 window.buildSummaryCols = buildSummaryCols;
 window.normalizeGroupEntries = normalizeGroupEntries;
 window.entryMatchesRow = entryMatchesRow;

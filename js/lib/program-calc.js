@@ -3,10 +3,10 @@
 // Portfolio (spentPercent/spentBarState from portfolio-calc.js). See
 // docs/superpowers/specs/2026-10-08-program-dashboard-design.md §6.
 
-// ?v=6 matches program.html's own <script src="js/lib/portfolio-calc.js?v=6"> tag — bumping
+// ?v=7 matches program.html's own <script src="js/lib/portfolio-calc.js?v=7"> tag — bumping
 // one without the other would leave this import resolving to a stale cached copy while the
 // page's own direct references pick up the new one (CLAUDE.md's "Cache-busting" section).
-import { spentPercent, spentBarState, computeBurndownPoints } from './portfolio-calc.js?v=6';
+import { spentPercent, spentBarState, computeBurndownPoints, remainingAsOf } from './portfolio-calc.js?v=7';
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -170,8 +170,8 @@ function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
 
 // Aggregated remaining-hours burndown across every project in the program (§7):
 // each project's own computeBurndownPoints() series is projected onto the program's
-// month axis, holding the project's first value before it starts and its last value
-// after it ends, then the series are summed.
+// month axis, holding the project's first value before it starts and, after it ends, its
+// remaining at the start of each month; the series are summed, up to today's month only.
 export function programBurndown(range, projects, deps) {
   if (!range) return { labels: [], actual: [], planned: null, todayIndex: null, todayRemaining: null };
   const { billableData, billableTasks, findRate, today } = deps;
@@ -192,8 +192,9 @@ export function programBurndown(range, projects, deps) {
     const firstYm = yms[0];
     const lastYm = yms[yms.length - 1];
     return {
+      cfg, rows: rows || [],
       burnByYm, idealByYm, firstYm, lastYm,
-      firstBurn: burnByYm[firstYm], lastBurn: burnByYm[lastYm],
+      firstBurn: burnByYm[firstYm],
       firstIdeal: series.idealValues ? idealByYm[firstYm] : null,
       lastIdeal: series.idealValues ? idealByYm[lastYm] : null,
       hasIdeal: !!series.idealValues,
@@ -203,7 +204,10 @@ export function programBurndown(range, projects, deps) {
   const actual = months.map(ym => perProject.reduce((sum, p) => {
     if (ym in p.burnByYm) return sum + p.burnByYm[ym];
     if (ym < p.firstYm) return sum + p.firstBurn;
-    return sum + p.lastBurn;
+    // After its last month: the project's remaining at the start of each month, the same rule as
+    // its own points. Its last month's hours and any entry logged after its end then land in the
+    // month they were logged, never in today's (review rounds 1-2).
+    return sum + remainingAsOf(p.rows, p.cfg, '', ymToDate(ym), billableData, billableTasks);
   }, 0));
 
   const anyIdeal = perProject.some(p => p.hasIdeal);
@@ -214,8 +218,15 @@ export function programBurndown(range, projects, deps) {
     return sum + p.lastIdeal;
   }, 0)) : null;
 
+  // B-071: the line stops at today. Today's month holds each project's remaining as of today
+  // (a project not started yet counts its whole remaining), the later months are empty.
   const todayYm = dateToYm(today);
   const todayIndex = months.indexOf(todayYm) !== -1 ? months.indexOf(todayYm) : null;
+  if (todayIndex !== null) {
+    actual[todayIndex] = perProject.reduce((sum, p) => sum + remainingAsOf(p.rows, p.cfg, '', today, billableData, billableTasks), 0);
+  }
+  const cutFrom = todayIndex !== null ? todayIndex + 1 : (todayYm < months[0] ? 0 : months.length);
+  for (let j = cutFrom; j < months.length; j++) actual[j] = null;
   const todayRemaining = todayIndex !== null ? actual[todayIndex] : null;
 
   return { labels, actual, planned, todayIndex, todayRemaining };
