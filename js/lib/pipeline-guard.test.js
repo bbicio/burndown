@@ -40,13 +40,13 @@ describe('pipeline board guard', () => {
     expect(board).not.toMatch(/\p{Extended_Pictographic}/u);
   });
 
-  it('every pipeline-calc.js reference is ?v=6', () => {
+  it('every pipeline-calc.js reference is ?v=7', () => {
     const pages = fs.readdirSync(root).filter(f => f.endsWith('.html'));
     let found = 0;
     pages.forEach(f => {
       for (const m of read(f).matchAll(/pipeline-calc\.js\?v=(\d+)/g)) {
         found++;
-        expect(m[1], f).toBe('6');
+        expect(m[1], f).toBe('7');
       }
     });
     expect(found).toBeGreaterThan(0);

@@ -574,3 +574,79 @@ describe('commonCurrency — characterization for Review Focus 5', () => {
     expect(commonCurrency([{ currency: 'CHF' }, { currency: 'USD' }])).toBe('EUR');
   });
 });
+
+// Reporting follow-ups (B-080, B-081): docs/superpowers/specs/2026-10-15-reporting-calc-followups-design.md.
+const fuCfg = {
+  startDate: '202601', endDate: '202606',
+  tasks: [
+    { name: 'Dev', billable: true,  resources: [{ role: 'Developer', soldHours: 100, hourlyRate: 50 }] },
+    { name: 'QA',  billable: true,  resources: [{ role: 'Tester',    soldHours: 40,  hourlyRate: 30 }] },
+    { name: 'Ops', billable: false, resources: [{ role: 'Admin',     soldHours: 10,  hourlyRate: 20 }] },
+  ],
+};
+const fuData = [
+  { task: 'Dev', role: 'Developer', hours: 10, date: new Date(2026, 0, 15) },
+  { task: 'Dev', role: 'Developer', hours: 5,  date: new Date(2026, 2, 15) },
+  { task: 'Dev', role: 'Developer', hours: 3,  date: new Date(2026, 4, 10) },
+  { task: 'Ops', role: 'Admin',     hours: 4,  date: new Date(2026, 4, 10) },
+];
+const fuToday = new Date(2026, 1, 20);
+const fuSeries = (cfg, taskFilter, today = fuToday) => computeBurndownPoints(fuData, cfg, taskFilter, 'monthly', billableData, billableTasks, findRate, today);
+
+describe('reporting follow-ups — Hours tile vs Today pill (B-080)', () => {
+  it('the Hours tile counts entries dated after today, the pill does not', () => {
+    expect(computeKpis(fuData, fuCfg, billableData, billableTasks, findRate).consumedHours).toBe(18);
+    expect(fuSeries(fuCfg, '').todayValue).toBe(130);
+  });
+});
+
+describe('computeKpis — futureHours (B-080)', () => {
+  const kpis = (data, cfg, today) => computeKpis(data, cfg, billableData, billableTasks, findRate, today);
+  it('is null without today, and the other fields are unchanged', () => {
+    const without = computeKpis(fuData, fuCfg, billableData, billableTasks, findRate);
+    expect(without.futureHours).toBeNull();
+    const { futureHours, ...rest } = kpis(fuData, fuCfg, fuToday);
+    const { futureHours: _f, ...restWithout } = without;
+    expect(rest).toEqual(restWithout);
+  });
+  it('sums the billable hours dated after today (a non-billable task does not count)', () => {
+    const k = kpis(fuData, fuCfg, fuToday);
+    expect(k.futureHours).toBe(8);
+    expect(k.hoursLeft).toBe(122);
+  });
+  it('without cfg counts every row dated after today', () => {
+    expect(kpis(fuData, null, fuToday).futureHours).toBe(12);
+  });
+  it('is 0 when no row is dated after today', () => {
+    expect(kpis(fuData, fuCfg, new Date(2026, 5, 30)).futureHours).toBe(0);
+  });
+  it('a row dated today is not in the future (Review Focus 1)', () => {
+    const rows = [{ task: 'Dev', role: 'Developer', hours: 2, date: new Date(2026, 1, 20) }];
+    expect(kpis(rows, fuCfg, new Date(2026, 1, 20, 15, 0)).futureHours).toBe(0);
+  });
+  it('the Today pill equals max(0, hoursLeft + futureHours) (Review Focus 2)', () => {
+    const k = kpis(fuData, fuCfg, fuToday);
+    expect(fuSeries(fuCfg, '').todayValue).toBe(Math.max(0, k.hoursLeft + k.futureHours));
+    expect(fuSeries(fuCfg, '').todayValue).toBe(130);
+    const over = { ...fuCfg, tasks: [{ ...fuCfg.tasks[0], resources: [{ role: 'Developer', soldHours: 5, hourlyRate: 50 }] }, fuCfg.tasks[2]] };
+    const ko = kpis(fuData, over, fuToday);
+    expect(fuSeries(over, '').todayValue).toBe(0);
+    expect(Math.max(0, ko.hoursLeft + ko.futureHours)).toBe(0);
+  });
+});
+
+describe('computeBurndownPoints — filtered € budget (B-081)', () => {
+  it("is the filtered task's own fees", () => {
+    expect(fuSeries(fuCfg, 'Dev').totalBudgetEur).toBe(5000);
+    expect(fuSeries(fuCfg, 'QA').totalBudgetEur).toBe(1200);
+  });
+  it('matches the task name case-insensitively (Review Focus 3)', () => {
+    expect(fuSeries(fuCfg, 'dev').totalBudgetEur).toBe(5000);
+  });
+  it('is 0 for a task that does not exist', () => {
+    expect(fuSeries(fuCfg, 'Nope').totalBudgetEur).toBe(0);
+  });
+  it('without a filter is unchanged: every billable task', () => {
+    expect(fuSeries(fuCfg, '').totalBudgetEur).toBe(6200);
+  });
+});

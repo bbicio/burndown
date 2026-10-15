@@ -1,7 +1,7 @@
 // ── Pure aggregation/formatting logic extracted from js/pipeline-board.js ──
 // cgComputeGrandTotals/getPipelineBudget are injected (not imported) so this module has
 // zero DOM/global dependencies and can be unit-tested in isolation — same pattern as
-// js/lib/portfolio-calc.js's computeKpis(data, cfg, billableData, billableTasks, findRate).
+// js/lib/portfolio-calc.js's computeKpis(data, cfg, billableData, billableTasks, findRate, today).
 
 // Price-bracket boundaries for the pipeline board's filter bar. Lower bound inclusive,
 // upper bound exclusive — a value exactly at a boundary falls into the higher bucket.

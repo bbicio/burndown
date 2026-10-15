@@ -296,7 +296,8 @@ describe('project reporting view — calculations fix (B-071, B-072, B-074)', ()
   });
   it('shows "+ X PTC" outside the budget branches, so also under "No budget" (Review Focus 5)', () => {
     expect(dashboardActive).toMatch(/<span>No budget<\/span><\/div>\s*<\/template>\s*<div v-if="kpis.totalPtc > 0" class="pr-kpi-note">\+ \{\{ formatMoney\(kpis.totalPtc/);
-    expect(dashboardActive).not.toContain('incl. {{');
+    // The old PTC wording ("incl. X PTC"), in any form; the Hours tile's "incl. Xh dated after today" (B-080) is not it.
+    expect(dashboardActive).not.toMatch(/incl\.[^<]*PTC/);
   });
   it('passes today to the burndown and labels the pill with the value as of today', () => {
     expect(html).toContain('billableData, billableTasks, findRate, this.reportToday)');
