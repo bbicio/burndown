@@ -579,99 +579,94 @@
             <span class="pr-bd-cons-head">Total consumption</span>
           </div>
 
-          <template v-for="r in breakdown.rows" :key="r.key">
-            <div class="pr-bd-row pr-bd-item" :class="{ 'pr-bd-over': r.overSold }">
-              <span class="pr-bd-chev"></span>
+          <template v-for="it in breakdownItems" :key="it.key">
+            <div v-if="it.kind === 'row'" class="pr-bd-row pr-bd-item" :class="{ 'pr-bd-over': it.row.overSold, 'pr-bd-clickable': it.taskName }" @click="it.taskName && toggleTask(it.taskName)">
+              <span class="pr-bd-chev"><pf-icon v-if="it.taskName" :name="taskState(it.taskName).expanded ? 'chevron-down' : 'chevron-right'" :size="14"></pf-icon></span>
               <div class="pr-bd-name">
-                <div class="pr-bd-title">{{ r.label }}<span v-if="r.overSold" class="pr-over-pill">Over sold</span></div>
-                <div class="pr-bd-sub">{{ r.subtitle }}</div>
+                <div class="pr-bd-title">{{ it.row.label }}<span v-if="it.row.overSold" class="pr-over-pill">Over sold</span></div>
+                <div class="pr-bd-sub">{{ it.row.subtitle }}</div>
               </div>
-              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(r.soldHours) }}</div><div class="pr-bd-a">{{ formatMoney(r.soldAmount, dashCurrency, currencies) }}</div></div>
-              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(r.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(r.spentAmount, dashCurrency, currencies) }}</div></div>
-              <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': r.remainingHours < 0 }"><div class="pr-bd-h">{{ fmtH(r.remainingHours) }}</div><div class="pr-bd-a">{{ formatMoney(r.remainingAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(it.row.soldHours) }}</div><div class="pr-bd-a">{{ formatMoney(it.row.soldAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(it.row.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(it.row.spentAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': it.row.remainingHours < 0 }"><div class="pr-bd-h">{{ fmtH(it.row.remainingHours) }}</div><div class="pr-bd-a">{{ formatMoney(it.row.remainingAmount, dashCurrency, currencies) }}</div></div>
               <div class="pr-bd-cons">
-                <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + r.barState"><div class="pf-spent-bar-fill" :style="{ width: (r.overSold ? 100 : Math.min(100, r.pct || 0)) + '%' }"></div></div>
-                <span class="pr-bd-pct" :class="'pr-pct-' + r.barState">{{ r.pct !== null ? r.pct + '%' : '—' }}</span>
+                <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + it.row.barState"><div class="pf-spent-bar-fill" :style="{ width: (it.row.overSold ? 100 : Math.min(100, it.row.pct || 0)) + '%' }"></div></div>
+                <span class="pr-bd-pct" :class="'pr-pct-' + it.row.barState">{{ it.row.pct !== null ? it.row.pct + '%' : '—' }}</span>
               </div>
             </div>
-          </template>
 
-          <div class="pr-bd-row pr-bd-total">
-            <span></span>
-            <div class="pr-bd-name"><div class="pr-bd-title">Total</div></div>
-            <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(breakdown.total.soldHours) }}</div><div class="pr-bd-a">{{ formatMoney(breakdown.total.soldAmount, dashCurrency, currencies) }}</div></div>
-            <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(breakdown.total.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(breakdown.total.spentAmount, dashCurrency, currencies) }}</div></div>
-            <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': breakdown.total.remainingHours < 0 }"><div class="pr-bd-h">{{ fmtH(breakdown.total.remainingHours) }}</div><div class="pr-bd-a">{{ formatMoney(breakdown.total.remainingAmount, dashCurrency, currencies) }}</div></div>
-            <div class="pr-bd-cons">
-              <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + breakdown.total.barState"><div class="pf-spent-bar-fill" :style="{ width: (breakdown.total.overSold ? 100 : Math.min(100, breakdown.total.pct || 0)) + '%' }"></div></div>
-              <span class="pr-bd-pct" :class="'pr-pct-' + breakdown.total.barState">{{ breakdown.total.pct !== null ? breakdown.total.pct + '%' : '—' }}</span>
+            <div v-else-if="it.kind === 'total'" class="pr-bd-row pr-bd-total">
+              <span></span>
+              <div class="pr-bd-name"><div class="pr-bd-title">Total</div></div>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(breakdown.total.soldHours) }}</div><div class="pr-bd-a">{{ formatMoney(breakdown.total.soldAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(breakdown.total.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(breakdown.total.spentAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': breakdown.total.remainingHours < 0 }"><div class="pr-bd-h">{{ fmtH(breakdown.total.remainingHours) }}</div><div class="pr-bd-a">{{ formatMoney(breakdown.total.remainingAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-cons">
+                <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + breakdown.total.barState"><div class="pf-spent-bar-fill" :style="{ width: (breakdown.total.overSold ? 100 : Math.min(100, breakdown.total.pct || 0)) + '%' }"></div></div>
+                <span class="pr-bd-pct" :class="'pr-pct-' + breakdown.total.barState">{{ breakdown.total.pct !== null ? breakdown.total.pct + '%' : '—' }}</span>
+              </div>
             </div>
-          </div>
+
+            <div v-else-if="it.kind === 'excluded-head'" class="pr-excluded-head">Excluded from report</div>
+
+            <div v-else-if="it.kind === 'excluded'" class="pr-bd-row pr-excluded-row pr-bd-clickable" @click="toggleTask(it.taskName)">
+              <span class="pr-bd-chev"><pf-icon :name="taskState(it.taskName).expanded ? 'chevron-down' : 'chevron-right'" :size="14"></pf-icon></span>
+              <div class="pr-bd-name"><div class="pr-bd-title">{{ it.taskName }}</div></div>
+              <span></span>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(it.hours) }}</div></div>
+            </div>
+
+            <template v-if="it.taskName && taskState(it.taskName).expanded && taskDetailByName[it.taskName]">
+              <template v-if="it.kind === 'row'">
+                <div v-for="sr in roleSubRows(taskDetailByName[it.taskName])" :key="sr.key" class="pr-bd-row pr-bd-subrow" :class="{ 'pr-bd-over': sr.overSold }">
+                  <span></span>
+                  <div class="pr-bd-name">
+                    <div class="pr-bd-subtitle">{{ sr.label }}<span v-if="sr.overSold" class="pr-over-pill">Over sold</span></div>
+                    <div class="pr-bd-sub">{{ sr.subtitle }}</div>
+                  </div>
+                  <div class="pr-bd-num"><div class="pr-bd-h">{{ sr.soldConfigured ? fmtH(sr.soldHours) : '—' }}</div><div v-if="sr.soldConfigured" class="pr-bd-a">{{ formatMoney(sr.soldAmount, dashCurrency, currencies) }}</div></div>
+                  <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(sr.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(sr.spentAmount, dashCurrency, currencies) }}</div></div>
+                  <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': sr.remainingHours < 0 }"><div class="pr-bd-h">{{ fmtH(sr.remainingHours) }}</div><div class="pr-bd-a">{{ formatMoney(sr.remainingAmount, dashCurrency, currencies) }}</div></div>
+                  <div class="pr-bd-cons">
+                    <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + sr.barState"><div class="pf-spent-bar-fill" :style="{ width: (sr.overSold ? 100 : Math.min(100, sr.pct || 0)) + '%' }"></div></div>
+                    <span class="pr-bd-pct" :class="'pr-pct-' + sr.barState">{{ sr.pct !== null ? sr.pct + '%' : '—' }}</span>
+                  </div>
+                </div>
+              </template>
+              <div class="pr-entries">
+                <div class="pr-entries-head">
+                  <span>Entries · {{ taskDetailByName[it.taskName].periodData.length }}</span>
+                  <a v-if="taskDetailByName[it.taskName].periodData.length" href="#" class="pr-entries-export" @click.prevent="exportTaskEntriesXls(taskDetailByName[it.taskName])">Export XLS</a>
+                </div>
+                <div v-if="!taskDetailByName[it.taskName].periodData.length" class="pr-entries-empty">No entries in the selected period.</div>
+                <div v-else class="pr-entries-box">
+                  <template v-for="m in taskEntries(taskDetailByName[it.taskName])" :key="m.ym">
+                    <div class="pr-entries-month" :class="{ open: taskState(it.taskName).openMonth === m.ym }" @click="toggleMonth(it.taskName, m.ym)">
+                      <pf-icon :name="taskState(it.taskName).openMonth === m.ym ? 'chevron-down' : 'chevron-right'" :size="12"></pf-icon>
+                      <span class="pr-entries-month-name">{{ monthLabelLong(m.ym) }}</span>
+                      <span class="pr-entries-count">{{ m.count }} {{ m.count === 1 ? 'entry' : 'entries' }}</span>
+                      <span class="pr-entries-hours">{{ fmtH(m.hours) }}</span>
+                      <span class="pr-entries-amount">{{ formatMoney(m.amount, dashCurrency, currencies) }}</span>
+                    </div>
+                    <table v-if="taskState(it.taskName).openMonth === m.ym" class="pr-entries-table">
+                      <thead><tr><th>Date</th><th>Role (resource)</th><th class="text-end">Hours</th><th class="text-end">Amount</th><th>Note</th></tr></thead>
+                      <tbody>
+                        <tr v-for="(e, i) in m.rows" :key="i">
+                          <td>{{ fmtDate(e.date) }}</td>
+                          <td>{{ e.role }}{{ e.owner ? ' (' + e.owner + ')' : '' }}</td>
+                          <td class="text-end pr-entries-h">{{ fmtH(e.hours) }}</td>
+                          <td class="text-end pr-entries-a">{{ e.amount === null ? '—' : formatMoney(e.amount, dashCurrency, currencies) }}</td>
+                          <td>{{ e.notes || '—' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </template>
         </div>
       </div><!-- /pr-breakdown -->
-      <div v-if="taskDetailData.length" class="section-divider"><hr><span class="section-divider-label">Task detail</span></div>
-      <div v-for="entry in taskDetailData" :key="entry.task.name" class="section-card mb-4">
-        <div class="section-header d-flex justify-content-between align-items-center">
-          <span>📋 {{ entry.task.name }}<span v-if="entry.task.billable === false" class="badge bg-secondary ms-1" style="font-size:var(--text-xs);vertical-align:middle;">Excluded from report</span></span>
-          <div class="d-flex gap-2 align-items-center">
-            <button class="btn btn-sm btn-outline-secondary" @click="taskState(entry.task.name).expanded = !taskState(entry.task.name).expanded">{{ taskState(entry.task.name).expanded ? '▲ Close details' : '▶ Expand details' }}</button>
-            <ExportButtons :tbl-ref="() => $refs['taskTable_'+entry.task.name]?.[0]" :filename="'task_'+entry.task.name.replace(/[^a-zA-Z0-9]/g,'_')" :card-ref="() => $refs['taskCard_'+entry.task.name]?.[0]" />
-          </div>
-        </div>
-        <div class="table-responsive" :ref="'taskCard_'+entry.task.name">
-          <table :ref="'taskTable_'+entry.task.name" class="table table-sm table-hover align-middle mb-0 task-sum-tbl" style="table-layout:fixed;width:100%">
-            <colgroup><col style="width:40%"><col style="width:20%"><col style="width:20%"><col style="width:20%"></colgroup>
-            <thead style="background:var(--surface-light);"><tr><th class="ps-3">Role (Resource)</th><th class="text-end">Sold hours</th><th class="text-end">{{ filterHasFilter ? 'Consumed (' + filterRangeLabel + ')' : 'Consumed (period)' }}</th><th class="text-end pe-3">Remaining (total)</th></tr></thead>
-            <tbody>
-              <tr v-for="(r, i) in entry.rows" :key="i" :class="{'table-danger': r.remaining !== null && r.remaining < 0}">
-                <td class="ps-3">{{ r.label }}</td>
-                <td class="text-end">{{ r.soldHours !== null ? fmtH(r.soldHours) : '—' }}<span v-if="r.soldEur !== null" class="eur-sub">{{ formatMoney(r.soldEur, dashCurrency, currencies) }}</span></td>
-                <td class="text-end">{{ fmtH(r.consumedPeriod) }}<span class="eur-sub">{{ r.consumedPeriodEur == null ? '—' : formatMoney(r.consumedPeriodEur, dashCurrency, currencies) }}</span></td>
-                <td class="text-end pe-3" :class="{'fw-bold text-danger': r.remaining !== null && r.remaining < 0}">{{ r.remaining !== null ? fmtH(r.remaining) : '—' }}<span v-if="r.remainingEur !== null" class="eur-sub" :class="{danger: r.remainingEur < 0}">{{ formatMoney(r.remainingEur, dashCurrency, currencies) }}</span></td>
-              </tr>
-              <tr class="fw-bold" style="background:var(--surface-medium);">
-                <td class="ps-3">TOTAL</td>
-                <td class="text-end">{{ fmtH(entry.totSold) }}<span class="eur-sub">{{ entry.totSoldEur == null ? '—' : formatMoney(entry.totSoldEur, dashCurrency, currencies) }}</span></td>
-                <td class="text-end">{{ fmtH(entry.totPeriod) }}<span class="eur-sub">{{ entry.totPeriodEur == null ? '—' : formatMoney(entry.totPeriodEur, dashCurrency, currencies) }}</span></td>
-                <td class="text-end pe-3" :class="{'text-danger': entry.totRemaining < 0}">{{ fmtH(entry.totRemaining) }}<span class="eur-sub" :class="{danger: entry.totRemainingEur < 0}">{{ entry.totRemainingEur == null ? '—' : formatMoney(entry.totRemainingEur, dashCurrency, currencies) }}</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="detail-section" v-show="taskState(entry.task.name).expanded">
-          <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
-            <span class="text-muted small">Chronological entries</span>
-            <div class="d-flex gap-2 align-items-center">
-              <div class="btn-group btn-group-sm" style="font-size:var(--text-sm)">
-                <button v-for="gm in ['flat','role','owner']" :key="gm" class="btn btn-outline-secondary" :class="{active: taskState(entry.task.name).groupMode === gm}" @click="taskState(entry.task.name).groupMode = gm">{{ gm === 'flat' ? 'Flat' : gm === 'role' ? 'By role' : 'By owner' }}</button>
-              </div>
-              <ExportButtons :tbl-ref="() => $refs['detTable_'+entry.task.name]?.[0]" :filename="'task_'+entry.task.name.replace(/[^a-zA-Z0-9]/g,'_')+'_detail'" :card-ref="() => $refs['detSection_'+entry.task.name]?.[0]" />
-            </div>
-          </div>
-          <div class="table-responsive" :ref="'detSection_'+entry.task.name">
-            <table :ref="'detTable_'+entry.task.name" class="table table-sm align-middle mb-0 det-tbl" style="table-layout:fixed;width:100%">
-              <colgroup><col style="width:15%"><col style="width:40%"><col style="width:15%"><col style="width:30%"></colgroup>
-              <thead style="background:var(--indigo-50);"><tr><th class="ps-3">Date</th><th>{{ taskState(entry.task.name).groupMode === 'flat' ? 'Role (Resource)' : taskState(entry.task.name).groupMode === 'role' ? 'Owner' : 'Role' }}</th><th class="text-end">Hours</th><th>Notes</th></tr></thead>
-              <tbody>
-                <tr v-if="!taskDetailRows(entry, taskState(entry.task.name).groupMode)"><td colspan="4" class="text-center text-muted py-3 small">No entries in the selected period.</td></tr>
-                <template v-else v-for="(row, i) in taskDetailRows(entry, taskState(entry.task.name).groupMode)" :key="i">
-                  <tr v-if="row.isGroupHeader" :style="{background: taskState(entry.task.name).groupMode === 'role' ? 'var(--indigo-50)' : 'var(--color-warning-bg)'}">
-                    <td class="ps-3 fw-semibold small" colspan="2">{{ row.label }}</td>
-                    <td class="text-end fw-semibold small">{{ fmtH(row.hours) }}<span class="eur-sub">{{ row.eur == null ? '—' : formatMoney(row.eur, dashCurrency, currencies) }}</span></td>
-                    <td></td>
-                  </tr>
-                  <tr v-else>
-                    <td class="ps-3">{{ fmtDate(row.date) }}</td>
-                    <td :class="{'text-muted': taskState(entry.task.name).groupMode !== 'flat'}">{{ row.col2 }}</td>
-                    <td class="text-end">{{ fmtH(row.hours) }}<span v-if="row.eur !== null" class="eur-sub">{{ formatMoney(row.eur, dashCurrency, currencies) }}</span></td>
-                    <td class="text-muted small">{{ row.notes }}</td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
     </div>
 
   </template>
@@ -714,16 +709,6 @@
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/nav.js?v=17"></script>
 <script type="module">
-  const ExportButtons = {
-    props: ['tblRef', 'filename', 'cardRef'],
-    template: `
-      <div class="d-flex gap-1">
-        <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:var(--text-xs)" title="Copy" @click="$root.copyTableToClipboard(tblRef?.())">📋</button>
-        <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:var(--text-xs)" title="XLS" @click="$root.exportTableToXLS(tblRef?.(), filename)">📊</button>
-        <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:var(--text-xs)" title="PNG" @click="$root.exportElementToPNG(cardRef?.(), filename)">🖼️</button>
-      </div>`,
-  };
-
   // Inline SVG icon set for the overview (Card/List redesign) — no emoji, same
   // conventions as js/nav.js's navIcon(): viewBox 16x16, stroke="currentColor".
   const PF_ICON_PATHS = {
@@ -749,7 +734,7 @@
   };
 
   Vue.createApp({
-    components: { ExportButtons, PfIcon },
+    components: { PfIcon },
     data() {
       return {
         formatMoney: window.formatMoney,
@@ -778,7 +763,7 @@
         filterMonth: '',
         filterStart: '',
         filterEnd: '',
-        taskDetailState: {}, // { [taskName]: { expanded: bool, groupMode: 'flat'|'role'|'owner' } }
+        taskDetailState: {}, // { [taskName]: { expanded: bool, openMonth: 'YYYY-MM'|null } } — Breakdown task expansion
         notice: '',
         directCreationEnabled: window.DIRECT_PROJECT_CREATION_ENABLED,
         directCreationMessage: window.PROJECT_RULE_MESSAGES.directCreation,
@@ -1204,6 +1189,26 @@
         const { rows, total } = breakdownRows(this.summaryByTask || [], hasFilter);
         return { total, rows: rows.map((r, i) => ({ ...r, key: 't:' + tasks[i].name, taskName: tasks[i].name, subtitle: taskSubtitle(tasks[i], cfg.groups || []) })) };
       },
+      // The Breakdown's rendered sequence: rows, Total, then (By task only) the non-billable tasks.
+      breakdownItems() {
+        const b = this.breakdown;
+        if (!b) return [];
+        const items = b.rows.map(r => ({ kind: 'row', key: r.key, row: r, taskName: this.breakdownView === 'task' ? r.taskName : null }));
+        items.push({ kind: 'total', key: 'total' });
+        if (this.breakdownView === 'task') {
+          const excluded = this.taskDetailData.filter(e => e.task.billable === false);
+          if (excluded.length) {
+            items.push({ kind: 'excluded-head', key: 'excluded-head' });
+            excluded.forEach(e => items.push({ kind: 'excluded', key: 'x:' + e.task.name, taskName: e.task.name, hours: e.totPeriod }));
+          }
+        }
+        return items;
+      },
+      taskDetailByName() {
+        const map = {};
+        this.taskDetailData.forEach(e => { map[e.task.name] = e; });
+        return map;
+      },
       periodLabel() {
         if (!this.filterHasFilter) return 'Whole project';
         return this.filterMonth ? this.monthLabelLong(this.filterMonth) : this.filterRangeLabel;
@@ -1250,7 +1255,8 @@
             const remaining = cfgRes != null ? cfgRes.soldHours - consumedTotal : null;
             const consumedPeriodEur = periodData.filter(r => r.role.toLowerCase() === role.toLowerCase()).reduce((s,r) => s+r.hours*rate, 0);
             const remainingEur = cfgRes != null ? rate * (cfgRes.soldHours - consumedTotal) : null;
-            return { label: `${role} (${owner})`, soldHours, soldEur, consumedPeriod, consumedPeriodEur, remaining, remainingEur };
+            const consumedTotalEur = consumedTotal * rate;
+            return { label: `${role} (${owner})`, role, owners: [...owners].filter(Boolean).join(', '), rate, soldHours, soldEur, consumedPeriod, consumedPeriodEur, consumedTotal, consumedTotalEur, remaining, remainingEur };
           });
 
           const totSold = rows.reduce((s,r) => s+(r.soldHours??0), 0);
@@ -1331,40 +1337,51 @@
       },
       taskState(taskName) {
         if (!this.taskDetailState[taskName]) {
-          this.taskDetailState[taskName] = { expanded: false, groupMode: 'flat' };
+          this.taskDetailState[taskName] = { expanded: false, openMonth: null };
         }
         return this.taskDetailState[taskName];
       },
-      taskDetailRows(entry, groupMode) {
-        const { task, periodData } = entry;
-        if (periodData.length === 0) return null; // template renders the "no entries" row itself
-        if (groupMode === 'flat') {
-          return periodData.map(r => {
-            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
-            return { date: r.date, col2: `${r.role} (${r.owner})`, hours: r.hours, eur: cfgR ? r.hours * cfgR.hourlyRate : null, notes: r.notes, isGroupHeader: false };
-          });
-        }
-        const groups = new Map();
-        periodData.forEach(r => {
-          const k = groupMode === 'role' ? r.role.toLowerCase() : r.owner.toLowerCase();
-          const label = groupMode === 'role' ? r.role : r.owner;
-          if (!groups.has(k)) groups.set(k, { label, entries: [] });
-          groups.get(k).entries.push(r);
+      toggleTask(taskName) {
+        const st = this.taskState(taskName);
+        st.expanded = !st.expanded;
+      },
+      // One open month per task: opening a month closes the other one.
+      toggleMonth(taskName, ym) {
+        const st = this.taskState(taskName);
+        st.openMonth = st.openMonth === ym ? null : ym;
+      },
+      // A task's role rows in the Breakdown's expansion (spec §6 "By task"): Spent is the
+      // period consumption, Remaining and % the whole-project ones, like the task row above.
+      roleSubRows(entry) {
+        const cols = entry.rows.map(r => ({
+          label: r.role,
+          soldHours: r.soldHours ?? 0, soldEur: r.soldEur ?? 0,
+          totalConsumed: r.consumedTotal, totalConsumedEur: r.consumedTotalEur,
+          inPeriod: r.consumedPeriod, inPeriodEur: r.consumedPeriodEur,
+        }));
+        return breakdownRows(cols, true).rows.map((row, i) => {
+          const r = entry.rows[i];
+          const rate = r.soldHours !== null ? `${this.formatMoney(r.rate, this.dashCurrency, this.currencies)}/h` : '';
+          return { ...row, key: r.role, soldConfigured: r.soldHours !== null, subtitle: [r.owners, rate].filter(Boolean).join(' · ') };
         });
-        const out = [];
-        groups.forEach(({ label, entries }) => {
-          const grpH = entries.reduce((s,r) => s+r.hours, 0);
-          const grpEur = entries.reduce((s,r) => {
-            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
-            return s + r.hours * (cfgR?.hourlyRate ?? 0);
-          }, 0);
-          out.push({ isGroupHeader: true, label, hours: grpH, eur: grpEur });
-          entries.forEach(r => {
-            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
-            out.push({ date: r.date, col2: groupMode === 'role' ? r.owner : r.role, hours: r.hours, eur: cfgR ? r.hours * cfgR.hourlyRate : null, notes: r.notes, isGroupHeader: false });
-          });
+      },
+      entryRate(task, row) {
+        const res = task.resources.find(x => x.role.toLowerCase() === (row.role || '').toLowerCase());
+        return res ? res.hourlyRate : null;
+      },
+      taskEntries(entry) {
+        return entriesByMonth(entry.periodData, r => this.entryRate(entry.task, r));
+      },
+      exportTaskEntriesXls(entry) {
+        const cur = this.dashCurrency, list = this.currencies;
+        const aoa = [['Date', 'Role (resource)', 'Hours', 'Amount', 'Note']];
+        entry.periodData.forEach(r => {
+          const rate = this.entryRate(entry.task, r);
+          aoa.push([fmtDate(r.date), r.owner ? `${r.role} (${r.owner})` : r.role, r.hours, rate === null ? '' : this.formatMoney(r.hours * rate, cur, list), r.notes || '']);
         });
-        return out;
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Data');
+        XLSX.writeFile(wb, 'task_' + entry.task.name.replace(/[^a-zA-Z0-9]/g, '_') + '_entries.xlsx');
       },
       filterMonthLabel(ym) {
         const [y, m] = ym.split('-').map(Number);
@@ -1390,18 +1407,6 @@
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Data');
         XLSX.writeFile(wb, 'breakdown_' + this.breakdownView + '.xlsx');
-      },
-      // Called directly from the template (`{{ summaryTotals(summaryByRole, ...) }}`) —
-      // kept as a thin Vue-instance wrapper delegating to the js/lib/portfolio-calc.js
-      // global rather than removed outright, since a compiled Vue template does not
-      // reliably fall back to a bare `window.*` global from inside its own `with()`
-      // block (the same landmine already fixed elsewhere in this codebase for
-      // `openShareModal`, see pipeline.html/costgrid.html Global Constraint 5).
-      // buildSummaryCols() has no such wrapper: it's only ever called from this
-      // component's own computed properties (plain JS, not template expressions),
-      // where a bare global reference resolves normally.
-      summaryTotals(cols, hasFilter) {
-        return summaryTotals(cols, hasFilter);
       },
       showOverview() {
         this.view = 'overview';
@@ -1681,27 +1686,6 @@
         a.href = this._burndownChart.toBase64Image('image/png', 1);
         a.download = `burndown_${this.dashboardProjectId || 'chart'}.png`;
         a.click();
-      },
-      copyTableToClipboard(tbl) {
-        if (!tbl) return;
-        const text = [...tbl.querySelectorAll('tr')]
-          .map(tr => [...tr.querySelectorAll('th,td')].map(c => c.innerText.replace(/\n/g, ' ').trim()).join('\t'))
-          .join('\n');
-        navigator.clipboard.writeText(text).catch(() => {});
-      },
-      exportTableToXLS(tbl, filename) {
-        if (!tbl) return;
-        const wb = XLSX.utils.table_to_book(tbl, { sheet: 'Data' });
-        XLSX.writeFile(wb, filename + '.xlsx');
-      },
-      exportElementToPNG(el, filename) {
-        if (!el || typeof html2canvas === 'undefined') return;
-        html2canvas(el, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
-          const a = document.createElement('a');
-          a.href = canvas.toDataURL('image/png');
-          a.download = filename + '.png';
-          a.click();
-        });
       },
     },
     watch: {

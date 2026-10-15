@@ -215,3 +215,22 @@ describe('project reporting view — Breakdown card', () => {
       .forEach(t => expect(dashboardActive, t).not.toContain(t));
   });
 });
+
+describe('project reporting view — task expansion and entries', () => {
+  it('carries the expansion, entries and excluded copy', () => {
+    ['Entries ·', 'Export XLS', 'entries', 'No entries in the selected period.', 'Excluded from report', 'Role (resource)', 'Amount', 'Note']
+      .forEach(t => expect(dashboardActive, t).toContain(t));
+  });
+
+  it('drops the old Task detail section', () => {
+    ['By owner', 'Chronological entries', 'Expand details', 'Task detail']
+      .forEach(t => expect(dashboardActive, t).not.toContain(t));
+  });
+
+  it('the whole view has no emoji, no hex and no ExportButtons', () => {
+    expect(dashboardActive).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(dashboardActive).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(html).not.toContain('ExportButtons');
+    expect(html).not.toContain('<export-buttons');
+  });
+});
