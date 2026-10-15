@@ -216,6 +216,22 @@ describe('summaryTotals', () => {
     expect(totals.totSpent).toBe(2); // 6 total - 4 in-period
     expect(totals.totSpentEur).toBe(200);
   });
+
+  const charCols = [
+    { soldHours: 20, soldEur: 3200, totalConsumed: 22, totalConsumedEur: 3520, inPeriod: 5, inPeriodEur: 800 },
+    { soldHours: 40, soldEur: 4000, totalConsumed: 10, totalConsumedEur: 1000, inPeriod: 3, inPeriodEur: 300 },
+  ];
+
+  it('totResidual does not depend on the period filter', () => {
+    expect(summaryTotals(charCols, true).totResidual).toBe(summaryTotals(charCols, false).totResidual);
+    expect(summaryTotals(charCols, true).totResidualEur).toBe(summaryTotals(charCols, false).totResidualEur);
+  });
+
+  it('pins the pre-redesign Spent under a filter: consumed minus in-period', () => {
+    const t = summaryTotals(charCols, true);
+    expect(t.totSpent).toBe(32 - 8);
+    expect(t.totSpentEur).toBe(4520 - 1100);
+  });
 });
 
 describe('normalizeGroupEntries', () => {
