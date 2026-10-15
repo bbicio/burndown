@@ -37,13 +37,13 @@ describe('portfolio overview guard', () => {
     expect(overviewActive).not.toMatch(/\p{Extended_Pictographic}/u);
   });
 
-  it('every portfolio.css reference is ?v=2', () => {
+  it('every portfolio.css reference is ?v=3', () => {
     const pages = fs.readdirSync(root).filter(f => f.endsWith('.html'));
     let found = 0;
     pages.forEach(f => {
       for (const m of read(f).matchAll(/portfolio\.css\?v=(\d+)/g)) {
         found++;
-        expect(m[1], f).toBe('2');
+        expect(m[1], f).toBe('3');
       }
     });
     expect(found).toBeGreaterThan(0);
@@ -80,8 +80,10 @@ describe('portfolio overview guard', () => {
     expect(html).toContain('Program Dashboard →');
   });
   it('the sibling-project switcher dropdown has a Program Dashboard entry at the bottom (final review finding 3)', () => {
-    const start = html.indexOf('dashboardSiblings.length');
-    const end = html.indexOf('</div>', html.indexOf('</ul>', start));
+    const start = html.indexOf('pr-switch-menu');
+    const end = html.indexOf('<!-- /pr-switch -->', start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
     const dropdown = html.slice(start, end);
     expect(dropdown).toContain('goProgramDashboard');
     expect(dropdown).toContain('Program Dashboard →');
@@ -110,5 +112,174 @@ describe('portfolio overview guard', () => {
     const methodsBlock = html.slice(methodsStart, methodsEnd);
     expect(methodsBlock).toMatch(/\bspentPercent,/);
     expect(methodsBlock).toMatch(/\bspentBarState,/);
+  });
+});
+
+// The project reporting view (spec 2026-10-15, tavola 7.4): the `<template v-else>` that
+// follows the overview, up to the template's closing tag before `</div>` of #app.
+const dashStart = end;
+const dashEnd = dashStart + html.slice(dashStart).search(/\r?\n {2}<\/template>\r?\n\r?\n<\/div>/);
+const dashboard = html.slice(dashStart, dashEnd);
+const dashboardActive = dashboard.replace(/<!--[\s\S]*?-->/g, '');
+
+describe('project reporting view', () => {
+  const headEnd = dashboard.indexOf('<!-- /pr-kpis -->');
+  const head = dashboard.slice(0, headEnd).replace(/<!--[\s\S]*?-->/g, '');
+
+  it('locates the view template and its header/KPI region', () => {
+    expect(dashEnd).toBeGreaterThan(dashStart);
+    expect(headEnd).toBeGreaterThan(0);
+  });
+
+  it('header and KPIs have no emoji and no hex colour', () => {
+    expect(head).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(head).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  it('carries the header, switch and KPI copy', () => {
+    ['Project Portfolio', 'Projects in program', 'Hours on track', 'Hours ahead of time', 'Hours behind time', 'No budget', 'Time elapsed']
+      .forEach(t => expect(dashboardActive, t).toContain(t));
+  });
+
+  it('keeps the four actions and their gating', () => {
+    ['goConfigure', 'triggerLoadActuals', 'goPlanningForProject', "openShareModal('project'"]
+      .forEach(t => expect(head, t).toContain(t));
+    expect(head.split("my_permission !== 'viewer'").length - 1).toBeGreaterThanOrEqual(2);
+  });
+
+  it('drops the "← Portfolio" buttons', () => {
+    expect(dashboardActive).not.toContain('← Portfolio');
+  });
+});
+
+describe('project reporting view — Progress card', () => {
+  const pStart = dashboard.indexOf('<!-- /pr-kpis -->');
+  const pEnd = dashboard.indexOf('<!-- /pr-progress -->');
+  const progress = dashboard.slice(pStart, pEnd).replace(/<!--[\s\S]*?-->/g, '');
+  const rStart = html.indexOf('renderBurndownChart() {');
+  const render = html.slice(rStart, html.indexOf('exportChartPng() {', rStart));
+
+  it('locates the Progress card', () => {
+    expect(pStart).toBeGreaterThan(-1);
+    expect(pEnd).toBeGreaterThan(pStart);
+    expect(rStart).toBeGreaterThan(-1);
+  });
+
+  it('carries the Progress copy and the empty state', () => {
+    ['Progress', 'Burndown', 'Monthly summary', 'Pass-through', 'Remaining hours (actual)', 'Remaining hours planned', 'No actuals loaded yet.', 'current']
+      .forEach(t => expect(progress, t).toContain(t));
+  });
+
+  it('has no emoji, no hex and no ExportButtons', () => {
+    expect(progress).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(progress).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(progress).not.toContain('<ExportButtons');
+    expect(progress).not.toContain('<export-buttons');
+  });
+
+  it('gates the empty-state Load Actuals like the header', () => {
+    expect(progress).toContain('triggerLoadActuals');
+    expect(progress).toContain("my_permission !== 'viewer'");
+  });
+
+  it('draws two series with the shared Today plugin', () => {
+    expect(render).toContain('todayLabelPlugin(');
+    expect(render).toContain("chartColor('--chart-actual'");
+    expect(render).toContain("chartColor('--chart-phasing'");
+    expect(render).not.toContain('Estimated Hours');
+  });
+});
+
+describe('project reporting view — Breakdown card', () => {
+  const bStart = dashboard.indexOf('<!-- /pr-progress -->');
+  const bEnd = dashboard.indexOf('<!-- /pr-breakdown -->');
+  const breakdown = dashboard.slice(bStart, bEnd).replace(/<!--[\s\S]*?-->/g, '');
+
+  it('locates the Breakdown card', () => {
+    expect(bStart).toBeGreaterThan(-1);
+    expect(bEnd).toBeGreaterThan(bStart);
+  });
+
+  it('carries the Breakdown and Period copy', () => {
+    ['Breakdown', 'By task', 'By role', 'By functional area', 'No functional areas configured', 'Remaining (total)', 'Total consumption', 'Over sold', 'Whole project', 'Custom range', 'Reset']
+      .forEach(t => expect(breakdown, t).toContain(t));
+  });
+
+  it('has no emoji and no hex', () => {
+    expect(breakdown).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(breakdown).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  it('drops the period-filter card and the three summary cards', () => {
+    ['In period', 'Summary by task', 'Summary by role', 'Summary by functional area', 'Period filter']
+      .forEach(t => expect(dashboardActive, t).not.toContain(t));
+  });
+});
+
+describe('project reporting view — task expansion and entries', () => {
+  it('carries the expansion, entries and excluded copy', () => {
+    ['Entries ·', 'Export XLS', 'entries', 'No entries in the selected period.', 'Excluded from report', 'Role (resource)', 'Amount', 'Note']
+      .forEach(t => expect(dashboardActive, t).toContain(t));
+  });
+
+  it('drops the old Task detail section', () => {
+    ['By owner', 'Chronological entries', 'Expand details', 'Task detail']
+      .forEach(t => expect(dashboardActive, t).not.toContain(t));
+  });
+
+  it('the whole view has no emoji, no hex and no ExportButtons', () => {
+    expect(dashboardActive).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(dashboardActive).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(html).not.toContain('ExportButtons');
+    expect(html).not.toContain('<export-buttons');
+  });
+});
+
+describe('project reporting view — visual fidelity pass (Task 7)', () => {
+  it('has no in-page breadcrumb (the global one is the only breadcrumb)', () => {
+    expect(dashboardActive).not.toContain('aria-label="breadcrumb"');
+  });
+  it('hides the Breakdown Remaining column below 1280px, where the sidebar leaves too little width', () => {
+    const m = css.match(/@media \(max-width: 1279px\) \{([\s\S]*?)\n\}/g) || [];
+    expect(m.some(b => /\.pr-bd-remaining\s*\{\s*display:\s*none/.test(b))).toBe(true);
+  });
+  it('never breaks a KPI figure inside itself; "of …" wraps as a whole', () => {
+    expect(css).toMatch(/\.pr-kpis \.pg-tile-value\s*\{[^}]*white-space:\s*nowrap[^}]*\}/);
+    expect(css).toMatch(/\.pr-kpis \.pg-tile-value\s*\{[^}]*flex-wrap:\s*wrap[^}]*\}/);
+  });
+});
+
+describe('project reporting view — Gate 3 review fixes', () => {
+  it('keeps the Pass-through view reachable without actuals', () => {
+    expect(dashboardActive).toContain(`v-if="!dashboardData.length && progressView !== 'ptc'" class="pr-empty"`);
+  });
+  it('says "Cumulative hours" / "consumed" when there is no budget', () => {
+    expect(dashboardActive).toContain(`'Cumulative hours' : 'Remaining hours (actual)'`);
+    expect(html).toContain(`budget !== null ? 'left' : 'consumed'`);
+  });
+  it('shows no Today marker without project dates and bounds it by the axis', () => {
+    expect(html).toMatch(/if \(!s \|\| !cfg\?\.startDate \|\| !cfg\?\.endDate\) return null;/);
+    expect(html).toContain('todayIndex(s.points, this.reportToday, { start: s.axisStart, end: s.axisEnd })');
+  });
+  it('resets the period filter and the task expansion on a project switch', () => {
+    const m = html.match(/showDashboard\(pid\) \{([\s\S]*?)\n      \},/);
+    expect(m).not.toBeNull();
+    expect(m[1]).toContain('this.resetDateFilter();');
+    expect(m[1]).toContain('this.taskDetailState = {};');
+  });
+  it('reads "—" for Sold and Remaining without a sold reference', () => {
+    expect(dashboardActive).toContain(`!it.row.soldKnown ? '—' : fmtH(it.row.soldHours)`);
+    expect(dashboardActive).toContain(`!breakdown.total.soldKnown ? '—' : fmtH(breakdown.total.soldHours)`);
+    expect(dashboardActive).toContain(`sr.soldKnown ? fmtH(sr.soldHours) : '—'`);
+  });
+  it('makes the task, excluded and month rows keyboard-operable', () => {
+    expect((dashboardActive.match(/@keydown\.enter\.space\.prevent=/g) || []).length).toBe(3);
+  });
+  it('destroys the burndown chart when the Progress card leaves the Burndown view', () => {
+    expect(html).toMatch(/else if \(this\._burndownChart\) \{ this\._burndownChart\.destroy\(\); this\._burndownChart = null; \}/);
+  });
+  it('computes the sibling metrics only while the switch menu is open', () => {
+    expect(html).toMatch(/if \(!this\.switchMenuOpen \|\| !list\.length\) return \[\];/);
+    expect(dashboardActive).toContain('<template v-if="switchMenuOpen">');
   });
 });

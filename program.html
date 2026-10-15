@@ -10,7 +10,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="css/tokens.css?v=9">
   <link rel="stylesheet" href="css/style.css?v=21">
-  <link rel="stylesheet" href="css/portfolio.css?v=2">
+  <link rel="stylesheet" href="css/portfolio.css?v=3">
   <style>
     .app-container { padding: 0 12px; }
   </style>
@@ -274,8 +274,9 @@
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/shares.js"></script>
-<script type="module" src="js/lib/portfolio-calc.js?v=5"></script>
-<script type="module" src="js/lib/program-calc.js?v=1"></script>
+<script type="module" src="js/lib/portfolio-calc.js?v=6"></script>
+<script type="module" src="js/lib/program-calc.js?v=2"></script>
+<script type="module" src="js/lib/chart-today.js?v=1"></script>
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/nav.js?v=17"></script>
 <script type="module">
@@ -464,32 +465,13 @@
           datasets[0].pointBackgroundColor = this.chartColor('--brand-navy', 'navy');
         }
 
-        const todayLabelPlugin = {
+        const todayLabelPlugin = window.todayLabelPlugin({
           id: 'pgTodayLabel',
-          afterDraw: chart => {
-            if (todayIndex === null) return;
-            const point = chart.getDatasetMeta(0).data[todayIndex];
-            if (!point) return;
-            const { ctx } = chart;
-            const text = `${fmtH(todayRemaining)} left · ${labels[todayIndex]}`;
-            ctx.save();
-            ctx.font = '600 11px sans-serif';
-            const textWidth = ctx.measureText(text).width;
-            const padX = 7, boxW = textWidth + padX * 2, boxH = 20;
-            const x = point.x, y = point.y - 12;
-            ctx.fillStyle = this.chartColor('--brand-navy', 'navy');
-            const r = 4;
-            ctx.beginPath();
-            if (ctx.roundRect) ctx.roundRect(x - boxW / 2, y - boxH, boxW, boxH, r);
-            else ctx.rect(x - boxW / 2, y - boxH, boxW, boxH);
-            ctx.fill();
-            ctx.fillStyle = this.chartColor('--surface-white', 'white');
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text, x, y - boxH / 2);
-            ctx.restore();
-          },
-        };
+          index: todayIndex,
+          text: todayIndex !== null ? `${fmtH(todayRemaining)} left · ${labels[todayIndex]}` : '',
+          bg: this.chartColor('--brand-navy', 'navy'),
+          fg: this.chartColor('--surface-white', 'white'),
+        });
 
         this._burndownChart = new Chart(this.$refs.burndownCanvas, {
           type: 'line',

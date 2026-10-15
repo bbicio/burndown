@@ -3,10 +3,10 @@
 // Portfolio (spentPercent/spentBarState from portfolio-calc.js). See
 // docs/superpowers/specs/2026-10-08-program-dashboard-design.md §6.
 
-// ?v=5 matches program.html's own <script src="js/lib/portfolio-calc.js?v=5"> tag — bumping
+// ?v=6 matches program.html's own <script src="js/lib/portfolio-calc.js?v=6"> tag — bumping
 // one without the other would leave this import resolving to a stale cached copy while the
 // page's own direct references pick up the new one (CLAUDE.md's "Cache-busting" section).
-import { spentPercent, spentBarState, computeBurndownPoints } from './portfolio-calc.js?v=5';
+import { spentPercent, spentBarState, computeBurndownPoints } from './portfolio-calc.js?v=6';
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 

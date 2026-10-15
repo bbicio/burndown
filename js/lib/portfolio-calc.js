@@ -159,23 +159,6 @@ export function buildSummaryCols(rows, byKeyFn, entries, filterRange, cfg, findR
   });
 }
 
-// Sums an array of buildSummaryCols() columns into the TOTAL column shown at the
-// right edge of each summary card — agnostic to how the columns were grouped (single
-// or composite key), so regrouping a card's key never requires a change here.
-export function summaryTotals(cols, hasFilter) {
-  const totSold = cols.reduce((s, c) => s + c.soldHours, 0);
-  const totSoldEur = cols.reduce((s, c) => s + c.soldEur, 0);
-  const totConsumed = cols.reduce((s, c) => s + c.totalConsumed, 0);
-  const totConsumedEur = cols.reduce((s, c) => s + c.totalConsumedEur, 0);
-  const totInPeriod = cols.reduce((s, c) => s + c.inPeriod, 0);
-  const totInPeriodEur = cols.reduce((s, c) => s + c.inPeriodEur, 0);
-  const totSpent = totConsumed - (hasFilter ? totInPeriod : 0);
-  const totSpentEur = totConsumedEur - (hasFilter ? totInPeriodEur : 0);
-  const totResidual = totSold - totConsumed;
-  const totResidualEur = totSoldEur - totConsumedEur;
-  return { totSold, totSoldEur, totSpent, totSpentEur, totInPeriod, totInPeriodEur, totResidual, totResidualEur };
-}
-
 // Functional-area group membership. A group's `entries` is the precise, current
 // shape: [{role, task}], where task === '' means "any task" (a wildcard). Legacy
 // projects only have `roles: string[]` (no task association at all) -- normalized
@@ -309,6 +292,5 @@ window.commonCurrency = commonCurrency;
 window.computeKpis = computeKpis;
 window.computeBurndownPoints = computeBurndownPoints;
 window.buildSummaryCols = buildSummaryCols;
-window.summaryTotals = summaryTotals;
 window.normalizeGroupEntries = normalizeGroupEntries;
 window.entryMatchesRow = entryMatchesRow;

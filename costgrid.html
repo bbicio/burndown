@@ -838,7 +838,7 @@ Vue.createApp({
       // Reactive copy of js/programs.js's own module-level cache — getPrograms() itself is a
       // classic-script global a runtime-compiled Vue template can't resolve (its `with(_ctx)`
       // proxy only sees `_ctx.*`/component `data`/`methods`, the same landmine already documented
-      // for openShareModal on this page and summaryTotals on portfolio.html), so the Create
+      // for openShareModal on this page), so the Create
       // Program modal's "link to existing" dropdown reads this instead.
       programs: [],
       createProgramModal: { existingId: '', name: '', id: '', error: '', saving: false },

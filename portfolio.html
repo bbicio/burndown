@@ -10,7 +10,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="css/tokens.css?v=9">
   <link rel="stylesheet" href="css/style.css?v=21">
-  <link rel="stylesheet" href="css/portfolio.css?v=2">
+  <link rel="stylesheet" href="css/portfolio.css?v=3">
   <style>
     .app-container { padding: 0 12px; }
   </style>
@@ -317,43 +317,57 @@
   </template>
 
   <template v-else>
-    <div class="pt-4 mb-3">
-      <nav aria-label="breadcrumb" class="mb-2">
-        <ol class="breadcrumb mb-0" style="font-size:var(--text-xs)">
-          <li class="breadcrumb-item"><a href="#" class="text-muted text-decoration-none" @click.prevent="showOverview">Portfolio</a></li>
-          <li v-if="dashboardProgram" class="breadcrumb-item"><a :href="'/program.html?programId=' + encodeURIComponent(dashboardProgram.id)" class="text-muted text-decoration-none">{{ dashboardProgram.name }}</a></li>
-          <li class="breadcrumb-item active text-muted" aria-current="page">{{ dashboardProject?.name || dashboardProject?.code || dashboardProjectId }}</li>
-        </ol>
-      </nav>
-      <div v-if="dashboardProgramRow" class="text-muted mb-1" style="font-size:.9rem" v-html="dashboardProgramRow"></div>
-      <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-        <span class="fw-bold fs-5" style="color:var(--brand-navy)">{{ dashboardProject?.name || dashboardProject?.code || dashboardProjectId }}</span>
-        <span v-if="dashboardProject?.code && dashboardProject?.name" class="text-muted small" style="font-family:monospace">{{ dashboardProject.code }}</span>
-        <span class="d-inline-flex gap-1 align-items-center flex-wrap" v-html="dashboardMetaHtml"></span>
-        <div class="dropdown" v-if="dashboardSiblings.length">
-          <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:.75rem;padding:2px 7px" title="Switch project">▾</button>
-          <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:320px;font-size:.85rem">
-            <li v-for="s in dashboardSiblings" :key="s.id">
-              <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="#" @click.prevent="showDashboard(s.id)">
-                <span class="fw-semibold">{{ s.name || s.code || s.id }}</span>
-                <span v-if="s.code && s.name" class="text-muted small" style="font-family:monospace">{{ s.code }}</span>
-                <span class="ms-auto d-inline-flex gap-1" v-html="s.badgesHtml"></span>
-              </a>
-            </li>
-            <li v-if="dashboardProgram"><hr class="dropdown-divider"></li>
-            <li v-if="dashboardProgram">
-              <a class="dropdown-item" href="#" @click.prevent="goProgramDashboard(dashboardProgram.id)">Program Dashboard →</a>
-            </li>
-          </ul>
+    <div class="pr-head">
+      <a href="#" class="pr-back" @click.prevent="showOverview"><pf-icon name="chevron-left" :size="12"></pf-icon>Project Portfolio</a>
+      <div class="pr-head-row">
+        <div class="pr-head-main">
+          <div v-if="dashboardProgram" class="pr-program-row">
+            <span class="pr-program-label">Program</span>
+            <span class="pr-program-name">{{ dashboardProgram.name }}</span>
+            <span class="pr-dot">·</span>
+            <span>{{ dashboardSiblingList.length }} project{{ dashboardSiblingList.length === 1 ? '' : 's' }}</span>
+            <span class="pr-dot">·</span>
+            <a :href="'/program.html?programId=' + encodeURIComponent(dashboardProgram.id)" class="pr-program-link">Program Dashboard →</a>
+          </div>
+          <div class="pr-title-row">
+            <div v-if="dashboardProgram" class="dropdown pr-switch" v-on="{ 'show.bs.dropdown': onSwitchShow, 'hidden.bs.dropdown': onSwitchHidden }">
+              <button ref="switchBtn" type="button" class="pr-title pr-switch-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Switch project">
+                {{ dashboardTitle }}<pf-icon name="chevron-down" :size="16"></pf-icon>
+              </button>
+              <div class="dropdown-menu pr-switch-menu">
+                <template v-if="switchMenuOpen">
+                <div class="pr-switch-head">Projects in program {{ dashboardProgram.name }}</div>
+                <a v-for="s in dashboardSiblings" :key="s.id" href="#" class="pr-switch-row" :class="{ 'pr-switch-current': s.current }" @click.prevent="showDashboard(s.id)">
+                  <span class="pr-switch-main">
+                    <span class="pr-switch-name">{{ s.name || s.code || s.id }}<pf-icon v-if="s.current" name="check" :size="12"></pf-icon></span>
+                    <span v-if="s.code" class="pr-code">{{ s.code }}</span>
+                  </span>
+                  <span class="pr-pill" v-html="statusBadgeLarge(s.status)"></span>
+                  <span class="pf-spent-bar pf-spent-thin pr-switch-bar" :class="'pf-spent-' + spentBarState(s.metrics.consumptionPct)"><span class="pf-spent-bar-fill" :style="{ width: Math.min(100, s.metrics.consumptionPct || 0) + '%' }"></span></span>
+                  <span class="pr-switch-pct" :class="'pr-pct-' + spentBarState(s.metrics.consumptionPct)">{{ s.metrics.consumptionPct !== null ? s.metrics.consumptionPct + '%' : '—' }}</span>
+                </a>
+                <div class="pr-switch-foot">
+                  <span>{{ dashboardSiblings.length }} project{{ dashboardSiblings.length === 1 ? '' : 's' }} · {{ fmtH(dashboardProgramTotals.soldHours) }} sold · {{ dashboardProgramTotals.consumptionPct !== null ? dashboardProgramTotals.consumptionPct + '%' : '—' }} consumed</span>
+                  <a :href="'/program.html?programId=' + encodeURIComponent(dashboardProgram.id)" class="pr-program-link" @click.prevent="goProgramDashboard(dashboardProgram.id)">Program Dashboard →</a>
+                </div>
+                </template>
+              </div><!-- /pr-switch -->
+            </div>
+            <h1 v-else class="pr-title">{{ dashboardTitle }}</h1>
+            <span class="pr-pill" v-html="dashboardMetaHtml"></span>
+          </div>
+          <div class="pr-meta">
+            <span v-if="dashboardClientName">{{ dashboardClientName }}</span>
+            <span v-if="dashboardProject?.code" class="pr-code">{{ dashboardProject.code }}</span>
+            <span v-if="dashboardProject?.startDate && dashboardProject?.endDate">{{ monthLabelLong(dashboardProject.startDate) }} – {{ monthLabelLong(dashboardProject.endDate) }}</span>
+            <span v-for="t in dashboardTags" :key="t.item_id" class="pf-badge-neutral">{{ t.label }}</span>
+          </div>
         </div>
-      </div>
-      <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-        <div><button class="btn btn-outline-secondary btn-sm" @click="showOverview">← Portfolio</button></div>
-        <div class="d-flex gap-2">
-          <button v-if="dashboardProject?.my_permission !== 'viewer'" class="btn btn-outline-secondary btn-sm" @click="goConfigure(dashboardProjectId)">⚙️ Configure</button>
-          <button v-if="dashboardProject?.my_permission !== 'viewer'" class="btn btn-outline-secondary btn-sm" title="Upload XLS actuals for this project" @click="triggerLoadActuals(dashboardProjectId)">📂 Load Actuals</button>
-          <button class="btn btn-outline-secondary btn-sm" @click="goPlanningForProject(dashboardProjectId)">📅 Planning</button>
-          <button class="btn btn-outline-secondary btn-sm" @click="openShareModal('project', dashboardProjectId, dashboardProject?.name || dashboardProjectId)">🔗 Share</button>
+        <div class="pr-actions">
+          <button v-if="dashboardProject?.my_permission !== 'viewer'" type="button" class="btn btn-sm btn-outline-secondary pr-action" @click="goConfigure(dashboardProjectId)"><pf-icon name="gear" :size="14"></pf-icon>Configure</button>
+          <button v-if="dashboardProject?.my_permission !== 'viewer'" type="button" class="btn btn-sm btn-outline-secondary pr-action" title="Upload XLS actuals for this project" @click="triggerLoadActuals(dashboardProjectId)"><pf-icon name="upload" :size="14"></pf-icon>Load Actuals</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary pr-action" @click="goPlanningForProject(dashboardProjectId)"><pf-icon name="calendar" :size="14"></pf-icon>Planning</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary pr-action" @click="openShareModal('project', dashboardProjectId, dashboardProject?.name || dashboardProjectId)"><pf-icon name="share" :size="14"></pf-icon>Share</button>
           <!-- ＋/✓ Summary toggle hidden 2026-09 per user request, see the matching pinnedSummary panel comment above
           <button class="btn btn-sm" :class="isPinnedSummary(dashboardProjectId) ? 'btn-success' : 'btn-outline-secondary'" @click="toggleSummary(dashboardProjectId)">{{ isPinnedSummary(dashboardProjectId) ? '✓ Summary' : '＋ Summary' }}</button>
           -->
@@ -363,235 +377,293 @@
 
     <div v-if="dashboardReady">
       <div v-if="!dashboardProject" class="alert alert-warning">
-        <strong>⚠️ Budget not configured for this project.</strong>
-        Click <strong>⚙️ Configure Budget</strong> to enter sold hours and hourly rates.
+        <strong>Budget not configured for this project.</strong>
+        Click <strong>Configure</strong> to enter sold hours and hourly rates.
       </div>
-      <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card blue shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">📦 Total Sold Hours</div><div class="fw-bold fs-4">{{ kpis.soldHours !== null ? fmtH(kpis.soldHours) : '—' }}</div><div class="text-muted small">from configuration</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card green shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💰 Total Budget</div><div class="fw-bold fs-4">{{ kpis.budgetTotal !== null ? formatMoney(kpis.budgetTotal, dashCurrency, currencies) : '—' }}</div><div class="text-muted small">{{ kpiBudgetEurSub }}</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card orange shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">⏱️ Hours Consumed</div><div class="fw-bold fs-4">{{ fmtH(kpis.consumedHours) }}</div><div class="text-muted small">{{ kpiAsOfStr }}</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card purple shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💸 Budget Consumed</div><div class="fw-bold fs-4">{{ kpis.consumedEur !== null ? formatMoney(kpis.consumedEur, dashCurrency, currencies) : '—' }}</div><div class="text-muted small">{{ kpiAsOfStr }}</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card teal shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">⏳ Hours Left</div><div class="fw-bold fs-4" :style="{color: kpiLeftColor(kpis.hoursLeft, kpis.soldHours)}">{{ kpis.hoursLeft !== null ? fmtH(kpis.hoursLeft) : '—' }}</div><div class="text-muted small">sold − consumed</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card red shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💼 Budget Left</div><div class="fw-bold fs-4" :style="{color: kpiLeftColor(kpis.budgetLeft, kpis.budgetTotal)}">{{ kpis.budgetLeft !== null ? formatMoney(kpis.budgetLeft, dashCurrency, currencies) : '—' }}</div><div class="text-muted small">{{ kpiBudgetLeftSub }}</div></div></div></div>
-      </div>
-      <div class="section-card mb-4">
-        <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <span>📉 Hours Burndown</span>
-          <div class="d-flex align-items-center gap-3 flex-wrap">
-            <div class="btn-group btn-group-sm">
-              <button v-for="opt in ['monthly','quarterly','biweekly','weekly']" :key="opt" class="btn btn-outline-secondary" :class="{active: burndownInterval === opt}" @click="burndownInterval = opt">{{ opt.charAt(0).toUpperCase() + opt.slice(1) }}</button>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-              <label class="small text-muted mb-0 fw-normal">Filter by task:</label>
-              <select class="form-select form-select-sm" v-model="burndownTaskFilter" style="min-width:220px">
-                <option value="">All tasks</option>
-                <option v-for="t in billableTaskNames" :key="t" :value="t">{{ t }}</option>
-              </select>
-            </div>
-            <button class="btn btn-outline-secondary btn-sm" title="Export chart as PNG" @click="exportChartPng">🖼 Export PNG</button>
+      <div class="pg-kpis pr-kpis">
+        <div class="pg-tile">
+          <div class="pg-tile-label">Hours</div>
+          <div class="pg-tile-value">{{ fmtH(kpis.consumedHours) }}<span v-if="kpis.soldHours !== null" class="pg-tile-of">of {{ fmtH(kpis.soldHours) }}</span></div>
+          <div class="pf-spent-bar pr-kpi-bar" :class="'pf-spent-' + spentBarState(kpiHoursPct)"><div class="pf-spent-bar-fill" :style="{ width: Math.min(100, kpiHoursPct || 0) + '%' }"></div></div>
+          <div class="pg-tile-foot">
+            <span>{{ kpiHoursPct !== null ? kpiHoursPct + '% consumed' : '—' }}</span>
+            <span v-if="kpis.hoursLeft !== null" :style="{ color: kpiLeftColor(kpis.hoursLeft, kpis.soldHours) }">{{ fmtH(kpis.hoursLeft) }} left</span>
           </div>
         </div>
-        <div class="p-3"><div class="chart-container"><canvas ref="burndownCanvas"></canvas></div></div>
-      </div>
-      <div class="section-card mb-4" v-if="monthlySummary">
-        <div class="section-header d-flex justify-content-between align-items-center">
-          <span>📅 Monthly Summary — hours and budget spent by month</span>
-          <ExportButtons :tbl-ref="() => $refs.monthlyTable" filename="monthly_summary" :card-ref="() => $refs.monthlyCard" />
-        </div>
-        <div class="table-responsive" ref="monthlyCard">
-          <table ref="monthlyTable" class="table table-sm table-hover align-middle mb-0 tbl-fixed">
-            <thead style="background:var(--surface-light);">
-              <tr>
-                <th class="ps-3" rowspan="2" style="vertical-align:middle;border-bottom:2px solid var(--border-light)">Month</th>
-                <th colspan="3" class="text-center border-start" style="border-bottom:2px solid var(--border-light)">Hours</th>
-                <th colspan="3" class="text-center border-start" style="border-bottom:2px solid var(--border-light)">Budget</th>
-                <th v-if="monthlySummary.hasPtc" class="text-center border-start" rowspan="2" style="vertical-align:middle;border-bottom:2px solid var(--border-light)">PTC</th>
-              </tr>
-              <tr style="background:var(--surface-light);">
-                <th class="text-end border-start">Estimated</th><th class="text-end">Consumed</th><th class="text-end">Variance</th>
-                <th class="text-end border-start">Estimated</th><th class="text-end">Spent</th><th :class="monthlySummary.hasPtc ? 'text-end' : 'text-end pe-3'">Variance</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="m in monthlySummary.months" :key="m.label">
-                <td class="ps-3">{{ m.label }}</td>
-                <td class="text-end border-start">{{ dashboardProject ? fmtH(m.estimatedHours) : '—' }}</td>
-                <td class="text-end">{{ fmtH(m.hours) }}</td>
-                <td class="text-end" :class="{'text-danger fw-bold': m.hVar !== null && m.hVar < 0}">{{ m.hVar !== null ? fmtH(m.hVar) : '—' }}</td>
-                <td class="text-end border-start">{{ dashboardProject && m.estimated != null ? formatMoney(m.estimated, dashCurrency, currencies) : '—' }}</td>
-                <td class="text-end">{{ m.spent !== null ? formatMoney(m.spent, dashCurrency, currencies) : '—' }}</td>
-                <td :class="[monthlySummary.hasPtc ? 'text-end' : 'text-end pe-3', {'text-danger fw-bold': m.bVar !== null && m.bVar < 0}]">{{ m.bVar !== null ? formatMoney(m.bVar, dashCurrency, currencies) : '—' }}</td>
-                <td v-if="monthlySummary.hasPtc" class="text-end pe-3 border-start">{{ m.ptc > 0 ? formatMoney(m.ptc, dashCurrency, currencies) : '—' }}</td>
-              </tr>
-              <tr class="fw-bold" style="background:var(--surface-medium);">
-                <td class="ps-3">TOTAL</td>
-                <td class="text-end border-start">{{ monthlySummary.totEstimatedHours !== null ? fmtH(monthlySummary.totEstimatedHours) : '—' }}</td>
-                <td class="text-end">{{ fmtH(monthlySummary.totHours) }}</td>
-                <td class="text-end" :class="{'text-danger': monthlySummary.totHoursVariance !== null && monthlySummary.totHoursVariance < 0}">{{ monthlySummary.totHoursVariance !== null ? fmtH(monthlySummary.totHoursVariance) : '—' }}</td>
-                <td class="text-end border-start">{{ monthlySummary.totEstimated !== null ? formatMoney(monthlySummary.totEstimated, dashCurrency, currencies) : '—' }}</td>
-                <td class="text-end">{{ monthlySummary.totSpent !== null ? formatMoney(monthlySummary.totSpent, dashCurrency, currencies) : '—' }}</td>
-                <td :class="monthlySummary.hasPtc ? 'text-end' : 'text-end pe-3'" :style="{color: (monthlySummary.totBudgetVariance !== null && monthlySummary.totBudgetVariance < 0) ? 'red' : ''}">{{ monthlySummary.totBudgetVariance !== null ? formatMoney(monthlySummary.totBudgetVariance, dashCurrency, currencies) : '—' }}</td>
-                <td v-if="monthlySummary.hasPtc" class="text-end pe-3 border-start">{{ monthlySummary.totPtc !== null ? formatMoney(monthlySummary.totPtc, dashCurrency, currencies) : '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="section-card mb-4" v-if="ptcReport">
-        <div class="section-header d-flex justify-content-between align-items-center">
-          <span>💼 Pass Through Costs</span>
-          <ExportButtons :tbl-ref="() => $refs.ptcTable" filename="ptc_report" :card-ref="() => $refs.ptcCard" />
-        </div>
-        <div class="table-responsive" ref="ptcCard">
-          <table ref="ptcTable" class="table table-sm table-hover align-middle mb-0">
-            <thead style="background:var(--surface-light);"><tr><th class="ps-3" style="width:160px">Month</th><th>Title</th><th>Note</th><th class="text-end pe-3">Amount</th></tr></thead>
-            <tbody>
-              <tr v-for="(p, i) in ptcReport.rows" :key="i" :style="i % 2 !== 0 ? 'background:var(--surface-light)' : ''">
-                <td class="ps-3">{{ p.monthLabel }}</td>
-                <td class="fw-semibold">{{ p.title || '—' }}</td>
-                <td class="text-muted small">{{ p.note || '' }}</td>
-                <td class="text-end pe-3 fw-semibold">{{ formatMoney(p.amount || 0, dashCurrency, currencies) }}</td>
-              </tr>
-              <tr class="fw-bold" style="background:var(--surface-medium);"><td class="ps-3" colspan="3">TOTAL</td><td class="text-end pe-3">{{ ptcReport.total == null ? '—' : formatMoney(ptcReport.total, dashCurrency, currencies) }}</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="section-card mb-4">
-        <div class="section-header">🗓️ Period filter — applies to all summary and detail tables below</div>
-        <div class="p-3">
-          <div class="row g-3 align-items-end flex-wrap">
-            <div class="col-auto"><label class="form-label small fw-semibold mb-1">Month</label>
-              <select class="form-select form-select-sm" v-model="filterMonth" style="min-width:160px" @change="filterStart = ''; filterEnd = '';">
-                <option value="">— All months —</option>
-                <option v-for="ym in filterMonthOptions" :key="ym" :value="ym">{{ filterMonthLabel(ym) }}</option>
-              </select>
+        <div class="pg-tile">
+          <div class="pg-tile-label">Budget</div>
+          <template v-if="kpis.budgetTotal">
+            <div class="pg-tile-value">{{ formatMoney(kpis.consumedEur, dashCurrency, currencies) }}<span class="pg-tile-of">of {{ formatMoney(kpis.budgetTotal, dashCurrency, currencies) }}</span></div>
+            <div class="pf-spent-bar pr-kpi-bar" :class="'pf-spent-' + spentBarState(kpiBudgetPct)"><div class="pf-spent-bar-fill" :style="{ width: Math.min(100, kpiBudgetPct || 0) + '%' }"></div></div>
+            <div class="pg-tile-foot">
+              <span>{{ kpiBudgetPct }}% spent</span>
+              <span :style="{ color: kpiLeftColor(kpis.budgetLeft, kpis.budgetTotal) }">{{ formatMoney(kpis.budgetLeft, dashCurrency, currencies) }} left</span>
             </div>
-            <div class="col-auto d-flex align-items-end pb-1"><span class="text-muted small">or</span></div>
-            <div class="col-auto"><label class="form-label small fw-semibold mb-1">From</label><input type="date" class="form-control form-control-sm" v-model="filterStart" @change="filterMonth = ''"></div>
-            <div class="col-auto"><label class="form-label small fw-semibold mb-1">To</label><input type="date" class="form-control form-control-sm" v-model="filterEnd" @change="filterMonth = ''"></div>
-            <div class="col-auto"><button class="btn btn-outline-secondary btn-sm" @click="resetDateFilter">↺ Reset</button></div>
-            <div class="col-auto"><span class="text-muted small">{{ filterRangeLabel }}</span></div>
+            <div v-if="kpis.totalPtc > 0" class="pr-kpi-note">incl. {{ formatMoney(kpis.totalPtc, dashCurrency, currencies) }} PTC</div>
+          </template>
+          <template v-else>
+            <div class="pg-tile-value">—</div>
+            <div class="pf-spent-bar pf-spent-none pr-kpi-bar"><div class="pf-spent-bar-fill"></div></div>
+            <div class="pg-tile-foot"><span>No budget</span></div>
+          </template>
+        </div>
+        <div class="pg-tile">
+          <div class="pg-tile-label">Time elapsed</div>
+          <div class="pg-tile-value">{{ dashboardMetrics && dashboardMetrics.timePct !== null ? dashboardMetrics.timePct + '%' : '—' }}<span v-if="dashboardProject?.startDate && dashboardProject?.endDate" class="pg-tile-of">{{ monthLabelLong(dashboardProject.startDate) }} – {{ monthLabelLong(dashboardProject.endDate) }}</span></div>
+          <div class="pg-progress-bar pr-kpi-bar"><div class="pg-progress-fill pr-time-fill" :style="{ width: (dashboardMetrics?.timePct || 0) + '%' }"></div></div>
+          <div class="pg-tile-foot">
+            <span>As of {{ reportTodayLabel }}</span>
+            <span v-if="kpiPace" class="pr-pace">{{ kpiPace === 'ahead' ? 'Hours ahead of time' : kpiPace === 'behind' ? 'Hours behind time' : 'Hours on track' }}</span>
           </div>
         </div>
-      </div>
-      <div class="section-card mb-4" v-if="summaryByTask">
-        <div class="section-header d-flex justify-content-between align-items-center">
-          <span>📋 Summary by task</span>
-          <ExportButtons :tbl-ref="() => $refs.summaryByTaskTable" filename="summary_by_task" :card-ref="() => $refs.summaryByTaskCard" />
-        </div>
-        <div class="table-responsive" ref="summaryByTaskCard">
-          <table ref="summaryByTaskTable" class="table table-sm align-middle mb-0 tbl-fixed">
-            <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByTask" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
-            <tbody>
-              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ c.soldEur == null ? '—' : formatMoney(c.soldEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totSold) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByTask, filterHasFilter).totSoldEur, dashCurrency, currencies) }}</span></td></tr>
-              <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totSpent) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByTask, filterHasFilter).totSpentEur, dashCurrency, currencies) }}</span></td></tr>
-              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ c.inPeriodEur == null ? '—' : formatMoney(c.inPeriodEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByTask, filterHasFilter).totInPeriod) : '—' }}</td></tr>
-              <tr style="background:var(--surface-medium);"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByTask" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(c.soldEur - c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByTask, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totResidual) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByTask, filterHasFilter).totResidualEur, dashCurrency, currencies) }}</span></td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="section-card mb-4" v-if="summaryByRole">
-        <div class="section-header d-flex justify-content-between align-items-center">
-          <span>📊 Summary by role</span>
-          <ExportButtons :tbl-ref="() => $refs.summaryByRoleTable" filename="summary_by_role" :card-ref="() => $refs.summaryByRoleCard" />
-        </div>
-        <div class="table-responsive" ref="summaryByRoleCard">
-          <table ref="summaryByRoleTable" class="table table-sm align-middle mb-0 tbl-fixed">
-            <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByRole" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
-            <tbody>
-              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ c.soldEur == null ? '—' : formatMoney(c.soldEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totSold) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByRole, filterHasFilter).totSoldEur, dashCurrency, currencies) }}</span></td></tr>
-              <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totSpent) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByRole, filterHasFilter).totSpentEur, dashCurrency, currencies) }}</span></td></tr>
-              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ c.inPeriodEur == null ? '—' : formatMoney(c.inPeriodEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByRole, filterHasFilter).totInPeriod) : '—' }}</td></tr>
-              <tr style="background:var(--surface-medium);"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByRole" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(c.soldEur - c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByRole, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totResidual) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByRole, filterHasFilter).totResidualEur, dashCurrency, currencies) }}</span></td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="section-card mb-4" v-if="summaryByGroup">
-        <div class="section-header d-flex justify-content-between align-items-center">
-          <span>🏷️ Summary by functional area</span>
-          <ExportButtons :tbl-ref="() => $refs.summaryByGroupTable" filename="summary_by_group" :card-ref="() => $refs.summaryByGroupCard" />
-        </div>
-        <div class="table-responsive" ref="summaryByGroupCard">
-          <table ref="summaryByGroupTable" class="table table-sm align-middle mb-0 tbl-fixed">
-            <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByGroup" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
-            <tbody>
-              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ c.soldEur == null ? '—' : formatMoney(c.soldEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totSold) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByGroup, filterHasFilter).totSoldEur, dashCurrency, currencies) }}</span></td></tr>
-              <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totSpent) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByGroup, filterHasFilter).totSpentEur, dashCurrency, currencies) }}</span></td></tr>
-              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ c.inPeriodEur == null ? '—' : formatMoney(c.inPeriodEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByGroup, filterHasFilter).totInPeriod) : '—' }}</td></tr>
-              <tr style="background:var(--surface-medium);"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(c.soldEur - c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByGroup, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totResidual) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByGroup, filterHasFilter).totResidualEur, dashCurrency, currencies) }}</span></td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div v-if="taskDetailData.length" class="section-divider"><hr><span class="section-divider-label">Task detail</span></div>
-      <div v-for="entry in taskDetailData" :key="entry.task.name" class="section-card mb-4">
-        <div class="section-header d-flex justify-content-between align-items-center">
-          <span>📋 {{ entry.task.name }}<span v-if="entry.task.billable === false" class="badge bg-secondary ms-1" style="font-size:var(--text-xs);vertical-align:middle;">Excluded from report</span></span>
-          <div class="d-flex gap-2 align-items-center">
-            <button class="btn btn-sm btn-outline-secondary" @click="taskState(entry.task.name).expanded = !taskState(entry.task.name).expanded">{{ taskState(entry.task.name).expanded ? '▲ Close details' : '▶ Expand details' }}</button>
-            <ExportButtons :tbl-ref="() => $refs['taskTable_'+entry.task.name]?.[0]" :filename="'task_'+entry.task.name.replace(/[^a-zA-Z0-9]/g,'_')" :card-ref="() => $refs['taskCard_'+entry.task.name]?.[0]" />
-          </div>
-        </div>
-        <div class="table-responsive" :ref="'taskCard_'+entry.task.name">
-          <table :ref="'taskTable_'+entry.task.name" class="table table-sm table-hover align-middle mb-0 task-sum-tbl" style="table-layout:fixed;width:100%">
-            <colgroup><col style="width:40%"><col style="width:20%"><col style="width:20%"><col style="width:20%"></colgroup>
-            <thead style="background:var(--surface-light);"><tr><th class="ps-3">Role (Resource)</th><th class="text-end">Sold hours</th><th class="text-end">{{ filterHasFilter ? 'Consumed (' + filterRangeLabel + ')' : 'Consumed (period)' }}</th><th class="text-end pe-3">Remaining (total)</th></tr></thead>
-            <tbody>
-              <tr v-for="(r, i) in entry.rows" :key="i" :class="{'table-danger': r.remaining !== null && r.remaining < 0}">
-                <td class="ps-3">{{ r.label }}</td>
-                <td class="text-end">{{ r.soldHours !== null ? fmtH(r.soldHours) : '—' }}<span v-if="r.soldEur !== null" class="eur-sub">{{ formatMoney(r.soldEur, dashCurrency, currencies) }}</span></td>
-                <td class="text-end">{{ fmtH(r.consumedPeriod) }}<span class="eur-sub">{{ r.consumedPeriodEur == null ? '—' : formatMoney(r.consumedPeriodEur, dashCurrency, currencies) }}</span></td>
-                <td class="text-end pe-3" :class="{'fw-bold text-danger': r.remaining !== null && r.remaining < 0}">{{ r.remaining !== null ? fmtH(r.remaining) : '—' }}<span v-if="r.remainingEur !== null" class="eur-sub" :class="{danger: r.remainingEur < 0}">{{ formatMoney(r.remainingEur, dashCurrency, currencies) }}</span></td>
-              </tr>
-              <tr class="fw-bold" style="background:var(--surface-medium);">
-                <td class="ps-3">TOTAL</td>
-                <td class="text-end">{{ fmtH(entry.totSold) }}<span class="eur-sub">{{ entry.totSoldEur == null ? '—' : formatMoney(entry.totSoldEur, dashCurrency, currencies) }}</span></td>
-                <td class="text-end">{{ fmtH(entry.totPeriod) }}<span class="eur-sub">{{ entry.totPeriodEur == null ? '—' : formatMoney(entry.totPeriodEur, dashCurrency, currencies) }}</span></td>
-                <td class="text-end pe-3" :class="{'text-danger': entry.totRemaining < 0}">{{ fmtH(entry.totRemaining) }}<span class="eur-sub" :class="{danger: entry.totRemainingEur < 0}">{{ entry.totRemainingEur == null ? '—' : formatMoney(entry.totRemainingEur, dashCurrency, currencies) }}</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="detail-section" v-show="taskState(entry.task.name).expanded">
-          <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
-            <span class="text-muted small">Chronological entries</span>
-            <div class="d-flex gap-2 align-items-center">
-              <div class="btn-group btn-group-sm" style="font-size:var(--text-sm)">
-                <button v-for="gm in ['flat','role','owner']" :key="gm" class="btn btn-outline-secondary" :class="{active: taskState(entry.task.name).groupMode === gm}" @click="taskState(entry.task.name).groupMode = gm">{{ gm === 'flat' ? 'Flat' : gm === 'role' ? 'By role' : 'By owner' }}</button>
-              </div>
-              <ExportButtons :tbl-ref="() => $refs['detTable_'+entry.task.name]?.[0]" :filename="'task_'+entry.task.name.replace(/[^a-zA-Z0-9]/g,'_')+'_detail'" :card-ref="() => $refs['detSection_'+entry.task.name]?.[0]" />
+      </div><!-- /pr-kpis -->
+      <div class="pr-card">
+        <div class="pr-card-head">
+          <div class="pr-card-title-row">
+            <span class="pr-card-title">Progress</span>
+            <div class="pr-seg">
+              <button type="button" class="pr-seg-btn" :class="{ active: progressView === 'burndown' }" @click="progressView = 'burndown'">Burndown</button>
+              <button type="button" class="pr-seg-btn" :class="{ active: progressView === 'monthly' }" @click="progressView = 'monthly'">Monthly summary</button>
+              <button v-if="ptcReport" type="button" class="pr-seg-btn" :class="{ active: progressView === 'ptc' }" @click="progressView = 'ptc'">Pass-through</button>
             </div>
           </div>
-          <div class="table-responsive" :ref="'detSection_'+entry.task.name">
-            <table :ref="'detTable_'+entry.task.name" class="table table-sm align-middle mb-0 det-tbl" style="table-layout:fixed;width:100%">
-              <colgroup><col style="width:15%"><col style="width:40%"><col style="width:15%"><col style="width:30%"></colgroup>
-              <thead style="background:var(--indigo-50);"><tr><th class="ps-3">Date</th><th>{{ taskState(entry.task.name).groupMode === 'flat' ? 'Role (Resource)' : taskState(entry.task.name).groupMode === 'role' ? 'Owner' : 'Role' }}</th><th class="text-end">Hours</th><th>Notes</th></tr></thead>
+          <div v-if="dashboardData.length && progressView === 'burndown'" class="pr-toolbar">
+            <div class="pr-seg pr-seg-dark">
+              <button v-for="opt in ['monthly','quarterly','biweekly','weekly']" :key="opt" type="button" class="pr-seg-btn" :class="{ active: burndownInterval === opt }" @click="burndownInterval = opt">{{ opt.charAt(0).toUpperCase() + opt.slice(1) }}</button>
+            </div>
+            <div class="dropdown">
+              <button type="button" class="pr-chip" data-bs-toggle="dropdown" aria-expanded="false">Task: <span class="pr-chip-value">{{ burndownTaskFilter || 'All tasks' }}</span><pf-icon name="chevron-down" :size="12"></pf-icon></button>
+              <ul class="dropdown-menu dropdown-menu-end pr-chip-menu">
+                <li><a class="dropdown-item" :class="{ active: !burndownTaskFilter }" href="#" @click.prevent="burndownTaskFilter = ''">All tasks</a></li>
+                <li v-for="t in billableTaskNames" :key="t"><a class="dropdown-item" :class="{ active: burndownTaskFilter === t }" href="#" @click.prevent="burndownTaskFilter = t">{{ t }}</a></li>
+              </ul>
+            </div>
+            <button type="button" class="pr-icon-btn" title="Export PNG" @click="exportChartPng"><pf-icon name="download" :size="14"></pf-icon></button>
+          </div>
+          <div v-if="dashboardData.length && progressView === 'monthly' && monthlySummary" class="pr-toolbar">
+            <button type="button" class="pr-icon-btn" title="Export XLS" @click="exportTableXls($refs.monthlyTable, 'monthly_summary')"><pf-icon name="download" :size="14"></pf-icon></button>
+          </div>
+        </div>
+
+        <div v-if="!dashboardData.length && progressView !== 'ptc'" class="pr-empty">
+          <div>No actuals loaded yet.</div>
+          <button v-if="dashboardProject?.my_permission !== 'viewer'" type="button" class="btn btn-sm btn-outline-secondary pr-action" @click="triggerLoadActuals(dashboardProjectId)"><pf-icon name="upload" :size="14"></pf-icon>Load Actuals</button>
+        </div>
+
+        <template v-else>
+          <div v-if="progressView === 'burndown'">
+            <div class="pr-legend">
+              <span class="pr-legend-item"><span class="pr-legend-line pr-legend-actual"></span>{{ burndownSeries && burndownSeries.budget === null ? 'Cumulative hours' : 'Remaining hours (actual)' }}</span>
+              <span v-if="burndownSeries?.idealValues" class="pr-legend-item"><span class="pr-legend-line pr-legend-planned"></span>Remaining hours planned ({{ burndownSeries.hasPhasingEur ? 'phasing' : 'linear' }})</span>
+              <span v-if="burndownTodayIndex !== null" class="pr-legend-item pr-legend-today">Today · {{ reportTodayLabel }}</span>
+            </div>
+            <div class="pr-chart"><canvas ref="burndownCanvas"></canvas></div>
+          </div>
+
+          <div v-else-if="progressView === 'monthly' && monthlySummary" class="table-responsive pr-table-wrap">
+            <table ref="monthlyTable" class="table table-sm align-middle mb-0 pr-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th class="text-end">Est. hours</th>
+                  <th class="text-end">Consumed</th>
+                  <th class="text-end">Variance</th>
+                  <th class="text-end">Est. budget</th>
+                  <th class="text-end">Spent</th>
+                  <th class="text-end">Variance</th>
+                  <th v-if="monthlySummary.hasPtc" class="text-end">PTC</th>
+                </tr>
+              </thead>
               <tbody>
-                <tr v-if="!taskDetailRows(entry, taskState(entry.task.name).groupMode)"><td colspan="4" class="text-center text-muted py-3 small">No entries in the selected period.</td></tr>
-                <template v-else v-for="(row, i) in taskDetailRows(entry, taskState(entry.task.name).groupMode)" :key="i">
-                  <tr v-if="row.isGroupHeader" :style="{background: taskState(entry.task.name).groupMode === 'role' ? 'var(--indigo-50)' : 'var(--color-warning-bg)'}">
-                    <td class="ps-3 fw-semibold small" colspan="2">{{ row.label }}</td>
-                    <td class="text-end fw-semibold small">{{ fmtH(row.hours) }}<span class="eur-sub">{{ row.eur == null ? '—' : formatMoney(row.eur, dashCurrency, currencies) }}</span></td>
-                    <td></td>
-                  </tr>
-                  <tr v-else>
-                    <td class="ps-3">{{ fmtDate(row.date) }}</td>
-                    <td :class="{'text-muted': taskState(entry.task.name).groupMode !== 'flat'}">{{ row.col2 }}</td>
-                    <td class="text-end">{{ fmtH(row.hours) }}<span v-if="row.eur !== null" class="eur-sub">{{ formatMoney(row.eur, dashCurrency, currencies) }}</span></td>
-                    <td class="text-muted small">{{ row.notes }}</td>
-                  </tr>
-                </template>
+                <tr v-for="m in monthlySummary.months" :key="m.ym" :class="'pr-month-' + monthState(m.ym, reportToday)">
+                  <td>{{ m.label }}<span v-if="monthState(m.ym, reportToday) === 'current'" class="pr-current-pill">current</span></td>
+                  <template v-if="monthState(m.ym, reportToday) === 'future'">
+                    <td class="text-end">{{ dashboardProject ? fmtH(m.estimatedHours) : '—' }}</td>
+                    <td class="text-end">—</td>
+                    <td class="text-end">—</td>
+                    <td class="text-end">{{ dashboardProject && m.estimated != null ? formatMoney(m.estimated, dashCurrency, currencies) : '—' }}</td>
+                    <td class="text-end">—</td>
+                    <td class="text-end">—</td>
+                  </template>
+                  <template v-else>
+                    <td class="text-end">{{ dashboardProject ? fmtH(m.estimatedHours) : '—' }}</td>
+                    <td class="text-end">{{ fmtH(m.hours) }}</td>
+                    <td class="text-end" :class="{ 'pr-neg': m.hVar !== null && m.hVar < 0 }">{{ m.hVar !== null ? fmtH(m.hVar) : '—' }}</td>
+                    <td class="text-end">{{ dashboardProject && m.estimated != null ? formatMoney(m.estimated, dashCurrency, currencies) : '—' }}</td>
+                    <td class="text-end">{{ m.spent !== null ? formatMoney(m.spent, dashCurrency, currencies) : '—' }}</td>
+                    <td class="text-end" :class="{ 'pr-neg': m.bVar !== null && m.bVar < 0 }">{{ m.bVar !== null ? formatMoney(m.bVar, dashCurrency, currencies) : '—' }}</td>
+                  </template>
+                  <td v-if="monthlySummary.hasPtc" class="text-end">{{ m.ptc > 0 ? formatMoney(m.ptc, dashCurrency, currencies) : '—' }}</td>
+                </tr>
+                <tr class="pr-total-row">
+                  <td>Total</td>
+                  <td class="text-end">{{ monthlySummary.totEstimatedHours !== null ? fmtH(monthlySummary.totEstimatedHours) : '—' }}</td>
+                  <td class="text-end">{{ fmtH(monthlySummary.totHours) }}</td>
+                  <td class="text-end" :class="{ 'pr-neg': monthlySummary.totHoursVariance !== null && monthlySummary.totHoursVariance < 0 }">{{ monthlySummary.totHoursVariance !== null ? fmtH(monthlySummary.totHoursVariance) : '—' }}</td>
+                  <td class="text-end">{{ monthlySummary.totEstimated !== null ? formatMoney(monthlySummary.totEstimated, dashCurrency, currencies) : '—' }}</td>
+                  <td class="text-end">{{ monthlySummary.totSpent !== null ? formatMoney(monthlySummary.totSpent, dashCurrency, currencies) : '—' }}</td>
+                  <td class="text-end" :class="{ 'pr-neg': monthlySummary.totBudgetVariance !== null && monthlySummary.totBudgetVariance < 0 }">{{ monthlySummary.totBudgetVariance !== null ? formatMoney(monthlySummary.totBudgetVariance, dashCurrency, currencies) : '—' }}</td>
+                  <td v-if="monthlySummary.hasPtc" class="text-end">{{ monthlySummary.totPtc !== null ? formatMoney(monthlySummary.totPtc, dashCurrency, currencies) : '—' }}</td>
+                </tr>
               </tbody>
             </table>
           </div>
+
+          <div v-else-if="progressView === 'ptc' && ptcReport" class="table-responsive pr-table-wrap">
+            <table class="table table-sm align-middle mb-0 pr-table">
+              <thead><tr><th style="width:160px">Month</th><th>Title</th><th>Note</th><th class="text-end">Amount</th></tr></thead>
+              <tbody>
+                <tr v-for="(p, i) in ptcReport.rows" :key="i">
+                  <td>{{ p.monthLabel }}</td>
+                  <td class="fw-semibold">{{ p.title || '—' }}</td>
+                  <td class="text-muted small">{{ p.note || '' }}</td>
+                  <td class="text-end fw-semibold">{{ formatMoney(p.amount || 0, dashCurrency, currencies) }}</td>
+                </tr>
+                <tr class="pr-total-row"><td colspan="3">Total</td><td class="text-end">{{ ptcReport.total == null ? '—' : formatMoney(ptcReport.total, dashCurrency, currencies) }}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
+      </div><!-- /pr-progress -->
+      <div class="pr-card" v-if="breakdown">
+        <div class="pr-card-head">
+          <div class="pr-card-title-row">
+            <span class="pr-card-title">Breakdown</span>
+            <div class="pr-seg">
+              <button type="button" class="pr-seg-btn" :class="{ active: breakdownView === 'task' }" @click="breakdownView = 'task'">By task</button>
+              <button type="button" class="pr-seg-btn" :class="{ active: breakdownView === 'role' }" @click="breakdownView = 'role'">By role</button>
+              <span :title="dashboardProject.groups?.length ? '' : 'No functional areas configured'">
+                <button type="button" class="pr-seg-btn" :class="{ active: breakdownView === 'area' }" :disabled="!dashboardProject.groups?.length" @click="breakdownView = 'area'">By functional area</button>
+              </span>
+            </div>
+          </div>
+          <div class="pr-toolbar">
+            <button type="button" class="pr-icon-btn" title="Export XLS" @click="exportBreakdownXls"><pf-icon name="download" :size="14"></pf-icon></button>
+            <div class="dropdown">
+              <button ref="periodBtn" type="button" class="pr-chip pr-period-btn" :class="{ 'pr-period-active': filterHasFilter }" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                <pf-icon name="calendar" :size="14"></pf-icon>Period: <span class="pr-chip-value">{{ periodLabel }}</span><pf-icon name="chevron-down" :size="12"></pf-icon>
+              </button>
+              <div class="dropdown-menu dropdown-menu-end pr-period-menu">
+                <a href="#" class="pr-period-item" :class="{ active: !filterHasFilter }" @click.prevent="pickPeriod('')">
+                  <span>Whole project</span><span class="pr-period-meta">{{ wholeProjectRange }}</span>
+                </a>
+                <a v-for="ym in periodMonths" :key="ym" href="#" class="pr-period-item" :class="{ active: filterMonth === ym }" @click.prevent="pickPeriod(ym)">
+                  <span>{{ monthLabelLong(ym) }}</span><span class="pr-period-meta">{{ fmtH(periodHours[ym] || 0) }}</span>
+                </a>
+                <div class="pr-period-custom">
+                  <div class="pr-period-custom-label">Custom range</div>
+                  <div class="pr-period-custom-row">
+                    <input type="date" class="form-control form-control-sm" v-model="filterStart" @change="filterMonth = ''" aria-label="From">
+                    <span>–</span>
+                    <input type="date" class="form-control form-control-sm" v-model="filterEnd" @change="filterMonth = ''" aria-label="To">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <a v-if="filterHasFilter" href="#" class="pf-clear-link" @click.prevent="resetDateFilter">Reset</a>
+          </div>
         </div>
-      </div>
+
+        <div class="pr-bd">
+          <div class="pr-bd-row pr-bd-header">
+            <span></span>
+            <span>{{ breakdownView === 'task' ? 'Task' : breakdownView === 'role' ? 'Role (resource)' : 'Functional area' }}</span>
+            <span class="pr-bd-num">Sold</span>
+            <span class="pr-bd-num">{{ filterHasFilter ? 'Spent · ' + periodLabel : 'Spent' }}</span>
+            <span class="pr-bd-num pr-bd-remaining">Remaining (total)</span>
+            <span class="pr-bd-cons-head">Total consumption</span>
+          </div>
+
+          <template v-for="it in breakdownItems" :key="it.key">
+            <div v-if="it.kind === 'row'" class="pr-bd-row pr-bd-item" :class="{ 'pr-bd-over': it.row.overSold, 'pr-bd-clickable': it.taskName }" :role="it.taskName ? 'button' : null" :tabindex="it.taskName ? 0 : null" :aria-expanded="it.taskName ? String(taskState(it.taskName).expanded) : null" @click="it.taskName && toggleTask(it.taskName)" @keydown.enter.space.prevent="it.taskName && toggleTask(it.taskName)">
+              <span class="pr-bd-chev"><pf-icon v-if="it.taskName" :name="taskState(it.taskName).expanded ? 'chevron-down' : 'chevron-right'" :size="14"></pf-icon></span>
+              <div class="pr-bd-name">
+                <div class="pr-bd-title">{{ it.row.label }}<span v-if="it.row.overSold" class="pr-over-pill">Over sold</span></div>
+                <div class="pr-bd-sub">{{ it.row.subtitle }}</div>
+              </div>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ !it.row.soldKnown ? '—' : fmtH(it.row.soldHours) }}</div><div v-if="it.row.soldKnown" class="pr-bd-a">{{ formatMoney(it.row.soldAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(it.row.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(it.row.spentAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': it.row.soldKnown && it.row.remainingHours < 0 }"><div class="pr-bd-h">{{ !it.row.soldKnown ? '—' : fmtH(it.row.remainingHours) }}</div><div v-if="it.row.soldKnown" class="pr-bd-a">{{ formatMoney(it.row.remainingAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-cons">
+                <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + it.row.barState"><div class="pf-spent-bar-fill" :style="{ width: (it.row.overSold ? 100 : Math.min(100, it.row.pct || 0)) + '%' }"></div></div>
+                <span class="pr-bd-pct" :class="'pr-pct-' + it.row.barState">{{ it.row.pct !== null ? it.row.pct + '%' : '—' }}</span>
+              </div>
+            </div>
+
+            <div v-else-if="it.kind === 'total'" class="pr-bd-row pr-bd-total">
+              <span></span>
+              <div class="pr-bd-name"><div class="pr-bd-title">Total</div></div>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ !breakdown.total.soldKnown ? '—' : fmtH(breakdown.total.soldHours) }}</div><div v-if="breakdown.total.soldKnown" class="pr-bd-a">{{ formatMoney(breakdown.total.soldAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(breakdown.total.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(breakdown.total.spentAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': breakdown.total.soldKnown && breakdown.total.remainingHours < 0 }"><div class="pr-bd-h">{{ !breakdown.total.soldKnown ? '—' : fmtH(breakdown.total.remainingHours) }}</div><div v-if="breakdown.total.soldKnown" class="pr-bd-a">{{ formatMoney(breakdown.total.remainingAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-cons">
+                <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + breakdown.total.barState"><div class="pf-spent-bar-fill" :style="{ width: (breakdown.total.overSold ? 100 : Math.min(100, breakdown.total.pct || 0)) + '%' }"></div></div>
+                <span class="pr-bd-pct" :class="'pr-pct-' + breakdown.total.barState">{{ breakdown.total.pct !== null ? breakdown.total.pct + '%' : '—' }}</span>
+              </div>
+            </div>
+
+            <div v-else-if="it.kind === 'excluded-head'" class="pr-excluded-head">Excluded from report</div>
+
+            <div v-else-if="it.kind === 'excluded'" class="pr-bd-row pr-excluded-row pr-bd-clickable" role="button" tabindex="0" :aria-expanded="String(taskState(it.taskName).expanded)" @click="toggleTask(it.taskName)" @keydown.enter.space.prevent="toggleTask(it.taskName)">
+              <span class="pr-bd-chev"><pf-icon :name="taskState(it.taskName).expanded ? 'chevron-down' : 'chevron-right'" :size="14"></pf-icon></span>
+              <div class="pr-bd-name"><div class="pr-bd-title">{{ it.taskName }}</div></div>
+              <span></span>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(it.hours) }}</div></div>
+            </div>
+
+            <template v-if="it.taskName && taskState(it.taskName).expanded && taskDetailByName[it.taskName]">
+              <template v-if="it.kind === 'row'">
+                <div v-for="sr in roleSubRows(taskDetailByName[it.taskName])" :key="sr.key" class="pr-bd-row pr-bd-subrow" :class="{ 'pr-bd-over': sr.overSold }">
+                  <span></span>
+                  <div class="pr-bd-name">
+                    <div class="pr-bd-subtitle">{{ sr.label }}<span v-if="sr.overSold" class="pr-over-pill">Over sold</span></div>
+                    <div class="pr-bd-sub">{{ sr.subtitle }}</div>
+                  </div>
+                  <div class="pr-bd-num"><div class="pr-bd-h">{{ sr.soldKnown ? fmtH(sr.soldHours) : '—' }}</div><div v-if="sr.soldKnown" class="pr-bd-a">{{ formatMoney(sr.soldAmount, dashCurrency, currencies) }}</div></div>
+                  <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(sr.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(sr.spentAmount, dashCurrency, currencies) }}</div></div>
+                  <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': sr.soldKnown && sr.remainingHours < 0 }"><div class="pr-bd-h">{{ sr.soldKnown ? fmtH(sr.remainingHours) : '—' }}</div><div v-if="sr.soldKnown" class="pr-bd-a">{{ formatMoney(sr.remainingAmount, dashCurrency, currencies) }}</div></div>
+                  <div class="pr-bd-cons">
+                    <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + sr.barState"><div class="pf-spent-bar-fill" :style="{ width: (sr.overSold ? 100 : Math.min(100, sr.pct || 0)) + '%' }"></div></div>
+                    <span class="pr-bd-pct" :class="'pr-pct-' + sr.barState">{{ sr.pct !== null ? sr.pct + '%' : '—' }}</span>
+                  </div>
+                </div>
+              </template>
+              <div class="pr-entries">
+                <div class="pr-entries-head">
+                  <span>Entries · {{ taskDetailByName[it.taskName].periodData.length }}</span>
+                  <a v-if="taskDetailByName[it.taskName].periodData.length" href="#" class="pr-entries-export" @click.prevent="exportTaskEntriesXls(taskDetailByName[it.taskName])">Export XLS</a>
+                </div>
+                <div v-if="!taskDetailByName[it.taskName].periodData.length" class="pr-entries-empty">No entries in the selected period.</div>
+                <div v-else class="pr-entries-box">
+                  <template v-for="m in taskEntries(taskDetailByName[it.taskName])" :key="m.ym">
+                    <div class="pr-entries-month" :class="{ open: taskState(it.taskName).openMonth === m.ym }" role="button" tabindex="0" :aria-expanded="String(taskState(it.taskName).openMonth === m.ym)" @click="toggleMonth(it.taskName, m.ym)" @keydown.enter.space.prevent="toggleMonth(it.taskName, m.ym)">
+                      <pf-icon :name="taskState(it.taskName).openMonth === m.ym ? 'chevron-down' : 'chevron-right'" :size="12"></pf-icon>
+                      <span class="pr-entries-month-name">{{ monthLabelLong(m.ym) }}</span>
+                      <span class="pr-entries-count">{{ m.count }} {{ m.count === 1 ? 'entry' : 'entries' }}</span>
+                      <span class="pr-entries-hours">{{ fmtH(m.hours) }}</span>
+                      <span class="pr-entries-amount">{{ formatMoney(m.amount, dashCurrency, currencies) }}</span>
+                    </div>
+                    <table v-if="taskState(it.taskName).openMonth === m.ym" class="pr-entries-table">
+                      <thead><tr><th>Date</th><th>Role (resource)</th><th class="text-end">Hours</th><th class="text-end">Amount</th><th>Note</th></tr></thead>
+                      <tbody>
+                        <tr v-for="(e, i) in m.rows" :key="i">
+                          <td>{{ fmtDate(e.date) }}</td>
+                          <td>{{ e.role }}{{ e.owner ? ' (' + e.owner + ')' : '' }}</td>
+                          <td class="text-end pr-entries-h">{{ fmtH(e.hours) }}</td>
+                          <td class="text-end pr-entries-a">{{ e.amount === null ? '—' : formatMoney(e.amount, dashCurrency, currencies) }}</td>
+                          <td>{{ e.notes || '—' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </template>
+        </div>
+      </div><!-- /pr-breakdown -->
     </div>
 
-    <div class="mt-4 mb-4"><button class="btn btn-outline-secondary btn-sm" @click="showOverview">← Portfolio</button></div>
   </template>
 
 </div>
@@ -625,20 +697,13 @@
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/shares.js"></script>
-<script type="module" src="js/lib/portfolio-calc.js?v=5"></script>
+<script type="module" src="js/lib/portfolio-calc.js?v=6"></script>
+<script type="module" src="js/lib/program-calc.js?v=2"></script>
+<script type="module" src="js/lib/project-report-calc.js?v=1"></script>
+<script type="module" src="js/lib/chart-today.js?v=1"></script>
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/nav.js?v=17"></script>
 <script type="module">
-  const ExportButtons = {
-    props: ['tblRef', 'filename', 'cardRef'],
-    template: `
-      <div class="d-flex gap-1">
-        <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:var(--text-xs)" title="Copy" @click="$root.copyTableToClipboard(tblRef?.())">📋</button>
-        <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:var(--text-xs)" title="XLS" @click="$root.exportTableToXLS(tblRef?.(), filename)">📊</button>
-        <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:var(--text-xs)" title="PNG" @click="$root.exportElementToPNG(cardRef?.(), filename)">🖼️</button>
-      </div>`,
-  };
-
   // Inline SVG icon set for the overview (Card/List redesign) — no emoji, same
   // conventions as js/nav.js's navIcon(): viewBox 16x16, stroke="currentColor".
   const PF_ICON_PATHS = {
@@ -650,6 +715,12 @@
     gear: '<circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 2.5V4M8 12V13.5M13.5 8H12M4 8H2.5M11.8 4.2L10.8 5.2M5.2 10.8L4.2 11.8M11.8 11.8L10.8 10.8M5.2 5.2L4.2 4.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
     'arrow-right': '<path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
     close: '<path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+    'chevron-left': '<path d="M10 3.5L5.5 8 10 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    check: '<path d="M3 8.5L6.5 12 13 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    upload: '<path d="M8 10.5V2.5M8 2.5L5 5.5M8 2.5L11 5.5M2.5 10.5V13H13.5V10.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    calendar: '<rect x="2.5" y="3.5" width="11" height="10" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 6.5H13.5M5.5 2V5M10.5 2V5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+    share: '<circle cx="4" cy="8" r="1.8" stroke="currentColor" stroke-width="1.4"/><circle cx="12" cy="4" r="1.8" stroke="currentColor" stroke-width="1.4"/><circle cx="12" cy="12" r="1.8" stroke="currentColor" stroke-width="1.4"/><path d="M5.6 7.1L10.4 4.9M5.6 8.9L10.4 11.1" stroke="currentColor" stroke-width="1.4"/>',
+    download: '<path d="M8 2.5V10.5M8 10.5L5 7.5M8 10.5L11 7.5M2.5 10.5V13H13.5V10.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
   };
   const PfIcon = {
     props: { name: { type: String, required: true }, size: { type: Number, default: 16 } },
@@ -658,7 +729,7 @@
   };
 
   Vue.createApp({
-    components: { ExportButtons, PfIcon },
+    components: { PfIcon },
     data() {
       return {
         formatMoney: window.formatMoney,
@@ -678,12 +749,17 @@
         gridColumns: 3,
         dashboardProjectId: null,
         dashboardReady: false,
+        dashboardTags: [],
+        reportToday: new Date(), // fixed when the view opens (showDashboard), read by the KPI, the Today marker and the month states
         burndownInterval: 'monthly',
         burndownTaskFilter: '',
+        progressView: 'burndown', // 'burndown' | 'monthly' | 'ptc' — the Progress card's segmented control
+        breakdownView: 'task', // 'task' | 'role' | 'area' — the Breakdown card's segmented control
         filterMonth: '',
         filterStart: '',
         filterEnd: '',
-        taskDetailState: {}, // { [taskName]: { expanded: bool, groupMode: 'flat'|'role'|'owner' } }
+        switchMenuOpen: false,
+        taskDetailState: {}, // { [taskName]: { expanded: bool, openMonth: 'YYYY-MM'|null } } — Breakdown task expansion
         notice: '',
         directCreationEnabled: window.DIRECT_PROJECT_CREATION_ENABLED,
         directCreationMessage: window.PROJECT_RULE_MESSAGES.directCreation,
@@ -858,48 +934,80 @@
         if (!this.dashboardReady) return { consumedHours: 0, soldHours: null, budgetTotal: null, consumedEur: null, hoursLeft: null, budgetLeft: null };
         return computeKpis(this.dashboardData, this.dashboardProject, billableData, billableTasks, findRate);
       },
-      kpiAsOfStr() {
-        return this.kpis.maxDate
-          ? `as of ${this.kpis.maxDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
-          : 'total to date';
+      kpiHoursPct() {
+        return spentPercent(this.kpis.consumedHours, this.kpis.soldHours);
       },
-      kpiBudgetEurSub() {
-        return this.kpis.totalPtc > 0 ? `${this.kpis.feesOnly == null ? '—' : this.formatMoney(this.kpis.feesOnly, this.dashCurrency, this.currencies)} fees + ${this.formatMoney(this.kpis.totalPtc, this.dashCurrency, this.currencies)} PTC` : 'hours × hourly rate';
+      kpiBudgetPct() {
+        return spentPercent(this.kpis.consumedEur, this.kpis.budgetTotal);
       },
-      kpiBudgetLeftSub() {
-        return this.kpis.totalPtc > 0 ? '(fees + PTC) − consumed' : 'budget − consumed';
+      // Same deps object as program.html's projectMetrics() calls, so the Time elapsed tile,
+      // the pace judgment and the sibling switch agree with the Program Dashboard.
+      reportDeps() {
+        return { findRate, billableTasks, billableData, pipelineBudget: getPipelineBudget, today: this.reportToday };
+      },
+      dashboardMetrics() {
+        const cfg = this.dashboardProject;
+        return cfg ? projectMetrics(cfg, this.dashboardData, this.reportDeps) : null;
+      },
+      kpiPace() {
+        return this.dashboardMetrics ? paceJudgment(this.dashboardMetrics.vsTime) : null;
+      },
+      reportTodayLabel() {
+        return this.reportToday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      },
+      dashboardTitle() {
+        return this.dashboardProject?.name || this.dashboardProject?.code || this.dashboardProjectId;
+      },
+      dashboardClientName() {
+        const cfg = this.dashboardProject;
+        const name = cfg?.clientId ? getClientName(cfg.clientId) : '';
+        return name && name !== 'Unassigned' ? name : '';
       },
       dashboardProgram() {
         const cfg = this.dashboardProject;
         return cfg?.programId ? (getPrograms().find(p => p.id === cfg.programId) || null) : null;
       },
-      dashboardProgramRow() {
-        const cfg = this.dashboardProject;
-        const prog = this.dashboardProgram;
-        const clientName = cfg?.clientId ? getClientName(cfg.clientId) : '';
-        const hasClient = clientName && clientName !== 'Unassigned';
-        if (!hasClient && !prog) return '';
-        const clientPart = hasClient ? `<span class="fw-semibold">${esc(clientName)}</span>` : '';
-        const sep = hasClient && prog ? ' — ' : '';
-        const progPart = prog ? `<span class="fw-semibold">${esc(prog.name)}</span>` : '';
-        const dashboardLink = prog ? ` · <a href="/program.html?programId=${encodeURIComponent(prog.id)}" class="text-decoration-none">Program Dashboard →</a>` : '';
-        return clientPart + sep + progPart + dashboardLink;
-      },
       dashboardMetaHtml() {
         if (!this.dashboardProjectId) return '';
         return [pipelineBadge(getProjectPipeline(this.dashboardProjectId) || this.dashboardProject?.pipeline), statusBadgeLarge(this.dashboardProject?.status)].join(' ');
       },
-      dashboardSiblings() {
-        const cfg = this.dashboardProject;
-        const progId = cfg?.programId;
+      // Every project of the program, the current one included (flag `current`), ordered by
+      // code then name, each with its projectMetrics() for the switch's consumption bar.
+      // The metrics are only computed while the switch menu is open (switchMenuOpen), with one
+      // pass over timesheetData; the header's project count reads dashboardSiblingList.
+      dashboardSiblingList() {
+        this.refreshTick;
+        const progId = this.dashboardProject?.programId;
         if (!progId) return [];
         return (config.projects || [])
-          .filter(p => p.programId === progId && p.id !== this.dashboardProjectId)
-          .sort((a, b) => (a.id||'').localeCompare(b.id||''))
-          .map(s => ({
-            ...s,
-            badgesHtml: [pipelineBadge(getProjectPipeline(s.id) || s.pipeline), statusBadgeLarge(s.status)].join(' '),
-          }));
+          .filter(p => p.programId === progId)
+          .sort((a, b) => (a.code || '').localeCompare(b.code || '') || (a.name || '').localeCompare(b.name || ''));
+      },
+      dashboardSiblings() {
+        const list = this.dashboardSiblingList;
+        if (!this.switchMenuOpen || !list.length) return [];
+        const ids = new Set(list.map(p => p.id));
+        const rowsById = {};
+        timesheetData.forEach(r => { if (ids.has(r.projectId)) (rowsById[r.projectId] ||= []).push(r); });
+        return list.map(s => ({
+          ...s,
+          current: s.id === this.dashboardProjectId,
+          metrics: projectMetrics(s, rowsById[s.id] || [], this.reportDeps),
+        }));
+      },
+      dashboardProgramTotals() {
+        return programTotals(this.dashboardSiblings.map(s => s.metrics));
+      },
+      // The burndown series of the current view, shared by the chart and the HTML legend.
+      burndownSeries() {
+        if (!this.dashboardData.length) return null;
+        return computeBurndownPoints(this.dashboardData, this.dashboardProject, this.burndownTaskFilter, this.burndownInterval, billableData, billableTasks, findRate);
+      },
+      burndownTodayIndex() {
+        const s = this.burndownSeries, cfg = this.dashboardProject;
+        // No project dates: the axis is synthetic (14 months from the first actual), so no Today.
+        if (!s || !cfg?.startDate || !cfg?.endDate) return null;
+        return todayIndex(s.points, this.reportToday, { start: s.axisStart, end: s.axisEnd });
       },
       billableTaskNames() {
         return this.dashboardReady ? billableTasks(this.dashboardProject).map(t => t.name) : [];
@@ -933,10 +1041,10 @@
           const estimatedHours = cfg?.planning?.[ym] ?? 0;
           const estimated = cfg?.phasing?.[ym] ?? 0;
           const ptc = ptcByMonth[ym] || 0;
-          const label = start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+          const label = start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
           const hVar = cfg ? estimatedHours - hours : null;
           const bVar = spent !== null ? estimated - spent : null;
-          months.push({ label, hours, estimatedHours, spent, estimated, ptc, hVar, bVar });
+          months.push({ ym, label, hours, estimatedHours, spent, estimated, ptc, hVar, bVar });
           cm++; if (cm > 12) { cm = 1; cy++; }
         }
         const totHours = months.reduce((s,m) => s+m.hours, 0);
@@ -1023,13 +1131,16 @@
         const roleTaskMap = new Map();
         billableTasks(cfg).forEach(t => t.resources.forEach(res => {
           const key = res.role.toLowerCase() + '|' + t.name.toLowerCase();
-          if (!roleTaskMap.has(key)) roleTaskMap.set(key, { key, label: `${res.role} — ${t.name}`, soldHours: 0, soldEur: 0 });
+          if (!roleTaskMap.has(key)) roleTaskMap.set(key, { key, label: `${res.role} — ${t.name}`, role: res.role, task: t.name, soldHours: 0, soldEur: 0 });
           roleTaskMap.get(key).soldHours += res.soldHours;
           roleTaskMap.get(key).soldEur += res.soldHours * res.hourlyRate;
         }));
         const bData = billableData(this.dashboardData, cfg);
         const byKeyFn = r => r.role.toLowerCase() + '|' + r.task.toLowerCase();
-        return buildSummaryCols(bData, byKeyFn, [...roleTaskMap.values()], this.filterRange, cfg, findRate);
+        const entries = [...roleTaskMap.values()];
+        // role/task carried alongside each column for the Breakdown's By role rows (label and subtitle).
+        return buildSummaryCols(bData, byKeyFn, entries, this.filterRange, cfg, findRate)
+          .map((c, i) => ({ ...c, role: entries[i].role, task: entries[i].task }));
       },
       // One column per functional area — correctness comes from each group's own
       // `entries: [{role, task}]` (normalizeGroupEntries()/entryMatchesRow(),
@@ -1064,6 +1175,71 @@
           return { label: grp.name, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
         });
       },
+      // Rows of the Breakdown card for the current view (spec §6 "Card Breakdown"): Spent follows
+      // the period filter, Remaining and the consumption % stay on the whole project.
+      // Spec §7 "Nessun budget": nothing sold on the project, so Sold, Remaining and % read "—".
+      breakdownNoBudget() {
+        return !(this.kpis.soldHours > 0);
+      },
+      breakdown() {
+        const b = this.breakdownBase;
+        if (!b || !this.breakdownNoBudget) return b;
+        return { rows: b.rows.map(r => this.withoutSold(r)), total: this.withoutSold(b.total) };
+      },
+      breakdownBase() {
+        const cfg = this.dashboardProject;
+        if (!cfg) return null;
+        const hasFilter = this.filterHasFilter;
+        if (this.breakdownView === 'role') {
+          const cols = this.summaryByRole || [];
+          const { rows, total } = breakdownRows(cols, hasFilter);
+          return { total, rows: rows.map((r, i) => ({ ...r, key: 'r:' + cols[i].role + '|' + cols[i].task, label: cols[i].role, subtitle: roleSubtitle(cols[i].role, cols[i].task, this.dashboardData) })) };
+        }
+        if (this.breakdownView === 'area' && cfg.groups?.length) {
+          const cols = this.summaryByGroup || [];
+          const tasks = billableTasks(cfg);
+          const { rows, total } = breakdownRows(cols, hasFilter);
+          return { total, rows: rows.map((r, i) => ({ ...r, key: 'g:' + i, subtitle: groupSubtitle(cfg.groups[i], tasks) })) };
+        }
+        const tasks = billableTasks(cfg);
+        const { rows, total } = breakdownRows(this.summaryByTask || [], hasFilter);
+        return { total, rows: rows.map((r, i) => ({ ...r, key: 't:' + tasks[i].name, taskName: tasks[i].name, subtitle: taskSubtitle(tasks[i], cfg.groups || []) })) };
+      },
+      // The Breakdown's rendered sequence: rows, Total, then (By task only) the non-billable tasks.
+      breakdownItems() {
+        const b = this.breakdown;
+        if (!b) return [];
+        const items = b.rows.map(r => ({ kind: 'row', key: r.key, row: r, taskName: this.breakdownView === 'task' ? r.taskName : null }));
+        items.push({ kind: 'total', key: 'total' });
+        if (this.breakdownView === 'task') {
+          const excluded = this.taskDetailData.filter(e => e.task.billable === false);
+          if (excluded.length) {
+            items.push({ kind: 'excluded-head', key: 'excluded-head' });
+            excluded.forEach(e => items.push({ kind: 'excluded', key: 'x:' + e.task.name, taskName: e.task.name, hours: e.totPeriod }));
+          }
+        }
+        return items;
+      },
+      taskDetailByName() {
+        const map = {};
+        this.taskDetailData.forEach(e => { map[e.task.name] = e; });
+        return map;
+      },
+      periodLabel() {
+        if (!this.filterHasFilter) return 'Whole project';
+        return this.filterMonth ? this.monthLabelLong(this.filterMonth) : this.filterRangeLabel;
+      },
+      wholeProjectRange() {
+        const cfg = this.dashboardProject;
+        return cfg?.startDate && cfg?.endDate ? `${this.monthLabelLong(cfg.startDate)} – ${this.monthLabelLong(cfg.endDate)}` : '';
+      },
+      // Months up to the current one, most recent first (the 7.4d board lists no future month).
+      periodMonths() {
+        return [...this.filterMonthOptions].reverse().filter(ym => monthState(ym, this.reportToday) !== 'future');
+      },
+      periodHours() {
+        return hoursByMonth(billableData(this.dashboardData, this.dashboardProject));
+      },
       taskDetailData() {
         const cfg = this.dashboardProject;
         if (!cfg) return [];
@@ -1074,13 +1250,15 @@
           const taskData = data.filter(r => r.task.toLowerCase() === task.name.toLowerCase());
           const periodData = taskData.filter(r => (!start || r.date >= start) && (!end || r.date <= end)).sort((a,b) => a.date - b.date);
 
+          // Roles from every entry of the task, not only the period's: a role whose entries all
+          // fall outside the period still counts in the task row's Remaining, so it keeps its row.
           const roleMap = new Map();
-          periodData.forEach(r => {
+          taskData.forEach(r => {
             const key = r.role.toLowerCase();
             if (!roleMap.has(key)) roleMap.set(key, { role: r.role, owners: new Set(), consumedPeriod: 0 });
             if (r.owner) roleMap.get(key).owners.add(r.owner);
-            roleMap.get(key).consumedPeriod += r.hours;
           });
+          periodData.forEach(r => { roleMap.get(r.role.toLowerCase()).consumedPeriod += r.hours; });
           task.resources.forEach(res => {
             if (!roleMap.has(res.role.toLowerCase())) roleMap.set(res.role.toLowerCase(), { role: res.role, owners: new Set(), consumedPeriod: 0 });
           });
@@ -1088,23 +1266,23 @@
           const rows = [...roleMap.values()].map(({ role, owners, consumedPeriod }) => {
             const owner = [...owners].filter(Boolean).join(', ') || '—';
             const cfgRes = task.resources.find(r => r.role.toLowerCase() === role.toLowerCase());
-            const rate = cfgRes?.hourlyRate ?? 0;
+            // findRate(), as the task row (buildSummaryCols): a role not configured on the task
+            // takes the task's first resource rate, so row, sub-rows and entries reconcile.
+            const rate = cfgRes?.hourlyRate ?? findRate({ role, task: task.name }, cfg) ?? 0;
             const soldHours = cfgRes?.soldHours ?? null;
             const soldEur = soldHours !== null ? soldHours * rate : null;
             const consumedTotal = taskData.filter(r => r.role.toLowerCase() === role.toLowerCase()).reduce((s,r) => s+r.hours, 0);
             const remaining = cfgRes != null ? cfgRes.soldHours - consumedTotal : null;
             const consumedPeriodEur = periodData.filter(r => r.role.toLowerCase() === role.toLowerCase()).reduce((s,r) => s+r.hours*rate, 0);
             const remainingEur = cfgRes != null ? rate * (cfgRes.soldHours - consumedTotal) : null;
-            return { label: `${role} (${owner})`, soldHours, soldEur, consumedPeriod, consumedPeriodEur, remaining, remainingEur };
+            const consumedTotalEur = consumedTotal * rate;
+            return { label: `${role} (${owner})`, role, owners: [...owners].filter(Boolean).join(', '), rate, soldHours, soldEur, consumedPeriod, consumedPeriodEur, consumedTotal, consumedTotalEur, remaining, remainingEur };
           });
 
           const totSold = rows.reduce((s,r) => s+(r.soldHours??0), 0);
           const totSoldEur = rows.reduce((s,r) => s+(r.soldEur??0), 0);
           const totPeriod = periodData.reduce((s,r) => s+r.hours, 0);
-          const totPeriodEur = periodData.reduce((s,r) => {
-            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
-            return s + r.hours * (cfgR?.hourlyRate ?? 0);
-          }, 0);
+          const totPeriodEur = periodData.reduce((s,r) => s + r.hours * (findRate(r, cfg) ?? 0), 0);
           const totRemaining = rows.reduce((s,r) => s+(r.remaining??0), 0);
           const totRemainingEur = rows.reduce((s,r) => s+(r.remainingEur??0), 0);
 
@@ -1176,57 +1354,95 @@
       },
       taskState(taskName) {
         if (!this.taskDetailState[taskName]) {
-          this.taskDetailState[taskName] = { expanded: false, groupMode: 'flat' };
+          this.taskDetailState[taskName] = { expanded: false, openMonth: null };
         }
         return this.taskDetailState[taskName];
       },
-      taskDetailRows(entry, groupMode) {
-        const { task, periodData } = entry;
-        if (periodData.length === 0) return null; // template renders the "no entries" row itself
-        if (groupMode === 'flat') {
-          return periodData.map(r => {
-            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
-            return { date: r.date, col2: `${r.role} (${r.owner})`, hours: r.hours, eur: cfgR ? r.hours * cfgR.hourlyRate : null, notes: r.notes, isGroupHeader: false };
-          });
-        }
-        const groups = new Map();
-        periodData.forEach(r => {
-          const k = groupMode === 'role' ? r.role.toLowerCase() : r.owner.toLowerCase();
-          const label = groupMode === 'role' ? r.role : r.owner;
-          if (!groups.has(k)) groups.set(k, { label, entries: [] });
-          groups.get(k).entries.push(r);
+      // The rows render after Bootstrap has positioned the (still empty) menu: position it again.
+      onSwitchShow() {
+        this.switchMenuOpen = true;
+        this.$nextTick(() => {
+          const btn = this.$refs.switchBtn;
+          const dd = btn && window.bootstrap ? window.bootstrap.Dropdown.getInstance(btn) : null;
+          if (dd) dd.update();
         });
-        const out = [];
-        groups.forEach(({ label, entries }) => {
-          const grpH = entries.reduce((s,r) => s+r.hours, 0);
-          const grpEur = entries.reduce((s,r) => {
-            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
-            return s + r.hours * (cfgR?.hourlyRate ?? 0);
-          }, 0);
-          out.push({ isGroupHeader: true, label, hours: grpH, eur: grpEur });
-          entries.forEach(r => {
-            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
-            out.push({ date: r.date, col2: groupMode === 'role' ? r.owner : r.role, hours: r.hours, eur: cfgR ? r.hours * cfgR.hourlyRate : null, notes: r.notes, isGroupHeader: false });
-          });
+      },
+      onSwitchHidden() { this.switchMenuOpen = false; },
+      toggleTask(taskName) {
+        const st = this.taskState(taskName);
+        st.expanded = !st.expanded;
+      },
+      // One open month per task: opening a month closes the other one.
+      toggleMonth(taskName, ym) {
+        const st = this.taskState(taskName);
+        st.openMonth = st.openMonth === ym ? null : ym;
+      },
+      // A task's role rows in the Breakdown's expansion (spec §6 "By task"): Spent is the
+      // period consumption, Remaining and % the whole-project ones, like the task row above.
+      roleSubRows(entry) {
+        const cols = entry.rows.map(r => ({
+          label: r.role,
+          soldHours: r.soldHours ?? 0, soldEur: r.soldEur ?? 0,
+          totalConsumed: r.consumedTotal, totalConsumedEur: r.consumedTotalEur,
+          inPeriod: r.consumedPeriod, inPeriodEur: r.consumedPeriodEur,
+        }));
+        return breakdownRows(cols, true).rows.map((row, i) => {
+          const r = entry.rows[i];
+          const rate = r.rate ? `${this.formatMoney(r.rate, this.dashCurrency, this.currencies)}/h` : '';
+          const out = { ...row, key: r.role, subtitle: [r.owners, rate].filter(Boolean).join(' · ') };
+          // A role not sold on the task has nothing to compare against: no Sold, Remaining, % or Over sold.
+          return r.soldHours === null || this.breakdownNoBudget ? this.withoutSold(out) : out;
         });
-        return out;
+      },
+      // A Breakdown row with no sold reference (spec §7 "Nessun budget", or a role not sold on the task).
+      withoutSold(row) {
+        return { ...row, soldKnown: false, overSold: false, pct: null, barState: 'none' };
+      },
+      // findRate(), as the task row: null (amount "—") only when the task has no rate at all.
+      entryRate(task, row) {
+        return this.dashboardProject ? findRate({ role: row.role || '', task: task.name }, this.dashboardProject) : null;
+      },
+      taskEntries(entry) {
+        return entriesByMonth(entry.periodData, r => this.entryRate(entry.task, r));
+      },
+      exportTaskEntriesXls(entry) {
+        const cur = this.dashCurrency, list = this.currencies;
+        const aoa = [['Date', 'Role (resource)', 'Hours', 'Amount', 'Note']];
+        entry.periodData.forEach(r => {
+          const rate = this.entryRate(entry.task, r);
+          aoa.push([fmtDate(r.date), r.owner ? `${r.role} (${r.owner})` : r.role, r.hours, rate === null ? '' : Math.round(r.hours * rate * 100) / 100, r.notes || '']);
+        });
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Data');
+        XLSX.writeFile(wb, 'task_' + entry.task.name.replace(/[^a-zA-Z0-9]/g, '_') + '_entries.xlsx');
       },
       filterMonthLabel(ym) {
         const [y, m] = ym.split('-').map(Number);
         return new Date(y, m-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       },
       resetDateFilter() { this.filterMonth = ''; this.filterStart = ''; this.filterEnd = ''; },
-      // Called directly from the template (`{{ summaryTotals(summaryByRole, ...) }}`) —
-      // kept as a thin Vue-instance wrapper delegating to the js/lib/portfolio-calc.js
-      // global rather than removed outright, since a compiled Vue template does not
-      // reliably fall back to a bare `window.*` global from inside its own `with()`
-      // block (the same landmine already fixed elsewhere in this codebase for
-      // `openShareModal`, see pipeline.html/costgrid.html Global Constraint 5).
-      // buildSummaryCols() has no such wrapper: it's only ever called from this
-      // component's own computed properties (plain JS, not template expressions),
-      // where a bare global reference resolves normally.
-      summaryTotals(cols, hasFilter) {
-        return summaryTotals(cols, hasFilter);
+      // A month (or '' for the whole project) picked in the Period menu; the menu stays open for
+      // the custom-range inputs (data-bs-auto-close="outside"), so it is closed here explicitly.
+      pickPeriod(ym) {
+        this.filterMonth = ym; this.filterStart = ''; this.filterEnd = '';
+        const btn = this.$refs.periodBtn;
+        if (btn && window.bootstrap) window.bootstrap.Dropdown.getOrCreateInstance(btn).hide();
+      },
+      exportBreakdownXls() {
+        const b = this.breakdown;
+        if (!b) return;
+        // Numbers, not formatted text, so the sheet can sum and sort; a row without a sold
+        // reference leaves Sold, Remaining and % empty, as the page shows "—".
+        const num = v => (v == null ? '' : Math.round(v * 100) / 100);
+        const line = (r, detail) => r.soldKnown
+          ? [r.label, detail, num(r.soldHours), num(r.soldAmount), num(r.spentHours), num(r.spentAmount), num(r.remainingHours), num(r.remainingAmount), r.pct === null ? '' : r.pct]
+          : [r.label, detail, '', '', num(r.spentHours), num(r.spentAmount), '', '', ''];
+        const aoa = [['Name', 'Detail', 'Sold h', `Sold amount (${this.dashCurrency})`, 'Spent h', `Spent amount (${this.dashCurrency})`, 'Remaining h', `Remaining amount (${this.dashCurrency})`, 'Consumption %']];
+        b.rows.forEach(r => aoa.push(line(r, r.subtitle || '')));
+        aoa.push(line(b.total, ''));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Data');
+        XLSX.writeFile(wb, 'breakdown_' + this.breakdownView + '.xlsx');
       },
       showOverview() {
         this.view = 'overview';
@@ -1258,6 +1474,11 @@
       },
       monthLabel(ym) {
         return new Date(parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))-1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      },
+      // 'YYYYMM' or 'YYYY-MM' → "Dec 2025" (the 7.4 header and Time elapsed tile).
+      monthLabelLong(ym) {
+        const k = String(ym).replace('-', '');
+        return new Date(parseInt(k.slice(0,4)), parseInt(k.slice(4,6))-1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
       },
       varColor(v) { return v > 0 ? 'var(--color-success)' : v < 0 ? 'var(--color-danger)' : 'var(--text-muted)'; },
       goNewProject() { if (this.directCreationEnabled) window.location.href = '/project-config.html'; },
@@ -1385,6 +1606,7 @@
         this.view = 'dashboard';
         this.dashboardProjectId = pid;
         this.dashboardReady = true;
+        this.reportToday = new Date();
         selectedProjectId = pid;
         history.replaceState(null, '', '/portfolio.html?projectId=' + encodeURIComponent(pid));
         const cfg = this.dashboardProject;
@@ -1395,7 +1617,22 @@
         ]);
         this.burndownInterval = 'monthly';
         this.burndownTaskFilter = '';
+        this.progressView = 'burndown';
+        this.breakdownView = 'task';
+        this.resetDateFilter();
+        this.taskDetailState = {};
+        this.switchMenuOpen = false;
+        this.loadDashboardTags(pid);
         this.$nextTick(() => this.renderBurndownChart());
+      },
+      async loadDashboardTags(pid) {
+        this.dashboardTags = [];
+        try {
+          const tags = await Api.projects.tags.list(pid);
+          if (this.dashboardProjectId === pid) this.dashboardTags = tags || [];
+        } catch (e) {
+          if (this.dashboardProjectId === pid) this.dashboardTags = [];
+        }
       },
       // Chart.js cannot resolve var(); read the token's computed value instead.
       chartColor(name, fallback) {
@@ -1403,38 +1640,41 @@
       },
       renderBurndownChart() {
         if (this._burndownChart) { this._burndownChart.destroy(); this._burndownChart = null; }
-        if (!this.dashboardData.length) return;
+        const series = this.burndownSeries;
+        if (!series || !this.$refs.burndownCanvas) return;
 
-        const series = computeBurndownPoints(this.dashboardData, this.dashboardProject, this.burndownTaskFilter, this.burndownInterval, billableData, billableTasks, findRate);
         const currencyForChart = this.dashCurrency;
-        const { labels, burnValues, idealValues, hasPhasingEur, planningData, budget, totalBudgetEur, tooltipBudgetConsumed, tooltipPhasingEur } = series;
+        const { labels, burnValues, idealValues, planningData, budget, totalBudgetEur, tooltipBudgetConsumed, tooltipPhasingEur } = series;
+        const index = this.burndownTodayIndex;
 
         const datasets = [{
-          label: budget !== null ? 'Remaining Hours' : 'Cumulative Hours',
+          label: budget !== null ? 'Remaining hours (actual)' : 'Cumulative hours',
           data: burnValues,
           borderColor: this.chartColor('--chart-actual', 'gray'), backgroundColor: 'rgba(13,110,253,0.07)',
-          fill: true, tension: 0.3, pointRadius: 3, pointHoverRadius: 5,
+          fill: true, tension: 0.2, pointHoverRadius: 4,
+          pointRadius: labels.map((_, i) => i === index ? 5 : 0),
+          pointBackgroundColor: this.chartColor('--brand-navy', 'navy'),
         }];
         if (idealValues) {
           datasets.push({
-            label: hasPhasingEur ? 'Estimated Budget (phasing)' : 'Ideal Trend',
+            label: 'Remaining hours planned',
             data: idealValues,
-            borderColor: hasPhasingEur ? this.chartColor('--chart-phasing', 'gray') : this.chartColor('--text-disabled', 'gray'), borderDash: [6, 4], borderWidth: 2,
+            borderColor: this.chartColor('--chart-phasing', 'gray'), borderDash: [6, 4], borderWidth: 2,
             fill: false, pointRadius: 0, tension: 0,
           });
         }
-        if (planningData) {
-          datasets.push({
-            label: 'Estimated Hours',
-            data: planningData,
-            borderColor: this.chartColor('--chart-committed', 'gray'), borderDash: [4, 4], borderWidth: 2,
-            fill: false, pointRadius: 0, tension: 0,
-          });
-        }
+        const todayPlugin = window.todayLabelPlugin({
+          id: 'prTodayLabel',
+          index,
+          text: index !== null ? `${fmtH(burnValues[index])} ${budget !== null ? 'left' : 'consumed'}` : '',
+          bg: this.chartColor('--brand-navy', 'navy'),
+          fg: this.chartColor('--surface-white', 'white'),
+        });
 
         this._burndownChart = new Chart(this.$refs.burndownCanvas, {
           type: 'line',
           data: { labels, datasets },
+          plugins: [todayPlugin],
           options: {
             responsive: true, maintainAspectRatio: false,
             plugins: {
@@ -1464,14 +1704,20 @@
                   },
                 },
               },
-              legend: { position: 'top' },
+              legend: { display: false },
             },
             scales: {
-              x: { ticks: { maxRotation: 45, autoSkip: false } },
-              y: { beginAtZero: true, title: { display: true, text: 'Hours' } },
+              x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } },
+              y: { beginAtZero: true },
             },
           },
         });
+      },
+      monthState(ym, today) { return monthState(ym, today); },
+      exportTableXls(tbl, filename) {
+        if (!tbl) return;
+        const wb = XLSX.utils.table_to_book(tbl, { sheet: 'Data' });
+        XLSX.writeFile(wb, filename + '.xlsx');
       },
       exportChartPng() {
         if (!this._burndownChart) return;
@@ -1480,31 +1726,14 @@
         a.download = `burndown_${this.dashboardProjectId || 'chart'}.png`;
         a.click();
       },
-      copyTableToClipboard(tbl) {
-        if (!tbl) return;
-        const text = [...tbl.querySelectorAll('tr')]
-          .map(tr => [...tr.querySelectorAll('th,td')].map(c => c.innerText.replace(/\n/g, ' ').trim()).join('\t'))
-          .join('\n');
-        navigator.clipboard.writeText(text).catch(() => {});
-      },
-      exportTableToXLS(tbl, filename) {
-        if (!tbl) return;
-        const wb = XLSX.utils.table_to_book(tbl, { sheet: 'Data' });
-        XLSX.writeFile(wb, filename + '.xlsx');
-      },
-      exportElementToPNG(el, filename) {
-        if (!el || typeof html2canvas === 'undefined') return;
-        html2canvas(el, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
-          const a = document.createElement('a');
-          a.href = canvas.toDataURL('image/png');
-          a.download = filename + '.png';
-          a.click();
-        });
-      },
     },
     watch: {
       burndownInterval() { this.renderBurndownChart(); },
       burndownTaskFilter() { this.renderBurndownChart(); },
+      progressView(v) {
+        if (v === 'burndown') this.$nextTick(() => this.renderBurndownChart());
+        else if (this._burndownChart) { this._burndownChart.destroy(); this._burndownChart = null; }
+      },
       portfolioLayout(v) {
         // Card and List keep their own expansion state (one open vs. many); this carries
         // it across when the layout switches, so a program opened in one view is still

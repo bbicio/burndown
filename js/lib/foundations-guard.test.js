@@ -41,7 +41,8 @@ describe('burndown chart colours (portfolio.html)', () => {
     }
   });
   it('reads the chart tokens through chartColor()', () => {
-    for (const t of ['--chart-actual', '--chart-phasing', '--chart-committed', '--text-disabled']) {
+    // Two series since the 7.4 redesign (spec 2026-10-15 decision 5): actual + planned.
+    for (const t of ['--chart-actual', '--chart-phasing']) {
       expect(html).toContain(`chartColor('${t}'`);
     }
   });
