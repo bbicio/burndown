@@ -155,7 +155,7 @@ Accepted:
 
 Spec `docs/superpowers/specs/2026-10-15-project-reporting-calculations-fix-design.md`, plan `docs/superpowers/plans/2026-10-15-project-reporting-calculations-fix.md`; backlog items B-071…B-077 from the 7.4 cycle's review.
 
-- **Burndown Today (B-071):** `burndownSeries` passes `reportToday` to `computeBurndownPoints()`, whose `todayIndex`/`todayValue` drive the point and the pill; the line stops at today. With no task filter the pill equals the Hours tile's `left`, except for an over-sold project (the line clamps at 0) and for entries dated after today (the pill counts up to today, the tile everything — accepted as follow-up).
+- **Burndown Today (B-071):** `burndownSeries` passes `reportToday` to `computeBurndownPoints()`, whose `todayIndex`/`todayValue` drive the point and the pill; the line stops at today. With no task filter the pill equals the Hours tile's `left`, except for an over-sold project (the line clamps at 0) and for entries dated after today (the pill counts up to today, the tile everything — since the follow-ups cycle below the tile shows them in a note).
 - **Budget tile (B-072):** fees only (`feesOnly`, `feesLeft`, `spentPercent(consumedEur, feesOnly)`); PTC moved to a `+ X PTC` note outside the budget branches, so it also shows under "No budget".
 - **Breakdown Totals (B-073):** `summaryByRole`/`summaryByGroup` call `roleColumns()`/`areaColumns()` (`js/lib/project-report-calc.js`); the By area Total comes from `areaTotalColumn()`, the overlap note from `breakdownAreaOverlap`. The three Totals now agree.
 - **Tooltip (B-074):** `Planned` = the dashed line's value (and the cumulative phasing € when the plan comes from phasing); after today the `filter` switches to dataset 1, so only the Planned lines show.
@@ -163,3 +163,12 @@ Spec `docs/superpowers/specs/2026-10-15-project-reporting-calculations-fix-desig
 - **CSS (B-076):** `--weight-normal` → `--weight-regular` in `css/portfolio.css`.
 - Cache-bust: `portfolio-calc.js?v=7`, `program-calc.js?v=3`, `project-report-calc.js?v=2`, `chart-today.js?v=2`, `css/portfolio.css?v=4`.
 - Report: `docs/superpowers/reports/2026-10-15-project-reporting-calc-fix-finish-cycle.md`.
+
+## Reporting calculations follow-ups (2026-10-15)
+
+Spec `docs/superpowers/specs/2026-10-15-reporting-calc-followups-design.md`, plan `docs/superpowers/plans/2026-10-15-reporting-calc-followups.md`; backlog items B-080, B-081.
+
+- **Hours dated after today (B-080):** the `kpis` computed passes `reportToday` to `computeKpis()`, whose `futureHours` drives a `.pr-kpi-note` under the Hours tile, `incl. <N>h dated after today`, shown only when `futureHours > 0`. Tile and pill keep their values: the pill equals `max(0, left + futureHours)`.
+- **Tooltip budget with a task filter (B-081):** `totalBudgetEur` is the filtered task's own fees, so the tooltip's Budget Remaining is that task's budget minus its consumption.
+- `reportToday` is fixed when the view opens and the chart is not redrawn when it changes; to see the note on data without future entries, set it from the console and switch interval.
+- Cache-bust: `portfolio-calc.js?v=8`, `program-calc.js?v=4`, `project-report-calc.js?v=3` (and `pipeline-calc.js?v=7` on `pipeline.html`).

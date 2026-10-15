@@ -41,7 +41,7 @@ Filter matching logic lives in `js/lib/pipeline-calc.js` (pure, vitest-covered) 
 - **POT tab**: `loadPotSection(v, stage)` sets `potState = { kind, targetName?, year?, view? }` with `kind` one of `loading | draft | noClient | noTarget | error | ok`; `view` is `pbPotView(summary)` (`js/lib/pipeline-calc.js`): percentage of target reached by Committed + Anticipated, a stacked bar (Committed, Anticipated, Expected, SIP striped) with a notch at the target, legend, 2x2 boxes (Committed, Anticipated, Total C+A, "GAP TO TARGET" or green "OVER TARGET"), "CONTRIBUTING PROPOSALS" and "OTHER PROPOSALS · NOT IN TOTAL" lists (rows not clickable). `GET /api/pots/summary` now also returns `expected_total`, `sip_total` and, per proposal, `client_name` and `value` (EUR fee, a number; `pbPotView` tolerates strings).
 - **Closing rules:** Esc (document `keydown`, capture phase) closes the search/year menus first, then the panel, and is ignored while a Bootstrap `.modal.show` or offcanvas is open (Esc there closes only the modal). `mousedown` outside `#pbDetailPanel` closes it (200ms delayed registration) but ignores `.modal`/`.modal-backdrop` (Share/Clone/Confirm live outside the panel), `.pb-card` and the search suggestions menu (those switch the content without a close/reopen flash); a click on the scrim closes it.
 - Smartphone (< 768px): title 17px, version segments and actions wrap, the tab row scrolls horizontally, touch targets >= 44px.
-- Cache versions: `css/pipeline.css?v=2`, `js/lib/pipeline-calc.js?v=6`.
+- Cache versions: `css/pipeline.css?v=2`, `js/lib/pipeline-calc.js?v=7` (`?v=7` since 2026-10-15: a comment in the file changed, reporting follow-ups cycle).
 
 ### Column header totals (2026-10-06; replaces the former column footer)
 
