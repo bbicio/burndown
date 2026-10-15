@@ -973,8 +973,8 @@ burndown/
                           ← the other shared classic scripts loaded as globals by the Vue pages. Detail: docs/js/shared-libs.md
   index.html              ← redirect → pipeline.html
   pipeline.html           ← kanban pipeline board. Detail: docs/pages/pipeline.md
-  portfolio.html          ← portfolio overview + per-project dashboard; adds js/lib/portfolio-calc.js, stylesheet css/portfolio.css. Detail: docs/pages/portfolio.md
-  program.html            ← Program Dashboard, no menu entry; adds js/lib/program-calc.js, shares css/portfolio.css; no endpoint of its own. Detail: docs/pages/program.md
+  portfolio.html          ← portfolio overview + per-project reporting view; adds js/lib/portfolio-calc.js, program-calc.js, project-report-calc.js, chart-today.js, stylesheet css/portfolio.css. Detail: docs/pages/portfolio.md
+  program.html            ← Program Dashboard, no menu entry; adds js/lib/program-calc.js, chart-today.js, shares css/portfolio.css; no endpoint of its own. Detail: docs/pages/program.md
   planning.html           ← resource planning; the three views render the server model (POST /api/planning/model). Detail: docs/pages/planning.md
   costgrid.html           ← cost grid editor; own stylesheet css/costgrid.css and form controls from js/cg-controls.js. Detail: docs/pages/costgrid.md
   timesheets.html         ← admin-only timesheet upload management. Detail: docs/pages/timesheets.md

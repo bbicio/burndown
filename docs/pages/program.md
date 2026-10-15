@@ -3,7 +3,7 @@
 Program Dashboard: a programme-level overview of its projects (budget/hours/time/needs-attention
 KPIs, an aggregated burndown chart, and a List-or-Timeline view of the member projects), reached
 from the `Dashboard`/`Program Dashboard →` entries in `portfolio.html` (see that page's own
-"Program Dashboard cycle" section) and from the project reporting view's breadcrumb/program row.
+"Program Dashboard cycle" section) and from the project reporting view's program line and project-title menu.
 Vue 3 (CDN, no build step), same pattern as `portfolio.html`.
 
 Spec: `docs/superpowers/specs/2026-10-08-program-dashboard-design.md`. Plan:
@@ -110,8 +110,9 @@ below, D8). All four tolerate `programCurrency() === null` (money → `Mixed cur
 **Program burndown card**: title + "Sum of remaining hours across N projects" subtitle, a legend
 (`Remaining hours (actual)` solid / `Remaining hours planned (phasing)` dashed) and a Download PNG
 link, a Chart.js line chart (colours via `chartColor('--chart-actual'|'--chart-phasing')`, since
-Chart.js cannot resolve `var()`), with a "Today" marker drawn by a small inline Chart.js plugin
-(`afterDraw`) rather than a built-in annotation — a navy pill with `{hours}h left · {month label}`
+Chart.js cannot resolve `var()`), with a "Today" marker drawn by a Chart.js plugin
+(`afterDraw`, since 2026-10-15 the shared `todayLabelPlugin` of `js/lib/chart-today.js`, also used by
+`portfolio.html`'s project burndown) rather than a built-in annotation — a navy pill with `{hours}h left · {month label}`
 positioned at the current month's point. Replaced entirely by the `No dated projects in this program`
 message when `programRange()` is `null`.
 

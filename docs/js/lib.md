@@ -91,8 +91,16 @@ view, computed from month *offsets* (`monthDiff` + `clamp`) rather than an `Arra
 into `range.months`, so a project whose own dates run past the programme's displayed axis doesn't
 silently produce `-1`/`NaN` geometry; skips undated projects outright.
 
-Loaded via `<script type="module">` on `program.html` only, after `portfolio-calc.js`. Full
+Loaded via `<script type="module">` on `program.html` and, since the project reporting redesign (2026-10-15), on `portfolio.html` too (its sibling switch uses `projectMetrics`/`programTotals`), after `portfolio-calc.js`. Full
 page-level narrative: `docs/pages/program.md`.
+
+## project-report-calc.js (2026-10-15, project reporting redesign 7.4)
+
+Presentation math for `portfolio.html`'s project reporting view, imports `spentPercent`/`spentBarState`/`normalizeGroupEntries`/`entryMatchesRow` from `portfolio-calc.js` (real ES `import`, same `?v=` as the page's tag). `paceJudgment(vsTime, threshold = 10)`: `'on-track'|'ahead'|'behind'|null`, the same ±10 threshold as `program-calc.js`'s `needsAttention()`. `breakdownRows(cols, hasFilter)`: the Breakdown's rows and Total from `buildSummaryCols()`-shaped columns — Spent follows the period filter, Remaining and the consumption % stay on the whole project, `overSold`/Remaining compared to the cent of an hour, each row carries `soldKnown: true` (the page sets it to `false` where Sold reads "—"). `taskSubtitle`/`roleSubtitle`/`groupSubtitle`: the rows' second line. `entriesByMonth(rows, rateFor)`: entries grouped by month, most recent first, an entry whose `rateFor` is `null` has no amount and the month sums only the known ones. `hoursByMonth(rows)`, `monthState(ym, today)`: `'past'|'current'|'future'`. `todayIndex(points, today, bounds?)`: the Today point; with `bounds` (`{ start, end }`, the burndown's axis) today must fall inside the axis, without it the last point holds for one interval. Pinned by `project-report-calc.test.js`. Full page narrative: `docs/pages/portfolio.md`.
+
+## chart-today.js (2026-10-15, project reporting redesign 7.4)
+
+`todayLabelPlugin({ id, index, text, bg, fg })`: a Chart.js plugin drawing the navy "Today" pill above point `index` of dataset 0, a no-op when `index` is `null` or has no point. `bg`/`fg` are resolved colours, since Chart.js cannot resolve `var()`. Shared by `program.html`'s and `portfolio.html`'s burndown charts, which previously each drew it inline. Pinned by `chart-today.test.js`.
 
 ## pipeline-calc.js
 

@@ -16,7 +16,7 @@ Part of [PRD.md](../../PRD.md) — carries PRD §6 Project Reporting.
 | Budget Spent | Σ timesheet hours for that month × the matching role's hourly rate |
 | Variance | Estimated − Spent |
 
-**Per-project drill-down KPI cards** — a separate set of cards shown when opening a single project, driven by task/config data rather than `phasing`; computed by `js/lib/portfolio-calc.js`'s `computeKpis()` (extracted, vitest-covered, from the former `js/dashboard.js`'s `renderKPIs`) and consumed by `portfolio.html`'s Vue `kpis` computed property:
+**Per-project drill-down KPI tiles** — shown when opening a single project, driven by task/config data rather than `phasing`. Since the 2026-10-15 redesign (7.4) there are three tiles: **Hours** (consumed of sold, a bar, `% consumed`, hours left), **Budget** (spent of budget, a bar, `% spent`, amount left, and `incl. X PTC` when the project has pass-through costs; `—` and `No budget` without one) and **Time elapsed** (the share of the project's date range already gone, `As of <today>`, and a pace judgment — `Hours on track`, `Hours ahead of time` or `Hours behind time`, ±10 points between consumption and time; `—` without dates). The figures are computed by `js/lib/portfolio-calc.js`'s `computeKpis()` (extracted, vitest-covered, from the former `js/dashboard.js`'s `renderKPIs`) and consumed by `portfolio.html`'s Vue `kpis` computed property:
 
 | KPI | Calculation |
 |---|---|
@@ -29,7 +29,7 @@ Part of [PRD.md](../../PRD.md) — carries PRD §6 Project Reporting.
 
 Note the two tables are not interchangeable: the portfolio summary's "Budget Estimated" reads the manually-maintained/derived `phasing` grid (§7.1), while the drill-down's "Total Budget" is computed live from task sold-hours × rate and ignores `phasing` entirely — the two can disagree if `phasing` hasn't been kept in sync with the task data (e.g. after editing sold hours without re-running Derive/Reforecast).
 
-**Burndown chart:** a line chart on the detail page, filterable to a single task (or the whole project) and to a monthly or weekly interval. Its solid main line is the actual consumption trend — labeled "Remaining Hours" if the project has a budget to burn down against, or "Cumulative Hours" if it doesn't. Up to two dashed reference lines can appear alongside it: "Estimated Budget (phasing)" (orange, when the project's `phasing` data is available) and/or "Estimated Hours" (green, from the `planning` grid) — these are the plan the actual line is being compared against, letting a reader see at a glance whether consumption is running ahead of or behind what was planned.
+**Burndown chart** (Progress card → `Burndown`, 2026-10-15): a line chart filterable to a single task (`Task: All tasks ▾`) and to a Monthly, Quarterly, Biweekly or Weekly interval, with an `Export PNG` action. Its solid line is the actual trend — "Remaining hours (actual)" when the project has a budget to burn down against, "Cumulative hours" when it doesn't. A dashed "Remaining hours planned" line shows the plan: from the project's € phasing when present ("(phasing)"), otherwise a straight line from the sold hours to zero ("(linear)"). The current interval's point carries a navy pill (`<N>h left`, or `<N>h consumed` without a budget) and the legend reads `Today · <date>`; there is no Today marker when today is outside the project's range or the project has no dates.
 
 **Toolbar actions:**
 - **＋ New project** — the only page-level toolbar action; **temporarily disabled** (2026-10-01): projects are created from a proposal (Generate project, §4). The button shows the tooltip "Projects are created from a proposal (Generate project). Creating a project directly is temporarily disabled." and opening the project form without a project by URL redirects back here with the same message. The function stays in the product and will be re-enabled together with currency conversion for projects without a proposal.
@@ -46,16 +46,19 @@ Note the two tables are not interchangeable: the portfolio summary's "Budget Est
 
 Expansion is shared between the two layouts: a program opened — or closed — in one view is in the same state in the other.
 
-**Detail-page actions** (moved off the list card in the 2026-09 redesign; live in the detail view's own header instead, alongside Configure):
-- **⚙️ Configure** — navigate to that project's `project-config.html`
-- **📂 Load Actuals** — upload an Excel timesheet file to import actuals for that project
-- **🔗 Share** — open the share modal
-- **📅 Planning** — navigate to `planning.html` for that project
-- **＋ Summary** — pin/unpin the project into the Budget Summary table at the top of the Portfolio Overview page
+**Detail-page header** (redesigned 2026-10-15, 7.4): a `‹ Project Portfolio` link back to the overview; for a project in a program, a `PROGRAM <name> · N projects · Program Dashboard →` line; the project title — which, for a project in a program, opens a menu listing every project of the program with its status, consumption bar and %, the current one ticked, and a footer with the program's totals and `Program Dashboard →`; the stage and status pills; and a line with the client, code, date range and the project's tags. Switching project from that menu opens the new project on the whole-project period with every task collapsed.
+
+**Detail-page actions** (in the header, top right):
+- **Configure** — navigate to that project's `project-config.html`
+- **Load Actuals** — upload an Excel timesheet file to import actuals for that project
+- **Planning** — navigate to `planning.html` for that project
+- **Share** — open the share modal
+
+(The `＋ Summary` toggle has been hidden since 2026-09.)
 
 Configure and Load Actuals are hidden for viewers (see §18.3). Load Actuals remains detail-page-only; **Configure was reintroduced on the list cards in a later 2026-09 cycle** (see the View features bullets below) — the original "moved from the list card to the detail-page header" note above describes an intermediate state, not current behavior.
 
-**← Portfolio** (2026-09): navigates back to the list. Appears both at the top of the detail view (next to the header) and again at the bottom (after Task detail) — the same action in two places so a long detail page doesn't force a scroll back to the top just to leave it.
+**‹ Project Portfolio** (2026-10-15): navigates back to the overview, from the top of the detail view only; the bottom `← Portfolio` button of the 2026-09 layout was removed.
 
 (Corrected 2026-07: this section previously described "Clients"/"Programs" management modals as page-level toolbar actions. Confirmed during `portfolio.html`'s 2026-07 Vue 3 migration that both were only ever reachable through `#configModal`, itself gated behind a `?configure=true` URL parameter no file in the repo ever set — i.e. already unreachable dead code before this migration, not a regression. `#configModal` and its nested clients/programs/roles CRUD were dropped entirely as part of that rewrite.)
 
@@ -76,7 +79,7 @@ Configure and Load Actuals are hidden for viewers (see §18.3). Load Actuals rem
 
 **Purpose:** Answer, for one program, the questions the per-project views cannot: is the program as a whole on budget, is it on schedule, and which of its projects needs attention first. It aggregates the program's projects rather than adding any new data — everything is computed from the same project configuration and uploaded actuals the Portfolio already uses, so there is no separate program-level budget to maintain.
 
-**How it is reached:** it has no menu entry. From the Portfolio Overview (§6.1) via a program's `Dashboard` in either layout, or `Program Dashboard →` in the expanded children panel; and from a project's own reporting view via the program name in the breadcrumb, the program row's `Program Dashboard →` link, and the sibling-projects dropdown. Opening it for a program that does not exist returns to the Portfolio with the notice "Program not found."
+**How it is reached:** it has no menu entry. From the Portfolio Overview (§6.1) via a program's `Dashboard` in either layout, or `Program Dashboard →` in the expanded children panel; and from a project's own reporting view via the program line's `Program Dashboard →` link and the footer of the project-title menu (2026-10-15; the program crumb in the breadcrumb was removed with the in-page breadcrumb). Opening it for a program that does not exist returns to the Portfolio with the notice "Program not found."
 
 **Visibility:** it aggregates the projects of the program the user can already see. A program all of whose projects are invisible to the user shows "No projects in this program are visible to you." rather than denying access.
 
@@ -103,23 +106,23 @@ Task-, role- and entry-level analysis is deliberately not duplicated here — it
 
 ### 6.2 Monthly Summary Table
 
-Not a portfolio-wide bar chart — this is a **per-project table** in the drill-down view (`portfolio.html`'s `monthlySummary` Vue computed property), one row per month, columns grouped as Hours (Estimated / Consumed / Variance) and Budget (Estimated / Spent / Variance), plus a PTC column that only appears when the project has at least one pass-through-cost line item (`hasPtc`). A TOTAL row sums every column.
+Not a portfolio-wide bar chart — this is a **per-project table** in the drill-down view, shown by the Progress card's `Monthly summary` view since 2026-10-15 (the card's three views are `Burndown`, `Monthly summary` and, when the project has pass-through costs, `Pass-through`, which lists them; without actuals the card shows "No actuals loaded yet." and, for a non-viewer, `Load Actuals`, while `Pass-through` stays reachable). One row per month with the columns Month · Est. hours · Consumed · Variance · Est. budget · Spent · Variance, plus a PTC column that only appears when the project has at least one pass-through-cost line item. The current month carries a `current` pill; future months are muted, with `—` in the actual columns. A Total row sums every column, and `Export XLS` downloads the table.
 
 - Hours Estimated = `cfg.planning[YYYYMM]`; Hours Consumed = actual timesheet hours that month; Hours Variance = Estimated − Consumed.
 - Budget Estimated = `cfg.phasing[YYYYMM]`; Budget Spent = actual hours × role rate that month; Budget Variance = Estimated − Spent.
-- Variance highlighting is **one-sided**: negative variance (over budget/over hours) is shown in bold red (`text-danger fw-bold`); there is no corresponding green styling for positive/under-budget variance — it renders in the default table text color.
+- Variance highlighting is **one-sided**: negative variance (over budget/over hours) is shown in red; there is no corresponding green styling for positive/under-budget variance — it renders in the default table text color.
 
 The only chart on this page is the burndown line chart described implicitly by §6.1 (Chart.js `type: 'line'`, `renderBurndownChart()` method) — there is no separate bar chart matching the portfolio-wide "estimated vs. spent per month across the portfolio" description that was previously here.
 
-### 6.3 Summary by Task / Role / Functional Area
+### 6.3 Breakdown by Task / Role / Functional Area
 
-Three cards in the drill-down view, below the Monthly Summary table, each a pivot table (one row per metric — Total Amount, Spent, In period, Residual — one column per group, plus a TOTAL column) built from the same underlying timesheet data. Every column shows both hours and the corresponding € figure.
+(Redesigned 2026-10-15, 7.4: one Breakdown card replaces the former Period filter card, the three "Summary by …" pivot cards and the Task detail section.) A segmented control picks the view; each row shows a name with a second line, then **Sold**, **Spent**, **Remaining (total)** — hours with the amount beneath — and **Total consumption** (a bar and %). A Total row closes the table, and `Export XLS` downloads the current view. A row whose consumption exceeds its sold hours gets an `Over sold` pill, a red bar and a negative Remaining; the bar turns amber from 85%. A project with nothing sold shows `—` for Sold, Remaining and % with empty bars. Below roughly 1280px the Remaining column is hidden.
 
-- **Summary by task** — one column per project task, regardless of role.
-- **Summary by role** — one column per **(role, task) pair** actually present, not per role alone (2026-09). A role billed at a different hourly rate on two different tasks (real example: an "Account Director" role priced at 168/h on one task and 130/h on another, because the rate is configured per task, not globally per role) previously landed in one blended column whose total couldn't be reconciled against the cost grid; it now gets two separate, internally-consistent columns, one per task.
-- **Summary by functional area** — one column per functional area (§7.1's Functional Groups), unchanged in shape from before 2026-09, but now precise: each area's membership is a list of explicit **(role, task)** pairs (or a role claimed for "— any task —", the default/legacy behavior) rather than a bare role-name list matched against every task that role appears on. This lets an area count a role's hours on one specific task while excluding that same role's hours on a different task (billed at a different rate) — without needing to split the card's own columns by task the way "Summary by role" does.
+- **By task** — one row per billable task (second line: number of roles and the functional areas it belongs to). Clicking a task (or Enter/Space on it) expands its roles — one sub-row per role (owners · rate/h); a role logged on the task but not sold on it reads `—` for Sold, Remaining and %, priced at the same rate as the task row — and its **Entries**: one row per month, all closed, each opening to its entries (Date, Role (resource), Hours, Amount, Note), one month at a time, with an `Export XLS` of the task's entries. Non-billable tasks are listed below the Total under **Excluded from report**, with their hours and entries, and count in no total.
+- **By role** — one row per **(role, task) pair** (2026-09): a role billed at a different hourly rate on two tasks (real example: an "Account Director" role priced at 168/h on one task and 130/h on another) gets one internally-consistent row per task rather than one blended row whose total couldn't be reconciled against the cost grid.
+- **By functional area** — one row per functional area (§7.1's Functional Groups), whose membership is a list of explicit **(role, task)** pairs (or a role claimed for "— any task —", the legacy behavior). Disabled, with the tooltip "No functional areas configured", when the project has none.
 
-Task detail (the per-task role breakdown further down the page) is unaffected by any of the above — it was already scoped to one task at a time.
+**Period** (top right of the card): `Whole project` (with the project's date range), the months up to the current one most recent first (each with its hours), and a `Custom range` of two dates. With a period active, the Spent column reads `Spent · <period>` and counts only that period, while Sold, Remaining and Total consumption stay on the whole project; the Period button is highlighted and a `Reset` link appears. (Before 2026-10-15 the filtered column was "In period" and Spent showed consumption minus the period.)
 
 ---
 
