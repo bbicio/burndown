@@ -389,6 +389,7 @@
             <span>{{ kpiHoursPct !== null ? kpiHoursPct + '% consumed' : '—' }}</span>
             <span v-if="kpis.hoursLeft !== null" :style="{ color: kpiLeftColor(kpis.hoursLeft, kpis.soldHours) }">{{ fmtH(kpis.hoursLeft) }} left</span>
           </div>
+          <div v-if="kpis.futureHours > 0" class="pr-kpi-note">incl. {{ fmtH(kpis.futureHours) }} dated after today</div>
         </div>
         <div class="pg-tile">
           <div class="pg-tile-label">Budget</div>
@@ -698,9 +699,9 @@
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/shares.js"></script>
-<script type="module" src="js/lib/portfolio-calc.js?v=7"></script>
-<script type="module" src="js/lib/program-calc.js?v=3"></script>
-<script type="module" src="js/lib/project-report-calc.js?v=2"></script>
+<script type="module" src="js/lib/portfolio-calc.js?v=8"></script>
+<script type="module" src="js/lib/program-calc.js?v=4"></script>
+<script type="module" src="js/lib/project-report-calc.js?v=3"></script>
 <script type="module" src="js/lib/chart-today.js?v=2"></script>
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/nav.js?v=17"></script>
@@ -932,8 +933,8 @@
         return this.dashboardProjectId ? timesheetData.filter(r => r.projectId === this.dashboardProjectId) : [];
       },
       kpis() {
-        if (!this.dashboardReady) return { consumedHours: 0, soldHours: null, budgetTotal: null, consumedEur: null, hoursLeft: null, budgetLeft: null };
-        return computeKpis(this.dashboardData, this.dashboardProject, billableData, billableTasks, findRate);
+        if (!this.dashboardReady) return { consumedHours: 0, soldHours: null, budgetTotal: null, consumedEur: null, hoursLeft: null, budgetLeft: null, futureHours: null };
+        return computeKpis(this.dashboardData, this.dashboardProject, billableData, billableTasks, findRate, this.reportToday);
       },
       kpiHoursPct() {
         return spentPercent(this.kpis.consumedHours, this.kpis.soldHours);
