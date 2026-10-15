@@ -208,6 +208,18 @@ describe('todayIndex', () => {
     expect(todayIndex([new Date(2026, 0, 1)], new Date(2026, 0, 20))).toBe(0);
     expect(todayIndex([new Date(2026, 0, 1)], new Date(2026, 1, 15))).toBe(null);
   });
+  it('with axis bounds, keeps the last point until the axis end, whatever the last step', () => {
+    const bounds = { start: new Date(2026, 0, 1), end: new Date(2026, 2, 31) };
+    expect(todayIndex(pts, new Date(2026, 2, 29, 12), bounds)).toBe(2);
+    expect(todayIndex(pts, new Date(2026, 2, 31, 18), bounds)).toBe(2);
+    expect(todayIndex(pts, new Date(2026, 3, 1), bounds)).toBe(null);
+    const q = [new Date(2026, 0, 1), new Date(2026, 3, 1)];
+    expect(todayIndex(q, new Date(2026, 5, 30), { start: new Date(2026, 0, 1), end: new Date(2026, 5, 30) })).toBe(1);
+  });
+  it('with axis bounds, returns null before the axis start even if a point precedes it', () => {
+    const weekly = [new Date(2025, 11, 29), new Date(2026, 0, 5)];
+    expect(todayIndex(weekly, new Date(2025, 11, 30), { start: new Date(2026, 0, 1), end: new Date(2026, 0, 31) })).toBe(null);
+  });
   it('returns null without points or without today', () => {
     expect(todayIndex([], new Date())).toBe(null);
     expect(todayIndex(null, new Date())).toBe(null);

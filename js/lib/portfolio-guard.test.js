@@ -248,3 +248,32 @@ describe('project reporting view — visual fidelity pass (Task 7)', () => {
     expect(css).toMatch(/\.pr-kpis \.pg-tile-value\s*\{[^}]*flex-wrap:\s*wrap[^}]*\}/);
   });
 });
+
+describe('project reporting view — Gate 3 review fixes', () => {
+  it('keeps the Pass-through view reachable without actuals', () => {
+    expect(dashboardActive).toContain(`v-if="!dashboardData.length && progressView !== 'ptc'" class="pr-empty"`);
+  });
+  it('says "Cumulative hours" / "consumed" when there is no budget', () => {
+    expect(dashboardActive).toContain(`'Cumulative hours' : 'Remaining hours (actual)'`);
+    expect(html).toContain(`budget !== null ? 'left' : 'consumed'`);
+  });
+  it('shows no Today marker without project dates and bounds it by the axis', () => {
+    expect(html).toMatch(/if \(!s \|\| !cfg\?\.startDate \|\| !cfg\?\.endDate\) return null;/);
+    expect(html).toContain('todayIndex(s.points, this.reportToday, { start: s.axisStart, end: s.axisEnd })');
+  });
+  it('resets the period filter and the task expansion on a project switch', () => {
+    const m = html.match(/showDashboard\(pid\) \{([\s\S]*?)\n      \},/);
+    expect(m).not.toBeNull();
+    expect(m[1]).toContain('this.resetDateFilter();');
+    expect(m[1]).toContain('this.taskDetailState = {};');
+  });
+  it('reads "—" for Sold and Remaining without a sold reference', () => {
+    expect(dashboardActive).toContain(`it.row.soldKnown === false ? '—' : fmtH(it.row.soldHours)`);
+    expect(dashboardActive).toContain(`breakdown.total.soldKnown === false ? '—' : fmtH(breakdown.total.soldHours)`);
+    expect(dashboardActive).toContain(`sr.soldKnown ? fmtH(sr.soldHours) : '—'`);
+  });
+  it('computes the sibling metrics only while the switch menu is open', () => {
+    expect(html).toMatch(/if \(!this\.switchMenuOpen \|\| !list\.length\) return \[\];/);
+    expect(dashboardActive).toContain('<template v-if="switchMenuOpen">');
+  });
+});

@@ -325,16 +325,17 @@
             <span class="pr-program-label">Program</span>
             <span class="pr-program-name">{{ dashboardProgram.name }}</span>
             <span class="pr-dot">·</span>
-            <span>{{ dashboardSiblings.length }} project{{ dashboardSiblings.length === 1 ? '' : 's' }}</span>
+            <span>{{ dashboardSiblingList.length }} project{{ dashboardSiblingList.length === 1 ? '' : 's' }}</span>
             <span class="pr-dot">·</span>
             <a :href="'/program.html?programId=' + encodeURIComponent(dashboardProgram.id)" class="pr-program-link">Program Dashboard →</a>
           </div>
           <div class="pr-title-row">
-            <div v-if="dashboardProgram" class="dropdown pr-switch">
+            <div v-if="dashboardProgram" class="dropdown pr-switch" v-on="{ 'show.bs.dropdown': onSwitchShow, 'hidden.bs.dropdown': onSwitchHidden }">
               <button type="button" class="pr-title pr-switch-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Switch project">
                 {{ dashboardTitle }}<pf-icon name="chevron-down" :size="16"></pf-icon>
               </button>
               <div class="dropdown-menu pr-switch-menu">
+                <template v-if="switchMenuOpen">
                 <div class="pr-switch-head">Projects in program {{ dashboardProgram.name }}</div>
                 <a v-for="s in dashboardSiblings" :key="s.id" href="#" class="pr-switch-row" :class="{ 'pr-switch-current': s.current }" @click.prevent="showDashboard(s.id)">
                   <span class="pr-switch-main">
@@ -349,6 +350,7 @@
                   <span>{{ dashboardSiblings.length }} project{{ dashboardSiblings.length === 1 ? '' : 's' }} · {{ fmtH(dashboardProgramTotals.soldHours) }} sold · {{ dashboardProgramTotals.consumptionPct !== null ? dashboardProgramTotals.consumptionPct + '%' : '—' }} consumed</span>
                   <a :href="'/program.html?programId=' + encodeURIComponent(dashboardProgram.id)" class="pr-program-link" @click.prevent="goProgramDashboard(dashboardProgram.id)">Program Dashboard →</a>
                 </div>
+                </template>
               </div><!-- /pr-switch -->
             </div>
             <h1 v-else class="pr-title">{{ dashboardTitle }}</h1>
@@ -443,7 +445,7 @@
           </div>
         </div>
 
-        <div v-if="!dashboardData.length" class="pr-empty">
+        <div v-if="!dashboardData.length && progressView !== 'ptc'" class="pr-empty">
           <div>No actuals loaded yet.</div>
           <button v-if="dashboardProject?.my_permission !== 'viewer'" type="button" class="btn btn-sm btn-outline-secondary pr-action" @click="triggerLoadActuals(dashboardProjectId)"><pf-icon name="upload" :size="14"></pf-icon>Load Actuals</button>
         </div>
@@ -451,7 +453,7 @@
         <template v-else>
           <div v-if="progressView === 'burndown'">
             <div class="pr-legend">
-              <span class="pr-legend-item"><span class="pr-legend-line pr-legend-actual"></span>Remaining hours (actual)</span>
+              <span class="pr-legend-item"><span class="pr-legend-line pr-legend-actual"></span>{{ burndownSeries && burndownSeries.budget === null ? 'Cumulative hours' : 'Remaining hours (actual)' }}</span>
               <span v-if="burndownSeries?.idealValues" class="pr-legend-item"><span class="pr-legend-line pr-legend-planned"></span>Remaining hours planned ({{ burndownSeries.hasPhasingEur ? 'phasing' : 'linear' }})</span>
               <span v-if="burndownTodayIndex !== null" class="pr-legend-item pr-legend-today">Today · {{ reportTodayLabel }}</span>
             </div>
@@ -579,9 +581,9 @@
                 <div class="pr-bd-title">{{ it.row.label }}<span v-if="it.row.overSold" class="pr-over-pill">Over sold</span></div>
                 <div class="pr-bd-sub">{{ it.row.subtitle }}</div>
               </div>
-              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(it.row.soldHours) }}</div><div class="pr-bd-a">{{ formatMoney(it.row.soldAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ it.row.soldKnown === false ? '—' : fmtH(it.row.soldHours) }}</div><div v-if="it.row.soldKnown !== false" class="pr-bd-a">{{ formatMoney(it.row.soldAmount, dashCurrency, currencies) }}</div></div>
               <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(it.row.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(it.row.spentAmount, dashCurrency, currencies) }}</div></div>
-              <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': it.row.remainingHours < 0 }"><div class="pr-bd-h">{{ fmtH(it.row.remainingHours) }}</div><div class="pr-bd-a">{{ formatMoney(it.row.remainingAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': it.row.soldKnown !== false && it.row.remainingHours < 0 }"><div class="pr-bd-h">{{ it.row.soldKnown === false ? '—' : fmtH(it.row.remainingHours) }}</div><div v-if="it.row.soldKnown !== false" class="pr-bd-a">{{ formatMoney(it.row.remainingAmount, dashCurrency, currencies) }}</div></div>
               <div class="pr-bd-cons">
                 <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + it.row.barState"><div class="pf-spent-bar-fill" :style="{ width: (it.row.overSold ? 100 : Math.min(100, it.row.pct || 0)) + '%' }"></div></div>
                 <span class="pr-bd-pct" :class="'pr-pct-' + it.row.barState">{{ it.row.pct !== null ? it.row.pct + '%' : '—' }}</span>
@@ -591,9 +593,9 @@
             <div v-else-if="it.kind === 'total'" class="pr-bd-row pr-bd-total">
               <span></span>
               <div class="pr-bd-name"><div class="pr-bd-title">Total</div></div>
-              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(breakdown.total.soldHours) }}</div><div class="pr-bd-a">{{ formatMoney(breakdown.total.soldAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ breakdown.total.soldKnown === false ? '—' : fmtH(breakdown.total.soldHours) }}</div><div v-if="breakdown.total.soldKnown !== false" class="pr-bd-a">{{ formatMoney(breakdown.total.soldAmount, dashCurrency, currencies) }}</div></div>
               <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(breakdown.total.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(breakdown.total.spentAmount, dashCurrency, currencies) }}</div></div>
-              <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': breakdown.total.remainingHours < 0 }"><div class="pr-bd-h">{{ fmtH(breakdown.total.remainingHours) }}</div><div class="pr-bd-a">{{ formatMoney(breakdown.total.remainingAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': breakdown.total.soldKnown !== false && breakdown.total.remainingHours < 0 }"><div class="pr-bd-h">{{ breakdown.total.soldKnown === false ? '—' : fmtH(breakdown.total.remainingHours) }}</div><div v-if="breakdown.total.soldKnown !== false" class="pr-bd-a">{{ formatMoney(breakdown.total.remainingAmount, dashCurrency, currencies) }}</div></div>
               <div class="pr-bd-cons">
                 <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + breakdown.total.barState"><div class="pf-spent-bar-fill" :style="{ width: (breakdown.total.overSold ? 100 : Math.min(100, breakdown.total.pct || 0)) + '%' }"></div></div>
                 <span class="pr-bd-pct" :class="'pr-pct-' + breakdown.total.barState">{{ breakdown.total.pct !== null ? breakdown.total.pct + '%' : '—' }}</span>
@@ -617,9 +619,9 @@
                     <div class="pr-bd-subtitle">{{ sr.label }}<span v-if="sr.overSold" class="pr-over-pill">Over sold</span></div>
                     <div class="pr-bd-sub">{{ sr.subtitle }}</div>
                   </div>
-                  <div class="pr-bd-num"><div class="pr-bd-h">{{ sr.soldConfigured ? fmtH(sr.soldHours) : '—' }}</div><div v-if="sr.soldConfigured" class="pr-bd-a">{{ formatMoney(sr.soldAmount, dashCurrency, currencies) }}</div></div>
+                  <div class="pr-bd-num"><div class="pr-bd-h">{{ sr.soldKnown ? fmtH(sr.soldHours) : '—' }}</div><div v-if="sr.soldKnown" class="pr-bd-a">{{ formatMoney(sr.soldAmount, dashCurrency, currencies) }}</div></div>
                   <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(sr.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(sr.spentAmount, dashCurrency, currencies) }}</div></div>
-                  <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': sr.remainingHours < 0 }"><div class="pr-bd-h">{{ fmtH(sr.remainingHours) }}</div><div class="pr-bd-a">{{ formatMoney(sr.remainingAmount, dashCurrency, currencies) }}</div></div>
+                  <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': sr.soldKnown && sr.remainingHours < 0 }"><div class="pr-bd-h">{{ sr.soldKnown ? fmtH(sr.remainingHours) : '—' }}</div><div v-if="sr.soldKnown" class="pr-bd-a">{{ formatMoney(sr.remainingAmount, dashCurrency, currencies) }}</div></div>
                   <div class="pr-bd-cons">
                     <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + sr.barState"><div class="pf-spent-bar-fill" :style="{ width: (sr.overSold ? 100 : Math.min(100, sr.pct || 0)) + '%' }"></div></div>
                     <span class="pr-bd-pct" :class="'pr-pct-' + sr.barState">{{ sr.pct !== null ? sr.pct + '%' : '—' }}</span>
@@ -695,8 +697,8 @@
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/shares.js"></script>
-<script type="module" src="js/lib/portfolio-calc.js?v=5"></script>
-<script type="module" src="js/lib/program-calc.js?v=1"></script>
+<script type="module" src="js/lib/portfolio-calc.js?v=6"></script>
+<script type="module" src="js/lib/program-calc.js?v=2"></script>
 <script type="module" src="js/lib/project-report-calc.js?v=1"></script>
 <script type="module" src="js/lib/chart-today.js?v=1"></script>
 <script defer src="js/api-sync.js?v=22"></script>
@@ -756,6 +758,7 @@
         filterMonth: '',
         filterStart: '',
         filterEnd: '',
+        switchMenuOpen: false,
         taskDetailState: {}, // { [taskName]: { expanded: bool, openMonth: 'YYYY-MM'|null } } — Breakdown task expansion
         notice: '',
         directCreationEnabled: window.DIRECT_PROJECT_CREATION_ENABLED,
@@ -970,19 +973,27 @@
       },
       // Every project of the program, the current one included (flag `current`), ordered by
       // code then name, each with its projectMetrics() for the switch's consumption bar.
-      dashboardSiblings() {
+      // The metrics are only computed while the switch menu is open (switchMenuOpen), with one
+      // pass over timesheetData; the header's project count reads dashboardSiblingList.
+      dashboardSiblingList() {
         this.refreshTick;
-        const cfg = this.dashboardProject;
-        const progId = cfg?.programId;
+        const progId = this.dashboardProject?.programId;
         if (!progId) return [];
         return (config.projects || [])
           .filter(p => p.programId === progId)
-          .sort((a, b) => (a.code || '').localeCompare(b.code || '') || (a.name || '').localeCompare(b.name || ''))
-          .map(s => ({
-            ...s,
-            current: s.id === this.dashboardProjectId,
-            metrics: projectMetrics(s, timesheetData.filter(r => r.projectId === s.id), this.reportDeps),
-          }));
+          .sort((a, b) => (a.code || '').localeCompare(b.code || '') || (a.name || '').localeCompare(b.name || ''));
+      },
+      dashboardSiblings() {
+        const list = this.dashboardSiblingList;
+        if (!this.switchMenuOpen || !list.length) return [];
+        const ids = new Set(list.map(p => p.id));
+        const rowsById = {};
+        timesheetData.forEach(r => { if (ids.has(r.projectId)) (rowsById[r.projectId] ||= []).push(r); });
+        return list.map(s => ({
+          ...s,
+          current: s.id === this.dashboardProjectId,
+          metrics: projectMetrics(s, rowsById[s.id] || [], this.reportDeps),
+        }));
       },
       dashboardProgramTotals() {
         return programTotals(this.dashboardSiblings.map(s => s.metrics));
@@ -993,7 +1004,10 @@
         return computeBurndownPoints(this.dashboardData, this.dashboardProject, this.burndownTaskFilter, this.burndownInterval, billableData, billableTasks, findRate);
       },
       burndownTodayIndex() {
-        return this.burndownSeries ? todayIndex(this.burndownSeries.points, this.reportToday) : null;
+        const s = this.burndownSeries, cfg = this.dashboardProject;
+        // No project dates: the axis is synthetic (14 months from the first actual), so no Today.
+        if (!s || !cfg?.startDate || !cfg?.endDate) return null;
+        return todayIndex(s.points, this.reportToday, { start: s.axisStart, end: s.axisEnd });
       },
       billableTaskNames() {
         return this.dashboardReady ? billableTasks(this.dashboardProject).map(t => t.name) : [];
@@ -1163,7 +1177,16 @@
       },
       // Rows of the Breakdown card for the current view (spec §6 "Card Breakdown"): Spent follows
       // the period filter, Remaining and the consumption % stay on the whole project.
+      // Spec §7 "Nessun budget": nothing sold on the project, so Sold, Remaining and % read "—".
+      breakdownNoBudget() {
+        return !(this.kpis.soldHours > 0);
+      },
       breakdown() {
+        const b = this.breakdownBase;
+        if (!b || !this.breakdownNoBudget) return b;
+        return { rows: b.rows.map(r => this.withoutSold(r)), total: this.withoutSold(b.total) };
+      },
+      breakdownBase() {
         const cfg = this.dashboardProject;
         if (!cfg) return null;
         const hasFilter = this.filterHasFilter;
@@ -1227,13 +1250,15 @@
           const taskData = data.filter(r => r.task.toLowerCase() === task.name.toLowerCase());
           const periodData = taskData.filter(r => (!start || r.date >= start) && (!end || r.date <= end)).sort((a,b) => a.date - b.date);
 
+          // Roles from every entry of the task, not only the period's: a role whose entries all
+          // fall outside the period still counts in the task row's Remaining, so it keeps its row.
           const roleMap = new Map();
-          periodData.forEach(r => {
+          taskData.forEach(r => {
             const key = r.role.toLowerCase();
             if (!roleMap.has(key)) roleMap.set(key, { role: r.role, owners: new Set(), consumedPeriod: 0 });
             if (r.owner) roleMap.get(key).owners.add(r.owner);
-            roleMap.get(key).consumedPeriod += r.hours;
           });
+          periodData.forEach(r => { roleMap.get(r.role.toLowerCase()).consumedPeriod += r.hours; });
           task.resources.forEach(res => {
             if (!roleMap.has(res.role.toLowerCase())) roleMap.set(res.role.toLowerCase(), { role: res.role, owners: new Set(), consumedPeriod: 0 });
           });
@@ -1241,7 +1266,9 @@
           const rows = [...roleMap.values()].map(({ role, owners, consumedPeriod }) => {
             const owner = [...owners].filter(Boolean).join(', ') || '—';
             const cfgRes = task.resources.find(r => r.role.toLowerCase() === role.toLowerCase());
-            const rate = cfgRes?.hourlyRate ?? 0;
+            // findRate(), as the task row (buildSummaryCols): a role not configured on the task
+            // takes the task's first resource rate, so row, sub-rows and entries reconcile.
+            const rate = cfgRes?.hourlyRate ?? findRate({ role, task: task.name }, cfg) ?? 0;
             const soldHours = cfgRes?.soldHours ?? null;
             const soldEur = soldHours !== null ? soldHours * rate : null;
             const consumedTotal = taskData.filter(r => r.role.toLowerCase() === role.toLowerCase()).reduce((s,r) => s+r.hours, 0);
@@ -1255,10 +1282,7 @@
           const totSold = rows.reduce((s,r) => s+(r.soldHours??0), 0);
           const totSoldEur = rows.reduce((s,r) => s+(r.soldEur??0), 0);
           const totPeriod = periodData.reduce((s,r) => s+r.hours, 0);
-          const totPeriodEur = periodData.reduce((s,r) => {
-            const cfgR = task.resources.find(res => res.role.toLowerCase() === r.role.toLowerCase());
-            return s + r.hours * (cfgR?.hourlyRate ?? 0);
-          }, 0);
+          const totPeriodEur = periodData.reduce((s,r) => s + r.hours * (findRate(r, cfg) ?? 0), 0);
           const totRemaining = rows.reduce((s,r) => s+(r.remaining??0), 0);
           const totRemainingEur = rows.reduce((s,r) => s+(r.remainingEur??0), 0);
 
@@ -1334,6 +1358,8 @@
         }
         return this.taskDetailState[taskName];
       },
+      onSwitchShow() { this.switchMenuOpen = true; },
+      onSwitchHidden() { this.switchMenuOpen = false; },
       toggleTask(taskName) {
         const st = this.taskState(taskName);
         st.expanded = !st.expanded;
@@ -1354,13 +1380,19 @@
         }));
         return breakdownRows(cols, true).rows.map((row, i) => {
           const r = entry.rows[i];
-          const rate = r.soldHours !== null ? `${this.formatMoney(r.rate, this.dashCurrency, this.currencies)}/h` : '';
-          return { ...row, key: r.role, soldConfigured: r.soldHours !== null, subtitle: [r.owners, rate].filter(Boolean).join(' · ') };
+          const rate = r.rate ? `${this.formatMoney(r.rate, this.dashCurrency, this.currencies)}/h` : '';
+          const out = { ...row, key: r.role, soldKnown: true, subtitle: [r.owners, rate].filter(Boolean).join(' · ') };
+          // A role not sold on the task has nothing to compare against: no Sold, Remaining, % or Over sold.
+          return r.soldHours === null || this.breakdownNoBudget ? this.withoutSold(out) : out;
         });
       },
+      // A Breakdown row with no sold reference (spec §7 "Nessun budget", or a role not sold on the task).
+      withoutSold(row) {
+        return { ...row, soldKnown: false, overSold: false, pct: null, barState: 'none' };
+      },
+      // findRate(), as the task row: null (amount "—") only when the task has no rate at all.
       entryRate(task, row) {
-        const res = task.resources.find(x => x.role.toLowerCase() === (row.role || '').toLowerCase());
-        return res ? res.hourlyRate : null;
+        return this.dashboardProject ? findRate({ role: row.role || '', task: task.name }, this.dashboardProject) : null;
       },
       taskEntries(entry) {
         return entriesByMonth(entry.periodData, r => this.entryRate(entry.task, r));
@@ -1576,6 +1608,9 @@
         this.burndownTaskFilter = '';
         this.progressView = 'burndown';
         this.breakdownView = 'task';
+        this.resetDateFilter();
+        this.taskDetailState = {};
+        this.switchMenuOpen = false;
         this.loadDashboardTags(pid);
         this.$nextTick(() => this.renderBurndownChart());
       },
@@ -1620,7 +1655,7 @@
         const todayPlugin = window.todayLabelPlugin({
           id: 'prTodayLabel',
           index,
-          text: index !== null ? `${fmtH(burnValues[index])} left` : '',
+          text: index !== null ? `${fmtH(burnValues[index])} ${budget !== null ? 'left' : 'consumed'}` : '',
           bg: this.chartColor('--brand-navy', 'navy'),
           fg: this.chartColor('--surface-white', 'white'),
         });

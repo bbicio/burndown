@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeKpis, computeBurndownPoints, buildSummaryCols, summaryTotals, normalizeGroupEntries, entryMatchesRow, commonCurrency, buildPortfolioRows, spentPercent, spentBarState, programAtRisk, readLayoutPreference, columnsForWidth, resolveExpandedProgramId, syncExpansionOnLayoutChange, toggleCardExpansion } from './portfolio-calc.js';
+import { computeKpis, computeBurndownPoints, buildSummaryCols, normalizeGroupEntries, entryMatchesRow, commonCurrency, buildPortfolioRows, spentPercent, spentBarState, programAtRisk, readLayoutPreference, columnsForWidth, resolveExpandedProgramId, syncExpansionOnLayoutChange, toggleCardExpansion } from './portfolio-calc.js';
 
 describe('commonCurrency', () => {
   it('returns the currency code shared by all the projects', () => {
@@ -190,47 +190,6 @@ describe('buildSummaryCols', () => {
     expect(result[0].totalConsumed).toBe(6); // unfiltered — both rows
     expect(result[0].inPeriod).toBe(4); // only the February row
     expect(result[0].inPeriodEur).toBe(4 * 168);
-  });
-});
-
-describe('summaryTotals', () => {
-  it('sums sold/consumed/residual across all columns, independent of how they were grouped', () => {
-    const cols = [
-      { soldHours: 10, soldEur: 1680, totalConsumed: 2, totalConsumedEur: 336, inPeriod: 0, inPeriodEur: 0 },
-      { soldHours: 10, soldEur: 1300, totalConsumed: 3, totalConsumedEur: 390, inPeriod: 0, inPeriodEur: 0 },
-    ];
-    const totals = summaryTotals(cols, false);
-    expect(totals.totSold).toBe(20);
-    expect(totals.totSoldEur).toBe(2980);
-    expect(totals.totSpent).toBe(5); // no filter -> totSpent == totConsumed
-    expect(totals.totSpentEur).toBe(726);
-    expect(totals.totResidual).toBe(15);
-    expect(totals.totResidualEur).toBe(2254);
-  });
-
-  it('subtracts inPeriod from totConsumed for totSpent when a filter is active', () => {
-    const cols = [
-      { soldHours: 10, soldEur: 1000, totalConsumed: 6, totalConsumedEur: 600, inPeriod: 4, inPeriodEur: 400 },
-    ];
-    const totals = summaryTotals(cols, true);
-    expect(totals.totSpent).toBe(2); // 6 total - 4 in-period
-    expect(totals.totSpentEur).toBe(200);
-  });
-
-  const charCols = [
-    { soldHours: 20, soldEur: 3200, totalConsumed: 22, totalConsumedEur: 3520, inPeriod: 5, inPeriodEur: 800 },
-    { soldHours: 40, soldEur: 4000, totalConsumed: 10, totalConsumedEur: 1000, inPeriod: 3, inPeriodEur: 300 },
-  ];
-
-  it('totResidual does not depend on the period filter', () => {
-    expect(summaryTotals(charCols, true).totResidual).toBe(summaryTotals(charCols, false).totResidual);
-    expect(summaryTotals(charCols, true).totResidualEur).toBe(summaryTotals(charCols, false).totResidualEur);
-  });
-
-  it('pins the pre-redesign Spent under a filter: consumed minus in-period', () => {
-    const t = summaryTotals(charCols, true);
-    expect(t.totSpent).toBe(32 - 8);
-    expect(t.totSpentEur).toBe(4520 - 1100);
   });
 });
 

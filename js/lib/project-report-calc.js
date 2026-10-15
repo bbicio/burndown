@@ -2,8 +2,8 @@
 // pace judgment, Breakdown rows, row subtitles, entries per month and the Today index.
 // See docs/superpowers/specs/2026-10-15-project-reporting-redesign-design.md §4.
 
-// ?v=5 matches portfolio.html's own <script src="js/lib/portfolio-calc.js?v=5"> tag (CLAUDE.md "Cache-busting").
-import { spentPercent, spentBarState, normalizeGroupEntries, entryMatchesRow } from './portfolio-calc.js?v=5';
+// ?v=6 matches portfolio.html's own <script src="js/lib/portfolio-calc.js?v=6"> tag (CLAUDE.md "Cache-busting").
+import { spentPercent, spentBarState, normalizeGroupEntries, entryMatchesRow } from './portfolio-calc.js?v=6';
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function ymOf(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`; }
@@ -117,14 +117,21 @@ export function monthState(ym, today) {
 }
 
 // Index of the last axis point on or before today; null before the axis, or beyond the
-// last point by more than one interval (31 days with a single point).
-export function todayIndex(points, today) {
+// last point by more than one interval (31 days with a single point). With `bounds`
+// ({ start, end }, the burndown's axisStart/axisEnd), today must instead fall inside
+// [start, end] — end counts as a whole day — since the last interval can be longer
+// than the step between the last two points (a 31-day month after a 28-day one).
+export function todayIndex(points, today, bounds) {
   if (!points || !points.length || !today) return null;
+  if (bounds && bounds.start && bounds.end) {
+    const endOfDay = new Date(bounds.end.getFullYear(), bounds.end.getMonth(), bounds.end.getDate() + 1);
+    if (today < bounds.start || today >= endOfDay) return null;
+  }
   let idx = null;
   for (let i = 0; i < points.length; i++) if (points[i] <= today) idx = i;
   if (idx === null) return null;
   const last = points.length - 1;
-  if (idx === last) {
+  if (idx === last && !(bounds && bounds.start && bounds.end)) {
     const step = points.length > 1 ? points[last] - points[last - 1] : 31 * 24 * 3600 * 1000;
     if (today - points[last] > step) return null;
   }
