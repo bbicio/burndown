@@ -67,11 +67,14 @@ function burndownRows(data, cfg, taskFilter, billableData) {
   const bData = billableData(data, cfg);
   return taskFilter ? bData.filter(r => r.task.toLowerCase() === taskFilter.toLowerCase()) : bData;
 }
+// The task a burndown filter names (lower-case match); the hours and the € budget both read it (B-081).
+function filteredTask(cfg, taskFilter) {
+  return cfg.tasks.find(t => t.name.toLowerCase() === taskFilter.toLowerCase());
+}
 function burndownBudget(cfg, taskFilter, billableTasks) {
   if (!cfg) return null;
   return taskFilter
-    ? (cfg.tasks.find(t => t.name.toLowerCase() === taskFilter.toLowerCase())
-         ?.resources.reduce((s, r) => s + r.soldHours, 0) ?? 0)
+    ? (filteredTask(cfg, taskFilter)?.resources.reduce((s, r) => s + r.soldHours, 0) ?? 0)
     : billableTasks(cfg).reduce((s, t) => s + t.resources.reduce((ss, r) => ss + r.soldHours, 0), 0);
 }
 
@@ -129,7 +132,7 @@ export function computeBurndownPoints(data, cfg, taskFilter, interval, billableD
   let totalBudgetEur = 0;
   if (budget !== null) {
     totalBudgetEur = cfg
-      ? (taskFilter ? cfg.tasks : billableTasks(cfg)).reduce((s, t) => s + t.resources.reduce((ss, r) => ss + r.soldHours * r.hourlyRate, 0), 0)
+      ? (taskFilter ? [filteredTask(cfg, taskFilter)].filter(Boolean) : billableTasks(cfg)).reduce((s, t) => s + t.resources.reduce((ss, r) => ss + r.soldHours * r.hourlyRate, 0), 0)
       : 0;
     const usePhasingIdeal = !taskFilter && cfg?.phasing && Object.keys(cfg.phasing).length > 0 && totalBudgetEur > 0;
     idealData = points.map(d => {

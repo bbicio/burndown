@@ -598,8 +598,8 @@ describe('reporting follow-ups — characterization (pre-fix)', () => {
     expect(computeKpis(fuData, fuCfg, billableData, billableTasks, findRate).consumedHours).toBe(18);
     expect(fuSeries(fuCfg, '').todayValue).toBe(130);
   });
-  it('with a task filter totalBudgetEur sums every task (B-081, pre-fix)', () => {
-    expect(fuSeries(fuCfg, 'Dev').totalBudgetEur).toBe(6400);
+  it("with a task filter totalBudgetEur is that task's own budget (B-081)", () => {
+    expect(fuSeries(fuCfg, 'Dev').totalBudgetEur).toBe(5000);
     expect(fuSeries(fuCfg, '').totalBudgetEur).toBe(6200);
   });
 });
@@ -636,5 +636,21 @@ describe('computeKpis — futureHours (B-080)', () => {
     const ko = kpis(fuData, over, fuToday);
     expect(fuSeries(over, '').todayValue).toBe(0);
     expect(Math.max(0, ko.hoursLeft + ko.futureHours)).toBe(0);
+  });
+});
+
+describe('computeBurndownPoints — filtered € budget (B-081)', () => {
+  it("is the filtered task's own fees", () => {
+    expect(fuSeries(fuCfg, 'Dev').totalBudgetEur).toBe(5000);
+    expect(fuSeries(fuCfg, 'QA').totalBudgetEur).toBe(1200);
+  });
+  it('matches the task name case-insensitively (Review Focus 3)', () => {
+    expect(fuSeries(fuCfg, 'dev').totalBudgetEur).toBe(5000);
+  });
+  it('is 0 for a task that does not exist', () => {
+    expect(fuSeries(fuCfg, 'Nope').totalBudgetEur).toBe(0);
+  });
+  it('without a filter is unchanged: every billable task', () => {
+    expect(fuSeries(fuCfg, '').totalBudgetEur).toBe(6200);
   });
 });
