@@ -22,6 +22,16 @@ export function paceJudgment(vsTime, threshold = 10) {
 function r2(n) { return Math.round(n * 100) / 100 + 0; } // + 0 turns -0 into 0
 
 function toRow(label, soldHours, soldAmount, totalConsumed, totalConsumedAmount, inPeriod, inPeriodAmount, hasFilter) {
+  // No sold reference at all (a role logged on a task where it is not configured): "—" rather
+  // than "Over sold", which stays reserved for a configured role sold 0 or fewer hours.
+  if (soldHours === null) {
+    return {
+      label, soldHours, soldAmount, remainingHours: null, remainingAmount: null,
+      spentHours: hasFilter ? inPeriod : totalConsumed,
+      spentAmount: hasFilter ? inPeriodAmount : totalConsumedAmount,
+      pct: null, barState: 'none', overSold: false, soldKnown: false,
+    };
+  }
   const pct = spentPercent(totalConsumed, soldHours);
   const overSold = r2(totalConsumed) > r2(soldHours);
   return {
@@ -41,11 +51,14 @@ function toRow(label, soldHours, soldAmount, totalConsumed, totalConsumedAmount,
 
 // `cols` are buildSummaryCols()/summaryByGroup columns. Spent follows the period filter,
 // Remaining and the consumption % always use the whole-project consumption.
-export function breakdownRows(cols, hasFilter) {
+// `totalCol` (optional): a column the Total is computed from instead of the sum of `cols` — the
+// By area view, whose rows may overlap.
+export function breakdownRows(cols, hasFilter, totalCol = null) {
   const list = cols || [];
   const rows = list.map(c => toRow(c.label, c.soldHours, c.soldEur, c.totalConsumed, c.totalConsumedEur, c.inPeriod, c.inPeriodEur, hasFilter));
   const sum = k => list.reduce((s, c) => s + (c[k] || 0), 0);
-  const total = toRow('Total', sum('soldHours'), sum('soldEur'), sum('totalConsumed'), sum('totalConsumedEur'), sum('inPeriod'), sum('inPeriodEur'), hasFilter);
+  const t = totalCol || { soldHours: sum('soldHours'), soldEur: sum('soldEur'), totalConsumed: sum('totalConsumed'), totalConsumedEur: sum('totalConsumedEur'), inPeriod: sum('inPeriod'), inPeriodEur: sum('inPeriodEur') };
+  const total = toRow('Total', t.soldHours, t.soldEur, t.totalConsumed, t.totalConsumedEur, t.inPeriod, t.inPeriodEur, hasFilter);
   return { rows, total };
 }
 
@@ -145,7 +158,18 @@ export function roleColumns(data, cfg, filterRange, deps) {
   }));
   const bData = billableData(data, cfg);
   const byKeyFn = r => r.role.toLowerCase() + '|' + r.task.toLowerCase();
-  const entries = [...roleTaskMap.values()];
+  // Pairs logged but not configured (B-073): one column each, no sold reference, after the
+  // configured ones in task order then role order, so the Total matches By task.
+  const taskOrder = new Map(billableTasks(cfg).map((t, i) => [t.name.toLowerCase(), i]));
+  const extra = new Map();
+  bData.forEach(r => {
+    const key = byKeyFn(r);
+    if (!roleTaskMap.has(key) && !extra.has(key)) extra.set(key, { key, label: `${r.role} — ${r.task}`, role: r.role, task: r.task, soldHours: null, soldEur: null });
+  });
+  const extraSorted = [...extra.values()].sort((a, b) =>
+    (taskOrder.get(a.task.toLowerCase()) ?? Infinity) - (taskOrder.get(b.task.toLowerCase()) ?? Infinity)
+    || a.role.toLowerCase().localeCompare(b.role.toLowerCase()));
+  const entries = [...roleTaskMap.values(), ...extraSorted];
   // role/task carried alongside each column for the Breakdown's By role rows (label and subtitle).
   return buildSummaryCols(bData, byKeyFn, entries, filterRange, cfg, findRate)
     .map((c, i) => ({ ...c, role: entries[i].role, task: entries[i].task }));
@@ -162,21 +186,46 @@ export function areaColumns(data, cfg, filterRange, deps) {
   const { billableData, billableTasks, findRate } = deps;
   const bData = billableData(data, cfg);
   const bTasks = billableTasks(cfg);
+  const groupEntries = cfg.groups.map(normalizeGroupEntries);
+  const cols = cfg.groups.map((grp, i) => areaColumn(grp.name,
+    res => entryMatchesRow(groupEntries[i], res.role, res.task),
+    bData, bTasks, filterRange, cfg, findRate));
+  // What no group claims (B-073), shown only when there is something in it.
+  const unclaimed = x => !groupEntries.some(e => entryMatchesRow(e, x.role, x.task));
+  const ungrouped = areaColumn('Ungrouped', unclaimed, bData, bTasks, filterRange, cfg, findRate);
+  if (ungrouped.soldHours > 0 || ungrouped.totalConsumed > 0) cols.push({ ...ungrouped, ungrouped: true });
+  return cols;
+}
+
+// The By area Total: every billable resource and entry counted once, whatever the overlaps.
+export function areaTotalColumn(data, cfg, filterRange, deps) {
+  const { billableData, billableTasks, findRate } = deps;
+  return areaColumn('Total', () => true, billableData(data, cfg), billableTasks(cfg), filterRange, cfg, findRate);
+}
+
+// True when a billable resource or entry is claimed by two or more groups.
+export function areaOverlap(data, cfg, deps) {
+  const { billableData, billableTasks } = deps;
+  const groupEntries = (cfg.groups || []).map(normalizeGroupEntries);
+  const claims = (role, task) => groupEntries.filter(e => entryMatchesRow(e, role, task)).length;
+  return billableTasks(cfg).some(t => t.resources.some(res => claims(res.role, t.name) > 1))
+    || billableData(data, cfg).some(r => claims(r.role, r.task) > 1);
+}
+
+// One area column: `claims({role, task})` selects the resources (with their task name) and the entries.
+function areaColumn(label, claims, bData, bTasks, filterRange, cfg, findRate) {
   const { start, end } = filterRange;
-  return cfg.groups.map(grp => {
-    const grpEntries = normalizeGroupEntries(grp);
-    let soldHours = 0, soldEur = 0;
-    bTasks.forEach(task => task.resources.forEach(res => {
-      if (entryMatchesRow(grpEntries, res.role, task.name)) { soldHours += res.soldHours; soldEur += res.soldHours * res.hourlyRate; }
-    }));
-    const grpRows = bData.filter(r => entryMatchesRow(grpEntries, r.role, r.task));
-    const totalConsumed = grpRows.reduce((s, r) => s + r.hours, 0);
-    const totalConsumedEur = grpRows.reduce((s, r) => s + r.hours * (findRate(r, cfg) ?? 0), 0);
-    const periodRows = grpRows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
-    const inPeriod = periodRows.reduce((s, r) => s + r.hours, 0);
-    const inPeriodEur = periodRows.reduce((s, r) => s + r.hours * (findRate(r, cfg) ?? 0), 0);
-    return { label: grp.name, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
-  });
+  let soldHours = 0, soldEur = 0;
+  bTasks.forEach(task => task.resources.forEach(res => {
+    if (claims({ role: res.role, task: task.name })) { soldHours += res.soldHours; soldEur += res.soldHours * res.hourlyRate; }
+  }));
+  const rows = bData.filter(r => claims(r));
+  const totalConsumed = rows.reduce((s, r) => s + r.hours, 0);
+  const totalConsumedEur = rows.reduce((s, r) => s + r.hours * (findRate(r, cfg) ?? 0), 0);
+  const periodRows = rows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
+  const inPeriod = periodRows.reduce((s, r) => s + r.hours, 0);
+  const inPeriodEur = periodRows.reduce((s, r) => s + r.hours * (findRate(r, cfg) ?? 0), 0);
+  return { label, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
 }
 
 window.paceJudgment = paceJudgment;
@@ -189,4 +238,6 @@ window.hoursByMonth = hoursByMonth;
 window.monthState = monthState;
 window.roleColumns = roleColumns;
 window.areaColumns = areaColumns;
+window.areaTotalColumn = areaTotalColumn;
+window.areaOverlap = areaOverlap;
 window.todayIndex = todayIndex;

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { paceJudgment, breakdownRows, taskSubtitle, roleSubtitle, groupSubtitle, entriesByMonth, hoursByMonth, monthState, todayIndex, roleColumns, areaColumns } from './project-report-calc.js';
+import { paceJudgment, breakdownRows, taskSubtitle, roleSubtitle, groupSubtitle, entriesByMonth, hoursByMonth, monthState, todayIndex, roleColumns, areaColumns, areaTotalColumn, areaOverlap } from './project-report-calc.js';
+import { buildSummaryCols } from './portfolio-calc.js';
 
 // Stand-ins for js/core.js's billableTasks/billableData/findRate (same rules: billable filter,
 // exact role on the task, else the task's first resource).
@@ -250,12 +251,70 @@ describe('todayIndex re-export', () => {
 
 describe('roleColumns / areaColumns — characterization (pre-fix)', () => {
   it('roleColumns has only the configured (role, task) pairs', () => {
-    const cols = roleColumns(F_ROWS, F, NO_RANGE, DEPS);
+    const cols = roleColumns(F_ROWS, F, NO_RANGE, DEPS).slice(0, 3);
     expect(cols.map(c => `${c.role}|${c.task}`)).toEqual(['Developer|Dev', 'Tester|Dev', 'Tester|QA']);
     expect(cols.map(c => c.totalConsumed)).toEqual([10, 4, 6]);
   });
   it('areaColumns counts Tester on Dev in both groups', () => {
-    const cols = areaColumns(F_ROWS, F, NO_RANGE, DEPS);
+    const cols = areaColumns(F_ROWS, F, NO_RANGE, DEPS).slice(0, 2);
     expect(cols.map(c => [c.label, c.totalConsumed])).toEqual([['Build', 14], ['Quality', 10]]);
+  });
+});
+
+describe('Breakdown totals agree across views (B-073)', () => {
+  const taskCols = (rows, range) => buildSummaryCols(rows, r => r.task.toLowerCase(),
+    billableTasks(F).map(t => ({ key: t.name.toLowerCase(), label: t.name,
+      soldHours: t.resources.reduce((s, r) => s + r.soldHours, 0),
+      soldEur: t.resources.reduce((s, r) => s + r.soldHours * r.hourlyRate, 0) })), range, F, findRate);
+  const totals = range => [
+    breakdownRows(taskCols(F_ROWS, range), !!range.start).total,
+    breakdownRows(roleColumns(F_ROWS, F, range, DEPS), !!range.start).total,
+    breakdownRows(areaColumns(F_ROWS, F, range, DEPS), !!range.start, areaTotalColumn(F_ROWS, F, range, DEPS)).total,
+  ];
+
+  it('By role adds an unconfigured pair with no sold reference, priced by findRate', () => {
+    const cols = roleColumns(F_ROWS, F, NO_RANGE, DEPS);
+    expect(cols.length).toBe(4);
+    const d = cols[3];
+    expect([d.role, d.task, d.totalConsumed, d.soldHours, d.soldEur, d.totalConsumedEur]).toEqual(['Designer', 'Dev', 3, null, null, 150]);
+    const row = breakdownRows(cols, false).rows[3];
+    expect([row.soldKnown, row.overSold, row.pct, row.barState, row.remainingHours, row.remainingAmount]).toEqual([false, false, null, 'none', null, null]);
+  });
+  it('orders unconfigured pairs by task order, then role case-insensitively', () => {
+    const rows = [...F_ROWS,
+      { task: 'QA', role: 'Analyst', hours: 1, date: new Date(2026, 0, 2) },
+      { task: 'Dev', role: 'architect', hours: 1, date: new Date(2026, 0, 2) }];
+    expect(roleColumns(rows, F, NO_RANGE, DEPS).slice(3).map(c => `${c.role}|${c.task}`)).toEqual(['architect|Dev', 'Designer|Dev', 'Analyst|QA']);
+  });
+  it('By area adds an Ungrouped row for hours no group claims', () => {
+    const ung = areaColumns(F_ROWS, F, NO_RANGE, DEPS)[2];
+    expect([ung.label, ung.ungrouped, ung.totalConsumed, ung.soldHours]).toEqual(['Ungrouped', true, 3, 0]);
+  });
+  it('flags an overlap only when something is claimed by two groups', () => {
+    expect(areaOverlap(F_ROWS, F, DEPS)).toBe(true);
+    expect(areaOverlap(F_ROWS, { ...F, groups: [F.groups[0]] }, DEPS)).toBe(false);
+  });
+  it('has no Ungrouped row and no overlap when every role is in exactly one area (Review Focus 4)', () => {
+    const cfg = { ...F, groups: [
+      { name: 'Build', entries: [{ role: 'Developer', task: '' }, { role: 'Tester', task: 'Dev' }] },
+      { name: 'Quality', entries: [{ role: 'Tester', task: 'QA' }] }] };
+    const rows = F_ROWS.filter(r => r.role !== 'Designer');
+    expect(areaColumns(rows, cfg, NO_RANGE, DEPS).map(c => c.label)).toEqual(['Build', 'Quality']);
+    expect(areaOverlap(rows, cfg, DEPS)).toBe(false);
+  });
+  it('a configured role sold 0 hours stays Over sold (Review Focus 3)', () => {
+    const { rows } = breakdownRows([{ label: 'x', soldHours: 0, soldEur: 0, totalConsumed: 2, totalConsumedEur: 20, inPeriod: 2, inPeriodEur: 20 }], false);
+    expect([rows[0].overSold, rows[0].barState, rows[0].soldKnown]).toEqual([true, 'danger', true]);
+  });
+  it('the three Totals are equal on the whole project', () => {
+    const pick = t => [t.soldHours, t.soldAmount, t.spentHours, t.spentAmount, t.remainingHours, t.remainingAmount];
+    const [byTask, byRole, byArea] = totals(NO_RANGE).map(pick);
+    expect(byTask).toEqual([150, 7000, 23, 1050, 127, 5950]);
+    expect(byRole).toEqual(byTask);
+    expect(byArea).toEqual(byTask);
+  });
+  it('the three Totals spend the same within a period', () => {
+    const range = { start: new Date(2026, 1, 1), end: new Date(2026, 1, 28, 23, 59, 59) };
+    expect(totals(range).map(t => t.spentHours)).toEqual([6, 6, 6]);
   });
 });
