@@ -237,39 +237,14 @@ describe('breakdownRows — float residue', () => {
   });
 });
 
-describe('todayIndex', () => {
-  const pts = [new Date(2026, 0, 1), new Date(2026, 1, 1), new Date(2026, 2, 1)];
-  it('returns the last point on or before today', () => {
-    expect(todayIndex(pts, new Date(2026, 1, 15))).toBe(1);
-    expect(todayIndex(pts, new Date(2026, 1, 1))).toBe(1);
-  });
-  it('returns null before the first point', () => {
-    expect(todayIndex(pts, new Date(2025, 11, 31))).toBe(null);
-  });
-  it('keeps the last point within one interval after it, null beyond', () => {
-    expect(todayIndex(pts, new Date(2026, 2, 20))).toBe(2);
-    expect(todayIndex(pts, new Date(2026, 3, 10))).toBe(null);
-  });
-  it('uses a 31-day window with a single point', () => {
-    expect(todayIndex([new Date(2026, 0, 1)], new Date(2026, 0, 20))).toBe(0);
-    expect(todayIndex([new Date(2026, 0, 1)], new Date(2026, 1, 15))).toBe(null);
-  });
-  it('with axis bounds, keeps the last point until the axis end, whatever the last step', () => {
-    const bounds = { start: new Date(2026, 0, 1), end: new Date(2026, 2, 31) };
-    expect(todayIndex(pts, new Date(2026, 2, 29, 12), bounds)).toBe(2);
-    expect(todayIndex(pts, new Date(2026, 2, 31, 18), bounds)).toBe(2);
-    expect(todayIndex(pts, new Date(2026, 3, 1), bounds)).toBe(null);
-    const q = [new Date(2026, 0, 1), new Date(2026, 3, 1)];
-    expect(todayIndex(q, new Date(2026, 5, 30), { start: new Date(2026, 0, 1), end: new Date(2026, 5, 30) })).toBe(1);
-  });
-  it('with axis bounds, returns null before the axis start even if a point precedes it', () => {
-    const weekly = [new Date(2025, 11, 29), new Date(2026, 0, 5)];
-    expect(todayIndex(weekly, new Date(2025, 11, 30), { start: new Date(2026, 0, 1), end: new Date(2026, 0, 31) })).toBe(null);
-  });
-  it('returns null without points or without today', () => {
-    expect(todayIndex([], new Date())).toBe(null);
-    expect(todayIndex(null, new Date())).toBe(null);
-    expect(todayIndex(pts, null)).toBe(null);
+describe('todayIndex re-export', () => {
+  // Behavioural, not identity: the ?v= query makes the re-exported module a separate instance.
+  it('behaves as the portfolio-calc.js function', async () => {
+    const pc = await import('./portfolio-calc.js');
+    const pts = [new Date(2026, 0, 1), new Date(2026, 1, 1)];
+    const today = new Date(2026, 1, 10);
+    expect(todayIndex(pts, today)).toBe(pc.todayIndex(pts, today));
+    expect(todayIndex(pts, today)).toBe(1);
   });
 });
 

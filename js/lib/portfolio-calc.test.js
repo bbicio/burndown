@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeKpis, computeBurndownPoints, buildSummaryCols, normalizeGroupEntries, entryMatchesRow, commonCurrency, buildPortfolioRows, spentPercent, spentBarState, programAtRisk, readLayoutPreference, columnsForWidth, resolveExpandedProgramId, syncExpansionOnLayoutChange, toggleCardExpansion } from './portfolio-calc.js';
+import { computeKpis, computeBurndownPoints, todayIndex, remainingAsOf, buildSummaryCols, normalizeGroupEntries, entryMatchesRow, commonCurrency, buildPortfolioRows, spentPercent, spentBarState, programAtRisk, readLayoutPreference, columnsForWidth, resolveExpandedProgramId, syncExpansionOnLayoutChange, toggleCardExpansion } from './portfolio-calc.js';
 
 describe('commonCurrency', () => {
   it('returns the currency code shared by all the projects', () => {
@@ -64,6 +64,7 @@ describe('computeKpis', () => {
     expect(result.consumedEur).toBe(1200); // 12*100
     expect(result.hoursLeft).toBe(8);
     expect(result.budgetLeft).toBe(1300);
+    expect(result.feesLeft).toBe(800); // 20*100 fees - 1200 consumed, PTC excluded (B-072)
   });
 
   it('excludes non-billable tasks from sold/consumed totals', () => {
@@ -161,6 +162,110 @@ describe('computeBurndownPoints — characterization (pre-fix)', () => {
     expect(r.idealValues).toEqual([80, 40]);
     expect(r.tooltipBudgetConsumed).toEqual([0, 750]);
     expect(r.tooltipPhasingEur).toEqual([1000, 3000]);
+  });
+});
+
+describe('todayIndex', () => {
+  const pts = [new Date(2026, 0, 1), new Date(2026, 1, 1), new Date(2026, 2, 1)];
+  it('returns the last point on or before today', () => {
+    expect(todayIndex(pts, new Date(2026, 1, 15))).toBe(1);
+    expect(todayIndex(pts, new Date(2026, 1, 1))).toBe(1);
+  });
+  it('returns null before the first point', () => {
+    expect(todayIndex(pts, new Date(2025, 11, 31))).toBe(null);
+  });
+  it('keeps the last point within one interval after it, null beyond', () => {
+    expect(todayIndex(pts, new Date(2026, 2, 20))).toBe(2);
+    expect(todayIndex(pts, new Date(2026, 3, 10))).toBe(null);
+  });
+  it('uses a 31-day window with a single point', () => {
+    expect(todayIndex([new Date(2026, 0, 1)], new Date(2026, 0, 20))).toBe(0);
+    expect(todayIndex([new Date(2026, 0, 1)], new Date(2026, 1, 15))).toBe(null);
+  });
+  it('with axis bounds, keeps the last point until the axis end, whatever the last step', () => {
+    const bounds = { start: new Date(2026, 0, 1), end: new Date(2026, 2, 31) };
+    expect(todayIndex(pts, new Date(2026, 2, 29, 12), bounds)).toBe(2);
+    expect(todayIndex(pts, new Date(2026, 2, 31, 18), bounds)).toBe(2);
+    expect(todayIndex(pts, new Date(2026, 3, 1), bounds)).toBe(null);
+    const q = [new Date(2026, 0, 1), new Date(2026, 3, 1)];
+    expect(todayIndex(q, new Date(2026, 5, 30), { start: new Date(2026, 0, 1), end: new Date(2026, 5, 30) })).toBe(1);
+  });
+  it('with axis bounds, returns null before the axis start even if a point precedes it', () => {
+    const weekly = [new Date(2025, 11, 29), new Date(2026, 0, 5)];
+    expect(todayIndex(weekly, new Date(2025, 11, 30), { start: new Date(2026, 0, 1), end: new Date(2026, 0, 31) })).toBe(null);
+  });
+  it('returns null without points or without today', () => {
+    expect(todayIndex([], new Date())).toBe(null);
+    expect(todayIndex(null, new Date())).toBe(null);
+    expect(todayIndex(pts, null)).toBe(null);
+  });
+});
+
+describe('computeBurndownPoints — as of today (B-071)', () => {
+  const cfg = {
+    startDate: '202601', endDate: '202604',
+    tasks: [
+      { name: 'Dev', billable: true, resources: [{ role: 'Developer', soldHours: 100, hourlyRate: 50 }] },
+      { name: 'QA', billable: true, resources: [{ role: 'Tester', soldHours: 40, hourlyRate: 30 }] },
+    ],
+    phasing: { 202601: 1000, 202602: 2000 },
+  };
+  const data = [
+    { task: 'Dev', role: 'Developer', hours: 10, date: new Date(2026, 0, 15) },
+    { task: 'Dev', role: 'Developer', hours: 5, date: new Date(2026, 2, 15) },
+  ];
+  const run = (today, over = {}) => computeBurndownPoints(data, { ...cfg, ...over }, over.taskFilter || 'Dev', 'monthly', billableData, billableTasks, findRate, today);
+  it('puts the remaining as of today on the current point and stops the line after it', () => {
+    const r = run(new Date(2026, 1, 20));
+    expect(r.todayIndex).toBe(1);
+    expect(r.todayValue).toBe(90);
+    expect(r.burnValues).toEqual([100, 90, null, null]);
+    expect(r.tooltipBudgetConsumed).toEqual([0, 500, null, null]);
+  });
+  it('counts an entry of the current interval dated before today', () => {
+    const r = run(new Date(2026, 2, 20));
+    expect(r.todayIndex).toBe(2);
+    expect(r.burnValues).toEqual([100, 90, 85, null]);
+    expect(r.tooltipBudgetConsumed[2]).toBe(750);
+  });
+  it('after the axis: no cut, no index, the final remaining as todayValue (Review Focus 1)', () => {
+    const r = run(new Date(2026, 5, 10));
+    expect(r.burnValues).toEqual([100, 90, 90, 85]);
+    expect(r.todayIndex).toBeNull();
+    expect(r.todayValue).toBe(85);
+  });
+  it('before the axis: every point empty, full remaining as todayValue (Review Focus 2)', () => {
+    const r = run(new Date(2025, 11, 1));
+    expect(r.burnValues).toEqual([null, null, null, null]);
+    expect(r.todayIndex).toBeNull();
+    expect(r.todayValue).toBe(100);
+  });
+  it('leaves an undated project unchanged', () => {
+    const undated = { startDate: null, endDate: null };
+    const without = computeBurndownPoints(data, { ...cfg, ...undated }, '', 'monthly', billableData, billableTasks, findRate);
+    const withToday = computeBurndownPoints(data, { ...cfg, ...undated }, '', 'monthly', billableData, billableTasks, findRate, new Date(2026, 1, 20));
+    expect(withToday).toEqual(without);
+    expect(withToday.todayIndex).toBeNull();
+    expect(withToday.todayValue).toBeNull();
+  });
+  it('a task filter with no entries gives the task budget', () => {
+    expect(run(new Date(2026, 1, 20), { taskFilter: 'QA' }).todayValue).toBe(40);
+  });
+  it('no longer returns planningData (B-074)', () => {
+    expect('planningData' in run(new Date(2026, 1, 20), { planning: { 202601: 20 } })).toBe(false);
+  });
+});
+
+describe('remainingAsOf', () => {
+  it('is sold minus hours up to the date, clamped at 0', () => {
+    const cfg = { tasks: [{ name: 'Dev', billable: true, resources: [{ role: 'Developer', soldHours: 8, hourlyRate: 1 }] }] };
+    const rows = [{ task: 'Dev', role: 'Developer', hours: 5, date: new Date(2026, 0, 5) }, { task: 'Dev', role: 'Developer', hours: 5, date: new Date(2026, 0, 9) }];
+    expect(remainingAsOf(rows, cfg, '', new Date(2026, 0, 6), billableData, billableTasks)).toBe(3);
+    expect(remainingAsOf(rows, cfg, '', new Date(2026, 0, 10), billableData, billableTasks)).toBe(0);
+  });
+  it('without cfg returns the cumulative hours', () => {
+    const rows = [{ task: 'Dev', role: 'Developer', hours: 2, date: new Date(2026, 0, 5) }];
+    expect(remainingAsOf(rows, null, '', new Date(2026, 0, 6), billableData, billableTasks)).toBe(2);
   });
 });
 

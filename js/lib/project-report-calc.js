@@ -3,7 +3,7 @@
 // See docs/superpowers/specs/2026-10-15-project-reporting-redesign-design.md §4.
 
 // ?v=6 matches portfolio.html's own <script src="js/lib/portfolio-calc.js?v=6"> tag (CLAUDE.md "Cache-busting").
-import { spentPercent, spentBarState, normalizeGroupEntries, entryMatchesRow, buildSummaryCols } from './portfolio-calc.js?v=6';
+import { spentPercent, spentBarState, normalizeGroupEntries, entryMatchesRow, buildSummaryCols, todayIndex } from './portfolio-calc.js?v=6';
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function ymOf(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`; }
@@ -121,27 +121,9 @@ export function monthState(ym, today) {
   return key < cur ? 'past' : 'future';
 }
 
-// Index of the last axis point on or before today; null before the axis, or beyond the
-// last point by more than one interval (31 days with a single point). With `bounds`
-// ({ start, end }, the burndown's axisStart/axisEnd), today must instead fall inside
-// [start, end] — end counts as a whole day — since the last interval can be longer
-// than the step between the last two points (a 31-day month after a 28-day one).
-export function todayIndex(points, today, bounds) {
-  if (!points || !points.length || !today) return null;
-  if (bounds && bounds.start && bounds.end) {
-    const endOfDay = new Date(bounds.end.getFullYear(), bounds.end.getMonth(), bounds.end.getDate() + 1);
-    if (today < bounds.start || today >= endOfDay) return null;
-  }
-  let idx = null;
-  for (let i = 0; i < points.length; i++) if (points[i] <= today) idx = i;
-  if (idx === null) return null;
-  const last = points.length - 1;
-  if (idx === last && !(bounds && bounds.start && bounds.end)) {
-    const step = points.length > 1 ? points[last] - points[last - 1] : 31 * 24 * 3600 * 1000;
-    if (today - points[last] > step) return null;
-  }
-  return idx;
-}
+// todayIndex() lives in portfolio-calc.js (computeBurndownPoints needs it); re-exported here
+// so this module's callers and the window.todayIndex bridge are unchanged.
+export { todayIndex } from './portfolio-calc.js?v=6';
 
 // Breakdown "By role" columns. `deps` = { billableData, billableTasks, findRate } (js/core.js globals).
 // Composite key (role + task): a role sold at a different rate_override on two
@@ -205,6 +187,6 @@ window.groupSubtitle = groupSubtitle;
 window.entriesByMonth = entriesByMonth;
 window.hoursByMonth = hoursByMonth;
 window.monthState = monthState;
-window.todayIndex = todayIndex;
 window.roleColumns = roleColumns;
 window.areaColumns = areaColumns;
+window.todayIndex = todayIndex;
