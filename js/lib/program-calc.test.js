@@ -191,13 +191,39 @@ describe('programBurndown', () => {
   });
 });
 
-describe('programBurndown — characterization (pre-fix)', () => {
-  it('Today reads the start-of-month value and the line runs flat after it', () => {
+describe('programBurndown — as of today (B-071)', () => {
+  // deps.today = Sep 22 2026.
+  it('the current month holds the remaining as of today and the line stops there', () => {
     const c = cfg({ startDate: '202608', endDate: '202610', tasks: [task(100, 100)] });
     const s = programBurndown(programRange([c]), [{ cfg: c, rows: [{ hours: 10, date: new Date(2026, 7, 10) }] }], deps);
     expect(s.todayIndex).toBe(1);
-    expect(s.todayRemaining).toBe(s.actual[1]);
-    expect(s.actual[2]).toBe(s.actual[1]);
+    expect(s.actual).toEqual([100, 90, null]);
+    expect(s.todayRemaining).toBe(90);
+  });
+  it('counts an entry of the current month dated before today', () => {
+    const a = cfg({ startDate: '202608', endDate: '202610', tasks: [task(100, 100)] });
+    const b = cfg({ id: 'p2', startDate: '202608', endDate: '202610', tasks: [task(50, 100)] });
+    const s = programBurndown(programRange([a, b]), [{ cfg: a, rows: [{ hours: 30, date: new Date(2026, 8, 5) }] }, { cfg: b, rows: [] }], deps);
+    expect(s.todayRemaining).toBe(120);
+  });
+  it('a project starting after today contributes its whole remaining (Review Focus 2)', () => {
+    const now = cfg({ startDate: '202608', endDate: '202612', tasks: [task(100, 100)] });
+    const late = cfg({ id: 'p2', startDate: '202611', endDate: '202612', tasks: [task(40, 100)] });
+    const s = programBurndown(programRange([now, late]), [{ cfg: now, rows: [] }, { cfg: late, rows: [] }], deps);
+    expect(s.todayRemaining).toBe(140);
+    expect(s.actual.slice(2)).toEqual([null, null, null]);
+  });
+  it('a range wholly in the past is not cut', () => {
+    const c = cfg({ startDate: '202601', endDate: '202603', tasks: [task(100, 100)] });
+    const s = programBurndown(programRange([c]), [{ cfg: c, rows: [{ hours: 10, date: new Date(2026, 0, 10) }] }], deps);
+    expect(s.actual).toEqual([100, 90, 90]);
+    expect(s.todayIndex).toBeNull();
+  });
+  it('a range wholly in the future is empty', () => {
+    const c = cfg({ startDate: '202701', endDate: '202703', tasks: [task(100, 100)] });
+    const s = programBurndown(programRange([c]), [{ cfg: c, rows: [] }], deps);
+    expect(s.actual).toEqual([null, null, null]);
+    expect(s.todayRemaining).toBeNull();
   });
 });
 
