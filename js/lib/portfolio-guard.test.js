@@ -234,3 +234,17 @@ describe('project reporting view — task expansion and entries', () => {
     expect(html).not.toContain('<export-buttons');
   });
 });
+
+describe('project reporting view — visual fidelity pass (Task 7)', () => {
+  it('has no in-page breadcrumb (the global one is the only breadcrumb)', () => {
+    expect(dashboardActive).not.toContain('aria-label="breadcrumb"');
+  });
+  it('hides the Breakdown Remaining column below 1280px, where the sidebar leaves too little width', () => {
+    const m = css.match(/@media \(max-width: 1279px\) \{([\s\S]*?)\n\}/g) || [];
+    expect(m.some(b => /\.pr-bd-remaining\s*\{\s*display:\s*none/.test(b))).toBe(true);
+  });
+  it('never breaks a KPI figure inside itself; "of …" wraps as a whole', () => {
+    expect(css).toMatch(/\.pr-kpis \.pg-tile-value\s*\{[^}]*white-space:\s*nowrap[^}]*\}/);
+    expect(css).toMatch(/\.pr-kpis \.pg-tile-value\s*\{[^}]*flex-wrap:\s*wrap[^}]*\}/);
+  });
+});

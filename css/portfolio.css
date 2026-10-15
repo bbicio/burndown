@@ -531,7 +531,7 @@
 
 .pr-kpis { grid-template-columns: repeat(3, 1fr); }
 .pr-kpis .pg-tile { padding: var(--space-3) var(--space-4); }
-.pr-kpis .pg-tile-value { font-size: 1.375rem; }
+.pr-kpis .pg-tile-value { font-size: 1.375rem; display: flex; flex-wrap: wrap; align-items: baseline; white-space: nowrap; }
 .pr-kpi-bar { height: 4px; }
 .pr-time-fill { background: var(--text-faint); }
 .pr-kpi-note { font-size: var(--text-xs); color: var(--text-muted); margin-top: calc(-1 * var(--space-1)); }
@@ -665,8 +665,10 @@
 .pr-bd-total { background: var(--surface-light); }
 .pr-bd-total .pr-bd-title { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--text-primary); }
 
-@media (max-width: 1023px) {
-  .pr-bd-row { grid-template-columns: 28px minmax(0, 1fr) 100px 120px 160px; }
+/* The 240px sidebar leaves ~780px of content at a 1024px viewport, so the Remaining column
+   goes below 1280px rather than below 1024px (Task 7 fidelity pass). */
+@media (max-width: 1279px) {
+  .pr-bd-row { grid-template-columns: 24px minmax(0, 1fr) 96px 110px 160px; gap: var(--space-2); }
   .pr-bd-remaining { display: none; }
 }
 @media (max-width: 767px) {

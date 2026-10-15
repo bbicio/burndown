@@ -318,13 +318,6 @@
 
   <template v-else>
     <div class="pr-head">
-      <nav aria-label="breadcrumb" class="mb-2">
-        <ol class="breadcrumb mb-0" style="font-size:var(--text-xs)">
-          <li class="breadcrumb-item"><a href="#" class="text-muted text-decoration-none" @click.prevent="showOverview">Portfolio</a></li>
-          <li v-if="dashboardProgram" class="breadcrumb-item"><a :href="'/program.html?programId=' + encodeURIComponent(dashboardProgram.id)" class="text-muted text-decoration-none">{{ dashboardProgram.name }}</a></li>
-          <li class="breadcrumb-item active text-muted" aria-current="page">{{ dashboardTitle }}</li>
-        </ol>
-      </nav>
       <a href="#" class="pr-back" @click.prevent="showOverview"><pf-icon name="chevron-left" :size="12"></pf-icon>Project Portfolio</a>
       <div class="pr-head-row">
         <div class="pr-head-main">
@@ -354,7 +347,7 @@
                 </a>
                 <div class="pr-switch-foot">
                   <span>{{ dashboardSiblings.length }} project{{ dashboardSiblings.length === 1 ? '' : 's' }} · {{ fmtH(dashboardProgramTotals.soldHours) }} sold · {{ dashboardProgramTotals.consumptionPct !== null ? dashboardProgramTotals.consumptionPct + '%' : '—' }} consumed</span>
-                  <a href="#" class="pr-program-link" @click.prevent="goProgramDashboard(dashboardProgram.id)">Program Dashboard →</a>
+                  <a :href="'/program.html?programId=' + encodeURIComponent(dashboardProgram.id)" class="pr-program-link" @click.prevent="goProgramDashboard(dashboardProgram.id)">Program Dashboard →</a>
                 </div>
               </div><!-- /pr-switch -->
             </div>

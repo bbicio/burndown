@@ -126,3 +126,25 @@ The three "Program Dashboard — coming soon" entries listed above as an accepte
 **`css/portfolio.css` is no longer exclusive to this page** (D11 of the Program Dashboard spec): `program.html` links it too (bumped to `?v=2` on both pages), and its `.pg-*` classes at the bottom of the file belong to `program.html`, not this one — see `docs/pages/program.md` for that half of the sheet.
 
 No endpoint, no SQL, no `pdash-api` restart for this cycle.
+
+## Project reporting redesign (7.4)
+
+Spec `docs/superpowers/specs/2026-10-15-project-reporting-redesign-design.md`, boards in `docs/superpowers/design/reporting-project/`.
+
+### Deviations from the boards
+
+Fixed in the visual pass:
+- The in-page breadcrumb is gone; the global breadcrumb is the only one, as on the boards.
+- The Breakdown hides Remaining (total) below 1280px, not below 1024px: with the sidebar open a 1024px viewport leaves too little width for five columns.
+- A KPI figure never breaks inside itself; "of …" wraps to its own line as a whole.
+
+Accepted:
+- Stage and status pills are the shared solid `pipelineBadge()`/`statusBadgeLarge()`, not the boards' light pills: changing them would change every other page that uses them.
+- The chart has the Today pill but no vertical dashed Today line, like `program.html`.
+- Chart lines use the shared `--chart-actual`/`--chart-phasing` tokens, not the boards' navy and magenta, so the burndown matches the Program Dashboard.
+- The 85–100% consumption bar is the shared `--color-warning` (`.pf-spent-warning`), not the boards' amber.
+- Entry dates use the shared `fmtDate()` format, not the boards' `dd/mm/yyyy`.
+- Negative amounts are formatted by `formatMoney()`, not as on the boards.
+- "Whole project" in the Period menu shows the project's start–end range, not start to today.
+- Project tags are neutral pills: no colour token exists per attribute list.
+- By role has one row per (role, task), not one per role across tasks: a role sold at two rates would give a total that does not reconcile.
