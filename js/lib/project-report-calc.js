@@ -196,23 +196,27 @@ export function areaColumns(data, cfg, filterRange, deps) {
   const bData = reportRows(data, cfg, deps);
   const bTasks = billableTasks(cfg);
   const groupEntries = cfg.groups.map(normalizeGroupEntries);
-  const cols = cfg.groups.map((grp, i) => areaColumn(grp.name,
-    res => entryMatchesRow(groupEntries[i], res.role, res.task),
-    bData, bTasks, filterRange, cfg, findRate));
+  const cols = cfg.groups.map((grp, i) => {
+    const { resources, ...col } = areaColumn(grp.name, res => entryMatchesRow(groupEntries[i], res.role, res.task), bData, bTasks, filterRange, cfg, findRate);
+    return col;
+  });
   // What no group claims (B-073), shown only when there is something in it.
   const unclaimed = x => !groupEntries.some(e => entryMatchesRow(e, x.role, x.task));
-  const ungrouped = areaColumn('Ungrouped', unclaimed, bData, bTasks, filterRange, cfg, findRate);
-  // Nothing sold in it (only roles not configured on their task): no sold reference, so the row
-  // reads "—" like By role's unconfigured pairs instead of "Over sold" (review round 2).
-  if (ungrouped.soldHours > 0) cols.push({ ...ungrouped, ungrouped: true });
-  else if (ungrouped.totalConsumed > 0) cols.push({ ...ungrouped, ungrouped: true, soldHours: null, soldEur: null });
+  const { resources, ...ungrouped } = areaColumn('Ungrouped', unclaimed, bData, bTasks, filterRange, cfg, findRate);
+  // No configured resource in it (only roles logged where they are not configured): no sold
+  // reference, so the row reads "—" like By role's unconfigured pairs. A configured role sold 0h
+  // keeps its Sold and its "Over sold", as in By role (review rounds 2-3).
+  if (ungrouped.soldHours > 0 || ungrouped.totalConsumed > 0) {
+    cols.push(resources > 0 ? { ...ungrouped, ungrouped: true } : { ...ungrouped, ungrouped: true, soldHours: null, soldEur: null });
+  }
   return cols;
 }
 
 // The By area Total: every billable resource and entry counted once, whatever the overlaps.
 export function areaTotalColumn(data, cfg, filterRange, deps) {
   const { billableTasks, findRate } = deps;
-  return areaColumn('Total', () => true, reportRows(data, cfg, deps), billableTasks(cfg), filterRange, cfg, findRate);
+  const { resources, ...col } = areaColumn('Total', () => true, reportRows(data, cfg, deps), billableTasks(cfg), filterRange, cfg, findRate);
+  return col;
 }
 
 // True when a billable resource or entry is claimed by two or more groups.
@@ -225,11 +229,12 @@ export function areaOverlap(data, cfg, deps) {
 }
 
 // One area column: `claims({role, task})` selects the resources (with their task name) and the entries.
+// `resources` counts the configured resources claimed; callers strip it from the column.
 function areaColumn(label, claims, bData, bTasks, filterRange, cfg, findRate) {
   const { start, end } = filterRange;
-  let soldHours = 0, soldEur = 0;
+  let soldHours = 0, soldEur = 0, resources = 0;
   bTasks.forEach(task => task.resources.forEach(res => {
-    if (claims({ role: res.role, task: task.name })) { soldHours += res.soldHours; soldEur += res.soldHours * res.hourlyRate; }
+    if (claims({ role: res.role, task: task.name })) { soldHours += res.soldHours; soldEur += res.soldHours * res.hourlyRate; resources++; }
   }));
   const rows = bData.filter(r => claims(r));
   const totalConsumed = rows.reduce((s, r) => s + r.hours, 0);
@@ -237,7 +242,7 @@ function areaColumn(label, claims, bData, bTasks, filterRange, cfg, findRate) {
   const periodRows = rows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
   const inPeriod = periodRows.reduce((s, r) => s + r.hours, 0);
   const inPeriodEur = periodRows.reduce((s, r) => s + r.hours * (findRate(r, cfg) ?? 0), 0);
-  return { label, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
+  return { label, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur, resources };
 }
 
 window.paceJudgment = paceJudgment;

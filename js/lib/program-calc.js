@@ -170,8 +170,8 @@ function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
 
 // Aggregated remaining-hours burndown across every project in the program (§7):
 // each project's own computeBurndownPoints() series is projected onto the program's
-// month axis, holding the project's first value before it starts and its last value
-// after it ends, then the series are summed, up to today's month only.
+// month axis, holding the project's first value before it starts and, after it ends, its
+// remaining at the start of each month; the series are summed, up to today's month only.
 export function programBurndown(range, projects, deps) {
   if (!range) return { labels: [], actual: [], planned: null, todayIndex: null, todayRemaining: null };
   const { billableData, billableTasks, findRate, today } = deps;

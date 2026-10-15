@@ -293,6 +293,15 @@ describe('Breakdown totals agree across views (B-073)', () => {
     const row = breakdownRows(areaColumns(F_ROWS, F, NO_RANGE, DEPS), false).rows[2];
     expect([row.soldKnown, row.overSold]).toEqual([false, false]);
   });
+  it('an Ungrouped row holding a configured role sold 0h stays Over sold (review round 3)', () => {
+    const cfg = { tasks: [{ name: 'X', billable: true, resources: [{ role: 'Dev', soldHours: 10, hourlyRate: 50 }, { role: 'QA', soldHours: 0, hourlyRate: 40 }] }],
+      groups: [{ name: 'A', entries: [{ role: 'Dev', task: '' }] }] };
+    const rows = [{ task: 'X', role: 'QA', hours: 5, date: new Date(2026, 0, 5) }];
+    const cols = areaColumns(rows, cfg, NO_RANGE, DEPS);
+    expect(cols[1].soldHours).toBe(0);
+    const row = breakdownRows(cols, false).rows[1];
+    expect([row.label, row.soldKnown, row.overSold]).toEqual(['Ungrouped', true, true]);
+  });
   it('flags an overlap only when something is claimed by two groups', () => {
     expect(areaOverlap(F_ROWS, F, DEPS)).toBe(true);
     expect(areaOverlap(F_ROWS, { ...F, groups: [F.groups[0]] }, DEPS)).toBe(false);
