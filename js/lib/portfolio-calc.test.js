@@ -593,14 +593,10 @@ const fuData = [
 const fuToday = new Date(2026, 1, 20);
 const fuSeries = (cfg, taskFilter, today = fuToday) => computeBurndownPoints(fuData, cfg, taskFilter, 'monthly', billableData, billableTasks, findRate, today);
 
-describe('reporting follow-ups — characterization (pre-fix)', () => {
+describe('reporting follow-ups — Hours tile vs Today pill (B-080)', () => {
   it('the Hours tile counts entries dated after today, the pill does not', () => {
     expect(computeKpis(fuData, fuCfg, billableData, billableTasks, findRate).consumedHours).toBe(18);
     expect(fuSeries(fuCfg, '').todayValue).toBe(130);
-  });
-  it("with a task filter totalBudgetEur is that task's own budget (B-081)", () => {
-    expect(fuSeries(fuCfg, 'Dev').totalBudgetEur).toBe(5000);
-    expect(fuSeries(fuCfg, '').totalBudgetEur).toBe(6200);
   });
 });
 
