@@ -138,6 +138,15 @@ export function monthState(ym, today) {
 // so this module's callers and the window.todayIndex bridge are unchanged.
 export { todayIndex } from './portfolio-calc.js?v=7';
 
+// The rows the Breakdown counts: billable, and with a task name By task can match (lower-case
+// equality, as summaryByTask and findRate do). billableData() alone also collapses whitespace and
+// keeps every row of a project with no tasks; By role and By area would then count rows By task
+// cannot, and the three Totals would disagree (review round 1).
+function reportRows(data, cfg, deps) {
+  const names = new Set(deps.billableTasks(cfg).map(t => t.name.toLowerCase()));
+  return deps.billableData(data, cfg).filter(r => names.has((r.task || '').toLowerCase()));
+}
+
 // Breakdown "By role" columns. `deps` = { billableData, billableTasks, findRate } (js/core.js globals).
 // Composite key (role + task): a role sold at a different rate_override on two
 // different tasks (task_roles is per (task, role), not a single global rate per
@@ -148,7 +157,7 @@ export { todayIndex } from './portfolio-calc.js?v=7';
 // under a single total that could never be reconciled against the cost grid.
 // Splitting the key by task keeps every column internally consistent (one rate).
 export function roleColumns(data, cfg, filterRange, deps) {
-  const { billableData, billableTasks, findRate } = deps;
+  const { billableTasks, findRate } = deps;
   const roleTaskMap = new Map();
   billableTasks(cfg).forEach(t => t.resources.forEach(res => {
     const key = res.role.toLowerCase() + '|' + t.name.toLowerCase();
@@ -156,7 +165,7 @@ export function roleColumns(data, cfg, filterRange, deps) {
     roleTaskMap.get(key).soldHours += res.soldHours;
     roleTaskMap.get(key).soldEur += res.soldHours * res.hourlyRate;
   }));
-  const bData = billableData(data, cfg);
+  const bData = reportRows(data, cfg, deps);
   const byKeyFn = r => r.role.toLowerCase() + '|' + r.task.toLowerCase();
   // Pairs logged but not configured (B-073): one column each, no sold reference, after the
   // configured ones in task order then role order, so the Total matches By task.
@@ -183,8 +192,8 @@ export function roleColumns(data, cfg, filterRange, deps) {
 // Legacy groups with only `roles: string[]` normalize to wildcard entries (task: '') and sum
 // across every task.
 export function areaColumns(data, cfg, filterRange, deps) {
-  const { billableData, billableTasks, findRate } = deps;
-  const bData = billableData(data, cfg);
+  const { billableTasks, findRate } = deps;
+  const bData = reportRows(data, cfg, deps);
   const bTasks = billableTasks(cfg);
   const groupEntries = cfg.groups.map(normalizeGroupEntries);
   const cols = cfg.groups.map((grp, i) => areaColumn(grp.name,
@@ -199,17 +208,17 @@ export function areaColumns(data, cfg, filterRange, deps) {
 
 // The By area Total: every billable resource and entry counted once, whatever the overlaps.
 export function areaTotalColumn(data, cfg, filterRange, deps) {
-  const { billableData, billableTasks, findRate } = deps;
-  return areaColumn('Total', () => true, billableData(data, cfg), billableTasks(cfg), filterRange, cfg, findRate);
+  const { billableTasks, findRate } = deps;
+  return areaColumn('Total', () => true, reportRows(data, cfg, deps), billableTasks(cfg), filterRange, cfg, findRate);
 }
 
 // True when a billable resource or entry is claimed by two or more groups.
 export function areaOverlap(data, cfg, deps) {
-  const { billableData, billableTasks } = deps;
+  const { billableTasks } = deps;
   const groupEntries = (cfg.groups || []).map(normalizeGroupEntries);
   const claims = (role, task) => groupEntries.filter(e => entryMatchesRow(e, role, task)).length;
   return billableTasks(cfg).some(t => t.resources.some(res => claims(res.role, t.name) > 1))
-    || billableData(data, cfg).some(r => claims(r.role, r.task) > 1);
+    || reportRows(data, cfg, deps).some(r => claims(r.role, r.task) > 1);
 }
 
 // One area column: `claims({role, task})` selects the resources (with their task name) and the entries.

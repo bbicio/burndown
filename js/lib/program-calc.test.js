@@ -167,7 +167,8 @@ describe('programBurndown', () => {
   it('holds a finished project at its last value for months after it ends', () => {
     const done = { cfg: cfg({ tasks: [task(100, 100)], startDate: '202601', endDate: '202601' }), rows: [{ hours: 30, date: new Date(2026, 0, 15) }] };
     const s = programBurndown(range, [done], deps);
-    expect(s.actual[2]).toBe(s.actual[0]);
+    // Held at its remaining as of its last day (100 − 30), not at the value on the 1st.
+    expect(s.actual.slice(1)).toEqual([70, 70]);
   });
   it('returns empty series without a range', () => {
     expect(programBurndown(null, [], deps).labels).toEqual([]);
@@ -212,6 +213,18 @@ describe('programBurndown — as of today (B-071)', () => {
     const s = programBurndown(programRange([now, late]), [{ cfg: now, rows: [] }, { cfg: late, rows: [] }], deps);
     expect(s.todayRemaining).toBe(140);
     expect(s.actual.slice(2)).toEqual([null, null, null]);
+  });
+  it('a finished project holds its final remaining, so nothing drops in today’s month (review round 1)', () => {
+    const done = cfg({ startDate: '202601', endDate: '202606', tasks: [task(100, 100)] });
+    const other = cfg({ id: 'p2', startDate: '202601', endDate: '202612', tasks: [task(10, 100)] });
+    const s = programBurndown(programRange([done, other]), [{ cfg: done, rows: [{ hours: 80, date: new Date(2026, 5, 10) }] }, { cfg: other, rows: [] }], deps);
+    expect(s.actual.slice(6, 9)).toEqual([30, 30, 30]);
+  });
+  it('the held remaining counts an entry on the project’s last day, whatever its time', () => {
+    const done = cfg({ startDate: '202601', endDate: '202606', tasks: [task(100, 100)] });
+    const other = cfg({ id: 'p2', startDate: '202601', endDate: '202612', tasks: [task(10, 100)] });
+    const s = programBurndown(programRange([done, other]), [{ cfg: done, rows: [{ hours: 80, date: new Date(2026, 5, 30, 15, 0) }] }, { cfg: other, rows: [] }], deps);
+    expect(s.actual[6]).toBe(30);
   });
   it('a range wholly in the past is not cut', () => {
     const c = cfg({ startDate: '202601', endDate: '202603', tasks: [task(100, 100)] });

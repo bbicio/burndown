@@ -18,6 +18,11 @@ function ymEndDate(ym) {
   const y = parseInt(ym.slice(0, 4), 10), m = parseInt(ym.slice(4, 6), 10);
   return new Date(y, m, 0);
 }
+// Last millisecond of a month, local time (DST-safe, unlike adding 24h to ymEndDate()).
+function ymLastMoment(ym) {
+  const y = parseInt(ym.slice(0, 4), 10), m = parseInt(ym.slice(4, 6), 10);
+  return new Date(y, m, 0, 23, 59, 59, 999);
+}
 function dateToYm(d) {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
@@ -194,7 +199,12 @@ export function programBurndown(range, projects, deps) {
     return {
       cfg, rows: rows || [],
       burnByYm, idealByYm, firstYm, lastYm,
-      firstBurn: burnByYm[firstYm], lastBurn: burnByYm[lastYm],
+      // After its last month a project holds its remaining as of that month's last day — not the
+      // value on the 1st, which leaves the last month's hours out and made today's month drop
+      // (last day through 23:59:59.999, so an entry's time of day never matters)
+      // when the line started stopping at today (review round 1).
+      firstBurn: burnByYm[firstYm],
+      lastBurn: remainingAsOf(rows || [], cfg, '', ymLastMoment(lastYm), billableData, billableTasks),
       firstIdeal: series.idealValues ? idealByYm[firstYm] : null,
       lastIdeal: series.idealValues ? idealByYm[lastYm] : null,
       hasIdeal: !!series.idealValues,

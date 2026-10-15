@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { todayLabelPlugin } from './chart-today.js';
 
-function fakeChart(points, width) {
+function fakeChart(points, width, height) {
   const ctx = {
     save: vi.fn(), restore: vi.fn(), fillText: vi.fn(), beginPath: vi.fn(), fill: vi.fn(), rect: vi.fn(),
     measureText: vi.fn(() => ({ width: 40 })),
   };
-  return { ctx, width, getDatasetMeta: () => ({ data: points }) };
+  return { ctx, width, height, getDatasetMeta: () => ({ data: points }) };
 }
 
 describe('todayLabelPlugin', () => {
@@ -38,8 +38,8 @@ describe('todayLabelPlugin', () => {
   });
 
   // boxW = 40 (measureText) + 2 × 7 padding = 54; boxH = 20 (B-077).
-  const drawAt = (point, width = 400) => {
-    const chart = fakeChart([point], width);
+  const drawAt = (point, width = 400, height = 300) => {
+    const chart = fakeChart([point], width, height);
     todayLabelPlugin({ id: 'x', index: 0, text: 't', bg: 'a', fg: 'b' }).afterDraw(chart);
     const [left, top] = chart.ctx.rect.mock.calls[0];
     return { left, top, text: chart.ctx.fillText.mock.calls[0] };
@@ -59,5 +59,11 @@ describe('todayLabelPlugin', () => {
   });
   it('clamps the box to the right edge', () => {
     expect(drawAt({ x: 398, y: 100 }).left).toBe(346);
+  });
+  it('pins the box to the left edge when it is wider than the chart (review round 1)', () => {
+    expect(drawAt({ x: 20, y: 100 }, 40).left).toBe(0);
+  });
+  it('keeps a box drawn below the point above the bottom edge (review round 1)', () => {
+    expect(drawAt({ x: 200, y: 10 }, 400, 30).top).toBe(10);
   });
 });

@@ -16,9 +16,10 @@ export function todayLabelPlugin({ id, index, text, bg, fg }) {
       const padX = 7, boxW = textWidth + padX * 2, boxH = 20;
       // Above the point when it fits, else below it; never past the left/right edges (B-077).
       const above = point.y - 12 - boxH;
-      const top = above >= 0 ? above : point.y + 12;
+      let top = above >= 0 ? above : point.y + 12;
+      if (chart.height) top = Math.max(0, Math.min(top, chart.height - boxH));
       let left = point.x - boxW / 2;
-      if (chart.width) left = Math.min(Math.max(0, left), chart.width - boxW);
+      if (chart.width) left = Math.max(0, Math.min(left, chart.width - boxW));
       ctx.fillStyle = bg;
       const r = 4;
       ctx.beginPath();

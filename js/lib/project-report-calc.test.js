@@ -318,3 +318,37 @@ describe('Breakdown totals agree across views (B-073)', () => {
     expect(totals(range).map(t => t.spentHours)).toEqual([6, 6, 6]);
   });
 });
+
+describe('Breakdown views count the same rows as By task (review round 1)', () => {
+  // Same rule as js/core.js's billableData: whitespace collapsed, and every row when no task is configured.
+  const coreBillableData = (data, cfg) => {
+    if (!cfg?.tasks?.length) return data;
+    const norm = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    const allowed = new Set(billableTasks(cfg).map(t => norm(t.name)));
+    return data.filter(r => allowed.has(norm(r.task)));
+  };
+  const deps = { billableData: coreBillableData, billableTasks, findRate };
+  const byTaskTotal = (rows, cfg) => breakdownRows(buildSummaryCols(rows, r => r.task.toLowerCase(),
+    billableTasks(cfg).map(t => ({ key: t.name.toLowerCase(), label: t.name, soldHours: 0, soldEur: 0 })), NO_RANGE, cfg, findRate), false).total;
+
+  it('a project with no tasks has no By role or By area rows, like By task', () => {
+    const cfg = { tasks: [], groups: [{ name: 'A', entries: [{ role: 'Developer', task: '' }] }] };
+    const rows = [{ task: 'Dev', role: 'Developer', hours: 50, date: new Date(2026, 0, 5) }];
+    expect(roleColumns(rows, cfg, NO_RANGE, deps)).toEqual([]);
+    expect(areaColumns(rows, cfg, NO_RANGE, deps).map(c => c.totalConsumed)).toEqual([0]);
+    expect(areaTotalColumn(rows, cfg, NO_RANGE, deps).totalConsumed).toBe(0);
+    expect(byTaskTotal(rows, cfg).spentHours).toBe(0);
+  });
+  it('a row whose task differs only by inner whitespace counts in no view', () => {
+    const cfg = { tasks: [{ name: 'Project Management', billable: true, resources: [{ role: 'Developer', soldHours: 10, hourlyRate: 50 }] }],
+      groups: [{ name: 'A', entries: [{ role: 'Developer', task: '' }] }] };
+    const rows = [
+      { task: 'Project Management', role: 'Developer', hours: 4, date: new Date(2026, 0, 5) },
+      { task: 'Project  Management', role: 'Developer', hours: 3, date: new Date(2026, 0, 6) },
+    ];
+    const role = breakdownRows(roleColumns(rows, cfg, NO_RANGE, deps), false).total;
+    const area = breakdownRows(areaColumns(rows, cfg, NO_RANGE, deps), false, areaTotalColumn(rows, cfg, NO_RANGE, deps)).total;
+    expect([byTaskTotal(rows, cfg).spentHours, role.spentHours, area.spentHours]).toEqual([4, 4, 4]);
+    expect(areaColumns(rows, cfg, NO_RANGE, deps).map(c => c.label)).toEqual(['A']);
+  });
+});
