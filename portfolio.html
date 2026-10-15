@@ -10,7 +10,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="css/tokens.css?v=9">
   <link rel="stylesheet" href="css/style.css?v=21">
-  <link rel="stylesheet" href="css/portfolio.css?v=2">
+  <link rel="stylesheet" href="css/portfolio.css?v=3">
   <style>
     .app-container { padding: 0 12px; }
   </style>
@@ -317,43 +317,62 @@
   </template>
 
   <template v-else>
-    <div class="pt-4 mb-3">
+    <div class="pr-head">
       <nav aria-label="breadcrumb" class="mb-2">
         <ol class="breadcrumb mb-0" style="font-size:var(--text-xs)">
           <li class="breadcrumb-item"><a href="#" class="text-muted text-decoration-none" @click.prevent="showOverview">Portfolio</a></li>
           <li v-if="dashboardProgram" class="breadcrumb-item"><a :href="'/program.html?programId=' + encodeURIComponent(dashboardProgram.id)" class="text-muted text-decoration-none">{{ dashboardProgram.name }}</a></li>
-          <li class="breadcrumb-item active text-muted" aria-current="page">{{ dashboardProject?.name || dashboardProject?.code || dashboardProjectId }}</li>
+          <li class="breadcrumb-item active text-muted" aria-current="page">{{ dashboardTitle }}</li>
         </ol>
       </nav>
-      <div v-if="dashboardProgramRow" class="text-muted mb-1" style="font-size:.9rem" v-html="dashboardProgramRow"></div>
-      <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-        <span class="fw-bold fs-5" style="color:var(--brand-navy)">{{ dashboardProject?.name || dashboardProject?.code || dashboardProjectId }}</span>
-        <span v-if="dashboardProject?.code && dashboardProject?.name" class="text-muted small" style="font-family:monospace">{{ dashboardProject.code }}</span>
-        <span class="d-inline-flex gap-1 align-items-center flex-wrap" v-html="dashboardMetaHtml"></span>
-        <div class="dropdown" v-if="dashboardSiblings.length">
-          <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:.75rem;padding:2px 7px" title="Switch project">▾</button>
-          <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:320px;font-size:.85rem">
-            <li v-for="s in dashboardSiblings" :key="s.id">
-              <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="#" @click.prevent="showDashboard(s.id)">
-                <span class="fw-semibold">{{ s.name || s.code || s.id }}</span>
-                <span v-if="s.code && s.name" class="text-muted small" style="font-family:monospace">{{ s.code }}</span>
-                <span class="ms-auto d-inline-flex gap-1" v-html="s.badgesHtml"></span>
-              </a>
-            </li>
-            <li v-if="dashboardProgram"><hr class="dropdown-divider"></li>
-            <li v-if="dashboardProgram">
-              <a class="dropdown-item" href="#" @click.prevent="goProgramDashboard(dashboardProgram.id)">Program Dashboard →</a>
-            </li>
-          </ul>
+      <a href="#" class="pr-back" @click.prevent="showOverview"><pf-icon name="chevron-left" :size="12"></pf-icon>Project Portfolio</a>
+      <div class="pr-head-row">
+        <div class="pr-head-main">
+          <div v-if="dashboardProgram" class="pr-program-row">
+            <span class="pr-program-label">Program</span>
+            <span class="pr-program-name">{{ dashboardProgram.name }}</span>
+            <span class="pr-dot">·</span>
+            <span>{{ dashboardSiblings.length }} project{{ dashboardSiblings.length === 1 ? '' : 's' }}</span>
+            <span class="pr-dot">·</span>
+            <a :href="'/program.html?programId=' + encodeURIComponent(dashboardProgram.id)" class="pr-program-link">Program Dashboard →</a>
+          </div>
+          <div class="pr-title-row">
+            <div v-if="dashboardProgram" class="dropdown pr-switch">
+              <button type="button" class="pr-title pr-switch-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Switch project">
+                {{ dashboardTitle }}<pf-icon name="chevron-down" :size="16"></pf-icon>
+              </button>
+              <div class="dropdown-menu pr-switch-menu">
+                <div class="pr-switch-head">Projects in program {{ dashboardProgram.name }}</div>
+                <a v-for="s in dashboardSiblings" :key="s.id" href="#" class="pr-switch-row" :class="{ 'pr-switch-current': s.current }" @click.prevent="showDashboard(s.id)">
+                  <span class="pr-switch-main">
+                    <span class="pr-switch-name">{{ s.name || s.code || s.id }}<pf-icon v-if="s.current" name="check" :size="12"></pf-icon></span>
+                    <span v-if="s.code" class="pr-code">{{ s.code }}</span>
+                  </span>
+                  <span class="pr-pill" v-html="statusBadgeLarge(s.status)"></span>
+                  <span class="pf-spent-bar pf-spent-thin pr-switch-bar" :class="'pf-spent-' + spentBarState(s.metrics.consumptionPct)"><span class="pf-spent-bar-fill" :style="{ width: Math.min(100, s.metrics.consumptionPct || 0) + '%' }"></span></span>
+                  <span class="pr-switch-pct" :class="'pr-pct-' + spentBarState(s.metrics.consumptionPct)">{{ s.metrics.consumptionPct !== null ? s.metrics.consumptionPct + '%' : '—' }}</span>
+                </a>
+                <div class="pr-switch-foot">
+                  <span>{{ dashboardSiblings.length }} project{{ dashboardSiblings.length === 1 ? '' : 's' }} · {{ fmtH(dashboardProgramTotals.soldHours) }} sold · {{ dashboardProgramTotals.consumptionPct !== null ? dashboardProgramTotals.consumptionPct + '%' : '—' }} consumed</span>
+                  <a href="#" class="pr-program-link" @click.prevent="goProgramDashboard(dashboardProgram.id)">Program Dashboard →</a>
+                </div>
+              </div><!-- /pr-switch -->
+            </div>
+            <h1 v-else class="pr-title">{{ dashboardTitle }}</h1>
+            <span class="pr-pill" v-html="dashboardMetaHtml"></span>
+          </div>
+          <div class="pr-meta">
+            <span v-if="dashboardClientName">{{ dashboardClientName }}</span>
+            <span v-if="dashboardProject?.code" class="pr-code">{{ dashboardProject.code }}</span>
+            <span v-if="dashboardProject?.startDate && dashboardProject?.endDate">{{ monthLabelLong(dashboardProject.startDate) }} – {{ monthLabelLong(dashboardProject.endDate) }}</span>
+            <span v-for="t in dashboardTags" :key="t.item_id" class="pf-badge-neutral">{{ t.label }}</span>
+          </div>
         </div>
-      </div>
-      <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-        <div><button class="btn btn-outline-secondary btn-sm" @click="showOverview">← Portfolio</button></div>
-        <div class="d-flex gap-2">
-          <button v-if="dashboardProject?.my_permission !== 'viewer'" class="btn btn-outline-secondary btn-sm" @click="goConfigure(dashboardProjectId)">⚙️ Configure</button>
-          <button v-if="dashboardProject?.my_permission !== 'viewer'" class="btn btn-outline-secondary btn-sm" title="Upload XLS actuals for this project" @click="triggerLoadActuals(dashboardProjectId)">📂 Load Actuals</button>
-          <button class="btn btn-outline-secondary btn-sm" @click="goPlanningForProject(dashboardProjectId)">📅 Planning</button>
-          <button class="btn btn-outline-secondary btn-sm" @click="openShareModal('project', dashboardProjectId, dashboardProject?.name || dashboardProjectId)">🔗 Share</button>
+        <div class="pr-actions">
+          <button v-if="dashboardProject?.my_permission !== 'viewer'" type="button" class="btn btn-sm btn-outline-secondary pr-action" @click="goConfigure(dashboardProjectId)"><pf-icon name="gear" :size="14"></pf-icon>Configure</button>
+          <button v-if="dashboardProject?.my_permission !== 'viewer'" type="button" class="btn btn-sm btn-outline-secondary pr-action" title="Upload XLS actuals for this project" @click="triggerLoadActuals(dashboardProjectId)"><pf-icon name="upload" :size="14"></pf-icon>Load Actuals</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary pr-action" @click="goPlanningForProject(dashboardProjectId)"><pf-icon name="calendar" :size="14"></pf-icon>Planning</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary pr-action" @click="openShareModal('project', dashboardProjectId, dashboardProject?.name || dashboardProjectId)"><pf-icon name="share" :size="14"></pf-icon>Share</button>
           <!-- ＋/✓ Summary toggle hidden 2026-09 per user request, see the matching pinnedSummary panel comment above
           <button class="btn btn-sm" :class="isPinnedSummary(dashboardProjectId) ? 'btn-success' : 'btn-outline-secondary'" @click="toggleSummary(dashboardProjectId)">{{ isPinnedSummary(dashboardProjectId) ? '✓ Summary' : '＋ Summary' }}</button>
           -->
@@ -363,17 +382,46 @@
 
     <div v-if="dashboardReady">
       <div v-if="!dashboardProject" class="alert alert-warning">
-        <strong>⚠️ Budget not configured for this project.</strong>
-        Click <strong>⚙️ Configure Budget</strong> to enter sold hours and hourly rates.
+        <strong>Budget not configured for this project.</strong>
+        Click <strong>Configure</strong> to enter sold hours and hourly rates.
       </div>
-      <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card blue shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">📦 Total Sold Hours</div><div class="fw-bold fs-4">{{ kpis.soldHours !== null ? fmtH(kpis.soldHours) : '—' }}</div><div class="text-muted small">from configuration</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card green shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💰 Total Budget</div><div class="fw-bold fs-4">{{ kpis.budgetTotal !== null ? formatMoney(kpis.budgetTotal, dashCurrency, currencies) : '—' }}</div><div class="text-muted small">{{ kpiBudgetEurSub }}</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card orange shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">⏱️ Hours Consumed</div><div class="fw-bold fs-4">{{ fmtH(kpis.consumedHours) }}</div><div class="text-muted small">{{ kpiAsOfStr }}</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card purple shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💸 Budget Consumed</div><div class="fw-bold fs-4">{{ kpis.consumedEur !== null ? formatMoney(kpis.consumedEur, dashCurrency, currencies) : '—' }}</div><div class="text-muted small">{{ kpiAsOfStr }}</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card teal shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">⏳ Hours Left</div><div class="fw-bold fs-4" :style="{color: kpiLeftColor(kpis.hoursLeft, kpis.soldHours)}">{{ kpis.hoursLeft !== null ? fmtH(kpis.hoursLeft) : '—' }}</div><div class="text-muted small">sold − consumed</div></div></div></div>
-        <div class="col-sm-6 col-xl-2"><div class="card kpi-card red shadow-sm h-100"><div class="card-body py-3 px-3"><div class="text-muted small mb-1">💼 Budget Left</div><div class="fw-bold fs-4" :style="{color: kpiLeftColor(kpis.budgetLeft, kpis.budgetTotal)}">{{ kpis.budgetLeft !== null ? formatMoney(kpis.budgetLeft, dashCurrency, currencies) : '—' }}</div><div class="text-muted small">{{ kpiBudgetLeftSub }}</div></div></div></div>
-      </div>
+      <div class="pg-kpis pr-kpis">
+        <div class="pg-tile">
+          <div class="pg-tile-label">Hours</div>
+          <div class="pg-tile-value">{{ fmtH(kpis.consumedHours) }}<span v-if="kpis.soldHours !== null" class="pg-tile-of">of {{ fmtH(kpis.soldHours) }}</span></div>
+          <div class="pf-spent-bar pr-kpi-bar" :class="'pf-spent-' + spentBarState(kpiHoursPct)"><div class="pf-spent-bar-fill" :style="{ width: Math.min(100, kpiHoursPct || 0) + '%' }"></div></div>
+          <div class="pg-tile-foot">
+            <span>{{ kpiHoursPct !== null ? kpiHoursPct + '% consumed' : '—' }}</span>
+            <span v-if="kpis.hoursLeft !== null" :style="{ color: kpiLeftColor(kpis.hoursLeft, kpis.soldHours) }">{{ fmtH(kpis.hoursLeft) }} left</span>
+          </div>
+        </div>
+        <div class="pg-tile">
+          <div class="pg-tile-label">Budget</div>
+          <template v-if="kpis.budgetTotal">
+            <div class="pg-tile-value">{{ formatMoney(kpis.consumedEur, dashCurrency, currencies) }}<span class="pg-tile-of">of {{ formatMoney(kpis.budgetTotal, dashCurrency, currencies) }}</span></div>
+            <div class="pf-spent-bar pr-kpi-bar" :class="'pf-spent-' + spentBarState(kpiBudgetPct)"><div class="pf-spent-bar-fill" :style="{ width: Math.min(100, kpiBudgetPct || 0) + '%' }"></div></div>
+            <div class="pg-tile-foot">
+              <span>{{ kpiBudgetPct }}% spent</span>
+              <span :style="{ color: kpiLeftColor(kpis.budgetLeft, kpis.budgetTotal) }">{{ formatMoney(kpis.budgetLeft, dashCurrency, currencies) }} left</span>
+            </div>
+            <div v-if="kpis.totalPtc > 0" class="pr-kpi-note">incl. {{ formatMoney(kpis.totalPtc, dashCurrency, currencies) }} PTC</div>
+          </template>
+          <template v-else>
+            <div class="pg-tile-value">—</div>
+            <div class="pf-spent-bar pf-spent-none pr-kpi-bar"><div class="pf-spent-bar-fill"></div></div>
+            <div class="pg-tile-foot"><span>No budget</span></div>
+          </template>
+        </div>
+        <div class="pg-tile">
+          <div class="pg-tile-label">Time elapsed</div>
+          <div class="pg-tile-value">{{ dashboardMetrics && dashboardMetrics.timePct !== null ? dashboardMetrics.timePct + '%' : '—' }}<span v-if="dashboardProject?.startDate && dashboardProject?.endDate" class="pg-tile-of">{{ monthLabelLong(dashboardProject.startDate) }} – {{ monthLabelLong(dashboardProject.endDate) }}</span></div>
+          <div class="pg-progress-bar pr-kpi-bar"><div class="pg-progress-fill pr-time-fill" :style="{ width: (dashboardMetrics?.timePct || 0) + '%' }"></div></div>
+          <div class="pg-tile-foot">
+            <span>As of {{ reportTodayLabel }}</span>
+            <span v-if="kpiPace" class="pr-pace">{{ kpiPace === 'ahead' ? 'Hours ahead of time' : kpiPace === 'behind' ? 'Hours behind time' : 'Hours on track' }}</span>
+          </div>
+        </div>
+      </div><!-- /pr-kpis -->
       <div class="section-card mb-4">
         <div class="section-header d-flex justify-content-between align-items-center flex-wrap gap-2">
           <span>📉 Hours Burndown</span>
@@ -591,7 +639,6 @@
       </div>
     </div>
 
-    <div class="mt-4 mb-4"><button class="btn btn-outline-secondary btn-sm" @click="showOverview">← Portfolio</button></div>
   </template>
 
 </div>
@@ -626,6 +673,9 @@
 <script defer src="js/programs.js"></script>
 <script defer src="js/shares.js"></script>
 <script type="module" src="js/lib/portfolio-calc.js?v=5"></script>
+<script type="module" src="js/lib/program-calc.js?v=1"></script>
+<script type="module" src="js/lib/project-report-calc.js?v=1"></script>
+<script type="module" src="js/lib/chart-today.js?v=1"></script>
 <script defer src="js/api-sync.js?v=22"></script>
 <script defer src="js/nav.js?v=17"></script>
 <script type="module">
@@ -650,6 +700,12 @@
     gear: '<circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 2.5V4M8 12V13.5M13.5 8H12M4 8H2.5M11.8 4.2L10.8 5.2M5.2 10.8L4.2 11.8M11.8 11.8L10.8 10.8M5.2 5.2L4.2 4.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
     'arrow-right': '<path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
     close: '<path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+    'chevron-left': '<path d="M10 3.5L5.5 8 10 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    check: '<path d="M3 8.5L6.5 12 13 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    upload: '<path d="M8 10.5V2.5M8 2.5L5 5.5M8 2.5L11 5.5M2.5 10.5V13H13.5V10.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+    calendar: '<rect x="2.5" y="3.5" width="11" height="10" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 6.5H13.5M5.5 2V5M10.5 2V5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+    share: '<circle cx="4" cy="8" r="1.8" stroke="currentColor" stroke-width="1.4"/><circle cx="12" cy="4" r="1.8" stroke="currentColor" stroke-width="1.4"/><circle cx="12" cy="12" r="1.8" stroke="currentColor" stroke-width="1.4"/><path d="M5.6 7.1L10.4 4.9M5.6 8.9L10.4 11.1" stroke="currentColor" stroke-width="1.4"/>',
+    download: '<path d="M8 2.5V10.5M8 10.5L5 7.5M8 10.5L11 7.5M2.5 10.5V13H13.5V10.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
   };
   const PfIcon = {
     props: { name: { type: String, required: true }, size: { type: Number, default: 16 } },
@@ -678,6 +734,8 @@
         gridColumns: 3,
         dashboardProjectId: null,
         dashboardReady: false,
+        dashboardTags: [],
+        reportToday: new Date(), // fixed when the view opens (showDashboard), read by the KPI, the Today marker and the month states
         burndownInterval: 'monthly',
         burndownTaskFilter: '',
         filterMonth: '',
@@ -858,48 +916,61 @@
         if (!this.dashboardReady) return { consumedHours: 0, soldHours: null, budgetTotal: null, consumedEur: null, hoursLeft: null, budgetLeft: null };
         return computeKpis(this.dashboardData, this.dashboardProject, billableData, billableTasks, findRate);
       },
-      kpiAsOfStr() {
-        return this.kpis.maxDate
-          ? `as of ${this.kpis.maxDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
-          : 'total to date';
+      kpiHoursPct() {
+        return spentPercent(this.kpis.consumedHours, this.kpis.soldHours);
       },
-      kpiBudgetEurSub() {
-        return this.kpis.totalPtc > 0 ? `${this.kpis.feesOnly == null ? '—' : this.formatMoney(this.kpis.feesOnly, this.dashCurrency, this.currencies)} fees + ${this.formatMoney(this.kpis.totalPtc, this.dashCurrency, this.currencies)} PTC` : 'hours × hourly rate';
+      kpiBudgetPct() {
+        return spentPercent(this.kpis.consumedEur, this.kpis.budgetTotal);
       },
-      kpiBudgetLeftSub() {
-        return this.kpis.totalPtc > 0 ? '(fees + PTC) − consumed' : 'budget − consumed';
+      // Same deps object as program.html's projectMetrics() calls, so the Time elapsed tile,
+      // the pace judgment and the sibling switch agree with the Program Dashboard.
+      reportDeps() {
+        return { findRate, billableTasks, billableData, pipelineBudget: getPipelineBudget, today: this.reportToday };
+      },
+      dashboardMetrics() {
+        const cfg = this.dashboardProject;
+        return cfg ? projectMetrics(cfg, this.dashboardData, this.reportDeps) : null;
+      },
+      kpiPace() {
+        return this.dashboardMetrics ? paceJudgment(this.dashboardMetrics.vsTime) : null;
+      },
+      reportTodayLabel() {
+        return this.reportToday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      },
+      dashboardTitle() {
+        return this.dashboardProject?.name || this.dashboardProject?.code || this.dashboardProjectId;
+      },
+      dashboardClientName() {
+        const cfg = this.dashboardProject;
+        const name = cfg?.clientId ? getClientName(cfg.clientId) : '';
+        return name && name !== 'Unassigned' ? name : '';
       },
       dashboardProgram() {
         const cfg = this.dashboardProject;
         return cfg?.programId ? (getPrograms().find(p => p.id === cfg.programId) || null) : null;
       },
-      dashboardProgramRow() {
-        const cfg = this.dashboardProject;
-        const prog = this.dashboardProgram;
-        const clientName = cfg?.clientId ? getClientName(cfg.clientId) : '';
-        const hasClient = clientName && clientName !== 'Unassigned';
-        if (!hasClient && !prog) return '';
-        const clientPart = hasClient ? `<span class="fw-semibold">${esc(clientName)}</span>` : '';
-        const sep = hasClient && prog ? ' — ' : '';
-        const progPart = prog ? `<span class="fw-semibold">${esc(prog.name)}</span>` : '';
-        const dashboardLink = prog ? ` · <a href="/program.html?programId=${encodeURIComponent(prog.id)}" class="text-decoration-none">Program Dashboard →</a>` : '';
-        return clientPart + sep + progPart + dashboardLink;
-      },
       dashboardMetaHtml() {
         if (!this.dashboardProjectId) return '';
         return [pipelineBadge(getProjectPipeline(this.dashboardProjectId) || this.dashboardProject?.pipeline), statusBadgeLarge(this.dashboardProject?.status)].join(' ');
       },
+      // Every project of the program, the current one included (flag `current`), ordered by
+      // code then name, each with its projectMetrics() for the switch's consumption bar.
       dashboardSiblings() {
+        this.refreshTick;
         const cfg = this.dashboardProject;
         const progId = cfg?.programId;
         if (!progId) return [];
         return (config.projects || [])
-          .filter(p => p.programId === progId && p.id !== this.dashboardProjectId)
-          .sort((a, b) => (a.id||'').localeCompare(b.id||''))
+          .filter(p => p.programId === progId)
+          .sort((a, b) => (a.code || '').localeCompare(b.code || '') || (a.name || '').localeCompare(b.name || ''))
           .map(s => ({
             ...s,
-            badgesHtml: [pipelineBadge(getProjectPipeline(s.id) || s.pipeline), statusBadgeLarge(s.status)].join(' '),
+            current: s.id === this.dashboardProjectId,
+            metrics: projectMetrics(s, timesheetData.filter(r => r.projectId === s.id), this.reportDeps),
           }));
+      },
+      dashboardProgramTotals() {
+        return programTotals(this.dashboardSiblings.map(s => s.metrics));
       },
       billableTaskNames() {
         return this.dashboardReady ? billableTasks(this.dashboardProject).map(t => t.name) : [];
@@ -1259,6 +1330,11 @@
       monthLabel(ym) {
         return new Date(parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))-1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
       },
+      // 'YYYYMM' or 'YYYY-MM' → "Dec 2025" (the 7.4 header and Time elapsed tile).
+      monthLabelLong(ym) {
+        const k = String(ym).replace('-', '');
+        return new Date(parseInt(k.slice(0,4)), parseInt(k.slice(4,6))-1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      },
       varColor(v) { return v > 0 ? 'var(--color-success)' : v < 0 ? 'var(--color-danger)' : 'var(--text-muted)'; },
       goNewProject() { if (this.directCreationEnabled) window.location.href = '/project-config.html'; },
       fmtVar(v, cur) { return `${v >= 0 ? '+' : ''}${this.formatMoney(v, cur || this.dashCurrency, this.currencies)}`; },
@@ -1385,6 +1461,7 @@
         this.view = 'dashboard';
         this.dashboardProjectId = pid;
         this.dashboardReady = true;
+        this.reportToday = new Date();
         selectedProjectId = pid;
         history.replaceState(null, '', '/portfolio.html?projectId=' + encodeURIComponent(pid));
         const cfg = this.dashboardProject;
@@ -1395,7 +1472,17 @@
         ]);
         this.burndownInterval = 'monthly';
         this.burndownTaskFilter = '';
+        this.loadDashboardTags(pid);
         this.$nextTick(() => this.renderBurndownChart());
+      },
+      async loadDashboardTags(pid) {
+        this.dashboardTags = [];
+        try {
+          const tags = await Api.projects.tags.list(pid);
+          if (this.dashboardProjectId === pid) this.dashboardTags = tags || [];
+        } catch (e) {
+          if (this.dashboardProjectId === pid) this.dashboardTags = [];
+        }
       },
       // Chart.js cannot resolve var(); read the token's computed value instead.
       chartColor(name, fallback) {
