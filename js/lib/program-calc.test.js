@@ -191,6 +191,16 @@ describe('programBurndown', () => {
   });
 });
 
+describe('programBurndown — characterization (pre-fix)', () => {
+  it('Today reads the start-of-month value and the line runs flat after it', () => {
+    const c = cfg({ startDate: '202608', endDate: '202610', tasks: [task(100, 100)] });
+    const s = programBurndown(programRange([c]), [{ cfg: c, rows: [{ hours: 10, date: new Date(2026, 7, 10) }] }], deps);
+    expect(s.todayIndex).toBe(1);
+    expect(s.todayRemaining).toBe(s.actual[1]);
+    expect(s.actual[2]).toBe(s.actual[1]);
+  });
+});
+
 describe('todayPosition', () => {
   it('is null when today is outside the range', () => {
     expect(todayPosition(programRange([cfg({ startDate: '202701', endDate: '202703' })]), deps.today)).toBeNull();

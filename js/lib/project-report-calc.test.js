@@ -1,5 +1,41 @@
 import { describe, it, expect } from 'vitest';
-import { paceJudgment, breakdownRows, taskSubtitle, roleSubtitle, groupSubtitle, entriesByMonth, hoursByMonth, monthState, todayIndex } from './project-report-calc.js';
+import { paceJudgment, breakdownRows, taskSubtitle, roleSubtitle, groupSubtitle, entriesByMonth, hoursByMonth, monthState, todayIndex, roleColumns, areaColumns } from './project-report-calc.js';
+
+// Stand-ins for js/core.js's billableTasks/billableData/findRate (same rules: billable filter,
+// exact role on the task, else the task's first resource).
+const billableTasks = cfg => (cfg?.tasks || []).filter(t => t.billable !== false);
+const billableData = (data, cfg) => {
+  const names = new Set(billableTasks(cfg).map(t => t.name.toLowerCase()));
+  return data.filter(r => names.has(r.task.toLowerCase()));
+};
+const findRate = (row, cfg) => {
+  const task = (cfg?.tasks || []).find(t => t.name.toLowerCase() === row.task.toLowerCase());
+  if (!task) return null;
+  const res = task.resources.find(r => r.role.toLowerCase() === row.role.toLowerCase());
+  if (res) return res.hourlyRate;
+  return task.resources.length ? task.resources[0].hourlyRate : null;
+};
+const DEPS = { billableData, billableTasks, findRate };
+const NO_RANGE = { start: null, end: null };
+
+// Fixture F (plan Task 1): a role on two tasks, a role in two groups (Tester on Dev),
+// and Designer logged on Dev where it is not configured.
+const F = {
+  tasks: [
+    { name: 'Dev', billable: true, resources: [{ role: 'Developer', soldHours: 100, hourlyRate: 50 }, { role: 'Tester', soldHours: 20, hourlyRate: 40 }] },
+    { name: 'QA', billable: true, resources: [{ role: 'Tester', soldHours: 30, hourlyRate: 40 }] },
+  ],
+  groups: [
+    { name: 'Build', entries: [{ role: 'Developer', task: '' }, { role: 'Tester', task: 'Dev' }] },
+    { name: 'Quality', entries: [{ role: 'Tester', task: '' }] },
+  ],
+};
+const F_ROWS = [
+  { task: 'Dev', role: 'Developer', hours: 10, date: new Date(2026, 0, 10) },
+  { task: 'Dev', role: 'Tester', hours: 4, date: new Date(2026, 0, 11) },
+  { task: 'QA', role: 'Tester', hours: 6, date: new Date(2026, 1, 12) },
+  { task: 'Dev', role: 'Designer', hours: 3, date: new Date(2026, 0, 13) },
+];
 
 describe('paceJudgment', () => {
   it('returns null without a vsTime', () => {
@@ -234,5 +270,17 @@ describe('todayIndex', () => {
     expect(todayIndex([], new Date())).toBe(null);
     expect(todayIndex(null, new Date())).toBe(null);
     expect(todayIndex(pts, null)).toBe(null);
+  });
+});
+
+describe('roleColumns / areaColumns — characterization (pre-fix)', () => {
+  it('roleColumns has only the configured (role, task) pairs', () => {
+    const cols = roleColumns(F_ROWS, F, NO_RANGE, DEPS);
+    expect(cols.map(c => `${c.role}|${c.task}`)).toEqual(['Developer|Dev', 'Tester|Dev', 'Tester|QA']);
+    expect(cols.map(c => c.totalConsumed)).toEqual([10, 4, 6]);
+  });
+  it('areaColumns counts Tester on Dev in both groups', () => {
+    const cols = areaColumns(F_ROWS, F, NO_RANGE, DEPS);
+    expect(cols.map(c => [c.label, c.totalConsumed])).toEqual([['Build', 14], ['Quality', 10]]);
   });
 });

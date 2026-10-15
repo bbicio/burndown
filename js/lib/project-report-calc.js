@@ -3,7 +3,7 @@
 // See docs/superpowers/specs/2026-10-15-project-reporting-redesign-design.md §4.
 
 // ?v=6 matches portfolio.html's own <script src="js/lib/portfolio-calc.js?v=6"> tag (CLAUDE.md "Cache-busting").
-import { spentPercent, spentBarState, normalizeGroupEntries, entryMatchesRow } from './portfolio-calc.js?v=6';
+import { spentPercent, spentBarState, normalizeGroupEntries, entryMatchesRow, buildSummaryCols } from './portfolio-calc.js?v=6';
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function ymOf(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`; }
@@ -143,6 +143,60 @@ export function todayIndex(points, today, bounds) {
   return idx;
 }
 
+// Breakdown "By role" columns. `deps` = { billableData, billableTasks, findRate } (js/core.js globals).
+// Composite key (role + task): a role sold at a different rate_override on two
+// different tasks (task_roles is per (task, role), not a single global rate per
+// role — verified on the Bayer AG "BERMITS Maintenance 2026" project, where
+// "Account Director" resolves to 168/h on "Overall Coordination" and, via
+// findRate()'s task-scoped fallback, 130/h on "Project Management") previously
+// landed in ONE blended column here, summing hours billed at two different rates
+// under a single total that could never be reconciled against the cost grid.
+// Splitting the key by task keeps every column internally consistent (one rate).
+export function roleColumns(data, cfg, filterRange, deps) {
+  const { billableData, billableTasks, findRate } = deps;
+  const roleTaskMap = new Map();
+  billableTasks(cfg).forEach(t => t.resources.forEach(res => {
+    const key = res.role.toLowerCase() + '|' + t.name.toLowerCase();
+    if (!roleTaskMap.has(key)) roleTaskMap.set(key, { key, label: `${res.role} — ${t.name}`, role: res.role, task: t.name, soldHours: 0, soldEur: 0 });
+    roleTaskMap.get(key).soldHours += res.soldHours;
+    roleTaskMap.get(key).soldEur += res.soldHours * res.hourlyRate;
+  }));
+  const bData = billableData(data, cfg);
+  const byKeyFn = r => r.role.toLowerCase() + '|' + r.task.toLowerCase();
+  const entries = [...roleTaskMap.values()];
+  // role/task carried alongside each column for the Breakdown's By role rows (label and subtitle).
+  return buildSummaryCols(bData, byKeyFn, entries, filterRange, cfg, findRate)
+    .map((c, i) => ({ ...c, role: entries[i].role, task: entries[i].task }));
+}
+
+// Breakdown "By functional area" columns, one per group. Correctness comes from each group's own
+// `entries: [{role, task}]` (normalizeGroupEntries()/entryMatchesRow(), js/lib/portfolio-calc.js),
+// not from splitting the output by task: a group can claim a role's hours on one specific task
+// while leaving another task's hours for the same role out entirely (the Bayer case —
+// "HWGACCSVS - DIRECTOR" billed at 168/h on Overall Coordination vs 130/h on Project Management).
+// Legacy groups with only `roles: string[]` normalize to wildcard entries (task: '') and sum
+// across every task.
+export function areaColumns(data, cfg, filterRange, deps) {
+  const { billableData, billableTasks, findRate } = deps;
+  const bData = billableData(data, cfg);
+  const bTasks = billableTasks(cfg);
+  const { start, end } = filterRange;
+  return cfg.groups.map(grp => {
+    const grpEntries = normalizeGroupEntries(grp);
+    let soldHours = 0, soldEur = 0;
+    bTasks.forEach(task => task.resources.forEach(res => {
+      if (entryMatchesRow(grpEntries, res.role, task.name)) { soldHours += res.soldHours; soldEur += res.soldHours * res.hourlyRate; }
+    }));
+    const grpRows = bData.filter(r => entryMatchesRow(grpEntries, r.role, r.task));
+    const totalConsumed = grpRows.reduce((s, r) => s + r.hours, 0);
+    const totalConsumedEur = grpRows.reduce((s, r) => s + r.hours * (findRate(r, cfg) ?? 0), 0);
+    const periodRows = grpRows.filter(r => (!start || r.date >= start) && (!end || r.date <= end));
+    const inPeriod = periodRows.reduce((s, r) => s + r.hours, 0);
+    const inPeriodEur = periodRows.reduce((s, r) => s + r.hours * (findRate(r, cfg) ?? 0), 0);
+    return { label: grp.name, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
+  });
+}
+
 window.paceJudgment = paceJudgment;
 window.breakdownRows = breakdownRows;
 window.taskSubtitle = taskSubtitle;
@@ -152,3 +206,5 @@ window.entriesByMonth = entriesByMonth;
 window.hoursByMonth = hoursByMonth;
 window.monthState = monthState;
 window.todayIndex = todayIndex;
+window.roleColumns = roleColumns;
+window.areaColumns = areaColumns;

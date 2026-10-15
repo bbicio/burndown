@@ -133,6 +133,37 @@ describe('computeBurndownPoints', () => {
   });
 });
 
+// Pins the output of computeBurndownPoints() as it was before the B-071/B-074 fix
+// (docs/superpowers/specs/2026-10-15-project-reporting-calculations-fix-design.md):
+// without `today` this output must not change.
+describe('computeBurndownPoints — characterization (pre-fix)', () => {
+  const cfg = {
+    startDate: '202601', endDate: '202604',
+    tasks: [{ name: 'Dev', billable: true, resources: [{ role: 'Developer', soldHours: 100, hourlyRate: 50 }] }],
+    phasing: { 202601: 1000, 202602: 2000 },
+    planning: { 202601: 20 },
+  };
+  const data = [
+    { task: 'Dev', role: 'Developer', hours: 10, date: new Date(2026, 0, 15) },
+    { task: 'Dev', role: 'Developer', hours: 5, date: new Date(2026, 2, 15) },
+  ];
+  it('monthly', () => {
+    const r = computeBurndownPoints(data, cfg, '', 'monthly', billableData, billableTasks, findRate);
+    expect(r.burnValues).toEqual([100, 90, 90, 85]);
+    expect(r.idealValues).toEqual([80, 40, 40, 40]);
+    expect(r.tooltipBudgetConsumed).toEqual([0, 500, 500, 750]);
+    expect(r.tooltipPhasingEur).toEqual([1000, 3000, 3000, 3000]);
+    expect(r.hasPhasingEur).toBe(true);
+  });
+  it('quarterly', () => {
+    const r = computeBurndownPoints(data, cfg, '', 'quarterly', billableData, billableTasks, findRate);
+    expect(r.burnValues).toEqual([100, 85]);
+    expect(r.idealValues).toEqual([80, 40]);
+    expect(r.tooltipBudgetConsumed).toEqual([0, 750]);
+    expect(r.tooltipPhasingEur).toEqual([1000, 3000]);
+  });
+});
+
 describe('buildSummaryCols', () => {
   const cfg = {
     tasks: [
