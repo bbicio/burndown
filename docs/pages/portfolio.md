@@ -131,6 +131,8 @@ No endpoint, no SQL, no `pdash-api` restart for this cycle.
 
 Spec `docs/superpowers/specs/2026-10-15-project-reporting-redesign-design.md`, boards in `docs/superpowers/design/reporting-project/`.
 
+The Progress and Breakdown cards replace the Period filter, "Summary by task/role/functional area", "Task detail", burndown, Monthly Summary and PTC cards described in the sections above, and the header replaces `dashboardProgramRow`; those sections are history. Cache-bust: `css/portfolio.css` `?v=2` → `?v=3` and `js/lib/portfolio-calc.js` `?v=5` → `?v=6` on both pages; `js/lib/program-calc.js` `?v=1` → `?v=2` on `program.html`, and `portfolio.html` now loads it too, at `?v=2`.
+
 ### Deviations from the boards
 
 Fixed in the visual pass:

@@ -268,9 +268,15 @@ describe('project reporting view — Gate 3 review fixes', () => {
     expect(m[1]).toContain('this.taskDetailState = {};');
   });
   it('reads "—" for Sold and Remaining without a sold reference', () => {
-    expect(dashboardActive).toContain(`it.row.soldKnown === false ? '—' : fmtH(it.row.soldHours)`);
-    expect(dashboardActive).toContain(`breakdown.total.soldKnown === false ? '—' : fmtH(breakdown.total.soldHours)`);
+    expect(dashboardActive).toContain(`!it.row.soldKnown ? '—' : fmtH(it.row.soldHours)`);
+    expect(dashboardActive).toContain(`!breakdown.total.soldKnown ? '—' : fmtH(breakdown.total.soldHours)`);
     expect(dashboardActive).toContain(`sr.soldKnown ? fmtH(sr.soldHours) : '—'`);
+  });
+  it('makes the task, excluded and month rows keyboard-operable', () => {
+    expect((dashboardActive.match(/@keydown\.enter\.space\.prevent=/g) || []).length).toBe(3);
+  });
+  it('destroys the burndown chart when the Progress card leaves the Burndown view', () => {
+    expect(html).toMatch(/else if \(this\._burndownChart\) \{ this\._burndownChart\.destroy\(\); this\._burndownChart = null; \}/);
   });
   it('computes the sibling metrics only while the switch menu is open', () => {
     expect(html).toMatch(/if \(!this\.switchMenuOpen \|\| !list\.length\) return \[\];/);

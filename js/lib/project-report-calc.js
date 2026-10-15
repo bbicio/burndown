@@ -17,20 +17,25 @@ export function paceJudgment(vsTime, threshold = 10) {
   return 'on-track';
 }
 
+// Two decimals, as fmtH() shows them: three 0.1h entries against 0.3h sold are on budget,
+// not over sold by a float residue.
+function r2(n) { return Math.round(n * 100) / 100 + 0; } // + 0 turns -0 into 0
+
 function toRow(label, soldHours, soldAmount, totalConsumed, totalConsumedAmount, inPeriod, inPeriodAmount, hasFilter) {
   const pct = spentPercent(totalConsumed, soldHours);
-  const overSold = totalConsumed > soldHours;
+  const overSold = r2(totalConsumed) > r2(soldHours);
   return {
     label,
     soldHours,
     soldAmount,
     spentHours: hasFilter ? inPeriod : totalConsumed,
     spentAmount: hasFilter ? inPeriodAmount : totalConsumedAmount,
-    remainingHours: soldHours - totalConsumed,
-    remainingAmount: soldAmount - totalConsumedAmount,
+    remainingHours: r2(soldHours - totalConsumed),
+    remainingAmount: r2(soldAmount - totalConsumedAmount),
     pct,
     barState: overSold ? 'danger' : spentBarState(pct),
     overSold,
+    soldKnown: true,
   };
 }
 

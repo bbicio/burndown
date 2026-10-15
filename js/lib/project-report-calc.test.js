@@ -191,6 +191,16 @@ describe('monthState', () => {
   });
 });
 
+describe('breakdownRows — float residue', () => {
+  it('is not over sold when the consumption equals the sold hours up to a float residue', () => {
+    const col = { label: 'T', soldHours: 0.3, soldEur: 30, totalConsumed: 0.1 + 0.1 + 0.1, totalConsumedEur: 30, inPeriod: 0, inPeriodEur: 0 };
+    const { rows } = breakdownRows([col], false);
+    expect(rows[0].overSold).toBe(false);
+    expect(rows[0].remainingHours).toBe(0);
+    expect(rows[0].soldKnown).toBe(true);
+  });
+});
+
 describe('todayIndex', () => {
   const pts = [new Date(2026, 0, 1), new Date(2026, 1, 1), new Date(2026, 2, 1)];
   it('returns the last point on or before today', () => {
