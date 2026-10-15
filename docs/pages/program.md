@@ -74,7 +74,7 @@ from `portfolio-calc.js` rather than re-deriving them.
 | `timeElapsed(range, metrics[], today)` | `{ pct, startedCount, totalCount }` |
 | `needsAttention(entries, thresholds)` | `{ ids[], reasons: { [id]: string } }`, D10's rule |
 | `sortProjectRows(rows, attentionIds)` | flagged rows first, then by start date; does not mutate its input |
-| `programBurndown(range, projects, deps)` | `{ labels, actual[], planned[], todayIndex, todayRemaining }` — projects each other's `computeBurndownPoints()` series onto the shared axis (holding a project's first value before it starts, last value after it ends), then sums. A project is included when it has both dates **or** at least one actual row: without dates `computeBurndownPoints()` derives the axis from the rows, so only a project with neither has no position at all (and would throw on that function's initial-value-less `reduce`). See the burndown caveats under Known gaps |
+| `programBurndown(range, projects, deps)` | `{ labels, actual[], planned[], todayIndex, todayRemaining }` — projects each other's `computeBurndownPoints()` series onto the shared axis (holding a project's first value before it starts and, since 2026-10-15, its remaining at the start of each month after it ends), then sums; the line stops at today's month, which holds the sum of each project's remaining as of today. A project is included when it has both dates **or** at least one actual row: without dates `computeBurndownPoints()` derives the axis from the rows, so only a project with neither has no position at all (and would throw on that function's initial-value-less `reduce`). See the burndown caveats under Known gaps |
 | `timelineBars(range, rows)` | per-project `{ leftPct, widthPct, fillPct, state, started, ... }` for the Timeline view |
 | `todayPosition(range, today)` | `today`'s `%` position on the axis, `null` if outside it |
 
@@ -162,8 +162,10 @@ still counts them; including it fabricates a position. This cycle ships the incl
 
 1. **Phantom tail (medium).** The fallback axis is `first actual's month + 14 months` — a fixed cap,
    not the actuals' real extent. For an undated project whose actuals span more than 14 months,
-   `programBurndown` holds its stale `lastBurn` for every later programme month, overstating remaining
-   hours. Deriving `axisEnd` from the actuals' max date would fix it, but that function is shared with
+   `programBurndown` held its stale `lastBurn` for every later programme month, overstating remaining
+   hours. **Mitigated 2026-10-15** (calculations fix): after a project's last month the value is now
+   its remaining at the start of each month, which counts its later actuals; the fixed 14-month axis
+   of its own chart is unchanged. Deriving `axisEnd` from the actuals' max date would fix it, but that function is shared with
    `portfolio.html`'s own burndown.
 2. **Synthetic `planned` ramp (low).** `computeBurndownPoints()` returns `idealValues` whenever a
    budget exists, so an undated project without phasing contributes a linear budget→0 ramp over that
@@ -177,3 +179,7 @@ still counts them; including it fabricates a position. This cycle ships the incl
 Note that `timelineBars()` skips undated projects outright, so the Timeline and the burndown currently
 disagree on whether an undated project exists. Resolving items 1-3 together with that inconsistency is
 the natural shape of the follow-up cycle.
+
+## Reporting calculations fix (2026-10-15)
+
+The burndown's actual line stops at the current month and its pill `<N>h left · <month>` reads `todayRemaining`, the program's remaining as of today (B-071); the tooltip shows `Planned: <N>h left` on later months. The Today pill comes from `js/lib/chart-today.js`, which now flips below the point and stays inside the canvas (B-077). `css/portfolio.css`'s `.pg-tile-of` uses `--weight-regular` (B-076). Detail: `docs/pages/portfolio.md` → "Reporting calculations fix (2026-10-15)".

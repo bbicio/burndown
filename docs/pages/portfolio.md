@@ -150,3 +150,16 @@ Accepted:
 - "Whole project" in the Period menu shows the project's start–end range, not start to today.
 - Project tags are neutral pills: no colour token exists per attribute list.
 - By role has one row per (role, task), not one per role across tasks: a role sold at two rates would give a total that does not reconcile.
+
+## Reporting calculations fix (2026-10-15)
+
+Spec `docs/superpowers/specs/2026-10-15-project-reporting-calculations-fix-design.md`, plan `docs/superpowers/plans/2026-10-15-project-reporting-calculations-fix.md`; backlog items B-071…B-077 from the 7.4 cycle's review.
+
+- **Burndown Today (B-071):** `burndownSeries` passes `reportToday` to `computeBurndownPoints()`, whose `todayIndex`/`todayValue` drive the point and the pill; the line stops at today. With no task filter the pill equals the Hours tile's `left`, except for an over-sold project (the line clamps at 0) and for entries dated after today (the pill counts up to today, the tile everything — accepted as follow-up).
+- **Budget tile (B-072):** fees only (`feesOnly`, `feesLeft`, `spentPercent(consumedEur, feesOnly)`); PTC moved to a `+ X PTC` note outside the budget branches, so it also shows under "No budget".
+- **Breakdown Totals (B-073):** `summaryByRole`/`summaryByGroup` call `roleColumns()`/`areaColumns()` (`js/lib/project-report-calc.js`); the By area Total comes from `areaTotalColumn()`, the overlap note from `breakdownAreaOverlap`. The three Totals now agree.
+- **Tooltip (B-074):** `Planned` = the dashed line's value (and the cumulative phasing € when the plan comes from phasing); after today the `filter` switches to dataset 1, so only the Planned lines show.
+- **Monthly summary (B-075):** the hours column is "Planned hours (resource plan)" (still `cfg.planning`); `exportMonthlyXls()` builds the sheet from `monthlySummary` with `aoa_to_sheet`, replacing `exportTableXls()`/`table_to_book`.
+- **CSS (B-076):** `--weight-normal` → `--weight-regular` in `css/portfolio.css`.
+- Cache-bust: `portfolio-calc.js?v=7`, `program-calc.js?v=3`, `project-report-calc.js?v=2`, `chart-today.js?v=2`, `css/portfolio.css?v=4`.
+- Report: `docs/superpowers/reports/2026-10-15-project-reporting-calc-fix-finish-cycle.md`.
