@@ -4,13 +4,16 @@
 // :280 billableData) — not js/lib/* ES exports — so they are injected as parameters
 // here rather than imported, keeping this module pure/DOM-free.
 
-export function computeKpis(data, cfg, billableData, billableTasks, findRate) {
+// `today` (optional, B-080): futureHours = the billable hours dated after it, which the Hours tile
+// counts and the burndown's Today pill does not; null without `today`.
+export function computeKpis(data, cfg, billableData, billableTasks, findRate, today = null) {
   const bData = billableData(data, cfg);
   const consumedHours = bData.reduce((s, r) => s + r.hours, 0);
   const maxDate = bData.length ? bData.reduce((max, r) => r.date > max ? r.date : max, bData[0].date) : null;
+  const futureHours = today ? bData.filter(r => r.date > today).reduce((s, r) => s + r.hours, 0) : null;
 
   if (!cfg) {
-    return { consumedHours, maxDate, soldHours: null, budgetTotal: null, consumedEur: null, hoursLeft: null, budgetLeft: null, feesOnly: null, feesLeft: null, totalPtc: null };
+    return { consumedHours, maxDate, soldHours: null, budgetTotal: null, consumedEur: null, hoursLeft: null, budgetLeft: null, feesOnly: null, feesLeft: null, totalPtc: null, futureHours };
   }
 
   const bTasks = billableTasks(cfg);
@@ -24,7 +27,7 @@ export function computeKpis(data, cfg, billableData, billableTasks, findRate) {
   // The Budget tile measures fees only (B-072): consumedEur never includes PTC.
   const feesLeft = feesOnly - consumedEur;
 
-  return { consumedHours, maxDate, soldHours, budgetTotal, consumedEur, hoursLeft, budgetLeft, feesOnly, feesLeft, totalPtc };
+  return { consumedHours, maxDate, soldHours, budgetTotal, consumedEur, hoursLeft, budgetLeft, feesOnly, feesLeft, totalPtc, futureHours };
 }
 
 // Local replicas of js/core.js's pad()/fmtDateLabel() (core.js:297-300): the brief's

@@ -603,3 +603,38 @@ describe('reporting follow-ups — characterization (pre-fix)', () => {
     expect(fuSeries(fuCfg, '').totalBudgetEur).toBe(6200);
   });
 });
+
+describe('computeKpis — futureHours (B-080)', () => {
+  const kpis = (data, cfg, today) => computeKpis(data, cfg, billableData, billableTasks, findRate, today);
+  it('is null without today, and the other fields are unchanged', () => {
+    const without = computeKpis(fuData, fuCfg, billableData, billableTasks, findRate);
+    expect(without.futureHours).toBeNull();
+    const { futureHours, ...rest } = kpis(fuData, fuCfg, fuToday);
+    const { futureHours: _f, ...restWithout } = without;
+    expect(rest).toEqual(restWithout);
+  });
+  it('sums the billable hours dated after today (a non-billable task does not count)', () => {
+    const k = kpis(fuData, fuCfg, fuToday);
+    expect(k.futureHours).toBe(8);
+    expect(k.hoursLeft).toBe(122);
+  });
+  it('without cfg counts every row dated after today', () => {
+    expect(kpis(fuData, null, fuToday).futureHours).toBe(12);
+  });
+  it('is 0 when no row is dated after today', () => {
+    expect(kpis(fuData, fuCfg, new Date(2026, 5, 30)).futureHours).toBe(0);
+  });
+  it('a row dated today is not in the future (Review Focus 1)', () => {
+    const rows = [{ task: 'Dev', role: 'Developer', hours: 2, date: new Date(2026, 1, 20) }];
+    expect(kpis(rows, fuCfg, new Date(2026, 1, 20, 15, 0)).futureHours).toBe(0);
+  });
+  it('the Today pill equals max(0, hoursLeft + futureHours) (Review Focus 2)', () => {
+    const k = kpis(fuData, fuCfg, fuToday);
+    expect(fuSeries(fuCfg, '').todayValue).toBe(Math.max(0, k.hoursLeft + k.futureHours));
+    expect(fuSeries(fuCfg, '').todayValue).toBe(130);
+    const over = { ...fuCfg, tasks: [{ ...fuCfg.tasks[0], resources: [{ role: 'Developer', soldHours: 5, hourlyRate: 50 }] }, fuCfg.tasks[2]] };
+    const ko = kpis(fuData, over, fuToday);
+    expect(fuSeries(over, '').todayValue).toBe(0);
+    expect(Math.max(0, ko.hoursLeft + ko.futureHours)).toBe(0);
+  });
+});
