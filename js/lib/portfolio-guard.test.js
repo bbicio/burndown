@@ -37,13 +37,13 @@ describe('portfolio overview guard', () => {
     expect(overviewActive).not.toMatch(/\p{Extended_Pictographic}/u);
   });
 
-  it('every portfolio.css reference is ?v=3', () => {
+  it('every portfolio.css reference is ?v=4', () => {
     const pages = fs.readdirSync(root).filter(f => f.endsWith('.html'));
     let found = 0;
     pages.forEach(f => {
       for (const m of read(f).matchAll(/portfolio\.css\?v=(\d+)/g)) {
         found++;
-        expect(m[1], f).toBe('3');
+        expect(m[1], f).toBe('4');
       }
     });
     expect(found).toBeGreaterThan(0);

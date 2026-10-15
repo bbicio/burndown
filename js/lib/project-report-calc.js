@@ -2,8 +2,8 @@
 // pace judgment, Breakdown rows, row subtitles, entries per month and the Today index.
 // See docs/superpowers/specs/2026-10-15-project-reporting-redesign-design.md §4.
 
-// ?v=6 matches portfolio.html's own <script src="js/lib/portfolio-calc.js?v=6"> tag (CLAUDE.md "Cache-busting").
-import { spentPercent, spentBarState, normalizeGroupEntries, entryMatchesRow, buildSummaryCols, todayIndex } from './portfolio-calc.js?v=6';
+// ?v=7 matches portfolio.html's own <script src="js/lib/portfolio-calc.js?v=7"> tag (CLAUDE.md "Cache-busting").
+import { spentPercent, spentBarState, normalizeGroupEntries, entryMatchesRow, buildSummaryCols, todayIndex } from './portfolio-calc.js?v=7';
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function ymOf(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`; }
@@ -136,7 +136,7 @@ export function monthState(ym, today) {
 
 // todayIndex() lives in portfolio-calc.js (computeBurndownPoints needs it); re-exported here
 // so this module's callers and the window.todayIndex bridge are unchanged.
-export { todayIndex } from './portfolio-calc.js?v=6';
+export { todayIndex } from './portfolio-calc.js?v=7';
 
 // Breakdown "By role" columns. `deps` = { billableData, billableTasks, findRate } (js/core.js globals).
 // Composite key (role + task): a role sold at a different rate_override on two
