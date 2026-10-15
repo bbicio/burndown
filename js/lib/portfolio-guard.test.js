@@ -189,3 +189,29 @@ describe('project reporting view — Progress card', () => {
     expect(render).not.toContain('Estimated Hours');
   });
 });
+
+describe('project reporting view — Breakdown card', () => {
+  const bStart = dashboard.indexOf('<!-- /pr-progress -->');
+  const bEnd = dashboard.indexOf('<!-- /pr-breakdown -->');
+  const breakdown = dashboard.slice(bStart, bEnd).replace(/<!--[\s\S]*?-->/g, '');
+
+  it('locates the Breakdown card', () => {
+    expect(bStart).toBeGreaterThan(-1);
+    expect(bEnd).toBeGreaterThan(bStart);
+  });
+
+  it('carries the Breakdown and Period copy', () => {
+    ['Breakdown', 'By task', 'By role', 'By functional area', 'No functional areas configured', 'Remaining (total)', 'Total consumption', 'Over sold', 'Whole project', 'Custom range', 'Reset']
+      .forEach(t => expect(breakdown, t).toContain(t));
+  });
+
+  it('has no emoji and no hex', () => {
+    expect(breakdown).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(breakdown).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  it('drops the period-filter card and the three summary cards', () => {
+    ['In period', 'Summary by task', 'Summary by role', 'Summary by functional area', 'Period filter']
+      .forEach(t => expect(dashboardActive, t).not.toContain(t));
+  });
+});

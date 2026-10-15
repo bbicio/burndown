@@ -530,75 +530,85 @@
           </div>
         </template>
       </div><!-- /pr-progress -->
-      <div class="section-card mb-4">
-        <div class="section-header">🗓️ Period filter — applies to all summary and detail tables below</div>
-        <div class="p-3">
-          <div class="row g-3 align-items-end flex-wrap">
-            <div class="col-auto"><label class="form-label small fw-semibold mb-1">Month</label>
-              <select class="form-select form-select-sm" v-model="filterMonth" style="min-width:160px" @change="filterStart = ''; filterEnd = '';">
-                <option value="">— All months —</option>
-                <option v-for="ym in filterMonthOptions" :key="ym" :value="ym">{{ filterMonthLabel(ym) }}</option>
-              </select>
+      <div class="pr-card" v-if="breakdown">
+        <div class="pr-card-head">
+          <div class="pr-card-title-row">
+            <span class="pr-card-title">Breakdown</span>
+            <div class="pr-seg">
+              <button type="button" class="pr-seg-btn" :class="{ active: breakdownView === 'task' }" @click="breakdownView = 'task'">By task</button>
+              <button type="button" class="pr-seg-btn" :class="{ active: breakdownView === 'role' }" @click="breakdownView = 'role'">By role</button>
+              <span :title="dashboardProject.groups?.length ? '' : 'No functional areas configured'">
+                <button type="button" class="pr-seg-btn" :class="{ active: breakdownView === 'area' }" :disabled="!dashboardProject.groups?.length" @click="breakdownView = 'area'">By functional area</button>
+              </span>
             </div>
-            <div class="col-auto d-flex align-items-end pb-1"><span class="text-muted small">or</span></div>
-            <div class="col-auto"><label class="form-label small fw-semibold mb-1">From</label><input type="date" class="form-control form-control-sm" v-model="filterStart" @change="filterMonth = ''"></div>
-            <div class="col-auto"><label class="form-label small fw-semibold mb-1">To</label><input type="date" class="form-control form-control-sm" v-model="filterEnd" @change="filterMonth = ''"></div>
-            <div class="col-auto"><button class="btn btn-outline-secondary btn-sm" @click="resetDateFilter">↺ Reset</button></div>
-            <div class="col-auto"><span class="text-muted small">{{ filterRangeLabel }}</span></div>
+          </div>
+          <div class="pr-toolbar">
+            <button type="button" class="pr-icon-btn" title="Export XLS" @click="exportBreakdownXls"><pf-icon name="download" :size="14"></pf-icon></button>
+            <div class="dropdown">
+              <button ref="periodBtn" type="button" class="pr-chip pr-period-btn" :class="{ 'pr-period-active': filterHasFilter }" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                <pf-icon name="calendar" :size="14"></pf-icon>Period: <span class="pr-chip-value">{{ periodLabel }}</span><pf-icon name="chevron-down" :size="12"></pf-icon>
+              </button>
+              <div class="dropdown-menu dropdown-menu-end pr-period-menu">
+                <a href="#" class="pr-period-item" :class="{ active: !filterHasFilter }" @click.prevent="pickPeriod('')">
+                  <span>Whole project</span><span class="pr-period-meta">{{ wholeProjectRange }}</span>
+                </a>
+                <a v-for="ym in periodMonths" :key="ym" href="#" class="pr-period-item" :class="{ active: filterMonth === ym }" @click.prevent="pickPeriod(ym)">
+                  <span>{{ monthLabelLong(ym) }}</span><span class="pr-period-meta">{{ fmtH(periodHours[ym] || 0) }}</span>
+                </a>
+                <div class="pr-period-custom">
+                  <div class="pr-period-custom-label">Custom range</div>
+                  <div class="pr-period-custom-row">
+                    <input type="date" class="form-control form-control-sm" v-model="filterStart" @change="filterMonth = ''" aria-label="From">
+                    <span>–</span>
+                    <input type="date" class="form-control form-control-sm" v-model="filterEnd" @change="filterMonth = ''" aria-label="To">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <a v-if="filterHasFilter" href="#" class="pf-clear-link" @click.prevent="resetDateFilter">Reset</a>
           </div>
         </div>
-      </div>
-      <div class="section-card mb-4" v-if="summaryByTask">
-        <div class="section-header d-flex justify-content-between align-items-center">
-          <span>📋 Summary by task</span>
-          <ExportButtons :tbl-ref="() => $refs.summaryByTaskTable" filename="summary_by_task" :card-ref="() => $refs.summaryByTaskCard" />
+
+        <div class="pr-bd">
+          <div class="pr-bd-row pr-bd-header">
+            <span></span>
+            <span>{{ breakdownView === 'task' ? 'Task' : breakdownView === 'role' ? 'Role (resource)' : 'Functional area' }}</span>
+            <span class="pr-bd-num">Sold</span>
+            <span class="pr-bd-num">{{ filterHasFilter ? 'Spent · ' + periodLabel : 'Spent' }}</span>
+            <span class="pr-bd-num pr-bd-remaining">Remaining (total)</span>
+            <span class="pr-bd-cons-head">Total consumption</span>
+          </div>
+
+          <template v-for="r in breakdown.rows" :key="r.key">
+            <div class="pr-bd-row pr-bd-item" :class="{ 'pr-bd-over': r.overSold }">
+              <span class="pr-bd-chev"></span>
+              <div class="pr-bd-name">
+                <div class="pr-bd-title">{{ r.label }}<span v-if="r.overSold" class="pr-over-pill">Over sold</span></div>
+                <div class="pr-bd-sub">{{ r.subtitle }}</div>
+              </div>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(r.soldHours) }}</div><div class="pr-bd-a">{{ formatMoney(r.soldAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(r.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(r.spentAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': r.remainingHours < 0 }"><div class="pr-bd-h">{{ fmtH(r.remainingHours) }}</div><div class="pr-bd-a">{{ formatMoney(r.remainingAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-cons">
+                <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + r.barState"><div class="pf-spent-bar-fill" :style="{ width: (r.overSold ? 100 : Math.min(100, r.pct || 0)) + '%' }"></div></div>
+                <span class="pr-bd-pct" :class="'pr-pct-' + r.barState">{{ r.pct !== null ? r.pct + '%' : '—' }}</span>
+              </div>
+            </div>
+          </template>
+
+          <div class="pr-bd-row pr-bd-total">
+            <span></span>
+            <div class="pr-bd-name"><div class="pr-bd-title">Total</div></div>
+            <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(breakdown.total.soldHours) }}</div><div class="pr-bd-a">{{ formatMoney(breakdown.total.soldAmount, dashCurrency, currencies) }}</div></div>
+            <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(breakdown.total.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(breakdown.total.spentAmount, dashCurrency, currencies) }}</div></div>
+            <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': breakdown.total.remainingHours < 0 }"><div class="pr-bd-h">{{ fmtH(breakdown.total.remainingHours) }}</div><div class="pr-bd-a">{{ formatMoney(breakdown.total.remainingAmount, dashCurrency, currencies) }}</div></div>
+            <div class="pr-bd-cons">
+              <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + breakdown.total.barState"><div class="pf-spent-bar-fill" :style="{ width: (breakdown.total.overSold ? 100 : Math.min(100, breakdown.total.pct || 0)) + '%' }"></div></div>
+              <span class="pr-bd-pct" :class="'pr-pct-' + breakdown.total.barState">{{ breakdown.total.pct !== null ? breakdown.total.pct + '%' : '—' }}</span>
+            </div>
+          </div>
         </div>
-        <div class="table-responsive" ref="summaryByTaskCard">
-          <table ref="summaryByTaskTable" class="table table-sm align-middle mb-0 tbl-fixed">
-            <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByTask" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
-            <tbody>
-              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ c.soldEur == null ? '—' : formatMoney(c.soldEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totSold) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByTask, filterHasFilter).totSoldEur, dashCurrency, currencies) }}</span></td></tr>
-              <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totSpent) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByTask, filterHasFilter).totSpentEur, dashCurrency, currencies) }}</span></td></tr>
-              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByTask" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ c.inPeriodEur == null ? '—' : formatMoney(c.inPeriodEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByTask, filterHasFilter).totInPeriod) : '—' }}</td></tr>
-              <tr style="background:var(--surface-medium);"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByTask" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(c.soldEur - c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByTask, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByTask, filterHasFilter).totResidual) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByTask, filterHasFilter).totResidualEur, dashCurrency, currencies) }}</span></td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="section-card mb-4" v-if="summaryByRole">
-        <div class="section-header d-flex justify-content-between align-items-center">
-          <span>📊 Summary by role</span>
-          <ExportButtons :tbl-ref="() => $refs.summaryByRoleTable" filename="summary_by_role" :card-ref="() => $refs.summaryByRoleCard" />
-        </div>
-        <div class="table-responsive" ref="summaryByRoleCard">
-          <table ref="summaryByRoleTable" class="table table-sm align-middle mb-0 tbl-fixed">
-            <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByRole" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
-            <tbody>
-              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ c.soldEur == null ? '—' : formatMoney(c.soldEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totSold) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByRole, filterHasFilter).totSoldEur, dashCurrency, currencies) }}</span></td></tr>
-              <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totSpent) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByRole, filterHasFilter).totSpentEur, dashCurrency, currencies) }}</span></td></tr>
-              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByRole" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ c.inPeriodEur == null ? '—' : formatMoney(c.inPeriodEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByRole, filterHasFilter).totInPeriod) : '—' }}</td></tr>
-              <tr style="background:var(--surface-medium);"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByRole" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(c.soldEur - c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByRole, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByRole, filterHasFilter).totResidual) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByRole, filterHasFilter).totResidualEur, dashCurrency, currencies) }}</span></td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="section-card mb-4" v-if="summaryByGroup">
-        <div class="section-header d-flex justify-content-between align-items-center">
-          <span>🏷️ Summary by functional area</span>
-          <ExportButtons :tbl-ref="() => $refs.summaryByGroupTable" filename="summary_by_group" :card-ref="() => $refs.summaryByGroupCard" />
-        </div>
-        <div class="table-responsive" ref="summaryByGroupCard">
-          <table ref="summaryByGroupTable" class="table table-sm align-middle mb-0 tbl-fixed">
-            <thead style="background:var(--surface-light);"><tr><th class="ps-3"></th><th v-for="c in summaryByGroup" :key="c.label" class="text-end small">{{ c.label }}</th><th class="text-end pe-3 fw-bold">TOTAL</th></tr></thead>
-            <tbody>
-              <tr><td class="ps-3 fw-semibold">Total Amount</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ fmtH(c.soldHours) }}<span class="eur-sub">{{ c.soldEur == null ? '—' : formatMoney(c.soldEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totSold) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByGroup, filterHasFilter).totSoldEur, dashCurrency, currencies) }}</span></td></tr>
-              <tr><td class="ps-3 fw-semibold">Spent</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ fmtH(filterHasFilter ? c.totalConsumed - c.inPeriod : c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(filterHasFilter ? c.totalConsumedEur - c.inPeriodEur : c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totSpent) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByGroup, filterHasFilter).totSpentEur, dashCurrency, currencies) }}</span></td></tr>
-              <tr><td class="ps-3 fw-semibold">In period <span v-if="filterHasFilter" class="fw-normal text-muted">({{ filterRangeLabel }})</span></td><td v-for="c in summaryByGroup" :key="c.label" class="text-end">{{ filterHasFilter ? fmtH(c.inPeriod) : '—' }}<span v-if="filterHasFilter" class="eur-sub">{{ c.inPeriodEur == null ? '—' : formatMoney(c.inPeriodEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold">{{ filterHasFilter ? fmtH(summaryTotals(summaryByGroup, filterHasFilter).totInPeriod) : '—' }}</td></tr>
-              <tr style="background:var(--surface-medium);"><td class="ps-3 fw-bold">Residual</td><td v-for="c in summaryByGroup" :key="c.label" class="text-end" :class="{'fw-bold text-danger': (c.soldHours - c.totalConsumed) < 0}">{{ fmtH(c.soldHours - c.totalConsumed) }}<span class="eur-sub">{{ formatMoney(c.soldEur - c.totalConsumedEur, dashCurrency, currencies) }}</span></td><td class="text-end pe-3 fw-bold" :class="{'text-danger': summaryTotals(summaryByGroup, filterHasFilter).totResidual < 0}">{{ fmtH(summaryTotals(summaryByGroup, filterHasFilter).totResidual) }}<span class="eur-sub">{{ formatMoney(summaryTotals(summaryByGroup, filterHasFilter).totResidualEur, dashCurrency, currencies) }}</span></td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+      </div><!-- /pr-breakdown -->
       <div v-if="taskDetailData.length" class="section-divider"><hr><span class="section-divider-label">Task detail</span></div>
       <div v-for="entry in taskDetailData" :key="entry.task.name" class="section-card mb-4">
         <div class="section-header d-flex justify-content-between align-items-center">
@@ -764,6 +774,7 @@
         burndownInterval: 'monthly',
         burndownTaskFilter: '',
         progressView: 'burndown', // 'burndown' | 'monthly' | 'ptc' — the Progress card's segmented control
+        breakdownView: 'task', // 'task' | 'role' | 'area' — the Breakdown card's segmented control
         filterMonth: '',
         filterStart: '',
         filterEnd: '',
@@ -1128,13 +1139,16 @@
         const roleTaskMap = new Map();
         billableTasks(cfg).forEach(t => t.resources.forEach(res => {
           const key = res.role.toLowerCase() + '|' + t.name.toLowerCase();
-          if (!roleTaskMap.has(key)) roleTaskMap.set(key, { key, label: `${res.role} — ${t.name}`, soldHours: 0, soldEur: 0 });
+          if (!roleTaskMap.has(key)) roleTaskMap.set(key, { key, label: `${res.role} — ${t.name}`, role: res.role, task: t.name, soldHours: 0, soldEur: 0 });
           roleTaskMap.get(key).soldHours += res.soldHours;
           roleTaskMap.get(key).soldEur += res.soldHours * res.hourlyRate;
         }));
         const bData = billableData(this.dashboardData, cfg);
         const byKeyFn = r => r.role.toLowerCase() + '|' + r.task.toLowerCase();
-        return buildSummaryCols(bData, byKeyFn, [...roleTaskMap.values()], this.filterRange, cfg, findRate);
+        const entries = [...roleTaskMap.values()];
+        // role/task carried alongside each column for the Breakdown's By role rows (label and subtitle).
+        return buildSummaryCols(bData, byKeyFn, entries, this.filterRange, cfg, findRate)
+          .map((c, i) => ({ ...c, role: entries[i].role, task: entries[i].task }));
       },
       // One column per functional area — correctness comes from each group's own
       // `entries: [{role, task}]` (normalizeGroupEntries()/entryMatchesRow(),
@@ -1168,6 +1182,42 @@
           const inPeriodEur = periodRows.reduce((s,r) => s+r.hours*(findRate(r,cfg)??0), 0);
           return { label: grp.name, soldHours, soldEur, totalConsumed, totalConsumedEur, inPeriod, inPeriodEur };
         });
+      },
+      // Rows of the Breakdown card for the current view (spec §6 "Card Breakdown"): Spent follows
+      // the period filter, Remaining and the consumption % stay on the whole project.
+      breakdown() {
+        const cfg = this.dashboardProject;
+        if (!cfg) return null;
+        const hasFilter = this.filterHasFilter;
+        if (this.breakdownView === 'role') {
+          const cols = this.summaryByRole || [];
+          const { rows, total } = breakdownRows(cols, hasFilter);
+          return { total, rows: rows.map((r, i) => ({ ...r, key: 'r:' + cols[i].role + '|' + cols[i].task, label: cols[i].role, subtitle: roleSubtitle(cols[i].role, cols[i].task, this.dashboardData) })) };
+        }
+        if (this.breakdownView === 'area' && cfg.groups?.length) {
+          const cols = this.summaryByGroup || [];
+          const tasks = billableTasks(cfg);
+          const { rows, total } = breakdownRows(cols, hasFilter);
+          return { total, rows: rows.map((r, i) => ({ ...r, key: 'g:' + i, subtitle: groupSubtitle(cfg.groups[i], tasks) })) };
+        }
+        const tasks = billableTasks(cfg);
+        const { rows, total } = breakdownRows(this.summaryByTask || [], hasFilter);
+        return { total, rows: rows.map((r, i) => ({ ...r, key: 't:' + tasks[i].name, taskName: tasks[i].name, subtitle: taskSubtitle(tasks[i], cfg.groups || []) })) };
+      },
+      periodLabel() {
+        if (!this.filterHasFilter) return 'Whole project';
+        return this.filterMonth ? this.monthLabelLong(this.filterMonth) : this.filterRangeLabel;
+      },
+      wholeProjectRange() {
+        const cfg = this.dashboardProject;
+        return cfg?.startDate && cfg?.endDate ? `${this.monthLabelLong(cfg.startDate)} – ${this.monthLabelLong(cfg.endDate)}` : '';
+      },
+      // Months up to the current one, most recent first (the 7.4d board lists no future month).
+      periodMonths() {
+        return [...this.filterMonthOptions].reverse().filter(ym => monthState(ym, this.reportToday) !== 'future');
+      },
+      periodHours() {
+        return hoursByMonth(billableData(this.dashboardData, this.dashboardProject));
       },
       taskDetailData() {
         const cfg = this.dashboardProject;
@@ -1321,6 +1371,26 @@
         return new Date(y, m-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       },
       resetDateFilter() { this.filterMonth = ''; this.filterStart = ''; this.filterEnd = ''; },
+      // A month (or '' for the whole project) picked in the Period menu; the menu stays open for
+      // the custom-range inputs (data-bs-auto-close="outside"), so it is closed here explicitly.
+      pickPeriod(ym) {
+        this.filterMonth = ym; this.filterStart = ''; this.filterEnd = '';
+        const btn = this.$refs.periodBtn;
+        if (btn && window.bootstrap) window.bootstrap.Dropdown.getOrCreateInstance(btn).hide();
+      },
+      exportBreakdownXls() {
+        const b = this.breakdown;
+        if (!b) return;
+        const cur = this.dashCurrency, list = this.currencies;
+        const fm = v => (v == null ? '' : this.formatMoney(v, cur, list));
+        const line = (r, detail) => [r.label, detail, r.soldHours, fm(r.soldAmount), r.spentHours, fm(r.spentAmount), r.remainingHours, fm(r.remainingAmount), r.pct === null ? '' : r.pct];
+        const aoa = [['Name', 'Detail', 'Sold h', 'Sold amount', 'Spent h', 'Spent amount', 'Remaining h', 'Remaining amount', 'Consumption %']];
+        b.rows.forEach(r => aoa.push(line(r, r.subtitle || '')));
+        aoa.push(line(b.total, ''));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Data');
+        XLSX.writeFile(wb, 'breakdown_' + this.breakdownView + '.xlsx');
+      },
       // Called directly from the template (`{{ summaryTotals(summaryByRole, ...) }}`) —
       // kept as a thin Vue-instance wrapper delegating to the js/lib/portfolio-calc.js
       // global rather than removed outright, since a compiled Vue template does not
@@ -1507,6 +1577,7 @@
         this.burndownInterval = 'monthly';
         this.burndownTaskFilter = '';
         this.progressView = 'burndown';
+        this.breakdownView = 'task';
         this.loadDashboardTags(pid);
         this.$nextTick(() => this.renderBurndownChart());
       },
