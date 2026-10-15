@@ -574,3 +574,32 @@ describe('commonCurrency — characterization for Review Focus 5', () => {
     expect(commonCurrency([{ currency: 'CHF' }, { currency: 'USD' }])).toBe('EUR');
   });
 });
+
+// Reporting follow-ups (B-080, B-081): docs/superpowers/specs/2026-10-15-reporting-calc-followups-design.md.
+const fuCfg = {
+  startDate: '202601', endDate: '202606',
+  tasks: [
+    { name: 'Dev', billable: true,  resources: [{ role: 'Developer', soldHours: 100, hourlyRate: 50 }] },
+    { name: 'QA',  billable: true,  resources: [{ role: 'Tester',    soldHours: 40,  hourlyRate: 30 }] },
+    { name: 'Ops', billable: false, resources: [{ role: 'Admin',     soldHours: 10,  hourlyRate: 20 }] },
+  ],
+};
+const fuData = [
+  { task: 'Dev', role: 'Developer', hours: 10, date: new Date(2026, 0, 15) },
+  { task: 'Dev', role: 'Developer', hours: 5,  date: new Date(2026, 2, 15) },
+  { task: 'Dev', role: 'Developer', hours: 3,  date: new Date(2026, 4, 10) },
+  { task: 'Ops', role: 'Admin',     hours: 4,  date: new Date(2026, 4, 10) },
+];
+const fuToday = new Date(2026, 1, 20);
+const fuSeries = (cfg, taskFilter, today = fuToday) => computeBurndownPoints(fuData, cfg, taskFilter, 'monthly', billableData, billableTasks, findRate, today);
+
+describe('reporting follow-ups — characterization (pre-fix)', () => {
+  it('the Hours tile counts entries dated after today, the pill does not', () => {
+    expect(computeKpis(fuData, fuCfg, billableData, billableTasks, findRate).consumedHours).toBe(18);
+    expect(fuSeries(fuCfg, '').todayValue).toBe(130);
+  });
+  it('with a task filter totalBudgetEur sums every task (B-081, pre-fix)', () => {
+    expect(fuSeries(fuCfg, 'Dev').totalBudgetEur).toBe(6400);
+    expect(fuSeries(fuCfg, '').totalBudgetEur).toBe(6200);
+  });
+});
