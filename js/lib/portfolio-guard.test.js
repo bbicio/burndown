@@ -151,3 +151,41 @@ describe('project reporting view', () => {
     expect(dashboardActive).not.toContain('← Portfolio');
   });
 });
+
+describe('project reporting view — Progress card', () => {
+  const pStart = dashboard.indexOf('<!-- /pr-kpis -->');
+  const pEnd = dashboard.indexOf('<!-- /pr-progress -->');
+  const progress = dashboard.slice(pStart, pEnd).replace(/<!--[\s\S]*?-->/g, '');
+  const rStart = html.indexOf('renderBurndownChart() {');
+  const render = html.slice(rStart, html.indexOf('exportChartPng() {', rStart));
+
+  it('locates the Progress card', () => {
+    expect(pStart).toBeGreaterThan(-1);
+    expect(pEnd).toBeGreaterThan(pStart);
+    expect(rStart).toBeGreaterThan(-1);
+  });
+
+  it('carries the Progress copy and the empty state', () => {
+    ['Progress', 'Burndown', 'Monthly summary', 'Pass-through', 'Remaining hours (actual)', 'Remaining hours planned', 'No actuals loaded yet.', 'current']
+      .forEach(t => expect(progress, t).toContain(t));
+  });
+
+  it('has no emoji, no hex and no ExportButtons', () => {
+    expect(progress).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(progress).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(progress).not.toContain('<ExportButtons');
+    expect(progress).not.toContain('<export-buttons');
+  });
+
+  it('gates the empty-state Load Actuals like the header', () => {
+    expect(progress).toContain('triggerLoadActuals');
+    expect(progress).toContain("my_permission !== 'viewer'");
+  });
+
+  it('draws two series with the shared Today plugin', () => {
+    expect(render).toContain('todayLabelPlugin(');
+    expect(render).toContain("chartColor('--chart-actual'");
+    expect(render).toContain("chartColor('--chart-phasing'");
+    expect(render).not.toContain('Estimated Hours');
+  });
+});
