@@ -27,13 +27,13 @@
 <div id="app" v-cloak class="app-container">
 
   <template v-if="view === 'overview'">
-    <div class="pf-header">
-      <div>
-        <h1 class="pf-header-title">Project Portfolio</h1>
-        <div class="pf-header-sub">{{ portfolioCounts }}</div>
+    <div class="ph">
+      <div class="ph-main">
+        <h1 class="ph-title">Project Portfolio</h1>
+        <div class="ph-sub">{{ portfolioCounts }}</div>
       </div>
-      <div class="pf-header-actions">
-        <span :title="directCreationEnabled ? '' : directCreationMessage"><button class="btn btn-primary" :disabled="!directCreationEnabled" @click="goNewProject">+ New Project</button></span>
+      <div class="ph-side">
+        <span :title="directCreationEnabled ? '' : directCreationMessage"><button class="ph-btn-primary" :disabled="!directCreationEnabled" @click="goNewProject">+ New Project</button></span>
       </div>
     </div>
 
@@ -41,9 +41,9 @@
     <div v-if="!projects.length" class="alert alert-info">{{ directCreationEnabled ? 'No projects configured. Click ＋ New project to add one.' : 'No projects configured. Projects are created from a proposal (Generate project).' }}</div>
 
     <template v-else>
-      <div class="pf-toolbar">
+      <div class="ph-toolbar">
         <div class="pf-search">
-          <pf-icon name="search" :size="14"></pf-icon>
+          <ph-icon name="search" :size="14"></ph-icon>
           <input type="text" class="form-control form-control-sm" aria-label="Search projects"
                  placeholder="Search project, code or client…" v-model="portfolioSearch">
         </div>
@@ -83,7 +83,7 @@
             </li>
           </ul>
         </div>
-        <div class="pf-toolbar-spacer"></div>
+        <div class="ph-toolbar-spacer"></div>
         <div class="pf-sort">
           <span class="pf-sort-label">Sort:</span>
           <select class="form-select form-select-sm" v-model="portfolioSort" style="width:auto">
@@ -92,8 +92,8 @@
           </select>
         </div>
         <div class="pf-view-seg" role="group" aria-label="Layout">
-          <button type="button" class="pf-view-btn" :class="{active: portfolioLayout === 'card'}" @click="setLayout('card')"><pf-icon name="grid" :size="14"></pf-icon> Card</button>
-          <button type="button" class="pf-view-btn" :class="{active: portfolioLayout === 'list'}" @click="setLayout('list')"><pf-icon name="list" :size="14"></pf-icon> List</button>
+          <button type="button" class="pf-view-btn" :class="{active: portfolioLayout === 'card'}" @click="setLayout('card')"><ph-icon name="grid" :size="14"></ph-icon> Card</button>
+          <button type="button" class="pf-view-btn" :class="{active: portfolioLayout === 'list'}" @click="setLayout('list')"><ph-icon name="list" :size="14"></ph-icon> List</button>
         </div>
         <button v-if="portfolioFiltersActive" type="button" class="pf-clear-link" @click="clearPortfolioFilters">Clear filters</button>
       </div>
@@ -241,7 +241,7 @@
           <!-- Program row -->
           <div v-if="row.kind === 'program'" class="pf-list-row pf-list-row-program">
             <button type="button" class="pf-list-chevron" :disabled="portfolioFiltersActive" @click="toggleListExpanded(row.id)">
-              <pf-icon :name="(listExpandedPrograms.has(row.id) || portfolioFiltersActive) ? 'chevron-down' : 'chevron-right'" :size="14"></pf-icon>
+              <ph-icon :name="(listExpandedPrograms.has(row.id) || portfolioFiltersActive) ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon>
             </button>
             <div class="pf-list-main">
               <div class="pf-list-name">{{ row.name }}</div>
@@ -317,11 +317,10 @@
   </template>
 
   <template v-else>
-    <div class="pr-head">
-      <a href="#" class="pr-back" @click.prevent="showOverview"><pf-icon name="chevron-left" :size="12"></pf-icon>Project Portfolio</a>
-      <div class="pr-head-row">
-        <div class="pr-head-main">
-          <div v-if="dashboardProgram" class="pr-program-row">
+    <div class="ph">
+      <div class="ph-main">
+      <a href="#" class="ph-back" @click.prevent="showOverview"><ph-icon name="chevron-left" :size="12"></ph-icon>Project Portfolio</a>
+          <div v-if="dashboardProgram" class="ph-eyebrow pr-program-row">
             <span class="pr-program-label">Program</span>
             <span class="pr-program-name">{{ dashboardProgram.name }}</span>
             <span class="pr-dot">·</span>
@@ -329,17 +328,17 @@
             <span class="pr-dot">·</span>
             <a :href="'/program.html?programId=' + encodeURIComponent(dashboardProgram.id)" class="pr-program-link">Program Dashboard →</a>
           </div>
-          <div class="pr-title-row">
+          <div class="ph-title-row">
             <div v-if="dashboardProgram" class="dropdown pr-switch" v-on="{ 'show.bs.dropdown': onSwitchShow, 'hidden.bs.dropdown': onSwitchHidden }">
-              <button ref="switchBtn" type="button" class="pr-title pr-switch-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Switch project">
-                {{ dashboardTitle }}<pf-icon name="chevron-down" :size="16"></pf-icon>
+              <button ref="switchBtn" type="button" class="ph-title pr-switch-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Switch project">
+                {{ dashboardTitle }}<ph-icon name="chevron-down" :size="16"></ph-icon>
               </button>
               <div class="dropdown-menu pr-switch-menu">
                 <template v-if="switchMenuOpen">
                 <div class="pr-switch-head">Projects in program {{ dashboardProgram.name }}</div>
                 <a v-for="s in dashboardSiblings" :key="s.id" href="#" class="pr-switch-row" :class="{ 'pr-switch-current': s.current }" @click.prevent="showDashboard(s.id)">
                   <span class="pr-switch-main">
-                    <span class="pr-switch-name">{{ s.name || s.code || s.id }}<pf-icon v-if="s.current" name="check" :size="12"></pf-icon></span>
+                    <span class="pr-switch-name">{{ s.name || s.code || s.id }}<ph-icon v-if="s.current" name="check" :size="12"></ph-icon></span>
                     <span v-if="s.code" class="pr-code">{{ s.code }}</span>
                   </span>
                   <span class="pr-pill" v-html="statusBadgeLarge(s.status)"></span>
@@ -353,26 +352,25 @@
                 </template>
               </div><!-- /pr-switch -->
             </div>
-            <h1 v-else class="pr-title">{{ dashboardTitle }}</h1>
-            <span class="pr-pill" v-html="dashboardMetaHtml"></span>
+            <h1 v-else class="ph-title">{{ dashboardTitle }}</h1>
+            <template v-if="dashboardProjectId"><span v-html="headerBadge('stage', getProjectPipeline(dashboardProjectId) || dashboardProject?.pipeline)"></span><span v-html="headerBadge('status', dashboardProject?.status)"></span></template>
           </div>
-          <div class="pr-meta">
+          <div class="ph-sub pr-meta">
             <span v-if="dashboardClientName">{{ dashboardClientName }}</span>
             <span v-if="dashboardProject?.code" class="pr-code">{{ dashboardProject.code }}</span>
             <span v-if="dashboardProject?.startDate && dashboardProject?.endDate">{{ monthLabelLong(dashboardProject.startDate) }} – {{ monthLabelLong(dashboardProject.endDate) }}</span>
             <span v-for="t in dashboardTags" :key="t.item_id" class="pf-badge-neutral">{{ t.label }}</span>
           </div>
-        </div>
-        <div class="pr-actions">
-          <button v-if="dashboardProject?.my_permission !== 'viewer'" type="button" class="btn btn-sm btn-outline-secondary pr-action" @click="goConfigure(dashboardProjectId)"><pf-icon name="gear" :size="14"></pf-icon>Configure</button>
-          <button v-if="dashboardProject?.my_permission !== 'viewer'" type="button" class="btn btn-sm btn-outline-secondary pr-action" title="Upload XLS actuals for this project" @click="triggerLoadActuals(dashboardProjectId)"><pf-icon name="upload" :size="14"></pf-icon>Load Actuals</button>
-          <button type="button" class="btn btn-sm btn-outline-secondary pr-action" @click="goPlanningForProject(dashboardProjectId)"><pf-icon name="calendar" :size="14"></pf-icon>Planning</button>
-          <button type="button" class="btn btn-sm btn-outline-secondary pr-action" @click="openShareModal('project', dashboardProjectId, dashboardProject?.name || dashboardProjectId)"><pf-icon name="share" :size="14"></pf-icon>Share</button>
+      </div>
+        <div class="ph-side"><div class="ph-actions">
+          <button v-if="dashboardProject?.my_permission !== 'viewer'" type="button" class="ph-btn" @click="goConfigure(dashboardProjectId)"><ph-icon name="gear" :size="14"></ph-icon>Configure</button>
+          <button v-if="dashboardProject?.my_permission !== 'viewer'" type="button" class="ph-btn" title="Upload XLS actuals for this project" @click="triggerLoadActuals(dashboardProjectId)"><ph-icon name="upload" :size="14"></ph-icon>Load Actuals</button>
+          <button type="button" class="ph-btn" @click="goPlanningForProject(dashboardProjectId)"><ph-icon name="calendar" :size="14"></ph-icon>Planning</button>
+          <button type="button" class="ph-btn" @click="openShareModal('project', dashboardProjectId, dashboardProject?.name || dashboardProjectId)"><ph-icon name="share" :size="14"></ph-icon>Share</button>
           <!-- ＋/✓ Summary toggle hidden 2026-09 per user request, see the matching pinnedSummary panel comment above
           <button class="btn btn-sm" :class="isPinnedSummary(dashboardProjectId) ? 'btn-success' : 'btn-outline-secondary'" @click="toggleSummary(dashboardProjectId)">{{ isPinnedSummary(dashboardProjectId) ? '✓ Summary' : '＋ Summary' }}</button>
           -->
-        </div>
-      </div>
+        </div></div>
     </div>
 
     <div v-if="dashboardReady">
@@ -433,22 +431,22 @@
               <button v-for="opt in ['monthly','quarterly','biweekly','weekly']" :key="opt" type="button" class="pr-seg-btn" :class="{ active: burndownInterval === opt }" @click="burndownInterval = opt">{{ opt.charAt(0).toUpperCase() + opt.slice(1) }}</button>
             </div>
             <div class="dropdown">
-              <button type="button" class="pr-chip" data-bs-toggle="dropdown" aria-expanded="false">Task: <span class="pr-chip-value">{{ burndownTaskFilter || 'All tasks' }}</span><pf-icon name="chevron-down" :size="12"></pf-icon></button>
+              <button type="button" class="pr-chip" data-bs-toggle="dropdown" aria-expanded="false">Task: <span class="pr-chip-value">{{ burndownTaskFilter || 'All tasks' }}</span><ph-icon name="chevron-down" :size="12"></ph-icon></button>
               <ul class="dropdown-menu dropdown-menu-end pr-chip-menu">
                 <li><a class="dropdown-item" :class="{ active: !burndownTaskFilter }" href="#" @click.prevent="burndownTaskFilter = ''">All tasks</a></li>
                 <li v-for="t in billableTaskNames" :key="t"><a class="dropdown-item" :class="{ active: burndownTaskFilter === t }" href="#" @click.prevent="burndownTaskFilter = t">{{ t }}</a></li>
               </ul>
             </div>
-            <button type="button" class="pr-icon-btn" title="Export PNG" @click="exportChartPng"><pf-icon name="download" :size="14"></pf-icon></button>
+            <button type="button" class="pr-icon-btn" title="Export PNG" @click="exportChartPng"><ph-icon name="download" :size="14"></ph-icon></button>
           </div>
           <div v-if="dashboardData.length && progressView === 'monthly' && monthlySummary" class="pr-toolbar">
-            <button type="button" class="pr-icon-btn" title="Export XLS" @click="exportMonthlyXls()"><pf-icon name="download" :size="14"></pf-icon></button>
+            <button type="button" class="pr-icon-btn" title="Export XLS" @click="exportMonthlyXls()"><ph-icon name="download" :size="14"></ph-icon></button>
           </div>
         </div>
 
         <div v-if="!dashboardData.length && progressView !== 'ptc'" class="pr-empty">
           <div>No actuals loaded yet.</div>
-          <button v-if="dashboardProject?.my_permission !== 'viewer'" type="button" class="btn btn-sm btn-outline-secondary pr-action" @click="triggerLoadActuals(dashboardProjectId)"><pf-icon name="upload" :size="14"></pf-icon>Load Actuals</button>
+          <button v-if="dashboardProject?.my_permission !== 'viewer'" type="button" class="btn btn-sm btn-outline-secondary pr-action" @click="triggerLoadActuals(dashboardProjectId)"><ph-icon name="upload" :size="14"></ph-icon>Load Actuals</button>
         </div>
 
         <template v-else>
@@ -539,10 +537,10 @@
             </div>
           </div>
           <div class="pr-toolbar">
-            <button type="button" class="pr-icon-btn" title="Export XLS" @click="exportBreakdownXls"><pf-icon name="download" :size="14"></pf-icon></button>
+            <button type="button" class="pr-icon-btn" title="Export XLS" @click="exportBreakdownXls"><ph-icon name="download" :size="14"></ph-icon></button>
             <div class="dropdown">
               <button ref="periodBtn" type="button" class="pr-chip pr-period-btn" :class="{ 'pr-period-active': filterHasFilter }" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                <pf-icon name="calendar" :size="14"></pf-icon>Period: <span class="pr-chip-value">{{ periodLabel }}</span><pf-icon name="chevron-down" :size="12"></pf-icon>
+                <ph-icon name="calendar" :size="14"></ph-icon>Period: <span class="pr-chip-value">{{ periodLabel }}</span><ph-icon name="chevron-down" :size="12"></ph-icon>
               </button>
               <div class="dropdown-menu dropdown-menu-end pr-period-menu">
                 <a href="#" class="pr-period-item" :class="{ active: !filterHasFilter }" @click.prevent="pickPeriod('')">
@@ -577,7 +575,7 @@
 
           <template v-for="it in breakdownItems" :key="it.key">
             <div v-if="it.kind === 'row'" class="pr-bd-row pr-bd-item" :class="{ 'pr-bd-over': it.row.overSold, 'pr-bd-clickable': it.taskName }" :role="it.taskName ? 'button' : null" :tabindex="it.taskName ? 0 : null" :aria-expanded="it.taskName ? String(taskState(it.taskName).expanded) : null" @click="it.taskName && toggleTask(it.taskName)" @keydown.enter.space.prevent="it.taskName && toggleTask(it.taskName)">
-              <span class="pr-bd-chev"><pf-icon v-if="it.taskName" :name="taskState(it.taskName).expanded ? 'chevron-down' : 'chevron-right'" :size="14"></pf-icon></span>
+              <span class="pr-bd-chev"><ph-icon v-if="it.taskName" :name="taskState(it.taskName).expanded ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon></span>
               <div class="pr-bd-name">
                 <div class="pr-bd-title">{{ it.row.label }}<span v-if="it.row.overSold" class="pr-over-pill">Over sold</span></div>
                 <div class="pr-bd-sub">{{ it.row.subtitle }}</div>
@@ -606,7 +604,7 @@
             <div v-else-if="it.kind === 'excluded-head'" class="pr-excluded-head">Excluded from report</div>
 
             <div v-else-if="it.kind === 'excluded'" class="pr-bd-row pr-excluded-row pr-bd-clickable" role="button" tabindex="0" :aria-expanded="String(taskState(it.taskName).expanded)" @click="toggleTask(it.taskName)" @keydown.enter.space.prevent="toggleTask(it.taskName)">
-              <span class="pr-bd-chev"><pf-icon :name="taskState(it.taskName).expanded ? 'chevron-down' : 'chevron-right'" :size="14"></pf-icon></span>
+              <span class="pr-bd-chev"><ph-icon :name="taskState(it.taskName).expanded ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon></span>
               <div class="pr-bd-name"><div class="pr-bd-title">{{ it.taskName }}</div></div>
               <span></span>
               <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(it.hours) }}</div></div>
@@ -638,7 +636,7 @@
                 <div v-else class="pr-entries-box">
                   <template v-for="m in taskEntries(taskDetailByName[it.taskName])" :key="m.ym">
                     <div class="pr-entries-month" :class="{ open: taskState(it.taskName).openMonth === m.ym }" role="button" tabindex="0" :aria-expanded="String(taskState(it.taskName).openMonth === m.ym)" @click="toggleMonth(it.taskName, m.ym)" @keydown.enter.space.prevent="toggleMonth(it.taskName, m.ym)">
-                      <pf-icon :name="taskState(it.taskName).openMonth === m.ym ? 'chevron-down' : 'chevron-right'" :size="12"></pf-icon>
+                      <ph-icon :name="taskState(it.taskName).openMonth === m.ym ? 'chevron-down' : 'chevron-right'" :size="12"></ph-icon>
                       <span class="pr-entries-month-name">{{ monthLabelLong(m.ym) }}</span>
                       <span class="pr-entries-count">{{ m.count }} {{ m.count === 1 ? 'entry' : 'entries' }}</span>
                       <span class="pr-entries-hours">{{ fmtH(m.hours) }}</span>
@@ -707,32 +705,7 @@
 <script type="module" src="js/lib/icons.js?v=1"></script>
 <script defer src="js/nav.js?v=17"></script>
 <script type="module">
-  // Inline SVG icon set for the overview (Card/List redesign) — no emoji, same
-  // conventions as js/nav.js's navIcon(): viewBox 16x16, stroke="currentColor".
-  const PF_ICON_PATHS = {
-    search: '<circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11L14.5 14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
-    'chevron-right': '<path d="M6 3.5L10.5 8 6 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
-    'chevron-down': '<path d="M3.5 6L8 10.5 12.5 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
-    grid: '<rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="9" width="4.5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.4"/>',
-    list: '<path d="M2.5 4H13.5M2.5 8H13.5M2.5 12H13.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
-    gear: '<circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 2.5V4M8 12V13.5M13.5 8H12M4 8H2.5M11.8 4.2L10.8 5.2M5.2 10.8L4.2 11.8M11.8 11.8L10.8 10.8M5.2 5.2L4.2 4.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
-    'arrow-right': '<path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
-    close: '<path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
-    'chevron-left': '<path d="M10 3.5L5.5 8 10 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
-    check: '<path d="M3 8.5L6.5 12 13 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
-    upload: '<path d="M8 10.5V2.5M8 2.5L5 5.5M8 2.5L11 5.5M2.5 10.5V13H13.5V10.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
-    calendar: '<rect x="2.5" y="3.5" width="11" height="10" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 6.5H13.5M5.5 2V5M10.5 2V5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
-    share: '<circle cx="4" cy="8" r="1.8" stroke="currentColor" stroke-width="1.4"/><circle cx="12" cy="4" r="1.8" stroke="currentColor" stroke-width="1.4"/><circle cx="12" cy="12" r="1.8" stroke="currentColor" stroke-width="1.4"/><path d="M5.6 7.1L10.4 4.9M5.6 8.9L10.4 11.1" stroke="currentColor" stroke-width="1.4"/>',
-    download: '<path d="M8 2.5V10.5M8 10.5L5 7.5M8 10.5L11 7.5M2.5 10.5V13H13.5V10.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
-  };
-  const PfIcon = {
-    props: { name: { type: String, required: true }, size: { type: Number, default: 16 } },
-    template: `<svg class="pf-icon" :width="size" :height="size" viewBox="0 0 16 16" fill="none" aria-hidden="true" v-html="paths"></svg>`,
-    computed: { paths() { return PF_ICON_PATHS[this.name] || ''; } },
-  };
-
   Vue.createApp({
-    components: { PfIcon },
     data() {
       return {
         formatMoney: window.formatMoney,
@@ -970,10 +943,6 @@
       dashboardProgram() {
         const cfg = this.dashboardProject;
         return cfg?.programId ? (getPrograms().find(p => p.id === cfg.programId) || null) : null;
-      },
-      dashboardMetaHtml() {
-        if (!this.dashboardProjectId) return '';
-        return [pipelineBadge(getProjectPipeline(this.dashboardProjectId) || this.dashboardProject?.pipeline), statusBadgeLarge(this.dashboardProject?.status)].join(' ');
       },
       // Every project of the program, the current one included (flag `current`), ordered by
       // code then name, each with its projectMetrics() for the switch's consumption bar.
@@ -1308,6 +1277,7 @@
       fmtH,
       getProjectPipeline,
       statusBadgeLarge,
+      headerBadge,
       openShareModal,
       spentPercent,
       spentBarState,
@@ -1738,7 +1708,7 @@
       // ?projectId= and then going "back to portfolio") leaves gridColumns stuck at its last value.
       view() { this.attachCardGridObserver(); },
     },
-  }).mount('#app');
+  }).component('ph-icon', window.PhIcon).mount('#app');
 </script>
 </body>
 </html>

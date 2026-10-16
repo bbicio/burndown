@@ -11,7 +11,7 @@ const EXCLUDED = new Set([
 ]);
 // Pages not yet moved to the shared page head; Tasks 4-9 remove entries, Task 10 empties it.
 const PENDING = new Set([
-  'portfolio.html', 'program.html', 'costgrid.html', 'planning.html',
+  'program.html', 'costgrid.html', 'planning.html',
   'project-config.html', 'admin.html', 'team.html', 'attribute-lists.html',
   'profile-jobs.html', 'settings.html', 'timesheets.html', '_db-reset.html', '_terms-editor.html',
 ]);
@@ -148,4 +148,47 @@ describe('migrated pages (vacuous while everything is pending)', () => {
       });
     }
   }
+});
+
+describe('portfolio.html (overview + project dashboard)', () => {
+  const html = read('portfolio.html');
+  // Depth-aware text of every <div class="ph"> (exact class, not ph-*).
+  const heads = [];
+  const open = /<div class="ph">/g;
+  let m;
+  while ((m = open.exec(html))) {
+    const tagRe = /<(\/?)div\b[^>]*>/g;
+    tagRe.lastIndex = open.lastIndex;
+    let depth = 1, t;
+    while ((t = tagRe.exec(html))) {
+      depth += t[1] ? -1 : 1;
+      if (depth === 0) { heads.push(html.slice(open.lastIndex, t.index)); break; }
+    }
+  }
+  it('has no private icon set', () => {
+    expect(html).not.toMatch(/pf-icon|PF_ICON_PATHS|PfIcon/);
+  });
+  it('registers the shared icon component', () => {
+    expect(html).toContain(".component('ph-icon', window.PhIcon)");
+  });
+  it('has the overview head and the dashboard head, no btn-primary inside', () => {
+    expect(heads.length).toBe(2);
+    for (const h of heads) expect(h).not.toMatch(/(?<![w-])btn-primary/);
+    expect(heads[0]).toMatch(/class="ph-btn-primary"[^>]*>\+ New Project/);
+  });
+  it('dashboard secondaries are .ph-btn with the permission v-ifs', () => {
+    const btns = [...heads[1].matchAll(/<button[^>]*class="ph-btn"[^>]*>/g)].map(x => x[0]);
+    expect(btns.length).toBe(4);
+    const guard = "v-if=\"dashboardProject?.my_permission !== 'viewer'\"";
+    expect(btns[0]).toContain(guard);
+    expect(btns[0]).toMatch(/goConfigure/);
+    expect(btns[1]).toContain(guard);
+    expect(btns[1]).toMatch(/triggerLoadActuals/);
+    expect(btns[2]).not.toContain('v-if');
+    expect(btns[3]).not.toContain('v-if');
+  });
+  it('uses headerBadge for stage and status', () => {
+    expect(heads[1]).toContain("headerBadge('stage'");
+    expect(heads[1]).toContain("headerBadge('status'");
+  });
 });
