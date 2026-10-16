@@ -11,7 +11,7 @@ const EXCLUDED = new Set([
 ]);
 // Pages not yet moved to the shared page head; Tasks 4-9 remove entries, Task 10 empties it.
 const PENDING = new Set([
-  'program.html', 'costgrid.html', 'planning.html',
+  'costgrid.html', 'planning.html',
   'project-config.html', 'admin.html', 'team.html', 'attribute-lists.html',
   'profile-jobs.html', 'settings.html', 'timesheets.html', '_db-reset.html', '_terms-editor.html',
 ]);

@@ -31,22 +31,20 @@
   </div>
 
   <template v-else>
-    <div class="pg-topline">
-      <a href="/portfolio.html" class="pg-topline-link">‹ Project Portfolio</a>
-    </div>
-    <div class="pg-header-row">
-      <div>
-        <div class="pg-label">PROGRAM DASHBOARD</div>
-        <div class="pg-title-row">
-          <h1 class="pg-title">{{ program.name }}</h1>
-          <span v-if="domPipeline" class="pg-stage-pill" v-html="pipelineBadge(domPipeline)"></span>
+    <div class="ph">
+      <div class="ph-main">
+        <a href="/portfolio.html" class="ph-back"><ph-icon name="chevron-left" :size="12"></ph-icon>Project Portfolio</a>
+        <div class="ph-eyebrow">Program dashboard</div>
+        <div class="ph-title-row">
+          <h1 class="ph-title">{{ program.name }}</h1>
+          <span v-if="domPipeline" v-html="headerBadge('stage', domPipeline)"></span>
         </div>
-        <div class="pg-meta">{{ metaLine }}</div>
+        <div class="ph-sub">{{ metaLine }}</div>
       </div>
-      <div class="pg-header-actions">
-        <button type="button" class="btn btn-sm btn-outline-secondary" @click="exportBurndownPng">Export</button>
-        <button type="button" class="btn btn-sm btn-outline-secondary" @click="openShareModal('program', programId, program.name)">Share</button>
-      </div>
+      <div class="ph-side"><div class="ph-actions">
+        <button type="button" class="ph-btn" @click="exportBurndownPng"><ph-icon name="download" :size="14"></ph-icon>Export</button>
+        <button type="button" class="ph-btn" @click="openShareModal('program', programId, program.name)"><ph-icon name="share" :size="14"></ph-icon>Share</button>
+      </div></div>
     </div>
 
     <div v-if="!children.length" class="alert alert-info">
@@ -285,6 +283,7 @@
     data() {
       return {
         formatMoney: window.formatMoney,
+        headerBadge: window.headerBadge,
         currencies: [],
         loading: true,
         programId: null,
@@ -506,7 +505,7 @@
         a.click();
       },
     },
-  }).mount('#app');
+  }).component('ph-icon', window.PhIcon).mount('#app');
 </script>
 </body>
 </html>
