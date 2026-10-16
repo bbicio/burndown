@@ -73,7 +73,7 @@ describe('guard helpers', () => {
     expect(texts[0]).toMatch(/\p{Extended_Pictographic}/u);
   });
 });
-const BTN_PRIMARY = /(?<![w-])btn-primary/;
+const BTN_PRIMARY = /(?<![\w-])btn-primary/;
 const stripComments = t => t.replace(/\/\*[\s\S]*?\*\//g, '');
 const inlineStyles = html =>
   [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1]).join('\n');
