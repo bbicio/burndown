@@ -111,8 +111,16 @@ describe('css/style.css page head component', () => {
     expect(r).toMatch(/padding:\s*6px var\(--space-6\)/);
   });
   it('pulls the band to full width out of .app-container', () => {
-    expect(css).toMatch(/\.app-container > \.ph,\s*\.app-container > \.ph-toolbar\s*\{[^}]*margin-left:\s*calc\(-1 \* var\(--space-6\)\)/);
-    expect(css).toMatch(/body\.pp-fullwidth \.app-container > \.ph/);
+    expect(css).toMatch(/\.app-container > \.ph,\s*\.app-container > \.ph-toolbar\s*\{[^}]*margin-left:\s*calc\(-1 \* var\(--app-pad\)\)/);
+    expect(css).toMatch(/body\.pp-fullwidth \.app-container\s*\{[^}]*--app-pad:\s*12px/);
+    expect(css).not.toMatch(/body\.pp-fullwidth \.app-container > \.ph/);
+  });
+  it('no inline .app-container padding override without --app-pad', () => {
+    for (const p of pages) {
+      for (const m of read(p).matchAll(/\.app-container\s*\{([^}]*)\}/g)) {
+        if (/padding/.test(m[1])) expect(m[1], p).toMatch(/--app-pad/);
+      }
+    }
   });
   it('stacks the side column below 1024px and shortens labels below 768px (as .pb-lbl-*)', () => {
     expect(css).toMatch(/@media \(max-width: 1023\.98px\)\s*\{[^@]*\.ph-side\s*\{[^}]*width:\s*100%/);
