@@ -29,3 +29,7 @@ Removed from `js/core.js`: `SETTINGS_KEY`/`appSettings`, `AI_MODELS`, `loadSetti
 ## Money formatting (2026-10, money wrapper cleanup)
 
 `js/core.js` no longer defines `fmtMoney` or the `currentCfg` global (removed in the wrapper cleanup, after being a one-line wrapper since the 2026-10-01 centralization cycle). Every call site calls `formatMoney(amount, code, currencies)` from `js/lib/money.js` directly (see `docs/js/lib.md`), passing the amount's own currency explicitly; there is no implicit page-level default currency. `js/core.js` is `?v=9`.
+
+## headerBadge (2026-10-16, header unification)
+
+`headerBadge(kind, value)` — `kind` is `'stage'` or `'status'` — returns the page head's light pill, `<span class="ph-badge" style="background:var(…);color:var(…)">`, with the text passed through `esc()`. Stage reads `--pipeline-{stage}-bg/-color`, status the `--status-{…}-soft-bg/-soft-text` tokens. An unknown or empty value (including `Draft`) returns `''`, so no pill is drawn. `pipelineBadge()`/`statusBadge()`/`statusBadgeLarge()` are unchanged for the rest of the app. Tests: `js/lib/header-badge.test.js`.

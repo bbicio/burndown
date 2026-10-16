@@ -53,3 +53,7 @@ The Experience profile tab shows, above the attribute-list dimensions, a "Topics
 ## Topic provenance groups (Planning team assistant cycle, 2026-09-30)
 
 With profile version 2 (`docs/api/profile-engine.md`) each topic entry also carries `direct: { hours, projectCodes }` and `context: { projectCodes }`, and the "Topics" block of the Experience tab splits into two groups: **Direct experience** (topics from tasks the person logged hours on; the chip tooltip lists those projects) and **Project context** (topics that only come from the description of a project the person worked on). A topic that is direct on a project is not repeated as context for it. Profiles still at version 1 (no provenance) are shown in a third, "Topics (provenance not available — recalculate profiles)" group until "Rebuild" is run from `profile-jobs.html`. `buildProfileTree` (`js/lib/team-ui.js`) returns `topicGroups: { direct, context, legacy }` for this (`docs/js/lib.md`); `team-ui.js` was bumped in `team.html`.
+
+## Header unification (2026-10-16)
+
+Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. The former `.page-header` is now the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`), placed outside the `.page` wrapper so the breadcrumb and the band read as one block; `.page` keeps its own 2rem top margin. The resource count is in `.ph-sub` ("N resources"); the tabs sit under the band.

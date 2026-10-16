@@ -21,3 +21,7 @@ Summary table leads with Client/Project/Project code (Bootstrap checkbox multi-s
 ## Profile processing entry point (Cycle 3d, 2026-09-28)
 
 A "Profile processing →" button in the page header links to the new `profile-jobs.html` console, with a badge showing `GET /api/profile-jobs`'s `queuedCount` (loaded once, fire-and-forget, via `loadProfileQueueCount()`; any failure is ignored and the badge just stays hidden). The badge is hidden when the queue is empty. Full narrative for the console itself: `docs/pages/profile-jobs.md`.
+
+## Header unification (2026-10-16)
+
+Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. The former `.page-header` is now the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`), placed outside the `.page` wrapper so the breadcrumb and the band read as one block; `.page` keeps its own 2rem top margin. "Profile processing →" is a `.ph-btn` (without an icon); its own inline `.page-header` rule was removed.

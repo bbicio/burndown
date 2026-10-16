@@ -37,3 +37,7 @@ This project has no browser/Vue runtime test harness. The page was verified by: 
 - **Topics column** in the project codes table: "extraction failed" (tooltip = the error) when the code's description state rows carry a `last_error`, else a dash. The extraction error is separate from the row's own processing error (`last_error`) and is never written to run history; it clears on the next successful extraction. The expanded error row colspan is 9.
 - **Process re-extracts:** the per-row Process button clears the project's extraction hashes first, so its descriptions are sent to the LLM again even if unchanged.
 - Retry behaviour, `topicRetryCodes` and the not-counted-as-work rule: `docs/api/profile-engine.md`.
+
+## Header unification (2026-10-16)
+
+Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. The former `.page-header` is now the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`), placed outside the `.page` wrapper so the breadcrumb and the band read as one block; `.page` keeps its own 2rem top margin.

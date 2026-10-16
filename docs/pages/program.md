@@ -183,3 +183,7 @@ the natural shape of the follow-up cycle.
 ## Reporting calculations fix (2026-10-15)
 
 The burndown's actual line stops at the current month and its pill `<N>h left · <month>` reads `todayRemaining`, the program's remaining as of today (B-071); the tooltip shows `Planned: <N>h left` on later months. The Today pill comes from `js/lib/chart-today.js`, which now flips below the point and stays inside the canvas (B-077). `css/portfolio.css`'s `.pg-tile-of` uses `--weight-regular` (B-076). Detail: `docs/pages/portfolio.md` → "Reporting calculations fix (2026-10-15)".
+
+## Header unification (2026-10-16)
+
+Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. The header is the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`): `.pg-topline*`/`.pg-header-row`/`.pg-header-actions`/`.pg-label`/`.pg-title` became a `.ph` with the `.ph-back` "Project Portfolio", the `.ph-eyebrow` "Program dashboard", the title with a light stage pill from `headerBadge()`, and Export (`download`) and Share (`share`) as `.ph-btn`. The unused `pipelineBadge` method was removed from the instance.

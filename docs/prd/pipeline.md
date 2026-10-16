@@ -90,7 +90,7 @@ When there is nothing to compare, the tab says so: Draft versions don't count to
 
 Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as a full-page overlay that keeps the Pipeline tab highlighted in the nav.
 
-**Header card** (2026-10-07 redesign): one card replaces the former toolbar — title/subtitle/stage pill, a version segmented control ("+ New version", Draft only, plus one segment per version — see "Versioning" below), and the action row: 💾 Save · ⧉ Clone · ⬇ Export XLS · 🔗 Share (opens the same share modal described in §18.2, with the same inline "Shared with" list and removal described in §18.3 — the full-page editor is not a separate sharing surface, it's the same mechanism as the pipeline board's detail panel) · one primary action per state (🚀 Publish to SIP on Draft, "Generate project" otherwise when free tasks remain). 🗑 Delete version (Draft stage only) moved into the Draft banner. The grid card's own header carries a ⊟/⊞ compact-columns toggle (hides the per-role code/label polish only — see "Role columns" below for where the move/change/duplicate/remove/reset controls actually live now).
+**Header** (2026-10-07 redesign; since 2026-10-16 the shared page head of every page, no longer a card, with icons instead of emoji on the actions and no stage pill on a Draft): title/subtitle/stage pill, a version segmented control ("+ New version", Draft only, plus one segment per version — see "Versioning" below), and the action row: Save · Clone · Export XLS · Share (opens the same share modal described in §18.2, with the same inline "Shared with" list and removal described in §18.3 — the full-page editor is not a separate sharing surface, it's the same mechanism as the pipeline board's detail panel) · one primary action per state (🚀 Publish to SIP on Draft, "Generate project" otherwise when free tasks remain). 🗑 Delete version (Draft stage only) moved into the Draft banner. The grid card's own header carries a ⊟/⊞ compact-columns toggle (hides the per-role code/label polish only — see "Role columns" below for where the move/change/duplicate/remove/reset controls actually live now).
 
 **Grid-level fields:**
 - Grid name
@@ -136,7 +136,7 @@ Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as 
 
 **Version actions:** Duplicate, Delete, JSON export/import
 
-**Saving:** every field edit inside the editor (phase/task names, descriptions, PTC, header fields, role rates, etc.) schedules an autosave in the background, confirmed by a brief "💾 Auto-saved" toast — there is no need to click anything for an edit to persist. A `💾 Save` button is also available in the toolbar for an explicit, immediate save (shows "💾 Saving…" while in flight).
+**Saving:** every field edit inside the editor (phase/task names, descriptions, PTC, header fields, role rates, etc.) schedules an autosave in the background, confirmed by a brief "💾 Auto-saved" toast — there is no need to click anything for an edit to persist. A `Save` button is also available in the header for an explicit, immediate save (it reads "✓ Saved" for a moment afterwards).
 
 **Back button:** Returns to Pipeline Board (also triggers an autosave of the current draft state before navigating, on top of the continuous per-edit autosave above).
 

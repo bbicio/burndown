@@ -281,7 +281,7 @@
 | R-25 | Functional Groups form — blank role row dropped on save | On `project-config.html`, click "+ Add role" under a group, leave the role text field empty, then click Save | The save completes without error; the blank row is silently dropped, not persisted | |
 | R-26 | OBSOLETE since the project reporting redesign (2026-10-15) — the bottom `← Portfolio` button was removed, `‹ Project Portfolio` at the top replaces it; was: Bottom "← Portfolio" scoped to the detail view only | — | — | |
 | R-27 | OBSOLETE since the project reporting redesign (2026-10-15) — the bottom `← Portfolio` button was removed; was: Bottom "← Portfolio" has breathing room | — | — | |
-| R-28 | project-config.html navigation buttons — top and bottom pairs (2026-09) | Open an existing project's `project-config.html`; check both the top (next to the title) and bottom (next to Save) button rows | Both rows show `← Back to Portfolio` (goes to `/portfolio.html`) and `← Project Dashboard` (goes to `/portfolio.html?projectId=<id>`); for a brand-new, not-yet-saved project, `← Project Dashboard` is absent from both rows | |
+| R-28 | project-config.html navigation — top back link and bottom pair (2026-09; top changed 2026-10-16) | Open an existing project's `project-config.html`; check the back link above the title and the bottom (next to Save) button row | The top link reads "Project Dashboard" (goes to `/portfolio.html?projectId=<id>`), or "Portfolio" for a brand-new, not-yet-saved project; the bottom row shows `← Back to Portfolio` (goes to `/portfolio.html`) and `← Project Dashboard`, the latter absent for an unsaved project | |
 | R-29 | List-view search matches project name, code, and client (2026-09) | On `/portfolio.html`, type a project's D365 code (e.g. a `HITA.xxx` value) into the search field | The list narrows to only the matching project; typing part of the project's own name or its client's name behaves the same way | |
 | R-30 | List-view search skips the "unassigned" false match (2026-09) | Type "unassigned" into the search field | Does not match every client-less project on the literal word — only matches an actual project/code/real-client-name substring | |
 | R-31 | List-view Status filter — multi-select OR, empty-status default (2026-09) | Open the Status dropdown; check "Started" and "Completed" together; separately, check "Not started yet" alone on a proposal known to have an empty `status` field | Checking two values shows the union (OR) of both; a project with no status stored is included under "Not started yet" — the same default its own status badge already shows | |
@@ -1095,6 +1095,20 @@ Known limitation accepted as a follow-up at merge: an undated project that has a
 | PG-15 | Mixed currencies | A program whose projects are not all in the same currency | Every money figure — tiles, rows and PROGRAM TOTAL — reads `Mixed currencies`; hours, consumption and `Vs time` are still calculated and shown | |
 | PG-16 | Project with no sold hours | A program containing a project with no billable sold hours | That row's Consumption cell shows the `No budget` badge instead of a bar, it is excluded from the consumption denominator of the totals, but it is still counted in the project count | |
 | PG-17 | Program with no dated project | A program whose projects have no start/end dates | `Time elapsed` shows `—`, the burndown card is replaced by `No dated projects in this program`, the Timeline is unavailable, and no percentage renders as `NaN` | |
+
+
+## 31. Page head (2026-10-16)
+
+Spec: `docs/superpowers/specs/2026-10-16-header-unification-design.md`. Every page that calls `initNav`, except the five `master-*.html`, has the same header band (`.ph`).
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| PH-01 | One header band per page | Open each authenticated page except the `master-*.html` ones | A white band with a navy title, no emoji in the title, actions on the right; the breadcrumb above it with no line between them | ✓ (vitest) |
+| PH-02 | Sidebar icons from the shared library | Open any authenticated page, then collapse the sidebar to the rail | Every menu item shows its icon in both states | ✓ (vitest) |
+| PH-03 | Light stage and status pills | Open a project dashboard, then a program dashboard and a non-Draft cost grid | Light pills beside the title (stage, and status on the project dashboard); a Draft cost grid shows none | ✓ (vitest) |
+| PH-04 | Back links | Click the back link on the project dashboard, the program dashboard, the cost grid and project-config | They go to Project Portfolio, Project Portfolio, Pipeline (after "Saving…") and Project Dashboard respectively | |
+| PH-05 | Cost grid Save keeps its icon | In `costgrid.html`, click Save, then click it again within a second | The label reads "✓ Saved" for a moment and returns to "Save"; the icon stays throughout | |
+| PH-06 | Narrow widths | Resize each page to 768px | The actions move under the title, no horizontal scroll | |
 
 ---
 

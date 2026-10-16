@@ -953,17 +953,17 @@ burndown/
     package.json
   css/
     tokens.css            ← design tokens, single source of truth for colour and type; also `[v-cloak] { display: none; }`. Detail: docs/css/stylesheets.md
-    style.css             ← component styles, plus the `.pd-nav*` sidebar/navbar rules, the `--sidebar-w`/`--nav-top-h` media queries and `#pd-tooltip`. Detail: docs/css/stylesheets.md
+    style.css             ← component styles, the shared `.ph-*` page head, the `.pd-nav*` sidebar/navbar rules, the `--sidebar-w`/`--nav-top-h` media queries and `#pd-tooltip`. Detail: docs/css/stylesheets.md
     pipeline.css          ← page stylesheet of pipeline.html only (board, toolbar, columns, cards, detail panel). Detail: docs/pages/pipeline.md
-    costgrid.css          ← page stylesheet of costgrid.html only (header card, section cards, grid, selection bar, controls). Detail: docs/pages/costgrid.md
+    costgrid.css          ← page stylesheet of costgrid.html only (second row of the page head, section cards, grid, selection bar, controls). Detail: docs/pages/costgrid.md
     portfolio.css         ← page stylesheet shared by portfolio.html and program.html. Detail: docs/css/stylesheets.md
     admin-crud.css        ← shared layout for the simple admin CRUD pages. Detail: docs/css/stylesheets.md
     auth.css              ← shared stylesheet of the public auth pages (login/activate/reset-password). Detail: docs/css/stylesheets.md
   js/
     api.js                ← Api.* namespace, apiFetch wrapper. Detail: docs/js/shared-libs.md
     api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData). Detail: docs/js/api-sync.md
-    core.js               ← state, in-memory helpers, shared badges, showConfirm()/showInfo() idioms, findRate(). Detail: docs/js/core.md
-    nav.js                ← navigation injection, initNav(): the one `<aside class="pd-nav">`, SVG icons, rail tooltips, shared modals, T&C gate. Detail: docs/js/nav.md
+    core.js               ← state, in-memory helpers, shared badges (incl. the page head's headerBadge()), showConfirm()/showInfo() idioms, findRate(). Detail: docs/js/core.md
+    nav.js                ← navigation injection, initNav(): the one `<aside class="pd-nav">`, SVG icons (drawings from js/lib/icons.js, loaded first), rail tooltips, shared modals, T&C gate. Detail: docs/js/nav.md
     notifications.js      ← SSE client, bell badge, notification panel, browser notifications. Detail: docs/js/notifications.md
     costgrid.js           ← shared cost-grid business-logic library, a permanent Vanilla service layer loaded by pipeline.html and costgrid.html. Detail: docs/js/costgrid.md
     cg-controls.js        ← costgrid.html's three custom Vue controls; pure helpers in js/lib/cg-controls-calc.js. Detail: docs/js/cg-controls.md
@@ -990,7 +990,7 @@ burndown/
   _terms-editor.html      ← sysadmin-exclusive hidden page, T&C editor (see §5's App Settings). Detail: docs/pages/terms-editor.md
   settings.html           ← Settings page, blank apart from the navigation, breadcrumb and title. Detail: docs/pages/settings.md
   team.html               ← resource registry CRUD, admin or sysadmin. Detail: docs/pages/team.md
-  attribute-lists.html    ← generic tag/taxonomy admin console (lists + items, no physical delete); its items feed the Tags sections via js/tags.js
+  attribute-lists.html    ← generic tag/taxonomy admin console (lists + items, no physical delete); its items feed the Tags sections via js/tags.js. Detail: docs/pages/attribute-lists.md
   profile-jobs.html       ← profile-engine job console, hidden (reached from timesheets.html). Detail: docs/pages/profile-jobs.md
   test-cases.html         ← dev-only manual test checklist; fetches TEST_CASES.md and renders it via js/lib/test-cases-parse.js, which is why that file counts as code. Detail: docs/js/lib.md
   nginx.conf              ← denies dev-only toolchain artifacts even though it bind-mounts the repo root

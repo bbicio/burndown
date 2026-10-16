@@ -11,3 +11,7 @@ T&C editor removed (2026-09, moved to `_terms-editor.html`, sysadmin-exclusive).
 ## Resend invite (2026-09)
 
 A "✉️ Resend invite" button (`v-if="u.status === 'pending'"`) calls `resendInvite(user)` — a page-local `async` method, same shape as `setStatus()`/`anonymizeUser()` (raw `fetch()`, not `Api.*`, matching this page's own established convention of never routing through `js/api.js`), hitting the new `POST /api/auth/:id/resend-invite` (`auth.js`). A new `globalSuccess` reactive field (paired alert div, mirroring the pre-existing `globalError` one) shows "Invite resent to {email}"; every one of the page's 5 action methods (`toggleRole`, `toggleSysAdmin`, `setStatus`, `anonymizeUser`, `resendInvite`) now clears both `globalError` and `globalSuccess` at its own start, so a stale success banner from one action can't linger through a later, unrelated one.
+
+## Header unification (2026-10-16)
+
+Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. The former `.page-header` is now the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`), placed outside the `.page` wrapper so the breadcrumb and the band read as one block; `.page` keeps its own 2rem top margin. The user count is in `.ph-sub` ("N users").

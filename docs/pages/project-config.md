@@ -30,7 +30,7 @@ The role-name-per-line textarea was replaced by per-role rows (a text input + a 
 
 ## Symmetric back-navigation (2026-09)
 
-A `← Back to Portfolio` / `← Project Dashboard` button pair now appears both at the top of the page (next to the title, new) and at the bottom (next to the pre-existing `← Back to Portfolio`/Save row, `← Project Dashboard` added). `← Project Dashboard` navigates to `/portfolio.html?projectId=<id>` and is hidden (`v-if="!isNewProject"`) for a not-yet-saved new project; it calls a real Vue method, `goProjectDashboard()`, rather than an inline `@click="window.location...."` expression — a compiled Vue template does not reliably fall back to a bare `window` global from inside its own `with()` block (the same landmine already documented for `openShareModal` elsewhere in this codebase), confirmed by an actual `TypeError` hit during manual verification before the fix.
+(Top pair superseded 2026-10-16, see "Header unification" below.) A `← Back to Portfolio` / `← Project Dashboard` button pair now appears both at the top of the page (next to the title, new) and at the bottom (next to the pre-existing `← Back to Portfolio`/Save row, `← Project Dashboard` added). `← Project Dashboard` navigates to `/portfolio.html?projectId=<id>` and is hidden (`v-if="!isNewProject"`) for a not-yet-saved new project; it calls a real Vue method, `goProjectDashboard()`, rather than an inline `@click="window.location...."` expression — a compiled Vue template does not reliably fall back to a bare `window` global from inside its own `with()` block (the same landmine already documented for `openShareModal` elsewhere in this codebase), confirmed by an actual `TypeError` hit during manual verification before the fix.
 
 ## Role/task validation on upload (2026-09)
 
@@ -70,3 +70,7 @@ The Currency menu is built from the active currencies (`currencies` data propert
 ## Currency menu read-only, new-project form redirected (2026-10-01, project currency lock cycle)
 
 The Currency `<select>` is disabled by `currencyLocked` (`isViewer || !isNewProject`): read-only for every existing project, with the hint "Currency cannot be changed here: amounts are not converted yet. Contact a sysadmin if it must be corrected."; only a brand-new project (reachable again only when direct creation is re-enabled) can choose its currency. `resolveProject()` redirects the form without `?projectId=` to `/portfolio.html?notice=direct-creation-disabled` while `DIRECT_PROJECT_CREATION_ENABLED` is false (the form code stays untouched). A project's currency and cgVersionId are re-sent on every save; the server accepts identical values. See `docs/api/lib.md`.
+
+## Header unification (2026-10-16)
+
+Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. The header (`.page-title-bar`/`.page-toolbar`) is now the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`). The top button pair became one `.ph-back`: "Project Dashboard" (`goProjectDashboard`) on an existing project, "Portfolio" on a new one. The pair at the bottom of the form is unchanged. The title lost its "📁".

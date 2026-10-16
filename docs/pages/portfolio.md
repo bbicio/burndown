@@ -141,7 +141,7 @@ Fixed in the visual pass:
 - A KPI figure never breaks inside itself; "of …" wraps to its own line as a whole.
 
 Accepted:
-- Stage and status pills are the shared solid `pipelineBadge()`/`statusBadgeLarge()`, not the boards' light pills: changing them would change every other page that uses them.
+- Stage and status pills are the shared solid `pipelineBadge()`/`statusBadgeLarge()`, not the boards' light pills: changing them would change every other page that uses them. (Superseded 2026-10-16 for the header: see "Header unification" below.)
 - The chart has the Today pill but no vertical dashed Today line, like `program.html`.
 - Chart lines use the shared `--chart-actual`/`--chart-phasing` tokens, not the boards' navy and magenta, so the burndown matches the Program Dashboard.
 - The 85–100% consumption bar is the shared `--color-warning` (`.pf-spent-warning`), not the boards' amber.
@@ -172,3 +172,7 @@ Spec `docs/superpowers/specs/2026-10-15-reporting-calc-followups-design.md`, pla
 - **Tooltip budget with a task filter (B-081):** `totalBudgetEur` is the filtered task's own fees, so the tooltip's Budget Remaining is that task's budget minus its consumption.
 - `reportToday` is fixed when the view opens and the chart is not redrawn when it changes; to see the note on data without future entries, set it from the console and switch interval.
 - Cache-bust: `portfolio-calc.js?v=8`, `program-calc.js?v=4`, `project-report-calc.js?v=3` (and `pipeline-calc.js?v=7` on `pipeline.html`).
+
+## Header unification (2026-10-16)
+
+Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. Both views use the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`). **Overview:** `.pf-header*`/`.pf-toolbar` became `.ph` + `.ph-toolbar` (search, filters, Sort, Card/List); "+ New Project" is a `.ph-btn-primary`, disabled as before with its `title`. **Project dashboard:** `.pr-head*` became a `.ph` with the `.ph-back` "Project Portfolio", the program row as `.ph-eyebrow` (`.pr-program-row`), the title with its project-switch menu, and light stage + status pills from `headerBadge()` — status still defaults to "Not started yet" when empty; Configure, Load Actuals, Planning and Share are `.ph-btn`. The page's own `pf-icon` component and `PF_ICON_PATHS` were replaced by `<ph-icon>` and `js/lib/icons.js`. `.app-container` sets `--app-pad: 12px` inline, which the band cancels. Accepted follow-ups: a status outside the five known values shows no pill, and the band's 24px side padding does not line up with the 12px content.

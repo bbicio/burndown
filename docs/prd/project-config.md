@@ -6,7 +6,7 @@ Part of [PRD.md](../../PRD.md) — carries PRD §7.1 Project Configuration.
 
 Accessed via the project card in the Reporting view (opens `project-config.html` as a full-page form).
 
-**Navigation** (2026-09): a `← Back to Portfolio` / `← Project Dashboard` button pair appears both at the top of the page and again at the bottom (next to Save). `← Project Dashboard` jumps straight to this project's own detail/report view instead of the bare list; it's hidden for a project that hasn't been saved yet (nothing to link to).
+**Navigation** (2026-09; top changed 2026-10-16): the header has one back link above the title — "Project Dashboard", which jumps straight to this project's own detail/report view, or "Portfolio" for a project that hasn't been saved yet (nothing to link to). The bottom of the page (next to Save) keeps the `← Back to Portfolio` / `← Project Dashboard` pair, `← Project Dashboard` hidden for an unsaved project.
 
 **Project fields:**
 
