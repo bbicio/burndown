@@ -107,7 +107,7 @@ Solo CSS, nessun cambio al DOM né a `updateBreadcrumbs`:
 | `costgrid.html` | "Pipeline", con "Saving…" e `goBack` invariati | — | stage | — | — |
 | `project-config.html` | uno solo: "Project Dashboard" (`goProjectDashboard`) su un progetto esistente, "Portfolio" su uno nuovo | — | — | azioni attuali dell'header | — |
 | `planning.html` | — | — | — | — | sì: il contenuto di `.page-toolbar` (righe 40-117), che sostituisce |
-| `team`, `admin`, `attribute-lists`, `master-*` (5), `timesheets`, `profile-jobs` | — | — | — | CTA attuali (`.ph-btn-primary` / `.ph-btn`) | ricerca e filtri attuali, dove ci sono |
+| `team`, `admin`, `attribute-lists`, `timesheets`, `profile-jobs` | — | — | — | CTA attuali (`.ph-btn-primary` / `.ph-btn`) | ricerca e filtri attuali, dove ci sono |
 | `settings`, `_terms-editor` | — | — | — | azioni attuali | — |
 | `_db-reset` | — | — | — | — | — |
 
@@ -120,6 +120,7 @@ Solo CSS, nessun cambio al DOM né a `updateBreadcrumbs`:
 - **`_db-reset`:** titolo "Database Reset" standard; sotto la banda un `.alert.alert-danger` con l'avvertimento
   già presente nella pagina.
 - **Pulsanti "← Back" in fondo al form di project-config** (righe 320-321): restano, non sono header.
+- **Master Data (`master-*.html`, 5 pagine):** fuori da questo ciclo, header invariato (vedi §10). Caricano comunque `js/lib/icons.js` prima di `js/nav.js` (§4), perché la sidebar ne dipende, e ricevono i bump `?v=`.
 - **Viste multiple nello stesso file** (portfolio overview / project dashboard, schede di `team.html`): una `.ph`
   per vista, dentro il `v-if` della vista; le schede di team stanno sotto la banda.
 
@@ -132,7 +133,7 @@ Solo CSS, nessun cambio al DOM né a `updateBreadcrumbs`:
 
 ## 8. Test e verifica
 
-- **Nuovo guard `js/lib/page-head-guard.test.js`**, su ogni pagina che chiama `initNav` (l'elenco lo ricava il guard cercando `initNav(` nei file `.html` della radice). Fallisce se:
+- **Nuovo guard `js/lib/page-head-guard.test.js`**, su ogni pagina che chiama `initNav` tranne le cinque `master-*.html` (l'elenco lo ricava il guard cercando `initNav(` nei file `.html` della radice). Fallisce se:
   - una pagina non contiene almeno una `class="ph"` (o `class="ph …"`);
   - il testo di un `.ph-title` contiene un carattere emoji (Extended_Pictographic);
   - `css/pipeline.css`, `css/portfolio.css`, `css/costgrid.css`, `css/admin-crud.css` o `css/style.css` contengono
@@ -160,11 +161,12 @@ Solo CSS, nessun cambio al DOM né a `updateBreadcrumbs`:
 | `header_portfolio_to_be_updated.jpg` | §6 portfolio overview (CTA magenta, toolbar in banda) |
 | `header_program_dashboard_to_be_updated.jpg` | §5, §6 program (eyebrow, badge chiaro, secondari con icona) |
 | `header_project_dashboard_to_be_updated.jpg` | §4, §5, §6 project dashboard (icone, due badge chiari) |
+| `header_master_data_tobe updated.jpg` | nessuna: è l'input del futuro ciclo Master Data (§10) |
 
 ## 10. Fuori scope
 
 Dal Brief: pagine pre-login e `terms.html`; cambi funzionali; header dei modali; contenuto sotto l'header (ciclo 2);
-`index.html`, `config.html`, `test-cases.html`. In più: la sidebar cambia solo la provenienza delle icone, non il
+`index.html`, `config.html`, `test-cases.html`. In più: le cinque pagine `master-*.html`, che avranno un restyling dedicato (tavola `docs/superpowers/design/header/header_master_data_tobe updated.jpg`: titolo "Master Data" di pagina con sottotitolo, il sotto-menu laterale incorporato nella pagina come card, un secondo titolo per la sezione con la sua CTA) — decisione utente 2026-10-16, da non anticipare qui; la sidebar cambia solo la provenienza delle icone, non il
 loro disegno né il layout.
 
 ## Decisioni aperte
@@ -183,4 +185,8 @@ loro disegno né il layout.
 6. **project-config: un solo `.ph-back` ("Project Dashboard" o "Portfolio").** Alternativa scartata: due link indietro.
    Perché: il Brief chiede un link indietro unico e uguale ovunque.
 7. **Un solo ciclo per tutte le pagine che chiamano `initNav`.** Alternativa scartata: due sotto-cicli (pagine fotografate, poi admin). Perché:
-   le pagine admin cambiano poco e il guard le copre insieme alle altre.
+   le pagine admin cambiano poco e il guard le copre insieme alle altre. Master Data esclusa, vedi 8.
+8. **Master Data fuori dal ciclo, header invariato.** Alternativa scartata: banda `.ph` dentro `.md-content`, a destra
+   del sotto-menu. Perché: il restyling di Master Data (tavola `header_master_data_tobe updated.jpg`) cambia struttura —
+   sotto-menu incorporato nella pagina e secondo titolo — e l'utente non vuole anticipare un modello che quel ciclo
+   rifarebbe (decisione 2026-10-16, al passaggio Piano → Esecuzione).

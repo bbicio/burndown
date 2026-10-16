@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ogni pagina che chiama `initNav` ha la stessa banda header (breadcrumb come prima riga, titolo, badge chiari, back link, azioni magenta/bianche con icona) e, dove serve, la stessa banda toolbar, con i valori della pipeline.
+**Goal:** Ogni pagina che chiama `initNav`, tranne le cinque `master-*.html` (Spec §10), ha la stessa banda header (breadcrumb come prima riga, titolo, badge chiari, back link, azioni magenta/bianche con icona) e, dove serve, la stessa banda toolbar, con i valori della pipeline.
 
 **Architecture:** Un componente CSS `.ph-*` in `css/style.css`, scritto a mano nel markup Vue di ogni pagina; una libreria di icone `js/lib/icons.js` usata da `nav.js` e dal componente Vue `<ph-icon>`; un helper `headerBadge()` in `js/core.js` con nuovi token `--status-*-soft-*`. Un guard (`js/lib/page-head-guard.test.js`) fissa il risultato pagina per pagina.
 
@@ -83,13 +83,13 @@
 - Create: `js/lib/page-head-guard.test.js`
 
 **Interfaces:**
-- Produces: classi `.ph`, `.ph-main`, `.ph-back`, `.ph-eyebrow`, `.ph-title-row`, `.ph-title`, `.ph-badge`, `.ph-sub`, `.ph-side`, `.ph-actions`, `.ph-btn-primary`, `.ph-btn`, `.ph-toolbar`, `.ph-toolbar-spacer`, `.ph-lbl-wide`, `.ph-lbl-narrow`, `.pd-icon` (`flex-shrink: 0`). Guard con `const PENDING = new Set([...tutte le 19 pagine])` che i Task 4-9 svuotano.
+- Produces: classi `.ph`, `.ph-main`, `.ph-back`, `.ph-eyebrow`, `.ph-title-row`, `.ph-title`, `.ph-badge`, `.ph-sub`, `.ph-side`, `.ph-actions`, `.ph-btn-primary`, `.ph-btn`, `.ph-toolbar`, `.ph-toolbar-spacer`, `.ph-lbl-wide`, `.ph-lbl-narrow`, `.pd-icon` (`flex-shrink: 0`). Guard con `const EXCLUDED = new Set([le cinque master-*.html])` (permanente in questo ciclo, Spec §10) e `const PENDING = new Set([...le altre pagine con initNav])` che i Task 4-9 svuotano.
 
 - [ ] **Step 1: test rosso** — `page-head-guard.test.js`:
   - `css/style.css` definisce ognuna delle classi sopra;
   - `.breadcrumb-bar` non ha `border-bottom` e ha padding orizzontale `var(--space-6)`;
   - `.ph-title` ha `min-width: 0` sul contenitore (`.ph-main`) e `overflow-wrap: anywhere`; `.ph` ha `flex-wrap: wrap` (Review Focus 1);
-  - per ogni pagina con `initNav(` **non** in `PENDING`: contiene `class="ph"` o `class="ph `; ogni testo dentro un elemento `.ph-title` non contiene `\p{Extended_Pictographic}`; non contiene (nemmeno nei blocchi `<style>` inline) i selettori vietati;
+  - per ogni pagina con `initNav(` **non** in `PENDING` né in `EXCLUDED`: contiene `class="ph"` o `class="ph `; ogni testo dentro un elemento `.ph-title` non contiene `\p{Extended_Pictographic}`; non contiene (nemmeno nei blocchi `<style>` inline) i selettori vietati;
   - `css/pipeline.css`, `css/portfolio.css`, `css/costgrid.css`, `css/admin-crud.css`, `css/style.css` non contengono i selettori vietati **delle pagine già fuori da `PENDING`** (mappa selettore → file CSS → pagine; il Task 10 rende il controllo totale);
   - selettori vietati (Spec §8): `.pb-header`, `.pb-title`, `.pf-header`, `.pf-header-title`, `.pr-head`, `.pr-back`, `.pg-topline`, `.pg-header-row`, `.pg-title`, `.pg-label`, `.cg-header`, `.cg-header-name`, `.cg-back-link`, `.page-header`, `.page-title-bar`, `.page-toolbar` (match esatto del nome di classe, non prefisso: `.pb-header-right` è un selettore diverso).
 - [ ] **Step 2:** `npx vitest run js/lib/page-head-guard.test.js` → FAIL sulle classi CSS.
@@ -158,14 +158,13 @@
 ### Task 9: pagine admin e sysadmin
 
 **Boards:** `header_pipeline_model.jpg`
-**Files:** `team.html`, `admin.html`, `attribute-lists.html`, `profile-jobs.html`, `settings.html`, `timesheets.html`, `master-clients.html`, `master-client-groups.html`, `master-pipelines.html`, `master-roles.html`, `master-currencies.html`, `_terms-editor.html`, `_db-reset.html`, `css/admin-crud.css` (righe 6-7), i blocchi `<style>` inline con `.page-header`, `js/lib/page-head-guard.test.js`
+**Files:** `team.html`, `admin.html`, `attribute-lists.html`, `profile-jobs.html`, `settings.html`, `timesheets.html`, `_terms-editor.html`, `_db-reset.html`, `css/admin-crud.css` (righe 6-7), il blocco `<style>` inline con `.page-header` di `timesheets.html`, `js/lib/page-head-guard.test.js`. **Non toccare le cinque `master-*.html`** (fuori ciclo, Spec §10): il loro `.page-header` inline resta.
 
-- [ ] **Step 1:** togli le 13 pagine da `PENDING`; aggiungi al guard: `_db-reset.html` ha un `.alert-danger` subito dopo la `.ph` e nessun `#dc3545` né `font-size:2.5rem` nel titolo. Run → FAIL.
+- [ ] **Step 1:** togli le 8 pagine da `PENDING`; aggiungi al guard: `_db-reset.html` ha un `.alert-danger` subito dopo la `.ph` e nessun `#dc3545` né `font-size:2.5rem` nel titolo. Run → FAIL.
 - [ ] **Step 2:** in ogni pagina `.page-header` → `.ph` con `.ph-title` (testo senza contatore né emoji), `.ph-sub` con il contatore (`{{ users.length }} users`, `{{ resources.length }} resources`, `{{ lists.length }} lists`, ecc.; singolare per 1), `.ph-side` con le CTA attuali (`btn-primary` → `.ph-btn-primary`, outline → `.ph-btn`). Ricerca/filtri sotto il titolo, dove ci sono, in `.ph-toolbar`.
-- [ ] **Step 3: master-\*** — la banda sta dentro `.md-content` (il sotto-menu laterale resta a sinistra, a tutta altezza); vedi Decisioni aperte 1.
-- [ ] **Step 4: `_db-reset`** — `.ph-title` "Database Reset"; l'avvertimento già presente nella pagina passa in un `.alert.alert-danger` sotto la banda. **`_terms-editor`** — `.ph-title` "Terms & Conditions" senza "📄".
-- [ ] **Step 5:** rimuovi `.page-header*` da `css/admin-crud.css` e dai `<style>` inline; run → PASS.
-- [ ] **Step 6: commit** — `feat(admin): shared page head on admin and sysadmin pages`
+- [ ] **Step 3: `_db-reset`** — `.ph-title` "Database Reset"; l'avvertimento già presente nella pagina passa in un `.alert.alert-danger` sotto la banda. **`_terms-editor`** — `.ph-title` "Terms & Conditions" senza "📄".
+- [ ] **Step 4:** rimuovi `.page-header*` da `css/admin-crud.css` e dal `<style>` inline di `timesheets.html`; run → PASS.
+- [ ] **Step 5: commit** — `feat(admin): shared page head on admin and sysadmin pages`
 
 ### Task 10: chiusura — `?v=`, guard totale, verifica visiva (coordinatore)
 
@@ -179,6 +178,6 @@
 
 ## Decisioni aperte
 
-1. **Master Data: banda dentro `.md-content`, a destra del sotto-menu laterale.** Alternativa scartata: banda statica sopra `.md-layout`, a tutta larghezza. Perché: titolo, contatore e CTA sono legati ai dati Vue della root, che vive dentro `.md-content` (Decisione 1 della Spec); su queste cinque pagine il testo del breadcrumb non sarà quindi allineato al titolo.
+1. **Master Data fuori dal ciclo** (decisione utente 2026-10-16, Spec Decisione 8): le cinque `master-*.html` ricevono solo il tag di `icons.js` (Task 1) e i bump `?v=` (Task 10). Alternativa scartata: banda dentro `.md-content`. Perché: il restyling di Master Data cambierà la struttura di quelle pagine.
 2. **Il guard cresce pagina per pagina con un insieme `PENDING`, svuotato nel Task 10.** Alternativa scartata: guard scritto tutto nel Task 10. Perché: ogni task di pagina ha così un test rosso proprio, e un revisore può rifiutare un task senza bloccare gli altri.
 3. **Tutti i bump `?v=` in un solo task finale.** Alternativa scartata: bump nel task che tocca ciascun file. Perché: `css/style.css` e `js/core.js` sono toccati da più task, e i guard di versione fallirebbero a metà ciclo.
