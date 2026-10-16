@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import './icons.js';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
