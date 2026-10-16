@@ -28,7 +28,7 @@ const NAV_GROUPS = [
 
 // Icon drawings live in js/lib/icons.js (window.ICON_PATHS), loaded before this file.
 function navIcon(name, size = 'sm') {
-  const paths = window.ICON_PATHS[name];
+  const paths = (window.ICON_PATHS || {})[name];
   if (!paths) return '';
   return `<svg class="nav-icon nav-icon-${size}" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">${paths}</svg>`;
 }

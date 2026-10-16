@@ -244,7 +244,9 @@ describe('costgrid.html head', () => {
 describe('final-review fixes', () => {
   const css = read('css/style.css');
   it('spaces the last band of a view inside .app-container (glued ph + toolbar)', () => {
-    expect(css).toMatch(/\.app-container \.ph:not\(:has\(\+ \.ph-toolbar\)\), \.app-container \.ph-toolbar \{ margin-bottom: var\(--space-4\); \}/);
+    expect(css).toMatch(/\.app-container \.ph:not\(:has\(\+ \.ph-toolbar\)\) \{ margin-bottom: var\(--space-4\); \}/);
+    // Separate rule, so a browser without :has() still spaces the toolbar.
+    expect(css).toMatch(/\n\.app-container \.ph-toolbar \{ margin-bottom: var\(--space-4\); \}/);
   });
   it('gives .ph-btn hover, disabled and no underline', () => {
     expect(css).toMatch(/\.ph-btn:hover:not\(:disabled\)/);

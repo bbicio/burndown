@@ -710,12 +710,16 @@ async function cgSaveVersion() {
   const btn = document.getElementById('btnCgSave');
   if (btn && btn.disabled) return; // already in flight -- ignore a fast repeat click
   if (btn) btn.disabled = true;
-  const orig = btn ? btn.textContent : null;
+  // Swap only the label's text node: the button also holds a Vue-rendered icon.
+  const label = btn ? [...btn.childNodes].reverse().find(n => n.nodeType === Node.TEXT_NODE && n.nodeValue.trim()) : null;
+  const orig = label ? label.nodeValue : null;
   await cgAutoSave(); // never rejects -- errors are caught and logged internally
   if (btn) {
     btn.disabled = false;
-    btn.textContent = '✓ Saved';
-    setTimeout(() => { btn.textContent = orig; }, 1500);
+    if (label) {
+      label.nodeValue = '✓ Saved';
+      setTimeout(() => { label.nodeValue = orig; }, 1500);
+    }
   }
 }
 

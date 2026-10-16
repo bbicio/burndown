@@ -40,7 +40,7 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
 
 /* ── Page head (2026-10, header unification) ──
    Values copied from the former pipeline header (.pb-*). Tokens only. */
-.pd-icon { flex-shrink: 0; }
+.pd-icon { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 .ph {
   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-4);
   padding: var(--space-3) var(--space-6);
@@ -103,7 +103,9 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
 }
 /* Spacing under the last band of a view; a .ph directly followed by a .ph-toolbar stays glued to it.
    Only inside .app-container: pipeline (board, outside it) and the admin pages are untouched. */
-.app-container .ph:not(:has(+ .ph-toolbar)), .app-container .ph-toolbar { margin-bottom: var(--space-4); }
+.app-container .ph:not(:has(+ .ph-toolbar)) { margin-bottom: var(--space-4); }
+/* Its own rule: a browser without :has() drops only the rule above. */
+.app-container .ph-toolbar { margin-bottom: var(--space-4); }
 @media (max-width: 1023.98px) {
   .ph-side { width: 100%; }
 }

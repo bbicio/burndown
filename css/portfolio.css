@@ -37,8 +37,6 @@
 }
 .pf-clear-link:hover { text-decoration: underline; }
 
-.pd-icon { display: inline-block; vertical-align: middle; }
-
 /* ---- Card view (Task 4) ---- */
 .pf-card-grid {
   display: grid; grid-template-columns: repeat(var(--pf-cols, 3), 1fr); gap: var(--space-4);
