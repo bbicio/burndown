@@ -97,6 +97,10 @@ describe('css/style.css page head component', () => {
     expect(rule('.ph')).toMatch(/flex-wrap:\s*wrap/);
     expect(rule('.ph-main')).toMatch(/min-width:\s*0/);
     expect(rule('.ph-title')).toMatch(/overflow-wrap:\s*anywhere/);
+    // .ph-side stays beside a long title until the row is narrower than the basis plus the side.
+    expect(rule('.ph-main')).toMatch(/flex:\s*1 1 32rem/);
+    // The back link takes its own line above the inline-flex title row.
+    expect(rule('.ph-back')).toMatch(/display:\s*flex;\s*width:\s*fit-content/);
   });
   it('keeps icons from shrinking', () => {
     expect(rule('.pd-icon')).toMatch(/flex-shrink:\s*0/);

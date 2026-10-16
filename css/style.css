@@ -47,9 +47,11 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
   background: var(--surface-white);
   border-bottom: 1px solid var(--border-light);
 }
-.ph-main { min-width: 0; }
+/* Basis 32rem: a long title wraps inside .ph-main and .ph-side stays beside it until the row is too narrow for both. */
+.ph-main { min-width: 0; flex: 1 1 32rem; }
+/* flex + fit-content: own line above an inline-flex .ph-title-row, still only as wide as its text. */
 .ph-back {
-  display: inline-flex; align-items: center; gap: var(--space-1);
+  display: flex; width: fit-content; align-items: center; gap: var(--space-1);
   margin-bottom: var(--space-1);
   font-size: var(--text-sm); color: var(--text-muted); text-decoration: none;
 }
