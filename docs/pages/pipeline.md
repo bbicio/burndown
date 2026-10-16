@@ -96,3 +96,7 @@ Panel only (boards 4.10-4.13); spec `docs/superpowers/specs/2026-10-06-pipeline-
 4. **Panel width 480px**, side by side when the board keeps >= 560px.
 
 Implementation notes: `GET /api/pots/summary` extended backward-compatibly (`expected_total`, `sip_total`, per-proposal `client_name`/`value`); `pbPotView`/`pbFmtMonth` in `pipeline-calc.js` (values arrive as strings or null; a target of 0 gives 0% and `gap.over` true whenever C+A exceeds it; bad dates print "—"); `potState.kind` state machine; `loadPotSection` ignores a response that arrives after another version was selected. `totColor`/`pctC`/`pctA`/`nContrib`/`potFmtMoney` removed (`pbComputePotPercentages` stays in the lib, now unused by the page). No automated screenshots: verified at Gate 2.
+
+## New/Clone held after a success (2026-10-16, proposal-clone-followups cycle)
+
+`createNewProposal()`/`cloneProposal()` release `proposalBusy` only when `cgCreateNewGrid()`/`cgCloneGrid()` return `false` or throw: after a success the page is navigating to the editor, so every New Proposal/Clone control stays disabled until it unloads (B-003). A `pageshow` listener registered in `created()` releases it when the page is restored from the back/forward cache (`e.persisted`). Not handled: a navigation the user cancels (Esc/Stop) before the editor loads leaves the controls disabled until a reload — accepted follow-up in `docs/BACKLOG.md`. Covered by `js/lib/pipeline-proposal-busy.test.js`.
