@@ -1148,6 +1148,7 @@ button.cg-ctl-field:focus-visible,
 /* ── Tablet (~1024px) ── */
 @media (max-width: 1024px) {
   .cg-ph-row2 { flex-direction: column; align-items: stretch; }
+  .cg-ph-row2 > .ph-actions { margin-left: 0; }
   /* G-15 brought the desktop fixed column down to 225px, so the former 220px
      override here is redundant and dropped: one column width above the mobile
      breakpoint (spec §7). */

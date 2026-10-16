@@ -78,8 +78,8 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
   background: var(--brand-magenta); color: var(--surface-white);
   font-size: var(--text-sm); font-weight: var(--weight-semibold); cursor: pointer;
 }
-.ph-btn-primary:hover { background: var(--brand-magenta-hover); }
-.ph-btn-primary:active { background: var(--brand-magenta-active); }
+.ph-btn-primary:hover:not(:disabled) { background: var(--brand-magenta-hover); }
+.ph-btn-primary:active:not(:disabled) { background: var(--brand-magenta-active); }
 .ph-btn-primary:disabled { opacity: .5; cursor: not-allowed; }
 .ph-btn {
   display: inline-flex; align-items: center; gap: var(--space-1);
