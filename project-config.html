@@ -29,12 +29,14 @@
   </div>
 
   <template v-else>
-    <div class="page-title-bar">
-      <h4 class="fw-bold mb-0">📁 {{ isNewProject ? 'New Project' : project.name }}</h4>
-    </div>
-    <div class="d-flex gap-2 mb-3">
-      <button class="btn btn-outline-secondary btn-sm" onclick="window.location.href='/portfolio.html'">← Back to Portfolio</button>
-      <button v-if="!isNewProject" class="btn btn-outline-secondary btn-sm" @click="goProjectDashboard">← Project Dashboard</button>
+    <div class="ph">
+      <div class="ph-main">
+        <a v-if="!isNewProject" href="#" class="ph-back" @click.prevent="goProjectDashboard"><ph-icon name="chevron-left" :size="12"></ph-icon><span>Project Dashboard</span></a>
+        <a v-else href="/portfolio.html" class="ph-back"><ph-icon name="chevron-left" :size="12"></ph-icon><span>Portfolio</span></a>
+        <div class="ph-title-row">
+          <h1 class="ph-title">{{ isNewProject ? 'New Project' : project.name }}</h1>
+        </div>
+      </div>
     </div>
     <div v-if="jsonError" class="alert alert-danger py-2 small">{{ jsonError }}</div>
     <div v-if="isViewer" class="alert alert-info d-flex align-items-center gap-2 mb-3 rounded-0" style="position:sticky;top:0;z-index:100;font-size:.85rem">
@@ -1088,7 +1090,7 @@
         }
       },
     },
-  }).mount('#app');
+  }).component('ph-icon', window.PhIcon).mount('#app');
 </script>
 </body>
 </html>

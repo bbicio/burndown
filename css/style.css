@@ -470,22 +470,14 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
 .ta-table { width: 100%; font-size: var(--text-xs); }
 .ta-table th { white-space: nowrap; }
 
-/* ── Page layout helpers ── */
-.page-title-bar { padding: 20px 0 10px; }
-.page-title-bar h4,
-.page-title-bar h5 { margin-bottom: 0; font-size: 2.5rem; font-weight: 700; color: var(--brand-navy); }
-
 /* ── Pipeline board: year dropdown button ── */
 #pbPipelineBtn { transition: opacity .15s; }
 #pbPipelineBtn:hover { opacity: .8; }
 #pbPipelineBtn:hover #pbPipelineCaret { color: var(--brand-navy) !important; }
-.page-toolbar {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 16px; padding-top: 4px; padding-bottom: 16px;
-  border-bottom: 1px solid var(--surface-medium); margin-bottom: 24px;
-}
-.page-toolbar-left  { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.page-toolbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding-top: 2px; }
+/* planning.html toolbar content containers (the band itself is .ph-toolbar) */
+.pl-toolbar { align-items: flex-start; padding-top: var(--space-3); padding-bottom: var(--space-3); }
+.pl-toolbar-left  { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.pl-toolbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding-top: 2px; }
 
 /* ── Misc ── */
 .dropdown-toggle-no-caret::after { display: none; }

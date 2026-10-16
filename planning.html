@@ -24,21 +24,25 @@
 <span id="fileStatus" style="display:none;font-size:var(--text-xs);margin-right:8px"></span>
 
 
-<div class="app-container">
+<div>
 
   <!-- Resource Planning section (main content on this page) -->
-  <div id="portfolioPlanningSection">
+  <div id="portfolioPlanningSection" class="app-container">
     <div v-if="loading" class="d-flex justify-content-center align-items-center" style="height:60vh">
       <div class="spinner-border text-secondary"></div>
     </div>
     <div v-else-if="loadError" class="alert alert-danger m-4">{{ loadError }}</div>
     <template v-else>
-    <div class="page-title-bar">
-      <h4 class="fw-bold mb-0">{{ planningTitle }}</h4>
-      <p class="text-muted small mb-0 mt-1">Hours distribution by role, project or owner — based on sold hours and actuals consumed</p>
+    <div class="ph">
+      <div class="ph-main">
+        <div class="ph-title-row">
+          <h1 class="ph-title">{{ planningTitle }}</h1>
+        </div>
+        <div class="ph-sub">Hours distribution by role, project or owner — based on sold hours and actuals consumed</div>
+      </div>
     </div>
-    <div class="page-toolbar">
-      <div class="page-toolbar-left">
+    <div class="ph-toolbar pl-toolbar">
+      <div class="pl-toolbar-left">
         <!-- Row 1: filters + view/interval toggles -->
         <div class="d-flex align-items-center gap-3 flex-wrap">
           <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -114,7 +118,8 @@
           </div>
         </div>
       </div>
-      <div class="page-toolbar-right">
+      <div class="ph-toolbar-spacer"></div>
+      <div class="pl-toolbar-right">
         <button v-if="isAdminUser" class="btn btn-outline-secondary btn-sm" title="Find the best people to allocate to a project" @click="taOpen = !taOpen">🤖 Team assistant</button>
         <button class="btn btn-outline-secondary btn-sm" @click="$refs.fileInput.click()">📂 Load XLS</button>
         <button class="btn btn-outline-secondary btn-sm" title="Toggle full browser width" @click="toggleFullWidth">{{ fullWidth ? '⊡ Compact' : '⛶ Full width' }}</button>
