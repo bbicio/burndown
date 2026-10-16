@@ -29,4 +29,8 @@ This file holds the full implementation narrative for `js/api-sync.js` — funct
 
 ## Strict upsert (2026-10-01, new-version-full-copy cycle)
 
-`_cgUpsertVersionToApi(cgId, versionId, opts)` takes `{ strict: true }`: the three failure branches (grid upsert, version upsert, structure save) then rethrow after logging instead of swallowing. Only `cgAutoSave(true)` uses it (via `cgCreateNewVersion`, which must not copy server data older than the editor); every other caller keeps the log-and-continue behaviour. `?v=22`.
+`_cgUpsertVersionToApi(cgId, versionId, opts)` takes `{ strict: true }`: the three failure branches (grid upsert, version upsert, structure save) then rethrow after logging instead of swallowing. Only `cgAutoSave(true)` uses it (via `cgCreateNewVersionDirect`, which must not copy server data older than the editor, and via `cgCloneGrid`'s flush of the open source version); every other caller keeps the log-and-continue behaviour. `?v=22`.
+
+## No create fallback on a cost-grid upsert (2026-10-16, proposal-clone-followups cycle)
+
+`_cgUpsertVersionToApi` used to retry a failed grid or version `PATCH` as a `POST`. Grid and version ids are always server-assigned, so both already exist when it runs. The retry either created a duplicate (`POST /api/cost-grids` ignores a client id; a version `POST` succeeds on an all-Draft grid) or failed with an error that replaced the `PATCH`'s real cause — on a published grid, the version-creation rule's message (B-004). A failed `PATCH` is now logged and, under `{ strict: true }`, rethrown — never followed by a `POST`. `_pushProjectToApiDetailed` keeps its update-then-create fallback (section above). Covered by `js/lib/api-sync-upsert.test.js`. `?v=23`.

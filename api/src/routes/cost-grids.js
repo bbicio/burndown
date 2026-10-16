@@ -92,6 +92,15 @@ async function canEdit(userId, role, cgId) {
   return rows.length > 0;
 }
 
+// True when the grid has a version past Draft; feeds rules.versionCreationError in both version-creation routes.
+async function gridHasPublishedVersion(cgId) {
+  const { rows } = await query(
+    `SELECT 1 FROM cost_grid_versions WHERE cost_grid_id = $1 AND pipeline <> 'Draft' LIMIT 1`,
+    [cgId]
+  );
+  return rows.length > 0;
+}
+
 // A version "has projects" when a cg_version_projects row or a project's cg_version_id points at it.
 // `q` is the query runner: the pool by default, a transaction client when called under the version lock.
 async function versionHasProjects(versionId, q = query) {
@@ -385,13 +394,9 @@ router.post('/:id/versions', requireAuth, async (req, res, next) => {
     const { label, pipeline, startDate, endDate, currency, currencyRate, note, ratecardId, clientId, projectName } = req.body;
     if (!label?.trim()) return res.status(400).json({ error: 'label is required' });
 
-    const { rows: pubRows } = await query(
-      `SELECT 1 FROM cost_grid_versions WHERE cost_grid_id = $1 AND pipeline <> 'Draft' LIMIT 1`,
-      [req.params.id]
-    );
     const versionErr = rules.versionCreationError({
       role: await liveRole(req.user.id),
-      hasPublishedVersion: pubRows.length > 0,
+      hasPublishedVersion: await gridHasPublishedVersion(req.params.id),
     });
     if (versionErr) return res.status(400).json({ error: versionErr, code: rules.VERSION_RULE_CODE });
 
@@ -510,13 +515,9 @@ router.post('/:id/versions/:vId/duplicate', requireAuth, async (req, res, next) 
     if (!src.rows[0]) return res.status(404).json({ error: 'Version not found' });
     const s = src.rows[0];
 
-    const { rows: pubRows } = await query(
-      `SELECT 1 FROM cost_grid_versions WHERE cost_grid_id = $1 AND pipeline <> 'Draft' LIMIT 1`,
-      [req.params.id]
-    );
     const versionErr = rules.versionCreationError({
       role: await liveRole(req.user.id),
-      hasPublishedVersion: pubRows.length > 0,
+      hasPublishedVersion: await gridHasPublishedVersion(req.params.id),
     });
     if (versionErr) return res.status(400).json({ error: versionErr, code: rules.VERSION_RULE_CODE });
 

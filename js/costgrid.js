@@ -842,7 +842,7 @@ async function cgCreateNewVersionDirect() {
 let _cgCreateInFlight = false;
 
 async function cgCreateNewGrid() {
-  if (_cgCreateInFlight) return; // already in flight -- ignore a fast repeat click
+  if (_cgCreateInFlight) return false; // already in flight -- ignore a fast repeat click
   _cgCreateInFlight = true;
 
   const name = 'New proposal';
@@ -862,7 +862,7 @@ async function cgCreateNewGrid() {
       }).catch(() => {});
     } catch (e) {
       showInfo('Could not create the proposal: ' + e.message, 'Error');
-      return;
+      return false;
     }
 
     const cg = {
@@ -890,6 +890,7 @@ async function cgCreateNewGrid() {
     cgSaveIndex(idx);
     cgSave(cg);
     showCostGridEditorView(cgId, verId, { focusName: true });
+    return true;
   } finally {
     _cgCreateInFlight = false;
   }
@@ -905,8 +906,8 @@ async function cgCreateNewGrid() {
 let _cgCloneInFlight = false;
 
 async function cgCloneGrid(srcCgId, srcVerId) {
-  if (_cgCloneInFlight) return; // already in flight -- ignore a fast repeat click
-  if (!srcCgId || !srcVerId) return;
+  if (_cgCloneInFlight) return false; // already in flight -- ignore a fast repeat click
+  if (!srcCgId || !srcVerId) return false;
   _cgCloneInFlight = true;
 
   try {
@@ -922,7 +923,7 @@ async function cgCloneGrid(srcCgId, srcVerId) {
         await cgAutoSave(true);
       } catch (e) {
         showInfo('Could not clone the proposal: ' + e.message, 'Error');
-        return;
+        return false;
       }
     }
 
@@ -931,14 +932,14 @@ async function cgCloneGrid(srcCgId, srcVerId) {
       const srcStructureLoaded = await cgLoadStructureFromApi(srcCgId, srcVerId);
       if (!srcStructureLoaded) {
         showInfo('Could not clone the proposal: could not load the source proposal\'s structure. Please try again.', 'Error');
-        return;
+        return false;
       }
     }
     const srcCg  = cgLoad(srcCgId);
     const srcVer = srcCg?.versions.find(v => v.versionId === srcVerId);
     if (!srcVer) {
       showInfo('Could not clone the proposal: source proposal not found.', 'Error');
-      return;
+      return false;
     }
 
     const name = srcCg.name + ' — Copy';
@@ -962,7 +963,7 @@ async function cgCloneGrid(srcCgId, srcVerId) {
       verId = newVer.id;
     } catch (e) {
       showInfo('Could not clone the proposal: ' + e.message, 'Error');
-      return;
+      return false;
     }
 
     // 2. Copy phase/task/role structure — strip taskId/phaseId so the backend mints fresh UUIDs
@@ -1019,8 +1020,10 @@ async function cgCloneGrid(srcCgId, srcVerId) {
       curUrl.searchParams.set('verId', verId);
       window.history.replaceState(null, '', curUrl.toString());
     }
+    return true;
   } catch(e) {
     showInfo('Could not clone the proposal: ' + e.message, 'Error');
+    return false;
   } finally {
     _cgCloneInFlight = false;
   }
