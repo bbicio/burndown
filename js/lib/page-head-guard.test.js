@@ -37,7 +37,42 @@ const FORBIDDEN = {
 const CSS_FILES = ['css/pipeline.css', 'css/portfolio.css', 'css/costgrid.css', 'css/admin-crud.css', 'css/style.css'];
 
 const hasSelector = (text, sel) =>
-  new RegExp(sel.replace('.', '\.') + '(?![\w-])').test(text);
+  new RegExp(sel.replace('.', '\\.') + '(?![\\w-])').test(text);
+
+// Text of every element whose class list contains `cls`, depth-aware for nested same-name tags.
+const elementTexts = (html, cls) => {
+  const out = [];
+  const open = new RegExp('<(\\w+)[^>]*class="[^"]*\\b' + cls + '\\b[^"]*"[^>]*>', 'g');
+  let m;
+  while ((m = open.exec(html))) {
+    const tag = m[1];
+    const tagRe = new RegExp('<(/?)' + tag + '\\b[^>]*>', 'g');
+    tagRe.lastIndex = open.lastIndex;
+    let depth = 1, t;
+    while ((t = tagRe.exec(html))) {
+      depth += t[1] ? -1 : 1;
+      if (depth === 0) { out.push(html.slice(open.lastIndex, t.index)); break; }
+    }
+  }
+  return out;
+};
+
+describe('guard helpers', () => {
+  it('hasSelector matches exact class names only', () => {
+    expect(hasSelector('.pb-header-right {', '.pb-header')).toBe(false);
+    expect(hasSelector('.pb-title2 {', '.pb-title')).toBe(false);
+    expect(hasSelector('xph-btn {', '.ph-btn')).toBe(false);
+    for (const s of ['.pb-header {', '.pb-header,', '.pb-header.x', '.pb-header:hover']) {
+      expect(hasSelector(s, '.pb-header'), s).toBe(true);
+    }
+  });
+  it('elementTexts is depth-aware for nested same-name tags', () => {
+    const html = '<span class="ph-title">a<span>x</span><span>\u{1F600}</span></span><b>z</b>';
+    const texts = elementTexts(html, 'ph-title');
+    expect(texts.length).toBe(1);
+    expect(texts[0]).toMatch(/\p{Extended_Pictographic}/u);
+  });
+});
 const stripComments = t => t.replace(/\/\*[\s\S]*?\*\//g, '');
 const inlineStyles = html =>
   [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1]).join('\n');
@@ -78,9 +113,10 @@ describe('css/style.css page head component', () => {
     expect(css).toMatch(/\.app-container > \.ph,\s*\.app-container > \.ph-toolbar\s*\{[^}]*margin-left:\s*calc\(-1 \* var\(--space-6\)\)/);
     expect(css).toMatch(/body\.pp-fullwidth \.app-container > \.ph/);
   });
-  it('stacks the side column and shortens labels below 1024px', () => {
+  it('stacks the side column below 1024px and shortens labels below 768px (as .pb-lbl-*)', () => {
     expect(css).toMatch(/@media \(max-width: 1023\.98px\)\s*\{[^@]*\.ph-side\s*\{[^}]*width:\s*100%/);
-    expect(css).toMatch(/@media \(max-width: 1023\.98px\)\s*\{[^@]*\.ph-lbl-wide\s*\{\s*display:\s*none/);
+    expect(css).toMatch(/@media \(max-width: 767\.98px\)\s*\{[^@]*\.ph-lbl-wide\s*\{\s*display:\s*none/);
+    expect(css).toMatch(/@media \(max-width: 767\.98px\)\s*\{[^@]*\.ph-lbl-narrow\s*\{\s*display:\s*inline/);
   });
 });
 
@@ -93,7 +129,7 @@ describe('migrated pages (vacuous while everything is pending)', () => {
       const html = read(p);
       it('has a .ph head', () => { expect(html).toMatch(/class="ph[ "]/); });
       it('has no emoji in .ph-title', () => {
-        const titles = [...html.matchAll(/<(\w+)[^>]*class="[^"]*\bph-title\b[^"]*"[^>]*>([\s\S]*?)<\/\1>/g)].map(m => m[2]);
+        const titles = elementTexts(html, 'ph-title');
         for (const t of titles) expect(t).not.toMatch(/\p{Extended_Pictographic}/u);
       });
       it('has no forbidden selector in its inline styles', () => {

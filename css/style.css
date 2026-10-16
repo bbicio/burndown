@@ -102,6 +102,9 @@ body.pp-fullwidth .app-container > .ph, body.pp-fullwidth .app-container > .ph-t
 }
 @media (max-width: 1023.98px) {
   .ph-side { width: 100%; }
+}
+/* Same breakpoint as the former .pb-lbl-* (Spec section 7) */
+@media (max-width: 767.98px) {
   .ph-lbl-wide { display: none; }
   .ph-lbl-narrow { display: inline; }
 }
