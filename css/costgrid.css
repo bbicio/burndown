@@ -4,60 +4,16 @@
    only by costgrid.html. See docs/superpowers/specs/2026-10-07-costgrid-
    redesign-cycle-a-design.md §2–§3 for the design this implements. */
 
-/* ── Back link (G-03: a bordered button of the .cg-btn-secondary family) ── */
-.cg-back-link {
-  margin-bottom: 10px;
-  text-decoration: none;
-  color: var(--text-primary);
-}
-.cg-back-link:hover { color: var(--brand-navy); text-decoration: none; }
-
-/* ── Header card ── */
-.cg-header {
-  background: var(--surface-white);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  padding: 16px 20px;
-  margin-bottom: 16px;
-}
-.cg-header-row1 {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-.cg-header-titlebox { min-width: 0; }
-.cg-header-name {
-  margin: 0;
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-bold);
-  color: var(--brand-navy);
-}
-.cg-header-subtitle {
-  margin-top: 2px;
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-.cg-stage-pill {
-  flex-shrink: 0;
-  margin-top: 2px;
-  display: inline-block;
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
-  letter-spacing: .03em;
-  text-transform: uppercase;
-  border-radius: var(--radius-full);
-  padding: 4px 12px;
-}
-
-.cg-header-row2 {
+/* Row 2 of the shared page head (.ph): version control left, actions right */
+.cg-ph-row2 {
+  flex: 0 0 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  margin-top: 14px;
 }
+.cg-ph-row2 > .ph-actions { margin-left: auto; }
 
 /* ── Version segmented control ── */
 .cg-version-seg {
@@ -138,12 +94,6 @@
 }
 
 /* ── Header actions ── */
-.cg-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
 .cg-header-divider {
   width: 1px;
   height: 20px;
@@ -1197,8 +1147,8 @@ button.cg-ctl-field:focus-visible,
 
 /* ── Tablet (~1024px) ── */
 @media (max-width: 1024px) {
-  .cg-header-row2 { flex-direction: column; align-items: stretch; }
-  .cg-header-actions { flex-wrap: wrap; }
+  .cg-ph-row2 { flex-direction: column; align-items: stretch; }
+  .cg-ph-row2 > .ph-actions { margin-left: 0; }
   /* G-15 brought the desktop fixed column down to 225px, so the former 220px
      override here is redundant and dropped: one column width above the mobile
      breakpoint (spec §7). */

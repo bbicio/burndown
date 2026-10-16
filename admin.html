@@ -6,9 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDash — User Admin</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="css/tokens.css?v=9">
-  <link rel="stylesheet" href="css/style.css?v=21">
-  <link rel="stylesheet" href="css/admin-crud.css?v=2">
+  <link rel="stylesheet" href="css/tokens.css?v=10">
+  <link rel="stylesheet" href="css/style.css?v=22">
+  <link rel="stylesheet" href="css/admin-crud.css?v=3">
   <style>
     /* ── BADGES — admin.html-specific states, not shared by Team/Attribute Lists ── */
     .badge-role-admin  { background: #ede9fe; color: #5b21b6; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
@@ -28,14 +28,18 @@
   <div id="app" v-cloak>
 
     <!-- ── PAGE ──────────────────────────────────────────── -->
-    <div class="page app-container" v-if="ready">
-
-      <div class="page-header">
-        <h1>Users <span class="text-muted fw-normal" style="font-size:1rem">({{ users.length }})</span></h1>
-        <div class="d-flex gap-2">
-          <button class="btn btn-primary" @click="openInvite">+ Invite user</button>
-        </div>
+    <template v-if="ready">
+    <div class="ph">
+      <div class="ph-main">
+        <div class="ph-title-row"><h1 class="ph-title">Users</h1></div>
+        <div class="ph-sub">{{ users.length }} {{ users.length === 1 ? 'user' : 'users' }}</div>
       </div>
+      <div class="ph-side"><div class="ph-actions">
+        <button class="ph-btn-primary" @click="openInvite">+ Invite user</button>
+      </div></div>
+    </div>
+
+    <div class="page app-container">
 
       <!-- Global error -->
       <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
@@ -136,6 +140,7 @@
         </div>
       </div>
     </div>
+    </template>
 
     <!-- Loading state -->
     <div v-else-if="!accessDenied" class="d-flex align-items-center justify-content-center" style="height:60vh">
@@ -209,10 +214,11 @@
       return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 </script>
-  <script defer src="js/core.js?v=13"></script>
+  <script defer src="js/core.js?v=14"></script>
   <script type="module" src="js/lib/notif-browser.js?v=2"></script>
   <script defer src="js/notifications.js?v=3"></script>
-  <script defer src="js/nav.js?v=17"></script>
+  <script type="module" src="js/lib/icons.js?v=1"></script>
+  <script defer src="js/nav.js?v=18"></script>
   <script type="module">
     Vue.createApp({
       data() {

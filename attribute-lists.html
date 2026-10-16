@@ -6,9 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDash — Attribute Lists</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="css/tokens.css?v=9">
-  <link rel="stylesheet" href="css/style.css?v=21">
-  <link rel="stylesheet" href="css/admin-crud.css?v=2">
+  <link rel="stylesheet" href="css/tokens.css?v=10">
+  <link rel="stylesheet" href="css/style.css?v=22">
+  <link rel="stylesheet" href="css/admin-crud.css?v=3">
   <style>
     #attrListsTable tbody tr:hover td { cursor: pointer; }
     .slug-code { font-size: .78rem; color: #9ca3af; }
@@ -22,7 +22,38 @@
 
   <div id="app" v-cloak>
 
-    <div class="page app-container" v-if="ready">
+    <template v-if="ready">
+
+    <div class="ph" v-if="!currentList && pageTab === 'lists'">
+      <div class="ph-main">
+        <div class="ph-title-row"><h1 class="ph-title">Attribute Lists</h1></div>
+        <div class="ph-sub">{{ lists.length }} {{ lists.length === 1 ? 'list' : 'lists' }}</div>
+      </div>
+      <div class="ph-side"><div class="ph-actions">
+        <button class="ph-btn-primary" @click="openNewList">+ New list</button>
+      </div></div>
+    </div>
+    <div class="ph" v-if="!currentList && pageTab === 'topics'">
+      <div class="ph-main">
+        <div class="ph-title-row"><h1 class="ph-title">Topics</h1></div>
+        <div class="ph-sub">Competences extracted from project descriptions</div>
+      </div>
+      <div class="ph-side"><div class="ph-actions">
+        <button class="ph-btn-primary" @click="openNewTopic">+ New topic</button>
+      </div></div>
+    </div>
+    <div class="ph" v-if="currentList">
+      <div class="ph-main">
+        <a href="#" class="ph-back" @click.prevent="backToLists"><ph-icon name="chevron-left" :size="12"></ph-icon><span>All lists</span></a>
+        <div class="ph-title-row"><h1 class="ph-title">{{ currentList.name }}</h1></div>
+        <div class="ph-sub">{{ currentList.slug }}</div>
+      </div>
+      <div class="ph-side"><div class="ph-actions">
+        <button class="ph-btn-primary" @click="openNewItem">+ New item</button>
+      </div></div>
+    </div>
+
+    <div class="page app-container">
 
       <ul class="nav nav-tabs mb-3" v-if="!currentList">
         <li class="nav-item"><button type="button" class="nav-link" :class="{ active: pageTab === 'lists' }" @click="pageTab = 'lists'">Lists</button></li>
@@ -32,11 +63,6 @@
 
       <!-- ── LIST-OF-LISTS VIEW ────────────────────────────── -->
       <template v-if="!currentList && pageTab === 'lists'">
-        <div class="page-header">
-          <h1>Attribute Lists <span class="text-muted fw-normal" style="font-size:1rem">({{ lists.length }})</span></h1>
-          <button class="btn btn-primary" @click="openNewList">+ New list</button>
-        </div>
-
         <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
 
         <div class="card">
@@ -68,10 +94,6 @@
 
       <!-- ── TOPICS TAB ────────────────────────────────────── -->
       <template v-if="!currentList && pageTab === 'topics'">
-        <div class="page-header">
-          <h1>Topics <span class="text-muted fw-normal" style="font-size:1rem">competences extracted from project descriptions</span></h1>
-          <button class="btn btn-primary" @click="openNewTopic">+ New topic</button>
-        </div>
         <div v-if="topicsError" class="alert alert-danger alert-sm mb-3">{{ topicsError }}</div>
 
         <div class="card mb-3" v-if="proposedTopics.length">
@@ -131,14 +153,6 @@
 
       <!-- ── LIST DRILL-IN VIEW ───────────────────────────── -->
       <template v-else-if="currentList">
-        <div class="page-header">
-          <div>
-            <button class="btn btn-outline-secondary btn-sm mb-2" @click="backToLists">← All lists</button>
-            <h1>{{ currentList.name }} <span class="text-muted fw-normal" style="font-size:1rem">{{ currentList.slug }}</span></h1>
-          </div>
-          <button class="btn btn-primary" @click="openNewItem">+ New item</button>
-        </div>
-
         <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
 
         <div class="form-check mb-3">
@@ -174,6 +188,7 @@
         </div>
       </template>
     </div>
+    </template>
 
     <div v-else-if="!accessDenied" class="d-flex align-items-center justify-content-center" style="height:60vh">
       <div class="spinner-border text-secondary"></div>
@@ -286,10 +301,11 @@
   <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script defer src="js/api.js?v=8"></script>
-  <script defer src="js/core.js?v=13"></script>
+  <script defer src="js/core.js?v=14"></script>
   <script type="module" src="js/lib/notif-browser.js?v=2"></script>
   <script defer src="js/notifications.js?v=3"></script>
-  <script defer src="js/nav.js?v=17"></script>
+  <script type="module" src="js/lib/icons.js?v=1"></script>
+  <script defer src="js/nav.js?v=18"></script>
   <script type="module">
     Vue.createApp({
       data() {
@@ -503,7 +519,7 @@
           }
         },
       },
-    }).mount('#app');
+    }).component('ph-icon', window.PhIcon).mount('#app');
   </script>
 </body>
 </html>

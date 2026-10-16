@@ -283,6 +283,20 @@ function statusBadgeLarge(status) {
   return `<span style="font-size:var(--text-xs);border-radius:var(--radius-xs);padding:2px 8px;font-weight:600;${style}">${esc(s)}</span>`;
 }
 
+// Page-header badge (light pill, styled by .ph-badge). kind: 'stage' | 'status'.
+// Whitelist lookup only; anything unknown (incl. empty / 'Draft') renders nothing.
+function headerBadge(kind, value) {
+  const STAGES = { SIP: 'sip', Expected: 'expected', Anticipated: 'anticipated', Committed: 'committed', Canceled: 'canceled' };
+  const STATUSES = { 'Not started yet': 'not-started', 'Started': 'started', 'Started At Risk': 'at-risk', 'Put on hold': 'on-hold', 'Completed': 'completed' };
+  const map = kind === 'stage' ? STAGES : kind === 'status' ? STATUSES : null;
+  if (!map || typeof value !== 'string' || !Object.prototype.hasOwnProperty.call(map, value)) return '';
+  const slug = map[value];
+  const style = kind === 'stage'
+    ? `background:var(--pipeline-${slug}-bg);color:var(--pipeline-${slug}-color)`
+    : `background:var(--status-${slug}-soft-bg);color:var(--status-${slug}-soft-text)`;
+  return `<span class="ph-badge" style="${style}">${esc(value)}</span>`;
+}
+
 // ── CONFIRM MODAL ─────────────────────────────────────────────────────────────
 function showConfirm(message, onConfirm, onCancel, title = '⚠️ Confirm') {
   const modalEl = document.getElementById('confirmModal');

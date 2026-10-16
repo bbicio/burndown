@@ -12,7 +12,7 @@ body {
 }
 
 /* ── Layout ── */
-.app-container { max-width: 100%; margin: 0 auto; padding: 0 var(--space-6); }
+.app-container { --app-pad: var(--space-6); max-width: 100%; margin: 0 auto; padding: 0 var(--app-pad); }
 
 /* ── Breadcrumb bar ── */
 :root { --breadcrumb-h: 0px; }
@@ -30,14 +30,90 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
 }
 .breadcrumb-bar {
   background: var(--surface-white);
-  border-bottom: 1px solid var(--border-light);
-  padding: 6px 24px;
+  padding: 6px var(--space-6);
   font-size: var(--text-xs);
 }
 .breadcrumb-bar .breadcrumb-item a { color: var(--text-muted); text-decoration: none; }
 .breadcrumb-bar .breadcrumb-item a:hover { text-decoration: underline; }
 .breadcrumb-bar .breadcrumb-item.active { color: var(--text-secondary); }
 .breadcrumb-bar .breadcrumb-item + .breadcrumb-item::before { color: var(--text-disabled); }
+
+/* ── Page head (2026-10, header unification) ──
+   Values copied from the former pipeline header (.pb-*). Tokens only. */
+.pd-icon { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+.ph {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-4);
+  padding: var(--space-3) var(--space-6);
+  background: var(--surface-white);
+  border-bottom: 1px solid var(--border-light);
+}
+/* Basis 32rem: a long title wraps inside .ph-main and .ph-side stays beside it until the row is too narrow for both. */
+.ph-main { min-width: 0; flex: 1 1 32rem; }
+/* flex + fit-content: own line above an inline-flex .ph-title-row, still only as wide as its text. */
+.ph-back {
+  display: flex; width: fit-content; align-items: center; gap: var(--space-1);
+  margin-bottom: var(--space-1);
+  font-size: var(--text-sm); color: var(--text-muted); text-decoration: none;
+}
+.ph-back:hover { text-decoration: underline; }
+.ph-eyebrow {
+  font-size: var(--text-2xs); font-weight: var(--weight-semibold); text-transform: uppercase;
+  letter-spacing: .06em; color: var(--text-muted);
+}
+.ph-title-row { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.ph-title {
+  font-size: 26px; font-weight: var(--weight-bold); line-height: 1.2; color: var(--brand-navy);
+  margin: 0; overflow-wrap: anywhere;
+}
+.ph-badge {
+  display: inline-block; padding: 2px var(--space-2); border-radius: var(--radius-full);
+  font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: .03em;
+  text-transform: uppercase; line-height: 1.4;
+}
+.ph-sub { font-size: var(--text-sm); color: var(--text-muted); }
+.ph-side { display: flex; align-items: center; gap: var(--space-5); }
+.ph-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.ph-btn-primary {
+  border: 0; border-radius: var(--radius-md); padding: var(--space-2) var(--space-4);
+  background: var(--brand-magenta); color: var(--surface-white);
+  font-size: var(--text-sm); font-weight: var(--weight-semibold); cursor: pointer;
+}
+.ph-btn-primary:hover:not(:disabled) { background: var(--brand-magenta-hover); }
+.ph-btn-primary:active:not(:disabled) { background: var(--brand-magenta-active); }
+.ph-btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.ph-btn {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  height: 32px; padding: 0 var(--space-3);
+  background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-md);
+  font-size: var(--text-sm); color: var(--text-primary); text-decoration: none; cursor: pointer;
+}
+.ph-btn:hover:not(:disabled) { background: var(--surface-light); border-color: var(--text-disabled); color: var(--text-primary); text-decoration: none; }
+.ph-btn:disabled { color: var(--text-disabled); cursor: not-allowed; }
+.ph-btn .pd-icon { width: 14px; height: 14px; }
+.ph-toolbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2);
+  padding: var(--space-2) var(--space-6);
+  background: var(--surface-white); border-bottom: 1px solid var(--border-light);
+}
+.ph-toolbar-spacer { flex: 1 1 auto; }
+.ph-lbl-narrow { display: none; }
+/* Full width inside .app-container: the band cancels the container padding (--app-pad). */
+.app-container > .ph, .app-container > .ph-toolbar {
+  margin-left: calc(-1 * var(--app-pad)); margin-right: calc(-1 * var(--app-pad));
+}
+/* Spacing under the last band of a view; a .ph directly followed by a .ph-toolbar stays glued to it.
+   Only inside .app-container: pipeline (board, outside it) and the admin pages are untouched. */
+.app-container .ph:not(:has(+ .ph-toolbar)) { margin-bottom: var(--space-4); }
+/* Its own rule: a browser without :has() drops only the rule above. */
+.app-container .ph-toolbar { margin-bottom: var(--space-4); }
+@media (max-width: 1023.98px) {
+  .ph-side { width: 100%; }
+}
+/* Same breakpoint as the former .pb-lbl-* (Spec section 7) */
+@media (max-width: 767.98px) {
+  .ph-lbl-wide { display: none; }
+  .ph-lbl-narrow { display: inline; }
+}
 
 /* ── Master Data sub-navigation (2026-10, config.html split) ──
    Row of links above the content on small screens, a column beside the
@@ -382,7 +458,7 @@ thead .gantt-label-col { background: var(--indigo-50); z-index: 3; }
 #ppResourceTable { border-collapse: collapse; }
 
 /* Full-width mode */
-body.pp-fullwidth .app-container { max-width: 100% !important; padding: 0 12px !important; }
+body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; padding: 0 var(--app-pad) !important; }
 
 /* ── Team assistant panel (planning.html) ── */
 #teamAssistantPanel {
@@ -403,22 +479,14 @@ body.pp-fullwidth .app-container { max-width: 100% !important; padding: 0 12px !
 .ta-table { width: 100%; font-size: var(--text-xs); }
 .ta-table th { white-space: nowrap; }
 
-/* ── Page layout helpers ── */
-.page-title-bar { padding: 20px 0 10px; }
-.page-title-bar h4,
-.page-title-bar h5 { margin-bottom: 0; font-size: 2.5rem; font-weight: 700; color: var(--brand-navy); }
-
 /* ── Pipeline board: year dropdown button ── */
 #pbPipelineBtn { transition: opacity .15s; }
 #pbPipelineBtn:hover { opacity: .8; }
 #pbPipelineBtn:hover #pbPipelineCaret { color: var(--brand-navy) !important; }
-.page-toolbar {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 16px; padding-top: 4px; padding-bottom: 16px;
-  border-bottom: 1px solid var(--surface-medium); margin-bottom: 24px;
-}
-.page-toolbar-left  { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.page-toolbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding-top: 2px; }
+/* planning.html toolbar content containers (the band itself is .ph-toolbar) */
+.pl-toolbar { align-items: flex-start; padding-top: var(--space-3); padding-bottom: var(--space-3); }
+.pl-toolbar-left  { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.pl-toolbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding-top: 2px; }
 
 /* ── Misc ── */
 .dropdown-toggle-no-caret::after { display: none; }
