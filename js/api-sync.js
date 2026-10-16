@@ -146,7 +146,8 @@ async function cgLoadStructureFromApi(cgId, versionId) {
   }
 }
 
-// Upsert a cost grid + one version to the API.
+// Upsert a cost grid + one version to the API. Both already exist on the server (ids are always
+// server-assigned): a failed PATCH is reported, never converted into a POST that would duplicate them.
 // Used by cgAutoSave and version create/duplicate operations.
 // opts.strict = true: a failed upsert throws instead of being logged and swallowed.
 async function _cgUpsertVersionToApi(cgId, versionId, opts) {
@@ -159,10 +160,7 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   // Upsert the grid itself (name)
   try {
     await Api.costGrids.update(cgId, { name: cg.name });
-  } catch {
-    try { await Api.costGrids.create({ id: cgId, name: cg.name }); }
-    catch (e) { console.warn('[sync] grid upsert failed:', e.message); if (strict) throw e; return; }
-  }
+  } catch (e) { console.warn('[sync] grid upsert failed:', e.message); if (strict) throw e; return; }
 
   // Upsert the version metadata
   const { phases, roles, ...meta } = ver;
@@ -182,10 +180,7 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   };
   try {
     await Api.costGrids.versions.update(cgId, versionId, serverMeta);
-  } catch {
-    try { await Api.costGrids.versions.create(cgId, { id: versionId, ...serverMeta }); }
-    catch (e) { console.warn('[sync] version upsert failed:', e.message); if (strict) throw e; return; }
-  }
+  } catch (e) { console.warn('[sync] version upsert failed:', e.message); if (strict) throw e; return; }
 
   // Save phase/task/role structure only if it was explicitly loaded this session.
   // If phases is empty here, the structure was never loaded — don't wipe existing DB data.
