@@ -73,6 +73,7 @@ describe('guard helpers', () => {
     expect(texts[0]).toMatch(/\p{Extended_Pictographic}/u);
   });
 });
+const BTN_PRIMARY = /(?<![w-])btn-primary/;
 const stripComments = t => t.replace(/\/\*[\s\S]*?\*\//g, '');
 const inlineStyles = html =>
   [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1]).join('\n');
@@ -165,6 +166,10 @@ describe('portfolio.html (overview + project dashboard)', () => {
       if (depth === 0) { heads.push(html.slice(open.lastIndex, t.index)); break; }
     }
   }
+  it('btn-primary matcher is exact', () => {
+    expect('<button class="ph-btn-primary">').not.toMatch(BTN_PRIMARY);
+    expect('<button class="btn btn-primary">').toMatch(BTN_PRIMARY);
+  });
   it('has no private icon set', () => {
     expect(html).not.toMatch(/pf-icon|PF_ICON_PATHS|PfIcon/);
   });
@@ -173,7 +178,7 @@ describe('portfolio.html (overview + project dashboard)', () => {
   });
   it('has the overview head and the dashboard head, no btn-primary inside', () => {
     expect(heads.length).toBe(2);
-    for (const h of heads) expect(h).not.toMatch(/(?<![w-])btn-primary/);
+    for (const h of heads) expect(h).not.toMatch(BTN_PRIMARY);
     expect(heads[0]).toMatch(/class="ph-btn-primary"[^>]*>\+ New Project/);
   });
   it('dashboard secondaries are .ph-btn with the permission v-ifs', () => {
