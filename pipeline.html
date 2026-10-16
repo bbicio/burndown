@@ -1000,22 +1000,30 @@ Vue.createApp({
     },
     async createNewProposal() {
       this.proposalBusy = true;
+      // On success the page is navigating to the editor: New/Clone stay disabled until the unload.
+      let ok = false;
       try {
-        await cgCreateNewGrid();
-        this.refreshTick++;
-        this.collapsedStages = this.collapsedStages.filter(st => st !== 'Draft');
+        ok = await cgCreateNewGrid();
+        if (ok) {
+          this.refreshTick++;
+          this.collapsedStages = this.collapsedStages.filter(st => st !== 'Draft');
+        }
       } finally {
-        this.proposalBusy = false;
+        if (!ok) this.proposalBusy = false;
       }
     },
     async cloneProposal(cgId, verId) {
       this.proposalBusy = true;
+      // On success the page is navigating to the editor: New/Clone stay disabled until the unload.
+      let ok = false;
       try {
-        await cgCloneGrid(cgId, verId);
-        this.refreshTick++;
-        this.collapsedStages = this.collapsedStages.filter(st => st !== 'Draft');
+        ok = await cgCloneGrid(cgId, verId);
+        if (ok) {
+          this.refreshTick++;
+          this.collapsedStages = this.collapsedStages.filter(st => st !== 'Draft');
+        }
       } finally {
-        this.proposalBusy = false;
+        if (!ok) this.proposalBusy = false;
       }
     },
   },
