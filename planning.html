@@ -359,9 +359,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           const projName = this.projectFilters.size === 1
             ? (this.eligibleProjects.find(p => this.projectFilters.has(p.id))?.name || [...this.projectFilters][0])
             : '';
-          return `📅 Resource Planning${projName ? ' — ' + projName : ''}`;
+          return `Resource Planning${projName ? ' — ' + projName : ''}`;
         }
-        return '📅 Resource Planning — All Projects';
+        return 'Resource Planning — All Projects';
       },
       weeks() {
         if (!this.windowStart || !this.windowEnd) return [];
