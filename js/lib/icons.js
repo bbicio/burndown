@@ -35,7 +35,7 @@ export const ICON_PATHS = {
     download: '<path d="M8 2.5V10.5M8 10.5L5 7.5M8 10.5L11 7.5M2.5 10.5V13H13.5V10.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
     search: '<circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11L14.5 14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
   configure: '<circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 2.5V4M8 12V13.5M13.5 8H12M4 8H2.5M11.8 4.2L10.8 5.2M5.2 10.8L4.2 11.8M11.8 11.8L10.8 10.8M5.2 5.2L4.2 4.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
-$L
+  'chevron-left': '<path d="M10 3.5L5.5 8 10 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
   save:         '<path d="M3 2.5h8l2.5 2.5v8a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5 2.5v3.5h5V2.5M5 13.5V9.5h6v4" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>',
   clone:        '<rect x="5.5" y="5.5" width="8" height="8" rx="1.3" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 3.5V3.3c0-.5-.4-.8-.8-.8H3.3c-.5 0-.8.4-.8.8v6.4c0 .4.3.8.8.8h.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
   plus:         '<path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
