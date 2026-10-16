@@ -194,6 +194,6 @@ describe('portfolio.html (overview + project dashboard)', () => {
   });
   it('uses headerBadge for stage and status', () => {
     expect(heads[1]).toContain("headerBadge('stage'");
-    expect(heads[1]).toContain("headerBadge('status'");
+    expect(heads[1]).toContain("headerBadge('status', dashboardProject?.status || 'Not started yet')");
   });
 });
