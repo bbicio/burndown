@@ -11,7 +11,7 @@ const EXCLUDED = new Set([
 ]);
 // Pages not yet moved to the shared page head; Tasks 4-9 remove entries, Task 10 empties it.
 const PENDING = new Set([
-  'costgrid.html', 'planning.html',
+  'planning.html',
   'project-config.html', 'admin.html', 'team.html', 'attribute-lists.html',
   'profile-jobs.html', 'settings.html', 'timesheets.html', '_db-reset.html', '_terms-editor.html',
 ]);
@@ -203,5 +203,26 @@ describe('portfolio.html (overview + project dashboard)', () => {
   it('uses headerBadge for stage and status', () => {
     expect(heads[1]).toContain("headerBadge('stage'");
     expect(heads[1]).toContain("headerBadge('status', dashboardProject?.status || 'Not started yet')");
+  });
+});
+
+describe('costgrid.html head', () => {
+  const html = read('costgrid.html');
+  it('keeps the back link on goBack with the Saving text', () => {
+    const backs = [...html.matchAll(/<a[^>]*class="ph-back"[^>]*>[\s\S]*?<\/a>/g)].map(x => x[0]);
+    expect(backs.length).toBe(1);
+    expect(backs[0]).toContain('@click.prevent="goBack"');
+    expect(backs[0]).toContain("backSaving ? 'Saving…' : 'Pipeline'");
+  });
+  it('has no private stage style', () => {
+    expect(html).not.toContain('CG_HEADER_STAGE_STYLE');
+    expect(html).not.toContain('headerStageStyle');
+  });
+  it('uses headerBadge for the stage and the shared icons', () => {
+    expect(html).toContain("headerBadge('stage', draft?.pipeline)");
+    expect(html).toContain(".component('ph-icon', window.PhIcon)");
+  });
+  it('keeps Share on !isDraft', () => {
+    expect(html).toMatch(/<button v-if="!isDraft" class="ph-btn"[^>]*openShareModal\('cost_grid'/);
   });
 });

@@ -26,21 +26,17 @@
     {{ loadError }} <a href="/pipeline.html">← Back to Pipeline</a>
   </div>
   <template v-else>
-    <a href="#" class="cg-back-link cg-btn-secondary" @click.prevent="goBack">
-      <svg viewBox="0 0 16 16" width="13" height="13" fill="none" aria-hidden="true"><path d="M9.5 3.5L5 8l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span>{{ backSaving ? 'Saving…' : 'Pipeline' }}</span>
-    </a>
-
-    <div class="cg-header">
-      <div class="cg-header-row1">
-        <div class="cg-header-titlebox">
-          <h4 class="cg-header-name">{{ cg?.name || 'Cost Grid' }}</h4>
-          <div class="cg-header-subtitle">Cost Grid · Client: {{ resolvedClientName || 'Unassigned' }} · {{ (draft?.linkedProjects || []).length ? (draft.linkedProjects.length + ' linked project' + (draft.linkedProjects.length > 1 ? 's' : '')) : 'No linked projects' }}</div>
+    <div class="ph">
+      <div class="ph-main">
+        <a href="#" class="ph-back" @click.prevent="goBack"><ph-icon name="chevron-left" :size="12"></ph-icon><span>{{ backSaving ? 'Saving…' : 'Pipeline' }}</span></a>
+        <div class="ph-title-row">
+          <h1 class="ph-title">{{ cg?.name || 'Cost Grid' }}</h1>
+          <span v-html="headerBadge('stage', draft?.pipeline)"></span>
         </div>
-        <span class="cg-stage-pill" :style="{ background: headerStageStyle.bg, color: headerStageStyle.color }">{{ draft?.pipeline || 'Draft' }}</span>
+        <div class="ph-sub">Cost Grid · Client: {{ resolvedClientName || 'Unassigned' }} · {{ (draft?.linkedProjects || []).length ? (draft.linkedProjects.length + ' linked project' + (draft.linkedProjects.length > 1 ? 's' : '')) : 'No linked projects' }}</div>
       </div>
 
-      <div class="cg-header-row2">
+      <div class="cg-ph-row2">
         <div v-if="cg && cg.versions.length > 0" class="cg-version-seg">
           <button v-if="isDraft" type="button" class="cg-version-seg-new" @click="createNewVersionDirect">+ New version</button>
           <span v-else class="cg-version-seg-new cg-version-seg-new--locked" aria-disabled="true">
@@ -66,15 +62,15 @@
           <span v-if="!isDraft" class="cg-version-seg-note">Published · versions locked after Publish to SIP</span>
         </div>
 
-        <div class="cg-header-actions">
-          <button id="btnCgSave" class="cg-btn-secondary" @click="saveVersion">Save</button>
-          <button class="cg-btn-secondary" :disabled="proposalBusy" @click="cloneProposal" title="Clone this version as a new proposal">Clone</button>
-          <button class="cg-btn-secondary" @click="exportXls">Export XLS</button>
-          <button v-if="!isDraft" class="cg-btn-secondary" @click="openShareModal('cost_grid', cgId, cg.name)" title="Share this cost grid">Share</button>
+        <div class="ph-actions">
+          <button id="btnCgSave" type="button" class="ph-btn" @click="saveVersion"><ph-icon name="save" :size="14"></ph-icon>Save</button>
+          <button type="button" class="ph-btn" :disabled="proposalBusy" @click="cloneProposal" title="Clone this version as a new proposal"><ph-icon name="clone" :size="14"></ph-icon>Clone</button>
+          <button type="button" class="ph-btn" @click="exportXls"><ph-icon name="download" :size="14"></ph-icon>Export XLS</button>
+          <button v-if="!isDraft" class="ph-btn" @click="openShareModal('cost_grid', cgId, cg.name)" title="Share this cost grid"><ph-icon name="share" :size="14"></ph-icon>Share</button>
           <span class="cg-header-divider"></span>
-          <button v-if="isDraft" class="btn btn-sm btn-primary" @click="publishDraft">Publish to SIP →</button>
-          <button v-else-if="!isLocked && hasFreeTasks && !selectionMode" class="btn btn-sm btn-primary" @click="generateProject" title="Generate project in SIP">Generate project</button>
-          <button v-else-if="selectionMode" class="cg-btn-secondary" disabled>Selecting tasks…</button>
+          <button v-if="isDraft" class="ph-btn-primary" @click="publishDraft">Publish to SIP →</button>
+          <button v-else-if="!isLocked && hasFreeTasks && !selectionMode" class="ph-btn-primary" @click="generateProject" title="Generate project in SIP">Generate project</button>
+          <button v-else-if="selectionMode" class="ph-btn" disabled>Selecting tasks…</button>
           <span v-else-if="!isDraft && !hasFreeTasks" class="text-muted cg-header-muted-action">All tasks are in projects</span>
         </div>
       </div>
@@ -100,7 +96,7 @@
           <div v-if="offerDetailsCollapsed" class="cg-offer-summary">
             <div class="cg-offer-summary-group">
               <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Period</span><span class="cg-offer-summary-value">{{ offerDetailsSummary.period }}</span></span>
-              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Stage</span><span class="cg-offer-summary-value"><span class="cg-offer-summary-dot" :style="{ background: headerStageStyle.color }"></span>{{ offerDetailsSummary.stage }}</span></span>
+              <span class="cg-offer-summary-item"><span class="cg-offer-summary-label">Stage</span><span class="cg-offer-summary-value"><span class="cg-offer-summary-dot" :style="{ background: headerStageDotColor }"></span>{{ offerDetailsSummary.stage }}</span></span>
             </div>
             <span class="cg-offer-summary-sep"></span>
             <div class="cg-offer-summary-group">
@@ -796,19 +792,6 @@ function renderPipelineBoard() {
   window.location.href = '/pipeline.html';
 }
 
-// Light bg+border+text pill for the header's own prominent stage pill — same
-// light-pill pattern as pipeline.html's PB_STAGE_STYLE (the header pill needs
-// the light look boards 5.17-5.21 show, unlike js/core.js's pipelineBadge(),
-// which stays the solid secondary-badge style used for Linked projects/etc.).
-const CG_HEADER_STAGE_STYLE = {
-  Draft:       { bg: 'var(--surface-light)',           color: 'var(--text-muted)' },
-  SIP:         { bg: 'var(--pipeline-sip-bg)',         color: 'var(--pipeline-sip-color)' },
-  Expected:    { bg: 'var(--pipeline-expected-bg)',    color: 'var(--pipeline-expected-color)' },
-  Anticipated: { bg: 'var(--pipeline-anticipated-bg)', color: 'var(--pipeline-anticipated-color)' },
-  Committed:   { bg: 'var(--pipeline-committed-bg)',   color: 'var(--pipeline-committed-color)' },
-  Canceled:    { bg: 'var(--pipeline-canceled-bg)',    color: 'var(--pipeline-canceled-color)' },
-};
-
 Vue.createApp({
   data() {
     return {
@@ -826,7 +809,7 @@ Vue.createApp({
       openRoleMenuCode: null, removeColumnConfirm: null, roleMenuPos: { top: 0, left: 0 }, // Task 3, 2026-10-07: role ⋮ menu
       ptcFocusedTask: null, ptcRaw: '', hoursEditing: null, addToProjectSel: '',
       addToProjectModal: { projId: '', projName: '', taskNames: [], taskIds: [] },
-      backSaving: false,
+      backSaving: false, headerBadge: window.headerBadge,
       proposalBusy: false, // true while cloneProposal is in flight (2026-10-07)
       editingVersionLabel: false, versionLabelBeforeEdit: '', // Task 2, 2026-10-07: inline version-label rename
       shareSummary: { count: 0, initials: [], myRole: '' }, // Task 2, 2026-10-07: Sharing card closed-state summary
@@ -897,7 +880,7 @@ Vue.createApp({
     currencyLocked() { return this.isLocked || this.versionHasProjects; },
     currencyLockTitle() { return this.versionHasProjects ? window.PROJECT_RULE_MESSAGES.costgridCurrency : ''; },
     isDraft() { return this.draft?.pipeline === 'Draft'; },
-    headerStageStyle() { return CG_HEADER_STAGE_STYLE[this.draft?.pipeline] || CG_HEADER_STAGE_STYLE.Draft; },
+    headerStageDotColor() { const s = this.draft?.pipeline; return s && s !== 'Draft' ? 'var(--pipeline-' + s.toLowerCase() + '-color)' : 'var(--text-muted)'; },
     hasFreeTasks() {
       if (!this.draft) return false;
       const assignedIds = cgGetAssignedTaskIds();
@@ -1979,6 +1962,7 @@ Vue.createApp({
     }
   },
 })
+  .component('ph-icon', window.PhIcon)
   .component('share-list', window.ShareListComponent)
   .component('cg-date-picker', window.CgDatePicker)
   .component('cg-select', window.CgSelect)
