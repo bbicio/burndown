@@ -1028,6 +1028,8 @@ Vue.createApp({
     },
   },
   async created() {
+    // A page restored from the back/forward cache keeps proposalBusy from the run that navigated away.
+    window.addEventListener('pageshow', e => { if (e.persisted) this.proposalBusy = false; });
 
     const user = await initNav('pipeline', { breadcrumbs: [
       { label: 'Home', href: '/pipeline.html' },

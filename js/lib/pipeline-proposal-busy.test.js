@@ -58,3 +58,25 @@ for (const { method, lib, args } of cases) {
     });
   });
 }
+
+// Back from the editor via the back/forward cache: the page is restored with proposalBusy still true.
+describe('pageshow — proposalBusy', () => {
+  function handler() {
+    const created = html.slice(html.indexOf('async created() {'));
+    const m = created.match(/window\.addEventListener\('pageshow', (e => \{[^}]*\})\);/);
+    if (!m) throw new Error('pageshow listener not found in created()');
+    return m[1];
+  }
+
+  it('releases proposalBusy on a page restored from the bfcache', () => {
+    const self = { proposalBusy: true };
+    new Function(`return ${handler()}`).call(self)({ persisted: true });
+    expect(self.proposalBusy).toBe(false);
+  });
+
+  it('leaves proposalBusy alone on an ordinary load', () => {
+    const self = { proposalBusy: true };
+    new Function(`return ${handler()}`).call(self)({ persisted: false });
+    expect(self.proposalBusy).toBe(true);
+  });
+});
