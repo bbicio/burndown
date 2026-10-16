@@ -112,7 +112,7 @@ describe('admin-crud.css and the public pages', () => {
 });
 
 describe('cache-busting', () => {
-  const MIN = { 'css/tokens.css': 9, 'css/style.css': 15, 'css/admin-crud.css': 2, 'js/core.js': 10, 'css/auth.css': 1 };
+  const MIN = { 'css/tokens.css': 10, 'css/style.css': 22, 'css/admin-crud.css': 3, 'js/core.js': 14, 'css/auth.css': 1 };
   for (const [file, min] of Object.entries(MIN)) {
     it(`every reference to ${file} carries one shared ?v=N, at least ${min}`, () => {
       const versions = new Set();

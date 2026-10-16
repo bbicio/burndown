@@ -75,7 +75,7 @@ const inlineStyles = html =>
   [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1]).join('\n');
 
 describe('page discovery', () => {
-  it('finds the 19 pages that call initNav (14 pending/migrated + 5 excluded)', () => {
+  it('finds the 19 pages that call initNav (14 checked + 5 excluded)', () => {
     expect(pages.length).toBe(19);
     expect(EXCLUDED.size).toBe(5);
     for (const p of EXCLUDED) expect(pages).toContain(p);
