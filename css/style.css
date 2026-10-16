@@ -85,8 +85,10 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
   display: inline-flex; align-items: center; gap: var(--space-1);
   height: 32px; padding: 0 var(--space-3);
   background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-md);
-  font-size: var(--text-sm); color: var(--text-primary); cursor: pointer;
+  font-size: var(--text-sm); color: var(--text-primary); text-decoration: none; cursor: pointer;
 }
+.ph-btn:hover:not(:disabled) { background: var(--surface-light); border-color: var(--text-disabled); color: var(--text-primary); text-decoration: none; }
+.ph-btn:disabled { color: var(--text-disabled); cursor: not-allowed; }
 .ph-btn .pd-icon { width: 14px; height: 14px; }
 .ph-toolbar {
   display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2);
@@ -99,6 +101,9 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
 .app-container > .ph, .app-container > .ph-toolbar {
   margin-left: calc(-1 * var(--app-pad)); margin-right: calc(-1 * var(--app-pad));
 }
+/* Spacing under the last band of a view; a .ph directly followed by a .ph-toolbar stays glued to it.
+   Only inside .app-container: pipeline (board, outside it) and the admin pages are untouched. */
+.app-container .ph:not(:has(+ .ph-toolbar)), .app-container .ph-toolbar { margin-bottom: var(--space-4); }
 @media (max-width: 1023.98px) {
   .ph-side { width: 100%; }
 }

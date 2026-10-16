@@ -44,7 +44,7 @@
     </div>
     <div class="ph" v-if="currentList">
       <div class="ph-main">
-        <a href="#" class="ph-back" @click.prevent="backToLists">← All lists</a>
+        <a href="#" class="ph-back" @click.prevent="backToLists"><ph-icon name="chevron-left" :size="12"></ph-icon><span>All lists</span></a>
         <div class="ph-title-row"><h1 class="ph-title">{{ currentList.name }}</h1></div>
         <div class="ph-sub">{{ currentList.slug }}</div>
       </div>
@@ -519,7 +519,7 @@
           }
         },
       },
-    }).mount('#app');
+    }).component('ph-icon', window.PhIcon).mount('#app');
   </script>
 </body>
 </html>

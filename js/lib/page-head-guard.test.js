@@ -240,3 +240,18 @@ describe('costgrid.html head', () => {
     expect(html).toMatch(/<button v-if="!isDraft" class="ph-btn"[^>]*openShareModal\('cost_grid'/);
   });
 });
+
+describe('final-review fixes', () => {
+  const css = read('css/style.css');
+  it('spaces the last band of a view inside .app-container (glued ph + toolbar)', () => {
+    expect(css).toMatch(/\.app-container \.ph:not\(:has\(\+ \.ph-toolbar\)\), \.app-container \.ph-toolbar \{ margin-bottom: var\(--space-4\); \}/);
+  });
+  it('gives .ph-btn hover, disabled and no underline', () => {
+    expect(css).toMatch(/\.ph-btn:hover:not\(:disabled\)/);
+    expect(css).toMatch(/\.ph-btn:disabled/);
+    expect(css).toMatch(/\.ph-btn \{[^}]*text-decoration: none/);
+  });
+  it('does not stack .ph-eyebrow on the program row', () => {
+    expect(read('portfolio.html')).not.toContain('ph-eyebrow pr-program-row');
+  });
+});
