@@ -1,0 +1,115 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+const read = f => readFileSync(join(process.cwd(), f), 'utf8');
+
+// Master Data pages: out of this cycle (Spec section 10), permanent here.
+const EXCLUDED = new Set([
+  'master-clients.html', 'master-client-groups.html', 'master-pipelines.html',
+  'master-roles.html', 'master-currencies.html',
+]);
+// Pages not yet moved to the shared page head; Tasks 4-9 remove entries, Task 10 empties it.
+const PENDING = new Set([
+  'pipeline.html', 'portfolio.html', 'program.html', 'costgrid.html', 'planning.html',
+  'project-config.html', 'admin.html', 'team.html', 'attribute-lists.html',
+  'profile-jobs.html', 'settings.html', 'timesheets.html', '_db-reset.html', '_terms-editor.html',
+]);
+
+const pages = readdirSync(process.cwd())
+  .filter(f => f.endsWith('.html') && /initNav\(/.test(read(f)))
+  .sort();
+const checked = pages.filter(p => !EXCLUDED.has(p) && !PENDING.has(p));
+
+// Forbidden selector -> pages that own it (Spec section 8).
+const FORBIDDEN = {
+  '.pb-header': ['pipeline.html'], '.pb-title': ['pipeline.html'],
+  '.pf-header': ['portfolio.html'], '.pf-header-title': ['portfolio.html'],
+  '.pr-head': ['portfolio.html'], '.pr-back': ['portfolio.html'],
+  '.pg-topline': ['program.html'], '.pg-header-row': ['program.html'],
+  '.pg-title': ['program.html'], '.pg-label': ['program.html'],
+  '.cg-header': ['costgrid.html'], '.cg-header-name': ['costgrid.html'],
+  '.cg-back-link': ['costgrid.html'],
+  '.page-header': ['admin.html', 'team.html', 'attribute-lists.html', 'profile-jobs.html', 'settings.html', 'timesheets.html'],
+  '.page-title-bar': ['planning.html', 'project-config.html'],
+  '.page-toolbar': ['planning.html', 'project-config.html'],
+};
+const CSS_FILES = ['css/pipeline.css', 'css/portfolio.css', 'css/costgrid.css', 'css/admin-crud.css', 'css/style.css'];
+
+const hasSelector = (text, sel) =>
+  new RegExp(sel.replace('.', '\.') + '(?![\w-])').test(text);
+const stripComments = t => t.replace(/\/\*[\s\S]*?\*\//g, '');
+const inlineStyles = html =>
+  [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1]).join('\n');
+
+describe('page discovery', () => {
+  it('finds the 19 pages that call initNav (14 pending/migrated + 5 excluded)', () => {
+    expect(pages.length).toBe(19);
+    expect(EXCLUDED.size).toBe(5);
+    for (const p of EXCLUDED) expect(pages).toContain(p);
+    for (const p of PENDING) expect(pages).toContain(p);
+    expect(checked.length + PENDING.size + EXCLUDED.size).toBe(19);
+  });
+});
+
+describe('css/style.css page head component', () => {
+  const css = stripComments(read('css/style.css'));
+  const classes = ['ph', 'ph-main', 'ph-back', 'ph-eyebrow', 'ph-title-row', 'ph-title', 'ph-badge',
+    'ph-sub', 'ph-side', 'ph-actions', 'ph-btn-primary', 'ph-btn', 'ph-toolbar',
+    'ph-toolbar-spacer', 'ph-lbl-wide', 'ph-lbl-narrow', 'pd-icon'];
+  for (const c of classes) {
+    it(`defines .${c}`, () => { expect(hasSelector(css, '.' + c)).toBe(true); });
+  }
+  const rule = sel => [...css.matchAll(new RegExp('(?:^|[}\\s,])' + sel.replace(/[.]/g, '\\.') + '\\s*\\{([^}]*)\\}', 'g'))].map(m => m[1]).join(' ');
+  it('lets the head wrap and the title column shrink and break', () => {
+    expect(rule('.ph')).toMatch(/flex-wrap:\s*wrap/);
+    expect(rule('.ph-main')).toMatch(/min-width:\s*0/);
+    expect(rule('.ph-title')).toMatch(/overflow-wrap:\s*anywhere/);
+  });
+  it('keeps icons from shrinking', () => {
+    expect(rule('.pd-icon')).toMatch(/flex-shrink:\s*0/);
+  });
+  it('breadcrumb bar has no bottom border and a space-6 horizontal padding', () => {
+    const r = rule('.breadcrumb-bar');
+    expect(r).not.toMatch(/border-bottom/);
+    expect(r).toMatch(/padding:\s*6px var\(--space-6\)/);
+  });
+  it('pulls the band to full width out of .app-container', () => {
+    expect(css).toMatch(/\.app-container > \.ph,\s*\.app-container > \.ph-toolbar\s*\{[^}]*margin-left:\s*calc\(-1 \* var\(--space-6\)\)/);
+    expect(css).toMatch(/body\.pp-fullwidth \.app-container > \.ph/);
+  });
+  it('stacks the side column and shortens labels below 1024px', () => {
+    expect(css).toMatch(/@media \(max-width: 1023\.98px\)\s*\{[^@]*\.ph-side\s*\{[^}]*width:\s*100%/);
+    expect(css).toMatch(/@media \(max-width: 1023\.98px\)\s*\{[^@]*\.ph-lbl-wide\s*\{\s*display:\s*none/);
+  });
+});
+
+describe('migrated pages (vacuous while everything is pending)', () => {
+  it('checks every page that is neither pending nor excluded', () => {
+    expect(checked.length).toBe(pages.length - PENDING.size - EXCLUDED.size);
+  });
+  for (const p of checked) {
+    describe(p, () => {
+      const html = read(p);
+      it('has a .ph head', () => { expect(html).toMatch(/class="ph[ "]/); });
+      it('has no emoji in .ph-title', () => {
+        const titles = [...html.matchAll(/<(\w+)[^>]*class="[^"]*\bph-title\b[^"]*"[^>]*>([\s\S]*?)<\/\1>/g)].map(m => m[2]);
+        for (const t of titles) expect(t).not.toMatch(/\p{Extended_Pictographic}/u);
+      });
+      it('has no forbidden selector in its inline styles', () => {
+        const style = stripComments(inlineStyles(html));
+        for (const [sel, owners] of Object.entries(FORBIDDEN)) {
+          if (owners.includes(p)) expect(hasSelector(style, sel), `${sel} in ${p}`).toBe(false);
+        }
+      });
+    });
+  }
+  for (const [sel, owners] of Object.entries(FORBIDDEN)) {
+    if (!owners.every(o => !PENDING.has(o))) continue;
+    for (const f of CSS_FILES) {
+      it(`${f} no longer defines ${sel}`, () => {
+        expect(hasSelector(stripComments(read(f)), sel)).toBe(false);
+      });
+    }
+  }
+});
