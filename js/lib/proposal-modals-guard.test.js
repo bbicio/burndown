@@ -11,6 +11,7 @@ const costgrid = read('costgrid.html');
 const REMOVED_IDS = [
   'cgNewGridModal', 'cgCloneModal', 'cgNewGridName', 'cgCloneGridName', 'btnCgCreateGrid', 'btnCgClone',
   'cgNewVersionModal', 'cgNewVersionLabel', 'cgNewVersionError', 'openNewVersionModal',
+  'cloneGridName', 'cloneError', 'cloneSourceName',
 ];
 
 describe('New Proposal / Clone modals removed', () => {
@@ -26,10 +27,18 @@ describe('New Proposal / Clone modals removed', () => {
     const costgridJsVersion = (html) => html.match(/js\/costgrid\.js\?v=(\d+)/)?.[1];
     const costgridCalcVersion = (html) => html.match(/js\/lib\/costgrid-calc\.js\?v=(\d+)/)?.[1];
 
-    expect(costgridJsVersion(pipeline)).toBe('43');
-    expect(costgridJsVersion(costgrid)).toBe('43');
+    expect(costgridJsVersion(pipeline)).toBe('44');
+    expect(costgridJsVersion(costgrid)).toBe('44');
     expect(costgridCalcVersion(pipeline)).toBe('7');
     expect(costgridCalcVersion(costgrid)).toBe('7');
+  });
+});
+
+describe('shared script versions', () => {
+  it('every page loads the same js/api-sync.js version', () => {
+    ['pipeline.html', 'costgrid.html', 'portfolio.html', 'program.html', 'planning.html', 'project-config.html'].forEach(f => {
+      expect(read(f).match(/js\/api-sync\.js\?v=(\d+)/)?.[1], f).toBe('23');
+    });
   });
 });
 

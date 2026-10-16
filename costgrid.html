@@ -759,8 +759,8 @@
 <script type="module" src="js/lib/costgrid-calc.js?v=7"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=1"></script>
 <script defer src="js/cg-controls.js?v=2"></script>
-<script defer src="js/costgrid.js?v=43"></script>
-<script defer src="js/api-sync.js?v=22"></script>
+<script defer src="js/costgrid.js?v=44"></script>
+<script defer src="js/api-sync.js?v=23"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>
 <script defer src="js/shares.js"></script>
@@ -829,7 +829,6 @@ Vue.createApp({
       proposalBusy: false, // true while cloneProposal is in flight (2026-10-07)
       editingVersionLabel: false, versionLabelBeforeEdit: '', // Task 2, 2026-10-07: inline version-label rename
       shareSummary: { count: 0, initials: [], myRole: '' }, // Task 2, 2026-10-07: Sharing card closed-state summary
-      cloneGridName: '', cloneError: '', cloneSourceName: '',
       prevCurrency: 'EUR', // last-committed currency, used by Task 5's onCurrencyChange to detect+revert a change
       roleModalMode: 'add', roleModalSourceCode: null, roleSearch: '', roleActiveTeam: '', roleAllRoles: [], roleRcName: '',
       roleSelectionCount: 0, // G-28: "Add selected" stays disabled until something is checked
