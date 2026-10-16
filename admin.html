@@ -28,14 +28,18 @@
   <div id="app" v-cloak>
 
     <!-- ── PAGE ──────────────────────────────────────────── -->
-    <div class="page app-container" v-if="ready">
-
-      <div class="page-header">
-        <h1>Users <span class="text-muted fw-normal" style="font-size:1rem">({{ users.length }})</span></h1>
-        <div class="d-flex gap-2">
-          <button class="btn btn-primary" @click="openInvite">+ Invite user</button>
-        </div>
+    <template v-if="ready">
+    <div class="ph">
+      <div class="ph-main">
+        <div class="ph-title-row"><h1 class="ph-title">Users</h1></div>
+        <div class="ph-sub">{{ users.length }} {{ users.length === 1 ? 'user' : 'users' }}</div>
       </div>
+      <div class="ph-side"><div class="ph-actions">
+        <button class="ph-btn-primary" @click="openInvite">+ Invite user</button>
+      </div></div>
+    </div>
+
+    <div class="page app-container">
 
       <!-- Global error -->
       <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
@@ -136,6 +140,7 @@
         </div>
       </div>
     </div>
+    </template>
 
     <!-- Loading state -->
     <div v-else-if="!accessDenied" class="d-flex align-items-center justify-content-center" style="height:60vh">

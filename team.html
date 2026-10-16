@@ -22,12 +22,18 @@
 
   <div id="app" v-cloak>
 
-    <div class="page app-container" v-if="ready">
-
-      <div class="page-header">
-        <h1>Team <span class="text-muted fw-normal" style="font-size:1rem">({{ resources.length }})</span></h1>
-        <button class="btn btn-primary" @click="openCreate">+ New resource</button>
+    <template v-if="ready">
+    <div class="ph">
+      <div class="ph-main">
+        <div class="ph-title-row"><h1 class="ph-title">Team</h1></div>
+        <div class="ph-sub">{{ resources.length }} {{ resources.length === 1 ? 'resource' : 'resources' }}</div>
       </div>
+      <div class="ph-side"><div class="ph-actions">
+        <button class="ph-btn-primary" @click="openCreate">+ New resource</button>
+      </div></div>
+    </div>
+
+    <div class="page app-container">
 
       <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
 
@@ -166,6 +172,7 @@
         </div>
       </div>
     </div>
+    </template>
 
     <div v-else-if="!accessDenied" class="d-flex align-items-center justify-content-center" style="height:60vh">
       <div class="spinner-border text-secondary"></div>

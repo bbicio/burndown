@@ -31,13 +31,15 @@
 
 <div id="app" v-cloak>
 
-  <div class="page app-container" v-if="ready">
-
-    <div class="page-header">
-      <h1>Profile processing
-        <span class="text-muted fw-normal" style="font-size:1rem">({{ queuedCount }} queued)</span>
-      </h1>
+  <template v-if="ready">
+  <div class="ph">
+    <div class="ph-main">
+      <div class="ph-title-row"><h1 class="ph-title">Profile processing</h1></div>
+      <div class="ph-sub">{{ queuedCount }} queued</div>
     </div>
+  </div>
+
+  <div class="page app-container">
 
     <!-- Global alert: network failures / non-JSON responses (kept separate from action errors) -->
     <div v-if="loadError" class="alert alert-danger alert-sm mb-3">{{ loadError }}</div>
@@ -196,6 +198,7 @@
     </details>
 
   </div>
+  </template>
 
   <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
     <div class="spinner-border text-secondary"></div>

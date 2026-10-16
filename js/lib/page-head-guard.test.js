@@ -10,10 +10,7 @@ const EXCLUDED = new Set([
   'master-roles.html', 'master-currencies.html',
 ]);
 // Pages not yet moved to the shared page head; Tasks 4-9 remove entries, Task 10 empties it.
-const PENDING = new Set([
-  'admin.html', 'team.html', 'attribute-lists.html',
-  'profile-jobs.html', 'settings.html', 'timesheets.html', '_db-reset.html', '_terms-editor.html',
-]);
+const PENDING = new Set([]);
 
 const pages = readdirSync(process.cwd())
   .filter(f => f.endsWith('.html') && /initNav\(/.test(read(f)))
@@ -202,6 +199,20 @@ describe('portfolio.html (overview + project dashboard)', () => {
   it('uses headerBadge for stage and status', () => {
     expect(heads[1]).toContain("headerBadge('stage'");
     expect(heads[1]).toContain("headerBadge('status', dashboardProject?.status || 'Not started yet')");
+  });
+});
+
+describe('_db-reset.html head', () => {
+  const html = read('_db-reset.html');
+  const head = elementTexts(html, 'ph-title')[0] || '';
+  it('has the Database Reset title without the red 2.5rem styling', () => {
+    expect(head).toContain('Database Reset');
+    expect(head).not.toMatch(/\p{Extended_Pictographic}/u);
+    const h1 = (html.match(/<h1[^>]*>/) || [''])[0];
+    expect(h1).not.toMatch(/dc3545|font-size:\s*2\.5rem/);
+  });
+  it('puts the warning in an alert-danger right after the head', () => {
+    expect(html).toMatch(/class="ph"[\s\S]*?<div class="page app-container">\s*<div class="alert alert-danger[^"]*">Sysadmin-only/);
   });
 });
 

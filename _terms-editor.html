@@ -24,7 +24,14 @@
 
 <div id="app" v-cloak>
 
-  <div v-if="ready || accessDenied" class="page app-container">
+  <template v-if="ready || accessDenied">
+  <div class="ph">
+    <div class="ph-main">
+      <div class="ph-title-row"><h1 class="ph-title">Terms &amp; Conditions</h1></div>
+    </div>
+  </div>
+
+  <div class="page app-container">
     <div v-if="accessDenied" class="alert alert-danger">Access denied — sysadmin only.</div>
 
     <template v-else>
@@ -78,6 +85,7 @@
       </div>
     </template>
   </div>
+  </template>
 
   <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
     <div class="spinner-border text-secondary"></div>
