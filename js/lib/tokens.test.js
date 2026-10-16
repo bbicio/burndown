@@ -40,7 +40,10 @@ z-notification`.split(/\s+/);
 const NEW = `brand-magenta-hover brand-magenta-active color-success-text color-danger-text color-info-text
 color-danger-hover color-danger-active focus-ring font-family-base weight-regular weight-medium weight-semibold
 weight-bold leading-tight leading-base leading-relaxed z-tooltip status-not-started-bg status-started-bg
-status-at-risk-bg status-on-hold-bg status-completed-bg status-text chart-actual chart-committed chart-phasing`.split(/\s+/);
+status-at-risk-bg status-on-hold-bg status-completed-bg status-text chart-actual chart-committed chart-phasing
+status-not-started-soft-bg status-not-started-soft-text status-started-soft-bg status-started-soft-text
+status-at-risk-soft-bg status-at-risk-soft-text status-on-hold-soft-bg status-on-hold-soft-text
+status-completed-soft-bg status-completed-soft-text`.split(/\s+/);
 
 const NAV = `brand-magenta-tint brand-magenta-tint-hover icon-size-sm icon-size-md nav-text-muted
 nav-item-hover-bg nav-item-active-bg nav-sep`.split(/\s+/);
@@ -78,6 +81,13 @@ describe('tokens.css', () => {
   it('project status badges meet WCAG AA with the shared status text colour', () => {
     const low = ['not-started', 'started', 'at-risk', 'on-hold', 'completed']
       .map(s => [s, ratio(value('status-text'), value(`status-${s}-bg`))])
+      .filter(([, r]) => r < 4.5);
+    expect(low).toEqual([]);
+  });
+
+  it('soft status badges meet WCAG AA', () => {
+    const low = ['not-started', 'started', 'at-risk', 'on-hold', 'completed']
+      .map(s => [s, ratio(value(`status-${s}-soft-text`), value(`status-${s}-soft-bg`))])
       .filter(([, r]) => r < 4.5);
     expect(low).toEqual([]);
   });

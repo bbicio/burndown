@@ -111,6 +111,17 @@
   --status-on-hold-bg:     #b45309;
   --status-completed-bg:   var(--brand-navy);
   --status-text:           #ffffff;
+  /* ── Soft status badges (page header; dark text on a light tint of the same hue, all ≥ 4.5:1) ── */
+  --status-not-started-soft-bg:   #f3f4f6;
+  --status-not-started-soft-text: #374151;
+  --status-started-soft-bg:       #e8f5e9;
+  --status-started-soft-text:     #1b5e20;
+  --status-at-risk-soft-bg:       #fdecea;
+  --status-at-risk-soft-text:     #9b1c1c;
+  --status-on-hold-soft-bg:       #fef3c7;
+  --status-on-hold-soft-text:     #92400e;
+  --status-completed-soft-bg:     #e3e8f5;
+  --status-completed-soft-text:   #0b1840;
 
   /* ── Chart colours (read by Chart.js through getComputedStyle, see portfolio.html chartColor()) ── */
   --chart-actual:    var(--kpi-blue);
