@@ -173,7 +173,7 @@ funzionali. In più, deciso alla riapertura del gate: le copie inline di `.card`
 8. **Il layout phone di B-096 vale anche per l'header di project-config.** Alternativa scartata: escluderla con un
    selettore. Perché: l'esclusione riguarda il contenuto, e l'header è condiviso dal ciclo 1.
 9. **Le copie inline di `.card` in `timesheets.html` e `_terms-editor.html` escono dal ciclo e restano come sono.**
-   Alternative scartate: farle caricare `admin-crud.css` e cancellarle, oppure tenerle ma con i token. Perché: deciso
+   Alternativa scartata: farle caricare `admin-crud.css` e cancellarle, oppure tenerle ma con i token. Perché: deciso
    dall'utente alla riapertura del gate; le card di quelle pagine avranno un ciclo dedicato. Il criterio 2 del Brief
    vale per le altre pagine.
 10. **Il summary fissato di `portfolio.html` tiene il bordo indigo a 2px e la testata colorata inline.**
