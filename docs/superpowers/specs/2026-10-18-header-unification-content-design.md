@@ -71,8 +71,8 @@ Le classi tengono il nome; ogni proprietà elencata legge il token.
   - `.cg-grid-card-header` (`css/costgrid.css` righe 327-335): `padding: 13px 18px` → `--card-head-pad`.
   - `.pg-card`, `.pr-card`, `.pr-card-head`, `.pf-card` (`css/portfolio.css`). `.pf-card` passa da
     `--border-medium` a `--border-light`.
-  - `.card` di `css/admin-crud.css` riga 6, e le copie inline di `timesheets.html` riga 18 e `_terms-editor.html`
-    riga 14. Le copie restano (vedi §7, voce 9), ma senza letterali.
+  - `.card` di `css/admin-crud.css` riga 6. Le copie inline di `timesheets.html` riga 18 e `_terms-editor.html`
+    riga 14 non si toccano: vanno in un ciclo a parte (§7, voce 9).
   - `.danger-card` (`_db-reset.html` righe 21-30): una card con `--card-danger-border`. `h5` e `p` prendono
     `--color-danger-text` e `--text-muted` al posto di `#dc3545`/`#6c757d`.
   - Il summary fissato di `portfolio.html` riga 104 tiene il suo bordo indigo inline (§7, voce 10).
@@ -125,7 +125,7 @@ Le classi tengono il nome; ogni proprietà elencata legge il token.
 
 - Nuovo `js/lib/content-surface-guard.test.js`:
   - le regole di `.section-card`, `.section-header`, `.pg-card`, `.pr-card`, `.pf-card`, `.pg-tile`, `.cg-banner`,
-    `.alert-sm`, `.card` (admin-crud e le due copie inline), `.danger-card`, `.page` non contengono hex, `rgb(a)` né
+    `.alert-sm`, `.card` (solo `admin-crud.css`), `.danger-card`, `.page` non contengono hex, `rgb(a)` né
     misure in px/rem letterali per bordo, raggio, ombra, padding e margine, e leggono i token di §2;
   - `.alert-sm` è definita una volta sola fra `css/*.css` e le pagine in scope;
   - nessuna pagina in scope ridefinisce `background` o `font-family` di `body`;
@@ -150,7 +150,9 @@ Le classi tengono il nome; ogni proprietà elencata legge il token.
 
 Come il Brief: master-*, project-config, pre-login e `terms.html`, card kanban e pannello dettaglio della pipeline,
 tabelle, form, modali, grafici e contenuto interno delle card, gli altri follow-up del ciclo 1, ridisegni e cambi
-funzionali.
+funzionali. In più, deciso alla riapertura del gate: le copie inline di `.card` in `timesheets.html` e
+`_terms-editor.html` (ciclo a parte per uniformare le card di quelle pagine; il Gate 5 aggiunge la voce a
+`docs/BACKLOG.md`).
 
 ## Decisioni aperte
 
@@ -170,10 +172,10 @@ funzionali.
    Alternativa scartata: sostituire anche le frecce. Perché: non sono emoji.
 8. **Il layout phone di B-096 vale anche per l'header di project-config.** Alternativa scartata: escluderla con un
    selettore. Perché: l'esclusione riguarda il contenuto, e l'header è condiviso dal ciclo 1.
-9. **Le copie inline di `.card` in `timesheets.html` e `_terms-editor.html` restano, ma leggono i token.**
-   Alternativa scartata: farle caricare `admin-crud.css` e cancellarle. Perché: `admin-crud.css` porta anche regole di
-   `.btn-primary`, `.form-control` e `.table` che cambierebbero form e tabelle, fuori scope. (Nata scrivendo la spec:
-   contraddice il criterio 2 del Brief, "le copie inline non esistono più".)
+9. **Le copie inline di `.card` in `timesheets.html` e `_terms-editor.html` escono dal ciclo e restano come sono.**
+   Alternative scartate: farle caricare `admin-crud.css` e cancellarle, oppure tenerle ma con i token. Perché: deciso
+   dall'utente alla riapertura del gate; le card di quelle pagine avranno un ciclo dedicato. Il criterio 2 del Brief
+   vale per le altre pagine.
 10. **Il summary fissato di `portfolio.html` tiene il bordo indigo a 2px e la testata colorata inline.**
     Alternativa scartata: portarlo alla card standard. Perché: è un evidenziatore voluto, non una divergenza.
     (Nata scrivendo la spec.)

@@ -118,7 +118,7 @@ uniformati con token comuni, **senza ridisegno**.
 1. Ogni KPI tile delle pagine in scope usa gli stessi token per bordo, raggio, padding, etichetta e valore.
    Nessuna pagina sovrascrive questi valori con un letterale.
 2. Ogni card di sezione delle pagine in scope usa gli stessi token per bordo, ombra, raggio e padding della
-   testata. Le copie inline di `.card` in `timesheets.html` e `_terms-editor.html` non esistono più.
+   testata. (Le copie inline di `.card` in `timesheets.html` e `_terms-editor.html` sono escluse, vedi sotto.)
 3. `.alert-sm` è definito una volta sola. Banner e alert sotto l'header (incluso `.cg-banner` e il banner viewer di
    `project-config.html`) usano token per raggio, padding e margine, e nessuno stile inline.
 4. Nelle regole toccate da questo ciclo non restano hex né `rgba` letterali (lo controlla un test o un grep
@@ -149,6 +149,8 @@ uniformati con token comuni, **senza ridisegno**.
 - Gli altri follow-up del ciclo 1 (B-093, B-094, B-095, B-097, B-098, B-102, B-103, B-104) restano nel backlog.
 - `project-config.html`: avrà un ciclo di redesign dedicato con tavole nuove (deciso in /brainstorming, 2026-10-18).
 - Le card kanban `.pb-card` e il pannello dettaglio della board pipeline (deciso in /brainstorming, 2026-10-18).
+- Le card di `timesheets.html` e `_terms-editor.html` (copie inline di `.card`): ciclo a parte per uniformarle
+  (deciso alla riapertura del gate della spec, 2026-10-18).
 - Qualsiasi ridisegno o cambio funzionale.
 
 ## Open questions per /brainstorming
