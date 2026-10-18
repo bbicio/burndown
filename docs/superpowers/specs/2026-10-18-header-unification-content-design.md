@@ -114,10 +114,10 @@ Le classi tengono il nome; ogni proprietà elencata legge il token.
 - **B-101**: `.ph-btn-primary` prende `display: inline-flex; align-items: center; height: 32px; padding: 0
   var(--space-4)`. Il `min-height: 44px` phone resta.
 - **B-099**: `costgrid.html` riga 34 e `portfolio.html` riga 356 → `<span v-if="headerBadge(…)" v-html="headerBadge(…)">`.
-- **Toolbar di planning** (`planning.html` righe 123-126) e il bottone Copy (riga 228):
+- **Toolbar di planning** (`planning.html` righe 123-126) (il bottone 📋 Copy, riga 228, sta nel modale JSON viewer: fuori scope come i modali):
   - classe `ph-btn` e `<ph-icon>` al posto dell'emoji; planning registra `.component('ph-icon', window.PhIcon)`;
   - icone: Team assistant `team`, Load XLS `upload`, Export XLS `download`, Full width `maximize`, Compact
-    `minimize`, Copy `copy`. `maximize`, `minimize` e `copy` entrano in `ICON_PATHS` (`js/lib/icons.js`), nello stile
+    `minimize`. `maximize` e `minimize` entrano in `ICON_PATHS` (`js/lib/icons.js`), nello stile
     di tratto delle icone esistenti;
   - le frecce `◀+ −▷ ◁− +▶` restano.
 
@@ -130,7 +130,7 @@ Le classi tengono il nome; ogni proprietà elencata legge il token.
   - `.alert-sm` è definita una volta sola fra `css/*.css` e le pagine in scope;
   - nessuna pagina in scope ridefinisce `background` o `font-family` di `body`;
   - `portfolio.html` e `program.html` non ridefiniscono `--app-pad`;
-  - nessun bottone di `planning.html` contiene emoji (stessa regex di `page-head-guard.test.js`);
+  - nessun bottone della `.ph-toolbar` di `planning.html` contiene emoji (stessa regex di `page-head-guard.test.js`);
   - `.kpi-card` non esiste più.
 - **Pagine escluse**: il guard verifica che l'inline `<style>` delle master-* e di `project-config.html` non cambi
   (confronto con un'impronta registrata nel test) e che `.cfg-section` resti in `css/style.css` invariata.
@@ -168,7 +168,7 @@ funzionali. In più, deciso alla riapertura del gate: le copie inline di `.card`
    24px è il valore della tavola modello; planning in full width resta a 12px perché il toggle non ha altro effetto.
 6. **Le regole globali di `.alert` di Bootstrap non cambiano.** Alternativa scartata: tokenizzarle. Perché:
    raggiungerebbero project-config e master-*.
-7. **Icone di planning: `team` più tre nuove (`maximize`, `minimize`, `copy`); le frecce di testo restano.**
+7. **Icone di planning: `team` più due nuove (`maximize`, `minimize`); le frecce di testo restano.**
    Alternativa scartata: sostituire anche le frecce. Perché: non sono emoji.
 8. **Il layout phone di B-096 vale anche per l'header di project-config.** Alternativa scartata: escluderla con un
    selettore. Perché: l'esclusione riguarda il contenuto, e l'header è condiviso dal ciclo 1.
