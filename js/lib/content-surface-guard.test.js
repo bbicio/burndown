@@ -33,7 +33,7 @@ describe('component tokens', () => {
     'card-shadow': 'none',
     'card-pad': 'var(--space-4)',
     'card-head-pad': 'var(--space-3) var(--space-4)',
-    'card-danger-border': '1px solid var(--color-danger)',
+    'card-danger-border': '2px solid var(--color-danger)',
     'tile-pad': 'var(--space-3) var(--space-4)',
     'tile-label-size': 'var(--text-2xs)',
     'tile-value-size': '1.375rem',
