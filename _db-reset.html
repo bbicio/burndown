@@ -81,8 +81,8 @@
         <div v-if="cgDeleteMsg" class="mt-2 small" :class="cgDeleteMsg.isError ? 'text-danger' : 'text-success'">{{ cgDeleteMsg.text }}</div>
       </div>
 
-      <div class="danger-card" style="max-width:560px;border-color:#0d6efd">
-        <h5 style="color:#0d6efd">Change proposal owner</h5>
+      <div class="danger-card" style="max-width:560px;border:var(--card-border)">
+        <h5 style="color:var(--brand-navy)">Change proposal owner</h5>
         <p>Reassigns a proposal (cost grid) to a different active user.</p>
         <div class="d-flex flex-column gap-2">
           <input type="text" v-model="cgOwnerIdInput" class="form-control form-control-sm font-monospace"
