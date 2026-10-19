@@ -100,12 +100,13 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
 /* Full width inside .app-container: the band cancels the container padding (--app-pad). */
 .app-container > .ph, .app-container > .ph-toolbar {
   margin-left: calc(-1 * var(--app-pad)); margin-right: calc(-1 * var(--app-pad));
+  padding-left: var(--app-pad); padding-right: var(--app-pad);
 }
 /* Spacing under the last band of a view; a .ph directly followed by a .ph-toolbar stays glued to it.
    Only inside .app-container: pipeline (board, outside it) and the admin pages are untouched. */
-.app-container .ph:not(:has(+ .ph-toolbar)) { margin-bottom: var(--space-4); }
+.app-container .ph:not(:has(+ .ph-toolbar)) { margin-bottom: var(--content-gap); }
 /* Its own rule: a browser without :has() drops only the rule above. */
-.app-container .ph-toolbar { margin-bottom: var(--space-4); }
+.app-container .ph-toolbar { margin-bottom: var(--content-gap); }
 @media (max-width: 1023.98px) {
   .ph-side { width: 100%; }
 }

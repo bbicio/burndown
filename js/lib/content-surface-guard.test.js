@@ -175,3 +175,43 @@ describe('banners and alerts', () => {
     expect(db).toContain('class="alert alert-danger alert-sm">Access denied');
   });
 });
+
+describe('page surface and spacing', () => {
+  const EXCLUDED = new Set(['master-clients.html', 'master-client-groups.html', 'master-pipelines.html',
+    'master-roles.html', 'master-currencies.html', 'project-config.html']);
+  const inScope = readdirSync(process.cwd())
+    .filter(f => f.endsWith('.html') && /initNav\(/.test(read(f)) && !EXCLUDED.has(f)).sort();
+  const inline = f => [...read(f).matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+  const style = read('css/style.css');
+
+  it('no in-scope page nor admin-crud.css repaints body background or font', () => {
+    const bad = [];
+    for (const [name, text] of [['css/admin-crud.css', read('css/admin-crud.css')], ...inScope.map(f => [f, inline(f)])]) {
+      const b = rule(text, 'body');
+      if (b !== null && /background|font-family/.test(b)) bad.push(name);
+    }
+    expect(bad).toEqual([]);
+  });
+  it('every .page rule reads --content-gap', () => {
+    for (const [name, text] of [['css/admin-crud.css', read('css/admin-crud.css')], ...inScope.map(f => [f, inline(f)])]) {
+      const b = rule(text, '.page');
+      if (b === null) continue;
+      expect(b, name).toContain('var(--content-gap)');
+      expect(b, name).not.toMatch(LITERAL);
+    }
+    expect(rule(read('css/admin-crud.css'), '.page')).not.toBeNull();
+  });
+  it('the band follows --app-pad on both sides', () => {
+    const b = rule(style, '.app-container > .ph, .app-container > .ph-toolbar');
+    expect(b).toContain('padding-left: var(--app-pad)');
+    expect(b).toContain('padding-right: var(--app-pad)');
+  });
+  it('the gap under the band is --content-gap', () => {
+    expect(rule(style, '.app-container .ph:not(:has(+ .ph-toolbar))')).toContain('margin-bottom: var(--content-gap)');
+    expect(rule(style, '.app-container .ph-toolbar')).toContain('margin-bottom: var(--content-gap)');
+  });
+  it('portfolio and program do not redefine --app-pad', () => {
+    expect(read('portfolio.html')).not.toContain('--app-pad:');
+    expect(read('program.html')).not.toContain('--app-pad:');
+  });
+});

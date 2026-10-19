@@ -1,8 +1,7 @@
 /* Shared layout for simple admin CRUD pages (Team, Attribute Lists) — same
    visual pattern as admin.html's own inline block, extracted here since it
    was duplicated verbatim across two sibling pages. */
-body { background: var(--surface-light); font-family: var(--font-family-base); }
-.page { margin: 2rem auto; }
+.page { margin: var(--content-gap) auto; }
 .card { border: var(--card-border); border-radius: var(--card-radius); box-shadow: var(--card-shadow); }
 .card-body { padding: 0; }
 .table { margin: 0; font-size: 0.875rem; }

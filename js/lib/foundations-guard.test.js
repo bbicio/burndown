@@ -91,7 +91,6 @@ describe('css/style.css', () => {
 describe('admin-crud.css and the public pages', () => {
   const admin = read('css/admin-crud.css');
   it('admin-crud.css uses tokens for font, card, muted text and primary hover', () => {
-    expect(admin).toMatch(/body\s*\{[^}]*font-family:\s*var\(--font-family-base\)/);
     expect(admin).toMatch(/\.card\s*\{[^}]*border:\s*var\(--card-border\)[^}]*box-shadow:\s*var\(--card-shadow\)/);
     expect(admin).toMatch(/\.table thead th\s*\{[^}]*color:\s*var\(--text-muted\)/);
     expect(admin).toContain('background: var(--brand-magenta-hover)');
