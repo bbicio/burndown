@@ -26,7 +26,7 @@
   <template v-if="view === 'overview'">
     <div class="ph">
       <div class="ph-main">
-        <h1 class="ph-title">Project Portfolio</h1>
+        <h1 class="ph-title">Portfolio</h1>
         <div class="ph-sub">{{ portfolioCounts }}</div>
       </div>
       <div class="ph-side">
@@ -316,7 +316,7 @@
   <template v-else>
     <div class="ph">
       <div class="ph-main">
-      <a href="#" class="ph-back" @click.prevent="showOverview"><ph-icon name="chevron-left" :size="12"></ph-icon>Project Portfolio</a>
+      <a href="#" class="ph-back" @click.prevent="showOverview"><ph-icon name="chevron-left" :size="12"></ph-icon>Portfolio</a>
           <div v-if="dashboardProgram" class="pr-program-row">
             <span class="pr-program-label">Program</span>
             <span class="pr-program-name">{{ dashboardProgram.name }}</span>
@@ -1531,7 +1531,7 @@
       kpiLeftColor(left, total) {
         if (left === null) return '';
         if (left < 0) return 'var(--color-danger)';
-        if (total && left < total * 0.1) return '#fd7e14';
+        if (total && left < total * 0.1) return 'var(--kpi-orange)';
         return 'var(--color-success)';
       },
       showDashboard(pid) {
