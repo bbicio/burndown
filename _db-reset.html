@@ -17,6 +17,7 @@
     }
     @media (max-width: 1400px) { #resetCards { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 700px)  { #resetCards { grid-template-columns: 1fr; } }
+    #singleActions { display: grid; gap: 1rem; }
     .danger-card {
       border: var(--card-danger-border);
       border-radius: var(--card-radius);
@@ -68,6 +69,7 @@
 
       <hr class="my-4">
 
+      <div id="singleActions">
       <div class="danger-card" style="max-width:560px">
         <h5>Delete single proposal + linked projects</h5>
         <p>Deletes one cost grid by UUID and all projects linked to any of its versions. Also removes resource shares for the cost grid and linked projects.</p>
@@ -92,6 +94,7 @@
           <button class="btn btn-primary btn-sm" style="white-space:nowrap" :disabled="ownerChangeBusy" @click="changeOwner">Change owner</button>
         </div>
         <div v-if="cgOwnerMsg" class="mt-2 small" :class="cgOwnerMsg.isError ? 'text-danger' : 'text-success'">{{ cgOwnerMsg.text }}</div>
+      </div>
       </div>
     </template>
   </div>
