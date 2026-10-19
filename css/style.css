@@ -77,7 +77,7 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
   display: inline-flex; align-items: center; height: 36px; padding: 0 var(--space-4);
   border: 0; border-radius: var(--radius-md);
   background: var(--brand-magenta); color: var(--surface-white);
-  font-size: var(--text-sm); font-weight: var(--weight-semibold); cursor: pointer;
+  font-size: var(--text-sm); font-weight: var(--weight-semibold); white-space: nowrap; cursor: pointer;
 }
 .ph-btn-primary:hover:not(:disabled) { background: var(--brand-magenta-hover); }
 .ph-btn-primary:active:not(:disabled) { background: var(--brand-magenta-active); }
