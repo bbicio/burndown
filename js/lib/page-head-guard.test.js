@@ -279,7 +279,7 @@ describe('final-review fixes', () => {
   });
 });
 
-describe('phone page head lives in style.css (B-096) and the primary CTA is 32px tall (B-101)', () => {
+describe('phone page head lives in style.css (B-096) and the primary CTA is 36px, taller than .ph-btn as on the boards (B-105)', () => {
   const css = stripComments(read('css/style.css'));
   const pipeline = stripComments(read('css/pipeline.css'));
   const phone = (css.match(/@media \(max-width: 767\.98px\)\s*\{[\s\S]*?\n\}/g) || []).join('\n');
@@ -303,11 +303,14 @@ describe('phone page head lives in style.css (B-096) and the primary CTA is 32px
       expect(new RegExp('(?:^|[{}\\n])\\s*' + c.replace('.', '\\.') + '\\s*\\{').test(pipeline), c).toBe(false);
     }
   });
-  it('.ph-btn-primary is as tall as .ph-btn', () => {
+  it('.ph-btn-primary is 36px and .ph-btn stays 32px', () => {
     const b = [...css.matchAll(/(?:^|[}\s])\.ph-btn-primary\s*\{([^}]*)\}/g)][0][1];
+    const sec = [...css.matchAll(/(?:^|[}\s])\.ph-btn\s*\{([^}]*)\}/g)][0][1];
     expect(b).toContain('display: inline-flex');
     expect(b).toContain('align-items: center');
-    expect(b).toContain('height: 32px');
+    expect(b).toContain('height: 36px');
+    expect(b).toContain('white-space: nowrap');
+    expect(sec).toContain('height: 32px');
     expect(b).toContain('padding: 0 var(--space-4)');
   });
 });
