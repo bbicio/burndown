@@ -96,7 +96,7 @@
 - Modify: `docs/pages/costgrid.md` (new `## Cost grid editor ↔ pipeline board integration` before `## Base state`)
 
 - [ ] **Step 1:** `grep -rn "Cost grid editor ↔ pipeline board integration" --include=*.md .` — expected: only `CLAUDE.md` and this cycle's spec/plan. Check that the lines between that heading and `### Invariants` are the intended bullets only.
-- [ ] **Step 2:** Save the block body (heading excluded) from `main` to the scratchpad; move it, changing only `###` → `##`.
+- [ ] **Step 2:** Save the block body (heading excluded) from `main` to the scratchpad; move it, changing only `###` → `##` and the one link the round-1 exception rewrites.
 - [ ] **Step 3:** Add `### Writing documentation` after `### Testing & tooling`'s last line and before `---`, with the bullets copied verbatim from spec §5.
 - [ ] **Step 4:** `diff` the saved body with the body now in `docs/pages/costgrid.md` → shows only the one link line the round-1 exception changed, as its old and new version.
 - [ ] **Step 5:** `npx vitest run scripts/` → PASS, `claude-md-guard` included. Then `tr -d '\r' < CLAUDE.md | wc -c` → ≤ 64000.
