@@ -268,7 +268,13 @@ describe('phone page head lives in style.css (B-096) and the primary CTA is 32px
     expect(phone).toMatch(/\.ph-sub \{ display: none; \}/);
     expect(phone).toMatch(/\.ph-side \{ width: 100%; justify-content: space-between; gap: var\(--space-3\); \}/);
     expect(phone).toMatch(/\.ph-btn-primary \{ min-height: 44px;/);
-    expect(phone).toMatch(/\.ph-toolbar \{ flex-wrap: nowrap; padding: var\(--space-2\) var\(--space-4\); \}/);
+    expect(phone).toMatch(/\.ph-toolbar \{ padding: var\(--space-2\) var\(--space-4\); \}/);
+    // A column band must not turn .ph-main's 32rem row basis into a 32rem-tall block.
+    expect(phone).toMatch(/\.ph-main \{ flex: 0 0 auto; \}/);
+  });
+  it('only the pipeline toolbar stays on one line at phone width', () => {
+    expect(phone).not.toMatch(/\.ph-toolbar \{[^}]*flex-wrap: nowrap/);
+    expect(pipeline).toMatch(/#pipelineBoardSection \.ph-toolbar \{ flex-wrap: nowrap; \}/);
   });
   it('pipeline.css no longer defines the six shared head rules as standalone rules', () => {
     // Pipeline-only contexts (#pipelineBoardSection .ph, .pb-title-btn .ph-title) are not standalone rules.

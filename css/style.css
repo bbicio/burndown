@@ -120,7 +120,8 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
   .ph-sub { display: none; }
   .ph-side { width: 100%; justify-content: space-between; gap: var(--space-3); }
   .ph-btn-primary { min-height: 44px; padding: 0 var(--space-4); }
-  .ph-toolbar { flex-wrap: nowrap; padding: var(--space-2) var(--space-4); }
+  .ph-toolbar { padding: var(--space-2) var(--space-4); }
+  .ph-main { flex: 0 0 auto; }
 }
 
 /* ── Master Data sub-navigation (2026-10, config.html split) ──

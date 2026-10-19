@@ -261,6 +261,7 @@
     border: 1px solid var(--border-light); border-radius: var(--radius-md);
     font-size: var(--text-sm); color: var(--text-primary); cursor: pointer;
   }
+  #pipelineBoardSection .ph-toolbar { flex-wrap: nowrap; }
   .pb-filter-dd, .pb-amounts, .ph-toolbar-spacer, .ph-toolbar > .pb-clear { display: none; }
 
   .pb-tabs {
