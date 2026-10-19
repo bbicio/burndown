@@ -328,10 +328,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-4);
   flex-wrap: wrap;
-  padding: 13px 18px;
-  border-bottom: 1px solid var(--surface-subtle);
+  padding: var(--card-head-pad);
+  border-bottom: var(--card-border);
 }
 .cg-legend {
   display: flex;

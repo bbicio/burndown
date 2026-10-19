@@ -19,15 +19,15 @@
     @media (max-width: 1400px) { #resetCards { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 700px)  { #resetCards { grid-template-columns: 1fr; } }
     .danger-card {
-      border: 2px solid #dc3545;
-      border-radius: 12px;
-      background: #fff;
-      padding: 1.5rem;
+      border: var(--card-danger-border);
+      border-radius: var(--card-radius);
+      background: var(--card-bg);
+      padding: var(--card-pad);
       display: flex;
       flex-direction: column;
     }
-    .danger-card h5 { color: #dc3545; font-weight: 700; margin-bottom: .25rem; }
-    .danger-card p  { color: #6c757d; font-size: .875rem; margin-bottom: .75rem; flex: 1; }
+    .danger-card h5 { color: var(--color-danger-text); font-weight: 700; margin-bottom: .25rem; }
+    .danger-card p  { color: var(--text-muted); font-size: .875rem; margin-bottom: .75rem; flex: 1; }
     .spinner-border { width: 1rem; height: 1rem; border-width: 2px; }
   </style>
 </head>

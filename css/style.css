@@ -271,15 +271,6 @@ html[data-sidebar="collapsed"] .pd-nav-collapse .nav-icon:last-child { display: 
   .pd-notif-panel { width: calc(100vw - 20px); }
 }
 
-/* ── KPI cards ── */
-.kpi-card { border: none; border-left: 4px solid; border-radius: var(--radius-lg); }
-.kpi-card.blue   { border-left-color: var(--kpi-blue);   }
-.kpi-card.green  { border-left-color: var(--kpi-green);  }
-.kpi-card.orange { border-left-color: var(--kpi-orange); }
-.kpi-card.purple { border-left-color: var(--kpi-purple); }
-.kpi-card.teal   { border-left-color: var(--kpi-teal);   }
-.kpi-card.red    { border-left-color: var(--kpi-red);    }
-
 /* ── Chart ── */
 .chart-container { position: relative; height: 380px; }
 
@@ -298,13 +289,14 @@ html[data-sidebar="collapsed"] .pd-nav-collapse .nav-icon:last-child { display: 
 
 /* ── Section cards ── */
 .section-card {
-  background: var(--surface-white);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  background: var(--card-bg);
+  border: var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
 }
 .section-header {
-  padding: 13px 18px;
-  border-bottom: 1px solid var(--surface-subtle);
+  padding: var(--card-head-pad);
+  border-bottom: var(--card-border);
   font-weight: 600;
   font-size: var(--text-lg);
 }

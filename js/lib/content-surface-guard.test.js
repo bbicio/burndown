@@ -74,3 +74,65 @@ describe('excluded pages are untouched', () => {
       'background: var(--surface-light); border-radius: var(--radius-md); padding: 16px 18px; margin-bottom: 1rem;');
   });
 });
+
+describe('cards and tiles', () => {
+  const style = read('css/style.css');
+  const portfolio = read('css/portfolio.css');
+  const costgrid = read('css/costgrid.css');
+  const adminCrud = read('css/admin-crud.css');
+  const dbReset = read('_db-reset.html');
+  const body = (text, sel) => {
+    const b = rule(text, sel);
+    expect(b, `${sel} rule exists`).not.toBeNull();
+    return b;
+  };
+
+  it('.section-card reads the card tokens', () => {
+    const b = body(style, '.section-card');
+    for (const t of ['--card-bg', '--card-border', '--card-radius', '--card-shadow']) expect(b).toContain(`var(${t})`);
+    expect(b).not.toMatch(LITERAL);
+  });
+  it('card heads read --card-head-pad', () => {
+    for (const [text, sel] of [[style, '.section-header'], [portfolio, '.pr-card-head'], [costgrid, '.cg-grid-card-header']]) {
+      const b = body(text, sel);
+      expect(b, sel).toContain('var(--card-head-pad)');
+      expect(b, sel).not.toMatch(LITERAL);
+    }
+  });
+  it('portfolio cards read border, radius and padding tokens', () => {
+    for (const sel of ['.pg-card', '.pr-card', '.pf-card']) {
+      const b = body(portfolio, sel);
+      expect(b, sel).toContain('var(--card-border)');
+      expect(b, sel).toContain('var(--card-radius)');
+      expect(b, sel).not.toMatch(LITERAL);
+    }
+    for (const sel of ['.pg-card', '.pf-card']) expect(body(portfolio, sel)).toContain('var(--card-pad)');
+  });
+  it('.card in admin-crud.css reads the card tokens', () => {
+    const b = body(adminCrud, '.card');
+    for (const t of ['--card-border', '--card-radius', '--card-shadow']) expect(b).toContain(`var(${t})`);
+    expect(b).not.toMatch(LITERAL);
+  });
+  it('.danger-card reads the card tokens and semantic colours', () => {
+    const b = body(dbReset, '.danger-card');
+    for (const t of ['--card-danger-border', '--card-radius', '--card-pad']) expect(b).toContain(`var(${t})`);
+    expect(b).not.toMatch(LITERAL);
+    expect(body(dbReset, '.danger-card h5')).toContain('var(--color-danger-text)');
+    expect(body(dbReset, '.danger-card p')).toContain('var(--text-muted)');
+  });
+  it('tiles read the tile tokens', () => {
+    const tile = body(portfolio, '.pg-tile');
+    expect(tile).toContain('var(--tile-pad)');
+    expect(tile).not.toMatch(LITERAL);
+    expect(body(portfolio, '.pg-tile-label')).toContain('var(--tile-label-size)');
+    expect(body(portfolio, '.pg-tile-value')).toContain('var(--tile-value-size)');
+  });
+  it('the project dashboard tiles no longer override padding or value size', () => {
+    const t = rule(portfolio, '.pr-kpis .pg-tile');
+    if (t !== null) expect(t).not.toContain('padding');
+    expect(rule(portfolio, '.pr-kpis .pg-tile-value')).not.toContain('font-size');
+  });
+  it('.kpi-card is gone', () => {
+    expect(style).not.toContain('.kpi-card');
+  });
+});
