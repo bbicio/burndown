@@ -211,6 +211,10 @@ describe('page surface and spacing', () => {
     expect(rule(style, '.app-container .ph:not(:has(+ .ph-toolbar))')).toContain('margin-bottom: var(--content-gap)');
     expect(rule(style, '.app-container .ph-toolbar')).toContain('margin-bottom: var(--content-gap)');
   });
+  it('a phone narrows --app-pad to --space-4, where the band can read it', () => {
+    const phone = style.slice(style.indexOf('@media (max-width: 767.98px)'));
+    expect(phone).toMatch(/\.app-container\s*\{\s*--app-pad:\s*var\(--space-4\)/);
+  });
   it('portfolio and program do not redefine --app-pad', () => {
     expect(read('portfolio.html')).not.toContain('--app-pad:');
     expect(read('program.html')).not.toContain('--app-pad:');
