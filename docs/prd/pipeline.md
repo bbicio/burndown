@@ -86,9 +86,9 @@ The detail panel's **POT** tab (2026-10-07) compares the offer's client (or clie
 
 When there is nothing to compare, the tab says so: Draft versions don't count toward the POT; an offer without a client has no POT; a client without a target for that year shows "No POT target for … in …".
 
-### 4.9 Cost Grid Editor (overlay)
+### 4.9 Cost Grid Editor
 
-Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as a full-page overlay that keeps the Pipeline tab highlighted in the nav.
+Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as its own full page (`costgrid.html`) that keeps the Pipeline tab highlighted in the nav.
 
 **Header** (2026-10-07 redesign; since 2026-10-16 the shared page head of every page, no longer a card, with icons instead of emoji on the actions and no stage pill on a Draft): title/subtitle/stage pill, a version segmented control ("+ New version", Draft only, plus one segment per version — see "Versioning" below), and the action row: Save · Clone · Export XLS · Share (opens the same share modal described in §18.2, with the same inline "Shared with" list and removal described in §18.3 — the full-page editor is not a separate sharing surface, it's the same mechanism as the pipeline board's detail panel) · one primary action per state (🚀 Publish to SIP on Draft, "Generate project" otherwise when free tasks remain). 🗑 Delete version (Draft stage only) moved into the Draft banner. The grid card's own header carries a ⊟/⊞ compact-columns toggle (hides the per-role code/label polish only — see "Role columns" below for where the move/change/duplicate/remove/reset controls actually live now).
 
