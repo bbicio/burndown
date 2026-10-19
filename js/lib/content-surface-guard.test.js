@@ -33,7 +33,7 @@ describe('component tokens', () => {
     'card-shadow': 'none',
     'card-pad': 'var(--space-4)',
     'card-head-pad': 'var(--space-3) var(--space-4)',
-    'card-danger-border': '1px solid var(--color-danger)',
+    'card-danger-border': '2px solid var(--color-danger)',
     'tile-pad': 'var(--space-3) var(--space-4)',
     'tile-label-size': 'var(--text-2xs)',
     'tile-value-size': '1.375rem',
@@ -120,6 +120,13 @@ describe('cards and tiles', () => {
     expect(b).not.toMatch(LITERAL);
     expect(body(dbReset, '.danger-card h5')).toContain('var(--color-danger-text)');
     expect(body(dbReset, '.danger-card p')).toContain('var(--text-muted)');
+  });
+  it('.action-card reads the card tokens and _db-reset.html has no hex colour (B-118)', () => {
+    const b = body(dbReset, '.action-card');
+    for (const t of ['--card-border', '--card-radius', '--card-pad']) expect(b).toContain(`var(${t})`);
+    expect(b).not.toMatch(LITERAL);
+    expect(body(dbReset, '.action-card h5')).toContain('var(--brand-navy)');
+    expect(dbReset).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
   it('tiles read the tile tokens', () => {
     const tile = body(portfolio, '.pg-tile');

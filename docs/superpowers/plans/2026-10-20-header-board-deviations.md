@@ -28,7 +28,7 @@
 
 ## Decisioni aperte
 
-1. **B-105: il CTA primario passa a 36px, i secondari restano a 32.** Alternativa scartata: 40px, o alzare anche `.ph-btn`. Perché: 36 è la misura ricavata dalle due tavole con un CTA, e la tavola costgrid disegna i secondari a ~33.
+1. **B-105: il CTA primario passa a 36px, i secondari restano a 32.** Alternativa scartata: 40px, o alzare anche `.ph-btn`. Perché: 36 è la misura ricavata dalle due tavole con un CTA, e la tavola costgrid disegna i secondari a ~33. Il Piano non aveva visto che `js/lib/page-head-guard.test.js` pinnava la regola opposta di B-101 (CTA alto quanto `.ph-btn`): emerso al Gate 1, l'utente ha scelto il 2026-10-20 di tenere CTA 36 e secondari 32, e il guard ora pinna questo.
 2. **B-111: `white-space: nowrap` anche se il difetto non si riproduce.** Alternativa scartata: chiudere la riga come "non riprodotto". Perché: costa una proprietà nella regola che T1 tocca comunque, e un'etichetta futura più lunga lo renderebbe reale.
 3. **B-107: un contenitore a griglia con gap, non un margine sulla card.** Alternativa scartata: `.danger-card + .danger-card { margin-top }`. Perché: ripete il meccanismo già usato da `#resetCards` nella stessa pagina.
 4. **B-118: la card "Change proposal owner" diventa una card neutra.** Alternativa scartata: tenerla blu con un token (`--indigo-600`). Perché: non è un'azione distruttiva e nessun token del progetto corrisponde al blu Bootstrap; il bottone è già nel colore primario.

@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDash — DB Reset</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="css/tokens.css?v=11">
-  <link rel="stylesheet" href="css/style.css?v=25">
+  <link rel="stylesheet" href="css/tokens.css?v=12">
+  <link rel="stylesheet" href="css/style.css?v=26">
   <style>
     .page { margin: var(--content-gap) auto; }
     #resetCards {
@@ -17,6 +17,7 @@
     }
     @media (max-width: 1400px) { #resetCards { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 700px)  { #resetCards { grid-template-columns: 1fr; } }
+    #singleActions { display: grid; gap: 1rem; max-width: 560px; }
     .danger-card {
       border: var(--card-danger-border);
       border-radius: var(--card-radius);
@@ -27,6 +28,16 @@
     }
     .danger-card h5 { color: var(--color-danger-text); font-weight: 700; margin-bottom: .25rem; }
     .danger-card p  { color: var(--text-muted); font-size: .875rem; margin-bottom: .75rem; flex: 1; }
+    .action-card {
+      border: var(--card-border);
+      border-radius: var(--card-radius);
+      background: var(--card-bg);
+      padding: var(--card-pad);
+      display: flex;
+      flex-direction: column;
+    }
+    .action-card h5 { color: var(--brand-navy); font-weight: 700; margin-bottom: .25rem; }
+    .action-card p  { color: var(--text-muted); font-size: .875rem; margin-bottom: .75rem; flex: 1; }
     .spinner-border { width: 1rem; height: 1rem; border-width: 2px; }
   </style>
 </head>
@@ -68,30 +79,32 @@
 
       <hr class="my-4">
 
-      <div class="danger-card" style="max-width:560px">
-        <h5>Delete single proposal + linked projects</h5>
-        <p>Deletes one cost grid by UUID and all projects linked to any of its versions. Also removes resource shares for the cost grid and linked projects.</p>
-        <div class="d-flex gap-2 align-items-center">
-          <input type="text" v-model="cgIdInput" class="form-control form-control-sm font-monospace"
-                 placeholder="Cost grid UUID" autocomplete="off" style="flex:1">
-          <button class="btn btn-danger btn-sm" style="white-space:nowrap" @click="openCgDeleteConfirm">Delete proposal</button>
+      <div id="singleActions">
+        <div class="danger-card">
+          <h5>Delete single proposal + linked projects</h5>
+          <p>Deletes one cost grid by UUID and all projects linked to any of its versions. Also removes resource shares for the cost grid and linked projects.</p>
+          <div class="d-flex gap-2 align-items-center">
+            <input type="text" v-model="cgIdInput" class="form-control form-control-sm font-monospace"
+                   placeholder="Cost grid UUID" autocomplete="off" style="flex:1">
+            <button class="btn btn-danger btn-sm" style="white-space:nowrap" @click="openCgDeleteConfirm">Delete proposal</button>
+          </div>
+          <div v-if="cgDeleteMsg" class="mt-2 small" :class="cgDeleteMsg.isError ? 'text-danger' : 'text-success'">{{ cgDeleteMsg.text }}</div>
         </div>
-        <div v-if="cgDeleteMsg" class="mt-2 small" :class="cgDeleteMsg.isError ? 'text-danger' : 'text-success'">{{ cgDeleteMsg.text }}</div>
-      </div>
 
-      <div class="danger-card" style="max-width:560px;border-color:#0d6efd">
-        <h5 style="color:#0d6efd">Change proposal owner</h5>
-        <p>Reassigns a proposal (cost grid) to a different active user.</p>
-        <div class="d-flex flex-column gap-2">
-          <input type="text" v-model="cgOwnerIdInput" class="form-control form-control-sm font-monospace"
-                 placeholder="Cost grid UUID" autocomplete="off">
-          <select v-model="ownerSelected" class="form-select form-select-sm">
-            <option value="">{{ !ownerOptionsLoaded ? 'Loading users…' : (ownerLoadFailed ? 'Failed to load users' : 'Select new owner…') }}</option>
-            <option v-for="u in ownerOptions" :key="u.id" :value="u.id">{{ u.label }}</option>
-          </select>
-          <button class="btn btn-primary btn-sm" style="white-space:nowrap" :disabled="ownerChangeBusy" @click="changeOwner">Change owner</button>
+        <div class="action-card">
+          <h5>Change proposal owner</h5>
+          <p>Reassigns a proposal (cost grid) to a different active user.</p>
+          <div class="d-flex flex-column gap-2">
+            <input type="text" v-model="cgOwnerIdInput" class="form-control form-control-sm font-monospace"
+                   placeholder="Cost grid UUID" autocomplete="off">
+            <select v-model="ownerSelected" class="form-select form-select-sm">
+              <option value="">{{ !ownerOptionsLoaded ? 'Loading users…' : (ownerLoadFailed ? 'Failed to load users' : 'Select new owner…') }}</option>
+              <option v-for="u in ownerOptions" :key="u.id" :value="u.id">{{ u.label }}</option>
+            </select>
+            <button class="btn btn-primary btn-sm" style="white-space:nowrap" :disabled="ownerChangeBusy" @click="changeOwner">Change owner</button>
+          </div>
+          <div v-if="cgOwnerMsg" class="mt-2 small" :class="cgOwnerMsg.isError ? 'text-danger' : 'text-success'">{{ cgOwnerMsg.text }}</div>
         </div>
-        <div v-if="cgOwnerMsg" class="mt-2 small" :class="cgOwnerMsg.isError ? 'text-danger' : 'text-success'">{{ cgOwnerMsg.text }}</div>
       </div>
     </template>
   </div>
