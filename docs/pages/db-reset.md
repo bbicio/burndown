@@ -14,4 +14,4 @@ Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `d
 
 ## Header unification, content (2026-10-19)
 
-Spec `docs/superpowers/specs/2026-10-18-header-unification-content-design.md`. `.danger-card` reads `--card-danger-border` (1px) instead of its own 2px literal, and the cards sit flush against each other; both are open in `docs/BACKLOG.md`.
+Spec `docs/superpowers/specs/2026-10-18-header-unification-content-design.md`. `.danger-card` reads `--card-danger-border` instead of its own literal.
