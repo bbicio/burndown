@@ -42,7 +42,7 @@
 | N-03 | Settings opens a page (2026-09-30) | Click ⚙ Settings in the account dropdown | Navigates to `/settings.html`; no modal opens | |
 | ST-01 | Settings page content | Open `/settings.html` | Standard navigation and breadcrumb Home › Settings (no footer); white content area whose only content is the title "Settings", sized like other admin page titles | |
 | ST-02 | Settings requires login | Log out, open `/settings.html` | Redirected to login | |
-| ST-03 | No stale settings.js | Open any of the 14 pages with the console open | No 404 for `js/settings.js`, no JS errors | |
+| ST-03 | No stale settings.js | Open any authenticated page with the console open | No 404 for `js/settings.js`, no JS errors | |
 | N-04 | Non-admin access to the Master Data pages | Navigate to `/master-clients.html` as role=user (repeat for `/master-client-groups.html`, `/master-pipelines.html`, `/master-roles.html`, `/master-currencies.html`) | "Admin access required" on each page — no panel content accessible (the sub-menu stays visible) | |
 | N-05 | Non-admin admin.html | Navigate to `/admin.html` as role=user | "Admin access required" or redirect | |
 | N-06 | Non-admin timesheets.html | Navigate to `/timesheets.html` as role=user | Redirected to pipeline.html or access denied | |
@@ -530,7 +530,7 @@
 | AD-07 | Enable user | Click Enable on a disabled user | Status → active; user can log in again | |
 | AD-08 | Cannot modify self | View own row in user list | No role/status buttons — "(you)" label shown instead | |
 | AD-09 | Pipeline years absent | Open admin.html | No pipeline years section — managed in Master Data → Pipelines & POTs (`master-pipelines.html`) | |
-| AD-11 | Rate Cards button absent | Open admin.html | No "💲 Rate Cards" button — rate card management moved to Config → Clients | |
+| AD-11 | Rate Cards button absent | Open admin.html | No "💲 Rate Cards" button — rate card management moved to Master Data → Clients | |
 | AD-12 | Anonymize button — only on disabled non-anonymized | View a disabled user row that has a real email | "🗑 Anonymize" button visible; "anonymized" badge absent | |
 | AD-13 | Anonymize button — hidden on active user | View an active user row | "🗑 Anonymize" button not shown | |
 | AD-14 | Anonymize — confirm dialog | Click "🗑 Anonymize" on a disabled user | Browser confirm dialog appears explaining what data will be replaced and that operational records are preserved | |
