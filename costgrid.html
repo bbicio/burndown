@@ -31,7 +31,7 @@
         <a href="#" class="ph-back" @click.prevent="goBack"><ph-icon name="chevron-left" :size="12"></ph-icon><span>{{ backSaving ? 'Saving…' : 'Pipeline' }}</span></a>
         <div class="ph-title-row">
           <h1 class="ph-title">{{ cg?.name || 'Cost Grid' }}</h1>
-          <span v-html="headerBadge('stage', draft?.pipeline)"></span>
+          <span v-if="headerBadge('stage', draft?.pipeline)" v-html="headerBadge('stage', draft?.pipeline)"></span>
         </div>
         <div class="ph-sub">Cost Grid · Client: {{ resolvedClientName || 'Unassigned' }} · {{ (draft?.linkedProjects || []).length ? (draft.linkedProjects.length + ' linked project' + (draft.linkedProjects.length > 1 ? 's' : '')) : 'No linked projects' }}</div>
       </div>

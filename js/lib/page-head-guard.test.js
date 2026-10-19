@@ -284,3 +284,16 @@ describe('phone page head lives in style.css (B-096) and the primary CTA is 32px
     expect(b).toContain('padding: 0 var(--space-4)');
   });
 });
+
+describe('no empty badge span in the title row (B-099)', () => {
+  for (const f of ['costgrid.html', 'portfolio.html']) {
+    it(`${f}: every headerBadge span is guarded by a v-if with the same call`, () => {
+      const html = read(f);
+      const spans = [...html.matchAll(/<span[^>]*v-html="(headerBadge\([^"]*\))"[^>]*>/g)];
+      expect(spans.length).toBeGreaterThan(0);
+      for (const m of spans) {
+        expect(m[0], m[1]).toContain(`v-if="${m[1]}"`);
+      }
+    });
+  }
+});

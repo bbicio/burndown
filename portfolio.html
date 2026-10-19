@@ -350,7 +350,7 @@
               </div><!-- /pr-switch -->
             </div>
             <h1 v-else class="ph-title">{{ dashboardTitle }}</h1>
-            <template v-if="dashboardProjectId"><span v-html="headerBadge('stage', getProjectPipeline(dashboardProjectId) || dashboardProject?.pipeline)"></span><span v-html="headerBadge('status', dashboardProject?.status || 'Not started yet')"></span></template>
+            <template v-if="dashboardProjectId"><span v-if="headerBadge('stage', getProjectPipeline(dashboardProjectId) || dashboardProject?.pipeline)" v-html="headerBadge('stage', getProjectPipeline(dashboardProjectId) || dashboardProject?.pipeline)"></span><span v-if="headerBadge('status', dashboardProject?.status || 'Not started yet')" v-html="headerBadge('status', dashboardProject?.status || 'Not started yet')"></span></template>
           </div>
           <div class="ph-sub pr-meta">
             <span v-if="dashboardClientName">{{ dashboardClientName }}</span>
