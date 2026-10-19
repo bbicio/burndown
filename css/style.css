@@ -115,7 +115,7 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
 @media (max-width: 767.98px) {
   .ph-lbl-wide { display: none; }
   .ph-lbl-narrow { display: inline; }
-  /* The container gutter, and so the band that follows it, is 16px on a phone. */
+  /* The container gutter, and so the band that follows it, is 16px on a phone (12px on the full-width planning page, see body.pp-fullwidth). */
   .app-container { --app-pad: var(--space-4); }
   .ph { flex-direction: column; align-items: flex-start; flex-wrap: nowrap; gap: var(--space-2); padding: var(--space-3) var(--space-4); position: relative; }
   .ph-title { font-size: 20px; }
@@ -490,7 +490,7 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
 /* planning.html toolbar content containers (the band itself is .ph-toolbar) */
 .pl-toolbar { align-items: flex-start; padding-top: var(--space-3); padding-bottom: var(--space-3); }
 .pl-toolbar-left  { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.pl-toolbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding-top: 2px; }
+.pl-toolbar-right { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; flex-shrink: 0; max-width: 100%; padding-top: 2px; }
 
 /* ── Misc ── */
 .dropdown-toggle-no-caret::after { display: none; }
