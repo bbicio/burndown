@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
@@ -134,5 +134,44 @@ describe('cards and tiles', () => {
   });
   it('.kpi-card is gone', () => {
     expect(style).not.toContain('.kpi-card');
+  });
+});
+
+describe('banners and alerts', () => {
+  
+  const style = read('css/style.css');
+  const costgrid = read('css/costgrid.css');
+  const EXCLUDED = new Set(['master-clients.html', 'master-client-groups.html', 'master-pipelines.html',
+    'master-roles.html', 'master-currencies.html', 'project-config.html']);
+  const inScope = readdirSync(process.cwd())
+    .filter(f => f.endsWith('.html') && /initNav\(/.test(read(f)) && !EXCLUDED.has(f)).sort();
+  const cssFiles = readdirSync(join(process.cwd(), 'css')).filter(f => f.endsWith('.css') && f !== 'auth.css');
+
+  it('.alert-sm reads the banner tokens', () => {
+    const b = rule(style, '.alert-sm');
+    expect(b).not.toBeNull();
+    expect(b).toContain('font-size: var(--banner-font-size)');
+    expect(b).toContain('padding: var(--banner-pad)');
+    expect(b).toContain('border-radius: var(--banner-radius)');
+  });
+  it('.alert-sm is defined exactly once across the stylesheets and in-scope pages', () => {
+    const owners = [];
+    const count = text => (text.match(/\.alert-sm\s*\{/g) || []).length;
+    for (const f of cssFiles) for (let i = 0; i < count(read('css/' + f)); i++) owners.push('css/' + f);
+    for (const f of inScope) for (let i = 0; i < count(read(f)); i++) owners.push(f);
+    expect(owners).toEqual(['css/style.css']);
+  });
+  it('.cg-banner reads the banner tokens', () => {
+    const b = rule(costgrid, '.cg-banner');
+    expect(b).not.toBeNull();
+    for (const t of ['--banner-radius', '--banner-pad', '--banner-font-size', '--content-gap']) expect(b).toContain(`var(${t})`);
+    expect(b).not.toMatch(LITERAL);
+  });
+  it('load-error alerts in the content flow use alert-sm', () => {
+    expect(read('costgrid.html')).toContain('class="alert alert-danger alert-sm m-4"');
+    expect(read('planning.html')).toContain('class="alert alert-danger alert-sm m-4"');
+    const db = read('_db-reset.html');
+    expect(db).toContain('class="alert alert-danger alert-sm mb-4">Sysadmin-only');
+    expect(db).toContain('class="alert alert-danger alert-sm">Access denied');
   });
 });

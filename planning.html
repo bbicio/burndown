@@ -31,7 +31,7 @@
     <div v-if="loading" class="d-flex justify-content-center align-items-center" style="height:60vh">
       <div class="spinner-border text-secondary"></div>
     </div>
-    <div v-else-if="loadError" class="alert alert-danger m-4">{{ loadError }}</div>
+    <div v-else-if="loadError" class="alert alert-danger alert-sm m-4">{{ loadError }}</div>
     <template v-else>
     <div class="ph">
       <div class="ph-main">

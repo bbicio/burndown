@@ -432,6 +432,7 @@ thead .gantt-label-col { background: var(--indigo-50); z-index: 3; }
 .alert-danger  { --bs-alert-color: var(--color-danger-text);  --bs-alert-bg: var(--color-danger-bg);  --bs-alert-link-color: var(--color-danger-text); }
 .alert-warning { --bs-alert-color: var(--color-warning-text); --bs-alert-bg: var(--color-warning-bg); --bs-alert-link-color: var(--color-warning-text); }
 .alert-info    { --bs-alert-color: var(--color-info-text);    --bs-alert-bg: var(--color-info-bg);    --bs-alert-link-color: var(--color-info-text); }
+.alert-sm { font-size: var(--banner-font-size); padding: var(--banner-pad); border-radius: var(--banner-radius); }
 .dropdown-menu {
   --bs-dropdown-border-color:  var(--border-light);
   --bs-dropdown-border-radius: var(--radius-md);
