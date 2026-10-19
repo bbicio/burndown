@@ -187,3 +187,7 @@ The burndown's actual line stops at the current month and its pill `<N>h left ·
 ## Header unification (2026-10-16)
 
 Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. The header is the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`): `.pg-topline*`/`.pg-header-row`/`.pg-header-actions`/`.pg-label`/`.pg-title` became a `.ph` with the `.ph-back` "Project Portfolio", the `.ph-eyebrow` "Program dashboard", the title with a light stage pill from `headerBadge()`, and Export (`download`) and Share (`share`) as `.ph-btn`. The unused `pipelineBadge` method was removed from the instance.
+
+## Backlog quick wins (2026-10-20)
+
+Report `docs/superpowers/reports/2026-10-20-backlog-quickwins-finish-cycle.md`. The header's back link reads "‹ Portfolio", like the project dashboard's (B-016).

@@ -76,3 +76,7 @@ Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `d
 ## Header unification, content (2026-10-19)
 
 Spec `docs/superpowers/specs/2026-10-18-header-unification-content-design.md`, report `docs/superpowers/reports/2026-10-19-header-unification-content-finish-cycle.md`. The toolbar's right-hand buttons became shared `.ph-btn` icon buttons (`maximize`/`minimize` among them). The second row (`◀+`, `−▷`, `◁−`, `+▶`) still uses `btn btn-sm btn-outline-secondary` and the toolbar overflows at 375px; both are open in `docs/BACKLOG.md`. `body.pp-fullwidth` keeps `--app-pad: 12px`.
+
+## Backlog quick wins (2026-10-20)
+
+Plan `docs/superpowers/plans/2026-10-19-backlog-quickwins.md`, report `docs/superpowers/reports/2026-10-20-backlog-quickwins-finish-cycle.md`. The page head reads "Planning — All Projects" / "Planning — <project>" (`planningTitle`), matching the menu, tab title and breadcrumb (B-016); the Excel export's sheet keeps the name "Resource Planning". `.pl-toolbar-right` in `css/style.css` wraps (`flex-wrap: wrap; max-width: 100%`), so on a phone the buttons go to a second line instead of overflowing (B-106). `js/lib/page-head-guard.test.js` now also checks the method behind a computed `{{ name }}` title for emoji (B-097).
