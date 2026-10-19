@@ -215,3 +215,34 @@ describe('page surface and spacing', () => {
     expect(read('program.html')).not.toContain('--app-pad:');
   });
 });
+
+describe('planning toolbar', () => {
+  const html = read('planning.html');
+  const start = html.indexOf('<div class="pl-toolbar-right">');
+  const toolbar = html.slice(start, html.indexOf('</div>', start));
+  const buttons = toolbar.split('</button>').slice(0, -1).map(b => b + '</button>');
+
+  it('has four buttons', () => {
+    expect(start).toBeGreaterThan(-1);
+    expect(buttons.length).toBe(4);
+  });
+  it('carries no emoji or symbol glyphs', () => {
+    expect(toolbar).not.toMatch(/\p{Extended_Pictographic}|[⛶⊡⬇]/u);
+  });
+  it('every button is a .ph-btn with a shared icon', () => {
+    for (const b of buttons) {
+      expect(b).toContain('class="ph-btn"');
+      expect(b).toContain('<ph-icon');
+    }
+    const by = label => buttons.find(b => b.includes(label));
+    expect(by('Team assistant')).toContain('name="team"');
+    expect(by('Load XLS')).toContain('name="upload"');
+    expect(by('Export XLS')).toContain('name="download"');
+    expect(by('toggleFullWidth')).toContain(`:name="fullWidth ? 'minimize' : 'maximize'"`);
+  });
+  it('registers ph-icon before mounting', () => {
+    const reg = html.indexOf(`app.component('ph-icon', window.PhIcon)`);
+    expect(reg).toBeGreaterThan(-1);
+    expect(reg).toBeLessThan(html.indexOf(`app.mount('#planningApp')`));
+  });
+});

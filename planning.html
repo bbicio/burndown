@@ -120,10 +120,10 @@
       </div>
       <div class="ph-toolbar-spacer"></div>
       <div class="pl-toolbar-right">
-        <button v-if="isAdminUser" class="btn btn-outline-secondary btn-sm" title="Find the best people to allocate to a project" @click="taOpen = !taOpen">🤖 Team assistant</button>
-        <button class="btn btn-outline-secondary btn-sm" @click="$refs.fileInput.click()">📂 Load XLS</button>
-        <button class="btn btn-outline-secondary btn-sm" title="Toggle full browser width" @click="toggleFullWidth">{{ fullWidth ? '⊡ Compact' : '⛶ Full width' }}</button>
-        <button class="btn btn-sm btn-outline-secondary" @click="exportCurrentView">⬇ Export XLS</button>
+        <button v-if="isAdminUser" class="ph-btn" title="Find the best people to allocate to a project" @click="taOpen = !taOpen"><ph-icon name="team" :size="14"></ph-icon> Team assistant</button>
+        <button class="ph-btn" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon> Load XLS</button>
+        <button class="ph-btn" title="Toggle full browser width" @click="toggleFullWidth"><ph-icon :name="fullWidth ? 'minimize' : 'maximize'" :size="14"></ph-icon> {{ fullWidth ? 'Compact' : 'Full width' }}</button>
+        <button class="ph-btn" @click="exportCurrentView"><ph-icon name="download" :size="14"></ph-icon> Export XLS</button>
       </div>
     </div>
     <div class="section-card">
@@ -1361,6 +1361,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     },
   });
 
+  app.component('ph-icon', window.PhIcon);
   app.mount('#planningApp');
 
   document.getElementById('btnJsonCopy').addEventListener('click', () => {

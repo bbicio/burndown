@@ -40,6 +40,8 @@ export const ICON_PATHS = {
   clone:        '<rect x="5.5" y="5.5" width="8" height="8" rx="1.3" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 3.5V3.3c0-.5-.4-.8-.8-.8H3.3c-.5 0-.8.4-.8.8v6.4c0 .4.3.8.8.8h.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
   plus:         '<path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
   chevronDown:  '<path d="M3.5 6L8 10.5 12.5 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+  maximize:     '<path d="M2.5 6V2.5H6M10 2.5H13.5V6M13.5 10V13.5H10M6 13.5H2.5V10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+  minimize:     '<path d="M6 2.5V6H2.5M10 2.5V6H13.5M13.5 10H10V13.5M2.5 10H6V13.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
 };
 
 export function iconSvg(name, size = 16, cls = '') {
