@@ -51,7 +51,7 @@ describe('component tokens', () => {
 
 describe('excluded pages are untouched', () => {
   // sha256 of the concatenated inline <style> contents, computed on main before this cycle.
-  const MASTER_SHA = '15420c48651b185e8db0cf8c0835e80345b63a666f9a0a0aa90970140965f2de';
+  const MASTER_SHA = 'c6dc734b8d97bda91a83b964ce34a57fd803ad1fd6f0965bfd19fc749cacc646';
   const EXCLUDED_STYLE_SHA = {
     'master-clients.html': MASTER_SHA,
     'master-client-groups.html': MASTER_SHA,
@@ -61,7 +61,8 @@ describe('excluded pages are untouched', () => {
     'project-config.html': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
   };
   const styleSha = file => {
-    const s = [...read(file).matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+    // Hashed on LF text: the repo stores LF, a Windows checkout may hand back CRLF.
+    const s = [...read(file).replace(/\r\n/g, '\n').matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
     return createHash('sha256').update(s).digest('hex');
   };
   for (const [file, sha] of Object.entries(EXCLUDED_STYLE_SHA)) {

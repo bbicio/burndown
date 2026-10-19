@@ -52,13 +52,13 @@ describe('pipeline board guard', () => {
     expect(found).toBeGreaterThan(0);
   });
 
-  it('every pipeline.css reference is ?v=3', () => {
+  it('every pipeline.css reference is ?v=4', () => {
     const pages = fs.readdirSync(root).filter(f => f.endsWith('.html'));
     let found = 0;
     pages.forEach(f => {
       for (const m of read(f).matchAll(/pipeline\.css\?v=(\d+)/g)) {
         found++;
-        expect(m[1], f).toBe('3');
+        expect(m[1], f).toBe('4');
       }
     });
     expect(found).toBeGreaterThan(0);
