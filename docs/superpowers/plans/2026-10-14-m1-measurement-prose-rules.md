@@ -98,11 +98,11 @@
 - [ ] **Step 1:** `grep -rn "Cost grid editor ↔ pipeline board integration" --include=*.md .` — expected: only `CLAUDE.md` and this cycle's spec/plan. Check that the lines between that heading and `### Invariants` are the intended bullets only.
 - [ ] **Step 2:** Save the block body (heading excluded) from `main` to the scratchpad; move it, changing only `###` → `##`.
 - [ ] **Step 3:** Add `### Writing documentation` after `### Testing & tooling`'s last line and before `---`, with the bullets copied verbatim from spec §5.
-- [ ] **Step 4:** `diff` the saved body with the body now in `docs/pages/costgrid.md` → no output.
+- [ ] **Step 4:** `diff` the saved body with the body now in `docs/pages/costgrid.md` → prints only the one link line the round-1 exception changed.
 - [ ] **Step 5:** `npx vitest run scripts/` → PASS, `claude-md-guard` included. Then `tr -d '\r' < CLAUDE.md | wc -c` → ≤ 64000.
 - [ ] **Step 6:** Commit `docs: prose-writing rules in CLAUDE.md; move cost-grid/pipeline integration to its page doc (M1)`.
 
 ## Decisioni aperte
 
-1. **Merge cercato su `git log --first-parent main` e filtrato in JS per soggetto letterale (`Merge branch '<branch>'`, da solo o seguito da `: `).** Alternativa scartata: `--grep "^Merge branch '<branch>'"` come scritto nella spec. Perché: un nome di branch con `.` o `+` verrebbe letto come regex.
-2. **Esecuzione nativa, quattro task in serie.** Alternativa scartata: subagent-driven. Perché: §6.1 «ciclo piccolo» — sette file, nessuna migrazione, nessuna API, task sequenziali (Task 4 misura dopo Task 3).
+1. **Merge cercato su `git log --first-parent main` e filtrato in JS per soggetto letterale (`Merge branch '<branch>'`, da solo o seguito da `: `).** Alternativa scartata: `--grep "^Merge branch '<branch>'"`. Perché: un nome di branch con `.` o `+` verrebbe letto come regex.
+2. **Esecuzione nativa, task in serie.** Alternativa scartata: subagent-driven. Perché: §6.1 «ciclo piccolo» — nessuna migrazione, nessuna API, task sequenziali (Task 4 misura dopo Task 3).
