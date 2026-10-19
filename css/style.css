@@ -74,7 +74,8 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
 .ph-side { display: flex; align-items: center; gap: var(--space-5); }
 .ph-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
 .ph-btn-primary {
-  border: 0; border-radius: var(--radius-md); padding: var(--space-2) var(--space-4);
+  display: inline-flex; align-items: center; height: 32px; padding: 0 var(--space-4);
+  border: 0; border-radius: var(--radius-md);
   background: var(--brand-magenta); color: var(--surface-white);
   font-size: var(--text-sm); font-weight: var(--weight-semibold); cursor: pointer;
 }
@@ -100,12 +101,13 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
 /* Full width inside .app-container: the band cancels the container padding (--app-pad). */
 .app-container > .ph, .app-container > .ph-toolbar {
   margin-left: calc(-1 * var(--app-pad)); margin-right: calc(-1 * var(--app-pad));
+  padding-left: var(--app-pad); padding-right: var(--app-pad);
 }
 /* Spacing under the last band of a view; a .ph directly followed by a .ph-toolbar stays glued to it.
    Only inside .app-container: pipeline (board, outside it) and the admin pages are untouched. */
-.app-container .ph:not(:has(+ .ph-toolbar)) { margin-bottom: var(--space-4); }
+.app-container .ph:not(:has(+ .ph-toolbar)) { margin-bottom: var(--content-gap); }
 /* Its own rule: a browser without :has() drops only the rule above. */
-.app-container .ph-toolbar { margin-bottom: var(--space-4); }
+.app-container .ph-toolbar { margin-bottom: var(--content-gap); }
 @media (max-width: 1023.98px) {
   .ph-side { width: 100%; }
 }
@@ -113,6 +115,15 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
 @media (max-width: 767.98px) {
   .ph-lbl-wide { display: none; }
   .ph-lbl-narrow { display: inline; }
+  /* The container gutter, and so the band that follows it, is 16px on a phone. */
+  .app-container { --app-pad: var(--space-4); }
+  .ph { flex-direction: column; align-items: flex-start; flex-wrap: nowrap; gap: var(--space-2); padding: var(--space-3) var(--space-4); position: relative; }
+  .ph-title { font-size: 20px; }
+  .ph-sub { display: none; }
+  .ph-side { width: 100%; justify-content: space-between; gap: var(--space-3); }
+  .ph-btn-primary { min-height: 44px; padding: 0 var(--space-4); }
+  .ph-toolbar { padding: var(--space-2) var(--space-4); }
+  .ph-main { flex: 0 0 auto; }
 }
 
 /* ── Master Data sub-navigation (2026-10, config.html split) ──
@@ -271,15 +282,6 @@ html[data-sidebar="collapsed"] .pd-nav-collapse .nav-icon:last-child { display: 
   .pd-notif-panel { width: calc(100vw - 20px); }
 }
 
-/* ── KPI cards ── */
-.kpi-card { border: none; border-left: 4px solid; border-radius: var(--radius-lg); }
-.kpi-card.blue   { border-left-color: var(--kpi-blue);   }
-.kpi-card.green  { border-left-color: var(--kpi-green);  }
-.kpi-card.orange { border-left-color: var(--kpi-orange); }
-.kpi-card.purple { border-left-color: var(--kpi-purple); }
-.kpi-card.teal   { border-left-color: var(--kpi-teal);   }
-.kpi-card.red    { border-left-color: var(--kpi-red);    }
-
 /* ── Chart ── */
 .chart-container { position: relative; height: 380px; }
 
@@ -298,13 +300,14 @@ html[data-sidebar="collapsed"] .pd-nav-collapse .nav-icon:last-child { display: 
 
 /* ── Section cards ── */
 .section-card {
-  background: var(--surface-white);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  background: var(--card-bg);
+  border: var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
 }
 .section-header {
-  padding: 13px 18px;
-  border-bottom: 1px solid var(--surface-subtle);
+  padding: var(--card-head-pad);
+  border-bottom: var(--card-border);
   font-weight: 600;
   font-size: var(--text-lg);
 }
@@ -440,6 +443,7 @@ thead .gantt-label-col { background: var(--indigo-50); z-index: 3; }
 .alert-danger  { --bs-alert-color: var(--color-danger-text);  --bs-alert-bg: var(--color-danger-bg);  --bs-alert-link-color: var(--color-danger-text); }
 .alert-warning { --bs-alert-color: var(--color-warning-text); --bs-alert-bg: var(--color-warning-bg); --bs-alert-link-color: var(--color-warning-text); }
 .alert-info    { --bs-alert-color: var(--color-info-text);    --bs-alert-bg: var(--color-info-bg);    --bs-alert-link-color: var(--color-info-text); }
+.alert-sm { font-size: var(--banner-font-size); padding: var(--banner-pad); border-radius: var(--banner-radius); }
 .dropdown-menu {
   --bs-dropdown-border-color:  var(--border-light);
   --bs-dropdown-border-radius: var(--radius-md);

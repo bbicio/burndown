@@ -118,7 +118,7 @@ describe('migrated auth pages', () => {
       const t = read(f);
       it('links Bootstrap, tokens.css then auth.css', () => {
         const bs = t.indexOf('bootstrap@5.3.2/dist/css/bootstrap.min.css');
-        const tok = t.indexOf('css/tokens.css?v=10');
+        const tok = t.indexOf('css/tokens.css?v=11');
         const auth = t.indexOf('css/auth.css?v=1');
         expect(bs).toBeGreaterThanOrEqual(0);
         expect(tok).toBeGreaterThan(bs);

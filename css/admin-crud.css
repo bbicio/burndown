@@ -1,9 +1,8 @@
 /* Shared layout for simple admin CRUD pages (Team, Attribute Lists) — same
    visual pattern as admin.html's own inline block, extracted here since it
    was duplicated verbatim across two sibling pages. */
-body { background: var(--surface-light); font-family: var(--font-family-base); }
-.page { margin: 2rem auto; }
-.card { border: 1px solid var(--border-light); border-radius: 10px; box-shadow: var(--shadow-sm); }
+.page { margin: var(--content-gap) auto; }
+.card { border: var(--card-border); border-radius: var(--card-radius); box-shadow: var(--card-shadow); }
 .card-body { padding: 0; }
 .table { margin: 0; font-size: 0.875rem; }
 .table thead th { background: #f9fafb; border-bottom: 1px solid var(--border-light);
@@ -22,4 +21,3 @@ body { background: var(--surface-light); font-family: var(--font-family-base); }
 .form-control, .form-select { font-size: 0.875rem; border-color: var(--border-light); }
 .form-control:focus, .form-select:focus { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
 .empty { text-align: center; padding: 3rem 1rem; color: #9ca3af; font-size: 0.875rem; }
-.alert-sm { font-size: 0.83rem; padding: 0.5rem 0.75rem; }

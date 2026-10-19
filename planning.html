@@ -7,8 +7,8 @@
   <title>PDash — Planning</title>
   <link rel="icon" type="image/png" href="https://ik.imagekit.io/6ezjgrjjf/00_Home_Page/letter-f.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="css/tokens.css?v=10">
-  <link rel="stylesheet" href="css/style.css?v=22">
+  <link rel="stylesheet" href="css/tokens.css?v=11">
+  <link rel="stylesheet" href="css/style.css?v=24">
 </head>
 <body class="pp-fullwidth">
 
@@ -31,7 +31,7 @@
     <div v-if="loading" class="d-flex justify-content-center align-items-center" style="height:60vh">
       <div class="spinner-border text-secondary"></div>
     </div>
-    <div v-else-if="loadError" class="alert alert-danger m-4">{{ loadError }}</div>
+    <div v-else-if="loadError" class="alert alert-danger alert-sm m-4">{{ loadError }}</div>
     <template v-else>
     <div class="ph">
       <div class="ph-main">
@@ -120,10 +120,10 @@
       </div>
       <div class="ph-toolbar-spacer"></div>
       <div class="pl-toolbar-right">
-        <button v-if="isAdminUser" class="btn btn-outline-secondary btn-sm" title="Find the best people to allocate to a project" @click="taOpen = !taOpen">🤖 Team assistant</button>
-        <button class="btn btn-outline-secondary btn-sm" @click="$refs.fileInput.click()">📂 Load XLS</button>
-        <button class="btn btn-outline-secondary btn-sm" title="Toggle full browser width" @click="toggleFullWidth">{{ fullWidth ? '⊡ Compact' : '⛶ Full width' }}</button>
-        <button class="btn btn-sm btn-outline-secondary" @click="exportCurrentView">⬇ Export XLS</button>
+        <button v-if="isAdminUser" class="ph-btn" title="Find the best people to allocate to a project" @click="taOpen = !taOpen"><ph-icon name="team" :size="14"></ph-icon> Team assistant</button>
+        <button class="ph-btn" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon> Load XLS</button>
+        <button class="ph-btn" title="Toggle full browser width" @click="toggleFullWidth"><ph-icon :name="fullWidth ? 'minimize' : 'maximize'" :size="14"></ph-icon> {{ fullWidth ? 'Compact' : 'Full width' }}</button>
+        <button class="ph-btn" @click="exportCurrentView"><ph-icon name="download" :size="14"></ph-icon> Export XLS</button>
       </div>
     </div>
     <div class="section-card">
@@ -265,7 +265,7 @@
 <script defer src="js/portfolio.js?v=2"></script>
 <script defer src="js/upload.js"></script>
 <script defer src="js/api-sync.js?v=23"></script>
-<script type="module" src="js/lib/icons.js?v=1"></script>
+<script type="module" src="js/lib/icons.js?v=2"></script>
 <script defer src="js/nav.js?v=18"></script>
 
 <script type="module">
@@ -1361,6 +1361,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     },
   });
 
+  app.component('ph-icon', window.PhIcon);
   app.mount('#planningApp');
 
   document.getElementById('btnJsonCopy').addEventListener('click', () => {

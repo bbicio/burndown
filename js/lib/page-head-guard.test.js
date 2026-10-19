@@ -244,9 +244,9 @@ describe('costgrid.html head', () => {
 describe('final-review fixes', () => {
   const css = read('css/style.css');
   it('spaces the last band of a view inside .app-container (glued ph + toolbar)', () => {
-    expect(css).toMatch(/\.app-container \.ph:not\(:has\(\+ \.ph-toolbar\)\) \{ margin-bottom: var\(--space-4\); \}/);
+    expect(css).toMatch(/\.app-container \.ph:not\(:has\(\+ \.ph-toolbar\)\) \{ margin-bottom: var\(--content-gap\); \}/);
     // Separate rule, so a browser without :has() still spaces the toolbar.
-    expect(css).toMatch(/\n\.app-container \.ph-toolbar \{ margin-bottom: var\(--space-4\); \}/);
+    expect(css).toMatch(/\n\.app-container \.ph-toolbar \{ margin-bottom: var\(--content-gap\); \}/);
   });
   it('gives .ph-btn hover, disabled and no underline', () => {
     expect(css).toMatch(/\.ph-btn:hover:not\(:disabled\)/);
@@ -256,4 +256,50 @@ describe('final-review fixes', () => {
   it('does not stack .ph-eyebrow on the program row', () => {
     expect(read('portfolio.html')).not.toContain('ph-eyebrow pr-program-row');
   });
+});
+
+describe('phone page head lives in style.css (B-096) and the primary CTA is 32px tall (B-101)', () => {
+  const css = stripComments(read('css/style.css'));
+  const pipeline = stripComments(read('css/pipeline.css'));
+  const phone = (css.match(/@media \(max-width: 767\.98px\)\s*\{[\s\S]*?\n\}/g) || []).join('\n');
+  it('style.css phone block carries the page head rules', () => {
+    expect(phone).toMatch(/\.ph \{ flex-direction: column;[^}]*padding: var\(--space-3\) var\(--space-4\);[^}]*position: relative;/);
+    expect(phone).toMatch(/\.ph-title \{ font-size: 20px; \}/);
+    expect(phone).toMatch(/\.ph-sub \{ display: none; \}/);
+    expect(phone).toMatch(/\.ph-side \{ width: 100%; justify-content: space-between; gap: var\(--space-3\); \}/);
+    expect(phone).toMatch(/\.ph-btn-primary \{ min-height: 44px;/);
+    expect(phone).toMatch(/\.ph-toolbar \{ padding: var\(--space-2\) var\(--space-4\); \}/);
+    // A column band must not turn .ph-main's 32rem row basis into a 32rem-tall block.
+    expect(phone).toMatch(/\.ph-main \{ flex: 0 0 auto; \}/);
+  });
+  it('only the pipeline toolbar stays on one line at phone width', () => {
+    expect(phone).not.toMatch(/\.ph-toolbar \{[^}]*flex-wrap: nowrap/);
+    expect(pipeline).toMatch(/#pipelineBoardSection \.ph-toolbar \{ flex-wrap: nowrap; \}/);
+  });
+  it('pipeline.css no longer defines the six shared head rules as standalone rules', () => {
+    // Pipeline-only contexts (#pipelineBoardSection .ph, .pb-title-btn .ph-title) are not standalone rules.
+    for (const c of ['.ph', '.ph-title', '.ph-sub', '.ph-side', '.ph-btn-primary', '.ph-toolbar']) {
+      expect(new RegExp('(?:^|[{}\\n])\\s*' + c.replace('.', '\\.') + '\\s*\\{').test(pipeline), c).toBe(false);
+    }
+  });
+  it('.ph-btn-primary is as tall as .ph-btn', () => {
+    const b = [...css.matchAll(/(?:^|[}\s])\.ph-btn-primary\s*\{([^}]*)\}/g)][0][1];
+    expect(b).toContain('display: inline-flex');
+    expect(b).toContain('align-items: center');
+    expect(b).toContain('height: 32px');
+    expect(b).toContain('padding: 0 var(--space-4)');
+  });
+});
+
+describe('no empty badge span in the title row (B-099)', () => {
+  for (const f of ['costgrid.html', 'portfolio.html']) {
+    it(`${f}: every headerBadge span is guarded by a v-if with the same call`, () => {
+      const html = read(f);
+      const spans = [...html.matchAll(/<span[^>]*v-html="(headerBadge\([^"]*\))"[^>]*>/g)];
+      expect(spans.length).toBeGreaterThan(0);
+      for (const m of spans) {
+        expect(m[0], m[1]).toContain(`v-if="${m[1]}"`);
+      }
+    });
+  }
 });

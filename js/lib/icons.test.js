@@ -11,7 +11,7 @@ const GUARANTEED = [
   'notify', 'key', 'signout', 'bell', 'lock', 'chevronLeft', 'chevronRight',
   'search', 'chevron-right', 'chevron-down', 'grid', 'list', 'gear', 'arrow-right', 'close', 'chevron-left',
   'check', 'upload', 'calendar', 'share', 'download',
-  'save', 'clone', 'configure', 'plus', 'chevronDown',
+  'save', 'clone', 'configure', 'plus', 'chevronDown', 'maximize', 'minimize',
 ];
 
 describe('iconSvg', () => {
