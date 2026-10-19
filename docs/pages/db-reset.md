@@ -11,3 +11,7 @@ Now sysadmin-exclusive (was admin-only; narrowed 2026-09 as one of the two privi
 ## Header unification (2026-10-16)
 
 Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. The former `.page-header` is now the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`), placed outside the `.page` wrapper so the breadcrumb and the band read as one block; `.page` keeps its own 2rem top margin. The title is "Database Reset", without "⚠️"; the existing warning is an `.alert.alert-danger` under the band.
+
+## Header unification, content (2026-10-19)
+
+Spec `docs/superpowers/specs/2026-10-18-header-unification-content-design.md`. `.danger-card` reads `--card-danger-border` (1px) instead of its own 2px literal, and the cards sit flush against each other; both are open in `docs/BACKLOG.md`.

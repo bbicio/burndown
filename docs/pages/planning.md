@@ -72,3 +72,7 @@ Replaces the old AI Planning Sidebar (personal API keys in the browser, `js/ai.j
 ## Header unification (2026-10-16)
 
 Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. `.page-title-bar`/`.page-toolbar` became the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`): a `.ph` with the title and a `.ph-toolbar` holding the former toolbar's contents unchanged (its buttons keep their emoji). The `planningTitle` computed no longer starts with "📅".
+
+## Header unification, content (2026-10-19)
+
+Spec `docs/superpowers/specs/2026-10-18-header-unification-content-design.md`, report `docs/superpowers/reports/2026-10-19-header-unification-content-finish-cycle.md`. The toolbar's right-hand buttons became shared `.ph-btn` icon buttons (`maximize`/`minimize` among them). The second row (`◀+`, `−▷`, `◁−`, `+▶`) still uses `btn btn-sm btn-outline-secondary` and the toolbar overflows at 375px; both are open in `docs/BACKLOG.md`. `body.pp-fullwidth` keeps `--app-pad: 12px`.
