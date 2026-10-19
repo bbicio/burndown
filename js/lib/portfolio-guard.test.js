@@ -137,7 +137,7 @@ describe('project reporting view', () => {
   });
 
   it('carries the header, switch and KPI copy', () => {
-    ['Project Portfolio', 'Projects in program', 'Hours on track', 'Hours ahead of time', 'Hours behind time', 'No budget', 'Time elapsed']
+    ['</ph-icon>Portfolio</a>', 'Projects in program', 'Hours on track', 'Hours ahead of time', 'Hours behind time', 'No budget', 'Time elapsed']
       .forEach(t => expect(dashboardActive, t).toContain(t));
   });
 
@@ -287,6 +287,13 @@ describe('project reporting view — Gate 3 review fixes', () => {
 describe('project reporting view — calculations fix (B-071, B-072, B-074)', () => {
   const rStart = html.indexOf('renderBurndownChart() {');
   const render = html.slice(rStart, html.indexOf('exportChartPng() {', rStart));
+  it('colours the left-over KPI from tokens, not a hex (B-070)', () => {
+    const start = html.indexOf('kpiLeftColor(left, total) {');
+    expect(start).toBeGreaterThan(-1);
+    const body = html.slice(start, html.indexOf('showDashboard(pid) {', start));
+    expect(body).toContain('var(--kpi-orange)');
+    expect(body).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+  });
   it('measures the Budget tile on fees only', () => {
     expect(dashboardActive).toContain('<template v-if="kpis.feesOnly">');
     expect(dashboardActive).toContain('of {{ formatMoney(kpis.feesOnly');

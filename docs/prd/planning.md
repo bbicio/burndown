@@ -53,7 +53,7 @@ Today marker: the current week's column is highlighted (`gantt-today` class / `i
 
 ### 5.5 Overallocation color coding
 
-A static, non-AI legend on the Resource Planning table: a row's load is shown in red once it exceeds 30 hours/week (`planning.html:621`). This is a fixed display rule, not an analysis or a generated issue list — see §11.3's correction note for a feature this PRD previously (incorrectly) described as an AI-driven version of this same idea.
+A static, non-AI legend on the Resource Planning table: a row's load is shown in red once it exceeds 30 hours/week (`planning.html`, the table legend). This is a fixed display rule, not an analysis or a generated issue list.
 
 ---
 

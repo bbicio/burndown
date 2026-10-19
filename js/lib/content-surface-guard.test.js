@@ -212,7 +212,14 @@ describe('page surface and spacing', () => {
     expect(rule(style, '.app-container .ph-toolbar')).toContain('margin-bottom: var(--content-gap)');
   });
   it('a phone narrows --app-pad to --space-4, where the band can read it', () => {
-    const phone = style.slice(style.indexOf('@media (max-width: 767.98px)'));
+    // The block itself, opening brace to its matching one, not to the end of the file.
+    const start = style.indexOf('@media (max-width: 767.98px)');
+    let depth = 0, end = start;
+    for (let i = style.indexOf('{', start); i < style.length; i++) {
+      depth += style[i] === '{' ? 1 : style[i] === '}' ? -1 : 0;
+      if (depth === 0) { end = i; break; }
+    }
+    const phone = style.slice(start, end + 1);
     expect(phone).toMatch(/\.app-container\s*\{\s*--app-pad:\s*var\(--space-4\)/);
   });
   it('portfolio and program do not redefine --app-pad', () => {

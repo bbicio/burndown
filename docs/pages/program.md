@@ -98,7 +98,7 @@ skipping it throws inside `initNav()` before `loading` is ever cleared (found by
 headless-Chrome console during the Task 3 visual check, not by the vitest suite — a static guard
 can't see a runtime-only dependency like this).
 
-**Header**: `‹ Project Portfolio` link, `PROGRAM DASHBOARD` label, title + pipeline-stage pill
+**Header**: `‹ Portfolio` link, `PROGRAM DASHBOARD` label, title + pipeline-stage pill
 (`domPipeline` = the first child's own pipeline stage by id order, mirroring the Portfolio redesign's
 own `domPipeline`/D7 rule), the meta line (client · N projects · date range · currency), Export/Share
 actions.

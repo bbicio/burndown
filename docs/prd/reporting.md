@@ -46,7 +46,7 @@ Note the two tables are not interchangeable: the portfolio summary's "Budget Est
 
 Expansion is shared between the two layouts: a program opened — or closed — in one view is in the same state in the other.
 
-**Detail-page header** (redesigned 2026-10-15, 7.4): a `‹ Project Portfolio` link back to the overview; for a project in a program, a `PROGRAM <name> · N projects · Program Dashboard →` line; the project title — which, for a project in a program, opens a menu listing every project of the program with its status, consumption bar and %, the current one ticked, and a footer with the program's totals and `Program Dashboard →`; the stage and status pills; and a line with the client, code, date range and the project's tags. Switching project from that menu opens the new project on the whole-project period with every task collapsed.
+**Detail-page header** (redesigned 2026-10-15, 7.4): a `‹ Portfolio` link back to the overview; for a project in a program, a `PROGRAM <name> · N projects · Program Dashboard →` line; the project title — which, for a project in a program, opens a menu listing every project of the program with its status, consumption bar and %, the current one ticked, and a footer with the program's totals and `Program Dashboard →`; the stage and status pills; and a line with the client, code, date range and the project's tags. Switching project from that menu opens the new project on the whole-project period with every task collapsed.
 
 **Detail-page actions** (in the header, top right):
 - **Configure** — navigate to that project's `project-config.html`
@@ -58,7 +58,7 @@ Expansion is shared between the two layouts: a program opened — or closed — 
 
 Configure and Load Actuals are hidden for viewers (see §18.3). Load Actuals remains detail-page-only; **Configure was reintroduced on the list cards in a later 2026-09 cycle** (see the View features bullets below) — the original "moved from the list card to the detail-page header" note above describes an intermediate state, not current behavior.
 
-**‹ Project Portfolio** (2026-10-15): navigates back to the overview, from the top of the detail view only; the bottom `← Portfolio` button of the 2026-09 layout was removed.
+**‹ Portfolio** (2026-10-15): navigates back to the overview, from the top of the detail view only; the bottom `← Portfolio` button of the 2026-09 layout was removed.
 
 (Corrected 2026-07: this section previously described "Clients"/"Programs" management modals as page-level toolbar actions. Confirmed during `portfolio.html`'s 2026-07 Vue 3 migration that both were only ever reachable through `#configModal`, itself gated behind a `?configure=true` URL parameter no file in the repo ever set — i.e. already unreachable dead code before this migration, not a regression. `#configModal` and its nested clients/programs/roles CRUD were dropped entirely as part of that rewrite.)
 

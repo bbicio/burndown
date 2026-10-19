@@ -6,7 +6,7 @@
 
 **Spec:** nessuna — il backlog è l'elenco; handoff `docs/superpowers/briefs/2026-10-19-backlog-quickwins-handoff.md`.
 **Branch:** `backlog-quickwins`
-**Risk class:** low-risk — documenti, due test e l'HTML di due pagine; nessuna categoria high-risk, nessuna route, nessun `js/lib/` di produzione. Sale a `high-risk` (file condiviso `css/style.css`, più pagine) solo se B-106 viene corretto: in quel caso la classe va rideclarata prima del commit.
+**Risk class:** high-risk — file condiviso `css/style.css` caricato da più pagine (B-106 confermato a 375px e corretto con una regola; bump `?v=25` su tutte le pagine che lo caricano). Dichiarata a esecuzione avviata: il Piano partiva low-risk e la misura ha cambiato la classe.
 
 **Indipendenza dei task:** i task sono indipendenti (file diversi); esecuzione nativa per §6.1 (ciclo piccolo, nessuna migrazione né API), un commit per voce.
 

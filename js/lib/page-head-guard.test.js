@@ -53,7 +53,21 @@ const elementTexts = (html, cls) => {
   return out;
 };
 
+// Source of the method `name() { ... }` (brace-matched), or '' when the page defines none.
+const methodBody = (html, name) => {
+  const m = new RegExp('\\b' + name + '\\s*\\([^)]*\\)\\s*\\{').exec(html);
+  if (!m) return '';
+  let depth = 1, i = m.index + m[0].length;
+  for (; i < html.length && depth; i++) depth += html[i] === '{' ? 1 : html[i] === '}' ? -1 : 0;
+  return html.slice(m.index, i);
+};
+
 describe('guard helpers', () => {
+  it('methodBody returns a brace-matched method and nothing for an unknown name', () => {
+    const src = 'x: { title() { if (a) { return "A"; } return "B"; }, other() { return 1; } }';
+    expect(methodBody(src, 'title')).toBe('title() { if (a) { return "A"; } return "B"; }');
+    expect(methodBody(src, 'missing')).toBe('');
+  });
   it('hasSelector matches exact class names only', () => {
     expect(hasSelector('.pb-header-right {', '.pb-header')).toBe(false);
     expect(hasSelector('.pb-title2 {', '.pb-title')).toBe(false);
@@ -140,6 +154,13 @@ describe('migrated pages (vacuous while everything is pending)', () => {
       it('has no emoji in .ph-title', () => {
         const titles = elementTexts(html, 'ph-title');
         for (const t of titles) expect(t).not.toMatch(/\p{Extended_Pictographic}/u);
+      });
+      it('has no emoji in a computed .ph-title', () => {
+        for (const t of elementTexts(html, 'ph-title')) {
+          for (const [, name] of t.matchAll(/\{\{\s*(\w+)\s*\}\}/g)) {
+            expect(methodBody(html, name), `${name} in ${p}`).not.toMatch(/\p{Extended_Pictographic}/u);
+          }
+        }
       });
       it('has no forbidden selector in its inline styles', () => {
         const style = stripComments(inlineStyles(html));
