@@ -26,7 +26,7 @@
 
 <div>
 
-  <!-- Resource Planning section (main content on this page) -->
+  <!-- Planning section (main content on this page) -->
   <div id="portfolioPlanningSection" class="app-container">
     <div v-if="loading" class="d-flex justify-content-center align-items-center" style="height:60vh">
       <div class="spinner-border text-secondary"></div>
@@ -359,9 +359,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           const projName = this.projectFilters.size === 1
             ? (this.eligibleProjects.find(p => this.projectFilters.has(p.id))?.name || [...this.projectFilters][0])
             : '';
-          return `Resource Planning${projName ? ' — ' + projName : ''}`;
+          return `Planning${projName ? ' — ' + projName : ''}`;
         }
-        return 'Resource Planning — All Projects';
+        return 'Planning — All Projects';
       },
       weeks() {
         if (!this.windowStart || !this.windowEnd) return [];
