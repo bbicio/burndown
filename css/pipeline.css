@@ -248,16 +248,10 @@
 }
 
 @media (max-width: 767.98px) {
-  .ph { flex-direction: column; align-items: flex-start; flex-wrap: nowrap; gap: var(--space-2); padding: var(--space-3) var(--space-4); position: relative; }
-  .ph-title { font-size: 20px; }
-  .ph-sub { display: none; }
-  .ph-side { width: 100%; justify-content: space-between; gap: var(--space-3); }
   .pb-open { display: flex; align-items: baseline; gap: var(--space-2); text-align: left; white-space: nowrap; }
   .pb-open-value { font-size: var(--text-md); }
-  .ph-btn-primary { min-height: 44px; padding: 0 var(--space-4); }
   .pb-year-menu { width: min(300px, calc(100vw - 32px)); }
 
-  .ph-toolbar { flex-wrap: nowrap; padding: var(--space-2) var(--space-4); }
   .pb-search { flex: 1 1 auto; width: auto; min-width: 0; }
   .pb-search-input { min-height: 44px; font-size: var(--text-base); }
   .pb-suggest { width: calc(100vw - 32px); }
