@@ -726,6 +726,7 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | DR-14b | Change owner — plain admin rejected | PATCH `/api/admin/reset/cost-grid/:cgId/owner` as role=admin | 403 "Sysadmin access required" | ✓ |
 | DR-15 | Change owner widget — unknown UUID | Enter a UUID that does not match any cost grid; click Assign (as sysadmin) | API returns 404; error message shown; no change made | ✓ |
 | DR-16 | Change owner — resource_shares stays in sync (2026-09) | PATCH `/api/admin/reset/cost-grid/:cgId/owner` to reassign to a genuinely different user, then GET `/api/cost-grids/:id/shares` | Previous owner's `resource_shares` row is gone; new owner has a `resource_shares` row with `permission: 'owner'`; exactly one `owner` row exists — fixes a bug where the old owner kept a stale owner row forever (un-shareable, and the real new owner never appeared in "who has access") | ✓ |
+| DR-17 | Card layout (2026-10-20, B-107/B-109/B-118) | Open `/_db-reset.html` as sysadmin | The destructive cards have a thick red border; "Delete single proposal" and "Change proposal owner" are separated by the same gap as the scope cards; "Change proposal owner" has an ordinary grey border and a navy title | ✓ (vitest) |
 
 ---
 
@@ -1110,6 +1111,7 @@ Spec: `docs/superpowers/specs/2026-10-16-header-unification-design.md`. Every pa
 | PH-04 | Back links | Click the back link on the project dashboard, the program dashboard, the cost grid and project-config | They go to Portfolio, Portfolio, Pipeline (after "Saving…") and Project Dashboard respectively | |
 | PH-05 | Cost grid Save keeps its icon | In `costgrid.html`, click Save, then click it again within a second | The label reads "✓ Saved" for a moment and returns to "Save"; the icon stays throughout | |
 | PH-06 | Narrow widths | Resize each page to 768px | The actions move under the title, no horizontal scroll | |
+| PH-07 | Primary action taller than the secondary ones (2026-10-20, B-105/B-111) | Open `pipeline.html`, then a Draft cost grid in `costgrid.html`, and narrow the window step by step | The magenta primary action is a little taller than Save/Clone and the toolbar filters, as on the design boards; its label ("Publish to SIP →") always stays on one line inside the button | ✓ (vitest) |
 
 ---
 
