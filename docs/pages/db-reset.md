@@ -15,3 +15,7 @@ Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `d
 ## Header unification, content (2026-10-19)
 
 Spec `docs/superpowers/specs/2026-10-18-header-unification-content-design.md`. `.danger-card` reads `--card-danger-border` instead of its own literal.
+
+## Header board deviations (2026-10-20)
+
+Plan `docs/superpowers/plans/2026-10-20-header-board-deviations.md`. The two single-proposal cards sit in a `#singleActions` grid with the same gap as `#resetCards`. "Change proposal owner" is not destructive, so it is an `.action-card` (ordinary card border, navy title) rather than a `.danger-card`. `--card-danger-border` is thicker again; `js/lib/content-surface-guard.test.js` pins its value and the `.action-card` tokens.

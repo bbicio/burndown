@@ -17,7 +17,7 @@
     }
     @media (max-width: 1400px) { #resetCards { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 700px)  { #resetCards { grid-template-columns: 1fr; } }
-    #singleActions { display: grid; gap: 1rem; }
+    #singleActions { display: grid; gap: 1rem; max-width: 560px; }
     .danger-card {
       border: var(--card-danger-border);
       border-radius: var(--card-radius);
@@ -80,7 +80,7 @@
       <hr class="my-4">
 
       <div id="singleActions">
-        <div class="danger-card" style="max-width:560px">
+        <div class="danger-card">
           <h5>Delete single proposal + linked projects</h5>
           <p>Deletes one cost grid by UUID and all projects linked to any of its versions. Also removes resource shares for the cost grid and linked projects.</p>
           <div class="d-flex gap-2 align-items-center">
@@ -91,7 +91,7 @@
           <div v-if="cgDeleteMsg" class="mt-2 small" :class="cgDeleteMsg.isError ? 'text-danger' : 'text-success'">{{ cgDeleteMsg.text }}</div>
         </div>
 
-        <div class="action-card" style="max-width:560px">
+        <div class="action-card">
           <h5>Change proposal owner</h5>
           <p>Reassigns a proposal (cost grid) to a different active user.</p>
           <div class="d-flex flex-column gap-2">

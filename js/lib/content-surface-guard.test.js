@@ -121,6 +121,13 @@ describe('cards and tiles', () => {
     expect(body(dbReset, '.danger-card h5')).toContain('var(--color-danger-text)');
     expect(body(dbReset, '.danger-card p')).toContain('var(--text-muted)');
   });
+  it('.action-card reads the card tokens and _db-reset.html has no hex colour (B-118)', () => {
+    const b = body(dbReset, '.action-card');
+    for (const t of ['--card-border', '--card-radius', '--card-pad']) expect(b).toContain(`var(${t})`);
+    expect(b).not.toMatch(LITERAL);
+    expect(body(dbReset, '.action-card h5')).toContain('var(--brand-navy)');
+    expect(dbReset).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
   it('tiles read the tile tokens', () => {
     const tile = body(portfolio, '.pg-tile');
     expect(tile).toContain('var(--tile-pad)');
