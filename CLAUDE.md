@@ -82,7 +82,7 @@ Still no linter on the frontend or backend.
 
 ## Architecture
 
-Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page is Vue 3 (loaded via CDN, no build step) except the `index.html` and `config.html` redirects. The shared library files in `js/*.js` remain classic (non-Vue) scripts loaded as globals by the Vue pages — for which pages load which, see [docs/js/shared-libs.md](docs/js/shared-libs.md) and the per-file `docs/js/` files pointed at from the File structure block below.
+Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page is Vue 3 (loaded via CDN, no build step) except the `index.html` and `config.html` redirects and the dev-only `test-cases.html`. The shared library files in `js/*.js` are classic scripts loaded as globals by the Vue pages (`js/cg-controls.js` and `js/share-list-component.js` define Vue components) — for which pages load which, see [docs/js/shared-libs.md](docs/js/shared-libs.md) and the per-file `docs/js/` files pointed at from the File structure block below.
 
 ### Pages
 
@@ -217,7 +217,7 @@ scripts/shoot.mjs        — renders pages of the running app with headless Chro
 
 ### `v-cloak` (all Vue pages)
 
-The Vue-mounted pages (all pages except the `index.html` and `config.html` redirect stubs) have `v-cloak` on their Vue root mount element, paired with the `[v-cloak] { display: none; }` rule in `css/tokens.css`. **Any new Vue page must add `v-cloak` to its root mount element**; it is not automatic. If a root element ever needs an inline `display` style, prefer a CSS class over an inline `style` attribute.
+Every Vue-mounted page has `v-cloak` on its Vue root mount element, paired with the `[v-cloak] { display: none; }` rule in `css/tokens.css`. **Any new Vue page must add `v-cloak` to its root mount element**; it is not automatic. If a root element ever needs an inline `display` style, prefer a CSS class over an inline `style` attribute.
 
 ### Routing
 
@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 ### Page shell
 
-Every authenticated page wraps navigation and content as `<div id="app-shell"><div id="nav-container"></div><div id="app-main">…existing Vue root(s)…</div></div>`, with all `<script>` tags after the shell. It is hand-written in each page, **outside** every Vue mount point (roots and `v-cloak` unchanged). `css/style.css` defines `:root { --sidebar-w: 0px; }` and `#app-main { margin-left: var(--sidebar-w); }` — a media query sets `--sidebar-w` (240px open, 68px rail, 0 below 1024px), see [docs/js/nav.md](docs/js/nav.md) → "Current state". `#app-shell`/`#app-main` must never get `overflow`, `transform`, `filter`, `contain`, `will-change` or `position` (it would break the descendants' `fixed`/`sticky` panels); `js/lib/nav-shell-guard.test.js` pins this, the structure of every page and the `?v=` agreement of `style.css`/`core.js`/`nav.js`/`notifications.js`. **A new authenticated page must use this wrapper**, a `.ph` page head, and load `js/lib/icons.js` before `nav.js` (`js/lib/page-head-guard.test.js`). Each page's `<head>` carries the same inline, inert snippet that reads `localStorage['PDash_sidebarCollapsed']` (`'1'` = collapsed) and sets `data-sidebar="collapsed"` on `<html>` before first paint; the key is in `core.js`'s `keep` Set. Detail: [docs/js/nav.md](docs/js/nav.md).
+Every authenticated page wraps navigation and content as `<div id="app-shell"><div id="nav-container"></div><div id="app-main">…existing Vue root(s)…</div></div>`, with all `<script>` tags after the shell. It is hand-written in each page, **outside** every Vue mount point (roots and `v-cloak` unchanged). `css/style.css` defines `:root { --sidebar-w: 0px; }` and `#app-main { margin-left: var(--sidebar-w); }` — a media query sets `--sidebar-w` (240px open, 68px rail, 0 below 1024px), see [docs/js/nav.md](docs/js/nav.md) → "Current state". `#app-shell`/`#app-main` must never get `overflow`, `transform`, `filter`, `contain`, `will-change` or `position` (it would break the descendants' `fixed`/`sticky` panels); `js/lib/nav-shell-guard.test.js` pins this, the structure of every authenticated page and the `?v=` agreement of `style.css`/`core.js`/`nav.js`/`notifications.js`. **A new authenticated page must use this wrapper**, a `.ph` page head, and load `js/lib/icons.js` before `nav.js` (`js/lib/page-head-guard.test.js`). Each page's `<head>` carries the same inline, inert snippet that reads `localStorage['PDash_sidebarCollapsed']` (`'1'` = collapsed) and sets `data-sidebar="collapsed"` on `<html>` before first paint; the key is in `core.js`'s `keep` Set. Detail: [docs/js/nav.md](docs/js/nav.md).
 
 ### Data strategy (in-memory cache)
 
