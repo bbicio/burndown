@@ -46,7 +46,7 @@
 //     block. They measure bytes and lines. A 2-line entry full of narrative
 //     passes; §2 is still the rule, this is only its floor.
 //   * The 12 over-length entries are pinned, NOT fixed. They predate phase 3
-//     (auth.js and "HTML pages" run to 8 lines each) and rewriting them by hand
+//     (auth.js and "HTML pages" among them) and rewriting them by hand
 //     is the activity that produced six false claims in the PRD-split cycle, so
 //     the debt is held visible and measured instead.
 import { describe, it, expect } from 'vitest';
