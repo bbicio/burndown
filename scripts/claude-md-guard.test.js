@@ -45,7 +45,7 @@
 //   * The size checks cannot judge whether an entry's content BELONGS in the
 //     block. They measure bytes and lines. A 2-line entry full of narrative
 //     passes; §2 is still the rule, this is only its floor.
-//   * The 13 over-length entries are pinned, NOT fixed. They predate phase 3
+//   * The 12 over-length entries are pinned, NOT fixed. They predate phase 3
 //     (auth.js and "HTML pages" run to 8 lines each) and rewriting them by hand
 //     is the activity that produced six false claims in the PRD-split cycle, so
 //     the debt is held visible and measured instead.
@@ -116,7 +116,7 @@ describe('CLAUDE.md size (it is loaded in full every session)', () => {
       .toBeLessThanOrEqual(64_000);
   });
 
-  it('keeps the File structure block at exactly 13,398 LF bytes', () => {
+  it('keeps the File structure block at exactly 12,914 LF bytes', () => {
     // 12,538 at the phase-3 merge; raised to 12,758 by the same /sync-docs run,
     // for this file's own 2-line index entry. That is the allowed kind of growth
     // -- a new file needs an index line -- and it is why the pin is exact rather
@@ -135,20 +135,23 @@ describe('CLAUDE.md size (it is loaded in full every session)', () => {
     // unverified commit and pushed (3edd128).
     // 13,398 on 2026-10-14 (M1): the decision-ledger-guard entry reworded to
     // name its Brief started check, -1 B.
+    // 12,914 on 2026-10-21: dates and justifications cut by hand from five
+    // entries (HTML pages, js/costgrid.js, js/lib/, pipeline-years.js, auth.js).
     const bytes = Buffer.byteLength(fileStructureBlock().join('\n'), 'utf8');
-    expect(bytes, `the File structure block is ${bytes} LF bytes, pinned at 13,398. It is an INDEX:
+    expect(bytes, `the File structure block is ${bytes} LF bytes, pinned at 12,914. It is an INDEX:
       one or two lines per entry, pointing at the docs/ file that holds the narrative.
       If you shrank it on purpose, lower this number in the same commit`)
-      .toBe(13_398);
+      .toBe(12_914);
   });
 
-  it('keeps exactly 13 entries longer than two lines', () => {
-    // Pre-existing debt, pinned so a 14th cannot be added quietly.
+  it('keeps exactly 12 entries longer than two lines', () => {
+    // Pre-existing debt, pinned so a new one cannot be added quietly.
+    // 12 on 2026-10-21: js/costgrid.js shrank to two lines.
     const long = entries(fileStructureBlock()).filter(e => e.length > 2);
     const names = long.map(e => e[0].split('—')[0].trim());
     expect(long.length, `${long.length} entries exceed two lines: ${names.join(', ')}.
-      §2 allows one or two. The 13 known ones are pre-existing debt; a new one is a
-      regression -- move its text to the entry's docs/ file instead`).toBe(13);
+      §2 allows one or two. The 12 known ones are pre-existing debt; a new one is a
+      regression -- move its text to the entry's docs/ file instead`).toBe(12);
   });
 });
 
