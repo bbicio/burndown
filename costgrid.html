@@ -44,7 +44,7 @@
             <span>New version</span>
           </span>
           <div v-for="v in cg.versions" :key="v.versionId" class="cg-version-seg-item" :class="{ 'cg-version-seg-item--active': v.versionId === verId }">
-            <template v-if="v.versionId === verId && editingVersionLabel && !isLocked && cg?.myPermission !== 'viewer'">
+            <template v-if="v.versionId === verId && editingVersionLabel && !isReadOnly">
               <input type="text" id="cgVersionLabelInput" class="cg-version-label-input" v-model="draft.versionLabel"
                      @blur="commitVersionLabelEdit" @keyup.enter="commitVersionLabelEdit" @keyup.esc="cancelVersionLabelEdit" autofocus>
             </template>
@@ -53,7 +53,7 @@
               <svg v-if="versionIsLocked(v)" class="cg-version-lock-icon" viewBox="0 0 16 16" width="11" height="11" fill="none" :aria-label="versionTabTitle(v)">
                 <path d="M4 7V5a4 4 0 1 1 8 0v2M3.5 7h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3"/>
               </svg>
-              <button v-if="v.versionId === verId && !isLocked && cg?.myPermission !== 'viewer'" type="button" class="cg-version-edit-btn"
+              <button v-if="v.versionId === verId && !isReadOnly" type="button" class="cg-version-edit-btn"
                       @click.stop="startEditingVersionLabel()" title="Rename version" aria-label="Rename version">
                 <svg viewBox="0 0 16 16" width="11" height="11" fill="none"><path d="M11.5 2.5l2 2L5 13l-2.6.6.6-2.6 8.5-8.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
               </button>
@@ -290,11 +290,11 @@
               <span class="cg-switch-track"><span class="cg-switch-knob"></span></span>
               <span class="cg-switch-label">Compact columns</span>
             </label>
-            <button v-if="!isLocked && !selectionMode" class="cg-btn-secondary" @click="addRoleColumn">
+            <button v-if="!isReadOnly && !selectionMode" class="cg-btn-secondary" @click="addRoleColumn">
               <svg viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true"><circle cx="6" cy="5.2" r="2.4" stroke="currentColor" stroke-width="1.2"/><path d="M1.8 13c0-2.3 1.9-3.8 4.2-3.8s4.2 1.5 4.2 3.8M12.4 6.2v3.4M14.1 7.9h-3.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
               <span>Add roles</span>
             </button>
-            <button v-if="!isLocked && !selectionMode" class="cg-btn-secondary" @click="addPhase">+ Add phase</button>
+            <button v-if="!isReadOnly && !selectionMode" class="cg-btn-secondary" @click="addPhase">+ Add phase</button>
           </div>
         </div>
         <div class="cg-grid-frame">
@@ -346,12 +346,12 @@
                   <div class="cg-role-col-name" :title="r.roleLabel + ' · ' + r.roleCode">{{ r.roleLabel }}</div>
                   <div v-if="!compactHeader" class="cg-role-col-code">{{ r.roleCode }}</div>
                   <div v-if="!compactHeader && (!r.rate || r.rate === 0)" class="cg-role-col-missing">Missing rate</div>
-                  <button v-if="!isLocked && !selectionMode" type="button" class="cg-col-menu-btn" :title="'Actions for ' + r.roleLabel" :aria-label="'Actions for ' + r.roleLabel" @click.stop="openRoleMenu(r.roleCode); positionRoleMenu($event)">
+                  <button v-if="!isReadOnly && !selectionMode" type="button" class="cg-col-menu-btn" :title="'Actions for ' + r.roleLabel" :aria-label="'Actions for ' + r.roleLabel" @click.stop="openRoleMenu(r.roleCode); positionRoleMenu($event)">
                     <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true"><circle cx="8" cy="3.4" r="1.25"/><circle cx="8" cy="8" r="1.25"/><circle cx="8" cy="12.6" r="1.25"/></svg>
                   </button>
                 </th>
                 <th v-if="draft.roles.length === 0" class="cg-col-placeholder cg-head-th">
-                  <button v-if="!isLocked && !selectionMode" type="button" class="cg-btn-secondary" @click="addRoleColumn">+ Add roles</button>
+                  <button v-if="!isReadOnly && !selectionMode" type="button" class="cg-btn-secondary" @click="addRoleColumn">+ Add roles</button>
                 </th>
               </tr>
             </thead>
@@ -361,9 +361,9 @@
                   <td class="cg-col-fixed cg-phase-head">
                     <div class="d-flex align-items-center gap-1">
                       <input type="text" class="cg-phase-name" v-model="phase.phaseName" placeholder="Phase name" :disabled="isReadOnly" @change="cgScheduleAutoSave()">
-                      <button v-if="!isLocked && !selectionMode" type="button" class="cg-phase-pill" title="Add task" @click="addTask(phase)">+ Task</button>
+                      <button v-if="!isReadOnly && !selectionMode" type="button" class="cg-phase-pill" title="Add task" @click="addTask(phase)">+ Task</button>
                       <button v-if="selectionMode" type="button" class="cg-phase-pill cg-phase-pill--select" :disabled="phaseFreeState(phase) === 'none'" @click="toggleFreeInPhase(phase)">{{ phaseFreeLabel(phase) }}</button>
-                      <button v-if="!isLocked && !selectionMode" type="button" class="cg-phase-del" :disabled="phase.tasks.some(t => isTaskAssigned(t))" :title="phase.tasks.some(t => isTaskAssigned(t)) ? 'Can\'t delete: this phase has tasks linked to a project' : 'Delete phase'" @click="deletePhase(phase)">✕</button>
+                      <button v-if="!isReadOnly && !selectionMode" type="button" class="cg-phase-del" :disabled="phase.tasks.some(t => isTaskAssigned(t))" :title="phase.tasks.some(t => isTaskAssigned(t)) ? 'Can\'t delete: this phase has tasks linked to a project' : 'Delete phase'" @click="deletePhase(phase)">✕</button>
                     </div>
                   </td>
                   <td class="cg-phase-dates"><span>{{ phaseDatesLabel(phase) }}</span></td>
@@ -383,7 +383,7 @@
                     </div>
                     <div class="d-flex align-items-center gap-1">
                       <input type="text" class="cg-task-name" placeholder="Task name" v-model="task.taskName" :disabled="isReadOnly" @change="cgScheduleAutoSave()">
-                      <button v-if="!isTaskAssigned(task) && !isLocked" type="button" class="cg-task-del" title="Delete task" @click="deleteTask(phase, task)">✕</button>
+                      <button v-if="!isTaskAssigned(task) && !isReadOnly" type="button" class="cg-task-del" title="Delete task" @click="deleteTask(phase, task)">✕</button>
                       <span v-else-if="isTaskAssigned(task)" class="cg-task-lock" title="Linked to a project: it can't be deleted" aria-label="Linked to a project: it can't be deleted">
                         <svg viewBox="0 0 16 16" width="13" height="13" fill="none"><path d="M4 7V5a4 4 0 1 1 8 0v2M3.5 7h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3"/></svg>
                       </span>
@@ -436,7 +436,7 @@
                   </td>
                   <td v-if="draft.roles.length === 0" class="cg-col-placeholder cg-col-placeholder--task">Add roles to estimate hours for each task.</td>
                 </tr>
-                <tr v-if="!isLocked" class="cg-add-task-row">
+                <tr v-if="!isReadOnly" class="cg-add-task-row">
                   <td class="cg-col-fixed" :colspan="gridColspan">
                     <button type="button" class="cg-add-task-btn" @click="addTask(phase)">+ Add task</button>
                   </td>
@@ -480,7 +480,7 @@
     <div v-if="selectionMode" class="cg-selection-bar">
       <div class="d-flex align-items-center gap-3">
         <span style="font-size:var(--text-md)"><strong>{{ selectedTaskIds.size }}</strong> tasks selected</span>
-        <button v-if="!isLocked" type="button" class="btn btn-sm btn-outline-light py-0 px-2" style="font-size:var(--text-sm)" :disabled="selectAllFreeState() === 'none'" @click="toggleSelectAllFree">{{ selectAllFreeLabel() }}</button>
+        <button v-if="!isReadOnly" type="button" class="btn btn-sm btn-outline-light py-0 px-2" style="font-size:var(--text-sm)" :disabled="selectAllFreeState() === 'none'" @click="toggleSelectAllFree">{{ selectAllFreeLabel() }}</button>
       </div>
       <div class="d-flex gap-2 align-items-center flex-wrap">
         <div class="cg-addmode-seg" role="group" aria-label="Add to new or existing project">
@@ -493,9 +493,9 @@
                    placeholder="Select project…" aria-label="Target project" style="width:200px"
                    :disabled="isReadOnly" @update:model-value="addToProjectSel = $event"></cg-select>
         <span class="cg-header-divider" style="background:rgba(255,255,255,.3)"></span>
-        <button v-if="!isLocked" class="btn btn-sm btn-outline-light py-0 px-3" style="font-size:var(--text-base)" @click="cancelSelection">Cancel</button>
-        <button v-if="!isLocked && addToProjectMode === 'new'" class="btn btn-sm btn-primary py-0 px-3" style="font-size:var(--text-base)" :disabled="selectedTaskIds.size === 0" @click="confirmAndGenerate">Create project</button>
-        <button v-if="!isLocked && addToProjectMode === 'existing'" class="btn btn-sm btn-primary py-0 px-3" style="font-size:var(--text-base)" :disabled="selectedTaskIds.size === 0 || !addToProjectSel" @click="addToProject">Add {{ selectedTaskIds.size }} to project</button>
+        <button v-if="!isReadOnly" class="btn btn-sm btn-outline-light py-0 px-3" style="font-size:var(--text-base)" @click="cancelSelection">Cancel</button>
+        <button v-if="!isReadOnly && addToProjectMode === 'new'" class="btn btn-sm btn-primary py-0 px-3" style="font-size:var(--text-base)" :disabled="selectedTaskIds.size === 0" @click="confirmAndGenerate">Create project</button>
+        <button v-if="!isReadOnly && addToProjectMode === 'existing'" class="btn btn-sm btn-primary py-0 px-3" style="font-size:var(--text-base)" :disabled="selectedTaskIds.size === 0 || !addToProjectSel" @click="addToProject">Add {{ selectedTaskIds.size }} to project</button>
       </div>
     </div>
 
@@ -1551,6 +1551,7 @@ Vue.createApp({
     moneyInput(amount) { return window.formatMoneyInput(amount, this.draft?.currency || 'EUR', window.__currencies); },
     parseMoneyInput(text) { return window.parseMoney(text, this.draft?.currency || 'EUR', window.__currencies); },
     addPhase() {
+      if (this.isReadOnly) return;
       this.draft.phases.push({ phaseId: cgNewPhId(), phaseName: 'New phase', tasks: [] });
       cgScheduleAutoSave();
     },
@@ -1589,6 +1590,7 @@ Vue.createApp({
     // directly, bypassing this method, so they deliberately do NOT reset removeColumnConfirm —
     // only opening a (possibly different) menu via this method does.
     openRoleMenu(code) {
+      if (this.isReadOnly) return;
       this.removeColumnConfirm = null;
       this.openRoleMenuCode = this.openRoleMenuCode === code ? null : code;
     },
@@ -1604,12 +1606,14 @@ Vue.createApp({
       };
     },
     resetRoleRate(role) {
+      if (this.isReadOnly) return;
       const baseline = this.roleBaseline(role);
       role.rate = baseline.effectiveRate;
       role.rateIsCustom = false;
       cgScheduleAutoSave();
     },
     onRemoveColumnClick(role) {
+      if (this.isReadOnly) return;
       const code = role.roleCode;
       if (this.removeColumnConfirm !== code) { this.removeColumnConfirm = code; return; }
       this.draft.roles = this.draft.roles.filter(r => r.roleCode !== code);
@@ -1618,9 +1622,9 @@ Vue.createApp({
       this.removeColumnConfirm = null;
       this.openRoleMenuCode = null;
     },
-    addRoleColumn() { this.openRoleModal('add', null); },
-    changeRole(code) { this.openRoleModal('change', code); },
-    duplicateRole(code) { this.openRoleModal('duplicate', code); },
+    addRoleColumn() { if (this.isReadOnly) return; this.openRoleModal('add', null); },
+    changeRole(code) { if (this.isReadOnly) return; this.openRoleModal('change', code); },
+    duplicateRole(code) { if (this.isReadOnly) return; this.openRoleModal('duplicate', code); },
     toggleCompactHeader() {
       this.compactHeader = !this.compactHeader;
       localStorage.setItem('PDash_cgCompactHeader', this.compactHeader ? '1' : '0');
@@ -1649,6 +1653,7 @@ Vue.createApp({
       return lp ? (lp.projectName || lp.projectId || '') : '';
     },
     deletePhase(phase) {
+      if (this.isReadOnly) return;
       if (phase.tasks.some(t => this.isTaskAssigned(t))) {
         showInfo("Can't delete: this phase has tasks linked to a project.");
         return;
@@ -1659,6 +1664,7 @@ Vue.createApp({
       }, null, '✕ Delete phase');
     },
     deleteTask(phase, task) {
+      if (this.isReadOnly) return;
       if (this.isTaskAssigned(task)) {
         showInfo("Can't delete: this task is linked to a project.");
         return;
@@ -1669,6 +1675,7 @@ Vue.createApp({
       }, null, '✕ Delete task');
     },
     addTask(phase) {
+      if (this.isReadOnly) return;
       phase.tasks.push({ taskId: cgNewTkId(), taskName: '', taskDescription: '', ptc: 0, taskStartDate: '', taskEndDate: '', hours: {} });
       cgScheduleAutoSave();
     },
@@ -1720,6 +1727,7 @@ Vue.createApp({
       return free.every(t => this.selectedTaskIds.has(t.taskId)) ? 'all' : 'some';
     },
     toggleFreeInPhase(phase) {
+      if (this.isReadOnly) return;
       if (this.phaseFreeState(phase) === 'all') {
         window.cgFreeTasksOf(phase.tasks, this.draft.linkedProjects).forEach(task => {
           this.selectedTaskIds.delete(task.taskId); _cgSelectedTaskIds.delete(task.taskId);
@@ -1741,6 +1749,7 @@ Vue.createApp({
       return free.every(t => this.selectedTaskIds.has(t.taskId)) ? 'all' : 'some';
     },
     toggleSelectAllFree() {
+      if (this.isReadOnly) return;
       if (this.selectAllFreeState() === 'all') {
         window.cgFreeTasksOf((this.draft.phases || []).flatMap(ph => ph.tasks), this.draft.linkedProjects).forEach(task => {
           this.selectedTaskIds.delete(task.taskId); _cgSelectedTaskIds.delete(task.taskId);
@@ -1756,7 +1765,7 @@ Vue.createApp({
       return `Select all free (${n})`;
     },
     cancelSelection() { cgExitSelectionMode(); },
-    confirmAndGenerate() { cgConfirmAndGenerate(); },
+    confirmAndGenerate() { if (this.isReadOnly) return; cgConfirmAndGenerate(); },
     // Task 4, 2026-10-07: switching to "Existing project" preselects the single linked project
     // when there's exactly one, so the dropdown isn't a pointless extra step.
     setAddToProjectMode(mode) {
@@ -1766,6 +1775,7 @@ Vue.createApp({
       }
     },
     addToProject() {
+      if (this.isReadOnly) return;
       const projId = this.addToProjectSel;
       if (!projId) { showInfo('Select a project from the dropdown.'); return; }
       if (this.selectedTaskIds.size === 0) { showInfo('Select at least one task.'); return; }
@@ -1783,6 +1793,7 @@ Vue.createApp({
       bootstrap.Modal.getOrCreateInstance(document.getElementById('cgAddToProjectModal')).show();
     },
     async confirmAddToProject() {
+      if (this.isReadOnly) return;
       const { projId, taskIds } = this.addToProjectModal;
       bootstrap.Modal.getInstance(document.getElementById('cgAddToProjectModal'))?.hide();
       await cgDoAddTasksToProject(projId, taskIds);
