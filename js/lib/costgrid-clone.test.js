@@ -196,4 +196,12 @@ describe('cgCloneGrid — order, payload and outcome', () => {
     expect(opened).toEqual([['newCg', 'newVer']]);
     modal.remove();
   });
+
+  it('opens the clone, and reports success, on a page without #confirmModal', async () => {
+    const { fn, stubs } = build();
+    stubs.cgLoadStructureFromApi.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    expect(await fn('cg1', 'v1')).toBe(true);
+    expect(shownInfo).toHaveLength(1);
+    expect(opened).toEqual([['newCg', 'newVer']]);
+  });
 });

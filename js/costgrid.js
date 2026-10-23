@@ -719,12 +719,12 @@ async function cgSaveVersion() {
   const label = btn ? [...btn.childNodes].reverse().find(n => n.nodeType === Node.TEXT_NODE && n.nodeValue.trim()) : null;
   // The original label is remembered once, so a click during "✓ Saved" does not record it as the label.
   if (label && btn.dataset.label === undefined) btn.dataset.label = label.nodeValue;
-  await cgAutoSave(); // never rejects -- errors are caught and logged internally
+  const ok = await cgAutoSave(); // never rejects -- errors are caught and logged internally
   if (btn) {
     btn.disabled = false;
     if (label) {
       clearTimeout(btn._cgSavedTimer);
-      label.nodeValue = '✓ Saved';
+      label.nodeValue = ok ? '✓ Saved' : '⚠ Not saved';
       btn._cgSavedTimer = setTimeout(() => { label.nodeValue = btn.dataset.label; }, 1500);
     }
   }
@@ -1039,7 +1039,8 @@ async function cgCloneGrid(srcCgId, srcVerId) {
         '⚠️ Clone incomplete'
       );
       // showInfo is a modal: open the clone only once it is dismissed, or the warning goes unread.
-      await new Promise(resolve => document.getElementById('confirmModal').addEventListener('hidden.bs.modal', resolve, { once: true }));
+      const notice = document.getElementById('confirmModal');
+      if (notice) await new Promise(resolve => notice.addEventListener('hidden.bs.modal', resolve, { once: true }));
     }
 
     showCostGridEditorView(cgId, verId);

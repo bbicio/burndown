@@ -69,7 +69,7 @@
           <button v-if="!isDraft" class="ph-btn" @click="openShareModal('cost_grid', cgId, cg.name)" title="Share this cost grid"><ph-icon name="share" :size="14"></ph-icon>Share</button>
           <span class="cg-header-divider"></span>
           <button v-if="isDraft" class="ph-btn-primary" @click="publishDraft">Publish to SIP →</button>
-          <button v-else-if="!isLocked && hasFreeTasks && !selectionMode" class="ph-btn-primary" @click="generateProject" title="Generate project in SIP">Generate project</button>
+          <button v-else-if="!isReadOnly && hasFreeTasks && !selectionMode" class="ph-btn-primary" @click="generateProject" title="Generate project in SIP">Generate project</button>
           <button v-else-if="selectionMode" class="ph-btn" disabled>Selecting tasks…</button>
           <span v-else-if="!isDraft && !hasFreeTasks" class="text-muted cg-header-muted-action">All tasks are in projects</span>
         </div>
@@ -755,8 +755,8 @@
 <script type="module" src="js/lib/costgrid-calc.js?v=8"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=1"></script>
 <script defer src="js/cg-controls.js?v=2"></script>
-<script defer src="js/costgrid.js?v=46"></script>
-<script defer src="js/api-sync.js?v=24"></script>
+<script defer src="js/costgrid.js?v=47"></script>
+<script defer src="js/api-sync.js?v=25"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>
 <script defer src="js/shares.js"></script>
@@ -1554,7 +1554,7 @@ Vue.createApp({
     publishDraft() { cgPublishDraft(); },
     openLinkedProject(projId) { cgAutoSave(); showDashboardView(projId); },
     exportXls() { cgExportXls(); },
-    generateProject() { cgGenerateProject(); },
+    generateProject() { if (this.isReadOnly) return; cgGenerateProject(); },
     moneyInput(amount) { return window.formatMoneyInput(amount, this.draft?.currency || 'EUR', window.__currencies); },
     parseMoneyInput(text) { return window.parseMoney(text, this.draft?.currency || 'EUR', window.__currencies); },
     addPhase() {

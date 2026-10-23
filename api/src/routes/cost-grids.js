@@ -510,10 +510,8 @@ router.post('/:id/versions/:vId/duplicate', requireAuth, async (req, res, next) 
     if (!src.rows[0]) return res.status(404).json({ error: 'Version not found' });
     const s = src.rows[0];
 
-    const versionErr = rules.versionCreationError({
-      role: await liveRole(req.user.id),
-      hasPublishedVersion: await gridHasPublishedVersion(req.params.id),
-    });
+    const [role, hasPublishedVersion] = await Promise.all([liveRole(req.user.id), gridHasPublishedVersion(req.params.id)]);
+    const versionErr = rules.versionCreationError({ role, hasPublishedVersion });
     if (versionErr) return res.status(400).json({ error: versionErr, code: rules.VERSION_RULE_CODE });
 
     // One transaction: any failure rolls everything back, so no half-copied version is ever left behind.

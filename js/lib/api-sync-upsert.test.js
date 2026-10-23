@@ -8,10 +8,12 @@ import { extractBlock } from '../../scripts/lib/extract-source.mjs';
 const js = readFileSync('js/api-sync.js', 'utf8');
 
 let api;
+let notified;
+let showInfo;
 
 function build() {
   const cg = { id: 'cg1', name: 'Grid', versions: [{ versionId: 'v1', versionLabel: 'v1', currency: 'EUR', phases: [{ phaseName: 'P', tasks: [] }], roles: [] }] };
-  const stubs = { Api: api, cgLoad: () => cg };
+  const stubs = { Api: api, cgLoad: () => cg, _cgStructureRuleNotified: notified, showInfo };
   const names = Object.keys(stubs);
   return new Function(...names, 'window', `${extractBlock(js, 'async function _cgUpsertVersionToApi(')}; return _cgUpsertVersionToApi;`)(
     ...names.map(n => stubs[n]), { __currencies: [] });
@@ -20,6 +22,8 @@ function build() {
 describe('_cgUpsertVersionToApi — no POST fallback', () => {
   beforeEach(() => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
+    notified = new Set();
+    showInfo = vi.fn();
     api = { costGrids: {
       update: vi.fn(async () => {}),
       create: vi.fn(async () => {}),
@@ -71,6 +75,23 @@ describe('_cgUpsertVersionToApi — no POST fallback', () => {
     await expect(build()('cg1', 'v1', { strict: true })).rejects.toThrow('boom grid');
     expect(api.costGrids.versions.update).not.toHaveBeenCalled();
     expect(api.costGrids.versions.saveStructure).not.toHaveBeenCalled();
+  });
+
+  // A refused structure is refused again on every autosave: the user is told once per version, never silently.
+  it('a STRUCTURE_RULE refusal is shown once per version and resolves to false', async () => {
+    const refusal = Object.assign(new Error('400'), { data: { code: 'STRUCTURE_RULE', error: 'Cannot save: tasks linked to a project would be removed: "T1"' } });
+    api.costGrids.versions.saveStructure.mockRejectedValue(refusal);
+    await expect(build()('cg1', 'v1')).resolves.toBe(false);
+    await expect(build()('cg1', 'v1')).resolves.toBe(false);
+    expect(showInfo).toHaveBeenCalledTimes(1);
+    expect(showInfo.mock.calls[0][0]).toContain('"T1"');
+    expect(showInfo.mock.calls[0][1]).toContain('Changes not saved');
+  });
+
+  it('any other structure failure shows no notice', async () => {
+    api.costGrids.versions.saveStructure.mockRejectedValue(new Error('boom structure'));
+    await expect(build()('cg1', 'v1')).resolves.toBe(false);
+    expect(showInfo).not.toHaveBeenCalled();
   });
 
   it('resolves to true when every write succeeded', async () => {

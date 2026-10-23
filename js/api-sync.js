@@ -152,6 +152,8 @@ async function cgLoadStructureFromApi(cgId, versionId) {
 // opts.strict = true: a failed upsert throws instead of being logged and swallowed.
 // Resolves to true only when every write reached the server; false when one failed (non-strict) or there was
 // nothing to write. A failed name save does not stop the version and its structure from being saved.
+// A structure refused with STRUCTURE_RULE is refused again on every autosave, so the user is told once per version.
+const _cgStructureRuleNotified = new Set();
 async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   const strict = !!(opts && opts.strict);
   let allOk = true;
@@ -197,6 +199,10 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
       console.warn('[sync] structure save failed:', e.message);
       if (strict) throw e;
       allOk = false;
+      if (e.data?.code === 'STRUCTURE_RULE' && !_cgStructureRuleNotified.has(versionId) && typeof showInfo === 'function') {
+        _cgStructureRuleNotified.add(versionId);
+        showInfo(`${e.data.error}. Your changes to this version are not being saved: reload the page to see its current structure.`, '⚠️ Changes not saved');
+      }
     }
   }
   return allOk;

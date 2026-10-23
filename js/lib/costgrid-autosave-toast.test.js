@@ -84,3 +84,20 @@ describe('cgScheduleAutoSave — toast', () => {
     expect(show).not.toHaveBeenCalled();
   });
 });
+
+describe('cgSaveVersion — button label', () => {
+  function run(outcome) {
+    document.body.innerHTML = '<button id="btnCgSave"><i></i> Save</button>';
+    const cgAutoSave = vi.fn(() => Promise.resolve(outcome));
+    const fn = new Function('cgAutoSave', `${extractBlock(js, 'async function cgSaveVersion(')}; return cgSaveVersion;`)(cgAutoSave);
+    return fn().then(() => document.getElementById('btnCgSave').textContent.trim());
+  }
+
+  it('says "✓ Saved" when every write reached the server', async () => {
+    expect(await run(true)).toBe('✓ Saved');
+  });
+
+  it('says "⚠ Not saved" when a write failed', async () => {
+    expect(await run(false)).toBe('⚠ Not saved');
+  });
+});

@@ -10,11 +10,11 @@ const html = readFileSync('costgrid.html', 'utf8');
 
 describe('costgrid.html template', () => {
   it('no structural control is gated by !isLocked alone', () => {
-    expect(html).not.toMatch(/v-if="[^"]*!isLocked/);
+    expect(html).not.toMatch(/v-(else-)?if="[^"]*!isLocked/);
   });
 
   it('the version-label controls use isReadOnly instead of a viewer check of their own', () => {
-    expect(html).not.toMatch(/v-if="[^"]*myPermission !== 'viewer'/);
+    expect(html).not.toMatch(/v-(else-)?if="[^"]*myPermission !== 'viewer'/);
   });
 });
 
@@ -32,6 +32,7 @@ const METHODS = [
   ['resetRoleRate', 'resetRoleRate(role) {', [{ roleCode: 'PM', rate: 10, rateIsCustom: true }]],
   ['toggleSelectAllFree', 'toggleSelectAllFree() {', []],
   ['toggleFreeInPhase', 'toggleFreeInPhase(phase) {', [{ tasks: [] }]],
+  ['generateProject', 'generateProject() {', []],
   ['confirmAndGenerate', 'confirmAndGenerate() {', []],
   ['addToProject', 'addToProject() {', []],
   ['confirmAddToProject', 'async confirmAddToProject() {', []],
@@ -40,7 +41,7 @@ const METHODS = [
 function setup(isReadOnly) {
   const spies = {
     cgScheduleAutoSave: vi.fn(), showConfirm: vi.fn(), showInfo: vi.fn(),
-    cgConfirmAndGenerate: vi.fn(), cgDoAddTasksToProject: vi.fn(),
+    cgConfirmAndGenerate: vi.fn(), cgDoAddTasksToProject: vi.fn(), cgGenerateProject: vi.fn(),
     cgNewPhId: vi.fn(() => 'ph-new'), cgNewTkId: vi.fn(() => 'tk-new'),
   };
   const modalShow = vi.fn();
@@ -59,10 +60,10 @@ function setup(isReadOnly) {
   };
   self.selectedTaskIds.add('t1');
   const build = (head) => new Function('showConfirm', 'showInfo', 'cgScheduleAutoSave', 'cgConfirmAndGenerate', 'cgDoAddTasksToProject',
-    'cgNewPhId', 'cgNewTkId', 'bootstrap', 'document', '_cgSelectedTaskIds',
+    'cgNewPhId', 'cgNewTkId', 'bootstrap', 'document', '_cgSelectedTaskIds', 'cgGenerateProject',
     `return { ${extractBlock(html, head)} };`)(
     spies.showConfirm, spies.showInfo, spies.cgScheduleAutoSave, spies.cgConfirmAndGenerate, spies.cgDoAddTasksToProject,
-    spies.cgNewPhId, spies.cgNewTkId, bootstrap, documentStub, new Set());
+    spies.cgNewPhId, spies.cgNewTkId, bootstrap, documentStub, new Set(), spies.cgGenerateProject);
   return { self, spies, modalShow, build };
 }
 
