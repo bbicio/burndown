@@ -15,8 +15,9 @@
 //     entries where the cycle really took five decisions passes every
 //     assertion here, and nothing mechanical can see it. Checking that would
 //     mean judging the content, which PROCESS.md §6.4c forbids elsewhere for
-//     exactly the same reason (see also §6b(d): a guard may require the
-//     artefact to CARRY the information, never judge whether it is correct).
+//     exactly the same reason (see also §6b, "Il confine dei guard": a guard
+//     may require the artefact to CARRY the information, never judge whether
+//     it is correct).
 //     The only safeguards against an under-reported ledger are that it is
 //     committed and that the Plan re-reads the Spec.
 //   * WHETHER AN ENTRY IS TRUE, or whether its "Alternativa scartata" was a
