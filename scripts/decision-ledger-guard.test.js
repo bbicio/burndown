@@ -63,6 +63,14 @@
 // PLAN_EXEMPT is closed, like EXEMPT below: it holds the one plan that shares
 // the cutoff date and predates the rule.
 //
+// FOURTH RULE (2026-10-23): every spec dated from CRITERIA_CUTOFF, and every
+// plan dated from it whose `**Spec:**` line does not open with, in backticks,
+// an existing Spec this rule covers, carries a `## Criteri di accettazione` section of
+// `N. **<label>** — <outcome>` entries, at least one, no sentinel.
+// /finish-cycle's Gate 2 reads it as a checklist. Fences and HTML comments are
+// handled as for the ledger (liveLines). Not checked: the content, whether an
+// entry is verifiable, whether the list is complete, and briefs.
+//
 // THE EXEMPT LIST BELOW IS CLOSED. The four files in it carry this cycle's
 // own date but predate the rule. The cutoff cannot simply be moved one day
 // forward, because that would exempt this cycle's own spec and plan -- the two
@@ -101,10 +109,12 @@ function inScope(relPath) {
 }
 
 /**
- * Does this document carry a usable decision ledger?
- * @returns {{ok: true} | {ok: false, reason: 'missing-section'|'empty-section'|'malformed-entry'}}
+ * The document's lines with fenced code blocks and HTML comments blanked out:
+ * what a renderer shows as live markup. Shared by the ledger rule and the
+ * acceptance-criteria rule.
+ * @returns {string[]}
  */
-function checkLedger(markdown) {
+function liveLines(markdown) {
   // Blank out fenced code blocks first: a document that documents the ledger
   // format carries the heading as an example too, and the example must not be
   // mistaken for the real section.
@@ -130,7 +140,15 @@ function checkLedger(markdown) {
   // a `<!--` shown inside a code fence cannot pair with a later real comment's
   // `-->` and delete the genuine ledger between them. An unterminated comment
   // runs to the end: it hides everything after it in a renderer too.
-  const stripped = lines.join('\n').replace(/<!--[\s\S]*?-->|<!--[\s\S]*$/g, '').split('\n');
+  return lines.join('\n').replace(/<!--[\s\S]*?-->|<!--[\s\S]*$/g, '').split('\n');
+}
+
+/**
+ * Does this document carry a usable decision ledger?
+ * @returns {{ok: true} | {ok: false, reason: 'missing-section'|'empty-section'|'malformed-entry'}}
+ */
+function checkLedger(markdown) {
+  const stripped = liveLines(markdown);
   const start = stripped.findIndex((l) => /^## Decisioni aperte\s*$/.test(l));
   if (start === -1) return { ok: false, reason: 'missing-section' };
 
@@ -197,6 +215,52 @@ function checkPlanHeader(markdown) {
   if (!classLines.some((l) => /^\*\*Risk class:\*\* (low-risk|standard|high-risk)(\s|$)/.test(l))) {
     return { ok: false, reason: 'missing-risk-class' };
   }
+  return { ok: true };
+}
+
+// Fourth rule, specs and spec-less plans: an acceptance-criteria section that
+// /finish-cycle's Gate 2 turns into a checklist (PROCESS.md 6b). From its own
+// cutoff, no exemptions.
+const CRITERIA_CUTOFF = '2026-10-24';
+
+/**
+ * Specs dated from the cutoff (briefs excluded), and plans dated from the
+ * cutoff whose live `**Spec:**` line does not open with a backticked, existing
+ * Spec that this rule covers.
+ * @param {(relPath: string) => boolean} exists
+ */
+function criteriaInScope(relPath, markdown, exists) {
+  const slash = relPath.lastIndexOf('/');
+  const dir = relPath.slice(0, slash);
+  const name = relPath.slice(slash + 1);
+  if (!DIRS.includes(dir)) return false;
+  if (!name.endsWith('.md') || name.endsWith('-brief.md')) return false;
+  const date = /^(\d{4}-\d{2}-\d{2})-/.exec(name)?.[1];
+  if (date === undefined || date < CRITERIA_CUTOFF) return false;
+  if (dir === 'docs/superpowers/specs') return true;
+  const specLine = liveLines(markdown).find((l) => /^\*\*Spec:\*\*/.test(l));
+  // Only a backticked path right after the label names a Spec, and it exempts
+  // the Plan only if this rule covers that Spec and the file exists.
+  const path = specLine && /^\*\*Spec:\*\*\s*`([^`]+)`/.exec(specLine)?.[1];
+  return !(path && path.startsWith('docs/superpowers/specs/') && criteriaInScope(path, '', exists) && exists(path));
+}
+
+/**
+ * Does this document carry a usable acceptance-criteria section?
+ * @returns {{ok: true} | {ok: false, reason: 'missing-section'|'empty-section'|'malformed-entry'}}
+ */
+function checkCriteria(markdown) {
+  const lines = liveLines(markdown);
+  const start = lines.findIndex((l) => /^## Criteri di accettazione\s*$/.test(l));
+  if (start === -1) return { ok: false, reason: 'missing-section' };
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex((l) => /^## /.test(l));
+  const body = (end === -1 ? rest : rest.slice(0, end)).join('\n').trim();
+  if (body === '') return { ok: false, reason: 'empty-section' };
+  // Same split as the ledger: index 0 is whatever precedes the first entry.
+  const parts = body.split(/^\d+\.\s/m);
+  if (parts.length < 2 || parts[0].trim() !== '') return { ok: false, reason: 'malformed-entry' };
+  if (!parts.slice(1).every((e) => /^\*\*[^*\n]+\*\* — \S/.test(e))) return { ok: false, reason: 'malformed-entry' };
   return { ok: true };
 }
 
@@ -453,5 +517,116 @@ describe('live plans: Branch and Risk class', () => {
       .map(([rel, res]) => `${rel} -- ${res.reason}`);
     expect(failures, `these plans fail the Plan header rule -- one "**Branch:** \`<name>\`" line and exactly one
       "**Risk class:** low-risk|standard|high-risk" line (PROCESS.md 6.1b):\n  ${failures.join('\n  ')}`).toEqual([]);
+  });
+});
+
+const CRIT_OK = `## Criteri di accettazione
+
+1. **A** — esito.
+2. **B** — altro.
+`;
+
+describe('checkCriteria', () => {
+  it('accepts numbered entries with a bold label and an em dash', () => {
+    expect(checkCriteria(`# T\n\n${CRIT_OK}`)).toEqual({ ok: true });
+  });
+
+  it('rejects a document with no section, or with only ### Criteri di accettazione', () => {
+    expect(checkCriteria('# T\n\n## Altro\n\nx\n').reason).toBe('missing-section');
+    expect(checkCriteria('# T\n\n### Criteri di accettazione\n\n1. **A** — e.\n').reason).toBe('missing-section');
+  });
+
+  it('ignores a heading inside a ``` or ~~~ fence', () => {
+    expect(checkCriteria(`# T\n\n\`\`\`markdown\n${CRIT_OK}\`\`\`\n`).reason).toBe('missing-section');
+    expect(checkCriteria(`# T\n\n~~~markdown\n${CRIT_OK}~~~\n`).reason).toBe('missing-section');
+  });
+
+  it('ignores a heading inside an HTML comment', () => {
+    expect(checkCriteria(`# T\n\n<!--\n${CRIT_OK}-->\n`).reason).toBe('missing-section');
+  });
+
+  it('rejects a section whose body is blank before the next ## heading', () => {
+    expect(checkCriteria('# T\n\n## Criteri di accettazione\n\n\n## Dopo\n\n1. **A** — e.\n').reason).toBe('empty-section');
+  });
+
+  it('rejects Nessuno., an entry without a bold label, a hyphen for the dash, and bullets', () => {
+    const sec = (body) => `# T\n\n## Criteri di accettazione\n\n${body}\n`;
+    expect(checkCriteria(sec('Nessuno.')).reason).toBe('malformed-entry');
+    expect(checkCriteria(sec('1. A — esito.')).reason).toBe('malformed-entry');
+    expect(checkCriteria(sec('1. **A** - esito.')).reason).toBe('malformed-entry');
+    expect(checkCriteria(sec('- **A** — esito.')).reason).toBe('malformed-entry');
+  });
+
+  it('stops the section at the next ## heading', () => {
+    expect(checkCriteria(`# T\n\n${CRIT_OK}\n## Note\n\nprosa libera\n`)).toEqual({ ok: true });
+    expect(checkCriteria('# T\n\n## Criteri di accettazione\n\n1. A senza etichetta.\n\n## Note\n\n2. **B** — e.\n').reason)
+      .toBe('malformed-entry');
+  });
+
+  it('parses a CRLF document identically to its LF twin', () => {
+    const lf = `# T\n\n${CRIT_OK}`;
+    expect(checkCriteria(lf.replace(/\n/g, '\r\n'))).toEqual(checkCriteria(lf));
+  });
+
+  it("accepts this cycle's own spec, the first real document in the format", () => {
+    const rel = 'docs/superpowers/specs/2026-10-23-acceptance-criteria-frozen-spec-design.md';
+    expect(checkCriteria(readFileSync(join(ROOT, rel), 'utf8'))).toEqual({ ok: true });
+  });
+});
+
+describe('criteriaInScope', () => {
+  const yes = () => true;
+  const no = () => false;
+  const prev = '2026-10-23';
+
+  it('covers specs dated from the cutoff, never briefs', () => {
+    expect(criteriaInScope(`docs/superpowers/specs/${CRITERIA_CUTOFF}-x-design.md`, '', yes)).toBe(true);
+    expect(criteriaInScope(`docs/superpowers/specs/${prev}-x-design.md`, '', yes)).toBe(false);
+    expect(criteriaInScope(`docs/superpowers/specs/${CRITERIA_CUTOFF}-x-brief.md`, '', yes)).toBe(false);
+  });
+
+  it('covers a plan only when its **Spec:** line names no existing Spec', () => {
+    const plan = `docs/superpowers/plans/${CRITERIA_CUTOFF}-x.md`;
+    expect(criteriaInScope(plan, '# P\n\n**Spec:** nessuna — x\n', yes)).toBe(true);
+    const named = `# P\n\n**Spec:** \`docs/superpowers/specs/${CRITERIA_CUTOFF}-a-design.md\`\n`;
+    expect(criteriaInScope(plan, named, yes)).toBe(false);
+    expect(criteriaInScope(plan, named, no)).toBe(true);
+    expect(criteriaInScope(plan, '# P\n\n**Branch:** `x`\n', yes)).toBe(true);
+    // The real spec-less form cites an existing handoff or report after
+    // "nessuna": that file is not a Spec and must not exempt the Plan.
+    expect(criteriaInScope(plan, '**Spec:** nessuna — handoff `docs/superpowers/briefs/h.md`.\n', yes)).toBe(true);
+    expect(criteriaInScope(plan, '**Spec:** `docs/superpowers/briefs/h.md`\n', yes)).toBe(true);
+    expect(criteriaInScope(`docs/superpowers/plans/${prev}-x.md`, '# P\n', yes)).toBe(false);
+    // A Spec the criteria rule does not cover -- older, or a brief -- carries
+    // no section, so naming it must not exempt the Plan either.
+    expect(criteriaInScope(plan, `**Spec:** \`docs/superpowers/specs/${prev}-a-design.md\`\n`, yes)).toBe(true);
+    expect(criteriaInScope(plan, `**Spec:** \`docs/superpowers/specs/${CRITERIA_CUTOFF}-a-brief.md\`\n`, yes)).toBe(true);
+  });
+
+  it('reads the **Spec:** line from live markup only, not from a fence or a comment', () => {
+    const plan = `docs/superpowers/plans/${CRITERIA_CUTOFF}-x.md`;
+    const example = `**Spec:** \`docs/superpowers/specs/${CRITERIA_CUTOFF}-a-design.md\``;
+    expect(criteriaInScope(plan, `\`\`\`markdown\n${example}\n\`\`\`\n**Spec:** nessuna — x\n`, yes)).toBe(true);
+    expect(criteriaInScope(plan, `<!-- ${example} -->\n**Spec:** nessuna — x\n`, yes)).toBe(true);
+  });
+});
+
+describe('live specs and plans: acceptance criteria', () => {
+  it('every in-scope spec and spec-less plan carries a criteria section', () => {
+    const failures = [];
+    for (const dir of DIRS) {
+      const abs = join(ROOT, dir);
+      if (!existsSync(abs)) continue;
+      for (const name of readdirSync(abs)) {
+        const rel = `${dir}/${name}`;
+        if (!name.endsWith('.md')) continue;
+        const md = readFileSync(join(abs, name), 'utf8');
+        if (!criteriaInScope(rel, md, (p) => existsSync(join(ROOT, p)))) continue;
+        const res = checkCriteria(md);
+        if (!res.ok) failures.push(`${rel} -- ${res.reason}`);
+      }
+    }
+    expect(failures, `these files have no usable "## Criteri di accettazione" section, entries
+      "N. **<label>** — <verifiable outcome>" (PROCESS.md 6b):\n  ${failures.join('\n  ')}`).toEqual([]);
   });
 });
