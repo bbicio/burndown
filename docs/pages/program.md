@@ -191,3 +191,7 @@ Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `d
 ## Backlog quick wins (2026-10-20)
 
 Report `docs/superpowers/reports/2026-10-20-backlog-quickwins-finish-cycle.md`. The header's back link reads "‹ Portfolio", like the project dashboard's (B-016).
+
+## Backlog B-110, B-112 (2026-10-23)
+
+Plan `docs/superpowers/plans/2026-10-23-backlog-b110-b112.md`, report `docs/superpowers/reports/2026-10-23-backlog-b110-b112-finish-cycle.md`. `.pg-tile-of` is `white-space: nowrap`, so the "of <amount>" of a KPI tile wraps as one unit instead of splitting between the currency symbol and the amount (B-110). `css/portfolio.css?v=7`, pinned by `js/lib/portfolio-guard.test.js`. `--tile-value-size` stays outside the `--text-*` scale.
