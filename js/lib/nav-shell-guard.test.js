@@ -93,7 +93,7 @@ describe('?v= references of the files edited in B1 and B2', () => {
     const p = readFileSync(join(process.cwd(), 'pipeline.html'), 'utf8');
     expect(p).toContain('css/style.css?v=27');
     expect(p).toContain('js/core.js?v=14');
-    expect(p).toContain('js/nav.js?v=18');
+    expect(p).toContain('js/nav.js?v=19');
     expect(p).toContain('js/notifications.js?v=3');
     expect(p).toContain('css/tokens.css?v=12');
   });
