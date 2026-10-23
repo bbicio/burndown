@@ -38,7 +38,7 @@ const hasSelector = (text, sel) =>
 // Text of every element whose class list contains `cls`, depth-aware for nested same-name tags.
 const elementTexts = (html, cls) => {
   const out = [];
-  const open = new RegExp('<(\\w+)[^>]*class="[^"]*\\b' + cls + '\\b[^"]*"[^>]*>', 'g');
+  const open = new RegExp('<(\\w+)[^>]*class="(?:[^"]*\\s)?' + cls + '(?:\\s[^"]*)?"[^>]*>', 'g');
   let m;
   while ((m = open.exec(html))) {
     const tag = m[1];
@@ -62,6 +62,43 @@ const methodBody = (html, name) => {
   return html.slice(m.index, i);
 };
 
+// Title roots that are data, not methods: their text comes from the API and cannot be
+// checked statically. A root that is neither a method nor listed here fails the guard.
+const DATA_TITLE_ROOTS = new Set([
+  'selectedYear', 'cg', 'program', 'currentList', 'project', 'isNewProject',
+]);
+const JS_WORDS = new Set(['true', 'false', 'null', 'undefined', 'typeof', 'instanceof', 'in', 'new', 'this']);
+
+// Of every {{ … }} in a title: its string literals, and its top-level identifiers
+// (not after a member `.`/`?.` — a spread `...` still counts — and not a JS keyword).
+const titleExpressions = text => [...text.matchAll(/\{\{([\s\S]*?)\}\}/g)].map(m => {
+  const literals = [];
+  const code = m[1].replace(/(['"`])(?:\\.|(?!\1)[^\\])*\1/g, s => { literals.push(s); return '""'; });
+  const roots = [...code.matchAll(/(?<![\w$])(?<!(?<!\.)\.)[A-Za-z_$][\w$]*/g)]
+    .map(r => r[0]).filter(r => !JS_WORDS.has(r));
+  return { literals, roots };
+});
+
+// Why one title is not provably emoji-free, or [] when it is. A template literal with ${…}
+// is refused rather than parsed: its code can hold strings and braces of its own.
+const titleProblems = (html, text) => {
+  const out = [];
+  for (const { literals, roots } of titleExpressions(text)) {
+    if (literals.some(l => l[0] === '`' && l.includes('${'))) {
+      out.push('template literal with ${…} in a title: write it as a method');
+      continue;
+    }
+    for (const l of literals) if (/\p{Extended_Pictographic}/u.test(l)) out.push(`emoji in literal ${l}`);
+    for (const r of roots) {
+      if (DATA_TITLE_ROOTS.has(r)) continue;
+      const body = methodBody(html, r);
+      if (!body) out.push(`unknown title source ${r}`);
+      else if (/\p{Extended_Pictographic}/u.test(body)) out.push(`emoji in method ${r}`);
+    }
+  }
+  return out;
+};
+
 describe('guard helpers', () => {
   it('methodBody returns a brace-matched method and nothing for an unknown name', () => {
     const src = 'x: { title() { if (a) { return "A"; } return "B"; }, other() { return 1; } }';
@@ -81,6 +118,28 @@ describe('guard helpers', () => {
     const texts = elementTexts(html, 'ph-title');
     expect(texts.length).toBe(1);
     expect(texts[0]).toMatch(/\p{Extended_Pictographic}/u);
+  });
+  it('elementTexts matches whole class names, not a longer class that starts with one', () => {
+    const html = '<div class="ph-title-row"><h1 class="x ph-title">T</h1><i>{{ s.name }}</i></div>';
+    expect(elementTexts(html, 'ph-title')).toEqual(['T']);
+  });
+  it('titleProblems fails an emoji literal in a title expression', () => {
+    expect(titleProblems('', "{{ cg?.name || '\u{1F4B0} Cost Grid' }}")).toEqual([`emoji in literal '\u{1F4B0} Cost Grid'`]);
+  });
+  it('titleProblems takes the root of a dotted path', () => {
+    expect(titleProblems('', '{{ cg?.name || project.name }}')).toEqual([]);
+  });
+  it('titleProblems fails an unknown root and checks a method body', () => {
+    expect(titleProblems('', '{{ mystery.name }}')).toEqual(['unknown title source mystery']);
+    expect(titleProblems('t() { return "\u{1F600}"; }', '{{ t }}')).toEqual(['emoji in method t']);
+    expect(titleProblems('t() { return "T"; }', '{{ t }}')).toEqual([]);
+  });
+  it('titleProblems refuses a template literal with ${…} and checks a plain one', () => {
+    expect(titleProblems('', "{{ `${a || 'Draft copy'}` }}")).toEqual(['template literal with ${…} in a title: write it as a method']);
+    expect(titleProblems('', '{{ `\u{1F600} Grid` }}')).toEqual(['emoji in literal `\u{1F600} Grid`']);
+  });
+  it('titleProblems keeps the root after a spread', () => {
+    expect(titleProblems('', "{{ [...items].join(', ') }}")).toEqual(['unknown title source items']);
   });
 });
 const BTN_PRIMARY = /(?<![\w-])btn-primary/;
@@ -156,11 +215,7 @@ describe('migrated pages (vacuous while everything is pending)', () => {
         for (const t of titles) expect(t).not.toMatch(/\p{Extended_Pictographic}/u);
       });
       it('has no emoji in a computed .ph-title', () => {
-        for (const t of elementTexts(html, 'ph-title')) {
-          for (const [, name] of t.matchAll(/\{\{\s*(\w+)\s*\}\}/g)) {
-            expect(methodBody(html, name), `${name} in ${p}`).not.toMatch(/\p{Extended_Pictographic}/u);
-          }
-        }
+        for (const t of elementTexts(html, 'ph-title')) expect(titleProblems(html, t), p).toEqual([]);
       });
       it('has no forbidden selector in its inline styles', () => {
         const style = stripComments(inlineStyles(html));
