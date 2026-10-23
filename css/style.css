@@ -490,7 +490,7 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
 /* planning.html toolbar content containers (the band itself is .ph-toolbar) */
 .pl-toolbar { align-items: flex-start; padding-top: var(--space-3); padding-bottom: var(--space-3); }
 .pl-toolbar-left  { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.pl-toolbar-right { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; flex-shrink: 0; max-width: 100%; padding-top: 2px; }
+.pl-toolbar-right { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; flex-shrink: 0; max-width: 100%; }
 
 /* ── Misc ── */
 .dropdown-toggle-no-caret::after { display: none; }
