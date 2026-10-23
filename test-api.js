@@ -2575,6 +2575,22 @@ async function testStructureRule() {
 
   const r3 = await putStructure([{ title: 'P1', tasks: [t2] }, { title: 'P2', tasks: [t1] }]);
   ok(r3.status === 200, `SR-03 move to another phase → 200 (got ${r3.status})`);
+
+  // SR-04/05: dropping the linked task is refused, and the DB keeps both tasks
+  const r4 = await putStructure([{ title: 'P1', tasks: [t2] }, { title: 'P2', tasks: [] }]);
+  ok(r4.status === 400 && r4.data?.code === 'STRUCTURE_RULE',
+    `SR-04 payload without the linked task → 400 STRUCTURE_RULE (got ${r4.status})`);
+  ok(/"T1"/.test(r4.data?.error || ''), 'SR-04 the error names the missing task');
+  const after = (await api('GET', `${base}/structure`, null, adminCookie)).data;
+  const titles = (after?.phases || []).flatMap(p => p.tasks.map(t => t.title)).sort().join(',');
+  ok(titles === 'T1,T2', `SR-05 the refused save left T1 and T2 in the DB (got "${titles}")`);
+
+  // SR-06: a link to a task that does not exist is ignored
+  const orphan = '00000000-0000-4000-8000-000000000000';
+  const lnk2 = await api('POST', `${base}/linked-projects`, { projectId: pId, taskIds: [idT1, orphan], taskNames: ['T1'] }, adminCookie);
+  ok(lnk2.status === 201, 'SR-06 setup: link carries an orphan task id');
+  const r6 = await putStructure([{ title: 'P1', tasks: [t2] }, { title: 'P2', tasks: [t1] }]);
+  ok(r6.status === 200, `SR-06 a save keeping T1 with an orphan id in the link → 200 (got ${r6.status})`);
 }
 
 async function testProjectCurrencyLock() {
