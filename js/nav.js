@@ -27,6 +27,25 @@ const NAV_GROUPS = [
 ];
 
 // Icon drawings live in js/lib/icons.js (window.ICON_PATHS), loaded before this file.
+// Fills the Send Notification recipient <select> with one <option> per user, built as text: a user's name is
+// data and never goes through innerHTML.
+function navFillRecipientOptions(selectEl, users, { broadcast, selfId }) {
+  const options = [];
+  if (broadcast) {
+    const all = document.createElement('option');
+    all.value = '';
+    all.textContent = 'All users (broadcast)';
+    options.push(all);
+  }
+  users.filter(u => u.id !== selfId).forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = u.id;
+    opt.textContent = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email;
+    options.push(opt);
+  });
+  selectEl.replaceChildren(...options);
+}
+
 function navIcon(name, size = 'sm') {
   const paths = (window.ICON_PATHS || {})[name];
   if (!paths) return '';
@@ -625,11 +644,10 @@ async function initNav(activeTab, opts = {}) {
 
       try {
         const users = await apiFetch('/users/active-list');
-        const opts = users
-          .filter(u => u.id !== window.__navUser?.id)
-          .map(u => `<option value="${u.id}">${[u.first_name, u.last_name].filter(Boolean).join(' ') || u.email}</option>`)
-          .join('');
-        targetSel.innerHTML = (['admin','sysadmin'].includes(window.__navUser?.role) ? '<option value="">All users (broadcast)</option>' : '') + opts;
+        navFillRecipientOptions(targetSel, users, {
+          broadcast: ['admin', 'sysadmin'].includes(window.__navUser?.role),
+          selfId: window.__navUser?.id,
+        });
       } catch (e) {
         targetSel.innerHTML = '<option value="">Failed to load users</option>';
       }
