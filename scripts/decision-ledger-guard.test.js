@@ -64,8 +64,8 @@
 // the cutoff date and predates the rule.
 //
 // FOURTH RULE (2026-10-23): every spec dated from CRITERIA_CUTOFF, and every
-// plan dated from it whose `**Spec:**` line does not open with an existing Spec in
-// backticks, carries a `## Criteri di accettazione` section of
+// plan dated from it whose `**Spec:**` line does not open with, in backticks,
+// an existing Spec this rule covers, carries a `## Criteri di accettazione` section of
 // `N. **<label>** — <outcome>` entries, at least one, no sentinel.
 // /finish-cycle's Gate 2 reads it as a checklist. Fences and HTML comments are
 // handled as for the ledger (liveLines). Not checked: the content, whether an
@@ -225,7 +225,8 @@ const CRITERIA_CUTOFF = '2026-10-24';
 
 /**
  * Specs dated from the cutoff (briefs excluded), and plans dated from the
- * cutoff whose `**Spec:**` line does not open with a backticked, existing Spec.
+ * cutoff whose live `**Spec:**` line does not open with a backticked, existing
+ * Spec that this rule covers.
  * @param {(relPath: string) => boolean} exists
  */
 function criteriaInScope(relPath, markdown, exists) {
@@ -237,10 +238,11 @@ function criteriaInScope(relPath, markdown, exists) {
   const date = /^(\d{4}-\d{2}-\d{2})-/.exec(name)?.[1];
   if (date === undefined || date < CRITERIA_CUTOFF) return false;
   if (dir === 'docs/superpowers/specs') return true;
-  const specLine = markdown.replace(/\r\n/g, '\n').split('\n').find((l) => /^\*\*Spec:\*\*/.test(l));
-  // Only a backticked path right after the label, under specs/, names a Spec.
-  const path = specLine && /^\*\*Spec:\*\*\s*`(docs\/superpowers\/specs\/[^`]+)`/.exec(specLine)?.[1];
-  return !(path && exists(path));
+  const specLine = liveLines(markdown).find((l) => /^\*\*Spec:\*\*/.test(l));
+  // Only a backticked path right after the label names a Spec, and it exempts
+  // the Plan only if this rule covers that Spec and the file exists.
+  const path = specLine && /^\*\*Spec:\*\*\s*`([^`]+)`/.exec(specLine)?.[1];
+  return !(path && path.startsWith('docs/superpowers/specs/') && criteriaInScope(path, '', exists) && exists(path));
 }
 
 /**
@@ -586,7 +588,7 @@ describe('criteriaInScope', () => {
   it('covers a plan only when its **Spec:** line names no existing Spec', () => {
     const plan = `docs/superpowers/plans/${CRITERIA_CUTOFF}-x.md`;
     expect(criteriaInScope(plan, '# P\n\n**Spec:** nessuna — x\n', yes)).toBe(true);
-    const named = '# P\n\n**Spec:** `docs/superpowers/specs/a-design.md`\n';
+    const named = `# P\n\n**Spec:** \`docs/superpowers/specs/${CRITERIA_CUTOFF}-a-design.md\`\n`;
     expect(criteriaInScope(plan, named, yes)).toBe(false);
     expect(criteriaInScope(plan, named, no)).toBe(true);
     expect(criteriaInScope(plan, '# P\n\n**Branch:** `x`\n', yes)).toBe(true);
@@ -595,6 +597,17 @@ describe('criteriaInScope', () => {
     expect(criteriaInScope(plan, '**Spec:** nessuna — handoff `docs/superpowers/briefs/h.md`.\n', yes)).toBe(true);
     expect(criteriaInScope(plan, '**Spec:** `docs/superpowers/briefs/h.md`\n', yes)).toBe(true);
     expect(criteriaInScope(`docs/superpowers/plans/${prev}-x.md`, '# P\n', yes)).toBe(false);
+    // A Spec the criteria rule does not cover -- older, or a brief -- carries
+    // no section, so naming it must not exempt the Plan either.
+    expect(criteriaInScope(plan, `**Spec:** \`docs/superpowers/specs/${prev}-a-design.md\`\n`, yes)).toBe(true);
+    expect(criteriaInScope(plan, `**Spec:** \`docs/superpowers/specs/${CRITERIA_CUTOFF}-a-brief.md\`\n`, yes)).toBe(true);
+  });
+
+  it('reads the **Spec:** line from live markup only, not from a fence or a comment', () => {
+    const plan = `docs/superpowers/plans/${CRITERIA_CUTOFF}-x.md`;
+    const example = `**Spec:** \`docs/superpowers/specs/${CRITERIA_CUTOFF}-a-design.md\``;
+    expect(criteriaInScope(plan, `\`\`\`markdown\n${example}\n\`\`\`\n**Spec:** nessuna — x\n`, yes)).toBe(true);
+    expect(criteriaInScope(plan, `<!-- ${example} -->\n**Spec:** nessuna — x\n`, yes)).toBe(true);
   });
 });
 
