@@ -47,7 +47,7 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - ./api/src:/app/src   # hot reload in development
+      - ./api/src:/app/src   # source mounted; restart api to pick up changes
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/auth/me',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\""]
       interval: 10s
