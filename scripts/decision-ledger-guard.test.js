@@ -64,7 +64,7 @@
 // the cutoff date and predates the rule.
 //
 // FOURTH RULE (2026-10-23): every spec dated from CRITERIA_CUTOFF, and every
-// plan dated from it whose `**Spec:**` line does not name an existing file in
+// plan dated from it whose `**Spec:**` line does not open with an existing Spec in
 // backticks, carries a `## Criteri di accettazione` section of
 // `N. **<label>** — <outcome>` entries, at least one, no sentinel.
 // /finish-cycle's Gate 2 reads it as a checklist. Fences and HTML comments are
@@ -225,7 +225,7 @@ const CRITERIA_CUTOFF = '2026-10-24';
 
 /**
  * Specs dated from the cutoff (briefs excluded), and plans dated from the
- * cutoff whose `**Spec:**` line does not name, in backticks, a file that exists.
+ * cutoff whose `**Spec:**` line does not open with a backticked, existing Spec.
  * @param {(relPath: string) => boolean} exists
  */
 function criteriaInScope(relPath, markdown, exists) {
@@ -238,7 +238,8 @@ function criteriaInScope(relPath, markdown, exists) {
   if (date === undefined || date < CRITERIA_CUTOFF) return false;
   if (dir === 'docs/superpowers/specs') return true;
   const specLine = markdown.replace(/\r\n/g, '\n').split('\n').find((l) => /^\*\*Spec:\*\*/.test(l));
-  const path = specLine && /`([^`]+)`/.exec(specLine)?.[1];
+  // Only a backticked path right after the label, under specs/, names a Spec.
+  const path = specLine && /^\*\*Spec:\*\*\s*`(docs\/superpowers\/specs\/[^`]+)`/.exec(specLine)?.[1];
   return !(path && exists(path));
 }
 
@@ -582,13 +583,17 @@ describe('criteriaInScope', () => {
     expect(criteriaInScope(`docs/superpowers/specs/${CRITERIA_CUTOFF}-x-brief.md`, '', yes)).toBe(false);
   });
 
-  it('covers a plan only when its **Spec:** line names no existing file', () => {
+  it('covers a plan only when its **Spec:** line names no existing Spec', () => {
     const plan = `docs/superpowers/plans/${CRITERIA_CUTOFF}-x.md`;
     expect(criteriaInScope(plan, '# P\n\n**Spec:** nessuna — x\n', yes)).toBe(true);
     const named = '# P\n\n**Spec:** `docs/superpowers/specs/a-design.md`\n';
     expect(criteriaInScope(plan, named, yes)).toBe(false);
     expect(criteriaInScope(plan, named, no)).toBe(true);
     expect(criteriaInScope(plan, '# P\n\n**Branch:** `x`\n', yes)).toBe(true);
+    // The real spec-less form cites an existing handoff or report after
+    // "nessuna": that file is not a Spec and must not exempt the Plan.
+    expect(criteriaInScope(plan, '**Spec:** nessuna — handoff `docs/superpowers/briefs/h.md`.\n', yes)).toBe(true);
+    expect(criteriaInScope(plan, '**Spec:** `docs/superpowers/briefs/h.md`\n', yes)).toBe(true);
     expect(criteriaInScope(`docs/superpowers/plans/${prev}-x.md`, '# P\n', yes)).toBe(false);
   });
 });

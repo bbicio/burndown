@@ -284,7 +284,7 @@ L'unico corpo alternativo, quando non ce ne sono, è la sentinella `Nessuna.` �
 
 `scripts/decision-ledger-guard.test.js` lo pinna, con il suo taglio a data e la sua lista di esenzioni **chiusa**. Quello che il guard non vede, e non può vedere, è se il ledger è **completo**. Il limite è dichiarato nell'intestazione del guard; i soli presìdi sono che il ledger è committato e che il Piano rilegge la Spec.
 
-**Criteri di accettazione (dal 2026-10-24).** Ogni Spec porta una sezione intitolata esattamente `## Criteri di accettazione`; un Piano la porta quando la sua riga `**Spec:**` non nomina un file esistente. Almeno una voce, senza sentinella:
+**Criteri di accettazione (dal 2026-10-24).** Ogni Spec porta una sezione intitolata esattamente `## Criteri di accettazione`; un Piano la porta quando la sua riga `**Spec:**` non si apre con il path, tra backtick, di una Spec esistente. Almeno una voce, senza sentinella:
 
 ```markdown
 ## Criteri di accettazione
