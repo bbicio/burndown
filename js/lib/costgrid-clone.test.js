@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { extractBlock } from '../../scripts/lib/extract-source.mjs';
 
 // js/costgrid.js is a classic script, so cgCloneGrid is cut out of the file and run against stubs.
 // Regression found in the final review of the "New Proposal / Clone without a modal" cycle
@@ -9,18 +10,6 @@ import { readFileSync } from 'node:fs';
 // whole clone throws — before this cycle there was no flush, so a viewer's clone worked. The flush
 // must be skipped when the source grid's permission is 'viewer'.
 const js = readFileSync('js/costgrid.js', 'utf8');
-
-function extractFunction(src, name) {
-  const start = src.indexOf(`async function ${name}(`);
-  if (start < 0) throw new Error(`function ${name} not found`);
-  let i = src.indexOf('{', src.indexOf(')', start));
-  let depth = 0;
-  for (; i < src.length; i++) {
-    if (src[i] === '{') depth++;
-    else if (src[i] === '}' && --depth === 0) { i++; break; }
-  }
-  return src.slice(start, i);
-}
 
 let api, store, shownInfo, opened, calls;
 
@@ -50,7 +39,7 @@ function build({ myPermission = 'owner', srcOverrides = {} } = {}) {
     _cgCloneInFlight: false,
   };
   const names = Object.keys(stubs);
-  const fn = new Function(...names, 'document', 'window', `${extractFunction(js, 'cgCloneGrid')}; return cgCloneGrid;`)(
+  const fn = new Function(...names, 'document', 'window', `${extractBlock(js, 'async function cgCloneGrid(')}; return cgCloneGrid;`)(
     ...names.map(n => stubs[n]), document, window);
   return { fn, stubs };
 }

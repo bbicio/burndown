@@ -1,21 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { extractBlock } from '../../scripts/lib/extract-source.mjs';
 
 // js/costgrid.js is a classic script, so cgCreateNewGrid is cut out of the file and run against
 // stubs. B-003: it reports its outcome so pipeline.html can keep its buttons locked after success.
 const js = readFileSync('js/costgrid.js', 'utf8');
-
-function extractFunction(src, name) {
-  const start = src.indexOf(`async function ${name}(`);
-  if (start < 0) throw new Error(`function ${name} not found`);
-  let i = src.indexOf('{', src.indexOf(')', start));
-  let depth = 0;
-  for (; i < src.length; i++) {
-    if (src[i] === '{') depth++;
-    else if (src[i] === '}' && --depth === 0) { i++; break; }
-  }
-  return src.slice(start, i);
-}
 
 let api, shownInfo, opened;
 
@@ -33,7 +22,7 @@ function build() {
     _cgCreateInFlight: false,
   };
   const names = Object.keys(stubs);
-  return new Function(...names, `${extractFunction(js, 'cgCreateNewGrid')}; return cgCreateNewGrid;`)(
+  return new Function(...names, `${extractBlock(js, 'async function cgCreateNewGrid(')}; return cgCreateNewGrid;`)(
     ...names.map(n => stubs[n]));
 }
 

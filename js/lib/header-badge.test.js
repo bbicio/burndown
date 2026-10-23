@@ -1,18 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { extractBlock } from '../../scripts/lib/extract-source.mjs';
 
 const core = fs.readFileSync(path.resolve(__dirname, '../core.js'), 'utf8');
 
-// Extract one top-level function declaration (one-liner or block) from the classic script's source.
-function extract(name) {
-  const head = '^function ' + name + '\\(';
-  const m = core.match(new RegExp(head + '[^\\n]*\\}\\r?$|' + head + '[\\s\\S]*?^\\}', 'm'));
-  if (!m) throw new Error(`${name} not found in js/core.js`);
-  return m[0];
-}
-
-const headerBadge = new Function(`${extract('esc')}\n${extract('headerBadge')}\nreturn headerBadge;`)();
+const headerBadge = new Function(`${extractBlock(core, 'function esc(')}\n${extractBlock(core, 'function headerBadge(')}\nreturn headerBadge;`)();
 
 describe('headerBadge', () => {
   it('renders a stage badge from the pipeline tokens', () => {

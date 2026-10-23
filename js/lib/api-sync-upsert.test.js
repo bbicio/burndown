@@ -1,22 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { extractBlock } from '../../scripts/lib/extract-source.mjs';
 
 // js/api-sync.js is a classic script, so _cgUpsertVersionToApi is cut out of the file and run
 // against stubs. B-004: a failed PATCH must be reported, never converted into a POST that
 // creates a duplicate grid/version on the server.
 const js = readFileSync('js/api-sync.js', 'utf8');
-
-function extractFunction(src, name) {
-  const start = src.indexOf(`async function ${name}(`);
-  if (start < 0) throw new Error(`function ${name} not found`);
-  let i = src.indexOf('{', src.indexOf(')', start));
-  let depth = 0;
-  for (; i < src.length; i++) {
-    if (src[i] === '{') depth++;
-    else if (src[i] === '}' && --depth === 0) { i++; break; }
-  }
-  return src.slice(start, i);
-}
 
 let api;
 
@@ -24,7 +13,7 @@ function build() {
   const cg = { id: 'cg1', name: 'Grid', versions: [{ versionId: 'v1', versionLabel: 'v1', currency: 'EUR', phases: [{ phaseName: 'P', tasks: [] }], roles: [] }] };
   const stubs = { Api: api, cgLoad: () => cg };
   const names = Object.keys(stubs);
-  return new Function(...names, 'window', `${extractFunction(js, '_cgUpsertVersionToApi')}; return _cgUpsertVersionToApi;`)(
+  return new Function(...names, 'window', `${extractBlock(js, 'async function _cgUpsertVersionToApi(')}; return _cgUpsertVersionToApi;`)(
     ...names.map(n => stubs[n]), { __currencies: [] });
 }
 
