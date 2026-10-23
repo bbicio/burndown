@@ -2776,6 +2776,11 @@ async function testVersionRule() {
   const vr02 = await api('POST', `/api/cost-grids/${cg1Id}/versions/${v1Id}/duplicate`, { label: 'v2' }, adminCookie);
   ok(vr02.status === 400 && vr02.data?.code === 'VERSION_RULE', 'VR-02 admin POST /duplicate on published proposal → 400 VERSION_RULE');
 
+  // VR-02b: the same published state keeps an admin from deleting the proposal (message unchanged)
+  const vr02b = await api('DELETE', `/api/cost-grids/${cg1Id}`, null, adminCookie);
+  ok(vr02b.status === 400 && vr02b.data?.error === 'Cannot delete a proposal that has been published to the pipeline',
+    `VR-02b admin DELETE of a published proposal → 400 (got ${vr02b.status})`);
+
   // VR-03: sysadmin is exempt
   const vr03 = await api('POST', `/api/cost-grids/${cg1Id}/versions`, { label: 'v9' }, sysadminCookie);
   ok(vr03.status === 201, 'VR-03 sysadmin POST /versions on published proposal → 201');
