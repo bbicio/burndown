@@ -73,7 +73,11 @@ const JS_WORDS = new Set(['true', 'false', 'null', 'undefined', 'typeof', 'insta
 // (not after `.`/`?.`, not a JS keyword).
 const titleExpressions = text => [...text.matchAll(/\{\{([\s\S]*?)\}\}/g)].map(m => {
   const literals = [];
-  const code = m[1].replace(/(['"`])(?:\\.|(?!\1)[^\\])*\1/g, s => { literals.push(s); return '""'; });
+  // A template literal keeps its ${…} code, so the roots inside it are still collected.
+  const code = m[1].replace(/(['"`])(?:\\.|(?!\1)[^\\])*\1/g, s => {
+    literals.push(s);
+    return ['""', ...[...s.matchAll(/\$\{([^}]*)\}/g)].map(x => x[1])].join(' ');
+  });
   const roots = [...code.matchAll(/(?<![\w$.])[A-Za-z_$][\w$]*/g)]
     .map(r => r[0]).filter(r => !JS_WORDS.has(r));
   return { literals, roots };
@@ -128,6 +132,10 @@ describe('guard helpers', () => {
     expect(titleProblems('', '{{ mystery.name }}')).toEqual(['unknown title source mystery']);
     expect(titleProblems('t() { return "\u{1F600}"; }', '{{ t }}')).toEqual(['emoji in method t']);
     expect(titleProblems('t() { return "T"; }', '{{ t }}')).toEqual([]);
+  });
+  it('titleProblems reads the roots inside a template literal', () => {
+    expect(titleProblems('', '{{ `${mystery} ${cg.name}` }}')).toEqual(['unknown title source mystery']);
+    expect(titleProblems('', '{{ `\u{1F600} ${cg.name}` }}')).toEqual(['emoji in literal `\u{1F600} ${cg.name}`']);
   });
 });
 const BTN_PRIMARY = /(?<![\w-])btn-primary/;
