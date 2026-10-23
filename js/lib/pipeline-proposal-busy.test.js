@@ -1,15 +1,21 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { extractBlock } from '../../scripts/lib/extract-source.mjs';
 
 // pipeline.html's createNewProposal/cloneProposal are Vue methods inside an inline script, so each
 // is cut out of the page and run against stubs. B-003: after a successful create/clone the page is
-// navigating, so New/Clone stay disabled until the unload; a failure re-enables them.
+// navigating, so New/Clone stay disabled until the unload; a failure re-enables them. B-090: if the
+// navigation never happens, a fallback timer re-enables them and refreshes the board. B-091: a call
+// ignored by the in-flight guard answers null and leaves the state to the call that is running.
 const html = readFileSync('pipeline.html', 'utf8');
 
 function ctx() {
   return { proposalBusy: false, refreshTick: 0, collapsedStages: ['Draft', 'SIP'] };
 }
+
+const PB_PROPOSAL_FALLBACK_MS = 5000;
+
+afterEach(() => { vi.useRealTimers(); });
 
 const cases = [
   { method: 'cloneProposal', lib: 'cgCloneGrid', args: ['cg1', 'v1'] },
@@ -18,19 +24,42 @@ const cases = [
 
 for (const { method, lib, args } of cases) {
   function run(stub, self) {
-    const obj = new Function('cgCloneGrid', 'cgCreateNewGrid',
+    const obj = new Function('cgCloneGrid', 'cgCreateNewGrid', 'PB_PROPOSAL_FALLBACK_MS',
       `return { ${extractBlock(html, `async ${method}(`)} }`)(
-      lib === 'cgCloneGrid' ? stub : () => {}, lib === 'cgCreateNewGrid' ? stub : () => {});
+      lib === 'cgCloneGrid' ? stub : () => {}, lib === 'cgCreateNewGrid' ? stub : () => {}, PB_PROPOSAL_FALLBACK_MS);
     return obj[method].apply(self, args);
   }
 
   describe(`${method} — proposalBusy`, () => {
-    it('keeps proposalBusy after a successful run', async () => {
+    it('keeps proposalBusy after a successful run, and does not refresh the board yet', async () => {
+      vi.useFakeTimers();
       const self = ctx();
       await run(async () => true, self);
       expect(self.proposalBusy).toBe(true);
-      expect(self.refreshTick).toBe(1);
+      expect(self.refreshTick).toBe(0);
       expect(self.collapsedStages).toEqual(['SIP']);
+    });
+
+    it('releases proposalBusy and refreshes the board when the navigation never happens', async () => {
+      vi.useFakeTimers();
+      const self = ctx();
+      await run(async () => true, self);
+      vi.advanceTimersByTime(PB_PROPOSAL_FALLBACK_MS - 1);
+      expect(self.proposalBusy).toBe(true);
+      vi.advanceTimersByTime(1);
+      expect(self.proposalBusy).toBe(false);
+      expect(self.refreshTick).toBe(1);
+    });
+
+    it('keeps proposalBusy when the call was ignored by the in-flight guard (null)', async () => {
+      vi.useFakeTimers();
+      const self = ctx();
+      await run(async () => null, self);
+      expect(self.proposalBusy).toBe(true);
+      expect(self.refreshTick).toBe(0);
+      vi.advanceTimersByTime(PB_PROPOSAL_FALLBACK_MS * 2);
+      expect(self.proposalBusy).toBe(true);
+      expect(self.refreshTick).toBe(0);
     });
 
     it('releases proposalBusy after a failed run', async () => {

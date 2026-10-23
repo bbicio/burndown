@@ -855,8 +855,16 @@ async function cgCreateNewVersionDirect() {
 
 let _cgCreateInFlight = false;
 
+// A grid created on the API by a flow that then failed is removed again, so no empty proposal is left behind.
+// A failing delete is only logged: the caller reports the original error.
+async function cgDiscardNewGrid(cgId) {
+  if (!cgId) return;
+  try { await Api.costGrids.delete(cgId); }
+  catch (e) { console.warn('[costgrid] could not remove the unfinished proposal ' + cgId + ':', e.message); }
+}
+
 async function cgCreateNewGrid() {
-  if (_cgCreateInFlight) return false; // already in flight -- ignore a fast repeat click
+  if (_cgCreateInFlight) return null; // already in flight -- ignore a fast repeat click (null: not a failure)
   _cgCreateInFlight = true;
 
   const name = 'New proposal';
@@ -875,6 +883,7 @@ async function cgCreateNewGrid() {
         roles:  [],
       }).catch(() => {});
     } catch (e) {
+      await cgDiscardNewGrid(cgId);
       showInfo('Could not create the proposal: ' + e.message, 'Error');
       return false;
     }
@@ -920,7 +929,7 @@ async function cgCreateNewGrid() {
 let _cgCloneInFlight = false;
 
 async function cgCloneGrid(srcCgId, srcVerId) {
-  if (_cgCloneInFlight) return false; // already in flight -- ignore a fast repeat click
+  if (_cgCloneInFlight) return null; // already in flight -- ignore a fast repeat click (null: not a failure)
   if (!srcCgId || !srcVerId) return false;
   _cgCloneInFlight = true;
 
@@ -975,17 +984,18 @@ async function cgCloneGrid(srcCgId, srcVerId) {
         projectName: name,
       });
       verId = newVer.id;
+
+      // 2. Copy phase/task/role structure — strip taskId/phaseId so the backend mints fresh UUIDs
+      //    instead of reusing the source version's (still-live) ones (see stripCloneTaskIds above).
+      await Api.costGrids.versions.saveStructure(cgId, verId, {
+        phases: stripCloneTaskIds(srcVer.phases || []),
+        roles:  srcVer.roles  || [],
+      });
     } catch (e) {
+      await cgDiscardNewGrid(cgId);
       showInfo('Could not clone the proposal: ' + e.message, 'Error');
       return false;
     }
-
-    // 2. Copy phase/task/role structure — strip taskId/phaseId so the backend mints fresh UUIDs
-    //    instead of reusing the source version's (still-live) ones (see stripCloneTaskIds above).
-    await Api.costGrids.versions.saveStructure(cgId, verId, {
-      phases: stripCloneTaskIds(srcVer.phases || []),
-      roles:  srcVer.roles  || [],
-    });
 
     // 3. Seed in-memory store with header fields only — phases/roles (with the server's
     //    real new IDs) are filled in by cgLoadStructureFromApi() right after, so nothing in
@@ -1023,6 +1033,8 @@ async function cgCloneGrid(srcCgId, srcVerId) {
         'The new proposal was created, but its structure may not have loaded correctly. Please reload the page to verify.',
         '⚠️ Clone incomplete'
       );
+      // showInfo is a modal: open the clone only once it is dismissed, or the warning goes unread.
+      await new Promise(resolve => document.getElementById('confirmModal').addEventListener('hidden.bs.modal', resolve, { once: true }));
     }
 
     showCostGridEditorView(cgId, verId);
