@@ -681,28 +681,33 @@ function renderCgPhasing() {
 // ── SAVE ──────────────────────────────────────────────────────────────────────
 
 // strict = true: the returned promise rejects when the save fails (default: log and resolve).
+// Resolves to true only when every write reached the server.
 function cgAutoSave(strict) {
-  if (!_cgActiveCgId || !_cgActiveVersionId || !_cgDraft) return Promise.resolve();
+  if (!_cgActiveCgId || !_cgActiveVersionId || !_cgDraft) return Promise.resolve(false);
   cgSyncHeaderFromForm();
   const cg = cgLoad(_cgActiveCgId);
-  if (!cg) return Promise.resolve();
+  if (!cg) return Promise.resolve(false);
   const idx = cg.versions.findIndex(v => v.versionId === _cgActiveVersionId);
   if (idx >= 0) cg.versions[idx] = _cgDraft;
   cgSave(cg);
   if (typeof _cgUpsertVersionToApi !== 'undefined') {
     return _cgUpsertVersionToApi(_cgActiveCgId, _cgActiveVersionId, strict ? { strict: true } : undefined)
-      .catch(e => { console.warn('[sync] cgAutoSave:', e.message); if (strict) throw e; });
+      .then(ok => ok === true)
+      .catch(e => { console.warn('[sync] cgAutoSave:', e.message); if (strict) throw e; return false; });
   }
-  return Promise.resolve();
+  return Promise.resolve(false);
 }
 
 let _cgAutoSaveTimer = null;
 function cgScheduleAutoSave() {
   clearTimeout(_cgAutoSaveTimer);
   _cgAutoSaveTimer = setTimeout(() => {
-    cgAutoSave();
-    const toastEl = document.getElementById('cgAutoSaveToast');
-    if (toastEl) bootstrap.Toast.getOrCreateInstance(toastEl).show();
+    // The toast says "saved", so it appears only when every write reached the server.
+    cgAutoSave().then(ok => {
+      if (!ok) return;
+      const toastEl = document.getElementById('cgAutoSaveToast');
+      if (toastEl) bootstrap.Toast.getOrCreateInstance(toastEl).show();
+    });
   }, 2000);
 }
 

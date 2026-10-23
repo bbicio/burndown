@@ -48,13 +48,44 @@ describe('_cgUpsertVersionToApi — no POST fallback', () => {
     expect(api.costGrids.versions.saveStructure).not.toHaveBeenCalled();
   });
 
-  it('non-strict failures resolve without creating anything', async () => {
+  it('non-strict failures resolve to false without creating anything', async () => {
     api.costGrids.update.mockRejectedValue(new Error('boom grid'));
-    await expect(build()('cg1', 'v1')).resolves.toBeUndefined();
+    await expect(build()('cg1', 'v1')).resolves.toBe(false);
     api.costGrids.update.mockResolvedValue();
     api.costGrids.versions.update.mockRejectedValue(new Error('boom version'));
-    await expect(build()('cg1', 'v1')).resolves.toBeUndefined();
+    await expect(build()('cg1', 'v1')).resolves.toBe(false);
     expect(api.costGrids.create).not.toHaveBeenCalled();
     expect(api.costGrids.versions.create).not.toHaveBeenCalled();
+  });
+
+  // B-088: the name is a grid-level field; failing to save it must not skip the version and its structure.
+  it('a failed name save does not skip the version metadata and the structure, and resolves to false', async () => {
+    api.costGrids.update.mockRejectedValue(new Error('boom grid'));
+    await expect(build()('cg1', 'v1')).resolves.toBe(false);
+    expect(api.costGrids.versions.update).toHaveBeenCalledTimes(1);
+    expect(api.costGrids.versions.saveStructure).toHaveBeenCalledTimes(1);
+  });
+
+  it('in strict mode a failed name save still throws before anything else is written', async () => {
+    api.costGrids.update.mockRejectedValue(new Error('boom grid'));
+    await expect(build()('cg1', 'v1', { strict: true })).rejects.toThrow('boom grid');
+    expect(api.costGrids.versions.update).not.toHaveBeenCalled();
+    expect(api.costGrids.versions.saveStructure).not.toHaveBeenCalled();
+  });
+
+  it('resolves to true when every write succeeded', async () => {
+    await expect(build()('cg1', 'v1')).resolves.toBe(true);
+    await expect(build()('cg1', 'v1', { strict: true })).resolves.toBe(true);
+  });
+
+  it('a failed structure save resolves to false (non-strict) and throws (strict)', async () => {
+    api.costGrids.versions.saveStructure.mockRejectedValue(new Error('boom structure'));
+    await expect(build()('cg1', 'v1')).resolves.toBe(false);
+    await expect(build()('cg1', 'v1', { strict: true })).rejects.toThrow('boom structure');
+  });
+
+  it('resolves to false when the grid or the version is not in the store (nothing was written)', async () => {
+    await expect(build()('cg1', 'nope')).resolves.toBe(false);
+    expect(api.costGrids.update).not.toHaveBeenCalled();
   });
 });
