@@ -1165,13 +1165,8 @@ function cgSubmitProjectName(projectName, projectCode) {
   // selection mode doesn't disable "+ task", so a task added mid-selection must still count as
   // free. Selecting every currently-free task leaves nothing unassigned — no program prompt
   // needed, matches pre-existing behavior.
-  // Dual id+name check, matching js/lib/costgrid-calc.js's versionHasFreeTasks() (the same check
-  // that gates the Generate Project button and the Committed lock) — a task assigned under a
-  // stale id but still matched by name must count as assigned here too.
-  const assignedIds = cgGetAssignedTaskIds();
-  const assignedNames = cgGetAssignedTaskNames();
-  const currentFreeTaskIds = (_cgDraft.phases || []).flatMap(ph => ph.tasks)
-    .filter(t => t.taskName?.trim() && !assignedIds.has(t.taskId) && !assignedNames.has(t.taskName.trim().toLowerCase()))
+  // The same predicate as the Generate Project button and the Committed lock (cgFreeTasksOf).
+  const currentFreeTaskIds = window.cgFreeTasksOf((_cgDraft.phases || []).flatMap(ph => ph.tasks), _cgDraft.linkedProjects)
     .map(t => t.taskId);
   const leavesTasksUnassigned = currentFreeTaskIds.some(id => !selectedTaskIds.includes(id));
   if (!leavesTasksUnassigned) {
@@ -1622,22 +1617,6 @@ function cgImportAll() {
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
-
-function cgGetAssignedTaskIds() {
-  const assigned = new Set();
-  (_cgDraft?.linkedProjects || []).forEach(lp => (lp.taskIds || []).forEach(id => assigned.add(id)));
-  return assigned;
-}
-
-// Returns Set of lower-cased task names that are assigned to a linked project.
-// Used as a robust fallback when task UUIDs may have changed.
-function cgGetAssignedTaskNames() {
-  const names = new Set();
-  (_cgDraft?.linkedProjects || []).forEach(lp =>
-    (lp.taskNames || []).forEach(n => { if (n?.trim()) names.add(n.trim().toLowerCase()); })
-  );
-  return names;
-}
 
 // "Add tasks to project" confirmation lives in costgrid.html as #cgAddToProjectModal (a real
 // Bootstrap modal, Vue-driven via addToProjectModal/addToProject()/confirmAddToProject()).

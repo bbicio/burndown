@@ -1,14 +1,16 @@
 // ── FREE TASKS (Task 1, 2026-10-07) ──────────────────────────────────────────
-export function cgFreeTasksOf(tasks, linkedProjects) {
-  const assignedIds = new Set();
-  const assignedNames = new Set();
-  (linkedProjects || []).forEach(lp => {
-    (lp.taskIds || []).forEach(id => assignedIds.add(id));
-    (lp.taskNames || []).forEach(n => { if (n?.trim()) assignedNames.add(n.trim().toLowerCase()); });
-  });
-  return (tasks || []).filter(t =>
-    t.taskName?.trim() && !assignedIds.has(t.taskId) && !assignedNames.has(t.taskName.trim().toLowerCase())
+// The one definition of "this task belongs to a project": linked by id, or (older links only carry
+// names) by name, ignoring case and surrounding spaces.
+export function cgIsTaskAssigned(task, linkedProjects) {
+  const name = task?.taskName?.trim().toLowerCase();
+  return (linkedProjects || []).some(lp =>
+    (lp.taskIds || []).includes(task?.taskId) ||
+    (!!name && (lp.taskNames || []).some(n => n?.trim().toLowerCase() === name))
   );
+}
+
+export function cgFreeTasksOf(tasks, linkedProjects) {
+  return (tasks || []).filter(t => t.taskName?.trim() && !cgIsTaskAssigned(t, linkedProjects));
 }
 
 export function versionHasFreeTasks(ver) {
@@ -42,6 +44,7 @@ export function cgSectionDefaults(isDraft) {
     : { od: true, tags: true, sh: true };
 }
 
+window.cgIsTaskAssigned = cgIsTaskAssigned;
 window.cgFreeTasksOf = cgFreeTasksOf;
 window.versionHasFreeTasks = versionHasFreeTasks;
 window.isVersionCommittedLocked = isVersionCommittedLocked;

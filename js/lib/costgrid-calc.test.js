@@ -4,7 +4,7 @@ import path from 'node:path';
 import {
   resolveRoleRate, cgComputeTaskTotals, cgComputePhaseTotals, cgComputeGrandTotals, cgComputeColumnTotals,
   versionHasFreeTasks, isVersionCommittedLocked, stripCloneTaskIds, findExistingProgramForProposal,
-  cgApiClientId, cgFreeTasksOf, cgOfferDetailsSummary, cgSectionDefaults,
+  cgApiClientId, cgFreeTasksOf, cgIsTaskAssigned, cgOfferDetailsSummary, cgSectionDefaults,
 } from './costgrid-calc.js';
 
 describe('findExistingProgramForProposal', () => {
@@ -301,6 +301,36 @@ describe('cgApiClientId', () => {
 
   it('turns an arbitrary non-UUID string into null', () => {
     expect(cgApiClientId('abc')).toBeNull();
+  });
+});
+
+describe('cgIsTaskAssigned', () => {
+  const linkedProjects = [{ taskIds: ['t1'], taskNames: ['UX Research'] }];
+
+  it('is assigned by id', () => {
+    expect(cgIsTaskAssigned({ taskId: 't1', taskName: 'Kickoff' }, linkedProjects)).toBe(true);
+  });
+
+  it('is assigned by name, ignoring case and surrounding spaces', () => {
+    expect(cgIsTaskAssigned({ taskId: 't9', taskName: '  ux research ' }, linkedProjects)).toBe(true);
+  });
+
+  it('a nameless task linked by id is assigned', () => {
+    expect(cgIsTaskAssigned({ taskId: 't1', taskName: '' }, linkedProjects)).toBe(true);
+  });
+
+  it('a nameless task that is not linked is not assigned', () => {
+    expect(cgIsTaskAssigned({ taskId: 't7', taskName: '' }, linkedProjects)).toBe(false);
+  });
+
+  it('a free task is not assigned, with or without linked projects', () => {
+    expect(cgIsTaskAssigned({ taskId: 't2', taskName: 'Build' }, linkedProjects)).toBe(false);
+    expect(cgIsTaskAssigned({ taskId: 't2', taskName: 'Build' }, undefined)).toBe(false);
+  });
+
+  it('is exposed on window', () => {
+    expect(typeof window.cgIsTaskAssigned).toBe('function');
+    expect(window.cgIsTaskAssigned).toBe(cgIsTaskAssigned);
   });
 });
 

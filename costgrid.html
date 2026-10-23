@@ -883,11 +883,7 @@ Vue.createApp({
     headerStageDotColor() { const s = this.draft?.pipeline; return s && s !== 'Draft' ? 'var(--pipeline-' + s.toLowerCase() + '-color)' : 'var(--text-muted)'; },
     hasFreeTasks() {
       if (!this.draft) return false;
-      const assignedIds = cgGetAssignedTaskIds();
-      const assignedNames = cgGetAssignedTaskNames();
-      return (this.draft.phases || []).flatMap(ph => ph.tasks).some(t =>
-        t.taskName?.trim() && !assignedIds.has(t.taskId) && !assignedNames.has(t.taskName.trim().toLowerCase())
-      );
+      return window.cgFreeTasksOf((this.draft.phases || []).flatMap(ph => ph.tasks), this.draft.linkedProjects).length > 0;
     },
     grand() { return this.draft ? cgComputeGrandTotals(this.draft) : { hrs: 0, fee: 0, ptc: 0 }; },
     colTotals() { return this.draft ? cgComputeColumnTotals(this.draft) : {}; },
@@ -1637,9 +1633,7 @@ Vue.createApp({
       return dates.length ? `${cgFmtMonth(dates[0])} – ${cgFmtMonth(dates[dates.length-1])}` : '';
     },
     isTaskAssigned(task) {
-      const assignedIds = cgGetAssignedTaskIds();
-      const assignedNames = cgGetAssignedTaskNames();
-      return assignedIds.has(task.taskId) || assignedNames.has(task.taskName?.trim().toLowerCase());
+      return window.cgIsTaskAssigned(task, this.draft?.linkedProjects);
     },
     // Task 3, 2026-10-07: returns the linked project's display name for an assigned task, or ''
     // for a free task — resolved the same way linkedProjectDisplay resolves its taskNames (an
@@ -1665,6 +1659,10 @@ Vue.createApp({
       }, null, '✕ Delete phase');
     },
     deleteTask(phase, task) {
+      if (this.isTaskAssigned(task)) {
+        showInfo("Can't delete: this task is linked to a project.");
+        return;
+      }
       showConfirm(`Delete task "${task.taskName || 'this task'}"?`, () => {
         phase.tasks = phase.tasks.filter(t => t.taskId !== task.taskId);
         cgScheduleAutoSave();
