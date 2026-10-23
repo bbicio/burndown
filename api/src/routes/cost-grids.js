@@ -337,11 +337,7 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const nonDraft = await query(
-      `SELECT 1 FROM cost_grid_versions WHERE cost_grid_id = $1 AND pipeline != 'Draft' LIMIT 1`,
-      [req.params.id]
-    );
-    if (nonDraft.rows.length > 0) {
+    if (await gridHasPublishedVersion(req.params.id)) {
       return res.status(400).json({ error: 'Cannot delete a proposal that has been published to the pipeline' });
     }
     const delErr = rules.versionRemovalError({ role: await liveRole(req.user.id), hasProjects: await gridHasProjects(req.params.id) });
@@ -395,10 +391,8 @@ router.post('/:id/versions', requireAuth, async (req, res, next) => {
     const { label, pipeline, startDate, endDate, currency, currencyRate, note, ratecardId, clientId, projectName } = req.body;
     if (!label?.trim()) return res.status(400).json({ error: 'label is required' });
 
-    const versionErr = rules.versionCreationError({
-      role: await liveRole(req.user.id),
-      hasPublishedVersion: await gridHasPublishedVersion(req.params.id),
-    });
+    const [role, hasPublishedVersion] = await Promise.all([liveRole(req.user.id), gridHasPublishedVersion(req.params.id)]);
+    const versionErr = rules.versionCreationError({ role, hasPublishedVersion });
     if (versionErr) return res.status(400).json({ error: versionErr, code: rules.VERSION_RULE_CODE });
 
     // Resolve currency_rate: use provided value, else look up live rate from currencies table
