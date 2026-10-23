@@ -53,7 +53,7 @@ function setup(isReadOnly) {
     selectedTaskIds: new Set(),
     addToProjectSel: 'p1', addToProjectModal: { projId: 'p1', projName: 'P', taskNames: [], taskIds: ['t1'] },
     isTaskAssigned: () => false,
-    openRoleModal: vi.fn(), selectAllFree: vi.fn(), selectAllFreeInPhase: vi.fn(),
+    openRoleModal: vi.fn(), toggleFreeOf: vi.fn(),
     phaseFreeState: () => 'none', selectAllFreeState: () => 'none',
     roleBaseline: () => ({ effectiveRate: 5 }),
   };
@@ -75,7 +75,7 @@ describe('structural methods as a viewer', () => {
       const after = JSON.stringify({ d: self.draft, s: [...self.selectedTaskIds], m: self.openRoleMenuCode, r: self.removeColumnConfirm, a: self.addToProjectModal });
       expect(after).toBe(before);
       for (const fn of [...Object.values(spies).filter(f => f !== spies.cgNewPhId && f !== spies.cgNewTkId),
-        self.openRoleModal, self.selectAllFree, self.selectAllFreeInPhase, modalShow]) {
+        self.openRoleModal, self.toggleFreeOf, modalShow]) {
         expect(fn).not.toHaveBeenCalled();
       }
       expect(spies.cgNewPhId).not.toHaveBeenCalled();

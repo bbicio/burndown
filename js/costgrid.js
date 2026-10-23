@@ -777,6 +777,14 @@ async function cgPublishDraft() {
 
 let _cgNewVersionInFlight = false;
 
+// The default label of a new version: the first v<N>, N >= versions.length + 1, that no version of the grid uses.
+function cgNextVersionLabel(versions) {
+  const taken = new Set((versions || []).map(v => String(v.versionLabel || '').trim().toLowerCase()));
+  let n = (versions || []).length + 1;
+  while (taken.has('v' + n)) n++;
+  return 'v' + n;
+}
+
 async function cgCreateNewVersionDirect() {
   if (_cgNewVersionInFlight) return; // already in flight -- ignore a fast repeat click
   _cgNewVersionInFlight = true;
@@ -788,7 +796,7 @@ async function cgCreateNewVersionDirect() {
   try {
     const cg = cgLoad(cgId);
     if (!cg) return;
-    const label = `v${cg.versions.length + 1}`;
+    const label = cgNextVersionLabel(cg.versions);
 
     // The copy is made by the server from the saved state, so flush the editor's pending changes first.
     // Strict: a failed flush aborts here instead of silently copying the last saved (older) state.

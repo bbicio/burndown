@@ -1081,7 +1081,9 @@ Vue.createApp({
       if (e.key === 'Escape' && this.openRoleMenuCode) this.openRoleMenuCode = null;
     };
     this._cgRoleMenuReposition = () => {
-      if (this.openRoleMenuCode && this._cgRoleMenuBtnEl) this.positionRoleMenu({ currentTarget: this._cgRoleMenuBtnEl });
+      if (!this.openRoleMenuCode) return;
+      if (this._cgRoleMenuBtnEl?.isConnected) this.positionRoleMenu({ currentTarget: this._cgRoleMenuBtnEl });
+      else this.openRoleMenuCode = null;
     };
     document.addEventListener('click', this._cgRoleMenuOutsideClick);
     document.addEventListener('keydown', this._cgRoleMenuEscape);
@@ -1133,6 +1135,7 @@ Vue.createApp({
         const result = await Api.costGrids.reassignOwner(this.cgId, newOwnerId);
         if (this.cg) { this.cg.ownerId = newOwnerId; this.cg.ownerName = result.newOwner; }
         this.shareListRefreshTick++;
+        this.loadShareSummary();
       } catch (e) {
         showInfo(`Failed to reassign owner: ${e.message}`, 'Reassignment failed');
       } finally {
@@ -1297,6 +1300,10 @@ Vue.createApp({
       _cgSelectionMode = false; _cgSelectedTaskIds = new Set();
       this.editingVersionLabel = false;
       this.summaryCollapsed = false;
+      // A menu or removal confirmation left open on the previous version must not follow the switch.
+      this.openRoleMenuCode = null;
+      this.removeColumnConfirm = null;
+      this._cgRoleMenuBtnEl = null;
       {
         const isDraftVersion = version.pipeline === 'Draft';
         const defaults = window.cgSectionDefaults(isDraftVersion);
@@ -1710,59 +1717,39 @@ Vue.createApp({
       if (this.selectedTaskIds.has(task.taskId)) { this.selectedTaskIds.delete(task.taskId); _cgSelectedTaskIds.delete(task.taskId); }
       else { this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId); }
     },
-    selectAllFreeInPhase(phase) {
-      window.cgFreeTasksOf(phase.tasks, this.draft.linkedProjects).forEach(task => {
-        this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId);
-      });
-    },
-    selectAllFree() {
-      window.cgFreeTasksOf((this.draft.phases || []).flatMap(ph => ph.tasks), this.draft.linkedProjects).forEach(task => {
-        this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId);
-      });
-    },
-    // Task 4, 2026-10-07: id+name-correct {none|some|all} state for a phase's "Select free"/"Clear phase" toggle.
-    phaseFreeState(phase) {
-      const free = window.cgFreeTasksOf(phase.tasks, this.draft.linkedProjects);
+    // The three helpers below work on any list of tasks: a phase's, or the whole draft's (the six methods after
+    // them are one-line wrappers). The free tasks are the ones in no project, see cgFreeTasksOf.
+    freeStateOf(tasks) {
+      const free = window.cgFreeTasksOf(tasks, this.draft.linkedProjects);
       if (!free.length) return 'none';
       return free.every(t => this.selectedTaskIds.has(t.taskId)) ? 'all' : 'some';
     },
-    toggleFreeInPhase(phase) {
-      if (this.isReadOnly) return;
-      if (this.phaseFreeState(phase) === 'all') {
-        window.cgFreeTasksOf(phase.tasks, this.draft.linkedProjects).forEach(task => {
-          this.selectedTaskIds.delete(task.taskId); _cgSelectedTaskIds.delete(task.taskId);
-        });
-      } else {
-        this.selectAllFreeInPhase(phase);
-      }
+    // 'all' selected → clear them; otherwise select every free task.
+    toggleFreeOf(tasks) {
+      const clear = this.freeStateOf(tasks) === 'all';
+      window.cgFreeTasksOf(tasks, this.draft.linkedProjects).forEach(task => {
+        if (clear) { this.selectedTaskIds.delete(task.taskId); _cgSelectedTaskIds.delete(task.taskId); }
+        else { this.selectedTaskIds.add(task.taskId); _cgSelectedTaskIds.add(task.taskId); }
+      });
     },
+    freeLabelOf(tasks, labels) {
+      const state = this.freeStateOf(tasks);
+      if (state === 'none') return labels.none;
+      if (state === 'all') return labels.all;
+      return labels.some(window.cgFreeTasksOf(tasks, this.draft.linkedProjects).length);
+    },
+    // A phase's "Select free"/"Clear phase" toggle.
+    phaseFreeState(phase) { return this.freeStateOf(phase.tasks); },
+    toggleFreeInPhase(phase) { if (this.isReadOnly) return; this.toggleFreeOf(phase.tasks); },
     phaseFreeLabel(phase) {
-      const state = this.phaseFreeState(phase);
-      if (state === 'none') return 'All in projects';
-      if (state === 'all') return 'Clear phase';
-      return `Select free (${window.cgFreeTasksOf(phase.tasks, this.draft.linkedProjects).length})`;
+      return this.freeLabelOf(phase.tasks, { none: 'All in projects', all: 'Clear phase', some: n => `Select free (${n})` });
     },
-    // Whole-draft mirror of phaseFreeState/toggleFreeInPhase.
-    selectAllFreeState() {
-      const free = window.cgFreeTasksOf((this.draft.phases || []).flatMap(ph => ph.tasks), this.draft.linkedProjects);
-      if (!free.length) return 'none';
-      return free.every(t => this.selectedTaskIds.has(t.taskId)) ? 'all' : 'some';
-    },
-    toggleSelectAllFree() {
-      if (this.isReadOnly) return;
-      if (this.selectAllFreeState() === 'all') {
-        window.cgFreeTasksOf((this.draft.phases || []).flatMap(ph => ph.tasks), this.draft.linkedProjects).forEach(task => {
-          this.selectedTaskIds.delete(task.taskId); _cgSelectedTaskIds.delete(task.taskId);
-        });
-      } else {
-        this.selectAllFree();
-      }
-    },
+    // The same three, over the whole draft.
+    selectAllFreeState() { return this.freeStateOf((this.draft.phases || []).flatMap(ph => ph.tasks)); },
+    toggleSelectAllFree() { if (this.isReadOnly) return; this.toggleFreeOf((this.draft.phases || []).flatMap(ph => ph.tasks)); },
     selectAllFreeLabel() {
-      const state = this.selectAllFreeState();
-      if (state === 'all') return 'Clear selection';
-      const n = window.cgFreeTasksOf((this.draft.phases || []).flatMap(ph => ph.tasks), this.draft.linkedProjects).length;
-      return `Select all free (${n})`;
+      return this.freeLabelOf((this.draft.phases || []).flatMap(ph => ph.tasks),
+        { none: 'Select all free (0)', all: 'Clear selection', some: n => `Select all free (${n})` });
     },
     cancelSelection() { cgExitSelectionMode(); },
     confirmAndGenerate() { if (this.isReadOnly) return; cgConfirmAndGenerate(); },
@@ -1941,7 +1928,7 @@ Vue.createApp({
     _cgVueApp = this; // wire the bridge — Global Constraint 7
 
     document.addEventListener('hidden.bs.modal', e => {
-      if (e.target && e.target.id === 'shareModal') this.shareListRefreshTick++;
+      if (e.target && e.target.id === 'shareModal') { this.shareListRefreshTick++; this.loadShareSummary(); }
       // Any dismissal path (Cancel, X, backdrop, Esc) must abort the whole pending generation —
       // saveCreateProgramModal() already cleared the pending state via cgResumePendingGeneration()
       // on a successful Create, so this is a harmless no-op in that case.

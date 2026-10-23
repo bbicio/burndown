@@ -28,6 +28,7 @@ function build() {
     _cgDraft: { versionId: 'v1', currency: 'CHF', phases: [{ tasks: [{ taskId: 'T1' }] }], roles: [{ roleCode: 'PM' }], projectName: 'P' },
     _cgAutoSaveTimer: null,
     _cgNewVersionInFlight: false,
+    cgNextVersionLabel: new Function(`${extractBlock(js, 'function cgNextVersionLabel(')}; return cgNextVersionLabel;`)(),
   };
   const names = Object.keys(stubs);
   const fn = new Function(...names, 'document', 'window', `${extractBlock(js, 'async function cgCreateNewVersionDirect(')}; return cgCreateNewVersionDirect;`)(
