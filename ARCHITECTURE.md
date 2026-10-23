@@ -889,7 +889,7 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - ./api/src:/app/src   # hot reload in development
+      - ./api/src:/app/src   # source mounted; restart api to pick up changes
     healthcheck:
       test: ["CMD-SHELL", "node -e \"...GET /api/auth/me, exit 0 if status < 500...\""]
       interval: 10s

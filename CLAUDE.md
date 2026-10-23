@@ -26,7 +26,7 @@ docker compose up
 
 The nginx container serves static files; the api container runs Node.js/Express on port 3000; the db container runs PostgreSQL 16.
 
-Hot reload for the API: `./api/src` is volume-mounted into the container, so Node.js file changes are picked up by nodemon without a rebuild.
+`./api/src` is volume-mounted into the `api` container, so a backend change needs no rebuild; the running `node src/index.js` process picks it up only after a restart, which against the main stack falls under Infrastructure safety rule 3.
 
 To bootstrap the first admin user (or reset a password):
 
