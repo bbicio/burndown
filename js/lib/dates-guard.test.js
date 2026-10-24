@@ -118,3 +118,30 @@ describe('project-config date fields', () => {
     expect(html).toContain("task.endDate = v ? toYmd(v) : ''");
   });
 });
+
+describe('portfolio custom range', () => {
+  const html = read('portfolio.html');
+  const pickers = html.match(/<cg-date-picker\b[^>]*>/g) || [];
+
+  it('uses two inline-popover day pickers bounded by each other, no native date input', () => {
+    expect(html.includes('type="date"')).toBe(false);
+    expect(pickers.length).toBe(2);
+    for (const p of pickers) {
+      expect(p).toContain('mode="day"');
+      expect(p).toContain('inline-popover');
+    }
+    expect(pickers[0]).toContain(':max="filterEnd"');
+    expect(pickers[1]).toContain(':min="filterStart"');
+    expect(html).toContain(".component('cg-date-picker', window.CgDatePicker)");
+  });
+
+  it('loads the picker assets', () => {
+    for (const s of ['css/controls.css?v=1', 'js/lib/dates.js?v=3', 'js/lib/cg-controls-calc.js?v=2', 'js/cg-controls.js?v=5']) {
+      expect(html, s).toContain(s);
+    }
+  });
+
+  it('portfolio.css is at the same version on both pages that load it', () => {
+    for (const f of ['portfolio.html', 'program.html']) expect(read(f), f).toContain('css/portfolio.css?v=8');
+  });
+});
