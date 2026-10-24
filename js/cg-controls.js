@@ -1,6 +1,7 @@
 // ── COST GRID CUSTOM FORM CONTROLS ───────────────────────────────────────────
-// Three presentational Vue components used only by costgrid.html, registered on
-// its app as <cg-date-picker>, <cg-select> and <cg-people-picker> (same pattern
+// Three presentational Vue components, loaded by costgrid.html, project-config.html and
+// portfolio.html (styles: css/controls.css), registered on each page's app as
+// <cg-date-picker>, <cg-select> and <cg-people-picker> (same pattern
 // as js/share-list-component.js). They hold no business logic: each emits a
 // value and the page's existing handlers run unchanged.
 //

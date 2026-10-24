@@ -849,6 +849,8 @@ input.cg-cell-box.cg-cell-filled { border-color: var(--text-disabled); }
 }
 .cg-btn-secondary:hover:not(:disabled) { background: var(--surface-light); border-color: var(--text-disabled); }
 .cg-btn-secondary:disabled { color: var(--text-disabled); cursor: not-allowed; }
+/* The Reassign people-picker trigger is a .cg-btn-secondary; its smaller size (controls.css .cg-people-trigger) must outrank the button base above. */
+.cg-btn-secondary.cg-people-trigger { height: 30px; font-size: var(--text-sm); }
 
 .cg-field-hint { font-size: var(--text-2xs); color: var(--text-muted); margin-top: 3px; }
 /* G-15: narrower task date pickers, so the From/To row stops being the widest thing in

@@ -173,6 +173,12 @@ describe('cg-date-picker: unambiguous format and inline popover (dates C2)', () 
     expect(tpl).toMatch(/inlinePopover \? undefined : cgPopStyle/);
   });
 
+  it('.cg-ctl is a positioning context (the inline popover is absolute inside it)', () => {
+    const m = read('css/controls.css').match(/\.cg-ctl\s*\{[^}]*\}/);
+    expect(m).not.toBeNull();
+    expect(m[0]).toMatch(/position:\s*relative/);
+  });
+
   it('the modelValue watcher also clears the error (B-137)', () => {
     const w = picker.slice(picker.indexOf('modelValue: { immediate'), picker.indexOf('cgOpen(v)'));
     expect(w).toContain("this.error = ''");
