@@ -179,6 +179,17 @@ describe('cg-date-picker: unambiguous format and inline popover (dates C2)', () 
     expect(m[0]).toMatch(/position:\s*relative/);
   });
 
+  it('Esc inside an inline popover is caught by a window capture listener and closes only the popover', () => {
+    expect(picker).toMatch(/window\.addEventListener\('keydown', this\._cgPopEsc, true\)/);
+    expect(picker).toMatch(/window\.removeEventListener\('keydown', this\._cgPopEsc, true\)/);
+    const h = picker.slice(picker.indexOf('this._cgPopEsc = '), picker.indexOf("window.addEventListener('keydown', this._cgPopEsc"));
+    expect(h).toContain('this.inlinePopover');
+    expect(h).toContain('e.stopPropagation()');
+    expect(h).toContain('this.$refs.pop.contains(e.target)');
+    const m = picker.slice(picker.indexOf('onPopEsc() {'), picker.indexOf('onEsc() {'));
+    expect(m).toContain('this.cgClosePopover(true)');
+  });
+
   it('the modelValue watcher also clears the error (B-137)', () => {
     const w = picker.slice(picker.indexOf('modelValue: { immediate'), picker.indexOf('cgOpen(v)'));
     expect(w).toContain("this.error = ''");

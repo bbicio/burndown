@@ -155,6 +155,18 @@
         return this.isDay ? window.cgMonthLabel(this.viewMonth, true) + ' ' + this.viewYear : String(this.viewYear);
       },
     },
+    mounted() {
+      this._cgPopEsc = (e) => {
+        if (!this.inlinePopover || e.key !== 'Escape' || !this.cgOpen) return;
+        if (!this.$refs.pop || !this.$refs.pop.contains(e.target)) return;
+        e.stopPropagation(); e.preventDefault();
+        this.onPopEsc();
+      };
+      window.addEventListener('keydown', this._cgPopEsc, true);
+    },
+    beforeUnmount() {
+      window.removeEventListener('keydown', this._cgPopEsc, true);
+    },
     watch: {
       modelValue: { immediate: true, handler() { this.text = this.display; this.error = ''; this.syncView(); } },
       cgOpen(v) { if (v) this.syncView(); },
@@ -185,6 +197,14 @@
       },
       // Template-side access to window.isWithin against this picker's own limits.
       isWithin(value) { return window.isWithin(value, this.min || undefined, this.max || undefined); },
+      // Esc inside an inline popover (grid cells, arrows, Clear) closes only the popover.
+      // Handled by a window capture listener (see mounted): Bootstrap's delegated dropdown
+      // keydown handler runs in the capture phase on document, so a listener on the popover
+      // element would be too late to keep the host dropdown open.
+      onPopEsc() {
+        this.error = '';
+        this.cgClosePopover(true);
+      },
       onEsc() {
         this.error = '';
         if (this.cgOpen) this.cgClosePopover(true); else this.text = this.display;

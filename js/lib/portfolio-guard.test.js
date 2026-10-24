@@ -37,6 +37,13 @@ describe('portfolio overview guard', () => {
     expect(overviewActive).not.toMatch(/\p{Extended_Pictographic}/u);
   });
 
+  it('the custom-range From calendar is anchored to the left edge of the menu', () => {
+    const m = css.match(/\.pr-period-custom-row > \.cg-ctl:first-child \.cg-pop\.cg-pop--inline\s*\{[^}]*\}/);
+    expect(m).not.toBeNull();
+    expect(m[0]).toMatch(/left:\s*0/);
+    expect(m[0]).toMatch(/right:\s*auto/);
+  });
+
   it('every portfolio.css reference is ?v=8', () => {
     const pages = fs.readdirSync(root).filter(f => f.endsWith('.html'));
     let found = 0;
