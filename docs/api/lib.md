@@ -110,7 +110,7 @@ Pure, DB-free modules behind `/api/planning-assistant` (route `api/src/routes/pl
 The server twin of `js/lib/dates.js` (CommonJS). Rules to keep: `CLAUDE.md`'s "Dates".
 
 - Common with the browser module: `isMonth`, `isDay`, `toYmd`, `toIso`, `monthFirstDay`, `monthLastDay`, `isOrdered`, `periodError`.
-- Server-only: `isValidCalendarDate`, `isLeapYear` (`date-parse.js` re-exports `isValidCalendarDate`), `DATE_RULE` (the `code` of a refused write) and `periodChangeError(body, stored, { kind, label })`, which checks a `PATCH`/`PUT` body against the stored row: a date absent from the body (`undefined`) is unchanged, `null` or `''` clears it, and a date that is not changed is not checked.
+- Server-only: `isValidCalendarDate`, `isLeapYear` (`date-parse.js` re-exports `isValidCalendarDate`), `DATE_RULE` (the `code` of a refused write) and `periodChangeError(body, stored, { kind, label })`, which checks a `PATCH`/`PUT` body against the stored row: a date absent from the body (`undefined`) is unchanged, `null` or `''` clears it, and the period is not checked when every date present in the body equals the stored one; otherwise the whole combined period, the unchanged side included, is checked.
 - Consumed by `routes/cost-grids.js`, `routes/projects.js` and `routes/timesheets.js`.
 
 Tests: `dates.test.js`; `js/lib/dates-guard.test.js` pins that the two twins agree.

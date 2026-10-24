@@ -27,4 +27,4 @@ Both popovers take focus when opened with no text field to hold it (the listbox 
 
 ## Pure helpers (`js/lib/cg-controls-calc.js`)
 
-Vitest-covered (`cg-controls-calc.test.js`): `monthGridYear`, `dayGridMonth` (Monday-first, 6×7, `{ iso, day, disabled, inRange, isToday }`), `parseItDate`/`formatItDate`, `parseMonthInput`/`formatMonthInput`, plus `monthLabel` (bridged as `window.cgMonthLabel`). All date arithmetic uses `Date.UTC` only.
+Vitest-covered (`cg-controls-calc.test.js`): `monthGridYear`, `dayGridMonth` (Monday-first, 6×7, `{ iso, day, disabled, inRange, isToday }`), plus `monthLabel` (bridged as `window.cgMonthLabel`). All date arithmetic uses `Date.UTC` only.

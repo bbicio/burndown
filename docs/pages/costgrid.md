@@ -362,9 +362,6 @@ happens in `onHeaderFieldChange` (which runs on blur) instead.
   the role ⋮ menu this was modelled on had exactly one instance, so the pattern did not scale.
 - **`Home`/`End` `preventDefault()` unconditionally** in `onListKey`, including when focus is
   in the search box: in the Client picker the caret will not jump to the start of the query.
-- **`commitTyped` ignores `min`/`max`** — the component accepts typed what its own picker
-  refuses. Assigned to the "cycle C dates" backlog item, together with item 11 (task dates
-  bounded by the project/proposal months).
 
 ## Header unification (2026-10-16)
 
