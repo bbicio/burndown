@@ -1,23 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import './money.js'; // window.formatMoney, used by the role-rate preview in the modal
+import { extractBlock } from '../../scripts/lib/extract-source.mjs';
 
 // costgrid.html's Vue method onCurrencyChange (the "Change currency?" modal) lives inside the page, so this test
 // cuts its source out of the file and runs it against stubs. It caught a real regression: a variable the confirm
 // handler reads had been removed together with the preview helpers it sat next to.
 const html = readFileSync('costgrid.html', 'utf8');
-
-function extractMethod(src, name) {
-  const start = src.indexOf(`${name}() {`);
-  if (start < 0) throw new Error(`method ${name} not found`);
-  let i = src.indexOf('{', start);
-  let depth = 0;
-  for (; i < src.length; i++) {
-    if (src[i] === '{') depth++;
-    else if (src[i] === '}' && --depth === 0) { i++; break; }
-  }
-  return src.slice(start, i);
-}
 
 let sync, autosave, shown, hidden;
 
@@ -31,7 +20,7 @@ function buildMethod() {
     cgAutoSave: autosave,
   };
   const names = Object.keys(stubs);
-  const src = `const o = { ${extractMethod(html, 'onCurrencyChange')} }; return o.onCurrencyChange;`;
+  const src = `const o = { ${extractBlock(html, 'onCurrencyChange() {')} }; return o.onCurrencyChange;`;
   return new Function(...names, 'document', 'window', src)(...names.map(n => stubs[n]), document, window);
 }
 

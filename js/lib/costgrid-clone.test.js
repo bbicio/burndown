@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { extractBlock } from '../../scripts/lib/extract-source.mjs';
 
 // js/costgrid.js is a classic script, so cgCloneGrid is cut out of the file and run against stubs.
 // Regression found in the final review of the "New Proposal / Clone without a modal" cycle
@@ -9,18 +10,6 @@ import { readFileSync } from 'node:fs';
 // whole clone throws — before this cycle there was no flush, so a viewer's clone worked. The flush
 // must be skipped when the source grid's permission is 'viewer'.
 const js = readFileSync('js/costgrid.js', 'utf8');
-
-function extractFunction(src, name) {
-  const start = src.indexOf(`async function ${name}(`);
-  if (start < 0) throw new Error(`function ${name} not found`);
-  let i = src.indexOf('{', src.indexOf(')', start));
-  let depth = 0;
-  for (; i < src.length; i++) {
-    if (src[i] === '{') depth++;
-    else if (src[i] === '}' && --depth === 0) { i++; break; }
-  }
-  return src.slice(start, i);
-}
 
 let api, store, shownInfo, opened, calls;
 
@@ -32,7 +21,7 @@ function build({ myPermission = 'owner', srcOverrides = {} } = {}) {
   opened = [];
   calls = [];
   const stubs = {
-    Api: { costGrids: { create: api.create, versions: { create: api.versionsCreate, saveStructure: api.saveStructure } } },
+    Api: { costGrids: { create: api.create, delete: api.delete, versions: { create: api.versionsCreate, saveStructure: api.saveStructure } } },
     cgApiClientId: id => (id && /^[0-9a-f-]{36}$/i.test(id)) ? id : null,
     cgAutoSave: vi.fn(async () => { calls.push('flush'); }),
     cgLoad: id => store[id],
@@ -50,7 +39,7 @@ function build({ myPermission = 'owner', srcOverrides = {} } = {}) {
     _cgCloneInFlight: false,
   };
   const names = Object.keys(stubs);
-  const fn = new Function(...names, 'document', 'window', `${extractFunction(js, 'cgCloneGrid')}; return cgCloneGrid;`)(
+  const fn = new Function(...names, 'document', 'window', `${extractBlock(js, 'async function cgDiscardNewGrid(')}; ${extractBlock(js, 'async function cgCloneGrid(')}; return cgCloneGrid;`)(
     ...names.map(n => stubs[n]), document, window);
   return { fn, stubs };
 }
@@ -61,6 +50,7 @@ describe('cgCloneGrid — autosave flush respects the source grid permission', (
       create: vi.fn(async () => ({ id: 'newCg' })),
       versionsCreate: vi.fn(async () => ({ id: 'newVer' })),
       saveStructure: vi.fn(async () => {}),
+      delete: vi.fn(async () => {}),
     };
     window.__pdashAuthRedirecting = false;
   });
@@ -88,6 +78,7 @@ describe('cgCloneGrid — order, payload and outcome', () => {
       create: vi.fn(async () => ({ id: 'newCg' })),
       versionsCreate: vi.fn(async () => ({ id: 'newVer' })),
       saveStructure: vi.fn(async () => {}),
+      delete: vi.fn(async () => {}),
     };
     window.__pdashAuthRedirecting = false;
   });
@@ -130,17 +121,78 @@ describe('cgCloneGrid — order, payload and outcome', () => {
     expect(api.create).not.toHaveBeenCalled();
   });
 
-  it('returns false when creating the grid fails', async () => {
+  it('returns false when creating the grid fails, and has nothing to delete', async () => {
     const { fn } = build();
     api.create.mockRejectedValue(new Error('no grid'));
     expect(await fn('cg1', 'v1')).toBe(false);
     expect(opened).toEqual([]);
+    expect(api.delete).not.toHaveBeenCalled();
   });
 
-  it('returns true even when the clone structure reload fails', async () => {
+  // B-086: the structure copy is part of the create path, and a failure there removes the new grid.
+  it('deletes the new grid when copying the structure fails', async () => {
+    const { fn } = build();
+    api.saveStructure.mockRejectedValue(new Error('structure refused'));
+    expect(await fn('cg1', 'v1')).toBe(false);
+    expect(api.delete).toHaveBeenCalledTimes(1);
+    expect(api.delete).toHaveBeenCalledWith('newCg');
+    expect(shownInfo[0][0]).toBe('Could not clone the proposal: structure refused');
+    expect(opened).toEqual([]);
+  });
+
+  it('deletes the new grid when creating its version fails', async () => {
+    const { fn } = build();
+    api.versionsCreate.mockRejectedValue(new Error('no version'));
+    expect(await fn('cg1', 'v1')).toBe(false);
+    expect(api.delete).toHaveBeenCalledWith('newCg');
+  });
+
+  it('still reports the original error when the compensating delete fails too', async () => {
+    const { fn } = build();
+    api.saveStructure.mockRejectedValue(new Error('structure refused'));
+    api.delete.mockRejectedValue(new Error('delete failed'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(await fn('cg1', 'v1')).toBe(false);
+    expect(shownInfo[0][0]).toBe('Could not clone the proposal: structure refused');
+    warn.mockRestore();
+  });
+
+  // B-091: a call ignored by the in-flight guard answers null, not false.
+  it('answers null to a second call made while the first is running', async () => {
+    const { fn } = build();
+    const first = fn('cg1', 'v1');
+    expect(await fn('cg1', 'v1')).toBeNull();
+    expect(await first).toBe(true);
+  });
+
+  it('returns true even when the clone structure reload fails, once the warning is dismissed', async () => {
     const { fn, stubs } = build();
     stubs.cgLoadStructureFromApi.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
-    expect(await fn('cg1', 'v1')).toBe(true);
+    const modal = document.createElement('div');
+    modal.id = 'confirmModal';
+    document.body.appendChild(modal);
+    const done = fn('cg1', 'v1');
+    await vi.waitFor(() => expect(shownInfo).toHaveLength(1));
+    modal.dispatchEvent(new Event('hidden.bs.modal'));
+    expect(await done).toBe(true);
     expect(opened).toHaveLength(1);
+    modal.remove();
   });
-});
+
+  // B-087: showInfo is a modal; navigating at once would hide the warning before it is read.
+  it('opens the clone only after the "Clone incomplete" warning is dismissed', async () => {
+    const { fn, stubs } = build();
+    stubs.cgLoadStructureFromApi.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const modal = document.createElement('div');
+    modal.id = 'confirmModal';
+    document.body.appendChild(modal);
+    const done = fn('cg1', 'v1');
+    await vi.waitFor(() => expect(shownInfo).toHaveLength(1));
+    expect(shownInfo[0][1]).toContain('Clone incomplete');
+    await Promise.resolve();
+    expect(opened).toEqual([]);
+    modal.dispatchEvent(new Event('hidden.bs.modal'));
+    await done;
+    expect(opened).toEqual([['newCg', 'newVer']]);
+    modal.remove();
+  });});

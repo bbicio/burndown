@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { extractBlock } from '../../scripts/lib/extract-source.mjs';
 
 // js/costgrid.js is a classic script, so cgCreateNewVersionDirect is cut out of the file and run against stubs.
 // Contract (2026-10-07, cost grid redesign cycle A, Task 2): "+ New version" asks the server for ONE atomic
@@ -7,18 +8,6 @@ import { readFileSync } from 'node:fs';
 // the current version count, editable afterwards inline on the header's segmented control. It never re-sends
 // the source's phases (task id collision bug) and never leaves a half-built version.
 const js = readFileSync('js/costgrid.js', 'utf8');
-
-function extractFunction(src, name) {
-  const start = src.indexOf(`async function ${name}(`);
-  if (start < 0) throw new Error(`function ${name} not found`);
-  let i = src.indexOf('{', src.indexOf(')', start));
-  let depth = 0;
-  for (; i < src.length; i++) {
-    if (src[i] === '{') depth++;
-    else if (src[i] === '}' && --depth === 0) { i++; break; }
-  }
-  return src.slice(start, i);
-}
 
 let api, store, saved, shownInfo, opened;
 
@@ -39,9 +28,10 @@ function build() {
     _cgDraft: { versionId: 'v1', currency: 'CHF', phases: [{ tasks: [{ taskId: 'T1' }] }], roles: [{ roleCode: 'PM' }], projectName: 'P' },
     _cgAutoSaveTimer: null,
     _cgNewVersionInFlight: false,
+    cgNextVersionLabel: new Function(`${extractBlock(js, 'function cgNextVersionLabel(')}; return cgNextVersionLabel;`)(),
   };
   const names = Object.keys(stubs);
-  const fn = new Function(...names, 'document', 'window', `${extractFunction(js, 'cgCreateNewVersionDirect')}; return cgCreateNewVersionDirect;`)(
+  const fn = new Function(...names, 'document', 'window', `${extractBlock(js, 'async function cgCreateNewVersionDirect(')}; return cgCreateNewVersionDirect;`)(
     ...names.map(n => stubs[n]), document, window);
   return { fn, stubs };
 }

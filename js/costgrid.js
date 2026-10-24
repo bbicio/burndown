@@ -681,28 +681,33 @@ function renderCgPhasing() {
 // ── SAVE ──────────────────────────────────────────────────────────────────────
 
 // strict = true: the returned promise rejects when the save fails (default: log and resolve).
+// Resolves to true only when every write reached the server.
 function cgAutoSave(strict) {
-  if (!_cgActiveCgId || !_cgActiveVersionId || !_cgDraft) return Promise.resolve();
+  if (!_cgActiveCgId || !_cgActiveVersionId || !_cgDraft) return Promise.resolve(false);
   cgSyncHeaderFromForm();
   const cg = cgLoad(_cgActiveCgId);
-  if (!cg) return Promise.resolve();
+  if (!cg) return Promise.resolve(false);
   const idx = cg.versions.findIndex(v => v.versionId === _cgActiveVersionId);
   if (idx >= 0) cg.versions[idx] = _cgDraft;
   cgSave(cg);
   if (typeof _cgUpsertVersionToApi !== 'undefined') {
     return _cgUpsertVersionToApi(_cgActiveCgId, _cgActiveVersionId, strict ? { strict: true } : undefined)
-      .catch(e => { console.warn('[sync] cgAutoSave:', e.message); if (strict) throw e; });
+      .then(ok => ok === true)
+      .catch(e => { console.warn('[sync] cgAutoSave:', e.message); if (strict) throw e; return false; });
   }
-  return Promise.resolve();
+  return Promise.resolve(false);
 }
 
 let _cgAutoSaveTimer = null;
 function cgScheduleAutoSave() {
   clearTimeout(_cgAutoSaveTimer);
   _cgAutoSaveTimer = setTimeout(() => {
-    cgAutoSave();
-    const toastEl = document.getElementById('cgAutoSaveToast');
-    if (toastEl) bootstrap.Toast.getOrCreateInstance(toastEl).show();
+    // The toast says "saved", so it appears only when every write reached the server.
+    cgAutoSave().then(ok => {
+      if (!ok) return;
+      const toastEl = document.getElementById('cgAutoSaveToast');
+      if (toastEl) bootstrap.Toast.getOrCreateInstance(toastEl).show();
+    });
   }, 2000);
 }
 
@@ -714,12 +719,12 @@ async function cgSaveVersion() {
   const label = btn ? [...btn.childNodes].reverse().find(n => n.nodeType === Node.TEXT_NODE && n.nodeValue.trim()) : null;
   // The original label is remembered once, so a click during "✓ Saved" does not record it as the label.
   if (label && btn.dataset.label === undefined) btn.dataset.label = label.nodeValue;
-  await cgAutoSave(); // never rejects -- errors are caught and logged internally
+  const ok = await cgAutoSave(); // never rejects -- errors are caught and logged internally
   if (btn) {
     btn.disabled = false;
     if (label) {
       clearTimeout(btn._cgSavedTimer);
-      label.nodeValue = '✓ Saved';
+      label.nodeValue = ok ? '✓ Saved' : '⚠ Not saved';
       btn._cgSavedTimer = setTimeout(() => { label.nodeValue = btn.dataset.label; }, 1500);
     }
   }
@@ -777,6 +782,14 @@ async function cgPublishDraft() {
 
 let _cgNewVersionInFlight = false;
 
+// The default label of a new version: the first v<N>, N >= versions.length + 1, that no version of the grid uses.
+function cgNextVersionLabel(versions) {
+  const taken = new Set((versions || []).map(v => String(v.versionLabel || '').trim().toLowerCase()));
+  let n = (versions || []).length + 1;
+  while (taken.has('v' + n)) n++;
+  return 'v' + n;
+}
+
 async function cgCreateNewVersionDirect() {
   if (_cgNewVersionInFlight) return; // already in flight -- ignore a fast repeat click
   _cgNewVersionInFlight = true;
@@ -788,7 +801,7 @@ async function cgCreateNewVersionDirect() {
   try {
     const cg = cgLoad(cgId);
     if (!cg) return;
-    const label = `v${cg.versions.length + 1}`;
+    const label = cgNextVersionLabel(cg.versions);
 
     // The copy is made by the server from the saved state, so flush the editor's pending changes first.
     // Strict: a failed flush aborts here instead of silently copying the last saved (older) state.
@@ -847,8 +860,16 @@ async function cgCreateNewVersionDirect() {
 
 let _cgCreateInFlight = false;
 
+// A grid created on the API by a flow that then failed is removed again, so no empty proposal is left behind.
+// A failing delete is only logged: the caller reports the original error.
+async function cgDiscardNewGrid(cgId) {
+  if (!cgId) return;
+  try { await Api.costGrids.delete(cgId); }
+  catch (e) { console.warn('[costgrid] could not remove the unfinished proposal ' + cgId + ':', e.message); }
+}
+
 async function cgCreateNewGrid() {
-  if (_cgCreateInFlight) return false; // already in flight -- ignore a fast repeat click
+  if (_cgCreateInFlight) return null; // already in flight -- ignore a fast repeat click (null: not a failure)
   _cgCreateInFlight = true;
 
   const name = 'New proposal';
@@ -867,6 +888,7 @@ async function cgCreateNewGrid() {
         roles:  [],
       }).catch(() => {});
     } catch (e) {
+      await cgDiscardNewGrid(cgId);
       showInfo('Could not create the proposal: ' + e.message, 'Error');
       return false;
     }
@@ -912,7 +934,7 @@ async function cgCreateNewGrid() {
 let _cgCloneInFlight = false;
 
 async function cgCloneGrid(srcCgId, srcVerId) {
-  if (_cgCloneInFlight) return false; // already in flight -- ignore a fast repeat click
+  if (_cgCloneInFlight) return null; // already in flight -- ignore a fast repeat click (null: not a failure)
   if (!srcCgId || !srcVerId) return false;
   _cgCloneInFlight = true;
 
@@ -967,17 +989,18 @@ async function cgCloneGrid(srcCgId, srcVerId) {
         projectName: name,
       });
       verId = newVer.id;
+
+      // 2. Copy phase/task/role structure — strip taskId/phaseId so the backend mints fresh UUIDs
+      //    instead of reusing the source version's (still-live) ones (see stripCloneTaskIds above).
+      await Api.costGrids.versions.saveStructure(cgId, verId, {
+        phases: stripCloneTaskIds(srcVer.phases || []),
+        roles:  srcVer.roles  || [],
+      });
     } catch (e) {
+      await cgDiscardNewGrid(cgId);
       showInfo('Could not clone the proposal: ' + e.message, 'Error');
       return false;
     }
-
-    // 2. Copy phase/task/role structure — strip taskId/phaseId so the backend mints fresh UUIDs
-    //    instead of reusing the source version's (still-live) ones (see stripCloneTaskIds above).
-    await Api.costGrids.versions.saveStructure(cgId, verId, {
-      phases: stripCloneTaskIds(srcVer.phases || []),
-      roles:  srcVer.roles  || [],
-    });
 
     // 3. Seed in-memory store with header fields only — phases/roles (with the server's
     //    real new IDs) are filled in by cgLoadStructureFromApi() right after, so nothing in
@@ -1015,6 +1038,8 @@ async function cgCloneGrid(srcCgId, srcVerId) {
         'The new proposal was created, but its structure may not have loaded correctly. Please reload the page to verify.',
         '⚠️ Clone incomplete'
       );
+      // showInfo is a modal: open the clone only once it is dismissed, or the warning goes unread.
+      await new Promise(resolve => document.getElementById('confirmModal').addEventListener('hidden.bs.modal', resolve, { once: true }));
     }
 
     showCostGridEditorView(cgId, verId);
@@ -1165,13 +1190,8 @@ function cgSubmitProjectName(projectName, projectCode) {
   // selection mode doesn't disable "+ task", so a task added mid-selection must still count as
   // free. Selecting every currently-free task leaves nothing unassigned — no program prompt
   // needed, matches pre-existing behavior.
-  // Dual id+name check, matching js/lib/costgrid-calc.js's versionHasFreeTasks() (the same check
-  // that gates the Generate Project button and the Committed lock) — a task assigned under a
-  // stale id but still matched by name must count as assigned here too.
-  const assignedIds = cgGetAssignedTaskIds();
-  const assignedNames = cgGetAssignedTaskNames();
-  const currentFreeTaskIds = (_cgDraft.phases || []).flatMap(ph => ph.tasks)
-    .filter(t => t.taskName?.trim() && !assignedIds.has(t.taskId) && !assignedNames.has(t.taskName.trim().toLowerCase()))
+  // The same predicate as the Generate Project button and the Committed lock (cgFreeTasksOf).
+  const currentFreeTaskIds = window.cgFreeTasksOf((_cgDraft.phases || []).flatMap(ph => ph.tasks), _cgDraft.linkedProjects)
     .map(t => t.taskId);
   const leavesTasksUnassigned = currentFreeTaskIds.some(id => !selectedTaskIds.includes(id));
   if (!leavesTasksUnassigned) {
@@ -1622,22 +1642,6 @@ function cgImportAll() {
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
-
-function cgGetAssignedTaskIds() {
-  const assigned = new Set();
-  (_cgDraft?.linkedProjects || []).forEach(lp => (lp.taskIds || []).forEach(id => assigned.add(id)));
-  return assigned;
-}
-
-// Returns Set of lower-cased task names that are assigned to a linked project.
-// Used as a robust fallback when task UUIDs may have changed.
-function cgGetAssignedTaskNames() {
-  const names = new Set();
-  (_cgDraft?.linkedProjects || []).forEach(lp =>
-    (lp.taskNames || []).forEach(n => { if (n?.trim()) names.add(n.trim().toLowerCase()); })
-  );
-  return names;
-}
 
 // "Add tasks to project" confirmation lives in costgrid.html as #cgAddToProjectModal (a real
 // Bootstrap modal, Vue-driven via addToProjectModal/addToProject()/confirmAddToProject()).

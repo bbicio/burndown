@@ -2,7 +2,8 @@ const express = require('express');
 const { query, pool } = require('../db/client');
 const { requireAuth, liveRole } = require('../middleware/auth');
 const rules = require('../lib/project-rules');
-const { withVersionLock } = require('../lib/version-lock');
+const { withVersionLock, lockVersion } = require('../lib/version-lock');
+const { missingLinkedTasks, STRUCTURE_RULE_CODE } = require('../lib/structure-rules');
 
 // A refusal by the project rules: 400 with a code, so a client can tell it from other errors.
 const refuse = (res, error) => res.status(400).json({ error, code: rules.RULE_CODE });
@@ -336,11 +337,7 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const nonDraft = await query(
-      `SELECT 1 FROM cost_grid_versions WHERE cost_grid_id = $1 AND pipeline != 'Draft' LIMIT 1`,
-      [req.params.id]
-    );
-    if (nonDraft.rows.length > 0) {
+    if (await gridHasPublishedVersion(req.params.id)) {
       return res.status(400).json({ error: 'Cannot delete a proposal that has been published to the pipeline' });
     }
     const delErr = rules.versionRemovalError({ role: await liveRole(req.user.id), hasProjects: await gridHasProjects(req.params.id) });
@@ -394,10 +391,8 @@ router.post('/:id/versions', requireAuth, async (req, res, next) => {
     const { label, pipeline, startDate, endDate, currency, currencyRate, note, ratecardId, clientId, projectName } = req.body;
     if (!label?.trim()) return res.status(400).json({ error: 'label is required' });
 
-    const versionErr = rules.versionCreationError({
-      role: await liveRole(req.user.id),
-      hasPublishedVersion: await gridHasPublishedVersion(req.params.id),
-    });
+    const [role, hasPublishedVersion] = await Promise.all([liveRole(req.user.id), gridHasPublishedVersion(req.params.id)]);
+    const versionErr = rules.versionCreationError({ role, hasPublishedVersion });
     if (versionErr) return res.status(400).json({ error: versionErr, code: rules.VERSION_RULE_CODE });
 
     // Resolve currency_rate: use provided value, else look up live rate from currencies table
@@ -515,10 +510,8 @@ router.post('/:id/versions/:vId/duplicate', requireAuth, async (req, res, next) 
     if (!src.rows[0]) return res.status(404).json({ error: 'Version not found' });
     const s = src.rows[0];
 
-    const versionErr = rules.versionCreationError({
-      role: await liveRole(req.user.id),
-      hasPublishedVersion: await gridHasPublishedVersion(req.params.id),
-    });
+    const [role, hasPublishedVersion] = await Promise.all([liveRole(req.user.id), gridHasPublishedVersion(req.params.id)]);
+    const versionErr = rules.versionCreationError({ role, hasPublishedVersion });
     if (versionErr) return res.status(400).json({ error: versionErr, code: rules.VERSION_RULE_CODE });
 
     // One transaction: any failure rolls everything back, so no half-copied version is ever left behind.
@@ -686,6 +679,27 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // The version lock makes the check below and the DELETE see the same links (a link write takes it too).
+    await lockVersion(client, req.params.vId);
+    const linkedRows = await client.query(
+      'SELECT task_ids FROM cg_version_projects WHERE cost_grid_version_id = $1', [req.params.vId]
+    );
+    const currentTasks = (await client.query(
+      'SELECT t.id, t.title FROM tasks t JOIN phases p ON p.id = t.phase_id WHERE p.version_id = $1', [req.params.vId]
+    )).rows;
+    const payloadTaskIds = phases.flatMap(ph => (ph?.tasks || []).map(tk => tk?.taskId || tk?.id).filter(Boolean));
+    const missing = missingLinkedTasks({
+      linkedTaskIds: linkedRows.rows.flatMap(r => r.task_ids || []),
+      currentTasks,
+      payloadTaskIds,
+    });
+    if (missing.length) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: `Cannot save: tasks linked to a project would be removed: ${missing.map(t => `"${t.title}"`).join(', ')}`,
+        code: STRUCTURE_RULE_CODE,
+      });
+    }
     await client.query('DELETE FROM phases WHERE version_id = $1', [req.params.vId]);
 
     for (let pi = 0; pi < phases.length; pi++) {

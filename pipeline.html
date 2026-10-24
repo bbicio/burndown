@@ -510,16 +510,16 @@
 <script defer src="js/notifications.js?v=3"></script>
 <script defer src="js/roles.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
-<script type="module" src="js/lib/costgrid-calc.js?v=7"></script>
+<script type="module" src="js/lib/costgrid-calc.js?v=8"></script>
 <script type="module" src="js/lib/pipeline-calc.js?v=7"></script>
-<script defer src="js/costgrid.js?v=45"></script>
+<script defer src="js/costgrid.js?v=47"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
-<script defer src="js/api-sync.js?v=23"></script>
+<script defer src="js/api-sync.js?v=25"></script>
 <script defer src="js/shares.js"></script>
 <script defer src="js/share-list-component.js"></script>
 <script type="module" src="js/lib/icons.js?v=2"></script>
-<script defer src="js/nav.js?v=18"></script>
+<script defer src="js/nav.js?v=19"></script>
 
 <script type="module">
 window.showCostGridEditorView = function (cgId, versionId, opts) {
@@ -535,6 +535,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let _pbDetailOutsideClickHandler = null;
 
+// After a successful create/clone the page navigates to the editor. If the navigation is cancelled nothing
+// unloads the page, so this long enough delay releases New/Clone again and refreshes the board.
+const PB_PROPOSAL_FALLBACK_MS = 5000;
 const PB_STAGES = ['Draft', 'SIP', 'Expected', 'Anticipated', 'Committed', 'Canceled'];
 const PB_STAGE_STYLE = {
   Draft:       { bg: 'var(--surface-light)',             border: 'var(--text-disabled)',              badge: 'var(--text-muted)'                  },
@@ -1001,30 +1004,34 @@ Vue.createApp({
     },
     async createNewProposal() {
       this.proposalBusy = true;
-      // On success the page is navigating to the editor: New/Clone stay disabled until the unload.
+      // true: the page is navigating to the editor, so New/Clone stay disabled until the unload (the fallback timer
+      // covers a navigation that never happens). null: the call was ignored because one is already running, so the
+      // state is left to that one. Only false, or a throw, releases the buttons here.
       let ok = false;
       try {
         ok = await cgCreateNewGrid();
-        if (ok) {
-          this.refreshTick++;
+        if (ok === true) {
           this.collapsedStages = this.collapsedStages.filter(st => st !== 'Draft');
+          setTimeout(() => { this.proposalBusy = false; this.refreshTick++; }, PB_PROPOSAL_FALLBACK_MS);
         }
       } finally {
-        if (!ok) this.proposalBusy = false;
+        if (ok === false) this.proposalBusy = false;
       }
     },
     async cloneProposal(cgId, verId) {
       this.proposalBusy = true;
-      // On success the page is navigating to the editor: New/Clone stay disabled until the unload.
+      // true: the page is navigating to the editor, so New/Clone stay disabled until the unload (the fallback timer
+      // covers a navigation that never happens). null: the call was ignored because one is already running, so the
+      // state is left to that one. Only false, or a throw, releases the buttons here.
       let ok = false;
       try {
         ok = await cgCloneGrid(cgId, verId);
-        if (ok) {
-          this.refreshTick++;
+        if (ok === true) {
           this.collapsedStages = this.collapsedStages.filter(st => st !== 'Draft');
+          setTimeout(() => { this.proposalBusy = false; this.refreshTick++; }, PB_PROPOSAL_FALLBACK_MS);
         }
       } finally {
-        if (!ok) this.proposalBusy = false;
+        if (ok === false) this.proposalBusy = false;
       }
     },
   },

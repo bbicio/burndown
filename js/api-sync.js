@@ -150,17 +150,22 @@ async function cgLoadStructureFromApi(cgId, versionId) {
 // server-assigned): a failed PATCH is reported, never converted into a POST that would duplicate them.
 // Used by cgAutoSave and version create/duplicate operations.
 // opts.strict = true: a failed upsert throws instead of being logged and swallowed.
+// Resolves to true only when every write reached the server; false when one failed (non-strict) or there was
+// nothing to write. A failed name save does not stop the version and its structure from being saved.
+// A structure refused with STRUCTURE_RULE is refused again on every autosave, so the user is told once per version.
+const _cgStructureRuleNotified = new Set();
 async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   const strict = !!(opts && opts.strict);
+  let allOk = true;
   const cg = cgLoad(cgId);
-  if (!cg) return;
+  if (!cg) return false;
   const ver = cg.versions.find(v => v.versionId === versionId);
-  if (!ver) return;
+  if (!ver) return false;
 
   // Upsert the grid itself (name)
   try {
     await Api.costGrids.update(cgId, { name: cg.name });
-  } catch (e) { console.warn('[sync] grid upsert failed:', e.message); if (strict) throw e; return; }
+  } catch (e) { console.warn('[sync] grid upsert failed:', e.message); if (strict) throw e; allOk = false; }
 
   // Upsert the version metadata
   const { phases, roles, ...meta } = ver;
@@ -180,7 +185,7 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   };
   try {
     await Api.costGrids.versions.update(cgId, versionId, serverMeta);
-  } catch (e) { console.warn('[sync] version upsert failed:', e.message); if (strict) throw e; return; }
+  } catch (e) { console.warn('[sync] version upsert failed:', e.message); if (strict) throw e; return false; }
 
   // Save phase/task/role structure only if it was explicitly loaded this session.
   // If phases is empty here, the structure was never loaded — don't wipe existing DB data.
@@ -193,8 +198,14 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
     } catch (e) {
       console.warn('[sync] structure save failed:', e.message);
       if (strict) throw e;
+      allOk = false;
+      if (e.data?.code === 'STRUCTURE_RULE' && !_cgStructureRuleNotified.has(versionId) && typeof showInfo === 'function') {
+        _cgStructureRuleNotified.add(versionId);
+        showInfo(`${e.data.error}. Your changes to this version are not being saved: reload the page to see its current structure.`, '⚠️ Changes not saved');
+      }
     }
   }
+  return allOk;
 }
 
 // ── PROJECTS / CONFIG ─────────────────────────────────────────────────────────

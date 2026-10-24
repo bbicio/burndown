@@ -2531,6 +2531,68 @@ async function testTimesheetsNoActuals() {
 
 // ── Project currency lock (2026-10-01) ─────────────────────────────────────────
 
+// PUT …/structure on a version with a project-linked task. SR-01..03 characterize what is accepted today and
+// must stay accepted (rename, reorder, move between phases).
+async function testStructureRule() {
+  section('Structure rule (linked tasks)');
+
+  const rpy = await api('POST', '/api/pipeline-years', { year: TEST_YEAR_C }, adminCookie);
+  if (![201, 409].includes(rpy.status)) { ok(false, 'SR-setup pipeline year unavailable'); return; }
+  if (rpy.status === 201 && rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
+
+  // Registered first, so cleanup (reverse order) deletes the project before the proposal.
+  const rcg = await api('POST', '/api/cost-grids', { name: '__test_sr_cg__', pipelineYear: TEST_YEAR_C }, adminCookie);
+  const cgId = rcg.data?.id;
+  if (cgId) later('DELETE', `/api/cost-grids/${cgId}`);
+  const vId = cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'v1' }, adminCookie)).data?.id : null;
+  if (!ok(!!(cgId && vId), 'SR-setup proposal with one version created')) return;
+  const base = `/api/cost-grids/${cgId}/versions/${vId}`;
+  const putStructure = phases => api('PUT', `${base}/structure`, { phases }, adminCookie);
+
+  const first = await putStructure([
+    { title: 'P1', tasks: [{ title: 'T1' }, { title: 'T2' }] },
+    { title: 'P2', tasks: [] },
+  ]);
+  const st = (await api('GET', `${base}/structure`, null, adminCookie)).data;
+  const idT1 = st?.phases?.[0]?.tasks?.find(t => t.title === 'T1')?.id;
+  const idT2 = st?.phases?.[0]?.tasks?.find(t => t.title === 'T2')?.id;
+  if (!ok(first.status === 200 && !!idT1 && !!idT2, 'SR-setup structure with two tasks saved')) return;
+
+  const gen = await api('POST', '/api/projects', { name: '__test_sr_linked__', cgVersionId: vId, currency: 'EUR' }, adminCookie);
+  const pId = gen.data?.id;
+  if (pId) later('DELETE', `/api/projects/${pId}`);
+  const lnk = pId ? await api('POST', `${base}/linked-projects`, { projectId: pId, taskIds: [idT1], taskNames: ['T1'] }, adminCookie) : null;
+  if (!ok(lnk?.status === 201, 'SR-setup project linked to T1')) return;
+
+  const t1 = { id: idT1, title: 'T1' };
+  const t2 = { id: idT2, title: 'T2' };
+
+  const r1 = await putStructure([{ title: 'P1', tasks: [{ ...t1, title: 'T1b' }, t2] }, { title: 'P2', tasks: [] }]);
+  ok(r1.status === 200, `SR-01 rename of a linked task → 200 (got ${r1.status})`);
+
+  const r2 = await putStructure([{ title: 'P1', tasks: [t2, t1] }, { title: 'P2', tasks: [] }]);
+  ok(r2.status === 200, `SR-02 reorder → 200 (got ${r2.status})`);
+
+  const r3 = await putStructure([{ title: 'P1', tasks: [t2] }, { title: 'P2', tasks: [t1] }]);
+  ok(r3.status === 200, `SR-03 move to another phase → 200 (got ${r3.status})`);
+
+  // SR-04/05: dropping the linked task is refused, and the DB keeps both tasks
+  const r4 = await putStructure([{ title: 'P1', tasks: [t2] }, { title: 'P2', tasks: [] }]);
+  ok(r4.status === 400 && r4.data?.code === 'STRUCTURE_RULE',
+    `SR-04 payload without the linked task → 400 STRUCTURE_RULE (got ${r4.status})`);
+  ok(/"T1"/.test(r4.data?.error || ''), 'SR-04 the error names the missing task');
+  const after = (await api('GET', `${base}/structure`, null, adminCookie)).data;
+  const titles = (after?.phases || []).flatMap(p => p.tasks.map(t => t.title)).sort().join(',');
+  ok(titles === 'T1,T2', `SR-05 the refused save left T1 and T2 in the DB (got "${titles}")`);
+
+  // SR-06: a link to a task that does not exist is ignored
+  const orphan = '00000000-0000-4000-8000-000000000000';
+  const lnk2 = await api('POST', `${base}/linked-projects`, { projectId: pId, taskIds: [idT1, orphan], taskNames: ['T1'] }, adminCookie);
+  ok(lnk2.status === 201, 'SR-06 setup: link carries an orphan task id');
+  const r6 = await putStructure([{ title: 'P1', tasks: [t2] }, { title: 'P2', tasks: [t1] }]);
+  ok(r6.status === 200, `SR-06 a save keeping T1 with an orphan id in the link → 200 (got ${r6.status})`);
+}
+
 async function testProjectCurrencyLock() {
   section('Project currency lock');
   if (!sysadminCookie) { ok(false, 'PR-setup sysadmin account unavailable'); return; }
@@ -2714,6 +2776,11 @@ async function testVersionRule() {
   const vr02 = await api('POST', `/api/cost-grids/${cg1Id}/versions/${v1Id}/duplicate`, { label: 'v2' }, adminCookie);
   ok(vr02.status === 400 && vr02.data?.code === 'VERSION_RULE', 'VR-02 admin POST /duplicate on published proposal → 400 VERSION_RULE');
 
+  // VR-02b: the same published state keeps an admin from deleting the proposal (message unchanged)
+  const vr02b = await api('DELETE', `/api/cost-grids/${cg1Id}`, null, adminCookie);
+  ok(vr02b.status === 400 && vr02b.data?.error === 'Cannot delete a proposal that has been published to the pipeline',
+    `VR-02b admin DELETE of a published proposal → 400 (got ${vr02b.status})`);
+
   // VR-03: sysadmin is exempt
   const vr03 = await api('POST', `/api/cost-grids/${cg1Id}/versions`, { label: 'v9' }, sysadminCookie);
   ok(vr03.status === 201, 'VR-03 sysadmin POST /versions on published proposal → 201');
@@ -2856,6 +2923,7 @@ async function main() {
     await testVersionDuplicate();
     await testProjectPatchValidation();
     await testProjectCurrencyLock();
+    await testStructureRule();
     await testTimesheetsNoActuals();
     await testProjectDescriptions();
     await testTopicsApi();
