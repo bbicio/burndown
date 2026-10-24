@@ -9,6 +9,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/tokens.css?v=12">
   <link rel="stylesheet" href="css/style.css?v=27">
+  <link rel="stylesheet" href="css/controls.css?v=1">
 </head>
 <body>
 
@@ -80,8 +81,8 @@
         <div class="row g-3">
           <div class="col-md-4"><label class="form-label small mb-1">D365 Project ID <span class="text-muted">(matches XLS column)</span></label><input type="text" class="form-control form-control-sm" v-model="project.code" :disabled="isViewer" placeholder="e.g. HITA.000001201"></div>
           <div class="col-md-8"><label class="form-label small mb-1">Project Name</label><input type="text" class="form-control form-control-sm" v-model="project.name" :disabled="isViewer" placeholder="e.g. Bayer AG - BERMITS 2026" @input="onNameInput"></div>
-          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Start month</label><input type="month" class="form-control form-control-sm" v-model="startMonthInput" :disabled="isViewer" @change="onDateChange"></div>
-          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">End month</label><input type="month" class="form-control form-control-sm" v-model="endMonthInput" :disabled="isViewer" @change="onDateChange"></div>
+          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Start month</label><cg-date-picker mode="month" :model-value="project.startDate || ''" :max="project.endDate || ''" :disabled="isViewer" aria-label="Start month" @update:model-value="v => project.startDate = v"></cg-date-picker></div>
+          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">End month</label><cg-date-picker mode="month" :model-value="project.endDate || ''" :min="project.startDate || ''" :disabled="isViewer" aria-label="End month" @update:model-value="v => project.endDate = v"></cg-date-picker></div>
           <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Currency</label><select class="form-select form-select-sm" v-model="project.currency" :disabled="currencyLocked"><option v-for="cu in currencyOptions" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.name }}</option></select><div v-if="currencyLocked" class="form-text" style="font-size:.72rem">{{ currencyHint }}</div></div>
         </div>
         <div class="row g-3 mt-1">
@@ -143,9 +144,9 @@
     </div>
     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
       <span class="text-muted small text-nowrap">Period:</span>
-      <input type="text" class="form-control form-control-sm" style="width:120px" :disabled="isViewer" placeholder="gg/mm/aaaa" maxlength="10" :value="ymdToIt(task.startDate)" @change="e => { task.startDate = itToYmd(e.target.value); rebuildTaskDist(ti); }">
+      <div style="width:150px"><cg-date-picker mode="day" :model-value="toIso(task.startDate) || ''" :max="toIso(task.endDate) || ''" :disabled="isViewer" aria-label="Task start date" @update:model-value="v => { task.startDate = v ? toYmd(v) : ''; rebuildTaskDist(ti); }"></cg-date-picker></div>
       <span class="text-muted small">→</span>
-      <input type="text" class="form-control form-control-sm" style="width:120px" :disabled="isViewer" placeholder="gg/mm/aaaa" maxlength="10" :value="ymdToIt(task.endDate)" @change="e => { task.endDate = itToYmd(e.target.value); rebuildTaskDist(ti); }">
+      <div style="width:150px"><cg-date-picker mode="day" :model-value="toIso(task.endDate) || ''" :min="toIso(task.startDate) || ''" :disabled="isViewer" aria-label="Task end date" @update:model-value="v => { task.endDate = v ? toYmd(v) : ''; rebuildTaskDist(ti); }"></cg-date-picker></div>
       <span class="text-muted small">(optional — defaults to project dates)</span>
     </div>
 
@@ -412,21 +413,14 @@
 <script type="module" src="js/lib/status-rules.js?v=1"></script>
 <script type="module" src="js/lib/config-form-calc.js?v=2"></script>
 <script type="module" src="js/lib/dates.js?v=3"></script>
+<script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
+<script defer src="js/cg-controls.js?v=5"></script>
 <script type="module" src="js/lib/project-push-result.js?v=2"></script>
 <script defer src="js/api-sync.js?v=26"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script type="module" src="js/lib/icons.js?v=2"></script>
 <script defer src="js/nav.js?v=19"></script>
 <script type="module">
-  function month2ym(monthInputVal) {
-    if (!monthInputVal) return '';
-    return monthInputVal.replace('-', '');
-  }
-  function ym2month(ym) {
-    if (!ym || ym.length < 6) return '';
-    return `${ym.slice(0,4)}-${ym.slice(4,6)}`;
-  }
-
   const BLANK_PROJECT = () => ({
     id: '', code: '', name: '', description: '', startDate: '', endDate: '', currency: 'EUR',
     pipeline: '', status: '', tasks: [], phasing: {}, planning: {},
@@ -478,14 +472,6 @@
       tagsReadOnly() { return this.isViewer; },
       statusRule() {
         return this.project ? getStatusRule(this.project.pipeline) : { options: null, disabled: true };
-      },
-      startMonthInput: {
-        get() { return ym2month(this.project?.startDate); },
-        set(v) { if (this.project) this.project.startDate = month2ym(v); },
-      },
-      endMonthInput: {
-        get() { return ym2month(this.project?.endDate); },
-        set(v) { if (this.project) this.project.endDate = month2ym(v); },
       },
       grandTotalHours() {
         return (this.project?.tasks || []).reduce((s, t) => s + t.resources.reduce((rs, r) => rs + (r.soldHours || 0), 0), 0);
@@ -649,9 +635,6 @@
         if (rule.options && !rule.options.includes(this.project.status)) {
           this.project.status = '';
         }
-      },
-      onDateChange() {
-        // Task 5 extends this to warn about out-of-range phasing/planning months.
       },
       monthLabelLong(ym) {
         const [y, m] = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))];
@@ -935,11 +918,8 @@
       // Money formatting/parsing: one implementation in js/lib/money.js, driven by the locale of the project currency.
       moneyInput(amount) { return window.formatMoneyInput(amount, this.project?.currency, window.__currencies); },
       parseMoney(str) { return window.parseMoney(str, this.project?.currency, window.__currencies); },
-      ymdToIt(ymd) {
-        if (!ymd || ymd.length < 8) return '';
-        return `${ymd.slice(6,8)}/${ymd.slice(4,6)}/${ymd.slice(0,4)}`;
-      },
-      itToYmd(it) { return toYmd(parseDayText(it)) || ''; },
+      toIso(x) { return window.toIso(x); },
+      toYmd(x) { return window.toYmd(x); },
       monthLabel(ym, locale = 'en-US') {
         const [y, m] = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))];
         return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'short', year: '2-digit' });
@@ -1083,7 +1063,7 @@
         }
       },
     },
-  }).component('ph-icon', window.PhIcon).mount('#app');
+  }).component('ph-icon', window.PhIcon).component('cg-date-picker', window.CgDatePicker).mount('#app');
 </script>
 </body>
 </html>

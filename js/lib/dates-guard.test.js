@@ -94,3 +94,27 @@ describe('dates guard', () => {
     expect([...versions].length).toBeLessThanOrEqual(1);
   });
 });
+
+describe('project-config date fields', () => {
+  const html = read('project-config.html');
+  const pickers = html.match(/<cg-date-picker\b[^>]*>/g) || [];
+
+  it('no native month input, Italian text input or old date helpers remain', () => {
+    for (const s of ['type="month"', 'gg/mm', 'ymdToIt', 'itToYmd', 'month2ym', 'ym2month', 'onDateChange']) {
+      expect(html.includes(s), s).toBe(false);
+    }
+  });
+
+  it('uses four registered cg-date-picker, each disabled for the viewer', () => {
+    expect(pickers.length).toBe(4);
+    expect(html).toContain(".component('cg-date-picker', window.CgDatePicker)");
+    for (const p of pickers) expect(p).toContain(':disabled="isViewer"');
+  });
+
+  it('an emptied task date is saved as an empty string', () => {
+    expect(html).toContain('toIso(task.startDate) || \'\'');
+    expect(html).toContain('toIso(task.endDate) || \'\'');
+    expect(html).toContain("task.startDate = v ? toYmd(v) : ''");
+    expect(html).toContain("task.endDate = v ? toYmd(v) : ''");
+  });
+});
