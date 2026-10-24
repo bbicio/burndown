@@ -179,13 +179,19 @@ describe('cg-date-picker: unambiguous format and inline popover (dates C2)', () 
     expect(m[0]).toMatch(/position:\s*relative/);
   });
 
-  it('Esc inside an inline popover is caught by a window capture listener and closes only the popover', () => {
-    expect(picker).toMatch(/window\.addEventListener\('keydown', this\._cgPopEsc, true\)/);
-    expect(picker).toMatch(/window\.removeEventListener\('keydown', this\._cgPopEsc, true\)/);
-    const h = picker.slice(picker.indexOf('this._cgPopEsc = '), picker.indexOf("window.addEventListener('keydown', this._cgPopEsc"));
-    expect(h).toContain('this.inlinePopover');
-    expect(h).toContain('e.stopPropagation()');
+  it('inline popover keys are taken by a window capture listener (Bootstrap dropdown runs first)', () => {
+    expect(picker).toMatch(/window\.addEventListener\('keydown', this\._cgInlineKeys, true\)/);
+    expect(picker).toMatch(/window\.removeEventListener\('keydown', this\._cgInlineKeys, true\)/);
+    const h = picker.slice(picker.indexOf('this._cgInlineKeys = '), picker.indexOf("window.addEventListener('keydown', this._cgInlineKeys"));
+    expect(h).toContain('!this.inlinePopover || !this.cgOpen');
+    // Esc from inside the popover and from the input/button of the picker
     expect(h).toContain('this.$refs.pop.contains(e.target)');
+    expect(h).toContain('this.$el.contains(e.target)');
+    expect(h).toContain('this.text = this.display');
+    expect(h).toContain('e.stopPropagation()');
+    // vertical arrows in the grid are handled directly
+    expect(h).toMatch(/ArrowUp[\s\S]*ArrowDown[\s\S]*this\.\$refs\.grid\.contains\(e\.target\)/);
+    expect(h).toContain('this.onGridKey(e)');
     const m = picker.slice(picker.indexOf('onPopEsc() {'), picker.indexOf('onEsc() {'));
     expect(m).toContain('this.cgClosePopover(true)');
   });

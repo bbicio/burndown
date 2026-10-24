@@ -156,16 +156,30 @@
       },
     },
     mounted() {
-      this._cgPopEsc = (e) => {
-        if (!this.inlinePopover || e.key !== 'Escape' || !this.cgOpen) return;
-        if (!this.$refs.pop || !this.$refs.pop.contains(e.target)) return;
-        e.stopPropagation(); e.preventDefault();
-        this.onPopEsc();
+      // Inline popover inside a Bootstrap dropdown: Bootstrap's delegated keydown handler runs
+      // in the capture phase on document and would close the host menu on Esc and swallow
+      // ArrowUp/ArrowDown from non-input elements. While the popover is open this window
+      // capture listener (earlier than document) takes those keys for the picker.
+      this._cgInlineKeys = (e) => {
+        if (!this.inlinePopover || !this.cgOpen) return;
+        const inPop = !!(this.$refs.pop && this.$refs.pop.contains(e.target));
+        if (e.key === 'Escape') {
+          if (inPop) { e.stopPropagation(); e.preventDefault(); this.onPopEsc(); return; }
+          if (this.$el && this.$el.contains(e.target)) {
+            // From the text input or the calendar button: revert what was typed and close.
+            e.stopPropagation(); e.preventDefault();
+            this.text = this.display;
+            this.onPopEsc();
+          }
+        } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && this.$refs.grid && this.$refs.grid.contains(e.target)) {
+          e.stopPropagation();
+          this.onGridKey(e);
+        }
       };
-      window.addEventListener('keydown', this._cgPopEsc, true);
+      window.addEventListener('keydown', this._cgInlineKeys, true);
     },
     beforeUnmount() {
-      window.removeEventListener('keydown', this._cgPopEsc, true);
+      window.removeEventListener('keydown', this._cgInlineKeys, true);
     },
     watch: {
       modelValue: { immediate: true, handler() { this.text = this.display; this.error = ''; this.syncView(); } },
