@@ -292,7 +292,7 @@ L'unico corpo alternativo, quando non ce ne sono, è la sentinella `Nessuna.` �
 1. **<etichetta breve>** — <esito verificabile>
 ```
 
-La pretende `scripts/decision-ledger-guard.test.js`; la legge il Gate 2 di `/finish-cycle`, che ne fa una lista a spunta (le etichette sono le opzioni).
+La pretende `scripts/decision-ledger-guard.test.js`; la legge il Gate 2 di `/finish-cycle`, che ne fa una lista a spunta: le voci già provate da un run automatico arrivano spuntate, le altre con le istruzioni per verificarle (`.claude/commands/finish-cycle.md`, "Acceptance checklist").
 
 **Header della Spec (dal 2026-10-14).** Ogni Spec porta nell'header la riga `**Brief started:** YYYY-MM-DD HH:MM`, oppure `**Brief started:** unknown`: l'ora di inizio di `/feature-brief`, o di `/brainstorming` quando il ciclo non ha Brief. La legge `scripts/cycle-times.mjs`; la pretende `scripts/decision-ledger-guard.test.js`.
 
