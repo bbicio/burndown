@@ -164,8 +164,9 @@
       // Review Focus #3: a refused entry (unparseable, or outside min/max) emits nothing,
       // reverts the display and shows the reason inline; an emptied field clears the value.
       commitTyped() {
-        // Leaving the field without editing it checks nothing: stored data is not re-judged.
-        if (this.text === this.display) { this.error = ''; return; }
+        // Leaving the field without editing it checks nothing: stored data is not re-judged,
+        // and a reason already shown stays until the next input, Esc, Clear or pick.
+        if (this.text === this.display) return;
         const r = window.parseDateInput(this.text, {
           mode: this.isDay ? 'day' : 'month', min: this.min || undefined, max: this.max || undefined,
         });

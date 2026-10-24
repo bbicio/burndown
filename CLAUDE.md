@@ -374,7 +374,7 @@ One implementation, `js/lib/dates.js` (server twin `api/src/lib/dates.js`). Rule
 - **Never validate or normalise a date outside the two modules**; `js/lib/dates-guard.test.js` pins where that is allowed, which routes and pages must load them, and the `?v=N` agreement.
 - **Every route that writes a version, project or task period uses `periodError`/`periodChangeError`** and refuses with `400 { error, code: 'DATE_RULE' }`; the timesheet upload checks each date with `toIso` and refuses the whole file with the row number; `js/api-sync.js` must not retry a `DATE_RULE` refusal as a `POST`.
 - **Every date field that has a twin passes `min`/`max`**, and a picker reads typed text only through `parseDateInput`.
-- **Existing invalid data is tolerated** until its dates change.
+- **An existing invalid version or project period is tolerated** until its dates change; task dates are checked on every structure or task-list save.
 
 Full detail: [docs/js/lib.md](docs/js/lib.md), [docs/api/lib.md](docs/api/lib.md) (`dates.js`).
 

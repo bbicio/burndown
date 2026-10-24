@@ -117,7 +117,8 @@ describe('cg-date-picker honours min/max for typed values and shortcuts', () => 
   });
 
   it('leaving the field unedited checks nothing, and Esc/Clear reset the error', () => {
-    expect(commit).toMatch(/if \(this\.text === this\.display\) \{ this\.error = ''; return; \}/);
+    // The early return must not clear a reason shown by a previous commit (Enter, then blur).
+    expect(commit).toMatch(/if \(this\.text === this\.display\) return;/);
     for (const name of ['onEsc()', 'clear()']) {
       const body = picker.slice(picker.indexOf(name), picker.indexOf('},', picker.indexOf(name)));
       expect(body).toContain("this.error = ''");
