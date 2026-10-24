@@ -162,3 +162,14 @@ describe('editor Clone button and the in-flight guard (B-091)', () => {
     expect(s.proposalBusy).toBe(false);
   });
 });
+
+describe('duplicate date converters are gone (dates C1)', () => {
+  it('js/core.js no longer defines date2ymd / ym2month / month2ym / ymd2date', () => {
+    const core = readFileSync('js/core.js', 'utf8');
+    for (const n of ['date2ymd', 'ym2month', 'month2ym', 'ymd2date']) expect(core.includes(`function ${n}(`)).toBe(false);
+  });
+  it('js/costgrid.js no longer defines cgItToIso / cgIsoToIt', () => {
+    expect(js).not.toMatch(/function cgItToIso\b/);
+    expect(js).not.toMatch(/function cgIsoToIt\b/);
+  });
+});

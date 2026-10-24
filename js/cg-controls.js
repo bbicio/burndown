@@ -108,8 +108,8 @@
       mode: { type: String, default: 'month' },     // 'month' | 'day'
       min: { type: String, default: '' },
       // Upper bound, the mirror of `min`: it caps a Start field with its End value so an
-      // invalid span cannot be *chosen* in either direction (spec 1.2). Validation of a
-      // hand-typed value stays with the separate "cycle C dates" backlog item.
+      // invalid span cannot be *chosen* in either direction (spec 1.2). A hand-typed
+      // value is checked against both limits in commitTyped().
       max: { type: String, default: '' },
       disabled: { type: Boolean, default: false },
       placeholder: { type: String, default: '' },
@@ -117,7 +117,7 @@
     },
     emits: ['update:modelValue'],
     data() {
-      return { text: '', viewYear: new Date().getFullYear(), viewMonth: new Date().getMonth() + 1 };
+      return { text: '', error: '', viewYear: new Date().getFullYear(), viewMonth: new Date().getMonth() + 1 };
     },
     computed: {
       isDay() { return this.mode === 'day'; },
@@ -127,7 +127,7 @@
       locked() { return false; },
       ph() { return this.placeholder || (this.isDay ? 'dd/mm/yyyy' : 'mm/yyyy'); },
       display() {
-        return this.isDay ? window.formatItDate(this.modelValue) : window.formatMonthInput(this.modelValue);
+        return this.isDay ? window.formatDayText(this.modelValue) : window.formatMonthText(this.modelValue);
       },
       monthCells() { return window.monthGridYear(this.viewYear, { min: this.min || undefined, max: this.max || undefined }); },
       dayCells() {
@@ -161,32 +161,44 @@
           this.viewYear = Number(v.slice(0, 4)); this.viewMonth = Number(v.slice(4, 6));
         }
       },
-      // Review Focus #3: an unparseable entry emits nothing and reverts the display;
-      // an emptied field clears the value.
+      // Review Focus #3: a refused entry (unparseable, or outside min/max) emits nothing,
+      // reverts the display and shows the reason inline; an emptied field clears the value.
       commitTyped() {
-        const raw = (this.text || '').trim();
-        if (raw === '') { if (this.modelValue) this.$emit('update:modelValue', ''); this.text = ''; return; }
-        const parsed = this.isDay ? window.parseItDate(raw) : window.parseMonthInput(raw);
-        if (parsed === null) { this.text = this.display; return; }
-        this.text = this.isDay ? window.formatItDate(parsed) : window.formatMonthInput(parsed);
-        if (parsed !== this.modelValue) this.$emit('update:modelValue', parsed);
+        // Leaving the field without editing it checks nothing: stored data is not re-judged,
+        // and a reason already shown stays until the next input, Esc, Clear or pick.
+        if (this.text === this.display) return;
+        const r = window.parseDateInput(this.text, {
+          mode: this.isDay ? 'day' : 'month', min: this.min || undefined, max: this.max || undefined,
+        });
+        if (r.error) { this.error = r.error; this.text = this.display; return; }
+        this.error = '';
+        const parsed = r.value;
+        this.text = parsed === '' ? '' : (this.isDay ? window.formatDayText(parsed) : window.formatMonthText(parsed));
+        if (parsed !== this.modelValue && !(parsed === '' && !this.modelValue)) this.$emit('update:modelValue', parsed);
       },
+      // Template-side access to window.isWithin against this picker's own limits.
+      isWithin(value) { return window.isWithin(value, this.min || undefined, this.max || undefined); },
       onEsc() {
+        this.error = '';
         if (this.cgOpen) this.cgClosePopover(true); else this.text = this.display;
       },
       pick(value) {
+        this.error = '';
         this.$emit('update:modelValue', value);
         this.cgClosePopover(true);
       },
       clear() {
+        this.error = '';
         this.$emit('update:modelValue', '');
         this.cgClosePopover(true);
       },
-      pickRelativeMonth(offset) {
+      relativeMonth(offset) {
         const now = new Date();
         const d = new Date(Date.UTC(now.getFullYear(), now.getMonth() + offset, 1));
-        const ym = String(d.getUTCFullYear()) + String(d.getUTCMonth() + 1).padStart(2, '0');
-        this.pick(ym);
+        return String(d.getUTCFullYear()) + String(d.getUTCMonth() + 1).padStart(2, '0');
+      },
+      pickRelativeMonth(offset) {
+        this.pick(this.relativeMonth(offset));
       },
       stepMonth(delta) {
         let m = this.viewMonth + delta, y = this.viewYear;
@@ -225,7 +237,7 @@
           <input ref="trigger" type="text" class="cg-ctl-input" :value="text" :placeholder="ph"
                  :disabled="disabled" :aria-label="ariaLabel" autocomplete="off" inputmode="numeric"
                  :maxlength="isDay ? 10 : 7"
-                 @input="text = $event.target.value" @blur="commitTyped"
+                 @input="text = $event.target.value; error = ''" @blur="commitTyped"
                  @keydown.enter.prevent="commitTyped" @keydown.esc.prevent.stop="onEsc"
                  @click="cgOpenPopover()">
           <button type="button" class="cg-ctl-iconbtn" :disabled="disabled"
@@ -234,6 +246,7 @@
             ${SVG.calendar}
           </button>
         </div>
+        <div v-if="error" class="cg-ctl-error" role="alert">{{ error }}</div>
         <Teleport to="body">
           <div v-if="cgOpen" ref="pop" class="cg-pop cg-pop-date" :style="cgPopStyle" @mousedown.stop>
             <div class="cg-pop-head">
@@ -251,8 +264,8 @@
                         @click="pick(m.key)">{{ m.label }}</button>
               </div>
               <div class="cg-pop-foot">
-                <button type="button" class="cg-pop-foot-btn" @click="pickRelativeMonth(0)">This month</button>
-                <button type="button" class="cg-pop-foot-btn" @click="pickRelativeMonth(1)">Next month</button>
+                <button type="button" class="cg-pop-foot-btn" :disabled="!isWithin(relativeMonth(0))" @click="pickRelativeMonth(0)">This month</button>
+                <button type="button" class="cg-pop-foot-btn" :disabled="!isWithin(relativeMonth(1))" @click="pickRelativeMonth(1)">Next month</button>
                 <button type="button" class="cg-pop-clear" @click="clear">Clear</button>
               </div>
             </template>

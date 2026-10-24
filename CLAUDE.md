@@ -368,6 +368,16 @@ One implementation, `js/lib/money.js` (server twin `api/src/lib/money-format.js`
 
 Full detail: [docs/js/lib.md](docs/js/lib.md) (`money.js`), [docs/api/lib.md](docs/api/lib.md) (`money-format.js`).
 
+### Dates
+
+One implementation, `js/lib/dates.js` (server twin `api/src/lib/dates.js`). Rules to keep:
+- **Never validate or normalise a date outside the two modules**; `js/lib/dates-guard.test.js` pins where that is allowed, which routes and pages must load them, and the `?v=N` agreement.
+- **Every route that writes a version, project or task period uses `periodError`/`periodChangeError`** and refuses with `400 { error, code: 'DATE_RULE' }`; the timesheet upload checks each date with `toIso` and refuses the whole file with the row number; `js/api-sync.js` must not retry a `DATE_RULE` refusal as a `POST`.
+- **Every date field that has a twin passes `min`/`max`**, and a picker reads typed text only through `parseDateInput`.
+- **An existing invalid version or project period is tolerated** until its dates change; task dates are checked on every structure or task-list save.
+
+Full detail: [docs/js/lib.md](docs/js/lib.md), [docs/api/lib.md](docs/api/lib.md) (`dates.js`).
+
 ### Project currency lock
 
 A project generated from a proposal keeps the proposal's currency and neither side can change it afterwards; creating a project without a proposal, deleting a project and unlinking it from a proposal are inhibited. Everything is enforced on the **API** for everyone except a sysadmin (live DB role via `liveRole`), with `400 { error, code: 'PROJECT_RULE' }`, and mirrored in the UI. Rules to keep:

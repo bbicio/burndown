@@ -1,0 +1,96 @@
+import { describe, it, expect } from 'vitest';
+import { createRequire } from 'node:module';
+import * as web from './dates.js';
+
+const server = createRequire(import.meta.url)('../../api/src/lib/dates.js');
+
+const VERSION = { kind: 'month', label: 'version' };
+const TASK = { kind: 'day', label: 'task "T1"' };
+
+// Every case of js/lib/dates.test.js for the eight functions the two twins share.
+const CASES = [
+  ['isDay', ['20260431']], ['isDay', ['20260229']], ['isDay', ['20240229']],
+  ['isDay', ['2026-04-30']], ['isDay', ['15/03/20']], ['isDay', [null]],
+  ['isMonth', ['202613']], ['isMonth', ['202600']], ['isMonth', ['2026-05']],
+  ['isMonth', [' 202605']], ['isMonth', ['202605']],
+  ['toYmd', ['2026-04-30']], ['toYmd', ['2026-04-31']],
+  ['toIso', ['20260430']], ['toIso', ['x']],
+  ['monthFirstDay', ['202602']], ['monthLastDay', ['202602']],
+  ['monthLastDay', ['202402']], ['monthLastDay', ['202613']],
+  ['isOrdered', ['202609', '202607']], ['isOrdered', ['202607', '202607']],
+  ['isOrdered', ['', '202607']], ['isOrdered', [null, undefined]],
+  ['isOrdered', ['202613', '']], ['isOrdered', ['2026-03-02', '20260301']],
+  ['isOrdered', ['2026-03-01', '20260302']],
+  ['periodError', ['202609', '202607', VERSION]],
+  ['periodError', ['2026-05', '', VERSION]],
+  ['periodError', ['2026-04-31', '', TASK]],
+  ['periodError', ['', '202613', VERSION]],
+  ['periodError', ['202607', '202609', VERSION]],
+  ['periodError', ['', '', VERSION]],
+  ['periodError', ['2026-07-01', '', { kind: 'day', label: 'task' }]]
+];
+
+describe('twins agree', () => {
+  it.each(CASES)('%s(%j) is identical in the browser and server modules', (fn, args) => {
+    expect(server[fn](...args)).toEqual(web[fn](...args));
+  });
+  it('the server twin does not export the browser-only text functions', () => {
+    ['parseDayText', 'formatDayText', 'parseMonthText', 'formatMonthText', 'parseDateInput', 'isWithin']
+      .forEach(n => expect(server[n]).toBeUndefined());
+  });
+});
+
+// ---- Static checks (Spec 2026-10-24 §2.4) ----
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+
+const ROOT = process.cwd();
+const DATES_MODULES = new Set(['js/lib/dates.js', 'api/src/lib/dates.js']);
+const EXEMPT_PREFIXES = ['api/src/scripts/', 'api/src/db/'];
+const EXEMPT_FILES = new Set(['api/src/restore-backup.js']);
+const SKIP_DIRS = new Set(['node_modules', '.git', '.claude', '.superpowers', 'docs', 'backups', 'coverage']);
+
+function walk(dir, out = []) {
+  for (const name of readdirSync(dir)) {
+    if (SKIP_DIRS.has(name)) continue;
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) walk(p, out);
+    else out.push(p);
+  }
+  return out;
+}
+const rel = p => p.slice(ROOT.length + 1).replace(/\\/g, '/');
+const files = walk(ROOT).map(rel);
+const sources = files.filter(f => /\.(js|html)$/.test(f) && !/\.test\.js$/.test(f));
+const read = f => readFileSync(join(ROOT, f), 'utf8');
+
+describe('dates guard', () => {
+  it('date validation and normalisation live only in the two dates modules', () => {
+    const offenders = sources.filter(f =>
+      !DATES_MODULES.has(f) && !EXEMPT_FILES.has(f) && !EXEMPT_PREFIXES.some(p => f.startsWith(p)) &&
+      /isNaN\(new Date\(|\.replace\(\/-\/g/.test(read(f)));
+    expect(offenders).toEqual([]);
+  });
+
+  it('every route that writes versions, projects or tasks requires lib/dates', () => {
+    const writes = /INSERT INTO (cost_grid_versions|projects|tasks|project_tasks)\b|UPDATE (cost_grid_versions|projects|tasks|project_tasks) SET/;
+    const offenders = files
+      .filter(f => /^api\/src\/routes\/[^/]+\.js$/.test(f) && !/\.test\.js$/.test(f))
+      .filter(f => { const t = read(f); return writes.test(t) && !t.includes("require('../lib/dates')"); });
+    expect(offenders).toEqual([]);
+  });
+
+  it('every page that uses a date control or date function loads js/lib/dates.js', () => {
+    const uses = /js\/cg-controls\.js|js\/costgrid\.js|\b(parseDayText|formatDayText|parseMonthText|formatMonthText|parseDateInput|isWithin|toYmd|toIso|isOrdered)\(/;
+    const offenders = files
+      .filter(f => /^[^/]+\.html$/.test(f))
+      .filter(f => { const t = read(f); return uses.test(t) && !/js\/lib\/dates\.js/.test(t); });
+    expect(offenders).toEqual([]);
+  });
+
+  it('every reference to js/lib/dates.js carries the same ?v=N', () => {
+    const versions = new Set();
+    for (const f of sources) for (const m of read(f).matchAll(/dates\.js\?v=(\d+)/g)) versions.add(m[1]);
+    expect([...versions].length).toBeLessThanOrEqual(1);
+  });
+});

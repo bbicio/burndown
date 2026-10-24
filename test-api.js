@@ -2593,6 +2593,133 @@ async function testStructureRule() {
   ok(r6.status === 200, `SR-06 a save keeping T1 with an orphan id in the link → 200 (got ${r6.status})`);
 }
 
+// ── Date rule (2026-10-24) ─────────────────────────────────────────────────────
+
+// DATE_RULE on version, project and task date writes. DT-08..DT-10 pin the tolerant paths (Review Focus 1-3).
+async function testDateRule() {
+  section('Date rule (periods and task dates)');
+
+  const rpy = await api('POST', '/api/pipeline-years', { year: TEST_YEAR_C }, adminCookie);
+  if (![201, 409].includes(rpy.status)) { ok(false, 'DT-setup pipeline year unavailable'); return; }
+  if (rpy.status === 201 && rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
+
+  // Registered first, so cleanup (reverse order) deletes the project before the proposals.
+  const rcg = await api('POST', '/api/cost-grids', { name: '__test_dt_cg__', pipelineYear: TEST_YEAR_C }, adminCookie);
+  const cgId = rcg.data?.id;
+  if (cgId) later('DELETE', `/api/cost-grids/${cgId}`);
+  const rcg2 = await api('POST', '/api/cost-grids', { name: '__test_dt_cg2__', pipelineYear: TEST_YEAR_C }, adminCookie);
+  const cg2Id = rcg2.data?.id;
+  if (cg2Id) later('DELETE', `/api/cost-grids/${cg2Id}`);
+  const mk = async (id, label) => (id ? (await api('POST', `/api/cost-grids/${id}/versions`, { label }, adminCookie)).data?.id : null);
+  const vId = await mk(cgId, 'v1');
+  if (!ok(!!(cgId && cg2Id && vId), 'DT-setup two proposals, one with a version')) return;
+  const base = `/api/cost-grids/${cgId}/versions/${vId}`;
+  const isRule = r => r.status === 400 && r.data?.code === 'DATE_RULE';
+
+  // DT-01: version POST with an inverted period, nothing is created
+  const bad = await api('POST', `/api/cost-grids/${cg2Id}/versions`, { label: 'bad', startDate: '202609', endDate: '202607' }, adminCookie);
+  ok(isRule(bad), `DT-01 version POST with end before start → 400 DATE_RULE (got ${bad.status})`);
+  const list2 = await api('GET', `/api/cost-grids/${cg2Id}/versions`, null, adminCookie);
+  ok(Array.isArray(list2.data) && list2.data.length === 0, 'DT-01 the refused POST created no version');
+
+  // DT-02 / DT-03: version PATCH
+  const p2 = await api('PATCH', base, { startDate: '2026-05' }, adminCookie);
+  ok(isRule(p2), `DT-02 version PATCH with a malformed month → 400 DATE_RULE (got ${p2.status})`);
+  const vper = async () => {
+    const v = ((await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || []).find(x => x.id === vId);
+    return `${String(v?.start_date || '').trim()}|${String(v?.end_date || '').trim()}`;
+  };
+  ok(await vper() === '|', 'DT-02 the refused PATCH left the version period empty');
+  const p3 = await api('PATCH', base, { startDate: '202602', endDate: '202612' }, adminCookie);
+  ok(p3.status === 200, `DT-03 version PATCH with a valid period → 200 (got ${p3.status})`);
+  const p3b = await api('PATCH', base, { endDate: '202601' }, adminCookie);
+  ok(isRule(p3b), `DT-03 PATCH moving end before the stored start → 400 DATE_RULE (got ${p3b.status})`);
+  const vlist = (await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || [];
+  ok(String(vlist.find(v => v.id === vId)?.end_date || '').trim() === '202612', 'DT-03 the refused PATCH left the end date at 202612');
+
+  // DT-16: version POST with an impossible month, the list is unchanged
+  const j16 = await api('POST', `/api/cost-grids/${cg2Id}/versions`, { label: 'bad2', startDate: '202613' }, adminCookie);
+  ok(isRule(j16), `DT-16 version POST with an impossible month → 400 DATE_RULE (got ${j16.status})`);
+  const list16 = await api('GET', `/api/cost-grids/${cg2Id}/versions`, null, adminCookie);
+  ok(Array.isArray(list16.data) && list16.data.length === 0, 'DT-16 the refused POST created no version');
+
+  // DT-08: re-sending an empty period against an empty period is "unchanged"
+  const emptyV = await mk(cgId, 'v-empty');
+  const p8 = await api('PATCH', `/api/cost-grids/${cgId}/versions/${emptyV}`, { startDate: null, endDate: null }, adminCookie);
+  ok(p8.status === 200, `DT-08 version PATCH re-sending null/null on a version without period → 200 (got ${p8.status})`);
+
+  // The linked project, with a stored period
+  const gen = await api('POST', '/api/projects', { name: '__test_dt_proj__', cgVersionId: vId, currency: 'EUR', startDate: '202601', endDate: '202612' }, adminCookie);
+  const pId = gen.data?.id;
+  if (pId) later('DELETE', `/api/projects/${pId}`);
+  if (!ok(gen.status === 201 && !!pId, `DT-setup project created with a period (got ${gen.status})`)) return;
+
+  // DT-04 / DT-09: project PATCH
+  const j4 = await api('PATCH', `/api/projects/${pId}`, { startDate: '202609', endDate: '202607' }, adminCookie);
+  ok(isRule(j4), `DT-04 project PATCH with end before start → 400 DATE_RULE (got ${j4.status})`);
+  const projects = async () => (await api('GET', '/api/projects', null, adminCookie)).data || [];
+  const period = async () => {
+    const p = (await projects()).find(x => x.id === pId);
+    return `${String(p?.start_date || '').trim()}|${String(p?.end_date || '').trim()}`;
+  };
+  ok(await period() === '202601|202612', 'DT-04 the refused PATCH left the project period unchanged');
+  const j9 = await api('PATCH', `/api/projects/${pId}`, { name: '__test_dt_proj_renamed__' }, adminCookie);
+  ok(j9.status === 200, `DT-09 project PATCH touching only the name → 200 (got ${j9.status})`);
+
+  // DT-14 / DT-15: project PATCH, malformed month and end-only before the stored start
+  const j14 = await api('PATCH', `/api/projects/${pId}`, { startDate: '2026-05' }, adminCookie);
+  ok(isRule(j14), `DT-14 project PATCH with a malformed month → 400 DATE_RULE (got ${j14.status})`);
+  const j15 = await api('PATCH', `/api/projects/${pId}`, { endDate: '202512' }, adminCookie);
+  ok(isRule(j15), `DT-15 project PATCH with end before the stored start → 400 DATE_RULE (got ${j15.status})`);
+  ok(await period() === '202601|202612', 'DT-14/15 the refused PATCHes left the project period unchanged');
+
+  // DT-12 / DT-13: project POST, inverted and malformed periods, nothing is created
+  const countNamed = async n => (await projects()).filter(x => x.name === n).length;
+  const j12 = await api('POST', '/api/projects', { name: '__test_dt_inv__', cgVersionId: vId, currency: 'EUR', startDate: '202609', endDate: '202607' }, adminCookie);
+  ok(isRule(j12), `DT-12 project POST with end before start → 400 DATE_RULE (got ${j12.status})`);
+  ok(await countNamed('__test_dt_inv__') === 0, 'DT-12 the refused POST created no project');
+  const j13 = await api('POST', '/api/projects', { name: '__test_dt_mal__', cgVersionId: vId, currency: 'EUR', startDate: '2026-05' }, adminCookie);
+  ok(isRule(j13), `DT-13 project POST with a malformed month → 400 DATE_RULE (got ${j13.status})`);
+  ok(await countNamed('__test_dt_mal__') === 0, 'DT-13 the refused POST created no project');
+
+  // DT-05 / DT-06: PUT structure
+  const put = phases => api('PUT', `${base}/structure`, { phases }, adminCookie);
+  const titles = async () => ((await api('GET', `${base}/structure`, null, adminCookie)).data?.phases || [])
+    .flatMap(p => p.tasks.map(t => t.title)).sort().join(',');
+  const s0 = await put([{ title: 'P1', tasks: [{ title: 'Keep' }] }]);
+  ok(s0.status === 200 && await titles() === 'Keep', 'DT-setup structure with one task saved');
+  const r5 = await put([{ title: 'P1', tasks: [{ title: 'T1', taskStartDate: '2026-04-31' }] }]);
+  ok(isRule(r5), `DT-05 structure with an impossible task date → 400 DATE_RULE (got ${r5.status})`);
+  ok(await titles() === 'Keep', 'DT-05 the refused structure left the stored one unchanged');
+  const r6 = await put([{ title: 'P1', tasks: [{ title: 'T1', taskStartDate: '2026-05-10', taskEndDate: '2026-05-01' }] }]);
+  ok(isRule(r6), `DT-06 structure with a task ending before it starts → 400 DATE_RULE (got ${r6.status})`);
+  ok(await titles() === 'Keep', 'DT-06 the refused structure left the stored one unchanged');
+
+  // DT-07: PUT project tasks
+  const tasksPath = `/api/projects/${pId}/tasks`;
+  const t0 = await api('PUT', tasksPath, [{ name: 'Keep' }], adminCookie);
+  const names = async () => ((await api('GET', tasksPath, null, adminCookie)).data || []).map(t => t.name).sort().join(',');
+  ok(t0.status === 200 && await names() === 'Keep', 'DT-setup project tasks saved');
+  const r7 = await api('PUT', tasksPath, [{ name: 'X', startDate: '20260510', endDate: '20260501' }], adminCookie);
+  ok(isRule(r7), `DT-07 project tasks with end before start → 400 DATE_RULE (got ${r7.status})`);
+  ok(await names() === 'Keep', 'DT-07 the refused PUT left the project tasks unchanged');
+  const r17 = await api('PUT', tasksPath, [{ name: 'X', startDate: '20260431' }], adminCookie);
+  ok(isRule(r17), `DT-17 project tasks with an impossible day → 400 DATE_RULE (got ${r17.status})`);
+  ok(await names() === 'Keep', 'DT-17 the refused PUT left the project tasks unchanged');
+
+  // DT-10: a task with only one date is accepted
+  const r10 = await put([{ title: 'P1', tasks: [{ title: 'T1', taskStartDate: '2026-05-10' }] }]);
+  ok(r10.status === 200, `DT-10 structure with a start-only task → 200 (got ${r10.status})`);
+  const r10b = await api('PUT', tasksPath, [{ name: 'X', startDate: '20260510' }], adminCookie);
+  ok(r10b.status === 200, `DT-10 project tasks with a start-only task → 200 (got ${r10b.status})`);
+
+  // DT-11: the timesheet ingest refuses an impossible ISO date, naming the row
+  const csv11 = ['projectId,date,task,role,owner,hours', 'DT11,2026-13-45,Analysis,Consultant,Nobody,1'].join('\n');
+  const r11 = await uploadCsv('/api/timesheets/upload', csv11, adminCookie);
+  ok(r11.status === 400 && /row 2/.test(r11.data?.error || '') && /not a valid calendar date/.test(r11.data?.error || ''),
+    `DT-11 timesheet upload with date 2026-13-45 → 400 naming row 2 and the invalid date (got ${r11.status}: ${r11.data?.error})`);
+}
+
 async function testProjectCurrencyLock() {
   section('Project currency lock');
   if (!sysadminCookie) { ok(false, 'PR-setup sysadmin account unavailable'); return; }
@@ -2924,6 +3051,7 @@ async function main() {
     await testProjectPatchValidation();
     await testProjectCurrencyLock();
     await testStructureRule();
+    await testDateRule();
     await testTimesheetsNoActuals();
     await testProjectDescriptions();
     await testTopicsApi();

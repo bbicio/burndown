@@ -9,6 +9,7 @@ const { missingLinkedTasks, STRUCTURE_RULE_CODE } = require('../lib/structure-ru
 const refuse = (res, error) => res.status(400).json({ error, code: rules.RULE_CODE });
 const { sendShareNotification, sendOwnerReassignedEmail, APP_URL } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
+const { DATE_RULE, periodError, periodChangeError, toYmd } = require('../lib/dates');
 const { isAdminRole } = require('../lib/is-admin');
 const { formatMoney } = require('../lib/money-format');
 
@@ -390,6 +391,8 @@ router.post('/:id/versions', requireAuth, async (req, res, next) => {
     }
     const { label, pipeline, startDate, endDate, currency, currencyRate, note, ratecardId, clientId, projectName } = req.body;
     if (!label?.trim()) return res.status(400).json({ error: 'label is required' });
+    const periodErr = periodError(startDate, endDate, { kind: 'month', label: 'version' });
+    if (periodErr) return res.status(400).json({ error: periodErr, code: DATE_RULE });
 
     const [role, hasPublishedVersion] = await Promise.all([liveRole(req.user.id), gridHasPublishedVersion(req.params.id)]);
     const versionErr = rules.versionCreationError({ role, hasPublishedVersion });
@@ -424,11 +427,19 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const locked = await query('SELECT locked, pipeline AS old_pipeline, currency AS old_currency FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
+    const locked = await query('SELECT locked, pipeline AS old_pipeline, currency AS old_currency, start_date, end_date FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
     if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
     const oldPipeline = locked.rows[0]?.old_pipeline;
 
     const { label, pipeline, startDate, endDate, currency, currencyRate, note, ratecardId, clientId, projectName } = req.body;
+    if (startDate !== undefined || endDate !== undefined) {
+      const periodErr = periodChangeError(
+        { start: startDate, end: endDate },
+        { start: locked.rows[0]?.start_date, end: locked.rows[0]?.end_date },
+        { kind: 'month', label: 'version' }
+      );
+      if (periodErr) return res.status(400).json({ error: periodErr, code: DATE_RULE });
+    }
     const fields = [];
     const params = [];
     if (label !== undefined)       { params.push(label.trim());       fields.push(`label = $${params.length}`); }
@@ -662,6 +673,15 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
     }
   }
 
+  // Task dates: same all-or-nothing rule, checked before the transaction begins.
+  for (const ph of phases) {
+    for (const tk of (ph?.tasks || [])) {
+      const dateErr = periodError(tk?.taskStartDate || tk?.start_date, tk?.taskEndDate || tk?.end_date,
+        { kind: 'day', label: `task "${tk?.taskName || tk?.title || ''}"` });
+      if (dateErr) return res.status(400).json({ error: dateErr, code: DATE_RULE });
+    }
+  }
+
   // Preload all roles for code→id lookup
   const { rows: allRoles } = await query('SELECT id, code FROM roles');
   const roleByCode = Object.fromEntries(allRoles.map(r => [r.code, r.id]));
@@ -715,7 +735,7 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
         if (!tk) continue;
         const tkTitle = (tk.taskName || tk.title || '').trim() || 'New Task';
         const tkDesc  = tk.taskDescription || tk.description || '';
-        const normDate = d => d ? d.replace(/-/g, '').slice(0, 8) : '';
+        const normDate = v => toYmd(v) ?? '';
         const tkStart = normDate(tk.taskStartDate || tk.start_date  || '');
         const tkEnd   = normDate(tk.taskEndDate   || tk.end_date    || '');
         const tkId = tk.taskId || tk.id || null;

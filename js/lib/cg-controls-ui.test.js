@@ -103,3 +103,42 @@ describe('one read-only predicate for every editable field', () => {
     expect(html).toMatch(/roleActiveTeam\(\) \{ this\.\$nextTick/);
   });
 });
+
+// Dates C1, Task 5 (B-030 part 3): a typed value and the month shortcuts honour min/max,
+// and a refusal is shown inline instead of silently reverting.
+describe('cg-date-picker honours min/max for typed values and shortcuts', () => {
+  const picker = js.slice(js.indexOf('window.CgDatePicker'), js.indexOf('window.CgSelect'));
+  const commit = picker.slice(picker.indexOf('commitTyped()'), picker.indexOf('onEsc()'));
+
+  it('commitTyped delegates to parseDateInput and no longer calls the old parsers', () => {
+    expect(commit).toContain('parseDateInput(');
+    expect(commit).not.toContain('parseItDate(');
+    expect(commit).not.toContain('parseMonthInput(');
+  });
+
+  it('leaving the field unedited checks nothing, and Esc/Clear reset the error', () => {
+    // The early return must not clear a reason shown by a previous commit (Enter, then blur).
+    expect(commit).toMatch(/if \(this\.text === this\.display\) return;/);
+    for (const name of ['onEsc()', 'clear()']) {
+      const body = picker.slice(picker.indexOf(name), picker.indexOf('},', picker.indexOf(name)));
+      expect(body).toContain("this.error = ''");
+    }
+  });
+
+  it('shows the error inline with role="alert"', () => {
+    expect(picker).toMatch(/class="cg-ctl-error"[^>]*role="alert"|role="alert"[^>]*class="cg-ctl-error"/);
+  });
+
+  it('both shortcut buttons are disabled outside min/max', () => {
+    const btns = picker.match(/<button[^>]*pickRelativeMonth\([01]\)[^>]*>/g) || [];
+    expect(btns.length).toBe(2);
+    btns.forEach(b => expect(b).toMatch(/:disabled="[^"]*isWithin\(/));
+  });
+
+  it('css/costgrid.css defines .cg-ctl-error with tokens only', () => {
+    const css = read('css/costgrid.css');
+    const m = css.match(/\.cg-ctl-error\s*\{[^}]*\}/);
+    expect(m).not.toBeNull();
+    expect(m[0]).not.toContain('#');
+  });
+});

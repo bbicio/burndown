@@ -37,3 +37,21 @@ describe('summarizePushResult', () => {
     expect(r.ok).toBe(false);
   });
 });
+
+describe('summarizePushResult — server reason', () => {
+  const reason = 'Project end date (2026-07) is before its start date (2026-09).';
+  it('appends the server reason for DATE_RULE', () => {
+    const r = summarizePushResult([{ part: 'project', error: 'x', code: 'DATE_RULE', reason }]);
+    expect(r.message.endsWith(` Reason: ${reason}`)).toBe(true);
+  });
+  it('appends it for PROJECT_RULE and STRUCTURE_RULE too', () => {
+    for (const code of ['PROJECT_RULE', 'STRUCTURE_RULE']) {
+      expect(summarizePushResult([{ part: 'project', error: 'x', code, reason }]).message).toContain(` Reason: ${reason}`);
+    }
+  });
+  it('leaves the message unchanged for another code or an empty reason', () => {
+    const base = summarizePushResult([{ part: 'project', error: 'x' }]).message;
+    expect(summarizePushResult([{ part: 'project', error: 'x', code: 'OTHER', reason }]).message).toBe(base);
+    expect(summarizePushResult([{ part: 'project', error: 'x', code: 'DATE_RULE', reason: '' }]).message).toBe(base);
+  });
+});

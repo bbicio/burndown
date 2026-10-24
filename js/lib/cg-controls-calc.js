@@ -94,48 +94,8 @@ export function dayGridMonth(year, month, opts) {
   return weeks;
 }
 
-/** 'dd/mm/yyyy' -> 'YYYY-MM-DD', null when the text is not a real date. */
-export function parseItDate(text) {
-  if (typeof text !== 'string') return null;
-  const m = text.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!m) return null;
-  const day = Number(m[1]);
-  const month = Number(m[2]);
-  const year = Number(m[3]);
-  if (month < 1 || month > 12) return null;
-  if (day < 1 || day > daysInMonth(year, month)) return null;
-  return `${m[3]}-${m[2]}-${m[1]}`;
-}
-
-/** 'YYYY-MM-DD' -> 'dd/mm/yyyy', '' when the input is falsy or malformed. */
-export function formatItDate(iso) {
-  if (!isIso(iso)) return '';
-  const [y, m, d] = iso.split('-');
-  return `${d}/${m}/${y}`;
-}
-
-/** 'mm/yyyy' -> 'YYYYMM', null when the text is not a real month. */
-export function parseMonthInput(text) {
-  if (typeof text !== 'string') return null;
-  const m = text.trim().match(/^(\d{2})\/(\d{4})$/);
-  if (!m) return null;
-  const month = Number(m[1]);
-  if (month < 1 || month > 12) return null;
-  return `${m[2]}${m[1]}`;
-}
-
-/** 'YYYYMM' -> 'mm/yyyy', '' when the input is falsy or malformed. */
-export function formatMonthInput(ym) {
-  if (!isYm(ym)) return '';
-  return `${ym.slice(4)}/${ym.slice(0, 4)}`;
-}
-
 if (typeof window !== 'undefined') {
   window.monthGridYear = monthGridYear;
   window.dayGridMonth = dayGridMonth;
-  window.parseItDate = parseItDate;
-  window.formatItDate = formatItDate;
-  window.parseMonthInput = parseMonthInput;
-  window.formatMonthInput = formatMonthInput;
   window.cgMonthLabel = monthLabel;
 }
