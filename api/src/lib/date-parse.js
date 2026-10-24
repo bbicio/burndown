@@ -1,14 +1,4 @@
-function isLeapYear(year) {
-  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-}
-
-function isValidCalendarDate(year, month, day) {
-  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false;
-  if (month < 1 || month > 12) return false;
-  if (day < 1) return false;
-  const daysInMonth = [31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  return day <= daysInMonth[month - 1];
-}
+const { isValidCalendarDate, isLeapYear } = require('./dates');
 
 function parseFlexibleDate(a, b, year) {
   a = Number(a);
