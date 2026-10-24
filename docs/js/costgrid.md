@@ -57,4 +57,16 @@ Non-EUR role rate 3-level fallback (ratecard override → `role.rateOverrides[cu
 
 ## Create/clone outcome and no orphan on a failed upsert (2026-10-16, proposal-clone-followups cycle)
 
-`cgCreateNewGrid()` and `cgCloneGrid()` return `Promise<boolean>`: `true` once they have opened the editor on the result (a clone whose destination structure reload failed still returns `true`, since it navigates after the "⚠️ Clone incomplete" warning), `false` on every refusal or failure, including the in-flight guard. `pipeline.html` uses it to keep `proposalBusy` set after a success (B-003); `costgrid.html` ignores it. A failed flush in `cgCloneGrid` now surfaces the `PATCH`'s own error, because `_cgUpsertVersionToApi` no longer retries a failed `PATCH` as a `POST` (B-004, see [api-sync.md](api-sync.md)). Covered by `js/lib/costgrid-create.test.js` and `js/lib/costgrid-clone.test.js` (which also pins the flush → source-load order and the clone version's header, B-006). `?v=44`.
+`cgCreateNewGrid()` and `cgCloneGrid()` return `Promise<boolean>`: `true` once they have opened the editor on the result (a clone whose destination structure reload failed still returns `true`, since it navigates after the "⚠️ Clone incomplete" warning), `false` on every refusal or failure. Since 2026-10-23 the in-flight guard answers `null` instead (see below). `pipeline.html` uses the result to keep `proposalBusy` set after a success (B-003). A failed flush in `cgCloneGrid` now surfaces the `PATCH`'s own error, because `_cgUpsertVersionToApi` no longer retries a failed `PATCH` as a `POST` (B-004, see [api-sync.md](api-sync.md)). Covered by `js/lib/costgrid-create.test.js` and `js/lib/costgrid-clone.test.js` (which also pins the flush → source-load order and the clone version's header, B-006). `?v=44`.
+
+## Hardening: orphans, clone notice, labels, save outcome (2026-10-23, hardening-costgrid cycle)
+
+Spec `docs/superpowers/specs/2026-10-23-hardening-costgrid-design.md`, report `docs/superpowers/reports/2026-10-24-hardening-costgrid-finish-cycle.md`.
+- **No orphan proposal (B-086):** when `cgCreateNewGrid()`'s version create or `cgCloneGrid()`'s structure copy fails after the grid already exists, `cgDiscardNewGrid(cgId)` deletes it; a failing delete is only logged, so the original error still reaches the user.
+- **Readable clone notice (B-087):** after "⚠️ Clone incomplete" `cgCloneGrid()` waits for `#confirmModal`'s `hidden.bs.modal` before opening the clone.
+- **In-flight answer (B-091):** a call ignored by `_cgCreateInFlight`/`_cgCloneInFlight` returns `null`, so a caller does not mistake it for a failure and release its busy state; `pipeline.html` and `costgrid.html`'s `cloneProposal` both leave `proposalBusy` alone on `null`.
+- **Unique version label (B-046):** `cgNextVersionLabel(versions)` starts at `v{length + 1}` and skips a label already taken (v1, v3 → v4).
+- **One assigned-task rule (B-047):** `cgGetAssignedTaskIds`/`cgGetAssignedTaskNames` are gone; every caller uses `cgIsTaskAssigned`/`cgFreeTasksOf` ([docs/js/lib.md](lib.md) → `costgrid-calc.js`).
+- **Save outcome (B-088):** `cgAutoSave()` resolves `true` only when every write reached the server; the debounced autosave shows its toast only then, and `cgSaveVersion()`'s button reads "⚠ Not saved" instead of "✓ Saved" when it resolves `false`.
+
+Covered by `js/lib/costgrid-create.test.js`, `costgrid-clone.test.js`, `costgrid-editor-followups.test.js`, `costgrid-autosave-toast.test.js`. `?v=47`.

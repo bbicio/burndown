@@ -75,6 +75,7 @@ Sharing a cost grid does not grant access to its linked project(s) — the two a
 | Surface | Hidden for viewers |
 |---|---|
 | Pipeline board (card + detail panel) | Edit, Clone, Delete |
+| Proposal editor (`costgrid.html`) | Every structural control: Add/Delete phase and task, the role column ⋮ menu and Add roles, free-task selection, Generate project, Add to project; the version label edit. The grid's fields are read-only (2026-10-23) |
 | Project Reporting (portfolio view) | Configure (list card — reintroduced in a later 2026-09 cycle, hidden per-card for a viewer-permission project); Load Actuals stays single-project-view only |
 | Project Reporting (single-project view) | Configure, Load Actuals |
 | Project Configuration form | Entire form becomes read-only (sticky banner, all inputs disabled, Save/action/Reforecast buttons hidden) |

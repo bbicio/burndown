@@ -724,7 +724,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | POST | /api/cost-grids/:id/versions/:vId/duplicate | owner/admin | Full copy of a version (backs the editor's "+ New version", 2026-10) `{ label }` (required, trimmed; 400 if blank) → 201 `{ id }`. One transaction: header incl. the source's `currency_rate` snapshot, client, project name, note, rate card, dates; phases → tasks → task_roles (fresh ids, hours/rates/months); tags. The copy is always Draft, no pipeline year, unlocked, no project links; any failure rolls back (no half-built version) |
 | POST | /api/cost-grids/:id/versions/:vId/publish | owner/admin | Publish a Draft version to SIP — one-way, and permanently deletes the proposal's other Draft versions |
 | POST | /api/cost-grids/:id/versions/:vId/refresh-rate | owner/admin | Re-snapshot the version's `currency_rate` from the current `currency_rates` table |
-| GET/PUT | /api/cost-grids/:id/versions/:vId/structure | owner/admin | Get / save bulk structure |
+| GET/PUT | /api/cost-grids/:id/versions/:vId/structure | owner/admin | Get / save bulk structure. (2026-10-23) A `PUT` that would drop a task linked to a project answers **400 `{ code: 'STRUCTURE_RULE' }`** and changes nothing — see §5's `structure-rules.js` |
 | GET/POST | /api/cost-grids/:id/versions/:vId/linked-projects | owner/admin | List / link projects |
 | DELETE | /api/cost-grids/:id/versions/:vId/linked-projects/:projectId | owner/admin | Unlink one project (refused for non-sysadmin by the project currency lock — see §5's `project-rules.js`) |
 | GET/POST | /api/cost-grids/:id/shares | owner/admin | List shares / grant one; `POST` emails and in-app-notifies the recipient (2026-09: in-app notification added — was email-only before) |
@@ -1010,6 +1010,7 @@ burndown/
     decision-ledger-guard.test.js ← fails when a Spec or Plan dated 2026-10-12 or later lacks a valid "## Decisioni aperte" section, or a Spec dated 2026-10-14 or later lacks a "**Brief started:**" line (PROCESS.md §6b), or a Plan dated 2026-10-14 or later lacks a "**Branch:**" line or exactly one valid "**Risk class:**" line (PROCESS.md §6.1b), or a Spec dated 2026-10-24 or later — or a Plan from that date whose "**Spec:**" line names no Spec the rule covers — lacks a valid "## Criteri di accettazione" section (PROCESS.md §6b); its own header names what it deliberately does not check
     cycle-times.mjs       ← run by hand: prints each closed cycle's timeline (Brief, Spec, Plan, execution, merge) from git; usage and matching rules in its own header
     lib/live-docs.mjs     ← the document walk and citation matcher shared by claude-md-guard and doc-paths-guard, so the scanned scope has one definition
+    lib/extract-source.mjs ← `extractBlock(src, head)`: cuts one function or method out of a classic script so a vitest file can run it against stubs; the one copy every such test imports
     shoot.mjs             ← renders pages of the running app with headless Chrome, one PNG per width. Detail: docs/scripts/shoot.md
 ```
 

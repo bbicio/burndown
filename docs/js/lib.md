@@ -36,6 +36,8 @@ Loaded via `<script type="module">` on `project-config.html` and `portfolio.html
 
 ## costgrid-calc.js
 
+`cgIsTaskAssigned(task, linkedProjects)` (2026-10-23) — the one definition of "this task belongs to a project": linked by id, or by name ignoring case and surrounding spaces (older links carry names only). `cgFreeTasksOf(tasks, linkedProjects)` — the named tasks for which it is false. Every editor caller goes through these two (B-047); linear scans, accepted follow-up.
+
 `versionHasFreeTasks(ver)`: true if any task in `ver.phases[].tasks[]` is absent from every `ver.linkedProjects[].taskIds`/`taskNames`. `isVersionCommittedLocked(ver)`: `ver.pipeline === 'Committed' && !versionHasFreeTasks(ver)` — keyed on the *proposal's own* pipeline field, not any individual linked project's. Used by `cgGetVersionLockState()` (`js/costgrid.js`) for its `committed` lock reason; previously that check read a linked project's own `pipeline` field and locked the whole version (hiding Generate Project, disabling the editor) as soon as *any single* linked project reached Committed, even with other tasks in the same version still unmapped.
 
 Loaded via `<script type="module">` on every page that can render version lock state: `project-config.html`, `portfolio.html`, `planning.html`, `pipeline.html`, `costgrid.html`.

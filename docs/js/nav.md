@@ -83,3 +83,7 @@ Branch `worktree-navigation-rail-tooltips`, merge `af16592`, frontend only, no s
 ## Master Data entry (2026-10-05)
 
 The Admin group's `config` entry (label "Master Data", id `config`) now points to `/master-clients.html`; the five `master-*.html` pages all call `initNav('config', …)`, so the entry stays highlighted on each of them (page names/title/breadcrumb: see this file's "Current state" section and `docs/pages/config.md`). The Master Data lateral sub-menu is not rendered by `nav.js`: it is hand-written in each page. `nav.js?v=17`.
+
+## Send Notification recipients built as text (2026-10-23, hardening-costgrid cycle)
+
+Spec `docs/superpowers/specs/2026-10-23-hardening-costgrid-design.md`, report `docs/superpowers/reports/2026-10-24-hardening-costgrid-finish-cycle.md`. `navFillRecipientOptions(selectEl, users, { broadcast, selfId })` builds each `<option>` with `createElement` and `textContent` and replaces the list with `replaceChildren`, so a name containing markup stays one option showing that text (B-051 — closes the "unescaped first_name/last_name" open item of Navigation Cycle B2 above). Covered by `js/lib/nav-send-notif-options.test.js`. `?v=19`.
