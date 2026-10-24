@@ -253,6 +253,10 @@
 | CG-91 | A save that would drop a linked task is refused and said (2026-10-23, B-043) | In two tabs open the same version; in tab B generate a project from task T; in tab A (not reloaded) delete T and wait for the autosave, then edit another field | Tab A shows "⚠️ Changes not saved" naming T once (not on every autosave), no "Auto-saved" toast; after a reload T is still there | ✓ (vitest) |
 | CG-92 | New version label is never a duplicate (2026-10-23, B-046) | On a proposal with v1, v2, v3, delete v2, then "+ New version" | The new version is labelled v4, not a second v3 | ✓ (vitest) |
 | CG-93 | Save button tells a failed save (2026-10-23, B-088) | Block `PUT …/structure` in DevTools, edit a task, click Save | The button reads "⚠ Not saved" for a moment instead of "✓ Saved"; with nothing blocked it reads "✓ Saved" | ✓ (vitest) |
+| CG-94 | Typed date outside its twin's limit is refused inline (2026-10-24, dates C1) | In the editor header, with Start set, type an End month before it and leave the field; in a task row, type an End day before the task's Start | A red message under the field ("Must be on or after …"); the value stays as it was; leaving an untouched field shows nothing | ✓ (vitest) |
+| CG-95 | Unreadable typed date (2026-10-24, dates C1) | Type `abc` in a month field, then `1/5/2026` in a task day field | `abc`: "Enter a month as mm/yyyy." and no change; `1/5/2026` is accepted as 01/05/2026 | ✓ (vitest) |
+| CG-96 | Month shortcuts honour the limits (2026-10-24, dates C1) | Set End to the current month, open the Start picker | "Next month" is disabled; "This month" stays enabled | ✓ (vitest) |
+| CG-97 | Version with an already-inverted period still saves (2026-10-24, dates C1) | Open a version whose stored Start is after its End, edit something other than the dates | The autosave succeeds with no notice; the dates are not re-checked until they change | |
 
 ---
 
@@ -358,6 +362,7 @@
 | PC-25 | Retry after a failed save (2026-09-30) | After PC-23/PC-24 remove the failure and press 💾 Save again (also for a new, never-saved project) | Redirect to the portfolio; the project exists once in `config.projects` (no duplicate for a new project). Existing project verified 2026-09-30; new-project path by code only | |
 | PC-26 | Leave-page prompt stays armed after a failed save (2026-09-30) | After PC-23 leave the page with unsaved edits | The native leave-page prompt still appears (`savedSnapshot` is not refreshed on failure) | |
 | PC-27 | Clearing a section is saved (2026-09-30) | Open a project with tasks, phasing or groups; delete every task (or empty the phasing / every group), press 💾 Save, reload the project | The section is empty after reload (before the fix the old data came back because empty sections were not sent). Other sections unchanged. Automated by `js/api-sync.test.js` | |
+| PC-28 | Save refused for dates shows the server's reason (2026-10-24, dates C1) | Set the Start month after the End month, press 💾 Save | "Save failed: … not saved …" ending with "Reason: Project end date (…) is before its start date (…)."; no redirect | ✓ (vitest) |
 
 ---
 
@@ -615,6 +620,7 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | TS-11 | Exact header match wins over a partial match for the same field | Upload a file with both `"Data Chiusura"` and `"Data"` as headers | The date field resolves to the exact-match column (`"Data"`), not the column that merely contains the keyword as a substring (`"Data Chiusura"`) | ✓ (node:test) |
 | TS-19 | Role/task inconsistency blocks the entire upload (backend) | Upload a file where at least one row's Task/Issue doesn't match any configured task on the project, or whose Job Role isn't among that task's configured resources (blank role included) | Entire upload rejected (400) with `{ error, inconsistencies: [{projectCode, task, role}, ...] }`; no rows persisted for any project code in the file, not even ones with no inconsistency | ✓ (node:test) |
 | TS-20 | Role/task inconsistency shows a blocking dialog at all three upload entry points | Trigger the TS-19 scenario from `project-config.html`'s 📂 Load Actuals, `portfolio.html`'s 📂 Load Actuals, and `planning.html`'s 📂 Load XLS | Each shows an informational (single-OK, no Cancel) dialog listing every distinct project/task/role combination found inconsistent (capped at 20 lines, "…and N more." beyond that); nothing is imported | |
+| TS-21 | Impossible ISO date blocks the upload (2026-10-24, dates C1) | Upload a CSV whose row 2 has the date `2026-13-45` | 400, the message names row 2 and says the value is not a valid calendar date; nothing is written | ✓ |
 
 ---
 
@@ -702,6 +708,7 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | SEC-08 | DELETE `/api/pipeline-years/:id` where year has CG versions | `DELETE /api/pipeline-years/:id` for a year with at least one `cost_grid_version` referencing it | 409 | |
 | SEC-09 | JWT cookie not accessible from JavaScript (`document.cookie`) | In the browser DevTools console run `document.cookie` | `pdash_token` value not listed — httpOnly flag prevents JS access | |
 | SEC-10 | Non-admin can read ratecards | Log in as `user` role; `GET /api/ratecards` and `GET /api/ratecards/:id` | 200 — read access is requireAuth; POST/PATCH/DELETE still return 403 (unauthenticated write → 401 checked in auto suite) | |
+| SEC-11 | Date writes are validated (2026-10-24, dates C1) | Send a malformed (`2026-05`), impossible (`202613`, `20260431`) or inverted period to version POST/PATCH, project POST/PATCH, `PUT …/structure` and `PUT /api/projects/:id/tasks` | 400 `{ code: 'DATE_RULE' }`, the record is unchanged; a body that re-sends the stored dates unchanged is accepted | ✓ |
 
 ---
 

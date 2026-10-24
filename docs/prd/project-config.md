@@ -50,6 +50,7 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 - **👁 View** — opens a popup listing every imported row for this project: Date, Owner, Role, Task, Hours, Notes, Fee, Spent (Fee is the hourly rate resolved and stored at import time, §8.3; Spent = Fee × Hours). Shown only once actuals exist; visible to viewers too.
 - **⬇ Download actuals** — downloads the same rows/columns as an Excel `.xlsx` file, named `<Client>_<ProjectName>_<ProjectCode>_<YYYYMMDD>.xlsx`. Shown only once actuals exist; visible to viewers too.
 - **🗑 Delete actuals** — permanently removes all imported actuals for this project's D365 code, after a confirmation prompt. Hidden for viewers.
+- A save refused for its dates (an inverted or impossible project or task period, 2026-10-24) keeps the user on the page with "Save failed: … not saved …" followed by "Reason:" and the server's message; task dates may be typed with single-digit day and month (`1/5/2026`).
 - Saving the project form (**💾 Save**) now returns to this project's own detail view in Project Reporting, rather than the bare project list.
 
 Phasing and Planning are manual grids by default (one currency/hours input per month, freely editable). Two actions can bulk-fill them instead of hand-entry — both share the same confirm-modal UI, but compute completely different numbers:

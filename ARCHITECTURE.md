@@ -719,12 +719,12 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | GET/POST | /api/cost-grids | ✅ | List / create — list response includes `my_permission` computed for the calling user |
 | GET | /api/cost-grids/budgets | ✅ | Pre-computed fee + PTC totals per version (all visible versions) |
 | PATCH/DELETE | /api/cost-grids/:id | owner/admin | Update / delete |
-| GET/POST | /api/cost-grids/:id/versions | ✅ | List / create version — both accept `clientId` |
-| PATCH/DELETE | /api/cost-grids/:id/versions/:vId | owner/admin | Update / delete version — PATCH accepts `clientId`, `ratecardId`, `label`, `pipeline`, `startDate`, `endDate`, `note` |
+| GET/POST | /api/cost-grids/:id/versions | ✅ | List / create version — both accept `clientId`; (2026-10-24) A malformed, impossible or inverted date answers **400 `{ code: 'DATE_RULE' }`** before any write — see CLAUDE.md's "Dates" |
+| PATCH/DELETE | /api/cost-grids/:id/versions/:vId | owner/admin | Update / delete version — PATCH accepts `clientId`, `ratecardId`, `label`, `pipeline`, `startDate`, `endDate`, `note`; (2026-10-24) A malformed, impossible or inverted date answers **400 `{ code: 'DATE_RULE' }`** before any write — see CLAUDE.md's "Dates" |
 | POST | /api/cost-grids/:id/versions/:vId/duplicate | owner/admin | Full copy of a version (backs the editor's "+ New version", 2026-10) `{ label }` (required, trimmed; 400 if blank) → 201 `{ id }`. One transaction: header incl. the source's `currency_rate` snapshot, client, project name, note, rate card, dates; phases → tasks → task_roles (fresh ids, hours/rates/months); tags. The copy is always Draft, no pipeline year, unlocked, no project links; any failure rolls back (no half-built version) |
 | POST | /api/cost-grids/:id/versions/:vId/publish | owner/admin | Publish a Draft version to SIP — one-way, and permanently deletes the proposal's other Draft versions |
 | POST | /api/cost-grids/:id/versions/:vId/refresh-rate | owner/admin | Re-snapshot the version's `currency_rate` from the current `currency_rates` table |
-| GET/PUT | /api/cost-grids/:id/versions/:vId/structure | owner/admin | Get / save bulk structure. (2026-10-23) A `PUT` that would drop a task linked to a project answers **400 `{ code: 'STRUCTURE_RULE' }`** and changes nothing — see §5's `structure-rules.js` |
+| GET/PUT | /api/cost-grids/:id/versions/:vId/structure | owner/admin | Get / save bulk structure. (2026-10-23) A `PUT` that would drop a task linked to a project answers **400 `{ code: 'STRUCTURE_RULE' }`** and changes nothing — see §5's `structure-rules.js`; (2026-10-24) an invalid or inverted task date answers **400 `{ code: 'DATE_RULE' }`** |
 | GET/POST | /api/cost-grids/:id/versions/:vId/linked-projects | owner/admin | List / link projects |
 | DELETE | /api/cost-grids/:id/versions/:vId/linked-projects/:projectId | owner/admin | Unlink one project (refused for non-sysadmin by the project currency lock — see §5's `project-rules.js`) |
 | GET/POST | /api/cost-grids/:id/shares | owner/admin | List shares / grant one; `POST` emails and in-app-notifies the recipient (2026-09: in-app notification added — was email-only before) |
@@ -737,9 +737,9 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET/POST | /api/projects | ✅ | List / create — list response includes `my_permission` computed for the calling user |
-| GET/PATCH/DELETE | /api/projects/:id | owner/admin | Detail / update / delete; `PATCH` answers 400 (`<field> must be a valid UUID`) for a non-UUID `cgVersionId` or `clientId` (null / `''` still unlink; `programId` is `VARCHAR`, not validated) — 2026-09-30 |
-| GET/PUT | /api/projects/:id/tasks | owner/admin | Get / save bulk tasks |
+| GET/POST | /api/projects | ✅ | List / create — list response includes `my_permission` computed for the calling user; (2026-10-24) A malformed, impossible or inverted date answers **400 `{ code: 'DATE_RULE' }`** before any write — see CLAUDE.md's "Dates" |
+| GET/PATCH/DELETE | /api/projects/:id | owner/admin | Detail / update / delete; `PATCH` answers 400 (`<field> must be a valid UUID`) for a non-UUID `cgVersionId` or `clientId` (null / `''` still unlink; `programId` is `VARCHAR`, not validated) — 2026-09-30; a changed date can also answer `DATE_RULE` (dates sent unchanged are not re-checked) — 2026-10-24 |
+| GET/PUT | /api/projects/:id/tasks | owner/admin | Get / save bulk tasks; (2026-10-24) A malformed, impossible or inverted date answers **400 `{ code: 'DATE_RULE' }`** before any write — see CLAUDE.md's "Dates" |
 | PATCH | /api/projects/:id/phasing | owner/admin | Update phasing |
 | PATCH | /api/projects/:id/ptc | owner/admin | Update PTC |
 | PATCH | /api/projects/:id/planning | owner/admin | Update monthly hour planning |
