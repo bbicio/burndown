@@ -60,22 +60,24 @@ function cgFmtMonth(isoDate) {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// dd/mm/yyyy ↔ yyyy-mm-dd helpers for task date inputs
-function cgIsoToIt(iso) {
-  if (!iso || iso.length < 10) return '';
-  const [y, m, d] = iso.split('-');
-  return `${d}/${m}/${y}`;
+// The period of a project generated from a version: the version's dates are authoritative, then the selected
+// tasks' dates, then now / now + 12 months. A side that did not come from the version takes the other side's value
+// when the two would otherwise be inverted (e.g. a start in 2028 against the default end). Months are YYYYMM.
+function cgGeneratedPeriod(v, selTasks, now) {
+  const toYYYYMM = iso => iso ? iso.slice(0, 7).replace('-', '') : '';
+  const startDates = selTasks.map(t => t.taskStartDate).filter(Boolean).sort();
+  const endDates   = selTasks.map(t => t.taskEndDate).filter(Boolean).sort();
+  const defaultStart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const defaultEnd   = (() => { const d = new Date(now.getFullYear(), now.getMonth() + 12, 1); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+  let projStart = v.startDate || (startDates.length ? toYYYYMM(startDates[0]) : null) || defaultStart;
+  let projEnd   = v.endDate   || (endDates.length   ? toYYYYMM(endDates[endDates.length - 1]) : null) || defaultEnd;
+  // isOrdered / toYmd are the globals bridged by js/lib/dates.js, read at call time.
+  if (!isOrdered(projStart, projEnd)) {
+    if (v.endDate && !v.startDate) projStart = projEnd;
+    else if (!(v.startDate && v.endDate)) projEnd = projStart; // both from the version: left as set, the server refuses it
+  }
+  return { projStart, projEnd };
 }
-function cgItToIso(it) {
-  if (!it) return '';
-  const parts = it.split('/');
-  if (parts.length !== 3) return '';
-  const [d, m, y] = parts;
-  if (!d || !m || !y || y.length !== 4) return '';
-  const iso = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
-  return isNaN(new Date(iso).getTime()) ? '' : iso;
-}
-
 
 // ── VERSION LOCK STATE & LIVE BADGE ──────────────────────────────────────────
 
@@ -1102,8 +1104,8 @@ async function cgDoAddTasksToProject(projId, selectedTaskIds) {
         name:      task.taskName.trim(),
         completed: false,
         billable:  true,
-        startDate: task.taskStartDate ? task.taskStartDate.replace(/-/g, '') : '',
-        endDate:   task.taskEndDate   ? task.taskEndDate.replace(/-/g, '')   : '',
+        startDate: toYmd(task.taskStartDate) || '',
+        endDate:   toYmd(task.taskEndDate) || '',
         resources: (v.roles || []).map(r => ({
           role:       r.roleCode,
           soldHours:  task.hours[r.roleCode] || 0,
@@ -1237,8 +1239,8 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
         description: (task.taskDescription || '').trim(),
         completed: false,
         billable:  true,
-        startDate: task.taskStartDate ? task.taskStartDate.replace(/-/g, '') : '',
-        endDate:   task.taskEndDate   ? task.taskEndDate.replace(/-/g, '')   : '',
+        startDate: toYmd(task.taskStartDate) || '',
+        endDate:   toYmd(task.taskEndDate) || '',
         resources: (v.roles || []).map(r => ({
           role:       r.roleCode,
           soldHours:  task.hours[r.roleCode] || 0,
@@ -1255,13 +1257,7 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
   // Task dates are used only when the version has no dates set.
   const toYYYYMM = iso => iso ? iso.slice(0, 7).replace('-', '') : '';
   const selTasks  = (v.phases || []).flatMap(ph => ph.tasks).filter(t => selectedTaskIds.includes(t.taskId));
-  const startDates = selTasks.map(t => t.taskStartDate).filter(Boolean).sort();
-  const endDates   = selTasks.map(t => t.taskEndDate).filter(Boolean).sort();
-  const now = new Date();
-  const defaultStart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const defaultEnd   = (() => { const d = new Date(now.getFullYear(), now.getMonth() + 12, 1); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`; })();
-  const projStart = v.startDate || (startDates.length ? toYYYYMM(startDates[0]) : null) || defaultStart;
-  const projEnd   = v.endDate   || (endDates.length   ? toYYYYMM(endDates[endDates.length - 1]) : null) || defaultEnd;
+  const { projStart, projEnd } = cgGeneratedPeriod(v, selTasks, new Date());
 
   const ptc = selTasks
     .filter(t => t.ptc > 0)

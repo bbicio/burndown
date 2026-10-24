@@ -159,20 +159,6 @@ function updatePortfolioCacheBadge() {
 }
 
 // ── UTILITIES ────────────────────────────────────────────────────────────────
-function ym2month(ym) {
-  return (ym && ym.length >= 6) ? ym.slice(0, 4) + '-' + ym.slice(4, 6) : '';
-}
-function month2ym(m) { return m ? m.replace('-', '') : ''; }
-
-// Task date helpers (YYYYMMDD ↔ YYYY-MM-DD)
-function ymd2date(ymd) {
-  if (!ymd) return '';
-  if (ymd.length === 8) return `${ymd.slice(0,4)}-${ymd.slice(4,6)}-${ymd.slice(6,8)}`;
-  if (ymd.length === 6) return `${ymd.slice(0,4)}-${ymd.slice(4,6)}-01`; // legacy YYYYMM
-  return '';
-}
-function date2ymd(d) { return d ? d.replace(/-/g, '') : ''; }
-
 // Parse a task date string (YYYYMMDD or legacy YYYYMM) to a JS Date.
 // isEnd=true → last day of month for YYYYMM; first day for YYYYMMDD is exact.
 function parseTaskDate(str, isEnd) {

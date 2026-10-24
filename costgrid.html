@@ -1106,7 +1106,7 @@ Vue.createApp({
     roleActiveTeam() { this.$nextTick(() => this.refreshRoleSelectionCount()); },
   },
   methods: {
-    esc, pipelineBadge, statusBadgeLarge, cgScheduleAutoSave, cgIsoToIt, cgItToIso, openShareModal,
+    esc, pipelineBadge, statusBadgeLarge, cgScheduleAutoSave, openShareModal,
     async loadReassignOwnerOptions() {
       try {
         const users = await Api.users.activeList();
@@ -1691,7 +1691,7 @@ Vue.createApp({
     // input event, so the method's older call shape keeps working.
     onTaskDateChange(task, field, valueOrEvent) {
       const iso = (valueOrEvent && valueOrEvent.target)
-        ? cgItToIso(valueOrEvent.target.value)
+        ? (parseDayText(valueOrEvent.target.value) || '')
         : (valueOrEvent || '');
       task[field] = iso;
       cgScheduleAutoSave();

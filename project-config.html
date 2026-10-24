@@ -411,6 +411,7 @@
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/status-rules.js?v=1"></script>
 <script type="module" src="js/lib/config-form-calc.js?v=2"></script>
+<script type="module" src="js/lib/dates.js?v=1"></script>
 <script type="module" src="js/lib/project-push-result.js?v=1"></script>
 <script defer src="js/api-sync.js?v=25"></script>
 <script defer src="js/tags.js?v=2"></script>
@@ -938,15 +939,7 @@
         if (!ymd || ymd.length < 8) return '';
         return `${ymd.slice(6,8)}/${ymd.slice(4,6)}/${ymd.slice(0,4)}`;
       },
-      itToYmd(it) {
-        if (!it) return '';
-        const parts = it.split('/');
-        if (parts.length !== 3) return '';
-        const [d, m, y] = parts;
-        if (!d || !m || !y || y.length !== 4) return '';
-        const ymd = `${y}${m.padStart(2,'0')}${d.padStart(2,'0')}`;
-        return isNaN(new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`).getTime()) ? '' : ymd;
-      },
+      itToYmd(it) { return toYmd(parseDayText(it)) || ''; },
       monthLabel(ym, locale = 'en-US') {
         const [y, m] = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))];
         return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'short', year: '2-digit' });

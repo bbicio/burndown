@@ -152,8 +152,8 @@ async function cgLoadStructureFromApi(cgId, versionId) {
 // opts.strict = true: a failed upsert throws instead of being logged and swallowed.
 // Resolves to true only when every write reached the server; false when one failed (non-strict) or there was
 // nothing to write. A failed name save does not stop the version and its structure from being saved.
-// A structure refused with STRUCTURE_RULE is refused again on every autosave, so the user is told once per version.
-const _cgStructureRuleNotified = new Set();
+// A version or structure refused with STRUCTURE_RULE / DATE_RULE is refused again on every autosave, so the user is told once per version.
+const _cgRuleNotified = new Set();
 async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   const strict = !!(opts && opts.strict);
   let allOk = true;
@@ -185,7 +185,15 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   };
   try {
     await Api.costGrids.versions.update(cgId, versionId, serverMeta);
-  } catch (e) { console.warn('[sync] version upsert failed:', e.message); if (strict) throw e; return false; }
+  } catch (e) {
+    console.warn('[sync] version upsert failed:', e.message);
+    if (strict) throw e;
+    if (e.data?.code === 'DATE_RULE' && !_cgRuleNotified.has(versionId) && typeof showInfo === 'function') {
+      _cgRuleNotified.add(versionId);
+      showInfo(`${e.data.error} Your changes to this version are not being saved: correct the dates.`, '⚠️ Changes not saved');
+    }
+    return false;
+  }
 
   // Save phase/task/role structure only if it was explicitly loaded this session.
   // If phases is empty here, the structure was never loaded — don't wipe existing DB data.
@@ -199,8 +207,8 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
       console.warn('[sync] structure save failed:', e.message);
       if (strict) throw e;
       allOk = false;
-      if (e.data?.code === 'STRUCTURE_RULE' && !_cgStructureRuleNotified.has(versionId) && typeof showInfo === 'function') {
-        _cgStructureRuleNotified.add(versionId);
+      if ((e.data?.code === 'STRUCTURE_RULE' || e.data?.code === 'DATE_RULE') && !_cgRuleNotified.has(versionId) && typeof showInfo === 'function') {
+        _cgRuleNotified.add(versionId);
         showInfo(`${e.data.error}. Your changes to this version are not being saved: reload the page to see its current structure.`, '⚠️ Changes not saved');
       }
     }
@@ -270,14 +278,14 @@ async function _pushProjectToApiDetailed(project, { skipEmpty = false } = {}) {
   } catch (updateErr) {
     // A refusal by the project rules (currency lock, link rules) is final: retrying it as a create would only
     // end in a duplicate-key error that hides the message. Any other failure is treated as "project not there yet".
-    if (updateErr?.data?.code === 'PROJECT_RULE') {
+    if (updateErr?.data?.code === 'PROJECT_RULE' || updateErr?.data?.code === 'DATE_RULE') {
       console.warn('[sync] project update refused:', updateErr.message);
-      return { ok: false, failed: [{ part: 'project', error: updateErr.message }] };
+      return { ok: false, failed: [{ part: 'project', error: updateErr.message, code: updateErr.data.code, reason: updateErr.data.error }] };
     }
     try { await Api.projects.create({ ...meta, id: project.id }); }
     catch (e) {
       console.warn('[sync] project upsert failed:', e.message);
-      return { ok: false, failed: [{ part: 'project', error: e.message }] };
+      return { ok: false, failed: [{ part: 'project', error: e.message, code: e.data?.code, reason: e.data?.error }] };
     }
   }
 
@@ -305,7 +313,7 @@ async function _pushProjectToApiDetailed(project, { skipEmpty = false } = {}) {
     try { await run(); }
     catch (e) {
       console.warn(`[sync] ${part} save failed:`, e.message);
-      failed.push({ part, error: e.message });
+      failed.push({ part, error: e.message, code: e.data?.code, reason: e.data?.error });
     }
   }
   return { ok: failed.length === 0, failed };
