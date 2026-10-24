@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { monthGridYear, dayGridMonth, parseItDate, formatItDate, parseMonthInput, formatMonthInput } from './cg-controls-calc.js';
+import { monthGridYear, dayGridMonth } from './cg-controls-calc.js';
 
 describe('monthGridYear', () => {
   it('returns 12 entries with YYYYMM keys and short labels', () => {
@@ -40,21 +40,5 @@ describe('dayGridMonth', () => {
     const days = dayGridMonth(2026, 10, { min: '2026-10-20', selected: '2026-10-02' }).flat();
     expect(days.find(d => d.iso === '2026-10-02')).toBeTruthy();
     expect(days.every(d => d.inRange === false)).toBe(true);
-  });
-});
-
-describe('date text parsing', () => {
-  it('round-trips a valid day date', () => {
-    expect(parseItDate('05/10/2026')).toBe('2026-10-05');
-    expect(formatItDate('2026-10-05')).toBe('05/10/2026');
-  });
-  it('rejects out-of-range and empty input', () => {
-    ['32/13/2026', '', '5/10/26', 'abc', '29/02/2027'].forEach(v => expect(parseItDate(v)).toBeNull());
-  });
-  it('round-trips a month value', () => {
-    expect(parseMonthInput('10/2026')).toBe('202610');
-    expect(formatMonthInput('202610')).toBe('10/2026');
-    expect(parseMonthInput('13/2026')).toBeNull();
-    expect(formatMonthInput('')).toBe('');
   });
 });

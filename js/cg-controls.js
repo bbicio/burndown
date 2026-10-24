@@ -127,7 +127,7 @@
       locked() { return false; },
       ph() { return this.placeholder || (this.isDay ? 'dd/mm/yyyy' : 'mm/yyyy'); },
       display() {
-        return this.isDay ? window.formatItDate(this.modelValue) : window.formatMonthInput(this.modelValue);
+        return this.isDay ? window.formatDayText(this.modelValue) : window.formatMonthText(this.modelValue);
       },
       monthCells() { return window.monthGridYear(this.viewYear, { min: this.min || undefined, max: this.max || undefined }); },
       dayCells() {
@@ -166,9 +166,9 @@
       commitTyped() {
         const raw = (this.text || '').trim();
         if (raw === '') { if (this.modelValue) this.$emit('update:modelValue', ''); this.text = ''; return; }
-        const parsed = this.isDay ? window.parseItDate(raw) : window.parseMonthInput(raw);
+        const parsed = this.isDay ? window.parseDayText(raw) : window.parseMonthText(raw);
         if (parsed === null) { this.text = this.display; return; }
-        this.text = this.isDay ? window.formatItDate(parsed) : window.formatMonthInput(parsed);
+        this.text = this.isDay ? window.formatDayText(parsed) : window.formatMonthText(parsed);
         if (parsed !== this.modelValue) this.$emit('update:modelValue', parsed);
       },
       onEsc() {
