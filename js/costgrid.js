@@ -52,12 +52,9 @@ function cgMigrateVersion(v) {
 }
 
 function cgFmtMonth(isoDate) {
-  if (!isoDate) return '';
-  const d = new Date(isoDate + (isoDate.length === 10 ? 'T00:00:00' : ''));
-  if (isNaN(d)) return '';
-  // 'en-GB', not 'it-IT': all user-facing text is English (CLAUDE.md), and the phase
-  // band this feeds was rendering "11 mag 2026 – 31 dic 2026".
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  // English "May 11, 2026" (js/lib/dates.js); the phase band this feeds once rendered
+  // "11 mag 2026 – 31 dic 2026" through the browser locale.
+  return window.formatDayText(window.toIso(isoDate) || '');
 }
 
 // The period of a project generated from a version: the version's dates are authoritative, then the selected

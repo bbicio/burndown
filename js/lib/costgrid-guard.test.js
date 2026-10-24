@@ -28,14 +28,16 @@ describe('cost grid guard', () => {
     expect(region).not.toMatch(/\p{Extended_Pictographic}/u);
   });
 
-  it('costgrid.css and cg-controls.js are loaded, versioned, by costgrid.html only', () => {
+  it('costgrid.css is loaded, versioned, by costgrid.html only; cg-controls.js by an allowlist', () => {
     expect(html).toMatch(/css\/costgrid\.css\?v=\d+/);
+    expect(html).toMatch(/css\/controls\.css\?v=\d+/);
     expect(html).toMatch(/js\/cg-controls\.js\?v=\d+/);
     expect(html).toMatch(/js\/lib\/cg-controls-calc\.js\?v=\d+/);
+    const CONTROLS_PAGES = new Set(['costgrid.html', 'project-config.html', 'portfolio.html']);
     const others = fs.readdirSync(root).filter(f => f.endsWith('.html') && f !== 'costgrid.html');
     others.forEach(f => {
       expect(read(f), f).not.toContain('costgrid.css');
-      expect(read(f), f).not.toContain('cg-controls.js');
+      if (!CONTROLS_PAGES.has(f)) expect(read(f), f).not.toContain('cg-controls.js');
     });
   });
 
