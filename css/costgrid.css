@@ -902,6 +902,7 @@ button.cg-ctl-field:focus-visible,
 }
 .cg-ctl-input:focus { outline: none; }
 .cg-ctl-input:disabled { cursor: not-allowed; }
+.cg-ctl-error { margin-top: var(--space-1); font-size: var(--text-xs); color: var(--color-danger-text); }
 .cg-ctl-trigger { cursor: pointer; }
 .cg-ctl-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 7px 0; }
 .cg-ctl-placeholder { color: var(--text-muted); }
