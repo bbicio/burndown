@@ -104,3 +104,13 @@ Pure, DB-free modules behind `/api/planning-assistant` (route `api/src/routes/pl
 - `team-scoring.js`: the experience score `scoreResource(profile, role, reqTags, { includeRole })` in 0-100 (role 30 / tag 30 / task 25 / topic 15, saturating exponentials, components that do not apply are dropped) with the evidence behind it; `WEIGHTS`, `SATURATION`, `DIMENSION_WEIGHTS`, `MIN_ALT_SCORE`, `LOW_SCORE` are initial values to tune at Gate 2. `matchedTagHours` is the `requireTags` test.
 - `team-ranking.js`: `rankTeam(...)` builds the best / alternative / available tables per role (pool = active, not excluded, `requireTags` satisfied) with a one-line `rationale` per row; `explainResource(...)` returns one person's score breakdown, position and availability. `scoringTags`/`poolPredicate` are shared by both so they always agree.
 - `assistant-chat.js`: the conversation layer: `SYSTEM_PROMPT`, the two tool schemas (`rank_team`, `explain_resource`), `buildContextBlock` (project data inside `<project_data>`, `<` escaped), `compactRankResult` (what the model sees of a result) and `runChat` (at most 3 tool rounds, last 20 messages, first message always from the user).
+
+## dates.js (2026-10-24, dates C1)
+
+The server twin of `js/lib/dates.js` (CommonJS). Rules to keep: `CLAUDE.md`'s "Dates".
+
+- Common with the browser module: `isMonth`, `isDay`, `toYmd`, `toIso`, `monthFirstDay`, `monthLastDay`, `isOrdered`, `periodError`.
+- Server-only: `isValidCalendarDate`, `isLeapYear` (`date-parse.js` re-exports `isValidCalendarDate`), `DATE_RULE` (the `code` of a refused write) and `periodChangeError(body, stored, { kind, label })`, which checks a `PATCH`/`PUT` body against the stored row: a date absent from the body (`undefined`) is unchanged, `null` or `''` clears it, and a date that is not changed is not checked.
+- Consumed by `routes/cost-grids.js`, `routes/projects.js` and `routes/timesheets.js`.
+
+Tests: `dates.test.js`; `js/lib/dates-guard.test.js` pins that the two twins agree.

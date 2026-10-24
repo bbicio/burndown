@@ -207,3 +207,18 @@ Tests: `js/lib/test-cases-parse.test.js` — unit cases for each rule above, plu
 ## icons.js (2026-10-16, header unification)
 
 `ICON_PATHS` (the sidebar's former `NAV_ICON_PATHS` plus `portfolio.html`'s former `PF_ICON_PATHS` and the page head's icons; `maximize`/`minimize` added 2026-10-19 for planning's toolbar), `iconSvg(name, size = 16, cls = '')` (an SVG string, `''` for an unknown name) and the Vue component `PhIcon` (`<ph-icon name size>`, registered by each page that uses it). Bridged as `window.ICON_PATHS`, `window.iconSvg`, `window.PhIcon`. Loaded as a module before `js/nav.js` on every page that calls `initNav`, since `navIcon()` reads `window.ICON_PATHS`; `js/lib/page-head-guard.test.js` pins that order. Some drawings exist under two names (`chevronLeft`/`chevron-left`, `gear`/`configure`), a known follow-up. Tests: `js/lib/icons.test.js`.
+
+## dates.js (2026-10-24, dates C1)
+
+The single implementation of date validation, ordering and typed-text parsing for the browser (`?v=1`, `<script type="module">`, `window.*` bridge for each export). Pure. Loaded by `costgrid.html`, `project-config.html` and `pipeline.html`. Rules to keep: `CLAUDE.md`'s "Dates".
+
+- `isMonth(v)`, `isDay(v)`: `YYYYMM` / `YYYYMMDD` is a real calendar month / day.
+- `toYmd(iso)`, `toIso(ymd)`: convert between `YYYY-MM-DD` and `YYYYMMDD`.
+- `monthFirstDay(ym)`, `monthLastDay(ym)`: the first and last day of a month.
+- `isOrdered(start, end)`: start is not after end; an empty or invalid side is not ordered-checked.
+- `periodError(start, end, { kind, label })`: the error message for an invalid or inverted period, `undefined` when valid.
+- `parseDayText(text)`, `formatDayText(iso)`, `parseMonthText(text)`, `formatMonthText(ym)`: the typed text of the date pickers and back.
+- `parseDateInput(text, { mode, min, max })`: reads the typed text of a picker and applies the `min`/`max` bounds.
+- `isWithin(value, min, max)`: bound check.
+
+Server twin: `docs/api/lib.md`'s `dates.js`. Tests: `dates.test.js`, `dates-guard.test.js`.

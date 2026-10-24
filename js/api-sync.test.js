@@ -34,7 +34,7 @@ describe('a refusal by the project rules is final (not retried as a create)', ()
     const { _pushProjectToApiDetailed } = loadSync();
     const r = await _pushProjectToApiDetailed({ ...base, currency: 'USD', tasks: [] });
     expect(r.ok).toBe(false);
-    expect(r.failed).toEqual([{ part: 'project', error: 'update refused by a rule' }]);
+    expect(r.failed).toMatchObject([{ part: 'project', error: 'update refused by a rule', code: 'PROJECT_RULE' }]);
     expect(calls).toEqual(['update']);
   });
 
