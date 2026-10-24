@@ -162,6 +162,14 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   const ver = cg.versions.find(v => v.versionId === versionId);
   if (!ver) return false;
 
+  // One notice per version for a refusal that will repeat on every autosave: the server's message, then the sentence.
+  const notifyRefusal = e => {
+    if (_cgRuleNotified.has(versionId) || typeof showInfo !== 'function') return;
+    _cgRuleNotified.add(versionId);
+    const msg = String(e.data.error || '');
+    showInfo(`${/[.!?]$/.test(msg) ? msg : msg + '.'} Your changes to this version are not being saved: reload the page to see its current structure.`, '⚠️ Changes not saved');
+  };
+
   // Upsert the grid itself (name)
   try {
     await Api.costGrids.update(cgId, { name: cg.name });
@@ -188,10 +196,7 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   } catch (e) {
     console.warn('[sync] version upsert failed:', e.message);
     if (strict) throw e;
-    if (e.data?.code === 'DATE_RULE' && !_cgRuleNotified.has(versionId) && typeof showInfo === 'function') {
-      _cgRuleNotified.add(versionId);
-      showInfo(`${e.data.error} Your changes to this version are not being saved: correct the dates.`, '⚠️ Changes not saved');
-    }
+    if (e.data?.code === 'DATE_RULE') notifyRefusal(e);
     return false;
   }
 
@@ -207,10 +212,7 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
       console.warn('[sync] structure save failed:', e.message);
       if (strict) throw e;
       allOk = false;
-      if ((e.data?.code === 'STRUCTURE_RULE' || e.data?.code === 'DATE_RULE') && !_cgRuleNotified.has(versionId) && typeof showInfo === 'function') {
-        _cgRuleNotified.add(versionId);
-        showInfo(`${e.data.error}. Your changes to this version are not being saved: reload the page to see its current structure.`, '⚠️ Changes not saved');
-      }
+      if (e.data?.code === 'STRUCTURE_RULE' || e.data?.code === 'DATE_RULE') notifyRefusal(e);
     }
   }
   return allOk;

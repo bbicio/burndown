@@ -84,25 +84,25 @@ describe('_cgUpsertVersionToApi — no POST fallback', () => {
     await expect(build()('cg1', 'v1')).resolves.toBe(false);
     await expect(build()('cg1', 'v1')).resolves.toBe(false);
     expect(showInfo).toHaveBeenCalledTimes(1);
-    expect(showInfo.mock.calls[0][0]).toContain('"T1"');
+    expect(showInfo.mock.calls[0][0]).toBe('Cannot save: tasks linked to a project would be removed: "T1". Your changes to this version are not being saved: reload the page to see its current structure.');
     expect(showInfo.mock.calls[0][1]).toContain('Changes not saved');
   });
 
   it('a DATE_RULE refusal of the version PATCH is shown once per version and resolves to false', async () => {
-    const refusal = Object.assign(new Error('400'), { data: { code: 'DATE_RULE', error: 'E' } });
+    const refusal = Object.assign(new Error('400'), { data: { code: 'DATE_RULE', error: 'Project end date (2026-07) is before its start date (2026-09).' } });
     api.costGrids.versions.update.mockRejectedValue(refusal);
     await expect(build()('cg1', 'v1')).resolves.toBe(false);
     await expect(build()('cg1', 'v1')).resolves.toBe(false);
     expect(showInfo).toHaveBeenCalledTimes(1);
-    expect(showInfo.mock.calls[0][0]).toContain('E');
+    expect(showInfo.mock.calls[0]).toEqual(['Project end date (2026-07) is before its start date (2026-09). Your changes to this version are not being saved: reload the page to see its current structure.', '⚠️ Changes not saved']);
   });
 
   it('a DATE_RULE refusal of the structure save is shown too', async () => {
-    const refusal = Object.assign(new Error('400'), { data: { code: 'DATE_RULE', error: 'E2' } });
+    const refusal = Object.assign(new Error('400'), { data: { code: 'DATE_RULE', error: 'Task end date (2026-01-01) is before its start date (2026-02-01).' } });
     api.costGrids.versions.saveStructure.mockRejectedValue(refusal);
     await expect(build()('cg1', 'v1')).resolves.toBe(false);
     expect(showInfo).toHaveBeenCalledTimes(1);
-    expect(showInfo.mock.calls[0][0]).toContain('E2');
+    expect(showInfo.mock.calls[0]).toEqual(['Task end date (2026-01-01) is before its start date (2026-02-01). Your changes to this version are not being saved: reload the page to see its current structure.', '⚠️ Changes not saved']);
   });
 
   it('any other structure failure shows no notice', async () => {
