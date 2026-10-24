@@ -4,6 +4,7 @@ const XLSX    = require('xlsx');
 const { query } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
 const { parseFlexibleDate } = require('../lib/date-parse');
+const { toIso } = require('../lib/dates');
 const { resolveFee } = require('../lib/rate-resolve');
 const { isAdminRole } = require('../lib/is-admin');
 const { refreshUnmatched } = require('../services/resource-matching');
@@ -415,7 +416,11 @@ function formatDate(val) {
   const s = String(val).trim();
   if (!s) return null;
   // already ISO
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const iso = toIso(s.slice(0, 10));
+    if (!iso) throw new Error(`"${s}" is not a valid calendar date`);
+    return iso;
+  }
   const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
   if (m) return parseFlexibleDate(m[1], m[2], m[3]);
   throw new Error(`"${s}" is not a recognized date format`);

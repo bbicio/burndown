@@ -2675,6 +2675,11 @@ async function testDateRule() {
   ok(r10.status === 200, `DT-10 structure with a start-only task → 200 (got ${r10.status})`);
   const r10b = await api('PUT', tasksPath, [{ name: 'X', startDate: '20260510' }], adminCookie);
   ok(r10b.status === 200, `DT-10 project tasks with a start-only task → 200 (got ${r10b.status})`);
+
+  // DT-11: the timesheet ingest refuses an impossible ISO date, naming the row
+  const csv11 = ['projectId,date,task,role,owner,hours', 'DT11,2026-13-45,Analysis,Consultant,Nobody,1'].join('\n');
+  const r11 = await uploadCsv('/api/timesheets/upload', csv11, adminCookie);
+  ok(r11.status === 400 && /row 2/.test(r11.data?.error || ''), `DT-11 timesheet upload with date 2026-13-45 → 400 naming row 2 (got ${r11.status}: ${r11.data?.error})`);
 }
 
 async function testProjectCurrencyLock() {
