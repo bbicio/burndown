@@ -5,6 +5,7 @@ const rules = require('../lib/project-rules');
 const { withVersionLock, lockVersion } = require('../lib/version-lock');
 const { sendShareNotification, sendShareRevokedEmail } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
+const { DATE_RULE, periodError, periodChangeError, toYmd } = require('../lib/dates');
 const { isAdminRole } = require('../lib/is-admin');
 const { enqueueProjectsQuiet } = require('../services/profile-engine');
 const { descriptionsSignature } = require('../lib/topic-extract');
@@ -155,6 +156,8 @@ router.post('/', requireAuth, async (req, res, next) => {
   try {
     const { id, name, code, programId, clientId, startDate, endDate, currency, pipeline, status, cgVersionId, description } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
+    const periodErr = periodError(startDate, endDate, { kind: 'month', label: 'project' });
+    if (periodErr) return res.status(400).json({ error: periodErr, code: DATE_RULE });
 
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const safeClientId    = clientId    && uuidRe.test(clientId)    ? clientId    : null;
@@ -211,6 +214,17 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       const v = req.body[key];
       if (v && (typeof v !== 'string' || !uuidRe.test(v))) {
         return res.status(400).json({ error: `${key} must be a valid UUID` });
+      }
+    }
+    if (req.body.startDate !== undefined || req.body.endDate !== undefined) {
+      const { rows: [storedPeriod] } = await query('SELECT start_date, end_date FROM projects WHERE id = $1', [req.params.id]);
+      if (storedPeriod) {
+        const periodErr = periodChangeError(
+          { start: req.body.startDate, end: req.body.endDate },
+          { start: storedPeriod.start_date, end: storedPeriod.end_date },
+          { kind: 'month', label: 'project' }
+        );
+        if (periodErr) return res.status(400).json({ error: periodErr, code: DATE_RULE });
       }
     }
     const needsRules = req.body.currency !== undefined || req.body.cgVersionId !== undefined;
@@ -398,6 +412,11 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
       }
     }
 
+    for (const t of tasks) {
+      const dateErr = periodError(t?.startDate, t?.endDate, { kind: 'day', label: `task "${t?.name || ''}"` });
+      if (dateErr) return res.status(400).json({ error: dateErr, code: DATE_RULE });
+    }
+
     const before = await query('SELECT name, description FROM project_tasks WHERE project_id = $1', [req.params.id]);
     await query('DELETE FROM project_tasks WHERE project_id = $1', [req.params.id]);
 
@@ -409,8 +428,8 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
           monthly_distribution, resources, sort_order, description)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [req.params.id, (t.name || '').replace(/\s+/g, ' ').trim(), t.billable ?? true, t.completed ?? false,
-         t.startDate ? t.startDate.replace(/-/g, '').slice(0, 8) || null : null,
-         t.endDate   ? t.endDate.replace(/-/g, '').slice(0, 8)   || null : null,
+         toYmd(t.startDate) ?? null,
+         toYmd(t.endDate) ?? null,
          t.monthlyDistribution ? JSON.stringify(t.monthlyDistribution) : null,
          t.resources ? JSON.stringify(t.resources) : null, i, String(t.description ?? '')]
       );
