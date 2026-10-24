@@ -145,3 +145,42 @@ describe('portfolio custom range', () => {
     for (const f of ['portfolio.html', 'program.html']) expect(read(f), f).toContain('css/portfolio.css?v=8');
   });
 });
+
+describe('closing guards (Spec 2026-10-24 §2.7)', () => {
+  const pages = files.filter(f => /^[^/]+\.html$/.test(f));
+  const NUMERIC = /\b(dd|mm|gg)\/(mm|dd|yy|aa)|yyyy|aaaa/i;
+
+  it('no page uses a native date or month input', () => {
+    const offenders = pages.filter(f => /type=["'](date|month)["']/.test(read(f)));
+    expect(offenders).toEqual([]);
+  });
+
+  it('no date placeholder is numeric', () => {
+    const offenders = [];
+    for (const f of pages) {
+      for (const m of read(f).matchAll(/placeholder=(["'])(.*?)\1/g)) {
+        if (NUMERIC.test(m[2])) offenders.push(`${f}: ${m[2]}`);
+      }
+    }
+    if (NUMERIC.test(read('js/cg-controls.js'))) offenders.push('js/cg-controls.js');
+    expect(offenders).toEqual([]);
+  });
+
+  it('every page that loads js/cg-controls.js loads css/controls.css', () => {
+    const offenders = pages.filter(f => { const t = read(f); return /js\/cg-controls\.js/.test(t) && !/css\/controls\.css/.test(t); });
+    expect(offenders).toEqual([]);
+  });
+
+  it.each(['js/cg-controls.js', 'js/lib/cg-controls-calc.js', 'css/controls.css'])(
+    'every reference to %s carries the same ?v=N', target => {
+      const esc = target.split('.').join('[.]');
+      const re = new RegExp(esc + '[?]v=([0-9]+)', 'g');
+      const versions = new Set();
+      let refs = 0;
+      for (const f of files.filter(x => /\.(js|html|css)$/.test(x) && !/\.test\.js$/.test(x))) {
+        for (const m of read(f).matchAll(re)) { versions.add(m[1]); refs++; }
+      }
+      expect(refs).toBeGreaterThan(0);
+      expect(versions.size).toBe(1);
+    });
+});
