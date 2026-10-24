@@ -164,6 +164,8 @@
       // Review Focus #3: a refused entry (unparseable, or outside min/max) emits nothing,
       // reverts the display and shows the reason inline; an emptied field clears the value.
       commitTyped() {
+        // Leaving the field without editing it checks nothing: stored data is not re-judged.
+        if (this.text === this.display) { this.error = ''; return; }
         const r = window.parseDateInput(this.text, {
           mode: this.isDay ? 'day' : 'month', min: this.min || undefined, max: this.max || undefined,
         });
@@ -176,6 +178,7 @@
       // Template-side access to window.isWithin against this picker's own limits.
       isWithin(value) { return window.isWithin(value, this.min || undefined, this.max || undefined); },
       onEsc() {
+        this.error = '';
         if (this.cgOpen) this.cgClosePopover(true); else this.text = this.display;
       },
       pick(value) {
@@ -184,6 +187,7 @@
         this.cgClosePopover(true);
       },
       clear() {
+        this.error = '';
         this.$emit('update:modelValue', '');
         this.cgClosePopover(true);
       },

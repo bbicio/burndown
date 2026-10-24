@@ -88,9 +88,9 @@ export function periodError(start, end, { kind, label }) {
 /** 'dd/mm/yyyy' -> 'YYYY-MM-DD', null when the text is not a real date. */
 export function parseDayText(text) {
   if (typeof text !== 'string') return null;
-  const m = text.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const m = text.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (!m) return null;
-  const iso = `${m[3]}-${m[2]}-${m[1]}`;
+  const iso = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
   return isDay(iso) ? iso : null;
 }
 
@@ -104,9 +104,9 @@ export function formatDayText(iso) {
 /** 'mm/yyyy' -> 'YYYYMM', null when the text is not a real month. */
 export function parseMonthText(text) {
   if (typeof text !== 'string') return null;
-  const m = text.trim().match(/^(\d{2})\/(\d{4})$/);
+  const m = text.trim().match(/^(\d{1,2})\/(\d{4})$/);
   if (!m) return null;
-  const ym = `${m[2]}${m[1]}`;
+  const ym = `${m[2]}${m[1].padStart(2, '0')}`;
   return isMonth(ym) ? ym : null;
 }
 

@@ -116,6 +116,14 @@ describe('cg-date-picker honours min/max for typed values and shortcuts', () => 
     expect(commit).not.toContain('parseMonthInput(');
   });
 
+  it('leaving the field unedited checks nothing, and Esc/Clear reset the error', () => {
+    expect(commit).toMatch(/if \(this\.text === this\.display\) \{ this\.error = ''; return; \}/);
+    for (const name of ['onEsc()', 'clear()']) {
+      const body = picker.slice(picker.indexOf(name), picker.indexOf('},', picker.indexOf(name)));
+      expect(body).toContain("this.error = ''");
+    }
+  });
+
   it('shows the error inline with role="alert"', () => {
     expect(picker).toMatch(/class="cg-ctl-error"[^>]*role="alert"|role="alert"[^>]*class="cg-ctl-error"/);
   });

@@ -81,6 +81,13 @@ describe('date text parsing', () => {
     expect(parseMonthText('13/2026')).toBeNull();
     expect(formatMonthText('')).toBe('');
   });
+  it('accepts single-digit day and month', () => {
+    expect(parseDayText('1/5/2026')).toBe('2026-05-01');
+    expect(parseDayText('05/1/2026')).toBe('2026-01-05');
+    expect(parseDayText('31/4/2026')).toBeNull();
+    expect(parseMonthText('5/2026')).toBe('202605');
+    expect(parseMonthText('0/2026')).toBeNull();
+  });
 });
 
 describe('parseDateInput', () => {
