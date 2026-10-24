@@ -85,35 +85,63 @@ export function periodError(start, end, { kind, label }) {
   return null;
 }
 
-/** 'dd/mm/yyyy' -> 'YYYY-MM-DD', null when the text is not a real date. */
-export function parseDayText(text) {
-  if (typeof text !== 'string') return null;
-  const m = text.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!m) return null;
-  const iso = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
+  'September', 'October', 'November', 'December'];
+
+// 1-based month number for an English month name or its 3-letter abbreviation (any case), else 0.
+function monthNumber(word) {
+  const w = word.toLowerCase();
+  const i = MONTHS.findIndex(n => n.toLowerCase() === w || n.slice(0, 3).toLowerCase() === w);
+  return i + 1;
+}
+
+function normText(text) {
+  return typeof text === 'string' ? text.trim().replace(/\s+/g, ' ') : null;
+}
+
+function dayFrom(y, mo, d) {
+  if (!mo) return null;
+  const iso = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
   return isDay(iso) ? iso : null;
 }
 
-/** 'YYYY-MM-DD' -> 'dd/mm/yyyy', '' when the input is falsy or malformed. */
+/** 'Dec 1, 2025' (also 'Dec 1 2025', '1 Dec 2025', full month names, ISO) -> 'YYYY-MM-DD', null when not a real date. */
+export function parseDayText(text) {
+  const s = normText(text);
+  if (s === null) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return isDay(s) ? s : null;
+  let m = s.match(/^([a-z]+) (\d{1,2}),? (\d{4})$/i);
+  if (m) return dayFrom(m[3], monthNumber(m[1]), m[2]);
+  m = s.match(/^(\d{1,2}) ([a-z]+) (\d{4})$/i);
+  if (m) return dayFrom(m[3], monthNumber(m[2]), m[1]);
+  return null;
+}
+
+/** 'YYYY-MM-DD' -> 'Dec 1, 2025', '' when the input is falsy or malformed. */
 export function formatDayText(iso) {
-  if (typeof iso !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
+  if (typeof iso !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(iso) || !isDay(iso)) return '';
   const [y, m, d] = iso.split('-');
-  return `${d}/${m}/${y}`;
+  return `${MONTHS[Number(m) - 1].slice(0, 3)} ${Number(d)}, ${y}`;
 }
 
-/** 'mm/yyyy' -> 'YYYYMM', null when the text is not a real month. */
+/** 'Dec 2025' (also full month names, 'YYYY-MM') -> 'YYYYMM', null when not a real month. */
 export function parseMonthText(text) {
-  if (typeof text !== 'string') return null;
-  const m = text.trim().match(/^(\d{1,2})\/(\d{4})$/);
-  if (!m) return null;
-  const ym = `${m[2]}${m[1].padStart(2, '0')}`;
-  return isMonth(ym) ? ym : null;
+  const s = normText(text);
+  if (s === null) return null;
+  let ym = null;
+  let m = s.match(/^(\d{4})-(\d{2})$/);
+  if (m) ym = m[1] + m[2];
+  else if ((m = s.match(/^([a-z]+) (\d{4})$/i))) {
+    const mo = monthNumber(m[1]);
+    if (mo) ym = m[2] + String(mo).padStart(2, '0');
+  }
+  return ym !== null && isMonth(ym) ? ym : null;
 }
 
-/** 'YYYYMM' -> 'mm/yyyy', '' when the input is falsy or malformed. */
+/** 'YYYYMM' -> 'Dec 2025', '' when the input is falsy or malformed. */
 export function formatMonthText(ym) {
   if (!isMonth(ym)) return '';
-  return `${ym.slice(4)}/${ym.slice(0, 4)}`;
+  return `${MONTHS[Number(ym.slice(4)) - 1].slice(0, 3)} ${ym.slice(0, 4)}`;
 }
 
 /** True when value lies within the inclusive limits; empty limits are ignored. */
@@ -128,7 +156,7 @@ export function parseDateInput(text, { mode, min, max } = {}) {
   const isMonthMode = mode === 'month';
   const value = isMonthMode ? parseMonthText(text) : parseDayText(text);
   if (value === null) {
-    return { error: isMonthMode ? 'Enter a month as mm/yyyy.' : 'Enter a date as dd/mm/yyyy.' };
+    return { error: isMonthMode ? 'Enter a month like Dec 2025.' : 'Enter a date like Dec 1, 2025.' };
   }
   const fmt = isMonthMode ? formatMonthText : formatDayText;
   if (!isEmpty(min) && value < min) return { error: 'Must be on or after ' + fmt(min) + '.' };
