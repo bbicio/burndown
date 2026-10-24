@@ -1039,8 +1039,7 @@ async function cgCloneGrid(srcCgId, srcVerId) {
         '⚠️ Clone incomplete'
       );
       // showInfo is a modal: open the clone only once it is dismissed, or the warning goes unread.
-      const notice = document.getElementById('confirmModal');
-      if (notice) await new Promise(resolve => notice.addEventListener('hidden.bs.modal', resolve, { once: true }));
+      await new Promise(resolve => document.getElementById('confirmModal').addEventListener('hidden.bs.modal', resolve, { once: true }));
     }
 
     showCostGridEditorView(cgId, verId);

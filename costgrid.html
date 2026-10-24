@@ -1794,10 +1794,12 @@ Vue.createApp({
     async cloneProposal() {
       if (!this.cgId || !this.verId) return;
       this.proposalBusy = true;
+      let result;
       try {
-        await cgCloneGrid(this.cgId, this.verId);
+        result = await cgCloneGrid(this.cgId, this.verId);
       } finally {
-        this.proposalBusy = false;
+        // null: a clone already in flight ignored this call, and that one still owns the button.
+        if (result !== null) this.proposalBusy = false;
       }
     },
     onCurrencyChange() {

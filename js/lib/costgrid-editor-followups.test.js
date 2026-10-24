@@ -140,3 +140,25 @@ describe('free-task selection helpers (B-048)', () => {
     expect(self.selectAllFreeLabel()).toBe('Select all free (0)');
   });
 });
+
+describe('editor Clone button and the in-flight guard (B-091)', () => {
+  const build = (cgCloneGrid) => new Function('cgCloneGrid', `return { ${extractBlock(html, 'async cloneProposal(')} };`)(cgCloneGrid);
+  const self = () => ({ cgId: 'cg1', verId: 'v1', proposalBusy: false });
+
+  it('a call ignored by the in-flight guard (null) leaves the button busy', async () => {
+    const s = self();
+    await build(vi.fn(async () => null)).cloneProposal.call(s);
+    expect(s.proposalBusy).toBe(true);
+  });
+
+  it('a finished or failed clone releases it', async () => {
+    for (const outcome of [true, false]) {
+      const s = self();
+      await build(vi.fn(async () => outcome)).cloneProposal.call(s);
+      expect(s.proposalBusy).toBe(false);
+    }
+    const s = self();
+    await expect(build(vi.fn(async () => { throw new Error('boom'); })).cloneProposal.call(s)).rejects.toThrow('boom');
+    expect(s.proposalBusy).toBe(false);
+  });
+});
