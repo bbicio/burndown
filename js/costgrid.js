@@ -1189,6 +1189,10 @@ function cgSubmitProjectName(projectName, projectCode) {
 
   const selectedTaskIds = [..._cgSelectedTaskIds];
 
+  // Refused before any program or project exists: a refusal after the Create Program modal would orphan the program.
+  const refusal = cgGenerationRefusal(selectedTaskIds);
+  if (refusal) { showInfo(refusal); return; }
+
   // Once this proposal already has an established program (from an earlier Generate Project
   // run), every later generation auto-links to it — partial selection or not, no re-prompt.
   const existingProgramId = findExistingProgramForProposal(_cgDraft.linkedProjects, config.projects, _cgActiveCgId, _cgActiveVersionId);
@@ -1236,7 +1240,9 @@ function cgAbortPendingGeneration() {
   _cgPendingGeneration = null;
 }
 
-async function cgDoGenerateProject(selectedTaskIds, projectName, programId, projectCode) {
+// The tasks, period and out-of-period notice (or '') a Generate project produces for this selection. Also run before
+// the Create Program modal, so a refused generation leaves no program behind.
+function cgGenerationPlan(selectedTaskIds) {
   const v = _cgDraft;
 
   const tasks = [];
@@ -1263,11 +1269,21 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
 
   // Version dates are authoritative (they define the contract period).
   // Task dates are used only when the version has no dates set.
-  const toYYYYMM = iso => iso ? iso.slice(0, 7).replace('-', '') : '';
   const selTasks  = (v.phases || []).flatMap(ph => ph.tasks).filter(t => selectedTaskIds.includes(t.taskId));
   const { projStart, projEnd } = cgGeneratedPeriod(v, selTasks, new Date());
 
   const refusal = cgOutOfPeriodNotice(tasks, projStart, projEnd);
+  return { tasks, selTasks, projStart, projEnd, refusal };
+}
+
+function cgGenerationRefusal(selectedTaskIds) {
+  return cgGenerationPlan(selectedTaskIds).refusal;
+}
+
+async function cgDoGenerateProject(selectedTaskIds, projectName, programId, projectCode) {
+  const v = _cgDraft;
+  const toYYYYMM = iso => iso ? iso.slice(0, 7).replace('-', '') : '';
+  const { tasks, selTasks, projStart, projEnd, refusal } = cgGenerationPlan(selectedTaskIds);
   if (refusal) { showInfo(refusal); return; }
 
   if (!config.projects) config.projects = [];

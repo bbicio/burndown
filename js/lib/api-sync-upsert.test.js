@@ -11,8 +11,8 @@ let api;
 let notified;
 let showInfo;
 
-function build() {
-  const cg = { id: 'cg1', name: 'Grid', versions: [{ versionId: 'v1', versionLabel: 'v1', currency: 'EUR', phases: [{ phaseName: 'P', tasks: [] }], roles: [] }] };
+function build(phases = [{ phaseName: 'P', tasks: [] }]) {
+  const cg = { id: 'cg1', name: 'Grid', versions: [{ versionId: 'v1', versionLabel: 'v1', currency: 'EUR', phases, roles: [] }] };
   const stubs = { Api: api, cgLoad: () => cg, _cgRuleNotified: notified, showInfo };
   const names = Object.keys(stubs);
   return new Function(...names, 'window', `${extractBlock(js, 'async function _cgUpsertVersionToApi(')}; return _cgUpsertVersionToApi;`)(
@@ -116,6 +116,14 @@ describe('_cgUpsertVersionToApi — no POST fallback', () => {
     expect(api.costGrids.versions.update.mock.invocationCallOrder[1]).toBeGreaterThan(api.costGrids.versions.saveStructure.mock.invocationCallOrder[0]);
     expect(api.costGrids.versions.create).not.toHaveBeenCalled();
     expect(showInfo).not.toHaveBeenCalled();
+  });
+
+  it('a DATE_RULE refusal with the structure not loaded (no structure PUT) is not retried and is shown once', async () => {
+    api.costGrids.versions.update.mockRejectedValue(dateRule());
+    await expect(build([])('cg1', 'v1')).resolves.toBe(false);
+    expect(api.costGrids.versions.saveStructure).not.toHaveBeenCalled();
+    expect(api.costGrids.versions.update).toHaveBeenCalledTimes(1);
+    expect(showInfo).toHaveBeenCalledTimes(1);
   });
 
   it('a DATE_RULE refusal of the PATCH followed by a refused structure save does not retry and fails', async () => {

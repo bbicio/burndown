@@ -1053,7 +1053,7 @@
         const message = `Phasing and planning will be computed from task date ranges, distributing each task's budget proportionally to the days of overlap with each month.\n\n`
           + `Total budget distributed: ${fmtB(result.totalBudget)} across ${months.length} months\n`
           + `Total hours distributed: ${result.totalHours.toLocaleString('en-US')} h`
-          + (result.outsideBudget > 0
+          + (result.outsideBudget > 0 || result.outsideHours > 0
             ? `
 
 Outside the project period, not distributed: ${fmtB(result.outsideBudget)} · ${result.outsideHours.toLocaleString('en-US', { maximumFractionDigits: 1 })} h`

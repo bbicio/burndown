@@ -34,6 +34,8 @@ describe('project-config task period bindings', () => {
     expect(html).toContain('Changes to this project are not saved');
     expect(html).toMatch(/v-if="outOfPeriod\.length && !isViewer"/);
     expect(html).toContain('Outside the project period, not distributed');
+    // hours alone count: zero-rate resources past the period have outsideBudget 0 but outsideHours > 0
+    expect(html).toContain('result.outsideBudget > 0 || result.outsideHours > 0');
   });
 
   it('adds no listener or watcher for it (B-144)', () => {

@@ -7,7 +7,7 @@ import { isOrdered, outOfPeriodTasks, formatMonthText, toYmd } from './dates.js'
 const js = readFileSync('js/costgrid.js', 'utf8');
 const names = ['window', 'showInfo', 'config', '_cgDraft', 'Api', '_pushProjectToApi', 'persistConfig', 'toYmd', 'isOrdered',
   '_cgActiveCgId', '_cgActiveVersionId', 'cgLoad', 'cgSave', 'renderCgEditor', '_cgSelectionMode', '_cgSelectedTaskIds'];
-const src = ['function cgGeneratedPeriod(', 'function cgOutOfPeriodNotice(', 'async function cgDoAddTasksToProject(', 'async function cgDoGenerateProject(']
+const src = ['function cgGeneratedPeriod(', 'function cgOutOfPeriodNotice(', 'async function cgDoAddTasksToProject(', 'function cgGenerationPlan(', 'async function cgDoGenerateProject(']
   .map(h => extractBlock(js, h)).join('\n');
 
 let showInfo, config, draft, api, push;

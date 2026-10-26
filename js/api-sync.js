@@ -207,12 +207,14 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
 
   // Save phase/task/role structure only if it was explicitly loaded this session.
   // If phases is empty here, the structure was never loaded — don't wipe existing DB data.
+  let structureSaved = false;
   if (phases && phases.length > 0) {
     try {
       await Api.costGrids.versions.saveStructure(cgId, versionId, {
         phases,
         roles: roles || [],
       });
+      structureSaved = true;
     } catch (e) {
       console.warn('[sync] structure save failed:', e.message);
       if (strict) throw e;
@@ -221,6 +223,8 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
       if (metaRefusal) { notifyRefusal(metaRefusal); return false; }
     }
   }
+  // Retry only after a structure PUT that ran and succeeded: otherwise the same payload meets the same refusal.
+  if (metaRefusal && !structureSaved) { notifyRefusal(metaRefusal); return false; }
   if (metaRefusal) {
     try {
       await Api.costGrids.versions.update(cgId, versionId, serverMeta);
