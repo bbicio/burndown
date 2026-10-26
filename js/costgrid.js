@@ -62,12 +62,12 @@ function cgFmtMonth(isoDate) {
 // when the two would otherwise be inverted (e.g. a start in 2028 against the default end). Months are YYYYMM.
 function cgGeneratedPeriod(v, selTasks, now) {
   const toYYYYMM = iso => iso ? iso.slice(0, 7).replace('-', '') : '';
-  const startDates = selTasks.map(t => t.taskStartDate).filter(Boolean).sort();
-  const endDates   = selTasks.map(t => t.taskEndDate).filter(Boolean).sort();
+  // Every task date, starts and ends alike: a task with a start and no end must still fall inside the derived period.
+  const allDates = selTasks.flatMap(t => [t.taskStartDate, t.taskEndDate]).filter(Boolean).sort();
   const defaultStart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
   const defaultEnd   = (() => { const d = new Date(now.getFullYear(), now.getMonth() + 12, 1); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`; })();
-  let projStart = v.startDate || (startDates.length ? toYYYYMM(startDates[0]) : null) || defaultStart;
-  let projEnd   = v.endDate   || (endDates.length   ? toYYYYMM(endDates[endDates.length - 1]) : null) || defaultEnd;
+  let projStart = v.startDate || (allDates.length ? toYYYYMM(allDates[0]) : null) || defaultStart;
+  let projEnd   = v.endDate   || (allDates.length ? toYYYYMM(allDates[allDates.length - 1]) : null) || defaultEnd;
   // isOrdered / toYmd are the globals bridged by js/lib/dates.js, read at call time.
   if (!isOrdered(projStart, projEnd)) {
     if (v.endDate && !v.startDate) projStart = projEnd;

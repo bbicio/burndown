@@ -99,7 +99,7 @@ export function taskPeriodError(start, end, periodStart, periodEnd, { label, par
   const last = pe === '' ? null : monthLastDay(pe);
   const s = isEmpty(start) ? null : toIso(start);
   const e = isEmpty(end) ? null : toIso(end);
-  const out = (word, iso, dir) => `Task "${label}" ${word} on ${iso}, ${dir} the ${parent} period (${range}).`;
+  const out = (word, iso, dir) => `Task "${String(label || '').trim() || 'Untitled task'}" ${word} on ${iso}, ${dir} the ${parent} period (${range}).`;
   if (s !== null && first !== null && s < first) return out('starts', s, 'before');
   if (s !== null && last !== null && s > last) return out('starts', s, 'after');
   if (e !== null && last !== null && e > last) return out('ends', e, 'after');
@@ -120,7 +120,8 @@ export function taskDateBounds(periodStart, periodEnd, twin, side) {
   const first = monthFirstDay(isEmpty(periodStart) ? '' : String(periodStart).trim()) || '';
   const last = monthLastDay(isEmpty(periodEnd) ? '' : String(periodEnd).trim()) || '';
   let t = toIso(twin) || '';
-  // A twin outside the period would leave min > max and lock the picker: it bounds nothing until it is moved inside.
+  // A twin outside the period no longer narrows the picker (it would leave min > max): it bounds nothing until moved inside.
+  // An inverted period (start after end) still locks it, by design: taskPeriodError asks to fix the period first.
   if (t !== '' && (side === 'start' ? first !== '' && t < first : last !== '' && t > last)) t = '';
   if (side === 'start') return { min: first, max: last === '' ? t : t === '' ? last : minOf(t, last) };
   return { min: first === '' ? t : t === '' ? first : maxOf(t, first), max: last };

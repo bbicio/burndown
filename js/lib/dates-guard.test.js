@@ -10,6 +10,8 @@ const TASK = { kind: 'day', label: 'task "T1"' };
 
 // Every case of js/lib/dates.test.js for the nine functions the two twins share.
 const CASES = [
+  ['taskPeriodError', ['2026-01-01', '', '202609', '202612', { label: '', parent: 'project' }]],
+  ['taskPeriodError', ['2026-01-01', '', '202609', '202612', { label: '  ', parent: 'project' }]],
   ['isDay', ['20260431']], ['isDay', ['20260229']], ['isDay', ['20240229']],
   ['isDay', ['2026-04-30']], ['isDay', ['15/03/20']], ['isDay', [null]],
   ['isMonth', ['202613']], ['isMonth', ['202600']], ['isMonth', ['2026-05']],

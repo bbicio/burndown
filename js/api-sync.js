@@ -192,13 +192,17 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
     ratecardId:     meta.ratecardId  || null,
     clientId: (meta.clientId && meta.clientId !== '__unassigned__') ? meta.clientId : null,
   };
+  // A DATE_RULE refusal is checked against the STORED tasks, so the structure is still saved (the server checks it
+  // against the stored period) and the PATCH retried once: a save that moves a task inward and shrinks the period
+  // would otherwise be refused forever. A refused PATCH is never retried as a POST.
+  let metaRefusal = null;
   try {
     await Api.costGrids.versions.update(cgId, versionId, serverMeta);
   } catch (e) {
     console.warn('[sync] version upsert failed:', e.message);
     if (strict) throw e;
-    if (e.data?.code === 'DATE_RULE') notifyRefusal(e);
-    return false;
+    if (e.data?.code !== 'DATE_RULE') return false;
+    metaRefusal = e;
   }
 
   // Save phase/task/role structure only if it was explicitly loaded this session.
@@ -214,6 +218,16 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
       if (strict) throw e;
       allOk = false;
       if (e.data?.code === 'STRUCTURE_RULE' || e.data?.code === 'DATE_RULE') notifyRefusal(e);
+      if (metaRefusal) { notifyRefusal(metaRefusal); return false; }
+    }
+  }
+  if (metaRefusal) {
+    try {
+      await Api.costGrids.versions.update(cgId, versionId, serverMeta);
+    } catch (e) {
+      console.warn('[sync] version upsert retry failed:', e.message);
+      if (e.data?.code === 'DATE_RULE') notifyRefusal(e);
+      return false;
     }
   }
   return allOk;
