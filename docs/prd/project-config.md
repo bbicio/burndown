@@ -13,8 +13,8 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 | Field | Type | Notes |
 |---|---|---|
 | Name | text | Must match D365 Project Name in XLS |
-| Start date | YYYYMM | |
-| End date | YYYYMM | |
+| Start date | month | Shown and typed as `Dec 2025`, from a calendar or by hand (2026-10-24) |
+| End date | month | Not before Start |
 | Currency | select | **Read-only** (2026-10-01): a project takes the currency of the proposal it was generated from, and amounts are not converted yet, so the menu is disabled with the hint "Currency cannot be changed here: amounts are not converted yet. Contact a sysadmin if it must be corrected." (only a sysadmin can correct it, through the API). The menu lists the currencies an admin has activated (§7.7), symbol + name (see §7.7 "Number format") |
 | Pipeline | select | Inherited from cost grid if linked |
 | Status | select | Project status; allowed values depend on Pipeline (e.g. `Started At Risk` is available for `Committed`, `Expected`, and `Anticipated`; `SIP` disables the field entirely; `Canceled` disables it and preserves the current value) |
@@ -30,7 +30,7 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 | Name | text | Must match "Task/Issue" column in XLS |
 | Billable | boolean | Include in budget calculations |
 | Completed | boolean | Locks monthly distribution |
-| Start / End date | DD/MM/YYYY | Full date, not month-only; defaults to project dates |
+| Start / End date | day | Shown and typed as `Dec 1, 2025`, from a calendar or by hand; End not before Start; optional, defaults to project dates. Disabled for viewers |
 | Description | textarea | (2026-09-29) Free text on what the task covers; read-only for viewers; pre-filled once by "Generate project" from the proposal task's description. Feeds the competence topics (§16.11) |
 | Monthly distribution | % per month | Required for multi-month tasks |
 | Resources | role + sold hours + rate | Breakdown of sold effort |

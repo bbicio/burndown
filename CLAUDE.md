@@ -123,8 +123,8 @@ HTML pages               — the Pages table above is the page index: route, one
                             test checklist, no navigation, results in localStorage) fetches TEST_CASES.md and parses it with
                             js/lib/test-cases-parse.js. Hence TEST_CASES.md counts as code for
                             scripts/classify-cycle.mjs.
-css/                     — seven stylesheets: tokens.css (design tokens, also `[v-cloak]`), style.css (components
-                            + navigation), admin-crud.css, auth.css, pipeline.css, costgrid.css, portfolio.css. Detail:
+css/                     — eight stylesheets: tokens.css (design tokens, also `[v-cloak]`), style.css (components
+                            + navigation), controls.css, admin-crud.css, auth.css, pipeline.css, costgrid.css, portfolio.css. Detail:
                             [docs/css/stylesheets.md](docs/css/stylesheets.md). App-wide rules stay in "Design
                             tokens" and "Cache-busting" below.
 js/api.js                — Api.* namespace + apiFetch wrapper (401 → login redirect; parsed error body attached
@@ -138,8 +138,8 @@ js/nav.js                — navigation injection, initNav(): one `<aside class=
 js/notifications.js      — bell icon + SSE notification panel; initNotifications(user) called by nav.js; also drives browser/desktop notifications. Full narrative: [docs/js/notifications.md](docs/js/notifications.md).
 js/costgrid.js           — shared cost-grid business-logic library, consumers: `pipeline.html` and `costgrid.html`. Full narrative:
                             [docs/js/costgrid.md](docs/js/costgrid.md).
-js/cg-controls.js        — the editor's three custom Vue controls (date picker, select, people picker), loaded only
-                            by `costgrid.html`; pure helpers in js/lib/cg-controls-calc.js. Detail:
+js/cg-controls.js        — three custom Vue controls (date picker, select, people picker), loaded by costgrid,
+                            project-config and portfolio; CSS in css/controls.css. Detail:
                             [docs/js/cg-controls.md](docs/js/cg-controls.md).
 js/*.js (the rest)       — the other shared classic scripts loaded as globals by the Vue pages: shares.js,
                             share-list-component.js, clients.js, roles.js, programs.js, ratecards.js,
@@ -373,6 +373,7 @@ Full detail: [docs/js/lib.md](docs/js/lib.md) (`money.js`), [docs/api/lib.md](do
 One implementation, `js/lib/dates.js` (server twin `api/src/lib/dates.js`). Rules to keep:
 - **Never validate or normalise a date outside the two modules**; `js/lib/dates-guard.test.js` pins where that is allowed, which routes and pages must load them, and the `?v=N` agreement.
 - **Every route that writes a version, project or task period uses `periodError`/`periodChangeError`** and refuses with `400 { error, code: 'DATE_RULE' }`; the timesheet upload checks each date with `toIso` and refuses the whole file with the row number; `js/api-sync.js` must not retry a `DATE_RULE` refusal as a `POST`.
+- **Every editable date field is a `<cg-date-picker>`**, never a native date/month input or a numeric placeholder; its text (`Dec 1, 2025`, `Dec 2025`) comes only from `js/lib/dates.js` (`js/lib/dates-guard.test.js`).
 - **Every date field that has a twin passes `min`/`max`**, and a picker reads typed text only through `parseDateInput`.
 - **An existing invalid version or project period is tolerated** until its dates change; task dates are checked on every structure or task-list save.
 

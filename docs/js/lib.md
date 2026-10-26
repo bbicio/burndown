@@ -210,15 +210,15 @@ Tests: `js/lib/test-cases-parse.test.js` — unit cases for each rule above, plu
 
 ## dates.js (2026-10-24, dates C1)
 
-The single implementation of date validation, ordering and typed-text parsing for the browser (`<script type="module">`, `window.*` bridge for each export). Pure. Loaded by `costgrid.html`, `project-config.html` and `pipeline.html`. Rules to keep: `CLAUDE.md`'s "Dates".
+The single implementation of date validation, ordering and typed-text parsing for the browser (`<script type="module">`, `window.*` bridge for each export). Pure. Loaded by `costgrid.html`, `project-config.html`, `pipeline.html` and `portfolio.html`. Rules to keep: `CLAUDE.md`'s "Dates".
 
 - `isMonth(v)`: `YYYYMM` is a real calendar month. `isDay(v)`: `YYYYMMDD` or `YYYY-MM-DD` is a real calendar day.
 - `toYmd(v)`, `toIso(v)`: each accepts either day format and returns `YYYYMMDD` / `YYYY-MM-DD`, `null` for an invalid day.
 - `monthFirstDay(ym)`, `monthLastDay(ym)`: the first and last day of a month.
 - `isOrdered(start, end)`: start is not after end; an empty side is not checked, a non-empty invalid side makes it `false`.
 - `periodError(start, end, { kind, label })`: the error message for an invalid or inverted period, `null` when valid.
-- `parseDayText(text)`, `formatDayText(iso)`, `parseMonthText(text)`, `formatMonthText(ym)`: the typed text of the date pickers and back.
-- `parseDateInput(text, { mode, min, max })`: reads the typed text of a picker and applies the `min`/`max` bounds.
+- `parseDayText(text)`, `formatDayText(iso)`, `parseMonthText(text)`, `formatMonthText(ym)`: the typed text of the date pickers and back. Since 2026-10-24 (dates C2) the text is English with the month in letters — `Dec 1, 2025` (day, no leading zero) and `Dec 2025` — built from a fixed `MONTHS` array, never `Intl`/`toLocale*`. The parsers ignore case and edge spaces, collapse multiple spaces, and accept `Dec 1, 2025`, `Dec 1 2025`, `1 Dec 2025`, full month names and ISO (`2025-12-01`, `2025-12`); any other all-numeric form (`03/04/2026`, `04/2026`) and any non-existent date give `null`.
+- `parseDateInput(text, { mode, min, max })`: reads the typed text of a picker and applies the `min`/`max` bounds; its messages are `Enter a date like Dec 1, 2025.`, `Enter a month like Dec 2025.`, `Must be on or after <min>.`, `Must be on or before <max>.`.
 - `isWithin(value, min, max)`: bound check.
 
 Server twin: `docs/api/lib.md`'s `dates.js`. Tests: `dates.test.js`, `dates-guard.test.js`.

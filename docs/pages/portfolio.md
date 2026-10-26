@@ -180,3 +180,7 @@ Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `d
 ## Backlog quick wins (2026-10-20)
 
 Plan `docs/superpowers/plans/2026-10-19-backlog-quickwins.md`, report `docs/superpowers/reports/2026-10-20-backlog-quickwins-finish-cycle.md`. The overview title and the detail view's back link read "Portfolio", matching the menu (B-016). `kpiLeftColor()` returns `var(--kpi-orange)` instead of a hex literal, pinned by `js/lib/portfolio-guard.test.js` (B-070).
+
+## Custom range date pickers (2026-10-24, dates C2)
+
+Spec `docs/superpowers/specs/2026-10-24-dates-c2-datepickers-design.md`, plan `docs/superpowers/plans/2026-10-24-dates-c2-datepickers.md`, report `docs/superpowers/reports/2026-10-26-dates-c2-datepickers-finish-cycle.md`. The Period menu's Custom range uses two `<cg-date-picker mode="day" inline-popover>` on `filterStart`/`filterEnd` (ISO); each update clears `filterMonth`, From is capped by To and To floored by From. The calendar renders inside the dropdown (see the inline mode in [docs/js/cg-controls.md](../js/cg-controls.md)), so picking a day keeps the menu open; `css/portfolio.css` anchors the From calendar to its field's left so it stays inside the menu. The filter logic did not change. The page loads `js/lib/dates.js`, `js/lib/cg-controls-calc.js`, `js/cg-controls.js` and `css/controls.css`.
