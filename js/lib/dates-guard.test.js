@@ -94,3 +94,93 @@ describe('dates guard', () => {
     expect([...versions].length).toBeLessThanOrEqual(1);
   });
 });
+
+describe('project-config date fields', () => {
+  const html = read('project-config.html');
+  const pickers = html.match(/<cg-date-picker\b[^>]*>/g) || [];
+
+  it('no native month input, Italian text input or old date helpers remain', () => {
+    for (const s of ['type="month"', 'gg/mm', 'ymdToIt', 'itToYmd', 'month2ym', 'ym2month', 'onDateChange']) {
+      expect(html.includes(s), s).toBe(false);
+    }
+  });
+
+  it('uses four registered cg-date-picker, each disabled for the viewer', () => {
+    expect(pickers.length).toBe(4);
+    expect(html).toContain(".component('cg-date-picker', window.CgDatePicker)");
+    for (const p of pickers) expect(p).toContain(':disabled="isViewer"');
+  });
+
+  it('an emptied task date is saved as an empty string', () => {
+    expect(html).toContain('toIso(task.startDate) || \'\'');
+    expect(html).toContain('toIso(task.endDate) || \'\'');
+    expect(html).toContain("task.startDate = v ? toYmd(v) : ''");
+    expect(html).toContain("task.endDate = v ? toYmd(v) : ''");
+  });
+});
+
+describe('portfolio custom range', () => {
+  const html = read('portfolio.html');
+  const pickers = html.match(/<cg-date-picker\b[^>]*>/g) || [];
+
+  it('uses two inline-popover day pickers bounded by each other, no native date input', () => {
+    expect(html.includes('type="date"')).toBe(false);
+    expect(pickers.length).toBe(2);
+    for (const p of pickers) {
+      expect(p).toContain('mode="day"');
+      expect(p).toContain('inline-popover');
+    }
+    expect(pickers[0]).toContain(':max="filterEnd"');
+    expect(pickers[1]).toContain(':min="filterStart"');
+    expect(html).toContain(".component('cg-date-picker', window.CgDatePicker)");
+  });
+
+  it('loads the picker assets', () => {
+    for (const s of ['css/controls.css?v=1', 'js/lib/dates.js?v=3', 'js/lib/cg-controls-calc.js?v=2', 'js/cg-controls.js?v=5']) {
+      expect(html, s).toContain(s);
+    }
+  });
+
+  it('portfolio.css is at the same version on both pages that load it', () => {
+    for (const f of ['portfolio.html', 'program.html']) expect(read(f), f).toContain('css/portfolio.css?v=8');
+  });
+});
+
+describe('closing guards (Spec 2026-10-24 §2.7)', () => {
+  const pages = files.filter(f => /^[^/]+\.html$/.test(f));
+  const NUMERIC = /\b(dd|mm|gg)\/(mm|dd|yy|aa)|yyyy|aaaa/i;
+
+  it('no page uses a native date or month input', () => {
+    const offenders = pages.filter(f => /type=["'](date|month)["']/.test(read(f)));
+    expect(offenders).toEqual([]);
+  });
+
+  it('no date placeholder is numeric', () => {
+    const offenders = [];
+    for (const f of pages) {
+      for (const m of read(f).matchAll(/placeholder=(["'])(.*?)\1/g)) {
+        if (NUMERIC.test(m[2])) offenders.push(`${f}: ${m[2]}`);
+      }
+    }
+    if (NUMERIC.test(read('js/cg-controls.js'))) offenders.push('js/cg-controls.js');
+    expect(offenders).toEqual([]);
+  });
+
+  it('every page that loads js/cg-controls.js loads css/controls.css', () => {
+    const offenders = pages.filter(f => { const t = read(f); return /js\/cg-controls\.js/.test(t) && !/css\/controls\.css/.test(t); });
+    expect(offenders).toEqual([]);
+  });
+
+  it.each(['js/cg-controls.js', 'js/lib/cg-controls-calc.js', 'css/controls.css'])(
+    'every reference to %s carries the same ?v=N', target => {
+      const esc = target.split('.').join('[.]');
+      const re = new RegExp(esc + '[?]v=([0-9]+)', 'g');
+      const versions = new Set();
+      let refs = 0;
+      for (const f of files.filter(x => /\.(js|html|css)$/.test(x) && !/\.test\.js$/.test(x))) {
+        for (const m of read(f).matchAll(re)) { versions.add(m[1]); refs++; }
+      }
+      expect(refs).toBeGreaterThan(0);
+      expect(versions.size).toBe(1);
+    });
+});

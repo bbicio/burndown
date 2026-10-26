@@ -1,6 +1,7 @@
 // ── COST GRID CUSTOM FORM CONTROLS ───────────────────────────────────────────
-// Three presentational Vue components used only by costgrid.html, registered on
-// its app as <cg-date-picker>, <cg-select> and <cg-people-picker> (same pattern
+// Three presentational Vue components, loaded by costgrid.html, project-config.html and
+// portfolio.html (styles: css/controls.css), registered on each page's app as
+// <cg-date-picker>, <cg-select> and <cg-people-picker> (same pattern
 // as js/share-list-component.js). They hold no business logic: each emits a
 // value and the page's existing handlers run unchanged.
 //
@@ -38,6 +39,8 @@
     },
     methods: {
       cgReposition() {
+        // An inline popover is positioned by CSS relative to .cg-ctl; only CgDatePicker has the prop.
+        if (this.inlinePopover) return;
         const el = this.$refs.trigger;
         if (!el) return;
         const r = el.getBoundingClientRect();
@@ -114,6 +117,10 @@
       disabled: { type: Boolean, default: false },
       placeholder: { type: String, default: '' },
       ariaLabel: { type: String, default: '' },
+      // true: the popover stays inside .cg-ctl (position: absolute) instead of being
+      // teleported to <body> with viewport coordinates; for pages whose date field sits
+      // in a scrolling or transformed container.
+      inlinePopover: { type: Boolean, default: false },
     },
     emits: ['update:modelValue'],
     data() {
@@ -125,7 +132,7 @@
       cgPopHeight() { return this.isDay ? 290 : 230; },
       cgAlignRight() { return false; },
       locked() { return false; },
-      ph() { return this.placeholder || (this.isDay ? 'dd/mm/yyyy' : 'mm/yyyy'); },
+      ph() { return this.placeholder || (this.isDay ? 'Dec 1, 2025' : 'Dec 2025'); },
       display() {
         return this.isDay ? window.formatDayText(this.modelValue) : window.formatMonthText(this.modelValue);
       },
@@ -148,8 +155,34 @@
         return this.isDay ? window.cgMonthLabel(this.viewMonth, true) + ' ' + this.viewYear : String(this.viewYear);
       },
     },
+    mounted() {
+      // Inline popover inside a Bootstrap dropdown: Bootstrap's delegated keydown handler runs
+      // in the capture phase on document and would close the host menu on Esc and swallow
+      // ArrowUp/ArrowDown from non-input elements. While the popover is open this window
+      // capture listener (earlier than document) takes those keys for the picker.
+      this._cgInlineKeys = (e) => {
+        if (!this.inlinePopover || !this.cgOpen) return;
+        const inPop = !!(this.$refs.pop && this.$refs.pop.contains(e.target));
+        if (e.key === 'Escape') {
+          if (inPop) { e.stopPropagation(); e.preventDefault(); this.onPopEsc(); return; }
+          if (this.$el && this.$el.contains(e.target)) {
+            // From the text input or the calendar button: revert what was typed and close.
+            e.stopPropagation(); e.preventDefault();
+            this.text = this.display;
+            this.onPopEsc();
+          }
+        } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && this.$refs.grid && this.$refs.grid.contains(e.target)) {
+          e.stopPropagation();
+          this.onGridKey(e);
+        }
+      };
+      window.addEventListener('keydown', this._cgInlineKeys, true);
+    },
+    beforeUnmount() {
+      window.removeEventListener('keydown', this._cgInlineKeys, true);
+    },
     watch: {
-      modelValue: { immediate: true, handler() { this.text = this.display; this.syncView(); } },
+      modelValue: { immediate: true, handler() { this.text = this.display; this.error = ''; this.syncView(); } },
       cgOpen(v) { if (v) this.syncView(); },
     },
     methods: {
@@ -178,6 +211,14 @@
       },
       // Template-side access to window.isWithin against this picker's own limits.
       isWithin(value) { return window.isWithin(value, this.min || undefined, this.max || undefined); },
+      // Esc inside an inline popover (grid cells, arrows, Clear) closes only the popover.
+      // Handled by a window capture listener (see mounted): Bootstrap's delegated dropdown
+      // keydown handler runs in the capture phase on document, so a listener on the popover
+      // element would be too late to keep the host dropdown open.
+      onPopEsc() {
+        this.error = '';
+        this.cgClosePopover(true);
+      },
       onEsc() {
         this.error = '';
         if (this.cgOpen) this.cgClosePopover(true); else this.text = this.display;
@@ -209,7 +250,7 @@
       // Opening from the calendar button (mouse or keyboard) moves focus into the grid, so
       // the arrow keys in onGridKey() can actually reach it: the popover is teleported to
       // <body>, so Tab order never walks into it. Clicking the text input deliberately does
-      // NOT do this — focus has to stay there for the typed dd/mm/yyyy path.
+      // NOT do this — focus has to stay there for the typed path.
       openFromButton() {
         if (this.cgOpen) { this.cgClosePopover(true); return; }
         this.cgOpenPopover();
@@ -235,8 +276,8 @@
       <div class="cg-ctl cg-ctl-date" :class="{ 'cg-ctl--disabled': disabled, 'cg-ctl--open': cgOpen }">
         <div class="cg-ctl-field">
           <input ref="trigger" type="text" class="cg-ctl-input" :value="text" :placeholder="ph"
-                 :disabled="disabled" :aria-label="ariaLabel" autocomplete="off" inputmode="numeric"
-                 :maxlength="isDay ? 10 : 7"
+                 :disabled="disabled" :aria-label="ariaLabel" autocomplete="off"
+                 :maxlength="20"
                  @input="text = $event.target.value; error = ''" @blur="commitTyped"
                  @keydown.enter.prevent="commitTyped" @keydown.esc.prevent.stop="onEsc"
                  @click="cgOpenPopover()">
@@ -247,8 +288,9 @@
           </button>
         </div>
         <div v-if="error" class="cg-ctl-error" role="alert">{{ error }}</div>
-        <Teleport to="body">
-          <div v-if="cgOpen" ref="pop" class="cg-pop cg-pop-date" :style="cgPopStyle" @mousedown.stop>
+        <Teleport to="body" :disabled="inlinePopover">
+          <div v-if="cgOpen" ref="pop" class="cg-pop cg-pop-date" :class="{ 'cg-pop--inline': inlinePopover, 'cg-pop--day': inlinePopover && isDay }"
+               :style="inlinePopover ? undefined : cgPopStyle" @mousedown.stop>
             <div class="cg-pop-head">
               <button type="button" class="cg-pop-nav" :aria-label="isDay ? 'Previous month' : 'Previous year'"
                       @click="isDay ? stepMonth(-1) : viewYear--">${SVG.prev}</button>

@@ -135,10 +135,69 @@ describe('cg-date-picker honours min/max for typed values and shortcuts', () => 
     btns.forEach(b => expect(b).toMatch(/:disabled="[^"]*isWithin\(/));
   });
 
-  it('css/costgrid.css defines .cg-ctl-error with tokens only', () => {
-    const css = read('css/costgrid.css');
+  it('css/controls.css defines .cg-ctl-error with tokens only', () => {
+    const css = read('css/controls.css');
     const m = css.match(/\.cg-ctl-error\s*\{[^}]*\}/);
     expect(m).not.toBeNull();
     expect(m[0]).not.toContain('#');
+  });
+});
+
+describe('cg-date-picker: unambiguous format and inline popover (dates C2)', () => {
+  const picker = js.slice(js.indexOf('window.CgDatePicker'), js.indexOf('window.CgSelect'));
+  const tpl = picker.slice(picker.indexOf('template:'));
+
+  it('the date picker placeholders are the unambiguous format', () => {
+    expect(picker).toContain("'Dec 1, 2025'");
+    expect(picker).toContain("'Dec 2025'");
+    expect(picker).not.toContain('dd/mm/yyyy');
+    expect(picker).not.toContain('mm/yyyy');
+  });
+
+  it('the date input is not numeric-only', () => {
+    expect(tpl).not.toContain('inputmode="numeric"');
+    expect(tpl).toContain('maxlength="20"');
+  });
+
+  it('the popover can render inline', () => {
+    expect(tpl).toContain('<Teleport to="body" :disabled="inlinePopover">');
+    expect(picker).toMatch(/inlinePopover:\s*\{\s*type:\s*Boolean/);
+  });
+
+  it('an inline popover is absolutely positioned, not by viewport coordinates', () => {
+    const css = read('css/controls.css');
+    const m = css.match(/\.cg-pop\.cg-pop--inline\s*\{[^}]*\}/);
+    expect(m).not.toBeNull();
+    expect(m[0]).toMatch(/position:\s*absolute/);
+    expect(tpl).toContain('cg-pop--inline');
+    expect(tpl).toMatch(/inlinePopover \? undefined : cgPopStyle/);
+  });
+
+  it('.cg-ctl is a positioning context (the inline popover is absolute inside it)', () => {
+    const m = read('css/controls.css').match(/\.cg-ctl\s*\{[^}]*\}/);
+    expect(m).not.toBeNull();
+    expect(m[0]).toMatch(/position:\s*relative/);
+  });
+
+  it('inline popover keys are taken by a window capture listener (Bootstrap dropdown runs first)', () => {
+    expect(picker).toMatch(/window\.addEventListener\('keydown', this\._cgInlineKeys, true\)/);
+    expect(picker).toMatch(/window\.removeEventListener\('keydown', this\._cgInlineKeys, true\)/);
+    const h = picker.slice(picker.indexOf('this._cgInlineKeys = '), picker.indexOf("window.addEventListener('keydown', this._cgInlineKeys"));
+    expect(h).toContain('!this.inlinePopover || !this.cgOpen');
+    // Esc from inside the popover and from the input/button of the picker
+    expect(h).toContain('this.$refs.pop.contains(e.target)');
+    expect(h).toContain('this.$el.contains(e.target)');
+    expect(h).toContain('this.text = this.display');
+    expect(h).toContain('e.stopPropagation()');
+    // vertical arrows in the grid are handled directly
+    expect(h).toMatch(/ArrowUp[\s\S]*ArrowDown[\s\S]*this\.\$refs\.grid\.contains\(e\.target\)/);
+    expect(h).toContain('this.onGridKey(e)');
+    const m = picker.slice(picker.indexOf('onPopEsc() {'), picker.indexOf('onEsc() {'));
+    expect(m).toContain('this.cgClosePopover(true)');
+  });
+
+  it('the modelValue watcher also clears the error (B-137)', () => {
+    const w = picker.slice(picker.indexOf('modelValue: { immediate'), picker.indexOf('cgOpen(v)'));
+    expect(w).toContain("this.error = ''");
   });
 });

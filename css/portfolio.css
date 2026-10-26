@@ -580,7 +580,9 @@
   color: var(--text-muted); margin-bottom: var(--space-1);
 }
 .pr-period-custom-row { display: flex; align-items: center; gap: var(--space-2); color: var(--text-muted); }
-.pr-period-custom-row input { flex: 1; min-width: 0; }
+.pr-period-custom-row .cg-ctl { flex: 1; min-width: 0; }
+/* The From field is on the left of a 320px menu: anchor its 252px calendar to the left edge (controls.css anchors inline popovers to the right). */
+.pr-period-custom-row > .cg-ctl:first-child .cg-pop.cg-pop--inline { left: 0; right: auto; }
 
 .pr-bd { font-size: var(--text-sm); }
 .pr-bd-row {

@@ -67,26 +67,27 @@ describe('periodError', () => {
   });
 });
 
-describe('date text parsing', () => {
-  it('round-trips a valid day date', () => {
-    expect(parseDayText('05/10/2026')).toBe('2026-10-05');
-    expect(formatDayText('2026-10-05')).toBe('05/10/2026');
+describe('text format', () => {
+  it('formats days and months in the canonical English form', () => {
+    expect(formatDayText('2025-12-01')).toBe('Dec 1, 2025');
+    expect(formatDayText('2026-05-31')).toBe('May 31, 2026');
+    expect(formatDayText('')).toBe('');
+    expect(formatMonthText('202512')).toBe('Dec 2025');
+    expect(formatMonthText('202613')).toBe('');
   });
-  it('rejects out-of-range and empty input', () => {
-    ['32/13/2026', '', '5/10/26', 'abc', '29/02/2027'].forEach(v => expect(parseDayText(v)).toBeNull());
-  });
-  it('round-trips a month value', () => {
-    expect(parseMonthText('10/2026')).toBe('202610');
-    expect(formatMonthText('202610')).toBe('10/2026');
-    expect(parseMonthText('13/2026')).toBeNull();
-    expect(formatMonthText('')).toBe('');
-  });
-  it('accepts single-digit day and month', () => {
-    expect(parseDayText('1/5/2026')).toBe('2026-05-01');
-    expect(parseDayText('05/1/2026')).toBe('2026-01-05');
-    expect(parseDayText('31/4/2026')).toBeNull();
-    expect(parseMonthText('5/2026')).toBe('202605');
-    expect(parseMonthText('0/2026')).toBeNull();
+  it.each([
+    ['Dec 1, 2025'], ['Dec 1 2025'], ['1 Dec 2025'], ['December 1, 2025'], ['1 December 2025'],
+    ['DEC 1 2025'], ['  dec 1,   2025 '], ['2025-12-01'],
+  ])('parseDayText(%j) is 2025-12-01', t => expect(parseDayText(t)).toBe('2025-12-01'));
+  it.each([['Dec 2025'], ['december 2025'], ['DEC  2025'], ['2025-12']])
+    ('parseMonthText(%j) is 202512', t => expect(parseMonthText(t)).toBe('202512'));
+  it.each([['03/04/2026'], ['3.4.2026'], ['03-04-2026'], ['Feb 30, 2026'], ['Foo 1, 2025'], ['Dec 2025'], ['abc'], ['']])
+    ('parseDayText(%j) is null', t => expect(parseDayText(t)).toBeNull());
+  it.each([['04/2026'], ['4.2026'], ['Foo 2025'], ['Dec 1, 2025'], ['2025-13'], ['']])
+    ('parseMonthText(%j) is null', t => expect(parseMonthText(t)).toBeNull());
+  it('round-trips to the canonical form', () => {
+    expect(formatDayText(parseDayText('december 1 2025'))).toBe('Dec 1, 2025');
+    expect(formatMonthText(parseMonthText('DECEMBER 2025'))).toBe('Dec 2025');
   });
 });
 
@@ -96,19 +97,19 @@ describe('parseDateInput', () => {
   });
   it('limits are inclusive', () => {
     const o = { mode: 'day', min: '2026-03-01', max: '2026-03-31' };
-    expect(parseDateInput('01/03/2026', o)).toEqual({ value: '2026-03-01' });
-    expect(parseDateInput('31/03/2026', o)).toEqual({ value: '2026-03-31' });
+    expect(parseDateInput('Mar 1, 2026', o)).toEqual({ value: '2026-03-01' });
+    expect(parseDateInput('Mar 31, 2026', o)).toEqual({ value: '2026-03-31' });
   });
   it('reports bounds and unreadable text', () => {
-    expect(parseDateInput('28/02/2026', { mode: 'day', min: '2026-03-01' }))
-      .toEqual({ error: 'Must be on or after 01/03/2026.' });
-    expect(parseDateInput('31/04/2026', { mode: 'day' }))
-      .toEqual({ error: 'Enter a date as dd/mm/yyyy.' });
-    expect(parseDateInput('13/2026', { mode: 'month' }))
-      .toEqual({ error: 'Enter a month as mm/yyyy.' });
-    expect(parseDateInput('08/2026', { mode: 'month', max: '202607' }))
-      .toEqual({ error: 'Must be on or before 07/2026.' });
-    expect(parseDateInput('07/2026', { mode: 'month', max: '202607' })).toEqual({ value: '202607' });
+    expect(parseDateInput('Feb 28, 2026', { mode: 'day', min: '2026-03-01' }))
+      .toEqual({ error: 'Must be on or after Mar 1, 2026.' });
+    expect(parseDateInput('Apr 31, 2026', { mode: 'day' }))
+      .toEqual({ error: 'Enter a date like Dec 1, 2025.' });
+    expect(parseDateInput('Foo 2026', { mode: 'month' }))
+      .toEqual({ error: 'Enter a month like Dec 2025.' });
+    expect(parseDateInput('Aug 2026', { mode: 'month', max: '202607' }))
+      .toEqual({ error: 'Must be on or before Jul 2026.' });
+    expect(parseDateInput('Jul 2026', { mode: 'month', max: '202607' })).toEqual({ value: '202607' });
   });
 });
 
