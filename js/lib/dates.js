@@ -85,6 +85,70 @@ export function periodError(start, end, { kind, label }) {
   return null;
 }
 
+export function taskPeriodError(start, end, periodStart, periodEnd, { label, parent }) {
+  const ps = periodStart === null || periodStart === undefined ? '' : String(periodStart).trim();
+  const pe = periodEnd === null || periodEnd === undefined ? '' : String(periodEnd).trim();
+  if ((!isEmpty(start) && !isDay(start)) || (!isEmpty(end) && !isDay(end))) return null;
+  if (isEmpty(start) && isEmpty(end)) return null;
+  const show = v => (v === '' ? '…' : isMonth(v) ? `${v.slice(0, 4)}-${v.slice(4)}` : v);
+  const range = `${show(ps)} – ${show(pe)}`;
+  if ((ps !== '' && !isMonth(ps)) || (pe !== '' && !isMonth(pe)) || (ps !== '' && pe !== '' && ps > pe)) {
+    return `The ${parent} period (${range}) is not valid: fix it before setting task dates.`;
+  }
+  const first = ps === '' ? null : monthFirstDay(ps);
+  const last = pe === '' ? null : monthLastDay(pe);
+  const s = isEmpty(start) ? null : toIso(start);
+  const e = isEmpty(end) ? null : toIso(end);
+  const out = (word, iso, dir) => `Task "${String(label || '').trim() || 'Untitled task'}" ${word} on ${iso}, ${dir} the ${parent} period (${range}).`;
+  if (s !== null && first !== null && s < first) return out('starts', s, 'before');
+  if (s !== null && last !== null && s > last) return out('starts', s, 'after');
+  if (e !== null && last !== null && e > last) return out('ends', e, 'after');
+  if (e !== null && first !== null && e < first) return out('ends', e, 'before');
+  return null;
+}
+
+function minOf(a, b) {
+  return a !== '' && (b === '' || a < b) ? a : b;
+}
+
+function maxOf(a, b) {
+  return a !== '' && (b === '' || a > b) ? a : b;
+}
+
+/** Picker limits for a task date: the period's first/last day, tightened by the task's other date (twin). */
+export function taskDateBounds(periodStart, periodEnd, twin, side) {
+  const first = monthFirstDay(isEmpty(periodStart) ? '' : String(periodStart).trim()) || '';
+  const last = monthLastDay(isEmpty(periodEnd) ? '' : String(periodEnd).trim()) || '';
+  let t = toIso(twin) || '';
+  // A twin outside the period no longer narrows the picker (it would leave min > max): it bounds nothing until moved inside.
+  // An inverted period (start after end) still locks it, by design: taskPeriodError asks to fix the period first.
+  if (t !== '' && (side === 'start' ? first !== '' && t < first : last !== '' && t > last)) t = '';
+  if (side === 'start') return { min: first, max: last === '' ? t : t === '' ? last : minOf(t, last) };
+  return { min: first === '' ? t : t === '' ? first : maxOf(t, first), max: last };
+}
+
+/** Picker limits for a period month: it must still contain every task date; the twin month bounds the other side. */
+export function periodBounds(taskDates, side, twin) {
+  const keys = (taskDates || []).map(toYmd).filter(k => k !== null).sort();
+  const t = typeof twin === 'string' && isMonth(twin.trim()) ? twin.trim() : '';
+  if (side === 'start') {
+    const m = keys.length ? keys[0].slice(0, 6) : '';
+    return { min: '', max: t === '' ? m : m === '' ? t : minOf(t, m) };
+  }
+  const m = keys.length ? keys[keys.length - 1].slice(0, 6) : '';
+  return { min: t === '' ? m : m === '' ? t : maxOf(t, m), max: '' };
+}
+
+/** The tasks ({ name, start, end }) that leave the period, each with its taskPeriodError. */
+export function outOfPeriodTasks(tasks, periodStart, periodEnd, parent) {
+  const out = [];
+  for (const t of tasks || []) {
+    const error = taskPeriodError(t.start, t.end, periodStart, periodEnd, { label: t.name, parent });
+    if (error !== null) out.push({ name: t.name, error });
+  }
+  return out;
+}
+
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
   'September', 'October', 'November', 'December'];
 
@@ -179,4 +243,8 @@ if (typeof window !== 'undefined') {
   window.formatMonthText = formatMonthText;
   window.parseDateInput = parseDateInput;
   window.isWithin = isWithin;
+  window.taskPeriodError = taskPeriodError;
+  window.taskDateBounds = taskDateBounds;
+  window.periodBounds = periodBounds;
+  window.outOfPeriodTasks = outOfPeriodTasks;
 }

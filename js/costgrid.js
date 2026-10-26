@@ -62,18 +62,26 @@ function cgFmtMonth(isoDate) {
 // when the two would otherwise be inverted (e.g. a start in 2028 against the default end). Months are YYYYMM.
 function cgGeneratedPeriod(v, selTasks, now) {
   const toYYYYMM = iso => iso ? iso.slice(0, 7).replace('-', '') : '';
-  const startDates = selTasks.map(t => t.taskStartDate).filter(Boolean).sort();
-  const endDates   = selTasks.map(t => t.taskEndDate).filter(Boolean).sort();
+  // Every task date, starts and ends alike: a task with a start and no end must still fall inside the derived period.
+  const allDates = selTasks.flatMap(t => [t.taskStartDate, t.taskEndDate]).filter(Boolean).sort();
   const defaultStart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
   const defaultEnd   = (() => { const d = new Date(now.getFullYear(), now.getMonth() + 12, 1); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`; })();
-  let projStart = v.startDate || (startDates.length ? toYYYYMM(startDates[0]) : null) || defaultStart;
-  let projEnd   = v.endDate   || (endDates.length   ? toYYYYMM(endDates[endDates.length - 1]) : null) || defaultEnd;
+  let projStart = v.startDate || (allDates.length ? toYYYYMM(allDates[0]) : null) || defaultStart;
+  let projEnd   = v.endDate   || (allDates.length ? toYYYYMM(allDates[allDates.length - 1]) : null) || defaultEnd;
   // isOrdered / toYmd are the globals bridged by js/lib/dates.js, read at call time.
   if (!isOrdered(projStart, projEnd)) {
     if (v.endDate && !v.startDate) projStart = projEnd;
     else if (!(v.startDate && v.endDate)) projEnd = projStart; // both from the version: left as set, the server refuses it
   }
   return { projStart, projEnd };
+}
+
+// The notice for tasks about to be copied into a project whose period (YYYYMM) they leave, or '' when all fit.
+// tasks: [{ name, startDate, endDate }] in YYYYMMDD. Checked before anything is written.
+function cgOutOfPeriodNotice(tasks, periodStart, periodEnd) {
+  const bad = window.outOfPeriodTasks(tasks.map(t => ({ name: t.name, start: t.startDate, end: t.endDate })), periodStart, periodEnd, 'project');
+  if (!bad.length) return '';
+  return `These tasks are outside the project period (${periodStart ? window.formatMonthText(periodStart) : '…'} – ${periodEnd ? window.formatMonthText(periodEnd) : '…'}): ${bad.map(b => `"${b.name}"`).join(', ')}. Move them inside it first.`;
 }
 
 // ── VERSION LOCK STATE & LIVE BADGE ──────────────────────────────────────────
@@ -1112,6 +1120,11 @@ async function cgDoAddTasksToProject(projId, selectedTaskIds) {
     });
   });
 
+  // The push sends ALL the project's tasks and the server refuses the whole list for one out-of-period task,
+  // so the check covers the tasks the project already holds too.
+  const refusal = cgOutOfPeriodNotice([...(proj.tasks || []), ...newTasks], proj.startDate, proj.endDate);
+  if (refusal) { showInfo(refusal); return; }
+
   // Append tasks to project in memory and push to API
   if (!proj.tasks) proj.tasks = [];
   proj.tasks.push(...newTasks);
@@ -1176,6 +1189,10 @@ function cgSubmitProjectName(projectName, projectCode) {
 
   const selectedTaskIds = [..._cgSelectedTaskIds];
 
+  // Refused before any program or project exists: a refusal after the Create Program modal would orphan the program.
+  const refusal = cgGenerationRefusal(selectedTaskIds);
+  if (refusal) { showInfo(refusal); return; }
+
   // Once this proposal already has an established program (from an earlier Generate Project
   // run), every later generation auto-links to it — partial selection or not, no re-prompt.
   const existingProgramId = findExistingProgramForProposal(_cgDraft.linkedProjects, config.projects, _cgActiveCgId, _cgActiveVersionId);
@@ -1223,7 +1240,9 @@ function cgAbortPendingGeneration() {
   _cgPendingGeneration = null;
 }
 
-async function cgDoGenerateProject(selectedTaskIds, projectName, programId, projectCode) {
+// The tasks, period and out-of-period notice (or '') a Generate project produces for this selection. Also run before
+// the Create Program modal, so a refused generation leaves no program behind.
+function cgGenerationPlan(selectedTaskIds) {
   const v = _cgDraft;
 
   const tasks = [];
@@ -1247,14 +1266,28 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
     });
   });
 
-  if (!config.projects) config.projects = [];
-  const generatedId = crypto.randomUUID();
 
   // Version dates are authoritative (they define the contract period).
   // Task dates are used only when the version has no dates set.
-  const toYYYYMM = iso => iso ? iso.slice(0, 7).replace('-', '') : '';
   const selTasks  = (v.phases || []).flatMap(ph => ph.tasks).filter(t => selectedTaskIds.includes(t.taskId));
   const { projStart, projEnd } = cgGeneratedPeriod(v, selTasks, new Date());
+
+  const refusal = cgOutOfPeriodNotice(tasks, projStart, projEnd);
+  return { tasks, selTasks, projStart, projEnd, refusal };
+}
+
+function cgGenerationRefusal(selectedTaskIds) {
+  return cgGenerationPlan(selectedTaskIds).refusal;
+}
+
+async function cgDoGenerateProject(selectedTaskIds, projectName, programId, projectCode) {
+  const v = _cgDraft;
+  const toYYYYMM = iso => iso ? iso.slice(0, 7).replace('-', '') : '';
+  const { tasks, selTasks, projStart, projEnd, refusal } = cgGenerationPlan(selectedTaskIds);
+  if (refusal) { showInfo(refusal); return; }
+
+  if (!config.projects) config.projects = [];
+  const generatedId = crypto.randomUUID();
 
   const ptc = selTasks
     .filter(t => t.ptc > 0)

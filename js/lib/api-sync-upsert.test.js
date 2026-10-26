@@ -11,8 +11,8 @@ let api;
 let notified;
 let showInfo;
 
-function build() {
-  const cg = { id: 'cg1', name: 'Grid', versions: [{ versionId: 'v1', versionLabel: 'v1', currency: 'EUR', phases: [{ phaseName: 'P', tasks: [] }], roles: [] }] };
+function build(phases = [{ phaseName: 'P', tasks: [] }]) {
+  const cg = { id: 'cg1', name: 'Grid', versions: [{ versionId: 'v1', versionLabel: 'v1', currency: 'EUR', phases, roles: [] }] };
   const stubs = { Api: api, cgLoad: () => cg, _cgRuleNotified: notified, showInfo };
   const names = Object.keys(stubs);
   return new Function(...names, 'window', `${extractBlock(js, 'async function _cgUpsertVersionToApi(')}; return _cgUpsertVersionToApi;`)(
@@ -94,7 +94,7 @@ describe('_cgUpsertVersionToApi — no POST fallback', () => {
     await expect(build()('cg1', 'v1')).resolves.toBe(false);
     await expect(build()('cg1', 'v1')).resolves.toBe(false);
     expect(showInfo).toHaveBeenCalledTimes(1);
-    expect(showInfo.mock.calls[0]).toEqual(['Project end date (2026-07) is before its start date (2026-09). Your changes to this version are not being saved: reload the page to see its current structure.', '⚠️ Changes not saved']);
+    expect(showInfo.mock.calls[0]).toEqual(['Project end date (2026-07) is before its start date (2026-09). Your changes to this version are not being saved until this is fixed.', '⚠️ Changes not saved']);
   });
 
   it('a DATE_RULE refusal of the structure save is shown too', async () => {
@@ -102,7 +102,50 @@ describe('_cgUpsertVersionToApi — no POST fallback', () => {
     api.costGrids.versions.saveStructure.mockRejectedValue(refusal);
     await expect(build()('cg1', 'v1')).resolves.toBe(false);
     expect(showInfo).toHaveBeenCalledTimes(1);
-    expect(showInfo.mock.calls[0]).toEqual(['Task end date (2026-01-01) is before its start date (2026-02-01). Your changes to this version are not being saved: reload the page to see its current structure.', '⚠️ Changes not saved']);
+    expect(showInfo.mock.calls[0]).toEqual(['Task end date (2026-01-01) is before its start date (2026-02-01). Your changes to this version are not being saved until this is fixed.', '⚠️ Changes not saved']);
+  });
+
+  const dateRule = () => Object.assign(new Error('400'), { data: { code: 'DATE_RULE', error: 'Task "T" ends on 2026-12-31, after the project period (2026-01 – 2026-06).' } });
+
+  // W2: the version PATCH is checked against the STORED tasks, so a refused PATCH must not block the structure save.
+  it('a DATE_RULE refusal of the version PATCH still saves the structure, then retries the PATCH once', async () => {
+    api.costGrids.versions.update.mockRejectedValueOnce(dateRule());
+    await expect(build()('cg1', 'v1')).resolves.toBe(true);
+    expect(api.costGrids.versions.saveStructure).toHaveBeenCalledTimes(1);
+    expect(api.costGrids.versions.update).toHaveBeenCalledTimes(2);
+    expect(api.costGrids.versions.update.mock.invocationCallOrder[1]).toBeGreaterThan(api.costGrids.versions.saveStructure.mock.invocationCallOrder[0]);
+    expect(api.costGrids.versions.create).not.toHaveBeenCalled();
+    expect(showInfo).not.toHaveBeenCalled();
+  });
+
+  it('a DATE_RULE refusal with the structure not loaded (no structure PUT) is not retried and is shown once', async () => {
+    api.costGrids.versions.update.mockRejectedValue(dateRule());
+    await expect(build([])('cg1', 'v1')).resolves.toBe(false);
+    expect(api.costGrids.versions.saveStructure).not.toHaveBeenCalled();
+    expect(api.costGrids.versions.update).toHaveBeenCalledTimes(1);
+    expect(showInfo).toHaveBeenCalledTimes(1);
+  });
+
+  it('a DATE_RULE refusal of the PATCH followed by a refused structure save does not retry and fails', async () => {
+    api.costGrids.versions.update.mockRejectedValue(dateRule());
+    api.costGrids.versions.saveStructure.mockRejectedValue(dateRule());
+    await expect(build()('cg1', 'v1')).resolves.toBe(false);
+    expect(api.costGrids.versions.update).toHaveBeenCalledTimes(1);
+    expect(showInfo).toHaveBeenCalledTimes(1);
+  });
+
+  it('a DATE_RULE refusal that the retry repeats fails and tells the user once', async () => {
+    api.costGrids.versions.update.mockRejectedValue(dateRule());
+    await expect(build()('cg1', 'v1')).resolves.toBe(false);
+    expect(api.costGrids.versions.update).toHaveBeenCalledTimes(2);
+    expect(showInfo).toHaveBeenCalledTimes(1);
+  });
+
+  it('a non-DATE_RULE PATCH failure still skips the structure save', async () => {
+    api.costGrids.versions.update.mockRejectedValue(new Error('boom version'));
+    await expect(build()('cg1', 'v1')).resolves.toBe(false);
+    expect(api.costGrids.versions.saveStructure).not.toHaveBeenCalled();
+    expect(api.costGrids.versions.update).toHaveBeenCalledTimes(1);
   });
 
   it('any other structure failure shows no notice', async () => {

@@ -1,4 +1,4 @@
-// Server twin of js/lib/dates.js (the eight common functions must return identical results,
+// Server twin of js/lib/dates.js (the common functions must return identical results,
 // pinned by js/lib/dates-guard.test.js). Storage formats: months 'YYYYMM', days 'YYYYMMDD'.
 // All calendar arithmetic goes through Date.UTC so the host timezone never shifts a day.
 
@@ -95,6 +95,28 @@ function periodError(start, end, { kind, label }) {
   return null;
 }
 
+function taskPeriodError(start, end, periodStart, periodEnd, { label, parent }) {
+  const ps = periodStart === null || periodStart === undefined ? '' : String(periodStart).trim();
+  const pe = periodEnd === null || periodEnd === undefined ? '' : String(periodEnd).trim();
+  if ((!isEmpty(start) && !isDay(start)) || (!isEmpty(end) && !isDay(end))) return null;
+  if (isEmpty(start) && isEmpty(end)) return null;
+  const show = v => (v === '' ? '…' : isMonth(v) ? `${v.slice(0, 4)}-${v.slice(4)}` : v);
+  const range = `${show(ps)} – ${show(pe)}`;
+  if ((ps !== '' && !isMonth(ps)) || (pe !== '' && !isMonth(pe)) || (ps !== '' && pe !== '' && ps > pe)) {
+    return `The ${parent} period (${range}) is not valid: fix it before setting task dates.`;
+  }
+  const first = ps === '' ? null : monthFirstDay(ps);
+  const last = pe === '' ? null : monthLastDay(pe);
+  const s = isEmpty(start) ? null : toIso(start);
+  const e = isEmpty(end) ? null : toIso(end);
+  const out = (word, iso, dir) => `Task "${String(label || '').trim() || 'Untitled task'}" ${word} on ${iso}, ${dir} the ${parent} period (${range}).`;
+  if (s !== null && first !== null && s < first) return out('starts', s, 'before');
+  if (s !== null && last !== null && s > last) return out('starts', s, 'after');
+  if (e !== null && last !== null && e > last) return out('ends', e, 'after');
+  if (e !== null && first !== null && e < first) return out('ends', e, 'before');
+  return null;
+}
+
 // null, '' and blank-only (CHAR(6) pads with spaces) all mean "no value".
 function normalize(v) {
   if (v === null || v === undefined) return '';
@@ -113,6 +135,23 @@ function periodChangeError(body, stored, { kind, label }) {
   return periodError(start, end, { kind, label });
 }
 
+// Server only. The first stored task that sits inside the stored period but would fall outside the next
+// one: a period change is refused only for tasks it newly pushes out (already-outside tasks are tolerated).
+function periodShrinkError(tasks, stored, next, { parent }) {
+  const st = stored || {};
+  const nx = next || {};
+  for (const t of (tasks || [])) {
+    const start = normalize(t.start);
+    const end = normalize(t.end);
+    if (start === '' && end === '') continue;
+    const o = { label: t.name, parent };
+    if (taskPeriodError(start, end, st.start, st.end, o) !== null) continue;
+    const err = taskPeriodError(start, end, nx.start, nx.end, o);
+    if (err !== null) return err;
+  }
+  return null;
+}
+
 module.exports = {
   DATE_RULE,
   isLeapYear,
@@ -125,5 +164,7 @@ module.exports = {
   monthLastDay,
   isOrdered,
   periodError,
-  periodChangeError
+  periodChangeError,
+  taskPeriodError,
+  periodShrinkError
 };

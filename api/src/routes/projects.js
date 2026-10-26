@@ -5,7 +5,7 @@ const rules = require('../lib/project-rules');
 const { withVersionLock, lockVersion } = require('../lib/version-lock');
 const { sendShareNotification, sendShareRevokedEmail } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
-const { DATE_RULE, periodError, periodChangeError, toYmd } = require('../lib/dates');
+const { DATE_RULE, periodError, periodChangeError, periodShrinkError, taskPeriodError, toYmd } = require('../lib/dates');
 const { isAdminRole } = require('../lib/is-admin');
 const { enqueueProjectsQuiet } = require('../services/profile-engine');
 const { descriptionsSignature } = require('../lib/topic-extract');
@@ -225,6 +225,18 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
           { kind: 'month', label: 'project' }
         );
         if (periodErr) return res.status(400).json({ error: periodErr, code: DATE_RULE });
+        const tasks = (await query('SELECT name, start_date, end_date FROM project_tasks WHERE project_id = $1', [req.params.id]))
+          .rows.map(t => ({ name: t.name, start: t.start_date, end: t.end_date }));
+        const shrinkErr = periodShrinkError(
+          tasks,
+          { start: storedPeriod.start_date, end: storedPeriod.end_date },
+          {
+            start: req.body.startDate !== undefined ? req.body.startDate || '' : storedPeriod.start_date,
+            end: req.body.endDate !== undefined ? req.body.endDate || '' : storedPeriod.end_date,
+          },
+          { parent: 'project' }
+        );
+        if (shrinkErr) return res.status(400).json({ error: shrinkErr, code: DATE_RULE });
       }
     }
     const needsRules = req.body.currency !== undefined || req.body.cgVersionId !== undefined;
@@ -415,6 +427,13 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
     for (const t of tasks) {
       const dateErr = periodError(t?.startDate, t?.endDate, { kind: 'day', label: `task "${t?.name || ''}"` });
       if (dateErr) return res.status(400).json({ error: dateErr, code: DATE_RULE });
+    }
+
+    const { rows: [projPeriod] } = await query('SELECT start_date, end_date FROM projects WHERE id = $1', [req.params.id]);
+    for (const t of tasks) {
+      const taskErr = taskPeriodError(t?.startDate, t?.endDate, projPeriod?.start_date, projPeriod?.end_date,
+        { label: t?.name || '', parent: 'project' });
+      if (taskErr) return res.status(400).json({ error: taskErr, code: DATE_RULE });
     }
 
     const before = await query('SELECT name, description FROM project_tasks WHERE project_id = $1', [req.params.id]);

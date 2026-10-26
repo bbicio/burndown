@@ -4,7 +4,7 @@ import path from 'node:path';
 import {
   resolveRoleRate, cgComputeTaskTotals, cgComputePhaseTotals, cgComputeGrandTotals, cgComputeColumnTotals,
   versionHasFreeTasks, isVersionCommittedLocked, stripCloneTaskIds, findExistingProgramForProposal,
-  cgApiClientId, cgFreeTasksOf, cgIsTaskAssigned, cgOfferDetailsSummary, cgSectionDefaults,
+  cgApiClientId, distributeTaskHours, cgFreeTasksOf, cgIsTaskAssigned, cgOfferDetailsSummary, cgSectionDefaults,
 } from './costgrid-calc.js';
 
 describe('findExistingProgramForProposal', () => {
@@ -394,5 +394,16 @@ describe('cgGenerateProject uses cgFreeTasksOf (bug regression)', () => {
     const fn = src.match(/function cgGenerateProject\(\)\s*\{([\s\S]*?)\n\}/)?.[1] || '';
     expect(fn).toMatch(/cgFreeTasksOf/);
     expect(fn).not.toMatch(/assignedIds\.has\(t\.taskId\)/);
+  });
+});
+
+describe('distributeTaskHours', () => {
+  it('sums the hours of the task months outside the period in outside', () => {
+    expect(distributeTaskHours(10, '2026-03-15', '2026-04-10', ['2026-04', '2026-05']))
+      .toEqual({ byMonth: { '2026-04': 5 }, outside: 5 });
+  });
+  it('spreads a task without dates over every period month', () => {
+    expect(distributeTaskHours(10, '', '', ['2026-04', '2026-05']))
+      .toEqual({ byMonth: { '2026-04': 5, '2026-05': 5 }, outside: 0 });
   });
 });

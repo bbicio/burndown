@@ -9,7 +9,7 @@ const { missingLinkedTasks, STRUCTURE_RULE_CODE } = require('../lib/structure-ru
 const refuse = (res, error) => res.status(400).json({ error, code: rules.RULE_CODE });
 const { sendShareNotification, sendOwnerReassignedEmail, APP_URL } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
-const { DATE_RULE, periodError, periodChangeError, toYmd } = require('../lib/dates');
+const { DATE_RULE, periodError, periodChangeError, periodShrinkError, taskPeriodError, toYmd } = require('../lib/dates');
 const { isAdminRole } = require('../lib/is-admin');
 const { formatMoney } = require('../lib/money-format');
 
@@ -457,21 +457,41 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
 
     params.push(req.params.vId);
     const updateSql = `UPDATE cost_grid_versions SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING *`;
+    const trimmed = v => String(v ?? '').trim();
+    const periodChanged = (startDate !== undefined && trimmed(startDate) !== trimmed(locked.rows[0]?.start_date))
+      || (endDate !== undefined && trimmed(endDate) !== trimmed(locked.rows[0]?.end_date));
     let rows;
-    if (currency !== undefined) {
-      // The currency rule and the write run under the version lock, so a project cannot be linked in between.
-      const role = await liveRole(req.user.id);
+    if (currency !== undefined || periodChanged) {
+      // The currency rule, the task-period rule and the write run under the version lock, so a project cannot
+      // be linked, nor a structure saved, in between.
+      const role = currency !== undefined ? await liveRole(req.user.id) : null;
       const out = await withVersionLock(req.params.vId, async client => {
-        const stored = (await client.query('SELECT currency FROM cost_grid_versions WHERE id = $1', [req.params.vId])).rows[0];
-        const err = rules.versionCurrencyChangeError({
-          role,
-          currentCurrency: stored?.currency,
-          newCurrency: currency,
-          hasProjects: await versionHasProjects(req.params.vId, client.query.bind(client)),
-        });
-        if (err) return { err };
+        const stored = (await client.query('SELECT currency, start_date, end_date FROM cost_grid_versions WHERE id = $1', [req.params.vId])).rows[0];
+        if (currency !== undefined) {
+          const err = rules.versionCurrencyChangeError({
+            role,
+            currentCurrency: stored?.currency,
+            newCurrency: currency,
+            hasProjects: await versionHasProjects(req.params.vId, client.query.bind(client)),
+          });
+          if (err) return { err };
+        }
+        if (periodChanged) {
+          const tasks = (await client.query(
+            'SELECT t.title, t.start_date, t.end_date FROM tasks t JOIN phases p ON p.id = t.phase_id WHERE p.version_id = $1',
+            [req.params.vId]
+          )).rows.map(t => ({ name: t.title, start: t.start_date, end: t.end_date }));
+          const dateErr = periodShrinkError(
+            tasks,
+            { start: stored?.start_date, end: stored?.end_date },
+            { start: startDate !== undefined ? startDate || '' : stored?.start_date, end: endDate !== undefined ? endDate || '' : stored?.end_date },
+            { parent: 'version' }
+          );
+          if (dateErr) return { dateErr };
+        }
         return { rows: (await client.query(updateSql, params)).rows };
       });
+      if (out.dateErr) return res.status(400).json({ error: out.dateErr, code: DATE_RULE });
       if (out.err) return refuse(res, out.err);
       rows = out.rows;
     } else {
@@ -701,6 +721,17 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
     await client.query('BEGIN');
     // The version lock makes the check below and the DELETE see the same links (a link write takes it too).
     await lockVersion(client, req.params.vId);
+    const period = (await client.query('SELECT start_date, end_date FROM cost_grid_versions WHERE id = $1', [req.params.vId])).rows[0];
+    for (const ph of phases) {
+      for (const tk of (ph?.tasks || [])) {
+        const taskErr = taskPeriodError(tk?.taskStartDate || tk?.start_date, tk?.taskEndDate || tk?.end_date,
+          period?.start_date, period?.end_date, { label: tk?.taskName || tk?.title || '', parent: 'version' });
+        if (taskErr) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: taskErr, code: DATE_RULE });
+        }
+      }
+    }
     const linkedRows = await client.query(
       'SELECT task_ids FROM cg_version_projects WHERE cost_grid_version_id = $1', [req.params.vId]
     );

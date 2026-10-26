@@ -5,10 +5,13 @@ import * as web from './dates.js';
 const server = createRequire(import.meta.url)('../../api/src/lib/dates.js');
 
 const VERSION = { kind: 'month', label: 'version' };
+const TP = { label: 'T', parent: 'version' };
 const TASK = { kind: 'day', label: 'task "T1"' };
 
-// Every case of js/lib/dates.test.js for the eight functions the two twins share.
+// Every case of js/lib/dates.test.js for the nine functions the two twins share.
 const CASES = [
+  ['taskPeriodError', ['2026-01-01', '', '202609', '202612', { label: '', parent: 'project' }]],
+  ['taskPeriodError', ['2026-01-01', '', '202609', '202612', { label: '  ', parent: 'project' }]],
   ['isDay', ['20260431']], ['isDay', ['20260229']], ['isDay', ['20240229']],
   ['isDay', ['2026-04-30']], ['isDay', ['15/03/20']], ['isDay', [null]],
   ['isMonth', ['202613']], ['isMonth', ['202600']], ['isMonth', ['2026-05']],
@@ -27,7 +30,12 @@ const CASES = [
   ['periodError', ['', '202613', VERSION]],
   ['periodError', ['202607', '202609', VERSION]],
   ['periodError', ['', '', VERSION]],
-  ['periodError', ['2026-07-01', '', { kind: 'day', label: 'task' }]]
+  ['periodError', ['2026-07-01', '', { kind: 'day', label: 'task' }]],
+  ['taskPeriodError', ['2026-05-01', '2026-06-01', '202604', '202612', TP]],
+  ['taskPeriodError', ['2026-03-01', '', '202604', '202612', TP]],
+  ['taskPeriodError', ['', '2027-01-01', '202604', '202612', TP]],
+  ['taskPeriodError', ['2026-08-01', '', '202609', '202607', TP]],
+  ['taskPeriodError', ['', '', '202604', '202612', TP]]
 ];
 
 describe('twins agree', () => {
@@ -35,7 +43,8 @@ describe('twins agree', () => {
     expect(server[fn](...args)).toEqual(web[fn](...args));
   });
   it('the server twin does not export the browser-only text functions', () => {
-    ['parseDayText', 'formatDayText', 'parseMonthText', 'formatMonthText', 'parseDateInput', 'isWithin']
+    ['parseDayText', 'formatDayText', 'parseMonthText', 'formatMonthText', 'parseDateInput', 'isWithin',
+      'taskDateBounds', 'periodBounds', 'outOfPeriodTasks']
       .forEach(n => expect(server[n]).toBeUndefined());
   });
 });
@@ -136,7 +145,7 @@ describe('portfolio custom range', () => {
   });
 
   it('loads the picker assets', () => {
-    for (const s of ['css/controls.css?v=1', 'js/lib/dates.js?v=3', 'js/lib/cg-controls-calc.js?v=2', 'js/cg-controls.js?v=5']) {
+    for (const s of ['css/controls.css?v=1', 'js/lib/dates.js?v=4', 'js/lib/cg-controls-calc.js?v=2', 'js/cg-controls.js?v=5']) {
       expect(html, s).toContain(s);
     }
   });

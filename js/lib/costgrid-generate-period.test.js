@@ -17,6 +17,11 @@ describe('cgGeneratedPeriod', () => {
   it('an ordered version period is unchanged', () => {
     expect(gen({ startDate: '202602', endDate: '202612' }, [], now)).toEqual({ projStart: '202602', projEnd: '202612' });
   });
+  it('derives the period from ALL task dates, so a task with a start and no end stays inside it', () => {
+    const tasks = [{ taskStartDate: '2026-05-01', taskEndDate: '2026-06-30' }, { taskStartDate: '2026-09-01', taskEndDate: '' }];
+    expect(gen({}, tasks, now)).toEqual({ projStart: '202605', projEnd: '202609' });
+    expect(gen({}, [{ taskStartDate: '', taskEndDate: '2026-03-10' }, { taskStartDate: '2026-04-02', taskEndDate: '' }], now)).toEqual({ projStart: '202603', projEnd: '202604' });
+  });
   it('falls back to task dates, then to now / now + 12 months', () => {
     expect(gen({}, [{ taskStartDate: '2026-11-05', taskEndDate: '2027-02-01' }], now)).toEqual({ projStart: '202611', projEnd: '202702' });
     expect(gen({}, [], now)).toEqual({ projStart: '202610', projEnd: '202710' });

@@ -167,7 +167,8 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
     if (_cgRuleNotified.has(versionId) || typeof showInfo !== 'function') return;
     _cgRuleNotified.add(versionId);
     const msg = String(e.data.error || '');
-    showInfo(`${/[.!?]$/.test(msg) ? msg : msg + '.'} Your changes to this version are not being saved: reload the page to see its current structure.`, '⚠️ Changes not saved');
+    const tail = e.data.code === 'DATE_RULE' ? ' until this is fixed' : ': reload the page to see its current structure';
+    showInfo(`${/[.!?]$/.test(msg) ? msg : msg + '.'} Your changes to this version are not being saved${tail}.`, '⚠️ Changes not saved');
   };
 
   // Upsert the grid itself (name)
@@ -191,28 +192,46 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
     ratecardId:     meta.ratecardId  || null,
     clientId: (meta.clientId && meta.clientId !== '__unassigned__') ? meta.clientId : null,
   };
+  // A DATE_RULE refusal is checked against the STORED tasks, so the structure is still saved (the server checks it
+  // against the stored period) and the PATCH retried once: a save that moves a task inward and shrinks the period
+  // would otherwise be refused forever. A refused PATCH is never retried as a POST.
+  let metaRefusal = null;
   try {
     await Api.costGrids.versions.update(cgId, versionId, serverMeta);
   } catch (e) {
     console.warn('[sync] version upsert failed:', e.message);
     if (strict) throw e;
-    if (e.data?.code === 'DATE_RULE') notifyRefusal(e);
-    return false;
+    if (e.data?.code !== 'DATE_RULE') return false;
+    metaRefusal = e;
   }
 
   // Save phase/task/role structure only if it was explicitly loaded this session.
   // If phases is empty here, the structure was never loaded — don't wipe existing DB data.
+  let structureSaved = false;
   if (phases && phases.length > 0) {
     try {
       await Api.costGrids.versions.saveStructure(cgId, versionId, {
         phases,
         roles: roles || [],
       });
+      structureSaved = true;
     } catch (e) {
       console.warn('[sync] structure save failed:', e.message);
       if (strict) throw e;
       allOk = false;
       if (e.data?.code === 'STRUCTURE_RULE' || e.data?.code === 'DATE_RULE') notifyRefusal(e);
+      if (metaRefusal) { notifyRefusal(metaRefusal); return false; }
+    }
+  }
+  // Retry only after a structure PUT that ran and succeeded: otherwise the same payload meets the same refusal.
+  if (metaRefusal && !structureSaved) { notifyRefusal(metaRefusal); return false; }
+  if (metaRefusal) {
+    try {
+      await Api.costGrids.versions.update(cgId, versionId, serverMeta);
+    } catch (e) {
+      console.warn('[sync] version upsert retry failed:', e.message);
+      if (e.data?.code === 'DATE_RULE') notifyRefusal(e);
+      return false;
     }
   }
   return allOk;
