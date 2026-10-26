@@ -44,7 +44,37 @@ export function cgSectionDefaults(isDraft) {
     : { od: true, tags: true, sh: true };
 }
 
+// ── TASK HOURS PER MONTH (dates C3) ───────────────────────────────────────────
+// Spreads a task's hours evenly over the months it spans (all of `months` when it has no dates).
+// Hours that fall in months outside `months` (the proposal period) are summed in `outside`.
+export function distributeTaskHours(hours, taskStart, taskEnd, months) {
+  const byMonth = {};
+  let outside = 0;
+  let span;
+  if (taskStart && taskEnd && taskStart.length >= 7) {
+    const tsy = parseInt(taskStart.slice(0, 4)), tsm = parseInt(taskStart.slice(5, 7));
+    const tey = parseInt(taskEnd.slice(0, 4)), tem = parseInt(taskEnd.slice(5, 7));
+    span = [];
+    let ty = tsy, tm = tsm;
+    while (ty < tey || (ty === tey && tm <= tem)) {
+      span.push(`${ty}-${String(tm).padStart(2, '0')}`);
+      if (++tm > 12) { tm = 1; ty++; }
+    }
+  } else {
+    span = months;
+  }
+  if (!span.length) return { byMonth, outside };
+  const hpp = parseFloat(hours) / span.length;
+  const first = months[0], last = months[months.length - 1];
+  for (const mo of span) {
+    if (mo >= first && mo <= last) byMonth[mo] = (byMonth[mo] || 0) + hpp;
+    else outside += hpp;
+  }
+  return { byMonth, outside };
+}
+
 window.cgIsTaskAssigned = cgIsTaskAssigned;
+window.distributeTaskHours = distributeTaskHours;
 window.cgFreeTasksOf = cgFreeTasksOf;
 window.versionHasFreeTasks = versionHasFreeTasks;
 window.isVersionCommittedLocked = isVersionCommittedLocked;

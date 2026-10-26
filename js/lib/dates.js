@@ -240,4 +240,8 @@ if (typeof window !== 'undefined') {
   window.formatMonthText = formatMonthText;
   window.parseDateInput = parseDateInput;
   window.isWithin = isWithin;
+  window.taskPeriodError = taskPeriodError;
+  window.taskDateBounds = taskDateBounds;
+  window.periodBounds = periodBounds;
+  window.outOfPeriodTasks = outOfPeriodTasks;
 }

@@ -81,7 +81,11 @@
       <svg class="cg-banner-icon" viewBox="0 0 16 16" width="14" height="14" fill="none"><path d="M4 7V5a4 4 0 1 1 8 0v2M3.5 7h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3"/></svg>
       <span class="fw-semibold">{{ lockState.message }}</span>
     </div>
-    <div v-else-if="isDraft" class="cg-banner cg-banner--draft">
+    <div v-if="outOfPeriod.length && !isReadOnly" class="cg-banner cg-banner--warning">
+      <svg class="cg-banner-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true"><path d="M8 2l6.5 11.5h-13L8 2zM8 6.5v3M8 11.6v.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="fw-semibold">{{ outOfPeriodMessage }}</span>
+    </div>
+    <div v-if="!isLocked && isDraft" class="cg-banner cg-banner--draft">
       <span class="fw-semibold">Draft — private to you. Publish to make it visible in the shared pipeline.</span>
       <button type="button" class="cg-banner-delete-link" @click="deleteVersion" title="Delete this Draft version">Delete version</button>
     </div>
@@ -138,14 +142,14 @@
                 <div class="col-6">
                   <label class="form-label small fw-semibold mb-1">Start month</label>
                   <cg-date-picker mode="month" :model-value="draft.startDate || ''" aria-label="Start month"
-                                  :max="draft.endDate || ''"
+                                  :max="periodStartBounds.max"
                                   :disabled="isReadOnly"
                                   @update:model-value="onPeriodChange('startDate', $event)"></cg-date-picker>
                 </div>
                 <div class="col-6">
                   <label class="form-label small fw-semibold mb-1">End month</label>
                   <cg-date-picker mode="month" :model-value="draft.endDate || ''" aria-label="End month"
-                                  :min="draft.startDate || ''"
+                                  :min="periodEndBounds.min"
                                   :disabled="isReadOnly"
                                   @update:model-value="onPeriodChange('endDate', $event)"></cg-date-picker>
                 </div>
@@ -397,18 +401,19 @@
                       <div class="d-flex align-items-center gap-1 cg-task-date">
                         <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">From</span>
                         <cg-date-picker mode="day" :model-value="task.taskStartDate || ''" aria-label="Task start date"
-                                        :max="task.taskEndDate || ''"
+                                        :min="taskDateBounds(task, 'start').min" :max="taskDateBounds(task, 'start').max"
                                         :disabled="isReadOnly"
                                         @update:model-value="onTaskDateChange(task, 'taskStartDate', $event)"></cg-date-picker>
                       </div>
                       <div class="d-flex align-items-center gap-1 cg-task-date">
                         <span class="text-muted" style="font-size:var(--text-xs);white-space:nowrap">To</span>
                         <cg-date-picker mode="day" :model-value="task.taskEndDate || ''" aria-label="Task end date"
-                                        :min="task.taskStartDate || ''"
+                                        :min="taskDateBounds(task, 'end').min" :max="taskDateBounds(task, 'end').max"
                                         :disabled="isReadOnly"
                                         @update:model-value="onTaskDateChange(task, 'taskEndDate', $event)"></cg-date-picker>
                       </div>
                     </div>
+                    <div v-if="isTaskOutOfPeriod(task)" class="text-danger" style="font-size:var(--text-xs)">Outside the proposal period</div>
                   </td>
                   <td class="cg-task-desc-cell">
                     <textarea class="cg-task-desc" rows="2" placeholder="Description…" v-model="task.taskDescription" :disabled="isReadOnly" @change="cgScheduleAutoSave()"></textarea>
@@ -538,6 +543,7 @@
             </tbody>
           </table>
         </div>
+        <div v-if="phasingMonths.length && phasingByMonth.outsideHours > 0" class="cg-phasing-empty">{{ phasingFmtHours(phasingByMonth.outsideHours) }} · {{ phasingFmtAmount(phasingByMonth.outsideAmount) }} fall outside the proposal period and are not phased.</div>
       </div>
     </div>
   </template>
@@ -753,7 +759,7 @@
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
-<script type="module" src="js/lib/costgrid-calc.js?v=8"></script>
+<script type="module" src="js/lib/costgrid-calc.js?v=9"></script>
 <script type="module" src="js/lib/dates.js?v=4"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
@@ -1021,41 +1027,49 @@ Vue.createApp({
     },
     phasingByMonth() {
       const months = this.phasingMonths;
-      if (!months.length) return { hours: {}, amount: {} };
-      const distribute = (hrs, taskStart, taskEnd) => {
-        let allMonths;
-        if (taskStart && taskEnd && taskStart.length >= 7) {
-          const tsy = parseInt(taskStart.slice(0, 4)), tsm = parseInt(taskStart.slice(5, 7));
-          const tey = parseInt(taskEnd.slice(0, 4)), tem = parseInt(taskEnd.slice(5, 7));
-          allMonths = [];
-          let ty = tsy, tm = tsm;
-          while (ty < tey || (ty === tey && tm <= tem)) {
-            allMonths.push(`${ty}-${String(tm).padStart(2, '0')}`);
-            if (++tm > 12) { tm = 1; ty++; }
-          }
-        } else {
-          allMonths = months;
-        }
-        if (!allMonths.length) return {};
-        const hpp = parseFloat(hrs) / allMonths.length;
-        const result = {};
-        for (const mo of allMonths) if (mo >= months[0] && mo <= months[months.length - 1]) result[mo] = (result[mo] || 0) + hpp;
-        return result;
-      };
+      if (!months.length) return { hours: {}, amount: {}, outsideHours: 0, outsideAmount: 0 };
       const monthHours = {}, monthAmount = {};
+      let outsideHours = 0, outsideAmount = 0;
       months.forEach(mo => { monthHours[mo] = 0; monthAmount[mo] = 0; });
       (this.draft.phases || []).forEach(ph => (ph.tasks || []).forEach(task => {
         (this.draft.roles || []).forEach(r => {
           const h = parseFloat(task.hours[r.roleCode]) || 0;
           if (!h) return;
-          const dist = distribute(h, task.taskStartDate, task.taskEndDate);
-          for (const [mo, hh] of Object.entries(dist)) {
+          const dist = window.distributeTaskHours(h, task.taskStartDate, task.taskEndDate, months);
+          for (const [mo, hh] of Object.entries(dist.byMonth)) {
             if (mo in monthHours) { monthHours[mo] += hh; monthAmount[mo] += hh * (r.rate || 0); }
           }
+          outsideHours += dist.outside;
+          outsideAmount += dist.outside * (r.rate || 0);
         });
       }));
-      return { hours: monthHours, amount: monthAmount };
+      return { hours: monthHours, amount: monthAmount, outsideHours, outsideAmount };
     },
+    // Dates C3: tasks that leave the version period, and the banner text built from them.
+    outOfPeriod() {
+      const d = this.draft;
+      if (!d) return [];
+      const tasks = (d.phases || []).flatMap(ph => (ph.tasks || []).map(t => ({
+        name: t.taskName || 'Untitled task', start: t.taskStartDate, end: t.taskEndDate,
+      })));
+      return window.outOfPeriodTasks(tasks, d.startDate, d.endDate, 'version');
+    },
+    outOfPeriodMessage() {
+      const list = this.outOfPeriod;
+      if (!list.length) return '';
+      const d = this.draft;
+      const valid = window.isMonth(d.startDate) && window.isMonth(d.endDate) && d.startDate <= d.endDate;
+      if (!valid) return list[0].error;
+      const n = list.length;
+      return n + ' ' + (n === 1 ? 'task is' : 'tasks are') + ' outside the proposal period ('
+        + window.formatMonthText(d.startDate) + ' – ' +window.formatMonthText(d.endDate)
+        + '). Changes to this version are not saved until they are moved inside it or the period is widened.';
+    },
+    periodTaskDates() {
+      return (this.draft?.phases || []).flatMap(ph => (ph.tasks || []).flatMap(t => [t.taskStartDate, t.taskEndDate]));
+    },
+    periodStartBounds() { return window.periodBounds(this.periodTaskDates, 'start', this.draft?.endDate || ''); },
+    periodEndBounds() { return window.periodBounds(this.periodTaskDates, 'end', this.draft?.startDate || ''); },
     phasingTotals() {
       const { hours, amount } = this.phasingByMonth;
       const months = this.phasingMonths;
@@ -1789,6 +1803,14 @@ Vue.createApp({
     },
     phasingFmtAmount(n) { return window.formatMoney(n, this.draft.currency || 'EUR', window.__currencies, { rounded: true }); },
     phasingFmtHours(n) { return fmtH(n); },
+    taskDateBounds(task, side) {
+      const twin = side === 'start' ? task.taskEndDate : task.taskStartDate;
+      return window.taskDateBounds(this.draft?.startDate, this.draft?.endDate, twin || '', side);
+    },
+    isTaskOutOfPeriod(task) {
+      return window.taskPeriodError(task.taskStartDate, task.taskEndDate, this.draft?.startDate, this.draft?.endDate,
+        { label: task.taskName || 'Untitled task', parent: 'version' }) !== null;
+    },
     phasingFmtMonth(mo) {
       const [my, mm] = mo.split('-');
       return new Date(parseInt(my), parseInt(mm) - 1).toLocaleString('en', { month: 'short' }) + ' ' + my;
