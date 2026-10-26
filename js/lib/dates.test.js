@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   isMonth, isDay, toYmd, toIso, monthFirstDay, monthLastDay, isOrdered, periodError,
-  parseDayText, formatDayText, parseMonthText, formatMonthText, parseDateInput, isWithin
+  parseDayText, formatDayText, parseMonthText, formatMonthText, parseDateInput, isWithin,
+  taskPeriodError, taskDateBounds, periodBounds, outOfPeriodTasks
 } from './dates.js';
 
 describe('isDay / isMonth', () => {
@@ -119,5 +120,63 @@ describe('isWithin', () => {
     expect(isWithin('202607', '202601', '202607')).toBe(true);
     expect(isWithin('202607', '', '')).toBe(true);
     expect(isWithin('202601', '202602', undefined)).toBe(false);
+  });
+});
+
+describe('taskPeriodError', () => {
+  const o = { label: 'T', parent: 'version' };
+  it('accepts empty and in-period dates', () => {
+    expect(taskPeriodError('', '', '202604', '202612', o)).toBeNull();
+    expect(taskPeriodError('2026-04-01', '2026-12-31', '202604', '202612', o)).toBeNull();
+    expect(taskPeriodError('2026-05-01', '2026-05-02', '202604', '', o)).toBeNull();
+  });
+  it('reports the first side that leaves the period', () => {
+    expect(taskPeriodError('2026-03-31', '', '202604', '202612', o))
+      .toBe('Task "T" starts on 2026-03-31, before the version period (2026-04 – 2026-12).');
+    expect(taskPeriodError('2027-01-05', '', '202604', '202612', o))
+      .toBe('Task "T" starts on 2027-01-05, after the version period (2026-04 – 2026-12).');
+    expect(taskPeriodError('', '20270101', '202604', '202612', o))
+      .toBe('Task "T" ends on 2027-01-01, after the version period (2026-04 – 2026-12).');
+    expect(taskPeriodError('', '2026-03-01', '202604 ', '202612 ', o))
+      .toBe('Task "T" ends on 2026-03-01, before the version period (2026-04 – 2026-12).');
+  });
+  it('shows an empty period side as an ellipsis', () => {
+    expect(taskPeriodError('2026-03-01', '', '202604', '', o))
+      .toBe('Task "T" starts on 2026-03-01, before the version period (2026-04 – …).');
+  });
+  it('refuses task dates against an inverted period, ignores it without dates', () => {
+    expect(taskPeriodError('2026-08-01', '', '202609', '202607', o))
+      .toBe('The version period (2026-09 – 2026-07) is not valid: fix it before setting task dates.');
+    expect(taskPeriodError('', '', '202609', '202607', o)).toBeNull();
+  });
+  it('leaves an invalid task date to periodError', () => {
+    expect(taskPeriodError('2026-02-31', '', '202604', '202612', o)).toBeNull();
+  });
+});
+
+describe('taskDateBounds', () => {
+  it('bounds a task date by the period and its twin', () => {
+    expect(taskDateBounds('202604', '202612', '2026-06-10', 'start')).toEqual({ min: '2026-04-01', max: '2026-06-10' });
+    expect(taskDateBounds('202604', '202612', '', 'end')).toEqual({ min: '2026-04-01', max: '2026-12-31' });
+    expect(taskDateBounds('', '', '', 'start')).toEqual({ min: '', max: '' });
+  });
+});
+
+describe('periodBounds', () => {
+  it('bounds a period side by the task dates and its twin', () => {
+    expect(periodBounds(['2026-03-03', '20260820'], 'start', '202612')).toEqual({ min: '', max: '202603' });
+    expect(periodBounds(['2026-03-03', '20260820'], 'end', '202602')).toEqual({ min: '202608', max: '' });
+    expect(periodBounds(['2026-07-01', '2026-08-31'], 'start', '202607').max).toBe('202607');
+    expect(periodBounds([], 'end', '202604')).toEqual({ min: '202604', max: '' });
+    expect(periodBounds(['', null], 'start', 'bad')).toEqual({ min: '', max: '' });
+  });
+});
+
+describe('outOfPeriodTasks', () => {
+  it('returns only the tasks outside the period', () => {
+    const tasks = [{ name: 'A', start: '2026-05-01', end: '2026-05-02' }, { name: 'B', start: '2026-01-01', end: '' }];
+    expect(outOfPeriodTasks(tasks, '202604', '202612', 'version')).toEqual([
+      { name: 'B', error: 'Task "B" starts on 2026-01-01, before the version period (2026-04 – 2026-12).' }
+    ]);
   });
 });
