@@ -135,6 +135,23 @@ function periodChangeError(body, stored, { kind, label }) {
   return periodError(start, end, { kind, label });
 }
 
+// Server only. The first stored task that sits inside the stored period but would fall outside the next
+// one: a period change is refused only for tasks it newly pushes out (already-outside tasks are tolerated).
+function periodShrinkError(tasks, stored, next, { parent }) {
+  const st = stored || {};
+  const nx = next || {};
+  for (const t of (tasks || [])) {
+    const start = normalize(t.start);
+    const end = normalize(t.end);
+    if (start === '' && end === '') continue;
+    const o = { label: t.name, parent };
+    if (taskPeriodError(start, end, st.start, st.end, o) !== null) continue;
+    const err = taskPeriodError(start, end, nx.start, nx.end, o);
+    if (err !== null) return err;
+  }
+  return null;
+}
+
 module.exports = {
   DATE_RULE,
   isLeapYear,
@@ -148,5 +165,6 @@ module.exports = {
   isOrdered,
   periodError,
   periodChangeError,
-  taskPeriodError
+  taskPeriodError,
+  periodShrinkError
 };

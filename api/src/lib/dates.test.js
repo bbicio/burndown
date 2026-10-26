@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { periodChangeError, DATE_RULE, isValidCalendarDate, taskPeriodError } = require('./dates');
+const { periodChangeError, DATE_RULE, isValidCalendarDate, taskPeriodError, periodShrinkError } = require('./dates');
 
 const V = { kind: 'month', label: 'version' };
 
@@ -52,5 +52,29 @@ test('taskPeriodError accepts a task inside the period and refuses one outside',
   assert.equal(
     taskPeriodError('2026-03-01', '', '202604', '202612', o),
     'Task "T" starts on 2026-03-01, before the project period (2026-04 – 2026-12).'
+  );
+});
+
+test('periodShrinkError names the first task the new period pushes out', () => {
+  const tasks = [{ name: 'A', start: '20260501', end: '20260601' }, { name: 'B', start: '20260410', end: '' }];
+  const stored = { start: '202604', end: '202612' };
+  assert.equal(
+    periodShrinkError(tasks, stored, { start: '202605', end: '202612' }, { parent: 'version' }),
+    'Task "B" starts on 2026-04-10, before the version period (2026-05 – 2026-12).'
+  );
+  assert.equal(periodShrinkError(tasks, stored, { start: '202603', end: '202612' }, { parent: 'version' }), null);
+});
+
+test('periodShrinkError ignores tasks already outside the stored period and tasks without dates', () => {
+  const stored = { start: '202604', end: '202612' };
+  const tasks = [{ name: 'Out', start: '20260301', end: '' }, { name: 'None', start: '', end: null }];
+  assert.equal(periodShrinkError(tasks, stored, { start: '202605', end: '202612' }, { parent: 'project' }), null);
+});
+
+test('periodShrinkError treats an inverted stored period as no baseline', () => {
+  const tasks = [{ name: 'A', start: '2026-08-01', end: '' }];
+  assert.equal(
+    periodShrinkError(tasks, { start: '202609', end: '202607' }, { start: '202608', end: '202612' }, { parent: 'version' }),
+    null
   );
 });

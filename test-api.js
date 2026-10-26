@@ -2309,8 +2309,8 @@ async function testPlanningAssistant() {
   const resId = rRes.data?.id;
   if (resId) later('DELETE', `/api/resources/${resId}`);
 
-  const mkProject = async (code, name, tasks) => {
-    const r = await api('POST', '/api/projects', { name, code, startDate: '209901', endDate: '209903' }, sysadminCookie);
+  const mkProject = async (code, name, tasks, startDate = '209901') => {
+    const r = await api('POST', '/api/projects', { name, code, startDate, endDate: '209903' }, sysadminCookie);
     const id = r.data?.id;
     if (id) { later('DELETE', `/api/projects/${id}`); await api('PUT', `/api/projects/${id}/tasks`, tasks, adminCookie); }
     return id;
@@ -2320,7 +2320,7 @@ async function testPlanningAssistant() {
 
   const histCode = `TPAH${ts}`, targetCode = `TPAT${ts}`, loadCode = `TPAL${ts}`;
   // the history project ended long ago: it feeds the profile but must not add planned load in 2099
-  const hist = await mkProject(histCode, `__pa_hist_${ts}__`, task('Data analysis', 100, ['20980105', '20980630']));
+  const hist = await mkProject(histCode, `__pa_hist_${ts}__`, task('Data analysis', 100, ['20980105', '20980630']), '209801');
   const target = await mkProject(targetCode, `__pa_target_${ts}__`, task('Data analysis', 120));
   later('DELETE', `/api/timesheets/${histCode}`);
   if (!ok(!!(resId && hist && target), 'PA-setup resource and projects created')) return;
@@ -2720,6 +2720,87 @@ async function testDateRule() {
     `DT-11 timesheet upload with date 2026-13-45 → 400 naming row 2 and the invalid date (got ${r11.status}: ${r11.data?.error})`);
 }
 
+// ── Task dates inside the period (2026-10-26) ──────────────────────────────────
+
+// TP-01..TP-06: a task date outside the version/project period is refused, and so is a period change that pushes a task out.
+async function testTaskPeriod() {
+  section('Task dates inside the period');
+
+  const rpy = await api('POST', '/api/pipeline-years', { year: TEST_YEAR_C }, adminCookie);
+  if (![201, 409].includes(rpy.status)) { ok(false, 'TP-setup pipeline year unavailable'); return; }
+  if (rpy.status === 201 && rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
+
+  // Registered first, so cleanup (reverse order) deletes the project before the proposal.
+  const rcg = await api('POST', '/api/cost-grids', { name: '__test_tp_cg__', pipelineYear: TEST_YEAR_C }, adminCookie);
+  const cgId = rcg.data?.id;
+  if (cgId) later('DELETE', `/api/cost-grids/${cgId}`);
+  const mk = async label => (cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label }, adminCookie)).data?.id : null);
+  const vId = await mk('v1');
+  if (!ok(!!(cgId && vId), 'TP-setup proposal with a version')) return;
+  const base = `/api/cost-grids/${cgId}/versions/${vId}`;
+  const isRule = r => r.status === 400 && r.data?.code === 'DATE_RULE';
+  const setPeriod = await api('PATCH', base, { startDate: '202604', endDate: '202612' }, adminCookie);
+  if (!ok(setPeriod.status === 200, `TP-setup version period 202604-202612 (got ${setPeriod.status})`)) return;
+
+  const gen = await api('POST', '/api/projects', { name: '__test_tp_proj__', cgVersionId: vId, currency: 'EUR', startDate: '202604', endDate: '202612' }, adminCookie);
+  const pId = gen.data?.id;
+  if (pId) later('DELETE', `/api/projects/${pId}`);
+  if (!ok(gen.status === 201 && !!pId, `TP-setup project with period 202604-202612 (got ${gen.status})`)) return;
+
+  const put = (b, phases) => api('PUT', `${b}/structure`, { phases }, adminCookie);
+  const titles = async () => ((await api('GET', `${base}/structure`, null, adminCookie)).data?.phases || [])
+    .flatMap(p => p.tasks.map(t => t.title)).sort().join(',');
+  const vPeriod = async () => {
+    const v = ((await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || []).find(x => x.id === vId);
+    return `${String(v?.start_date || '').trim()}|${String(v?.end_date || '').trim()}`;
+  };
+
+  // TP-01 / TP-02: PUT structure
+  const s0 = await put(base, [{ title: 'P1', tasks: [{ title: 'Keep' }] }]);
+  ok(s0.status === 200 && await titles() === 'Keep', 'TP-setup structure with one task saved');
+  const r1 = await put(base, [{ title: 'P1', tasks: [{ title: 'Early', taskStartDate: '2026-03-31' }] }]);
+  ok(isRule(r1), `TP-01 structure with a task before the version period → 400 DATE_RULE (got ${r1.status})`);
+  ok(await titles() === 'Keep', 'TP-01 the refused structure left the stored one unchanged');
+  const r2 = await put(base, [{ title: 'P1', tasks: [{ title: 'NoDates' }, { title: 'Edge', taskStartDate: '2026-04-01', taskEndDate: '2026-12-31' }] }]);
+  ok(r2.status === 200, `TP-02 structure with an undated task and one on the period edges → 200 (got ${r2.status})`);
+
+  // TP-03: PUT project tasks
+  const tasksPath = `/api/projects/${pId}/tasks`;
+  const names = async () => ((await api('GET', tasksPath, null, adminCookie)).data || []).map(t => t.name).sort().join(',');
+  const t0 = await api('PUT', tasksPath, [{ name: 'Keep' }], adminCookie);
+  ok(t0.status === 200 && await names() === 'Keep', 'TP-setup project tasks saved');
+  const r3 = await api('PUT', tasksPath, [{ name: 'Late', startDate: '20270105' }], adminCookie);
+  ok(isRule(r3), `TP-03 project tasks with a task after the project period → 400 DATE_RULE (got ${r3.status})`);
+  ok(await names() === 'Keep', 'TP-03 the refused PUT left the project tasks unchanged');
+  const r3b = await api('PUT', tasksPath, [{ name: 'Inside', startDate: '20260410' }, { name: 'Aug', startDate: '20260801' }], adminCookie);
+  ok(r3b.status === 200, `TP-03 project tasks inside the project period → 200 (got ${r3b.status})`);
+
+  // TP-04: version PATCH shrinking the period under a task (the TP-02 task starts on 2026-04-01)
+  const p4 = await api('PATCH', base, { startDate: '202605', endDate: '202612' }, adminCookie);
+  ok(isRule(p4), `TP-04 version PATCH pushing a task out of the period → 400 DATE_RULE (got ${p4.status})`);
+  ok(await vPeriod() === '202604|202612', 'TP-04 the refused PATCH left the version period unchanged');
+  const p4b = await api('PATCH', base, { startDate: '202603', endDate: '202612' }, adminCookie);
+  ok(p4b.status === 200, `TP-04 version PATCH widening the period → 200 (got ${p4b.status})`);
+  const p4c = await api('PATCH', base, { startDate: '202603', endDate: '202612' }, adminCookie);
+  ok(p4c.status === 200, `TP-04 version PATCH re-sending the same period → 200 (got ${p4c.status})`);
+
+  // TP-05: project PATCH shrinking the period under a task (the TP-03 task on 2026-08-01)
+  const p5 = await api('PATCH', `/api/projects/${pId}`, { endDate: '202605' }, adminCookie);
+  ok(isRule(p5), `TP-05 project PATCH pushing a task out of the period → 400 DATE_RULE (got ${p5.status})`);
+  const p5b = await api('PATCH', `/api/projects/${pId}`, { endDate: '202701' }, adminCookie);
+  ok(p5b.status === 200, `TP-05 project PATCH widening the period → 200 (got ${p5b.status})`);
+
+  // TP-06: a version without a period has no limits; giving it one that excludes a task is refused
+  const v6 = await mk('v-noperiod');
+  const base6 = `/api/cost-grids/${cgId}/versions/${v6}`;
+  const s6 = await put(base6, [{ title: 'P1', tasks: [{ title: 'July', taskStartDate: '2026-07-01' }] }]);
+  ok(s6.status === 200, `TP-06 setup: a task on a version without period → 200 (got ${s6.status})`);
+  const p6 = await api('PATCH', base6, { startDate: '202608', endDate: '202612' }, adminCookie);
+  ok(isRule(p6), `TP-06 first period that excludes a task → 400 DATE_RULE (got ${p6.status})`);
+  const p6b = await api('PATCH', base6, { startDate: '202607', endDate: '202612' }, adminCookie);
+  ok(p6b.status === 200, `TP-06 first period that includes the task → 200 (got ${p6b.status})`);
+}
+
 async function testProjectCurrencyLock() {
   section('Project currency lock');
   if (!sysadminCookie) { ok(false, 'PR-setup sysadmin account unavailable'); return; }
@@ -3052,6 +3133,7 @@ async function main() {
     await testProjectCurrencyLock();
     await testStructureRule();
     await testDateRule();
+    await testTaskPeriod();
     await testTimesheetsNoActuals();
     await testProjectDescriptions();
     await testTopicsApi();
