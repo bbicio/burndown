@@ -47,6 +47,18 @@ describe('copying tasks outside the project period', () => {
     expect(api.costGrids.versions.linkedProjects.add).not.toHaveBeenCalled();
   });
 
+  it('cgDoAddTasksToProject refuses when the project already holds an out-of-period task', async () => {
+    config.projects[0].tasks = [{ name: 'Old stray', startDate: '20260101', endDate: '20260110' }];
+    const before = JSON.stringify([config.projects, draft.linkedProjects]);
+    await build().add('p1', ['t2']);
+    expect(showInfo).toHaveBeenCalledTimes(1);
+    expect(showInfo.mock.calls[0][0]).toContain('"Old stray"');
+    expect(showInfo.mock.calls[0][0]).not.toContain('"Fine task"');
+    expect(JSON.stringify([config.projects, draft.linkedProjects])).toBe(before);
+    expect(push).not.toHaveBeenCalled();
+    expect(api.costGrids.versions.linkedProjects.add).not.toHaveBeenCalled();
+  });
+
   it('cgDoAddTasksToProject copies tasks that fit', async () => {
     await build().add('p1', ['t2']);
     expect(showInfo).not.toHaveBeenCalled();

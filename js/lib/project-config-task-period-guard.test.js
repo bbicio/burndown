@@ -29,7 +29,9 @@ describe('project-config task period bindings', () => {
   });
 
   it('shows the per-task warning, the notice near Save and the derive line', () => {
-    expect(html).toContain('Outside the project period');
+    expect(html).toContain('>Outside the project period</');
+    expect(html).toContain("' outside the project period (' +");
+    expect(html).toContain('Changes to this project are not saved');
     expect(html).toMatch(/v-if="outOfPeriod\.length && !isViewer"/);
     expect(html).toContain('Outside the project period, not distributed');
   });

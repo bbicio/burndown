@@ -81,7 +81,7 @@ function cgGeneratedPeriod(v, selTasks, now) {
 function cgOutOfPeriodNotice(tasks, periodStart, periodEnd) {
   const bad = window.outOfPeriodTasks(tasks.map(t => ({ name: t.name, start: t.startDate, end: t.endDate })), periodStart, periodEnd, 'project');
   if (!bad.length) return '';
-  return `These tasks are outside the project period (${window.formatMonthText(periodStart)} – ${window.formatMonthText(periodEnd)}): ${bad.map(b => `"${b.name}"`).join(', ')}. Move them inside it first.`;
+  return `These tasks are outside the project period (${periodStart ? window.formatMonthText(periodStart) : '…'} – ${periodEnd ? window.formatMonthText(periodEnd) : '…'}): ${bad.map(b => `"${b.name}"`).join(', ')}. Move them inside it first.`;
 }
 
 // ── VERSION LOCK STATE & LIVE BADGE ──────────────────────────────────────────
@@ -1120,7 +1120,9 @@ async function cgDoAddTasksToProject(projId, selectedTaskIds) {
     });
   });
 
-  const refusal = cgOutOfPeriodNotice(newTasks, proj.startDate, proj.endDate);
+  // The push sends ALL the project's tasks and the server refuses the whole list for one out-of-period task,
+  // so the check covers the tasks the project already holds too.
+  const refusal = cgOutOfPeriodNotice([...(proj.tasks || []), ...newTasks], proj.startDate, proj.endDate);
   if (refusal) { showInfo(refusal); return; }
 
   // Append tasks to project in memory and push to API

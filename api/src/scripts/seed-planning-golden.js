@@ -82,7 +82,7 @@ async function main() {
     { name: 'Docs',   startDate: compact(plus(10)), endDate: compact(plus(60)), resources: [{ role: 'GOLDT2 - QA', soldHours: 24 }] },  // tiny h/week -> pulse
     { name: 'Legacy', completed: true, resources: [{ role: 'GOLDT1 - DEV', soldHours: 10 }] },
   ]);
-  await mkProject('GOLD-B', 'GOLD Beta', plus(-20), plus(120), [
+  await mkProject('GOLD-B', 'GOLD Beta', plus(-30), plus(120), [
     { name: 'Build', startDate: compact(plus(-10)), endDate: compact(plus(110)), monthlyDistribution: dist,
       resources: [{ role: 'GOLDT1 - DEV', soldHours: 120 }, { role: 'GOLDT3 - PM', soldHours: 30 }] },
     { name: 'Overrun', startDate: compact(plus(-30)), endDate: compact(plus(30)), resources: [{ role: 'GOLDT1 - DEV', soldHours: 5 }] }, // over-consumed

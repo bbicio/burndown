@@ -109,7 +109,7 @@ function taskPeriodError(start, end, periodStart, periodEnd, { label, parent }) 
   const last = pe === '' ? null : monthLastDay(pe);
   const s = isEmpty(start) ? null : toIso(start);
   const e = isEmpty(end) ? null : toIso(end);
-  const out = (word, iso, dir) => `Task "${label}" ${word} on ${iso}, ${dir} the ${parent} period (${range}).`;
+  const out = (word, iso, dir) => `Task "${String(label || '').trim() || 'Untitled task'}" ${word} on ${iso}, ${dir} the ${parent} period (${range}).`;
   if (s !== null && first !== null && s < first) return out('starts', s, 'before');
   if (s !== null && last !== null && s > last) return out('starts', s, 'after');
   if (e !== null && last !== null && e > last) return out('ends', e, 'after');

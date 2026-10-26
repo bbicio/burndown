@@ -1058,11 +1058,13 @@ Vue.createApp({
       const list = this.outOfPeriod;
       if (!list.length) return '';
       const d = this.draft;
-      const valid = window.isMonth(d.startDate) && window.isMonth(d.endDate) && d.startDate <= d.endDate;
+      const s = d.startDate || '', e = d.endDate || '';
+      const valid = (s === '' || window.isMonth(s)) && (e === '' || window.isMonth(e)) && (s === '' || e === '' || s <= e);
       if (!valid) return list[0].error;
       const n = list.length;
+      const show = v => (v === '' ? '…' : window.formatMonthText(v));
       return n + ' ' + (n === 1 ? 'task is' : 'tasks are') + ' outside the proposal period ('
-        + window.formatMonthText(d.startDate) + ' – ' +window.formatMonthText(d.endDate)
+        + show(s) + ' – ' + show(e)
         + '). Changes to this version are not saved until they are moved inside it or the period is widened.';
     },
     periodTaskDates() {

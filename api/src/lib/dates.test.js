@@ -55,6 +55,13 @@ test('taskPeriodError accepts a task inside the period and refuses one outside',
   );
 });
 
+test('taskPeriodError names an unnamed task as Untitled task', () => {
+  assert.equal(
+    taskPeriodError('2026-03-01', '', '202604', '202612', { label: '', parent: 'version' }),
+    'Task "Untitled task" starts on 2026-03-01, before the version period (2026-04 – 2026-12).'
+  );
+});
+
 test('periodShrinkError names the first task the new period pushes out', () => {
   const tasks = [{ name: 'A', start: '20260501', end: '20260601' }, { name: 'B', start: '20260410', end: '' }];
   const stored = { start: '202604', end: '202612' };
