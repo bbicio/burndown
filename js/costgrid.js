@@ -76,6 +76,14 @@ function cgGeneratedPeriod(v, selTasks, now) {
   return { projStart, projEnd };
 }
 
+// The notice for tasks about to be copied into a project whose period (YYYYMM) they leave, or '' when all fit.
+// tasks: [{ name, startDate, endDate }] in YYYYMMDD. Checked before anything is written.
+function cgOutOfPeriodNotice(tasks, periodStart, periodEnd) {
+  const bad = window.outOfPeriodTasks(tasks.map(t => ({ name: t.name, start: t.startDate, end: t.endDate })), periodStart, periodEnd, 'project');
+  if (!bad.length) return '';
+  return `These tasks are outside the project period (${window.formatMonthText(periodStart)} – ${window.formatMonthText(periodEnd)}): ${bad.map(b => `"${b.name}"`).join(', ')}. Move them inside it first.`;
+}
+
 // ── VERSION LOCK STATE & LIVE BADGE ──────────────────────────────────────────
 
 function cgGetVersionLockState(cgId, versionId) {
@@ -1112,6 +1120,9 @@ async function cgDoAddTasksToProject(projId, selectedTaskIds) {
     });
   });
 
+  const refusal = cgOutOfPeriodNotice(newTasks, proj.startDate, proj.endDate);
+  if (refusal) { showInfo(refusal); return; }
+
   // Append tasks to project in memory and push to API
   if (!proj.tasks) proj.tasks = [];
   proj.tasks.push(...newTasks);
@@ -1247,14 +1258,18 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
     });
   });
 
-  if (!config.projects) config.projects = [];
-  const generatedId = crypto.randomUUID();
 
   // Version dates are authoritative (they define the contract period).
   // Task dates are used only when the version has no dates set.
   const toYYYYMM = iso => iso ? iso.slice(0, 7).replace('-', '') : '';
   const selTasks  = (v.phases || []).flatMap(ph => ph.tasks).filter(t => selectedTaskIds.includes(t.taskId));
   const { projStart, projEnd } = cgGeneratedPeriod(v, selTasks, new Date());
+
+  const refusal = cgOutOfPeriodNotice(tasks, projStart, projEnd);
+  if (refusal) { showInfo(refusal); return; }
+
+  if (!config.projects) config.projects = [];
+  const generatedId = crypto.randomUUID();
 
   const ptc = selTasks
     .filter(t => t.ptc > 0)

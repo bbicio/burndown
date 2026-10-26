@@ -167,7 +167,8 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
     if (_cgRuleNotified.has(versionId) || typeof showInfo !== 'function') return;
     _cgRuleNotified.add(versionId);
     const msg = String(e.data.error || '');
-    showInfo(`${/[.!?]$/.test(msg) ? msg : msg + '.'} Your changes to this version are not being saved: reload the page to see its current structure.`, '⚠️ Changes not saved');
+    const tail = e.data.code === 'DATE_RULE' ? ' until this is fixed' : ': reload the page to see its current structure';
+    showInfo(`${/[.!?]$/.test(msg) ? msg : msg + '.'} Your changes to this version are not being saved${tail}.`, '⚠️ Changes not saved');
   };
 
   // Upsert the grid itself (name)

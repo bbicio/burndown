@@ -94,7 +94,7 @@ describe('_cgUpsertVersionToApi — no POST fallback', () => {
     await expect(build()('cg1', 'v1')).resolves.toBe(false);
     await expect(build()('cg1', 'v1')).resolves.toBe(false);
     expect(showInfo).toHaveBeenCalledTimes(1);
-    expect(showInfo.mock.calls[0]).toEqual(['Project end date (2026-07) is before its start date (2026-09). Your changes to this version are not being saved: reload the page to see its current structure.', '⚠️ Changes not saved']);
+    expect(showInfo.mock.calls[0]).toEqual(['Project end date (2026-07) is before its start date (2026-09). Your changes to this version are not being saved until this is fixed.', '⚠️ Changes not saved']);
   });
 
   it('a DATE_RULE refusal of the structure save is shown too', async () => {
@@ -102,7 +102,7 @@ describe('_cgUpsertVersionToApi — no POST fallback', () => {
     api.costGrids.versions.saveStructure.mockRejectedValue(refusal);
     await expect(build()('cg1', 'v1')).resolves.toBe(false);
     expect(showInfo).toHaveBeenCalledTimes(1);
-    expect(showInfo.mock.calls[0]).toEqual(['Task end date (2026-01-01) is before its start date (2026-02-01). Your changes to this version are not being saved: reload the page to see its current structure.', '⚠️ Changes not saved']);
+    expect(showInfo.mock.calls[0]).toEqual(['Task end date (2026-01-01) is before its start date (2026-02-01). Your changes to this version are not being saved until this is fixed.', '⚠️ Changes not saved']);
   });
 
   it('any other structure failure shows no notice', async () => {
