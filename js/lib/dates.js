@@ -119,7 +119,9 @@ function maxOf(a, b) {
 export function taskDateBounds(periodStart, periodEnd, twin, side) {
   const first = monthFirstDay(isEmpty(periodStart) ? '' : String(periodStart).trim()) || '';
   const last = monthLastDay(isEmpty(periodEnd) ? '' : String(periodEnd).trim()) || '';
-  const t = toIso(twin) || '';
+  let t = toIso(twin) || '';
+  // A twin outside the period would leave min > max and lock the picker: it bounds nothing until it is moved inside.
+  if (t !== '' && (side === 'start' ? first !== '' && t < first : last !== '' && t > last)) t = '';
   if (side === 'start') return { min: first, max: last === '' ? t : t === '' ? last : minOf(t, last) };
   return { min: first === '' ? t : t === '' ? first : maxOf(t, first), max: last };
 }

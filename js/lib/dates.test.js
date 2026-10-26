@@ -160,6 +160,18 @@ describe('taskDateBounds', () => {
     expect(taskDateBounds('202604', '202612', '', 'end')).toEqual({ min: '2026-04-01', max: '2026-12-31' });
     expect(taskDateBounds('', '', '', 'start')).toEqual({ min: '', max: '' });
   });
+
+  it('ignores a twin that lies outside the period on the side it would bound, so the picker never locks', () => {
+    // task Jan 1 – Mar 1 2026, period Sep – Dec 2026: the start must be movable into the period
+    expect(taskDateBounds('202609', '202612', '2026-03-01', 'start')).toEqual({ min: '2026-09-01', max: '2026-12-31' });
+    // task Jan 1 2027 – Feb 1 2027, period Sep – Dec 2026: the end must be movable into the period
+    expect(taskDateBounds('202609', '202612', '2027-01-01', 'end')).toEqual({ min: '2026-09-01', max: '2026-12-31' });
+    // a twin past the period on the start side, or before it on the end side, bounds nothing more than the period
+    expect(taskDateBounds('202609', '202612', '2027-02-01', 'start')).toEqual({ min: '2026-09-01', max: '2026-12-31' });
+    expect(taskDateBounds('202609', '202612', '2026-01-01', 'end')).toEqual({ min: '2026-09-01', max: '2026-12-31' });
+    // an open period side keeps the twin as the only bound
+    expect(taskDateBounds('', '202612', '2026-03-01', 'start')).toEqual({ min: '', max: '2026-03-01' });
+  });
 });
 
 describe('periodBounds', () => {
