@@ -111,6 +111,7 @@ The server twin of `js/lib/dates.js` (CommonJS). Rules to keep: `CLAUDE.md`'s "D
 
 - Common with the browser module: `isMonth`, `isDay`, `toYmd`, `toIso`, `monthFirstDay`, `monthLastDay`, `isOrdered`, `periodError`.
 - Server-only: `isValidCalendarDate`, `isLeapYear` (`date-parse.js` re-exports `isValidCalendarDate`), `DATE_RULE` (the `code` of a refused write) and `periodChangeError(body, stored, { kind, label })`, which checks a `PATCH`/`PUT` body against the stored row: a date absent from the body (`undefined`) is unchanged, `null` or `''` clears it, and the period is not checked when every date present in the body equals the stored one; otherwise the whole combined period, the unchanged side included, is checked.
-- Consumed by `routes/cost-grids.js`, `routes/projects.js` and `routes/timesheets.js`.
+- (2026-10-26, dates C3) `taskPeriodError(start, end, periodStart, periodEnd, { label, parent })` is common with the browser module (same result, pinned by `js/lib/dates-guard.test.js`). Server-only: `periodShrinkError(tasks, stored, next, { parent })`, which returns the error for the first `{ name, start, end }` task that is inside the stored period and would leave the next one; a task already outside the stored period is tolerated.
+- Consumed by `routes/cost-grids.js` (version `PATCH` runs `periodShrinkError` under the version lock when the period changes; structure `PUT` runs `taskPeriodError` on every task against the stored period), `routes/projects.js` (`PUT /:id/tasks` runs `taskPeriodError`; `PATCH` runs `periodShrinkError` on the saved tasks) and `routes/timesheets.js`.
 
 Tests: `dates.test.js`; `js/lib/dates-guard.test.js` pins that the two twins agree.

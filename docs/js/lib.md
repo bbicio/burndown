@@ -36,6 +36,8 @@ Loaded via `<script type="module">` on `project-config.html` and `portfolio.html
 
 ## costgrid-calc.js
 
+`distributeTaskHours(hours, taskStart, taskEnd, months)` (2026-10-26, dates C3) — spreads a task's hours evenly over the months it spans (all of `months` when it has no dates) and returns `{ byMonth, outside }`, `outside` being the hours in months beyond the proposal period; `costgrid.html`'s `phasingByMonth` reads it for the Monthly Phasing table and its "fall outside the proposal period" line.
+
 `cgIsTaskAssigned(task, linkedProjects)` (2026-10-23) — the one definition of "this task belongs to a project": linked by id, or by name ignoring case and surrounding spaces (older links carry names only). `cgFreeTasksOf(tasks, linkedProjects)` — the named tasks for which it is false. Every editor caller goes through these two (B-047); linear scans, accepted follow-up.
 
 `versionHasFreeTasks(ver)`: true if any task in `ver.phases[].tasks[]` is absent from every `ver.linkedProjects[].taskIds`/`taskNames`. `isVersionCommittedLocked(ver)`: `ver.pipeline === 'Committed' && !versionHasFreeTasks(ver)` — keyed on the *proposal's own* pipeline field, not any individual linked project's. Used by `cgGetVersionLockState()` (`js/costgrid.js`) for its `committed` lock reason; previously that check read a linked project's own `pipeline` field and locked the whole version (hiding Generate Project, disabling the editor) as soon as *any single* linked project reached Committed, even with other tasks in the same version still unmapped.
@@ -180,6 +182,8 @@ Pure formatting helpers for the Team assistant panel in `planning.html` (only pa
 
 ## config-form-calc.js (project-config helpers)
 
+`deriveDistribution` (2026-10-26, dates C3) also returns `outsideBudget` and `outsideHours`: the part of the tasks without a valid monthly distribution that lies outside the project months. Day counts are rounded, so a daylight-saving change does not move a fraction.
+
 Derive/Reforecast distribution maths for `project-config.html` (`deriveDistribution`, `reforecastDistribution`) plus, since 2026-09-30, `isProjectDirty(savedJson, project)` — true when `JSON.stringify(project)` differs from the snapshot taken after load/save, false when either is null; drives the leave-page prompt (see `docs/pages/project-config.md`). Only `project-config.html` loads it (`?v=2`). `team-assistant-ui.js` gained `selectionStillValid` and `shouldSendOnEnter` the same day (see `docs/pages/planning.md`).
 
 ## project-rules.js (2026-10-01, project currency lock cycle)
@@ -220,5 +224,7 @@ The single implementation of date validation, ordering and typed-text parsing fo
 - `parseDayText(text)`, `formatDayText(iso)`, `parseMonthText(text)`, `formatMonthText(ym)`: the typed text of the date pickers and back. Since 2026-10-24 (dates C2) the text is English with the month in letters — `Dec 1, 2025` (day, no leading zero) and `Dec 2025` — built from a fixed `MONTHS` array, never `Intl`/`toLocale*`. The parsers ignore case and edge spaces, collapse multiple spaces, and accept `Dec 1, 2025`, `Dec 1 2025`, `1 Dec 2025`, full month names and ISO (`2025-12-01`, `2025-12`); any other all-numeric form (`03/04/2026`, `04/2026`) and any non-existent date give `null`.
 - `parseDateInput(text, { mode, min, max })`: reads the typed text of a picker and applies the `min`/`max` bounds; its messages are `Enter a date like Dec 1, 2025.`, `Enter a month like Dec 2025.`, `Must be on or after <min>.`, `Must be on or before <max>.`.
 - `isWithin(value, min, max)`: bound check.
+- (2026-10-26, dates C3) `taskPeriodError(start, end, periodStart, periodEnd, { label, parent })`: the error for a task date (`YYYYMMDD` or ISO) outside the parent period (`YYYYMM`, from the first day of the start month to the last day of the end month), `null` when inside, when the task has no valid date, or when a side of the period is empty. An invalid or inverted period gives "fix it before setting task dates". `parent` is `version` or `project`.
+- (2026-10-26, dates C3) Browser only: `taskDateBounds(periodStart, periodEnd, twin, side)` returns the `{ min, max }` of a task date picker (the period, tightened by the task's other date); a twin that is itself outside the period does not narrow the picker, an inverted period still locks it. `periodBounds(taskDates, side, twin)` returns the `{ min, max }` of a period month picker (it must still contain every task date; the twin month bounds the other side). `outOfPeriodTasks(tasks, periodStart, periodEnd, parent)` returns `{ name, error }` for each `{ name, start, end }` task that leaves the period.
 
 Server twin: `docs/api/lib.md`'s `dates.js`. Tests: `dates.test.js`, `dates-guard.test.js`.

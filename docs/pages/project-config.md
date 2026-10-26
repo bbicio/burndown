@@ -78,3 +78,13 @@ Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `d
 ## Date pickers (2026-10-24, dates C2)
 
 Spec `docs/superpowers/specs/2026-10-24-dates-c2-datepickers-design.md`, plan `docs/superpowers/plans/2026-10-24-dates-c2-datepickers.md`, report `docs/superpowers/reports/2026-10-26-dates-c2-datepickers-finish-cycle.md`. Start/End month and each task's period are `<cg-date-picker>` (closes B-129): the months bound directly to `project.startDate`/`endDate` (`YYYYMM`), the task days through `toIso(task.startDate) || ''` and back with `v ? toYmd(v) : ''`, then `rebuildTaskDist(ti)`; an emptied task date is saved as `''`. Each End is floored by its Start, each Start capped by its End; all four are disabled for a viewer. Removed: `month2ym`/`ym2month`, `ymdToIt`/`itToYmd`, the empty `onDateChange` and the Italian `gg/mm/aaaa` placeholder. The PTC month stays a `<select>` of the project's months. The page loads `css/controls.css`, `js/lib/cg-controls-calc.js` and `js/cg-controls.js`; layout unchanged (the redesign is a later cycle). Pinned by `js/lib/dates-guard.test.js`.
+
+## Task dates stay inside the project period (2026-10-26, dates C3)
+
+Spec `docs/superpowers/specs/2026-10-26-dates-c3-task-period-design.md`, report `docs/superpowers/reports/2026-10-26-dates-c3-task-period-finish-cycle.md`. Rules and functions: `CLAUDE.md`'s "Dates", [docs/js/lib.md](../js/lib.md) (`dates.js`).
+
+- **Pickers.** A task's Period pickers take `min`/`max` from the `taskDateBounds(task, side)` method (the project period, tightened by the task's other date; a twin outside the period does not narrow it, the Gate 2 fix); the Start/End month pickers take them from the `periodStartBounds`/`periodEndBounds` computeds, so the period cannot be narrowed past a task date.
+- **Warnings.** `outOfPeriod` and `outOfPeriodMessage` computeds feed an `alert-warning` notice above Save (hidden for viewers); `isTaskOutOfPeriod(task)` feeds a per-task "Outside the project period".
+- **Derive from task dates.** The confirm adds "Outside the project period, not distributed: <amount> · <hours> h" from `deriveDistribution`'s `outsideBudget`/`outsideHours` when above zero ([docs/js/lib.md](../js/lib.md) → `config-form-calc.js`).
+- **Save.** `PUT /api/projects/:id/tasks` refuses a task outside the project period; `onSave` reports it through the existing "Save failed" alert with the server's reason. A single Save that both moves a task inside and shrinks the period is refused (B-150 in `docs/BACKLOG.md`).
+- `config-form-calc.js ?v=3`, `dates.js ?v=4`, `api-sync.js ?v=27`. Guard: `js/lib/project-config-task-period-guard.test.js`. Manual cases: `TEST_CASES.md` PC-30..PC-32.
