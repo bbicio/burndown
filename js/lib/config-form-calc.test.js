@@ -58,6 +58,24 @@ describe('deriveDistribution', () => {
     expect(result.newPhasing['202602']).toBe(700);
   });
 
+  it('declares the part of a task outside the months as outsideBudget/outsideHours', () => {
+    const tasks = [{
+      name: 'Dev', billable: true,
+      startDate: '20260315', endDate: '20260414',
+      resources: [{ soldHours: 31, hourlyRate: 100 }],
+    }];
+    const result = deriveDistribution(tasks, ['202604'], '202604', '202604');
+    expect(result.totalBudget + result.outsideBudget).toBeCloseTo(3100, 2);
+    expect(result.outsideHours).toBeCloseTo(17, 5);
+  });
+
+  it('declares nothing outside when the task fits, or has a valid monthlyDistribution', () => {
+    const fits = [{ startDate: '20260401', endDate: '20260430', resources: [{ soldHours: 10, hourlyRate: 10 }] }];
+    expect(deriveDistribution(fits, ['202604'], '202604', '202604').outsideHours).toBe(0);
+    const dist = [{ startDate: '20260315', endDate: '20260414', monthlyDistribution: { '202604': 100 }, resources: [{ soldHours: 10, hourlyRate: 10 }] }];
+    expect(deriveDistribution(dist, ['202604'], '202604', '202604').outsideBudget).toBe(0);
+  });
+
   it('excludes non-billable tasks', () => {
     const tasks = [{
       name: 'Dev', billable: false,

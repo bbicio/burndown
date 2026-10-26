@@ -81,8 +81,8 @@
         <div class="row g-3">
           <div class="col-md-4"><label class="form-label small mb-1">D365 Project ID <span class="text-muted">(matches XLS column)</span></label><input type="text" class="form-control form-control-sm" v-model="project.code" :disabled="isViewer" placeholder="e.g. HITA.000001201"></div>
           <div class="col-md-8"><label class="form-label small mb-1">Project Name</label><input type="text" class="form-control form-control-sm" v-model="project.name" :disabled="isViewer" placeholder="e.g. Bayer AG - BERMITS 2026" @input="onNameInput"></div>
-          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Start month</label><cg-date-picker mode="month" :model-value="project.startDate || ''" :max="project.endDate || ''" :disabled="isViewer" aria-label="Start month" @update:model-value="v => project.startDate = v"></cg-date-picker></div>
-          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">End month</label><cg-date-picker mode="month" :model-value="project.endDate || ''" :min="project.startDate || ''" :disabled="isViewer" aria-label="End month" @update:model-value="v => project.endDate = v"></cg-date-picker></div>
+          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Start month</label><cg-date-picker mode="month" :model-value="project.startDate || ''" :max="periodStartBounds.max" :disabled="isViewer" aria-label="Start month" @update:model-value="v => project.startDate = v"></cg-date-picker></div>
+          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">End month</label><cg-date-picker mode="month" :model-value="project.endDate || ''" :min="periodEndBounds.min" :disabled="isViewer" aria-label="End month" @update:model-value="v => project.endDate = v"></cg-date-picker></div>
           <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Currency</label><select class="form-select form-select-sm" v-model="project.currency" :disabled="currencyLocked"><option v-for="cu in currencyOptions" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.name }}</option></select><div v-if="currencyLocked" class="form-text" style="font-size:.72rem">{{ currencyHint }}</div></div>
         </div>
         <div class="row g-3 mt-1">
@@ -144,10 +144,11 @@
     </div>
     <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
       <span class="text-muted small text-nowrap">Period:</span>
-      <div style="width:150px"><cg-date-picker mode="day" :model-value="toIso(task.startDate) || ''" :max="toIso(task.endDate) || ''" :disabled="isViewer" aria-label="Task start date" @update:model-value="v => { task.startDate = v ? toYmd(v) : ''; rebuildTaskDist(ti); }"></cg-date-picker></div>
+      <div style="width:150px"><cg-date-picker mode="day" :model-value="toIso(task.startDate) || ''" :min="taskDateBounds(task, 'start').min" :max="taskDateBounds(task, 'start').max" :disabled="isViewer" aria-label="Task start date" @update:model-value="v => { task.startDate = v ? toYmd(v) : ''; rebuildTaskDist(ti); }"></cg-date-picker></div>
       <span class="text-muted small">→</span>
-      <div style="width:150px"><cg-date-picker mode="day" :model-value="toIso(task.endDate) || ''" :min="toIso(task.startDate) || ''" :disabled="isViewer" aria-label="Task end date" @update:model-value="v => { task.endDate = v ? toYmd(v) : ''; rebuildTaskDist(ti); }"></cg-date-picker></div>
+      <div style="width:150px"><cg-date-picker mode="day" :model-value="toIso(task.endDate) || ''" :min="taskDateBounds(task, 'end').min" :max="taskDateBounds(task, 'end').max" :disabled="isViewer" aria-label="Task end date" @update:model-value="v => { task.endDate = v ? toYmd(v) : ''; rebuildTaskDist(ti); }"></cg-date-picker></div>
       <span class="text-muted small">(optional — defaults to project dates)</span>
+      <span v-if="isTaskOutOfPeriod(task)" class="text-danger" style="font-size:var(--text-xs)">Outside the project period</span>
     </div>
 
     <div class="mt-1 pt-2" style="border-top:1px solid #e9ecef" v-if="taskMonthRange(task).length">
@@ -318,6 +319,7 @@
 </div>
     </div>
 
+    <div v-if="outOfPeriod.length && !isViewer" class="alert alert-warning py-2 small mt-2 mb-0">{{ outOfPeriodMessage }}</div>
     <div class="d-flex gap-2 justify-content-between align-items-center py-4 border-top mt-2 mb-5">
       <div class="d-flex gap-2">
         <button class="btn btn-outline-secondary" onclick="window.location.href='/portfolio.html'">← Back to Portfolio</button>
@@ -411,7 +413,7 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/status-rules.js?v=1"></script>
-<script type="module" src="js/lib/config-form-calc.js?v=2"></script>
+<script type="module" src="js/lib/config-form-calc.js?v=3"></script>
 <script type="module" src="js/lib/dates.js?v=4"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
@@ -456,6 +458,30 @@
       isViewer() {
         return this.project?.my_permission === 'viewer';
       },
+      // Dates C3: tasks that leave the project period, and the notice built from them.
+      outOfPeriod() {
+        const p = this.project;
+        if (!p) return [];
+        const tasks = (p.tasks || []).map(t => ({ name: t.name || 'Untitled task', start: t.startDate, end: t.endDate }));
+        return window.outOfPeriodTasks(tasks, p.startDate, p.endDate, 'project');
+      },
+      outOfPeriodMessage() {
+        const list = this.outOfPeriod;
+        if (!list.length) return '';
+        const p = this.project;
+        const s = p.startDate || '', e = p.endDate || '';
+        const valid = (s === '' || window.isMonth(s)) && (e === '' || window.isMonth(e)) && (s === '' || e === '' || s <= e);
+        if (!valid) return list[0].error;
+        const n = list.length;
+        const show = v => (v === '' ? '…' : window.formatMonthText(v));
+        return n + ' ' + (n === 1 ? 'task is' : 'tasks are') + ' outside the project period (' + show(s) + ' – ' + show(e)
+          + '). Changes to this project are not saved until they are moved inside it or the period is widened.';
+      },
+      periodTaskDates() {
+        return (this.project?.tasks || []).flatMap(t => [t.startDate, t.endDate]);
+      },
+      periodStartBounds() { return window.periodBounds(this.periodTaskDates, 'start', this.project?.endDate || ''); },
+      periodEndBounds() { return window.periodBounds(this.periodTaskDates, 'end', this.project?.startDate || ''); },
       // Read-only for viewers and for every existing project (amounts are not converted yet); only a brand-new
       // project, reachable again when direct creation is re-enabled, chooses its currency.
       currencyLocked() { return this.isViewer || !this.isNewProject; },
@@ -920,6 +946,14 @@
       parseMoney(str) { return window.parseMoney(str, this.project?.currency, window.__currencies); },
       toIso(x) { return window.toIso(x); },
       toYmd(x) { return window.toYmd(x); },
+      taskDateBounds(task, side) {
+        const twin = side === 'start' ? task.endDate : task.startDate;
+        return window.taskDateBounds(this.project?.startDate, this.project?.endDate, window.toIso(twin) || '', side);
+      },
+      isTaskOutOfPeriod(task) {
+        return window.taskPeriodError(task.startDate, task.endDate, this.project?.startDate, this.project?.endDate,
+          { label: task.name || 'Untitled task', parent: 'project' }) !== null;
+      },
       monthLabel(ym, locale = 'en-US') {
         const [y, m] = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))];
         return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'short', year: '2-digit' });
@@ -1018,7 +1052,12 @@
         const fmtB = n => window.formatMoney(n || 0, this.project?.currency, window.__currencies);
         const message = `Phasing and planning will be computed from task date ranges, distributing each task's budget proportionally to the days of overlap with each month.\n\n`
           + `Total budget distributed: ${fmtB(result.totalBudget)} across ${months.length} months\n`
-          + `Total hours distributed: ${result.totalHours.toLocaleString('en-US')} h`;
+          + `Total hours distributed: ${result.totalHours.toLocaleString('en-US')} h`
+          + (result.outsideBudget > 0
+            ? `
+
+Outside the project period, not distributed: ${fmtB(result.outsideBudget)} · ${result.outsideHours.toLocaleString('en-US', { maximumFractionDigits: 1 })} h`
+            : '');
         if (await this.showConfirm(message)) {
           this.project.phasing = result.newPhasing;
           this.project.planning = result.newPlanning;

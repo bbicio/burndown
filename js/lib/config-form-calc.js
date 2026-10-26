@@ -34,10 +34,10 @@ export function deriveDistribution(tasks, months, cfgStart, cfgEnd) {
       } else {
         const tStart = parseTaskDateLocal(task.startDate || cfgStart, false);
         const tEnd = parseTaskDateLocal(task.endDate || cfgEnd, true);
-        const tDays = Math.max(1, (tEnd - tStart) / 86400000 + 1);
+        const tDays = Math.max(1, Math.round((tEnd - tStart) / 86400000) + 1);
         const oStart = new Date(Math.max(mStart, tStart));
         const oEnd = new Date(Math.min(mEnd, tEnd));
-        const oDays = Math.max(0, (oEnd - oStart) / 86400000 + 1);
+        const oDays = Math.max(0, Math.round((oEnd - oStart) / 86400000) + 1);
         if (oDays > 0) {
           const frac = oDays / tDays;
           budget += taskBudget * frac;
@@ -49,12 +49,32 @@ export function deriveDistribution(tasks, months, cfgStart, cfgEnd) {
     if (hours > 0) rawPlanning[ym] = hours;
   });
 
+  // Dates C3: the part of a task without a valid monthly distribution that lies outside `months`.
+  let outsideBudget = 0, outsideHours = 0;
+  if (months.length) {
+    const first = new Date(parseInt(months[0].slice(0, 4)), parseInt(months[0].slice(4, 6)) - 1, 1);
+    const last = new Date(parseInt(months[months.length - 1].slice(0, 4)), parseInt(months[months.length - 1].slice(4, 6)), 0);
+    tasks.forEach(task => {
+      const dist = task.monthlyDistribution;
+      const distSum = dist ? Object.values(dist).reduce((s, v) => s + v, 0) : 0;
+      if (dist && Math.abs(distSum - 100) < 0.5) return;
+      const tStart = parseTaskDateLocal(task.startDate || cfgStart, false);
+      const tEnd = parseTaskDateLocal(task.endDate || cfgEnd, true);
+      const tDays = Math.max(1, Math.round((tEnd - tStart) / 86400000) + 1);
+      const oDays = Math.max(0, Math.round((Math.min(last, tEnd) - Math.max(first, tStart)) / 86400000) + 1);
+      const frac = Math.max(0, tDays - oDays) / tDays;
+      if (frac <= 0) return;
+      outsideBudget += task.resources.reduce((s, r) => s + (r.soldHours || 0) * (r.hourlyRate || 0), 0) * frac;
+      outsideHours += task.resources.reduce((s, r) => s + (r.soldHours || 0), 0) * frac;
+    });
+  }
+
   const rawPlanningTotal = Object.values(rawPlanning).reduce((s, v) => s + v, 0);
   const newPlanning = rawPlanningTotal > 0 ? distributeHoursExact(rawPlanningTotal, rawPlanning) : {};
   const totalBudget = Object.values(newPhasing).reduce((s, v) => s + v, 0);
   const totalHours = Object.values(newPlanning).reduce((s, v) => s + v, 0);
 
-  return { newPhasing, newPlanning, totalBudget, totalHours };
+  return { newPhasing, newPlanning, totalBudget, totalHours, outsideBudget, outsideHours };
 }
 
 export function reforecastDistribution(tasks, months, actualsRows, currentYm) {
