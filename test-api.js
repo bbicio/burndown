@@ -2871,6 +2871,43 @@ async function testPeriodWithTasks() {
   const r12 = await put([{ title: 'P1', tasks: [{ title: 'Nov' }] }], { endDate: '202703' });
   ok(r12.status === 200, `PS-12 period with only the end date → 200 (got ${r12.status}: ${r12.data?.error})`);
   ok(await vPeriod() === '202606|202703', 'PS-12 the start was kept and the end written');
+
+  // ── project side: PUT /api/projects/:id/tasks carries the project period ──
+  const pBase = `/api/projects/${pId}`;
+  const pPut = (tasks, period) => api('PUT', `${pBase}/tasks`, period === undefined ? tasks : { tasks, period }, adminCookie);
+  const pTitles = async () => ((await api('GET', `${pBase}/tasks`, null, adminCookie)).data || []).map(t => t.name).sort().join(',');
+  const pPeriod = async () => {
+    const p = ((await api('GET', '/api/projects', null, adminCookie)).data || []).find(x => x.id === pId);
+    return `${String(p?.startDate || p?.start_date || '').trim()}|${String(p?.endDate || p?.end_date || '').trim()}`;
+  };
+  const pOne = (name, s, e) => [{ name, startDate: s, endDate: e }];
+
+  // PS-04: a widened project period and a task that needs it, in one request
+  const r4 = await pPut(pOne('Nov', '2026-11-02', '2026-11-06'), { startDate: '202606', endDate: '202701' });
+  ok(r4.status === 200, `PS-04 project tasks with the period that contains them → 200 (got ${r4.status}: ${r4.data?.error})`);
+  ok(await pPeriod() === '202606|202701', 'PS-04 the project period was written');
+  ok(await pTitles() === 'Nov', 'PS-04 the project task was saved');
+
+  // PS-05: final state invalid: nothing is written
+  const r5 = await pPut(pOne('May', '2026-05-04', '2026-05-08'), { startDate: '202606', endDate: '202612' });
+  ok(isRule(r5), `PS-05 project task outside the new period → 400 DATE_RULE (got ${r5.status})`);
+  ok(await pPeriod() === '202606|202701', 'PS-05 the refused request left the project period unchanged');
+  ok(await pTitles() === 'Nov', 'PS-05 the refused request left the project tasks unchanged');
+
+  // PS-06: today's array body still works
+  const r6 = await pPut(pOne('Dec', '2026-12-01', '2026-12-04'));
+  ok(r6.status === 200, `PS-06 array body with an in-period task → 200 (got ${r6.status}: ${r6.data?.error})`);
+  ok(await pTitles() === 'Dec', 'PS-06 the array body saved the task');
+
+  // PS-08: inverted task outside the period: the period wording wins
+  const r8 = await pPut(pOne('Inverted', '2026-12-10', '2026-03-02'), { startDate: '202606', endDate: '202612' });
+  ok(isRule(r8) && /before/.test(r8.data?.error || '') && /project period/.test(r8.data?.error || ''),
+    `PS-08 inverted project task before the period → 400 DATE_RULE with the period wording (got ${r8.status}: ${r8.data?.error})`);
+
+  // PS-10: clearing the project period lifts every limit
+  const r10 = await pPut(pOne('Old', '2025-01-06', '2025-01-10'), { startDate: '', endDate: '' });
+  ok(r10.status === 200, `PS-10 empty project period with a task of any date → 200 (got ${r10.status}: ${r10.data?.error})`);
+  ok(await pPeriod() === '|', 'PS-10 the project period is empty');
 }
 
 async function testProjectCurrencyLock() {

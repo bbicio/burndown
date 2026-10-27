@@ -409,8 +409,11 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const tasks = req.body;
+    // Body: the task array (today), or { tasks, period } so the project period travels with the tasks.
+    const body = req.body;
+    const { tasks, period } = Array.isArray(body) ? { tasks: body, period: undefined } : (body || {});
     if (!Array.isArray(tasks)) return res.status(400).json({ error: 'Body must be an array' });
+    const hasPeriod = period !== null && typeof period === 'object';
 
     // Reject the whole request — no partial writes — if any resource's sold
     // hours fall outside the allowed set. No automatic rounding.
@@ -424,37 +427,74 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
       }
     }
 
-    for (const t of tasks) {
-      const dateErr = periodError(t?.startDate, t?.endDate, { kind: 'day', label: `task "${t?.name || ''}"` });
-      if (dateErr) return res.status(400).json({ error: dateErr, code: DATE_RULE });
-    }
+    const client = await pool.connect();
+    let descriptionsChanged = false;
+    try {
+      await client.query('BEGIN');
+      const stored = (await client.query('SELECT start_date, end_date FROM projects WHERE id = $1 FOR UPDATE', [req.params.id])).rows[0];
+      // An absent side keeps the stored value, '' clears it.
+      let next = { start: stored?.start_date, end: stored?.end_date };
+      if (hasPeriod) {
+        const periodErr = periodChangeError({ start: period.startDate, end: period.endDate },
+          { start: stored?.start_date, end: stored?.end_date }, { kind: 'month', label: 'project' });
+        if (periodErr) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: periodErr, code: DATE_RULE });
+        }
+        next = {
+          start: period.startDate === undefined ? stored?.start_date : period.startDate,
+          end: period.endDate === undefined ? stored?.end_date : period.endDate,
+        };
+      }
+      for (const t of tasks) {
+        const taskErr = taskPeriodError(t?.startDate, t?.endDate, next.start, next.end,
+          { label: t?.name || '', parent: 'project' });
+        if (taskErr) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: taskErr, code: DATE_RULE });
+        }
+      }
+      // Task order (end before start): after the period check, so a task outside the period gets the period wording.
+      for (const t of tasks) {
+        const dateErr = periodError(t?.startDate, t?.endDate, { kind: 'day', label: `task "${t?.name || ''}"` });
+        if (dateErr) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: dateErr, code: DATE_RULE });
+        }
+      }
+      if (hasPeriod) {
+        const col = v => (v === undefined || v === null || String(v).trim() === '' ? null : String(v).trim());
+        await client.query('UPDATE projects SET start_date = $1, end_date = $2 WHERE id = $3',
+          [col(next.start), col(next.end), req.params.id]);
+      }
 
-    const { rows: [projPeriod] } = await query('SELECT start_date, end_date FROM projects WHERE id = $1', [req.params.id]);
-    for (const t of tasks) {
-      const taskErr = taskPeriodError(t?.startDate, t?.endDate, projPeriod?.start_date, projPeriod?.end_date,
-        { label: t?.name || '', parent: 'project' });
-      if (taskErr) return res.status(400).json({ error: taskErr, code: DATE_RULE });
-    }
+      const before = await client.query('SELECT name, description FROM project_tasks WHERE project_id = $1', [req.params.id]);
+      await client.query('DELETE FROM project_tasks WHERE project_id = $1', [req.params.id]);
 
-    const before = await query('SELECT name, description FROM project_tasks WHERE project_id = $1', [req.params.id]);
-    await query('DELETE FROM project_tasks WHERE project_id = $1', [req.params.id]);
-
-    for (let i = 0; i < tasks.length; i++) {
-      const t = tasks[i];
-      await query(
-        `INSERT INTO project_tasks
-         (project_id, name, billable, completed, start_date, end_date,
-          monthly_distribution, resources, sort_order, description)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [req.params.id, (t.name || '').replace(/\s+/g, ' ').trim(), t.billable ?? true, t.completed ?? false,
-         toYmd(t.startDate) ?? null,
-         toYmd(t.endDate) ?? null,
-         t.monthlyDistribution ? JSON.stringify(t.monthlyDistribution) : null,
-         t.resources ? JSON.stringify(t.resources) : null, i, String(t.description ?? '')]
-      );
+      for (let i = 0; i < tasks.length; i++) {
+        const t = tasks[i];
+        await client.query(
+          `INSERT INTO project_tasks
+           (project_id, name, billable, completed, start_date, end_date,
+            monthly_distribution, resources, sort_order, description)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [req.params.id, (t.name || '').replace(/\s+/g, ' ').trim(), t.billable ?? true, t.completed ?? false,
+           toYmd(t.startDate) ?? null,
+           toYmd(t.endDate) ?? null,
+           t.monthlyDistribution ? JSON.stringify(t.monthlyDistribution) : null,
+           t.resources ? JSON.stringify(t.resources) : null, i, String(t.description ?? '')]
+        );
+      }
+      const after = tasks.map(t => ({ name: (t.name || '').replace(/\s+/g, ' ').trim(), description: String(t.description ?? '') }));
+      descriptionsChanged = descriptionsSignature(before.rows) !== descriptionsSignature(after);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
     }
-    const after = tasks.map(t => ({ name: (t.name || '').replace(/\s+/g, ' ').trim(), description: String(t.description ?? '') }));
-    if (descriptionsSignature(before.rows) !== descriptionsSignature(after)) await enqueueProjectCode(req.params.id);
+    if (descriptionsChanged) await enqueueProjectCode(req.params.id);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
