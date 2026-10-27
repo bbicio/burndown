@@ -2804,6 +2804,75 @@ async function testTaskPeriod() {
   ok(p6b.status === 200, `TD-06 first period that includes the task → 200 (got ${p6b.status})`);
 }
 
+// ── Period travels with the tasks (2026-10-27) ─────────────────────────────────
+
+// PS-01..: PUT structure may carry the version period; both are checked and written in one transaction.
+async function testPeriodWithTasks() {
+  section('Period saved together with the tasks');
+
+  const rpy = await api('POST', '/api/pipeline-years', { year: TEST_YEAR_C }, adminCookie);
+  if (![201, 409].includes(rpy.status)) { ok(false, 'PS-setup pipeline year unavailable'); return; }
+  if (rpy.status === 201 && rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
+
+  // Registered first, so cleanup (reverse order) deletes the project before the proposal.
+  const rcg = await api('POST', '/api/cost-grids', { name: '__test_ps_cg__', pipelineYear: TEST_YEAR_C }, adminCookie);
+  const cgId = rcg.data?.id;
+  if (cgId) later('DELETE', `/api/cost-grids/${cgId}`);
+  const vId = cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'v1' }, adminCookie)).data?.id : null;
+  if (!ok(!!(cgId && vId), 'PS-setup proposal with a version')) return;
+  const base = `/api/cost-grids/${cgId}/versions/${vId}`;
+  const isRule = r => r.status === 400 && r.data?.code === 'DATE_RULE';
+  const setPeriod = await api('PATCH', base, { startDate: '202604', endDate: '202612' }, adminCookie);
+  if (!ok(setPeriod.status === 200, `PS-setup version period 202604-202612 (got ${setPeriod.status})`)) return;
+
+  const gen = await api('POST', '/api/projects', { name: '__test_ps_proj__', cgVersionId: vId, currency: 'EUR', startDate: '202604', endDate: '202612' }, adminCookie);
+  const pId = gen.data?.id;
+  if (pId) later('DELETE', `/api/projects/${pId}`);
+  if (!ok(gen.status === 201 && !!pId, `PS-setup project with period 202604-202612 (got ${gen.status})`)) return;
+
+  const put = (phases, period) => api('PUT', `${base}/structure`, period === undefined ? { phases } : { phases, period }, adminCookie);
+  const titles = async () => ((await api('GET', `${base}/structure`, null, adminCookie)).data?.phases || [])
+    .flatMap(p => p.tasks.map(t => t.title)).sort().join(',');
+  const vPeriod = async () => {
+    const v = ((await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || []).find(x => x.id === vId);
+    return `${String(v?.start_date || '').trim()}|${String(v?.end_date || '').trim()}`;
+  };
+  const one = (title, s, e) => [{ title: 'P1', tasks: [{ title, taskStartDate: s, taskEndDate: e }] }];
+
+  // PS-01: a widened period and a task that needs it, in one request
+  const r1 = await put(one('Nov', '2026-11-02', '2026-11-06'), { startDate: '202606', endDate: '202701' });
+  ok(r1.status === 200, `PS-01 structure with a task and the period that contains it → 200 (got ${r1.status}: ${r1.data?.error})`);
+  ok(await vPeriod() === '202606|202701', 'PS-01 the version period was written');
+  ok(await titles() === 'Nov', 'PS-01 the task was saved');
+
+  // PS-02: the task is outside the new period: nothing is written
+  const r2 = await put(one('May', '2026-05-04', '2026-05-08'), { startDate: '202606', endDate: '202612' });
+  ok(isRule(r2), `PS-02 task outside the new period → 400 DATE_RULE (got ${r2.status})`);
+  ok(await vPeriod() === '202606|202701', 'PS-02 the refused request left the version period unchanged');
+  ok(await titles() === 'Nov', 'PS-02 the refused request left the tasks unchanged');
+
+  // PS-03: without period the stored one still applies
+  const r3 = await put(one('May', '2026-05-04', '2026-05-08'));
+  ok(isRule(r3), `PS-03 structure without period and a task outside the stored period → 400 DATE_RULE (got ${r3.status})`);
+
+  // PS-07: a task inverted and before the period start: the period wording wins over the order message
+  const r7 = await put(one('Inverted', '2026-12-10', '2026-03-02'), { startDate: '202606', endDate: '202612' });
+  ok(isRule(r7) && /before/.test(r7.data?.error || '') && /version period/.test(r7.data?.error || ''),
+    `PS-07 inverted task before the period → 400 DATE_RULE with the period wording (got ${r7.status}: ${r7.data?.error})`);
+
+  // PS-09: clearing the period lifts every limit
+  const r9 = await put(one('Old', '2025-01-06', '2025-01-10'), { startDate: '', endDate: '' });
+  ok(r9.status === 200, `PS-09 empty period with a task of any date → 200 (got ${r9.status}: ${r9.data?.error})`);
+  ok(await vPeriod() === '|', 'PS-09 the version period is empty');
+
+  // PS-12: a side left out keeps its stored value
+  const r12s = await put(one('Nov', '2026-11-02', '2026-11-06'), { startDate: '202606', endDate: '202701' });
+  ok(r12s.status === 200, `PS-12 setup: period 202606-202701 saved (got ${r12s.status})`);
+  const r12 = await put([{ title: 'P1', tasks: [{ title: 'Nov' }] }], { endDate: '202703' });
+  ok(r12.status === 200, `PS-12 period with only the end date → 200 (got ${r12.status}: ${r12.data?.error})`);
+  ok(await vPeriod() === '202606|202703', 'PS-12 the start was kept and the end written');
+}
+
 async function testProjectCurrencyLock() {
   section('Project currency lock');
   if (!sysadminCookie) { ok(false, 'PR-setup sysadmin account unavailable'); return; }
@@ -3137,6 +3206,7 @@ async function main() {
     await testStructureRule();
     await testDateRule();
     await testTaskPeriod();
+    await testPeriodWithTasks();
     await testTimesheetsNoActuals();
     await testProjectDescriptions();
     await testTopicsApi();

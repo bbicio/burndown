@@ -668,7 +668,7 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
   const locked = await query('SELECT locked FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
   if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
 
-  const { phases = [], roles: rolesBody = [] } = req.body;
+  const { phases = [], roles: rolesBody = [], period: periodBody } = req.body;
 
   // Reject the whole request — no partial writes — if any role's sold hours
   // fall outside the allowed set. No automatic rounding.
@@ -693,15 +693,6 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
     }
   }
 
-  // Task dates: same all-or-nothing rule, checked before the transaction begins.
-  for (const ph of phases) {
-    for (const tk of (ph?.tasks || [])) {
-      const dateErr = periodError(tk?.taskStartDate || tk?.start_date, tk?.taskEndDate || tk?.end_date,
-        { kind: 'day', label: `task "${tk?.taskName || tk?.title || ''}"` });
-      if (dateErr) return res.status(400).json({ error: dateErr, code: DATE_RULE });
-    }
-  }
-
   // Preload all roles for code→id lookup
   const { rows: allRoles } = await query('SELECT id, code FROM roles');
   const roleByCode = Object.fromEntries(allRoles.map(r => [r.code, r.id]));
@@ -721,16 +712,49 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
     await client.query('BEGIN');
     // The version lock makes the check below and the DELETE see the same links (a link write takes it too).
     await lockVersion(client, req.params.vId);
-    const period = (await client.query('SELECT start_date, end_date FROM cost_grid_versions WHERE id = $1', [req.params.vId])).rows[0];
+    const stored = (await client.query('SELECT start_date, end_date FROM cost_grid_versions WHERE id = $1', [req.params.vId])).rows[0];
+    // Optional version period carried with the tasks: an absent side keeps the stored value, '' clears it.
+    const hasPeriod = periodBody !== null && typeof periodBody === 'object';
+    let next = { start: stored?.start_date, end: stored?.end_date };
+    if (hasPeriod) {
+      const bodyStart = periodBody.startDate;
+      const bodyEnd = periodBody.endDate;
+      const periodErr = periodChangeError({ start: bodyStart, end: bodyEnd },
+        { start: stored?.start_date, end: stored?.end_date }, { kind: 'month', label: 'version' });
+      if (periodErr) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: periodErr, code: DATE_RULE });
+      }
+      next = {
+        start: bodyStart === undefined ? stored?.start_date : bodyStart,
+        end: bodyEnd === undefined ? stored?.end_date : bodyEnd,
+      };
+    }
     for (const ph of phases) {
       for (const tk of (ph?.tasks || [])) {
         const taskErr = taskPeriodError(tk?.taskStartDate || tk?.start_date, tk?.taskEndDate || tk?.end_date,
-          period?.start_date, period?.end_date, { label: tk?.taskName || tk?.title || '', parent: 'version' });
+          next.start, next.end, { label: tk?.taskName || tk?.title || '', parent: 'version' });
         if (taskErr) {
           await client.query('ROLLBACK');
           return res.status(400).json({ error: taskErr, code: DATE_RULE });
         }
       }
+    }
+    // Task order (end before start): after the period check, so a task outside the period gets the period wording.
+    for (const ph of phases) {
+      for (const tk of (ph?.tasks || [])) {
+        const dateErr = periodError(tk?.taskStartDate || tk?.start_date, tk?.taskEndDate || tk?.end_date,
+          { kind: 'day', label: `task "${tk?.taskName || tk?.title || ''}"` });
+        if (dateErr) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: dateErr, code: DATE_RULE });
+        }
+      }
+    }
+    if (hasPeriod) {
+      const col = v => (v === undefined || v === null || String(v).trim() === '' ? null : String(v).trim());
+      await client.query('UPDATE cost_grid_versions SET start_date = $1, end_date = $2 WHERE id = $3',
+        [col(next.start), col(next.end), req.params.vId]);
     }
     const linkedRows = await client.query(
       'SELECT task_ids FROM cg_version_projects WHERE cost_grid_version_id = $1', [req.params.vId]
