@@ -152,8 +152,14 @@ async function cgLoadStructureFromApi(cgId, versionId) {
 // opts.strict = true: a failed upsert throws instead of being logged and swallowed.
 // Resolves to true only when every write reached the server; false when one failed (non-strict) or there was
 // nothing to write. A failed name save does not stop the version and its structure from being saved.
-// A version or structure refused with STRUCTURE_RULE / DATE_RULE is refused again on every autosave, so the user is told once per version.
+// A refusal is refused again on every autosave, so the user is told once per version, code and message; a
+// successful structure save or a reload of the structure forgets the version's notices.
+// The version period travels with the structure (the server checks tasks and period together); the PATCH carries it
+// only when no structure is loaded. A refused PATCH never stops the structure save and is never retried as a POST.
 const _cgRuleNotified = new Set();
+function _cgForgetRuleNotices(versionId) {
+  for (const k of [..._cgRuleNotified]) if (k.startsWith(`${versionId}|`)) _cgRuleNotified.delete(k);
+}
 async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   const strict = !!(opts && opts.strict);
   let allOk = true;
@@ -162,13 +168,17 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   const ver = cg.versions.find(v => v.versionId === versionId);
   if (!ver) return false;
 
-  // One notice per version for a refusal that will repeat on every autosave: the server's message, then the sentence.
+  // One notice per version, code and message for a refusal that will repeat on every autosave.
   const notifyRefusal = e => {
-    if (_cgRuleNotified.has(versionId) || typeof showInfo !== 'function') return;
-    _cgRuleNotified.add(versionId);
+    const key = `${versionId}|${e.data.code}|${e.data.error}`;
+    if (_cgRuleNotified.has(key) || typeof showInfo !== 'function') return;
+    _cgRuleNotified.add(key);
     const msg = String(e.data.error || '');
-    const tail = e.data.code === 'DATE_RULE' ? ' until this is fixed' : ': reload the page to see its current structure';
-    showInfo(`${/[.!?]$/.test(msg) ? msg : msg + '.'} Your changes to this version are not being saved${tail}.`, '⚠️ Changes not saved');
+    const text = `${/[.!?]$/.test(msg) ? msg : msg + '.'}`;
+    const tail = e.data.code === 'DATE_RULE'
+      ? ' Task dates and the period of this version are not saved until this is fixed; other changes are saved.'
+      : ' Your changes to this version are not being saved: reload the page to see its current structure.';
+    showInfo(text + tail, '⚠️ Changes not saved');
   };
 
   // Upsert the grid itself (name)
@@ -192,46 +202,33 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
     ratecardId:     meta.ratecardId  || null,
     clientId: (meta.clientId && meta.clientId !== '__unassigned__') ? meta.clientId : null,
   };
-  // A DATE_RULE refusal is checked against the STORED tasks, so the structure is still saved (the server checks it
-  // against the stored period) and the PATCH retried once: a save that moves a task inward and shrinks the period
-  // would otherwise be refused forever. A refused PATCH is never retried as a POST.
-  let metaRefusal = null;
+  // Save phase/task/role structure only if it was explicitly loaded this session.
+  // If phases is empty here, the structure was never loaded — don't wipe existing DB data.
+  const hasStructure = !!(phases && phases.length > 0);
+  let patchBody = serverMeta;
+  if (hasStructure) { patchBody = { ...serverMeta }; delete patchBody.startDate; delete patchBody.endDate; }
   try {
-    await Api.costGrids.versions.update(cgId, versionId, serverMeta);
+    await Api.costGrids.versions.update(cgId, versionId, patchBody);
   } catch (e) {
     console.warn('[sync] version upsert failed:', e.message);
     if (strict) throw e;
-    if (e.data?.code !== 'DATE_RULE') return false;
-    metaRefusal = e;
+    allOk = false;
+    if (e.data?.code === 'DATE_RULE') notifyRefusal(e);
   }
 
-  // Save phase/task/role structure only if it was explicitly loaded this session.
-  // If phases is empty here, the structure was never loaded — don't wipe existing DB data.
-  let structureSaved = false;
-  if (phases && phases.length > 0) {
+  if (hasStructure) {
     try {
       await Api.costGrids.versions.saveStructure(cgId, versionId, {
         phases,
         roles: roles || [],
+        period: { startDate: meta.startDate || '', endDate: meta.endDate || '' },
       });
-      structureSaved = true;
+      _cgForgetRuleNotices(versionId);
     } catch (e) {
       console.warn('[sync] structure save failed:', e.message);
       if (strict) throw e;
       allOk = false;
       if (e.data?.code === 'STRUCTURE_RULE' || e.data?.code === 'DATE_RULE') notifyRefusal(e);
-      if (metaRefusal) { notifyRefusal(metaRefusal); return false; }
-    }
-  }
-  // Retry only after a structure PUT that ran and succeeded: otherwise the same payload meets the same refusal.
-  if (metaRefusal && !structureSaved) { notifyRefusal(metaRefusal); return false; }
-  if (metaRefusal) {
-    try {
-      await Api.costGrids.versions.update(cgId, versionId, serverMeta);
-    } catch (e) {
-      console.warn('[sync] version upsert retry failed:', e.message);
-      if (e.data?.code === 'DATE_RULE') notifyRefusal(e);
-      return false;
     }
   }
   return allOk;
