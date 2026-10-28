@@ -139,6 +139,7 @@ async function cgLoadStructureFromApi(cgId, versionId) {
     }
 
     cgSave(cg);
+    _cgForgetRuleNotices(versionId);
     return true;
   } catch (e) {
     console.warn('[sync] cgLoadStructureFromApi:', e.message);
@@ -169,14 +170,16 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   if (!ver) return false;
 
   // One notice per version, code and message for a refusal that will repeat on every autosave.
-  const notifyRefusal = e => {
+  const notifyRefusal = (e, fromStructure) => {
     const key = `${versionId}|${e.data.code}|${e.data.error}`;
     if (_cgRuleNotified.has(key) || typeof showInfo !== 'function') return;
     _cgRuleNotified.add(key);
     const msg = String(e.data.error || '');
     const text = `${/[.!?]$/.test(msg) ? msg : msg + '.'}`;
+    // A refused PATCH is atomic (nothing of the version is saved); a refused structure keeps the other changes.
     const tail = e.data.code === 'DATE_RULE'
-      ? ' Task dates and the period of this version are not saved until this is fixed; other changes are saved.'
+      ? (fromStructure ? ' Task dates and the period of this version are not saved until this is fixed; other changes are saved.'
+                       : ' Your changes to this version are not being saved until this is fixed.')
       : ' Your changes to this version are not being saved: reload the page to see its current structure.';
     showInfo(text + tail, '⚠️ Changes not saved');
   };
@@ -213,7 +216,7 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
     console.warn('[sync] version upsert failed:', e.message);
     if (strict) throw e;
     allOk = false;
-    if (e.data?.code === 'DATE_RULE') notifyRefusal(e);
+    if (e.data?.code === 'DATE_RULE') notifyRefusal(e, false);
   }
 
   if (hasStructure) {
@@ -228,7 +231,7 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
       console.warn('[sync] structure save failed:', e.message);
       if (strict) throw e;
       allOk = false;
-      if (e.data?.code === 'STRUCTURE_RULE' || e.data?.code === 'DATE_RULE') notifyRefusal(e);
+      if (e.data?.code === 'STRUCTURE_RULE' || e.data?.code === 'DATE_RULE') notifyRefusal(e, true);
     }
   }
   return allOk;

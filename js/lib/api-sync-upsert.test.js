@@ -154,6 +154,23 @@ describe('_cgUpsertVersionToApi — no POST fallback', () => {
     expect(api.costGrids.versions.saveStructure).toHaveBeenCalledTimes(2);
   });
 
+  it('a DATE_RULE refusal of the PATCH (structure not loaded) keeps the pre-C4 sentence', async () => {
+    api.costGrids.versions.update.mockRejectedValue(dateRule('why.'));
+    await expect(build([])('cg1', 'v1')).resolves.toBe(false);
+    expect(showInfo.mock.calls[0]).toEqual(['why. Your changes to this version are not being saved until this is fixed.', '⚠️ Changes not saved']);
+  });
+
+  it('a successful structure reload forgets the notices, so the same refusal is shown again', async () => {
+    api.costGrids.versions.saveStructure.mockRejectedValue(dateRule('why.'));
+    await build()('cg1', 'v1');
+    const cg = { id: 'cg1', versions: [{ versionId: 'v1' }] };
+    const load = new Function('Api', 'cgLoad', 'cgSave', '_cgRuleNotified', `${extractBlock(js, 'function _cgForgetRuleNotices(')}; ${extractBlock(js, 'async function cgLoadStructureFromApi(')}; return cgLoadStructureFromApi;`)(
+      { costGrids: { versions: { structure: async () => ({ phases: [] }) } } }, () => cg, () => {}, notified);
+    await expect(load('cg1', 'v1')).resolves.toBe(true);
+    await build()('cg1', 'v1');
+    expect(showInfo).toHaveBeenCalledTimes(2);
+  });
+
   it('strict: a refused structure throws before anything else', async () => {
     api.costGrids.versions.saveStructure.mockRejectedValue(dateRule());
     await expect(build()('cg1', 'v1', { strict: true })).rejects.toThrow('400');
