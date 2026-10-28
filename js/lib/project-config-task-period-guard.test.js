@@ -31,11 +31,17 @@ describe('project-config task period bindings', () => {
   it('shows the per-task warning, the notice near Save and the derive line', () => {
     expect(html).toContain('>Outside the project period</');
     expect(html).toContain("' outside the project period (' +");
-    expect(html).toContain('Task dates and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.');
+    expect(html).toContain('Tasks and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.');
     expect(html).toMatch(/v-if="outOfPeriod\.length && !isViewer"/);
     expect(html).toContain('Outside the project period, not distributed');
     // hours alone count: zero-rate resources past the period have outsideBudget 0 but outsideHours > 0
     expect(html).toContain('result.outsideBudget > 0 || result.outsideHours > 0');
+  });
+
+  it('rebuildTaskDist keeps the distribution only for an inverted range (B-158)', () => {
+    const body = html.slice(html.indexOf('rebuildTaskDist(ti) {'), html.indexOf('distBadgeClass(task) {'));
+    expect(body).toContain("window.periodError(task.startDate || '', task.endDate || '', { kind: 'day', label: 'task' }) !== null");
+    expect(body).toContain('this.taskMonthRange(task), inverted)');
   });
 
   it('adds no listener or watcher for it (B-144)', () => {

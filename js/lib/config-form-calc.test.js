@@ -139,7 +139,10 @@ describe('reforecastDistribution', () => {
 describe('keepDistribution', () => {
   const d = { 202601: 40, 202602: 60 };
   it('keeps the distribution when the month list is empty (inverted range)', () => {
-    expect(keepDistribution(d, [])).toEqual({ 202601: 40, 202602: 60 });
+    expect(keepDistribution(d, [], true)).toEqual({ 202601: 40, 202602: 60 });
+  });
+  it('resets the distribution when the month list is empty because a date was cleared', () => {
+    expect(keepDistribution(d, [])).toEqual({});
   });
   it('sets a single month to 100', () => {
     expect(keepDistribution(d, ['202602'])).toEqual({ 202602: 100 });

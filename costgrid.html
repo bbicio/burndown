@@ -1065,7 +1065,7 @@ Vue.createApp({
       const show = v => (v === '' ? '…' : window.formatMonthText(v));
       return n + ' ' + (n === 1 ? 'task is' : 'tasks are') + ' outside the proposal period ('
         + show(s) + ' – ' + show(e)
-        + '). Task dates and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.';
+        + '). Tasks and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.';
     },
     periodTaskDates() {
       return (this.draft?.phases || []).flatMap(ph => (ph.tasks || []).flatMap(t => [t.taskStartDate, t.taskEndDate]));

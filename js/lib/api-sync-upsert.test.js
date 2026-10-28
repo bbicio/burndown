@@ -125,7 +125,7 @@ describe('_cgUpsertVersionToApi — no POST fallback', () => {
     await expect(build()('cg1', 'v1')).resolves.toBe(false);
     await expect(build()('cg1', 'v1')).resolves.toBe(false);
     expect(showInfo).toHaveBeenCalledTimes(1);
-    expect(showInfo.mock.calls[0]).toEqual(['why. Task dates and the period of this version are not saved until this is fixed; other changes are saved.', '⚠️ Changes not saved']);
+    expect(showInfo.mock.calls[0]).toEqual(['why. Tasks and the period of this version are not saved until this is fixed; other changes are saved.', '⚠️ Changes not saved']);
   });
 
   it('a different code or message for the same version shows a new notice', async () => {

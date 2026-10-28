@@ -475,7 +475,7 @@
         const n = list.length;
         const show = v => (v === '' ? '…' : window.formatMonthText(v));
         return n + ' ' + (n === 1 ? 'task is' : 'tasks are') + ' outside the project period (' + show(s) + ' – ' + show(e)
-          + '). Task dates and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.';
+          + '). Tasks and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.';
       },
       periodTaskDates() {
         return (this.project?.tasks || []).flatMap(t => [t.startDate, t.endDate]);
@@ -972,7 +972,8 @@
       },
       rebuildTaskDist(ti) {
         const task = this.project.tasks[ti];
-        task.monthlyDistribution = window.keepDistribution(task.monthlyDistribution, this.taskMonthRange(task));
+        const inverted = window.periodError(task.startDate || '', task.endDate || '', { kind: 'day', label: 'task' }) !== null;
+        task.monthlyDistribution = window.keepDistribution(task.monthlyDistribution, this.taskMonthRange(task), inverted);
       },
       distBadgeClass(task) {
         const sum = Object.values(task.monthlyDistribution || {}).reduce((s, v) => s + (v || 0), 0);

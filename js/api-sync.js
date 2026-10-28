@@ -178,7 +178,7 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
     const text = `${/[.!?]$/.test(msg) ? msg : msg + '.'}`;
     // A refused PATCH is atomic (nothing of the version is saved); a refused structure keeps the other changes.
     const tail = e.data.code === 'DATE_RULE'
-      ? (fromStructure ? ' Task dates and the period of this version are not saved until this is fixed; other changes are saved.'
+      ? (fromStructure ? ' Tasks and the period of this version are not saved until this is fixed; other changes are saved.'
                        : ' Your changes to this version are not being saved until this is fixed.')
       : ' Your changes to this version are not being saved: reload the page to see its current structure.';
     showInfo(text + tail, '⚠️ Changes not saved');

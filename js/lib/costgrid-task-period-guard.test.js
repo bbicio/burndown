@@ -34,7 +34,7 @@ describe('costgrid task period bindings', () => {
   });
 
   it('the out-of-period banner says what is and is not saved (dates C4)', () => {
-    expect(html).toContain('Task dates and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.');
+    expect(html).toContain('Tasks and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.');
     expect(html).not.toContain('Changes to this version are not saved');
   });
 
