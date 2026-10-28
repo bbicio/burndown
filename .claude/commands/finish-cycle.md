@@ -1,6 +1,6 @@
 # /finish-cycle — Development Cycle Closeout Command
 
-Run the full closeout sequence for the current feature branch: a mechanical pre-check of the claims the branch's markdown makes, test, optional manual-verification gate — with `/code-review` launched in the background when that gate *opens* — then the code-review gate itself, merge to main, backend restart (if applicable), doc sync, and a persisted report. Every judgment gate (code review findings, merge, the doc-sync/report push) always stops for explicit confirmation. Only objective gates (test pass/fail, pre-flight checks) block or unblock without asking. The backend restart and the local-branch deletion are **not** judgment gates and do not ask — PROCESS.md §6b is the rule.
+Run the full closeout sequence for the current feature branch: a mechanical pre-check of the claims the branch's markdown makes, test, optional manual-verification gate — with `/code-review` launched in the background when that gate *opens* — then the code-review gate itself, merge to main, backend restart (if applicable), doc sync, and a persisted report. Every judgment gate (code review findings, merge, the doc-sync/report push) stops for explicit confirmation; the doc-sync/report push takes it from Gate 4 step 2 when that answer pre-authorised it and Gate 5 step 5's conditions hold. Only objective gates (test pass/fail, pre-flight checks) block or unblock without asking. The backend restart and the local-branch deletion are **not** judgment gates and do not ask — PROCESS.md §6b is the rule.
 
 ## Pre-flight (automatic, no confirmation)
 
@@ -114,6 +114,7 @@ Run the full closeout sequence for the current feature branch: a mechanical pre-
    - **Disposition by target, applied without asking, before the question below.** A finding on a file in `docs/superpowers/specs/` or `docs/superpowers/plans/` → no edit (PROCESS.md §1: frozen) but a line in the report's **Roadmap notes**, unless it reveals a defect in the code, which is then handled as a finding on the code, or it is the edit a red documentation guard requires, which is then made. A finding on pre-existing prose outside the diff → a row in `docs/BACKLOG.md` only if it is a false rule someone could follow, otherwise no action. State in the round how many findings each rule took; the counts go in the report's Gate 3 line under "Gate outcomes". Only the remaining findings reach the question below.
    - **Round 1 asks; later rounds may not need to.** Ask explicitly: "Fix now, accept as follow-up, or a mix (specify which)?" From round 2 on, if the round-1 answer stated a **rule** rather than a list ("all follow-up except correctness"), apply it instead of re-asking, report the application ("round 2: 3 findings, 1 fixed under your rule, 2 to follow-up"), and stop only on a finding the rule does not cover. **If round 1 was decided finding by finding, no rule is inferred from it.** PROCESS.md §6b calls this a class-D gate.
    - For every finding the user accepts as follow-up, append it to `code_review_followups`, tagged with the current round number.
+   - **Every entry of `code_review_followups`, whichever step adds it** (this one, step 0's carried follow-ups, option (b) below), also carries a read-only command that settles its state (`grep -n …`, `git log …`), or `unverified — <what it would take>` where no such command exists. Gate 5 step 2b re-runs these commands.
    - For every finding the user chooses to fix now, apply the fix. **No fix modifies a file in `docs/superpowers/specs/` or `docs/superpowers/plans/`**, except the edit a red documentation guard requires; any other defect there goes to the report's **Roadmap notes**.
    - **Before re-running the review, re-run Gate 1 step 0's four checks over the fixes you just made** (`git diff HEAD` if they are still in the working tree, the round's fix commits if you already committed them; `*.md` only, same four checks, same "fix the predicate, not the line"). Count the defects found here **separately** from step 0's. Then run the tests that cover what this round actually changed. For `*.md` fixes that is `npx vitest run scripts/ js/lib/test-cases-parse.test.js`. **For a round that fixed code, it is the test files covering that code** (`npx vitest run <file>`, or `docker exec pdash-api node --test src/<file>` for backend). The whole suite is not prescribed here (PROCESS.md §6.2), but **this gate is never left red**, whichever path exits it, including the one that accepts everything as follow-up.
    - If any fix was applied and the round just completed was round 1 or round 2: run `/code-review` again on the same scope, at `<review-effort>` (this becomes the next round) and repeat step 2/3 for it.
@@ -126,7 +127,7 @@ Run the full closeout sequence for the current feature branch: a mechanical pre-
      - On (c): stop `/finish-cycle` entirely.
 4. Once the gate is passed (zero findings, or all remaining findings accepted as follow-up), proceed to Gate 4, carrying `code_review_followups` forward for use in Gate 5.
 
-## Gate 4 — MERGE (step 2's confirmation is the only human gate here; every other step, the merge at step 5 included, runs automatically once it is given)
+## Gate 4 — MERGE (step 2's two questions are the only human gate here; every other step, the merge at step 5 included, runs automatically once the merge is confirmed)
 
 1. Build the pre-merge summary:
    - Commit count: `git log main..HEAD --oneline | wc -l`
@@ -134,8 +135,11 @@ Run the full closeout sequence for the current feature branch: a mechanical pre-
    - Out-of-scope check: from the candidates Gate 2's step 5 collected, take the **Plan** if there is exactly one; if this branch has no Plan, take the **Spec** if there is exactly one. Read the chosen file's "File Structure" section (a markdown table or list of file paths near the top) and compare it against the files touched in this diff. List, non-blocking, any touched file not mentioned there as "outside the declared File Structure." The Spec is a fallback: if its section is absent, say so in one line and skip the comparison.
    - **This check does not fire when Gate 2's step 5 collected no candidates.** That covers every no-code cycle, even when the identification step found the Plan for the risk class — and equally an ordinary cycle whose step-5 search came back empty or with more than one candidate of the kind being used. Gate 2's no-code branch records the non-firing in the report.
    - Include the pre-flight divergence note from check 5, if it fired.
-2. Show the full summary. Ask explicitly: "Proceed with merge? [yes/no]"
-   - If the answer is anything other than a clear yes: stop and wait.
+2. Show the full summary. Ask two questions in the same `AskUserQuestion` (without that tool, ask both in chat):
+   - "Proceed with merge? [yes/no]"
+   - "Pre-authorise Gate 5's commit and push to main, if its diff is docs-only and its tests pass on the first run? [yes/no]"
+   - If the answer to the first is anything other than a clear yes: stop and wait.
+   - Set `<gate5-preauthorised>` to true only on an explicit yes to both questions. Any other answer to the second, an unclear one included, sets it to false. Gate 5 steps 5-6 read it.
 3. **DB backup (automatic, no confirmation) — only when the stack is about to be touched.** Run `scripts/backup-db.sh` if **either** the diff adds a file under `api/src/db/migrations/` (step 6 will apply it) **or** the diff touches `api/` (step 7 will restart `pdash-api`). Otherwise skip it and say so in one line. This step does not replace `CLAUDE.md`'s Infrastructure-safety rule 2, which still applies wherever it applies. When it does run: `pg_dump` snapshot into `backups/` (gitignored) before any merge state changes. It is a read-only safety net, not a gate: report the script's own output (backup file path/size, and any old backup it pruned) in chat, but never block or ask for confirmation on it — including when it warns that `pdash-db` isn't running and skips.
 4. **CWD safety check (worktrees):** run:
    ```bash
@@ -181,6 +185,8 @@ Run the full closeout sequence for the current feature branch: a mechanical pre-
 
 ## Gate 5 — SYNC-DOCS + REPORT (after merge, shared human gate)
 
+Every file edit in this gate, `/sync-docs`'s, the report's and `docs/BACKLOG.md`'s included, goes through the Edit tool or through a script written to a file and then run — never `node -e`, and never `sed` with text quoted in the shell.
+
 1. On `main` (post-merge), invoke `/sync-docs`. Let it run its own scope — do not reimplement or narrow it here. The memory update lives outside the repo: it is not part of the `git diff` shown in step 4 and is never committed. Copy `/sync-docs`'s "Memory" line into the report (step 2).
 2. Create the report file at `docs/superpowers/reports/<YYYY-MM-DD>-<branch-sanitized>-finish-cycle.md` (today's date; `<branch-sanitized>` from pre-flight step 4) with this structure:
 
@@ -191,13 +197,15 @@ Run the full closeout sequence for the current feature branch: a mechanical pre-
    **Branch:** <branch> → main
    **Execution started:** <started-at>  (pre-flight step 6)
    **Merged at:** <merged-at>  (Gate 4's merge commit)
-   **Gate durations:** Gate 1 <N>m · Gate 2 <N>m · Gate 3 <N>m · Gate 4 <N>m · Gate 5 <N>m — total <N>m
+   **Gate durations:** Gate 1 <N>m · Gate 2 <N>m · Gate 3 <N>m · Gate 4 <N>m · Gate 5 (to report) <N>m — total <N>m
    **Cycle counters:** subagent dispatches <N> · review rounds <N> · full test-suite runs <N>
    **Risk class:** <class> (<source: the Plan's path | the user's answer | fallback reason → standard>) · review effort <low|medium|high>
    **Claims pre-check:** <one line of prose: what it cost at Gate 1 and at the Gate 3 re-checks, what it caught at each, and how many of round 1's findings were mechanical>
    **Acceptance:** <items listed · pre-ticked from an automated run, each with its command · verified by hand with a positive outcome · not verifiable here, each with its reason — or why there was no list>
    <!-- Wall-clock, human wait time included (pre-flight step 6). Write `unknown` for a gate whose
-        timestamp was not captured; a gate that self-skipped gets `0m (skipped)`.
+        timestamp was not captured; a gate that self-skipped gets `0m (skipped)`. Gate 5 is measured
+        up to this report; Gate 5 up to its commit is read from `node scripts/cycle-times.mjs`,
+        column `merge→docs`.
         The claims pre-check line is Gate 1 step 0's own measurement (PROCESS.md §6.4d). It is prose,
         not slots: a cycle where part of it did not happen says so instead of writing a zero. Keep
         the Gate 1 and Gate 3 figures distinct.
@@ -236,16 +244,17 @@ Run the full closeout sequence for the current feature branch: a mechanical pre-
    <the "Memory" line from /sync-docs's summary: each memory file changed (before → after) and any item left "unverified", or "evaluated, no change" with the files checked. Memory is outside the repo, so this section is its only persistent record.>
    ```
 
-2b. **Write the accepted follow-ups into `docs/BACKLOG.md` (automatic, no confirmation).** The report records what happened in this cycle; that file is the tracker of what is still open. For each follow-up this cycle accepted, append a row; for each existing row this cycle closed, set `closed <date>` with the command that verified it. **Read that file's own header for what a row must contain** — it is not restated here. Numbered `2b` so that step 3 keeps its number, which is cited as "Gate 5 step 3". This is not a judgement gate and does not ask — it records what Gate 3 already decided.
+2b. **Write the accepted follow-ups into `docs/BACKLOG.md` (automatic, no confirmation).** The report records what happened in this cycle; that file is the tracker of what is still open. For each follow-up this cycle accepted, append a row; for each existing row this cycle closed, set `closed <date>` with the command that verified it. **For the follow-ups, re-run the commands Gate 3 recorded in `code_review_followups`, all in one call, and write each into the row's `Verified how` cell with its result and today's date**; compose a new command only for one that no longer runs. Rows this cycle closed for reasons other than a Gate 3 finding are verified as before. **Read that file's own header for what a row must contain** — it is not restated here. Numbered `2b` so that step 3 keeps its number, which is cited as "Gate 5 step 3". This is not a judgement gate and does not ask — it records what Gate 3 already decided.
    - **On a cycle with no accepted follow-ups and nothing closed, change no file** and say so in one line.
-   - It runs **before** step 3, so that step's blocking `npm test` checks the new rows' cited paths through `scripts/doc-paths-guard.test.js`. **That cover is partial:** `docs/BACKLOG.md`'s own rules 1 and 2 say which citations the guard cannot see; do not read a green suite as having verified a row it cannot see.
+   - It runs **before** step 3, so that step's blocking test run checks the new rows' cited paths through `scripts/doc-paths-guard.test.js`. **That cover is partial:** `docs/BACKLOG.md`'s own rules 1 and 2 say which citations the guard cannot see; do not read a green suite as having verified a row it cannot see.
 
-3. **Run `npm test` (blocking, no confirmation).** Same semantics as Gate 1 step 1: if it fails, stop immediately, show the failing output verbatim, and run **no** `git add`, `git commit` or `git push`.
+3. **Run the tests (blocking, no confirmation).** First run `node scripts/gate5-scope.mjs`. If its first stdout line is `docs-only`, run `npx vitest run scripts/ js/lib/test-cases-parse.test.js`; if it is `other`, or the script exits non-zero, run `npm test`. Record whether this first test run in the gate was green. Same semantics as Gate 1 step 1: if it fails, stop immediately, show the failing output verbatim, and run **no** `git add`, `git commit` or `git push`.
    - **Unlike Gate 1,** a failure here is **not** a "re-run `/finish-cycle` from the top" case. Fix it on `main` — usually by correcting the edit `/sync-docs` just made, or by lowering a pin in the same commit if the shrink was deliberate — then re-enter this gate from its step 1. Never make the suite green by relaxing an assertion or raising a pin to fit new content.
 4. Show the combined diff (`git diff`, covers `/sync-docs`'s edits, step 2b's rows in `docs/BACKLOG.md`, and the new report file — none of the three has been committed yet).
-5. Ask explicitly: "Commit and push these doc/report changes to main? [yes/no]"
+5. **Pre-authorised path.** Skip the question below and go to step 6 only when all three hold: `<gate5-preauthorised>` (Gate 4 step 2) is true, the latest `node scripts/gate5-scope.mjs` run printed `docs-only`, and step 3 was green on its first run in this gate. Say so in one line before committing, with the reason. A red step 3, even once fixed, voids the pre-authorisation, and a re-entry into this gate always asks. `/sync-docs`'s own questions are never covered.
+   - Otherwise ask explicitly: "Commit and push these doc/report changes to main? [yes/no]"
    - If the answer is anything other than a clear yes: stop and wait, leaving the changes uncommitted locally.
-6. If confirmed, run in sequence:
+6. If confirmed or pre-authorised, run in sequence:
    ```bash
    git add <files changed by sync-docs> docs/BACKLOG.md docs/superpowers/reports/<report-filename>
    git commit -m "docs: sync docs + finish-cycle report for <branch>"

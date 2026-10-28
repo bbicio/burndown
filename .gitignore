@@ -21,6 +21,9 @@ Thumbs.db
 # Superpowers brainstorming visual-companion session data
 .superpowers/
 
+# output of scripts/test-branch.sh up, redirected by hand; never source-controlled
+.superpowers_up.log
+
 # scripts/test-branch.sh generates this override file per branch; never source-controlled
 docker-compose.branch.yml
 

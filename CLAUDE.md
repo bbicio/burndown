@@ -197,6 +197,8 @@ scripts/run-tests.sh     — ephemeral, fully isolated Docker Compose stack for 
 scripts/backup-db.sh     — pg_dump -Fc snapshot of the main stack's pdash-db into backups/ (gitignored), timestamped to the second, keeps only the 3 most recent dumps; non-blocking (warns + exits 0 if pdash-db isn't running). Run standalone, or by /finish-cycle Gate 4 when the stack is about to be touched — see "Database backup & full recreation" above.
 scripts/classify-cycle.mjs — classifies a branch for `/finish-cycle`'s Gate 2 (`no-code` vs `ordinary`,
                             plus the paths judged); the rule is pinned by its own `.test.js`, not by prose.
+scripts/gate5-scope.mjs  — classifies Gate 5's uncommitted diff (`docs-only` vs `other`) for `/finish-cycle`'s
+                            test subset and pre-authorised push; the rule is pinned by its own `.test.js`.
 scripts/architecture-guard.test.js — fails when `ARCHITECTURE.md` §5/§6 drift from the code
                             (routes, tables, added columns). What it deliberately does not check, and why,
                             is in the file's own header — read it there, not from a paraphrase.

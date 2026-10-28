@@ -5,7 +5,8 @@
 // One cycle per docs/superpowers/reports/*-finish-cycle.md. Columns: branch,
 // the moments in MOMENTS, then the interval in minutes between each pair of
 // consecutive moments (the header row names them). A value git cannot give is
-// `unknown`, never estimated. Run by hand; no gate runs it and it writes no file.
+// `unknown`, never estimated. `docs` is the author time of the commit that
+// added the cycle's report, so merge→docs is Gate 5 up to its commit. Run by hand; no gate runs it and it writes no file.
 //
 // A spec or plan belongs to a cycle when its slug equals the branch name, with
 // or without its `worktree-` prefixes. Failing that: among the files added after
@@ -117,7 +118,7 @@ function show(t) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-const MOMENTS = ['brief', 'spec', 'plan', 'execFirst', 'execLast', 'merge'];
+const MOMENTS = ['brief', 'spec', 'plan', 'execFirst', 'execLast', 'merge', 'docs'];
 
 export function buildRow(c) {
   const cells = [c.branch, ...MOMENTS.map((k) => show(c[k]))];
@@ -184,8 +185,10 @@ function pick(branch, dir, names, suffix, merge) {
 
 function cycle(report, specs, plans, merges) {
   const branch = parseReportBranch(readFileSync(join(ROOT, report), 'utf8'));
-  const c = { branch: branch ?? report, brief: null, spec: null, plan: null, execFirst: null, execLast: null, merge: null };
+  const c = { branch: branch ?? report, brief: null, spec: null, plan: null, execFirst: null, execLast: null, merge: null, docs: null };
   if (branch === null) return c;
+  // The report's commit exists with or without a merge found.
+  c.docs = addedAt(report);
   const merge = findMerge(merges, branch);
   // No merge, no window: every git field stays unknown.
   if (merge === null) return c;
@@ -214,7 +217,7 @@ export function main() {
   const merges = mergeLog();
   const rows = reports.map((r) => cycle(r, specs, plans, merges));
   rows.sort(compareByMerge);
-  const header = ['branch', ...MOMENTS, 'brief→spec', 'spec→plan', 'plan→exec', 'exec', 'exec→merge'];
+  const header = ['branch', ...MOMENTS, 'brief→spec', 'spec→plan', 'plan→exec', 'exec', 'exec→merge', 'merge→docs'];
   process.stdout.write([header.join('\t'), ...rows.map(buildRow)].join('\n') + '\n');
 }
 

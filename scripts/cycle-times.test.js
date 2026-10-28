@@ -124,20 +124,38 @@ describe('minutesBetween', () => {
 
 describe('buildRow', () => {
   it('prints unknown for every missing moment and interval', () => {
-    const row = buildRow({ branch: 'b', brief: null, spec: null, plan: null, execFirst: null, execLast: null, merge: null });
+    const row = buildRow({ branch: 'b', brief: null, spec: null, plan: null, execFirst: null, execLast: null, merge: null, docs: null });
     const cells = row.split('\t');
     expect(cells[0]).toBe('b');
-    expect(cells.slice(1)).toEqual(Array(11).fill('unknown'));
+    expect(cells.slice(1)).toEqual(Array(13).fill('unknown'));
   });
   it('prints moments as YYYY-MM-DD HH:MM and intervals in minutes', () => {
     const row = buildRow({
       branch: 'b', brief: '2026-10-14 11:00', spec: '2026-10-14 11:30', plan: null,
-      execFirst: null, execLast: null, merge: null,
+      execFirst: null, execLast: null, merge: null, docs: null,
     });
     const cells = row.split('\t');
     expect(cells[1]).toBe('2026-10-14 11:00');
     expect(cells[2]).toBe('2026-10-14 11:30');
-    expect(cells[7]).toBe('30');
-    expect(cells[8]).toBe('unknown');
+    expect(cells[8]).toBe('30');
+    expect(cells[9]).toBe('unknown');
+  });
+  it('ends with the docs moment and the merge→docs interval', () => {
+    const row = buildRow({
+      branch: 'b', brief: null, spec: null, plan: null, execFirst: null, execLast: null,
+      merge: '2026-10-28T13:52:27+01:00', docs: '2026-10-28T14:07:19+01:00',
+    });
+    const cells = row.split('\t');
+    expect(cells).toHaveLength(14);
+    expect(cells[13]).toBe('15');
+  });
+  it('a cycle whose report was never committed has docs and merge→docs unknown', () => {
+    const row = buildRow({
+      branch: 'b', brief: null, spec: null, plan: null, execFirst: null, execLast: null,
+      merge: '2026-10-28T13:52:27+01:00', docs: null,
+    });
+    const cells = row.split('\t');
+    expect(cells[7]).toBe('unknown');
+    expect(cells[13]).toBe('unknown');
   });
 });

@@ -116,7 +116,7 @@ describe('CLAUDE.md size (it is loaded in full every session)', () => {
       .toBeLessThanOrEqual(64_000);
   });
 
-  it('keeps the File structure block at exactly 12,914 LF bytes', () => {
+  it('keeps the File structure block at exactly 13,134 LF bytes', () => {
     // 12,538 at the phase-3 merge; raised to 12,758 by the same /sync-docs run,
     // for this file's own 2-line index entry. That is the allowed kind of growth
     // -- a new file needs an index line -- and it is why the pin is exact rather
@@ -137,11 +137,12 @@ describe('CLAUDE.md size (it is loaded in full every session)', () => {
     // name its Brief started check, -1 B.
     // 12,914 on 2026-10-21: dates and justifications cut by hand from five
     // entries (HTML pages, js/costgrid.js, js/lib/, pipeline-years.js, auth.js).
+    // 13,134 on 2026-10-28: +220 B for scripts/gate5-scope.mjs's two-line entry.
     const bytes = Buffer.byteLength(fileStructureBlock().join('\n'), 'utf8');
-    expect(bytes, `the File structure block is ${bytes} LF bytes, pinned at 12,914. It is an INDEX:
+    expect(bytes, `the File structure block is ${bytes} LF bytes, pinned at 13,134. It is an INDEX:
       one or two lines per entry, pointing at the docs/ file that holds the narrative.
       If you shrank it on purpose, lower this number in the same commit`)
-      .toBe(12_914);
+      .toBe(13_134);
   });
 
   it('keeps exactly 12 entries longer than two lines', () => {
