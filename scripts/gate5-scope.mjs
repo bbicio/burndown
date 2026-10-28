@@ -55,7 +55,9 @@ export function classifyGate5(paths) {
 export function mdReadingTests(files) {
   return files
     .filter((f) => f.name !== GATE5_TEST_FILE)
-    .filter((f) => /\.md['"`]/.test(f.text) || f.text.includes('live-docs'))
+    // A quoted path ('x.md'), a regex that picks .md files (/\.md$/, but not a
+    // .md-layout CSS class), or the shared walk.
+    .filter((f) => /\.md['"`]/.test(f.text) || /\\\.md(?![\w-])/.test(f.text) || f.text.includes('live-docs'))
     .map((f) => f.name);
 }
 

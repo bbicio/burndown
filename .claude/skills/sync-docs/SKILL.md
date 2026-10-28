@@ -108,7 +108,7 @@ The auto-memory directory named in the session's system prompt (`~/.claude/proje
 
 ## Process
 
-1. **Scope pass, before reading any section's files.** Run one `git diff --stat` for the cycle (at `/finish-cycle` Gate 5: `git diff --stat <merge-base>...<merge>`). Then state yes or no for each of sections 1 to 7 above (5b included), each with a one-line reason. Section 7 is always yes. Read the files of the "yes" sections in batched calls.
+1. **Scope pass, before reading any section's files.** Run one `git diff --stat` for the cycle (at `/finish-cycle` Gate 5: `git diff --stat <merge>^1 <merge>`, where `<merge>` is Gate 4's merge commit). Then state yes or no for each of sections 1 to 7 above (5b included), each with a one-line reason. Section 7 is always yes. Read the files of the "yes" sections in batched calls.
 2. Read the current state of each file the scope pass chose before editing.
 3. Cross-reference against the actual code (js/, api/src/routes/, costgrid.html, config.html, etc.) to verify what changed.
 4. Make targeted edits — do not rewrite sections that are still accurate.

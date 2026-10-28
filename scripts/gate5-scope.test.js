@@ -52,6 +52,15 @@ describe('mdReadingTests', () => {
     ])).toEqual(['js/lib/x.test.js']);
   });
 
+  it('names a js test that picks .md files with a regex', () => {
+    expect(mdReadingTests([{ name: 'js/w.test.js', text: "readdirSync('docs').filter((f) => /\\.md$/.test(f))" }]))
+      .toEqual(['js/w.test.js']);
+  });
+
+  it('does not name a test whose regex matches a .md- CSS class', () => {
+    expect(mdReadingTests([{ name: 'js/lib/v.test.js', text: 'expect(css).toMatch(/\\.md-layout\\s*\\{/)' }])).toEqual([]);
+  });
+
   it('names a js/lib test that cites live-docs', () => {
     expect(mdReadingTests([{ name: 'js/lib/z.test.js', text: "import { liveMarkdown } from '../../scripts/lib/live-docs.mjs'" }]))
       .toEqual(['js/lib/z.test.js']);
