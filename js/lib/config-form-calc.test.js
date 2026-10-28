@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveDistribution, reforecastDistribution, isProjectDirty } from './config-form-calc.js';
+import { deriveDistribution, reforecastDistribution, isProjectDirty, keepDistribution } from './config-form-calc.js';
 
 describe('isProjectDirty', () => {
   const p = { id: 'x', name: 'A', tasks: [{ name: 't', resources: [] }], phasing: { '202601': 10 } };
@@ -133,5 +133,24 @@ describe('reforecastDistribution', () => {
     const actualsRows = [];
     const result = reforecastDistribution(tasks, ['202601', '202602', '202603'], actualsRows, '202602');
     expect(result.distError).toContain('Dev');
+  });
+});
+
+describe('keepDistribution', () => {
+  const d = { 202601: 40, 202602: 60 };
+  it('keeps the distribution when the month list is empty (inverted range)', () => {
+    expect(keepDistribution(d, [], true)).toEqual({ 202601: 40, 202602: 60 });
+  });
+  it('resets the distribution when the month list is empty because a date was cleared', () => {
+    expect(keepDistribution(d, [])).toEqual({});
+  });
+  it('sets a single month to 100', () => {
+    expect(keepDistribution(d, ['202602'])).toEqual({ 202602: 100 });
+  });
+  it('keeps only the months present in the range', () => {
+    expect(keepDistribution(d, ['202601', '202602', '202603'])).toEqual({ 202601: 40, 202602: 60 });
+  });
+  it('returns an empty object for no distribution', () => {
+    expect(keepDistribution(undefined, ['202601', '202602'])).toEqual({});
   });
 });

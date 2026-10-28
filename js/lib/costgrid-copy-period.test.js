@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { extractBlock } from '../../scripts/lib/extract-source.mjs';
-import { isOrdered, outOfPeriodTasks, formatMonthText, toYmd } from './dates.js';
+import { isOrdered, outOfPeriodTasks, periodError, formatMonthText, toYmd } from './dates.js';
 
 // js/costgrid.js is a classic script: the period check and the two copy functions are cut out and run against stubs.
 const js = readFileSync('js/costgrid.js', 'utf8');
-const names = ['window', 'showInfo', 'config', '_cgDraft', 'Api', '_pushProjectToApi', 'persistConfig', 'toYmd', 'isOrdered',
-  '_cgActiveCgId', '_cgActiveVersionId', 'cgLoad', 'cgSave', 'renderCgEditor', '_cgSelectionMode', '_cgSelectedTaskIds'];
+const names = ['window', 'showInfo', 'config', '_cgDraft', 'Api', '_pushProjectToApiDetailed', 'persistConfig', 'toYmd', 'isOrdered',
+  '_cgActiveCgId', '_cgActiveVersionId', 'cgLoad', 'cgSave', 'renderCgEditor', '_cgSelectionMode', '_cgSelectedTaskIds', 'cgAutoSave', 'renderCgVersionTabs'];
 const src = ['function cgGeneratedPeriod(', 'function cgOutOfPeriodNotice(', 'async function cgDoAddTasksToProject(', 'function cgGenerationPlan(', 'async function cgDoGenerateProject(']
   .map(h => extractBlock(js, h)).join('\n');
 
@@ -14,9 +14,10 @@ let showInfo, config, draft, api, push;
 
 function build() {
   const stubs = {
-    window: { outOfPeriodTasks, formatMonthText }, showInfo, config, _cgDraft: draft, Api: api, _pushProjectToApi: push,
+    window: { outOfPeriodTasks, periodError, formatMonthText }, showInfo, config, _cgDraft: draft, Api: api, _pushProjectToApiDetailed: push,
     persistConfig: vi.fn(), toYmd, isOrdered, _cgActiveCgId: 'cg1', _cgActiveVersionId: 'v1',
     cgLoad: () => null, cgSave: vi.fn(), renderCgEditor: vi.fn(), _cgSelectionMode: true, _cgSelectedTaskIds: new Set(),
+    cgAutoSave: vi.fn(), renderCgVersionTabs: vi.fn(),
   };
   return new Function(...names, `${src}; return { add: cgDoAddTasksToProject, gen: cgDoGenerateProject };`)(...names.map(n => stubs[n]));
 }
@@ -25,7 +26,7 @@ const task = (id, name, start, end) => ({ taskId: id, taskName: name, taskStartD
 
 beforeEach(() => {
   showInfo = vi.fn();
-  push = vi.fn(async () => true);
+  push = vi.fn(async () => ({ ok: true, failed: [] }));
   api = { costGrids: { versions: { linkedProjects: { add: vi.fn(async () => {}) }, update: vi.fn(), saveStructure: vi.fn() }, update: vi.fn() }, projects: {} };
   config = { projects: [{ id: 'p1', startDate: '202604', endDate: '202612', tasks: [] }] };
   draft = {
@@ -81,5 +82,17 @@ describe('copying tasks outside the project period', () => {
     expect(showInfo).not.toHaveBeenCalled();
     expect(config.projects).toHaveLength(2);
     expect(config.projects[1].startDate).toBe('202603');
+  });
+  it('cgDoGenerateProject with a refused tasks save keeps the project without its tasks (spec D7)', async () => {
+    push.mockResolvedValue({ ok: false, failed: [{ part: 'tasks', error: 'x', reason: 'A task falls outside the period' }] });
+    await build().gen(['t2'], 'New', null, 'C1');
+    const created = config.projects[1];
+    expect(created.name).toBe('New');
+    expect(created.tasks).toEqual([]);
+    expect(api.costGrids.versions.linkedProjects.add).toHaveBeenCalledWith('cg1', 'v1', { projectId: created.id, taskIds: [], taskNames: [] });
+    const link = draft.linkedProjects.find(l => l.projectId === created.id);
+    expect(link.taskIds).toEqual([]);
+    expect(link.taskNames).toEqual([]);
+    expect(showInfo).toHaveBeenCalledWith('Project "New" was created, but its tasks were not saved: A task falls outside the period');
   });
 });

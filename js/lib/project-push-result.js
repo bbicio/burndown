@@ -15,14 +15,20 @@ const REASON_CODES = new Set(['DATE_RULE', 'PROJECT_RULE', 'STRUCTURE_RULE']);
 // { ok, message } for project-config.html's onSave.
 export function summarizePushResult(failed) {
   if (!failed || !failed.length) return { ok: true, message: '' };
-  const labels = failed.map(f => PART_LABELS[f.part] || f.part);
+  const reasonOf = () => {
+    const refused = failed.find(f => REASON_CODES.has(f.code) && f.reason);
+    return refused ? ` Reason: ${refused.reason}` : '';
+  };
+  if (failed.length === 1 && failed[0].part === 'project') {
+    return { ok: false, message: 'Save failed: project details were not saved, so tasks, phasing, PTC, monthly planning and role groups were not attempted. Fix the issue and press Save again.' + reasonOf() };
+  }
+  const labels = failed.map(f => (f.part === 'tasks' && f.withPeriod) ? 'tasks and the project period' : (PART_LABELS[f.part] || f.part));
   const list = labels.length === 1
     ? labels[0]
     : labels.slice(0, -1).join(', ') + ' and ' + labels[labels.length - 1];
   const verb = failed.length === 1 && !PLURAL_PARTS.has(failed[0].part) ? 'was' : 'were';
   let message = `Save failed: ${list} ${verb} not saved. Fix the issue and press Save again.`;
-  const refused = failed.find(f => REASON_CODES.has(f.code) && f.reason);
-  if (refused) message += ` Reason: ${refused.reason}`;
+  message += reasonOf();
   return { ok: false, message };
 }
 

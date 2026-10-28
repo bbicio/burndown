@@ -27,8 +27,8 @@ describe('New Proposal / Clone modals removed', () => {
     const costgridJsVersion = (html) => html.match(/js\/costgrid\.js\?v=(\d+)/)?.[1];
     const costgridCalcVersion = (html) => html.match(/js\/lib\/costgrid-calc\.js\?v=(\d+)/)?.[1];
 
-    expect(costgridJsVersion(pipeline)).toBe('50');
-    expect(costgridJsVersion(costgrid)).toBe('50');
+    expect(costgridJsVersion(pipeline)).toBe('51');
+    expect(costgridJsVersion(costgrid)).toBe('51');
     expect(costgridCalcVersion(pipeline)).toBe('9');
     expect(costgridCalcVersion(costgrid)).toBe('9');
   });
@@ -37,7 +37,7 @@ describe('New Proposal / Clone modals removed', () => {
 describe('shared script versions', () => {
   it('every page loads the same js/api-sync.js version', () => {
     ['pipeline.html', 'costgrid.html', 'portfolio.html', 'program.html', 'planning.html', 'project-config.html'].forEach(f => {
-      expect(read(f).match(/js\/api-sync\.js\?v=(\d+)/)?.[1], f).toBe('27');
+      expect(read(f).match(/js\/api-sync\.js\?v=(\d+)/)?.[1], f).toBe('28');
     });
   });
 });

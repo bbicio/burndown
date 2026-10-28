@@ -763,8 +763,8 @@
 <script type="module" src="js/lib/dates.js?v=4"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
-<script defer src="js/costgrid.js?v=50"></script>
-<script defer src="js/api-sync.js?v=27"></script>
+<script defer src="js/costgrid.js?v=51"></script>
+<script defer src="js/api-sync.js?v=28"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>
 <script defer src="js/shares.js"></script>
@@ -1065,7 +1065,7 @@ Vue.createApp({
       const show = v => (v === '' ? '…' : window.formatMonthText(v));
       return n + ' ' + (n === 1 ? 'task is' : 'tasks are') + ' outside the proposal period ('
         + show(s) + ' – ' + show(e)
-        + '). Changes to this version are not saved until they are moved inside it or the period is widened.';
+        + '). Tasks and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.';
     },
     periodTaskDates() {
       return (this.draft?.phases || []).flatMap(ph => (ph.tasks || []).flatMap(t => [t.taskStartDate, t.taskEndDate]));
