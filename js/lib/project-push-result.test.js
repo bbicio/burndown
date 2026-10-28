@@ -10,10 +10,20 @@ describe('summarizePushResult', () => {
     expect(summarizePushResult(undefined)).toEqual({ ok: true, message: '' });
   });
 
-  it('names the project details when the core upsert failed', () => {
-    const r = summarizePushResult([{ part: 'project', error: 'HTTP 500' }]);
+  it('names the untried sections when the core upsert failed', () => {
+    const r = summarizePushResult([{ part: 'project', code: 'PROJECT_RULE', reason: 'why' }]);
     expect(r.ok).toBe(false);
-    expect(r.message).toBe('Save failed: project details were not saved. Fix the issue and press Save again.');
+    expect(r.message).toBe('Save failed: project details were not saved, so tasks, phasing, PTC, monthly planning and role groups were not attempted. Fix the issue and press Save again. Reason: why');
+  });
+
+  it('a project failure without a server reason has no Reason suffix', () => {
+    const r = summarizePushResult([{ part: 'project', error: 'HTTP 500' }]);
+    expect(r.message).toBe('Save failed: project details were not saved, so tasks, phasing, PTC, monthly planning and role groups were not attempted. Fix the issue and press Save again.');
+  });
+
+  it('a tasks failure carried with the period names the period', () => {
+    const r = summarizePushResult([{ part: 'tasks', withPeriod: true }]);
+    expect(r.message).toContain('tasks and the project period were not saved');
   });
 
   it('names a single failed sub-resource with a readable label', () => {

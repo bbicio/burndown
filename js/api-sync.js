@@ -293,9 +293,19 @@ async function _pushProjectToApiDetailed(project, { skipEmpty = false } = {}) {
   const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (meta.clientId && !uuidRe.test(meta.clientId)) meta.clientId = null;
 
+  // The project period travels with the tasks (one transaction on the server, PUT /tasks) whenever the
+  // tasks are sent, so the header PATCH must not carry it; without tasks to send the PATCH carries it.
+  // A fallback POST creates the project and always carries the full period.
+  const nonEmpty = v => Array.isArray(v) ? v.length > 0 : v != null && typeof v === 'object' && Object.keys(v).length > 0;
+  const present  = v => Array.isArray(v) || (v != null && typeof v === 'object');
+  const wanted   = v => skipEmpty ? nonEmpty(v) : present(v);
+  const sendTasks = wanted(tasks);
+  const patchMeta = { ...meta };
+  if (sendTasks) { delete patchMeta.startDate; delete patchMeta.endDate; }
+
   // Upsert core metadata
   try {
-    await Api.projects.update(project.id, meta);
+    await Api.projects.update(project.id, patchMeta);
   } catch (updateErr) {
     // A refusal by the project rules (currency lock, link rules) is final: retrying it as a create would only
     // end in a duplicate-key error that hides the message. Any other failure is treated as "project not there yet".
@@ -318,12 +328,9 @@ async function _pushProjectToApiDetailed(project, { skipEmpty = false } = {}) {
   // Exception: with { skipEmpty: true } (js/costgrid.js) empty sections are not pushed.
   // skipEmpty: costgrid.js callers re-send a whole, possibly stale, in-memory project and never edit these
   // sections, so for them "empty" means "not touched" and must not overwrite the server's data (2026-09-30).
-  const nonEmpty = v => Array.isArray(v) ? v.length > 0 : v != null && typeof v === 'object' && Object.keys(v).length > 0;
-  const present  = v => Array.isArray(v) || (v != null && typeof v === 'object');
-  const wanted   = v => skipEmpty ? nonEmpty(v) : present(v);
   const failed = [];
   const steps = [
-    ['tasks',    tasks,    () => Api.projects.saveTasks(project.id, tasks)],
+    ['tasks',    tasks,    () => Api.projects.saveTasks(project.id, { tasks, period: { startDate: meta.startDate || '', endDate: meta.endDate || '' } })],
     ['phasing',  phasing,  () => Api.projects.phasing(project.id, phasing)],
     ['ptc',      ptc,      () => Api.projects.ptc(project.id, ptc)],
     ['planning', planning, () => Api.projects.planning(project.id, planning)],
@@ -334,7 +341,7 @@ async function _pushProjectToApiDetailed(project, { skipEmpty = false } = {}) {
     try { await run(); }
     catch (e) {
       console.warn(`[sync] ${part} save failed:`, e.message);
-      failed.push({ part, error: e.message, code: e.data?.code, reason: e.data?.error });
+      failed.push({ part, ...(part === 'tasks' ? { withPeriod: true } : {}), error: e.message, code: e.data?.code, reason: e.data?.error });
     }
   }
   return { ok: failed.length === 0, failed };

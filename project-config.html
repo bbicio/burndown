@@ -417,7 +417,7 @@
 <script type="module" src="js/lib/dates.js?v=4"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
-<script type="module" src="js/lib/project-push-result.js?v=2"></script>
+<script type="module" src="js/lib/project-push-result.js?v=3"></script>
 <script defer src="js/api-sync.js?v=28"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script type="module" src="js/lib/icons.js?v=2"></script>
@@ -475,7 +475,7 @@
         const n = list.length;
         const show = v => (v === '' ? '…' : window.formatMonthText(v));
         return n + ' ' + (n === 1 ? 'task is' : 'tasks are') + ' outside the project period (' + show(s) + ' – ' + show(e)
-          + '). Changes to this project are not saved until they are moved inside it or the period is widened.';
+          + '). Task dates and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.';
       },
       periodTaskDates() {
         return (this.project?.tasks || []).flatMap(t => [t.startDate, t.endDate]);
