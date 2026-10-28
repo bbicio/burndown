@@ -195,6 +195,15 @@ export function reforecastDistribution(tasks, months, actualsRows, currentYm) {
   return { newPhasing, newPlanning, distError: null, remainingBudget, remainingHours, distributedRemainingHours, pastMonths, futureMonths };
 }
 
+// Dates C4 (B-158): the distribution a task keeps for a month list. An empty list (inverted range) keeps it untouched.
+export function keepDistribution(dist, months) {
+  if (!months.length) return { ...(dist || {}) };
+  const kept = {};
+  months.forEach(ym => { if (dist?.[ym] != null) kept[ym] = dist[ym]; });
+  if (months.length === 1) kept[months[0]] = 100;
+  return kept;
+}
+
 // True when the project no longer matches its last loaded/saved JSON snapshot; no snapshot or no project means nothing to lose.
 export function isProjectDirty(savedJson, project) {
   if (savedJson == null || project == null) return false;
@@ -204,3 +213,4 @@ export function isProjectDirty(savedJson, project) {
 window.deriveDistribution = deriveDistribution;
 window.reforecastDistribution = reforecastDistribution;
 window.isProjectDirty = isProjectDirty;
+window.keepDistribution = keepDistribution;

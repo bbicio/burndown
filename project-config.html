@@ -413,7 +413,7 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/status-rules.js?v=1"></script>
-<script type="module" src="js/lib/config-form-calc.js?v=3"></script>
+<script type="module" src="js/lib/config-form-calc.js?v=4"></script>
 <script type="module" src="js/lib/dates.js?v=4"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
@@ -972,11 +972,7 @@
       },
       rebuildTaskDist(ti) {
         const task = this.project.tasks[ti];
-        const months = this.taskMonthRange(task);
-        const kept = {};
-        months.forEach(ym => { if (task.monthlyDistribution?.[ym] != null) kept[ym] = task.monthlyDistribution[ym]; });
-        if (months.length === 1) kept[months[0]] = 100;
-        task.monthlyDistribution = kept;
+        task.monthlyDistribution = window.keepDistribution(task.monthlyDistribution, this.taskMonthRange(task));
       },
       distBadgeClass(task) {
         const sum = Object.values(task.monthlyDistribution || {}).reduce((s, v) => s + (v || 0), 0);
