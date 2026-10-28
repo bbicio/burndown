@@ -180,7 +180,11 @@ Pure formatting helpers for the Team assistant panel in `planning.html` (only pa
 
 `summarizePushResult(failed)` (2026-09-30): turns the `failed` list of `_pushProjectToApiDetailed()` (`js/api-sync.js`) into `{ ok, message }` — "Save failed: <parts> (was|were) not saved. Fix the issue and press Save again." with readable labels (project details, tasks, phasing, PTC, monthly planning, role groups; unknown parts fall back to the raw name). When a failed part carries a `code` of `DATE_RULE`, `PROJECT_RULE` or `STRUCTURE_RULE` and a `reason`, the message ends with ` Reason: <the server's message>`. Only `project-config.html` loads it (bridged to `window.summarizePushResult`, read only inside `onSave`). Vitest cases in `project-push-result.test.js`; page: `docs/pages/project-config.md`.
 
+(2026-10-28, dates C4) A lone `project` failure says the other sections were not attempted: "Save failed: project details were not saved, so tasks, phasing, PTC, monthly planning and role groups were not attempted. Fix the issue and press Save again."; a `tasks` failure that carried the project period (`withPeriod`) is labelled "tasks and the project period". `?v=3`.
+
 ## config-form-calc.js (project-config helpers)
+
+`keepDistribution(dist, months, inverted = false)` (2026-10-28, dates C4) is the distribution a task keeps when its dates change (`rebuildTaskDist` in `project-config.html`): only the months still in the range, a single month at 100; an empty month list keeps the distribution only when `inverted` (the caller passes `window.periodError(...) !== null`), so a transient start > end no longer wipes it while a cleared date still resets it. `?v=4`.
 
 `deriveDistribution` (2026-10-26, dates C3) also returns `outsideBudget` and `outsideHours`: the part of the tasks without a valid monthly distribution that lies outside the project months. Day counts are rounded, so a daylight-saving change does not move a fraction.
 

@@ -269,7 +269,7 @@ Key sync functions in `api-sync.js`:
 | `loadPipelineBudgetsFromApi()` | Loads pre-computed budget totals indexed by versionId into `_pbBudgets` |
 | `refreshTimesheetDataFromApi()` | Loads timesheet rows from API into `timesheetData` + `_timesheetProjectData` |
 | `_cgUpsertVersionToApi(cgId, verId)` | Write-through: pushes cost grid version to API |
-| `_pushProjectToApi(project)` | Write-through: pushes project (all sub-resources) to API; returns `false` only if the core upsert failed |
+| `_pushProjectToApi(project)` | Pushes project (all sub-resources) to API; returns `false` only if the core upsert failed; no production caller left |
 | `_pushProjectToApiDetailed(project)` | Same push, returns `{ ok, failed: [{part, error}] }` and never throws; used by `project-config.html`'s `onSave` so a failed save is not reported as success. Empty sections are pushed too; `{ skipEmpty: true }` (opt-in, used only by `js/costgrid.js`'s two callers) skips empty sections so a stale in-memory copy cannot wipe them; `_pushProjectToApi(project, opts)` forwards it |
 
 **Cost grid store** (`_cgStore` Map in `costgrid.js`). `cgLoad/cgSave/cgGetIndex` operate on this Map. Deep-clones on read and write to avoid accidental in-place mutation.
@@ -375,7 +375,7 @@ One implementation, `js/lib/dates.js` (server twin `api/src/lib/dates.js`). Rule
 - **Every route that writes a version, project or task period uses `periodError`/`periodChangeError`** and refuses with `400 { error, code: 'DATE_RULE' }`; the timesheet upload checks each date with `toIso` and refuses the whole file with the row number; `js/api-sync.js` must not retry a `DATE_RULE` refusal as a `POST`.
 - **Every editable date field is a `<cg-date-picker>`**, never a native date/month input or a numeric placeholder; its text (`Dec 1, 2025`, `Dec 2025`) comes only from `js/lib/dates.js` (`js/lib/dates-guard.test.js`).
 - **Every date field that has a twin passes `min`/`max`**, and a picker reads typed text only through `parseDateInput`.
-- **Every write of a proposal or project task date is checked with `taskPeriodError` against the parent period, and a period change with `periodShrinkError`**, both refused with `400 { error, code: 'DATE_RULE' }`; the task and period pickers take their `min`/`max` from `taskDateBounds`/`periodBounds`.
+- **Every write of a proposal or project task date is checked with `taskPeriodError` against the parent period, and a period change with `periodShrinkError`** — or, when the period travels with the tasks (structure `PUT`, `PUT /api/projects/:id/tasks`), with `taskPeriodError` against the new period — both refused with `400 { error, code: 'DATE_RULE' }`; the task and period pickers take their `min`/`max` from `taskDateBounds`/`periodBounds`.
 - **An existing invalid version or project period is tolerated** until its dates change; task dates are checked on every structure or task-list save.
 
 Full detail: [docs/js/lib.md](docs/js/lib.md), [docs/api/lib.md](docs/api/lib.md) (`dates.js`).

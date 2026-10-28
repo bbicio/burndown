@@ -388,6 +388,15 @@ Spec `docs/superpowers/specs/2026-10-26-dates-c3-task-period-design.md`, report 
 - **Out-of-period tasks.** `outOfPeriod` and `outOfPeriodMessage` computeds feed a warning banner (`.cg-banner--warning`, hidden when read-only) and `isTaskOutOfPeriod(task)` feeds a per-task "Outside the proposal period". The banner sits after the `v-if="isLocked"` / `v-else-if="isDraft"` banner pair, not between them: Gate 1 found that a `v-if` placed there broke the chain and hid the Draft banner.
 - **Monthly Phasing.** `phasingByMonth` uses `distributeTaskHours` (`js/lib/costgrid-calc.js`) and also returns `outsideHours`/`outsideAmount`; a line under the table reads "… fall outside the proposal period and are not phased." when they are above zero.
 - **Add tasks to project / Generate project.** Both refuse with `showInfo`, writing nothing, when the selected tasks, or the target project's existing tasks, fall outside the target period; Generate checks before the Create Program modal. Detail: [docs/js/costgrid.md](../js/costgrid.md).
-- **Save.** The server refuses a structure `PUT` with a task outside the stored period; the notice and the retry are in [docs/js/api-sync.md](../js/api-sync.md). `css` unchanged; `costgrid.js ?v=50`, `api-sync.js ?v=27`, `dates.js ?v=4`, `costgrid-calc.js ?v=9`.
+- **Save.** The server refuses a structure `PUT` with a task outside the period it writes; the notice is in [docs/js/api-sync.md](../js/api-sync.md) (the C3 retry was replaced by dates C4, below). `css` unchanged; `costgrid.js ?v=51`, `api-sync.js ?v=28`, `dates.js ?v=4`, `costgrid-calc.js ?v=9`.
 
 Guards: `js/lib/costgrid-task-period-guard.test.js`. Manual cases: `TEST_CASES.md` CG-99..CG-102.
+
+### The period travels with the tasks (2026-10-28, dates C4)
+
+Spec `docs/superpowers/specs/2026-10-26-dates-c4-saves-after-period-rule-design.md`, report `docs/superpowers/reports/2026-10-28-dates-c4-saves-period-finish-cycle.md`.
+- **Save.** With the structure loaded, the version period is saved with the structure in one request, so moving, shrinking or shifting the period while moving the tasks into it saves without a notice. The pickers still impose an order: a task's end before its start, and the tasks before the period start that would leave them out ([docs/js/api-sync.md](../js/api-sync.md)).
+- **Banner and notices.** The out-of-period banner ends "Tasks and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved." A refused structure gets "… Tasks and the period of this version are not saved until this is fixed; other changes are saved."; a refused version `PATCH` keeps "Your changes to this version are not being saved until this is fixed.", because a refused `PATCH` saves nothing. Both deviate from the Spec's §3.1/§3.2 wording (one sentence for both refusals; "Task dates and the period"), decided during execution and at Gate 3. A notice shows again after a reload or a successful structure save.
+- **Generate / Add tasks.** Generate refuses an inverted proposal period before any write; Add tasks reports a refused task save and rolls the tasks back ([docs/js/costgrid.md](../js/costgrid.md)).
+
+Guards: `js/lib/costgrid-task-period-guard.test.js`. Manual case: `TEST_CASES.md` CG-103.
