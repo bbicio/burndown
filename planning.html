@@ -122,7 +122,6 @@
       <div class="pl-toolbar-right">
         <button v-if="isAdminUser" class="ph-btn" title="Find the best people to allocate to a project" @click="taOpen = !taOpen"><ph-icon name="team" :size="14"></ph-icon> Team assistant</button>
         <button class="ph-btn" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon> Load XLS</button>
-        <button class="ph-btn" title="Toggle full browser width" @click="toggleFullWidth"><ph-icon :name="fullWidth ? 'minimize' : 'maximize'" :size="14"></ph-icon> {{ fullWidth ? 'Compact' : 'Full width' }}</button>
         <button class="ph-btn" @click="exportCurrentView"><ph-icon name="download" :size="14"></ph-icon> Export XLS</button>
       </div>
     </div>
@@ -299,7 +298,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         pipelineFilters: new Set(), projectFilters: new Set(), teamFilters: new Set(),
         windowStart: null, windowEnd: null,
         monthlyPulse: true, roundHours: true,
-        fullWidth: true,
         returnToBurndown: false, singleProjectId: null,
         refreshTick: 0, // bumped after an XLS upload to force a new modelRequest (refetch of the
                         // planning model) and to recompute computeds reading config.projects, a
@@ -1140,10 +1138,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       shrinkRight() {
         const ne = new Date(this.windowEnd.getFullYear(), this.windowEnd.getMonth(), 0);
         if (ne >= this.windowStart) this.windowEnd = ne;
-      },
-      toggleFullWidth() {
-        this.fullWidth = !this.fullWidth;
-        document.body.classList.toggle('pp-fullwidth', this.fullWidth);
       },
       bumpRefresh() { this.refreshTick++; },
       async loadModel() {

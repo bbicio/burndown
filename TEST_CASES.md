@@ -405,7 +405,7 @@
 | PL-26 | Unmatched/ambiguous owner name treated as active (2026-09-28) | Have an actuals owner name with no matching `resources` row (or that matches multiple active resources by name) | That owner still receives its normal proportional future-hours share, no "inactive" badge | ✓ (node:test, `resolveOwnerStatuses`, now in api/src/lib/match-resource.js; tests in api/src/routes/resources.test.js and api/src/lib/match-resource.test.js) |
 | PL-27 | XLS export mirrors the on-screen inactive badge (2026-09-28) | With PL-24's setup, export XLS from both By Project and By Owner | The inactive owner's row in the downloaded file has a `(inactive)` text suffix on the owner cell, on the same rows the on-screen badge appears; past-actuals numbers match the on-screen values exactly | |
 | PL-28 | By Owner Sold hours stay actuals-proportional regardless of status (2026-09-28) | With PL-24's setup, open By Owner and compare the inactive owner's Sold column to their Actuals column | Sold moves with the owner's real actuals share (not zeroed out) even though their future ("To be planned") share is 0 — only future hours exclude inactive owners, Sold/Actuals attribution is unaffected by status | |
-| PL-29 | Toolbar fits a phone (2026-10-20, B-106) | Open planning.html at a 375px viewport | The toolbar buttons (Team assistant, Load XLS, Compact/Full width, Export XLS) wrap onto a second line; none is cut at the right edge and the page has no horizontal scroll | |
+| PL-29 | Toolbar fits a phone (2026-10-20, B-106) | Open planning.html at a 375px viewport | The toolbar buttons (Team assistant, Load XLS, Export XLS) wrap onto a second line; none is cut at the right edge and the page has no horizontal scroll | |
 
 ---
 

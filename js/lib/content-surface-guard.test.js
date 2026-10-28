@@ -241,9 +241,14 @@ describe('planning toolbar', () => {
   const toolbar = html.slice(start, html.indexOf('</div>', start));
   const buttons = toolbar.split('</button>').slice(0, -1).map(b => b + '</button>');
 
-  it('has four buttons', () => {
+  it('has three buttons', () => {
     expect(start).toBeGreaterThan(-1);
-    expect(buttons.length).toBe(4);
+    expect(buttons.length).toBe(3);
+  });
+  it('has no width toggle (2026-10-29, ui-quick-wins)', () => {
+    expect(html).not.toContain('toggleFullWidth');
+    expect(html).not.toContain('fullWidth');
+    expect(html).toContain('<body class="pp-fullwidth">');
   });
   it('carries no emoji or symbol glyphs', () => {
     expect(toolbar).not.toMatch(/\p{Extended_Pictographic}|[⛶⊡⬇]/u);
@@ -257,7 +262,6 @@ describe('planning toolbar', () => {
     expect(by('Team assistant')).toContain('name="team"');
     expect(by('Load XLS')).toContain('name="upload"');
     expect(by('Export XLS')).toContain('name="download"');
-    expect(by('toggleFullWidth')).toContain(`:name="fullWidth ? 'minimize' : 'maximize'"`);
   });
   it('registers ph-icon before mounting', () => {
     const reg = html.indexOf(`app.component('ph-icon', window.PhIcon)`);
