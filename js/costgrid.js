@@ -1128,7 +1128,14 @@ async function cgDoAddTasksToProject(projId, selectedTaskIds) {
   // Append tasks to project in memory and push to API
   if (!proj.tasks) proj.tasks = [];
   proj.tasks.push(...newTasks);
-  await _pushProjectToApi(proj, { skipEmpty: true }).catch(e => console.warn('[sync] addTasksToProject failed:', e.message));
+  const pushResult = await _pushProjectToApiDetailed(proj, { skipEmpty: true });
+  if (pushResult.failed && pushResult.failed.length) {
+    // Nothing was saved for the new tasks: take them back out and record no link.
+    proj.tasks.splice(proj.tasks.length - newTasks.length, newTasks.length);
+    const f = pushResult.failed[0];
+    showInfo(`Tasks were not added to "${proj.name}": ${f.reason || f.error}`);
+    return;
+  }
 
   // Update task_ids + task_names_direct in cg_version_projects (upsert via POST)
   const lp = (_cgDraft.linkedProjects || []).find(l => l.projectId === projId);
@@ -1272,7 +1279,9 @@ function cgGenerationPlan(selectedTaskIds) {
   const selTasks  = (v.phases || []).flatMap(ph => ph.tasks).filter(t => selectedTaskIds.includes(t.taskId));
   const { projStart, projEnd } = cgGeneratedPeriod(v, selTasks, new Date());
 
-  const refusal = cgOutOfPeriodNotice(tasks, projStart, projEnd);
+  // An invalid version period (end before start, bad format) is refused before anything is written.
+  const periodErr = window.periodError(v.startDate || '', v.endDate || '', { kind: 'month', label: 'proposal' });
+  const refusal = periodErr || cgOutOfPeriodNotice(tasks, projStart, projEnd);
   return { tasks, selTasks, projStart, projEnd, refusal };
 }
 
@@ -1339,10 +1348,16 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
   // phasing, etc.) stay best-effort/swallowed internally, matching this function's existing
   // convention for those fields, so they don't gate this success check.
   let pushedOk = false;
+  let tasksFailed = null;
+  let linkTaskIds = selectedTaskIds;
+  let linkTaskNames = selectedTaskNames;
   try {
-    pushedOk = await _pushProjectToApi(newProject, { skipEmpty: true });
+    const pushResult = await _pushProjectToApiDetailed(newProject, { skipEmpty: true });
+    pushedOk = !pushResult.failed.some(f => f.part === 'project');
+    tasksFailed = pushResult.failed.find(f => f.part === 'tasks') || null;
+    if (tasksFailed) { linkTaskIds = []; linkTaskNames = []; }
     if (pushedOk) {
-      await Api.costGrids.versions.linkedProjects.add(_cgActiveCgId, _cgActiveVersionId, { projectId: generatedId, taskIds: selectedTaskIds, taskNames: selectedTaskNames });
+      await Api.costGrids.versions.linkedProjects.add(_cgActiveCgId, _cgActiveVersionId, { projectId: generatedId, taskIds: linkTaskIds, taskNames: linkTaskNames });
     }
   } catch (e) {
     console.warn('[sync] project generation sync failed:', e.message);
@@ -1352,8 +1367,8 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
   _cgDraft.linkedProjects.push({
     projectId:   generatedId,
     projectName: projectName,
-    taskIds:     selectedTaskIds,
-    taskNames:   selectedTaskNames,
+    taskIds:     linkTaskIds,
+    taskNames:   linkTaskNames,
     createdAt:   new Date().toISOString(),
   });
   _cgDraft.status = 'sip';
@@ -1376,6 +1391,11 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
       `Project "${projectName}" was created locally, but saving it to the server failed. Reload the page and check the Portfolio before continuing — the project may need to be re-created.`,
       '⚠️ Sync failed'
     );
+    return;
+  }
+
+  if (tasksFailed) {
+    showInfo(`Project "${projectName}" was created, but its tasks were not saved: ${tasksFailed.reason || tasksFailed.error}`);
     return;
   }
 

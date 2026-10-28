@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { extractBlock } from '../../scripts/lib/extract-source.mjs';
-import { isOrdered, outOfPeriodTasks, formatMonthText, toYmd } from './dates.js';
+import { isOrdered, outOfPeriodTasks, periodError, formatMonthText, toYmd } from './dates.js';
 
 // js/costgrid.js is a classic script: the period check and the two copy functions are cut out and run against stubs.
 const js = readFileSync('js/costgrid.js', 'utf8');
-const names = ['window', 'showInfo', 'config', '_cgDraft', 'Api', '_pushProjectToApi', 'persistConfig', 'toYmd', 'isOrdered',
+const names = ['window', 'showInfo', 'config', '_cgDraft', 'Api', '_pushProjectToApiDetailed', 'persistConfig', 'toYmd', 'isOrdered',
   '_cgActiveCgId', '_cgActiveVersionId', 'cgLoad', 'cgSave', 'renderCgEditor', '_cgSelectionMode', '_cgSelectedTaskIds'];
 const src = ['function cgGeneratedPeriod(', 'function cgOutOfPeriodNotice(', 'async function cgDoAddTasksToProject(', 'function cgGenerationPlan(', 'async function cgDoGenerateProject(']
   .map(h => extractBlock(js, h)).join('\n');
@@ -14,7 +14,7 @@ let showInfo, config, draft, api, push;
 
 function build() {
   const stubs = {
-    window: { outOfPeriodTasks, formatMonthText }, showInfo, config, _cgDraft: draft, Api: api, _pushProjectToApi: push,
+    window: { outOfPeriodTasks, periodError, formatMonthText }, showInfo, config, _cgDraft: draft, Api: api, _pushProjectToApiDetailed: push,
     persistConfig: vi.fn(), toYmd, isOrdered, _cgActiveCgId: 'cg1', _cgActiveVersionId: 'v1',
     cgLoad: () => null, cgSave: vi.fn(), renderCgEditor: vi.fn(), _cgSelectionMode: true, _cgSelectedTaskIds: new Set(),
   };
@@ -25,7 +25,7 @@ const task = (id, name, start, end) => ({ taskId: id, taskName: name, taskStartD
 
 beforeEach(() => {
   showInfo = vi.fn();
-  push = vi.fn(async () => true);
+  push = vi.fn(async () => ({ ok: true, failed: [] }));
   api = { costGrids: { versions: { linkedProjects: { add: vi.fn(async () => {}) }, update: vi.fn(), saveStructure: vi.fn() }, update: vi.fn() }, projects: {} };
   config = { projects: [{ id: 'p1', startDate: '202604', endDate: '202612', tasks: [] }] };
   draft = {
