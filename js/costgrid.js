@@ -1129,10 +1129,12 @@ async function cgDoAddTasksToProject(projId, selectedTaskIds) {
   if (!proj.tasks) proj.tasks = [];
   proj.tasks.push(...newTasks);
   const pushResult = await _pushProjectToApiDetailed(proj, { skipEmpty: true });
-  if (pushResult.failed && pushResult.failed.length) {
+  // Only a refused project or tasks save means the new tasks are not on the server; a phasing/ptc/planning/groups
+  // failure leaves them saved.
+  const f = (pushResult.failed || []).find(x => x.part === 'tasks' || x.part === 'project');
+  if (f) {
     // Nothing was saved for the new tasks: take them back out and record no link.
     proj.tasks.splice(proj.tasks.length - newTasks.length, newTasks.length);
-    const f = pushResult.failed[0];
     showInfo(`Tasks were not added to "${proj.name}": ${f.reason || f.error}`);
     return;
   }

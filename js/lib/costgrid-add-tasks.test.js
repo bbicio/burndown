@@ -48,6 +48,23 @@ describe('cgDoAddTasksToProject', () => {
     expect(t.showInfo.mock.calls[0][0]).toBe('Tasks were not added to "Proj One": boom');
   });
 
+  it('a phasing-only failure keeps the tasks and the link and shows no "not added" notice', async () => {
+    const t = build({ failed: [{ part: 'phasing', error: 'p' }] });
+    await t.run();
+    expect(t.proj.tasks).toHaveLength(2);
+    expect(t.lp.taskIds).toEqual(['a', 'n1']);
+    expect(t.add).toHaveBeenCalledTimes(1);
+    expect(t.showInfo).not.toHaveBeenCalled();
+  });
+
+  it('with phasing and tasks failures the notice uses the tasks entry', async () => {
+    const t = build({ failed: [{ part: 'phasing', error: 'p', reason: 'nope' }, { part: 'tasks', error: 'x', reason: 'why' }] });
+    await t.run();
+    expect(t.proj.tasks).toHaveLength(1);
+    expect(t.add).not.toHaveBeenCalled();
+    expect(t.showInfo.mock.calls[0][0]).toBe('Tasks were not added to "Proj One": why');
+  });
+
   it('on success the tasks and the link are recorded', async () => {
     const t = build({ failed: [] });
     await t.run();
