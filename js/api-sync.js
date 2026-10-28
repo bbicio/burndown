@@ -296,6 +296,8 @@ async function _pushProjectToApiDetailed(project, { skipEmpty = false } = {}) {
   // The project period travels with the tasks (one transaction on the server, PUT /tasks) whenever the
   // tasks are sent, so the header PATCH must not carry it; without tasks to send the PATCH carries it.
   // A fallback POST creates the project and always carries the full period.
+  // skipEmpty: costgrid.js callers re-send a whole, possibly stale, in-memory project and never edit these
+  // sections, so for them "empty" means "not touched" and must not overwrite the server's data (2026-09-30).
   const nonEmpty = v => Array.isArray(v) ? v.length > 0 : v != null && typeof v === 'object' && Object.keys(v).length > 0;
   const present  = v => Array.isArray(v) || (v != null && typeof v === 'object');
   const wanted   = v => skipEmpty ? nonEmpty(v) : present(v);
@@ -326,8 +328,6 @@ async function _pushProjectToApiDetailed(project, { skipEmpty = false } = {}) {
   // that is absent (undefined/null) is left alone. config.projects items always carry all five
   // (_apiProjectToLocal normalises them), so this never wipes a section the page did not load.
   // Exception: with { skipEmpty: true } (js/costgrid.js) empty sections are not pushed.
-  // skipEmpty: costgrid.js callers re-send a whole, possibly stale, in-memory project and never edit these
-  // sections, so for them "empty" means "not touched" and must not overwrite the server's data (2026-09-30).
   const failed = [];
   const steps = [
     ['tasks',    tasks,    () => Api.projects.saveTasks(project.id, { tasks, period: { startDate: meta.startDate || '', endDate: meta.endDate || '' } })],

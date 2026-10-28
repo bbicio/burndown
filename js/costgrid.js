@@ -1357,7 +1357,7 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
     const pushResult = await _pushProjectToApiDetailed(newProject, { skipEmpty: true });
     pushedOk = !pushResult.failed.some(f => f.part === 'project');
     tasksFailed = pushResult.failed.find(f => f.part === 'tasks') || null;
-    if (tasksFailed) { linkTaskIds = []; linkTaskNames = []; }
+    if (tasksFailed) { linkTaskIds = []; linkTaskNames = []; newProject.tasks = []; } // the server refused them: memory must match
     if (pushedOk) {
       await Api.costGrids.versions.linkedProjects.add(_cgActiveCgId, _cgActiveVersionId, { projectId: generatedId, taskIds: linkTaskIds, taskNames: linkTaskNames });
     }
