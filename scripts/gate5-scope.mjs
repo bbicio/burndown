@@ -49,7 +49,7 @@ export function classifyGate5(paths) {
 }
 
 /**
- * @param {{ name: string, text: string }[]} files js/**/*.test.js contents
+ * @param {{ name: string, text: string }[]} files the contents of every .test.js under js/, recursively
  * @returns {string[]} names, other than GATE5_TEST_FILE, that look like they read a .md file
  */
 export function mdReadingTests(files) {
