@@ -10,7 +10,7 @@
 // GATE5_TEST_FILE. Any other path — scripts/claude-md-guard.test.js, an .html,
 // a stray untracked log — makes it `other`, and Gate 5 asks as before.
 //
-// The subset is safe only if no other js/lib test reads a .md file; the guard
+// The subset is safe only if no other js/**/*.test.js reads a .md file; the guard
 // in gate5-scope.test.js (mdReadingTests) keeps that true. Its limit: it sees
 // string literals, not a path built at runtime.
 
@@ -49,7 +49,7 @@ export function classifyGate5(paths) {
 }
 
 /**
- * @param {{ name: string, text: string }[]} files js/lib/*.test.js contents
+ * @param {{ name: string, text: string }[]} files js/**/*.test.js contents
  * @returns {string[]} names, other than GATE5_TEST_FILE, that look like they read a .md file
  */
 export function mdReadingTests(files) {

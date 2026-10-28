@@ -57,10 +57,18 @@ describe('mdReadingTests', () => {
       .toEqual(['js/lib/z.test.js']);
   });
 
-  it('guard: no js/lib test outside the Gate 5 subset reads a .md file', () => {
-    const files = readdirSync(join(ROOT, 'js/lib'))
-      .filter((f) => f.endsWith('.test.js'))
-      .map((f) => ({ name: `js/lib/${f}`, text: readFileSync(join(ROOT, 'js/lib', f), 'utf8') }));
+  // Every test vitest's `js/**/*.test.js` include picks up — the ones the
+  // docs-only subset skips — not just js/lib/.
+  const jsTests = () => readdirSync(join(ROOT, 'js'), { recursive: true })
+    .map((f) => `js/${String(f).replace(/\\/g, '/')}`)
+    .filter((f) => f.endsWith('.test.js'));
+
+  it('guard scans every js/**/*.test.js, js/lib/ and outside it', () => {
+    expect(jsTests()).toEqual(expect.arrayContaining(['js/api-sync.test.js', GATE5_TEST_FILE]));
+  });
+
+  it('guard: no js test outside the Gate 5 subset reads a .md file', () => {
+    const files = jsTests().map((name) => ({ name, text: readFileSync(join(ROOT, name), 'utf8') }));
     const offenders = mdReadingTests(files);
     expect(offenders, `These tests read a .md file but are not in Gate 5's docs-only subset: add them to the subset command in .claude/commands/finish-cycle.md and to scripts/gate5-scope.mjs, or stop them reading .md — ${offenders.join(', ')}`).toEqual([]);
   });
