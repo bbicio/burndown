@@ -28,4 +28,30 @@ function feeOriginalSql(alias) {
   return feeSql(alias, '');
 }
 
-module.exports = { feeEurSql, feeOriginalSql };
+// The reference version of every proposal, as the CTE `ref_v`: its non-Draft version that has
+// projects (through either link), else its newest non-Draft one. Internal aliases are prefixed `rv`.
+function referenceVersionsCte() {
+  return `ref_v AS (
+    SELECT DISTINCT ON (rv.cost_grid_id) rv.*
+    FROM cost_grid_versions rv
+    WHERE rv.pipeline <> 'Draft'
+    ORDER BY rv.cost_grid_id,
+             (EXISTS (SELECT 1 FROM cg_version_projects rv_c WHERE rv_c.cost_grid_version_id = rv.id)
+              OR EXISTS (SELECT 1 FROM projects rv_p WHERE rv_p.cg_version_id = rv.id)) DESC,
+             rv.created_at DESC
+  )`;
+}
+
+// `ref_v` followed by the CTE `pot_v`: every reference version with its fee computed once, in its
+// own currency (`fee_original`) and in EUR (`fee_eur`, a missing or zero rate counting as 1).
+function potVersionsCte() {
+  return `${referenceVersionsCte()},
+  pot_v AS (
+    SELECT ref_v.*, pf_fee.fee_original,
+           pf_fee.fee_original / COALESCE(NULLIF(ref_v.currency_rate, 0), 1) AS fee_eur
+    FROM ref_v
+    CROSS JOIN LATERAL (SELECT ${feeSql('ref_v', '')} AS fee_original) pf_fee
+  )`;
+}
+
+module.exports = { feeEurSql, feeOriginalSql, referenceVersionsCte, potVersionsCte };
