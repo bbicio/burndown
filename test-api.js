@@ -742,6 +742,50 @@ async function testPotMasterDataFields() {
     'POT-17 a year with only a POT has expected_total === 0 and sip_total === 0');
 }
 
+// MR-01..MR-06 — the structure PUT validates role rates in the version's currency; 0 is a rate.
+async function testMoneyRules() {
+  section('Money rules');
+  const year = new Date().getFullYear();
+  const isMoneyRefusal = r => r.status === 400 && r.data?.code === 'MONEY_RULE';
+
+  const code = `TESTROLEMR${Date.now()}`;
+  const rr = await api('POST', '/api/roles', { label: `__test_role_mr_${Date.now()}__`, code, hourlyRate: 100 }, adminCookie);
+  const mrRole = { id: rr.data?.id, code };
+  if (mrRole.id) later('DELETE', `/api/roles/${mrRole.id}`);
+  const rpy = await api('POST', '/api/pipeline-years', { year }, adminCookie);
+  if (rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
+  const g = await api('POST', '/api/cost-grids', { name: '__test_mr_cg__' }, adminCookie);
+  const cgId = g.data?.id;
+  if (cgId) later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+  const eurV = cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'eur', currency: 'EUR' }, adminCookie)).data?.id : null;
+  const usdV = cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'usd', currency: 'USD' }, adminCookie)).data?.id : null;
+  if (!mrRole.id || !eurV || !usdV) { fail('MR-setup: role/proposal/versions failed — skipping'); return; }
+
+  const putRate = (vId, rate) => api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+    phases: [{ phaseName: 'P1', tasks: [{ taskName: 'T1', hours: { [mrRole.code]: 2 } }] }],
+    roles: [{ roleCode: mrRole.code, rate }],
+  }, adminCookie);
+  const storedRate = async vId => (await api('GET', `/api/cost-grids/${cgId}/versions/${vId}/structure`, null, adminCookie))
+    .data?.phases?.[0]?.tasks?.[0]?.roles?.[0]?.rate_override;
+  const fee = async vId => (await api('GET', '/api/cost-grids/budgets', null, adminCookie)).data?.[vId]?.fee;
+
+  const r1 = await putRate(eurV, 120);
+  ok(r1.status === 200, `MR-01 EUR rate 120 → 200 (got ${r1.status})`);
+  const r2 = await putRate(eurV, -1);
+  ok(isMoneyRefusal(r2) && Number(await storedRate(eurV)) === 120, `MR-02 EUR rate -1 → MONEY_RULE, stored rate still 120 (got ${r2.status})`);
+  const r3 = await putRate(eurV, '150');
+  ok(isMoneyRefusal(r3) && Number(await storedRate(eurV)) === 120, `MR-03 EUR rate "150" → MONEY_RULE, stored rate still 120 (got ${r3.status})`);
+  const r4 = await putRate(eurV, 0);
+  const s4 = await storedRate(eurV);
+  ok(r4.status === 200 && s4 !== null && Number(s4) === 0 && Number(await fee(eurV)) === 0,
+    `MR-04 EUR rate 0 → 200, stored as 0 (not the role default 100), fee 0 (got ${r4.status}, rate_override ${s4})`);
+  const r5 = await putRate(eurV, null);
+  ok(r5.status === 200 && (await storedRate(eurV)) === null, `MR-05 EUR rate null → 200, stored as NULL (got ${r5.status})`);
+  const r6a = await putRate(usdV, 175.555);
+  const r6b = await putRate(usdV, 175.55);
+  ok(isMoneyRefusal(r6a) && r6b.status === 200, `MR-06 USD 175.555 → MONEY_RULE, 175.55 → 200 (got ${r6a.status}, ${r6b.status})`);
+}
+
 // POT-18..POT-26 — every POT route counts a proposal once, through its reference version (non-Draft,
 // with projects first, then the newest); the version rate is decided by the server only.
 async function testPotReferenceVersion() {
@@ -3530,6 +3574,7 @@ async function main() {
     await testDateRule();
     await testTaskPeriod();
     await testPeriodWithTasks();
+    await testMoneyRules();
     await testTimesheetsNoActuals();
     await testProjectDescriptions();
     await testTopicsApi();
