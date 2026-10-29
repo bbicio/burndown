@@ -166,6 +166,10 @@
                       <span style="color:#198754">C: {{ formatMoney(yearTotals[py.year].committed_total || 0, 'EUR', activeCurrencies) }}</span>
                       <span class="text-muted mx-1">·</span>
                       <span style="color:#fd7e14">A: {{ formatMoney(yearTotals[py.year].anticipated_total || 0, 'EUR', activeCurrencies) }}</span>
+                      <span class="text-muted mx-1">·</span>
+                      <span class="text-muted">E: {{ formatMoney(yearTotals[py.year].expected_total || 0, 'EUR', activeCurrencies) }}</span>
+                      <span class="text-muted mx-1">·</span>
+                      <span class="text-muted">S: {{ formatMoney(yearTotals[py.year].sip_total || 0, 'EUR', activeCurrencies) }}</span>
                     </div>
                   </template>
                   <span v-else class="text-muted">—</span>
@@ -331,6 +335,8 @@
                 <th class="text-end">Total (C+A)</th>
                 <th class="text-end">Committed</th>
                 <th class="text-end">Anticipated</th>
+                <th class="text-end">Expected</th>
+                <th class="text-end">SIP</th>
                 <th></th>
               </tr>
             </thead>
@@ -346,6 +352,8 @@
                 <td class="text-end fw-semibold">{{ formatMoney(+pot.achieved_total || 0, 'EUR', activeCurrencies) }}</td>
                 <td class="text-end" style="color:#198754;font-weight:600">{{ formatMoney(+pot.committed_total || 0, 'EUR', activeCurrencies) }}</td>
                 <td class="text-end" style="color:#fd7e14;font-weight:600">{{ formatMoney(+pot.anticipated_total || 0, 'EUR', activeCurrencies) }}</td>
+                <td class="text-end text-muted">{{ formatMoney(+pot.expected_total || 0, 'EUR', activeCurrencies) }}</td>
+                <td class="text-end text-muted">{{ formatMoney(+pot.sip_total || 0, 'EUR', activeCurrencies) }}</td>
                 <td class="text-end" style="white-space:nowrap">
                   <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
                           @click="openPotDetails(pot)">🔍 View Details</button>
