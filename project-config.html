@@ -179,7 +179,7 @@
           <tr v-for="(res, ri) in task.resources" :key="ri">
             <td><input type="text" class="form-control form-control-sm" v-model="res.role" :disabled="isViewer" placeholder="e.g. HWGDEV - DEVELOPER"></td>
             <td><input type="number" class="form-control form-control-sm text-end" min="0" step="0.5" v-model.number="res.soldHours" :disabled="isViewer"></td>
-            <td><input type="number" class="form-control form-control-sm text-end" min="0" step="1" v-model.number="res.hourlyRate" :disabled="isViewer"></td>
+            <td><input type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': rateInvalid[ti + '-' + ri] }" :title="rateInvalid[ti + '-' + ri] ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''" :value="res.hourlyRate > 0 ? formatMoney(res.hourlyRate, project.currency, currencies) : ''" @focus="e => { e.target.value = moneyInput(res.hourlyRate); }" @blur="onResRateBlur(ti, ri, $event)" :disabled="isViewer"></td>
             <td class="text-end small fw-semibold align-middle">{{ res.soldHours > 0 && res.hourlyRate > 0 ? formatMoney(res.soldHours * res.hourlyRate, project.currency, currencies) : '—' }}</td>
             <td class="text-center"><button class="btn btn-sm btn-link text-danger p-0" v-if="!isViewer" @click="confirmRemoveResource(ti, ri)">✕</button></td>
           </tr>
@@ -436,6 +436,8 @@
         ready: false,
         currencies: [],
         formatMoney: window.formatMoney,
+        moneyFormatExample: window.moneyFormatExample,
+        rateInvalid: {},
         notFound: false,
         project: null,
         isNewProject: false,
@@ -943,6 +945,16 @@
       },
       // Money formatting/parsing: one implementation in js/lib/money.js, driven by the locale of the project currency.
       moneyInput(amount) { return window.formatMoneyInput(amount, this.project?.currency, window.__currencies); },
+      // Resource hourly rate blur: blank -> 0, a number -> stored, invalid text -> flagged, nothing written.
+      onResRateBlur(ti, ri, e) {
+        const res = this.project.tasks[ti].resources[ri];
+        const key = ti + '-' + ri;
+        const v = window.readMoneyInput(e.target.value, this.project?.currency, window.__currencies);
+        if (Number.isNaN(v)) { this.rateInvalid[key] = true; return; }
+        res.hourlyRate = v === null ? 0 : v;
+        delete this.rateInvalid[key];
+        e.target.value = res.hourlyRate > 0 ? this.formatMoney(res.hourlyRate, this.project.currency, this.currencies) : '';
+      },
       parseMoney(str) { return window.parseMoney(str, this.project?.currency, window.__currencies); },
       toIso(x) { return window.toIso(x); },
       toYmd(x) { return window.toYmd(x); },
@@ -1005,6 +1017,7 @@
         const role = this.project.tasks[ti].resources[ri].role.trim() || 'this resource';
         if (await this.showConfirm(`Remove resource "${role}"?`)) {
           this.project.tasks[ti].resources.splice(ri, 1);
+          this.rateInvalid = {};
         }
       },
       // opts.infoMode renders a single neutral "OK" button (no Cancel, no red styling) for a
