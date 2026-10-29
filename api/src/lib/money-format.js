@@ -24,4 +24,4 @@ function formatMoney(amount, { code, symbol, locale } = {}, { rounded = false } 
   return `${sym} ${nf.format(Number.isFinite(n) ? n : 0)}`;
 }
 
-module.exports = { formatMoney };
+module.exports = { formatMoney, currencyDigits };

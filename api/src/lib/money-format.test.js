@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { formatMoney } = require('./money-format');
+const { formatMoney, currencyDigits } = require('./money-format');
 
 // Same cases as js/lib/money.test.js (a file cannot be shared between browser and Node without a build step).
 const EUR = { code: 'EUR', symbol: '€', locale: 'it-IT' };
@@ -38,4 +38,10 @@ test('money-format: falls back without throwing when currency info is missing', 
   assert.equal(formatMoney(5, { code: 'XYZ' }), 'XYZ 5,00');
   assert.equal(formatMoney(5), '€ 5,00');
   assert.equal(formatMoney(5, { code: '€' }), '€ 5,00');
+});
+
+test('money-format: currencyDigits follows the currency', () => {
+  assert.equal(currencyDigits('en', 'EUR'), 2);
+  assert.equal(currencyDigits('en', 'JPY'), 0);
+  assert.equal(currencyDigits('en', 'XX1'), 2);
 });
