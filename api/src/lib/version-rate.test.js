@@ -23,3 +23,14 @@ test('an unknown currency is refused', () => {
 test('CURRENCY_RULE_CODE is CURRENCY_RULE', () => {
   assert.equal(CURRENCY_RULE_CODE, 'CURRENCY_RULE');
 });
+
+test('the version routes never write a rate taken from the body', () => {
+  const { readFileSync } = require('node:fs');
+  const path = require('node:path');
+  const src = readFileSync(path.join(__dirname, '../routes/cost-grids.js'), 'utf8');
+  assert.doesNotMatch(src, /parseFloat\(currencyRate\)/);
+  assert.match(src, /versionRate\(/);
+  const start = src.indexOf("'/:id/versions/:vId/refresh-rate'");
+  const block = src.slice(start, src.indexOf('router.', start));
+  assert.match(block, /UPDATE cost_grid_versions SET currency_rate = 1/);
+});
