@@ -47,7 +47,8 @@ Per evidenze e righe vale il report (tabella "Field inventory"). In sintesi:
 
 ## Vincoli
 
-- **Dipende dal ciclo 1:** la semantica di 0 (M-04) e i codici d'errore del server sono decisi lì.
+- **Dipende dal ciclo 1:** la semantica di 0 (M-04: una tariffa 0 è accettata, salvata come 0 e usata dal budget, decisione dell'utente del 2026-10-29) e i codici d'errore del server (`MONEY_RULE`) sono decisi lì.
+- **Input dal ciclo 1 (Spec, decisione 9):** l'avviso "Missing rate" del cost grid (`costgrid.html` lines 339, 353) compare anche per uno 0 scritto apposta. Il brainstorming decide se distinguere "0 voluto" da "tariffa mancante".
 - `master-roles.html` tiene le valute in `this.currencies` e non imposta `window.__currencies`: la Spec decide quale delle due usare.
 - Il parsing di `money.js` è rigido: un testo nella convenzione dell'altra valuta dà 0. Il brainstorming decide se questo comportamento va bene per le tariffe o se serve un messaggio all'utente.
 - L'autosave di costgrid deve continuare a funzionare mentre si digita. Il PTC lo ottiene facendo il parsing su `@input`, ed è una soluzione già accettata.
