@@ -137,3 +137,15 @@ Consumed by `routes/cost-grids.js`, the only place a version's `currency_rate` i
 - `POST …/duplicate` copies the source's rate unchanged.
 
 Tests: `version-rate.test.js` (the rule, plus source pins on the three routes); `test-api.js` `POT-22..POT-28`.
+
+## money-rules.js (2026-10-29, currency cycle 1)
+
+`amountError(value, currencyCode, label)` → `null` or the one message `` `${label} must be a number ≥ 0 with at most ${digits} decimal(s) for ${code}.` ``: only a finite JS `number` ≥ 0 is an amount (`"150"` is refused), and extra decimals are refused, never rounded; `digits` comes from `currencyDigits` (now exported by `money-format.js`; 2 for a code `Intl` does not know). `overridesError(overrides, label)`: `undefined`/`null` → `null`, an array or non-object → `` `${label} must be an object.` ``, otherwise the first bad value with its key as the currency (keys are not validated). Exports `MONEY_RULE_CODE = 'MONEY_RULE'`.
+
+Called before any write, refusal → `400 { error, code: 'MONEY_RULE' }`:
+- `routes/cost-grids.js` structure `PUT`: `roles[].rate` against the version currency; `null` is "unset" and stays `NULL`; a rate of 0 is now stored as 0 (it used to become `NULL`). The second body shape (`tasks[].roles[].rateOverride`) is not checked: B-186.
+- `routes/projects.js` `PUT /:id/tasks`: each resource `hourlyRate` against the project currency; `""`, `null` or absent is saved as 0.
+- `routes/config.js`: `POST /roles` and `PATCH /roles/:id` (the fields present; `hourlyRate: null` = `NULL`; `POST` now stores `rateOverrides`), `PATCH /ratecards/:id/entries` (every entry checked before the first upsert; a missing rate is refused). Base rates are EUR.
+- `routes/pots.js` `POST /` and `PATCH /:id`: `amount` as EUR, after the existing "amount is required" check.
+
+Out of scope: PTC and phasing amounts (B-185). Tests: `money-rules.test.js`, `money-format.test.js`; `test-api.js` `MR-01..MR-14` (section "Money rules").

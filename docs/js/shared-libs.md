@@ -32,7 +32,7 @@ Client CRUD helpers. `saveClientFromModal()` guards `#clientSaveBtn` (the id was
 
 ## js/roles.js
 
-`loadRolesFromApi` / `saveRoles` (no-op) / `getRoles` only. `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role; the role shape is `{ id, label, code, rate, rateOverrides }`.
+`loadRolesFromApi` / `saveRoles` (no-op) / `getRoles` only. `loadRolesFromApi` maps `rateOverrides: r.rate_overrides || {}` on each role; the role shape is `{ id, label, code, rate, rateOverrides }`. (2026-10-29, currency cycle 1) `rate` is `Number(r.hourly_rate)` (`null` kept): `pg` returns the NUMERIC column as a string (`"150.00"`), which reached the structure `PUT` and the project tasks `PUT` as `role.rate` and is now refused there with `MONEY_RULE`. Covered by `js/lib/roles-load.test.js`. The three pages that load it (`costgrid.html`, `pipeline.html`, `planning.html`) carry `js/roles.js?v=2` since then.
 
 Its modal-editing UI (`showRolesView`/`hideRolesView`/`renderRolesTable`/`extractTeam`/`openRoleModal`/`saveRoleFromModal`/`showRoleError`/`deleteRole`/`exportRoles`/`importRoles`) was confirmed unreachable from any page — verified by repo-wide grep, the only same-named hits being unrelated Vue component methods on `config.html`/`costgrid.html` — and deleted in 2026-08.
 

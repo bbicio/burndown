@@ -55,3 +55,7 @@ Covered by `js/lib/api-sync-upsert.test.js`, `js/lib/api-sync-push-project.test.
 ## The version rate is the server's (2026-10-29, B-176)
 
 Spec `docs/superpowers/specs/2026-10-29-pot-reference-version-and-version-rate-design.md`. `_cgUpsertVersionToApi`'s version `PATCH` no longer sends `currencyRate`: the server decides the rate from `currency` (`docs/api/lib.md` → `version-rate.js`). A `CURRENCY_RULE` refusal of that `PATCH` is notified once, like `DATE_RULE` ("… is not active. Your changes to this version are not being saved until this is fixed."), and never retried as a `POST`; `notifyRefusal`'s "reload the page" tail is now keyed on `STRUCTURE_RULE`. Covered by `js/lib/api-sync-upsert.test.js`. `?v=29`.
+
+## MONEY_RULE refusal of the structure is shown (2026-10-29, currency cycle 1)
+
+Spec `docs/superpowers/specs/2026-10-29-currency-c1-server-rate-validation-design.md`. The structure `PUT` now refuses a role rate that is not a number ≥ 0 with the version currency's decimals (`docs/api/lib.md` → `money-rules.js`). `_cgUpsertVersionToApi`'s structure-save `catch` passes a `MONEY_RULE` refusal to `notifyRefusal(e, true)`, like `DATE_RULE`: shown once per version and message, with the "Tasks and the period of this version are not saved until this is fixed; other changes are saved." tail. Covered by `js/lib/api-sync-upsert.test.js`. `?v=30`.

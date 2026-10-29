@@ -157,7 +157,7 @@ describe('the real TEST_CASES.md', () => {
   // budget of cases that can disappear while the suite stays green. Raise these
   // deliberately when /sync-docs adds cases — that edit is the point.
   it('yields exactly the cases the file contains', () => {
-    expect(allCases.length).toBe(866);
+    expect(allCases.length).toBe(870);
     expect(parsed.sections.length).toBe(36);
   });
 

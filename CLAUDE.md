@@ -367,8 +367,9 @@ One implementation, `js/lib/money.js` (server twin `api/src/lib/money-format.js`
 - **Format an amount in a list/loop by passing the row's own currency code**; there is no implicit default currency, so a missing code is a bug, not a silent EUR.
 - **Money `<input>`s**: show `formatMoneyInput(v, code, currencies)` on focus (the format `parseMoney` reads back), `parseMoney(text, code, currencies)` on blur, then reformat with `formatMoney`; parsing is strict per locale (no guessing the other convention). `type="number"` rate inputs and hours inputs are not part of this.
 - **The project's currency in memory is an ISO code** (`EUR`, `USD`, `CHF`…); symbols are derived only for display (`currencyInfo(code, currencies).symbol`). Decimals follow the currency (JPY none), the thousands separator is always shown (`useGrouping: 'always'`).
+- **Every route that writes a rate or a POT amount checks it with `amountError`/`overridesError`** (`api/src/lib/money-rules.js`) before any write and refuses with `400 { error, code: 'MONEY_RULE' }`; only a JS number is an amount, so **a client sends numbers, never the NUMERIC strings `pg` returns** (`js/roles.js` converts `hourly_rate`).
 
-Full detail: [docs/js/lib.md](docs/js/lib.md) (`money.js`), [docs/api/lib.md](docs/api/lib.md) (`money-format.js`).
+Full detail: [docs/js/lib.md](docs/js/lib.md) (`money.js`), [docs/api/lib.md](docs/api/lib.md) (`money-format.js`, `money-rules.js`).
 
 ### Dates
 

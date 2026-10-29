@@ -115,6 +115,7 @@ Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as 
 - Added/removed dynamically
 - Each role has a label, a code (matching the actuals XLS), a team, and an hourly rate (€/h)
 - Effective rate follows a fallback chain: client rate card override → role's per-currency agency default → EUR rate × currency exchange factor
+- (2026-10-29) A rate of 0 is a real rate and is kept as 0. The server refuses a rate that is negative or has more decimals than the version's currency allows (2 for EUR/USD); an autosave refused for a rate shows a notice with the reason once per version, and the tasks and period of that version are not saved until the rate is fixed
 - Each role column header carries a ⋮ menu (2026-10-07; previously four always-visible icon controls) with: ◀ / ▶ to move the column left/right, "Change role…" to replace that role with a different one (keeping its position and hours), "Duplicate with another role…" to duplicate the column under a different role, "Reset rate to {baseline}" (only shown when the rate is a custom override), and "Remove column" — which requires a second click on the same menu item to confirm (its label changes to show the hours that will be deleted) rather than a separate confirmation dialog.
 
 **Cost calculation:**
