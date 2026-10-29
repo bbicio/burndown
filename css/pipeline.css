@@ -166,6 +166,15 @@
 .pb-col-vtotal { font-size: var(--text-sm); color: var(--text-secondary); }
 
 .pb-col-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-2) var(--space-2) var(--space-3); }
+/* Thin column scrollbar: WebKit/Blink pseudo-elements, standard properties for Firefox only. */
+.pb-col-body::-webkit-scrollbar { width: 6px; }
+.pb-col-body::-webkit-scrollbar-track { background: transparent; }
+.pb-col-body::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: var(--radius-full); }
+.pb-col-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+/* Inside @supports: Chrome 121+ ignores ::-webkit-scrollbar on an element that sets scrollbar-width/-color. */
+@supports not selector(::-webkit-scrollbar) {
+  .pb-col-body { scrollbar-width: thin; scrollbar-color: var(--border-medium) transparent; }
+}
 .pb-empty {
   padding: var(--space-5) var(--space-3); text-align: center; font-size: var(--text-sm);
   color: var(--text-muted); border: 1px dashed var(--border-medium); border-radius: var(--radius-md);

@@ -52,16 +52,32 @@ describe('pipeline board guard', () => {
     expect(found).toBeGreaterThan(0);
   });
 
-  it('every pipeline.css reference is ?v=4', () => {
+  it('every pipeline.css reference is ?v=5', () => {
     const pages = fs.readdirSync(root).filter(f => f.endsWith('.html'));
     let found = 0;
     pages.forEach(f => {
       for (const m of read(f).matchAll(/pipeline\.css\?v=(\d+)/g)) {
         found++;
-        expect(m[1], f).toBe('4');
+        expect(m[1], f).toBe('5');
       }
     });
     expect(found).toBeGreaterThan(0);
+  });
+
+  it('column bodies have a thin scrollbar (2026-10-29, ui-quick-wins)', () => {
+    expect(css).toMatch(/\.pb-col-body::-webkit-scrollbar\s*\{[^}]*width:\s*6px/);
+    expect(css).toMatch(/\.pb-col-body::-webkit-scrollbar-thumb\s*\{[^}]*var\(--border-medium\)/);
+    expect(css).toMatch(/\.pb-col-body::-webkit-scrollbar-thumb:hover\s*\{[^}]*var\(--text-muted\)/);
+    const sup = css.indexOf('@supports not selector(::-webkit-scrollbar)');
+    expect(sup).toBeGreaterThan(-1);
+    const close = css.slice(sup).match(/\}\s*\}/);
+    expect(close).not.toBeNull();
+    const block = css.slice(sup, sup + close.index + close[0].length);
+    expect(block).toMatch(/scrollbar-width:\s*thin/);
+    expect(block).toMatch(/scrollbar-color:\s*var\(--border-medium\)\s+transparent/);
+    // Outside @supports, Chrome 121+ would drop the ::-webkit-scrollbar rules.
+    const outside = css.slice(0, sup) + css.slice(sup + block.length);
+    expect(outside).not.toMatch(/scrollbar-(width|color)\s*:/);
   });
 
   it('PB_STAGE_STYLE Draft entry has no hex', () => {
