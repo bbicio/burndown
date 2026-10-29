@@ -1,6 +1,7 @@
 const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { feeEurSql, feeOriginalSql } = require('../lib/pot-fee-sql');
 
 const router = express.Router();
 
@@ -17,21 +18,7 @@ router.get('/pipeline-summary', requireAuth, requireAdmin, async (req, res, next
       `SELECT
          cgv.pipeline,
          COUNT(DISTINCT cgv.id)::int AS count,
-         COALESCE(SUM((
-           SELECT COALESCE(SUM(
-             tr.days * COALESCE(
-               tr.rate_override,
-               (SELECT re.hourly_rate FROM ratecard_entries re
-                WHERE re.ratecard_id = cgv.ratecard_id AND re.role_id = tr.role_id LIMIT 1),
-               ro.hourly_rate, 0
-             )
-           ), 0) / COALESCE(cgv.currency_rate, 1)
-           FROM phases ph
-           JOIN tasks tk ON tk.phase_id = ph.id
-           JOIN task_roles tr ON tr.task_id = tk.id
-           JOIN roles ro ON ro.id = tr.role_id
-           WHERE ph.version_id = cgv.id
-         )), 0) AS total
+         COALESCE(SUM(${feeEurSql('cgv')}), 0) AS total
        FROM cost_grid_versions cgv
        WHERE cgv.pipeline_year = $1
          AND cgv.pipeline IN ('SIP','Expected','Anticipated','Committed','Canceled')
@@ -59,23 +46,9 @@ router.get('/year-totals', requireAuth, requireAdmin, async (req, res, next) => 
       `SELECT year, COALESCE(SUM(amount), 0) AS pot_total FROM pots GROUP BY year`
     );
 
-    const feeSubq = `COALESCE(SUM(
-      tr.days * COALESCE(
-        tr.rate_override,
-        (SELECT re.hourly_rate FROM ratecard_entries re
-         WHERE re.ratecard_id = cgv.ratecard_id AND re.role_id = tr.role_id LIMIT 1),
-        ro.hourly_rate, 0
-      )
-    ), 0) / COALESCE(cgv.currency_rate, 1)
-    FROM phases ph
-    JOIN tasks tk ON tk.phase_id = ph.id
-    JOIN task_roles tr ON tr.task_id = tk.id
-    JOIN roles ro ON ro.id = tr.role_id
-    WHERE ph.version_id = cgv.id`;
-
     const { rows: valRows } = await query(
       `SELECT cgv.pipeline_year AS year, cgv.pipeline,
-              COALESCE((SELECT ${feeSubq}), 0) AS fee
+              ${feeEurSql('cgv')} AS fee
        FROM cost_grid_versions cgv
        WHERE cgv.pipeline IN ('Committed', 'Anticipated')
          AND cgv.pipeline_year IS NOT NULL`
@@ -121,21 +94,6 @@ router.get('/summary', requireAuth, async (req, res, next) => {
     const potResult = await query(potQ, potParams);
     const pot = potResult.rows[0] || null;
 
-    // Fee expression (EUR), parameterised on the version alias
-    const feeFor = (a) => `COALESCE((
-      SELECT SUM(tr.days * COALESCE(
-        tr.rate_override,
-        (SELECT re.hourly_rate FROM ratecard_entries re
-         WHERE re.ratecard_id = ${a}.ratecard_id AND re.role_id = tr.role_id LIMIT 1),
-        ro.hourly_rate, 0))
-      / COALESCE(NULLIF(${a}.currency_rate, 0), 1)
-      FROM phases ph2
-      JOIN tasks tk2 ON tk2.phase_id = ph2.id
-      JOIN task_roles tr ON tr.task_id = tk2.id
-      JOIN roles ro ON ro.id = tr.role_id
-      WHERE ph2.version_id = ${a}.id
-    ), 0)`;
-
     // Find all non-Draft proposals for this target + year (match via cgv.client_id)
     let proposalsQ, proposalsParams;
     if (clientGroupId) {
@@ -145,7 +103,7 @@ router.get('/summary', requireAuth, async (req, res, next) => {
           cg.id AS cg_id, cg.name AS proposal_name,
           u.first_name || ' ' || u.last_name AS owner_name,
           cli.name AS client_name,
-          ${feeFor('cgv')} AS value
+          ${feeEurSql('cgv')} AS value
         FROM cost_grid_versions cgv
         JOIN cost_grids cg ON cg.id = cgv.cost_grid_id
         JOIN users u ON u.id = cg.owner_id
@@ -162,7 +120,7 @@ router.get('/summary', requireAuth, async (req, res, next) => {
           cg.id AS cg_id, cg.name AS proposal_name,
           u.first_name || ' ' || u.last_name AS owner_name,
           cli.name AS client_name,
-          ${feeFor('cgv')} AS value
+          ${feeEurSql('cgv')} AS value
         FROM cost_grid_versions cgv
         JOIN cost_grids cg ON cg.id = cgv.cost_grid_id
         JOIN users u ON u.id = cg.owner_id
@@ -176,7 +134,7 @@ router.get('/summary', requireAuth, async (req, res, next) => {
     const proposalsResult = await query(proposalsQ, proposalsParams);
 
     // Compute fee totals server-side across ALL proposals (not just those visible to caller)
-    const feeExpr = feeFor('cgv2');
+    const feeExpr = feeEurSql('cgv2');
 
     let totalsQ, totalsParams;
     if (clientGroupId) {
@@ -236,19 +194,7 @@ router.get('/', requireAuth, async (req, res, next) => {
       ))
     )`;
 
-    const feeExpr = `COALESCE((
-      SELECT SUM(tr.days * COALESCE(
-        tr.rate_override,
-        (SELECT re.hourly_rate FROM ratecard_entries re
-         WHERE re.ratecard_id = cgv2.ratecard_id AND re.role_id = tr.role_id LIMIT 1),
-        ro.hourly_rate, 0))
-      / COALESCE(cgv2.currency_rate, 1)
-      FROM phases ph2
-      JOIN tasks tk2 ON tk2.phase_id = ph2.id
-      JOIN task_roles tr ON tr.task_id = tk2.id
-      JOIN roles ro ON ro.id = tr.role_id
-      WHERE ph2.version_id = cgv2.id
-    ), 0)`;
+    const feeExpr = feeEurSql('cgv2');
 
     const { rows } = await query(
       `SELECT p.id, p.year, p.amount, p.created_at, p.special_label,
@@ -338,19 +284,7 @@ router.get('/:id/details', requireAuth, requireAdmin, async (req, res, next) => 
       [req.params.id]
     );
 
-    const valueExpr = `COALESCE((
-      SELECT SUM(tr.days * COALESCE(
-        tr.rate_override,
-        (SELECT re.hourly_rate FROM ratecard_entries re
-         WHERE re.ratecard_id = cgv.ratecard_id AND re.role_id = tr.role_id LIMIT 1),
-        ro.hourly_rate, 0))
-      / COALESCE(cgv.currency_rate, 1)
-      FROM phases ph
-      JOIN tasks tk ON tk.phase_id = ph.id
-      JOIN task_roles tr ON tr.task_id = tk.id
-      JOIN roles ro ON ro.id = tr.role_id
-      WHERE ph.version_id = cgv.id
-    ), 0)`;
+    const valueExpr = feeEurSql('cgv');
 
     let proposals = [];
     if (pot.client_id || pot.client_group_id) {
