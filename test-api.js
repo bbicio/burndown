@@ -845,6 +845,28 @@ async function testMoneyRules() {
     ok(e0.status === 200 && isMoneyRefusal(e1) && isMoneyRefusal(e2) && isMoneyRefusal(e3) && Number(await entryRate()) === 80,
       `MR-12 ratecard entries: valid → 200; invalid second entry / absent rate / USD 1.234 → MONEY_RULE, first entry still 80 (got ${e0.status}, ${e1.status}, ${e2.status}, ${e3.status})`);
   } else fail('MR-12: ratecard or role setup failed — skipping');
+
+  // MR-13 / MR-14 — POT amounts
+  // (a specialLabel POT cannot be created: it violates pots_target_xor — a client target is used)
+  const mrCl = await api('POST', '/api/clients', { name: '__test_mr_pot_client__' }, adminCookie);
+  if (mrCl.data?.id) later('DELETE', `/api/clients/${mrCl.data.id}`);
+  const rpot = await api('POST', '/api/pots', { clientId: mrCl.data?.id, year: 2099, amount: 1000 }, adminCookie);
+  const mrPotId = rpot.data?.id;
+  if (mrPotId) later('DELETE', `/api/pots/${mrPotId}`);
+  if (rpot.status === 201 && mrPotId) {
+    const n1 = await api('POST', '/api/pots', { clientId: mrCl.data.id, year: 2099, amount: -5 }, adminCookie);
+    const n2 = await api('POST', '/api/pots', { clientId: mrCl.data.id, year: 2099, amount: 'abc' }, adminCookie);
+    ok(isMoneyRefusal(n1) && isMoneyRefusal(n2),
+      `MR-13 POT create: -5 and 'abc' → MONEY_RULE (got ${n1.status}, ${n2.status})`);
+    const potAmount = async () => Number(((await api('GET', '/api/pots?year=2099', null, adminCookie)).data || []).find(p => p.id === mrPotId)?.amount);
+    const histLen = async () => ((await api('GET', `/api/pots/${mrPotId}/history`, null, adminCookie)).data || []).length;
+    const h0 = await histLen();
+    const u1 = await api('PATCH', `/api/pots/${mrPotId}`, { amount: 'abc', note: 'x' }, adminCookie);
+    const u2 = await api('PATCH', `/api/pots/${mrPotId}`, { amount: 1.234, note: 'x' }, adminCookie);
+    const a1 = await potAmount(), h1 = await histLen();
+    ok(isMoneyRefusal(u1) && isMoneyRefusal(u2) && a1 === 1000 && h1 === h0,
+      `MR-14 POT update: 'abc' and 1.234 → MONEY_RULE, amount still 1000, history unchanged (got ${u1.status}, ${u2.status}, amount ${a1}, history ${h0}→${h1})`);
+  } else fail('MR-13/14: POT setup failed — skipping');
 }
 
 // POT-18..POT-26 — every POT route counts a proposal once, through its reference version (non-Draft,
