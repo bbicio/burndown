@@ -1102,7 +1102,8 @@ router.patch('/:id/reassign-owner', requireAuth, async (req, res, next) => {
 });
 
 // POST /api/cost-grids/:id/versions/:vId/refresh-rate
-// Snapshots the current live exchange rate from currencies table onto the version.
+// Snapshots the rate versionRate gives the version's currency (EUR 1, else its live rate); an
+// inactive currency is refused with 400 CURRENCY_RULE and the stored rate is kept.
 router.post('/:id/versions/:vId/refresh-rate', requireAuth, async (req, res, next) => {
   try {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
@@ -1113,22 +1114,14 @@ router.post('/:id/versions/:vId/refresh-rate', requireAuth, async (req, res, nex
     );
     if (!ver[0]) return res.status(404).json({ error: 'Version not found' });
     const currency = ver[0].currency;
-    if (currency === 'EUR') {
-      await query('UPDATE cost_grid_versions SET currency_rate = 1 WHERE id = $1', [req.params.vId]);
-      return res.json({ currency, currency_rate: 1.0 });
-    }
+    const rate = versionRate(currency, await currencyRow(currency));
+    if (rate.error) return res.status(400).json({ error: rate.error, code: CURRENCY_RULE_CODE });
 
-    const { rows: cur } = await query(
-      'SELECT current_rate FROM currencies WHERE code = $1 AND active = true', [currency]
-    );
-    if (!cur[0]) return res.status(404).json({ error: 'Currency not active' });
-
-    const rate = parseFloat(cur[0].current_rate);
     await query(
       'UPDATE cost_grid_versions SET currency_rate = $1 WHERE id = $2',
-      [rate, req.params.vId]
+      [rate.rate, req.params.vId]
     );
-    res.json({ currency, currency_rate: rate });
+    res.json({ currency, currency_rate: rate.rate });
   } catch (err) { next(err); }
 });
 

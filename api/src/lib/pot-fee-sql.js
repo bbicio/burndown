@@ -19,7 +19,7 @@ function feeSql(alias, divisor) {
 }
 
 // The reference version of every proposal, as the CTE `ref_v`: its non-Draft version that has
-// projects (through either link), else its newest non-Draft one. Internal aliases are prefixed `rv`.
+// projects (through either link), else its newest non-Draft one, the id settling a tie. Internal aliases are prefixed `rv`.
 function referenceVersionsCte() {
   return `ref_v AS (
     SELECT DISTINCT ON (rv.cost_grid_id) rv.*
@@ -28,7 +28,8 @@ function referenceVersionsCte() {
     ORDER BY rv.cost_grid_id,
              (EXISTS (SELECT 1 FROM cg_version_projects rv_c WHERE rv_c.cost_grid_version_id = rv.id)
               OR EXISTS (SELECT 1 FROM projects rv_p WHERE rv_p.cg_version_id = rv.id)) DESC,
-             rv.created_at DESC
+             rv.created_at DESC,
+             rv.id DESC
   )`;
 }
 

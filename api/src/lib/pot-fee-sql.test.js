@@ -53,3 +53,8 @@ test('pipeline-years.js counts offers on the reference version', () => {
   assert.doesNotMatch(src, /DISTINCT ON \(cg\.id\)/);
   assert.doesNotMatch(src, /SELECT DISTINCT cost_grid_id, pipeline_year/);
 });
+
+test('the reference version is unique on a created_at tie', () => {
+  const sql = referenceVersionsCte();
+  assert.match(sql, /rv\.created_at DESC,\s*rv\.id DESC/);
+});

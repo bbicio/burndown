@@ -154,6 +154,7 @@
 | P-79 | New/Clone stay disabled after a successful run (2026-10-16, B-003) | Click "+ New Proposal" or a Clone control, then click New or Clone again before the editor opens | Every New Proposal/Clone control stays disabled until the page unloads; only one proposal is created. A failed or throwing run re-enables them | ✓ (vitest) |
 | P-80 | Back from the editor re-enables New/Clone (2026-10-16) | Create or clone a proposal, then press the browser Back button | If the board is restored from the back/forward cache, New Proposal and Clone are enabled again (no reload needed) | ✓ (vitest) |
 | P-81 | Thin column scrollbar (2026-10-29) | At ≥ 768px open a stage column with more cards than fit, in Chrome/Edge and in Firefox; then open the board at 390px | The column shows a thin grey scrollbar (darker on hover in Chrome/Edge) instead of the default one; columns that fit show none; at 390px the board scrolls as before | |
+| P-82 | Clone a proposal whose currency is no longer active (2026-10-29) | Deactivate the currency of a proposal (branch stack: `UPDATE currencies SET active = false WHERE code = '<code>'`), then Clone it | No copy is created; an Error notice reads "Could not clone the proposal: Currency <code> is not active. Activate it in Master Data → Currencies, then clone again." | ✓ (vitest) |
 ---
 
 ## 4. Cost Grid Editor
@@ -541,7 +542,7 @@
 | PP-47 | View Details — Expected/SIP line | View Details modal for a POT with Expected and SIP proposals | Below the cards: "Not in total · Expected €X · SIP €Y"; Total (C+A) and the percentages do not change | |
 | PP-48 | Zero currency rate | On the branch stack: `docker exec -i pdash-db-<branch> psql -U pdash -d pdash -c "UPDATE cost_grid_versions SET currency_rate = 0 WHERE id = '<version inside a POT scope>'"`; then GET `/api/pots/:id/details?year=`, `/api/pots?year=`, `/api/pots/year-totals`, `/api/pots/pipeline-summary?year=` | All four answer 200; that version's value is its fee at rate 1 | |
 | PP-49 | View Details — inactive currency | View Details modal for a POT with a Committed proposal in a currency that is no longer active | The Value cell shows the amount with that currency's own locale and symbol (e.g. CHF in the de-CH format), below it "(€ …)"; totals unchanged | |
-| PP-50 | POT reference version and version rate | A proposal with v1 Expected and v2 Committed; one whose older v1 has a project; one Canceled; a version PATCHed with `currencyRate`, to EUR, to another active currency, to an inactive one | Each proposal counts once, through its reference version, in every POT route and in `offers`; a Canceled one is out of `/:id/details`; the version rate is set only by the server (EUR = 1, inactive currency → `400 CURRENCY_RULE`) (test-api POT-18..POT-26) | ✓ |
+| PP-50 | POT reference version and version rate | A proposal with v1 Expected and v2 Committed; one whose older v1 has a project; one Canceled; a version PATCHed with `currencyRate`, to EUR, to another active currency, to an inactive one | Each proposal counts once, through its reference version, in every POT route and in `offers`; a Canceled one is out of `/:id/details`; the version rate is set only by the server (EUR = 1, inactive currency → `400 CURRENCY_RULE`) (test-api POT-18..POT-28) | ✓ |
 
 ---
 
