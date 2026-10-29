@@ -9,6 +9,7 @@ const { DATE_RULE, periodError, periodChangeError, periodShrinkError, taskPeriod
 const { isAdminRole } = require('../lib/is-admin');
 const { enqueueProjectsQuiet } = require('../services/profile-engine');
 const { descriptionsSignature } = require('../lib/topic-extract');
+const { amountError, MONEY_RULE_CODE } = require('../lib/money-rules');
 let _createNotification;
 
 const router = express.Router();
@@ -424,6 +425,19 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
             error: `Invalid sold hours "${r.soldHours}" for role "${r.role || ''}" on task "${t.name || ''}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`,
           });
         }
+      }
+    }
+
+    // Resource rates: a blank rate (absent, null, '') is saved as 0; any other value must be a valid amount
+    // in the project's currency. Checked before any write.
+    const currency = (await query('SELECT currency FROM projects WHERE id = $1', [req.params.id])).rows[0]?.currency;
+    for (const t of tasks) {
+      if (!Array.isArray(t?.resources)) continue;
+      t.resources = t.resources.map(r => (r && (r.hourlyRate === undefined || r.hourlyRate === null || r.hourlyRate === '')
+        ? { ...r, hourlyRate: 0 } : r));
+      for (const r of t.resources) {
+        const err = amountError(r?.hourlyRate, currency, `Hourly rate of "${r?.role || ''}" on task "${t.name || ''}"`);
+        if (err) return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
       }
     }
 

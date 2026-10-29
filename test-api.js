@@ -784,6 +784,24 @@ async function testMoneyRules() {
   const r6a = await putRate(usdV, 175.555);
   const r6b = await putRate(usdV, 175.55);
   ok(isMoneyRefusal(r6a) && r6b.status === 200, `MR-06 USD 175.555 → MONEY_RULE, 175.55 → 200 (got ${r6a.status}, ${r6b.status})`);
+
+  // Project tasks PUT: resource hourly rate (project created as sysadmin — the project currency lock).
+  const rpj = await api('POST', '/api/projects', { name: '__test_mr_project__', currency: 'EUR' }, sysadminCookie);
+  const mrProj = rpj.data?.id;
+  if (mrProj) later('DELETE', `/api/projects/${mrProj}`);
+  if (!mrProj) { fail(`MR-07/08: project setup failed (got ${rpj.status}) — skipping`); return; }
+  const putTaskRate = hourlyRate => api('PUT', `/api/projects/${mrProj}/tasks`,
+    [{ name: 'T1', resources: [{ role: 'R', hourlyRate, soldHours: 1 }] }], sysadminCookie);
+  const storedTaskRate = async () => (await api('GET', `/api/projects/${mrProj}/tasks`, null, sysadminCookie)).data?.[0]?.resources?.[0]?.hourlyRate;
+  const t1 = await putTaskRate(150);
+  ok(t1.status === 200 && Number(await storedTaskRate()) === 150, `MR-07a project resource rate 150 → 200 (got ${t1.status})`);
+  const t2 = await putTaskRate('');
+  ok(t2.status === 200 && Number(await storedTaskRate()) === 0, `MR-07b project resource rate '' → 200, read back 0 (got ${t2.status})`);
+  await putTaskRate(150);
+  const t3 = await putTaskRate(-1);
+  const t4 = await putTaskRate('abc');
+  ok(isMoneyRefusal(t3) && isMoneyRefusal(t4) && Number(await storedTaskRate()) === 150,
+    `MR-08 project resource rate -1 and 'abc' → MONEY_RULE, stored rate still 150 (got ${t3.status}, ${t4.status})`);
 }
 
 // POT-18..POT-26 — every POT route counts a proposal once, through its reference version (non-Draft,
