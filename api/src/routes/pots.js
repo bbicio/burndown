@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { potVersionsCte } = require('../lib/pot-fee-sql');
+const { amountError, MONEY_RULE_CODE } = require('../lib/money-rules');
 
 const router = express.Router();
 
@@ -242,6 +243,8 @@ router.post('/', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const { clientGroupId, clientId, specialLabel, year, amount } = req.body;
     if (!year || amount == null) return res.status(400).json({ error: 'year and amount are required' });
+    const moneyErr = amountError(amount, 'EUR', 'POT amount');
+    if (moneyErr) return res.status(400).json({ error: moneyErr, code: MONEY_RULE_CODE });
     // Must have exactly one of: clientGroupId, clientId, or specialLabel
     const targets = [clientGroupId, clientId, specialLabel].filter(Boolean);
     if (targets.length !== 1) {
@@ -250,11 +253,11 @@ router.post('/', requireAuth, requireAdmin, async (req, res, next) => {
     const { rows } = await query(
       `INSERT INTO pots (client_group_id, client_id, special_label, year, amount)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [clientGroupId || null, clientId || null, specialLabel || null, parseInt(year), parseFloat(amount)]
+      [clientGroupId || null, clientId || null, specialLabel || null, parseInt(year), amount]
     );
     await query(
       'INSERT INTO pot_history (pot_id, old_value, new_value, changed_by) VALUES ($1, NULL, $2, $3)',
-      [rows[0].id, parseFloat(amount), req.user.id]
+      [rows[0].id, amount, req.user.id]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -376,16 +379,18 @@ router.patch('/:id', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const { amount, note } = req.body;
     if (amount == null) return res.status(400).json({ error: 'amount is required' });
+    const moneyErr = amountError(amount, 'EUR', 'POT amount');
+    if (moneyErr) return res.status(400).json({ error: moneyErr, code: MONEY_RULE_CODE });
     if (!note || !note.trim()) return res.status(400).json({ error: 'note is required when updating a POT' });
     const old = await query('SELECT amount FROM pots WHERE id = $1', [req.params.id]);
     if (!old.rows[0]) return res.status(404).json({ error: 'POT not found' });
     const { rows } = await query(
       'UPDATE pots SET amount = $1 WHERE id = $2 RETURNING *',
-      [parseFloat(amount), req.params.id]
+      [amount, req.params.id]
     );
     await query(
       'INSERT INTO pot_history (pot_id, old_value, new_value, note, changed_by) VALUES ($1, $2, $3, $4, $5)',
-      [req.params.id, old.rows[0].amount, parseFloat(amount), note.trim(), req.user.id]
+      [req.params.id, old.rows[0].amount, amount, note.trim(), req.user.id]
     );
     res.json(rows[0]);
   } catch (err) { next(err); }

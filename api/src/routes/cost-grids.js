@@ -13,6 +13,7 @@ const { DATE_RULE, periodError, periodChangeError, periodShrinkError, taskPeriod
 const { isAdminRole } = require('../lib/is-admin');
 const { formatMoney } = require('../lib/money-format');
 const { versionRate, CURRENCY_RULE_CODE } = require('../lib/version-rate');
+const { amountError, MONEY_RULE_CODE } = require('../lib/money-rules');
 
 let _pushToUser;
 let _createNotification;
@@ -679,7 +680,7 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
   if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
     return res.status(403).json({ error: 'Access denied' });
   }
-  const locked = await query('SELECT locked FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
+  const locked = await query('SELECT locked, currency FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
   if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
 
   const { phases = [], roles: rolesBody = [], period: periodBody } = req.body;
@@ -707,6 +708,14 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
     }
   }
 
+  // Role rates: an absent rate is tolerated (stored as NULL); a given one is checked in the version's currency.
+  for (const r of rolesBody) {
+    if (r?.rate != null) {
+      const err = amountError(r.rate, locked.rows[0]?.currency, `Rate for role "${r.roleCode || ''}"`);
+      if (err) return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
+    }
+  }
+
   // Preload all roles for code→id lookup
   const { rows: allRoles } = await query('SELECT id, code FROM roles');
   const roleByCode = Object.fromEntries(allRoles.map(r => [r.code, r.id]));
@@ -716,7 +725,7 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
   const rateByCode = {};
   for (const r of rolesBody) {
     if (r.roleCode && r.rate != null) {
-      rateByCode[r.roleCode] = parseFloat(r.rate) || null;
+      rateByCode[r.roleCode] = r.rate;
     }
   }
 

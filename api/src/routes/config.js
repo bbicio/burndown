@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { isAdminRole } = require('../lib/is-admin');
+const { amountError, overridesError, MONEY_RULE_CODE } = require('../lib/money-rules');
 const { sendShareNotification } = require('../services/email');
 let _createNotification; // lazy-loaded from notifications route to avoid circular deps
 
@@ -222,11 +223,14 @@ router.get('/roles', requireAuth, async (req, res, next) => {
 
 router.post('/roles', requireAdmin, async (req, res, next) => {
   try {
-    const { label, code, team, hourlyRate } = req.body;
+    const { label, code, team, hourlyRate, rateOverrides } = req.body;
     if (!label?.trim() || !code?.trim()) return res.status(400).json({ error: 'label and code are required' });
+    const moneyErr = (hourlyRate != null ? amountError(hourlyRate, 'EUR', 'Hourly rate') : null)
+      || overridesError(rateOverrides, 'Rate overrides');
+    if (moneyErr) return res.status(400).json({ error: moneyErr, code: MONEY_RULE_CODE });
     const { rows } = await query(
-      'INSERT INTO roles (label, code, team, hourly_rate) VALUES ($1, $2, $3, $4) RETURNING *',
-      [label.trim(), code.trim().toUpperCase(), team?.trim() || null, hourlyRate || null]
+      'INSERT INTO roles (label, code, team, hourly_rate, rate_overrides) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [label.trim(), code.trim().toUpperCase(), team?.trim() || null, hourlyRate ?? null, JSON.stringify(rateOverrides ?? {})]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -238,6 +242,9 @@ router.post('/roles', requireAdmin, async (req, res, next) => {
 router.patch('/roles/:id', requireAdmin, async (req, res, next) => {
   try {
     const { label, code, team, hourlyRate, rateOverrides } = req.body;
+    const moneyErr = (hourlyRate !== undefined && hourlyRate !== null ? amountError(hourlyRate, 'EUR', 'Hourly rate') : null)
+      || (rateOverrides !== undefined ? overridesError(rateOverrides, 'Rate overrides') : null);
+    if (moneyErr) return res.status(400).json({ error: moneyErr, code: MONEY_RULE_CODE });
     const fields = [];
     const params = [];
 
@@ -393,6 +400,13 @@ router.patch('/ratecards/:id/entries', requireAdmin, async (req, res, next) => {
   try {
     const entries = req.body;
     if (!Array.isArray(entries)) return res.status(400).json({ error: 'Body must be an array' });
+
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i];
+      const moneyErr = amountError(e?.hourlyRate, 'EUR', `Hourly rate of entry ${i + 1}`)
+        || overridesError(e?.rateOverrides, `Rate overrides of entry ${i + 1}`);
+      if (moneyErr) return res.status(400).json({ error: moneyErr, code: MONEY_RULE_CODE });
+    }
 
     for (const e of entries) {
       const overrides = (e.rateOverrides && typeof e.rateOverrides === 'object') ? e.rateOverrides : {};

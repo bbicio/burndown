@@ -141,6 +141,15 @@ describe('_cgUpsertVersionToApi — no POST fallback', () => {
     expect(showInfo.mock.calls[0]).toEqual(['why. Tasks and the period of this version are not saved until this is fixed; other changes are saved.', '⚠️ Changes not saved']);
   });
 
+  it('a MONEY_RULE refusal of the structure is shown once', async () => {
+    const msg = 'Rate for role "PM" must be a number ≥ 0 with at most 2 decimal(s) for USD.';
+    api.costGrids.versions.saveStructure.mockRejectedValue(Object.assign(new Error('400'), { data: { code: 'MONEY_RULE', error: msg } }));
+    await expect(build()('cg1', 'v1')).resolves.toBe(false);
+    await expect(build()('cg1', 'v1')).resolves.toBe(false);
+    expect(showInfo).toHaveBeenCalledTimes(1);
+    expect(showInfo.mock.calls[0]).toEqual([msg + ' Tasks and the period of this version are not saved until this is fixed; other changes are saved.', '⚠️ Changes not saved']);
+  });
+
   it('a different code or message for the same version shows a new notice', async () => {
     api.costGrids.versions.saveStructure.mockRejectedValueOnce(dateRule('why.'));
     await build()('cg1', 'v1');

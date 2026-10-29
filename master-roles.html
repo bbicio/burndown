@@ -316,8 +316,8 @@ window.__cfgApp = Vue.createApp({
           const r = this.roles.find(r => r.id === this.rf.id);
           if (r) { r.label = label; r.code = code; r.rate = rate; r.rateOverrides = rateOverrides; }
         } else {
-          const created = await Api.roles.create({ label, code, hourlyRate: rate });
-          this.roles.push({ id: created.id, label, code, rate, rateOverrides: {} });
+          const created = await Api.roles.create({ label, code, hourlyRate: rate, rateOverrides });
+          this.roles.push({ id: created.id, label, code, rate, rateOverrides });
         }
         this.rf.show = false;
       } catch (e) {

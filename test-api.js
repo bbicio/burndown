@@ -742,6 +742,133 @@ async function testPotMasterDataFields() {
     'POT-17 a year with only a POT has expected_total === 0 and sip_total === 0');
 }
 
+// MR-01..MR-06 — the structure PUT validates role rates in the version's currency; 0 is a rate.
+async function testMoneyRules() {
+  section('Money rules');
+  const year = new Date().getFullYear();
+  const isMoneyRefusal = r => r.status === 400 && r.data?.code === 'MONEY_RULE';
+
+  const code = `TESTROLEMR${Date.now()}`;
+  const rr = await api('POST', '/api/roles', { label: `__test_role_mr_${Date.now()}__`, code, hourlyRate: 100 }, adminCookie);
+  const mrRole = { id: rr.data?.id, code };
+  if (mrRole.id) later('DELETE', `/api/roles/${mrRole.id}`);
+  const rpy = await api('POST', '/api/pipeline-years', { year }, adminCookie);
+  if (rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
+  const g = await api('POST', '/api/cost-grids', { name: '__test_mr_cg__' }, adminCookie);
+  const cgId = g.data?.id;
+  if (cgId) later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+  const eurV = cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'eur', currency: 'EUR' }, adminCookie)).data?.id : null;
+  const usdV = cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'usd', currency: 'USD' }, adminCookie)).data?.id : null;
+  if (!mrRole.id || !eurV || !usdV) { fail('MR-setup: role/proposal/versions failed — skipping'); return; }
+
+  const putRate = (vId, rate) => api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+    phases: [{ phaseName: 'P1', tasks: [{ taskName: 'T1', hours: { [mrRole.code]: 2 } }] }],
+    roles: [{ roleCode: mrRole.code, rate }],
+  }, adminCookie);
+  const storedRate = async vId => (await api('GET', `/api/cost-grids/${cgId}/versions/${vId}/structure`, null, adminCookie))
+    .data?.phases?.[0]?.tasks?.[0]?.roles?.[0]?.rate_override;
+  const fee = async vId => (await api('GET', '/api/cost-grids/budgets', null, adminCookie)).data?.[vId]?.fee;
+
+  const r1 = await putRate(eurV, 120);
+  ok(r1.status === 200, `MR-01 EUR rate 120 → 200 (got ${r1.status})`);
+  const r2 = await putRate(eurV, -1);
+  ok(isMoneyRefusal(r2) && Number(await storedRate(eurV)) === 120, `MR-02 EUR rate -1 → MONEY_RULE, stored rate still 120 (got ${r2.status})`);
+  const r3 = await putRate(eurV, '150');
+  ok(isMoneyRefusal(r3) && Number(await storedRate(eurV)) === 120, `MR-03 EUR rate "150" → MONEY_RULE, stored rate still 120 (got ${r3.status})`);
+  const r4 = await putRate(eurV, 0);
+  const s4 = await storedRate(eurV);
+  ok(r4.status === 200 && s4 !== null && Number(s4) === 0 && Number(await fee(eurV)) === 0,
+    `MR-04 EUR rate 0 → 200, stored as 0 (not the role default 100), fee 0 (got ${r4.status}, rate_override ${s4})`);
+  const r5 = await putRate(eurV, null);
+  ok(r5.status === 200 && (await storedRate(eurV)) === null, `MR-05 EUR rate null → 200, stored as NULL (got ${r5.status})`);
+  const r6a = await putRate(usdV, 175.555);
+  const r6b = await putRate(usdV, 175.55);
+  ok(isMoneyRefusal(r6a) && r6b.status === 200, `MR-06 USD 175.555 → MONEY_RULE, 175.55 → 200 (got ${r6a.status}, ${r6b.status})`);
+
+  // Project tasks PUT: resource hourly rate (project created as sysadmin — the project currency lock).
+  const rpj = await api('POST', '/api/projects', { name: '__test_mr_project__', currency: 'EUR' }, sysadminCookie);
+  const mrProj = rpj.data?.id;
+  if (mrProj) later('DELETE', `/api/projects/${mrProj}`);
+  if (!mrProj) fail(`MR-07/08: project setup failed (got ${rpj.status}) — skipping`);
+  if (mrProj) {
+  const putTaskRate = hourlyRate => api('PUT', `/api/projects/${mrProj}/tasks`,
+    [{ name: 'T1', resources: [{ role: 'R', hourlyRate, soldHours: 1 }] }], sysadminCookie);
+  const storedTaskRate = async () => (await api('GET', `/api/projects/${mrProj}/tasks`, null, sysadminCookie)).data?.[0]?.resources?.[0]?.hourlyRate;
+  const t1 = await putTaskRate(150);
+  ok(t1.status === 200 && Number(await storedTaskRate()) === 150, `MR-07a project resource rate 150 → 200 (got ${t1.status})`);
+  const t2 = await putTaskRate('');
+  ok(t2.status === 200 && Number(await storedTaskRate()) === 0, `MR-07b project resource rate '' → 200, read back 0 (got ${t2.status})`);
+  await putTaskRate(150);
+  const t3 = await putTaskRate(-1);
+  const t4 = await putTaskRate('abc');
+  ok(isMoneyRefusal(t3) && isMoneyRefusal(t4) && Number(await storedTaskRate()) === 150,
+    `MR-08 project resource rate -1 and 'abc' → MONEY_RULE, stored rate still 150 (got ${t3.status}, ${t4.status})`);
+  }
+
+  // Roles (M-05) and ratecard entries (M-07).
+  const roleCode = `TESTROLEMR9${Date.now()}`;
+  const r9 = await api('POST', '/api/roles', { label: `__test_role_mr9_${Date.now()}__`, code: roleCode, hourlyRate: 0, rateOverrides: { USD: 120 } }, adminCookie);
+  const r9Id = r9.data?.id;
+  if (r9Id) later('DELETE', `/api/roles/${r9Id}`);
+  const readRole = async id => ((await api('GET', '/api/roles', null, adminCookie)).data || []).find(x => x.id === id);
+  const rr9 = r9Id ? await readRole(r9Id) : null;
+  ok(r9.status === 201 && rr9 && Number(rr9.hourly_rate) === 0 && rr9.rate_overrides?.USD === 120,
+    `MR-09 role create with hourlyRate 0 and rateOverrides → 201, both stored (got ${r9.status}, ${rr9?.hourly_rate}, ${JSON.stringify(rr9?.rate_overrides)})`);
+
+  const c10 = `TESTROLEMR10${Date.now()}`;
+  const r10a = await api('POST', '/api/roles', { label: '__test_role_mr10a__', code: c10, hourlyRate: -1 }, adminCookie);
+  const r10b = await api('POST', '/api/roles', { label: '__test_role_mr10b__', code: c10, rateOverrides: { USD: 'x' } }, adminCookie);
+  const leaked = ((await api('GET', '/api/roles', null, adminCookie)).data || []).find(x => x.code === c10.toUpperCase());
+  if (leaked?.id) later('DELETE', `/api/roles/${leaked.id}`);
+  ok(isMoneyRefusal(r10a) && isMoneyRefusal(r10b) && !leaked,
+    `MR-10 role create with hourlyRate -1 / rateOverrides USD 'x' → MONEY_RULE, no role created (got ${r10a.status}, ${r10b.status})`);
+
+  if (r9Id) {
+    const r11a = await api('PATCH', `/api/roles/${r9Id}`, { hourlyRate: '100' }, adminCookie);
+    const r11b = await api('PATCH', `/api/roles/${r9Id}`, { rateOverrides: [1] }, adminCookie);
+    const after = await readRole(r9Id);
+    ok(isMoneyRefusal(r11a) && isMoneyRefusal(r11b) && Number(after?.hourly_rate) === 0 && after?.rate_overrides?.USD === 120,
+      `MR-11 role PATCH hourlyRate "100" / rateOverrides [1] → MONEY_RULE, role unchanged (got ${r11a.status}, ${r11b.status})`);
+  } else fail('MR-11: MR-09 role missing — skipping');
+
+  const rc = await api('POST', '/api/ratecards', { name: `__test_mr_rc_${Date.now()}__`, clientId: null }, adminCookie);
+  const rcId = rc.data?.id;
+  if (rcId) later('DELETE', `/api/ratecards/${rcId}`);
+  if (rcId && r9Id) {
+    const patchEntries = body => api('PATCH', `/api/ratecards/${rcId}/entries`, body, adminCookie);
+    const entryRate = async () => ((await api('GET', `/api/ratecards/${rcId}`, null, adminCookie)).data?.entries || [])
+      .find(e => e.roleId === mrRole.id)?.hourlyRate;
+    const e0 = await patchEntries([{ roleId: mrRole.id, hourlyRate: 80, rateOverrides: {} }]);
+    const e1 = await patchEntries([{ roleId: mrRole.id, hourlyRate: 90 }, { roleId: r9Id, hourlyRate: -1 }]);
+    const e2 = await patchEntries([{ roleId: mrRole.id }]);
+    const e3 = await patchEntries([{ roleId: mrRole.id, hourlyRate: 90, rateOverrides: { USD: 1.234 } }]);
+    ok(e0.status === 200 && isMoneyRefusal(e1) && isMoneyRefusal(e2) && isMoneyRefusal(e3) && Number(await entryRate()) === 80,
+      `MR-12 ratecard entries: valid → 200; invalid second entry / absent rate / USD 1.234 → MONEY_RULE, first entry still 80 (got ${e0.status}, ${e1.status}, ${e2.status}, ${e3.status})`);
+  } else fail('MR-12: ratecard or role setup failed — skipping');
+
+  // MR-13 / MR-14 — POT amounts
+  // (a specialLabel POT cannot be created: it violates pots_target_xor — a client target is used)
+  const mrCl = await api('POST', '/api/clients', { name: '__test_mr_pot_client__' }, adminCookie);
+  if (mrCl.data?.id) later('DELETE', `/api/clients/${mrCl.data.id}`);
+  const rpot = await api('POST', '/api/pots', { clientId: mrCl.data?.id, year: 2099, amount: 1000 }, adminCookie);
+  const mrPotId = rpot.data?.id;
+  if (mrPotId) later('DELETE', `/api/pots/${mrPotId}`);
+  if (rpot.status === 201 && mrPotId) {
+    const n1 = await api('POST', '/api/pots', { clientId: mrCl.data.id, year: 2099, amount: -5 }, adminCookie);
+    const n2 = await api('POST', '/api/pots', { clientId: mrCl.data.id, year: 2099, amount: 'abc' }, adminCookie);
+    ok(isMoneyRefusal(n1) && isMoneyRefusal(n2),
+      `MR-13 POT create: -5 and 'abc' → MONEY_RULE (got ${n1.status}, ${n2.status})`);
+    const potAmount = async () => Number(((await api('GET', '/api/pots?year=2099', null, adminCookie)).data || []).find(p => p.id === mrPotId)?.amount);
+    const histLen = async () => ((await api('GET', `/api/pots/${mrPotId}/history`, null, adminCookie)).data || []).length;
+    const h0 = await histLen();
+    const u1 = await api('PATCH', `/api/pots/${mrPotId}`, { amount: 'abc', note: 'x' }, adminCookie);
+    const u2 = await api('PATCH', `/api/pots/${mrPotId}`, { amount: 1.234, note: 'x' }, adminCookie);
+    const a1 = await potAmount(), h1 = await histLen();
+    ok(isMoneyRefusal(u1) && isMoneyRefusal(u2) && a1 === 1000 && h1 === h0,
+      `MR-14 POT update: 'abc' and 1.234 → MONEY_RULE, amount still 1000, history unchanged (got ${u1.status}, ${u2.status}, amount ${a1}, history ${h0}→${h1})`);
+  } else fail('MR-13/14: POT setup failed — skipping');
+}
+
 // POT-18..POT-26 — every POT route counts a proposal once, through its reference version (non-Draft,
 // with projects first, then the newest); the version rate is decided by the server only.
 async function testPotReferenceVersion() {
@@ -3530,6 +3657,7 @@ async function main() {
     await testDateRule();
     await testTaskPeriod();
     await testPeriodWithTasks();
+    await testMoneyRules();
     await testTimesheetsNoActuals();
     await testProjectDescriptions();
     await testTopicsApi();
