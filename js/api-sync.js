@@ -230,7 +230,7 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
       console.warn('[sync] structure save failed:', e.message);
       if (strict) throw e;
       allOk = false;
-      if (e.data?.code === 'STRUCTURE_RULE' || e.data?.code === 'DATE_RULE') notifyRefusal(e, true);
+      if (e.data?.code === 'STRUCTURE_RULE' || e.data?.code === 'DATE_RULE' || e.data?.code === 'MONEY_RULE') notifyRefusal(e, true);
     }
   }
   return allOk;
