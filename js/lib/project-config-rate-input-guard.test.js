@@ -24,6 +24,13 @@ describe('project-config resource hourly rate input', () => {
     expect(tag).toContain('@blur="onResRateBlur(ti, ri, $event)"');
     expect(tag).toContain(':disabled="isViewer"');
   });
+  it('keeps the typed text bound while the rate is invalid', () => {
+    const tag = rateTag();
+    expect(tag).toContain("rateInvalid[ti + '-' + ri] !== undefined ? rateInvalid[ti + '-' + ri] :");
+    expect(tag).toContain("'is-invalid': rateInvalid[ti + '-' + ri] !== undefined");
+    expect(tag).toContain("@focus=\"e => { if (rateInvalid[ti + '-' + ri] === undefined)");
+    expect(html).toContain('this.rateInvalid[key] = e.target.value');
+  });
   it('reads the text only through window.readMoneyInput', () => {
     expect(html).toContain('window.readMoneyInput(');
   });

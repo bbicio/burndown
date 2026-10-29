@@ -179,7 +179,7 @@
           <tr v-for="(res, ri) in task.resources" :key="ri">
             <td><input type="text" class="form-control form-control-sm" v-model="res.role" :disabled="isViewer" placeholder="e.g. HWGDEV - DEVELOPER"></td>
             <td><input type="number" class="form-control form-control-sm text-end" min="0" step="0.5" v-model.number="res.soldHours" :disabled="isViewer"></td>
-            <td><input type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': rateInvalid[ti + '-' + ri] }" :title="rateInvalid[ti + '-' + ri] ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''" :value="res.hourlyRate > 0 ? formatMoney(res.hourlyRate, project.currency, currencies) : ''" @focus="e => { e.target.value = moneyInput(res.hourlyRate); }" @blur="onResRateBlur(ti, ri, $event)" :disabled="isViewer"></td>
+            <td><input type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': rateInvalid[ti + '-' + ri] !== undefined }" :title="rateInvalid[ti + '-' + ri] !== undefined ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''" :value="rateInvalid[ti + '-' + ri] !== undefined ? rateInvalid[ti + '-' + ri] : (res.hourlyRate > 0 ? formatMoney(res.hourlyRate, project.currency, currencies) : '')" @focus="e => { if (rateInvalid[ti + '-' + ri] === undefined) e.target.value = moneyInput(res.hourlyRate); }" @blur="onResRateBlur(ti, ri, $event)" :disabled="isViewer"></td>
             <td class="text-end small fw-semibold align-middle">{{ res.soldHours > 0 && res.hourlyRate > 0 ? formatMoney(res.soldHours * res.hourlyRate, project.currency, currencies) : '—' }}</td>
             <td class="text-center"><button class="btn btn-sm btn-link text-danger p-0" v-if="!isViewer" @click="confirmRemoveResource(ti, ri)">✕</button></td>
           </tr>
@@ -950,7 +950,7 @@
         const res = this.project.tasks[ti].resources[ri];
         const key = ti + '-' + ri;
         const v = window.readMoneyInput(e.target.value, this.project?.currency, window.__currencies);
-        if (Number.isNaN(v)) { this.rateInvalid[key] = true; return; }
+        if (Number.isNaN(v)) { this.rateInvalid[key] = e.target.value; return; }
         res.hourlyRate = v === null ? 0 : v;
         delete this.rateInvalid[key];
         e.target.value = res.hourlyRate > 0 ? this.formatMoney(res.hourlyRate, this.project.currency, this.currencies) : '';
