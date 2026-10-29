@@ -789,7 +789,8 @@ async function testMoneyRules() {
   const rpj = await api('POST', '/api/projects', { name: '__test_mr_project__', currency: 'EUR' }, sysadminCookie);
   const mrProj = rpj.data?.id;
   if (mrProj) later('DELETE', `/api/projects/${mrProj}`);
-  if (!mrProj) { fail(`MR-07/08: project setup failed (got ${rpj.status}) — skipping`); return; }
+  if (!mrProj) fail(`MR-07/08: project setup failed (got ${rpj.status}) — skipping`);
+  if (mrProj) {
   const putTaskRate = hourlyRate => api('PUT', `/api/projects/${mrProj}/tasks`,
     [{ name: 'T1', resources: [{ role: 'R', hourlyRate, soldHours: 1 }] }], sysadminCookie);
   const storedTaskRate = async () => (await api('GET', `/api/projects/${mrProj}/tasks`, null, sysadminCookie)).data?.[0]?.resources?.[0]?.hourlyRate;
@@ -802,6 +803,48 @@ async function testMoneyRules() {
   const t4 = await putTaskRate('abc');
   ok(isMoneyRefusal(t3) && isMoneyRefusal(t4) && Number(await storedTaskRate()) === 150,
     `MR-08 project resource rate -1 and 'abc' → MONEY_RULE, stored rate still 150 (got ${t3.status}, ${t4.status})`);
+  }
+
+  // Roles (M-05) and ratecard entries (M-07).
+  const roleCode = `TESTROLEMR9${Date.now()}`;
+  const r9 = await api('POST', '/api/roles', { label: `__test_role_mr9_${Date.now()}__`, code: roleCode, hourlyRate: 0, rateOverrides: { USD: 120 } }, adminCookie);
+  const r9Id = r9.data?.id;
+  if (r9Id) later('DELETE', `/api/roles/${r9Id}`);
+  const readRole = async id => ((await api('GET', '/api/roles', null, adminCookie)).data || []).find(x => x.id === id);
+  const rr9 = r9Id ? await readRole(r9Id) : null;
+  ok(r9.status === 201 && rr9 && Number(rr9.hourly_rate) === 0 && rr9.rate_overrides?.USD === 120,
+    `MR-09 role create with hourlyRate 0 and rateOverrides → 201, both stored (got ${r9.status}, ${rr9?.hourly_rate}, ${JSON.stringify(rr9?.rate_overrides)})`);
+
+  const c10 = `TESTROLEMR10${Date.now()}`;
+  const r10a = await api('POST', '/api/roles', { label: '__test_role_mr10a__', code: c10, hourlyRate: -1 }, adminCookie);
+  const r10b = await api('POST', '/api/roles', { label: '__test_role_mr10b__', code: c10, rateOverrides: { USD: 'x' } }, adminCookie);
+  const leaked = ((await api('GET', '/api/roles', null, adminCookie)).data || []).find(x => x.code === c10.toUpperCase());
+  if (leaked?.id) later('DELETE', `/api/roles/${leaked.id}`);
+  ok(isMoneyRefusal(r10a) && isMoneyRefusal(r10b) && !leaked,
+    `MR-10 role create with hourlyRate -1 / rateOverrides USD 'x' → MONEY_RULE, no role created (got ${r10a.status}, ${r10b.status})`);
+
+  if (r9Id) {
+    const r11a = await api('PATCH', `/api/roles/${r9Id}`, { hourlyRate: '100' }, adminCookie);
+    const r11b = await api('PATCH', `/api/roles/${r9Id}`, { rateOverrides: [1] }, adminCookie);
+    const after = await readRole(r9Id);
+    ok(isMoneyRefusal(r11a) && isMoneyRefusal(r11b) && Number(after?.hourly_rate) === 0 && after?.rate_overrides?.USD === 120,
+      `MR-11 role PATCH hourlyRate "100" / rateOverrides [1] → MONEY_RULE, role unchanged (got ${r11a.status}, ${r11b.status})`);
+  } else fail('MR-11: MR-09 role missing — skipping');
+
+  const rc = await api('POST', '/api/ratecards', { name: `__test_mr_rc_${Date.now()}__`, clientId: null }, adminCookie);
+  const rcId = rc.data?.id;
+  if (rcId) later('DELETE', `/api/ratecards/${rcId}`);
+  if (rcId && r9Id) {
+    const patchEntries = body => api('PATCH', `/api/ratecards/${rcId}/entries`, body, adminCookie);
+    const entryRate = async () => ((await api('GET', `/api/ratecards/${rcId}`, null, adminCookie)).data?.entries || [])
+      .find(e => e.roleId === mrRole.id)?.hourlyRate;
+    const e0 = await patchEntries([{ roleId: mrRole.id, hourlyRate: 80, rateOverrides: {} }]);
+    const e1 = await patchEntries([{ roleId: mrRole.id, hourlyRate: 90 }, { roleId: r9Id, hourlyRate: -1 }]);
+    const e2 = await patchEntries([{ roleId: mrRole.id }]);
+    const e3 = await patchEntries([{ roleId: mrRole.id, hourlyRate: 90, rateOverrides: { USD: 1.234 } }]);
+    ok(e0.status === 200 && isMoneyRefusal(e1) && isMoneyRefusal(e2) && isMoneyRefusal(e3) && Number(await entryRate()) === 80,
+      `MR-12 ratecard entries: valid → 200; invalid second entry / absent rate / USD 1.234 → MONEY_RULE, first entry still 80 (got ${e0.status}, ${e1.status}, ${e2.status}, ${e3.status})`);
+  } else fail('MR-12: ratecard or role setup failed — skipping');
 }
 
 // POT-18..POT-26 — every POT route counts a proposal once, through its reference version (non-Draft,
