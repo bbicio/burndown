@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { isAdminRole } = require('../lib/is-admin');
+const { referenceVersionsCte } = require('../lib/pot-fee-sql');
 
 const router = express.Router();
 
@@ -15,31 +16,23 @@ router.get('/', requireAuth, async (req, res, next) => {
       `SELECT id, year, active, created_at FROM pipeline_years ${whereClause} ORDER BY year DESC`
     );
 
-    // offers per year: visible proposals whose display version is not Canceled.
-    // Display version mirrors pbGetDisplayVersion (pipeline.html): among non-Draft versions, one with
-    // linked projects first, then the newest. Visibility mirrors GET /api/cost-grids (the non-Draft
-    // version is guaranteed by the join): admin sees all, a user only what they own or that is shared.
+    // offers per year: visible proposals whose display version is not Canceled, counted in the year
+    // of that version. The display version is the shared server rule (referenceVersionsCte): among
+    // non-Draft versions, one with projects (through either link) first, then the newest. Visibility
+    // mirrors GET /api/cost-grids: admin sees all, a user only what they own or that is shared.
     const visibility = isAdmin ? '' : `AND (
         cg.owner_id = $1
         OR EXISTS(SELECT 1 FROM resource_shares rs
                   WHERE rs.resource_type = 'cost_grid' AND rs.resource_id = cg.id AND rs.user_id = $1)
       )`;
     const { rows: counts } = await query(
-      `WITH disp AS (
-         SELECT DISTINCT ON (cg.id) cg.id, v.pipeline
-         FROM cost_grids cg
-         JOIN cost_grid_versions v ON v.cost_grid_id = cg.id AND v.pipeline <> 'Draft'
-         WHERE 1=1 ${visibility}
-         ORDER BY cg.id,
-                  EXISTS(SELECT 1 FROM cg_version_projects cvp WHERE cvp.cost_grid_version_id = v.id) DESC,
-                  v.created_at DESC
-       )
-       SELECT y.pipeline_year AS year, COUNT(DISTINCT d.id)::int AS offers
-       FROM disp d
-       JOIN (SELECT DISTINCT cost_grid_id, pipeline_year
-             FROM cost_grid_versions WHERE pipeline <> 'Draft') y ON y.cost_grid_id = d.id
-       WHERE d.pipeline <> 'Canceled'
-       GROUP BY y.pipeline_year`,
+      `WITH ${referenceVersionsCte()}
+       SELECT ref_v.pipeline_year AS year, COUNT(*)::int AS offers
+       FROM ref_v
+       JOIN cost_grids cg ON cg.id = ref_v.cost_grid_id
+       WHERE ref_v.pipeline <> 'Canceled'
+         AND ref_v.pipeline_year IS NOT NULL ${visibility}
+       GROUP BY ref_v.pipeline_year`,
       isAdmin ? [] : [req.user.id]
     );
     const byYear = new Map(counts.map(c => [Number(c.year), c.offers]));

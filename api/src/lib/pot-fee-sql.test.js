@@ -46,3 +46,10 @@ test('pots.js reads versions only through pot_v', () => {
   assert.match(src, /potVersionsCte\(\)/);
   assert.ok((src.match(/WITH \$\{potVersionsCte\(\)\}/g) || []).length >= 5);
 });
+
+test('pipeline-years.js counts offers on the reference version', () => {
+  const src = readFileSync(path.join(__dirname, '../routes/pipeline-years.js'), 'utf8');
+  assert.match(src, /referenceVersionsCte\(\)/);
+  assert.doesNotMatch(src, /DISTINCT ON \(cg\.id\)/);
+  assert.doesNotMatch(src, /SELECT DISTINCT cost_grid_id, pipeline_year/);
+});
