@@ -735,7 +735,7 @@ window.__cfgApp = Vue.createApp({
     ]});
     if (!user) return;
     if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
-    try { window.__currencies = await Api.currencies.active(); } catch {}
+    try { window.__currencies = await Api.currencies.list(); } catch {}
     this.activeCurrencies = window.__currencies || [];
     await this.loadAll();
     this.ready = true;

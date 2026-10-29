@@ -540,6 +540,7 @@
 | PP-46 | `/api/pots` details/list/year-totals extended fields | GET `/api/pots/:id/details`, `/api/pots` and `/api/pots/year-totals` for a client POT with an EUR and a CHF (rate 0.8) Committed proposal, an Expected and a SIP one | Every details row has `currency` and numeric `value_original` (EUR: equal to `value`; CHF: original ≈ `value` × rate); `committed_total` is the sum of the EUR values; `expected_total`/`sip_total` numeric in all three routes, `0` for a POT/year without such proposals; `achieved_total` = C+A (test-api POT-13..POT-17) | ✓ |
 | PP-47 | View Details — Expected/SIP line | View Details modal for a POT with Expected and SIP proposals | Below the cards: "Not in total · Expected €X · SIP €Y"; Total (C+A) and the percentages do not change | |
 | PP-48 | Zero currency rate | On the branch stack: `docker exec -i pdash-db-<branch> psql -U pdash -d pdash -c "UPDATE cost_grid_versions SET currency_rate = 0 WHERE id = '<version inside a POT scope>'"`; then GET `/api/pots/:id/details?year=`, `/api/pots?year=`, `/api/pots/year-totals`, `/api/pots/pipeline-summary?year=` | All four answer 200; that version's value is its fee at rate 1 | |
+| PP-49 | View Details — inactive currency | View Details modal for a POT with a Committed proposal in a currency that is no longer active | The Value cell shows the amount with that currency's own locale and symbol (e.g. CHF in the de-CH format), below it "(€ …)"; totals unchanged | |
 
 ---
 
