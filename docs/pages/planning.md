@@ -84,3 +84,7 @@ Plan `docs/superpowers/plans/2026-10-19-backlog-quickwins.md`, report `docs/supe
 ## Backlog B-110, B-112 (2026-10-23)
 
 Plan `docs/superpowers/plans/2026-10-23-backlog-b110-b112.md`, report `docs/superpowers/reports/2026-10-23-backlog-b110-b112-finish-cycle.md`. `.pl-toolbar-right` has no `padding-top`, so its buttons align with the toolbar's first row (B-112). The first and second rows still use `btn btn-sm btn-outline-secondary` next to the `.ph-btn` buttons: restyling them is left to a planning redesign.
+
+## UI quick wins (2026-10-29)
+
+Spec `docs/superpowers/specs/2026-10-29-ui-quick-wins-design.md`, report `docs/superpowers/reports/2026-10-29-ui-quick-wins-finish-cycle.md`. The `Compact` / `Full width` toggle is gone: the button, the `fullWidth` data property and `toggleFullWidth()` were removed, so `.pl-toolbar-right` holds Team assistant (admins), Load XLS and Export XLS. The page is always full width through the static `<body class="pp-fullwidth">`. The `maximize`/`minimize` icons stay in `js/lib/icons.js` with no consumer. `js/lib/content-surface-guard.test.js` pins three buttons and the absence of the toggle.
