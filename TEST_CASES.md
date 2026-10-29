@@ -536,6 +536,8 @@
 | PP-42 | POT split — master-pipelines.html POT list | Open Master Data → Pipelines & POTs → POT list for a year with proposals | Table shows three columns: "Total (C+A)" / "Committed" / "Anticipated" — all as EUR amounts; no single "Achievement" column | |
 | PP-43 | POT split — year overview row | Pipeline list for year with POTs | Achievement cell shows total% + C+A amount on first line; secondary line shows "C: €X · A: €Y" in green/orange | |
 | PP-44 | POT split — detail modal four cards | View Details modal for POT with Committed + Anticipated proposals | Four KPI cards rendered: Target (grey border) / Total C+A (dark border, total%) / Committed (green border, C%) / Anticipated (orange border, A%); no single "Current (Committed)" card | |
+| PP-46 | `/api/pots` details/list/year-totals extended fields | GET `/api/pots/:id/details`, `/api/pots` and `/api/pots/year-totals` for a client POT with an EUR and a CHF (rate 0.8) Committed proposal, an Expected and a SIP one | Every details row has `currency` and numeric `value_original` (EUR: equal to `value`; CHF: original ≈ `value` × rate); `committed_total` is the sum of the EUR values; `expected_total`/`sip_total` numeric in all three routes, `0` for a POT/year without such proposals; `achieved_total` = C+A (test-api POT-13..POT-17) | ✓ |
+| PP-48 | Zero currency rate | On the branch stack: `docker exec -i pdash-db-<branch> psql -U pdash -d pdash -c "UPDATE cost_grid_versions SET currency_rate = 0 WHERE id = '<version inside a POT scope>'"`; then GET `/api/pots/:id/details?year=`, `/api/pots?year=`, `/api/pots/year-totals`, `/api/pots/pipeline-summary?year=` | All four answer 200; that version's value is its fee at rate 1 | |
 
 ---
 

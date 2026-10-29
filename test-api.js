@@ -516,6 +516,7 @@ async function testPots() {
     'POT-06c details for unknown POT id → 404');
 
   await testPotSummaryExtended();
+  await testPotMasterDataFields();
 }
 
 // POT-08..POT-11 — GET /api/pots/summary: expected/SIP totals + per-proposal value/client_name
@@ -621,6 +622,90 @@ async function testPotSummaryExtended() {
   ok(rgs.status === 200 && gRows.length === 2 && gMade.every(m => gRows.some(r => r.cg_id === m.cgId)) &&
      gSum > 0 && Math.abs(rgs.data.committed_total - gSum) < 0.01,
     'POT-12 client-group summary returns both proposals and totals equal to the sum of their values');
+}
+
+// POT-13..POT-17 — Master Data fields: original currency in /:id/details, Expected/SIP totals
+// (informative, never in achieved_total) in /:id/details, GET / and /year-totals.
+async function testPotMasterDataFields() {
+  const year = new Date().getFullYear();   // publish stamps the current calendar year
+  const near = (a, b) => typeof a === 'number' && Math.abs(a - b) < 0.01;
+
+  const role = await makeTestRole(`PMD${Date.now()}`);
+  const rpy = await api('POST', '/api/pipeline-years', { year }, adminCookie);
+  if (rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
+  const rc = await api('POST', '/api/clients', { name: '__test_pot_md_client__' }, adminCookie);
+  const clientId = rc.data?.id;
+  if (clientId) later('DELETE', `/api/clients/${clientId}`);
+  if (!role.id || !clientId) { fail('POT-13..17: setup failed — skipping'); return; }
+  const rp = await api('POST', '/api/pots', { clientId, year, amount: 1000000 }, adminCookie);
+  const potId = rp.data?.id;
+  if (potId) later('DELETE', `/api/pots/${potId}`);
+  if (!potId) { fail('POT-13..17: POT setup failed — skipping'); return; }
+
+  async function makeProposal(name, stage, days, currency, currencyRate) {
+    const g = await api('POST', '/api/cost-grids', { name }, adminCookie);
+    const cgId = g.data?.id;
+    if (!cgId) return null;
+    later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+    const v = await api('POST', `/api/cost-grids/${cgId}/versions`,
+      { label: 'v1', clientId, currency, currencyRate }, adminCookie);
+    const vId = v.data?.id;
+    if (!vId) return null;
+    await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+      phases: [{ title: 'P1', tasks: [{ title: 'T1', roles: [{ roleId: role.id, days, rateOverride: 100 }] }] }],
+    }, adminCookie);
+    await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/publish`, null, adminCookie);
+    await api('PATCH', `/api/cost-grids/${cgId}/versions/${vId}`, { pipeline: stage }, adminCookie);
+    return { cgId, vId };
+  }
+
+  // CHF is seeded inactive: an explicit currencyRate keeps the version route off the currencies table.
+  const eur = await makeProposal('__test_pot_md_eur__', 'Committed', 4, 'EUR', 1);
+  const chf = await makeProposal('__test_pot_md_chf__', 'Committed', 10, 'CHF', 0.8);
+  const exp = await makeProposal('__test_pot_md_exp__', 'Expected', 2, 'EUR', 1);
+  const sip = await makeProposal('__test_pot_md_sip__', 'SIP', 1, 'EUR', 1);
+  if (![eur, chf, exp, sip].every(Boolean)) { fail('POT-13..17: proposal setup failed — skipping'); return; }
+
+  const rd = await api('GET', `/api/pots/${potId}/details?year=${year}`, null, adminCookie);
+  const rows = rd.data?.proposals || [];
+  const rowOf = m => rows.find(r => r.cg_id === m.cgId);
+  ok(rd.status === 200 && rows.length >= 4 &&
+     rows.every(r => typeof r.currency === 'string' && typeof r.value_original === 'number'),
+    'POT-13 every details row has currency (string) and value_original (number)');
+  ok(rowOf(eur)?.currency === 'EUR' && near(rowOf(eur)?.value_original, 400) &&
+     rowOf(eur)?.value_original === rowOf(eur)?.value,
+    'POT-13 EUR row: value_original === value (400)');
+
+  const chfRow = rowOf(chf);
+  ok(chfRow?.currency === 'CHF' && near(chfRow?.value_original, 1000) && near(chfRow?.value, 1250),
+    'POT-14 CHF row: value_original ≈ 1000 CHF, value ≈ 1250 EUR (rate 0.8)');
+  const committedSum = rows.filter(r => r.pipeline === 'Committed').reduce((a, r) => a + r.value, 0);
+  ok(near(rd.data?.committed_total, committedSum) && near(rd.data?.committed_total, 1650),
+    'POT-14 committed_total is the sum of the EUR values (≈ 1650), not of the originals');
+
+  ok(near(rd.data?.expected_total, 200) && near(rd.data?.sip_total, 100),
+    'POT-15 details expected_total ≈ 200, sip_total ≈ 100');
+
+  const rl = await api('GET', `/api/pots?year=${year}`, null, adminCookie);
+  const lp = (rl.data || []).find(p => p.id === potId);
+  ok(rl.status === 200 && near(lp?.expected_total, 200) && near(lp?.sip_total, 100) && near(lp?.committed_total, 1650) &&
+     near(lp?.achieved_total, lp?.committed_total + lp?.anticipated_total),
+    'POT-16 GET /api/pots: expected_total ≈ 200, sip_total ≈ 100, achieved_total = C+A');
+  const rlB = await api('GET', `/api/pots?year=${TEST_YEAR_B}`, null, adminCookie);
+  const lpB = (rlB.data || []).find(p => p.client_name === '__test_pot_client__');
+  ok(lpB?.expected_total === 0 && lpB?.sip_total === 0,
+    'POT-16 a POT with no Expected/SIP proposals has expected_total === 0 and sip_total === 0');
+
+  const ry = await api('GET', '/api/pots/year-totals', null, adminCookie);
+  const yt = ry.data?.[year];
+  ok(ry.status === 200 && typeof yt?.expected_total === 'number' && typeof yt?.sip_total === 'number' &&
+     yt.expected_total >= 200 - 0.01 && yt.sip_total >= 100 - 0.01,
+    'POT-17 year-totals: expected_total ≥ 200 and sip_total ≥ 100, numeric');
+  ok(near(yt?.achieved_total, yt?.committed_total + yt?.anticipated_total),
+    'POT-17 year-totals: achieved_total = C+A');
+  const ytB = ry.data?.[TEST_YEAR_B];
+  ok(ytB?.expected_total === 0 && ytB?.sip_total === 0,
+    'POT-17 a year with only a POT has expected_total === 0 and sip_total === 0');
 }
 
 // ── Cost Grid Budgets ─────────────────────────────────────────────────────────
