@@ -177,10 +177,10 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
     const msg = String(e.data.error || '');
     const text = `${/[.!?]$/.test(msg) ? msg : msg + '.'}`;
     // A refused PATCH is atomic (nothing of the version is saved); a refused structure keeps the other changes.
-    const tail = e.data.code === 'DATE_RULE'
-      ? (fromStructure ? ' Tasks and the period of this version are not saved until this is fixed; other changes are saved.'
-                       : ' Your changes to this version are not being saved until this is fixed.')
-      : ' Your changes to this version are not being saved: reload the page to see its current structure.';
+    const tail = e.data.code === 'STRUCTURE_RULE'
+      ? ' Your changes to this version are not being saved: reload the page to see its current structure.'
+      : (fromStructure ? ' Tasks and the period of this version are not saved until this is fixed; other changes are saved.'
+                       : ' Your changes to this version are not being saved until this is fixed.');
     showInfo(text + tail, '⚠️ Changes not saved');
   };
 
@@ -197,7 +197,6 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
     startDate:      meta.startDate   || null,
     endDate:        meta.endDate     || null,
     currency:       meta.currency || 'EUR',
-    currencyRate:   parseFloat((window.__currencies || []).find(cu => cu.code === (meta.currency || 'EUR'))?.current_rate) || 1.0,
     note:           meta.note        || '',
     status:         meta.status      || 'draft',
     projectName:    meta.projectName || '',
@@ -216,7 +215,7 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
     console.warn('[sync] version upsert failed:', e.message);
     if (strict) throw e;
     allOk = false;
-    if (e.data?.code === 'DATE_RULE') notifyRefusal(e, false);
+    if (e.data?.code === 'DATE_RULE' || e.data?.code === 'CURRENCY_RULE') notifyRefusal(e, false);
   }
 
   if (hasStructure) {
