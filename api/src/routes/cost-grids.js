@@ -12,6 +12,7 @@ const { isValidSoldHours } = require('../lib/sold-hours');
 const { DATE_RULE, periodError, periodChangeError, periodShrinkError, taskPeriodError, toYmd } = require('../lib/dates');
 const { isAdminRole } = require('../lib/is-admin');
 const { formatMoney } = require('../lib/money-format');
+const { versionRate, CURRENCY_RULE_CODE } = require('../lib/version-rate');
 
 let _pushToUser;
 let _createNotification;
@@ -383,13 +384,19 @@ router.get('/:id/versions', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// The currencies row of `code` ({ active, current_rate }), or null when the code is unknown.
+async function currencyRow(code, q = query) {
+  const { rows } = await q('SELECT active, current_rate FROM currencies WHERE code = $1', [code]);
+  return rows[0] || null;
+}
+
 // POST /api/cost-grids/:id/versions
 router.post('/:id/versions', requireAuth, async (req, res, next) => {
   try {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { label, pipeline, startDate, endDate, currency, currencyRate, note, ratecardId, clientId, projectName } = req.body;
+    const { label, pipeline, startDate, endDate, currency, note, ratecardId, clientId, projectName } = req.body;
     if (!label?.trim()) return res.status(400).json({ error: 'label is required' });
     const periodErr = periodError(startDate, endDate, { kind: 'month', label: 'version' });
     if (periodErr) return res.status(400).json({ error: periodErr, code: DATE_RULE });
@@ -398,17 +405,11 @@ router.post('/:id/versions', requireAuth, async (req, res, next) => {
     const versionErr = rules.versionCreationError({ role, hasPublishedVersion });
     if (versionErr) return res.status(400).json({ error: versionErr, code: rules.VERSION_RULE_CODE });
 
-    // Resolve currency_rate: use provided value, else look up live rate from currencies table
+    // The rate is decided by the server only; a currencyRate in the body is ignored
     const resolvedCurrency = currency || 'EUR';
-    let resolvedRate = parseFloat(currencyRate) || null;
-    if (!resolvedRate) {
-      if (resolvedCurrency === 'EUR') {
-        resolvedRate = 1.0;
-      } else {
-        const { rows: cr } = await query('SELECT current_rate FROM currencies WHERE code = $1 AND active = true', [resolvedCurrency]);
-        resolvedRate = cr[0] ? parseFloat(cr[0].current_rate) : 1.0;
-      }
-    }
+    const rate = versionRate(resolvedCurrency, await currencyRow(resolvedCurrency));
+    if (rate.error) return res.status(400).json({ error: rate.error, code: CURRENCY_RULE_CODE });
+    const resolvedRate = rate.rate;
 
     // New versions always start as Draft (published via the /publish endpoint)
     const { rows } = await query(
@@ -431,7 +432,7 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
     if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
     const oldPipeline = locked.rows[0]?.old_pipeline;
 
-    const { label, pipeline, startDate, endDate, currency, currencyRate, note, ratecardId, clientId, projectName } = req.body;
+    const { label, pipeline, startDate, endDate, currency, note, ratecardId, clientId, projectName } = req.body;
     if (startDate !== undefined || endDate !== undefined) {
       const periodErr = periodChangeError(
         { start: startDate, end: endDate },
@@ -447,7 +448,6 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
     if (startDate !== undefined)   { params.push(startDate || null);  fields.push(`start_date = $${params.length}`); }
     if (endDate !== undefined)     { params.push(endDate   || null);  fields.push(`end_date = $${params.length}`); }
     if (currency !== undefined)    { params.push(currency || 'EUR');  fields.push(`currency = $${params.length}`); }
-    if (currencyRate !== undefined){ params.push(parseFloat(currencyRate) || 1.0); fields.push(`currency_rate = $${params.length}`); }
     if (note !== undefined)        { params.push(note);               fields.push(`note = $${params.length}`); }
     if (ratecardId !== undefined)  { params.push(ratecardId || null); fields.push(`ratecard_id = $${params.length}`); }
     if (clientId !== undefined)    { params.push(clientId || null);   fields.push(`client_id = $${params.length}`); }
@@ -455,8 +455,11 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
 
     if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
 
-    params.push(req.params.vId);
-    const updateSql = `UPDATE cost_grid_versions SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING *`;
+    // Built at call time: the currency branch below may still add the rate.
+    const update = async q => (await q(
+      `UPDATE cost_grid_versions SET ${fields.join(', ')} WHERE id = $${params.length + 1} RETURNING *`,
+      [...params, req.params.vId]
+    )).rows;
     const trimmed = v => String(v ?? '').trim();
     const periodChanged = (startDate !== undefined && trimmed(startDate) !== trimmed(locked.rows[0]?.start_date))
       || (endDate !== undefined && trimmed(endDate) !== trimmed(locked.rows[0]?.end_date));
@@ -475,6 +478,16 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
             hasProjects: await versionHasProjects(req.params.vId, client.query.bind(client)),
           });
           if (err) return { err };
+          // The rate follows the currency and is decided here only: EUR is 1, a new currency takes
+          // its active rate, the same non-EUR currency keeps its rate even if since deactivated.
+          const newCurrency = currency || 'EUR';
+          if (newCurrency === 'EUR') {
+            params.push(1); fields.push(`currency_rate = $${params.length}`);
+          } else if (newCurrency !== stored?.currency) {
+            const rate = versionRate(newCurrency, await currencyRow(newCurrency, client.query.bind(client)));
+            if (rate.error) return { rateErr: rate.error };
+            params.push(rate.rate); fields.push(`currency_rate = $${params.length}`);
+          }
         }
         if (periodChanged) {
           const tasks = (await client.query(
@@ -489,13 +502,14 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
           );
           if (dateErr) return { dateErr };
         }
-        return { rows: (await client.query(updateSql, params)).rows };
+        return { rows: await update(client.query.bind(client)) };
       });
       if (out.dateErr) return res.status(400).json({ error: out.dateErr, code: DATE_RULE });
+      if (out.rateErr) return res.status(400).json({ error: out.rateErr, code: CURRENCY_RULE_CODE });
       if (out.err) return refuse(res, out.err);
       rows = out.rows;
     } else {
-      ({ rows } = await query(updateSql, params));
+      rows = await update(query);
     }
     if (!rows[0]) return res.status(404).json({ error: 'Version not found' });
 
@@ -1088,30 +1102,27 @@ router.patch('/:id/reassign-owner', requireAuth, async (req, res, next) => {
 });
 
 // POST /api/cost-grids/:id/versions/:vId/refresh-rate
-// Snapshots the current live exchange rate from currencies table onto the version.
+// Snapshots the rate versionRate gives the version's currency (EUR 1, else its live rate); an
+// inactive currency is refused with 400 CURRENCY_RULE and the stored rate is kept.
 router.post('/:id/versions/:vId/refresh-rate', requireAuth, async (req, res, next) => {
   try {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { rows: ver } = await query(
-      'SELECT currency FROM cost_grid_versions WHERE id = $1', [req.params.vId]
-    );
-    if (!ver[0]) return res.status(404).json({ error: 'Version not found' });
-    const currency = ver[0].currency;
-    if (currency === 'EUR') return res.json({ currency, currency_rate: 1.0 });
-
-    const { rows: cur } = await query(
-      'SELECT current_rate FROM currencies WHERE code = $1 AND active = true', [currency]
-    );
-    if (!cur[0]) return res.status(404).json({ error: 'Currency not active' });
-
-    const rate = parseFloat(cur[0].current_rate);
-    await query(
-      'UPDATE cost_grid_versions SET currency_rate = $1 WHERE id = $2',
-      [rate, req.params.vId]
-    );
-    res.json({ currency, currency_rate: rate });
+    // Under the version lock, so a concurrent currency PATCH cannot land between the read and the write.
+    const out = await withVersionLock(req.params.vId, async client => {
+      const q = client.query.bind(client);
+      const { rows: ver } = await q('SELECT currency FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
+      if (!ver[0]) return { notFound: true };
+      const currency = ver[0].currency;
+      const rate = versionRate(currency, await currencyRow(currency, q));
+      if (rate.error) return { rateErr: rate.error };
+      await q('UPDATE cost_grid_versions SET currency_rate = $1 WHERE id = $2', [rate.rate, req.params.vId]);
+      return { currency, rate: rate.rate };
+    });
+    if (out.notFound) return res.status(404).json({ error: 'Version not found' });
+    if (out.rateErr) return res.status(400).json({ error: out.rateErr, code: CURRENCY_RULE_CODE });
+    res.json({ currency: out.currency, currency_rate: out.rate });
   } catch (err) { next(err); }
 });
 

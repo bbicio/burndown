@@ -75,6 +75,39 @@ async function makeTestRole(tag) {
   return { id: r.data?.id, label, code };
 }
 
+// A version's currency must be active (EUR always is): the suite activates USD and CHF once and
+// keeps their live rates here; NOK stays inactive and is the suite's inactive currency.
+const testRates = {};
+async function ensureTestCurrencies() {
+  section('Currencies setup');
+  for (const [code, rate] of [['USD', 1.3], ['CHF', 0.8]]) {
+    const r = await api('POST', `/api/currencies/${code}/activate`, { rate }, adminCookie);
+    ok([200, 409].includes(r.status), `CUR-setup ${code} active (got ${r.status})`);
+  }
+  const list = (await api('GET', '/api/currencies', null, adminCookie)).data || [];
+  for (const code of ['USD', 'CHF']) testRates[code] = parseFloat(list.find(c => c.code === code)?.current_rate);
+  ok(list.some(c => c.code === 'NOK' && !c.active), 'CUR-setup NOK is inactive (used as the inactive currency)');
+  return testRates;
+}
+
+// Direct SQL, for the states no route can build (an inactive currency on an existing version, a
+// stored rate the server would never write). The test container installs `pg` under /tmp and
+// carries DATABASE_URL (docker-compose.yml, service `test`). Answers null, and records one failure,
+// when that is not available, so the caller skips its checks instead of aborting the suite.
+let _pgPool = null;
+async function sql(text, params = []) {
+  try {
+    if (!_pgPool) {
+      const { Pool } = require('/tmp/node_modules/pg');
+      _pgPool = new Pool({ connectionString: process.env.DATABASE_URL });
+    }
+    return (await _pgPool.query(text, params)).rows;
+  } catch (e) {
+    fail(`direct SQL unavailable (${e.message}) — skipping the checks that need it`);
+    return null;
+  }
+}
+
 // Multipart CSV upload (the suite's api() helper only speaks JSON). xlsx parses CSV buffers too.
 async function uploadCsv(path, csvText, cookie) {
   const form = new FormData();
@@ -517,6 +550,7 @@ async function testPots() {
 
   await testPotSummaryExtended();
   await testPotMasterDataFields();
+  await testPotReferenceVersion();
 }
 
 // POT-08..POT-11 — GET /api/pots/summary: expected/SIP totals + per-proposal value/client_name
@@ -642,13 +676,13 @@ async function testPotMasterDataFields() {
   if (potId) later('DELETE', `/api/pots/${potId}`);
   if (!potId) { fail('POT-13..17: POT setup failed — skipping'); return; }
 
-  async function makeProposal(name, stage, days, currency, currencyRate) {
+  async function makeProposal(name, stage, days, currency) {
     const g = await api('POST', '/api/cost-grids', { name }, adminCookie);
     const cgId = g.data?.id;
     if (!cgId) return null;
     later('POST', `/api/admin/reset/cost-grid/${cgId}`);
     const v = await api('POST', `/api/cost-grids/${cgId}/versions`,
-      { label: 'v1', clientId, currency, currencyRate }, adminCookie);
+      { label: 'v1', clientId, currency }, adminCookie);
     const vId = v.data?.id;
     if (!vId) return null;
     await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
@@ -659,11 +693,10 @@ async function testPotMasterDataFields() {
     return { cgId, vId };
   }
 
-  // CHF is seeded inactive: an explicit currencyRate keeps the version route off the currencies table.
-  const eur = await makeProposal('__test_pot_md_eur__', 'Committed', 4, 'EUR', 1);
-  const chf = await makeProposal('__test_pot_md_chf__', 'Committed', 10, 'CHF', 0.8);
-  const exp = await makeProposal('__test_pot_md_exp__', 'Expected', 2, 'EUR', 1);
-  const sip = await makeProposal('__test_pot_md_sip__', 'SIP', 1, 'EUR', 1);
+  const eur = await makeProposal('__test_pot_md_eur__', 'Committed', 4, 'EUR');
+  const chf = await makeProposal('__test_pot_md_chf__', 'Committed', 10, 'CHF');
+  const exp = await makeProposal('__test_pot_md_exp__', 'Expected', 2, 'EUR');
+  const sip = await makeProposal('__test_pot_md_sip__', 'SIP', 1, 'EUR');
   if (![eur, chf, exp, sip].every(Boolean)) { fail('POT-13..17: proposal setup failed — skipping'); return; }
 
   const rd = await api('GET', `/api/pots/${potId}/details?year=${year}`, null, adminCookie);
@@ -677,18 +710,19 @@ async function testPotMasterDataFields() {
     'POT-13 EUR row: value_original === value (400)');
 
   const chfRow = rowOf(chf);
-  ok(chfRow?.currency === 'CHF' && near(chfRow?.value_original, 1000) && near(chfRow?.value, 1250),
-    'POT-14 CHF row: value_original ≈ 1000 CHF, value ≈ 1250 EUR (rate 0.8)');
+  const chfEur = 1000 / testRates.CHF;
+  ok(chfRow?.currency === 'CHF' && near(chfRow?.value_original, 1000) && near(chfRow?.value, chfEur),
+    `POT-14 CHF row: value_original ≈ 1000 CHF, value ≈ ${chfEur.toFixed(2)} EUR (rate ${testRates.CHF})`);
   const committedSum = rows.filter(r => r.pipeline === 'Committed').reduce((a, r) => a + r.value, 0);
-  ok(near(rd.data?.committed_total, committedSum) && near(rd.data?.committed_total, 1650),
-    'POT-14 committed_total is the sum of the EUR values (≈ 1650), not of the originals');
+  ok(near(rd.data?.committed_total, committedSum) && near(rd.data?.committed_total, 400 + chfEur),
+    'POT-14 committed_total is the sum of the EUR values, not of the originals');
 
   ok(near(rd.data?.expected_total, 200) && near(rd.data?.sip_total, 100),
     'POT-15 details expected_total ≈ 200, sip_total ≈ 100');
 
   const rl = await api('GET', `/api/pots?year=${year}`, null, adminCookie);
   const lp = (rl.data || []).find(p => p.id === potId);
-  ok(rl.status === 200 && near(lp?.expected_total, 200) && near(lp?.sip_total, 100) && near(lp?.committed_total, 1650) &&
+  ok(rl.status === 200 && near(lp?.expected_total, 200) && near(lp?.sip_total, 100) && near(lp?.committed_total, 400 + chfEur) &&
      near(lp?.achieved_total, lp?.committed_total + lp?.anticipated_total),
     'POT-16 GET /api/pots: expected_total ≈ 200, sip_total ≈ 100, achieved_total = C+A');
   const rlB = await api('GET', `/api/pots?year=${TEST_YEAR_B}`, null, adminCookie);
@@ -706,6 +740,172 @@ async function testPotMasterDataFields() {
   const ytB = ry.data?.[TEST_YEAR_B];
   ok(ytB?.expected_total === 0 && ytB?.sip_total === 0,
     'POT-17 a year with only a POT has expected_total === 0 and sip_total === 0');
+}
+
+// POT-18..POT-26 — every POT route counts a proposal once, through its reference version (non-Draft,
+// with projects first, then the newest); the version rate is decided by the server only.
+async function testPotReferenceVersion() {
+  section('POT reference version');
+  const year = new Date().getFullYear();   // publish stamps the current calendar year
+  const near = (a, b) => typeof a === 'number' && Math.abs(a - b) < 0.01;
+
+  const role = await makeTestRole(`PRV${Date.now()}`);
+  const rpy = await api('POST', '/api/pipeline-years', { year }, adminCookie);
+  if (rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
+  const rc = await api('POST', '/api/clients', { name: '__test_pot_ref_client__' }, adminCookie);
+  const clientId = rc.data?.id;
+  if (clientId) later('DELETE', `/api/clients/${clientId}`);
+  if (!role.id || !clientId) { fail('POT-18..26: setup failed — skipping'); return; }
+  const rp = await api('POST', '/api/pots', { clientId, year, amount: 1000000 }, adminCookie);
+  const potId = rp.data?.id;
+  if (potId) later('DELETE', `/api/pots/${potId}`);
+  if (!potId) { fail('POT-18..26: POT setup failed — skipping'); return; }
+
+  const structure = days => ({ phases: [{ title: 'P1', tasks: [{ title: 'T1', roles: [{ roleId: role.id, days, rateOverride: 100 }] }] }] });
+  // A version created by `cookie`, given `days`, published and moved to `stage`.
+  async function publishedVersion(cgId, label, stage, days, cookie) {
+    const v = await api('POST', `/api/cost-grids/${cgId}/versions`, { label, clientId, currency: 'EUR' }, cookie);
+    const vId = v.data?.id;
+    if (!vId) return null;
+    await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, structure(days), adminCookie);
+    await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/publish`, null, adminCookie);
+    await api('PATCH', `/api/cost-grids/${cgId}/versions/${vId}`, { pipeline: stage }, adminCookie);
+    return vId;
+  }
+  // v1 in stage A, then (optionally) v2 in stage B, created by the sysadmin: a published proposal
+  // takes no new version otherwise.
+  async function proposal(name, [stageA, daysA], [stageB, daysB] = []) {
+    const g = await api('POST', '/api/cost-grids', { name }, adminCookie);
+    const cgId = g.data?.id;
+    if (!cgId) return null;
+    later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+    const v1 = await publishedVersion(cgId, 'v1', stageA, daysA, adminCookie);
+    const v2 = stageB ? await publishedVersion(cgId, 'v2', stageB, daysB, sysadminCookie) : null;
+    if (!v1 || (stageB && !v2)) return null;
+    return { cgId, v1, v2 };
+  }
+  const details = async () => (await api('GET', `/api/pots/${potId}/details?year=${year}`, null, adminCookie)).data || {};
+  const yearTotals = async () => (await api('GET', '/api/pots/year-totals', null, adminCookie)).data?.[year] || {};
+  const stageCount = async st => ((await api('GET', `/api/pots/pipeline-summary?year=${year}`, null, adminCookie)).data || [])
+    .find(s => s.pipeline === st)?.count || 0;
+  const offers = async (cookie = adminCookie) => ((await api('GET', '/api/pipeline-years', null, cookie)).data || [])
+    .find(y => Number(y.year) === year)?.offers || 0;
+  // The test admin demoted to role user: a non-admin who owns every proposal this section creates.
+  const plain = await getPlainUserCookie();
+
+  // POT-18 / POT-19 — v1 Expected (200), v2 Committed (400): counted once, in Committed
+  const ytBefore = await yearTotals();
+  const expBefore = await stageCount('Expected');
+  const comBefore = await stageCount('Committed');
+  const p18 = await proposal('__test_pot_ref_18__', ['Expected', 2], ['Committed', 4]);
+  if (!p18) { fail('POT-18: proposal setup failed — skipping'); return; }
+  const d18 = await details();
+  const rows18 = (d18.proposals || []).filter(r => r.cg_id === p18.cgId);
+  ok(rows18.length === 1 && rows18[0].pipeline === 'Committed' && rows18[0].version_id === p18.v2 &&
+     near(d18.committed_total, 400) && near(d18.expected_total, 0),
+    'POT-18 /:id/details lists the proposal once, in Committed (≈ 400), expected_total ≈ 0');
+  const lp = ((await api('GET', `/api/pots?year=${year}`, null, adminCookie)).data || []).find(p => p.id === potId);
+  ok(near(lp?.committed_total, 400) && near(lp?.expected_total, 0), 'POT-18 GET /api/pots: committed ≈ 400, expected ≈ 0');
+  const sm = (await api('GET', `/api/pots/summary?year=${year}&clientId=${clientId}`, null, adminCookie)).data || {};
+  ok((sm.proposals || []).filter(r => r.cg_id === p18.cgId).length === 1 && near(sm.expected_total, 0) && near(sm.committed_total, 400),
+    'POT-18 /summary lists the proposal once, expected_total ≈ 0');
+  const ytAfter = await yearTotals();
+  ok(near((ytAfter.expected_total || 0) - (ytBefore.expected_total || 0), 0) &&
+     near((ytAfter.committed_total || 0) - (ytBefore.committed_total || 0), 400),
+    'POT-19 /year-totals: expected does not grow, committed grows by 400');
+  ok(await stageCount('Expected') === expBefore && await stageCount('Committed') === comBefore + 1,
+    'POT-19 /pipeline-summary: Expected count unchanged, Committed count +1');
+
+  // POT-20 — v1 Committed linked only through projects.cg_version_id, v2 Anticipated newer: v1 is the reference
+  const offersBefore = await offers();
+  const plainBefore = plain ? await offers(plain) : null;
+  const p20 = await proposal('__test_pot_ref_20__', ['Committed', 3], ['Anticipated', 5]);
+  if (!p20) { fail('POT-20: proposal setup failed — skipping'); return; }
+  const pj = await api('POST', '/api/projects', { name: '__test_pot_ref_20_project__', cgVersionId: p20.v1, currency: 'EUR' }, sysadminCookie);
+  if (pj.data?.id) later('DELETE', `/api/projects/${pj.data.id}`);
+  ok(pj.status === 201, `POT-20 setup: project linked to v1 → 201 (got ${pj.status})`);
+  const row20 = ((await details()).proposals || []).filter(r => r.cg_id === p20.cgId);
+  ok(row20.length === 1 && row20[0].pipeline === 'Committed' && row20[0].version_id === p20.v1,
+    'POT-20 /:id/details shows the proposal through v1 (Committed), the version with a project');
+  ok(await offers() === offersBefore + 1, 'POT-20 GET /api/pipeline-years: offers grows by exactly 1');
+  ok(!!plain && await offers(plain) === plainBefore + 1,
+    'POT-20 GET /api/pipeline-years as a non-admin owner: offers grows by exactly 1');
+
+  // POT-21 — reference version Canceled: out of the modal, still in the Canceled card
+  const canBefore = await stageCount('Canceled');
+  const p21 = await proposal('__test_pot_ref_21__', ['Canceled', 1]);
+  if (!p21) { fail('POT-21: proposal setup failed — skipping'); return; }
+  ok(!((await details()).proposals || []).some(r => r.cg_id === p21.cgId), 'POT-21 a Canceled proposal is absent from /:id/details');
+  ok(await stageCount('Canceled') === canBefore + 1, 'POT-21 /pipeline-summary Canceled count +1');
+
+  // POT-22..POT-26 — the version rate is decided by the server
+  const budgetRate = async vId => (await api('GET', '/api/cost-grids/budgets', null, adminCookie)).data?.[vId]?.currencyRate;
+  const g = await api('POST', '/api/cost-grids', { name: '__test_pot_ref_rate__' }, adminCookie);
+  const cgId = g.data?.id;
+  if (cgId) later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+  const usd = cgId ? await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'usd', currency: 'USD', currencyRate: 9 }, adminCookie) : null;
+  const vId = usd?.data?.id;
+  if (!vId) { fail('POT-22..26: version setup failed — skipping'); return; }
+  const vPath = `/api/cost-grids/${cgId}/versions/${vId}`;
+  ok(near(parseFloat(usd.data.currency_rate), testRates.USD), 'POT-22 setup: a USD version takes the live USD rate, not the body');
+
+  await api('PATCH', vPath, { currencyRate: 2.5 }, adminCookie);
+  const p22 = await api('PATCH', vPath, { label: 'x', currencyRate: 2.5 }, adminCookie);
+  ok(p22.status === 200 && near(await budgetRate(vId), testRates.USD), 'POT-22 PATCH with currencyRate (no currency) → rate unchanged');
+
+  const p23a = await api('PATCH', vPath, { currency: 'EUR', currencyRate: 2.5 }, adminCookie);
+  ok(p23a.status === 200 && parseFloat(p23a.data?.currency_rate) === 1, 'POT-23 PATCH to EUR → currency_rate 1');
+  const p23b = await api('PATCH', vPath, { currency: 'USD' }, adminCookie);
+  ok(p23b.status === 200 && near(parseFloat(p23b.data?.currency_rate), testRates.USD), 'POT-23 PATCH to USD → the live USD rate');
+
+  const p24 = await api('PATCH', vPath, { currency: 'NOK' }, adminCookie);
+  const after24 = ((await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || []).find(v => v.id === vId);
+  ok(p24.status === 400 && p24.data?.code === 'CURRENCY_RULE' && after24?.currency === 'USD' && near(await budgetRate(vId), testRates.USD),
+    `POT-24 PATCH to an inactive currency → 400 CURRENCY_RULE, nothing written (got ${p24.status})`);
+  const p24b = await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'nok', currency: 'NOK' }, adminCookie);
+  ok(p24b.status === 400 && p24b.data?.code === 'CURRENCY_RULE', `POT-24 POST a version in an inactive currency → 400 CURRENCY_RULE (got ${p24b.status})`);
+
+  const eur = await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'eur', currency: 'EUR', currencyRate: 3 }, adminCookie);
+  if (eur.data?.id) {
+    ok(eur.status === 201 && parseFloat(eur.data.currency_rate) === 1, 'POT-25 POST a EUR version with currencyRate 3 → currency_rate 1');
+    const rr = await api('POST', `/api/cost-grids/${cgId}/versions/${eur.data.id}/refresh-rate`, null, adminCookie);
+    ok(rr.status === 200 && rr.data?.currency_rate === 1 && (await budgetRate(eur.data.id)) === 1, 'POT-25 refresh-rate on a EUR version → 1, saved');
+  } else {
+    fail(`POT-25 setup: EUR version (got ${eur.status})`);
+  }
+
+  // POT-26 — same currency re-sent after the live rate moved: the version keeps its rate
+  const moved = await api('PATCH', '/api/currencies/USD/rate', { rate: testRates.USD + 0.5 }, adminCookie);
+  const p26 = await api('PATCH', vPath, { currency: 'USD' }, adminCookie);
+  ok(moved.status === 200 && p26.status === 200 && near(parseFloat(p26.data?.currency_rate), testRates.USD),
+    'POT-26 PATCH with the same currency → 200, rate unchanged after the live rate moved');
+  await api('PATCH', '/api/currencies/USD/rate', { rate: testRates.USD }, adminCookie);
+
+  // POT-25b — refresh-rate on a EUR version whose stored rate is not 1 (no route writes one) saves 1
+  if (eur.data?.id && await sql('UPDATE cost_grid_versions SET currency_rate = 1.7 WHERE id = $1', [eur.data.id])) {
+    const rr = await api('POST', `/api/cost-grids/${cgId}/versions/${eur.data.id}/refresh-rate`, null, adminCookie);
+    ok(rr.status === 200 && rr.data?.currency_rate === 1 && (await budgetRate(eur.data.id)) === 1,
+      'POT-25b refresh-rate on a EUR version stored at 1.7 → 1, saved');
+  }
+
+  // POT-26b / POT-27 — a version whose currency was deactivated after creation
+  const chf = await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'chf', currency: 'CHF' }, adminCookie);
+  const chfId = chf.data?.id;
+  if (!chfId) { fail(`POT-26b setup: CHF version (got ${chf.status})`); return; }
+  if (await sql("UPDATE currencies SET active = false WHERE code = 'CHF'")) try {
+    const p26b = await api('PATCH', `/api/cost-grids/${cgId}/versions/${chfId}`, { label: 'chf2', currency: 'CHF' }, adminCookie);
+    ok(p26b.status === 200 && near(parseFloat(p26b.data?.currency_rate), testRates.CHF),
+      `POT-26b autosave with the same, since deactivated, currency → 200, rate kept (got ${p26b.status})`);
+    const p27 = await api('POST', `/api/cost-grids/${cgId}/versions/${chfId}/refresh-rate`, null, adminCookie);
+    ok(p27.status === 400 && p27.data?.code === 'CURRENCY_RULE' && near(await budgetRate(chfId), testRates.CHF),
+      `POT-27 refresh-rate on a version in an inactive currency → 400 CURRENCY_RULE, rate kept (got ${p27.status})`);
+  } finally {
+    await sql("UPDATE currencies SET active = true WHERE code = 'CHF'");
+  }
+
+  // POT-28 — a currency PATCH on a version that does not exist → 404, whatever the currency
+  const p28 = await api('PATCH', `/api/cost-grids/${cgId}/versions/00000000-0000-0000-0000-000000000000`, { currency: 'NOK' }, adminCookie);
+  ok(p28.status === 404, `POT-28 currency PATCH on an unknown version → 404 (got ${p28.status})`);
 }
 
 // ── Cost Grid Budgets ─────────────────────────────────────────────────────────
@@ -3236,8 +3436,8 @@ async function testVersionDuplicate() {
   }
   if (itemId) await api('PUT', `/api/cost-grids/${cgId}/versions/${srcId}/tags`, { itemIds: [itemId] }, adminCookie);
 
-  // Give the source a frozen rate snapshot different from the live one
-  await api('PATCH', `/api/cost-grids/${cgId}/versions/${srcId}`, { currencyRate: 1.2345 }, adminCookie);
+  // Give the source a non-EUR currency, so its rate snapshot is not 1
+  await api('PATCH', `/api/cost-grids/${cgId}/versions/${srcId}`, { currency: 'USD' }, adminCookie);
 
   const srcStructBefore = (await api('GET', `/api/cost-grids/${cgId}/versions/${srcId}/structure`, null, adminCookie)).data;
 
@@ -3259,10 +3459,10 @@ async function testVersionDuplicate() {
   const nv = versions.find(x => x.id === newId);
   ok(nv && nv.label === 'v2', 'ND-02 new version has the trimmed label');
   ok(nv && nv.pipeline === 'Draft' && !nv.pipeline_year && nv.locked === false, 'ND-03 new version is a Draft, no pipeline year, unlocked');
-  ok(nv && nv.project_name === 'Source project' && nv.note === 'source note' && nv.currency === 'EUR'
+  ok(nv && nv.project_name === 'Source project' && nv.note === 'source note' && nv.currency === 'USD'
      && nv.start_date === '202601' && nv.end_date === '202612', 'ND-04 header info copied (project name, note, currency, dates)');
   const budgets = (await api('GET', '/api/cost-grids/budgets', null, adminCookie)).data || {};
-  ok(budgets[newId] && Math.abs(budgets[newId].currencyRate - 1.2345) < 1e-6, 'ND-05 the exchange-rate snapshot of the source is inherited');
+  ok(budgets[newId] && Math.abs(budgets[newId].currencyRate - testRates.USD) < 1e-6, 'ND-05 the exchange-rate snapshot of the source is inherited');
 
   const st = (await api('GET', `/api/cost-grids/${cgId}/versions/${newId}/structure`, null, adminCookie)).data;
   const ph = st?.phases?.[0];
@@ -3301,6 +3501,7 @@ async function main() {
       process.stdout.write(red('\nLogin failed — cannot continue. Run create-admin.js first.\n'));
       process.exit(1);
     }
+    await ensureTestCurrencies();
     await testSecurity();
     await testPipelineYears();
     await testClients();

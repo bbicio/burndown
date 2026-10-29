@@ -1005,7 +1005,9 @@ async function cgCloneGrid(srcCgId, srcVerId) {
       });
     } catch (e) {
       await cgDiscardNewGrid(cgId);
-      showInfo('Could not clone the proposal: ' + e.message, 'Error');
+      // The server refuses a version in a currency that is no longer active (CURRENCY_RULE).
+      const hint = e.data?.code === 'CURRENCY_RULE' ? '. Activate it in Master Data → Currencies, then clone again.' : '';
+      showInfo('Could not clone the proposal: ' + e.message + hint, 'Error');
       return false;
     }
 

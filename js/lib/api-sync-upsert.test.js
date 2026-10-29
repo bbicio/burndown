@@ -38,6 +38,19 @@ describe('_cgUpsertVersionToApi — no POST fallback', () => {
     expect(api.costGrids.versions.saveStructure).toHaveBeenCalledTimes(1);
   });
 
+  it('does not send a currency rate', async () => {
+    await build()('cg1', 'v1');
+    expect(api.costGrids.versions.update.mock.calls[0][2]).not.toHaveProperty('currencyRate');
+  });
+
+  it('reports a CURRENCY_RULE refusal and never retries as POST', async () => {
+    api.costGrids.versions.update.mockRejectedValue(Object.assign(new Error('Currency CHF is not active'), { data: { code: 'CURRENCY_RULE', error: 'Currency CHF is not active' } }));
+    await expect(build([])('cg1', 'v1')).resolves.toBe(false);
+    expect(showInfo).toHaveBeenCalledTimes(1);
+    expect(showInfo.mock.calls[0]).toEqual(['Currency CHF is not active. Your changes to this version are not being saved until this is fixed.', '⚠️ Changes not saved']);
+    expect(api.costGrids.versions.create).not.toHaveBeenCalled();
+  });
+
   it('grid PATCH failure does not create a grid and rethrows it in strict', async () => {
     api.costGrids.update.mockRejectedValue(new Error('boom grid'));
     await expect(build()('cg1', 'v1', { strict: true })).rejects.toThrow('boom grid');

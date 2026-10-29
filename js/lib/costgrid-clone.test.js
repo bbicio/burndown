@@ -140,6 +140,14 @@ describe('cgCloneGrid — order, payload and outcome', () => {
     expect(opened).toEqual([]);
   });
 
+  it('a source currency no longer active: the refusal says how to clone again', async () => {
+    const { fn } = build({ srcOverrides: { currency: 'CHF' } });
+    api.versionsCreate.mockRejectedValue(Object.assign(new Error('Currency CHF is not active'), { data: { code: 'CURRENCY_RULE', error: 'Currency CHF is not active' } }));
+    expect(await fn('cg1', 'v1')).toBe(false);
+    expect(api.delete).toHaveBeenCalledWith('newCg');
+    expect(shownInfo[0][0]).toBe('Could not clone the proposal: Currency CHF is not active. Activate it in Master Data → Currencies, then clone again.');
+  });
+
   it('deletes the new grid when creating its version fails', async () => {
     const { fn } = build();
     api.versionsCreate.mockRejectedValue(new Error('no version'));
