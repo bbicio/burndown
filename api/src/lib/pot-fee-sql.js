@@ -18,16 +18,6 @@ function feeSql(alias, divisor) {
     ), 0)`;
 }
 
-// Fee in EUR: the version's currency divided by its rate; a missing or zero rate counts as 1.
-function feeEurSql(alias) {
-  return feeSql(alias, `\n      / COALESCE(NULLIF(${alias}.currency_rate, 0), 1)`);
-}
-
-// Fee in the version's own currency.
-function feeOriginalSql(alias) {
-  return feeSql(alias, '');
-}
-
 // The reference version of every proposal, as the CTE `ref_v`: its non-Draft version that has
 // projects (through either link), else its newest non-Draft one. Internal aliases are prefixed `rv`.
 function referenceVersionsCte() {
@@ -54,4 +44,4 @@ function potVersionsCte() {
   )`;
 }
 
-module.exports = { feeEurSql, feeOriginalSql, referenceVersionsCte, potVersionsCte };
+module.exports = { referenceVersionsCte, potVersionsCte };

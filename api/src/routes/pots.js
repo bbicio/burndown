@@ -1,12 +1,17 @@
 const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
-const { feeEurSql, feeOriginalSql } = require('../lib/pot-fee-sql');
+const { potVersionsCte } = require('../lib/pot-fee-sql');
 
 const router = express.Router();
 
+// Every route reads proposals through `pot_v`: one reference version per proposal, with its fee
+// computed once. Stage, year, client and value of a proposal are those of its reference version.
+
+const zeroTotals = () => ({ pot_total: 0, committed_total: 0, anticipated_total: 0, expected_total: 0, sip_total: 0 });
+
 // GET /api/pots/pipeline-summary?year=YYYY
-// Per-stage count + total budget value for the whole pipeline year (all users).
+// Per-stage count of proposals + total budget value for the whole pipeline year (all users).
 // Must be declared before /:id routes.
 router.get('/pipeline-summary', requireAuth, requireAdmin, async (req, res, next) => {
   try {
@@ -15,11 +20,12 @@ router.get('/pipeline-summary', requireAuth, requireAdmin, async (req, res, next
     const yr = parseInt(year);
 
     const { rows } = await query(
-      `SELECT
+      `WITH ${potVersionsCte()}
+       SELECT
          cgv.pipeline,
-         COUNT(DISTINCT cgv.id)::int AS count,
-         COALESCE(SUM(${feeEurSql('cgv')}), 0) AS total
-       FROM cost_grid_versions cgv
+         COUNT(*)::int AS count,
+         COALESCE(SUM(cgv.fee_eur), 0) AS total
+       FROM pot_v cgv
        WHERE cgv.pipeline_year = $1
          AND cgv.pipeline IN ('SIP','Expected','Anticipated','Committed','Canceled')
        GROUP BY cgv.pipeline`,
@@ -47,19 +53,19 @@ router.get('/year-totals', requireAuth, requireAdmin, async (req, res, next) => 
     );
 
     const { rows: valRows } = await query(
-      `SELECT cgv.pipeline_year AS year, cgv.pipeline,
-              ${feeEurSql('cgv')} AS fee
-       FROM cost_grid_versions cgv
+      `WITH ${potVersionsCte()}
+       SELECT cgv.pipeline_year AS year, cgv.pipeline, cgv.fee_eur AS fee
+       FROM pot_v cgv
        WHERE cgv.pipeline IN ('Committed', 'Anticipated', 'Expected', 'SIP')
          AND cgv.pipeline_year IS NOT NULL`
     );
 
     const result = {};
     for (const r of potRows) {
-      result[r.year] = { pot_total: parseFloat(r.pot_total), committed_total: 0, anticipated_total: 0, expected_total: 0, sip_total: 0 };
+      result[r.year] = { ...zeroTotals(), pot_total: parseFloat(r.pot_total) };
     }
     for (const r of valRows) {
-      if (!result[r.year]) result[r.year] = { pot_total: 0, committed_total: 0, anticipated_total: 0, expected_total: 0, sip_total: 0 };
+      if (!result[r.year]) result[r.year] = zeroTotals();
       const fee = parseFloat(r.fee) || 0;
       if (r.pipeline === 'Committed')   result[r.year].committed_total   += fee;
       if (r.pipeline === 'Anticipated') result[r.year].anticipated_total += fee;
@@ -96,17 +102,18 @@ router.get('/summary', requireAuth, async (req, res, next) => {
     const potResult = await query(potQ, potParams);
     const pot = potResult.rows[0] || null;
 
-    // Find all non-Draft proposals for this target + year (match via cgv.client_id)
+    // Find all proposals for this target + year (match via the reference version's client_id)
     let proposalsQ, proposalsParams;
     if (clientGroupId) {
       proposalsQ = `
-        SELECT DISTINCT
+        WITH ${potVersionsCte()}
+        SELECT
           cgv.id AS version_id, cgv.label, cgv.pipeline, cgv.pipeline_year,
           cg.id AS cg_id, cg.name AS proposal_name,
           u.first_name || ' ' || u.last_name AS owner_name,
           cli.name AS client_name,
-          ${feeEurSql('cgv')} AS value
-        FROM cost_grid_versions cgv
+          cgv.fee_eur AS value
+        FROM pot_v cgv
         JOIN cost_grids cg ON cg.id = cgv.cost_grid_id
         JOIN users u ON u.id = cg.owner_id
         LEFT JOIN clients cli ON cli.id = cgv.client_id
@@ -117,13 +124,14 @@ router.get('/summary', requireAuth, async (req, res, next) => {
       proposalsParams = [clientGroupId, yr];
     } else {
       proposalsQ = `
-        SELECT DISTINCT
+        WITH ${potVersionsCte()}
+        SELECT
           cgv.id AS version_id, cgv.label, cgv.pipeline, cgv.pipeline_year,
           cg.id AS cg_id, cg.name AS proposal_name,
           u.first_name || ' ' || u.last_name AS owner_name,
           cli.name AS client_name,
-          ${feeEurSql('cgv')} AS value
-        FROM cost_grid_versions cgv
+          cgv.fee_eur AS value
+        FROM pot_v cgv
         JOIN cost_grids cg ON cg.id = cgv.cost_grid_id
         JOIN users u ON u.id = cg.owner_id
         LEFT JOIN clients cli ON cli.id = cgv.client_id
@@ -136,29 +144,24 @@ router.get('/summary', requireAuth, async (req, res, next) => {
     const proposalsResult = await query(proposalsQ, proposalsParams);
 
     // Compute fee totals server-side across ALL proposals (not just those visible to caller)
-    const feeExpr = feeEurSql('cgv2');
+    const totalsSelect = `
+        WITH ${potVersionsCte()}
+        SELECT
+          COALESCE(SUM(cgv2.fee_eur) FILTER (WHERE cgv2.pipeline = 'Committed'),   0) AS committed_total,
+          COALESCE(SUM(cgv2.fee_eur) FILTER (WHERE cgv2.pipeline = 'Anticipated'), 0) AS anticipated_total,
+          COALESCE(SUM(cgv2.fee_eur) FILTER (WHERE cgv2.pipeline = 'Expected'),    0) AS expected_total,
+          COALESCE(SUM(cgv2.fee_eur) FILTER (WHERE cgv2.pipeline = 'SIP'),         0) AS sip_total
+        FROM pot_v cgv2`;
 
     let totalsQ, totalsParams;
     if (clientGroupId) {
-      totalsQ = `
-        SELECT
-          COALESCE(SUM(CASE WHEN cgv2.pipeline = 'Committed'   THEN ${feeExpr} ELSE 0 END), 0) AS committed_total,
-          COALESCE(SUM(CASE WHEN cgv2.pipeline = 'Anticipated' THEN ${feeExpr} ELSE 0 END), 0) AS anticipated_total,
-          COALESCE(SUM(CASE WHEN cgv2.pipeline = 'Expected'    THEN ${feeExpr} ELSE 0 END), 0) AS expected_total,
-          COALESCE(SUM(CASE WHEN cgv2.pipeline = 'SIP'         THEN ${feeExpr} ELSE 0 END), 0) AS sip_total
-        FROM cost_grid_versions cgv2
+      totalsQ = `${totalsSelect}
         WHERE cgv2.client_id IN (SELECT id FROM clients WHERE group_id = $1)
           AND cgv2.pipeline_year = $2
           AND cgv2.pipeline != 'Draft'`;
       totalsParams = [clientGroupId, yr];
     } else {
-      totalsQ = `
-        SELECT
-          COALESCE(SUM(CASE WHEN cgv2.pipeline = 'Committed'   THEN ${feeExpr} ELSE 0 END), 0) AS committed_total,
-          COALESCE(SUM(CASE WHEN cgv2.pipeline = 'Anticipated' THEN ${feeExpr} ELSE 0 END), 0) AS anticipated_total,
-          COALESCE(SUM(CASE WHEN cgv2.pipeline = 'Expected'    THEN ${feeExpr} ELSE 0 END), 0) AS expected_total,
-          COALESCE(SUM(CASE WHEN cgv2.pipeline = 'SIP'         THEN ${feeExpr} ELSE 0 END), 0) AS sip_total
-        FROM cost_grid_versions cgv2
+      totalsQ = `${totalsSelect}
         WHERE cgv2.client_id = $1
           AND cgv2.pipeline_year = $2
           AND cgv2.pipeline != 'Draft'`;
@@ -197,10 +200,9 @@ router.get('/', requireAuth, async (req, res, next) => {
       ))
     )`;
 
-    const feeExpr = feeEurSql('cgv2');
-
     const { rows } = await query(
-      `SELECT p.id, p.year, p.amount, p.created_at, p.special_label,
+      `WITH ${potVersionsCte()}
+       SELECT p.id, p.year, p.amount, p.created_at, p.special_label,
               p.client_group_id, cg.name AS client_group_name,
               p.client_id, c.name AS client_name,
               COALESCE(t.committed_total, 0)   AS committed_total,
@@ -212,11 +214,11 @@ router.get('/', requireAuth, async (req, res, next) => {
        LEFT JOIN clients c ON c.id = p.client_id
        LEFT JOIN LATERAL (
          SELECT
-           SUM(CASE WHEN cgv2.pipeline = 'Committed'   THEN ${feeExpr} ELSE 0 END) AS committed_total,
-           SUM(CASE WHEN cgv2.pipeline = 'Anticipated' THEN ${feeExpr} ELSE 0 END) AS anticipated_total,
-           SUM(CASE WHEN cgv2.pipeline = 'Expected'    THEN ${feeExpr} ELSE 0 END) AS expected_total,
-           SUM(CASE WHEN cgv2.pipeline = 'SIP'         THEN ${feeExpr} ELSE 0 END) AS sip_total
-         FROM cost_grid_versions cgv2
+           SUM(cgv2.fee_eur) FILTER (WHERE cgv2.pipeline = 'Committed')   AS committed_total,
+           SUM(cgv2.fee_eur) FILTER (WHERE cgv2.pipeline = 'Anticipated') AS anticipated_total,
+           SUM(cgv2.fee_eur) FILTER (WHERE cgv2.pipeline = 'Expected')    AS expected_total,
+           SUM(cgv2.fee_eur) FILTER (WHERE cgv2.pipeline = 'SIP')         AS sip_total
+         FROM pot_v cgv2
          WHERE cgv2.pipeline IN ('Committed', 'Anticipated', 'Expected', 'SIP')
            AND cgv2.pipeline_year = p.year AND ${scopeFilter}
        ) t ON true
@@ -263,8 +265,9 @@ router.post('/', requireAuth, requireAdmin, async (req, res, next) => {
 
 // GET /api/pots/:id/details?year=YYYY (admin only)
 // Returns POT metadata, change history, committed+anticipated total, the informative expected/SIP
-// totals, and all scoped proposals (value in EUR, value_original in the version's currency).
-// Proposals are matched via cost_grid_versions.client_id (not through generated projects).
+// totals, and the scoped proposals that are not Canceled (value in EUR, value_original in the
+// version's currency). Proposals are matched via their reference version's client_id (not through
+// generated projects).
 router.get('/:id/details', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const { year } = req.query;
@@ -292,46 +295,46 @@ router.get('/:id/details', requireAuth, requireAdmin, async (req, res, next) => 
       [req.params.id]
     );
 
-    const valueExpr = feeEurSql('cgv');
-
     let proposals = [];
     if (pot.client_id || pot.client_group_id) {
       let proposalsQ, proposalsParams;
       if (pot.client_group_id) {
         proposalsQ = `
-          SELECT DISTINCT ON (cgv.id)
+          WITH ${potVersionsCte()}
+          SELECT
             cgv.id AS version_id, cgrd.id AS cg_id, cgv.pipeline, cgv.created_at, cgv.currency,
             cgrd.name AS proposal_name,
             cli.name AS client_name,
             u.first_name || ' ' || u.last_name AS owner_name,
-            ${valueExpr} AS value,
-            ${feeOriginalSql('cgv')} AS value_original
-          FROM cost_grid_versions cgv
+            cgv.fee_eur AS value,
+            cgv.fee_original AS value_original
+          FROM pot_v cgv
           JOIN cost_grids cgrd ON cgrd.id = cgv.cost_grid_id
           JOIN users u ON u.id = cgrd.owner_id
           LEFT JOIN clients cli ON cli.id = cgv.client_id
           WHERE cgv.client_id IN (SELECT id FROM clients WHERE group_id = $1)
             AND cgv.pipeline_year = $2
-            AND cgv.pipeline != 'Draft'
-          ORDER BY cgv.id, cgv.created_at DESC`;
+            AND cgv.pipeline NOT IN ('Draft', 'Canceled')
+          ORDER BY cgv.created_at DESC`;
         proposalsParams = [pot.client_group_id, yr];
       } else {
         proposalsQ = `
-          SELECT DISTINCT ON (cgv.id)
+          WITH ${potVersionsCte()}
+          SELECT
             cgv.id AS version_id, cgrd.id AS cg_id, cgv.pipeline, cgv.created_at, cgv.currency,
             cgrd.name AS proposal_name,
             cli.name AS client_name,
             u.first_name || ' ' || u.last_name AS owner_name,
-            ${valueExpr} AS value,
-            ${feeOriginalSql('cgv')} AS value_original
-          FROM cost_grid_versions cgv
+            cgv.fee_eur AS value,
+            cgv.fee_original AS value_original
+          FROM pot_v cgv
           JOIN cost_grids cgrd ON cgrd.id = cgv.cost_grid_id
           JOIN users u ON u.id = cgrd.owner_id
           LEFT JOIN clients cli ON cli.id = cgv.client_id
           WHERE cgv.client_id = $1
             AND cgv.pipeline_year = $2
-            AND cgv.pipeline != 'Draft'
-          ORDER BY cgv.id, cgv.created_at DESC`;
+            AND cgv.pipeline NOT IN ('Draft', 'Canceled')
+          ORDER BY cgv.created_at DESC`;
         proposalsParams = [pot.client_id, yr];
       }
       const proposalsRes = await query(proposalsQ, proposalsParams);
