@@ -811,7 +811,7 @@ Vue.createApp({
       shareListRefreshTick: 0, // bumped when #shareModal closes, to reload the inline share-list
       loading: true, loadError: null,
       clients: [], currencies: [], formatMoney: window.formatMoney, moneyFormatExample: window.moneyFormatExample, cgRateIsMissing: window.cgRateIsMissing,
-      rateFocusedRole: null, rateRaw: '', rateInvalid: false,
+      rateFocusedRole: null, rateRaw: '', rateInvalid: false, rateEdited: false,
       ratecardMap: {}, ratecardOverrides: {}, isClientRatecard: false, allRatecards: [],
       offerDetailsCollapsed: false, summaryCollapsed: false, sharingCollapsed: false, tagsCollapsed: false,
       attributeLists: [], versionTagItemIds: [], versionTagRows: [], tagSaving: false,
@@ -1599,11 +1599,13 @@ Vue.createApp({
     },
     onRateFocus(role) {
       this.rateFocusedRole = role.roleCode;
-      this.rateRaw = window.formatMoneyInput(role.rate, this.draft.currency || 'EUR', this.currencies);
+      this.rateRaw = (role.rateIsCustom && role.rate === 0) ? '0' : window.formatMoneyInput(role.rate, this.draft.currency || 'EUR', this.currencies);
+      this.rateEdited = false;
       this.rateInvalid = false;
     },
     onRateInput(role, event) {
       this.rateRaw = event.target.value;
+      this.rateEdited = true;
       const v = window.readMoneyInput(this.rateRaw, this.draft.currency || 'EUR', this.currencies);
       if (v === null) { this.rateInvalid = false; return; }
       if (Number.isNaN(v)) { this.rateInvalid = true; return; }
@@ -1613,8 +1615,8 @@ Vue.createApp({
       cgScheduleAutoSave();
     },
     onRateBlur(role) {
-      if (this.rateRaw.trim() === '') this.resetRoleRate(role);
-      this.rateFocusedRole = null; this.rateRaw = ''; this.rateInvalid = false;
+      if (this.rateEdited && this.rateRaw.trim() === '') this.resetRoleRate(role);
+      this.rateFocusedRole = null; this.rateRaw = ''; this.rateInvalid = false; this.rateEdited = false;
     },
     moveRole(role, dir) {
       const idx = this.draft.roles.findIndex(r => r.roleCode === role.roleCode);

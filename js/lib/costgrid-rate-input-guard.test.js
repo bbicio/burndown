@@ -34,4 +34,16 @@ describe('costgrid.html role rate input', () => {
   it('role-picker badge does not print the raw effective rate', () => {
     expect(html).not.toContain('{{ row.effectiveRate }}');
   });
+
+  it('blur resets only after an edit, and input marks the edit', () => {
+    const blur = html.match(/onRateBlur\(role\) \{[\s\S]*?\n    \},/)?.[0] || '';
+    const inp = html.match(/onRateInput\(role, event\) \{[\s\S]*?\n    \},/)?.[0] || '';
+    expect(blur).toMatch(/if \(this\.rateEdited && this\.rateRaw\.trim\(\) === ''\) this\.resetRoleRate\(role\)/);
+    expect(blur).toContain('this.rateEdited = false');
+    expect(inp).toContain('this.rateEdited = true');
+  });
+
+  it('focus on a custom 0 keeps the text 0', () => {
+    expect(html).toMatch(/role\.rateIsCustom && role\.rate === 0/);
+  });
 });
