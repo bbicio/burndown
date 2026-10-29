@@ -116,3 +116,9 @@ The server twin of `js/lib/dates.js` (CommonJS). Rules to keep: `CLAUDE.md`'s "D
 - (2026-10-28, dates C4) The structure `PUT` and `PUT /api/projects/:id/tasks` (an array, or `{ tasks, period }`) take an optional `period: { startDate?, endDate? }`: `''` writes NULL, a missing side keeps the stored value. In one transaction they run `periodChangeError(next, stored)`, then `taskPeriodError` of every task against the next period, then each task's own `periodError` (`kind: 'day'`), and only then write the period and the tasks; a refusal is `400 { error, code: 'DATE_RULE' }` and leaves both unchanged. They do not call `periodShrinkError`: a task already outside the stored period is refused there, as before. `PUT /:id/tasks` also locks the project row (`SELECT … FOR UPDATE`). Covered by `test-api.js` `PS-*`.
 
 Tests: `dates.test.js`; `js/lib/dates-guard.test.js` pins that the two twins agree.
+
+## pot-fee-sql.js (2026-10-29, cycle B POT currency)
+
+`feeEurSql(alias)` and `feeOriginalSql(alias)` return the fee of one cost-grid version as a scalar SQL subquery (days × rate over its phases/tasks/roles; rate = `rate_override`, else the version's ratecard entry, else the role's `hourly_rate`). `feeEurSql` divides by `COALESCE(NULLIF(<alias>.currency_rate, 0), 1)`, so a zero rate counts as 1; `feeOriginalSql` stays in the version's currency. Internal aliases are `pf_*`, so the expression can sit inside a query that already uses `ph`/`tk`/`tr`/`ro`. `alias` is always a literal in the code.
+
+Consumed by every fee in `routes/pots.js` (`/pipeline-summary`, `/year-totals`, `/summary`, `GET /`, `/:id/details`); `pots.js` contains no `currency_rate` of its own. Tests: `pot-fee-sql.test.js` (also pins that last fact); the route values are covered by `test-api.js` `POT-13..POT-17`.

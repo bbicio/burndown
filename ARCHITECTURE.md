@@ -800,15 +800,15 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | /api/pots | admin | List POTs (filter: `?year=`); includes `special_label`, `committed_total`, `anticipated_total`, `achieved_total` fields |
+| GET | /api/pots | admin | List POTs (filter: `?year=`); includes `special_label`, `committed_total`, `anticipated_total`, `achieved_total` (C+A) and, since 2026-10-29, the informative `expected_total`, `sip_total` fields |
 | POST | /api/pots | admin | Create POT — exactly one of `clientGroupId`, `clientId`, or `specialLabel` + `year` + `amount` |
 | PATCH | /api/pots/:id | admin | Update amount (logs to pot_history) |
 | DELETE | /api/pots/:id | admin | Delete POT |
 | GET | /api/pots/:id/history | admin | Amount change history |
 | GET | /api/pots/summary | ✅ | Aggregated pipeline value vs. POT target for a client/group + year; returns `committed_total` and `anticipated_total` computed server-side across **all** proposals (regardless of caller visibility), so every user sees the same POT progress; since 2026-10-07 also `expected_total`, `sip_total` and, per proposal row, `value` (EUR fee, same formula) and `client_name` (backs the detail panel's POT tab) |
 | GET | /api/pots/pipeline-summary?year= | admin | Per-stage count + professional-fee total for a pipeline year (all 5 stages, Draft excluded) |
-| GET | /api/pots/year-totals | admin | `{ year: { pot_total, committed_total, anticipated_total, achieved_total } }` for all years — achieved = committed + anticipated |
-| GET | /api/pots/:id/details?year= | admin | POT metadata + change history + `committed_total` + `anticipated_total` + all scoped proposals (matched via `cgv.client_id`; Canceled included, Draft excluded) |
+| GET | /api/pots/year-totals | admin | `{ year: { pot_total, committed_total, anticipated_total, expected_total, sip_total, achieved_total } }` for all years — achieved = committed + anticipated; Expected/SIP informative (2026-10-29) |
+| GET | /api/pots/:id/details?year= | admin | POT metadata + change history + `committed_total` + `anticipated_total` + the informative `expected_total`/`sip_total` + all scoped proposals (matched via `cgv.client_id`; Canceled included, Draft excluded), each with `value` (EUR), `currency` and `value_original` (in that currency) |
 
 ### Notifications
 

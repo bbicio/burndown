@@ -31,7 +31,7 @@ Named bundles of clients (e.g. "Italian Public Sector"). Used as the target for 
 
 Master/detail on the Pipelines & POTs page (`master-pipelines.html`):
 
-**View A — Pipeline list:** table of all pipeline years with Visible / Hidden status badge. Actions: toggle visibility (Show/Hide), delete (blocked if cost grid versions reference the year), "POTs →" (drills into View B), "📊 Proposal Phasing", "📋 Project Phasing", + Add year.
+**View A — Pipeline list:** table of all pipeline years with Visible / Hidden status badge. Actions: toggle visibility (Show/Hide), delete (blocked if cost grid versions reference the year), "POTs →" (drills into View B), "📊 Proposal Phasing", "📋 Project Phasing", + Add year. A year with POT targets shows its achievement % and C+A amount, with a second line "C: € … · A: € … · E: € … · S: € …" (E and S muted, not in the %).
 
 **Proposal Phasing / Project Phasing:** dedicated per-year views opened from the pipeline list row, each with an XLS export link. Proposal Phasing shows the monthly budget distribution across proposals for the year; Project Phasing shows the same for active projects.
 
@@ -42,7 +42,7 @@ Layout (top to bottom):
 2. **POT banner** (shown only when the year has at least one POT) — Total POT Target across all POTs for the year, and the Committed+Anticipated total with achievement %
 3. **5 stage summary cards** (SIP, Expected, Anticipated, Committed, Canceled) — each shows count of proposals and total professional-fee value (days × 8 × rate; pass-through costs excluded). Cards are populated via `GET /api/pots/pipeline-summary?year=`.
 4. "POT Targets" section header with "+ New POT" button
-5. POT table — lists all POTs for the year. Each row has: client/group name, type badge (Individual / Group), target amount, and action buttons: 🔍 View Details · ✏️ Edit · 🗑.
+5. POT table — lists all POTs for the year. Each row has: client/group name, type badge (Individual / Group), target amount, Total (C+A), Committed, Anticipated, and — muted, informative, never part of Total (C+A) — Expected and SIP (all in EUR), and action buttons: 🔍 View Details · ✏️ Edit · 🗑.
 
 **+ New POT form:** targets an individual client, a client group, or one of two virtual scopes — "Unassigned / To be Identified" and "New Biz" — for revenue not yet tied to a named client; amount only; year is fixed to the current View B year.
 
@@ -51,8 +51,9 @@ Layout (top to bottom):
 **🔍 View Details modal** — shows:
 - POT type badge (Individual / Group) and scope name
 - Four KPI cards: **Target** (current `pot.amount`, most recent history entry) · **Total (C+A)** (Committed + Anticipated professional fees) · **Committed** · **Anticipated** — each scoped to this POT's client/group for the year, with a % of target
+- Below the cards, a muted line "Not in total · Expected € … · SIP € …" — informative only; Total (C+A) and the percentages never include it
 - **History** — change log newest-first: date, author, old value → new value with arrow
-- **Proposals** — all cost grid versions scoped to the POT's client/group + year; Canceled included; Draft excluded; each row links to `/costgrid.html?cgId=...&verId=...`
+- **Proposals** — all cost grid versions scoped to the POT's client/group + year; Canceled included; Draft excluded; each row links to `/costgrid.html?cgId=...&verId=...`. A non-EUR proposal's Value shows the amount in its own currency with the EUR equivalent in parentheses below; totals are always summed in EUR
 
 POT progress is also visible in the Pipeline board detail panel for linked offers.
 

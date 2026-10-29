@@ -43,3 +43,14 @@ The modal does not close on Confirm click (`data-bs-dismiss` removed) — `updat
 ## Money formatting (2026-10-01, money centralization cycle)
 
 The Proposal/Project Phasing views and the POT amounts (EUR) call `formatMoney(amount, code, currencies)` directly (the former `fmtAmtC`/`fmtAmount` wrappers were removed; `docs/js/lib.md`); per-hour EUR rate labels (`€/h`) and exchange-rate displays are unchanged by design. The Currencies tab still loads `window.__currencies` itself (the page does not load `api-sync.js`).
+
+## POT original currency and Expected/SIP (2026-10-29, cycle B)
+
+On `master-pipelines.html`, Expected and SIP are shown as **informative** values next to Committed/Anticipated; only C and A enter Total (C+A), the percentages and the gap.
+
+- **POT table:** two muted columns, Expected and SIP, after Anticipated (`pot.expected_total`/`pot.sip_total` from `GET /api/pots`).
+- **Year row:** the second line is `C: … · A: … · E: … · S: …`, E and S muted (`yearTotals[year].expected_total`/`sip_total` from `GET /api/pots/year-totals`).
+- **POT Details modal (`openPotDetails`):** a non-EUR proposal's Value cell shows `formatMoney(p.value_original, p.currency, …)` with the EUR `value` in parentheses below; an EUR proposal (or no currency) shows one amount. A muted "Not in total · Expected … · SIP …" line sits below the cards. The modal body writes no literal hex: cards, badges and stage badges take `--pipeline-*-bg/-color`, `--text-primary`, `--text-muted`, `--indigo-50`, `--brand-navy`; `stageBg()`/`stageColor()` are still used by the phasing tables. The rest of the page keeps its hexes.
+- The page loads only active currencies, so a proposal in an inactive currency is formatted with the fallback locale (the phasing table behaves the same; follow-up in `docs/BACKLOG.md`).
+
+API side: `docs/api/lib.md` (`pot-fee-sql.js`). Tests: `js/lib/master-pipelines-pot-details.test.js`, `test-api.js` `POT-13..POT-17`; manual `TEST_CASES.md` PP-42..PP-48.
