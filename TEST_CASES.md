@@ -153,6 +153,7 @@
 | P-78 | Clone a proposal with no client (2026-10-07) | Set a proposal's Client to "Unassigned" in the editor, save, then Clone it from the board or from the editor | Clone succeeds with no error; the copy's Client is also empty — not an API error (was `Clone failed: invalid input syntax for type uuid: "__unassigned__"`) | |
 | P-79 | New/Clone stay disabled after a successful run (2026-10-16, B-003) | Click "+ New Proposal" or a Clone control, then click New or Clone again before the editor opens | Every New Proposal/Clone control stays disabled until the page unloads; only one proposal is created. A failed or throwing run re-enables them | ✓ (vitest) |
 | P-80 | Back from the editor re-enables New/Clone (2026-10-16) | Create or clone a proposal, then press the browser Back button | If the board is restored from the back/forward cache, New Proposal and Clone are enabled again (no reload needed) | ✓ (vitest) |
+| P-81 | Thin column scrollbar (2026-10-29) | At ≥ 768px open a stage column with more cards than fit, in Chrome/Edge and in Firefox; then open the board at 390px | The column shows a thin grey scrollbar (darker on hover in Chrome/Edge) instead of the default one; columns that fit show none; at 390px the board scrolls as before | |
 ---
 
 ## 4. Cost Grid Editor
