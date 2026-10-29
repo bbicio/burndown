@@ -92,14 +92,20 @@ async function ensureTestCurrencies() {
 
 // Direct SQL, for the states no route can build (an inactive currency on an existing version, a
 // stored rate the server would never write). The test container installs `pg` under /tmp and
-// carries DATABASE_URL (docker-compose.yml, service `test`).
+// carries DATABASE_URL (docker-compose.yml, service `test`). Answers null, and records one failure,
+// when that is not available, so the caller skips its checks instead of aborting the suite.
 let _pgPool = null;
 async function sql(text, params = []) {
-  if (!_pgPool) {
-    const { Pool } = require('/tmp/node_modules/pg');
-    _pgPool = new Pool({ connectionString: process.env.DATABASE_URL });
+  try {
+    if (!_pgPool) {
+      const { Pool } = require('/tmp/node_modules/pg');
+      _pgPool = new Pool({ connectionString: process.env.DATABASE_URL });
+    }
+    return (await _pgPool.query(text, params)).rows;
+  } catch (e) {
+    fail(`direct SQL unavailable (${e.message}) — skipping the checks that need it`);
+    return null;
   }
-  return (await _pgPool.query(text, params)).rows;
 }
 
 // Multipart CSV upload (the suite's api() helper only speaks JSON). xlsx parses CSV buffers too.
@@ -813,7 +819,7 @@ async function testPotReferenceVersion() {
   // POT-20 — v1 Committed linked only through projects.cg_version_id, v2 Anticipated newer: v1 is the reference
   const offersBefore = await offers();
   const plainBefore = plain ? await offers(plain) : null;
-  const p20 =await proposal('__test_pot_ref_20__', ['Committed', 3], ['Anticipated', 5]);
+  const p20 = await proposal('__test_pot_ref_20__', ['Committed', 3], ['Anticipated', 5]);
   if (!p20) { fail('POT-20: proposal setup failed — skipping'); return; }
   const pj = await api('POST', '/api/projects', { name: '__test_pot_ref_20_project__', cgVersionId: p20.v1, currency: 'EUR' }, sysadminCookie);
   if (pj.data?.id) later('DELETE', `/api/projects/${pj.data.id}`);
@@ -876,8 +882,7 @@ async function testPotReferenceVersion() {
   await api('PATCH', '/api/currencies/USD/rate', { rate: testRates.USD }, adminCookie);
 
   // POT-25b — refresh-rate on a EUR version whose stored rate is not 1 (no route writes one) saves 1
-  if (eur.data?.id) {
-    await sql('UPDATE cost_grid_versions SET currency_rate = 1.7 WHERE id = $1', [eur.data.id]);
+  if (eur.data?.id && await sql('UPDATE cost_grid_versions SET currency_rate = 1.7 WHERE id = $1', [eur.data.id])) {
     const rr = await api('POST', `/api/cost-grids/${cgId}/versions/${eur.data.id}/refresh-rate`, null, adminCookie);
     ok(rr.status === 200 && rr.data?.currency_rate === 1 && (await budgetRate(eur.data.id)) === 1,
       'POT-25b refresh-rate on a EUR version stored at 1.7 → 1, saved');
@@ -887,8 +892,7 @@ async function testPotReferenceVersion() {
   const chf = await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'chf', currency: 'CHF' }, adminCookie);
   const chfId = chf.data?.id;
   if (!chfId) { fail(`POT-26b setup: CHF version (got ${chf.status})`); return; }
-  await sql("UPDATE currencies SET active = false WHERE code = 'CHF'");
-  try {
+  if (await sql("UPDATE currencies SET active = false WHERE code = 'CHF'")) try {
     const p26b = await api('PATCH', `/api/cost-grids/${cgId}/versions/${chfId}`, { label: 'chf2', currency: 'CHF' }, adminCookie);
     ok(p26b.status === 200 && near(parseFloat(p26b.data?.currency_rate), testRates.CHF),
       `POT-26b autosave with the same, since deactivated, currency → 200, rate kept (got ${p26b.status})`);

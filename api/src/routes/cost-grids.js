@@ -1109,19 +1109,20 @@ router.post('/:id/versions/:vId/refresh-rate', requireAuth, async (req, res, nex
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { rows: ver } = await query(
-      'SELECT currency FROM cost_grid_versions WHERE id = $1', [req.params.vId]
-    );
-    if (!ver[0]) return res.status(404).json({ error: 'Version not found' });
-    const currency = ver[0].currency;
-    const rate = versionRate(currency, await currencyRow(currency));
-    if (rate.error) return res.status(400).json({ error: rate.error, code: CURRENCY_RULE_CODE });
-
-    await query(
-      'UPDATE cost_grid_versions SET currency_rate = $1 WHERE id = $2',
-      [rate.rate, req.params.vId]
-    );
-    res.json({ currency, currency_rate: rate.rate });
+    // Under the version lock, so a concurrent currency PATCH cannot land between the read and the write.
+    const out = await withVersionLock(req.params.vId, async client => {
+      const q = client.query.bind(client);
+      const { rows: ver } = await q('SELECT currency FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
+      if (!ver[0]) return { notFound: true };
+      const currency = ver[0].currency;
+      const rate = versionRate(currency, await currencyRow(currency, q));
+      if (rate.error) return { rateErr: rate.error };
+      await q('UPDATE cost_grid_versions SET currency_rate = $1 WHERE id = $2', [rate.rate, req.params.vId]);
+      return { currency, rate: rate.rate };
+    });
+    if (out.notFound) return res.status(404).json({ error: 'Version not found' });
+    if (out.rateErr) return res.status(400).json({ error: out.rateErr, code: CURRENCY_RULE_CODE });
+    res.json({ currency: out.currency, currency_rate: out.rate });
   } catch (err) { next(err); }
 });
 

@@ -45,3 +45,13 @@ test('refresh-rate decides the rate through versionRate', () => {
   assert.match(block, /CURRENCY_RULE_CODE/);
   assert.doesNotMatch(block, /Currency not active/);
 });
+
+test('refresh-rate reads the currency and writes the rate under the version lock', () => {
+  const { readFileSync } = require('node:fs');
+  const path = require('node:path');
+  const src = readFileSync(path.join(__dirname, '../routes/cost-grids.js'), 'utf8');
+  const start = src.indexOf("'/:id/versions/:vId/refresh-rate'");
+  const block = src.slice(start, src.indexOf('router.', start));
+  assert.match(block, /withVersionLock\(/);
+  assert.ok(block.indexOf('withVersionLock(') < block.indexOf('SELECT currency FROM cost_grid_versions'));
+});
