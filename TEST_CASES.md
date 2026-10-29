@@ -524,7 +524,7 @@
 | PP-21 | View Details modal opens | Click 🔍 View Details on a POT row | Modal opens with: POT type badge, four KPI cards: Target / Total (C+A) / Committed / Anticipated — each with color-coded border and % of target; borders and texts take the pipeline stage tokens (no literal hex in the modal body, pinned by `js/lib/master-pipelines-pot-details.test.js`) | ✓ |
 | PP-22 | View Details — history section | Open modal for a POT edited at least once | History list shows entries newest-first: date, author, old value → new value with arrow | ✓ |
 | PP-23 | View Details — history creation entry | Open modal for a newly created POT (never edited) | History shows one entry with old value = — and new value = initial amount | |
-| PP-24 | View Details — proposals list | Open modal for a POT with linked proposals | List shows all proposals in scoped client/group + year; Canceled included; Draft excluded | |
+| PP-24 | View Details — proposals list | Open modal for a POT with linked proposals | List shows each proposal in scoped client/group + year once, through its reference version; Canceled and Draft excluded (2026-10-29) | |
 | PP-25 | View Details — proposal link | Click ↗ Open on a proposal row | Navigates to `/costgrid.html?cgId=...&verId=...` for that proposal (opens in new tab) | |
 | PP-26 | View Details — Committed card calculation | POT with Committed proposals | Committed card value = Σ professional fees (EUR-normalised) of Committed proposals only; no PTC; Anticipated card shows Anticipated proposals only; Total = Committed + Anticipated | ✓ |
 | PP-27 | View Details — no proposals | Open modal for POT with no scoped proposals | Proposals section shows empty state message | |

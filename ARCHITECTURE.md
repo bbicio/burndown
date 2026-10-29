@@ -719,11 +719,11 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | GET/POST | /api/cost-grids | ✅ | List / create — list response includes `my_permission` computed for the calling user |
 | GET | /api/cost-grids/budgets | ✅ | Pre-computed fee + PTC totals per version (all visible versions) |
 | PATCH/DELETE | /api/cost-grids/:id | owner/admin | Update / delete |
-| GET/POST | /api/cost-grids/:id/versions | ✅ | List / create version — both accept `clientId`; (2026-10-24) A malformed, impossible or inverted date answers **400 `{ code: 'DATE_RULE' }`** before any write — see CLAUDE.md's "Dates" |
-| PATCH/DELETE | /api/cost-grids/:id/versions/:vId | owner/admin | Update / delete version — PATCH accepts `clientId`, `ratecardId`, `label`, `pipeline`, `startDate`, `endDate`, `note`; (2026-10-24) A malformed, impossible or inverted date answers **400 `{ code: 'DATE_RULE' }`** before any write — see CLAUDE.md's "Dates"; (2026-10-26) a changed period that would push a stored task, previously inside it, outside answers **400 `DATE_RULE`** (`periodShrinkError`, under the version lock) |
+| GET/POST | /api/cost-grids/:id/versions | ✅ | List / create version — both accept `clientId`; (2026-10-24) A malformed, impossible or inverted date answers **400 `{ code: 'DATE_RULE' }`** before any write — see CLAUDE.md's "Dates"; (2026-10-29) the rate is set by the server from the currency (EUR 1), a body `currencyRate` is ignored, an inactive currency answers **400 `{ code: 'CURRENCY_RULE' }`** — see §5's `version-rate.js` in `docs/api/lib.md` |
+| PATCH/DELETE | /api/cost-grids/:id/versions/:vId | owner/admin | Update / delete version — PATCH accepts `clientId`, `ratecardId`, `label`, `pipeline`, `startDate`, `endDate`, `note`; (2026-10-24) A malformed, impossible or inverted date answers **400 `{ code: 'DATE_RULE' }`** before any write — see CLAUDE.md's "Dates"; (2026-10-26) a changed period that would push a stored task, previously inside it, outside answers **400 `DATE_RULE`** (`periodShrinkError`, under the version lock); (2026-10-29) `currency_rate` changes only with `currency`, under the version lock: EUR → 1, a different currency → its live rate or **400 `CURRENCY_RULE`** if inactive, the same currency keeps its rate; a body `currencyRate` is ignored |
 | POST | /api/cost-grids/:id/versions/:vId/duplicate | owner/admin | Full copy of a version (backs the editor's "+ New version", 2026-10) `{ label }` (required, trimmed; 400 if blank) → 201 `{ id }`. One transaction: header incl. the source's `currency_rate` snapshot, client, project name, note, rate card, dates; phases → tasks → task_roles (fresh ids, hours/rates/months); tags. The copy is always Draft, no pipeline year, unlocked, no project links; any failure rolls back (no half-built version) |
 | POST | /api/cost-grids/:id/versions/:vId/publish | owner/admin | Publish a Draft version to SIP — one-way, and permanently deletes the proposal's other Draft versions |
-| POST | /api/cost-grids/:id/versions/:vId/refresh-rate | owner/admin | Re-snapshot the version's `currency_rate` from the current `currency_rates` table |
+| POST | /api/cost-grids/:id/versions/:vId/refresh-rate | owner/admin | Re-snapshot the version's `currency_rate` from its currency's current rate (EUR 1), under the version lock; (2026-10-29) an inactive currency answers **400 `CURRENCY_RULE`** (was 404) |
 | GET/PUT | /api/cost-grids/:id/versions/:vId/structure | owner/admin | Get / save bulk structure. (2026-10-23) A `PUT` that would drop a task linked to a project answers **400 `{ code: 'STRUCTURE_RULE' }`** and changes nothing — see §5's `structure-rules.js`; (2026-10-24) an invalid or inverted task date answers **400 `{ code: 'DATE_RULE' }`**; (2026-10-26) a task outside the stored version period answers **400 `DATE_RULE`** and changes nothing (`taskPeriodError`, checked inside the transaction after the version lock); (2026-10-28) the body may carry `period: { startDate?, endDate? }`, written in the same transaction, and the tasks are then checked against that period (`docs/api/lib.md`) |
 | GET/POST | /api/cost-grids/:id/versions/:vId/linked-projects | owner/admin | List / link projects |
 | DELETE | /api/cost-grids/:id/versions/:vId/linked-projects/:projectId | owner/admin | Unlink one project (refused for non-sysadmin by the project currency lock — see §5's `project-rules.js`) |
@@ -780,7 +780,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | /api/pipeline-years | ✅ | List years (admin: all; user: active only); each row has `offers` (2026-10-06) = proposals the caller would see in that year's SIP…Committed board columns (board visibility, display version not Canceled) |
+| GET | /api/pipeline-years | ✅ | List years (admin: all; user: active only); each row has `offers` (2026-10-06) = proposals the caller would see in that year's SIP…Committed board columns (board visibility, display version not Canceled); (2026-10-29) the display version is the shared reference-version rule (`referenceVersionsCte`, projects through either link) and each proposal counts only in its year |
 | POST | /api/pipeline-years | admin | Create year (2000–2100) |
 | PATCH | /api/pipeline-years/:id | admin | Toggle active/inactive |
 | DELETE | /api/pipeline-years/:id | admin | Delete (blocked if versions reference it) |
@@ -798,6 +798,8 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 
 ### POT Targets
 
+Every POT route counts a proposal once, through its reference version (`pot_v`, `docs/api/lib.md` → `pot-fee-sql.js`): stage, year, client and value are that version's.
+
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | GET | /api/pots | admin | List POTs (filter: `?year=`); includes `special_label`, `committed_total`, `anticipated_total`, `achieved_total` (C+A) and, since 2026-10-29, the informative `expected_total`, `sip_total` fields |
@@ -808,7 +810,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | GET | /api/pots/summary | ✅ | Aggregated pipeline value vs. POT target for a client/group + year; returns `committed_total` and `anticipated_total` computed server-side across **all** proposals (regardless of caller visibility), so every user sees the same POT progress; since 2026-10-07 also `expected_total`, `sip_total` and, per proposal row, `value` (EUR fee, same formula) and `client_name` (backs the detail panel's POT tab) |
 | GET | /api/pots/pipeline-summary?year= | admin | Per-stage count + professional-fee total for a pipeline year (all 5 stages, Draft excluded) |
 | GET | /api/pots/year-totals | admin | `{ year: { pot_total, committed_total, anticipated_total, expected_total, sip_total, achieved_total } }` for all years — achieved = committed + anticipated; Expected/SIP informative (2026-10-29) |
-| GET | /api/pots/:id/details?year= | admin | POT metadata + change history + `committed_total` + `anticipated_total` + the informative `expected_total`/`sip_total` + all scoped proposals (matched via `cgv.client_id`; Canceled included, Draft excluded), each with `value` (EUR), `currency` and `value_original` (in that currency) |
+| GET | /api/pots/:id/details?year= | admin | POT metadata + change history + `committed_total` + `anticipated_total` + the informative `expected_total`/`sip_total` + the scoped proposals (matched via the reference version's `client_id`; Draft and, since 2026-10-29, Canceled excluded), each with `value` (EUR), `currency` and `value_original` (in that currency) |
 
 ### Notifications
 

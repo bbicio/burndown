@@ -51,6 +51,7 @@ On `master-pipelines.html`, Expected and SIP are shown as **informative** values
 - **POT table:** two muted columns, Expected and SIP, after Anticipated (`pot.expected_total`/`pot.sip_total` from `GET /api/pots`).
 - **Year row:** the second line is `C: … · A: … · E: … · S: …`, E and S muted (`yearTotals[year].expected_total`/`sip_total` from `GET /api/pots/year-totals`).
 - **POT Details modal (`openPotDetails`):** a non-EUR proposal's Value cell shows `formatMoney(p.value_original, p.currency, …)` with the EUR `value` in parentheses below; an EUR proposal (or no currency) shows one amount. A muted "Not in total · Expected … · SIP …" line sits below the cards. The modal body writes no literal hex: cards, badges and stage badges take `--pipeline-*-bg/-color`, `--text-primary`, `--text-muted`, `--indigo-50`, `--brand-navy`; `stageBg()`/`stageColor()` are still used by the phasing tables. The rest of the page keeps its hexes.
-- The page loads only active currencies, so a proposal in an inactive currency is formatted with the fallback locale (the phasing table behaves the same; follow-up in `docs/BACKLOG.md`).
+- (2026-10-29, B-177) The page loads every currency (`Api.currencies.list()`, admin-only route), so a proposal in a currency deactivated since is formatted with its own locale and symbol (`TEST_CASES.md` PP-49).
+- (2026-10-29, B-174/B-175) The cards, POT table, year row and Details list count each proposal once, through its reference version; the Details list leaves Canceled out. The page code is unchanged: the rule lives in the API.
 
-API side: `docs/api/lib.md` (`pot-fee-sql.js`). Tests: `js/lib/master-pipelines-pot-details.test.js`, `test-api.js` `POT-13..POT-17`; manual `TEST_CASES.md` PP-42..PP-48.
+API side: `docs/api/lib.md` (`pot-fee-sql.js`, `version-rate.js`). Tests: `js/lib/master-pipelines-pot-details.test.js`, `test-api.js` `POT-13..POT-28`; manual `TEST_CASES.md` PP-42..PP-49.

@@ -119,6 +119,21 @@ Tests: `dates.test.js`; `js/lib/dates-guard.test.js` pins that the two twins agr
 
 ## pot-fee-sql.js (2026-10-29, cycle B POT currency)
 
-`feeEurSql(alias)` and `feeOriginalSql(alias)` return the fee of one cost-grid version as a scalar SQL subquery (days × rate over its phases/tasks/roles; rate = `rate_override`, else the version's ratecard entry, else the role's `hourly_rate`). `feeEurSql` divides by `COALESCE(NULLIF(<alias>.currency_rate, 0), 1)`, so a zero rate counts as 1; `feeOriginalSql` stays in the version's currency. Internal aliases are `pf_*`, so the expression can sit inside a query that already uses `ph`/`tk`/`tr`/`ro`. `alias` is always a literal in the code.
+Two CTE generators (2026-10-29, POT reference version cycle; they replaced `feeEurSql`/`feeOriginalSql`):
 
-Consumed by every fee in `routes/pots.js` (`/pipeline-summary`, `/year-totals`, `/summary`, `GET /`, `/:id/details`); `pots.js` contains no `currency_rate` of its own. Tests: `pot-fee-sql.test.js` (also pins that last fact); the route values are covered by `test-api.js` `POT-13..POT-17`.
+- `referenceVersionsCte()` → the CTE `ref_v`: one row per proposal, its **reference version** — the non-Draft version that has projects (a `cg_version_projects` row **or** a `projects.cg_version_id`, as `versionHasProjects` in `routes/cost-grids.js`), else the newest non-Draft one; `rv.id` settles a `created_at` tie. Internal aliases `rv`, `rv_c`, `rv_p`.
+- `potVersionsCte()` → `ref_v` followed by `pot_v`: every reference version with `fee_original` (days × rate over its phases/tasks/roles; rate = `rate_override`, else the version's ratecard entry, else the role's `hourly_rate`) computed once, and `fee_eur = fee_original / COALESCE(NULLIF(currency_rate, 0), 1)`, so a zero rate counts as 1. The fee's internal aliases are `pf_*`.
+
+Every route of `routes/pots.js` (`/pipeline-summary`, `/year-totals`, `/summary`, `GET /`, `/:id/details`) opens `WITH ${potVersionsCte()}` and reads `pot_v`, so a proposal counts once, with the stage, year, client and value of its reference version; `/:id/details` also leaves Canceled out. `routes/pipeline-years.js` counts `offers` on `ref_v`. `pots.js` contains no `currency_rate` and no direct read of `cost_grid_versions`. Tests: `pot-fee-sql.test.js` (pins both facts and the CTE shape); the route values are covered by `test-api.js` `POT-13..POT-21`.
+
+## version-rate.js (2026-10-29, POT reference version cycle)
+
+`versionRate(currency, currencyRow)` → `{ rate }` or `{ error }`: EUR is always 1; an active currency takes its `current_rate`; an inactive or unknown one is `{ error: 'Currency <code> is not active' }`. Exports `CURRENCY_RULE_CODE = 'CURRENCY_RULE'`.
+
+Consumed by `routes/cost-grids.js`, the only place a version's `currency_rate` is decided — a `currencyRate` in a request body is ignored:
+- `POST /:id/versions`: the rate of the version's currency; refusal → `400 { error, code: 'CURRENCY_RULE' }`.
+- `PATCH /:id/versions/:vId`, only when the body carries `currency`, under the version lock: EUR → 1; a different currency → its rate, or the refusal; the same non-EUR currency → the stored rate is kept, even if that currency has since been deactivated.
+- `POST …/refresh-rate`, under the version lock: the rate of the stored currency, or the refusal (it used to answer 404 for an inactive currency).
+- `POST …/duplicate` copies the source's rate unchanged.
+
+Tests: `version-rate.test.js` (the rule, plus source pins on the three routes); `test-api.js` `POT-22..POT-28`.

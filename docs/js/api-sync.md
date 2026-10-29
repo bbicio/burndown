@@ -51,3 +51,7 @@ Spec `docs/superpowers/specs/2026-10-26-dates-c4-saves-after-period-rule-design.
 - **Project.** `_pushProjectToApiDetailed` drops the period from the project `PATCH` when the tasks are sent and calls `Api.projects.saveTasks(id, { tasks, period })`; a tasks failure is recorded as `{ part: 'tasks', withPeriod: true }`. The `POST` fallback keeps the full body. `_pushProjectToApi` has no production caller left: both `js/costgrid.js` callers use `_pushProjectToApiDetailed`.
 
 Covered by `js/lib/api-sync-upsert.test.js`, `js/lib/api-sync-push-project.test.js`. `?v=28`.
+
+## The version rate is the server's (2026-10-29, B-176)
+
+Spec `docs/superpowers/specs/2026-10-29-pot-reference-version-and-version-rate-design.md`. `_cgUpsertVersionToApi`'s version `PATCH` no longer sends `currencyRate`: the server decides the rate from `currency` (`docs/api/lib.md` → `version-rate.js`). A `CURRENCY_RULE` refusal of that `PATCH` is notified once, like `DATE_RULE` ("… is not active. Your changes to this version are not being saved until this is fixed."), and never retried as a `POST`; `notifyRefusal`'s "reload the page" tail is now keyed on `STRUCTURE_RULE`. Covered by `js/lib/api-sync-upsert.test.js`. `?v=29`.
