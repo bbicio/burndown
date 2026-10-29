@@ -59,16 +59,22 @@ function separators(locale) {
   };
 }
 
-// Strict: only the locale convention of `code` is valid. Returns 0 for empty/unparseable text.
-export function parseMoney(text, code, currencies) {
-  const info = currencyInfo(code, currencies);
-  const { group, decimal } = separators(info.locale);
+// Shared by parseMoney and readMoneyInput: drops the currency symbol, the ISO code, non-Latin digits and whitespace.
+function stripDecoration(text, info) {
   let s = String(text ?? '');
   s = s.split(info.symbol).join('');
   if (/^[A-Za-z]+$/.test(info.code)) s = s.replace(new RegExp(info.code, 'gi'), '');
   s = s.replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x660))
        .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x6F0));
   s = s.replace(/[\s  ]/g, '');
+  return s;
+}
+
+// Strict: only the locale convention of `code` is valid. Returns 0 for empty/unparseable text.
+export function parseMoney(text, code, currencies) {
+  const info = currencyInfo(code, currencies);
+  const { group, decimal } = separators(info.locale);
+  let s = stripDecoration(text, info);
   if (/^['’]$/.test(group)) s = s.replace(/['’]/g, '');
   else if (group) s = s.split(group).join('');
   if (decimal !== '.') s = s.split(decimal).join('.');
@@ -78,9 +84,34 @@ export function parseMoney(text, code, currencies) {
   return Number(v.toFixed(info.digits));
 }
 
+// Like parseMoney but tells the three outcomes apart: null = blank, NaN = not a valid amount in the
+// locale convention of `code`, otherwise the amount.
+export function readMoneyInput(text, code, currencies) {
+  if (String(text ?? '').trim() === '') return null;
+  const info = currencyInfo(code, currencies);
+  const { group, decimal } = separators(info.locale);
+  const s = stripDecoration(text, info);
+  const esc = ch => ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const G = /^['’]$/.test(group) ? "['’]" : esc(group);
+  const D = esc(decimal);
+  const intPart = group ? `(?:\\d+|\\d{1,3}(?:${G}\\d{3})+)` : '\\d+';
+  const frac = info.digits > 0 ? `(?:${D}\\d{0,${info.digits}})?` : '';
+  if (!new RegExp(`^${intPart}${frac}$`).test(s)) return NaN;
+  const plain = (group ? s.replace(new RegExp(G, 'g'), '') : s).replace(new RegExp(D), '.');
+  return Number(plain);
+}
+
+// The number format of a currency, as a hint next to an input: 1234.5 without the symbol.
+export function moneyFormatExample(code, currencies) {
+  const info = currencyInfo(code, currencies);
+  return formatMoney(1234.5, code, currencies).slice(info.symbol.length + 1);
+}
+
 if (typeof window !== 'undefined') {
   window.currencyInfo = currencyInfo;
   window.formatMoney = formatMoney;
   window.formatMoneyInput = formatMoneyInput;
   window.parseMoney = parseMoney;
+  window.readMoneyInput = readMoneyInput;
+  window.moneyFormatExample = moneyFormatExample;
 }

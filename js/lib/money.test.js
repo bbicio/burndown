@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { currencyInfo, formatMoney, formatMoneyInput, parseMoney } from './money.js';
+import { currencyInfo, formatMoney, formatMoneyInput, parseMoney, readMoneyInput, moneyFormatExample } from './money.js';
 
 const C = [
   { code: 'EUR', symbol: '€',   locale: 'it-IT' },
@@ -130,5 +130,61 @@ describe('round trip (focus text and display text parse back to the same value)'
   it('regression x100: focus then blur of 350.28 EUR leaves 350.28', () => {
     const focusText = formatMoneyInput(350.28, 'EUR', C);
     expect(parseMoney(focusText, 'EUR', C)).toBe(350.28);
+  });
+});
+
+describe('readMoneyInput', () => {
+  it('returns null for blank text', () => {
+    for (const t of ['', '   ', null, undefined]) expect(readMoneyInput(t, 'EUR', C)).toBeNull();
+  });
+  it('reads the locale convention of the currency', () => {
+    expect(readMoneyInput('107,5', 'EUR', C)).toBe(107.5);
+    expect(readMoneyInput('175.5', 'USD', C)).toBe(175.5);
+    expect(readMoneyInput('1.234,50', 'EUR', C)).toBe(1234.5);
+    expect(readMoneyInput('1,234.50', 'USD', C)).toBe(1234.5);
+    expect(readMoneyInput('1234', 'EUR', C)).toBe(1234);
+    expect(readMoneyInput('0', 'EUR', C)).toBe(0);
+    expect(readMoneyInput('1.075', 'EUR', C)).toBe(1075);
+  });
+  it('refuses the other convention', () => {
+    expect(readMoneyInput('107.5', 'EUR', C)).toBeNaN();
+    expect(readMoneyInput('175,5', 'USD', C)).toBeNaN();
+    expect(readMoneyInput('1.23,4', 'EUR', C)).toBeNaN();
+    expect(readMoneyInput('12.34.567', 'EUR', C)).toBeNaN();
+  });
+  it('refuses negatives, letters and extra decimals', () => {
+    expect(readMoneyInput('-5', 'EUR', C)).toBeNaN();
+    expect(readMoneyInput('abc', 'EUR', C)).toBeNaN();
+    expect(readMoneyInput('12,345', 'EUR', C)).toBeNaN();
+    expect(readMoneyInput('12.5', 'JPY', C)).toBeNaN();
+  });
+  it('accepts a trailing decimal separator', () => {
+    expect(readMoneyInput('107,', 'EUR', C)).toBe(107);
+  });
+  it('ignores the currency symbol, the ISO code and spaces', () => {
+    expect(readMoneyInput('€ 1.234,50', 'EUR', C)).toBe(1234.5);
+    expect(readMoneyInput('$175.50', 'USD', C)).toBe(175.5);
+    expect(readMoneyInput('175.50 USD', 'USD', C)).toBe(175.5);
+  });
+  it('round-trips formatMoneyInput for every test currency', () => {
+    for (const c of C) {
+      for (const a of AMOUNTS) {
+        const v = Number(a.toFixed(currencyInfo(c.code, C).digits));
+        if (v === 0) continue;
+        expect(readMoneyInput(formatMoneyInput(v, c.code, C), c.code, C)).toBe(v);
+      }
+    }
+  });
+  it('formats with formatMoney after reading', () => {
+    expect(formatMoney(readMoneyInput('175.5', 'USD', C), 'USD', C)).toBe('$ 175.50');
+    expect(formatMoney(readMoneyInput('107,5', 'EUR', C), 'EUR', C)).toBe('€ 107,50');
+  });
+});
+
+describe('moneyFormatExample', () => {
+  it('shows the number format of the currency locale', () => {
+    expect(moneyFormatExample('EUR', C)).toBe('1.234,50');
+    expect(moneyFormatExample('USD', C)).toBe('1,234.50');
+    expect(moneyFormatExample('JPY', C)).toBe('1,235');
   });
 });
