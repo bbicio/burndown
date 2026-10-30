@@ -1013,7 +1013,25 @@
         const name = this.project.tasks[ti].name.trim() || 'this task';
         if (await this.showConfirm(`Delete task "${name}" and all its resources?`)) {
           this.project.tasks.splice(ti, 1);
+          this.dropRateInvalid(ti, null);
         }
+      },
+      // rateInvalid is keyed `${ti}-${ri}`: after a splice, drop the removed row's entries and
+      // shift the keys below it, so no other row loses or inherits invalid text.
+      dropRateInvalid(ti, ri) {
+        const next = {};
+        for (const [key, text] of Object.entries(this.rateInvalid)) {
+          let [t, r] = key.split('-').map(Number);
+          if (ri === null) {
+            if (t === ti) continue;
+            if (t > ti) t -= 1;
+          } else if (t === ti) {
+            if (r === ri) continue;
+            if (r > ri) r -= 1;
+          }
+          next[`${t}-${r}`] = text;
+        }
+        this.rateInvalid = next;
       },
       addResource(ti) {
         this.project.tasks[ti].resources.push({ role: '', soldHours: 0, hourlyRate: 0 });
@@ -1022,7 +1040,7 @@
         const role = this.project.tasks[ti].resources[ri].role.trim() || 'this resource';
         if (await this.showConfirm(`Remove resource "${role}"?`)) {
           this.project.tasks[ti].resources.splice(ri, 1);
-          this.rateInvalid = {};
+          this.dropRateInvalid(ti, ri);
         }
       },
       // opts.infoMode renders a single neutral "OK" button (no Cancel, no red styling) for a

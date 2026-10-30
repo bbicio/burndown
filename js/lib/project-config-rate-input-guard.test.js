@@ -39,6 +39,18 @@ describe('project-config resource hourly rate input', () => {
     expect(save).toContain('if (Object.keys(this.rateInvalid).length)');
     expect(save).toContain('Fix the highlighted hourly rates before saving');
   });
+  it('re-keys the invalid rates when a task or a resource is removed', () => {
+    const removeTask = html.match(/async confirmRemoveTask\(ti\) \{[\s\S]*?\n      \},/)?.[0] || '';
+    const removeRes = html.match(/async confirmRemoveResource\(ti, ri\) \{[\s\S]*?\n      \},/)?.[0] || '';
+    expect(removeTask).toContain('this.dropRateInvalid(ti, null)');
+    expect(removeRes).toContain('this.dropRateInvalid(ti, ri)');
+    expect(removeRes).not.toContain('this.rateInvalid = {}');
+    // Run the page's own method on a sample map.
+    const body = html.match(/dropRateInvalid\(ti, ri\) \{([\s\S]*?)\n      \},/)?.[1];
+    const run = (map, ti, ri) => { const vm = { rateInvalid: map }; new Function('ti', 'ri', body).call(vm, ti, ri); return vm.rateInvalid; };
+    expect(run({ '0-1': 'a', '1-0': 'b', '2-0': 'c' }, 1, null)).toEqual({ '0-1': 'a', '1-0': 'c' });
+    expect(run({ '0-0': 'a', '0-1': 'b', '0-2': 'c', '1-1': 'd' }, 0, 1)).toEqual({ '0-0': 'a', '0-1': 'c', '1-1': 'd' });
+  });
   it('keeps the invalid flag out of the resource object', () => {
     expect(html).not.toContain('_rateInvalid');
   });

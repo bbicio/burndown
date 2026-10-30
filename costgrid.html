@@ -331,7 +331,7 @@
                 <td class="cg-num">{{ grand.ptc > 0 ? formatMoney(grand.ptc, draft.currency || 'EUR', currencies) : '—' }}</td>
                 <td class="cg-num cg-num--strong">{{ grand.hrs > 0 ? grand.hrs + 'h' : '—' }}</td>
                 <td class="cg-num">{{ grand.fee > 0 ? formatMoney(grand.fee, draft.currency || 'EUR', currencies) : '—' }}</td>
-                <td v-for="r in draft.roles" :key="'rate-'+r.roleCode" class="cg-rate-cell" :class="{ 'is-custom': r.rateIsCustom, 'is-zero': cgRateIsMissing(r) }">
+                <td v-for="r in draft.roles" :key="'rate-'+r.roleCode" class="cg-rate-cell" :class="{ 'is-custom': r.rateIsCustom, 'is-zero': cgRateIsMissing(r, roleBaseline(r).effectiveRate) }">
                   <div class="cg-rate-cell-currency">{{ draft.currency || 'EUR' }}/h</div>
                   <input type="text" inputmode="decimal" :value="rateFocusedRole === r.roleCode ? rateRaw : formatMoney(r.rate, draft.currency || 'EUR', currencies)"
                     @focus="onRateFocus(r)" @input="onRateInput(r, $event)" @blur="onRateBlur(r)" :disabled="isReadOnly" class="cg-rate-input"
@@ -339,7 +339,7 @@
                     :title="r.rateIsCustom ? 'Custom (baseline: ' + formatMoney(roleBaseline(r).effectiveRate, draft.currency || 'EUR', currencies) + '/h) — clear to restore' : 'Rate from roles registry / ratecard'">
                   <div v-if="rateInvalid && rateFocusedRole === r.roleCode" class="cg-rate-note cg-rate-note--zero">Format: {{ moneyFormatExample(draft.currency || 'EUR', currencies) }}</div>
                   <div v-else-if="r.rateIsCustom" class="cg-rate-note cg-rate-note--custom" role="button" tabindex="0" @click="resetRoleRate(r)" @keydown.enter="resetRoleRate(r)">Custom · reset {{ formatMoney(roleBaseline(r).effectiveRate, draft.currency || 'EUR', currencies) }}</div>
-                  <div v-else-if="cgRateIsMissing(r)" class="cg-rate-note cg-rate-note--zero">Missing rate</div>
+                  <div v-else-if="cgRateIsMissing(r, roleBaseline(r).effectiveRate)" class="cg-rate-note cg-rate-note--zero">Missing rate</div>
                 </td>
                 <td v-if="draft.roles.length === 0" class="cg-col-placeholder"></td>
               </tr>
@@ -350,10 +350,10 @@
                 <th class="cg-head-th cg-head-th--num" style="min-width:75px">Pass-through</th>
                 <th class="cg-head-th cg-head-th--num" style="min-width:50px">Hrs</th>
                 <th class="cg-head-th cg-head-th--num" style="min-width:70px">Fees</th>
-                <th v-for="r in draft.roles" :key="r.roleCode" class="cg-role-col-header" :class="{ 'is-zero': cgRateIsMissing(r), 'is-compact': compactHeader }">
+                <th v-for="r in draft.roles" :key="r.roleCode" class="cg-role-col-header" :class="{ 'is-zero': cgRateIsMissing(r, roleBaseline(r).effectiveRate), 'is-compact': compactHeader }">
                   <div class="cg-role-col-name" :title="r.roleLabel + ' · ' + r.roleCode">{{ r.roleLabel }}</div>
                   <div v-if="!compactHeader" class="cg-role-col-code">{{ r.roleCode }}</div>
-                  <div v-if="!compactHeader && cgRateIsMissing(r)" class="cg-role-col-missing">Missing rate</div>
+                  <div v-if="!compactHeader && cgRateIsMissing(r, roleBaseline(r).effectiveRate)" class="cg-role-col-missing">Missing rate</div>
                   <button v-if="!isReadOnly && !selectionMode" type="button" class="cg-col-menu-btn" :title="'Actions for ' + r.roleLabel" :aria-label="'Actions for ' + r.roleLabel" @click.stop="openRoleMenu(r.roleCode); positionRoleMenu($event)">
                     <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true"><circle cx="8" cy="3.4" r="1.25"/><circle cx="8" cy="8" r="1.25"/><circle cx="8" cy="12.6" r="1.25"/></svg>
                   </button>
@@ -762,7 +762,7 @@
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
-<script type="module" src="js/lib/costgrid-calc.js?v=10"></script>
+<script type="module" src="js/lib/costgrid-calc.js?v=11"></script>
 <script type="module" src="js/lib/dates.js?v=4"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
