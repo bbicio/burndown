@@ -96,3 +96,12 @@ Spec `docs/superpowers/specs/2026-10-26-dates-c4-saves-after-period-rule-design.
 - **Messages.** The notice above Save ends "Tasks and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved."; a refused task list reads "Save failed: tasks and the project period were not saved …", a refused project `PATCH` names the sections it did not attempt ([docs/js/lib.md](../js/lib.md) → `project-push-result.js`).
 - **Distribution.** `rebuildTaskDist` delegates to `keepDistribution`: a transient inverted range keeps the monthly distribution, a cleared date resets it ([docs/js/lib.md](../js/lib.md) → `config-form-calc.js`).
 - `project-push-result.js ?v=3`. Guard: `js/lib/project-config-task-period-guard.test.js`. Manual case: `TEST_CASES.md` PC-33.
+
+## Resource rates in the project's currency (2026-10-30, currency cycle 2)
+
+Spec `docs/superpowers/specs/2026-10-29-currency-c2-vue-rate-inputs-design.md`, report `docs/superpowers/reports/2026-10-30-currency-c2-vue-rate-inputs-finish-cycle.md`.
+- **Input.** The `hourlyRate` input is `type="text"`, read on blur by `onResRateBlur` with `readMoneyInput` in `project.currency`: blank → 0, a number → stored and reformatted, invalid → the typed text is kept in `rateInvalid[`${ti}-${ri}`]` (component data, never on the resource) and bound back to `:value`, because Vue re-patches `value` on every render.
+- **Save.** `onSave` refuses while `rateInvalid` has entries ("Fix the highlighted hourly rates before saving…").
+- **Removals.** `confirmRemoveTask`/`confirmRemoveResource` call `dropRateInvalid(ti, ri)`, which drops the removed row's entries and shifts the keys below it.
+
+Guard: `js/lib/project-config-rate-input-guard.test.js`. Manual case: `TEST_CASES.md` PC-34.

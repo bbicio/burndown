@@ -33,7 +33,7 @@ Accessed via the project card in the Reporting view (opens `project-config.html`
 | Start / End date | day | Shown and typed as `Dec 1, 2025`, from a calendar or by hand; End not before Start; optional, defaults to project dates. Disabled for viewers |
 | Description | textarea | (2026-09-29) Free text on what the task covers; read-only for viewers; pre-filled once by "Generate project" from the proposal task's description. Feeds the competence topics (§16.11) |
 | Monthly distribution | % per month | Required for multi-month tasks |
-| Resources | role + sold hours + rate | Breakdown of sold effort |
+| Resources | role + sold hours + rate | Breakdown of sold effort. (2026-10-30) The hourly rate is typed and shown in the project's currency (§7.7); a value that is not valid in that convention stays in the field, outlined red, with the expected format as its tooltip, and **Save** is refused with "Fix the highlighted hourly rates before saving…" until it is corrected |
 
 **Monthly % distribution (per task):** only shown for a task spanning more than one month — a single-month task has nothing to distribute. One editable cell per month the task covers, each a percentage; a badge next to the row gives live feedback on whether the entered percentages currently sum to 100%. The cells are read-only (can't be edited) once the task is marked Completed, for a single-month task, or for a viewer. This is the same distribution the Derive/Reforecast actions below read when spreading a task's budget/hours across its future months.
 

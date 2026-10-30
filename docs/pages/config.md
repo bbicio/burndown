@@ -55,3 +55,12 @@ On `master-pipelines.html`, Expected and SIP are shown as **informative** values
 - (2026-10-29, B-174/B-175) The cards, POT table, year row and Details list count each proposal once, through its reference version; the Details list leaves Canceled out. The page code is unchanged: the rule lives in the API.
 
 API side: `docs/api/lib.md` (`pot-fee-sql.js`, `version-rate.js`). Tests: `js/lib/master-pipelines-pot-details.test.js`, `test-api.js` `POT-13..POT-28`; manual `TEST_CASES.md` PP-42..PP-49.
+
+## Rates and the POT amount through money.js (2026-10-30, currency cycle 2)
+
+Spec `docs/superpowers/specs/2026-10-29-currency-c2-vue-rate-inputs-design.md`, report `docs/superpowers/reports/2026-10-30-currency-c2-vue-rate-inputs-finish-cycle.md`.
+- **`master-roles.html`.** The form holds text (`rf.rateText`, `rf.overrideTexts[code]`, v-model), opened with `formatMoneyInput` (`'0'` for a stored 0) and reformatted on focus/blur only when it reads as a number; `saveRole` reads it with `readMoneyInput` (EUR for the base, the field's own code for an override): blank base → "Default rate is required.", invalid → "Enter a valid amount in X, e.g. …", blank override → none, a number (0 included) → stored. `fmtRate` is gone; the table uses `formatMoney`.
+- **`master-pipelines.html`.** `potf.amountText` replaces `potf.amount`, same open/focus/blur rules; `savePot` reads it in EUR and refuses blank or invalid text. The label symbol comes from a `currencyInfo` template method.
+- **Not changed here:** the client rate card (`master-clients.html`, `js/ratecards.js`) — currency cycle 3.
+
+Guards: `js/lib/master-roles-rate-input-guard.test.js`, `js/lib/master-pipelines-pot-input-guard.test.js`. Manual cases: `TEST_CASES.md` MD-09, MD-10.
