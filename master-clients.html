@@ -401,7 +401,10 @@ window.__cfgApp = Vue.createApp({
             defaults[c] = r.rateOverrides?.[c] ?? null;
             texts[c] = this.amountText(ov[c], c);
           });
-          return { roleId: String(r.id), label: r.label, code: r.code, defaults, texts };
+          // Overrides in a currency with no column (deactivated since) are kept, so a save does not drop them.
+          const hidden = {};
+          Object.entries(ov).forEach(([c, v]) => { if (v != null && c !== 'EUR' && !extra.includes(c)) hidden[c] = v; });
+          return { roleId: String(r.id), label: r.label, code: r.code, defaults, texts, hidden };
         });
         this.rc.id = rc.id;
       } catch (e) {
@@ -417,7 +420,7 @@ window.__cfgApp = Vue.createApp({
       const entries = [];
       for (const row of this.rc.rows) {
         let hourlyRate = null;
-        const rateOverrides = {};
+        const rateOverrides = { ...row.hidden };
         for (const code of Object.keys(row.texts)) {
           const v = window.readMoneyInput(row.texts[code], code, this.currencies);
           if (Number.isNaN(v)) {
