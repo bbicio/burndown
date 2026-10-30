@@ -42,9 +42,7 @@ Its modal-editing UI (`showRolesView`/`hideRolesView`/`renderRolesTable`/`extrac
 
 ## js/ratecards.js
 
-The rate cards admin modal, plus the `loadRatecardsForDropdown()` cache used by `costgrid.js`. Client-specific rate editing is **not** here: it goes through `openClientRatecard()`, a Vue method on `master-clients.html`.
-
-`_rcRenderEntries` pre-populates the non-EUR column placeholders with the agency default from `_rcRoles[rid].rate_overrides[currency]`; `_rcSaveEntries` collects the `.rc-override-rate` inputs and sends `rateOverrides` per role.
+Only the `loadRatecardsForDropdown()` cache used by `costgrid.js`; the admin modal was deleted in currency cycle 3. Client-specific rate editing is **not** here: it goes through `openClientRatecard()`, a Vue method on `master-clients.html`.
 
 ## js/upload.js
 

@@ -20,9 +20,6 @@ const files = walk(ROOT).map(rel);
 const sources = files.filter(f => /\.(js|html)$/.test(f) && !/\.test\.js$/.test(f));
 const read = f => readFileSync(join(ROOT, f), 'utf8');
 
-// The number-input test does not pin parseFloat: a text input read by parseFloat passes it.
-// Currency cycle 3 removes PENDING_CYCLE_3.
-const PENDING_CYCLE_3 = new Set(['master-clients.html', 'js/ratecards.js']);
 // Exchange rates, not amounts (out of scope of the money cycles); this exemption is not tied to cycle 3.
 const EXCHANGE_RATE_MODEL = /v-model="(crf\.rate|crEdit\[[^\]]+\]\.rate)"/;
 
@@ -56,7 +53,6 @@ describe('money guard', () => {
     const scope = sources.filter(f => /\.html$/.test(f) || /^js\/.*\.js$/.test(f));
     const offenders = [];
     for (const f of scope) {
-      if (PENDING_CYCLE_3.has(f)) continue;
       for (const m of read(f).matchAll(/<input[^>]*>/g)) {
         const tag = m[0];
         if (!/type="number"/.test(tag) || !/rate|amount|ptc|price|fee/i.test(tag)) continue;
