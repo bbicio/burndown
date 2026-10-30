@@ -407,6 +407,6 @@ Spec `docs/superpowers/specs/2026-10-29-currency-c2-vue-rate-inputs-design.md`, 
 - **Rate input.** `.cg-rate-input` is `type="text"`, modelled on the PTC input: `onRateFocus` snapshots `{ rate, rateIsCustom, baseline }` and shows `formatMoneyInput` (`'0'` for a custom 0); `onRateInput` reads every keystroke with `readMoneyInput` and writes a valid number, comparing it with the focus-time baseline; `onRateBlur` restores the snapshot while the text is invalid, and resets to the baseline only after an edit that left the field blank. `onRateChange` is gone. Invalid text gives `.is-invalid` (`css/costgrid.css`) and the note `Format: <example>`.
 - **Displays.** The custom note, the input `title`, the "Reset rate to" menu item and the role-picker badge go through `formatMoney`; `:data-rate` stays numeric.
 - **Missing rate.** The cell and column header `is-zero` and both "Missing rate" notes read `cgRateIsMissing(r, roleBaseline(r).effectiveRate)`: a reloaded version marks every role custom (`js/api-sync.js`, `rate_override`), so the flag alone cannot tell a deliberate 0. Known gap: a 0 saved before the registry got a rate reads as deliberate once the registry has one (`docs/BACKLOG.md`).
-- **Versions.** `costgrid-calc.js?v=11` (it imports `money.js?v=3`), `costgrid.css?v=8`.
+- **Versions.** `costgrid-calc.js?v=12` (it imports `money.js?v=3`), `costgrid.css?v=8`.
 
 Guards: `js/lib/costgrid-rate-input-guard.test.js`. Manual cases: `TEST_CASES.md` CG-105, CG-106.
