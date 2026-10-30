@@ -375,6 +375,8 @@ window.__cfgApp = Vue.createApp({
 
     async openClientRatecard(client) {
       this.rc = { title: `Rate Card — ${client.name}`, loading: true, loadError: null, msg: null, msgKind: 'success', saving: false, id: null, rows: [] };
+      // A later open replaces this.rc: this load writes only to the state it was started for.
+      const state = this.rc;
       bootstrap.Modal.getOrCreateInstance(document.getElementById('clientRcModal')).show();
 
       try {
@@ -391,7 +393,7 @@ window.__cfgApp = Vue.createApp({
         (rc.entries || []).forEach(e => { entryOf[String(e.roleId ?? e.role_id)] = e; });
 
         const extra = this.rcExtraCurrencies.map(cu => cu.code);
-        this.rc.rows = this.roles.map(r => {
+        state.rows = this.roles.map(r => {
           const e = entryOf[String(r.id)];
           const eur = e ? (e.hourlyRate ?? e.hourly_rate ?? null) : null;
           const ov = (e && (e.rateOverrides ?? e.rate_overrides)) || {};
@@ -406,11 +408,11 @@ window.__cfgApp = Vue.createApp({
           Object.entries(ov).forEach(([c, v]) => { if (v != null && c !== 'EUR' && !extra.includes(c)) hidden[c] = v; });
           return { roleId: String(r.id), label: r.label, code: r.code, defaults, texts, hidden };
         });
-        this.rc.id = rc.id;
+        state.id = rc.id;
       } catch (e) {
-        this.rc.loadError = e.message || 'Failed to load.';
+        state.loadError = e.message || 'Failed to load.';
       } finally {
-        this.rc.loading = false;
+        state.loading = false;
       }
     },
 
@@ -420,7 +422,7 @@ window.__cfgApp = Vue.createApp({
       const entries = [];
       for (const row of this.rc.rows) {
         let hourlyRate = null;
-        const rateOverrides = { ...row.hidden };
+        const rateOverrides = { ...row.hidden };
         for (const code of Object.keys(row.texts)) {
           const v = window.readMoneyInput(row.texts[code], code, this.currencies);
           if (Number.isNaN(v)) {
@@ -436,17 +438,18 @@ window.__cfgApp = Vue.createApp({
         entries.push({ roleId: row.roleId, hourlyRate, rateOverrides });
       }
 
-      this.rc.saving = true;
+      const state = this.rc;
+      state.saving = true;
       try {
-        await Api.ratecards.updateEntries(this.rc.id, entries);
-        this.rc.msg = 'Rates saved successfully.';
-        this.rc.msgKind = 'success';
-        setTimeout(() => { if (this.rc.msgKind === 'success') this.rc.msg = null; }, 3000);
+        await Api.ratecards.updateEntries(state.id, entries);
+        state.msg = 'Rates saved successfully.';
+        state.msgKind = 'success';
+        setTimeout(() => { if (state.msgKind === 'success') state.msg = null; }, 3000);
       } catch (e) {
-        this.rc.msg = e.message || 'Failed to save.';
-        this.rc.msgKind = 'error';
+        state.msg = e.message || 'Failed to save.';
+        state.msgKind = 'error';
       } finally {
-        this.rc.saving = false;
+        state.saving = false;
       }
     },
   },

@@ -493,6 +493,16 @@ async function testRatecards() {
         const e3 = await entriesOf();
         ok(r11.status === 200 && !e3.some(e => rid(e) === String(A)) && e3.some(e => rid(e) === String(B) && Number(rate(e)) === 120),
           'RC-10 role omitted from the body loses its entry');
+
+        const r12 = await api('PATCH', '/api/ratecards/not-a-uuid/entries', [], adminCookie);
+        ok(r12.status === 400, 'RC-11 malformed ratecard id → 400, not 500');
+        const r13 = await api('PATCH', '/api/ratecards/00000000-0000-4000-8000-000000000000/entries', [], adminCookie);
+        ok(r13.status === 404, 'RC-12 unknown ratecard id → 404');
+        const r14 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [{ roleId: 'not-a-uuid', hourlyRate: 1 }], adminCookie);
+        const r15 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [{ roleId: '00000000-0000-4000-8000-000000000000', hourlyRate: 1 }], adminCookie);
+        const e4 = await entriesOf();
+        ok(r14.status === 400 && r15.status === 400 && e4.some(e => rid(e) === String(B) && Number(rate(e)) === 120),
+          'RC-13 malformed or unknown roleId → 400, entries unchanged');
       }
     } else if (rcPerClientId) {
       ok(true, 'RC-05 skipped — role creation failed');
