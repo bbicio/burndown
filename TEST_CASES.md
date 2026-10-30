@@ -448,6 +448,8 @@
 | MD-06 | Master Data — Currencies | Activate a currency, change a rate (Cancel then Confirm in the confirmation modal), open a currency history | Same behavior as CN-03…CN-05 | |
 | MD-07 | Master Data — layouts | On each page check three layouts: sidebar open, sidebar collapsed to the rail, and a window narrower than 1024px | The lateral menu is a column beside the sidebar at ≥1024px (also with the rail) and a scrollable row above the content below 1024px; no horizontal page scroll, no overlap with the sidebar or the breadcrumb | |
 | MD-09 | Roles & rates — rates in each field's currency (2026-10-30, currency cycle 2) | On `/master-roles.html` edit a role: type `107,5` in the default rate and `175.5` in USD, save, reopen; type `107.5` in the default rate and save; clear the USD field and save, reopen | The table shows `€ 107,50/h`; the form reopens with `107,5` and `175.5`; `107.5` is refused with "Enter a valid amount in EUR, e.g. 1.234,50."; after clearing, the role has no USD override (not 0) | ✓ (vitest) |
+| MD-11 | Client rate card — fields in each column's currency (2026-10-30, currency cycle 3) | On `/master-clients.html` open 💲 Costgrid on a client: type `1234,5` in the EUR column and `1234.5` in USD, leave each field; then type `abc` in one field and Save rates | On blur the fields show `€ 1.234,50` and `$ 1,234.50`; `abc` refuses the whole save with "Enter a valid amount in EUR, e.g. 1.234,50." and reopening shows the previous values | |
+| MD-12 | Client rate card — blank EUR means agency default (2026-10-30, currency cycle 3) | Set role A to USD `175.5` only (EUR blank) and role B to EUR `0`; Save rates, reopen, Save again; then clear every field of role A and Save | A reopens with EUR blank and USD `175.5`, B with `0`, unchanged after the second save; after clearing, A has no entry (all fields blank on reopen) | ✓ |
 | MD-10 | Pipelines & POTs — POT amount in EUR (2026-10-30, currency cycle 2) | In View B create a POT for a client with `500.000`; edit it with `500000.5`; type a valid amount and press Enter in the field | The POT saves 500000 and shows `€ 500.000,00`; `500000.5` is refused with "Enter a valid amount in EUR, e.g. 1.234,50."; Enter saves | ✓ (vitest) |
 
 ---
@@ -465,8 +467,8 @@
 | CF-07 | Open Costgrid modal — client with existing ratecard | Click 💲 Costgrid on a client that already has a rate card | Modal opens; previously saved custom rates pre-filled in the Custom column | |
 | CF-08 | Set custom rate | Enter a value in one or more Custom (€/h) cells → Save rates | Rates saved; reopening modal shows the saved values | ✓ |
 | CF-09 | Clear custom rate (fall back to default) | Delete the value in a Custom cell → Save rates | Field left blank; that role uses agency default in proposals | ✓ |
-| CF-10 | Agency default column | Open Costgrid modal with a global rate card configured | Agency default column shows values from the global rate card (not the role's bare hourly_rate) | |
-| CF-11 | Agency default fallback | Open Costgrid modal with no global rate card | Agency default column shows role.hourly_rate or "—" if not set | |
+| CF-10 | Agency default column (2026-10-30, currency cycle 3) | Open Costgrid modal on any client | Agency default column shows each role's own rate formatted in EUR (e.g. `€ 105,00`); no client-less rate card is read | |
+| CF-11 | Agency default fallback | Open Costgrid modal for a role with no rate | Agency default shows "—" and the EUR field's placeholder reads "agency default" | |
 | CF-12 | Ratecard API — list (requireAuth) | GET /api/ratecards as any logged-in user | 200 array — endpoint is open to all authenticated users, not admin-only | ✓ |
 | CF-13 | Ratecard API — create global (admin) | POST /api/ratecards (clientId=null) as admin | 201, id in response | ✓ |
 | CF-14 | Ratecard API — create per client (admin) | POST /api/ratecards with clientId as admin | 201, client_id matches | ✓ |

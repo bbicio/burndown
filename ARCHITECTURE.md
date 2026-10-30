@@ -249,7 +249,7 @@ ratecard_entries (
   id             UUID PRIMARY KEY,
   ratecard_id    UUID NOT NULL REFERENCES ratecards(id) ON DELETE CASCADE,
   role_id        UUID NOT NULL REFERENCES roles(id),
-  hourly_rate    DECIMAL(10,2) NOT NULL,
+  hourly_rate    DECIMAL(10,2),               -- NULL = no client EUR rate, the agency default applies (029)
   rate_overrides JSONB NOT NULL DEFAULT '{}',  -- per-currency overrides for this client e.g. {"USD": 120}
   UNIQUE (ratecard_id, role_id)
 )
@@ -658,7 +658,7 @@ timesheets (
 | GET | /api/ratecards/:id | ✅ | Detail (all authenticated users) |
 | POST | /api/ratecards/clone | admin | Clone global → per client |
 | PATCH | /api/ratecards/:id | admin | Rename / update the rate card itself |
-| PATCH | /api/ratecards/:id/entries | admin | Bulk update entries; (2026-10-29) every entry is checked before the first write — a missing or invalid `hourlyRate` or override answers **400 `MONEY_RULE`** and changes nothing |
+| PATCH | /api/ratecards/:id/entries | admin | Replaces the whole entry set in one transaction (2026-10-30): roles missing from the body lose their entry. `hourlyRate` may be `null` (agency default) when the entry has a currency override; every entry is checked first — an invalid amount or an entry with neither answers **400 `MONEY_RULE`** and changes nothing. Malformed ids or an unknown role → 400, unknown card → 404. Detail: [docs/api/config.md](docs/api/config.md) |
 | DELETE | /api/ratecards/:id | admin | Delete |
 
 ### Resources & Attribute Lists (2026-09)
@@ -697,7 +697,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 **Ratecard integration in the cost grid editor**
 
 - Client-specific rates are set via the **💲 Costgrid** button on each client row in `master-clients.html` (Master Data → Clients). The modal lists all roles; custom rates override the agency default for that client.
-- The cost grid version form has a **Rate card** dropdown. When a ratecard is selected, `costgrid.js` populates `_cgActiveRatecardMap` (roleId → rate) via `cgUpdateActiveRatecardMap()` (backed by the `loadRatecardsForDropdown()` cache in `ratecards.js`).
+- The cost grid version form has a **Rate card** dropdown. When a ratecard is selected, `costgrid.js` populates `_cgActiveRatecardMap` (roleId → rate) via `cgUpdateActiveRatecardMap()` (backed by the `loadRatecardsForDropdown()` cache in `ratecards.js`), which reads the entries through `cgRatecardMaps()` (`js/lib/costgrid-calc.js`): an entry with a `NULL` EUR rate stays out of the map, so the role's own rate applies.
 - Rate cells in the grid use this map as the **baseline**: a cell is only marked yellow (`✎ custom`) when the user manually enters a value that differs from the ratecard rate. Clearing the cell restores the ratecard rate (not the bare agency default).
 - The **👥 Add role** modal applies the same map: roles with a custom ratecard entry are highlighted with an indigo badge (`✦ rate €/h`) and a light purple row background. The rate stored in `_cgDraft.roles` on add is the ratecard rate, so no false positive "custom" flag on first render.
 - `_cgActiveRatecardMap` is refreshed on: version open → `cgPopulateRatecardDropdown()`, ratecard dropdown change, and "Add role" modal open.

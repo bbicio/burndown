@@ -14,12 +14,14 @@ Each client row has a **💲 Costgrid** button that opens a rate card modal. The
 
 | Column | Content |
 |---|---|
-| Agency default | Rate from the global rate card (falls back to `role.hourly_rate` if no global card exists) |
+| Agency default | The role's own rate (`role.hourly_rate`), formatted in EUR; "—" when the role has none |
 | Client custom (€/h) | Editable override for this client; blank = use agency default |
 
 Saving creates or updates a per-client rate card. Custom rates are applied automatically when the client is selected in a new proposal. Rate card management is **not** available from admin.html — it lives exclusively here.
 
-Rate cards support multiple currencies: for each active non-EUR currency (e.g. USD), the modal shows an additional column alongside EUR, pre-populated with the role's agency default for that currency when set.
+Rate cards support multiple currencies: for each active non-EUR currency (e.g. USD), the modal shows an additional column alongside EUR, whose placeholder is the role's agency default for that currency when set.
+
+Every rate field is a text field written and shown in its column's currency (e.g. `1.234,50` in EUR, `1,234.50` in USD); text that is not a valid amount refuses the whole save with "Enter a valid amount in <code>, e.g. …". A role may have a custom rate in another currency with the EUR field left blank: EUR then stays the agency default. Clearing every field of a role removes its custom rates for this client.
 
 ### 7.3 Client Groups
 
