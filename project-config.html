@@ -179,7 +179,7 @@
           <tr v-for="(res, ri) in task.resources" :key="ri">
             <td><input type="text" class="form-control form-control-sm" v-model="res.role" :disabled="isViewer" placeholder="e.g. HWGDEV - DEVELOPER"></td>
             <td><input type="number" class="form-control form-control-sm text-end" min="0" step="0.5" v-model.number="res.soldHours" :disabled="isViewer"></td>
-            <td><input type="number" class="form-control form-control-sm text-end" min="0" step="1" v-model.number="res.hourlyRate" :disabled="isViewer"></td>
+            <td><input type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': rateInvalid[ti + '-' + ri] !== undefined }" :title="rateInvalid[ti + '-' + ri] !== undefined ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''" :value="rateInvalid[ti + '-' + ri] !== undefined ? rateInvalid[ti + '-' + ri] : (res.hourlyRate > 0 ? formatMoney(res.hourlyRate, project.currency, currencies) : '')" @focus="e => { if (rateInvalid[ti + '-' + ri] === undefined) e.target.value = moneyInput(res.hourlyRate); }" @blur="onResRateBlur(ti, ri, $event)" :disabled="isViewer"></td>
             <td class="text-end small fw-semibold align-middle">{{ res.soldHours > 0 && res.hourlyRate > 0 ? formatMoney(res.soldHours * res.hourlyRate, project.currency, currencies) : '—' }}</td>
             <td class="text-center"><button class="btn btn-sm btn-link text-danger p-0" v-if="!isViewer" @click="confirmRemoveResource(ti, ri)">✕</button></td>
           </tr>
@@ -406,7 +406,7 @@
 <script defer src="js/api.js?v=8"></script>
 <script defer src="js/core.js?v=15"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
-<script type="module" src="js/lib/money.js?v=2"></script>
+<script type="module" src="js/lib/money.js?v=3"></script>
 <script type="module" src="js/lib/project-rules.js?v=1"></script>
 <script defer src="js/notifications.js?v=3"></script>
 <script defer src="js/clients.js"></script>
@@ -436,6 +436,8 @@
         ready: false,
         currencies: [],
         formatMoney: window.formatMoney,
+        moneyFormatExample: window.moneyFormatExample,
+        rateInvalid: {},
         notFound: false,
         project: null,
         isNewProject: false,
@@ -856,6 +858,11 @@
         (this.project.groups || []).forEach(g => { g.entries = (g.entries || []).filter(e => e.role.trim()); });
         // Sold-hours validation — reject the save if any value is outside the allowed set.
         this.jsonError = '';
+        // A rate field still holding invalid text would otherwise save its previous value silently.
+        if (Object.keys(this.rateInvalid).length) {
+          this.jsonError = `Fix the highlighted hourly rates before saving: enter amounts in ${this.project.currency}, e.g. ${window.moneyFormatExample(this.project.currency, window.__currencies)}.`;
+          return;
+        }
         for (const task of this.project.tasks) {
           for (const r of task.resources) {
             if (r.soldHours && !isValidSoldHours(r.soldHours)) {
@@ -943,6 +950,16 @@
       },
       // Money formatting/parsing: one implementation in js/lib/money.js, driven by the locale of the project currency.
       moneyInput(amount) { return window.formatMoneyInput(amount, this.project?.currency, window.__currencies); },
+      // Resource hourly rate blur: blank -> 0, a number -> stored, invalid text -> flagged, nothing written.
+      onResRateBlur(ti, ri, e) {
+        const res = this.project.tasks[ti].resources[ri];
+        const key = ti + '-' + ri;
+        const v = window.readMoneyInput(e.target.value, this.project?.currency, window.__currencies);
+        if (Number.isNaN(v)) { this.rateInvalid[key] = e.target.value; return; }
+        res.hourlyRate = v === null ? 0 : v;
+        delete this.rateInvalid[key];
+        e.target.value = res.hourlyRate > 0 ? this.formatMoney(res.hourlyRate, this.project.currency, this.currencies) : '';
+      },
       parseMoney(str) { return window.parseMoney(str, this.project?.currency, window.__currencies); },
       toIso(x) { return window.toIso(x); },
       toYmd(x) { return window.toYmd(x); },
@@ -996,7 +1013,25 @@
         const name = this.project.tasks[ti].name.trim() || 'this task';
         if (await this.showConfirm(`Delete task "${name}" and all its resources?`)) {
           this.project.tasks.splice(ti, 1);
+          this.dropRateInvalid(ti, null);
         }
+      },
+      // rateInvalid is keyed `${ti}-${ri}`: after a splice, drop the removed row's entries and
+      // shift the keys below it, so no other row loses or inherits invalid text.
+      dropRateInvalid(ti, ri) {
+        const next = {};
+        for (const [key, text] of Object.entries(this.rateInvalid)) {
+          let [t, r] = key.split('-').map(Number);
+          if (ri === null) {
+            if (t === ti) continue;
+            if (t > ti) t -= 1;
+          } else if (t === ti) {
+            if (r === ri) continue;
+            if (r > ri) r -= 1;
+          }
+          next[`${t}-${r}`] = text;
+        }
+        this.rateInvalid = next;
       },
       addResource(ti) {
         this.project.tasks[ti].resources.push({ role: '', soldHours: 0, hourlyRate: 0 });
@@ -1005,6 +1040,7 @@
         const role = this.project.tasks[ti].resources[ri].role.trim() || 'this resource';
         if (await this.showConfirm(`Remove resource "${role}"?`)) {
           this.project.tasks[ti].resources.splice(ri, 1);
+          this.dropRateInvalid(ti, ri);
         }
       },
       // opts.infoMode renders a single neutral "OK" button (no Cancel, no red styling) for a

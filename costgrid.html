@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="css/tokens.css?v=12">
   <link rel="stylesheet" href="css/style.css?v=27">
   <link rel="stylesheet" href="css/controls.css?v=1">
-  <link rel="stylesheet" href="css/costgrid.css?v=7">
+  <link rel="stylesheet" href="css/costgrid.css?v=8">
 </head>
 <body>
 
@@ -331,12 +331,15 @@
                 <td class="cg-num">{{ grand.ptc > 0 ? formatMoney(grand.ptc, draft.currency || 'EUR', currencies) : '—' }}</td>
                 <td class="cg-num cg-num--strong">{{ grand.hrs > 0 ? grand.hrs + 'h' : '—' }}</td>
                 <td class="cg-num">{{ grand.fee > 0 ? formatMoney(grand.fee, draft.currency || 'EUR', currencies) : '—' }}</td>
-                <td v-for="r in draft.roles" :key="'rate-'+r.roleCode" class="cg-rate-cell" :class="{ 'is-custom': r.rateIsCustom, 'is-zero': !r.rate || r.rate === 0 }">
+                <td v-for="r in draft.roles" :key="'rate-'+r.roleCode" class="cg-rate-cell" :class="{ 'is-custom': r.rateIsCustom, 'is-zero': cgRateIsMissing(r, roleBaseline(r).effectiveRate) }">
                   <div class="cg-rate-cell-currency">{{ draft.currency || 'EUR' }}/h</div>
-                  <input type="number" min="0" step="1" :value="r.rate" @change="onRateChange(r, $event)" :disabled="isReadOnly" class="cg-rate-input"
-                    :title="r.rateIsCustom ? 'Custom (baseline: ' + (draft.currency||'EUR') + ' ' + roleBaseline(r).effectiveRate + '/h) — clear to restore' : 'Rate from roles registry / ratecard'">
-                  <div v-if="r.rateIsCustom" class="cg-rate-note cg-rate-note--custom" role="button" tabindex="0" @click="resetRoleRate(r)" @keydown.enter="resetRoleRate(r)">Custom · reset {{ roleBaseline(r).effectiveRate }}</div>
-                  <div v-else-if="!r.rate || r.rate === 0" class="cg-rate-note cg-rate-note--zero">Missing rate</div>
+                  <input type="text" inputmode="decimal" :value="rateFocusedRole === r.roleCode ? rateRaw : formatMoney(r.rate, draft.currency || 'EUR', currencies)"
+                    @focus="onRateFocus(r)" @input="onRateInput(r, $event)" @blur="onRateBlur(r)" :disabled="isReadOnly" class="cg-rate-input"
+                    :class="{ 'is-invalid': rateInvalid && rateFocusedRole === r.roleCode }"
+                    :title="r.rateIsCustom ? 'Custom (baseline: ' + formatMoney(roleBaseline(r).effectiveRate, draft.currency || 'EUR', currencies) + '/h) — clear to restore' : 'Rate from roles registry / ratecard'">
+                  <div v-if="rateInvalid && rateFocusedRole === r.roleCode" class="cg-rate-note cg-rate-note--zero">Format: {{ moneyFormatExample(draft.currency || 'EUR', currencies) }}</div>
+                  <div v-else-if="r.rateIsCustom" class="cg-rate-note cg-rate-note--custom" role="button" tabindex="0" @click="resetRoleRate(r)" @keydown.enter="resetRoleRate(r)">Custom · reset {{ formatMoney(roleBaseline(r).effectiveRate, draft.currency || 'EUR', currencies) }}</div>
+                  <div v-else-if="cgRateIsMissing(r, roleBaseline(r).effectiveRate)" class="cg-rate-note cg-rate-note--zero">Missing rate</div>
                 </td>
                 <td v-if="draft.roles.length === 0" class="cg-col-placeholder"></td>
               </tr>
@@ -347,10 +350,10 @@
                 <th class="cg-head-th cg-head-th--num" style="min-width:75px">Pass-through</th>
                 <th class="cg-head-th cg-head-th--num" style="min-width:50px">Hrs</th>
                 <th class="cg-head-th cg-head-th--num" style="min-width:70px">Fees</th>
-                <th v-for="r in draft.roles" :key="r.roleCode" class="cg-role-col-header" :class="{ 'is-zero': !r.rate || r.rate === 0, 'is-compact': compactHeader }">
+                <th v-for="r in draft.roles" :key="r.roleCode" class="cg-role-col-header" :class="{ 'is-zero': cgRateIsMissing(r, roleBaseline(r).effectiveRate), 'is-compact': compactHeader }">
                   <div class="cg-role-col-name" :title="r.roleLabel + ' · ' + r.roleCode">{{ r.roleLabel }}</div>
                   <div v-if="!compactHeader" class="cg-role-col-code">{{ r.roleCode }}</div>
-                  <div v-if="!compactHeader && (!r.rate || r.rate === 0)" class="cg-role-col-missing">Missing rate</div>
+                  <div v-if="!compactHeader && cgRateIsMissing(r, roleBaseline(r).effectiveRate)" class="cg-role-col-missing">Missing rate</div>
                   <button v-if="!isReadOnly && !selectionMode" type="button" class="cg-col-menu-btn" :title="'Actions for ' + r.roleLabel" :aria-label="'Actions for ' + r.roleLabel" @click.stop="openRoleMenu(r.roleCode); positionRoleMenu($event)">
                     <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true"><circle cx="8" cy="3.4" r="1.25"/><circle cx="8" cy="8" r="1.25"/><circle cx="8" cy="12.6" r="1.25"/></svg>
                   </button>
@@ -476,7 +479,7 @@
           <button type="button" class="cg-col-menu-item" :disabled="draft.roles.findIndex(r => r.roleCode === activeMenuRole.roleCode) === draft.roles.length - 1" @click="moveRole(activeMenuRole, 1)">Move right</button>
           <button type="button" class="cg-col-menu-item" @click="changeRole(activeMenuRole.roleCode); openRoleMenuCode = null">Change role…</button>
           <button type="button" class="cg-col-menu-item" @click="duplicateRole(activeMenuRole.roleCode); openRoleMenuCode = null">Duplicate with another role…</button>
-          <button type="button" v-if="activeMenuRole.rateIsCustom" class="cg-col-menu-item" @click="resetRoleRate(activeMenuRole); openRoleMenuCode = null">Reset rate to {{ roleBaseline(activeMenuRole).effectiveRate }}</button>
+          <button type="button" v-if="activeMenuRole.rateIsCustom" class="cg-col-menu-item" @click="resetRoleRate(activeMenuRole); openRoleMenuCode = null">Reset rate to {{ formatMoney(roleBaseline(activeMenuRole).effectiveRate, draft.currency || 'EUR', currencies) }}</button>
           <div class="cg-col-menu-sep"></div>
           <button type="button" class="cg-col-menu-item cg-col-menu-item--danger" @click="onRemoveColumnClick(activeMenuRole)">{{ removeColumnConfirm === activeMenuRole.roleCode ? ('Click again to remove · ' + (colTotals[activeMenuRole.roleCode]?.hrs || 0) + 'h across all tasks will be deleted') : 'Remove column' }}</button>
         </div>
@@ -591,7 +594,7 @@
                 </label>
                 <span v-if="row.isSource" class="cg-rm-tag">current</span>
                 <span v-else-if="row.already" class="cg-rm-tag">already added</span>
-                <span class="cg-rm-rate" :class="{ 'is-zero': row.zeroRate, 'is-custom': !row.zeroRate && (row.hasOverride || row.hasCustom) }">{{ row.effectiveRate }} {{ row.curCode }}/h</span>
+                <span class="cg-rm-rate" :class="{ 'is-zero': row.zeroRate, 'is-custom': !row.zeroRate && (row.hasOverride || row.hasCustom) }">{{ formatMoney(row.effectiveRate, row.curCode, currencies) }}/h</span>
               </div>
             </div>
           </div>
@@ -752,14 +755,14 @@
 <script defer src="js/api.js?v=8"></script>
 <script defer src="js/core.js?v=15"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
-<script type="module" src="js/lib/money.js?v=2"></script>
+<script type="module" src="js/lib/money.js?v=3"></script>
 <script type="module" src="js/lib/project-rules.js?v=1"></script>
 <script defer src="js/notifications.js?v=3"></script>
 <script defer src="js/roles.js?v=2"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
-<script type="module" src="js/lib/costgrid-calc.js?v=9"></script>
+<script type="module" src="js/lib/costgrid-calc.js?v=11"></script>
 <script type="module" src="js/lib/dates.js?v=4"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
@@ -807,7 +810,8 @@ Vue.createApp({
       cg: null, draft: null,
       shareListRefreshTick: 0, // bumped when #shareModal closes, to reload the inline share-list
       loading: true, loadError: null,
-      clients: [], currencies: [], formatMoney: window.formatMoney,
+      clients: [], currencies: [], formatMoney: window.formatMoney, moneyFormatExample: window.moneyFormatExample, cgRateIsMissing: window.cgRateIsMissing,
+      rateFocusedRole: null, rateRaw: '', rateInvalid: false, rateEdited: false, rateSnapshot: null,
       ratecardMap: {}, ratecardOverrides: {}, isClientRatecard: false, allRatecards: [],
       offerDetailsCollapsed: false, summaryCollapsed: false, sharingCollapsed: false, tagsCollapsed: false,
       attributeLists: [], versionTagItemIds: [], versionTagRows: [], tagSaving: false,
@@ -1173,7 +1177,7 @@ Vue.createApp({
         ...r,
         already,
         effectiveRate: resolved.effectiveRate,
-        curCode: currency,   // board 5.16 shows the ISO code ("135.00 EUR/h"), not the symbol
+        curCode: currency,   // the badge formats the rate with formatMoney in this currency ("€ 135,00/h")
         hasOverride: resolved.isOverride,
         hasCustom: this.isClientRatecard && rcRate !== undefined && rcRate !== (r.rate || 0),
         zeroRate: !resolved.effectiveRate || resolved.effectiveRate === 0,
@@ -1593,14 +1597,32 @@ Vue.createApp({
         roleOverrides: roleObj?.rateOverrides || {},
       });
     },
-    onRateChange(role, event) {
-      const val = event.target.value.trim();
-      if (val === '') { this.resetRoleRate(role); return; }
-      const baseline = this.roleBaseline(role);
-      const newRate = parseFloat(val) || 0;
-      role.rate = newRate;
-      role.rateIsCustom = newRate !== baseline.effectiveRate;
+    onRateFocus(role) {
+      this.rateFocusedRole = role.roleCode;
+      this.rateSnapshot = { rate: role.rate, rateIsCustom: role.rateIsCustom, baseline: this.roleBaseline(role).effectiveRate };
+      this.rateRaw = (role.rateIsCustom && role.rate === 0) ? '0' : window.formatMoneyInput(role.rate, this.draft.currency || 'EUR', this.currencies);
+      this.rateEdited = false;
+      this.rateInvalid = false;
+    },
+    onRateInput(role, event) {
+      this.rateRaw = event.target.value;
+      this.rateEdited = true;
+      const v = window.readMoneyInput(this.rateRaw, this.draft.currency || 'EUR', this.currencies);
+      if (v === null) { this.rateInvalid = false; return; }
+      if (Number.isNaN(v)) { this.rateInvalid = true; return; }
+      this.rateInvalid = false;
+      const baseline = this.rateSnapshot ? this.rateSnapshot.baseline : this.roleBaseline(role).effectiveRate;
+      role.rate = v;
+      role.rateIsCustom = v !== baseline;
       cgScheduleAutoSave();
+    },
+    onRateBlur(role) {
+      if (this.rateInvalid && this.rateSnapshot) {
+        role.rate = this.rateSnapshot.rate;
+        role.rateIsCustom = this.rateSnapshot.rateIsCustom;
+        cgScheduleAutoSave();
+      } else if (this.rateEdited && this.rateRaw.trim() === '') this.resetRoleRate(role);
+      this.rateFocusedRole = null; this.rateRaw = ''; this.rateInvalid = false; this.rateEdited = false; this.rateSnapshot = null;
     },
     moveRole(role, dir) {
       const idx = this.draft.roles.findIndex(r => r.roleCode === role.roleCode);

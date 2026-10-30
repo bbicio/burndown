@@ -4,7 +4,7 @@ import path from 'node:path';
 import {
   resolveRoleRate, cgComputeTaskTotals, cgComputePhaseTotals, cgComputeGrandTotals, cgComputeColumnTotals,
   versionHasFreeTasks, isVersionCommittedLocked, stripCloneTaskIds, findExistingProgramForProposal,
-  cgApiClientId, distributeTaskHours, cgFreeTasksOf, cgIsTaskAssigned, cgOfferDetailsSummary, cgSectionDefaults,
+  cgApiClientId, distributeTaskHours, cgFreeTasksOf, cgIsTaskAssigned, cgOfferDetailsSummary, cgSectionDefaults, cgRateIsMissing,
 } from './costgrid-calc.js';
 
 describe('findExistingProgramForProposal', () => {
@@ -106,6 +106,39 @@ describe('resolveRoleRate', () => {
   it('treats a missing ratecardOverrides/roleOverrides entry for this role as absent, not throwing', () => {
     const r = resolveRoleRate({ roleId: 9, globalRate: 50, currency: 'GBP', currencyRate: 0.85, ratecardMap: {}, ratecardOverrides: {}, roleOverrides: {} });
     expect(r.effectiveRate).toBe(42.5);
+  });
+
+  it('rounds a converted JPY rate to 0 decimals', () => {
+    const r = resolveRoleRate({ roleId: 5, globalRate: 100, currency: 'JPY', currencyRate: 162.347, ratecardMap: {}, ratecardOverrides: {}, roleOverrides: {} });
+    expect(r.effectiveRate).toBe(16235);
+  });
+
+  it('rounds a converted USD rate to 2 decimals', () => {
+    const r = resolveRoleRate({ roleId: 5, globalRate: 100, currency: 'USD', currencyRate: 1.08766, ratecardMap: {}, ratecardOverrides: {}, roleOverrides: {} });
+    expect(r.effectiveRate).toBe(108.77);
+  });
+});
+
+describe('cgRateIsMissing', () => {
+  it('returns true when rate is 0 and not custom', () => {
+    expect(cgRateIsMissing({ rate: 0, rateIsCustom: false }, 120)).toBe(true);
+  });
+
+  it('returns false for a custom 0 over a baseline above 0', () => {
+    expect(cgRateIsMissing({ rate: 0, rateIsCustom: true }, 120)).toBe(false);
+  });
+
+  it('returns true for a custom 0 whose baseline is 0 too (a reloaded role with no rate)', () => {
+    expect(cgRateIsMissing({ rate: 0, rateIsCustom: true }, 0)).toBe(true);
+    expect(cgRateIsMissing({ rate: 0, rateIsCustom: true }, undefined)).toBe(true);
+  });
+
+  it('returns false when rate is positive', () => {
+    expect(cgRateIsMissing({ rate: 120, rateIsCustom: false }, 0)).toBe(false);
+  });
+
+  it('returns true when rate is undefined', () => {
+    expect(cgRateIsMissing({ rate: undefined }, 120)).toBe(true);
   });
 });
 

@@ -1,3 +1,5 @@
+import { currencyInfo } from './money.js?v=3';
+
 // ── FREE TASKS (Task 1, 2026-10-07) ──────────────────────────────────────────
 // The one definition of "this task belongs to a project": linked by id, or (older links only carry
 // names) by name, ignoring case and surrounding spaces.
@@ -97,8 +99,15 @@ export function resolveRoleRate({ roleId, globalRate, currency, currencyRate, ra
   const roleOverride = roleOverrides ? roleOverrides[currency] : undefined;
   if (ratecardOverride != null) return { eurRate, effectiveRate: ratecardOverride, isOverride: true };
   if (roleOverride != null) return { eurRate, effectiveRate: roleOverride, isOverride: true };
-  const converted = Math.round(eurRate * (currencyRate || 1) * 100) / 100;
+  const info = currencyInfo(currency);
+  const converted = Number((eurRate * (currencyRate || 1)).toFixed(info.digits));
   return { eurRate, effectiveRate: converted, isOverride: false };
+}
+
+// A rate of 0 is missing unless it is a custom 0 over a baseline above 0. rateIsCustom alone
+// cannot tell: a reloaded version marks every role custom (js/api-sync.js, rate_override).
+export function cgRateIsMissing(role, baselineRate) {
+  return !(role.rate > 0) && !(role.rateIsCustom && baselineRate > 0);
 }
 
 // ── TOTALS (relocated verbatim from js/costgrid.js:1696-1741) ────────────────
@@ -150,6 +159,7 @@ export function cgComputeColumnTotals(version) {
 }
 
 window.resolveRoleRate = resolveRoleRate;
+window.cgRateIsMissing = cgRateIsMissing;
 window.cgComputeTaskTotals = cgComputeTaskTotals;
 window.cgComputePhaseTotals = cgComputePhaseTotals;
 window.cgComputeGrandTotals = cgComputeGrandTotals;

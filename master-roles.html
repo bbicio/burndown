@@ -124,16 +124,17 @@
                  placeholder="e.g. PM - Project Manager" autocomplete="off">
         </div>
         <div class="col-md-2">
-          <label class="form-label fw-semibold" style="font-size:.82rem">Default rate (€/h)</label>
-          <input type="number" min="0" step="1" class="form-control form-control-sm" v-model="rf.rate"
+          <label class="form-label fw-semibold" style="font-size:.82rem">Default rate ({{ currencyInfo('EUR', currencies).symbol }}/h)</label>
+          <input type="text" inputmode="decimal" class="form-control form-control-sm" v-model="rf.rateText"
+                 @focus="onMoneyFocus('EUR')" @blur="onMoneyBlur('EUR')"
                  @keydown.enter="saveRole" placeholder="e.g. 150">
         </div>
         <div class="col-md-2" v-for="cu in currencies.filter(c => c.code !== 'EUR' && c.active)" :key="cu.code">
           <label class="form-label fw-semibold" style="font-size:.82rem">Default rate ({{ cu.symbol }}/h)</label>
-          <input type="number" min="0" step="0.01" class="form-control form-control-sm"
-                 :value="rf.rateOverrides[cu.code] || ''"
-                 @input="e => { if(e.target.value) rf.rateOverrides[cu.code] = e.target.value; else delete rf.rateOverrides[cu.code]; }"
-                 :placeholder="'e.g. ' + Math.round((rf.rate || 0) * cu.current_rate)">
+          <input type="text" inputmode="decimal" class="form-control form-control-sm"
+                 v-model="rf.overrideTexts[cu.code]"
+                 @focus="onMoneyFocus(cu.code)" @blur="onMoneyBlur(cu.code)"
+                 :placeholder="'e.g. ' + formatMoneyInput((readMoneyInput(rf.rateText, 'EUR', currencies) || 0) * cu.current_rate, cu.code, currencies)">
         </div>
         <div class="col-auto d-flex gap-2">
           <button class="btn btn-primary btn-sm" @click="saveRole" :disabled="rf.loading">
@@ -167,7 +168,7 @@
                 <td class="text-muted" style="font-size:.82rem">{{ extractTeam(r.code) }}</td>
                 <td class="text-end">
                   <span v-if="!r.rate || r.rate === 0" class="rate-warn">⚠️ Not set</span>
-                  <span v-else class="fw-semibold">{{ fmtRate(r.rate) }} €/h</span>
+                  <span v-else class="fw-semibold">{{ formatMoney(r.rate, 'EUR', currencies) }}/h</span>
                 </td>
                 <td class="text-end" style="white-space:nowrap">
                   <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
@@ -208,7 +209,7 @@
 </script>
 <script defer src="js/core.js?v=15"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
-<script type="module" src="js/lib/money.js?v=2"></script>
+<script type="module" src="js/lib/money.js?v=3"></script>
 <script defer src="js/notifications.js?v=3"></script>
 <script type="module" src="js/lib/icons.js?v=2"></script>
 <script defer src="js/nav.js?v=19"></script>
@@ -224,9 +225,15 @@ window.__cfgApp = Vue.createApp({
       roles:    [],
 
       // Role form state
-      rf: { show: false, id: null, label: '', code: '', rate: '', rateOverrides: {}, error: null, loading: false },
+      rf: { show: false, id: null, label: '', code: '', rateText: '', overrideTexts: {}, error: null, loading: false },
 
       currencies:    [],
+
+      // Money helpers for the template (bridged on window by js/lib/money.js)
+      formatMoney:      (...a) => window.formatMoney(...a),
+      formatMoneyInput: (...a) => window.formatMoneyInput(...a),
+      readMoneyInput:   (...a) => window.readMoneyInput(...a),
+      currencyInfo:     (...a) => window.currencyInfo(...a),
 
     };
   },
@@ -278,39 +285,69 @@ window.__cfgApp = Vue.createApp({
       }
     },
 
+    // Text of a stored amount: formatMoneyInput blanks 0, but a stored 0 must reopen as '0'
+    // so that saving again keeps it (a missing amount stays '').
+    amountText(v, code) {
+      if (v == null || v === '') return '';
+      return Number(v) === 0 ? '0' : window.formatMoneyInput(v, code, this.currencies);
+    },
+
     openRoleForm(role) {
+      const overrideTexts = {};
+      for (const [cur, val] of Object.entries(role?.rateOverrides || {})) overrideTexts[cur] = this.amountText(val, cur);
       this.rf = {
         show:         true,
         id:           role?.id    || null,
         label:        role?.label || '',
         code:         role?.code  || '',
-        rate:         role?.rate  != null ? role.rate : '',
-        rateOverrides: role?.rateOverrides ? { ...role.rateOverrides } : {},
+        rateText:     this.amountText(role?.rate, 'EUR'),
+        overrideTexts,
         error: null, loading: false,
       };
       this.$nextTick(() => this.$refs.rfLabel?.focus());
     },
 
+    // code 'EUR' is the base rate; any other code is that currency's override.
+    getMoneyText(code) { return code === 'EUR' ? this.rf.rateText : (this.rf.overrideTexts[code] ?? ''); },
+    setMoneyText(code, t) { if (code === 'EUR') this.rf.rateText = t; else this.rf.overrideTexts[code] = t; },
+
+    // Focus shows the unformatted amount, blur the formatted one; blank or invalid text stays as typed.
+    onMoneyFocus(code) {
+      const text = this.getMoneyText(code);
+      const v = window.readMoneyInput(text, code, this.currencies);
+      if (typeof v !== 'number' || Number.isNaN(v)) return;
+      this.setMoneyText(code, v === 0 ? '0' : window.formatMoneyInput(v, code, this.currencies));
+    },
+    onMoneyBlur(code) {
+      const v = window.readMoneyInput(this.getMoneyText(code), code, this.currencies);
+      if (typeof v !== 'number' || Number.isNaN(v)) return;
+      this.setMoneyText(code, window.formatMoney(v, code, this.currencies));
+    },
+
     async saveRole() {
       const label = this.rf.label.trim();
       const code  = this.rf.code.trim();
-      const rate  = parseFloat(this.rf.rate);
       this.rf.error = null;
+      const badAmount = c => `Enter a valid amount in ${c}, e.g. ${window.moneyFormatExample(c, this.currencies)}.`;
 
       if (!label) { this.rf.error = 'Label is required.'; return; }
       if (!code)  { this.rf.error = 'Code is required.'; return; }
-      if (isNaN(rate) || rate < 0) { this.rf.error = 'Enter a valid rate (≥ 0).'; return; }
+      const rate = window.readMoneyInput(this.rf.rateText, 'EUR', this.currencies);
+      if (rate === null) { this.rf.error = 'Default rate is required.'; return; }
+      if (Number.isNaN(rate)) { this.rf.error = badAmount('EUR'); return; }
+      const rateOverrides = {};
+      for (const [cur, text] of Object.entries(this.rf.overrideTexts)) {
+        const v = window.readMoneyInput(text, cur, this.currencies);
+        if (v === null) continue;
+        if (Number.isNaN(v)) { this.rf.error = badAmount(cur); return; }
+        rateOverrides[cur] = v;
+      }
 
       const dup = this.roles.find(r => r.code.toLowerCase() === code.toLowerCase() && r.id !== this.rf.id);
       if (dup) { this.rf.error = `Code "${code}" is already used by role "${dup.label}".`; return; }
 
       this.rf.loading = true;
       try {
-        const rateOverrides = {};
-        for (const [cur, val] of Object.entries(this.rf.rateOverrides)) {
-          const v = parseFloat(val);
-          if (v > 0) rateOverrides[cur] = v;
-        }
         if (this.rf.id) {
           await Api.roles.update(this.rf.id, { label, code, hourlyRate: rate, rateOverrides });
           const r = this.roles.find(r => r.id === this.rf.id);
@@ -344,10 +381,6 @@ window.__cfgApp = Vue.createApp({
       if (!code) return '—';
       const idx = code.indexOf(' - ');
       return idx > 0 ? code.slice(0, idx).trim() : (code.split(/[\s_-]/)[0] || '—');
-    },
-
-    fmtRate(n) {
-      return Number(n).toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     },
   },
 }).mount('#app');
