@@ -145,7 +145,9 @@ Tests: `version-rate.test.js` (the rule, plus source pins on the three routes); 
 Called before any write, refusal → `400 { error, code: 'MONEY_RULE' }`:
 - `routes/cost-grids.js` structure `PUT`: `roles[].rate` against the version currency; `null` is "unset" and stays `NULL`; a rate of 0 is now stored as 0 (it used to become `NULL`). The second body shape (`tasks[].roles[].rateOverride`) is not checked: B-186.
 - `routes/projects.js` `PUT /:id/tasks`: each resource `hourlyRate` against the project currency; `""`, `null` or absent is saved as 0.
-- `routes/config.js`: `POST /roles` and `PATCH /roles/:id` (the fields present; `hourlyRate: null` = `NULL`; `POST` now stores `rateOverrides`), `PATCH /ratecards/:id/entries` (every entry checked before the first upsert; a missing rate is refused). Base rates are EUR.
+- `routes/config.js`: `POST /roles` and `PATCH /roles/:id` (the fields present; `hourlyRate: null` = `NULL`; `POST` now stores `rateOverrides`), `PATCH /ratecards/:id/entries` (every entry checked with `ratecardEntryError` before any write; a null rate is accepted when the entry has a currency override). Base rates are EUR.
 - `routes/pots.js` `POST /` and `PATCH /:id`: `amount` as EUR, after the existing "amount is required" check.
 
 Out of scope: PTC and phasing amounts (B-185). Tests: `money-rules.test.js`, `money-format.test.js`; `test-api.js` `MR-01..MR-14` (section "Money rules").
+
+`ratecardEntryError(entry, label)` (currency cycle 3, `money-rules.js`): `null` or a message. A non-object is refused; `hourlyRate` is `null`/absent or passes `amountError` as EUR; `rateOverrides` pass `overridesError`; an entry with a null rate and no override key other than `EUR` is refused with ``${label} has neither a rate nor a currency override.``. Used by `PATCH /ratecards/:id/entries`.

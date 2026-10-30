@@ -36,7 +36,7 @@ Loaded via `<script type="module">` on `project-config.html` and `portfolio.html
 
 ## costgrid-calc.js
 
-`resolveRoleRate` rounds the converted rate to the decimals of the currency. `cgRateIsMissing` is the one definition of the editor's "Missing rate" condition.
+`resolveRoleRate` rounds the converted rate to the decimals of the currency. `cgRatecardMaps(entries)` (currency cycle 3) turns a ratecard's entries into `{ rates, overrides }`: a null EUR rate stays out of `rates` (the role's own rate applies) but its overrides stay in; `js/costgrid.js` reads the selected ratecard through it. `cgRateIsMissing` is the one definition of the editor's "Missing rate" condition.
 
 `distributeTaskHours(hours, taskStart, taskEnd, months)` (2026-10-26, dates C3) — spreads a task's hours evenly over the months it spans (all of `months` when it has no dates) and returns `{ byMonth, outside }`, `outside` being the hours in months beyond the proposal period; `costgrid.html`'s `phasingByMonth` reads it for the Monthly Phasing table and its "fall outside the proposal period" line.
 

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { MONEY_RULE_CODE, amountError, overridesError } = require('./money-rules');
+const { MONEY_RULE_CODE, amountError, overridesError, ratecardEntryError } = require('./money-rules');
 
 test('money-rules: the refusal code', () => {
   assert.equal(MONEY_RULE_CODE, 'MONEY_RULE');
@@ -43,4 +43,29 @@ test('overridesError: refuses arrays and non-objects', () => {
   assert.equal(overridesError([], 'L'), 'L must be an object.');
   assert.equal(overridesError('x', 'L'), 'L must be an object.');
   assert.equal(overridesError(5, 'L'), 'L must be an object.');
+});
+
+test('ratecardEntryError: accepts a null EUR rate with an override, and 0', () => {
+  assert.equal(ratecardEntryError({ roleId: 'r', hourlyRate: null, rateOverrides: { USD: 175.5 } }, 'E'), null);
+  assert.equal(ratecardEntryError({ roleId: 'r', hourlyRate: 0, rateOverrides: {} }, 'E'), null);
+  assert.equal(ratecardEntryError({ roleId: 'r', hourlyRate: 150 }, 'E'), null);
+});
+
+test('ratecardEntryError: refuses an entry that expresses nothing', () => {
+  assert.equal(ratecardEntryError({ roleId: 'r', hourlyRate: null, rateOverrides: {} }, 'Entry 1'),
+    'Entry 1 has neither a rate nor a currency override.');
+  assert.notEqual(ratecardEntryError({ roleId: 'r', hourlyRate: null }, 'E'), null);
+});
+
+test('ratecardEntryError: refuses a bad EUR rate or override', () => {
+  assert.notEqual(ratecardEntryError({ hourlyRate: -1 }, 'E'), null);
+  assert.notEqual(ratecardEntryError({ hourlyRate: 1.555 }, 'E'), null);
+  assert.notEqual(ratecardEntryError({ hourlyRate: '150' }, 'E'), null);
+  assert.notEqual(ratecardEntryError({ hourlyRate: null, rateOverrides: { USD: -1 } }, 'E'), null);
+});
+
+test('ratecardEntryError: an EUR key in rateOverrides is not a currency override', () => {
+  assert.equal(ratecardEntryError({ roleId: 'r', hourlyRate: null, rateOverrides: { EUR: 100 } }, 'Entry 1'),
+    'Entry 1 has neither a rate nor a currency override.');
+  assert.equal(ratecardEntryError({ roleId: 'r', hourlyRate: null, rateOverrides: { EUR: 100, USD: 1 } }, 'E'), null);
 });

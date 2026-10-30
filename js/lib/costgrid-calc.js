@@ -104,6 +104,20 @@ export function resolveRoleRate({ roleId, globalRate, currency, currencyRate, ra
   return { eurRate, effectiveRate: converted, isOverride: false };
 }
 
+// Reads a ratecard's entries into the two maps resolveRoleRate takes. A null EUR rate means "agency
+// default": the role stays out of `rates` (so the role's own rate applies) but its overrides still count.
+export function cgRatecardMaps(entries) {
+  const rates = {}, overrides = {};
+  (entries || []).forEach(e => {
+    const rid  = String(e.roleId ?? e.role_id);
+    const rate = parseFloat(e.hourlyRate ?? e.hourly_rate);
+    if (!isNaN(rate)) rates[rid] = rate;
+    const ov = e.rateOverrides ?? e.rate_overrides;
+    if (ov && typeof ov === 'object') overrides[rid] = ov;
+  });
+  return { rates, overrides };
+}
+
 // A rate of 0 is missing unless it is a custom 0 over a baseline above 0. rateIsCustom alone
 // cannot tell: a reloaded version marks every role custom (js/api-sync.js, rate_override).
 export function cgRateIsMissing(role, baselineRate) {
@@ -159,6 +173,7 @@ export function cgComputeColumnTotals(version) {
 }
 
 window.resolveRoleRate = resolveRoleRate;
+window.cgRatecardMaps = cgRatecardMaps;
 window.cgRateIsMissing = cgRateIsMissing;
 window.cgComputeTaskTotals = cgComputeTaskTotals;
 window.cgComputePhaseTotals = cgComputePhaseTotals;

@@ -337,13 +337,9 @@ async function cgUpdateActiveRatecardMap() {
       const rc   = list.find(r => String(r.id) === String(rcId));
       if (rc) {
         _cgIsClientRatecard = rc.client_id != null;
-        (rc.entries || []).forEach(e => {
-          const rid  = String(e.roleId ?? e.role_id);
-          const rate = parseFloat(e.hourlyRate ?? e.hourly_rate);
-          if (!isNaN(rate)) _cgActiveRatecardMap[rid] = rate;
-          const ov = e.rateOverrides ?? e.rate_overrides;
-          if (ov && typeof ov === 'object') _cgActiveRatecardOverrides[rid] = ov;
-        });
+        const m = cgRatecardMaps(rc.entries || []);
+        _cgActiveRatecardMap = m.rates;
+        _cgActiveRatecardOverrides = m.overrides;
       }
     } catch (_) {}
   }

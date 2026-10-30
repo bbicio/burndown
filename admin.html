@@ -209,7 +209,7 @@
   <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script defer src="js/api.js?v=8"></script>
   <script>
-    // esc() dependency for nav.js and ratecards.js (core.js is not included on this page)
+    // esc() dependency for nav.js (core.js is not included on this page)
     function esc(s) {
       return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }

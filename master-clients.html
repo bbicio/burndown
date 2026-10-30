@@ -154,16 +154,12 @@
     </div><!-- /clients tab -->
 
   </div><!-- .page -->
-</div><!-- #app -->
-</div><!-- /.md-content -->
-</div><!-- /.md-layout -->
-
-<!-- Client Rate Card Modal (outside #app) -->
+<!-- Client Rate Card Modal (inside #app: a Vue template) -->
 <div class="modal fade" id="clientRcModal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header border-0" style="background:#0B1840;color:#fff;border-radius:0">
-        <h5 class="modal-title fw-bold" id="clientRcTitle">Rate Card</h5>
+        <h5 class="modal-title fw-bold" id="clientRcTitle">{{ rc.title }}</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-0">
@@ -174,20 +170,53 @@
           </p>
         </div>
         <div id="clientRcBody" class="px-4 pt-3 pb-2">
-          <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+          <div class="text-center py-4" v-if="rc.loading"><div class="spinner-border text-primary"></div></div>
+          <div class="text-danger p-3" v-else-if="rc.loadError">{{ rc.loadError }}</div>
+          <table class="table table-sm table-hover mb-0" style="font-size:.83rem" v-else>
+            <thead>
+              <tr>
+                <th style="font-size:.78rem">Role</th>
+                <th style="font-size:.78rem">Code</th>
+                <th style="font-size:.78rem">Agency default</th>
+                <th style="font-size:.78rem">Client custom ({{ eurSymbol }}/h)</th>
+                <th style="font-size:.78rem" v-for="cu in rcExtraCurrencies" :key="cu.code">{{ cu.symbol }} {{ cu.code }}/h</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in rc.rows" :key="row.roleId">
+                <td class="fw-semibold align-middle" style="font-size:.83rem">{{ row.label || row.code || '' }}</td>
+                <td class="align-middle"><code style="font-size:.78rem">{{ row.code || '' }}</code></td>
+                <td class="align-middle text-muted" style="font-size:.83rem">{{ row.defaults.EUR != null ? moneyText(row.defaults.EUR, 'EUR') : '—' }}</td>
+                <td>
+                  <input type="text" inputmode="decimal" class="form-control form-control-sm"
+                         v-model="row.texts.EUR" :placeholder="rcPlaceholder(row, 'EUR')" style="width:130px"
+                         @focus="onRcFocus(row, 'EUR')" @blur="onRcBlur(row, 'EUR')">
+                </td>
+                <td v-for="cu in rcExtraCurrencies" :key="cu.code">
+                  <input type="text" inputmode="decimal" class="form-control form-control-sm"
+                         v-model="row.texts[cu.code]" :placeholder="rcPlaceholder(row, cu.code)" style="width:130px"
+                         @focus="onRcFocus(row, cu.code)" @blur="onRcBlur(row, cu.code)">
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
       <div class="modal-footer flex-column align-items-stretch gap-2">
-        <div id="clientRcMsg" class="alert py-2 px-3 small mb-0" style="display:none"></div>
+        <div id="clientRcMsg" class="alert py-2 px-3 small mb-0" :class="rc.msgKind === 'success' ? 'alert-success' : 'alert-danger'" v-if="rc.msg">{{ rc.msg }}</div>
         <div class="d-flex justify-content-end gap-2">
           <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-          <button class="btn btn-primary btn-sm" id="clientRcSaveBtn" disabled
-                  onclick="window.__cfgApp && window.__cfgApp.saveClientRatecard()">Save rates</button>
+          <button class="btn btn-primary btn-sm" id="clientRcSaveBtn" :disabled="rc.loading || !!rc.loadError || rc.saving"
+                  @click="saveClientRatecard">Save rates</button>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+</div><!-- #app -->
+</div><!-- /.md-content -->
+</div><!-- /.md-layout -->
 
 </div><!-- /#app-main -->
 </div><!-- /#app-shell -->
@@ -218,6 +247,10 @@ window.__cfgApp = Vue.createApp({
       clients:  [],
 
       roles:    [],
+      currencies: [],
+
+      // Client rate card modal state
+      rc: { title: 'Rate Card', loading: false, loadError: null, msg: null, msgKind: 'success', saving: false, id: null, rows: [] },
 
       // Client form state
       cf: { show: false, id: null, name: '', error: null, loading: false },
@@ -229,6 +262,8 @@ window.__cfgApp = Vue.createApp({
     sortedClients() {
       return [...this.clients].sort((a, b) => a.name.localeCompare(b.name));
     },
+    rcExtraCurrencies() { return this.currencies.filter(cu => cu.code !== 'EUR'); },
+    eurSymbol() { return window.currencyInfo('EUR', this.currencies).symbol; },
   },
 
   async created() {
@@ -240,6 +275,7 @@ window.__cfgApp = Vue.createApp({
     if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
     // the client rate card builds its non-EUR columns from window.__currencies
     try { window.__currencies = await Api.currencies.active(); } catch {}
+    this.currencies = window.__currencies || [];
     await this.loadAll();
     this.ready = true;
   },
@@ -313,22 +349,44 @@ window.__cfgApp = Vue.createApp({
       }
     },
 
-    async openClientRatecard(client) {
-      const modal   = bootstrap.Modal.getOrCreateInstance(document.getElementById('clientRcModal'));
-      const bodyEl  = document.getElementById('clientRcBody');
-      const msgEl   = document.getElementById('clientRcMsg');
-      const saveBtn = document.getElementById('clientRcSaveBtn');
+    // Text of a stored amount: formatMoneyInput blanks 0, but a stored 0 must reopen as '0'
+    // so that saving again keeps it (a missing amount stays '').
+    amountText(v, code) {
+      if (v == null || v === '') return '';
+      return Number(v) === 0 ? '0' : window.formatMoneyInput(v, code, this.currencies);
+    },
+    moneyText(v, code) { return window.formatMoney(v, code, this.currencies); },
 
-      document.getElementById('clientRcTitle').textContent = `Rate Card — ${client.name}`;
-      bodyEl.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>';
-      msgEl.style.display = 'none';
-      saveBtn.disabled = true;
-      window._clientRcId = null;
-      modal.show();
+    rcPlaceholder(row, code) {
+      const d = row.defaults[code];
+      return d != null ? `${this.moneyText(d, code)} (agency)` : 'agency default';
+    },
+    // Focus shows the unformatted amount, blur the formatted one; blank or invalid text stays as typed.
+    onRcFocus(row, code) {
+      const v = window.readMoneyInput(row.texts[code], code, this.currencies);
+      if (typeof v !== 'number' || Number.isNaN(v)) return;
+      row.texts[code] = v === 0 ? '0' : window.formatMoneyInput(v, code, this.currencies);
+    },
+    onRcBlur(row, code) {
+      const v = window.readMoneyInput(row.texts[code], code, this.currencies);
+      if (typeof v !== 'number' || Number.isNaN(v)) return;
+      row.texts[code] = window.formatMoney(v, code, this.currencies);
+    },
+
+    async openClientRatecard(client) {
+      this.rc = { title: `Rate Card — ${client.name}`, loading: true, loadError: null, msg: null, msgKind: 'success', saving: false, id: null, rows: [] };
+      // A later open replaces this.rc: this load writes only to the state it was started for.
+      const state = this.rc;
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('clientRcModal')).show();
 
       try {
-        const allRc = await Api.ratecards.list();
-        const roles  = this.roles.length ? this.roles : await Api.roles.list();
+        // Roles are read afresh: the save replaces the whole set, so a role created since the page
+        // loaded must have its row, or its entry would be dropped.
+        const [allRc, roleList] = await Promise.all([Api.ratecards.list(), Api.roles.list()]);
+        const roles = roleList.map(r => ({
+          id: r.id, label: r.label, code: r.code,
+          rate: r.hourly_rate != null ? Number(r.hourly_rate) : null, rateOverrides: r.rate_overrides || {},
+        }));
 
         // Find or auto-create this client's ratecard
         let rc = allRc.find(r => r.client_id === client.id);
@@ -336,131 +394,68 @@ window.__cfgApp = Vue.createApp({
           rc = await Api.ratecards.create(`${client.name}`, client.id);
           rc = { ...rc, entries: [] };
         }
-        window._clientRcId = rc.id;
 
-        // Entry map for this client's ratecard
-        const entryMap = {};
-        const overrideMap = {};
-        (rc.entries || []).forEach(e => {
-          const rid = String(e.roleId ?? e.role_id);
-          entryMap[rid]    = parseFloat(e.hourlyRate ?? e.hourly_rate) || null;
-          overrideMap[rid] = e.rateOverrides ?? e.rate_overrides ?? {};
-        });
+        const entryOf = {};
+        (rc.entries || []).forEach(e => { entryOf[String(e.roleId ?? e.role_id)] = e; });
 
-        // Global ratecard for fallback defaults
-        const globalRc  = allRc.find(r => !r.client_id);
-        const globalMap = {};
-        if (globalRc) {
-          (globalRc.entries || []).forEach(e => {
-            globalMap[String(e.roleId ?? e.role_id)] = parseFloat(e.hourlyRate ?? e.hourly_rate) || null;
+        const extra = this.rcExtraCurrencies.map(cu => cu.code);
+        state.rows = roles.map(r => {
+          const e = entryOf[String(r.id)];
+          const eur = e ? (e.hourlyRate ?? e.hourly_rate ?? null) : null;
+          const ov = (e && (e.rateOverrides ?? e.rate_overrides)) || {};
+          const defaults = { EUR: r.rate != null ? Number(r.rate) : null };
+          const texts = { EUR: this.amountText(eur, 'EUR') };
+          extra.forEach(c => {
+            defaults[c] = r.rateOverrides?.[c] ?? null;
+            texts[c] = this.amountText(ov[c], c);
           });
-        }
-
-        // Active non-EUR currencies for extra rate columns
-        const nonEurCurrencies = (window.__currencies || []).filter(cu => cu.code !== 'EUR');
-
-        const rows = roles.map(r => {
-          const rid      = String(r.id);
-          const defRate  = (globalMap[rid] ?? parseFloat(r.hourly_rate ?? r.rate)) || null;
-          const custRate = entryMap[rid] ?? '';
-          const defFmt   = defRate != null ? `${Number(defRate).toLocaleString('en', {minimumFractionDigits:0,maximumFractionDigits:2})} €/h` : '—';
-          const overrides = overrideMap[rid] || {};
-          const roleObj   = roles.find(ro => String(ro.id) === rid);
-          const extraCols = nonEurCurrencies.map(cu => {
-            const v           = overrides[cu.code] != null ? overrides[cu.code] : '';
-            const roleDefault = roleObj?.rateOverrides?.[cu.code];
-            const placeholder = roleDefault != null ? `${roleDefault} (agency)` : 'agency default';
-            return `<td>
-              <input type="number" min="0" step="0.01" class="form-control form-control-sm rc-override-rate"
-                     data-role-id="${esc(rid)}" data-currency="${esc(cu.code)}"
-                     value="${v !== '' ? v : ''}"
-                     placeholder="${esc(placeholder)}"
-                     style="width:130px">
-            </td>`;
-          }).join('');
-          return `<tr>
-            <td class="fw-semibold align-middle" style="font-size:.83rem">${esc(r.label || r.code || '')}</td>
-            <td class="align-middle"><code style="font-size:.78rem">${esc(r.code || '')}</code></td>
-            <td class="align-middle text-muted" style="font-size:.83rem">${defFmt}</td>
-            <td>
-              <input type="number" min="0" step="1" class="form-control form-control-sm rc-client-rate"
-                     data-role-id="${esc(rid)}"
-                     value="${custRate !== '' ? custRate : ''}"
-                     placeholder="agency default"
-                     style="width:130px">
-            </td>
-            ${extraCols}
-          </tr>`;
-        }).join('');
-
-        const extraHeaders = nonEurCurrencies.map(cu =>
-          `<th style="font-size:.78rem">${cu.symbol} ${cu.code}/h</th>`).join('');
-        bodyEl.innerHTML = `
-          <table class="table table-sm table-hover mb-0" style="font-size:.83rem">
-            <thead>
-              <tr>
-                <th style="font-size:.78rem">Role</th>
-                <th style="font-size:.78rem">Code</th>
-                <th style="font-size:.78rem">Agency default</th>
-                <th style="font-size:.78rem">Client custom (€/h)</th>
-                ${extraHeaders}
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>`;
-        saveBtn.disabled = false;
+          // Overrides in a currency with no column (deactivated since) are kept, so a save does not drop them.
+          const hidden = {};
+          Object.entries(ov).forEach(([c, v]) => { if (v != null && c !== 'EUR' && !extra.includes(c)) hidden[c] = v; });
+          return { roleId: String(r.id), label: r.label, code: r.code, defaults, texts, hidden };
+        });
+        state.id = rc.id;
       } catch (e) {
-        bodyEl.innerHTML = `<div class="text-danger p-3">${esc(e.message)}</div>`;
+        state.loadError = e.message || 'Failed to load.';
+      } finally {
+        state.loading = false;
       }
     },
 
     async saveClientRatecard() {
-      const msgEl   = document.getElementById('clientRcMsg');
-      const saveBtn = document.getElementById('clientRcSaveBtn');
-      if (!window._clientRcId) return;
-
-      // Collect EUR rates
-      const rateMap   = {};
-      const overridesMap = {};
-      document.querySelectorAll('.rc-client-rate').forEach(inp => {
-        const v = inp.value.trim();
-        if (v !== '') rateMap[inp.dataset.roleId] = parseFloat(v) || 0;
-      });
-      // Collect per-currency overrides
-      document.querySelectorAll('.rc-override-rate').forEach(inp => {
-        const v = inp.value.trim();
-        if (v !== '') {
-          const rid = inp.dataset.roleId;
-          const cur = inp.dataset.currency;
-          if (!overridesMap[rid]) overridesMap[rid] = {};
-          overridesMap[rid][cur] = parseFloat(v);
-        }
-      });
-      // Build entries array (include all roles that have either EUR or override rates)
-      const allRoleIds = new Set([...Object.keys(rateMap), ...Object.keys(overridesMap)]);
+      if (!this.rc.id) return;
+      this.rc.msg = null;
       const entries = [];
-      allRoleIds.forEach(rid => {
-        entries.push({
-          roleId:        rid,
-          hourlyRate:    rateMap[rid] ?? 0,
-          rateOverrides: overridesMap[rid] ?? {},
-        });
-      });
+      for (const row of this.rc.rows) {
+        let hourlyRate = null;
+        const rateOverrides = { ...row.hidden };
+        for (const code of Object.keys(row.texts)) {
+          const v = window.readMoneyInput(row.texts[code], code, this.currencies);
+          if (Number.isNaN(v)) {
+            this.rc.msg = `Enter a valid amount in ${code}, e.g. ${window.moneyFormatExample(code, this.currencies)}.`;
+            this.rc.msgKind = 'error';
+            return;
+          }
+          if (v === null) continue;
+          if (code === 'EUR') hourlyRate = v; else rateOverrides[code] = v;
+        }
+        // A role with every field blank has no entry: the full replacement drops it.
+        if (hourlyRate === null && !Object.keys(rateOverrides).length) continue;
+        entries.push({ roleId: row.roleId, hourlyRate, rateOverrides });
+      }
 
-      saveBtn.disabled = true;
-      msgEl.style.display = 'none';
+      const state = this.rc;
+      state.saving = true;
       try {
-        await Api.ratecards.updateEntries(window._clientRcId, entries);
-        msgEl.textContent = 'Rates saved successfully.';
-        msgEl.className = 'alert alert-success py-2 px-3 small mb-0';
-        msgEl.style.display = 'block';
-        setTimeout(() => { msgEl.style.display = 'none'; }, 3000);
+        await Api.ratecards.updateEntries(state.id, entries);
+        state.msg = 'Rates saved successfully.';
+        state.msgKind = 'success';
+        setTimeout(() => { if (state.msgKind === 'success') state.msg = null; }, 3000);
       } catch (e) {
-        msgEl.textContent = e.message || 'Failed to save.';
-        msgEl.className = 'alert alert-danger py-2 px-3 small mb-0';
-        msgEl.style.display = 'block';
+        state.msg = e.message || 'Failed to save.';
+        state.msgKind = 'error';
       } finally {
-        saveBtn.disabled = false;
+        state.saving = false;
       }
     },
   },

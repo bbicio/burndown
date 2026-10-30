@@ -15,3 +15,7 @@ This file holds the full implementation narrative for `api/src/routes/config.js`
 `POST /programs/:id/share` (pre-existing, unrelated to this cycle) had **no ownership check at all** — any authenticated user could grant themselves editor on every project in an arbitrary program by attaching their own project's `programId` to it first; fixed with the same admin-or-owner/editor check.
 
 `DELETE /programs/:id` stays `requireAdmin` (already blocked while any project is linked, via the existing 400 "Cannot delete program with linked projects").
+
+## Ratecard entries (2026-10-30, currency cycle 3)
+
+`PATCH /ratecards/:id/entries` replaces the whole set in one transaction: entries whose `roleId` is not in the body are deleted, the others are upserted. An empty array clears every entry. `hourlyRate` is `number | null`; `null` means no client EUR rate, the agency default (`roles.hourly_rate`) applies. Each entry goes through `ratecardEntryError` (see [lib.md](lib.md)) before any write; an entry with neither a rate nor a currency override, a missing or malformed `roleId`, an unknown role or a malformed rate card id is refused with `400`, an unknown rate card with `404`. The transaction locks the rate card row (`FOR UPDATE`), so two concurrent replacements run one after the other.

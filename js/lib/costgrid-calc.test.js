@@ -4,7 +4,7 @@ import path from 'node:path';
 import {
   resolveRoleRate, cgComputeTaskTotals, cgComputePhaseTotals, cgComputeGrandTotals, cgComputeColumnTotals,
   versionHasFreeTasks, isVersionCommittedLocked, stripCloneTaskIds, findExistingProgramForProposal,
-  cgApiClientId, distributeTaskHours, cgFreeTasksOf, cgIsTaskAssigned, cgOfferDetailsSummary, cgSectionDefaults, cgRateIsMissing,
+  cgApiClientId, cgRatecardMaps, distributeTaskHours, cgFreeTasksOf, cgIsTaskAssigned, cgOfferDetailsSummary, cgSectionDefaults, cgRateIsMissing,
 } from './costgrid-calc.js';
 
 describe('findExistingProgramForProposal', () => {
@@ -438,5 +438,28 @@ describe('distributeTaskHours', () => {
   it('spreads a task without dates over every period month', () => {
     expect(distributeTaskHours(10, '', '', ['2026-04', '2026-05']))
       .toEqual({ byMonth: { '2026-04': 5, '2026-05': 5 }, outside: 0 });
+  });
+});
+
+describe('cgRatecardMaps (currency cycle 3)', () => {
+  it('resolveRoleRate keeps the role rate when the ratecard has no entry for it', () => {
+    const base = { roleId: 'a', globalRate: 100, ratecardMap: {}, ratecardOverrides: {}, roleOverrides: {} };
+    expect(resolveRoleRate({ ...base, currency: 'EUR', currencyRate: 1 }).effectiveRate).toBe(100);
+    expect(resolveRoleRate({ ...base, currency: 'USD', currencyRate: 1.1 }).effectiveRate).toBe(110);
+  });
+  it('cgRatecardMaps leaves a null EUR rate out of rates but keeps its overrides', () => {
+    const { rates, overrides } = cgRatecardMaps([
+      { roleId: 'a', hourlyRate: null, rateOverrides: { USD: 175.5 } },
+      { role_id: 'b', hourly_rate: '0', rate_overrides: {} },
+      { roleId: 'c', hourlyRate: '120.00' },
+    ]);
+    expect(rates).toEqual({ b: 0, c: 120 });
+    expect(overrides.a).toEqual({ USD: 175.5 });
+  });
+  it('a null EUR rate resolves to the role rate in EUR and to the override in USD', () => {
+    const { rates, overrides } = cgRatecardMaps([{ roleId: 'a', hourlyRate: null, rateOverrides: { USD: 175.5 } }]);
+    const base = { roleId: 'a', globalRate: 100, ratecardMap: rates, ratecardOverrides: overrides, roleOverrides: {} };
+    expect(resolveRoleRate({ ...base, currency: 'EUR', currencyRate: 1 }).effectiveRate).toBe(100);
+    expect(resolveRoleRate({ ...base, currency: 'USD', currencyRate: 1.1 }).effectiveRate).toBe(175.5);
   });
 });
