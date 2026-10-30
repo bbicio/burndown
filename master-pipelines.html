@@ -295,11 +295,12 @@
           <!-- Amount (always) -->
           <div class="col-md-3">
             <label class="form-label fw-semibold" style="font-size:.82rem">
-              Target (€)
+              Target ({{ currencyInfo('EUR', activeCurrencies).symbol }})
               <span v-if="potf.id" class="fw-normal text-muted" style="font-size:.75rem"> — updating for {{ potf.targetLabel }}</span>
             </label>
-            <input type="number" min="0" step="1000" class="form-control form-control-sm"
-                   v-model="potf.amount" @keydown.enter="savePot" placeholder="e.g. 500000">
+            <input type="text" inputmode="decimal" class="form-control form-control-sm"
+                   v-model="potf.amountText" @focus="onPotAmountFocus" @blur="onPotAmountBlur"
+                   @keydown.enter="savePot" placeholder="e.g. 500000">
           </div>
 
           <!-- Note (edit only, required) -->
@@ -550,7 +551,7 @@ window.__cfgApp = Vue.createApp({
       pots:            [],
       potsYear:        new Date().getFullYear(),
       pipelineSummary: [],   // 5 stage cards: [{pipeline, count, total}]
-      potf: { show: false, id: null, targetType: 'client', targetId: '', year: new Date().getFullYear(), amount: '', targetLabel: '', error: null, loading: false },
+      potf: { show: false, id: null, targetType: 'client', targetId: '', year: new Date().getFullYear(), amountText: '', targetLabel: '', error: null, loading: false },
       pipelineYears:   [],   // admin-managed pipeline years (all, active + inactive)
       yearTotals:      {},   // { year: { pot_total, achieved_total } }
 
@@ -748,6 +749,9 @@ window.__cfgApp = Vue.createApp({
   },
 
   methods: {
+    // Money helper for the template (bridged on window by js/lib/money.js)
+    currencyInfo: (...a) => window.currencyInfo(...a),
+
     async loadAll() {
       this.globalError = null;
       try {
@@ -862,7 +866,8 @@ window.__cfgApp = Vue.createApp({
           targetId: pot.client_group_id || pot.client_id || '',
           targetLabel: pot.client_group_name || pot.client_name || '',
           year: pot.year,
-          amount: pot.amount,
+          // formatMoneyInput blanks 0, but a stored 0 must reopen as '0' so saving again keeps it
+          amountText: (pot.amount == null || pot.amount === '') ? '' : (Number(pot.amount) === 0 ? '0' : window.formatMoneyInput(pot.amount, 'EUR', window.__currencies)),
           note: '',
           error: null, loading: false,
         };
@@ -871,15 +876,27 @@ window.__cfgApp = Vue.createApp({
           show: true, id: null,
           targetType: 'client', targetId: '',
           targetLabel: '', year: this.activePipeline?.year || this.potsYear,
-          amount: '', note: '', error: null, loading: false,
+          amountText: '', note: '', error: null, loading: false,
         };
       }
     },
 
+    // Focus shows the unformatted amount, blur the formatted one; blank or invalid text stays as typed.
+    onPotAmountFocus() {
+      const v = window.readMoneyInput(this.potf.amountText, 'EUR', window.__currencies);
+      if (typeof v !== 'number' || Number.isNaN(v)) return;
+      this.potf.amountText = v === 0 ? '0' : window.formatMoneyInput(v, 'EUR', window.__currencies);
+    },
+    onPotAmountBlur() {
+      const v = window.readMoneyInput(this.potf.amountText, 'EUR', window.__currencies);
+      if (typeof v !== 'number' || Number.isNaN(v)) return;
+      this.potf.amountText = window.formatMoney(v, 'EUR', window.__currencies);
+    },
+
     async savePot() {
       this.potf.error = null;
-      const amount = parseFloat(this.potf.amount);
-      if (isNaN(amount) || amount < 0) { this.potf.error = 'Enter a valid amount (≥ 0).'; return; }
+      const amount = window.readMoneyInput(this.potf.amountText, 'EUR', window.__currencies);
+      if (amount == null || Number.isNaN(amount)) { this.potf.error = 'Enter a valid amount in EUR, e.g. ' + window.moneyFormatExample('EUR', window.__currencies) + '.'; return; }
 
       if (this.potf.id && !this.potf.note?.trim()) {
         this.potf.error = 'Reason for change is required when updating a POT.';
