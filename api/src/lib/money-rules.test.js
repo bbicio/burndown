@@ -63,3 +63,9 @@ test('ratecardEntryError: refuses a bad EUR rate or override', () => {
   assert.notEqual(ratecardEntryError({ hourlyRate: '150' }, 'E'), null);
   assert.notEqual(ratecardEntryError({ hourlyRate: null, rateOverrides: { USD: -1 } }, 'E'), null);
 });
+
+test('ratecardEntryError: an EUR key in rateOverrides is not a currency override', () => {
+  assert.equal(ratecardEntryError({ roleId: 'r', hourlyRate: null, rateOverrides: { EUR: 100 } }, 'Entry 1'),
+    'Entry 1 has neither a rate nor a currency override.');
+  assert.equal(ratecardEntryError({ roleId: 'r', hourlyRate: null, rateOverrides: { EUR: 100, USD: 1 } }, 'E'), null);
+});

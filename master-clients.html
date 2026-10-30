@@ -380,7 +380,13 @@ window.__cfgApp = Vue.createApp({
       bootstrap.Modal.getOrCreateInstance(document.getElementById('clientRcModal')).show();
 
       try {
-        const allRc = await Api.ratecards.list();
+        // Roles are read afresh: the save replaces the whole set, so a role created since the page
+        // loaded must have its row, or its entry would be dropped.
+        const [allRc, roleList] = await Promise.all([Api.ratecards.list(), Api.roles.list()]);
+        const roles = roleList.map(r => ({
+          id: r.id, label: r.label, code: r.code,
+          rate: r.hourly_rate != null ? Number(r.hourly_rate) : null, rateOverrides: r.rate_overrides || {},
+        }));
 
         // Find or auto-create this client's ratecard
         let rc = allRc.find(r => r.client_id === client.id);
@@ -393,7 +399,7 @@ window.__cfgApp = Vue.createApp({
         (rc.entries || []).forEach(e => { entryOf[String(e.roleId ?? e.role_id)] = e; });
 
         const extra = this.rcExtraCurrencies.map(cu => cu.code);
-        state.rows = this.roles.map(r => {
+        state.rows = roles.map(r => {
           const e = entryOf[String(r.id)];
           const eur = e ? (e.hourlyRate ?? e.hourly_rate ?? null) : null;
           const ov = (e && (e.rateOverrides ?? e.rate_overrides)) || {};

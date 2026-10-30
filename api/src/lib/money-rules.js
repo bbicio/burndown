@@ -34,7 +34,9 @@ function ratecardEntryError(entry, label) {
   const err = overridesError(rateOverrides, `${label}: rate overrides`);
   if (err) return err;
   const hasRate = hourlyRate !== null && hourlyRate !== undefined;
-  const hasOverride = rateOverrides && typeof rateOverrides === 'object' && Object.keys(rateOverrides).length > 0;
+  // The EUR rate lives in hourlyRate: an EUR key in rateOverrides is never read, so it does not count.
+  const hasOverride = rateOverrides && typeof rateOverrides === 'object'
+    && Object.keys(rateOverrides).some(k => k !== 'EUR');
   if (!hasRate && !hasOverride) return `${label} has neither a rate nor a currency override.`;
   return null;
 }

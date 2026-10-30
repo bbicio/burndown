@@ -20,4 +20,11 @@ describe('master-clients rate card modal', () => {
       expect(afterAwait).not.toMatch(/this\.rc\./);
     });
   }
+  // The entries PATCH replaces the whole set: rows built from a role list loaded at page load would
+  // drop the entry of a role created since, so each open reads the roles afresh.
+  it('openClientRatecard builds its rows from a fresh role list', () => {
+    const body = method('openClientRatecard');
+    expect(body).toMatch(/Api\.roles\.list\(\)/);
+    expect(body).not.toMatch(/this\.roles\.map/);
+  });
 });
