@@ -858,6 +858,11 @@
         (this.project.groups || []).forEach(g => { g.entries = (g.entries || []).filter(e => e.role.trim()); });
         // Sold-hours validation — reject the save if any value is outside the allowed set.
         this.jsonError = '';
+        // A rate field still holding invalid text would otherwise save its previous value silently.
+        if (Object.keys(this.rateInvalid).length) {
+          this.jsonError = `Fix the highlighted hourly rates before saving: enter amounts in ${this.project.currency}, e.g. ${window.moneyFormatExample(this.project.currency, window.__currencies)}.`;
+          return;
+        }
         for (const task of this.project.tasks) {
           for (const r of task.resources) {
             if (r.soldHours && !isValidSoldHours(r.soldHours)) {

@@ -1177,7 +1177,7 @@ Vue.createApp({
         ...r,
         already,
         effectiveRate: resolved.effectiveRate,
-        curCode: currency,   // board 5.16 shows the ISO code ("135.00 EUR/h"), not the symbol
+        curCode: currency,   // the badge formats the rate with formatMoney in this currency ("€ 135,00/h")
         hasOverride: resolved.isOverride,
         hasCustom: this.isClientRatecard && rcRate !== undefined && rcRate !== (r.rate || 0),
         zeroRate: !resolved.effectiveRate || resolved.effectiveRate === 0,
@@ -1599,7 +1599,7 @@ Vue.createApp({
     },
     onRateFocus(role) {
       this.rateFocusedRole = role.roleCode;
-      this.rateSnapshot = { rate: role.rate, rateIsCustom: role.rateIsCustom };
+      this.rateSnapshot = { rate: role.rate, rateIsCustom: role.rateIsCustom, baseline: this.roleBaseline(role).effectiveRate };
       this.rateRaw = (role.rateIsCustom && role.rate === 0) ? '0' : window.formatMoneyInput(role.rate, this.draft.currency || 'EUR', this.currencies);
       this.rateEdited = false;
       this.rateInvalid = false;
@@ -1611,8 +1611,9 @@ Vue.createApp({
       if (v === null) { this.rateInvalid = false; return; }
       if (Number.isNaN(v)) { this.rateInvalid = true; return; }
       this.rateInvalid = false;
+      const baseline = this.rateSnapshot ? this.rateSnapshot.baseline : this.roleBaseline(role).effectiveRate;
       role.rate = v;
-      role.rateIsCustom = v !== this.roleBaseline(role).effectiveRate;
+      role.rateIsCustom = v !== baseline;
       cgScheduleAutoSave();
     },
     onRateBlur(role) {

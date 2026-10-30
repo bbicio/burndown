@@ -34,6 +34,11 @@ describe('project-config resource hourly rate input', () => {
   it('reads the text only through window.readMoneyInput', () => {
     expect(html).toContain('window.readMoneyInput(');
   });
+  it('refuses to save while a rate field holds invalid text', () => {
+    const save = html.slice(html.indexOf('async onSave()'), html.indexOf('this.saving = true', html.indexOf('async onSave()')));
+    expect(save).toContain('if (Object.keys(this.rateInvalid).length)');
+    expect(save).toContain('Fix the highlighted hourly rates before saving');
+  });
   it('keeps the invalid flag out of the resource object', () => {
     expect(html).not.toContain('_rateInvalid');
   });
