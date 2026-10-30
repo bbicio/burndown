@@ -811,7 +811,7 @@ Vue.createApp({
       shareListRefreshTick: 0, // bumped when #shareModal closes, to reload the inline share-list
       loading: true, loadError: null,
       clients: [], currencies: [], formatMoney: window.formatMoney, moneyFormatExample: window.moneyFormatExample, cgRateIsMissing: window.cgRateIsMissing,
-      rateFocusedRole: null, rateRaw: '', rateInvalid: false, rateEdited: false,
+      rateFocusedRole: null, rateRaw: '', rateInvalid: false, rateEdited: false, rateSnapshot: null,
       ratecardMap: {}, ratecardOverrides: {}, isClientRatecard: false, allRatecards: [],
       offerDetailsCollapsed: false, summaryCollapsed: false, sharingCollapsed: false, tagsCollapsed: false,
       attributeLists: [], versionTagItemIds: [], versionTagRows: [], tagSaving: false,
@@ -1599,6 +1599,7 @@ Vue.createApp({
     },
     onRateFocus(role) {
       this.rateFocusedRole = role.roleCode;
+      this.rateSnapshot = { rate: role.rate, rateIsCustom: role.rateIsCustom };
       this.rateRaw = (role.rateIsCustom && role.rate === 0) ? '0' : window.formatMoneyInput(role.rate, this.draft.currency || 'EUR', this.currencies);
       this.rateEdited = false;
       this.rateInvalid = false;
@@ -1615,8 +1616,12 @@ Vue.createApp({
       cgScheduleAutoSave();
     },
     onRateBlur(role) {
-      if (this.rateEdited && this.rateRaw.trim() === '') this.resetRoleRate(role);
-      this.rateFocusedRole = null; this.rateRaw = ''; this.rateInvalid = false; this.rateEdited = false;
+      if (this.rateInvalid && this.rateSnapshot) {
+        role.rate = this.rateSnapshot.rate;
+        role.rateIsCustom = this.rateSnapshot.rateIsCustom;
+        cgScheduleAutoSave();
+      } else if (this.rateEdited && this.rateRaw.trim() === '') this.resetRoleRate(role);
+      this.rateFocusedRole = null; this.rateRaw = ''; this.rateInvalid = false; this.rateEdited = false; this.rateSnapshot = null;
     },
     moveRole(role, dir) {
       const idx = this.draft.roles.findIndex(r => r.roleCode === role.roleCode);

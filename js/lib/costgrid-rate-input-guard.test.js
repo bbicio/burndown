@@ -43,6 +43,18 @@ describe('costgrid.html role rate input', () => {
     expect(inp).toContain('this.rateEdited = true');
   });
 
+  it('blur restores the rate snapshotted on focus when the text is invalid', () => {
+    const foc = html.match(/onRateFocus\(role\) \{[\s\S]*?\n    \},/)?.[0] || '';
+    const blur = html.match(/onRateBlur\(role\) \{[\s\S]*?\n    \},/)?.[0] || '';
+    expect(foc).toContain('this.rateSnapshot = { rate: role.rate, rateIsCustom: role.rateIsCustom }');
+    expect(blur).toContain('if (this.rateInvalid && this.rateSnapshot)');
+    expect(blur).toContain('role.rate = this.rateSnapshot.rate');
+    expect(blur).toContain('role.rateIsCustom = this.rateSnapshot.rateIsCustom');
+    expect(blur).toContain('cgScheduleAutoSave()');
+    expect(blur).toContain('this.rateSnapshot = null');
+    expect(blur.indexOf('this.rateInvalid && this.rateSnapshot')).toBeLessThan(blur.indexOf('resetRoleRate'));
+  });
+
   it('focus on a custom 0 keeps the text 0', () => {
     expect(html).toMatch(/role\.rateIsCustom && role\.rate === 0/);
   });
