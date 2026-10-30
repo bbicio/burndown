@@ -42,15 +42,20 @@ ALTER TABLE ratecard_entries ALTER COLUMN hourly_rate DROP NOT NULL;
 
 Si cancellano `_injectRatecardsModal`, `_rcLoad`, `_rcPopulateClientSelect`, `_rcRenderList`, `_rcRowHtml`, `_rcCreate`, `_rcClonePrompt`, `_rcDelete`, `_rcOpenEdit`, `_rcRenderEntries`, `_rcBack`, `_rcSaveName`, `_rcSaveEntries`, `openRatecardsModal` e lo stato che usano solo loro. Resta `loadRatecardsForDropdown`. Ogni `?v=` che cita `js/ratecards.js` viene aggiornato.
 
+## 5b. Cost grid — lettura della rate card
+
+Il ciclo di `js/costgrid.js` che trasforma le voci in mappe (`if (!isNaN(rate)) _cgActiveRatecardMap[rid] = rate`) diventa una funzione pura in `js/lib/costgrid-calc.js`, `cgRatecardMaps(entries) → { rates, overrides }`. Una voce con `hourlyRate` `null` non entra in `rates`, i suoi override sì. `js/costgrid.js` chiama la funzione al posto del ciclo, e il `?v=` di `costgrid-calc.js` viene aggiornato. `/budgets` non fa parte della prova: legge `task_roles.rate_override`, che la structure `PUT` salva sempre.
+
 ## 6. Guardia
 
 `js/lib/money-guard.test.js`: `PENDING_CYCLE_3` e il suo uso scompaiono, quindi la regola "nessun campo soldi `type="number"`" copre anche `master-clients.html` e `js/ratecards.js`.
 
 ## 7. Test
 
-- **Caratterizzazione, prima del cambio** (`test-api.js`): un ruolo senza voce nella rate card del cliente fa usare `roles.hourly_rate` nei budget del cost grid (`/budgets`).
+- **Caratterizzazione, prima del cambio** (`js/lib/costgrid-calc.test.js`): `resolveRoleRate` con una `ratecardMap` che non contiene il ruolo restituisce la tariffa del ruolo, sia in EUR sia convertita.
+- `js/lib/costgrid-calc.test.js`: `cgRatecardMaps` con una voce `hourlyRate: null` + override USD → il ruolo manca da `rates` ed è in `overrides`; con `0` → `rates` vale 0; `resolveRoleRate` su quelle mappe dà la tariffa del ruolo in EUR e l'override in USD.
 - `test-api.js`:
-  - override USD e EUR vuoto salvati → la voce ha `hourly_rate` `NULL`, nessuna voce EUR 0 per quel ruolo, e i budget usano `roles.hourly_rate`;
+  - override USD e EUR vuoto salvati → `GET /api/ratecards/:id` restituisce la voce con `hourlyRate` `null` e i suoi override, e per quel ruolo non esiste nessuna voce EUR 0;
   - una voce salvata, poi il ruolo omesso dal body → la voce non esiste più;
   - una voce con `hourlyRate: null` e override vuoti → `400 MONEY_RULE`, nessuna scrittura;
   - `hourlyRate: 0` → salvato come 0 (decisione M-04 del ciclo 1);
@@ -74,7 +79,7 @@ Si cancellano `_injectRatecardsModal`, `_rcLoad`, `_rcPopulateClientSelect`, `_r
 ## Criteri di accettazione
 
 1. **Nessun `type="number"` nella rate card** — nessun campo della modale in `master-clients.html` né in `js/ratecards.js` è `type="number"`, e `js/lib/money-guard.test.js` non ha più l'esenzione `PENDING_CYCLE_3` (`npm test`).
-2. **EUR vuoto non diventa 0** — `test-api.js`: dopo il salvataggio di una voce con override e EUR vuoto, `hourly_rate` è `NULL` e i budget del cost grid usano la tariffa del ruolo.
+2. **EUR vuoto non diventa 0** — `test-api.js`: dopo il salvataggio di una voce con override e EUR vuoto, `GET /api/ratecards/:id` restituisce `hourlyRate` `null`, e in `js/lib/costgrid-calc.test.js` `cgRatecardMaps` + `resolveRoleRate` su quella voce danno la tariffa del ruolo in EUR (`npm test`).
 3. **Una voce svuotata sparisce** — `test-api.js`: una voce salvata e poi omessa non restituisce più la tariffa precedente.
 4. **Editor morto cancellato** — `openRatecardsModal` e le funzioni `_rc*` non esistono più in `js/ratecards.js`; `loadRatecardsForDropdown` sì.
 5. **Formato nella valuta della colonna** — nella modale, un valore EUR scritto `1234,5` diventa `1.234,50` al blur, uno USD scritto `1234.5` diventa `1,234.50`, e "Agency default" è formattato nella valuta della colonna (verifica manuale con `scripts/shoot.mjs` o browser).
@@ -88,3 +93,4 @@ Si cancellano `_injectRatecardsModal`, `_rcLoad`, `_rcPopulateClientSelect`, `_r
 4. **La modale entra in `#app` e diventa un template Vue.** Alternativa scartata: listener sulla stringa HTML. Perché: la tecnica del ciclo 2 avrebbe una seconda forma.
 5. **L'editor di `js/ratecards.js` viene cancellato, non allineato.** Alternativa scartata: allinearlo. Perché: non ha chiamanti.
 6. **"Agency default" viene solo dal ruolo, e il ramo "rate card senza cliente" del form viene eliminato.** Alternativa scartata: ricopiarlo nel template e mettere il finding in BACKLOG. Perché: quelle righe vengono riscritte comunque e il ramo contraddice il cost grid; in BACKLOG vanno solo le route che possono ancora creare una rate card senza cliente.
+7. **Il cost grid legge la rate card con `cgRatecardMaps`, pura e testata, e il criterio 2 si prova con un test vitest, non con `/budgets`.** Alternativa scartata: provarlo con `/budgets`. Perché: la decisione è emersa scrivendo il Piano, e `/budgets` legge solo `rate_override`, mai `ratecard_entries`, quindi non proverebbe nulla.
