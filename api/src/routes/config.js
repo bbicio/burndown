@@ -1,8 +1,8 @@
 const express = require('express');
-const { query } = require('../db/client');
+const { query, pool } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { isAdminRole } = require('../lib/is-admin');
-const { amountError, overridesError, MONEY_RULE_CODE } = require('../lib/money-rules');
+const { amountError, overridesError, ratecardEntryError, MONEY_RULE_CODE } = require('../lib/money-rules');
 const { sendShareNotification } = require('../services/email');
 let _createNotification; // lazy-loaded from notifications route to avoid circular deps
 
@@ -402,19 +402,33 @@ router.patch('/ratecards/:id/entries', requireAdmin, async (req, res, next) => {
     if (!Array.isArray(entries)) return res.status(400).json({ error: 'Body must be an array' });
 
     for (let i = 0; i < entries.length; i++) {
-      const e = entries[i];
-      const moneyErr = amountError(e?.hourlyRate, 'EUR', `Hourly rate of entry ${i + 1}`)
-        || overridesError(e?.rateOverrides, `Rate overrides of entry ${i + 1}`);
+      if (typeof entries[i]?.roleId !== 'string') return res.status(400).json({ error: `Entry ${i + 1} needs a roleId` });
+      const moneyErr = ratecardEntryError(entries[i], `Entry ${i + 1}`);
       if (moneyErr) return res.status(400).json({ error: moneyErr, code: MONEY_RULE_CODE });
     }
 
-    for (const e of entries) {
-      const overrides = (e.rateOverrides && typeof e.rateOverrides === 'object') ? e.rateOverrides : {};
-      await query(`
-        INSERT INTO ratecard_entries (ratecard_id, role_id, hourly_rate, rate_overrides)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (ratecard_id, role_id) DO UPDATE SET hourly_rate = $3, rate_overrides = $4
-      `, [req.params.id, e.roleId, e.hourlyRate, JSON.stringify(overrides)]);
+    // Full replacement: roles missing from the body lose their entry.
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        'DELETE FROM ratecard_entries WHERE ratecard_id = $1 AND NOT (role_id = ANY($2::uuid[]))',
+        [req.params.id, entries.map(e => e.roleId)]
+      );
+      for (const e of entries) {
+        const overrides = (e.rateOverrides && typeof e.rateOverrides === 'object') ? e.rateOverrides : {};
+        await client.query(`
+          INSERT INTO ratecard_entries (ratecard_id, role_id, hourly_rate, rate_overrides)
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (ratecard_id, role_id) DO UPDATE SET hourly_rate = $3, rate_overrides = $4
+        `, [req.params.id, e.roleId, e.hourlyRate ?? null, JSON.stringify(overrides)]);
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
     }
     res.json({ ok: true });
   } catch (err) { next(err); }

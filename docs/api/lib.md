@@ -149,3 +149,5 @@ Called before any write, refusal → `400 { error, code: 'MONEY_RULE' }`:
 - `routes/pots.js` `POST /` and `PATCH /:id`: `amount` as EUR, after the existing "amount is required" check.
 
 Out of scope: PTC and phasing amounts (B-185). Tests: `money-rules.test.js`, `money-format.test.js`; `test-api.js` `MR-01..MR-14` (section "Money rules").
+
+`ratecardEntryError(entry, label)` (currency cycle 3, `money-rules.js`): `null` or a message. A non-object is refused; `hourlyRate` is `null`/absent or passes `amountError` as EUR; `rateOverrides` pass `overridesError`; an entry with a null rate and no override key is refused with ``${label} has neither a rate nor a currency override.``. Used by `PATCH /ratecards/:id/entries`.
