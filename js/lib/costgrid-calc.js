@@ -85,9 +85,10 @@ window.cgSectionDefaults = cgSectionDefaults;
 
 // ── RATE RESOLUTION ──────────────────────────────────────────────────────────
 // Deduplicates the 3-tier rate chain (ratecard per-currency override → role-level
-// per-currency override → EUR baseline × live exchange rate) that was previously
+// per-currency override → EUR baseline × currencyRate) that was previously
 // repeated, slightly differently, in cgSyncRoleRatesToBaseline, cgPreviewRateChange,
 // and the role-selector list's rate badge.
+// Callers pass the version's own currencyRate; only the currency-change preview passes the target currency's live rate.
 export function resolveRoleRate({ roleId, globalRate, currency, currencyRate, ratecardMap = {}, ratecardOverrides = {}, roleOverrides = {} }) {
   const rid = String(roleId);
   const ratecardEurRate = ratecardMap[rid];

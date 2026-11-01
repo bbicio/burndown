@@ -101,6 +101,15 @@ describe('cgCloneGrid — order, payload and outcome', () => {
     });
   });
 
+  // B-183 review: role baselines read the version's currencyRate, so the in-memory clone must carry the rate
+  // the server gave the new version, or an in-place clone converts at 1.0 until a reload.
+  it('seeds the clone with the rate the server saved on the new version', async () => {
+    api.versionsCreate.mockResolvedValue({ id: 'newVer', currency_rate: '1.200000' });
+    const { fn } = build({ srcOverrides: { currency: 'USD', currencyRate: 1.1 } });
+    await fn('cg1', 'v1');
+    expect(store.newCg.versions[0].currencyRate).toBe(1.2);
+  });
+
   it('passes a null clientId for the unassigned sentinel', async () => {
     const { fn } = build({ srcOverrides: { clientId: '__unassigned__' } });
     await fn('cg1', 'v1');
