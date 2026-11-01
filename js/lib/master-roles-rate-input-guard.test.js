@@ -36,7 +36,7 @@ describe('master-roles rate inputs', () => {
     expect(body).toContain('moneyFormatExample(');
   });
   it('opens a stored 0 as "0", not blank', () => {
-    expect(html).not.toMatch(/===s*0s*?s*'0'/);
+    expect(html).not.toMatch(/===\s*0\s*\?\s*'0'/);
     expect(html).toContain('keepZero: true');
   });
   it('passes the stored amounts to readMoneyInput', () => {

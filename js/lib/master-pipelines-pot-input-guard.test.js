@@ -23,14 +23,14 @@ describe('master-pipelines POT amount input', () => {
   it('every potf initialiser sets amountText, and a stored 0 reopens as 0', () => {
     expect(page).toMatch(/potf: \{[^}]*amountText: ''/);
     expect(open).toContain('amountText');
-    expect(page).not.toMatch(/===s*0s*?s*'0'/);
+    expect(page).not.toMatch(/===\s*0\s*\?\s*'0'/);
     expect(page).toContain('keepZero: true');
     expect(open).not.toMatch(/\bamount:/);
   });
   it('passes the stored amount to readMoneyInput in save, focus and blur', () => {
     const handlers = page.slice(page.indexOf('onPotAmountFocus() {'), page.indexOf('async savePot()'));
     expect(save).toContain('stored: this.potf.stored');
-    expect(handlers.match(/stored: this.potf.stored/g).length).toBe(2);
+    expect(handlers.match(/stored: this\.potf\.stored/g).length).toBe(2);
   });
   it('provides currencyInfo to the template as a method', () => {
     expect(page).toContain('currencyInfo: (...a) => window.currencyInfo(...a)');
