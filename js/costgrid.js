@@ -347,14 +347,12 @@ async function cgUpdateActiveRatecardMap() {
 }
 
 // Update r.rate for all roles that haven't been manually customised.
-// For non-EUR cost grids: use rate_overrides[currency] if set, else convert EUR × exchange rate.
+// For non-EUR cost grids: use rate_overrides[currency] if set, else convert EUR × the version's own currencyRate.
 // Pass force=true to reset even roles marked as rateIsCustom (used on explicit currency change).
 function cgSyncRoleRatesToBaseline(force = false) {
   if (!_cgDraft) return;
   const currency     = _cgDraft.currency || 'EUR';
-  const currencyRate = parseFloat(
-    (window.__currencies || []).find(c => c.code === currency)?.current_rate
-  ) || 1.0;
+  const currencyRate = parseFloat(_cgDraft.currencyRate) || 1.0;
   const allRoles = typeof getRoles === 'function' ? getRoles() : [];
   _cgDraft.roles.forEach(r => {
     if (r.rateIsCustom && !force) return;
@@ -371,6 +369,7 @@ function cgSyncRoleRatesToBaseline(force = false) {
 }
 
 // Compute what each role's rate would be in targetCurrency without mutating _cgDraft.
+// Reads the target currency's current_rate because that is the rate versionRate (api/src/lib/version-rate.js) gives the version on a currency change.
 // Returns array of { roleCode, roleLabel, currentRate, newRate }.
 function cgPreviewRateChange(targetCurrency) {
   if (!_cgDraft) return [];
