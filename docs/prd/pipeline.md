@@ -109,7 +109,7 @@ Accessed via "+ New Proposal" or the Edit button on a card. The editor opens as 
 - A grid has one or more **phases** (named work packages)
 - Each phase has one or more **tasks**
 - Each task has estimated **hours** per **role** (despite the "days" terminology used loosely elsewhere in this document's own history — the actual stored, calculated, and displayed unit throughout the cost grid is hours, entered directly, not converted from a day count)
-- Pass-through costs (PTC) can be added at task level
+- Pass-through costs (PTC) can be added at task level; text that cannot be read in the version's currency outlines the cell red with an example of the format, and leaving the cell restores the value it had before (2026-11-01)
 
 **Role columns:**
 - Added/removed dynamically
