@@ -41,13 +41,19 @@ export function formatMoney(amount, code, currencies, { rounded = false } = {}) 
 }
 
 // Text shown in a money <input> while it has focus: same number format the parser reads.
-export function formatMoneyInput(amount, code, currencies) {
+// keepZero: a stored 0 opens as "0" instead of blank (for fields where 0 is a real value).
+export function formatMoneyInput(amount, code, currencies, { keepZero = false } = {}) {
   const n = parseFloat(amount);
-  if (!(n > 0)) return '';
+  if (!(n > 0) && !(keepZero && n === 0)) return '';
   const info = currencyInfo(code, currencies);
   return numberFormat(info.locale, {
     useGrouping: false, minimumFractionDigits: 0, maximumFractionDigits: info.digits,
   }).format(n);
+}
+
+function secondaryGroupSize(locale) {
+  const ints = numberFormat(locale, { useGrouping: 'always' }).formatToParts(1234567).filter(p => p.type === 'integer');
+  return ints.length >= 2 ? ints[ints.length - 2].value.length : 3;
 }
 
 function separators(locale) {
@@ -56,6 +62,8 @@ function separators(locale) {
   return {
     group: parts.find(p => p.type === 'group')?.value || '',
     decimal: parts.find(p => p.type === 'decimal')?.value || '.',
+    // size of the groups after the first one: 2 for hi-IN (1,23,456), 3 elsewhere.
+    secondary: secondaryGroupSize(locale),
   };
 }
 
@@ -84,21 +92,38 @@ export function parseMoney(text, code, currencies) {
   return Number(v.toFixed(info.digits));
 }
 
+const escRe = ch => ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // Like parseMoney but tells the three outcomes apart: null = blank, NaN = not a valid amount in the
-// locale convention of `code`, otherwise the amount.
-export function readMoneyInput(text, code, currencies) {
+// locale convention of `code`, otherwise the amount. The symbol or ISO code is accepted only at either end.
+// `stored`: the amount the field was opened with; an unchanged read (equal to it once rounded to the
+// currency digits) returns it untouched, so decimals beyond the currency's are not lost.
+export function readMoneyInput(text, code, currencies, { stored } = {}) {
   if (String(text ?? '').trim() === '') return null;
   const info = currencyInfo(code, currencies);
-  const { group, decimal } = separators(info.locale);
-  const s = stripDecoration(text, info);
-  const esc = ch => ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const G = /^['’]$/.test(group) ? "['’]" : esc(group);
-  const D = esc(decimal);
-  const intPart = group ? `(?:\\d+|\\d{1,3}(?:${G}\\d{3})+)` : '\\d+';
+  const { group, decimal, secondary } = separators(info.locale);
+  let s = String(text)
+    .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x660))
+    .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x6F0))
+    .trim();
+  const tags = [escRe(info.symbol)];
+  if (/^[A-Za-z]+$/.test(info.code)) tags.push(escRe(info.code));
+  const lead = new RegExp(`^(?:${tags.join('|')})\\s*`, 'i');
+  const trail = new RegExp(`\\s*(?:${tags.join('|')})$`, 'i');
+  s = s.replace(lead, '');
+  s = s.replace(trail, '').trim();
+  const G = /^\s$/u.test(group) ? '[ \\u00a0\\u202f]' : /^['’]$/.test(group) ? "['’]" : escRe(group);
+  const D = escRe(decimal);
+  const intPart = group
+    ? `(?:\\d+|\\d{1,${secondary}}(?:${G}\\d{${secondary}})*${G}\\d{3})`
+    : '\\d+';
   const frac = info.digits > 0 ? `(?:${D}\\d{0,${info.digits}})?` : '';
   if (!new RegExp(`^${intPart}${frac}$`).test(s)) return NaN;
   const plain = (group ? s.replace(new RegExp(G, 'g'), '') : s).replace(new RegExp(D), '.');
-  return Number(plain);
+  const amount = Number(plain);
+  if (stored != null && stored !== '' && Number.isFinite(Number(stored))
+      && amount === Number(Number(stored).toFixed(info.digits))) return Number(stored);
+  return amount;
 }
 
 // The number format of a currency, as a hint next to an input: 1234.5 without the symbol.
