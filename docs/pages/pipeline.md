@@ -112,3 +112,7 @@ Spec `docs/superpowers/specs/2026-10-23-hardening-costgrid-design.md`, report `d
 ## Thin column scrollbar (2026-10-29, ui-quick-wins cycle)
 
 Spec `docs/superpowers/specs/2026-10-29-ui-quick-wins-design.md`, report `docs/superpowers/reports/2026-10-29-ui-quick-wins-finish-cycle.md`. `.pb-col-body` in `css/pipeline.css` (`?v=5`) has a 6px `::-webkit-scrollbar` (thumb `--border-medium`, `--text-muted` on hover, transparent track) for Chrome/Edge/Safari; Firefox gets `scrollbar-width: thin` and `scrollbar-color` inside `@supports not selector(::-webkit-scrollbar)`, because Chrome 121+ drops the pseudo-elements on an element that sets those properties. Below 768px the column body is `overflow: visible`, so nothing changes there. Other scroll areas of the page keep the default scrollbar. `.pb-col-body` is also declared, redundantly, in `css/style.css` (B-173). Pinned by `js/lib/pipeline-guard.test.js`.
+
+## Refresh-rate confirmation text (2026-11-01, currency cycle 4)
+
+Spec `docs/superpowers/specs/2026-11-01-currency-c4-b183-version-rate-baselines-design.md`, report `docs/superpowers/reports/2026-11-01-currency-c4-version-rate-finish-cycle.md`. `confirmRefreshRate` says "Budget amounts remain in <code>. The EUR equivalent and the editor's "reset to" rates change to the new rate." A saved version reloads every role as Custom (the structure save snapshots each role's rate), so a refresh does not re-price it; the editor's reset baselines follow the version's rate since B-183. Pinned by `js/lib/costgrid-version-rate.test.js`.

@@ -414,3 +414,5 @@ Guards: `js/lib/costgrid-rate-input-guard.test.js`. Manual cases: `TEST_CASES.md
 ## Role baselines use the version's rate (2026-11-01, currency cycle 4, B-183)
 
 Spec `docs/superpowers/specs/2026-11-01-currency-c4-b183-version-rate-baselines-design.md`. `roleBaseline`, the role selector's badge (`roleModalRoleRow`) and `cgSyncRoleRatesToBaseline` convert with `draft.currencyRate`; the live rate is read only on a currency change (the preview and `onCurrencyChange`), and `onCurrencyChange` sets `draft.currencyRate` before syncing. Function detail: [docs/js/costgrid.md](../js/costgrid.md).
+
+A saved version reloads every role with hours as Custom (`cgLoadStructureFromApi` marks a stored `rate_override` as custom, and the structure save writes one for every such role), so on open the non-forced sync leaves those rates alone: what B-183 changes for them is the reset value, the role selector's badge and roles added afterwards.
