@@ -50,3 +50,7 @@ Cold review c1-c4 fatta: `docs/superpowers/audits/2026-11-01-currency-c1-c4-cold
 4. `docs/superpowers/briefs/2026-11-01-currency-f4-ratecard-replace-and-clientless-brief.md` — B-209, B-207, B-212, B-211 (evoluzione).
 
 Già fatto senza ciclo: B-190, B-208 e B-214 chiuse; aperta B-216; `docs/js/lib.md` corretto (F-03). **Prossimo: `/brainstorming` sul Brief f1.**
+
+## Aggiornamento 2026-11-01 (f1 pronto per l'esecuzione)
+
+Spec f1 `docs/superpowers/specs/2026-11-01-currency-f1-client-money-fields-design.md` (`127b7fe`, con B-217 in backlog e nel brief f2) e Piano `docs/superpowers/plans/2026-11-01-currency-f1-client-money-fields.md` (`e558f53`) committati, non pushati. Modalità confermata dall'utente: **subagent-driven** (implementatori Sonnet, coordinatore e review finale Opus), classe **high-risk**. **Prossimo:** creare il worktree `currency-f1-client-money-fields` come da PROCESS.md §6.1b ed eseguire il Piano con `superpowers:subagent-driven-development`; Task 1 prima, Task 2-4 indipendenti, Task 5 per ultimo; chiusura con `/finish-cycle`.
