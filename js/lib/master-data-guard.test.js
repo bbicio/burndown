@@ -30,7 +30,7 @@ const PAGES = [
   { file: 'master-clients.html',       href: '/master-clients.html',
     api: ['clients', 'currencies', 'ratecards', 'roles'],
     // the rate card builds its non-EUR columns from window.__currencies and its
-    // "agency default" placeholders from the mapped roles (rateOverrides)
+    // "agency default" placeholders from the roles it reads afresh on each open
     must: ['id="clientRcModal"', 'window.__cfgApp',
       'window.__currencies = await Api.currencies.active()', 'this.roles    = roles.map('] },
   { file: 'master-client-groups.html', href: '/master-client-groups.html',
