@@ -37,7 +37,7 @@ Clone + Delete Draft buttons in editor toolbar; `cgConfirmDeleteGrid(cgId, name,
 
 `cgPublishDraft()`'s success path ends with `window.location.reload()` — a Vue-reactivity gap (`_cgDraft.pipeline` is mutated via the raw global reference, bypassing Vue's proxy-based change detection, so `isDraft` and other Draft-only UI never invalidate) meant the Publish button and related controls stayed visible after a successful publish until a manual reload; its failure path uses `showConfirm()` instead of a native `alert()`, matching this file's established modal idiom.
 
-Non-EUR role rate 3-level fallback (ratecard override → `role.rateOverrides[currency]` → EUR rate × factor) is no longer duplicated inline — `cgSyncRoleRatesToBaseline` and `cgPreviewRateChange` both now call the shared `resolveRoleRate()` (`js/lib/costgrid-calc.js`).
+Non-EUR role rate 3-level fallback (ratecard override → `role.rateOverrides[currency]` → EUR rate × factor) is no longer duplicated inline — `cgSyncRoleRatesToBaseline` and `cgPreviewRateChange` both now call the shared `resolveRoleRate()` (`js/lib/costgrid-calc.js`). Baselines (`cgSyncRoleRatesToBaseline`, and in `costgrid.html` `roleBaseline`/`roleModalRoleRow`) use the version's own `draft.currencyRate`; the target currency's live rate is read only on a currency change — by `cgPreviewRateChange` (the preview) and by `onCurrencyChange`, which stores it in `draft.currencyRate` **before** the forced sync. Pinned by `js/lib/costgrid-version-rate.test.js` (B-183).
 
 ## Compact header + task assignment (R1–R5)
 
