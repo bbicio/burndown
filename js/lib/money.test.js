@@ -188,3 +188,69 @@ describe('moneyFormatExample', () => {
     expect(moneyFormatExample('JPY', C)).toBe('1,235');
   });
 });
+
+const FR = [{ code: 'EUR', symbol: '€', locale: 'fr-FR' }];
+
+describe('readMoneyInput — strict read (f1)', () => {
+  it('re-reads formatMoney for every test currency, above 1,00,000 too', () => {
+    for (const c of ['EUR', 'USD', 'CHF', 'JPY', 'INR', 'SEK', 'EGP'])
+      for (const a of [123456, 1234567.5, 100000000]) {
+        const v = Number(a.toFixed(currencyInfo(c, C).digits));
+        expect(readMoneyInput(formatMoney(v, c, C), c, C)).toBe(v);
+      }
+    expect(readMoneyInput(formatMoney(1234567.5, 'EUR', FR), 'EUR', FR)).toBe(1234567.5);
+  });
+  it('reads Indian grouping and refuses western grouping for INR', () => {
+    expect(readMoneyInput('₹ 1,23,456.00', 'INR', C)).toBe(123456);
+    expect(readMoneyInput('1,00,00,000', 'INR', C)).toBe(10000000);
+    expect(readMoneyInput('123,456', 'INR', C)).toBeNaN();
+  });
+  it('refuses a symbol or a space between the digits', () => {
+    expect(readMoneyInput('1 50', 'EUR', C)).toBeNaN();
+    expect(readMoneyInput('15€0', 'EUR', C)).toBeNaN();
+    expect(readMoneyInput('1E£ 5', 'EGP', C)).toBeNaN();
+  });
+  it('checks space groups (plain, U+00A0, U+202F)', () => {
+    expect(readMoneyInput('1 234 567,5', 'EUR', FR)).toBe(1234567.5);
+    expect(readMoneyInput('1 234 567,5', 'EUR', FR)).toBe(1234567.5);
+    expect(readMoneyInput('1 234 567,5', 'EUR', FR)).toBe(1234567.5);
+    expect(readMoneyInput('12 34 567,5', 'EUR', FR)).toBeNaN();
+    expect(readMoneyInput('1 234,5', 'SEK', C)).toBe(1234.5);
+    expect(readMoneyInput('1 234,5', 'SEK', C)).toBe(1234.5);
+  });
+  it('accepts the symbol or ISO code at either end', () => {
+    expect(readMoneyInput('1.234,50 €', 'EUR', C)).toBe(1234.5);
+    expect(readMoneyInput('EUR 1.234,50', 'EUR', C)).toBe(1234.5);
+    expect(readMoneyInput('$175.50', 'USD', C)).toBe(175.5);
+  });
+});
+
+describe('readMoneyInput — stored (f1)', () => {
+  it('keeps an untouched stored value with more decimals than the currency', () => {
+    expect(readMoneyInput(formatMoneyInput(108.7654, 'EUR', C), 'EUR', C, { stored: 108.7654 })).toBe(108.7654);
+    expect(readMoneyInput(formatMoney(108.7654, 'EUR', C), 'EUR', C, { stored: 108.7654 })).toBe(108.7654);
+    expect(readMoneyInput('108,7', 'EUR', C, { stored: 108.7654 })).toBe(108.7);
+  });
+  it('agrees with Intl on half-way values (toFixed would not)', () => {
+    for (const v of [1.005, 2.675]) {
+      expect(readMoneyInput(formatMoneyInput(v, 'EUR', C), 'EUR', C, { stored: v })).toBe(v);
+      expect(readMoneyInput(formatMoney(v, 'EUR', C), 'EUR', C, { stored: v })).toBe(v);
+    }
+  });
+  it('coerces a NUMERIC string and returns a number', () => {
+    expect(readMoneyInput('108,77', 'EUR', C, { stored: '108.7654' })).toBe(108.7654);
+  });
+  it('leaves blank and invalid results alone', () => {
+    expect(readMoneyInput('', 'EUR', C, { stored: 5 })).toBeNull();
+    expect(readMoneyInput('x', 'EUR', C, { stored: 5 })).toBeNaN();
+  });
+});
+
+describe('formatMoneyInput — keepZero (f1)', () => {
+  it('opens a stored 0 as "0" only with keepZero', () => {
+    expect(formatMoneyInput(0, 'EUR', C, { keepZero: true })).toBe('0');
+    expect(formatMoneyInput('0.00', 'EUR', C, { keepZero: true })).toBe('0');
+    expect(formatMoneyInput(0, 'EUR', C)).toBe('');
+    for (const v of [null, undefined, '']) expect(formatMoneyInput(v, 'EUR', C, { keepZero: true })).toBe('');
+  });
+});

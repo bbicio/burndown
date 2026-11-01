@@ -214,10 +214,11 @@
     <div class="cfg-month-grid">
       <div class="cfg-month-cell" v-for="ym in projectMonths" :key="ym">
         <div class="cfg-month-label">{{ monthLabel(ym) }}</div>
-        <input type="text" class="form-control form-control-sm text-end"
-               :readonly="isViewer" :value="project.phasing[ym] > 0 ? formatMoney(project.phasing[ym], project.currency, currencies) : ''"
-               @focus="e => { e.target.value = moneyInput(project.phasing[ym]); }"
-               @blur="e => { const v = parseMoney(e.target.value); if (v > 0) project.phasing[ym] = v; else delete project.phasing[ym]; e.target.value = v > 0 ? formatMoney(v, project.currency, currencies) : ''; }">
+        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': phasingInvalid[ym] !== undefined }"
+               :title="phasingInvalid[ym] !== undefined ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''"
+               :readonly="isViewer" :value="phasingInvalid[ym] !== undefined ? phasingInvalid[ym] : (project.phasing[ym] > 0 ? formatMoney(project.phasing[ym], project.currency, currencies) : '')"
+               @focus="e => { if (phasingInvalid[ym] === undefined) e.target.value = moneyInput(project.phasing[ym]); }"
+               @blur="onPhasingBlur(ym, $event)">
       </div>
     </div>
     <div class="d-flex align-items-center gap-2 mt-2" style="font-size:var(--text-base)">
@@ -258,10 +259,11 @@
       <div class="col-sm-3"><label class="form-label small text-muted mb-1">Title</label><input type="text" class="form-control form-control-sm" v-model="item.title" :disabled="isViewer" placeholder="e.g. Software licence"></div>
       <div class="col-sm-4"><label class="form-label small text-muted mb-1">Note</label><input type="text" class="form-control form-control-sm" v-model="item.note" :disabled="isViewer" placeholder="optional description"></div>
       <div class="col-sm-2"><label class="form-label small text-muted mb-1">Amount</label>
-        <input type="text" class="form-control form-control-sm text-end" :readonly="isViewer"
-               :value="item.amount > 0 ? formatMoney(item.amount, project.currency, currencies) : ''"
-               @focus="e => { e.target.value = moneyInput(item.amount); }"
-               @blur="e => { item.amount = parseMoney(e.target.value); e.target.value = item.amount > 0 ? formatMoney(item.amount, project.currency, currencies) : ''; }">
+        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': ptcInvalid[pi] !== undefined }" :readonly="isViewer"
+               :title="ptcInvalid[pi] !== undefined ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''"
+               :value="ptcInvalid[pi] !== undefined ? ptcInvalid[pi] : (item.amount > 0 ? formatMoney(item.amount, project.currency, currencies) : '')"
+               @focus="e => { if (ptcInvalid[pi] === undefined) e.target.value = moneyInput(item.amount); }"
+               @blur="onPtcBlur(pi, $event)">
       </div>
       <div class="col-sm-2"><label class="form-label small text-muted mb-1">Month</label>
         <select class="form-select form-select-sm" v-model="item.month" :disabled="isViewer">
@@ -406,7 +408,7 @@
 <script defer src="js/api.js?v=8"></script>
 <script defer src="js/core.js?v=15"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
-<script type="module" src="js/lib/money.js?v=3"></script>
+<script type="module" src="js/lib/money.js?v=4"></script>
 <script type="module" src="js/lib/project-rules.js?v=1"></script>
 <script defer src="js/notifications.js?v=3"></script>
 <script defer src="js/clients.js"></script>
@@ -438,6 +440,8 @@
         formatMoney: window.formatMoney,
         moneyFormatExample: window.moneyFormatExample,
         rateInvalid: {},
+        ptcInvalid: {},
+        phasingInvalid: {},
         notFound: false,
         project: null,
         isNewProject: false,
@@ -675,6 +679,7 @@
         const title = this.project.ptc[pi].title.trim() || 'this entry';
         if (await this.showConfirm(`Remove PTC "${title}"?`)) {
           this.project.ptc.splice(pi, 1);
+          this.dropPtcInvalid(pi);
         }
       },
       addGroup() {
@@ -863,6 +868,8 @@
           this.jsonError = `Fix the highlighted hourly rates before saving: enter amounts in ${this.project.currency}, e.g. ${window.moneyFormatExample(this.project.currency, window.__currencies)}.`;
           return;
         }
+        const moneyError = this.moneyFieldsError();
+        if (moneyError) { this.jsonError = moneyError; return; }
         for (const task of this.project.tasks) {
           for (const r of task.resources) {
             if (r.soldHours && !isValidSoldHours(r.soldHours)) {
@@ -954,13 +961,49 @@
       onResRateBlur(ti, ri, e) {
         const res = this.project.tasks[ti].resources[ri];
         const key = ti + '-' + ri;
-        const v = window.readMoneyInput(e.target.value, this.project?.currency, window.__currencies);
+        const v = window.readMoneyInput(e.target.value, this.project?.currency, window.__currencies, { stored: res.hourlyRate });
         if (Number.isNaN(v)) { this.rateInvalid[key] = e.target.value; return; }
         res.hourlyRate = v === null ? 0 : v;
         delete this.rateInvalid[key];
         e.target.value = res.hourlyRate > 0 ? this.formatMoney(res.hourlyRate, this.project.currency, this.currencies) : '';
       },
-      parseMoney(str) { return window.parseMoney(str, this.project?.currency, window.__currencies); },
+      // Monthly phasing blur: blank or 0 -> month removed, a number -> stored, invalid text -> flagged, nothing written.
+      onPhasingBlur(ym, e) {
+        const stored = this.project.phasing[ym];
+        const v = window.readMoneyInput(e.target.value, this.project?.currency, window.__currencies, { stored });
+        if (Number.isNaN(v)) { this.phasingInvalid[ym] = e.target.value; return; }
+        delete this.phasingInvalid[ym];
+        if (v > 0) this.project.phasing[ym] = v; else delete this.project.phasing[ym];
+        e.target.value = v > 0 ? this.formatMoney(v, this.project.currency, this.currencies) : '';
+      },
+      // PTC amount blur: blank -> 0, a number -> stored, invalid text -> flagged, nothing written.
+      onPtcBlur(pi, e) {
+        const item = this.project.ptc[pi];
+        const v = window.readMoneyInput(e.target.value, this.project?.currency, window.__currencies, { stored: item.amount });
+        if (Number.isNaN(v)) { this.ptcInvalid[pi] = e.target.value; return; }
+        delete this.ptcInvalid[pi];
+        item.amount = v === null ? 0 : v;
+        e.target.value = item.amount > 0 ? this.formatMoney(item.amount, this.project.currency, this.currencies) : '';
+      },
+      // ptcInvalid is keyed by PTC index: after a splice, drop the removed entry and shift the ones below it.
+      dropPtcInvalid(pi) {
+        const next = {};
+        for (const [key, text] of Object.entries(this.ptcInvalid)) {
+          const i = Number(key);
+          if (i === pi) continue;
+          next[i > pi ? i - 1 : i] = text;
+        }
+        this.ptcInvalid = next;
+      },
+      // Save gate for the PTC and phasing amounts; a phasing entry for a month outside the period is dropped, not blocking.
+      moneyFieldsError() {
+        const months = this.projectMonths;
+        for (const ym of Object.keys(this.phasingInvalid)) if (!months.includes(ym)) delete this.phasingInvalid[ym];
+        if (Object.keys(this.ptcInvalid).length || Object.keys(this.phasingInvalid).length) {
+          return `Fix the highlighted PTC and phasing amounts before saving: enter amounts in ${this.project.currency}, e.g. ${window.moneyFormatExample(this.project.currency, window.__currencies)}.`;
+        }
+        return '';
+      },
       toIso(x) { return window.toIso(x); },
       toYmd(x) { return window.toYmd(x); },
       taskDateBounds(task, side) {
@@ -1093,6 +1136,7 @@ Outside the project period, not distributed: ${fmtB(result.outsideBudget)} · ${
             : '');
         if (await this.showConfirm(message)) {
           this.project.phasing = result.newPhasing;
+          this.phasingInvalid = {};
           this.project.planning = result.newPlanning;
         }
       },
@@ -1131,6 +1175,7 @@ Outside the project period, not distributed: ${fmtB(result.outsideBudget)} · ${
 
         if (await this.showConfirm(message)) {
           this.project.phasing = result.newPhasing;
+          this.phasingInvalid = {};
           this.project.planning = result.newPlanning;
         }
       },

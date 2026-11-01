@@ -31,6 +31,9 @@ describe('project-config resource hourly rate input', () => {
     expect(tag).toContain("@focus=\"e => { if (rateInvalid[ti + '-' + ri] === undefined)");
     expect(html).toContain('this.rateInvalid[key] = e.target.value');
   });
+  it('passes the stored rate so an untouched value is kept', () => {
+    expect(html).toContain('{ stored: res.hourlyRate }');
+  });
   it('reads the text only through window.readMoneyInput', () => {
     expect(html).toContain('window.readMoneyInput(');
   });

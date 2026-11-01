@@ -209,7 +209,7 @@
 </script>
 <script defer src="js/core.js?v=15"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
-<script type="module" src="js/lib/money.js?v=3"></script>
+<script type="module" src="js/lib/money.js?v=4"></script>
 <script defer src="js/notifications.js?v=3"></script>
 <script type="module" src="js/lib/icons.js?v=2"></script>
 <script defer src="js/nav.js?v=19"></script>
@@ -225,7 +225,7 @@ window.__cfgApp = Vue.createApp({
       roles:    [],
 
       // Role form state
-      rf: { show: false, id: null, label: '', code: '', rateText: '', overrideTexts: {}, error: null, loading: false },
+      rf: { show: false, id: null, label: '', code: '', rateText: '', overrideTexts: {}, stored: {}, error: null, loading: false },
 
       currencies:    [],
 
@@ -285,16 +285,16 @@ window.__cfgApp = Vue.createApp({
       }
     },
 
-    // Text of a stored amount: formatMoneyInput blanks 0, but a stored 0 must reopen as '0'
-    // so that saving again keeps it (a missing amount stays '').
+    // Text of a stored amount; keepZero makes a stored 0 reopen as '0' (a missing amount stays '').
     amountText(v, code) {
       if (v == null || v === '') return '';
-      return Number(v) === 0 ? '0' : window.formatMoneyInput(v, code, this.currencies);
+      return window.formatMoneyInput(v, code, this.currencies, { keepZero: true });
     },
 
     openRoleForm(role) {
       const overrideTexts = {};
-      for (const [cur, val] of Object.entries(role?.rateOverrides || {})) overrideTexts[cur] = this.amountText(val, cur);
+      const stored = { EUR: role?.rate == null ? null : Number(role.rate) };
+      for (const [cur, val] of Object.entries(role?.rateOverrides || {})) { overrideTexts[cur] = this.amountText(val, cur); stored[cur] = val == null ? null : Number(val); }
       this.rf = {
         show:         true,
         id:           role?.id    || null,
@@ -302,6 +302,8 @@ window.__cfgApp = Vue.createApp({
         code:         role?.code  || '',
         rateText:     this.amountText(role?.rate, 'EUR'),
         overrideTexts,
+        // the amounts the form opened with: an untouched field is sent back as the stored value, not re-rounded
+        stored,
         error: null, loading: false,
       };
       this.$nextTick(() => this.$refs.rfLabel?.focus());
@@ -314,12 +316,12 @@ window.__cfgApp = Vue.createApp({
     // Focus shows the unformatted amount, blur the formatted one; blank or invalid text stays as typed.
     onMoneyFocus(code) {
       const text = this.getMoneyText(code);
-      const v = window.readMoneyInput(text, code, this.currencies);
+      const v = window.readMoneyInput(text, code, this.currencies, { stored: this.rf.stored[code] });
       if (typeof v !== 'number' || Number.isNaN(v)) return;
-      this.setMoneyText(code, v === 0 ? '0' : window.formatMoneyInput(v, code, this.currencies));
+      this.setMoneyText(code, window.formatMoneyInput(v, code, this.currencies, { keepZero: true }));
     },
     onMoneyBlur(code) {
-      const v = window.readMoneyInput(this.getMoneyText(code), code, this.currencies);
+      const v = window.readMoneyInput(this.getMoneyText(code), code, this.currencies, { stored: this.rf.stored[code] });
       if (typeof v !== 'number' || Number.isNaN(v)) return;
       this.setMoneyText(code, window.formatMoney(v, code, this.currencies));
     },
@@ -332,12 +334,12 @@ window.__cfgApp = Vue.createApp({
 
       if (!label) { this.rf.error = 'Label is required.'; return; }
       if (!code)  { this.rf.error = 'Code is required.'; return; }
-      const rate = window.readMoneyInput(this.rf.rateText, 'EUR', this.currencies);
+      const rate = window.readMoneyInput(this.rf.rateText, 'EUR', this.currencies, { stored: this.rf.stored['EUR'] });
       if (rate === null) { this.rf.error = 'Default rate is required.'; return; }
       if (Number.isNaN(rate)) { this.rf.error = badAmount('EUR'); return; }
       const rateOverrides = {};
       for (const [cur, text] of Object.entries(this.rf.overrideTexts)) {
-        const v = window.readMoneyInput(text, cur, this.currencies);
+        const v = window.readMoneyInput(text, cur, this.currencies, { stored: this.rf.stored[cur] });
         if (v === null) continue;
         if (Number.isNaN(v)) { this.rf.error = badAmount(cur); return; }
         rateOverrides[cur] = v;

@@ -516,7 +516,7 @@
 </script>
 <script defer src="js/core.js?v=15"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
-<script type="module" src="js/lib/money.js?v=3"></script>
+<script type="module" src="js/lib/money.js?v=4"></script>
 <script defer src="js/notifications.js?v=3"></script>
 <script type="module" src="js/lib/icons.js?v=2"></script>
 <script defer src="js/nav.js?v=19"></script>
@@ -551,7 +551,7 @@ window.__cfgApp = Vue.createApp({
       pots:            [],
       potsYear:        new Date().getFullYear(),
       pipelineSummary: [],   // 5 stage cards: [{pipeline, count, total}]
-      potf: { show: false, id: null, targetType: 'client', targetId: '', year: new Date().getFullYear(), amountText: '', targetLabel: '', error: null, loading: false },
+      potf: { show: false, id: null, targetType: 'client', targetId: '', year: new Date().getFullYear(), amountText: '', stored: null, targetLabel: '', error: null, loading: false },
       pipelineYears:   [],   // admin-managed pipeline years (all, active + inactive)
       yearTotals:      {},   // { year: { pot_total, achieved_total } }
 
@@ -866,8 +866,8 @@ window.__cfgApp = Vue.createApp({
           targetId: pot.client_group_id || pot.client_id || '',
           targetLabel: pot.client_group_name || pot.client_name || '',
           year: pot.year,
-          // formatMoneyInput blanks 0, but a stored 0 must reopen as '0' so saving again keeps it
-          amountText: (pot.amount == null || pot.amount === '') ? '' : (Number(pot.amount) === 0 ? '0' : window.formatMoneyInput(pot.amount, 'EUR', window.__currencies)),
+          amountText: (pot.amount == null || pot.amount === '') ? '' : window.formatMoneyInput(pot.amount, 'EUR', window.__currencies, { keepZero: true }),
+          stored: pot.amount == null || pot.amount === '' ? null : Number(pot.amount),
           note: '',
           error: null, loading: false,
         };
@@ -876,26 +876,26 @@ window.__cfgApp = Vue.createApp({
           show: true, id: null,
           targetType: 'client', targetId: '',
           targetLabel: '', year: this.activePipeline?.year || this.potsYear,
-          amountText: '', note: '', error: null, loading: false,
+          amountText: '', stored: null, note: '', error: null, loading: false,
         };
       }
     },
 
     // Focus shows the unformatted amount, blur the formatted one; blank or invalid text stays as typed.
     onPotAmountFocus() {
-      const v = window.readMoneyInput(this.potf.amountText, 'EUR', window.__currencies);
+      const v = window.readMoneyInput(this.potf.amountText, 'EUR', window.__currencies, { stored: this.potf.stored });
       if (typeof v !== 'number' || Number.isNaN(v)) return;
-      this.potf.amountText = v === 0 ? '0' : window.formatMoneyInput(v, 'EUR', window.__currencies);
+      this.potf.amountText = window.formatMoneyInput(v, 'EUR', window.__currencies, { keepZero: true });
     },
     onPotAmountBlur() {
-      const v = window.readMoneyInput(this.potf.amountText, 'EUR', window.__currencies);
+      const v = window.readMoneyInput(this.potf.amountText, 'EUR', window.__currencies, { stored: this.potf.stored });
       if (typeof v !== 'number' || Number.isNaN(v)) return;
       this.potf.amountText = window.formatMoney(v, 'EUR', window.__currencies);
     },
 
     async savePot() {
       this.potf.error = null;
-      const amount = window.readMoneyInput(this.potf.amountText, 'EUR', window.__currencies);
+      const amount = window.readMoneyInput(this.potf.amountText, 'EUR', window.__currencies, { stored: this.potf.stored });
       if (amount == null || Number.isNaN(amount)) { this.potf.error = 'Enter a valid amount in EUR, e.g. ' + window.moneyFormatExample('EUR', window.__currencies) + '.'; return; }
 
       if (this.potf.id && !this.potf.note?.trim()) {
