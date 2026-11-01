@@ -40,3 +40,13 @@ I quattro cicli nati dall'audit `docs/superpowers/audits/2026-10-29-currency-for
 ## Aggiornamento 2026-11-01 (dopo c4)
 
 c4 mergiato `2704c47` (report `docs/superpowers/reports/2026-11-01-currency-c4-version-rate-finish-cycle.md`); **prossimo: cold review c1-c4** (solo verifica), portandoci dentro la decisione 2 della Spec c4 che non regge per le versioni salvate (tutti i ruoli si ricaricano Custom) e i follow-up B-213/B-214/B-215; poi i finding per tema come sopra, e decidere se chiudere B-208 dopo aver rieseguito il conteggio.
+
+## Aggiornamento 2026-11-01 (dopo la cold review)
+
+Cold review c1-c4 fatta: `docs/superpowers/audits/2026-11-01-currency-c1-c4-cold-review.md` (`810e0c1`). Il punto 3 sopra è **superato** dai quattro Brief seguenti, in quest'ordine confermato dall'utente:
+1. `docs/superpowers/briefs/2026-11-01-currency-f1-client-money-fields-brief.md` — B-196, B-197, B-204, B-205, B-210, B-216 (audit-fix);
+2. `docs/superpowers/briefs/2026-11-01-currency-f2-server-validation-brief.md` — B-185, B-186, B-188 (audit-fix); B-185 è la validazione server di PTC/phasing, non i campi client come diceva il punto 3 (F-04);
+3. `docs/superpowers/briefs/2026-11-01-currency-f3-custom-rate-and-version-rate-brief.md` — B-195 con F-01, B-213, B-215 con F-05 (evoluzione);
+4. `docs/superpowers/briefs/2026-11-01-currency-f4-ratecard-replace-and-clientless-brief.md` — B-209, B-207, B-212, B-211 (evoluzione).
+
+Già fatto senza ciclo: B-190, B-208 e B-214 chiuse; aperta B-216; `docs/js/lib.md` corretto (F-03). **Prossimo: `/brainstorming` sul Brief f1.**
