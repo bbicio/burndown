@@ -36,7 +36,16 @@ describe('master-roles rate inputs', () => {
     expect(body).toContain('moneyFormatExample(');
   });
   it('opens a stored 0 as "0", not blank', () => {
-    expect(html).toContain("=== 0 ? '0'");
+    expect(html).not.toMatch(/===s*0s*?s*'0'/);
+    expect(html).toContain('keepZero: true');
+  });
+  it('passes the stored amounts to readMoneyInput', () => {
+    const body = saveRoleBody();
+    expect(body).toContain('stored: this.rf.stored[');
+    expect(body).toContain("stored: this.rf.stored['EUR']");
+    const from = html.indexOf('onMoneyFocus(code)');
+    const handlers = html.slice(from, html.indexOf('async saveRole()'));
+    expect(handlers.match(/stored:/g).length).toBeGreaterThanOrEqual(2);
   });
   it('shows the table rate through formatMoney', () => {
     expect(html).toContain("formatMoney(r.rate, 'EUR', currencies)");

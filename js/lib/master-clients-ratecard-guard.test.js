@@ -27,4 +27,25 @@ describe('master-clients rate card modal', () => {
     expect(body).toMatch(/Api\.roles\.list\(\)/);
     expect(body).not.toMatch(/this\.roles\.map/);
   });
+  it('has no hand-written zero rule and keeps zero through keepZero', () => {
+    expect(html).not.toMatch(/===\s*0\s*\?\s*'0'/);
+    expect(html).toContain('keepZero: true');
+  });
+  it('passes the stored amount to readMoneyInput in save, focus and blur', () => {
+    for (const name of ['saveClientRatecard', 'onRcFocus', 'onRcBlur']) {
+      const start = html.indexOf(`    ${name === 'saveClientRatecard' ? 'async ' : ''}${name}(`);
+      expect(start).toBeGreaterThan(-1);
+      expect(html.slice(start, html.indexOf('\n    },', start))).toContain('stored: row.stored[code]');
+    }
+  });
+  it('loadAll no longer loads the unused role list', () => {
+    const from = html.indexOf('async loadAll()');
+    expect(html.slice(from, html.indexOf('\n    },', from))).not.toContain('Api.roles.list()');
+    expect(html).not.toMatch(/this\.roles\b/);
+  });
+  it('the success message timer clears only the message it was started for', () => {
+    const save = method('saveClientRatecard');
+    expect(save).toMatch(/const seq = \+\+state\.msgSeq/);
+    expect(save).toContain('state.msgSeq === seq');
+  });
 });

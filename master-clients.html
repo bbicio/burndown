@@ -246,11 +246,10 @@ window.__cfgApp = Vue.createApp({
 
       clients:  [],
 
-      roles:    [],
       currencies: [],
 
       // Client rate card modal state
-      rc: { title: 'Rate Card', loading: false, loadError: null, msg: null, msgKind: 'success', saving: false, id: null, rows: [] },
+      rc: { title: 'Rate Card', loading: false, loadError: null, msg: null, msgKind: 'success', msgSeq: 0, saving: false, id: null, rows: [] },
 
       // Client form state
       cf: { show: false, id: null, name: '', error: null, loading: false },
@@ -290,12 +289,7 @@ window.__cfgApp = Vue.createApp({
     async loadAll() {
       this.globalError = null;
       try {
-        const [clients, roles] = await Promise.all([
-          Api.clients.list(),
-          Api.roles.list(),
-        ]);
-        this.clients  = clients;
-        this.roles    = roles.map(r => ({ id: r.id, label: r.label, code: r.code, rate: r.hourly_rate || 0, rateOverrides: r.rate_overrides || {} }));
+        this.clients = await Api.clients.list();
       } catch (e) {
         this.globalError = e.message || 'Failed to load data.';
       }
@@ -349,11 +343,11 @@ window.__cfgApp = Vue.createApp({
       }
     },
 
-    // Text of a stored amount: formatMoneyInput blanks 0, but a stored 0 must reopen as '0'
-    // so that saving again keeps it (a missing amount stays '').
+    // Text of a stored amount; keepZero makes a stored 0 reopen as '0'
+    // (a missing amount stays '').
     amountText(v, code) {
       if (v == null || v === '') return '';
-      return Number(v) === 0 ? '0' : window.formatMoneyInput(v, code, this.currencies);
+      return window.formatMoneyInput(v, code, this.currencies, { keepZero: true });
     },
     moneyText(v, code) { return window.formatMoney(v, code, this.currencies); },
 
@@ -363,18 +357,18 @@ window.__cfgApp = Vue.createApp({
     },
     // Focus shows the unformatted amount, blur the formatted one; blank or invalid text stays as typed.
     onRcFocus(row, code) {
-      const v = window.readMoneyInput(row.texts[code], code, this.currencies);
+      const v = window.readMoneyInput(row.texts[code], code, this.currencies, { stored: row.stored[code] });
       if (typeof v !== 'number' || Number.isNaN(v)) return;
-      row.texts[code] = v === 0 ? '0' : window.formatMoneyInput(v, code, this.currencies);
+      row.texts[code] = window.formatMoneyInput(v, code, this.currencies, { keepZero: true });
     },
     onRcBlur(row, code) {
-      const v = window.readMoneyInput(row.texts[code], code, this.currencies);
+      const v = window.readMoneyInput(row.texts[code], code, this.currencies, { stored: row.stored[code] });
       if (typeof v !== 'number' || Number.isNaN(v)) return;
       row.texts[code] = window.formatMoney(v, code, this.currencies);
     },
 
     async openClientRatecard(client) {
-      this.rc = { title: `Rate Card — ${client.name}`, loading: true, loadError: null, msg: null, msgKind: 'success', saving: false, id: null, rows: [] };
+      this.rc = { title: `Rate Card — ${client.name}`, loading: true, loadError: null, msg: null, msgKind: 'success', msgSeq: 0, saving: false, id: null, rows: [] };
       // A later open replaces this.rc: this load writes only to the state it was started for.
       const state = this.rc;
       bootstrap.Modal.getOrCreateInstance(document.getElementById('clientRcModal')).show();
@@ -405,14 +399,16 @@ window.__cfgApp = Vue.createApp({
           const ov = (e && (e.rateOverrides ?? e.rate_overrides)) || {};
           const defaults = { EUR: r.rate != null ? Number(r.rate) : null };
           const texts = { EUR: this.amountText(eur, 'EUR') };
+          const stored = { EUR: eur == null ? null : Number(eur) };
           extra.forEach(c => {
             defaults[c] = r.rateOverrides?.[c] ?? null;
             texts[c] = this.amountText(ov[c], c);
+            stored[c] = ov[c] == null ? null : Number(ov[c]);
           });
           // Overrides in a currency with no column (deactivated since) are kept, so a save does not drop them.
           const hidden = {};
           Object.entries(ov).forEach(([c, v]) => { if (v != null && c !== 'EUR' && !extra.includes(c)) hidden[c] = v; });
-          return { roleId: String(r.id), label: r.label, code: r.code, defaults, texts, hidden };
+          return { roleId: String(r.id), label: r.label, code: r.code, defaults, texts, stored, hidden };
         });
         state.id = rc.id;
       } catch (e) {
@@ -430,7 +426,7 @@ window.__cfgApp = Vue.createApp({
         let hourlyRate = null;
         const rateOverrides = { ...row.hidden };
         for (const code of Object.keys(row.texts)) {
-          const v = window.readMoneyInput(row.texts[code], code, this.currencies);
+          const v = window.readMoneyInput(row.texts[code], code, this.currencies, { stored: row.stored[code] });
           if (Number.isNaN(v)) {
             this.rc.msg = `Enter a valid amount in ${code}, e.g. ${window.moneyFormatExample(code, this.currencies)}.`;
             this.rc.msgKind = 'error';
@@ -450,7 +446,8 @@ window.__cfgApp = Vue.createApp({
         await Api.ratecards.updateEntries(state.id, entries);
         state.msg = 'Rates saved successfully.';
         state.msgKind = 'success';
-        setTimeout(() => { if (state.msgKind === 'success') state.msg = null; }, 3000);
+        const seq = ++state.msgSeq;
+        setTimeout(() => { if (state.msgSeq === seq && state.msgKind === 'success') state.msg = null; }, 3000);
       } catch (e) {
         state.msg = e.message || 'Failed to save.';
         state.msgKind = 'error';
