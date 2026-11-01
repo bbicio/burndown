@@ -121,8 +121,13 @@ export function readMoneyInput(text, code, currencies, { stored } = {}) {
   if (!new RegExp(`^${intPart}${frac}$`).test(s)) return NaN;
   const plain = (group ? s.replace(new RegExp(G, 'g'), '') : s).replace(new RegExp(D), '.');
   const amount = Number(plain);
-  if (stored != null && stored !== '' && Number.isFinite(Number(stored))
-      && amount === Number(Number(stored).toFixed(info.digits))) return Number(stored);
+  if (stored != null && stored !== '' && Number.isFinite(Number(stored))) {
+    // Round with the same Intl engine that wrote the field text (toFixed disagrees on half-way values).
+    const shown = Number(numberFormat('en-US', {
+      useGrouping: false, minimumFractionDigits: info.digits, maximumFractionDigits: info.digits,
+    }).format(Number(stored)));
+    if (amount === shown) return Number(stored);
+  }
   return amount;
 }
 

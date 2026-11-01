@@ -231,6 +231,12 @@ describe('readMoneyInput — stored (f1)', () => {
     expect(readMoneyInput(formatMoney(108.7654, 'EUR', C), 'EUR', C, { stored: 108.7654 })).toBe(108.7654);
     expect(readMoneyInput('108,7', 'EUR', C, { stored: 108.7654 })).toBe(108.7);
   });
+  it('agrees with Intl on half-way values (toFixed would not)', () => {
+    for (const v of [1.005, 2.675]) {
+      expect(readMoneyInput(formatMoneyInput(v, 'EUR', C), 'EUR', C, { stored: v })).toBe(v);
+      expect(readMoneyInput(formatMoney(v, 'EUR', C), 'EUR', C, { stored: v })).toBe(v);
+    }
+  });
   it('coerces a NUMERIC string and returns a number', () => {
     expect(readMoneyInput('108,77', 'EUR', C, { stored: '108.7654' })).toBe(108.7654);
   });
