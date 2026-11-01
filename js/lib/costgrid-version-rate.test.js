@@ -92,3 +92,17 @@ describe('costgrid.html role baselines use the version rate', () => {
     expect(jsRest).not.toContain('current_rate');
   });
 });
+
+// B-183 review: baselines follow the version's rate, so refreshing the snapshot recalculates the non-custom role
+// rates the next time the editor opens, and the version's budget in its own currency can change.
+describe('pipeline.html refresh-rate confirmation', () => {
+  it('says the role rates are recalculated at the new rate', () => {
+    const pipeline = readFileSync('pipeline.html', 'utf8');
+    const shown = [];
+    const src = `const o = { ${extractBlock(pipeline, 'confirmRefreshRate() {')} }; return o.confirmRefreshRate;`;
+    const fn = new Function('showConfirm', 'Api', src)((...a) => shown.push(a), {});
+    fn.call({ selectedCgId: 'cg1', selectedVerId: 'v1', selectedVersion: { currency: 'USD', currencyRate: 1.1 }, liveRate: 1.2 });
+    expect(shown[0][0]).not.toContain('Only the EUR equivalent display will change');
+    expect(shown[0][0]).toContain('Role rates not marked Custom are recalculated at the new rate');
+  });
+});

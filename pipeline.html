@@ -972,7 +972,7 @@ Vue.createApp({
       const snapStr = Number(this.selectedVersion.currencyRate || 1).toLocaleString('en', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
       const liveStr = Number(this.liveRate).toLocaleString('en', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
       showConfirm(
-        `Update the exchange rate snapshot?\n\nCurrent snapshot: 1 € = ${snapStr} ${cur}\nLatest rate: 1 € = ${liveStr} ${cur}\n\nBudget amounts remain in ${cur}. Only the EUR equivalent display will change.`,
+        `Update the exchange rate snapshot?\n\nCurrent snapshot: 1 € = ${snapStr} ${cur}\nLatest rate: 1 € = ${liveStr} ${cur}\n\nRole rates not marked Custom are recalculated at the new rate the next time this proposal is opened in the editor, so its budget in ${cur} can change. The EUR equivalent changes too.`,
         async () => {
           try {
             await Api.costGrids.versions.refreshRate(cgId, verId);
