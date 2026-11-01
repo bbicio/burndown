@@ -425,11 +425,12 @@
                     <strong v-if="taskTotals(task).totalCostAndFee > 0" class="cg-cell-filled">{{ formatMoney(taskTotals(task).totalCostAndFee, draft.currency || 'EUR', currencies) }}</strong><span v-else class="cg-cell-empty">—</span>
                   </td>
                   <td class="cg-task-ptc-cell">
-                    <input type="text" class="cg-cell-box cg-cell-box--money" :class="{ 'cg-cell-filled': task.ptc > 0 }"
+                    <input type="text" class="cg-cell-box cg-cell-box--money" :class="{ 'cg-cell-filled': task.ptc > 0, 'is-invalid': ptcInvalid && ptcFocusedTask === task.taskId }"
                       :value="ptcFocusedTask === task.taskId ? ptcRaw : (task.ptc > 0 ? formatMoney(task.ptc, draft.currency || 'EUR', currencies) : '')" placeholder="—" :disabled="isReadOnly"
-                      @focus="ptcFocusedTask = task.taskId; ptcRaw = moneyInput(task.ptc)"
-                      @input="ptcRaw = $event.target.value; task.ptc = parseMoneyInput($event.target.value); cgScheduleAutoSave()"
-                      @blur="ptcFocusedTask = null; ptcRaw = ''">
+                      :title="ptcInvalid && ptcFocusedTask === task.taskId ? 'Format: ' + moneyFormatExample(draft.currency || 'EUR', currencies) : ''"
+                      @focus="onPtcFocus(task)"
+                      @input="onPtcInput(task, $event)"
+                      @blur="onPtcBlur(task)">
                   </td>
                   <td class="cg-task-num">
                     <strong v-if="taskTotals(task).totalHrs > 0" class="cg-cell-filled">{{ taskTotals(task).totalHrs }}h</strong><span v-else class="cg-cell-empty">—</span>
@@ -819,7 +820,7 @@ Vue.createApp({
       selectionMode: false, selectedTaskIds: new Set(), addToProjectMode: 'new', // Task 4, 2026-10-07: 'new' | 'existing' segmented control
       phasingCollapsed: false, // Task 4, 2026-10-07: Monthly Phasing card collapse (not persisted)
       openRoleMenuCode: null, removeColumnConfirm: null, roleMenuPos: { top: 0, left: 0 }, // Task 3, 2026-10-07: role ⋮ menu
-      ptcFocusedTask: null, ptcRaw: '', hoursEditing: null, addToProjectSel: '',
+      ptcFocusedTask: null, ptcRaw: '', ptcInvalid: false, ptcSnapshot: null, hoursEditing: null, addToProjectSel: '',
       addToProjectModal: { projId: '', projName: '', taskNames: [], taskIds: [] },
       backSaving: false, headerBadge: window.headerBadge,
       proposalBusy: false, // true while cloneProposal is in flight (2026-10-07)
@@ -1578,7 +1579,27 @@ Vue.createApp({
     exportXls() { cgExportXls(); },
     generateProject() { if (this.isReadOnly) return; cgGenerateProject(); },
     moneyInput(amount) { return window.formatMoneyInput(amount, this.draft?.currency || 'EUR', window.__currencies); },
-    parseMoneyInput(text) { return window.parseMoney(text, this.draft?.currency || 'EUR', window.__currencies); },
+    onPtcFocus(task) {
+      this.ptcFocusedTask = task.taskId;
+      this.ptcSnapshot = task.ptc;
+      this.ptcRaw = this.moneyInput(task.ptc);
+      this.ptcInvalid = false;
+    },
+    onPtcInput(task, event) {
+      this.ptcRaw = event.target.value;
+      const v = window.readMoneyInput(this.ptcRaw, this.draft.currency || 'EUR', this.currencies);
+      if (Number.isNaN(v)) { this.ptcInvalid = true; return; }
+      this.ptcInvalid = false;
+      task.ptc = v === null ? 0 : v;
+      cgScheduleAutoSave();
+    },
+    onPtcBlur(task) {
+      if (this.ptcInvalid && this.ptcSnapshot !== null) {
+        task.ptc = this.ptcSnapshot;
+        cgScheduleAutoSave();
+      }
+      this.ptcFocusedTask = null; this.ptcRaw = ''; this.ptcInvalid = false; this.ptcSnapshot = null;
+    },
     addPhase() {
       if (this.isReadOnly) return;
       this.draft.phases.push({ phaseId: cgNewPhId(), phaseName: 'New phase', tasks: [] });
@@ -1600,7 +1621,9 @@ Vue.createApp({
     onRateFocus(role) {
       this.rateFocusedRole = role.roleCode;
       this.rateSnapshot = { rate: role.rate, rateIsCustom: role.rateIsCustom, baseline: this.roleBaseline(role).effectiveRate };
-      this.rateRaw = (role.rateIsCustom && role.rate === 0) ? '0' : window.formatMoneyInput(role.rate, this.draft.currency || 'EUR', this.currencies);
+      this.rateRaw = role.rateIsCustom
+        ? window.formatMoneyInput(role.rate, this.draft.currency || 'EUR', this.currencies, { keepZero: true })
+        : window.formatMoneyInput(role.rate, this.draft.currency || 'EUR', this.currencies);
       this.rateEdited = false;
       this.rateInvalid = false;
     },

@@ -64,7 +64,10 @@ describe('costgrid.html role rate input', () => {
     expect(inp.indexOf('const baseline')).toBeLessThan(inp.indexOf('role.rate = v'));
   });
 
-  it('focus on a custom 0 keeps the text 0', () => {
-    expect(html).toMatch(/role\.rateIsCustom && role\.rate === 0/);
+  it('focus formats a custom rate with keepZero, not a hand-written stored-0 rule', () => {
+    const foc = html.match(/onRateFocus\(role\) \{[\s\S]*?\n    \},/)?.[0] || '';
+    expect(foc).toContain('{ keepZero: true }');
+    expect(foc).toContain('role.rateIsCustom');
+    expect(foc).not.toMatch(/=== 0\) \? '0'/);
   });
 });
