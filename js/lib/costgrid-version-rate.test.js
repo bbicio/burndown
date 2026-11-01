@@ -54,3 +54,41 @@ describe('costgrid.js role baselines use the version rate', () => {
     expect(buildJs(draft).preview('USD')[0].newRate).toBe(120);
   });
 });
+
+const html = readFileSync('costgrid.html', 'utf8');
+
+function buildMethods() {
+  const stubs = { getRoles: () => ROLES, resolveRoleRate };
+  const names = Object.keys(stubs);
+  const src = `const o = { ${extractBlock(html, 'roleBaseline(role) {')}, ${extractBlock(html, 'roleModalRoleRow(r) {')} }; return o;`;
+  return new Function(...names, src)(...names.map(n => stubs[n]));
+}
+
+function makeCtx() {
+  return {
+    draft: { currency: 'USD', currencyRate: 1.1 },
+    currencies: CURRENCIES,
+    ratecardMap: {}, ratecardOverrides: {},
+    roleModalCurrentCodes: new Set(), isClientRatecard: false, roleModalMode: 'add', roleModalSourceCode: null,
+  };
+}
+
+describe('costgrid.html role baselines use the version rate', () => {
+  beforeEach(() => { window.__currencies = CURRENCIES; });
+
+  it('roleBaseline uses the version rate', () => {
+    expect(buildMethods().roleBaseline.call(makeCtx(), { roleCode: 'PM', rate: 0 }).effectiveRate).toBe(110);
+  });
+
+  it('role selector badge uses the version rate', () => {
+    const row = buildMethods().roleModalRoleRow.call(makeCtx(), { id: 1, code: 'PM', rate: 100, rateOverrides: {} });
+    expect(row.effectiveRate).toBe(110);
+  });
+
+  it('current_rate is read only by the currency-change paths', () => {
+    const htmlRest = html.replace(extractBlock(html, 'onCurrencyChange() {'), '');
+    const jsRest = js.replace(extractBlock(js, 'function cgPreviewRateChange('), '');
+    expect(htmlRest).not.toContain('current_rate');
+    expect(jsRest).not.toContain('current_rate');
+  });
+});

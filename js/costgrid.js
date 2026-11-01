@@ -369,7 +369,7 @@ function cgSyncRoleRatesToBaseline(force = false) {
 }
 
 // Compute what each role's rate would be in targetCurrency without mutating _cgDraft.
-// Reads the target currency's current_rate because that is the rate versionRate (api/src/lib/version-rate.js) gives the version on a currency change.
+// Reads the target currency's live rate because that is the rate versionRate (api/src/lib/version-rate.js) gives the version on a currency change.
 // Returns array of { roleCode, roleLabel, currentRate, newRate }.
 function cgPreviewRateChange(targetCurrency) {
   if (!_cgDraft) return [];

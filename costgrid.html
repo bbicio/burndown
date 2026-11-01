@@ -1167,7 +1167,7 @@ Vue.createApp({
     roleModalRoleRow(r) {
       const already = this.roleModalCurrentCodes.has(r.code);
       const currency = this.draft?.currency || 'EUR';
-      const currencyRate = parseFloat((this.currencies || []).find(c => c.code === currency)?.current_rate) || 1.0;
+      const currencyRate = parseFloat(this.draft?.currencyRate) || 1.0;
       const resolved = resolveRoleRate({
         roleId: r.id, globalRate: r.rate || 0, currency, currencyRate,
         ratecardMap: this.ratecardMap, ratecardOverrides: this.ratecardOverrides, roleOverrides: r.rateOverrides || {},
@@ -1592,7 +1592,7 @@ Vue.createApp({
       return resolveRoleRate({
         roleId, globalRate,
         currency: this.draft.currency || 'EUR',
-        currencyRate: parseFloat((this.currencies || []).find(c => c.code === (this.draft.currency || 'EUR'))?.current_rate) || 1.0,
+        currencyRate: parseFloat(this.draft?.currencyRate) || 1.0,
         ratecardMap: this.ratecardMap, ratecardOverrides: this.ratecardOverrides,
         roleOverrides: roleObj?.rateOverrides || {},
       });
@@ -1856,8 +1856,8 @@ Vue.createApp({
       if (newCurrency === prevCurrency) return;
 
       if (!this.draft.roles?.length) {
-        cgSyncRoleRatesToBaseline(true);
         this.draft.currencyRate = parseFloat((this.currencies || []).find(c => c.code === newCurrency)?.current_rate) || 1.0;
+        cgSyncRoleRatesToBaseline(true);
         this.prevCurrency = newCurrency;
         this.$forceUpdate();
         cgAutoSave();
@@ -1929,8 +1929,8 @@ Vue.createApp({
       };
       document.getElementById(`${modalId}Confirm`).onclick = () => {
         bsModal.hide();
-        cgSyncRoleRatesToBaseline(true); // mutates _cgDraft.roles[].rate in place — this.draft IS _cgDraft
         this.draft.currencyRate = parseFloat((this.currencies || []).find(c => c.code === newCurrency)?.current_rate) || 1.0;
+        cgSyncRoleRatesToBaseline(true); // mutates _cgDraft.roles[].rate in place — this.draft IS _cgDraft; reads the rate just set
         this.prevCurrency = newCurrency;
         this.$forceUpdate();
         cgAutoSave();

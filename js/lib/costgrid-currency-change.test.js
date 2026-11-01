@@ -8,7 +8,7 @@ import { extractBlock } from '../../scripts/lib/extract-source.mjs';
 // handler reads had been removed together with the preview helpers it sat next to.
 const html = readFileSync('costgrid.html', 'utf8');
 
-let sync, autosave, shown, hidden;
+let sync, autosave, shown, hidden, seen, ctxRef;
 
 function buildMethod() {
   class FakeModal { constructor() { this.hide = () => { hidden++; }; } show() { shown++; } }
@@ -25,19 +25,20 @@ function buildMethod() {
 }
 
 function makeCtx(over = {}) {
-  return {
+  ctxRef = {
     draft: { currency: 'CHF', roles: [{ roleCode: 'PM' }], currencyRate: 1 },
     prevCurrency: 'EUR',
     currencies: [{ code: 'EUR', current_rate: '1.000000' }, { code: 'CHF', symbol: 'CHF', locale: 'de-CH', current_rate: '0.950000' }],
     $forceUpdate: vi.fn(),
     ...over,
   };
+  return ctxRef;
 }
 
 describe('costgrid onCurrencyChange (currency change modal)', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
-    sync = vi.fn(); autosave = vi.fn(); shown = 0; hidden = 0;
+    seen = []; sync = vi.fn(() => seen.push(ctxRef.draft.currencyRate)); autosave = vi.fn(); shown = 0; hidden = 0;
     window.__currencies = [{ code: 'EUR', symbol: '€', locale: 'it-IT' }, { code: 'CHF', symbol: 'CHF', locale: 'de-CH' }];
   });
 
@@ -76,5 +77,18 @@ describe('costgrid onCurrencyChange (currency change modal)', () => {
     expect(ctx.draft.currencyRate).toBe(0.95);
     expect(ctx.prevCurrency).toBe('CHF');
     expect(autosave).toHaveBeenCalledTimes(1);
+  });
+
+  it('confirm sets the new rate before syncing', () => {
+    const ctx = makeCtx();
+    buildMethod().call(ctx);
+    document.getElementById('cgCurrencyChangeModalConfirm').onclick();
+    expect(seen).toEqual([0.95]);
+  });
+
+  it('no-roles branch sets the new rate before syncing', () => {
+    const ctx = makeCtx({ draft: { currency: 'CHF', roles: [], currencyRate: 1 } });
+    buildMethod().call(ctx);
+    expect(seen).toEqual([0.95]);
   });
 });

@@ -410,3 +410,7 @@ Spec `docs/superpowers/specs/2026-10-29-currency-c2-vue-rate-inputs-design.md`, 
 - **Versions.** `costgrid-calc.js?v=12` (it imports `money.js?v=3`), `costgrid.css?v=8`.
 
 Guards: `js/lib/costgrid-rate-input-guard.test.js`. Manual cases: `TEST_CASES.md` CG-105, CG-106.
+
+## Role baselines use the version's rate (2026-11-01, currency cycle 4, B-183)
+
+Spec `docs/superpowers/specs/2026-11-01-currency-c4-b183-version-rate-baselines-design.md`. `roleBaseline`, the role selector's badge (`roleModalRoleRow`) and `cgSyncRoleRatesToBaseline` convert with `draft.currencyRate`; only the currency-change preview reads the live rate, and `onCurrencyChange` sets `draft.currencyRate` before syncing. Function detail: [docs/js/costgrid.md](../js/costgrid.md).
