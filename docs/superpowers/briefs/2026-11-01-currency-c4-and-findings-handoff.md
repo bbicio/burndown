@@ -36,3 +36,7 @@ I quattro cicli nati dall'audit `docs/superpowers/audits/2026-10-29-currency-for
 - Il ledger di esecuzione non può stare in `.superpowers/` (non è git-ignorato) e gli script SDD `task-start`/`task-done` non girano su questo host: ledger a mano nello scratchpad.
 - In `high-risk` lo skip e il percorso ridotto del Gate 3 valgono solo se la review di esecuzione è stata un `/code-review` a effort high; una review fatta da un agente generico non conta, e Gate 3 rifà tre round completi.
 - File misti CRLF/LF: modifica con il tool Edit o con uno script che preservi le fini riga, poi controlla i CR nel blob (`git show HEAD:<file>`); il ciclo c3 ha committato per errore `master-clients.html` intero in CRLF (corretto in `8d63f80`).
+
+## Aggiornamento 2026-11-01 (dopo c4)
+
+c4 mergiato `2704c47` (report `docs/superpowers/reports/2026-11-01-currency-c4-version-rate-finish-cycle.md`); **prossimo: cold review c1-c4** (solo verifica), portandoci dentro la decisione 2 della Spec c4 che non regge per le versioni salvate (tutti i ruoli si ricaricano Custom) e i follow-up B-213/B-214/B-215; poi i finding per tema come sopra, e decidere se chiudere B-208 dopo aver rieseguito il conteggio.
