@@ -18,6 +18,7 @@ E `amountError` non ha un limite superiore: un valore troppo grande per la colon
 
 Evidenze e comandi stanno nelle righe del backlog; vanno rieseguiti prima della Spec.
 - **B-185:** la structure `PUT` scrive `tk.ptc || 0` (`api/src/routes/cost-grids.js` righe 823 e 827, al 2026-11-01). `PATCH /api/projects/:id/phasing` e `PATCH /api/projects/:id/ptc` scrivono `JSON.stringify(...)` di quello che arriva (`api/src/routes/projects.js` righe 525 e 537): negativi, stringhe, troppi decimali.
+- **B-217** (dal brainstorming di f1, 2026-11-01): Derive e Reforecast (`js/lib/config-form-calc.js`) scrivono il phasing senza arrotondarlo, e il DB principale ha 8 valori su 68 con rumore float. La validazione server del phasing li rifiuterebbe: la Spec di f2 decide come trattarli prima di validare.
 - **B-186:** la seconda forma del body della structure `PUT` (`tasks[].roles[]` con `roleId`/`rateOverride`) scrive `tr.rateOverride || null` senza controllo, e trasforma uno 0 in `NULL`. Nessun client la usa; la usa solo `test-api.js`.
 - **B-188:** `amountError` non ha limite superiore. Una tariffa ≥ 1e8 (`DECIMAL(10,2)`, `api/src/db/migrations/001_initial.sql`) o un POT ≥ 1e12 (`NUMERIC(14,2)`, migrazione 005) supera la colonna e dà 500.
 
