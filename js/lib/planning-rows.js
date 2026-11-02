@@ -1,5 +1,6 @@
 // Pure row model of planning.html's grid: cell text, load level, search filter and the flat
 // rows the template renders. DOM-free; the hours themselves come from the server model.
+import { computeResidual, sumChildBreakdownHours } from './planning-calc.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -92,7 +93,193 @@ export function visibleRows(rows, openIds, filter) {
   });
 }
 
+// ── Row builders ────────────────────────────────────────────────────────────────────────────
+// Input: the shapes of js/lib/planning-model-ui.js's adaptRoleModel / adaptProjectModel /
+// adaptOwnerModel and the page's periods (buildMonthPeriods(weeks) in Monthly, weeks in Weekly).
+// opts: { interval, round, ownerStatus, projectInfo(idOrName) → { id, name, stage, status, client,
+// start, end } | null, taskRoles(projectId, taskName) → [role] }. The numbers are those the page's
+// three view computeds already put in exportRows; ids are derived from keys, never from indexes.
+
+const PLACEHOLDER = '—';
+
+export const displayRole = role => String(role || '').split(' - ').join(' · ');
+
+const periodKeys = (p, interval) => (interval === 'monthly' ? p.weekKeys : [p.weekStart.toISOString()]);
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+function makeRow(fields) {
+  return {
+    id: '', parentId: null, depth: 0, kind: '', label: '', sub: '', stage: '', status: '', client: '',
+    start: '', end: '', owners: [], inactive: false, sold: 0, actuals: 0, toPlan: 0, cells: [], ...fields,
+  };
+}
+
+function projectFields(info) {
+  return info
+    ? { stage: info.stage || '', status: info.status || '', client: info.client || '', sub: info.client || '', start: info.start || '', end: info.end || '' }
+    : {};
+}
+
+// cellAt(keys) → { h, pulse }
+function cellsOf(periods, interval, cellAt, loadOn = false) {
+  return periods.map(p => {
+    const { h, pulse } = cellAt(periodKeys(p, interval));
+    const past = !!p.isPast, current = !!p.isCurrent;
+    const load = loadOn && !past && !pulse ? loadLevel(h, workingWeeks(p, interval)) : null;
+    return { h, past, current, pulse, load };
+  });
+}
+
+function totalOf(periods, topRows, count) {
+  const sum = f => topRows.reduce((s, r) => s + r[f], 0);
+  return {
+    count, sold: sum('sold'), actuals: sum('actuals'), toPlan: sum('toPlan'),
+    cells: periods.map((p, i) => ({ h: topRows.reduce((s, r) => s + r.cells[i].h, 0), past: !!p.isPast, current: !!p.isCurrent })),
+  };
+}
+
+export function buildRoleRows(adapted, periods, opts) {
+  const { roleMap, roleSoldMap, roleActualsMap, roleChildMap } = adapted;
+  const { interval } = opts;
+  const rows = [], tops = [];
+  let count = 0;
+  for (const role of Object.keys(roleMap).sort()) {
+    const cellsMap = roleMap[role] || {};
+    const id = `role:${role}`;
+    const top = makeRow({
+      id, kind: 'role', label: displayRole(role),
+      sold: roleSoldMap[role] || 0, actuals: roleActualsMap[role] || 0,
+      toPlan: Object.values(cellsMap).reduce((s, c) => s + (c.isPast ? 0 : c.hours), 0),
+      cells: cellsOf(periods, interval, keys => {
+        let h = 0, pulse = false;
+        for (const k of keys) { const c = cellsMap[k]; if (c) { h += c.hours; if (c.isPulse) pulse = true; } }
+        return { h, pulse };
+      }),
+    });
+    rows.push(top); tops.push(top);
+    const children = Object.values(roleChildMap[role] || {}).sort((a, b) => (b.sold + b.actual) - (a.sold + a.actual));
+    for (const child of children) {
+      const info = opts.projectInfo(child.project);
+      rows.push(makeRow({
+        id: `${id}|${child.project}::${child.task}`, parentId: id, depth: 1, kind: 'pair',
+        label: child.project, sub: child.task, stage: info?.stage || '', status: info?.status || '', client: info?.client || '',
+        sold: child.sold, actuals: child.actual, toPlan: computeResidual(child.sold, child.actual),
+        cells: cellsOf(periods, interval, keys => {
+          const { hours, isPulse } = sumChildBreakdownHours(cellsMap, keys, child.project, child.task);
+          return { h: hours, pulse: isPulse };
+        }),
+      }));
+      count++;
+    }
+  }
+  return { rows, total: totalOf(periods, tops, count) };
+}
+
+export function buildProjectRows(adapted, periods, opts) {
+  const { interval, ownerStatus = {} } = opts;
+  const rows = [], tops = [];
+  let count = 0;
+  // A task or project period is a pulse when one of its roles carries a pulse there.
+  const pulseIn = (roles, keys) => roles.some(r => keys.some(k => r.weekData[k]?.isPulse && r.weekData[k].total > 0));
+  const sumNum = (obj, keys) => keys.reduce((s, k) => s + (obj[k] || 0), 0);
+  for (const pNode of adapted.projects || []) {
+    const info = opts.projectInfo(pNode.id);
+    if (!info) continue;
+    const pid = `p:${pNode.id}`;
+    const allRoles = pNode.tasks.flatMap(t => t.roles);
+    const top = makeRow({
+      id: pid, kind: 'project', label: info.name || pNode.id, ...projectFields(info),
+      sold: pNode.sold, actuals: pNode.actuals, toPlan: pNode.tbp,
+      cells: cellsOf(periods, interval, keys => ({ h: sumNum(pNode.weekTotals, keys), pulse: pulseIn(allRoles, keys) })),
+    });
+    rows.push(top); tops.push(top);
+    for (const tNode of pNode.tasks) {
+      const tid = `${pid}|t:${tNode.name}`;
+      rows.push(makeRow({
+        id: tid, parentId: pid, depth: 1, kind: 'task', label: tNode.name, sub: plural(tNode.roles.length, 'role'),
+        start: tNode.startDate || '', end: tNode.endDate || '',
+        sold: tNode.sold, actuals: tNode.actuals, toPlan: tNode.tbp,
+        cells: cellsOf(periods, interval, keys => ({ h: sumNum(tNode.weekTotals, keys), pulse: pulseIn(tNode.roles, keys) })),
+      }));
+      for (const rNode of tNode.roles) {
+        const owners = rNode.owners.filter(o => !o.isPlaceholder && o.name !== PLACEHOLDER)
+          .map(o => ({ name: o.name, initials: initials(o.name), inactive: ownerStatus[o.name] === 'inactive' }));
+        rows.push(makeRow({
+          id: `${tid}|r:${rNode.role}`, parentId: tid, depth: 2, kind: 'roleLeaf', label: displayRole(rNode.role),
+          sub: owners.length ? owners.map(o => o.name).join(', ') : 'No owner yet', owners,
+          sold: rNode.sold, actuals: rNode.consumed, toPlan: rNode.tbp,
+          cells: cellsOf(periods, interval, keys => {
+            let h = 0, pulse = false;
+            for (const k of keys) { const d = rNode.weekData[k]; if (d) { h += d.total; if (d.isPulse) pulse = true; } }
+            return { h, pulse };
+          }),
+        }));
+        count++;
+      }
+    }
+  }
+  return { rows, total: totalOf(periods, tops, count) };
+}
+
+export function buildOwnerRows(ownerMap, periods, opts) {
+  const { interval, ownerStatus = {} } = opts;
+  const rows = [], tops = [];
+  let count = 0;
+  const hoursAt = map => keys => {
+    let h = 0, pulse = false;
+    for (const k of keys) { const d = map[k]; if (d) { h += d.hours; if (d.isPulse) pulse = true; } }
+    return { h, pulse };
+  };
+  // A task's roles are known from the project configuration, not from the model: shown only when unambiguous.
+  const taskRoles = (pid, task) => opts.taskRoles ? opts.taskRoles(pid, task) : [];
+  const names = Object.keys(ownerMap).sort((a, b) => (a === PLACEHOLDER ? -1 : b === PLACEHOLDER ? 1 : a.localeCompare(b)));
+  for (const name of names) {
+    const om = ownerMap[name];
+    const isTbd = name === PLACEHOLDER;
+    const oid = `o:${name}`;
+    const projectEntries = Object.entries(om.projects).sort((a, b) => a[1].name.localeCompare(b[1].name));
+    const roles = new Set();
+    for (const [pid, pm] of projectEntries) {
+      for (const tn of Object.keys(pm.tasks)) { const r = taskRoles(pid, tn); if (r.length === 1) roles.add(displayRole(r[0])); }
+    }
+    const top = makeRow({
+      id: oid, kind: isTbd ? 'tbd' : 'person',
+      label: isTbd ? 'Unassigned (TBD)' : name,
+      sub: isTbd ? 'No owner found in actuals, or every owner is inactive'
+        : [plural(projectEntries.length, 'project'), [...roles].sort().join(', ')].filter(Boolean).join(' · '),
+      inactive: !isTbd && ownerStatus[name] === 'inactive',
+      owners: isTbd ? [] : [{ name, initials: initials(name), inactive: ownerStatus[name] === 'inactive' }],
+      sold: om.sold, actuals: om.actuals, toPlan: om.tbp,
+      cells: cellsOf(periods, interval, hoursAt(om.weekTotals), true),
+    });
+    rows.push(top); tops.push(top);
+    for (const [projId, pm] of projectEntries) {
+      const pid = `${oid}|p:${projId}`;
+      rows.push(makeRow({
+        id: pid, parentId: oid, depth: 1, kind: 'project', label: pm.name, ...projectFields(opts.projectInfo(projId)),
+        sold: pm.sold, actuals: pm.actuals, toPlan: pm.tbp,
+        cells: cellsOf(periods, interval, hoursAt(pm.weekTotals)),
+      }));
+      for (const [taskName, tm] of Object.entries(pm.tasks).sort((a, b) => a[0].localeCompare(b[0]))) {
+        const r = taskRoles(projId, taskName);
+        rows.push(makeRow({
+          id: `${pid}|t:${taskName}`, parentId: pid, depth: 2, kind: 'task', label: taskName,
+          sub: r.length === 1 ? displayRole(r[0]) : r.length ? plural(r.length, 'role') : '',
+          sold: tm.sold, actuals: tm.actuals, toPlan: tm.tbp,
+          cells: cellsOf(periods, interval, hoursAt(tm.weekData)),
+        }));
+        count++;
+      }
+    }
+  }
+  return { rows, total: totalOf(periods, tops, count) };
+}
+
 window.formatCell = formatCell;
+window.displayRole = displayRole;
+window.buildRoleRows = buildRoleRows;
+window.buildProjectRows = buildProjectRows;
+window.buildOwnerRows = buildOwnerRows;
 window.workingWeeks = workingWeeks;
 window.loadLevel = loadLevel;
 window.initials = initials;
