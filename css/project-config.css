@@ -299,6 +299,8 @@
   .pc-cards .pc-select-sm { min-height: 32px; }
   .pc-card-actions { width: 100%; }
   .pc-split-warning { flex-wrap: wrap; }
+  .pc-split-head { flex-wrap: wrap; }
+  .pc-split-head > * { white-space: nowrap; }
   .pc-tasks, .pc-tasks > tbody, .pc-tasks > tfoot { display: block; }
   .pc-tasks > thead { display: none; }
   .pc-tasks > tbody { border: var(--card-border); border-radius: var(--radius-md); margin-bottom: var(--space-2); overflow: hidden; background: var(--surface-white); }
@@ -308,6 +310,12 @@
   .pc-task-row > td:first-child { flex: 1 0 100%; }
   .pc-task-row > .pc-col-split { margin-left: auto; }
   .pc-task-detail > td { display: block; flex: 1 0 100%; }
+  .pc-tasks > tbody > tr > td, .pc-res-table td { min-width: 0; }
+  .pc-res-table .form-control { width: 100%; }
+  .pc-period { flex-wrap: wrap; }
+  .pc-period-pick { flex: 1 1 100%; }
+  .pc-period > .pc-muted { display: none; }
+  .pc-task-detail .row > [class*="col-"] { min-width: 0; }
   .pc-task-total { padding: var(--space-2) var(--space-3); }
   .pc-task-total > td:empty { display: none; }
   .pc-task-switches { flex-wrap: wrap; }
@@ -316,7 +324,7 @@
   .pc-phase-grid > .pc-phase-cell { flex: 0 0 84px; }
   .pc-res-table, .pc-res-table > tbody, .pc-res-table > tfoot { display: block; }
   .pc-res-table > colgroup, .pc-res-table > thead { display: none; }
-  .pc-res-table tr { display: grid; grid-template-columns: 1fr 1fr auto auto; align-items: center; gap: var(--space-1) var(--space-2); padding: var(--space-2) 0; border-bottom: 1px solid var(--border-light); }
+  .pc-res-table tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto 20px; align-items: center; gap: var(--space-1) var(--space-2); padding: var(--space-2) 0; border-bottom: 1px solid var(--border-light); }
   .pc-res-table td:first-child { grid-column: 1 / -1; }
   .pc-res-table tfoot td { border-top: 0; }
   .pc-group { max-width: none; }
