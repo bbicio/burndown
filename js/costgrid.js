@@ -690,11 +690,11 @@ function renderCgPhasing() {
 
 // strict = true: the returned promise rejects when the save fails (default: log and resolve).
 // Resolves to true only when every write reached the server.
-// The version id whose currency was just changed ("Change currency?" confirmation). Read and cleared by
-// that version's next save, so only that save re-syncs the role rates to the rate the server applied;
-// a save whose PATCH did not go through sets it again.
-let _cgCurrencyChangePending = null;
-function cgMarkCurrencyChange() { _cgCurrencyChangePending = _cgActiveVersionId; }
+// The ids of the versions whose currency was just changed ("Change currency?" confirmation). An id is read
+// and removed by that version's next save, so only that save re-syncs the role rates to the rate the server
+// applied; a save whose PATCH did not go through adds it back.
+const _cgCurrencyChangePending = new Set();
+function cgMarkCurrencyChange() { _cgCurrencyChangePending.add(_cgActiveVersionId); }
 
 // The PATCH answered with a different currency_rate: the editor adopts the rate the server applied
 // (Spec currency-f3 §8), unless the answer is for a currency the version no longer has. Role rates are
@@ -713,7 +713,6 @@ function cgAdoptServerRate(cgId, versionId, rate, afterCurrencyChange, currency,
         const d = _cgDraft.roles.find(x => x.roleCode === r.roleCode);
         return d ? { ...r, rate: d.rate, rateIsCustom: d.rateIsCustom } : r;
       });
-      if (ver) ver.roles = synced.map(r => ({ ...r }));
     }
   }
   if (ver) cgSave(cg);
@@ -724,8 +723,7 @@ function cgAdoptServerRate(cgId, versionId, rate, afterCurrencyChange, currency,
 function cgAutoSave(strict) {
   if (!_cgActiveCgId || !_cgActiveVersionId || !_cgDraft) return Promise.resolve(false);
   const cgId = _cgActiveCgId, verId = _cgActiveVersionId;
-  const afterCurrencyChange = _cgCurrencyChangePending === verId;
-  if (afterCurrencyChange) _cgCurrencyChangePending = null;
+  const afterCurrencyChange = _cgCurrencyChangePending.delete(verId);
   cgSyncHeaderFromForm();
   const cg = cgLoad(_cgActiveCgId);
   if (!cg) return Promise.resolve(false);
@@ -734,7 +732,7 @@ function cgAutoSave(strict) {
   cgSave(cg);
   if (typeof _cgUpsertVersionToApi !== 'undefined') {
     let patched = false;
-    const keepFlag = () => { if (afterCurrencyChange && !patched) _cgCurrencyChangePending = verId; };
+    const keepFlag = () => { if (afterCurrencyChange && !patched) _cgCurrencyChangePending.add(verId); };
     return _cgUpsertVersionToApi(cgId, verId, {
       strict: !!strict,
       onPatched: () => { patched = true; },

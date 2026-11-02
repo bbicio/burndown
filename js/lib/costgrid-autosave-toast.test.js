@@ -18,7 +18,7 @@ function buildAutoSave({ upsert, active = true, cgExists = true } = {}) {
     cgLoad: () => (cgExists ? cg : null),
     cgSave: () => {},
     _cgUpsertVersionToApi: upsert,
-    _cgCurrencyChangePending: false,
+    _cgCurrencyChangePending: new Set(),
   };
   const names = Object.keys(stubs);
   return new Function(...names, `${extractBlock(js, 'function cgAutoSave(')}; return cgAutoSave;`)(...names.map(n => stubs[n]));

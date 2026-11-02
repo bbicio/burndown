@@ -96,7 +96,8 @@ describe('cgAdoptServerRate', () => {
   const outgoing = () => [{ roleCode: 'PM', rate: 110, rateIsCustom: false }, { roleCode: 'DEV', rate: 95, rateIsCustom: true }];
   function adopt(activeVersionId = 'v1') {
     draft = { currency: 'USD', currencyRate: 1.1, roles: outgoing() };
-    store = { id: 'cg1', versions: [{ versionId: 'v1', currency: 'USD', currencyRate: 1.1 }, { versionId: 'v2', currency: 'EUR', currencyRate: 1 }] };
+    // The stored v1 no longer has DEV: the column was removed while the save was in flight.
+    store = { id: 'cg1', versions: [{ versionId: 'v1', currency: 'USD', currencyRate: 1.1, roles: [{ roleCode: 'PM', rate: 110 }] }, { versionId: 'v2', currency: 'EUR', currencyRate: 1 }] };
     render = vi.fn(); schedule = vi.fn();
     const stubs = {
       _cgActiveCgId: 'cg1', _cgActiveVersionId: activeVersionId, _cgDraft: draft,
@@ -118,7 +119,7 @@ describe('cgAdoptServerRate', () => {
     expect(draft.roles.map(r => r.rate)).toEqual([120, 95]);
     expect(sent.map(r => r.rate)).toEqual([120, 95]);
     expect(storedRate('v1')).toBe(1.2);
-    expect(store.versions[0].roles.map(r => r.rate)).toEqual([120, 95]);
+    expect(store.versions[0].roles).toEqual([{ roleCode: 'PM', rate: 110 }]); // Gate 3 r2 #3: the store's roles are not rewritten
     expect(schedule).not.toHaveBeenCalled();
     expect(render).toHaveBeenCalled();
   });
@@ -159,7 +160,7 @@ describe('cgAutoSave passes the currency-change flag', () => {
       cgAdoptServerRate: adoptSpy,
     };
     const names = Object.keys(stubs);
-    fns = new Function(...names, `let _cgCurrencyChangePending = null;
+    fns = new Function(...names, `const _cgCurrencyChangePending = new Set();
       let _cgActiveCgId = 'cg1', _cgActiveVersionId = 'v1', _cgDraft = { versionId: 'v1' };
       ${extractBlock(js, 'function cgMarkCurrencyChange(')}
       ${extractBlock(js, 'function cgAutoSave(')}
@@ -208,6 +209,25 @@ describe('cgAutoSave passes the currency-change flag', () => {
     await fns.cgAutoSave();
     opts.onServerRate(1.2, 'USD', []);
     expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v2', 1.2, false, 'USD', []);
+    fns.activate('v1');
+    await fns.cgAutoSave();
+    opts.onServerRate(1.2, 'USD', []);
+    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v1', 1.2, true, 'USD', []);
+  });
+
+  it('a slow failed save of one version keeps another version\'s mark (Gate 3 r2 #2)', async () => {
+    fns.cgMarkCurrencyChange();
+    let fail;
+    upsertResult = () => new Promise(res => { fail = () => res(false); });
+    const slow = fns.cgAutoSave();
+    fns.activate('v2');
+    fns.cgMarkCurrencyChange();
+    fail();
+    await slow;
+    upsertResult = patchOk;
+    await fns.cgAutoSave();
+    opts.onServerRate(1.2, 'USD', []);
+    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v2', 1.2, true, 'USD', []);
     fns.activate('v1');
     await fns.cgAutoSave();
     opts.onServerRate(1.2, 'USD', []);
