@@ -56,7 +56,6 @@ import { join } from 'node:path';
 const ROOT = process.cwd();
 const DATES_MODULES = new Set(['js/lib/dates.js', 'api/src/lib/dates.js']);
 const EXEMPT_PREFIXES = ['api/src/scripts/', 'api/src/db/'];
-const EXEMPT_FILES = new Set(['api/src/restore-backup.js']);
 const SKIP_DIRS = new Set(['node_modules', '.git', '.claude', '.superpowers', 'docs', 'backups', 'coverage']);
 
 function walk(dir, out = []) {
@@ -76,7 +75,7 @@ const read = f => readFileSync(join(ROOT, f), 'utf8');
 describe('dates guard', () => {
   it('date validation and normalisation live only in the two dates modules', () => {
     const offenders = sources.filter(f =>
-      !DATES_MODULES.has(f) && !EXEMPT_FILES.has(f) && !EXEMPT_PREFIXES.some(p => f.startsWith(p)) &&
+      !DATES_MODULES.has(f) && !EXEMPT_PREFIXES.some(p => f.startsWith(p)) &&
       /isNaN\(new Date\(|\.replace\(\/-\/g/.test(read(f)));
     expect(offenders).toEqual([]);
   });
