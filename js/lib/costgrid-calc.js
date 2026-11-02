@@ -1,4 +1,4 @@
-import { currencyInfo } from './money.js?v=4';
+import { currencyInfo } from './money.js?v=5';
 
 // ── FREE TASKS (Task 1, 2026-10-07) ──────────────────────────────────────────
 // The one definition of "this task belongs to a project": linked by id, or (older links only carry
