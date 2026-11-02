@@ -90,7 +90,7 @@ async function cgLoadStructureFromApi(cgId, versionId) {
     if (!ver) { console.warn('[sync] cgLoadStructureFromApi: version not found', cgId, versionId); return false; }
 
     if (Array.isArray(struct.phases)) {
-      const rolesMap = new Map(); // code → { label, rate }
+      const rolesMap = new Map(); // code → { label, rate, isCustom, hasOverride }
 
       ver.phases = struct.phases.map(ph => ({
         phaseId:   ph.id       || ph.phaseId,
@@ -104,8 +104,8 @@ async function cgLoadStructureFromApi(cgId, versionId) {
               const label    = tr.label || tr.roleLabel || code;
               const override = tr.rate_override ?? tr.rateOverride;
               const rate     = parseFloat(override ?? tr.hourly_rate ?? 0);
-              const isCustom = override != null;
-              if (!rolesMap.has(code)) rolesMap.set(code, { label, rate, isCustom });
+              const isCustom = (tr.rate_is_custom ?? tr.rateIsCustom) === true;
+              if (!rolesMap.has(code)) rolesMap.set(code, { label, rate, isCustom, hasOverride: override != null });
             }
           });
           return {
@@ -120,13 +120,11 @@ async function cgLoadStructureFromApi(cgId, versionId) {
         }),
       }));
 
-      // Rebuild role columns from task_roles.
-      // If all roles in DB have rate_override (isCustom=true), always refresh so
-      // changes saved in another session are picked up. If any role still lacks
-      // rate_override (proposal saved before the fix that always snapshots rate_override),
-      // only set when empty to preserve client-side ratecard rates that cgSyncRoleRatesToBaseline applies.
+      // Rebuild role columns from task_roles when every role carries its saved rate
+      // (rate_override), so changes saved in another session are picked up; otherwise only
+      // when no roles are in memory. Custom comes from rate_is_custom, never from rate_override.
       if (rolesMap.size) {
-        const allHaveOverride = [...rolesMap.values()].every(r => r.isCustom);
+        const allHaveOverride = [...rolesMap.values()].every(r => r.hasOverride);
         if (allHaveOverride || !ver.roles?.length) {
           ver.roles = [...rolesMap.entries()].map(([code, { label, rate, isCustom }]) => ({
             roleCode:     code,

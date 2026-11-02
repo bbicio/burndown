@@ -234,3 +234,45 @@ describe('_cgUpsertVersionToApi — no POST fallback', () => {
     expect(api.costGrids.update).not.toHaveBeenCalled();
   });
 });
+
+describe('cgLoadStructureFromApi — Custom flag (f3)', () => {
+  // B-195: Custom comes from task_roles.rate_is_custom; rate_override is every role's saved rate.
+  function loadWith(rows, roles) {
+    const ver = { versionId: 'v1', roles };
+    const cg = { id: 'cg1', versions: [ver] };
+    const struct = { phases: [{ id: 'p1', title: 'P', tasks: [{ id: 't1', title: 'T', roles: rows }] }] };
+    const load = new Function('Api', 'cgLoad', 'cgSave', '_cgRuleNotified', `${extractBlock(js, 'function _cgForgetRuleNotices(')}; ${extractBlock(js, 'async function cgLoadStructureFromApi(')}; return cgLoadStructureFromApi;`)(
+      { costGrids: { versions: { structure: async () => struct } } }, () => cg, () => {}, new Set());
+    return load('cg1', 'v1').then(() => ver);
+  }
+
+  it('reloads rateIsCustom from the flag, not from rate_override', async () => {
+    const ver = await loadWith([
+      { code: 'PM', rate_override: '100.00', rate_is_custom: false, days: 2 },
+      { code: 'DEV', rate_override: '90.00', rate_is_custom: true, days: 1 },
+    ], []);
+    expect(ver.roles).toMatchObject([
+      { roleCode: 'PM', rate: 100, rateIsCustom: false },
+      { roleCode: 'DEV', rate: 90, rateIsCustom: true },
+    ]);
+  });
+
+  it('a missing flag is not Custom', async () => {
+    const ver = await loadWith([{ code: 'PM', rate_override: '100.00', days: 2 }], []);
+    expect(ver.roles).toMatchObject([{ roleCode: 'PM', rate: 100, rateIsCustom: false }]);
+  });
+
+  it('rebuilds stale in-memory roles when every role has rate_override', async () => {
+    const ver = await loadWith([{ code: 'PM', rate_override: '100.00', rate_is_custom: false, days: 2 }],
+      [{ roleCode: 'PM', rate: 50, rateIsCustom: true }]);
+    expect(ver.roles).toMatchObject([{ roleCode: 'PM', rate: 100, rateIsCustom: false }]);
+  });
+
+  it('keeps in-memory roles when a role has no rate_override', async () => {
+    const kept = await loadWith([{ code: 'PM', rate_override: null, hourly_rate: '100', days: 2 }],
+      [{ roleCode: 'PM', rate: 120, rateIsCustom: false }]);
+    expect(kept.roles).toEqual([{ roleCode: 'PM', rate: 120, rateIsCustom: false }]);
+    const rebuilt = await loadWith([{ code: 'PM', rate_override: null, hourly_rate: '100', days: 2 }], []);
+    expect(rebuilt.roles).toMatchObject([{ roleCode: 'PM', rate: 100, rateIsCustom: false }]);
+  });
+});
