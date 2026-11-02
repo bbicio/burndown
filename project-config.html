@@ -55,79 +55,87 @@
     </div>
     <div v-if="outOfPeriod.length && !isViewer" class="alert alert-warning alert-sm pc-alert">{{ outOfPeriodMessage }}</div>
 
-    <div class="pt-4">
-      <div class="cfg-section pc-card">
-        <div class="cfg-section-title">Client</div>
-        <div class="row g-3 align-items-end">
-          <div class="col-md-8">
-            <label class="form-label small mb-1">Assign to a client</label>
-            <select class="form-select form-select-sm" v-model="project.clientId" :disabled="isViewer">
+    <div class="pc-layout">
+      <aside class="pc-aside">
+        <nav class="pc-index" aria-label="Sections">
+          <div class="pc-index-label">Sections</div>
+          <a v-for="s in sections" :key="s.key" href="#" class="pc-index-item" :class="{ 'pc-index-item--active': activeSection === s.key }"
+             :aria-current="activeSection === s.key ? 'true' : null" @click.prevent="scrollToSection(s.key)">
+            <span class="pc-index-text">{{ s.label }}</span>
+            <span v-if="sectionIssues[s.key]" class="pc-dot" :title="sectionIssues[s.key]" :aria-label="sectionIssues[s.key]"></span>
+            <span v-else-if="s.optional" class="pc-index-opt">optional</span>
+          </a>
+        </nav>
+        <div class="pc-totals">
+          <div class="pc-index-label">Totals</div>
+          <div class="pc-totals-amount">{{ formatMoney(grandTotalBudget, project.currency, currencies) }}</div>
+          <div class="pc-totals-sub">{{ grandTotalHours.toLocaleString('en-US') }}h · {{ project.tasks.length }} {{ project.tasks.length === 1 ? 'task' : 'tasks' }}</div>
+        </div>
+      </aside>
+
+      <div class="pc-cards">
+      <div id="pc-sec-client" data-section="client" class="cfg-section pc-card">
+        <div class="cfg-section-title">Client &amp; program</div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="pc-label-row">
+              <label class="form-label pc-label" for="pc-client">Client</label>
+              <a v-if="!isViewer" href="#" class="pc-link" @click.prevent="openClientModal">+ New client</a>
+            </div>
+            <select id="pc-client" class="form-select form-select-sm" v-model="project.clientId" :disabled="isViewer">
               <option value="__unassigned__">Unassigned</option>
               <option v-for="c in getClients()" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
           </div>
-          <div class="col-md-4 d-flex align-items-end">
-            <button type="button" class="btn btn-primary btn-sm w-100" v-if="!isViewer" @click="openClientModal">＋ New client</button>
-          </div>
-        </div>
-      </div>
-      <div class="cfg-section pc-card">
-        <div class="cfg-section-title">0. Program <span class="fw-normal text-muted" style="font-size:.8rem">(optional)</span></div>
-        <div class="row g-3 align-items-end">
-          <div class="col-md-8">
-            <label class="form-label small mb-1">Assign to a program</label>
-            <select class="form-select form-select-sm" v-model="project.programId" :disabled="isViewer">
-              <option value="">— No program —</option>
+          <div class="col-md-6">
+            <div class="pc-label-row">
+              <label class="form-label pc-label" for="pc-program">Program <span class="pc-opt">· optional</span></label>
+              <a v-if="!isViewer" href="#" class="pc-link" @click.prevent="openProgramModal">+ New program</a>
+            </div>
+            <select id="pc-program" class="form-select form-select-sm" v-model="project.programId" :disabled="isViewer">
+              <option value="">No program · standalone project</option>
               <option v-for="p in getPrograms()" :key="p.id" :value="p.id">{{ p.name }}</option>
             </select>
-          </div>
-          <div class="col-md-4 d-flex align-items-end">
-            <button type="button" class="btn btn-primary btn-sm w-100" v-if="!isViewer" @click="openProgramModal">＋ New program</button>
           </div>
         </div>
       </div>
 
-      <div class="cfg-section pc-card">
-        <div class="cfg-section-title">1. Project info</div>
+      <div id="pc-sec-info" data-section="info" class="cfg-section pc-card">
+        <div class="cfg-section-title">Project info</div>
         <div class="row g-3">
-          <div class="col-md-4"><label class="form-label small mb-1">D365 Project ID <span class="text-muted">(matches XLS column)</span></label><input type="text" class="form-control form-control-sm" v-model="project.code" :disabled="isViewer" placeholder="e.g. HITA.000001201"></div>
-          <div class="col-md-8"><label class="form-label small mb-1">Project Name</label><input type="text" class="form-control form-control-sm" v-model="project.name" :disabled="isViewer" placeholder="e.g. Bayer AG - BERMITS 2026" @input="onNameInput"></div>
-          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Start month</label><cg-date-picker mode="month" :model-value="project.startDate || ''" :max="periodStartBounds.max" :disabled="isViewer" aria-label="Start month" @update:model-value="v => project.startDate = v"></cg-date-picker></div>
-          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">End month</label><cg-date-picker mode="month" :model-value="project.endDate || ''" :min="periodEndBounds.min" :disabled="isViewer" aria-label="End month" @update:model-value="v => project.endDate = v"></cg-date-picker></div>
-          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Currency</label><select class="form-select form-select-sm" v-model="project.currency" :disabled="currencyLocked"><option v-for="cu in currencyOptions" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.name }}</option></select><div v-if="currencyLocked" class="form-text" style="font-size:.72rem">{{ currencyHint }}</div></div>
-        </div>
-        <div class="row g-3 mt-1">
-          <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Pipeline</label><select class="form-select form-select-sm" v-model="project.pipeline" :disabled="isViewer || pipelineLocked" :title="pipelineLocked ? 'Pipeline is managed from the Cost Grid' : ''" @change="onPipelineChange"><option value="">— Select —</option><option value="SIP">SIP</option><option value="Expected">Expected</option><option value="Anticipated">Anticipated</option><option value="Committed">Committed</option><option value="Canceled">Canceled</option></select></div>
-          <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Status</label><select class="form-select form-select-sm" v-model="project.status" :disabled="isViewer || statusRule.disabled"><option v-if="!statusRule.options || !statusRule.options.length" value=""> — Select —</option><option v-for="opt in (statusRule.options || [])" :key="opt" :value="opt">{{ opt }}</option></select></div>
-        </div>
-        <div class="row g-3 mt-1">
+          <div class="col-md-4"><label class="form-label pc-label">D365 project ID</label><input type="text" class="form-control form-control-sm pc-mono" v-model="project.code" :disabled="isViewer" placeholder="e.g. HITA.000001201"><div class="pc-hint">Must match the XLS column</div></div>
+          <div class="col-md-8"><label class="form-label pc-label">Project name</label><input type="text" class="form-control form-control-sm" v-model="project.name" :disabled="isViewer" placeholder="e.g. Bayer AG - BERMITS 2026" @input="onNameInput"></div>
+          <div class="col-md-4"><label class="form-label pc-label">Start month</label><cg-date-picker mode="month" :model-value="project.startDate || ''" :max="periodStartBounds.max" :disabled="isViewer" aria-label="Start month" @update:model-value="v => project.startDate = v"></cg-date-picker></div>
+          <div class="col-md-4"><label class="form-label pc-label">End month</label><cg-date-picker mode="month" :model-value="project.endDate || ''" :min="periodEndBounds.min" :disabled="isViewer" aria-label="End month" @update:model-value="v => project.endDate = v"></cg-date-picker></div>
+          <div class="col-md-4"><label class="form-label pc-label">Currency</label><div class="pc-field" :class="{ 'pc-locked': currencyLocked }"><ph-icon v-if="currencyLocked" name="lock" :size="12" class="pc-locked-icon"></ph-icon><select class="form-select form-select-sm" v-model="project.currency" :disabled="currencyLocked"><option v-for="cu in currencyOptions" :key="cu.code" :value="cu.code">{{ cu.code }} · {{ cu.name }}</option></select></div><div v-if="currencyLocked" class="pc-hint" :title="currencyHint">Locked · contact a sysadmin to change it</div></div>
+          <div class="col-md-4"><label class="form-label pc-label">Pipeline stage</label><div class="pc-field" :class="{ 'pc-locked': pipelineLocked }"><ph-icon v-if="pipelineLocked" name="lock" :size="12" class="pc-locked-icon"></ph-icon><select class="form-select form-select-sm" v-model="project.pipeline" :disabled="isViewer || pipelineLocked" :title="pipelineLocked ? 'Pipeline is managed from the Cost Grid' : ''" @change="onPipelineChange"><option value="">— Select —</option><option value="SIP">SIP</option><option value="Expected">Expected</option><option value="Anticipated">Anticipated</option><option value="Committed">Committed</option><option value="Canceled">Canceled</option></select></div><div v-if="pipelineLocked" class="pc-hint">From the linked proposal</div></div>
+          <div class="col-md-4"><label class="form-label pc-label">Status</label><select class="form-select form-select-sm" v-model="project.status" :disabled="isViewer || statusRule.disabled"><option v-if="!statusRule.options || !statusRule.options.length" value=""> — Select —</option><option v-for="opt in (statusRule.options || [])" :key="opt" :value="opt">{{ opt }}</option></select></div>
           <div class="col-12">
-            <label class="form-label small mb-1">Description <span class="text-muted">(used to extract competence topics for the team profiles)</span></label>
+            <label class="form-label pc-label">Description <span class="pc-opt">· used to extract competence topics for team profiles</span></label>
             <textarea class="form-control form-control-sm" rows="3" v-model="project.description" :disabled="isViewer" placeholder="What is this project about? Scope, work performed, skills needed…"></textarea>
           </div>
         </div>
       </div>
 
-      <div class="cfg-section pc-card">
-        <div class="d-flex justify-content-between align-items-center cfg-section-title">
-          <span>2. Actuals</span>
-          <div class="d-flex gap-2">
-            <label class="btn btn-sm btn-outline-secondary mb-0" v-if="project.code && !isViewer">
-              📂 Load Actuals
-              <input type="file" accept=".xls,.xlsx" style="display:none" @change="onActualsFileChange">
-            </label>
-            <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="openActualsViewModal">👁 View</button>
-            <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="downloadActualsXlsx">⬇ Download actuals</button>
-            <button class="btn btn-sm btn-outline-danger" v-if="project.code && !isViewer" :disabled="actuals.deleting" @click="onDeleteActuals">🗑 Delete actuals</button>
+      <div id="pc-sec-actuals" data-section="actuals" class="cfg-section pc-card">
+        <div class="pc-card-head">
+          <div class="pc-card-head-text">
+            <div class="cfg-section-title">Actuals</div>
+            <div class="pc-card-sub" v-html="actuals.info"></div>
+          </div>
+          <div class="pc-card-actions">
+            <label class="ph-btn pc-btn-outline mb-0" v-if="project.code && !isViewer"><ph-icon name="upload" :size="14"></ph-icon>Load actuals<input type="file" accept=".xls,.xlsx" class="d-none" @change="onActualsFileChange"></label>
+            <button type="button" class="ph-btn" v-if="actuals.exportRows" @click="openActualsViewModal"><ph-icon name="eye" :size="14"></ph-icon>View</button>
+            <button type="button" class="ph-btn pc-icon-btn" v-if="actuals.exportRows" title="Download actuals" aria-label="Download actuals" @click="downloadActualsXlsx"><ph-icon name="download" :size="14"></ph-icon></button>
+            <button type="button" class="ph-btn pc-icon-btn pc-icon-btn--danger" v-if="project.code && !isViewer" :disabled="actuals.deleting" title="Delete actuals" aria-label="Delete actuals" @click="onDeleteActuals"><ph-icon name="trash" :size="14"></ph-icon></button>
           </div>
         </div>
-        <div class="text-muted small py-1" v-html="actuals.info"></div>
-        <div class="small mt-1 text-danger" v-if="actuals.guardMsg">{{ actuals.guardMsg }}</div>
-        <div class="small mt-1" v-if="actuals.status" :class="actuals.statusClass">{{ actuals.status }}</div>
+        <div class="small mt-2 text-danger" v-if="actuals.guardMsg">{{ actuals.guardMsg }}</div>
+        <div class="small mt-2" v-if="actuals.status" :class="actuals.statusClass">{{ actuals.status }}</div>
       </div>
-      <div class="cfg-section pc-card">
+      <div id="pc-sec-tasks" data-section="tasks" class="cfg-section pc-card">
   <div class="d-flex justify-content-between align-items-center cfg-section-title">
-    <span>3. Tasks &amp; Resources</span>
+    <span>Tasks &amp; resources</span>
     <div class="d-flex gap-2">
       <button class="btn btn-sm btn-outline-secondary" @click="exportTasksXlsx">⬇ XLSX</button>
       <button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addTask">+ Add task</button>
@@ -212,9 +220,9 @@
     <span>Total budget: {{ grandTotalBudget > 0 ? formatMoney(grandTotalBudget, project.currency, currencies) : '—' }}</span>
   </div>
 </div>
-      <div class="cfg-section pc-card">
+      <div id="pc-sec-phasing" data-section="phasing" class="cfg-section pc-card">
   <div class="d-flex justify-content-between align-items-center cfg-section-title">
-    <span>4. Monthly Budget Phasing <span class="fw-normal text-muted">(estimated budget to spend per month)</span></span>
+    <span>Monthly Budget Phasing <span class="fw-normal text-muted">(estimated budget to spend per month)</span></span>
     <div class="d-flex gap-2 align-items-center flex-wrap" v-if="!isViewer">
       <button class="btn btn-sm btn-outline-secondary" @click="derivePhasing">⟳ Derive from task dates</button>
       <button class="btn btn-sm btn-outline-secondary" v-if="reforecastVisible" @click="runReforecast">↻ Reforecast from actuals</button>
@@ -240,7 +248,7 @@
 </div>
 <div class="cfg-section pc-card">
   <div class="d-flex justify-content-between align-items-center cfg-section-title">
-    <span>5. Monthly Hour Planning <span class="fw-normal text-muted">(planned hours to consume per month)</span></span>
+    <span>Monthly Hour Planning <span class="fw-normal text-muted">(planned hours to consume per month)</span></span>
     <div class="d-flex gap-2 align-items-center flex-wrap" v-if="!isViewer">
       <button class="btn btn-sm btn-outline-secondary" @click="derivePhasing">⟳ Derive from task dates</button>
       <button class="btn btn-sm btn-outline-secondary" v-if="reforecastVisible" @click="runReforecast">↻ Reforecast from actuals</button>
@@ -262,8 +270,8 @@
   </div>
   <p class="text-muted small mb-0" v-else>Set Start and End month first.</p>
 </div>
-      <div class="cfg-section pc-card">
-  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>6. Pass Through Costs <span class="fw-normal text-muted">(PTC)</span></span><button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addPtc">+ Add PTC</button></div>
+      <div id="pc-sec-ptc" data-section="ptc" class="cfg-section pc-card">
+  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>Pass Through Costs <span class="fw-normal text-muted">(PTC)</span></span><button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addPtc">+ Add PTC</button></div>
   <p class="text-muted small mb-3">Add external costs (licences, travel, etc.) with title, note, amount and the month they occur.</p>
   <div class="cfg-ptc-card border rounded p-3 mb-2" v-for="(item, pi) in project.ptc" :key="pi">
     <div class="row g-2 align-items-start">
@@ -287,8 +295,8 @@
   </div>
   <div class="d-flex justify-content-end px-2 py-2 mt-1 border-top fw-bold small" style="background:#fff3cd;border-radius:0 0 6px 6px">Total PTC: {{ totalPtc > 0 ? formatMoney(totalPtc, project.currency, currencies) : '—' }}</div>
 </div>
-<div class="cfg-section pc-card">
-  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>7. Functional Groups <span class="fw-normal text-muted">(optional)</span></span><button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addGroup">+ Add group</button></div>
+<div id="pc-sec-groups" data-section="groups" class="cfg-section pc-card">
+  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>Functional Groups <span class="fw-normal text-muted">(optional)</span></span><button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addGroup">+ Add group</button></div>
   <p class="text-muted small mb-3">Group roles into functional areas. Each role must match the <strong>Job Role: Name</strong> column in the XLS. Pick a specific task to count that role's hours only on that task (e.g. the same role billed at a different rate on another task) — leave it as "— any task —" to count the role everywhere it appears, matching the old behavior.</p>
   <div class="cfg-group-card border rounded p-3 mb-2" v-for="(grp, gi) in project.groups" :key="gi">
     <div class="d-flex align-items-center gap-2 mb-2">
@@ -308,8 +316,8 @@
     <button class="btn btn-sm btn-outline-secondary" v-if="!isViewer" @click="addGroupEntry(gi)">+ Add role</button>
   </div>
 </div>
-<div class="cfg-section pc-card" v-if="!isNewProject">
-  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>8. Tags <span class="fw-normal text-muted">(optional)</span></span></div>
+<div id="pc-sec-tags" data-section="tags" class="cfg-section pc-card" v-if="!isNewProject">
+  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>Tags <span class="fw-normal text-muted">(optional)</span></span></div>
   <div v-if="!attributeLists.length" class="text-muted small">No tag lists configured yet.</div>
   <div class="tags-section" :class="{ 'tags-section--readonly': tagsReadOnly }">
   <div v-for="list in attributeLists" :key="list.id" class="tag-group mb-3">
@@ -330,6 +338,7 @@
   </div>
   </div>
 </div>
+      </div>
     </div>
   </template>
 
@@ -462,6 +471,7 @@
         phasingActionError: '',
         headerBadge: window.headerBadge,
         openTaskIndex: null,
+        activeSection: 'client',
       };
     },
     computed: {
@@ -469,6 +479,39 @@
         return this.project?.my_permission === 'viewer';
       },
       isDirty() { return window.isProjectDirty(this.savedSnapshot, this.project); },
+      // The section index, in page order; Tags exists only for a saved project.
+      sections() {
+        const all = [
+          { key: 'client', label: 'Client & program', optional: false },
+          { key: 'info', label: 'Project info', optional: false },
+          { key: 'actuals', label: 'Actuals', optional: false },
+          { key: 'tasks', label: 'Tasks & resources', optional: false },
+          { key: 'phasing', label: 'Monthly phasing', optional: false },
+          { key: 'ptc', label: 'Pass-through costs', optional: true },
+          { key: 'groups', label: 'Functional groups', optional: true },
+          { key: 'tags', label: 'Tags', optional: true },
+        ];
+        return this.isNewProject ? all.filter(x => x.key !== 'tags') : all;
+      },
+      currencyDigits() { return window.currencyInfo(this.project?.currency, this.currencies).digits; },
+      // Why a section needs attention (the amber dot of the index), or null.
+      sectionIssues() {
+        const p = this.project;
+        const out = { tasks: null, phasing: null, ptc: null };
+        if (!p) return out;
+        const tasks = p.tasks || [];
+        const unsplit = tasks.filter(t => { const ms = this.taskMonthRange(t); return ms.length && !window.splitState(t.monthlyDistribution, ms).valid; }).length;
+        if (unsplit) out.tasks = unsplit + ' of ' + tasks.length + ' tasks have no valid monthly split';
+        else if (this.outOfPeriod.length) out.tasks = 'Some tasks are outside the project period';
+        else if (Object.keys(this.rateInvalid).length) out.tasks = 'Some hourly rates are not valid amounts';
+        if (Object.keys(this.phasingInvalid).length) out.phasing = 'Some phasing amounts are not valid';
+        else if (this.projectMonths.length && this.grandTotalBudget > 0) {
+          if (!window.phasingBalance(this.phasingSum, this.grandTotalBudget, this.currencyDigits).balanced) out.phasing = 'The budget phasing does not add up to the total budget';
+          else if (!window.phasingBalance(this.planningSum, this.grandTotalHours, 2).balanced) out.phasing = 'The hour planning does not add up to the total hours';
+        }
+        if (Object.keys(this.ptcInvalid).length) out.ptc = 'Some PTC amounts are not valid';
+        return out;
+      },
       // Page head sub-line: client · D365 code · period · currency, each part omitted when empty.
       headMeta() {
         const p = this.project;
@@ -573,6 +616,10 @@
       // Snapshot last, after resolveProject's normalisations, so those never count as user edits.
       if (this.project && !this.notFound) this.savedSnapshot = JSON.stringify(this.project);
       this.ready = true;
+      if (this.project && !this.notFound) { await this.$nextTick(); this.observeSections(); }
+    },
+    beforeUnmount() {
+      if (this._sectionObserver) this._sectionObserver.disconnect();
     },
     methods: {
       getClients,
@@ -583,6 +630,27 @@
       // body instead, which only executes later, once the bridge is guaranteed to exist.
       cfgFmtHours(n) { return window.cfgFmtHours(n); },
       cfgParseHours(s) { return window.cfgParseHours(s); },
+      // Index click: scroll the card under the sticky tab bar (below 1024px) plus a margin, with window.scrollTo.
+      scrollToSection(key) {
+        const el = document.getElementById('pc-sec-' + key);
+        if (!el) return;
+        this.activeSection = key;
+        const index = document.querySelector('.pc-index');
+        const tabs = index && window.matchMedia('(max-width: 1023.98px)').matches ? index.offsetHeight : 0;
+        const margin = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - tabs - margin, behavior: 'smooth' });
+      },
+      // The active index entry follows the first card crossing the upper part of the viewport.
+      observeSections() {
+        if (!('IntersectionObserver' in window)) return;
+        const visible = new Set();
+        this._sectionObserver = new IntersectionObserver(entries => {
+          entries.forEach(e => { if (e.isIntersecting) visible.add(e.target.dataset.section); else visible.delete(e.target.dataset.section); });
+          const first = this.sections.find(x => visible.has(x.key));
+          if (first) this.activeSection = first.key;
+        }, { rootMargin: '-10% 0px -60% 0px' });
+        document.querySelectorAll('.pc-card[data-section]').forEach(el => this._sectionObserver.observe(el));
+      },
       resolveProject() {
         const params = new URLSearchParams(window.location.search);
         const projectId = params.get('projectId');
@@ -748,7 +816,7 @@
       },
       // Sets a transient actuals-section status message (success or error) that
       // auto-clears after `ms` — used for every actuals status EXCEPT the
-      // "⏳ Uploading…" in-progress message, which is meant to be overwritten by
+      // "Uploading…" in-progress message, which is meant to be overwritten by
       // the success/failure message right after, not to auto-clear on its own.
       // Cancels any previously-scheduled clear first, so two flashes within `ms`
       // of each other don't have the first one's timer wipe the second's message.
@@ -760,7 +828,7 @@
       },
       async downloadActualsXlsx() {
         if (typeof ExcelJS === 'undefined') {
-          this.flashActualsStatus('❌ Export library not available.', 'text-danger');
+          this.flashActualsStatus('Export library not available.', 'text-danger');
           return;
         }
         try {
@@ -786,7 +854,7 @@
           a.click();
           setTimeout(() => URL.revokeObjectURL(a.href), 0);
         } catch (e) {
-          this.flashActualsStatus(`❌ Export failed: ${e.message}`, 'text-danger');
+          this.flashActualsStatus(`Export failed: ${e.message}`, 'text-danger');
         }
       },
       buildActualsFilename() {
@@ -804,10 +872,10 @@
         this.actuals.guardMsg = '';
         if (!this.project.code) { this.actuals.guardMsg = 'Set the D365 Project ID first before uploading actuals.'; return; }
         clearTimeout(this._actualsStatusTimer); // cancel any pending clear from a prior action's flash
-        this.actuals.status = '⏳ Uploading…'; this.actuals.statusClass = 'text-muted';
+        this.actuals.status = 'Uploading…'; this.actuals.statusClass = 'text-muted';
         try {
           const result = await Api.timesheets.upload(file, this.project.code);
-          this.actuals.status = `✅ Uploaded ${result.totalRows} rows.`; this.actuals.statusClass = 'text-success';
+          this.actuals.status = `Uploaded ${result.totalRows} rows.`; this.actuals.statusClass = 'text-success';
           await this.loadActuals();
           await this.updateReforecastVisibility();
           // Start the 4s auto-clear only now, after the reload settles — starting it
@@ -819,7 +887,7 @@
             this.actuals.status = '';
             await this.showConfirm(formatUploadInconsistencies(err.data.inconsistencies), { infoMode: true });
           } else {
-            this.flashActualsStatus(`❌ Upload failed: ${err.message}`, 'text-danger');
+            this.flashActualsStatus(`Upload failed: ${err.message}`, 'text-danger');
           }
         }
         e.target.value = '';
@@ -875,9 +943,9 @@
           this.actuals.info = `<span class="text-muted">No actuals uploaded for project <code>${esc(this.project.code)}</code>.</span>`;
           this.actuals.exportRows = null;
           this.reforecastVisible = false;
-          this.flashActualsStatus('✅ Actuals deleted.', 'text-success');
+          this.flashActualsStatus('Actuals deleted.', 'text-success');
         } catch (e) {
-          this.flashActualsStatus(`❌ Delete failed: ${e.message}`, 'text-danger');
+          this.flashActualsStatus(`Delete failed: ${e.message}`, 'text-danger');
         } finally {
           this.actuals.deleting = false;
         }

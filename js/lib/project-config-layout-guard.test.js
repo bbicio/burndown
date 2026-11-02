@@ -108,3 +108,58 @@ describe('page head and save', () => {
     expect(body).toContain('this.openTaskIndex = null');
   });
 });
+
+const SECTION_KEYS = ['client', 'info', 'actuals', 'tasks', 'phasing', 'ptc', 'groups', 'tags'];
+
+describe('section index', () => {
+  it('renders the index from sections and scrolls with window.scrollTo', () => {
+    expect(html).toContain('class="pc-index"');
+    expect(html).toContain('v-for="s in sections"');
+    expect(html).toContain('@click.prevent="scrollToSection(s.key)"');
+    expect(html).toContain('IntersectionObserver');
+    expect(html).toContain('window.scrollTo(');
+    expect(html).not.toContain('scrollIntoView');
+  });
+  it('gives every card its id and data-section', () => {
+    for (const k of SECTION_KEYS) {
+      expect(html).toContain(`id="pc-sec-${k}"`);
+      expect(html).toContain(`data-section="${k}"`);
+    }
+  });
+  it('has no numbered section titles', () => {
+    for (const m of html.matchAll(/class="[^"]*cfg-section-title[^"]*"[^>]*>([\s\S]*?)<\//g)) {
+      expect(m[1], m[1]).not.toMatch(/^\s*(<span>)?\s*\d\.\s/);
+    }
+  });
+  it('labels the empty program option', () => {
+    expect(html).toContain('No program · standalone project');
+  });
+  it('has no emoji from Client to Actuals and no status emoji anywhere', () => {
+    const slice = html.slice(html.indexOf('id="pc-sec-client"'), html.indexOf('id="pc-sec-tasks"'));
+    expect(slice.length).toBeGreaterThan(0);
+    expect(slice).not.toMatch(/\p{Extended_Pictographic}/u);
+    for (const e of ['✅', '❌', '⏳']) expect(html).not.toContain(e);
+  });
+  it('sectionIssues flags tasks, phasing and PTC', () => {
+    const src = html.match(/\n      sectionIssues\(\) \{([\s\S]*?)\n      \},/)?.[1];
+    expect(src).toBeTruthy();
+    const base = {
+      project: { tasks: [], startDate: '202601', endDate: '202602', phasing: {}, planning: {} },
+      outOfPeriod: [], rateInvalid: {}, phasingInvalid: {}, ptcInvalid: {},
+      projectMonths: ['202601', '202602'], grandTotalBudget: 0, grandTotalHours: 0,
+      phasingSum: 0, planningSum: 0, currencyDigits: 2,
+      taskMonthRange: () => ['202601', '202602'],
+    };
+    const calc = extra => {
+      globalThis.window = { splitState: (d, ms) => { const sum = ms.reduce((s, m) => s + (d?.[m] || 0), 0); return { valid: Math.abs(sum - 100) <= 0.5 }; },
+        phasingBalance: (s, t) => ({ balanced: Math.abs(s - t) < 0.005 }) };
+      try { return new Function(src).call({ ...base, ...extra }); } finally { delete globalThis.window; }
+    };
+    expect(calc({})).toEqual({ tasks: null, phasing: null, ptc: null });
+    expect(calc({ project: { ...base.project, tasks: [{ monthlyDistribution: {} }] } }).tasks).toBeTruthy();
+    expect(calc({ ptcInvalid: { 0: 'x' } }).ptc).toBeTruthy();
+    expect(calc({ phasingInvalid: { '202601': 'x' } }).phasing).toBeTruthy();
+    expect(calc({ grandTotalBudget: 100, phasingSum: 90 }).phasing).toBeTruthy();
+    expect(calc({ grandTotalBudget: 100, phasingSum: 100, grandTotalHours: 10, planningSum: 10 }).phasing).toBeNull();
+  });
+});
