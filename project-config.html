@@ -415,7 +415,7 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/status-rules.js?v=1"></script>
-<script type="module" src="js/lib/config-form-calc.js?v=4"></script>
+<script type="module" src="js/lib/config-form-calc.js?v=5"></script>
 <script type="module" src="js/lib/dates.js?v=4"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
@@ -1124,7 +1124,7 @@
         const tasks = this.project.tasks.filter(t => t.billable !== false);
         const months = this.projectMonths;
         if (!months.length) { this.phasingActionError = 'Set project dates first.'; return; }
-        const result = deriveDistribution(tasks, months, this.project.startDate, this.project.endDate);
+        const result = deriveDistribution(tasks, months, this.project.startDate, this.project.endDate, window.currencyInfo(this.project.currency, window.__currencies).digits);
         const fmtB = n => window.formatMoney(n || 0, this.project?.currency, window.__currencies);
         const message = `Phasing and planning will be computed from task date ranges, distributing each task's budget proportionally to the days of overlap with each month.\n\n`
           + `Total budget distributed: ${fmtB(result.totalBudget)} across ${months.length} months\n`
@@ -1155,7 +1155,7 @@ Outside the project period, not distributed: ${fmtB(result.outsideBudget)} · ${
 
         const now = new Date();
         const currentYm = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}`;
-        const result = reforecastDistribution(tasks, months, actualsRows, currentYm);
+        const result = reforecastDistribution(tasks, months, actualsRows, currentYm, window.currencyInfo(this.project.currency, window.__currencies).digits);
         if (result.distError) { this.phasingActionError = 'Cannot reforecast:\n\n' + result.distError; return; }
 
         const fmtB = n => window.formatMoney(Math.abs(n) || 0, this.project?.currency, window.__currencies);

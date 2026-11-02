@@ -9,7 +9,7 @@ const { DATE_RULE, periodError, periodChangeError, periodShrinkError, taskPeriod
 const { isAdminRole } = require('../lib/is-admin');
 const { enqueueProjectsQuiet } = require('../services/profile-engine');
 const { descriptionsSignature } = require('../lib/topic-extract');
-const { amountError, MONEY_RULE_CODE } = require('../lib/money-rules');
+const { amountError, ptcRowsError, phasingError, MONEY_RULE_CODE, MAX_DECIMAL_10_2 } = require('../lib/money-rules');
 let _createNotification;
 
 const router = express.Router();
@@ -436,7 +436,7 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
       t.resources = t.resources.map(r => (r && (r.hourlyRate === undefined || r.hourlyRate === null || r.hourlyRate === '')
         ? { ...r, hourlyRate: 0 } : r));
       for (const r of t.resources) {
-        const err = amountError(r?.hourlyRate, currency, `Hourly rate of "${r?.role || ''}" on task "${t.name || ''}"`);
+        const err = amountError(r?.hourlyRate, currency, `Hourly rate of "${r?.role || ''}" on task "${t.name || ''}"`, { max: MAX_DECIMAL_10_2 });
         if (err) return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
       }
     }
@@ -522,6 +522,9 @@ router.patch('/:id/phasing', requireAuth, async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     const { phasing } = req.body;
+    const { rows: [{ currency: phCur } = {}] } = await query('SELECT currency FROM projects WHERE id = $1', [req.params.id]);
+    const phErr = phasingError(phasing, phCur);
+    if (phErr) return res.status(400).json({ error: phErr, code: MONEY_RULE_CODE });
     await query('UPDATE projects SET phasing = $1 WHERE id = $2', [JSON.stringify(phasing), req.params.id]);
     res.json({ ok: true });
   } catch (err) { next(err); }
@@ -534,6 +537,9 @@ router.patch('/:id/ptc', requireAuth, async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     const { ptc } = req.body;
+    const { rows: [{ currency: ptcCur } = {}] } = await query('SELECT currency FROM projects WHERE id = $1', [req.params.id]);
+    const ptcErr = ptcRowsError(ptc, ptcCur);
+    if (ptcErr) return res.status(400).json({ error: ptcErr, code: MONEY_RULE_CODE });
     await query('UPDATE projects SET ptc = $1 WHERE id = $2', [JSON.stringify(ptc), req.params.id]);
     res.json({ ok: true });
   } catch (err) { next(err); }

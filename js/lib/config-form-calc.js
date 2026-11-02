@@ -15,7 +15,13 @@ function parseTaskDateLocal(str, isEnd) {
   return isEnd ? new Date(y, m, 0) : new Date(y, m - 1, 1);
 }
 
-export function deriveDistribution(tasks, months, cfgStart, cfgEnd) {
+// Rounds a money amount to the currency's decimals (halves go up); each month is rounded on its own.
+function round(v, digits) {
+  const f = 10 ** digits;
+  return Math.round(v * f) / f;
+}
+
+export function deriveDistribution(tasks, months, cfgStart, cfgEnd, digits = 2) {
   const newPhasing = {}, rawPlanning = {};
   months.forEach(ym => {
     const [y, m] = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))];
@@ -45,7 +51,7 @@ export function deriveDistribution(tasks, months, cfgStart, cfgEnd) {
         }
       }
     });
-    if (budget > 0) newPhasing[ym] = Math.round(budget * 100) / 100;
+    if (budget > 0) newPhasing[ym] = round(budget, digits);
     if (hours > 0) rawPlanning[ym] = hours;
   });
 
@@ -77,7 +83,7 @@ export function deriveDistribution(tasks, months, cfgStart, cfgEnd) {
   return { newPhasing, newPlanning, totalBudget, totalHours, outsideBudget, outsideHours };
 }
 
-export function reforecastDistribution(tasks, months, actualsRows, currentYm) {
+export function reforecastDistribution(tasks, months, actualsRows, currentYm, digits = 2) {
   const pastMonths = months.filter(ym => ym < currentYm);
   const futureMonths = months.filter(ym => ym >= currentYm);
   const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -174,8 +180,7 @@ export function reforecastDistribution(tasks, months, actualsRows, currentYm) {
 
   if (distError) return { newPhasing: {}, newPlanning: {}, distError, remainingBudget: 0, remainingHours: 0, pastMonths, futureMonths };
 
-  const pastYMs = new Set(pastMonths);
-  Object.keys(newPhasing).forEach(ym => { if (!pastYMs.has(ym)) newPhasing[ym] = Math.round(newPhasing[ym] * 100) / 100; });
+  Object.keys(newPhasing).forEach(ym => { newPhasing[ym] = round(newPhasing[ym], digits); });
 
   const pastSpendTotal = Object.values(taskActuals).reduce((s, ta) => s + pastMonths.reduce((ps, ym) => ps + ((ta[ym]||{}).spend||0), 0), 0);
   const pastHrsTotal = Object.values(taskActuals).reduce((s, ta) => s + pastMonths.reduce((ps, ym) => ps + ((ta[ym]||{}).hours||0), 0), 0);

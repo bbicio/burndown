@@ -847,6 +847,52 @@ async function testMoneyRules() {
   const t4 = await putTaskRate('abc');
   ok(isMoneyRefusal(t3) && isMoneyRefusal(t4) && Number(await storedTaskRate()) === 150,
     `MR-08 project resource rate -1 and 'abc' → MONEY_RULE, stored rate still 150 (got ${t3.status}, ${t4.status})`);
+
+  // MR-18 / MR-19 — project phasing and PTC amounts
+  const patchPhasing = (id, phasing) => api('PATCH', `/api/projects/${id}/phasing`, { phasing }, sysadminCookie);
+  const patchPtc = (id, ptc) => api('PATCH', `/api/projects/${id}/ptc`, { ptc }, sysadminCookie);
+  const readProj = async (id, field) => (await api('GET', `/api/projects/${id}`, null, sysadminCookie)).data?.[field];
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+  const ph1 = await patchPhasing(mrProj, { '202601': 1000.5 });
+  const ph1s = await readProj(mrProj, 'phasing');
+  const ph2 = await patchPhasing(mrProj, {});
+  ok(ph1.status === 200 && same(ph1s, { '202601': 1000.5 }) && ph2.status === 200,
+    `MR-18a phasing {'202601': 1000.5} → 200, read back equal; {} → 200 (got ${ph1.status}, ${JSON.stringify(ph1s)}, ${ph2.status})`);
+
+  await patchPhasing(mrProj, { '202601': 1000.5 });
+  const badPhasing = [{ '202601': -1 }, { '202601': '5' }, { '202601': 1120.304347826087 }, { '202601': 1e8 }, [], null];
+  const badPhRes = [];
+  for (const b of badPhasing) badPhRes.push(await patchPhasing(mrProj, b));
+  const phAfter = await readProj(mrProj, 'phasing');
+  ok(badPhRes.every(isMoneyRefusal) && same(phAfter, { '202601': 1000.5 }),
+    `MR-18b phasing -1 / '5' / 1120.304347826087 / 1e8 / [] / null → MONEY_RULE, read back unchanged (got ${badPhRes.map(r => r.status).join(',')}, ${JSON.stringify(phAfter)})`);
+
+  const jpy = await api('POST', '/api/projects', { name: '__test_mr_project_jpy__', currency: 'JPY' }, sysadminCookie);
+  const jpyProj = jpy.data?.id;
+  if (jpyProj) later('DELETE', `/api/projects/${jpyProj}`);
+  if (jpyProj) {
+    const j1 = await patchPhasing(jpyProj, { '202601': 1.5 });
+    const j2 = await patchPhasing(jpyProj, { '202601': 1500 });
+    ok(isMoneyRefusal(j1) && j2.status === 200,
+      `MR-18c JPY phasing 1.5 → MONEY_RULE, 1500 → 200 (got ${j1.status}, ${j2.status})`);
+  } else fail(`MR-18c: JPY project setup failed (got ${jpy.status}) — skipping`);
+
+  const ptcRow = amount => ({ note: '', month: '202601', title: 'T', amount });
+  const pc1 = await patchPtc(mrProj, [ptcRow(100)]);
+  const pc1s = await readProj(mrProj, 'ptc');
+  const pc2 = await patchPtc(mrProj, []);
+  ok(pc1.status === 200 && Array.isArray(pc1s) && pc1s.length === 1 && pc2.status === 200,
+    `MR-19a project PTC one row → 200, read back; [] → 200 (got ${pc1.status}, ${JSON.stringify(pc1s)}, ${pc2.status})`);
+
+  await patchPtc(mrProj, [ptcRow(100)]);
+  const ptcBefore = await readProj(mrProj, 'ptc');
+  const badPtc2 = [[ptcRow(-1)], [ptcRow('100')], [ptcRow(100.555)], {}, [5]];
+  const badPcRes = [];
+  for (const b of badPtc2) badPcRes.push(await patchPtc(mrProj, b));
+  const ptcAfter = await readProj(mrProj, 'ptc');
+  ok(badPcRes.every(isMoneyRefusal) && same(ptcAfter, ptcBefore),
+    `MR-19b project PTC -1 / '100' / 100.555 / {} / [5] → MONEY_RULE, read back unchanged (got ${badPcRes.map(r => r.status).join(',')})`);
   }
 
   // Roles (M-05) and ratecard entries (M-07).
@@ -911,6 +957,59 @@ async function testMoneyRules() {
     ok(isMoneyRefusal(u1) && isMoneyRefusal(u2) && a1 === 1000 && h1 === h0,
       `MR-14 POT update: 'abc' and 1.234 → MONEY_RULE, amount still 1000, history unchanged (got ${u1.status}, ${u2.status}, amount ${a1}, history ${h0}→${h1})`);
   } else fail('MR-13/14: POT setup failed — skipping');
+
+  // MR-15a / MR-15b — column bound (DECIMAL(10,2) for a role rate, NUMERIC(14,2) for a POT amount)
+  const b0 = await putRate(eurV, 120);
+  const b1 = await putRate(eurV, 100000000);
+  ok(b0.status === 200 && isMoneyRefusal(b1) && Number(await storedRate(eurV)) === 120,
+    `MR-15a structure PUT rate 100000000 → MONEY_RULE, stored rate still 120 (got ${b0.status}, ${b1.status})`);
+  if (rpot.status === 201 && mrPotId) {
+    const potAmountNow = async () => Number(((await api('GET', '/api/pots?year=2099', null, adminCookie)).data || []).find(p => p.id === mrPotId)?.amount);
+    const p1 = await api('PATCH', `/api/pots/${mrPotId}`, { amount: 1e12, note: 'x' }, adminCookie);
+    const pa1 = await potAmountNow();
+    const p2 = await api('PATCH', `/api/pots/${mrPotId}`, { amount: 999999999999.99, note: 'x' }, adminCookie);
+    const pa2 = await potAmountNow();
+    await api('PATCH', `/api/pots/${mrPotId}`, { amount: 1000, note: 'x' }, adminCookie);
+    ok(isMoneyRefusal(p1) && pa1 === 1000 && p2.status === 200 && pa2 === 999999999999.99,
+      `MR-15b POT update: 1e12 → MONEY_RULE, amount still 1000; 999999999999.99 → 200 (got ${p1.status}, amount ${pa1}; ${p2.status}, amount ${pa2})`);
+  } else fail('MR-15b: POT setup failed — skipping');
+
+  // MR-16 — task PTC on the structure PUT (version currency, DECIMAL(10,2)); 0 / null / absent store 0
+  const putPtc = (vId, ptc, withPtc = true) => api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+    phases: [{ phaseName: 'P1', tasks: [{ taskName: 'T1', hours: { [mrRole.code]: 2 }, ...(withPtc ? { ptc } : {}) }] }],
+    roles: [{ roleCode: mrRole.code, rate: 100 }],
+  }, adminCookie);
+  const storedPtc = async vId => (await api('GET', `/api/cost-grids/${cgId}/versions/${vId}/structure`, null, adminCookie))
+    .data?.phases?.[0]?.tasks?.[0]?.ptc;
+  const q1 = await putPtc(eurV, 500);
+  const q1s = await storedPtc(eurV);
+  const q2 = await putPtc(eurV, 0), q2s = await storedPtc(eurV);
+  await putPtc(eurV, 500);
+  const q3 = await putPtc(eurV, null), q3s = await storedPtc(eurV);
+  await putPtc(eurV, 500);
+  const q4 = await putPtc(eurV, undefined, false), q4s = await storedPtc(eurV);
+  ok(q1.status === 200 && q1s === 500 && q2.status === 200 && q2s === 0 && q3.status === 200 && q3s === 0 && q4.status === 200 && q4s === 0,
+    `MR-16a task PTC 500 → stored 500; 0 / null / absent → 200, stored 0 (got ${q1.status}/${q1s}, ${q2.status}/${q2s}, ${q3.status}/${q3s}, ${q4.status}/${q4s})`);
+  await putPtc(eurV, 500);
+  const badPtc = [];
+  for (const v of [-1, '500', 500.555, 100000000]) badPtc.push(await putPtc(eurV, v));
+  const afterBad = await storedPtc(eurV);
+  ok(badPtc.every(isMoneyRefusal) && afterBad === 500,
+    `MR-16b task PTC -1, '500', 500.555, 100000000 → MONEY_RULE, stored still 500 (got ${badPtc.map(r => r.status).join(',')}, stored ${afterBad})`);
+  const u1 = await putPtc(usdV, 175.555), u2 = await putPtc(usdV, 175.55);
+  ok(isMoneyRefusal(u1) && u2.status === 200,
+    `MR-16c USD task PTC 175.555 → MONEY_RULE, 175.55 → 200 (got ${u1.status}, ${u2.status})`);
+
+  // MR-17 — second body shape: roles[].rateOverride (0 is a rate override, absent is NULL)
+  const putShape2 = (vId, rateOverride, withOverride = true) => api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+    phases: [{ title: 'P1', tasks: [{ title: 'T1', roles: [{ roleId: mrRole.id, days: 2, ...(withOverride ? { rateOverride } : {}) }] }] }],
+  }, adminCookie);
+  const w1 = await putShape2(eurV, 0), w1s = await storedRate(eurV);
+  const w2 = await putShape2(eurV, undefined, false), w2s = await storedRate(eurV);
+  await putShape2(eurV, 75);
+  const w3 = await putShape2(eurV, -1), w3s = await storedRate(eurV);
+  ok(w1.status === 200 && w1s !== null && Number(w1s) === 0 && w2.status === 200 && w2s === null && isMoneyRefusal(w3) && Number(w3s) === 75,
+    `MR-17 second shape rateOverride 0 → stored 0 (not null); absent → null; -1 → MONEY_RULE, stored still 75 (got ${w1.status}/${w1s}, ${w2.status}/${w2s}, ${w3.status}/${w3s})`);
 }
 
 // POT-18..POT-26 — every POT route counts a proposal once, through its reference version (non-Draft,

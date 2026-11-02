@@ -2,7 +2,7 @@ const express = require('express');
 const { query, pool } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { isAdminRole } = require('../lib/is-admin');
-const { amountError, overridesError, ratecardEntryError, MONEY_RULE_CODE } = require('../lib/money-rules');
+const { amountError, overridesError, ratecardEntryError, MONEY_RULE_CODE, MAX_DECIMAL_10_2 } = require('../lib/money-rules');
 const { sendShareNotification } = require('../services/email');
 let _createNotification; // lazy-loaded from notifications route to avoid circular deps
 
@@ -225,7 +225,7 @@ router.post('/roles', requireAdmin, async (req, res, next) => {
   try {
     const { label, code, team, hourlyRate, rateOverrides } = req.body;
     if (!label?.trim() || !code?.trim()) return res.status(400).json({ error: 'label and code are required' });
-    const moneyErr = (hourlyRate != null ? amountError(hourlyRate, 'EUR', 'Hourly rate') : null)
+    const moneyErr = (hourlyRate != null ? amountError(hourlyRate, 'EUR', 'Hourly rate', { max: MAX_DECIMAL_10_2 }) : null)
       || overridesError(rateOverrides, 'Rate overrides');
     if (moneyErr) return res.status(400).json({ error: moneyErr, code: MONEY_RULE_CODE });
     const { rows } = await query(
@@ -242,7 +242,7 @@ router.post('/roles', requireAdmin, async (req, res, next) => {
 router.patch('/roles/:id', requireAdmin, async (req, res, next) => {
   try {
     const { label, code, team, hourlyRate, rateOverrides } = req.body;
-    const moneyErr = (hourlyRate !== undefined && hourlyRate !== null ? amountError(hourlyRate, 'EUR', 'Hourly rate') : null)
+    const moneyErr = (hourlyRate !== undefined && hourlyRate !== null ? amountError(hourlyRate, 'EUR', 'Hourly rate', { max: MAX_DECIMAL_10_2 }) : null)
       || (rateOverrides !== undefined ? overridesError(rateOverrides, 'Rate overrides') : null);
     if (moneyErr) return res.status(400).json({ error: moneyErr, code: MONEY_RULE_CODE });
     const fields = [];

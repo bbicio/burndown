@@ -191,7 +191,9 @@ Pure formatting helpers for the Team assistant panel in `planning.html` (only pa
 
 `deriveDistribution` (2026-10-26, dates C3) also returns `outsideBudget` and `outsideHours`: the part of the tasks without a valid monthly distribution that lies outside the project months. Day counts are rounded, so a daylight-saving change does not move a fraction.
 
-Derive/Reforecast distribution maths for `project-config.html` (`deriveDistribution`, `reforecastDistribution`) plus, since 2026-09-30, `isProjectDirty(savedJson, project)` — true when `JSON.stringify(project)` differs from the snapshot taken after load/save, false when either is null; drives the leave-page prompt (see `docs/pages/project-config.md`). Only `project-config.html` loads it (`?v=2`). `team-assistant-ui.js` gained `selectionStillValid` and `shouldSendOnEnter` the same day (see `docs/pages/planning.md`).
+Derive/Reforecast distribution maths for `project-config.html` (`deriveDistribution`, `reforecastDistribution`) plus, since 2026-09-30, `isProjectDirty(savedJson, project)` — true when `JSON.stringify(project)` differs from the snapshot taken after load/save, false when either is null; drives the leave-page prompt (see `docs/pages/project-config.md`). Only `project-config.html` loads it. `team-assistant-ui.js` gained `selectionStillValid` and `shouldSendOnEnter` the same day (see `docs/pages/planning.md`).
+
+Both `deriveDistribution` and `reforecastDistribution` take a last parameter `digits` (default 2, the currency's decimals; `project-config.html` passes them) and round every monthly value to it, past months of a reforecast included.
 
 ## project-rules.js (2026-10-01, project currency lock cycle)
 
