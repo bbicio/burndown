@@ -326,7 +326,9 @@ function renderCgEditor() {
 }
 
 
-async function cgUpdateActiveRatecardMap() {
+// Loads the active ratecard's maps. Re-prices the non-Custom roles only with { syncRates: true },
+// i.e. on an explicit ratecard change: a saved version is never re-priced by itself.
+async function cgUpdateActiveRatecardMap({ syncRates = false } = {}) {
   _cgActiveRatecardMap     = {};
   _cgActiveRatecardOverrides = {};
   _cgIsClientRatecard      = false;
@@ -343,7 +345,7 @@ async function cgUpdateActiveRatecardMap() {
       }
     } catch (_) {}
   }
-  cgSyncRoleRatesToBaseline();
+  if (syncRates === true) cgSyncRoleRatesToBaseline();
 }
 
 // Update r.rate for all roles that haven't been manually customised.

@@ -1360,13 +1360,10 @@ Vue.createApp({
         this.versionTagRows = [];
       }
 
-      await cgUpdateActiveRatecardMap(); // may mutate _cgDraft.roles[].rate in place (non-custom roles)
+      await cgUpdateActiveRatecardMap(); // loads the ratecard maps only — saved rates are not re-priced
       this.ratecardMap = { ..._cgActiveRatecardMap };
       this.ratecardOverrides = { ..._cgActiveRatecardOverrides };
       this.isClientRatecard = _cgIsClientRatecard;
-      // No re-render needed yet — this is still before the very first paint (this.loading is
-      // still true), so the upcoming initial render already reflects cgUpdateActiveRatecardMap's
-      // adjustment with no stale-vs-fresh gap to bridge.
 
       if (typeof loadRatecardsForDropdown === 'function') {
         this.allRatecards = await loadRatecardsForDropdown().catch(() => []);
@@ -1547,7 +1544,7 @@ Vue.createApp({
     async onRatecardChange() {
       // this.draft IS _cgDraft (same reference — see openVersion), so this.draft.ratecardId
       // is already current; cgUpdateActiveRatecardMap() reads _cgDraft.ratecardId directly.
-      await cgUpdateActiveRatecardMap(); // mutates _cgDraft.roles[].rate in place for non-custom roles
+      await cgUpdateActiveRatecardMap({ syncRates: true }); // re-prices the non-Custom roles in place
       this.ratecardMap = { ..._cgActiveRatecardMap };
       this.ratecardOverrides = { ..._cgActiveRatecardOverrides };
       this.isClientRatecard = _cgIsClientRatecard;
@@ -1560,8 +1557,10 @@ Vue.createApp({
       // out-of-range selection and re-syncs the active ratecard map.
       const clientId = this.draft?.clientId && this.draft.clientId !== '__unassigned__' ? String(this.draft.clientId) : null;
       const valid = this.allRatecards.find(rc => String(rc.id) === String(this.draft.ratecardId) && (rc.client_id == null || (clientId && String(rc.client_id) === clientId)));
-      if (this.draft.ratecardId && !valid) this.draft.ratecardId = null; // this.draft IS _cgDraft
-      await cgUpdateActiveRatecardMap();
+      const cleared = !!(this.draft.ratecardId && !valid);
+      if (cleared) this.draft.ratecardId = null; // this.draft IS _cgDraft
+      // Clearing the ratecard is a ratecard change: re-price the non-Custom roles; otherwise nothing is re-priced.
+      await cgUpdateActiveRatecardMap({ syncRates: cleared });
       this.ratecardMap = { ..._cgActiveRatecardMap };
       this.ratecardOverrides = { ..._cgActiveRatecardOverrides };
       this.isClientRatecard = _cgIsClientRatecard;
