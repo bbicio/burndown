@@ -847,6 +847,52 @@ async function testMoneyRules() {
   const t4 = await putTaskRate('abc');
   ok(isMoneyRefusal(t3) && isMoneyRefusal(t4) && Number(await storedTaskRate()) === 150,
     `MR-08 project resource rate -1 and 'abc' → MONEY_RULE, stored rate still 150 (got ${t3.status}, ${t4.status})`);
+
+  // MR-18 / MR-19 — project phasing and PTC amounts
+  const patchPhasing = (id, phasing) => api('PATCH', `/api/projects/${id}/phasing`, { phasing }, sysadminCookie);
+  const patchPtc = (id, ptc) => api('PATCH', `/api/projects/${id}/ptc`, { ptc }, sysadminCookie);
+  const readProj = async (id, field) => (await api('GET', `/api/projects/${id}`, null, sysadminCookie)).data?.[field];
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+  const ph1 = await patchPhasing(mrProj, { '202601': 1000.5 });
+  const ph1s = await readProj(mrProj, 'phasing');
+  const ph2 = await patchPhasing(mrProj, {});
+  ok(ph1.status === 200 && same(ph1s, { '202601': 1000.5 }) && ph2.status === 200,
+    `MR-18a phasing {'202601': 1000.5} → 200, read back equal; {} → 200 (got ${ph1.status}, ${JSON.stringify(ph1s)}, ${ph2.status})`);
+
+  await patchPhasing(mrProj, { '202601': 1000.5 });
+  const badPhasing = [{ '202601': -1 }, { '202601': '5' }, { '202601': 1120.304347826087 }, { '202601': 1e8 }, [], null];
+  const badPhRes = [];
+  for (const b of badPhasing) badPhRes.push(await patchPhasing(mrProj, b));
+  const phAfter = await readProj(mrProj, 'phasing');
+  ok(badPhRes.every(isMoneyRefusal) && same(phAfter, { '202601': 1000.5 }),
+    `MR-18b phasing -1 / '5' / 1120.304347826087 / 1e8 / [] / null → MONEY_RULE, read back unchanged (got ${badPhRes.map(r => r.status).join(',')}, ${JSON.stringify(phAfter)})`);
+
+  const jpy = await api('POST', '/api/projects', { name: '__test_mr_project_jpy__', currency: 'JPY' }, sysadminCookie);
+  const jpyProj = jpy.data?.id;
+  if (jpyProj) later('DELETE', `/api/projects/${jpyProj}`);
+  if (jpyProj) {
+    const j1 = await patchPhasing(jpyProj, { '202601': 1.5 });
+    const j2 = await patchPhasing(jpyProj, { '202601': 1500 });
+    ok(isMoneyRefusal(j1) && j2.status === 200,
+      `MR-18c JPY phasing 1.5 → MONEY_RULE, 1500 → 200 (got ${j1.status}, ${j2.status})`);
+  } else fail(`MR-18c: JPY project setup failed (got ${jpy.status}) — skipping`);
+
+  const ptcRow = amount => ({ note: '', month: '202601', title: 'T', amount });
+  const pc1 = await patchPtc(mrProj, [ptcRow(100)]);
+  const pc1s = await readProj(mrProj, 'ptc');
+  const pc2 = await patchPtc(mrProj, []);
+  ok(pc1.status === 200 && Array.isArray(pc1s) && pc1s.length === 1 && pc2.status === 200,
+    `MR-19a project PTC one row → 200, read back; [] → 200 (got ${pc1.status}, ${JSON.stringify(pc1s)}, ${pc2.status})`);
+
+  await patchPtc(mrProj, [ptcRow(100)]);
+  const ptcBefore = await readProj(mrProj, 'ptc');
+  const badPtc2 = [[ptcRow(-1)], [ptcRow('100')], [ptcRow(100.555)], {}, [5]];
+  const badPcRes = [];
+  for (const b of badPtc2) badPcRes.push(await patchPtc(mrProj, b));
+  const ptcAfter = await readProj(mrProj, 'ptc');
+  ok(badPcRes.every(isMoneyRefusal) && same(ptcAfter, ptcBefore),
+    `MR-19b project PTC -1 / '100' / 100.555 / {} / [5] → MONEY_RULE, read back unchanged (got ${badPcRes.map(r => r.status).join(',')})`);
   }
 
   // Roles (M-05) and ratecard entries (M-07).
