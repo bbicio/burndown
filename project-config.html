@@ -1125,7 +1125,7 @@
         const months = this.projectMonths;
         if (!months.length) { this.phasingActionError = 'Set project dates first.'; return; }
         const result = deriveDistribution(tasks, months, this.project.startDate, this.project.endDate, window.currencyInfo(this.project.currency, window.__currencies).digits);
-const fmtB = n => window.formatMoney(n || 0, this.project?.currency, window.__currencies);
+        const fmtB = n => window.formatMoney(n || 0, this.project?.currency, window.__currencies);
         const message = `Phasing and planning will be computed from task date ranges, distributing each task's budget proportionally to the days of overlap with each month.\n\n`
           + `Total budget distributed: ${fmtB(result.totalBudget)} across ${months.length} months\n`
           + `Total hours distributed: ${result.totalHours.toLocaleString('en-US')} h`
