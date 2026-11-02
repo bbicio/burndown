@@ -325,3 +325,11 @@ describe('viewer banner and sticky index (review finding 5)', () => {
     expect(method('scrollToSection').body).toContain('.pc-viewer-banner');
   });
 });
+
+describe('viewer banner on a phone (review round 2)', () => {
+  it('lets the banner grow when its text wraps below 768px', () => {
+    const css = read('css/project-config.css');
+    const phone = css.slice(css.indexOf('@media (max-width: 767.98px)'));
+    expect(phone).toMatch(/\.pc-viewer-banner \{[^}]*height: auto/);
+  });
+});
