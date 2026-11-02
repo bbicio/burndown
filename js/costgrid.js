@@ -1394,10 +1394,12 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
   // convention for those fields, so they don't gate this success check.
   let pushedOk = false;
   let tasksFailed = null;
+  let failedParts = [];
   let linkTaskIds = selectedTaskIds;
   let linkTaskNames = selectedTaskNames;
   try {
     const pushResult = await _pushProjectToApiDetailed(newProject, { skipEmpty: true });
+    failedParts = pushResult.failed || [];
     pushedOk = !pushResult.failed.some(f => f.part === 'project');
     tasksFailed = pushResult.failed.find(f => f.part === 'tasks') || null;
     if (tasksFailed) { linkTaskIds = []; linkTaskNames = []; newProject.tasks = []; } // the server refused them: memory must match
@@ -1439,8 +1441,9 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
     return;
   }
 
-  if (tasksFailed) {
-    showInfo(`Project "${projectName}" was created, but its tasks were not saved: ${tasksFailed.reason || tasksFailed.error}`);
+  const generateMsg = summarizeGenerateResult(projectName, failedParts);
+  if (generateMsg) {
+    showInfo(generateMsg);
     return;
   }
 
