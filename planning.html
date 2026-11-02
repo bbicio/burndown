@@ -60,13 +60,29 @@
           <button type="button" class="pl-seg-btn" :class="{ active: interval === 'monthly' }" :aria-pressed="interval === 'monthly' ? 'true' : 'false'" @click="interval = 'monthly'">Monthly</button>
           <button type="button" class="pl-seg-btn" :class="{ active: interval === 'weekly' }" :aria-pressed="interval === 'weekly' ? 'true' : 'false'" @click="interval = 'weekly'">Weekly</button>
         </div>
-        <div class="pl-period">
-          <button class="btn btn-sm btn-outline-secondary" title="Add previous month" :disabled="atLeftLimit" @click="expandLeft"><ph-icon name="chevron-left" :size="14"></ph-icon>+</button>
-          <button class="btn btn-sm btn-outline-secondary" title="Hide previous month" :disabled="atMinWidth" @click="shrinkLeft">−<ph-icon name="chevron-right" :size="14"></ph-icon></button>
-          <span class="small text-muted px-2">{{ windowLabel }}</span>
-          <button class="btn btn-sm btn-outline-secondary" title="Hide next month" :disabled="atMinWidth" @click="shrinkRight"><ph-icon name="chevron-left" :size="14"></ph-icon>−</button>
-          <button class="btn btn-sm btn-outline-secondary" title="Add next month" :disabled="atRightLimit" @click="expandRight">+<ph-icon name="chevron-right" :size="14"></ph-icon></button>
+        <div class="pl-period" ref="periodBox">
+          <div class="pl-period-ctl">
+            <button type="button" class="pl-period-arrow" title="Previous month" aria-label="Previous month" :disabled="atLeftLimit" @click="shiftPeriod(-1)"><ph-icon name="chevron-left" :size="14"></ph-icon></button>
+            <button type="button" class="pl-period-label" ref="periodLabelBtn" aria-haspopup="dialog" :aria-expanded="periodMenuOpen ? 'true' : 'false'" @click="periodMenuOpen = !periodMenuOpen">{{ periodLabel }} <ph-icon name="chevron-down" :size="14"></ph-icon></button>
+            <button type="button" class="pl-period-arrow" title="Next month" aria-label="Next month" :disabled="atRightLimit" @click="shiftPeriod(1)"><ph-icon name="chevron-right" :size="14"></ph-icon></button>
+          </div>
+          <div v-if="periodMenuOpen" class="pl-popover pl-period-menu" role="dialog" aria-label="Period">
+            <div class="pl-period-presets">
+              <button type="button" class="pl-filter-btn" @click="applyPreset(3)">3 months</button>
+              <button type="button" class="pl-filter-btn" @click="applyPreset(6)">6 months</button>
+              <button type="button" class="pl-filter-btn" @click="applyPreset(12)">12 months</button>
+              <button type="button" class="pl-filter-btn" @click="applyWholeRange">Whole range</button>
+            </div>
+            <div class="pl-period-range">
+              <div class="pl-period-field"><span class="pl-toolbar-label">From</span>
+                <cg-date-picker mode="month" inline-popover :model-value="fromYm" :min="axisMinYm" :max="toYm" aria-label="From month" @update:model-value="setFrom($event)"></cg-date-picker></div>
+              <div class="pl-period-field"><span class="pl-toolbar-label">To</span>
+                <cg-date-picker mode="month" inline-popover :model-value="toYm" :min="fromYm" :max="axisMaxYm" aria-label="To month" @update:model-value="setTo($event)"></cg-date-picker></div>
+            </div>
+            <button v-if="isTablet" type="button" class="pl-link" :disabled="isDefaultWindow" @click="goToday">Today</button>
+          </div>
         </div>
+        <button v-if="!isTablet" type="button" class="pl-link pl-today" :disabled="isDefaultWindow" @click="goToday">Today</button>
         <div class="ph-toolbar-spacer"></div>
         <div class="pl-search">
           <ph-icon name="search" :size="14"></ph-icon>
@@ -420,7 +436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         openIds: { byrole: new Set(), byproject: new Set(), byowner: new Set() },
         openInit: { byrole: false, byproject: false, byowner: false },
         search: { byrole: '', byproject: '', byowner: '' },
-        legendOpen: false, isTablet: false, projectQuery: '',
+        legendOpen: false, isTablet: false, projectQuery: '', periodMenuOpen: false,
         taOpen: false, taProjectId: '', taMessages: [], taInput: '', taBusy: false, taTables: null, taParams: {}, taError: null, taRoles: [],
       };
     },
@@ -498,12 +514,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       atLeftLimit()  { return !this.windowStart || this.windowStart <= getPpAxis().axisStart; },
       atRightLimit() { return !this.windowEnd   || this.windowEnd   >= getPpAxis().axisEnd; },
-      atMinWidth() {
-        if (!this.windowStart || !this.windowEnd) return true;
-        const nextStart = new Date(this.windowStart.getFullYear(), this.windowStart.getMonth() + 1, 1);
-        const prevEnd   = new Date(this.windowEnd.getFullYear(),   this.windowEnd.getMonth(),       0);
-        return nextStart > prevEnd;
+      periodLabel() { return this.interval === 'weekly' ? weeklyWindowLabel(this.weeks) || this.windowLabel : this.windowLabel; },
+      isDefaultWindow() {
+        this.refreshTick;
+        if (!this.windowStart || !this.windowEnd) return false;
+        const { axisStart, axisEnd } = getPpAxis();
+        const d = defaultWindow(new Date());
+        const s = d.start < axisStart ? axisStart : d.start, e = d.end > axisEnd ? axisEnd : d.end;
+        return localYmd(s) === localYmd(this.windowStart) && localYmd(e) === localYmd(this.windowEnd);
       },
+      // <cg-date-picker mode="month"> works on 'YYYYMM'
+      fromYm() { return this.windowStart ? localYmd(this.windowStart).slice(0, 7).replace('-', '') : ''; },
+      toYm() { return this.windowEnd ? localYmd(this.windowEnd).slice(0, 7).replace('-', '') : ''; },
+      axisMinYm() { this.refreshTick; return localYmd(getPpAxis().axisStart).slice(0, 7).replace('-', ''); },
+      axisMaxYm() { this.refreshTick; return localYmd(getPpAxis().axisEnd).slice(0, 7).replace('-', ''); },
       windowLabel() {
         if (!this.windowStart || !this.windowEnd) return '...';
         const mn = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -828,28 +852,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       initWindowIfNeeded() {
         if (this.windowStart && this.windowEnd) { this.clampWindow(); return; }
-        const now = new Date();
-        this.windowStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        this.windowEnd   = new Date(now.getFullYear(), now.getMonth() + 4, 0);
+        this.setWindow(defaultWindow(new Date()));
+      },
+      // ── Period selector ──
+      setWindow({ start, end }) {
+        this.windowStart = start; this.windowEnd = end;
         this.clampWindow();
       },
-      expandLeft() {
-        const { axisStart } = getPpAxis();
-        const ns = new Date(this.windowStart.getFullYear(), this.windowStart.getMonth() - 1, 1);
-        this.windowStart = ns < axisStart ? new Date(axisStart.getFullYear(), axisStart.getMonth(), 1) : ns;
+      shiftPeriod(delta) { this.setWindow(shiftWindow({ start: this.windowStart, end: this.windowEnd }, delta, getPpAxis())); },
+      applyPreset(months) { this.setWindow(presetWindow(months, new Date())); },
+      applyWholeRange() { const { axisStart, axisEnd } = getPpAxis(); this.setWindow({ start: new Date(axisStart), end: new Date(axisEnd) }); },
+      goToday() { this.setWindow(defaultWindow(new Date())); },
+      setFrom(ym) {
+        if (!ym) return;
+        const start = new Date(+ym.slice(0, 4), +ym.slice(4, 6) - 1, 1);
+        const end = this.windowEnd && this.windowEnd >= start ? this.windowEnd : new Date(start.getFullYear(), start.getMonth() + 1, 0);
+        this.setWindow({ start, end });
       },
-      shrinkLeft() {
-        const ns = new Date(this.windowStart.getFullYear(), this.windowStart.getMonth() + 1, 1);
-        if (ns <= this.windowEnd) this.windowStart = ns;
-      },
-      expandRight() {
-        const { axisEnd } = getPpAxis();
-        const ne = new Date(this.windowEnd.getFullYear(), this.windowEnd.getMonth() + 2, 0);
-        this.windowEnd = ne > axisEnd ? new Date(axisEnd.getFullYear(), axisEnd.getMonth() + 1, 0) : ne;
-      },
-      shrinkRight() {
-        const ne = new Date(this.windowEnd.getFullYear(), this.windowEnd.getMonth(), 0);
-        if (ne >= this.windowStart) this.windowEnd = ne;
+      setTo(ym) {
+        if (!ym) return;
+        const end = new Date(+ym.slice(0, 4), +ym.slice(4, 6), 0);
+        const start = this.windowStart && this.windowStart <= end ? this.windowStart : new Date(end.getFullYear(), end.getMonth(), 1);
+        this.setWindow({ start, end });
       },
       bumpRefresh() { this.refreshTick++; },
       async loadModel() {
@@ -1023,10 +1047,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       onDocClick(e) {
         if (this.legendOpen && this.$refs.legendInfo && !this.$refs.legendInfo.contains(e.target)) this.legendOpen = false;
+        if (this.periodMenuOpen && this.$refs.periodBox && !this.$refs.periodBox.contains(e.target) && e.target.isConnected) this.periodMenuOpen = false;
       },
       onDocKeydown(e) {
         if (e.key !== 'Escape') return;
         if (this.legendOpen) { this.legendOpen = false; this.$refs.legendBtn?.focus(); }
+        if (this.periodMenuOpen) { this.periodMenuOpen = false; this.$refs.periodLabelBtn?.focus(); }
       },
     },
     watch: {
@@ -1087,6 +1113,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   app.component('ph-icon', window.PhIcon);
+  app.component('cg-date-picker', window.CgDatePicker);
   app.mount('#planningApp');
 
 });

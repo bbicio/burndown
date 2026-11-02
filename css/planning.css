@@ -67,7 +67,27 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
 .pl-switch { display: inline-flex; align-items: center; gap: var(--space-2); padding-left: 0; }
 .pl-switch .form-check-input { margin: 0; cursor: pointer; float: none; }
 .pl-switch .form-check-label { font-size: var(--text-sm); color: var(--text-secondary); }
-.pl-period { display: inline-flex; align-items: center; gap: var(--space-1); }
+/* period selector: ‹ [label ▾] › + Today */
+.pl-period { position: relative; display: inline-flex; }
+.pl-period-ctl { display: inline-flex; align-items: stretch; height: 32px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--surface-white); }
+.pl-period-arrow {
+  display: inline-flex; align-items: center; justify-content: center; width: 32px;
+  border: 0; background: transparent; color: var(--text-secondary); cursor: pointer;
+}
+.pl-period-arrow:hover:not(:disabled) { color: var(--text-primary); background: var(--surface-light); }
+.pl-period-arrow:disabled { color: var(--text-disabled); cursor: not-allowed; }
+.pl-period-label {
+  display: inline-flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-3);
+  border: 0; border-left: 1px solid var(--border-light); border-right: 1px solid var(--border-light);
+  background: transparent; color: var(--text-primary); font-size: var(--text-sm); font-weight: var(--weight-medium);
+  white-space: nowrap; cursor: pointer;
+}
+.pl-period-arrow:focus-visible, .pl-period-label:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.pl-period-menu { width: 340px; display: flex; flex-direction: column; gap: var(--space-3); }
+.pl-period-presets { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.pl-period-range { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.pl-period-field { display: flex; flex-direction: column; gap: var(--space-1); }
+.pl-today:disabled { color: var(--text-disabled); cursor: default; text-decoration: none; }
 
 /* ---- Legend ---- */
 .pl-legend {

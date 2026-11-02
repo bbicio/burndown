@@ -1,6 +1,7 @@
 // Pure row model of planning.html's grid: cell text, load level, search filter and the flat
 // rows the template renders. DOM-free; the hours themselves come from the server model.
 import { computeResidual, sumChildBreakdownHours } from './planning-calc.js';
+import { formatDayText } from './dates.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -275,6 +276,46 @@ export function buildOwnerRows(ownerMap, periods, opts) {
   return { rows, total: totalOf(periods, tops, count) };
 }
 
+// ── Period window ───────────────────────────────────────────────────────────────────────────
+// A window is { start: first day of a month, end: last day of a month }.
+
+const monthStart = (d, add = 0) => new Date(d.getFullYear(), d.getMonth() + add, 1);
+const monthEnd = (d, add = 0) => new Date(d.getFullYear(), d.getMonth() + add + 1, 0);
+const monthIndex = d => d.getFullYear() * 12 + d.getMonth();
+
+// The page's initial window: the current month and the next three.
+export function defaultWindow(today) {
+  return { start: monthStart(today), end: monthEnd(today, 3) };
+}
+
+// Presets start the month before the current one, so the last month of actuals stays visible.
+export function presetWindow(months, today) {
+  return { start: monthStart(today, -1), end: monthEnd(today, months - 2) };
+}
+
+export function shiftWindow({ start, end }, delta, { axisStart, axisEnd }) {
+  const width = monthIndex(end) - monthIndex(start); // months after the first
+  if (width >= monthIndex(axisEnd) - monthIndex(axisStart)) return { start: monthStart(axisStart), end: monthEnd(axisEnd) };
+  let s = monthStart(start, delta);
+  if (monthIndex(s) < monthIndex(axisStart)) s = monthStart(axisStart);
+  if (monthIndex(s) + width > monthIndex(axisEnd)) s = monthStart(axisEnd, -width);
+  return { start: s, end: monthEnd(s, width) };
+}
+
+const isoOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// 'Sep 28 – Nov 2, 2026': the start of the first and of the last week, the year once when shared.
+export function weeklyWindowLabel(weeks) {
+  if (!weeks || !weeks.length) return '';
+  const a = weeks[0].weekStart, b = weeks[weeks.length - 1].weekStart;
+  const first = formatDayText(isoOf(a)), last = formatDayText(isoOf(b));
+  return a.getFullYear() === b.getFullYear() ? `${first.replace(/, \d{4}$/, '')} – ${last}` : `${first} – ${last}`;
+}
+
+window.defaultWindow = defaultWindow;
+window.presetWindow = presetWindow;
+window.shiftWindow = shiftWindow;
+window.weeklyWindowLabel = weeklyWindowLabel;
 window.formatCell = formatCell;
 window.displayRole = displayRole;
 window.buildRoleRows = buildRoleRows;

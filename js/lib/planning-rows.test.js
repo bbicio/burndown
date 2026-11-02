@@ -2,7 +2,60 @@ import { describe, it, expect } from 'vitest';
 import {
   formatCell, workingWeeks, loadLevel, initials, isoWeek, filterRows, visibleRows,
   buildRoleRows, buildProjectRows, buildOwnerRows,
+  defaultWindow, presetWindow, shiftWindow, weeklyWindowLabel,
 } from './planning-rows.js';
+
+// ── Period window ───────────────────────────────────────────────────────────────────────────
+const ymd = d => [d.getFullYear(), d.getMonth() + 1, d.getDate()].join('-');
+const win = w => [ymd(w.start), ymd(w.end)];
+
+describe('defaultWindow', () => {
+  it('runs from the current month to three months later', () => {
+    expect(win(defaultWindow(new Date(2026, 9, 15)))).toEqual(['2026-10-1', '2027-1-31']);
+  });
+});
+
+describe('presetWindow', () => {
+  it('starts the month before the current one and lasts N months', () => {
+    expect(win(presetWindow(6, new Date(2026, 9, 15)))).toEqual(['2026-9-1', '2027-2-28']);
+    expect(win(presetWindow(3, new Date(2026, 0, 10)))).toEqual(['2025-12-1', '2026-2-28']);
+  });
+});
+
+describe('shiftWindow', () => {
+  const axis = { axisStart: new Date(2026, 0, 1), axisEnd: new Date(2026, 11, 31) };
+  it('moves both ends by one month, keeping the width', () => {
+    const w = { start: new Date(2026, 3, 1), end: new Date(2026, 5, 30) };
+    expect(win(shiftWindow(w, 1, axis))).toEqual(['2026-5-1', '2026-7-31']);
+    expect(win(shiftWindow(w, -1, axis))).toEqual(['2026-3-1', '2026-5-31']);
+  });
+  it('clamps at the axis without shrinking', () => {
+    const nearEnd = { start: new Date(2026, 8, 1), end: new Date(2026, 10, 30) };
+    expect(win(shiftWindow(nearEnd, 1, axis))).toEqual(['2026-10-1', '2026-12-31']);
+    const atEnd = { start: new Date(2026, 9, 1), end: new Date(2026, 11, 31) };
+    expect(win(shiftWindow(atEnd, 1, axis))).toEqual(['2026-10-1', '2026-12-31']);
+    const atStart = { start: new Date(2026, 0, 1), end: new Date(2026, 2, 31) };
+    expect(win(shiftWindow(atStart, -1, axis))).toEqual(['2026-1-1', '2026-3-31']);
+  });
+  it('returns the axis when the window is wider than it', () => {
+    const short = { axisStart: new Date(2026, 0, 1), axisEnd: new Date(2026, 2, 31) };
+    const six = { start: new Date(2025, 11, 1), end: new Date(2026, 4, 31) };
+    expect(win(shiftWindow(six, 1, short))).toEqual(['2026-1-1', '2026-3-31']);
+  });
+});
+
+describe('weeklyWindowLabel', () => {
+  const weeksFrom = (first, last) => [{ weekStart: first }, { weekStart: last }];
+  it('names the first and last week start, the year once when both are in the same year', () => {
+    expect(weeklyWindowLabel(weeksFrom(new Date(2026, 8, 28), new Date(2026, 10, 2)))).toBe('Sep 28 – Nov 2, 2026');
+  });
+  it('writes both years across a year boundary', () => {
+    expect(weeklyWindowLabel(weeksFrom(new Date(2026, 11, 28), new Date(2027, 0, 4)))).toBe('Dec 28, 2026 – Jan 4, 2027');
+  });
+  it('is empty without weeks', () => {
+    expect(weeklyWindowLabel([])).toBe('');
+  });
+});
 
 describe('formatCell', () => {
   it('shows "<1h" for a pulse below half an hour', () => {

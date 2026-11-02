@@ -301,7 +301,7 @@ describe('planning grid (2026-11-02, planning redesign)', () => {
     expect(code).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
   it('the page carries no grid glyph or emoji and no hex colour outside the XLS export', () => {
-    expect(html).not.toMatch(/[▶▼⊞⊟🏢📋👤]/u);
+    expect(html).not.toMatch(/[▶▼◀▷◁⊞⊟🏢📋👤]/u);
     expect(outsideExport).not.toMatch(/#[0-9a-fA-F]{6}\b/);
   });
   it('the grid is a template table: no v-html except the stage/status pills', () => {
