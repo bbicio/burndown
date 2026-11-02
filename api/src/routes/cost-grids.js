@@ -716,6 +716,26 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
     }
   }
 
+  // Task PTC and (second body shape) per-role rate overrides: absent/null is tolerated, a given one is checked in the version's currency.
+  for (const ph of phases) {
+    for (const tk of (ph?.tasks || [])) {
+      if (!tk) continue;
+      const tkLabel = tk.taskName || tk.title || '';
+      if (tk.ptc != null) {
+        const err = amountError(tk.ptc, locked.rows[0]?.currency, `PTC of task "${tkLabel}"`, { max: MAX_DECIMAL_10_2 });
+        if (err) return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
+      }
+      if (!(tk.hours && typeof tk.hours === 'object')) {
+        for (const tr of (tk.roles || [])) {
+          if (tr?.rateOverride != null) {
+            const err = amountError(tr.rateOverride, locked.rows[0]?.currency, `Rate override in task "${tkLabel}"`, { max: MAX_DECIMAL_10_2 });
+            if (err) return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
+          }
+        }
+      }
+    }
+  }
+
   // Preload all roles for code→id lookup
   const { rows: allRoles } = await query('SELECT id, code FROM roles');
   const roleByCode = Object.fromEntries(allRoles.map(r => [r.code, r.id]));
@@ -820,11 +840,11 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
         const newTk = tkId
           ? await client.query(
               'INSERT INTO tasks (id, phase_id, title, description, start_date, end_date, ptc, sort_order) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
-              [tkId, newPh.rows[0].id, tkTitle, tkDesc, tkStart, tkEnd, tk.ptc || 0, ti]
+              [tkId, newPh.rows[0].id, tkTitle, tkDesc, tkStart, tkEnd, tk.ptc ?? 0, ti]
             )
           : await client.query(
               'INSERT INTO tasks (phase_id, title, description, start_date, end_date, ptc, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
-              [newPh.rows[0].id, tkTitle, tkDesc, tkStart, tkEnd, tk.ptc || 0, ti]
+              [newPh.rows[0].id, tkTitle, tkDesc, tkStart, tkEnd, tk.ptc ?? 0, ti]
             );
         // Accept both hours map {roleCode: days} and roles array [{roleId, days}]
         const taskRoles = [];
@@ -841,7 +861,7 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
         } else {
           for (const tr of (tk.roles || [])) {
             const roleId = tr.roleId || roleByCode[tr.roleCode || tr.code];
-            if (roleId) taskRoles.push({ roleId, days: tr.days || 0, rateOverride: tr.rateOverride || null, months: tr.months || null });
+            if (roleId) taskRoles.push({ roleId, days: tr.days || 0, rateOverride: tr.rateOverride ?? null, months: tr.months || null });
           }
         }
         for (const tr of taskRoles) {

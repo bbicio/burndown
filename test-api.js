@@ -927,6 +927,43 @@ async function testMoneyRules() {
     ok(isMoneyRefusal(p1) && pa1 === 1000 && p2.status === 200 && pa2 === 999999999999.99,
       `MR-15b POT update: 1e12 → MONEY_RULE, amount still 1000; 999999999999.99 → 200 (got ${p1.status}, amount ${pa1}; ${p2.status}, amount ${pa2})`);
   } else fail('MR-15b: POT setup failed — skipping');
+
+  // MR-16 — task PTC on the structure PUT (version currency, DECIMAL(10,2)); 0 / null / absent store 0
+  const putPtc = (vId, ptc, withPtc = true) => api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+    phases: [{ phaseName: 'P1', tasks: [{ taskName: 'T1', hours: { [mrRole.code]: 2 }, ...(withPtc ? { ptc } : {}) }] }],
+    roles: [{ roleCode: mrRole.code, rate: 100 }],
+  }, adminCookie);
+  const storedPtc = async vId => (await api('GET', `/api/cost-grids/${cgId}/versions/${vId}/structure`, null, adminCookie))
+    .data?.phases?.[0]?.tasks?.[0]?.ptc;
+  const q1 = await putPtc(eurV, 500);
+  const q1s = await storedPtc(eurV);
+  const q2 = await putPtc(eurV, 0), q2s = await storedPtc(eurV);
+  await putPtc(eurV, 500);
+  const q3 = await putPtc(eurV, null), q3s = await storedPtc(eurV);
+  await putPtc(eurV, 500);
+  const q4 = await putPtc(eurV, undefined, false), q4s = await storedPtc(eurV);
+  ok(q1.status === 200 && q1s === 500 && q2.status === 200 && q2s === 0 && q3.status === 200 && q3s === 0 && q4.status === 200 && q4s === 0,
+    `MR-16a task PTC 500 → stored 500; 0 / null / absent → 200, stored 0 (got ${q1.status}/${q1s}, ${q2.status}/${q2s}, ${q3.status}/${q3s}, ${q4.status}/${q4s})`);
+  await putPtc(eurV, 500);
+  const badPtc = [];
+  for (const v of [-1, '500', 500.555, 100000000]) badPtc.push(await putPtc(eurV, v));
+  const afterBad = await storedPtc(eurV);
+  ok(badPtc.every(isMoneyRefusal) && afterBad === 500,
+    `MR-16b task PTC -1, '500', 500.555, 100000000 → MONEY_RULE, stored still 500 (got ${badPtc.map(r => r.status).join(',')}, stored ${afterBad})`);
+  const u1 = await putPtc(usdV, 175.555), u2 = await putPtc(usdV, 175.55);
+  ok(isMoneyRefusal(u1) && u2.status === 200,
+    `MR-16c USD task PTC 175.555 → MONEY_RULE, 175.55 → 200 (got ${u1.status}, ${u2.status})`);
+
+  // MR-17 — second body shape: roles[].rateOverride (0 is a rate override, absent is NULL)
+  const putShape2 = (vId, rateOverride, withOverride = true) => api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+    phases: [{ title: 'P1', tasks: [{ title: 'T1', roles: [{ roleId: mrRole.id, days: 2, ...(withOverride ? { rateOverride } : {}) }] }] }],
+  }, adminCookie);
+  const w1 = await putShape2(eurV, 0), w1s = await storedRate(eurV);
+  const w2 = await putShape2(eurV, undefined, false), w2s = await storedRate(eurV);
+  await putShape2(eurV, 75);
+  const w3 = await putShape2(eurV, -1), w3s = await storedRate(eurV);
+  ok(w1.status === 200 && w1s !== null && Number(w1s) === 0 && w2.status === 200 && w2s === null && isMoneyRefusal(w3) && Number(w3s) === 75,
+    `MR-17 second shape rateOverride 0 → stored 0 (not null); absent → null; -1 → MONEY_RULE, stored still 75 (got ${w1.status}/${w1s}, ${w2.status}/${w2s}, ${w3.status}/${w3s})`);
 }
 
 // POT-18..POT-26 — every POT route counts a proposal once, through its reference version (non-Draft,
