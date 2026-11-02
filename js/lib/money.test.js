@@ -102,6 +102,8 @@ describe('readMoneyInput', () => {
   it('reads the locale convention of the currency', () => {
     expect(readMoneyInput('107,5', 'EUR', C)).toBe(107.5);
     expect(readMoneyInput('175.5', 'USD', C)).toBe(175.5);
+    expect(readMoneyInput("1'234.50", 'CHF', C)).toBe(1234.5);
+    expect(readMoneyInput('1’234.50', 'CHF', C)).toBe(1234.5);
     expect(readMoneyInput('1.234,50', 'EUR', C)).toBe(1234.5);
     expect(readMoneyInput('1,234.50', 'USD', C)).toBe(1234.5);
     expect(readMoneyInput('1234', 'EUR', C)).toBe(1234);
