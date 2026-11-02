@@ -956,11 +956,12 @@ burndown/
     package.json
   css/
     tokens.css            ← design tokens, single source of truth for colour and type; also `[v-cloak] { display: none; }`. Detail: docs/css/stylesheets.md
-    style.css             ← component styles, the shared `.ph-*` page head, the `.pd-nav*` sidebar/navbar rules, the `--sidebar-w`/`--nav-top-h` media queries and `#pd-tooltip`. Detail: docs/css/stylesheets.md
+    style.css             ← component styles, the shared `.ph-*` page head, the collapsible section-card and Tags-summary rules shared by costgrid.html and project-config.html, the `.pd-nav*` sidebar/navbar rules, the `--sidebar-w`/`--nav-top-h` media queries and `#pd-tooltip`. Detail: docs/css/stylesheets.md
     controls.css          ← styles of the js/cg-controls.js controls; loaded by costgrid.html, project-config.html and portfolio.html, after style.css and before the page sheet. Detail: docs/css/stylesheets.md
     pipeline.css          ← page stylesheet of pipeline.html only (board, toolbar, columns, cards, detail panel). Detail: docs/pages/pipeline.md
     costgrid.css          ← page stylesheet of costgrid.html only (second row of the page head, section cards, grid, selection bar, contextual overrides of the controls). Detail: docs/pages/costgrid.md
     portfolio.css         ← page stylesheet shared by portfolio.html and program.html. Detail: docs/css/stylesheets.md
+    project-config.css    ← page stylesheet of project-config.html only (section index, cards, task table, phasing card, phone bottom sheet). Detail: docs/css/stylesheets.md
     admin-crud.css        ← shared layout for the simple admin CRUD pages. Detail: docs/css/stylesheets.md
     auth.css              ← shared stylesheet of the public auth pages (login/activate/reset-password). Detail: docs/css/stylesheets.md
   js/
@@ -985,7 +986,7 @@ burndown/
   config.html             ← redirect stub (no shell, no Vue) to /master-clients.html
   master-clients.html, master-client-groups.html, master-pipelines.html, master-roles.html, master-currencies.html
                           ← Master Data: five admin pages, one per functionality, sharing a lateral sub-menu (.md-subnav). Detail: docs/pages/config.md
-  project-config.html     ← full-page project config form, one reactive project object. Detail: docs/pages/project-config.md
+  project-config.html     ← full-page project config form, one reactive project object; own stylesheet css/project-config.css. Detail: docs/pages/project-config.md
   admin.html              ← user management: role toggles, disable, anonymize. Detail: docs/pages/admin.md
   terms.html              ← standalone T&C acceptance page (no initNav), shown by initNav()'s gate. Detail: docs/pages/terms.md
   login.html / activate.html / reset-password.html
