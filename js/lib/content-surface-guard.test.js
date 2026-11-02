@@ -237,13 +237,25 @@ describe('page surface and spacing', () => {
 
 describe('planning toolbar', () => {
   const html = read('planning.html');
-  const start = html.indexOf('<div class="pl-toolbar-right">');
+  // since the planning redesign the three actions sit in the page head's .ph-actions
+  const start = html.indexOf('<div class="ph-actions">');
   const toolbar = html.slice(start, html.indexOf('</div>', start));
   const buttons = toolbar.split('</button>').slice(0, -1).map(b => b + '</button>');
 
-  it('has three buttons', () => {
+  it('has three buttons in .ph-actions and no .pl-toolbar-right', () => {
     expect(start).toBeGreaterThan(-1);
     expect(buttons.length).toBe(3);
+    expect(html).not.toContain('pl-toolbar-right');
+  });
+  it('shows Team assistant to admins only and disables Export while the model is pending or failed', () => {
+    const by = label => buttons.find(b => b.includes(label));
+    expect(by('Team assistant')).toContain('v-if="isAdminUser"');
+    const exp = by('Export XLS').match(/:disabled="([^"]*)"/);
+    expect(exp && exp[1]).toMatch(/modelPending/);
+    expect(exp && exp[1]).toMatch(/modelError/);
+  });
+  it('has no "✕" reset button', () => {
+    expect(html).not.toContain('✕');
   });
   it('has no width toggle (2026-10-29, ui-quick-wins)', () => {
     expect(html).not.toContain('toggleFullWidth');
@@ -255,7 +267,7 @@ describe('planning toolbar', () => {
   });
   it('every button is a .ph-btn with a shared icon', () => {
     for (const b of buttons) {
-      expect(b).toContain('class="ph-btn"');
+      expect(b).toMatch(/class="ph-btn[" ]/);
       expect(b).toContain('<ph-icon');
     }
     const by = label => buttons.find(b => b.includes(label));

@@ -40,91 +40,104 @@
         <div class="ph-title-row">
           <h1 class="ph-title">{{ planningTitle }}</h1>
         </div>
-        <div class="ph-sub">Hours distribution by role, project or owner — based on sold hours and actuals consumed</div>
+        <div class="ph-sub">{{ planningSubtitle }}</div>
       </div>
+      <div class="ph-side"><div class="ph-actions">
+        <button v-if="isAdminUser" type="button" class="ph-btn" ref="taOpenBtn" title="Find the best people to allocate to a project" aria-label="Team assistant" @click="taOpen = !taOpen"><ph-icon name="team" :size="14"></ph-icon><span class="pl-btn-text">Team assistant</span></button>
+        <button type="button" class="ph-btn pl-load-btn" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon><span class="pl-btn-text">Load XLS</span></button>
+        <button type="button" class="ph-btn" aria-label="Export XLS" :disabled="modelPending || !!modelError" @click="exportCurrentView"><ph-icon name="download" :size="14"></ph-icon><span class="pl-btn-text">Export XLS</span></button>
+      </div></div>
     </div>
     <div class="ph-toolbar pl-toolbar">
-      <div class="pl-toolbar-left">
-        <!-- Row 1: filters + view/interval toggles -->
-        <div class="d-flex align-items-center gap-3 flex-wrap">
-          <div class="d-flex align-items-center gap-2 flex-wrap">
-            <span class="small text-muted me-1">Pipeline:</span>
-            <button v-for="p in allPipelines" :key="p" class="btn btn-sm" :class="isPipelineActive(p) ? 'btn-primary' : 'btn-outline-secondary'" @click="togglePipelineFilter(p)">{{ p }}</button>
-          </div>
-          <div class="vr" style="opacity:.3;align-self:stretch"></div>
-          <div class="dropdown">
-            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-              Projects <span v-if="projectFilters.size" class="badge bg-secondary ms-1">{{ projectFilters.size }}</span>
-            </button>
-            <ul class="dropdown-menu shadow" style="min-width:280px;max-height:320px;overflow-y:auto;padding:6px 0">
-              <li v-for="p in eligibleProjects" :key="p.id">
-                <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;font-size:var(--text-base)">
-                  <input type="checkbox" class="flex-shrink-0" :checked="isProjectChecked(p.id)" @change="onProjectFilterToggle(p.id)">
-                  <span class="text-truncate" :title="fmtProjectTitle(p)">{{ fmtProjectTitle(p) }}</span>
-                  <span v-if="p.pipeline" class="badge bg-light text-dark border ms-auto" style="font-size:var(--text-2xs)">{{ p.pipeline }}</span>
-                </label>
-              </li>
-              <template v-if="eligibleProjects.length">
-                <li><hr class="dropdown-divider my-1"></li>
-                <li><button class="dropdown-item small text-primary" @click="selectAllProjects">Select all</button></li>
-              </template>
-            </ul>
-          </div>
-          <button v-if="projectFilters.size" class="btn btn-sm btn-outline-danger" @click="resetProjectFilters">✕ Projects</button>
-          <div class="dropdown">
-            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-              Team <span v-if="teamFilters.size" class="badge bg-secondary ms-1">{{ teamFilters.size }}</span>
-            </button>
-            <ul class="dropdown-menu shadow" style="min-width:240px;max-height:280px;overflow-y:auto;padding:6px 0">
-              <li v-for="t in allTeams" :key="t">
-                <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;font-size:var(--text-base)">
-                  <input type="checkbox" class="flex-shrink-0" :checked="isTeamChecked(t)" @change="onTeamFilterToggle(t)">
-                  <span class="text-truncate">{{ t }}</span>
-                </label>
-              </li>
-              <template v-if="allTeams.length">
-                <li><hr class="dropdown-divider my-1"></li>
-                <li><button class="dropdown-item small text-primary" @click="selectAllTeams">Select all</button></li>
-              </template>
-            </ul>
-          </div>
-          <button v-if="teamFilters.size" class="btn btn-sm btn-outline-danger" @click="resetTeamFilters">✕ Team</button>
-          <div class="vr" style="opacity:.3;align-self:stretch"></div>
-          <div class="btn-group btn-group-sm">
-            <button class="btn btn-outline-secondary" :class="{active: view==='byrole'}" @click="view='byrole'">By Role</button>
-            <button class="btn btn-outline-secondary" :class="{active: view==='byproject'}" @click="view='byproject'">By Project</button>
-            <button class="btn btn-outline-secondary" :class="{active: view==='byowner'}" @click="view='byowner'">By Owner</button>
-          </div>
-          <div class="btn-group btn-group-sm">
-            <button class="btn btn-outline-secondary" :class="{active: interval==='monthly'}" @click="interval='monthly'">Monthly</button>
-            <button class="btn btn-outline-secondary" :class="{active: interval==='weekly'}" @click="interval='weekly'">Weekly</button>
-          </div>
+      <!-- Row 1: view, interval, period, search -->
+      <div class="pl-toolbar-row">
+        <div class="pl-seg" role="group" aria-label="View">
+          <button type="button" class="pl-seg-btn" :class="{ active: view === 'byrole' }" :aria-pressed="view === 'byrole' ? 'true' : 'false'" @click="view = 'byrole'">By role</button>
+          <button type="button" class="pl-seg-btn" :class="{ active: view === 'byproject' }" :aria-pressed="view === 'byproject' ? 'true' : 'false'" @click="view = 'byproject'">By project</button>
+          <button type="button" class="pl-seg-btn" :class="{ active: view === 'byowner' }" :aria-pressed="view === 'byowner' ? 'true' : 'false'" @click="view = 'byowner'">By owner</button>
         </div>
-        <!-- Row 2: window navigation + display toggles -->
-        <div class="d-flex align-items-center gap-3 flex-wrap mt-1">
-          <div class="d-flex align-items-center gap-1">
-            <button class="btn btn-sm btn-outline-secondary" title="Add previous month" style="padding:2px 7px;line-height:1.4" :disabled="atLeftLimit" @click="expandLeft"><ph-icon name="chevron-left" :size="14"></ph-icon>+</button>
-            <button class="btn btn-sm btn-outline-secondary" title="Hide previous month" style="padding:2px 7px;line-height:1.4" :disabled="atMinWidth" @click="shrinkLeft">−<ph-icon name="chevron-right" :size="14"></ph-icon></button>
-            <span class="small text-muted px-2" style="white-space:nowrap;min-width:130px;text-align:center">{{ windowLabel }}</span>
-            <button class="btn btn-sm btn-outline-secondary" title="Hide next month" style="padding:2px 7px;line-height:1.4" :disabled="atMinWidth" @click="shrinkRight"><ph-icon name="chevron-left" :size="14"></ph-icon>−</button>
-            <button class="btn btn-sm btn-outline-secondary" title="Add next month" style="padding:2px 7px;line-height:1.4" :disabled="atRightLimit" @click="expandRight">+<ph-icon name="chevron-right" :size="14"></ph-icon></button>
-          </div>
-          <div class="vr" style="opacity:.3;align-self:stretch"></div>
-          <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-            <input class="form-check-input" type="checkbox" id="chkMonthlyPulse" v-model="monthlyPulse" style="cursor:pointer">
-            <label class="form-check-label small text-muted" for="chkMonthlyPulse">Monthly pulse</label>
-          </div>
-          <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-            <input class="form-check-input" type="checkbox" id="chkRoundHours" v-model="roundHours" style="cursor:pointer">
-            <label class="form-check-label small text-muted" for="chkRoundHours">Rounded</label>
-          </div>
+        <div class="pl-seg" role="group" aria-label="Interval">
+          <button type="button" class="pl-seg-btn" :class="{ active: interval === 'monthly' }" :aria-pressed="interval === 'monthly' ? 'true' : 'false'" @click="interval = 'monthly'">Monthly</button>
+          <button type="button" class="pl-seg-btn" :class="{ active: interval === 'weekly' }" :aria-pressed="interval === 'weekly' ? 'true' : 'false'" @click="interval = 'weekly'">Weekly</button>
+        </div>
+        <div class="pl-period">
+          <button class="btn btn-sm btn-outline-secondary" title="Add previous month" :disabled="atLeftLimit" @click="expandLeft"><ph-icon name="chevron-left" :size="14"></ph-icon>+</button>
+          <button class="btn btn-sm btn-outline-secondary" title="Hide previous month" :disabled="atMinWidth" @click="shrinkLeft">−<ph-icon name="chevron-right" :size="14"></ph-icon></button>
+          <span class="small text-muted px-2">{{ windowLabel }}</span>
+          <button class="btn btn-sm btn-outline-secondary" title="Hide next month" :disabled="atMinWidth" @click="shrinkRight"><ph-icon name="chevron-left" :size="14"></ph-icon>−</button>
+          <button class="btn btn-sm btn-outline-secondary" title="Add next month" :disabled="atRightLimit" @click="expandRight">+<ph-icon name="chevron-right" :size="14"></ph-icon></button>
+        </div>
+        <div class="ph-toolbar-spacer"></div>
+        <div class="pl-search">
+          <ph-icon name="search" :size="14"></ph-icon>
+          <input type="search" class="form-control form-control-sm" :aria-label="searchPlaceholder" :placeholder="searchPlaceholder" v-model="search[view]">
         </div>
       </div>
-      <div class="ph-toolbar-spacer"></div>
-      <div class="pl-toolbar-right">
-        <button v-if="isAdminUser" class="ph-btn" title="Find the best people to allocate to a project" @click="taOpen = !taOpen"><ph-icon name="team" :size="14"></ph-icon> Team assistant</button>
-        <button class="ph-btn" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon> Load XLS</button>
-        <button class="ph-btn" @click="exportCurrentView"><ph-icon name="download" :size="14"></ph-icon> Export XLS</button>
+      <!-- Row 2: filters and display switches -->
+      <div class="pl-toolbar-row pl-toolbar-row--filters">
+        <span class="pl-toolbar-label">Pipeline</span>
+        <button v-for="p in allPipelines" :key="p" type="button" class="pl-stage-chip" :class="['pl-stage-chip--' + p.toLowerCase(), { 'is-active': isPipelineActive(p) }]"
+                :aria-pressed="isPipelineActive(p) ? 'true' : 'false'" @click="togglePipelineFilter(p)"><span class="pl-stage-dot" aria-hidden="true"></span>{{ p }}</button>
+        <span class="pl-sep" aria-hidden="true"></span>
+        <div class="dropdown">
+          <button type="button" class="pl-filter-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+            Projects: <strong>{{ projectFilters.size ? projectFilters.size : 'All (' + eligibleProjects.length + ')' }}</strong>
+          </button>
+          <div class="dropdown-menu pl-pop">
+            <div class="pl-search pl-pop-search">
+              <ph-icon name="search" :size="14"></ph-icon>
+              <input type="search" class="form-control form-control-sm" placeholder="Search project or client…" aria-label="Search project or client" v-model="projectQuery">
+            </div>
+            <div class="pl-pop-list">
+              <label v-for="p in projectOptions" :key="p.id" class="pl-pop-row">
+                <input type="checkbox" class="form-check-input" :checked="isProjectChecked(p.id)" @change="onProjectFilterToggle(p.id)">
+                <span class="pl-pop-text">
+                  <span class="pl-pop-name" :title="p.name || p.id">{{ p.name || p.id }}</span>
+                  <span v-if="projectClient(p)" class="pl-pop-sub">{{ projectClient(p) }}</span>
+                </span>
+                <span v-if="p.pipeline" v-html="stagePill(p.pipeline)"></span>
+              </label>
+              <div v-if="!projectOptions.length" class="pl-pop-empty">No projects match.</div>
+            </div>
+            <div class="pl-pop-foot">
+              <span>{{ projectFilters.size || eligibleProjects.length }} of {{ eligibleProjects.length }} selected</span>
+              <span class="pl-pop-foot-actions">
+                <button type="button" class="pl-link" @click="selectAllProjects">Select all</button>
+                <button type="button" class="pl-link" @click="resetProjectFilters">Clear</button>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="dropdown">
+          <button type="button" class="pl-filter-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+            Team: <strong>{{ teamFilters.size ? teamFilters.size : 'All' }}</strong>
+          </button>
+          <div class="dropdown-menu pl-pop pl-pop--narrow">
+            <div class="pl-pop-list">
+              <label v-for="t in allTeams" :key="t" class="pl-pop-row">
+                <input type="checkbox" class="form-check-input" :checked="isTeamChecked(t)" @change="onTeamFilterToggle(t)">
+                <span class="pl-pop-text"><span class="pl-pop-name">{{ t }}</span></span>
+              </label>
+              <div v-if="!allTeams.length" class="pl-pop-empty">No teams.</div>
+            </div>
+            <div class="pl-pop-foot">
+              <span>{{ teamFilters.size || allTeams.length }} of {{ allTeams.length }} selected</span>
+              <span class="pl-pop-foot-actions">
+                <button type="button" class="pl-link" @click="selectAllTeams">Select all</button>
+                <button type="button" class="pl-link" @click="resetTeamFilters">Clear</button>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="ph-toolbar-spacer"></div>
+        <div class="form-check form-switch mb-0 pl-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="chkMonthlyPulse" v-model="monthlyPulse">
+          <label class="form-check-label" for="chkMonthlyPulse">Monthly pulse</label>
+        </div>
+        <div class="form-check form-switch mb-0 pl-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="chkRoundHours" v-model="roundHours">
+          <label class="form-check-label" for="chkRoundHours">Rounded</label>
+        </div>
       </div>
     </div>
     <div class="pl-legend">
@@ -407,7 +420,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         openIds: { byrole: new Set(), byproject: new Set(), byowner: new Set() },
         openInit: { byrole: false, byproject: false, byowner: false },
         search: { byrole: '', byproject: '', byowner: '' },
-        legendOpen: false, isTablet: false,
+        legendOpen: false, isTablet: false, projectQuery: '',
         taOpen: false, taProjectId: '', taMessages: [], taInput: '', taBusy: false, taTables: null, taParams: {}, taError: null, taRoles: [],
       };
     },
@@ -711,6 +724,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         const { rows } = this.activeRows;
         return rows.length ? visibleRows(rows, this.openIds[this.view], this.searchFilter) : [];
       },
+      planningSubtitle() {
+        let s = `Hours by role, project or owner · ${this.filteredProjects.length} of ${this.eligibleProjects.length} projects`;
+        const r = this.activeRows;
+        if (!this.modelPending && !this.modelError && r.state === 'ready') s += ` · ${this.fmtNum(r.total.toPlan)} to plan`;
+        return s;
+      },
+      searchPlaceholder() { return { byrole: 'Search role…', byproject: 'Search project or task…', byowner: 'Search person…' }[this.view]; },
+      // the Projects popover's own search, local to the list (does not filter the grid)
+      projectOptions() {
+        const q = this.projectQuery.trim().toLowerCase();
+        if (!q) return this.eligibleProjects;
+        return this.eligibleProjects.filter(p => `${p.name || p.id}\n${this.projectClient(p)}`.toLowerCase().includes(q));
+      },
       labelHeader() { return { byrole: 'Role', byproject: 'Project / Task / Role', byowner: 'Owner / Project / Task' }[this.view]; },
       viewName() { return { byrole: 'By role', byproject: 'By project', byowner: 'By owner' }[this.view]; },
       estimatesText() { return ESTIMATES_TEXT[this.view]; },
@@ -956,6 +982,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const parents = new Set(rows.map(r => r.parentId).filter(Boolean));
         rows.forEach(r => { if (r.depth <= maxDepth && parents.has(r.id)) this.openIds[view].add(r.id); });
       },
+      projectClient(p) { return clientLabel(p.clientId); },
       stagePill(v) { return headerBadge('stage', v); },
       statusPill(v) { return headerBadge('status', v); },
       fmtNum(v) { return (this.roundHours ? Math.round(v || 0) : (v || 0).toFixed(2)) + 'h'; },
