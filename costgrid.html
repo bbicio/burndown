@@ -1955,6 +1955,7 @@ Vue.createApp({
         cgSyncRoleRatesToBaseline(true); // mutates _cgDraft.roles[].rate in place — this.draft IS _cgDraft; reads the rate just set
         this.prevCurrency = newCurrency;
         this.$forceUpdate();
+        cgMarkCurrencyChange(); // the save below re-syncs the rates if the server applied another rate
         cgAutoSave();
       };
       modalEl.addEventListener('hidden.bs.modal', () => {

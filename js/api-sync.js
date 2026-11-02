@@ -149,6 +149,7 @@ async function cgLoadStructureFromApi(cgId, versionId) {
 // server-assigned): a failed PATCH is reported, never converted into a POST that would duplicate them.
 // Used by cgAutoSave and version create/duplicate operations.
 // opts.strict = true: a failed upsert throws instead of being logged and swallowed.
+// opts.onServerRate(rate): called after a successful PATCH whose currency_rate differs from the version's.
 // Resolves to true only when every write reached the server; false when one failed (non-strict) or there was
 // nothing to write. A failed name save does not stop the version and its structure from being saved.
 // A refusal is refused again on every autosave, so the user is told once per version, code and message; a
@@ -207,13 +208,19 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   const hasStructure = !!(phases && phases.length > 0);
   let patchBody = serverMeta;
   if (hasStructure) { patchBody = { ...serverMeta }; delete patchBody.startDate; delete patchBody.endDate; }
+  let serverRate = NaN;
   try {
-    await Api.costGrids.versions.update(cgId, versionId, patchBody);
+    const resp = await Api.costGrids.versions.update(cgId, versionId, patchBody);
+    serverRate = parseFloat(resp?.currency_rate);
   } catch (e) {
     console.warn('[sync] version upsert failed:', e.message);
     if (strict) throw e;
     allOk = false;
     if (e.data?.code === 'DATE_RULE' || e.data?.code === 'CURRENCY_RULE') notifyRefusal(e, false);
+  }
+  if (opts && typeof opts.onServerRate === 'function' && Number.isFinite(serverRate)
+      && serverRate !== (parseFloat(meta.currencyRate) || 1)) {
+    opts.onServerRate(serverRate);
   }
 
   if (hasStructure) {

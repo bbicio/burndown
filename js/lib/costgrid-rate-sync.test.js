@@ -80,3 +80,84 @@ describe('refreshRatecards', () => {
     expect(update).toHaveBeenCalledWith({ syncRates: false });
   });
 });
+
+describe('cgAdoptServerRate', () => {
+  // Spec §8: the editor adopts the rate the server applied; rates are re-synced only after a currency change.
+  let draft, store, render, schedule;
+  function adopt(activeVersionId = 'v1') {
+    draft = { currency: 'USD', currencyRate: 1.1, roles: [
+      { roleCode: 'PM', rate: 110, rateIsCustom: false }, { roleCode: 'DEV', rate: 95, rateIsCustom: true },
+    ] };
+    store = { id: 'cg1', versions: [{ versionId: 'v1', currencyRate: 1.1 }, { versionId: 'v2', currencyRate: 1 }] };
+    render = vi.fn(); schedule = vi.fn();
+    const stubs = {
+      _cgActiveCgId: 'cg1', _cgActiveVersionId: activeVersionId, _cgDraft: draft,
+      cgLoad: () => JSON.parse(JSON.stringify(store)), cgSave: cg => { store = JSON.parse(JSON.stringify(cg)); },
+      getRoles: () => [{ id: 1, code: 'PM', rate: 100, rateOverrides: {} }], resolveRoleRate,
+      renderCgEditor: render, cgScheduleAutoSave: schedule,
+    };
+    const names = Object.keys(stubs);
+    return new Function(...names, `let _cgActiveRatecardMap = {}, _cgActiveRatecardOverrides = {};
+      ${extractBlock(js, 'function cgSyncRoleRatesToBaseline(')}
+      ${extractBlock(js, 'function cgAdoptServerRate(')}
+      return cgAdoptServerRate;`)(...names.map(n => stubs[n]));
+  }
+  const storedRate = id => store.versions.find(v => v.versionId === id).currencyRate;
+
+  it('after a currency change: adopts the rate, re-prices non-Custom roles, saves again', () => {
+    adopt()('cg1', 'v1', 1.2, true);
+    expect(draft.currencyRate).toBe(1.2);
+    expect(draft.roles.map(r => r.rate)).toEqual([120, 95]);
+    expect(storedRate('v1')).toBe(1.2);
+    expect(schedule).toHaveBeenCalledTimes(1);
+    expect(render).toHaveBeenCalled();
+  });
+
+  it('otherwise: adopts the rate only, saved rates untouched, no new save', () => {
+    adopt()('cg1', 'v1', 1.2, false);
+    expect(draft.currencyRate).toBe(1.2);
+    expect(draft.roles.map(r => r.rate)).toEqual([110, 95]);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it('another version active: the draft is untouched, the stored version still gets the rate', () => {
+    adopt('v2')('cg1', 'v1', 1.2, true);
+    expect(draft.currencyRate).toBe(1.1);
+    expect(draft.roles.map(r => r.rate)).toEqual([110, 95]);
+    expect(storedRate('v1')).toBe(1.2);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+});
+
+describe('cgAutoSave passes the currency-change flag', () => {
+  let opts, adoptSpy, fns;
+  beforeEach(() => {
+    opts = null; adoptSpy = vi.fn();
+    const stubs = {
+      _cgActiveCgId: 'cg1', _cgActiveVersionId: 'v1', _cgDraft: { versionId: 'v1' },
+      cgSyncHeaderFromForm: () => {}, cgLoad: () => ({ id: 'cg1', versions: [{ versionId: 'v1' }] }), cgSave: () => {},
+      _cgUpsertVersionToApi: async (cgId, vId, o) => { opts = o; return true; },
+      cgAdoptServerRate: adoptSpy,
+    };
+    const names = Object.keys(stubs);
+    fns = new Function(...names, `let _cgCurrencyChangePending = false;
+      ${extractBlock(js, 'function cgMarkCurrencyChange(')}
+      ${extractBlock(js, 'function cgAutoSave(')}
+      return { cgAutoSave, cgMarkCurrencyChange };`)(...names.map(n => stubs[n]));
+  });
+
+  it('the save right after a currency change carries it; the next one does not', async () => {
+    fns.cgMarkCurrencyChange();
+    await fns.cgAutoSave();
+    opts.onServerRate(1.2);
+    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v1', 1.2, true);
+    await fns.cgAutoSave();
+    opts.onServerRate(1.2);
+    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v1', 1.2, false);
+  });
+
+  it('strict is passed through', async () => {
+    await fns.cgAutoSave(true);
+    expect(opts.strict).toBe(true);
+  });
+});

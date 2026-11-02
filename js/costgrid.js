@@ -686,8 +686,32 @@ function renderCgPhasing() {
 
 // strict = true: the returned promise rejects when the save fails (default: log and resolve).
 // Resolves to true only when every write reached the server.
+// Set by the "Change currency?" confirmation; read and cleared by the next save, so only that save
+// re-syncs the role rates to the rate the server applied.
+let _cgCurrencyChangePending = false;
+function cgMarkCurrencyChange() { _cgCurrencyChangePending = true; }
+
+// The PATCH answered with a different currency_rate: the editor adopts the rate the server applied
+// (Spec currency-f3 §8). Role rates are re-synced only after a currency change — otherwise saved rates stay.
+function cgAdoptServerRate(cgId, versionId, rate, afterCurrencyChange) {
+  const cg = cgLoad(cgId);
+  const ver = cg?.versions.find(v => v.versionId === versionId);
+  if (ver) { ver.currencyRate = rate; cgSave(cg); }
+  if (_cgActiveCgId === cgId && _cgActiveVersionId === versionId && _cgDraft) {
+    _cgDraft.currencyRate = rate;
+    if (afterCurrencyChange) {
+      cgSyncRoleRatesToBaseline();
+      cgScheduleAutoSave();
+    }
+  }
+  renderCgEditor();
+}
+
 function cgAutoSave(strict) {
   if (!_cgActiveCgId || !_cgActiveVersionId || !_cgDraft) return Promise.resolve(false);
+  const afterCurrencyChange = _cgCurrencyChangePending;
+  _cgCurrencyChangePending = false;
+  const cgId = _cgActiveCgId, verId = _cgActiveVersionId;
   cgSyncHeaderFromForm();
   const cg = cgLoad(_cgActiveCgId);
   if (!cg) return Promise.resolve(false);
@@ -695,7 +719,10 @@ function cgAutoSave(strict) {
   if (idx >= 0) cg.versions[idx] = _cgDraft;
   cgSave(cg);
   if (typeof _cgUpsertVersionToApi !== 'undefined') {
-    return _cgUpsertVersionToApi(_cgActiveCgId, _cgActiveVersionId, strict ? { strict: true } : undefined)
+    return _cgUpsertVersionToApi(cgId, verId, {
+      strict: !!strict,
+      onServerRate: rate => cgAdoptServerRate(cgId, verId, rate, afterCurrencyChange),
+    })
       .then(ok => ok === true)
       .catch(e => { console.warn('[sync] cgAutoSave:', e.message); if (strict) throw e; return false; });
   }

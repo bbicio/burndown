@@ -11,8 +11,8 @@ let api;
 let notified;
 let showInfo;
 
-function build(phases = [{ phaseName: 'P', tasks: [] }], period = { startDate: '202606', endDate: '202701' }) {
-  const cg = { id: 'cg1', name: 'Grid', versions: [{ versionId: 'v1', versionLabel: 'v1', currency: 'EUR', phases, roles: [], ...period }] };
+function build(phases = [{ phaseName: 'P', tasks: [] }], period = { startDate: '202606', endDate: '202701' }, meta = {}) {
+  const cg = { id: 'cg1', name: 'Grid', versions: [{ versionId: 'v1', versionLabel: 'v1', currency: 'EUR', phases, roles: [], ...period, ...meta }] };
   const stubs = { Api: api, cgLoad: () => cg, _cgRuleNotified: notified, showInfo };
   const names = Object.keys(stubs);
   return new Function(...names, 'window', `${extractBlock(js, 'function _cgForgetRuleNotices(')}; ${extractBlock(js, 'async function _cgUpsertVersionToApi(')}; return _cgUpsertVersionToApi;`)(
@@ -274,5 +274,48 @@ describe('cgLoadStructureFromApi — Custom flag (f3)', () => {
     expect(kept.roles).toEqual([{ roleCode: 'PM', rate: 120, rateIsCustom: false }]);
     const rebuilt = await loadWith([{ code: 'PM', rate_override: null, hourly_rate: '100', days: 2 }], []);
     expect(rebuilt.roles).toMatchObject([{ roleCode: 'PM', rate: 100, rateIsCustom: false }]);
+  });
+});
+
+describe('onServerRate (f3, B-213)', () => {
+  // The PATCH answers with the version row, whose currency_rate is the rate the server applied.
+  beforeEach(() => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    notified = new Set();
+    showInfo = vi.fn();
+    api = { costGrids: {
+      update: vi.fn(async () => {}),
+      versions: { update: vi.fn(async () => {}), saveStructure: vi.fn(async () => {}) },
+    } };
+  });
+  const usd = { currency: 'USD', currencyRate: 1.1 };
+
+  it('a different rate in the response is handed to the callback', async () => {
+    api.costGrids.versions.update.mockResolvedValue({ currency_rate: '1.200000' });
+    const onServerRate = vi.fn();
+    await build(undefined, undefined, usd)('cg1', 'v1', { onServerRate });
+    expect(onServerRate).toHaveBeenCalledTimes(1);
+    expect(onServerRate).toHaveBeenCalledWith(1.2);
+  });
+
+  it('equal rate → no callback', async () => {
+    api.costGrids.versions.update.mockResolvedValue({ currency_rate: '1.100000' });
+    const onServerRate = vi.fn();
+    await build(undefined, undefined, usd)('cg1', 'v1', { onServerRate });
+    expect(onServerRate).not.toHaveBeenCalled();
+  });
+
+  it('no response body → no callback', async () => {
+    api.costGrids.versions.update.mockResolvedValue(undefined);
+    const onServerRate = vi.fn();
+    await build(undefined, undefined, usd)('cg1', 'v1', { onServerRate });
+    expect(onServerRate).not.toHaveBeenCalled();
+  });
+
+  it('a failed PATCH → no callback, and the save reports false', async () => {
+    api.costGrids.versions.update.mockRejectedValue(new Error('500'));
+    const onServerRate = vi.fn();
+    await expect(build(undefined, undefined, usd)('cg1', 'v1', { onServerRate })).resolves.toBe(false);
+    expect(onServerRate).not.toHaveBeenCalled();
   });
 });
