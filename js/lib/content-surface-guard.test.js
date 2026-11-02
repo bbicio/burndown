@@ -269,3 +269,34 @@ describe('planning toolbar', () => {
     expect(reg).toBeLessThan(html.indexOf(`app.mount('#planningApp')`));
   });
 });
+
+describe('planning grid (2026-11-02, planning redesign)', () => {
+  const html = read('planning.html');
+  const css = read('css/planning.css');
+  const at = s => html.indexOf(s);
+  // the XLS export keeps its own ARGB colours
+  const exportStart = at('async buildStyledExcelExport(');
+  const exportEnd = html.indexOf('\n      },', exportStart);
+  const outsideExport = html.slice(0, exportStart) + html.slice(exportEnd);
+
+  it('loads controls.css, cg-controls.js and planning.css after style.css', () => {
+    expect(at('css/controls.css?v=')).toBeGreaterThan(at('css/style.css?v='));
+    expect(at('css/planning.css?v=1')).toBeGreaterThan(at('css/controls.css?v='));
+    expect(html).toContain('js/cg-controls.js?v=');
+  });
+  it('planning.css uses tokens only', () => {
+    const code = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+  it('the page carries no grid glyph or emoji and no hex colour outside the XLS export', () => {
+    expect(html).not.toMatch(/[▶▼⊞⊟🏢📋👤]/u);
+    expect(outsideExport).not.toMatch(/#[0-9a-fA-F]{6}\b/);
+  });
+  it('the grid is a template table: no v-html except the stage/status pills', () => {
+    expect(html).not.toContain('activeViewHtml');
+    const start = at('<table class="pl-grid"');
+    expect(start).toBeGreaterThan(-1);
+    const table = html.slice(start, html.indexOf('</table>', start));
+    for (const m of table.matchAll(/v-html="([^"]*)"/g)) expect(m[1]).toMatch(/^(stagePill|statusPill)\(/);
+  });
+});

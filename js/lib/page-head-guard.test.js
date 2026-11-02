@@ -185,8 +185,10 @@ describe('css/style.css page head component', () => {
   });
   it('pulls the band to full width out of .app-container', () => {
     expect(css).toMatch(/\.app-container > \.ph,\s*\.app-container > \.ph-toolbar\s*\{[^}]*margin-left:\s*calc\(-1 \* var\(--app-pad\)\)/);
-    expect(css).toMatch(/body\.pp-fullwidth \.app-container\s*\{[^}]*--app-pad:\s*12px/);
-    expect(css).not.toMatch(/body\.pp-fullwidth \.app-container > \.ph/);
+    // planning.html's full-width rule lives in css/planning.css since the planning redesign.
+    const planning = stripComments(read('css/planning.css'));
+    expect(planning).toMatch(/body\.pp-fullwidth \.app-container\s*\{[^}]*--app-pad:\s*12px/);
+    expect(css + planning).not.toMatch(/body\.pp-fullwidth \.app-container > \.ph/);
   });
   it('no inline .app-container padding override without --app-pad', () => {
     for (const p of pages) {

@@ -46,6 +46,8 @@ export const ICON_PATHS = {
   eye:          '<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.4"/>',
   refresh:      '<path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5V5h-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
   'trend-up':   '<path d="M2 12L6 8l2.5 2.5L14 5M10.5 5H14v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+  info:         '<circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M8 7.2V11.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="5" r=".9" fill="currentColor"/>',
+  filter:       '<path d="M2.5 4H13.5M4.5 8H11.5M6.5 12H9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
 };
 
 export function iconSvg(name, size = 16, cls = '') {

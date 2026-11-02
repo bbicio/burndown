@@ -75,7 +75,8 @@ describe('css/style.css', () => {
   });
   it('keeps the layout invariants', () => {
     expect(css).toContain('calc(100vh - var(--nav-top-h) - var(--breadcrumb-h))');
-    expect(css).toContain('right: -960px');
+    // the Team assistant drawer's rules moved to css/planning.css (planning redesign)
+    expect(read('css/planning.css')).toContain('#teamAssistantPanel');
   });
   it('is loaded after Bootstrap on every page that links it', () => {
     const bad = pages.filter(f => {

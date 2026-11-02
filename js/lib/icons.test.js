@@ -12,6 +12,7 @@ const GUARANTEED = [
   'search', 'chevron-right', 'chevron-down', 'grid', 'list', 'gear', 'arrow-right', 'close', 'chevron-left',
   'check', 'upload', 'calendar', 'share', 'download',
   'save', 'clone', 'configure', 'plus', 'chevronDown', 'maximize', 'minimize',
+  'info', 'filter',
 ];
 
 describe('iconSvg', () => {
