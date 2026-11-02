@@ -53,12 +53,12 @@ or accepted as a design residual inside their own cycle:
 `2026-10-01-…-project-currency-lock` (6 findings over 3 rounds, all fixed in-cycle) ·
 `2026-10-08-…-claudemd-split` (17 findings over four rounds, 16 fixed and one rejected — that report's own
 summary says "all 15 confirmed findings", which is its error, not this file's: 7+4+3+3 = 17) ·
- | closed 2026-10-19 | `grep -n "font-size: 20px" css/pipeline.css` → no match; the phone rules are unscoped in `css/style.css` (cycle `header-unification-content`, merge `6834c18`), 2026-10-19 |
+`2026-10-12-…-process-md-self-description` has open items and is in the table below, not here.
 
 **One correction made during this triage, recorded because it is the method under test:** the three
 reports `2026-10-06-…-pipeline-board-redesign`, `2026-10-07-…-costgrid-fidelity` and
 `2026-10-07-…-pipeline-detail-panel` were first classified here as round narratives with nothing open,
- | closed 2026-10-19 | `grep -n 'v-html="headerBadge' costgrid.html portfolio.html` → both spans carry `v-if` on the same call, 2026-10-19 |
+on a keyword heuristic rather than a read. Reading them showed **23 open items**, including the most
 serious entry in this file (B-029). The heuristic was wrong in the permissive direction, which is the
 direction that loses work. All 23 of those items are now carried, by rows B-029 to B-042 plus B-055 — fewer rows than items, because
 B-030, B-041 and B-055 each bundle several. The two the first pass still dropped are both in B-055.
@@ -323,3 +323,4 @@ work; a row would misrepresent them as pending.
 | B-244 | `project-config-redesign` Gate 3 round 2 #2 (accepted as follow-up) | Low: with an excluded task, Totals and the task-table footer show all tasks while the phasing balance line compares against the billable totals ("100 of 100 · balanced" next to a Total of 110), and the dot messages still say "total budget/hours" — label the figure as billable or reword | `project-config.html` line 710 | open | `grep -n "      distributedBudget() {" project-config.html` → line 710, billable tasks only, 2026-11-02 |
 | B-245 | `planning-redesign` Gate 2 deviation D3 (accepted, follow-up) | Low: By role child rows show only the task on their second line; boards 9.8/9.9 show "task · owner", but the server's role projection keys children by project and task and carries no owner — needs an owner list per child in `POST /api/planning/model` (view `role`) | `api/src/lib/planning-model.js` line 117 | open | `grep -n "childKey = " api/src/lib/planning-model.js` → line 117, `${projLabel}::${task.name}`, no owner, 2026-11-02 |
 | B-246 | `planning-redesign` Gate 2 deviation D5 / Gate 3 round 1 #7 (accepted, follow-up) | Low: the Projects and Team popovers' "Clear" calls the same reset as "Select all" (an empty selection means all), so nothing can be deselected at once — needs a "none selected" state in the filter model | `planning.html` line 136 | open | `grep -n "Clear</button>" planning.html` → lines 136 and 157, both call the reset; `grep -n "resetProjectFilters() {" planning.html` → line 867, `new Set()`, 2026-11-02 |
+| B-247 | User request 2026-10-08 at the `portfolio-redesign` cycle 1 closeout (recorded 2026-11-03) | Low, UI consistency: the Portfolio toolbar's Sort control is still a native Bootstrap `<select>` (`form-select-sm`, inline `width:auto`), while the page already loads the shared custom controls for the custom date range; the user asked to match the Cost Grid controls. No extraction is left to do — `css/controls.css` is shared since dates C2 (`8c86467`) and `portfolio.html` is in `CONTROLS_PAGES` — so it is a page-local swap to `<cg-select>` | `portfolio.html` line 87 | open | `grep -n "v-model=\"portfolioSort\"" portfolio.html` → line 87, `<select class="form-select form-select-sm"`; `grep -n "<cg-" portfolio.html` → only the two `<cg-date-picker>` at lines 553 and 555, 2026-11-03 |
