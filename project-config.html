@@ -265,55 +265,45 @@
         </div>
       </div>
       <div id="pc-sec-phasing" data-section="phasing" class="cfg-section pc-card">
-  <div class="d-flex justify-content-between align-items-center cfg-section-title">
-    <span>Monthly Budget Phasing <span class="fw-normal text-muted">(estimated budget to spend per month)</span></span>
-    <div class="d-flex gap-2 align-items-center flex-wrap" v-if="!isViewer">
-      <button class="btn btn-sm btn-outline-secondary" @click="derivePhasing">⟳ Derive from task dates</button>
-      <button class="btn btn-sm btn-outline-secondary" v-if="reforecastVisible" @click="runReforecast">↻ Reforecast from actuals</button>
-    </div>
-  </div>
-  <div v-if="phasingActionError" class="alert alert-danger py-1 px-2 small mb-2" style="white-space:pre-line">{{ phasingActionError }}</div>
-  <div class="mt-1" v-if="projectMonths.length">
-    <div class="cfg-month-grid">
-      <div class="cfg-month-cell" v-for="ym in projectMonths" :key="ym">
-        <div class="cfg-month-label">{{ monthLabel(ym) }}</div>
-        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': phasingInvalid[ym] !== undefined }"
-               :title="phasingInvalid[ym] !== undefined ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''"
-               :readonly="isViewer" :value="phasingInvalid[ym] !== undefined ? phasingInvalid[ym] : (project.phasing[ym] > 0 ? formatMoney(project.phasing[ym], project.currency, currencies) : '')"
-               @focus="e => { if (phasingInvalid[ym] === undefined) e.target.value = moneyInput(project.phasing[ym]); }"
-               @blur="onPhasingBlur(ym, $event)">
+        <div class="pc-card-head">
+          <div class="pc-phase-title">
+            <div class="cfg-section-title mb-0">Monthly phasing</div>
+            <div class="pc-seg" role="group" aria-label="Phasing series">
+              <button type="button" class="pc-seg-btn" :class="{ 'pc-seg-btn--on': phasingMode === 'budget' }" :aria-pressed="phasingMode === 'budget'" @click="phasingMode = 'budget'">Budget</button>
+              <button type="button" class="pc-seg-btn" :class="{ 'pc-seg-btn--on': phasingMode === 'hours' }" :aria-pressed="phasingMode === 'hours'" @click="phasingMode = 'hours'">Hours</button>
+            </div>
+            <span class="pc-card-sub">{{ phasingMode === 'budget' ? 'Estimated budget to spend per month (' + currencySymbol + ')' : 'Planned hours to consume per month' }}</span>
+          </div>
+          <div class="pc-card-actions" v-if="!isViewer">
+            <button type="button" class="ph-btn" @click="derivePhasing"><ph-icon name="refresh" :size="14"></ph-icon>Derive from task dates</button>
+            <button type="button" class="ph-btn" v-if="reforecastVisible" @click="runReforecast"><ph-icon name="trend-up" :size="14"></ph-icon>Reforecast from actuals</button>
+          </div>
+        </div>
+        <div v-if="phasingActionError" class="alert alert-danger alert-sm pc-pre-line mt-3 mb-0">{{ phasingActionError }}</div>
+        <div class="pc-phase" v-if="projectMonths.length">
+          <div class="pc-phase-grid">
+            <div class="pc-phase-cell" v-for="(ym, mi) in projectMonths" :key="ym" :class="{ 'pc-phase-cell--current': phasingBars[mi].current }">
+              <div class="pc-bar-track"><div class="pc-bar" :class="phasingBars[mi].past ? 'pc-bar--past' : 'pc-bar--planned'" :style="{ height: phasingBars[mi].pct + '%' }"></div></div>
+              <div class="cfg-month-label">{{ monthLabel(ym) }}</div>
+              <input v-show="phasingMode === 'budget'" type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': phasingInvalid[ym] !== undefined }"
+                     :title="phasingInvalid[ym] !== undefined ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''"
+                     :readonly="isViewer" :value="phasingInvalid[ym] !== undefined ? phasingInvalid[ym] : (project.phasing[ym] > 0 ? formatMoney(project.phasing[ym], project.currency, currencies) : '')"
+                     @focus="e => { if (phasingInvalid[ym] === undefined) e.target.value = moneyInput(project.phasing[ym]); }"
+                     @blur="onPhasingBlur(ym, $event)">
+              <input v-show="phasingMode === 'hours'" type="text" class="form-control form-control-sm text-end"
+                     :readonly="isViewer" :value="project.planning[ym] > 0 ? cfgFmtHours(project.planning[ym]) : ''"
+                     @focus="e => { e.target.value = project.planning[ym] > 0 ? project.planning[ym] : ''; }"
+                     @blur="e => { const v = cfgParseHours(e.target.value); if (v > 0) project.planning[ym] = v; else delete project.planning[ym]; e.target.value = v > 0 ? cfgFmtHours(v) : ''; }">
+            </div>
+          </div>
+          <div class="pc-phase-foot">
+            <span class="pc-legend"><span class="pc-legend-swatch pc-bar--past"></span>Past months · actuals loaded</span>
+            <span class="pc-legend"><span class="pc-legend-swatch pc-bar--planned"></span>Planned</span>
+            <span class="pc-balance" :class="phasingStatus.balanced ? 'pc-balance--ok' : 'pc-balance--warn'"><ph-icon v-if="phasingStatus.balanced" name="check" :size="12"></ph-icon>{{ phasingStatus.text }}</span>
+          </div>
+        </div>
+        <p class="text-muted small mt-3 mb-0" v-else>Set Start and End month first.</p>
       </div>
-    </div>
-    <div class="d-flex align-items-center gap-2 mt-2" style="font-size:var(--text-base)">
-      <span class="text-muted">=</span><strong>{{ phasingSum > 0 ? formatMoney(phasingSum, project.currency, currencies) : '—' }}{{ grandTotalBudget > 0 ? ' / ' + formatMoney(grandTotalBudget, project.currency, currencies) : '' }}</strong>
-    </div>
-  </div>
-  <p class="text-muted small mb-0" v-else>Set Start and End month first.</p>
-</div>
-<div class="cfg-section pc-card">
-  <div class="d-flex justify-content-between align-items-center cfg-section-title">
-    <span>Monthly Hour Planning <span class="fw-normal text-muted">(planned hours to consume per month)</span></span>
-    <div class="d-flex gap-2 align-items-center flex-wrap" v-if="!isViewer">
-      <button class="btn btn-sm btn-outline-secondary" @click="derivePhasing">⟳ Derive from task dates</button>
-      <button class="btn btn-sm btn-outline-secondary" v-if="reforecastVisible" @click="runReforecast">↻ Reforecast from actuals</button>
-    </div>
-  </div>
-  <div class="mt-1" v-if="projectMonths.length">
-    <div class="cfg-month-grid">
-      <div class="cfg-month-cell" v-for="ym in projectMonths" :key="ym">
-        <div class="cfg-month-label">{{ monthLabel(ym) }}</div>
-        <input type="text" class="form-control form-control-sm text-end"
-               :readonly="isViewer" :value="project.planning[ym] > 0 ? cfgFmtHours(project.planning[ym]) : ''"
-               @focus="e => { e.target.value = project.planning[ym] > 0 ? project.planning[ym] : ''; }"
-               @blur="e => { const v = cfgParseHours(e.target.value); if (v > 0) project.planning[ym] = v; else delete project.planning[ym]; e.target.value = v > 0 ? cfgFmtHours(v) : ''; }">
-      </div>
-    </div>
-    <div class="d-flex align-items-center gap-2 mt-2" style="font-size:var(--text-base)">
-      <span class="text-muted">=</span><strong>{{ planningSum > 0 ? (planningSum.toLocaleString('en-US') + ' h') : '—' }}{{ grandTotalHours > 0 ? ' / ' + grandTotalHours.toLocaleString('en-US') + ' h' : '' }}</strong>
-    </div>
-  </div>
-  <p class="text-muted small mb-0" v-else>Set Start and End month first.</p>
-</div>
       <div id="pc-sec-ptc" data-section="ptc" class="cfg-section pc-card">
   <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>Pass Through Costs <span class="fw-normal text-muted">(PTC)</span></span><button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addPtc">+ Add PTC</button></div>
   <p class="text-muted small mb-3">Add external costs (licences, travel, etc.) with title, note, amount and the month they occur.</p>
@@ -516,6 +506,7 @@
         headerBadge: window.headerBadge,
         openTaskIndex: null,
         activeSection: 'client',
+        phasingMode: 'budget',
       };
     },
     computed: {
@@ -542,6 +533,36 @@
         const tasks = this.project?.tasks || [];
         const n = tasks.filter(t => { const ms = this.taskMonthRange(t); return ms.length && !window.splitState(t.monthlyDistribution, ms).valid; }).length;
         return { n, m: tasks.length };
+      },
+      currencySymbol() { return window.currencyInfo(this.project?.currency, this.currencies).symbol; },
+      // Months (YYYYMM) present in the loaded actuals; the upload stores ISO dates, Reforecast reads them the same way.
+      actualMonths() {
+        const set = new Set();
+        (this.actuals.exportRows || []).forEach(r => { if (r && typeof r.date === 'string' && r.date) set.add(r.date.slice(0, 7).replace('-', '')); });
+        return set;
+      },
+      currentYm() {
+        const now = new Date();
+        return now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0');
+      },
+      // One bar per project month for the series on screen, scaled on its largest month.
+      phasingBars() {
+        const src = (this.phasingMode === 'hours' ? this.project?.planning : this.project?.phasing) || {};
+        const months = this.projectMonths;
+        const max = Math.max(0, ...months.map(ym => src[ym] || 0));
+        return months.map(ym => ({
+          ym, value: src[ym] || 0, pct: max > 0 ? Math.round((src[ym] || 0) / max * 100) : 0,
+          past: this.actualMonths.has(ym), current: ym === this.currentYm,
+        }));
+      },
+      phasingStatus() {
+        const hours = this.phasingMode === 'hours';
+        const sum = hours ? this.planningSum : this.phasingSum;
+        const total = hours ? this.grandTotalHours : this.grandTotalBudget;
+        const b = window.phasingBalance(sum, total, hours ? 2 : this.currencyDigits);
+        const fmt = v => hours ? (v > 0 ? this.cfgFmtHours(v) : '0') + 'h' : this.formatMoney(v, this.project.currency, this.currencies);
+        const tail = b.balanced ? 'balanced' : b.diff > 0 ? fmt(b.diff) + ' to allocate' : fmt(-b.diff) + ' over';
+        return { balanced: b.balanced, text: fmt(sum) + ' of ' + fmt(total) + ' · ' + tail };
       },
       currencyDigits() { return window.currencyInfo(this.project?.currency, this.currencies).digits; },
       // Why a section needs attention (the amber dot of the index), or null.

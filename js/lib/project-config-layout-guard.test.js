@@ -224,3 +224,27 @@ describe('task table', () => {
     expect(method('distBadgeText').body).toContain('window.splitState(');
   });
 });
+
+describe('monthly phasing', () => {
+  const clicks = name => (html.match(new RegExp('@click="' + name + '"', 'g')) || []).length;
+  it('has one Derive and one Reforecast button', () => {
+    expect(clicks('derivePhasing')).toBe(1);
+    expect(clicks('runReforecast')).toBe(1);
+  });
+  it('switches the two series with v-show', () => {
+    expect(html).toContain(`v-show="phasingMode === 'budget'"`);
+    expect(html).toContain(`v-show="phasingMode === 'hours'"`);
+  });
+  it('is one card under one title', () => {
+    expect(html).not.toContain('Monthly Budget Phasing');
+    expect(html).not.toContain('Monthly Hour Planning');
+    expect(html).toContain('Set Start and End month first.');
+  });
+  it('actualMonths collects the YYYYMM of the loaded actuals (ISO dates, as the upload stores them)', () => {
+    const src = html.match(/\n      actualMonths\(\) \{([\s\S]*?)\n      \},/)?.[1];
+    expect(src).toBeTruthy();
+    const set = new Function(src).call({ actuals: { exportRows: [{ date: '2026-01-15' }, { date: '2026-02-03' }, { date: '2026-02-28' }, { date: null }] } });
+    expect([...set].sort()).toEqual(['202601', '202602']);
+    expect([...new Function(src).call({ actuals: { exportRows: null } })]).toEqual([]);
+  });
+});
