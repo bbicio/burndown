@@ -435,7 +435,8 @@ task_roles (
   role_id       UUID NOT NULL REFERENCES roles(id),
   days          DECIMAL(6,2),
   rate_override DECIMAL(10,2),      -- per-task rate override
-  months        JSONB               -- { "YYYYMM": days }
+  months        JSONB,              -- { "YYYYMM": days }
+  rate_is_custom BOOLEAN NOT NULL DEFAULT false  -- migration 031: the rate was written by hand (Custom)
 )
 
 cg_version_projects (

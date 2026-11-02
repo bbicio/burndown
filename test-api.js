@@ -3671,6 +3671,59 @@ async function testVersionRule() {
 
 // ── "New version" is a full copy of the source version (2026-10-01) ─────────────
 
+async function testRateIsCustom() {
+  section('Custom rate flag (f3)');
+  const year = new Date().getFullYear();
+  const A = await makeTestRole('RCA');
+  const B = await makeTestRole('RCB');
+  const rpy = await api('POST', '/api/pipeline-years', { year }, adminCookie);
+  if (rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
+  const g = await api('POST', '/api/cost-grids', { name: '__test_rc_cg__' }, adminCookie);
+  const cgId = g.data?.id;
+  if (cgId) later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+  const vId = cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'eur', currency: 'EUR' }, adminCookie)).data?.id : null;
+  if (!A.id || !B.id || !vId) { fail('CF-setup: roles/proposal/version failed — skipping'); return; }
+
+  const flags = async id => {
+    const roles = (await api('GET', `/api/cost-grids/${cgId}/versions/${id}/structure`, null, adminCookie))
+      .data?.phases?.[0]?.tasks?.[0]?.roles || [];
+    return Object.fromEntries(roles.map(r => [r.code, r.rate_is_custom]));
+  };
+  const putHours = roles => api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+    phases: [{ phaseName: 'P1', tasks: [{ taskName: 'T1', hours: { [A.code]: 2, [B.code]: 3 } }] }],
+    roles,
+  }, adminCookie);
+  const rc01Body = [{ roleCode: A.code, rate: 150, rateIsCustom: true }, { roleCode: B.code, rate: 80, rateIsCustom: false }];
+
+  const r1 = await putHours(rc01Body);
+  const f1 = await flags(vId);
+  ok(r1.status === 200 && f1[A.code] === true && f1[B.code] === false,
+    `CF-01 hours PUT stores rate_is_custom true/false (got ${r1.status}, ${JSON.stringify(f1)})`);
+
+  await putHours([{ roleCode: A.code, rate: 150, rateIsCustom: 'true' }, { roleCode: B.code, rate: 80, rateIsCustom: 1 }]);
+  const f2a = await flags(vId);
+  await putHours([{ roleCode: A.code, rate: 150 }, { roleCode: B.code, rate: 80 }]);
+  const f2b = await flags(vId);
+  ok(f2a[A.code] === false && f2a[B.code] === false && f2b[A.code] === false && f2b[B.code] === false,
+    `CF-02 'true', 1 and an absent flag are stored false (got ${JSON.stringify(f2a)}, ${JSON.stringify(f2b)})`);
+
+  await putHours(rc01Body);
+  const d = await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/duplicate`, { label: 'copy' }, adminCookie);
+  const f3 = d.data?.id ? await flags(d.data.id) : {};
+  ok(d.status === 201 && f3[A.code] === true && f3[B.code] === false,
+    `CF-03 "+ New version" copies rate_is_custom (got ${d.status}, ${JSON.stringify(f3)})`);
+
+  const r4 = await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+    phases: [{ title: 'P1', tasks: [{ title: 'T1', roles: [
+      { roleId: A.id, days: 2, rateOverride: 90, rateIsCustom: true },
+      { roleId: B.id, days: 1 },
+    ] }] }],
+  }, adminCookie);
+  const f4 = await flags(vId);
+  ok(r4.status === 200 && f4[A.code] === true && f4[B.code] === false,
+    `CF-04 array-shape PUT stores rate_is_custom true/false (got ${r4.status}, ${JSON.stringify(f4)})`);
+}
+
 async function testVersionDuplicate() {
   section('Version duplicate (full copy)');
 
@@ -3801,6 +3854,7 @@ async function main() {
     await testTaskPeriod();
     await testPeriodWithTasks();
     await testMoneyRules();
+    await testRateIsCustom();
     await testTimesheetsNoActuals();
     await testProjectDescriptions();
     await testTopicsApi();
