@@ -249,3 +249,75 @@
 .pc-text-sm { font-size: var(--text-sm); }
 .pc-text-xs { font-size: var(--text-xs); }
 .pc-confirm-dialog { max-width: 460px; }
+
+/* ── Phone section picker + bottom sheet (board 8.4); hidden above 768px ── */
+.pc-phone-picker {
+  display: none; align-items: center; gap: var(--space-2); width: 100%;
+  margin-bottom: var(--space-3); padding: var(--space-3);
+  background: var(--card-bg); border: var(--card-border); border-radius: var(--card-radius);
+  font-size: var(--text-sm); color: var(--brand-navy); text-align: left;
+}
+.pc-phone-picker-step { font-size: var(--text-xs); color: var(--text-muted); }
+.pc-phone-picker-label { flex: 1 1 auto; font-weight: var(--weight-bold); }
+.pc-phone-picker-chevron { color: var(--text-muted); }
+.pc-sheet { height: auto; max-height: 85vh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.pc-sheet-head { border-bottom: 1px solid var(--border-light); }
+.pc-sheet-body { display: flex; flex-direction: column; padding: var(--space-2) 0; }
+.pc-sheet-item {
+  display: flex; align-items: center; gap: var(--space-3); min-height: 48px; padding: 0 var(--space-4);
+  border: 0; border-left: 3px solid transparent; background: none; text-align: left;
+  font-size: var(--text-sm); color: var(--text-secondary);
+}
+.pc-sheet-item--active { border-left-color: var(--brand-magenta); color: var(--brand-navy); font-weight: var(--weight-semibold); background: var(--surface-light); }
+.pc-sheet-step { width: 18px; font-size: var(--text-xs); color: var(--text-muted); }
+
+/* ── Tablet (board 8.4): the index becomes a sticky tab row, Totals goes away, the task table drops two columns ── */
+@media (max-width: 1023.98px) {
+  .pc-layout { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
+  .pc-aside {
+    top: 0; z-index: var(--z-sticky);
+    margin: 0 calc(-1 * var(--app-pad)); padding: 0 var(--app-pad);
+    background: var(--surface-subtle); border-bottom: 1px solid var(--border-light);
+  }
+  .pc-index { flex-direction: row; gap: 0; overflow-x: auto; scrollbar-width: thin; }
+  .pc-index .pc-index-label, .pc-totals, .pc-index-opt { display: none; }
+  .pc-index-item {
+    flex: 0 0 auto; white-space: nowrap; padding: var(--space-3);
+    border-left: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  }
+  .pc-index-item--active { border-bottom-color: var(--brand-magenta); background: none; box-shadow: none; }
+  .pc-tasks .pc-col-period, .pc-tasks .pc-col-roles { display: none; }
+  .pc-task-meta { display: block; }
+}
+
+/* ── Phone (board 8.4): one section at a time, single-column fields, 44px inputs, stacked task cards ── */
+@media (max-width: 767.98px) {
+  .pc-aside { display: none; }
+  .pc-phone-picker { display: flex; }
+  .cfg-section.pc-card { padding: var(--space-4); }
+  .pc-cards .form-control, .pc-cards .form-select { min-height: 44px; }
+  .pc-cards .pc-select-sm { min-height: 32px; }
+  .pc-card-actions { width: 100%; }
+  .pc-split-warning { flex-wrap: wrap; }
+  .pc-tasks, .pc-tasks > tbody, .pc-tasks > tfoot { display: block; }
+  .pc-tasks > thead { display: none; }
+  .pc-tasks > tbody { border: var(--card-border); border-radius: var(--radius-md); margin-bottom: var(--space-2); overflow: hidden; background: var(--surface-white); }
+  .pc-tasks > tbody > tr, .pc-tasks > tfoot > tr { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--space-3); }
+  .pc-tasks > tbody > tr > td, .pc-tasks > tfoot > tr > td { border: 0; padding: 0; }
+  .pc-task-row { padding: var(--space-3); }
+  .pc-task-row > td:first-child { flex: 1 0 100%; }
+  .pc-task-row > .pc-col-split { margin-left: auto; }
+  .pc-task-detail > td { display: block; flex: 1 0 100%; }
+  .pc-task-total { padding: var(--space-2) var(--space-3); }
+  .pc-task-total > td:empty { display: none; }
+  .pc-task-switches { flex-wrap: wrap; }
+  .pc-split-grid, .pc-phase-grid { display: flex; overflow-x: auto; padding-bottom: var(--space-1); }
+  .pc-split-grid > .cfg-month-cell { flex: 0 0 64px; }
+  .pc-phase-grid > .pc-phase-cell { flex: 0 0 84px; }
+  .pc-res-table, .pc-res-table > tbody, .pc-res-table > tfoot { display: block; }
+  .pc-res-table > colgroup, .pc-res-table > thead { display: none; }
+  .pc-res-table tr { display: grid; grid-template-columns: 1fr 1fr auto auto; align-items: center; gap: var(--space-1) var(--space-2); padding: var(--space-2) 0; border-bottom: 1px solid var(--border-light); }
+  .pc-res-table td:first-child { grid-column: 1 / -1; }
+  .pc-res-table tfoot td { border-top: 0; }
+  .pc-group { max-width: none; }
+}

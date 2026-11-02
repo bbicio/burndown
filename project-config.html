@@ -55,6 +55,12 @@
     </div>
     <div v-if="outOfPeriod.length && !isViewer" class="alert alert-warning alert-sm pc-alert">{{ outOfPeriodMessage }}</div>
 
+    <button type="button" class="pc-phone-picker" data-bs-toggle="offcanvas" data-bs-target="#pcSectionsSheet" aria-controls="pcSectionsSheet">
+      <span class="pc-phone-picker-step">{{ mobileSectionIndex + 1 }} / {{ sections.length }}</span>
+      <span class="pc-phone-picker-label">{{ sections[mobileSectionIndex]?.label }}</span>
+      <span v-if="phonePickerIssue" class="pc-dot" :title="phonePickerIssue" :aria-label="phonePickerIssue"></span>
+      <ph-icon name="chevron-down" :size="14" class="pc-phone-picker-chevron"></ph-icon>
+    </button>
     <div class="pc-layout">
       <aside class="pc-aside">
         <nav class="pc-index" aria-label="Sections">
@@ -74,7 +80,7 @@
       </aside>
 
       <div class="pc-cards">
-      <div id="pc-sec-client" data-section="client" class="cfg-section pc-card">
+      <div id="pc-sec-client" data-section="client" v-show="!isPhone || mobileSection === 'client'" class="cfg-section pc-card">
         <div class="cfg-section-title">Client &amp; program</div>
         <div class="row g-3">
           <div class="col-md-6">
@@ -100,7 +106,7 @@
         </div>
       </div>
 
-      <div id="pc-sec-info" data-section="info" class="cfg-section pc-card">
+      <div id="pc-sec-info" data-section="info" v-show="!isPhone || mobileSection === 'info'" class="cfg-section pc-card">
         <div class="cfg-section-title">Project info</div>
         <div class="row g-3">
           <div class="col-md-4"><label class="form-label pc-label">D365 project ID</label><input type="text" class="form-control form-control-sm pc-mono" v-model="project.code" :disabled="isViewer" placeholder="e.g. HITA.000001201"><div class="pc-hint">Must match the XLS column</div></div>
@@ -117,7 +123,7 @@
         </div>
       </div>
 
-      <div id="pc-sec-actuals" data-section="actuals" class="cfg-section pc-card">
+      <div id="pc-sec-actuals" data-section="actuals" v-show="!isPhone || mobileSection === 'actuals'" class="cfg-section pc-card">
         <div class="pc-card-head">
           <div class="pc-card-head-text">
             <div class="cfg-section-title">Actuals</div>
@@ -133,7 +139,7 @@
         <div class="small mt-2 text-danger" v-if="actuals.guardMsg">{{ actuals.guardMsg }}</div>
         <div class="small mt-2" v-if="actuals.status" :class="actuals.statusClass">{{ actuals.status }}</div>
       </div>
-      <div id="pc-sec-tasks" data-section="tasks" class="cfg-section pc-card">
+      <div id="pc-sec-tasks" data-section="tasks" v-show="!isPhone || mobileSection === 'tasks'" class="cfg-section pc-card">
         <div class="pc-card-head">
           <div class="pc-card-head-text">
             <div class="cfg-section-title">Tasks &amp; resources</div>
@@ -264,7 +270,7 @@
           </table>
         </div>
       </div>
-      <div id="pc-sec-phasing" data-section="phasing" class="cfg-section pc-card">
+      <div id="pc-sec-phasing" data-section="phasing" v-show="!isPhone || mobileSection === 'phasing'" class="cfg-section pc-card">
         <div class="pc-card-head">
           <div class="pc-phase-title">
             <div class="cfg-section-title mb-0">Monthly phasing</div>
@@ -304,7 +310,7 @@
         </div>
         <p class="text-muted small mt-3 mb-0" v-else>Set Start and End month first.</p>
       </div>
-      <div id="pc-sec-ptc" data-section="ptc" class="cfg-section pc-card">
+      <div id="pc-sec-ptc" data-section="ptc" v-show="!isPhone || mobileSection === 'ptc'" class="cfg-section pc-card">
         <div class="pc-card-head">
           <div class="pc-card-head-text">
             <div class="cfg-section-title">Pass-through costs <span class="pc-opt">· optional</span></div>
@@ -338,7 +344,7 @@
         </template>
       </div>
 
-      <div id="pc-sec-groups" data-section="groups" class="cfg-section pc-card">
+      <div id="pc-sec-groups" data-section="groups" v-show="!isPhone || mobileSection === 'groups'" class="cfg-section pc-card">
         <div class="pc-card-head">
           <div class="pc-card-head-text">
             <div class="cfg-section-title">Functional groups <span class="pc-opt">· optional</span></div>
@@ -372,7 +378,7 @@
       </div>
 
       <!-- Tags: the same markup as costgrid.html's Tags section -->
-      <div id="pc-sec-tags" data-section="tags" class="section-card cg-section-card pc-card mb-3" v-if="!isNewProject">
+      <div id="pc-sec-tags" data-section="tags" v-show="!isPhone || mobileSection === 'tags'" class="section-card cg-section-card pc-card mb-3" v-if="!isNewProject">
         <div class="section-header cg-section-header" role="button" tabindex="0" :aria-expanded="!tagsCollapsed"
              @click="toggleTagsCollapsed" @keydown.enter.prevent="toggleTagsCollapsed" @keydown.space.prevent="toggleTagsCollapsed">
           <svg class="cg-section-chevron" :class="{ 'cg-section-chevron--collapsed': tagsCollapsed }" viewBox="0 0 12 12" width="12" height="12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -408,6 +414,21 @@
       </div>
     </div>
   </template>
+
+  <div class="offcanvas offcanvas-bottom pc-sheet" tabindex="-1" id="pcSectionsSheet" aria-labelledby="pcSectionsSheetTitle">
+    <div class="offcanvas-header pc-sheet-head">
+      <h5 class="offcanvas-title" id="pcSectionsSheetTitle">Sections</h5>
+      <button type="button" class="pc-link-btn" data-bs-dismiss="offcanvas">Close</button>
+    </div>
+    <div class="offcanvas-body pc-sheet-body">
+      <button v-for="(s, i) in sections" :key="s.key" type="button" class="pc-sheet-item" :class="{ 'pc-sheet-item--active': mobileSection === s.key }" @click="pickMobileSection(s.key)">
+        <span class="pc-sheet-step">{{ i + 1 }}</span>
+        <span class="pc-index-text">{{ s.label }}</span>
+        <span v-if="sectionIssues[s.key]" class="pc-dot" :title="sectionIssues[s.key]" :aria-label="sectionIssues[s.key]"></span>
+        <span v-else-if="s.optional" class="pc-index-opt">optional</span>
+      </button>
+    </div>
+  </div>
 
   <div class="modal fade" id="clientEditModal" tabindex="-1">
     <div class="modal-dialog modal-sm">
@@ -540,6 +561,8 @@
         activeSection: 'client',
         phasingMode: 'budget',
         tagsCollapsed: true,
+        isPhone: false,
+        mobileSection: 'client',
       };
     },
     computed: {
@@ -596,6 +619,10 @@
         const fmt = v => hours ? (v > 0 ? this.cfgFmtHours(v) : '0') + 'h' : this.formatMoney(v, this.project.currency, this.currencies);
         const tail = b.balanced ? 'balanced' : b.diff > 0 ? fmt(b.diff) + ' to allocate' : fmt(-b.diff) + ' over';
         return { balanced: b.balanced, text: fmt(sum) + ' of ' + fmt(total) + ' · ' + tail };
+      },
+      phonePickerIssue() { return this.sectionIssues[this.mobileSection] || null; },
+      mobileSectionIndex() {
+        return Math.max(0, this.sections.findIndex(x => x.key === this.mobileSection));
       },
       currencyDigits() { return window.currencyInfo(this.project?.currency, this.currencies).digits; },
       // Why a section needs attention (the amber dot of the index), or null.
@@ -693,6 +720,11 @@
       totalPtc() { return (this.project?.ptc || []).reduce((s, p) => s + (p.amount || 0), 0); },
     },
     async created() {
+      // Below 768px one section at a time; the listener keeps isPhone in step with the window width.
+      this._phoneMq = window.matchMedia('(max-width: 767.98px)');
+      this._onPhoneChange = e => { this.isPhone = e.matches; };
+      this.isPhone = this._phoneMq.matches;
+      this._phoneMq.addEventListener('change', this._onPhoneChange);
       // Leave-page warning for unsaved edits (incl. Derive/Reforecast, which only change on-screen values until Save).
       window.addEventListener('beforeunload', e => {
         if (this.isViewer) return;
@@ -732,6 +764,7 @@
     },
     beforeUnmount() {
       if (this._sectionObserver) this._sectionObserver.disconnect();
+      if (this._phoneMq) this._phoneMq.removeEventListener('change', this._onPhoneChange);
     },
     methods: {
       getClients,
@@ -751,6 +784,13 @@
         const tabs = index && window.matchMedia('(max-width: 1023.98px)').matches ? index.offsetHeight : 0;
         const margin = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
         window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - tabs - margin, behavior: 'smooth' });
+      },
+      pickMobileSection(key) {
+        this.mobileSection = key;
+        this.activeSection = key;
+        const el = document.getElementById('pcSectionsSheet');
+        if (el) bootstrap.Offcanvas.getOrCreateInstance(el).hide();
+        this.$nextTick(() => this.scrollToSection(key));
       },
       // The active index entry follows the first card crossing the upper part of the viewport.
       observeSections() {

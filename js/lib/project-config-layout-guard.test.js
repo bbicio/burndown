@@ -278,3 +278,25 @@ describe('optional sections and page hygiene', () => {
     for (const b of btns) expect(b, b).toMatch(/v-if="[^"]*!isViewer/);
   });
 });
+
+describe('responsive', () => {
+  const css = read('css/project-config.css');
+  it('has the tablet and phone breakpoints', () => {
+    expect(css).toContain('@media (max-width: 1023.98px)');
+    expect(css).toContain('@media (max-width: 767.98px)');
+  });
+  it('opens the section list in a bottom sheet driven by matchMedia', () => {
+    expect(html).toContain('offcanvas-bottom');
+    expect(html).toContain("matchMedia('(max-width: 767.98px)')");
+    const add = html.match(/addEventListener\('change', (this\.[\w$]+)\)/);
+    expect(add, 'addEventListener').toBeTruthy();
+    expect(html).toContain(`removeEventListener('change', ${add[1]})`);
+  });
+  it.each(SECTION_KEYS)('hides %s below 768px with v-show, never v-if', key => {
+    const tag = tagWith(`id="pc-sec-${key}"`, html);
+    expect(tag).toMatch(/v-show="[^"]*mobileSection/);
+  });
+  it('binds no v-if to mobileSection', () => {
+    expect(html).not.toMatch(/v-if="[^"]*mobileSection/);
+  });
+});
