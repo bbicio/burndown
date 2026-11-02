@@ -274,62 +274,67 @@
     </template>
   </div>
 
-<div id="teamAssistantPanel" v-if="isAdminUser" :class="{ open: taOpen }">
+<div v-if="isAdminUser" class="pl-ta-backdrop" :class="{ open: taOpen }" aria-hidden="true" @click="taOpen = false"></div>
+<div id="teamAssistantPanel" v-if="isAdminUser" :class="{ open: taOpen }" role="dialog" aria-modal="true" aria-labelledby="taTitle" :aria-hidden="taOpen ? 'false' : 'true'">
   <div class="ta-header">
-    <span style="font-weight:600">🤖 Team assistant</span>
-    <button class="btn-close btn-close-white btn-sm" @click="taOpen = false"></button>
+    <h2 class="ta-title" id="taTitle"><ph-icon name="team" :size="16"></ph-icon> Team assistant</h2>
+    <button type="button" class="btn btn-ghost btn-icon" aria-label="Close Team assistant" @click="taOpen = false"><ph-icon name="close"></ph-icon></button>
   </div>
-  <div class="p-3 border-bottom" style="flex-shrink:0">
-    <div class="d-flex gap-2 align-items-center mb-2">
-      <select class="form-select form-select-sm" style="max-width:420px" v-model="taProjectId" :disabled="taBusy" @change="taNewChat()">
+  <div class="ta-setup">
+    <div class="ta-setup-row">
+      <select class="form-select form-select-sm ta-select" ref="taSelect" aria-label="Project" v-model="taProjectId" :disabled="taBusy" @change="taNewChat()">
         <option value="">Select a project…</option>
         <option v-for="o in taProjectOptions" :key="o.id" :value="o.id">{{ o.label }}</option>
       </select>
-      <button class="btn btn-primary btn-sm" :disabled="!taProjectId || taBusy" @click="taRank()">Calculate team</button>
-      <button class="btn btn-outline-secondary btn-sm" :disabled="taBusy" @click="taNewChat()">New chat</button>
+      <button type="button" class="btn btn-primary btn-sm" :disabled="!taProjectId || taBusy" @click="taRank()">Calculate team</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="taBusy" @click="taNewChat()">New chat</button>
     </div>
-    <div v-if="taProjectId && !taMessages.length" class="d-flex flex-wrap gap-1">
-      <button v-for="s in taStarters" :key="s" class="btn btn-outline-secondary btn-sm" style="font-size:.75rem" :disabled="taBusy" @click="taInput = s">{{ s }}</button>
+    <div v-if="taProjectId && !taMessages.length" class="ta-starters">
+      <button v-for="s in taStarters" :key="s" type="button" class="ta-starter" :disabled="taBusy" @click="taInput = s">{{ s }}</button>
     </div>
-    <div v-if="!taProjectId" class="text-muted small">What do you want to do? Pick a project already in Planning, then ask for a team or press "Calculate team".</div>
+    <div v-if="!taProjectId" class="ta-hint">What do you want to do? Pick a project already in Planning, then ask for a team or press "Calculate team".</div>
   </div>
-  <div class="ta-chat" ref="taChatEl" v-if="taMessages.length">
+  <div class="ta-chat" ref="taChatEl" v-if="taMessages.length || taBusy">
     <div v-for="(m, i) in taMessages" :key="i" :class="['ta-msg', m.role === 'user' ? 'ta-msg--user' : 'ta-msg--bot']"
          v-html="renderChatText(m.content)"></div>
+    <div v-if="taBusy" class="ta-msg ta-msg--bot ta-msg--busy"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Working…</div>
   </div>
-  <div class="p-2 border-bottom d-flex gap-2 align-items-end" style="flex-shrink:0" v-if="taProjectId">
-    <textarea v-model="taInput" class="form-control form-control-sm" rows="2" :disabled="taBusy"
-      placeholder="e.g. exclude Mario and only people with oncology experience" style="resize:none"
+  <div class="ta-composer" v-if="taProjectId">
+    <textarea v-model="taInput" class="form-control form-control-sm" rows="2" :disabled="taBusy" aria-label="Message"
+      placeholder="e.g. exclude Mario and only people with oncology experience"
       @keydown.enter="e => { if (shouldSendOnEnter(e)) { e.preventDefault(); taSend(); } }"></textarea>
-    <button class="btn btn-primary btn-sm" :disabled="taBusy || !taInput.trim()" @click="taSend()">{{ taBusy ? '…' : 'Send' }}</button>
+    <button type="button" class="btn btn-primary btn-sm ta-send" :disabled="taBusy || !taInput.trim()" @click="taSend()">
+      <span v-if="taBusy" class="spinner-border spinner-border-sm" role="status" aria-label="Sending"></span><span v-else>Send</span>
+    </button>
   </div>
   <div class="ta-tables">
-    <div v-if="taError" class="alert alert-warning py-2 small">{{ taError }}</div>
+    <div v-if="taError" class="alert alert-warning alert-sm">{{ taError }}</div>
     <template v-if="taTables">
-      <div v-for="key in ['best', 'alternative', 'available']" :key="key" class="mb-4">
-        <h6 class="fw-bold">{{ tableTitle(key) }}</h6>
-        <div v-for="section in taTables[key]" :key="key + section.role" class="mb-2">
-          <div class="small fw-semibold">{{ section.role }}</div>
-          <div v-if="!section.rows.length" class="text-muted small">{{ section.note || 'Nobody.' }}</div>
-          <div v-else class="table-responsive">
-            <table class="table table-sm table-bordered ta-table mb-1">
+      <section v-for="key in ['best', 'alternative', 'available']" :key="key" class="ta-section">
+        <h3 class="ta-section-title">{{ tableTitle(key) }}</h3>
+        <div v-for="section in taTables[key]" :key="key + section.role" class="ta-role">
+          <div class="ta-role-name">{{ section.role }}</div>
+          <div v-if="!section.rows.length" class="ta-note">{{ section.note || 'Nobody.' }}</div>
+          <div v-else class="ta-table-wrap">
+            <table class="ta-table">
               <thead><tr>
                 <th>Resource</th><th>Role</th><th>Score</th><th>h on role</th><th>Tags</th><th>Similar projects</th>
                 <th>Similar tasks</th><th>Topics</th><th>Free h/wk</th><th>Current load</th><th>h on project</th><th>Rationale</th>
               </tr></thead>
               <tbody>
                 <tr v-for="row in section.rows" :key="row.resourceId">
-                  <td>{{ rowView(row).name }}<div v-if="rowView(row).flags" class="text-danger" style="font-size:.7rem">{{ rowView(row).flags }}</div></td>
+                  <td>{{ rowView(row).name }}<div v-if="rowView(row).flags" class="ta-flags">{{ rowView(row).flags }}</div></td>
                   <td>{{ rowView(row).role }}</td><td>{{ rowView(row).score }}</td><td>{{ rowView(row).roleHours }}</td>
-                  <td>{{ rowView(row).tags }}</td><td>{{ rowView(row).projects }}</td><td>{{ rowView(row).tasks }}</td>
+                  <td><span v-for="t in (row.tags || [])" :key="t.value" class="pl-pill pl-pill--muted ta-tag">{{ t.value }} ({{ Math.round(t.hours) }} h)</span><span v-if="!(row.tags || []).length">—</span></td>
+                  <td>{{ rowView(row).projects }}</td><td>{{ rowView(row).tasks }}</td>
                   <td>{{ rowView(row).topics }}</td><td>{{ rowView(row).free }}</td><td>{{ rowView(row).load }}</td>
-                  <td>{{ rowView(row).onProject }}</td><td>{{ rowView(row).rationale }}</td>
+                  <td>{{ rowView(row).onProject }}</td><td class="ta-rationale">{{ rowView(row).rationale }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
-      </div>
+      </section>
     </template>
   </div>
 </div>
@@ -1078,6 +1083,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (e.key !== 'Escape') return;
         if (this.legendOpen) { this.legendOpen = false; this.$refs.legendBtn?.focus(); }
         if (this.periodMenuOpen) { this.periodMenuOpen = false; this.$refs.periodLabelBtn?.focus(); }
+        if (this.taOpen) this.taOpen = false;
       },
     },
     watch: {
@@ -1089,6 +1095,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       teamFilters: { handler(v) { portfolioTeamFilters = v; }, immediate: true },
       modelRequest() { this.loadModel(); },
       activeRows(v) { if (v.state === 'ready') this.initOpenIds(this.view, v.rows); },
+      // Team assistant drawer: focus into the panel when it opens, back to its button when it closes.
+      taOpen(open) {
+        this.$nextTick(() => { (open ? this.$refs.taSelect : this.$refs.taOpenBtn)?.focus(); });
+      },
       // The assistant's project select follows the page filters; if a filter removes the selected
       // project, reset to "no project" (same effect as changing project) instead of leaving chat/tables
       // for a project that is no longer selectable.

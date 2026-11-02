@@ -304,6 +304,16 @@ describe('planning grid (2026-11-02, planning redesign)', () => {
     expect(html).not.toMatch(/[▶▼◀▷◁⊞⊟🏢📋👤]/u);
     expect(outsideExport).not.toMatch(/#[0-9a-fA-F]{6}\b/);
   });
+  it('the Team assistant is a drawer with a backdrop, a plain header and an icon close button', () => {
+    const panel = at('<div id="teamAssistantPanel"');
+    expect(panel).toBeGreaterThan(-1);
+    const before = html.slice(Math.max(0, panel - 400), panel);
+    expect(before).toMatch(/class="pl-ta-backdrop"/);
+    const header = html.slice(panel, html.indexOf('</div>', html.indexOf('class="ta-header"', panel)) + 400);
+    expect(header).not.toContain('btn-close-white');
+    expect(html).not.toContain('🤖');
+    expect(header).toMatch(/<button[^>]*aria-label="Close Team assistant"[^>]*>\s*<ph-icon name="close"/);
+  });
   it('the grid is a template table: no v-html except the stage/status pills', () => {
     expect(html).not.toContain('activeViewHtml');
     const start = at('<table class="pl-grid"');
