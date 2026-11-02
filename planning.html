@@ -84,7 +84,7 @@
         </div>
         <button v-if="!isTablet" type="button" class="pl-link pl-today" :disabled="isDefaultWindow" @click="goToday">Today</button>
         <div class="ph-toolbar-spacer"></div>
-        <!-- Below 1024px the search, filters, switches and Load XLS move into the Filters panel (#plFiltersPanel). -->
+        <!-- At 1024px and below the search, filters, switches and Load XLS move into the Filters panel (#plFiltersPanel). -->
         <teleport to="#plFiltersBody" v-if="isTablet">
           <div class="pl-filters-head">
             <h2 class="pl-filters-title" id="plFiltersTitle">Filters</h2>
@@ -342,7 +342,7 @@
 </div>
 </div><!-- /planningApp -->
 
-<!-- Filters panel (below 1024px): its content is teleported here by the Vue app -->
+<!-- Filters panel (1024px and below): its content is teleported here by the Vue app -->
 <div class="offcanvas offcanvas-end pl-filters" tabindex="-1" id="plFiltersPanel" aria-labelledby="plFiltersTitle">
   <div id="plFiltersBody" class="pl-filters-body"></div>
 </div>
@@ -1141,7 +1141,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     mounted() {
       document.addEventListener('click', this.onDocClick);
       document.addEventListener('keydown', this.onDocKeydown);
-      const mq = window.matchMedia('(max-width: 1023.98px)');
+      const mq = window.matchMedia('(max-width: 1024px)');
       this.isTablet = mq.matches;
       mq.addEventListener('change', e => { this.isTablet = e.matches; });
     },

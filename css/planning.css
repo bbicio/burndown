@@ -103,7 +103,7 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
 }
 .pl-chip--past { background: var(--surface-light); color: var(--text-muted); }
 .pl-chip--current { background: var(--indigo-50); border-color: var(--indigo-200); }
-.pl-chip--pulse { background: var(--violet-50); color: var(--violet-600); font-style: italic; border-color: var(--violet-200); }
+.pl-chip--pulse { background: var(--violet-100); color: var(--violet-600); font-style: italic; border-color: var(--violet-200); }
 .pl-chip--high { background: var(--color-warning-bg); color: var(--color-warning-text); }
 .pl-chip--over { background: var(--color-danger-bg); color: var(--color-danger-text); }
 .pl-legend-info { position: relative; }
@@ -181,7 +181,9 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
 }
 .pl-sub-text { overflow: hidden; text-overflow: ellipsis; }
 .pl-sub--tablet { display: none; }
-.pl-sub .ph-badge, .pl-label-main .ph-badge { font-size: var(--text-2xs); padding: 0 var(--space-1); flex: 0 0 auto; }
+.pl-sub .ph-badge, .pl-label-main .ph-badge, .pl-pop .ph-badge {
+  font-size: var(--text-2xs); padding: 0 var(--space-2); flex: 0 0 auto; text-transform: none; letter-spacing: 0;
+}
 .pl-pill {
   flex: 0 0 auto; display: inline-block; padding: 0 var(--space-1); line-height: 1.5;
   font-size: var(--text-2xs); font-weight: var(--weight-semibold); border-radius: var(--radius-xs);
@@ -203,7 +205,7 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
 .pl-cell { text-align: right; font-variant-numeric: tabular-nums; }
 .pl-grid td.pl-cell--past { background: var(--surface-light); color: var(--text-muted); }
 .pl-grid td.pl-cell--current { background: var(--indigo-50); }
-.pl-grid td.pl-cell--pulse { background: var(--violet-50); color: var(--violet-600); font-style: italic; }
+.pl-grid td.pl-cell--pulse { background: var(--violet-100); color: var(--violet-600); font-style: italic; }
 .pl-grid td.pl-cell--high { background: var(--color-warning-bg); color: var(--color-warning-text); font-weight: var(--weight-bold); }
 .pl-grid td.pl-cell--over { background: var(--color-danger-bg); color: var(--color-danger-text); font-weight: var(--weight-bold); }
 .pl-empty-row { text-align: center; color: var(--text-muted); padding: var(--space-5) !important; }
@@ -217,9 +219,11 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
 .pl-total .pl-col-label, .pl-total .pl-col-num { z-index: 3; }
 .pl-total .pl-col-label { font-size: var(--text-xs); letter-spacing: .06em; }
 
-/* ---- Filters panel (offcanvas, below 1024px) ---- */
+/* ---- Filters panel (offcanvas, 1024px and below) ---- */
 .pl-filters { width: min(380px, 100vw); }
-.pl-filters-body { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); padding: var(--space-4); overflow-y: auto; height: 100%; }
+.pl-filters-body { display: flex; flex-wrap: wrap; align-items: center; align-content: flex-start; gap: var(--space-3) var(--space-2); padding: var(--space-4); overflow-y: auto; height: 100%; }
+.pl-filters-body > :not(.pl-stage-chip) { flex: 0 0 100%; }
+.pl-filters-body > .dropdown > .pl-filter-btn { width: 100%; justify-content: space-between; }
 .pl-filters-head { display: flex; align-items: center; justify-content: space-between; width: 100%; }
 .pl-filters-title { margin: 0; font-size: var(--text-lg); font-weight: var(--weight-bold); color: var(--text-primary); }
 .pl-filters-body .pl-search { width: 100%; }
@@ -231,8 +235,8 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
   font-size: var(--text-2xs); font-weight: var(--weight-semibold);
 }
 
-/* ---- Tablet (below 1024px; below 768px provisional until cycle 2) ---- */
-@media (max-width: 1023.98px) {
+/* ---- Tablet (1024px and below; below 768px provisional until cycle 2) ---- */
+@media (max-width: 1024px) {
   .ph-actions .pl-btn-text { display: none; }
   .ph-actions .pl-load-btn { display: none; }
   .ph-actions .ph-btn { width: 32px; justify-content: center; padding: 0; }
@@ -242,6 +246,9 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
   .pl-col-plan { left: var(--pl-label-w); }
   .pl-sub--tablet { display: flex; }
   .pl-col-period { min-width: 84px; }
+  .pl-toolbar-row { flex-wrap: nowrap; gap: var(--space-2); }
+  .pl-seg-btn { padding: var(--space-1) var(--space-2); }
+  .pl-period-label { padding: 0 var(--space-2); }
 }
 
 /* ── Team assistant drawer (over the page, with a backdrop) ── */

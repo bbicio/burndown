@@ -312,9 +312,12 @@ describe('buildProjectRows', () => {
     expect(leaf.sub).toBe('No owner yet');
     expect(leaf.cells[1]).toMatchObject({ h: 1.2, pulse: true });
   });
-  it('marks a task or project period as pulse when a role in it is', () => {
+  it('marks a task or project period as pulse only when every role with hours there is a pulse', () => {
     expect(rows.find(r => r.id === 'p:p2').cells[1].pulse).toBe(true);
     expect(rows.find(r => r.id === 'p:p1|t:Build').cells[1].pulse).toBe(false);
+    // Run: Developer is a pulse, Director is not → the task and project periods are not a pulse
+    expect(rows.find(r => r.id === 'p:p1|t:Run').cells[1].pulse).toBe(false);
+    expect(rows.find(r => r.id === 'p:p1').cells[1].pulse).toBe(false);
   });
   it('never colours a load', () => {
     expect(rows.flatMap(r => r.cells).every(c => c.load === null)).toBe(true);
@@ -385,6 +388,9 @@ describe('buildOwnerRows', () => {
     expect(ann.cells[0].load).toBe(null);           // 40h, but past
     expect(ann.cells[1].load).toBe('high');         // 24h in a full week
     expect(rows.find(r => r.id === 'o:—').cells[1].load).toBe(null); // pulse
+    // Unassigned (TBD) is not a person: no load even on a heavy, non-pulse period
+    const heavyTbd = { '—': { sold: 0, actuals: 0, tbp: 0, weekTotals: { [K1]: { hours: 50, isPulse: false } }, projects: {} } };
+    expect(buildOwnerRows(heavyTbd, periods, baseOpts).rows[0].cells[1].load).toBe(null);
     expect(rows.filter(r => r.depth > 0).flatMap(r => r.cells).every(c => c.load === null)).toBe(true);
   });
   it('normalises a monthly person cell on the working weeks of the month', () => {

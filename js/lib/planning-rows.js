@@ -180,8 +180,11 @@ export function buildProjectRows(adapted, periods, opts) {
   const { interval, ownerStatus = {} } = opts;
   const rows = [], tops = [];
   let count = 0;
-  // A task or project period is a pulse when one of its roles carries a pulse there.
-  const pulseIn = (roles, keys) => roles.some(r => keys.some(k => r.weekData[k]?.isPulse && r.weekData[k].total > 0));
+  // A task or project period is a pulse only when every role with hours there is a pulse.
+  const pulseIn = (roles, keys) => {
+    const withHours = roles.filter(r => keys.some(k => r.weekData[k]?.total > 0));
+    return withHours.length > 0 && withHours.every(r => keys.some(k => r.weekData[k]?.isPulse && r.weekData[k].total > 0));
+  };
   const sumNum = (obj, keys) => keys.reduce((s, k) => s + (obj[k] || 0), 0);
   for (const pNode of adapted.projects || []) {
     const info = opts.projectInfo(pNode.id);
@@ -251,7 +254,7 @@ export function buildOwnerRows(ownerMap, periods, opts) {
       inactive: !isTbd && ownerStatus[name] === 'inactive',
       owners: isTbd ? [] : [{ name, initials: initials(name), inactive: ownerStatus[name] === 'inactive' }],
       sold: om.sold, actuals: om.actuals, toPlan: om.tbp,
-      cells: cellsOf(periods, interval, hoursAt(om.weekTotals), true),
+      cells: cellsOf(periods, interval, hoursAt(om.weekTotals), !isTbd),
     });
     rows.push(top); tops.push(top);
     for (const [projId, pm] of projectEntries) {
