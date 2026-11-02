@@ -93,17 +93,17 @@ describe('costgrid.html role baselines use the version rate', () => {
   });
 });
 
-// B-183 review: a saved version reloads every role as Custom (its rate is snapshotted on every save), so refreshing
-// the snapshot does not re-price it; what moves is the EUR equivalent and the editor's "reset to" baseline.
+// Spec currency-f3 §1/§7: saved rates are never re-priced by a rate refresh; only the version's rate (the EUR
+// equivalent) changes, and the editor uses the new rate on a ratecard change or a rate reset.
 describe('pipeline.html refresh-rate confirmation', () => {
-  it('says the amounts stay and only the EUR equivalent and the reset-to rates move', () => {
+  it('says the amounts and rates stay and only the EUR equivalent moves', () => {
     const pipeline = readFileSync('pipeline.html', 'utf8');
     const shown = [];
     const src = `const o = { ${extractBlock(pipeline, 'confirmRefreshRate() {')} }; return o.confirmRefreshRate;`;
     const fn = new Function('showConfirm', 'Api', src)((...a) => shown.push(a), {});
     fn.call({ selectedCgId: 'cg1', selectedVerId: 'v1', selectedVersion: { currency: 'USD', currencyRate: 1.1 }, liveRate: 1.2 });
-    expect(shown[0][0]).toContain('Budget amounts remain in USD.');
-    expect(shown[0][0]).toContain("The EUR equivalent and the editor's \"reset to\" rates change to the new rate.");
+    expect(shown[0][0]).toContain('Budget amounts and role rates remain in USD. Only the EUR equivalent changes. In the editor, a change of ratecard or a rate reset uses the new rate.');
+    expect(shown[0][0]).not.toContain('reset to');
     expect(shown[0][0]).not.toContain('recalculated');
   });
 });
