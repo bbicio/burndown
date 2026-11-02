@@ -121,24 +121,19 @@ describe('resolveRoleRate', () => {
 
 describe('cgRateIsMissing', () => {
   it('returns true when rate is 0 and not custom', () => {
-    expect(cgRateIsMissing({ rate: 0, rateIsCustom: false }, 120)).toBe(true);
+    expect(cgRateIsMissing({ rate: 0, rateIsCustom: false })).toBe(true);
   });
 
-  it('returns false for a custom 0 over a baseline above 0', () => {
-    expect(cgRateIsMissing({ rate: 0, rateIsCustom: true }, 120)).toBe(false);
-  });
-
-  it('returns true for a custom 0 whose baseline is 0 too (a reloaded role with no rate)', () => {
-    expect(cgRateIsMissing({ rate: 0, rateIsCustom: true }, 0)).toBe(true);
-    expect(cgRateIsMissing({ rate: 0, rateIsCustom: true }, undefined)).toBe(true);
+  it('returns false for a custom 0', () => {
+    expect(cgRateIsMissing({ rate: 0, rateIsCustom: true })).toBe(false);
   });
 
   it('returns false when rate is positive', () => {
-    expect(cgRateIsMissing({ rate: 120, rateIsCustom: false }, 0)).toBe(false);
+    expect(cgRateIsMissing({ rate: 120, rateIsCustom: false })).toBe(false);
   });
 
   it('returns true when rate is undefined', () => {
-    expect(cgRateIsMissing({ rate: undefined }, 120)).toBe(true);
+    expect(cgRateIsMissing({ rate: undefined })).toBe(true);
   });
 });
 

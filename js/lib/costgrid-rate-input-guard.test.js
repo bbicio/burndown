@@ -28,9 +28,9 @@ describe('costgrid.html role rate input', () => {
     expect(lines.length).toBe(2);
     lines.forEach(l => expect(l).toMatch(/'is-zero':\s*cgRateIsMissing\(/));
     expect(html).not.toContain('!r.rate || r.rate === 0');
-    const calls = html.match(/cgRateIsMissing\([^)]*\)[^)]*\)/g) || [];
+    const calls = html.match(/cgRateIsMissing\([^)]*\)/g) || [];
     expect(calls.length).toBe(4);
-    calls.forEach(c => expect(c).toBe('cgRateIsMissing(r, roleBaseline(r).effectiveRate)'));
+    calls.forEach(c => expect(c).toBe('cgRateIsMissing(r)'));
   });
 
   it('role-picker badge does not print the raw effective rate', () => {
