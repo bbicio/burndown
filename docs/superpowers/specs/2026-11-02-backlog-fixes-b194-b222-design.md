@@ -31,7 +31,7 @@ Nessun dato colpito sul DB principale (comandi nel Brief). La migrazione 030 si 
 
 ## 5. B-012 — rimozione di `parseMoney`
 
-`parseMoney` esce da `js/lib/money.js` (export, bridge `window` e le due menzioni nei commenti), il suo `describe` da `js/lib/money.test.js`, la sua voce da `docs/js/lib.md`. `readMoneyInput` non lo usa. Il gemello server `api/src/lib/money-format.js` non si tocca, e restano i guard test che ne verificano l’assenza (`js/lib/money-guard.test.js`, `js/lib/costgrid-ptc-input-guard.test.js`, `js/lib/project-config-ptc-phasing-guard.test.js`).
+`parseMoney` esce da `js/lib/money.js` (export, bridge `window` e le due menzioni nei commenti), il suo `describe` da `js/lib/money.test.js`, la sua voce da `docs/js/lib.md`. `readMoneyInput` non lo usa. Il gemello server `api/src/lib/money-format.js` non si tocca, restano i due guard test che ne verificano l’assenza dalle pagine (`js/lib/costgrid-ptc-input-guard.test.js`, `js/lib/project-config-ptc-phasing-guard.test.js`), e `js/lib/money-guard.test.js` perde `parseMoney` dalla regex delle funzioni money.
 
 ## 6. Test
 
