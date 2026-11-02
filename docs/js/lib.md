@@ -191,7 +191,6 @@ Pure formatting helpers for the Team assistant panel in `planning.html` (only pa
 
 `deriveDistribution` (2026-10-26, dates C3) also returns `outsideBudget` and `outsideHours`: the part of the tasks without a valid monthly distribution that lies outside the project months. Day counts are rounded, so a daylight-saving change does not move a fraction.
 
-
 Derive/Reforecast distribution maths for `project-config.html` (`deriveDistribution`, `reforecastDistribution`) plus, since 2026-09-30, `isProjectDirty(savedJson, project)` — true when `JSON.stringify(project)` differs from the snapshot taken after load/save, false when either is null; drives the leave-page prompt (see `docs/pages/project-config.md`). Only `project-config.html` loads it. `team-assistant-ui.js` gained `selectionStillValid` and `shouldSendOnEnter` the same day (see `docs/pages/planning.md`).
 
 Both `deriveDistribution` and `reforecastDistribution` take a last parameter `digits` (default 2, the currency's decimals; `project-config.html` passes them) and round every monthly value to it, past months of a reforecast included.
@@ -237,3 +236,4 @@ The single implementation of date validation, ordering and typed-text parsing fo
 - (2026-10-26, dates C3) `taskPeriodError(start, end, periodStart, periodEnd, { label, parent })`: the error for a task date (`YYYYMMDD` or ISO) outside the parent period (`YYYYMM`, from the first day of the start month to the last day of the end month), `null` when inside, when the task has no valid date, or when a side of the period is empty. An invalid or inverted period gives "fix it before setting task dates". `parent` is `version` or `project`.
 - (2026-10-26, dates C3) Browser only: `taskDateBounds(periodStart, periodEnd, twin, side)` returns the `{ min, max }` of a task date picker (the period, tightened by the task's other date); a twin that is itself outside the period does not narrow the picker, an inverted period still locks it. `periodBounds(taskDates, side, twin)` returns the `{ min, max }` of a period month picker (it must still contain every task date; the twin month bounds the other side). `outOfPeriodTasks(tasks, periodStart, periodEnd, parent)` returns `{ name, error }` for each `{ name, start, end }` task that leaves the period.
 
+Server twin: `docs/api/lib.md`'s `dates.js`. Tests: `dates.test.js`, `dates-guard.test.js`.
