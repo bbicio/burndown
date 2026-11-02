@@ -587,8 +587,8 @@ router.post('/:id/versions/:vId/duplicate', requireAuth, async (req, res, next) 
             [newPh.rows[0].id, tk.title, tk.description || '', tk.start_date || '', tk.end_date || '', tk.ptc, tk.sort_order]
           );
           await client.query(
-            `INSERT INTO task_roles (task_id, role_id, days, rate_override, months)
-             SELECT $1, role_id, days, rate_override, months FROM task_roles WHERE task_id = $2`,
+            `INSERT INTO task_roles (task_id, role_id, days, rate_override, months, rate_is_custom)
+             SELECT $1, role_id, days, rate_override, months, rate_is_custom FROM task_roles WHERE task_id = $2`,
             [newTk.rows[0].id, tk.id]
           );
         }
@@ -653,7 +653,7 @@ router.get('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
       const tasksWithRoles = [];
       for (const tk of tasks.rows) {
         const roles = await query(
-          `SELECT tr.id, tr.role_id, ro.label, ro.code, ro.hourly_rate, tr.days, tr.rate_override, tr.months
+          `SELECT tr.id, tr.role_id, ro.label, ro.code, ro.hourly_rate, tr.days, tr.rate_override, tr.months, tr.rate_is_custom
            FROM task_roles tr JOIN roles ro ON ro.id = tr.role_id WHERE tr.task_id = $1`,
           [tk.id]
         );
@@ -743,10 +743,13 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
   // Snapshot rate for every role so the DB budget query always uses the same
   // rate the editor sees, regardless of whether the rate was explicitly customised.
   const rateByCode = {};
+  // Custom = the rate was written by hand; only the literal true counts.
+  const customByCode = {};
   for (const r of rolesBody) {
     if (r.roleCode && r.rate != null) {
       rateByCode[r.roleCode] = r.rate;
     }
+    if (r.roleCode) customByCode[r.roleCode] = r.rateIsCustom === true;
   }
 
   // Use a dedicated client for the transaction so BEGIN/COMMIT share the same connection
@@ -855,19 +858,20 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
               roleId,
               days,
               rateOverride: rateByCode[code] ?? null,
+              rateIsCustom: customByCode[code] === true,
               months: null,
             });
           }
         } else {
           for (const tr of (tk.roles || [])) {
             const roleId = tr.roleId || roleByCode[tr.roleCode || tr.code];
-            if (roleId) taskRoles.push({ roleId, days: tr.days || 0, rateOverride: tr.rateOverride ?? null, months: tr.months || null });
+            if (roleId) taskRoles.push({ roleId, days: tr.days || 0, rateOverride: tr.rateOverride ?? null, rateIsCustom: tr.rateIsCustom === true, months: tr.months || null });
           }
         }
         for (const tr of taskRoles) {
           await client.query(
-            'INSERT INTO task_roles (task_id, role_id, days, rate_override, months) VALUES ($1, $2, $3, $4, $5)',
-            [newTk.rows[0].id, tr.roleId, tr.days, tr.rateOverride, tr.months]
+            'INSERT INTO task_roles (task_id, role_id, days, rate_override, months, rate_is_custom) VALUES ($1, $2, $3, $4, $5, $6)',
+            [newTk.rows[0].id, tr.roleId, tr.days, tr.rateOverride, tr.months, tr.rateIsCustom]
           );
         }
       }

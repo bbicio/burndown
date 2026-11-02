@@ -8,7 +8,7 @@ import { extractBlock } from '../../scripts/lib/extract-source.mjs';
 // handler reads had been removed together with the preview helpers it sat next to.
 const html = readFileSync('costgrid.html', 'utf8');
 
-let sync, autosave, shown, hidden, seen, ctxRef;
+let sync, autosave, mark, order, shown, hidden, seen, ctxRef;
 
 function buildMethod() {
   class FakeModal { constructor() { this.hide = () => { hidden++; }; } show() { shown++; } }
@@ -18,6 +18,7 @@ function buildMethod() {
     cgPreviewRateChange: () => [{ roleLabel: 'PM', currentRate: 150, newRate: 142.5, isCustom: false }],
     cgSyncRoleRatesToBaseline: sync,
     cgAutoSave: autosave,
+    cgMarkCurrencyChange: mark,
   };
   const names = Object.keys(stubs);
   const src = `const o = { ${extractBlock(html, 'onCurrencyChange() {')} }; return o.onCurrencyChange;`;
@@ -38,7 +39,7 @@ function makeCtx(over = {}) {
 describe('costgrid onCurrencyChange (currency change modal)', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
-    seen = []; sync = vi.fn(() => seen.push(ctxRef.draft.currencyRate)); autosave = vi.fn(); shown = 0; hidden = 0;
+    seen = []; order = []; sync = vi.fn(() => seen.push(ctxRef.draft.currencyRate)); autosave = vi.fn(() => order.push('save')); mark = vi.fn(() => order.push('mark')); shown = 0; hidden = 0;
     window.__currencies = [{ code: 'EUR', symbol: '€', locale: 'it-IT' }, { code: 'CHF', symbol: 'CHF', locale: 'de-CH' }];
   });
 
@@ -90,5 +91,19 @@ describe('costgrid onCurrencyChange (currency change modal)', () => {
     const ctx = makeCtx({ draft: { currency: 'CHF', roles: [], currencyRate: 1 } });
     buildMethod().call(ctx);
     expect(seen).toEqual([0.95]);
+  });
+
+  it('confirm marks the currency change right before saving (B-213)', () => {
+    buildMethod().call(makeCtx());
+    document.getElementById('cgCurrencyChangeModalConfirm').onclick();
+    expect(mark).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(['mark', 'save']);
+  });
+
+  it('cancel and the no-roles branch do not mark a currency change', () => {
+    buildMethod().call(makeCtx());
+    document.getElementById('cgCurrencyChangeModalCancel').onclick();
+    buildMethod().call(makeCtx({ draft: { currency: 'CHF', roles: [], currencyRate: 1 } }));
+    expect(mark).not.toHaveBeenCalled();
   });
 });

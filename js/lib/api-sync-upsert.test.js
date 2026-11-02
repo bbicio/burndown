@@ -11,8 +11,8 @@ let api;
 let notified;
 let showInfo;
 
-function build(phases = [{ phaseName: 'P', tasks: [] }], period = { startDate: '202606', endDate: '202701' }) {
-  const cg = { id: 'cg1', name: 'Grid', versions: [{ versionId: 'v1', versionLabel: 'v1', currency: 'EUR', phases, roles: [], ...period }] };
+function build(phases = [{ phaseName: 'P', tasks: [] }], period = { startDate: '202606', endDate: '202701' }, meta = {}) {
+  const cg = { id: 'cg1', name: 'Grid', versions: [{ versionId: 'v1', versionLabel: 'v1', currency: 'EUR', phases, roles: [], ...period, ...meta }] };
   const stubs = { Api: api, cgLoad: () => cg, _cgRuleNotified: notified, showInfo };
   const names = Object.keys(stubs);
   return new Function(...names, 'window', `${extractBlock(js, 'function _cgForgetRuleNotices(')}; ${extractBlock(js, 'async function _cgUpsertVersionToApi(')}; return _cgUpsertVersionToApi;`)(
@@ -232,5 +232,123 @@ describe('_cgUpsertVersionToApi — no POST fallback', () => {
   it('resolves to false when the grid or the version is not in the store (nothing was written)', async () => {
     await expect(build()('cg1', 'nope')).resolves.toBe(false);
     expect(api.costGrids.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('cgLoadStructureFromApi — Custom flag (f3)', () => {
+  // B-195: Custom comes from task_roles.rate_is_custom; rate_override is every role's saved rate.
+  function loadWith(rows, roles) {
+    const ver = { versionId: 'v1', roles };
+    const cg = { id: 'cg1', versions: [ver] };
+    const struct = { phases: [{ id: 'p1', title: 'P', tasks: [{ id: 't1', title: 'T', roles: rows }] }] };
+    const load = new Function('Api', 'cgLoad', 'cgSave', '_cgRuleNotified', `${extractBlock(js, 'function _cgForgetRuleNotices(')}; ${extractBlock(js, 'async function cgLoadStructureFromApi(')}; return cgLoadStructureFromApi;`)(
+      { costGrids: { versions: { structure: async () => struct } } }, () => cg, () => {}, new Set());
+    return load('cg1', 'v1').then(() => ver);
+  }
+
+  it('reloads rateIsCustom from the flag, not from rate_override', async () => {
+    const ver = await loadWith([
+      { code: 'PM', rate_override: '100.00', rate_is_custom: false, days: 2 },
+      { code: 'DEV', rate_override: '90.00', rate_is_custom: true, days: 1 },
+    ], []);
+    expect(ver.roles).toMatchObject([
+      { roleCode: 'PM', rate: 100, rateIsCustom: false },
+      { roleCode: 'DEV', rate: 90, rateIsCustom: true },
+    ]);
+  });
+
+  it('a missing flag is not Custom', async () => {
+    const ver = await loadWith([{ code: 'PM', rate_override: '100.00', days: 2 }], []);
+    expect(ver.roles).toMatchObject([{ roleCode: 'PM', rate: 100, rateIsCustom: false }]);
+  });
+
+  it('rebuilds stale in-memory roles when every role has rate_override', async () => {
+    const ver = await loadWith([{ code: 'PM', rate_override: '100.00', rate_is_custom: false, days: 2 }],
+      [{ roleCode: 'PM', rate: 50, rateIsCustom: true }]);
+    expect(ver.roles).toMatchObject([{ roleCode: 'PM', rate: 100, rateIsCustom: false }]);
+  });
+
+  it('keeps in-memory roles when a role has no rate_override', async () => {
+    const kept = await loadWith([{ code: 'PM', rate_override: null, hourly_rate: '100', days: 2 }],
+      [{ roleCode: 'PM', rate: 120, rateIsCustom: false }]);
+    expect(kept.roles).toEqual([{ roleCode: 'PM', rate: 120, rateIsCustom: false }]);
+    const rebuilt = await loadWith([{ code: 'PM', rate_override: null, hourly_rate: '100', days: 2 }], []);
+    expect(rebuilt.roles).toMatchObject([{ roleCode: 'PM', rate: 100, rateIsCustom: false }]);
+  });
+
+  it('a role with no saved rate is marked rateUnsaved; a saved one is not', async () => {
+    const ver = await loadWith([
+      { code: 'PM', rate_override: null, hourly_rate: '100', days: 2 },
+      { code: 'DEV', rate_override: '90.00', days: 1 },
+    ], []);
+    expect(ver.roles[0].rateUnsaved).toBe(true);
+    expect(ver.roles[1]).not.toHaveProperty('rateUnsaved');
+  });
+});
+
+describe('onServerRate (f3, B-213)', () => {
+  // The PATCH answers with the version row, whose currency_rate is the rate the server applied.
+  beforeEach(() => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    notified = new Set();
+    showInfo = vi.fn();
+    api = { costGrids: {
+      update: vi.fn(async () => {}),
+      versions: { update: vi.fn(async () => {}), saveStructure: vi.fn(async () => {}) },
+    } };
+  });
+  const usd = { currency: 'USD', currencyRate: 1.1 };
+
+  it('a different rate in the response is handed to the callback', async () => {
+    api.costGrids.versions.update.mockResolvedValue({ currency_rate: '1.200000' });
+    const onServerRate = vi.fn();
+    await build(undefined, undefined, usd)('cg1', 'v1', { onServerRate });
+    expect(onServerRate).toHaveBeenCalledTimes(1);
+    expect(onServerRate.mock.calls[0][0]).toBe(1.2);
+  });
+
+  it('the callback gets the rate, the response currency and the outgoing roles', async () => {
+    api.costGrids.versions.update.mockResolvedValue({ currency_rate: '1.200000', currency: 'USD' });
+    const onServerRate = vi.fn();
+    await build(undefined, undefined, { ...usd, roles: [{ roleCode: 'PM', rate: 110 }] })('cg1', 'v1', { onServerRate });
+    expect(onServerRate).toHaveBeenCalledWith(1.2, 'USD', [{ roleCode: 'PM', rate: 110 }]);
+  });
+
+  it('roles the callback returns are sent in the same structure save (Gate 3 #1)', async () => {
+    api.costGrids.versions.update.mockResolvedValue({ currency_rate: '1.200000', currency: 'USD' });
+    const onServerRate = () => [{ roleCode: 'PM', rate: 120 }];
+    await build(undefined, undefined, { ...usd, roles: [{ roleCode: 'PM', rate: 110 }] })('cg1', 'v1', { onServerRate });
+    expect(api.costGrids.versions.saveStructure.mock.calls[0][2].roles).toEqual([{ roleCode: 'PM', rate: 120 }]);
+  });
+
+  it('onPatched runs after a successful PATCH only', async () => {
+    const onPatched = vi.fn();
+    api.costGrids.versions.update.mockResolvedValue({ currency_rate: '1.100000' });
+    await build(undefined, undefined, usd)('cg1', 'v1', { onPatched });
+    expect(onPatched).toHaveBeenCalledTimes(1);
+    api.costGrids.versions.update.mockRejectedValue(new Error('500'));
+    await build(undefined, undefined, usd)('cg1', 'v1', { onPatched });
+    expect(onPatched).toHaveBeenCalledTimes(1);
+  });
+
+  it('equal rate → no callback', async () => {
+    api.costGrids.versions.update.mockResolvedValue({ currency_rate: '1.100000' });
+    const onServerRate = vi.fn();
+    await build(undefined, undefined, usd)('cg1', 'v1', { onServerRate });
+    expect(onServerRate).not.toHaveBeenCalled();
+  });
+
+  it('no response body → no callback', async () => {
+    api.costGrids.versions.update.mockResolvedValue(undefined);
+    const onServerRate = vi.fn();
+    await build(undefined, undefined, usd)('cg1', 'v1', { onServerRate });
+    expect(onServerRate).not.toHaveBeenCalled();
+  });
+
+  it('a failed PATCH → no callback, and the save reports false', async () => {
+    api.costGrids.versions.update.mockRejectedValue(new Error('500'));
+    const onServerRate = vi.fn();
+    await expect(build(undefined, undefined, usd)('cg1', 'v1', { onServerRate })).resolves.toBe(false);
+    expect(onServerRate).not.toHaveBeenCalled();
   });
 });

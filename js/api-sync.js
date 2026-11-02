@@ -90,7 +90,7 @@ async function cgLoadStructureFromApi(cgId, versionId) {
     if (!ver) { console.warn('[sync] cgLoadStructureFromApi: version not found', cgId, versionId); return false; }
 
     if (Array.isArray(struct.phases)) {
-      const rolesMap = new Map(); // code → { label, rate }
+      const rolesMap = new Map(); // code → { label, rate, isCustom, hasOverride }
 
       ver.phases = struct.phases.map(ph => ({
         phaseId:   ph.id       || ph.phaseId,
@@ -104,8 +104,8 @@ async function cgLoadStructureFromApi(cgId, versionId) {
               const label    = tr.label || tr.roleLabel || code;
               const override = tr.rate_override ?? tr.rateOverride;
               const rate     = parseFloat(override ?? tr.hourly_rate ?? 0);
-              const isCustom = override != null;
-              if (!rolesMap.has(code)) rolesMap.set(code, { label, rate, isCustom });
+              const isCustom = (tr.rate_is_custom ?? tr.rateIsCustom) === true;
+              if (!rolesMap.has(code)) rolesMap.set(code, { label, rate, isCustom, hasOverride: override != null });
             }
           });
           return {
@@ -120,19 +120,19 @@ async function cgLoadStructureFromApi(cgId, versionId) {
         }),
       }));
 
-      // Rebuild role columns from task_roles.
-      // If all roles in DB have rate_override (isCustom=true), always refresh so
-      // changes saved in another session are picked up. If any role still lacks
-      // rate_override (proposal saved before the fix that always snapshots rate_override),
-      // only set when empty to preserve client-side ratecard rates that cgSyncRoleRatesToBaseline applies.
+      // Rebuild role columns from task_roles when every role carries its saved rate
+      // (rate_override), so changes saved in another session are picked up; otherwise only
+      // when no roles are in memory. Custom comes from rate_is_custom, never from rate_override.
       if (rolesMap.size) {
-        const allHaveOverride = [...rolesMap.values()].every(r => r.isCustom);
+        const allHaveOverride = [...rolesMap.values()].every(r => r.hasOverride);
         if (allHaveOverride || !ver.roles?.length) {
-          ver.roles = [...rolesMap.entries()].map(([code, { label, rate, isCustom }]) => ({
+          // rateUnsaved: the role has no saved rate (rate_override NULL), so the editor prices it on open.
+          ver.roles = [...rolesMap.entries()].map(([code, { label, rate, isCustom, hasOverride }]) => ({
             roleCode:     code,
             roleLabel:    label,
             rate,
             rateIsCustom: isCustom || false,
+            ...(hasOverride ? {} : { rateUnsaved: true }),
           }));
         }
       }
@@ -151,6 +151,9 @@ async function cgLoadStructureFromApi(cgId, versionId) {
 // server-assigned): a failed PATCH is reported, never converted into a POST that would duplicate them.
 // Used by cgAutoSave and version create/duplicate operations.
 // opts.strict = true: a failed upsert throws instead of being logged and swallowed.
+// opts.onPatched(): called after a successful PATCH.
+// opts.onServerRate(rate, currency, roles): called after a successful PATCH whose currency_rate differs from the
+// version's; an array it returns replaces the roles of this save's structure.
 // Resolves to true only when every write reached the server; false when one failed (non-strict) or there was
 // nothing to write. A failed name save does not stop the version and its structure from being saved.
 // A refusal is refused again on every autosave, so the user is told once per version, code and message; a
@@ -190,7 +193,8 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   } catch (e) { console.warn('[sync] grid upsert failed:', e.message); if (strict) throw e; allOk = false; }
 
   // Upsert the version metadata
-  const { phases, roles, ...meta } = ver;
+  const { phases, roles: verRoles, ...meta } = ver;
+  let roles = verRoles;
   const serverMeta = {
     label:          meta.versionLabel,
     pipeline:       meta.pipeline    || null,
@@ -209,13 +213,23 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   const hasStructure = !!(phases && phases.length > 0);
   let patchBody = serverMeta;
   if (hasStructure) { patchBody = { ...serverMeta }; delete patchBody.startDate; delete patchBody.endDate; }
+  let serverRate = NaN, serverCurrency, patched = false;
   try {
-    await Api.costGrids.versions.update(cgId, versionId, patchBody);
+    const resp = await Api.costGrids.versions.update(cgId, versionId, patchBody);
+    patched = true;
+    serverRate = parseFloat(resp?.currency_rate);
+    serverCurrency = resp?.currency;
   } catch (e) {
     console.warn('[sync] version upsert failed:', e.message);
     if (strict) throw e;
     allOk = false;
     if (e.data?.code === 'DATE_RULE' || e.data?.code === 'CURRENCY_RULE') notifyRefusal(e, false);
+  }
+  if (patched && opts && typeof opts.onPatched === 'function') opts.onPatched();
+  if (opts && typeof opts.onServerRate === 'function' && Number.isFinite(serverRate)
+      && serverRate !== (parseFloat(meta.currencyRate) || 1)) {
+    const synced = opts.onServerRate(serverRate, serverCurrency, roles || []);
+    if (Array.isArray(synced)) roles = synced;
   }
 
   if (hasStructure) {

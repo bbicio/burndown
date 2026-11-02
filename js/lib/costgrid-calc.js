@@ -119,10 +119,9 @@ export function cgRatecardMaps(entries) {
   return { rates, overrides };
 }
 
-// A rate of 0 is missing unless it is a custom 0 over a baseline above 0. rateIsCustom alone
-// cannot tell: a reloaded version marks every role custom (js/api-sync.js, rate_override).
-export function cgRateIsMissing(role, baselineRate) {
-  return !(role.rate > 0) && !(role.rateIsCustom && baselineRate > 0);
+// A rate of 0 is missing unless it was written by hand (Custom).
+export function cgRateIsMissing(role) {
+  return !(role.rate > 0) && !role.rateIsCustom;
 }
 
 // ── TOTALS (relocated verbatim from js/costgrid.js:1696-1741) ────────────────
