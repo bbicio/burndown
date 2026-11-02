@@ -142,7 +142,12 @@
 /* ── Tasks & resources table (board 8.1) ── */
 .pc-split-warning { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin: var(--space-3) 0 0; }
 .pc-tasks-wrap { margin-top: var(--space-3); overflow-x: auto; }
-.pc-tasks { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.pc-tasks { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--text-sm); }
+.pc-tasks th.pc-col-period { width: 130px; }
+.pc-tasks th.pc-col-roles { width: 64px; }
+.pc-tasks th.pc-col-hours { width: 72px; }
+.pc-tasks th.pc-col-total { width: 116px; }
+.pc-tasks th.pc-col-split { width: 170px; }
 .pc-tasks > thead th {
   padding: var(--space-2); border-bottom: 1px solid var(--border-light);
   font-size: var(--text-2xs); font-weight: var(--weight-semibold); text-transform: uppercase;
@@ -155,7 +160,9 @@
 .pc-task-row--open > td { background: var(--surface-light); border-bottom-color: transparent; }
 .pc-task-cell { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .pc-task-chevron { color: var(--text-muted); }
-.pc-task-name { font-weight: var(--weight-semibold); color: var(--brand-navy); }
+.pc-task-cell { flex-wrap: nowrap; }
+.pc-task-name { font-weight: var(--weight-semibold); color: var(--brand-navy); flex: 0 1 auto; min-width: 0; }
+.pc-task-cell .pc-pill { flex-shrink: 0; }
 .pc-task-meta { display: none; font-size: var(--text-xs); color: var(--text-muted); padding-left: 18px; }
 .pc-col-period, .pc-col-roles { white-space: nowrap; color: var(--text-secondary); }
 .pc-col-split { white-space: nowrap; }
@@ -164,10 +171,12 @@
 .pc-period { display: flex; align-items: center; gap: var(--space-2); }
 .pc-period-pick { flex: 1 1 0; min-width: 0; }
 .pc-task-switches { display: flex; align-items: center; gap: var(--space-4); min-height: 31px; }
+.pc-task-switches .form-check-label { white-space: nowrap; }
+.pc-tasks td.text-end { white-space: nowrap; }
 .pc-split { margin-top: var(--space-4); }
 .pc-split-head { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
 .pc-split-actions { margin-left: auto; display: inline-flex; align-items: center; gap: var(--space-2); }
-.pc-split-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: var(--space-2); }
+.pc-split-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); gap: 6px; }
 .pc-pct { position: relative; }
 .pc-pct .form-control { padding-right: 20px; }
 .pc-pct-sign { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); font-size: var(--text-xs); color: var(--text-muted); pointer-events: none; }
@@ -186,7 +195,7 @@
 .pc-res-table tfoot td { padding-top: var(--space-2); border-top: 1px solid var(--border-light); }
 
 /* ── Monthly phasing (boards 8.2, 8.3) ── */
-.pc-phase-title { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
+.pc-phase-title { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); flex: 1 1 0; min-width: 0; }
 .pc-seg { display: inline-flex; padding: 2px; background: var(--surface-subtle); border-radius: var(--radius-sm); }
 .pc-seg-btn {
   border: 0; background: none; padding: 3px var(--space-3); border-radius: var(--radius-xs);
@@ -196,7 +205,8 @@
 .pc-seg-btn:focus-visible { outline: 2px solid var(--focus-ring); }
 .pc-pre-line { white-space: pre-line; }
 .pc-phase { margin-top: var(--space-4); }
-.pc-phase-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: var(--space-2); }
+.pc-phase-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); gap: 6px; }
+.pc-phase-cell .form-control { padding-left: 2px; padding-right: 3px; font-size: var(--text-2xs); }
 .pc-phase-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .pc-bar-track { height: 56px; display: flex; align-items: flex-end; padding: 0 var(--space-2); }
 .pc-bar { width: 100%; min-height: 2px; border-radius: var(--radius-xs) var(--radius-xs) 0 0; }
@@ -271,6 +281,20 @@
 .pc-sheet-item--active { border-left-color: var(--brand-magenta); color: var(--brand-navy); font-weight: var(--weight-semibold); background: var(--surface-light); }
 .pc-sheet-step { width: 18px; font-size: var(--text-xs); color: var(--text-muted); }
 
+/* ── Narrow desktop (sidebar open, 1024-1279px): the task table drops Period and Roles, shown under the name ── */
+@media (max-width: 1279.98px) {
+  /* zero-width, not display:none: the open task row spans all six columns */
+  .pc-tasks th.pc-col-period, .pc-tasks th.pc-col-roles, .pc-tasks td.pc-col-period, .pc-tasks td.pc-col-roles { width: 0; padding-left: 0 !important; padding-right: 0 !important; overflow: hidden; white-space: nowrap; visibility: hidden; }
+  .pc-task-meta { display: block; }
+  .pc-tasks .pc-col-split { white-space: normal; }
+  .pc-tasks th.pc-col-split { width: 120px; }
+  .pc-tasks .pc-pill { white-space: normal; }
+  .pc-task-switches { flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+  .pc-res-num { width: 92px; }
+  .pc-res-x { width: 24px; }
+  .pc-phase-title { flex: 1 1 100%; }
+}
+
 /* ── Tablet (board 8.4): the index becomes a sticky tab row, Totals goes away, the task table drops two columns ── */
 @media (max-width: 1023.98px) {
   .pc-layout { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
@@ -286,14 +310,17 @@
     border-left: 0; border-bottom: 2px solid transparent; border-radius: 0;
   }
   .pc-index-item--active { border-bottom-color: var(--brand-magenta); background: none; box-shadow: none; }
-  .pc-tasks .pc-col-period, .pc-tasks .pc-col-roles { display: none; }
+  /* zero-width, not display:none: the open task row spans all six columns */
+  .pc-tasks th.pc-col-period, .pc-tasks th.pc-col-roles, .pc-tasks td.pc-col-period, .pc-tasks td.pc-col-roles { width: 0; padding-left: 0 !important; padding-right: 0 !important; overflow: hidden; white-space: nowrap; visibility: hidden; }
   .pc-task-meta { display: block; }
+  .pc-split-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 }
 
 /* ── Phone (board 8.4): one section at a time, single-column fields, 44px inputs, stacked task cards ── */
 @media (max-width: 767.98px) {
   .pc-aside { display: none; }
   .pc-phone-picker { display: flex; }
+  .pc-card .cfg-section-title { display: none; }
   .cfg-section.pc-card { padding: var(--space-4); }
   .pc-cards .form-control, .pc-cards .form-select { min-height: 44px; }
   .pc-cards .pc-select-sm { min-height: 32px; }
@@ -303,6 +330,7 @@
   .pc-split-head > * { white-space: nowrap; }
   .pc-tasks, .pc-tasks > tbody, .pc-tasks > tfoot { display: block; }
   .pc-tasks > thead { display: none; }
+  .pc-tasks .pc-col-period, .pc-tasks .pc-col-roles { display: none; }
   .pc-tasks > tbody { border: var(--card-border); border-radius: var(--radius-md); margin-bottom: var(--space-2); overflow: hidden; background: var(--surface-white); }
   .pc-tasks > tbody > tr, .pc-tasks > tfoot > tr { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--space-3); }
   .pc-tasks > tbody > tr > td, .pc-tasks > tfoot > tr > td { border: 0; padding: 0; }

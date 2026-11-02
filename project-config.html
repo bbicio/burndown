@@ -159,7 +159,7 @@
         <div class="pc-tasks-wrap">
           <table class="pc-tasks">
             <thead>
-              <tr><th>Task</th><th class="pc-col-period">Period</th><th class="pc-col-roles text-end">Roles</th><th class="text-end">Hours</th><th class="text-end">Total</th><th class="pc-col-split">Monthly split</th></tr>
+              <tr><th>Task</th><th class="pc-col-period">Period</th><th class="pc-col-roles text-end">Roles</th><th class="pc-col-hours text-end">Hours</th><th class="pc-col-total text-end">Total</th><th class="pc-col-split">Monthly split</th></tr>
             </thead>
             <tbody v-for="(task, ti) in project.tasks" :key="ti">
               <tr class="pc-task-row" :class="{ 'pc-task-row--open': openTaskIndex === ti }" role="button" tabindex="0" :aria-expanded="openTaskIndex === ti" @click="toggleTask(ti)" @keydown.enter.prevent="toggleTask(ti)" @keydown.space.prevent="toggleTask(ti)">
@@ -182,15 +182,15 @@
               <tr v-if="openTaskIndex === ti" class="pc-task-detail">
                 <td colspan="6">
                   <div class="row g-3 align-items-end">
-                    <div class="col-lg-4"><label class="form-label pc-label">Task name</label><input :ref="'taskName-' + ti" type="text" class="form-control form-control-sm" v-model="task.name" :disabled="isViewer" placeholder="must match Task/Issue column in XLS"></div>
-                    <div class="col-lg-5"><label class="form-label pc-label">Period <span class="pc-opt">· defaults to project dates</span></label>
+                    <div class="col-12 col-xxl-3"><label class="form-label pc-label">Task name</label><input :ref="'taskName-' + ti" type="text" class="form-control form-control-sm" v-model="task.name" :disabled="isViewer" placeholder="must match Task/Issue column in XLS"></div>
+                    <div class="col-12 col-xxl-5"><label class="form-label pc-label">Period <span class="pc-opt">· defaults to project dates</span></label>
                       <div class="pc-period">
                         <div class="pc-period-pick"><cg-date-picker mode="day" :model-value="toIso(task.startDate) || ''" :min="taskDateBounds(task, 'start').min" :max="taskDateBounds(task, 'start').max" :disabled="isViewer" aria-label="Task start date" @update:model-value="v => { task.startDate = v ? toYmd(v) : ''; rebuildTaskDist(ti); }"></cg-date-picker></div>
                         <span class="pc-muted">–</span>
                         <div class="pc-period-pick"><cg-date-picker mode="day" :model-value="toIso(task.endDate) || ''" :min="taskDateBounds(task, 'end').min" :max="taskDateBounds(task, 'end').max" :disabled="isViewer" aria-label="Task end date" @update:model-value="v => { task.endDate = v ? toYmd(v) : ''; rebuildTaskDist(ti); }"></cg-date-picker></div>
                       </div>
                     </div>
-                    <div class="col-lg-3 pc-task-switches">
+                    <div class="col-12 col-xxl-4 pc-task-switches">
                       <div class="form-check form-switch mb-0" title="Uncheck to exclude this task from all reports and charts">
                         <input class="form-check-input" type="checkbox" role="switch" :id="'pc-bill-' + ti" v-model="task.billable" :disabled="isViewer">
                         <label class="form-check-label small" :for="'pc-bill-' + ti">Include in report</label>
