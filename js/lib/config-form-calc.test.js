@@ -76,6 +76,20 @@ describe('deriveDistribution', () => {
     expect(deriveDistribution(dist, ['202604'], '202604', '202604').outsideBudget).toBe(0);
   });
 
+  it('rounds every month to digits', () => {
+    const tasks = [{
+      startDate: '20260115', endDate: '20260320',
+      resources: [{ soldHours: 7, hourlyRate: 143.37 }],
+    }];
+    const months = ['202601', '202602', '202603'];
+    const two = deriveDistribution(tasks, months, '202601', '202603', 2).newPhasing;
+    Object.values(two).forEach(v => expect(v).toBe(Math.round(v * 100) / 100));
+    const zero = deriveDistribution(tasks, months, '202601', '202603', 0).newPhasing;
+    expect(Object.keys(zero).length).toBe(3);
+    Object.values(zero).forEach(v => expect(Number.isInteger(v)).toBe(true));
+    expect(Object.values(two).some(v => !Number.isInteger(v))).toBe(true);
+  });
+
   it('excludes non-billable tasks', () => {
     const tasks = [{
       name: 'Dev', billable: false,
@@ -106,6 +120,21 @@ describe('reforecastDistribution', () => {
     expect(result.newPhasing['202601']).toBe(1000);
     // Remaining 20h / €2000 split across Feb+Mar (2 future months, even split, no monthlyDistribution)
     expect(result.newPlanning['202602'] + result.newPlanning['202603']).toBeCloseTo(20, 5);
+  });
+
+  it('rounds past months too, to digits', () => {
+    const tasks = [{
+      name: 'Dev', billable: true,
+      startDate: '20260101', endDate: '20260331',
+      resources: [{ role: 'Developer', soldHours: 30, hourlyRate: 100 / 3 }],
+    }];
+    const actualsRows = [{ task: 'Dev', role: 'Developer', date: '2026-01-15', hours: 10 }];
+    const months = ['202601', '202602', '202603'];
+    const two = reforecastDistribution(tasks, months, actualsRows, '202602', 2).newPhasing;
+    expect(Object.keys(two)).toContain('202601');
+    Object.values(two).forEach(v => expect(v).toBe(Math.round(v * 100) / 100));
+    const zero = reforecastDistribution(tasks, months, actualsRows, '202602', 0).newPhasing;
+    Object.values(zero).forEach(v => expect(Number.isInteger(v)).toBe(true));
   });
 
   it('caps past actuals at sold hours/budget when actuals exceed sold', () => {
