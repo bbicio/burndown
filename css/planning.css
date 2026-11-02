@@ -217,6 +217,33 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
 .pl-total .pl-col-label, .pl-total .pl-col-num { z-index: 3; }
 .pl-total .pl-col-label { font-size: var(--text-xs); letter-spacing: .06em; }
 
+/* ---- Filters panel (offcanvas, below 1024px) ---- */
+.pl-filters { width: min(380px, 100vw); }
+.pl-filters-body { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); padding: var(--space-4); overflow-y: auto; height: 100%; }
+.pl-filters-head { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.pl-filters-title { margin: 0; font-size: var(--text-lg); font-weight: var(--weight-bold); color: var(--text-primary); }
+.pl-filters-body .pl-search { width: 100%; }
+.pl-filters-body .pl-sep, .pl-filters-body .ph-toolbar-spacer { display: none; }
+.pl-filters-body .pl-stage-chip { margin-right: var(--space-1); }
+.pl-count {
+  display: inline-block; min-width: 1.25rem; padding: 0 var(--space-1); text-align: center;
+  border-radius: var(--radius-full); background: var(--brand-navy); color: var(--surface-white);
+  font-size: var(--text-2xs); font-weight: var(--weight-semibold);
+}
+
+/* ---- Tablet (below 1024px; below 768px provisional until cycle 2) ---- */
+@media (max-width: 1023.98px) {
+  .ph-actions .pl-btn-text { display: none; }
+  .ph-actions .pl-load-btn { display: none; }
+  .ph-actions .ph-btn { width: 32px; justify-content: center; padding: 0; }
+  .ph-side { width: auto; }
+  .pl-grid { --pl-label-w: 280px; }
+  .pl-grid .pl-col-sold, .pl-grid .pl-col-act { display: none; }
+  .pl-col-plan { left: var(--pl-label-w); }
+  .pl-sub--tablet { display: flex; }
+  .pl-col-period { min-width: 84px; }
+}
+
 /* ── Team assistant panel ── */
 #teamAssistantPanel {
   position: fixed; top: 0; right: -960px; width: min(940px, 100vw); height: 100vh;

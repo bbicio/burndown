@@ -84,13 +84,26 @@
         </div>
         <button v-if="!isTablet" type="button" class="pl-link pl-today" :disabled="isDefaultWindow" @click="goToday">Today</button>
         <div class="ph-toolbar-spacer"></div>
-        <div class="pl-search">
-          <ph-icon name="search" :size="14"></ph-icon>
-          <input type="search" class="form-control form-control-sm" :aria-label="searchPlaceholder" :placeholder="searchPlaceholder" v-model="search[view]">
-        </div>
+        <!-- Below 1024px the search, filters, switches and Load XLS move into the Filters panel (#plFiltersPanel). -->
+        <teleport to="#plFiltersBody" v-if="isTablet">
+          <div class="pl-filters-head">
+            <h2 class="pl-filters-title" id="plFiltersTitle">Filters</h2>
+            <button type="button" class="btn btn-ghost btn-icon" data-bs-dismiss="offcanvas" aria-label="Close filters"><ph-icon name="close"></ph-icon></button>
+          </div>
+        </teleport>
+        <teleport to="#plFiltersBody" :disabled="!isTablet">
+          <div class="pl-search">
+            <ph-icon name="search" :size="14"></ph-icon>
+            <input type="search" class="form-control form-control-sm" :aria-label="searchPlaceholder" :placeholder="searchPlaceholder" v-model="search[view]">
+          </div>
+        </teleport>
+        <button v-if="isTablet" type="button" class="pl-filter-btn" data-bs-toggle="offcanvas" data-bs-target="#plFiltersPanel" aria-controls="plFiltersPanel">
+          <ph-icon name="filter" :size="14"></ph-icon> Filters <span v-if="activeFilterCount" class="pl-count">{{ activeFilterCount }}</span>
+        </button>
       </div>
       <!-- Row 2: filters and display switches -->
-      <div class="pl-toolbar-row pl-toolbar-row--filters">
+      <div class="pl-toolbar-row pl-toolbar-row--filters" v-show="!isTablet">
+       <teleport to="#plFiltersBody" :disabled="!isTablet">
         <span class="pl-toolbar-label">Pipeline</span>
         <button v-for="p in allPipelines" :key="p" type="button" class="pl-stage-chip" :class="['pl-stage-chip--' + p.toLowerCase(), { 'is-active': isPipelineActive(p) }]"
                 :aria-pressed="isPipelineActive(p) ? 'true' : 'false'" @click="togglePipelineFilter(p)"><span class="pl-stage-dot" aria-hidden="true"></span>{{ p }}</button>
@@ -154,6 +167,8 @@
           <input class="form-check-input" type="checkbox" role="switch" id="chkRoundHours" v-model="roundHours">
           <label class="form-check-label" for="chkRoundHours">Rounded</label>
         </div>
+        <button v-if="isTablet" type="button" class="ph-btn pl-filters-load" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon> Load XLS</button>
+       </teleport>
       </div>
     </div>
     <div class="pl-legend">
@@ -321,6 +336,11 @@
 
 </div>
 </div><!-- /planningApp -->
+
+<!-- Filters panel (below 1024px): its content is teleported here by the Vue app -->
+<div class="offcanvas offcanvas-end pl-filters" tabindex="-1" id="plFiltersPanel" aria-labelledby="plFiltersTitle">
+  <div id="plFiltersBody" class="pl-filters-body"></div>
+</div>
 
 <!-- Placeholder sections (referenced by portfolio.js / costgrid.js) -->
 <div id="portfolioSection"      style="display:none"></div>
@@ -753,6 +773,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const r = this.activeRows;
         if (!this.modelPending && !this.modelError && r.state === 'ready') s += ` · ${this.fmtNum(r.total.toPlan)} to plan`;
         return s;
+      },
+      // the badge of the tablet "Filters" button: every filter or switch away from its default
+      activeFilterCount() {
+        return [this.pipelineFilters.size > 0, this.projectFilters.size > 0, this.teamFilters.size > 0,
+          !this.monthlyPulse, !this.roundHours, !!this.search[this.view].trim()].filter(Boolean).length;
       },
       searchPlaceholder() { return { byrole: 'Search role…', byproject: 'Search project or task…', byowner: 'Search person…' }[this.view]; },
       // the Projects popover's own search, local to the list (does not filter the grid)
