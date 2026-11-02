@@ -34,6 +34,17 @@ Clone flow otherwise unchanged:
 
 **API version rule (2026-10-07):** `POST /api/cost-grids/:id/versions` and `POST /:id/versions/:vId/duplicate` refuse (`400 { error, code: 'VERSION_RULE' }`) to create a version on a proposal that already has a non-Draft version — closing the gap left by the UI-only enforcement (`+ New version` only on a Draft, Publish deletes the other Drafts) against a direct API call. A sysadmin (live role) is exempt. Rule: `versionCreationError({ role, hasPublishedVersion })` in `api/src/lib/project-rules.js`, same pattern as the project-currency-lock rules in that file (`VERSION_RULE_CODE`, distinct from their `RULE_CODE`/`PROJECT_RULE`).
 
+### Role rates: a saved version is never re-priced by itself (currency f3)
+
+A role's rate changes only through an explicit action in the editor:
+- **a ratecard change** — including a client change that clears a ratecard no longer valid for the client — re-prices the non-Custom roles and leaves the Custom ones;
+- **a currency change** re-prices every role, Custom included (the confirmation shows "custom → reset");
+- **a single-role reset**.
+
+Opening a version or the role selector loads the ratecard maps without re-pricing. An update of the role registry, of a ratecard or of a currency's rate leaves saved versions alone; `pipeline.html`'s Refresh rate changes only the version's rate.
+
+**Custom** means the rate was typed by a person with a value different from the baseline (`onRateBlur`); the flag survives save and reload (`task_roles.rate_is_custom`). A 0 is a missing rate unless it is Custom (`cgRateIsMissing`). After a save, the editor adopts the `currency_rate` the server applied; it re-prices the non-Custom roles to it only when that save followed a currency change. Functions: [docs/js/costgrid.md](../js/costgrid.md), [docs/js/api-sync.md](../js/api-sync.md). Spec `docs/superpowers/specs/2026-11-02-currency-f3-custom-rate-and-version-rate-design.md`.
+
 ## Cost grid editor ↔ pipeline board integration
 
 - `costgrid.html` is a separate page. The back button navigates to `pipeline.html`.
@@ -406,7 +417,7 @@ Guards: `js/lib/costgrid-task-period-guard.test.js`. Manual case: `TEST_CASES.md
 Spec `docs/superpowers/specs/2026-10-29-currency-c2-vue-rate-inputs-design.md`, report `docs/superpowers/reports/2026-10-30-currency-c2-vue-rate-inputs-finish-cycle.md`. Rules: `CLAUDE.md`'s "Money formatting and parsing"; functions: [docs/js/lib.md](../js/lib.md) (`readMoneyInput`, `cgRateIsMissing`).
 - **Rate input.** `.cg-rate-input` is `type="text"`, modelled on the PTC input: `onRateFocus` snapshots `{ rate, rateIsCustom, baseline }` and shows `formatMoneyInput` (`'0'` for a custom 0); `onRateInput` reads every keystroke with `readMoneyInput` and writes a valid number, comparing it with the focus-time baseline; `onRateBlur` restores the snapshot while the text is invalid, and resets to the baseline only after an edit that left the field blank. `onRateChange` is gone. Invalid text gives `.is-invalid` (`css/costgrid.css`) and the note `Format: <example>`.
 - **Displays.** The custom note, the input `title`, the "Reset rate to" menu item and the role-picker badge go through `formatMoney`; `:data-rate` stays numeric.
-- **Missing rate.** The cell and column header `is-zero` and both "Missing rate" notes read `cgRateIsMissing(r, roleBaseline(r).effectiveRate)`: a reloaded version marks every role custom (`js/api-sync.js`, `rate_override`), so the flag alone cannot tell a deliberate 0. Known gap: a 0 saved before the registry got a rate reads as deliberate once the registry has one (`docs/BACKLOG.md`).
+- **Missing rate.** The cell and column header `is-zero` and both "Missing rate" notes read `cgRateIsMissing(r)`.
 - **Versions.** `costgrid-calc.js` writes the `money.js?v=N` it imports in its own file; the rule and the grep are in CLAUDE.md "Cache-busting".
 
 Guards: `js/lib/costgrid-rate-input-guard.test.js`. Manual cases: `TEST_CASES.md` CG-105, CG-106.
@@ -414,5 +425,3 @@ Guards: `js/lib/costgrid-rate-input-guard.test.js`. Manual cases: `TEST_CASES.md
 ## Role baselines use the version's rate (2026-11-01, currency cycle 4, B-183)
 
 Spec `docs/superpowers/specs/2026-11-01-currency-c4-b183-version-rate-baselines-design.md`. `roleBaseline`, the role selector's badge (`roleModalRoleRow`) and `cgSyncRoleRatesToBaseline` convert with `draft.currencyRate`; the live rate is read only on a currency change (the preview and `onCurrencyChange`), and `onCurrencyChange` sets `draft.currencyRate` before syncing. Function detail: [docs/js/costgrid.md](../js/costgrid.md).
-
-A saved version reloads every role with hours as Custom (`cgLoadStructureFromApi` marks a stored `rate_override` as custom, and the structure save writes one for every such role), so on open the non-forced sync leaves those rates alone: what B-183 changes for them is the reset value, the role selector's badge and roles added afterwards.

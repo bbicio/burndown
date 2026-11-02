@@ -59,3 +59,11 @@ Spec `docs/superpowers/specs/2026-10-29-pot-reference-version-and-version-rate-d
 ## MONEY_RULE refusal of the structure is shown (2026-10-29, currency cycle 1)
 
 Spec `docs/superpowers/specs/2026-10-29-currency-c1-server-rate-validation-design.md`. The structure `PUT` now refuses a role rate that is not a number ≥ 0 with the version currency's decimals (`docs/api/lib.md` → `money-rules.js`). `_cgUpsertVersionToApi`'s structure-save `catch` passes a `MONEY_RULE` refusal to `notifyRefusal(e, true)`, like `DATE_RULE`: shown once per version and message, with the "Tasks and the period of this version are not saved until this is fixed; other changes are saved." tail. Covered by `js/lib/api-sync-upsert.test.js`. `?v=30`.
+
+## The Custom flag on load and the server's rate (2026-11-02, currency f3)
+
+Spec `docs/superpowers/specs/2026-11-02-currency-f3-custom-rate-and-version-rate-design.md`.
+- **`cgLoadStructureFromApi`** reads `rateIsCustom` from `task_roles.rate_is_custom` (only the literal `true` is Custom), never from `rate_override`. `ver.roles` is rebuilt when every role carries its saved rate (`rate_override`), otherwise only when no roles are in memory.
+- **`_cgUpsertVersionToApi(cgId, versionId, { strict, onServerRate })`**: after a successful version `PATCH` whose `currency_rate` differs from the version's `currencyRate`, it calls `onServerRate(rate)`; a failed `PATCH`, an empty response or an equal rate call nothing. `js/costgrid.js`'s `cgAutoSave` supplies the callback.
+
+Covered by `js/lib/api-sync-upsert.test.js`. `?v=31`.
