@@ -139,7 +139,7 @@ js/notifications.js      — bell icon + SSE notification panel; initNotificatio
 js/costgrid.js           — shared cost-grid business-logic library, consumers: `pipeline.html` and `costgrid.html`. Full narrative:
                             [docs/js/costgrid.md](docs/js/costgrid.md).
 js/cg-controls.js        — three custom Vue controls (date picker, select, people picker), loaded by costgrid,
-                            project-config and portfolio; CSS in css/controls.css. Detail:
+                            project-config, portfolio and planning; CSS in css/controls.css. Detail:
                             [docs/js/cg-controls.md](docs/js/cg-controls.md).
 js/*.js (the rest)       — the other shared classic scripts loaded as globals by the Vue pages: shares.js,
                             share-list-component.js, clients.js, roles.js, programs.js, ratecards.js,

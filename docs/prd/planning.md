@@ -12,19 +12,24 @@ Show the distribution of sold hours across the portfolio — by role, by project
 
 | Control | Options |
 |---|---|
-| Project filter | Multi-select projects |
-| Group by | By Role / By Project / By Owner |
+| Pipeline | One chip per pipeline stage; clicking a chip turns that stage on or off |
+| Project filter | "Projects: All (m)" popover: search on name or client, one checkbox per project with its client and stage, "x of m selected", Select all, Clear (Clear restores all projects, like Select all) |
+| Team filter | "Team: All" popover, same layout without client or stage |
+| Group by | By role / By project / By owner |
 | Time granularity | Monthly / Weekly |
-| Date range navigation | Previous / Next with period label (e.g. "May 2026 – Aug 2026") |
-| Team filter | Filter by team name |
+| Period | ‹ / › move the window by one month, keeping its width, and are disabled at the ends of the projects' range; the label opens a menu with 3 / 6 / 12 months (starting the month before the current one), Whole range and From / To month pickers; "Today" restores the current month and the next three. The Weekly label names the start of the first and of the last week |
+| Search | Filters the rows of the active view on their name or second line, keeping and opening their parents; it changes neither the Total row nor the export |
 | Monthly pulse | Toggle — show pulse indicators |
 | Rounded | Toggle — round to whole numbers vs. two decimal places (display only, see §5.3) |
-| Export XLS | Download the current table as Excel |
-| 📂 Load XLS | Upload an Excel timesheet file to import actuals — a third entry point into the same upload mechanism described in §8, alongside Project Reporting's and the project configuration form's "Load Actuals" buttons; subject to the same blocking role/task validation (§8.3) |
+| Expand all / Collapse all, How estimates work | Open or close every group of the view; a popover explains the active view's estimation logic |
+| Export XLS | Download the current table as Excel; disabled while the data is loading or failed to load |
+| Load XLS | Upload an Excel timesheet file to import actuals — a third entry point into the same upload mechanism described in §8, alongside Project Reporting's and the project configuration form's "Load Actuals" buttons; subject to the same blocking role/task validation (§8.3) |
+
+At 1024px wide and below, Team assistant and Export XLS become icon buttons and the search, the filters, the two toggles and Load XLS move into a "Filters" side panel whose button shows how many of them differ from their default.
 
 ### 5.3 Table Structure
 
-Rows: resources (roles, projects, or owners depending on grouping). **By Owner** groups its rows in three levels — **Owner → Project → Task** — aggregating hours across every role assigned to a task into one row per task, attributed to the owner regardless of which role they logged time under (a task with multiple sold roles sums all roles' Sold/Actuals into that single task row). This is deliberate: the view's purpose is to show which task an owner is actually working on, not their role (already known once the person is identified) — role-level detail remains available in the By Project view (Project → Task → Role → Owner). **By Role** (2026-09) is expandable: each role row carries a collapse/expand toggle, collapsed by default, that reveals one child row per (project, task) combination the role covers, each with its own Sold/From actuals/To be planned and period cells — a role spread across several projects/tasks no longer reads as one opaque aggregate; the previous, tooltip-only breakdown on hover remains available too. "Expand all"/"Collapse all" controls (already present on By Project/By Owner) are available for By Role as well.  
+Rows: resources (roles, projects, or owners depending on grouping). **By Owner** groups its rows in three levels — **Owner → Project → Task** — aggregating hours across every role assigned to a task into one row per task, attributed to the owner regardless of which role they logged time under (a task with multiple sold roles sums all roles' Sold/Actuals into that single task row). This is deliberate: the view's purpose is to show which task an owner is actually working on, not their role (already known once the person is identified) — role-level detail remains available in the By Project view, which since 2026-11-02 has three collapsible levels (Project → Task → Role), each role showing its owners' initials and names ("No owner yet" when there is none). By Owner lists "Unassigned (TBD)" first, marked "Needs owner". **By Role** (2026-09) is expandable: each role row carries a collapse/expand toggle, collapsed by default, that reveals one child row per (project, task) combination the role covers, each with its own Sold/From actuals/To be planned and period cells — a role spread across several projects/tasks no longer reads as one opaque aggregate; the previous, tooltip-only breakdown on hover remains available too. "Expand all"/"Collapse all" controls (already present on By Project/By Owner) are available for By Role as well.  
 Columns: time periods (months or weeks) within the selected date range, plus three summary columns per row: **Sold**, **From actuals**, **To be planned**.  
 Cells: hours for that resource in that period.
 
@@ -53,7 +58,7 @@ Today marker: the current week's column is highlighted (`gantt-today` class / `i
 
 ### 5.5 Overallocation color coding
 
-A static, non-AI legend on the Resource Planning table: a row's load is shown in red once it exceeds 30 hours/week (`planning.html`, the table legend). This is a fixed display rule, not an analysis or a generated issue list.
+A static, non-AI rule shown in the legend above the table: in By Owner, a person's current or future, non-pulse period is amber ("High load") from 24 hours a week and red ("Over-allocated") from 30 hours a week, a month being measured on its weekdays / 5. Unassigned (TBD), project and task rows and the other two views carry no load colour (since 2026-11-02). This is a fixed display rule, not an analysis or a generated issue list.
 
 ---
 

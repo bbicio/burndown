@@ -957,11 +957,12 @@ burndown/
   css/
     tokens.css            ← design tokens, single source of truth for colour and type; also `[v-cloak] { display: none; }`. Detail: docs/css/stylesheets.md
     style.css             ← component styles, the shared `.ph-*` page head, the collapsible section-card and Tags-summary rules shared by costgrid.html and project-config.html, the `.pd-nav*` sidebar/navbar rules, the `--sidebar-w`/`--nav-top-h` media queries and `#pd-tooltip`. Detail: docs/css/stylesheets.md
-    controls.css          ← styles of the js/cg-controls.js controls; loaded by costgrid.html, project-config.html and portfolio.html, after style.css and before the page sheet. Detail: docs/css/stylesheets.md
+    controls.css          ← styles of the js/cg-controls.js controls; loaded by costgrid.html, project-config.html, portfolio.html and planning.html, after style.css and before the page sheet. Detail: docs/css/stylesheets.md
     pipeline.css          ← page stylesheet of pipeline.html only (board, toolbar, columns, cards, detail panel). Detail: docs/pages/pipeline.md
     costgrid.css          ← page stylesheet of costgrid.html only (second row of the page head, section cards, grid, selection bar, contextual overrides of the controls). Detail: docs/pages/costgrid.md
     portfolio.css         ← page stylesheet shared by portfolio.html and program.html. Detail: docs/css/stylesheets.md
     project-config.css    ← page stylesheet of project-config.html only (section index, cards, task table, phasing card, phone bottom sheet). Detail: docs/css/stylesheets.md
+    planning.css          ← page stylesheet of planning.html only (toolbar, period selector, grid, Filters panel, Team assistant drawer). Detail: docs/css/stylesheets.md
     admin-crud.css        ← shared layout for the simple admin CRUD pages. Detail: docs/css/stylesheets.md
     auth.css              ← shared stylesheet of the public auth pages (login/activate/reset-password). Detail: docs/css/stylesheets.md
   js/
@@ -971,7 +972,7 @@ burndown/
     nav.js                ← navigation injection, initNav(): the one `<aside class="pd-nav">`, SVG icons (drawings from js/lib/icons.js, loaded first), rail tooltips, shared modals, T&C gate. Detail: docs/js/nav.md
     notifications.js      ← SSE client, bell badge, notification panel, browser notifications. Detail: docs/js/notifications.md
     costgrid.js           ← shared cost-grid business-logic library, a permanent Vanilla service layer loaded by pipeline.html and costgrid.html. Detail: docs/js/costgrid.md
-    cg-controls.js        ← three custom Vue controls, loaded by costgrid.html, project-config.html and portfolio.html; pure helpers in js/lib/cg-controls-calc.js. Detail: docs/js/cg-controls.md
+    cg-controls.js        ← three custom Vue controls, loaded by costgrid.html, project-config.html, portfolio.html and planning.html; pure helpers in js/lib/cg-controls-calc.js. Detail: docs/js/cg-controls.md
     portfolio.js          ← two exports still reachable, both consumed by planning.html. Detail: docs/js/shared-libs.md
     lib/                  ← pure functions for unit testing (vitest + jsdom), ES modules, most with a `window.<name>` bridge for classic-script callers. Module index: docs/js/lib.md
     shares.js, share-list-component.js, clients.js, roles.js, programs.js, ratecards.js, upload.js, tags.js
@@ -980,7 +981,7 @@ burndown/
   pipeline.html           ← kanban pipeline board. Detail: docs/pages/pipeline.md
   portfolio.html          ← portfolio overview + per-project reporting view; adds js/lib/portfolio-calc.js, program-calc.js, project-report-calc.js, chart-today.js, stylesheet css/portfolio.css. Detail: docs/pages/portfolio.md
   program.html            ← Program Dashboard, no menu entry; adds js/lib/program-calc.js, chart-today.js, shares css/portfolio.css; no endpoint of its own. Detail: docs/pages/program.md
-  planning.html           ← resource planning; the three views render the server model (POST /api/planning/model). Detail: docs/pages/planning.md
+  planning.html           ← resource planning; the three views render the server model (POST /api/planning/model) through js/lib/planning-rows.js; own stylesheet css/planning.css, period pickers from js/cg-controls.js. Detail: docs/pages/planning.md
   costgrid.html           ← cost grid editor; own stylesheet css/costgrid.css and form controls from js/cg-controls.js. Detail: docs/pages/costgrid.md
   timesheets.html         ← admin-only timesheet upload management. Detail: docs/pages/timesheets.md
   config.html             ← redirect stub (no shell, no Vue) to /master-clients.html
