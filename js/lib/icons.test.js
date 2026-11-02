@@ -33,6 +33,7 @@ describe('iconSvg', () => {
 });
 
 describe('ICON_PATHS', () => {
+  it('has the project-config icons', () => { for (const n of ['trash','eye','refresh','trend-up']) { expect(ICON_PATHS[n]).toMatch(/stroke="currentColor"/); expect(ICON_PATHS[n]).not.toMatch(/#[0-9a-fA-F]{3,8}\b/); } });
   it.each(GUARANTEED)('has %s', (n) => { expect(ICON_PATHS).toHaveProperty(n); });
   it('covers every icon named in js/nav.js', () => {
     const src = read('js/nav.js');
