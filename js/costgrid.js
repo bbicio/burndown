@@ -687,7 +687,7 @@ function renderCgPhasing() {
 // strict = true: the returned promise rejects when the save fails (default: log and resolve).
 // Resolves to true only when every write reached the server.
 // Set by the "Change currency?" confirmation; read and cleared by the next save, so only that save
-// re-syncs the role rates to the rate the server applied.
+// re-syncs the role rates to the rate the server applied. A save that fails before the rate is adopted re-arms it.
 let _cgCurrencyChangePending = false;
 function cgMarkCurrencyChange() { _cgCurrencyChangePending = true; }
 
@@ -719,12 +719,14 @@ function cgAutoSave(strict) {
   if (idx >= 0) cg.versions[idx] = _cgDraft;
   cgSave(cg);
   if (typeof _cgUpsertVersionToApi !== 'undefined') {
+    let adopted = false;
+    const keepFlag = () => { if (afterCurrencyChange && !adopted) _cgCurrencyChangePending = true; };
     return _cgUpsertVersionToApi(cgId, verId, {
       strict: !!strict,
-      onServerRate: rate => cgAdoptServerRate(cgId, verId, rate, afterCurrencyChange),
+      onServerRate: rate => { adopted = true; cgAdoptServerRate(cgId, verId, rate, afterCurrencyChange); },
     })
-      .then(ok => ok === true)
-      .catch(e => { console.warn('[sync] cgAutoSave:', e.message); if (strict) throw e; return false; });
+      .then(ok => { if (ok !== true) keepFlag(); return ok === true; })
+      .catch(e => { keepFlag(); console.warn('[sync] cgAutoSave:', e.message); if (strict) throw e; return false; });
   }
   return Promise.resolve(false);
 }

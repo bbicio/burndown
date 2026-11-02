@@ -130,13 +130,13 @@ describe('cgAdoptServerRate', () => {
 });
 
 describe('cgAutoSave passes the currency-change flag', () => {
-  let opts, adoptSpy, fns;
+  let opts, adoptSpy, fns, upsertResult;
   beforeEach(() => {
-    opts = null; adoptSpy = vi.fn();
+    opts = null; adoptSpy = vi.fn(); upsertResult = async () => true;
     const stubs = {
       _cgActiveCgId: 'cg1', _cgActiveVersionId: 'v1', _cgDraft: { versionId: 'v1' },
       cgSyncHeaderFromForm: () => {}, cgLoad: () => ({ id: 'cg1', versions: [{ versionId: 'v1' }] }), cgSave: () => {},
-      _cgUpsertVersionToApi: async (cgId, vId, o) => { opts = o; return true; },
+      _cgUpsertVersionToApi: async (cgId, vId, o) => { opts = o; return upsertResult(); },
       cgAdoptServerRate: adoptSpy,
     };
     const names = Object.keys(stubs);
@@ -154,6 +154,29 @@ describe('cgAutoSave passes the currency-change flag', () => {
     await fns.cgAutoSave();
     opts.onServerRate(1.2);
     expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v1', 1.2, false);
+  });
+
+  it('a failed save after a currency change keeps the flag for the next save', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fns.cgMarkCurrencyChange();
+    upsertResult = async () => false;
+    await fns.cgAutoSave();
+    upsertResult = async () => { throw new Error('500'); };
+    await fns.cgAutoSave();
+    upsertResult = async () => true;
+    await fns.cgAutoSave();
+    opts.onServerRate(1.2);
+    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v1', 1.2, true);
+  });
+
+  it('once the server rate was adopted, a failed save does not keep the flag', async () => {
+    fns.cgMarkCurrencyChange();
+    upsertResult = async () => { opts.onServerRate(1.2); return false; };
+    await fns.cgAutoSave();
+    upsertResult = async () => true;
+    await fns.cgAutoSave();
+    opts.onServerRate(1.3);
+    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v1', 1.3, false);
   });
 
   it('strict is passed through', async () => {

@@ -43,7 +43,7 @@ A role's rate changes only through an explicit action in the editor:
 
 Opening a version or the role selector loads the ratecard maps without re-pricing. An update of the role registry, of a ratecard or of a currency's rate leaves saved versions alone; `pipeline.html`'s Refresh rate changes only the version's rate.
 
-**Custom** means the rate was typed by a person with a value different from the baseline (`onRateBlur`); the flag survives save and reload (`task_roles.rate_is_custom`). A 0 is a missing rate unless it is Custom (`cgRateIsMissing`). After a save, the editor adopts the `currency_rate` the server applied; it re-prices the non-Custom roles to it only when that save followed a currency change. Functions: [docs/js/costgrid.md](../js/costgrid.md), [docs/js/api-sync.md](../js/api-sync.md). Spec `docs/superpowers/specs/2026-11-02-currency-f3-custom-rate-and-version-rate-design.md`.
+**Custom** means the rate was typed by a person with a value different from the baseline (`onRateInput`); the flag survives save and reload (`task_roles.rate_is_custom`). A 0 is a missing rate unless it is Custom (`cgRateIsMissing`). After a save, the editor adopts the `currency_rate` the server applied; it re-prices the non-Custom roles to it only when that save followed a currency change. Functions: [docs/js/costgrid.md](../js/costgrid.md), [docs/js/api-sync.md](../js/api-sync.md). Spec `docs/superpowers/specs/2026-11-02-currency-f3-custom-rate-and-version-rate-design.md`.
 
 ## Cost grid editor ↔ pipeline board integration
 
