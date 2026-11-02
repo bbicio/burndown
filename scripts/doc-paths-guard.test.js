@@ -40,8 +40,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, liveMarkdown, citedPaths, unresolved } from './lib/live-docs.mjs';
 
-// Paths the live documents cite that deliberately do not resolve. Nine are
-// files that were deleted and are now mentioned only in the past tense; one
+// Paths the live documents cite that deliberately do not resolve: files
+// that were deleted and are now mentioned only in the past tense, and one that
 // never existed. Each entry is a decision somebody took on purpose -- adding
 // one is how you record "this file is gone and its mentions are historical".
 const GONE = new Map([
@@ -60,6 +60,8 @@ const GONE = new Map([
   ['scripts/gen-architecture.mjs',
     'never existed: cited only inside docs/handoff-ciclo5.md, in the quoted ' +
     'cycle-5 proposal that was rejected in favour of architecture-guard.test.js'],
+  ['api/src/restore-backup.js',  'deleted 2026-11-02 (remove-legacy-restore-scripts); legacy localStorage-backup import'],
+  ['api/src/db/migrate-backup.js', 'deleted 2026-11-02 (remove-legacy-restore-scripts); legacy localStorage-backup import'],
 ]);
 
 const DOCS = [
