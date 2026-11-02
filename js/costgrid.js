@@ -1390,8 +1390,7 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
   // click could land there before the project was persisted, showing "Project not found."
   // _pushProjectToApi returns false (never throws) when the core project upsert itself failed —
   // only then is the project genuinely absent server-side; its sub-resource pushes (tasks,
-  // phasing, etc.) stay best-effort/swallowed internally, matching this function's existing
-  // convention for those fields, so they don't gate this success check.
+  // phasing, etc.) do not gate this success check but are reported via summarizeGenerateResult.
   let pushedOk = false;
   let tasksFailed = null;
   let failedParts = [];

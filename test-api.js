@@ -552,8 +552,9 @@ async function testPots() {
   const rs2 = await api('POST', '/api/pots', { specialLabel: 'New Biz', year: 2098, amount: 500 }, adminCookie);
   if (rs2.data?.id) later('DELETE', `/api/pots/${rs2.data.id}`);
   ok(rs2.status === 201, `POT-08 same label, other year → 201 (got ${rs2.status})`);
-  ok((await api('POST', '/api/pots', { specialLabel: 'New Biz', year: 2099, amount: 1 }, adminCookie)).status === 409,
-    'POT-08 duplicate special POT (same label+year) → 409');
+  const rs3 = await api('POST', '/api/pots', { specialLabel: 'New Biz', year: 2099, amount: 1 }, adminCookie);
+  if (rs3.data?.id) later('DELETE', `/api/pots/${rs3.data.id}`);
+  ok(rs3.status === 409, 'POT-08 duplicate special POT (same label+year) → 409');
 
   if (!potId) return;
 
