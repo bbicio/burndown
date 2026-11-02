@@ -29,6 +29,7 @@
   --surface-light:  #f8f9fa;
   --surface-subtle: #f0f2f5;
   --surface-medium: #e9ecef;
+  --overlay-scrim:  #000000; /* behind a drawer, used with opacity like Bootstrap's backdrop */
 
   /* ── Borders ── */
   --border-light:   #e5e7eb;

@@ -96,7 +96,7 @@ Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page i
 | `pipeline.html` | `/pipeline.html` | Pipeline board + cost grid editor access. Full narrative: [docs/pages/pipeline.md](docs/pages/pipeline.md) |
 | `portfolio.html` | `/portfolio.html` | Project reporting dashboard (portfolio overview + per-project KPI/burndown); stylesheet `css/portfolio.css`, shared with `program.html`. Full narrative: [docs/pages/portfolio.md](docs/pages/portfolio.md) |
 | `program.html` | `/program.html?programId=` | Program Dashboard — a programme-level overview (KPIs, aggregated burndown, List/Timeline view of member projects); no menu entry, reached from `portfolio.html`'s `Dashboard`/`Program Dashboard →` entries and the project reporting view's program row; shares `css/portfolio.css` with `portfolio.html`. Full narrative: [docs/pages/program.md](docs/pages/program.md) |
-| `planning.html` | `/planning.html` | Resource planning view; its views render from the server's planning model (`POST /api/planning/model`). Full narrative: [docs/pages/planning.md](docs/pages/planning.md) |
+| `planning.html` | `/planning.html` | Resource planning view; its views render from the server's planning model (`POST /api/planning/model`) through the pure rows of `js/lib/planning-rows.js`; own stylesheet `css/planning.css`. Full narrative: [docs/pages/planning.md](docs/pages/planning.md) |
 | `costgrid.html` | `/costgrid.html?cgId=&verId=` | Cost grid editor (full-page); own stylesheet `css/costgrid.css`. Full narrative: [docs/pages/costgrid.md](docs/pages/costgrid.md) |
 | `timesheets.html` | `/timesheets.html` | XLS timesheet upload management. Full narrative: [docs/pages/timesheets.md](docs/pages/timesheets.md) |
 | `master-clients.html`, `master-client-groups.html`, `master-pipelines.html`, `master-roles.html`, `master-currencies.html` | `/master-*.html` | **Master Data**: one page per functionality — Clients, Client Groups, Pipelines & POT targets, Roles & rates, Currencies — linked by a lateral sub-menu (`.md-subnav`); admin **or sysadmin** only. `/config.html` is only a redirect to `/master-clients.html`. Full narrative: [docs/pages/config.md](docs/pages/config.md) |
@@ -124,7 +124,7 @@ HTML pages               — the Pages table above is the page index: route, one
                             js/lib/test-cases-parse.js. Hence TEST_CASES.md counts as code for
                             scripts/classify-cycle.mjs.
 css/                     — stylesheets: tokens.css (design tokens, also `[v-cloak]`), style.css (components
-                            + navigation), controls.css, admin-crud.css, auth.css, pipeline.css, costgrid.css, portfolio.css, project-config.css. Detail:
+                            + navigation), controls.css, admin-crud.css, auth.css, pipeline.css, costgrid.css, portfolio.css, project-config.css, planning.css. Detail:
                             [docs/css/stylesheets.md](docs/css/stylesheets.md). App-wide rules stay in "Design
                             tokens" and "Cache-busting" below.
 js/api.js                — Api.* namespace + apiFetch wrapper (401 → login redirect; parsed error body attached

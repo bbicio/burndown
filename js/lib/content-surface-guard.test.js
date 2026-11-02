@@ -237,13 +237,25 @@ describe('page surface and spacing', () => {
 
 describe('planning toolbar', () => {
   const html = read('planning.html');
-  const start = html.indexOf('<div class="pl-toolbar-right">');
+  // since the planning redesign the three actions sit in the page head's .ph-actions
+  const start = html.indexOf('<div class="ph-actions">');
   const toolbar = html.slice(start, html.indexOf('</div>', start));
   const buttons = toolbar.split('</button>').slice(0, -1).map(b => b + '</button>');
 
-  it('has three buttons', () => {
+  it('has three buttons in .ph-actions and no .pl-toolbar-right', () => {
     expect(start).toBeGreaterThan(-1);
     expect(buttons.length).toBe(3);
+    expect(html).not.toContain('pl-toolbar-right');
+  });
+  it('shows Team assistant to admins only and disables Export while the model is pending or failed', () => {
+    const by = label => buttons.find(b => b.includes(label));
+    expect(by('Team assistant')).toContain('v-if="isAdminUser"');
+    const exp = by('Export XLS').match(/:disabled="([^"]*)"/);
+    expect(exp && exp[1]).toMatch(/modelPending/);
+    expect(exp && exp[1]).toMatch(/modelError/);
+  });
+  it('has no "✕" reset button', () => {
+    expect(html).not.toContain('✕');
   });
   it('has no width toggle (2026-10-29, ui-quick-wins)', () => {
     expect(html).not.toContain('toggleFullWidth');
@@ -255,7 +267,7 @@ describe('planning toolbar', () => {
   });
   it('every button is a .ph-btn with a shared icon', () => {
     for (const b of buttons) {
-      expect(b).toContain('class="ph-btn"');
+      expect(b).toMatch(/class="ph-btn[" ]/);
       expect(b).toContain('<ph-icon');
     }
     const by = label => buttons.find(b => b.includes(label));
@@ -267,5 +279,81 @@ describe('planning toolbar', () => {
     const reg = html.indexOf(`app.component('ph-icon', window.PhIcon)`);
     expect(reg).toBeGreaterThan(-1);
     expect(reg).toBeLessThan(html.indexOf(`app.mount('#planningApp')`));
+  });
+});
+
+describe('planning grid (2026-11-02, planning redesign)', () => {
+  const html = read('planning.html');
+  const css = read('css/planning.css');
+  const at = s => html.indexOf(s);
+  // the XLS export keeps its own ARGB colours
+  const exportStart = at('async buildStyledExcelExport(');
+  const exportEnd = html.indexOf('\n      },', exportStart);
+  const outsideExport = html.slice(0, exportStart) + html.slice(exportEnd);
+
+  it('loads controls.css, cg-controls.js and planning.css after style.css', () => {
+    expect(at('css/controls.css?v=')).toBeGreaterThan(at('css/style.css?v='));
+    expect(at('css/planning.css?v=1')).toBeGreaterThan(at('css/controls.css?v='));
+    expect(html).toContain('js/cg-controls.js?v=');
+  });
+  it('planning.css uses tokens only', () => {
+    const code = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+  it('the page carries no grid glyph or emoji and no hex colour outside the XLS export', () => {
+    expect(html).not.toMatch(/[▶▼◀▷◁⊞⊟🏢📋👤]/u);
+    expect(outsideExport).not.toMatch(/#[0-9a-fA-F]{6}\b/);
+  });
+  it('the Team assistant is a drawer with a backdrop, a plain header and an icon close button', () => {
+    const panel = at('<div id="teamAssistantPanel"');
+    expect(panel).toBeGreaterThan(-1);
+    const before = html.slice(Math.max(0, panel - 400), panel);
+    expect(before).toMatch(/class="pl-ta-backdrop"/);
+    const header = html.slice(panel, html.indexOf('</div>', html.indexOf('class="ta-header"', panel)) + 400);
+    expect(header).not.toContain('btn-close-white');
+    expect(html).not.toContain('🤖');
+    expect(header).toMatch(/<button[^>]*aria-label="Close Team assistant"[^>]*>\s*<ph-icon name="close"/);
+  });
+  // ── code review round 1 (2026-11-02) ──
+  it('the drawer becomes visible at once when it opens, so focus can move into it (#1)', () => {
+    const open = css.match(/#teamAssistantPanel\.open\s*\{([^}]*)\}/);
+    expect(open && open[1]).toMatch(/visibility:\s*visible/);
+    expect(open && open[1]).toMatch(/visibility\s+0s/);
+  });
+  it('the Filters heading teleport is always mounted, so it stays first in the panel (#2)', () => {
+    const tag = html.match(/<teleport[^>]*>\s*<div class="pl-filters-head">/);
+    expect(tag).not.toBe(null);
+    expect(tag[0]).not.toMatch(/v-if|:disabled/);
+  });
+  it('the label cell content is bounded by the label column width (#4)', () => {
+    expect(css).toMatch(/\.pl-label\s*\{[^}]*max-width:\s*calc\(var\(--pl-label-w\)/);
+  });
+  it('planning-rows.js imports its sibling modules at the versions the page loads (#5)', () => {
+    const rows = read('js/lib/planning-rows.js');
+    for (const f of ['planning-calc.js', 'dates.js']) {
+      const page = html.match(new RegExp(`js/lib/${f.replace('.', '\\.')}\\?v=(\\d+)`));
+      expect(page, f).not.toBe(null);
+      expect(rows).toContain(`'./${f}?v=${page[1]}'`);
+    }
+  });
+  it('the drawer backdrop uses the overlay token at the offcanvas opacity (#10, #11)', () => {
+    expect(read('css/tokens.css')).toMatch(/--overlay-scrim:/);
+    expect(css).toMatch(/\.pl-ta-backdrop\s*\{[^}]*background:\s*var\(--overlay-scrim\)/);
+    expect(css).toMatch(/\.pl-ta-backdrop\.open\s*\{[^}]*opacity:\s*\.5/);
+  });
+  it('Expand all / Collapse all also act on the rows the search forces open (round 3)', () => {
+    const body = name => { const i = html.indexOf(`      ${name}() {`); return html.slice(i, html.indexOf('\n      },', i)); };
+    expect(body('expandAll')).toMatch(/this\.suppressed\[this\.view\]\.clear\(\)/);
+    expect(body('collapseAll')).toMatch(/forcedOpenIds/);
+  });
+  it('no leftover of the former renderer (#9)', () => {
+    for (const s of ['wNum', 'wLabel', 'isLastOfMonth', 'fmtProjectTitle', 'singleProjectId']) expect(html, s).not.toMatch(new RegExp(`\\b${s}\\b`));
+  });
+  it('the grid is a template table: no v-html except the stage/status pills', () => {
+    expect(html).not.toContain('activeViewHtml');
+    const start = at('<table class="pl-grid"');
+    expect(start).toBeGreaterThan(-1);
+    const table = html.slice(start, html.indexOf('</table>', start));
+    for (const m of table.matchAll(/v-html="([^"]*)"/g)) expect(m[1]).toMatch(/^(stagePill|statusPill)\(/);
   });
 });

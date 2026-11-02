@@ -7,8 +7,10 @@
   <title>PDash — Planning</title>
   <link rel="icon" type="image/png" href="https://ik.imagekit.io/6ezjgrjjf/00_Home_Page/letter-f.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="css/tokens.css?v=12">
-  <link rel="stylesheet" href="css/style.css?v=28">
+  <link rel="stylesheet" href="css/tokens.css?v=13">
+  <link rel="stylesheet" href="css/style.css?v=29">
+  <link rel="stylesheet" href="css/controls.css?v=1">
+  <link rel="stylesheet" href="css/planning.css?v=1">
 </head>
 <body class="pp-fullwidth">
 
@@ -38,161 +40,313 @@
         <div class="ph-title-row">
           <h1 class="ph-title">{{ planningTitle }}</h1>
         </div>
-        <div class="ph-sub">Hours distribution by role, project or owner — based on sold hours and actuals consumed</div>
+        <div class="ph-sub">{{ planningSubtitle }}</div>
       </div>
+      <div class="ph-side"><div class="ph-actions">
+        <button v-if="isAdminUser" type="button" class="ph-btn" ref="taOpenBtn" title="Find the best people to allocate to a project" aria-label="Team assistant" @click="taOpen = !taOpen"><ph-icon name="team" :size="14"></ph-icon><span class="pl-btn-text">Team assistant</span></button>
+        <button type="button" class="ph-btn pl-load-btn" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon><span class="pl-btn-text">Load XLS</span></button>
+        <button type="button" class="ph-btn" aria-label="Export XLS" :disabled="modelPending || !!modelError" @click="exportCurrentView"><ph-icon name="download" :size="14"></ph-icon><span class="pl-btn-text">Export XLS</span></button>
+      </div></div>
     </div>
     <div class="ph-toolbar pl-toolbar">
-      <div class="pl-toolbar-left">
-        <!-- Row 1: filters + view/interval toggles -->
-        <div class="d-flex align-items-center gap-3 flex-wrap">
-          <div class="d-flex align-items-center gap-2 flex-wrap">
-            <span class="small text-muted me-1">Pipeline:</span>
-            <button v-for="p in allPipelines" :key="p" class="btn btn-sm" :class="isPipelineActive(p) ? 'btn-primary' : 'btn-outline-secondary'" @click="togglePipelineFilter(p)">{{ p }}</button>
+      <!-- Row 1: view, interval, period, search -->
+      <div class="pl-toolbar-row">
+        <div class="pl-seg" role="group" aria-label="View">
+          <button type="button" class="pl-seg-btn" :class="{ active: view === 'byrole' }" :aria-pressed="view === 'byrole' ? 'true' : 'false'" @click="view = 'byrole'">By role</button>
+          <button type="button" class="pl-seg-btn" :class="{ active: view === 'byproject' }" :aria-pressed="view === 'byproject' ? 'true' : 'false'" @click="view = 'byproject'">By project</button>
+          <button type="button" class="pl-seg-btn" :class="{ active: view === 'byowner' }" :aria-pressed="view === 'byowner' ? 'true' : 'false'" @click="view = 'byowner'">By owner</button>
+        </div>
+        <div class="pl-seg" role="group" aria-label="Interval">
+          <button type="button" class="pl-seg-btn" :class="{ active: interval === 'monthly' }" :aria-pressed="interval === 'monthly' ? 'true' : 'false'" @click="interval = 'monthly'">Monthly</button>
+          <button type="button" class="pl-seg-btn" :class="{ active: interval === 'weekly' }" :aria-pressed="interval === 'weekly' ? 'true' : 'false'" @click="interval = 'weekly'">Weekly</button>
+        </div>
+        <div class="pl-period" ref="periodBox">
+          <div class="pl-period-ctl">
+            <button type="button" class="pl-period-arrow" title="Previous month" aria-label="Previous month" :disabled="atLeftLimit" @click="shiftPeriod(-1)"><ph-icon name="chevron-left" :size="14"></ph-icon></button>
+            <button type="button" class="pl-period-label" ref="periodLabelBtn" aria-haspopup="dialog" :aria-expanded="periodMenuOpen ? 'true' : 'false'" @click="periodMenuOpen = !periodMenuOpen">{{ periodLabel }} <ph-icon name="chevron-down" :size="14"></ph-icon></button>
+            <button type="button" class="pl-period-arrow" title="Next month" aria-label="Next month" :disabled="atRightLimit" @click="shiftPeriod(1)"><ph-icon name="chevron-right" :size="14"></ph-icon></button>
           </div>
-          <div class="vr" style="opacity:.3;align-self:stretch"></div>
-          <div class="dropdown">
-            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-              Projects <span v-if="projectFilters.size" class="badge bg-secondary ms-1">{{ projectFilters.size }}</span>
-            </button>
-            <ul class="dropdown-menu shadow" style="min-width:280px;max-height:320px;overflow-y:auto;padding:6px 0">
-              <li v-for="p in eligibleProjects" :key="p.id">
-                <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;font-size:var(--text-base)">
-                  <input type="checkbox" class="flex-shrink-0" :checked="isProjectChecked(p.id)" @change="onProjectFilterToggle(p.id)">
-                  <span class="text-truncate" :title="fmtProjectTitle(p)">{{ fmtProjectTitle(p) }}</span>
-                  <span v-if="p.pipeline" class="badge bg-light text-dark border ms-auto" style="font-size:var(--text-2xs)">{{ p.pipeline }}</span>
-                </label>
-              </li>
-              <template v-if="eligibleProjects.length">
-                <li><hr class="dropdown-divider my-1"></li>
-                <li><button class="dropdown-item small text-primary" @click="selectAllProjects">Select all</button></li>
-              </template>
-            </ul>
-          </div>
-          <button v-if="projectFilters.size" class="btn btn-sm btn-outline-danger" @click="resetProjectFilters">✕ Projects</button>
-          <div class="dropdown">
-            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-              Team <span v-if="teamFilters.size" class="badge bg-secondary ms-1">{{ teamFilters.size }}</span>
-            </button>
-            <ul class="dropdown-menu shadow" style="min-width:240px;max-height:280px;overflow-y:auto;padding:6px 0">
-              <li v-for="t in allTeams" :key="t">
-                <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;font-size:var(--text-base)">
-                  <input type="checkbox" class="flex-shrink-0" :checked="isTeamChecked(t)" @change="onTeamFilterToggle(t)">
-                  <span class="text-truncate">{{ t }}</span>
-                </label>
-              </li>
-              <template v-if="allTeams.length">
-                <li><hr class="dropdown-divider my-1"></li>
-                <li><button class="dropdown-item small text-primary" @click="selectAllTeams">Select all</button></li>
-              </template>
-            </ul>
-          </div>
-          <button v-if="teamFilters.size" class="btn btn-sm btn-outline-danger" @click="resetTeamFilters">✕ Team</button>
-          <div class="vr" style="opacity:.3;align-self:stretch"></div>
-          <div class="btn-group btn-group-sm">
-            <button class="btn btn-outline-secondary" :class="{active: view==='byrole'}" @click="view='byrole'">By Role</button>
-            <button class="btn btn-outline-secondary" :class="{active: view==='byproject'}" @click="view='byproject'">By Project</button>
-            <button class="btn btn-outline-secondary" :class="{active: view==='byowner'}" @click="view='byowner'">By Owner</button>
-          </div>
-          <div class="btn-group btn-group-sm">
-            <button class="btn btn-outline-secondary" :class="{active: interval==='monthly'}" @click="interval='monthly'">Monthly</button>
-            <button class="btn btn-outline-secondary" :class="{active: interval==='weekly'}" @click="interval='weekly'">Weekly</button>
+          <div v-if="periodMenuOpen" class="pl-popover pl-period-menu" role="dialog" aria-label="Period">
+            <div class="pl-period-presets">
+              <button type="button" class="pl-filter-btn" @click="applyPreset(3)">3 months</button>
+              <button type="button" class="pl-filter-btn" @click="applyPreset(6)">6 months</button>
+              <button type="button" class="pl-filter-btn" @click="applyPreset(12)">12 months</button>
+              <button type="button" class="pl-filter-btn" @click="applyWholeRange">Whole range</button>
+            </div>
+            <div class="pl-period-range">
+              <div class="pl-period-field"><span class="pl-toolbar-label">From</span>
+                <cg-date-picker mode="month" inline-popover :model-value="fromYm" :min="axisMinYm" :max="toYm" aria-label="From month" @update:model-value="setFrom($event)"></cg-date-picker></div>
+              <div class="pl-period-field"><span class="pl-toolbar-label">To</span>
+                <cg-date-picker mode="month" inline-popover :model-value="toYm" :min="fromYm" :max="axisMaxYm" aria-label="To month" @update:model-value="setTo($event)"></cg-date-picker></div>
+            </div>
+            <button v-if="isTablet" type="button" class="pl-link" :disabled="isDefaultWindow" @click="goToday">Today</button>
           </div>
         </div>
-        <!-- Row 2: window navigation + display toggles -->
-        <div class="d-flex align-items-center gap-3 flex-wrap mt-1">
-          <div class="d-flex align-items-center gap-1">
-            <button class="btn btn-sm btn-outline-secondary" title="Add previous month" style="padding:2px 7px;line-height:1.4" :disabled="atLeftLimit" @click="expandLeft">◀+</button>
-            <button class="btn btn-sm btn-outline-secondary" title="Hide previous month" style="padding:2px 7px;line-height:1.4" :disabled="atMinWidth" @click="shrinkLeft">−▷</button>
-            <span class="small text-muted px-2" style="white-space:nowrap;min-width:130px;text-align:center">{{ windowLabel }}</span>
-            <button class="btn btn-sm btn-outline-secondary" title="Hide next month" style="padding:2px 7px;line-height:1.4" :disabled="atMinWidth" @click="shrinkRight">◁−</button>
-            <button class="btn btn-sm btn-outline-secondary" title="Add next month" style="padding:2px 7px;line-height:1.4" :disabled="atRightLimit" @click="expandRight">+▶</button>
+        <button v-if="!isTablet" type="button" class="pl-link pl-today" :disabled="isDefaultWindow" @click="goToday">Today</button>
+        <div class="ph-toolbar-spacer"></div>
+        <!-- At 1024px and below the search, filters, switches and Load XLS move into the Filters panel (#plFiltersPanel). -->
+        <!-- Always mounted (never v-if), so its content is the first thing in #plFiltersBody. -->
+        <teleport to="#plFiltersBody">
+          <div class="pl-filters-head">
+            <h2 class="pl-filters-title" id="plFiltersTitle">Filters</h2>
+            <button type="button" class="btn btn-ghost btn-icon" data-bs-dismiss="offcanvas" aria-label="Close filters"><ph-icon name="close"></ph-icon></button>
           </div>
-          <div class="vr" style="opacity:.3;align-self:stretch"></div>
-          <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-            <input class="form-check-input" type="checkbox" id="chkMonthlyPulse" v-model="monthlyPulse" style="cursor:pointer">
-            <label class="form-check-label small text-muted" for="chkMonthlyPulse">Monthly pulse</label>
+        </teleport>
+        <teleport to="#plFiltersBody" :disabled="!isTablet">
+          <div class="pl-search">
+            <ph-icon name="search" :size="14"></ph-icon>
+            <input type="search" class="form-control form-control-sm" :aria-label="searchPlaceholder" :placeholder="searchPlaceholder" v-model="search[view]">
           </div>
-          <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-            <input class="form-check-input" type="checkbox" id="chkRoundHours" v-model="roundHours" style="cursor:pointer">
-            <label class="form-check-label small text-muted" for="chkRoundHours">Rounded</label>
-          </div>
-        </div>
+        </teleport>
+        <button v-if="isTablet" type="button" class="pl-filter-btn" data-bs-toggle="offcanvas" data-bs-target="#plFiltersPanel" aria-controls="plFiltersPanel">
+          <ph-icon name="filter" :size="14"></ph-icon> Filters <span v-if="activeFilterCount" class="pl-count">{{ activeFilterCount }}</span>
+        </button>
       </div>
-      <div class="ph-toolbar-spacer"></div>
-      <div class="pl-toolbar-right">
-        <button v-if="isAdminUser" class="ph-btn" title="Find the best people to allocate to a project" @click="taOpen = !taOpen"><ph-icon name="team" :size="14"></ph-icon> Team assistant</button>
-        <button class="ph-btn" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon> Load XLS</button>
-        <button class="ph-btn" @click="exportCurrentView"><ph-icon name="download" :size="14"></ph-icon> Export XLS</button>
+      <!-- Row 2: filters and display switches -->
+      <div class="pl-toolbar-row pl-toolbar-row--filters" v-show="!isTablet">
+       <teleport to="#plFiltersBody" :disabled="!isTablet">
+        <span class="pl-toolbar-label">Pipeline</span>
+        <button v-for="p in allPipelines" :key="p" type="button" class="pl-stage-chip" :class="['pl-stage-chip--' + p.toLowerCase(), { 'is-active': isPipelineActive(p) }]"
+                :aria-pressed="isPipelineActive(p) ? 'true' : 'false'" @click="togglePipelineFilter(p)"><span class="pl-stage-dot" aria-hidden="true"></span>{{ p }}</button>
+        <span class="pl-sep" aria-hidden="true"></span>
+        <div class="dropdown">
+          <button type="button" class="pl-filter-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+            Projects: <strong>{{ projectFilters.size ? projectFilters.size : 'All (' + eligibleProjects.length + ')' }}</strong>
+          </button>
+          <div class="dropdown-menu pl-pop">
+            <div class="pl-search pl-pop-search">
+              <ph-icon name="search" :size="14"></ph-icon>
+              <input type="search" class="form-control form-control-sm" placeholder="Search project or client…" aria-label="Search project or client" v-model="projectQuery">
+            </div>
+            <div class="pl-pop-list">
+              <label v-for="p in projectOptions" :key="p.id" class="pl-pop-row">
+                <input type="checkbox" class="form-check-input" :checked="isProjectChecked(p.id)" @change="onProjectFilterToggle(p.id)">
+                <span class="pl-pop-text">
+                  <span class="pl-pop-name" :title="p.name || p.id">{{ p.name || p.id }}</span>
+                  <span v-if="projectClient(p)" class="pl-pop-sub">{{ projectClient(p) }}</span>
+                </span>
+                <span v-if="p.pipeline" v-html="stagePill(p.pipeline)"></span>
+              </label>
+              <div v-if="!projectOptions.length" class="pl-pop-empty">No projects match.</div>
+            </div>
+            <div class="pl-pop-foot">
+              <span>{{ projectFilters.size || eligibleProjects.length }} of {{ eligibleProjects.length }} selected</span>
+              <span class="pl-pop-foot-actions">
+                <button type="button" class="pl-link" @click="selectAllProjects">Select all</button>
+                <button type="button" class="pl-link" @click="resetProjectFilters">Clear</button>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="dropdown">
+          <button type="button" class="pl-filter-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+            Team: <strong>{{ teamFilters.size ? teamFilters.size : 'All' }}</strong>
+          </button>
+          <div class="dropdown-menu pl-pop pl-pop--narrow">
+            <div class="pl-pop-list">
+              <label v-for="t in allTeams" :key="t" class="pl-pop-row">
+                <input type="checkbox" class="form-check-input" :checked="isTeamChecked(t)" @change="onTeamFilterToggle(t)">
+                <span class="pl-pop-text"><span class="pl-pop-name">{{ t }}</span></span>
+              </label>
+              <div v-if="!allTeams.length" class="pl-pop-empty">No teams.</div>
+            </div>
+            <div class="pl-pop-foot">
+              <span>{{ teamFilters.size || allTeams.length }} of {{ allTeams.length }} selected</span>
+              <span class="pl-pop-foot-actions">
+                <button type="button" class="pl-link" @click="selectAllTeams">Select all</button>
+                <button type="button" class="pl-link" @click="resetTeamFilters">Clear</button>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="ph-toolbar-spacer"></div>
+        <div class="form-check form-switch mb-0 pl-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="chkMonthlyPulse" v-model="monthlyPulse">
+          <label class="form-check-label" for="chkMonthlyPulse">Monthly pulse</label>
+        </div>
+        <div class="form-check form-switch mb-0 pl-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="chkRoundHours" v-model="roundHours">
+          <label class="form-check-label" for="chkRoundHours">Rounded</label>
+        </div>
+        <button v-if="isTablet" type="button" class="ph-btn pl-filters-load" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon> Load XLS</button>
+       </teleport>
       </div>
     </div>
-    <div class="section-card">
-      <div ref="planningContainer" v-html="activeViewHtml" style="overflow-x:auto"></div>
+    <div class="pl-legend">
+      <template v-if="!isTablet">
+        <span class="pl-legend-item"><span class="pl-chip pl-chip--past">12h</span> Actuals (past)</span>
+        <span class="pl-legend-item"><span class="pl-chip pl-chip--current">12h</span> {{ interval === 'weekly' ? 'Current week' : 'Current month' }}</span>
+        <span class="pl-legend-item"><span class="pl-chip pl-chip--pulse">~1h</span> Monthly pulse</span>
+        <template v-if="view === 'byowner'">
+          <span class="pl-legend-item"><span class="pl-chip pl-chip--high">110h</span> High load</span>
+          <span class="pl-legend-item"><span class="pl-chip pl-chip--over">140h</span> Over-allocated</span>
+        </template>
+      </template>
+      <span class="pl-legend-info" ref="legendInfo">
+        <button type="button" class="pl-link" ref="legendBtn" :aria-expanded="legendOpen ? 'true' : 'false'" aria-controls="plEstimatesPopover" @click="legendOpen = !legendOpen">
+          <ph-icon name="info" :size="14"></ph-icon> How estimates work
+        </button>
+        <div v-if="legendOpen" id="plEstimatesPopover" class="pl-popover" role="dialog" aria-label="Estimation logic">
+          <div class="pl-popover-title">Estimation logic · {{ viewName }}</div>
+          <p v-for="(t, i) in estimatesText" :key="i">{{ t }}</p>
+        </div>
+      </span>
+      <span class="pl-legend-actions">
+        <button type="button" class="pl-link" @click="expandAll">Expand all</button>
+        <button type="button" class="pl-link" @click="collapseAll">Collapse all</button>
+      </span>
+    </div>
+    <div class="section-card pl-card">
+      <div v-if="activeRows.state === 'placeholder'" class="pl-state" v-html="modelPlaceholderHtml()"></div>
+      <div v-else-if="activeRows.state === 'empty'" class="pl-state"><div class="alert alert-info mb-0">{{ activeRows.message }}</div></div>
+      <div v-else class="pl-grid-wrap">
+        <table class="pl-grid">
+          <thead>
+            <tr>
+              <th class="pl-col-label" scope="col">{{ labelHeader }}</th>
+              <th class="pl-col-num pl-col-sold" scope="col">Sold</th>
+              <th class="pl-col-num pl-col-act" scope="col">Actuals</th>
+              <th class="pl-col-num pl-col-plan" scope="col" title="To plan can exceed Sold − Actuals when a row aggregates several items and one is over-consumed: hours over budget on one are not subtracted from another's remaining budget.">To plan</th>
+              <th v-for="(p, i) in activeRows.periods" :key="'h' + i" scope="col" class="pl-col-period"
+                  :class="{ 'pl-cell--past': p.isPast, 'pl-cell--current': p.isCurrent }" :title="periodTitle(p)">
+                <span class="pl-period-main">{{ periodMain(p) }}</span>
+                <span class="pl-period-sub">{{ periodSub(p) }}</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="!displayRows.length">
+              <td class="pl-empty-row" :colspan="4 + activeRows.periods.length">No rows match “{{ search[view] }}”.</td>
+            </tr>
+            <tr v-for="r in displayRows" :key="r.id"
+                :class="[r.depth === 0 ? 'pl-row--parent' : 'pl-row--child', { 'pl-row--clickable': hasChildren(r) }]"
+                @click="hasChildren(r) && toggleRow(r.id)">
+              <td class="pl-col-label">
+                <div class="pl-label" :style="{ '--pl-depth': r.depth }">
+                  <button v-if="hasChildren(r)" type="button" class="pl-chevron" :aria-expanded="isOpen(r.id) ? 'true' : 'false'"
+                          :aria-label="(isOpen(r.id) ? 'Collapse ' : 'Expand ') + r.label" @click.stop="toggleRow(r.id)">
+                    <ph-icon :name="isOpen(r.id) ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon>
+                  </button>
+                  <span v-else class="pl-chevron-space"></span>
+                  <span v-if="r.kind === 'tbd'" class="pl-avatars"><span class="pl-avatar pl-avatar--tbd" aria-hidden="true">?</span></span>
+                  <span v-else-if="r.kind === 'person'" class="pl-avatars"><span class="pl-avatar" aria-hidden="true">{{ r.owners[0].initials }}</span></span>
+                  <span v-else-if="r.kind === 'roleLeaf'" class="pl-avatars">
+                    <span v-for="o in r.owners" :key="o.name" class="pl-avatar" :title="o.name" aria-hidden="true">{{ o.initials }}</span>
+                    <span v-if="!r.owners.length" class="pl-avatar pl-avatar--tbd" aria-hidden="true">?</span>
+                  </span>
+                  <div class="pl-label-text">
+                    <div class="pl-label-main">
+                      <span class="pl-name" :title="r.label">{{ r.label }}</span>
+                      <span v-if="r.inactive" class="pl-pill pl-pill--muted">inactive</span>
+                      <span v-if="r.kind === 'tbd'" class="pl-pill pl-pill--warn">Needs owner</span>
+                      <span v-if="r.kind === 'pair' && r.stage" v-html="stagePill(r.stage)"></span>
+                    </div>
+                    <div v-if="r.kind === 'project'" class="pl-sub">
+                      <span v-if="r.stage" v-html="stagePill(r.stage)"></span>
+                      <span v-if="r.status" v-html="statusPill(r.status)"></span>
+                      <span class="pl-sub-text">{{ projectSub(r) }}</span>
+                    </div>
+                    <div v-else-if="r.kind === 'roleLeaf' && r.owners.length" class="pl-sub">
+                      <span v-for="(o, i) in r.owners" :key="o.name" class="pl-sub-text">{{ o.name }}<span v-if="o.inactive" class="pl-pill pl-pill--muted ms-1">inactive</span>{{ i + 1 === r.owners.length ? '' : ',' }}</span>
+                    </div>
+                    <div v-else-if="r.sub" class="pl-sub"><span class="pl-sub-text">{{ r.sub }}</span></div>
+                    <div class="pl-sub pl-sub--tablet">Sold {{ fmtNum(r.sold) }} · Actuals {{ fmtActuals(r.actuals) }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="pl-col-num pl-col-sold">{{ fmtNum(r.sold) }}</td>
+              <td class="pl-col-num pl-col-act">{{ fmtActuals(r.actuals) }}</td>
+              <td class="pl-col-num pl-col-plan">{{ fmtNum(r.toPlan) }}</td>
+              <td v-for="(c, i) in r.cells" :key="i" class="pl-cell" :class="cellClass(c)" :title="cellTitle(c, i)">{{ cellText(c) }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="pl-total">
+              <td class="pl-col-label">TOTAL · {{ activeRows.total.count }} ASSIGNMENTS</td>
+              <td class="pl-col-num pl-col-sold">{{ fmtNum(activeRows.total.sold) }}</td>
+              <td class="pl-col-num pl-col-act">{{ fmtActuals(activeRows.total.actuals) }}</td>
+              <td class="pl-col-num pl-col-plan">{{ fmtNum(activeRows.total.toPlan) }}</td>
+              <td v-for="(c, i) in activeRows.total.cells" :key="i" class="pl-cell" :class="{ 'pl-cell--past': c.past, 'pl-cell--current': c.current }">{{ cellText(c) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
     </template>
   </div>
 
-<div id="teamAssistantPanel" v-if="isAdminUser" :class="{ open: taOpen }">
+<div v-if="isAdminUser" class="pl-ta-backdrop" :class="{ open: taOpen }" aria-hidden="true" @click="taOpen = false"></div>
+<div id="teamAssistantPanel" v-if="isAdminUser" :class="{ open: taOpen }" role="dialog" aria-modal="true" aria-labelledby="taTitle" :aria-hidden="taOpen ? 'false' : 'true'">
   <div class="ta-header">
-    <span style="font-weight:600">🤖 Team assistant</span>
-    <button class="btn-close btn-close-white btn-sm" @click="taOpen = false"></button>
+    <h2 class="ta-title" id="taTitle"><ph-icon name="team" :size="16"></ph-icon> Team assistant</h2>
+    <button type="button" class="btn btn-ghost btn-icon" aria-label="Close Team assistant" @click="taOpen = false"><ph-icon name="close"></ph-icon></button>
   </div>
-  <div class="p-3 border-bottom" style="flex-shrink:0">
-    <div class="d-flex gap-2 align-items-center mb-2">
-      <select class="form-select form-select-sm" style="max-width:420px" v-model="taProjectId" :disabled="taBusy" @change="taNewChat()">
+  <div class="ta-setup">
+    <div class="ta-setup-row">
+      <select class="form-select form-select-sm ta-select" ref="taSelect" aria-label="Project" v-model="taProjectId" :disabled="taBusy" @change="taNewChat()">
         <option value="">Select a project…</option>
         <option v-for="o in taProjectOptions" :key="o.id" :value="o.id">{{ o.label }}</option>
       </select>
-      <button class="btn btn-primary btn-sm" :disabled="!taProjectId || taBusy" @click="taRank()">Calculate team</button>
-      <button class="btn btn-outline-secondary btn-sm" :disabled="taBusy" @click="taNewChat()">New chat</button>
+      <button type="button" class="btn btn-primary btn-sm" :disabled="!taProjectId || taBusy" @click="taRank()">Calculate team</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="taBusy" @click="taNewChat()">New chat</button>
     </div>
-    <div v-if="taProjectId && !taMessages.length" class="d-flex flex-wrap gap-1">
-      <button v-for="s in taStarters" :key="s" class="btn btn-outline-secondary btn-sm" style="font-size:.75rem" :disabled="taBusy" @click="taInput = s">{{ s }}</button>
+    <div v-if="taProjectId && !taMessages.length" class="ta-starters">
+      <button v-for="s in taStarters" :key="s" type="button" class="ta-starter" :disabled="taBusy" @click="taInput = s">{{ s }}</button>
     </div>
-    <div v-if="!taProjectId" class="text-muted small">What do you want to do? Pick a project already in Planning, then ask for a team or press "Calculate team".</div>
+    <div v-if="!taProjectId" class="ta-hint">What do you want to do? Pick a project already in Planning, then ask for a team or press "Calculate team".</div>
   </div>
-  <div class="ta-chat" ref="taChatEl" v-if="taMessages.length">
+  <div class="ta-chat" ref="taChatEl" v-if="taMessages.length || taBusy">
     <div v-for="(m, i) in taMessages" :key="i" :class="['ta-msg', m.role === 'user' ? 'ta-msg--user' : 'ta-msg--bot']"
          v-html="renderChatText(m.content)"></div>
+    <div v-if="taBusy" class="ta-msg ta-msg--bot ta-msg--busy"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Working…</div>
   </div>
-  <div class="p-2 border-bottom d-flex gap-2 align-items-end" style="flex-shrink:0" v-if="taProjectId">
-    <textarea v-model="taInput" class="form-control form-control-sm" rows="2" :disabled="taBusy"
-      placeholder="e.g. exclude Mario and only people with oncology experience" style="resize:none"
+  <div class="ta-composer" v-if="taProjectId">
+    <textarea v-model="taInput" class="form-control form-control-sm" rows="2" :disabled="taBusy" aria-label="Message"
+      placeholder="e.g. exclude Mario and only people with oncology experience"
       @keydown.enter="e => { if (shouldSendOnEnter(e)) { e.preventDefault(); taSend(); } }"></textarea>
-    <button class="btn btn-primary btn-sm" :disabled="taBusy || !taInput.trim()" @click="taSend()">{{ taBusy ? '…' : 'Send' }}</button>
+    <button type="button" class="btn btn-primary btn-sm ta-send" :disabled="taBusy || !taInput.trim()" @click="taSend()">
+      <span v-if="taBusy" class="spinner-border spinner-border-sm" role="status" aria-label="Sending"></span><span v-else>Send</span>
+    </button>
   </div>
   <div class="ta-tables">
-    <div v-if="taError" class="alert alert-warning py-2 small">{{ taError }}</div>
+    <div v-if="taError" class="alert alert-warning alert-sm">{{ taError }}</div>
     <template v-if="taTables">
-      <div v-for="key in ['best', 'alternative', 'available']" :key="key" class="mb-4">
-        <h6 class="fw-bold">{{ tableTitle(key) }}</h6>
-        <div v-for="section in taTables[key]" :key="key + section.role" class="mb-2">
-          <div class="small fw-semibold">{{ section.role }}</div>
-          <div v-if="!section.rows.length" class="text-muted small">{{ section.note || 'Nobody.' }}</div>
-          <div v-else class="table-responsive">
-            <table class="table table-sm table-bordered ta-table mb-1">
+      <section v-for="key in ['best', 'alternative', 'available']" :key="key" class="ta-section">
+        <h3 class="ta-section-title">{{ tableTitle(key) }}</h3>
+        <div v-for="section in taTables[key]" :key="key + section.role" class="ta-role">
+          <div class="ta-role-name">{{ section.role }}</div>
+          <div v-if="!section.rows.length" class="ta-note">{{ section.note || 'Nobody.' }}</div>
+          <div v-else class="ta-table-wrap">
+            <table class="ta-table">
               <thead><tr>
                 <th>Resource</th><th>Role</th><th>Score</th><th>h on role</th><th>Tags</th><th>Similar projects</th>
                 <th>Similar tasks</th><th>Topics</th><th>Free h/wk</th><th>Current load</th><th>h on project</th><th>Rationale</th>
               </tr></thead>
               <tbody>
                 <tr v-for="row in section.rows" :key="row.resourceId">
-                  <td>{{ rowView(row).name }}<div v-if="rowView(row).flags" class="text-danger" style="font-size:.7rem">{{ rowView(row).flags }}</div></td>
+                  <td>{{ rowView(row).name }}<div v-if="rowView(row).flags" class="ta-flags">{{ rowView(row).flags }}</div></td>
                   <td>{{ rowView(row).role }}</td><td>{{ rowView(row).score }}</td><td>{{ rowView(row).roleHours }}</td>
-                  <td>{{ rowView(row).tags }}</td><td>{{ rowView(row).projects }}</td><td>{{ rowView(row).tasks }}</td>
+                  <td><span v-for="t in (row.tags || [])" :key="t.value" class="pl-pill pl-pill--muted ta-tag">{{ t.value }} ({{ Math.round(t.hours) }} h)</span><span v-if="!(row.tags || []).length">—</span></td>
+                  <td>{{ rowView(row).projects }}</td><td>{{ rowView(row).tasks }}</td>
                   <td>{{ rowView(row).topics }}</td><td>{{ rowView(row).free }}</td><td>{{ rowView(row).load }}</td>
-                  <td>{{ rowView(row).onProject }}</td><td>{{ rowView(row).rationale }}</td>
+                  <td>{{ rowView(row).onProject }}</td><td class="ta-rationale">{{ rowView(row).rationale }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
-      </div>
+      </section>
     </template>
   </div>
 </div>
 
 </div>
 </div><!-- /planningApp -->
+
+<!-- Filters panel (1024px and below): its content is teleported here by the Vue app -->
+<div class="offcanvas offcanvas-end pl-filters" tabindex="-1" id="plFiltersPanel" aria-labelledby="plFiltersTitle">
+  <div id="plFiltersBody" class="pl-filters-body"></div>
+</div>
 
 <!-- Placeholder sections (referenced by portfolio.js / costgrid.js) -->
 <div id="portfolioSection"      style="display:none"></div>
@@ -207,39 +361,13 @@
 <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
     <div class="modal-content shadow-lg">
-      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold" id="confirmModalTitle">⚠️ Confirm</h6></div>
+      <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold" id="confirmModalTitle">Confirm</h6></div>
       <div class="modal-body pt-1"><p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p></div>
       <div class="modal-footer border-0 pt-2">
         <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
         <button class="btn btn-danger" id="confirmModalOk">Confirm</button>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- JSON Viewer -->
-<div class="modal fade" id="jsonViewerModal" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:860px">
-    <div class="modal-content">
-      <div class="modal-header border-0 pb-1"><h5 class="modal-title fw-bold font-monospace" id="jsonViewerTitle">{ } JSON</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body p-0">
-        <div class="px-3 py-2 d-flex gap-2 align-items-center border-bottom" style="background:#f8f9fa">
-          <button class="btn btn-outline-secondary btn-sm" id="btnJsonCopy">📋 Copy</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btnJsonExport">⬇ Export .json</button>
-          <button class="btn btn-outline-secondary btn-sm" id="btnJsonImport">⬆ Import .json</button>
-          <span class="text-muted small ms-auto">The textarea is editable — modify and click <strong>Apply</strong>.</span>
-        </div>
-        <div class="p-3"><textarea id="jsonViewerContent" class="form-control font-monospace" style="min-height:480px;font-size:.82rem;line-height:1.5;resize:vertical" spellcheck="false" autocomplete="off"></textarea><div id="jsonViewerError" class="text-danger small mt-2 d-none"></div></div>
-      </div>
-      <div class="modal-footer border-0"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button><button class="btn btn-primary btn-sm" id="btnJsonApply">✓ Apply JSON</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Toast -->
-<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999">
-  <div id="cgAutoSaveToast" class="toast align-items-center text-bg-secondary border-0" role="alert" data-bs-delay="2000">
-    <div class="d-flex"><div class="toast-body" style="font-size:.85rem">💾 Auto-saved</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
   </div>
 </div>
 
@@ -258,13 +386,17 @@
 <script defer src="js/roles.js?v=2"></script>
 <script type="module" src="js/lib/planning-calc.js?v=5"></script>
 <script type="module" src="js/lib/planning-model-ui.js?v=1"></script>
+<script type="module" src="js/lib/planning-rows.js?v=1"></script>
 <script type="module" src="js/lib/team-assistant-ui.js?v=3"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/portfolio.js?v=2"></script>
 <script defer src="js/upload.js"></script>
 <script defer src="js/api-sync.js?v=31"></script>
-<script type="module" src="js/lib/icons.js?v=3"></script>
+<script type="module" src="js/lib/icons.js?v=4"></script>
+<script type="module" src="js/lib/dates.js?v=4"></script>
+<script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
+<script defer src="js/cg-controls.js?v=5"></script>
 <script defer src="js/nav.js?v=19"></script>
 
 <script type="module">
@@ -284,11 +416,32 @@ window.updateNavState = function () {};
 document.addEventListener('DOMContentLoaded', async () => {
   loadConfig();
 
-  // Shared markup for the "inactive owner" badge — used both inline next to a rendered owner
-  // name (with a leading space) and standalone in help-text prose (INACTIVE_BADGE_HTML). Kept
-  // as one constant so a future style tweak only needs one edit, not four.
-  const INACTIVE_BADGE_HTML = '<span style="font-size:var(--text-2xs);background:#f3f4f6;border:1px solid #d1d5db;border-radius:var(--radius-xs);padding:0 4px;color:#6b7280">inactive</span>';
-  const inactiveBadgeSuffix = isInactive => isInactive ? ' ' + INACTIVE_BADGE_HTML : '';
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  // A view computed's result when it has no grid to show; exportRows/periodMeta stay empty as before.
+  const emptyView = message => ({ state: 'empty', message, exportRows: [], periodMeta: [], rows: [], total: null, periods: [] });
+  const placeholderView = () => ({ state: 'placeholder', exportRows: [], periodMeta: [], rows: [], total: null, periods: [] });
+  const clientLabel = id => {
+    const n = id && typeof getClientName === 'function' ? getClientName(id) : '';
+    return n && n !== 'Unassigned' ? n : '';
+  };
+  const ESTIMATES_TEXT = {
+    byrole: [
+      'Rows are roles; expand a role to see the projects and tasks it covers.',
+      'Past periods show actual hours from the loaded timesheets. Current and future periods show the remaining hours (sold − consumed) spread linearly across the rest of each task.',
+      'Under 1h/week, hours are aggregated monthly (lavender, ~).',
+    ],
+    byproject: [
+      'Rows are Project → Task → Role; the owner is shown on each role.',
+      'Past periods show actuals by owner. Remaining hours are spread across the rest of the task and split among owners in proportion to their share of actuals. An owner flagged inactive gets no future share.',
+      'Under 1h/week per role, hours are aggregated monthly (lavender, ~).',
+    ],
+    byowner: [
+      'Rows are Owner → Project → Task.',
+      'Past periods show actual hours. Future periods show each owner\'s share of the remaining hours (sold − consumed), among owners not flagged inactive.',
+      'If no owner is found in the actuals, or every owner is inactive, the hours go to Unassigned (TBD).',
+      'High load = 24h a week or more, Over-allocated = 30h a week or more, on current and future periods of a person.',
+    ],
+  };
 
   const app = Vue.createApp({
     data() {
@@ -298,13 +451,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         pipelineFilters: new Set(), projectFilters: new Set(), teamFilters: new Set(),
         windowStart: null, windowEnd: null,
         monthlyPulse: true, roundHours: true,
-        returnToBurndown: false, singleProjectId: null,
+        returnToBurndown: false,
         refreshTick: 0, // bumped after an XLS upload to force a new modelRequest (refetch of the
                         // planning model) and to recompute computeds reading config.projects, a
                         // plain global not Vue-reactive on its own
         ownerStatusMap: {}, // { [ownerName]: 'active' | 'inactive' }, from POST /api/planning/model
                              // (ownerStatus of the last loaded model); used only for the inactive badges
         model: null, modelPending: false, modelError: null, modelSeq: 0, // server projection of the active view (spec §14)
+        // Grid state, kept per view and across re-fetches (ids are derived from keys, js/lib/planning-rows.js).
+        openIds: { byrole: new Set(), byproject: new Set(), byowner: new Set() },
+        openInit: { byrole: false, byproject: false, byowner: false },
+        search: { byrole: '', byproject: '', byowner: '' },
+        // rows the search forces open but the user collapsed; all three emptied whenever any search changes
+        suppressed: { byrole: new Set(), byproject: new Set(), byowner: new Set() },
+        legendOpen: false, isTablet: false, projectQuery: '', periodMenuOpen: false,
         taOpen: false, taProjectId: '', taMessages: [], taInput: '', taBusy: false, taTables: null, taParams: {}, taError: null, taRoles: [],
       };
     },
@@ -368,26 +528,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         weeks.forEach(w => {
-          w.wNum      = Math.min(5, Math.ceil(w.weekStart.getDate() / 7));
-          w.wLabel    = `W${w.wNum}`;
           w.dateTitle = `${String(w.weekStart.getDate()).padStart(2,'0')} ${monthNames[w.weekStart.getMonth()]} – ${String(w.weekEnd.getDate()).padStart(2,'0')} ${monthNames[w.weekEnd.getMonth()]}`;
           w.isPast    = w.weekEnd < todayMidnight;
           w.isCurrent = w.weekStart <= todayMidnight && w.weekEnd >= todayMidnight;
-          w.isLastOfMonth = false;
         });
-        for (let i = 0; i < weeks.length; i++) {
-          weeks[i].isLastOfMonth = (i === weeks.length - 1) || (weeks[i].monthKey !== weeks[i + 1].monthKey);
-        }
         return weeks;
       },
       atLeftLimit()  { return !this.windowStart || this.windowStart <= getPpAxis().axisStart; },
       atRightLimit() { return !this.windowEnd   || this.windowEnd   >= getPpAxis().axisEnd; },
-      atMinWidth() {
-        if (!this.windowStart || !this.windowEnd) return true;
-        const nextStart = new Date(this.windowStart.getFullYear(), this.windowStart.getMonth() + 1, 1);
-        const prevEnd   = new Date(this.windowEnd.getFullYear(),   this.windowEnd.getMonth(),       0);
-        return nextStart > prevEnd;
+      periodLabel() { return this.interval === 'weekly' ? weeklyWindowLabel(this.weeks) || this.windowLabel : this.windowLabel; },
+      isDefaultWindow() {
+        this.refreshTick;
+        if (!this.windowStart || !this.windowEnd) return false;
+        const { axisStart, axisEnd } = getPpAxis();
+        const d = defaultWindow(new Date());
+        const s = d.start < axisStart ? axisStart : d.start, e = d.end > axisEnd ? axisEnd : d.end;
+        return localYmd(s) === localYmd(this.windowStart) && localYmd(e) === localYmd(this.windowEnd);
       },
+      // <cg-date-picker mode="month"> works on 'YYYYMM'
+      fromYm() { return this.windowStart ? localYmd(this.windowStart).slice(0, 7).replace('-', '') : ''; },
+      toYm() { return this.windowEnd ? localYmd(this.windowEnd).slice(0, 7).replace('-', '') : ''; },
+      axisMinYm() { this.refreshTick; return localYmd(getPpAxis().axisStart).slice(0, 7).replace('-', ''); },
+      axisMaxYm() { this.refreshTick; return localYmd(getPpAxis().axisEnd).slice(0, 7).replace('-', ''); },
       windowLabel() {
         if (!this.windowStart || !this.windowEnd) return '...';
         const mn = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -399,185 +561,53 @@ document.addEventListener('DOMContentLoaded', async () => {
         // here, consistent with getCalendarWeeks' own month names. js/core.js itself is untouched —
         // out of scope for this cycle, since no other page calls updatePpWindowWidget with this label.
       },
+      // Options of js/lib/planning-rows.js's builders: project facts and task roles come from the
+      // configuration (the model carries neither), restricted to the projects the request sent.
+      rowOpts() {
+        this.refreshTick;
+        const known = new Map();
+        this.filteredProjects.forEach(p => known.set(p.name || p.id, p));
+        this.filteredProjects.forEach(p => known.set(p.id, p));
+        const info = p => p && ({ id: p.id, name: p.name || p.id, stage: p.pipeline || '', status: p.status || '',
+          client: clientLabel(p.clientId), start: p.startDate || '', end: p.endDate || '' });
+        const teams = this.teamFilters;
+        const teamOf = role => { const dash = role.indexOf(' - '); return dash > 0 ? role.slice(0, dash).trim() : role; };
+        return {
+          interval: this.interval, round: this.roundHours, ownerStatus: this.ownerStatusMap,
+          projectInfo: key => info(known.get(key)),
+          taskRoles: (pid, taskName) => {
+            const task = (known.get(pid)?.tasks || []).find(t => t.name === taskName);
+            return [...new Set((task?.resources || []).map(r => r.role).filter(r => r && (!teams.size || teams.has(teamOf(r)))))];
+          },
+        };
+      },
       byRoleView() {
         const weeks    = this.weeks;
-        if (!this.windowStart || !this.windowEnd || this.windowStart > this.windowEnd) {
-          return { html: '<div class="alert alert-info mb-0">No resource data found for the selected filters and date range.</div>', exportRows: [], periodMeta: [] };
-        }
-        if (this.modelPending || !this.model || this.model.view !== 'role') return { html: this.modelPlaceholderHtml(), exportRows: [], periodMeta: [] };
+        const NO_DATA = 'No resource data found for the selected filters and date range.';
+        if (!this.windowStart || !this.windowEnd || this.windowStart > this.windowEnd) return emptyView(NO_DATA);
+        if (this.modelPending || !this.model || this.model.view !== 'role') return placeholderView();
 
-        const { roleMap, roleSoldMap, roleActualsMap, roleChildMap } = adaptRoleModel(this.model.data, this.model.keyMap);
-
+        const adapted = adaptRoleModel(this.model.data, this.model.keyMap);
+        const { roleMap, roleSoldMap, roleActualsMap } = adapted;
         const roles = Object.keys(roleMap).sort();
-        const fmtPH = v => v > 0.005 ? (this.roundHours ? Math.round(v) : v.toFixed(2)) + 'h' : '';
-
-        if (!roles.length) {
-          return { html: '<div class="alert alert-info mb-0">No resource data found for the selected filters and date range.</div>', exportRows: [], periodMeta: [] };
-        }
-
-        const monthGroups = [];
-        weeks.forEach(w => {
-          const last = monthGroups[monthGroups.length - 1];
-          if (last && last.key === w.monthKey) last.count++;
-          else monthGroups.push({ key: w.monthKey, count: 1, allPast: w.isPast });
-        });
-        weeks.forEach(w => {
-          const mg = monthGroups.find(m => m.key === w.monthKey);
-          if (mg && !w.isPast) mg.allPast = false;
-        });
+        if (!roles.length) return emptyView(NO_DATA);
 
         const isMonthly = this.interval === 'monthly';
         const periods   = isMonthly ? buildMonthPeriods(weeks) : weeks;
+        const { rows, total } = buildRoleRows(adapted, periods, this.rowOpts);
 
-        let periodHeaderHtml, subHeaderHtml = '';
-        if (isMonthly) {
-          periodHeaderHtml = periods.map(p => {
-            const bg = p.isPast ? '#e9ebec' : p.isCurrent ? '#4dabf7' : 'var(--indigo-100)';
-            const fw = p.isCurrent ? 'font-weight:bold;color:#fff;' : '';
-            return `<th style="min-width:70px;text-align:center;background:${bg};font-size:var(--text-sm);padding:4px 3px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);${fw}">${p.label}</th>`;
-          }).join('');
-        } else {
-          periodHeaderHtml = monthGroups.map(mg => {
-            const bg = mg.allPast ? '#e9ebec' : 'var(--indigo-100)';
-            return `<th colspan="${mg.count}" style="text-align:center;background:${bg};font-size:var(--text-sm);padding:4px 3px;border:1px solid var(--border-light);">${mg.key}</th>`;
-          }).join('');
-          subHeaderHtml = weeks.map(w => {
-            const bg = w.isCurrent ? '#4dabf7' : w.isPast ? '#e8eaec' : '#f0f2ff';
-            const borderR = w.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)';
-            const fw = w.isCurrent ? 'font-weight:bold;color:#fff;' : '';
-            return `<th title="${w.dateTitle}" style="min-width:42px;max-width:52px;font-size:var(--text-xs);text-align:center;background:${bg};border:1px solid var(--border-light);border-right:${borderR};padding:3px 2px;white-space:nowrap;${fw}">${w.wLabel}</th>`;
-          }).join('');
-        }
-
-        const pKey = p => isMonthly ? p.key : p.weekStart.toISOString();
-        const colTotals = {}, colFutureTotals = {};
-        periods.forEach(p => { colTotals[pKey(p)] = 0; colFutureTotals[pKey(p)] = 0; });
-
-        let tbodyHtml = '';
-        roles.forEach((role, roleIdx) => {
-          const gid = `role-${roleIdx}`;
-          let rowToBePlanned = 0;
-          const cells = periods.map(p => {
-            const borderR = isMonthly ? '3px solid var(--text-muted)' : (p.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)');
-            const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()];
-            let h = 0, hFuture = 0, hasPulse = false, hasBreakdown = [];
-            keys.forEach(key => {
-              const cell = roleMap[role]?.[key];
-              if (cell) {
-                h += cell.hours;
-                if (!cell.isPast) hFuture += cell.hours;
-                if (cell.isPulse) hasPulse = true;
-                hasBreakdown.push(...(cell.breakdown || []));
-              }
-            });
-            const emptyBg = p.isPast ? '#f4f5f6' : 'transparent';
-            if (h < 0.01) return `<td style="background:${emptyBg};border:1px solid var(--border-light);border-right:${borderR}"></td>`;
-
-            colTotals[pKey(p)]       = (colTotals[pKey(p)]       || 0) + h;
-            colFutureTotals[pKey(p)] = (colFutureTotals[pKey(p)] || 0) + hFuture;
-            if (!p.isPast) rowToBePlanned += hFuture;
-            const bg = p.isPast ? '#e5e8ea' : hasPulse ? 'var(--violet-100)' : (h > 30 ? 'var(--color-danger-bg)' : h > 24 ? 'var(--color-warning-bg)' : 'white');
-            const tipLines = hasBreakdown.sort((a, b) => b.hours - a.hours)
-              .map(b => `<div><b>${esc(b.project)}</b><br><span style="padding-left:8px">${esc(b.task)}: ${b.hours.toFixed(2)}h</span></div>`)
-              .join('');
-            const tipHtml = `<div style="font-size:var(--text-xs);line-height:1.5;text-align:left">${p.isPast ? '<em style="color:#888">actual</em><br>' : hasPulse ? '<em style="color:var(--violet-400)">monthly aggregate</em><br>' : ''}${tipLines}</div>`;
-            const displayVal = hasPulse ? `<span style="font-style:italic;color:var(--violet-600)">~${fmtPH(h)}</span>`
-              : h < 1 && this.roundHours ? `<span style="color:#888;font-size:var(--text-xs)">${h.toFixed(2)}h</span>` : fmtPH(h);
-
-            return `<td data-bs-toggle="tooltip" data-bs-html="true" data-bs-title="${tipHtml.replace(/"/g,'&quot;')}" style="background:${bg};border:1px solid var(--border-light);border-right:${borderR};text-align:center;font-size:var(--text-xs);padding:2px 3px;cursor:default">${displayVal}</td>`;
-          }).join('');
-
-          const rSold    = roleSoldMap[role]    || 0;
-          const rActuals = roleActualsMap[role] || 0;
-          const soldCell = `<td style="position:sticky;left:185px;z-index:2;text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);background:var(--sand-50)">${fmtPH(rSold)}</td>`;
-          const actCell  = `<td style="position:sticky;left:250px;z-index:2;text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);background:var(--sand-50)">${fmtPH(rActuals)}</td>`;
-          const tbpCell  = `<td style="position:sticky;left:330px;z-index:2;text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);background:var(--sand-50)">${fmtPH(rowToBePlanned)}</td>`;
-
-          tbodyHtml += `
-            <tr data-group-id="${gid}">
-              <td style="position:sticky;left:0;z-index:2;background:white;font-size:var(--text-base);padding:6px 8px;font-weight:500;border:1px solid var(--border-light);white-space:nowrap"><span class="pp-toggle" style="display:inline-block;width:12px;margin-right:4px;font-size:var(--text-xs)">▶</span>${esc(role)}</td>
-              ${soldCell}${actCell}${tbpCell}${cells}
-            </tr>`;
-
-          // Drill-down: one child row per (project, task) this role covers, collapsed by default
-          // (initTooltipsAndToggles() shows/hides these together via data-parent-group, same
-          // mechanism already used by By Project/By Owner — see planning.html's own notes there).
-          const children = Object.values(roleChildMap[role] || {})
-            .sort((a, b) => (b.sold + b.actual) - (a.sold + a.actual));
-
-          children.forEach(child => {
-            const childTbp = computeResidual(child.sold, child.actual);
-            const childCells = periods.map(p => {
-              const borderR = isMonthly ? '3px solid var(--text-muted)' : (p.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)');
-              const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()];
-              const { hours: h, isPulse: hasPulse } = sumChildBreakdownHours(roleMap[role] || {}, keys, child.project, child.task);
-              const emptyBg = p.isPast ? '#f4f5f6' : 'transparent';
-              if (h < 0.01) return `<td style="background:${emptyBg};border:1px solid var(--border-light);border-right:${borderR}"></td>`;
-              const bg = p.isPast ? '#e8eaec' : hasPulse ? '#f3effe' : '#fafafa';
-              const displayVal = hasPulse ? `<span style="font-style:italic;color:var(--violet-400);font-size:var(--text-xs)">~${fmtPH(h)}</span>`
-                : h < 1 && this.roundHours ? `<span style="color:#888;font-size:var(--text-2xs)">${h.toFixed(2)}h</span>`
-                : `<span style="font-size:var(--text-xs)">${fmtPH(h)}</span>`;
-              return `<td style="background:${bg};border:1px solid var(--border-light);border-right:${borderR};text-align:center;padding:2px 3px">${displayVal}</td>`;
-            }).join('');
-
-            tbodyHtml += `
-              <tr data-parent-group="${gid}" style="background:#fafafa;display:none">
-                <td style="position:sticky;left:0;z-index:2;background:#fafafa;font-size:var(--text-xs);padding:3px 8px 3px 30px;border:1px solid var(--border-light);color:#444;white-space:nowrap">🏢 ${esc(child.project)} · 📋 ${esc(child.task)}</td>
-                <td style="position:sticky;left:185px;z-index:2;text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);background:#f5f6f7;color:#555">${fmtPH(child.sold)}</td>
-                <td style="position:sticky;left:250px;z-index:2;text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);background:#f5f6f7;color:#555">${fmtPH(child.actual)}</td>
-                <td style="position:sticky;left:330px;z-index:2;text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);background:#f5f6f7;color:#555">${fmtPH(childTbp)}</td>
-                ${childCells}
-              </tr>`;
-          });
-        });
-
-        const totalCells = periods.map(p => {
-          const t = colTotals[pKey(p)] || 0;
-          const borderR = isMonthly ? '3px solid var(--text-muted)' : (p.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)');
-          const bg = p.isPast ? '#e5e8ea' : p.isCurrent ? '#c8e6ff' : '#f0f2ff';
-          return `<td style="background:${bg};border:1px solid var(--border-light);border-right:${borderR};text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 3px">${fmtPH(t)}</td>`;
-        }).join('');
         const grandSold    = Object.values(roleSoldMap).reduce((s, v) => s + v, 0);
         const grandActuals = Object.values(roleActualsMap).reduce((s, v) => s + v, 0);
-        const grandTbp     = periods.filter(p => !p.isPast).reduce((s, p) => s + (colFutureTotals[pKey(p)] || 0), 0);
-        tbodyHtml += `
-          <tr style="background:var(--indigo-50)">
-            <td style="position:sticky;left:0;z-index:2;font-size:var(--text-base);padding:6px 8px;font-weight:bold;border:1px solid var(--border-light);border-top:3px solid var(--text-muted);background:var(--indigo-50)">Total</td>
-            <td style="position:sticky;left:185px;z-index:2;text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);border-top:3px solid var(--text-muted);background:var(--sand-400)">${fmtPH(grandSold)}</td>
-            <td style="position:sticky;left:250px;z-index:2;text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);border-top:3px solid var(--text-muted);background:var(--sand-400)">${fmtPH(grandActuals)}</td>
-            <td style="position:sticky;left:330px;z-index:2;text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);border-top:3px solid var(--text-muted);background:var(--sand-400)">${fmtPH(grandTbp)}</td>
-            ${totalCells}
-          </tr>`;
-
-        const html = `
-          <div class="alert alert-light border mb-3" style="font-size:var(--text-base);color:#444;line-height:1.7">
-            <strong>Estimation logic:</strong>
-            <strong>Past weeks</strong> (grey background) show <em>actual hours</em> from loaded timesheets.
-            <strong>Current and future weeks</strong> show <em>residual hours</em> (sold − consumed) distributed linearly across the remaining task duration.
-            When the average falls below 1h/week, hours are <strong>aggregated monthly</strong> and shown in the first week of each month —
-            these cells are displayed in <span style="background:var(--violet-100);padding:1px 5px;border-radius:var(--radius-xs);font-style:italic;color:var(--violet-600)">~italic lavender</span> with the label <em>"monthly aggregate"</em> in the tooltip.
-            <span style="background:var(--color-warning-bg);padding:1px 5px;border-radius:var(--radius-xs)">Yellow</span> = load &gt; 24h/week &nbsp;·&nbsp;
-            <span style="background:var(--color-danger-bg);padding:1px 5px;border-radius:var(--radius-xs)">Red</span> = load &gt; 30h/week (overallocation) &nbsp;·&nbsp;
-            <span style="background:#c8e6ff;padding:1px 5px;border-radius:var(--radius-xs)">Blue</span> = current week / month.
-            Expand a role row (▶) to see its breakdown by project and task.
-          </div>
-          <div class="d-flex justify-content-end gap-1 mb-2">
-            <button class="btn btn-outline-secondary pp-expand-all" style="font-size:var(--text-xs);padding:2px 8px">⊞ Expand all</button>
-            <button class="btn btn-outline-secondary pp-collapse-all" style="font-size:var(--text-xs);padding:2px 8px">⊟ Collapse all</button>
-          </div>
-          <table class="gantt-table" id="ppResourceTable" style="border-collapse:collapse;width:100%">
-            <thead>
-              <tr>
-                <th rowspan="${isMonthly ? 1 : 2}" style="position:sticky;left:0;z-index:4;min-width:185px;background:var(--sand-200);font-size:var(--text-base);padding:8px 10px;border:1px solid var(--border-light);white-space:nowrap">Role</th>
-                <th rowspan="${isMonthly ? 1 : 2}" style="position:sticky;left:185px;z-index:4;min-width:65px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">Sold</th>
-                <th rowspan="${isMonthly ? 1 : 2}" style="position:sticky;left:250px;z-index:4;min-width:80px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">From<br>actuals</th>
-                <th rowspan="${isMonthly ? 1 : 2}" title="To be planned can exceed Sold − Actuals when this row aggregates multiple items and one is over-consumed — hours over budget on one aren't subtracted from another's remaining budget." style="position:sticky;left:330px;z-index:4;min-width:90px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);text-align:center;white-space:nowrap">To be<br>planned</th>
-                ${periodHeaderHtml}
-              </tr>
-              ${isMonthly ? '' : `<tr>${subHeaderHtml}</tr>`}
-            </thead>
-            <tbody>${tbodyHtml}</tbody>
-          </table>`;
+        // The former grid's "To be planned" total: future hours of the periods that are not past,
+        // a role's period ignored when its hours are under 0.01h.
+        const grandTbp = periods.filter(p => !p.isPast).reduce((s, p) => {
+          const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()];
+          return s + roles.reduce((rs, role) => {
+            let h = 0, hFuture = 0;
+            keys.forEach(key => { const cell = roleMap[role]?.[key]; if (cell) { h += cell.hours; if (!cell.isPast) hFuture += cell.hours; } });
+            return rs + (h < 0.01 ? 0 : hFuture);
+          }, 0);
+        }, 0);
 
         const periodLabels = periods.map(p => isMonthly ? p.label : p.dateTitle);
         const periodMeta   = periods.map(p => ({ isPast: p.isPast, isCurrent: p.isCurrent ?? false }));
@@ -599,161 +629,54 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         exportRows.push({ v: ['Total', rnd(grandSold), rnd(grandActuals), rnd(grandTbp), ...totPVals], level: 'total' });
 
-        return { html, exportRows, periodMeta };
+        return { state: 'ready', exportRows, periodMeta, rows, total, periods };
       },
       byProjectView() {
         const weeks    = this.weeks;
-        if (!this.windowStart || !this.windowEnd || this.windowStart > this.windowEnd) {
-          return { html: '<div class="alert alert-info mb-0">No resource data found for the selected filters and date range.</div>', exportRows: [], periodMeta: [] };
-        }
-        if (this.modelPending || !this.model || this.model.view !== 'project') return { html: this.modelPlaceholderHtml(), exportRows: [], periodMeta: [] };
-        const projectTree = adaptProjectModel(this.model.data, this.model.keyMap).projects;
-        const fmtPH = v => v > 0.005 ? (this.roundHours ? Math.round(v) : v.toFixed(2)) + 'h' : '';
-        const fmtDate = str => {
-          if (!str) return '';
-          const mn = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-          if (str.length >= 8) return `${parseInt(str.slice(6,8))} ${mn[parseInt(str.slice(4,6))-1]} ${str.slice(0,4)}`;
-          return `${mn[parseInt(str.slice(4,6))-1]} ${str.slice(0,4)}`;
-        };
-        const dateBadge = (s, e) => {
-          const parts = [s && fmtDate(s), e && fmtDate(e)].filter(Boolean);
-          return parts.length ? ` <span style="font-size:var(--text-2xs);color:var(--text-muted);font-weight:400">${parts.join(' → ')}</span>` : '';
-        };
-
-        const SH = 'position:sticky;z-index:4;';
-        const SB = 'position:sticky;z-index:2;';
+        const NO_DATA = 'No resource data found for the selected filters and date range.';
+        if (!this.windowStart || !this.windowEnd || this.windowStart > this.windowEnd) return emptyView(NO_DATA);
+        if (this.modelPending || !this.model || this.model.view !== 'project') return placeholderView();
+        const adapted = adaptProjectModel(this.model.data, this.model.keyMap);
+        const projectTree = adapted.projects;
         const rnd = v => Math.round(v * 10) / 10;
 
         const isMonthly = this.interval === 'monthly';
         const periods   = isMonthly ? buildMonthPeriods(weeks) : weeks;
-
-        let periodHeaderHtml, subHeaderHtml = '';
-        if (isMonthly) {
-          periodHeaderHtml = periods.map(p => {
-            const bg = p.isPast ? '#e9ebec' : p.isCurrent ? '#4dabf7' : 'var(--indigo-100)';
-            const fw = p.isCurrent ? 'font-weight:bold;color:#fff;' : '';
-            return `<th style="min-width:70px;text-align:center;background:${bg};font-size:var(--text-sm);padding:4px 3px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);${fw}">${p.label}</th>`;
-          }).join('');
-        } else {
-          const monthGroups = [];
-          weeks.forEach(w => {
-            const last = monthGroups[monthGroups.length - 1];
-            if (last && last.key === w.monthKey) last.count++;
-            else monthGroups.push({ key: w.monthKey, count: 1, allPast: w.isPast });
-          });
-          weeks.forEach(w => { const mg = monthGroups.find(m => m.key === w.monthKey); if (mg && !w.isPast) mg.allPast = false; });
-          periodHeaderHtml = monthGroups.map(mg => {
-            const bg = mg.allPast ? '#e9ebec' : 'var(--indigo-100)';
-            return `<th colspan="${mg.count}" style="text-align:center;background:${bg};font-size:var(--text-sm);padding:4px 3px;border:1px solid var(--border-light);">${mg.key}</th>`;
-          }).join('');
-          subHeaderHtml = weeks.map(w => {
-            const bg = w.isCurrent ? '#4dabf7' : w.isPast ? '#e8eaec' : '#f0f2ff';
-            const borderR = w.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)';
-            const fw = w.isCurrent ? 'font-weight:bold;color:#fff;' : '';
-            return `<th title="${w.dateTitle}" style="min-width:42px;max-width:52px;font-size:var(--text-xs);text-align:center;background:${bg};border:1px solid var(--border-light);border-right:${borderR};padding:3px 2px;white-space:nowrap;${fw}">${w.wLabel}</th>`;
-          }).join('');
-        }
-
-        const makePeriodCells = (weekTotals, bgFn) => periods.map(p => {
-          const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()];
-          const h = keys.reduce((s, k) => s + (weekTotals[k] || 0), 0);
-          const borderR = isMonthly ? '3px solid var(--text-muted)' : (p.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)');
-          if (h < 0.01) return `<td style="background:${p.isPast ? '#f4f5f6' : 'transparent'};border:1px solid var(--border-light);border-right:${borderR}"></td>`;
-          return `<td style="background:${bgFn(p)};border:1px solid var(--border-light);border-right:${borderR};text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 3px">${fmtPH(h)}</td>`;
-        }).join('');
+        const { rows, total } = buildProjectRows(adapted, periods, this.rowOpts);
+        if (!rows.length) return emptyView(NO_DATA);
 
         const periodLabels = periods.map(p => isMonthly ? p.label : p.dateTitle);
         const periodMeta   = periods.map(p => ({ isPast: p.isPast, isCurrent: p.isCurrent ?? false }));
         const exportRows = [{ v: ['Project', 'Task', 'Role', 'Owner', 'Sold', 'From actuals', 'To be planned', ...periodLabels], level: 'header' }];
 
-        let tbodyHtml = '';
         let grandSold = 0, grandActuals = 0, grandTbp = 0;
         const grandWeekTotals = {};
         weeks.forEach(w => { grandWeekTotals[w.weekStart.toISOString()] = 0; });
 
         projectTree.forEach(pNode => {
-          // The server omits projects with no rows; the group index stays the project's position
-          // in filteredProjects, exactly as the old loop numbered it (skipped projects left gaps).
-          const projGroupIdx = this.filteredProjects.findIndex(p => p.id === pNode.id);
-          const proj = this.filteredProjects[projGroupIdx];
+          // The server omits projects with no rows; a project the page no longer lists is skipped.
+          const proj = this.filteredProjects.find(p => p.id === pNode.id);
           if (!proj) return;
-          const gid = `proj-${projGroupIdx}`;
           const projSold = pNode.sold, projActuals = pNode.actuals, projTbp = pNode.tbp;
           const projWeekTotals = pNode.weekTotals;
-
-          let projBodyHtml = '';
           const projExportRows = [];
 
           pNode.tasks.forEach(tNode => {
-            const task = { name: tNode.name, startDate: tNode.startDate, endDate: tNode.endDate };
-
+            const task = { name: tNode.name };
             const taskSold = tNode.sold, taskActuals = tNode.actuals, taskTbp = tNode.tbp;
             const taskWeekTotals = tNode.weekTotals;
-
-            let taskBodyHtml = '';
             const taskExportRows = [];
 
             tNode.roles.forEach(rNode => {
               const res = { role: rNode.role };
-              const soldH = rNode.sold, consumedH = rNode.consumed, roleTbp = rNode.tbp, hasOwners = rNode.hasOwners, allOwnersInactive = rNode.allOwnersInactive;
+              const soldH = rNode.sold, consumedH = rNode.consumed, roleTbp = rNode.tbp;
               const roleWeekData = rNode.weekData;
-
-              const noOwnerBadge = !hasOwners ? ' <span style="font-size:var(--text-2xs);background:var(--color-warning-bg);border:1px solid #ffc107;border-radius:var(--radius-xs);padding:0 4px;color:var(--color-warning-text)">no owner</span>' : '';
-              const roleStyle    = !hasOwners ? 'color:#dc6500;font-style:italic;' : '';
-
-              const rolePeriodCells = periods.map(p => {
-                const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()];
-                let h = 0, isPulse = false;
-                keys.forEach(key => { const d = roleWeekData[key]; if (d) { h += d.total; if (d.isPulse) isPulse = true; } });
-                const borderR = isMonthly ? '3px solid var(--text-muted)' : (p.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)');
-                if (h < 0.01) return `<td style="background:${p.isPast ? '#f4f5f6' : 'transparent'};border:1px solid var(--border-light);border-right:${borderR}"></td>`;
-                const bg = p.isPast ? '#e5e8ea' : isPulse ? 'var(--violet-100)' : (h > 30 ? 'var(--color-danger-bg)' : h > 24 ? 'var(--color-warning-bg)' : 'white');
-                const dv = isPulse ? `<span style="font-style:italic;color:var(--violet-600)">~${fmtPH(h)}</span>`
-                  : h < 1 && this.roundHours ? `<span style="color:#888;font-size:var(--text-xs)">${h.toFixed(2)}h</span>`
-                  : fmtPH(h);
-                return `<td style="background:${bg};border:1px solid var(--border-light);border-right:${borderR};text-align:center;font-size:var(--text-xs);padding:2px 3px">${dv}</td>`;
-              }).join('');
-
-              taskBodyHtml += `
-                <tr data-parent-group="${gid}">
-                  <td style="${SB}left:0;background:#fff;font-size:var(--text-sm);padding:4px 8px 4px 30px;border:1px solid var(--border-light);white-space:nowrap;font-weight:600;${roleStyle}">${esc(res.role)}${noOwnerBadge}</td>
-                  <td style="${SB}left:200px;background:var(--sand-50);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled)">${fmtPH(soldH)}</td>
-                  <td style="${SB}left:265px;background:var(--sand-50);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled)">${fmtPH(consumedH)}</td>
-                  <td style="${SB}left:345px;background:var(--sand-50);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted)">${fmtPH(roleTbp)}</td>
-                  ${rolePeriodCells}
-                </tr>`;
 
               taskExportRows.push({ v: ['', '', res.role, '', rnd(soldH), rnd(consumedH), rnd(roleTbp),
                 ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (roleWeekData[k]?.total || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'role' });
 
               rNode.owners.forEach(o => {
                 const ownerName = o.name, isPlaceholder = o.isPlaceholder, ownerActualsH = o.actuals, ownerTbpH = o.tbp;
-
-                const ownerPeriodCells = periods.map(p => {
-                  const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()];
-                  let oh = 0, isPulse = false;
-                  keys.forEach(key => { const d = roleWeekData[key]; if (d) { oh += (d.byOwner[ownerName] || 0); if (d.isPulse) isPulse = true; } });
-                  const borderR = isMonthly ? '3px solid var(--text-muted)' : (p.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)');
-                  const emptyBg = p.isPast ? '#f4f5f6' : 'transparent';
-                  if (oh < 0.01) return `<td style="background:${emptyBg};border:1px solid var(--border-light);border-right:${borderR}"></td>`;
-                  const bg = p.isPast ? '#e8eaec' : isPulse ? '#f3effe' : '#fafafa';
-                  const dv = isPulse ? `<span style="font-style:italic;color:var(--violet-400);font-size:var(--text-xs)">~${fmtPH(oh)}</span>`
-                    : oh < 1 && this.roundHours ? `<span style="color:#888;font-size:var(--text-2xs)">${oh.toFixed(2)}h</span>`
-                    : `<span style="font-size:var(--text-xs)">${fmtPH(oh)}</span>`;
-                  return `<td style="background:${bg};border:1px solid var(--border-light);border-right:${borderR};text-align:center;padding:2px 3px">${dv}</td>`;
-                }).join('');
-
-                const inactiveBadge = inactiveBadgeSuffix(!isPlaceholder && this.ownerStatusMap[ownerName] === 'inactive');
-                const ownerLabel = isPlaceholder ? '<span style="color:#aaa;font-style:italic">TBD</span>' : esc(ownerName) + inactiveBadge;
-                taskBodyHtml += `
-                  <tr data-parent-group="${gid}" style="background:#fafafa">
-                    <td style="${SB}left:0;background:#fafafa;font-size:var(--text-xs);padding:3px 8px 3px 52px;border:1px solid var(--border-light);color:#444;white-space:nowrap">${ownerLabel}</td>
-                    <td style="${SB}left:200px;background:#f5f6f7;text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);color:#aaa">—</td>
-                    <td style="${SB}left:265px;background:#f5f6f7;text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);color:#555">${fmtPH(ownerActualsH)}</td>
-                    <td style="${SB}left:345px;background:#f5f6f7;text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);color:#555">${fmtPH(ownerTbpH)}</td>
-                    ${ownerPeriodCells}
-                  </tr>`;
-
                 const ownerExportName = isPlaceholder ? 'TBD' : (ownerName + (this.ownerStatusMap[ownerName] === 'inactive' ? ' (inactive)' : ''));
                 taskExportRows.push({ v: ['', '', res.role, ownerExportName, '', rnd(ownerActualsH), rnd(ownerTbpH),
                   ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const oh = keys.reduce((s, k) => s + ((roleWeekData[k]?.byOwner[ownerName]) || 0), 0); return oh > 0.01 ? rnd(oh) : ''; })], level: 'owner' });
@@ -765,16 +688,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (taskWeekTotals[k] || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'task' },
               ...taskExportRows
             );
-
-            projBodyHtml += `
-              <tr data-parent-group="${gid}" style="background:#e8ecff;border-top:2px solid #8899dd">
-                <td style="${SB}left:0;background:#e8ecff;font-size:var(--text-sm);padding:5px 8px 5px 18px;font-weight:600;border:1px solid var(--border-light);border-left:3px solid #8899dd;white-space:nowrap">📋 ${esc(task.name)}${dateBadge(task.startDate, task.endDate)}</td>
-                <td style="${SB}left:200px;background:var(--sand-200);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled)">${fmtPH(taskSold)}</td>
-                <td style="${SB}left:265px;background:var(--sand-200);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled)">${fmtPH(taskActuals)}</td>
-                <td style="${SB}left:345px;background:var(--sand-200);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted)">${fmtPH(taskTbp)}</td>
-                ${makePeriodCells(taskWeekTotals, p => p.isPast ? '#e5e8ea' : p.isCurrent ? '#c8e6ff' : '#f0f2ff')}
-              </tr>
-              ${taskBodyHtml}`;
           });
 
           grandSold    += projSold;
@@ -782,156 +695,42 @@ document.addEventListener('DOMContentLoaded', async () => {
           grandTbp     += projTbp;
           Object.entries(projWeekTotals).forEach(([key, h]) => { grandWeekTotals[key] = (grandWeekTotals[key] || 0) + h; });
 
-          const pipeBadge = proj.pipeline ? ' ' + pipelineBadge(proj.pipeline) : '';
-          const statBadge = proj.status  ? ' ' + statusBadge(proj.status)     : '';
-
           exportRows.push(
             { v: [proj.name || proj.id, '', '', '', rnd(projSold), rnd(projActuals), rnd(projTbp),
               ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (projWeekTotals[k] || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'project' },
             ...projExportRows
           );
-
-          tbodyHtml += `
-            <tr data-group-id="${gid}" style="background:var(--indigo-300);border-top:3px solid var(--indigo-500);border-bottom:1px solid var(--indigo-500)">
-              <td style="${SB}left:0;background:var(--indigo-300);font-size:var(--text-base);padding:7px 8px 7px 10px;font-weight:700;border:1px solid var(--border-light);border-left:4px solid var(--indigo-500);white-space:nowrap"><span class="pp-toggle" style="display:inline-block;width:12px;margin-right:4px;font-size:var(--text-xs)">▼</span>🏢 ${esc(proj.name || proj.id)}${pipeBadge}${statBadge}${dateBadge(proj.startDate, proj.endDate)}</td>
-              <td style="${SB}left:200px;background:var(--sand-300);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled)">${fmtPH(projSold)}</td>
-              <td style="${SB}left:265px;background:var(--sand-300);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled)">${fmtPH(projActuals)}</td>
-              <td style="${SB}left:345px;background:var(--sand-300);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted)">${fmtPH(projTbp)}</td>
-              ${makePeriodCells(projWeekTotals, p => p.isPast ? '#bec3c8' : p.isCurrent ? '#90c8f0' : '#c8d0f5')}
-            </tr>
-            ${projBodyHtml}`;
         });
-
-        if (!tbodyHtml) {
-          return { html: '<div class="alert alert-info mb-0">No resource data found for the selected filters and date range.</div>', exportRows: [], periodMeta: [] };
-        }
-
-        tbodyHtml += `
-          <tr style="background:var(--indigo-50);border-top:3px solid var(--text-muted)">
-            <td style="${SB}left:0;background:var(--indigo-50);font-size:var(--text-base);padding:6px 8px;font-weight:bold;border:1px solid var(--border-light);border-top:3px solid var(--text-muted)">Total</td>
-            <td style="${SB}left:200px;background:var(--sand-400);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);border-top:3px solid var(--text-muted)">${fmtPH(grandSold)}</td>
-            <td style="${SB}left:265px;background:var(--sand-400);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);border-top:3px solid var(--text-muted)">${fmtPH(grandActuals)}</td>
-            <td style="${SB}left:345px;background:var(--sand-400);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);border-top:3px solid var(--text-muted)">${fmtPH(grandTbp)}</td>
-            ${makePeriodCells(grandWeekTotals, p => p.isPast ? '#e5e8ea' : p.isCurrent ? '#c8e6ff' : '#f0f2ff')}
-          </tr>`;
 
         exportRows.push(
           { v: ['Total', '', '', '', rnd(grandSold), rnd(grandActuals), rnd(grandTbp),
             ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (grandWeekTotals[k] || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'total' }
         );
 
-        const rowspan = isMonthly ? '1' : '2';
-        const html = `
-          <div class="alert alert-light border mb-3" style="font-size:var(--text-base);color:#444;line-height:1.7">
-            <strong>Estimation logic (By Project):</strong>
-            The table is structured as <strong>Project → Task → Role → Owner</strong>.
-            <strong>Past weeks</strong> (grey) show <em>actual hours</em> from timesheets, broken down by owner.
-            <strong>Current and future weeks</strong> show <em>residual hours</em> (sold − consumed) distributed linearly across the remaining task duration,
-            then split among owners <em>proportionally to their share of actuals</em> — an owner flagged ${INACTIVE_BADGE_HTML} no longer receives a future share; their past actuals are unaffected.
-            When residual falls below 1h/week per role, hours are <strong>aggregated monthly</strong> —
-            shown in <span style="background:var(--violet-100);padding:1px 5px;border-radius:var(--radius-xs);font-style:italic;color:var(--violet-600)">~italic lavender</span>.
-            <span style="background:#c8e6ff;padding:1px 5px;border-radius:var(--radius-xs)">Blue</span> = current week / month.
-          </div>
-          <div class="d-flex justify-content-end gap-1 mb-2">
-            <button class="btn btn-outline-secondary pp-expand-all" style="font-size:var(--text-xs);padding:2px 8px">⊞ Expand all</button>
-            <button class="btn btn-outline-secondary pp-collapse-all" style="font-size:var(--text-xs);padding:2px 8px">⊟ Collapse all</button>
-          </div>
-          <table class="gantt-table" id="ppResourceTable" style="border-collapse:collapse;width:100%">
-            <thead>
-              <tr>
-                <th rowspan="${rowspan}" style="${SH}left:0;min-width:200px;background:#d8dff7;font-size:var(--text-base);padding:8px 10px;border:1px solid var(--border-light);white-space:nowrap">Project / Task / Role / Owner</th>
-                <th rowspan="${rowspan}" style="${SH}left:200px;min-width:65px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">Sold</th>
-                <th rowspan="${rowspan}" style="${SH}left:265px;min-width:80px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">From<br>actuals</th>
-                <th rowspan="${rowspan}" title="To be planned can exceed Sold − Actuals when this row aggregates multiple items and one is over-consumed — hours over budget on one aren't subtracted from another's remaining budget." style="${SH}left:345px;min-width:90px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);text-align:center;white-space:nowrap">To be<br>planned</th>
-                ${periodHeaderHtml}
-              </tr>
-              ${isMonthly ? '' : `<tr>${subHeaderHtml}</tr>`}
-            </thead>
-            <tbody>${tbodyHtml}</tbody>
-          </table>`;
-
-        return { html, exportRows, periodMeta };
+        return { state: 'ready', exportRows, periodMeta, rows, total, periods };
       },
       byOwnerView() {
         const weeks    = this.weeks;
-        if (!this.windowStart || !this.windowEnd || this.windowStart > this.windowEnd) {
-          return { html: '<div class="alert alert-info mb-0">No owner data found for the selected filters.</div>', exportRows: [], periodMeta: [] };
-        }
-        if (this.modelPending || !this.model || this.model.view !== 'owner') return { html: this.modelPlaceholderHtml(), exportRows: [], periodMeta: [] };
-        const fmtPH = v => v > 0.005 ? (this.roundHours ? Math.round(v) : v.toFixed(2)) + 'h' : '';
+        const NO_DATA = 'No owner data found for the selected filters.';
+        if (!this.windowStart || !this.windowEnd || this.windowStart > this.windowEnd) return emptyView(NO_DATA);
+        if (this.modelPending || !this.model || this.model.view !== 'owner') return placeholderView();
         const rnd   = v => Math.round(v * 10) / 10;
-        const SH = 'position:sticky;z-index:4;';
-        const SB = 'position:sticky;z-index:2;';
 
         const isMonthly = this.interval === 'monthly';
         const periods   = isMonthly ? buildMonthPeriods(weeks) : weeks;
 
-        let periodHeaderHtml, subHeaderHtml = '';
-        if (isMonthly) {
-          periodHeaderHtml = periods.map(p => {
-            const bg = p.isPast ? '#e9ebec' : p.isCurrent ? '#4dabf7' : 'var(--indigo-100)';
-            const fw = p.isCurrent ? 'font-weight:bold;color:#fff;' : '';
-            return `<th style="min-width:70px;text-align:center;background:${bg};font-size:var(--text-sm);padding:4px 3px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);${fw}">${p.label}</th>`;
-          }).join('');
-        } else {
-          const monthGroups = [];
-          weeks.forEach(w => {
-            const last = monthGroups[monthGroups.length - 1];
-            if (last && last.key === w.monthKey) last.count++;
-            else monthGroups.push({ key: w.monthKey, count: 1, allPast: w.isPast });
-          });
-          weeks.forEach(w => { const mg = monthGroups.find(m => m.key === w.monthKey); if (mg && !w.isPast) mg.allPast = false; });
-          periodHeaderHtml = monthGroups.map(mg => {
-            const bg = mg.allPast ? '#e9ebec' : 'var(--indigo-100)';
-            return `<th colspan="${mg.count}" style="text-align:center;background:${bg};font-size:var(--text-sm);padding:4px 3px;border:1px solid var(--border-light);">${mg.key}</th>`;
-          }).join('');
-          subHeaderHtml = weeks.map(w => {
-            const bg = w.isCurrent ? '#4dabf7' : w.isPast ? '#e8eaec' : '#f0f2ff';
-            const borderR = w.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)';
-            return `<th title="${w.dateTitle}" style="min-width:42px;max-width:52px;font-size:var(--text-xs);text-align:center;background:${bg};border:1px solid var(--border-light);border-right:${borderR};padding:3px 2px;white-space:nowrap;${w.isCurrent ? 'font-weight:bold;color:#fff;' : ''}">${w.wLabel}</th>`;
-          }).join('');
-        }
-
         const ownerMap = adaptOwnerModel(this.model.data, this.model.keyMap);
-
-        if (Object.keys(ownerMap).length === 0) {
-          return { html: '<div class="alert alert-info mb-0">No owner data found for the selected filters.</div>', exportRows: [], periodMeta: [] };
-        }
-
-        const makePeriodCells = (weekDataMap, bgFn, small = false) => periods.map(p => {
-          const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()];
-          let h = 0, isPulse = false;
-          keys.forEach(key => { const d = weekDataMap[key]; if (d) { h += d.hours; if (d.isPulse) isPulse = true; } });
-          const borderR = isMonthly ? '3px solid var(--text-muted)' : (p.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)');
-          if (h < 0.01) return `<td style="background:${p.isPast ? '#f4f5f6' : 'transparent'};border:1px solid var(--border-light);border-right:${borderR}"></td>`;
-          const bg = bgFn ? bgFn(p, h, isPulse) : (p.isPast ? (small ? '#e8eaec' : '#e5e8ea') : isPulse ? (small ? '#f3effe' : 'var(--violet-100)') : p.isCurrent ? '#c8e6ff' : small ? '#fafafa' : 'white');
-          const dv = isPulse
-            ? `<span style="font-style:italic;color:${small ? 'var(--violet-400)' : 'var(--violet-600)'};font-size:${small ? '.7rem' : '.75rem'}">~${fmtPH(h)}</span>`
-            : (h < 1 && this.roundHours ? `<span style="color:#888;font-size:var(--text-2xs)">${h.toFixed(2)}h</span>` : `<span style="font-size:${small ? '.72rem' : '.75rem'}">${fmtPH(h)}</span>`);
-          return `<td style="background:${bg};border:1px solid var(--border-light);border-right:${borderR};text-align:center;padding:2px 3px">${dv}</td>`;
-        }).join('');
-
-        const makeGrandCells = weekTotals => periods.map(p => {
-          const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()];
-          const h = keys.reduce((s, k) => s + (weekTotals[k] || 0), 0);
-          const borderR = isMonthly ? '3px solid var(--text-muted)' : (p.isLastOfMonth ? '3px solid var(--text-muted)' : '1px solid var(--border-light)');
-          if (h < 0.01) return `<td style="background:${p.isPast ? '#f4f5f6' : 'transparent'};border:1px solid var(--border-light);border-right:${borderR}"></td>`;
-          const bg = p.isPast ? '#e5e8ea' : p.isCurrent ? '#c8e6ff' : '#f0f2ff';
-          return `<td style="background:${bg};border:1px solid var(--border-light);border-right:${borderR};text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 3px">${fmtPH(h)}</td>`;
-        }).join('');
+        if (Object.keys(ownerMap).length === 0) return emptyView(NO_DATA);
+        const { rows, total } = buildOwnerRows(ownerMap, periods, this.rowOpts);
 
         const periodLabels = periods.map(p => isMonthly ? p.label : p.dateTitle);
         const periodMeta   = periods.map(p => ({ isPast: p.isPast, isCurrent: p.isCurrent ?? false }));
         const exportRows = [{ v: ['Owner', 'Project', 'Task', 'Sold', 'From actuals', 'To be planned', ...periodLabels], level: 'header' }];
-        let tbodyHtml = '';
-        let ownerGroupIdx = 0;
         let grandSold = 0, grandActuals = 0, grandTbp = 0;
         const grandWeekTotals = {};
 
         Object.entries(ownerMap).sort((a, b) => a[0].localeCompare(b[0])).forEach(([ownerName, om]) => {
-          const oid = `owner-${ownerGroupIdx++}`;
           const isPlaceholder = ownerName === '—';
-          const inactiveBadge = inactiveBadgeSuffix(!isPlaceholder && this.ownerStatusMap[ownerName] === 'inactive');
           const displayName = isPlaceholder ? 'TBD' : ownerName;
           grandSold += om.sold; grandActuals += om.actuals; grandTbp += om.tbp;
 
@@ -940,97 +739,62 @@ document.addEventListener('DOMContentLoaded', async () => {
             grandWeekTotals[key] = (grandWeekTotals[key] || 0) + (om.weekTotals[key]?.hours || 0);
           });
 
-          tbodyHtml += `
-            <tr data-group-id="${oid}" style="background:var(--indigo-300);border-top:3px solid var(--indigo-500);border-bottom:1px solid var(--indigo-500)">
-              <td style="${SB}left:0;background:var(--indigo-300);font-size:var(--text-md);padding:7px 8px 7px 10px;font-weight:700;border:1px solid var(--border-light);border-left:4px solid var(--indigo-500);white-space:nowrap"><span class="pp-toggle" style="display:inline-block;width:12px;margin-right:4px;font-size:var(--text-xs)">▼</span>👤 ${esc(displayName)}${inactiveBadge}</td>
-              <td style="${SB}left:200px;background:var(--sand-300);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled)">${fmtPH(om.sold)}</td>
-              <td style="${SB}left:265px;background:var(--sand-300);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled)">${fmtPH(om.actuals)}</td>
-              <td style="${SB}left:345px;background:var(--sand-300);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted)">${fmtPH(om.tbp)}</td>
-              ${makePeriodCells(om.weekTotals, null)}
-            </tr>`;
           const ownerExportDisplayName = displayName + (!isPlaceholder && this.ownerStatusMap[ownerName] === 'inactive' ? ' (inactive)' : '');
           exportRows.push({ v: [ownerExportDisplayName, '', '', rnd(om.sold), rnd(om.actuals), rnd(om.tbp),
             ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (om.weekTotals[k]?.hours || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'project' });
 
           Object.entries(om.projects).sort((a, b) => a[1].name.localeCompare(b[1].name)).forEach(([projId, pm]) => {
-            const projCfg = (config.projects || []).find(p => p.id === projId);
-            const pmPipe  = projCfg ? pipelineBadge(projCfg.pipeline) : '';
-            const pmStat  = projCfg ? statusBadge(projCfg.status)     : '';
-            tbodyHtml += `
-              <tr data-parent-group="${oid}" style="background:#e8ecff;border-top:2px solid #8899dd">
-                <td style="${SB}left:0;background:#e8ecff;font-size:var(--text-sm);padding:5px 8px 5px 22px;font-weight:600;border:1px solid var(--border-light);border-left:3px solid #8899dd;white-space:nowrap">🏢 ${esc(pm.name)} ${pmPipe} ${pmStat}</td>
-                <td style="${SB}left:200px;background:var(--sand-200);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled)">${fmtPH(pm.sold)}</td>
-                <td style="${SB}left:265px;background:var(--sand-200);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled)">${fmtPH(pm.actuals)}</td>
-                <td style="${SB}left:345px;background:var(--sand-200);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted)">${fmtPH(pm.tbp)}</td>
-                ${makePeriodCells(pm.weekTotals, null)}
-              </tr>`;
             exportRows.push({ v: ['', pm.name, '', rnd(pm.sold), rnd(pm.actuals), rnd(pm.tbp),
               ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (pm.weekTotals[k]?.hours || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'task' });
 
             Object.entries(pm.tasks).sort((a, b) => a[0].localeCompare(b[0])).forEach(([taskName, tm]) => {
-              tbodyHtml += `
-                <tr data-parent-group="${oid}" style="background:#fafafa">
-                  <td style="${SB}left:0;background:#fafafa;font-size:var(--text-sm);padding:4px 8px 4px 38px;font-weight:600;border:1px solid var(--border-light);white-space:nowrap;color:#444">${esc(taskName)}</td>
-                  <td style="${SB}left:200px;background:var(--sand-50);text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);color:var(--text-muted)">${fmtPH(tm.sold)}</td>
-                  <td style="${SB}left:265px;background:var(--sand-50);text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);color:#555">${fmtPH(tm.actuals)}</td>
-                  <td style="${SB}left:345px;background:var(--sand-50);text-align:center;font-size:var(--text-xs);padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);color:#555">${fmtPH(tm.tbp)}</td>
-                  ${makePeriodCells(tm.weekData, null, true)}
-                </tr>`;
               exportRows.push({ v: ['', '', taskName, rnd(tm.sold), rnd(tm.actuals), rnd(tm.tbp),
                 ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (tm.weekData[k]?.hours || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'role' });
             });
           });
         });
 
-        tbodyHtml += `
-          <tr style="background:var(--indigo-50);border-top:3px solid var(--text-muted)">
-            <td style="${SB}left:0;background:var(--indigo-50);font-size:var(--text-base);padding:6px 8px;font-weight:bold;border:1px solid var(--border-light);border-top:3px solid var(--text-muted)">Total</td>
-            <td style="${SB}left:200px;background:var(--sand-400);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);border-top:3px solid var(--text-muted)">${fmtPH(grandSold)}</td>
-            <td style="${SB}left:265px;background:var(--sand-400);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);border-top:3px solid var(--text-muted)">${fmtPH(grandActuals)}</td>
-            <td style="${SB}left:345px;background:var(--sand-400);text-align:center;font-size:var(--text-xs);font-weight:bold;padding:2px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);border-top:3px solid var(--text-muted)">${fmtPH(grandTbp)}</td>
-            ${makeGrandCells(grandWeekTotals)}
-          </tr>`;
-
         exportRows.push({ v: ['Total', '', '', rnd(grandSold), rnd(grandActuals), rnd(grandTbp),
           ...periods.map(p => { const keys = isMonthly ? p.weekKeys : [p.weekStart.toISOString()]; const h = keys.reduce((s, k) => s + (grandWeekTotals[k] || 0), 0); return h > 0.01 ? rnd(h) : ''; })], level: 'total' });
 
-        const rowspan = isMonthly ? '1' : '2';
-        const html = `
-          <div class="alert alert-light border mb-3" style="font-size:var(--text-base);color:#444;line-height:1.7">
-            <strong>Estimation logic (By Owner):</strong>
-            The table is structured as <strong>Owner → Project → Task</strong>.
-            <strong>Past weeks</strong> show <em>actual</em> hours from timesheets.
-            <strong>Future weeks</strong> show each owner's proportional share of remaining hours (sold − consumed), among owners who are not flagged ${INACTIVE_BADGE_HTML}.
-            If no owner is found in the actuals, or every owner is inactive, hours are assigned to a <em>TBD</em> placeholder.
-          </div>
-          <div class="d-flex justify-content-end gap-1 mb-2">
-            <button class="btn btn-outline-secondary pp-expand-all" style="font-size:var(--text-xs);padding:2px 8px">⊞ Expand all</button>
-            <button class="btn btn-outline-secondary pp-collapse-all" style="font-size:var(--text-xs);padding:2px 8px">⊟ Collapse all</button>
-          </div>
-          <table class="gantt-table" id="ppResourceTable" style="border-collapse:collapse;width:100%">
-            <thead>
-              <tr>
-                <th rowspan="${rowspan}" style="${SH}left:0;min-width:200px;background:#d8dff7;font-size:var(--text-base);padding:8px 10px;border:1px solid var(--border-light);white-space:nowrap">Owner / Project / Task</th>
-                <th rowspan="${rowspan}" style="${SH}left:200px;min-width:65px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">Sold</th>
-                <th rowspan="${rowspan}" style="${SH}left:265px;min-width:80px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:2px solid var(--text-disabled);text-align:center;white-space:nowrap">From<br>actuals</th>
-                <th rowspan="${rowspan}" title="To be planned can exceed Sold − Actuals when this row aggregates multiple items and one is over-consumed — hours over budget on one aren't subtracted from another's remaining budget." style="${SH}left:345px;min-width:90px;background:var(--sand-200);font-size:var(--text-base);padding:8px 6px;border:1px solid var(--border-light);border-right:3px solid var(--text-muted);text-align:center;white-space:nowrap">To be<br>planned</th>
-                ${periodHeaderHtml}
-              </tr>
-              ${isMonthly ? '' : `<tr>${subHeaderHtml}</tr>`}
-            </thead>
-            <tbody>${tbodyHtml}</tbody>
-          </table>`;
-
-        return { html, exportRows, periodMeta };
+        return { state: 'ready', exportRows, periodMeta, rows, total, periods };
       },
-      activeViewHtml() {
-        if (this.view === 'byrole') return this.byRoleView.html;
-        if (this.view === 'byproject') return this.byProjectView.html;
-        return this.byOwnerView.html;
+      activeRows() {
+        if (this.view === 'byrole') return this.byRoleView;
+        if (this.view === 'byproject') return this.byProjectView;
+        return this.byOwnerView;
       },
+      parentIds() { return new Set(this.activeRows.rows.map(r => r.parentId).filter(Boolean)); },
+      rawSearchFilter() { return filterRows(this.activeRows.rows, this.search[this.view]); },
+      searchFilter() { return effectiveFilter(this.rawSearchFilter, this.suppressed[this.view]); },
+      displayRows() {
+        const { rows } = this.activeRows;
+        return rows.length ? visibleRows(rows, this.openIds[this.view], this.searchFilter) : [];
+      },
+      planningSubtitle() {
+        let s = `Hours by role, project or owner · ${this.filteredProjects.length} of ${this.eligibleProjects.length} projects`;
+        const r = this.activeRows;
+        if (!this.modelPending && !this.modelError && r.state === 'ready') s += ` · ${this.fmtNum(r.total.toPlan)} to plan`;
+        return s;
+      },
+      // the badge of the tablet "Filters" button: every filter or switch away from its default
+      activeFilterCount() {
+        return [this.pipelineFilters.size > 0, this.projectFilters.size > 0, this.teamFilters.size > 0,
+          !this.monthlyPulse, !this.roundHours, !!this.search[this.view].trim()].filter(Boolean).length;
+      },
+      searchPlaceholder() { return { byrole: 'Search role…', byproject: 'Search project or task…', byowner: 'Search person…' }[this.view]; },
+      // the Projects popover's own search, local to the list (does not filter the grid)
+      projectOptions() {
+        const q = this.projectQuery.trim().toLowerCase();
+        if (!q) return this.eligibleProjects;
+        return this.eligibleProjects.filter(p => `${p.name || p.id}\n${this.projectClient(p)}`.toLowerCase().includes(q));
+      },
+      labelHeader() { return { byrole: 'Role', byproject: 'Project / Task / Role', byowner: 'Owner / Project / Task' }[this.view]; },
+      viewName() { return { byrole: 'By role', byproject: 'By project', byowner: 'By owner' }[this.view]; },
+      estimatesText() { return ESTIMATES_TEXT[this.view]; },
     },
     methods: {
-      esc, fmtProjectTitle,
+      esc,
       // Vue 3 templates do not see arbitrary window globals: thin wrappers for the template.
       renderChatText(t) { return window.renderChatText(t); },
       shouldSendOnEnter(e) { return window.shouldSendOnEnter(e); },
@@ -1116,28 +880,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       initWindowIfNeeded() {
         if (this.windowStart && this.windowEnd) { this.clampWindow(); return; }
-        const now = new Date();
-        this.windowStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        this.windowEnd   = new Date(now.getFullYear(), now.getMonth() + 4, 0);
+        this.setWindow(defaultWindow(new Date()));
+      },
+      // ── Period selector ──
+      setWindow({ start, end }) {
+        this.windowStart = start; this.windowEnd = end;
         this.clampWindow();
       },
-      expandLeft() {
-        const { axisStart } = getPpAxis();
-        const ns = new Date(this.windowStart.getFullYear(), this.windowStart.getMonth() - 1, 1);
-        this.windowStart = ns < axisStart ? new Date(axisStart.getFullYear(), axisStart.getMonth(), 1) : ns;
+      shiftPeriod(delta) { this.setWindow(shiftWindow({ start: this.windowStart, end: this.windowEnd }, delta, getPpAxis())); },
+      applyPreset(months) { this.setWindow(presetWindow(months, new Date())); },
+      applyWholeRange() { const { axisStart, axisEnd } = getPpAxis(); this.setWindow({ start: new Date(axisStart), end: new Date(axisEnd) }); },
+      goToday() { this.setWindow(defaultWindow(new Date())); },
+      setFrom(ym) {
+        if (!ym) return;
+        const start = new Date(+ym.slice(0, 4), +ym.slice(4, 6) - 1, 1);
+        const end = this.windowEnd && this.windowEnd >= start ? this.windowEnd : new Date(start.getFullYear(), start.getMonth() + 1, 0);
+        this.setWindow({ start, end });
       },
-      shrinkLeft() {
-        const ns = new Date(this.windowStart.getFullYear(), this.windowStart.getMonth() + 1, 1);
-        if (ns <= this.windowEnd) this.windowStart = ns;
-      },
-      expandRight() {
-        const { axisEnd } = getPpAxis();
-        const ne = new Date(this.windowEnd.getFullYear(), this.windowEnd.getMonth() + 2, 0);
-        this.windowEnd = ne > axisEnd ? new Date(axisEnd.getFullYear(), axisEnd.getMonth() + 1, 0) : ne;
-      },
-      shrinkRight() {
-        const ne = new Date(this.windowEnd.getFullYear(), this.windowEnd.getMonth(), 0);
-        if (ne >= this.windowStart) this.windowEnd = ne;
+      setTo(ym) {
+        if (!ym) return;
+        const end = new Date(+ym.slice(0, 4), +ym.slice(4, 6), 0);
+        const start = this.windowStart && this.windowStart <= end ? this.windowStart : new Date(end.getFullYear(), end.getMonth(), 1);
+        this.setWindow({ start, end });
       },
       bumpRefresh() { this.refreshTick++; },
       async loadModel() {
@@ -1253,51 +1017,90 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(url);
       },
-      initTooltipsAndToggles() {
-        const container = this.$refs.planningContainer;
-        if (!container) return;
-        container.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
-          bootstrap.Tooltip.getInstance(el)?.dispose();
-          new bootstrap.Tooltip(el, { trigger: 'hover', placement: 'top', customClass: 'pp-tooltip' });
-        });
-        // Group expand/collapse (By Project/By Owner views, added in Tasks 4-5) — ported
-        // verbatim from setupGroupToggle (js/planning.js:1539-1558).
-        // v-html can leave the same DOM nodes in place across re-renders (when the underlying
-        // computed string hasn't changed), so this method can run more than once against the
-        // same elements. A `data-pp-bound` marker guards every addEventListener call below so
-        // listeners never stack up (each element is bound at most once).
-        const groups = new Map();
-        container.querySelectorAll('tr[data-group-id]').forEach(hRow => {
-          const gid = hRow.dataset.groupId;
-          const childRows = [...container.querySelectorAll(`tr[data-parent-group="${gid}"]`)];
-          // Seed from the child rows' own current display state rather than hardcoding false —
-          // By Project/By Owner's rows carry no inline display (start expanded, collapsed:false
-          // is correct there); By Role's drill-down rows start with display:none in their own
-          // template (collapsed by default per that view's own design), so this must read the
-          // real DOM state or the first click after any re-render would be a no-op toggle.
-          const startsCollapsed = childRows.length > 0 && childRows[0].style.display === 'none';
-          groups.set(gid, { hRow, childRows, collapsed: startsCollapsed });
-          hRow.style.cursor = 'pointer';
-          if (hRow.dataset.ppBound) return;
-          hRow.dataset.ppBound = '1';
-          hRow.addEventListener('click', () => {
-            const g = groups.get(gid);
-            g.collapsed = !g.collapsed;
-            g.childRows.forEach(r => r.style.display = g.collapsed ? 'none' : '');
-            const btn = hRow.querySelector('.pp-toggle');
-            if (btn) btn.textContent = g.collapsed ? '▶' : '▼';
-          });
-        });
-        const expandAll   = container.querySelector('.pp-expand-all');
-        const collapseAll = container.querySelector('.pp-collapse-all');
-        if (expandAll && !expandAll.dataset.ppBound) {
-          expandAll.dataset.ppBound = '1';
-          expandAll.addEventListener('click', e => { e.stopPropagation(); groups.forEach(g => { g.collapsed = false; g.childRows.forEach(r => r.style.display = '');     const b = g.hRow.querySelector('.pp-toggle'); if (b) b.textContent = '▼'; }); });
+      // ── Grid ──
+      isOpen(id) {
+        const f = this.searchFilter;
+        return !(f.closedIds && f.closedIds.has(id)) && (this.openIds[this.view].has(id) || f.forcedOpenIds.has(id));
+      },
+      hasChildren(r) { return this.parentIds.has(r.id); },
+      toggleRow(id) {
+        toggleRowState(id, { open: this.openIds[this.view], suppressed: this.suppressed[this.view], forced: this.rawSearchFilter.forcedOpenIds });
+      },
+      expandAll() {
+        const open = this.openIds[this.view];
+        this.parentIds.forEach(id => open.add(id));
+        this.suppressed[this.view].clear();
+      },
+      collapseAll() {
+        this.openIds[this.view].clear();
+        // during a search, the rows it forces open close too (until the search changes)
+        this.rawSearchFilter.forcedOpenIds.forEach(id => this.suppressed[this.view].add(id));
+      },
+      // First build of a view: By role closed; By project projects open; By owner people and projects open.
+      initOpenIds(view, rows) {
+        if (this.openInit[view]) return;
+        this.openInit[view] = true;
+        const maxDepth = view === 'byproject' ? 0 : view === 'byowner' ? 1 : -1;
+        const parents = new Set(rows.map(r => r.parentId).filter(Boolean));
+        rows.forEach(r => { if (r.depth <= maxDepth && parents.has(r.id)) this.openIds[view].add(r.id); });
+      },
+      projectClient(p) { return clientLabel(p.clientId); },
+      stagePill(v) { return headerBadge('stage', v); },
+      statusPill(v) { return headerBadge('status', v); },
+      fmtNum(v) { return (this.roundHours ? Math.round(v || 0) : (v || 0).toFixed(2)) + 'h'; },
+      fmtActuals(v) { return v > 0.005 ? this.fmtNum(v) : '—'; },
+      cellText(c) { return formatCell(c.h, { pulse: !!c.pulse, round: this.roundHours }); },
+      cellClass(c) {
+        const shown = c.h > 0.005;
+        return {
+          'pl-cell--past': c.past,
+          'pl-cell--current': c.current && !(shown && (c.pulse || c.load)),
+          'pl-cell--pulse': shown && c.pulse,
+          'pl-cell--high': c.load === 'high',
+          'pl-cell--over': c.load === 'over',
+        };
+      },
+      cellTitle(c, i) {
+        if (!(c.h > 0.005)) return '';
+        const kind = c.past ? 'actuals' : c.pulse ? 'monthly aggregate' : 'planned';
+        return `${this.periodTitle(this.activeRows.periods[i])} · ${c.h.toFixed(2)}h ${kind}`;
+      },
+      periodMain(p) {
+        if (this.interval === 'monthly') return p.label.toUpperCase();
+        return `${MONTHS[p.weekStart.getMonth()]} ${p.weekStart.getDate()}`.toUpperCase();
+      },
+      periodSub(p) {
+        if (this.interval === 'monthly') return p.isCurrent ? 'current' : p.isPast ? 'actuals' : '';
+        return 'W' + isoWeek(p.weekStart);
+      },
+      periodTitle(p) { return this.interval === 'monthly' ? p.label : p.dateTitle; },
+      shortMonth(s) {
+        if (!s || s.length < 6) return '';
+        const m = parseInt(s.slice(4, 6), 10);
+        return MONTHS[m - 1] ? `${MONTHS[m - 1]} ${s.slice(2, 4)}` : '';
+      },
+      projectSub(r) {
+        const dates = [this.shortMonth(r.start), this.shortMonth(r.end)].filter(Boolean).join(' – ');
+        return [r.client, dates].filter(Boolean).join(' · ');
+      },
+      onDocClick(e) {
+        if (this.legendOpen && this.$refs.legendInfo && !this.$refs.legendInfo.contains(e.target)) this.legendOpen = false;
+        if (this.periodMenuOpen && this.$refs.periodBox && !this.$refs.periodBox.contains(e.target) && e.target.isConnected) this.periodMenuOpen = false;
+      },
+      onDocKeydown(e) {
+        if (e.key === 'Tab' && this.taOpen) {
+          // aria-modal drawer: Tab and Shift+Tab stay inside it
+          const panel = document.getElementById('teamAssistantPanel');
+          const focusables = [...panel.querySelectorAll('button, select, textarea, input, [href], [tabindex]:not([tabindex="-1"])')]
+            .filter(el => !el.disabled && el.offsetParent !== null);
+          const target = focusTrapTarget(focusables, document.activeElement, e.shiftKey);
+          if (target) { e.preventDefault(); target.focus(); }
+          return;
         }
-        if (collapseAll && !collapseAll.dataset.ppBound) {
-          collapseAll.dataset.ppBound = '1';
-          collapseAll.addEventListener('click', e => { e.stopPropagation(); groups.forEach(g => { g.collapsed = true;  g.childRows.forEach(r => r.style.display = 'none'); const b = g.hRow.querySelector('.pp-toggle'); if (b) b.textContent = '▶'; }); });
-        }
+        if (e.key !== 'Escape') return;
+        if (this.legendOpen) { this.legendOpen = false; this.$refs.legendBtn?.focus(); }
+        if (this.periodMenuOpen) { this.periodMenuOpen = false; this.$refs.periodLabelBtn?.focus(); }
+        if (this.taOpen) this.taOpen = false;
       },
     },
     watch: {
@@ -1308,6 +1111,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       // or modifying js/core.js (out of scope — shared by every page).
       teamFilters: { handler(v) { portfolioTeamFilters = v; }, immediate: true },
       modelRequest() { this.loadModel(); },
+      activeRows(v) { if (v.state === 'ready') this.initOpenIds(this.view, v.rows); },
+      // a new search starts with every matching parent open again
+      search: { handler() { Object.values(this.suppressed).forEach(s => s.clear()); }, deep: true },
+      // the period menu takes focus when it opens (its first preset)
+      periodMenuOpen(open) {
+        if (open) this.$nextTick(() => { this.$refs.periodBox?.querySelector('.pl-period-menu button')?.focus(); });
+      },
+      // Team assistant drawer: focus into the panel when it opens, back to its button when it closes.
+      taOpen(open) {
+        this.$nextTick(() => { (open ? this.$refs.taSelect : this.$refs.taOpenBtn)?.focus(); });
+      },
       // The assistant's project select follows the page filters; if a filter removes the selected
       // project, reset to "no project" (same effect as changing project) instead of leaving chat/tables
       // for a project that is no longer selectable.
@@ -1340,50 +1154,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Real behavior of the pre-migration showPlanningView(projectId) (js/planning.js:388-394) —
         // see this plan's header "Correction to the design spec's assumed scope" note. It does NOT
         // render a distinct Gantt view; it only pre-filters to one project and flags the title.
-        this.singleProjectId = urlProjectId;
         this.returnToBurndown = true;
         this.projectFilters = new Set([urlProjectId]);
       }
 
       this.loading = false;
     },
-    updated() {
-      this.$nextTick(() => this.initTooltipsAndToggles());
-    },
     mounted() {
-      this.$nextTick(() => this.initTooltipsAndToggles());
+      document.addEventListener('click', this.onDocClick);
+      document.addEventListener('keydown', this.onDocKeydown);
+      const mq = window.matchMedia('(max-width: 1024px)');
+      this.isTablet = mq.matches;
+      mq.addEventListener('change', e => { this.isTablet = e.matches; });
     },
   });
 
   app.component('ph-icon', window.PhIcon);
+  app.component('cg-date-picker', window.CgDatePicker);
   app.mount('#planningApp');
-
-  document.getElementById('btnJsonCopy').addEventListener('click', () => {
-    navigator.clipboard.writeText(document.getElementById('jsonViewerContent').value).catch(() => {});
-  });
-  document.getElementById('btnJsonExport').addEventListener('click', () => {
-    const blob = new Blob([document.getElementById('jsonViewerContent').value], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = _jsonViewerFilename; a.click(); URL.revokeObjectURL(url);
-  });
-  document.getElementById('btnJsonImport').addEventListener('click', () => {
-    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json';
-    inp.onchange = e => {
-      const file = e.target.files[0]; if (!file) return;
-      const reader = new FileReader();
-      reader.onload = ev => {
-        try { JSON.parse(ev.target.result); document.getElementById('jsonViewerContent').value = ev.target.result; document.getElementById('jsonViewerError').classList.add('d-none'); }
-        catch(err) { const el = document.getElementById('jsonViewerError'); el.textContent = 'Invalid JSON: ' + err.message; el.classList.remove('d-none'); }
-      };
-      reader.readAsText(file);
-    };
-    inp.click();
-  });
-  document.getElementById('btnJsonApply').addEventListener('click', () => {
-    const errEl = document.getElementById('jsonViewerError');
-    try { const parsed = JSON.parse(document.getElementById('jsonViewerContent').value); if (_jsonViewerOnSave) _jsonViewerOnSave(parsed); bootstrap.Modal.getInstance(document.getElementById('jsonViewerModal'))?.hide(); errEl.classList.add('d-none'); }
-    catch(err) { errEl.textContent = 'Invalid JSON: ' + err.message; errEl.classList.remove('d-none'); }
-  });
 
 });
 </script>
