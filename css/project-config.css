@@ -1,0 +1,365 @@
+/* project-config.html only (redesign 2026-11-02, boards in docs/superpowers/design/config-project/).
+   Tokens only, no hex; class prefix pc-. .cfg-section in style.css stays as it is: .pc-card restyles it here. */
+
+/* ── Banners under the page head ── */
+.pc-alert { margin-bottom: var(--space-3); }
+/* A fixed height, so the sticky index can sit right below the sticky banner (.pc-layout--viewer). */
+.app-container { --pc-banner-h: 40px; }
+.pc-viewer-banner { position: sticky; top: 0; z-index: var(--z-sticky); height: var(--pc-banner-h); display: flex; align-items: center; }
+
+/* ── Section cards ── */
+.cfg-section.pc-card {
+  background: var(--card-bg);
+  border: var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-xs);
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
+}
+.pc-card .cfg-section-title {
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--brand-navy);
+}
+
+/* ── Layout: section index + cards (board 8.1) ── */
+.pc-layout {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+  padding-bottom: var(--space-6);
+}
+.pc-aside {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.pc-layout--viewer .pc-aside { top: calc(var(--pc-banner-h) + var(--space-4)); }
+.pc-cards { min-width: 0; }
+.pc-index { display: flex; flex-direction: column; gap: 2px; }
+.pc-index-label {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-muted);
+  padding: 0 var(--space-2) var(--space-1);
+}
+.pc-index-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 7px var(--space-2);
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.pc-index-item:hover { background: var(--surface-subtle); color: var(--text-primary); }
+.pc-index-item:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.pc-index-item--active {
+  border-left-color: var(--brand-magenta);
+  background: var(--surface-white);
+  color: var(--brand-navy);
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--shadow-xs);
+}
+.pc-index-text { flex: 1 1 auto; min-width: 0; }
+.pc-index-opt { font-size: var(--text-2xs); color: var(--text-muted); }
+.pc-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-warning);
+}
+.pc-totals {
+  background: var(--card-bg);
+  border: var(--card-border);
+  border-radius: var(--card-radius);
+  padding: var(--space-3);
+}
+.pc-totals .pc-index-label { padding: 0 0 var(--space-1); }
+.pc-totals-amount { font-size: var(--text-lg); font-weight: var(--weight-bold); color: var(--brand-navy); }
+.pc-totals-sub { font-size: var(--text-xs); color: var(--text-muted); }
+
+/* ── Fields ── */
+.pc-label { font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--text-secondary); margin-bottom: var(--space-1); }
+.pc-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.pc-link { font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--brand-navy); text-decoration: none; }
+.pc-link:hover { text-decoration: underline; }
+.pc-opt { font-weight: var(--weight-regular); color: var(--text-muted); }
+.pc-hint { font-size: var(--text-2xs); color: var(--text-muted); margin-top: var(--space-1); }
+.pc-mono { font-family: var(--bs-font-monospace); }
+.pc-field { position: relative; }
+.pc-locked .form-select:disabled { background-color: var(--surface-light); padding-left: 28px; color: var(--text-muted); }
+.pc-locked-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+
+/* ── Card head with actions (Actuals, Tasks, PTC, groups) ── */
+.pc-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.pc-card-head .cfg-section-title { margin-bottom: 2px; }
+.pc-card-head-text { min-width: 0; }
+.pc-card-sub { font-size: var(--text-xs); color: var(--text-muted); }
+.pc-card-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.pc-btn-outline { border-color: var(--brand-navy); color: var(--brand-navy); cursor: pointer; }
+.pc-icon-btn { padding-left: var(--space-2); padding-right: var(--space-2); }
+.pc-icon-btn--danger:hover:not(:disabled) { color: var(--color-danger); border-color: var(--color-danger); }
+
+/* ── Buttons and small links ── */
+.pc-btn-navy {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 var(--space-3);
+  border: 1px solid var(--brand-navy); border-radius: var(--radius-sm);
+  background: var(--brand-navy); color: var(--text-inverse);
+  font-size: var(--text-sm); font-weight: var(--weight-semibold);
+}
+.pc-btn-navy:hover:not(:disabled) { background: var(--brand-mid); }
+.pc-link-btn {
+  border: 0; background: none; padding: 0;
+  font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--brand-navy);
+}
+.pc-link-btn:hover:not(:disabled) { text-decoration: underline; }
+.pc-link-btn:disabled { color: var(--text-disabled); cursor: not-allowed; }
+.pc-link-btn--muted { color: var(--text-muted); font-weight: var(--weight-regular); }
+.pc-link-btn--danger { color: var(--color-danger); }
+.pc-icon-link { border: 0; background: none; padding: 2px; color: var(--text-muted); line-height: 1; }
+.pc-icon-link:hover { color: var(--color-danger); }
+.pc-muted { color: var(--text-muted); }
+.pc-sep { display: inline-block; width: 1px; height: 12px; background: var(--border-light); vertical-align: middle; }
+
+/* ── Pills (split state, task flags) ── */
+.pc-pill {
+  display: inline-block; padding: 1px var(--space-2); border-radius: var(--radius-full);
+  font-size: var(--text-2xs); font-weight: var(--weight-semibold); white-space: nowrap; line-height: 1.6;
+}
+.pc-pill--ok { background: var(--color-success-bg); color: var(--color-success-text); }
+.pc-pill--warn { background: var(--color-warning-bg); color: var(--color-warning-text); }
+.pc-pill--danger { background: var(--color-danger-bg); color: var(--color-danger-text); }
+.pc-pill--muted { background: var(--surface-medium); color: var(--text-secondary); }
+.pc-pill--navy { background: var(--status-completed-soft-bg); color: var(--status-completed-soft-text); }
+
+/* ── Tasks & resources table (board 8.1) ── */
+.pc-split-warning { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin: var(--space-3) 0 0; }
+.pc-tasks-wrap { margin-top: var(--space-3); overflow-x: auto; }
+.pc-tasks { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--text-sm); }
+.pc-tasks th.pc-col-period { width: 130px; }
+.pc-tasks th.pc-col-roles { width: 64px; }
+.pc-tasks th.pc-col-hours { width: 72px; }
+.pc-tasks th.pc-col-total { width: 116px; }
+.pc-tasks th.pc-col-split { width: 170px; }
+.pc-tasks > thead th {
+  padding: var(--space-2); border-bottom: 1px solid var(--border-light);
+  font-size: var(--text-2xs); font-weight: var(--weight-semibold); text-transform: uppercase;
+  letter-spacing: .05em; color: var(--text-muted); white-space: nowrap;
+}
+.pc-tasks > tbody > tr > td, .pc-tasks > tfoot > tr > td { padding: var(--space-2); border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+.pc-task-row { cursor: pointer; }
+.pc-task-row:hover > td { background: var(--surface-light); }
+.pc-task-row:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.pc-task-row--open > td { background: var(--surface-light); border-bottom-color: transparent; }
+.pc-task-cell { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.pc-task-chevron { color: var(--text-muted); }
+.pc-task-cell { flex-wrap: nowrap; }
+.pc-task-name { font-weight: var(--weight-semibold); color: var(--brand-navy); flex: 0 1 auto; min-width: 0; }
+.pc-task-cell .pc-pill { flex-shrink: 0; }
+.pc-task-meta { display: none; font-size: var(--text-xs); color: var(--text-muted); padding-left: 18px; }
+.pc-col-period, .pc-col-roles { white-space: nowrap; color: var(--text-secondary); }
+.pc-col-split { white-space: nowrap; }
+.pc-task-detail > td { background: var(--surface-light); padding: var(--space-3) var(--space-4) var(--space-4) !important; }
+.pc-task-total > td { font-weight: var(--weight-bold); border-bottom: 0 !important; }
+.pc-period { display: flex; align-items: center; gap: var(--space-2); }
+.pc-period-pick { flex: 1 1 0; min-width: 0; }
+.pc-task-switches { display: flex; align-items: center; gap: var(--space-4); min-height: 31px; }
+.pc-task-switches .form-check-label { white-space: nowrap; }
+.pc-tasks td.text-end { white-space: nowrap; }
+.pc-split { margin-top: var(--space-4); }
+.pc-split-head { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+.pc-split-actions { margin-left: auto; display: inline-flex; align-items: center; gap: var(--space-2); }
+.pc-split-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); gap: 6px; }
+.pc-pct { position: relative; }
+.pc-pct .form-control { padding-right: 20px; }
+.pc-pct-sign { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); font-size: var(--text-xs); color: var(--text-muted); pointer-events: none; }
+.pc-res {
+  margin-top: var(--space-4); background: var(--surface-white);
+  border: var(--card-border); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3);
+}
+.pc-res-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--text-sm); }
+.pc-res-num { width: 120px; }
+.pc-res-x { width: 32px; }
+.pc-res-table th {
+  padding: var(--space-2) var(--space-1); font-size: var(--text-2xs); font-weight: var(--weight-semibold);
+  text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted);
+}
+.pc-res-table td { padding: var(--space-1); }
+.pc-res-table tfoot td { padding-top: var(--space-2); border-top: 1px solid var(--border-light); }
+
+/* ── Monthly phasing (boards 8.2, 8.3) ── */
+.pc-phase-title { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); flex: 1 1 0; min-width: 0; }
+.pc-seg { display: inline-flex; padding: 2px; background: var(--surface-subtle); border-radius: var(--radius-sm); }
+.pc-seg-btn {
+  border: 0; background: none; padding: 3px var(--space-3); border-radius: var(--radius-xs);
+  font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--text-muted);
+}
+.pc-seg-btn--on { background: var(--surface-white); color: var(--brand-navy); box-shadow: var(--shadow-xs); }
+.pc-seg-btn:focus-visible { outline: 2px solid var(--focus-ring); }
+.pc-pre-line { white-space: pre-line; }
+.pc-phase { margin-top: var(--space-4); }
+.pc-phase-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); gap: 6px; }
+.pc-phase-cell .form-control { padding-left: 2px; padding-right: 3px; font-size: var(--text-2xs); }
+.pc-phase-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pc-bar-track { height: 56px; display: flex; align-items: flex-end; padding: 0 var(--space-2); }
+.pc-bar { width: 100%; min-height: 2px; border-radius: var(--radius-xs) var(--radius-xs) 0 0; }
+.pc-bar--past { background: var(--brand-navy); }
+.pc-bar--planned { background: var(--indigo-200); }
+.pc-phase-cell--current .cfg-month-label { color: var(--brand-navy); font-weight: var(--weight-bold); }
+.pc-phase-cell--current .form-control { border-color: var(--brand-navy); }
+.pc-phase-foot {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-4);
+  margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border-light);
+  font-size: var(--text-xs); color: var(--text-muted);
+}
+.pc-legend { display: inline-flex; align-items: center; gap: 6px; }
+.pc-legend-swatch { width: 10px; height: 10px; border-radius: 2px; }
+.pc-balance { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-weight: var(--weight-semibold); }
+.pc-balance--ok { color: var(--color-success-text); }
+.pc-balance--warn { color: var(--color-warning-text); }
+
+/* ── Pass-through costs, functional groups (board 8.2) ── */
+.pc-empty {
+  margin-top: var(--space-3); padding: var(--space-4);
+  border: 1px dashed var(--border-medium); border-radius: var(--radius-md);
+  text-align: center; font-size: var(--text-xs); color: var(--text-muted);
+}
+.pc-ptc-row {
+  margin-top: var(--space-3); padding: var(--space-3);
+  border: var(--card-border); border-radius: var(--radius-md); background: var(--surface-white);
+}
+.pc-ptc-total {
+  display: flex; justify-content: flex-end; gap: var(--space-2);
+  margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid var(--border-light);
+  font-size: var(--text-sm); color: var(--text-secondary);
+}
+.pc-groups { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-3); margin-top: var(--space-3); }
+.pc-group {
+  flex: 1 1 260px; max-width: 360px; min-width: 0;
+  border: var(--card-border); border-radius: var(--radius-md); background: var(--surface-white); overflow: hidden;
+}
+.pc-group-head { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--surface-light); border-bottom: 1px solid var(--border-light); }
+.pc-group-name { font-weight: var(--weight-semibold); }
+.pc-group-count { flex-shrink: 0; font-size: var(--text-2xs); color: var(--text-muted); }
+.pc-group-entry { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border-light); }
+.pc-group-entry-row { display: flex; align-items: center; gap: var(--space-2); }
+.pc-group-on { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: var(--text-2xs); color: var(--text-muted); }
+.pc-select-sm { width: auto; max-width: 220px; padding-top: 1px; padding-bottom: 1px; font-size: var(--text-xs); }
+.pc-group-add { display: block; padding: var(--space-2) var(--space-3); }
+
+/* ── Misc ── */
+.pc-loading { height: 60vh; }
+.pc-text-sm { font-size: var(--text-sm); }
+.pc-text-xs { font-size: var(--text-xs); }
+.pc-confirm-dialog { max-width: 460px; }
+
+/* ── Phone section picker + bottom sheet (board 8.4); hidden above 768px ── */
+.pc-phone-picker {
+  display: none; align-items: center; gap: var(--space-2); width: 100%;
+  margin-bottom: var(--space-3); padding: var(--space-3);
+  background: var(--card-bg); border: var(--card-border); border-radius: var(--card-radius);
+  font-size: var(--text-sm); color: var(--brand-navy); text-align: left;
+}
+.pc-phone-picker-step { font-size: var(--text-xs); color: var(--text-muted); }
+.pc-phone-picker-label { flex: 1 1 auto; font-weight: var(--weight-bold); }
+.pc-phone-picker-chevron { color: var(--text-muted); }
+.pc-sheet { height: auto; max-height: 85vh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.pc-sheet-head { border-bottom: 1px solid var(--border-light); }
+.pc-sheet-body { display: flex; flex-direction: column; padding: var(--space-2) 0; }
+.pc-sheet-item {
+  display: flex; align-items: center; gap: var(--space-3); min-height: 48px; padding: 0 var(--space-4);
+  border: 0; border-left: 3px solid transparent; background: none; text-align: left;
+  font-size: var(--text-sm); color: var(--text-secondary);
+}
+.pc-sheet-item--active { border-left-color: var(--brand-magenta); color: var(--brand-navy); font-weight: var(--weight-semibold); background: var(--surface-light); }
+.pc-sheet-step { width: 18px; font-size: var(--text-xs); color: var(--text-muted); }
+
+/* ── Narrow desktop (sidebar open, 1024-1279px): the task table drops Period and Roles, shown under the name ── */
+@media (max-width: 1279.98px) {
+  /* zero-width, not display:none: the open task row spans all six columns */
+  .pc-tasks th.pc-col-period, .pc-tasks th.pc-col-roles, .pc-tasks td.pc-col-period, .pc-tasks td.pc-col-roles { width: 0; padding-left: 0 !important; padding-right: 0 !important; overflow: hidden; white-space: nowrap; visibility: hidden; }
+  .pc-task-meta { display: block; }
+  .pc-tasks .pc-col-split { white-space: normal; }
+  .pc-tasks th.pc-col-split { width: 120px; }
+  .pc-tasks .pc-pill { white-space: normal; }
+  .pc-task-switches { flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+  .pc-res-num { width: 92px; }
+  .pc-res-x { width: 24px; }
+  .pc-phase-title { flex: 1 1 100%; }
+}
+
+/* ── Tablet (board 8.4): the index becomes a sticky tab row, Totals goes away, the task table drops two columns ── */
+@media (max-width: 1023.98px) {
+  .pc-layout { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
+  .pc-aside {
+    top: 0; z-index: var(--z-sticky);
+    margin: 0 calc(-1 * var(--app-pad)); padding: 0 var(--app-pad);
+    background: var(--surface-subtle); border-bottom: 1px solid var(--border-light);
+  }
+  .pc-layout--viewer .pc-aside { top: calc(var(--pc-banner-h) + 0px); }
+  .pc-index { flex-direction: row; gap: 0; overflow-x: auto; scrollbar-width: thin; }
+  .pc-index .pc-index-label, .pc-totals, .pc-index-opt { display: none; }
+  .pc-index-item {
+    flex: 0 0 auto; white-space: nowrap; padding: var(--space-3);
+    border-left: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  }
+  .pc-index-item--active { border-bottom-color: var(--brand-magenta); background: none; box-shadow: none; }
+  /* zero-width, not display:none: the open task row spans all six columns */
+  .pc-tasks th.pc-col-period, .pc-tasks th.pc-col-roles, .pc-tasks td.pc-col-period, .pc-tasks td.pc-col-roles { width: 0; padding-left: 0 !important; padding-right: 0 !important; overflow: hidden; white-space: nowrap; visibility: hidden; }
+  .pc-task-meta { display: block; }
+  .pc-split-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+}
+
+/* ── Phone (board 8.4): one section at a time, single-column fields, 44px inputs, stacked task cards ── */
+@media (max-width: 767.98px) {
+  .pc-aside { display: none; }
+  .pc-phone-picker { display: flex; }
+  /* no sticky index to line up with here, and the banner text wraps: let it grow */
+  .pc-viewer-banner { height: auto; min-height: var(--pc-banner-h); }
+  .pc-card .cfg-section-title { display: none; }
+  .cfg-section.pc-card { padding: var(--space-4); }
+  .pc-cards .form-control, .pc-cards .form-select { min-height: 44px; }
+  .pc-cards .pc-select-sm { min-height: 32px; }
+  .pc-card-actions { width: 100%; }
+  .pc-split-warning { flex-wrap: wrap; }
+  .pc-split-head { flex-wrap: wrap; }
+  .pc-split-head > * { white-space: nowrap; }
+  .pc-tasks, .pc-tasks > tbody, .pc-tasks > tfoot { display: block; }
+  .pc-tasks > thead { display: none; }
+  .pc-tasks .pc-col-period, .pc-tasks .pc-col-roles { display: none; }
+  .pc-tasks > tbody { border: var(--card-border); border-radius: var(--radius-md); margin-bottom: var(--space-2); overflow: hidden; background: var(--surface-white); }
+  .pc-tasks > tbody > tr, .pc-tasks > tfoot > tr { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--space-3); }
+  .pc-tasks > tbody > tr > td, .pc-tasks > tfoot > tr > td { border: 0; padding: 0; }
+  .pc-task-row { padding: var(--space-3); }
+  .pc-task-row > td:first-child { flex: 1 0 100%; }
+  .pc-task-row > .pc-col-split { margin-left: auto; }
+  .pc-task-detail > td { display: block; flex: 1 0 100%; }
+  .pc-tasks > tbody > tr > td, .pc-res-table td { min-width: 0; }
+  .pc-res-table .form-control { width: 100%; }
+  .pc-period { flex-wrap: wrap; }
+  .pc-period-pick { flex: 1 1 100%; }
+  .pc-period > .pc-muted { display: none; }
+  .pc-task-detail .row > [class*="col-"] { min-width: 0; }
+  .pc-task-total { padding: var(--space-2) var(--space-3); }
+  .pc-task-total > td:empty { display: none; }
+  .pc-task-switches { flex-wrap: wrap; }
+  .pc-split-grid, .pc-phase-grid { display: flex; overflow-x: auto; padding-bottom: var(--space-1); }
+  .pc-split-grid > .cfg-month-cell { flex: 0 0 64px; }
+  .pc-phase-grid > .pc-phase-cell { flex: 0 0 84px; }
+  .pc-res-table, .pc-res-table > tbody, .pc-res-table > tfoot { display: block; }
+  .pc-res-table > colgroup, .pc-res-table > thead { display: none; }
+  .pc-res-table tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto 20px; align-items: center; gap: var(--space-1) var(--space-2); padding: var(--space-2) 0; border-bottom: 1px solid var(--border-light); }
+  .pc-res-table td:first-child { grid-column: 1 / -1; }
+  .pc-res-table tfoot td { border-top: 0; }
+  .pc-group { max-width: none; }
+}

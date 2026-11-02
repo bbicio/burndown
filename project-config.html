@@ -8,8 +8,9 @@
   <link rel="icon" type="image/png" href="https://ik.imagekit.io/6ezjgrjjf/00_Home_Page/letter-f.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/tokens.css?v=12">
-  <link rel="stylesheet" href="css/style.css?v=27">
+  <link rel="stylesheet" href="css/style.css?v=28">
   <link rel="stylesheet" href="css/controls.css?v=1">
+  <link rel="stylesheet" href="css/project-config.css?v=1">
 </head>
 <body>
 
@@ -20,339 +21,437 @@
 <div id="app" v-cloak class="app-container">
 
   <div v-if="notFound" class="text-center text-muted py-5">
-    <div style="font-size:2.5rem">⚠️</div>
     <p class="mt-2">Project not found.</p>
-    <a href="/portfolio.html" class="btn btn-outline-secondary btn-sm">← Back to Portfolio</a>
+    <a href="/portfolio.html" class="ph-btn"><ph-icon name="chevron-left" :size="12"></ph-icon>Portfolio</a>
   </div>
 
-  <div v-else-if="!ready" class="d-flex align-items-center justify-content-center" style="height:60vh">
+  <div v-else-if="!ready" class="d-flex align-items-center justify-content-center pc-loading">
     <div class="spinner-border text-secondary"></div>
   </div>
 
   <template v-else>
     <div class="ph">
       <div class="ph-main">
-        <a v-if="!isNewProject" href="#" class="ph-back" @click.prevent="goProjectDashboard"><ph-icon name="chevron-left" :size="12"></ph-icon><span>Project Dashboard</span></a>
-        <a v-else href="/portfolio.html" class="ph-back"><ph-icon name="chevron-left" :size="12"></ph-icon><span>Portfolio</span></a>
+        <a href="/portfolio.html" class="ph-back"><ph-icon name="chevron-left" :size="12"></ph-icon><span>Portfolio</span></a>
+        <div class="ph-eyebrow">Project configuration</div>
         <div class="ph-title-row">
           <h1 class="ph-title">{{ isNewProject ? 'New Project' : project.name }}</h1>
+          <span v-if="headerBadge('stage', project.pipeline)" v-html="headerBadge('stage', project.pipeline)"></span>
+          <span v-if="headerBadge('status', project.status)" v-html="headerBadge('status', project.status)"></span>
+        </div>
+        <div v-if="headMeta" class="ph-sub">{{ headMeta }}</div>
+      </div>
+      <div class="ph-side">
+        <div class="ph-actions">
+          <button v-if="!isNewProject" type="button" class="ph-btn" @click="goProjectDashboard">Project Dashboard<ph-icon name="chevron-right" :size="14"></ph-icon></button>
+          <button v-if="!isViewer" type="button" class="ph-btn" :disabled="saving || !isDirty" @click="onDiscard">Discard</button>
+          <button v-if="!isViewer" type="button" class="ph-btn-primary" :disabled="saving" @click="onSave">{{ saving ? 'Saving…' : 'Save' }}</button>
         </div>
       </div>
     </div>
-    <div v-if="jsonError" class="alert alert-danger py-2 small">{{ jsonError }}</div>
-    <div v-if="isViewer" class="alert alert-info d-flex align-items-center gap-2 mb-3 rounded-0" style="position:sticky;top:0;z-index:100;font-size:.85rem">
-      <span>👁 You have <strong>viewer</strong> access to this project — editing is disabled.</span>
+    <div v-if="jsonError" class="alert alert-danger alert-sm pc-alert">{{ jsonError }}</div>
+    <div v-if="isViewer" class="alert alert-info alert-sm pc-alert pc-viewer-banner">
+      <span>You have <strong>viewer</strong> access to this project — editing is disabled.</span>
     </div>
+    <div v-if="outOfPeriod.length && !isViewer" class="alert alert-warning alert-sm pc-alert">{{ outOfPeriodMessage }}</div>
 
-    <div class="pt-4">
-      <div class="cfg-section">
-        <div class="cfg-section-title">Client</div>
-        <div class="row g-3 align-items-end">
-          <div class="col-md-8">
-            <label class="form-label small mb-1">Assign to a client</label>
-            <select class="form-select form-select-sm" v-model="project.clientId" :disabled="isViewer">
+    <button type="button" class="pc-phone-picker" data-bs-toggle="offcanvas" data-bs-target="#pcSectionsSheet" aria-controls="pcSectionsSheet">
+      <span class="pc-phone-picker-step">{{ mobileSectionIndex + 1 }} / {{ sections.length }}</span>
+      <span class="pc-phone-picker-label">{{ sections[mobileSectionIndex]?.label }}</span>
+      <span v-if="phonePickerIssue" class="pc-dot" :title="phonePickerIssue" :aria-label="phonePickerIssue"></span>
+      <ph-icon name="chevron-down" :size="14" class="pc-phone-picker-chevron"></ph-icon>
+    </button>
+    <div class="pc-layout" :class="{ 'pc-layout--viewer': isViewer }">
+      <aside class="pc-aside">
+        <nav class="pc-index" aria-label="Sections">
+          <div class="pc-index-label">Sections</div>
+          <a v-for="s in sections" :key="s.key" href="#" class="pc-index-item" :class="{ 'pc-index-item--active': activeSection === s.key }"
+             :aria-current="activeSection === s.key ? 'true' : null" @click.prevent="scrollToSection(s.key)">
+            <span class="pc-index-text">{{ s.label }}</span>
+            <span v-if="sectionIssues[s.key]" class="pc-dot" :title="sectionIssues[s.key]" :aria-label="sectionIssues[s.key]"></span>
+            <span v-else-if="s.optional" class="pc-index-opt">optional</span>
+          </a>
+        </nav>
+        <div class="pc-totals">
+          <div class="pc-index-label">Totals</div>
+          <div class="pc-totals-amount">{{ formatMoney(grandTotalBudget, project.currency, currencies) }}</div>
+          <div class="pc-totals-sub">{{ grandTotalHours.toLocaleString('en-US') }}h · {{ project.tasks.length }} {{ project.tasks.length === 1 ? 'task' : 'tasks' }}</div>
+        </div>
+      </aside>
+
+      <div class="pc-cards">
+      <div id="pc-sec-client" data-section="client" v-show="!isPhone || mobileSection === 'client'" class="cfg-section pc-card">
+        <div class="cfg-section-title">Client &amp; program</div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="pc-label-row">
+              <label class="form-label pc-label" for="pc-client">Client</label>
+              <a v-if="!isViewer" href="#" class="pc-link" @click.prevent="openClientModal">+ New client</a>
+            </div>
+            <select id="pc-client" class="form-select form-select-sm" v-model="project.clientId" :disabled="isViewer">
               <option value="__unassigned__">Unassigned</option>
               <option v-for="c in getClients()" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
           </div>
-          <div class="col-md-4 d-flex align-items-end">
-            <button type="button" class="btn btn-primary btn-sm w-100" v-if="!isViewer" @click="openClientModal">＋ New client</button>
-          </div>
-        </div>
-      </div>
-      <div class="cfg-section">
-        <div class="cfg-section-title">0. Program <span class="fw-normal text-muted" style="font-size:.8rem">(optional)</span></div>
-        <div class="row g-3 align-items-end">
-          <div class="col-md-8">
-            <label class="form-label small mb-1">Assign to a program</label>
-            <select class="form-select form-select-sm" v-model="project.programId" :disabled="isViewer">
-              <option value="">— No program —</option>
+          <div class="col-md-6">
+            <div class="pc-label-row">
+              <label class="form-label pc-label" for="pc-program">Program <span class="pc-opt">· optional</span></label>
+              <a v-if="!isViewer" href="#" class="pc-link" @click.prevent="openProgramModal">+ New program</a>
+            </div>
+            <select id="pc-program" class="form-select form-select-sm" v-model="project.programId" :disabled="isViewer">
+              <option value="">No program · standalone project</option>
               <option v-for="p in getPrograms()" :key="p.id" :value="p.id">{{ p.name }}</option>
             </select>
-          </div>
-          <div class="col-md-4 d-flex align-items-end">
-            <button type="button" class="btn btn-primary btn-sm w-100" v-if="!isViewer" @click="openProgramModal">＋ New program</button>
           </div>
         </div>
       </div>
 
-      <div class="cfg-section">
-        <div class="cfg-section-title">1. Project info</div>
+      <div id="pc-sec-info" data-section="info" v-show="!isPhone || mobileSection === 'info'" class="cfg-section pc-card">
+        <div class="cfg-section-title">Project info</div>
         <div class="row g-3">
-          <div class="col-md-4"><label class="form-label small mb-1">D365 Project ID <span class="text-muted">(matches XLS column)</span></label><input type="text" class="form-control form-control-sm" v-model="project.code" :disabled="isViewer" placeholder="e.g. HITA.000001201"></div>
-          <div class="col-md-8"><label class="form-label small mb-1">Project Name</label><input type="text" class="form-control form-control-sm" v-model="project.name" :disabled="isViewer" placeholder="e.g. Bayer AG - BERMITS 2026" @input="onNameInput"></div>
-          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Start month</label><cg-date-picker mode="month" :model-value="project.startDate || ''" :max="periodStartBounds.max" :disabled="isViewer" aria-label="Start month" @update:model-value="v => project.startDate = v"></cg-date-picker></div>
-          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">End month</label><cg-date-picker mode="month" :model-value="project.endDate || ''" :min="periodEndBounds.min" :disabled="isViewer" aria-label="End month" @update:model-value="v => project.endDate = v"></cg-date-picker></div>
-          <div class="col-sm-3 col-md-2"><label class="form-label small mb-1">Currency</label><select class="form-select form-select-sm" v-model="project.currency" :disabled="currencyLocked"><option v-for="cu in currencyOptions" :key="cu.code" :value="cu.code">{{ cu.symbol }} {{ cu.name }}</option></select><div v-if="currencyLocked" class="form-text" style="font-size:.72rem">{{ currencyHint }}</div></div>
-        </div>
-        <div class="row g-3 mt-1">
-          <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Pipeline</label><select class="form-select form-select-sm" v-model="project.pipeline" :disabled="isViewer || pipelineLocked" :title="pipelineLocked ? 'Pipeline is managed from the Cost Grid' : ''" @change="onPipelineChange"><option value="">— Select —</option><option value="SIP">SIP</option><option value="Expected">Expected</option><option value="Anticipated">Anticipated</option><option value="Committed">Committed</option><option value="Canceled">Canceled</option></select></div>
-          <div class="col-sm-6 col-md-3"><label class="form-label small mb-1">Status</label><select class="form-select form-select-sm" v-model="project.status" :disabled="isViewer || statusRule.disabled"><option v-if="!statusRule.options || !statusRule.options.length" value=""> — Select —</option><option v-for="opt in (statusRule.options || [])" :key="opt" :value="opt">{{ opt }}</option></select></div>
-        </div>
-        <div class="row g-3 mt-1">
+          <div class="col-md-4"><label class="form-label pc-label">D365 project ID</label><input type="text" class="form-control form-control-sm pc-mono" v-model="project.code" :disabled="isViewer" placeholder="e.g. HITA.000001201"><div class="pc-hint">Must match the XLS column</div></div>
+          <div class="col-md-8"><label class="form-label pc-label">Project name</label><input type="text" class="form-control form-control-sm" v-model="project.name" :disabled="isViewer" placeholder="e.g. Bayer AG - BERMITS 2026" @input="onNameInput"></div>
+          <div class="col-md-4"><label class="form-label pc-label">Start month</label><cg-date-picker mode="month" :model-value="project.startDate || ''" :max="periodStartBounds.max" :disabled="isViewer" aria-label="Start month" @update:model-value="v => project.startDate = v"></cg-date-picker></div>
+          <div class="col-md-4"><label class="form-label pc-label">End month</label><cg-date-picker mode="month" :model-value="project.endDate || ''" :min="periodEndBounds.min" :disabled="isViewer" aria-label="End month" @update:model-value="v => project.endDate = v"></cg-date-picker></div>
+          <div class="col-md-4"><label class="form-label pc-label">Currency</label><div class="pc-field" :class="{ 'pc-locked': currencyLocked }"><ph-icon v-if="currencyLocked" name="lock" :size="12" class="pc-locked-icon"></ph-icon><select class="form-select form-select-sm" v-model="project.currency" :disabled="currencyLocked"><option v-for="cu in currencyOptions" :key="cu.code" :value="cu.code">{{ cu.code }} · {{ cu.name }}</option></select></div><div v-if="currencyLocked" class="pc-hint" :title="currencyHint">Locked · contact a sysadmin to change it</div></div>
+          <div class="col-md-4"><label class="form-label pc-label">Pipeline stage</label><div class="pc-field" :class="{ 'pc-locked': pipelineLocked }"><ph-icon v-if="pipelineLocked" name="lock" :size="12" class="pc-locked-icon"></ph-icon><select class="form-select form-select-sm" v-model="project.pipeline" :disabled="isViewer || pipelineLocked" :title="pipelineLocked ? 'Pipeline is managed from the Cost Grid' : ''" @change="onPipelineChange"><option value="">— Select —</option><option value="SIP">SIP</option><option value="Expected">Expected</option><option value="Anticipated">Anticipated</option><option value="Committed">Committed</option><option value="Canceled">Canceled</option></select></div><div v-if="pipelineLocked" class="pc-hint">From the linked proposal</div></div>
+          <div class="col-md-4"><label class="form-label pc-label">Status</label><select class="form-select form-select-sm" v-model="project.status" :disabled="isViewer || statusRule.disabled"><option v-if="!statusRule.options || !statusRule.options.length" value=""> — Select —</option><option v-for="opt in (statusRule.options || [])" :key="opt" :value="opt">{{ opt }}</option></select></div>
           <div class="col-12">
-            <label class="form-label small mb-1">Description <span class="text-muted">(used to extract competence topics for the team profiles)</span></label>
+            <label class="form-label pc-label">Description <span class="pc-opt">· used to extract competence topics for team profiles</span></label>
             <textarea class="form-control form-control-sm" rows="3" v-model="project.description" :disabled="isViewer" placeholder="What is this project about? Scope, work performed, skills needed…"></textarea>
           </div>
         </div>
       </div>
 
-      <div class="cfg-section">
-        <div class="d-flex justify-content-between align-items-center cfg-section-title">
-          <span>2. Actuals</span>
-          <div class="d-flex gap-2">
-            <label class="btn btn-sm btn-outline-secondary mb-0" v-if="project.code && !isViewer">
-              📂 Load Actuals
-              <input type="file" accept=".xls,.xlsx" style="display:none" @change="onActualsFileChange">
-            </label>
-            <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="openActualsViewModal">👁 View</button>
-            <button class="btn btn-sm btn-outline-secondary" v-if="actuals.exportRows" @click="downloadActualsXlsx">⬇ Download actuals</button>
-            <button class="btn btn-sm btn-outline-danger" v-if="project.code && !isViewer" :disabled="actuals.deleting" @click="onDeleteActuals">🗑 Delete actuals</button>
+      <div id="pc-sec-actuals" data-section="actuals" v-show="!isPhone || mobileSection === 'actuals'" class="cfg-section pc-card">
+        <div class="pc-card-head">
+          <div class="pc-card-head-text">
+            <div class="cfg-section-title">Actuals</div>
+            <div class="pc-card-sub" v-html="actuals.info"></div>
+          </div>
+          <div class="pc-card-actions">
+            <label class="ph-btn pc-btn-outline mb-0" v-if="project.code && !isViewer"><ph-icon name="upload" :size="14"></ph-icon>Load actuals<input type="file" accept=".xls,.xlsx" class="d-none" @change="onActualsFileChange"></label>
+            <button type="button" class="ph-btn" v-if="actuals.exportRows" @click="openActualsViewModal"><ph-icon name="eye" :size="14"></ph-icon>View</button>
+            <button type="button" class="ph-btn pc-icon-btn" v-if="actuals.exportRows" title="Download actuals" aria-label="Download actuals" @click="downloadActualsXlsx"><ph-icon name="download" :size="14"></ph-icon></button>
+            <button type="button" class="ph-btn pc-icon-btn pc-icon-btn--danger" v-if="project.code && !isViewer" :disabled="actuals.deleting" title="Delete actuals" aria-label="Delete actuals" @click="onDeleteActuals"><ph-icon name="trash" :size="14"></ph-icon></button>
           </div>
         </div>
-        <div class="text-muted small py-1" v-html="actuals.info"></div>
-        <div class="small mt-1 text-danger" v-if="actuals.guardMsg">{{ actuals.guardMsg }}</div>
-        <div class="small mt-1" v-if="actuals.status" :class="actuals.statusClass">{{ actuals.status }}</div>
+        <div class="small mt-2 text-danger" v-if="actuals.guardMsg">{{ actuals.guardMsg }}</div>
+        <div class="small mt-2" v-if="actuals.status" :class="actuals.statusClass">{{ actuals.status }}</div>
       </div>
-      <div class="cfg-section">
-  <div class="d-flex justify-content-between align-items-center cfg-section-title">
-    <span>3. Tasks &amp; Resources</span>
-    <div class="d-flex gap-2">
-      <button class="btn btn-sm btn-outline-secondary" @click="exportTasksXlsx">⬇ XLSX</button>
-      <button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addTask">+ Add task</button>
-    </div>
-  </div>
-  <div v-if="tasksXlsxError" class="alert alert-danger py-1 px-2 small mb-2">{{ tasksXlsxError }}</div>
-  <p class="text-muted small mb-3">Task name must match exactly the <strong>Task/Issue</strong> XLS column. Role must match <strong>Job Role: Name</strong>.</p>
+      <div id="pc-sec-tasks" data-section="tasks" v-show="!isPhone || mobileSection === 'tasks'" class="cfg-section pc-card">
+        <div class="pc-card-head">
+          <div class="pc-card-head-text">
+            <div class="cfg-section-title">Tasks &amp; resources</div>
+            <div class="pc-card-sub">Task name must match the <strong>Task/Issue</strong> XLS column; role must match <strong>Job Role: Name</strong>.</div>
+          </div>
+          <div class="pc-card-actions">
+            <button type="button" class="ph-btn" @click="exportTasksXlsx"><ph-icon name="download" :size="14"></ph-icon>Export XLSX</button>
+            <button type="button" class="pc-btn-navy" v-if="!isViewer" @click="addTask">+ Add task</button>
+          </div>
+        </div>
+        <div v-if="tasksXlsxError" class="alert alert-danger alert-sm mt-3 mb-0">{{ tasksXlsxError }}</div>
+        <div v-if="splitWarning.n" class="alert alert-warning alert-sm pc-split-warning">
+          <span>{{ splitWarning.n }} of {{ splitWarning.m }} tasks have no monthly split: phasing falls back to the task period.</span>
+          <button type="button" class="pc-link-btn" v-if="!isViewer" @click="spreadAllTasks">Spread all evenly</button>
+        </div>
 
-  <div v-for="(task, ti) in project.tasks" :key="ti" class="cfg-task-card border rounded p-3 mb-3">
-    <div class="d-flex align-items-center gap-2 mb-3">
-      <span class="text-muted small text-nowrap">Task name:</span>
-      <input type="text" class="form-control form-control-sm fw-semibold" v-model="task.name" :disabled="isViewer" placeholder="must match Task/Issue column in XLS">
-      <div class="form-check form-switch mb-0 flex-shrink-0 d-flex align-items-center gap-1" title="Uncheck to exclude this task from all reports and charts">
-        <input class="form-check-input" type="checkbox" role="switch" v-model="task.billable" :disabled="isViewer">
-        <label class="form-check-label small text-nowrap">Include in report</label>
-      </div>
-      <div class="form-check form-switch mb-0 flex-shrink-0 d-flex align-items-center gap-1" title="Mark task as completed">
-        <input class="form-check-input" type="checkbox" role="switch" v-model="task.completed" :disabled="isViewer" @change="rebuildTaskDist(ti)">
-        <label class="form-check-label small text-nowrap">Completed</label>
-      </div>
-      <button class="btn btn-sm btn-outline-danger flex-shrink-0" v-if="!isViewer" @click="confirmRemoveTask(ti)">🗑 Remove</button>
-    </div>
-    <div class="mb-2">
-      <textarea class="form-control form-control-sm" rows="2" v-model="task.description" :disabled="isViewer" placeholder="Task description — what is done and which competences it needs"></textarea>
-    </div>
-    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-      <span class="text-muted small text-nowrap">Period:</span>
-      <div style="width:150px"><cg-date-picker mode="day" :model-value="toIso(task.startDate) || ''" :min="taskDateBounds(task, 'start').min" :max="taskDateBounds(task, 'start').max" :disabled="isViewer" aria-label="Task start date" @update:model-value="v => { task.startDate = v ? toYmd(v) : ''; rebuildTaskDist(ti); }"></cg-date-picker></div>
-      <span class="text-muted small">→</span>
-      <div style="width:150px"><cg-date-picker mode="day" :model-value="toIso(task.endDate) || ''" :min="taskDateBounds(task, 'end').min" :max="taskDateBounds(task, 'end').max" :disabled="isViewer" aria-label="Task end date" @update:model-value="v => { task.endDate = v ? toYmd(v) : ''; rebuildTaskDist(ti); }"></cg-date-picker></div>
-      <span class="text-muted small">(optional — defaults to project dates)</span>
-      <span v-if="isTaskOutOfPeriod(task)" class="text-danger" style="font-size:var(--text-xs)">Outside the project period</span>
-    </div>
+        <div class="pc-tasks-wrap">
+          <table class="pc-tasks">
+            <thead>
+              <tr><th>Task</th><th class="pc-col-period">Period</th><th class="pc-col-roles text-end">Roles</th><th class="pc-col-hours text-end">Hours</th><th class="pc-col-total text-end">Total</th><th class="pc-col-split">Monthly split</th></tr>
+            </thead>
+            <tbody v-for="(task, ti) in project.tasks" :key="ti">
+              <tr class="pc-task-row" :class="{ 'pc-task-row--open': openTaskIndex === ti }" role="button" tabindex="0" :aria-expanded="openTaskIndex === ti" @click="toggleTask(ti)" @keydown.enter.prevent="toggleTask(ti)" @keydown.space.prevent="toggleTask(ti)">
+                <td>
+                  <div class="pc-task-cell">
+                    <ph-icon :name="openTaskIndex === ti ? 'chevron-down' : 'chevron-right'" :size="12" class="pc-task-chevron"></ph-icon>
+                    <span class="pc-task-name">{{ task.name || 'Untitled task' }}</span>
+                    <span v-if="task.billable === false" class="pc-pill pc-pill--muted">Excluded</span>
+                    <span v-if="task.completed" class="pc-pill pc-pill--navy">Completed</span>
+                    <span v-if="isTaskOutOfPeriod(task)" class="pc-pill pc-pill--danger">Outside the project period</span>
+                  </div>
+                  <div class="pc-task-meta">{{ taskPeriodLabel(task) }} · {{ task.resources.length }} {{ task.resources.length === 1 ? 'role' : 'roles' }}</div>
+                </td>
+                <td class="pc-col-period">{{ taskPeriodLabel(task) }}</td>
+                <td class="pc-col-roles text-end">{{ task.resources.length }}</td>
+                <td class="text-end">{{ taskHours(task).toLocaleString('en-US') }}h</td>
+                <td class="text-end">{{ taskTotal(task) > 0 ? formatMoney(taskTotal(task), project.currency, currencies) : '—' }}</td>
+                <td class="pc-col-split"><span v-if="taskMonthRange(task).length" :class="distBadgeClass(task)">{{ distBadgeText(task) }}</span><span v-else class="pc-muted">No period</span></td>
+              </tr>
+              <tr v-if="openTaskIndex === ti" class="pc-task-detail">
+                <td colspan="6">
+                  <div class="row g-3 align-items-end">
+                    <div class="col-12 col-xxl-3"><label class="form-label pc-label">Task name</label><input :ref="'taskName-' + ti" type="text" class="form-control form-control-sm" v-model="task.name" :disabled="isViewer" placeholder="must match Task/Issue column in XLS"></div>
+                    <div class="col-12 col-xxl-5"><label class="form-label pc-label">Period <span class="pc-opt">· defaults to project dates</span></label>
+                      <div class="pc-period">
+                        <div class="pc-period-pick"><cg-date-picker mode="day" :model-value="toIso(task.startDate) || ''" :min="taskDateBounds(task, 'start').min" :max="taskDateBounds(task, 'start').max" :disabled="isViewer" aria-label="Task start date" @update:model-value="v => { task.startDate = v ? toYmd(v) : ''; rebuildTaskDist(ti); }"></cg-date-picker></div>
+                        <span class="pc-muted">–</span>
+                        <div class="pc-period-pick"><cg-date-picker mode="day" :model-value="toIso(task.endDate) || ''" :min="taskDateBounds(task, 'end').min" :max="taskDateBounds(task, 'end').max" :disabled="isViewer" aria-label="Task end date" @update:model-value="v => { task.endDate = v ? toYmd(v) : ''; rebuildTaskDist(ti); }"></cg-date-picker></div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-xxl-4 pc-task-switches">
+                      <div class="form-check form-switch mb-0" title="Uncheck to exclude this task from all reports and charts">
+                        <input class="form-check-input" type="checkbox" role="switch" :id="'pc-bill-' + ti" v-model="task.billable" :disabled="isViewer">
+                        <label class="form-check-label small" :for="'pc-bill-' + ti">Include in report</label>
+                      </div>
+                      <div class="form-check mb-0" title="Mark task as completed">
+                        <input class="form-check-input" type="checkbox" :id="'pc-done-' + ti" v-model="task.completed" :disabled="isViewer" @change="rebuildTaskDist(ti)">
+                        <label class="form-check-label small" :for="'pc-done-' + ti">Completed</label>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label pc-label">Description <span class="pc-opt">· what is done and which competences it needs</span></label>
+                      <textarea class="form-control form-control-sm" rows="2" v-model="task.description" :disabled="isViewer" placeholder="Describe the task…"></textarea>
+                    </div>
+                  </div>
 
-    <div class="mt-1 pt-2" style="border-top:1px solid #e9ecef" v-if="taskMonthRange(task).length">
-      <div class="d-flex align-items-center gap-2 mb-1">
-        <span class="text-muted small">Monthly % distribution:</span>
-        <span class="badge" :class="distBadgeClass(task)">{{ distBadgeText(task) }}</span>
+                  <div class="pc-split" v-if="taskMonthRange(task).length">
+                    <div class="pc-split-head">
+                      <span class="pc-label mb-0">Monthly % split</span>
+                      <span :class="distBadgeClass(task)">{{ distBadgeText(task) }}</span>
+                      <span class="pc-split-actions">
+                        <button type="button" class="pc-link-btn" v-if="!isViewer" :disabled="isSplitReadonly(task)" @click="spreadTask(ti)">Spread evenly</button>
+                        <span class="pc-sep" v-if="!isViewer"></span>
+                        <button type="button" class="pc-link-btn pc-link-btn--muted" v-if="!isViewer" :disabled="isSplitReadonly(task)" @click="clearTaskSplit(ti)">Clear</button>
+                      </span>
+                    </div>
+                    <div class="pc-split-grid">
+                      <div class="cfg-month-cell" v-for="ym in taskMonthRange(task)" :key="ym">
+                        <div class="cfg-month-label">{{ monthLabel(ym) }}</div>
+                        <div class="pc-pct">
+                          <input type="number" class="form-control form-control-sm text-end" min="0" max="100" step="1"
+                                 :readonly="isSplitReadonly(task)"
+                                 v-model.number="task.monthlyDistribution[ym]" placeholder="0">
+                          <span class="pc-pct-sign">%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="pc-res">
+                    <table class="pc-res-table">
+                      <colgroup><col><col class="pc-res-num"><col class="pc-res-num"><col class="pc-res-num"><col class="pc-res-x"></colgroup>
+                      <thead>
+                        <tr><th>Job role: name <span class="pc-opt">· must match XLS</span></th><th class="text-end">Sold hours</th><th class="text-end">Hourly rate</th><th class="text-end">Subtotal</th><th></th></tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(res, ri) in task.resources" :key="ri">
+                          <td><input type="text" class="form-control form-control-sm" v-model="res.role" :disabled="isViewer" placeholder="e.g. HWGDEV - DEVELOPER"></td>
+                          <td><input type="number" class="form-control form-control-sm text-end" min="0" step="0.5" v-model.number="res.soldHours" :disabled="isViewer"></td>
+                          <td><input type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': rateInvalid[ti + '-' + ri] !== undefined }" :title="rateInvalid[ti + '-' + ri] !== undefined ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''" :value="rateInvalid[ti + '-' + ri] !== undefined ? rateInvalid[ti + '-' + ri] : (res.hourlyRate > 0 ? formatMoney(res.hourlyRate, project.currency, currencies) : '')" @focus="e => { if (rateInvalid[ti + '-' + ri] === undefined) e.target.value = moneyInput(res.hourlyRate); }" @blur="onResRateBlur(ti, ri, $event)" :disabled="isViewer"></td>
+                          <td class="text-end fw-semibold">{{ res.soldHours > 0 && res.hourlyRate > 0 ? formatMoney(res.soldHours * res.hourlyRate, project.currency, currencies) : '—' }}</td>
+                          <td class="text-center"><button type="button" class="pc-icon-link" v-if="!isViewer" title="Remove role" aria-label="Remove role" @click="confirmRemoveResource(ti, ri)"><ph-icon name="close" :size="12"></ph-icon></button></td>
+                        </tr>
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <td><button type="button" class="pc-link-btn" v-if="!isViewer" @click="addResource(ti)">+ Add role</button></td>
+                          <td class="text-end fw-semibold">{{ taskHours(task).toLocaleString('en-US') }}h</td>
+                          <td class="text-end pc-muted">Task total</td>
+                          <td class="text-end fw-bold">{{ taskTotal(task) > 0 ? formatMoney(taskTotal(task), project.currency, currencies) : '—' }}</td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                  <div class="text-end mt-2"><button type="button" class="pc-link-btn pc-link-btn--danger" v-if="!isViewer" @click="confirmRemoveTask(ti)">Remove task</button></div>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="pc-task-total">
+                <td>Total</td><td class="pc-col-period"></td><td class="pc-col-roles"></td>
+                <td class="text-end">{{ grandTotalHours.toLocaleString('en-US') }}h</td>
+                <td class="text-end">{{ grandTotalBudget > 0 ? formatMoney(grandTotalBudget, project.currency, currencies) : '—' }}</td>
+                <td class="pc-col-split"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
-      <div class="cfg-month-grid">
-        <div class="cfg-month-cell" v-for="ym in taskMonthRange(task)" :key="ym">
-          <div class="cfg-month-label">{{ monthLabel(ym, 'it-IT') }}</div>
-          <div class="d-flex align-items-center gap-1">
-            <input type="number" class="form-control form-control-sm text-end" min="0" max="100" step="1"
-                   :readonly="taskMonthRange(task).length === 1 || task.completed || isViewer"
-                   v-model.number="task.monthlyDistribution[ym]" placeholder="0">
-            <span style="font-size:var(--text-xs);color:#888">%</span>
+      <div id="pc-sec-phasing" data-section="phasing" v-show="!isPhone || mobileSection === 'phasing'" class="cfg-section pc-card">
+        <div class="pc-card-head">
+          <div class="pc-phase-title">
+            <div class="cfg-section-title mb-0">Monthly phasing</div>
+            <div class="pc-seg" role="group" aria-label="Phasing series">
+              <button type="button" class="pc-seg-btn" :class="{ 'pc-seg-btn--on': phasingMode === 'budget' }" :aria-pressed="phasingMode === 'budget'" @click="phasingMode = 'budget'">Budget</button>
+              <button type="button" class="pc-seg-btn" :class="{ 'pc-seg-btn--on': phasingMode === 'hours' }" :aria-pressed="phasingMode === 'hours'" @click="phasingMode = 'hours'">Hours</button>
+            </div>
+            <span class="pc-card-sub">{{ phasingMode === 'budget' ? 'Estimated budget to spend per month (' + currencySymbol + ')' : 'Planned hours to consume per month' }}</span>
+          </div>
+          <div class="pc-card-actions" v-if="!isViewer">
+            <button type="button" class="ph-btn" @click="derivePhasing"><ph-icon name="refresh" :size="14"></ph-icon>Derive from task dates</button>
+            <button type="button" class="ph-btn" v-if="reforecastVisible" @click="runReforecast"><ph-icon name="trend-up" :size="14"></ph-icon>Reforecast from actuals</button>
+          </div>
+        </div>
+        <div v-if="phasingActionError" class="alert alert-danger alert-sm pc-pre-line mt-3 mb-0">{{ phasingActionError }}</div>
+        <div class="pc-phase" v-if="projectMonths.length">
+          <div class="pc-phase-grid">
+            <div class="pc-phase-cell" v-for="(ym, mi) in projectMonths" :key="ym" :class="{ 'pc-phase-cell--current': phasingBars[mi].current }">
+              <div class="pc-bar-track"><div class="pc-bar" :class="phasingBars[mi].past ? 'pc-bar--past' : 'pc-bar--planned'" :style="{ height: phasingBars[mi].pct + '%' }"></div></div>
+              <div class="cfg-month-label">{{ monthLabel(ym) }}</div>
+              <input v-show="phasingMode === 'budget'" type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': phasingInvalid[ym] !== undefined }"
+                     :title="phasingInvalid[ym] !== undefined ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''"
+                     :readonly="isViewer" :value="phasingInvalid[ym] !== undefined ? phasingInvalid[ym] : (project.phasing[ym] > 0 ? formatMoney(project.phasing[ym], project.currency, currencies) : '')"
+                     @focus="e => { if (phasingInvalid[ym] === undefined) e.target.value = moneyInput(project.phasing[ym]); }"
+                     @blur="onPhasingBlur(ym, $event)">
+              <input v-show="phasingMode === 'hours'" type="text" class="form-control form-control-sm text-end"
+                     :readonly="isViewer" :value="project.planning[ym] > 0 ? cfgFmtHours(project.planning[ym]) : ''"
+                     @focus="e => { e.target.value = project.planning[ym] > 0 ? project.planning[ym] : ''; }"
+                     @blur="e => { const v = cfgParseHours(e.target.value); if (v > 0) project.planning[ym] = v; else delete project.planning[ym]; e.target.value = v > 0 ? cfgFmtHours(v) : ''; }">
+            </div>
+          </div>
+          <div class="pc-phase-foot">
+            <span class="pc-legend"><span class="pc-legend-swatch pc-bar--past"></span>Past months · actuals loaded</span>
+            <span class="pc-legend"><span class="pc-legend-swatch pc-bar--planned"></span>Planned</span>
+            <span class="pc-balance" :class="phasingStatus.balanced ? 'pc-balance--ok' : 'pc-balance--warn'"><ph-icon v-if="phasingStatus.balanced" name="check" :size="12"></ph-icon>{{ phasingStatus.text }}</span>
+          </div>
+        </div>
+        <p class="text-muted small mt-3 mb-0" v-else>Set Start and End month first.</p>
+      </div>
+      <div id="pc-sec-ptc" data-section="ptc" v-show="!isPhone || mobileSection === 'ptc'" class="cfg-section pc-card">
+        <div class="pc-card-head">
+          <div class="pc-card-head-text">
+            <div class="cfg-section-title">Pass-through costs <span class="pc-opt">· optional</span></div>
+            <div class="pc-card-sub">External costs (licences, travel…) with title, note, amount and the month they occur.</div>
+          </div>
+          <div class="pc-card-actions"><button type="button" class="ph-btn" v-if="!isViewer" @click="addPtc">+ Add PTC</button></div>
+        </div>
+        <div v-if="!project.ptc.length" class="pc-empty">No pass-through costs · Total PTC {{ formatMoney(0, project.currency, currencies) }}</div>
+        <template v-else>
+          <div class="pc-ptc-row" v-for="(item, pi) in project.ptc" :key="pi">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-3"><label class="form-label pc-label">Title</label><input :ref="'ptcTitle-' + pi" type="text" class="form-control form-control-sm" v-model="item.title" :disabled="isViewer" placeholder="e.g. Software licence"></div>
+              <div class="col-md-4"><label class="form-label pc-label">Note</label><input type="text" class="form-control form-control-sm" v-model="item.note" :disabled="isViewer" placeholder="optional description"></div>
+              <div class="col-md-2"><label class="form-label pc-label">Amount</label>
+                <input type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': ptcInvalid[pi] !== undefined }" :readonly="isViewer"
+                       :title="ptcInvalid[pi] !== undefined ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''"
+                       :value="ptcInvalid[pi] !== undefined ? ptcInvalid[pi] : (item.amount > 0 ? formatMoney(item.amount, project.currency, currencies) : '')"
+                       @focus="e => { if (ptcInvalid[pi] === undefined) e.target.value = moneyInput(item.amount); }"
+                       @blur="onPtcBlur(pi, $event)">
+              </div>
+              <div class="col-md-2"><label class="form-label pc-label">Month</label>
+                <select class="form-select form-select-sm" v-model="item.month" :disabled="isViewer">
+                  <option v-if="!projectMonths.length" value="">— set project dates first —</option>
+                  <option v-for="ym in projectMonths" :key="ym" :value="ym">{{ monthLabelLong(ym) }}</option>
+                </select>
+              </div>
+              <div class="col-md-1 text-end"><button type="button" class="ph-btn pc-icon-btn pc-icon-btn--danger" v-if="!isViewer" title="Remove PTC" aria-label="Remove PTC" @click="confirmRemovePtc(pi)"><ph-icon name="trash" :size="14"></ph-icon></button></div>
+            </div>
+          </div>
+          <div class="pc-ptc-total">Total PTC <strong>{{ formatMoney(totalPtc, project.currency, currencies) }}</strong></div>
+        </template>
+      </div>
+
+      <div id="pc-sec-groups" data-section="groups" v-show="!isPhone || mobileSection === 'groups'" class="cfg-section pc-card">
+        <div class="pc-card-head">
+          <div class="pc-card-head-text">
+            <div class="cfg-section-title">Functional groups <span class="pc-opt">· optional</span></div>
+            <div class="pc-card-sub">Group roles into functional areas for the reporting. Pick a task to count a role only on that task, or "Any task" to count it everywhere.</div>
+          </div>
+          <div class="pc-card-actions"><button type="button" class="ph-btn" v-if="!isViewer" @click="addGroup">+ Add group</button></div>
+        </div>
+        <div class="pc-groups" v-if="project.groups.length">
+          <div class="pc-group" v-for="(grp, gi) in project.groups" :key="gi">
+            <div class="pc-group-head">
+              <input :ref="'groupName-' + gi" type="text" class="form-control form-control-sm pc-group-name" v-model="grp.name" :disabled="isViewer" placeholder="Group name, e.g. Development" aria-label="Group name">
+              <span class="pc-group-count">{{ grp.entries.length }} {{ grp.entries.length === 1 ? 'role' : 'roles' }}</span>
+              <button type="button" class="pc-icon-link" v-if="!isViewer" title="Remove group" aria-label="Remove group" @click="project.groups.splice(gi, 1)"><ph-icon name="trash" :size="14"></ph-icon></button>
+            </div>
+            <div class="pc-group-entry" v-for="(entry, ei) in grp.entries" :key="ei">
+              <div class="pc-group-entry-row">
+                <input type="text" class="form-control form-control-sm" v-model="entry.role" :disabled="isViewer" placeholder="e.g. HWGDEV - DEVELOPER" aria-label="Role">
+                <button type="button" class="pc-icon-link" v-if="!isViewer" title="Remove role" aria-label="Remove role" @click="grp.entries.splice(ei, 1)"><ph-icon name="close" :size="12"></ph-icon></button>
+              </div>
+              <div class="pc-group-on">
+                <span>on</span>
+                <select class="form-select form-select-sm pc-select-sm" v-model="entry.task" :disabled="isViewer" aria-label="Task">
+                  <option value="">Any task</option>
+                  <option v-for="t in project.tasks" :key="t.name" :value="t.name">{{ t.name }}</option>
+                </select>
+              </div>
+            </div>
+            <button type="button" class="pc-link-btn pc-group-add" v-if="!isViewer" @click="addGroupEntry(gi)">+ Add role</button>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="table-responsive mb-2">
-      <table class="table table-sm table-bordered mb-0" style="table-layout:fixed;width:100%">
-        <colgroup><col><col style="width:110px"><col style="width:110px"><col style="width:110px"><col style="width:32px"></colgroup>
-        <thead style="background:var(--surface-light)">
-          <tr><th>Job Role: Name <span class="fw-normal text-muted small">(must match XLS)</span></th><th class="text-end">Sold Hours</th><th class="text-end">Hourly Rate</th><th class="text-end">Subtotal</th><th></th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="(res, ri) in task.resources" :key="ri">
-            <td><input type="text" class="form-control form-control-sm" v-model="res.role" :disabled="isViewer" placeholder="e.g. HWGDEV - DEVELOPER"></td>
-            <td><input type="number" class="form-control form-control-sm text-end" min="0" step="0.5" v-model.number="res.soldHours" :disabled="isViewer"></td>
-            <td><input type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': rateInvalid[ti + '-' + ri] !== undefined }" :title="rateInvalid[ti + '-' + ri] !== undefined ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''" :value="rateInvalid[ti + '-' + ri] !== undefined ? rateInvalid[ti + '-' + ri] : (res.hourlyRate > 0 ? formatMoney(res.hourlyRate, project.currency, currencies) : '')" @focus="e => { if (rateInvalid[ti + '-' + ri] === undefined) e.target.value = moneyInput(res.hourlyRate); }" @blur="onResRateBlur(ti, ri, $event)" :disabled="isViewer"></td>
-            <td class="text-end small fw-semibold align-middle">{{ res.soldHours > 0 && res.hourlyRate > 0 ? formatMoney(res.soldHours * res.hourlyRate, project.currency, currencies) : '—' }}</td>
-            <td class="text-center"><button class="btn btn-sm btn-link text-danger p-0" v-if="!isViewer" @click="confirmRemoveResource(ti, ri)">✕</button></td>
-          </tr>
-        </tbody>
-        <tfoot>
-          <tr style="background:var(--surface-light)">
-            <td colspan="3" class="text-end small fw-bold py-1">Task total</td>
-            <td class="text-end fw-bold py-1">{{ taskTotal(task) > 0 ? formatMoney(taskTotal(task), project.currency, currencies) : '—' }}</td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-    <button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addResource(ti)">+ Add resource</button>
-  </div>
-
-  <div class="d-flex justify-content-end gap-4 px-2 py-2 mt-1 border-top fw-bold small" style="background:#f8f9fa;border-radius:0 0 6px 6px">
-    <span>Total hours: {{ grandTotalHours > 0 ? grandTotalHours.toLocaleString('en-US') : '—' }}</span>
-    <span>Total budget: {{ grandTotalBudget > 0 ? formatMoney(grandTotalBudget, project.currency, currencies) : '—' }}</span>
-  </div>
-</div>
-      <div class="cfg-section">
-  <div class="d-flex justify-content-between align-items-center cfg-section-title">
-    <span>4. Monthly Budget Phasing <span class="fw-normal text-muted">(estimated budget to spend per month)</span></span>
-    <div class="d-flex gap-2 align-items-center flex-wrap" v-if="!isViewer">
-      <button class="btn btn-sm btn-outline-secondary" @click="derivePhasing">⟳ Derive from task dates</button>
-      <button class="btn btn-sm btn-outline-secondary" v-if="reforecastVisible" @click="runReforecast">↻ Reforecast from actuals</button>
-    </div>
-  </div>
-  <div v-if="phasingActionError" class="alert alert-danger py-1 px-2 small mb-2" style="white-space:pre-line">{{ phasingActionError }}</div>
-  <div class="mt-1" v-if="projectMonths.length">
-    <div class="cfg-month-grid">
-      <div class="cfg-month-cell" v-for="ym in projectMonths" :key="ym">
-        <div class="cfg-month-label">{{ monthLabel(ym) }}</div>
-        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': phasingInvalid[ym] !== undefined }"
-               :title="phasingInvalid[ym] !== undefined ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''"
-               :readonly="isViewer" :value="phasingInvalid[ym] !== undefined ? phasingInvalid[ym] : (project.phasing[ym] > 0 ? formatMoney(project.phasing[ym], project.currency, currencies) : '')"
-               @focus="e => { if (phasingInvalid[ym] === undefined) e.target.value = moneyInput(project.phasing[ym]); }"
-               @blur="onPhasingBlur(ym, $event)">
+      <!-- Tags: the same markup as costgrid.html's Tags section -->
+      <div id="pc-sec-tags" data-section="tags" v-show="!isPhone || mobileSection === 'tags'" class="section-card cg-section-card pc-card mb-3" v-if="!isNewProject">
+        <div class="section-header cg-section-header" role="button" tabindex="0" :aria-expanded="!tagsCollapsed"
+             @click="toggleTagsCollapsed" @keydown.enter.prevent="toggleTagsCollapsed" @keydown.space.prevent="toggleTagsCollapsed">
+          <svg class="cg-section-chevron" :class="{ 'cg-section-chevron--collapsed': tagsCollapsed }" viewBox="0 0 12 12" width="12" height="12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="cg-section-title">Tags</span>
+          <div v-if="tagsCollapsed" class="cg-tag-summary">
+            <span v-if="!tagsSummaryGroups.length" class="text-muted">None selected</span>
+            <span v-for="g in tagsSummaryGroups" :key="g.name" class="cg-tag-summary-pill">{{ g.name }} · {{ g.labels.join(', ') }}</span>
+          </div>
+          <span class="cg-section-toggle-label">{{ tagsCollapsed ? 'Edit' : 'Collapse' }}</span>
+        </div>
+        <div v-show="!tagsCollapsed" class="p-3" :class="{ 'tags-section--readonly': tagsReadOnly }">
+          <div v-if="!attributeLists.length" class="text-muted pc-text-sm">No tag lists configured yet.</div>
+          <div class="cg-tag-groups">
+            <div v-for="list in attributeLists" :key="list.id" class="tag-group">
+              <div class="tag-group__label">{{ list.name }}</div>
+              <div v-if="!list.items.length" class="text-muted pc-text-xs">No active items in this list.</div>
+              <div class="tag-group__list">
+                <label v-for="item in list.items" :key="item.id" class="tag-pill">
+                  <input type="checkbox" :checked="isTagChecked(item.id)" :disabled="tagsReadOnly || tagSaving" @change="toggleTag(item.id, $event)">
+                  <svg class="tag-pill__check" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.8 8.8L10 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span>{{ item.label }}</span>
+                </label>
+                <label v-for="row in inactiveAssignedForList(list.id)" :key="row.item_id" class="tag-pill tag-pill--inactive">
+                  <input type="checkbox" checked :disabled="tagsReadOnly || tagSaving" @change="toggleTag(row.item_id, $event)">
+                  <span>{{ row.label }}</span>
+                  <span class="tag-pill__suffix">inactive</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-    <div class="d-flex align-items-center gap-2 mt-2" style="font-size:var(--text-base)">
-      <span class="text-muted">=</span><strong>{{ phasingSum > 0 ? formatMoney(phasingSum, project.currency, currencies) : '—' }}{{ grandTotalBudget > 0 ? ' / ' + formatMoney(grandTotalBudget, project.currency, currencies) : '' }}</strong>
-    </div>
-  </div>
-  <p class="text-muted small mb-0" v-else>Set Start and End month first.</p>
-</div>
-<div class="cfg-section">
-  <div class="d-flex justify-content-between align-items-center cfg-section-title">
-    <span>5. Monthly Hour Planning <span class="fw-normal text-muted">(planned hours to consume per month)</span></span>
-    <div class="d-flex gap-2 align-items-center flex-wrap" v-if="!isViewer">
-      <button class="btn btn-sm btn-outline-secondary" @click="derivePhasing">⟳ Derive from task dates</button>
-      <button class="btn btn-sm btn-outline-secondary" v-if="reforecastVisible" @click="runReforecast">↻ Reforecast from actuals</button>
-    </div>
-  </div>
-  <div class="mt-1" v-if="projectMonths.length">
-    <div class="cfg-month-grid">
-      <div class="cfg-month-cell" v-for="ym in projectMonths" :key="ym">
-        <div class="cfg-month-label">{{ monthLabel(ym) }}</div>
-        <input type="text" class="form-control form-control-sm text-end"
-               :readonly="isViewer" :value="project.planning[ym] > 0 ? cfgFmtHours(project.planning[ym]) : ''"
-               @focus="e => { e.target.value = project.planning[ym] > 0 ? project.planning[ym] : ''; }"
-               @blur="e => { const v = cfgParseHours(e.target.value); if (v > 0) project.planning[ym] = v; else delete project.planning[ym]; e.target.value = v > 0 ? cfgFmtHours(v) : ''; }">
       </div>
-    </div>
-    <div class="d-flex align-items-center gap-2 mt-2" style="font-size:var(--text-base)">
-      <span class="text-muted">=</span><strong>{{ planningSum > 0 ? (planningSum.toLocaleString('en-US') + ' h') : '—' }}{{ grandTotalHours > 0 ? ' / ' + grandTotalHours.toLocaleString('en-US') + ' h' : '' }}</strong>
-    </div>
-  </div>
-  <p class="text-muted small mb-0" v-else>Set Start and End month first.</p>
-</div>
-      <div class="cfg-section">
-  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>6. Pass Through Costs <span class="fw-normal text-muted">(PTC)</span></span><button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addPtc">+ Add PTC</button></div>
-  <p class="text-muted small mb-3">Add external costs (licences, travel, etc.) with title, note, amount and the month they occur.</p>
-  <div class="cfg-ptc-card border rounded p-3 mb-2" v-for="(item, pi) in project.ptc" :key="pi">
-    <div class="row g-2 align-items-start">
-      <div class="col-sm-3"><label class="form-label small text-muted mb-1">Title</label><input type="text" class="form-control form-control-sm" v-model="item.title" :disabled="isViewer" placeholder="e.g. Software licence"></div>
-      <div class="col-sm-4"><label class="form-label small text-muted mb-1">Note</label><input type="text" class="form-control form-control-sm" v-model="item.note" :disabled="isViewer" placeholder="optional description"></div>
-      <div class="col-sm-2"><label class="form-label small text-muted mb-1">Amount</label>
-        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': ptcInvalid[pi] !== undefined }" :readonly="isViewer"
-               :title="ptcInvalid[pi] !== undefined ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''"
-               :value="ptcInvalid[pi] !== undefined ? ptcInvalid[pi] : (item.amount > 0 ? formatMoney(item.amount, project.currency, currencies) : '')"
-               @focus="e => { if (ptcInvalid[pi] === undefined) e.target.value = moneyInput(item.amount); }"
-               @blur="onPtcBlur(pi, $event)">
-      </div>
-      <div class="col-sm-2"><label class="form-label small text-muted mb-1">Month</label>
-        <select class="form-select form-select-sm" v-model="item.month" :disabled="isViewer">
-          <option v-if="!projectMonths.length" value="">— set project dates first —</option>
-          <option v-for="ym in projectMonths" :key="ym" :value="ym">{{ monthLabelLong(ym) }}</option>
-        </select>
-      </div>
-      <div class="col-sm-1 d-flex align-items-end"><button class="btn btn-sm btn-outline-danger w-100" v-if="!isViewer" @click="confirmRemovePtc(pi)">🗑</button></div>
-    </div>
-  </div>
-  <div class="d-flex justify-content-end px-2 py-2 mt-1 border-top fw-bold small" style="background:#fff3cd;border-radius:0 0 6px 6px">Total PTC: {{ totalPtc > 0 ? formatMoney(totalPtc, project.currency, currencies) : '—' }}</div>
-</div>
-<div class="cfg-section">
-  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>7. Functional Groups <span class="fw-normal text-muted">(optional)</span></span><button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addGroup">+ Add group</button></div>
-  <p class="text-muted small mb-3">Group roles into functional areas. Each role must match the <strong>Job Role: Name</strong> column in the XLS. Pick a specific task to count that role's hours only on that task (e.g. the same role billed at a different rate on another task) — leave it as "— any task —" to count the role everywhere it appears, matching the old behavior.</p>
-  <div class="cfg-group-card border rounded p-3 mb-2" v-for="(grp, gi) in project.groups" :key="gi">
-    <div class="d-flex align-items-center gap-2 mb-2">
-      <span class="text-muted small text-nowrap">Group name:</span>
-      <input type="text" class="form-control form-control-sm" v-model="grp.name" :disabled="isViewer" placeholder="e.g. Development">
-      <button class="btn btn-sm btn-outline-danger flex-shrink-0" v-if="!isViewer" @click="project.groups.splice(gi, 1)">🗑</button>
-    </div>
-    <label class="form-label small text-muted mb-1">Roles:</label>
-    <div class="d-flex align-items-center gap-2 mb-2" v-for="(entry, ei) in grp.entries" :key="ei">
-      <input type="text" class="form-control form-control-sm" v-model="entry.role" :disabled="isViewer" placeholder="e.g. HWGDEV - DEVELOPER">
-      <select class="form-select form-select-sm" style="max-width:220px" v-model="entry.task" :disabled="isViewer">
-        <option value="">— any task —</option>
-        <option v-for="t in project.tasks" :key="t.name" :value="t.name">{{ t.name }}</option>
-      </select>
-      <button class="btn btn-sm btn-outline-danger flex-shrink-0" v-if="!isViewer" @click="grp.entries.splice(ei, 1)">🗑</button>
-    </div>
-    <button class="btn btn-sm btn-outline-secondary" v-if="!isViewer" @click="addGroupEntry(gi)">+ Add role</button>
-  </div>
-</div>
-<div class="cfg-section" v-if="!isNewProject">
-  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>8. Tags <span class="fw-normal text-muted">(optional)</span></span></div>
-  <div v-if="!attributeLists.length" class="text-muted small">No tag lists configured yet.</div>
-  <div class="tags-section" :class="{ 'tags-section--readonly': tagsReadOnly }">
-  <div v-for="list in attributeLists" :key="list.id" class="tag-group mb-3">
-    <div class="tag-group__label">{{ list.name }}</div>
-    <div v-if="!list.items.length" class="text-muted" style="font-size:.75rem">No active items in this list.</div>
-    <div class="tag-group__list">
-      <label v-for="item in list.items" :key="item.id" class="tag-pill">
-        <input type="checkbox" :checked="isTagChecked(item.id)" :disabled="tagsReadOnly || tagSaving" @change="toggleTag(item.id, $event)">
-        <svg class="tag-pill__check" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.8 8.8L10 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>{{ item.label }}</span>
-      </label>
-      <label v-for="row in inactiveAssignedForList(list.id)" :key="row.item_id" class="tag-pill tag-pill--inactive">
-        <input type="checkbox" checked :disabled="tagsReadOnly || tagSaving" @change="toggleTag(row.item_id, $event)">
-        <span>{{ row.label }}</span>
-        <span class="tag-pill__suffix">inactive</span>
-      </label>
-    </div>
-  </div>
-  </div>
-</div>
-    </div>
-
-    <div v-if="outOfPeriod.length && !isViewer" class="alert alert-warning py-2 small mt-2 mb-0">{{ outOfPeriodMessage }}</div>
-    <div class="d-flex gap-2 justify-content-between align-items-center py-4 border-top mt-2 mb-5">
-      <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary" onclick="window.location.href='/portfolio.html'">← Back to Portfolio</button>
-        <button v-if="!isNewProject" class="btn btn-outline-secondary" @click="goProjectDashboard">← Project Dashboard</button>
-      </div>
-      <button v-if="!isViewer" class="btn btn-primary px-4" :disabled="saving" @click="onSave">{{ saving ? '💾 Saving…' : '💾 Save' }}</button>
     </div>
   </template>
+
+  <div class="offcanvas offcanvas-bottom pc-sheet" tabindex="-1" id="pcSectionsSheet" aria-labelledby="pcSectionsSheetTitle">
+    <div class="offcanvas-header pc-sheet-head">
+      <h5 class="offcanvas-title" id="pcSectionsSheetTitle">Sections</h5>
+      <button type="button" class="pc-link-btn" data-bs-dismiss="offcanvas">Close</button>
+    </div>
+    <div class="offcanvas-body pc-sheet-body">
+      <button v-for="(s, i) in sections" :key="s.key" type="button" class="pc-sheet-item" :class="{ 'pc-sheet-item--active': mobileSection === s.key }" @click="pickMobileSection(s.key)">
+        <span class="pc-sheet-step">{{ i + 1 }}</span>
+        <span class="pc-index-text">{{ s.label }}</span>
+        <span v-if="sectionIssues[s.key]" class="pc-dot" :title="sectionIssues[s.key]" :aria-label="sectionIssues[s.key]"></span>
+        <span v-else-if="s.optional" class="pc-index-opt">optional</span>
+      </button>
+    </div>
+  </div>
 
   <div class="modal fade" id="clientEditModal" tabindex="-1">
     <div class="modal-dialog modal-sm">
       <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title fw-bold">＋ New client</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-header"><h5 class="modal-title fw-bold">New client</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
           <div v-if="clientModal.error" class="alert alert-danger py-2">{{ clientModal.error }}</div>
           <div class="mb-3"><label class="form-label small fw-semibold">Client name</label><input type="text" class="form-control form-control-sm" v-model="clientModal.name" placeholder="e.g. Acme Corp"></div>
         </div>
-        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" :disabled="clientModal.saving" @click="saveClientModal">{{ clientModal.saving ? 'Saving…' : 'Save' }}</button></div>
+        <div class="modal-footer"><button type="button" class="ph-btn" data-bs-dismiss="modal">Cancel</button><button type="button" class="ph-btn-primary" :disabled="clientModal.saving" @click="saveClientModal">{{ clientModal.saving ? 'Saving…' : 'Save' }}</button></div>
       </div>
     </div>
   </div>
   <div class="modal fade" id="programEditModal" tabindex="-1">
     <div class="modal-dialog modal-sm">
       <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title fw-bold">＋ New program</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-header"><h5 class="modal-title fw-bold">New program</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
           <div v-if="programModal.error" class="alert alert-danger py-2">{{ programModal.error }}</div>
           <div class="mb-3"><label class="form-label small fw-semibold">Program name</label><input type="text" class="form-control form-control-sm" v-model="programModal.name" placeholder="e.g. Chatbot AI Platform"></div>
           <div class="mb-3"><label class="form-label small fw-semibold">Program ID</label><input type="text" class="form-control form-control-sm" v-model="programModal.id" placeholder="e.g. PRG-001"></div>
         </div>
-        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" :disabled="programModal.saving" @click="saveProgramModal">{{ programModal.saving ? 'Saving…' : 'Save' }}</button></div>
+        <div class="modal-footer"><button type="button" class="ph-btn" data-bs-dismiss="modal">Cancel</button><button type="button" class="ph-btn-primary" :disabled="programModal.saving" @click="saveProgramModal">{{ programModal.saving ? 'Saving…' : 'Save' }}</button></div>
       </div>
     </div>
   </div>
@@ -360,11 +459,11 @@
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header py-2">
-          <h6 class="modal-title mb-0">Actuals <span class="text-muted ms-2" style="font-size:.8rem">{{ actuals.exportRows?.length || 0 }} rows</span></h6>
+          <h6 class="modal-title mb-0">Actuals <span class="text-muted ms-2 pc-text-xs">{{ actuals.exportRows?.length || 0 }} rows</span></h6>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body p-0">
-          <table class="table table-sm table-hover mb-0" style="font-size:.78rem">
+          <table class="table table-sm table-hover mb-0 pc-text-xs">
             <thead>
               <tr><th>Date</th><th>Owner</th><th>Role</th><th>Task</th><th class="text-end">Hours</th><th>Notes</th><th class="text-end">Fee</th><th class="text-end">Spent</th></tr>
             </thead>
@@ -382,15 +481,14 @@
     </div>
   </div>
 
-  <!-- Task 3/6 insert the confirm modal here -->
   <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+    <div class="modal-dialog modal-dialog-centered pc-confirm-dialog">
       <div class="modal-content shadow-lg">
-        <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold">{{ confirmModal.infoMode ? 'ℹ️ Info' : '⚠️ Confirm' }}</h6></div>
-        <div class="modal-body pt-1"><p class="mb-0" style="white-space:pre-line;font-size:.92rem">{{ confirmModal.message }}</p></div>
+        <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold">{{ confirmModal.infoMode ? 'Info' : 'Confirm' }}</h6></div>
+        <div class="modal-body pt-1"><p class="mb-0 pc-pre-line pc-text-sm">{{ confirmModal.message }}</p></div>
         <div class="modal-footer border-0 pt-2">
-          <button class="btn btn-secondary" data-bs-dismiss="modal" v-if="!confirmModal.infoMode">Cancel</button>
-          <button :class="confirmModal.infoMode ? 'btn btn-primary' : 'btn btn-danger'" @click="confirmModalOk">{{ confirmModal.infoMode ? 'OK' : 'Confirm' }}</button>
+          <button type="button" class="ph-btn" data-bs-dismiss="modal" v-if="!confirmModal.infoMode">Cancel</button>
+          <button type="button" :class="confirmModal.infoMode ? 'ph-btn-primary' : 'btn btn-danger'" @click="confirmModalOk">{{ confirmModal.infoMode ? 'OK' : 'Confirm' }}</button>
         </div>
       </div>
     </div>
@@ -415,14 +513,14 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/status-rules.js?v=1"></script>
-<script type="module" src="js/lib/config-form-calc.js?v=5"></script>
+<script type="module" src="js/lib/config-form-calc.js?v=6"></script>
 <script type="module" src="js/lib/dates.js?v=4"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
 <script type="module" src="js/lib/project-push-result.js?v=4"></script>
 <script defer src="js/api-sync.js?v=31"></script>
 <script defer src="js/tags.js?v=2"></script>
-<script type="module" src="js/lib/icons.js?v=2"></script>
+<script type="module" src="js/lib/icons.js?v=3"></script>
 <script defer src="js/nav.js?v=19"></script>
 <script type="module">
   const BLANK_PROJECT = () => ({
@@ -458,11 +556,100 @@
         actuals: { info: 'Save the project first to enable actuals upload.', status: '', statusClass: '', exportRows: null, guardMsg: '', deleting: false },
         tasksXlsxError: '',
         phasingActionError: '',
+        headerBadge: window.headerBadge,
+        openTaskIndex: null,
+        activeSection: 'client',
+        phasingMode: 'budget',
+        tagsCollapsed: true,
+        isPhone: false,
+        mobileSection: 'client',
       };
     },
     computed: {
       isViewer() {
         return this.project?.my_permission === 'viewer';
+      },
+      isDirty() { return window.isProjectDirty(this.savedSnapshot, this.project); },
+      // The section index, in page order; Tags exists only for a saved project.
+      sections() {
+        const all = [
+          { key: 'client', label: 'Client & program', optional: false },
+          { key: 'info', label: 'Project info', optional: false },
+          { key: 'actuals', label: 'Actuals', optional: false },
+          { key: 'tasks', label: 'Tasks & resources', optional: false },
+          { key: 'phasing', label: 'Monthly phasing', optional: false },
+          { key: 'ptc', label: 'Pass-through costs', optional: true },
+          { key: 'groups', label: 'Functional groups', optional: true },
+          { key: 'tags', label: 'Tags', optional: true },
+        ];
+        return this.isNewProject ? all.filter(x => x.key !== 'tags') : all;
+      },
+      // The single warning of the task table: tasks with months whose split is not valid.
+      splitWarning() {
+        const tasks = this.project?.tasks || [];
+        const n = tasks.filter(t => { const ms = this.taskMonthRange(t); return ms.length && !window.splitState(t.monthlyDistribution, ms).valid; }).length;
+        return { n, m: tasks.length };
+      },
+      currencySymbol() { return window.currencyInfo(this.project?.currency, this.currencies).symbol; },
+      // Months (YYYYMM) present in the loaded actuals; the upload stores ISO dates, Reforecast reads them the same way.
+      actualMonths() {
+        const set = new Set();
+        (this.actuals.exportRows || []).forEach(r => { if (r && typeof r.date === 'string' && r.date) set.add(r.date.slice(0, 7).replace('-', '')); });
+        return set;
+      },
+      currentYm() {
+        const now = new Date();
+        return now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0');
+      },
+      // One bar per project month for the series on screen, scaled on its largest month.
+      phasingBars() {
+        const src = (this.phasingMode === 'hours' ? this.project?.planning : this.project?.phasing) || {};
+        const months = this.projectMonths;
+        const max = Math.max(0, ...months.map(ym => src[ym] || 0));
+        return months.map(ym => ({
+          ym, value: src[ym] || 0, pct: max > 0 ? Math.round((src[ym] || 0) / max * 100) : 0,
+          past: this.actualMonths.has(ym), current: ym === this.currentYm,
+        }));
+      },
+      phasingStatus() {
+        const hours = this.phasingMode === 'hours';
+        const sum = hours ? this.planningSum : this.phasingSum;
+        const total = hours ? this.distributedHours : this.distributedBudget;
+        const b = window.phasingBalance(sum, total, hours ? 2 : this.currencyDigits, this.projectMonths.length);
+        const fmt = v => hours ? (v > 0 ? this.cfgFmtHours(v) : '0') + 'h' : this.formatMoney(v, this.project.currency, this.currencies);
+        const tail = b.balanced ? 'balanced' : b.diff > 0 ? fmt(b.diff) + ' to allocate' : fmt(-b.diff) + ' over';
+        return { balanced: b.balanced, text: fmt(sum) + ' of ' + fmt(total) + ' · ' + tail };
+      },
+      phonePickerIssue() { return this.sectionIssues[this.mobileSection] || null; },
+      mobileSectionIndex() {
+        return Math.max(0, this.sections.findIndex(x => x.key === this.mobileSection));
+      },
+      currencyDigits() { return window.currencyInfo(this.project?.currency, this.currencies).digits; },
+      // Why a section needs attention (the amber dot of the index), or null.
+      sectionIssues() {
+        const p = this.project;
+        const out = { tasks: null, phasing: null, ptc: null };
+        if (!p) return out;
+        const tasks = p.tasks || [];
+        const unsplit = tasks.filter(t => { const ms = this.taskMonthRange(t); return ms.length && !window.splitState(t.monthlyDistribution, ms).valid; }).length;
+        if (unsplit) out.tasks = unsplit + ' of ' + tasks.length + ' tasks have no valid monthly split';
+        else if (this.outOfPeriod.length) out.tasks = 'Some tasks are outside the project period';
+        else if (Object.keys(this.rateInvalid).length) out.tasks = 'Some hourly rates are not valid amounts';
+        if (Object.keys(this.phasingInvalid).length) out.phasing = 'Some phasing amounts are not valid';
+        else if (this.projectMonths.length && this.distributedBudget > 0) {
+          if (!window.phasingBalance(this.phasingSum, this.distributedBudget, this.currencyDigits, this.projectMonths.length).balanced) out.phasing = 'The budget phasing does not add up to the total budget';
+          else if (!window.phasingBalance(this.planningSum, this.distributedHours, 2, this.projectMonths.length).balanced) out.phasing = 'The hour planning does not add up to the total hours';
+        }
+        if (Object.keys(this.ptcInvalid).length) out.ptc = 'Some PTC amounts are not valid';
+        return out;
+      },
+      // Page head sub-line: client · D365 code · period · currency, each part omitted when empty.
+      headMeta() {
+        const p = this.project;
+        if (!p || this.isNewProject) return '';
+        const client = p.clientId && p.clientId !== '__unassigned__' ? getClientName(p.clientId) : '';
+        const period = p.startDate && p.endDate ? window.formatMonthText(p.startDate) + ' – ' + window.formatMonthText(p.endDate) : '';
+        return [client, p.code, period, p.currency].filter(Boolean).join(' · ');
       },
       // Dates C3: tasks that leave the project period, and the notice built from them.
       outOfPeriod() {
@@ -502,6 +689,14 @@
         return !!(this.project?.costGridRef?.cgId);
       },
       tagsReadOnly() { return this.isViewer; },
+      // Closed Tags header: one pill per list with its assigned labels (as costgrid.html).
+      tagsSummaryGroups() {
+        return this.attributeLists.map(list => {
+          const active = (list.items || []).filter(it => this.isTagChecked(it.id)).map(it => it.label);
+          const inactive = this.inactiveAssignedForList(list.id).map(row => row.label);
+          return { name: list.name, labels: [...active, ...inactive] };
+        }).filter(g => g.labels.length);
+      },
       statusRule() {
         return this.project ? getStatusRule(this.project.pipeline) : { options: null, disabled: true };
       },
@@ -510,6 +705,13 @@
       },
       grandTotalBudget() {
         return (this.project?.tasks || []).reduce((s, t) => s + t.resources.reduce((rs, r) => rs + (r.soldHours || 0) * (r.hourlyRate || 0), 0), 0);
+      },
+      // The totals Derive/Reforecast distribute (billable tasks only): the phasing balance compares against these.
+      distributedBudget() {
+        return (this.project?.tasks || []).filter(t => t.billable !== false).reduce((s, t) => s + t.resources.reduce((rs, r) => rs + (r.soldHours || 0) * (r.hourlyRate || 0), 0), 0);
+      },
+      distributedHours() {
+        return (this.project?.tasks || []).filter(t => t.billable !== false).reduce((s, t) => s + t.resources.reduce((rs, r) => rs + (r.soldHours || 0), 0), 0);
       },
       projectMonths() {
         if (!this.project?.startDate || !this.project?.endDate) return [];
@@ -525,6 +727,11 @@
       totalPtc() { return (this.project?.ptc || []).reduce((s, p) => s + (p.amount || 0), 0); },
     },
     async created() {
+      // Below 768px one section at a time; the listener keeps isPhone in step with the window width.
+      this._phoneMq = window.matchMedia('(max-width: 767.98px)');
+      this._onPhoneChange = e => { this.isPhone = e.matches; };
+      this.isPhone = this._phoneMq.matches;
+      this._phoneMq.addEventListener('change', this._onPhoneChange);
       // Leave-page warning for unsaved edits (incl. Derive/Reforecast, which only change on-screen values until Save).
       window.addEventListener('beforeunload', e => {
         if (this.isViewer) return;
@@ -560,6 +767,11 @@
       // Snapshot last, after resolveProject's normalisations, so those never count as user edits.
       if (this.project && !this.notFound) this.savedSnapshot = JSON.stringify(this.project);
       this.ready = true;
+      if (this.project && !this.notFound) { await this.$nextTick(); this.observeSections(); }
+    },
+    beforeUnmount() {
+      if (this._sectionObserver) this._sectionObserver.disconnect();
+      if (this._phoneMq) this._phoneMq.removeEventListener('change', this._onPhoneChange);
     },
     methods: {
       getClients,
@@ -570,6 +782,36 @@
       // body instead, which only executes later, once the bridge is guaranteed to exist.
       cfgFmtHours(n) { return window.cfgFmtHours(n); },
       cfgParseHours(s) { return window.cfgParseHours(s); },
+      // Index click: scroll the card under the sticky tab bar (below 1024px) plus a margin, with window.scrollTo.
+      scrollToSection(key) {
+        const el = document.getElementById('pc-sec-' + key);
+        if (!el) return;
+        this.activeSection = key;
+        const index = document.querySelector('.pc-index');
+        const tabs = index && window.matchMedia('(max-width: 1023.98px)').matches ? index.offsetHeight : 0;
+        const banner = document.querySelector('.pc-viewer-banner');
+        const bannerH = banner ? banner.offsetHeight : 0;
+        const margin = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - tabs - bannerH - margin, behavior: 'smooth' });
+      },
+      pickMobileSection(key) {
+        this.mobileSection = key;
+        this.activeSection = key;
+        const el = document.getElementById('pcSectionsSheet');
+        if (el) bootstrap.Offcanvas.getOrCreateInstance(el).hide();
+        this.$nextTick(() => this.scrollToSection(key));
+      },
+      // The active index entry follows the first card crossing the upper part of the viewport.
+      observeSections() {
+        if (!('IntersectionObserver' in window)) return;
+        const visible = new Set();
+        this._sectionObserver = new IntersectionObserver(entries => {
+          entries.forEach(e => { if (e.isIntersecting) visible.add(e.target.dataset.section); else visible.delete(e.target.dataset.section); });
+          const first = this.sections.find(x => visible.has(x.key));
+          if (first) this.activeSection = first.key;
+        }, { rootMargin: '-10% 0px -60% 0px' });
+        document.querySelectorAll('.pc-card[data-section]').forEach(el => this._sectionObserver.observe(el));
+      },
       resolveProject() {
         const params = new URLSearchParams(window.location.search);
         const projectId = params.get('projectId');
@@ -590,14 +832,19 @@
           this.notFound = true;
           return;
         }
-        this.project = JSON.parse(JSON.stringify(found));
+        this.project = this.normalizeProject(JSON.parse(JSON.stringify(found)));
+        this.isNewProject = false;
+        this.updateBreadcrumb(this.project.name || projectId);
+      },
+      // The normalisations of a loaded project, shared by resolveProject and onDiscard.
+      normalizeProject(p) {
         // The API can return monthlyDistribution: null for a task (seen on real data); the Monthly %
         // distribution grid's v-model writes directly into task.monthlyDistribution[ym], which throws
         // if the object itself is null. Normalize once here, matching the same default the "+ Add task"
         // button already uses for brand-new tasks.
-        (this.project.tasks || []).forEach(t => { if (!t.monthlyDistribution) t.monthlyDistribution = {}; });
-        (this.project.tasks || []).forEach(t => { if (typeof t.description !== 'string') t.description = ''; });
-        if (typeof this.project.description !== 'string') this.project.description = '';
+        (p.tasks || []).forEach(t => { if (!t.monthlyDistribution) t.monthlyDistribution = {}; });
+        (p.tasks || []).forEach(t => { if (typeof t.description !== 'string') t.description = ''; });
+        if (typeof p.description !== 'string') p.description = '';
         // Legacy groups only had roles: string[] (no task association) -- seed
         // entries: [{role, task: ''}] (wildcard = "any task", matching the old
         // behavior) so this form can bind directly to grp.entries[].role/.task.
@@ -605,9 +852,18 @@
         // here rather than shared: this is a one-time UI-seeding convenience, not
         // the correctness-critical path (that's portfolio.html's own summary
         // aggregation, which calls the real js/lib function).
-        (this.project.groups || []).forEach(g => { if (!g.entries || !g.entries.length) g.entries = (g.roles || []).map(role => ({ role, task: '' })); });
-        this.isNewProject = false;
-        this.updateBreadcrumb(this.project.name || projectId);
+        (p.groups || []).forEach(g => { if (!g.entries || !g.entries.length) g.entries = (g.roles || []).map(role => ({ role, task: '' })); });
+        return p;
+      },
+      // Back to the last saved state; tags, actuals and new clients/programs are saved at once and stay as they are.
+      async onDiscard() {
+        if (this.saving || !this.isDirty) return;
+        if (!(await this.showConfirm('Discard all unsaved changes?'))) return;
+        this.project = this.normalizeProject(JSON.parse(this.savedSnapshot));
+        this.phasingInvalid = {};
+        this.ptcInvalid = {};
+        this.rateInvalid = {};
+        this.openTaskIndex = null;
       },
       async loadTags() {
         try {
@@ -647,6 +903,16 @@
           this.tagSaving = false;
         }
       },
+      // Not persisted: Tags opens closed on every visit.
+      toggleTagsCollapsed() {
+        this.tagsCollapsed = !this.tagsCollapsed;
+      },
+      focusRef(name) {
+        this.$nextTick(() => {
+          const ref = this.$refs[name];
+          (Array.isArray(ref) ? ref[0] : ref)?.focus();
+        });
+      },
       updateBreadcrumb(label) {
         if (typeof updateBreadcrumbs === 'function') {
           updateBreadcrumbs([
@@ -674,6 +940,7 @@
       },
       addPtc() {
         this.project.ptc.push({ title: '', note: '', amount: 0, month: this.projectMonths[0] || '' });
+        this.focusRef('ptcTitle-' + (this.project.ptc.length - 1));
       },
       async confirmRemovePtc(pi) {
         const title = this.project.ptc[pi].title.trim() || 'this entry';
@@ -684,6 +951,7 @@
       },
       addGroup() {
         this.project.groups.push({ name: '', entries: [] });
+        this.focusRef('groupName-' + (this.project.groups.length - 1));
       },
       addGroupEntry(gi) {
         this.project.groups[gi].entries.push({ role: '', task: '' });
@@ -721,7 +989,7 @@
       },
       // Sets a transient actuals-section status message (success or error) that
       // auto-clears after `ms` — used for every actuals status EXCEPT the
-      // "⏳ Uploading…" in-progress message, which is meant to be overwritten by
+      // "Uploading…" in-progress message, which is meant to be overwritten by
       // the success/failure message right after, not to auto-clear on its own.
       // Cancels any previously-scheduled clear first, so two flashes within `ms`
       // of each other don't have the first one's timer wipe the second's message.
@@ -733,7 +1001,7 @@
       },
       async downloadActualsXlsx() {
         if (typeof ExcelJS === 'undefined') {
-          this.flashActualsStatus('❌ Export library not available.', 'text-danger');
+          this.flashActualsStatus('Export library not available.', 'text-danger');
           return;
         }
         try {
@@ -759,7 +1027,7 @@
           a.click();
           setTimeout(() => URL.revokeObjectURL(a.href), 0);
         } catch (e) {
-          this.flashActualsStatus(`❌ Export failed: ${e.message}`, 'text-danger');
+          this.flashActualsStatus(`Export failed: ${e.message}`, 'text-danger');
         }
       },
       buildActualsFilename() {
@@ -777,10 +1045,10 @@
         this.actuals.guardMsg = '';
         if (!this.project.code) { this.actuals.guardMsg = 'Set the D365 Project ID first before uploading actuals.'; return; }
         clearTimeout(this._actualsStatusTimer); // cancel any pending clear from a prior action's flash
-        this.actuals.status = '⏳ Uploading…'; this.actuals.statusClass = 'text-muted';
+        this.actuals.status = 'Uploading…'; this.actuals.statusClass = 'text-muted';
         try {
           const result = await Api.timesheets.upload(file, this.project.code);
-          this.actuals.status = `✅ Uploaded ${result.totalRows} rows.`; this.actuals.statusClass = 'text-success';
+          this.actuals.status = `Uploaded ${result.totalRows} rows.`; this.actuals.statusClass = 'text-success';
           await this.loadActuals();
           await this.updateReforecastVisibility();
           // Start the 4s auto-clear only now, after the reload settles — starting it
@@ -792,7 +1060,7 @@
             this.actuals.status = '';
             await this.showConfirm(formatUploadInconsistencies(err.data.inconsistencies), { infoMode: true });
           } else {
-            this.flashActualsStatus(`❌ Upload failed: ${err.message}`, 'text-danger');
+            this.flashActualsStatus(`Upload failed: ${err.message}`, 'text-danger');
           }
         }
         e.target.value = '';
@@ -848,14 +1116,15 @@
           this.actuals.info = `<span class="text-muted">No actuals uploaded for project <code>${esc(this.project.code)}</code>.</span>`;
           this.actuals.exportRows = null;
           this.reforecastVisible = false;
-          this.flashActualsStatus('✅ Actuals deleted.', 'text-success');
+          this.flashActualsStatus('Actuals deleted.', 'text-success');
         } catch (e) {
-          this.flashActualsStatus(`❌ Delete failed: ${e.message}`, 'text-danger');
+          this.flashActualsStatus(`Delete failed: ${e.message}`, 'text-danger');
         } finally {
           this.actuals.deleting = false;
         }
       },
       async onSave() {
+        if (this.saving) return;
         // Drop blank role rows (e.g. "+ Add role" clicked then left empty) before saving —
         // the old textarea-based form filtered blank lines via .filter(Boolean); this per-row
         // form has no equivalent, and a saved {role: '', task: '...'} would otherwise reach
@@ -1036,27 +1305,61 @@
         task.monthlyDistribution = window.keepDistribution(task.monthlyDistribution, this.taskMonthRange(task), inverted);
       },
       distBadgeClass(task) {
-        const sum = Object.values(task.monthlyDistribution || {}).reduce((s, v) => s + (v || 0), 0);
-        if (Math.abs(sum - 100) < 0.05) return 'bg-success';
-        return sum > 100 ? 'bg-danger' : 'bg-warning text-dark';
+        return 'pc-pill pc-pill--' + window.splitState(task.monthlyDistribution, this.taskMonthRange(task)).tone;
       },
       distBadgeText(task) {
-        const sum = Object.values(task.monthlyDistribution || {}).reduce((s, v) => s + (v || 0), 0);
-        const rounded = Math.round(sum * 10) / 10;
-        if (Math.abs(sum - 100) < 0.05) return 'Σ = 100%';
-        return sum > 100 ? `Σ = ${rounded}% (${Math.round((sum-100)*10)/10}% too much)` : `Σ = ${rounded}% (${Math.round((100-sum)*10)/10}% missing)`;
+        return window.splitState(task.monthlyDistribution, this.taskMonthRange(task)).label;
+      },
+      // The split grid is read-only for a one-month or completed task, and for the viewer.
+      isSplitReadonly(task) {
+        return this.taskMonthRange(task).length === 1 || task.completed || this.isViewer;
+      },
+      spreadTask(ti) {
+        const task = this.project.tasks[ti];
+        if (this.isSplitReadonly(task)) return;
+        task.monthlyDistribution = window.spreadEvenly(this.taskMonthRange(task));
+      },
+      clearTaskSplit(ti) {
+        const task = this.project.tasks[ti];
+        if (this.isSplitReadonly(task)) return;
+        task.monthlyDistribution = {};
+      },
+      // Only tasks whose split is not valid, over more than one month and not completed: a valid split is never overwritten.
+      spreadAllTasks() {
+        if (this.isViewer) return;
+        this.project.tasks.forEach(task => {
+          const months = this.taskMonthRange(task);
+          if (months.length > 1 && !task.completed && !window.splitState(task.monthlyDistribution, months).valid) {
+            task.monthlyDistribution = window.spreadEvenly(months);
+          }
+        });
+      },
+      toggleTask(ti) {
+        this.openTaskIndex = this.openTaskIndex === ti ? null : ti;
+      },
+      taskPeriodLabel(task) {
+        const months = this.taskMonthRange(task);
+        return months.length ? this.monthLabel(months[0]) + ' – ' + this.monthLabel(months[months.length - 1]) : 'No period';
+      },
+      taskHours(task) {
+        return task.resources.reduce((s, r) => s + (r.soldHours || 0), 0);
       },
       taskTotal(task) {
         return task.resources.reduce((s, r) => s + (r.soldHours || 0) * (r.hourlyRate || 0), 0);
       },
       addTask() {
         this.project.tasks.push({ name: '', description: '', billable: true, completed: false, startDate: '', endDate: '', monthlyDistribution: {}, resources: [] });
+        const ti = this.project.tasks.length - 1;
+        this.openTaskIndex = ti;
+        this.focusRef('taskName-' + ti);
       },
       async confirmRemoveTask(ti) {
         const name = this.project.tasks[ti].name.trim() || 'this task';
         if (await this.showConfirm(`Delete task "${name}" and all its resources?`)) {
           this.project.tasks.splice(ti, 1);
           this.dropRateInvalid(ti, null);
+          if (this.openTaskIndex === ti) this.openTaskIndex = null;
+          else if (this.openTaskIndex > ti) this.openTaskIndex -= 1;
         }
       },
       // rateInvalid is keyed `${ti}-${ri}`: after a splice, drop the removed row's entries and
