@@ -341,6 +341,11 @@ describe('planning grid (2026-11-02, planning redesign)', () => {
     expect(css).toMatch(/\.pl-ta-backdrop\s*\{[^}]*background:\s*var\(--overlay-scrim\)/);
     expect(css).toMatch(/\.pl-ta-backdrop\.open\s*\{[^}]*opacity:\s*\.5/);
   });
+  it('Expand all / Collapse all also act on the rows the search forces open (round 3)', () => {
+    const body = name => { const i = html.indexOf(`      ${name}() {`); return html.slice(i, html.indexOf('\n      },', i)); };
+    expect(body('expandAll')).toMatch(/this\.suppressed\[this\.view\]\.clear\(\)/);
+    expect(body('collapseAll')).toMatch(/forcedOpenIds/);
+  });
   it('no leftover of the former renderer (#9)', () => {
     for (const s of ['wNum', 'wLabel', 'isLastOfMonth', 'fmtProjectTitle', 'singleProjectId']) expect(html, s).not.toMatch(new RegExp(`\\b${s}\\b`));
   });

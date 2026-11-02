@@ -112,7 +112,8 @@ export function effectiveFilter(filter, suppressed) {
   return {
     visibleIds: filter.visibleIds,
     forcedOpenIds: new Set([...filter.forcedOpenIds].filter(id => !suppressed.has(id))),
-    closedIds: suppressed,
+    // only ids the search still forces open: one it no longer forces follows openIds again
+    closedIds: new Set([...suppressed].filter(id => filter.forcedOpenIds.has(id))),
   };
 }
 

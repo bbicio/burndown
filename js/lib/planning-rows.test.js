@@ -33,6 +33,12 @@ describe('toggleRowState / effectiveFilter', () => {
     // without the search, the row is open again as it was
     expect(visibleRows(tree3, open, effectiveFilter(filterRows(tree3, ''), new Set())).map(r => r.id)).toEqual(['a', 'a1', 'b']);
   });
+  it('ignores a collapsed id the search no longer forces open (round 3)', () => {
+    const open = new Set(['a']), suppressed = new Set(['a']);
+    // 'a' is collapsed by the user, but after a rebuild the search no longer forces it open
+    const f = { visibleIds: new Set(['a', 'a1']), forcedOpenIds: new Set() };
+    expect(visibleRows(tree3, open, effectiveFilter(f, suppressed)).map(r => r.id)).toEqual(['a', 'a1']);
+  });
   it('toggles openIds for a row the search does not force', () => {
     const open = new Set(), suppressed = new Set();
     toggleRowState('b', { open, suppressed, forced: new Set() });

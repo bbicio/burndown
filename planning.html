@@ -1026,8 +1026,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       toggleRow(id) {
         toggleRowState(id, { open: this.openIds[this.view], suppressed: this.suppressed[this.view], forced: this.rawSearchFilter.forcedOpenIds });
       },
-      expandAll() { const open = this.openIds[this.view]; this.parentIds.forEach(id => open.add(id)); },
-      collapseAll() { this.openIds[this.view].clear(); },
+      expandAll() {
+        const open = this.openIds[this.view];
+        this.parentIds.forEach(id => open.add(id));
+        this.suppressed[this.view].clear();
+      },
+      collapseAll() {
+        this.openIds[this.view].clear();
+        // during a search, the rows it forces open close too (until the search changes)
+        this.rawSearchFilter.forcedOpenIds.forEach(id => this.suppressed[this.view].add(id));
+      },
       // First build of a view: By role closed; By project projects open; By owner people and projects open.
       initOpenIds(view, rows) {
         if (this.openInit[view]) return;
