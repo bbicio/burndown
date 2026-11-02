@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { currencyInfo, formatMoney, formatMoneyInput, parseMoney, readMoneyInput, moneyFormatExample } from './money.js';
+import { currencyInfo, formatMoney, formatMoneyInput, readMoneyInput, moneyFormatExample } from './money.js';
 
 const C = [
   { code: 'EUR', symbol: '€',   locale: 'it-IT' },
@@ -75,61 +75,23 @@ describe('formatMoneyInput', () => {
   });
 });
 
-describe('parseMoney', () => {
-  it('reads the locale convention of the currency', () => {
-    expect(parseMoney('350,28', 'EUR', C)).toBe(350.28);
-    expect(parseMoney('150,75', 'EUR', C)).toBe(150.75);
-    expect(parseMoney('1.234,5', 'EUR', C)).toBe(1234.5);
-    expect(parseMoney('1,234.50', 'USD', C)).toBe(1234.5);
-  });
-  it('is strict: the other convention is NOT guessed (documented behaviour)', () => {
-    expect(parseMoney('350.28', 'EUR', C)).toBe(35028);
-  });
-  it('tolerates a symbol or ISO code before or after the number and surrounding blanks', () => {
-    expect(parseMoney('  € 350,28 ', 'EUR', C)).toBe(350.28);
-    expect(parseMoney('350,28 €', 'EUR', C)).toBe(350.28);
-    expect(parseMoney('EUR 1.234,5', 'EUR', C)).toBe(1234.5);
-    expect(parseMoney('$ 1,234.50', 'USD', C)).toBe(1234.5);
-  });
-  it('treats regular, non-breaking and narrow spaces alike as a group separator (sv-SE)', () => {
-    expect(parseMoney('1 234,5', 'SEK', C)).toBe(1234.5);
-    expect(parseMoney('1 234,5', 'SEK', C)).toBe(1234.5);
-    expect(parseMoney('1 234,5', 'SEK', C)).toBe(1234.5);
-  });
-  it('accepts an ASCII apostrophe for the de-CH group separator', () => {
-    expect(parseMoney("1'234.50", 'CHF', C)).toBe(1234.5);
-    expect(parseMoney('1’234.50', 'CHF', C)).toBe(1234.5);
-  });
-  it('returns 0 for empty and unparseable text, keeps a negative sign', () => {
-    expect(parseMoney('', 'EUR', C)).toBe(0);
-    expect(parseMoney(undefined, 'EUR', C)).toBe(0);
-    expect(parseMoney('abc', 'EUR', C)).toBe(0);
-    expect(parseMoney('12,3,4', 'EUR', C)).toBe(0);
-    expect(parseMoney('-5', 'EUR', C)).toBe(-5);
-  });
-  it('rounds to the fraction digits of the currency', () => {
-    expect(parseMoney('1.234.567.890,123', 'EUR', C)).toBe(1234567890.12);
-    expect(parseMoney('1234.6', 'JPY', C)).toBe(1235); // ja-JP: '.' is the decimal, ',' the group separator
-  });
-});
-
 describe('round trip (focus text and display text parse back to the same value)', () => {
   const codes = C.map(c => c.code);
   for (const code of codes) {
-    it(`${code}: parse(formatMoneyInput(x)) and parse(formatMoney(x)) equal x rounded to the currency digits`, () => {
+    it(`${code}: read(formatMoneyInput(x)) and read(formatMoney(x)) equal x rounded to the currency digits`, () => {
       const digits = currencyInfo(code, C).digits;
       for (const a of AMOUNTS) {
         const want = Number(a.toFixed(digits));
         if (!(want > 0)) continue;
-        expect(parseMoney(formatMoneyInput(a, code, C), code, C)).toBe(want);
-        expect(parseMoney(formatMoney(a, code, C), code, C)).toBe(want);
+        expect(readMoneyInput(formatMoneyInput(a, code, C), code, C)).toBe(want);
+        expect(readMoneyInput(formatMoney(a, code, C), code, C)).toBe(want);
       }
     });
   }
 
   it('regression x100: focus then blur of 350.28 EUR leaves 350.28', () => {
     const focusText = formatMoneyInput(350.28, 'EUR', C);
-    expect(parseMoney(focusText, 'EUR', C)).toBe(350.28);
+    expect(readMoneyInput(focusText, 'EUR', C)).toBe(350.28);
   });
 });
 
@@ -140,6 +102,8 @@ describe('readMoneyInput', () => {
   it('reads the locale convention of the currency', () => {
     expect(readMoneyInput('107,5', 'EUR', C)).toBe(107.5);
     expect(readMoneyInput('175.5', 'USD', C)).toBe(175.5);
+    expect(readMoneyInput("1'234.50", 'CHF', C)).toBe(1234.5);
+    expect(readMoneyInput('1’234.50', 'CHF', C)).toBe(1234.5);
     expect(readMoneyInput('1.234,50', 'EUR', C)).toBe(1234.5);
     expect(readMoneyInput('1,234.50', 'USD', C)).toBe(1234.5);
     expect(readMoneyInput('1234', 'EUR', C)).toBe(1234);

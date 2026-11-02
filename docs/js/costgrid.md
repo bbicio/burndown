@@ -91,3 +91,7 @@ Spec `docs/superpowers/specs/2026-11-02-currency-f3-custom-rate-and-version-rate
 - **`cgAdoptServerRate(cgId, versionId, rate, afterCurrencyChange, currency, roles)`** is `cgAutoSave`'s `onServerRate` callback. A response for a currency other than the version's is ignored. Otherwise it writes the rate to the stored version, and to `_cgDraft` only while that version is still the active one; with `afterCurrencyChange` it also re-syncs the non-Custom roles and returns the outgoing `roles` with those rates, which the same save sends in its structure. Then `renderCgEditor()`.
 
 Covered by `js/lib/costgrid-rate-sync.test.js`, `js/lib/costgrid-currency-change.test.js`. `?v=55`.
+
+## Generate reports every part not saved (2026-11-02, B-222)
+
+Spec `docs/superpowers/specs/2026-11-02-backlog-fixes-b194-b222-design.md`. `cgDoGenerateProject` shows `summarizeGenerateResult(projectName, failed)` (`js/lib/project-push-result.js`) instead of the tasks-only message: any part other than `project` that was not saved is named — `Project "<name>" was created, but its <parts> (was|were) not saved.` — with ` Reason: <reason>` only for a failure whose code is a rule code (`DATE_RULE`, `PROJECT_RULE`, `STRUCTURE_RULE`, `MONEY_RULE`), and the dialog ends the flow, so the "Open configuration?" confirm is not offered after a partial failure. Refused tasks are still dropped from memory and from the link. `costgrid.html` and `pipeline.html` load the module before `js/costgrid.js`. Covered by `js/lib/project-push-result.test.js`, `js/lib/costgrid-copy-period.test.js`. `?v=57`.

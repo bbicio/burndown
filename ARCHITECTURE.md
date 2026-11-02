@@ -526,7 +526,7 @@ pots (
   year            INTEGER NOT NULL,
   amount          NUMERIC(14,2) NOT NULL CHECK (amount >= 0),
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  -- CONSTRAINT: exactly one of client_group_id / client_id / special_label must be set (enforced at app level)
+  -- CONSTRAINT pots_target_one: exactly one of client_group_id / client_id / special_label (migration 032); unique (special_label, year) when special_label is set
 )
 
 pot_history (

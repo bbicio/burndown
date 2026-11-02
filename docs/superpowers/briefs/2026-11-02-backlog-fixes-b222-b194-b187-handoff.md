@@ -46,3 +46,7 @@ Altre righe stale non sono state cercate in modo sistematico: le righe `open` (`
 ## Prossimo passo
 
 Seguire `docs/superpowers/PROCESS.md` per l'audit-fix: rieseguire i comandi sopra, scrivere brief e Spec con i criteri di accettazione (incluso il controllo nel browser della creazione di un POT speciale su `master-pipelines.html` e del messaggio di `project-config.html` su un `MONEY_RULE`), poi il Plan con la risk class, il worktree come da §6.1b e la chiusura con `/finish-cycle`. Prima di applicare la migrazione `032` al DB principale: `scripts/backup-db.sh` e conferma dell'utente.
+
+## Aggiornamento 2026-11-02 (pronto per l'esecuzione)
+
+Brief `docs/superpowers/briefs/2026-11-02-backlog-fixes-b222-b194-b187-brief.md` (`97405b6`), Spec `docs/superpowers/specs/2026-11-02-backlog-fixes-b194-b222-design.md` (`95accce`, `235ca27`) e Piano `docs/superpowers/plans/2026-11-02-backlog-fixes-b194-b222.md` (`b547177`) committati sul branch `backlog-fixes-b194-b222`, non su `main` (deroga: la sessione in background non può scrivere nel checkout condiviso; va nel report). Worktree `.claude/worktrees/backlog-fixes-b194-b222` già creato, con `.env` e `npm ci`. Modalità confermata dall'utente: **subagent-driven** (implementatori Sonnet, coordinatore e review finale Opus), classe **high-risk**. **Prossimo:** eseguire il Piano con `superpowers:subagent-driven-development`; Task 1, 2, 4, 5 indipendenti, Task 3 dopo il Task 2; chiusura con `/finish-cycle`.

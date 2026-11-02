@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { extractBlock } from '../../scripts/lib/extract-source.mjs';
+import { summarizeGenerateResult } from './project-push-result.js';
 import { isOrdered, outOfPeriodTasks, periodError, formatMonthText, toYmd } from './dates.js';
 
 // js/costgrid.js is a classic script: the period check and the two copy functions are cut out and run against stubs.
 const js = readFileSync('js/costgrid.js', 'utf8');
 const names = ['window', 'showInfo', 'config', '_cgDraft', 'Api', '_pushProjectToApiDetailed', 'persistConfig', 'toYmd', 'isOrdered',
-  '_cgActiveCgId', '_cgActiveVersionId', 'cgLoad', 'cgSave', 'renderCgEditor', '_cgSelectionMode', '_cgSelectedTaskIds', 'cgAutoSave', 'renderCgVersionTabs'];
+  '_cgActiveCgId', '_cgActiveVersionId', 'cgLoad', 'cgSave', 'renderCgEditor', '_cgSelectionMode', '_cgSelectedTaskIds', 'cgAutoSave', 'renderCgVersionTabs', 'summarizeGenerateResult'];
 const src = ['function cgGeneratedPeriod(', 'function cgOutOfPeriodNotice(', 'async function cgDoAddTasksToProject(', 'function cgGenerationPlan(', 'async function cgDoGenerateProject(']
   .map(h => extractBlock(js, h)).join('\n');
 
@@ -17,7 +18,7 @@ function build() {
     window: { outOfPeriodTasks, periodError, formatMonthText }, showInfo, config, _cgDraft: draft, Api: api, _pushProjectToApiDetailed: push,
     persistConfig: vi.fn(), toYmd, isOrdered, _cgActiveCgId: 'cg1', _cgActiveVersionId: 'v1',
     cgLoad: () => null, cgSave: vi.fn(), renderCgEditor: vi.fn(), _cgSelectionMode: true, _cgSelectedTaskIds: new Set(),
-    cgAutoSave: vi.fn(), renderCgVersionTabs: vi.fn(),
+    cgAutoSave: vi.fn(), renderCgVersionTabs: vi.fn(), summarizeGenerateResult,
   };
   return new Function(...names, `${src}; return { add: cgDoAddTasksToProject, gen: cgDoGenerateProject };`)(...names.map(n => stubs[n]));
 }
@@ -84,7 +85,7 @@ describe('copying tasks outside the project period', () => {
     expect(config.projects[1].startDate).toBe('202603');
   });
   it('cgDoGenerateProject with a refused tasks save keeps the project without its tasks (spec D7)', async () => {
-    push.mockResolvedValue({ ok: false, failed: [{ part: 'tasks', error: 'x', reason: 'A task falls outside the period' }] });
+    push.mockResolvedValue({ ok: false, failed: [{ part: 'tasks', error: 'x', code: 'DATE_RULE', reason: 'A task falls outside the period' }] });
     await build().gen(['t2'], 'New', null, 'C1');
     const created = config.projects[1];
     expect(created.name).toBe('New');
@@ -93,6 +94,6 @@ describe('copying tasks outside the project period', () => {
     const link = draft.linkedProjects.find(l => l.projectId === created.id);
     expect(link.taskIds).toEqual([]);
     expect(link.taskNames).toEqual([]);
-    expect(showInfo).toHaveBeenCalledWith('Project "New" was created, but its tasks were not saved: A task falls outside the period');
+    expect(showInfo).toHaveBeenCalledWith('Project "New" was created, but its tasks were not saved. Reason: A task falls outside the period');
   });
 });

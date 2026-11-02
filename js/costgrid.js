@@ -1390,14 +1390,15 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
   // click could land there before the project was persisted, showing "Project not found."
   // _pushProjectToApi returns false (never throws) when the core project upsert itself failed —
   // only then is the project genuinely absent server-side; its sub-resource pushes (tasks,
-  // phasing, etc.) stay best-effort/swallowed internally, matching this function's existing
-  // convention for those fields, so they don't gate this success check.
+  // phasing, etc.) do not gate this success check but are reported via summarizeGenerateResult.
   let pushedOk = false;
   let tasksFailed = null;
+  let failedParts = [];
   let linkTaskIds = selectedTaskIds;
   let linkTaskNames = selectedTaskNames;
   try {
     const pushResult = await _pushProjectToApiDetailed(newProject, { skipEmpty: true });
+    failedParts = pushResult.failed || [];
     pushedOk = !pushResult.failed.some(f => f.part === 'project');
     tasksFailed = pushResult.failed.find(f => f.part === 'tasks') || null;
     if (tasksFailed) { linkTaskIds = []; linkTaskNames = []; newProject.tasks = []; } // the server refused them: memory must match
@@ -1439,8 +1440,9 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
     return;
   }
 
-  if (tasksFailed) {
-    showInfo(`Project "${projectName}" was created, but its tasks were not saved: ${tasksFailed.reason || tasksFailed.error}`);
+  const generateMsg = summarizeGenerateResult(projectName, failedParts);
+  if (generateMsg) {
+    showInfo(generateMsg);
     return;
   }
 

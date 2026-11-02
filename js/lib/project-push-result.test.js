@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { summarizePushResult } from './project-push-result.js';
+import { summarizePushResult, summarizeGenerateResult } from './project-push-result.js';
 
 describe('summarizePushResult', () => {
   it('reports ok with no message when nothing failed', () => {
@@ -63,5 +63,36 @@ describe('summarizePushResult — server reason', () => {
     const base = summarizePushResult([{ part: 'project', error: 'x' }]).message;
     expect(summarizePushResult([{ part: 'project', error: 'x', code: 'OTHER', reason }]).message).toBe(base);
     expect(summarizePushResult([{ part: 'project', error: 'x', code: 'DATE_RULE', reason: '' }]).message).toBe(base);
+  });
+});
+
+describe('summarizePushResult — MONEY_RULE', () => {
+  it('appends the reason for MONEY_RULE', () => {
+    const r = summarizePushResult([{ part: 'ptc', code: 'MONEY_RULE', reason: 'PTC has too many decimals' }]);
+    expect(r.message.endsWith(' Reason: PTC has too many decimals')).toBe(true);
+  });
+});
+
+describe('summarizeGenerateResult', () => {
+  it('is empty when nothing failed', () => {
+    expect(summarizeGenerateResult('X', [])).toBe('');
+    expect(summarizeGenerateResult('X', undefined)).toBe('');
+  });
+  it('ignores a lone project failure', () => {
+    expect(summarizeGenerateResult('X', [{ part: 'project', error: 'HTTP 500' }])).toBe('');
+  });
+  it('names one failed part with its reason', () => {
+    expect(summarizeGenerateResult('X', [{ part: 'ptc', code: 'MONEY_RULE', reason: 'bad PTC' }]))
+      .toBe('Project "X" was created, but its PTC was not saved. Reason: bad PTC');
+  });
+  it('joins several parts and takes the first reason', () => {
+    expect(summarizeGenerateResult('X', [
+      { part: 'tasks', code: 'DATE_RULE', reason: 'out of period' },
+      { part: 'ptc', code: 'MONEY_RULE', reason: 'bad PTC' },
+    ])).toBe('Project "X" was created, but its tasks and PTC were not saved. Reason: out of period');
+  });
+  it('has no Reason suffix without a server reason', () => {
+    expect(summarizeGenerateResult('X', [{ part: 'phasing', error: 'HTTP 500' }]))
+      .toBe('Project "X" was created, but its phasing was not saved.');
   });
 });
