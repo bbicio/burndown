@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveDistribution, reforecastDistribution, isProjectDirty, keepDistribution } from './config-form-calc.js';
+import { deriveDistribution, reforecastDistribution, isProjectDirty, keepDistribution, spreadEvenly, splitState, phasingBalance } from './config-form-calc.js';
 
 describe('isProjectDirty', () => {
   const p = { id: 'x', name: 'A', tasks: [{ name: 't', resources: [] }], phasing: { '202601': 10 } };
@@ -181,5 +181,55 @@ describe('keepDistribution', () => {
   });
   it('returns an empty object for no distribution', () => {
     expect(keepDistribution(undefined, ['202601', '202602'])).toEqual({});
+  });
+});
+
+describe('spreadEvenly', () => {
+  it('gives every month two decimals and the last one the remainder', () => {
+    expect(spreadEvenly([])).toEqual({});
+    expect(spreadEvenly(['202601'])).toEqual({ '202601': 100 });
+    expect(spreadEvenly(['202601', '202602', '202603'])).toEqual({ '202601': 33.33, '202602': 33.33, '202603': 33.34 });
+    const m13 = Array.from({ length: 13 }, (_, i) => 'm' + i);
+    const d13 = spreadEvenly(m13);
+    expect(Object.values(d13).slice(0, 12).every(v => v === 7.69)).toBe(true);
+    expect(d13[m13[12]]).toBe(7.72);
+  });
+  it('sums to 100 within 0.005 for 1 to 24 months', () => {
+    for (let n = 1; n <= 24; n++) {
+      const ms = Array.from({ length: n }, (_, i) => 'm' + i);
+      const s = Object.values(spreadEvenly(ms)).reduce((a, b) => a + b, 0);
+      expect(Math.abs(s - 100)).toBeLessThan(0.005);
+    }
+  });
+});
+
+describe('splitState', () => {
+  const ms = ['202601', '202602'];
+  it('labels an empty split', () => {
+    expect(splitState({}, ms)).toMatchObject({ sum: 0, valid: false, label: 'Not split · 100% missing', tone: 'warn' });
+    expect(splitState(null, ms).label).toBe('Not split · 100% missing');
+  });
+  it('is 100% within 0.05 and valid within 0.5', () => {
+    expect(splitState({ '202601': 50, '202602': 50 }, ms)).toMatchObject({ valid: true, label: '100%', tone: 'ok' });
+    expect(splitState({ '202601': 49.98, '202602': 50 }, ms)).toMatchObject({ valid: true, label: '100%', tone: 'ok' });
+    expect(splitState({ '202601': 49.6, '202602': 50 }, ms)).toMatchObject({ valid: true, label: '0.4% missing', tone: 'warn' });
+  });
+  it('flags too much and missing', () => {
+    expect(splitState({ '202601': 51, '202602': 50 }, ms)).toMatchObject({ valid: false, label: '1.0% too much', tone: 'danger' });
+    expect(splitState({ '202601': 50 }, ms)).toMatchObject({ valid: false, label: '50.0% missing', tone: 'warn' });
+  });
+  it('counts only the months in range', () => {
+    expect(splitState({ '202601': 50, '209912': 50 }, ms).sum).toBe(50);
+  });
+});
+
+describe('phasingBalance', () => {
+  it('compares within half a unit of the last decimal', () => {
+    expect(phasingBalance(60020, 60020, 2)).toEqual({ balanced: true, diff: 0 });
+    expect(phasingBalance(60019.996, 60020, 2).balanced).toBe(true);
+    expect(phasingBalance(60019.99, 60020, 2)).toEqual({ balanced: false, diff: 0.01 });
+    expect(phasingBalance(999, 1000, 0)).toEqual({ balanced: false, diff: 1 });
+    expect(phasingBalance(1000.4, 1000, 0).balanced).toBe(true);
+    expect(phasingBalance(1200, 1000, 2)).toEqual({ balanced: false, diff: -200 });
   });
 });

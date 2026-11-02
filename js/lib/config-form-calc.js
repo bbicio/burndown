@@ -216,7 +216,36 @@ export function isProjectDirty(savedJson, project) {
   return JSON.stringify(project) !== savedJson;
 }
 
+// Redesign (2026-11-02): an even monthly split, two decimals per month, the last month takes the rounding.
+export function spreadEvenly(months) {
+  const out = {};
+  if (!months.length) return out;
+  const each = Math.floor(10000 / months.length) / 100;
+  months.slice(0, -1).forEach(ym => { out[ym] = each; });
+  out[months[months.length - 1]] = round(100 - each * (months.length - 1), 2);
+  return out;
+}
+
+// The state of a task's monthly split over its months: valid within 0.5 of 100 (the calculations' rule), shown as 100% within 0.05.
+export function splitState(distribution, months) {
+  const sum = round(months.reduce((s, ym) => s + (Number(distribution?.[ym]) || 0), 0), 4);
+  const valid = Math.abs(sum - 100) <= 0.5;
+  if (sum === 0) return { sum, valid: false, label: 'Not split · 100% missing', tone: 'warn' };
+  if (Math.abs(sum - 100) < 0.05) return { sum, valid, label: '100%', tone: 'ok' };
+  if (sum > 100) return { sum, valid, label: (sum - 100).toFixed(1) + '% too much', tone: 'danger' };
+  return { sum, valid, label: (100 - sum).toFixed(1) + '% missing', tone: 'warn' };
+}
+
+// Whether a phasing series adds up to its total, to half a unit of the last decimal shown; diff = total - sum.
+export function phasingBalance(sum, total, decimals) {
+  const diff = round(total - sum, decimals) || 0;
+  return { balanced: Math.abs(sum - total) < 0.5 * 10 ** -decimals, diff };
+}
+
 window.deriveDistribution = deriveDistribution;
 window.reforecastDistribution = reforecastDistribution;
 window.isProjectDirty = isProjectDirty;
 window.keepDistribution = keepDistribution;
+window.spreadEvenly = spreadEvenly;
+window.splitState = splitState;
+window.phasingBalance = phasingBalance;
