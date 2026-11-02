@@ -911,6 +911,22 @@ async function testMoneyRules() {
     ok(isMoneyRefusal(u1) && isMoneyRefusal(u2) && a1 === 1000 && h1 === h0,
       `MR-14 POT update: 'abc' and 1.234 → MONEY_RULE, amount still 1000, history unchanged (got ${u1.status}, ${u2.status}, amount ${a1}, history ${h0}→${h1})`);
   } else fail('MR-13/14: POT setup failed — skipping');
+
+  // MR-15a / MR-15b — column bound (DECIMAL(10,2) for a role rate, NUMERIC(14,2) for a POT amount)
+  const b0 = await putRate(eurV, 120);
+  const b1 = await putRate(eurV, 100000000);
+  ok(b0.status === 200 && isMoneyRefusal(b1) && Number(await storedRate(eurV)) === 120,
+    `MR-15a structure PUT rate 100000000 → MONEY_RULE, stored rate still 120 (got ${b0.status}, ${b1.status})`);
+  if (rpot.status === 201 && mrPotId) {
+    const potAmountNow = async () => Number(((await api('GET', '/api/pots?year=2099', null, adminCookie)).data || []).find(p => p.id === mrPotId)?.amount);
+    const p1 = await api('PATCH', `/api/pots/${mrPotId}`, { amount: 1e12, note: 'x' }, adminCookie);
+    const pa1 = await potAmountNow();
+    const p2 = await api('PATCH', `/api/pots/${mrPotId}`, { amount: 999999999999.99, note: 'x' }, adminCookie);
+    const pa2 = await potAmountNow();
+    await api('PATCH', `/api/pots/${mrPotId}`, { amount: 1000, note: 'x' }, adminCookie);
+    ok(isMoneyRefusal(p1) && pa1 === 1000 && p2.status === 200 && pa2 === 999999999999.99,
+      `MR-15b POT update: 1e12 → MONEY_RULE, amount still 1000; 999999999999.99 → 200 (got ${p1.status}, amount ${pa1}; ${p2.status}, amount ${pa2})`);
+  } else fail('MR-15b: POT setup failed — skipping');
 }
 
 // POT-18..POT-26 — every POT route counts a proposal once, through its reference version (non-Draft,

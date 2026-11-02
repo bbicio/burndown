@@ -9,7 +9,7 @@ const { DATE_RULE, periodError, periodChangeError, periodShrinkError, taskPeriod
 const { isAdminRole } = require('../lib/is-admin');
 const { enqueueProjectsQuiet } = require('../services/profile-engine');
 const { descriptionsSignature } = require('../lib/topic-extract');
-const { amountError, MONEY_RULE_CODE } = require('../lib/money-rules');
+const { amountError, MONEY_RULE_CODE, MAX_DECIMAL_10_2 } = require('../lib/money-rules');
 let _createNotification;
 
 const router = express.Router();
@@ -436,7 +436,7 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
       t.resources = t.resources.map(r => (r && (r.hourlyRate === undefined || r.hourlyRate === null || r.hourlyRate === '')
         ? { ...r, hourlyRate: 0 } : r));
       for (const r of t.resources) {
-        const err = amountError(r?.hourlyRate, currency, `Hourly rate of "${r?.role || ''}" on task "${t.name || ''}"`);
+        const err = amountError(r?.hourlyRate, currency, `Hourly rate of "${r?.role || ''}" on task "${t.name || ''}"`, { max: MAX_DECIMAL_10_2 });
         if (err) return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
       }
     }

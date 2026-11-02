@@ -13,7 +13,7 @@ const { DATE_RULE, periodError, periodChangeError, periodShrinkError, taskPeriod
 const { isAdminRole } = require('../lib/is-admin');
 const { formatMoney } = require('../lib/money-format');
 const { versionRate, CURRENCY_RULE_CODE } = require('../lib/version-rate');
-const { amountError, MONEY_RULE_CODE } = require('../lib/money-rules');
+const { amountError, MONEY_RULE_CODE, MAX_DECIMAL_10_2 } = require('../lib/money-rules');
 
 let _pushToUser;
 let _createNotification;
@@ -711,7 +711,7 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
   // Role rates: an absent rate is tolerated (stored as NULL); a given one is checked in the version's currency.
   for (const r of rolesBody) {
     if (r?.rate != null) {
-      const err = amountError(r.rate, locked.rows[0]?.currency, `Rate for role "${r.roleCode || ''}"`);
+      const err = amountError(r.rate, locked.rows[0]?.currency, `Rate for role "${r.roleCode || ''}"`, { max: MAX_DECIMAL_10_2 });
       if (err) return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
     }
   }

@@ -2,7 +2,7 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { potVersionsCte } = require('../lib/pot-fee-sql');
-const { amountError, MONEY_RULE_CODE } = require('../lib/money-rules');
+const { amountError, MONEY_RULE_CODE, MAX_NUMERIC_14_2 } = require('../lib/money-rules');
 
 const router = express.Router();
 
@@ -243,7 +243,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const { clientGroupId, clientId, specialLabel, year, amount } = req.body;
     if (!year || amount == null) return res.status(400).json({ error: 'year and amount are required' });
-    const moneyErr = amountError(amount, 'EUR', 'POT amount');
+    const moneyErr = amountError(amount, 'EUR', 'POT amount', { max: MAX_NUMERIC_14_2 });
     if (moneyErr) return res.status(400).json({ error: moneyErr, code: MONEY_RULE_CODE });
     // Must have exactly one of: clientGroupId, clientId, or specialLabel
     const targets = [clientGroupId, clientId, specialLabel].filter(Boolean);
@@ -379,7 +379,7 @@ router.patch('/:id', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const { amount, note } = req.body;
     if (amount == null) return res.status(400).json({ error: 'amount is required' });
-    const moneyErr = amountError(amount, 'EUR', 'POT amount');
+    const moneyErr = amountError(amount, 'EUR', 'POT amount', { max: MAX_NUMERIC_14_2 });
     if (moneyErr) return res.status(400).json({ error: moneyErr, code: MONEY_RULE_CODE });
     if (!note || !note.trim()) return res.status(400).json({ error: 'note is required when updating a POT' });
     const old = await query('SELECT amount FROM pots WHERE id = $1', [req.params.id]);
