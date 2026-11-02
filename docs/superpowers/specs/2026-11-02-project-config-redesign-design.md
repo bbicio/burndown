@@ -377,14 +377,16 @@ nessun cambiamento di comportamento.
    pagine.
 4. **`spreadEvenly` a due decimali, l'ultimo mese prende l'arrotondamento.** Alternativa scartata: interi (13 mesi
    → 7 × 12 + 16). Perché: la tolleranza del badge è 0,05 e i due decimali restano leggibili.
-5. **"Spread all evenly" agisce solo sui task con split non valido, multi-mese e non completati.** Alternativa
-   scartata: su tutti i task. Perché: non sovrascrive split già validi.
+5. **"Spread all evenly" agisce solo sui task con split non valido, multi-mese e non completati.**
+   Alternativa scartata: su tutti i task. Perché: non sovrascrive split già validi.
 6. **Bottom sheet = Bootstrap `offcanvas-bottom` come `.pb-sheet` di `pipeline.html`.** Alternativa scartata: un
    pannello custom. Perché: componente già presente nel sito.
 7. **Sotto 768 le sezioni non attive si nascondono con `v-show`, non si smontano.** Alternativa scartata: `v-if`.
    Perché: input, stato e guard restano intatti.
-8. **Barre del phasing: navy = mesi presenti in `actuals.exportRows`, mese corrente = oggi.** Alternativa
-   scartata: un nuovo stato o una chiamata API. Perché: rispetta la decisione 5 dell'handoff senza nuova API.
+8. **Barre del phasing: navy = mesi presenti in `actuals.exportRows`, mese corrente = oggi.**
+   Alternativa scartata: un nuovo stato o una chiamata API. Perché: rispetta la decisione 5 dell'handoff senza nuova API.
 9. **Quattro icone nuove (`trash`, `eye`, `refresh`, `trend-up`) in `js/lib/icons.js`.** Alternativa scartata: SVG
    inline nel markup della pagina. Perché: `<ph-icon>` è l'idioma delle pagine ridisegnate; costa un bump di
    `icons.js` su ogni pagina che lo carica.
+10. **`onSave` riceve un `if (this.saving) return;` iniziale.**
+    Alternativa scartata: lasciare la sola protezione del `:disabled` sul pulsante. Perché: è lo stesso controllo dei modali client e program, e il Save ora sta nel page head accanto a Discard.
