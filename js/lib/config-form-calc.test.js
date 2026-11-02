@@ -232,4 +232,12 @@ describe('phasingBalance', () => {
     expect(phasingBalance(1000.4, 1000, 0).balanced).toBe(true);
     expect(phasingBalance(1200, 1000, 2)).toEqual({ balanced: false, diff: -200 });
   });
+  it('allows the per-month rounding of a derived series (half a unit per month)', () => {
+    // Review finding 1: Derive rounds each month on its own, so 12 months can drift by up to 6 half-cents.
+    expect(phasingBalance(17426.41, 17426.425, 2, 12).balanced).toBe(true);
+    expect(phasingBalance(994.01, 1000, 0, 12).balanced).toBe(true);
+    expect(phasingBalance(993, 1000, 0, 12).balanced).toBe(false);
+    expect(phasingBalance(999, 1000, 0, 1).balanced).toBe(false);
+    expect(phasingBalance(17426.41, 17426.425, 2).balanced).toBe(false);
+  });
 });

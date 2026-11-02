@@ -61,7 +61,7 @@
       <span v-if="phonePickerIssue" class="pc-dot" :title="phonePickerIssue" :aria-label="phonePickerIssue"></span>
       <ph-icon name="chevron-down" :size="14" class="pc-phone-picker-chevron"></ph-icon>
     </button>
-    <div class="pc-layout">
+    <div class="pc-layout" :class="{ 'pc-layout--viewer': isViewer }">
       <aside class="pc-aside">
         <nav class="pc-index" aria-label="Sections">
           <div class="pc-index-label">Sections</div>
@@ -614,8 +614,8 @@
       phasingStatus() {
         const hours = this.phasingMode === 'hours';
         const sum = hours ? this.planningSum : this.phasingSum;
-        const total = hours ? this.grandTotalHours : this.grandTotalBudget;
-        const b = window.phasingBalance(sum, total, hours ? 2 : this.currencyDigits);
+        const total = hours ? this.distributedHours : this.distributedBudget;
+        const b = window.phasingBalance(sum, total, hours ? 2 : this.currencyDigits, this.projectMonths.length);
         const fmt = v => hours ? (v > 0 ? this.cfgFmtHours(v) : '0') + 'h' : this.formatMoney(v, this.project.currency, this.currencies);
         const tail = b.balanced ? 'balanced' : b.diff > 0 ? fmt(b.diff) + ' to allocate' : fmt(-b.diff) + ' over';
         return { balanced: b.balanced, text: fmt(sum) + ' of ' + fmt(total) + ' · ' + tail };
@@ -636,9 +636,9 @@
         else if (this.outOfPeriod.length) out.tasks = 'Some tasks are outside the project period';
         else if (Object.keys(this.rateInvalid).length) out.tasks = 'Some hourly rates are not valid amounts';
         if (Object.keys(this.phasingInvalid).length) out.phasing = 'Some phasing amounts are not valid';
-        else if (this.projectMonths.length && this.grandTotalBudget > 0) {
-          if (!window.phasingBalance(this.phasingSum, this.grandTotalBudget, this.currencyDigits).balanced) out.phasing = 'The budget phasing does not add up to the total budget';
-          else if (!window.phasingBalance(this.planningSum, this.grandTotalHours, 2).balanced) out.phasing = 'The hour planning does not add up to the total hours';
+        else if (this.projectMonths.length && this.distributedBudget > 0) {
+          if (!window.phasingBalance(this.phasingSum, this.distributedBudget, this.currencyDigits, this.projectMonths.length).balanced) out.phasing = 'The budget phasing does not add up to the total budget';
+          else if (!window.phasingBalance(this.planningSum, this.distributedHours, 2, this.projectMonths.length).balanced) out.phasing = 'The hour planning does not add up to the total hours';
         }
         if (Object.keys(this.ptcInvalid).length) out.ptc = 'Some PTC amounts are not valid';
         return out;
@@ -705,6 +705,13 @@
       },
       grandTotalBudget() {
         return (this.project?.tasks || []).reduce((s, t) => s + t.resources.reduce((rs, r) => rs + (r.soldHours || 0) * (r.hourlyRate || 0), 0), 0);
+      },
+      // The totals Derive/Reforecast distribute (billable tasks only): the phasing balance compares against these.
+      distributedBudget() {
+        return (this.project?.tasks || []).filter(t => t.billable !== false).reduce((s, t) => s + t.resources.reduce((rs, r) => rs + (r.soldHours || 0) * (r.hourlyRate || 0), 0), 0);
+      },
+      distributedHours() {
+        return (this.project?.tasks || []).filter(t => t.billable !== false).reduce((s, t) => s + t.resources.reduce((rs, r) => rs + (r.soldHours || 0), 0), 0);
       },
       projectMonths() {
         if (!this.project?.startDate || !this.project?.endDate) return [];
@@ -782,8 +789,10 @@
         this.activeSection = key;
         const index = document.querySelector('.pc-index');
         const tabs = index && window.matchMedia('(max-width: 1023.98px)').matches ? index.offsetHeight : 0;
+        const banner = document.querySelector('.pc-viewer-banner');
+        const bannerH = banner ? banner.offsetHeight : 0;
         const margin = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-        window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - tabs - margin, behavior: 'smooth' });
+        window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - tabs - bannerH - margin, behavior: 'smooth' });
       },
       pickMobileSection(key) {
         this.mobileSection = key;

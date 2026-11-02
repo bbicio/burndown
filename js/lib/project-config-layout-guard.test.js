@@ -148,6 +148,7 @@ describe('section index', () => {
       project: { tasks: [], startDate: '202601', endDate: '202602', phasing: {}, planning: {} },
       outOfPeriod: [], rateInvalid: {}, phasingInvalid: {}, ptcInvalid: {},
       projectMonths: ['202601', '202602'], grandTotalBudget: 0, grandTotalHours: 0,
+      distributedBudget: 0, distributedHours: 0,
       phasingSum: 0, planningSum: 0, currencyDigits: 2,
       taskMonthRange: () => ['202601', '202602'],
     };
@@ -161,8 +162,20 @@ describe('section index', () => {
     expect(calc({ project: { ...base.project, tasks: [{ monthlyDistribution: {} }] } }).tasks).toBeTruthy();
     expect(calc({ ptcInvalid: { 0: 'x' } }).ptc).toBeTruthy();
     expect(calc({ phasingInvalid: { '202601': 'x' } }).phasing).toBeTruthy();
-    expect(calc({ grandTotalBudget: 100, phasingSum: 90 }).phasing).toBeTruthy();
-    expect(calc({ grandTotalBudget: 100, phasingSum: 100, grandTotalHours: 10, planningSum: 10 }).phasing).toBeNull();
+    expect(calc({ grandTotalBudget: 100, distributedBudget: 100, phasingSum: 90 }).phasing).toBeTruthy();
+    expect(calc({ grandTotalBudget: 100, distributedBudget: 100, phasingSum: 100, grandTotalHours: 10, distributedHours: 10, planningSum: 10 }).phasing).toBeNull();
+    // Review finding 2: Derive/Reforecast distribute billable tasks only, so an excluded task is not "to allocate".
+    expect(calc({ grandTotalBudget: 100, distributedBudget: 90, phasingSum: 90, grandTotalHours: 10, distributedHours: 8, planningSum: 8 }).phasing).toBeNull();
+  });
+  it('the balance compares against the billable totals, with the per-month tolerance', () => {
+    for (const name of ['sectionIssues', 'phasingStatus']) {
+      const body = html.match(new RegExp(String.raw`\n      ` + name + String.raw`\(\) \{([\s\S]*?)\n      \},`))?.[1] || '';
+      expect(body, name).not.toContain('grandTotalBudget');
+      expect(body, name).not.toContain('grandTotalHours');
+      expect(body, name).toContain('this.projectMonths.length)');
+    }
+    const billable = html.match(/\n      distributedBudget\(\) \{([\s\S]*?)\n      \},/)?.[1] || '';
+    expect(billable).toContain('billable !== false');
   });
 });
 
@@ -298,5 +311,17 @@ describe('responsive', () => {
   });
   it('binds no v-if to mobileSection', () => {
     expect(html).not.toMatch(/v-if="[^"]*mobileSection/);
+  });
+});
+
+describe('viewer banner and sticky index (review finding 5)', () => {
+  const css = read('css/project-config.css');
+  it('moves the sticky index below the sticky viewer banner', () => {
+    expect(html).toMatch(/class="pc-layout"[^>]*:class="\{ 'pc-layout--viewer': isViewer \}"/);
+    expect(css).toMatch(/\.pc-viewer-banner \{[^}]*height: var\(--pc-banner-h\)/);
+    expect(css).toMatch(/\.pc-layout--viewer \.pc-aside \{[^}]*top: calc\(var\(--pc-banner-h\)/);
+  });
+  it('scrollToSection leaves room for the banner', () => {
+    expect(method('scrollToSection').body).toContain('.pc-viewer-banner');
   });
 });

@@ -3,7 +3,9 @@
 
 /* ── Banners under the page head ── */
 .pc-alert { margin-bottom: var(--space-3); }
-.pc-viewer-banner { position: sticky; top: 0; z-index: var(--z-sticky); }
+/* A fixed height, so the sticky index can sit right below the sticky banner (.pc-layout--viewer). */
+.app-container { --pc-banner-h: 40px; }
+.pc-viewer-banner { position: sticky; top: 0; z-index: var(--z-sticky); height: var(--pc-banner-h); display: flex; align-items: center; }
 
 /* ── Section cards ── */
 .cfg-section.pc-card {
@@ -35,6 +37,7 @@
   flex-direction: column;
   gap: var(--space-3);
 }
+.pc-layout--viewer .pc-aside { top: calc(var(--pc-banner-h) + var(--space-4)); }
 .pc-cards { min-width: 0; }
 .pc-index { display: flex; flex-direction: column; gap: 2px; }
 .pc-index-label {
@@ -303,6 +306,7 @@
     margin: 0 calc(-1 * var(--app-pad)); padding: 0 var(--app-pad);
     background: var(--surface-subtle); border-bottom: 1px solid var(--border-light);
   }
+  .pc-layout--viewer .pc-aside { top: calc(var(--pc-banner-h) + 0px); }
   .pc-index { flex-direction: row; gap: 0; overflow-x: auto; scrollbar-width: thin; }
   .pc-index .pc-index-label, .pc-totals, .pc-index-opt { display: none; }
   .pc-index-item {

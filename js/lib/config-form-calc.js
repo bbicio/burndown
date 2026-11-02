@@ -236,10 +236,11 @@ export function splitState(distribution, months) {
   return { sum, valid, label: (100 - sum).toFixed(1) + '% missing', tone: 'warn' };
 }
 
-// Whether a phasing series adds up to its total, to half a unit of the last decimal shown; diff = total - sum.
-export function phasingBalance(sum, total, decimals) {
+// Whether a phasing series adds up to its total, to half a unit of the last decimal shown per month: Derive rounds
+// each month on its own, so a series of `months` values may drift by up to that much; diff = total - sum.
+export function phasingBalance(sum, total, decimals, months = 1) {
   const diff = round(total - sum, decimals) || 0;
-  return { balanced: Math.abs(sum - total) < 0.5 * 10 ** -decimals, diff };
+  return { balanced: Math.abs(sum - total) < 0.5 * 10 ** -decimals * Math.max(1, months), diff };
 }
 
 window.deriveDistribution = deriveDistribution;
