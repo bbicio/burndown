@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spreadEvenly, splitState } from './config-form-calc.js';
 
 const root = path.resolve(__dirname, '..', '..');
 const read = f => fs.readFileSync(path.join(root, f), 'utf8');
@@ -151,9 +152,10 @@ describe('section index', () => {
       taskMonthRange: () => ['202601', '202602'],
     };
     const calc = extra => {
+      const prev = globalThis.window;
       globalThis.window = { splitState: (d, ms) => { const sum = ms.reduce((s, m) => s + (d?.[m] || 0), 0); return { valid: Math.abs(sum - 100) <= 0.5 }; },
         phasingBalance: (s, t) => ({ balanced: Math.abs(s - t) < 0.005 }) };
-      try { return new Function(src).call({ ...base, ...extra }); } finally { delete globalThis.window; }
+      try { return new Function(src).call({ ...base, ...extra }); } finally { globalThis.window = prev; }
     };
     expect(calc({})).toEqual({ tasks: null, phasing: null, ptc: null });
     expect(calc({ project: { ...base.project, tasks: [{ monthlyDistribution: {} }] } }).tasks).toBeTruthy();
@@ -161,5 +163,64 @@ describe('section index', () => {
     expect(calc({ phasingInvalid: { '202601': 'x' } }).phasing).toBeTruthy();
     expect(calc({ grandTotalBudget: 100, phasingSum: 90 }).phasing).toBeTruthy();
     expect(calc({ grandTotalBudget: 100, phasingSum: 100, grandTotalHours: 10, planningSum: 10 }).phasing).toBeNull();
+  });
+});
+
+// Every <button> whose text is exactly `label`.
+const buttonsLabelled = label => [...html.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)]
+  .filter(m => m[1].replace(/<[^>]+>/g, '').trim() === label).map(m => m[0].slice(0, m[0].indexOf('>') + 1));
+
+describe('task table', () => {
+  it('opens one task at a time from its row', () => {
+    expect(html).toContain('v-if="openTaskIndex === ti"');
+    const row = tagWith('@click="toggleTask(ti)"', html);
+    expect(row).toContain(':aria-expanded="openTaskIndex === ti"');
+    expect(row).toContain('role="button"');
+  });
+  it('shows the split months in English', () => {
+    expect(html).not.toContain("monthLabel(ym, 'it-IT')");
+  });
+  it.each(['Spread all evenly', 'Spread evenly', 'Clear', '+ Add role', 'Remove task'])('"%s" is hidden from the viewer', label => {
+    const btns = buttonsLabelled(label);
+    expect(btns.length, label).toBeGreaterThan(0);
+    for (const b of btns) expect(b, b).toMatch(/v-if="[^"]*!isViewer/);
+  });
+  const months = t => t.months;
+  const mkVm = tasks => {
+    const vm = { isViewer: false, project: { tasks }, taskMonthRange: months };
+    vm.isSplitReadonly = task => run('isSplitReadonly', vm, task);
+    return vm;
+  };
+  it('Spread all evenly changes only multi-month, open, unsplit tasks', () => {
+    const tasks = [
+      { months: ['202601', '202602'], completed: false, monthlyDistribution: { '202601': 50, '202602': 50 } },
+      { months: ['202601'], completed: false, monthlyDistribution: {} },
+      { months: ['202601', '202602', '202603'], completed: true, monthlyDistribution: {} },
+      { months: ['202601', '202602', '202603'], completed: false, monthlyDistribution: {} },
+    ];
+    const before = JSON.parse(JSON.stringify(tasks));
+    run('spreadAllTasks', mkVm(tasks));
+    expect(tasks.slice(0, 3)).toEqual(before.slice(0, 3));
+    expect(tasks[3].monthlyDistribution).toEqual(spreadEvenly(tasks[3].months));
+    expect(splitState(tasks[3].monthlyDistribution, tasks[3].months).valid).toBe(true);
+  });
+  it('Spread evenly and Clear do nothing on a read-only split', () => {
+    const tasks = [{ months: ['202601'], completed: false, monthlyDistribution: { '202601': 100 } },
+      { months: ['202601', '202602'], completed: true, monthlyDistribution: { '202601': 10 } }];
+    const vm = mkVm(tasks);
+    for (const ti of [0, 1]) { run('spreadTask', vm, ti); run('clearTaskSplit', vm, ti); }
+    expect(tasks[0].monthlyDistribution).toEqual({ '202601': 100 });
+    expect(tasks[1].monthlyDistribution).toEqual({ '202601': 10 });
+    const open = mkVm([{ months: ['202601', '202602'], completed: false, monthlyDistribution: {} }]);
+    run('spreadTask', open, 0);
+    expect(open.project.tasks[0].monthlyDistribution).toEqual({ '202601': 50, '202602': 50 });
+    run('clearTaskSplit', open, 0);
+    expect(open.project.tasks[0].monthlyDistribution).toEqual({});
+  });
+  it('the split badge methods delegate to splitState right after rebuildTaskDist', () => {
+    const after = html.slice(html.indexOf('rebuildTaskDist(ti) {'));
+    expect(after.indexOf('distBadgeClass(task) {')).toBe(after.indexOf('\n      },\n') + 16);
+    expect(method('distBadgeClass').body).toContain('window.splitState(');
+    expect(method('distBadgeText').body).toContain('window.splitState(');
   });
 });
