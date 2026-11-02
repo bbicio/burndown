@@ -545,6 +545,16 @@ async function testPots() {
   ok((await api('POST', '/api/pots', { clientId, year: TEST_YEAR_B, amount: 999 }, adminCookie)).status === 409,
     'POT-07 duplicate POT (same client+year) → 409');
 
+  // POT-08 — special target (B-194): created once per label + year
+  const rs = await api('POST', '/api/pots', { specialLabel: 'New Biz', year: 2099, amount: 500 }, adminCookie);
+  ok(rs.status === 201 && rs.data?.special_label === 'New Biz', `POT-08 special POT → 201 (got ${rs.status})`);
+  if (rs.data?.id) later('DELETE', `/api/pots/${rs.data.id}`);
+  const rs2 = await api('POST', '/api/pots', { specialLabel: 'New Biz', year: 2098, amount: 500 }, adminCookie);
+  if (rs2.data?.id) later('DELETE', `/api/pots/${rs2.data.id}`);
+  ok(rs2.status === 201, `POT-08 same label, other year → 201 (got ${rs2.status})`);
+  ok((await api('POST', '/api/pots', { specialLabel: 'New Biz', year: 2099, amount: 1 }, adminCookie)).status === 409,
+    'POT-08 duplicate special POT (same label+year) → 409');
+
   if (!potId) return;
 
   // Update amount
@@ -937,7 +947,7 @@ async function testMoneyRules() {
   } else fail('MR-12: ratecard or role setup failed — skipping');
 
   // MR-13 / MR-14 — POT amounts
-  // (a specialLabel POT cannot be created: it violates pots_target_xor — a client target is used)
+  // (a client target is used)
   const mrCl = await api('POST', '/api/clients', { name: '__test_mr_pot_client__' }, adminCookie);
   if (mrCl.data?.id) later('DELETE', `/api/clients/${mrCl.data.id}`);
   const rpot = await api('POST', '/api/pots', { clientId: mrCl.data?.id, year: 2099, amount: 1000 }, adminCookie);
