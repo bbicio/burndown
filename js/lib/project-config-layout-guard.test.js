@@ -248,3 +248,33 @@ describe('monthly phasing', () => {
     expect([...new Function(src).call({ actuals: { exportRows: null } })]).toEqual([]);
   });
 });
+
+describe('optional sections and page hygiene', () => {
+  it('has no emoji anywhere in the page', () => {
+    const hits = [...html.matchAll(/\p{Extended_Pictographic}/gu)].map(m => m[0]);
+    expect(hits).toEqual([]);
+  });
+  it('has no hex colour in the page', () => {
+    // href="#" is a link, not a colour; element ids in selectors (#confirmModal…) never form a 3-8 hex word.
+    const text = html.replace(/href="#"/g, '');
+    expect(text.match(/#[0-9a-fA-F]{3,8}\b/g)).toBeNull();
+  });
+  it('builds Tags with the cost grid markup', () => {
+    const tags = elementAt('<div id="pc-sec-tags"');
+    for (const c of ['cg-section-header', 'cg-section-chevron', 'cg-tag-summary', 'cg-tag-groups', 'tag-group', 'toggleTagsCollapsed']) {
+      expect(tags, c).toContain(c);
+    }
+    expect(tags).not.toContain('Manage lists');
+  });
+  it('words the groups and PTC states', () => {
+    expect(html).toContain('Any task');
+    expect(html).not.toContain('— any task —');
+    expect(html).toContain('No pass-through costs');
+    expect(html).not.toContain('fff3cd');
+  });
+  it.each(['+ Add PTC', '+ Add group'])('"%s" is hidden from the viewer', label => {
+    const btns = buttonsLabelled(label);
+    expect(btns.length, label).toBeGreaterThan(0);
+    for (const b of btns) expect(b, b).toMatch(/v-if="[^"]*!isViewer/);
+  });
+});

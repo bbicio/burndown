@@ -25,7 +25,7 @@
     <a href="/portfolio.html" class="ph-btn"><ph-icon name="chevron-left" :size="12"></ph-icon>Portfolio</a>
   </div>
 
-  <div v-else-if="!ready" class="d-flex align-items-center justify-content-center" style="height:60vh">
+  <div v-else-if="!ready" class="d-flex align-items-center justify-content-center pc-loading">
     <div class="spinner-border text-secondary"></div>
   </div>
 
@@ -305,73 +305,106 @@
         <p class="text-muted small mt-3 mb-0" v-else>Set Start and End month first.</p>
       </div>
       <div id="pc-sec-ptc" data-section="ptc" class="cfg-section pc-card">
-  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>Pass Through Costs <span class="fw-normal text-muted">(PTC)</span></span><button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addPtc">+ Add PTC</button></div>
-  <p class="text-muted small mb-3">Add external costs (licences, travel, etc.) with title, note, amount and the month they occur.</p>
-  <div class="cfg-ptc-card border rounded p-3 mb-2" v-for="(item, pi) in project.ptc" :key="pi">
-    <div class="row g-2 align-items-start">
-      <div class="col-sm-3"><label class="form-label small text-muted mb-1">Title</label><input type="text" class="form-control form-control-sm" v-model="item.title" :disabled="isViewer" placeholder="e.g. Software licence"></div>
-      <div class="col-sm-4"><label class="form-label small text-muted mb-1">Note</label><input type="text" class="form-control form-control-sm" v-model="item.note" :disabled="isViewer" placeholder="optional description"></div>
-      <div class="col-sm-2"><label class="form-label small text-muted mb-1">Amount</label>
-        <input type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': ptcInvalid[pi] !== undefined }" :readonly="isViewer"
-               :title="ptcInvalid[pi] !== undefined ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''"
-               :value="ptcInvalid[pi] !== undefined ? ptcInvalid[pi] : (item.amount > 0 ? formatMoney(item.amount, project.currency, currencies) : '')"
-               @focus="e => { if (ptcInvalid[pi] === undefined) e.target.value = moneyInput(item.amount); }"
-               @blur="onPtcBlur(pi, $event)">
+        <div class="pc-card-head">
+          <div class="pc-card-head-text">
+            <div class="cfg-section-title">Pass-through costs <span class="pc-opt">· optional</span></div>
+            <div class="pc-card-sub">External costs (licences, travel…) with title, note, amount and the month they occur.</div>
+          </div>
+          <div class="pc-card-actions"><button type="button" class="ph-btn" v-if="!isViewer" @click="addPtc">+ Add PTC</button></div>
+        </div>
+        <div v-if="!project.ptc.length" class="pc-empty">No pass-through costs · Total PTC {{ formatMoney(0, project.currency, currencies) }}</div>
+        <template v-else>
+          <div class="pc-ptc-row" v-for="(item, pi) in project.ptc" :key="pi">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-3"><label class="form-label pc-label">Title</label><input :ref="'ptcTitle-' + pi" type="text" class="form-control form-control-sm" v-model="item.title" :disabled="isViewer" placeholder="e.g. Software licence"></div>
+              <div class="col-md-4"><label class="form-label pc-label">Note</label><input type="text" class="form-control form-control-sm" v-model="item.note" :disabled="isViewer" placeholder="optional description"></div>
+              <div class="col-md-2"><label class="form-label pc-label">Amount</label>
+                <input type="text" inputmode="decimal" class="form-control form-control-sm text-end" :class="{ 'is-invalid': ptcInvalid[pi] !== undefined }" :readonly="isViewer"
+                       :title="ptcInvalid[pi] !== undefined ? 'Format: ' + moneyFormatExample(project.currency, currencies) : ''"
+                       :value="ptcInvalid[pi] !== undefined ? ptcInvalid[pi] : (item.amount > 0 ? formatMoney(item.amount, project.currency, currencies) : '')"
+                       @focus="e => { if (ptcInvalid[pi] === undefined) e.target.value = moneyInput(item.amount); }"
+                       @blur="onPtcBlur(pi, $event)">
+              </div>
+              <div class="col-md-2"><label class="form-label pc-label">Month</label>
+                <select class="form-select form-select-sm" v-model="item.month" :disabled="isViewer">
+                  <option v-if="!projectMonths.length" value="">— set project dates first —</option>
+                  <option v-for="ym in projectMonths" :key="ym" :value="ym">{{ monthLabelLong(ym) }}</option>
+                </select>
+              </div>
+              <div class="col-md-1 text-end"><button type="button" class="ph-btn pc-icon-btn pc-icon-btn--danger" v-if="!isViewer" title="Remove PTC" aria-label="Remove PTC" @click="confirmRemovePtc(pi)"><ph-icon name="trash" :size="14"></ph-icon></button></div>
+            </div>
+          </div>
+          <div class="pc-ptc-total">Total PTC <strong>{{ formatMoney(totalPtc, project.currency, currencies) }}</strong></div>
+        </template>
       </div>
-      <div class="col-sm-2"><label class="form-label small text-muted mb-1">Month</label>
-        <select class="form-select form-select-sm" v-model="item.month" :disabled="isViewer">
-          <option v-if="!projectMonths.length" value="">— set project dates first —</option>
-          <option v-for="ym in projectMonths" :key="ym" :value="ym">{{ monthLabelLong(ym) }}</option>
-        </select>
+
+      <div id="pc-sec-groups" data-section="groups" class="cfg-section pc-card">
+        <div class="pc-card-head">
+          <div class="pc-card-head-text">
+            <div class="cfg-section-title">Functional groups <span class="pc-opt">· optional</span></div>
+            <div class="pc-card-sub">Group roles into functional areas for the reporting. Pick a task to count a role only on that task, or "Any task" to count it everywhere.</div>
+          </div>
+          <div class="pc-card-actions"><button type="button" class="ph-btn" v-if="!isViewer" @click="addGroup">+ Add group</button></div>
+        </div>
+        <div class="pc-groups" v-if="project.groups.length">
+          <div class="pc-group" v-for="(grp, gi) in project.groups" :key="gi">
+            <div class="pc-group-head">
+              <input :ref="'groupName-' + gi" type="text" class="form-control form-control-sm pc-group-name" v-model="grp.name" :disabled="isViewer" placeholder="Group name, e.g. Development" aria-label="Group name">
+              <span class="pc-group-count">{{ grp.entries.length }} {{ grp.entries.length === 1 ? 'role' : 'roles' }}</span>
+              <button type="button" class="pc-icon-link" v-if="!isViewer" title="Remove group" aria-label="Remove group" @click="project.groups.splice(gi, 1)"><ph-icon name="trash" :size="14"></ph-icon></button>
+            </div>
+            <div class="pc-group-entry" v-for="(entry, ei) in grp.entries" :key="ei">
+              <div class="pc-group-entry-row">
+                <input type="text" class="form-control form-control-sm" v-model="entry.role" :disabled="isViewer" placeholder="e.g. HWGDEV - DEVELOPER" aria-label="Role">
+                <button type="button" class="pc-icon-link" v-if="!isViewer" title="Remove role" aria-label="Remove role" @click="grp.entries.splice(ei, 1)"><ph-icon name="close" :size="12"></ph-icon></button>
+              </div>
+              <div class="pc-group-on">
+                <span>on</span>
+                <select class="form-select form-select-sm pc-select-sm" v-model="entry.task" :disabled="isViewer" aria-label="Task">
+                  <option value="">Any task</option>
+                  <option v-for="t in project.tasks" :key="t.name" :value="t.name">{{ t.name }}</option>
+                </select>
+              </div>
+            </div>
+            <button type="button" class="pc-link-btn pc-group-add" v-if="!isViewer" @click="addGroupEntry(gi)">+ Add role</button>
+          </div>
+        </div>
       </div>
-      <div class="col-sm-1 d-flex align-items-end"><button class="btn btn-sm btn-outline-danger w-100" v-if="!isViewer" @click="confirmRemovePtc(pi)">🗑</button></div>
-    </div>
-  </div>
-  <div class="d-flex justify-content-end px-2 py-2 mt-1 border-top fw-bold small" style="background:#fff3cd;border-radius:0 0 6px 6px">Total PTC: {{ totalPtc > 0 ? formatMoney(totalPtc, project.currency, currencies) : '—' }}</div>
-</div>
-<div id="pc-sec-groups" data-section="groups" class="cfg-section pc-card">
-  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>Functional Groups <span class="fw-normal text-muted">(optional)</span></span><button class="btn btn-sm btn-primary" v-if="!isViewer" @click="addGroup">+ Add group</button></div>
-  <p class="text-muted small mb-3">Group roles into functional areas. Each role must match the <strong>Job Role: Name</strong> column in the XLS. Pick a specific task to count that role's hours only on that task (e.g. the same role billed at a different rate on another task) — leave it as "— any task —" to count the role everywhere it appears, matching the old behavior.</p>
-  <div class="cfg-group-card border rounded p-3 mb-2" v-for="(grp, gi) in project.groups" :key="gi">
-    <div class="d-flex align-items-center gap-2 mb-2">
-      <span class="text-muted small text-nowrap">Group name:</span>
-      <input type="text" class="form-control form-control-sm" v-model="grp.name" :disabled="isViewer" placeholder="e.g. Development">
-      <button class="btn btn-sm btn-outline-danger flex-shrink-0" v-if="!isViewer" @click="project.groups.splice(gi, 1)">🗑</button>
-    </div>
-    <label class="form-label small text-muted mb-1">Roles:</label>
-    <div class="d-flex align-items-center gap-2 mb-2" v-for="(entry, ei) in grp.entries" :key="ei">
-      <input type="text" class="form-control form-control-sm" v-model="entry.role" :disabled="isViewer" placeholder="e.g. HWGDEV - DEVELOPER">
-      <select class="form-select form-select-sm" style="max-width:220px" v-model="entry.task" :disabled="isViewer">
-        <option value="">— any task —</option>
-        <option v-for="t in project.tasks" :key="t.name" :value="t.name">{{ t.name }}</option>
-      </select>
-      <button class="btn btn-sm btn-outline-danger flex-shrink-0" v-if="!isViewer" @click="grp.entries.splice(ei, 1)">🗑</button>
-    </div>
-    <button class="btn btn-sm btn-outline-secondary" v-if="!isViewer" @click="addGroupEntry(gi)">+ Add role</button>
-  </div>
-</div>
-<div id="pc-sec-tags" data-section="tags" class="cfg-section pc-card" v-if="!isNewProject">
-  <div class="d-flex justify-content-between align-items-center cfg-section-title"><span>Tags <span class="fw-normal text-muted">(optional)</span></span></div>
-  <div v-if="!attributeLists.length" class="text-muted small">No tag lists configured yet.</div>
-  <div class="tags-section" :class="{ 'tags-section--readonly': tagsReadOnly }">
-  <div v-for="list in attributeLists" :key="list.id" class="tag-group mb-3">
-    <div class="tag-group__label">{{ list.name }}</div>
-    <div v-if="!list.items.length" class="text-muted" style="font-size:.75rem">No active items in this list.</div>
-    <div class="tag-group__list">
-      <label v-for="item in list.items" :key="item.id" class="tag-pill">
-        <input type="checkbox" :checked="isTagChecked(item.id)" :disabled="tagsReadOnly || tagSaving" @change="toggleTag(item.id, $event)">
-        <svg class="tag-pill__check" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.8 8.8L10 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>{{ item.label }}</span>
-      </label>
-      <label v-for="row in inactiveAssignedForList(list.id)" :key="row.item_id" class="tag-pill tag-pill--inactive">
-        <input type="checkbox" checked :disabled="tagsReadOnly || tagSaving" @change="toggleTag(row.item_id, $event)">
-        <span>{{ row.label }}</span>
-        <span class="tag-pill__suffix">inactive</span>
-      </label>
-    </div>
-  </div>
-  </div>
-</div>
+
+      <!-- Tags: the same markup as costgrid.html's Tags section -->
+      <div id="pc-sec-tags" data-section="tags" class="section-card cg-section-card pc-card mb-3" v-if="!isNewProject">
+        <div class="section-header cg-section-header" role="button" tabindex="0" :aria-expanded="!tagsCollapsed"
+             @click="toggleTagsCollapsed" @keydown.enter.prevent="toggleTagsCollapsed" @keydown.space.prevent="toggleTagsCollapsed">
+          <svg class="cg-section-chevron" :class="{ 'cg-section-chevron--collapsed': tagsCollapsed }" viewBox="0 0 12 12" width="12" height="12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="cg-section-title">Tags</span>
+          <div v-if="tagsCollapsed" class="cg-tag-summary">
+            <span v-if="!tagsSummaryGroups.length" class="text-muted">None selected</span>
+            <span v-for="g in tagsSummaryGroups" :key="g.name" class="cg-tag-summary-pill">{{ g.name }} · {{ g.labels.join(', ') }}</span>
+          </div>
+          <span class="cg-section-toggle-label">{{ tagsCollapsed ? 'Edit' : 'Collapse' }}</span>
+        </div>
+        <div v-show="!tagsCollapsed" class="p-3" :class="{ 'tags-section--readonly': tagsReadOnly }">
+          <div v-if="!attributeLists.length" class="text-muted pc-text-sm">No tag lists configured yet.</div>
+          <div class="cg-tag-groups">
+            <div v-for="list in attributeLists" :key="list.id" class="tag-group">
+              <div class="tag-group__label">{{ list.name }}</div>
+              <div v-if="!list.items.length" class="text-muted pc-text-xs">No active items in this list.</div>
+              <div class="tag-group__list">
+                <label v-for="item in list.items" :key="item.id" class="tag-pill">
+                  <input type="checkbox" :checked="isTagChecked(item.id)" :disabled="tagsReadOnly || tagSaving" @change="toggleTag(item.id, $event)">
+                  <svg class="tag-pill__check" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.8 8.8L10 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span>{{ item.label }}</span>
+                </label>
+                <label v-for="row in inactiveAssignedForList(list.id)" :key="row.item_id" class="tag-pill tag-pill--inactive">
+                  <input type="checkbox" checked :disabled="tagsReadOnly || tagSaving" @change="toggleTag(row.item_id, $event)">
+                  <span>{{ row.label }}</span>
+                  <span class="tag-pill__suffix">inactive</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       </div>
     </div>
   </template>
@@ -379,25 +412,25 @@
   <div class="modal fade" id="clientEditModal" tabindex="-1">
     <div class="modal-dialog modal-sm">
       <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title fw-bold">＋ New client</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-header"><h5 class="modal-title fw-bold">New client</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
           <div v-if="clientModal.error" class="alert alert-danger py-2">{{ clientModal.error }}</div>
           <div class="mb-3"><label class="form-label small fw-semibold">Client name</label><input type="text" class="form-control form-control-sm" v-model="clientModal.name" placeholder="e.g. Acme Corp"></div>
         </div>
-        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" :disabled="clientModal.saving" @click="saveClientModal">{{ clientModal.saving ? 'Saving…' : 'Save' }}</button></div>
+        <div class="modal-footer"><button type="button" class="ph-btn" data-bs-dismiss="modal">Cancel</button><button type="button" class="ph-btn-primary" :disabled="clientModal.saving" @click="saveClientModal">{{ clientModal.saving ? 'Saving…' : 'Save' }}</button></div>
       </div>
     </div>
   </div>
   <div class="modal fade" id="programEditModal" tabindex="-1">
     <div class="modal-dialog modal-sm">
       <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title fw-bold">＋ New program</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-header"><h5 class="modal-title fw-bold">New program</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
           <div v-if="programModal.error" class="alert alert-danger py-2">{{ programModal.error }}</div>
           <div class="mb-3"><label class="form-label small fw-semibold">Program name</label><input type="text" class="form-control form-control-sm" v-model="programModal.name" placeholder="e.g. Chatbot AI Platform"></div>
           <div class="mb-3"><label class="form-label small fw-semibold">Program ID</label><input type="text" class="form-control form-control-sm" v-model="programModal.id" placeholder="e.g. PRG-001"></div>
         </div>
-        <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" :disabled="programModal.saving" @click="saveProgramModal">{{ programModal.saving ? 'Saving…' : 'Save' }}</button></div>
+        <div class="modal-footer"><button type="button" class="ph-btn" data-bs-dismiss="modal">Cancel</button><button type="button" class="ph-btn-primary" :disabled="programModal.saving" @click="saveProgramModal">{{ programModal.saving ? 'Saving…' : 'Save' }}</button></div>
       </div>
     </div>
   </div>
@@ -405,11 +438,11 @@
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header py-2">
-          <h6 class="modal-title mb-0">Actuals <span class="text-muted ms-2" style="font-size:.8rem">{{ actuals.exportRows?.length || 0 }} rows</span></h6>
+          <h6 class="modal-title mb-0">Actuals <span class="text-muted ms-2 pc-text-xs">{{ actuals.exportRows?.length || 0 }} rows</span></h6>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body p-0">
-          <table class="table table-sm table-hover mb-0" style="font-size:.78rem">
+          <table class="table table-sm table-hover mb-0 pc-text-xs">
             <thead>
               <tr><th>Date</th><th>Owner</th><th>Role</th><th>Task</th><th class="text-end">Hours</th><th>Notes</th><th class="text-end">Fee</th><th class="text-end">Spent</th></tr>
             </thead>
@@ -427,15 +460,14 @@
     </div>
   </div>
 
-  <!-- Task 3/6 insert the confirm modal here -->
   <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+    <div class="modal-dialog modal-dialog-centered pc-confirm-dialog">
       <div class="modal-content shadow-lg">
-        <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold">{{ confirmModal.infoMode ? 'ℹ️ Info' : '⚠️ Confirm' }}</h6></div>
-        <div class="modal-body pt-1"><p class="mb-0" style="white-space:pre-line;font-size:.92rem">{{ confirmModal.message }}</p></div>
+        <div class="modal-header border-0 pb-1"><h6 class="modal-title fw-bold">{{ confirmModal.infoMode ? 'Info' : 'Confirm' }}</h6></div>
+        <div class="modal-body pt-1"><p class="mb-0 pc-pre-line pc-text-sm">{{ confirmModal.message }}</p></div>
         <div class="modal-footer border-0 pt-2">
-          <button class="btn btn-secondary" data-bs-dismiss="modal" v-if="!confirmModal.infoMode">Cancel</button>
-          <button :class="confirmModal.infoMode ? 'btn btn-primary' : 'btn btn-danger'" @click="confirmModalOk">{{ confirmModal.infoMode ? 'OK' : 'Confirm' }}</button>
+          <button type="button" class="ph-btn" data-bs-dismiss="modal" v-if="!confirmModal.infoMode">Cancel</button>
+          <button type="button" :class="confirmModal.infoMode ? 'ph-btn-primary' : 'btn btn-danger'" @click="confirmModalOk">{{ confirmModal.infoMode ? 'OK' : 'Confirm' }}</button>
         </div>
       </div>
     </div>
@@ -507,6 +539,7 @@
         openTaskIndex: null,
         activeSection: 'client',
         phasingMode: 'budget',
+        tagsCollapsed: true,
       };
     },
     computed: {
@@ -629,6 +662,14 @@
         return !!(this.project?.costGridRef?.cgId);
       },
       tagsReadOnly() { return this.isViewer; },
+      // Closed Tags header: one pill per list with its assigned labels (as costgrid.html).
+      tagsSummaryGroups() {
+        return this.attributeLists.map(list => {
+          const active = (list.items || []).filter(it => this.isTagChecked(it.id)).map(it => it.label);
+          const inactive = this.inactiveAssignedForList(list.id).map(row => row.label);
+          return { name: list.name, labels: [...active, ...inactive] };
+        }).filter(g => g.labels.length);
+      },
       statusRule() {
         return this.project ? getStatusRule(this.project.pipeline) : { options: null, disabled: true };
       },
@@ -813,6 +854,16 @@
           this.tagSaving = false;
         }
       },
+      // Not persisted: Tags opens closed on every visit.
+      toggleTagsCollapsed() {
+        this.tagsCollapsed = !this.tagsCollapsed;
+      },
+      focusRef(name) {
+        this.$nextTick(() => {
+          const ref = this.$refs[name];
+          (Array.isArray(ref) ? ref[0] : ref)?.focus();
+        });
+      },
       updateBreadcrumb(label) {
         if (typeof updateBreadcrumbs === 'function') {
           updateBreadcrumbs([
@@ -840,6 +891,7 @@
       },
       addPtc() {
         this.project.ptc.push({ title: '', note: '', amount: 0, month: this.projectMonths[0] || '' });
+        this.focusRef('ptcTitle-' + (this.project.ptc.length - 1));
       },
       async confirmRemovePtc(pi) {
         const title = this.project.ptc[pi].title.trim() || 'this entry';
@@ -850,6 +902,7 @@
       },
       addGroup() {
         this.project.groups.push({ name: '', entries: [] });
+        this.focusRef('groupName-' + (this.project.groups.length - 1));
       },
       addGroupEntry(gi) {
         this.project.groups[gi].entries.push({ role: '', task: '' });
@@ -1249,10 +1302,7 @@
         this.project.tasks.push({ name: '', description: '', billable: true, completed: false, startDate: '', endDate: '', monthlyDistribution: {}, resources: [] });
         const ti = this.project.tasks.length - 1;
         this.openTaskIndex = ti;
-        this.$nextTick(() => {
-          const ref = this.$refs['taskName-' + ti];
-          (Array.isArray(ref) ? ref[0] : ref)?.focus();
-        });
+        this.focusRef('taskName-' + ti);
       },
       async confirmRemoveTask(ti) {
         const name = this.project.tasks[ti].name.trim() || 'this task';
