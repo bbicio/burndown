@@ -1,0 +1,21 @@
+/* project-config.html only (redesign 2026-11-02, boards in docs/superpowers/design/config-project/).
+   Tokens only, no hex; class prefix pc-. .cfg-section in style.css stays as it is: .pc-card restyles it here. */
+
+/* ── Banners under the page head ── */
+.pc-alert { margin-bottom: var(--space-3); }
+.pc-viewer-banner { position: sticky; top: 0; z-index: var(--z-sticky); }
+
+/* ── Section cards ── */
+.cfg-section.pc-card {
+  background: var(--card-bg);
+  border: var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-xs);
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
+}
+.pc-card .cfg-section-title {
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--brand-navy);
+}
