@@ -1,6 +1,7 @@
 # Brief — finding valute, ciclo f4: la rate card sostituisce l'intero set senza riconoscere una copia vecchia
 
 **Brief started:** 2026-11-01 19:45
+**Stato:** rinviato il 2026-11-02 per decisione dell'utente, insieme a B-225: casi giudicati remoti (righe B-207, B-209, B-211, B-212 di `docs/BACKLOG.md`).
 **Tipo:** evoluzione (Scenario 2), nata dai follow-up del ciclo c3. **Perché non è un audit-fix come f1/f2:** B-209 e B-207 chiedono due decisioni di design che nessuna regola esistente risolve:
 - come il salvataggio della rate card riconosce una copia vecchia;
 - cosa significa, se significa qualcosa, una rate card senza cliente.
