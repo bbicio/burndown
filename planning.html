@@ -7,7 +7,7 @@
   <title>PDash — Planning</title>
   <link rel="icon" type="image/png" href="https://ik.imagekit.io/6ezjgrjjf/00_Home_Page/letter-f.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="css/tokens.css?v=12">
+  <link rel="stylesheet" href="css/tokens.css?v=13">
   <link rel="stylesheet" href="css/style.css?v=29">
   <link rel="stylesheet" href="css/controls.css?v=1">
   <link rel="stylesheet" href="css/planning.css?v=1">
@@ -85,7 +85,8 @@
         <button v-if="!isTablet" type="button" class="pl-link pl-today" :disabled="isDefaultWindow" @click="goToday">Today</button>
         <div class="ph-toolbar-spacer"></div>
         <!-- At 1024px and below the search, filters, switches and Load XLS move into the Filters panel (#plFiltersPanel). -->
-        <teleport to="#plFiltersBody" v-if="isTablet">
+        <!-- Always mounted (never v-if), so its content is the first thing in #plFiltersBody. -->
+        <teleport to="#plFiltersBody">
           <div class="pl-filters-head">
             <h2 class="pl-filters-title" id="plFiltersTitle">Filters</h2>
             <button type="button" class="btn btn-ghost btn-icon" data-bs-dismiss="offcanvas" aria-label="Close filters"><ph-icon name="close"></ph-icon></button>
@@ -450,7 +451,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         pipelineFilters: new Set(), projectFilters: new Set(), teamFilters: new Set(),
         windowStart: null, windowEnd: null,
         monthlyPulse: true, roundHours: true,
-        returnToBurndown: false, singleProjectId: null,
+        returnToBurndown: false,
         refreshTick: 0, // bumped after an XLS upload to force a new modelRequest (refetch of the
                         // planning model) and to recompute computeds reading config.projects, a
                         // plain global not Vue-reactive on its own
@@ -461,6 +462,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         openIds: { byrole: new Set(), byproject: new Set(), byowner: new Set() },
         openInit: { byrole: false, byproject: false, byowner: false },
         search: { byrole: '', byproject: '', byowner: '' },
+        // rows the search forces open but the user collapsed; emptied whenever that view's search changes
+        suppressed: { byrole: new Set(), byproject: new Set(), byowner: new Set() },
         legendOpen: false, isTablet: false, projectQuery: '', periodMenuOpen: false,
         taOpen: false, taProjectId: '', taMessages: [], taInput: '', taBusy: false, taTables: null, taParams: {}, taError: null, taRoles: [],
       };
@@ -525,16 +528,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         weeks.forEach(w => {
-          w.wNum      = Math.min(5, Math.ceil(w.weekStart.getDate() / 7));
-          w.wLabel    = `W${w.wNum}`;
           w.dateTitle = `${String(w.weekStart.getDate()).padStart(2,'0')} ${monthNames[w.weekStart.getMonth()]} – ${String(w.weekEnd.getDate()).padStart(2,'0')} ${monthNames[w.weekEnd.getMonth()]}`;
           w.isPast    = w.weekEnd < todayMidnight;
           w.isCurrent = w.weekStart <= todayMidnight && w.weekEnd >= todayMidnight;
-          w.isLastOfMonth = false;
         });
-        for (let i = 0; i < weeks.length; i++) {
-          weeks[i].isLastOfMonth = (i === weeks.length - 1) || (weeks[i].monthKey !== weeks[i + 1].monthKey);
-        }
         return weeks;
       },
       atLeftLimit()  { return !this.windowStart || this.windowStart <= getPpAxis().axisStart; },
@@ -768,7 +765,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         return this.byOwnerView;
       },
       parentIds() { return new Set(this.activeRows.rows.map(r => r.parentId).filter(Boolean)); },
-      searchFilter() { return filterRows(this.activeRows.rows, this.search[this.view]); },
+      rawSearchFilter() { return filterRows(this.activeRows.rows, this.search[this.view]); },
+      searchFilter() { return effectiveFilter(this.rawSearchFilter, this.suppressed[this.view]); },
       displayRows() {
         const { rows } = this.activeRows;
         return rows.length ? visibleRows(rows, this.openIds[this.view], this.searchFilter) : [];
@@ -796,7 +794,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       estimatesText() { return ESTIMATES_TEXT[this.view]; },
     },
     methods: {
-      esc, fmtProjectTitle,
+      esc,
       // Vue 3 templates do not see arbitrary window globals: thin wrappers for the template.
       renderChatText(t) { return window.renderChatText(t); },
       shouldSendOnEnter(e) { return window.shouldSendOnEnter(e); },
@@ -1023,8 +1021,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       isOpen(id) { return this.openIds[this.view].has(id) || this.searchFilter.forcedOpenIds.has(id); },
       hasChildren(r) { return this.parentIds.has(r.id); },
       toggleRow(id) {
-        const open = this.openIds[this.view];
-        if (open.has(id)) open.delete(id); else open.add(id);
+        toggleRowState(id, { open: this.openIds[this.view], suppressed: this.suppressed[this.view], forced: this.rawSearchFilter.forcedOpenIds });
       },
       expandAll() { const open = this.openIds[this.view]; this.parentIds.forEach(id => open.add(id)); },
       collapseAll() { this.openIds[this.view].clear(); },
@@ -1080,6 +1077,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (this.periodMenuOpen && this.$refs.periodBox && !this.$refs.periodBox.contains(e.target) && e.target.isConnected) this.periodMenuOpen = false;
       },
       onDocKeydown(e) {
+        if (e.key === 'Tab' && this.taOpen) {
+          // aria-modal drawer: Tab and Shift+Tab stay inside it
+          const panel = document.getElementById('teamAssistantPanel');
+          const focusables = [...panel.querySelectorAll('button, select, textarea, input, [href], [tabindex]:not([tabindex="-1"])')]
+            .filter(el => !el.disabled && el.offsetParent !== null);
+          const target = focusTrapTarget(focusables, document.activeElement, e.shiftKey);
+          if (target) { e.preventDefault(); target.focus(); }
+          return;
+        }
         if (e.key !== 'Escape') return;
         if (this.legendOpen) { this.legendOpen = false; this.$refs.legendBtn?.focus(); }
         if (this.periodMenuOpen) { this.periodMenuOpen = false; this.$refs.periodLabelBtn?.focus(); }
@@ -1095,6 +1101,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       teamFilters: { handler(v) { portfolioTeamFilters = v; }, immediate: true },
       modelRequest() { this.loadModel(); },
       activeRows(v) { if (v.state === 'ready') this.initOpenIds(this.view, v.rows); },
+      // a new search starts with every matching parent open again
+      search: { handler() { Object.values(this.suppressed).forEach(s => s.clear()); }, deep: true },
+      // the period menu takes focus when it opens (its first preset)
+      periodMenuOpen(open) {
+        if (open) this.$nextTick(() => { this.$refs.periodBox?.querySelector('.pl-period-menu button')?.focus(); });
+      },
       // Team assistant drawer: focus into the panel when it opens, back to its button when it closes.
       taOpen(open) {
         this.$nextTick(() => { (open ? this.$refs.taSelect : this.$refs.taOpenBtn)?.focus(); });
@@ -1131,7 +1143,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Real behavior of the pre-migration showPlanningView(projectId) (js/planning.js:388-394) —
         // see this plan's header "Correction to the design spec's assumed scope" note. It does NOT
         // render a distinct Gantt view; it only pre-filters to one project and flags the title.
-        this.singleProjectId = urlProjectId;
         this.returnToBurndown = true;
         this.projectFilters = new Set([urlProjectId]);
       }

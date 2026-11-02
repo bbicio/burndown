@@ -314,6 +314,36 @@ describe('planning grid (2026-11-02, planning redesign)', () => {
     expect(html).not.toContain('🤖');
     expect(header).toMatch(/<button[^>]*aria-label="Close Team assistant"[^>]*>\s*<ph-icon name="close"/);
   });
+  // ── code review round 1 (2026-11-02) ──
+  it('the drawer becomes visible at once when it opens, so focus can move into it (#1)', () => {
+    const open = css.match(/#teamAssistantPanel\.open\s*\{([^}]*)\}/);
+    expect(open && open[1]).toMatch(/visibility:\s*visible/);
+    expect(open && open[1]).toMatch(/visibility\s+0s/);
+  });
+  it('the Filters heading teleport is always mounted, so it stays first in the panel (#2)', () => {
+    const tag = html.match(/<teleport[^>]*>\s*<div class="pl-filters-head">/);
+    expect(tag).not.toBe(null);
+    expect(tag[0]).not.toMatch(/v-if|:disabled/);
+  });
+  it('the label cell content is bounded by the label column width (#4)', () => {
+    expect(css).toMatch(/\.pl-label\s*\{[^}]*max-width:\s*calc\(var\(--pl-label-w\)/);
+  });
+  it('planning-rows.js imports its sibling modules at the versions the page loads (#5)', () => {
+    const rows = read('js/lib/planning-rows.js');
+    for (const f of ['planning-calc.js', 'dates.js']) {
+      const page = html.match(new RegExp(`js/lib/${f.replace('.', '\\.')}\\?v=(\\d+)`));
+      expect(page, f).not.toBe(null);
+      expect(rows).toContain(`'./${f}?v=${page[1]}'`);
+    }
+  });
+  it('the drawer backdrop uses the overlay token at the offcanvas opacity (#10, #11)', () => {
+    expect(read('css/tokens.css')).toMatch(/--overlay-scrim:/);
+    expect(css).toMatch(/\.pl-ta-backdrop\s*\{[^}]*background:\s*var\(--overlay-scrim\)/);
+    expect(css).toMatch(/\.pl-ta-backdrop\.open\s*\{[^}]*opacity:\s*\.5/);
+  });
+  it('no leftover of the former renderer (#9)', () => {
+    for (const s of ['wNum', 'wLabel', 'isLastOfMonth', 'fmtProjectTitle', 'singleProjectId']) expect(html, s).not.toMatch(new RegExp(`\\b${s}\\b`));
+  });
   it('the grid is a template table: no v-html except the stage/status pills', () => {
     expect(html).not.toContain('activeViewHtml');
     const start = at('<table class="pl-grid"');

@@ -1,7 +1,7 @@
 // Pure row model of planning.html's grid: cell text, load level, search filter and the flat
 // rows the template renders. DOM-free; the hours themselves come from the server model.
-import { computeResidual, sumChildBreakdownHours } from './planning-calc.js';
-import { formatDayText } from './dates.js';
+import { computeResidual, sumChildBreakdownHours } from './planning-calc.js?v=5';
+import { formatDayText } from './dates.js?v=4';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -92,6 +92,32 @@ export function visibleRows(rows, openIds, filter) {
     for (let p = byId.get(r.parentId); p; p = byId.get(p.parentId)) if (!isOpen(p.id)) return false;
     return true;
   });
+}
+
+// A click on a row's chevron. A row the search forces open is collapsed (and re-opened) through
+// `suppressed`, never through `open`, so clearing the search restores the state from before it.
+export function toggleRowState(id, { open, suppressed, forced }) {
+  if (forced.has(id)) {
+    if (suppressed.has(id)) suppressed.delete(id); else suppressed.add(id);
+    return;
+  }
+  if (open.has(id)) open.delete(id); else open.add(id);
+}
+
+// The search filter without the forced-open rows the user collapsed.
+export function effectiveFilter(filter, suppressed) {
+  if (!filter || !suppressed.size) return filter;
+  return { visibleIds: filter.visibleIds, forcedOpenIds: new Set([...filter.forcedOpenIds].filter(id => !suppressed.has(id))) };
+}
+
+// Tab inside a modal panel: the element to focus instead of the browser's next one, or null.
+export function focusTrapTarget(focusables, active, backwards) {
+  if (!focusables.length) return null;
+  const first = focusables[0], last = focusables[focusables.length - 1];
+  if (!focusables.includes(active)) return backwards ? last : first;
+  if (!backwards && active === last) return first;
+  if (backwards && active === first) return last;
+  return null;
 }
 
 // ── Row builders ────────────────────────────────────────────────────────────────────────────
@@ -186,6 +212,10 @@ export function buildProjectRows(adapted, periods, opts) {
     return withHours.length > 0 && withHours.every(r => keys.some(k => r.weekData[k]?.isPulse && r.weekData[k].total > 0));
   };
   const sumNum = (obj, keys) => keys.reduce((s, k) => s + (obj[k] || 0), 0);
+  // A project can hold two tasks of the same name and a task two resources of the same role:
+  // the second and later get a "~n" suffix, so every id stays unique and still key-derived.
+  const seen = new Map();
+  const uniq = id => { const n = (seen.get(id) || 0) + 1; seen.set(id, n); return n === 1 ? id : `${id}~${n}`; };
   for (const pNode of adapted.projects || []) {
     const info = opts.projectInfo(pNode.id);
     if (!info) continue;
@@ -198,7 +228,7 @@ export function buildProjectRows(adapted, periods, opts) {
     });
     rows.push(top); tops.push(top);
     for (const tNode of pNode.tasks) {
-      const tid = `${pid}|t:${tNode.name}`;
+      const tid = uniq(`${pid}|t:${tNode.name}`);
       rows.push(makeRow({
         id: tid, parentId: pid, depth: 1, kind: 'task', label: tNode.name, sub: plural(tNode.roles.length, 'role'),
         start: tNode.startDate || '', end: tNode.endDate || '',
@@ -209,7 +239,7 @@ export function buildProjectRows(adapted, periods, opts) {
         const owners = rNode.owners.filter(o => !o.isPlaceholder && o.name !== PLACEHOLDER)
           .map(o => ({ name: o.name, initials: initials(o.name), inactive: ownerStatus[o.name] === 'inactive' }));
         rows.push(makeRow({
-          id: `${tid}|r:${rNode.role}`, parentId: tid, depth: 2, kind: 'roleLeaf', label: displayRole(rNode.role),
+          id: uniq(`${tid}|r:${rNode.role}`), parentId: tid, depth: 2, kind: 'roleLeaf', label: displayRole(rNode.role),
           sub: owners.length ? owners.map(o => o.name).join(', ') : 'No owner yet', owners,
           sold: rNode.sold, actuals: rNode.consumed, toPlan: rNode.tbp,
           cells: cellsOf(periods, interval, keys => {
@@ -315,6 +345,9 @@ export function weeklyWindowLabel(weeks) {
   return a.getFullYear() === b.getFullYear() ? `${first.replace(/, \d{4}$/, '')} – ${last}` : `${first} – ${last}`;
 }
 
+window.toggleRowState = toggleRowState;
+window.effectiveFilter = effectiveFilter;
+window.focusTrapTarget = focusTrapTarget;
 window.defaultWindow = defaultWindow;
 window.presetWindow = presetWindow;
 window.shiftWindow = shiftWindow;

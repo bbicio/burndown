@@ -95,6 +95,6 @@ describe('?v= references of the files edited in B1 and B2', () => {
     expect(p).toContain('js/core.js?v=15');
     expect(p).toContain('js/nav.js?v=19');
     expect(p).toContain('js/notifications.js?v=3');
-    expect(p).toContain('css/tokens.css?v=12');
+    expect(p).toContain('css/tokens.css?v=13');
   });
 });

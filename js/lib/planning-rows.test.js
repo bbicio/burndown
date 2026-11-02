@@ -3,7 +3,58 @@ import {
   formatCell, workingWeeks, loadLevel, initials, isoWeek, filterRows, visibleRows,
   buildRoleRows, buildProjectRows, buildOwnerRows,
   defaultWindow, presetWindow, shiftWindow, weeklyWindowLabel,
+  toggleRowState, effectiveFilter, focusTrapTarget,
 } from './planning-rows.js';
+
+// ── Toggling a row while a search forces it open (review round 1, #3) ───────────────────────
+describe('toggleRowState / effectiveFilter', () => {
+  const tree3 = [
+    { id: 'a', parentId: null, label: 'a', sub: '' },
+    { id: 'a1', parentId: 'a', label: 'match', sub: '' },
+    { id: 'b', parentId: null, label: 'b', sub: '' },
+  ];
+  it('collapses a parent forced open by the search without writing to openIds', () => {
+    const open = new Set(), suppressed = new Set();
+    const f = filterRows(tree3, 'match');
+    toggleRowState('a', { open, suppressed, forced: f.forcedOpenIds });
+    expect(open.size).toBe(0);
+    expect(visibleRows(tree3, open, effectiveFilter(f, suppressed)).map(r => r.id)).toEqual(['a']);
+    // clicking again re-opens it, still without touching openIds
+    toggleRowState('a', { open, suppressed, forced: f.forcedOpenIds });
+    expect(open.size).toBe(0);
+    expect(visibleRows(tree3, open, effectiveFilter(f, suppressed)).map(r => r.id)).toEqual(['a', 'a1']);
+  });
+  it('toggles openIds for a row the search does not force', () => {
+    const open = new Set(), suppressed = new Set();
+    toggleRowState('b', { open, suppressed, forced: new Set() });
+    expect([...open]).toEqual(['b']);
+    toggleRowState('b', { open, suppressed, forced: new Set() });
+    expect(open.size).toBe(0);
+  });
+  it('leaves an empty filter as it is', () => {
+    expect(effectiveFilter(null, new Set(['a']))).toBe(null);
+  });
+});
+
+// ── Focus trap of the Team assistant drawer (review round 1, #8) ────────────────────────────
+describe('focusTrapTarget', () => {
+  const els = ['first', 'mid', 'last'];
+  it('wraps Tab from the last element to the first and Shift+Tab from the first to the last', () => {
+    expect(focusTrapTarget(els, 'last', false)).toBe('first');
+    expect(focusTrapTarget(els, 'first', true)).toBe('last');
+  });
+  it('lets the browser move focus inside the panel', () => {
+    expect(focusTrapTarget(els, 'mid', false)).toBe(null);
+    expect(focusTrapTarget(els, 'mid', true)).toBe(null);
+  });
+  it('pulls focus back in when it is outside the panel', () => {
+    expect(focusTrapTarget(els, 'elsewhere', false)).toBe('first');
+    expect(focusTrapTarget(els, 'elsewhere', true)).toBe('last');
+  });
+  it('does nothing without focusable elements', () => {
+    expect(focusTrapTarget([], 'x', false)).toBe(null);
+  });
+});
 
 // ── Period window ───────────────────────────────────────────────────────────────────────────
 const ymd = d => [d.getFullYear(), d.getMonth() + 1, d.getDate()].join('-');
@@ -330,6 +381,17 @@ describe('buildProjectRows', () => {
     const r = buildProjectRows(projectModel, periods, { ...baseOpts, projectInfo: id => (id === 'p2' ? PROJECTS.p2 : null) });
     expect(r.rows[0].id).toBe('p:p2');
     expect(r.total.sold).toBe(10);
+  });
+  it('gives distinct ids to two roles of the same name in one task, and to two tasks of the same name (review #6)', () => {
+    const dupRole = { role: 'HWGDEV - Developer', sold: 1, consumed: 0, tbp: 1, hasOwners: false, allOwnersInactive: false, weekData: {}, owners: [] };
+    const dupTask = { name: 'Same', sold: 2, actuals: 0, tbp: 2, weekTotals: {}, roles: [dupRole, { ...dupRole }] };
+    const model = { projects: [{ id: 'p1', sold: 4, actuals: 0, tbp: 4, weekTotals: {}, tasks: [dupTask, { ...dupTask }] }] };
+    const ids = buildProjectRows(model, periods, baseOpts).rows.map(r => r.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual([
+      'p:p1', 'p:p1|t:Same', 'p:p1|t:Same|r:HWGDEV - Developer', 'p:p1|t:Same|r:HWGDEV - Developer~2',
+      'p:p1|t:Same~2', 'p:p1|t:Same~2|r:HWGDEV - Developer', 'p:p1|t:Same~2|r:HWGDEV - Developer~2',
+    ]);
   });
   it('keeps the ids of the remaining rows when a project disappears (re-fetch)', () => {
     const fewer = { projects: projectModel.projects.slice(1) };
