@@ -24,6 +24,15 @@ describe('toggleRowState / effectiveFilter', () => {
     expect(open.size).toBe(0);
     expect(visibleRows(tree3, open, effectiveFilter(f, suppressed)).map(r => r.id)).toEqual(['a', 'a1']);
   });
+  it('collapses a parent that is both open and forced open by the search, keeping it in openIds (round 2)', () => {
+    const open = new Set(['a']), suppressed = new Set();
+    const f = filterRows(tree3, 'match');
+    toggleRowState('a', { open, suppressed, forced: f.forcedOpenIds });
+    expect(visibleRows(tree3, open, effectiveFilter(f, suppressed)).map(r => r.id)).toEqual(['a']);
+    expect([...open]).toEqual(['a']);
+    // without the search, the row is open again as it was
+    expect(visibleRows(tree3, open, effectiveFilter(filterRows(tree3, ''), new Set())).map(r => r.id)).toEqual(['a', 'a1', 'b']);
+  });
   it('toggles openIds for a row the search does not force', () => {
     const open = new Set(), suppressed = new Set();
     toggleRowState('b', { open, suppressed, forced: new Set() });

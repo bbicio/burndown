@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         openIds: { byrole: new Set(), byproject: new Set(), byowner: new Set() },
         openInit: { byrole: false, byproject: false, byowner: false },
         search: { byrole: '', byproject: '', byowner: '' },
-        // rows the search forces open but the user collapsed; emptied whenever that view's search changes
+        // rows the search forces open but the user collapsed; all three emptied whenever any search changes
         suppressed: { byrole: new Set(), byproject: new Set(), byowner: new Set() },
         legendOpen: false, isTablet: false, projectQuery: '', periodMenuOpen: false,
         taOpen: false, taProjectId: '', taMessages: [], taInput: '', taBusy: false, taTables: null, taParams: {}, taError: null, taRoles: [],
@@ -1018,7 +1018,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         URL.revokeObjectURL(url);
       },
       // ── Grid ──
-      isOpen(id) { return this.openIds[this.view].has(id) || this.searchFilter.forcedOpenIds.has(id); },
+      isOpen(id) {
+        const f = this.searchFilter;
+        return !(f.closedIds && f.closedIds.has(id)) && (this.openIds[this.view].has(id) || f.forcedOpenIds.has(id));
+      },
       hasChildren(r) { return this.parentIds.has(r.id); },
       toggleRow(id) {
         toggleRowState(id, { open: this.openIds[this.view], suppressed: this.suppressed[this.view], forced: this.rawSearchFilter.forcedOpenIds });

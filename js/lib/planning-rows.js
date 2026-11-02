@@ -86,7 +86,8 @@ export function filterRows(rows, query) {
 export function visibleRows(rows, openIds, filter) {
   const byId = new Map(rows.map(r => [r.id, r]));
   const forced = filter ? filter.forcedOpenIds : new Set();
-  const isOpen = id => openIds.has(id) || forced.has(id);
+  const closed = (filter && filter.closedIds) || new Set();
+  const isOpen = id => !closed.has(id) && (openIds.has(id) || forced.has(id));
   return rows.filter(r => {
     if (filter && filter.visibleIds && !filter.visibleIds.has(r.id)) return false;
     for (let p = byId.get(r.parentId); p; p = byId.get(p.parentId)) if (!isOpen(p.id)) return false;
@@ -104,10 +105,15 @@ export function toggleRowState(id, { open, suppressed, forced }) {
   if (open.has(id)) open.delete(id); else open.add(id);
 }
 
-// The search filter without the forced-open rows the user collapsed.
+// The search filter with the forced-open rows the user collapsed: `closedIds` wins over both the
+// forced set and openIds while the search lasts, so an already-open parent collapses too.
 export function effectiveFilter(filter, suppressed) {
   if (!filter || !suppressed.size) return filter;
-  return { visibleIds: filter.visibleIds, forcedOpenIds: new Set([...filter.forcedOpenIds].filter(id => !suppressed.has(id))) };
+  return {
+    visibleIds: filter.visibleIds,
+    forcedOpenIds: new Set([...filter.forcedOpenIds].filter(id => !suppressed.has(id))),
+    closedIds: suppressed,
+  };
 }
 
 // Tab inside a modal panel: the element to focus instead of the browser's next one, or null.
