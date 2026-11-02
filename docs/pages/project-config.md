@@ -105,3 +105,17 @@ Spec `docs/superpowers/specs/2026-10-29-currency-c2-vue-rate-inputs-design.md`, 
 - **Removals.** `confirmRemoveTask`/`confirmRemoveResource` call `dropRateInvalid(ti, ri)`, which drops the removed row's entries and shifts the keys below it.
 
 Guard: `js/lib/project-config-rate-input-guard.test.js`. Manual case: `TEST_CASES.md` PC-34.
+
+## Redesign (2026-11-02)
+
+Spec `docs/superpowers/specs/2026-11-02-project-config-redesign-design.md`, plan `docs/superpowers/plans/2026-11-02-project-config-redesign.md`, boards in `docs/superpowers/design/config-project/`. Stylesheet `css/project-config.css`. No business rule, saved field or API call changed.
+- **Page head.** `.ph` with back "Portfolio", eyebrow "Project configuration", stage/status badges (`headerBadge`), sub-line client · code · period · currency (`headMeta`), and in `.ph-actions` Project Dashboard, Discard and Save. The button row at the bottom is gone; `jsonError`, the viewer banner and the out-of-period notice sit under the head. `onSave` returns at once while `saving`.
+- **Discard.** `onDiscard` asks "Discard all unsaved changes?", then restores `savedSnapshot` through `normalizeProject` (the load normalisations, shared with `resolveProject`) and clears `phasingInvalid`/`ptcInvalid`/`rateInvalid` and the open task. Disabled while the project is clean or saving; hidden from the viewer. Tags, actuals and new clients/programs are saved at once and are not touched.
+- **Section index.** Built from `sections`; a click scrolls with `window.scrollTo`, an `IntersectionObserver` moves the active entry, amber dots come from `sectionIssues` (tasks without a valid split, tasks out of period, invalid rates; invalid or unbalanced phasing; invalid PTC). Totals under the index.
+- **Task table.** One task open at a time (`openTaskIndex`, not persisted); one warning counts the tasks without a valid split. Spread evenly / Clear act on one task, Spread all evenly only on tasks whose split is not valid, longer than a month and not completed; a read-only split (one month, completed, viewer) is never written. The split months are in English.
+- **Monthly phasing.** One card with a Budget | Hours segment (`phasingMode`, both series kept in the DOM with `v-show`), one Derive/Reforecast pair, a bar per month (navy for months present in the loaded actuals, `actualMonths`), and a balance line from `phasingBalance`.
+- **Tags.** The cost grid markup (collapsible card, pill summary when closed); `tagsCollapsed` starts closed and is not persisted.
+- **Responsive.** Below 1280px the task table drops Period/Roles (shown under the name). Below 1024px the index becomes a sticky tab row and Totals goes. Below 768px one section at a time, chosen from a bottom sheet (`offcanvas-bottom`, `mobileSection`, cards hidden with `v-show`), with 44px inputs and stacked task cards.
+- **Accepted deviations from the boards** (Task 10, decided by the user): the phasing inputs show the currency symbol, because every amount goes through `formatMoney`; the stage/status badges are uppercase, as the shared `.ph-badge`; at widths where the sidebar is open below 1280px the index column stays (the site switches to tabs only below 1024px); the Tags header has no "· optional", as on the cost grid; the sticky save bar of the boards is not built (spec §1).
+
+Guard: `js/lib/project-config-layout-guard.test.js`. Manual cases: `TEST_CASES.md` PC-38…PC-45.

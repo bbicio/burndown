@@ -100,7 +100,7 @@ Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page i
 | `costgrid.html` | `/costgrid.html?cgId=&verId=` | Cost grid editor (full-page); own stylesheet `css/costgrid.css`. Full narrative: [docs/pages/costgrid.md](docs/pages/costgrid.md) |
 | `timesheets.html` | `/timesheets.html` | XLS timesheet upload management. Full narrative: [docs/pages/timesheets.md](docs/pages/timesheets.md) |
 | `master-clients.html`, `master-client-groups.html`, `master-pipelines.html`, `master-roles.html`, `master-currencies.html` | `/master-*.html` | **Master Data**: one page per functionality — Clients, Client Groups, Pipelines & POT targets, Roles & rates, Currencies — linked by a lateral sub-menu (`.md-subnav`); admin **or sysadmin** only. `/config.html` is only a redirect to `/master-clients.html`. Full narrative: [docs/pages/config.md](docs/pages/config.md) |
-| `project-config.html` | `/project-config.html?projectId=` | Full-page project config form (tasks, phasing, planning, groups); viewer mode: sticky read-only banner + all inputs disabled + action buttons hidden. Full narrative: [docs/pages/project-config.md](docs/pages/project-config.md) |
+| `project-config.html` | `/project-config.html?projectId=` | Full-page project config form (tasks, phasing, planning, groups); own stylesheet `css/project-config.css`; viewer mode: sticky read-only banner + all inputs disabled + action buttons hidden. Full narrative: [docs/pages/project-config.md](docs/pages/project-config.md) |
 | `admin.html` | `/admin.html` | User management — invite, role, disable, anonymize (admin **or sysadmin**); role toggle admin↔user open to any admin/sysadmin, grant/revoke sysadmin restricted to sysadmin viewers only. Full narrative: [docs/pages/admin.md](docs/pages/admin.md) |
 | `terms.html` | `/terms.html?next=` | Public (auth required) — T&C acceptance page shown on first login or after version bump. Full narrative: [docs/pages/terms.md](docs/pages/terms.md) |
 | `login.html` | `/login.html` | Public — login form |
@@ -123,8 +123,8 @@ HTML pages               — the Pages table above is the page index: route, one
                             test checklist, no navigation, results in localStorage) fetches TEST_CASES.md and parses it with
                             js/lib/test-cases-parse.js. Hence TEST_CASES.md counts as code for
                             scripts/classify-cycle.mjs.
-css/                     — eight stylesheets: tokens.css (design tokens, also `[v-cloak]`), style.css (components
-                            + navigation), controls.css, admin-crud.css, auth.css, pipeline.css, costgrid.css, portfolio.css. Detail:
+css/                     — stylesheets: tokens.css (design tokens, also `[v-cloak]`), style.css (components
+                            + navigation), controls.css, admin-crud.css, auth.css, pipeline.css, costgrid.css, portfolio.css, project-config.css. Detail:
                             [docs/css/stylesheets.md](docs/css/stylesheets.md). App-wide rules stay in "Design
                             tokens" and "Cache-busting" below.
 js/api.js                — Api.* namespace + apiFetch wrapper (401 → login redirect; parsed error body attached

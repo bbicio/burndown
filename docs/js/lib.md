@@ -194,6 +194,8 @@ Derive/Reforecast distribution maths for `project-config.html` (`deriveDistribut
 
 Both `deriveDistribution` and `reforecastDistribution` take a last parameter `digits` (default 2, the currency's decimals; `project-config.html` passes them) and round every monthly value to it, past months of a reforecast included.
 
+`spreadEvenly(months)`, `splitState(distribution, months)` and `phasingBalance(sum, total, decimals)` (2026-11-02, project-config redesign) back the task table and the phasing card: an even split at two decimals with the last month taking the rounding; the state of a split (valid within 0.5 of 100 like the calculations, shown as `100%` within 0.05, label and tone of its pill); whether a phasing series adds up to its total within half a unit of the last decimal shown.
+
 ## project-rules.js (2026-10-01, project currency lock cycle)
 
 Browser side of the project currency lock (`?v=1`, `<script type="module">`, `window.*` bridges, loaded only by `costgrid.html`, `project-config.html` and `portfolio.html`; a vitest guard checks that the three pages load it and use it). `DIRECT_PROJECT_CREATION_ENABLED` (`false`, the UI's single switch-back point, keep in sync with `api/src/lib/project-rules.js`), `PROJECT_RULE_MESSAGES` (`costgridCurrency`, `projectConfigCurrency`, `directCreation`: the approved texts) and `versionCurrencyLocked(linkedProjects)` (true when a project is linked). The server is the authority (`docs/api/lib.md`); this only drives what the UI shows. Tests: `project-rules.test.js`, `project-rules-guard.test.js`.
