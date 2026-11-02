@@ -327,7 +327,8 @@ function renderCgEditor() {
 
 
 // Loads the active ratecard's maps. Re-prices the non-Custom roles only with { syncRates: true },
-// i.e. on an explicit ratecard change: a saved version is never re-priced by itself.
+// i.e. on an explicit ratecard change: a saved version is never re-priced by itself. A role with no
+// saved rate has nothing to keep, so it is priced either way.
 async function cgUpdateActiveRatecardMap({ syncRates = false } = {}) {
   _cgActiveRatecardMap     = {};
   _cgActiveRatecardOverrides = {};
@@ -345,18 +346,20 @@ async function cgUpdateActiveRatecardMap({ syncRates = false } = {}) {
       }
     } catch (_) {}
   }
-  if (syncRates === true) cgSyncRoleRatesToBaseline();
+  cgSyncRoleRatesToBaseline(false, syncRates !== true);
 }
 
 // Update r.rate for all roles that haven't been manually customised.
 // For non-EUR cost grids: use rate_overrides[currency] if set, else convert EUR × the version's own currencyRate.
 // Pass force=true to reset even roles marked as rateIsCustom (used on explicit currency change).
-function cgSyncRoleRatesToBaseline(force = false) {
+// onlyUnsaved=true prices only the roles with no saved rate (rateUnsaved, set by cgLoadStructureFromApi).
+function cgSyncRoleRatesToBaseline(force = false, onlyUnsaved = false) {
   if (!_cgDraft) return;
   const currency     = _cgDraft.currency || 'EUR';
   const currencyRate = parseFloat(_cgDraft.currencyRate) || 1.0;
   const allRoles = typeof getRoles === 'function' ? getRoles() : [];
   _cgDraft.roles.forEach(r => {
+    if (onlyUnsaved && !r.rateUnsaved) return;
     if (r.rateIsCustom && !force) return;
     const roleObj  = allRoles.find(gr => gr.code === r.roleCode);
     if (!roleObj) return;
@@ -366,6 +369,7 @@ function cgSyncRoleRatesToBaseline(force = false) {
       roleOverrides: roleObj.rateOverrides || {},
     });
     r.rate = resolved.effectiveRate;
+    delete r.rateUnsaved;
     if (force) r.rateIsCustom = false;
   });
 }
@@ -686,32 +690,42 @@ function renderCgPhasing() {
 
 // strict = true: the returned promise rejects when the save fails (default: log and resolve).
 // Resolves to true only when every write reached the server.
-// Set by the "Change currency?" confirmation; read and cleared by the next save, so only that save
-// re-syncs the role rates to the rate the server applied. A save that fails before the rate is adopted re-arms it.
-let _cgCurrencyChangePending = false;
-function cgMarkCurrencyChange() { _cgCurrencyChangePending = true; }
+// The version id whose currency was just changed ("Change currency?" confirmation). Read and cleared by
+// that version's next save, so only that save re-syncs the role rates to the rate the server applied;
+// a save whose PATCH did not go through sets it again.
+let _cgCurrencyChangePending = null;
+function cgMarkCurrencyChange() { _cgCurrencyChangePending = _cgActiveVersionId; }
 
 // The PATCH answered with a different currency_rate: the editor adopts the rate the server applied
-// (Spec currency-f3 §8). Role rates are re-synced only after a currency change — otherwise saved rates stay.
-function cgAdoptServerRate(cgId, versionId, rate, afterCurrencyChange) {
+// (Spec currency-f3 §8), unless the answer is for a currency the version no longer has. Role rates are
+// re-synced only after a currency change, and the re-synced roles are returned so the same save sends them.
+function cgAdoptServerRate(cgId, versionId, rate, afterCurrencyChange, currency, roles) {
   const cg = cgLoad(cgId);
   const ver = cg?.versions.find(v => v.versionId === versionId);
-  if (ver) { ver.currencyRate = rate; cgSave(cg); }
-  if (_cgActiveCgId === cgId && _cgActiveVersionId === versionId && _cgDraft) {
+  const sameCurrency = c => !currency || (c || 'EUR') === currency;
+  let synced;
+  if (ver && sameCurrency(ver.currency)) ver.currencyRate = rate;
+  if (_cgActiveCgId === cgId && _cgActiveVersionId === versionId && _cgDraft && sameCurrency(_cgDraft.currency)) {
     _cgDraft.currencyRate = rate;
     if (afterCurrencyChange) {
       cgSyncRoleRatesToBaseline();
-      cgScheduleAutoSave();
+      synced = (roles || []).map(r => {
+        const d = _cgDraft.roles.find(x => x.roleCode === r.roleCode);
+        return d ? { ...r, rate: d.rate, rateIsCustom: d.rateIsCustom } : r;
+      });
+      if (ver) ver.roles = synced.map(r => ({ ...r }));
     }
   }
+  if (ver) cgSave(cg);
   renderCgEditor();
+  return synced;
 }
 
 function cgAutoSave(strict) {
   if (!_cgActiveCgId || !_cgActiveVersionId || !_cgDraft) return Promise.resolve(false);
-  const afterCurrencyChange = _cgCurrencyChangePending;
-  _cgCurrencyChangePending = false;
   const cgId = _cgActiveCgId, verId = _cgActiveVersionId;
+  const afterCurrencyChange = _cgCurrencyChangePending === verId;
+  if (afterCurrencyChange) _cgCurrencyChangePending = null;
   cgSyncHeaderFromForm();
   const cg = cgLoad(_cgActiveCgId);
   if (!cg) return Promise.resolve(false);
@@ -719,11 +733,12 @@ function cgAutoSave(strict) {
   if (idx >= 0) cg.versions[idx] = _cgDraft;
   cgSave(cg);
   if (typeof _cgUpsertVersionToApi !== 'undefined') {
-    let adopted = false;
-    const keepFlag = () => { if (afterCurrencyChange && !adopted) _cgCurrencyChangePending = true; };
+    let patched = false;
+    const keepFlag = () => { if (afterCurrencyChange && !patched) _cgCurrencyChangePending = verId; };
     return _cgUpsertVersionToApi(cgId, verId, {
       strict: !!strict,
-      onServerRate: rate => { adopted = true; cgAdoptServerRate(cgId, verId, rate, afterCurrencyChange); },
+      onPatched: () => { patched = true; },
+      onServerRate: (rate, currency, roles) => cgAdoptServerRate(cgId, verId, rate, afterCurrencyChange, currency, roles),
     })
       .then(ok => { if (ok !== true) keepFlag(); return ok === true; })
       .catch(e => { keepFlag(); console.warn('[sync] cgAutoSave:', e.message); if (strict) throw e; return false; });

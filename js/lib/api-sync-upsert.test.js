@@ -275,6 +275,15 @@ describe('cgLoadStructureFromApi — Custom flag (f3)', () => {
     const rebuilt = await loadWith([{ code: 'PM', rate_override: null, hourly_rate: '100', days: 2 }], []);
     expect(rebuilt.roles).toMatchObject([{ roleCode: 'PM', rate: 100, rateIsCustom: false }]);
   });
+
+  it('a role with no saved rate is marked rateUnsaved; a saved one is not', async () => {
+    const ver = await loadWith([
+      { code: 'PM', rate_override: null, hourly_rate: '100', days: 2 },
+      { code: 'DEV', rate_override: '90.00', days: 1 },
+    ], []);
+    expect(ver.roles[0].rateUnsaved).toBe(true);
+    expect(ver.roles[1]).not.toHaveProperty('rateUnsaved');
+  });
 });
 
 describe('onServerRate (f3, B-213)', () => {
@@ -295,7 +304,31 @@ describe('onServerRate (f3, B-213)', () => {
     const onServerRate = vi.fn();
     await build(undefined, undefined, usd)('cg1', 'v1', { onServerRate });
     expect(onServerRate).toHaveBeenCalledTimes(1);
-    expect(onServerRate).toHaveBeenCalledWith(1.2);
+    expect(onServerRate.mock.calls[0][0]).toBe(1.2);
+  });
+
+  it('the callback gets the rate, the response currency and the outgoing roles', async () => {
+    api.costGrids.versions.update.mockResolvedValue({ currency_rate: '1.200000', currency: 'USD' });
+    const onServerRate = vi.fn();
+    await build(undefined, undefined, { ...usd, roles: [{ roleCode: 'PM', rate: 110 }] })('cg1', 'v1', { onServerRate });
+    expect(onServerRate).toHaveBeenCalledWith(1.2, 'USD', [{ roleCode: 'PM', rate: 110 }]);
+  });
+
+  it('roles the callback returns are sent in the same structure save (Gate 3 #1)', async () => {
+    api.costGrids.versions.update.mockResolvedValue({ currency_rate: '1.200000', currency: 'USD' });
+    const onServerRate = () => [{ roleCode: 'PM', rate: 120 }];
+    await build(undefined, undefined, { ...usd, roles: [{ roleCode: 'PM', rate: 110 }] })('cg1', 'v1', { onServerRate });
+    expect(api.costGrids.versions.saveStructure.mock.calls[0][2].roles).toEqual([{ roleCode: 'PM', rate: 120 }]);
+  });
+
+  it('onPatched runs after a successful PATCH only', async () => {
+    const onPatched = vi.fn();
+    api.costGrids.versions.update.mockResolvedValue({ currency_rate: '1.100000' });
+    await build(undefined, undefined, usd)('cg1', 'v1', { onPatched });
+    expect(onPatched).toHaveBeenCalledTimes(1);
+    api.costGrids.versions.update.mockRejectedValue(new Error('500'));
+    await build(undefined, undefined, usd)('cg1', 'v1', { onPatched });
+    expect(onPatched).toHaveBeenCalledTimes(1);
   });
 
   it('equal rate → no callback', async () => {

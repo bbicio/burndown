@@ -63,7 +63,7 @@ Spec `docs/superpowers/specs/2026-10-29-currency-c1-server-rate-validation-desig
 ## The Custom flag on load and the server's rate (2026-11-02, currency f3)
 
 Spec `docs/superpowers/specs/2026-11-02-currency-f3-custom-rate-and-version-rate-design.md`.
-- **`cgLoadStructureFromApi`** reads `rateIsCustom` from `task_roles.rate_is_custom` (only the literal `true` is Custom), never from `rate_override`. `ver.roles` is rebuilt when every role carries its saved rate (`rate_override`), otherwise only when no roles are in memory.
-- **`_cgUpsertVersionToApi(cgId, versionId, { strict, onServerRate })`**: after a successful version `PATCH` whose `currency_rate` differs from the version's `currencyRate`, it calls `onServerRate(rate)`; a failed `PATCH`, an empty response or an equal rate call nothing. `js/costgrid.js`'s `cgAutoSave` supplies the callback.
+- **`cgLoadStructureFromApi`** reads `rateIsCustom` from `task_roles.rate_is_custom` (only the literal `true` is Custom), never from `rate_override`. `ver.roles` is rebuilt when every role carries its saved rate (`rate_override`), otherwise only when no roles are in memory; a rebuilt role with no saved rate carries `rateUnsaved: true`.
+- **`_cgUpsertVersionToApi(cgId, versionId, { strict, onPatched, onServerRate })`**: after a successful version `PATCH` it calls `onPatched()`; when the response's `currency_rate` also differs from the version's `currencyRate`, it calls `onServerRate(rate, currency, roles)`, and an array that returns replaces the roles of this save's structure. A failed `PATCH`, an empty response or an equal rate call no `onServerRate`. `js/costgrid.js`'s `cgAutoSave` supplies both callbacks.
 
 Covered by `js/lib/api-sync-upsert.test.js`. `?v=31`.

@@ -38,6 +38,14 @@ describe('cgUpdateActiveRatecardMap({ syncRates })', () => {
     await fn({ syncRates: true });
     expect(draft.roles.map(r => r.rate)).toEqual([150, 95]);
   });
+
+  it('opening prices a role that has no saved rate, and only that one (Gate 3 #2)', async () => {
+    draft.roles.push({ roleCode: 'PM', rate: 100, rateIsCustom: false });
+    draft.roles[0].rateUnsaved = true;
+    await fn();
+    expect(draft.roles.map(r => r.rate)).toEqual([150, 95, 100]);
+    expect(draft.roles[0]).not.toHaveProperty('rateUnsaved');
+  });
 });
 
 describe('cgUpdateActiveRatecardMap callers (costgrid.html)', () => {
@@ -82,13 +90,13 @@ describe('refreshRatecards', () => {
 });
 
 describe('cgAdoptServerRate', () => {
-  // Spec §8: the editor adopts the rate the server applied; rates are re-synced only after a currency change.
+  // Spec §8: the editor adopts the rate the server applied; rates are re-synced only after a currency change,
+  // and the re-synced roles go into the same structure save (returned to _cgUpsertVersionToApi).
   let draft, store, render, schedule;
+  const outgoing = () => [{ roleCode: 'PM', rate: 110, rateIsCustom: false }, { roleCode: 'DEV', rate: 95, rateIsCustom: true }];
   function adopt(activeVersionId = 'v1') {
-    draft = { currency: 'USD', currencyRate: 1.1, roles: [
-      { roleCode: 'PM', rate: 110, rateIsCustom: false }, { roleCode: 'DEV', rate: 95, rateIsCustom: true },
-    ] };
-    store = { id: 'cg1', versions: [{ versionId: 'v1', currencyRate: 1.1 }, { versionId: 'v2', currencyRate: 1 }] };
+    draft = { currency: 'USD', currencyRate: 1.1, roles: outgoing() };
+    store = { id: 'cg1', versions: [{ versionId: 'v1', currency: 'USD', currencyRate: 1.1 }, { versionId: 'v2', currency: 'EUR', currencyRate: 1 }] };
     render = vi.fn(); schedule = vi.fn();
     const stubs = {
       _cgActiveCgId: 'cg1', _cgActiveVersionId: activeVersionId, _cgDraft: draft,
@@ -104,79 +112,106 @@ describe('cgAdoptServerRate', () => {
   }
   const storedRate = id => store.versions.find(v => v.versionId === id).currencyRate;
 
-  it('after a currency change: adopts the rate, re-prices non-Custom roles, saves again', () => {
-    adopt()('cg1', 'v1', 1.2, true);
+  it('after a currency change: adopts the rate, re-prices non-Custom roles, returns them for the same save', () => {
+    const sent = adopt()('cg1', 'v1', 1.2, true, 'USD', outgoing());
     expect(draft.currencyRate).toBe(1.2);
     expect(draft.roles.map(r => r.rate)).toEqual([120, 95]);
+    expect(sent.map(r => r.rate)).toEqual([120, 95]);
     expect(storedRate('v1')).toBe(1.2);
-    expect(schedule).toHaveBeenCalledTimes(1);
+    expect(store.versions[0].roles.map(r => r.rate)).toEqual([120, 95]);
+    expect(schedule).not.toHaveBeenCalled();
     expect(render).toHaveBeenCalled();
   });
 
-  it('otherwise: adopts the rate only, saved rates untouched, no new save', () => {
-    adopt()('cg1', 'v1', 1.2, false);
+  it('otherwise: adopts the rate only, saved rates untouched, nothing returned', () => {
+    const sent = adopt()('cg1', 'v1', 1.2, false, 'USD', outgoing());
     expect(draft.currencyRate).toBe(1.2);
     expect(draft.roles.map(r => r.rate)).toEqual([110, 95]);
+    expect(sent).toBeUndefined();
     expect(schedule).not.toHaveBeenCalled();
   });
 
   it('another version active: the draft is untouched, the stored version still gets the rate', () => {
-    adopt('v2')('cg1', 'v1', 1.2, true);
+    const sent = adopt('v2')('cg1', 'v1', 1.2, true, 'USD', outgoing());
     expect(draft.currencyRate).toBe(1.1);
     expect(draft.roles.map(r => r.rate)).toEqual([110, 95]);
+    expect(sent).toBeUndefined();
     expect(storedRate('v1')).toBe(1.2);
-    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it('a response for another currency is ignored (Gate 3 #5)', () => {
+    const sent = adopt()('cg1', 'v1', 0.95, true, 'CHF', outgoing());
+    expect(draft.currencyRate).toBe(1.1);
+    expect(draft.roles.map(r => r.rate)).toEqual([110, 95]);
+    expect(sent).toBeUndefined();
+    expect(storedRate('v1')).toBe(1.1);
   });
 });
 
 describe('cgAutoSave passes the currency-change flag', () => {
   let opts, adoptSpy, fns, upsertResult;
+  const patchOk = async o => { o.onPatched(); return true; };
   beforeEach(() => {
-    opts = null; adoptSpy = vi.fn(); upsertResult = async () => true;
+    opts = null; adoptSpy = vi.fn(() => 'roles'); upsertResult = patchOk;
     const stubs = {
-      _cgActiveCgId: 'cg1', _cgActiveVersionId: 'v1', _cgDraft: { versionId: 'v1' },
-      cgSyncHeaderFromForm: () => {}, cgLoad: () => ({ id: 'cg1', versions: [{ versionId: 'v1' }] }), cgSave: () => {},
-      _cgUpsertVersionToApi: async (cgId, vId, o) => { opts = o; return upsertResult(); },
+      cgSyncHeaderFromForm: () => {}, cgLoad: () => ({ id: 'cg1', versions: [{ versionId: 'v1' }, { versionId: 'v2' }] }), cgSave: () => {},
+      _cgUpsertVersionToApi: async (cgId, vId, o) => { opts = o; return upsertResult(o); },
       cgAdoptServerRate: adoptSpy,
     };
     const names = Object.keys(stubs);
-    fns = new Function(...names, `let _cgCurrencyChangePending = false;
+    fns = new Function(...names, `let _cgCurrencyChangePending = null;
+      let _cgActiveCgId = 'cg1', _cgActiveVersionId = 'v1', _cgDraft = { versionId: 'v1' };
       ${extractBlock(js, 'function cgMarkCurrencyChange(')}
       ${extractBlock(js, 'function cgAutoSave(')}
-      return { cgAutoSave, cgMarkCurrencyChange };`)(...names.map(n => stubs[n]));
+      return { cgAutoSave, cgMarkCurrencyChange, activate: v => { _cgActiveVersionId = v; _cgDraft = { versionId: v }; } };`)(...names.map(n => stubs[n]));
   });
 
   it('the save right after a currency change carries it; the next one does not', async () => {
     fns.cgMarkCurrencyChange();
     await fns.cgAutoSave();
-    opts.onServerRate(1.2);
-    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v1', 1.2, true);
+    expect(opts.onServerRate(1.2, 'USD', [])).toBe('roles');
+    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v1', 1.2, true, 'USD', []);
     await fns.cgAutoSave();
-    opts.onServerRate(1.2);
-    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v1', 1.2, false);
+    opts.onServerRate(1.2, 'USD', []);
+    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v1', 1.2, false, 'USD', []);
   });
 
-  it('a failed save after a currency change keeps the flag for the next save', async () => {
+  it('a failed PATCH after a currency change keeps the flag for the next save', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     fns.cgMarkCurrencyChange();
     upsertResult = async () => false;
     await fns.cgAutoSave();
     upsertResult = async () => { throw new Error('500'); };
     await fns.cgAutoSave();
-    upsertResult = async () => true;
+    upsertResult = patchOk;
     await fns.cgAutoSave();
-    opts.onServerRate(1.2);
-    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v1', 1.2, true);
+    opts.onServerRate(1.2, 'USD', []);
+    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v1', 1.2, true, 'USD', []);
   });
 
-  it('once the server rate was adopted, a failed save does not keep the flag', async () => {
+  it('a PATCH that went through does not keep the flag, even if the save failed later (Gate 3 #4)', async () => {
     fns.cgMarkCurrencyChange();
-    upsertResult = async () => { opts.onServerRate(1.2); return false; };
+    upsertResult = async o => { o.onPatched(); return false; };
     await fns.cgAutoSave();
-    upsertResult = async () => true;
+    upsertResult = patchOk;
     await fns.cgAutoSave();
-    opts.onServerRate(1.3);
-    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v1', 1.3, false);
+    opts.onServerRate(1.3, 'USD', []);
+    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v1', 1.3, false, 'USD', []);
+  });
+
+  it('the flag belongs to the version it was set for (Gate 3 #3)', async () => {
+    fns.cgMarkCurrencyChange();
+    upsertResult = async () => false;
+    await fns.cgAutoSave();
+    upsertResult = patchOk;
+    fns.activate('v2');
+    await fns.cgAutoSave();
+    opts.onServerRate(1.2, 'USD', []);
+    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v2', 1.2, false, 'USD', []);
+    fns.activate('v1');
+    await fns.cgAutoSave();
+    opts.onServerRate(1.2, 'USD', []);
+    expect(adoptSpy).toHaveBeenLastCalledWith('cg1', 'v1', 1.2, true, 'USD', []);
   });
 
   it('strict is passed through', async () => {
