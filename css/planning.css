@@ -254,10 +254,10 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
 /* ── Team assistant drawer (over the page, with a backdrop) ── */
 .pl-ta-backdrop {
   position: fixed; inset: 0; z-index: calc(var(--z-notification) - 1);
-  background: var(--brand-navy); opacity: 0; pointer-events: none;
+  background: var(--text-primary); opacity: 0; pointer-events: none;
   transition: opacity var(--duration-base) var(--ease-out);
 }
-.pl-ta-backdrop.open { opacity: .18; pointer-events: auto; }
+.pl-ta-backdrop.open { opacity: .45; pointer-events: auto; }
 #teamAssistantPanel {
   position: fixed; top: 0; right: -960px; width: min(940px, 100vw); height: 100vh;
   background: var(--surface-white); border-left: 1px solid var(--border-light);
