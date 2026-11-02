@@ -87,7 +87,7 @@ The server now refuses a version in a currency that is not active (`400 CURRENCY
 
 Spec `docs/superpowers/specs/2026-11-02-currency-f3-custom-rate-and-version-rate-design.md`; the rule: [docs/pages/costgrid.md](../pages/costgrid.md) → "Role rates: a saved version is never re-priced by itself".
 - **`cgUpdateActiveRatecardMap({ syncRates = false } = {})`** loads the active ratecard's maps and calls `cgSyncRoleRatesToBaseline()` only with `syncRates: true`. `costgrid.html` passes it from `onRatecardChange`, and from `refreshRatecards` only when that call cleared the ratecard; opening a version or the role modal passes nothing.
-- **`cgMarkCurrencyChange()`** is called by `onCurrencyChange`'s confirmation right before `cgAutoSave()`; `cgAutoSave` reads and clears the flag at call time, so only that save carries it.
+- **`cgMarkCurrencyChange()`** is called by `onCurrencyChange`'s confirmation right before `cgAutoSave()`; `cgAutoSave` reads and clears the flag at call time, so only that save carries it; a save that fails before the server's rate is adopted sets it again.
 - **`cgAdoptServerRate(cgId, versionId, rate, afterCurrencyChange)`** is `cgAutoSave`'s `onServerRate` callback: it writes the rate to the stored version, and to `_cgDraft` only while that version is still the active one; with `afterCurrencyChange` it also re-syncs the non-Custom roles and schedules another autosave. Then `renderCgEditor()`.
 
 Covered by `js/lib/costgrid-rate-sync.test.js`, `js/lib/costgrid-currency-change.test.js`. `?v=55`.
