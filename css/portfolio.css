@@ -717,6 +717,14 @@ button.pr-bd-toggle { cursor: pointer; }
 }
 .pr-excluded-row { border-top: 0; min-height: 40px; }
 .pr-excluded-row .pr-bd-title, .pr-excluded-row .pr-bd-h { color: var(--text-muted); font-weight: var(--weight-semibold); }
+/* Desktop: fixed column widths, so the tables of the open months line up. */
+@media (min-width: 1280px) {
+  .pr-entries-table { table-layout: fixed; }
+  .pr-entries-table .pr-e-date { width: 110px; }
+  .pr-entries-table .pr-e-who { width: 38%; }
+  .pr-entries-table .pr-e-hours { width: 80px; }
+  .pr-entries-table .pr-e-amount { width: 110px; }
+}
 /* Tablet: the Note goes under Date / who / Hours / Amount (boards 7.4h). */
 @media (max-width: 1279.98px) {
   .pr-entries-table, .pr-entries-table thead, .pr-entries-table tbody { display: block; }
@@ -754,7 +762,7 @@ button.pr-bd-toggle { cursor: pointer; }
 }
 
 /* Smartphone bottom sheets (style reference: css/pipeline.css .pb-sheet, not imported) */
-.pr-sheet { height: auto; max-height: 85vh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.pr-sheet { --bs-offcanvas-height: auto; height: auto; max-height: 85vh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 .pr-sheet-head { border-bottom: 1px solid var(--border-light); align-items: flex-start; }
 .pr-sheet-sub { font-size: var(--text-xs); color: var(--text-muted); }
 .pr-sheet-close { border: 0; background: transparent; min-height: 44px; padding: 0 var(--space-2); font-size: var(--text-sm); color: var(--text-secondary); cursor: pointer; }
