@@ -16,19 +16,20 @@ export function entryValue(entry, kind) {
   return kind === 'resource' ? (entry.owner || '') : entry.role;
 }
 
+// Values that differ only by case are one option, spelled as first met, like the role sub-rows.
 export function filterOptions(entries, kind) {
-  const hours = new Map();
+  const byKey = new Map();
   for (const e of entries || []) {
-    const v = entryValue(e, kind);
-    hours.set(v, (hours.get(v) || 0) + e.hours);
+    const v = entryValue(e, kind), k = v.toLowerCase();
+    const o = byKey.get(k);
+    if (o) o.hours += e.hours; else byKey.set(k, { value: v, hours: e.hours });
   }
-  return [...hours].map(([value, h]) => ({ value, hours: h }))
-    .sort((a, b) => b.hours - a.hours || a.value.localeCompare(b.value));
+  return [...byKey.values()].sort((a, b) => b.hours - a.hours || a.value.localeCompare(b.value));
 }
 
 export function pruneFilter(filter, options) {
-  const valid = new Set((options || []).map(o => o.value));
-  return (filter || []).filter(v => valid.has(v));
+  const valid = new Set((options || []).map(o => o.value.toLowerCase()));
+  return (filter || []).filter(v => valid.has(v.toLowerCase()));
 }
 
 export function filterChipLabel(filter, kind) {
@@ -70,11 +71,12 @@ export function entriesBlock(entries, state, rateFor) {
   const all = entriesByMonth(entries, rateFor);
   const total = (entries || []).length;
   const filter = state.filter || [];
+  const wanted = new Set(filter.map(v => v.toLowerCase()));
   const sort = state.sort || defaultSort();
   const months = [];
   let hiddenMonths = 0;
   for (const m of all) {
-    const rows = filter.length ? m.rows.filter(r => filter.includes(entryValue(r, state.filterKind))) : m.rows;
+    const rows = filter.length ? m.rows.filter(r => wanted.has(entryValue(r, state.filterKind).toLowerCase())) : m.rows;
     if (!rows.length) { hiddenMonths++; continue; }
     months.push({
       ym: m.ym,

@@ -32,6 +32,12 @@ describe('filterOptions', () => {
     const opts = filterOptions(ENTRIES, 'resource');
     expect(opts.find(o => o.value === '')).toEqual({ value: '', hours: 8 });
   });
+  it('merges values that differ only by case, like the role sub-rows (review round 3)', () => {
+    const rows = [{ role: 'Designer', owner: 'Ann', hours: 2 }, { role: 'designer', owner: 'ann', hours: 1 }];
+    expect(filterOptions(rows, 'role')).toEqual([{ value: 'Designer', hours: 3 }]);
+    expect(filterOptions(rows, 'resource')).toEqual([{ value: 'Ann', hours: 3 }]);
+    expect(pruneFilter(['DESIGNER'], filterOptions(rows, 'role'))).toEqual(['DESIGNER']);
+  });
   it('breaks hour ties by value', () => {
     const opts = filterOptions([e('2026-09-01', 'B', 'x', 1), e('2026-09-01', 'A', 'x', 1)], 'role');
     expect(opts.map(o => o.value)).toEqual(['A', 'B']);
@@ -85,6 +91,10 @@ describe('entriesBlock', () => {
     expect(b.shown).toBe(2);
     const c = entriesBlock(ENTRIES, { ...BASE, filter: ['PM'], closedMonths: ['2026-08'] }, rateFor);
     expect(c.months.map(m => m.open)).toEqual([true, false]);
+  });
+  it('matches the filter whatever the case of the entry (review round 3)', () => {
+    const rows = [{ date: new Date(2026, 8, 2), role: 'PM', owner: 'A', hours: 1 }, { date: new Date(2026, 8, 3), role: 'pm', owner: 'B', hours: 2 }];
+    expect(entriesBlock(rows, { ...BASE, filter: ['PM'] }, rateFor).shown).toBe(2);
   });
   it('filters by resource, including the empty owner', () => {
     const b = entriesBlock(ENTRIES, { ...BASE, filterKind: 'resource', filter: [''] }, rateFor);

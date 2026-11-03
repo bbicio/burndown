@@ -1619,9 +1619,9 @@
           const areaPrefix = key.slice(0, bar + 1);
           Object.keys(this.entriesState).forEach(k => { if (k !== key && k.startsWith(areaPrefix)) this.entriesState[k].expanded = false; });
         }
-        // A filter menu left open on a block that just collapsed (a keyboard toggle fires no mousedown).
+        // A filter menu left open on a block that just collapsed, or sits under one (a keyboard toggle fires no mousedown).
         const menuKey = this.openMenu && this.openMenu.startsWith('filter:') ? this.openMenu.slice('filter:'.length) : null;
-        if (menuKey && !this.entriesState[menuKey]?.expanded) this.closeMenu(false);
+        if (menuKey && (!this.entriesState[menuKey]?.expanded || (!st.expanded && menuKey.startsWith(key + '|')))) this.closeMenu(false);
       },
       // A task's role rows in the Breakdown's expansion (spec §6 "By task"): Spent is the
       // period consumption, Remaining and % the whole-project ones, like the task row above.
@@ -1941,6 +1941,8 @@
         this.breakdownView = 'task';
         this.resetDateFilter();
         this.entriesState = {};
+        this.closeMenu(false);
+        this.hideSheet();
         this.switchMenuOpen = false;
         this.loadDashboardTags(pid);
         this.$nextTick(() => this.renderBurndownChart());
@@ -2089,6 +2091,7 @@
       },
       refreshTick() { this.attachCardGridObserver(); this.pruneEntryFilters(); },
       filterRange() { this.pruneEntryFilters(); },
+      breakdownView() { if (this.openMenu && this.openMenu.startsWith('filter:')) this.closeMenu(false); },
       // The grid container only exists while view === 'overview' (showDashboard swaps the whole
       // template out); without this, returning from the dashboard (or landing on it first via
       // ?projectId= and then going "back to portfolio") leaves gridColumns stuck at its last value.

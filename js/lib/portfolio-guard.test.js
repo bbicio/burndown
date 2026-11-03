@@ -433,6 +433,14 @@ describe('Breakdown v2 — By role and By functional area', () => {
     expect(m).not.toBeNull();
     expect(m[1]).toContain('this.closeMenu(false)');
   });
+  it('closes a filter menu under a collapsed area, on a view change and on a project switch (review round 3)', () => {
+    expect(html).toContain(`menuKey.startsWith(key + '|')`);
+    expect(html).toContain(`breakdownView() { if (this.openMenu && this.openMenu.startsWith('filter:')) this.closeMenu(false); },`);
+    const m = html.match(/showDashboard\(pid\) \{([\s\S]*?)\n {6}\},/);
+    expect(m).not.toBeNull();
+    expect(m[1]).toContain('this.closeMenu(false)');
+    expect(m[1]).toContain('this.hideSheet()');
+  });
   it('finds a logged-only pair\'s entries whatever the case of its task (review round 1)', () => {
     expect(html).toContain(`this.taskDetailByLowerName[task.toLowerCase()]`);
   });
