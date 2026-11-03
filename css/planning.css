@@ -278,6 +278,61 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
   .pl-stepper-label { font-weight: var(--weight-bold); color: var(--text-primary); }
   .pl-stepper-sub { font-size: var(--text-sm); color: var(--text-muted); }
   .pl-stepper-sub.is-current { color: var(--indigo-600); }
+  /* cards: one per depth-0 row, its children inside */
+  .pl-card { background: transparent; border: 0; box-shadow: none; }
+  .pl-cards { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+  .pl-mcard {
+    background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xs); overflow: hidden; min-width: 0;
+  }
+  .pl-mcard.is-open { border-color: var(--brand-navy); }
+  .pl-mcard--empty { padding: var(--space-5); text-align: center; color: var(--text-muted); }
+  .pl-mcard-head { padding: var(--space-3) var(--space-4); min-height: 44px; }
+  .pl-mcard-head[role="button"] { cursor: pointer; }
+  .pl-mcard-head:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+  .pl-mcard-top { display: flex; align-items: flex-start; gap: var(--space-3); min-width: 0; }
+  .pl-mcard-title { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .pl-mcard-title .pl-name { overflow: visible; text-overflow: clip; font-weight: var(--weight-semibold); color: var(--text-primary); }
+  .pl-mcard-title .pl-label-main { flex-wrap: wrap; }
+  .pl-mcard-sub, .pl-mrow-sub { font-size: var(--text-xs); color: var(--text-muted); overflow-wrap: anywhere; }
+  .pl-mcard-total-label { font-size: var(--text-xs); letter-spacing: .06em; font-weight: var(--weight-bold); color: var(--text-primary); }
+  .pl-mcard-figure { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1); }
+  .pl-mcard-plan { font-size: var(--text-xs); color: var(--text-muted); }
+  .pl-mcard-value {
+    min-width: 2.5rem; padding: 0 var(--space-2); text-align: center; border-radius: var(--radius-md);
+    font-size: var(--text-2xl); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; color: var(--text-primary);
+  }
+  .pl-mcard-value.pl-cell--past, .pl-mrow-value.pl-cell--past { background: var(--surface-light); color: var(--text-muted); }
+  .pl-mcard-value.pl-cell--current, .pl-mrow-value.pl-cell--current { background: var(--indigo-50); }
+  .pl-mcard-value.pl-cell--pulse, .pl-mrow-value.pl-cell--pulse { background: var(--violet-100); color: var(--violet-600); font-style: italic; }
+  .pl-mcard-value.pl-cell--high, .pl-mrow-value.pl-cell--high { background: var(--color-warning-bg); color: var(--color-warning-text); }
+  .pl-mcard-value.pl-cell--over, .pl-mrow-value.pl-cell--over { background: var(--color-danger-bg); color: var(--color-danger-text); }
+  .pl-mcard--total { background: var(--surface-light); }
+  .pl-mcard--total .pl-mcard-top { align-items: center; padding: var(--space-3) var(--space-4) 0; }
+  .pl-mcard--total .pl-mbar { padding: 0 var(--space-4) var(--space-3); }
+
+  .pl-mbar { display: flex; align-items: flex-end; gap: var(--space-1); height: 20px; margin-top: var(--space-2); }
+  .pl-mcard-head .pl-mbar { margin-top: var(--space-2); }
+  .pl-mbar-seg { flex: 1 1 0; min-width: 2px; max-width: 16px; height: calc(var(--pl-ratio, .25) * 20px); border-radius: var(--radius-xs); background: var(--brand-navy); }
+  .pl-mbar-seg--past { background: var(--text-muted); }
+  .pl-mbar-seg--current { background: var(--brand-magenta); }
+  .pl-mbar-seg--future { background: var(--brand-navy); }
+  .pl-mbar-seg--high { background: var(--color-warning-text); }
+  .pl-mbar-seg--over { background: var(--color-danger-text); }
+  .pl-mbar-seg--empty { height: 2px; background: var(--border-medium); }
+  .pl-mbar-seg.is-selected { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
+  .pl-mrow {
+    display: flex; align-items: center; gap: var(--space-2); min-height: 44px; min-width: 0;
+    padding: var(--space-2) var(--space-4); padding-left: calc(var(--space-4) + var(--pl-depth, 0) * 20px);
+    border-top: 1px solid var(--border-light);
+  }
+  .pl-mrow--clickable { cursor: pointer; }
+  .pl-mrow .pl-chevron { width: 44px; height: 44px; margin-left: calc(-1 * var(--space-3)); }
+  .pl-mrow-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .pl-mrow-text .pl-name { overflow: visible; text-overflow: clip; color: var(--text-body); }
+  .pl-mrow-text .pl-label-main { flex-wrap: wrap; }
+  .pl-mrow-value { flex: 0 0 auto; min-width: 2.5rem; padding: 0 var(--space-2); text-align: right; border-radius: var(--radius-md); font-variant-numeric: tabular-nums; color: var(--text-primary); }
 }
 
 /* ── Team assistant drawer (over the page, with a backdrop) ── */

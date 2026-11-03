@@ -208,7 +208,7 @@
     <div class="section-card pl-card">
       <div v-if="activeRows.state === 'placeholder'" class="pl-state" v-html="modelPlaceholderHtml()"></div>
       <div v-else-if="activeRows.state === 'empty'" class="pl-state"><div class="alert alert-info mb-0">{{ activeRows.message }}</div></div>
-      <div v-else class="pl-grid-wrap">
+      <div v-else-if="!isPhone" class="pl-grid-wrap">
         <table class="pl-grid">
           <thead>
             <tr>
@@ -279,6 +279,65 @@
             </tr>
           </tfoot>
         </table>
+      </div>
+      <div v-else class="pl-cards">
+        <div v-if="!displayRows.length" class="pl-mcard pl-mcard--empty">No rows match “{{ search[view] }}”.</div>
+        <div v-for="g in phoneGroups" :key="g.parent.id" class="pl-mcard" :class="{ 'is-open': hasChildren(g.parent) && isOpen(g.parent.id) }">
+          <div class="pl-mcard-head" :role="hasChildren(g.parent) ? 'button' : null" :tabindex="hasChildren(g.parent) ? 0 : null"
+               :aria-expanded="hasChildren(g.parent) ? (isOpen(g.parent.id) ? 'true' : 'false') : null"
+               @click="hasChildren(g.parent) && toggleRow(g.parent.id)"
+               @keydown.enter.prevent="hasChildren(g.parent) && toggleRow(g.parent.id)" @keydown.space.prevent="hasChildren(g.parent) && toggleRow(g.parent.id)">
+            <div class="pl-mcard-top">
+              <span v-if="g.parent.kind === 'tbd'" class="pl-avatars"><span class="pl-avatar pl-avatar--tbd" aria-hidden="true">?</span></span>
+              <span v-else-if="g.parent.kind === 'person'" class="pl-avatars"><span class="pl-avatar" aria-hidden="true">{{ g.parent.owners[0].initials }}</span></span>
+              <div class="pl-mcard-title">
+                <div class="pl-label-main">
+                  <span class="pl-name">{{ g.parent.label }}</span>
+                  <span v-if="g.parent.inactive" class="pl-pill pl-pill--muted">inactive</span>
+                  <span v-if="g.parent.kind === 'tbd'" class="pl-pill pl-pill--warn">Needs owner</span>
+                  <span v-if="g.parent.kind === 'project' && g.parent.stage" v-html="stagePill(g.parent.stage)"></span>
+                </div>
+                <div class="pl-mcard-sub">{{ assignmentsText(leafCountMap.get(g.parent.id) ?? 0) }} · Sold {{ fmtNum(g.parent.sold) }}</div>
+              </div>
+              <div class="pl-mcard-figure">
+                <span class="pl-mcard-value" :class="phoneCellClass(g.parent)">{{ phoneCellText(g.parent) }}</span>
+                <span class="pl-mcard-plan">{{ fmtNum(g.parent.toPlan) }} to plan</span>
+              </div>
+            </div>
+            <div class="pl-mbar" aria-hidden="true">
+              <span v-for="(b, i) in miniBarOf(g.parent.cells)" :key="i" class="pl-mbar-seg" :class="['pl-mbar-seg--' + b.kind, { 'is-selected': i === phonePeriodIdx }]" :style="{ '--pl-ratio': Math.max(0.25, b.ratio) }"></span>
+            </div>
+          </div>
+          <div v-for="c in g.children" :key="c.id" class="pl-mrow" :style="{ '--pl-depth': c.depth - 1 }"
+               :class="{ 'pl-mrow--clickable': hasChildren(c) }" @click="hasChildren(c) && toggleRow(c.id)">
+            <button v-if="hasChildren(c)" type="button" class="pl-chevron" :aria-expanded="isOpen(c.id) ? 'true' : 'false'"
+                    :aria-label="(isOpen(c.id) ? 'Collapse ' : 'Expand ') + c.label" @click.stop="toggleRow(c.id)">
+              <ph-icon :name="isOpen(c.id) ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon>
+            </button>
+            <div class="pl-mrow-text">
+              <div class="pl-label-main">
+                <span class="pl-name">{{ c.label }}</span>
+                <span v-if="c.kind === 'pair' && c.stage" v-html="stagePill(c.stage)"></span>
+              </div>
+              <div v-if="c.kind === 'roleLeaf' && c.owners.length" class="pl-mrow-sub">{{ c.owners.map(o => o.name).join(', ') }}</div>
+              <div v-else-if="c.kind === 'project'" class="pl-mrow-sub">{{ projectSub(c) }}</div>
+              <div v-else-if="c.sub" class="pl-mrow-sub">{{ c.sub }}</div>
+            </div>
+            <span class="pl-mrow-value" :class="phoneCellClass(c)">{{ phoneCellText(c) }}</span>
+          </div>
+        </div>
+        <div v-if="displayRows.length" class="pl-mcard pl-mcard--total">
+          <div class="pl-mcard-top">
+            <div class="pl-mcard-title">
+              <div class="pl-mcard-total-label">TOTAL · {{ activeRows.total.count }} ASSIGNMENTS</div>
+              <div class="pl-mcard-sub">{{ fmtNum(activeRows.total.toPlan) }} to plan</div>
+            </div>
+            <span class="pl-mcard-value" :class="phoneCellClass(activeRows.total)">{{ phoneCellText(activeRows.total) }}</span>
+          </div>
+          <div class="pl-mbar" aria-hidden="true">
+            <span v-for="(b, i) in miniBarOf(activeRows.total.cells)" :key="i" class="pl-mbar-seg" :class="['pl-mbar-seg--' + b.kind, { 'is-selected': i === phonePeriodIdx }]" :style="{ '--pl-ratio': Math.max(0.25, b.ratio) }"></span>
+          </div>
+        </div>
       </div>
     </div>
     </template>
@@ -778,6 +837,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const periods = this.activeRows.periods || [];
         return { ...window.stepperState(periods, this.phonePeriodIdx, this.interval), current: !!periods[this.phonePeriodIdx]?.isCurrent };
       },
+      // search-independent: "{n} assignments" must not move while the user types
+      leafCountMap() { return window.leafCounts(this.activeRows.rows || []); },
+      // displayRows grouped under their depth-0 row, for the smartphone cards
+      phoneGroups() {
+        const groups = [];
+        for (const r of this.displayRows) {
+          if (r.depth === 0) groups.push({ parent: r, children: [] });
+          else if (groups.length) groups[groups.length - 1].children.push(r);
+        }
+        return groups;
+      },
       parentIds() { return new Set(this.activeRows.rows.map(r => r.parentId).filter(Boolean)); },
       rawSearchFilter() { return filterRows(this.activeRows.rows, this.search[this.view]); },
       searchFilter() { return effectiveFilter(this.rawSearchFilter, this.suppressed[this.view]); },
@@ -1066,6 +1136,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       statusPill(v) { return headerBadge('status', v); },
       fmtNum(v) { return (this.roundHours ? Math.round(v || 0) : (v || 0).toFixed(2)) + 'h'; },
       fmtActuals(v) { return v > 0.005 ? this.fmtNum(v) : '—'; },
+      assignmentsText(n) { return n + (n === 1 ? ' assignment' : ' assignments'); },
+      miniBarOf(cells) { return window.miniBar(cells); },
+      phoneCell(r) { return r.cells[this.phonePeriodIdx] || { h: 0 }; },
+      phoneCellText(r) { return this.cellText(this.phoneCell(r)) || '—'; },
+      phoneCellClass(r) { return this.cellClass(this.phoneCell(r)); },
       cellText(c) { return formatCell(c.h, { pulse: !!c.pulse, round: this.roundHours }); },
       cellClass(c) {
         const shown = c.h > 0.005;
