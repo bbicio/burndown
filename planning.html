@@ -90,13 +90,40 @@
         <teleport to="#plFiltersBody">
           <div class="pl-filters-head">
             <h2 class="pl-filters-title" id="plFiltersTitle">Filters</h2>
-            <button type="button" class="btn btn-ghost btn-icon" data-bs-dismiss="offcanvas" aria-label="Close filters"><ph-icon name="close"></ph-icon></button>
+            <button v-if="!isPhone" type="button" class="btn btn-ghost btn-icon" data-bs-dismiss="offcanvas" aria-label="Close filters"><ph-icon name="close"></ph-icon></button>
+            <button v-else type="button" class="btn btn-ghost pl-sheet-close" data-bs-dismiss="offcanvas" aria-label="Close filters">Close</button>
           </div>
         </teleport>
         <teleport to="#plFiltersBody" :disabled="!isTablet">
           <div class="pl-search">
             <ph-icon name="search" :size="14"></ph-icon>
             <input type="search" class="form-control form-control-sm" :aria-label="searchPlaceholder" :placeholder="searchPlaceholder" v-model="search[view]">
+          </div>
+        </teleport>
+        <!-- Smartphone only: the sheet carries the interval and the period the toolbar no longer shows. Their order in the sheet comes from CSS order, not from mount order. -->
+        <teleport to="#plFiltersBody" v-if="isPhone">
+          <div class="pl-sheet-section pl-sheet-interval">
+            <span class="pl-toolbar-label">Interval</span>
+            <div class="pl-seg" role="group" aria-label="Interval">
+              <button type="button" class="pl-seg-btn" :class="{ active: interval === 'monthly' }" :aria-pressed="interval === 'monthly' ? 'true' : 'false'" @click="interval = 'monthly'">Monthly</button>
+              <button type="button" class="pl-seg-btn" :class="{ active: interval === 'weekly' }" :aria-pressed="interval === 'weekly' ? 'true' : 'false'" @click="interval = 'weekly'">Weekly</button>
+            </div>
+          </div>
+          <div class="pl-sheet-section pl-sheet-period">
+            <span class="pl-toolbar-label">Period</span>
+            <div class="pl-period-presets">
+              <button type="button" class="pl-filter-btn" @click="applyPreset(3)">3 months</button>
+              <button type="button" class="pl-filter-btn" @click="applyPreset(6)">6 months</button>
+              <button type="button" class="pl-filter-btn" @click="applyPreset(12)">12 months</button>
+              <button type="button" class="pl-filter-btn" @click="applyWholeRange">Whole range</button>
+            </div>
+            <div class="pl-period-range">
+              <div class="pl-period-field"><span class="pl-toolbar-label">From</span>
+                <cg-date-picker mode="month" inline-popover :model-value="fromYm" :min="axisMinYm" :max="toYm" aria-label="From month" @update:model-value="setFrom($event)"></cg-date-picker></div>
+              <div class="pl-period-field"><span class="pl-toolbar-label">To</span>
+                <cg-date-picker mode="month" inline-popover :model-value="toYm" :min="fromYm" :max="axisMaxYm" aria-label="To month" @update:model-value="setTo($event)"></cg-date-picker></div>
+            </div>
+            <button type="button" class="pl-link" :disabled="isDefaultWindow" @click="goToday">Today</button>
           </div>
         </teleport>
         <button v-if="isTablet && !isPhone" type="button" class="pl-filter-btn" data-bs-toggle="offcanvas" data-bs-target="#plFiltersPanel" aria-controls="plFiltersPanel">
@@ -169,7 +196,24 @@
           <input class="form-check-input" type="checkbox" role="switch" id="chkRoundHours" v-model="roundHours">
           <label class="form-check-label" for="chkRoundHours">Rounded</label>
         </div>
-        <button v-if="isTablet" type="button" class="ph-btn pl-filters-load" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon> Load XLS</button>
+        <button v-if="isTablet && !isPhone" type="button" class="ph-btn pl-filters-load" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon> Load XLS</button>
+       </teleport>
+       <teleport to="#plFiltersBody" v-if="isPhone">
+        <div class="pl-sheet-foot pl-sheet-legend">
+          <span class="pl-legend-item"><span class="pl-chip pl-chip--past">12h</span> Actuals (past)</span>
+          <span class="pl-legend-item"><span class="pl-chip pl-chip--current">12h</span> {{ interval === 'weekly' ? 'Current week' : 'Current month' }}</span>
+          <span class="pl-legend-item"><span class="pl-chip pl-chip--pulse">~1h</span> Monthly pulse</span>
+          <template v-if="view === 'byowner'">
+            <span class="pl-legend-item"><span class="pl-chip pl-chip--high">110h</span> High load</span>
+            <span class="pl-legend-item"><span class="pl-chip pl-chip--over">140h</span> Over-allocated</span>
+          </template>
+        </div>
+        <details class="pl-sheet-foot pl-sheet-details">
+          <summary>How estimates work</summary>
+          <div class="pl-popover-title">Estimation logic · {{ viewName }}</div>
+          <p v-for="(t, i) in estimatesText" :key="i">{{ t }}</p>
+        </details>
+        <button type="button" class="btn btn-primary w-100 pl-sheet-foot pl-sheet-show" data-bs-dismiss="offcanvas">Show results</button>
        </teleport>
       </div>
     </div>

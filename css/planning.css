@@ -333,6 +333,50 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
   .pl-mrow-text .pl-name { overflow: visible; text-overflow: clip; color: var(--text-body); }
   .pl-mrow-text .pl-label-main { flex-wrap: wrap; }
   .pl-mrow-value { flex: 0 0 auto; min-width: 2.5rem; padding: 0 var(--space-2); text-align: right; border-radius: var(--radius-md); font-variant-numeric: tabular-nums; color: var(--text-primary); }
+
+  /* Filters as a bottom sheet (the offcanvas, moved to the bottom) */
+  .offcanvas.pl-filters {
+    top: auto; bottom: 0; left: 0; right: 0; width: 100%; height: auto; max-height: 90dvh;
+    border-left: 0; border-top: 1px solid var(--border-light);
+    border-top-left-radius: var(--radius-xl); border-top-right-radius: var(--radius-xl);
+    transform: translateY(100%);
+  }
+  .offcanvas.pl-filters.showing, .offcanvas.pl-filters.show:not(.hiding) { transform: none; }
+  .offcanvas.pl-filters::before {
+    content: ""; display: block; width: 40px; height: 4px; margin: var(--space-2) auto 0;
+    border-radius: var(--radius-full); background: var(--border-medium);
+  }
+  .pl-filters-body { height: auto; max-height: calc(90dvh - 16px); padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px)); }
+  /* order in the sheet: head, search, interval, period, chips and popovers, then legend, details, Show results */
+  .pl-filters-body > * { order: 4; }
+  .pl-filters-body > .pl-filters-head { order: 0; }
+  .pl-filters-body > .pl-search { order: 1; }
+  .pl-filters-body > .pl-sheet-interval { order: 2; }
+  .pl-filters-body > .pl-sheet-period { order: 3; }
+  .pl-filters-body > .pl-sheet-legend { order: 5; }
+  .pl-filters-body > .pl-sheet-details { order: 6; }
+  .pl-filters-body > .pl-sheet-show { order: 7; }
+  .pl-sheet-close { min-height: 44px; padding: 0 var(--space-3); font-weight: var(--weight-semibold); }
+  .pl-sheet-section { display: flex; flex-direction: column; gap: var(--space-2); }
+  .pl-sheet-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); font-size: var(--text-xs); }
+  .pl-sheet-details summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: var(--weight-semibold); }
+  .pl-sheet-details p { font-size: var(--text-sm); color: var(--text-secondary); }
+  .pl-sheet-show { min-height: 44px; }
+  .pl-filters-body .pl-stage-chip, .pl-filters-body .pl-filter-btn, .pl-filters-body .pl-seg-btn,
+  .pl-filters-body .pl-link, .pl-filters-body .pl-switch, .pl-filters-body .pl-pop-row { min-height: 44px; }
+  .pl-filters-body .pl-seg { width: 100%; }
+  .pl-filters-body .pl-seg .pl-seg-btn { flex: 1; justify-content: center; }
+  .pl-filters-body .pl-switch { display: flex; flex-direction: row-reverse; justify-content: space-between; align-items: center; padding-left: 0; }
+  .pl-filters-body .pl-switch .form-check-input { float: none; margin-left: 0; }
+  .pl-filters-body > .dropdown { flex: 1 1 calc(50% - var(--space-2)); min-width: 0; }
+  .pl-filters-body > .dropdown:has(.show) { flex-basis: 100%; }
+  .pl-sheet-show { background: var(--brand-navy); border-color: var(--brand-navy); color: var(--text-inverse); }
+  .pl-filters-body .pl-period-presets { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  /* Popper writes inline styles on the dropdown menus: inside the sheet they flow with it instead */
+  .pl-filters-body .dropdown-menu {
+    position: static !important; transform: none !important; inset: auto !important;
+    width: 100%; max-width: 100%; margin-top: var(--space-2);
+  }
 }
 
 /* ── Team assistant drawer (over the page, with a backdrop) ── */
