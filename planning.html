@@ -328,6 +328,7 @@
         <div v-if="!displayRows.length" class="pl-mcard pl-mcard--empty">No rows match “{{ search[view] }}”.</div>
         <div v-for="g in phoneGroups" :key="g.parent.id" class="pl-mcard" :class="{ 'is-open': hasChildren(g.parent) && isOpen(g.parent.id) }">
           <div class="pl-mcard-head" :role="hasChildren(g.parent) ? 'button' : null" :tabindex="hasChildren(g.parent) ? 0 : null"
+               :aria-label="hasChildren(g.parent) ? (isOpen(g.parent.id) ? 'Collapse ' : 'Expand ') + g.parent.label : null"
                :aria-expanded="hasChildren(g.parent) ? (isOpen(g.parent.id) ? 'true' : 'false') : null"
                @click="hasChildren(g.parent) && toggleRow(g.parent.id)"
                @keydown.enter.prevent="hasChildren(g.parent) && toggleRow(g.parent.id)" @keydown.space.prevent="hasChildren(g.parent) && toggleRow(g.parent.id)">
@@ -348,7 +349,7 @@
                 <span class="pl-mcard-plan">{{ fmtNum(g.parent.toPlan) }} to plan</span>
               </div>
             </div>
-            <div class="pl-mbar" aria-hidden="true">
+            <div class="pl-mbar" :class="{ 'pl-mbar--dense': g.parent.cells.length > 26 }" aria-hidden="true">
               <span v-for="(b, i) in miniBarOf(g.parent.cells)" :key="i" class="pl-mbar-seg" :class="['pl-mbar-seg--' + b.kind, { 'is-selected': i === phonePeriodIdx }]" :style="{ '--pl-ratio': Math.max(0.25, b.ratio) }"></span>
             </div>
           </div>
@@ -362,16 +363,23 @@
             <div class="pl-mrow-text">
               <div class="pl-label-main">
                 <span class="pl-name">{{ c.label }}</span>
+                <span v-if="c.inactive" class="pl-pill pl-pill--muted">inactive</span>
                 <span v-if="c.kind === 'pair' && c.stage" v-html="stagePill(c.stage)"></span>
               </div>
-              <div v-if="c.kind === 'roleLeaf' && c.owners.length" class="pl-mrow-sub">{{ c.owners.map(o => o.name).join(', ') }}</div>
-              <div v-else-if="c.kind === 'project'" class="pl-mrow-sub">{{ projectSub(c) }}</div>
+              <div v-if="c.kind === 'roleLeaf' && c.owners.length" class="pl-mrow-sub">
+                <span v-for="(o, i) in c.owners" :key="o.name">{{ o.name }}<span v-if="o.inactive" class="pl-pill pl-pill--muted ms-1">inactive</span>{{ i + 1 === c.owners.length ? '' : ', ' }}</span>
+              </div>
+              <div v-else-if="c.kind === 'project'" class="pl-mrow-sub">
+                <span v-if="c.stage" v-html="stagePill(c.stage)"></span>
+                <span v-if="c.status" v-html="statusPill(c.status)"></span>
+                {{ projectSub(c) }}
+              </div>
               <div v-else-if="c.sub" class="pl-mrow-sub">{{ c.sub }}</div>
             </div>
             <span class="pl-mrow-value" :class="phoneCellClass(c)">{{ phoneCellText(c) }}</span>
           </div>
         </div>
-        <div v-if="displayRows.length" class="pl-mcard pl-mcard--total">
+        <div class="pl-mcard pl-mcard--total">
           <div class="pl-mcard-top">
             <div class="pl-mcard-title">
               <div class="pl-mcard-total-label">TOTAL · {{ activeRows.total.count }} ASSIGNMENTS</div>
@@ -379,7 +387,7 @@
             </div>
             <span class="pl-mcard-value" :class="phoneCellClass(activeRows.total)">{{ phoneCellText(activeRows.total) }}</span>
           </div>
-          <div class="pl-mbar" aria-hidden="true">
+          <div class="pl-mbar" :class="{ 'pl-mbar--dense': activeRows.total.cells.length > 26 }" aria-hidden="true">
             <span v-for="(b, i) in miniBarOf(activeRows.total.cells)" :key="i" class="pl-mbar-seg" :class="['pl-mbar-seg--' + b.kind, { 'is-selected': i === phonePeriodIdx }]" :style="{ '--pl-ratio': Math.max(0.25, b.ratio) }"></span>
           </div>
         </div>

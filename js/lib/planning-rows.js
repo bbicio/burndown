@@ -382,9 +382,9 @@ export function leafCounts(rows) {
 
 // One bar per period: height ratio against the tallest cell, colour kind from the cell's state.
 export function miniBar(cells) {
-  const max = cells.reduce((m, c) => (c.h > m ? c.h : m), 0);
+  const max = cells.reduce((m, c) => (c.h > 0.005 && c.h > m ? c.h : m), 0);
   return cells.map(c => {
-    if (!(c.h > 0)) return { kind: 'empty', ratio: 0 };
+    if (!(c.h > 0.005)) return { kind: 'empty', ratio: 0 };
     const kind = c.load === 'over' || c.load === 'high' ? c.load : c.past ? 'past' : c.current ? 'current' : 'future';
     return { kind, ratio: c.h / max };
   });

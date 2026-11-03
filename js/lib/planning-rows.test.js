@@ -567,6 +567,9 @@ describe('miniBar', () => {
     expect(high.kind).toBe('high');
     expect(over.kind).toBe('over');
   });
+  it('treats a value too small to print as empty, like formatCell', () => {
+    expect(miniBar([{ h: 0.003 }, { h: 10 }])).toEqual([{ kind: 'empty', ratio: 0 }, { kind: 'future', ratio: 1 }]);
+  });
   it('never divides by zero', () => {
     const bars = miniBar([{ h: 0 }, { h: 0, past: true }]);
     expect(bars.every(b => b.ratio === 0)).toBe(true);
