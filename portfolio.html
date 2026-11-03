@@ -719,11 +719,11 @@
 <template id="pr-entries-tpl">
   <div class="pr-entries" :class="{ 'pr-entries--phone': isPhone }">
     <div class="pr-entries-head">
-      <span>Entries · {{ state.filter.length ? block.shown + ' of ' + block.total : block.shown }}</span>
+      <span class="pr-entries-title">Entries · {{ state.filter.length ? block.shown + ' of ' + block.total : block.shown }}</span>
       <div class="pr-entries-tools">
         <div v-if="entries.length" class="pr-menu-wrap">
           <button type="button" class="pr-chip pr-filter-chip" :class="{ 'pr-period-active': state.filter.length }" :data-menu-btn="'filter:' + blockKey" aria-haspopup="true" :aria-expanded="menuOpen ? 'true' : 'false'" @click="onFilterClick($event)">
-            <ph-icon name="filter" :size="14"></ph-icon><span class="pr-chip-value">{{ chipLabel }}</span><ph-icon name="chevron-down" :size="12"></ph-icon>
+            <ph-icon name="filter" :size="14"></ph-icon>{{ chipPrefix }}<span class="pr-chip-value">{{ chipValue }}</span><ph-icon name="chevron-down" :size="12"></ph-icon>
           </button>
           <div v-if="menuOpen && !isPhone" ref="menu" class="pr-filter-menu" :data-menu="'filter:' + blockKey" role="group" :aria-label="filterTitle" @keydown="onMenuKey">
             <div class="pr-filter-title">{{ filterTitle }}</div>
@@ -848,6 +848,9 @@
       block() { return entriesBlock(this.entries, { ...this.state, filterKind: this.filterKind }, this.rateFor); },
       options() { return filterOptions(this.entries, this.filterKind); },
       chipLabel() { return filterChipLabel(this.state.filter, this.filterKind); },
+      // "Role: " and the value after it, so the value can be bold (boards 7.4e, 7.4h).
+      chipPrefix() { return this.chipLabel.slice(0, this.chipLabel.indexOf(' ') + 1); },
+      chipValue() { return this.chipLabel.slice(this.chipLabel.indexOf(' ') + 1); },
       filterTitle() { return this.filterKind === 'resource' ? 'Filter by resource' : 'Filter by role'; },
       filterNote() { return (this.filterKind === 'resource' ? 'Resources' : 'Roles') + ' with entries in ' + this.periodLabel; },
       sortLabel() { return { date: 'Date', who: this.filterKind === 'resource' ? 'Resource' : 'Role', hours: 'Hours', amount: 'Amount' }[this.state.sort.key]; },

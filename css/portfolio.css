@@ -664,6 +664,9 @@ button.pr-bd-toggle { cursor: pointer; }
 .pr-entries-export:hover { text-decoration: underline; }
 .pr-entries-tools { display: flex; align-items: center; gap: var(--space-3); text-transform: none; letter-spacing: 0; font-weight: var(--weight-regular); }
 .pr-filter-chip { height: 28px; }
+.pr-filter-chip .pr-chip-value { font-weight: var(--weight-semibold); }
+.pr-entries-title { flex: 1; display: flex; align-items: center; gap: var(--space-3); }
+.pr-entries-title::after { content: ''; flex: 1; height: 1px; background: var(--border-light); }
 .pr-filter-menu {
   position: absolute; top: calc(100% + var(--space-1)); right: 0; z-index: var(--z-dropdown);
   width: 260px; max-height: 320px; overflow-y: auto; padding: var(--space-2);
