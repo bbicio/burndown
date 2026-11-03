@@ -193,10 +193,10 @@ Spec `docs/superpowers/specs/2026-11-03-breakdown-v2-design.md`, plan `docs/supe
 - By task opens the task's entries with the Role filter; By role opens one role's entries on one task with the Resource filter; By functional area opens an area's tasks, and a task opens the entries its area claims, with the Role filter.
 - `entriesState` replaces `taskDetailState`, keyed `task:<name>`, `role:<role>|<task>`, `area:<index|ungrouped>` and `area:<index|ungrouped>|<task>`. It survives collapsing and changing view, and `showDashboard()` empties it.
 - Without a filter one month is open; with one every matching month is open and closes on its own. A filter and sort never change the main rows or the export.
-- A Period change prunes each filter to the options that remain; a filter left empty returns the block to one open month.
+- A Period change or a data reload (`refreshTick`) prunes each filter to the options that remain, compared without case; a filter left empty returns the block to one open month.
 - Each block's export covers its whole Period, oldest first, as `task_`, `role_` and `area_` files.
 - `areaTaskColumns` and `areaEntryClaims` (`js/lib/project-report-calc.js`) give an area's task columns, which add up to the area row; the area subtitle lists the same columns.
-- The Period and filter menus are Vue popovers (`toggleMenu`, `closeMenu`), closed by a click outside and by Esc; the Period menu is no longer a Bootstrap dropdown.
+- The Period and filter menus are Vue popovers (`toggleMenu`, `closeMenu`), closed by a click outside and by Esc; the Period menu is no longer a Bootstrap dropdown. A filter menu also closes when its block collapses or sits under a collapsed area, on a view change and on a project switch.
 - Expandable rows and months are `<button>`s with `aria-expanded` and `aria-controls`; sortable headers are buttons with `aria-sort`.
 - Tablet is `max-width: 1279.98px` (Note on a second line); smartphone is `max-width: 767.98px`, mirrored by `isPhone` (`matchMedia`): card rows, filter, sort and Period as bottom sheets (`#prFilterSheet`, `#prSortSheet`, `#prPeriodSheet`).
 - Accepted deviation from board 7.4h: at tablet width the Remaining column stays hidden, as before this cycle, while the board shows it.
