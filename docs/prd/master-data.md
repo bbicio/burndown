@@ -4,7 +4,7 @@ Part of [PRD.md](../../PRD.md) — carries PRD §7 Configuration (§7.2–§7.7)
 
 ## 7. Configuration
 
-All configuration screens described in this section are admin-only and accessible via the **Master Data** pages (2026-10-05: the former single, tabbed `config.html` is now five pages — Clients, Client Groups, Pipelines & POTs, Roles & rates, Currencies — linked by a lateral sub-menu next to the sidebar; `/config.html` redirects to the Clients page), which also manage Pipeline years and POT targets. (A separate `admin.html` page exists for user management and is out of scope for this section.)
+All configuration screens described in this section are admin-only and accessible via the **Master Data** pages (2026-10-05: the former single, tabbed `config.html` is now five pages — Clients, Client Groups, Pipelines & POTs, Roles & rates, Currencies — linked by a lateral sub-menu next to the sidebar; `/config.html` redirects to the Clients page). Since 2026-11-03 the five pages share one "Master Data" page head, a breadcrumb Home / Master Data / <section>, and the content in a card titled with the section; the sub-menu has two groups — COMMERCIAL (Clients & groups, Pipelines & POTs) and FINANCIAL (Roles & rates, Currencies) — and is a column beside the sidebar on wide screens, a row of tabs on tablets and a section selector on phones. Client Groups has no entry of its own: the Clients card links to it ("Client groups →") and it links back ("← Clients"), with "Clients & groups" highlighted on both, which also manage Pipeline years and POT targets. (A separate `admin.html` page exists for user management and is out of scope for this section.)
 
 ### 7.2 Clients
 
