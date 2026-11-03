@@ -358,6 +358,7 @@
                     :aria-label="(isOpen(c.id) ? 'Collapse ' : 'Expand ') + c.label" @click.stop="toggleRow(c.id)">
               <ph-icon :name="isOpen(c.id) ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon>
             </button>
+            <span v-else-if="c.depth > 1" class="pl-chevron-space" aria-hidden="true"></span>
             <div class="pl-mrow-text">
               <div class="pl-label-main">
                 <span class="pl-name">{{ c.label }}</span>

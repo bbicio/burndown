@@ -328,7 +328,8 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
     border-top: 1px solid var(--border-light);
   }
   .pl-mrow--clickable { cursor: pointer; }
-  .pl-mrow .pl-chevron { width: 44px; height: 44px; margin-left: calc(-1 * var(--space-3)); }
+  .pl-mrow .pl-chevron { position: relative; }
+  .pl-mrow .pl-chevron::after { content: ""; position: absolute; inset: -12px; } /* 44px tap target, layout stays 20px */
   .pl-mrow-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
   .pl-mrow-text .pl-name { overflow: visible; text-overflow: clip; color: var(--text-body); }
   .pl-mrow-text .pl-label-main { flex-wrap: wrap; }
@@ -372,6 +373,12 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
   .pl-filters-body > .dropdown:has(.show) { flex-basis: 100%; }
   .pl-sheet-show { background: var(--brand-navy); border-color: var(--brand-navy); color: var(--text-inverse); }
   .pl-filters-body .pl-period-presets { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .pl-sheet-section { min-width: 0; }
+  .pl-filters-body .pl-period-range { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .pl-filters-body .pl-period-field { min-width: 0; }
+  .pl-filters-body .cg-ctl-field { min-height: 44px; }
+  .pl-filters-body .cg-ctl-iconbtn { min-width: 44px; min-height: 44px; justify-content: center; margin-right: -10px; }
+  .pl-filters-body .pl-link { font-weight: var(--weight-semibold); align-self: flex-start; }
   /* Popper writes inline styles on the dropdown menus: inside the sheet they flow with it instead */
   .pl-filters-body .dropdown-menu {
     position: static !important; transform: none !important; inset: auto !important;
