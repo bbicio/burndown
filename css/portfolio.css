@@ -643,6 +643,8 @@ button.pr-bd-toggle { cursor: pointer; }
 .pr-bd-toggle:focus { outline: none; }
 .pr-bd-toggle:focus-visible { box-shadow: 0 0 0 3px var(--focus-ring); border-radius: var(--radius-md); }
 .pr-bd-subrow { background: var(--surface-light); min-height: 48px; }
+.pr-bd-area-task { padding-left: calc(var(--space-2) + 24px); }
+.pr-entries-nested { padding-left: calc(28px + var(--space-2) + var(--space-3) + 24px); }
 .pr-bd-subtitle { font-weight: var(--weight-semibold); color: var(--text-primary); display: flex; align-items: center; gap: var(--space-2); }
 .pr-entries { background: var(--surface-light); padding: var(--space-2) var(--space-4) var(--space-3) calc(28px + var(--space-2) + var(--space-3)); border-top: 1px solid var(--border-light); }
 .pr-entries-head {

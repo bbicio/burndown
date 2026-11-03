@@ -573,13 +573,30 @@
 
           <template v-for="it in breakdownItems" :key="it.key">
             <div v-if="it.kind === 'row'" class="pr-bd-row pr-bd-item" :class="{ 'pr-bd-over': it.row.overSold, 'pr-bd-clickable': it.blockKey }">
-              <component :is="it.blockKey ? 'button' : 'div'" class="pr-bd-toggle" :type="it.blockKey ? 'button' : null" :aria-expanded="it.blockKey ? String(blockState(it.blockKey).expanded) : null" :aria-controls="it.blockKey ? blockDomId(it.blockKey) : null" @click="it.blockKey && toggleBlock(it.blockKey)">
+              <component :is="it.blockKey ? 'button' : 'div'" class="pr-bd-toggle" :type="it.blockKey ? 'button' : null" :aria-expanded="it.blockKey ? String(blockState(it.blockKey).expanded) : null" :aria-controls="it.blockKey && it.entries ? blockDomId(it.blockKey) : null" @click="it.blockKey && toggleBlock(it.blockKey)">
                 <span class="pr-bd-chev"><ph-icon v-if="it.blockKey" :name="blockState(it.blockKey).expanded ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon></span>
                 <div class="pr-bd-name">
                   <div class="pr-bd-title">{{ it.row.label }}<span v-if="it.row.overSold" class="pr-over-pill">Over sold</span></div>
                   <div class="pr-bd-sub">{{ it.row.subtitle }}</div>
                 </div>
               </component>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ !it.row.soldKnown ? '—' : fmtH(it.row.soldHours) }}</div><div v-if="it.row.soldKnown" class="pr-bd-a">{{ formatMoney(it.row.soldAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(it.row.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(it.row.spentAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': it.row.soldKnown && it.row.remainingHours < 0 }"><div class="pr-bd-h">{{ !it.row.soldKnown ? '—' : fmtH(it.row.remainingHours) }}</div><div v-if="it.row.soldKnown" class="pr-bd-a">{{ formatMoney(it.row.remainingAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-cons">
+                <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + it.row.barState"><div class="pf-spent-bar-fill" :style="{ width: (it.row.overSold ? 100 : Math.min(100, it.row.pct || 0)) + '%' }"></div></div>
+                <span class="pr-bd-pct" :class="'pr-pct-' + it.row.barState">{{ it.row.pct !== null ? it.row.pct + '%' : '—' }}</span>
+              </div>
+            </div>
+
+            <div v-else-if="it.kind === 'area-task'" class="pr-bd-row pr-bd-subrow pr-bd-area-task pr-bd-clickable" :class="{ 'pr-bd-over': it.row.overSold }">
+              <button type="button" class="pr-bd-toggle" :aria-expanded="String(blockState(it.blockKey).expanded)" :aria-controls="blockDomId(it.blockKey)" @click="toggleBlock(it.blockKey)">
+                <span class="pr-bd-chev"><ph-icon :name="blockState(it.blockKey).expanded ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon></span>
+                <div class="pr-bd-name">
+                  <div class="pr-bd-subtitle">{{ it.row.label }}<span v-if="it.row.overSold" class="pr-over-pill">Over sold</span></div>
+                  <div class="pr-bd-sub">{{ it.row.subtitle }}</div>
+                </div>
+              </button>
               <div class="pr-bd-num"><div class="pr-bd-h">{{ !it.row.soldKnown ? '—' : fmtH(it.row.soldHours) }}</div><div v-if="it.row.soldKnown" class="pr-bd-a">{{ formatMoney(it.row.soldAmount, dashCurrency, currencies) }}</div></div>
               <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(it.row.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(it.row.spentAmount, dashCurrency, currencies) }}</div></div>
               <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': it.row.soldKnown && it.row.remainingHours < 0 }"><div class="pr-bd-h">{{ !it.row.soldKnown ? '—' : fmtH(it.row.remainingHours) }}</div><div v-if="it.row.soldKnown" class="pr-bd-a">{{ formatMoney(it.row.remainingAmount, dashCurrency, currencies) }}</div></div>
@@ -612,7 +629,7 @@
               <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(it.hours) }}</div></div>
             </div>
 
-            <template v-if="it.blockKey && blockState(it.blockKey).expanded">
+            <template v-if="it.entries && blockState(it.blockKey).expanded">
               <template v-if="it.kind === 'row' && it.taskName && taskDetailByName[it.taskName]">
                 <div v-for="sr in roleSubRows(taskDetailByName[it.taskName])" :key="sr.key" class="pr-bd-row pr-bd-subrow" :class="{ 'pr-bd-over': sr.overSold }">
                   <span></span>
@@ -629,7 +646,7 @@
                   </div>
                 </div>
               </template>
-              <pr-entries :id="blockDomId(it.blockKey)" :block-key="it.blockKey" :entries="blockEntries(it.blockKey)" :rate-for="blockRate(it.blockKey)" :filter-kind="blockFilterKind(it.blockKey)" :state="blockState(it.blockKey)" :period-label="periodLabel" :currency="dashCurrency" :currencies="currencies" :is-phone="false" :menu-open="openMenu === 'filter:' + it.blockKey" @toggle-menu="toggleMenu('filter:' + it.blockKey, $event)" @export="exportBlock(it.blockKey)"></pr-entries>
+              <pr-entries :id="blockDomId(it.blockKey)" :class="{ 'pr-entries-nested': it.kind === 'area-task' }" :block-key="it.blockKey" :entries="blockEntries(it.blockKey)" :rate-for="blockRate(it.blockKey)" :filter-kind="blockFilterKind(it.blockKey)" :state="blockState(it.blockKey)" :period-label="periodLabel" :currency="dashCurrency" :currencies="currencies" :is-phone="false" :menu-open="openMenu === 'filter:' + it.blockKey" @toggle-menu="toggleMenu('filter:' + it.blockKey, $event)" @export="exportBlock(it.blockKey)"></pr-entries>
             </template>
           </template>
         </div>
@@ -1250,17 +1267,22 @@
         if (this.breakdownView === 'role') {
           const cols = this.summaryByRole || [];
           const { rows, total } = breakdownRows(cols, hasFilter);
-          return { total, rows: rows.map((r, i) => ({ ...r, key: 'r:' + cols[i].role + '|' + cols[i].task, label: cols[i].role, subtitle: roleSubtitle(cols[i].role, cols[i].task, this.dashboardData) })) };
+          return { total, rows: rows.map((r, i) => ({ ...r, key: 'r:' + cols[i].role + '|' + cols[i].task, blockKey: 'role:' + cols[i].role + '|' + cols[i].task, label: cols[i].role, subtitle: roleSubtitle(cols[i].role, cols[i].task, this.dashboardData) })) };
         }
         if (this.breakdownView === 'area' && cfg.groups?.length) {
           const cols = this.summaryByGroup || [];
-          const tasks = billableTasks(cfg);
+          const deps = { billableData, billableTasks, findRate };
           // Areas may overlap, so the Total is computed once over every billable entry (B-073).
-          const totalCol = areaTotalColumn(this.dashboardData, cfg, this.filterRange, { billableData, billableTasks, findRate });
+          const totalCol = areaTotalColumn(this.dashboardData, cfg, this.filterRange, deps);
           const { rows, total } = breakdownRows(cols, hasFilter, totalCol);
-          return { total, rows: rows.map((r, i) => cols[i].ungrouped
-            ? { ...r, key: 'g:ungrouped', subtitle: 'Not in any functional area' }
-            : { ...r, key: 'g:' + i, subtitle: groupSubtitle(cfg.groups[i], tasks) }) };
+          return { total, rows: rows.map((r, i) => {
+            const areaIndex = cols[i].ungrouped ? 'ungrouped' : i;
+            // The area's tasks (second level); the subtitle lists the same columns the expansion shows.
+            const areaCols = areaTaskColumns(this.dashboardData, cfg, this.filterRange, deps, areaIndex);
+            const n = areaCols.length;
+            return { ...r, key: 'g:' + areaIndex, areaIndex, areaCols, blockKey: 'area:' + areaIndex,
+              subtitle: cols[i].ungrouped ? 'Not in any functional area' : n + (n === 1 ? ' task' : ' tasks') + (n ? ' · ' + areaCols.map(c => c.task).join(', ') : '') };
+          }) };
         }
         const tasks = billableTasks(cfg);
         const { rows, total } = breakdownRows(this.summaryByTask || [], hasFilter);
@@ -1274,13 +1296,26 @@
       breakdownItems() {
         const b = this.breakdown;
         if (!b) return [];
-        const items = b.rows.map(r => ({ kind: 'row', key: r.key, row: r, taskName: this.breakdownView === 'task' ? r.taskName : null, blockKey: this.breakdownView === 'task' ? 'task:' + r.taskName : null }));
+        const items = [];
+        b.rows.forEach(r => {
+          const blockKey = this.breakdownView === 'task' ? 'task:' + r.taskName : r.blockKey || null;
+          // An area row only opens its task rows; every other row opens an Entries block.
+          items.push({ kind: 'row', key: r.key, row: r, taskName: this.breakdownView === 'task' ? r.taskName : null, blockKey, entries: this.breakdownView !== 'area' });
+          if (this.breakdownView === 'area' && blockKey && this.entriesState[blockKey]?.expanded) {
+            const { rows: taskRows } = breakdownRows(r.areaCols, this.filterHasFilter);
+            taskRows.forEach((tr, j) => {
+              const col = r.areaCols[j];
+              const row = { ...tr, subtitle: col.roles + (col.roles === 1 ? ' role' : ' roles') };
+              items.push({ kind: 'area-task', key: 'at:' + r.areaIndex + '|' + col.task, row: this.breakdownNoBudget ? this.withoutSold(row) : row, taskName: col.task, blockKey: 'area:' + r.areaIndex + '|' + col.task, areaIndex: r.areaIndex, entries: true });
+            });
+          }
+        });
         items.push({ kind: 'total', key: 'total' });
         if (this.breakdownView === 'task') {
           const excluded = this.taskDetailData.filter(e => e.task.billable === false);
           if (excluded.length) {
             items.push({ kind: 'excluded-head', key: 'excluded-head' });
-            excluded.forEach(e => items.push({ kind: 'excluded', key: 'x:' + e.task.name, taskName: e.task.name, blockKey: 'task:' + e.task.name, hours: e.totPeriod }));
+            excluded.forEach(e => items.push({ kind: 'excluded', key: 'x:' + e.task.name, taskName: e.task.name, blockKey: 'task:' + e.task.name, entries: true, hours: e.totPeriod }));
           }
         }
         return items;
@@ -1420,7 +1455,7 @@
         return portfolioSummaryProjects.has(id);
       },
       // The state of one Breakdown row's expansion and Entries block, created on first access.
-      // Keys: 'task:<name>'.
+      // Keys: 'task:<name>', 'role:<role>|<task>', 'area:<groupIndex|ungrouped>' (the area row) and 'area:<groupIndex|ungrouped>|<task>'.
       blockState(key) {
         if (!this.entriesState[key]) {
           this.entriesState[key] = { expanded: false, openMonth: null, closedMonths: [], filter: [], sort: defaultSort() };
@@ -1436,6 +1471,17 @@
       blockEntries(key) {
         const { prefix, rest } = this.blockInfo(key);
         if (prefix === 'task') return this.taskDetailByName[rest]?.periodData || [];
+        const task = this.blockTaskName(key);
+        const data = this.taskDetailByName[task]?.periodData || [];
+        if (prefix === 'role') {
+          const role = rest.slice(0, rest.indexOf('|')).toLowerCase();
+          return data.filter(r => r.role.toLowerCase() === role);
+        }
+        if (prefix === 'area') {
+          const gi = rest.slice(0, rest.indexOf('|'));
+          const claims = areaEntryClaims(this.dashboardProject, gi === 'ungrouped' ? gi : Number(gi));
+          return data.filter(r => claims(r.role, task));
+        }
         return [];
       },
       blockFilterKind(key) { return this.blockInfo(key).prefix === 'role' ? 'resource' : 'role'; },
@@ -1454,7 +1500,12 @@
       },
       blockExportName(key) {
         const { prefix, rest } = this.blockInfo(key);
-        return prefix + '_' + rest.replace(/[^a-zA-Z0-9]/g, '_') + '_entries.xlsx';
+        let label = rest;
+        if (prefix === 'area') {
+          const gi = rest.slice(0, rest.indexOf('|'));
+          label = (gi === 'ungrouped' ? 'Ungrouped' : this.dashboardProject.groups[Number(gi)].name) + '|' + this.blockTaskName(key);
+        }
+        return prefix + '_' + label.replace(/[^a-zA-Z0-9]/g, '_') + '_entries.xlsx';
       },
       exportBlock(key) {
         this.exportEntriesXls(this.blockEntries(key), this.blockRate(key), this.blockFilterKind(key), this.blockExportName(key));
@@ -1479,9 +1530,15 @@
         });
       },
       onSwitchHidden() { this.switchMenuOpen = false; },
+      // One task open per area: opening one closes the others of the same area (their state stays).
       toggleBlock(key) {
         const st = this.blockState(key);
         st.expanded = !st.expanded;
+        const bar = key.indexOf('|');
+        if (st.expanded && key.startsWith('area:') && bar > 0) {
+          const areaPrefix = key.slice(0, bar + 1);
+          Object.keys(this.entriesState).forEach(k => { if (k !== key && k.startsWith(areaPrefix)) this.entriesState[k].expanded = false; });
+        }
       },
       // A task's role rows in the Breakdown's expansion (spec §6 "By task"): Spent is the
       // period consumption, Remaining and % the whole-project ones, like the task row above.

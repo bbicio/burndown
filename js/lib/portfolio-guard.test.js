@@ -413,3 +413,22 @@ describe('Breakdown v2 — Entries block', () => {
     expect(html).toContain('js/lib/report-entries.js?v=1');
   });
 });
+
+describe('Breakdown v2 — By role and By functional area', () => {
+  it('By role mounts the block with the Resource filter', () => {
+    expect(html).toContain(`blockFilterKind(key) { return this.blockInfo(key).prefix === 'role' ? 'resource' : 'role'; }`);
+    expect(html).toContain(`blockKey: 'role:' + cols[i].role + '|' + cols[i].task`);
+  });
+  it('By area lists its tasks as area-task rows with an "N tasks" subtitle and "N roles" under each', () => {
+    expect(dashboardActive).toContain(`it.kind === 'area-task'`);
+    expect(html).toContain(`(n === 1 ? ' task' : ' tasks')`);
+    expect(html).toContain(`(col.roles === 1 ? ' role' : ' roles')`);
+  });
+  it('exports per block: role_ and area_ prefixes, the area by its name', () => {
+    expect(html).toContain(`return prefix + '_' + label.replace(`);
+    expect(html).toContain(`this.dashboardProject.groups[Number(gi)].name`);
+  });
+  it('opening a task of an area closes the area\'s others', () => {
+    expect(html).toContain(`k.startsWith(areaPrefix)) this.entriesState[k].expanded = false`);
+  });
+});
