@@ -962,7 +962,7 @@ burndown/
     costgrid.css          ← page stylesheet of costgrid.html only (second row of the page head, section cards, grid, selection bar, contextual overrides of the controls). Detail: docs/pages/costgrid.md
     portfolio.css         ← page stylesheet shared by portfolio.html and program.html. Detail: docs/css/stylesheets.md
     project-config.css    ← page stylesheet of project-config.html only (section index, cards, task table, phasing card, phone bottom sheet). Detail: docs/css/stylesheets.md
-    planning.css          ← page stylesheet of planning.html only (toolbar, period selector, grid, Filters panel, Team assistant drawer). Detail: docs/css/stylesheets.md
+    planning.css          ← page stylesheet of planning.html only (toolbar, period selector, grid, Filters panel, Team assistant drawer, smartphone layout below 768px). Detail: docs/css/stylesheets.md
     admin-crud.css        ← shared layout for the simple admin CRUD pages. Detail: docs/css/stylesheets.md
     auth.css              ← shared stylesheet of the public auth pages (login/activate/reset-password). Detail: docs/css/stylesheets.md
   js/
