@@ -352,6 +352,65 @@ export function weeklyWindowLabel(weeks) {
   return a.getFullYear() === b.getFullYear() ? `${first.replace(/, \d{4}$/, '')} – ${last}` : `${first} – ${last}`;
 }
 
+// ── Smartphone layout (planning.html under 768px) ───────────────────────────────────────────
+
+// The badge of the "Filters" buttons: every filter or switch away from its default.
+export function countActiveFilters({ pipelineFilters, projectFilters, teamFilters, monthlyPulse, roundHours, search }) {
+  return [pipelineFilters.size > 0, projectFilters.size > 0, teamFilters.size > 0,
+    !monthlyPulse, !roundHours, !!String(search || '').trim()].filter(Boolean).length;
+}
+
+// Leaf descendants of every row that has children, from the whole row list (never the search-filtered one).
+export function leafCounts(rows) {
+  const children = new Map();
+  for (const r of rows) {
+    if (r.parentId == null) continue;
+    if (!children.has(r.parentId)) children.set(r.parentId, []);
+    children.get(r.parentId).push(r.id);
+  }
+  const counts = new Map();
+  const leaves = id => {
+    const kids = children.get(id);
+    if (!kids) return 1;
+    const n = kids.reduce((sum, k) => sum + leaves(k), 0);
+    counts.set(id, n);
+    return n;
+  };
+  for (const r of rows) if (r.parentId == null) leaves(r.id);
+  return counts;
+}
+
+// One bar per period: height ratio against the tallest cell, colour kind from the cell's state.
+export function miniBar(cells) {
+  const max = cells.reduce((m, c) => (c.h > m ? c.h : m), 0);
+  return cells.map(c => {
+    if (!(c.h > 0)) return { kind: 'empty', ratio: 0 };
+    const kind = c.load === 'over' || c.load === 'high' ? c.load : c.past ? 'past' : c.current ? 'current' : 'future';
+    return { kind, ratio: c.h / max };
+  });
+}
+
+export function defaultPeriodIdx(periods) {
+  const i = periods.findIndex(p => p.isCurrent);
+  return i < 0 ? 0 : i;
+}
+
+export function clampPeriodIdx(idx, periods) {
+  return Math.max(0, Math.min(idx, periods.length - 1));
+}
+
+export function stepperState(periods, idx, interval) {
+  const p = periods[idx];
+  if (!p) return { label: '', sub: '', canPrev: false, canNext: false };
+  const weekly = interval !== 'monthly';
+  return {
+    label: weekly ? `${p.dateTitle} · W${isoWeek(p.weekStart)}` : p.label,
+    sub: p.isCurrent ? `Current ${weekly ? 'week' : 'month'} · planned` : p.isPast ? 'Actuals' : 'Planned',
+    canPrev: idx > 0,
+    canNext: idx < periods.length - 1,
+  };
+}
+
 window.toggleRowState = toggleRowState;
 window.effectiveFilter = effectiveFilter;
 window.focusTrapTarget = focusTrapTarget;
@@ -370,3 +429,9 @@ window.initials = initials;
 window.isoWeek = isoWeek;
 window.filterRows = filterRows;
 window.visibleRows = visibleRows;
+window.countActiveFilters = countActiveFilters;
+window.leafCounts = leafCounts;
+window.miniBar = miniBar;
+window.defaultPeriodIdx = defaultPeriodIdx;
+window.clampPeriodIdx = clampPeriodIdx;
+window.stepperState = stepperState;

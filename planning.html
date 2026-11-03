@@ -386,7 +386,7 @@
 <script defer src="js/roles.js?v=2"></script>
 <script type="module" src="js/lib/planning-calc.js?v=5"></script>
 <script type="module" src="js/lib/planning-model-ui.js?v=1"></script>
-<script type="module" src="js/lib/planning-rows.js?v=1"></script>
+<script type="module" src="js/lib/planning-rows.js?v=2"></script>
 <script type="module" src="js/lib/team-assistant-ui.js?v=3"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
@@ -779,8 +779,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       // the badge of the tablet "Filters" button: every filter or switch away from its default
       activeFilterCount() {
-        return [this.pipelineFilters.size > 0, this.projectFilters.size > 0, this.teamFilters.size > 0,
-          !this.monthlyPulse, !this.roundHours, !!this.search[this.view].trim()].filter(Boolean).length;
+        return window.countActiveFilters({
+          pipelineFilters: this.pipelineFilters, projectFilters: this.projectFilters, teamFilters: this.teamFilters,
+          monthlyPulse: this.monthlyPulse, roundHours: this.roundHours, search: this.search[this.view],
+        });
       },
       searchPlaceholder() { return { byrole: 'Search role…', byproject: 'Search project or task…', byowner: 'Search person…' }[this.view]; },
       // the Projects popover's own search, local to the list (does not filter the grid)
