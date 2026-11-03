@@ -85,7 +85,7 @@ export function entriesBlock(entries, state, rateFor) {
       open: false,
     });
   }
-  // An openMonth outside the Period counts as none, so one month stays open.
+  // An openMonth outside the Period counts as unset (not as ''), so the most recent month opens.
   const openKnown = months.some(m => m.ym === state.openMonth);
   for (const m of months) {
     if (filter.length) m.open = !(state.closedMonths || []).includes(m.ym);

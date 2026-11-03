@@ -424,6 +424,15 @@ describe('Breakdown v2 — By role and By functional area', () => {
     expect(html).toContain(`(n === 1 ? ' task' : ' tasks')`);
     expect(html).toContain(`(col.roles === 1 ? ' role' : ' roles')`);
   });
+  it('prunes the filters on a data reload too, not only on a Period change (review round 2)', () => {
+    expect(html).toContain(`refreshTick() { this.attachCardGridObserver(); this.pruneEntryFilters(); },`);
+    expect(html).toContain(`filterRange() { this.pruneEntryFilters(); },`);
+  });
+  it('closes a filter menu whose block collapses (review round 2)', () => {
+    const m = html.match(/toggleBlock\(key\) \{([\s\S]*?)\n {6}\},/);
+    expect(m).not.toBeNull();
+    expect(m[1]).toContain('this.closeMenu(false)');
+  });
   it('finds a logged-only pair\'s entries whatever the case of its task (review round 1)', () => {
     expect(html).toContain(`this.taskDetailByLowerName[task.toLowerCase()]`);
   });

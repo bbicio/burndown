@@ -199,9 +199,9 @@ Spec `docs/superpowers/specs/2026-11-03-breakdown-v2-design.md`, plan `docs/supe
 - The Period and filter menus are Vue popovers (`toggleMenu`, `closeMenu`), closed by a click outside and by Esc; the Period menu is no longer a Bootstrap dropdown.
 - Expandable rows and months are `<button>`s with `aria-expanded` and `aria-controls`; sortable headers are buttons with `aria-sort`.
 - Tablet is `max-width: 1279.98px` (Note on a second line); smartphone is `max-width: 767.98px`, mirrored by `isPhone` (`matchMedia`): card rows, filter, sort and Period as bottom sheets (`#prFilterSheet`, `#prSortSheet`, `#prPeriodSheet`).
-- Accepted deviation from board 7.4h: at 1024px the Remaining column stays hidden (it is hidden below 1280px, as before), while the board shows it; the plan fixes the threshold.
-- On desktop the Entries table has fixed column widths, so the tables of the open months line up.
-- `.pr-sheet` sets `--bs-offcanvas-height: auto`, otherwise Bootstrap's bottom-offcanvas height clips the sheet.
-- Accepted deviations from boards 7.4f and 7.4i: the filter menu title is in sentence case, the checkboxes are native, the desktop "All" row shows no hours, the filter sheet has no "All" row (Clear does that), and the sheets close with a "Close" text button, as `.pb-sheet` does.
+- Accepted deviation from board 7.4h: at tablet width the Remaining column stays hidden, as before this cycle, while the board shows it.
+- On desktop the Entries tables of all open months share the same fixed column widths.
+- `.pr-sheet` sets `--bs-offcanvas-height: auto`: a sheet is as tall as its content, up to its `max-height`.
+- Accepted deviations from boards 7.4f and 7.4i: the filter menu title is in sentence case, the checkboxes are native, the desktop "All" row shows no hours, the filter sheet has no "All" row, and the sheets close with a "Close" text button, as `.pb-sheet` does.
 - Accepted deviation from board 7.4j: on a smartphone the breakdown export icon and the Period button share a row under the segmented control, instead of Period sitting beside the "Breakdown" title.
 - Icons `filter`, `arrow-up` and `arrow-down` were added to `js/lib/icons.js`.
