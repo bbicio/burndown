@@ -481,3 +481,137 @@ describe('buildOwnerRows', () => {
     expect(total.cells.map(c => c.h)).toEqual([42, 56]);
   });
 });
+
+// ── Smartphone layout helpers (planning redesign cycle 2, 2026-11-03) ───────────────────────
+describe('countActiveFilters (formula of planning.html activeFilterCount, 2026-11-03)', () => {
+  const base = { pipelineFilters: new Set(), projectFilters: new Set(), teamFilters: new Set(), monthlyPulse: true, roundHours: true, search: '' };
+  it('is 0 with every filter and switch at its default', () => {
+    expect(countActiveFilters(base)).toBe(0);
+  });
+  it.each([
+    ['a pipeline filter', { pipelineFilters: new Set(['SIP']) }],
+    ['a project filter', { projectFilters: new Set(['p1']) }],
+    ['a team filter', { teamFilters: new Set(['r1']) }],
+    ['Monthly pulse off', { monthlyPulse: false }],
+    ['Rounded hours off', { roundHours: false }],
+    ['a search text', { search: 'x' }],
+  ])('counts %s as 1', (_, patch) => {
+    expect(countActiveFilters({ ...base, ...patch })).toBe(1);
+  });
+  it('ignores a whitespace-only search', () => {
+    expect(countActiveFilters({ ...base, search: '   ' })).toBe(0);
+  });
+  it('adds every condition up', () => {
+    expect(countActiveFilters({
+      pipelineFilters: new Set(['SIP']), projectFilters: new Set(['p1']), teamFilters: new Set(['r1']),
+      monthlyPulse: false, roundHours: false, search: 'x',
+    })).toBe(6);
+  });
+});
+
+describe('three-level rows (a → a1 → a1x), characterization', () => {
+  const rows3 = [
+    { id: 'a', parentId: null, label: 'a', sub: '' },
+    { id: 'a1', parentId: 'a', label: 'a1', sub: '' },
+    { id: 'a1x', parentId: 'a1', label: 'a1x', sub: '' },
+    { id: 'b', parentId: null, label: 'b', sub: '' },
+  ];
+  it('collapsing the middle row under a search that forces it open hides only the third level', () => {
+    const open = new Set(), suppressed = new Set();
+    const f = filterRows(rows3, 'a1x');
+    expect(visibleRows(rows3, open, effectiveFilter(f, suppressed)).map(r => r.id)).toEqual(['a', 'a1', 'a1x']);
+    toggleRowState('a1', { open, suppressed, forced: f.forcedOpenIds });
+    expect(visibleRows(rows3, open, effectiveFilter(f, suppressed)).map(r => r.id)).toEqual(['a', 'a1']);
+  });
+});
+
+describe('leafCounts', () => {
+  const r = (id, parentId) => ({ id, parentId });
+  it('counts the leaf descendants of every row that has children, and leaves the leaves out', () => {
+    const m = leafCounts([r('a', null), r('a1', 'a'), r('a1x', 'a1'), r('a1y', 'a1'), r('a2', 'a'), r('b', null)]);
+    expect(m.get('a')).toBe(3);
+    expect(m.get('a1')).toBe(2);
+    expect(m.has('a1x')).toBe(false);
+    expect(m.has('a2')).toBe(false);
+    expect(m.has('b')).toBe(false);
+  });
+  it('equals the direct children in By role', () => {
+    const { rows } = buildRoleRows(roleModel, periods, baseOpts);
+    const m = leafCounts(rows);
+    expect(m.get('role:HWGDEV - Developer')).toBe(2);
+    expect(m.get('role:HWGDEV - Director')).toBe(1);
+  });
+  it('sums, over the depth-0 rows, to the total count in every view', () => {
+    for (const { rows, total } of [
+      buildRoleRows(roleModel, periods, baseOpts),
+      buildProjectRows(projectModel, periods, baseOpts),
+      buildOwnerRows(ownerModel, periods, baseOpts),
+    ]) {
+      const m = leafCounts(rows);
+      expect(rows.filter(x => x.depth === 0).reduce((s, x) => s + (m.get(x.id) ?? 0), 0)).toBe(total.count);
+    }
+  });
+});
+
+describe('miniBar', () => {
+  it('marks empty cells (zero or null hours) with a zero ratio', () => {
+    expect(miniBar([{ h: 0 }, { h: null }])).toEqual([{ kind: 'empty', ratio: 0 }, { kind: 'empty', ratio: 0 }]);
+  });
+  it('scales to the tallest cell and tells past, current and future apart', () => {
+    expect(miniBar([{ h: 5, past: true }, { h: 10, current: true }, { h: 20 }])).toEqual([
+      { kind: 'past', ratio: 0.25 }, { kind: 'current', ratio: 0.5 }, { kind: 'future', ratio: 1 },
+    ]);
+  });
+  it('lets the load win over current and future', () => {
+    const [high, over] = miniBar([{ h: 30, load: 'high' }, { h: 40, load: 'over', current: true }]);
+    expect(high.kind).toBe('high');
+    expect(over.kind).toBe('over');
+  });
+  it('treats a value too small to print as empty, like formatCell', () => {
+    expect(miniBar([{ h: 0.003 }, { h: 10 }])).toEqual([{ kind: 'empty', ratio: 0 }, { kind: 'future', ratio: 1 }]);
+  });
+  it('never divides by zero', () => {
+    const bars = miniBar([{ h: 0 }, { h: 0, past: true }]);
+    expect(bars.every(b => b.ratio === 0)).toBe(true);
+    expect(miniBar([])).toEqual([]);
+  });
+});
+
+describe('defaultPeriodIdx / clampPeriodIdx', () => {
+  const three = [{}, {}, {}];
+  it('defaults to the first current period, else to the first', () => {
+    expect(defaultPeriodIdx([])).toBe(0);
+    expect(defaultPeriodIdx([{}, {}])).toBe(0);
+    expect(defaultPeriodIdx([{}, {}, { isCurrent: true }])).toBe(2);
+  });
+  it('clamps an index into the periods', () => {
+    expect(clampPeriodIdx(5, three)).toBe(2);
+    expect(clampPeriodIdx(-1, three)).toBe(0);
+    expect(clampPeriodIdx(1, three)).toBe(1);
+    expect(clampPeriodIdx(0, [])).toBe(0);
+  });
+});
+
+describe('stepperState', () => {
+  const monthly = [
+    { label: 'Sep 2026', isPast: true },
+    { label: 'Oct 2026', isCurrent: true },
+    { label: 'Nov 2026' },
+  ];
+  it('names a Monthly period and says what its numbers are', () => {
+    expect(stepperState(monthly, 1, 'monthly')).toMatchObject({ label: 'Oct 2026', sub: 'Current month · planned' });
+    expect(stepperState(monthly, 0, 'monthly')).toMatchObject({ label: 'Sep 2026', sub: 'Actuals' });
+    expect(stepperState(monthly, 2, 'monthly')).toMatchObject({ label: 'Nov 2026', sub: 'Planned' });
+  });
+  it('disables Previous on the first period and Next on the last', () => {
+    expect(stepperState(monthly, 0, 'monthly')).toMatchObject({ canPrev: false, canNext: true });
+    expect(stepperState(monthly, 2, 'monthly')).toMatchObject({ canPrev: true, canNext: false });
+  });
+  it('adds the ISO week to a Weekly label', () => {
+    const weekly = [{ dateTitle: '19 Oct – 25 Oct', weekStart: new Date(2026, 9, 19), isCurrent: true }];
+    expect(stepperState(weekly, 0, 'weekly')).toMatchObject({ label: '19 Oct – 25 Oct · W43', sub: 'Current week · planned' });
+  });
+  it('is empty without periods', () => {
+    expect(stepperState([], 0, 'monthly')).toEqual({ label: '', sub: '', canPrev: false, canNext: false });
+  });
+});

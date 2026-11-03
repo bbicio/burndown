@@ -237,14 +237,15 @@ describe('page surface and spacing', () => {
 
 describe('planning toolbar', () => {
   const html = read('planning.html');
-  // since the planning redesign the three actions sit in the page head's .ph-actions
+  // since the planning redesign the actions sit in the page head's .ph-actions
   const start = html.indexOf('<div class="ph-actions">');
   const toolbar = html.slice(start, html.indexOf('</div>', start));
   const buttons = toolbar.split('</button>').slice(0, -1).map(b => b + '</button>');
 
-  it('has three buttons in .ph-actions and no .pl-toolbar-right', () => {
+  it('has four buttons in .ph-actions (Filters only on a smartphone) and no .pl-toolbar-right', () => {
     expect(start).toBeGreaterThan(-1);
-    expect(buttons.length).toBe(3);
+    expect(buttons.length).toBe(4);
+    expect(buttons.find(b => b.includes('Filters'))).toContain('v-if="isPhone"');
     expect(html).not.toContain('pl-toolbar-right');
   });
   it('shows Team assistant to admins only and disables Export while the model is pending or failed', () => {
@@ -293,7 +294,7 @@ describe('planning grid (2026-11-02, planning redesign)', () => {
 
   it('loads controls.css, cg-controls.js and planning.css after style.css', () => {
     expect(at('css/controls.css?v=')).toBeGreaterThan(at('css/style.css?v='));
-    expect(at('css/planning.css?v=1')).toBeGreaterThan(at('css/controls.css?v='));
+    expect(at('css/planning.css?v=2')).toBeGreaterThan(at('css/controls.css?v='));
     expect(html).toContain('js/cg-controls.js?v=');
   });
   it('planning.css uses tokens only', () => {

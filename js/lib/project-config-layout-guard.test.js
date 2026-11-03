@@ -7,7 +7,8 @@ import path from 'node:path';
 import { spreadEvenly, splitState } from './config-form-calc.js';
 
 const root = path.resolve(__dirname, '..', '..');
-const read = f => fs.readFileSync(path.join(root, f), 'utf8');
+// LF-normalised: with core.autocrlf the working copy is CRLF, and the offsets below assume LF
+const read = f => fs.readFileSync(path.join(root, f), 'utf8').replace(/\r\n/g, '\n');
 const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 describe('shared tag rules', () => {

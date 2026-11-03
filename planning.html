@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="css/tokens.css?v=13">
   <link rel="stylesheet" href="css/style.css?v=29">
   <link rel="stylesheet" href="css/controls.css?v=1">
-  <link rel="stylesheet" href="css/planning.css?v=1">
+  <link rel="stylesheet" href="css/planning.css?v=2">
 </head>
 <body class="pp-fullwidth">
 
@@ -46,6 +46,7 @@
         <button v-if="isAdminUser" type="button" class="ph-btn" ref="taOpenBtn" title="Find the best people to allocate to a project" aria-label="Team assistant" @click="taOpen = !taOpen"><ph-icon name="team" :size="14"></ph-icon><span class="pl-btn-text">Team assistant</span></button>
         <button type="button" class="ph-btn pl-load-btn" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon><span class="pl-btn-text">Load XLS</span></button>
         <button type="button" class="ph-btn" aria-label="Export XLS" :disabled="modelPending || !!modelError" @click="exportCurrentView"><ph-icon name="download" :size="14"></ph-icon><span class="pl-btn-text">Export XLS</span></button>
+        <button v-if="isPhone" type="button" class="ph-btn pl-head-filters" data-bs-toggle="offcanvas" data-bs-target="#plFiltersPanel" aria-controls="plFiltersPanel"><ph-icon name="filter" :size="14"></ph-icon><span class="pl-btn-text">Filters</span><span v-if="activeFilterCount" class="pl-count">{{ activeFilterCount }}</span></button>
       </div></div>
     </div>
     <div class="ph-toolbar pl-toolbar">
@@ -56,11 +57,11 @@
           <button type="button" class="pl-seg-btn" :class="{ active: view === 'byproject' }" :aria-pressed="view === 'byproject' ? 'true' : 'false'" @click="view = 'byproject'">By project</button>
           <button type="button" class="pl-seg-btn" :class="{ active: view === 'byowner' }" :aria-pressed="view === 'byowner' ? 'true' : 'false'" @click="view = 'byowner'">By owner</button>
         </div>
-        <div class="pl-seg" role="group" aria-label="Interval">
+        <div v-if="!isPhone" class="pl-seg" role="group" aria-label="Interval">
           <button type="button" class="pl-seg-btn" :class="{ active: interval === 'monthly' }" :aria-pressed="interval === 'monthly' ? 'true' : 'false'" @click="interval = 'monthly'">Monthly</button>
           <button type="button" class="pl-seg-btn" :class="{ active: interval === 'weekly' }" :aria-pressed="interval === 'weekly' ? 'true' : 'false'" @click="interval = 'weekly'">Weekly</button>
         </div>
-        <div class="pl-period" ref="periodBox">
+        <div v-if="!isPhone" class="pl-period" ref="periodBox">
           <div class="pl-period-ctl">
             <button type="button" class="pl-period-arrow" title="Previous month" aria-label="Previous month" :disabled="atLeftLimit" @click="shiftPeriod(-1)"><ph-icon name="chevron-left" :size="14"></ph-icon></button>
             <button type="button" class="pl-period-label" ref="periodLabelBtn" aria-haspopup="dialog" :aria-expanded="periodMenuOpen ? 'true' : 'false'" @click="periodMenuOpen = !periodMenuOpen">{{ periodLabel }} <ph-icon name="chevron-down" :size="14"></ph-icon></button>
@@ -89,7 +90,8 @@
         <teleport to="#plFiltersBody">
           <div class="pl-filters-head">
             <h2 class="pl-filters-title" id="plFiltersTitle">Filters</h2>
-            <button type="button" class="btn btn-ghost btn-icon" data-bs-dismiss="offcanvas" aria-label="Close filters"><ph-icon name="close"></ph-icon></button>
+            <button v-if="!isPhone" type="button" class="btn btn-ghost btn-icon" data-bs-dismiss="offcanvas" aria-label="Close filters"><ph-icon name="close"></ph-icon></button>
+            <button v-else type="button" class="btn btn-ghost pl-sheet-close" data-bs-dismiss="offcanvas" aria-label="Close filters">Close</button>
           </div>
         </teleport>
         <teleport to="#plFiltersBody" :disabled="!isTablet">
@@ -98,7 +100,33 @@
             <input type="search" class="form-control form-control-sm" :aria-label="searchPlaceholder" :placeholder="searchPlaceholder" v-model="search[view]">
           </div>
         </teleport>
-        <button v-if="isTablet" type="button" class="pl-filter-btn" data-bs-toggle="offcanvas" data-bs-target="#plFiltersPanel" aria-controls="plFiltersPanel">
+        <!-- Smartphone only: the sheet carries the interval and the period the toolbar no longer shows. Their order in the sheet comes from CSS order, not from mount order. -->
+        <teleport to="#plFiltersBody" v-if="isPhone">
+          <div class="pl-sheet-section pl-sheet-interval">
+            <span class="pl-toolbar-label">Interval</span>
+            <div class="pl-seg" role="group" aria-label="Interval">
+              <button type="button" class="pl-seg-btn" :class="{ active: interval === 'monthly' }" :aria-pressed="interval === 'monthly' ? 'true' : 'false'" @click="interval = 'monthly'">Monthly</button>
+              <button type="button" class="pl-seg-btn" :class="{ active: interval === 'weekly' }" :aria-pressed="interval === 'weekly' ? 'true' : 'false'" @click="interval = 'weekly'">Weekly</button>
+            </div>
+          </div>
+          <div class="pl-sheet-section pl-sheet-period">
+            <span class="pl-toolbar-label">Period</span>
+            <div class="pl-period-presets">
+              <button type="button" class="pl-filter-btn" @click="applyPreset(3)">3 months</button>
+              <button type="button" class="pl-filter-btn" @click="applyPreset(6)">6 months</button>
+              <button type="button" class="pl-filter-btn" @click="applyPreset(12)">12 months</button>
+              <button type="button" class="pl-filter-btn" @click="applyWholeRange">Whole range</button>
+            </div>
+            <div class="pl-period-range">
+              <div class="pl-period-field"><span class="pl-toolbar-label">From</span>
+                <cg-date-picker mode="month" inline-popover :model-value="fromYm" :min="axisMinYm" :max="toYm" aria-label="From month" @update:model-value="setFrom($event)"></cg-date-picker></div>
+              <div class="pl-period-field"><span class="pl-toolbar-label">To</span>
+                <cg-date-picker mode="month" inline-popover :model-value="toYm" :min="fromYm" :max="axisMaxYm" aria-label="To month" @update:model-value="setTo($event)"></cg-date-picker></div>
+            </div>
+            <button type="button" class="pl-link" :disabled="isDefaultWindow" @click="goToday">Today</button>
+          </div>
+        </teleport>
+        <button v-if="isTablet && !isPhone" type="button" class="pl-filter-btn" data-bs-toggle="offcanvas" data-bs-target="#plFiltersPanel" aria-controls="plFiltersPanel">
           <ph-icon name="filter" :size="14"></ph-icon> Filters <span v-if="activeFilterCount" class="pl-count">{{ activeFilterCount }}</span>
         </button>
       </div>
@@ -168,9 +196,34 @@
           <input class="form-check-input" type="checkbox" role="switch" id="chkRoundHours" v-model="roundHours">
           <label class="form-check-label" for="chkRoundHours">Rounded</label>
         </div>
-        <button v-if="isTablet" type="button" class="ph-btn pl-filters-load" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon> Load XLS</button>
+        <button v-if="isTablet && !isPhone" type="button" class="ph-btn pl-filters-load" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon> Load XLS</button>
+       </teleport>
+       <teleport to="#plFiltersBody" v-if="isPhone">
+        <div class="pl-sheet-foot pl-sheet-legend">
+          <span class="pl-legend-item"><span class="pl-chip pl-chip--past">12h</span> Actuals (past)</span>
+          <span class="pl-legend-item"><span class="pl-chip pl-chip--current">12h</span> {{ interval === 'weekly' ? 'Current week' : 'Current month' }}</span>
+          <span class="pl-legend-item"><span class="pl-chip pl-chip--pulse">~1h</span> Monthly pulse</span>
+          <template v-if="view === 'byowner'">
+            <span class="pl-legend-item"><span class="pl-chip pl-chip--high">110h</span> High load</span>
+            <span class="pl-legend-item"><span class="pl-chip pl-chip--over">140h</span> Over-allocated</span>
+          </template>
+        </div>
+        <details class="pl-sheet-foot pl-sheet-details">
+          <summary>How estimates work</summary>
+          <div class="pl-popover-title">Estimation logic · {{ viewName }}</div>
+          <p v-for="(t, i) in estimatesText" :key="i">{{ t }}</p>
+        </details>
+        <button type="button" class="btn btn-primary w-100 pl-sheet-foot pl-sheet-show" data-bs-dismiss="offcanvas">Show results</button>
        </teleport>
       </div>
+    </div>
+    <div v-if="isPhone && stepper.label" class="pl-stepper" role="group" aria-label="Period">
+      <button type="button" class="pl-stepper-arrow" aria-label="Previous period" :disabled="!stepper.canPrev" @click="stepPeriod(-1)"><ph-icon name="chevron-left" :size="16"></ph-icon></button>
+      <div class="pl-stepper-text" aria-live="polite">
+        <div class="pl-stepper-label">{{ stepper.label }}</div>
+        <div class="pl-stepper-sub" :class="{ 'is-current': stepper.current }">{{ stepper.sub }}</div>
+      </div>
+      <button type="button" class="pl-stepper-arrow" aria-label="Next period" :disabled="!stepper.canNext" @click="stepPeriod(1)"><ph-icon name="chevron-right" :size="16"></ph-icon></button>
     </div>
     <div class="pl-legend">
       <template v-if="!isTablet">
@@ -199,7 +252,7 @@
     <div class="section-card pl-card">
       <div v-if="activeRows.state === 'placeholder'" class="pl-state" v-html="modelPlaceholderHtml()"></div>
       <div v-else-if="activeRows.state === 'empty'" class="pl-state"><div class="alert alert-info mb-0">{{ activeRows.message }}</div></div>
-      <div v-else class="pl-grid-wrap">
+      <div v-else-if="!isPhone" class="pl-grid-wrap">
         <table class="pl-grid">
           <thead>
             <tr>
@@ -271,6 +324,74 @@
           </tfoot>
         </table>
       </div>
+      <div v-else class="pl-cards">
+        <div v-if="!displayRows.length" class="pl-mcard pl-mcard--empty">No rows match “{{ search[view] }}”.</div>
+        <div v-for="g in phoneGroups" :key="g.parent.id" class="pl-mcard" :class="{ 'is-open': hasChildren(g.parent) && isOpen(g.parent.id) }">
+          <div class="pl-mcard-head" :role="hasChildren(g.parent) ? 'button' : null" :tabindex="hasChildren(g.parent) ? 0 : null"
+               :aria-label="hasChildren(g.parent) ? cardHeadLabel(g.parent) : null"
+               :aria-expanded="hasChildren(g.parent) ? (isOpen(g.parent.id) ? 'true' : 'false') : null"
+               @click="hasChildren(g.parent) && toggleRow(g.parent.id)"
+               @keydown.enter.prevent="hasChildren(g.parent) && toggleRow(g.parent.id)" @keydown.space.prevent="hasChildren(g.parent) && toggleRow(g.parent.id)">
+            <div class="pl-mcard-top">
+              <span v-if="g.parent.kind === 'tbd'" class="pl-avatars"><span class="pl-avatar pl-avatar--tbd" aria-hidden="true">?</span></span>
+              <span v-else-if="g.parent.kind === 'person'" class="pl-avatars"><span class="pl-avatar" aria-hidden="true">{{ g.parent.owners[0].initials }}</span></span>
+              <div class="pl-mcard-title">
+                <div class="pl-label-main">
+                  <span class="pl-name">{{ g.parent.label }}</span>
+                  <span v-if="g.parent.inactive" class="pl-pill pl-pill--muted">inactive</span>
+                  <span v-if="g.parent.kind === 'tbd'" class="pl-pill pl-pill--warn">Needs owner</span>
+                  <span v-if="g.parent.kind === 'project' && g.parent.stage" v-html="stagePill(g.parent.stage)"></span>
+                </div>
+                <div class="pl-mcard-sub">{{ assignmentsText(leafCountMap.get(g.parent.id) ?? 0) }} · Sold {{ fmtNum(g.parent.sold) }}</div>
+              </div>
+              <div class="pl-mcard-figure">
+                <span class="pl-mcard-value" :class="phoneCellClass(g.parent)">{{ phoneCellText(g.parent) }}</span>
+                <span class="pl-mcard-plan">{{ fmtNum(g.parent.toPlan) }} to plan</span>
+              </div>
+            </div>
+            <div class="pl-mbar" :class="{ 'pl-mbar--dense': g.parent.cells.length > 26 }" aria-hidden="true">
+              <span v-for="(b, i) in miniBarOf(g.parent.cells)" :key="i" class="pl-mbar-seg" :class="['pl-mbar-seg--' + b.kind, { 'is-selected': i === phonePeriodIdx }]" :style="{ '--pl-ratio': Math.max(0.25, b.ratio) }"></span>
+            </div>
+          </div>
+          <div v-for="c in g.children" :key="c.id" class="pl-mrow" :style="{ '--pl-depth': c.depth - 1 }"
+               :class="{ 'pl-mrow--clickable': hasChildren(c) }" @click="hasChildren(c) && toggleRow(c.id)">
+            <button v-if="hasChildren(c)" type="button" class="pl-chevron" :aria-expanded="isOpen(c.id) ? 'true' : 'false'"
+                    :aria-label="(isOpen(c.id) ? 'Collapse ' : 'Expand ') + c.label" @click.stop="toggleRow(c.id)">
+              <ph-icon :name="isOpen(c.id) ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon>
+            </button>
+            <span v-else-if="c.depth > 1" class="pl-chevron-space" aria-hidden="true"></span>
+            <div class="pl-mrow-text">
+              <div class="pl-label-main">
+                <span class="pl-name">{{ c.label }}</span>
+                <span v-if="c.inactive" class="pl-pill pl-pill--muted">inactive</span>
+                <span v-if="c.kind === 'pair' && c.stage" v-html="stagePill(c.stage)"></span>
+              </div>
+              <div v-if="c.kind === 'roleLeaf' && c.owners.length" class="pl-mrow-sub">
+                <span v-for="(o, i) in c.owners" :key="o.name">{{ o.name }}<span v-if="o.inactive" class="pl-pill pl-pill--muted ms-1">inactive</span>{{ i + 1 === c.owners.length ? '' : ', ' }}</span>
+              </div>
+              <div v-else-if="c.kind === 'project'" class="pl-mrow-sub">
+                <span v-if="c.stage" v-html="stagePill(c.stage)"></span>
+                <span v-if="c.status" v-html="statusPill(c.status)"></span>
+                {{ projectSub(c) }}
+              </div>
+              <div v-else-if="c.sub" class="pl-mrow-sub">{{ c.sub }}</div>
+            </div>
+            <span class="pl-mrow-value" :class="phoneCellClass(c)">{{ phoneCellText(c) }}</span>
+          </div>
+        </div>
+        <div class="pl-mcard pl-mcard--total">
+          <div class="pl-mcard-top">
+            <div class="pl-mcard-title">
+              <div class="pl-mcard-total-label">TOTAL · {{ activeRows.total.count }} ASSIGNMENTS</div>
+              <div class="pl-mcard-sub">{{ fmtNum(activeRows.total.toPlan) }} to plan</div>
+            </div>
+            <span class="pl-mcard-value" :class="phoneCellClass(activeRows.total)">{{ phoneCellText(activeRows.total) }}</span>
+          </div>
+          <div class="pl-mbar" :class="{ 'pl-mbar--dense': activeRows.total.cells.length > 26 }" aria-hidden="true">
+            <span v-for="(b, i) in miniBarOf(activeRows.total.cells)" :key="i" class="pl-mbar-seg" :class="['pl-mbar-seg--' + b.kind, { 'is-selected': i === phonePeriodIdx }]" :style="{ '--pl-ratio': Math.max(0.25, b.ratio) }"></span>
+          </div>
+        </div>
+      </div>
     </div>
     </template>
   </div>
@@ -279,7 +400,8 @@
 <div id="teamAssistantPanel" v-if="isAdminUser" :class="{ open: taOpen }" role="dialog" aria-modal="true" aria-labelledby="taTitle" :aria-hidden="taOpen ? 'false' : 'true'">
   <div class="ta-header">
     <h2 class="ta-title" id="taTitle"><ph-icon name="team" :size="16"></ph-icon> Team assistant</h2>
-    <button type="button" class="btn btn-ghost btn-icon" aria-label="Close Team assistant" @click="taOpen = false"><ph-icon name="close"></ph-icon></button>
+    <button v-if="!isPhone" type="button" class="btn btn-ghost btn-icon" aria-label="Close Team assistant" @click="taOpen = false"><ph-icon name="close"></ph-icon></button>
+    <button v-else type="button" class="btn btn-ghost pl-sheet-close" aria-label="Close Team assistant" @click="taOpen = false">Close</button>
   </div>
   <div class="ta-setup">
     <div class="ta-setup-row">
@@ -316,6 +438,23 @@
         <div v-for="section in taTables[key]" :key="key + section.role" class="ta-role">
           <div class="ta-role-name">{{ section.role }}</div>
           <div v-if="!section.rows.length" class="ta-note">{{ section.note || 'Nobody.' }}</div>
+          <div v-else-if="isPhone" class="ta-pcards">
+            <div v-for="row in section.rows" :key="row.resourceId" class="ta-pcard">
+              <div class="ta-pcard-top">
+                <span class="ta-pcard-name">{{ rowView(row).name }}</span>
+                <span class="ta-pcard-score">Score {{ rowView(row).score }}</span>
+              </div>
+              <div class="ta-pcard-role">{{ rowView(row).role }} · {{ rowView(row).roleHours }} h on role</div>
+              <div class="ta-pcard-kpis">
+                <span>Free {{ row.freeAvg == null ? '—' : Math.round(row.freeAvg) }} h/wk</span>
+                <span>Load {{ rowView(row).load }}</span>
+                <span>{{ rowView(row).onProject }} h on project</span>
+              </div>
+              <div v-if="(row.tags || []).length" class="ta-pcard-tags"><span v-for="t in row.tags" :key="t.value" class="pl-pill pl-pill--muted ta-tag">{{ t.value }} ({{ Math.round(t.hours) }} h)</span></div>
+              <div v-if="rowView(row).flags" class="ta-flags">{{ rowView(row).flags }}</div>
+              <div class="ta-pcard-rationale">{{ rowView(row).rationale }}</div>
+            </div>
+          </div>
           <div v-else class="ta-table-wrap">
             <table class="ta-table">
               <thead><tr>
@@ -386,7 +525,7 @@
 <script defer src="js/roles.js?v=2"></script>
 <script type="module" src="js/lib/planning-calc.js?v=5"></script>
 <script type="module" src="js/lib/planning-model-ui.js?v=1"></script>
-<script type="module" src="js/lib/planning-rows.js?v=1"></script>
+<script type="module" src="js/lib/planning-rows.js?v=2"></script>
 <script type="module" src="js/lib/team-assistant-ui.js?v=3"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
@@ -464,7 +603,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         search: { byrole: '', byproject: '', byowner: '' },
         // rows the search forces open but the user collapsed; all three emptied whenever any search changes
         suppressed: { byrole: new Set(), byproject: new Set(), byowner: new Set() },
-        legendOpen: false, isTablet: false, projectQuery: '', periodMenuOpen: false,
+        legendOpen: false, isTablet: false, isPhone: false, phonePeriodIdx: 0, phoneIdxReset: true, projectQuery: '', periodMenuOpen: false,
         taOpen: false, taProjectId: '', taMessages: [], taInput: '', taBusy: false, taTables: null, taParams: {}, taError: null, taRoles: [],
       };
     },
@@ -764,6 +903,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (this.view === 'byproject') return this.byProjectView;
         return this.byOwnerView;
       },
+      // the period shown by the smartphone cards, with its stepper copy
+      stepper() {
+        const periods = this.activeRows.periods || [];
+        return { ...window.stepperState(periods, this.phonePeriodIdx, this.interval), current: !!periods[this.phonePeriodIdx]?.isCurrent };
+      },
+      // search-independent: "{n} assignments" must not move while the user types
+      leafCountMap() { return window.leafCounts(this.activeRows.rows || []); },
+      // displayRows grouped under their depth-0 row, for the smartphone cards
+      phoneGroups() {
+        const groups = [];
+        for (const r of this.displayRows) {
+          if (r.depth === 0) groups.push({ parent: r, children: [] });
+          else if (groups.length) groups[groups.length - 1].children.push(r);
+        }
+        return groups;
+      },
       parentIds() { return new Set(this.activeRows.rows.map(r => r.parentId).filter(Boolean)); },
       rawSearchFilter() { return filterRows(this.activeRows.rows, this.search[this.view]); },
       searchFilter() { return effectiveFilter(this.rawSearchFilter, this.suppressed[this.view]); },
@@ -779,8 +934,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       // the badge of the tablet "Filters" button: every filter or switch away from its default
       activeFilterCount() {
-        return [this.pipelineFilters.size > 0, this.projectFilters.size > 0, this.teamFilters.size > 0,
-          !this.monthlyPulse, !this.roundHours, !!this.search[this.view].trim()].filter(Boolean).length;
+        return window.countActiveFilters({
+          pipelineFilters: this.pipelineFilters, projectFilters: this.projectFilters, teamFilters: this.teamFilters,
+          monthlyPulse: this.monthlyPulse, roundHours: this.roundHours, search: this.search[this.view],
+        });
       },
       searchPlaceholder() { return { byrole: 'Search role…', byproject: 'Search project or task…', byowner: 'Search person…' }[this.view]; },
       // the Projects popover's own search, local to the list (does not filter the grid)
@@ -887,6 +1044,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         this.windowStart = start; this.windowEnd = end;
         this.clampWindow();
       },
+      stepPeriod(delta) { this.phonePeriodIdx = window.clampPeriodIdx(this.phonePeriodIdx + delta, this.activeRows.periods || []); },
       shiftPeriod(delta) { this.setWindow(shiftWindow({ start: this.windowStart, end: this.windowEnd }, delta, getPpAxis())); },
       applyPreset(months) { this.setWindow(presetWindow(months, new Date())); },
       applyWholeRange() { const { axisStart, axisEnd } = getPpAxis(); this.setWindow({ start: new Date(axisStart), end: new Date(axisEnd) }); },
@@ -1049,6 +1207,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       statusPill(v) { return headerBadge('status', v); },
       fmtNum(v) { return (this.roundHours ? Math.round(v || 0) : (v || 0).toFixed(2)) + 'h'; },
       fmtActuals(v) { return v > 0.005 ? this.fmtNum(v) : '—'; },
+      assignmentsText(n) { return n + (n === 1 ? ' assignment' : ' assignments'); },
+      // the card head is one button: its name must still carry the figures it shows
+      cardHeadLabel(r) {
+        const tags = [r.inactive && 'inactive', r.kind === 'tbd' && 'Needs owner', r.kind === 'project' && r.stage].filter(Boolean);
+        return `${this.isOpen(r.id) ? 'Collapse' : 'Expand'} ${r.label}${tags.length ? ' (' + tags.join(', ') + ')' : ''}, ${this.assignmentsText(this.leafCountMap.get(r.id) ?? 0)}, `
+          + `Sold ${this.fmtNum(r.sold)}, ${this.stepper.label} ${this.phoneCellText(r)}, ${this.fmtNum(r.toPlan)} to plan`;
+      },
+      miniBarOf(cells) { return window.miniBar(cells); },
+      phoneCell(r) { return r.cells[this.phonePeriodIdx] || { h: 0 }; },
+      phoneCellText(r) { return this.cellText(this.phoneCell(r)) || '—'; },
+      phoneCellClass(r) { return this.cellClass(this.phoneCell(r)); },
       cellText(c) { return formatCell(c.h, { pulse: !!c.pulse, round: this.roundHours }); },
       cellClass(c) {
         const shown = c.h > 0.005;
@@ -1111,7 +1280,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       // or modifying js/core.js (out of scope — shared by every page).
       teamFilters: { handler(v) { portfolioTeamFilters = v; }, immediate: true },
       modelRequest() { this.loadModel(); },
-      activeRows(v) { if (v.state === 'ready') this.initOpenIds(this.view, v.rows); },
+      activeRows(v) {
+        if (v.state !== 'ready') return;
+        this.initOpenIds(this.view, v.rows);
+        // smartphone stepper: back to the current period after a new window or interval, else keep it inside the new periods
+        if (this.phoneIdxReset) { this.phonePeriodIdx = window.defaultPeriodIdx(v.periods); this.phoneIdxReset = false; }
+        else this.phonePeriodIdx = window.clampPeriodIdx(this.phonePeriodIdx, v.periods);
+      },
+      windowStart() { this.phoneIdxReset = true; },
+      windowEnd() { this.phoneIdxReset = true; },
+      interval() { this.phoneIdxReset = true; },
       // a new search starts with every matching parent open again
       search: { handler() { Object.values(this.suppressed).forEach(s => s.clear()); }, deep: true },
       // the period menu takes focus when it opens (its first preset)
@@ -1166,6 +1344,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const mq = window.matchMedia('(max-width: 1024px)');
       this.isTablet = mq.matches;
       mq.addEventListener('change', e => { this.isTablet = e.matches; });
+      const mp = window.matchMedia('(max-width: 767.98px)');
+      this.isPhone = mp.matches;
+      mp.addEventListener('change', e => { this.isPhone = e.matches; });
     },
   });
 
