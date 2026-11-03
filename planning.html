@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="css/tokens.css?v=13">
   <link rel="stylesheet" href="css/style.css?v=29">
   <link rel="stylesheet" href="css/controls.css?v=1">
-  <link rel="stylesheet" href="css/planning.css?v=1">
+  <link rel="stylesheet" href="css/planning.css?v=2">
 </head>
 <body class="pp-fullwidth">
 
@@ -46,6 +46,7 @@
         <button v-if="isAdminUser" type="button" class="ph-btn" ref="taOpenBtn" title="Find the best people to allocate to a project" aria-label="Team assistant" @click="taOpen = !taOpen"><ph-icon name="team" :size="14"></ph-icon><span class="pl-btn-text">Team assistant</span></button>
         <button type="button" class="ph-btn pl-load-btn" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon><span class="pl-btn-text">Load XLS</span></button>
         <button type="button" class="ph-btn" aria-label="Export XLS" :disabled="modelPending || !!modelError" @click="exportCurrentView"><ph-icon name="download" :size="14"></ph-icon><span class="pl-btn-text">Export XLS</span></button>
+        <button v-if="isPhone" type="button" class="ph-btn pl-head-filters" data-bs-toggle="offcanvas" data-bs-target="#plFiltersPanel" aria-controls="plFiltersPanel"><ph-icon name="filter" :size="14"></ph-icon><span class="pl-btn-text">Filters</span><span v-if="activeFilterCount" class="pl-count">{{ activeFilterCount }}</span></button>
       </div></div>
     </div>
     <div class="ph-toolbar pl-toolbar">
@@ -56,11 +57,11 @@
           <button type="button" class="pl-seg-btn" :class="{ active: view === 'byproject' }" :aria-pressed="view === 'byproject' ? 'true' : 'false'" @click="view = 'byproject'">By project</button>
           <button type="button" class="pl-seg-btn" :class="{ active: view === 'byowner' }" :aria-pressed="view === 'byowner' ? 'true' : 'false'" @click="view = 'byowner'">By owner</button>
         </div>
-        <div class="pl-seg" role="group" aria-label="Interval">
+        <div v-if="!isPhone" class="pl-seg" role="group" aria-label="Interval">
           <button type="button" class="pl-seg-btn" :class="{ active: interval === 'monthly' }" :aria-pressed="interval === 'monthly' ? 'true' : 'false'" @click="interval = 'monthly'">Monthly</button>
           <button type="button" class="pl-seg-btn" :class="{ active: interval === 'weekly' }" :aria-pressed="interval === 'weekly' ? 'true' : 'false'" @click="interval = 'weekly'">Weekly</button>
         </div>
-        <div class="pl-period" ref="periodBox">
+        <div v-if="!isPhone" class="pl-period" ref="periodBox">
           <div class="pl-period-ctl">
             <button type="button" class="pl-period-arrow" title="Previous month" aria-label="Previous month" :disabled="atLeftLimit" @click="shiftPeriod(-1)"><ph-icon name="chevron-left" :size="14"></ph-icon></button>
             <button type="button" class="pl-period-label" ref="periodLabelBtn" aria-haspopup="dialog" :aria-expanded="periodMenuOpen ? 'true' : 'false'" @click="periodMenuOpen = !periodMenuOpen">{{ periodLabel }} <ph-icon name="chevron-down" :size="14"></ph-icon></button>
@@ -98,7 +99,7 @@
             <input type="search" class="form-control form-control-sm" :aria-label="searchPlaceholder" :placeholder="searchPlaceholder" v-model="search[view]">
           </div>
         </teleport>
-        <button v-if="isTablet" type="button" class="pl-filter-btn" data-bs-toggle="offcanvas" data-bs-target="#plFiltersPanel" aria-controls="plFiltersPanel">
+        <button v-if="isTablet && !isPhone" type="button" class="pl-filter-btn" data-bs-toggle="offcanvas" data-bs-target="#plFiltersPanel" aria-controls="plFiltersPanel">
           <ph-icon name="filter" :size="14"></ph-icon> Filters <span v-if="activeFilterCount" class="pl-count">{{ activeFilterCount }}</span>
         </button>
       </div>
@@ -171,6 +172,14 @@
         <button v-if="isTablet" type="button" class="ph-btn pl-filters-load" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon> Load XLS</button>
        </teleport>
       </div>
+    </div>
+    <div v-if="isPhone && stepper.label" class="pl-stepper" role="group" aria-label="Period">
+      <button type="button" class="pl-stepper-arrow" aria-label="Previous period" :disabled="!stepper.canPrev" @click="stepPeriod(-1)"><ph-icon name="chevron-left" :size="16"></ph-icon></button>
+      <div class="pl-stepper-text" aria-live="polite">
+        <div class="pl-stepper-label">{{ stepper.label }}</div>
+        <div class="pl-stepper-sub" :class="{ 'is-current': stepper.current }">{{ stepper.sub }}</div>
+      </div>
+      <button type="button" class="pl-stepper-arrow" aria-label="Next period" :disabled="!stepper.canNext" @click="stepPeriod(1)"><ph-icon name="chevron-right" :size="16"></ph-icon></button>
     </div>
     <div class="pl-legend">
       <template v-if="!isTablet">
@@ -464,7 +473,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         search: { byrole: '', byproject: '', byowner: '' },
         // rows the search forces open but the user collapsed; all three emptied whenever any search changes
         suppressed: { byrole: new Set(), byproject: new Set(), byowner: new Set() },
-        legendOpen: false, isTablet: false, projectQuery: '', periodMenuOpen: false,
+        legendOpen: false, isTablet: false, isPhone: false, phonePeriodIdx: 0, phoneIdxReset: true, projectQuery: '', periodMenuOpen: false,
         taOpen: false, taProjectId: '', taMessages: [], taInput: '', taBusy: false, taTables: null, taParams: {}, taError: null, taRoles: [],
       };
     },
@@ -764,6 +773,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (this.view === 'byproject') return this.byProjectView;
         return this.byOwnerView;
       },
+      // the period shown by the smartphone cards, with its stepper copy
+      stepper() {
+        const periods = this.activeRows.periods || [];
+        return { ...window.stepperState(periods, this.phonePeriodIdx, this.interval), current: !!periods[this.phonePeriodIdx]?.isCurrent };
+      },
       parentIds() { return new Set(this.activeRows.rows.map(r => r.parentId).filter(Boolean)); },
       rawSearchFilter() { return filterRows(this.activeRows.rows, this.search[this.view]); },
       searchFilter() { return effectiveFilter(this.rawSearchFilter, this.suppressed[this.view]); },
@@ -889,6 +903,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         this.windowStart = start; this.windowEnd = end;
         this.clampWindow();
       },
+      stepPeriod(delta) { this.phonePeriodIdx = window.clampPeriodIdx(this.phonePeriodIdx + delta, this.activeRows.periods || []); },
       shiftPeriod(delta) { this.setWindow(shiftWindow({ start: this.windowStart, end: this.windowEnd }, delta, getPpAxis())); },
       applyPreset(months) { this.setWindow(presetWindow(months, new Date())); },
       applyWholeRange() { const { axisStart, axisEnd } = getPpAxis(); this.setWindow({ start: new Date(axisStart), end: new Date(axisEnd) }); },
@@ -1113,7 +1128,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       // or modifying js/core.js (out of scope — shared by every page).
       teamFilters: { handler(v) { portfolioTeamFilters = v; }, immediate: true },
       modelRequest() { this.loadModel(); },
-      activeRows(v) { if (v.state === 'ready') this.initOpenIds(this.view, v.rows); },
+      activeRows(v) {
+        if (v.state !== 'ready') return;
+        this.initOpenIds(this.view, v.rows);
+        // smartphone stepper: back to the current period after a new window or interval, else keep it inside the new periods
+        if (this.phoneIdxReset) { this.phonePeriodIdx = window.defaultPeriodIdx(v.periods); this.phoneIdxReset = false; }
+        else this.phonePeriodIdx = window.clampPeriodIdx(this.phonePeriodIdx, v.periods);
+      },
+      windowStart() { this.phoneIdxReset = true; },
+      windowEnd() { this.phoneIdxReset = true; },
+      interval() { this.phoneIdxReset = true; },
       // a new search starts with every matching parent open again
       search: { handler() { Object.values(this.suppressed).forEach(s => s.clear()); }, deep: true },
       // the period menu takes focus when it opens (its first preset)
@@ -1168,6 +1192,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const mq = window.matchMedia('(max-width: 1024px)');
       this.isTablet = mq.matches;
       mq.addEventListener('change', e => { this.isTablet = e.matches; });
+      const mp = window.matchMedia('(max-width: 767.98px)');
+      this.isPhone = mp.matches;
+      mp.addEventListener('change', e => { this.isPhone = e.matches; });
     },
   });
 

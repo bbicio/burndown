@@ -235,7 +235,7 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
   font-size: var(--text-2xs); font-weight: var(--weight-semibold);
 }
 
-/* ---- Tablet (1024px and below; below 768px provisional until cycle 2) ---- */
+/* ---- Tablet (1024px and below) ---- */
 @media (max-width: 1024px) {
   .ph-actions .pl-btn-text { display: none; }
   .ph-actions .pl-load-btn { display: none; }
@@ -249,6 +249,35 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
   .pl-toolbar-row { flex-wrap: nowrap; gap: var(--space-2); }
   .pl-seg-btn { padding: var(--space-1) var(--space-2); }
   .pl-period-label { padding: 0 var(--space-2); }
+}
+
+/* ---- Smartphone (below 768px): a consultation page, cards instead of the grid ---- */
+@media (max-width: 767.98px) {
+  .ph-actions .ph-btn { width: 44px; height: 44px; position: relative; }
+  .ph-actions .pl-head-filters { width: auto; padding: 0 var(--space-4); gap: var(--space-2); }
+  .ph-actions .pl-head-filters .pl-btn-text { display: inline; }
+  .pl-legend { display: none; }
+  .pl-toolbar-row { flex-wrap: wrap; }
+  .pl-toolbar-row > .pl-seg { width: 100%; }
+  .pl-toolbar-row > .pl-seg .pl-seg-btn { flex: 1; min-height: 44px; justify-content: center; }
+
+  .pl-stepper {
+    display: flex; align-items: center; gap: var(--space-2);
+    margin: var(--space-3) 0; padding: var(--space-2);
+    background: var(--surface-white); border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-xs);
+  }
+  .pl-stepper-arrow {
+    flex: 0 0 44px; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
+    border: 0; background: transparent; color: var(--text-primary); border-radius: var(--radius-md);
+  }
+  .pl-stepper-arrow:hover:not(:disabled) { background: var(--surface-light); }
+  .pl-stepper-arrow:disabled { color: var(--text-disabled); cursor: not-allowed; }
+  .pl-stepper-arrow:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+  .pl-stepper-text { flex: 1; min-width: 0; text-align: center; }
+  .pl-stepper-label { font-weight: var(--weight-bold); color: var(--text-primary); }
+  .pl-stepper-sub { font-size: var(--text-sm); color: var(--text-muted); }
+  .pl-stepper-sub.is-current { color: var(--indigo-600); }
 }
 
 /* ── Team assistant drawer (over the page, with a backdrop) ── */
