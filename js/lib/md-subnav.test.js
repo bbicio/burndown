@@ -92,4 +92,13 @@ describe('mountMdSubnav', () => {
     sel.dispatchEvent(new Event('change'));
     expect(loc.href).toBe('/master-currencies.html');
   });
+
+  it('puts the select back on the current section when the page is shown again', () => {
+    document.body.innerHTML = '<nav class="md-subnav" data-md-active="pipelines"></nav>';
+    mountMdSubnav(document);
+    const sel = document.querySelector('select.md-subnav-select-input');
+    sel.value = '/master-currencies.html';
+    window.dispatchEvent(new Event('pageshow'));
+    expect(sel.value).toBe('/master-pipelines.html');
+  });
 });

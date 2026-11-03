@@ -3,7 +3,7 @@
 // <nav class="md-subnav" data-md-active="<id>"> as a grouped list (desktop column, tablet tabs)
 // plus a phone selector (native <select> laid over a styled row). Native ES module, bridged onto `window`.
 
-import { iconSvg } from './icons.js';
+import { iconSvg } from './icons.js?v=5';
 
 export const MD_SECTIONS = [
   { group: 'COMMERCIAL', items: [
@@ -47,6 +47,8 @@ export function mountMdSubnav(root = document) {
     nav.innerHTML = mdSubnavHtml(nav.getAttribute('data-md-active'));
     const sel = nav.querySelector('select.md-subnav-select-input');
     sel.addEventListener('change', e => { location.href = e.target.value; });
+    // back from the bfcache the select still holds the section picked before leaving
+    window.addEventListener('pageshow', () => { sel.value = sel.querySelector('option[selected]').value; });
   });
 }
 

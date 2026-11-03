@@ -59,7 +59,7 @@ describe('Master Data sub-menu styles (css/style.css)', () => {
     expect(rule('.md-card-body > .app-container')).toMatch(/--app-pad:\s*0;/);
   });
   it('lays a table card flat and flush inside the content card, without a bottom margin', () => {
-    const flat = rule('.md-card-body .card:has(> .card-body > .table)');
+    const flat = rule('.md-card-body .md-table-card');
     expect(flat).toMatch(/border:\s*0;/);
     expect(flat).toMatch(/border-radius:\s*0;/);
     expect(flat).toMatch(/box-shadow:\s*none;/);
@@ -121,7 +121,7 @@ describe.each(PAGES)('Master Data page: $file', ({ file, active, section, api, m
 
   it('loads the sub-nav module after the icon library', () => {
     const icons = html.indexOf('<script type="module" src="js/lib/icons.js');
-    const subnav = html.indexOf('<script type="module" src="js/lib/md-subnav.js?v=1"></script>');
+    const subnav = html.indexOf('<script type="module" src="js/lib/md-subnav.js?v=2"></script>');
     expect(icons).toBeGreaterThan(-1);
     expect(subnav).toBeGreaterThan(icons);
   });
