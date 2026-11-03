@@ -6,23 +6,55 @@ const read = f => readFileSync(join(process.cwd(), f), 'utf8');
 
 describe('Master Data sub-menu styles (css/style.css)', () => {
   const css = read('css/style.css');
-  it('defines the layout, the menu and the content wrapper', () => {
-    expect(css).toMatch(/\.md-layout\s*\{/);
-    expect(css).toMatch(/\.md-subnav\s*\{/);
-    expect(css).toMatch(/\.md-subnav a\.active\s*\{/);
-    expect(css).toMatch(/\.md-content\s*\{/);
+  const start = css.indexOf('/* ── Master Data sub-navigation');
+  const block = css.slice(start, css.indexOf('/* ── Notification panel', start));
+  const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // the body of the rule for `selector` inside the given media query (up to the next @media)
+  const inMedia = (media, selector) => {
+    const from = block.indexOf(media);
+    expect(from, media).toBeGreaterThan(-1);
+    const next = block.indexOf('@media', from + media.length);
+    const body = block.slice(from, next === -1 ? undefined : next);
+    const hit = body.match(new RegExp('(?:^|[\\s,}])' + reEsc(selector) + '\\s*\\{([^}]*)\\}'));
+    expect(hit, media + ' ' + selector).not.toBeNull();
+    return hit[1];
+  };
+  const DESKTOP = '@media (min-width: 1024px)';
+  const TABLET = '@media (min-width: 768px) and (max-width: 1023.98px)';
+  const PHONE = '@media (max-width: 767.98px)';
+
+  it('defines the layout, the menu, the content wrapper and the card', () => {
+    for (const sel of ['.md-layout', '.md-subnav', '.md-subnav-item.active', '.md-content', '.md-card', '.md-card-title']) {
+      expect(block, sel).toMatch(new RegExp(reEsc(sel) + '\\s*[{,]'));
+    }
   });
-  it('is a column beside the sidebar from 1024px up and a row below', () => {
-    const wide = css.slice(css.indexOf('/* ── Master Data sub-navigation'));
-    expect(wide).toMatch(/@media \(min-width: 1024px\)\s*\{[\s\S]*\.md-subnav[\s\S]*flex-direction:\s*column/);
-  });
-  it('is really sticky from 1024px up: not stretched to the full height of its container', () => {
-    const block = css.slice(css.indexOf('/* ── Master Data sub-navigation'));
-    const wide = block.slice(block.indexOf('@media (min-width: 1024px)'));
-    const subnav = wide.match(/\.md-subnav\s*\{([^}]*)\}/)[1];
+  it('is a really sticky 196px card column from 1024px up, not stretched to the full height', () => {
+    const subnav = inMedia(DESKTOP, '.md-subnav');
     expect(subnav).toMatch(/position:\s*sticky/);
-    expect(subnav).not.toMatch(/align-self:\s*stretch/);
     expect(subnav).toMatch(/align-self:\s*flex-start/);
+    expect(subnav).not.toMatch(/align-self:\s*stretch/);
+    expect(subnav).toMatch(/flex:\s*0 0 196px/);
+    expect(inMedia(DESKTOP, '.md-subnav-select')).toMatch(/display:\s*none/);
+    expect(inMedia(DESKTOP, '.md-subnav-item.active')).toContain('inset 3px 0 0 var(--brand-magenta)');
+  });
+  it('is a scrolling row of tabs without group labels on tablet', () => {
+    const subnav = inMedia(TABLET, '.md-subnav');
+    expect(subnav).toMatch(/overflow-x:\s*auto/);
+    expect(subnav).toMatch(/scrollbar-width:\s*none/);
+    expect(inMedia(TABLET, '.md-subnav-group')).toMatch(/display:\s*none/);
+    expect(inMedia(TABLET, '.md-subnav-item.active')).toContain('inset 0 -3px 0 var(--brand-magenta)');
+  });
+  it('is a 48px section selector over a transparent native select on phone', () => {
+    expect(inMedia(PHONE, '.md-subnav-list')).toMatch(/display:\s*none/);
+    expect(inMedia(PHONE, '.md-subnav-select')).toMatch(/min-height:\s*48px/);
+    expect(inMedia(PHONE, '.md-subnav-select-input')).toMatch(/opacity:\s*0/);
+  });
+  it('draws the card with the card tokens and no hex literal', () => {
+    const card = block.match(/\.md-card\s*\{([^}]*)\}/)[1];
+    expect(card).toContain('var(--card-bg)');
+    expect(card).toContain('var(--card-border)');
+    expect(card).toContain('var(--card-radius)');
+    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 });
 
