@@ -131,15 +131,15 @@ describe('portfolio custom range', () => {
   const html = read('portfolio.html');
   const pickers = html.match(/<cg-date-picker\b[^>]*>/g) || [];
 
-  it('uses two inline-popover day pickers bounded by each other, no native date input', () => {
+  it('uses two inline-popover day pickers (Period menu) plus the same two in the smartphone Period sheet, bounded by each other, no native date input', () => {
     expect(html.includes('type="date"')).toBe(false);
-    expect(pickers.length).toBe(2);
+    expect(pickers.length).toBe(4);
     for (const p of pickers) {
       expect(p).toContain('mode="day"');
       expect(p).toContain('inline-popover');
     }
-    expect(pickers[0]).toContain(':max="filterEnd"');
-    expect(pickers[1]).toContain(':min="filterStart"');
+    for (const i of [0, 2]) expect(pickers[i]).toContain(':max="filterEnd"');
+    for (const i of [1, 3]) expect(pickers[i]).toContain(':min="filterStart"');
     expect(html).toContain(".component('cg-date-picker', window.CgDatePicker)");
   });
 
