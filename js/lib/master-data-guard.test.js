@@ -121,9 +121,15 @@ describe.each(PAGES)('Master Data page: $file', ({ file, active, section, api, m
 
   it('loads the sub-nav module after the icon library', () => {
     const icons = html.indexOf('<script type="module" src="js/lib/icons.js');
-    const subnav = html.indexOf('<script type="module" src="js/lib/md-subnav.js?v=2"></script>');
+    const subnav = html.indexOf('<script type="module" src="js/lib/md-subnav.js?v=3"></script>');
     expect(icons).toBeGreaterThan(-1);
     expect(subnav).toBeGreaterThan(icons);
+  });
+
+  it('loads the same icons.js version that md-subnav.js imports (one module instance)', () => {
+    const tag = html.match(/<script type="module" src="js\/lib\/icons\.js(\?v=\d+)"><\/script>/);
+    const imp = read('js/lib/md-subnav.js').match(/from '\.\/icons\.js(\?v=\d+)'/);
+    expect(tag && imp && imp[1]).toBe(tag && tag[1]);
   });
 
   it('is a Master Data page for the nav (id config, title, three-level breadcrumb)', () => {

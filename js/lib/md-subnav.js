@@ -47,12 +47,19 @@ export function mountMdSubnav(root = document) {
     nav.innerHTML = mdSubnavHtml(nav.getAttribute('data-md-active'));
     const sel = nav.querySelector('select.md-subnav-select-input');
     sel.addEventListener('change', e => { location.href = e.target.value; });
-    // back from the bfcache the select still holds the section picked before leaving
-    window.addEventListener('pageshow', () => { sel.value = sel.querySelector('option[selected]').value; });
+  });
+}
+
+// back from the bfcache a select still holds the section picked before leaving
+function resetMdSubnavSelects() {
+  document.querySelectorAll('select.md-subnav-select-input').forEach(sel => {
+    const opt = [...sel.options].find(o => o.defaultSelected);
+    sel.selectedIndex = opt ? opt.index : -1;
   });
 }
 
 if (typeof window !== 'undefined') {
+  window.addEventListener('pageshow', resetMdSubnavSelects);
   window.MD_SECTIONS = MD_SECTIONS;
   window.mdSubnavHtml = mdSubnavHtml;
   window.mountMdSubnav = mountMdSubnav;

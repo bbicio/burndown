@@ -101,4 +101,12 @@ describe('mountMdSubnav', () => {
     window.dispatchEvent(new Event('pageshow'));
     expect(sel.value).toBe('/master-pipelines.html');
   });
+
+  it('survives pageshow with no current section and does not stack listeners on a remount', () => {
+    document.body.innerHTML = '<nav class="md-subnav" data-md-active="nope"></nav>';
+    mountMdSubnav(document);
+    mountMdSubnav(document);
+    expect(() => window.dispatchEvent(new Event('pageshow'))).not.toThrow();
+    expect(document.querySelectorAll('select.md-subnav-select-input')).toHaveLength(1);
+  });
 });
