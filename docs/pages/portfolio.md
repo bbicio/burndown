@@ -184,3 +184,19 @@ Plan `docs/superpowers/plans/2026-10-19-backlog-quickwins.md`, report `docs/supe
 ## Custom range date pickers (2026-10-24, dates C2)
 
 Spec `docs/superpowers/specs/2026-10-24-dates-c2-datepickers-design.md`, plan `docs/superpowers/plans/2026-10-24-dates-c2-datepickers.md`, report `docs/superpowers/reports/2026-10-26-dates-c2-datepickers-finish-cycle.md`. The Period menu's Custom range uses two `<cg-date-picker mode="day" inline-popover>` on `filterStart`/`filterEnd` (ISO); each update clears `filterMonth`, From is capped by To and To floored by From. The calendar renders inside the dropdown (see the inline mode in [docs/js/cg-controls.md](../js/cg-controls.md)), so picking a day keeps the menu open; `css/portfolio.css` anchors the From calendar to its field's left so it stays inside the menu. The filter logic did not change. The page loads `js/lib/dates.js`, `js/lib/cg-controls-calc.js`, `js/cg-controls.js` and `css/controls.css`.
+
+## Breakdown v2 (2026-11-03)
+
+Spec `docs/superpowers/specs/2026-11-03-breakdown-v2-design.md`, plan `docs/superpowers/plans/2026-11-03-breakdown-v2.md`, boards `docs/superpowers/design/project-reporting/7.4e.jpg` … `7.4j.jpg`.
+
+- One Entries block, the Vue component `pr-entries` (template `#pr-entries-tpl`, outside the mount root), is mounted under every expanded Breakdown row of the three views; its logic is pure in `js/lib/report-entries.js`.
+- By task opens the task's entries with the Role filter; By role opens one role's entries on one task with the Resource filter; By functional area opens an area's tasks, and a task opens the entries its area claims, with the Role filter.
+- `entriesState` replaces `taskDetailState`, keyed `task:<name>`, `role:<role>|<task>`, `area:<index|ungrouped>` and `area:<index|ungrouped>|<task>`. It survives collapsing and changing view, and `showDashboard()` empties it.
+- Without a filter one month is open; with one every matching month is open and closes on its own. A filter and sort never change the main rows or the export.
+- A Period change prunes each filter to the options that remain; a filter left empty returns the block to one open month.
+- Each block's export covers its whole Period, oldest first, as `task_`, `role_` and `area_` files.
+- `areaTaskColumns` and `areaEntryClaims` (`js/lib/project-report-calc.js`) give an area's task columns, which add up to the area row; the area subtitle lists the same columns.
+- The Period and filter menus are Vue popovers (`toggleMenu`, `closeMenu`), closed by a click outside and by Esc; the Bootstrap dropdown is gone.
+- Expandable rows and months are `<button>`s with `aria-expanded` and `aria-controls`; sortable headers are buttons with `aria-sort`.
+- Tablet is `max-width: 1279.98px` (Note on a second line); smartphone is `max-width: 767.98px`, mirrored by `isPhone` (`matchMedia`): card rows, filter, sort and Period as bottom sheets (`#prFilterSheet`, `#prSortSheet`, `#prPeriodSheet`).
+- Icons `filter`, `arrow-up` and `arrow-down` were added to `js/lib/icons.js`.
