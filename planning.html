@@ -391,7 +391,8 @@
 <div id="teamAssistantPanel" v-if="isAdminUser" :class="{ open: taOpen }" role="dialog" aria-modal="true" aria-labelledby="taTitle" :aria-hidden="taOpen ? 'false' : 'true'">
   <div class="ta-header">
     <h2 class="ta-title" id="taTitle"><ph-icon name="team" :size="16"></ph-icon> Team assistant</h2>
-    <button type="button" class="btn btn-ghost btn-icon" aria-label="Close Team assistant" @click="taOpen = false"><ph-icon name="close"></ph-icon></button>
+    <button v-if="!isPhone" type="button" class="btn btn-ghost btn-icon" aria-label="Close Team assistant" @click="taOpen = false"><ph-icon name="close"></ph-icon></button>
+    <button v-else type="button" class="btn btn-ghost pl-sheet-close" aria-label="Close Team assistant" @click="taOpen = false">Close</button>
   </div>
   <div class="ta-setup">
     <div class="ta-setup-row">
@@ -428,6 +429,23 @@
         <div v-for="section in taTables[key]" :key="key + section.role" class="ta-role">
           <div class="ta-role-name">{{ section.role }}</div>
           <div v-if="!section.rows.length" class="ta-note">{{ section.note || 'Nobody.' }}</div>
+          <div v-else-if="isPhone" class="ta-pcards">
+            <div v-for="row in section.rows" :key="row.resourceId" class="ta-pcard">
+              <div class="ta-pcard-top">
+                <span class="ta-pcard-name">{{ rowView(row).name }}</span>
+                <span class="ta-pcard-score">Score {{ rowView(row).score }}</span>
+              </div>
+              <div class="ta-pcard-role">{{ rowView(row).role }} · {{ rowView(row).roleHours }} h on role</div>
+              <div class="ta-pcard-kpis">
+                <span>Free {{ row.freeAvg == null ? '—' : Math.round(row.freeAvg) }} h/wk</span>
+                <span>Load {{ rowView(row).load }}</span>
+                <span>{{ rowView(row).onProject }} h on project</span>
+              </div>
+              <div v-if="(row.tags || []).length" class="ta-pcard-tags"><span v-for="t in row.tags" :key="t.value" class="pl-pill pl-pill--muted ta-tag">{{ t.value }} ({{ Math.round(t.hours) }} h)</span></div>
+              <div v-if="rowView(row).flags" class="ta-flags">{{ rowView(row).flags }}</div>
+              <div class="ta-pcard-rationale">{{ rowView(row).rationale }}</div>
+            </div>
+          </div>
           <div v-else class="ta-table-wrap">
             <table class="ta-table">
               <thead><tr>

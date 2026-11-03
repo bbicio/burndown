@@ -436,3 +436,26 @@ body.pp-fullwidth .app-container { --app-pad: 12px; max-width: 100% !important; 
 .ta-tag { margin: 0 var(--space-1) var(--space-1) 0; }
 .ta-flags { font-size: var(--text-2xs); color: var(--color-danger-text); }
 .ta-rationale { min-width: 220px; white-space: normal; }
+
+/* ---- Smartphone: Team assistant (after its base rules above, so these win) ---- */
+@media (max-width: 767.98px) {
+
+  /* Team assistant: full screen, a card per person */
+  #teamAssistantPanel { width: 100vw; height: 100dvh; border-left: 0; }
+  .pl-ta-backdrop.open { opacity: 0; }
+  .ta-header { position: sticky; top: 0; z-index: 1; }
+  .ta-setup-row { flex-wrap: wrap; }
+  .ta-setup-row .ta-select, .ta-setup-row .btn { width: 100%; max-width: none; min-height: 44px; }
+  .ta-composer .btn, .ta-starter { min-height: 44px; }
+  .ta-pcards { display: flex; flex-direction: column; gap: var(--space-2); }
+  .ta-pcard {
+    display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); min-width: 0;
+    background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs);
+  }
+  .ta-pcard-top { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); }
+  .ta-pcard-name { font-weight: var(--weight-semibold); color: var(--text-primary); overflow-wrap: anywhere; }
+  .ta-pcard-score { flex: 0 0 auto; font-size: var(--text-sm); font-weight: var(--weight-bold); color: var(--indigo-600); }
+  .ta-pcard-role { font-size: var(--text-xs); color: var(--text-muted); }
+  .ta-pcard-kpis { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--text-primary); }
+  .ta-pcard-rationale { font-size: var(--text-xs); color: var(--text-secondary); overflow-wrap: anywhere; }
+}
