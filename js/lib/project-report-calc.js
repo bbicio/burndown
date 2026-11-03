@@ -228,6 +228,41 @@ export function areaOverlap(data, cfg, deps) {
     || reportRows(data, cfg, deps).some(r => claims(r.role, r.task) > 1);
 }
 
+// What an area claims, as a (role, task) predicate: its own entries, or — for 'ungrouped' — whatever
+// no group claims (the same sets areaColumns() uses).
+function areaClaim(cfg, groupIndex) {
+  const groupEntries = (cfg.groups || []).map(normalizeGroupEntries);
+  if (groupIndex === 'ungrouped') return (role, task) => !groupEntries.some(e => entryMatchesRow(e, role, task));
+  return (role, task) => entryMatchesRow(groupEntries[groupIndex], role, task);
+}
+
+// The predicate By area uses to put an entry in an area, for the Entries block inside an area's task.
+export function areaEntryClaims(cfg, groupIndex) {
+  return areaClaim(cfg, groupIndex);
+}
+
+// By area, second level: one column per billable task the area claims a resource or an entry of,
+// counting only what the area claims of that task (a task in two overlapping areas shows each its own
+// roles). Same sums as areaColumn(), so the columns add up to the area row.
+export function areaTaskColumns(data, cfg, filterRange, deps, groupIndex) {
+  const { billableTasks, findRate } = deps;
+  const claim = areaClaim(cfg, groupIndex);
+  const bData = reportRows(data, cfg, deps);
+  const cols = [];
+  for (const task of billableTasks(cfg)) {
+    const taskLower = task.name.toLowerCase();
+    const claims = x => claim(x.role, x.task) && x.task.toLowerCase() === taskLower;
+    const roles = new Set();
+    task.resources.forEach(res => { if (claims({ role: res.role, task: task.name })) roles.add(res.role.toLowerCase()); });
+    const { resources, ...col } = areaColumn(task.name, claims, bData, [task], filterRange, cfg, findRate);
+    bData.forEach(r => { if (claims(r)) roles.add(r.role.toLowerCase()); });
+    if (!resources && !roles.size) continue;
+    const soldKnown = resources > 0;
+    cols.push({ task: task.name, ...col, soldHours: soldKnown ? col.soldHours : null, soldEur: soldKnown ? col.soldEur : null, roles: roles.size, soldKnown });
+  }
+  return cols;
+}
+
 // One area column: `claims({role, task})` selects the resources (with their task name) and the entries.
 // `resources` counts the configured resources claimed; callers strip it from the column.
 function areaColumn(label, claims, bData, bTasks, filterRange, cfg, findRate) {
@@ -257,4 +292,6 @@ window.roleColumns = roleColumns;
 window.areaColumns = areaColumns;
 window.areaTotalColumn = areaTotalColumn;
 window.areaOverlap = areaOverlap;
+window.areaTaskColumns = areaTaskColumns;
+window.areaEntryClaims = areaEntryClaims;
 window.todayIndex = todayIndex;
