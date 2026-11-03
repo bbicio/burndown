@@ -247,7 +247,7 @@ describe('project reporting view — visual fidelity pass (Task 7)', () => {
     expect(dashboardActive).not.toContain('aria-label="breadcrumb"');
   });
   it('hides the Breakdown Remaining column below 1280px, where the sidebar leaves too little width', () => {
-    const m = css.match(/@media \(max-width: 1279px\) \{([\s\S]*?)\n\}/g) || [];
+    const m = css.match(/@media \(max-width: 1279\.98px\) \{([\s\S]*?)\n\}/g) || [];
     expect(m.some(b => /\.pr-bd-remaining\s*\{\s*display:\s*none/.test(b))).toBe(true);
   });
   it('never breaks a KPI figure inside itself; "of …" wraps as a whole', () => {
@@ -430,5 +430,25 @@ describe('Breakdown v2 — By role and By functional area', () => {
   });
   it('opening a task of an area closes the area\'s others', () => {
     expect(html).toContain(`k.startsWith(areaPrefix)) this.entriesState[k].expanded = false`);
+  });
+});
+
+describe('Breakdown v2 — tablet and smartphone', () => {
+  it('has the three bottom sheets as offcanvas-bottom', () => {
+    for (const id of ['prFilterSheet', 'prSortSheet', 'prPeriodSheet']) {
+      expect(html, id).toMatch(new RegExp(`class="offcanvas offcanvas-bottom pr-sheet"[^>]*id="${id}"`));
+    }
+  });
+  it('carries the sheet and phone copy', () => {
+    ['Sort entries', 'Applies inside each month', 'Ascending', 'Descending', 'Reset', 'Apply', 'By area', 'Clear', 'Spent <b>', ' · Remaining <b>']
+      .forEach(t => expect(html, t).toContain(t));
+  });
+  it('uses the same smartphone and tablet thresholds in CSS and matchMedia', () => {
+    expect(css).toContain('max-width: 767.98px');
+    expect(css).toContain('max-width: 1279.98px');
+    expect(html).toContain(`matchMedia('(max-width: 767.98px)')`);
+  });
+  it('removes the matchMedia listener on unmount', () => {
+    expect(html).toContain(`this._phoneMq.removeEventListener('change', this._phoneMqHandler)`);
   });
 });

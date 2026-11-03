@@ -623,13 +623,22 @@
 
 /* The 240px sidebar leaves ~780px of content at a 1024px viewport, so the Remaining column
    goes below 1280px rather than below 1024px (Task 7 fidelity pass). */
-@media (max-width: 1279px) {
+@media (max-width: 1279.98px) {
   .pr-bd-row { grid-template-columns: 24px minmax(0, 1fr) 96px 110px 160px; gap: var(--space-2); }
   .pr-bd-remaining { display: none; }
 }
-@media (max-width: 767px) {
-  .pr-bd-row { grid-template-columns: 20px minmax(0, 1fr) 90px 90px; }
-  .pr-bd-cons, .pr-bd-cons-head { display: none; }
+.pr-bd-phone-line { display: none; }
+@media (max-width: 767.98px) {
+  .pr-bd-header { display: none; }
+  .pr-bd-row { grid-template-columns: 20px minmax(0, 1fr); row-gap: var(--space-1); align-items: start; }
+  .pr-bd-item .pr-bd-num, .pr-bd-subrow .pr-bd-num, .pr-bd-total .pr-bd-num { display: none; }
+  .pr-bd-cons { grid-column: 2; }
+  .pr-bd-phone-line { display: block; grid-column: 2; font-size: var(--text-xs); color: var(--text-muted); }
+  .pr-bd-phone-line b { color: var(--text-primary); font-weight: var(--weight-semibold); }
+  .pr-bd-toggle { min-height: 44px; }
+  .pr-excluded-row .pr-bd-num { grid-column: 2; }
+  .pr-bd-area-task { padding-left: calc(var(--space-2) + 12px); }
+  .pr-entries-nested { padding-left: calc(var(--space-3) + 12px); }
 }
 
 /* Breakdown: task expansion, entries, excluded tasks */
@@ -705,8 +714,61 @@ button.pr-bd-toggle { cursor: pointer; }
 }
 .pr-excluded-row { border-top: 0; min-height: 40px; }
 .pr-excluded-row .pr-bd-title, .pr-excluded-row .pr-bd-h { color: var(--text-muted); font-weight: var(--weight-semibold); }
-@media (max-width: 767px) {
-  .pr-entries { padding-left: var(--space-3); }
-  .pr-entries-month { grid-template-columns: 16px minmax(0, 1fr) 70px 70px; }
-  .pr-entries-amount { display: none; }
+/* Tablet: the Note goes under Date / who / Hours / Amount (boards 7.4h). */
+@media (max-width: 1279.98px) {
+  .pr-entries-table, .pr-entries-table thead, .pr-entries-table tbody { display: block; }
+  .pr-entries-table tr {
+    display: grid; grid-template-columns: 96px minmax(0, 1fr) 72px 104px; column-gap: var(--space-3);
+    grid-template-areas: 'date who hours amount' 'note note note note'; padding: 0 var(--space-3);
+  }
+  .pr-entries-table tbody tr { border-top: 1px solid var(--border-light); padding-top: var(--space-1); padding-bottom: var(--space-1); }
+  .pr-entries-table th, .pr-entries-table td { padding: var(--space-1) 0; border-top: 0; }
+  .pr-entries-table .pr-e-date { grid-area: date; }
+  .pr-entries-table .pr-e-who { grid-area: who; min-width: 0; overflow-wrap: anywhere; }
+  .pr-entries-table .pr-e-hours { grid-area: hours; }
+  .pr-entries-table .pr-e-amount { grid-area: amount; }
+  .pr-entries-table td.pr-e-note { grid-area: note; padding-top: 0; color: var(--text-muted); }
+  .pr-entries-table th.pr-e-note, .pr-entries-table td.pr-e-note--empty { display: none; }
 }
+@media (max-width: 767.98px) {
+  .pr-entries { padding-left: var(--space-3); }
+  .pr-entries-head { flex-wrap: wrap; gap: var(--space-2); }
+  .pr-entries-tools { flex-wrap: wrap; }
+  .pr-entries-month { grid-template-columns: 16px minmax(0, 1fr) 90px 70px; min-height: 44px; }
+  .pr-entries-amount { display: none; }
+  .pr-entries-table thead { display: none; }
+  .pr-entries-table tr { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'date hours' 'who amount' 'note note'; padding: var(--space-2) var(--space-3); }
+  .pr-entries-table .pr-e-hours, .pr-entries-table .pr-e-amount { text-align: right; }
+  .pr-entries--phone .pr-chip { height: 36px; position: relative; }
+  .pr-entries--phone .pr-chip::after { content: ''; position: absolute; inset: -4px 0; }
+  .pr-entries-export-icon { width: 36px; height: 36px; position: relative; }
+  .pr-entries-export-icon::after { content: ''; position: absolute; inset: -4px; }
+  .pr-seg--3 { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; }
+  .pr-seg--3 .pr-seg-btn, .pr-seg--3 > span .pr-seg-btn { min-height: 44px; width: 100%; }
+  .pr-seg--3 > span { display: block; }
+  .pr-period-btn { min-height: 44px; }
+  .pr-toolbar .pr-icon-btn { width: 44px; height: 44px; }
+}
+
+/* Smartphone bottom sheets (style reference: css/pipeline.css .pb-sheet, not imported) */
+.pr-sheet { height: auto; max-height: 85vh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.pr-sheet-head { border-bottom: 1px solid var(--border-light); align-items: flex-start; }
+.pr-sheet-sub { font-size: var(--text-xs); color: var(--text-muted); }
+.pr-sheet-close { border: 0; background: transparent; min-height: 44px; padding: 0 var(--space-2); font-size: var(--text-sm); color: var(--text-secondary); cursor: pointer; }
+.pr-sheet-body { display: flex; flex-direction: column; gap: 0; }
+.pr-sheet-label { font-size: var(--text-2xs); font-weight: var(--weight-semibold); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); padding: var(--space-3) 0 var(--space-1); }
+.pr-sheet-row {
+  display: flex; align-items: center; gap: var(--space-3); min-height: 48px; padding: 0 var(--space-1);
+  border: 0; border-bottom: 1px solid var(--border-light); background: transparent; width: 100%; text-align: left;
+  font-size: var(--text-sm); color: var(--text-primary); cursor: pointer;
+}
+.pr-sheet-row-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.pr-sheet-row-meta { font-size: var(--text-xs); color: var(--text-muted); }
+.pr-sheet-pick.active { font-weight: var(--weight-semibold); background: var(--surface-subtle); }
+.pr-sheet-row input { width: 20px; height: 20px; flex-shrink: 0; }
+.pr-sheet-foot { display: flex; gap: var(--space-2); padding: var(--space-3); border-top: 1px solid var(--border-light); }
+.pr-sheet-apply, .pr-sheet-secondary {
+  flex: 1; min-height: 48px; border-radius: var(--radius-md); font-size: var(--text-md); font-weight: var(--weight-semibold); cursor: pointer;
+}
+.pr-sheet-apply { border: 0; background: var(--brand-navy); color: var(--surface-white); }
+.pr-sheet-secondary { border: 1px solid var(--border-light); background: var(--surface-white); color: var(--text-primary); }

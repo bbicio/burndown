@@ -526,19 +526,19 @@
         <div class="pr-card-head">
           <div class="pr-card-title-row">
             <span class="pr-card-title">Breakdown</span>
-            <div class="pr-seg">
+            <div class="pr-seg pr-seg--3">
               <button type="button" class="pr-seg-btn" :class="{ active: breakdownView === 'task' }" @click="breakdownView = 'task'">By task</button>
               <button type="button" class="pr-seg-btn" :class="{ active: breakdownView === 'role' }" @click="breakdownView = 'role'">By role</button>
               <span :title="dashboardProject.groups?.length ? '' : 'No functional areas configured'">
-                <button type="button" class="pr-seg-btn" :class="{ active: breakdownView === 'area' }" :disabled="!dashboardProject.groups?.length" @click="breakdownView = 'area'">By functional area</button>
+                <button type="button" class="pr-seg-btn" :class="{ active: breakdownView === 'area' }" :disabled="!dashboardProject.groups?.length" @click="breakdownView = 'area'">{{ isPhone ? 'By area' : 'By functional area' }}</button>
               </span>
             </div>
           </div>
           <div class="pr-toolbar">
             <button type="button" class="pr-icon-btn" title="Export XLS" @click="exportBreakdownXls"><ph-icon name="download" :size="14"></ph-icon></button>
             <div class="pr-menu-wrap">
-              <button type="button" class="pr-chip pr-period-btn" :class="{ 'pr-period-active': filterHasFilter }" data-menu-btn="period" aria-haspopup="true" :aria-expanded="openMenu === 'period' ? 'true' : 'false'" @click="toggleMenu('period', $event.currentTarget)">
-                <ph-icon name="calendar" :size="14"></ph-icon>Period: <span class="pr-chip-value">{{ periodLabel }}</span><ph-icon name="chevron-down" :size="12"></ph-icon>
+              <button type="button" class="pr-chip pr-period-btn" :class="{ 'pr-period-active': filterHasFilter }" data-menu-btn="period" aria-haspopup="true" :aria-expanded="openMenu === 'period' ? 'true' : 'false'" @click="onPeriodClick($event)">
+                <ph-icon name="calendar" :size="14"></ph-icon><template v-if="!isPhone">Period: </template><span class="pr-chip-value">{{ periodLabel }}</span><ph-icon name="chevron-down" :size="12"></ph-icon>
               </button>
               <div v-if="openMenu === 'period'" class="pr-period-menu" data-menu="period">
                 <a href="#" class="pr-period-item" :class="{ active: !filterHasFilter }" @click.prevent="pickPeriod('')">
@@ -587,6 +587,7 @@
                 <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + it.row.barState"><div class="pf-spent-bar-fill" :style="{ width: (it.row.overSold ? 100 : Math.min(100, it.row.pct || 0)) + '%' }"></div></div>
                 <span class="pr-bd-pct" :class="'pr-pct-' + it.row.barState">{{ it.row.pct !== null ? it.row.pct + '%' : '—' }}</span>
               </div>
+              <div class="pr-bd-phone-line">Spent <b>{{ fmtH(it.row.spentHours) }}</b> of {{ it.row.soldKnown ? fmtH(it.row.soldHours) : '—' }} · Remaining <b>{{ it.row.soldKnown ? fmtH(it.row.remainingHours) : '—' }}</b></div>
             </div>
 
             <div v-else-if="it.kind === 'area-task'" class="pr-bd-row pr-bd-subrow pr-bd-area-task pr-bd-clickable" :class="{ 'pr-bd-over': it.row.overSold }">
@@ -604,6 +605,7 @@
                 <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + it.row.barState"><div class="pf-spent-bar-fill" :style="{ width: (it.row.overSold ? 100 : Math.min(100, it.row.pct || 0)) + '%' }"></div></div>
                 <span class="pr-bd-pct" :class="'pr-pct-' + it.row.barState">{{ it.row.pct !== null ? it.row.pct + '%' : '—' }}</span>
               </div>
+              <div class="pr-bd-phone-line">Spent <b>{{ fmtH(it.row.spentHours) }}</b> of {{ it.row.soldKnown ? fmtH(it.row.soldHours) : '—' }} · Remaining <b>{{ it.row.soldKnown ? fmtH(it.row.remainingHours) : '—' }}</b></div>
             </div>
 
             <div v-else-if="it.kind === 'total'" class="pr-bd-row pr-bd-total">
@@ -616,6 +618,7 @@
                 <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + breakdown.total.barState"><div class="pf-spent-bar-fill" :style="{ width: (breakdown.total.overSold ? 100 : Math.min(100, breakdown.total.pct || 0)) + '%' }"></div></div>
                 <span class="pr-bd-pct" :class="'pr-pct-' + breakdown.total.barState">{{ breakdown.total.pct !== null ? breakdown.total.pct + '%' : '—' }}</span>
               </div>
+              <div class="pr-bd-phone-line">Spent <b>{{ fmtH(breakdown.total.spentHours) }}</b> of {{ breakdown.total.soldKnown ? fmtH(breakdown.total.soldHours) : '—' }} · Remaining <b>{{ breakdown.total.soldKnown ? fmtH(breakdown.total.remainingHours) : '—' }}</b></div>
             </div>
 
             <div v-else-if="it.kind === 'excluded-head'" class="pr-excluded-head">Excluded from report</div>
@@ -644,14 +647,69 @@
                     <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + sr.barState"><div class="pf-spent-bar-fill" :style="{ width: (sr.overSold ? 100 : Math.min(100, sr.pct || 0)) + '%' }"></div></div>
                     <span class="pr-bd-pct" :class="'pr-pct-' + sr.barState">{{ sr.pct !== null ? sr.pct + '%' : '—' }}</span>
                   </div>
+                  <div class="pr-bd-phone-line">Spent <b>{{ fmtH(sr.spentHours) }}</b> of {{ sr.soldKnown ? fmtH(sr.soldHours) : '—' }} · Remaining <b>{{ sr.soldKnown ? fmtH(sr.remainingHours) : '—' }}</b></div>
                 </div>
               </template>
-              <pr-entries :id="blockDomId(it.blockKey)" :class="{ 'pr-entries-nested': it.kind === 'area-task' }" :block-key="it.blockKey" :entries="blockEntries(it.blockKey)" :rate-for="blockRate(it.blockKey)" :filter-kind="blockFilterKind(it.blockKey)" :state="blockState(it.blockKey)" :period-label="periodLabel" :currency="dashCurrency" :currencies="currencies" :is-phone="false" :menu-open="openMenu === 'filter:' + it.blockKey" @toggle-menu="toggleMenu('filter:' + it.blockKey, $event)" @export="exportBlock(it.blockKey)"></pr-entries>
+              <pr-entries :id="blockDomId(it.blockKey)" :class="{ 'pr-entries-nested': it.kind === 'area-task' }" :block-key="it.blockKey" :entries="blockEntries(it.blockKey)" :rate-for="blockRate(it.blockKey)" :filter-kind="blockFilterKind(it.blockKey)" :state="blockState(it.blockKey)" :period-label="periodLabel" :currency="dashCurrency" :currencies="currencies" :is-phone="isPhone" :menu-open="openMenu === 'filter:' + it.blockKey" @toggle-menu="toggleMenu('filter:' + it.blockKey, $event)" @open-sheet="openSheet($event, it.blockKey)" @export="exportBlock(it.blockKey)"></pr-entries>
             </template>
           </template>
         </div>
         <p v-if="breakdownView === 'area' && breakdownAreaOverlap" class="pr-bd-note">Some roles belong to more than one area: their hours count in each area and once in the Total.</p>
       </div><!-- /pr-breakdown -->
+
+      <div class="offcanvas offcanvas-bottom pr-sheet" tabindex="-1" id="prFilterSheet" aria-labelledby="prFilterSheetTitle">
+        <div class="offcanvas-header pr-sheet-head">
+          <div>
+            <h6 class="offcanvas-title" id="prFilterSheetTitle">{{ sheet.filterKind === 'resource' ? 'Filter by resource' : 'Filter by role' }}</h6>
+            <div class="pr-sheet-sub">{{ sheet.filterKind === 'resource' ? 'Resources' : 'Roles' }} with entries in {{ periodLabel }}</div>
+          </div>
+          <button type="button" class="pr-sheet-close" data-bs-dismiss="offcanvas">Close</button>
+        </div>
+        <div class="offcanvas-body pr-sheet-body">
+          <label v-for="o in sheetOptions" :key="o.value" class="pr-sheet-row"><input type="checkbox" :checked="sheet.draftFilter.includes(o.value)" @change="toggleDraft(o.value)"><span class="pr-sheet-row-name">{{ o.value || '—' }}</span><span class="pr-sheet-row-meta">{{ fmtH(o.hours) }}</span></label>
+        </div>
+        <div class="pr-sheet-foot">
+          <button type="button" class="pr-sheet-secondary" @click="resetSheet">Clear</button>
+          <button type="button" class="pr-sheet-apply" @click="applySheet">Apply</button>
+        </div>
+      </div>
+
+      <div class="offcanvas offcanvas-bottom pr-sheet" tabindex="-1" id="prSortSheet" aria-labelledby="prSortSheetTitle">
+        <div class="offcanvas-header pr-sheet-head">
+          <div>
+            <h6 class="offcanvas-title" id="prSortSheetTitle">Sort entries</h6>
+            <div class="pr-sheet-sub">Applies inside each month</div>
+          </div>
+          <button type="button" class="pr-sheet-close" data-bs-dismiss="offcanvas">Close</button>
+        </div>
+        <div class="offcanvas-body pr-sheet-body">
+          <label v-for="f in [['date', 'Date'], ['who', sheet.filterKind === 'resource' ? 'Resource' : 'Role (resource)'], ['hours', 'Hours'], ['amount', 'Amount']]" :key="f[0]" class="pr-sheet-row"><input type="radio" name="prSortField" :value="f[0]" v-model="sheet.draftSort.key"><span class="pr-sheet-row-name">{{ f[1] }}</span></label>
+          <div class="pr-sheet-label">Direction</div>
+          <label class="pr-sheet-row"><input type="radio" name="prSortDir" value="asc" v-model="sheet.draftSort.dir"><span class="pr-sheet-row-name">Ascending</span></label>
+          <label class="pr-sheet-row"><input type="radio" name="prSortDir" value="desc" v-model="sheet.draftSort.dir"><span class="pr-sheet-row-name">Descending</span></label>
+        </div>
+        <div class="pr-sheet-foot">
+          <button type="button" class="pr-sheet-secondary" @click="resetSheet">Reset</button>
+          <button type="button" class="pr-sheet-apply" @click="applySheet">Apply</button>
+        </div>
+      </div>
+
+      <div class="offcanvas offcanvas-bottom pr-sheet" tabindex="-1" id="prPeriodSheet" aria-labelledby="prPeriodSheetTitle">
+        <div class="offcanvas-header pr-sheet-head">
+          <h6 class="offcanvas-title" id="prPeriodSheetTitle">Period</h6>
+          <button type="button" class="pr-sheet-close" data-bs-dismiss="offcanvas">Close</button>
+        </div>
+        <div class="offcanvas-body pr-sheet-body">
+          <button type="button" class="pr-sheet-row pr-sheet-pick" :class="{ active: !filterHasFilter }" @click="pickPeriod('')"><span class="pr-sheet-row-name">Whole project</span><span class="pr-sheet-row-meta">{{ wholeProjectRange }}</span></button>
+          <button v-for="ym in periodMonths" :key="ym" type="button" class="pr-sheet-row pr-sheet-pick" :class="{ active: filterMonth === ym }" @click="pickPeriod(ym)"><span class="pr-sheet-row-name">{{ monthLabelLong(ym) }}</span><span class="pr-sheet-row-meta">{{ fmtH(periodHours[ym] || 0) }}</span></button>
+          <div class="pr-sheet-label">Custom range</div>
+          <div class="pr-period-custom-row">
+            <cg-date-picker mode="day" inline-popover :model-value="filterStart" :max="filterEnd" aria-label="From" @update:model-value="v => { filterStart = v; filterMonth = ''; }"></cg-date-picker>
+            <span>–</span>
+            <cg-date-picker mode="day" inline-popover :model-value="filterEnd" :min="filterStart" aria-label="To" @update:model-value="v => { filterEnd = v; filterMonth = ''; }"></cg-date-picker>
+          </div>
+        </div>
+      </div>
     </div>
 
   </template>
@@ -659,7 +717,7 @@
 </div>
 
 <template id="pr-entries-tpl">
-  <div class="pr-entries">
+  <div class="pr-entries" :class="{ 'pr-entries--phone': isPhone }">
     <div class="pr-entries-head">
       <span>Entries · {{ state.filter.length ? block.shown + ' of ' + block.total : block.shown }}</span>
       <div class="pr-entries-tools">
@@ -674,8 +732,10 @@
             <div class="pr-filter-note">{{ filterNote }}</div>
           </div>
         </div>
+        <button v-if="isPhone && entries.length" type="button" class="pr-chip pr-sort-chip" @click="$emit('open-sheet', 'sort')">Sort: {{ sortLabel }}<ph-icon :name="state.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :size="12"></ph-icon></button>
         <a v-if="state.filter.length" href="#" class="pr-entries-export" @click.prevent="clearFilter">Clear</a>
-        <a v-if="entries.length" href="#" class="pr-entries-export" @click.prevent="$emit('export')">Export XLS</a>
+        <a v-if="entries.length && !isPhone" href="#" class="pr-entries-export" @click.prevent="$emit('export')">Export XLS</a>
+        <button v-if="entries.length && isPhone" type="button" class="pr-icon-btn pr-entries-export-icon" aria-label="Export XLS" @click="$emit('export')"><ph-icon name="download" :size="16"></ph-icon></button>
       </div>
     </div>
     <div v-if="!entries.length" class="pr-entries-empty">No entries in the selected period.</div>
@@ -692,20 +752,20 @@
         <table v-if="m.open" :id="monthId(m)" class="pr-entries-table">
           <thead>
             <tr>
-              <th :aria-sort="ariaSort('date')"><button type="button" class="pr-sort-btn" :class="{ active: state.sort.key === 'date' }" @click="sortBy('date')">Date<ph-icon v-if="state.sort.key === 'date'" :name="state.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :size="12"></ph-icon></button></th>
-              <th :aria-sort="ariaSort('who')"><button type="button" class="pr-sort-btn" :class="{ active: state.sort.key === 'who' }" @click="sortBy('who')">{{ whoLabel }}<ph-icon v-if="state.sort.key === 'who'" :name="state.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :size="12"></ph-icon></button></th>
-              <th class="text-end" :aria-sort="ariaSort('hours')"><button type="button" class="pr-sort-btn" :class="{ active: state.sort.key === 'hours' }" @click="sortBy('hours')">Hours<ph-icon v-if="state.sort.key === 'hours'" :name="state.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :size="12"></ph-icon></button></th>
-              <th class="text-end" :aria-sort="ariaSort('amount')"><button type="button" class="pr-sort-btn" :class="{ active: state.sort.key === 'amount' }" @click="sortBy('amount')">Amount<ph-icon v-if="state.sort.key === 'amount'" :name="state.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :size="12"></ph-icon></button></th>
-              <th>Note</th>
+              <th class="pr-e-date" :aria-sort="ariaSort('date')"><button type="button" class="pr-sort-btn" :class="{ active: state.sort.key === 'date' }" @click="sortBy('date')">Date<ph-icon v-if="state.sort.key === 'date'" :name="state.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :size="12"></ph-icon></button></th>
+              <th class="pr-e-who" :aria-sort="ariaSort('who')"><button type="button" class="pr-sort-btn" :class="{ active: state.sort.key === 'who' }" @click="sortBy('who')">{{ whoLabel }}<ph-icon v-if="state.sort.key === 'who'" :name="state.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :size="12"></ph-icon></button></th>
+              <th class="text-end pr-e-hours" :aria-sort="ariaSort('hours')"><button type="button" class="pr-sort-btn" :class="{ active: state.sort.key === 'hours' }" @click="sortBy('hours')">Hours<ph-icon v-if="state.sort.key === 'hours'" :name="state.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :size="12"></ph-icon></button></th>
+              <th class="text-end pr-e-amount" :aria-sort="ariaSort('amount')"><button type="button" class="pr-sort-btn" :class="{ active: state.sort.key === 'amount' }" @click="sortBy('amount')">Amount<ph-icon v-if="state.sort.key === 'amount'" :name="state.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :size="12"></ph-icon></button></th>
+              <th class="pr-e-note">Note</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(e, i) in m.rows" :key="i">
-              <td>{{ fmtDate(e.date) }}</td>
-              <td>{{ whoText(e) }}</td>
-              <td class="text-end pr-entries-h">{{ fmtH(e.hours) }}</td>
-              <td class="text-end pr-entries-a">{{ e.amount === null ? '—' : money(e.amount) }}</td>
-              <td>{{ e.notes || '—' }}</td>
+              <td class="pr-e-date">{{ fmtDate(e.date) }}</td>
+              <td class="pr-e-who">{{ whoText(e) }}</td>
+              <td class="text-end pr-entries-h pr-e-hours">{{ fmtH(e.hours) }}</td>
+              <td class="text-end pr-entries-a pr-e-amount">{{ e.amount === null ? '—' : money(e.amount) }}</td>
+              <td class="pr-e-note" :class="{ 'pr-e-note--empty': !e.notes }">{{ e.notes || '—' }}</td>
             </tr>
           </tbody>
         </table>
@@ -790,6 +850,7 @@
       chipLabel() { return filterChipLabel(this.state.filter, this.filterKind); },
       filterTitle() { return this.filterKind === 'resource' ? 'Filter by resource' : 'Filter by role'; },
       filterNote() { return (this.filterKind === 'resource' ? 'Resources' : 'Roles') + ' with entries in ' + this.periodLabel; },
+      sortLabel() { return { date: 'Date', who: this.filterKind === 'resource' ? 'Resource' : 'Role', hours: 'Hours', amount: 'Amount' }[this.state.sort.key]; },
       whoLabel() { return this.filterKind === 'resource' ? 'Resource' : 'Role (resource)'; },
     },
     watch: {
@@ -882,6 +943,8 @@
         filterStart: '',
         filterEnd: '',
         switchMenuOpen: false,
+        isPhone: false, // matchMedia('(max-width: 767.98px)'), see mounted()
+        sheet: { kind: null, blockKey: null, filterKind: 'role', draftFilter: [], draftSort: { key: 'date', dir: 'desc' } }, // the open bottom sheet (openSheet) and its draft
         openMenu: null, // null | 'period' | 'filter:<blockKey>' — the Breakdown's popover menus (toggleMenu/closeMenu)
         entriesState: {}, // { [blockKey]: { expanded, openMonth, closedMonths, filter, sort } } — Breakdown row expansion and its Entries block (blockState)
         notice: '',
@@ -1320,6 +1383,9 @@
         }
         return items;
       },
+      sheetOptions() {
+        return this.sheet.blockKey ? filterOptions(this.blockEntries(this.sheet.blockKey), this.sheet.filterKind) : [];
+      },
       taskDetailByName() {
         const map = {};
         this.taskDetailData.forEach(e => { map[e.task.name] = e; });
@@ -1432,9 +1498,14 @@
     },
     mounted() {
       this.attachCardGridObserver();
+      this._phoneMq = window.matchMedia('(max-width: 767.98px)');
+      this.isPhone = this._phoneMq.matches;
+      this._phoneMqHandler = e => { this.isPhone = e.matches; this.closeMenu(false); if (!e.matches) this.hideSheet(); };
+      this._phoneMq.addEventListener('change', this._phoneMqHandler);
     },
     beforeUnmount() {
       this.removeMenuListeners();
+      if (this._phoneMq) this._phoneMq.removeEventListener('change', this._phoneMqHandler);
       if (this._cardGridObserver) { this._cardGridObserver.disconnect(); this._cardGridObserver = null; }
     },
     methods: {
@@ -1586,6 +1657,51 @@
       pickPeriod(ym) {
         this.filterMonth = ym; this.filterStart = ''; this.filterEnd = '';
         this.closeMenu();
+        this.hideSheet();
+      },
+      onPeriodClick(ev) {
+        if (this.isPhone) this.openSheet('period');
+        else this.toggleMenu('period', ev.currentTarget);
+      },
+      // Smartphone bottom sheets (offcanvas), one per kind, bound to the block that opened them. Filter and sort
+      // edit a draft that Apply copies into the block's state; the Period sheet applies directly.
+      openSheet(kind, blockKey) {
+        this.closeMenu(false);
+        if (kind === 'period') {
+          this.sheet = { kind, blockKey: null, filterKind: 'role', draftFilter: [], draftSort: defaultSort() };
+        } else {
+          const st = this.blockState(blockKey);
+          this.sheet = { kind, blockKey, filterKind: this.blockFilterKind(blockKey), draftFilter: [...st.filter], draftSort: { ...st.sort } };
+        }
+        const id = kind === 'filter' ? 'prFilterSheet' : kind === 'sort' ? 'prSortSheet' : 'prPeriodSheet';
+        this.$nextTick(() => window.bootstrap.Offcanvas.getOrCreateInstance(document.getElementById(id)).show());
+      },
+      hideSheet() {
+        ['prFilterSheet', 'prSortSheet', 'prPeriodSheet'].forEach(id => {
+          const el = document.getElementById(id);
+          const inst = el && window.bootstrap ? window.bootstrap.Offcanvas.getInstance(el) : null;
+          if (inst) inst.hide();
+        });
+      },
+      toggleDraft(v) {
+        const f = this.sheet.draftFilter;
+        this.sheet.draftFilter = f.includes(v) ? f.filter(x => x !== v) : [...f, v];
+      },
+      applySheet() {
+        const sh = this.sheet, st = this.blockState(sh.blockKey);
+        if (sh.kind === 'filter') {
+          const had = st.filter.length > 0;
+          st.filter = [...sh.draftFilter];
+          if (had !== st.filter.length > 0) { st.closedMonths = []; st.openMonth = null; }
+        } else {
+          st.sort = { ...sh.draftSort };
+        }
+        this.hideSheet();
+      },
+      // "Clear" in the filter sheet, "Reset" in the sort sheet: back to the defaults, still a draft until Apply.
+      resetSheet() {
+        if (this.sheet.kind === 'filter') this.sheet.draftFilter = [];
+        else this.sheet.draftSort = defaultSort();
       },
       // Popover menus: one open at a time, closed by a click outside it and by Esc (focus goes back to
       // its button). The custom-range pickers live inside the menu's DOM, so a click in them is inside.
