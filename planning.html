@@ -328,7 +328,7 @@
         <div v-if="!displayRows.length" class="pl-mcard pl-mcard--empty">No rows match “{{ search[view] }}”.</div>
         <div v-for="g in phoneGroups" :key="g.parent.id" class="pl-mcard" :class="{ 'is-open': hasChildren(g.parent) && isOpen(g.parent.id) }">
           <div class="pl-mcard-head" :role="hasChildren(g.parent) ? 'button' : null" :tabindex="hasChildren(g.parent) ? 0 : null"
-               :aria-label="hasChildren(g.parent) ? (isOpen(g.parent.id) ? 'Collapse ' : 'Expand ') + g.parent.label : null"
+               :aria-label="hasChildren(g.parent) ? cardHeadLabel(g.parent) : null"
                :aria-expanded="hasChildren(g.parent) ? (isOpen(g.parent.id) ? 'true' : 'false') : null"
                @click="hasChildren(g.parent) && toggleRow(g.parent.id)"
                @keydown.enter.prevent="hasChildren(g.parent) && toggleRow(g.parent.id)" @keydown.space.prevent="hasChildren(g.parent) && toggleRow(g.parent.id)">
@@ -1208,6 +1208,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       fmtNum(v) { return (this.roundHours ? Math.round(v || 0) : (v || 0).toFixed(2)) + 'h'; },
       fmtActuals(v) { return v > 0.005 ? this.fmtNum(v) : '—'; },
       assignmentsText(n) { return n + (n === 1 ? ' assignment' : ' assignments'); },
+      // the card head is one button: its name must still carry the figures it shows
+      cardHeadLabel(r) {
+        return `${this.isOpen(r.id) ? 'Collapse' : 'Expand'} ${r.label}, ${this.assignmentsText(this.leafCountMap.get(r.id) ?? 0)}, `
+          + `Sold ${this.fmtNum(r.sold)}, ${this.stepper.label} ${this.phoneCellText(r)}, ${this.fmtNum(r.toPlan)} to plan`;
+      },
       miniBarOf(cells) { return window.miniBar(cells); },
       phoneCell(r) { return r.cells[this.phonePeriodIdx] || { h: 0 }; },
       phoneCellText(r) { return this.cellText(this.phoneCell(r)) || '—'; },
