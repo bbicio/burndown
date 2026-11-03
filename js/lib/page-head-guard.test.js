@@ -4,11 +4,8 @@ import { join } from 'node:path';
 
 const read = f => readFileSync(join(process.cwd(), f), 'utf8');
 
-// Master Data pages: out of this cycle (Spec section 10), permanent here.
-const EXCLUDED = new Set([
-  'master-clients.html', 'master-client-groups.html', 'master-pipelines.html',
-  'master-roles.html', 'master-currencies.html',
-]);
+// Pages exempt from the shared page head; empty since the Master Data shell.
+const EXCLUDED = new Set([]);
 // Pages not yet moved to the shared page head; Tasks 4-9 remove entries, Task 10 empties it.
 const PENDING = new Set([]);
 
@@ -26,7 +23,8 @@ const FORBIDDEN = {
   '.pg-title': ['program.html'], '.pg-label': ['program.html'],
   '.cg-header': ['costgrid.html'], '.cg-header-name': ['costgrid.html'],
   '.cg-back-link': ['costgrid.html'],
-  '.page-header': ['admin.html', 'team.html', 'attribute-lists.html', 'profile-jobs.html', 'settings.html', 'timesheets.html'],
+  '.page-header': ['admin.html', 'team.html', 'attribute-lists.html', 'profile-jobs.html', 'settings.html', 'timesheets.html',
+    'master-clients.html', 'master-client-groups.html', 'master-pipelines.html', 'master-roles.html', 'master-currencies.html'],
   '.page-title-bar': ['planning.html', 'project-config.html'],
   '.page-toolbar': ['planning.html', 'project-config.html'],
 };
@@ -148,9 +146,9 @@ const inlineStyles = html =>
   [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1]).join('\n');
 
 describe('page discovery', () => {
-  it('finds the 19 pages that call initNav (14 checked + 5 excluded)', () => {
+  it('finds the 19 pages that call initNav (19 checked)', () => {
     expect(pages.length).toBe(19);
-    expect(EXCLUDED.size).toBe(5);
+    expect(EXCLUDED.size).toBe(0);
     for (const p of EXCLUDED) expect(pages).toContain(p);
     for (const p of PENDING) expect(pages).toContain(p);
     expect(checked.length + PENDING.size + EXCLUDED.size).toBe(19);

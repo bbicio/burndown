@@ -7,14 +7,8 @@
   <title>PDash — Master Data</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="css/tokens.css?v=13">
-  <link rel="stylesheet" href="css/style.css?v=29">
+  <link rel="stylesheet" href="css/style.css?v=31">
   <style>
-    body { background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-
-    .page { margin: 2rem auto; }
-    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
-    .page-header h1 { font-size: 2.5rem; font-weight: 700; margin: 0; color: var(--brand-navy); }
-
     .section-title {
       font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
       color: #6b7280; margin-bottom: .75rem; display: flex; align-items: center;
@@ -62,17 +56,23 @@
 <div id="nav-container"></div>
 <div id="app-main">
 
+<div class="ph">
+  <div class="ph-main">
+    <div class="ph-title-row"><h1 class="ph-title">Master Data</h1></div>
+    <div class="ph-sub">Clients, pipelines, roles, rates and currencies used across the app.</div>
+  </div>
+</div>
 <div class="md-layout">
-<nav class="md-subnav" aria-label="Master Data">
-  <a href="/master-clients.html" class="active" aria-current="page">Clients</a>
-  <a href="/master-client-groups.html">Client Groups</a>
-  <a href="/master-pipelines.html">Pipelines &amp; POTs</a>
-  <a href="/master-roles.html">Roles &amp; rates</a>
-  <a href="/master-currencies.html">Currencies</a>
-</nav>
+<nav class="md-subnav" data-md-active="clients" aria-label="Master Data"></nav>
 <div class="md-content">
 
 <div id="app" v-cloak>
+<section class="md-card">
+  <div class="md-card-head">
+    <h2 class="md-card-title">Clients</h2>
+    <p class="md-card-desc">Manage the clients used across the app. <a href="/master-client-groups.html">Client groups →</a></p>
+  </div>
+  <div class="md-card-body">
 
   <!-- ── LOADING / ACCESS DENIED ──────────────────────────────── -->
   <div v-if="!ready && !accessDenied"
@@ -82,7 +82,7 @@
   <div v-else-if="accessDenied"
        class="d-flex align-items-center justify-content-center" style="height:60vh">
     <div class="text-center text-muted">
-      <div style="font-size:2rem">🔒</div>
+      <ph-icon name="lock" :size="32"></ph-icon>
       <p class="mt-2">Admin access required.</p>
       <a href="/" class="btn btn-outline-secondary btn-sm">Go to app</a>
     </div>
@@ -90,13 +90,6 @@
 
   <!-- ── PAGE ────────────────────────────────────────────────── -->
   <div class="page app-container" v-else>
-
-    <div class="page-header">
-      <div>
-        <h1>Clients</h1>
-        <p class="text-muted mb-0 mt-1" style="font-size:.83rem">Manage the clients used across the app.</p>
-      </div>
-    </div>
 
     <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
 
@@ -126,7 +119,7 @@
       <div v-if="cf.error" class="alert alert-danger alert-sm mt-2">{{ cf.error }}</div>
     </div>
 
-    <div class="card">
+    <div class="card md-table-card">
       <div class="card-body">
         <table class="table table-hover" v-if="clients.length">
           <thead><tr><th>Name</th><th></th></tr></thead>
@@ -154,6 +147,8 @@
     </div><!-- /clients tab -->
 
   </div><!-- .page -->
+  </div><!-- /.md-card-body -->
+</section>
 <!-- Client Rate Card Modal (inside #app: a Vue template) -->
 <div class="modal fade" id="clientRcModal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
@@ -234,6 +229,7 @@
 <script type="module" src="js/lib/money.js?v=5"></script>
 <script defer src="js/notifications.js?v=3"></script>
 <script type="module" src="js/lib/icons.js?v=5"></script>
+<script type="module" src="js/lib/md-subnav.js?v=3"></script>
 <script defer src="js/nav.js?v=19"></script>
 
 <script type="module">
@@ -268,7 +264,8 @@ window.__cfgApp = Vue.createApp({
   async created() {
     const user = await initNav('config', { breadcrumbs: [
       { label: 'Home', href: '/pipeline.html' },
-      { label: 'Master Data' },
+      { label: 'Master Data', href: '/master-clients.html' },
+      { label: 'Clients' },
     ]});
     if (!user) return;
     if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
@@ -456,7 +453,7 @@ window.__cfgApp = Vue.createApp({
       }
     },
   },
-}).mount('#app');
+}).component('ph-icon', window.PhIcon).mount('#app');
 </script>
 </body>
 </html>

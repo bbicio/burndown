@@ -50,8 +50,9 @@ describe('component tokens', () => {
 });
 
 describe('excluded pages are untouched', () => {
-  // sha256 of the concatenated inline <style> contents, computed on main before this cycle.
-  const MASTER_SHA = 'c6dc734b8d97bda91a83b964ce34a57fd803ad1fd6f0965bfd19fc749cacc646';
+  // sha256 of the concatenated inline <style> contents, computed on main before this cycle;
+  // the Master Data one re-pinned by the Master Data shell, which dropped body/.page/.page-header.
+  const MASTER_SHA = '831f66f938c3c40eef78cf91b830d10041da84450837d9a1a2abf044bcd8e6db';
   const EXCLUDED_STYLE_SHA = {
     'master-clients.html': MASTER_SHA,
     'master-client-groups.html': MASTER_SHA,
