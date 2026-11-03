@@ -196,7 +196,7 @@ Spec `docs/superpowers/specs/2026-11-03-breakdown-v2-design.md`, plan `docs/supe
 - A Period change prunes each filter to the options that remain; a filter left empty returns the block to one open month.
 - Each block's export covers its whole Period, oldest first, as `task_`, `role_` and `area_` files.
 - `areaTaskColumns` and `areaEntryClaims` (`js/lib/project-report-calc.js`) give an area's task columns, which add up to the area row; the area subtitle lists the same columns.
-- The Period and filter menus are Vue popovers (`toggleMenu`, `closeMenu`), closed by a click outside and by Esc; the Bootstrap dropdown is gone.
+- The Period and filter menus are Vue popovers (`toggleMenu`, `closeMenu`), closed by a click outside and by Esc; the Period menu is no longer a Bootstrap dropdown.
 - Expandable rows and months are `<button>`s with `aria-expanded` and `aria-controls`; sortable headers are buttons with `aria-sort`.
 - Tablet is `max-width: 1279.98px` (Note on a second line); smartphone is `max-width: 767.98px`, mirrored by `isPhone` (`matchMedia`): card rows, filter, sort and Period as bottom sheets (`#prFilterSheet`, `#prSortSheet`, `#prPeriodSheet`).
 - Accepted deviation from board 7.4h: at 1024px the Remaining column stays hidden (it is hidden below 1280px, as before), while the board shows it; the plan fixes the threshold.
