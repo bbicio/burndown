@@ -346,3 +346,29 @@ describe('project reporting view — Breakdown and Monthly fixes (B-073, B-075, 
     expect(css).not.toContain('--weight-normal');
   });
 });
+
+describe('Breakdown v2 — menus', () => {
+  const bStart = dashboard.indexOf('<!-- /pr-progress -->');
+  const bEnd = dashboard.indexOf('<!-- /pr-breakdown -->');
+  const card = dashboard.slice(bStart, bEnd);
+
+  it('the Period menu is a Vue popover, not a Bootstrap dropdown', () => {
+    expect(card).not.toContain('data-bs-toggle="dropdown"');
+    expect(card).toContain('data-menu="period"');
+    expect(card).toContain('data-menu-btn="period"');
+  });
+  it('picking a period closes the menu through closeMenu, not Bootstrap', () => {
+    const m = html.match(/pickPeriod\(ym\) \{([\s\S]*?)\n {6}\},/);
+    expect(m).not.toBeNull();
+    expect(m[1]).not.toContain('bootstrap.Dropdown');
+    expect(m[1]).toContain('this.closeMenu()');
+  });
+  it('closes on a click outside and on Esc, and removes its listeners on unmount', () => {
+    expect(html).toContain('closeMenu(restoreFocus = true)');
+    expect(html).toMatch(/document\.addEventListener\('mousedown'/);
+    expect(html).toMatch(/e\.key === 'Escape'/);
+    const m = html.match(/beforeUnmount\(\) \{([\s\S]*?)\n {4}\},/);
+    expect(m).not.toBeNull();
+    expect(m[1]).toContain('this.removeMenuListeners()');
+  });
+});

@@ -536,11 +536,11 @@
           </div>
           <div class="pr-toolbar">
             <button type="button" class="pr-icon-btn" title="Export XLS" @click="exportBreakdownXls"><ph-icon name="download" :size="14"></ph-icon></button>
-            <div class="dropdown">
-              <button ref="periodBtn" type="button" class="pr-chip pr-period-btn" :class="{ 'pr-period-active': filterHasFilter }" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+            <div class="pr-menu-wrap">
+              <button type="button" class="pr-chip pr-period-btn" :class="{ 'pr-period-active': filterHasFilter }" data-menu-btn="period" aria-haspopup="true" :aria-expanded="openMenu === 'period' ? 'true' : 'false'" @click="toggleMenu('period', $event.currentTarget)">
                 <ph-icon name="calendar" :size="14"></ph-icon>Period: <span class="pr-chip-value">{{ periodLabel }}</span><ph-icon name="chevron-down" :size="12"></ph-icon>
               </button>
-              <div class="dropdown-menu dropdown-menu-end pr-period-menu">
+              <div v-if="openMenu === 'period'" class="pr-period-menu" data-menu="period">
                 <a href="#" class="pr-period-item" :class="{ active: !filterHasFilter }" @click.prevent="pickPeriod('')">
                   <span>Whole project</span><span class="pr-period-meta">{{ wholeProjectRange }}</span>
                 </a>
@@ -736,6 +736,7 @@
         filterStart: '',
         filterEnd: '',
         switchMenuOpen: false,
+        openMenu: null, // null | 'period' | 'filter:<blockKey>' — the Breakdown's popover menus (toggleMenu/closeMenu)
         taskDetailState: {}, // { [taskName]: { expanded: bool, openMonth: 'YYYY-MM'|null } } — Breakdown task expansion
         notice: '',
         directCreationEnabled: window.DIRECT_PROJECT_CREATION_ENABLED,
@@ -1269,6 +1270,7 @@
       this.attachCardGridObserver();
     },
     beforeUnmount() {
+      this.removeMenuListeners();
       if (this._cardGridObserver) { this._cardGridObserver.disconnect(); this._cardGridObserver = null; }
     },
     methods: {
@@ -1361,8 +1363,39 @@
       // the custom-range inputs (data-bs-auto-close="outside"), so it is closed here explicitly.
       pickPeriod(ym) {
         this.filterMonth = ym; this.filterStart = ''; this.filterEnd = '';
-        const btn = this.$refs.periodBtn;
-        if (btn && window.bootstrap) window.bootstrap.Dropdown.getOrCreateInstance(btn).hide();
+        this.closeMenu();
+      },
+      // Popover menus: one open at a time, closed by a click outside it and by Esc (focus goes back to
+      // its button). The custom-range pickers live inside the menu's DOM, so a click in them is inside.
+      toggleMenu(name, btnEl) {
+        if (this.openMenu === name) { this.closeMenu(); return; }
+        this.removeMenuListeners();
+        this.openMenu = name;
+        this._menuBtn = btnEl || null;
+        this._menuDocHandlers = {
+          mousedown: e => { if (!this.isInsideMenu(e.target)) this.closeMenu(false); },
+          keydown: e => { if (e.key === 'Escape') this.closeMenu(); },
+        };
+        document.addEventListener('mousedown', this._menuDocHandlers.mousedown);
+        document.addEventListener('keydown', this._menuDocHandlers.keydown);
+      },
+      closeMenu(restoreFocus = true) {
+        const btn = this._menuBtn;
+        this.removeMenuListeners();
+        this.openMenu = null;
+        this._menuBtn = null;
+        if (restoreFocus && btn && btn.focus) btn.focus();
+      },
+      removeMenuListeners() {
+        const h = this._menuDocHandlers;
+        if (!h) return;
+        document.removeEventListener('mousedown', h.mousedown);
+        document.removeEventListener('keydown', h.keydown);
+        this._menuDocHandlers = null;
+      },
+      isInsideMenu(target) {
+        if (!this.openMenu || !target || !target.closest) return false;
+        return !!target.closest('[data-menu="' + this.openMenu + '"]') || !!target.closest('[data-menu-btn="' + this.openMenu + '"]');
       },
       exportBreakdownXls() {
         const b = this.breakdown;

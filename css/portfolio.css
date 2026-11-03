@@ -566,7 +566,12 @@
 /* Breakdown */
 .pr-period-btn { gap: var(--space-2); }
 .pr-period-btn.pr-period-active { border-color: var(--brand-navy); background: var(--surface-light); }
-.pr-period-menu { width: 320px; padding: var(--space-2); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); font-size: var(--text-sm); }
+.pr-menu-wrap { position: relative; }
+.pr-period-menu {
+  position: absolute; top: calc(100% + var(--space-1)); right: 0; z-index: var(--z-dropdown);
+  width: 320px; padding: var(--space-2); background: var(--surface-white); border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); font-size: var(--text-sm);
+}
 .pr-period-item {
   display: flex; justify-content: space-between; gap: var(--space-3);
   padding: var(--space-1) var(--space-2); border-radius: var(--radius-md); color: var(--text-primary); text-decoration: none;
