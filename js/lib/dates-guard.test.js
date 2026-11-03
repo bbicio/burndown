@@ -150,7 +150,7 @@ describe('portfolio custom range', () => {
   });
 
   it('portfolio.css is at the same version on both pages that load it', () => {
-    for (const f of ['portfolio.html', 'program.html']) expect(read(f), f).toContain('css/portfolio.css?v=8');
+    for (const f of ['portfolio.html', 'program.html']) expect(read(f), f).toContain('css/portfolio.css?v=9');
   });
 });
 

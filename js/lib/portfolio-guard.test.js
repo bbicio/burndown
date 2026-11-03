@@ -44,13 +44,13 @@ describe('portfolio overview guard', () => {
     expect(m[0]).toMatch(/right:\s*auto/);
   });
 
-  it('every portfolio.css reference is ?v=8', () => {
+  it('every portfolio.css reference is ?v=9', () => {
     const pages = fs.readdirSync(root).filter(f => f.endsWith('.html'));
     let found = 0;
     pages.forEach(f => {
       for (const m of read(f).matchAll(/portfolio\.css\?v=(\d+)/g)) {
         found++;
-        expect(m[1], f).toBe('8');
+        expect(m[1], f).toBe('9');
       }
     });
     expect(found).toBeGreaterThan(0);
@@ -224,8 +224,8 @@ describe('project reporting view — Breakdown card', () => {
 });
 
 describe('project reporting view — task expansion and entries', () => {
-  it('carries the expansion, entries and excluded copy', () => {
-    ['Entries ·', 'Export XLS', 'entries', 'No entries in the selected period.', 'Excluded from report', 'Role (resource)', 'Amount', 'Note']
+  it('carries the excluded-tasks copy (the Entries copy lives in the pr-entries template)', () => {
+    ['Excluded from report']
       .forEach(t => expect(dashboardActive, t).toContain(t));
   });
 
@@ -272,15 +272,18 @@ describe('project reporting view — Gate 3 review fixes', () => {
     const m = html.match(/showDashboard\(pid\) \{([\s\S]*?)\n      \},/);
     expect(m).not.toBeNull();
     expect(m[1]).toContain('this.resetDateFilter();');
-    expect(m[1]).toContain('this.taskDetailState = {};');
+    expect(m[1]).toContain('this.entriesState = {};');
   });
   it('reads "—" for Sold and Remaining without a sold reference', () => {
     expect(dashboardActive).toContain(`!it.row.soldKnown ? '—' : fmtH(it.row.soldHours)`);
     expect(dashboardActive).toContain(`!breakdown.total.soldKnown ? '—' : fmtH(breakdown.total.soldHours)`);
     expect(dashboardActive).toContain(`sr.soldKnown ? fmtH(sr.soldHours) : '—'`);
   });
-  it('makes the task, excluded and month rows keyboard-operable', () => {
-    expect((dashboardActive.match(/@keydown\.enter\.space\.prevent=/g) || []).length).toBe(3);
+  it('makes the task and excluded rows keyboard-operable through a real button', () => {
+    expect(dashboardActive).not.toMatch(/@keydown\.enter\.space\.prevent=/);
+    expect(dashboardActive).not.toContain('role="button"');
+    expect(dashboardActive).toContain(`:is="it.blockKey ? 'button' : 'div'"`);
+    expect(dashboardActive).toContain('class="pr-bd-toggle" :aria-expanded="String(blockState(it.blockKey).expanded)" :aria-controls="blockDomId(it.blockKey)"');
   });
   it('destroys the burndown chart when the Progress card leaves the Burndown view', () => {
     expect(html).toMatch(/else if \(this\._burndownChart\) \{ this\._burndownChart\.destroy\(\); this\._burndownChart = null; \}/);
@@ -370,5 +373,43 @@ describe('Breakdown v2 — menus', () => {
     const m = html.match(/beforeUnmount\(\) \{([\s\S]*?)\n {4}\},/);
     expect(m).not.toBeNull();
     expect(m[1]).toContain('this.removeMenuListeners()');
+  });
+});
+
+describe('Breakdown v2 — Entries block', () => {
+  const tStart = html.indexOf('<template id="pr-entries-tpl">');
+  const tEnd = html.indexOf('\n</template>', tStart);
+  const tpl = html.slice(tStart, tEnd);
+  const bStart = dashboard.indexOf('<!-- /pr-progress -->');
+  const bEnd = dashboard.indexOf('<!-- /pr-breakdown -->');
+  const card = dashboard.slice(bStart, bEnd).replace(/<!--[\s\S]*?-->/g, '');
+
+  it('locates the template, outside the Vue mount root', () => {
+    expect(tStart).toBeGreaterThan(dashEnd);
+    expect(tEnd).toBeGreaterThan(tStart);
+  });
+  it('carries the Entries copy', () => {
+    ['Entries ·', ' of ', 'Export XLS', 'No entries in the selected period.', 'No entries match the selected filters.', 'Clear',
+      'months without matching entries hidden', '1 month without matching entries hidden', 'Hours', 'Amount', 'Note'].forEach(t => expect(tpl, t).toContain(t));
+  });
+  it('carries the filter and column copy that the component builds', () => {
+    ['Filter by role', 'Filter by resource', ' with entries in ', 'Role (resource)', 'Resource'].forEach(t => expect(html, t).toContain(t));
+  });
+  it('has sortable headers as buttons with aria-sort, and month buttons with aria-expanded and aria-controls', () => {
+    expect(tpl).toContain('aria-sort');
+    expect(tpl).toMatch(/<th[^>]*><button/);
+    expect(tpl).toContain(':aria-expanded="String(m.open)"');
+    expect(tpl).toContain(':aria-controls="monthId(m)"');
+  });
+  it('has no emoji and no hex', () => {
+    expect(tpl).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(tpl).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+  it('mounts the component in the card and no longer renders the entries inline', () => {
+    expect(card).toContain('<pr-entries');
+    expect(card).not.toContain('taskEntries(');
+  });
+  it('loads report-entries.js', () => {
+    expect(html).toContain('js/lib/report-entries.js?v=1');
   });
 });
