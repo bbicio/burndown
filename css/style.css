@@ -153,6 +153,13 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
 .md-card-title { font-size: 15px; font-weight: var(--weight-bold); color: var(--brand-navy); margin: 0; }
 .md-card-desc { font-size: var(--text-sm); color: var(--text-muted); margin: var(--space-1) 0 0; }
 .md-card-body { padding: 0 var(--card-pad) var(--card-pad); }
+/* the page wrapper inside the card keeps its class but not its inset */
+.md-card-body > .app-container { --app-pad: 0; }
+/* a table's own card lies flat and edge to edge inside the content card */
+.md-card-body .card:has(> .card-body > .table) {
+  border: 0; border-radius: 0; box-shadow: none;
+  margin: 0 calc(-1 * var(--card-pad));
+}
 @media (min-width: 1024px) {
   .md-layout {
     display: flex; align-items: flex-start; gap: var(--space-5);
@@ -171,6 +178,8 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
   .md-content { flex: 1; min-width: 0; }
 }
 @media (min-width: 768px) and (max-width: 1023.98px) {
+  /* the tabs continue the page head: no divider between them */
+  .ph:has(+ .md-layout) { border-bottom: 0; }
   .md-subnav {
     display: flex; overflow-x: auto; scrollbar-width: none;
     padding: 10px 20px;

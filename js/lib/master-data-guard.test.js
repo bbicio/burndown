@@ -49,6 +49,25 @@ describe('Master Data sub-menu styles (css/style.css)', () => {
     expect(inMedia(PHONE, '.md-subnav-select')).toMatch(/min-height:\s*48px/);
     expect(inMedia(PHONE, '.md-subnav-select-input')).toMatch(/opacity:\s*0/);
   });
+  // the body of the first rule for `selector` anywhere in the block
+  const rule = selector => {
+    const hit = block.match(new RegExp('(?:^|[\\s,}])' + reEsc(selector) + '\\s*\\{([^}]*)\\}'));
+    expect(hit, selector).not.toBeNull();
+    return hit[1];
+  };
+  it('cancels the page wrapper padding inside the card (no double inset)', () => {
+    expect(rule('.md-card-body > .app-container')).toMatch(/--app-pad:\s*0;/);
+  });
+  it('lays a table card flat and flush inside the content card, without a bottom margin', () => {
+    const flat = rule('.md-card-body .card:has(> .card-body > .table)');
+    expect(flat).toMatch(/border:\s*0;/);
+    expect(flat).toMatch(/border-radius:\s*0;/);
+    expect(flat).toMatch(/box-shadow:\s*none;/);
+    expect(flat).toMatch(/margin:\s*0 calc\(-1 \* var\(--card-pad\)\);/);
+  });
+  it('drops the page-head divider above the tabs on tablet', () => {
+    expect(inMedia(TABLET, '.ph:has(+ .md-layout)')).toMatch(/border-bottom:\s*0;/);
+  });
   it('draws the card with the card tokens and no hex literal', () => {
     const card = block.match(/\.md-card\s*\{([^}]*)\}/)[1];
     expect(card).toContain('var(--card-bg)');
