@@ -85,9 +85,11 @@ export function entriesBlock(entries, state, rateFor) {
       open: false,
     });
   }
+  // An openMonth outside the Period counts as none, so one month stays open.
+  const openKnown = months.some(m => m.ym === state.openMonth);
   for (const m of months) {
     if (filter.length) m.open = !(state.closedMonths || []).includes(m.ym);
-    else if (state.openMonth === null || state.openMonth === undefined) m.open = m === months[0];
+    else if (state.openMonth === null || state.openMonth === undefined || (state.openMonth !== '' && !openKnown)) m.open = m === months[0];
     else m.open = m.ym === state.openMonth;
   }
   return { total, shown: months.reduce((s, m) => s + m.count, 0), months, hiddenMonths };

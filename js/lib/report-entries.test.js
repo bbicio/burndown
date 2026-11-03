@@ -72,6 +72,9 @@ describe('entriesBlock', () => {
     expect(entriesBlock(ENTRIES, { ...BASE, openMonth: '2026-08' }, rateFor).months.map(m => m.open)).toEqual([false, true, false]);
     expect(entriesBlock(ENTRIES, { ...BASE, openMonth: '' }, rateFor).months.map(m => m.open)).toEqual([false, false, false]);
   });
+  it('opens the most recent month when openMonth is outside the Period (review round 1)', () => {
+    expect(entriesBlock(ENTRIES, { ...BASE, openMonth: '2026-03' }, rateFor).months.map(m => m.open)).toEqual([true, false, false]);
+  });
   it('with a filter drops empty months, opens the rest except closedMonths, recounts on filtered rows', () => {
     const b = entriesBlock(ENTRIES, { ...BASE, filter: ['PM'] }, rateFor);
     expect(b.months.map(m => m.ym)).toEqual(['2026-09', '2026-08']);

@@ -1394,6 +1394,12 @@
         this.taskDetailData.forEach(e => { map[e.task.name] = e; });
         return map;
       },
+      // The same, keyed lower-case: a logged-only By role pair carries the task as the timesheet wrote it.
+      taskDetailByLowerName() {
+        const map = {};
+        this.taskDetailData.forEach(e => { const k = e.task.name.toLowerCase(); if (!map[k]) map[k] = e; });
+        return map;
+      },
       periodLabel() {
         if (!this.filterHasFilter) return 'Whole project';
         return this.filterMonth ? this.monthLabelLong(this.filterMonth) : this.filterRangeLabel;
@@ -1546,7 +1552,7 @@
         const { prefix, rest } = this.blockInfo(key);
         if (prefix === 'task') return this.taskDetailByName[rest]?.periodData || [];
         const task = this.blockTaskName(key);
-        const data = this.taskDetailByName[task]?.periodData || [];
+        const data = (this.taskDetailByName[task] || this.taskDetailByLowerName[task.toLowerCase()])?.periodData || [];
         if (prefix === 'role') {
           const role = rest.slice(0, rest.indexOf('|')).toLowerCase();
           return data.filter(r => r.role.toLowerCase() === role);
@@ -1655,8 +1661,8 @@
         return new Date(y, m-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       },
       resetDateFilter() { this.filterMonth = ''; this.filterStart = ''; this.filterEnd = ''; },
-      // A month (or '' for the whole project) picked in the Period menu; the menu stays open for
-      // the custom-range inputs (data-bs-auto-close="outside"), so it is closed here explicitly.
+      // A month (or '' for the whole project) picked in the Period menu or sheet; both close here,
+      // since a click inside the menu (the custom-range pickers included) keeps it open.
       pickPeriod(ym) {
         this.filterMonth = ym; this.filterStart = ''; this.filterEnd = '';
         this.closeMenu();

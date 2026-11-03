@@ -642,7 +642,8 @@
 }
 
 /* Breakdown: task expansion, entries, excluded tasks */
-.pr-bd-clickable:hover:not(.pr-bd-over) { background: var(--surface-light); }
+/* Only the chevron-and-name button expands a row, so only hovering it highlights the row. */
+.pr-bd-clickable:has(button.pr-bd-toggle:hover):not(.pr-bd-over) { background: var(--surface-light); }
 /* The expand control: chevron and name, as wide as the row's first two tracks (Decision 3 of the plan). */
 .pr-bd-toggle {
   grid-column: 1 / span 2; display: grid; grid-template-columns: subgrid; align-items: center; min-width: 0;

@@ -424,6 +424,9 @@ describe('Breakdown v2 — By role and By functional area', () => {
     expect(html).toContain(`(n === 1 ? ' task' : ' tasks')`);
     expect(html).toContain(`(col.roles === 1 ? ' role' : ' roles')`);
   });
+  it('finds a logged-only pair\'s entries whatever the case of its task (review round 1)', () => {
+    expect(html).toContain(`this.taskDetailByLowerName[task.toLowerCase()]`);
+  });
   it('exports per block: role_ and area_ prefixes, the area by its name', () => {
     expect(html).toContain(`return prefix + '_' + label.replace(`);
     expect(html).toContain(`this.dashboardProject.groups[Number(gi)].name`);
