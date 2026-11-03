@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="css/tokens.css?v=13">
   <link rel="stylesheet" href="css/style.css?v=29">
   <link rel="stylesheet" href="css/controls.css?v=1">
-  <link rel="stylesheet" href="css/portfolio.css?v=8">
+  <link rel="stylesheet" href="css/portfolio.css?v=9">
 </head>
 <body>
 
@@ -526,21 +526,21 @@
         <div class="pr-card-head">
           <div class="pr-card-title-row">
             <span class="pr-card-title">Breakdown</span>
-            <div class="pr-seg">
+            <div class="pr-seg pr-seg--3">
               <button type="button" class="pr-seg-btn" :class="{ active: breakdownView === 'task' }" @click="breakdownView = 'task'">By task</button>
               <button type="button" class="pr-seg-btn" :class="{ active: breakdownView === 'role' }" @click="breakdownView = 'role'">By role</button>
               <span :title="dashboardProject.groups?.length ? '' : 'No functional areas configured'">
-                <button type="button" class="pr-seg-btn" :class="{ active: breakdownView === 'area' }" :disabled="!dashboardProject.groups?.length" @click="breakdownView = 'area'">By functional area</button>
+                <button type="button" class="pr-seg-btn" :class="{ active: breakdownView === 'area' }" :disabled="!dashboardProject.groups?.length" @click="breakdownView = 'area'">{{ isPhone ? 'By area' : 'By functional area' }}</button>
               </span>
             </div>
           </div>
           <div class="pr-toolbar">
             <button type="button" class="pr-icon-btn" title="Export XLS" @click="exportBreakdownXls"><ph-icon name="download" :size="14"></ph-icon></button>
-            <div class="dropdown">
-              <button ref="periodBtn" type="button" class="pr-chip pr-period-btn" :class="{ 'pr-period-active': filterHasFilter }" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                <ph-icon name="calendar" :size="14"></ph-icon>Period: <span class="pr-chip-value">{{ periodLabel }}</span><ph-icon name="chevron-down" :size="12"></ph-icon>
+            <div class="pr-menu-wrap">
+              <button type="button" class="pr-chip pr-period-btn" :class="{ 'pr-period-active': filterHasFilter }" data-menu-btn="period" aria-haspopup="true" :aria-expanded="openMenu === 'period' ? 'true' : 'false'" @click="onPeriodClick($event)">
+                <ph-icon name="calendar" :size="14"></ph-icon><template v-if="!isPhone">Period: </template><span class="pr-chip-value">{{ periodLabel }}</span><ph-icon name="chevron-down" :size="12"></ph-icon>
               </button>
-              <div class="dropdown-menu dropdown-menu-end pr-period-menu">
+              <div v-if="openMenu === 'period'" class="pr-period-menu" data-menu="period">
                 <a href="#" class="pr-period-item" :class="{ active: !filterHasFilter }" @click.prevent="pickPeriod('')">
                   <span>Whole project</span><span class="pr-period-meta">{{ wholeProjectRange }}</span>
                 </a>
@@ -572,12 +572,14 @@
           </div>
 
           <template v-for="it in breakdownItems" :key="it.key">
-            <div v-if="it.kind === 'row'" class="pr-bd-row pr-bd-item" :class="{ 'pr-bd-over': it.row.overSold, 'pr-bd-clickable': it.taskName }" :role="it.taskName ? 'button' : null" :tabindex="it.taskName ? 0 : null" :aria-expanded="it.taskName ? String(taskState(it.taskName).expanded) : null" @click="it.taskName && toggleTask(it.taskName)" @keydown.enter.space.prevent="it.taskName && toggleTask(it.taskName)">
-              <span class="pr-bd-chev"><ph-icon v-if="it.taskName" :name="taskState(it.taskName).expanded ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon></span>
-              <div class="pr-bd-name">
-                <div class="pr-bd-title">{{ it.row.label }}<span v-if="it.row.overSold" class="pr-over-pill">Over sold</span></div>
-                <div class="pr-bd-sub">{{ it.row.subtitle }}</div>
-              </div>
+            <div v-if="it.kind === 'row'" class="pr-bd-row pr-bd-item" :class="{ 'pr-bd-over': it.row.overSold, 'pr-bd-clickable': it.blockKey }">
+              <component :is="it.blockKey ? 'button' : 'div'" class="pr-bd-toggle" :type="it.blockKey ? 'button' : null" :aria-expanded="it.blockKey ? String(blockState(it.blockKey).expanded) : null" :aria-controls="it.blockKey && it.entries ? blockDomId(it.blockKey) : null" @click="it.blockKey && toggleBlock(it.blockKey)">
+                <span class="pr-bd-chev"><ph-icon v-if="it.blockKey" :name="blockState(it.blockKey).expanded ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon></span>
+                <div class="pr-bd-name">
+                  <div class="pr-bd-title">{{ it.row.label }}<span v-if="it.row.overSold" class="pr-over-pill">Over sold</span></div>
+                  <div class="pr-bd-sub">{{ it.row.subtitle }}</div>
+                </div>
+              </component>
               <div class="pr-bd-num"><div class="pr-bd-h">{{ !it.row.soldKnown ? '—' : fmtH(it.row.soldHours) }}</div><div v-if="it.row.soldKnown" class="pr-bd-a">{{ formatMoney(it.row.soldAmount, dashCurrency, currencies) }}</div></div>
               <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(it.row.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(it.row.spentAmount, dashCurrency, currencies) }}</div></div>
               <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': it.row.soldKnown && it.row.remainingHours < 0 }"><div class="pr-bd-h">{{ !it.row.soldKnown ? '—' : fmtH(it.row.remainingHours) }}</div><div v-if="it.row.soldKnown" class="pr-bd-a">{{ formatMoney(it.row.remainingAmount, dashCurrency, currencies) }}</div></div>
@@ -585,6 +587,25 @@
                 <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + it.row.barState"><div class="pf-spent-bar-fill" :style="{ width: (it.row.overSold ? 100 : Math.min(100, it.row.pct || 0)) + '%' }"></div></div>
                 <span class="pr-bd-pct" :class="'pr-pct-' + it.row.barState">{{ it.row.pct !== null ? it.row.pct + '%' : '—' }}</span>
               </div>
+              <div class="pr-bd-phone-line">Spent <b>{{ fmtH(it.row.spentHours) }}</b> of {{ it.row.soldKnown ? fmtH(it.row.soldHours) : '—' }} · Remaining <b>{{ it.row.soldKnown ? fmtH(it.row.remainingHours) : '—' }}</b></div>
+            </div>
+
+            <div v-else-if="it.kind === 'area-task'" class="pr-bd-row pr-bd-subrow pr-bd-area-task pr-bd-clickable" :class="{ 'pr-bd-over': it.row.overSold }">
+              <button type="button" class="pr-bd-toggle" :aria-expanded="String(blockState(it.blockKey).expanded)" :aria-controls="blockDomId(it.blockKey)" @click="toggleBlock(it.blockKey)">
+                <span class="pr-bd-chev"><ph-icon :name="blockState(it.blockKey).expanded ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon></span>
+                <div class="pr-bd-name">
+                  <div class="pr-bd-subtitle">{{ it.row.label }}<span v-if="it.row.overSold" class="pr-over-pill">Over sold</span></div>
+                  <div class="pr-bd-sub">{{ it.row.subtitle }}</div>
+                </div>
+              </button>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ !it.row.soldKnown ? '—' : fmtH(it.row.soldHours) }}</div><div v-if="it.row.soldKnown" class="pr-bd-a">{{ formatMoney(it.row.soldAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(it.row.spentHours) }}</div><div class="pr-bd-a">{{ formatMoney(it.row.spentAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-num pr-bd-remaining" :class="{ 'pr-bd-neg': it.row.soldKnown && it.row.remainingHours < 0 }"><div class="pr-bd-h">{{ !it.row.soldKnown ? '—' : fmtH(it.row.remainingHours) }}</div><div v-if="it.row.soldKnown" class="pr-bd-a">{{ formatMoney(it.row.remainingAmount, dashCurrency, currencies) }}</div></div>
+              <div class="pr-bd-cons">
+                <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + it.row.barState"><div class="pf-spent-bar-fill" :style="{ width: (it.row.overSold ? 100 : Math.min(100, it.row.pct || 0)) + '%' }"></div></div>
+                <span class="pr-bd-pct" :class="'pr-pct-' + it.row.barState">{{ it.row.pct !== null ? it.row.pct + '%' : '—' }}</span>
+              </div>
+              <div class="pr-bd-phone-line">Spent <b>{{ fmtH(it.row.spentHours) }}</b> of {{ it.row.soldKnown ? fmtH(it.row.soldHours) : '—' }} · Remaining <b>{{ it.row.soldKnown ? fmtH(it.row.remainingHours) : '—' }}</b></div>
             </div>
 
             <div v-else-if="it.kind === 'total'" class="pr-bd-row pr-bd-total">
@@ -597,19 +618,22 @@
                 <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + breakdown.total.barState"><div class="pf-spent-bar-fill" :style="{ width: (breakdown.total.overSold ? 100 : Math.min(100, breakdown.total.pct || 0)) + '%' }"></div></div>
                 <span class="pr-bd-pct" :class="'pr-pct-' + breakdown.total.barState">{{ breakdown.total.pct !== null ? breakdown.total.pct + '%' : '—' }}</span>
               </div>
+              <div class="pr-bd-phone-line">Spent <b>{{ fmtH(breakdown.total.spentHours) }}</b> of {{ breakdown.total.soldKnown ? fmtH(breakdown.total.soldHours) : '—' }} · Remaining <b>{{ breakdown.total.soldKnown ? fmtH(breakdown.total.remainingHours) : '—' }}</b></div>
             </div>
 
             <div v-else-if="it.kind === 'excluded-head'" class="pr-excluded-head">Excluded from report</div>
 
-            <div v-else-if="it.kind === 'excluded'" class="pr-bd-row pr-excluded-row pr-bd-clickable" role="button" tabindex="0" :aria-expanded="String(taskState(it.taskName).expanded)" @click="toggleTask(it.taskName)" @keydown.enter.space.prevent="toggleTask(it.taskName)">
-              <span class="pr-bd-chev"><ph-icon :name="taskState(it.taskName).expanded ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon></span>
-              <div class="pr-bd-name"><div class="pr-bd-title">{{ it.taskName }}</div></div>
+            <div v-else-if="it.kind === 'excluded'" class="pr-bd-row pr-excluded-row pr-bd-clickable">
+              <button type="button" class="pr-bd-toggle" :aria-expanded="String(blockState(it.blockKey).expanded)" :aria-controls="blockDomId(it.blockKey)" @click="toggleBlock(it.blockKey)">
+                <span class="pr-bd-chev"><ph-icon :name="blockState(it.blockKey).expanded ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon></span>
+                <div class="pr-bd-name"><div class="pr-bd-title">{{ it.taskName }}</div></div>
+              </button>
               <span></span>
               <div class="pr-bd-num"><div class="pr-bd-h">{{ fmtH(it.hours) }}</div></div>
             </div>
 
-            <template v-if="it.taskName && taskState(it.taskName).expanded && taskDetailByName[it.taskName]">
-              <template v-if="it.kind === 'row'">
+            <template v-if="it.entries && blockState(it.blockKey).expanded">
+              <template v-if="it.kind === 'row' && it.taskName && taskDetailByName[it.taskName]">
                 <div v-for="sr in roleSubRows(taskDetailByName[it.taskName])" :key="sr.key" class="pr-bd-row pr-bd-subrow" :class="{ 'pr-bd-over': sr.overSold }">
                   <span></span>
                   <div class="pr-bd-name">
@@ -623,48 +647,136 @@
                     <div class="pf-spent-bar pr-bd-bar" :class="'pf-spent-' + sr.barState"><div class="pf-spent-bar-fill" :style="{ width: (sr.overSold ? 100 : Math.min(100, sr.pct || 0)) + '%' }"></div></div>
                     <span class="pr-bd-pct" :class="'pr-pct-' + sr.barState">{{ sr.pct !== null ? sr.pct + '%' : '—' }}</span>
                   </div>
+                  <div class="pr-bd-phone-line">Spent <b>{{ fmtH(sr.spentHours) }}</b> of {{ sr.soldKnown ? fmtH(sr.soldHours) : '—' }} · Remaining <b>{{ sr.soldKnown ? fmtH(sr.remainingHours) : '—' }}</b></div>
                 </div>
               </template>
-              <div class="pr-entries">
-                <div class="pr-entries-head">
-                  <span>Entries · {{ taskDetailByName[it.taskName].periodData.length }}</span>
-                  <a v-if="taskDetailByName[it.taskName].periodData.length" href="#" class="pr-entries-export" @click.prevent="exportTaskEntriesXls(taskDetailByName[it.taskName])">Export XLS</a>
-                </div>
-                <div v-if="!taskDetailByName[it.taskName].periodData.length" class="pr-entries-empty">No entries in the selected period.</div>
-                <div v-else class="pr-entries-box">
-                  <template v-for="m in taskEntries(taskDetailByName[it.taskName])" :key="m.ym">
-                    <div class="pr-entries-month" :class="{ open: taskState(it.taskName).openMonth === m.ym }" role="button" tabindex="0" :aria-expanded="String(taskState(it.taskName).openMonth === m.ym)" @click="toggleMonth(it.taskName, m.ym)" @keydown.enter.space.prevent="toggleMonth(it.taskName, m.ym)">
-                      <ph-icon :name="taskState(it.taskName).openMonth === m.ym ? 'chevron-down' : 'chevron-right'" :size="12"></ph-icon>
-                      <span class="pr-entries-month-name">{{ monthLabelLong(m.ym) }}</span>
-                      <span class="pr-entries-count">{{ m.count }} {{ m.count === 1 ? 'entry' : 'entries' }}</span>
-                      <span class="pr-entries-hours">{{ fmtH(m.hours) }}</span>
-                      <span class="pr-entries-amount">{{ formatMoney(m.amount, dashCurrency, currencies) }}</span>
-                    </div>
-                    <table v-if="taskState(it.taskName).openMonth === m.ym" class="pr-entries-table">
-                      <thead><tr><th>Date</th><th>Role (resource)</th><th class="text-end">Hours</th><th class="text-end">Amount</th><th>Note</th></tr></thead>
-                      <tbody>
-                        <tr v-for="(e, i) in m.rows" :key="i">
-                          <td>{{ fmtDate(e.date) }}</td>
-                          <td>{{ e.role }}{{ e.owner ? ' (' + e.owner + ')' : '' }}</td>
-                          <td class="text-end pr-entries-h">{{ fmtH(e.hours) }}</td>
-                          <td class="text-end pr-entries-a">{{ e.amount === null ? '—' : formatMoney(e.amount, dashCurrency, currencies) }}</td>
-                          <td>{{ e.notes || '—' }}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </template>
-                </div>
-              </div>
+              <pr-entries :id="blockDomId(it.blockKey)" :class="{ 'pr-entries-nested': it.kind === 'area-task' }" :block-key="it.blockKey" :entries="blockEntries(it.blockKey)" :rate-for="blockRate(it.blockKey)" :filter-kind="blockFilterKind(it.blockKey)" :state="blockState(it.blockKey)" :period-label="periodLabel" :currency="dashCurrency" :currencies="currencies" :is-phone="isPhone" :menu-open="openMenu === 'filter:' + it.blockKey" @toggle-menu="toggleMenu('filter:' + it.blockKey, $event)" @open-sheet="openSheet($event, it.blockKey)" @export="exportBlock(it.blockKey)"></pr-entries>
             </template>
           </template>
         </div>
         <p v-if="breakdownView === 'area' && breakdownAreaOverlap" class="pr-bd-note">Some roles belong to more than one area: their hours count in each area and once in the Total.</p>
       </div><!-- /pr-breakdown -->
+
+      <div class="offcanvas offcanvas-bottom pr-sheet" tabindex="-1" id="prFilterSheet" aria-labelledby="prFilterSheetTitle">
+        <div class="offcanvas-header pr-sheet-head">
+          <div>
+            <h6 class="offcanvas-title" id="prFilterSheetTitle">{{ sheet.filterKind === 'resource' ? 'Filter by resource' : 'Filter by role' }}</h6>
+            <div class="pr-sheet-sub">{{ sheet.filterKind === 'resource' ? 'Resources' : 'Roles' }} with entries in {{ periodLabel }}</div>
+          </div>
+          <button type="button" class="pr-sheet-close" data-bs-dismiss="offcanvas">Close</button>
+        </div>
+        <div class="offcanvas-body pr-sheet-body">
+          <label v-for="o in sheetOptions" :key="o.value" class="pr-sheet-row"><input type="checkbox" :checked="sheet.draftFilter.includes(o.value)" @change="toggleDraft(o.value)"><span class="pr-sheet-row-name">{{ o.value || '—' }}</span><span class="pr-sheet-row-meta">{{ fmtH(o.hours) }}</span></label>
+        </div>
+        <div class="pr-sheet-foot">
+          <button type="button" class="pr-sheet-secondary" @click="resetSheet">Clear</button>
+          <button type="button" class="pr-sheet-apply" @click="applySheet">Apply</button>
+        </div>
+      </div>
+
+      <div class="offcanvas offcanvas-bottom pr-sheet" tabindex="-1" id="prSortSheet" aria-labelledby="prSortSheetTitle">
+        <div class="offcanvas-header pr-sheet-head">
+          <div>
+            <h6 class="offcanvas-title" id="prSortSheetTitle">Sort entries</h6>
+            <div class="pr-sheet-sub">Applies inside each month</div>
+          </div>
+          <button type="button" class="pr-sheet-close" data-bs-dismiss="offcanvas">Close</button>
+        </div>
+        <div class="offcanvas-body pr-sheet-body">
+          <label v-for="f in [['date', 'Date'], ['who', sheet.filterKind === 'resource' ? 'Resource' : 'Role (resource)'], ['hours', 'Hours'], ['amount', 'Amount']]" :key="f[0]" class="pr-sheet-row"><input type="radio" name="prSortField" :value="f[0]" v-model="sheet.draftSort.key"><span class="pr-sheet-row-name">{{ f[1] }}</span></label>
+          <div class="pr-sheet-label">Direction</div>
+          <label class="pr-sheet-row"><input type="radio" name="prSortDir" value="asc" v-model="sheet.draftSort.dir"><span class="pr-sheet-row-name">Ascending</span></label>
+          <label class="pr-sheet-row"><input type="radio" name="prSortDir" value="desc" v-model="sheet.draftSort.dir"><span class="pr-sheet-row-name">Descending</span></label>
+        </div>
+        <div class="pr-sheet-foot">
+          <button type="button" class="pr-sheet-secondary" @click="resetSheet">Reset</button>
+          <button type="button" class="pr-sheet-apply" @click="applySheet">Apply</button>
+        </div>
+      </div>
+
+      <div class="offcanvas offcanvas-bottom pr-sheet" tabindex="-1" id="prPeriodSheet" aria-labelledby="prPeriodSheetTitle">
+        <div class="offcanvas-header pr-sheet-head">
+          <h6 class="offcanvas-title" id="prPeriodSheetTitle">Period</h6>
+          <button type="button" class="pr-sheet-close" data-bs-dismiss="offcanvas">Close</button>
+        </div>
+        <div class="offcanvas-body pr-sheet-body">
+          <button type="button" class="pr-sheet-row pr-sheet-pick" :class="{ active: !filterHasFilter }" @click="pickPeriod('')"><span class="pr-sheet-row-name">Whole project</span><span class="pr-sheet-row-meta">{{ wholeProjectRange }}</span></button>
+          <button v-for="ym in periodMonths" :key="ym" type="button" class="pr-sheet-row pr-sheet-pick" :class="{ active: filterMonth === ym }" @click="pickPeriod(ym)"><span class="pr-sheet-row-name">{{ monthLabelLong(ym) }}</span><span class="pr-sheet-row-meta">{{ fmtH(periodHours[ym] || 0) }}</span></button>
+          <div class="pr-sheet-label">Custom range</div>
+          <div class="pr-period-custom-row">
+            <cg-date-picker mode="day" inline-popover :model-value="filterStart" :max="filterEnd" aria-label="From" @update:model-value="v => { filterStart = v; filterMonth = ''; }"></cg-date-picker>
+            <span>–</span>
+            <cg-date-picker mode="day" inline-popover :model-value="filterEnd" :min="filterStart" aria-label="To" @update:model-value="v => { filterEnd = v; filterMonth = ''; }"></cg-date-picker>
+          </div>
+        </div>
+      </div>
     </div>
 
   </template>
 
 </div>
+
+<template id="pr-entries-tpl">
+  <div class="pr-entries" :class="{ 'pr-entries--phone': isPhone }">
+    <div class="pr-entries-head">
+      <span class="pr-entries-title">Entries · {{ state.filter.length ? block.shown + ' of ' + block.total : block.shown }}</span>
+      <div class="pr-entries-tools">
+        <div v-if="entries.length" class="pr-menu-wrap">
+          <button type="button" class="pr-chip pr-filter-chip" :class="{ 'pr-period-active': state.filter.length }" :data-menu-btn="'filter:' + blockKey" aria-haspopup="true" :aria-expanded="menuOpen ? 'true' : 'false'" @click="onFilterClick($event)">
+            <ph-icon name="filter" :size="14"></ph-icon>{{ chipPrefix }}<span class="pr-chip-value">{{ chipValue }}</span><ph-icon name="chevron-down" :size="12"></ph-icon>
+          </button>
+          <div v-if="menuOpen && !isPhone" ref="menu" class="pr-filter-menu" :data-menu="'filter:' + blockKey" role="group" :aria-label="filterTitle" @keydown="onMenuKey">
+            <div class="pr-filter-title">{{ filterTitle }}</div>
+            <label class="pr-filter-opt"><input type="checkbox" :checked="!state.filter.length" @change="onAll($event)"><span class="pr-filter-name">All</span></label>
+            <label v-for="o in options" :key="o.value" class="pr-filter-opt"><input type="checkbox" :checked="state.filter.includes(o.value)" @change="toggleOption(o.value)"><span class="pr-filter-name">{{ o.value || '—' }}</span><span class="pr-filter-hours">{{ fmtH(o.hours) }}</span></label>
+            <div class="pr-filter-note">{{ filterNote }}</div>
+          </div>
+        </div>
+        <button v-if="isPhone && entries.length" type="button" class="pr-chip pr-sort-chip" @click="$emit('open-sheet', 'sort')">Sort: {{ sortLabel }}<ph-icon :name="state.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :size="12"></ph-icon></button>
+        <a v-if="state.filter.length" href="#" class="pr-entries-export" @click.prevent="clearFilter">Clear</a>
+        <a v-if="entries.length && !isPhone" href="#" class="pr-entries-export" @click.prevent="$emit('export')">Export XLS</a>
+        <button v-if="entries.length && isPhone" type="button" class="pr-icon-btn pr-entries-export-icon" aria-label="Export XLS" @click="$emit('export')"><ph-icon name="download" :size="16"></ph-icon></button>
+      </div>
+    </div>
+    <div v-if="!entries.length" class="pr-entries-empty">No entries in the selected period.</div>
+    <div v-else-if="!block.shown" class="pr-entries-empty">No entries match the selected filters. <a href="#" class="pr-entries-export" @click.prevent="clearFilter">Clear</a></div>
+    <div v-else class="pr-entries-box">
+      <template v-for="m in block.months" :key="m.ym">
+        <button type="button" class="pr-entries-month" :class="{ open: m.open }" :aria-expanded="String(m.open)" :aria-controls="monthId(m)" @click="toggleMonth(m)">
+          <ph-icon :name="m.open ? 'chevron-down' : 'chevron-right'" :size="12"></ph-icon>
+          <span class="pr-entries-month-name">{{ monthLabelLong(m.ym) }}</span>
+          <span class="pr-entries-count">{{ m.count }} {{ m.count === 1 ? 'entry' : 'entries' }}</span>
+          <span class="pr-entries-hours">{{ fmtH(m.hours) }}</span>
+          <span class="pr-entries-amount">{{ money(m.amount) }}</span>
+        </button>
+        <table v-if="m.open" :id="monthId(m)" class="pr-entries-table">
+          <thead>
+            <tr>
+              <th class="pr-e-date" :aria-sort="ariaSort('date')"><button type="button" class="pr-sort-btn" :class="{ active: state.sort.key === 'date' }" @click="sortBy('date')">Date<ph-icon v-if="state.sort.key === 'date'" :name="state.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :size="12"></ph-icon></button></th>
+              <th class="pr-e-who" :aria-sort="ariaSort('who')"><button type="button" class="pr-sort-btn" :class="{ active: state.sort.key === 'who' }" @click="sortBy('who')">{{ whoLabel }}<ph-icon v-if="state.sort.key === 'who'" :name="state.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :size="12"></ph-icon></button></th>
+              <th class="text-end pr-e-hours" :aria-sort="ariaSort('hours')"><button type="button" class="pr-sort-btn" :class="{ active: state.sort.key === 'hours' }" @click="sortBy('hours')">Hours<ph-icon v-if="state.sort.key === 'hours'" :name="state.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :size="12"></ph-icon></button></th>
+              <th class="text-end pr-e-amount" :aria-sort="ariaSort('amount')"><button type="button" class="pr-sort-btn" :class="{ active: state.sort.key === 'amount' }" @click="sortBy('amount')">Amount<ph-icon v-if="state.sort.key === 'amount'" :name="state.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :size="12"></ph-icon></button></th>
+              <th class="pr-e-note">Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(e, i) in m.rows" :key="i">
+              <td class="pr-e-date">{{ fmtDate(e.date) }}</td>
+              <td class="pr-e-who">{{ whoText(e) }}</td>
+              <td class="text-end pr-entries-h pr-e-hours">{{ fmtH(e.hours) }}</td>
+              <td class="text-end pr-entries-a pr-e-amount">{{ e.amount === null ? '—' : money(e.amount) }}</td>
+              <td class="pr-e-note" :class="{ 'pr-e-note--empty': !e.notes }">{{ e.notes || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </template>
+      <div v-if="state.filter.length && block.hiddenMonths" class="pr-entries-foot">
+        <span v-if="block.hiddenMonths === 1">1 month without matching entries hidden</span>
+        <span v-else>{{ block.hiddenMonths }} months without matching entries hidden</span>
+      </div>
+    </div>
+  </div>
+</template>
 
 <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
@@ -697,15 +809,113 @@
 <script defer src="js/shares.js"></script>
 <script type="module" src="js/lib/portfolio-calc.js?v=8"></script>
 <script type="module" src="js/lib/program-calc.js?v=4"></script>
-<script type="module" src="js/lib/project-report-calc.js?v=3"></script>
+<script type="module" src="js/lib/project-report-calc.js?v=4"></script>
+<script type="module" src="js/lib/report-entries.js?v=1"></script>
 <script type="module" src="js/lib/chart-today.js?v=2"></script>
 <script defer src="js/api-sync.js?v=31"></script>
-<script type="module" src="js/lib/icons.js?v=4"></script>
+<script type="module" src="js/lib/icons.js?v=5"></script>
 <script type="module" src="js/lib/dates.js?v=4"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
 <script defer src="js/nav.js?v=19"></script>
 <script type="module">
+  // DOM id for a Breakdown block key (task names carry spaces and punctuation): readable prefix plus a hash.
+  function prBlockId(key) {
+    let h = 5381;
+    for (let i = 0; i < key.length; i++) h = ((h * 33) ^ key.charCodeAt(i)) >>> 0;
+    return 'blk-' + key.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 24) + '-' + h.toString(36);
+  }
+
+  // The shared Entries block of the Breakdown (spec 2026-11-03-breakdown-v2): months, Role/Resource filter
+  // and column sort over the entries of one expanded row. The logic is pure (js/lib/report-entries.js);
+  // `state` is the parent's entriesState[blockKey], so it survives collapsing and changing view.
+  const PrEntries = {
+    template: '#pr-entries-tpl',
+    props: {
+      entries: { type: Array, default: () => [] },
+      rateFor: { type: Function, required: true },
+      filterKind: { type: String, default: 'role' },
+      state: { type: Object, required: true },
+      periodLabel: { type: String, default: '' },
+      currency: { type: String, default: '' },
+      currencies: { type: Array, default: () => [] },
+      isPhone: { type: Boolean, default: false },
+      blockKey: { type: String, required: true },
+      menuOpen: { type: Boolean, default: false },
+    },
+    emits: ['export', 'toggle-menu', 'open-sheet'],
+    computed: {
+      block() { return entriesBlock(this.entries, { ...this.state, filterKind: this.filterKind }, this.rateFor); },
+      options() { return filterOptions(this.entries, this.filterKind); },
+      chipLabel() { return filterChipLabel(this.state.filter, this.filterKind); },
+      // "Role: " and the value after it, so the value can be bold (boards 7.4e, 7.4h).
+      chipPrefix() { return this.chipLabel.slice(0, this.chipLabel.indexOf(' ') + 1); },
+      chipValue() { return this.chipLabel.slice(this.chipLabel.indexOf(' ') + 1); },
+      filterTitle() { return this.filterKind === 'resource' ? 'Filter by resource' : 'Filter by role'; },
+      filterNote() { return (this.filterKind === 'resource' ? 'Resources' : 'Roles') + ' with entries in ' + this.periodLabel; },
+      sortLabel() { return { date: 'Date', who: this.filterKind === 'resource' ? 'Resource' : 'Role', hours: 'Hours', amount: 'Amount' }[this.state.sort.key]; },
+      whoLabel() { return this.filterKind === 'resource' ? 'Resource' : 'Role (resource)'; },
+    },
+    watch: {
+      menuOpen(v) {
+        if (!v || this.isPhone) return;
+        this.$nextTick(() => { const i = this.$refs.menu && this.$refs.menu.querySelector('input'); if (i) i.focus(); });
+      },
+    },
+    methods: {
+      fmtH(v) { return window.fmtH(v); },
+      fmtDate(d) { return window.fmtDate(d); },
+      money(v) { return window.formatMoney(v, this.currency, this.currencies); },
+      monthLabelLong(ym) {
+        const k = String(ym).replace('-', '');
+        return new Date(parseInt(k.slice(0, 4)), parseInt(k.slice(4, 6)) - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      },
+      monthId(m) { return prBlockId(this.blockKey) + '-' + m.ym; },
+      whoText(e) {
+        if (this.filterKind === 'resource') return e.owner || '—';
+        return e.owner ? e.role + ' (' + e.owner + ')' : e.role;
+      },
+      ariaSort(key) {
+        const s = this.state.sort;
+        return s.key === key ? (s.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+      },
+      sortBy(key) { this.state.sort = nextSort(this.state.sort, key); },
+      // Without a filter one month is open at a time; with one, each month closes on its own.
+      toggleMonth(m) {
+        const s = this.state;
+        if (s.filter.length) {
+          s.closedMonths = s.closedMonths.includes(m.ym) ? s.closedMonths.filter(x => x !== m.ym) : [...s.closedMonths, m.ym];
+        } else {
+          s.openMonth = m.open ? '' : m.ym;
+        }
+      },
+      setFilter(values) {
+        const s = this.state;
+        const hadFilter = s.filter.length > 0;
+        s.filter = values;
+        if (hadFilter !== values.length > 0) { s.closedMonths = []; s.openMonth = null; }
+      },
+      clearFilter() { this.setFilter([]); },
+      onAll(ev) { this.clearFilter(); ev.target.checked = true; },
+      toggleOption(v) {
+        const f = this.state.filter;
+        this.setFilter(f.includes(v) ? f.filter(x => x !== v) : [...f, v]);
+      },
+      onFilterClick(ev) {
+        if (this.isPhone) this.$emit('open-sheet', 'filter');
+        else this.$emit('toggle-menu', ev.currentTarget);
+      },
+      // Up/Down move between the checkboxes; Space (native) toggles; Esc is the page's.
+      onMenuKey(ev) {
+        if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp') return;
+        const boxes = [...ev.currentTarget.querySelectorAll('input')];
+        const i = boxes.indexOf(document.activeElement);
+        const next = ev.key === 'ArrowDown' ? Math.min(boxes.length - 1, i + 1) : Math.max(0, i - 1);
+        if (boxes[next]) { ev.preventDefault(); boxes[next].focus(); }
+      },
+    },
+  };
+
   Vue.createApp({
     data() {
       return {
@@ -736,7 +946,10 @@
         filterStart: '',
         filterEnd: '',
         switchMenuOpen: false,
-        taskDetailState: {}, // { [taskName]: { expanded: bool, openMonth: 'YYYY-MM'|null } } — Breakdown task expansion
+        isPhone: false, // matchMedia('(max-width: 767.98px)'), see mounted()
+        sheet: { kind: null, blockKey: null, filterKind: 'role', draftFilter: [], draftSort: { key: 'date', dir: 'desc' } }, // the open bottom sheet (openSheet) and its draft
+        openMenu: null, // null | 'period' | 'filter:<blockKey>' — the Breakdown's popover menus (toggleMenu/closeMenu)
+        entriesState: {}, // { [blockKey]: { expanded, openMonth, closedMonths, filter, sort } } — Breakdown row expansion and its Entries block (blockState)
         notice: '',
         directCreationEnabled: window.DIRECT_PROJECT_CREATION_ENABLED,
         directCreationMessage: window.PROJECT_RULE_MESSAGES.directCreation,
@@ -1120,17 +1333,22 @@
         if (this.breakdownView === 'role') {
           const cols = this.summaryByRole || [];
           const { rows, total } = breakdownRows(cols, hasFilter);
-          return { total, rows: rows.map((r, i) => ({ ...r, key: 'r:' + cols[i].role + '|' + cols[i].task, label: cols[i].role, subtitle: roleSubtitle(cols[i].role, cols[i].task, this.dashboardData) })) };
+          return { total, rows: rows.map((r, i) => ({ ...r, key: 'r:' + cols[i].role + '|' + cols[i].task, blockKey: 'role:' + cols[i].role + '|' + cols[i].task, label: cols[i].role, subtitle: roleSubtitle(cols[i].role, cols[i].task, this.dashboardData) })) };
         }
         if (this.breakdownView === 'area' && cfg.groups?.length) {
           const cols = this.summaryByGroup || [];
-          const tasks = billableTasks(cfg);
+          const deps = { billableData, billableTasks, findRate };
           // Areas may overlap, so the Total is computed once over every billable entry (B-073).
-          const totalCol = areaTotalColumn(this.dashboardData, cfg, this.filterRange, { billableData, billableTasks, findRate });
+          const totalCol = areaTotalColumn(this.dashboardData, cfg, this.filterRange, deps);
           const { rows, total } = breakdownRows(cols, hasFilter, totalCol);
-          return { total, rows: rows.map((r, i) => cols[i].ungrouped
-            ? { ...r, key: 'g:ungrouped', subtitle: 'Not in any functional area' }
-            : { ...r, key: 'g:' + i, subtitle: groupSubtitle(cfg.groups[i], tasks) }) };
+          return { total, rows: rows.map((r, i) => {
+            const areaIndex = cols[i].ungrouped ? 'ungrouped' : i;
+            // The area's tasks (second level); the subtitle lists the same columns the expansion shows.
+            const areaCols = areaTaskColumns(this.dashboardData, cfg, this.filterRange, deps, areaIndex);
+            const n = areaCols.length;
+            return { ...r, key: 'g:' + areaIndex, areaIndex, areaCols, blockKey: 'area:' + areaIndex,
+              subtitle: cols[i].ungrouped ? 'Not in any functional area' : n + (n === 1 ? ' task' : ' tasks') + (n ? ' · ' + areaCols.map(c => c.task).join(', ') : '') };
+          }) };
         }
         const tasks = billableTasks(cfg);
         const { rows, total } = breakdownRows(this.summaryByTask || [], hasFilter);
@@ -1144,20 +1362,42 @@
       breakdownItems() {
         const b = this.breakdown;
         if (!b) return [];
-        const items = b.rows.map(r => ({ kind: 'row', key: r.key, row: r, taskName: this.breakdownView === 'task' ? r.taskName : null }));
+        const items = [];
+        b.rows.forEach(r => {
+          const blockKey = this.breakdownView === 'task' ? 'task:' + r.taskName : r.blockKey || null;
+          // An area row only opens its task rows; every other row opens an Entries block.
+          items.push({ kind: 'row', key: r.key, row: r, taskName: this.breakdownView === 'task' ? r.taskName : null, blockKey, entries: this.breakdownView !== 'area' });
+          if (this.breakdownView === 'area' && blockKey && this.entriesState[blockKey]?.expanded) {
+            const { rows: taskRows } = breakdownRows(r.areaCols, this.filterHasFilter);
+            taskRows.forEach((tr, j) => {
+              const col = r.areaCols[j];
+              const row = { ...tr, subtitle: col.roles + (col.roles === 1 ? ' role' : ' roles') };
+              items.push({ kind: 'area-task', key: 'at:' + r.areaIndex + '|' + col.task, row: this.breakdownNoBudget ? this.withoutSold(row) : row, taskName: col.task, blockKey: 'area:' + r.areaIndex + '|' + col.task, areaIndex: r.areaIndex, entries: true });
+            });
+          }
+        });
         items.push({ kind: 'total', key: 'total' });
         if (this.breakdownView === 'task') {
           const excluded = this.taskDetailData.filter(e => e.task.billable === false);
           if (excluded.length) {
             items.push({ kind: 'excluded-head', key: 'excluded-head' });
-            excluded.forEach(e => items.push({ kind: 'excluded', key: 'x:' + e.task.name, taskName: e.task.name, hours: e.totPeriod }));
+            excluded.forEach(e => items.push({ kind: 'excluded', key: 'x:' + e.task.name, taskName: e.task.name, blockKey: 'task:' + e.task.name, entries: true, hours: e.totPeriod }));
           }
         }
         return items;
       },
+      sheetOptions() {
+        return this.sheet.blockKey ? filterOptions(this.blockEntries(this.sheet.blockKey), this.sheet.filterKind) : [];
+      },
       taskDetailByName() {
         const map = {};
         this.taskDetailData.forEach(e => { map[e.task.name] = e; });
+        return map;
+      },
+      // The same, keyed lower-case: a logged-only By role pair carries the task as the timesheet wrote it.
+      taskDetailByLowerName() {
+        const map = {};
+        this.taskDetailData.forEach(e => { const k = e.task.name.toLowerCase(); if (!map[k]) map[k] = e; });
         return map;
       },
       periodLabel() {
@@ -1267,8 +1507,14 @@
     },
     mounted() {
       this.attachCardGridObserver();
+      this._phoneMq = window.matchMedia('(max-width: 767.98px)');
+      this.isPhone = this._phoneMq.matches;
+      this._phoneMqHandler = e => { this.isPhone = e.matches; this.closeMenu(false); if (!e.matches) this.hideSheet(); };
+      this._phoneMq.addEventListener('change', this._phoneMqHandler);
     },
     beforeUnmount() {
+      this.removeMenuListeners();
+      if (this._phoneMq) this._phoneMq.removeEventListener('change', this._phoneMqHandler);
       if (this._cardGridObserver) { this._cardGridObserver.disconnect(); this._cardGridObserver = null; }
     },
     methods: {
@@ -1288,11 +1534,71 @@
         // dynamically here rather than referenced bare in the template or captured once by value
         return portfolioSummaryProjects.has(id);
       },
-      taskState(taskName) {
-        if (!this.taskDetailState[taskName]) {
-          this.taskDetailState[taskName] = { expanded: false, openMonth: null };
+      // The state of one Breakdown row's expansion and Entries block, created on first access.
+      // Keys: 'task:<name>', 'role:<role>|<task>', 'area:<groupIndex|ungrouped>' (the area row) and 'area:<groupIndex|ungrouped>|<task>'.
+      blockState(key) {
+        if (!this.entriesState[key]) {
+          this.entriesState[key] = { expanded: false, openMonth: null, closedMonths: [], filter: [], sort: defaultSort() };
         }
-        return this.taskDetailState[taskName];
+        return this.entriesState[key];
+      },
+      blockDomId(key) { return prBlockId(key); },
+      blockInfo(key) {
+        const i = key.indexOf(':');
+        return { prefix: key.slice(0, i), rest: key.slice(i + 1) };
+      },
+      // The entries of the block inside the selected Period.
+      blockEntries(key) {
+        const { prefix, rest } = this.blockInfo(key);
+        if (prefix === 'task') return this.taskDetailByName[rest]?.periodData || [];
+        const task = this.blockTaskName(key);
+        const data = (this.taskDetailByName[task] || this.taskDetailByLowerName[task.toLowerCase()])?.periodData || [];
+        if (prefix === 'role') {
+          const role = rest.slice(0, rest.indexOf('|')).toLowerCase();
+          return data.filter(r => r.role.toLowerCase() === role);
+        }
+        if (prefix === 'area') {
+          const gi = rest.slice(0, rest.indexOf('|'));
+          const claims = areaEntryClaims(this.dashboardProject, gi === 'ungrouped' ? gi : Number(gi));
+          return data.filter(r => claims(r.role, task));
+        }
+        return [];
+      },
+      blockFilterKind(key) { return this.blockInfo(key).prefix === 'role' ? 'resource' : 'role'; },
+      // One stable rate function per block, so the component's computed block is not rebuilt on every parent render.
+      blockRate(key) {
+        this._rateFns = this._rateFns || {};
+        if (!this._rateFns[key]) {
+          const task = { name: this.blockTaskName(key) };
+          this._rateFns[key] = r => this.entryRate(task, r);
+        }
+        return this._rateFns[key];
+      },
+      blockTaskName(key) {
+        const { prefix, rest } = this.blockInfo(key);
+        return prefix === 'task' ? rest : rest.slice(rest.indexOf('|') + 1);
+      },
+      blockExportName(key) {
+        const { prefix, rest } = this.blockInfo(key);
+        let label = rest;
+        if (prefix === 'area') {
+          const gi = rest.slice(0, rest.indexOf('|'));
+          label = (gi === 'ungrouped' ? 'Ungrouped' : this.dashboardProject.groups[Number(gi)].name) + '|' + this.blockTaskName(key);
+        }
+        return prefix + '_' + label.replace(/[^a-zA-Z0-9]/g, '_') + '_entries.xlsx';
+      },
+      exportBlock(key) {
+        this.exportEntriesXls(this.blockEntries(key), this.blockRate(key), this.blockFilterKind(key), this.blockExportName(key));
+      },
+      // A Period change can remove the roles/resources a block was filtered on: drop them, and a filter
+      // that ends up empty goes back to "one month open".
+      pruneEntryFilters() {
+        Object.keys(this.entriesState).forEach(key => {
+          const st = this.entriesState[key];
+          if (!st.filter.length) return;
+          st.filter = pruneFilter(st.filter, filterOptions(this.blockEntries(key), this.blockFilterKind(key)));
+          if (!st.filter.length) { st.closedMonths = []; st.openMonth = null; }
+        });
       },
       // The rows render after Bootstrap has positioned the (still empty) menu: position it again.
       onSwitchShow() {
@@ -1304,14 +1610,18 @@
         });
       },
       onSwitchHidden() { this.switchMenuOpen = false; },
-      toggleTask(taskName) {
-        const st = this.taskState(taskName);
+      // One task open per area: opening one closes the others of the same area (their state stays).
+      toggleBlock(key) {
+        const st = this.blockState(key);
         st.expanded = !st.expanded;
-      },
-      // One open month per task: opening a month closes the other one.
-      toggleMonth(taskName, ym) {
-        const st = this.taskState(taskName);
-        st.openMonth = st.openMonth === ym ? null : ym;
+        const bar = key.indexOf('|');
+        if (st.expanded && key.startsWith('area:') && bar > 0) {
+          const areaPrefix = key.slice(0, bar + 1);
+          Object.keys(this.entriesState).forEach(k => { if (k !== key && k.startsWith(areaPrefix)) this.entriesState[k].expanded = false; });
+        }
+        // A filter menu left open on a block that just collapsed, or sits under one (a keyboard toggle fires no mousedown).
+        const menuKey = this.openMenu && this.openMenu.startsWith('filter:') ? this.openMenu.slice('filter:'.length) : null;
+        if (menuKey && (!this.entriesState[menuKey]?.expanded || (!st.expanded && menuKey.startsWith(key + '|')))) this.closeMenu(false);
       },
       // A task's role rows in the Breakdown's expansion (spec §6 "By task"): Spent is the
       // period consumption, Remaining and % the whole-project ones, like the task row above.
@@ -1338,31 +1648,105 @@
       entryRate(task, row) {
         return this.dashboardProject ? findRate({ role: row.role || '', task: task.name }, this.dashboardProject) : null;
       },
-      taskEntries(entry) {
-        return entriesByMonth(entry.periodData, r => this.entryRate(entry.task, r));
-      },
-      exportTaskEntriesXls(entry) {
-        const cur = this.dashCurrency, list = this.currencies;
-        const aoa = [['Date', 'Role (resource)', 'Hours', 'Amount', 'Note']];
-        entry.periodData.forEach(r => {
-          const rate = this.entryRate(entry.task, r);
-          aoa.push([fmtDate(r.date), r.owner ? `${r.role} (${r.owner})` : r.role, r.hours, rate === null ? '' : Math.round(r.hours * rate * 100) / 100, r.notes || '']);
+      // The block's whole Period (not its filter or sort), oldest first.
+      exportEntriesXls(rows, rateFor, kind, fileName) {
+        const aoa = [['Date', kind === 'resource' ? 'Resource' : 'Role (resource)', 'Hours', 'Amount', 'Note']];
+        [...rows].sort((a, b) => a.date - b.date).forEach(r => {
+          const rate = rateFor(r);
+          aoa.push([fmtDate(r.date), kind === 'resource' ? (r.owner || '') : (r.owner ? `${r.role} (${r.owner})` : r.role), r.hours, rate === null ? '' : Math.round(r.hours * rate * 100) / 100, r.notes || '']);
         });
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Data');
-        XLSX.writeFile(wb, 'task_' + entry.task.name.replace(/[^a-zA-Z0-9]/g, '_') + '_entries.xlsx');
+        XLSX.writeFile(wb, fileName);
       },
       filterMonthLabel(ym) {
         const [y, m] = ym.split('-').map(Number);
         return new Date(y, m-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       },
       resetDateFilter() { this.filterMonth = ''; this.filterStart = ''; this.filterEnd = ''; },
-      // A month (or '' for the whole project) picked in the Period menu; the menu stays open for
-      // the custom-range inputs (data-bs-auto-close="outside"), so it is closed here explicitly.
+      // A month (or '' for the whole project) picked in the Period menu or sheet; both close here,
+      // since a click inside the menu (the custom-range pickers included) keeps it open.
       pickPeriod(ym) {
         this.filterMonth = ym; this.filterStart = ''; this.filterEnd = '';
-        const btn = this.$refs.periodBtn;
-        if (btn && window.bootstrap) window.bootstrap.Dropdown.getOrCreateInstance(btn).hide();
+        this.closeMenu();
+        this.hideSheet();
+      },
+      onPeriodClick(ev) {
+        if (this.isPhone) this.openSheet('period');
+        else this.toggleMenu('period', ev.currentTarget);
+      },
+      // Smartphone bottom sheets (offcanvas), one per kind, bound to the block that opened them. Filter and sort
+      // edit a draft that Apply copies into the block's state; the Period sheet applies directly.
+      openSheet(kind, blockKey) {
+        this.closeMenu(false);
+        if (kind === 'period') {
+          this.sheet = { kind, blockKey: null, filterKind: 'role', draftFilter: [], draftSort: defaultSort() };
+        } else {
+          const st = this.blockState(blockKey);
+          this.sheet = { kind, blockKey, filterKind: this.blockFilterKind(blockKey), draftFilter: [...st.filter], draftSort: { ...st.sort } };
+        }
+        const id = kind === 'filter' ? 'prFilterSheet' : kind === 'sort' ? 'prSortSheet' : 'prPeriodSheet';
+        this.$nextTick(() => window.bootstrap.Offcanvas.getOrCreateInstance(document.getElementById(id)).show());
+      },
+      hideSheet() {
+        ['prFilterSheet', 'prSortSheet', 'prPeriodSheet'].forEach(id => {
+          const el = document.getElementById(id);
+          const inst = el && window.bootstrap ? window.bootstrap.Offcanvas.getInstance(el) : null;
+          if (inst) inst.hide();
+        });
+      },
+      toggleDraft(v) {
+        const f = this.sheet.draftFilter;
+        this.sheet.draftFilter = f.includes(v) ? f.filter(x => x !== v) : [...f, v];
+      },
+      applySheet() {
+        const sh = this.sheet, st = this.blockState(sh.blockKey);
+        if (sh.kind === 'filter') {
+          const had = st.filter.length > 0;
+          st.filter = [...sh.draftFilter];
+          if (had !== st.filter.length > 0) { st.closedMonths = []; st.openMonth = null; }
+        } else {
+          st.sort = { ...sh.draftSort };
+        }
+        this.hideSheet();
+      },
+      // "Clear" in the filter sheet, "Reset" in the sort sheet: back to the defaults, still a draft until Apply.
+      resetSheet() {
+        if (this.sheet.kind === 'filter') this.sheet.draftFilter = [];
+        else this.sheet.draftSort = defaultSort();
+      },
+      // Popover menus: one open at a time, closed by a click outside it and by Esc (focus goes back to
+      // its button). The custom-range pickers live inside the menu's DOM, so a click in them is inside.
+      toggleMenu(name, btnEl) {
+        if (this.openMenu === name) { this.closeMenu(); return; }
+        this.removeMenuListeners();
+        this.openMenu = name;
+        this._menuBtn = btnEl || null;
+        this._menuDocHandlers = {
+          mousedown: e => { if (!this.isInsideMenu(e.target)) this.closeMenu(false); },
+          keydown: e => { if (e.key === 'Escape') this.closeMenu(); },
+        };
+        document.addEventListener('mousedown', this._menuDocHandlers.mousedown);
+        document.addEventListener('keydown', this._menuDocHandlers.keydown);
+      },
+      closeMenu(restoreFocus = true) {
+        const btn = this._menuBtn;
+        this.removeMenuListeners();
+        this.openMenu = null;
+        this._menuBtn = null;
+        if (restoreFocus && btn && btn.focus) btn.focus();
+      },
+      removeMenuListeners() {
+        const h = this._menuDocHandlers;
+        if (!h) return;
+        document.removeEventListener('mousedown', h.mousedown);
+        document.removeEventListener('keydown', h.keydown);
+        this._menuDocHandlers = null;
+      },
+      isInsideMenu(target) {
+        if (!this.openMenu || !target || !target.closest) return false;
+        const menu = target.closest('[data-menu]'), btn = target.closest('[data-menu-btn]');
+        return (!!menu && menu.getAttribute('data-menu') === this.openMenu) || (!!btn && btn.getAttribute('data-menu-btn') === this.openMenu);
       },
       exportBreakdownXls() {
         const b = this.breakdown;
@@ -1556,7 +1940,9 @@
         this.progressView = 'burndown';
         this.breakdownView = 'task';
         this.resetDateFilter();
-        this.taskDetailState = {};
+        this.entriesState = {};
+        this.closeMenu(false);
+        this.hideSheet();
         this.switchMenuOpen = false;
         this.loadDashboardTags(pid);
         this.$nextTick(() => this.renderBurndownChart());
@@ -1703,13 +2089,15 @@
         this.listExpandedPrograms = new Set(next.listExpandedIds);
         this.attachCardGridObserver();
       },
-      refreshTick() { this.attachCardGridObserver(); },
+      refreshTick() { this.attachCardGridObserver(); this.pruneEntryFilters(); },
+      filterRange() { this.pruneEntryFilters(); },
+      breakdownView() { if (this.openMenu && this.openMenu.startsWith('filter:')) this.closeMenu(false); },
       // The grid container only exists while view === 'overview' (showDashboard swaps the whole
       // template out); without this, returning from the dashboard (or landing on it first via
       // ?projectId= and then going "back to portfolio") leaves gridColumns stuck at its last value.
       view() { this.attachCardGridObserver(); },
     },
-  }).component('ph-icon', window.PhIcon).component('cg-date-picker', window.CgDatePicker).mount('#app');
+  }).component('ph-icon', window.PhIcon).component('cg-date-picker', window.CgDatePicker).component('pr-entries', PrEntries).mount('#app');
 </script>
 </body>
 </html>

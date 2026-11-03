@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { paceJudgment, breakdownRows, taskSubtitle, roleSubtitle, groupSubtitle, entriesByMonth, hoursByMonth, monthState, todayIndex, roleColumns, areaColumns, areaTotalColumn, areaOverlap } from './project-report-calc.js';
+import { paceJudgment, breakdownRows, taskSubtitle, roleSubtitle, groupSubtitle, entriesByMonth, hoursByMonth, monthState, todayIndex, roleColumns, areaColumns, areaTotalColumn, areaOverlap, areaTaskColumns, areaEntryClaims } from './project-report-calc.js';
 import { buildSummaryCols } from './portfolio-calc.js';
 
 // Stand-ins for js/core.js's billableTasks/billableData/findRate (same rules: billable filter,
@@ -362,5 +362,46 @@ describe('Breakdown views count the same rows as By task (review round 1)', () =
     const area = breakdownRows(areaColumns(rows, cfg, NO_RANGE, deps), false, areaTotalColumn(rows, cfg, NO_RANGE, deps)).total;
     expect([byTaskTotal(rows, cfg).spentHours, role.spentHours, area.spentHours]).toEqual([4, 4, 4]);
     expect(areaColumns(rows, cfg, NO_RANGE, deps).map(c => c.label)).toEqual(['A']);
+  });
+});
+
+describe('areaTaskColumns', () => {
+  const RANGE = { start: new Date(2026, 0, 1), end: new Date(2026, 0, 31, 23, 59, 59) };
+  const sum = (cols, k) => cols.reduce((s, c) => s + (c[k] ?? 0), 0);
+
+  it('adds up to the area column, whole project and within a period', () => {
+    for (const range of [NO_RANGE, RANGE]) {
+      const areas = areaColumns(F_ROWS, F, range, DEPS);
+      areas.forEach((area, i) => {
+        const cols = areaTaskColumns(F_ROWS, F, range, DEPS, area.ungrouped ? 'ungrouped' : i);
+        for (const k of ['soldHours', 'soldEur', 'totalConsumed', 'totalConsumedEur', 'inPeriod', 'inPeriodEur']) {
+          expect(Math.abs(sum(cols, k) - (area[k] ?? 0))).toBeLessThan(1e-9);
+        }
+      });
+    }
+  });
+  it('in a task shared by two overlapping areas counts only the roles each area claims (Review Focus 4)', () => {
+    const build = areaTaskColumns(F_ROWS, F, NO_RANGE, DEPS, 0).find(c => c.task === 'Dev');
+    const quality = areaTaskColumns(F_ROWS, F, NO_RANGE, DEPS, 1).find(c => c.task === 'Dev');
+    expect([build.totalConsumed, build.roles]).toEqual([14, 2]);
+    expect([quality.totalConsumed, quality.roles]).toEqual([4, 1]);
+  });
+  it('lists only the tasks the area claims, in task order, with roles only logged counted', () => {
+    expect(areaTaskColumns(F_ROWS, F, NO_RANGE, DEPS, 0).map(c => c.task)).toEqual(['Dev']);
+    expect(areaTaskColumns(F_ROWS, F, NO_RANGE, DEPS, 1).map(c => c.task)).toEqual(['Dev', 'QA']);
+    const ung = areaTaskColumns(F_ROWS, F, NO_RANGE, DEPS, 'ungrouped');
+    expect(ung.map(c => [c.task, c.roles, c.soldKnown, c.soldHours])).toEqual([['Dev', 1, false, null]]);
+  });
+  it('a legacy wildcard group gets a column for every task its role has resources or entries in', () => {
+    const cfg = { ...F, groups: [{ name: 'Legacy', roles: ['Tester'] }] };
+    expect(areaTaskColumns(F_ROWS, cfg, NO_RANGE, DEPS, 0).map(c => c.task)).toEqual(['Dev', 'QA']);
+  });
+  it('areaEntryClaims agrees with the columns', () => {
+    const claims = areaEntryClaims(F, 0);
+    const col = areaTaskColumns(F_ROWS, F, NO_RANGE, DEPS, 0).find(c => c.task === 'Dev');
+    const hours = F_ROWS.filter(r => r.task === 'Dev' && claims(r.role, r.task)).reduce((s, r) => s + r.hours, 0);
+    expect(hours).toBe(col.totalConsumed);
+    expect(areaEntryClaims(F, 'ungrouped')('Designer', 'Dev')).toBe(true);
+    expect(areaEntryClaims(F, 'ungrouped')('Developer', 'Dev')).toBe(false);
   });
 });

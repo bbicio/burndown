@@ -44,13 +44,13 @@ describe('portfolio overview guard', () => {
     expect(m[0]).toMatch(/right:\s*auto/);
   });
 
-  it('every portfolio.css reference is ?v=8', () => {
+  it('every portfolio.css reference is ?v=9', () => {
     const pages = fs.readdirSync(root).filter(f => f.endsWith('.html'));
     let found = 0;
     pages.forEach(f => {
       for (const m of read(f).matchAll(/portfolio\.css\?v=(\d+)/g)) {
         found++;
-        expect(m[1], f).toBe('8');
+        expect(m[1], f).toBe('9');
       }
     });
     expect(found).toBeGreaterThan(0);
@@ -224,8 +224,8 @@ describe('project reporting view — Breakdown card', () => {
 });
 
 describe('project reporting view — task expansion and entries', () => {
-  it('carries the expansion, entries and excluded copy', () => {
-    ['Entries ·', 'Export XLS', 'entries', 'No entries in the selected period.', 'Excluded from report', 'Role (resource)', 'Amount', 'Note']
+  it('carries the excluded-tasks copy (the Entries copy lives in the pr-entries template)', () => {
+    ['Excluded from report']
       .forEach(t => expect(dashboardActive, t).toContain(t));
   });
 
@@ -247,7 +247,7 @@ describe('project reporting view — visual fidelity pass (Task 7)', () => {
     expect(dashboardActive).not.toContain('aria-label="breadcrumb"');
   });
   it('hides the Breakdown Remaining column below 1280px, where the sidebar leaves too little width', () => {
-    const m = css.match(/@media \(max-width: 1279px\) \{([\s\S]*?)\n\}/g) || [];
+    const m = css.match(/@media \(max-width: 1279\.98px\) \{([\s\S]*?)\n\}/g) || [];
     expect(m.some(b => /\.pr-bd-remaining\s*\{\s*display:\s*none/.test(b))).toBe(true);
   });
   it('never breaks a KPI figure inside itself; "of …" wraps as a whole', () => {
@@ -272,15 +272,18 @@ describe('project reporting view — Gate 3 review fixes', () => {
     const m = html.match(/showDashboard\(pid\) \{([\s\S]*?)\n      \},/);
     expect(m).not.toBeNull();
     expect(m[1]).toContain('this.resetDateFilter();');
-    expect(m[1]).toContain('this.taskDetailState = {};');
+    expect(m[1]).toContain('this.entriesState = {};');
   });
   it('reads "—" for Sold and Remaining without a sold reference', () => {
     expect(dashboardActive).toContain(`!it.row.soldKnown ? '—' : fmtH(it.row.soldHours)`);
     expect(dashboardActive).toContain(`!breakdown.total.soldKnown ? '—' : fmtH(breakdown.total.soldHours)`);
     expect(dashboardActive).toContain(`sr.soldKnown ? fmtH(sr.soldHours) : '—'`);
   });
-  it('makes the task, excluded and month rows keyboard-operable', () => {
-    expect((dashboardActive.match(/@keydown\.enter\.space\.prevent=/g) || []).length).toBe(3);
+  it('makes the task and excluded rows keyboard-operable through a real button', () => {
+    expect(dashboardActive).not.toMatch(/@keydown\.enter\.space\.prevent=/);
+    expect(dashboardActive).not.toContain('role="button"');
+    expect(dashboardActive).toContain(`:is="it.blockKey ? 'button' : 'div'"`);
+    expect(dashboardActive).toContain('class="pr-bd-toggle" :aria-expanded="String(blockState(it.blockKey).expanded)" :aria-controls="blockDomId(it.blockKey)"');
   });
   it('destroys the burndown chart when the Progress card leaves the Burndown view', () => {
     expect(html).toMatch(/else if \(this\._burndownChart\) \{ this\._burndownChart\.destroy\(\); this\._burndownChart = null; \}/);
@@ -344,5 +347,128 @@ describe('project reporting view — Breakdown and Monthly fixes (B-073, B-075, 
   });
   it('uses an existing font-weight token', () => {
     expect(css).not.toContain('--weight-normal');
+  });
+});
+
+describe('Breakdown v2 — menus', () => {
+  const bStart = dashboard.indexOf('<!-- /pr-progress -->');
+  const bEnd = dashboard.indexOf('<!-- /pr-breakdown -->');
+  const card = dashboard.slice(bStart, bEnd);
+
+  it('the Period menu is a Vue popover, not a Bootstrap dropdown', () => {
+    expect(card).not.toContain('data-bs-toggle="dropdown"');
+    expect(card).toContain('data-menu="period"');
+    expect(card).toContain('data-menu-btn="period"');
+  });
+  it('picking a period closes the menu through closeMenu, not Bootstrap', () => {
+    const m = html.match(/pickPeriod\(ym\) \{([\s\S]*?)\n {6}\},/);
+    expect(m).not.toBeNull();
+    expect(m[1]).not.toContain('bootstrap.Dropdown');
+    expect(m[1]).toContain('this.closeMenu()');
+  });
+  it('closes on a click outside and on Esc, and removes its listeners on unmount', () => {
+    expect(html).toContain('closeMenu(restoreFocus = true)');
+    expect(html).toMatch(/document\.addEventListener\('mousedown'/);
+    expect(html).toMatch(/e\.key === 'Escape'/);
+    const m = html.match(/beforeUnmount\(\) \{([\s\S]*?)\n {4}\},/);
+    expect(m).not.toBeNull();
+    expect(m[1]).toContain('this.removeMenuListeners()');
+  });
+});
+
+describe('Breakdown v2 — Entries block', () => {
+  const tStart = html.indexOf('<template id="pr-entries-tpl">');
+  const tEnd = html.indexOf('\n</template>', tStart);
+  const tpl = html.slice(tStart, tEnd);
+  const bStart = dashboard.indexOf('<!-- /pr-progress -->');
+  const bEnd = dashboard.indexOf('<!-- /pr-breakdown -->');
+  const card = dashboard.slice(bStart, bEnd).replace(/<!--[\s\S]*?-->/g, '');
+
+  it('locates the template, outside the Vue mount root', () => {
+    expect(tStart).toBeGreaterThan(dashEnd);
+    expect(tEnd).toBeGreaterThan(tStart);
+  });
+  it('carries the Entries copy', () => {
+    ['Entries ·', ' of ', 'Export XLS', 'No entries in the selected period.', 'No entries match the selected filters.', 'Clear',
+      'months without matching entries hidden', '1 month without matching entries hidden', 'Hours', 'Amount', 'Note'].forEach(t => expect(tpl, t).toContain(t));
+  });
+  it('carries the filter and column copy that the component builds', () => {
+    ['Filter by role', 'Filter by resource', ' with entries in ', 'Role (resource)', 'Resource'].forEach(t => expect(html, t).toContain(t));
+  });
+  it('has sortable headers as buttons with aria-sort, and month buttons with aria-expanded and aria-controls', () => {
+    expect(tpl).toContain('aria-sort');
+    expect(tpl).toMatch(/<th[^>]*><button/);
+    expect(tpl).toContain(':aria-expanded="String(m.open)"');
+    expect(tpl).toContain(':aria-controls="monthId(m)"');
+  });
+  it('has no emoji and no hex', () => {
+    expect(tpl).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(tpl).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+  it('mounts the component in the card and no longer renders the entries inline', () => {
+    expect(card).toContain('<pr-entries');
+    expect(card).not.toContain('taskEntries(');
+  });
+  it('loads report-entries.js', () => {
+    expect(html).toContain('js/lib/report-entries.js?v=1');
+  });
+});
+
+describe('Breakdown v2 — By role and By functional area', () => {
+  it('By role mounts the block with the Resource filter', () => {
+    expect(html).toContain(`blockFilterKind(key) { return this.blockInfo(key).prefix === 'role' ? 'resource' : 'role'; }`);
+    expect(html).toContain(`blockKey: 'role:' + cols[i].role + '|' + cols[i].task`);
+  });
+  it('By area lists its tasks as area-task rows with an "N tasks" subtitle and "N roles" under each', () => {
+    expect(dashboardActive).toContain(`it.kind === 'area-task'`);
+    expect(html).toContain(`(n === 1 ? ' task' : ' tasks')`);
+    expect(html).toContain(`(col.roles === 1 ? ' role' : ' roles')`);
+  });
+  it('prunes the filters on a data reload too, not only on a Period change (review round 2)', () => {
+    expect(html).toContain(`refreshTick() { this.attachCardGridObserver(); this.pruneEntryFilters(); },`);
+    expect(html).toContain(`filterRange() { this.pruneEntryFilters(); },`);
+  });
+  it('closes a filter menu whose block collapses (review round 2)', () => {
+    const m = html.match(/toggleBlock\(key\) \{([\s\S]*?)\n {6}\},/);
+    expect(m).not.toBeNull();
+    expect(m[1]).toContain('this.closeMenu(false)');
+  });
+  it('closes a filter menu under a collapsed area, on a view change and on a project switch (review round 3)', () => {
+    expect(html).toContain(`menuKey.startsWith(key + '|')`);
+    expect(html).toContain(`breakdownView() { if (this.openMenu && this.openMenu.startsWith('filter:')) this.closeMenu(false); },`);
+    const m = html.match(/showDashboard\(pid\) \{([\s\S]*?)\n {6}\},/);
+    expect(m).not.toBeNull();
+    expect(m[1]).toContain('this.closeMenu(false)');
+    expect(m[1]).toContain('this.hideSheet()');
+  });
+  it('finds a logged-only pair\'s entries whatever the case of its task (review round 1)', () => {
+    expect(html).toContain(`this.taskDetailByLowerName[task.toLowerCase()]`);
+  });
+  it('exports per block: role_ and area_ prefixes, the area by its name', () => {
+    expect(html).toContain(`return prefix + '_' + label.replace(`);
+    expect(html).toContain(`this.dashboardProject.groups[Number(gi)].name`);
+  });
+  it('opening a task of an area closes the area\'s others', () => {
+    expect(html).toContain(`k.startsWith(areaPrefix)) this.entriesState[k].expanded = false`);
+  });
+});
+
+describe('Breakdown v2 — tablet and smartphone', () => {
+  it('has the three bottom sheets as offcanvas-bottom', () => {
+    for (const id of ['prFilterSheet', 'prSortSheet', 'prPeriodSheet']) {
+      expect(html, id).toMatch(new RegExp(`class="offcanvas offcanvas-bottom pr-sheet"[^>]*id="${id}"`));
+    }
+  });
+  it('carries the sheet and phone copy', () => {
+    ['Sort entries', 'Applies inside each month', 'Ascending', 'Descending', 'Reset', 'Apply', 'By area', 'Clear', 'Spent <b>', ' · Remaining <b>']
+      .forEach(t => expect(html, t).toContain(t));
+  });
+  it('uses the same smartphone and tablet thresholds in CSS and matchMedia', () => {
+    expect(css).toContain('max-width: 767.98px');
+    expect(css).toContain('max-width: 1279.98px');
+    expect(html).toContain(`matchMedia('(max-width: 767.98px)')`);
+  });
+  it('removes the matchMedia listener on unmount', () => {
+    expect(html).toContain(`this._phoneMq.removeEventListener('change', this._phoneMqHandler)`);
   });
 });
