@@ -1210,7 +1210,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       assignmentsText(n) { return n + (n === 1 ? ' assignment' : ' assignments'); },
       // the card head is one button: its name must still carry the figures it shows
       cardHeadLabel(r) {
-        return `${this.isOpen(r.id) ? 'Collapse' : 'Expand'} ${r.label}, ${this.assignmentsText(this.leafCountMap.get(r.id) ?? 0)}, `
+        const tags = [r.inactive && 'inactive', r.kind === 'tbd' && 'Needs owner', r.kind === 'project' && r.stage].filter(Boolean);
+        return `${this.isOpen(r.id) ? 'Collapse' : 'Expand'} ${r.label}${tags.length ? ' (' + tags.join(', ') + ')' : ''}, ${this.assignmentsText(this.leafCountMap.get(r.id) ?? 0)}, `
           + `Sold ${this.fmtNum(r.sold)}, ${this.stepper.label} ${this.phoneCellText(r)}, ${this.fmtNum(r.toPlan)} to plan`;
       },
       miniBarOf(cells) { return window.miniBar(cells); },
