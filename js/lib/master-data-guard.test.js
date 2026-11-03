@@ -59,45 +59,70 @@ describe('Master Data sub-menu styles (css/style.css)', () => {
 });
 
 const PAGES = [
-  { file: 'master-clients.html',       href: '/master-clients.html',
+  { file: 'master-clients.html',       active: 'clients',    section: 'Clients',
     api: ['clients', 'currencies', 'ratecards', 'roles'],
     // the rate card builds its non-EUR columns from window.__currencies and its
     // "agency default" placeholders from the roles it reads afresh on each open
     must: ['id="clientRcModal"', 'window.__cfgApp',
       'window.__currencies = await Api.currencies.active()', 'this.clients = await Api.clients.list()'] },
-  { file: 'master-client-groups.html', href: '/master-client-groups.html',
+  { file: 'master-client-groups.html', active: 'clients',    section: 'Client Groups',
     api: ['clientGroups', 'clients'],
     must: ['this.clients  = clients;', 'this.groups   = groups.map('] },
-  { file: 'master-pipelines.html',     href: '/master-pipelines.html',
+  { file: 'master-pipelines.html',     active: 'pipelines',  section: 'Pipelines & POTs',
     api: ['clientGroups', 'clients', 'currencies', 'pipelineYears', 'pots', 'reporting'],
     must: ['id="potDetailsModal"', 'this.yearTotals    = yearTotals;'] },
-  { file: 'master-roles.html',         href: '/master-roles.html',
+  { file: 'master-roles.html',         active: 'roles',      section: 'Roles & rates',
     api: ['currencies', 'roles'],
     must: ['this.currencies    = currencies;', 'groupedRoles'] },
-  { file: 'master-currencies.html',    href: '/master-currencies.html',
+  { file: 'master-currencies.html',    active: 'currencies', section: 'Currencies',
     api: ['currencies'],
     must: ['id="crHistoryModal"', 'id="crRateConfirmModal"', 'this.crEdit'] },
 ];
-const LINKS = PAGES.map(p => p.href);
 
-describe.each(PAGES)('Master Data page: $file', ({ file, href, api, must }) => {
+describe.each(PAGES)('Master Data page: $file', ({ file, active, section, api, must }) => {
   const html = read(file);
 
-  it('has the same five sub-menu links in order, only its own marked active', () => {
+  it('has the shared page head, then the generated sub-nav and the card as the Vue root\'s first child', () => {
+    expect(html).toMatch(new RegExp(
+      '<div id="app-main">\\s*<div class="ph">[\\s\\S]*?<h1 class="ph-title">Master Data</h1>[\\s\\S]*?'
+      + '<div class="ph-sub">Clients, pipelines, roles, rates and currencies used across the app\\.</div>\\s*</div>\\s*</div>\\s*'
+      + '<div class="md-layout">\\s*<nav class="md-subnav" data-md-active="' + active + '" aria-label="Master Data"></nav>\\s*'
+      + '<div class="md-content">\\s*<div id="app" v-cloak>\\s*<section class="md-card">'));
+    expect(html).not.toContain('ph-side');
+  });
+
+  it('writes no sub-nav link by hand', () => {
     const nav = html.match(/<nav class="md-subnav"[\s\S]*?<\/nav>/)[0];
-    expect([...nav.matchAll(/href="([^"]+)"/g)].map(m => m[1])).toEqual(LINKS);
-    expect([...nav.matchAll(/<a href="([^"]+)"[^>]*aria-current="page"/g)].map(m => m[1])).toEqual([href]);
+    expect(nav).not.toContain('<a href=');
   });
 
-  it('wraps the Vue root in .md-layout > .md-content inside #app-main', () => {
-    expect(html).toMatch(/<div id="app-main">\s*<div class="md-layout">\s*<nav class="md-subnav"/);
-    expect(html).toMatch(/<div class="md-content">\s*<div id="app" v-cloak>/);
+  it('titles the card with the section name', () => {
+    expect(html).toContain(`<h2 class="md-card-title">${section.replace(/&/g, '&amp;')}</h2>`);
   });
 
-  it('is a Master Data page for the nav (id config, title, breadcrumb)', () => {
+  it('loads the sub-nav module after the icon library', () => {
+    const icons = html.indexOf('<script type="module" src="js/lib/icons.js');
+    const subnav = html.indexOf('<script type="module" src="js/lib/md-subnav.js?v=1"></script>');
+    expect(icons).toBeGreaterThan(-1);
+    expect(subnav).toBeGreaterThan(icons);
+  });
+
+  it('is a Master Data page for the nav (id config, title, three-level breadcrumb)', () => {
     expect(html).toContain('<title>PDash — Master Data</title>');
     expect(html).toContain("initNav('config'");
-    expect(html).toContain("{ label: 'Master Data' }");
+    expect(html).toContain("{ label: 'Master Data', href: '/master-clients.html' }");
+    expect(html).toContain(`{ label: '${section}' }`);
+  });
+
+  it('shows the access-denied block with the SVG lock icon, no emoji', () => {
+    expect(html).toContain('<ph-icon name="lock"');
+    expect(html).toContain(".component('ph-icon', window.PhIcon)");
+    expect(html).not.toContain('🔒');
+  });
+
+  it('has no old page header', () => {
+    expect(html).not.toContain('page-header');
+    expect(html).not.toContain('font-size: 2.5rem');
   });
 
   it('keeps the admin-or-sysadmin check and the access-denied block', () => {
