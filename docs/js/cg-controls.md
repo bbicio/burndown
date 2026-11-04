@@ -1,6 +1,6 @@
 # js/cg-controls.js + js/lib/cg-controls-calc.js
 
-The custom form controls first built for the Cost Grid editor (2026-10-07, Cost Grid fidelity cycle). `js/cg-controls.js` is loaded by `costgrid.html`, and since 2026-10-24 (dates C2) also by `project-config.html` and `portfolio.html` for the date picker; `js/lib/cg-controls-calc.js` holds its pure helpers; the styles are in `css/controls.css`.
+The custom form controls first built for the Cost Grid editor (2026-10-07, Cost Grid fidelity cycle). `js/cg-controls.js` is loaded by `costgrid.html`, and since 2026-10-24 (dates C2) also by `project-config.html` and `portfolio.html` for the date picker, and (2026-11-04) by `master-pipelines.html` for `cg-select`; `js/lib/cg-controls-calc.js` holds its pure helpers; the styles are in `css/controls.css`.
 
 This file holds the full detail for both. `CLAUDE.md`'s File structure entries keep only a short summary plus a pointer; when working on these controls, read this file, not those lines. See `/sync-docs`'s routing rule for where future changes belong. Page side: [docs/pages/costgrid.md](../pages/costgrid.md).
 

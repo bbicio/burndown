@@ -33,7 +33,7 @@ describe('cost grid guard', () => {
     expect(html).toMatch(/css\/controls\.css\?v=\d+/);
     expect(html).toMatch(/js\/cg-controls\.js\?v=\d+/);
     expect(html).toMatch(/js\/lib\/cg-controls-calc\.js\?v=\d+/);
-    const CONTROLS_PAGES = new Set(['costgrid.html', 'project-config.html', 'portfolio.html', 'planning.html']);
+    const CONTROLS_PAGES = new Set(['costgrid.html', 'project-config.html', 'portfolio.html', 'planning.html', 'master-pipelines.html']);
     const others = fs.readdirSync(root).filter(f => f.endsWith('.html') && f !== 'costgrid.html');
     others.forEach(f => {
       expect(read(f), f).not.toContain('costgrid.css');
