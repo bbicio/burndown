@@ -87,7 +87,7 @@ const PAGES = [
       'Api.clientGroups.list()', 'Api.ratecards.list()', 'readUrlState('] },
   { file: 'master-pipelines.html',     active: 'pipelines',  section: 'Pipelines & POTs',
     api: ['clientGroups', 'clients', 'currencies', 'pipelineYears', 'pots', 'reporting'],
-    must: ['id="potDetailsModal"', 'this.yearTotals    = yearTotals;'] },
+    must: ['window.__cfgApp', 'parseMdpUrl(', 'popstate', 'this.yearTotals    = yearTotals;'] },
   { file: 'master-roles.html',         active: 'roles',      section: 'Roles & rates',
     api: ['currencies', 'roles'],
     must: ['this.currencies    = currencies;', 'groupedRoles'] },
@@ -325,5 +325,82 @@ describe('Master Data shared controls (css/style.css, js/lib/icons.js)', () => {
     for (const n of ['building', 'pencil', 'more', 'reset']) {
       expect(iconSvg(n), n).not.toBe('');
     }
+  });
+});
+
+describe('wide mode (Pipelines & POTs phasing)', () => {
+  const css = read('css/style.css');
+  it('hides the sub-nav and widens the content', () => {
+    expect(css).toContain('.md-layout--wide .md-subnav { display: none');
+    expect(css).toMatch(/.md-layout--wide .md-content/);
+  });
+});
+
+describe('Pipelines & POTs responsive styles', () => {
+  const html = read('master-pipelines.html');
+  const style = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+  const tabletAt = style.lastIndexOf('@media (max-width: 1023.98px)');
+  const phoneAt = style.lastIndexOf('@media (max-width: 767.98px)');
+  const tablet = style.slice(tabletAt, phoneAt);
+  const phone = style.slice(phoneAt);
+
+  it('carries the confirm modal that showConfirm writes into, outside the Vue root', () => {
+    expect(html).toContain('showConfirm(');
+    for (const id of ['confirmModal', 'confirmModalTitle', 'confirmModalMessage', 'confirmModalOk', 'confirmModalCancel']) {
+      expect(html, id).toContain(`id="${id}"`);
+    }
+    expect(html.indexOf('id="confirmModal"')).toBeGreaterThan(html.indexOf('</div><!-- #app -->'));
+  });
+
+  it('Delete pipeline is blocked by proposals and by POTs, in both menus', () => {
+    expect(html).toContain('deleteBlock(py) {');
+    expect(html).toContain("if (this.deleteBlock(py)) return;");
+    expect(html.split(':disabled="!!deleteBlock(py) || py._loading"').length - 1).toBe(2);
+    expect(html).not.toContain('py.offers > 0 || py._loading');
+  });
+
+  it('has no hex colour in its inline styles and retries a failed POT details load', () => {
+    const styles = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+    expect(styles).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(html).toContain('this.potDetails[pot.id] && !this.potDetails[pot.id].error');
+    expect(html).toContain("history[replace || same ? 'replaceState' : 'pushState']");
+  });
+
+  it('round 3 fixes: fresh drawer data, retry of a failed year load, stale failure ignored, popstate clears the banner', () => {
+    expect(html).toContain('this.pipelineSummary = []; this.potDetails = {};');
+    expect(html).toContain('if (this.loadedPotsYear === year) this.loadedPotsYear = null;');
+    expect(html).toContain('this.loadedPotsYear = null;\n        this.pipelineSummary = [];');
+    expect(html).toContain('{ this.globalError = null; this.applyState(window.parseMdpUrl(location.search)); }');
+  });
+
+  it('review fixes: blur without symbol, declared potHistory, retry of a failed phasing, Esc left to modals', () => {
+    expect(html).toContain("formatMoney(v, 'EUR', window.__currencies, { symbol: false })");
+    expect(html).toMatch(/potHistory:\s+\{\}/);
+    expect(html).toContain('this.phasing[mode] && !this.phasing[mode].error');
+    expect(html).toContain("document.querySelector('.modal.show')");
+    expect(html).toContain('} else if (!this.loadOk) {');
+  });
+
+  it('has a tablet block followed by a phone block', () => {
+    expect(tabletAt).toBeGreaterThan(-1);
+    expect(phoneAt).toBeGreaterThan(tabletAt);
+  });
+
+  it('tablet: controls are 40px and the POTs column is hidden', () => {
+    expect(tablet).toContain('min-height: 40px');
+    expect(tablet).toMatch(/\.mdp-col-pots[^}]*display: none/);
+    expect(tablet).toMatch(/\.mdp-col-ca[^}]*display: none/);
+  });
+
+  it('phone: touch targets are 44px on Add year, the more menu, the card foot and proposal rows', () => {
+    for (const sel of ['.mdp-head .btn', '.mdp-icon-btn', '.mdp-pcard-foot', '.mdp-prop']) {
+      const i = phone.indexOf(sel);
+      expect(i, sel).toBeGreaterThan(-1);
+      expect(phone.slice(i, i + 200), sel).toContain('min-height: 44px');
+    }
+  });
+
+  it('phasing keeps its name column sticky', () => {
+    expect(style).toMatch(/\.mdp-ph-table \.mdp-ph-name \{[^}]*position: sticky/);
   });
 });
