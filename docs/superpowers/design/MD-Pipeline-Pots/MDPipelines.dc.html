@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><title>PDash — Master Data · Pipelines &amp; POTs</title><style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#F3F4F6}
+a{color:#0B1840}a:hover{color:#F0287A}
+input::placeholder{color:#9AA0AC}
+.pb-navitem{height:40px;padding:0 10px;display:flex;align-items:center;gap:10px;border-radius:8px;text-decoration:none}
+.pb-navitem span{color:rgba(255,255,255,.75);font-size:13px;font-weight:500}
+.pb-subitem{height:32px;padding:0 10px 0 14px;display:flex;align-items:center;gap:9px;border-radius:8px;text-decoration:none}
+.pb-subitem span{color:rgba(255,255,255,.58);font-size:12px}
+.pb-subitem.active{background:rgba(255,255,255,.1);box-shadow:inset 3px 0 0 #F0287A}
+.pb-subitem.active span{color:#fff;font-weight:600}
+.pb-sublabel{padding:10px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.38)}
+</style></helmet>
+<div style="width:1400px;height:1000px;box-sizing:border-box;display:flex;background:#F3F4F6;overflow:hidden;position:relative">
+
+  <div style="width:220px;flex-shrink:0;background:#0B1840;display:flex;flex-direction:column;box-sizing:border-box">
+    <div style="height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 16px;border-bottom:3px solid #F0287A">
+      <span style="color:#FFFFFF;font-weight:700;font-size:22px;letter-spacing:-0.02em"><span style="color:#F0287A">P</span>Dash</span>
+      <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="rgba(255,255,255,.6)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+    </div>
+    <div style="padding:10px 8px 0;display:flex;flex-direction:column;gap:2px">
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12V8M8 12V4M14 12V6" stroke="rgba(255,255,255,.65)" stroke-width="1.6" stroke-linecap="round"></path></svg><span>Pipeline</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="2" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect></svg><span>Portfolio</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4" stroke-linecap="round"></path></svg><span>Planning</span></a>
+      <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+      <div class="pb-sublabel">Admin</div>
+      <a class="pb-subitem active" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.4" stroke="#fff" stroke-width="1.3"></circle><path d="M8 2v1.6M8 12.4V14M14 8h-1.6M3.6 8H2" stroke="#fff" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Master Data</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="9" rx="1.2" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></rect><path d="M2 4l1.6-2h8.8L14 4" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg><span>Timesheets</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.3" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></circle><path d="M3 14c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg><span>User Admin</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5.5" r="2" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></circle><circle cx="11" cy="6.5" r="1.6" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></circle><path d="M2 14c0-2.3 1.7-3.8 3.9-3.8 1.6 0 2.9.8 3.5 2M9.6 10.3c1.6 0 3 1.1 3 3" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Team</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5L14 8.5 7.5 15 2 9.5V2Z" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Attribute Lists</span></a>
+      <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+      <div class="pb-sublabel">Sysadmin</div>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><ellipse cx="8" cy="3.5" rx="5.2" ry="1.8" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></ellipse><path d="M2.8 3.5v9c0 1 2.3 1.8 5.2 1.8s5.2-.8 5.2-1.8v-9" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></path></svg><span>DB Reset</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 2h5.5L13 5.5V14H4V2Z" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Terms &amp; Conditions</span></a>
+    </div>
+    <div style="flex:1"></div>
+    <div style="border-top:1px solid rgba(255,255,255,.12);padding:12px 12px 14px;display:flex;align-items:center;gap:10px">
+      <div style="width:26px;height:26px;border-radius:999px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:700;flex-shrink:0">AP</div>
+      <span style="color:#fff;font-size:12px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">bbicio@gmail.com</span>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <div style="flex-shrink:0;height:44px;box-sizing:border-box;background:#FFFFFF;border-bottom:1px solid #DDE1E8;padding:0 24px;display:flex;align-items:center">
+      <div style="font-size:12px;color:#6B7280;display:flex;align-items:center;gap:6px">Home <span style="color:#C7CCD9">/</span> Master Data <span style="color:#C7CCD9">/</span> <span onClick="{{ goList }}" style="color:{{ crumbC }};font-weight:{{ crumbW }};cursor:pointer">Pipelines &amp; POTs</span><sc-if value="{{ pipeCrumb }}" hint-placeholder-val="{{ false }}"><span style="color:#C7CCD9">/</span> <span onClick="{{ goPots }}" style="color:{{ potCrumbC }};font-weight:{{ potCrumbW }};cursor:pointer">Pipeline 2026</span></sc-if><sc-if value="{{ isPh }}" hint-placeholder-val="{{ false }}"><span style="color:#C7CCD9">/</span> <span style="color:#374151;font-weight:600">{{ phTitle }}</span></sc-if></div>
+    </div>
+
+    <div style="flex-shrink:0;padding:16px 24px 0">
+      <div style="font-size:26px;font-weight:700;color:#0B1840">Master Data</div>
+      <div style="font-size:12.5px;color:#6B7280;margin-top:2px">Clients, programs, roles and rates used across the app.</div>
+    </div>
+
+    <div style="flex:1;min-height:0;display:flex;gap:20px;padding:16px 24px 24px">
+      <sc-if value="{{ showSub }}" hint-placeholder-val="{{ true }}"><div style="width:196px;flex-shrink:0;background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:6px 6px 10px;align-self:flex-start;display:flex;flex-direction:column">
+        <sc-for list="{{ subnav }}" as="g" hint-placeholder-count="2">
+          <span style="padding:12px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">{{ g.label }}</span>
+          <sc-for list="{{ g.items }}" as="i">
+            <div style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;cursor:pointer;background:{{ i.bg }};box-shadow:{{ i.bar }}" style-hover="background:#F3F4F6">
+              <span style="flex:1;font-size:12.5px;font-weight:{{ i.w }};color:{{ i.c }}">{{ i.label }}</span>
+              <span style="font-size:11px;color:#9AA0AC">{{ i.count }}</span>
+            </div>
+          </sc-for>
+        </sc-for>
+      </div>
+      </sc-if>
+      <div style="flex:1;min-width:0;overflow:auto;display:flex;flex-direction:column;gap:14px">
+      <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+        <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #EEF0F4">
+            <div style="display:flex;flex-direction:column;gap:2px;flex:1"><span style="font-size:15px;font-weight:700;color:#0B1840">Pipelines</span><span style="font-size:12px;color:#6B7280">One pipeline per year. Each pipeline has its POT targets by client or client group.</span></div>
+            <div onClick="{{ startYear }}" style="display:flex;align-items:center;height:32px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer" style-hover="background:#1a2a5e">+ Add year</div>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 140px minmax(220px,1.3fr) 70px 200px;gap:14px;padding:10px 18px;background:#F7F8FA;border-bottom:1px solid #EEF0F4;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">
+            <span>Pipeline</span><span>Visibility</span><span style="text-align:right">POT target</span><span>Achievement · C + A</span><span style="text-align:right">POTs</span><span></span>
+          </div>
+          <sc-if value="{{ addingYear }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;background:#F7F8FA;border-bottom:1px solid #EEF0F4">
+              <span style="font-size:13px;font-weight:600;color:#0B1840">Pipeline</span>
+              <input value="{{ newYear }}" onChange="{{ onNewYear }}" style="width:90px;height:34px;box-sizing:border-box;border:1px solid #F0287A;box-shadow:0 0 0 3px rgba(240,40,122,.15);border-radius:8px;padding:0 10px;font-size:13px;font-weight:700;font-family:inherit;outline:none;color:#0B1840">
+              <span style="font-size:11.5px;color:{{ yearHintC }};flex:1">{{ yearHint }}</span>
+              <span onClick="{{ cancelYear }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:7px 4px">Cancel</span>
+              <span onClick="{{ createYear }}" style="font-size:12.5px;font-weight:600;color:#fff;background:{{ yearBg }};border-radius:8px;padding:7px 14px;cursor:pointer">Create</span>
+            </div>
+          </sc-if>
+          <sc-for list="{{ pipelines }}" as="p" hint-placeholder-count="3">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 140px minmax(220px,1.3fr) 70px 200px;gap:14px;padding:0 18px;min-height:60px;align-items:center;border-bottom:1px solid #F0F1F4" style-hover="background:#FAFBFC">
+              <div style="display:flex;flex-direction:column;gap:1px"><span onClick="{{ p.open }}" style="font-size:14px;font-weight:700;color:{{ p.nameC }};cursor:pointer">{{ p.name }}</span><span style="font-size:11px;color:#9AA0AC">{{ p.sub }}</span></div>
+              <div onClick="{{ p.toggleVis }}" title="Hidden pipelines are not shown in the Pipeline page" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;color:{{ p.visC }}">
+                <div style="width:28px;height:16px;border-radius:999px;background:{{ p.visTrack }};position:relative;flex-shrink:0"><div style="position:absolute;top:2px;left:{{ p.visKnob }};width:12px;height:12px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)"></div></div>{{ p.vis }}
+              </div>
+              <span style="font-size:13px;font-weight:600;color:#141413;text-align:right">{{ p.target }}</span>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <sc-if value="{{ p.hasAch }}">
+                  <div style="display:flex;align-items:baseline;gap:6px"><span style="font-size:13px;font-weight:700;color:#0B1840">{{ p.pct }}</span><span style="font-size:11.5px;color:#6B7280">{{ p.ca }}</span></div>
+                  <div style="height:6px;background:#EEF0F4;border-radius:999px;overflow:hidden;display:flex"><div style="height:100%;width:{{ p.cW }};background:#0E7C4A"></div><div style="height:100%;width:{{ p.aW }};background:#E0892B"></div></div>
+                  <span style="font-size:10.5px;color:#9AA0AC">{{ p.split }}</span>
+                </sc-if>
+                <sc-if value="{{ p.noAch }}"><span style="font-size:12px;color:#9AA0AC">No POTs set</span></sc-if>
+              </div>
+              <span style="font-size:12.5px;color:#374151;text-align:right">{{ p.nPots }}</span>
+              <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;position:relative">
+                <span onClick="{{ p.open }}" style="font-size:12px;font-weight:600;color:#0B1840;cursor:pointer;padding:6px 8px" style-hover="color:#F0287A">POT targets →</span>
+                <div onClick="{{ p.toggleMenu }}" title="More" style="width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer" style-hover="background:#F3F4F6;color:#0B1840"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg></div>
+                <sc-if value="{{ p.menuOpen }}">
+                  <div onClick="{{ p.toggleMenu }}" style="position:fixed;inset:0;z-index:9"></div>
+                  <div style="position:absolute;top:36px;right:0;z-index:10;width:250px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;box-shadow:0 10px 28px rgba(11,24,64,.16);padding:4px;display:flex;flex-direction:column">
+                    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:12.5px;font-weight:600;color:#0B1840" style-hover="background:#F3F4F6" onClick="{{ openPropPh }}">Proposal phasing<span style="flex:1"></span><span style="font-size:11px;color:#9AA0AC">View →</span></div>
+                    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:12.5px;font-weight:600;color:#0B1840" style-hover="background:#F3F4F6" onClick="{{ openProjPh }}">Project phasing<span style="flex:1"></span><span style="font-size:11px;color:#9AA0AC">View →</span></div>
+                    <div style="border-top:1px solid #F0F1F4;margin:4px 0"></div>
+                    <div style="display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:7px;cursor:{{ p.delCur }}" style-hover="background:#F3F4F6"><span style="font-size:12.5px;font-weight:600;color:{{ p.delC }}">Delete pipeline</span><span style="font-size:11px;color:#9AA0AC;line-height:1.4">{{ p.delHint }}</span></div>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+          <div style="padding:12px 18px;font-size:11.5px;color:#9AA0AC">Achievement = (Committed + Anticipated) / POT target. Hidden pipelines stay in reports but don't appear in the Pipeline page.</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isPots }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:flex-start;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:4px;flex:1">
+            <div onClick="{{ goList }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#6B7280;cursor:pointer;align-self:flex-start" style-hover="color:#0B1840"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"></path></svg>Pipelines</div>
+            <div style="display:flex;align-items:center;gap:10px"><span style="font-size:20px;font-weight:700;color:#0B1840">Pipeline 2026</span><span style="font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;background:#E6F4EC;color:#0E7C4A">Visible</span></div>
+          </div>
+          <div style="display:flex;gap:8px;padding-top:20px">
+            <div onClick="{{ openPropPh }}" style="height:32px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:8px;background:#fff;font-size:12.5px;font-weight:600;color:#374151;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap" style-hover="border-color:#0B1840"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12V8M6 12V5M10 12V7M14 12V3"></path></svg>Proposal phasing</div>
+            <div onClick="{{ openProjPh }}" style="height:32px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:8px;background:#fff;font-size:12.5px;font-weight:600;color:#374151;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap" style-hover="border-color:#0B1840"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12V8M6 12V5M10 12V7M14 12V3"></path></svg>Project phasing</div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:16px 18px;display:grid;grid-template-columns:180px 1fr 180px;gap:24px;align-items:center">
+          <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Total POT target</span><span style="font-size:22px;font-weight:700;color:#0B1840">{{ sum.target }}</span><span style="font-size:11.5px;color:#6B7280">{{ sum.nPots }}</span></div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Committed + Anticipated</span><span style="font-size:15px;font-weight:700;color:#0B1840">{{ sum.ca }}</span><span style="font-size:12px;color:#6B7280">{{ sum.pct }} of target</span></div>
+            <div style="position:relative;padding-top:2px">
+              <div style="height:12px;background:#EEF0F4;border-radius:999px;overflow:hidden;display:flex"><div style="height:100%;width:{{ sum.cW }};background:#0E7C4A"></div><div style="height:100%;width:{{ sum.aW }};background:#E0892B"></div><div style="height:100%;width:{{ sum.eW }};background:#E9C46A"></div><div style="height:100%;width:{{ sum.sW }};background:repeating-linear-gradient(45deg,#9DBCEB 0 4px,#C9DAF5 4px 8px)"></div></div>
+              <div title="POT target" style="position:absolute;top:-3px;bottom:-3px;left:{{ sum.tX }};width:2px;background:#0B1840"></div>
+              <span style="position:absolute;top:-17px;left:{{ sum.tX }};transform:translateX(-50%);font-size:10px;font-weight:700;color:#0B1840;white-space:nowrap">Target</span>
+            </div>
+            <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:#374151">
+              <sc-for list="{{ sum.leg }}" as="l"><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:{{ l.sw }}"></span>{{ l.label }} <strong style="color:#141413">{{ l.v }}</strong></span></sc-for>
+            </div>
+            <span style="font-size:11px;color:#6B7280;background:#F7F8FA;border-radius:6px;padding:5px 8px;align-self:flex-start">Progress and gap to target count Committed + Anticipated only. SIP and Expected are shown as upcoming pipeline.</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Gap to target</span><span style="font-size:22px;font-weight:700;color:#0B1840">{{ sum.gap }}</span><span style="font-size:11.5px;color:#6B7280">{{ sum.gapPct }}</span><span style="font-size:10.5px;color:#9AA0AC">Target − (C + A)</span></div>
+          <div style="grid-column:1 / -1;display:flex;flex-direction:column;gap:6px;border-top:1px solid #F0F1F4;padding-top:12px">
+            <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Whole pipeline by stage · all clients</span>
+            <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px">
+              <sc-for list="{{ stages }}" as="s"><div style="display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:8px;background:{{ s.bg }};opacity:{{ s.op }}"><span style="font-size:10.5px;font-weight:700;color:{{ s.c }}">{{ s.name }} · {{ s.n }}</span><span style="font-size:13.5px;font-weight:700;color:#141413">{{ s.v }}</span></div></sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #EEF0F4">
+            <span style="flex:1;font-size:15px;font-weight:700;color:#0B1840">POT targets</span>
+            <div onClick="{{ startPot }}" style="display:flex;align-items:center;height:32px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer" style-hover="background:#1a2a5e">+ New POT</div>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 130px 130px 130px minmax(180px,1.2fr) 140px;gap:14px;padding:10px 18px;background:#F7F8FA;border-bottom:1px solid #EEF0F4;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">
+            <span>Client / group</span><span style="text-align:right">Target</span><span style="text-align:right">Committed</span><span style="text-align:right">Anticipated</span><span>Achievement · C + A</span><span></span>
+          </div>
+          <sc-if value="{{ addingPot }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;background:#F7F8FA;border-bottom:1px solid #EEF0F4;flex-wrap:wrap">
+              <div style="display:flex;background:#E6E9EE;border-radius:8px;padding:2px;gap:2px"><sc-for list="{{ potType }}" as="t"><span onClick="{{ t.pick }}" style="font-size:12px;font-weight:{{ t.w }};color:{{ t.c }};background:{{ t.bg }};border-radius:6px;padding:6px 11px;cursor:pointer">{{ t.label }}</span></sc-for></div>
+              <div style="width:240px;height:34px;box-sizing:border-box;border:1px solid #F0287A;box-shadow:0 0 0 3px rgba(240,40,122,.15);border-radius:8px;background:#fff;padding:0 10px;display:flex;align-items:center;font-size:12.5px;color:#9AA0AC">{{ potSelPh }}<span style="flex:1"></span><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg></div>
+              <div style="width:150px;height:34px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;background:#fff;padding:0 10px;display:flex;align-items:center;gap:6px;font-size:12.5px;color:#9AA0AC"><span>€</span>Target, e.g. 500.000</div>
+              <span style="font-size:11.5px;color:#9AA0AC;flex:1;min-width:180px">{{ potHint }}</span>
+              <span onClick="{{ cancelPot }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:7px 4px">Cancel</span>
+              <span style="font-size:12.5px;font-weight:600;color:#fff;background:#C9CDD3;border-radius:8px;padding:7px 14px">Create</span>
+            </div>
+          </sc-if>
+          <sc-for list="{{ pots }}" as="p" hint-placeholder-count="3">
+            <div style="display:flex;flex-direction:column;border-bottom:1px solid #F0F1F4">
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 130px 130px 130px minmax(180px,1.2fr) 140px;gap:14px;padding:0 18px;min-height:58px;align-items:center;background:{{ p.bg }}" style-hover="background:#FAFBFC">
+                <div onClick="{{ p.view }}" style="display:flex;flex-direction:column;gap:2px;cursor:pointer;min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px"><span style="font-size:13.5px;font-weight:700;color:#0B1840">{{ p.name }}</span><span style="font-size:10px;font-weight:700;border-radius:999px;padding:1px 7px;background:{{ p.tBg }};color:{{ p.tC }}">{{ p.type }}</span></div>
+                  <span style="font-size:11px;color:#9AA0AC;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ p.sub }}</span>
+                </div>
+                <span style="font-size:13px;font-weight:700;color:#141413;text-align:right">{{ p.target }}</span>
+                <span style="font-size:12.5px;color:#0E7C4A;text-align:right">{{ p.c }}</span>
+                <span style="font-size:12.5px;color:#B4650C;text-align:right">{{ p.a }}</span>
+                <div style="display:flex;flex-direction:column;gap:3px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;background:#EEF0F4;border-radius:999px;overflow:hidden;display:flex;position:relative"><div style="height:100%;width:{{ p.cW }};background:#0E7C4A"></div><div style="height:100%;width:{{ p.aW }};background:#E0892B"></div><div style="height:100%;width:{{ p.eW }};background:#E9C46A"></div><div style="height:100%;width:{{ p.sW }};background:repeating-linear-gradient(45deg,#9DBCEB 0 3px,#C9DAF5 3px 6px)"></div></div><span style="font-size:12px;font-weight:700;color:{{ p.pctC }};width:42px;text-align:right">{{ p.pct }}</span></div><sc-if value="{{ p.hasUp }}"><span style="font-size:10.5px;color:#1E5FBF">{{ p.up }}</span></sc-if></div>
+                <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end">
+                  <span onClick="{{ p.view }}" style="font-size:12px;font-weight:600;color:#0B1840;cursor:pointer;padding:6px 8px" style-hover="color:#F0287A">Details</span>
+                  <div onClick="{{ p.edit }}" title="Edit target" style="width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:{{ p.editC }};background:{{ p.editBg }};cursor:pointer" style-hover="background:#F3F4F6;color:#0B1840"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M10.5 2.5l3 3L6 13H3v-3l7.5-7.5z"></path></svg></div>
+                  <div title="Delete POT" style="width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#9AA0AC;cursor:pointer" style-hover="background:#FDEFF0;color:#B4232E"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"></path></svg></div>
+                </div>
+              </div>
+              <sc-if value="{{ p.editing }}">
+                <div style="display:flex;align-items:flex-end;gap:10px;padding:12px 18px 14px 18px;background:#F7F8FA;border-top:1px solid #EEF0F4;flex-wrap:wrap">
+                  <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:11.5px;font-weight:600;color:#374151">New target (€)</span><input value="{{ p.draft }}" onChange="{{ p.onDraft }}" style="width:150px;height:34px;box-sizing:border-box;border:1px solid #F0287A;box-shadow:0 0 0 3px rgba(240,40,122,.15);border-radius:8px;padding:0 10px;font-size:13px;font-weight:700;font-family:inherit;outline:none;color:#0B1840"></div>
+                  <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:260px"><span style="font-size:11.5px;font-weight:600;color:#374151">Reason for change <span style="color:#B42318">*</span> <span style="font-weight:400;color:#9AA0AC">· saved in the change history</span></span><input value="{{ p.reason }}" onChange="{{ p.onReason }}" placeholder="Explain why the target is changing" style="height:34px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;outline:none;color:#0B1840;background:#fff"></div>
+                  <span style="font-size:11.5px;color:#6B7280;padding-bottom:9px">{{ p.was }}</span>
+                  <span onClick="{{ p.cancel }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:8px 4px">Cancel</span>
+                  <span onClick="{{ p.update }}" style="font-size:12.5px;font-weight:600;color:#fff;background:{{ p.updBg }};border-radius:8px;padding:8px 14px;cursor:{{ p.updCur }}">Update target</span>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 18px;font-size:12px;color:#6B7280;background:#FAFBFC;border-radius:0 0 12px 12px"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9AA0AC" stroke-width="1.4"><circle cx="8" cy="8" r="6"></circle><path d="M8 7.2V11M8 5v.2" stroke-linecap="round"></path></svg><span>{{ outside }}</span></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ isPh }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:flex-start;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:4px;flex:1">
+            <div onClick="{{ goPots }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#6B7280;cursor:pointer;align-self:flex-start" style-hover="color:#0B1840"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"></path></svg>Pipeline 2026 · POT targets</div>
+            <div style="display:flex;align-items:center;gap:12px"><span style="font-size:20px;font-weight:700;color:#0B1840">{{ phTitle }} · Pipeline 2026</span>
+              <div style="display:flex;background:#EEF0F4;border-radius:8px;padding:2px;gap:2px"><sc-for list="{{ phSeg }}" as="t"><span onClick="{{ t.pick }}" style="font-size:12px;font-weight:{{ t.w }};color:{{ t.c }};background:{{ t.bg }};box-shadow:{{ t.sh }};border-radius:6px;padding:5px 11px;cursor:pointer">{{ t.label }}</span></sc-for></div>
+            </div>
+            <span style="font-size:12px;color:#6B7280">{{ phDesc }}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;height:34px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer;margin-top:22px" style-hover="background:#1a2a5e"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M5 7.5l3 3 3-3M2.5 11v2.5h11V11"></path></svg>Export XLS</div>
+        </div>
+        <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column;min-height:0">
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #EEF0F4;flex-wrap:wrap">
+            <span style="font-size:11.5px;color:#6B7280">Stage</span>
+            <sc-for list="{{ phStages }}" as="p"><span onClick="{{ p.toggle }}" style="display:flex;align-items:center;gap:6px;height:28px;box-sizing:border-box;padding:0 10px;border-radius:999px;border:1px solid {{ p.border }};background:{{ p.bg }};font-size:12px;font-weight:600;color:{{ p.c }};cursor:pointer">{{ p.label }}<span style="font-weight:500;opacity:.8">{{ p.n }}</span></span></sc-for>
+            <span style="width:1px;height:18px;background:#DDE1E8;margin:0 4px"></span>
+            <div style="display:flex;align-items:center;gap:6px;height:28px;box-sizing:border-box;padding:0 10px;border:1px solid #DDE1E8;border-radius:8px;font-size:12px;color:#374151;cursor:pointer">Client: <strong style="color:#0B1840">All</strong><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg></div>
+            <div style="display:flex;align-items:center;gap:6px;height:28px;box-sizing:border-box;padding:0 10px;border:1px solid #DDE1E8;border-radius:8px;font-size:12px;color:#374151;cursor:pointer">POT: <strong style="color:#0B1840">All</strong><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg></div>
+            <div style="flex:1"></div>
+            <span style="font-size:11.5px;color:#6B7280">Amounts</span>
+            <div style="display:flex;background:#EEF0F4;border-radius:8px;padding:2px;gap:2px"><sc-for list="{{ curSeg }}" as="t"><span onClick="{{ t.pick }}" style="font-size:12px;font-weight:{{ t.w }};color:{{ t.c }};background:{{ t.bg }};box-shadow:{{ t.sh }};border-radius:6px;padding:4px 10px;cursor:pointer">{{ t.label }}</span></sc-for></div>
+          </div>
+          <div style="overflow:auto">
+            <div style="min-width:1100px;display:flex;flex-direction:column;font-size:11.5px">
+              <div style="display:grid;grid-template-columns:minmax(200px,1fr) 96px repeat(12,60px) 86px;position:sticky;top:0;z-index:3;background:#F7F8FA;border-bottom:1px solid #DDE1E8;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">
+                <span style="padding:9px 12px;position:sticky;left:0;background:#F7F8FA">{{ phCol }}</span><span style="padding:9px 6px">Stage</span>
+                <sc-for list="{{ months }}" as="m"><span style="padding:9px 6px;text-align:right;color:{{ m.c }};background:{{ m.bg }}">{{ m.l }}</span></sc-for>
+                <span style="padding:9px 12px 9px 6px;text-align:right">Total</span>
+              </div>
+              <sc-for list="{{ totRows }}" as="r">
+                <div style="display:grid;grid-template-columns:minmax(200px,1fr) 96px repeat(12,60px) 86px;background:#F3F4F6;border-bottom:1px solid #DDE1E8;font-weight:700;color:#0B1840">
+                  <span style="padding:9px 12px;position:sticky;left:0;background:#F3F4F6;display:flex;align-items:center;gap:6px">{{ r.label }}<span style="font-size:10.5px;font-weight:500;color:#6B7280">{{ r.sub }}</span></span><span></span>
+                  <sc-for list="{{ r.cells }}" as="c"><span style="padding:9px 6px;text-align:right;background:{{ c.bg }}">{{ c.t }}</span></sc-for>
+                  <span style="padding:9px 12px 9px 6px;text-align:right">{{ r.total }}</span>
+                </div>
+              </sc-for>
+              <sc-for list="{{ phRows }}" as="r" hint-placeholder-count="12">
+                <div style="display:grid;grid-template-columns:minmax(200px,1fr) 96px repeat(12,60px) 86px;border-bottom:1px solid #F0F1F4;align-items:center;min-height:40px" style-hover="background:#FAFBFC">
+                  <div style="padding:6px 12px;position:sticky;left:0;background:#fff;display:flex;flex-direction:column;min-width:0;gap:1px">
+                    <div style="display:flex;align-items:center;gap:6px;min-width:0"><span title="{{ r.name }}" style="font-size:12.5px;font-weight:600;color:#0B1840;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</span><sc-if value="{{ r.hasLink }}"><span title="{{ r.linkTip }}" style="font-size:11.5px;font-weight:700;color:#0B1840;cursor:pointer;flex-shrink:0" style-hover="color:#F0287A">↗</span></sc-if></div>
+                    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10.5px;color:#9AA0AC;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.client }}</span><sc-if value="{{ r.foreign }}"><span title="Proposal currency · converted at the version exchange rate" style="font-size:9.5px;font-weight:700;border-radius:4px;padding:0 5px;background:#F3E8FD;color:#7C3AED">{{ r.cur }}</span></sc-if></div>
+                  </div>
+                  <span style="padding:0 6px"><span style="font-size:10px;font-weight:700;border-radius:999px;padding:2px 7px;background:{{ r.sBg }};color:{{ r.sC }}">{{ r.stage }}</span></span>
+                  <sc-if value="{{ r.empty }}"><span style="grid-column:span 12;padding:0 6px;font-size:11.5px;font-style:italic;color:#9AA0AC">{{ r.emptyText }}</span></sc-if>
+                  <sc-for list="{{ r.cells }}" as="c"><span style="padding:0 6px;text-align:right;color:{{ c.c }};background:{{ c.bg }};font-style:{{ c.fs }};align-self:stretch;display:flex;align-items:center;justify-content:flex-end">{{ c.t }}</span></sc-for>
+                  <span style="padding:0 12px 0 6px;text-align:right;font-weight:700;color:#141413">{{ r.total }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;padding:10px 14px;border-top:1px solid #EEF0F4;font-size:11.5px;color:#6B7280;flex-wrap:wrap">
+            <span>{{ phFoot }}</span><div style="flex:1"></div>
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:#F3F4F6;border:1px solid #DDE1E8"></span>Past months · actuals</span>
+            <span style="display:flex;align-items:center;gap:6px"><span style="font-size:9.5px;font-weight:700;border-radius:4px;padding:0 5px;background:#F3E8FD;color:#7C3AED">GBP</span>Converted to € at the version rate</span>
+          </div>
+        </div>
+      </sc-if>
+      </div>
+    </div>
+  </div>
+  <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDrawer }}" style="position:absolute;inset:0;background:rgba(11,24,64,.28);z-index:40"></div>
+    <div style="position:absolute;top:0;right:0;bottom:0;width:560px;background:#fff;z-index:41;box-shadow:-12px 0 32px rgba(11,24,64,.18);display:flex;flex-direction:column">
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:18px 20px 14px;border-bottom:1px solid #EEF0F4">
+        <div style="flex:1;display:flex;flex-direction:column;gap:4px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">POT · Pipeline 2026</span><div style="display:flex;align-items:center;gap:8px"><span style="font-size:19px;font-weight:700;color:#0B1840">{{ d.name }}</span><span style="font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;background:{{ d.tBg }};color:{{ d.tC }}">{{ d.type }}</span></div><span style="font-size:12px;color:#6B7280">{{ d.sub }}</span></div>
+        <div onClick="{{ d.edit }}" style="height:32px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:8px;background:#fff;font-size:12.5px;font-weight:600;color:#374151;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap" style-hover="border-color:#0B1840">Edit target</div>
+        <div onClick="{{ closeDrawer }}" title="Close" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer" style-hover="background:#F3F4F6"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div>
+      </div>
+      <div style="flex:1;overflow:auto;padding:16px 20px 20px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:22px;font-weight:700;color:#0B1840">{{ d.pct }}</span><span style="font-size:12px;color:#6B7280">of {{ d.target }} target reached by Committed + Anticipated</span></div>
+          <div style="height:8px;background:#EEF0F4;border-radius:999px;overflow:hidden;display:flex"><div style="height:100%;width:{{ d.cW }};background:#0E7C4A"></div><div style="height:100%;width:{{ d.aW }};background:#E0892B"></div><div style="height:100%;width:{{ d.eW }};background:#E9C46A"></div><div style="height:100%;width:{{ d.sW }};background:repeating-linear-gradient(45deg,#9DBCEB 0 4px,#C9DAF5 4px 8px)"></div></div><sc-if value="{{ d.hasUp }}"><span style="font-size:11.5px;color:#1E5FBF">{{ d.up }} · not counted in the gap</span></sc-if>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:4px">
+            <div style="background:#F7F8FA;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#0E7C4A">Committed</span><span style="font-size:14px;font-weight:700;color:#141413">{{ d.c }}</span></div>
+            <div style="background:#F7F8FA;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#B4650C">Anticipated</span><span style="font-size:14px;font-weight:700;color:#141413">{{ d.a }}</span></div>
+            <div style="background:#F7F8FA;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">{{ d.gapLabel }}</span><span style="font-size:14px;font-weight:700;color:{{ d.gapC }}">{{ d.gap }}</span></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column">
+          <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC;padding-bottom:6px">Proposals · {{ d.nProps }}</span>
+          <sc-for list="{{ d.props }}" as="r">
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #F0F1F4;opacity:{{ r.op }}">
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:12.5px;font-weight:600;color:#0B1840;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.title }}</span><span style="font-size:11px;color:#9AA0AC">{{ r.meta }}</span></div>
+              <span style="font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;background:{{ r.sBg }};color:{{ r.sC }}">{{ r.stage }}</span>
+              <span style="font-size:12.5px;font-weight:600;color:#141413;width:96px;text-align:right">{{ r.v }}</span>
+              <span title="Open proposal" style="font-size:12px;font-weight:600;color:#0B1840;cursor:pointer">↗</span>
+            </div>
+          </sc-for>
+          <span style="font-size:11px;color:#9AA0AC;padding-top:6px">Only Committed and Anticipated count towards the target.</span>
+        </div>
+        <div style="display:flex;flex-direction:column">
+          <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC;padding-bottom:8px">Target history</span>
+          <sc-for list="{{ d.history }}" as="h">
+            <div style="display:flex;gap:12px;padding-bottom:12px">
+              <div style="display:flex;flex-direction:column;align-items:center"><div style="width:9px;height:9px;border-radius:999px;background:{{ h.dot }};margin-top:4px"></div><div style="flex:1;width:1px;background:#E6E9EE;margin-top:3px"></div></div>
+              <div style="display:flex;flex-direction:column;gap:2px;flex:1"><div style="display:flex;align-items:center;gap:6px;font-size:12.5px"><span style="color:#9AA0AC;text-decoration:{{ h.strike }}">{{ h.from }}</span><span style="color:#9AA0AC">→</span><span style="font-weight:700;color:#0B1840">{{ h.to }}</span></div><span style="font-size:11.5px;color:#6B7280">{{ h.meta }}</span><sc-if value="{{ h.hasNote }}"><span style="font-size:12px;color:#374151;background:#F7F8FA;border-radius:6px;padding:4px 8px;align-self:flex-start">“{{ h.note }}”</span></sc-if></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1000},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;pots&quot;,&quot;phasing&quot;],&quot;default&quot;:&quot;list&quot;,&quot;tsType&quot;:&quot;'list'|'pots'|'phasing'&quot;},&quot;phasing&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;project&quot;,&quot;proposal&quot;],&quot;default&quot;:&quot;project&quot;,&quot;tsType&quot;:&quot;'project'|'proposal'&quot;},&quot;addingYear&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;addingPot&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;editing&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;drawer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const fe = v => '€ ' + v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' });
+const STG = { SIP: ['#E4EDFB', '#1E5FBF'], Expected: ['#FDF3D9', '#8A6D00'], Anticipated: ['#FCEBDA', '#B4650C'], Committed: ['#E6F4EC', '#0E7C4A'], Canceled: ['#EEF0F4', '#6B7280'] };
+const PIPES = [
+  { y: 2027, vis: true, target: 50000, c: 0, a: 0, pots: 1, props: 3 },
+  { y: 2026, vis: true, target: 510000, c: 90040, a: 216630, pots: 3, props: 10 },
+  { y: 2025, vis: false, target: 0, c: 0, a: 0, pots: 0, props: 22 }
+];
+const POTS = [
+  { id: 'bay', name: 'Bayer AG', type: 'Client', sub: 'Client', target: 60000, c: 60020, a: 0, e: 0, sp: 86220,
+    props: [['Bayer AG - BERMITS Maintenance 2026', 'Jun 22, 2026 · Admin PDash', 'Committed', 60020], ['TEST PROPOSAL — PerValter — Copy', 'Sep 24, 2026 · Admin PDash', 'SIP', 21555], ['TEST PROPOSAL — PerValter — Copy — Copy', 'Sep 24, 2026 · Admin PDash', 'SIP', 21555], ['TEST PROPOSAL — PerValter', 'Sep 23, 2026 · Admin PDash', 'SIP', 21555], ['TEST PROPOSAL', 'Sep 17, 2026 · Admin PDash', 'SIP', 21555]],
+    history: [[200000, 60000, 'Aug 4, 2026 · Admin PDash', 'Correct POT'], [null, 200000, 'Jun 15, 2026 · Admin PDash · created', '']] },
+  { id: 'men', name: 'Menarini Group', type: 'Group', sub: 'Group · Menarini Ricerche', target: 400000, c: 0, a: 216630, e: 0, sp: 0,
+    props: [['A.U.RO.R.A. Platform Development', 'Menarini Ricerche · May 12, 2026 · Mario Rossi', 'Anticipated', 216630]], history: [[null, 400000, 'Jan 20, 2026 · Admin PDash · created', '']] },
+  { id: 'sifi', name: 'SIFI Group', type: 'Client', sub: 'Client', target: 50000, c: 21520, a: 0, e: 0, sp: 0,
+    props: [['SIFI-26-AKANTIOR-Karomy Activities 2026', 'Jul 3, 2026 · Admin PDash', 'Committed', 21520]], history: [[null, 50000, 'Feb 2, 2026 · Admin PDash · created', '']] }
+];
+const MON = ['Jan 26', 'Feb 26', 'Mar 26', 'Apr 26', 'May 26', 'Jun 26', 'Jul 26', 'Aug 26', 'Sep 26', 'Oct 26', 'Nov 26', 'Dec 26'];
+const CURM = 8;
+const z = n => Array(n).fill(0);
+const PH = [
+  ['bm', 'BERMITS Maintenance 2026', 'Bayer AG', 'Committed', 'EUR', 'BERMITS Maintenance 2026', [2304.5, 3991.48, 4771.62, 5087.54, 6611.57, 4412.11, 3919.37, 4198.51, 5900.75, 5900.75, 5900.75, 5900.75]],
+  ['ad', 'MEN 26 AURORA Platform Dev. – Development', 'Menarini Ricerche', 'Anticipated', 'EUR', 'A.U.RO.R.A. Platform Development', [...z(4), 1105, ...Array(7).fill(25462.14)]],
+  ['am', 'MEN 26 AURORA Platform Dev. – Active Maintenance', 'Menarini Ricerche', 'Anticipated', 'EUR', 'A.U.RO.R.A. Platform Development', [...z(4), 2019.22, 2884.59, 2980.75, 2980.75, 2884.59, 2984.75, 2884.59, 2980.75]],
+  ['ao', 'MEN 26 AURORA Platform Dev. – Overall Proj. MNGM', 'Menarini Ricerche', 'Anticipated', 'EUR', 'A.U.RO.R.A. Platform Development', [...z(4), 682.5, 162.5, ...Array(6).fill(2134.17)]],
+  ['ag', 'MEN 26 AURORA Platform Dev. – Creation graph. Assets', 'Menarini Ricerche', 'Anticipated', 'EUR', 'A.U.RO.R.A. Platform Development', [...z(9), 350.75, 338.98, 350.28]],
+  ['nh', 'NH-26 Italian Hospital Rankings · Annual update', 'Next Health Advisors', 'Committed', 'GBP', 'NH-26 Italian Hospital Rankings', [0, 0, 157.5, 105, 316.25, 263.75, 5727.5, 53.75, 469.06, 469.06, 469.06, 469.06]],
+  ['sp', 'SIFI 26 AKANTIOR – Karomy Promotional materials', 'SIFI Group', 'Committed', 'EUR', 'SIFI-26-AKANTIOR-Karomy Activities 2026', [...z(7), 357, 1608.75, 1608.75, 1608.75, 1608.75]],
+  ['si', 'SIFI 26 AKANTIOR Karomy – Italian Launch Support', 'SIFI Group', 'Committed', 'EUR', 'SIFI-26-AKANTIOR-Karomy Activities 2026', [...z(6), 153, 408, 1074.2, 1635.2, 700.8, 700.8]],
+  ['ss', 'SIFI 26 AKANTIOR Karomy – Spanish Launch Support', 'SIFI Group', 'Committed', 'EUR', 'SIFI-26-AKANTIOR-Karomy Activities 2026', [...z(6), 426, 757, 1163, 1163, 1163, 0]],
+  ['sf', 'SIFI 26 AKANTIOR Karomy – Pharmacovigil. Feature dev&deploy', 'SIFI Group', 'Committed', 'EUR', 'SIFI-26-AKANTIOR-Karomy Activities 2026', [...z(6), 280, 0, 5104, 0, 0, 0]],
+  ['t1', 'My test proposal', 'Bayer AG', 'SIP', 'EUR', 'My test proposal', z(12)],
+  ['t2', 'My test proposal 2', 'Bayer AG', 'SIP', 'EUR', 'My test proposal 2', z(12)],
+  ['t3', 'TEST PROPOSAL — PerValter', 'Bayer AG', 'SIP', 'EUR', 'TEST PROPOSAL — PerValter', [...z(9), 7185, 7185, 7185]],
+  ['t4', 'TEST PROPOSAL — PerValter — Copy', 'Bayer AG', 'SIP', 'EUR', 'TEST PROPOSAL — PerValter — Copy', z(12)]
+];
+const FX = { GBP: 0.86 };
+class Component extends DCLogic {
+  state = {};
+  renderVals() {
+    const S = this.state, P = this.props;
+    const screen = S.screen ?? P.screen ?? 'list';
+    const vis = S.vis ?? Object.fromEntries(PIPES.map(p => [p.y, p.vis]));
+    const menu = S.menu ?? null;
+    const extra = S.extra ?? [];
+    const editId = S.editId !== undefined ? S.editId : (P.editing ? 'bay' : null);
+    const drawerId = S.drawerId !== undefined ? S.drawerId : (P.drawer ? 'bay' : null);
+    const targets = S.targets ?? Object.fromEntries(POTS.map(p => [p.id, p.target]));
+    const hist = S.hist ?? Object.fromEntries(POTS.map(p => [p.id, p.history]));
+    const bars = (t, c, a, e = 0, sp = 0) => { const tot = Math.max(t, c + a + e + sp, 1); return { cW: (c / tot * 100) + '%', aW: (a / tot * 100) + '%', eW: (e / tot * 100) + '%', sW: (sp / tot * 100) + '%', tX: (t / tot * 100) + '%', pct: t ? Math.round((c + a) / t * 100) + '%' : '—' }; };
+    const nextYear = Math.max(...PIPES.map(p => p.y), ...extra.map(e => e.y)) + 1;
+    const ny = S.newYear ?? String(nextYear);
+    const yearOk = /^20\d\d$/.test(ny) && !PIPES.concat(extra).some(p => String(p.y) === ny);
+    const pipelines = [...extra, ...PIPES].sort((a, b) => b.y - a.y).map(p => {
+      const on = vis[p.y] !== false, b = bars(p.target, p.c, p.a), mOpen = menu === p.y;
+      return {
+        name: 'Pipeline ' + p.y, nameC: on ? '#0B1840' : '#6B7280', sub: p.props + ' proposals', target: p.target ? fe(p.target) : '—',
+        vis: on ? 'Visible' : 'Hidden', visC: on ? '#0E7C4A' : '#6B7280', visTrack: on ? '#0E7C4A' : '#C9CDD3', visKnob: on ? '14px' : '2px', toggleVis: () => this.setState({ vis: { ...vis, [p.y]: !on } }),
+        hasAch: p.pots > 0, noAch: !p.pots, ...b, ca: fe(p.c + p.a), split: 'C ' + fe(p.c) + ' · A ' + fe(p.a), nPots: p.pots || '—',
+        open: () => this.setState({ screen: 'pots' }), menuOpen: mOpen, toggleMenu: () => this.setState({ menu: mOpen ? null : p.y }),
+        delC: p.props ? '#C9CDD3' : '#B42318', delCur: p.props ? 'not-allowed' : 'pointer', delHint: p.props ? 'Not available: ' + p.props + ' proposals use this pipeline. Hide it instead.' : 'Removes the pipeline and its POTs.'
+      };
+    });
+    const pots = POTS.map(p => {
+      const t = targets[p.id], b = bars(t, p.c, p.a, p.e, p.sp), ed = editId === p.id;
+      const draft = S.draft ?? String(t), reason = S.reason ?? '';
+      const ok = reason.trim().length > 2 && Number(draft.replace(/\./g, '').replace(',', '.')) > 0;
+      return {
+        name: p.name, type: p.type, sub: p.sub + ' · ' + p.props.length + ' proposals', tBg: p.type === 'Group' ? '#F3E8FD' : '#E4EDFB', tC: p.type === 'Group' ? '#7C3AED' : '#1E5FBF',
+        target: fe(t), c: fe(p.c), a: fe(p.a), ...b, hasUp: p.sp + p.e > 0, up: '+ ' + fe(p.sp + p.e) + ' in SIP / Expected', pctC: (p.c + p.a) >= t ? '#0E7C4A' : '#0B1840', bg: ed ? '#F7F8FA' : '#fff',
+        view: () => this.setState({ drawerId: p.id }), edit: () => this.setState({ editId: ed ? null : p.id, draft: String(t), reason: '', drawerId: null }),
+        editC: ed ? '#fff' : '#6B7280', editBg: ed ? '#0B1840' : 'transparent', editing: ed,
+        draft, onDraft: e => this.setState({ draft: e.target.value }), reason, onReason: e => this.setState({ reason: e.target.value }),
+        was: 'Current ' + fe(t), cancel: () => this.setState({ editId: null }), updBg: ok ? '#F0287A' : '#C9CDD3', updCur: ok ? 'pointer' : 'not-allowed',
+        update: () => { if (!ok) return; const nv = Number(draft.replace(/\./g, '').replace(',', '.')); this.setState({ targets: { ...targets, [p.id]: nv }, hist: { ...hist, [p.id]: [[t, nv, 'Oct 5, 2026 · Admin PDash', reason]].concat(hist[p.id]) }, editId: null }); }
+      };
+    });
+    const T = POTS.reduce((s, p) => s + targets[p.id], 0), C = POTS.reduce((s, p) => s + p.c, 0), A = POTS.reduce((s, p) => s + p.a, 0), E = POTS.reduce((s, p) => s + p.e, 0), SP = POTS.reduce((s, p) => s + p.sp, 0), sb = bars(T, C, A, E, SP);
+    const dp = POTS.find(p => p.id === drawerId);
+    let d = {};
+    if (dp) {
+      const t = targets[dp.id], b = bars(t, dp.c, dp.a, dp.e, dp.sp), gap = t - dp.c - dp.a;
+      d = { name: dp.name, type: dp.type + ' POT', sub: dp.sub, tBg: dp.type === 'Group' ? '#F3E8FD' : '#E4EDFB', tC: dp.type === 'Group' ? '#7C3AED' : '#1E5FBF', target: fe(t), c: fe(dp.c), a: fe(dp.a), ...b,
+        hasUp: dp.sp + dp.e > 0, up: '+ ' + fe(dp.sp + dp.e) + ' in SIP / Expected', gapLabel: gap < 0 ? 'Over target' : 'Gap to target', gap: (gap < 0 ? '+ ' : '') + fe(Math.abs(gap)), gapC: gap < 0 ? '#0E7C4A' : '#141413',
+        nProps: dp.props.length, props: dp.props.map(([title, meta, stage, v]) => ({ title, meta, stage, v: fe(v), sBg: STG[stage][0], sC: STG[stage][1], op: stage === 'Committed' || stage === 'Anticipated' ? 1 : 0.6 })),
+        history: hist[dp.id].map(([f, to, meta, note], i) => ({ from: f == null ? '—' : fe(f), to: fe(to), meta, note, hasNote: !!note, strike: f == null ? 'none' : 'line-through', dot: i === 0 ? '#F0287A' : '#C9CDD3' })),
+        edit: () => this.setState({ editId: dp.id, draft: String(t), reason: '', drawerId: null }) };
+    }
+    const ptype = S.ptype ?? 'Client';
+    const phMode = S.phMode ?? P.phasing ?? 'project';
+    const phSt = S.phSt ?? { SIP: true, Expected: true, Anticipated: true, Committed: true };
+    const curMode = S.curMode ?? 'eur';
+    const f0 = v => v ? Math.round(v).toLocaleString('it-IT', { useGrouping: 'always' }) : '—';
+    let src = PH;
+    if (phMode === 'proposal') {
+      const g = {}; PH.forEach(r => { const k = r[5]; if (!g[k]) g[k] = [k, k, r[2], r[3], r[4], k, z(12), 0]; g[k][6] = g[k][6].map((x, i) => x + r[6][i]); g[k][7]++; });
+      src = Object.values(g).map(r => [r[0], r[1], r[2] + (r[7] > 1 ? ' · ' + r[7] + ' projects' : ''), r[3], r[4], r[5], r[6]]);
+    }
+    const rowsF = src.filter(r => phSt[r[3]]);
+    const native = (r, v) => r[4] === 'EUR' || curMode === 'eur' ? v : v * FX[r[4]];
+    const phRows = rowsF.map(r => {
+      const tot = r[6].reduce((a, b) => a + b, 0), noProj = r[3] === 'SIP' && phMode === 'project';
+      const sym = curMode === 'orig' && r[4] !== 'EUR' ? '£ ' : '';
+      return { name: r[1], client: r[2], stage: r[3], sBg: STG[r[3]][0], sC: STG[r[3]][1], foreign: r[4] !== 'EUR', cur: r[4],
+        hasLink: !noProj, linkTip: phMode === 'project' ? 'Open project reporting' : 'Open proposal',
+        empty: tot === 0, emptyText: noProj ? 'No project yet · proposal in SIP' : 'No phasing yet',
+        cells: tot === 0 ? [] : r[6].map((v, i) => ({ t: v ? sym + f0(native(r, v)) : '—', c: v ? (i <= CURM ? '#6B7280' : '#141413') : '#C9CDD3', bg: i <= CURM ? '#FAFBFC' : '#fff', fs: 'normal' })),
+        total: tot ? sym + f0(native(r, tot)) : '—' };
+    });
+    const sumM = rows => MON.map((_, i) => rows.reduce((a, r) => a + r[6][i], 0));
+    let totRows;
+    if (curMode === 'eur') { const m = sumM(rowsF); totRows = [{ label: 'Total', sub: '€ · all amounts in EUR', cells: m.map((v, i) => ({ t: f0(v), bg: i <= CURM ? '#ECEEF2' : '#F3F4F6' })), total: f0(m.reduce((a, b) => a + b, 0)) }]; }
+    else { totRows = ['EUR', 'GBP'].map(cu => { const L = rowsF.filter(r => r[4] === cu); const m = sumM(L).map(v => cu === 'EUR' ? v : v * FX.GBP); return { label: 'Total ' + cu, sub: L.length + ' rows', cells: m.map((v, i) => ({ t: (cu === 'GBP' && v ? '£ ' : '') + f0(v), bg: i <= CURM ? '#ECEEF2' : '#F3F4F6' })), total: (cu === 'GBP' ? '£ ' : '') + f0(m.reduce((a, b) => a + b, 0)) }; }); }
+    const segOn = on => on ? { w: 600, c: '#0B1840', bg: '#fff', sh: '0 1px 2px rgba(11,24,64,.12)' } : { w: 500, c: '#6B7280', bg: 'transparent', sh: 'none' };
+    return {
+      isList: screen === 'list', isPots: screen === 'pots', isPh: screen === 'phasing', showSub: screen !== 'phasing', goList: () => this.setState({ screen: 'list' }),
+      pipeCrumb: screen !== 'list', goPots: () => this.setState({ screen: 'pots' }), potCrumbC: screen === 'pots' ? '#374151' : '#6B7280', potCrumbW: screen === 'pots' ? 600 : 400,
+      openPropPh: () => this.setState({ screen: 'phasing', phMode: 'proposal', menu: null }), openProjPh: () => this.setState({ screen: 'phasing', phMode: 'project', menu: null }),
+      phTitle: phMode === 'project' ? 'Project phasing' : 'Proposal phasing', phCol: phMode === 'project' ? 'Project · client' : 'Proposal · client',
+      phDesc: phMode === 'project' ? 'Monthly budget of every project in the pipeline. Open a project to see its reporting.' : 'Monthly budget phasing of every proposal in the pipeline (from its cost grid). Open a proposal to see it in Pipeline.',
+      phSeg: [['proposal', 'Proposal phasing'], ['project', 'Project phasing']].map(([id, label]) => ({ label, ...segOn(phMode === id), pick: () => this.setState({ phMode: id }) })),
+      phStages: ['SIP', 'Expected', 'Anticipated', 'Committed'].map(st => { const on = phSt[st], n = src.filter(r => r[3] === st).length; return { label: st, n, bg: on ? STG[st][0] : '#fff', border: on ? STG[st][0] : '#DDE1E8', c: on ? STG[st][1] : '#9AA0AC', toggle: () => this.setState({ phSt: { ...phSt, [st]: !on } }) }; }),
+      curSeg: [['eur', 'All in EUR'], ['orig', 'Original currency']].map(([id, label]) => ({ label, ...segOn(curMode === id), pick: () => this.setState({ curMode: id }) })),
+      months: MON.map((l, i) => ({ l, c: i === CURM ? '#1E5FBF' : '#9AA0AC', bg: i === CURM ? '#E4EDFB' : 'transparent' })),
+      phRows, totRows, phFoot: rowsF.length + ' ' + (phMode === 'project' ? 'projects' : 'proposals') + ' · rounded to the unit; Export XLS keeps decimals and the active filters',
+      crumbC: screen === 'list' ? '#374151' : '#6B7280', crumbW: screen === 'list' ? 600 : 400,
+      subnav: [{ label: 'Commercial', items: [['Clients & groups', 5], ['Pipelines & POTs', 3]] }, { label: 'Financial', items: [['Roles & rates', 58], ['Currencies', 4]] }]
+        .map(g => ({ label: g.label, items: g.items.map(([label, count]) => { const on = label === 'Pipelines & POTs'; return { label, count, bg: on ? '#F3F4F6' : 'transparent', bar: on ? 'inset 3px 0 0 #F0287A' : 'none', w: on ? 700 : 500, c: on ? '#0B1840' : '#374151' }; }) })),
+      pipelines, addingYear: S.addingYear ?? !!P.addingYear, startYear: () => this.setState({ addingYear: true, newYear: String(nextYear) }), cancelYear: () => this.setState({ addingYear: false }),
+      newYear: ny, onNewYear: e => this.setState({ newYear: e.target.value.replace(/[^0-9]/g, '').slice(0, 4) }),
+      yearHint: yearOk ? 'Created hidden: show it when POTs are ready.' : 'Enter a year that doesn\'t exist yet.', yearHintC: yearOk ? '#9AA0AC' : '#B42318', yearBg: yearOk ? '#0B1840' : '#C9CDD3',
+      createYear: () => { if (!yearOk) return; this.setState({ extra: [...extra, { y: Number(ny), vis: false, target: 0, c: 0, a: 0, pots: 0, props: 0 }], vis: { ...vis, [ny]: false }, addingYear: false }); },
+      sum: { target: fe(T), nPots: POTS.length + ' POTs', ca: fe(C + A), pct: sb.pct, cW: sb.cW, aW: sb.aW, eW: sb.eW, sW: sb.sW, tX: sb.tX, c: fe(C), a: fe(A), leg: [['Committed', C, '#0E7C4A'], ['Anticipated', A, '#E0892B'], ['Expected', E, '#E9C46A'], ['SIP', SP, '#9DBCEB']].map(([label, v, sw]) => ({ label, v: fe(v), sw })), gap: fe(Math.max(0, T - C - A)), gapPct: Math.round(Math.max(0, T - C - A) / T * 100) + '% of target' },
+      stages: [['SIP', 86220, 5], ['Expected', 0, 0], ['Anticipated', 216630, 1], ['Committed', 90040, 4], ['Canceled', 0, 0]].map(([n, v, k]) => ({ name: n, n: k, v: fe(v), bg: STG[n][0], c: STG[n][1], op: k ? 1 : 0.55 })),
+      pots, outside: 'Committed outside POTs: ' + fe(90040 - C) + ' (clients without a POT, e.g. Next Health Advisors). It counts in the stage totals but not in the POT target.',
+      addingPot: S.addingPot ?? !!P.addingPot, startPot: () => this.setState({ addingPot: true }), cancelPot: () => this.setState({ addingPot: false }),
+      potType: ['Client', 'Group'].map(t => ({ label: t === 'Client' ? 'Individual client' : 'Client group', w: ptype === t ? 600 : 500, c: ptype === t ? '#0B1840' : '#6B7280', bg: ptype === t ? '#fff' : 'transparent', pick: () => this.setState({ ptype: t }) })),
+      potSelPh: ptype === 'Client' ? 'Select client without a POT…' : 'Select client group…',
+      potHint: ptype === 'Client' ? 'Clients already in a group POT are not listed.' : 'All clients of the group count towards one target.',
+      drawerOpen: !!dp, closeDrawer: () => this.setState({ drawerId: null }), d
+    };
+  }
+}
+</script>
+</body>
+</html>
