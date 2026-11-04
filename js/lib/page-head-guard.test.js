@@ -24,7 +24,7 @@ const FORBIDDEN = {
   '.cg-header': ['costgrid.html'], '.cg-header-name': ['costgrid.html'],
   '.cg-back-link': ['costgrid.html'],
   '.page-header': ['admin.html', 'team.html', 'attribute-lists.html', 'profile-jobs.html', 'settings.html', 'timesheets.html',
-    'master-clients.html', 'master-client-groups.html', 'master-pipelines.html', 'master-roles.html', 'master-currencies.html'],
+    'master-clients.html', 'master-pipelines.html', 'master-roles.html', 'master-currencies.html'],
   '.page-title-bar': ['planning.html', 'project-config.html'],
   '.page-toolbar': ['planning.html', 'project-config.html'],
 };
@@ -146,12 +146,12 @@ const inlineStyles = html =>
   [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1]).join('\n');
 
 describe('page discovery', () => {
-  it('finds the 19 pages that call initNav (19 checked)', () => {
-    expect(pages.length).toBe(19);
+  it('finds the 18 pages that call initNav (18 checked)', () => {
+    expect(pages.length).toBe(18);
     expect(EXCLUDED.size).toBe(0);
     for (const p of EXCLUDED) expect(pages).toContain(p);
     for (const p of PENDING) expect(pages).toContain(p);
-    expect(checked.length + PENDING.size + EXCLUDED.size).toBe(19);
+    expect(checked.length + PENDING.size + EXCLUDED.size).toBe(18);
   });
 });
 

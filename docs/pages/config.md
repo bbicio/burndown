@@ -76,3 +76,25 @@ Spec `docs/superpowers/specs/2026-11-03-master-data-shell-design.md`, plan `docs
 - **Access denied:** `<ph-icon name="lock">` (`PhIcon` registered on each app) instead of the emoji.
 - **Accepted deviations from the boards:** the page head is the shared white band (its title size, subtitle visible on tablet), not the board's title on grey; board colours mapped to the nearest tokens; card title and breadcrumb use the current page names, not "Clients & groups" (the merge is phase 2); the description stays under the card title; no section controls move into the card header; no counts in the sub-nav; at the desktop breakpoint itself the column layout and the full sidebar are shown where the board's tablet frame has tabs and an icon rail (the sub-nav switches with the main nav).
 - **Tests:** `js/lib/md-subnav.test.js`, `js/lib/master-data-guard.test.js` (shell structure, CSS per breakpoint), `js/lib/page-head-guard.test.js` (no page excluded any more); manual case `MD-13`.
+
+## Clients & groups (2026-11-04, Master Data phase 2)
+
+`master-clients.html` is "Clients & groups": Client Groups merged into it, and the client rate card is a sub-view of the page, not a modal. `master-client-groups.html` is only a redirect (meta refresh + `location.replace`) to `/master-clients.html?view=group`.
+
+- **Views:** List and By group, switched by the `.md-seg` control in the card head; both show the same client rows and share the search (client or group name). A new client, a new group, a client's name and a group's name are edited inline; the form card is gone.
+- **URL state:** `?view=group` is By group (absent = List), `?client=<id>` is the rate card. A view change uses `history.replaceState`, opening a rate card `pushState`; `popstate` re-reads the URL. A `?client=` that names no client returns to the list with "Client not found.".
+- **Group of a client:** set from the row's selector, the "⋯" menu (phone) or a group's "+ Add client" popover, always through `moveClient` (`js/lib/master-clients.js`): remove from the old group, assign to the new one, and a failed assign puts the old group back. The row's selector is disabled while its move runs.
+- **Group delete:** `DELETE /api/client-groups/:id` answers `409 { code: 'GROUP_HAS_POT' }` when the group has a POT; `GET /api/client-groups` carries `pots: [{ id, year }]`, newest year first. The UI disables the trash with the years in its hint, and a 409 that still arrives (POT created meanwhile) lands in the page banner and reloads the groups.
+- **Rate card:** loads and saves as the modal did (roles and rate cards re-read on each open, full replacement through `Api.ratecards.updateEntries`, payload built by `buildRatecardEntries`). Each cell's placeholder and caption come from `cellSource`, which calls `resolveRoleRate`. Roles are grouped by the code prefix before the first " - " (`Other` last). "Unsaved changes" compares amounts, not text, so focus and blur do not make a cell dirty; leaving with changes (← Clients, the breadcrumb crumb, back) asks for confirmation, and `beforeunload` covers closing the tab.
+- **Layouts:** tablet (< 1024px) hides the rate card pill column below 900px, keeps Role and Client € sticky in the rate card and moves Agency € to the last column; phone (< 768px) shows client cards and a rate card of one currency at a time (`rcPhoneCurrency`), touch targets at least 44px.
+- **Accepted deviations from the boards:**
+  - Primary buttons use the app-wide magenta `.btn-primary`, the boards draw them navy.
+  - The Agency € column is formatted by the money module (two decimals), the board shows whole euros.
+  - The POT pill reads `POT · <latest year>` with ` +N` for further years; POTs have no name, the board's "POT · <group> 2026" cannot be drawn.
+  - The group selector pill shows the group name up to 180px instead of truncating at about 100px.
+  - The shell shows its sidebar at exactly 1024px, so a 1024px render is the desktop layout; the board's tablet frame (icon rail, tab row) is a different shell. The tablet layout starts below 1024px and was checked at 768px.
+  - On tablet the rate card's "Only customized" and "How rates resolve" controls wrap to a second row instead of sitting beside the title.
+  - On phone a long group name wraps to two lines in the group header, and the rate card has no Discard button (as on the board); the unsaved-changes guard still applies.
+  - Out of scope in the boards and not drawn: Active/Archived, the Status column, the archive sentence, the extended role-family name, the sub-nav counts.
+- **Fixed after the visual review:** the search field is 220px wide (the spec's 190px clipped its placeholder).
+- **Tests:** `js/lib/master-clients.test.js` (filter, sections, rate sources, save payload, moves with rollback, URL state), `js/lib/master-clients-ratecard-guard.test.js`, `js/lib/master-data-guard.test.js` (redirect, no native dialog or emoji, breakpoints); API cases `CG-POT-01..03` in `test-api.js`; manual case `MD-14`.

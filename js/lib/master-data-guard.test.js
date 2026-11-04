@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { iconSvg } from './icons.js';
 
 const read = f => readFileSync(join(process.cwd(), f), 'utf8');
 
@@ -78,15 +79,12 @@ describe('Master Data sub-menu styles (css/style.css)', () => {
 });
 
 const PAGES = [
-  { file: 'master-clients.html',       active: 'clients',    section: 'Clients',
-    api: ['clients', 'currencies', 'ratecards', 'roles'],
+  { file: 'master-clients.html',       active: 'clients',    section: 'Clients & groups',
+    api: ['clientGroups', 'clients', 'currencies', 'ratecards', 'roles'],
     // the rate card builds its non-EUR columns from window.__currencies and its
     // "agency default" placeholders from the roles it reads afresh on each open
-    must: ['id="clientRcModal"', 'window.__cfgApp',
-      'window.__currencies = await Api.currencies.active()', 'this.clients = await Api.clients.list()'] },
-  { file: 'master-client-groups.html', active: 'clients',    section: 'Client Groups',
-    api: ['clientGroups', 'clients'],
-    must: ['this.clients  = clients;', 'this.groups   = groups.map('] },
+    must: ['window.__cfgApp', 'window.__currencies = await Api.currencies.active()',
+      'Api.clientGroups.list()', 'Api.ratecards.list()', 'readUrlState('] },
   { file: 'master-pipelines.html',     active: 'pipelines',  section: 'Pipelines & POTs',
     api: ['clientGroups', 'clients', 'currencies', 'pipelineYears', 'pots', 'reporting'],
     must: ['id="potDetailsModal"', 'this.yearTotals    = yearTotals;'] },
@@ -106,7 +104,7 @@ describe.each(PAGES)('Master Data page: $file', ({ file, active, section, api, m
       '<div id="app-main">\\s*<div class="ph">[\\s\\S]*?<h1 class="ph-title">Master Data</h1>[\\s\\S]*?'
       + '<div class="ph-sub">Clients, pipelines, roles, rates and currencies used across the app\\.</div>\\s*</div>\\s*</div>\\s*'
       + '<div class="md-layout">\\s*<nav class="md-subnav" data-md-active="' + active + '" aria-label="Master Data"></nav>\\s*'
-      + '<div class="md-content">\\s*<div id="app" v-cloak>\\s*<section class="md-card">'));
+      + '<div class="md-content">\\s*<div id="app" v-cloak>\\s*<section class="md-card"(?: v-show="[^"]*")?>'));
     expect(html).not.toContain('ph-side');
   });
 
@@ -121,7 +119,7 @@ describe.each(PAGES)('Master Data page: $file', ({ file, active, section, api, m
 
   it('loads the sub-nav module after the icon library', () => {
     const icons = html.indexOf('<script type="module" src="js/lib/icons.js');
-    const subnav = html.indexOf('<script type="module" src="js/lib/md-subnav.js?v=3"></script>');
+    const subnav = html.indexOf('<script type="module" src="js/lib/md-subnav.js?v=4"></script>');
     expect(icons).toBeGreaterThan(-1);
     expect(subnav).toBeGreaterThan(icons);
   });
@@ -182,11 +180,150 @@ describe('config.html is only a redirect to the Clients page', () => {
   });
 });
 
+describe('master-client-groups.html is only a redirect to the By group view', () => {
+  const html = read('master-client-groups.html');
+  it('redirects (meta refresh + script) to /master-clients.html?view=group', () => {
+    expect(html).toContain('http-equiv="refresh" content="0; url=/master-clients.html?view=group"');
+    expect(html).toContain("location.replace('/master-clients.html?view=group')");
+    expect(html).toContain('Go to Clients &amp; groups');
+  });
+  it('runs no Vue and has no shell', () => {
+    expect(html).not.toMatch(/vue/i);
+    expect(html).not.toContain('app-shell');
+    expect(html).not.toContain('Vue.createApp');
+  });
+});
+
+describe('master-clients.html (Clients & groups)', () => {
+  const html = read('master-clients.html');
+  it('has no native dialog, emoji or form card', () => {
+    expect(html).not.toContain('confirm(');
+    expect(html).not.toContain('alert(');
+    for (const e of ['💲', '✏️', '🗑', '🏢']) expect(html, e).not.toContain(e);
+    expect(html).not.toContain('form-card');
+    expect(html).not.toContain('clientRcModal');
+  });
+  it('carries the confirm modal that showConfirm writes into, outside the Vue root', () => {
+    expect(html).toContain('showConfirm(');
+    for (const id of ['confirmModal', 'confirmModalTitle', 'confirmModalMessage', 'confirmModalOk', 'confirmModalCancel']) {
+      expect(html, id).toContain(`id="${id}"`);
+    }
+    expect(html.indexOf('id="confirmModal"')).toBeGreaterThan(html.indexOf('</div><!-- #app -->'));
+  });
+  it('keeps a client that was created but not grouped, instead of blocking a retry', () => {
+    const body = html.slice(html.indexOf('async createClient()'), html.indexOf('startClientEdit(c) {'));
+    const assignFail = body.slice(body.indexOf('catch (e) {'), body.indexOf('await this.reloadGroups()'));
+    expect(assignFail).toContain('this.cf.show = false');
+    expect(assignFail).toContain('this.globalError');
+  });
+  it('clears the banner when an action starts and never hides the real error behind a reload failure', () => {
+    for (const name of ['async moveTo(', 'async createGroup()', 'async saveRename()']) {
+      const from = html.indexOf(name);
+      expect(from, name).toBeGreaterThan(-1);
+      expect(html.slice(from, from + 700), name).toContain('this.globalError = null');
+    }
+    const reload = html.slice(html.indexOf('async reloadGroups()'), html.indexOf('setView(v)'));
+    expect(reload).toContain('if (!this.globalError)');
+  });
+  it('does not re-enter the open rate card on a popstate that still names its client', () => {
+    const body = html.slice(html.indexOf('async onPopState()'), html.indexOf('// true when there is nothing unsaved'));
+    expect(body).toMatch(/st\.clientId === this\.rateClientId\) return/);
+  });
+  it('filters the rate card rows by their saved state', () => {
+    expect(html).toContain('saved: true');
+  });
+  it('titles the third breadcrumb level Clients & groups and drops the old link', () => {
+    expect(html).toContain("{ label: 'Clients & groups' }");
+    expect(html).not.toContain('master-client-groups.html');
+  });
+  it('disables the group menu of a client while its move is running', () => {
+    expect(html).toMatch(/:disabled="[^"]*_moving/);
+  });
+  it('loads the pure module', () => {
+    expect(html).toContain('<script type="module" src="js/lib/master-clients.js?v=1"></script>');
+  });
+  describe('responsive layout', () => {
+    const styles = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+    const media = q => {
+      const from = styles.indexOf(`@media (${q})`);
+      expect(from, q).toBeGreaterThan(-1);
+      let depth = 0, i = styles.indexOf('{', from);
+      const start = i;
+      for (; i < styles.length; i++) {
+        if (styles[i] === '{') depth++;
+        if (styles[i] === '}' && --depth === 0) break;
+      }
+      return styles.slice(start, i);
+    };
+    it('makes the controls 40px on tablet', () => {
+      expect(media('max-width: 1023.98px')).toMatch(/height:\s*40px/);
+    });
+    it('makes every touch target at least 44px on phone', () => {
+      const phone = media('max-width: 767.98px');
+      expect(phone).toMatch(/min-height:\s*44px/);
+      for (const sel of ['.cg-mcard-menu', '.cg-mcard-rc', '.rc-input-wrap']) expect(phone, sel).toContain(sel);
+    });
+    it('hides the rate card pill column below 900px', () => {
+      expect(media('max-width: 899.98px')).toMatch(/\.cg-col-pill\s*\{[^}]*display:\s*none/);
+    });
+    it('keeps the Role and Client columns of the rate card sticky on tablet', () => {
+      const tablet = media('max-width: 1023.98px');
+      expect(tablet).toMatch(/\.rc-col-role\s*\{[^}]*position:\s*sticky/);
+      expect(tablet).toMatch(/\.rc-col-client\s*\{[^}]*position:\s*sticky/);
+    });
+    it('shows one currency at a time on phone through rcPhoneCurrency', () => {
+      expect(html).toContain('rcPhoneCurrency');
+      expect(html).toContain('Empty = agency € rate.');
+    });
+  });
+  it('has no hex colour in its inline styles', () => {
+    const styles = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+    expect(styles).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+});
+
+describe('DELETE /api/client-groups/:id refuses a group with a POT under a row lock', () => {
+  const src = read('api/src/routes/client-groups.js');
+  const del = src.slice(src.indexOf('async function deleteGroup'), src.indexOf("router.put('/:id/clients/:clientId'"));
+  it('locks the group row in a transaction before it looks at the POTs', () => {
+    expect(del).toContain("'BEGIN'");
+    expect(del).toMatch(/FROM client_groups WHERE id = \$1 FOR UPDATE/);
+    expect(del.indexOf('FOR UPDATE')).toBeLessThan(del.indexOf('FROM pots'));
+    expect(del).toContain("'COMMIT'");
+    expect(del).toContain("'ROLLBACK'");
+  });
+});
+
 describe('Admin menu entry', () => {
   it('Master Data leads to the Clients page', () => {
     const nav = new Function(read('js/nav.js') + '\nreturn { NAV_GROUPS };')();
     const item = nav.NAV_GROUPS.flatMap(g => g.items).find(i => i.id === 'config');
     expect(item.label).toBe('Master Data');
     expect(item.href).toBe('/master-clients.html');
+  });
+});
+
+describe('Master Data shared controls (css/style.css, js/lib/icons.js)', () => {
+  const css = read('css/style.css');
+  it('defines the segmented control and the switch', () => {
+    for (const sel of ['.md-seg', '.md-seg-btn', '.md-seg-btn.active', '.md-switch']) {
+      expect(css, sel).toContain(sel + ' {');
+    }
+  });
+  it('sizes the controls 32px on desktop, 40px on tablet and 44px on phone', () => {
+    expect(css).toMatch(/\.md-seg-btn\s*\{[^}]*height:\s*32px/);
+    expect(css).toMatch(/@media \(max-width: 1023\.98px\)\s*\{[^@]*\.md-seg-btn\s*\{[^}]*height:\s*40px/);
+    expect(css).toMatch(/@media \(max-width: 767\.98px\)\s*\{[^@]*\.md-seg-btn\s*\{[^}]*height:\s*44px/);
+  });
+  it('uses no hex colour in the new rules', () => {
+    const from = css.indexOf('/* ── Master Data controls');
+    expect(from).toBeGreaterThan(-1);
+    const block = css.slice(from, css.indexOf('/* ──', from + 10));
+    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+  });
+  it('has the building, pencil, more and reset icons', () => {
+    for (const n of ['building', 'pencil', 'more', 'reset']) {
+      expect(iconSvg(n), n).not.toBe('');
+    }
   });
 });

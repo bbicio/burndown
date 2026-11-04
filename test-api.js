@@ -360,6 +360,47 @@ async function testClientGroups() {
     const r4 = await api('DELETE', `/api/client-groups/${gid}/clients/${clientId}`, null, adminCookie);
     ok([200, 204].includes(r4.status), 'CG-G-05 remove client → 200/204');
   }
+
+  // CG-POT — a group with a POT cannot be deleted; GET lists its POT years
+  const potYear = 2098;
+  const rpg = await api('POST', '/api/client-groups', { name: '__test_cg_pot_group__' }, adminCookie);
+  const pgid = rpg.data?.id;
+  if (pgid) later('DELETE', `/api/client-groups/${pgid}`);
+  const rpp = pgid ? await api('POST', '/api/pots', { clientGroupId: pgid, year: potYear, amount: 1000 }, adminCookie) : null;
+  const potId = rpp?.data?.id;
+  if (potId) later('DELETE', `/api/pots/${potId}`);
+  if (pgid && potId) {
+    const rd = await api('DELETE', `/api/client-groups/${pgid}`, null, adminCookie);
+    ok(rd.status === 409 && rd.data?.code === 'GROUP_HAS_POT', 'CG-POT-01 DELETE group with a POT → 409 GROUP_HAS_POT');
+    const rl = await api('GET', '/api/client-groups', null, adminCookie);
+    const g = (rl.data || []).find(x => x.id === pgid);
+    ok(!!g, 'CG-POT-01 group still listed after refused delete');
+    ok(Array.isArray(g?.pots) && g.pots.length === 1 && g.pots[0].id === potId && g.pots[0].year === potYear,
+      'CG-POT-02 GET group lists pots [{ id, year }]');
+  } else {
+    fail('CG-POT: group/POT setup failed — skipping');
+  }
+  // CG-POT-04 — the POT years are for admins: a plain user's list carries no pots field
+  if (pgid) {
+    const plain = await getPlainUserCookie();
+    if (plain) {
+      const rp = await api('GET', '/api/client-groups', null, plain);
+      const gp = (rp.data || []).find(x => x.id === pgid);
+      ok(rp.status === 200 && !!gp && !('pots' in gp), 'CG-POT-04 a plain user sees the group but no pots field');
+    } else {
+      fail('CG-POT-04: no plain-user session — skipping');
+    }
+  }
+  const rng = await api('POST', '/api/client-groups', { name: '__test_cg_nopot_group__' }, adminCookie);
+  const ngid = rng.data?.id;
+  if (ngid) {
+    later('DELETE', `/api/client-groups/${ngid}`);
+    const rl2 = await api('GET', '/api/client-groups', null, adminCookie);
+    const g2 = (rl2.data || []).find(x => x.id === ngid);
+    ok(Array.isArray(g2?.pots) && g2.pots.length === 0, 'CG-POT-03 group without a POT has pots = []');
+    const rd2 = await api('DELETE', `/api/client-groups/${ngid}`, null, adminCookie);
+    ok(rd2.status === 200, 'CG-POT-03 DELETE group without a POT → 200');
+  }
 }
 
 // ── Roles ─────────────────────────────────────────────────────────────────────

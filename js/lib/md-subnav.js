@@ -3,7 +3,7 @@
 // <nav class="md-subnav" data-md-active="<id>"> as a grouped list (desktop column, tablet tabs)
 // plus a phone selector (native <select> laid over a styled row). Native ES module, bridged onto `window`.
 
-import { iconSvg } from './icons.js?v=5';
+import { iconSvg } from './icons.js?v=6';
 
 export const MD_SECTIONS = [
   { group: 'COMMERCIAL', items: [

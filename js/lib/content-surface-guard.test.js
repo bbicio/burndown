@@ -54,8 +54,9 @@ describe('excluded pages are untouched', () => {
   // the Master Data one re-pinned by the Master Data shell, which dropped body/.page/.page-header.
   const MASTER_SHA = '831f66f938c3c40eef78cf91b830d10041da84450837d9a1a2abf044bcd8e6db';
   const EXCLUDED_STYLE_SHA = {
-    'master-clients.html': MASTER_SHA,
-    'master-client-groups.html': MASTER_SHA,
+    // master-clients.html is restyled by the Clients & groups cycle (hex-free styles pinned in master-data-guard);
+    // master-client-groups.html is now a redirect without styles.
+    'master-client-groups.html': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
     'master-pipelines.html': MASTER_SHA,
     'master-roles.html': MASTER_SHA,
     'master-currencies.html': MASTER_SHA,
