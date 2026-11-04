@@ -90,6 +90,12 @@ describe('master-roles delete dialog', () => {
     expect(html).toContain("this._onDelHide = e => { if (this.del.loading) e.preventDefault(); };");
     expect(html).toContain("addEventListener('hide.bs.modal', this._onDelHide)");
   });
+  it('still closes on success: loading ends before hide()', () => {
+    const body = between('async confirmDelete()', '\n    },\n  },\n})');
+    const ok = body.slice(body.indexOf('await Api.roles.delete('), body.indexOf('} catch (e) {'));
+    expect(ok.indexOf('del.loading = false')).toBeGreaterThan(-1);
+    expect(ok.indexOf('del.loading = false')).toBeLessThan(ok.indexOf('.hide()'));
+  });
 });
 
 describe('master-roles responsive layout', () => {

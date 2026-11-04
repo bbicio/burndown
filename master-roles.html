@@ -769,7 +769,7 @@ window.__cfgApp = Vue.createApp({
         } else {
           const created = await Api.roles.create({ label, code, hourlyRate: rate, rateOverrides });
           this.roles.push({ id: created.id, label, code: created.code || saved, rate, rateOverrides });
-          form.id = created.id;   // focus returns to the new role's row
+          form.id = created.id;   // lets focusBack fall back to the new role's button if the opener is gone
         }
         // open the role's group, keep search and filter
         const team = window.extractTeam(saved);
@@ -808,6 +808,7 @@ window.__cfgApp = Vue.createApp({
       try {
         await Api.roles.delete(role.id);
         this.roles = this.roles.filter(r => r.id !== role.id);
+        del.loading = false;   // before hide(): the hide.bs.modal guard refuses while a delete runs
         if (this.del === del) bootstrap.Modal.getInstance(document.getElementById('roleDeleteModal'))?.hide();
       } catch (e) {
         del.error = e.message || 'Delete failed.';
