@@ -344,6 +344,14 @@ describe('Pipelines & POTs responsive styles', () => {
   const tablet = style.slice(tabletAt, phoneAt);
   const phone = style.slice(phoneAt);
 
+  it('carries the confirm modal that showConfirm writes into, outside the Vue root', () => {
+    expect(html).toContain('showConfirm(');
+    for (const id of ['confirmModal', 'confirmModalTitle', 'confirmModalMessage', 'confirmModalOk', 'confirmModalCancel']) {
+      expect(html, id).toContain(`id="${id}"`);
+    }
+    expect(html.indexOf('id="confirmModal"')).toBeGreaterThan(html.indexOf('</div><!-- #app -->'));
+  });
+
   it('has a tablet block followed by a phone block', () => {
     expect(tabletAt).toBeGreaterThan(-1);
     expect(phoneAt).toBeGreaterThan(tabletAt);
