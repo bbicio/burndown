@@ -203,6 +203,13 @@ describe('master-clients.html (Clients & groups)', () => {
     expect(html).not.toContain('form-card');
     expect(html).not.toContain('clientRcModal');
   });
+  it('carries the confirm modal that showConfirm writes into, outside the Vue root', () => {
+    expect(html).toContain('showConfirm(');
+    for (const id of ['confirmModal', 'confirmModalTitle', 'confirmModalMessage', 'confirmModalOk', 'confirmModalCancel']) {
+      expect(html, id).toContain(`id="${id}"`);
+    }
+    expect(html.indexOf('id="confirmModal"')).toBeGreaterThan(html.indexOf('</div><!-- #app -->'));
+  });
   it('titles the third breadcrumb level Clients & groups and drops the old link', () => {
     expect(html).toContain("{ label: 'Clients & groups' }");
     expect(html).not.toContain('master-client-groups.html');

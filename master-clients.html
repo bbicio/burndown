@@ -420,7 +420,7 @@
                     <button type="button" class="cg-icon-btn" aria-label="More actions" data-bs-toggle="dropdown" aria-expanded="false"><ph-icon name="more" :size="15"></ph-icon></button>
                     <ul class="dropdown-menu dropdown-menu-end">
                       <li><button type="button" class="dropdown-item" :disabled="c._loading" @click="deleteClient(c)">Delete
-                        <span class="cg-menu-hint">Not possible while projects use this client</span></button></li>
+                        <span class="cg-menu-hint">Only if no project uses this client</span></button></li>
                     </ul>
                   </div>
                 </td>
@@ -637,6 +637,24 @@
 </section>
 
 </div><!-- #app -->
+
+<!-- Confirm: the modal showConfirm() (js/core.js) writes into -->
+<div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header border-0 pb-1">
+        <h6 class="modal-title fw-bold" id="confirmModalTitle">Confirm</h6>
+      </div>
+      <div class="modal-body pt-1">
+        <p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p>
+      </div>
+      <div class="modal-footer border-0 pt-2">
+        <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger" id="confirmModalOk">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
 </div><!-- /.md-content -->
 </div><!-- /.md-layout -->
 
