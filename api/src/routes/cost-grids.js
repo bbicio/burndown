@@ -11,6 +11,7 @@ const { sendShareNotification, sendOwnerReassignedEmail, APP_URL } = require('..
 const { isValidSoldHours } = require('../lib/sold-hours');
 const { DATE_RULE, periodError, periodChangeError, periodShrinkError, taskPeriodError, toYmd } = require('../lib/dates');
 const { isAdminRole } = require('../lib/is-admin');
+const { parsePipelineYear, pipelineYearAvailabilityError } = require('../lib/pipeline-year');
 const { formatMoney } = require('../lib/money-format');
 const { versionRate, CURRENCY_RULE_CODE } = require('../lib/version-rate');
 const { amountError, MONEY_RULE_CODE, MAX_DECIMAL_10_2 } = require('../lib/money-rules');
@@ -397,8 +398,15 @@ router.post('/:id/versions', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { label, pipeline, startDate, endDate, currency, note, ratecardId, clientId, projectName } = req.body;
+    const { label, pipeline, startDate, endDate, currency, note, ratecardId, clientId, projectName, pipelineYear } = req.body;
     if (!label?.trim()) return res.status(400).json({ error: 'label is required' });
+    const parsedYear = parsePipelineYear(pipelineYear);
+    if (parsedYear.error) return res.status(400).json({ error: parsedYear.error });
+    if (parsedYear.year !== null) {
+      const { rows: yearRows } = await query('SELECT active FROM pipeline_years WHERE year = $1', [parsedYear.year]);
+      const yearErr = pipelineYearAvailabilityError(yearRows[0]);
+      if (yearErr) return res.status(400).json({ error: yearErr });
+    }
     const periodErr = periodError(startDate, endDate, { kind: 'month', label: 'version' });
     if (periodErr) return res.status(400).json({ error: periodErr, code: DATE_RULE });
 
@@ -412,12 +420,13 @@ router.post('/:id/versions', requireAuth, async (req, res, next) => {
     if (rate.error) return res.status(400).json({ error: rate.error, code: CURRENCY_RULE_CODE });
     const resolvedRate = rate.rate;
 
-    // New versions always start as Draft (published via the /publish endpoint)
+    // New versions always start as Draft (published via the /publish endpoint). The Draft carries the pipeline
+    // year it was created for, so publishing keeps it; with none, publishing uses the current year.
     const { rows } = await query(
-      `INSERT INTO cost_grid_versions (cost_grid_id, label, pipeline, start_date, end_date, currency, currency_rate, note, ratecard_id, client_id, project_name)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      `INSERT INTO cost_grid_versions (cost_grid_id, label, pipeline, start_date, end_date, currency, currency_rate, note, ratecard_id, client_id, project_name, pipeline_year)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
       [req.params.id, label.trim(), 'Draft', startDate || null, endDate || null,
-       resolvedCurrency, resolvedRate, note || null, ratecardId || null, clientId || null, projectName || '']
+       resolvedCurrency, resolvedRate, note || null, ratecardId || null, clientId || null, projectName || '', parsedYear.year]
     );
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }
@@ -564,12 +573,14 @@ router.post('/:id/versions/:vId/duplicate', requireAuth, async (req, res, next) 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      // Full copy of the header, always a Draft: no pipeline year, unlocked, no links to generated projects.
+      // Full copy of the header, always a Draft: unlocked, no links to generated projects. The pipeline year is
+      // inherited only from a Draft source (the year it was created for); a published source leaves it empty.
       const newV = await client.query(
         `INSERT INTO cost_grid_versions
-           (cost_grid_id, label, pipeline, start_date, end_date, currency, currency_rate, note, ratecard_id, client_id, project_name)
-         VALUES ($1, $2, 'Draft', $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
-        [s.cost_grid_id, label, s.start_date, s.end_date, s.currency, s.currency_rate, s.note, s.ratecard_id, s.client_id, s.project_name]
+           (cost_grid_id, label, pipeline, start_date, end_date, currency, currency_rate, note, ratecard_id, client_id, project_name, pipeline_year)
+         VALUES ($1, $2, 'Draft', $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+        [s.cost_grid_id, label, s.start_date, s.end_date, s.currency, s.currency_rate, s.note, s.ratecard_id, s.client_id, s.project_name,
+         s.pipeline === 'Draft' ? s.pipeline_year : null]
       );
       const newVId = newV.rows[0].id;
 
@@ -626,7 +637,7 @@ router.post('/:id/versions/:vId/publish', requireAuth, async (req, res, next) =>
     }
     const currentYear = new Date().getFullYear();
     const { rows: updated } = await query(
-      `UPDATE cost_grid_versions SET pipeline = 'SIP', pipeline_year = $1 WHERE id = $2 RETURNING *`,
+      `UPDATE cost_grid_versions SET pipeline = 'SIP', pipeline_year = COALESCE(pipeline_year, $1) WHERE id = $2 RETURNING *`,
       [currentYear, req.params.vId]
     );
     notifyAdminsPipelineChange(req.params.id, req.params.vId, 'Draft', 'SIP');

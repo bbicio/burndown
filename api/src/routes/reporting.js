@@ -235,7 +235,8 @@ router.get('/phasing', requireAuth, async (req, res, next) => {
        JOIN tasks tk ON tk.phase_id = ph.id
        JOIN task_roles tr ON tr.task_id = tk.id
        JOIN roles ro ON ro.id = tr.role_id
-       WHERE cgv.pipeline_year = $1`,
+       WHERE cgv.pipeline_year = $1
+         AND cgv.pipeline <> 'Draft'`,
       [yr]
     );
 
