@@ -116,3 +116,14 @@ Spec `docs/superpowers/specs/2026-10-29-ui-quick-wins-design.md`, report `docs/s
 ## Refresh-rate confirmation text (2026-11-01, currency cycle 4)
 
 Spec `docs/superpowers/specs/2026-11-01-currency-c4-b183-version-rate-baselines-design.md`, report `docs/superpowers/reports/2026-11-01-currency-c4-version-rate-finish-cycle.md`. `confirmRefreshRate` says "Budget amounts remain in <code>. The EUR equivalent and the editor's "reset to" rates change to the new rate." A saved version reloads every role as Custom (the structure save snapshots each role's rate), so a refresh does not re-price it; the editor's reset baselines follow the version's rate since B-183. Pinned by `js/lib/costgrid-version-rate.test.js`.
+
+## Pipeline year on the Draft, remembered year (2026-11-04)
+
+Spec `docs/superpowers/specs/2026-11-04-pipeline-year-persistence-design.md`, plan `docs/superpowers/plans/2026-11-04-pipeline-year-persistence.md`.
+
+- **A Draft carries its pipeline year from creation.** `POST /api/cost-grids/:id/versions` accepts `pipelineYear`: an integer naming an existing, active pipeline year, else `400 { error }` and nothing is created. `New Proposal` and `Clone` pass `selectedYear` (`cgCreateNewGrid(year)`, `cgCloneGrid(srcCgId, srcVerId, year)` in `js/costgrid.js`); the editor's own Clone passes none and creates a Draft without a year.
+- **Publish keeps the year** (`COALESCE(pipeline_year, current year)`); a Draft without one is published in the current year. `POST …/duplicate` copies the year from a Draft source and leaves it empty from a published one. Drafts created before this cycle keep no year.
+- **Readers.** `GET /api/reporting/phasing` excludes Drafts; the other readers of `pipeline_year` already did. `DELETE /api/pipeline-years/:id` is refused while any version, Draft included, carries the year.
+- **The selected year is remembered.** `selectYear()` writes `localStorage['PDash_pipelineYear']`; `created()` resolves the year with `resolvePipelineYear` (`js/lib/pipeline-year.js`): `?year=`, then the remembered year, then the current year, then the first available one. A year not returned by `GET /api/pipeline-years` is skipped. The key is in `js/core.js`'s `keep` Set.
+- Cache versions: `js/core.js?v=16`, `js/costgrid.js?v=58`, `js/lib/pipeline-year.js?v=1`.
+- Tests: `api/src/lib/pipeline-year.test.js`, `js/lib/pipeline-year.test.js`, `js/lib/cg-create-year.test.js`, `js/lib/pipeline-proposal-busy.test.js`; `test-api.js` `PYP-01..PYP-06`.
