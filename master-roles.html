@@ -51,6 +51,9 @@
     .mdr-table th:first-child, .mdr-table td.mdr-role-cell { position: sticky; left: 0; z-index: 1; background: var(--surface-white); }
     .mdr-table th:first-child { background: var(--surface-light); }
     .mdr-grp td { background: var(--surface-light); padding: 9px var(--space-4); cursor: pointer; user-select: none; }
+    .mdr-grp-btn { display: block; width: 100%; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
+    .mdr-grp-btn:focus-visible, .mdr-role-btn:focus-visible { outline: 2px solid var(--brand-navy); outline-offset: 2px; border-radius: var(--radius-xs); }
+    .mdr-role-btn { display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 100%; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
     .mdr-grp-in { position: sticky; left: var(--space-4); display: inline-flex; align-items: center; gap: var(--space-2); }
     .mdr-grp .pd-icon, .mdr-grp svg { color: var(--text-primary); transition: transform var(--duration-fast); }
     .mdr-grp.is-closed svg { transform: rotate(-90deg); }
@@ -84,7 +87,7 @@
     /* ── Side panel (local, modelled on master-pipelines.html's POT drawer) ── */
     .mdr-scrim { position: fixed; inset: 0; z-index: calc(var(--z-notification) - 1); background: var(--brand-navy); opacity: .28; }
     .mdr-drawer {
-      position: fixed; top: 0; right: 0; width: min(480px, 100vw); height: 100vh;
+      position: fixed; top: 0; right: 0; width: min(480px, 100vw); height: 100vh; height: 100dvh;
       background: var(--surface-white); border-left: 1px solid var(--border-light); box-shadow: var(--shadow-xl);
       z-index: var(--z-notification); display: flex; flex-direction: column;
     }
@@ -139,6 +142,7 @@
     .mdr-cancel { font-size: 12.5px; font-weight: var(--weight-semibold); color: var(--text-muted); background: none; border: 0; padding: 8px 6px; cursor: pointer; }
 
     /* ── Delete dialog ── */
+    .mdr-del-dialog { max-width: 440px; }
     .mdr-del-body { font-size: 12.5px; color: var(--text-primary); line-height: 1.55; }
 
     /* ── Tablet, and desktop below 1280px (the shell keeps its full sidebar at 1024) ── */
@@ -149,7 +153,8 @@
       .mdr-search { order: 10; flex: 1 1 100%; width: auto; height: 40px; }
       .mdr-head-desc { display: none; }
       .mdr-head-text { flex: 1 1 auto; min-width: 0; }
-      .mdr-table { table-layout: fixed; min-width: 0; }
+      /* fixed columns; past ~220px for the role the table scrolls instead of squeezing it */
+      .mdr-table { table-layout: fixed; min-width: calc(220px + var(--mdr-cols, 1) * 80px + 36px); }
       .mdr-role { max-width: none; }
       .mdr-table .is-num { width: 80px; }
       /* the actions column stays (a fixed layout would hand a hidden column's share to nobody) but takes no width */
@@ -190,6 +195,8 @@
       .mdr-card-val.is-missing { color: var(--color-warning-text); }
       .mdr-card-val.is-approx { color: var(--text-muted); font-weight: var(--weight-semibold); }
       .mdr-drawer { width: 100vw; border-left: 0; }
+      .mdr-dr-close { width: 44px; height: 44px; }
+      .mdr-combo-opt { min-height: 44px; display: flex; align-items: center; }
       .mdr-input, .mdr-money { height: 44px; }
       .mdr-pair, .mdr-rates { grid-template-columns: 1fr; }
       .mdr-dr-foot .btn, .mdr-dr-foot .mdr-cancel, .mdr-dr-foot .mdr-del-link { min-height: 46px; }
@@ -275,7 +282,7 @@
       <div v-if="!groupedRoles.length" class="mdr-empty">No roles match the current search.</div>
       <template v-else>
         <div class="mdr-scroll">
-          <table class="mdr-table">
+          <table class="mdr-table" :style="{ '--mdr-cols': columns.length }">
             <thead>
               <tr>
                 <th>Role · code</th>
@@ -286,23 +293,25 @@
             </thead>
             <tbody>
               <template v-for="g in groupedRoles" :key="g.team">
-                <tr class="mdr-grp" :class="{ 'is-closed': !isGroupOpen(g.team) }" @click="toggleGroup(g.team)">
+                <tr class="mdr-grp" :class="{ 'is-closed': !isGroupOpen(g.team) }">
                   <td :colspan="columns.length + 3">
+                    <button type="button" class="mdr-grp-btn" :aria-expanded="isGroupOpen(g.team)" @click="toggleGroup(g.team)">
                     <span class="mdr-grp-in">
                       <ph-icon name="chevron-down" :size="12"></ph-icon>
                       <span class="mdr-grp-name">{{ g.team }}</span>
                       <span class="mdr-grp-count">{{ g.roles.length === 1 ? '1 role' : g.roles.length + ' roles' }}</span>
                       <span v-if="g.missing > 0" class="mdr-pill">{{ g.missing }} without € rate</span>
                     </span>
+                    </button>
                   </td>
                 </tr>
                 <template v-if="isGroupOpen(g.team)">
                   <tr v-for="r in g.roles" :key="r.id" class="mdr-row" :class="{ 'is-missing': isMissingRate(r.rate) }" @click="onRowClick(r)">
                     <td class="mdr-role-cell">
-                      <div class="mdr-role">
+                      <button type="button" class="mdr-role-btn" @click.stop="openRoleForm(r)">
                         <span class="mdr-label" :title="r.label">{{ r.label }}</span>
                         <span class="mdr-code" :title="r.code">{{ r.code }}</span>
-                      </div>
+                      </button>
                     </td>
                     <td class="is-num">
                       <span v-if="isMissingRate(r.rate)" class="mdr-norate" title="No € rate: this role can't be priced">No rate</span>
@@ -374,12 +383,14 @@
           <span class="mdr-field-label" id="rfTeamLabel">Team</span>
           <div class="mdr-combo">
             <input type="text" class="mdr-input" v-model="rf.team" autocomplete="off" role="combobox"
-                   aria-labelledby="rfTeamLabel" :aria-expanded="rf.teamOpen && teamMatches.length > 0" aria-controls="rfTeamList"
+                   aria-labelledby="rfTeamLabel" :aria-expanded="rf.teamOpen && teamMatches.length > 0"
+                   :aria-controls="rf.teamOpen && teamMatches.length ? 'rfTeamList' : null"
+                   :aria-activedescendant="rf.teamOpen && rf.teamIdx >= 0 ? 'rfTeamOpt-' + rf.teamIdx : null"
                    @focus="rf.teamOpen = true; rf.teamIdx = -1" @blur="rf.teamOpen = false" @input="rf.teamOpen = true; rf.teamIdx = -1"
                    @keydown="onTeamKey">
             <ph-icon class="mdr-combo-chev" name="chevron-down" :size="12"></ph-icon>
             <ul v-if="rf.teamOpen && teamMatches.length" id="rfTeamList" class="mdr-combo-list" role="listbox">
-              <li v-for="(t, i) in teamMatches" :key="t" class="mdr-combo-opt" :class="{ 'is-active': i === rf.teamIdx }"
+              <li v-for="(t, i) in teamMatches" :key="t" :id="'rfTeamOpt-' + i" class="mdr-combo-opt" :class="{ 'is-active': i === rf.teamIdx }"
                   role="option" :aria-selected="i === rf.teamIdx" @mousedown.prevent="pickTeam(t)">{{ t }}</li>
             </ul>
           </div>
@@ -440,7 +451,7 @@
 
 <!-- ── Delete confirmation: stays open and shows the server's refusal ── -->
 <div class="modal fade" id="roleDeleteModal" tabindex="-1" aria-labelledby="roleDeleteTitle">
-  <div class="modal-dialog modal-dialog-centered mdr-sheet" style="max-width:440px">
+  <div class="modal-dialog modal-dialog-centered mdr-del-dialog mdr-sheet">
     <div class="modal-content shadow-lg">
       <div class="modal-header border-0 pb-1">
         <h6 class="modal-title fw-bold" id="roleDeleteTitle">Delete "{{ del.role ? del.role.label : '' }}"?</h6>
@@ -451,7 +462,7 @@
       </div>
       <div class="modal-footer border-0 pt-2">
         <button type="button" class="btn btn-link text-decoration-none mdr-cancel" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-danger" :disabled="del.loading || !!del.error" @click="confirmDelete">
+        <button type="button" class="btn btn-danger" :disabled="del.loading || del.blocked" @click="confirmDelete">
           <span v-if="del.loading" class="spinner-border spinner-border-sm me-1"></span>
           Delete role
         </button>
@@ -504,7 +515,7 @@ window.__cfgApp = Vue.createApp({
       rf: { show: false, id: null, title: '', label: '', team: '', roleCode: '', teamOpen: false, teamIdx: -1, rateText: '', overrideTexts: {}, stored: {}, error: null, loading: false },
 
       // Delete dialog state
-      del: { role: null, error: null, loading: false },
+      del: { role: null, error: null, blocked: false, loading: false },
 
       currencies:    [],
 
@@ -527,7 +538,11 @@ window.__cfgApp = Vue.createApp({
       return window.groupRoles(window.filterRoles(this.roles, { query: this.query, missingOnly: this.missingOnly }));
     },
     filtering() { return !!this.query.trim() || this.missingOnly; },
-    fullCode() { return window.joinCode(this.rf.team, this.rf.roleCode).toUpperCase(); },
+    // Preview only: with a team and no role code yet it reads "TEAM - ROLE", as on the board.
+    fullCode() {
+      const role = this.rf.roleCode.trim() || (this.rf.team.trim() ? 'ROLE' : '');
+      return window.joinCode(this.rf.team, role).toUpperCase();
+    },
     teamMatches() {
       const q = this.rf.team.trim().toLowerCase();
       return window.teamOptions(this.roles).filter(t => !q || t.toLowerCase().includes(q));
@@ -549,8 +564,14 @@ window.__cfgApp = Vue.createApp({
   mounted() {
     this._onKeydown = e => this.onPanelKeydown(e);
     document.addEventListener('keydown', this._onKeydown);
+    // a dialog opened from code gets no focus return from Bootstrap: give it back to what opened it
+    this._onDelHidden = () => { this._delOpener?.focus?.(); this._delOpener = null; };
+    document.getElementById('roleDeleteModal')?.addEventListener('hidden.bs.modal', this._onDelHidden);
   },
-  beforeUnmount() { document.removeEventListener('keydown', this._onKeydown); },
+  beforeUnmount() {
+    document.removeEventListener('keydown', this._onKeydown);
+    document.getElementById('roleDeleteModal')?.removeEventListener('hidden.bs.modal', this._onDelHidden);
+  },
 
   methods: {
     async loadAll() {
@@ -615,6 +636,7 @@ window.__cfgApp = Vue.createApp({
 
     // ── Panel ──
     openRoleForm(role) {
+      if (!this.rf.show) this._opener = document.activeElement;
       const overrideTexts = {};
       const stored = { EUR: role?.rate == null ? null : Number(role.rate) };
       for (const [cur, val] of Object.entries(role?.rateOverrides || {})) { overrideTexts[cur] = this.amountText(val, cur); stored[cur] = val == null ? null : Number(val); }
@@ -637,12 +659,25 @@ window.__cfgApp = Vue.createApp({
       };
       this.$nextTick(() => this.$refs.rfLabel?.focus());
     },
-    closePanel() { this.rf.show = false; },
-    // Esc closes the panel, unless the delete dialog is open above it (Esc belongs to the dialog).
+    // Not while a save runs: the save resolves against the form it started from.
+    closePanel({ restoreFocus = true } = {}) {
+      if (this.rf.loading) return;
+      this.rf.show = false;
+      const opener = this._opener; this._opener = null;
+      if (restoreFocus) this.$nextTick(() => opener?.focus?.());
+    },
+    // Esc closes the panel; Tab stays inside it (it is a modal dialog). The delete dialog never sits above
+    // it: the panel closes before that dialog opens.
     onPanelKeydown(e) {
-      if (e.key !== 'Escape' || !this.rf.show) return;
-      if (document.querySelector('.modal.show')) return;
-      this.closePanel();
+      if (!this.rf.show) return;
+      if (e.key === 'Escape') { this.closePanel(); return; }
+      if (e.key !== 'Tab') return;
+      const drawer = document.querySelector('.mdr-drawer');
+      const items = drawer ? [...drawer.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')] : [];
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !drawer.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (document.activeElement === last || !drawer.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
     },
     onTeamKey(e) {
       const n = this.teamMatches.length;
@@ -652,14 +687,18 @@ window.__cfgApp = Vue.createApp({
       else if (e.key === 'Escape' && this.rf.teamOpen && n) { e.stopPropagation(); this.rf.teamOpen = false; }
     },
     pickTeam(t) { this.rf.team = t; this.rf.teamOpen = false; this.rf.teamIdx = -1; },
+    // The € rate typed so far, when it can be converted (a positive amount and a currency with a rate).
+    typedEur(cu) {
+      const eur = window.readMoneyInput(this.rf.rateText, 'EUR', this.currencies, { stored: this.rf.stored['EUR'] });
+      return typeof eur === 'number' && eur > 0 && Number(cu.current_rate) > 0 ? eur : null;
+    },
     overridePlaceholder(cu) {
-      if (!this.rf.rateText.trim()) return 'Optional';
-      return '≈ ' + window.formatMoneyInput((window.readMoneyInput(this.rf.rateText, 'EUR', this.currencies) || 0) * cu.current_rate, cu.code, this.currencies);
+      const eur = this.typedEur(cu);
+      return eur == null ? 'Optional' : '≈ ' + window.formatMoneyInput(eur * cu.current_rate, cu.code, this.currencies);
     },
     overrideHint(cu) {
       if ((this.rf.overrideTexts[cu.code] ?? '').trim()) return `Used as is in ${cu.code} proposals`;
-      if (!this.rf.rateText.trim()) return 'Optional';
-      return `Empty: € rate × ${Number(cu.current_rate)}`;
+      return this.typedEur(cu) == null ? 'Optional' : `Empty: € rate × ${Number(cu.current_rate)}`;
     },
 
     // code 'EUR' is the base rate; any other code is that currency's override.
@@ -688,6 +727,7 @@ window.__cfgApp = Vue.createApp({
 
       if (!label) { this.rf.error = 'Label is required.'; return; }
       if (!code)  { this.rf.error = 'Code is required.'; return; }
+      if (!this.rf.roleCode.trim()) { this.rf.error = 'Role code is required.'; return; }
       const rate = window.readMoneyInput(this.rf.rateText, 'EUR', this.currencies, { stored: this.rf.stored['EUR'] });
       if (rate === null) { this.rf.error = 'Default rate is required.'; return; }
       if (Number.isNaN(rate)) { this.rf.error = badAmount('EUR'); return; }
@@ -703,52 +743,60 @@ window.__cfgApp = Vue.createApp({
       const dup = this.roles.find(r => r.code.toLowerCase() === code.toLowerCase() && r.id !== this.rf.id);
       if (dup) { this.rf.error = `Code "${code}" is already used by role "${dup.label}".`; return; }
 
-      this.rf.loading = true;
+      const form = this.rf;
+      const saved = code.toUpperCase();   // what the server stores (trim + uppercase)
+      form.loading = true;
       try {
-        if (this.rf.id) {
-          await Api.roles.update(this.rf.id, { label, code, hourlyRate: rate, rateOverrides });
-          const r = this.roles.find(r => r.id === this.rf.id);
-          if (r) { r.label = label; r.code = code; r.rate = rate; r.rateOverrides = rateOverrides; }
+        if (form.id) {
+          await Api.roles.update(form.id, { label, code, hourlyRate: rate, rateOverrides });
+          const r = this.roles.find(r => r.id === form.id);
+          if (r) { r.label = label; r.code = saved; r.rate = rate; r.rateOverrides = rateOverrides; }
         } else {
           const created = await Api.roles.create({ label, code, hourlyRate: rate, rateOverrides });
-          this.roles.push({ id: created.id, label, code, rate, rateOverrides });
+          this.roles.push({ id: created.id, label, code: created.code || saved, rate, rateOverrides });
         }
         // open the role's group, keep search and filter
-        const team = window.extractTeam(code);
-        if (this.rf.team.trim()) this.lastTeam = team;
+        const team = window.extractTeam(saved);
+        if (form.team.trim()) this.lastTeam = team;
         if (this.closedTeams.has(team)) { const next = new Set(this.closedTeams); next.delete(team); this.closedTeams = next; }
-        this.rf.show = false;
+        form.loading = false;
+        if (this.rf === form) this.closePanel();
       } catch (e) {
-        this.rf.error = e.message || 'Save failed.';
+        form.error = e.message || 'Save failed.';
       } finally {
-        this.rf.loading = false;
+        form.loading = false;
       }
     },
 
     // ── Delete ──
     async deleteRole(role) {
-      this.del = { role, error: null, loading: false };
+      if (!this._delOpener) this._delOpener = document.activeElement;
+      this.del = { role, error: null, blocked: false, loading: false };
       await this.$nextTick();
       bootstrap.Modal.getOrCreateInstance(document.getElementById('roleDeleteModal')).show();
     },
     deleteFromPanel() {
       const role = this.roles.find(r => r.id === this.rf.id);
-      this.closePanel();
+      this._delOpener = this._opener;   // focus goes back to what opened the panel
+      this.closePanel({ restoreFocus: false });
       if (role) this.deleteRole(role);
     },
     // A 400 from the server (role used in a cost grid / assigned to a team resource) stays in the dialog.
+    // Only the rule refusal disables Delete; a timeout or a server error leaves it to retry.
     async confirmDelete() {
       if (this.del.loading || !this.del.role) return;
-      this.del.loading = true;
+      const del = this.del, role = del.role;
+      del.loading = true;
+      del.error = null;
       try {
-        await Api.roles.delete(this.del.role.id);
-        const id = this.del.role.id;
-        this.roles = this.roles.filter(r => r.id !== id);
-        bootstrap.Modal.getInstance(document.getElementById('roleDeleteModal'))?.hide();
+        await Api.roles.delete(role.id);
+        this.roles = this.roles.filter(r => r.id !== role.id);
+        if (this.del === del) bootstrap.Modal.getInstance(document.getElementById('roleDeleteModal'))?.hide();
       } catch (e) {
-        this.del.error = e.message || 'Delete failed.';
+        del.error = e.message || 'Delete failed.';
+        del.blocked = /^Cannot delete role /.test(e.data?.error || '');
       } finally {
-        this.del.loading = false;
+        del.loading = false;
       }
     },
   },

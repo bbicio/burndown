@@ -30,10 +30,27 @@ describe('master-roles panel', () => {
     const open = between('openRoleForm(role) {', 'closePanel()');
     expect(open).toContain("role ? split.team : (this.lastTeam || window.teamOptions(this.roles)[0] || '')");
   });
-  it('is a modal dialog that leaves Esc to an open delete dialog', () => {
+  it('is a modal dialog: Esc closes it, Tab stays inside, and it closes before the delete dialog opens', () => {
     expect(html).toContain('class="mdr-drawer" role="dialog" aria-modal="true"');
-    const esc = between('onPanelKeydown(e) {', 'onTeamKey(e)');
-    expect(esc).toContain(".modal.show");
+    const keys = between('onPanelKeydown(e) {', 'onTeamKey(e)');
+    expect(keys).toContain("e.key === 'Escape'");
+    expect(keys).toContain("e.key !== 'Tab'");
+    const fromPanel = between('deleteFromPanel() {', 'async confirmDelete()');
+    expect(fromPanel.indexOf('this.closePanel(')).toBeLessThan(fromPanel.indexOf('this.deleteRole('));
+  });
+  it('refuses an empty role code also on Enter, and saves against the form it started from', () => {
+    const save = between('async saveRole()', 'async deleteRole');
+    expect(save).toContain("if (!this.rf.roleCode.trim()) { this.rf.error = 'Role code is required.'; return; }");
+    const after = save.slice(save.indexOf('const form = this.rf;'));
+    expect(after).not.toMatch(/this.rf.(id|show|error|loading)/);
+    expect(save).toContain('const saved = code.toUpperCase();');
+  });
+  it('does not close while a save runs', () => {
+    expect(between('closePanel({', 'onPanelKeydown(e)')).toContain('if (this.rf.loading) return;');
+  });
+  it('opens a role and toggles a team from the keyboard', () => {
+    expect(html).toContain('class="mdr-grp-btn" :aria-expanded="isGroupOpen(g.team)"');
+    expect(html).toContain('class="mdr-role-btn" @click.stop="openRoleForm(r)"');
   });
   it('disables the primary while saving or without label and role code', () => {
     expect(html).toContain(':disabled="rf.loading || !rf.label.trim() || !rf.roleCode.trim()"');
@@ -49,9 +66,13 @@ describe('master-roles delete dialog', () => {
   it('sends one request and keeps a refusal inside the dialog', () => {
     const body = between('async confirmDelete()', '\n    },\n  },\n})');
     expect(body).toMatch(/^async confirmDelete\(\) \{\s*if \(this\.del\.loading/);
-    expect(body).toContain('this.del.error = ');
+    expect(body).toContain('del.error = e.message');
     expect(body).not.toContain('globalError');
-    expect(html).toContain(':disabled="del.loading || !!del.error"');
+    expect(body).toContain('const del = this.del, role = del.role;');
+    expect(body).toContain('this.roles.filter(r => r.id !== role.id)');
+    // only the rule refusal blocks a retry
+    expect(body).toContain("del.blocked = /^Cannot delete role /.test(");
+    expect(html).toContain(':disabled="del.loading || del.blocked"');
   });
 });
 
