@@ -359,6 +359,14 @@ describe('Pipelines & POTs responsive styles', () => {
     expect(html).not.toContain('py.offers > 0 || py._loading');
   });
 
+  it('review fixes: blur without symbol, declared potHistory, retry of a failed phasing, Esc left to modals', () => {
+    expect(html).toContain("formatMoney(v, 'EUR', window.__currencies, { symbol: false })");
+    expect(html).toMatch(/potHistory:\s+\{\}/);
+    expect(html).toContain('this.phasing[mode] && !this.phasing[mode].error');
+    expect(html).toContain("document.querySelector('.modal.show')");
+    expect(html).toContain('} else if (!this.loadOk) {');
+  });
+
   it('has a tablet block followed by a phone block', () => {
     expect(tabletAt).toBeGreaterThan(-1);
     expect(phoneAt).toBeGreaterThan(tabletAt);

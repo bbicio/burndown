@@ -43,7 +43,8 @@ describe('master-pipelines POT table and year row', () => {
   });
 
   it('disables delete when the year has offers', () => {
-    expect(page).toContain(':disabled="py.offers > 0');
+    expect(page).toContain(':disabled="!!deleteBlock(py)');
+    expect(page).toContain("py.offers > 0) return 'Not available: '");
     expect(page).toContain('Hide it instead.');
   });
 
@@ -80,7 +81,7 @@ describe('POT details drawer', () => {
 
   it('closes on the scrim, the close button and Escape', () => {
     expect(drawer).toContain('@click="closeDrawer"');
-    expect(page).toMatch(/keydown[\s\S]{0,200}Escape[\s\S]{0,120}closeDrawer/);
+    expect(page).toMatch(/keydown[\s\S]{0,200}Escape[\s\S]{0,240}closeDrawer/);
   });
 
   it('writes no literal hex colour and takes stage colours from the tokens', () => {
