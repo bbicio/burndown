@@ -72,6 +72,7 @@
     .mdp-bar-c { background: var(--pipeline-committed-color); }
     .mdp-bar-a { background: var(--pipeline-anticipated-color); }
     .mdp-ca { font-size: 11.5px; color: var(--text-muted); }
+    .mdp-pct + .mdp-muted { margin-left: 6px; }
     .mdp-link { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--brand-navy); text-decoration: none; background: none; border: 0; padding: 0; cursor: pointer; margin-right: var(--space-2); white-space: nowrap; }
     .mdp-link:hover { color: var(--brand-magenta); }
     .mdp-actions { text-align: right; white-space: nowrap; }
@@ -159,7 +160,7 @@
     .mdp-amount { display: inline-flex; align-items: center; gap: var(--space-2); height: 34px; padding: 0 var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--surface-white); margin: 0; }
     .mdp-amount:focus-within { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
     .mdp-amount-sym { color: var(--text-muted); font-size: var(--text-sm); }
-    .mdp-amount-input { border: 0; outline: 0; width: 120px; font-size: var(--text-sm); color: var(--brand-navy); background: transparent; min-width: 0; }
+    .mdp-amount-input { border: 0; outline: 0; width: 190px; font-size: var(--text-sm); color: var(--brand-navy); background: transparent; min-width: 0; }
     .mdp-edit-line { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); }
     .mdp-field { display: flex; flex-direction: column; gap: 4px; margin: 0; }
     .mdp-field-grow { flex: 1 1 260px; min-width: 0; }
@@ -273,6 +274,22 @@
     }
     .mdp-sheet .mdp-edit-amount { width: 100%; }
     .mdp-sheet-actions { display: flex; gap: var(--space-3); justify-content: flex-end; }
+    @media (min-width: 1024px) and (max-width: 1279.98px) {
+      .mdp-col-pots, .mdp-col-ca { display: none; }
+      .mdp-sum-grid { grid-template-columns: 1fr; gap: var(--space-3); }
+      .mdp-sum-gap { text-align: left; }
+      .mdp-stage-tiles { display: flex; overflow-x: auto; }
+      .mdp-stage-tile { flex: 0 0 150px; }
+      .mdp-phasing-btn { display: none; }
+      .mdp-phasing-menu { display: inline-block; }
+      .mdp-pot-table .mdp-actions { display: none; }
+      .mdp-pot-table .mdp-row { cursor: pointer; }
+      .mdp-chev-cell { display: table-cell; width: 32px; color: var(--text-muted); }
+      .mdp-dr-more { display: inline-block; }
+      .mdp-ach { min-width: 110px; }
+      .mdp-pot-table .mdp-name-cell { min-width: 160px; }
+      .mdp-pot-table td.is-num { white-space: nowrap; }
+    }
     @media (max-width: 1023.98px) {
       .mdp-col-pots { display: none; }
       .mdp-col-ca { display: none; }
@@ -291,7 +308,8 @@
       .mdp-head .btn { min-height: 44px; width: 100%; }
       .mdp-icon-btn { min-height: 44px; min-width: 44px; }
       .mdp-list-table thead, .mdp-list-table .mdp-row { display: none; }
-      .mdp-cards { display: grid; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+      .mdp-cards { display: grid; gap: var(--space-3); padding: var(--space-3) 0; }
+      .mdp-list-note { display: none; }
       .mdp-pcard-foot { min-height: 44px; }
       .mdp-pot-table thead, .mdp-pot-table .mdp-row { display: none; }
       .mdp-pot-cards { display: grid; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
@@ -446,7 +464,7 @@
             </tbody>
           </table>
           <div class="mdp-empty" v-else>No pipeline years yet. Use + Add year to create the first one.</div>
-          <div class="mdp-note" v-if="sortedYears.length">Achievement = (Committed + Anticipated) / POT target. Hidden pipelines stay in reports but don't appear in the Pipeline page.</div>
+          <div class="mdp-note mdp-list-note" v-if="sortedYears.length">Achievement = (Committed + Anticipated) / POT target. Hidden pipelines stay in reports but don't appear in the Pipeline page.</div>
         </div>
       </div>
 
@@ -860,7 +878,7 @@
 
         <div class="mdp-eyebrow mdp-dr-section">Proposals · {{ drawerState.data.proposals.length }}</div>
         <ul class="mdp-prop-list" v-if="drawerState.data.proposals.length">
-          <li v-for="p in drawerState.data.proposals" :key="p.version_id" class="mdp-prop"
+          <li v-for="p in drawerProposals" :key="p.version_id" class="mdp-prop"
               :class="{ 'is-dim': p.pipeline === 'SIP' || p.pipeline === 'Expected' }">
             <div class="mdp-prop-main">
               <div class="mdp-prop-name">{{ p.proposal_name }}</div>
@@ -998,6 +1016,13 @@ window.__cfgApp = Vue.createApp({
     drawerGap() {
       const d = this.drawerState && this.drawerState.data;
       return d ? window.gapToTarget(d.pot.amount, (+d.committed_total || 0) + (+d.anticipated_total || 0)) : { gap: 0, over: 0 };
+    },
+    drawerProposals() {
+      const d = this.drawerState && this.drawerState.data;
+      if (!d) return [];
+      const rank = { Committed: 0, Anticipated: 1, Expected: 2, SIP: 3 };
+      const r = p => (p.pipeline in rank ? rank[p.pipeline] : 4);
+      return [...d.proposals].sort((a, b) => r(a) - r(b) || String(b.created_at).localeCompare(String(a.created_at)));
     },
     drawerHistory() {
       const d = this.drawerState && this.drawerState.data;
@@ -1468,9 +1493,7 @@ window.__cfgApp = Vue.createApp({
     },
 
     fmtDate(iso) {
-      if (!iso) return '—';
-      try { return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
-      catch { return iso; }
+      return (iso && window.formatDayText(String(iso).slice(0, 10))) || '—';
     },
   },
 }).component('ph-icon', window.PhIcon).component('cg-select', window.CgSelect).mount('#app');
