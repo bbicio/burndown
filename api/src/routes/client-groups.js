@@ -4,7 +4,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// GET /api/client-groups — list all groups with their clients
+// GET /api/client-groups — list all groups with their clients and their POT years
 router.get('/', requireAuth, async (req, res, next) => {
   try {
     const { rows } = await query(
@@ -13,7 +13,12 @@ router.get('/', requireAuth, async (req, res, next) => {
                 json_agg(json_build_object('id', c.id, 'name', c.name) ORDER BY c.name)
                 FILTER (WHERE c.id IS NOT NULL),
                 '[]'
-              ) AS clients
+              ) AS clients,
+              COALESCE(
+                (SELECT json_agg(json_build_object('id', p.id, 'year', p.year) ORDER BY p.year DESC)
+                 FROM pots p WHERE p.client_group_id = cg.id),
+                '[]'
+              ) AS pots
        FROM client_groups cg
        LEFT JOIN clients c ON c.group_id = cg.id
        GROUP BY cg.id, cg.name, cg.created_at
@@ -51,9 +56,14 @@ router.patch('/:id', requireAuth, requireAdmin, async (req, res, next) => {
 });
 
 // DELETE /api/client-groups/:id (admin only)
-// Clients are unlinked automatically (group_id SET NULL via FK)
+// Clients are unlinked automatically (group_id SET NULL via FK); a group with a POT is refused
+// (the POT would be deleted by cascade), 409 GROUP_HAS_POT.
 router.delete('/:id', requireAuth, requireAdmin, async (req, res, next) => {
   try {
+    const pot = await query('SELECT 1 FROM pots WHERE client_group_id = $1 LIMIT 1', [req.params.id]);
+    if (pot.rows[0]) {
+      return res.status(409).json({ error: 'Group has a POT: remove the POT first.', code: 'GROUP_HAS_POT' });
+    }
     const { rows } = await query(
       'DELETE FROM client_groups WHERE id = $1 RETURNING id',
       [req.params.id]
