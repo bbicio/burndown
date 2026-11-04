@@ -335,3 +335,35 @@ describe('wide mode (Pipelines & POTs phasing)', () => {
     expect(css).toMatch(/.md-layout--wide .md-content/);
   });
 });
+
+describe('Pipelines & POTs responsive styles', () => {
+  const html = read('master-pipelines.html');
+  const style = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+  const tabletAt = style.lastIndexOf('@media (max-width: 1023.98px)');
+  const phoneAt = style.lastIndexOf('@media (max-width: 767.98px)');
+  const tablet = style.slice(tabletAt, phoneAt);
+  const phone = style.slice(phoneAt);
+
+  it('has a tablet block followed by a phone block', () => {
+    expect(tabletAt).toBeGreaterThan(-1);
+    expect(phoneAt).toBeGreaterThan(tabletAt);
+  });
+
+  it('tablet: controls are 40px and the POTs column is hidden', () => {
+    expect(tablet).toContain('min-height: 40px');
+    expect(tablet).toMatch(/\.mdp-col-pots[^}]*display: none/);
+    expect(tablet).toMatch(/\.mdp-col-ca[^}]*display: none/);
+  });
+
+  it('phone: touch targets are 44px on Add year, the more menu, the card foot and proposal rows', () => {
+    for (const sel of ['.mdp-head .btn', '.mdp-icon-btn', '.mdp-pcard-foot', '.mdp-prop']) {
+      const i = phone.indexOf(sel);
+      expect(i, sel).toBeGreaterThan(-1);
+      expect(phone.slice(i, i + 200), sel).toContain('min-height: 44px');
+    }
+  });
+
+  it('phasing keeps its name column sticky', () => {
+    expect(style).toMatch(/\.mdp-ph-table \.mdp-ph-name \{[^}]*position: sticky/);
+  });
+});

@@ -254,6 +254,58 @@
     .mdp-ph-swatch { display: inline-block; width: 12px; height: 12px; border: 1px solid var(--border-light); border-radius: 2px; background: var(--surface-light); }
 
     .mdp-empty { padding: var(--space-6) var(--space-4); text-align: center; color: var(--text-muted); font-size: var(--text-sm); }
+    /* ── Phone cards, drawer bar, bottom sheet: hidden on wide screens ── */
+    .mdp-cards, .mdp-pot-cards, .mdp-dr-bar, .mdp-dr-back, .mdp-dr-more, .mdp-phasing-menu, .mdp-chev-cell { display: none; }
+    .mdp-pcard, .mdp-pot-card-m { background: var(--surface-white); border: var(--card-border); border-radius: var(--radius-lg); overflow: hidden; }
+    .mdp-pcard.is-hidden .mdp-pcard-name { color: var(--text-muted); }
+    .mdp-pcard-top { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4) 0; }
+    .mdp-pcard-name { flex: 1 1 auto; font-size: 15px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdp-pcard-body { padding: var(--space-2) var(--space-4) var(--space-3); }
+    .mdp-pcard-foot { display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-4); border-top: 1px solid var(--border-light); }
+    .mdp-pot-card-m { padding: var(--space-3) var(--space-4); }
+    .mdp-pot-card-m .mdp-pcard-top, .mdp-pot-card-m .mdp-pcard-body { padding-left: 0; padding-right: 0; }
+    .mdp-sheet-wrap { position: fixed; inset: 0; z-index: calc(var(--z-notification) + 1); }
+    .mdp-sheet-wrap .mdp-scrim { z-index: 0; }
+    .mdp-sheet {
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: var(--space-3);
+      background: var(--surface-white); border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: var(--space-4) var(--space-4) var(--space-5);
+      box-shadow: var(--shadow-xl);
+    }
+    .mdp-sheet .mdp-edit-amount { width: 100%; }
+    .mdp-sheet-actions { display: flex; gap: var(--space-3); justify-content: flex-end; }
+    @media (max-width: 1023.98px) {
+      .mdp-col-pots { display: none; }
+      .mdp-col-ca { display: none; }
+      .mdp-pot-table .mdp-actions { display: none; }
+      .mdp-pot-table .mdp-row { cursor: pointer; }
+      .mdp-chev-cell { display: table-cell; width: 32px; color: var(--text-muted); }
+      .mdp-phasing-btn { display: none; }
+      .mdp-phasing-menu { display: inline-block; }
+      .mdp-dr-more { display: inline-block; }
+      .mdp-stage-tiles { display: flex; overflow-x: auto; }
+      .mdp-stage-tile { flex: 0 0 150px; }
+      .mdp-head .btn, .mdp-card-head .btn, .mdp-title-row .btn, .mdp-toolbar .btn, .mdp-new .btn, .mdp-dr-head .btn,
+      .mdp-amount, .mdp-input, .mdp-text-input, .mdp-edit-amount, .md-seg-btn { min-height: 40px; }
+    }
+    @media (max-width: 767.98px) {
+      .mdp-head .btn { min-height: 44px; width: 100%; }
+      .mdp-icon-btn { min-height: 44px; min-width: 44px; }
+      .mdp-list-table thead, .mdp-list-table .mdp-row { display: none; }
+      .mdp-cards { display: grid; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+      .mdp-pcard-foot { min-height: 44px; }
+      .mdp-pot-table thead, .mdp-pot-table .mdp-row { display: none; }
+      .mdp-pot-cards { display: grid; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+      .mdp-prop { min-height: 44px; }
+      .mdp-drawer { width: 100vw; border-left: 0; }
+      .mdp-dr-back { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 36px; border: 0; background: none; padding: 0; color: var(--text-muted); font-size: var(--text-sm); }
+      .mdp-dr-close, .mdp-dr-edit-top { display: none; }
+      .mdp-dr-head { flex-wrap: wrap; }
+      .mdp-dr-bar { display: block; padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border-light); background: var(--surface-white); }
+      .mdp-dr-bar .btn { min-height: 46px; width: 100%; }
+      .mdp-dr-tiles { gap: var(--space-2); }
+      .mdp-title { font-size: 20px; }
+      .mdp-sum-grid { gap: var(--space-3); }
+    }
   </style>
 </head>
 <body>
@@ -313,14 +365,14 @@
 
       <div class="card md-table-card mb-0">
         <div class="card-body">
-          <table class="mdp-table" v-if="sortedYears.length || pyf.show">
+          <table class="mdp-table mdp-list-table" v-if="sortedYears.length || pyf.show">
             <thead>
               <tr>
                 <th>Pipeline</th>
                 <th>Visibility</th>
                 <th class="is-num">POT target</th>
                 <th>Achievement · C + A</th>
-                <th class="is-num">POTs</th>
+                <th class="is-num mdp-col-pots">POTs</th>
                 <th></th>
               </tr>
             </thead>
@@ -372,7 +424,7 @@
                   </template>
                   <span v-else class="mdp-muted">No POTs set</span>
                 </td>
-                <td class="is-num">{{ potCounts[py.year] || '—' }}</td>
+                <td class="is-num mdp-col-pots">{{ potCounts[py.year] || '—' }}</td>
                 <td class="mdp-actions">
                   <button type="button" class="mdp-link" @click="go({ year: py.year })">POT targets →</button>
                   <span class="dropdown d-inline-block">
@@ -398,6 +450,41 @@
         </div>
       </div>
 
+      <!-- Phone: one card per pipeline -->
+      <div class="mdp-cards" v-if="sortedYears.length">
+        <article v-for="py in sortedYears" :key="'c' + py.id" class="mdp-pcard" :class="{ 'is-hidden': !py.active }">
+          <div class="mdp-pcard-top">
+            <button type="button" class="mdp-pcard-name mdp-year" @click="go({ year: py.year })">Pipeline {{ py.year }}</button>
+            <span class="dropdown">
+              <button type="button" class="mdp-icon-btn" :aria-label="'More actions for Pipeline ' + py.year" data-bs-toggle="dropdown" aria-expanded="false"><ph-icon name="more" :size="16"></ph-icon></button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><button type="button" class="dropdown-item mdp-menu-item" @click="go({ year: py.year, phasing: 'proposal' })"><span>Proposal phasing</span><span class="mdp-muted">View →</span></button></li>
+                <li><button type="button" class="dropdown-item mdp-menu-item" @click="go({ year: py.year, phasing: 'project' })"><span>Project phasing</span><span class="mdp-muted">View →</span></button></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><button type="button" class="dropdown-item mdp-menu-item" :disabled="py.offers > 0 || py._loading" @click="deletePipelineYear(py)"><span>Delete pipeline <span class="mdp-menu-hint">{{ py.offers > 0 ? 'Not available: ' + py.offers + ' ' + (py.offers === 1 ? 'proposal uses' : 'proposals use') + ' this pipeline. Hide it instead.' : 'Removes the pipeline year.' }}</span></span></button></li>
+              </ul>
+            </span>
+          </div>
+          <div class="mdp-pcard-body" @click="go({ year: py.year })">
+            <template v-if="+(yearTotals[py.year] || {}).pot_total > 0">
+              <span class="mdp-pct">{{ achievement(yearTotals[py.year].achieved_total, yearTotals[py.year].pot_total) }}%</span>
+              <span class="mdp-muted"> of {{ formatMoney(yearTotals[py.year].pot_total, 'EUR', activeCurrencies) }}</span>
+              <div class="mdp-bar">
+                <span class="mdp-bar-c" :style="{ width: barPct(yearTotals[py.year].committed_total, yearTotals[py.year].pot_total) + '%' }"></span>
+                <span class="mdp-bar-a" :style="{ width: barPct(yearTotals[py.year].anticipated_total, yearTotals[py.year].pot_total, yearTotals[py.year].committed_total) + '%' }"></span>
+              </div>
+            </template>
+            <span v-else class="mdp-muted">No POTs set</span>
+          </div>
+          <div class="mdp-pcard-foot">
+            <label class="md-switch">
+              <input type="checkbox" :checked="py.active" :disabled="py._toggling" :aria-label="'Pipeline ' + py.year + ' visible'" @change="togglePipelineYear(py, $event)">
+              <span>{{ py.active ? 'Visible' : 'Hidden' }}</span>
+            </label>
+            <button type="button" class="mdp-link" @click="go({ year: py.year })">{{ potCounts[py.year] ? potCounts[py.year] + (potCounts[py.year] === 1 ? ' POT' : ' POTs') : 'POTs' }} →</button>
+          </div>
+        </article>
+      </div>
     </div><!-- /view A -->
 
     <!-- ── VIEW B: POTs for selected pipeline ────────────────── -->
@@ -409,6 +496,13 @@
         <h2 class="mdp-title">Pipeline {{ activePipeline.year }}</h2>
         <span class="mdp-pill" :class="activePipeline.active ? 'is-visible' : 'is-hidden'">{{ activePipeline.active ? 'Visible' : 'Hidden' }}</span>
         <span class="mdp-spacer"></span>
+        <span class="dropdown mdp-phasing-menu">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="dropdown" aria-expanded="false">Phasing <ph-icon name="chevron-down" :size="12"></ph-icon></button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><button type="button" class="dropdown-item mdp-menu-item" @click="go({ year: year, phasing: 'proposal' })">Proposal phasing</button></li>
+            <li><button type="button" class="dropdown-item mdp-menu-item" @click="go({ year: year, phasing: 'project' })">Project phasing</button></li>
+          </ul>
+        </span>
         <button type="button" class="btn btn-outline-secondary btn-sm mdp-phasing-btn" @click="go({ year: year, phasing: 'proposal' })"><ph-icon name="pipeline" :size="14"></ph-icon> Proposal phasing</button>
         <button type="button" class="btn btn-outline-secondary btn-sm mdp-phasing-btn" @click="go({ year: year, phasing: 'project' })"><ph-icon name="pipeline" :size="14"></ph-icon> Project phasing</button>
       </div>
@@ -470,13 +564,13 @@
           <button type="button" class="btn btn-primary btn-sm" @click="openPotForm()">+ New POT</button>
         </div>
 
-        <table class="mdp-table" v-if="pots.length || (potf.show && !potf.id)">
+        <table class="mdp-table mdp-pot-table" v-if="pots.length || (potf.show && !potf.id)">
           <thead>
             <tr>
               <th>Client / group</th>
               <th class="is-num">Target</th>
-              <th class="is-num">Committed</th>
-              <th class="is-num">Anticipated</th>
+              <th class="is-num mdp-col-ca">Committed</th>
+              <th class="is-num mdp-col-ca">Anticipated</th>
               <th>Achievement · C + A</th>
               <th></th>
             </tr>
@@ -513,7 +607,7 @@
             </tr>
 
             <template v-for="pot in pots" :key="pot.id">
-              <tr class="mdp-row">
+              <tr class="mdp-row" @click="go({ year: year, pot: pot.id })">
                 <td class="mdp-name-cell">
                   <div class="mdp-name-line">
                     <button type="button" class="mdp-name" @click="go({ year: year, pot: pot.id })">{{ potName(pot) }}</button>
@@ -522,8 +616,8 @@
                   <span class="mdp-sub" v-if="pot.client_group_id && groupClientNames(pot)">{{ groupClientNames(pot) }}</span>
                 </td>
                 <td class="is-num fw-semibold">{{ formatMoney(pot.amount, 'EUR', activeCurrencies) }}</td>
-                <td class="is-num mdp-c">{{ formatMoney(+pot.committed_total || 0, 'EUR', activeCurrencies) }}</td>
-                <td class="is-num mdp-a">{{ formatMoney(+pot.anticipated_total || 0, 'EUR', activeCurrencies) }}</td>
+                <td class="is-num mdp-c mdp-col-ca">{{ formatMoney(+pot.committed_total || 0, 'EUR', activeCurrencies) }}</td>
+                <td class="is-num mdp-a mdp-col-ca">{{ formatMoney(+pot.anticipated_total || 0, 'EUR', activeCurrencies) }}</td>
                 <td>
                   <div class="mdp-ach">
                     <div class="mdp-bar">
@@ -536,7 +630,7 @@
                   </div>
                   <div class="mdp-upcoming" v-if="(+pot.expected_total || 0) + (+pot.sip_total || 0) > 0">+ {{ formatMoney((+pot.expected_total || 0) + (+pot.sip_total || 0), 'EUR', activeCurrencies) }} in SIP / Expected</div>
                 </td>
-                <td class="mdp-actions">
+                <td class="mdp-actions" @click.stop>
                   <button type="button" class="mdp-link" @click="go({ year: year, pot: pot.id })">Details</button>
                   <button type="button" class="mdp-icon-btn" :class="{ 'is-on': potf.show && potf.id === pot.id }"
                           :aria-label="'Edit target for ' + potName(pot)" @click="openPotForm(pot)"><ph-icon name="pencil" :size="14"></ph-icon></button>
@@ -546,6 +640,7 @@
                     <ph-icon v-else name="trash" :size="14"></ph-icon>
                   </button>
                 </td>
+                <td class="mdp-chev-cell"><ph-icon name="chevron-right" :size="14"></ph-icon></td>
               </tr>
               <!-- Edit target, under the row -->
               <tr v-if="potf.show && potf.id === pot.id" class="mdp-new">
@@ -576,6 +671,20 @@
           </tbody>
         </table>
         <div class="mdp-empty" v-else>No POT targets for Pipeline {{ activePipeline.year }}. Use + New POT to add the first one.</div>
+
+        <div class="mdp-pot-cards" v-if="pots.length">
+          <article v-for="pot in pots" :key="'m' + pot.id" class="mdp-pot-card-m" @click="go({ year: year, pot: pot.id })">
+            <div class="mdp-name-line"><span class="mdp-name">{{ potName(pot) }}</span><span class="mdp-kind" :class="'is-' + potKind(pot).toLowerCase()">{{ potKind(pot) }}</span></div>
+            <div class="mdp-pcard-body"><span class="mdp-muted">Target</span> <b>{{ formatMoney(pot.amount, 'EUR', activeCurrencies) }}</b></div>
+            <div class="mdp-ach">
+              <div class="mdp-bar">
+                <span class="mdp-seg mdp-seg-c" :style="{ width: barPct(pot.committed_total, pot.amount) + '%' }"></span>
+                <span class="mdp-seg mdp-seg-a" :style="{ width: barPct(pot.anticipated_total, pot.amount, pot.committed_total) + '%' }"></span>
+              </div>
+              <span class="mdp-pct">{{ achievement(+pot.achieved_total || 0, pot.amount) ?? '—' }}{{ achievement(+pot.achieved_total || 0, pot.amount) != null ? '%' : '' }}</span>
+            </div>
+          </article>
+        </div>
 
         <div class="mdp-note mdp-outside" v-if="outsideCommitted != null">
           <ph-icon name="info" :size="14"></ph-icon>
@@ -694,6 +803,7 @@
   <div class="mdp-scrim" @click="closeDrawer"></div>
   <aside class="mdp-drawer" role="dialog" aria-modal="true" :aria-label="'POT details: ' + potName(drawerPot)">
     <header class="mdp-dr-head">
+      <button type="button" class="mdp-dr-back" @click="closeDrawer"><ph-icon name="chevron-left" :size="14"></ph-icon> Pipeline {{ year }}</button>
       <div class="mdp-dr-head-main">
         <div class="mdp-eyebrow">POT · Pipeline {{ year }}</div>
         <div class="mdp-dr-name-row">
@@ -702,8 +812,14 @@
         </div>
         <div class="mdp-muted mdp-dr-sub">{{ drawerPot.client_group_id ? (groupClientNames(drawerPot) || 'Group') : potKind(drawerPot) }}</div>
       </div>
-      <button type="button" class="btn btn-outline-secondary btn-sm" @click="editFromDrawer(drawerPot)">Edit target</button>
-      <button type="button" class="mdp-icon-btn" aria-label="Close" @click="closeDrawer"><ph-icon name="close" :size="16"></ph-icon></button>
+      <button type="button" class="btn btn-outline-secondary btn-sm mdp-dr-edit-top" @click="editFromDrawer(drawerPot)">Edit target</button>
+      <span class="dropdown mdp-dr-more">
+        <button type="button" class="mdp-icon-btn" aria-label="More actions" data-bs-toggle="dropdown" aria-expanded="false"><ph-icon name="more" :size="16"></ph-icon></button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><button type="button" class="dropdown-item mdp-menu-item" @click="deletePot(drawerPot)">Delete POT target</button></li>
+        </ul>
+      </span>
+      <button type="button" class="mdp-icon-btn mdp-dr-close" aria-label="Close" @click="closeDrawer"><ph-icon name="close" :size="16"></ph-icon></button>
     </header>
 
     <div class="mdp-dr-body">
@@ -781,7 +897,30 @@
         <div class="mdp-muted mdp-dr-empty" v-else>No history yet.</div>
       </template>
     </div>
+    <div class="mdp-dr-bar"><button type="button" class="btn btn-outline-secondary" @click="openPotForm(drawerPot)">Edit target</button></div>
   </aside>
+  <!-- Edit target as a bottom sheet (phone) -->
+  <div v-if="potf.show && potf.id && drawerPot" class="mdp-sheet-wrap">
+    <div class="mdp-scrim" @click="potf.show = false"></div>
+    <div class="mdp-sheet" role="dialog" aria-label="Edit target">
+      <label class="mdp-field">
+        <span class="mdp-field-label">New target ({{ currencyInfo('EUR', activeCurrencies).symbol }}) <span class="mdp-muted">· current {{ formatMoney(potf.stored ?? 0, 'EUR', activeCurrencies) }}</span></span>
+        <input type="text" inputmode="decimal" class="mdp-amount-input mdp-edit-amount"
+               v-model="potf.amountText" @focus="onPotAmountFocus" @blur="onPotAmountBlur" @keydown.enter="savePot" aria-label="New target (sheet)">
+      </label>
+      <label class="mdp-field">
+        <span class="mdp-field-label">Reason for change <span class="mdp-req">*</span> <span class="mdp-muted">· saved in the change history</span></span>
+        <input type="text" class="mdp-text-input" v-model="potf.note" placeholder="Explain why the target is changing" @keydown.enter="savePot">
+      </label>
+      <div v-if="potf.error" class="mdp-err" style="padding:0;background:transparent">{{ potf.error }}</div>
+      <div class="mdp-sheet-actions">
+        <button type="button" class="btn btn-outline-secondary" @click="potf.show = false">Cancel</button>
+        <button type="button" class="btn btn-primary" @click="savePot" :disabled="potf.loading || !potf.note || !potf.note.trim() || !String(potf.amountText).trim()">
+          <span v-if="potf.loading" class="spinner-border spinner-border-sm me-1"></span>Update target
+        </button>
+      </div>
+    </div>
+  </div>
 </div><!-- /drawer -->
 </div><!-- #app -->
 </div><!-- /.md-content -->
@@ -952,7 +1091,10 @@ window.__cfgApp = Vue.createApp({
     try { window.__currencies = await Api.currencies.list(); } catch {}
     this.activeCurrencies = window.__currencies || [];
     await this.loadAll();
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && this.drawerPot) this.closeDrawer(); });
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape' || !this.drawerPot) return;
+      if (this.potf.show && this.potf.id) this.potf.show = false; else this.closeDrawer();
+    });
     window.addEventListener('popstate', () => this.applyState(window.parseMdpUrl(location.search)));
     await this.applyState(window.parseMdpUrl(location.search));
     this.ready = true;
@@ -985,7 +1127,11 @@ window.__cfgApp = Vue.createApp({
     setPotTargetType(type) {
       if (this.potf.targetType !== type) { this.potf.targetType = type; this.potf.targetId = ''; }
     },
-    invalidatePotDetails(id) { delete this.potDetails[id]; delete this.potHistory[id]; },
+    invalidatePotDetails(id) {
+      delete this.potDetails[id]; delete this.potHistory[id];
+      const open = this.drawerPot;
+      if (open && open.id === id) this.loadPotDetails(open); // an open drawer refreshes in place
+    },
     async refreshYearData() {
       try {
         const [totals, all] = await Promise.all([Api.pots.yearTotals(), Api.pots.list()]);
@@ -1223,6 +1369,7 @@ window.__cfgApp = Vue.createApp({
           try {
             await Api.pots.delete(pot.id);
             this.pots = this.pots.filter(p => p.id !== pot.id);
+            if (this.potId === pot.id) this.go({ year: this.year }, { replace: true });
             this.refreshYearData();
             this.invalidatePotDetails(pot.id);
           } catch (e) {
