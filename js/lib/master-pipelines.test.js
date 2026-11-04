@@ -93,6 +93,8 @@ describe('achievement / gapToTarget / outsidePotCommitted', () => {
     const pots = [{ committed_total: 60020 }, { committed_total: 21520 }];
     expect(outsidePotCommitted(summary, pots)).toBe(8500);
     expect(outsidePotCommitted(summary, [{ committed_total: 90040 }])).toBeNull();
+    // float residue below one cent is not an amount outside the POTs
+    expect(outsidePotCommitted([{ pipeline: 'Committed', total: 0.3 }], [{ committed_total: 0.1 }, { committed_total: 0.2 }])).toBeNull();
     expect(outsidePotCommitted(summary, [{ committed_total: 100000 }])).toBeNull();
     expect(outsidePotCommitted([], pots)).toBeNull();
   });

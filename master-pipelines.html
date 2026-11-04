@@ -10,45 +10,9 @@
   <link rel="stylesheet" href="css/style.css?v=33">
   <link rel="stylesheet" href="css/controls.css?v=1">
   <style>
-    .section-title {
-      font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-      color: #6b7280; margin-bottom: .75rem; display: flex; align-items: center;
-      justify-content: space-between;
-    }
-
-    .card { border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.05); margin-bottom: 2rem; }
+    .card { border: 1px solid var(--border-light); border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.05); margin-bottom: 2rem; }
     .card-body { padding: 0; }
-
-    .table { margin: 0; font-size: .875rem; }
-    .table thead th {
-      background: #f9fafb; border-bottom: 1px solid #e5e7eb;
-      font-size: .78rem; font-weight: 600; text-transform: uppercase;
-      letter-spacing: .04em; color: #6b7280; padding: .65rem 1rem;
-    }
-    .table tbody td { padding: .75rem 1rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6; }
-    .table tbody tr:last-child td { border-bottom: none; }
-    .table tbody tr:hover td { background: #fafafa; }
-
-    .team-sep td { background: #f0f2ff; font-size: .75rem; font-weight: 700; color: #5468c4;
-                   padding: 4px 1rem; border-top: 2px solid #c5cef7; }
-
-    .form-card {
-      border: 1px solid #e5e7eb; border-radius: 8px;
-      background: #fff; padding: 1rem 1.25rem; margin-bottom: 1.25rem;
-    }
-    .form-card-title { font-size: .82rem; font-weight: 700; color: var(--brand-navy); margin-bottom: .75rem; }
-
-    .cfg-tabs { border-bottom: 2px solid var(--border-light); margin-bottom: 1.5rem; display: flex; gap: 0; }
-    .cfg-tab-btn { background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
-                   padding: .6rem 1.25rem; font-size: .88rem; font-weight: 600; color: #6b7280; cursor: pointer; }
-    .cfg-tab-btn:hover { color: var(--brand-navy); }
-    .cfg-tab-btn.active { color: var(--brand-magenta); border-bottom-color: var(--brand-magenta); }
-
-    .empty { text-align: center; padding: 2.5rem 1rem; color: #9ca3af; font-size: .875rem; }
     .alert-sm { font-size: .83rem; padding: .5rem .75rem; }
-    code { background: #f3f4f6; border-radius: 4px; padding: 1px 5px; font-size: .82rem; color: #374151; }
-
-    .rate-warn { color: #dc3545; font-size: .75rem; }
 
     /* ── Pipelines list (level 1) ── */
     .mdp-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
@@ -1197,7 +1161,9 @@ window.__cfgApp = Vue.createApp({
     // One URL per level: push (or replace) the history entry, then apply the state it names.
     go(state, { replace = false } = {}) {
       const url = window.buildMdpUrl(state);
-      history[replace ? 'replaceState' : 'pushState'](null, '', location.pathname + url);
+      this.globalError = null; // a message belongs to the level it was raised on
+      const same = location.pathname + url === location.pathname + location.search;
+      history[replace || same ? 'replaceState' : 'pushState'](null, '', location.pathname + url);
       return this.applyState(window.parseMdpUrl(url));
     },
 
@@ -1511,7 +1477,7 @@ window.__cfgApp = Vue.createApp({
     },
 
     async loadPotDetails(pot) {
-      if (this.potDetails[pot.id]) return;
+      if (this.potDetails[pot.id] && !this.potDetails[pot.id].error) return; // a failed load is retried
       this.potDetails[pot.id] = { loading: true, error: null, data: null };
       const entry = this.potDetails[pot.id]; // the reactive proxy: writes through it re-render
       try {

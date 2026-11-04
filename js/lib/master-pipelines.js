@@ -60,7 +60,7 @@ export function outsidePotCommitted(summary, pots) {
   if (!row) return null;
   const inPots = (pots || []).reduce((s, p) => s + (Number(p.committed_total) || 0), 0);
   const rest = (Number(row.total) || 0) - inPots;
-  return rest > 0 ? rest : null;
+  return Math.round(rest * 100) > 0 ? rest : null; // below one cent is float residue, not an amount
 }
 
 export function potClientIds(pot, groups) {

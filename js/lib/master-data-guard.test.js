@@ -359,6 +359,13 @@ describe('Pipelines & POTs responsive styles', () => {
     expect(html).not.toContain('py.offers > 0 || py._loading');
   });
 
+  it('has no hex colour in its inline styles and retries a failed POT details load', () => {
+    const styles = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+    expect(styles).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(html).toContain('this.potDetails[pot.id] && !this.potDetails[pot.id].error');
+    expect(html).toContain("history[replace || same ? 'replaceState' : 'pushState']");
+  });
+
   it('review fixes: blur without symbol, declared potHistory, retry of a failed phasing, Esc left to modals', () => {
     expect(html).toContain("formatMoney(v, 'EUR', window.__currencies, { symbol: false })");
     expect(html).toMatch(/potHistory:\s+\{\}/);
