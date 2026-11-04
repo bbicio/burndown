@@ -352,6 +352,13 @@ describe('Pipelines & POTs responsive styles', () => {
     expect(html.indexOf('id="confirmModal"')).toBeGreaterThan(html.indexOf('</div><!-- #app -->'));
   });
 
+  it('Delete pipeline is blocked by proposals and by POTs, in both menus', () => {
+    expect(html).toContain('deleteBlock(py) {');
+    expect(html).toContain("if (this.deleteBlock(py)) return;");
+    expect(html.split(':disabled="!!deleteBlock(py) || py._loading"').length - 1).toBe(2);
+    expect(html).not.toContain('py.offers > 0 || py._loading');
+  });
+
   it('has a tablet block followed by a phone block', () => {
     expect(tabletAt).toBeGreaterThan(-1);
     expect(phoneAt).toBeGreaterThan(tabletAt);

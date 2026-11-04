@@ -452,9 +452,9 @@
                       <li><button type="button" class="dropdown-item mdp-menu-item" @click="go({ year: py.year, phasing: 'proposal' })"><span>Proposal phasing</span><span class="mdp-muted">View →</span></button></li>
                       <li><button type="button" class="dropdown-item mdp-menu-item" @click="go({ year: py.year, phasing: 'project' })"><span>Project phasing</span><span class="mdp-muted">View →</span></button></li>
                       <li><hr class="dropdown-divider"></li>
-                      <li><button type="button" class="dropdown-item mdp-menu-item" :disabled="py.offers > 0 || py._loading" @click="deletePipelineYear(py)">
+                      <li><button type="button" class="dropdown-item mdp-menu-item" :disabled="!!deleteBlock(py) || py._loading" @click="deletePipelineYear(py)">
                         <span>Delete pipeline
-                          <span class="mdp-menu-hint">{{ py.offers > 0 ? 'Not available: ' + py.offers + ' ' + (py.offers === 1 ? 'proposal uses' : 'proposals use') + ' this pipeline. Hide it instead.' : 'Removes the pipeline year.' }}</span>
+                          <span class="mdp-menu-hint">{{ deleteBlock(py) || 'Removes the pipeline year.' }}</span>
                         </span>
                       </button></li>
                     </ul>
@@ -479,7 +479,7 @@
                 <li><button type="button" class="dropdown-item mdp-menu-item" @click="go({ year: py.year, phasing: 'proposal' })"><span>Proposal phasing</span><span class="mdp-muted">View →</span></button></li>
                 <li><button type="button" class="dropdown-item mdp-menu-item" @click="go({ year: py.year, phasing: 'project' })"><span>Project phasing</span><span class="mdp-muted">View →</span></button></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><button type="button" class="dropdown-item mdp-menu-item" :disabled="py.offers > 0 || py._loading" @click="deletePipelineYear(py)"><span>Delete pipeline <span class="mdp-menu-hint">{{ py.offers > 0 ? 'Not available: ' + py.offers + ' ' + (py.offers === 1 ? 'proposal uses' : 'proposals use') + ' this pipeline. Hide it instead.' : 'Removes the pipeline year.' }}</span></span></button></li>
+                <li><button type="button" class="dropdown-item mdp-menu-item" :disabled="!!deleteBlock(py) || py._loading" @click="deletePipelineYear(py)"><span>Delete pipeline <span class="mdp-menu-hint">{{ deleteBlock(py) || 'Removes the pipeline year.' }}</span></span></button></li>
               </ul>
             </span>
           </div>
@@ -1310,8 +1310,17 @@ window.__cfgApp = Vue.createApp({
       }
     },
 
+    // Why a year cannot be deleted, '' when it can: the server only refuses a year with cost grid versions, so
+    // a year that still has POTs would leave them orphaned.
+    deleteBlock(py) {
+      if (py.offers > 0) return 'Not available: ' + py.offers + ' ' + (py.offers === 1 ? 'proposal uses' : 'proposals use') + ' this pipeline. Hide it instead.';
+      const pots = this.potCounts[py.year] || 0;
+      if (pots > 0) return 'Not available: this pipeline has ' + pots + ' ' + (pots === 1 ? 'POT' : 'POTs') + '. Hide it instead.';
+      return '';
+    },
+
     async deletePipelineYear(py) {
-      if (py.offers > 0) return;
+      if (this.deleteBlock(py)) return;
       showConfirm(
         `Delete Pipeline ${py.year}? Cost grid versions linked to this year stay; the pipeline entry is removed.`,
         async () => {
