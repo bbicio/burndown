@@ -28,6 +28,8 @@ const SYSADMIN_PASS  = process.env.TEST_SYSADMIN_PASSWORD || 'TestSysAdmin123!';
 // Far-future years unlikely to clash with real data
 const TEST_YEAR   = 2099;
 const TEST_YEAR_B = 2098;   // used by POT tests (avoids clash with pipeline-years tests)
+const TEST_YEAR_D = 2093;   // pipeline year carried by Drafts (PYP-*), active
+const TEST_YEAR_E = 2092;   // PYP-*, created inactive
 
 let passed = 0, failed = 0;
 let adminCookie = '';
@@ -3865,6 +3867,94 @@ async function testVersionDuplicate() {
   ok(srcAfter && srcAfter.label === 'v1', 'ND-11 the source label is unchanged');
 }
 
+async function testPipelineYearDraft() {
+  section('Pipeline year on the Draft');
+
+  const mkYear = async (year, active) => {
+    const r = await api('POST', '/api/pipeline-years', { year }, adminCookie);
+    if (![201, 409].includes(r.status)) return false;
+    // 409: left over by an earlier run — reuse it, but force the wanted state and clean it up too.
+    let id = r.data?.id;
+    if (r.status === 409) {
+      const list = await api('GET', '/api/pipeline-years', null, adminCookie);
+      id = (Array.isArray(list.data) ? list.data : []).find(py => py.year === year)?.id;
+    }
+    if (!id) return false;
+    later('DELETE', `/api/pipeline-years/${id}`);
+    const p = await api('PATCH', `/api/pipeline-years/${id}`, { active }, adminCookie);
+    return p.status === 200;
+  };
+  if (!(await mkYear(TEST_YEAR_D, true)) || !(await mkYear(TEST_YEAR_E, false))) { ok(false, 'PYP-setup pipeline years unavailable'); return; }
+
+  const role = await makeTestRole('PYP');
+  const mkGrid = async () => {
+    const g = await api('POST', '/api/cost-grids', { name: '__test_pyp__' }, adminCookie);
+    // Published proposals cannot be deleted with DELETE; the sysadmin reset removes any of them.
+    if (g.data?.id) later('POST', `/api/admin/reset/cost-grid/${g.data.id}`);
+    return g.data?.id;
+  };
+  const mkDraft = async (cgId, extra = {}) => {
+    const v = await api('POST', `/api/cost-grids/${cgId}/versions`,
+      { label: 'v1', currency: 'EUR', startDate: `${TEST_YEAR_D}01`, endDate: `${TEST_YEAR_D}12`, ...extra }, adminCookie);
+    return v;
+  };
+  const cgId = await mkGrid();
+  if (!cgId || !role.id) { ok(false, 'PYP-setup grid and role'); return; }
+  const thisYear = new Date().getFullYear();
+
+  // PYP-01: the year is stored on the Draft; absent means none
+  const withYear = await mkDraft(cgId, { pipelineYear: TEST_YEAR_D });
+  ok(withYear.status === 201 && withYear.data?.pipeline === 'Draft' && withYear.data?.pipeline_year === TEST_YEAR_D,
+    `PYP-01 Draft created with pipelineYear keeps it (got ${withYear.status}, ${withYear.data?.pipeline_year})`);
+  const cg2 = await mkGrid();
+  const noYear = await mkDraft(cg2);
+  ok(noYear.status === 201 && noYear.data?.pipeline_year == null, 'PYP-01 Draft created without pipelineYear has none');
+
+  // PYP-02: a bad, unknown or inactive year is refused and nothing is created
+  const countVersions = async id => ((await api('GET', `/api/cost-grids/${id}/versions`, null, adminCookie)).data || []).length;
+  const cg3 = await mkGrid();
+  for (const [label, py] of [['not an integer', 'abc'], ['unknown', 2091], ['inactive', TEST_YEAR_E]]) {
+    const r = await mkDraft(cg3, { pipelineYear: py });
+    ok(r.status === 400 && !!r.data?.error, `PYP-02 pipelineYear ${label} → 400 (got ${r.status})`);
+  }
+  ok(await countVersions(cg3) === 0, 'PYP-02 refused creations left no version behind');
+
+  // PYP-03: publish keeps the Draft's year
+  const pub = await api('POST', `/api/cost-grids/${cgId}/versions/${withYear.data.id}/publish`, null, adminCookie);
+  ok(pub.status === 200 && pub.data?.pipeline === 'SIP' && pub.data?.pipeline_year === TEST_YEAR_D && TEST_YEAR_D !== thisYear,
+    `PYP-03 publish keeps the Draft's year (got ${pub.data?.pipeline_year})`);
+
+  // PYP-04: a Draft with no year is published in the current year
+  const pub0 = await api('POST', `/api/cost-grids/${cg2}/versions/${noYear.data.id}/publish`, null, adminCookie);
+  ok(pub0.status === 200 && pub0.data?.pipeline_year === thisYear, `PYP-04 publish without a Draft year uses the current year (got ${pub0.data?.pipeline_year})`);
+
+  // PYP-05: duplicate copies the year from a Draft only
+  const cg4 = await mkGrid();
+  const d1 = await mkDraft(cg4, { pipelineYear: TEST_YEAR_D });
+  const dup1 = await api('POST', `/api/cost-grids/${cg4}/versions/${d1.data?.id}/duplicate`, { label: 'v2' }, adminCookie);
+  ok(dup1.status === 201, `PYP-05 duplicate of a Draft with a year → 201 (got ${dup1.status})`);
+  const vs4 = (await api('GET', `/api/cost-grids/${cg4}/versions`, null, adminCookie)).data || [];
+  ok(vs4.find(x => x.id === dup1.data?.id)?.pipeline_year === TEST_YEAR_D, 'PYP-05 duplicate of a Draft copies its year');
+  const cg5 = await mkGrid();
+  const d2 = await mkDraft(cg5);
+  const dup2 = await api('POST', `/api/cost-grids/${cg5}/versions/${d2.data?.id}/duplicate`, { label: 'v2' }, adminCookie);
+  const vs5 = (await api('GET', `/api/cost-grids/${cg5}/versions`, null, adminCookie)).data || [];
+  ok(dup2.status === 201 && vs5.find(x => x.id === dup2.data?.id)?.pipeline_year == null, 'PYP-05 duplicate of a Draft without a year has none');
+
+  // PYP-06: the monthly phasing report does not count a Draft that carries a year
+  const cg6 = await mkGrid();
+  const d6 = await mkDraft(cg6, { pipelineYear: TEST_YEAR_D });
+  const vId6 = d6.data?.id;
+  const put = vId6 ? await api('PUT', `/api/cost-grids/${cg6}/versions/${vId6}/structure`, {
+    phases: [{ title: 'Phase A', tasks: [{ title: 'Task 1', roles: [{ roleId: role.id, days: 12 }] }] }],
+  }, adminCookie) : null;
+  ok(put?.status === 200, 'PYP-06 setup: Draft structure saved');
+  const rep = async () => ((await api('GET', `/api/reporting/phasing?year=${TEST_YEAR_D}`, null, adminCookie)).data?.projects || []).map(p => p.versionId);
+  ok(!(await rep()).includes(vId6), 'PYP-06 a Draft with a year is not in the phasing report');
+  await api('POST', `/api/cost-grids/${cg6}/versions/${vId6}/publish`, null, adminCookie);
+  ok((await rep()).includes(vId6), 'PYP-06 once published, the same version is in the report');
+}
+
 async function main() {
   process.stdout.write(`\n${bold('PDash API Integration Tests')} — ${BASE}\n`);
   process.stdout.write(`Admin: ${EMAIL}\n`);
@@ -3899,6 +3989,7 @@ async function main() {
     await testVersionScope();
     await testVersionRule();
     await testVersionDuplicate();
+    await testPipelineYearDraft();
     await testProjectPatchValidation();
     await testProjectCurrencyLock();
     await testStructureRule();

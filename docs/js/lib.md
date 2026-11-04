@@ -129,6 +129,10 @@ Pure logic of `portfolio.html`'s shared Entries block (the `pr-entries` componen
 
 Loaded via `<script type="module">` on `pipeline.html`, before the inline `Vue.createApp` script.
 
+## pipeline-year.js (2026-11-04, pipeline year cycle)
+
+`PIPELINE_YEAR_KEY` (`'PDash_pipelineYear'`), `resolvePipelineYear({ urlYear, storedYear, availableYears, currentYear })`, `readStoredPipelineYear()` and `storePipelineYear(year)`. The resolution order is `urlYear`, `storedYear`, `currentYear`, the first available year; a year outside `availableYears` is skipped. The two storage helpers never throw. Loaded via `<script type="module">` (`?v=1`, `window.*` bridges) on `pipeline.html` only. Tests: `pipeline-year.test.js`.
+
 ## money.js (2026-10-01, money centralization cycle)
 
 The single implementation of currency formatting and parsing (`<script type="module">`, `window.*` bridge for each export). Pure: the currency list (`window.__currencies` shape `{ code, symbol, locale, … }[]`, may be `undefined`/`[]`) is always passed in. Loaded by `pipeline`, `portfolio`, `program`, `costgrid`, `project-config`, `timesheets`, `planning` and the `master-*` pages (`master-clients`, `master-pipelines`, `master-roles`, `master-currencies`) (a vitest guard fails if a page that loads `core.js` and uses a money function lacks the tag, or if the `money.js?v=N` references diverge, or if `Intl.NumberFormat` appears outside `money.js`/`api/src/lib/money-format.js`).
