@@ -41,8 +41,8 @@ stanno nella cartella design del brief.
 - `portfolio.html` apre il reporting di un progetto con `?projectId=` (`portfolio.html:1501`).
 - `formatMoney(amount, code, currencies, { rounded })` in `js/lib/money.js:33`; nessuna opzione per omettere il
   simbolo.
-- Componenti esistenti: `.md-seg`, `.md-switch` (`css/style.css:222-248`), `<cg-select>` (`js/cg-controls.js`, già
-  usato da `master-clients.html`), `showConfirm` (`js/core.js`), icone `.pd-icon` in `js/lib/icons.js` (presenti:
+- Componenti esistenti: `.md-seg`, `.md-switch` (`css/style.css:222-248`), `<cg-select>` (`js/cg-controls.js`, opzioni `{ value, label, disabled }`,
+  usato da costgrid, project-config, portfolio e planning; `master-clients.html` ha un menu a pillola locale), `showConfirm` (`js/core.js`), icone `.pd-icon` in `js/lib/icons.js` (presenti:
   `pencil`, `trash`, `more`, `info`, `download`, `close`, `chevron-left/right/down`, `arrow-right`, `plus`).
 - Nessun drawer condiviso: `.pb-panel` (`css/pipeline.css`) e il drawer del Team assistant (`css/planning.css:391`)
   sono specifici delle loro pagine. `--overlay-scrim` esiste in `css/tokens.css:32`.
@@ -318,7 +318,7 @@ Un solo stato `potf` serve §6.3 e §6.4 (`potf.id` nullo = nuovo POT): aprire u
   modale, nessun `innerHTML` sul dettaglio; restano valori, `achieved_total`, valuta originale solo per non EUR,
   nessun hex, token stage.
 - `master-pipelines-pot-input-guard.test.js` invariato e verde.
-- `master-data-guard.test.js`: verde, più il check di `md-layout--wide` in `css/style.css`.
+- `master-data-guard.test.js`: il `must` di `master-pipelines.html` perde `id="potDetailsModal"` e prende il drawer; più il check di `md-layout--wide` in `css/style.css`.
 - Guard di pagina (nuovi casi in `master-pipelines-pot-details.test.js` o file dedicato): create invia
   `active: false`; delete pipeline disabilitato con `offers > 0` e errore del server in `globalError`; Update target
   disabilitato senza motivo; nessun `confirm(`/`alert(`; nessuna emoji; `popstate` gestito.
@@ -357,7 +357,7 @@ yet"; filtro dei client già coperti da un POT di gruppo; conteggio proposte per
 2. **Nuova pipeline Hidden via `Api.pipelineYears.create(year, active)`.** Alternativa scartata: `apiFetch` diretto dalla pagina, o creazione Visible. Perché: la tavola e il brief §7.1 lo chiedono e l'API client resta l'unico punto di chiamata.
 3. **Default del brief §7.2–§7.6 adottati; conteggio POT da un `GET /pots` senza anno.** Alternativa scartata: un campo nuovo in `year-totals` o il conteggio proposte per POT. Perché: nessun cambio API.
 4. **Drawer locale alla pagina sul modello di Planning.** Alternativa scartata: `.md-drawer` condiviso. Perché: non esiste un drawer condiviso da riusare.
-5. **`<cg-select>` per target, Client e POT; anno come input testo numerico.** Alternativa scartata: `<select>` nativi. Perché: fedeltà alle tavole, stesso controllo di Clients.
+5. **`<cg-select>` per target, Client e POT; anno come input testo numerico.** Alternativa scartata: `<select>` nativi. Perché: fedeltà alle tavole, è il controllo custom già condiviso da altre pagine; il divisore è un'opzione `disabled`.
 6. **Un solo stato `potf` per nuovo POT ed edit target.** Alternativa scartata: due stati. Perché: l'input guard passa invariato e resta un editor alla volta.
 7. **Celle di phasing senza simbolo, arrotondate, con `formatMoney(..., { symbol: false })`.** Alternativa scartata: simbolo in ogni cella con l'opzione `rounded` esistente. Perché: la tavola mostra numeri nudi e la valuta sta nella riga di totale.
 8. **Chip stage: nessuna selezionata = tutte, mostrate tutte colorate.** Alternativa scartata: tutte selezionate di default. Perché: semantica di oggi, risultato identico.
