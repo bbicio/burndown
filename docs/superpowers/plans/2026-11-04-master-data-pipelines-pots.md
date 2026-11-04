@@ -51,7 +51,7 @@
 
 - [ ] **Step 1: Test (falliscono)** in `money.test.js`, `describe('formatMoney symbol option')`:
   - `formatMoney(1234.5, 'EUR', C, { symbol: false })` → `'1.234,50'`; `{ rounded: true, symbol: false }` → `'1.235'`.
-  - GBP (locale della fixture del file) `{ rounded: true, symbol: false }` → stesso numero di `formatMoney(..., { rounded: true })` senza il prefisso `symbol + ' '`.
+  - USD e JPY (fixture `C` del file) `{ rounded: true, symbol: false }` → `'1,235'`; per ogni codice uguale a `formatMoney(..., { rounded: true })` senza il prefisso `symbol + ' '`.
   - default invariato: `formatMoney(1234.5, 'EUR', C)` → `'€ 1.234,50'`.
 - [ ] **Step 2: Lancia** — `npx vitest run js/lib/money.test.js`. Atteso: FAIL sui nuovi casi.
 - [ ] **Step 3: Implementa** le due firme sopra.
