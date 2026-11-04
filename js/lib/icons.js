@@ -50,6 +50,10 @@ export const ICON_PATHS = {
   refresh:      '<path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5V5h-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
   'trend-up':   '<path d="M2 12L6 8l2.5 2.5L14 5M10.5 5H14v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
   info:         '<circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M8 7.2V11.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="5" r=".9" fill="currentColor"/>',
+  building:     '<rect x="3.5" y="2" width="9" height="12" rx="1" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M6 5h1M9 5h1M6 8h1M9 8h1M7 14v-3h2v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+  pencil:       '<path d="M10.5 3.5l2 2M3 13l.6-2.6L11 3a1.4 1.4 0 0 1 2 2l-7.4 7.4L3 13Z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+  more:         '<circle cx="3.5" cy="8" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="12.5" cy="8" r="1.2" fill="currentColor"/>',
+  reset:        '<path d="M3 8a5 5 0 1 0 1.5-3.6M3 2.5V5h2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
   filter:       '<path d="M2.5 4H13.5M4.5 8H11.5M6.5 12H9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
 };
 

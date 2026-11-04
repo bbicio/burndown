@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { iconSvg } from './icons.js';
 
 const read = f => readFileSync(join(process.cwd(), f), 'utf8');
 
@@ -188,5 +189,30 @@ describe('Admin menu entry', () => {
     const item = nav.NAV_GROUPS.flatMap(g => g.items).find(i => i.id === 'config');
     expect(item.label).toBe('Master Data');
     expect(item.href).toBe('/master-clients.html');
+  });
+});
+
+describe('Master Data shared controls (css/style.css, js/lib/icons.js)', () => {
+  const css = read('css/style.css');
+  it('defines the segmented control and the switch', () => {
+    for (const sel of ['.md-seg', '.md-seg-btn', '.md-seg-btn.active', '.md-switch']) {
+      expect(css, sel).toContain(sel + ' {');
+    }
+  });
+  it('sizes the controls 32px on desktop, 40px on tablet and 44px on phone', () => {
+    expect(css).toMatch(/\.md-seg-btn\s*\{[^}]*height:\s*32px/);
+    expect(css).toMatch(/@media \(max-width: 1023\.98px\)\s*\{[^@]*\.md-seg-btn\s*\{[^}]*height:\s*40px/);
+    expect(css).toMatch(/@media \(max-width: 767\.98px\)\s*\{[^@]*\.md-seg-btn\s*\{[^}]*height:\s*44px/);
+  });
+  it('uses no hex colour in the new rules', () => {
+    const from = css.indexOf('/* ── Master Data controls');
+    expect(from).toBeGreaterThan(-1);
+    const block = css.slice(from, css.indexOf('/* ──', from + 10));
+    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+  });
+  it('has the building, pencil, more and reset icons', () => {
+    for (const n of ['building', 'pencil', 'more', 'reset']) {
+      expect(iconSvg(n), n).not.toBe('');
+    }
   });
 });
