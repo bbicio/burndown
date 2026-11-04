@@ -56,9 +56,9 @@ describe('excluded pages are untouched', () => {
   const EXCLUDED_STYLE_SHA = {
     // master-clients.html is restyled by the Clients & groups cycle (hex-free styles pinned in master-data-guard);
     // master-client-groups.html is now a redirect without styles;
-    // master-pipelines.html is restyled by the Pipelines & POTs cycle (styles pinned in master-data-guard).
+    // master-pipelines.html is restyled by the Pipelines & POTs cycle (styles pinned in master-data-guard);
+    // master-roles.html is restyled by the Roles & rates cycle (hex-free styles pinned in master-data-guard).
     'master-client-groups.html': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-    'master-roles.html': MASTER_SHA,
     'master-currencies.html': MASTER_SHA,
     'project-config.html': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
   };

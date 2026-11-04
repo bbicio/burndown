@@ -194,6 +194,27 @@ describe('master-client-groups.html is only a redirect to the By group view', ()
   });
 });
 
+describe('master-roles.html (Roles & rates)', () => {
+  const html = read('master-roles.html');
+  it('has no native dialog, emoji, form card or scroll-to-banner watcher', () => {
+    expect(html).not.toContain('confirm(');
+    expect(html).not.toContain('alert(');
+    for (const e of ['✏️', '🗑', '⚠️']) expect(html, e).not.toContain(e);
+    expect(html).not.toContain('form-card');
+    expect(html).not.toContain('globalError(msg)');
+  });
+  it('loads its helpers module and carries the list copy', () => {
+    expect(html).toContain('<script type="module" src="js/lib/master-roles.js?v=1"></script>');
+    expect(html).toContain('Missing rates');
+    expect(html).toContain('No roles match the current search.');
+    expect(html).toContain('No roles yet. Roles define columns in Cost Grid and drive rate calculations.');
+  });
+  it('uses tokens only in its styles', () => {
+    const style = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+    expect(style).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+});
+
 describe('master-clients.html (Clients & groups)', () => {
   const html = read('master-clients.html');
   it('has no native dialog, emoji or form card', () => {

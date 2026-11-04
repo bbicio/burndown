@@ -9,45 +9,204 @@
   <link rel="stylesheet" href="css/tokens.css?v=13">
   <link rel="stylesheet" href="css/style.css?v=33">
   <style>
-    .section-title {
-      font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-      color: #6b7280; margin-bottom: .75rem; display: flex; align-items: center;
-      justify-content: space-between;
-    }
-
-    .card { border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.05); margin-bottom: 2rem; }
-    .card-body { padding: 0; }
-
-    .table { margin: 0; font-size: .875rem; }
-    .table thead th {
-      background: #f9fafb; border-bottom: 1px solid #e5e7eb;
-      font-size: .78rem; font-weight: 600; text-transform: uppercase;
-      letter-spacing: .04em; color: #6b7280; padding: .65rem 1rem;
-    }
-    .table tbody td { padding: .75rem 1rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6; }
-    .table tbody tr:last-child td { border-bottom: none; }
-    .table tbody tr:hover td { background: #fafafa; }
-
-    .team-sep td { background: #f0f2ff; font-size: .75rem; font-weight: 700; color: #5468c4;
-                   padding: 4px 1rem; border-top: 2px solid #c5cef7; }
-
-    .form-card {
-      border: 1px solid #e5e7eb; border-radius: 8px;
-      background: #fff; padding: 1rem 1.25rem; margin-bottom: 1.25rem;
-    }
-    .form-card-title { font-size: .82rem; font-weight: 700; color: var(--brand-navy); margin-bottom: .75rem; }
-
-    .cfg-tabs { border-bottom: 2px solid var(--border-light); margin-bottom: 1.5rem; display: flex; gap: 0; }
-    .cfg-tab-btn { background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
-                   padding: .6rem 1.25rem; font-size: .88rem; font-weight: 600; color: #6b7280; cursor: pointer; }
-    .cfg-tab-btn:hover { color: var(--brand-navy); }
-    .cfg-tab-btn.active { color: var(--brand-magenta); border-bottom-color: var(--brand-magenta); }
-
-    .empty { text-align: center; padding: 2.5rem 1rem; color: #9ca3af; font-size: .875rem; }
     .alert-sm { font-size: .83rem; padding: .5rem .75rem; }
-    code { background: #f3f4f6; border-radius: 4px; padding: 1px 5px; font-size: .82rem; color: #374151; }
 
-    .rate-warn { color: #dc3545; font-size: .75rem; }
+    /* the boards' pale amber: the warning background thinned with white */
+    #app { --mdr-warn-row: color-mix(in srgb, var(--color-warning-bg) 30%, var(--surface-white));
+           --mdr-warn-pill: color-mix(in srgb, var(--color-warning-bg) 75%, var(--surface-white)); }
+
+    /* ── Card head ── */
+    .mdr-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .mdr-head-text { flex: 1 1 400px; min-width: 260px; }
+    .mdr-title-row { display: flex; align-items: baseline; gap: var(--space-1); }
+    .mdr-head .md-card-desc { font-size: 12px; }
+    .mdr-head .md-switch { font-size: 12px; color: var(--text-primary); }
+    .mdr-count { font-size: 15px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdr-search {
+      display: flex; align-items: center; gap: var(--space-2); width: 180px; height: 32px; padding: 0 var(--space-3);
+      border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--surface-white); color: var(--text-muted);
+    }
+    .mdr-search:focus-within { box-shadow: 0 0 0 3px var(--focus-ring); }
+    .mdr-search input { border: 0; outline: 0; flex: 1; min-width: 0; font-size: 12.5px; background: transparent; color: var(--brand-navy); }
+    .mdr-switch-warn input[type=checkbox]:checked { background: var(--color-warning); }
+    .mdr-toggle {
+      display: none; align-items: center; height: 40px; padding: 0 var(--space-3);
+      border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--surface-white);
+      font-size: var(--text-sm); color: var(--text-primary); white-space: nowrap; cursor: pointer;
+    }
+    .mdr-toggle[aria-pressed="true"] { background: var(--color-warning-bg); border-color: var(--color-warning); color: var(--color-warning-text); font-weight: var(--weight-semibold); }
+    .mdr-head .btn-primary { height: 32px; display: inline-flex; align-items: center; }
+    .mdr-lbl-short { display: none; }
+
+    /* ── Table ── */
+    .mdr-scroll { overflow-x: auto; margin: 0 calc(-1 * var(--card-pad)); border-top: 1px solid var(--border-light); }
+    .mdr-table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: var(--text-sm); }
+    .mdr-table th {
+      background: var(--surface-light); border-bottom: 1px solid var(--border-light);
+      font-size: 10px; font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .06em;
+      color: var(--text-muted); padding: var(--space-3) var(--space-4); text-align: left; white-space: nowrap;
+    }
+    .mdr-table td { padding: 0 var(--space-4); border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+    .mdr-table .is-num { text-align: right; width: 92px; white-space: nowrap; }
+    .mdr-table th:first-child, .mdr-table td.mdr-role-cell { position: sticky; left: 0; z-index: 1; background: var(--surface-white); }
+    .mdr-table th:first-child { background: var(--surface-light); }
+    .mdr-grp td { background: var(--surface-light); padding: 0; user-select: none; }
+    .mdr-grp-btn { display: block; width: 100%; padding: 9px var(--space-4); border: 0; background: none; text-align: left; cursor: pointer; }
+    .mdr-grp-btn:focus-visible, .mdr-role-btn:focus-visible { outline: 2px solid var(--brand-navy); outline-offset: 2px; border-radius: var(--radius-xs); }
+    .mdr-grp-btn:focus-visible { outline-offset: -2px; }
+    .mdr-grp-btn[aria-disabled="true"] { cursor: default; }
+    .mdr-role-btn { display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 420px; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
+    .mdr-grp-in { position: sticky; left: var(--space-4); display: inline-flex; align-items: center; gap: var(--space-2); }
+    .mdr-grp .pd-icon, .mdr-grp svg { color: var(--text-primary); transition: transform var(--duration-fast); }
+    .mdr-grp.is-closed svg { transform: rotate(-90deg); }
+    .mdr-grp-name { font-size: 12.5px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdr-grp-count { font-size: 12px; color: var(--text-muted); }
+    .mdr-pill { font-size: 10.5px; font-weight: var(--weight-bold); border-radius: var(--radius-full); padding: 1px 7px; background: var(--mdr-warn-pill); color: var(--color-warning-text); }
+    .mdr-row td { height: 50px; }
+    .mdr-row:hover td { background: var(--surface-light); }
+    .mdr-row.is-missing td { background: var(--mdr-warn-row); }
+    .mdr-role { display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 420px; }
+    .mdr-label { font-size: 13px; font-weight: var(--weight-semibold); color: var(--brand-navy); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mdr-code { font-size: 10.5px; color: var(--text-muted); font-family: ui-monospace, Menlo, Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mdr-rate { font-weight: var(--weight-semibold); color: var(--text-primary); }
+    .mdr-norate { font-weight: var(--weight-bold); color: var(--color-warning-text); }
+    .mdr-dash { color: var(--text-faint); cursor: help; }
+    .mdr-actions { text-align: right; white-space: nowrap; width: 100px; }
+    .mdr-link { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--brand-navy); background: none; border: 0; padding: 6px; cursor: pointer; }
+    .mdr-link:hover { color: var(--brand-magenta); }
+    .mdr-icon-btn {
+      width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
+      border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer;
+    }
+    .mdr-icon-btn:hover { background: var(--color-danger-bg); color: var(--color-danger-text); }
+    .mdr-chev-col { display: none; width: 36px; color: var(--text-muted); text-align: center; }
+    .mdr-foot { padding: var(--space-3) 0 0; font-size: 11.5px; color: var(--text-muted); line-height: 1.5; }
+    .mdr-empty { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: var(--text-sm); }
+
+    /* ── Phone list: hidden on wide screens ── */
+    .mdr-phone-bar, .mdr-cards { display: none; }
+
+    /* ── Side panel (local, modelled on master-pipelines.html's POT drawer) ── */
+    .mdr-scrim { position: fixed; inset: 0; z-index: calc(var(--z-notification) - 1); background: var(--brand-navy); opacity: .28; }
+    .mdr-drawer {
+      position: fixed; top: 0; right: 0; width: min(480px, 100vw); height: 100vh; height: 100dvh;
+      background: var(--surface-white); border-left: 1px solid var(--border-light); box-shadow: var(--shadow-xl);
+      z-index: var(--z-notification); display: flex; flex-direction: column;
+    }
+    .mdr-dr-head { display: flex; align-items: flex-start; gap: var(--space-3); padding: 18px 20px 14px; border-bottom: 1px solid var(--border-light); }
+    .mdr-dr-head-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+    .mdr-eyebrow { font-size: 10px; font-weight: var(--weight-bold); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+    .mdr-dr-title { font-size: 19px; font-weight: var(--weight-bold); color: var(--brand-navy); margin: 0; overflow-wrap: anywhere; }
+    .mdr-dr-close { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer; }
+    .mdr-dr-close:hover { background: var(--surface-subtle); }
+    .mdr-dr-body { flex: 1 1 auto; overflow-y: auto; padding: var(--space-4) 20px; display: flex; flex-direction: column; gap: var(--space-4); }
+    .mdr-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .mdr-field-label { font-size: 11.5px; font-weight: var(--weight-semibold); color: var(--text-primary); }
+    .mdr-input {
+      height: 36px; width: 100%; padding: 0 10px; border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+      font-size: 13px; color: var(--brand-navy); background: var(--surface-white); outline: 0;
+    }
+    .mdr-input:focus { box-shadow: 0 0 0 3px var(--focus-ring); }
+    .mdr-input::placeholder { color: var(--text-placeholder); }
+    .mdr-mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+    .mdr-hint { font-size: 11px; color: var(--text-muted); }
+    .mdr-hint.is-warn { color: var(--color-warning-text); }
+    .mdr-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+    .mdr-combo { position: relative; }
+    .mdr-combo .mdr-input { padding-right: 28px; }
+    .mdr-combo-chev { position: absolute; right: 10px; top: 10px; color: var(--text-muted); pointer-events: none; }
+    .mdr-combo-list {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 2; max-height: 220px; overflow-y: auto;
+      margin: 0; padding: var(--space-1); list-style: none; background: var(--surface-white);
+      border: 1px solid var(--border-light); border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
+    }
+    .mdr-combo-opt { padding: 6px 10px; border-radius: var(--radius-xs); font-size: 13px; color: var(--brand-navy); cursor: pointer; }
+    .mdr-combo-opt.is-active, .mdr-combo-opt:hover { background: var(--surface-subtle); }
+    .mdr-full { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: 9px 12px; border-radius: var(--radius-sm); background: var(--surface-light); font-size: 12px; color: var(--text-primary); }
+    .mdr-full-label { color: var(--text-muted); }
+    .mdr-full-code { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: var(--weight-bold); color: var(--brand-navy); overflow-wrap: anywhere; }
+    .mdr-full-note { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+    .mdr-rates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .mdr-money {
+      height: 36px; display: flex; align-items: center; gap: 6px; padding: 0 10px;
+      border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--surface-white);
+    }
+    .mdr-money:focus-within { box-shadow: 0 0 0 3px var(--focus-ring); }
+    .mdr-money.is-warn { border-color: var(--color-warning); }
+    .mdr-money-code { width: 34px; font-size: 11.5px; font-weight: var(--weight-bold); color: var(--text-muted); }
+    .mdr-money input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 13px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdr-money input::placeholder { color: var(--text-placeholder); font-weight: var(--weight-semibold); }
+    .mdr-money-unit { font-size: 11px; color: var(--text-muted); }
+    .mdr-note { font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border-light); padding-top: var(--space-3); }
+    .mdr-dr-foot { display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--border-light); background: var(--surface-white); }
+    .mdr-dr-foot .mdr-spacer { flex: 1 1 auto; }
+    .mdr-del-link { font-size: 12.5px; font-weight: var(--weight-semibold); color: var(--color-danger-text); background: none; border: 0; padding: 8px 0; cursor: pointer; }
+    .mdr-cancel { font-size: 12.5px; font-weight: var(--weight-semibold); color: var(--text-muted); background: none; border: 0; padding: 8px 6px; cursor: pointer; }
+
+    /* ── Delete dialog ── */
+    .mdr-del-dialog { max-width: 440px; }
+    .mdr-del-body { font-size: 12.5px; color: var(--text-primary); line-height: 1.55; }
+
+    /* ── Tablet, and desktop below 1280px (the shell keeps its full sidebar at 1024) ── */
+    @media (max-width: 1279.98px) {
+      .mdr-head .md-switch { display: none; }
+      .mdr-toggle { display: inline-flex; }
+      .mdr-head .btn-primary { height: 40px; }
+      .mdr-search { order: 10; flex: 1 1 100%; width: auto; height: 40px; }
+      .mdr-head-desc { display: none; }
+      .mdr-head-text { flex: 1 1 auto; min-width: 0; }
+      /* fixed columns; past ~220px for the role the table scrolls instead of squeezing it */
+      .mdr-table { table-layout: fixed; min-width: calc(220px + var(--mdr-cols, 1) * 80px + 36px); }
+      .mdr-role { max-width: none; }
+      .mdr-role-btn { max-width: 100%; }
+      .mdr-table .is-num { width: 80px; }
+      /* the actions column stays (a fixed layout would hand a hidden column's share to nobody) but takes no width */
+      .mdr-actions, .mdr-act-head { width: 0; padding: 0 !important; }
+      .mdr-actions > * { display: none; }
+      .mdr-chev-col { display: table-cell; }
+      .mdr-row { cursor: pointer; }
+      .mdr-foot { display: none; }
+      .mdr-input, .mdr-money { height: 40px; }
+    }
+
+    /* ── Smartphone ── */
+    @media (max-width: 767.98px) {
+      .mdr-head .mdr-search, .mdr-head .mdr-toggle, .mdr-head .btn-primary { display: none; }
+      .mdr-scroll { display: none; }
+      .mdr-phone-bar { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-3); }
+      .mdr-phone-row { display: flex; gap: var(--space-2); }
+      .mdr-phone-row .mdr-search { display: flex; order: 0; flex: 1 1 auto; height: 44px; width: auto; }
+      .mdr-phone-row .btn-primary { min-height: 44px; display: inline-flex; align-items: center; }
+      .mdr-phone-bar .md-seg { display: flex; }
+      .mdr-phone-bar .md-seg-btn { flex: 1 1 0; }
+      .mdr-chip {
+        align-self: flex-start; min-height: 44px; display: inline-flex; align-items: center; padding: 0 var(--space-4);
+        border: 1px solid var(--border-light); border-radius: var(--radius-full); background: var(--surface-white);
+        font-size: var(--text-sm); color: var(--text-primary); cursor: pointer;
+      }
+      .mdr-chip[aria-pressed="true"] { background: var(--color-warning-bg); border-color: var(--color-warning); color: var(--color-warning-text); font-weight: var(--weight-semibold); }
+      .mdr-cards { display: flex; flex-direction: column; gap: var(--space-2); }
+      .mdr-card-team { margin: var(--space-3) 0 var(--space-1); font-size: 10.5px; font-weight: var(--weight-bold); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+      .mdr-card {
+        min-height: 44px; display: flex; align-items: center; gap: var(--space-3); width: 100%; text-align: left;
+        padding: 10px 14px; border: var(--card-border); border-radius: var(--radius-md); background: var(--surface-white); cursor: pointer;
+      }
+      .mdr-card.is-missing { background: var(--mdr-warn-row); }
+      .mdr-card .mdr-role { flex: 1 1 auto; max-width: none; }
+      .mdr-card .mdr-label { white-space: normal; }
+      .mdr-card-val { font-size: 14px; font-weight: var(--weight-bold); color: var(--brand-navy); white-space: nowrap; }
+      .mdr-card-val.is-missing { color: var(--color-warning-text); }
+      .mdr-card-val.is-approx { color: var(--text-muted); font-weight: var(--weight-semibold); }
+      .mdr-drawer { width: 100vw; border-left: 0; }
+      .mdr-dr-close { width: 44px; height: 44px; }
+      .mdr-combo-opt { min-height: 44px; display: flex; align-items: center; }
+      .mdr-input, .mdr-money { height: 44px; }
+      .mdr-pair, .mdr-rates { grid-template-columns: 1fr; }
+      .mdr-dr-foot .btn, .mdr-dr-foot .mdr-cancel, .mdr-dr-foot .mdr-del-link { min-height: 46px; }
+      .mdr-sheet { margin: 0; max-width: none; min-height: 100%; align-items: flex-end; }
+      .mdr-sheet .modal-content { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+      .mdr-sheet .btn { min-height: 46px; }
+    }
   </style>
 </head>
 <body>
@@ -68,9 +227,22 @@
 
 <div id="app" v-cloak>
 <section class="md-card">
-  <div class="md-card-head">
-    <h2 class="md-card-title">Roles &amp; rates</h2>
-    <p class="md-card-desc">Manage roles and their hourly rates per currency.</p>
+  <div class="md-card-head mdr-head">
+    <div class="mdr-head-text">
+      <div class="mdr-title-row"><h2 class="md-card-title">Roles &amp; rates</h2><span class="mdr-count" v-if="ready">· {{ roles.length }}</span></div>
+      <p class="md-card-desc mdr-head-desc">Agency rate card: every role with its default hourly rate in each active currency.</p>
+    </div>
+    <template v-if="ready">
+      <label class="mdr-search">
+        <ph-icon name="search" :size="14"></ph-icon>
+        <input type="text" v-model="query" placeholder="Search role or code…" autocomplete="off" aria-label="Search role or code">
+      </label>
+      <label class="md-switch mdr-switch-warn">
+        <input type="checkbox" v-model="missingOnly"> Missing rates · {{ missingCount }}
+      </label>
+      <button type="button" class="mdr-toggle" :aria-pressed="missingOnly" @click="missingOnly = !missingOnly">Missing rates · {{ missingCount }}</button>
+      <button type="button" class="btn btn-primary btn-sm mdr-add" @click="openRoleForm()">+ Add role</button>
+    </template>
   </div>
   <div class="md-card-body">
 
@@ -91,102 +263,216 @@
   <!-- ── PAGE ────────────────────────────────────────────────── -->
   <div class="page app-container" v-else>
 
-    <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
+    <div v-if="loadError" class="alert alert-danger alert-sm mb-3">{{ loadError }}</div>
 
-    <div>
-    <div class="section-title">
-      <span>Roles <span class="fw-normal text-muted">({{ roles.length }})</span></span>
-      <button class="btn btn-primary btn-sm" @click="openRoleForm()">+ Add role</button>
-    </div>
-
-    <!-- Role form -->
-    <div class="form-card" v-if="rf.show">
-      <div class="form-card-title">{{ rf.id ? 'Edit role' : 'New role' }}</div>
-      <div class="row g-2 align-items-end">
-        <div class="col-md-4">
-          <label class="form-label fw-semibold" style="font-size:.82rem">Label</label>
-          <input type="text" class="form-control form-control-sm" v-model="rf.label"
-                 placeholder="e.g. Project Manager" ref="rfLabel" autocomplete="off">
-        </div>
-        <div class="col-md-3">
-          <label class="form-label fw-semibold" style="font-size:.82rem">
-            Code
-            <span class="fw-normal text-muted" style="font-size:.75rem">TEAM - Role</span>
-          </label>
-          <input type="text" class="form-control form-control-sm" v-model="rf.code"
-                 placeholder="e.g. PM - Project Manager" autocomplete="off">
-        </div>
-        <div class="col-md-2">
-          <label class="form-label fw-semibold" style="font-size:.82rem">Default rate ({{ currencyInfo('EUR', currencies).symbol }}/h)</label>
-          <input type="text" inputmode="decimal" class="form-control form-control-sm" v-model="rf.rateText"
-                 @focus="onMoneyFocus('EUR')" @blur="onMoneyBlur('EUR')"
-                 @keydown.enter="saveRole" placeholder="e.g. 150">
-        </div>
-        <div class="col-md-2" v-for="cu in currencies.filter(c => c.code !== 'EUR' && c.active)" :key="cu.code">
-          <label class="form-label fw-semibold" style="font-size:.82rem">Default rate ({{ cu.symbol }}/h)</label>
-          <input type="text" inputmode="decimal" class="form-control form-control-sm"
-                 v-model="rf.overrideTexts[cu.code]"
-                 @focus="onMoneyFocus(cu.code)" @blur="onMoneyBlur(cu.code)"
-                 :placeholder="'e.g. ' + formatMoneyInput((readMoneyInput(rf.rateText, 'EUR', currencies) || 0) * cu.current_rate, cu.code, currencies)">
-        </div>
-        <div class="col-auto d-flex gap-2">
-          <button class="btn btn-primary btn-sm" @click="saveRole" :disabled="rf.loading">
-            <span v-if="rf.loading" class="spinner-border spinner-border-sm me-1"></span>
-            {{ rf.id ? 'Save' : 'Create' }}
-          </button>
-          <button class="btn btn-outline-secondary btn-sm" @click="rf.show = false">Cancel</button>
-        </div>
+    <!-- Phone toolbar: search + add, one currency at a time, Missing rates chip -->
+    <div class="mdr-phone-bar">
+      <div class="mdr-phone-row">
+        <label class="mdr-search">
+          <ph-icon name="search" :size="14"></ph-icon>
+          <input type="text" v-model="query" placeholder="Search role…" autocomplete="off" aria-label="Search role">
+        </label>
+        <button type="button" class="btn btn-primary mdr-add" @click="openRoleForm()">+ Add</button>
       </div>
-      <div v-if="rf.error" class="alert alert-danger alert-sm mt-2">{{ rf.error }}</div>
+      <div class="md-seg" role="group" aria-label="Currency">
+        <button v-for="cu in columns" :key="cu.code" type="button" class="md-seg-btn"
+                :class="{ active: phoneCurrency === cu.code }" @click="phoneCurrency = cu.code">{{ cu.code }}</button>
+      </div>
+      <button type="button" class="mdr-chip" :aria-pressed="missingOnly" @click="missingOnly = !missingOnly">Missing rates · {{ missingCount }}</button>
     </div>
 
-    <div class="card md-table-card">
-      <div class="card-body">
-        <table class="table" v-if="roles.length">
-          <thead>
-            <tr>
-              <th>Label</th>
-              <th>Code</th>
-              <th>Team</th>
-              <th class="text-end">Default rate</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <template v-for="(group, team) in groupedRoles" :key="team">
-              <tr class="team-sep"><td colspan="5">{{ team }}</td></tr>
-              <tr v-for="r in group" :key="r.id">
-                <td class="fw-semibold">{{ r.label }}</td>
-                <td><code>{{ r.code }}</code></td>
-                <td class="text-muted" style="font-size:.82rem">{{ extractTeam(r.code) }}</td>
-                <td class="text-end">
-                  <span v-if="!r.rate || r.rate === 0" class="rate-warn">⚠️ Not set</span>
-                  <span v-else class="fw-semibold">{{ formatMoney(r.rate, 'EUR', currencies) }}/h</span>
-                </td>
-                <td class="text-end" style="white-space:nowrap">
-                  <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
-                          @click="openRoleForm(r)">✏️ Edit</button>
-                  <button class="btn btn-outline-danger btn-sm" style="font-size:.75rem"
-                          :disabled="r._loading" @click="deleteRole(r)">
-                    <span v-if="r._loading" class="spinner-border spinner-border-sm"></span>
-                    <span v-else>🗑</span>
-                  </button>
-                </td>
+    <template v-if="roles.length">
+      <div v-if="!groupedRoles.length" class="mdr-empty">No roles match the current search.</div>
+      <template v-else>
+        <div class="mdr-scroll">
+          <table class="mdr-table" :style="{ '--mdr-cols': columns.length }">
+            <thead>
+              <tr>
+                <th>Role · code</th>
+                <th v-for="cu in columns" :key="cu.code" class="is-num">{{ currencyInfo(cu.code, currencies).symbol }}/h</th>
+                <th class="mdr-act-head"></th>
+                <th class="mdr-chev-col"></th>
               </tr>
-            </template>
-          </tbody>
-        </table>
-        <div class="empty" v-else>
-          No roles yet. Roles define columns in Cost Grid and drive rate calculations.
+            </thead>
+            <tbody>
+              <template v-for="g in groupedRoles" :key="g.team">
+                <tr class="mdr-grp" :class="{ 'is-closed': !isGroupOpen(g.team) }">
+                  <td :colspan="columns.length + 3">
+                    <button type="button" class="mdr-grp-btn" :aria-expanded="isGroupOpen(g.team)" :aria-disabled="filtering" @click="toggleGroup(g.team)">
+                    <span class="mdr-grp-in">
+                      <ph-icon name="chevron-down" :size="12"></ph-icon>
+                      <span class="mdr-grp-name">{{ g.team }}</span>
+                      <span class="mdr-grp-count">{{ g.roles.length === 1 ? '1 role' : g.roles.length + ' roles' }}</span>
+                      <span v-if="g.missing > 0" class="mdr-pill">{{ g.missing }} without € rate</span>
+                    </span>
+                    </button>
+                  </td>
+                </tr>
+                <template v-if="isGroupOpen(g.team)">
+                  <tr v-for="r in g.roles" :key="r.id" class="mdr-row" :class="{ 'is-missing': isMissingRate(r.rate) }" @click="onRowClick(r)">
+                    <td class="mdr-role-cell">
+                      <button type="button" class="mdr-role-btn" :data-role-id="r.id" @click.stop="openRoleForm(r)">
+                        <span class="mdr-label" :title="r.label">{{ r.label }}</span>
+                        <span class="mdr-code" :title="r.code">{{ r.code }}</span>
+                      </button>
+                    </td>
+                    <td class="is-num">
+                      <span v-if="isMissingRate(r.rate)" class="mdr-norate" title="No € rate: this role can't be priced">No rate</span>
+                      <span v-else class="mdr-rate" :title="formatMoney(r.rate, 'EUR', currencies)">{{ rateText(r.rate, 'EUR') }}</span>
+                    </td>
+                    <td v-for="cu in columns.slice(1)" :key="cu.code" class="is-num">
+                      <span v-if="rateCell(r, cu).text" class="mdr-rate" :title="rateCell(r, cu).title">{{ rateCell(r, cu).text }}</span>
+                      <span v-else class="mdr-dash" :title="rateCell(r, cu).title" :aria-label="rateCell(r, cu).title">—</span>
+                    </td>
+                    <td class="mdr-actions">
+                      <button type="button" class="mdr-link" @click.stop="openRoleForm(r)">Edit</button>
+                      <button type="button" class="mdr-icon-btn" aria-label="Delete role" title="Delete role" @click.stop="deleteRole(r)"><ph-icon name="trash" :size="14"></ph-icon></button>
+                    </td>
+                    <td class="mdr-chev-col"><ph-icon name="chevron-right" :size="14"></ph-icon></td>
+                  </tr>
+                </template>
+              </template>
+            </tbody>
+          </table>
         </div>
-      </div>
-    </div>
 
-    </div><!-- /roles tab -->
+        <!-- Phone cards -->
+        <div class="mdr-cards">
+          <template v-for="g in groupedRoles" :key="g.team">
+            <div class="mdr-card-team">{{ g.team }}</div>
+            <button v-for="r in g.roles" :key="r.id" type="button" class="mdr-card" :data-role-id="r.id" :class="{ 'is-missing': isMissingRate(r.rate) }" @click="openRoleForm(r)">
+              <span class="mdr-role">
+                <span class="mdr-label">{{ r.label }}</span>
+                <span class="mdr-code">{{ r.code }}</span>
+              </span>
+              <span class="mdr-card-val" :class="{ 'is-missing': phoneValue(r).missing, 'is-approx': phoneValue(r).approx }">{{ phoneValue(r).text }}</span>
+            </button>
+          </template>
+        </div>
+
+        <div class="mdr-foot">— = no rate in that currency: proposals in that currency fall back to the € rate × exchange rate. Clients can override rates in their own rate card.</div>
+      </template>
+    </template>
+    <div class="mdr-empty" v-else-if="!loadError">
+      No roles yet. Roles define columns in Cost Grid and drive rate calculations.
+    </div>
 
   </div><!-- .page -->
   </div><!-- /.md-card-body -->
 </section>
+
+<!-- ── New / edit role panel ───────────────────────────────────── -->
+<div v-if="rf.show" class="mdr-drawer-wrap">
+  <div class="mdr-scrim" @click="onScrimClick"></div>
+  <aside class="mdr-drawer" role="dialog" aria-modal="true" :aria-label="rf.id ? 'Edit role' : 'New role'">
+    <div class="mdr-dr-head">
+      <div class="mdr-dr-head-main">
+        <span class="mdr-eyebrow">{{ rf.id ? 'Edit role' : 'New role' }}</span>
+        <h3 class="mdr-dr-title">{{ rf.id ? rf.title : 'New role' }}</h3>
+      </div>
+      <button type="button" class="mdr-dr-close" aria-label="Close" :disabled="rf.loading" @click="closePanel"><ph-icon name="close" :size="16"></ph-icon></button>
+    </div>
+
+    <div class="mdr-dr-body">
+      <div v-if="rf.error" class="alert alert-danger alert-sm mb-0" role="alert">{{ rf.error }}</div>
+
+      <label class="mdr-field">
+        <span class="mdr-field-label">Label</span>
+        <input type="text" class="mdr-input" v-model="rf.label" placeholder="e.g. Project Manager" ref="rfLabel" autocomplete="off" :readonly="rf.loading">
+      </label>
+
+      <div class="mdr-pair">
+        <div class="mdr-field">
+          <span class="mdr-field-label" id="rfTeamLabel">Team</span>
+          <div class="mdr-combo">
+            <input type="text" class="mdr-input" v-model="rf.team" autocomplete="off" role="combobox" :readonly="rf.loading"
+                   aria-labelledby="rfTeamLabel" :aria-expanded="rf.teamOpen && teamMatches.length > 0"
+                   :aria-controls="rf.teamOpen && teamMatches.length ? 'rfTeamList' : null"
+                   :aria-activedescendant="rf.teamOpen && rf.teamIdx >= 0 ? 'rfTeamOpt-' + rf.teamIdx : null"
+                   @focus="rf.teamOpen = true; rf.teamIdx = -1" @blur="rf.teamOpen = false" @input="rf.teamOpen = true; rf.teamIdx = -1"
+                   @keydown="onTeamKey">
+            <ph-icon class="mdr-combo-chev" name="chevron-down" :size="12"></ph-icon>
+            <ul v-if="rf.teamOpen && teamMatches.length" id="rfTeamList" class="mdr-combo-list" role="listbox">
+              <li v-for="(t, i) in teamMatches" :key="t" :id="'rfTeamOpt-' + i" class="mdr-combo-opt" :class="{ 'is-active': i === rf.teamIdx }"
+                  role="option" :aria-selected="i === rf.teamIdx" @mousedown.prevent="pickTeam(t)">{{ t }}</li>
+            </ul>
+          </div>
+          <span class="mdr-hint">Pick a team or type a new one</span>
+        </div>
+        <label class="mdr-field">
+          <span class="mdr-field-label">Role code</span>
+          <input type="text" class="mdr-input mdr-mono" v-model="rf.roleCode" placeholder="e.g. PROJECT MANAGER" autocomplete="off" :readonly="rf.loading">
+        </label>
+      </div>
+
+      <div class="mdr-full">
+        <span class="mdr-full-label">Full code</span>
+        <span class="mdr-full-code">{{ fullCode || '—' }}</span>
+        <span class="mdr-full-note">Must match <strong>Job Role: Name</strong> in the XLS</span>
+      </div>
+
+      <div class="mdr-field">
+        <span class="mdr-field-label">Default hourly rates</span>
+        <div class="mdr-rates">
+          <div class="mdr-field">
+            <div class="mdr-money" :class="{ 'is-warn': !rf.rateText.trim() }">
+              <span class="mdr-money-code">EUR</span>
+              <input type="text" inputmode="decimal" v-model="rf.rateText" aria-label="EUR hourly rate" :readonly="rf.loading"
+                     @focus="onMoneyFocus('EUR')" @blur="onMoneyBlur('EUR')"
+                     @keydown.enter="saveRole" placeholder="Required">
+              <span class="mdr-money-unit">/h</span>
+            </div>
+            <span class="mdr-hint" :class="{ 'is-warn': !rf.rateText.trim() }">Required · base rate</span>
+          </div>
+          <div class="mdr-field" v-for="cu in columns.filter(c => c.code !== 'EUR')" :key="cu.code">
+            <div class="mdr-money">
+              <span class="mdr-money-code">{{ cu.code }}</span>
+              <input type="text" inputmode="decimal" v-model="rf.overrideTexts[cu.code]" :aria-label="cu.code + ' hourly rate'" :readonly="rf.loading"
+                     @focus="onMoneyFocus(cu.code)" @blur="onMoneyBlur(cu.code)"
+                     @keydown.enter="saveRole" :placeholder="overridePlaceholder(cu)">
+              <span class="mdr-money-unit">/h</span>
+            </div>
+            <span class="mdr-hint">{{ overrideHint(cu) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="rf.id" class="mdr-note">Changing a rate doesn't change existing cost grids.</div>
+    </div>
+
+    <div class="mdr-dr-foot">
+      <button v-if="rf.id" type="button" class="mdr-del-link" :disabled="rf.loading" @click="deleteFromPanel">Delete role</button>
+      <span class="mdr-spacer"></span>
+      <button type="button" class="mdr-cancel" :disabled="rf.loading" @click="closePanel">Cancel</button>
+      <button type="button" class="btn btn-primary" @click="saveRole" :disabled="rf.loading || !rf.label.trim() || !rf.roleCode.trim()">
+        <span v-if="rf.loading" class="spinner-border spinner-border-sm me-1"></span>
+        {{ rf.id ? 'Save changes' : 'Create role' }}
+      </button>
+    </div>
+  </aside>
+</div>
+
+<!-- ── Delete confirmation: stays open and shows the server's refusal ── -->
+<div class="modal fade" id="roleDeleteModal" tabindex="-1" aria-labelledby="roleDeleteTitle">
+  <div class="modal-dialog modal-dialog-centered mdr-del-dialog mdr-sheet">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header border-0 pb-1">
+        <h6 class="modal-title fw-bold" id="roleDeleteTitle">Delete "{{ del.role ? del.role.label : '' }}"?</h6>
+      </div>
+      <div class="modal-body pt-1">
+        <p class="mdr-del-body mb-0">The role is removed from the agency rate card. Its custom rates in client rate cards are deleted too. A role used in a cost grid or assigned to a team resource can't be deleted.</p>
+        <div v-if="del.error" class="alert alert-danger alert-sm mt-3 mb-0" role="alert">{{ del.error }}</div>
+      </div>
+      <div class="modal-footer border-0 pt-2">
+        <button type="button" class="btn btn-link text-decoration-none mdr-cancel" data-bs-dismiss="modal" :disabled="del.loading">Cancel</button>
+        <button type="button" class="btn btn-danger" :disabled="del.loading || del.blocked" @click="confirmDelete">
+          <span v-if="del.loading" class="spinner-border spinner-border-sm me-1"></span>
+          Delete role
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 </div><!-- #app -->
 </div><!-- /.md-content -->
 </div><!-- /.md-layout -->
@@ -208,6 +494,7 @@
 <script defer src="js/notifications.js?v=3"></script>
 <script type="module" src="js/lib/icons.js?v=6"></script>
 <script type="module" src="js/lib/md-subnav.js?v=4"></script>
+<script type="module" src="js/lib/master-roles.js?v=1"></script>
 <script defer src="js/nav.js?v=19"></script>
 
 <script type="module">
@@ -216,12 +503,22 @@ window.__cfgApp = Vue.createApp({
     return {
       ready:        false,
       accessDenied: false,
-      globalError:  null,
+      loadError:    null,
 
       roles:    [],
 
-      // Role form state
-      rf: { show: false, id: null, label: '', code: '', rateText: '', overrideTexts: {}, stored: {}, error: null, loading: false },
+      // List state (memory only)
+      query:         '',
+      missingOnly:   false,
+      closedTeams:   new Set(),
+      phoneCurrency: 'EUR',
+      lastTeam:      '',   // team of the last role opened or saved: a new role starts in it
+
+      // Role panel state; the saved code is joinCode(team, roleCode)
+      rf: { show: false, id: null, title: '', label: '', team: '', roleCode: '', teamOpen: false, teamIdx: -1, rateText: '', overrideTexts: {}, stored: {}, error: null, loading: false },
+
+      // Delete dialog state
+      del: { role: null, error: null, blocked: false, loading: false, closeWhenShown: false },
 
       currencies:    [],
 
@@ -230,22 +527,28 @@ window.__cfgApp = Vue.createApp({
       formatMoneyInput: (...a) => window.formatMoneyInput(...a),
       readMoneyInput:   (...a) => window.readMoneyInput(...a),
       currencyInfo:     (...a) => window.currencyInfo(...a),
+      // Roles helpers (bridged on window by js/lib/master-roles.js)
+      isMissingRate:    (...a) => window.isMissingRate(...a),
 
     };
   },
 
   computed: {
+    columns() { return window.rateColumns(this.currencies); },
+    missingCount() { return this.roles.filter(r => window.isMissingRate(r.rate)).length; },
+    // Groups of the roles that pass the search and the Missing rates filter.
     groupedRoles() {
-      const sorted = [...this.roles].sort((a, b) => {
-        const ta = this.extractTeam(a.code), tb = this.extractTeam(b.code);
-        return ta.localeCompare(tb) || a.label.localeCompare(b.label);
-      });
-      const groups = {};
-      sorted.forEach(r => {
-        const t = this.extractTeam(r.code);
-        (groups[t] = groups[t] || []).push(r);
-      });
-      return groups;
+      return window.groupRoles(window.filterRoles(this.roles, { query: this.query, missingOnly: this.missingOnly }));
+    },
+    filtering() { return !!this.query.trim() || this.missingOnly; },
+    // Preview only: with a team and no role code yet it reads "TEAM - ROLE", as on the board.
+    fullCode() {
+      const role = this.rf.roleCode.trim() || (this.rf.team.trim() ? 'ROLE' : '');
+      return window.joinCode(this.rf.team, role).toUpperCase();
+    },
+    teamMatches() {
+      const q = this.rf.team.trim().toLowerCase();
+      return window.teamOptions(this.roles).filter(t => !q || t.toLowerCase().includes(q));
     },
   },
 
@@ -261,15 +564,32 @@ window.__cfgApp = Vue.createApp({
     this.ready = true;
   },
 
-  watch: {
-    // The banner lives at the top of the page, above the tabs: a failed action on a long list
-    // (e.g. a blocked role delete) would otherwise set the message where nobody is looking.
-    globalError(msg) { if (msg) window.scrollTo({ top: 0, behavior: 'smooth' }); },
+  mounted() {
+    this._onKeydown = e => this.onPanelKeydown(e);
+    document.addEventListener('keydown', this._onKeydown);
+    // a dialog opened from code gets no focus return from Bootstrap: give it back to what opened it
+    this._onDelHidden = () => { this._delShown = false; this.focusBack(this._delOpener, this.del.role?.id); this._delOpener = null; };
+    // Esc, the backdrop and Cancel do not dismiss the dialog while its delete runs
+    this._onDelHide = e => { if (this.del.loading) e.preventDefault(); };
+    this._onDelShown = () => {
+      this._delShown = true;
+      if (this.del.closeWhenShown) bootstrap.Modal.getInstance(document.getElementById('roleDeleteModal'))?.hide();
+    };
+    const delModal = document.getElementById('roleDeleteModal');
+    delModal?.addEventListener('hidden.bs.modal', this._onDelHidden);
+    delModal?.addEventListener('hide.bs.modal', this._onDelHide);
+    delModal?.addEventListener('shown.bs.modal', this._onDelShown);
+  },
+  beforeUnmount() {
+    document.removeEventListener('keydown', this._onKeydown);
+    document.getElementById('roleDeleteModal')?.removeEventListener('hidden.bs.modal', this._onDelHidden);
+    document.getElementById('roleDeleteModal')?.removeEventListener('hide.bs.modal', this._onDelHide);
+    document.getElementById('roleDeleteModal')?.removeEventListener('shown.bs.modal', this._onDelShown);
   },
 
   methods: {
     async loadAll() {
-      this.globalError = null;
+      this.loadError = null;
       try {
         const [roles, currencies] = await Promise.all([
           Api.roles.list(),
@@ -278,8 +598,48 @@ window.__cfgApp = Vue.createApp({
         this.roles    = roles.map(r => ({ id: r.id, label: r.label, code: r.code, rate: r.hourly_rate || 0, rateOverrides: r.rate_overrides || {} }));
         this.currencies    = currencies;
       } catch (e) {
-        this.globalError = e.message || 'Failed to load data.';
+        this.loadError = e.message || 'Failed to load data.';
       }
+    },
+
+    // ── List ──
+    isGroupOpen(team) { return this.filtering || !this.closedTeams.has(team); },
+    toggleGroup(team) {
+      if (this.filtering) return;
+      const next = new Set(this.closedTeams);
+      if (next.has(team)) next.delete(team); else next.add(team);
+      this.closedTeams = next;
+    },
+    // Tablet and phone open the panel from the row (the Edit link is hidden there).
+    onRowClick(role) {
+      if (window.matchMedia('(max-width: 1279.98px)').matches) this.openRoleForm(role);
+    },
+    // A list amount: no decimals when it is a whole number (150, 150,50); the table's unit is in its header.
+    rateText(v, code, { symbol = false } = {}) {
+      return window.formatMoney(v, code, this.currencies, { symbol, rounded: Number.isInteger(Number(v)) });
+    },
+    // A non-EUR cell: the role's own override, else "—" with what a proposal would use.
+    rateCell(r, cu) {
+      const ov = (r.rateOverrides || {})[cu.code];
+      if (ov != null) return { text: this.rateText(ov, cu.code), title: window.formatMoney(ov, cu.code, this.currencies) };
+      const v = window.fallbackRate(r, cu);
+      return { text: '', title: v == null ? 'No rate' : `≈ ${this.rateText(v, cu.code)} from € × rate` };
+    },
+    // The phone card's value in the currency picked in the segmented control.
+    phoneValue(r) {
+      const code = this.phoneCurrency;
+      if (code === 'EUR') {
+        return window.isMissingRate(r.rate)
+          ? { text: 'No rate', missing: true, approx: false }
+          : { text: this.rateText(r.rate, 'EUR', { symbol: true }), missing: false, approx: false };
+      }
+      const cu = this.columns.find(c => c.code === code);
+      const ov = (r.rateOverrides || {})[code];
+      if (ov != null) return { text: this.rateText(ov, code, { symbol: true }), missing: false, approx: false };
+      const v = cu ? window.fallbackRate(r, cu) : null;
+      return v == null
+        ? { text: 'No rate', missing: true, approx: false }
+        : { text: '≈ ' + this.rateText(v, code, { symbol: true }), missing: false, approx: true };
     },
 
     // Text of a stored amount; keepZero makes a stored 0 reopen as '0' (a missing amount stays '').
@@ -288,15 +648,26 @@ window.__cfgApp = Vue.createApp({
       return window.formatMoneyInput(v, code, this.currencies, { keepZero: true });
     },
 
+    // ── Panel ──
     openRoleForm(role) {
+      if (!this.rf.show) this._opener = document.activeElement;
       const overrideTexts = {};
       const stored = { EUR: role?.rate == null ? null : Number(role.rate) };
       for (const [cur, val] of Object.entries(role?.rateOverrides || {})) { overrideTexts[cur] = this.amountText(val, cur); stored[cur] = val == null ? null : Number(val); }
+      const split = window.splitCode(role?.code || '');
+      const team = role ? split.team : (this.lastTeam || window.teamOptions(this.roles)[0] || '');
+      const roleCode = split.role;
+      const origCode = role?.code || '';
+      if (role && team) this.lastTeam = team;
       this.rf = {
         show:         true,
         id:           role?.id    || null,
+        title:        role?.label || '',
         label:        role?.label || '',
-        code:         role?.code  || '',
+        team, roleCode,
+        // the code as stored and as it opened: untouched, it is sent back unchanged (spacing included)
+        origCode, origTeam: team, origRole: roleCode,
+        teamOpen: false, teamIdx: -1,
         rateText:     this.amountText(role?.rate, 'EUR'),
         overrideTexts,
         // the amounts the form opened with: an untouched field is sent back as the stored value, not re-rounded
@@ -304,6 +675,58 @@ window.__cfgApp = Vue.createApp({
         error: null, loading: false,
       };
       this.$nextTick(() => this.$refs.rfLabel?.focus());
+    },
+    // Not while a save runs: the save resolves against the form it started from.
+    closePanel({ restoreFocus = true } = {}) {
+      if (this.rf.loading) return;
+      this.rf.show = false;
+      const opener = this._opener, roleId = this.rf.id; this._opener = null;
+      if (restoreFocus) this.$nextTick(() => this.focusBack(opener, roleId));
+    },
+    // The second click of the double-click that opened the panel lands on the scrim: not a close.
+    onScrimClick(e) { if (e.detail > 1) return; this.closePanel(); },
+    // Focus back to what opened the panel or dialog; if Vue re-rendered or removed it, to the role's own
+    // button, else to the visible "+ Add".
+    focusBack(el, roleId) {
+      const visible = n => n && n.isConnected && n.offsetParent !== null;
+      if (visible(el) && el !== document.body) { el.focus(); return; }
+      const byRole = roleId == null ? [] : [...document.querySelectorAll('[data-role-id="' + roleId + '"]')];
+      const target = byRole.find(visible) || [...document.querySelectorAll('.mdr-add')].find(visible);
+      target?.focus();
+    },
+    // Esc closes the panel; Tab stays inside it (it is a modal dialog). The delete dialog never sits above
+    // it: the panel closes before that dialog opens.
+    onPanelKeydown(e) {
+      if (!this.rf.show) return;
+      if (e.key === 'Escape') { this.closePanel(); return; }
+      if (e.key !== 'Tab') return;
+      const drawer = document.querySelector('.mdr-drawer');
+      const items = drawer ? [...drawer.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')] : [];
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !drawer.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (document.activeElement === last || !drawer.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+    },
+    onTeamKey(e) {
+      const n = this.teamMatches.length;
+      if (e.key === 'ArrowDown' && n) { e.preventDefault(); this.rf.teamOpen = true; this.rf.teamIdx = (this.rf.teamIdx + 1) % n; }
+      else if (e.key === 'ArrowUp' && n) { e.preventDefault(); this.rf.teamOpen = true; this.rf.teamIdx = (this.rf.teamIdx - 1 + n) % n; }
+      else if (e.key === 'Enter' && this.rf.teamOpen && this.rf.teamIdx >= 0) { e.preventDefault(); this.pickTeam(this.teamMatches[this.rf.teamIdx]); }
+      else if (e.key === 'Escape' && this.rf.teamOpen && n) { e.stopPropagation(); this.rf.teamOpen = false; }
+    },
+    pickTeam(t) { this.rf.team = t; this.rf.teamOpen = false; this.rf.teamIdx = -1; },
+    // The € rate typed so far, when it can be converted (a positive amount and a currency with a rate).
+    typedEur(cu) {
+      const eur = window.readMoneyInput(this.rf.rateText, 'EUR', this.currencies, { stored: this.rf.stored['EUR'] });
+      return typeof eur === 'number' && eur > 0 && Number(cu.current_rate) > 0 ? eur : null;
+    },
+    overridePlaceholder(cu) {
+      const eur = this.typedEur(cu);
+      return eur == null ? 'Optional' : '≈ ' + window.formatMoneyInput(eur * cu.current_rate, cu.code, this.currencies);
+    },
+    overrideHint(cu) {
+      if ((this.rf.overrideTexts[cu.code] ?? '').trim()) return `Used as is in ${cu.code} proposals`;
+      return this.typedEur(cu) == null ? 'Optional' : `Empty: € rate × ${Number(cu.current_rate)}`;
     },
 
     // code 'EUR' is the base rate; any other code is that currency's override.
@@ -324,16 +747,20 @@ window.__cfgApp = Vue.createApp({
     },
 
     async saveRole() {
+      if (this.rf.loading) return;
       const label = this.rf.label.trim();
-      const code  = this.rf.code.trim();
+      const untouched = this.rf.id && this.rf.team === this.rf.origTeam && this.rf.roleCode === this.rf.origRole;
+      const code  = untouched ? this.rf.origCode.trim() : window.joinCode(this.rf.team, this.rf.roleCode);
       this.rf.error = null;
       const badAmount = c => `Enter a valid amount in ${c}, e.g. ${window.moneyFormatExample(c, this.currencies)}.`;
 
       if (!label) { this.rf.error = 'Label is required.'; return; }
       if (!code)  { this.rf.error = 'Code is required.'; return; }
+      if (!this.rf.roleCode.trim()) { this.rf.error = 'Role code is required.'; return; }
       const rate = window.readMoneyInput(this.rf.rateText, 'EUR', this.currencies, { stored: this.rf.stored['EUR'] });
       if (rate === null) { this.rf.error = 'Default rate is required.'; return; }
       if (Number.isNaN(rate)) { this.rf.error = badAmount('EUR'); return; }
+      // Every stored override is sent back, those of currencies now inactive (no input) included.
       const rateOverrides = {};
       for (const [cur, text] of Object.entries(this.rf.overrideTexts)) {
         const v = window.readMoneyInput(text, cur, this.currencies, { stored: this.rf.stored[cur] });
@@ -345,41 +772,70 @@ window.__cfgApp = Vue.createApp({
       const dup = this.roles.find(r => r.code.toLowerCase() === code.toLowerCase() && r.id !== this.rf.id);
       if (dup) { this.rf.error = `Code "${code}" is already used by role "${dup.label}".`; return; }
 
-      this.rf.loading = true;
+      const form = this.rf;
+      const saved = code.toUpperCase();   // what the server stores (trim + uppercase)
+      form.loading = true;
       try {
-        if (this.rf.id) {
-          await Api.roles.update(this.rf.id, { label, code, hourlyRate: rate, rateOverrides });
-          const r = this.roles.find(r => r.id === this.rf.id);
-          if (r) { r.label = label; r.code = code; r.rate = rate; r.rateOverrides = rateOverrides; }
+        if (form.id) {
+          await Api.roles.update(form.id, { label, code, hourlyRate: rate, rateOverrides });
+          const r = this.roles.find(r => r.id === form.id);
+          if (r) { r.label = label; r.code = saved; r.rate = rate; r.rateOverrides = rateOverrides; }
         } else {
           const created = await Api.roles.create({ label, code, hourlyRate: rate, rateOverrides });
-          this.roles.push({ id: created.id, label, code, rate, rateOverrides });
+          this.roles.push({ id: created.id, label, code: created.code || saved, rate, rateOverrides });
+          form.id = created.id;   // lets focusBack fall back to the new role's button if the opener is gone
         }
-        this.rf.show = false;
+        // open the role's group, keep search and filter
+        const team = window.extractTeam(saved);
+        if (form.team.trim()) this.lastTeam = team;
+        if (this.closedTeams.has(team)) { const next = new Set(this.closedTeams); next.delete(team); this.closedTeams = next; }
+        form.loading = false;
+        if (this.rf === form) this.closePanel();
       } catch (e) {
-        this.rf.error = e.message || 'Save failed.';
+        form.error = e.message || 'Save failed.';
+        if (this.rf === form) this.$nextTick(() => this.$refs.rfLabel?.focus());
       } finally {
-        this.rf.loading = false;
+        form.loading = false;
       }
     },
 
+    // ── Delete ──
     async deleteRole(role) {
-      if (!confirm(`Delete role "${role.label}"?\n\nCost grid columns using this role will remain but lose the registry link.`)) return;
-      role._loading = true;
-      this.globalError = null;   // reset so a repeated identical failure still re-triggers the scroll-to-banner watcher
+      if (!this._delOpener) this._delOpener = document.activeElement;
+      this.del = { role, error: null, blocked: false, loading: false, closeWhenShown: false };
+      await this.$nextTick();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('roleDeleteModal')).show();
+    },
+    deleteFromPanel() {
+      if (this.rf.loading) return;   // a running save first: never a dialog above an open panel
+      const role = this.roles.find(r => r.id === this.rf.id);
+      this._delOpener = this._opener;   // focus goes back to what opened the panel
+      this.closePanel({ restoreFocus: false });
+      if (role) this.deleteRole(role);
+    },
+    // A 400 from the server (role used in a cost grid / assigned to a team resource) stays in the dialog.
+    // Only the rule refusal disables Delete; a timeout or a server error leaves it to retry.
+    async confirmDelete() {
+      if (this.del.loading || !this.del.role) return;
+      const del = this.del, role = del.role;
+      del.loading = true;
+      del.error = null;
       try {
         await Api.roles.delete(role.id);
         this.roles = this.roles.filter(r => r.id !== role.id);
+        del.loading = false;   // before hide(): the hide.bs.modal guard refuses while a delete runs
+        if (this.del === del) {
+          if (this._delShown) bootstrap.Modal.getInstance(document.getElementById('roleDeleteModal'))?.hide();
+          else del.closeWhenShown = true;
+        }
       } catch (e) {
-        this.globalError = e.message || 'Delete failed.';
-        role._loading = false;
+        del.error = e.message || 'Delete failed.';
+        del.blocked = /^Cannot delete role /.test(e.data?.error || '');
+        // the clicked Delete is now disabled: keep focus (and Esc) inside the dialog
+        if (this.del === del) this.$nextTick(() => document.querySelector('#roleDeleteModal .mdr-cancel')?.focus());
+      } finally {
+        del.loading = false;
       }
-    },
-
-    extractTeam(code) {
-      if (!code) return '—';
-      const idx = code.indexOf(' - ');
-      return idx > 0 ? code.slice(0, idx).trim() : (code.split(/[\s_-]/)[0] || '—');
     },
   },
 }).component('ph-icon', window.PhIcon).mount('#app');
