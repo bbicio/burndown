@@ -109,3 +109,39 @@ describe('POT details drawer', () => {
     expect(page).toContain('editFromDrawer(');
   });
 });
+
+describe('phasing (proposal and project)', () => {
+  it('is a Vue template: no v-html, no string-built tables', () => {
+    expect(page).not.toContain('v-html');
+    expect(page).not.toContain('phasingTableHtml');
+    expect(page).not.toContain('projectPhasingTableHtml');
+  });
+
+  it('offers Export XLS only in Proposal mode', () => {
+    const i = page.indexOf('/api/exports/phasing?year=');
+    expect(i).toBeGreaterThan(-1);
+    expect(page.slice(Math.max(0, i - 300), i)).toContain("phasingMode === 'proposal'");
+  });
+
+  it('opens a project on its reporting page', () => {
+    expect(page).toContain('/portfolio.html?projectId=');
+    expect(page).toContain('Open project reporting');
+  });
+
+  it('totals follow the amounts mode and cells drop the symbol', () => {
+    expect(page).toMatch(/phasingTotals\([^)]*this\.phAmounts/);
+    expect(page).toContain('symbol: false');
+  });
+
+  it('has the empty, filtered-out and past-months texts', () => {
+    expect(page).toContain('No phasing yet');
+    expect(page).toContain('No rows match the current filters.');
+    expect(page).toContain('Past months');
+  });
+
+  it('keeps General POTs out of the POT filter', () => {
+    const i = page.indexOf('phPotOptions() {');
+    expect(i).toBeGreaterThan(-1);
+    expect(page.slice(i, i + 400)).toContain('special_label');
+  });
+});

@@ -213,6 +213,46 @@
     .mdp-tl-note { display: inline-block; margin-top: var(--space-1); padding: 2px var(--space-3); background: var(--surface-subtle); border-radius: var(--radius-sm); font-size: var(--text-sm); color: var(--text-secondary); }
     .mdp-skel { background: var(--surface-subtle); border-radius: var(--radius-sm); }
 
+    /* ── Phasing (level 3) ── */
+    .mdp-export { display: inline-flex; align-items: center; gap: var(--space-1); }
+    .mdp-phasing-desc { font-size: var(--text-sm); color: var(--text-muted); margin: calc(-1 * var(--space-2)) 0 var(--space-4); }
+    .mdp-phasing-card { overflow: visible; }
+    .mdp-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border-light); }
+    .mdp-ftl { font-size: var(--text-sm); color: var(--text-muted); }
+    .mdp-chip { border: 0; border-radius: 999px; padding: 3px 12px; font-size: var(--text-sm); font-weight: var(--weight-semibold); cursor: pointer; }
+    .mdp-chip b { margin-left: 4px; font-weight: var(--weight-bold); }
+    .mdp-chip.is-off { opacity: .45; }
+    .mdp-chip:focus-visible { outline: 2px solid var(--brand-navy); outline-offset: 1px; }
+    .mdp-vsep { width: 1px; align-self: stretch; background: var(--border-light); margin: 0 var(--space-1); }
+    .mdp-filter { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; }
+    .mdp-filter .cg-select, .mdp-filter .cg-select-wrap { min-width: 130px; }
+    .mdp-ph-scroll { overflow: auto; max-height: calc(100vh - 340px); }
+    .mdp-ph-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: var(--text-sm); }
+    .mdp-ph-table th, .mdp-ph-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border-light); white-space: nowrap; background: var(--surface-white); }
+    .mdp-ph-table th {
+      position: sticky; top: 0; z-index: 3; background: var(--surface-light);
+      font-size: 10px; font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted);
+    }
+    .mdp-ph-table .is-num { text-align: right; min-width: 78px; font-variant-numeric: tabular-nums; }
+    .mdp-ph-table .mdp-ph-name { position: sticky; left: 0; z-index: 2; min-width: 220px; max-width: 280px; text-align: left; }
+    .mdp-ph-table th.mdp-ph-name { z-index: 4; }
+    .mdp-ph-table th.is-past, .mdp-ph-table td.is-past { background: var(--surface-light); }
+    .mdp-ph-table th.is-current { background: var(--pipeline-sip-bg); color: var(--pipeline-sip-color); }
+    .mdp-ph-total { font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdp-ph-sum td { background: var(--surface-subtle); font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdp-ph-sum td.is-past { background: var(--surface-subtle); }
+    .mdp-ph-sum-sub { font-weight: var(--weight-regular, 400); font-size: 11.5px; color: var(--text-muted); margin-left: var(--space-1); }
+    .mdp-ph-name-line { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+    .mdp-ph-title { font-weight: var(--weight-semibold); color: var(--brand-navy); overflow: hidden; text-overflow: ellipsis; max-width: 230px; }
+    .mdp-ph-open { color: var(--text-muted); display: inline-flex; flex: none; }
+    .mdp-ph-open:hover { color: var(--brand-magenta); }
+    .mdp-ph-sub { display: flex; align-items: center; gap: var(--space-2); font-size: 11.5px; color: var(--text-muted); }
+    .mdp-cur-pill { display: inline-block; padding: 0 6px; border-radius: 999px; font-size: 10px; font-weight: var(--weight-bold); background: var(--violet-100); color: var(--violet-600); }
+    .mdp-ph-none { font-style: italic; color: var(--text-muted); }
+    .mdp-ph-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); font-size: 11.5px; color: var(--text-muted); }
+    .mdp-ph-legend { display: inline-flex; align-items: center; gap: var(--space-2); }
+    .mdp-ph-swatch { display: inline-block; width: 12px; height: 12px; border: 1px solid var(--border-light); border-radius: 2px; background: var(--surface-light); }
+
     .mdp-empty { padding: var(--space-6) var(--space-4); text-align: center; color: var(--text-muted); font-size: var(--text-sm); }
   </style>
 </head>
@@ -545,109 +585,104 @@
 
     </div><!-- /view B -->
 
-    <!-- ── VIEW C: Phasing for selected pipeline ─────────────── -->
-    <div v-else-if="level === 'phasing' && phasingMode === 'proposal'">
+    <!-- ── VIEW C: Phasing (proposal / project) ──────────────── -->
+    <div v-else-if="level === 'phasing'">
 
-      <!-- Navigation row -->
-      <div class="section-title">
-        <span class="d-flex align-items-center gap-2" style="text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:700;color:#374151">
-          <button class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;text-transform:none;letter-spacing:0"
-                  @click="go({})">← Pipelines</button>
-          Proposal Phasing — Pipeline {{ phasingYear.year }}
-          <span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:600"
-                :style="phasingYear.active ? 'background:#dcfce7;color:#166534' : 'background:#f3f4f6;color:#6b7280'">
-            {{ phasingYear.active ? 'Visible' : 'Hidden' }}
-          </span>
-        </span>
-        <a :href="`/api/exports/phasing?year=${phasingYear.year}`"
-           class="btn btn-outline-secondary btn-sm" style="font-size:.78rem">⬇ Export XLS</a>
+      <button type="button" class="mdp-back" @click="go({ year: year })"><ph-icon name="chevron-left" :size="14"></ph-icon> Pipeline {{ year }} · POT targets</button>
+      <div class="mdp-title-row">
+        <h2 class="mdp-title">{{ phasingMode === 'proposal' ? 'Proposal phasing' : 'Project phasing' }} · Pipeline {{ year }}</h2>
+        <div class="md-seg" role="group" aria-label="Phasing mode">
+          <button type="button" class="md-seg-btn" :class="{ active: phasingMode === 'proposal' }" @click="go({ year: year, phasing: 'proposal' }, { replace: true })">Proposal phasing</button>
+          <button type="button" class="md-seg-btn" :class="{ active: phasingMode === 'project' }" @click="go({ year: year, phasing: 'project' }, { replace: true })">Project phasing</button>
+        </div>
+        <span class="mdp-spacer"></span>
+        <a v-if="phasingMode === 'proposal'" class="btn btn-primary btn-sm mdp-export" :href="'/api/exports/phasing?year=' + year"
+           title="Committed and Anticipated proposals, all clients"><ph-icon name="download" :size="14"></ph-icon> Export XLS</a>
       </div>
+      <p class="mdp-phasing-desc">{{ phasingMode === 'proposal' ? 'Monthly budget phasing of every proposal version in the pipeline (from its cost grid).' : 'Monthly phasing of every project in the pipeline. Open a project to see its reporting.' }}</p>
 
-      <!-- 5 pipeline stage summary cards -->
-      <div class="row g-3 mb-4">
-        <div class="col" v-for="s in pipelineSummary" :key="s.pipeline">
-          <div class="card mb-0" :style="`border-top:3px solid ${stageColor(s.pipeline)};border-radius:10px`">
-            <div class="card-body" style="padding:1rem!important">
-              <div class="fw-bold mb-1" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em"
-                   :style="`color:${stageColor(s.pipeline)}`">{{ s.pipeline }}</div>
-              <div class="fw-bold" style="font-size:1.15rem;color:#1a1a2e;line-height:1.2">{{ formatMoney(s.total, 'EUR', activeCurrencies) }}</div>
-              <div class="text-muted" style="font-size:.75rem;margin-top:2px">({{ s.count }})</div>
+      <section class="mdp-card mdp-phasing-card">
+        <div v-if="phState && phState.loading" class="mdp-empty"><div class="spinner-border text-secondary"></div></div>
+        <div v-else-if="phState && phState.error" class="alert alert-danger alert-sm m-3">{{ phState.error }}</div>
+        <template v-else-if="phData">
+          <!-- Toolbar -->
+          <div class="mdp-toolbar">
+            <span class="mdp-ftl">Stage</span>
+            <button v-for="st in activeStages" :key="st" type="button" class="mdp-chip"
+                    :class="{ 'is-off': phFilter.stages.length && !phFilter.stages.includes(st) }"
+                    :style="{ background: 'var(--pipeline-' + st.toLowerCase() + '-bg)', color: 'var(--pipeline-' + st.toLowerCase() + '-color)' }"
+                    :aria-pressed="phFilter.stages.includes(st)" @click="toggleStage(st)">{{ st }} <b>{{ phCounts[st] }}</b></button>
+            <span class="mdp-vsep"></span>
+            <label class="mdp-filter"><span class="mdp-ftl">Client</span>
+              <cg-select searchable v-model="phFilter.clientId" :options="phClientOptions" aria-label="Client filter" :width="260"></cg-select></label>
+            <label class="mdp-filter"><span class="mdp-ftl">POT</span>
+              <cg-select searchable v-model="phFilter.potId" :options="phPotOptions" aria-label="POT filter" :width="260"></cg-select></label>
+            <button type="button" class="mdp-link" v-if="phFilterActive" @click="clearPhFilter">Clear</button>
+            <span class="mdp-spacer"></span>
+            <span class="mdp-ftl">Amounts</span>
+            <div class="md-seg" role="group" aria-label="Amounts">
+              <button type="button" class="md-seg-btn" :class="{ active: phAmounts === 'eur' }" @click="phAmounts = 'eur'">All in EUR</button>
+              <button type="button" class="md-seg-btn" :class="{ active: phAmounts === 'original' }" @click="phAmounts = 'original'">Original currency</button>
             </div>
           </div>
-        </div>
-        <div v-if="!pipelineSummary.length && !phasingLoading" class="col-12 text-muted" style="font-size:.85rem">
-          No proposals in this pipeline year yet.
-        </div>
-      </div>
 
-      <!-- Phasing table -->
-      <div v-if="phasingLoading" class="text-center py-5">
-        <div class="spinner-border text-primary"></div>
-      </div>
-      <div v-else-if="phasingError" class="alert alert-danger">{{ phasingError }}</div>
-      <div v-else-if="phasingData" class="card md-table-card">
-        <div class="card-body" style="padding:10px 16px 6px;border-bottom:1px solid #e5e7eb">
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            <span style="font-size:.75rem;font-weight:600;color:#6b7280;margin-right:2px">Stage:</span>
-            <button v-for="st in ['SIP','Expected','Anticipated','Committed']" :key="st"
-                    style="font-size:.7rem;padding:1px 8px;border-radius:20px;cursor:pointer;border:1.5px solid;transition:all .15s"
-                    :style="phasingFilterStages.includes(st) ? `background:${stageColor(st)};color:#fff;border-color:${stageColor(st)}` : `background:#fff;color:#6b7280;border-color:#ccc`"
-                    @click="phasingFilterStages.includes(st) ? phasingFilterStages.splice(phasingFilterStages.indexOf(st),1) : phasingFilterStages.push(st)">
-              {{ st }}
-            </button>
-            <select v-model="phasingFilterClient" class="form-select form-select-sm" style="width:auto;font-size:.75rem;height:26px;padding-top:1px;padding-bottom:1px">
-              <option value="">All clients</option>
-              <option v-for="cl in sortedClients" :key="cl.id" :value="cl.id">{{ cl.name }}</option>
-            </select>
-            <button v-if="phasingFilterStages.length || phasingFilterClient"
-                    class="btn btn-sm btn-outline-secondary" style="font-size:.7rem;padding:1px 8px"
-                    @click="phasingFilterStages = []; phasingFilterClient = ''">✕ Clear</button>
+          <div v-if="!phData.projects.length" class="mdp-empty">{{ phasingMode === 'proposal' ? 'No proposals for Pipeline ' + year + '.' : 'No projects for Pipeline ' + year + '.' }}</div>
+          <div v-else-if="!phRows.length" class="mdp-empty">No rows match the current filters.</div>
+          <div v-else class="mdp-ph-scroll">
+            <table class="mdp-ph-table">
+              <thead>
+                <tr>
+                  <th class="mdp-ph-name">{{ phasingMode === 'proposal' ? 'Proposal · client' : 'Project · client' }}</th>
+                  <th class="mdp-ph-stage">Stage</th>
+                  <th v-for="m in phMonths" :key="m.key" class="is-num" :class="{ 'is-current': m.current, 'is-past': m.past }">{{ m.label }}</th>
+                  <th class="is-num mdp-ph-total">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="t in phTotals" :key="'t' + t.currency" class="mdp-ph-sum">
+                  <td class="mdp-ph-name">Total <span class="mdp-ph-sum-sub">{{ phAmounts === 'eur' ? '€ · all amounts in EUR' : t.currency + ' · ' + t.count + ' ' + (phasingMode === 'proposal' ? 'proposals' : 'projects') }}</span></td>
+                  <td class="mdp-ph-stage"></td>
+                  <td v-for="m in phMonths" :key="m.key" class="is-num" :class="{ 'is-current': m.current, 'is-past': m.past }"
+                      :title="t.months[m.key] ? money(t.months[m.key], t.currency) : ''">{{ t.months[m.key] ? money(t.months[m.key], t.currency, true) : '—' }}</td>
+                  <td class="is-num mdp-ph-total" :title="t.total ? money(t.total, t.currency) : ''">{{ t.total ? money(t.total, t.currency, true) : '—' }}</td>
+                </tr>
+                <tr v-for="r in phRows" :key="r.versionId || r.projectId" class="mdp-ph-row">
+                  <td class="mdp-ph-name">
+                    <div class="mdp-ph-name-line">
+                      <span class="mdp-ph-title" :title="r.name">{{ r.name }}</span>
+                      <a class="mdp-ph-open" target="_blank" rel="noopener" :href="rowHref(r)"
+                         :title="phasingMode === 'proposal' ? 'Open proposal' : 'Open project reporting'" :aria-label="'Open ' + r.name"><ph-icon name="arrow-right" :size="12"></ph-icon></a>
+                    </div>
+                    <div class="mdp-ph-sub">
+                      <span>{{ rowSub(r) }}</span>
+                      <span v-if="rowCur(r) !== 'EUR'" class="mdp-cur-pill" title="Proposal currency · converted at the version exchange rate">{{ rowCur(r) }}</span>
+                    </div>
+                  </td>
+                  <td class="mdp-ph-stage"><span class="mdp-stage-pill" :style="{ background: 'var(--pipeline-' + String(r.pipeline).toLowerCase() + '-bg)', color: 'var(--pipeline-' + String(r.pipeline).toLowerCase() + '-color)' }">{{ r.pipeline }}</span></td>
+                  <td v-if="!rowHasAmounts(r)" :colspan="phMonths.length" class="mdp-ph-none">No phasing yet</td>
+                  <template v-else>
+                    <td v-for="m in phMonths" :key="m.key" class="is-num" :class="{ 'is-current': m.current, 'is-past': m.past }"
+                        :title="cellValue(r, m.key) ? money(cellValue(r, m.key), cellCode(r)) : ''">{{ cellValue(r, m.key) ? money(cellValue(r, m.key), cellCode(r), true) : '—' }}</td>
+                  </template>
+                  <td class="is-num mdp-ph-total" :title="rowTotal(r) ? money(rowTotal(r), cellCode(r)) : ''">{{ rowTotal(r) ? money(rowTotal(r), cellCode(r), true) : '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </div>
-        <div class="card-body p-0">
-          <div v-if="!phasingData.projects.length" class="empty" style="padding:1.5rem">No proposals for Pipeline {{ phasingYear.year }}.</div>
-          <div v-else v-html="phasingTableHtml" style="overflow-x:auto"></div>
-        </div>
-      </div>
+
+          <div class="mdp-ph-foot" v-if="phData.projects.length">
+            <span>{{ phRows.length }} {{ phasingMode === 'proposal' ? (phRows.length === 1 ? 'proposal' : 'proposals') : (phRows.length === 1 ? 'project' : 'projects') }} · rounded to the unit</span>
+            <span class="mdp-spacer"></span>
+            <span class="mdp-ph-legend"><i class="mdp-ph-swatch"></i> Past months</span>
+            <span class="mdp-ph-legend" v-if="phAmounts === 'eur' && phForeignCurrencies.length">
+              <span class="mdp-cur-pill" v-for="c in phForeignCurrencies" :key="c">{{ c }}</span> Converted to € at the version rate
+            </span>
+          </div>
+        </template>
+      </section>
 
     </div><!-- /view C -->
 
-    <!-- ── VIEW D: Project Phasing ─────────────────────────── -->
-    <div v-else-if="level === 'phasing' && phasingMode === 'project'">
-      <div class="section-title">
-        <span class="d-flex align-items-center gap-2" style="text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:700;color:#374151">
-          <button class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;text-transform:none;letter-spacing:0"
-                  @click="go({})">← Pipelines</button>
-          Project Phasing — Pipeline {{ projectPhasingYear.year }}
-        </span>
-      </div>
-      <div v-if="projectPhasingLoading" class="text-center py-5"><div class="spinner-border text-primary"></div></div>
-      <div v-else-if="projectPhasingError" class="alert alert-danger">{{ projectPhasingError }}</div>
-      <div v-else-if="projectPhasingData" class="card md-table-card">
-        <div class="card-body" style="padding:10px 16px 6px;border-bottom:1px solid #e5e7eb">
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            <span style="font-size:.75rem;font-weight:600;color:#6b7280;margin-right:2px">Stage:</span>
-            <button v-for="st in ['SIP','Expected','Anticipated','Committed']" :key="st"
-                    style="font-size:.7rem;padding:1px 8px;border-radius:20px;cursor:pointer;border:1.5px solid;transition:all .15s"
-                    :style="ppFilterStages.includes(st) ? `background:${stageColor(st)};color:#fff;border-color:${stageColor(st)}` : `background:#fff;color:#6b7280;border-color:#ccc`"
-                    @click="ppFilterStages.includes(st) ? ppFilterStages.splice(ppFilterStages.indexOf(st),1) : ppFilterStages.push(st)">
-              {{ st }}
-            </button>
-            <select v-model="ppFilterClient" class="form-select form-select-sm" style="width:auto;font-size:.75rem;height:26px;padding-top:1px;padding-bottom:1px">
-              <option value="">All clients</option>
-              <option v-for="cl in sortedClients" :key="cl.id" :value="cl.id">{{ cl.name }}</option>
-            </select>
-            <button v-if="ppFilterStages.length || ppFilterClient"
-                    class="btn btn-sm btn-outline-secondary" style="font-size:.7rem;padding:1px 8px"
-                    @click="ppFilterStages = []; ppFilterClient = ''">✕ Clear</button>
-          </div>
-        </div>
-        <div class="card-body p-0">
-          <div v-if="!projectPhasingData.projects.length" class="empty" style="padding:1.5rem">No projects for Pipeline {{ projectPhasingYear.year }}.</div>
-          <div v-else v-html="projectPhasingTableHtml" style="overflow-x:auto"></div>
-        </div>
-      </div>
-    </div><!-- /view D -->
 
     </div><!-- /pots tab -->
 
@@ -767,6 +802,7 @@
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script type="module" src="js/lib/money.js?v=6"></script>
 <script type="module" src="js/lib/master-pipelines.js?v=1"></script>
+<script type="module" src="js/lib/dates.js?v=4"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
 <script defer src="js/notifications.js?v=3"></script>
@@ -794,17 +830,11 @@ window.__cfgApp = Vue.createApp({
       potDetails:      {},     // { potId: { loading, error, data } } cache of the drawer
       potCounts:       {},     // { year: number of POTs }, from GET /pots without a year
       loadedPotsYear:  null,
-      phasingKey:      null,
-      phasingData:     null,  // { months, totals, projects } from API
-      phasingLoading:        false,
-      phasingError:          null,
-      phasingFilterStages:   [],
-      phasingFilterClient:   '',
-      projectPhasingData:    null,
-      projectPhasingLoading: false,
-      projectPhasingError:   null,
-      ppFilterStages:        [],
-      ppFilterClient:        '',
+      phasing:         { proposal: null, project: null }, // { loading, error, data } per mode, loaded once while on the year
+      phasingYearLoaded: null,
+      phFilter:        { stages: [], clientId: '', potId: '' },
+      phAmounts:       'eur',
+      activeStages:    ['SIP', 'Expected', 'Anticipated', 'Committed'],
       pyf: { show: false, year: new Date().getFullYear() + 1, error: null, loading: false },
       pots:            [],
       potsYear:        new Date().getFullYear(),
@@ -858,12 +888,6 @@ window.__cfgApp = Vue.createApp({
     activePipeline() {
       return this.level === 'list' ? null : (this.pipelineYears.find(py => py.year === this.year) || null);
     },
-    phasingYear() {
-      return this.level === 'phasing' && this.phasingMode === 'proposal' ? this.activePipeline : null;
-    },
-    projectPhasingYear() {
-      return this.level === 'phasing' && this.phasingMode === 'project' ? this.activePipeline : null;
-    },
     pyfInvalid() {
       const y = String(this.pyf.year ?? '').trim();
       if (!y) return false;
@@ -876,164 +900,44 @@ window.__cfgApp = Vue.createApp({
     sortedGroups() {
       return [...this.groups].sort((a, b) => a.name.localeCompare(b.name));
     },
-    potYearOptions() {
-      // Use admin-managed pipeline years; fallback to current year if none loaded yet
-      return this.pipelineYears.length
-        ? this.pipelineYears.map(py => py.year)
-        : [new Date().getFullYear()];
+    phState() { return this.phasing[this.phasingMode]; },
+    phData() { return this.phState ? this.phState.data : null; },
+    phMonths() {
+      if (!this.phData) return [];
+      const d = new Date();
+      const now = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      return this.phData.months.map(key => {
+        const [y, m] = key.split('-');
+        return {
+          key, current: key === now, past: key < now,
+          label: new Date(+y, +m - 1).toLocaleString('en', { month: 'short', year: '2-digit' }),
+        };
+      });
     },
-    phasingTableHtml() {
-      const d = this.phasingData;
-      if (!d || !d.projects.length) return '';
-      const fmtM = (mo) => {
-        const [y, m] = mo.split('-');
-        return new Date(parseInt(y), parseInt(m) - 1).toLocaleString('en', { month: 'short' });
-      };
-      const fmtH    = (n) => n ? Math.round(n * 10) / 10 + ' h' : '—';
-      const fmtDate = (s) => s && s.length >= 6 ? s.slice(0, 4) + '/' + s.slice(4, 6) : '—';
-      const escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      const col = 'text-align:right;padding:5px 8px;font-size:.78rem;white-space:nowrap;min-width:80px';
-      const lbl = 'padding:5px 10px;font-size:.78rem;white-space:nowrap';
-
-      // Apply filters — Canceled and Draft are always excluded
-      const ACTIVE_STAGES = ['SIP', 'Expected', 'Anticipated', 'Committed'];
-      let projects = d.projects.filter(p => ACTIVE_STAGES.includes(p.pipeline));
-      if (this.phasingFilterStages.length)
-        projects = projects.filter(p => this.phasingFilterStages.includes(p.pipeline));
-      if (this.phasingFilterClient)
-        projects = projects.filter(p => p.clientId === this.phasingFilterClient);
-
-      // Recompute totals from filtered set — convert to EUR via currency_rate snapshot
-      const filteredTotals = {};
-      for (const mo of d.months) filteredTotals[mo] = { hours: 0, amount: 0 };
-      for (const p of projects) {
-        const rate = p.currencyRate || 1.0;
-        for (const [mo, val] of Object.entries(p.months)) {
-          if (filteredTotals[mo]) {
-            filteredTotals[mo].hours  += val.hours  || 0;
-            filteredTotals[mo].amount += (val.amount || 0) / rate;
-          }
-        }
-      }
-
-      const monthCols = d.months.map(mo =>
-        `<th style="${col};font-weight:700;border-bottom:2px solid #dee2e6">${fmtM(mo)}</th>`
-      ).join('');
-      const colTot = col + ';background:#f1f3f5;font-weight:700';
-      const totalCols = d.months.map(mo => {
-        const t = filteredTotals[mo] || {};
-        return `<td style="${col};font-weight:700">${t.amount ? window.formatMoney(t.amount, 'EUR', window.__currencies) : '<span style="color:#ccc">—</span>'}</td>`;
-      }).join('');
-      const grandTotalEur = Object.values(filteredTotals).reduce((s, t) => s + (t.amount || 0), 0);
-      const totalRow = `<tr style="background:#f8f9fa;border-top:2px solid #dee2e6">
-        <td style="${lbl};font-weight:700;min-width:220px">TOTAL <span style="font-size:.7rem;font-weight:400;color:#6b7280">(€)</span></td>
-        <td style="${lbl}"></td><td style="${lbl}"></td><td style="${lbl}"></td>
-        ${totalCols}
-        <td style="${colTot}">${(!(grandTotalEur) ? '—' : window.formatMoney(grandTotalEur, 'EUR', window.__currencies))}</td></tr>`;
-      if (!projects.length) return '<p style="padding:1rem;color:#6b7280;font-size:.85rem">No proposals match the current filters.</p>';
-      const projectRows = projects.map(p => {
-        const rate       = p.currencyRate || 1.0;
-        const isNonEur   = p.currency && p.currency !== 'EUR';
-        const rowTotal   = d.months.reduce((s, mo) => s + (p.months[mo]?.amount || 0), 0);
-        const rowTotalEur = rowTotal / rate;
-        const totalCell  = isNonEur
-          ? `${(!(rowTotal) ? '—' : window.formatMoney(rowTotal, (p.currency || 'EUR').trim(), window.__currencies))}<br><span style="font-size:.7rem;color:#6b7280">(${(!(rowTotalEur) ? '—' : window.formatMoney(rowTotalEur, 'EUR', window.__currencies))})</span>`
-          : (rowTotal ? window.formatMoney(rowTotal, 'EUR', window.__currencies) : '<span style="color:#ccc">—</span>');
-        const moCols = d.months.map(mo => {
-          const val = p.months[mo] || {};
-          if (!val.amount) return `<td style="${col}"><span style="color:#ccc">—</span></td>`;
-          const localStr = (!(val.amount) ? '—' : window.formatMoney(val.amount, (p.currency || 'EUR').trim(), window.__currencies));
-          const eurStr   = isNonEur ? `<br><span style="font-size:.7rem;color:#6b7280">(${(!(val.amount / rate) ? '—' : window.formatMoney(val.amount / rate, 'EUR', window.__currencies))})</span>` : '';
-          return `<td style="${col}">${localStr}${eurStr}</td>`;
-        }).join('');
-        return `<tr style="border-top:1px solid #e5e7eb">
-          <td style="${lbl};font-weight:600;min-width:220px">${escHtml(p.name)}<span style="font-size:.7rem;color:#888;display:block">${escHtml(p.versionLabel)}</span></td>
-          <td style="${lbl}"><span style="display:inline-block;padding:1px 8px;border-radius:20px;font-size:.7rem;font-weight:600;background:${this.stageBg(p.pipeline)};color:${this.stageColor(p.pipeline)}">${escHtml(p.pipeline)}</span></td>
-          <td style="${lbl};font-size:.75rem;color:#6b7280">${fmtDate(p.startDate)}</td>
-          <td style="${lbl};font-size:.75rem;color:#6b7280">${fmtDate(p.endDate)}</td>
-          ${moCols}
-          <td style="${colTot};white-space:nowrap">${totalCell}</td></tr>`;
-      }).join('');
-      return `<table style="border-collapse:collapse;width:100%">
-        <thead><tr style="background:#f1f3f5">
-          <th style="${lbl};font-weight:700;min-width:220px;border-bottom:2px solid #dee2e6">Proposal</th>
-          <th style="${lbl};font-weight:700;border-bottom:2px solid #dee2e6">Stage</th>
-          <th style="${lbl};font-weight:700;border-bottom:2px solid #dee2e6">Start</th>
-          <th style="${lbl};font-weight:700;border-bottom:2px solid #dee2e6">End</th>
-          ${monthCols}
-          <th style="${colTot};border-bottom:2px solid #dee2e6">Total</th>
-        </tr></thead>
-        <tbody>${totalRow}${projectRows}</tbody></table>`;
+    phCounts() { return window.stageCounts(this.phData ? this.phData.projects : []); },
+    phPotClients() {
+      const pot = this.phFilter.potId ? window.resolvePot(this.pots, this.phFilter.potId) : null;
+      return pot ? window.potClientIds(pot, this.groups) : null;
     },
-    projectPhasingTableHtml() {
-      const d = this.projectPhasingData;
-      if (!d || !d.projects.length) return '';
-      const fmtM = (mo) => {
-        const [y, m] = mo.split('-');
-        return new Date(parseInt(y), parseInt(m) - 1).toLocaleString('en', { month: 'short', year: '2-digit' });
-      };
-      const escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      const cell = 'text-align:right;padding:5px 8px;font-size:.78rem;white-space:nowrap;min-width:80px;border-left:1px solid #e5e7eb';
-      const lbl  = 'padding:5px 10px;font-size:.78rem;white-space:nowrap';
-
-      // Apply filters — Canceled and Draft always excluded
-      const ACTIVE_STAGES = ['SIP', 'Expected', 'Anticipated', 'Committed'];
-      let projects = d.projects.filter(p => ACTIVE_STAGES.includes(p.pipeline));
-      if (this.ppFilterStages.length) projects = projects.filter(p => this.ppFilterStages.includes(p.pipeline));
-      if (this.ppFilterClient)        projects = projects.filter(p => p.clientId === this.ppFilterClient);
-
-      // Recompute totals from filtered set — convert to EUR via currency_rate snapshot
-      const ft = Object.fromEntries(d.months.map(m => [m, 0]));
-      for (const p of projects) {
-        const rate = p.currencyRate || 1.0;
-        for (const mo of d.months) ft[mo] += (p.months[mo] || 0) / rate;
-      }
-      const grandTotal = Object.values(ft).reduce((s, v) => s + v, 0);
-
-      const cellTotal = cell + ';background:#f1f3f5;font-weight:700';
-      const monthHeaders = d.months.map(mo =>
-        `<th style="${cell};font-weight:700;border-bottom:2px solid #dee2e6;background:#f1f3f5">${fmtM(mo)}</th>`
-      ).join('');
-      const totalCols = d.months.map(mo =>
-        `<td style="${cell};font-weight:700">${(((ft[mo]) == null || (ft[mo]) === 0) ? '—' : window.formatMoney(ft[mo], 'EUR', window.__currencies))}</td>`
-      ).join('');
-      const totalRow = `<tr style="background:#f8f9fa;border-top:2px solid #dee2e6">
-        <td style="${lbl};font-weight:700;min-width:220px">TOTAL <span style="font-size:.7rem;font-weight:400;color:#6b7280">(€)</span></td>
-        <td style="${lbl}"></td>
-        ${totalCols}
-        <td style="${cellTotal}">${(((grandTotal) == null || (grandTotal) === 0) ? '—' : window.formatMoney(grandTotal, 'EUR', window.__currencies))}</td></tr>`;
-
-      if (!projects.length) return '<p style="padding:1rem;color:#6b7280;font-size:.85rem">No projects match the current filters.</p>';
-      const projectRows = projects.map(p => {
-        const rate     = p.currencyRate || 1.0;
-        const isNonEur = p.currency && p.currency !== 'EUR';
-        const rowTotal = d.months.reduce((s, mo) => s + (p.months[mo] || 0), 0);
-        const rowTotalEur = rowTotal / rate;
-        const totalCellContent = isNonEur
-          ? `${(((rowTotal) == null || (rowTotal) === 0) ? '—' : window.formatMoney(rowTotal, (p.currency || 'EUR').trim(), window.__currencies))}<br><span style="font-size:.7rem;color:#6b7280">(${(((rowTotalEur) == null || (rowTotalEur) === 0) ? '—' : window.formatMoney(rowTotalEur, 'EUR', window.__currencies))})</span>`
-          : (((rowTotal) == null || (rowTotal) === 0) ? '—' : window.formatMoney(rowTotal, (p.currency || 'EUR').trim(), window.__currencies));
-        const moCols = d.months.map(mo => {
-          const v = p.months[mo] || 0;
-          if (!v) return `<td style="${cell}"><span style="color:#ccc">—</span></td>`;
-          const localStr = (((v) == null || (v) === 0) ? '—' : window.formatMoney(v, (p.currency || 'EUR').trim(), window.__currencies));
-          const eurStr   = isNonEur ? `<br><span style="font-size:.7rem;color:#6b7280">(${(((v / rate) == null || (v / rate) === 0) ? '—' : window.formatMoney(v / rate, 'EUR', window.__currencies))})</span>` : '';
-          return `<td style="${cell}">${localStr}${eurStr}</td>`;
-        }).join('');
-        return `<tr style="border-top:1px solid #e5e7eb">
-          <td style="${lbl};font-weight:600;min-width:220px">${escHtml(p.name)}</td>
-          <td style="${lbl}"><span style="display:inline-block;padding:1px 8px;border-radius:20px;font-size:.7rem;font-weight:600;background:${this.stageBg(p.pipeline)};color:${this.stageColor(p.pipeline)}">${escHtml(p.pipeline)}</span></td>
-          ${moCols}
-          <td style="${cellTotal};white-space:nowrap">${totalCellContent}</td></tr>`;
-      }).join('');
-
-      return `<table style="border-collapse:collapse;width:100%">
-        <thead><tr style="background:#f1f3f5">
-          <th style="${lbl};font-weight:700;min-width:220px;border-bottom:2px solid #dee2e6">Project</th>
-          <th style="${lbl};font-weight:700;border-bottom:2px solid #dee2e6">Stage</th>
-          ${monthHeaders}
-          <th style="${cellTotal};border-bottom:2px solid #dee2e6">Total</th>
-        </tr></thead>
-        <tbody>${totalRow}${projectRows}</tbody></table>`;
+    phRows() {
+      if (!this.phData) return [];
+      return window.filterPhasingRows(this.phData.projects, {
+        stages: this.phFilter.stages, clientId: this.phFilter.clientId, potClients: this.phPotClients,
+      });
+    },
+    phTotals() { return window.phasingTotals(this.phRows, this.phData ? this.phData.months : [], this.phAmounts); },
+    phFilterActive() { return !!(this.phFilter.stages.length || this.phFilter.clientId || this.phFilter.potId); },
+    phClientOptions() {
+      return [{ value: '', label: 'All' }, ...this.sortedClients.map(c => ({ value: c.id, label: c.name }))];
+    },
+    phPotOptions() {
+      const named = this.pots.filter(p => !p.special_label)
+        .map(p => ({ value: p.id, label: this.potName(p) }))
+        .sort((x, y) => x.label.localeCompare(y.label));
+      return [{ value: '', label: 'All' }, ...named];
+    },
+    phForeignCurrencies() {
+      return [...new Set(this.phRows.map(r => window.rowCurrency(r)).filter(c => c !== 'EUR'))].sort();
     },
   },
 
@@ -1109,29 +1013,19 @@ window.__cfgApp = Vue.createApp({
       this.potf.show = false;
       if (year === null) {
         this.level = 'list'; this.year = null; this.potId = null;
-        this.loadedPotsYear = null; this.phasingKey = null;
+        this.loadedPotsYear = null; this.resetPhasing();
       } else if (!this.pipelineYears.some(py => py.year === year)) {
         this.globalError = `Pipeline ${year} not found.`;
         history.replaceState(null, '', location.pathname);
         return this.applyState({ year: null, pot: null, phasing: null });
       } else if (phasing) {
         this.level = 'phasing'; this.year = year; this.potId = null; this.phasingMode = phasing;
-        const key = year + ':' + phasing;
-        if (this.phasingKey !== key) {
-          this.phasingKey = key;
-          this.phasingFilterStages = []; this.phasingFilterClient = '';
-          this.ppFilterStages = []; this.ppFilterClient = '';
-          const py = this.activePipeline;
-          if (phasing === 'proposal') this.openPhasingView(py); else this.openProjectPhasingView(py);
-        }
+        if (this.phasingYearLoaded !== year) { this.resetPhasing(); this.phasingYearLoaded = year; }
+        if (this.loadedPotsYear !== year) this.loadYearData(year);
+        this.ensurePhasing(phasing);
       } else {
-        this.level = 'pots'; this.year = year; this.potId = pot; this.potsYear = year; this.phasingKey = null;
-        if (this.loadedPotsYear !== year) {
-          this.loadedPotsYear = year;
-          this.pots = []; this.pipelineSummary = [];
-          this.loadPots();
-          this.loadPipelineSummary();
-        }
+        this.level = 'pots'; this.year = year; this.potId = pot; this.potsYear = year; this.resetPhasing();
+        if (this.loadedPotsYear !== year) this.loadYearData(year);
       }
       this.syncChrome();
     },
@@ -1341,34 +1235,60 @@ window.__cfgApp = Vue.createApp({
       );
     },
 
-    async openPhasingView(py) {
-      this.phasingData     = null;
-      this.phasingLoading  = true;
-      this.phasingError    = null;
-      this.pipelineSummary = [];
-      const [summary, phasing] = await Promise.allSettled([
-        Api.pots.pipelineSummary(py.year),
-        Api.reporting.phasing(py.year),
-      ]);
-      this.pipelineSummary = summary.status === 'fulfilled' ? summary.value : [];
-      if (phasing.status === 'fulfilled') {
-        this.phasingData = phasing.value;
-      } else {
-        this.phasingError = phasing.reason?.message || 'Failed to load phasing data.';
-      }
-      this.phasingLoading = false;
+    loadYearData(year) {
+      this.loadedPotsYear = year; this.potsYear = year;
+      this.pots = []; this.pipelineSummary = [];
+      this.loadPots();
+      this.loadPipelineSummary();
     },
 
-    async openProjectPhasingView(py) {
-      this.projectPhasingData    = null;
-      this.projectPhasingLoading = true;
-      this.projectPhasingError   = null;
+    resetPhasing() {
+      this.phasing = { proposal: null, project: null };
+      this.phasingYearLoaded = null;
+      this.phFilter = { stages: [], clientId: '', potId: '' };
+    },
+
+    async ensurePhasing(mode) {
+      if (this.phasing[mode]) return;
+      this.phasing[mode] = { loading: true, error: null, data: null };
+      const entry = this.phasing[mode]; // the reactive proxy: writes through it re-render
       try {
-        this.projectPhasingData = await Api.reporting.projectPhasing(py.year);
-      } catch (err) {
-        this.projectPhasingError = err.message || 'Failed to load project phasing data.';
+        entry.data = mode === 'proposal' ? await Api.reporting.phasing(this.year) : await Api.reporting.projectPhasing(this.year);
+      } catch (e) {
+        entry.error = e.message || (mode === 'proposal' ? 'Failed to load phasing data.' : 'Failed to load project phasing data.');
+      } finally {
+        entry.loading = false;
       }
-      this.projectPhasingLoading = false;
+    },
+
+    toggleStage(st) {
+      const i = this.phFilter.stages.indexOf(st);
+      if (i >= 0) this.phFilter.stages.splice(i, 1); else this.phFilter.stages.push(st);
+    },
+    clearPhFilter() { this.phFilter = { stages: [], clientId: '', potId: '' }; },
+
+    // Phasing cells: rounded without the symbol, the full amount in the tooltip.
+    money(v, code, rounded = false) {
+      return rounded
+        ? window.formatMoney(v, code, window.__currencies, { rounded: true, symbol: false })
+        : window.formatMoney(v, code, window.__currencies);
+    },
+    rowCur(r) { return window.rowCurrency(r); },
+    cellCode(r) { return this.phAmounts === 'eur' ? 'EUR' : window.rowCurrency(r); },
+    cellValue(r, month) {
+      const a = window.rowMonthAmount(r, month);
+      return this.phAmounts === 'eur' ? a / (Number(r.currencyRate) || 1) : a;
+    },
+    rowTotal(r) { return this.phMonths.reduce((s, m) => s + this.cellValue(r, m.key), 0); },
+    rowHasAmounts(r) { return this.phMonths.some(m => window.rowMonthAmount(r, m.key) > 0); },
+    rowHref(r) {
+      return this.phasingMode === 'proposal'
+        ? '/costgrid.html?cgId=' + encodeURIComponent(r.cgId) + '&verId=' + encodeURIComponent(r.versionId)
+        : '/portfolio.html?projectId=' + encodeURIComponent(r.projectId);
+    },
+    rowSub(r) {
+      const c = this.clients.find(x => x.id === r.clientId);
+      return this.phasingMode === 'proposal' ? [c && c.name, r.versionLabel].filter(Boolean).join(' · ') : (c ? c.name : '');
     },
 
     async loadPipelineSummary() {
@@ -1382,8 +1302,8 @@ window.__cfgApp = Vue.createApp({
 
     async loadPotDetails(pot) {
       if (this.potDetails[pot.id]) return;
-      const entry = { loading: true, error: null, data: null };
-      this.potDetails[pot.id] = entry;
+      this.potDetails[pot.id] = { loading: true, error: null, data: null };
+      const entry = this.potDetails[pot.id]; // the reactive proxy: writes through it re-render
       try {
         entry.data = await Api.pots.details(pot.id, this.year);
       } catch (e) {
@@ -1398,18 +1318,6 @@ window.__cfgApp = Vue.createApp({
     async editFromDrawer(pot) {
       await this.go({ year: this.year });
       this.openPotForm(pot);
-    },
-
-    stageColor(pipeline) {
-      return { SIP: '#4285f4', Expected: '#e6a817', Anticipated: '#ef6c00', Committed: '#2e7d32', Canceled: '#757575', Draft: '#546e7a' }[pipeline] || '#6b7280';
-    },
-
-    stageBg(pipeline) {
-      return { SIP: '#e8f0fe', Expected: '#fff8e1', Anticipated: '#fff3e0', Committed: '#e8f5e9', Canceled: '#f5f5f5', Draft: '#eceff1' }[pipeline] || '#f8f9fa';
-    },
-
-    fmtRate(n) {
-      return Number(n).toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     },
 
     fmtDate(iso) {
