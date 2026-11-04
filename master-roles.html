@@ -11,17 +11,23 @@
   <style>
     .alert-sm { font-size: .83rem; padding: .5rem .75rem; }
 
+    /* the boards' pale amber: the warning background thinned with white */
+    #app { --mdr-warn-row: color-mix(in srgb, var(--color-warning-bg) 30%, var(--surface-white));
+           --mdr-warn-pill: color-mix(in srgb, var(--color-warning-bg) 75%, var(--surface-white)); }
+
     /* ── Card head ── */
-    .mdr-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
-    .mdr-head-text { flex: 1 1 260px; min-width: 0; }
+    .mdr-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .mdr-head-text { flex: 1 1 400px; min-width: 260px; }
     .mdr-title-row { display: flex; align-items: baseline; gap: var(--space-1); }
+    .mdr-head .md-card-desc { font-size: 12px; }
+    .mdr-head .md-switch { font-size: 12px; color: var(--text-primary); }
     .mdr-count { font-size: 15px; font-weight: var(--weight-bold); color: var(--brand-navy); }
     .mdr-search {
-      display: flex; align-items: center; gap: var(--space-2); width: 200px; height: 32px; padding: 0 var(--space-3);
+      display: flex; align-items: center; gap: var(--space-2); width: 180px; height: 32px; padding: 0 var(--space-3);
       border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--surface-white); color: var(--text-muted);
     }
     .mdr-search:focus-within { box-shadow: 0 0 0 3px var(--focus-ring); }
-    .mdr-search input { border: 0; outline: 0; flex: 1; min-width: 0; font-size: var(--text-sm); background: transparent; color: var(--brand-navy); }
+    .mdr-search input { border: 0; outline: 0; flex: 1; min-width: 0; font-size: 12.5px; background: transparent; color: var(--brand-navy); }
     .mdr-switch-warn input[type=checkbox]:checked { background: var(--color-warning); }
     .mdr-toggle {
       display: none; align-items: center; height: 40px; padding: 0 var(--space-3);
@@ -50,10 +56,10 @@
     .mdr-grp.is-closed svg { transform: rotate(-90deg); }
     .mdr-grp-name { font-size: 12.5px; font-weight: var(--weight-bold); color: var(--brand-navy); }
     .mdr-grp-count { font-size: 12px; color: var(--text-muted); }
-    .mdr-pill { font-size: 10.5px; font-weight: var(--weight-bold); border-radius: var(--radius-full); padding: 1px 7px; background: var(--color-warning-bg); color: var(--color-warning-text); }
+    .mdr-pill { font-size: 10.5px; font-weight: var(--weight-bold); border-radius: var(--radius-full); padding: 1px 7px; background: var(--mdr-warn-pill); color: var(--color-warning-text); }
     .mdr-row td { height: 50px; }
     .mdr-row:hover td { background: var(--surface-light); }
-    .mdr-row.is-missing td { background: var(--color-warning-bg); }
+    .mdr-row.is-missing td { background: var(--mdr-warn-row); }
     .mdr-role { display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 420px; }
     .mdr-label { font-size: 13px; font-weight: var(--weight-semibold); color: var(--brand-navy); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .mdr-code { font-size: 10.5px; color: var(--text-muted); font-family: ui-monospace, Menlo, Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -76,7 +82,7 @@
     .mdr-phone-bar, .mdr-cards { display: none; }
 
     /* ── Side panel (local, modelled on master-pipelines.html's POT drawer) ── */
-    .mdr-scrim { position: fixed; inset: 0; z-index: calc(var(--z-notification) - 1); background: var(--overlay-scrim); opacity: .5; }
+    .mdr-scrim { position: fixed; inset: 0; z-index: calc(var(--z-notification) - 1); background: var(--brand-navy); opacity: .28; }
     .mdr-drawer {
       position: fixed; top: 0; right: 0; width: min(480px, 100vw); height: 100vh;
       background: var(--surface-white); border-left: 1px solid var(--border-light); box-shadow: var(--shadow-xl);
@@ -135,15 +141,20 @@
     /* ── Delete dialog ── */
     .mdr-del-body { font-size: 12.5px; color: var(--text-primary); line-height: 1.55; }
 
-    /* ── Tablet ── */
-    @media (max-width: 1023.98px) {
+    /* ── Tablet, and desktop below 1280px (the shell keeps its full sidebar at 1024) ── */
+    @media (max-width: 1279.98px) {
       .mdr-head .md-switch { display: none; }
       .mdr-toggle { display: inline-flex; }
       .mdr-head .btn-primary { height: 40px; }
       .mdr-search { order: 10; flex: 1 1 100%; width: auto; height: 40px; }
       .mdr-head-desc { display: none; }
+      .mdr-head-text { flex: 1 1 auto; min-width: 0; }
+      .mdr-table { table-layout: fixed; min-width: 0; }
+      .mdr-role { max-width: none; }
       .mdr-table .is-num { width: 80px; }
-      .mdr-actions, .mdr-act-head { display: none; }
+      /* the actions column stays (a fixed layout would hand a hidden column's share to nobody) but takes no width */
+      .mdr-actions, .mdr-act-head { width: 0; padding: 0 !important; }
+      .mdr-actions > * { display: none; }
       .mdr-chev-col { display: table-cell; }
       .mdr-row { cursor: pointer; }
       .mdr-foot { display: none; }
@@ -172,7 +183,7 @@
         min-height: 44px; display: flex; align-items: center; gap: var(--space-3); width: 100%; text-align: left;
         padding: 10px 14px; border: var(--card-border); border-radius: var(--radius-md); background: var(--surface-white); cursor: pointer;
       }
-      .mdr-card.is-missing { background: var(--color-warning-bg); }
+      .mdr-card.is-missing { background: var(--mdr-warn-row); }
       .mdr-card .mdr-role { flex: 1 1 auto; max-width: none; }
       .mdr-card .mdr-label { white-space: normal; }
       .mdr-card-val { font-size: 14px; font-weight: var(--weight-bold); color: var(--brand-navy); white-space: nowrap; }
@@ -295,10 +306,10 @@
                     </td>
                     <td class="is-num">
                       <span v-if="isMissingRate(r.rate)" class="mdr-norate" title="No € rate: this role can't be priced">No rate</span>
-                      <span v-else class="mdr-rate">{{ formatMoney(r.rate, 'EUR', currencies) }}</span>
+                      <span v-else class="mdr-rate" :title="formatMoney(r.rate, 'EUR', currencies)">{{ rateText(r.rate, 'EUR') }}</span>
                     </td>
                     <td v-for="cu in columns.slice(1)" :key="cu.code" class="is-num">
-                      <span v-if="rateCell(r, cu).text" class="mdr-rate">{{ rateCell(r, cu).text }}</span>
+                      <span v-if="rateCell(r, cu).text" class="mdr-rate" :title="rateCell(r, cu).title">{{ rateCell(r, cu).text }}</span>
                       <span v-else class="mdr-dash" :title="rateCell(r, cu).title" :aria-label="rateCell(r, cu).title">—</span>
                     </td>
                     <td class="mdr-actions">
@@ -487,6 +498,7 @@ window.__cfgApp = Vue.createApp({
       missingOnly:   false,
       closedTeams:   new Set(),
       phoneCurrency: 'EUR',
+      lastTeam:      '',   // team of the last role opened or saved: a new role starts in it
 
       // Role panel state; the saved code is joinCode(team, roleCode)
       rf: { show: false, id: null, title: '', label: '', team: '', roleCode: '', teamOpen: false, teamIdx: -1, rateText: '', overrideTexts: {}, stored: {}, error: null, loading: false },
@@ -565,14 +577,18 @@ window.__cfgApp = Vue.createApp({
     },
     // Tablet and phone open the panel from the row (the Edit link is hidden there).
     onRowClick(role) {
-      if (window.matchMedia('(max-width: 1023.98px)').matches) this.openRoleForm(role);
+      if (window.matchMedia('(max-width: 1279.98px)').matches) this.openRoleForm(role);
+    },
+    // A list amount: no decimals when it is a whole number (150, 150,50); the table's unit is in its header.
+    rateText(v, code, { symbol = false } = {}) {
+      return window.formatMoney(v, code, this.currencies, { symbol, rounded: Number.isInteger(Number(v)) });
     },
     // A non-EUR cell: the role's own override, else "—" with what a proposal would use.
     rateCell(r, cu) {
       const ov = (r.rateOverrides || {})[cu.code];
-      if (ov != null) return { text: window.formatMoney(ov, cu.code, this.currencies), title: '' };
+      if (ov != null) return { text: this.rateText(ov, cu.code), title: window.formatMoney(ov, cu.code, this.currencies) };
       const v = window.fallbackRate(r, cu);
-      return { text: '', title: v == null ? 'No rate' : `≈ ${window.formatMoney(v, cu.code, this.currencies)} from € × rate` };
+      return { text: '', title: v == null ? 'No rate' : `≈ ${this.rateText(v, cu.code)} from € × rate` };
     },
     // The phone card's value in the currency picked in the segmented control.
     phoneValue(r) {
@@ -580,15 +596,15 @@ window.__cfgApp = Vue.createApp({
       if (code === 'EUR') {
         return window.isMissingRate(r.rate)
           ? { text: 'No rate', missing: true, approx: false }
-          : { text: window.formatMoney(r.rate, 'EUR', this.currencies), missing: false, approx: false };
+          : { text: this.rateText(r.rate, 'EUR', { symbol: true }), missing: false, approx: false };
       }
       const cu = this.columns.find(c => c.code === code);
       const ov = (r.rateOverrides || {})[code];
-      if (ov != null) return { text: window.formatMoney(ov, code, this.currencies), missing: false, approx: false };
+      if (ov != null) return { text: this.rateText(ov, code, { symbol: true }), missing: false, approx: false };
       const v = cu ? window.fallbackRate(r, cu) : null;
       return v == null
         ? { text: 'No rate', missing: true, approx: false }
-        : { text: '≈ ' + window.formatMoney(v, code, this.currencies), missing: false, approx: true };
+        : { text: '≈ ' + this.rateText(v, code, { symbol: true }), missing: false, approx: true };
     },
 
     // Text of a stored amount; keepZero makes a stored 0 reopen as '0' (a missing amount stays '').
@@ -602,7 +618,10 @@ window.__cfgApp = Vue.createApp({
       const overrideTexts = {};
       const stored = { EUR: role?.rate == null ? null : Number(role.rate) };
       for (const [cur, val] of Object.entries(role?.rateOverrides || {})) { overrideTexts[cur] = this.amountText(val, cur); stored[cur] = val == null ? null : Number(val); }
-      const { team, role: roleCode } = window.splitCode(role?.code || '');
+      const split = window.splitCode(role?.code || '');
+      const team = role ? split.team : (this.lastTeam || window.teamOptions(this.roles)[0] || '');
+      const roleCode = split.role;
+      if (role && team) this.lastTeam = team;
       this.rf = {
         show:         true,
         id:           role?.id    || null,
@@ -696,6 +715,7 @@ window.__cfgApp = Vue.createApp({
         }
         // open the role's group, keep search and filter
         const team = window.extractTeam(code);
+        if (this.rf.team.trim()) this.lastTeam = team;
         if (this.closedTeams.has(team)) { const next = new Set(this.closedTeams); next.delete(team); this.closedTeams = next; }
         this.rf.show = false;
       } catch (e) {

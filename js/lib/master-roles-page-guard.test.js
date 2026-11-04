@@ -26,6 +26,10 @@ describe('master-roles panel', () => {
     expect(save).toContain('r.code.toLowerCase() === code.toLowerCase()');
     expect(save).not.toMatch(/team\s*:/);
   });
+  it('starts a new role in the last team used, else the first team', () => {
+    const open = between('openRoleForm(role) {', 'closePanel()');
+    expect(open).toContain("role ? split.team : (this.lastTeam || window.teamOptions(this.roles)[0] || '')");
+  });
   it('is a modal dialog that leaves Esc to an open delete dialog', () => {
     expect(html).toContain('class="mdr-drawer" role="dialog" aria-modal="true"');
     const esc = between('onPanelKeydown(e) {', 'onTeamKey(e)');
@@ -53,7 +57,7 @@ describe('master-roles delete dialog', () => {
 
 describe('master-roles responsive layout', () => {
   it('has the tablet and phone breakpoints', () => {
-    expect(html).toContain('@media (max-width: 1023.98px)');
+    expect(html).toContain('@media (max-width: 1279.98px)');
     expect(html).toContain('@media (max-width: 767.98px)');
   });
   it('shows one currency at a time on the phone and keeps Missing rates reachable', () => {
