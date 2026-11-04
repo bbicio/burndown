@@ -79,15 +79,12 @@ describe('Master Data sub-menu styles (css/style.css)', () => {
 });
 
 const PAGES = [
-  { file: 'master-clients.html',       active: 'clients',    section: 'Clients',
-    api: ['clients', 'currencies', 'ratecards', 'roles'],
+  { file: 'master-clients.html',       active: 'clients',    section: 'Clients & groups',
+    api: ['clientGroups', 'clients', 'currencies', 'ratecards', 'roles'],
     // the rate card builds its non-EUR columns from window.__currencies and its
     // "agency default" placeholders from the roles it reads afresh on each open
-    must: ['id="clientRcModal"', 'window.__cfgApp',
-      'window.__currencies = await Api.currencies.active()', 'this.clients = await Api.clients.list()'] },
-  { file: 'master-client-groups.html', active: 'clients',    section: 'Client Groups',
-    api: ['clientGroups', 'clients'],
-    must: ['this.clients  = clients;', 'this.groups   = groups.map('] },
+    must: ['window.__cfgApp', 'window.__currencies = await Api.currencies.active()',
+      'Api.clientGroups.list()', 'Api.ratecards.list()', 'readUrlState('] },
   { file: 'master-pipelines.html',     active: 'pipelines',  section: 'Pipelines & POTs',
     api: ['clientGroups', 'clients', 'currencies', 'pipelineYears', 'pots', 'reporting'],
     must: ['id="potDetailsModal"', 'this.yearTotals    = yearTotals;'] },
@@ -107,7 +104,7 @@ describe.each(PAGES)('Master Data page: $file', ({ file, active, section, api, m
       '<div id="app-main">\\s*<div class="ph">[\\s\\S]*?<h1 class="ph-title">Master Data</h1>[\\s\\S]*?'
       + '<div class="ph-sub">Clients, pipelines, roles, rates and currencies used across the app\\.</div>\\s*</div>\\s*</div>\\s*'
       + '<div class="md-layout">\\s*<nav class="md-subnav" data-md-active="' + active + '" aria-label="Master Data"></nav>\\s*'
-      + '<div class="md-content">\\s*<div id="app" v-cloak>\\s*<section class="md-card">'));
+      + '<div class="md-content">\\s*<div id="app" v-cloak>\\s*<section class="md-card"(?: v-show="[^"]*")?>'));
     expect(html).not.toContain('ph-side');
   });
 
@@ -180,6 +177,45 @@ describe('config.html is only a redirect to the Clients page', () => {
   it('runs no Vue and has no shell', () => {
     expect(html).not.toMatch(/vue/i);
     expect(html).not.toContain('app-shell');
+  });
+});
+
+describe('master-client-groups.html is only a redirect to the By group view', () => {
+  const html = read('master-client-groups.html');
+  it('redirects (meta refresh + script) to /master-clients.html?view=group', () => {
+    expect(html).toContain('http-equiv="refresh" content="0; url=/master-clients.html?view=group"');
+    expect(html).toContain("location.replace('/master-clients.html?view=group')");
+    expect(html).toContain('Go to Clients &amp; groups');
+  });
+  it('runs no Vue and has no shell', () => {
+    expect(html).not.toMatch(/vue/i);
+    expect(html).not.toContain('app-shell');
+    expect(html).not.toContain('Vue.createApp');
+  });
+});
+
+describe('master-clients.html (Clients & groups)', () => {
+  const html = read('master-clients.html');
+  it('has no native dialog, emoji or form card', () => {
+    expect(html).not.toContain('confirm(');
+    expect(html).not.toContain('alert(');
+    for (const e of ['💲', '✏️', '🗑', '🏢']) expect(html, e).not.toContain(e);
+    expect(html).not.toContain('form-card');
+    expect(html).not.toContain('clientRcModal');
+  });
+  it('titles the third breadcrumb level Clients & groups and drops the old link', () => {
+    expect(html).toContain("{ label: 'Clients & groups' }");
+    expect(html).not.toContain('master-client-groups.html');
+  });
+  it('disables the group menu of a client while its move is running', () => {
+    expect(html).toMatch(/:disabled="[^"]*_moving/);
+  });
+  it('loads the pure module', () => {
+    expect(html).toContain('<script type="module" src="js/lib/master-clients.js?v=1"></script>');
+  });
+  it('has no hex colour in its inline styles', () => {
+    const styles = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+    expect(styles).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 });
 

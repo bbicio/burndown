@@ -9,45 +9,149 @@
   <link rel="stylesheet" href="css/tokens.css?v=13">
   <link rel="stylesheet" href="css/style.css?v=32">
   <style>
-    .section-title {
-      font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-      color: #6b7280; margin-bottom: .75rem; display: flex; align-items: center;
-      justify-content: space-between;
-    }
-
-    .card { border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.05); margin-bottom: 2rem; }
-    .card-body { padding: 0; }
-
-    .table { margin: 0; font-size: .875rem; }
-    .table thead th {
-      background: #f9fafb; border-bottom: 1px solid #e5e7eb;
-      font-size: .78rem; font-weight: 600; text-transform: uppercase;
-      letter-spacing: .04em; color: #6b7280; padding: .65rem 1rem;
-    }
-    .table tbody td { padding: .75rem 1rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6; }
-    .table tbody tr:last-child td { border-bottom: none; }
-    .table tbody tr:hover td { background: #fafafa; }
-
-    .team-sep td { background: #f0f2ff; font-size: .75rem; font-weight: 700; color: #5468c4;
-                   padding: 4px 1rem; border-top: 2px solid #c5cef7; }
-
-    .form-card {
-      border: 1px solid #e5e7eb; border-radius: 8px;
-      background: #fff; padding: 1rem 1.25rem; margin-bottom: 1.25rem;
-    }
-    .form-card-title { font-size: .82rem; font-weight: 700; color: var(--brand-navy); margin-bottom: .75rem; }
-
-    .cfg-tabs { border-bottom: 2px solid var(--border-light); margin-bottom: 1.5rem; display: flex; gap: 0; }
-    .cfg-tab-btn { background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
-                   padding: .6rem 1.25rem; font-size: .88rem; font-weight: 600; color: #6b7280; cursor: pointer; }
-    .cfg-tab-btn:hover { color: var(--brand-navy); }
-    .cfg-tab-btn.active { color: var(--brand-magenta); border-bottom-color: var(--brand-magenta); }
-
-    .empty { text-align: center; padding: 2.5rem 1rem; color: #9ca3af; font-size: .875rem; }
     .alert-sm { font-size: .83rem; padding: .5rem .75rem; }
-    code { background: #f3f4f6; border-radius: 4px; padding: 1px 5px; font-size: .82rem; color: #374151; }
+    code { background: var(--surface-subtle); border-radius: 4px; padding: 1px 5px; font-size: .82rem; color: var(--text-primary); }
 
-    .rate-warn { color: #dc3545; font-size: .75rem; }
+    /* ── Card head ── */
+    .cg-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+    .cg-head .md-card-title { margin-right: var(--space-1); }
+    .cg-spacer { flex: 1 1 auto; }
+    .cg-search {
+      display: flex; align-items: center; gap: var(--space-2); width: 190px; height: 34px; padding: 0 var(--space-3);
+      border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--surface-white); color: var(--text-muted);
+    }
+    .cg-search:focus-within { box-shadow: 0 0 0 3px var(--focus-ring); }
+    .cg-search input { border: 0; outline: 0; flex: 1; min-width: 0; font-size: var(--text-sm); background: transparent; color: var(--brand-navy); }
+
+    /* ── Table ── */
+    .cg-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+    .cg-table th {
+      background: var(--surface-light); border-bottom: 1px solid var(--border-light);
+      font-size: 10px; font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .06em;
+      color: var(--text-muted); padding: var(--space-3) var(--space-4); text-align: left;
+    }
+    .cg-table td { padding: 0 var(--space-4); height: 52px; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+    .cg-row:hover td { background: var(--surface-light); }
+    .cg-name { font-size: 13.5px; font-weight: var(--weight-semibold); color: var(--brand-navy); }
+    .cg-indent { padding-left: 46px !important; }
+    .cg-actions { text-align: right; white-space: nowrap; }
+    .cg-link { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--brand-navy); text-decoration: none; margin-right: var(--space-2); background: none; border: 0; padding: 0; cursor: pointer; }
+    .cg-link:hover { color: var(--brand-magenta); }
+    .cg-icon-btn {
+      width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+      border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer;
+    }
+    .cg-icon-btn:hover:not(:disabled) { background: var(--surface-subtle); color: var(--brand-navy); }
+    .cg-icon-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── Pills ── */
+    .cg-pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11.5px; font-weight: var(--weight-semibold); border: 0; white-space: nowrap; }
+    .cg-pill-custom { background: var(--color-success-bg); color: var(--color-success-text); cursor: pointer; }
+    .cg-pill-agency { background: var(--surface-subtle); color: var(--text-muted); cursor: pointer; }
+    .cg-pill-pot { background: var(--violet-100); color: var(--violet-600); }
+
+    /* ── Group selector ── */
+    .cg-select-btn {
+      display: inline-flex; align-items: center; gap: var(--space-2); max-width: 180px; height: 32px; padding: 0 var(--space-3);
+      border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--surface-white);
+      font-size: var(--text-sm); color: var(--brand-navy); cursor: pointer;
+    }
+    .cg-select-btn.is-empty { border-color: transparent; background: transparent; color: var(--text-muted); }
+    .cg-select-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cg-select-btn:disabled { opacity: .6; cursor: progress; }
+    .cg-menu-item { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); font-size: var(--text-sm); }
+    .cg-menu-hint { display: block; font-size: 11px; color: var(--text-muted); white-space: normal; }
+
+    /* ── Inline forms ── */
+    .cg-new td { background: var(--surface-light); height: 60px; }
+    .cg-input {
+      height: 34px; padding: 0 var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+      font-size: var(--text-sm); color: var(--brand-navy); background: var(--surface-white); min-width: 0; width: 100%;
+    }
+    .cg-input:focus { outline: 0; border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
+    .cg-new-line { display: flex; align-items: center; gap: var(--space-3); }
+    .cg-hint { font-size: var(--text-sm); color: var(--text-muted); }
+    .cg-err { font-size: 12px; color: var(--color-danger-text); padding: var(--space-1) var(--space-4); background: var(--surface-light); }
+
+    /* ── Group header ── */
+    .cg-group-row td { background: var(--surface-light); height: 46px; }
+    .cg-group-row .cg-group-name { font-size: 13.5px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .cg-group-row.is-none .cg-group-name, .cg-group-row.is-none .pd-icon { color: var(--text-muted); }
+    .cg-group-line { display: flex; align-items: center; gap: var(--space-2); }
+    .cg-group-count { font-size: var(--text-sm); color: var(--text-muted); margin-right: var(--space-1); }
+    .cg-chev { transition: transform var(--duration-fast); }
+    .cg-chev.is-collapsed { transform: rotate(-90deg); }
+    .cg-empty-row td { height: 46px; color: var(--text-muted); font-size: var(--text-sm); }
+
+    /* ── Add-client popover ── */
+    .cg-add-wrap { position: relative; display: inline-block; }
+    .cg-pop {
+      position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; width: 320px; text-align: left;
+      background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+      padding: var(--space-3) var(--space-2); max-height: 320px; overflow-y: auto;
+    }
+    .cg-pop-title { font-size: 10px; font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); padding: 0 var(--space-3) var(--space-2); }
+    .cg-pop-item { display: flex; justify-content: space-between; gap: var(--space-3); width: 100%; border: 0; background: transparent; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); font-size: var(--text-sm); color: var(--brand-navy); text-align: left; cursor: pointer; }
+    .cg-pop-item:hover { background: var(--surface-subtle); }
+    .cg-pop-from { color: var(--color-warning-text); }
+    .cg-pop-none { color: var(--text-muted); }
+
+    .cg-note { padding: var(--space-4); font-size: 11.5px; color: var(--text-muted); }
+    /* ── Rate card ── */
+    .rc-view { min-width: 0; }
+    .rc-back { display: inline-flex; align-items: center; gap: var(--space-1); border: 0; background: none; padding: 0; font-size: var(--text-sm); color: var(--text-muted); cursor: pointer; }
+    .rc-back:hover { color: var(--brand-navy); }
+    .rc-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-top: var(--space-1); }
+    .rc-title { font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--brand-navy); margin: 0; }
+    .rc-desc { font-size: var(--text-sm); color: var(--text-muted); margin: var(--space-2) 0 var(--space-4); }
+    .rc-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); margin-bottom: var(--space-3); }
+    .rc-legend { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); color: var(--text-muted); }
+    .rc-chip { display: inline-block; min-width: 34px; padding: 1px 6px; border: 1px solid var(--border-light); border-radius: var(--radius-xs); font-size: 11px; text-align: center; color: var(--text-muted); background: var(--surface-white); }
+    .rc-chip.is-custom { border-color: var(--brand-navy); color: var(--brand-navy); font-weight: var(--weight-bold); }
+    .rc-chip.is-conv { color: var(--violet-600); font-style: italic; }
+    .rc-how { display: inline-flex; align-items: center; gap: var(--space-1); border: 0; background: none; font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--brand-navy); cursor: pointer; }
+    .rc-howto { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-3); font-size: var(--text-sm); color: var(--brand-navy); }
+    .rc-howto-h { font-weight: var(--weight-bold); margin-bottom: var(--space-1); }
+    .rc-howto-note { color: var(--text-muted); margin-top: var(--space-1); }
+    .rc-table-card { background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow: hidden; }
+    .rc-scroll { max-height: calc(100vh - 360px); min-height: 280px; overflow: auto; }
+    .rc-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--text-sm); }
+    .rc-table thead th { position: sticky; top: 0; z-index: 3; height: 52px; background: var(--surface-white); border-bottom: 1px solid var(--border-light); padding: 0 var(--space-3) var(--space-2); font-size: 10px; font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .06em; color: var(--brand-navy); text-align: left; vertical-align: bottom; }
+    .rc-table thead th.rc-col-agency { color: var(--text-muted); text-align: right; }
+    .rc-fallback { display: block; font-size: 11px; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text-muted); }
+    .rc-col-role { min-width: 260px; padding-left: var(--space-4) !important; }
+    .rc-col-agency { text-align: right; white-space: nowrap; color: var(--brand-navy); }
+    .rc-col-client, .rc-col-cur { min-width: 150px; }
+    .rc-col-reset { width: 44px; text-align: center; }
+    .rc-fam td { position: sticky; top: 52px; z-index: 2; background: var(--surface-light); border-bottom: 1px solid var(--border-light); padding: 0 var(--space-4); height: 40px; }
+    .rc-fam-btn { display: flex; align-items: center; gap: var(--space-2); width: 100%; border: 0; background: none; padding: 0; cursor: pointer; color: var(--brand-navy); }
+    .rc-fam-name { font-weight: var(--weight-bold); }
+    .rc-fam-count { margin-left: auto; font-size: var(--text-sm); color: var(--text-muted); }
+    .rc-fam-count.has-custom { color: var(--color-success-text); }
+    .rc-row td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+    .rc-row td.rc-col-role { padding-left: var(--space-4); }
+    .rc-role { font-size: 13.5px; color: var(--brand-navy); }
+    .rc-code { font-family: monospace; font-size: 10.5px; color: var(--text-muted); }
+    .rc-missing-dash { color: var(--color-warning-text); }
+    .rc-input-wrap { display: flex; align-items: center; gap: var(--space-2); height: 36px; padding: 0 var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--surface-white); }
+    .rc-input-wrap:focus-within { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
+    .rc-input-wrap.is-custom { border-color: var(--brand-navy); }
+    .rc-input-wrap.is-custom input { font-weight: var(--weight-bold); }
+    .rc-sym { color: var(--text-muted); font-size: 12px; }
+    .rc-input-wrap input { border: 0; outline: 0; background: transparent; width: 100%; min-width: 0; font-size: var(--text-sm); color: var(--brand-navy); }
+    .rc-input-wrap input::placeholder { color: var(--text-muted); opacity: 1; }
+    .rc-cap { font-size: 11px; margin-top: 2px; color: var(--text-muted); }
+    .rc-cap.is-custom { color: var(--color-success-text); }
+    .rc-cap.is-converted { color: var(--violet-600); font-style: italic; }
+    .rc-cap.is-missing { color: var(--color-warning-text); }
+    .rc-savebar { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+    .rc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); }
+    .rc-dot.is-dirty { background: var(--color-warning-text); }
+    .rc-status { font-size: var(--text-sm); color: var(--brand-navy); }
+    .rc-msg { font-size: var(--text-sm); }
+    .rc-msg.is-ok { color: var(--color-success-text); }
+    .rc-msg.is-error { color: var(--color-danger-text); }
+    .empty { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: var(--text-sm); }
   </style>
 </head>
 <body>
@@ -67,10 +171,22 @@
 <div class="md-content">
 
 <div id="app" v-cloak>
-<section class="md-card">
-  <div class="md-card-head">
-    <h2 class="md-card-title">Clients</h2>
-    <p class="md-card-desc">Manage the clients used across the app. <a href="/master-client-groups.html">Client groups →</a></p>
+<section class="md-card" v-show="!rateClientId">
+  <div class="md-card-head cg-head">
+    <h2 class="md-card-title">Clients &amp; groups</h2>
+    <template v-if="ready">
+      <div class="md-seg" role="group" aria-label="View">
+        <button type="button" class="md-seg-btn" :class="{ active: view === 'list' }" @click="setView('list')">List</button>
+        <button type="button" class="md-seg-btn" :class="{ active: view === 'group' }" @click="setView('group')">By group</button>
+      </div>
+      <div class="cg-spacer"></div>
+      <label class="cg-search">
+        <ph-icon name="search" :size="14"></ph-icon>
+        <input type="text" v-model="query" placeholder="Search client or group…" autocomplete="off">
+      </label>
+      <button type="button" class="btn btn-outline-secondary btn-sm" @click="startNewGroup()">+ Add group</button>
+      <button type="button" class="btn btn-primary btn-sm" @click="startNewClient()">+ Add client</button>
+    </template>
   </div>
   <div class="md-card-body">
 
@@ -93,121 +209,277 @@
 
     <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
 
-    <div>
-    <div class="section-title">
-      <span>Clients <span class="fw-normal text-muted">({{ clients.length }})</span></span>
-      <button class="btn btn-primary btn-sm" @click="openClientForm()">+ Add client</button>
-    </div>
+    <div class="md-table-card">
+      <table class="cg-table">
+        <thead><tr><th>Name</th><th>Client group</th><th>Rate card</th><th></th></tr></thead>
 
-    <!-- Client form -->
-    <div class="form-card" v-if="cf.show">
-      <div class="form-card-title">{{ cf.id ? 'Edit client' : 'New client' }}</div>
-      <div class="row g-2 align-items-end">
-        <div class="col-md-5">
-          <label class="form-label fw-semibold" style="font-size:.82rem">Name</label>
-          <input type="text" class="form-control form-control-sm" v-model="cf.name"
-                 @keydown.enter="saveClient" placeholder="e.g. Acme Corp" ref="cfName" autocomplete="off">
-        </div>
-        <div class="col-auto d-flex gap-2">
-          <button class="btn btn-primary btn-sm" @click="saveClient" :disabled="cf.loading">
-            <span v-if="cf.loading" class="spinner-border spinner-border-sm me-1"></span>
-            {{ cf.id ? 'Save' : 'Create' }}
-          </button>
-          <button class="btn btn-outline-secondary btn-sm" @click="cf.show = false">Cancel</button>
-        </div>
-      </div>
-      <div v-if="cf.error" class="alert alert-danger alert-sm mt-2">{{ cf.error }}</div>
-    </div>
+        <!-- New group row -->
+        <tbody v-if="ng.show">
+          <tr class="cg-new">
+            <td colspan="4">
+              <div class="cg-new-line">
+                <ph-icon name="building" :size="18"></ph-icon>
+                <input type="text" class="cg-input" style="max-width:440px" v-model="ng.name" ref="ngName" autocomplete="off"
+                       placeholder="Group name, e.g. Italian Public Sector"
+                       @keydown.enter="createGroup" @keydown.esc="cancelNewGroup">
+                <span class="cg-hint">Add clients to it after creating it.</span>
+                <span class="cg-spacer"></span>
+                <button type="button" class="btn btn-link btn-sm text-decoration-none" @click="cancelNewGroup">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" :disabled="!ng.name.trim() || ng.loading" @click="createGroup">Create group</button>
+              </div>
+            </td>
+          </tr>
+          <tr v-if="ng.error"><td colspan="4" class="cg-err">{{ ng.error }}</td></tr>
+        </tbody>
 
-    <div class="card md-table-card">
-      <div class="card-body">
-        <table class="table table-hover" v-if="clients.length">
-          <thead><tr><th>Name</th><th></th></tr></thead>
-          <tbody>
-            <tr v-for="c in sortedClients" :key="c.id">
-              <td class="fw-semibold">{{ c.name }}</td>
-              <td class="text-end" style="white-space:nowrap">
-                <button class="btn btn-outline-primary btn-sm me-1" style="font-size:.75rem"
-                        @click="openClientRatecard(c)">💲 Costgrid</button>
-                <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
-                        @click="openClientForm(c)">✏️ Edit</button>
-                <button class="btn btn-outline-danger btn-sm" style="font-size:.75rem"
-                        :disabled="c._loading" @click="deleteClient(c)">
-                  <span v-if="c._loading" class="spinner-border spinner-border-sm"></span>
-                  <span v-else>🗑</span>
+        <!-- New client row -->
+        <tbody v-if="cf.show">
+          <tr class="cg-new">
+            <td>
+              <input type="text" class="cg-input" v-model="cf.name" ref="cfName" autocomplete="off"
+                     placeholder="Client name, e.g. Acme Corp"
+                     @keydown.enter="createClient" @keydown.esc="cancelNewClient">
+            </td>
+            <td>
+              <select class="cg-input" v-model="cf.groupId">
+                <option :value="null">No group</option>
+                <option v-for="g in sortedGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
+              </select>
+            </td>
+            <td><span class="cg-hint">Agency rates</span></td>
+            <td class="cg-actions">
+              <button type="button" class="btn btn-link btn-sm text-decoration-none" @click="cancelNewClient">Cancel</button>
+              <button type="button" class="btn btn-primary btn-sm" :disabled="!cf.name.trim() || cf.loading" @click="createClient">Create</button>
+            </td>
+          </tr>
+          <tr v-if="cf.error"><td colspan="4" class="cg-err">{{ cf.error }}</td></tr>
+        </tbody>
+
+        <tbody v-for="sec in sections" :key="sec.key">
+          <!-- Group header (By group view) -->
+          <tr v-if="!sec.flat" class="cg-group-row" :class="{ 'is-none': !sec.group }">
+            <td colspan="4">
+              <div class="cg-group-line">
+                <button type="button" class="cg-icon-btn" :aria-label="isCollapsed(sec) ? 'Expand' : 'Collapse'" @click="toggleSection(sec)">
+                  <ph-icon name="chevron-down" :size="14" class="cg-chev" :class="{ 'is-collapsed': isCollapsed(sec) }"></ph-icon>
                 </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="empty" v-else>No clients yet. Add your first client above.</div>
-      </div>
-    </div>
+                <ph-icon name="building" :size="18"></ph-icon>
+                <template v-if="sec.group && gr.id === sec.group.id">
+                  <input type="text" class="cg-input" style="max-width:300px" v-model="gr.name" ref="grName" autocomplete="off"
+                         @keydown.enter="saveRename" @keydown.esc="cancelRename">
+                  <button type="button" class="btn btn-primary btn-sm" :disabled="gr.loading" @click="saveRename">Save</button>
+                  <button type="button" class="btn btn-link btn-sm text-decoration-none" @click="cancelRename">Cancel</button>
+                  <span v-if="gr.error" class="cg-err p-0 bg-transparent">{{ gr.error }}</span>
+                </template>
+                <template v-else>
+                  <span class="cg-group-name">{{ sec.group ? sec.group.name : 'No group' }}</span>
+                  <span class="cg-group-count">{{ countLabel(sec) }}</span>
+                  <span v-if="sec.group && sec.group.pots && sec.group.pots.length" class="cg-pill cg-pill-pot"
+                        title="Clients in a group share one POT">{{ potLabel(sec.group) }}</span>
+                </template>
+                <span class="cg-spacer"></span>
+                <template v-if="sec.group">
+                  <div class="cg-add-wrap">
+                    <button type="button" class="cg-link" @click.stop="addOpen = addOpen === sec.group.id ? null : sec.group.id">+ Add client</button>
+                    <div v-if="addOpen === sec.group.id" class="cg-pop" @click.stop>
+                      <div class="cg-pop-title">Add to {{ sec.group.name }}</div>
+                      <div v-if="!addCandidates(sec.group).length" class="cg-hint px-3 py-2">Every client is already in this group.</div>
+                      <button v-for="c in addCandidates(sec.group)" :key="c.id" type="button" class="cg-pop-item"
+                              @click="addOpen = null; moveTo(c, sec.group.id)">
+                        <span>{{ c.name }}</span>
+                        <span v-if="c.groupId" class="cg-pop-from">Move from {{ groupName(c.groupId) }}</span>
+                        <span v-else class="cg-pop-none">No group</span>
+                      </button>
+                    </div>
+                  </div>
+                  <button type="button" class="cg-icon-btn" aria-label="Rename group" title="Rename group" @click="startRename(sec.group)"><ph-icon name="pencil" :size="15"></ph-icon></button>
+                  <button type="button" class="cg-icon-btn" aria-label="Delete group"
+                          :disabled="!!(sec.group.pots && sec.group.pots.length)"
+                          :title="groupDeleteHint(sec.group)" @click="deleteGroup(sec.group)"><ph-icon name="trash" :size="15"></ph-icon></button>
+                </template>
+              </div>
+            </td>
+          </tr>
 
-    </div><!-- /clients tab -->
+          <template v-if="!sec.flat && isCollapsed(sec)"></template>
+          <template v-else>
+            <tr v-if="!sec.flat && sec.group && !sec.clients.length && !query.trim()" class="cg-empty-row">
+              <td colspan="4" class="cg-indent">No clients in this group yet · use "+ Add client" or pick the group on a client.</td>
+            </tr>
+            <template v-for="c in sec.clients" :key="c.id">
+              <tr class="cg-row">
+                <!-- Name -->
+                <td :class="{ 'cg-indent': !sec.flat }">
+                  <template v-if="ce.id === c.id">
+                    <div class="d-flex align-items-center gap-2">
+                      <input type="text" class="cg-input" v-model="ce.name" ref="ceName" autocomplete="off"
+                             @keydown.enter="saveClientEdit" @keydown.esc="cancelClientEdit">
+                      <button type="button" class="btn btn-primary btn-sm" :disabled="ce.loading" @click="saveClientEdit">Save</button>
+                      <button type="button" class="btn btn-link btn-sm text-decoration-none" @click="cancelClientEdit">Cancel</button>
+                    </div>
+                  </template>
+                  <span v-else class="cg-name">{{ c.name }}</span>
+                </td>
+                <!-- Client group -->
+                <td>
+                  <div class="dropdown">
+                    <button type="button" class="cg-select-btn" :class="{ 'is-empty': !c.groupId }"
+                            data-bs-toggle="dropdown" aria-expanded="false" :disabled="c._moving">
+                      <span>{{ c.groupId ? groupName(c.groupId) : 'No group' }}</span>
+                      <ph-icon name="chevron-down" :size="12"></ph-icon>
+                    </button>
+                    <ul class="dropdown-menu">
+                      <li><button type="button" class="dropdown-item cg-menu-item" @click="moveTo(c, null)">
+                        <span>No group</span><ph-icon v-if="!c.groupId" name="check" :size="14"></ph-icon></button></li>
+                      <li v-for="g in sortedGroups" :key="g.id"><button type="button" class="dropdown-item cg-menu-item" @click="moveTo(c, g.id)">
+                        <span>{{ g.name }}</span><ph-icon v-if="c.groupId === g.id" name="check" :size="14"></ph-icon></button></li>
+                      <li><hr class="dropdown-divider"></li>
+                      <li><button type="button" class="dropdown-item cg-menu-item" @click="startNewGroupFor(c)">+ New group…</button></li>
+                    </ul>
+                  </div>
+                </td>
+                <!-- Rate card pill -->
+                <td>
+                  <button v-if="customCountOf(c.id)" type="button" class="cg-pill cg-pill-custom" @click="openRateCard(c)">{{ customCountOf(c.id) }} custom rate{{ customCountOf(c.id) === 1 ? '' : 's' }}</button>
+                  <button v-else type="button" class="cg-pill cg-pill-agency" @click="openRateCard(c)">Agency rates</button>
+                </td>
+                <!-- Actions -->
+                <td class="cg-actions">
+                  <button type="button" class="cg-link" @click="openRateCard(c)">Rate card →</button>
+                  <button type="button" class="cg-icon-btn" aria-label="Edit client" title="Edit client" @click="startClientEdit(c)"><ph-icon name="pencil" :size="15"></ph-icon></button>
+                  <div class="dropdown d-inline-block">
+                    <button type="button" class="cg-icon-btn" aria-label="More actions" data-bs-toggle="dropdown" aria-expanded="false"><ph-icon name="more" :size="15"></ph-icon></button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <li><button type="button" class="dropdown-item" :disabled="c._loading" @click="deleteClient(c)">Delete
+                        <span class="cg-menu-hint">Not possible while projects use this client</span></button></li>
+                    </ul>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="ce.id === c.id && ce.error"><td colspan="4" class="cg-err">{{ ce.error }}</td></tr>
+            </template>
+          </template>
+        </tbody>
+      </table>
+
+      <div v-if="!clients.length" class="empty">No clients yet. Use + Add client to create the first one.</div>
+      <div v-else-if="query.trim() && !hasMatches" class="empty">No clients match "{{ query.trim() }}".</div>
+      <div v-if="view === 'group' && !groups.length && clients.length" class="empty">No client groups yet. Groups bundle clients together for POT targets.</div>
+      <div class="cg-note">A client group puts affiliates under one umbrella: in Pipelines &amp; POTs the group has a single POT.</div>
+    </div>
 
   </div><!-- .page -->
   </div><!-- /.md-card-body -->
 </section>
-<!-- Client Rate Card Modal (inside #app: a Vue template) -->
-<div class="modal fade" id="clientRcModal" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header border-0" style="background:#0B1840;color:#fff;border-radius:0">
-        <h5 class="modal-title fw-bold" id="clientRcTitle">{{ rc.title }}</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+
+<!-- ── RATE CARD (sub-view of ?client=<id>) ─────────────────── -->
+<section class="rc-view" v-if="ready && rateClientId">
+  <button type="button" class="rc-back" @click="backToList()"><ph-icon name="chevron-left" :size="14"></ph-icon> Clients</button>
+  <div class="rc-title-row">
+    <h2 class="rc-title">Rate card · {{ rateClientName }}</h2>
+    <span class="cg-pill cg-pill-custom">{{ rcCustomRowCount }} role{{ rcCustomRowCount === 1 ? '' : 's' }} customized</span>
+  </div>
+  <p class="rc-desc">Custom hourly rates for this client, applied automatically when it's selected in a new proposal. Leave a field empty to use the agency rate.</p>
+
+  <div v-if="rc.loading" class="text-center py-5"><div class="spinner-border text-secondary"></div></div>
+  <div v-else-if="rc.loadError" class="alert alert-danger alert-sm">{{ rc.loadError }}</div>
+  <template v-else>
+    <div class="rc-toolbar">
+      <label class="cg-search" style="width:240px">
+        <ph-icon name="search" :size="14"></ph-icon>
+        <input type="text" v-model="rcSearch" placeholder="Search role or code…" autocomplete="off">
+      </label>
+      <label class="md-switch"><input type="checkbox" v-model="rcOnlyCustom"> Only customized</label>
+      <span class="cg-spacer"></span>
+      <span class="rc-legend">
+        <span class="rc-chip is-custom">168</span> Custom
+        <span class="rc-chip">155</span> Agency
+        <span class="rc-chip is-conv">≈ 95</span> From € × rate
+      </span>
+      <button type="button" class="rc-how" :aria-expanded="rcHowOpen" @click="rcHowOpen = !rcHowOpen"><ph-icon name="info" :size="14"></ph-icon> How rates resolve</button>
+    </div>
+
+    <div v-if="rcHowOpen" class="rc-howto">
+      <div>
+        <div class="rc-howto-h">EUR</div>
+        <div>1 · Client rate in €</div>
+        <div>2 · Agency rate in € (Roles &amp; rates)</div>
       </div>
-      <div class="modal-body p-0">
-        <div class="px-4 pt-3 pb-2" style="background:#f8fafc;border-bottom:1px solid #e5e7eb">
-          <p class="text-muted mb-0" style="font-size:.8rem">
-            Set custom hourly rates for this client. Leave a field blank to fall back to the agency default.
-            Custom rates are applied automatically when this client is selected in a new proposal.
-          </p>
-        </div>
-        <div id="clientRcBody" class="px-4 pt-3 pb-2">
-          <div class="text-center py-4" v-if="rc.loading"><div class="spinner-border text-primary"></div></div>
-          <div class="text-danger p-3" v-else-if="rc.loadError">{{ rc.loadError }}</div>
-          <table class="table table-sm table-hover mb-0" style="font-size:.83rem" v-else>
-            <thead>
-              <tr>
-                <th style="font-size:.78rem">Role</th>
-                <th style="font-size:.78rem">Code</th>
-                <th style="font-size:.78rem">Agency default</th>
-                <th style="font-size:.78rem">Client custom ({{ eurSymbol }}/h)</th>
-                <th style="font-size:.78rem" v-for="cu in rcExtraCurrencies" :key="cu.code">{{ cu.symbol }} {{ cu.code }}/h</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in rc.rows" :key="row.roleId">
-                <td class="fw-semibold align-middle" style="font-size:.83rem">{{ row.label || row.code || '' }}</td>
-                <td class="align-middle"><code style="font-size:.78rem">{{ row.code || '' }}</code></td>
-                <td class="align-middle text-muted" style="font-size:.83rem">{{ row.defaults.EUR != null ? moneyText(row.defaults.EUR, 'EUR') : '—' }}</td>
-                <td>
-                  <input type="text" inputmode="decimal" class="form-control form-control-sm"
-                         v-model="row.texts.EUR" :placeholder="rcPlaceholder(row, 'EUR')" style="width:130px"
-                         @focus="onRcFocus(row, 'EUR')" @blur="onRcBlur(row, 'EUR')">
-                </td>
-                <td v-for="cu in rcExtraCurrencies" :key="cu.code">
-                  <input type="text" inputmode="decimal" class="form-control form-control-sm"
-                         v-model="row.texts[cu.code]" :placeholder="rcPlaceholder(row, cu.code)" style="width:130px"
-                         @focus="onRcFocus(row, cu.code)" @blur="onRcBlur(row, cu.code)">
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="modal-footer flex-column align-items-stretch gap-2">
-        <div id="clientRcMsg" class="alert py-2 px-3 small mb-0" :class="rc.msgKind === 'success' ? 'alert-success' : 'alert-danger'" v-if="rc.msg">{{ rc.msg }}</div>
-        <div class="d-flex justify-content-end gap-2">
-          <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-          <button class="btn btn-primary btn-sm" id="clientRcSaveBtn" :disabled="rc.loading || !!rc.loadError || rc.saving"
-                  @click="saveClientRatecard">Save rates</button>
-        </div>
+      <div v-if="rcExtraCurrencies.length">
+        <div class="rc-howto-h">Other currencies (e.g. {{ rcExtraCurrencies[0].code }})</div>
+        <div>1 · Client rate in {{ rcExtraCurrencies[0].code }}</div>
+        <div>2 · Agency rate in {{ rcExtraCurrencies[0].code }}</div>
+        <div>3 · € rate (client or agency) × exchange rate</div>
+        <div class="rc-howto-note">Steps 1–2 are used as they are, without conversion. A custom € rate doesn't change {{ rcExtraCurrencies[0].code }} when an agency {{ rcExtraCurrencies[0].code }} rate exists. The exchange rate is the one saved in the proposal version at creation, not the live one.</div>
       </div>
     </div>
-  </div>
-</div>
+
+    <div class="rc-table-card">
+      <div class="rc-scroll">
+        <table class="rc-table">
+          <thead>
+            <tr>
+              <th class="rc-col-role">Role</th>
+              <th class="rc-col-agency">Agency<br>€/h</th>
+              <th class="rc-col-client">Client<br>{{ eurSymbol }}/h</th>
+              <th v-for="cu in rcExtraCurrencies" :key="cu.code" class="rc-col-cur">{{ cu.code }}/h<span class="rc-fallback">Fallback 1 € = {{ Number(cu.current_rate) }}</span></th>
+              <th class="rc-col-reset"></th>
+            </tr>
+          </thead>
+          <tbody v-for="fam in rcFamilies" :key="fam.name">
+            <tr class="rc-fam">
+              <td :colspan="4 + rcExtraCurrencies.length">
+                <button type="button" class="rc-fam-btn" @click="rcFamClosed[fam.name] = !rcFamClosed[fam.name]">
+                  <ph-icon name="chevron-down" :size="14" class="cg-chev" :class="{ 'is-collapsed': rcFamClosed[fam.name] }"></ph-icon>
+                  <span class="rc-fam-name">{{ fam.name }}</span>
+                  <span class="rc-fam-count" :class="{ 'has-custom': fam.custom }">{{ fam.custom ? fam.custom + ' of ' + fam.total + ' customized' : fam.total + ' role' + (fam.total === 1 ? '' : 's') + ' · agency rates' }}</span>
+                </button>
+              </td>
+            </tr>
+            <template v-if="!rcFamClosed[fam.name]">
+              <tr v-for="r in fam.rows" :key="r.row.roleId" class="rc-row">
+                <td class="rc-col-role">
+                  <div class="rc-role">{{ r.row.label || r.row.code || '' }}</div>
+                  <div class="rc-code">{{ r.row.code || '' }}</div>
+                </td>
+                <td class="rc-col-agency"><span v-if="r.row.defaults.EUR > 0">{{ moneyText(r.row.defaults.EUR, 'EUR') }}</span><span v-else class="rc-missing-dash">—</span></td>
+                <td class="rc-col-client">
+                  <div class="rc-input-wrap" :class="{ 'is-custom': r.cells.EUR.kind === 'custom' }">
+                    <span class="rc-sym">{{ eurSymbol }}</span>
+                    <input type="text" inputmode="decimal" v-model="r.row.texts.EUR" :placeholder="cellPlaceholder(r.cells.EUR, 'EUR')"
+                           @focus="onRcFocus(r.row, 'EUR')" @blur="onRcBlur(r.row, 'EUR')">
+                  </div>
+                  <div class="rc-cap" :class="'is-' + r.cells.EUR.kind">{{ cellCaption(r.cells.EUR, 'EUR') }}</div>
+                </td>
+                <td v-for="cu in rcExtraCurrencies" :key="cu.code" class="rc-col-cur">
+                  <div class="rc-input-wrap" :class="{ 'is-custom': r.cells[cu.code].kind === 'custom' }">
+                    <span class="rc-sym">{{ cu.symbol }}</span>
+                    <input type="text" inputmode="decimal" v-model="r.row.texts[cu.code]" :placeholder="cellPlaceholder(r.cells[cu.code], cu.code)"
+                           @focus="onRcFocus(r.row, cu.code)" @blur="onRcBlur(r.row, cu.code)">
+                  </div>
+                  <div class="rc-cap" :class="'is-' + r.cells[cu.code].kind">{{ cellCaption(r.cells[cu.code], cu.code) }}</div>
+                </td>
+                <td class="rc-col-reset">
+                  <button v-if="r.isCustom" type="button" class="cg-icon-btn" aria-label="Reset to agency rates" title="Reset to agency rates" @click="resetRcRow(r.row)"><ph-icon name="reset" :size="15"></ph-icon></button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+        <div v-if="!rcFamilies.length" class="empty">No roles match.</div>
+      </div>
+    </div>
+
+    <div class="rc-savebar">
+      <span class="rc-dot" :class="{ 'is-dirty': rcDirtyCount > 0 }"></span>
+      <span class="rc-status">{{ rcDirtyCount > 0 ? rcDirtyCount + ' unsaved change' + (rcDirtyCount === 1 ? '' : 's') : 'All rates saved' }}</span>
+      <span v-if="rc.msg" class="rc-msg" :class="rc.msgKind === 'success' ? 'is-ok' : 'is-error'">{{ rc.msg }}</span>
+      <span class="cg-spacer"></span>
+      <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="rcDirtyCount === 0 || rc.saving" @click="discardRc">Discard</button>
+      <button type="button" class="btn btn-primary btn-sm" :disabled="rc.loading || !!rc.loadError || rc.saving" @click="saveClientRatecard">Save rates</button>
+    </div>
+  </template>
+</section>
 
 </div><!-- #app -->
 </div><!-- /.md-content -->
@@ -227,6 +499,7 @@
 <script defer src="js/core.js?v=15"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script type="module" src="js/lib/money.js?v=5"></script>
+<script type="module" src="js/lib/master-clients.js?v=1"></script>
 <script defer src="js/notifications.js?v=3"></script>
 <script type="module" src="js/lib/icons.js?v=6"></script>
 <script type="module" src="js/lib/md-subnav.js?v=3"></script>
@@ -240,23 +513,78 @@ window.__cfgApp = Vue.createApp({
       accessDenied: false,
       globalError:  null,
 
-      clients:  [],
+      view:  'list',
+      query: '',
+      collapsed: {},
+      addOpen: null,
 
+      clients:   [],   // { id, name, groupId }
+      groups:    [],   // { id, name, pots, clients }
+      ratecards: [],
       currencies: [],
 
-      // Client rate card modal state
+      rateClientId: null,
+      rcSearch: '', rcOnlyCustom: false, rcHowOpen: false, rcFamClosed: {},
+
+      // Client rate card state
       rc: { title: 'Rate Card', loading: false, loadError: null, msg: null, msgKind: 'success', msgSeq: 0, saving: false, id: null, rows: [] },
 
-      // Client form state
-      cf: { show: false, id: null, name: '', error: null, loading: false },
-
+      // New client row / client name edit / new group row / group rename
+      cf: { show: false, name: '', groupId: null, error: null, loading: false },
+      ce: { id: null, name: '', error: null, loading: false },
+      ng: { show: false, name: '', error: null, loading: false, forClientId: null },
+      gr: { id: null, name: '', error: null, loading: false },
     };
   },
 
   computed: {
-    sortedClients() {
-      return [...this.clients].sort((a, b) => a.name.localeCompare(b.name));
+    sortedGroups() { return [...this.groups].sort((a, b) => a.name.localeCompare(b.name)); },
+    groupsById()   { return new Map(this.groups.map(g => [g.id, g])); },
+    filtered()     { return window.filterClients(this.clients, this.groupsById, this.query); },
+    sections() {
+      if (this.view === 'list') return [{ key: 'all', flat: true, group: null, clients: this.filtered }];
+      const q = this.query.trim().toLowerCase();
+      return window.groupSections(this.filtered, this.groups)
+        .filter(s => !q || s.clients.length || (s.group && s.group.name.toLowerCase().includes(q)))
+        .map(s => ({ key: s.group ? s.group.id : 'none', flat: false, ...s }));
     },
+    hasMatches() { return this.filtered.length > 0; },
+    // Rows of the open rate card with each cell's source; a row's family groups it. Filters apply to the rows
+    // shown, the "x of y customized" counts stay those of the whole family.
+    rcFamilies() {
+      const rows = this.rc.rows || [];
+      const codes = ['EUR', ...this.rcExtraCurrencies.map(cu => cu.code)];
+      const withCells = rows.map(row => {
+        const cells = Object.fromEntries(codes.map(c => [c, window.cellSource({ row, code: c, currencies: this.currencies })]));
+        return { row, cells, isCustom: codes.some(c => cells[c].kind === 'custom'), family: window.roleFamily(row.code) };
+      });
+      const q = this.rcSearch.trim().toLowerCase();
+      const shown = withCells.filter(r => (!q || (r.row.label || '').toLowerCase().includes(q) || (r.row.code || '').toLowerCase().includes(q))
+        && (!this.rcOnlyCustom || r.isCustom));
+      return window.sortFamilies([...new Set(shown.map(r => r.family))]).map(name => {
+        const all = withCells.filter(r => r.family === name);
+        return { name, rows: shown.filter(r => r.family === name), total: all.length, custom: all.filter(r => r.isCustom).length };
+      });
+    },
+    rcCustomRowCount() {
+      const codes = ['EUR', ...this.rcExtraCurrencies.map(cu => cu.code)];
+      return (this.rc.rows || []).filter(row => codes.some(c => window.cellSource({ row, code: c, currencies: this.currencies }).kind === 'custom')).length;
+    },
+    // Cells whose amount differs from the one the card was opened (or last saved) with.
+    rcDirtyCount() {
+      let n = 0;
+      for (const row of this.rc.rows || []) {
+        for (const code of Object.keys(row.texts)) {
+          const now = row.texts[code], was = row.initial?.[code] ?? '';
+          if (now === was) continue;
+          const a = window.readMoneyInput(now, code, this.currencies, { stored: row.stored[code] });
+          const b = window.readMoneyInput(was, code, this.currencies, { stored: row.stored[code] });
+          if (!(a === b || (Number.isNaN(a) && Number.isNaN(b)))) n++;
+        }
+      }
+      return n;
+    },
+    rateClientName() { return this.clients.find(c => c.id === this.rateClientId)?.name || ''; },
     rcExtraCurrencies() { return this.currencies.filter(cu => cu.code !== 'EUR'); },
     eurSymbol() { return window.currencyInfo('EUR', this.currencies).symbol; },
   },
@@ -265,20 +593,36 @@ window.__cfgApp = Vue.createApp({
     const user = await initNav('config', { breadcrumbs: [
       { label: 'Home', href: '/pipeline.html' },
       { label: 'Master Data', href: '/master-clients.html' },
-      { label: 'Clients' },
+      { label: 'Clients & groups' },
     ]});
     if (!user) return;
     if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
     // the client rate card builds its non-EUR columns from window.__currencies
     try { window.__currencies = await Api.currencies.active(); } catch {}
     this.currencies = window.__currencies || [];
+    this.view = window.readUrlState(location.search).view;
     await this.loadAll();
     this.ready = true;
+    this.applyUrl();
+  },
+
+  mounted() {
+    document.addEventListener('click', () => { this.addOpen = null; });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') this.addOpen = null; });
+    window.addEventListener('popstate', () => this.onPopState());
+    window.addEventListener('beforeunload', e => {
+      if (this.rateClientId && this.rcDirtyCount > 0) { e.preventDefault(); e.returnValue = ''; }
+    });
+    // The list crumb of the breadcrumb leaves the rate card through the same unsaved-changes check.
+    document.addEventListener('click', e => {
+      const a = e.target.closest && e.target.closest('#breadcrumb-bar a[href^="/master-clients.html"]');
+      if (a && this.rateClientId) { e.preventDefault(); this.backToList(); }
+    });
   },
 
   watch: {
-    // The banner lives at the top of the page, above the tabs: a failed action on a long list
-    // (e.g. a blocked role delete) would otherwise set the message where nobody is looking.
+    // The banner lives at the top of the page, above the table: a failed action on a long list
+    // would otherwise set the message where nobody is looking.
     globalError(msg) { if (msg) window.scrollTo({ top: 0, behavior: 'smooth' }); },
   },
 
@@ -286,39 +630,89 @@ window.__cfgApp = Vue.createApp({
     async loadAll() {
       this.globalError = null;
       try {
-        this.clients = await Api.clients.list();
+        const [clients, groups, ratecards] = await Promise.all([
+          Api.clients.list(), Api.clientGroups.list(), Api.ratecards.list(),
+        ]);
+        this.groups = groups;
+        this.ratecards = ratecards;
+        const groupOf = new Map(groups.flatMap(g => (g.clients || []).map(c => [c.id, g.id])));
+        this.clients = clients.map(c => ({ id: c.id, name: c.name, groupId: groupOf.get(c.id) ?? null }));
       } catch (e) {
         this.globalError = e.message || 'Failed to load data.';
       }
     },
 
-    openClientForm(client) {
-      this.cf = {
-        show: true,
-        id:   client?.id   || null,
-        name: client?.name || '',
-        error: null, loading: false,
-      };
-      this.$nextTick(() => this.$refs.cfName?.focus());
+    // Re-reads the groups (and each client's group) after a change; a failure leaves the page as it is.
+    async reloadGroups() {
+      try {
+        const groups = await Api.clientGroups.list();
+        const groupOf = new Map(groups.flatMap(g => (g.clients || []).map(c => [c.id, g.id])));
+        this.groups = groups;
+        this.clients.forEach(c => { c.groupId = groupOf.get(c.id) ?? null; });
+      } catch (e) {
+        this.globalError = e.message || 'Failed to reload groups.';
+      }
     },
 
-    async saveClient() {
+    setView(v) {
+      this.view = v;
+      const qs = window.urlFor({ view: v, clientId: null });
+      history.replaceState(null, '', qs || location.pathname);
+    },
+
+    groupName(id) { return this.groupsById.get(id)?.name || ''; },
+    countLabel(sec) {
+      const n = this.clients.filter(c => sec.group ? c.groupId === sec.group.id : !c.groupId).length;
+      return `${n} client${n === 1 ? '' : 's'}`;
+    },
+    potLabel(g) {
+      const first = g.pots[0].year;
+      return g.pots.length > 1 ? `POT · ${first} +${g.pots.length - 1}` : `POT · ${first}`;
+    },
+    groupDeleteHint(g) {
+      return g.pots && g.pots.length
+        ? `Can't delete: this group has a POT (${g.pots.map(p => p.year).join(', ')}). Remove the POT first.`
+        : 'Delete group';
+    },
+    addCandidates(g) {
+      return this.clients.filter(c => c.groupId !== g.id).sort((a, b) => a.name.localeCompare(b.name));
+    },
+    customCountOf(clientId) {
+      return window.customRateCount(this.ratecards.find(r => r.client_id === clientId));
+    },
+    isCollapsed(sec) { return !!this.collapsed[sec.key]; },
+    toggleSection(sec) { this.collapsed = { ...this.collapsed, [sec.key]: !this.collapsed[sec.key] }; },
+
+    // ── Clients ──
+    startNewClient() {
+      this.cf = { show: true, name: '', groupId: null, error: null, loading: false };
+      this.$nextTick(() => { const el = this.$refs.cfName; (Array.isArray(el) ? el[0] : el)?.focus(); });
+    },
+    cancelNewClient() { this.cf.show = false; },
+
+    async createClient() {
       const name = this.cf.name.trim();
       this.cf.error = null;
       if (!name) { this.cf.error = 'Name is required.'; return; }
-
-      const dup = this.clients.find(c => c.name.toLowerCase() === name.toLowerCase() && c.id !== this.cf.id);
+      const dup = this.clients.find(c => c.name.toLowerCase() === name.toLowerCase());
       if (dup) { this.cf.error = `A client named "${dup.name}" already exists.`; return; }
 
       this.cf.loading = true;
       try {
-        if (this.cf.id) {
-          await Api.clients.update(this.cf.id, name);
-          const c = this.clients.find(c => c.id === this.cf.id);
-          if (c) c.name = name;
-        } else {
-          const created = await Api.clients.create(name);
-          this.clients.push({ id: created.id, name: created.name || name });
+        const created = await Api.clients.create(name);
+        const client = { id: created.id, name: created.name || name, groupId: null };
+        this.clients.push(client);
+        const toGroupId = this.cf.groupId;
+        if (toGroupId) {
+          try {
+            await Api.clientGroups.assignClient(toGroupId, client.id);
+            client.groupId = toGroupId;
+          } catch (e) {
+            // the client exists, without a group
+            this.cf.error = e.message || 'The client was created, but adding it to the group failed.';
+            return;
+          }
+          await this.reloadGroups();
         }
         this.cf.show = false;
       } catch (e) {
@@ -328,16 +722,196 @@ window.__cfgApp = Vue.createApp({
       }
     },
 
-    async deleteClient(client) {
-      if (!confirm(`Delete client "${client.name}"?\n\nProjects assigned to this client will become unassigned.`)) return;
-      client._loading = true;
+    startClientEdit(c) {
+      this.ce = { id: c.id, name: c.name, error: null, loading: false };
+      this.$nextTick(() => { const el = this.$refs.ceName; (Array.isArray(el) ? el[0] : el)?.focus(); });
+    },
+    cancelClientEdit() { this.ce = { id: null, name: '', error: null, loading: false }; },
+
+    async saveClientEdit() {
+      const name = this.ce.name.trim();
+      this.ce.error = null;
+      if (!name) { this.ce.error = 'Name is required.'; return; }
+      const dup = this.clients.find(c => c.name.toLowerCase() === name.toLowerCase() && c.id !== this.ce.id);
+      if (dup) { this.ce.error = `A client named "${dup.name}" already exists.`; return; }
+
+      this.ce.loading = true;
       try {
-        await Api.clients.delete(client.id);
-        this.clients = this.clients.filter(c => c.id !== client.id);
+        await Api.clients.update(this.ce.id, name);
+        const c = this.clients.find(c => c.id === this.ce.id);
+        if (c) c.name = name;
+        this.cancelClientEdit();
       } catch (e) {
-        this.globalError = e.message || 'Delete failed.';
-        client._loading = false;
+        this.ce.error = e.message || 'Save failed.';
+        this.ce.loading = false;
       }
+    },
+
+    deleteClient(client) {
+      showConfirm(`Delete client "${client.name}"? This can't be undone.`, async () => {
+        client._loading = true;
+        try {
+          await Api.clients.delete(client.id);
+          this.clients = this.clients.filter(c => c.id !== client.id);
+          await this.reloadGroups();
+        } catch (e) {
+          this.globalError = e.message || 'Delete failed.';
+          client._loading = false;
+        }
+      }, null, 'Delete client');
+    },
+
+    // The group of a client changes by remove + assign (see moveClient); the picker of that row stays
+    // disabled until it is done, and a failure puts the previous group back.
+    async moveTo(client, toGroupId) {
+      if (client._moving) return;
+      const fromGroupId = client.groupId || null;
+      if (fromGroupId === (toGroupId || null)) return;
+      client._moving = true;
+      client.groupId = toGroupId || null;
+      try {
+        await window.moveClient({ clientId: client.id, fromGroupId, toGroupId: toGroupId || null }, Api.clientGroups);
+      } catch (e) {
+        client.groupId = fromGroupId;
+        this.globalError = e.message || 'Could not change the group.';
+      } finally {
+        await this.reloadGroups();
+        client._moving = false;
+      }
+    },
+
+    // ── Groups ──
+    startNewGroup() {
+      this.ng = { show: true, name: '', error: null, loading: false, forClientId: null };
+      this.setView('group');
+      this.$nextTick(() => { const el = this.$refs.ngName; (Array.isArray(el) ? el[0] : el)?.focus(); });
+    },
+    startNewGroupFor(client) {
+      this.startNewGroup();
+      this.ng.forClientId = client.id;
+    },
+    cancelNewGroup() { this.ng.show = false; },
+
+    async createGroup() {
+      const name = this.ng.name.trim();
+      this.ng.error = window.groupNameError(name, this.groups, null);
+      if (this.ng.error) return;
+
+      this.ng.loading = true;
+      try {
+        const created = await Api.clientGroups.create(name);
+        await this.reloadGroups();
+        const client = this.ng.forClientId && this.clients.find(c => c.id === this.ng.forClientId);
+        this.ng.show = false;
+        if (client) await this.moveTo(client, created.id);
+      } catch (e) {
+        this.ng.error = e.message || 'Save failed.';
+      } finally {
+        this.ng.loading = false;
+      }
+    },
+
+    startRename(g) {
+      this.gr = { id: g.id, name: g.name, error: null, loading: false };
+      this.$nextTick(() => { const el = this.$refs.grName; (Array.isArray(el) ? el[0] : el)?.focus(); });
+    },
+    cancelRename() { this.gr = { id: null, name: '', error: null, loading: false }; },
+
+    async saveRename() {
+      this.gr.error = window.groupNameError(this.gr.name, this.groups, this.gr.id);
+      if (this.gr.error) return;
+      this.gr.loading = true;
+      try {
+        await Api.clientGroups.rename(this.gr.id, this.gr.name.trim());
+        await this.reloadGroups();
+        this.cancelRename();
+      } catch (e) {
+        this.gr.error = e.message || 'Save failed.';
+        this.gr.loading = false;
+      }
+    },
+
+    deleteGroup(g) {
+      showConfirm(`Delete group "${g.name}"? Its clients become ungrouped.`, async () => {
+        try {
+          await Api.clientGroups.delete(g.id);
+        } catch (e) {
+          // e.g. 409: a POT was created for the group since the page loaded
+          this.globalError = e.message || 'Delete failed.';
+        }
+        await this.reloadGroups();
+      }, null, 'Delete group');
+    },
+
+    // ── Rate card (sub-view of ?client=<id>) ──
+    setBreadcrumbs(client) {
+      const items = [
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Master Data', href: '/master-clients.html' },
+      ];
+      if (client) {
+        items.push({ label: 'Clients & groups', href: '/master-clients.html' }, { label: `${client.name} · Rate card` });
+      } else {
+        items.push({ label: 'Clients & groups' });
+      }
+      window.updateBreadcrumbs(items);
+    },
+    enterRateCard(client) {
+      this.rateClientId = client.id;
+      this.rcSearch = ''; this.rcOnlyCustom = false; this.rcHowOpen = false; this.rcFamClosed = {};
+      this.setBreadcrumbs(client);
+      window.scrollTo({ top: 0 });
+      return this.openClientRatecard(client);
+    },
+    openRateCard(client) {
+      history.pushState(null, '', window.urlFor({ view: this.view, clientId: client.id }));
+      return this.enterRateCard(client);
+    },
+    // Applies the URL (load, back/forward): a rate card for a known client, else the list.
+    applyUrl() {
+      const st = window.readUrlState(location.search);
+      this.view = st.view;
+      if (st.clientId) {
+        const client = this.clients.find(c => c.id === st.clientId);
+        if (client) { this.enterRateCard(client); return; }
+        this.globalError = 'Client not found.';
+        history.replaceState(null, '', window.urlFor({ view: st.view, clientId: null }) || location.pathname);
+      }
+      this.rateClientId = null;
+      this.setBreadcrumbs(null);
+    },
+    async onPopState() {
+      const st = window.readUrlState(location.search);
+      if (this.rateClientId && st.clientId !== this.rateClientId && !(await this.leaveRateCard())) {
+        history.pushState(null, '', window.urlFor({ view: this.view, clientId: this.rateClientId }));
+        return;
+      }
+      this.applyUrl();
+    },
+    // true when there is nothing unsaved or the user agreed to leave
+    leaveRateCard() {
+      if (this.rcDirtyCount === 0) return Promise.resolve(true);
+      return new Promise(resolve => {
+        showConfirm('You have unsaved rate changes. Leave without saving?', () => resolve(true), () => resolve(false), 'Unsaved changes');
+      });
+    },
+    async backToList() {
+      if (!(await this.leaveRateCard())) return;
+      history.pushState(null, '', window.urlFor({ view: this.view, clientId: null }) || location.pathname);
+      this.rateClientId = null;
+      this.setBreadcrumbs(null);
+    },
+    cellPlaceholder(cell, code) {
+      return cell.value > 0 ? this.amountText(cell.value, code) : '—';
+    },
+    cellCaption(cell, code) {
+      return { custom: 'Custom', agency: 'Agency', 'agency-currency': `Agency ${code}`, converted: 'From € × rate',
+               missing: code === 'EUR' ? 'No rate · set one' : 'No rate' }[cell.kind];
+    },
+    resetRcRow(row) { Object.keys(row.texts).forEach(c => { row.texts[c] = ''; }); },
+    discardRc() { this.rc.rows.forEach(row => { row.texts = { ...row.initial }; }); },
+    async refreshRatecards() {
+      try { this.ratecards = await Api.ratecards.list(); } catch { /* the list pills keep their last values */ }
     },
 
     // Text of a stored amount; keepZero makes a stored 0 reopen as '0'
@@ -368,7 +942,6 @@ window.__cfgApp = Vue.createApp({
       this.rc = { title: `Rate Card — ${client.name}`, loading: true, loadError: null, msg: null, msgKind: 'success', msgSeq: 0, saving: false, id: null, rows: [] };
       // A later open replaces this.rc: this load writes only to the state it was started for.
       const state = this.rc;
-      bootstrap.Modal.getOrCreateInstance(document.getElementById('clientRcModal')).show();
 
       try {
         // Roles are read afresh: the save replaces the whole set, so a role created since the page
@@ -405,7 +978,7 @@ window.__cfgApp = Vue.createApp({
           // Overrides in a currency with no column (deactivated since) are kept, so a save does not drop them.
           const hidden = {};
           Object.entries(ov).forEach(([c, v]) => { if (v != null && c !== 'EUR' && !extra.includes(c)) hidden[c] = v; });
-          return { roleId: String(r.id), label: r.label, code: r.code, defaults, texts, stored, hidden };
+          return { roleId: String(r.id), label: r.label, code: r.code, defaults, texts, stored, hidden, initial: { ...texts } };
         });
         state.id = rc.id;
       } catch (e) {
@@ -418,33 +991,30 @@ window.__cfgApp = Vue.createApp({
     async saveClientRatecard() {
       if (!this.rc.id) return;
       this.rc.msg = null;
-      const entries = [];
-      for (const row of this.rc.rows) {
-        let hourlyRate = null;
-        const rateOverrides = { ...row.hidden };
-        for (const code of Object.keys(row.texts)) {
-          const v = window.readMoneyInput(row.texts[code], code, this.currencies, { stored: row.stored[code] });
-          if (Number.isNaN(v)) {
-            this.rc.msg = `Enter a valid amount in ${code}, e.g. ${window.moneyFormatExample(code, this.currencies)}.`;
-            this.rc.msgKind = 'error';
-            return;
-          }
-          if (v === null) continue;
-          if (code === 'EUR') hourlyRate = v; else rateOverrides[code] = v;
-        }
-        // A role with every field blank has no entry: the full replacement drops it.
-        if (hourlyRate === null && !Object.keys(rateOverrides).length) continue;
-        entries.push({ roleId: row.roleId, hourlyRate, rateOverrides });
+      const built = window.buildRatecardEntries(this.rc.rows, this.currencies);
+      if (built.error) {
+        this.rc.msg = `Enter a valid amount in ${built.error.code}, e.g. ${window.moneyFormatExample(built.error.code, this.currencies)}.`;
+        this.rc.msgKind = 'error';
+        return;
       }
 
       const state = this.rc;
       state.saving = true;
       try {
-        await Api.ratecards.updateEntries(state.id, entries);
+        await Api.ratecards.updateEntries(state.id, built.entries);
+        // What was saved is the new reference for "unsaved changes" and for the amounts' stored value.
+        state.rows.forEach(row => {
+          row.initial = { ...row.texts };
+          Object.keys(row.texts).forEach(code => {
+            const v = window.readMoneyInput(row.texts[code], code, this.currencies, { stored: row.stored[code] });
+            row.stored[code] = typeof v === 'number' ? v : null;
+          });
+        });
         state.msg = 'Rates saved successfully.';
         state.msgKind = 'success';
         const seq = ++state.msgSeq;
         setTimeout(() => { if (state.msgSeq === seq && state.msgKind === 'success') state.msg = null; }, 3000);
+        this.refreshRatecards();
       } catch (e) {
         state.msg = e.message || 'Failed to save.';
         state.msgKind = 'error';

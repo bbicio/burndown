@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-// The rate card modal loads and saves asynchronously: a response must land in the modal state it was
+// The rate card loads and saves asynchronously: a response must land in the state it was
 // started for, never in the one a later openClientRatecard() put in this.rc (another client's card).
 const html = readFileSync(join(__dirname, '..', '..', 'master-clients.html'), 'utf8');
 const method = name => {
@@ -12,7 +12,7 @@ const method = name => {
   return html.slice(start, end);
 };
 
-describe('master-clients rate card modal', () => {
+describe('master-clients rate card sub-view', () => {
   for (const name of ['openClientRatecard', 'saveClientRatecard']) {
     it(`${name} writes no this.rc after its first await`, () => {
       const body = method(name);
@@ -47,5 +47,30 @@ describe('master-clients rate card modal', () => {
     const save = method('saveClientRatecard');
     expect(save).toMatch(/const seq = \+\+state\.msgSeq/);
     expect(save).toContain('state.msgSeq === seq');
+  });
+  it('saves through the pure payload builder and the full-replacement endpoint', () => {
+    const body = method('saveClientRatecard');
+    expect(body).toContain('buildRatecardEntries(');
+    expect(body).toContain('Api.ratecards.updateEntries(');
+  });
+  it('is a routed sub-view, not a modal', () => {
+    expect(html).not.toContain('clientRcModal');
+    expect(html).not.toContain('bootstrap.Modal');
+    expect(html).toContain('window.updateBreadcrumbs(');
+    expect(html).toContain("addEventListener('popstate'");
+    expect(html).toContain('beforeunload');
+  });
+  it('asks before leaving with unsaved changes', () => {
+    expect(html).toContain('You have unsaved rate changes. Leave without saving?');
+    expect(html).toMatch(/leaveRateCard\(/);
+    expect(html).toMatch(/#breadcrumb-bar a\[href\^="\/master-clients\.html"\]/);
+  });
+  it('sends an unknown ?client= back to the list with a notice', () => {
+    expect(html).toContain('Client not found.');
+  });
+  it('builds each cell from the pure source resolver', () => {
+    expect(html).toContain('cellSource(');
+    expect(html).toContain('roleFamily(');
+    expect(html).toContain('sortFamilies(');
   });
 });
