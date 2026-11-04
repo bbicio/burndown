@@ -513,8 +513,9 @@
 <script type="module" src="js/lib/costgrid-calc.js?v=16"></script>
 <script type="module" src="js/lib/pipeline-calc.js?v=7"></script>
 <script type="module" src="js/lib/dates.js?v=4"></script>
+<script type="module" src="js/lib/pipeline-year.js?v=1"></script>
 <script type="module" src="js/lib/project-push-result.js?v=4"></script>
-<script defer src="js/costgrid.js?v=57"></script>
+<script defer src="js/costgrid.js?v=58"></script>
 <script defer src="js/clients.js"></script>
 <script defer src="js/programs.js"></script>
 <script defer src="js/api-sync.js?v=31"></script>
@@ -885,6 +886,7 @@ Vue.createApp({
     },
     selectYear(year) {
       this.yearDropdownOpen = false;
+      storePipelineYear(year);
       window.location.href = '/pipeline.html?year=' + year;
     },
     async openDetailPanel(cgId, verId) {
@@ -1011,7 +1013,7 @@ Vue.createApp({
       // state is left to that one. Only false, or a throw, releases the buttons here.
       let ok = false;
       try {
-        ok = await cgCreateNewGrid();
+        ok = await cgCreateNewGrid(this.selectedYear);
         if (ok === true) {
           this.collapsedStages = this.collapsedStages.filter(st => st !== 'Draft');
           setTimeout(() => { this.proposalBusy = false; this.refreshTick++; }, PB_PROPOSAL_FALLBACK_MS);
@@ -1027,7 +1029,7 @@ Vue.createApp({
       // state is left to that one. Only false, or a throw, releases the buttons here.
       let ok = false;
       try {
-        ok = await cgCloneGrid(cgId, verId);
+        ok = await cgCloneGrid(cgId, verId, this.selectedYear);
         if (ok === true) {
           this.collapsedStages = this.collapsedStages.filter(st => st !== 'Draft');
           setTimeout(() => { this.proposalBusy = false; this.refreshTick++; }, PB_PROPOSAL_FALLBACK_MS);
@@ -1053,14 +1055,16 @@ Vue.createApp({
     try { pipelineYears = await Api.pipelineYears.list(); } catch (e) {}
     this.pipelineYears = pipelineYears;
 
+    // ?year= first, then the year remembered from the last visit, then the current year (js/lib/pipeline-year.js).
     const urlParams = new URLSearchParams(window.location.search);
-    let reqYear = urlParams.get('year') ? parseInt(urlParams.get('year')) : null;
-    const validYear = pipelineYears.find(py => py.year === reqYear);
-    if (!validYear) {
-      const currentYearPy = pipelineYears.find(py => py.year === new Date().getFullYear());
-      reqYear = currentYearPy ? new Date().getFullYear() : (pipelineYears.length ? pipelineYears[0].year : new Date().getFullYear());
-      window.history.replaceState({}, '', '?year=' + reqYear);
-    }
+    const urlYear = urlParams.get('year') ? parseInt(urlParams.get('year')) : null;
+    const reqYear = resolvePipelineYear({
+      urlYear,
+      storedYear: readStoredPipelineYear(),
+      availableYears: pipelineYears.map(py => py.year),
+      currentYear: new Date().getFullYear(),
+    });
+    if (reqYear !== urlYear) window.history.replaceState({}, '', '?year=' + reqYear);
     this.selectedYear = reqYear;
     const selPy = pipelineYears.find(py => py.year === this.selectedYear);
     this.newProposalVisible = selPy?.active !== false;

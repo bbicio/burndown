@@ -914,7 +914,9 @@ async function cgDiscardNewGrid(cgId) {
   catch (e) { console.warn('[costgrid] could not remove the unfinished proposal ' + cgId + ':', e.message); }
 }
 
-async function cgCreateNewGrid() {
+// `year`: the pipeline year the board is showing; the Draft is created for it and keeps it when published.
+// Left out (not an integer) it is created without one, and publishing uses the current year.
+async function cgCreateNewGrid(year) {
   if (_cgCreateInFlight) return null; // already in flight -- ignore a fast repeat click (null: not a failure)
   _cgCreateInFlight = true;
 
@@ -927,7 +929,7 @@ async function cgCreateNewGrid() {
     try {
       const newCg  = await Api.costGrids.create({ name });
       cgId = newCg.id;
-      const newVer = await Api.costGrids.versions.create(cgId, { label: 'v1' });
+      const newVer = await Api.costGrids.versions.create(cgId, Number.isInteger(year) ? { label: 'v1', pipelineYear: year } : { label: 'v1' });
       verId = newVer.id;
       await Api.costGrids.versions.saveStructure(cgId, verId, {
         phases: [{ phaseName: 'Phase 1', tasks: [] }],
@@ -948,7 +950,7 @@ async function cgCreateNewGrid() {
         createdAt:      new Date().toISOString(),
         status:         'draft',
         pipeline:       'Draft',
-        pipelineYear:   null,
+        pipelineYear:   Number.isInteger(year) ? year : null,
         linkedProjects: [],
         projectName:    name,
         startDate:      '',
@@ -979,7 +981,8 @@ async function cgCreateNewGrid() {
 
 let _cgCloneInFlight = false;
 
-async function cgCloneGrid(srcCgId, srcVerId) {
+// `year`: as for cgCreateNewGrid; the copy is created for the pipeline year the board is showing.
+async function cgCloneGrid(srcCgId, srcVerId, year) {
   if (_cgCloneInFlight) return null; // already in flight -- ignore a fast repeat click (null: not a failure)
   if (!srcCgId || !srcVerId) return false;
   _cgCloneInFlight = true;
@@ -1033,6 +1036,7 @@ async function cgCloneGrid(srcCgId, srcVerId) {
         endDate:    srcVer.endDate     || '',
         note:       srcVer.note        || '',
         projectName: name,
+        ...(Number.isInteger(year) ? { pipelineYear: year } : {}),
       });
       verId = newVer.id;
       verRate = parseFloat(newVer.currency_rate) || 1.0; // the server's rate for the new version; role baselines read it
@@ -1064,7 +1068,7 @@ async function cgCloneGrid(srcCgId, srcVerId) {
         createdAt:      new Date().toISOString(),
         status:         'draft',
         pipeline:       'Draft',
-        pipelineYear:   null,
+        pipelineYear:   Number.isInteger(year) ? year : null,
         linkedProjects: [],
         projectName:    name,
         clientId,

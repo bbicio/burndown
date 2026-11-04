@@ -98,3 +98,22 @@ describe('pageshow — proposalBusy', () => {
     expect(self.proposalBusy).toBe(true);
   });
 });
+
+// New Proposal and Clone create the Draft in the year the board is showing.
+describe('createNewProposal / cloneProposal — the viewed year', () => {
+  const noop = () => {};
+  it('createNewProposal passes selectedYear to cgCreateNewGrid', async () => {
+    const seen = [];
+    const obj = new Function('cgCloneGrid', 'cgCreateNewGrid', 'PB_PROPOSAL_FALLBACK_MS',
+      `return { ${extractBlock(html, 'async createNewProposal(')} }`)(noop, async (...a) => { seen.push(a); return false; }, PB_PROPOSAL_FALLBACK_MS);
+    await obj.createNewProposal.call({ ...ctx(), selectedYear: 2027 });
+    expect(seen).toEqual([[2027]]);
+  });
+  it('cloneProposal passes selectedYear as the third argument of cgCloneGrid', async () => {
+    const seen = [];
+    const obj = new Function('cgCloneGrid', 'cgCreateNewGrid', 'PB_PROPOSAL_FALLBACK_MS',
+      `return { ${extractBlock(html, 'async cloneProposal(')} }`)(async (...a) => { seen.push(a); return false; }, noop, PB_PROPOSAL_FALLBACK_MS);
+    await obj.cloneProposal.call({ ...ctx(), selectedYear: 2027 }, 'cg1', 'v1');
+    expect(seen).toEqual([['cg1', 'v1', 2027]]);
+  });
+});

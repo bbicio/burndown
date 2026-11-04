@@ -67,3 +67,21 @@ describe('core.js keeps the key', () => {
     expect(keep[1]).toContain(`'${PIPELINE_YEAR_KEY}'`);
   });
 });
+
+describe('pipeline.html uses the remembered year', () => {
+  const html = readFileSync('pipeline.html', 'utf8');
+  it('loads the module before the page script', () => {
+    const i = html.indexOf('js/lib/pipeline-year.js?v=1');
+    expect(i).toBeGreaterThan(-1);
+    expect(i).toBeLessThan(html.indexOf('async created() {'));
+  });
+  it('resolves the year in created() from the URL, the stored year and the available years', () => {
+    const created = html.slice(html.indexOf('async created() {'));
+    expect(created).toContain('resolvePipelineYear({');
+    expect(created).toContain('readStoredPipelineYear()');
+  });
+  it('stores the year when the user selects one', () => {
+    const sel = html.slice(html.indexOf('selectYear(year) {'), html.indexOf('async openDetailPanel('));
+    expect(sel).toContain('storePipelineYear(year)');
+  });
+});
