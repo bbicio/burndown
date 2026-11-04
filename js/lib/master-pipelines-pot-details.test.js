@@ -61,35 +61,51 @@ describe('master-pipelines POT table and year row', () => {
   });
 });
 
-describe('openPotDetails', () => {
-  const body = page.slice(page.indexOf('async openPotDetails('), page.indexOf('stageColor(pipeline) {'));
+describe('POT details drawer', () => {
+  const start = page.indexOf('class="mdp-drawer"');
+  const drawer = page.slice(page.lastIndexOf('<', start), page.indexOf('<!-- /drawer -->'));
 
-  it('is found in the page', () => {
-    expect(body.length).toBeGreaterThan(0);
+  it('is a Vue template, not a Bootstrap modal filled with innerHTML', () => {
+    expect(start).toBeGreaterThan(-1);
+    expect(page).not.toContain('id="potDetailsModal"');
+    expect(page).not.toContain('openPotDetails');
+    expect(page).not.toContain('innerHTML');
+    expect(page).toContain('Api.pots.details(');
   });
 
-  it('writes no literal hex colour', () => {
-    expect(body).not.toMatch(/#[0-9a-fA-F]{3,6}\b/);
+  it('renders only for a POT of the open year (a stale deep link opens no drawer)', () => {
+    expect(page).toContain('<div v-if="drawerPot" class="mdp-drawer-wrap">');
+    expect(page).toContain('resolvePot(this.pots, this.potId)');
   });
 
-  it('takes the stage badge colours from the tokens, not from stageBg()/stageColor()', () => {
-    expect(body).not.toContain('this.stageBg(');
-    expect(body).not.toContain('this.stageColor(');
+  it('closes on the scrim, the close button and Escape', () => {
+    expect(drawer).toContain('@click="closeDrawer"');
+    expect(page).toMatch(/keydown[\s\S]{0,200}Escape[\s\S]{0,120}closeDrawer/);
+  });
+
+  it('writes no literal hex colour and takes stage colours from the tokens', () => {
+    expect(drawer).not.toMatch(/#[0-9a-fA-F]{3,6}\b/);
+    expect(drawer).not.toContain('stageBg(');
+    expect(drawer).not.toContain('stageColor(');
+    expect(drawer).toContain('var(--pipeline-');
   });
 
   it('shows the original currency only for a non-EUR proposal', () => {
-    expect(body).toContain("p.currency && p.currency !== 'EUR'");
-    expect(body).toContain('p.value_original');
+    expect(drawer).toContain("p.currency && p.currency !== 'EUR'");
+    expect(drawer).toContain('p.value_original');
   });
 
-  it('lists Expected and SIP as not in total', () => {
-    expect(body).toContain('Not in total');
-    expect(body).toContain('d.expected_total');
-    expect(body).toContain('d.sip_total');
+  it('opens a proposal in a new tab and lists E and SIP as not counted', () => {
+    expect(drawer).toContain('/costgrid.html?cgId=');
+    expect(drawer).toContain('target="_blank"');
+    expect(drawer).toContain('not counted in the gap');
+    expect(drawer).toContain('Only Committed and Anticipated count towards the target.');
+    expect(drawer).toContain('No proposals for this target in this year.');
+    expect(drawer).toContain('No history yet.');
   });
 
-  it('colours Committed and Anticipated with the stage tokens', () => {
-    expect(body).toContain('var(--pipeline-committed-color)');
-    expect(body).toContain('var(--pipeline-anticipated-color)');
+  it('edits through the row editor', () => {
+    expect(drawer).toContain('Edit target');
+    expect(page).toContain('editFromDrawer(');
   });
 });
