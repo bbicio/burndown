@@ -4,13 +4,15 @@ Part of [PRD.md](../../PRD.md) — carries PRD §7 Configuration (§7.2–§7.7)
 
 ## 7. Configuration
 
-All configuration screens described in this section are admin-only and accessible via the **Master Data** pages (2026-10-05: the former single, tabbed `config.html` is now five pages — Clients, Client Groups, Pipelines & POTs, Roles & rates, Currencies — linked by a lateral sub-menu next to the sidebar; `/config.html` redirects to the Clients page). Since 2026-11-03 the five pages share one "Master Data" page head, a breadcrumb Home / Master Data / <section>, and the content in a card titled with the section; the sub-menu has two groups — COMMERCIAL (Clients & groups, Pipelines & POTs) and FINANCIAL (Roles & rates, Currencies) — and is a column beside the sidebar on wide screens, a row of tabs on tablets and a section selector on phones. Client Groups has no entry of its own: the Clients card links to it ("Client groups →") and it links back ("← Clients"), with "Clients & groups" highlighted on both, which also manage Pipeline years and POT targets. (A separate `admin.html` page exists for user management and is out of scope for this section.)
+All configuration screens described in this section are admin-only and accessible via the **Master Data** pages (2026-10-05: the former single, tabbed `config.html` is now five pages — Clients, Client Groups, Pipelines & POTs, Roles & rates, Currencies — linked by a lateral sub-menu next to the sidebar; `/config.html` redirects to the Clients page). Since 2026-11-03 the five pages share one "Master Data" page head, a breadcrumb Home / Master Data / <section>, and the content in a card titled with the section; the sub-menu has two groups — COMMERCIAL (Clients & groups, Pipelines & POTs) and FINANCIAL (Roles & rates, Currencies) — and is a column beside the sidebar on wide screens, a row of tabs on tablets and a section selector on phones. Since 2026-11-04 Clients and Client Groups are one page, "Clients & groups" (`master-clients.html`); `/master-client-groups.html` redirects to its By group view. (A separate `admin.html` page exists for user management and is out of scope for this section.)
 
 ### 7.2 Clients
 
 Simple registry: ID + name. Used to group projects in portfolio view. A client can belong to at most one client group.
 
-Each client row has a **💲 Costgrid** button that opens a rate card modal. The modal lists all roles with two columns:
+The page has two views, **List** and **By group** (`?view=group`), with the same client rows and a search over client and group names. A client is added, renamed and deleted inline (the delete is refused by the server while projects use the client, and its message is shown in the page banner). The group of a client is set from the row's selector or, in By group, from the group's "+ Add client" list; a failed change puts the previous group back.
+
+Each client row has a pill ("N custom rates" or "Agency rates") and a **Rate card →** link that open the client's rate card, a page of its own at `?client=<id>` (the browser's Back and reload work; an unknown client returns to the list with "Client not found."). It lists all roles, grouped by the prefix of their code, with these columns:
 
 | Column | Content |
 |---|---|
@@ -19,13 +21,13 @@ Each client row has a **💲 Costgrid** button that opens a rate card modal. The
 
 Saving creates or updates a per-client rate card. Custom rates are applied automatically when the client is selected in a new proposal. Rate card management is **not** available from admin.html — it lives exclusively here.
 
-Rate cards support multiple currencies: for each active non-EUR currency (e.g. USD), the modal shows an additional column alongside EUR, whose placeholder is the role's agency default for that currency when set.
+Rate cards support multiple currencies: for each active non-EUR currency (e.g. USD), the rate card shows an additional column alongside EUR. Each field's placeholder is the rate that applies when it is left empty, with a caption saying where it comes from (Custom, Agency, Agency <currency>, "From € × rate", or "No rate"); a "How rates resolve" panel explains the order. The card has a search, an "Only customized" switch, a per-row reset, and a save bar showing "All rates saved" or "N unsaved changes" with Discard; leaving with unsaved changes asks for confirmation. On a phone one currency is shown at a time.
 
 Every rate field is a text field written and shown in its column's currency (e.g. `1.234,50` in EUR, `1,234.50` in USD); text that is not a valid amount refuses the whole save with "Enter a valid amount in <code>, e.g. …". A role may have a custom rate in another currency with the EUR field left blank: EUR then stays the agency default. Clearing every field of a role removes its custom rates for this client.
 
 ### 7.3 Client Groups
 
-Named bundles of clients (e.g. "Italian Public Sector"). Used as the target for POT targets when multiple clients share a revenue goal. CRUD: create, rename, delete. Members: assign/remove individual clients. A client can belong to at most one group at a time. Deleting a group does not delete its member clients — they simply become ungrouped.
+Named bundles of clients (e.g. "Italian Public Sector"), managed in the By group view of Clients & groups. Used as the target for POT targets when multiple clients share a revenue goal. CRUD: create, rename, delete, all inline. Members: assign/remove individual clients. A client can belong to at most one group at a time. A group shows a "POT · <year>" pill (with " +N" for further years). A group that has a POT cannot be deleted: the trash is disabled with the years in its hint, and the server refuses with 409. Deleting a group without a POT does not delete its member clients — they simply become ungrouped.
 
 ### 7.4 Pipelines & POTs
 

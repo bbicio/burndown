@@ -131,7 +131,7 @@ Loaded via `<script type="module">` on `pipeline.html`, before the inline `Vue.c
 
 ## money.js (2026-10-01, money centralization cycle)
 
-The single implementation of currency formatting and parsing (`<script type="module">`, `window.*` bridge for each export). Pure: the currency list (`window.__currencies` shape `{ code, symbol, locale, … }[]`, may be `undefined`/`[]`) is always passed in. Loaded by `pipeline`, `portfolio`, `program`, `costgrid`, `project-config`, `timesheets`, `planning` and the `master-*` pages (`master-clients`, `master-client-groups`, `master-pipelines`, `master-roles`, `master-currencies`) (a vitest guard fails if a page that loads `core.js` and uses a money function lacks the tag, or if the `money.js?v=N` references diverge, or if `Intl.NumberFormat` appears outside `money.js`/`api/src/lib/money-format.js`).
+The single implementation of currency formatting and parsing (`<script type="module">`, `window.*` bridge for each export). Pure: the currency list (`window.__currencies` shape `{ code, symbol, locale, … }[]`, may be `undefined`/`[]`) is always passed in. Loaded by `pipeline`, `portfolio`, `program`, `costgrid`, `project-config`, `timesheets`, `planning` and the `master-*` pages (`master-clients`, `master-pipelines`, `master-roles`, `master-currencies`) (a vitest guard fails if a page that loads `core.js` and uses a money function lacks the tag, or if the `money.js?v=N` references diverge, or if `Intl.NumberFormat` appears outside `money.js`/`api/src/lib/money-format.js`).
 
 - `currencyInfo(code, currencies)` → `{ code, symbol, locale, digits }`. A falsy code means `EUR`; a code not in the list falls back to `{ symbol: code (or '€' for EUR), locale: 'it-IT' }`; `digits` comes from `Intl` (`style: 'currency'`, e.g. JPY 0, most 2) with a `try/catch` defaulting to 2 (Intl throws on a non-ISO code such as a stray `€`).
 - `formatMoney(amount, code, currencies, { rounded })` → `€ 1.234,50` (symbol + space + number in the locale of the currency). `useGrouping: 'always'`: the thousands separator is shown even for 4-digit amounts (some locales — it, es, pl, pt — skip it by default for 4 digits); `rounded` drops the decimals (`€ 1.235`); a non-finite amount renders as zero.
@@ -228,7 +228,20 @@ Tests: `js/lib/test-cases-parse.test.js` — unit cases for each rule above, plu
 
 ## icons.js (2026-10-16, header unification)
 
-`ICON_PATHS` (the sidebar's former `NAV_ICON_PATHS` plus `portfolio.html`'s former `PF_ICON_PATHS` and the page head's icons; `maximize`/`minimize` added 2026-10-19 for planning's toolbar), `iconSvg(name, size = 16, cls = '')` (an SVG string, `''` for an unknown name) and the Vue component `PhIcon` (`<ph-icon name size>`, registered by each page that uses it). Bridged as `window.ICON_PATHS`, `window.iconSvg`, `window.PhIcon`. Loaded as a module before `js/nav.js` on every page that calls `initNav`, since `navIcon()` reads `window.ICON_PATHS`; `js/lib/page-head-guard.test.js` pins that order. Some drawings exist under two names (`chevronLeft`/`chevron-left`, `gear`/`configure`), a known follow-up. Tests: `js/lib/icons.test.js`.
+`ICON_PATHS` (the sidebar's former `NAV_ICON_PATHS` plus `portfolio.html`'s former `PF_ICON_PATHS` and the page head's icons; `maximize`/`minimize` added 2026-10-19 for planning's toolbar; `building`, `pencil`, `more`, `reset` added 2026-11-04 for Clients & groups), `iconSvg(name, size = 16, cls = '')` (an SVG string, `''` for an unknown name) and the Vue component `PhIcon` (`<ph-icon name size>`, registered by each page that uses it). Bridged as `window.ICON_PATHS`, `window.iconSvg`, `window.PhIcon`. Loaded as a module before `js/nav.js` on every page that calls `initNav`, since `navIcon()` reads `window.ICON_PATHS`; `js/lib/page-head-guard.test.js` pins that order. Some drawings exist under two names (`chevronLeft`/`chevron-left`, `gear`/`configure`), a known follow-up. Tests: `js/lib/icons.test.js`.
+
+## master-clients.js (2026-11-04, Master Data Clients & groups)
+
+Pure helpers of `master-clients.html` (`<script type="module">`, `window.*` bridge for each export). Imports `resolveRoleRate` from `costgrid-calc.js` and `readMoneyInput` from `money.js`.
+
+- `filterClients(clients, groupsById, query)`: trimmed, case-insensitive match on the client's or its group's name, sorted by name. `groupSections(clients, groups)`: groups by name (empty ones too), then `{ group: null }` only when a client has no group.
+- `customRateCount(ratecard)`: entries with a EUR rate or a non-null override. `roleFamily(code)` / `sortFamilies(names)`: the code prefix before the first " - ", `Other` last.
+- `cellSource({ row, code, currencies })` → `{ value, kind }`, `kind` one of `custom | agency | agency-currency | converted | missing`, resolved through `resolveRoleRate`. `rowIsCustom({ row, codes, currencies, saved })`: `saved` reads the opened/saved texts, so a row being edited keeps its place under "Only customized".
+- `buildRatecardEntries(rows, currencies)` → `{ entries }` or `{ error: { code } }`: the body of the rate card save, moved unchanged from the former modal.
+- `moveClient({ clientId, fromGroupId, toGroupId }, api)`: remove from the old group, assign to the new one; a failed assign re-assigns the old group and rethrows the original error. `groupNameError(name, groups, selfId)`.
+- `readUrlState(search)` / `urlFor({ view, clientId })`: `?view=group` is By group, `?client=<id>` the rate card; both can be present.
+
+Page behaviour: `docs/pages/config.md` "Clients & groups".
 
 ## dates.js (2026-10-24, dates C1)
 

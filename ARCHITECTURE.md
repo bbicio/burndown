@@ -697,7 +697,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 
 **Ratecard integration in the cost grid editor**
 
-- Client-specific rates are set via the **💲 Costgrid** button on each client row in `master-clients.html` (Master Data → Clients). The modal lists all roles; custom rates override the agency default for that client.
+- Client-specific rates are set in the **Rate card** sub-view of `master-clients.html` (`?client=<id>`, Master Data → Clients & groups). It lists all roles; custom rates override the agency default for that client.
 - The cost grid version form has a **Rate card** dropdown. When a ratecard is selected, `costgrid.js` populates `_cgActiveRatecardMap` (roleId → rate) via `cgUpdateActiveRatecardMap()` (backed by the `loadRatecardsForDropdown()` cache in `ratecards.js`), which reads the entries through `cgRatecardMaps()` (`js/lib/costgrid-calc.js`): an entry with a `NULL` EUR rate stays out of the map, so the role's own rate applies.
 - Rate cells in the grid use this map as the **baseline**: a cell is only marked yellow (`✎ custom`) when the user manually enters a value that differs from the ratecard rate. Clearing the cell restores the ratecard rate (not the bare agency default).
 - The **👥 Add role** modal applies the same map: roles with a custom ratecard entry are highlighted with an indigo badge (`✦ rate €/h`) and a light purple row background. The rate stored in `_cgDraft.roles` on add is the ratecard rate, so no false positive "custom" flag on first render.
@@ -790,10 +790,10 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | /api/client-groups | ✅ | List all groups with member clients — `requireAuth` only, not admin (the POT/pipeline views read it) |
+| GET | /api/client-groups | ✅ | List all groups with member clients — `requireAuth` only, not admin (the POT/pipeline views read it); admin and sysadmin also get each group's `pots: [{ id, year }]`, newest year first |
 | POST | /api/client-groups | admin | Create group |
 | PATCH | /api/client-groups/:id | admin | Rename group |
-| DELETE | /api/client-groups/:id | admin | Delete group |
+| DELETE | /api/client-groups/:id | admin | Delete group; `409 GROUP_HAS_POT` when the group has a POT (checked under a row lock) |
 | PUT | /api/client-groups/:id/clients/:clientId | admin | Assign client to group (idempotent) |
 | DELETE | /api/client-groups/:id/clients/:clientId | admin | Remove client from group |
 
@@ -985,8 +985,9 @@ burndown/
   costgrid.html           ← cost grid editor; own stylesheet css/costgrid.css and form controls from js/cg-controls.js. Detail: docs/pages/costgrid.md
   timesheets.html         ← admin-only timesheet upload management. Detail: docs/pages/timesheets.md
   config.html             ← redirect stub (no shell, no Vue) to /master-clients.html
-  master-clients.html, master-client-groups.html, master-pipelines.html, master-roles.html, master-currencies.html
-                          ← Master Data: five admin pages, one per functionality, sharing a lateral sub-menu (.md-subnav). Detail: docs/pages/config.md
+  master-clients.html, master-pipelines.html, master-roles.html, master-currencies.html
+                          ← Master Data: four admin pages, one per functionality (Clients & groups, Pipelines & POTs, Roles & rates, Currencies), sharing a lateral sub-menu (.md-subnav). Detail: docs/pages/config.md
+  master-client-groups.html ← redirect stub (no shell, no Vue) to /master-clients.html?view=group
   project-config.html     ← full-page project config form, one reactive project object; own stylesheet css/project-config.css. Detail: docs/pages/project-config.md
   admin.html              ← user management: role toggles, disable, anonymize. Detail: docs/pages/admin.md
   terms.html              ← standalone T&C acceptance page (no initNav), shown by initNav()'s gate. Detail: docs/pages/terms.md
