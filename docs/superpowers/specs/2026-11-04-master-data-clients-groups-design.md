@@ -40,7 +40,7 @@ dove differisce dalle note delle tavole; le regole attuali dell'app vincono sull
   valuta: client nella valuta → agency nella valuta (`roles.rate_overrides`) → € (client o agency) × cambio
   della versione. Il testo della tavola 10.2d coincide con il codice.
 - `currencies.current_rate` è il cambio corrente ("Fallback 1 € = x" in testa alle colonne).
-- La breadcrumb è costruita una volta da `initNav` (`js/nav.js:319-349`); non esiste un modo per aggiornarla.
+- La breadcrumb è costruita da `initNav` tramite `window.updateBreadcrumbs(items)` (`js/nav.js:331`), che una pagina può richiamare per riscriverla.
 - Non esistono un segmented control né un toggle condivisi (solo il segmented locale di `css/costgrid.css`).
 - `showConfirm(message, onConfirm, onCancel, title)` in `js/core.js:287` è il modale di conferma dell'app.
 - `master-client-groups.html` è citato da `master-data-guard`, `content-surface-guard`, `nav-shell-guard`,
@@ -168,7 +168,7 @@ mostrano "Move from <gruppo>" in ambra, gli altri "No group" muted. La scelta ch
 
 - Sotto-vista al posto della card della lista (la sub-nav resta). `#clientRcModal` è rimosso.
 - Breadcrumb `Home / Master Data / Clients & groups / <Client> · Rate card`, con "Clients & groups" che porta
-  alla lista; aggiornata con la nuova `window.setNavBreadcrumbs(items)` di `js/nav.js` (§10).
+  alla lista; aggiornata con `window.updateBreadcrumbs(items)` di `js/nav.js`.
 - Testa: link "← Clients", titolo "Rate card · <Client>", pillola verde "N roles customized" (N = righe con
   almeno un valore custom nello stato corrente), descrizione "Custom hourly rates for this client, applied
   automatically when it's selected in a new proposal. Leave a field empty to use the agency rate."
@@ -244,8 +244,7 @@ sticky in fondo con "N roles customized" + Save rates.
   suo `<style>`, ripuliti dagli hex (token).
 - Icone SVG `.pd-icon` (`js/lib/icons.js`): quelle mancanti (edificio, matita, puntini, reset, info, cerca,
   chevron) si aggiungono lì. Nessuna emoji (💲 ✏️ 🗑 🏢).
-- `js/nav.js`: nuova `window.setNavBreadcrumbs(items)` che riscrive la breadcrumb con lo stesso markup di
-  `initNav`. Bump di `?v=` di `nav.js`, `style.css`, `icons.js` in ogni riferimento del repo (guard).
+- Bump di `?v=` di `style.css` e `icons.js` in ogni riferimento del repo (guard); `js/nav.js` non cambia.
 
 ## 11. Test
 
@@ -299,7 +298,7 @@ la cascata dei POT per client; un endpoint di move atomico.
 3. **Pillola "POT · <anno più recente>" con "+N", hint del delete con gli anni.** Alternativa scartata: "POT · <nome>" della tavola. Perché: i POT non hanno nome.
 4. **`pots: [{id, year}]` in `GET /client-groups`.** Alternativa scartata: `GET /pots` al caricamento. Perché: quell'endpoint calcola i totali pipeline di ogni POT, inutili qui.
 5. **Spostamento lato client (remove + assign) con rollback.** Alternativa scartata: endpoint di move atomico. Perché: il brief limita il backend al §7.3 e il rollback copre il secondo passo fallito.
-6. **`window.setNavBreadcrumbs(items)` in `js/nav.js`.** Alternativa scartata: riscrivere `#breadcrumb-bar` dalla pagina. Perché: la breadcrumb appartiene a `nav.js`.
+6. **Breadcrumb aggiornata con la `window.updateBreadcrumbs(items)` già esposta da `js/nav.js`.** Alternativa scartata: una funzione nuova in `nav.js` o riscrivere `#breadcrumb-bar` dalla pagina. Perché: l'API esiste già, e `nav.js` resta intatto.
 7. **`.md-seg` e `.md-switch` in `css/style.css`.** Alternativa scartata: componenti globali dell'app. Perché: le riusano le prossime tre pagine Master Data, il resto dell'app no.
 8. **Delete client sempre abilitato, errore del server inline.** Alternativa scartata: conteggio progetti in `GET /clients`. Perché: il brief lo consente ed evita un secondo cambio API.
 9. **Verifica visiva con `scripts/shoot.mjs` nel Piano (§12).** Alternativa scartata: solo il Gate 2. Perché: otto tavole su tre larghezze.
