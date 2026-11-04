@@ -10,7 +10,7 @@ All configuration screens described in this section are admin-only and accessibl
 
 Simple registry: ID + name. Used to group projects in portfolio view. A client can belong to at most one client group.
 
-The page has two views, **List** and **By group** (`?view=group`), with the same client rows and a search over client and group names. A client is added, renamed and deleted inline (the delete is refused by the server while projects use the client, and its message is shown in the page banner). The group of a client is set from the row's selector or, in By group, from the group's "+ Add client" list; a failed change puts the previous group back.
+The page has two views, **List** and **By group** (`?view=group`), with the same client rows and a search over client and group names. A client is added in a side drawer opened by **+ Add client** (name and optional client group; full-screen on phones), and renamed and deleted inline (the delete is refused by the server while projects use the client, and its message is shown in the page banner). The group of a client is set from the row's selector or, in By group, from the group's "+ Add client" list; a failed change puts the previous group back.
 
 Each client row has a pill ("N custom rates" or "Agency rates") and a **Rate card →** link that open the client's rate card, a page of its own at `?client=<id>` (the browser's Back and reload work; an unknown client returns to the list with "Client not found."). It lists all roles, grouped by the prefix of their code, with these columns:
 
@@ -27,7 +27,7 @@ Every rate field is a text field written and shown in its column's currency (e.g
 
 ### 7.3 Client Groups
 
-Named bundles of clients (e.g. "Italian Public Sector"), managed in the By group view of Clients & groups. Used as the target for POT targets when multiple clients share a revenue goal. CRUD: create, rename, delete, all inline. Members: assign/remove individual clients. A client can belong to at most one group at a time. A group shows a "POT · <year>" pill (with " +N" for further years). A group that has a POT cannot be deleted: the trash is disabled with the years in its hint, and the server refuses with 409. Deleting a group without a POT does not delete its member clients — they simply become ungrouped.
+Named bundles of clients (e.g. "Italian Public Sector"), managed in the By group view of Clients & groups. Used as the target for POT targets when multiple clients share a revenue goal. CRUD: create in the same side drawer, opened by **+ Add group** or by a client's "+ New group…" (which then assigns that client to it); rename and delete inline. After a group is created the page shows the By group view. Members: assign/remove individual clients. A client can belong to at most one group at a time. A group shows a "POT · <year>" pill (with " +N" for further years). A group that has a POT cannot be deleted: the trash is disabled with the years in its hint, and the server refuses with 409. Deleting a group without a POT does not delete its member clients — they simply become ungrouped.
 
 ### 7.4 Pipelines & POTs
 
