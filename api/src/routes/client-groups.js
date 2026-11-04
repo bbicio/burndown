@@ -4,9 +4,11 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// GET /api/client-groups — list all groups with their clients and their POT years
+// GET /api/client-groups — list all groups with their clients; admins also get each group's POT years
+// (a plain user reads this list on the pipeline page and has no business seeing POT ids)
 router.get('/', requireAuth, async (req, res, next) => {
   try {
+    const isAdmin = ['admin', 'sysadmin'].includes(req.user.role);
     const { rows } = await query(
       `SELECT cg.id, cg.name, cg.created_at,
               COALESCE(
@@ -24,7 +26,7 @@ router.get('/', requireAuth, async (req, res, next) => {
        GROUP BY cg.id, cg.name, cg.created_at
        ORDER BY cg.name`
     );
-    res.json(rows);
+    res.json(isAdmin ? rows : rows.map(({ pots, ...group }) => group));
   } catch (err) { next(err); }
 });
 

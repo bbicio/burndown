@@ -675,7 +675,7 @@
 <script type="module" src="js/lib/master-clients.js?v=1"></script>
 <script defer src="js/notifications.js?v=3"></script>
 <script type="module" src="js/lib/icons.js?v=6"></script>
-<script type="module" src="js/lib/md-subnav.js?v=3"></script>
+<script type="module" src="js/lib/md-subnav.js?v=4"></script>
 <script defer src="js/nav.js?v=19"></script>
 
 <script type="module">
@@ -1069,7 +1069,8 @@ window.__cfgApp = Vue.createApp({
     },
     async onPopState() {
       const st = window.readUrlState(location.search);
-      if (this.rateClientId && st.clientId !== this.rateClientId && !(await this.leaveRateCard())) {
+      if (this.rateClientId && st.clientId === this.rateClientId) return; // same card: nothing to re-read, nothing to discard
+      if (this.rateClientId && !(await this.leaveRateCard())) {
         history.pushState(null, '', window.urlFor({ view: this.view, clientId: this.rateClientId }));
         return;
       }

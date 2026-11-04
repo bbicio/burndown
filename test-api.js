@@ -380,6 +380,17 @@ async function testClientGroups() {
   } else {
     fail('CG-POT: group/POT setup failed — skipping');
   }
+  // CG-POT-04 — the POT years are for admins: a plain user's list carries no pots field
+  if (pgid) {
+    const plain = await getPlainUserCookie();
+    if (plain) {
+      const rp = await api('GET', '/api/client-groups', null, plain);
+      const gp = (rp.data || []).find(x => x.id === pgid);
+      ok(rp.status === 200 && !!gp && !('pots' in gp), 'CG-POT-04 a plain user sees the group but no pots field');
+    } else {
+      fail('CG-POT-04: no plain-user session — skipping');
+    }
+  }
   const rng = await api('POST', '/api/client-groups', { name: '__test_cg_nopot_group__' }, adminCookie);
   const ngid = rng.data?.id;
   if (ngid) {

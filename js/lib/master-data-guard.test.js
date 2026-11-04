@@ -119,7 +119,7 @@ describe.each(PAGES)('Master Data page: $file', ({ file, active, section, api, m
 
   it('loads the sub-nav module after the icon library', () => {
     const icons = html.indexOf('<script type="module" src="js/lib/icons.js');
-    const subnav = html.indexOf('<script type="module" src="js/lib/md-subnav.js?v=3"></script>');
+    const subnav = html.indexOf('<script type="module" src="js/lib/md-subnav.js?v=4"></script>');
     expect(icons).toBeGreaterThan(-1);
     expect(subnav).toBeGreaterThan(icons);
   });
@@ -224,6 +224,10 @@ describe('master-clients.html (Clients & groups)', () => {
     }
     const reload = html.slice(html.indexOf('async reloadGroups()'), html.indexOf('setView(v)'));
     expect(reload).toContain('if (!this.globalError)');
+  });
+  it('does not re-enter the open rate card on a popstate that still names its client', () => {
+    const body = html.slice(html.indexOf('async onPopState()'), html.indexOf('// true when there is nothing unsaved'));
+    expect(body).toMatch(/st\.clientId === this\.rateClientId\) return/);
   });
   it('filters the rate card rows by their saved state', () => {
     expect(html).toContain('saved: true');
