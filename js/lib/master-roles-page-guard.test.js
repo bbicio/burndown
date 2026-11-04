@@ -22,7 +22,7 @@ describe('master-roles panel', () => {
   it('saves the composed code and every override, never the team field', () => {
     const save = between('async saveRole()', 'async deleteRole');
     expect(save).toContain('Object.entries(this.rf.overrideTexts)');
-    expect(save).toContain('const code  = window.joinCode(this.rf.team, this.rf.roleCode);');
+    expect(save).toContain("const code  = untouched ? this.rf.origCode.trim() : window.joinCode(this.rf.team, this.rf.roleCode);");
     expect(save).toContain('r.code.toLowerCase() === code.toLowerCase()');
     expect(save).not.toMatch(/team\s*:/);
   });
@@ -44,6 +44,11 @@ describe('master-roles panel', () => {
     const after = save.slice(save.indexOf('const form = this.rf;'));
     expect(after).not.toMatch(/this.rf.(id|show|error|loading)/);
     expect(save).toContain('const saved = code.toUpperCase();');
+  });
+  it('sends an untouched code back as stored, ignores the double-click second click, locks fields while saving', () => {
+    expect(between('openRoleForm(role) {', 'closePanel({')).toContain('origCode, origTeam: team, origRole: roleCode,');
+    expect(html).toContain('onScrimClick(e) { if (e.detail > 1) return; this.closePanel(); }');
+    expect((html.match(/:readonly="rf\.loading"/g) || []).length).toBe(5);
   });
   it('does not close or open the delete dialog while a save runs', () => {
     expect(between('closePanel({', 'focusBack(el, roleId)')).toContain('if (this.rf.loading) return;');
@@ -89,6 +94,11 @@ describe('master-roles delete dialog', () => {
     expect(html).toContain('data-bs-dismiss="modal" :disabled="del.loading"');
     expect(html).toContain("this._onDelHide = e => { if (this.del.loading) e.preventDefault(); };");
     expect(html).toContain("addEventListener('hide.bs.modal', this._onDelHide)");
+  });
+  it('closes once shown when the delete succeeds during the fade-in, and announces a refusal', () => {
+    expect(html).toContain('else del.closeWhenShown = true;');
+    expect(html).toContain("addEventListener('shown.bs.modal', this._onDelShown)");
+    expect(html).toContain('class="alert alert-danger alert-sm mt-3 mb-0" role="alert"');
   });
   it('still closes on success: loading ends before hide()', () => {
     const body = between('async confirmDelete()', '\n    },\n  },\n})');

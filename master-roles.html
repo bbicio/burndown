@@ -53,6 +53,8 @@
     .mdr-grp td { background: var(--surface-light); padding: 0; user-select: none; }
     .mdr-grp-btn { display: block; width: 100%; padding: 9px var(--space-4); border: 0; background: none; text-align: left; cursor: pointer; }
     .mdr-grp-btn:focus-visible, .mdr-role-btn:focus-visible { outline: 2px solid var(--brand-navy); outline-offset: 2px; border-radius: var(--radius-xs); }
+    .mdr-grp-btn:focus-visible { outline-offset: -2px; }
+    .mdr-grp-btn[aria-disabled="true"] { cursor: default; }
     .mdr-role-btn { display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 420px; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
     .mdr-grp-in { position: sticky; left: var(--space-4); display: inline-flex; align-items: center; gap: var(--space-2); }
     .mdr-grp .pd-icon, .mdr-grp svg { color: var(--text-primary); transition: transform var(--duration-fast); }
@@ -296,7 +298,7 @@
               <template v-for="g in groupedRoles" :key="g.team">
                 <tr class="mdr-grp" :class="{ 'is-closed': !isGroupOpen(g.team) }">
                   <td :colspan="columns.length + 3">
-                    <button type="button" class="mdr-grp-btn" :aria-expanded="isGroupOpen(g.team)" @click="toggleGroup(g.team)">
+                    <button type="button" class="mdr-grp-btn" :aria-expanded="isGroupOpen(g.team)" :aria-disabled="filtering" @click="toggleGroup(g.team)">
                     <span class="mdr-grp-in">
                       <ph-icon name="chevron-down" :size="12"></ph-icon>
                       <span class="mdr-grp-name">{{ g.team }}</span>
@@ -361,7 +363,7 @@
 
 <!-- ── New / edit role panel ───────────────────────────────────── -->
 <div v-if="rf.show" class="mdr-drawer-wrap">
-  <div class="mdr-scrim" @click="closePanel"></div>
+  <div class="mdr-scrim" @click="onScrimClick"></div>
   <aside class="mdr-drawer" role="dialog" aria-modal="true" :aria-label="rf.id ? 'Edit role' : 'New role'">
     <div class="mdr-dr-head">
       <div class="mdr-dr-head-main">
@@ -372,18 +374,18 @@
     </div>
 
     <div class="mdr-dr-body">
-      <div v-if="rf.error" class="alert alert-danger alert-sm mb-0">{{ rf.error }}</div>
+      <div v-if="rf.error" class="alert alert-danger alert-sm mb-0" role="alert">{{ rf.error }}</div>
 
       <label class="mdr-field">
         <span class="mdr-field-label">Label</span>
-        <input type="text" class="mdr-input" v-model="rf.label" placeholder="e.g. Project Manager" ref="rfLabel" autocomplete="off">
+        <input type="text" class="mdr-input" v-model="rf.label" placeholder="e.g. Project Manager" ref="rfLabel" autocomplete="off" :readonly="rf.loading">
       </label>
 
       <div class="mdr-pair">
         <div class="mdr-field">
           <span class="mdr-field-label" id="rfTeamLabel">Team</span>
           <div class="mdr-combo">
-            <input type="text" class="mdr-input" v-model="rf.team" autocomplete="off" role="combobox"
+            <input type="text" class="mdr-input" v-model="rf.team" autocomplete="off" role="combobox" :readonly="rf.loading"
                    aria-labelledby="rfTeamLabel" :aria-expanded="rf.teamOpen && teamMatches.length > 0"
                    :aria-controls="rf.teamOpen && teamMatches.length ? 'rfTeamList' : null"
                    :aria-activedescendant="rf.teamOpen && rf.teamIdx >= 0 ? 'rfTeamOpt-' + rf.teamIdx : null"
@@ -399,7 +401,7 @@
         </div>
         <label class="mdr-field">
           <span class="mdr-field-label">Role code</span>
-          <input type="text" class="mdr-input mdr-mono" v-model="rf.roleCode" placeholder="e.g. PROJECT MANAGER" autocomplete="off">
+          <input type="text" class="mdr-input mdr-mono" v-model="rf.roleCode" placeholder="e.g. PROJECT MANAGER" autocomplete="off" :readonly="rf.loading">
         </label>
       </div>
 
@@ -415,7 +417,7 @@
           <div class="mdr-field">
             <div class="mdr-money" :class="{ 'is-warn': !rf.rateText.trim() }">
               <span class="mdr-money-code">EUR</span>
-              <input type="text" inputmode="decimal" v-model="rf.rateText" aria-label="EUR hourly rate"
+              <input type="text" inputmode="decimal" v-model="rf.rateText" aria-label="EUR hourly rate" :readonly="rf.loading"
                      @focus="onMoneyFocus('EUR')" @blur="onMoneyBlur('EUR')"
                      @keydown.enter="saveRole" placeholder="Required">
               <span class="mdr-money-unit">/h</span>
@@ -425,7 +427,7 @@
           <div class="mdr-field" v-for="cu in columns.filter(c => c.code !== 'EUR')" :key="cu.code">
             <div class="mdr-money">
               <span class="mdr-money-code">{{ cu.code }}</span>
-              <input type="text" inputmode="decimal" v-model="rf.overrideTexts[cu.code]" :aria-label="cu.code + ' hourly rate'"
+              <input type="text" inputmode="decimal" v-model="rf.overrideTexts[cu.code]" :aria-label="cu.code + ' hourly rate'" :readonly="rf.loading"
                      @focus="onMoneyFocus(cu.code)" @blur="onMoneyBlur(cu.code)"
                      @keydown.enter="saveRole" :placeholder="overridePlaceholder(cu)">
               <span class="mdr-money-unit">/h</span>
@@ -459,7 +461,7 @@
       </div>
       <div class="modal-body pt-1">
         <p class="mdr-del-body mb-0">The role is removed from the agency rate card. Its custom rates in client rate cards are deleted too. A role used in a cost grid or assigned to a team resource can't be deleted.</p>
-        <div v-if="del.error" class="alert alert-danger alert-sm mt-3 mb-0">{{ del.error }}</div>
+        <div v-if="del.error" class="alert alert-danger alert-sm mt-3 mb-0" role="alert">{{ del.error }}</div>
       </div>
       <div class="modal-footer border-0 pt-2">
         <button type="button" class="btn btn-link text-decoration-none mdr-cancel" data-bs-dismiss="modal" :disabled="del.loading">Cancel</button>
@@ -516,7 +518,7 @@ window.__cfgApp = Vue.createApp({
       rf: { show: false, id: null, title: '', label: '', team: '', roleCode: '', teamOpen: false, teamIdx: -1, rateText: '', overrideTexts: {}, stored: {}, error: null, loading: false },
 
       // Delete dialog state
-      del: { role: null, error: null, blocked: false, loading: false },
+      del: { role: null, error: null, blocked: false, loading: false, closeWhenShown: false },
 
       currencies:    [],
 
@@ -566,17 +568,23 @@ window.__cfgApp = Vue.createApp({
     this._onKeydown = e => this.onPanelKeydown(e);
     document.addEventListener('keydown', this._onKeydown);
     // a dialog opened from code gets no focus return from Bootstrap: give it back to what opened it
-    this._onDelHidden = () => { this.focusBack(this._delOpener, this.del.role?.id); this._delOpener = null; };
+    this._onDelHidden = () => { this._delShown = false; this.focusBack(this._delOpener, this.del.role?.id); this._delOpener = null; };
     // Esc, the backdrop and Cancel do not dismiss the dialog while its delete runs
     this._onDelHide = e => { if (this.del.loading) e.preventDefault(); };
+    this._onDelShown = () => {
+      this._delShown = true;
+      if (this.del.closeWhenShown) bootstrap.Modal.getInstance(document.getElementById('roleDeleteModal'))?.hide();
+    };
     const delModal = document.getElementById('roleDeleteModal');
     delModal?.addEventListener('hidden.bs.modal', this._onDelHidden);
     delModal?.addEventListener('hide.bs.modal', this._onDelHide);
+    delModal?.addEventListener('shown.bs.modal', this._onDelShown);
   },
   beforeUnmount() {
     document.removeEventListener('keydown', this._onKeydown);
     document.getElementById('roleDeleteModal')?.removeEventListener('hidden.bs.modal', this._onDelHidden);
     document.getElementById('roleDeleteModal')?.removeEventListener('hide.bs.modal', this._onDelHide);
+    document.getElementById('roleDeleteModal')?.removeEventListener('shown.bs.modal', this._onDelShown);
   },
 
   methods: {
@@ -649,6 +657,7 @@ window.__cfgApp = Vue.createApp({
       const split = window.splitCode(role?.code || '');
       const team = role ? split.team : (this.lastTeam || window.teamOptions(this.roles)[0] || '');
       const roleCode = split.role;
+      const origCode = role?.code || '';
       if (role && team) this.lastTeam = team;
       this.rf = {
         show:         true,
@@ -656,6 +665,8 @@ window.__cfgApp = Vue.createApp({
         title:        role?.label || '',
         label:        role?.label || '',
         team, roleCode,
+        // the code as stored and as it opened: untouched, it is sent back unchanged (spacing included)
+        origCode, origTeam: team, origRole: roleCode,
         teamOpen: false, teamIdx: -1,
         rateText:     this.amountText(role?.rate, 'EUR'),
         overrideTexts,
@@ -672,6 +683,8 @@ window.__cfgApp = Vue.createApp({
       const opener = this._opener, roleId = this.rf.id; this._opener = null;
       if (restoreFocus) this.$nextTick(() => this.focusBack(opener, roleId));
     },
+    // The second click of the double-click that opened the panel lands on the scrim: not a close.
+    onScrimClick(e) { if (e.detail > 1) return; this.closePanel(); },
     // Focus back to what opened the panel or dialog; if Vue re-rendered or removed it, to the role's own
     // button, else to the visible "+ Add".
     focusBack(el, roleId) {
@@ -736,7 +749,8 @@ window.__cfgApp = Vue.createApp({
     async saveRole() {
       if (this.rf.loading) return;
       const label = this.rf.label.trim();
-      const code  = window.joinCode(this.rf.team, this.rf.roleCode);
+      const untouched = this.rf.id && this.rf.team === this.rf.origTeam && this.rf.roleCode === this.rf.origRole;
+      const code  = untouched ? this.rf.origCode.trim() : window.joinCode(this.rf.team, this.rf.roleCode);
       this.rf.error = null;
       const badAmount = c => `Enter a valid amount in ${c}, e.g. ${window.moneyFormatExample(c, this.currencies)}.`;
 
@@ -779,6 +793,7 @@ window.__cfgApp = Vue.createApp({
         if (this.rf === form) this.closePanel();
       } catch (e) {
         form.error = e.message || 'Save failed.';
+        if (this.rf === form) this.$nextTick(() => this.$refs.rfLabel?.focus());
       } finally {
         form.loading = false;
       }
@@ -787,7 +802,7 @@ window.__cfgApp = Vue.createApp({
     // ── Delete ──
     async deleteRole(role) {
       if (!this._delOpener) this._delOpener = document.activeElement;
-      this.del = { role, error: null, blocked: false, loading: false };
+      this.del = { role, error: null, blocked: false, loading: false, closeWhenShown: false };
       await this.$nextTick();
       bootstrap.Modal.getOrCreateInstance(document.getElementById('roleDeleteModal')).show();
     },
@@ -809,10 +824,15 @@ window.__cfgApp = Vue.createApp({
         await Api.roles.delete(role.id);
         this.roles = this.roles.filter(r => r.id !== role.id);
         del.loading = false;   // before hide(): the hide.bs.modal guard refuses while a delete runs
-        if (this.del === del) bootstrap.Modal.getInstance(document.getElementById('roleDeleteModal'))?.hide();
+        if (this.del === del) {
+          if (this._delShown) bootstrap.Modal.getInstance(document.getElementById('roleDeleteModal'))?.hide();
+          else del.closeWhenShown = true;
+        }
       } catch (e) {
         del.error = e.message || 'Delete failed.';
         del.blocked = /^Cannot delete role /.test(e.data?.error || '');
+        // the clicked Delete is now disabled: keep focus (and Esc) inside the dialog
+        if (this.del === del) this.$nextTick(() => document.querySelector('#roleDeleteModal .mdr-cancel')?.focus());
       } finally {
         del.loading = false;
       }
