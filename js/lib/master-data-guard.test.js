@@ -213,6 +213,40 @@ describe('master-clients.html (Clients & groups)', () => {
   it('loads the pure module', () => {
     expect(html).toContain('<script type="module" src="js/lib/master-clients.js?v=1"></script>');
   });
+  describe('responsive layout', () => {
+    const styles = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+    const media = q => {
+      const from = styles.indexOf(`@media (${q})`);
+      expect(from, q).toBeGreaterThan(-1);
+      let depth = 0, i = styles.indexOf('{', from);
+      const start = i;
+      for (; i < styles.length; i++) {
+        if (styles[i] === '{') depth++;
+        if (styles[i] === '}' && --depth === 0) break;
+      }
+      return styles.slice(start, i);
+    };
+    it('makes the controls 40px on tablet', () => {
+      expect(media('max-width: 1023.98px')).toMatch(/height:\s*40px/);
+    });
+    it('makes every touch target at least 44px on phone', () => {
+      const phone = media('max-width: 767.98px');
+      expect(phone).toMatch(/min-height:\s*44px/);
+      for (const sel of ['.cg-mcard-menu', '.cg-mcard-rc', '.rc-input-wrap']) expect(phone, sel).toContain(sel);
+    });
+    it('hides the rate card pill column below 900px', () => {
+      expect(media('max-width: 899.98px')).toMatch(/\.cg-col-pill\s*\{[^}]*display:\s*none/);
+    });
+    it('keeps the Role and Client columns of the rate card sticky on tablet', () => {
+      const tablet = media('max-width: 1023.98px');
+      expect(tablet).toMatch(/\.rc-col-role\s*\{[^}]*position:\s*sticky/);
+      expect(tablet).toMatch(/\.rc-col-client\s*\{[^}]*position:\s*sticky/);
+    });
+    it('shows one currency at a time on phone through rcPhoneCurrency', () => {
+      expect(html).toContain('rcPhoneCurrency');
+      expect(html).toContain('Empty = agency € rate.');
+    });
+  });
   it('has no hex colour in its inline styles', () => {
     const styles = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
     expect(styles).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);

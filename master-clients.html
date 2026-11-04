@@ -151,6 +151,75 @@
     .rc-msg { font-size: var(--text-sm); }
     .rc-msg.is-ok { color: var(--color-success-text); }
     .rc-msg.is-error { color: var(--color-danger-text); }
+    /* ── Phone-only blocks and column variants (shown by the media queries below) ── */
+    .cg-mobile, .rc-mobile, .rc-col-agency-end, .rc-status-phone, .cg-lbl-short { display: none; }
+    .rc-input-wrap.is-missing { border-color: var(--color-warning-text); background: var(--color-warning-bg); }
+
+    /* ── Tablet (768–1023px) ── */
+    @media (max-width: 1023.98px) {
+      .cg-head > .cg-spacer { flex-basis: 100%; height: 0; }
+      .cg-head .btn, .cg-search, .cg-select-btn, .cg-input, .rc-input-wrap { height: 40px; }
+      .cg-icon-btn { width: 40px; height: 40px; }
+      .rc-col-role { position: sticky; left: 0; z-index: 2; background: var(--surface-white); min-width: 200px; max-width: 200px; }
+      .rc-col-client { position: sticky; left: 200px; z-index: 2; background: var(--surface-white); }
+      .rc-table thead th.rc-col-role, .rc-table thead th.rc-col-client { z-index: 5; }
+      .rc-fam td { z-index: 6; }
+      .rc-col-agency { display: none; }
+      .rc-col-agency-end { display: table-cell; text-align: right; white-space: nowrap; color: var(--brand-navy); }
+      .rc-table thead th.rc-col-agency-end { color: var(--text-muted); text-align: right; }
+      .rc-toolbar { gap: var(--space-3); }
+      .rc-savebar { position: sticky; bottom: 0; z-index: 7; }
+    }
+    @media (max-width: 899.98px) {
+      .cg-col-pill { display: none; }
+    }
+
+    /* ── Phone (< 768px) ── */
+    @media (max-width: 767.98px) {
+      .cg-head { gap: var(--space-2); }
+      .cg-head .md-card-title, .cg-head > .cg-spacer { display: none; }
+      .cg-search { order: 1; flex: 1 1 0; width: auto; }
+      .cg-btn-client { order: 2; }
+      .cg-seg { order: 3; flex: 1 1 0; }
+      .cg-seg .md-seg-btn { flex: 1; }
+      .cg-btn-group { order: 4; }
+      .cg-lbl-long { display: none; }
+      .cg-lbl-short { display: inline; }
+      .cg-head .btn, .cg-search, .cg-icon-btn, .rc-input-wrap, .cg-select-btn, .cg-input { min-height: 44px; }
+      .cg-table thead, .cg-table tbody.cg-data { display: none; }
+      .cg-new td { display: block; width: 100%; height: auto; padding: var(--space-2) var(--space-3); }
+      .cg-new-line { flex-wrap: wrap; }
+      .cg-mobile { display: block; padding: var(--space-2) var(--space-3) var(--space-4); }
+      .cg-mgroup { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-4) var(--space-1) var(--space-2); }
+      .cg-mgroup .cg-group-count, .cg-mgroup .cg-link, .cg-mgroup .cg-pill { white-space: nowrap; flex: none; }
+      .cg-mgroup-name { min-width: 0; font-size: 11px; font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+      .cg-mcard { border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--surface-white); margin-bottom: var(--space-3); overflow: hidden; }
+      .cg-mcard-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) var(--space-2) 0 var(--space-4); }
+      .cg-mcard-menu { width: 44px; min-height: 44px; }
+      .cg-mcard-mid { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-4) var(--space-3); }
+      .cg-mcard-rc { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; padding: 0 var(--space-4); border: 0; border-top: 1px solid var(--border-light); background: transparent; font-size: var(--text-sm); color: var(--brand-navy); cursor: pointer; }
+      .cg-mcard-rc-inline { min-height: 44px; }
+      .cg-note { padding: var(--space-3); }
+
+      .rc-title { font-size: var(--text-xl, 1.125rem); }
+      .rc-toolbar, .rc-howto, .rc-desktop, .rc-desc { display: none; }
+      .rc-mobile { display: block; }
+      .rc-cur-seg { display: flex; width: 100%; margin-bottom: var(--space-2); }
+      .rc-cur-seg .md-seg-btn { flex: 1; }
+      .rc-mhint { font-size: 12px; color: var(--text-muted); margin: 0 0 var(--space-3); }
+      .rc-mfam { border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--surface-white); margin-bottom: var(--space-3); overflow: hidden; }
+      .rc-mfam-head { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: 44px; padding: 0 var(--space-4); border: 0; background: transparent; color: var(--brand-navy); cursor: pointer; }
+      .rc-mfam-head .rc-fam-count { margin-left: 0; flex: 1; text-align: left; }
+      .rc-mrow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border-light); }
+      .rc-mrole { min-width: 0; }
+      .rc-msrc { font-size: 11px; color: var(--text-muted); }
+      .rc-msrc.is-converted, .rc-msrc.is-missing { color: var(--violet-600); font-style: italic; }
+      .rc-mrow .rc-input-wrap { width: 96px; flex: none; }
+      .rc-status, .rc-discard { display: none; }
+      .rc-status-phone { display: inline; font-size: var(--text-sm); color: var(--text-muted); }
+      .rc-savebar { position: sticky; bottom: 0; z-index: 7; }
+    }
+
     .empty { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: var(--text-sm); }
   </style>
 </head>
@@ -175,7 +244,7 @@
   <div class="md-card-head cg-head">
     <h2 class="md-card-title">Clients &amp; groups</h2>
     <template v-if="ready">
-      <div class="md-seg" role="group" aria-label="View">
+      <div class="md-seg cg-seg" role="group" aria-label="View">
         <button type="button" class="md-seg-btn" :class="{ active: view === 'list' }" @click="setView('list')">List</button>
         <button type="button" class="md-seg-btn" :class="{ active: view === 'group' }" @click="setView('group')">By group</button>
       </div>
@@ -184,8 +253,8 @@
         <ph-icon name="search" :size="14"></ph-icon>
         <input type="text" v-model="query" placeholder="Search client or group…" autocomplete="off">
       </label>
-      <button type="button" class="btn btn-outline-secondary btn-sm" @click="startNewGroup()">+ Add group</button>
-      <button type="button" class="btn btn-primary btn-sm" @click="startNewClient()">+ Add client</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm cg-btn-group" @click="startNewGroup()"><span class="cg-lbl-long">+ Add group</span><span class="cg-lbl-short">+ Group</span></button>
+      <button type="button" class="btn btn-primary btn-sm cg-btn-client" @click="startNewClient()"><span class="cg-lbl-long">+ Add client</span><span class="cg-lbl-short">+ Add</span></button>
     </template>
   </div>
   <div class="md-card-body">
@@ -211,7 +280,7 @@
 
     <div class="md-table-card">
       <table class="cg-table">
-        <thead><tr><th>Name</th><th>Client group</th><th>Rate card</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Client group</th><th class="cg-col-pill">Rate card</th><th></th></tr></thead>
 
         <!-- New group row -->
         <tbody v-if="ng.show">
@@ -255,7 +324,7 @@
           <tr v-if="cf.error"><td colspan="4" class="cg-err">{{ cf.error }}</td></tr>
         </tbody>
 
-        <tbody v-for="sec in sections" :key="sec.key">
+        <tbody v-for="sec in sections" :key="sec.key" class="cg-data">
           <!-- Group header (By group view) -->
           <tr v-if="!sec.flat" class="cg-group-row" :class="{ 'is-none': !sec.group }">
             <td colspan="4">
@@ -339,7 +408,7 @@
                   </div>
                 </td>
                 <!-- Rate card pill -->
-                <td>
+                <td class="cg-col-pill">
                   <button v-if="customCountOf(c.id)" type="button" class="cg-pill cg-pill-custom" @click="openRateCard(c)">{{ customCountOf(c.id) }} custom rate{{ customCountOf(c.id) === 1 ? '' : 's' }}</button>
                   <button v-else type="button" class="cg-pill cg-pill-agency" @click="openRateCard(c)">Agency rates</button>
                 </td>
@@ -361,6 +430,61 @@
           </template>
         </tbody>
       </table>
+
+      <!-- Phone: client cards (the table above is hidden below 768px) -->
+      <div class="cg-mobile">
+        <template v-for="sec in sections" :key="'m' + sec.key">
+          <div v-if="!sec.flat" class="cg-mgroup">
+            <span class="cg-mgroup-name">{{ sec.group ? sec.group.name : 'No group' }}</span>
+            <span class="cg-group-count">{{ countLabel(sec) }}</span>
+            <span v-if="sec.group && sec.group.pots && sec.group.pots.length" class="cg-pill cg-pill-pot">{{ potLabel(sec.group) }}</span>
+            <span class="cg-spacer"></span>
+            <div v-if="sec.group" class="cg-add-wrap">
+              <button type="button" class="cg-link cg-mcard-rc-inline" @click.stop="addOpen = addOpen === sec.group.id ? null : sec.group.id">+ Add client</button>
+              <div v-if="addOpen === sec.group.id" class="cg-pop" @click.stop>
+                <div class="cg-pop-title">Add to {{ sec.group.name }}</div>
+                <div v-if="!addCandidates(sec.group).length" class="cg-hint px-3 py-2">Every client is already in this group.</div>
+                <button v-for="c in addCandidates(sec.group)" :key="'p' + c.id" type="button" class="cg-pop-item"
+                        @click="addOpen = null; moveTo(c, sec.group.id)">
+                  <span>{{ c.name }}</span>
+                  <span v-if="c.groupId" class="cg-pop-from">Move from {{ groupName(c.groupId) }}</span>
+                  <span v-else class="cg-pop-none">No group</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div v-for="c in sec.clients" :key="'mc' + c.id" class="cg-mcard">
+            <div class="cg-mcard-top">
+              <template v-if="ce.id === c.id">
+                <input type="text" class="cg-input" v-model="ce.name" autocomplete="off" @keydown.enter="saveClientEdit" @keydown.esc="cancelClientEdit">
+                <button type="button" class="btn btn-primary btn-sm" :disabled="ce.loading" @click="saveClientEdit">Save</button>
+                <button type="button" class="btn btn-link btn-sm text-decoration-none" @click="cancelClientEdit">Cancel</button>
+              </template>
+              <template v-else>
+                <span class="cg-name">{{ c.name }}</span>
+                <div class="dropdown">
+                  <button type="button" class="cg-icon-btn cg-mcard-menu" aria-label="More actions" data-bs-toggle="dropdown" aria-expanded="false"><ph-icon name="more" :size="16"></ph-icon></button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li><button type="button" class="dropdown-item" @click="startClientEdit(c)">Edit</button></li>
+                    <li><h6 class="dropdown-header">Move to group</h6></li>
+                    <li><button type="button" class="dropdown-item cg-menu-item" :disabled="c._moving" @click="moveTo(c, null)"><span>No group</span><ph-icon v-if="!c.groupId" name="check" :size="14"></ph-icon></button></li>
+                    <li v-for="g in sortedGroups" :key="'mg' + g.id"><button type="button" class="dropdown-item cg-menu-item" :disabled="c._moving" @click="moveTo(c, g.id)"><span>{{ g.name }}</span><ph-icon v-if="c.groupId === g.id" name="check" :size="14"></ph-icon></button></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><button type="button" class="dropdown-item" :disabled="c._loading" @click="deleteClient(c)">Delete</button></li>
+                  </ul>
+                </div>
+              </template>
+            </div>
+            <div v-if="ce.id === c.id && ce.error" class="cg-err">{{ ce.error }}</div>
+            <div class="cg-mcard-mid">
+              <span class="cg-hint">{{ c.groupId ? groupName(c.groupId) : 'Tap ⋯ to add to a group' }}</span>
+              <span v-if="customCountOf(c.id)" class="cg-pill cg-pill-custom">{{ customCountOf(c.id) }} custom rate{{ customCountOf(c.id) === 1 ? '' : 's' }}</span>
+              <span v-else class="cg-pill cg-pill-agency">Agency rates</span>
+            </div>
+            <button type="button" class="cg-mcard-rc" @click="openRateCard(c)"><span>Rate card</span><ph-icon name="chevron-right" :size="14"></ph-icon></button>
+          </div>
+        </template>
+      </div>
 
       <div v-if="!clients.length" class="empty">No clients yet. Use + Add client to create the first one.</div>
       <div v-else-if="query.trim() && !hasMatches" class="empty">No clients match "{{ query.trim() }}".</div>
@@ -414,7 +538,7 @@
       </div>
     </div>
 
-    <div class="rc-table-card">
+    <div class="rc-table-card rc-desktop">
       <div class="rc-scroll">
         <table class="rc-table">
           <thead>
@@ -423,12 +547,13 @@
               <th class="rc-col-agency">Agency<br>€/h</th>
               <th class="rc-col-client">Client<br>{{ eurSymbol }}/h</th>
               <th v-for="cu in rcExtraCurrencies" :key="cu.code" class="rc-col-cur">{{ cu.code }}/h<span class="rc-fallback">Fallback 1 € = {{ Number(cu.current_rate) }}</span></th>
+              <th class="rc-col-agency-end">Agency<br>€/h</th>
               <th class="rc-col-reset"></th>
             </tr>
           </thead>
           <tbody v-for="fam in rcFamilies" :key="fam.name">
             <tr class="rc-fam">
-              <td :colspan="4 + rcExtraCurrencies.length">
+              <td :colspan="5 + rcExtraCurrencies.length">
                 <button type="button" class="rc-fam-btn" @click="rcFamClosed[fam.name] = !rcFamClosed[fam.name]">
                   <ph-icon name="chevron-down" :size="14" class="cg-chev" :class="{ 'is-collapsed': rcFamClosed[fam.name] }"></ph-icon>
                   <span class="rc-fam-name">{{ fam.name }}</span>
@@ -459,6 +584,7 @@
                   </div>
                   <div class="rc-cap" :class="'is-' + r.cells[cu.code].kind">{{ cellCaption(r.cells[cu.code], cu.code) }}</div>
                 </td>
+                <td class="rc-col-agency-end"><span v-if="r.row.defaults.EUR > 0">{{ moneyText(r.row.defaults.EUR, 'EUR') }}</span><span v-else class="rc-missing-dash">—</span></td>
                 <td class="rc-col-reset">
                   <button v-if="r.isCustom" type="button" class="cg-icon-btn" aria-label="Reset to agency rates" title="Reset to agency rates" @click="resetRcRow(r.row)"><ph-icon name="reset" :size="15"></ph-icon></button>
                 </td>
@@ -470,12 +596,41 @@
       </div>
     </div>
 
+    <!-- Phone: one currency at a time -->
+    <div class="rc-mobile">
+      <div class="md-seg rc-cur-seg" role="group" aria-label="Currency">
+        <button v-for="code in rcCurrencyCodes" :key="code" type="button" class="md-seg-btn" :class="{ active: rcPhoneCurrency === code }" @click="rcPhoneCurrency = code">{{ code }}</button>
+      </div>
+      <p class="rc-mhint">{{ rcPhoneHint }}</p>
+      <div v-for="fam in rcFamilies" :key="'mf' + fam.name" class="rc-mfam">
+        <button type="button" class="rc-mfam-head" @click="rcFamClosed[fam.name] = !rcFamClosed[fam.name]">
+          <span class="rc-fam-name">{{ fam.name }}</span>
+          <span class="rc-fam-count" :class="{ 'has-custom': fam.custom }">{{ fam.custom ? fam.custom + ' of ' + fam.total + ' customized' : fam.total + ' role' + (fam.total === 1 ? '' : 's') + ' · agency' }}</span>
+          <ph-icon name="chevron-down" :size="14" class="cg-chev" :class="{ 'is-collapsed': rcFamClosed[fam.name] }"></ph-icon>
+        </button>
+        <div v-if="!rcFamClosed[fam.name]">
+          <div v-for="r in fam.rows" :key="'mr' + r.row.roleId" class="rc-mrow">
+            <div class="rc-mrole">
+              <div class="rc-role">{{ r.row.label || r.row.code || '' }}</div>
+              <div class="rc-msrc" :class="'is-' + r.cells[rcPhoneCurrency].kind">{{ phoneSource(r) }}</div>
+            </div>
+            <div class="rc-input-wrap" :class="{ 'is-custom': r.cells[rcPhoneCurrency].kind === 'custom', 'is-missing': r.cells[rcPhoneCurrency].kind === 'missing' }">
+              <span class="rc-sym">{{ rcPhoneSymbol }}</span>
+              <input type="text" inputmode="decimal" v-model="r.row.texts[rcPhoneCurrency]" :placeholder="cellPlaceholder(r.cells[rcPhoneCurrency], rcPhoneCurrency)"
+                     @focus="onRcFocus(r.row, rcPhoneCurrency)" @blur="onRcBlur(r.row, rcPhoneCurrency)">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="rc-savebar">
       <span class="rc-dot" :class="{ 'is-dirty': rcDirtyCount > 0 }"></span>
+      <span class="rc-status-phone">{{ rcDirtyCount > 0 ? rcDirtyCount + ' unsaved' : rcCustomRowCount + ' role' + (rcCustomRowCount === 1 ? '' : 's') + ' customized' }}</span>
       <span class="rc-status">{{ rcDirtyCount > 0 ? rcDirtyCount + ' unsaved change' + (rcDirtyCount === 1 ? '' : 's') : 'All rates saved' }}</span>
       <span v-if="rc.msg" class="rc-msg" :class="rc.msgKind === 'success' ? 'is-ok' : 'is-error'">{{ rc.msg }}</span>
       <span class="cg-spacer"></span>
-      <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="rcDirtyCount === 0 || rc.saving" @click="discardRc">Discard</button>
+      <button type="button" class="btn btn-outline-secondary btn-sm rc-discard" :disabled="rcDirtyCount === 0 || rc.saving" @click="discardRc">Discard</button>
       <button type="button" class="btn btn-primary btn-sm" :disabled="rc.loading || !!rc.loadError || rc.saving" @click="saveClientRatecard">Save rates</button>
     </div>
   </template>
@@ -524,7 +679,7 @@ window.__cfgApp = Vue.createApp({
       currencies: [],
 
       rateClientId: null,
-      rcSearch: '', rcOnlyCustom: false, rcHowOpen: false, rcFamClosed: {},
+      rcSearch: '', rcOnlyCustom: false, rcHowOpen: false, rcFamClosed: {}, rcPhoneCurrency: 'EUR',
 
       // Client rate card state
       rc: { title: 'Rate Card', loading: false, loadError: null, msg: null, msgKind: 'success', msgSeq: 0, saving: false, id: null, rows: [] },
@@ -565,6 +720,14 @@ window.__cfgApp = Vue.createApp({
         const all = withCells.filter(r => r.family === name);
         return { name, rows: shown.filter(r => r.family === name), total: all.length, custom: all.filter(r => r.isCustom).length };
       });
+    },
+    rcCurrencyCodes() { return ['EUR', ...this.rcExtraCurrencies.map(cu => cu.code)]; },
+    rcPhoneSymbol() { return window.currencyInfo(this.rcPhoneCurrency, this.currencies).symbol; },
+    rcPhoneHint() {
+      const code = this.rcPhoneCurrency;
+      if (code === 'EUR') return 'Empty = agency € rate.';
+      const rate = Number(this.currencies.find(cu => cu.code === code)?.current_rate);
+      return `Empty = agency ${code} rate; if missing, € rate × ${rate}.`;
     },
     rcCustomRowCount() {
       const codes = ['EUR', ...this.rcExtraCurrencies.map(cu => cu.code)];
@@ -858,7 +1021,7 @@ window.__cfgApp = Vue.createApp({
     },
     enterRateCard(client) {
       this.rateClientId = client.id;
-      this.rcSearch = ''; this.rcOnlyCustom = false; this.rcHowOpen = false; this.rcFamClosed = {};
+      this.rcSearch = ''; this.rcOnlyCustom = false; this.rcHowOpen = false; this.rcFamClosed = {}; this.rcPhoneCurrency = 'EUR';
       this.setBreadcrumbs(client);
       window.scrollTo({ top: 0 });
       return this.openClientRatecard(client);
@@ -907,6 +1070,16 @@ window.__cfgApp = Vue.createApp({
     cellCaption(cell, code) {
       return { custom: 'Custom', agency: 'Agency', 'agency-currency': `Agency ${code}`, converted: 'From € × rate',
                missing: code === 'EUR' ? 'No rate · set one' : 'No rate' }[cell.kind];
+    },
+    // Phone: the line under a role name says where the amount comes from in the selected currency.
+    phoneSource(r) {
+      const code = this.rcPhoneCurrency, cell = r.cells[code];
+      const agency = r.row.defaults[code];
+      if (code === 'EUR') return agency > 0 ? `Agency ${this.moneyText(agency, 'EUR')}` : 'No agency rate';
+      if (agency != null) return `Agency ${this.moneyText(agency, code)}`;
+      if (cell.kind === 'missing') return 'No agency rate';
+      const rate = Number(this.currencies.find(cu => cu.code === code)?.current_rate);
+      return `No agency ${code} · from € × ${rate}`;
     },
     resetRcRow(row) { Object.keys(row.texts).forEach(c => { row.texts[c] = ''; }); },
     discardRc() { this.rc.rows.forEach(row => { row.texts = { ...row.initial }; }); },
