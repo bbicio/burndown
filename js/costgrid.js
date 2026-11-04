@@ -878,7 +878,7 @@ async function cgCreateNewVersionDirect() {
     newVer.createdAt      = new Date().toISOString();
     newVer.status         = 'draft';
     newVer.pipeline       = 'Draft';
-    newVer.pipelineYear   = null;
+    newVer.pipelineYear   = src.pipeline === 'Draft' ? (src.pipelineYear ?? null) : null; // as POST …/duplicate
     newVer.linkedProjects = [];
     newVer.phases         = [];
     delete newVer.linkedProjectId;

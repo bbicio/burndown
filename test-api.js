@@ -3873,11 +3873,16 @@ async function testPipelineYearDraft() {
   const mkYear = async (year, active) => {
     const r = await api('POST', '/api/pipeline-years', { year }, adminCookie);
     if (![201, 409].includes(r.status)) return false;
-    if (r.status === 201 && r.data?.id) {
-      later('DELETE', `/api/pipeline-years/${r.data.id}`);
-      if (!active) await api('PATCH', `/api/pipeline-years/${r.data.id}`, { active: false }, adminCookie);
+    // 409: left over by an earlier run — reuse it, but force the wanted state and clean it up too.
+    let id = r.data?.id;
+    if (r.status === 409) {
+      const list = await api('GET', '/api/pipeline-years', null, adminCookie);
+      id = (Array.isArray(list.data) ? list.data : []).find(py => py.year === year)?.id;
     }
-    return true;
+    if (!id) return false;
+    later('DELETE', `/api/pipeline-years/${id}`);
+    const p = await api('PATCH', `/api/pipeline-years/${id}`, { active }, adminCookie);
+    return p.status === 200;
   };
   if (!(await mkYear(TEST_YEAR_D, true)) || !(await mkYear(TEST_YEAR_E, false))) { ok(false, 'PYP-setup pipeline years unavailable'); return; }
 

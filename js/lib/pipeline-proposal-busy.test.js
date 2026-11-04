@@ -10,7 +10,7 @@ import { extractBlock } from '../../scripts/lib/extract-source.mjs';
 const html = readFileSync('pipeline.html', 'utf8');
 
 function ctx() {
-  return { proposalBusy: false, refreshTick: 0, collapsedStages: ['Draft', 'SIP'] };
+  return { proposalBusy: false, refreshTick: 0, collapsedStages: ['Draft', 'SIP'], pipelineYears: [] };
 }
 
 const PB_PROPOSAL_FALLBACK_MS = 5000;
@@ -99,21 +99,36 @@ describe('pageshow — proposalBusy', () => {
   });
 });
 
-// New Proposal and Clone create the Draft in the year the board is showing.
+// New Proposal and Clone create the Draft in the year the board is showing, when that year is an
+// active one of GET /api/pipeline-years; otherwise (current-year fallback, closed year, failed load)
+// they pass null and the Draft is created without a year.
 describe('createNewProposal / cloneProposal — the viewed year', () => {
   const noop = () => {};
-  it('createNewProposal passes selectedYear to cgCreateNewGrid', async () => {
+  const YEARS = [{ year: 2025, active: false }, { year: 2027, active: true }];
+  async function create(self) {
     const seen = [];
     const obj = new Function('cgCloneGrid', 'cgCreateNewGrid', 'PB_PROPOSAL_FALLBACK_MS',
       `return { ${extractBlock(html, 'async createNewProposal(')} }`)(noop, async (...a) => { seen.push(a); return false; }, PB_PROPOSAL_FALLBACK_MS);
-    await obj.createNewProposal.call({ ...ctx(), selectedYear: 2027 });
-    expect(seen).toEqual([[2027]]);
-  });
-  it('cloneProposal passes selectedYear as the third argument of cgCloneGrid', async () => {
+    await obj.createNewProposal.call({ ...ctx(), ...self });
+    return seen;
+  }
+  async function clone(self) {
     const seen = [];
     const obj = new Function('cgCloneGrid', 'cgCreateNewGrid', 'PB_PROPOSAL_FALLBACK_MS',
       `return { ${extractBlock(html, 'async cloneProposal(')} }`)(async (...a) => { seen.push(a); return false; }, noop, PB_PROPOSAL_FALLBACK_MS);
-    await obj.cloneProposal.call({ ...ctx(), selectedYear: 2027 }, 'cg1', 'v1');
-    expect(seen).toEqual([['cg1', 'v1', 2027]]);
+    await obj.cloneProposal.call({ ...ctx(), ...self }, 'cg1', 'v1');
+    return seen;
+  }
+  it('createNewProposal passes an active selectedYear to cgCreateNewGrid', async () => {
+    expect(await create({ selectedYear: 2027, pipelineYears: YEARS })).toEqual([[2027]]);
+  });
+  it('cloneProposal passes an active selectedYear as the third argument of cgCloneGrid', async () => {
+    expect(await clone({ selectedYear: 2027, pipelineYears: YEARS })).toEqual([['cg1', 'v1', 2027]]);
+  });
+  it('passes null for a year missing from the list, or closed', async () => {
+    expect(await create({ selectedYear: 2026, pipelineYears: YEARS })).toEqual([[null]]);
+    expect(await create({ selectedYear: 2026, pipelineYears: [] })).toEqual([[null]]);
+    expect(await create({ selectedYear: 2025, pipelineYears: YEARS })).toEqual([[null]]);
+    expect(await clone({ selectedYear: 2026, pipelineYears: [] })).toEqual([['cg1', 'v1', null]]);
   });
 });

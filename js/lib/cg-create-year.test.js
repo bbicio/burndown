@@ -80,3 +80,10 @@ describe('cgCloneGrid — pipeline year', () => {
     expect(calls.saved[0].versions[0].pipelineYear).toBeNull();
   });
 });
+
+// "+ New version" seeds the store with the year POST …/duplicate copies: a Draft source's year, else none.
+describe('new version — pipelineYear in the store', () => {
+  it('copies the year from a Draft source only', () => {
+    expect(src).toContain("newVer.pipelineYear   = src.pipeline === 'Draft' ? (src.pipelineYear ?? null) : null;");
+  });
+});
