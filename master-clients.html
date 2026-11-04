@@ -62,16 +62,29 @@
     .cg-menu-item { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); font-size: var(--text-sm); }
     .cg-menu-hint { display: block; font-size: 11px; color: var(--text-muted); white-space: normal; }
 
-    /* ── Inline forms ── */
-    .cg-new td { background: var(--surface-light); height: 60px; }
+    /* ── Form inputs ── */
     .cg-input {
       height: 34px; padding: 0 var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-sm);
       font-size: var(--text-sm); color: var(--brand-navy); background: var(--surface-white); min-width: 0; width: 100%;
     }
     .cg-input:focus { outline: 0; border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
-    .cg-new-line { display: flex; align-items: center; gap: var(--space-3); }
     .cg-hint { font-size: var(--text-sm); color: var(--text-muted); }
     .cg-err { font-size: 12px; color: var(--color-danger-text); padding: var(--space-1) var(--space-4); background: var(--surface-light); }
+
+    /* ── New client / new group drawer (modelled on master-pipelines.html's POT drawer) ── */
+    .cg-scrim { position: fixed; inset: 0; z-index: calc(var(--z-notification) - 1); background: var(--overlay-scrim); opacity: .5; }
+    .cg-drawer {
+      position: fixed; top: 0; right: 0; width: min(440px, 100vw); height: 100vh;
+      background: var(--surface-white); border-left: 1px solid var(--border-light); box-shadow: var(--shadow-xl);
+      z-index: var(--z-notification); display: flex; flex-direction: column;
+    }
+    .cg-dr-head { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border-light); }
+    .cg-dr-title { flex: 1 1 auto; margin: 0; font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .cg-dr-body { flex: 1 1 auto; overflow-y: auto; padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); }
+    .cg-field { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; }
+    .cg-field-label { font-size: 11px; font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+    .cg-dr-err { font-size: var(--text-sm); color: var(--color-danger-text); }
+    .cg-dr-foot { display: flex; justify-content: flex-end; gap: var(--space-2); padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border-light); }
 
     /* ── Group header ── */
     .cg-group-row td { background: var(--surface-light); height: 46px; }
@@ -187,8 +200,8 @@
       .cg-lbl-short { display: inline; }
       .cg-head .btn, .cg-search, .cg-icon-btn, .rc-input-wrap, .cg-select-btn, .cg-input { min-height: 44px; }
       .cg-table thead, .cg-table tbody.cg-data { display: none; }
-      .cg-new td { display: block; width: 100%; height: auto; padding: var(--space-2) var(--space-3); }
-      .cg-new-line { flex-wrap: wrap; }
+      .cg-drawer { border-left: 0; }
+      .cg-dr-foot .btn { min-height: 44px; flex: 1 1 0; }
       .cg-mobile { display: block; padding: var(--space-2) var(--space-3) var(--space-4); }
       .cg-mgroup { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-4) var(--space-1) var(--space-2); }
       .cg-mgroup .cg-group-count, .cg-mgroup .cg-link, .cg-mgroup .cg-pill { white-space: nowrap; flex: none; }
@@ -281,48 +294,6 @@
     <div class="md-table-card">
       <table class="cg-table">
         <thead><tr><th>Name</th><th>Client group</th><th class="cg-col-pill">Rate card</th><th></th></tr></thead>
-
-        <!-- New group row -->
-        <tbody v-if="ng.show">
-          <tr class="cg-new">
-            <td colspan="4">
-              <div class="cg-new-line">
-                <ph-icon name="building" :size="18"></ph-icon>
-                <input type="text" class="cg-input" style="max-width:440px" v-model="ng.name" ref="ngName" autocomplete="off"
-                       placeholder="Group name, e.g. Italian Public Sector"
-                       @keydown.enter="createGroup" @keydown.esc="cancelNewGroup">
-                <span class="cg-hint">Add clients to it after creating it.</span>
-                <span class="cg-spacer"></span>
-                <button type="button" class="btn btn-link btn-sm text-decoration-none" @click="cancelNewGroup">Cancel</button>
-                <button type="button" class="btn btn-primary btn-sm" :disabled="!ng.name.trim() || ng.loading" @click="createGroup">Create group</button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="ng.error"><td colspan="4" class="cg-err">{{ ng.error }}</td></tr>
-        </tbody>
-
-        <!-- New client row -->
-        <tbody v-if="cf.show">
-          <tr class="cg-new">
-            <td>
-              <input type="text" class="cg-input" v-model="cf.name" ref="cfName" autocomplete="off"
-                     placeholder="Client name, e.g. Acme Corp"
-                     @keydown.enter="createClient" @keydown.esc="cancelNewClient">
-            </td>
-            <td>
-              <select class="cg-input" v-model="cf.groupId">
-                <option :value="null">No group</option>
-                <option v-for="g in sortedGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
-              </select>
-            </td>
-            <td><span class="cg-hint">Agency rates</span></td>
-            <td class="cg-actions">
-              <button type="button" class="btn btn-link btn-sm text-decoration-none" @click="cancelNewClient">Cancel</button>
-              <button type="button" class="btn btn-primary btn-sm" :disabled="!cf.name.trim() || cf.loading" @click="createClient">Create</button>
-            </td>
-          </tr>
-          <tr v-if="cf.error"><td colspan="4" class="cg-err">{{ cf.error }}</td></tr>
-        </tbody>
 
         <tbody v-for="sec in sections" :key="sec.key" class="cg-data">
           <!-- Group header (By group view) -->
@@ -636,6 +607,55 @@
   </template>
 </section>
 
+<!-- ── New client / new group drawer ───────────────────────────── -->
+<div v-if="cf.show || ng.show" class="cg-drawer-wrap">
+  <div class="cg-scrim" @click="closeNewDrawer"></div>
+  <aside class="cg-drawer" role="dialog" aria-modal="true" :aria-label="cf.show ? 'New client' : 'New group'">
+    <div class="cg-dr-head">
+      <h3 class="cg-dr-title">{{ cf.show ? 'New client' : 'New group' }}</h3>
+      <button type="button" class="cg-icon-btn" aria-label="Close" @click="closeNewDrawer"><ph-icon name="close" :size="16"></ph-icon></button>
+    </div>
+
+    <div v-if="cf.show" class="cg-dr-body">
+      <label class="cg-field">
+        <span class="cg-field-label">Name</span>
+        <input type="text" class="cg-input" v-model="cf.name" ref="cfName" autocomplete="off"
+               placeholder="Client name, e.g. Acme Corp" @keydown.enter="createClient">
+      </label>
+      <label class="cg-field">
+        <span class="cg-field-label">Client group</span>
+        <select class="cg-input" v-model="cf.groupId">
+          <option :value="null">No group</option>
+          <option v-for="g in sortedGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
+        </select>
+      </label>
+      <div class="cg-hint">Rate card: Agency rates. Customize it after creating the client.</div>
+      <div v-if="cf.error" class="cg-dr-err">{{ cf.error }}</div>
+    </div>
+
+    <div v-else class="cg-dr-body">
+      <label class="cg-field">
+        <span class="cg-field-label">Name</span>
+        <input type="text" class="cg-input" v-model="ng.name" ref="ngName" autocomplete="off"
+               placeholder="Group name, e.g. Italian Public Sector" @keydown.enter="createGroup">
+      </label>
+      <div class="cg-hint" v-if="ngForClientName">Will be assigned to {{ ngForClientName }}.</div>
+      <div class="cg-hint" v-else>Add clients to it after creating it.</div>
+      <div v-if="ng.error" class="cg-dr-err">{{ ng.error }}</div>
+    </div>
+
+    <div class="cg-dr-foot">
+      <button type="button" class="btn btn-outline-secondary btn-sm" @click="closeNewDrawer">Cancel</button>
+      <button v-if="cf.show" type="button" class="btn btn-primary btn-sm" :disabled="!cf.name.trim() || cf.loading" @click="createClient">
+        <span v-if="cf.loading" class="spinner-border spinner-border-sm me-1"></span>Create client
+      </button>
+      <button v-else type="button" class="btn btn-primary btn-sm" :disabled="!ng.name.trim() || ng.loading" @click="createGroup">
+        <span v-if="ng.loading" class="spinner-border spinner-border-sm me-1"></span>Create group
+      </button>
+    </div>
+  </aside>
+</div>
+
 </div><!-- #app -->
 
 <!-- Confirm: the modal showConfirm() (js/core.js) writes into -->
@@ -713,6 +733,7 @@ window.__cfgApp = Vue.createApp({
   computed: {
     sortedGroups() { return [...this.groups].sort((a, b) => a.name.localeCompare(b.name)); },
     groupsById()   { return new Map(this.groups.map(g => [g.id, g])); },
+    ngForClientName() { return (this.ng.forClientId && this.clients.find(c => c.id === this.ng.forClientId)?.name) || ''; },
     filtered()     { return window.filterClients(this.clients, this.groupsById, this.query); },
     sections() {
       if (this.view === 'list') return [{ key: 'all', flat: true, group: null, clients: this.filtered }];
@@ -790,7 +811,11 @@ window.__cfgApp = Vue.createApp({
 
   mounted() {
     document.addEventListener('click', () => { this.addOpen = null; });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') this.addOpen = null; });
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      this.addOpen = null;
+      this.closeNewDrawer();
+    });
     window.addEventListener('popstate', () => this.onPopState());
     window.addEventListener('beforeunload', e => {
       if (this.rateClientId && this.rcDirtyCount > 0) { e.preventDefault(); e.returnValue = ''; }
@@ -867,10 +892,12 @@ window.__cfgApp = Vue.createApp({
 
     // ── Clients ──
     startNewClient() {
+      this.ng.show = false;
       this.cf = { show: true, name: '', groupId: null, error: null, loading: false };
       this.$nextTick(() => { const el = this.$refs.cfName; (Array.isArray(el) ? el[0] : el)?.focus(); });
     },
     cancelNewClient() { this.cf.show = false; },
+    closeNewDrawer() { this.cancelNewClient(); this.cancelNewGroup(); },
 
     async createClient() {
       const name = this.cf.name.trim();
@@ -967,8 +994,8 @@ window.__cfgApp = Vue.createApp({
 
     // ── Groups ──
     startNewGroup() {
+      this.cf.show = false;
       this.ng = { show: true, name: '', error: null, loading: false, forClientId: null };
-      this.setView('group');
       this.$nextTick(() => { const el = this.$refs.ngName; (Array.isArray(el) ? el[0] : el)?.focus(); });
     },
     startNewGroupFor(client) {
@@ -989,6 +1016,7 @@ window.__cfgApp = Vue.createApp({
         await this.reloadGroups();
         const client = this.ng.forClientId && this.clients.find(c => c.id === this.ng.forClientId);
         this.ng.show = false;
+        this.setView('group');
         if (client) await this.moveTo(client, created.id);
       } catch (e) {
         this.ng.error = e.message || 'Save failed.';

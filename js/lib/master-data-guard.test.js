@@ -225,6 +225,17 @@ describe('master-clients.html (Clients & groups)', () => {
     const reload = html.slice(html.indexOf('async reloadGroups()'), html.indexOf('setView(v)'));
     expect(reload).toContain('if (!this.globalError)');
   });
+  it('opens the new-client and new-group forms in the side drawer, not inside the table', () => {
+    const drawer = html.slice(html.indexOf('<div v-if="cf.show || ng.show" class="cg-drawer-wrap">'), html.indexOf('</div><!-- #app -->'));
+    expect(drawer).toContain('class="cg-drawer"');
+    for (const ref of ['ref="cfName"', 'ref="ngName"', '@click="createClient"', '@click="createGroup"']) {
+      expect(drawer, ref).toContain(ref);
+      expect(html.split(ref).length - 1, ref).toBe(1);
+    }
+    const table = html.slice(html.indexOf('<table class="cg-table">'), html.indexOf('</table>'));
+    expect(table).not.toContain('cf.show');
+    expect(table).not.toContain('ng.show');
+  });
   it('does not re-enter the open rate card on a popstate that still names its client', () => {
     const body = html.slice(html.indexOf('async onPopState()'), html.indexOf('// true when there is nothing unsaved'));
     expect(body).toMatch(/st\.clientId === this\.rateClientId\) return/);
