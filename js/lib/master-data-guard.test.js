@@ -369,7 +369,7 @@ describe('Pipelines & POTs responsive styles', () => {
   it('round 3 fixes: fresh drawer data, retry of a failed year load, stale failure ignored, popstate clears the banner', () => {
     expect(html).toContain('this.pipelineSummary = []; this.potDetails = {};');
     expect(html).toContain('if (this.loadedPotsYear === year) this.loadedPotsYear = null;');
-    expect(html).toContain('this.loadedPotsYear = null;\n        this.pipelineSummary = [];');
+    expect(html).toMatch(/this\.loadedPotsYear = null;\r?\n        this\.pipelineSummary = \[\];/);
     expect(html).toContain('{ this.globalError = null; this.applyState(window.parseMdpUrl(location.search)); }');
   });
 
