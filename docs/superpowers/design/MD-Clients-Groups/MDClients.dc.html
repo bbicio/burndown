@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><title>PDash — Master Data · Clients</title><style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#F3F4F6}
+a{color:#0B1840}a:hover{color:#F0287A}
+input::placeholder{color:#9AA0AC}
+.pb-navitem{height:40px;padding:0 10px;display:flex;align-items:center;gap:10px;border-radius:8px;text-decoration:none}
+.pb-navitem span{color:rgba(255,255,255,.75);font-size:13px;font-weight:500}
+.pb-subitem{height:32px;padding:0 10px 0 14px;display:flex;align-items:center;gap:9px;border-radius:8px;text-decoration:none}
+.pb-subitem span{color:rgba(255,255,255,.58);font-size:12px}
+.pb-subitem.active{background:rgba(255,255,255,.1);box-shadow:inset 3px 0 0 #F0287A}
+.pb-subitem.active span{color:#fff;font-weight:600}
+.pb-sublabel{padding:10px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.38)}
+</style></helmet>
+<div style="width:1400px;height:1000px;box-sizing:border-box;display:flex;background:#F3F4F6;overflow:hidden;position:relative">
+
+  <div style="width:220px;flex-shrink:0;background:#0B1840;display:flex;flex-direction:column;box-sizing:border-box">
+    <div style="height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 16px;border-bottom:3px solid #F0287A">
+      <span style="color:#FFFFFF;font-weight:700;font-size:22px;letter-spacing:-0.02em"><span style="color:#F0287A">P</span>Dash</span>
+      <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="rgba(255,255,255,.6)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+    </div>
+    <div style="padding:10px 8px 0;display:flex;flex-direction:column;gap:2px">
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12V8M8 12V4M14 12V6" stroke="rgba(255,255,255,.65)" stroke-width="1.6" stroke-linecap="round"></path></svg><span>Pipeline</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="2" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect></svg><span>Portfolio</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4" stroke-linecap="round"></path></svg><span>Planning</span></a>
+      <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+      <div class="pb-sublabel">Admin</div>
+      <a class="pb-subitem active" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.4" stroke="#fff" stroke-width="1.3"></circle><path d="M8 2v1.6M8 12.4V14M14 8h-1.6M3.6 8H2" stroke="#fff" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Master Data</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="9" rx="1.2" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></rect><path d="M2 4l1.6-2h8.8L14 4" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg><span>Timesheets</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.3" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></circle><path d="M3 14c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg><span>User Admin</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5.5" r="2" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></circle><circle cx="11" cy="6.5" r="1.6" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></circle><path d="M2 14c0-2.3 1.7-3.8 3.9-3.8 1.6 0 2.9.8 3.5 2M9.6 10.3c1.6 0 3 1.1 3 3" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Team</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5L14 8.5 7.5 15 2 9.5V2Z" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Attribute Lists</span></a>
+      <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+      <div class="pb-sublabel">Sysadmin</div>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><ellipse cx="8" cy="3.5" rx="5.2" ry="1.8" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></ellipse><path d="M2.8 3.5v9c0 1 2.3 1.8 5.2 1.8s5.2-.8 5.2-1.8v-9" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></path></svg><span>DB Reset</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 2h5.5L13 5.5V14H4V2Z" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Terms &amp; Conditions</span></a>
+    </div>
+    <div style="flex:1"></div>
+    <div style="border-top:1px solid rgba(255,255,255,.12);padding:12px 12px 14px;display:flex;align-items:center;gap:10px">
+      <div style="width:26px;height:26px;border-radius:999px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:700;flex-shrink:0">AP</div>
+      <span style="color:#fff;font-size:12px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">bbicio@gmail.com</span>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <div style="flex-shrink:0;height:44px;box-sizing:border-box;background:#FFFFFF;border-bottom:1px solid #DDE1E8;padding:0 24px;display:flex;align-items:center">
+      <div style="font-size:12px;color:#6B7280;display:flex;align-items:center;gap:6px">Home <span style="color:#C7CCD9">/</span> Master Data <span style="color:#C7CCD9">/</span> <span onClick="{{ goList }}" style="color:{{ crumbClientsC }};font-weight:{{ crumbClientsW }};cursor:pointer">Clients &amp; groups</span><sc-if value="{{ isRate }}" hint-placeholder-val="{{ false }}"><span style="color:#C7CCD9">/</span> <span style="color:#374151;font-weight:600">{{ client.name }} · Rate card</span></sc-if></div>
+    </div>
+
+    <div style="flex-shrink:0;padding:16px 24px 0">
+      <div style="font-size:26px;font-weight:700;color:#0B1840">Master Data</div>
+      <div style="font-size:12.5px;color:#6B7280;margin-top:2px">Clients, programs, roles and rates used across the app.</div>
+    </div>
+
+    <div style="flex:1;min-height:0;display:flex;gap:20px;padding:16px 24px 24px">
+      <div style="width:196px;flex-shrink:0;background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:6px 6px 10px;align-self:flex-start;display:flex;flex-direction:column">
+        <sc-for list="{{ subnav }}" as="g" hint-placeholder-count="2">
+          <span style="padding:12px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">{{ g.label }}</span>
+          <sc-for list="{{ g.items }}" as="i">
+            <div style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;cursor:pointer;background:{{ i.bg }};box-shadow:{{ i.bar }}" style-hover="background:#F3F4F6">
+              <span style="flex:1;font-size:12.5px;font-weight:{{ i.w }};color:{{ i.c }}">{{ i.label }}</span>
+              <span style="font-size:11px;color:#9AA0AC">{{ i.count }}</span>
+            </div>
+          </sc-for>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;min-width:0;background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column;align-self:flex-start">
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #EEF0F4;flex-wrap:wrap">
+            <span style="font-size:15px;font-weight:700;color:#0B1840">Clients &amp; groups</span>
+            <div style="display:flex;background:#EEF0F4;border-radius:8px;padding:2px;gap:2px">
+              <sc-for list="{{ viewSeg }}" as="s"><span onClick="{{ s.pick }}" style="font-size:12px;font-weight:{{ s.w }};color:{{ s.c }};background:{{ s.bg }};box-shadow:{{ s.sh }};border-radius:6px;padding:5px 11px;cursor:pointer">{{ s.label }}</span></sc-for>
+            </div>
+            <div style="display:flex;background:#EEF0F4;border-radius:8px;padding:2px;gap:2px">
+              <sc-for list="{{ statusSeg }}" as="s"><span onClick="{{ s.pick }}" style="font-size:12px;font-weight:{{ s.w }};color:{{ s.c }};background:{{ s.bg }};box-shadow:{{ s.sh }};border-radius:6px;padding:5px 11px;cursor:pointer">{{ s.label }}</span></sc-for>
+            </div>
+            <div style="flex:1"></div>
+            <div style="display:flex;align-items:center;gap:8px;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;height:32px;box-sizing:border-box;width:190px">
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg>
+              <input value="{{ q }}" onChange="{{ onQ }}" placeholder="Search client or group…" style="flex:1;min-width:0;border:0;outline:none;font-size:12.5px;font-family:inherit;background:transparent">
+            </div>
+            <div onClick="{{ startGroup }}" style="display:flex;align-items:center;height:32px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:8px;background:#fff;font-size:12.5px;font-weight:600;color:#374151;cursor:pointer" style-hover="border-color:#0B1840">+ Add group</div>
+            <div onClick="{{ startAdd }}" style="display:flex;align-items:center;height:32px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer" style-hover="background:#1a2a5e">+ Add client</div>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 200px 170px 100px 150px;gap:14px;padding:10px 18px;background:#F7F8FA;border-bottom:1px solid #EEF0F4;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">
+            <span>Name</span><span>Client group</span><span>Rate card</span><span>Status</span><span></span>
+          </div>
+          <sc-if value="{{ addingGroup }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;background:#F7F8FA;border-bottom:1px solid #EEF0F4">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#0B1840" stroke-width="1.4"><rect x="2.5" y="2" width="7" height="12" rx="1"></rect><path d="M9.5 6h4v8h-4M4.5 5h3M4.5 8h3M4.5 11h3"></path></svg>
+              <input value="{{ newGroup }}" onChange="{{ onNewGroup }}" placeholder="Group name, e.g. Italian Public Sector" style="flex:1;max-width:420px;height:34px;box-sizing:border-box;border:1px solid #F0287A;box-shadow:0 0 0 3px rgba(240,40,122,.15);border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;outline:none;color:#0B1840">
+              <span style="font-size:11.5px;color:#9AA0AC;flex:1">Add clients to it after creating it.</span>
+              <span onClick="{{ cancelGroup }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:7px 4px">Cancel</span>
+              <span onClick="{{ createGroup }}" style="font-size:12.5px;font-weight:600;color:#fff;background:{{ createGroupBg }};border-radius:8px;padding:7px 14px;cursor:pointer">Create group</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ adding }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 200px 170px 100px 150px;gap:14px;padding:10px 18px;align-items:center;background:#F7F8FA;border-bottom:1px solid #EEF0F4">
+              <input value="{{ newName }}" onChange="{{ onNewName }}" placeholder="Client name, e.g. Acme Corp" style="height:34px;box-sizing:border-box;border:1px solid #F0287A;box-shadow:0 0 0 3px rgba(240,40,122,.15);border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;outline:none;color:#0B1840">
+              <div style="height:34px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;background:#fff;padding:0 10px;display:flex;align-items:center;font-size:12.5px;color:#9AA0AC">No group<span style="flex:1"></span><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg></div>
+              <span style="font-size:12px;color:#9AA0AC">Agency rates</span><span></span>
+              <div style="display:flex;gap:8px;justify-content:flex-end">
+                <span onClick="{{ cancelAdd }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:7px 4px">Cancel</span>
+                <span onClick="{{ create }}" style="font-size:12.5px;font-weight:600;color:#fff;background:{{ createBg }};border-radius:8px;padding:7px 14px;cursor:pointer">Create</span>
+              </div>
+            </div>
+          </sc-if>
+          <sc-for list="{{ sections }}" as="g" hint-placeholder-count="1">
+            <sc-if value="{{ g.hasHeader }}">
+              <div style="display:flex;align-items:center;gap:10px;padding:0 18px;min-height:46px;background:{{ g.hbg }};border-bottom:1px solid #EEF0F4;position:relative">
+                <div onClick="{{ g.toggle }}" style="display:flex;align-items:center;gap:10px;cursor:pointer;min-width:0">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style="transform:rotate({{ g.rot }});transition:transform .15s"><path d="M6 3l5 5-5 5" stroke="#374151" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="{{ g.iconC }}" stroke-width="1.4"><rect x="2.5" y="2" width="7" height="12" rx="1"></rect><path d="M9.5 6h4v8h-4M4.5 5h3M4.5 8h3M4.5 11h3"></path></svg>
+                </div>
+                <sc-if value="{{ g.renaming }}">
+                  <input value="{{ g.draft }}" onChange="{{ g.onDraft }}" style="height:30px;width:260px;box-sizing:border-box;border:1px solid #F0287A;box-shadow:0 0 0 3px rgba(240,40,122,.15);border-radius:7px;padding:0 9px;font-size:13px;font-weight:700;font-family:inherit;outline:none;color:#0B1840">
+                  <span onClick="{{ g.saveRename }}" style="font-size:12px;font-weight:600;color:#fff;background:#0B1840;border-radius:7px;padding:5px 11px;cursor:pointer">Save</span>
+                  <span onClick="{{ g.cancelRename }}" style="font-size:12px;font-weight:600;color:#6B7280;cursor:pointer">Cancel</span>
+                </sc-if>
+                <sc-if value="{{ g.notRenaming }}">
+                  <span onClick="{{ g.toggle }}" style="font-size:13.5px;font-weight:700;color:{{ g.nameC }};cursor:pointer">{{ g.name }}</span>
+                  <span style="font-size:12px;color:#6B7280">{{ g.count }}</span>
+                  <sc-if value="{{ g.hasPot }}"><span title="Clients in a group share one POT" style="font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;background:#F3E8FD;color:#7C3AED">{{ g.pot }}</span></sc-if>
+                </sc-if>
+                <div style="flex:1"></div>
+                <sc-if value="{{ g.isReal }}">
+                  <span onClick="{{ g.toggleAssign }}" style="font-size:12px;font-weight:600;color:#0B1840;cursor:pointer;padding:6px 8px" style-hover="color:#F0287A">+ Add client</span>
+                  <div onClick="{{ g.startRename }}" title="Rename group" style="width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer" style-hover="background:#E9ECF1;color:#0B1840"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M10.5 2.5l3 3L6 13H3v-3l7.5-7.5z"></path></svg></div>
+                  <div onClick="{{ g.del }}" title="{{ g.delTip }}" style="width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:{{ g.delC }};cursor:{{ g.delCur }}" style-hover="background:#E9ECF1"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"></path></svg></div>
+                </sc-if>
+                <sc-if value="{{ g.assignOpen }}">
+                  <div onClick="{{ g.toggleAssign }}" style="position:fixed;inset:0;z-index:9"></div>
+                  <div style="position:absolute;top:42px;right:70px;z-index:10;width:300px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;box-shadow:0 10px 28px rgba(11,24,64,.16);padding:4px;display:flex;flex-direction:column">
+                    <span style="padding:8px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Add to {{ g.name }}</span>
+                    <sc-for list="{{ g.candidates }}" as="o">
+                      <div onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;cursor:pointer" style-hover="background:#F3F4F6"><span style="flex:1;font-size:12.5px;font-weight:600;color:#0B1840">{{ o.name }}</span><span style="font-size:11px;color:{{ o.subC }}">{{ o.sub }}</span></div>
+                    </sc-for>
+                    <sc-if value="{{ g.noCandidates }}"><span style="padding:10px;font-size:12px;color:#9AA0AC">Every client is already in this group.</span></sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+            <sc-if value="{{ g.open }}">
+              <sc-for list="{{ g.rows }}" as="c">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) 200px 170px 100px 150px;gap:14px;padding:0 18px 0 {{ g.indent }};min-height:52px;align-items:center;border-bottom:1px solid #F0F1F4" style-hover="background:#FAFBFC">
+                  <span style="font-size:13.5px;font-weight:600;color:{{ c.nameC }}">{{ c.name }}</span>
+                  <div style="position:relative">
+                    <span onClick="{{ c.toggleGroup }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:7px;padding:4px 8px;border:1px solid {{ c.gBorder }};background:{{ c.gBg }};color:{{ c.groupC }};cursor:pointer;max-width:100%;box-sizing:border-box" style-hover="border-color:#0B1840"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.group }}</span><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M4 6l4 4 4-4"></path></svg></span>
+                    <sc-if value="{{ c.groupOpen }}">
+                      <div onClick="{{ c.toggleGroup }}" style="position:fixed;inset:0;z-index:9"></div>
+                      <div style="position:absolute;top:32px;left:0;z-index:10;width:230px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;box-shadow:0 10px 28px rgba(11,24,64,.16);padding:4px;display:flex;flex-direction:column">
+                        <sc-for list="{{ c.groupOpts }}" as="o">
+                          <div onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;cursor:pointer;background:{{ o.bg }}" style-hover="background:#F3F4F6"><span style="flex:1;font-size:12.5px;font-weight:{{ o.w }};color:{{ o.c }}">{{ o.label }}</span><sc-if value="{{ o.on }}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#0B1840" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 5"></path></svg></sc-if></div>
+                        </sc-for>
+                        <div onClick="{{ startGroup }}" style="border-top:1px solid #F0F1F4;margin-top:4px;padding:8px 10px;font-size:12px;font-weight:600;color:#0B1840;cursor:pointer">+ New group…</div>
+                      </div>
+                    </sc-if>
+                  </div>
+                  <span onClick="{{ c.open }}" style="display:flex;align-items:center;gap:8px;cursor:pointer"><span style="font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;background:{{ c.rcBg }};color:{{ c.rcC }}">{{ c.rc }}</span></span>
+                  <span><span style="font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 9px;background:{{ c.stBg }};color:{{ c.stC }}">{{ c.st }}</span></span>
+                  <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end">
+                    <span onClick="{{ c.open }}" style="font-size:12px;font-weight:600;color:#0B1840;cursor:pointer;padding:6px 8px;white-space:nowrap" style-hover="color:#F0287A">Rate card →</span>
+                    <div title="Edit" style="width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer" style-hover="background:#F3F4F6;color:#0B1840"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M10.5 2.5l3 3L6 13H3v-3l7.5-7.5z"></path></svg></div>
+                    <div onClick="{{ c.toggleMenu }}" title="More" style="width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer;position:relative" style-hover="background:#F3F4F6;color:#0B1840"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg>
+                      <sc-if value="{{ c.menuOpen }}">
+                        <div style="position:absolute;top:34px;right:0;z-index:10;width:260px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;box-shadow:0 10px 28px rgba(11,24,64,.16);padding:4px;display:flex;flex-direction:column">
+                          <div onClick="{{ c.archive }}" style="display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:7px;cursor:pointer" style-hover="background:#F3F4F6"><span style="font-size:12.5px;font-weight:600;color:#0B1840">{{ c.archiveLabel }}</span><span style="font-size:11px;color:#6B7280;line-height:1.4">{{ c.archiveHint }}</span></div>
+                          <div style="display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:7px;cursor:not-allowed"><span style="font-size:12.5px;font-weight:600;color:#C9CDD3">Delete</span><span style="font-size:11px;color:#9AA0AC;line-height:1.4">{{ c.deleteHint }}</span></div>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ g.empty }}"><div style="padding:12px 18px 12px 46px;font-size:12px;color:#9AA0AC;border-bottom:1px solid #F0F1F4">No clients in this group yet · use "+ Add client" or pick the group on a client.</div></sc-if>
+            </sc-if>
+          </sc-for>
+          <div style="padding:12px 18px;font-size:11.5px;color:#9AA0AC;line-height:1.5">A client group puts affiliates under one umbrella: in Pipelines &amp; POTs the group has a single POT. Archived clients keep their proposals and projects but can't be picked in new proposals.</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isRate }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;min-height:0">
+          <div style="display:flex;align-items:flex-start;gap:16px">
+            <div style="display:flex;flex-direction:column;gap:4px;flex:1">
+              <div onClick="{{ goList }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#6B7280;cursor:pointer;align-self:flex-start" style-hover="color:#0B1840"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"></path></svg>Clients</div>
+              <div style="display:flex;align-items:center;gap:10px"><span style="font-size:20px;font-weight:700;color:#0B1840">Rate card · {{ client.name }}</span><span style="font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;background:#E6F4EC;color:#0E7C4A">{{ customCount }}</span></div>
+              <span style="font-size:12px;color:#6B7280;line-height:1.5">Custom hourly rates for this client, applied automatically when it's selected in a new proposal. Leave a field empty to use the agency rate.</span>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;height:32px;box-sizing:border-box;width:220px">
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg>
+              <input value="{{ rq }}" onChange="{{ onRq }}" placeholder="Search role or code…" style="flex:1;min-width:0;border:0;outline:none;font-size:12.5px;font-family:inherit;background:transparent">
+            </div>
+            <div onClick="{{ toggleOnly }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;color:#374151">
+              <div style="width:28px;height:16px;border-radius:999px;background:{{ onlyTrack }};position:relative"><div style="position:absolute;top:2px;left:{{ onlyKnob }};width:12px;height:12px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)"></div></div>Only customized
+            </div>
+            <div style="flex:1"></div>
+            <sc-for list="{{ legend }}" as="l"><span style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#4B5563"><span style="font-size:10.5px;font-weight:700;border-radius:4px;padding:1px 6px;background:{{ l.bg }};color:{{ l.c }};font-style:{{ l.fs }};border:1px solid {{ l.b }}">{{ l.s }}</span>{{ l.t }}</span></sc-for>
+            <div onClick="{{ toggleInfo }}" style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#0B1840;cursor:pointer" style-hover="color:#F0287A"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"></circle><path d="M8 7.2V11M8 5v.2" stroke-linecap="round"></path></svg>How rates resolve</div>
+          </div>
+
+          <sc-if value="{{ infoOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:14px 16px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;font-size:12px;color:#374151;line-height:1.55">
+              <div><strong style="color:#0B1840">EUR</strong><br>1 · Client rate in €<br>2 · Agency rate in € (Roles &amp; rates)</div>
+              <div><strong style="color:#0B1840">Other currencies (e.g. GBP)</strong><br>1 · Client rate in GBP<br>2 · Agency rate in GBP<br>3 · € rate (client or agency) × exchange rate<br><span style="color:#6B7280">Steps 1–2 are used as they are, without conversion. A custom € rate doesn't change GBP when an agency GBP rate exists. The exchange rate is the one saved in the proposal version at creation, not the live one.</span></div>
+            </div>
+          </sc-if>
+
+          <div style="flex:1;min-height:0;background:#fff;border:1px solid #DDE1E8;border-radius:12px;overflow:auto">
+            <div style="position:sticky;top:0;z-index:3;display:grid;grid-template-columns:minmax(200px,1fr) 76px 108px repeat(3,118px) 32px;gap:8px;padding:8px 14px;background:#F7F8FA;border-bottom:1px solid #DDE1E8;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC;align-items:end">
+              <span>Role</span>
+              <span style="text-align:right;line-height:1.3">Agency<br>€/h</span>
+              <span style="color:#0B1840;line-height:1.3">Client<br>€/h</span>
+              <sc-for list="{{ curCols }}" as="c"><span style="color:#0B1840;line-height:1.3">{{ c.code }}/h<br><span style="font-weight:500;letter-spacing:0;text-transform:none;color:#9AA0AC">{{ c.fx }}</span></span></sc-for>
+              <span></span>
+            </div>
+            <sc-for list="{{ families }}" as="f" hint-placeholder-count="4">
+              <div onClick="{{ f.toggle }}" style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:#FAFBFC;border-bottom:1px solid #EEF0F4;cursor:pointer;position:sticky;top:43px;z-index:2">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style="transform:rotate({{ f.rot }});transition:transform .15s"><path d="M6 3l5 5-5 5" stroke="#374151" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                <span style="font-size:12.5px;font-weight:700;color:#0B1840">{{ f.code }}</span>
+                <span style="font-size:12px;color:#6B7280">{{ f.name }}</span>
+                <div style="flex:1"></div>
+                <span style="font-size:11px;font-weight:600;color:{{ f.cntC }}">{{ f.cnt }}</span>
+              </div>
+              <sc-if value="{{ f.open }}">
+                <sc-for list="{{ f.roles }}" as="r">
+                  <div style="display:grid;grid-template-columns:minmax(200px,1fr) 76px 108px repeat(3,118px) 32px;gap:8px;padding:8px 14px;align-items:center;border-bottom:1px solid #F0F1F4;background:{{ r.bg }}">
+                    <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+                      <span style="font-size:12.5px;font-weight:600;color:#0B1840;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</span>
+                      <span style="font-size:10.5px;color:#9AA0AC;font-family:ui-monospace,Menlo,monospace">{{ r.code }}</span>
+                    </div>
+                    <span style="font-size:12.5px;color:{{ r.agC }};text-align:right">{{ r.ag }}</span>
+                    <sc-for list="{{ r.cells }}" as="c">
+                      <div style="display:flex;flex-direction:column;gap:2px">
+                        <div style="height:32px;box-sizing:border-box;border:1px solid {{ c.border }};background:{{ c.bg }};border-radius:7px;display:flex;align-items:center;gap:4px;padding:0 8px">
+                          <span style="font-size:11px;color:#9AA0AC">{{ c.sym }}</span>
+                          <input value="{{ c.val }}" onChange="{{ c.onChange }}" placeholder="{{ c.ph }}" style="flex:1;min-width:0;width:100%;border:0;outline:none;background:transparent;font-size:12.5px;font-family:inherit;font-weight:700;color:#0B1840">
+                        </div>
+                        <span style="font-size:10px;color:{{ c.srcC }};font-style:{{ c.srcFs }};padding-left:2px">{{ c.src }}</span>
+                      </div>
+                    </sc-for>
+                    <div style="display:flex;justify-content:center">
+                      <sc-if value="{{ r.custom }}"><div onClick="{{ r.reset }}" title="Reset row to agency rates" style="width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#9AA0AC;cursor:pointer" style-hover="background:#F3F4F6;color:#0B1840"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a5 5 0 105-5H5M5 1v4h4" transform="translate(0 0)"></path></svg></div></sc-if>
+                    </div>
+                  </div>
+                </sc-for>
+              </sc-if>
+            </sc-for>
+          </div>
+
+          <div style="flex-shrink:0;background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:12px">
+            <span style="width:8px;height:8px;border-radius:999px;background:{{ dirtyDot }}"></span>
+            <span style="font-size:12.5px;color:#374151;flex:1">{{ dirtyLabel }}</span>
+            <div onClick="{{ discard }}" style="display:flex;align-items:center;height:34px;box-sizing:border-box;padding:0 14px;border:1px solid #DDE1E8;border-radius:8px;font-size:12.5px;font-weight:600;color:#374151;cursor:pointer" style-hover="border-color:#0B1840">Discard</div>
+            <div onClick="{{ save }}" style="display:flex;align-items:center;height:34px;box-sizing:border-box;padding:0 18px;border-radius:8px;background:#F0287A;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer" style-hover="background:#d01f6a">Save rates</div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1000},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;rate&quot;],&quot;default&quot;:&quot;list&quot;,&quot;tsType&quot;:&quot;'list'|'rate'&quot;},&quot;groupView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;group&quot;],&quot;default&quot;:&quot;list&quot;,&quot;tsType&quot;:&quot;'list'|'group'&quot;},&quot;adding&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;addingGroup&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;assignOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;infoOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const CUR = [{ code: 'GBP', sym: '£', fx: 0.86 }, { code: 'CHF', sym: 'CHF', fx: 0.94 }, { code: 'USD', sym: '$', fx: 1.09 }];
+const FAM = [
+  { code: 'HWGACCSVS', name: 'Healthware Account Services', roles: [
+    ['dir', 'Healthware Account Director', 'HWGACCSVS - DIRECTOR', 180, [155, 170, 195]],
+    ['mgr', 'Healthware Account Manager', 'HWGACCSVS - MANAGER', 135, [116, 127, 147]],
+    ['srm', 'Healthware Account Senior Manager', 'HWGACCSVS - SR MANAGER', 150, [129, 141, 163]],
+    ['mkt', 'Healthware Marketing Coordinator', 'HWGACCSVS - MARKETING COORDINATOR', 130, [112, 122, 142]],
+    ['vp', 'Healthware Account Vice President', 'HWGACCSVS - VP', null, [null, null, null]],
+    ['svp', 'Healthware Account Senior Vice President', 'HWGACCSVS - SVP', null, [null, null, null]]] },
+  { code: 'HWGINTERN', name: 'Healthware Interns', roles: [
+    ['iqa', 'HWGINTERN - QUAL', 'HWGINTERN - QUALITY ASSURANCE', 105, [90, 99, 114]],
+    ['iac', 'Healthware Account Services Intern', 'HWGINTERN - ACCSVS', 75, [65, 70, 82]],
+    ['iop', 'Healthware Agency Ops Intern', 'HWGINTERN - AGENCY OPS', null, [null, null, null]]] },
+  { code: 'HWGDEV', name: 'Healthware Development', roles: [
+    ['dev', 'Developer', 'HWGDEV - DEVELOPER', 100, [86, 94, 109]],
+    ['arc', 'Architect', 'HWGDEV - ARCHITECT', 120, [103, 113, 131]],
+    ['ddr', 'Development Director', 'HWGDEV - DIRECTOR', 140, [120, 132, 153]]] },
+  { code: 'CPROD', name: 'Creative Production', roles: [
+    ['cs', 'Content Specialist', 'CPROD - HWGCREAT - CONTENT SPECIALIST', 115, [99, 108, 125]],
+    ['sd', 'Studio Director', 'CPROD - HWGCRSVS - STUDIO DIRECTOR', 115, [99, 108, 125]],
+    ['xd', 'Experience Designer', 'CPROD - HWGCRSVS - EXPERIENCE DESIGNER', 110, [null, 103, 120]]] }
+];
+const INIT = { dir: ['168', '150', '', ''], mgr: ['100', '', '', ''], srm: ['101', '', '', ''], iqa: ['105', '', '', ''], iac: ['130', '', '', ''] };
+const CLIENTS = [
+  { id: 'bay', name: 'Bayer AG', group: 'Bayer Group', n: 6 },
+  { id: 'men', name: 'Menarini Ricerche', group: 'Menarini Group', n: 0 },
+  { id: 'nha', name: 'Next Health Advisors', group: '', n: 2 },
+  { id: 'gem', name: 'Policlinico Gemelli', group: '', n: 0 },
+  { id: 'sifi', name: 'SIFI Group', group: '', n: 3 },
+  { id: 'old', name: 'Italfarmaco', group: '', n: 0, archived: true }
+];
+
+class Component extends DCLogic {
+  state = {};
+  renderVals() {
+    const S = this.state, P = this.props;
+    const screen = S.screen ?? P.screen ?? 'list';
+    const rates = S.rates ?? INIT;
+    const saved = S.saved ?? INIT;
+    const fam = S.fam ?? { HWGACCSVS: 1, HWGINTERN: 1, HWGDEV: 0, CPROD: 1 };
+    const only = !!S.only, rq = (S.rq ?? '').toLowerCase();
+    const tab = S.tab ?? 'active';
+    const arch = S.arch ?? Object.fromEntries(CLIENTS.map(c => [c.id, !!c.archived]));
+    const extra = S.extra ?? [];
+    const menu = S.menu ?? null;
+    const adding = S.adding ?? !!P.adding;
+    const q = (S.q ?? '').toLowerCase();
+    const segOn = on => on ? { w: 600, c: '#0B1840', bg: '#fff', sh: '0 1px 2px rgba(11,24,64,.12)' } : { w: 500, c: '#6B7280', bg: 'transparent', sh: 'none' };
+    const all = [...CLIENTS, ...extra];
+    const nAct = all.filter(c => !arch[c.id]).length, nArc = all.length - nAct;
+
+    const groupNames = S.groupNames ?? ['Bayer Group', 'Menarini Group'];
+    const cg = S.cg ?? Object.fromEntries(all.map(c => [c.id, c.group || '']));
+    const POTS = { 'Menarini Group': 'POT · Menarini Group 2026' };
+    const gview = S.gview ?? P.groupView ?? 'list';
+    const gopen = S.gopen ?? {};
+    const gmenu = S.gmenu ?? null, assign = S.assign ?? (P.assignOpen ? 'Menarini Group' : null), ren = S.ren ?? null;
+    const addingGroup = S.addingGroup ?? !!P.addingGroup;
+    const mk = c => {
+      const isArc = !!arch[c.id], used = c.id !== 'gem' && !String(c.id).startsWith('new');
+      const g = cg[c.id] || '', gOpen = gmenu === c.id;
+      return {
+        name: c.name, nameC: isArc ? '#6B7280' : '#0B1840', group: g || 'No group', groupC: g ? '#374151' : '#9AA0AC', gBorder: g ? '#DDE1E8' : 'transparent', gBg: g ? '#fff' : 'transparent',
+        groupOpen: gOpen, toggleGroup: () => this.setState({ gmenu: gOpen ? null : c.id }),
+        groupOpts: [''].concat(groupNames).map(n => ({ label: n || 'No group', on: n === g, bg: n === g ? '#F3F4F6' : 'transparent', w: n === g ? 700 : 500, c: n ? '#0B1840' : '#6B7280', pick: () => this.setState({ cg: { ...cg, [c.id]: n }, gmenu: null }) })),
+        rc: c.n ? c.n + ' custom rates' : 'Agency rates', rcBg: c.n ? '#E6F4EC' : '#F3F4F6', rcC: c.n ? '#0E7C4A' : '#6B7280',
+        st: isArc ? 'Archived' : 'Active', stBg: isArc ? '#EEF0F4' : '#E6F4EC', stC: isArc ? '#6B7280' : '#0E7C4A',
+        open: () => this.setState({ screen: 'rate' }),
+        menuOpen: menu === c.id, toggleMenu: () => this.setState({ menu: menu === c.id ? null : c.id }),
+        archiveLabel: isArc ? 'Restore' : 'Archive', archiveHint: isArc ? 'Make it selectable again in new proposals.' : 'Hide it from new proposals. Existing proposals and projects are kept.',
+        archive: () => this.setState({ arch: { ...arch, [c.id]: !isArc }, menu: null }),
+        deleteHint: used ? 'Not available: this client has proposals or projects.' : 'Not available: archive it instead.'
+      };
+    };
+    const vis = all.filter(c => (tab === 'active') !== !!arch[c.id]).filter(c => !q || c.name.toLowerCase().includes(q) || (cg[c.id] || '').toLowerCase().includes(q));
+    let sections;
+    if (gview === 'list') sections = [{ hasHeader: false, open: true, rows: vis.map(mk), indent: '18px', empty: false }];
+    else {
+      sections = groupNames.filter(n => !q || n.toLowerCase().includes(q) || vis.some(c => cg[c.id] === n)).map(n => {
+        const members = vis.filter(c => cg[c.id] === n), on = gopen[n] !== false, total = all.filter(c => cg[c.id] === n).length;
+        const pot = POTS[n], isRen = ren === n;
+        return {
+          hasHeader: true, isReal: true, name: n, nameC: '#0B1840', iconC: '#0B1840', hbg: '#F7F8FA', count: total + (total === 1 ? ' client' : ' clients'),
+          hasPot: !!pot, pot: pot || '', open: on, rot: on ? '90deg' : '0deg', toggle: () => this.setState({ gopen: { ...gopen, [n]: !on } }),
+          rows: members.map(mk), indent: '46px', empty: members.length === 0,
+          renaming: isRen, notRenaming: !isRen, draft: S.draft ?? n, onDraft: e => this.setState({ draft: e.target.value }),
+          startRename: () => this.setState({ ren: n, draft: n }), cancelRename: () => this.setState({ ren: null }),
+          saveRename: () => { const d = (S.draft ?? n).trim(); if (!d) return; this.setState({ groupNames: groupNames.map(x => x === n ? d : x), cg: Object.fromEntries(Object.entries(cg).map(([k, v]) => [k, v === n ? d : v])), ren: null }); },
+          delTip: pot ? 'Can\'t delete: used by ' + pot.replace('POT · ', '') + '. Remove the POT first.' : 'Delete group · its clients become ungrouped',
+          delC: pot ? '#C9CDD3' : '#6B7280', delCur: pot ? 'not-allowed' : 'pointer',
+          del: () => { if (pot) return; this.setState({ groupNames: groupNames.filter(x => x !== n), cg: Object.fromEntries(Object.entries(cg).map(([k, v]) => [k, v === n ? '' : v])) }); },
+          assignOpen: assign === n, toggleAssign: () => this.setState({ assign: assign === n ? null : n }),
+          candidates: all.filter(c => !arch[c.id] && cg[c.id] !== n).map(c => ({ name: c.name, sub: cg[c.id] ? 'Move from ' + cg[c.id] : 'No group', subC: cg[c.id] ? '#B4650C' : '#9AA0AC', pick: () => this.setState({ cg: { ...cg, [c.id]: n }, assign: null }) })),
+          noCandidates: all.filter(c => !arch[c.id] && cg[c.id] !== n).length === 0
+        };
+      });
+      const loose = vis.filter(c => !cg[c.id]), on = gopen.__none !== false;
+      if (loose.length) sections.push({ hasHeader: true, isReal: false, name: 'No group', nameC: '#6B7280', iconC: '#9AA0AC', hbg: '#fff', count: loose.length + (loose.length === 1 ? ' client' : ' clients'), hasPot: false, pot: '',
+        open: on, rot: on ? '90deg' : '0deg', toggle: () => this.setState({ gopen: { ...gopen, __none: !on } }), rows: loose.map(mk), indent: '46px', empty: false, renaming: false, notRenaming: true, assignOpen: false, candidates: [], noCandidates: false });
+    }
+    let customRoles = 0, changes = 0;
+    const families = FAM.map(f => {
+      const on = !!fam[f.code];
+      let fc = 0;
+      const roles = f.roles.map(([id, name, code, ag, agC]) => {
+        const v = rates[id] || ['', '', '', ''], sv = saved[id] || ['', '', '', ''];
+        v.forEach((x, i) => { if ((x || '') !== (sv[i] || '')) changes++; });
+        const custom = v.some(x => x !== '' && x != null);
+        if (custom) { fc++; customRoles++; }
+        const set = (i, val) => { const nv = [...v]; nv[i] = val.replace(/[^0-9.,]/g, ''); this.setState({ rates: { ...rates, [id]: nv } }); };
+        const eurBase = v[0] !== '' ? Number(v[0].replace(',', '.')) : ag;
+        const cells = [{
+          sym: '€', val: v[0], ph: ag != null ? String(ag) : '—', onChange: e => set(0, e.target.value),
+          src: v[0] !== '' ? 'Custom' : ag != null ? 'Agency' : 'No rate · set one', srcC: v[0] !== '' ? '#0E7C4A' : ag != null ? '#9AA0AC' : '#B4650C', srcFs: 'normal',
+          border: v[0] !== '' ? '#0B1840' : '#DDE1E8', bg: '#fff'
+        }].concat(CUR.map((c, i) => {
+          const own = v[i + 1], agv = agC[i];
+          let ph, src, srcC, srcFs = 'normal';
+          if (own !== '') { ph = ''; src = 'Custom'; srcC = '#0E7C4A'; }
+          else if (agv != null) { ph = String(agv); src = 'Agency ' + c.code; srcC = '#9AA0AC'; }
+          else if (eurBase != null) { ph = '≈ ' + Math.round(eurBase * c.fx); src = 'From € × rate'; srcC = '#7C3AED'; srcFs = 'italic'; }
+          else { ph = '—'; src = 'No rate'; srcC = '#B4650C'; }
+          return { sym: c.sym, val: own, ph, onChange: e => set(i + 1, e.target.value), src, srcC, srcFs, border: own !== '' ? '#0B1840' : '#DDE1E8', bg: own !== '' ? '#fff' : '#FAFBFC' };
+        }));
+        return { name, code, ag: ag != null ? '€ ' + ag : '—', agC: ag != null ? '#374151' : '#B4650C', cells, custom, bg: custom ? '#FBFCFE' : '#fff',
+          reset: () => this.setState({ rates: { ...rates, [id]: ['', '', '', ''] } }), _match: !rq || (name + code).toLowerCase().includes(rq) };
+      }).filter(r => r._match && (!only || r.custom));
+      return { code: f.code, name: f.name, open: on, rot: on ? '90deg' : '0deg', toggle: () => this.setState({ fam: { ...fam, [f.code]: !on } }),
+        cnt: fc ? fc + ' of ' + f.roles.length + ' customized' : f.roles.length + ' roles · agency rates', cntC: fc ? '#0E7C4A' : '#9AA0AC', roles, _n: roles.length };
+    }).filter(f => f._n > 0 || (!only && !rq));
+
+    const S_ = (on) => ({ track: on ? '#0B1840' : '#C9CDD3', knob: on ? '14px' : '2px' });
+    const oS = S_(only);
+    return {
+      isList: screen === 'list', isRate: screen === 'rate',
+      goList: () => this.setState({ screen: 'list' }), crumbClientsC: screen === 'list' ? '#374151' : '#6B7280', crumbClientsW: screen === 'list' ? 600 : 400,
+      subnav: [
+        { label: 'Commercial', items: [['Clients & groups', nAct], ['Pipelines & POTs', '']] },
+        { label: 'Financial', items: [['Roles & rates', 58], ['Currencies', 4]] }
+      ].map(g => ({ label: g.label, items: g.items.map(([label, count]) => { const on = label === 'Clients & groups'; return { label, count, bg: on ? '#F3F4F6' : 'transparent', bar: on ? 'inset 3px 0 0 #F0287A' : 'none', w: on ? 700 : 500, c: on ? '#0B1840' : '#374151' }; }) })),
+      statusSeg: [['active', 'Active · ' + nAct], ['archived', 'Archived · ' + nArc]].map(([id, label]) => ({ label, ...segOn(tab === id), pick: () => this.setState({ tab: id }) })),
+      q: S.q ?? '', onQ: e => this.setState({ q: e.target.value }),
+      adding, startAdd: () => this.setState({ adding: true, tab: 'active' }), cancelAdd: () => this.setState({ adding: false, newName: '' }),
+      newName: S.newName ?? '', onNewName: e => this.setState({ newName: e.target.value }), createBg: (S.newName ?? '').trim() ? '#0B1840' : '#C9CDD3',
+      create: () => { const n = (S.newName ?? '').trim(); if (!n) return; this.setState({ extra: [...extra, { id: 'new' + extra.length, name: n, group: '', n: 0 }], adding: false, newName: '' }); },
+      sections,
+      viewSeg: [['list', 'List'], ['group', 'By group']].map(([id, label]) => ({ label, ...segOn(gview === id), pick: () => this.setState({ gview: id }) })),
+      addingGroup, startGroup: () => this.setState({ addingGroup: true, gview: 'group', gmenu: null }), cancelGroup: () => this.setState({ addingGroup: false, newGroup: '' }),
+      newGroup: S.newGroup ?? '', onNewGroup: e => this.setState({ newGroup: e.target.value }), createGroupBg: (S.newGroup ?? '').trim() ? '#0B1840' : '#C9CDD3',
+      createGroup: () => { const n = (S.newGroup ?? '').trim(); if (!n || groupNames.includes(n)) return; this.setState({ groupNames: [...groupNames, n], addingGroup: false, newGroup: '', gview: 'group' }); },
+      client: { name: 'Bayer AG' }, customCount: customRoles + ' roles customized',
+      rq: S.rq ?? '', onRq: e => this.setState({ rq: e.target.value }),
+      onlyTrack: oS.track, onlyKnob: oS.knob, toggleOnly: () => this.setState({ only: !only }),
+      legend: [
+        { s: '168', t: 'Custom', bg: '#fff', c: '#0B1840', fs: 'normal', b: '#0B1840' },
+        { s: '155', t: 'Agency', bg: '#FAFBFC', c: '#9AA0AC', fs: 'normal', b: '#DDE1E8' },
+        { s: '≈ 95', t: 'From € × rate', bg: '#FAFBFC', c: '#7C3AED', fs: 'italic', b: '#DDE1E8' }
+      ],
+      infoOpen: S.infoOpen ?? !!P.infoOpen, toggleInfo: () => this.setState({ infoOpen: !(S.infoOpen ?? !!P.infoOpen) }),
+      curCols: CUR.map(c => ({ code: c.code, fx: 'Fallback 1 € = ' + c.fx })),
+      families,
+      dirtyDot: changes ? '#F0287A' : '#0E7C4A', dirtyLabel: changes ? changes + (changes === 1 ? ' unsaved change' : ' unsaved changes') : 'All rates saved',
+      discard: () => this.setState({ rates: saved }), save: () => this.setState({ saved: rates })
+    };
+  }
+}
+</script>
+</body>
+</html>

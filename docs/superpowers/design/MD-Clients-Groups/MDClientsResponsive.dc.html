@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><title>PDash — Master Data · Clients · tablet &amp; smartphone</title><style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#F3F4F6}
+a{color:#0B1840}a:hover{color:#F0287A}
+input::placeholder{color:#9AA0AC}
+[data-noscrollbar]::-webkit-scrollbar{display:none}
+</style></helmet>
+<div style="width:1980px;box-sizing:border-box;padding:40px;display:flex;gap:48px;align-items:flex-start;background:#F3F4F6">
+
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:12px;font-weight:700;color:#0B1840">Tablet landscape — 1024 × 768 · Rate card</div>
+    <div style="font-size:11px;color:#6B7280;max-width:1024px;line-height:1.45">Sidebar a icone. La sotto-navigazione di Master Data diventa una fila di tab scorrevoli. Nella rate card restano fisse la colonna Role e la colonna Client €; le colonne delle valute scorrono in orizzontale. Campi alti 40px per il touch.</div>
+    <div style="width:1024px;height:768px;display:flex;background:#F3F4F6;border:1px solid #DDE1E8;border-radius:18px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08)">
+      <div style="width:64px;flex-shrink:0;background:#0B1840;display:flex;flex-direction:column;align-items:center">
+        <div style="height:56px;width:100%;display:flex;align-items:center;justify-content:center;border-bottom:3px solid #F0287A;box-sizing:border-box"><span style="color:#F0287A;font-weight:800;font-size:22px">P</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px;padding-top:10px;align-items:center">
+          <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12V8M8 12V4M14 12V6" stroke="rgba(255,255,255,.65)" stroke-width="1.6" stroke-linecap="round"></path></svg></div>
+          <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="2" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect></svg></div>
+          <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4" stroke-linecap="round"></path></svg></div>
+          <div style="width:32px;height:1px;background:rgba(255,255,255,.12);margin:6px 0"></div>
+          <div title="Master Data" style="width:36px;height:32px;border-radius:7px;background:rgba(255,255,255,.1);box-shadow:inset 3px 0 0 #F0287A;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.4" stroke="#fff" stroke-width="1.3"></circle><path d="M8 2v1.6M8 12.4V14M14 8h-1.6M3.6 8H2" stroke="#fff" stroke-width="1.2" stroke-linecap="round"></path></svg></div>
+          <div style="width:36px;height:32px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="9" rx="1.2" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></rect><path d="M2 4l1.6-2h8.8L14 4" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg></div>
+          <div style="width:36px;height:32px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.3" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></circle><path d="M3 14c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg></div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="padding:12px 0 14px;border-top:1px solid rgba(255,255,255,.12);width:100%;display:flex;justify-content:center"><div style="width:28px;height:28px;border-radius:999px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:700">AP</div></div>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+        <div style="flex-shrink:0;padding:14px 20px 0"><span style="font-size:22px;font-weight:700;color:#0B1840">Master Data</span></div>
+        <div data-noscrollbar="1" style="flex-shrink:0;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:10px 20px;border-bottom:1px solid #DDE1E8">
+          <sc-for list="{{ tabs }}" as="t"><div style="flex-shrink:0;height:36px;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:6px;background:{{ t.bg }};border:1px solid {{ t.border }};box-shadow:inset 0 -3px 0 {{ t.bar }};font-size:12.5px;font-weight:{{ t.w }};color:{{ t.c }}">{{ t.label }}<span style="font-size:11px;color:#9AA0AC">{{ t.count }}</span></div></sc-for>
+        </div>
+        <div style="flex-shrink:0;padding:12px 20px 8px;display:flex;align-items:center;gap:10px">
+          <div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;font-weight:600;color:#6B7280">← Clients</span><span style="font-size:18px;font-weight:700;color:#0B1840">Rate card · Bayer AG</span></div>
+          <div style="height:40px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:8px;background:#fff;display:flex;align-items:center;gap:7px;font-size:12.5px;color:#374151"><div style="width:28px;height:16px;border-radius:999px;background:#C9CDD3;position:relative"><div style="position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:999px;background:#fff"></div></div>Only customized</div>
+          <div style="height:40px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:8px;background:#fff;display:flex;align-items:center;font-size:12.5px;font-weight:600;color:#0B1840">How rates resolve</div>
+        </div>
+        <div style="flex:1;min-height:0;margin:0 20px;background:#fff;border:1px solid #DDE1E8;border-radius:12px;overflow:auto">
+          <div style="min-width:860px">
+            <div style="position:sticky;top:0;z-index:3;display:grid;grid-template-columns:230px 120px repeat(3,140px) 72px;gap:10px;padding:8px 12px;background:#F7F8FA;border-bottom:1px solid #DDE1E8;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">
+              <span style="position:sticky;left:12px;background:#F7F8FA">Role</span><span style="position:sticky;left:252px;background:#F7F8FA;color:#0B1840;box-shadow:6px 0 6px -6px rgba(11,24,64,.2)">Client €/h</span><span style="color:#0B1840">GBP/h</span><span style="color:#0B1840">CHF/h</span><span style="color:#0B1840">USD/h</span><span style="text-align:right">Agency €</span>
+            </div>
+            <sc-for list="{{ tRows }}" as="r" hint-placeholder-count="8">
+              <div style="display:grid;grid-template-columns:230px 120px repeat(3,140px) 72px;gap:10px;padding:8px 12px;align-items:center;border-bottom:1px solid #F0F1F4;background:{{ r.bg }}">
+                <div style="position:sticky;left:12px;background:{{ r.bg }};display:flex;flex-direction:column;min-width:0"><span style="font-size:12.5px;font-weight:{{ r.fw }};color:#0B1840;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</span><span style="font-size:10.5px;color:#9AA0AC;font-family:ui-monospace,Menlo,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.code }}</span></div>
+                <sc-if value="{{ r.isRole }}">
+                  <div style="position:sticky;left:252px;background:{{ r.bg }};box-shadow:6px 0 6px -6px rgba(11,24,64,.2)"><div style="height:40px;box-sizing:border-box;border:1px solid {{ r.eB }};border-radius:7px;display:flex;align-items:center;padding:0 10px;font-size:13px;font-weight:{{ r.eW }};color:{{ r.eC }}">{{ r.eur }}</div></div>
+                  <sc-for list="{{ r.cur }}" as="c"><div style="height:40px;box-sizing:border-box;border:1px solid {{ c.b }};background:{{ c.bg }};border-radius:7px;display:flex;align-items:center;padding:0 10px;font-size:13px;font-weight:{{ c.w }};color:{{ c.c }};font-style:{{ c.fs }}">{{ c.t }}</div></sc-for>
+                  <span style="font-size:12px;color:#6B7280;text-align:right">{{ r.ag }}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="flex-shrink:0;margin:12px 20px 16px;background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:8px 12px;display:flex;align-items:center;gap:10px">
+          <span style="width:8px;height:8px;border-radius:999px;background:#0E7C4A"></span><span style="flex:1;font-size:12.5px;color:#374151">All rates saved</span>
+          <div style="height:44px;box-sizing:border-box;padding:0 18px;border-radius:8px;background:#F0287A;display:flex;align-items:center;font-size:13px;font-weight:600;color:#fff">Save rates</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:12px;font-weight:700;color:#0B1840">Smartphone — 390 × 844 · Clients</div>
+    <div style="font-size:11px;color:#6B7280;width:390px;line-height:1.45">Il selettore sotto il titolo apre le sezioni di Master Data. Nella vista By group i clienti sono card raggruppate sotto il nome del gruppo, con "+ Add client". Il menu "⋯" del cliente contiene Edit, Move to group e Archive.</div>
+    <div style="width:390px;height:844px;display:flex;flex-direction:column;background:#F3F4F6;border:1px solid #DDE1E8;border-radius:28px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08)">
+      <div style="flex-shrink:0;background:#0B1840;border-bottom:3px solid #F0287A;padding-top:8px">
+        <div style="height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 12px"><div style="color:#fff;font-weight:700;font-size:17px;letter-spacing:-.02em"><span style="color:#F0287A">P</span>Dash</div><div style="width:32px;height:32px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">AP</div></div>
+        <div style="display:flex;padding:0 6px 6px">
+          <div style="width:44px;height:44px;margin:0 2px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12V8M8 12V4M14 12V6" stroke="rgba(255,255,255,.6)" stroke-width="1.6" stroke-linecap="round"></path></svg></div>
+          <div style="width:44px;height:44px;margin:0 2px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.6)" stroke-width="1.4"></rect><rect x="9" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.6)" stroke-width="1.4"></rect><rect x="2" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.6)" stroke-width="1.4"></rect><rect x="9" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.6)" stroke-width="1.4"></rect></svg></div>
+          <div style="width:44px;height:44px;margin:0 2px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="rgba(255,255,255,.6)" stroke-width="1.4"></rect><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="rgba(255,255,255,.6)" stroke-width="1.4" stroke-linecap="round"></path></svg></div>
+          <div style="width:1px;background:rgba(255,255,255,.14);margin:8px 4px"></div>
+          <div style="width:44px;height:44px;margin:0 2px;border-radius:7px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.4" stroke="#fff" stroke-width="1.3"></circle><path d="M8 2v1.6M8 12.4V14M14 8h-1.6M3.6 8H2" stroke="#fff" stroke-width="1.2" stroke-linecap="round"></path></svg></div>
+        </div>
+      </div>
+      <div style="flex-shrink:0;padding:12px 16px 0;display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:20px;font-weight:700;color:#0B1840">Master Data</span>
+        <div style="height:48px;box-sizing:border-box;background:#fff;border:1px solid #DDE1E8;border-radius:10px;padding:0 14px;display:flex;align-items:center;gap:10px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Commercial</span><span style="flex:1;font-size:14px;font-weight:700;color:#0B1840">Clients &amp; groups</span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg></div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1;height:44px;box-sizing:border-box;background:#fff;border:1px solid #DDE1E8;border-radius:8px;display:flex;align-items:center;gap:8px;padding:0 12px"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg><span style="font-size:13px;color:#9AA0AC">Search client…</span></div>
+          <div style="height:44px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center">+ Add</div>
+        </div>
+        <div style="display:flex;gap:8px"><div style="flex:1;display:flex;background:#E6E9EE;border-radius:8px;padding:3px"><span style="flex:1;height:36px;display:flex;align-items:center;justify-content:center;font-size:13px;color:#6B7280">List</span><span style="flex:1;height:36px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:#fff;font-size:13px;font-weight:600;color:#0B1840">By group</span></div><div style="height:42px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:8px;background:#fff;display:flex;align-items:center;font-size:13px;font-weight:600;color:#374151">+ Group</div></div>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;padding:10px 16px 16px;display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ pGroups }}" as="g" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:8px;padding:6px 2px 0;min-height:36px"><span style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:{{ g.c }}">{{ g.name }}</span><span style="font-size:11px;color:#9AA0AC">{{ g.count }}</span><sc-if value="{{ g.hasPot }}"><span style="font-size:10px;font-weight:700;border-radius:999px;padding:1px 7px;background:#F3E8FD;color:#7C3AED">One POT</span></sc-if><div style="flex:1"></div><sc-if value="{{ g.isReal }}"><span style="font-size:12.5px;font-weight:600;color:#0B1840;padding:10px 0">+ Add client</span></sc-if></div><sc-for list="{{ g.clients }}" as="c">
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:8px"><span style="flex:1;font-size:14px;font-weight:700;color:#0B1840">{{ c.name }}</span><div style="width:44px;height:44px;margin:-10px -10px -10px 0;display:flex;align-items:center;justify-content:center;color:#6B7280"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg></div></div>
+            <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:#6B7280;flex:1">{{ c.group }}</span><span style="font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;background:{{ c.rcBg }};color:{{ c.rcC }}">{{ c.rc }}</span></div>
+            <div style="height:44px;border-top:1px solid #F0F1F4;margin:0 -14px -12px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:#0B1840">Rate card<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"></path></svg></div>
+          </div>
+        </sc-for></sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:12px;font-weight:700;color:#0B1840">Smartphone — 390 × 844 · Rate card</div>
+    <div style="font-size:11px;color:#6B7280;width:390px;line-height:1.45">Si modifica una valuta alla volta con il selettore EUR · GBP · CHF · USD. Ogni ruolo è una riga con il valore di riferimento (agency o convertito) e il campo per il valore del cliente. Le famiglie di ruoli si aprono e chiudono. Save rates è sempre in basso.</div>
+    <div style="width:390px;height:844px;display:flex;flex-direction:column;background:#F3F4F6;border:1px solid #DDE1E8;border-radius:28px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08)">
+      <div style="flex-shrink:0;background:#0B1840;border-bottom:3px solid #F0287A;padding:8px 12px 0;height:52px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between"><div style="color:#fff;font-weight:700;font-size:17px;letter-spacing:-.02em"><span style="color:#F0287A">P</span>Dash</div><div style="width:32px;height:32px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">AP</div></div>
+      <div style="flex-shrink:0;padding:10px 16px 0;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:6px;height:32px;font-size:12.5px;font-weight:600;color:#6B7280"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"></path></svg>Clients</div>
+        <span style="font-size:19px;font-weight:700;color:#0B1840">Rate card · Bayer AG</span>
+        <div style="display:flex;background:#E6E9EE;border-radius:8px;padding:3px;gap:2px">
+          <sc-for list="{{ curSeg }}" as="s"><span onClick="{{ s.pick }}" style="flex:1;height:38px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:{{ s.bg }};font-size:13px;font-weight:{{ s.w }};color:{{ s.c }};cursor:pointer">{{ s.label }}</span></sc-for>
+        </div>
+        <span style="font-size:11.5px;color:#6B7280">{{ curHint }}</span>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;padding:10px 16px 16px;display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ pFam }}" as="f" hint-placeholder-count="3">
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+            <div onClick="{{ f.toggle }}" style="min-height:48px;padding:0 14px;display:flex;align-items:center;gap:8px;cursor:pointer"><span style="font-size:13.5px;font-weight:700;color:#0B1840">{{ f.code }}</span><span style="flex:1;font-size:11.5px;color:{{ f.cntC }}">{{ f.cnt }}</span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="transform:rotate({{ f.rot }})"><path d="M4 6l4 4 4-4" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+            <sc-if value="{{ f.open }}">
+              <sc-for list="{{ f.roles }}" as="r">
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid #F0F1F4">
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:13px;font-weight:600;color:#0B1840;line-height:1.3">{{ r.name }}</span><span style="font-size:11px;color:{{ r.refC }};font-style:{{ r.refFs }}">{{ r.ref }}</span></div>
+                  <div style="width:96px;height:44px;box-sizing:border-box;border:1px solid {{ r.b }};border-radius:8px;display:flex;align-items:center;gap:4px;padding:0 10px;font-size:14px;font-weight:{{ r.w }};color:{{ r.c }}"><span style="font-size:11px;color:#9AA0AC">{{ r.sym }}</span>{{ r.t }}</div>
+                </div>
+              </sc-for>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <div style="flex-shrink:0;background:#fff;border-top:1px solid #DDE1E8;padding:10px 16px 18px;display:flex;align-items:center;gap:10px">
+        <span style="flex:1;font-size:12px;color:#6B7280">5 roles customized</span>
+        <div style="height:46px;box-sizing:border-box;padding:0 22px;border-radius:8px;background:#F0287A;display:flex;align-items:center;font-size:14px;font-weight:600;color:#fff">Save rates</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1980,&quot;height&quot;:940}}">
+const CUR = [{ code: 'EUR', sym: '€', fx: 1 }, { code: 'GBP', sym: '£', fx: 0.86 }, { code: 'CHF', sym: 'CHF', fx: 0.94 }, { code: 'USD', sym: '$', fx: 1.09 }];
+const FAM = [
+  ['HWGACCSVS', [['dir', 'Account Director', 'HWGACCSVS - DIRECTOR', [180, 155, 170, 195]], ['mgr', 'Account Manager', 'HWGACCSVS - MANAGER', [135, 116, 127, 147]], ['srm', 'Account Senior Manager', 'HWGACCSVS - SR MANAGER', [150, 129, 141, 163]], ['vp', 'Account Vice President', 'HWGACCSVS - VP', [null, null, null, null]]]],
+  ['HWGINTERN', [['iqa', 'HWGINTERN - QUAL', 'HWGINTERN - QUALITY ASSURANCE', [105, 90, 99, 114]], ['iac', 'Account Services Intern', 'HWGINTERN - ACCSVS', [75, 65, 70, 82]]]],
+  ['CPROD', [['cs', 'Content Specialist', 'CPROD - HWGCREAT - CONTENT SPECIALIST', [115, 99, 108, 125]], ['xd', 'Experience Designer', 'CPROD - HWGCRSVS - EXPERIENCE DESIGNER', [110, null, 103, 120]]]]
+];
+const RATES = { dir: ['168', '150', '', ''], mgr: ['100', '', '', ''], srm: ['101', '', '', ''], iqa: ['105', '', '', ''], iac: ['130', '', '', ''] };
+class Component extends DCLogic {
+  state = {};
+  renderVals() {
+    const S = this.state;
+    const ci = S.ci ?? 1;
+    const fam = S.fam ?? { HWGACCSVS: 1, HWGINTERN: 0, CPROD: 1 };
+    const resolve = (id, ag, i) => {
+      const v = (RATES[id] || ['', '', '', ''])[i];
+      if (v) return { t: v, src: 'custom' };
+      if (ag[i] != null) return { t: String(ag[i]), src: 'agency' };
+      const base = (RATES[id] || [''])[0] ? Number(RATES[id][0]) : ag[0];
+      if (base != null && i > 0) return { t: '≈ ' + Math.round(base * CUR[i].fx), src: 'conv' };
+      return { t: '—', src: 'none' };
+    };
+    const style = r => r.src === 'custom' ? { b: '#0B1840', bg: '#fff', w: 700, c: '#0B1840', fs: 'normal' } : r.src === 'agency' ? { b: '#DDE1E8', bg: '#FAFBFC', w: 400, c: '#9AA0AC', fs: 'normal' } : r.src === 'conv' ? { b: '#DDE1E8', bg: '#FAFBFC', w: 400, c: '#7C3AED', fs: 'italic' } : { b: '#F4DFB8', bg: '#FFF8EC', w: 400, c: '#B4650C', fs: 'normal' };
+    const tRows = [];
+    FAM.forEach(([code, roles]) => {
+      tRows.push({ isRole: false, name: code, code: roles.length + ' roles', bg: '#FAFBFC', fw: 700 });
+      roles.forEach(([id, name, rcode, ag]) => {
+        const e = resolve(id, ag, 0), es = style(e);
+        tRows.push({ isRole: true, name, code: rcode, bg: '#fff', fw: 600, eur: e.t, eB: es.b, eW: es.w, eC: es.c, ag: ag[0] != null ? '€ ' + ag[0] : '—',
+          cur: [1, 2, 3].map(i => { const r = resolve(id, ag, i), s = style(r); return { t: r.t, ...s }; }) });
+      });
+    });
+    const pFam = FAM.map(([code, roles]) => {
+      const on = !!fam[code], n = roles.filter(r => RATES[r[0]] && RATES[r[0]].some(Boolean)).length;
+      return { code, open: on, rot: on ? '180deg' : '0deg', cnt: n ? n + ' of ' + roles.length + ' customized' : roles.length + ' roles · agency', cntC: n ? '#0E7C4A' : '#9AA0AC', toggle: () => this.setState({ fam: { ...fam, [code]: !on } }),
+        roles: roles.map(([id, name, rcode, ag]) => {
+          const r = resolve(id, ag, ci), s = style(r);
+          const ref = ag[ci] != null ? 'Agency ' + CUR[ci].sym + ' ' + ag[ci] : (ci > 0 && ((RATES[id] || [''])[0] || ag[0] != null)) ? 'No agency ' + CUR[ci].code + ' · from € × ' + CUR[ci].fx : 'No agency rate';
+          return { name, sym: CUR[ci].sym, t: r.src === 'custom' ? r.t : r.t, ...s, ref, refC: ag[ci] != null ? '#6B7280' : '#7C3AED', refFs: ag[ci] != null ? 'normal' : 'italic' };
+        }) };
+    });
+    return {
+      tabs: [['Clients & groups', 5, 1], ['Pipelines & POTs', ''], ['Roles & rates', 58], ['Currencies', 4]].map(([label, count, on]) => ({ label, count, bg: on ? '#fff' : 'transparent', border: on ? '#DDE1E8' : 'transparent', bar: on ? '#F0287A' : 'transparent', w: on ? 700 : 500, c: on ? '#0B1840' : '#374151' })),
+      tRows,
+      pGroups: [['Bayer Group', 0, [['Bayer AG', 6]]], ['Menarini Group', 1, [['Menarini Ricerche', 0]]], ['No group', 0, [['Next Health Advisors', 2], ['Policlinico Gemelli', 0], ['SIFI Group', 3]]]].map(([name, pot, cl]) => ({ name, hasPot: !!pot, isReal: name !== 'No group', c: name === 'No group' ? '#9AA0AC' : '#0B1840', count: cl.length + (cl.length === 1 ? ' client' : ' clients'), clients: cl.map(([n, k]) => ({ name: n, group: name === 'No group' ? 'Tap ⋯ to add to a group' : name, rc: k ? k + ' custom rates' : 'Agency rates', rcBg: k ? '#E6F4EC' : '#F3F4F6', rcC: k ? '#0E7C4A' : '#6B7280' })) })),
+      curSeg: CUR.map((c, i) => ({ label: c.code, bg: i === ci ? '#fff' : 'transparent', w: i === ci ? 700 : 500, c: i === ci ? '#0B1840' : '#6B7280', pick: () => this.setState({ ci: i }) })),
+      curHint: ci === 0 ? 'Empty = agency € rate.' : 'Empty = agency ' + CUR[ci].code + ' rate; if missing, € rate × ' + CUR[ci].fx + '.',
+      pFam
+    };
+  }
+}
+</script>
+</body>
+</html>
