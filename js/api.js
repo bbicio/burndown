@@ -172,7 +172,7 @@ const Api = {
 
   pipelineYears: {
     list:   ()            => apiFetch('/pipeline-years'),
-    create: (year)        => apiFetch('/pipeline-years', { method: 'POST', body: JSON.stringify({ year }) }),
+    create: (year, active) => apiFetch('/pipeline-years', { method: 'POST', body: JSON.stringify(active !== undefined ? { year, active } : { year }) }),
     toggle: (id, active)  => apiFetch(`/pipeline-years/${id}`, { method: 'PATCH', body: JSON.stringify({ active }) }),
     delete: (id)          => apiFetch(`/pipeline-years/${id}`, { method: 'DELETE' }),
   },

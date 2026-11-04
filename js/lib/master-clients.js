@@ -3,7 +3,7 @@
 // sources and save payload, client moves between groups, URL state. Loaded as an ES module
 // (<script type="module" src="js/lib/master-clients.js?v=N">) and bridged onto `window`.
 import { resolveRoleRate } from './costgrid-calc.js?v=16';
-import { readMoneyInput } from './money.js?v=5';
+import { readMoneyInput } from './money.js?v=6';
 
 const byName = (a, b) => String(a.name).localeCompare(String(b.name));
 

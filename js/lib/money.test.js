@@ -218,3 +218,21 @@ describe('formatMoneyInput — keepZero (f1)', () => {
     for (const v of [null, undefined, '']) expect(formatMoneyInput(v, 'EUR', C, { keepZero: true })).toBe('');
   });
 });
+
+describe('formatMoney symbol option', () => {
+  it('omits the symbol and keeps locale, digits and grouping', () => {
+    expect(formatMoney(1234.5, 'EUR', C, { symbol: false })).toBe('1.234,50');
+    expect(formatMoney(1234.5, 'EUR', C, { rounded: true, symbol: false })).toBe('1.235');
+  });
+  it('matches the rounded output minus the symbol prefix for every currency', () => {
+    for (const cu of C) {
+      const full = formatMoney(1234.5, cu.code, C, { rounded: true });
+      expect(formatMoney(1234.5, cu.code, C, { rounded: true, symbol: false })).toBe(full.slice(cu.symbol.length + 1));
+    }
+    expect(formatMoney(1234.5, 'USD', C, { rounded: true, symbol: false })).toBe('1,235');
+    expect(formatMoney(1234.5, 'JPY', C, { rounded: true, symbol: false })).toBe('1,235');
+  });
+  it('keeps the default unchanged', () => {
+    expect(formatMoney(1234.5, 'EUR', C)).toBe('€ 1.234,50');
+  });
+});
