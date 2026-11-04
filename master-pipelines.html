@@ -1104,7 +1104,7 @@ window.__cfgApp = Vue.createApp({
       if (document.querySelector('.modal.show')) return; // Esc belongs to the open modal
       if (this.potf.show && this.potf.id) this.potf.show = false; else this.closeDrawer();
     });
-    window.addEventListener('popstate', () => { if (this.ready) this.applyState(window.parseMdpUrl(location.search)); });
+    window.addEventListener('popstate', () => { if (this.ready) { this.globalError = null; this.applyState(window.parseMdpUrl(location.search)); } });
     await this.loadAll();
     await this.applyState(window.parseMdpUrl(location.search));
     this.ready = true;
@@ -1241,6 +1241,7 @@ window.__cfgApp = Vue.createApp({
         this.pots = pots;
         this.potHistory = {};
       } catch (e) {
+        if (this.loadedPotsYear === year) this.loadedPotsYear = null; // the next visit of this year loads again
         this.globalError = e.message || 'Failed to load POT targets.';
       }
     },
@@ -1410,7 +1411,7 @@ window.__cfgApp = Vue.createApp({
 
     loadYearData(year) {
       this.loadedPotsYear = year; this.potsYear = year;
-      this.pots = []; this.pipelineSummary = [];
+      this.pots = []; this.pipelineSummary = []; this.potDetails = {}; // the drawer reads fresh totals with the table
       this.loadPots();
       this.loadPipelineSummary();
     },
@@ -1472,6 +1473,8 @@ window.__cfgApp = Vue.createApp({
         if (this.loadedPotsYear != null && this.loadedPotsYear !== year) return;
         this.pipelineSummary = summary;
       } catch (e) {
+        if (this.loadedPotsYear != null && this.loadedPotsYear !== year) return; // another year was opened meanwhile
+        this.loadedPotsYear = null;
         this.pipelineSummary = [];
       }
     },
