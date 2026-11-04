@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><meta name="design_doc_mode" content="canvas"><title>PDash — Master Data · Roles &amp; rates</title><style>
+html,body{margin:0;background:#f5f4ef;color:#1f1e1d;font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+a{color:#0B1840}a:hover{color:#F0287A}
+</style></helmet>
+<div style="padding:48px;display:flex;flex-direction:column;gap:32px">
+<header style="display:flex;flex-direction:column;gap:6px">
+  <div style="display:flex;gap:14px;font-size:12px"><a href="PDash Board.dc.html">← Overview</a><a href="Section - MasterData.dc.html">Master Data</a></div>
+  <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#F0287A">Pagina 10 · Roles &amp; rates</div>
+  <h1 style="margin:0;font-size:22px;color:#0B1840">Master Data · Roles &amp; rates</h1>
+</header>
+<section style="display:flex;flex-direction:column;gap:16px">
+<h2 style="margin:0;font-size:17px;color:#0B1840">10.7 — Roles &amp; rates</h2>
+<div style="font-size:12.5px;color:#374151;line-height:1.55;max-width:1100px">Elenco dei ruoli e delle figure professionali che compongono la rate card di agenzia, con la tariffa di default in ogni valuta attiva. È la base della rate card cliente (10.2) e della cost grid.</div>
+<div style="display:flex;flex-direction:column;background:#fff;border:1px solid #DDE1E8;border-radius:12px;max-width:1300px;overflow:hidden;font-size:12.5px;line-height:1.55;color:#374151">
+<div style="display:grid;grid-template-columns:170px minmax(0,1fr) minmax(0,1fr);background:#F7F8FA;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC"><div style="padding:10px 16px">Area</div><div style="padding:10px 16px">Pagina attuale</div><div style="padding:10px 16px;color:#0B1840">v2 · 10.7</div></div>
+<div style="display:grid;grid-template-columns:170px minmax(0,1fr) minmax(0,1fr)"><div style="padding:12px 16px;border-top:1px solid #EEF0F4;"><strong style="color:#0B1840">Elenco</strong></div><div style="padding:12px 16px;border-top:1px solid #EEF0F4;color:#6B7280">Colonne Label / Code / Team / Default rate: Team ripete il gruppo già indicato dalla fascia; si vede solo la tariffa €; i ruoli senza tariffa mostrano "0 €/h".</div><div style="padding:12px 16px;border-top:1px solid #EEF0F4;background:#FBFCFE">Raggruppato per team, con gruppi che si aprono e chiudono e il conteggio dei ruoli. Il codice sta sotto il nome, in monospace. La colonna Team è tolta (è già il gruppo). Ci sono 4 colonne di tariffa (€, £, CHF, $) e "Used in" con il numero di cost grid.</div></div>
+<div style="display:grid;grid-template-columns:170px minmax(0,1fr) minmax(0,1fr)"><div style="padding:12px 16px;border-top:1px solid #EEF0F4;"><strong style="color:#0B1840">Tariffe mancanti</strong></div><div style="padding:12px 16px;border-top:1px solid #EEF0F4;color:#6B7280">"0 €/h" scritto come un valore normale.</div><div style="padding:12px 16px;border-top:1px solid #EEF0F4;background:#FBFCFE">Senza tariffa €: "No rate" in ambra e riga evidenziata; il gruppo indica "x without € rate". Senza tariffa nelle altre valute: "—" grigio, con un tooltip che mostra il valore calcolato dal € × cambio. Il filtro "Missing rates" isola questi ruoli.</div></div>
+<div style="display:grid;grid-template-columns:170px minmax(0,1fr) minmax(0,1fr)"><div style="padding:12px 16px;border-top:1px solid #EEF0F4;"><strong style="color:#0B1840">Nuovo / modifica</strong></div><div style="padding:12px 16px;border-top:1px solid #EEF0F4;color:#6B7280">Card in cima con 6 campi su due righe; Code da scrivere a mano nel formato "TEAM - Role".</div><div style="padding:12px 16px;border-top:1px solid #EEF0F4;background:#FBFCFE">Pannello laterale, uguale per creazione e modifica: Label, Team (scelta o nuovo) e Role code separati, con l'anteprima del codice completo da far corrispondere a "Job Role: Name" nell'XLS. Tariffe per ogni valuta attiva: € obbligatoria; nelle altre il campo vuoto mostra il valore calcolato e spiega cosa succede.</div></div>
+<div style="display:grid;grid-template-columns:170px minmax(0,1fr) minmax(0,1fr)"><div style="padding:12px 16px;border-top:1px solid #EEF0F4;"><strong style="color:#0B1840">Eliminazione</strong></div><div style="padding:12px 16px;border-top:1px solid #EEF0F4;color:#6B7280">Cestino rosso senza spiegazioni.</div><div style="padding:12px 16px;border-top:1px solid #EEF0F4;background:#FBFCFE">L'eliminazione è fisica, con una conferma che spiega le conseguenze: le cost grid esistenti tengono il ruolo come salvato nella versione; gli override nelle rate card cliente vengono rimossi. Si apre dalla riga o dal pannello (Delete role).</div></div>
+<div style="padding:12px 16px;border-top:1px solid #DDE1E8;background:#F7F8FA"><strong style="color:#0B1840">Da confermare</strong> · Il codice si compone sempre come "TEAM - ROLE"? Un ruolo senza tariffa € può essere aggiunto a una cost grid? Tariffe £/CHF/$ e conteggi "Used in" sono d'esempio.</div>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+<div style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;font-weight:700;color:#fff;background:#0B1840;border-radius:6px;padding:3px 8px">10.7a</span><span style="font-size:13px;font-weight:600;color:#0B1840">Elenco per team</span></div><div data-cap="10.7a" style="width:1400px;height:1000px;box-shadow:0 1px 3px rgba(0,0,0,.12);overflow:hidden"><dc-import name="MDRoles"  hint-size="1400px,1000px"></dc-import></div></div>
+<div style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;font-weight:700;color:#fff;background:#0B1840;border-radius:6px;padding:3px 8px">10.7b</span><span style="font-size:13px;font-weight:600;color:#0B1840">New role · pannello</span></div><div data-cap="10.7b" style="width:1400px;height:1000px;box-shadow:0 1px 3px rgba(0,0,0,.12);overflow:hidden"><dc-import name="MDRoles" panel="new" hint-size="1400px,1000px"></dc-import></div></div>
+<div style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;font-weight:700;color:#fff;background:#0B1840;border-radius:6px;padding:3px 8px">10.7c</span><span style="font-size:13px;font-weight:600;color:#0B1840">Edit role · Marketing Coordinator (manca £)</span></div><div data-cap="10.7c" style="width:1400px;height:1000px;box-shadow:0 1px 3px rgba(0,0,0,.12);overflow:hidden"><dc-import name="MDRoles" panel="edit" hint-size="1400px,1000px"></dc-import></div></div>
+<div style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;font-weight:700;color:#fff;background:#0B1840;border-radius:6px;padding:3px 8px">10.7d</span><span style="font-size:13px;font-weight:600;color:#0B1840">Conferma eliminazione</span></div><div data-cap="10.7d" style="width:1400px;height:1000px;box-shadow:0 1px 3px rgba(0,0,0,.12);overflow:hidden"><dc-import name="MDRoles" confirm="{{ true }}" hint-size="1400px,1000px"></dc-import></div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;font-weight:700;color:#fff;background:#0B1840;border-radius:6px;padding:3px 8px">10.7e</span><span style="font-size:13px;font-weight:600;color:#0B1840">Tablet e smartphone</span></div><div data-cap="10.7e" style="width:1980px;box-shadow:0 1px 3px rgba(0,0,0,.12)"><dc-import name="MDRolesResponsive" hint-size="1980px,940px"></dc-import></div></div>
+</section>
+
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><title>PDash — Master Data · Roles &amp; rates</title><style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#F3F4F6}
+a{color:#0B1840}a:hover{color:#F0287A}
+input::placeholder{color:#9AA0AC}
+.pb-navitem{height:40px;padding:0 10px;display:flex;align-items:center;gap:10px;border-radius:8px;text-decoration:none}
+.pb-navitem span{color:rgba(255,255,255,.75);font-size:13px;font-weight:500}
+.pb-subitem{height:32px;padding:0 10px 0 14px;display:flex;align-items:center;gap:9px;border-radius:8px;text-decoration:none}
+.pb-subitem span{color:rgba(255,255,255,.58);font-size:12px}
+.pb-subitem.active{background:rgba(255,255,255,.1);box-shadow:inset 3px 0 0 #F0287A}
+.pb-subitem.active span{color:#fff;font-weight:600}
+.pb-sublabel{padding:10px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.38)}
+</style></helmet>
+<div style="width:1400px;height:1000px;box-sizing:border-box;display:flex;background:#F3F4F6;overflow:hidden;position:relative">
+
+  <div style="width:220px;flex-shrink:0;background:#0B1840;display:flex;flex-direction:column;box-sizing:border-box">
+    <div style="height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 16px;border-bottom:3px solid #F0287A">
+      <span style="color:#FFFFFF;font-weight:700;font-size:22px;letter-spacing:-0.02em"><span style="color:#F0287A">P</span>Dash</span>
+      <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="rgba(255,255,255,.6)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+    </div>
+    <div style="padding:10px 8px 0;display:flex;flex-direction:column;gap:2px">
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12V8M8 12V4M14 12V6" stroke="rgba(255,255,255,.65)" stroke-width="1.6" stroke-linecap="round"></path></svg><span>Pipeline</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="2" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect></svg><span>Portfolio</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4" stroke-linecap="round"></path></svg><span>Planning</span></a>
+      <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+      <div class="pb-sublabel">Admin</div>
+      <a class="pb-subitem active" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.4" stroke="#fff" stroke-width="1.3"></circle><path d="M8 2v1.6M8 12.4V14M14 8h-1.6M3.6 8H2" stroke="#fff" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Master Data</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="9" rx="1.2" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></rect><path d="M2 4l1.6-2h8.8L14 4" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg><span>Timesheets</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.3" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></circle><path d="M3 14c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg><span>User Admin</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5.5" r="2" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></circle><circle cx="11" cy="6.5" r="1.6" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></circle><path d="M2 14c0-2.3 1.7-3.8 3.9-3.8 1.6 0 2.9.8 3.5 2M9.6 10.3c1.6 0 3 1.1 3 3" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Team</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5L14 8.5 7.5 15 2 9.5V2Z" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Attribute Lists</span></a>
+      <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+      <div class="pb-sublabel">Sysadmin</div>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><ellipse cx="8" cy="3.5" rx="5.2" ry="1.8" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></ellipse><path d="M2.8 3.5v9c0 1 2.3 1.8 5.2 1.8s5.2-.8 5.2-1.8v-9" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></path></svg><span>DB Reset</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 2h5.5L13 5.5V14H4V2Z" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Terms &amp; Conditions</span></a>
+    </div>
+    <div style="flex:1"></div>
+    <div style="border-top:1px solid rgba(255,255,255,.12);padding:12px 12px 14px;display:flex;align-items:center;gap:10px">
+      <div style="width:26px;height:26px;border-radius:999px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:700;flex-shrink:0">AP</div>
+      <span style="color:#fff;font-size:12px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">bbicio@gmail.com</span>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <div style="flex-shrink:0;height:44px;box-sizing:border-box;background:#FFFFFF;border-bottom:1px solid #DDE1E8;padding:0 24px;display:flex;align-items:center">
+      <div style="font-size:12px;color:#6B7280;display:flex;align-items:center;gap:6px">Home <span style="color:#C7CCD9">/</span> Master Data <span style="color:#C7CCD9">/</span> <span style="color:#374151;font-weight:600">Roles &amp; rates</span></div>
+    </div>
+
+    <div style="flex-shrink:0;padding:16px 24px 0">
+      <div style="font-size:26px;font-weight:700;color:#0B1840">Master Data</div>
+      <div style="font-size:12.5px;color:#6B7280;margin-top:2px">Clients, programs, roles and rates used across the app.</div>
+    </div>
+
+    <div style="flex:1;min-height:0;display:flex;gap:20px;padding:16px 24px 24px">
+      <div style="width:196px;flex-shrink:0;background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:6px 6px 10px;align-self:flex-start;display:flex;flex-direction:column">
+        <sc-for list="{{ subnav }}" as="g" hint-placeholder-count="2">
+          <span style="padding:12px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">{{ g.label }}</span>
+          <sc-for list="{{ g.items }}" as="i">
+            <div style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;cursor:pointer;background:{{ i.bg }};box-shadow:{{ i.bar }}" style-hover="background:#F3F4F6">
+              <span style="flex:1;font-size:12.5px;font-weight:{{ i.w }};color:{{ i.c }}">{{ i.label }}</span>
+              <span style="font-size:11px;color:#9AA0AC">{{ i.count }}</span>
+            </div>
+          </sc-for>
+        </sc-for>
+      </div>
+
+      <div style="flex:1;min-width:0;overflow:auto;display:flex;flex-direction:column;gap:12px">
+        <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #EEF0F4;flex-wrap:wrap">
+            <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:260px"><span style="font-size:15px;font-weight:700;color:#0B1840">Roles &amp; rates · {{ nRoles }}</span><span style="font-size:12px;color:#6B7280">Agency rate card: every role with its default hourly rate in each active currency.</span></div>
+            <div style="display:flex;align-items:center;gap:8px;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;height:32px;box-sizing:border-box;width:200px"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg><input value="{{ q }}" onChange="{{ onQ }}" placeholder="Search role or code…" style="flex:1;min-width:0;border:0;outline:none;font-size:12.5px;font-family:inherit;background:transparent"></div>
+            <div onClick="{{ toggleMissing }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;color:#374151"><div style="width:28px;height:16px;border-radius:999px;background:{{ mTrack }};position:relative"><div style="position:absolute;top:2px;left:{{ mKnob }};width:12px;height:12px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)"></div></div>Missing rates · {{ nMissing }}</div>
+            <div onClick="{{ startAdd }}" style="display:flex;align-items:center;height:32px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer" style-hover="background:#1a2a5e">+ Add role</div>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(170px,1fr) 82px 82px 82px 82px 96px 70px;gap:10px;padding:10px 18px;background:#F7F8FA;border-bottom:1px solid #EEF0F4;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">
+            <span>Role · code</span><span style="text-align:right">€/h</span><span style="text-align:right">£/h</span><span style="text-align:right">CHF/h</span><span style="text-align:right">$/h</span><span style="text-align:right">Used in</span><span></span>
+          </div>
+          <sc-for list="{{ teams }}" as="t" hint-placeholder-count="4">
+            <div onClick="{{ t.toggle }}" style="display:flex;align-items:center;gap:8px;padding:9px 18px;background:#FAFBFC;border-bottom:1px solid #EEF0F4;cursor:pointer">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style="transform:rotate({{ t.rot }});transition:transform .15s"><path d="M6 3l5 5-5 5" stroke="#374151" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              <span style="font-size:12.5px;font-weight:700;color:#0B1840">{{ t.code }}</span><span style="font-size:12px;color:#6B7280">{{ t.count }}</span>
+              <sc-if value="{{ t.hasMissing }}"><span style="font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 7px;background:#FFF1DC;color:#B4650C">{{ t.missing }}</span></sc-if>
+            </div>
+            <sc-if value="{{ t.open }}">
+              <sc-for list="{{ t.roles }}" as="r">
+                <div style="display:grid;grid-template-columns:minmax(170px,1fr) 82px 82px 82px 82px 96px 70px;gap:10px;padding:0 18px;min-height:50px;align-items:center;border-bottom:1px solid #F0F1F4;background:{{ r.bg }}" style-hover="background:#FAFBFC">
+                  <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:13px;font-weight:600;color:#0B1840;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.label }}</span><span style="font-size:10.5px;color:#9AA0AC;font-family:ui-monospace,Menlo,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.code }}</span></div>
+                  <sc-for list="{{ r.rates }}" as="c"><span title="{{ c.tip }}" style="font-size:12.5px;font-weight:{{ c.w }};color:{{ c.c }};text-align:right;font-style:{{ c.fs }}">{{ c.t }}</span></sc-for>
+                  <span style="font-size:11.5px;color:#6B7280;text-align:right">{{ r.used }}</span>
+                  <div style="display:flex;gap:2px;justify-content:flex-end">
+                    <span onClick="{{ r.edit }}" style="font-size:12px;font-weight:600;color:#0B1840;cursor:pointer;padding:6px 6px" style-hover="color:#F0287A">Edit</span>
+                    <div onClick="{{ r.del }}" title="Delete role" style="width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#9AA0AC;cursor:pointer" style-hover="background:#FDEFF0;color:#B4232E"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"></path></svg></div>
+                  </div>
+                </div>
+              </sc-for>
+            </sc-if>
+          </sc-for>
+          <div style="padding:12px 18px;font-size:11.5px;color:#9AA0AC;line-height:1.5">— = no rate in that currency: proposals in that currency fall back to the € rate × exchange rate. Clients can override rates in their own rate card.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closePanel }}" style="position:absolute;inset:0;background:rgba(11,24,64,.28);z-index:40"></div>
+    <div style="position:absolute;top:0;right:0;bottom:0;width:480px;background:#fff;z-index:41;box-shadow:-12px 0 32px rgba(11,24,64,.18);display:flex;flex-direction:column">
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:18px 20px 14px;border-bottom:1px solid #EEF0F4">
+        <div style="flex:1;display:flex;flex-direction:column;gap:4px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">{{ f.eyebrow }}</span><span style="font-size:19px;font-weight:700;color:#0B1840">{{ f.title }}</span></div>
+        <div onClick="{{ closePanel }}" title="Close" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer" style-hover="background:#F3F4F6"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div>
+      </div>
+      <div style="flex:1;overflow:auto;padding:16px 20px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:11.5px;font-weight:600;color:#374151">Label</span><input value="{{ f.label }}" onChange="{{ f.onLabel }}" placeholder="e.g. Project Manager" style="height:36px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;outline:none;color:#0B1840;background:#fff;width:100%"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:11.5px;font-weight:600;color:#374151">Team</span><div style="height:36px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;display:flex;align-items:center;font-size:13px;color:#0B1840">{{ f.team }}<span style="flex:1"></span><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg></div><span style="font-size:11px;color:#9AA0AC">Pick a team or type a new one</span></div>
+          <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:11.5px;font-weight:600;color:#374151">Role code</span><input value="{{ f.short }}" onChange="{{ f.onShort }}" placeholder="e.g. PROJECT MANAGER" style="height:36px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;outline:none;color:#0B1840;background:#fff;width:100%;font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;background:#F7F8FA;font-size:12px;color:#374151"><span style="color:#6B7280">Full code</span><span style="font-family:ui-monospace,Menlo,monospace;font-weight:700;color:#0B1840">{{ f.full }}</span><span style="flex:1"></span><span style="font-size:11px;color:#9AA0AC">Must match <strong>Job Role: Name</strong> in the XLS</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:11.5px;font-weight:600;color:#374151">Default hourly rates</span>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+            <sc-for list="{{ f.rates }}" as="c">
+              <div style="display:flex;flex-direction:column;gap:3px"><div style="height:36px;box-sizing:border-box;border:1px solid {{ c.b }};border-radius:8px;display:flex;align-items:center;gap:6px;padding:0 10px;background:#fff"><span style="font-size:11.5px;font-weight:700;color:#6B7280;width:34px">{{ c.code }}</span><input value="{{ c.val }}" onChange="{{ c.onChange }}" placeholder="{{ c.ph }}" style="flex:1;min-width:0;border:0;outline:none;font-size:13px;font-weight:700;font-family:inherit;color:#0B1840;background:transparent"><span style="font-size:11px;color:#9AA0AC">/h</span></div><span style="font-size:10.5px;color:{{ c.hC }}">{{ c.hint }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+        <sc-if value="{{ f.isEdit }}"><div style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:#6B7280;border-top:1px solid #F0F1F4;padding-top:12px"><span>{{ f.usage }}</span><span style="font-size:11px;color:#9AA0AC">Changing a rate doesn't change existing cost grids.</span></div></sc-if>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EEF0F4">
+        <sc-if value="{{ f.isEdit }}"><span onClick="{{ f.del }}" style="font-size:12.5px;font-weight:600;color:#B42318;cursor:pointer">Delete role</span></sc-if>
+        <div style="flex:1"></div>
+        <span onClick="{{ closePanel }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:8px 6px">Cancel</span>
+        <span onClick="{{ f.save }}" style="font-size:12.5px;font-weight:600;color:#fff;background:{{ f.saveBg }};border-radius:8px;padding:9px 16px;cursor:pointer">{{ f.saveLabel }}</span>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(11,24,64,.42);z-index:50;display:flex;align-items:center;justify-content:center">
+      <div style="width:440px;background:#fff;border-radius:12px;box-shadow:0 24px 64px rgba(11,24,64,.28);padding:20px 22px;display:flex;flex-direction:column;gap:12px">
+        <span style="font-size:16px;font-weight:700;color:#0B1840">Delete "{{ cf.label }}"?</span>
+        <span style="font-size:12.5px;color:#374151;line-height:1.55">The role is removed from the agency rate card and can't be added to new cost grids. Its custom rates in client rate cards are deleted too.</span>
+        <div style="display:flex;flex-direction:column;gap:4px;background:#F7F8FA;border-radius:8px;padding:10px 12px;font-size:12px;color:#374151;line-height:1.5"><span><strong style="color:#0B1840">{{ cf.grids }}</strong> keep the role as it is today (label, code and rate are saved in the version).</span><span><strong style="color:#0B1840">{{ cf.cards }}</strong></span></div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:4px"><span onClick="{{ cancelDel }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:8px 6px">Cancel</span><span onClick="{{ doDel }}" style="font-size:12.5px;font-weight:600;color:#fff;background:#B42318;border-radius:8px;padding:9px 16px;cursor:pointer">Delete role</span></div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1000},&quot;panel&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;new&quot;,&quot;edit&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;'none'|'new'|'edit'&quot;},&quot;confirm&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const CUR = [['EUR', '€'], ['GBP', '£'], ['CHF', 'CHF'], ['USD', '$']];
+const FX = [1, 0.8, 0.93, 1.3];
+const DATA = [
+  ['GREENLIGHT', [['gl', 'Strategic Role for Greenlight Only', 'SHARED RESOURCE', [150, 130, 140, 195], 0, 1]]],
+  ['HWGACCSVS', [['dir', 'Healthware Account Director', 'DIRECTOR', [180, 155, 170, 195], 2, 6], ['mgr', 'Healthware Account Manager', 'MANAGER', [135, 116, 127, 147], 1, 4], ['srm', 'Healthware Account Senior Manager', 'SR MANAGER', [150, 129, 141, 163], 1, 3], ['svp', 'Healthware Account Senior Vice President', 'SVP', [0, 0, 0, 0], 0, 0], ['vp', 'Healthware Account Vice President', 'VP', [0, 0, 0, 0], 0, 0], ['gad', 'Healthware Group Account Director', 'GROUP DIRECTOR', [220, 190, 205, 240], 0, 2], ['mkt', 'Healthware Marketing Coordinator', 'MARKETING COORDINATOR', [105, 0, 98, 114], 0, 5]]],
+  ['HWGCREAT', [['cad', 'Healthware Creative Associate Director', 'ASSOC DIRECTOR', [135, 116, 0, 147], 0, 1], ['ccs', 'Healthware Creative Content Specialist', 'CONTENT SPECIALIST', [135, 116, 127, 147], 1, 7]]],
+  ['HWGDEV', [['dev', 'Developer', 'DEVELOPER', [100, 86, 94, 109], 1, 9], ['arc', 'Architect', 'ARCHITECT', [120, 103, 113, 131], 0, 3], ['ddr', 'Development Director', 'DIRECTOR', [140, 120, 132, 153], 0, 2]]],
+  ['HWGINTERN', [['iqa', 'HWGINTERN - QUAL', 'QUALITY ASSURANCE', [105, 90, 99, 114], 1, 2], ['iac', 'Healthware Account Services Intern', 'ACCSVS', [75, 65, 70, 82], 1, 4], ['iop', 'Healthware Agency Ops Intern', 'AGENCY OPS', [0, 0, 0, 0], 0, 0]]]
+];
+const parse = s => Number(String(s).replace(',', '.')) || 0;
+class Component extends DCLogic {
+  state = {};
+  renderVals() {
+    const S = this.state, P = this.props;
+    const data = S.data ?? DATA;
+    const open = S.open ?? { GREENLIGHT: 1, HWGACCSVS: 1, HWGCREAT: 1 };
+    const q = (S.q ?? '').toLowerCase(), missing = !!S.missing;
+    const panel = S.panel !== undefined ? S.panel : (P.panel === 'new' ? { mode: 'new' } : P.panel === 'edit' ? { mode: 'edit', id: 'mkt' } : null);
+    const confirm = S.confirm !== undefined ? S.confirm : (P.confirm ? 'mkt' : null);
+    const all = []; data.forEach(([t, rs]) => rs.forEach(r => all.push([t, ...r])));
+    const isMissing = r => r[4][0] === 0;
+    const rateCells = rr => rr.map((v, i) => {
+      if (v) return { t: String(v), w: 600, c: '#141413', fs: 'normal', tip: '' };
+      if (i === 0) return { t: 'No rate', w: 700, c: '#B4650C', fs: 'normal', tip: 'No € rate: this role can\'t be priced' };
+      return { t: '—', w: 400, c: '#C9CDD3', fs: 'normal', tip: rr[0] ? '≈ ' + Math.round(rr[0] * FX[i]) + ' from € × rate' : 'No rate' };
+    });
+    const teams = data.map(([t, rs]) => {
+      const on = !!open[t] || !!q || missing;
+      const list = rs.filter(r => (!q || (r[1] + t + r[2]).toLowerCase().includes(q)) && (!missing || r[3][0] === 0));
+      const nm = rs.filter(r => r[3][0] === 0).length;
+      return { code: t, count: rs.length + (rs.length === 1 ? ' role' : ' roles'), hasMissing: nm > 0, missing: nm + ' without € rate', open: on, rot: on ? '90deg' : '0deg',
+        toggle: () => this.setState({ open: { ...open, [t]: !open[t] } }), _n: list.length,
+        roles: list.map(([id, label, short, rates, cards, grids]) => ({ label, code: t + ' - ' + short, rates: rateCells(rates), used: grids ? grids + ' cost grids' : '—', bg: rates[0] ? '#fff' : '#FFFBF5',
+          edit: () => this.setState({ panel: { mode: 'edit', id }, draft: null }), del: () => this.setState({ confirm: id }) })) };
+    }).filter(t => t._n > 0);
+    let f = {};
+    if (panel) {
+      const r = panel.mode === 'edit' ? all.find(x => x[1] === panel.id) : null;
+      const dr = S.draft ?? (r ? { label: r[2], team: r[0], short: r[3], rates: r[4].map(v => v ? String(v) : '') } : { label: '', team: 'HWGACCSVS', short: '', rates: ['', '', '', ''] });
+      const set = p => this.setState({ draft: { ...dr, ...p } });
+      const eur = parse(dr.rates[0]), ok = dr.label.trim() && dr.short.trim() && eur > 0;
+      f = { isEdit: !!r, eyebrow: r ? 'Edit role' : 'New role', title: r ? r[2] : 'New role', label: dr.label, onLabel: e => set({ label: e.target.value }), team: dr.team,
+        short: dr.short, onShort: e => set({ short: e.target.value.toUpperCase() }), full: dr.team + ' - ' + (dr.short || 'ROLE'),
+        rates: CUR.map(([code], i) => { const v = dr.rates[i]; return { code, val: v, ph: i === 0 ? 'Required' : (eur ? '≈ ' + Math.round(eur * FX[i]) : 'Optional'), b: i === 0 && !eur ? '#F4DFB8' : '#DDE1E8',
+          hint: i === 0 ? 'Required · base rate' : v ? 'Used as is in ' + code + ' proposals' : (eur ? 'Empty: € rate × ' + FX[i] : 'Optional'), hC: i === 0 && !eur ? '#B4650C' : '#9AA0AC',
+          onChange: e => { const nr = [...dr.rates]; nr[i] = e.target.value.replace(/[^0-9.,]/g, ''); set({ rates: nr }); } }; }),
+        usage: r ? 'Used in ' + (r[6] || 0) + ' cost grids · custom rate in ' + (r[5] || 0) + ' client rate cards' : '',
+        saveLabel: r ? 'Save changes' : 'Create role', saveBg: ok ? '#F0287A' : '#C9CDD3',
+        save: () => { if (!ok) return; const rates = dr.rates.map(parse); let nd;
+          if (r) nd = data.map(([t, rs]) => [t, rs.map(x => x[0] === r[1] ? [x[0], dr.label, dr.short, rates, x[4], x[5]] : x)]);
+          else { nd = data.some(([t]) => t === dr.team) ? data.map(([t, rs]) => [t, t === dr.team ? [...rs, ['n' + Date.now(), dr.label, dr.short, rates, 0, 0]] : rs]) : [...data, [dr.team, [['n' + Date.now(), dr.label, dr.short, rates, 0, 0]]]]; }
+          this.setState({ data: nd, panel: null, draft: null, open: { ...open, [dr.team]: 1 } }); },
+        del: () => this.setState({ confirm: r[1], panel: null }) };
+    }
+    const cr = confirm ? all.find(x => x[1] === confirm) : null;
+    const cf = cr ? { label: cr[2], grids: cr[6] + ' existing cost grids', cards: cr[5] ? cr[5] + ' client rate card overrides will be removed.' : 'No client rate card overrides.' } : {};
+    const sw = on => ({ t: on ? '#B4650C' : '#C9CDD3', k: on ? '14px' : '2px' }), ms = sw(missing);
+    return {
+      subnav: [{ label: 'Commercial', items: [['Clients & groups', 5], ['Pipelines & POTs', 3]] }, { label: 'Financial', items: [['Roles & rates', all.length], ['Currencies', 4]] }]
+        .map(g => ({ label: g.label, items: g.items.map(([label, count]) => { const on = label === 'Roles & rates'; return { label, count, bg: on ? '#F3F4F6' : 'transparent', bar: on ? 'inset 3px 0 0 #F0287A' : 'none', w: on ? 700 : 500, c: on ? '#0B1840' : '#374151' }; }) })),
+      nRoles: all.length, q: S.q ?? '', onQ: e => this.setState({ q: e.target.value }),
+      nMissing: all.filter(r => r[4][0] === 0).length, mTrack: ms.t, mKnob: ms.k, toggleMissing: () => this.setState({ missing: !missing }),
+      startAdd: () => this.setState({ panel: { mode: 'new' }, draft: null }), teams,
+      panelOpen: !!panel, closePanel: () => this.setState({ panel: null, draft: null }), f,
+      confirmOpen: !!cr, cf, cancelDel: () => this.setState({ confirm: null }),
+      doDel: () => this.setState({ data: data.map(([t, rs]) => [t, rs.filter(x => x[0] !== confirm)]).filter(([, rs]) => rs.length), confirm: null })
+    };
+  }
+}
+</script>
+</body>
+</html>

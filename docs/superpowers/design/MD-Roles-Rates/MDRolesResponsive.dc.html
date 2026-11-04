@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><title>PDash — Roles &amp; rates · tablet &amp; smartphone</title><style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#F3F4F6}
+a{color:#0B1840}a:hover{color:#F0287A}
+</style></helmet>
+<div style="width:1980px;box-sizing:border-box;padding:40px;display:flex;gap:48px;align-items:flex-start;background:#F3F4F6">
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:12px;font-weight:700;color:#0B1840">Tablet landscape — 1024 × 768</div>
+    <div style="font-size:11px;color:#6B7280;max-width:1024px;line-height:1.45">Sidebar a icone e sotto-navigazione a tab. Le quattro colonne valuta restano visibili; "Used in" va sotto il nome. Toccando una riga si apre il pannello di modifica.</div>
+    <div style="width:1024px;height:768px;display:flex;background:#F3F4F6;border:1px solid #DDE1E8;border-radius:18px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08)">
+      <div style="width:64px;flex-shrink:0;background:#0B1840;display:flex;flex-direction:column;align-items:center">
+        <div style="height:56px;width:100%;display:flex;align-items:center;justify-content:center;border-bottom:3px solid #F0287A;box-sizing:border-box"><span style="color:#F0287A;font-weight:800;font-size:22px">P</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px;padding-top:10px;align-items:center">
+          <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12V8M8 12V4M14 12V6" stroke="rgba(255,255,255,.65)" stroke-width="1.6" stroke-linecap="round"></path></svg></div>
+          <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="2" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect></svg></div>
+          <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4" stroke-linecap="round"></path></svg></div>
+          <div style="width:32px;height:1px;background:rgba(255,255,255,.12);margin:6px 0"></div>
+          <div style="width:36px;height:32px;border-radius:7px;background:rgba(255,255,255,.1);box-shadow:inset 3px 0 0 #F0287A;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.4" stroke="#fff" stroke-width="1.3"></circle><path d="M8 2v1.6M8 12.4V14M14 8h-1.6M3.6 8H2" stroke="#fff" stroke-width="1.2" stroke-linecap="round"></path></svg></div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+        <div style="flex-shrink:0;padding:14px 20px 0"><span style="font-size:22px;font-weight:700;color:#0B1840">Master Data</span></div>
+        <div style="flex-shrink:0;display:flex;gap:6px;padding:10px 20px;border-bottom:1px solid #DDE1E8">
+          <sc-for list="{{ tabs }}" as="t"><div style="height:36px;padding:0 12px;border-radius:8px;display:flex;align-items:center;background:{{ t.bg }};border:1px solid {{ t.border }};box-shadow:inset 0 -3px 0 {{ t.bar }};font-size:12.5px;font-weight:{{ t.w }};color:{{ t.c }}">{{ t.label }}</div></sc-for>
+        </div>
+        <div style="flex:1;min-height:0;overflow:auto;padding:14px 20px">
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #EEF0F4"><span style="flex:1;font-size:15px;font-weight:700;color:#0B1840">Roles &amp; rates · 58</span><div style="height:40px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:8px;display:flex;align-items:center;font-size:12.5px;color:#374151">Missing rates · 3</div><div style="height:40px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;display:flex;align-items:center;font-size:12.5px;font-weight:600;color:#fff">+ Add role</div></div>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) repeat(4,80px) 36px;gap:10px;padding:8px 16px;background:#F7F8FA;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC"><span>Role</span><span style="text-align:right">€/h</span><span style="text-align:right">£/h</span><span style="text-align:right">CHF/h</span><span style="text-align:right">$/h</span><span></span></div>
+            <sc-for list="{{ rows }}" as="r">
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) repeat(4,80px) 36px;gap:10px;padding:8px 16px;min-height:56px;box-sizing:border-box;align-items:center;border-top:1px solid #F0F1F4;background:{{ r.bg }}">
+                <sc-if value="{{ r.isTeam }}"><span style="grid-column:1 / -1;font-size:12.5px;font-weight:700;color:#0B1840">{{ r.label }} <span style="font-weight:500;color:#6B7280">{{ r.sub }}</span></span></sc-if>
+                <sc-if value="{{ r.isRole }}">
+                  <div style="display:flex;flex-direction:column;min-width:0"><span style="font-size:13px;font-weight:600;color:#0B1840;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.label }}</span><span style="font-size:10.5px;color:#9AA0AC">{{ r.sub }}</span></div>
+                  <sc-for list="{{ r.rates }}" as="c"><span style="font-size:13px;font-weight:{{ c.w }};color:{{ c.c }};text-align:right">{{ c.t }}</span></sc-for>
+                  <div style="width:36px;height:44px;display:flex;align-items:center;justify-content:center;color:#6B7280"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"></path></svg></div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:12px;font-weight:700;color:#0B1840">Smartphone — 390 × 844 · Roles</div>
+    <div style="font-size:11px;color:#6B7280;width:390px;line-height:1.45">Si vede una valuta alla volta, scelta con il selettore. I ruoli sono righe raggruppate per team, con il codice sotto il nome. I ruoli senza tariffa € sono in ambra.</div>
+    <div style="width:390px;height:844px;display:flex;flex-direction:column;background:#F3F4F6;border:1px solid #DDE1E8;border-radius:28px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08)">
+      <div style="flex-shrink:0;background:#0B1840;border-bottom:3px solid #F0287A;padding:8px 12px 0;height:52px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between"><div style="color:#fff;font-weight:700;font-size:17px;letter-spacing:-.02em"><span style="color:#F0287A">P</span>Dash</div><div style="width:32px;height:32px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">AP</div></div>
+      <div style="padding:12px 16px 0;display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:20px;font-weight:700;color:#0B1840">Master Data</span>
+        <div style="height:48px;box-sizing:border-box;background:#fff;border:1px solid #DDE1E8;border-radius:10px;padding:0 14px;display:flex;align-items:center;gap:10px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Financial</span><span style="flex:1;font-size:14px;font-weight:700;color:#0B1840">Roles &amp; rates</span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg></div>
+        <div style="display:flex;gap:8px"><div style="flex:1;height:44px;box-sizing:border-box;background:#fff;border:1px solid #DDE1E8;border-radius:8px;display:flex;align-items:center;padding:0 12px;font-size:13px;color:#9AA0AC">Search role…</div><div style="height:44px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center">+ Add</div></div>
+        <div style="display:flex;background:#E6E9EE;border-radius:8px;padding:3px;gap:2px"><sc-for list="{{ cur }}" as="c"><span onClick="{{ c.pick }}" style="flex:1;height:38px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:{{ c.bg }};font-size:13px;font-weight:{{ c.w }};color:{{ c.c }};cursor:pointer">{{ c.label }}</span></sc-for></div>
+      </div>
+      <div style="flex:1;overflow:auto;padding:10px 16px 16px;display:flex;flex-direction:column">
+        <sc-for list="{{ pRows }}" as="r">
+          <sc-if value="{{ r.isTeam }}"><div style="padding:12px 2px 6px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">{{ r.label }}</div></sc-if>
+          <sc-if value="{{ r.isRole }}"><div style="background:{{ r.bg }};border:1px solid #DDE1E8;border-radius:10px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;min-height:44px;box-sizing:border-box"><div style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:13px;font-weight:600;color:#0B1840;line-height:1.3">{{ r.label }}</span><span style="font-size:10.5px;color:#9AA0AC;font-family:ui-monospace,Menlo,monospace">{{ r.code }}</span></div><span style="font-size:15px;font-weight:700;color:{{ r.vC }}">{{ r.v }}</span></div></sc-if>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1980,&quot;height&quot;:940}}">
+const D = [['GREENLIGHT', [['Strategic Role for Greenlight Only', 'SHARED RESOURCE', [150, 130, 140, 195]]]], ['HWGACCSVS', [['Healthware Account Director', 'DIRECTOR', [180, 155, 170, 195]], ['Healthware Account Manager', 'MANAGER', [135, 116, 127, 147]], ['Healthware Account Senior Vice President', 'SVP', [0, 0, 0, 0]], ['Healthware Marketing Coordinator', 'MARKETING COORDINATOR', [105, 0, 98, 114]]]], ['HWGDEV', [['Developer', 'DEVELOPER', [100, 86, 94, 109]], ['Architect', 'ARCHITECT', [120, 103, 113, 131]]]]];
+const C = ['EUR', 'GBP', 'CHF', 'USD'], SYM = ['€', '£', 'CHF', '$'];
+class Component extends DCLogic {
+  state = {};
+  renderVals() {
+    const ci = this.state.ci ?? 0;
+    const rows = [], pRows = [];
+    D.forEach(([t, rs]) => {
+      rows.push({ isTeam: true, isRole: false, label: t, sub: rs.length + ' roles', bg: '#FAFBFC' });
+      pRows.push({ isTeam: true, isRole: false, label: t });
+      rs.forEach(([label, code, r]) => {
+        rows.push({ isTeam: false, isRole: true, label, sub: t + ' - ' + code, bg: r[0] ? '#fff' : '#FFFBF5', rates: r.map((v, i) => ({ t: v ? String(v) : i === 0 ? 'No rate' : '—', w: v ? 600 : i === 0 ? 700 : 400, c: v ? '#141413' : i === 0 ? '#B4650C' : '#C9CDD3' })) });
+        const v = r[ci];
+        pRows.push({ isTeam: false, isRole: true, label, code: t + ' - ' + code, bg: r[0] ? '#fff' : '#FFFBF5', v: v ? SYM[ci] + ' ' + v : ci === 0 ? 'No rate' : '≈ ' + SYM[ci] + ' ' + Math.round(r[0] * [1, 0.8, 0.93, 1.3][ci]) || '—', vC: v ? '#0B1840' : ci === 0 ? '#B4650C' : '#7C3AED' });
+      });
+    });
+    return {
+      tabs: [['Clients & groups'], ['Pipelines & POTs'], ['Roles & rates', 1], ['Currencies']].map(([label, on]) => ({ label, bg: on ? '#fff' : 'transparent', border: on ? '#DDE1E8' : 'transparent', bar: on ? '#F0287A' : 'transparent', w: on ? 700 : 500, c: on ? '#0B1840' : '#374151' })),
+      rows, pRows, cur: C.map((label, i) => ({ label, bg: i === ci ? '#fff' : 'transparent', w: i === ci ? 700 : 500, c: i === ci ? '#0B1840' : '#6B7280', pick: () => this.setState({ ci: i }) }))
+    };
+  }
+}
+</script>
+</body>
+</html>
