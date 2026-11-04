@@ -218,6 +218,10 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
   .md-content { padding: var(--space-3) 16px 16px; }
 }
 
+/* Wide mode (Pipelines & POTs phasing): no sub-nav, the content takes the whole width at every breakpoint. */
+.md-layout--wide .md-subnav { display: none; }
+.md-layout--wide .md-content { flex: 1 1 100%; width: 100%; max-width: none; }
+
 /* ── Master Data controls (segmented control, switch) ── */
 .md-seg {
   display: inline-flex; gap: 2px; padding: 2px;

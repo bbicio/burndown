@@ -87,7 +87,7 @@ const PAGES = [
       'Api.clientGroups.list()', 'Api.ratecards.list()', 'readUrlState('] },
   { file: 'master-pipelines.html',     active: 'pipelines',  section: 'Pipelines & POTs',
     api: ['clientGroups', 'clients', 'currencies', 'pipelineYears', 'pots', 'reporting'],
-    must: ['id="potDetailsModal"', 'this.yearTotals    = yearTotals;'] },
+    must: ['window.__cfgApp', 'parseMdpUrl(', 'popstate', 'this.yearTotals    = yearTotals;'] },
   { file: 'master-roles.html',         active: 'roles',      section: 'Roles & rates',
     api: ['currencies', 'roles'],
     must: ['this.currencies    = currencies;', 'groupedRoles'] },
@@ -325,5 +325,13 @@ describe('Master Data shared controls (css/style.css, js/lib/icons.js)', () => {
     for (const n of ['building', 'pencil', 'more', 'reset']) {
       expect(iconSvg(n), n).not.toBe('');
     }
+  });
+});
+
+describe('wide mode (Pipelines & POTs phasing)', () => {
+  const css = read('css/style.css');
+  it('hides the sub-nav and widens the content', () => {
+    expect(css).toContain('.md-layout--wide .md-subnav { display: none');
+    expect(css).toMatch(/.md-layout--wide .md-content/);
   });
 });

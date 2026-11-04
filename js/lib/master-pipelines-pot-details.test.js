@@ -19,14 +19,28 @@ describe('master-pipelines POT table and year row', () => {
     expect(page).toContain("formatMoney(+pot.sip_total || 0, 'EUR', activeCurrencies)");
   });
 
-  it('shows E and S in the year row', () => {
-    expect(page).toContain('yearTotals[py.year].expected_total');
-    expect(page).toContain('yearTotals[py.year].sip_total');
+  it('creates a pipeline hidden', () => {
+    const fn = page.slice(page.indexOf('async createPipelineYear('), page.indexOf('async togglePipelineYear('));
+    expect(fn).toContain('Api.pipelineYears.create(year, false)');
+  });
+
+  it('disables delete when the year has offers', () => {
+    expect(page).toContain(':disabled="py.offers > 0');
+    expect(page).toContain('Hide it instead.');
+  });
+
+  it('toggles with the switch disabled while saving', () => {
+    expect(page).toContain('class="md-switch"');
+    expect(page).toContain(':disabled="py._toggling"');
+  });
+
+  it('has no native dialogs', () => {
+    expect(page).not.toMatch(/(^|[^.\w])(confirm|alert)\(/);
   });
 
   it('keeps Total (C+A) on achieved_total', () => {
     expect(page).toContain("formatMoney(+pot.achieved_total || 0, 'EUR', activeCurrencies)");
-    expect(page).toContain('yearTotals[py.year].achieved_total / yearTotals[py.year].pot_total');
+    expect(page).toContain('achievement(yearTotals[py.year].achieved_total, yearTotals[py.year].pot_total)');
   });
 });
 
