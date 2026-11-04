@@ -732,8 +732,9 @@ window.__cfgApp = Vue.createApp({
         return { row, cells, isCustom: codes.some(c => cells[c].kind === 'custom'), family: window.roleFamily(row.code) };
       });
       const q = this.rcSearch.trim().toLowerCase();
+      // "Only customized" looks at the saved texts, so a row does not vanish while its field is being edited
       const shown = withCells.filter(r => (!q || (r.row.label || '').toLowerCase().includes(q) || (r.row.code || '').toLowerCase().includes(q))
-        && (!this.rcOnlyCustom || r.isCustom));
+        && (!this.rcOnlyCustom || window.rowIsCustom({ row: r.row, codes, currencies: this.currencies, saved: true })));
       return window.sortFamilies([...new Set(shown.map(r => r.family))]).map(name => {
         const all = withCells.filter(r => r.family === name);
         return { name, rows: shown.filter(r => r.family === name), total: all.length, custom: all.filter(r => r.isCustom).length };
@@ -831,7 +832,7 @@ window.__cfgApp = Vue.createApp({
         this.groups = groups;
         this.clients.forEach(c => { c.groupId = groupOf.get(c.id) ?? null; });
       } catch (e) {
-        this.globalError = e.message || 'Failed to reload groups.';
+        if (!this.globalError) this.globalError = e.message || 'Failed to reload groups.';
       }
     },
 
@@ -889,8 +890,10 @@ window.__cfgApp = Vue.createApp({
             await Api.clientGroups.assignClient(toGroupId, client.id);
             client.groupId = toGroupId;
           } catch (e) {
-            // the client exists, without a group
-            this.cf.error = e.message || 'The client was created, but adding it to the group failed.';
+            // the client exists, without a group: the form closes, so a retry cannot hit the duplicate-name check
+            this.cf.show = false;
+            this.globalError = e.message || 'The client was created, but adding it to the group failed.';
+            await this.reloadGroups();
             return;
           }
           await this.reloadGroups();
@@ -946,6 +949,7 @@ window.__cfgApp = Vue.createApp({
     // disabled until it is done, and a failure puts the previous group back.
     async moveTo(client, toGroupId) {
       if (client._moving) return;
+      this.globalError = null;
       const fromGroupId = client.groupId || null;
       if (fromGroupId === (toGroupId || null)) return;
       client._moving = true;
@@ -974,6 +978,7 @@ window.__cfgApp = Vue.createApp({
     cancelNewGroup() { this.ng.show = false; },
 
     async createGroup() {
+      this.globalError = null;
       const name = this.ng.name.trim();
       this.ng.error = window.groupNameError(name, this.groups, null);
       if (this.ng.error) return;
@@ -999,6 +1004,7 @@ window.__cfgApp = Vue.createApp({
     cancelRename() { this.gr = { id: null, name: '', error: null, loading: false }; },
 
     async saveRename() {
+      this.globalError = null;
       this.gr.error = window.groupNameError(this.gr.name, this.groups, this.gr.id);
       if (this.gr.error) return;
       this.gr.loading = true;

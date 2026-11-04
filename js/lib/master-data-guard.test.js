@@ -210,6 +210,24 @@ describe('master-clients.html (Clients & groups)', () => {
     }
     expect(html.indexOf('id="confirmModal"')).toBeGreaterThan(html.indexOf('</div><!-- #app -->'));
   });
+  it('keeps a client that was created but not grouped, instead of blocking a retry', () => {
+    const body = html.slice(html.indexOf('async createClient()'), html.indexOf('startClientEdit(c) {'));
+    const assignFail = body.slice(body.indexOf('catch (e) {'), body.indexOf('await this.reloadGroups()'));
+    expect(assignFail).toContain('this.cf.show = false');
+    expect(assignFail).toContain('this.globalError');
+  });
+  it('clears the banner when an action starts and never hides the real error behind a reload failure', () => {
+    for (const name of ['async moveTo(', 'async createGroup()', 'async saveRename()']) {
+      const from = html.indexOf(name);
+      expect(from, name).toBeGreaterThan(-1);
+      expect(html.slice(from, from + 700), name).toContain('this.globalError = null');
+    }
+    const reload = html.slice(html.indexOf('async reloadGroups()'), html.indexOf('setView(v)'));
+    expect(reload).toContain('if (!this.globalError)');
+  });
+  it('filters the rate card rows by their saved state', () => {
+    expect(html).toContain('saved: true');
+  });
   it('titles the third breadcrumb level Clients & groups and drops the old link', () => {
     expect(html).toContain("{ label: 'Clients & groups' }");
     expect(html).not.toContain('master-client-groups.html');
@@ -257,6 +275,18 @@ describe('master-clients.html (Clients & groups)', () => {
   it('has no hex colour in its inline styles', () => {
     const styles = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
     expect(styles).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+});
+
+describe('DELETE /api/client-groups/:id refuses a group with a POT under a row lock', () => {
+  const src = read('api/src/routes/client-groups.js');
+  const del = src.slice(src.indexOf('async function deleteGroup'), src.indexOf("router.put('/:id/clients/:clientId'"));
+  it('locks the group row in a transaction before it looks at the POTs', () => {
+    expect(del).toContain("'BEGIN'");
+    expect(del).toMatch(/FROM client_groups WHERE id = \$1 FOR UPDATE/);
+    expect(del.indexOf('FOR UPDATE')).toBeLessThan(del.indexOf('FROM pots'));
+    expect(del).toContain("'COMMIT'");
+    expect(del).toContain("'ROLLBACK'");
   });
 });
 

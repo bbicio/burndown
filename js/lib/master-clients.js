@@ -125,13 +125,22 @@ export function readUrlState(search) {
 }
 
 export function urlFor({ view, clientId }) {
-  if (clientId) return `?client=${encodeURIComponent(clientId)}`;
-  return view === 'group' ? '?view=group' : '';
+  const parts = [];
+  if (view === 'group') parts.push('view=group');
+  if (clientId) parts.push(`client=${encodeURIComponent(clientId)}`);
+  return parts.length ? `?${parts.join('&')}` : '';
+}
+
+// Does any of the row's cells carry a value of its own? `saved` reads the texts the card was opened (or
+// last saved) with, so a row being edited keeps its place under the "Only customized" filter.
+export function rowIsCustom({ row, codes, currencies, saved = false }) {
+  const r = saved && row.initial ? { ...row, texts: row.initial } : row;
+  return codes.some(code => cellSource({ row: r, code, currencies }).kind === 'custom');
 }
 
 if (typeof window !== 'undefined') {
   Object.assign(window, {
     filterClients, groupSections, customRateCount, roleFamily, sortFamilies, cellSource,
-    buildRatecardEntries, moveClient, groupNameError, readUrlState, urlFor,
+    buildRatecardEntries, moveClient, groupNameError, readUrlState, urlFor, rowIsCustom,
   });
 }

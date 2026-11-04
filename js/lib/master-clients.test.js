@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   filterClients, groupSections, customRateCount, roleFamily, sortFamilies, cellSource,
-  buildRatecardEntries, moveClient, groupNameError, readUrlState, urlFor,
+  buildRatecardEntries, moveClient, groupNameError, readUrlState, urlFor, rowIsCustom,
 } from './master-clients.js';
 
 const currencies = [
@@ -209,5 +209,21 @@ describe('url state', () => {
     expect(urlFor({ view: 'list', clientId: 'abc' })).toBe('?client=abc');
     expect(urlFor({ view: 'group', clientId: null })).toBe('?view=group');
     expect(urlFor({ view: 'list', clientId: null })).toBe('');
+  });
+  it('keeps the By group view while a rate card is open', () => {
+    expect(urlFor({ view: 'group', clientId: 'abc' })).toBe('?view=group&client=abc');
+    expect(readUrlState('?view=group&client=abc')).toEqual({ view: 'group', clientId: 'abc' });
+  });
+});
+
+describe('rowIsCustom', () => {
+  const row = { roleId: '7', defaults: { EUR: 130 }, texts: { EUR: '' }, stored: { EUR: null }, initial: { EUR: '168' } };
+  it('reads the current texts by default', () => {
+    expect(rowIsCustom({ row, codes: ['EUR'], currencies })).toBe(false);
+  });
+  it('reads the opened/saved texts when saved is set, so a row being edited keeps its place', () => {
+    expect(rowIsCustom({ row, codes: ['EUR'], currencies, saved: true })).toBe(true);
+    const typo = { ...row, texts: { EUR: '1x' } };
+    expect(rowIsCustom({ row: typo, codes: ['EUR'], currencies, saved: true })).toBe(true);
   });
 });
