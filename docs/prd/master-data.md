@@ -33,11 +33,11 @@ Named bundles of clients (e.g. "Italian Public Sector"), managed in the By group
 
 **What a POT is:** a Client POT is the total target revenue — the maximum "wallet potential" — allocated to a specific client (or client group) for a given forecasting year. It is the financial benchmark the organization aims to capture from that client, combining existing recurring business with identified upsell/cross-sell growth opportunities. Everything below (the POT banner, the POT table, the View Details modal, the history log) is different views onto that one number and how actual/anticipated pipeline is tracking against it.
 
-Master/detail on the Pipelines & POTs page (`master-pipelines.html`):
+(2026-11-04) The Pipelines & POTs page (`master-pipelines.html`) has three levels, each with its own URL (reload and Back/Forward work): the pipeline list (`/master-pipelines.html`), the POT targets of a year (`?year=`), and the Proposal/Project phasing of a year (`?year=&phasing=`). The POT details open as a side drawer (`?year=&pot=`). Layouts follow the shell: tablet drops the Committed/Anticipated columns, phone uses cards, a full-screen drawer and a bottom sheet for Edit target.
 
-**View A — Pipeline list:** table of all pipeline years with Visible / Hidden status badge. Actions: toggle visibility (Show/Hide), delete (blocked if cost grid versions reference the year), "POTs →" (drills into View B), "📊 Proposal Phasing", "📋 Project Phasing", + Add year. A year with POT targets shows its achievement % and C+A amount, with a second line "C: € … · A: € … · E: € … · S: € …" (E and S muted, not in the %).
+**View A — Pipeline list (2026-11-04):** a new year is created **Hidden**; the Visible switch saves at once and restores itself on failure; **Delete is disabled while the year has proposals or POTs** (with the reason). Rest of the original description: table of all pipeline years with Visible / Hidden status badge. Actions: toggle visibility (Show/Hide), delete (blocked if cost grid versions reference the year), "POTs →" (drills into View B), "📊 Proposal Phasing", "📋 Project Phasing", + Add year. A year with POT targets shows its achievement % and C+A amount, with a second line "C: € … · A: € … · E: € … · S: € …" (E and S muted, not in the %).
 
-**Proposal Phasing / Project Phasing:** dedicated per-year views opened from the pipeline list row, each with an XLS export link. Proposal Phasing shows the monthly budget distribution across proposals for the year; Project Phasing shows the same for active projects.
+**Proposal Phasing / Project Phasing:** (2026-11-04: filters by stage, client and POT; amounts in EUR or in the original currency, never mixed in one total; Project phasing has no XLS export) dedicated per-year views opened from the pipeline list row, each with an XLS export link. Proposal Phasing shows the monthly budget distribution across proposals for the year; Project Phasing shows the same for active projects.
 
 **View B — POT targets for selected year:**
 
@@ -52,7 +52,7 @@ Layout (top to bottom):
 
 **✏️ Edit:** inline form to update the amount; every change is logged to `pot_history`. (2026-10-30) The amount is typed in EUR's convention (`500.000`, `1.234,50`) and the field is labelled "Target (€)"; a blank or unreadable amount is refused with "Enter a valid amount in EUR, e.g. 1.234,50." (§7.7). Enter in the field saves.
 
-**🔍 View Details modal** — shows:
+**Details drawer (formerly a modal; 2026-11-04)** — shows, and closes with ✕, the scrim or Esc:
 - POT type badge (Individual / Group) and scope name
 - Four KPI cards: **Target** (current `pot.amount`, most recent history entry) · **Total (C+A)** (Committed + Anticipated professional fees) · **Committed** · **Anticipated** — each scoped to this POT's client/group for the year, with a % of target
 - Below the cards, a muted line "Not in total · Expected € … · SIP € …" — informative only; Total (C+A) and the percentages never include it

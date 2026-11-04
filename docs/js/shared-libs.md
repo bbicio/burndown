@@ -8,6 +8,8 @@ The non-Vue `js/*.js` files loaded as globals by the Vue pages, other than the o
 
 The `Api.*` namespace and the `apiFetch` wrapper. On a 401 it redirects to the login page and sets `window.__pdashAuthRedirecting`. On any `!res.ok` it attaches the parsed response body to the thrown `Error` as `err.data` (2026-09), so callers can act on a structured error payload — e.g. the timesheet upload's `inconsistencies`, see [docs/api/timesheets.md](../api/timesheets.md).
 
+`Api.pipelineYears.create(year, active)` (2026-11-04) sends `active` only when given; the Pipelines & POTs page creates a year hidden.
+
 `Api.costGrids.versions.tags.{list,replace}` and `Api.projects.tags.{list,replace}` (2026-09, Cycle 2) are thin wrappers over the tag routes; `replace` sends `{ itemIds }` for a full replace-all.
 
 ## js/shares.js

@@ -134,7 +134,7 @@ Loaded via `<script type="module">` on `pipeline.html`, before the inline `Vue.c
 The single implementation of currency formatting and parsing (`<script type="module">`, `window.*` bridge for each export). Pure: the currency list (`window.__currencies` shape `{ code, symbol, locale, … }[]`, may be `undefined`/`[]`) is always passed in. Loaded by `pipeline`, `portfolio`, `program`, `costgrid`, `project-config`, `timesheets`, `planning` and the `master-*` pages (`master-clients`, `master-pipelines`, `master-roles`, `master-currencies`) (a vitest guard fails if a page that loads `core.js` and uses a money function lacks the tag, or if the `money.js?v=N` references diverge, or if `Intl.NumberFormat` appears outside `money.js`/`api/src/lib/money-format.js`).
 
 - `currencyInfo(code, currencies)` → `{ code, symbol, locale, digits }`. A falsy code means `EUR`; a code not in the list falls back to `{ symbol: code (or '€' for EUR), locale: 'it-IT' }`; `digits` comes from `Intl` (`style: 'currency'`, e.g. JPY 0, most 2) with a `try/catch` defaulting to 2 (Intl throws on a non-ISO code such as a stray `€`).
-- `formatMoney(amount, code, currencies, { rounded })` → `€ 1.234,50` (symbol + space + number in the locale of the currency). `useGrouping: 'always'`: the thousands separator is shown even for 4-digit amounts (some locales — it, es, pl, pt — skip it by default for 4 digits); `rounded` drops the decimals (`€ 1.235`); a non-finite amount renders as zero.
+- `formatMoney(amount, code, currencies, { rounded, symbol })` → `€ 1.234,50` (symbol + space + number in the locale of the currency). `useGrouping: 'always'`: the thousands separator is shown even for 4-digit amounts (some locales — it, es, pl, pt — skip it by default for 4 digits); `rounded` drops the decimals (`€ 1.235`); `symbol: false` (2026-11-04, Pipelines & POTs) returns the bare number, for cells whose currency is stated elsewhere; a non-finite amount renders as zero.
 - `formatMoneyInput(amount, code, currencies, { keepZero })` → the bare number in the locale format, without symbol or grouping (`350,28`), `''` for ≤ 0/non-numeric (with `keepZero`, a 0 gives `'0'`): the text shown while a money `<input>` has focus, read back with `readMoneyInput` (this pair is what removed the x100 bug).
 - `readMoneyInput(text, code, currencies, { stored })` → `null` for a blank text, `NaN` for an invalid text, else the number: what a Vue money `<input>` calls instead of `parseFloat`. Only the locale's group and decimal separators are accepted, groups have exactly 3 digits after the first (the locale's secondary group size for Indian grouping), at most the currency's decimals, no minus; the symbol or ISO code is accepted only at either end of the text; the space group separators (plain, NBSP, narrow NBSP) are interchangeable. `stored` is the amount the field was opened with: a text equal to it once rounded to the currency decimals returns `stored` unchanged. `moneyFormatExample(code, currencies)` → an example amount in the currency locale, the copy shown beside a refused input.
 
@@ -242,6 +242,17 @@ Pure helpers of `master-clients.html` (`<script type="module">`, `window.*` brid
 - `readUrlState(search)` / `urlFor({ view, clientId })`: `?view=group` is By group, `?client=<id>` the rate card; both can be present.
 
 Page behaviour: `docs/pages/config.md` "Clients & groups".
+
+## master-pipelines.js (2026-11-04, Master Data Pipelines & POTs)
+
+Pure helpers of `master-pipelines.html` (`<script type="module">`, `window.*` bridge for each export).
+
+- `parseMdpUrl(search)` / `buildMdpUrl(state)`: the URL of the three levels (`?year=`, `&pot=`, `&phasing=proposal|project`); an invalid value reads as absent.
+- `resolvePot(pots, id)`, `potCountByYear(pots)`, `potClientIds(pot, groups)`, `availableTargets(...)`: the POT list, its per-year count and the targets still free for a new POT.
+- `achievement`, `gapToTarget`, `outsidePotCommitted(summary, pots)`: the summary tiles; the last returns `null` below one cent.
+- `rowMonthAmount`, `rowCurrency`, `filterPhasingRows`, `phasingTotals(rows, months, mode)`, `stageCounts`: the phasing table; `eur` mode divides by `currencyRate || 1`, `original` gives one total row per currency.
+
+Page behaviour: `docs/pages/config.md` "Pipelines & POTs".
 
 ## dates.js (2026-10-24, dates C1)
 
