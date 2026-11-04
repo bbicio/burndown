@@ -5,18 +5,36 @@ import { join } from 'node:path';
 const page = readFileSync(join(process.cwd(), 'master-pipelines.html'), 'utf8');
 
 describe('master-pipelines POT table and year row', () => {
-  it('has Expected and SIP columns after Anticipated', () => {
-    const a = page.indexOf('>Anticipated</th>');
-    const e = page.indexOf('>Expected</th>');
-    const s = page.indexOf('>SIP</th>');
-    expect(a).toBeGreaterThan(-1);
-    expect(e).toBeGreaterThan(a);
-    expect(s).toBeGreaterThan(e);
+  it('folds E and SIP into the achievement bar, not into columns', () => {
+    expect(page).not.toContain('>Expected</th>');
+    expect(page).not.toContain('>SIP</th>');
+    expect(page).toContain('in SIP / Expected');
+    expect(page).toContain('+pot.expected_total');
+    expect(page).toContain('+pot.sip_total');
   });
 
-  it('renders the Expected and SIP totals of each POT in EUR', () => {
-    expect(page).toContain("formatMoney(+pot.expected_total || 0, 'EUR', activeCurrencies)");
-    expect(page).toContain("formatMoney(+pot.sip_total || 0, 'EUR', activeCurrencies)");
+  it('keeps achievement on achieved_total', () => {
+    expect(page).toContain('achievement(+pot.achieved_total');
+    expect(page).toContain("formatMoney(+pot.committed_total || 0, 'EUR', activeCurrencies)");
+    expect(page).toContain("formatMoney(+pot.anticipated_total || 0, 'EUR', activeCurrencies)");
+  });
+
+  it('Update target needs a reason', () => {
+    const i = page.indexOf('Update target');
+    const btn = page.slice(page.lastIndexOf('<button', i), i);
+    expect(btn).toContain('potf.note.trim()');
+  });
+
+  it('keeps the server error under the row and the row open', () => {
+    const fn = page.slice(page.indexOf('async savePot('), page.indexOf('async deletePot('));
+    const c = fn.slice(fn.indexOf('catch (e)'));
+    expect(c).toContain('this.potf.error = e.message');
+    expect(c).not.toContain('this.potf.show = false');
+  });
+
+  it('hides the outside-POT note when there is nothing outside', () => {
+    expect(page).toContain('v-if="outsideCommitted != null"');
+    expect(page).toContain('outsidePotCommitted(');
   });
 
   it('creates a pipeline hidden', () => {
@@ -38,8 +56,7 @@ describe('master-pipelines POT table and year row', () => {
     expect(page).not.toMatch(/(^|[^.\w])(confirm|alert)\(/);
   });
 
-  it('keeps Total (C+A) on achieved_total', () => {
-    expect(page).toContain("formatMoney(+pot.achieved_total || 0, 'EUR', activeCurrencies)");
+  it('keeps the year row achievement on achieved_total', () => {
     expect(page).toContain('achievement(yearTotals[py.year].achieved_total, yearTotals[py.year].pot_total)');
   });
 });
