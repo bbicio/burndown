@@ -258,6 +258,17 @@ Pure helpers of `master-pipelines.html` (`<script type="module">`, `window.*` br
 
 Page behaviour: `docs/pages/config.md` "Pipelines & POTs".
 
+## master-roles.js (2026-11-04, Master Data Roles & rates)
+
+Pure helpers of `master-roles.html` (`<script type="module">`, `window.*` bridge for each export). Imports `resolveRoleRate` from `costgrid-calc.js`.
+
+- `extractTeam(code)`: the prefix before the first " - ", else the first token (moved unchanged from the page). `isMissingRate(rate)`: `null`, `undefined` and `0` count as missing.
+- `rateColumns(currencies)`: EUR first, then each active non-EUR currency in the order received. `filterRoles(roles, { query, missingOnly })` and `groupRoles(roles)` → `[{ team, roles, missing }]`, teams then labels with `localeCompare`.
+- `fallbackRate(role, currency)`: the € rate × `current_rate` through `resolveRoleRate`, rounded to the currency's decimals; `null` without a € rate or a positive `current_rate`.
+- `splitCode(code)` / `joinCode(team, role)`: Team + Role code over the single `code`; a code without " - " splits as `{ team: '', role: code }`. `teamOptions(roles)`: the distinct teams of `TEAM - ROLE` codes.
+
+Page behaviour: `docs/pages/config.md` "Roles & rates".
+
 ## dates.js (2026-10-24, dates C1)
 
 The single implementation of date validation, ordering and typed-text parsing for the browser (`<script type="module">`, `window.*` bridge for each export). Pure. Loaded by `costgrid.html`, `project-config.html`, `pipeline.html` and `portfolio.html`. Rules to keep: `CLAUDE.md`'s "Dates".

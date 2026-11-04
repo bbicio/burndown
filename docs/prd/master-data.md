@@ -77,13 +77,15 @@ Accessed via the **Roles & rates** page (`master-roles.html`, Master Data), alon
 |---|---|
 | Label | Display name (e.g. "Senior Developer") |
 | Code | Must match the role code in the XLS actuals (e.g. "HWGDEV") |
-| Team | Not a separate input — auto-derived from the `TEAM - Role` prefix of Code, used as a group label for Resource Planning filters |
+| Team | Not stored on its own — the `TEAM - Role` prefix of Code, used as a group label for Resource Planning filters; the form edits it as a separate Team field that is joined into Code on save (2026-11-04) |
 | Rate (€/h) | Default hourly rate; can be overridden per cost grid version |
 | Default rate (per active non-EUR currency) | Optional — one extra field per active currency (§7.7) appears in the same Add/Edit Role form; blank means "convert the EUR rate at the current exchange rate," a value here fixes this role's own default rate in that currency regardless of exchange-rate movement. This is the "role's per-currency agency default" link in the rate fallback chain (§4.9) — distinct from a client's own rate-card override (§7.2, which takes priority over this) and from a per-offer rate edit (which takes priority over both). |
 
 Actions: Add, edit, delete.
 
-(2026-10-30) Each rate is typed in the convention of its own currency (§7.7) and shown in the roles table as `€ 135,00/h`. A blank default rate is refused with "Default rate is required."; a blank per-currency field means no override, while a `0` typed there is saved as a 0 override.
+(2026-10-30) Each rate is typed in the convention of its own currency (§7.7). A blank default rate is refused with "Default rate is required."; a blank per-currency field means no override, while a `0` typed there is saved as a 0 override.
+
+**Page layout (2026-11-04).** The list is grouped by team (collapsible groups, "N roles" and an amber "N without € rate" when some role has no € rate), with one rate column per currency — € first, then each active currency — headed "€/h", "$/h"…; amounts are shown without the symbol and without decimals when whole. A role with no € rate (empty or 0) reads "No rate" on an amber row. In another currency, "—" means the role has no rate of its own there: its tooltip shows what a proposal in that currency would use (≈ the € rate × the current exchange rate). A search box (role or code) and a **Missing rates** switch narrow the list. **+ Add role** and **Edit** open a side panel with Label, **Team** (pick an existing team or type a new one) and **Role code**, a "Full code" preview (it must match **Job Role: Name** in the XLS) and one rate field per currency; the code saved is "TEAM - ROLE code", and a code that does not follow that form is kept as it is unless a team is picked. **Delete** asks for confirmation: the role and its custom rates in client rate cards are removed, and a role used in a cost grid or assigned to a team resource can't be deleted — the refusal is shown in the dialog. On tablets a tap on a role opens the panel; on phones one currency is shown at a time (a selector above the list) and roles are cards.
 
 ### 7.7 Currencies
 

@@ -4,7 +4,8 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const html = fs.readFileSync(path.resolve(__dirname, '..', '..', 'master-roles.html'), 'utf8');
+// Read as LF: the repo stores LF, a Windows checkout may hand back CRLF (the slices below match on '\n').
+const html = fs.readFileSync(path.resolve(__dirname, '..', '..', 'master-roles.html'), 'utf8').replace(/\r\n/g, '\n');
 const between = (from, to) => {
   const a = html.indexOf(from);
   expect(a, from).toBeGreaterThan(-1);
