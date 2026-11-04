@@ -45,12 +45,23 @@ describe('master-roles panel', () => {
     expect(after).not.toMatch(/this.rf.(id|show|error|loading)/);
     expect(save).toContain('const saved = code.toUpperCase();');
   });
-  it('does not close while a save runs', () => {
-    expect(between('closePanel({', 'onPanelKeydown(e)')).toContain('if (this.rf.loading) return;');
+  it('does not close or open the delete dialog while a save runs', () => {
+    expect(between('closePanel({', 'focusBack(el, roleId)')).toContain('if (this.rf.loading) return;');
+    expect(between('deleteFromPanel() {', 'async confirmDelete()')).toContain('if (this.rf.loading) return;');
+    for (const cls of ['mdr-dr-close', 'mdr-del-link', 'mdr-cancel']) {
+      expect(html, cls).toMatch(new RegExp('class="' + cls + '"[^>]*:disabled="rf\\.loading"'));
+    }
+  });
+  it('returns focus to the opener, else the role row, else + Add', () => {
+    const back = between('focusBack(el, roleId) {', 'onPanelKeydown(e)');
+    expect(back).toContain('isConnected');
+    expect(back).toContain('[data-role-id=');
+    expect(back).toContain('.mdr-add');
+    expect(html).toContain(':data-role-id="r.id"');
   });
   it('opens a role and toggles a team from the keyboard', () => {
     expect(html).toContain('class="mdr-grp-btn" :aria-expanded="isGroupOpen(g.team)"');
-    expect(html).toContain('class="mdr-role-btn" @click.stop="openRoleForm(r)"');
+    expect(html).toContain('class="mdr-role-btn" :data-role-id="r.id" @click.stop="openRoleForm(r)"');
   });
   it('disables the primary while saving or without label and role code', () => {
     expect(html).toContain(':disabled="rf.loading || !rf.label.trim() || !rf.roleCode.trim()"');
@@ -73,6 +84,11 @@ describe('master-roles delete dialog', () => {
     // only the rule refusal blocks a retry
     expect(body).toContain("del.blocked = /^Cannot delete role /.test(");
     expect(html).toContain(':disabled="del.loading || del.blocked"');
+  });
+  it('cannot be dismissed while its delete runs', () => {
+    expect(html).toContain('data-bs-dismiss="modal" :disabled="del.loading"');
+    expect(html).toContain("this._onDelHide = e => { if (this.del.loading) e.preventDefault(); };");
+    expect(html).toContain("addEventListener('hide.bs.modal', this._onDelHide)");
   });
 });
 

@@ -50,10 +50,10 @@
     .mdr-table .is-num { text-align: right; width: 92px; white-space: nowrap; }
     .mdr-table th:first-child, .mdr-table td.mdr-role-cell { position: sticky; left: 0; z-index: 1; background: var(--surface-white); }
     .mdr-table th:first-child { background: var(--surface-light); }
-    .mdr-grp td { background: var(--surface-light); padding: 9px var(--space-4); cursor: pointer; user-select: none; }
-    .mdr-grp-btn { display: block; width: 100%; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
+    .mdr-grp td { background: var(--surface-light); padding: 0; user-select: none; }
+    .mdr-grp-btn { display: block; width: 100%; padding: 9px var(--space-4); border: 0; background: none; text-align: left; cursor: pointer; }
     .mdr-grp-btn:focus-visible, .mdr-role-btn:focus-visible { outline: 2px solid var(--brand-navy); outline-offset: 2px; border-radius: var(--radius-xs); }
-    .mdr-role-btn { display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 100%; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
+    .mdr-role-btn { display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 420px; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
     .mdr-grp-in { position: sticky; left: var(--space-4); display: inline-flex; align-items: center; gap: var(--space-2); }
     .mdr-grp .pd-icon, .mdr-grp svg { color: var(--text-primary); transition: transform var(--duration-fast); }
     .mdr-grp.is-closed svg { transform: rotate(-90deg); }
@@ -156,6 +156,7 @@
       /* fixed columns; past ~220px for the role the table scrolls instead of squeezing it */
       .mdr-table { table-layout: fixed; min-width: calc(220px + var(--mdr-cols, 1) * 80px + 36px); }
       .mdr-role { max-width: none; }
+      .mdr-role-btn { max-width: 100%; }
       .mdr-table .is-num { width: 80px; }
       /* the actions column stays (a fixed layout would hand a hidden column's share to nobody) but takes no width */
       .mdr-actions, .mdr-act-head { width: 0; padding: 0 !important; }
@@ -238,7 +239,7 @@
         <input type="checkbox" v-model="missingOnly"> Missing rates · {{ missingCount }}
       </label>
       <button type="button" class="mdr-toggle" :aria-pressed="missingOnly" @click="missingOnly = !missingOnly">Missing rates · {{ missingCount }}</button>
-      <button type="button" class="btn btn-primary btn-sm" @click="openRoleForm()">+ Add role</button>
+      <button type="button" class="btn btn-primary btn-sm mdr-add" @click="openRoleForm()">+ Add role</button>
     </template>
   </div>
   <div class="md-card-body">
@@ -269,7 +270,7 @@
           <ph-icon name="search" :size="14"></ph-icon>
           <input type="text" v-model="query" placeholder="Search role…" autocomplete="off" aria-label="Search role">
         </label>
-        <button type="button" class="btn btn-primary" @click="openRoleForm()">+ Add</button>
+        <button type="button" class="btn btn-primary mdr-add" @click="openRoleForm()">+ Add</button>
       </div>
       <div class="md-seg" role="group" aria-label="Currency">
         <button v-for="cu in columns" :key="cu.code" type="button" class="md-seg-btn"
@@ -308,7 +309,7 @@
                 <template v-if="isGroupOpen(g.team)">
                   <tr v-for="r in g.roles" :key="r.id" class="mdr-row" :class="{ 'is-missing': isMissingRate(r.rate) }" @click="onRowClick(r)">
                     <td class="mdr-role-cell">
-                      <button type="button" class="mdr-role-btn" @click.stop="openRoleForm(r)">
+                      <button type="button" class="mdr-role-btn" :data-role-id="r.id" @click.stop="openRoleForm(r)">
                         <span class="mdr-label" :title="r.label">{{ r.label }}</span>
                         <span class="mdr-code" :title="r.code">{{ r.code }}</span>
                       </button>
@@ -337,7 +338,7 @@
         <div class="mdr-cards">
           <template v-for="g in groupedRoles" :key="g.team">
             <div class="mdr-card-team">{{ g.team }}</div>
-            <button v-for="r in g.roles" :key="r.id" type="button" class="mdr-card" :class="{ 'is-missing': isMissingRate(r.rate) }" @click="openRoleForm(r)">
+            <button v-for="r in g.roles" :key="r.id" type="button" class="mdr-card" :data-role-id="r.id" :class="{ 'is-missing': isMissingRate(r.rate) }" @click="openRoleForm(r)">
               <span class="mdr-role">
                 <span class="mdr-label">{{ r.label }}</span>
                 <span class="mdr-code">{{ r.code }}</span>
@@ -367,7 +368,7 @@
         <span class="mdr-eyebrow">{{ rf.id ? 'Edit role' : 'New role' }}</span>
         <h3 class="mdr-dr-title">{{ rf.id ? rf.title : 'New role' }}</h3>
       </div>
-      <button type="button" class="mdr-dr-close" aria-label="Close" @click="closePanel"><ph-icon name="close" :size="16"></ph-icon></button>
+      <button type="button" class="mdr-dr-close" aria-label="Close" :disabled="rf.loading" @click="closePanel"><ph-icon name="close" :size="16"></ph-icon></button>
     </div>
 
     <div class="mdr-dr-body">
@@ -438,9 +439,9 @@
     </div>
 
     <div class="mdr-dr-foot">
-      <button v-if="rf.id" type="button" class="mdr-del-link" @click="deleteFromPanel">Delete role</button>
+      <button v-if="rf.id" type="button" class="mdr-del-link" :disabled="rf.loading" @click="deleteFromPanel">Delete role</button>
       <span class="mdr-spacer"></span>
-      <button type="button" class="mdr-cancel" @click="closePanel">Cancel</button>
+      <button type="button" class="mdr-cancel" :disabled="rf.loading" @click="closePanel">Cancel</button>
       <button type="button" class="btn btn-primary" @click="saveRole" :disabled="rf.loading || !rf.label.trim() || !rf.roleCode.trim()">
         <span v-if="rf.loading" class="spinner-border spinner-border-sm me-1"></span>
         {{ rf.id ? 'Save changes' : 'Create role' }}
@@ -461,7 +462,7 @@
         <div v-if="del.error" class="alert alert-danger alert-sm mt-3 mb-0">{{ del.error }}</div>
       </div>
       <div class="modal-footer border-0 pt-2">
-        <button type="button" class="btn btn-link text-decoration-none mdr-cancel" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-link text-decoration-none mdr-cancel" data-bs-dismiss="modal" :disabled="del.loading">Cancel</button>
         <button type="button" class="btn btn-danger" :disabled="del.loading || del.blocked" @click="confirmDelete">
           <span v-if="del.loading" class="spinner-border spinner-border-sm me-1"></span>
           Delete role
@@ -565,12 +566,17 @@ window.__cfgApp = Vue.createApp({
     this._onKeydown = e => this.onPanelKeydown(e);
     document.addEventListener('keydown', this._onKeydown);
     // a dialog opened from code gets no focus return from Bootstrap: give it back to what opened it
-    this._onDelHidden = () => { this._delOpener?.focus?.(); this._delOpener = null; };
-    document.getElementById('roleDeleteModal')?.addEventListener('hidden.bs.modal', this._onDelHidden);
+    this._onDelHidden = () => { this.focusBack(this._delOpener, this.del.role?.id); this._delOpener = null; };
+    // Esc, the backdrop and Cancel do not dismiss the dialog while its delete runs
+    this._onDelHide = e => { if (this.del.loading) e.preventDefault(); };
+    const delModal = document.getElementById('roleDeleteModal');
+    delModal?.addEventListener('hidden.bs.modal', this._onDelHidden);
+    delModal?.addEventListener('hide.bs.modal', this._onDelHide);
   },
   beforeUnmount() {
     document.removeEventListener('keydown', this._onKeydown);
     document.getElementById('roleDeleteModal')?.removeEventListener('hidden.bs.modal', this._onDelHidden);
+    document.getElementById('roleDeleteModal')?.removeEventListener('hide.bs.modal', this._onDelHide);
   },
 
   methods: {
@@ -663,8 +669,17 @@ window.__cfgApp = Vue.createApp({
     closePanel({ restoreFocus = true } = {}) {
       if (this.rf.loading) return;
       this.rf.show = false;
-      const opener = this._opener; this._opener = null;
-      if (restoreFocus) this.$nextTick(() => opener?.focus?.());
+      const opener = this._opener, roleId = this.rf.id; this._opener = null;
+      if (restoreFocus) this.$nextTick(() => this.focusBack(opener, roleId));
+    },
+    // Focus back to what opened the panel or dialog; if Vue re-rendered or removed it, to the role's own
+    // button, else to the visible "+ Add".
+    focusBack(el, roleId) {
+      const visible = n => n && n.isConnected && n.offsetParent !== null;
+      if (visible(el) && el !== document.body) { el.focus(); return; }
+      const byRole = roleId == null ? [] : [...document.querySelectorAll('[data-role-id="' + roleId + '"]')];
+      const target = byRole.find(visible) || [...document.querySelectorAll('.mdr-add')].find(visible);
+      target?.focus();
     },
     // Esc closes the panel; Tab stays inside it (it is a modal dialog). The delete dialog never sits above
     // it: the panel closes before that dialog opens.
@@ -754,6 +769,7 @@ window.__cfgApp = Vue.createApp({
         } else {
           const created = await Api.roles.create({ label, code, hourlyRate: rate, rateOverrides });
           this.roles.push({ id: created.id, label, code: created.code || saved, rate, rateOverrides });
+          form.id = created.id;   // focus returns to the new role's row
         }
         // open the role's group, keep search and filter
         const team = window.extractTeam(saved);
@@ -776,6 +792,7 @@ window.__cfgApp = Vue.createApp({
       bootstrap.Modal.getOrCreateInstance(document.getElementById('roleDeleteModal')).show();
     },
     deleteFromPanel() {
+      if (this.rf.loading) return;   // a running save first: never a dialog above an open panel
       const role = this.roles.find(r => r.id === this.rf.id);
       this._delOpener = this._opener;   // focus goes back to what opened the panel
       this.closePanel({ restoreFocus: false });
