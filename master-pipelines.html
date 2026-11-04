@@ -7,47 +7,287 @@
   <title>PDash — Master Data</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="css/tokens.css?v=13">
-  <link rel="stylesheet" href="css/style.css?v=32">
+  <link rel="stylesheet" href="css/style.css?v=33">
+  <link rel="stylesheet" href="css/controls.css?v=1">
   <style>
-    .section-title {
-      font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-      color: #6b7280; margin-bottom: .75rem; display: flex; align-items: center;
-      justify-content: space-between;
-    }
-
-    .card { border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.05); margin-bottom: 2rem; }
+    .card { border: 1px solid var(--border-light); border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.05); margin-bottom: 2rem; }
     .card-body { padding: 0; }
-
-    .table { margin: 0; font-size: .875rem; }
-    .table thead th {
-      background: #f9fafb; border-bottom: 1px solid #e5e7eb;
-      font-size: .78rem; font-weight: 600; text-transform: uppercase;
-      letter-spacing: .04em; color: #6b7280; padding: .65rem 1rem;
-    }
-    .table tbody td { padding: .75rem 1rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6; }
-    .table tbody tr:last-child td { border-bottom: none; }
-    .table tbody tr:hover td { background: #fafafa; }
-
-    .team-sep td { background: #f0f2ff; font-size: .75rem; font-weight: 700; color: #5468c4;
-                   padding: 4px 1rem; border-top: 2px solid #c5cef7; }
-
-    .form-card {
-      border: 1px solid #e5e7eb; border-radius: 8px;
-      background: #fff; padding: 1rem 1.25rem; margin-bottom: 1.25rem;
-    }
-    .form-card-title { font-size: .82rem; font-weight: 700; color: var(--brand-navy); margin-bottom: .75rem; }
-
-    .cfg-tabs { border-bottom: 2px solid var(--border-light); margin-bottom: 1.5rem; display: flex; gap: 0; }
-    .cfg-tab-btn { background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
-                   padding: .6rem 1.25rem; font-size: .88rem; font-weight: 600; color: #6b7280; cursor: pointer; }
-    .cfg-tab-btn:hover { color: var(--brand-navy); }
-    .cfg-tab-btn.active { color: var(--brand-magenta); border-bottom-color: var(--brand-magenta); }
-
-    .empty { text-align: center; padding: 2.5rem 1rem; color: #9ca3af; font-size: .875rem; }
     .alert-sm { font-size: .83rem; padding: .5rem .75rem; }
-    code { background: #f3f4f6; border-radius: 4px; padding: 1px 5px; font-size: .82rem; color: #374151; }
 
-    .rate-warn { color: #dc3545; font-size: .75rem; }
+    /* ── Pipelines list (level 1) ── */
+    .mdp-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+    .mdp-head-text { flex: 1 1 280px; min-width: 0; }
+    .mdp-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+    .mdp-table th {
+      background: var(--surface-light); border-bottom: 1px solid var(--border-light);
+      font-size: 10px; font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .06em;
+      color: var(--text-muted); padding: var(--space-3) var(--space-4); text-align: left; white-space: nowrap;
+    }
+    .mdp-table td { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+    .mdp-table .is-num { text-align: right; }
+    .mdp-row:hover td { background: var(--surface-light); }
+    .mdp-row.is-hidden .mdp-year { color: var(--text-muted); }
+    .mdp-year { font-size: 14px; font-weight: var(--weight-bold); color: var(--brand-navy); background: none; border: 0; padding: 0; cursor: pointer; text-align: left; white-space: nowrap; }
+    .mdp-year:hover { color: var(--brand-magenta); }
+    .mdp-sub { display: block; font-size: 11.5px; color: var(--text-muted); }
+    .mdp-muted { color: var(--text-muted); }
+    .mdp-pct { font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdp-bar { height: 6px; border-radius: 3px; background: var(--surface-subtle); overflow: hidden; display: flex; margin: 4px 0 2px; min-width: 140px; }
+    .mdp-bar-c { background: var(--pipeline-committed-color); }
+    .mdp-bar-a { background: var(--pipeline-anticipated-color); }
+    .mdp-ca { font-size: 11.5px; color: var(--text-muted); }
+    .mdp-pct + .mdp-muted { margin-left: 6px; }
+    .mdp-link { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--brand-navy); text-decoration: none; background: none; border: 0; padding: 0; cursor: pointer; margin-right: var(--space-2); white-space: nowrap; }
+    .mdp-link:hover { color: var(--brand-magenta); }
+    .mdp-actions { text-align: right; white-space: nowrap; }
+    .mdp-icon-btn {
+      width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+      border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer;
+    }
+    .mdp-icon-btn:hover:not(:disabled) { background: var(--surface-subtle); color: var(--brand-navy); }
+    .mdp-menu-item { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); font-size: var(--text-sm); }
+    .mdp-menu-hint { display: block; font-size: 11px; color: var(--text-muted); white-space: normal; max-width: 240px; }
+    .mdp-new td { background: var(--surface-light); }
+    .mdp-new-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+    .mdp-input {
+      height: 34px; padding: 0 var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+      font-size: var(--text-sm); font-weight: var(--weight-bold); color: var(--brand-navy); background: var(--surface-white); width: 100px;
+    }
+    .mdp-input:focus { outline: 0; border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
+    .mdp-hint { font-size: var(--text-sm); color: var(--text-muted); }
+    .mdp-hint.is-error { color: var(--color-danger-text); }
+    .mdp-err { font-size: 12px; color: var(--color-danger-text); padding: var(--space-1) var(--space-4); background: var(--surface-light); }
+    .mdp-note { padding: var(--space-4); font-size: 11.5px; color: var(--text-muted); }
+    /* ── POT targets (level 2) ── */
+    .md-card.mdp-bare { background: transparent; border: 0; border-radius: 0; }
+    .md-card.mdp-bare > .md-card-body { padding: 0; }
+    .mdp-back { display: inline-flex; align-items: center; gap: var(--space-1); border: 0; background: none; padding: 0; font-size: var(--text-sm); color: var(--text-muted); cursor: pointer; }
+    .mdp-back:hover { color: var(--brand-navy); }
+    .mdp-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin: var(--space-1) 0 var(--space-4); }
+    .mdp-title { font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--brand-navy); margin: 0; }
+    .mdp-spacer { flex: 1 1 auto; }
+    .mdp-pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11.5px; font-weight: var(--weight-semibold); }
+    .mdp-pill.is-visible { background: var(--color-success-bg); color: var(--color-success-text); }
+    .mdp-pill.is-hidden { background: var(--surface-subtle); color: var(--text-muted); }
+    .mdp-phasing-btn { display: inline-flex; align-items: center; gap: var(--space-1); }
+    .mdp-card { background: var(--card-bg); border: var(--card-border); border-radius: var(--card-radius); margin-bottom: var(--space-4); min-width: 0; overflow: hidden; }
+    .mdp-card-head { display: flex; align-items: center; gap: var(--space-3); padding: var(--card-head-pad); }
+    .mdp-card-title { font-size: 15px; font-weight: var(--weight-bold); color: var(--brand-navy); margin: 0; flex: 1 1 auto; }
+    .mdp-summary { padding: var(--card-pad); }
+    .mdp-sum-grid { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(0, 3fr) minmax(150px, 1fr); gap: var(--space-5); align-items: center; }
+    .mdp-sum-grid.is-empty { display: none; }
+    .mdp-sum-gap { text-align: right; }
+    .mdp-eyebrow { font-size: 10px; font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+    .mdp-big { font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--brand-navy); line-height: 1.2; }
+    .mdp-big.is-over { color: var(--color-success-text); }
+    .mdp-med { font-size: 15px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdp-caption { font-size: 11.5px; color: var(--text-muted); }
+    .mdp-sum-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); margin-bottom: var(--space-2); }
+    .mdp-track { position: relative; padding-top: 14px; }
+    .mdp-bar-big { height: 10px; border-radius: 5px; margin: 0; }
+    .mdp-seg { display: block; height: 100%; }
+    .mdp-seg-c { background: var(--pipeline-committed-color); }
+    .mdp-seg-a { background: var(--pipeline-anticipated-color); }
+    .mdp-seg-e { background: color-mix(in srgb, var(--pipeline-expected-color) 55%, var(--surface-white)); }
+    .mdp-seg-s { background: repeating-linear-gradient(45deg, var(--pipeline-sip-color) 0 2px, var(--pipeline-sip-bg) 2px 5px); }
+    .mdp-tick { position: absolute; top: 12px; bottom: -3px; width: 2px; background: var(--brand-navy); }
+    .mdp-tick-label { position: absolute; top: -14px; right: -14px; font-size: 11px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdp-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin-top: var(--space-2); font-size: var(--text-sm); color: var(--text-secondary); }
+    .mdp-legend b { color: var(--brand-navy); margin-left: 4px; }
+    .mdp-dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+    .mdp-callout { margin-top: var(--space-3); padding: var(--space-2) var(--space-3); background: var(--surface-light); border-radius: var(--radius-sm); font-size: 11.5px; color: var(--text-muted); }
+    .mdp-stage-block { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-light); }
+    .mdp-sum-grid.is-empty + .mdp-stage-block { margin-top: 0; padding-top: 0; border-top: 0; }
+    .mdp-stage-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-3); margin-top: var(--space-2); }
+    .mdp-stage-tile { border-radius: var(--radius-md); padding: var(--space-3); }
+    .mdp-stage-tile.is-zero { opacity: .6; }
+    .mdp-stage-name { font-size: 11.5px; font-weight: var(--weight-bold); }
+    .mdp-stage-amount { font-size: 15px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdp-pot-card .mdp-table th { background: var(--surface-light); }
+    .mdp-name-cell { min-width: 200px; max-width: 260px; }
+    .mdp-name-line { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+    .mdp-name { font-size: 13.5px; font-weight: var(--weight-bold); color: var(--brand-navy); background: none; border: 0; padding: 0; cursor: pointer; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .mdp-name:hover { color: var(--brand-magenta); }
+    .mdp-name-cell .mdp-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mdp-kind { flex: none; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: var(--weight-semibold); background: var(--surface-subtle); color: var(--text-secondary); }
+    .mdp-kind.is-client { background: var(--pipeline-sip-bg); color: var(--pipeline-sip-color); }
+    .mdp-kind.is-group { background: var(--violet-100); color: var(--violet-600); }
+    .mdp-c { color: var(--pipeline-committed-color); }
+    .mdp-a { color: var(--pipeline-anticipated-color); }
+    .mdp-ach { display: flex; align-items: center; gap: var(--space-3); min-width: 220px; }
+    .mdp-ach .mdp-bar { flex: 1 1 auto; margin: 0; }
+    .mdp-ach .mdp-pct { min-width: 38px; text-align: right; }
+    .mdp-pct.is-done { color: var(--color-success-text); }
+    .mdp-upcoming { font-size: 11.5px; color: var(--pipeline-sip-color); margin-top: 2px; }
+    .mdp-icon-btn.is-on { background: var(--brand-navy); color: var(--surface-white); }
+    .mdp-target-select { width: 280px; flex: none; }
+    .mdp-amount { display: inline-flex; align-items: center; gap: var(--space-2); height: 34px; padding: 0 var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--surface-white); margin: 0; }
+    .mdp-amount:focus-within { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
+    .mdp-amount-sym { color: var(--text-muted); font-size: var(--text-sm); }
+    .mdp-amount-input { border: 0; outline: 0; width: 190px; font-size: var(--text-sm); color: var(--brand-navy); background: transparent; min-width: 0; }
+    .mdp-edit-line { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); }
+    .mdp-field { display: flex; flex-direction: column; gap: 4px; margin: 0; }
+    .mdp-field-grow { flex: 1 1 260px; min-width: 0; }
+    .mdp-field-label { font-size: var(--text-sm); color: var(--text-secondary); }
+    .mdp-req { color: var(--color-danger-text); }
+    .mdp-edit-amount, .mdp-text-input { height: 34px; padding: 0 var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-sm); font-size: var(--text-sm); color: var(--brand-navy); background: var(--surface-white); width: 150px; }
+    .mdp-text-input { width: 100%; }
+    .mdp-edit-amount:focus, .mdp-text-input:focus { outline: 0; border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
+    .mdp-current { align-self: center; }
+    .mdp-outside { display: flex; align-items: flex-start; gap: var(--space-2); }
+    @media (max-width: 1023.98px) {
+      .mdp-sum-grid { grid-template-columns: 1fr; }
+      .mdp-sum-gap { text-align: left; }
+      .mdp-stage-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
+    /* ── POT details drawer (local, modelled on css/planning.css's Team assistant drawer) ── */
+    .mdp-scrim { position: fixed; inset: 0; z-index: calc(var(--z-notification) - 1); background: var(--overlay-scrim); opacity: .5; }
+    .mdp-drawer {
+      position: fixed; top: 0; right: 0; width: min(560px, 100vw); height: 100vh;
+      background: var(--surface-white); border-left: 1px solid var(--border-light); box-shadow: var(--shadow-xl);
+      z-index: var(--z-notification); display: flex; flex-direction: column;
+    }
+    .mdp-dr-head { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border-light); }
+    .mdp-dr-head-main { flex: 1 1 auto; min-width: 0; }
+    .mdp-dr-name-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: 2px; }
+    .mdp-dr-name { font-size: 20px; font-weight: var(--weight-bold); color: var(--brand-navy); margin: 0; }
+    .mdp-dr-sub { font-size: var(--text-sm); margin-top: var(--space-1); }
+    .mdp-dr-body { flex: 1 1 auto; overflow-y: auto; padding: var(--space-5); }
+    .mdp-dr-progress { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-3); margin-bottom: var(--space-2); }
+    .mdp-dr-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); margin-top: var(--space-4); }
+    .mdp-dr-tile { background: var(--surface-light); border-radius: var(--radius-md); padding: var(--space-3); }
+    .mdp-med.is-over { color: var(--color-success-text); }
+    .mdp-dr-section { margin: var(--space-5) 0 var(--space-2); }
+    .mdp-prop-list, .mdp-timeline { list-style: none; margin: 0; padding: 0; }
+    .mdp-prop { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--border-light); }
+    .mdp-prop.is-dim { opacity: .6; }
+    .mdp-prop-main { flex: 1 1 auto; min-width: 0; }
+    .mdp-prop-name { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--brand-navy); }
+    .mdp-prop-meta { font-size: 11.5px; }
+    .mdp-prop-value { text-align: right; font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--brand-navy); white-space: nowrap; }
+    .mdp-prop-eur { font-size: 11px; font-weight: var(--weight-regular, 400); }
+    .mdp-stage-pill { flex: none; padding: 2px 10px; border-radius: 999px; font-size: 11.5px; font-weight: var(--weight-semibold); }
+    .mdp-dr-foot, .mdp-dr-empty { font-size: 11.5px; margin-top: var(--space-3); }
+    .mdp-timeline li { position: relative; padding: 0 0 var(--space-4) var(--space-5); border-left: 1px solid var(--border-light); margin-left: 5px; }
+    .mdp-timeline li::before { content: ''; position: absolute; left: -6px; top: 4px; width: 11px; height: 11px; border-radius: 50%; background: var(--border-light); }
+    .mdp-timeline li.is-latest::before { background: var(--brand-magenta); }
+    .mdp-tl-change { display: flex; flex-wrap: wrap; gap: var(--space-2); font-size: var(--text-sm); color: var(--brand-navy); }
+    .mdp-tl-old { text-decoration: line-through; color: var(--text-muted); }
+    .mdp-tl-meta { font-size: 11.5px; }
+    .mdp-tl-note { display: inline-block; margin-top: var(--space-1); padding: 2px var(--space-3); background: var(--surface-subtle); border-radius: var(--radius-sm); font-size: var(--text-sm); color: var(--text-secondary); }
+    .mdp-skel { background: var(--surface-subtle); border-radius: var(--radius-sm); }
+
+    /* ── Phasing (level 3) ── */
+    .mdp-export { display: inline-flex; align-items: center; gap: var(--space-1); }
+    .mdp-phasing-desc { font-size: var(--text-sm); color: var(--text-muted); margin: calc(-1 * var(--space-2)) 0 var(--space-4); }
+    .mdp-phasing-card { overflow: visible; }
+    .mdp-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border-light); }
+    .mdp-ftl { font-size: var(--text-sm); color: var(--text-muted); }
+    .mdp-chip { border: 0; border-radius: 999px; padding: 3px 12px; font-size: var(--text-sm); font-weight: var(--weight-semibold); cursor: pointer; }
+    .mdp-chip b { margin-left: 4px; font-weight: var(--weight-bold); }
+    .mdp-chip.is-off { opacity: .45; }
+    .mdp-chip:focus-visible { outline: 2px solid var(--brand-navy); outline-offset: 1px; }
+    .mdp-vsep { width: 1px; align-self: stretch; background: var(--border-light); margin: 0 var(--space-1); }
+    .mdp-filter { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; }
+    .mdp-filter .cg-select, .mdp-filter .cg-select-wrap { min-width: 130px; }
+    .mdp-ph-scroll { overflow: auto; max-height: calc(100vh - 340px); }
+    .mdp-ph-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: var(--text-sm); }
+    .mdp-ph-table th, .mdp-ph-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border-light); white-space: nowrap; background: var(--surface-white); }
+    .mdp-ph-table th {
+      position: sticky; top: 0; z-index: 3; background: var(--surface-light);
+      font-size: 10px; font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted);
+    }
+    .mdp-ph-table .is-num { text-align: right; min-width: 78px; font-variant-numeric: tabular-nums; }
+    .mdp-ph-table .mdp-ph-name { position: sticky; left: 0; z-index: 2; min-width: 220px; max-width: 280px; text-align: left; }
+    .mdp-ph-table th.mdp-ph-name { z-index: 4; }
+    .mdp-ph-table th.is-past, .mdp-ph-table td.is-past { background: var(--surface-light); }
+    .mdp-ph-table th.is-current { background: var(--pipeline-sip-bg); color: var(--pipeline-sip-color); }
+    .mdp-ph-total { font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdp-ph-sum td { background: var(--surface-subtle); font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdp-ph-sum td.is-past { background: var(--surface-subtle); }
+    .mdp-ph-sum-sub { font-weight: var(--weight-regular, 400); font-size: 11.5px; color: var(--text-muted); margin-left: var(--space-1); }
+    .mdp-ph-name-line { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+    .mdp-ph-title { font-weight: var(--weight-semibold); color: var(--brand-navy); overflow: hidden; text-overflow: ellipsis; max-width: 230px; }
+    .mdp-ph-open { color: var(--text-muted); display: inline-flex; flex: none; }
+    .mdp-ph-open:hover { color: var(--brand-magenta); }
+    .mdp-ph-sub { display: flex; align-items: center; gap: var(--space-2); font-size: 11.5px; color: var(--text-muted); }
+    .mdp-cur-pill { display: inline-block; padding: 0 6px; border-radius: 999px; font-size: 10px; font-weight: var(--weight-bold); background: var(--violet-100); color: var(--violet-600); }
+    .mdp-ph-none { font-style: italic; color: var(--text-muted); }
+    .mdp-ph-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); font-size: 11.5px; color: var(--text-muted); }
+    .mdp-ph-legend { display: inline-flex; align-items: center; gap: var(--space-2); }
+    .mdp-ph-swatch { display: inline-block; width: 12px; height: 12px; border: 1px solid var(--border-light); border-radius: 2px; background: var(--surface-light); }
+
+    .mdp-empty { padding: var(--space-6) var(--space-4); text-align: center; color: var(--text-muted); font-size: var(--text-sm); }
+    /* ── Phone cards, drawer bar, bottom sheet: hidden on wide screens ── */
+    .mdp-cards, .mdp-pot-cards, .mdp-dr-bar, .mdp-dr-back, .mdp-dr-more, .mdp-phasing-menu, .mdp-chev-cell { display: none; }
+    .mdp-pcard, .mdp-pot-card-m { background: var(--surface-white); border: var(--card-border); border-radius: var(--radius-lg); overflow: hidden; }
+    .mdp-pcard.is-hidden .mdp-pcard-name { color: var(--text-muted); }
+    .mdp-pcard-top { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4) 0; }
+    .mdp-pcard-name { flex: 1 1 auto; font-size: 15px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdp-pcard-body { padding: var(--space-2) var(--space-4) var(--space-3); }
+    .mdp-pcard-foot { display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-4); border-top: 1px solid var(--border-light); }
+    .mdp-pot-card-m { padding: var(--space-3) var(--space-4); }
+    .mdp-pot-card-m .mdp-pcard-top, .mdp-pot-card-m .mdp-pcard-body { padding-left: 0; padding-right: 0; }
+    .mdp-sheet-wrap { position: fixed; inset: 0; z-index: calc(var(--z-notification) + 1); }
+    .mdp-sheet-wrap .mdp-scrim { z-index: 0; }
+    .mdp-sheet {
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: var(--space-3);
+      background: var(--surface-white); border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: var(--space-4) var(--space-4) var(--space-5);
+      box-shadow: var(--shadow-xl);
+    }
+    .mdp-sheet .mdp-edit-amount { width: 100%; }
+    .mdp-sheet-actions { display: flex; gap: var(--space-3); justify-content: flex-end; }
+    @media (min-width: 1024px) and (max-width: 1279.98px) {
+      .mdp-col-pots, .mdp-col-ca { display: none; }
+      .mdp-sum-grid { grid-template-columns: 1fr; gap: var(--space-3); }
+      .mdp-sum-gap { text-align: left; }
+      .mdp-stage-tiles { display: flex; overflow-x: auto; }
+      .mdp-stage-tile { flex: 0 0 150px; }
+      .mdp-phasing-btn { display: none; }
+      .mdp-phasing-menu { display: inline-block; }
+      .mdp-pot-table .mdp-actions { display: none; }
+      .mdp-pot-table .mdp-row { cursor: pointer; }
+      .mdp-chev-cell { display: table-cell; width: 32px; color: var(--text-muted); }
+      .mdp-dr-more { display: inline-block; }
+      .mdp-ach { min-width: 110px; }
+      .mdp-pot-table .mdp-name-cell { min-width: 160px; }
+      .mdp-pot-table td.is-num { white-space: nowrap; }
+    }
+    @media (max-width: 1023.98px) {
+      .mdp-col-pots { display: none; }
+      .mdp-col-ca { display: none; }
+      .mdp-pot-table .mdp-actions { display: none; }
+      .mdp-pot-table .mdp-row { cursor: pointer; }
+      .mdp-chev-cell { display: table-cell; width: 32px; color: var(--text-muted); }
+      .mdp-phasing-btn { display: none; }
+      .mdp-phasing-menu { display: inline-block; }
+      .mdp-dr-more { display: inline-block; }
+      .mdp-stage-tiles { display: flex; overflow-x: auto; }
+      .mdp-stage-tile { flex: 0 0 150px; }
+      .mdp-head .btn, .mdp-card-head .btn, .mdp-title-row .btn, .mdp-toolbar .btn, .mdp-new .btn, .mdp-dr-head .btn,
+      .mdp-amount, .mdp-input, .mdp-text-input, .mdp-edit-amount, .md-seg-btn { min-height: 40px; }
+    }
+    @media (max-width: 767.98px) {
+      .mdp-head .btn { min-height: 44px; width: 100%; }
+      .mdp-icon-btn { min-height: 44px; min-width: 44px; }
+      .mdp-list-table thead, .mdp-list-table .mdp-row { display: none; }
+      .mdp-cards { display: grid; gap: var(--space-3); padding: var(--space-3) 0; }
+      .mdp-list-note { display: none; }
+      .mdp-pcard-foot { min-height: 44px; }
+      .mdp-pot-table thead, .mdp-pot-table .mdp-row { display: none; }
+      .mdp-pot-cards { display: grid; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+      .mdp-prop { min-height: 44px; }
+      .mdp-drawer { width: 100vw; border-left: 0; }
+      .mdp-dr-back { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 36px; border: 0; background: none; padding: 0; color: var(--text-muted); font-size: var(--text-sm); }
+      .mdp-dr-close, .mdp-dr-edit-top { display: none; }
+      .mdp-dr-head { flex-wrap: wrap; }
+      .mdp-dr-bar { display: block; padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border-light); background: var(--surface-white); }
+      .mdp-dr-bar .btn { min-height: 46px; width: 100%; }
+      .mdp-dr-tiles { gap: var(--space-2); }
+      .mdp-title { font-size: 20px; }
+      .mdp-sum-grid { gap: var(--space-3); }
+    }
   </style>
 </head>
 <body>
@@ -68,7 +308,14 @@
 
 <div id="app" v-cloak>
 <section class="md-card">
-  <div class="md-card-head">
+  <div class="md-card-head mdp-head" v-if="ready && level === 'list'">
+    <div class="mdp-head-text">
+      <h2 class="md-card-title">Pipelines</h2>
+      <p class="md-card-desc">One pipeline per year. Each pipeline has its POT targets by client or client group.</p>
+    </div>
+    <button type="button" class="btn btn-primary btn-sm" @click="openPyForm()">+ Add year</button>
+  </div>
+  <div class="md-card-head" v-else-if="!ready">
     <h2 class="md-card-title">Pipelines &amp; POTs</h2>
     <p class="md-card-desc">Manage pipeline years, POT targets and phasing.</p>
   </div>
@@ -96,414 +343,595 @@
     <div>
 
     <!-- ── VIEW A: Pipeline list ─────────────────────────────── -->
-    <div v-if="!activePipeline && !phasingYear && !projectPhasingYear">
+    <div v-if="level === 'list'">
 
-      <div class="section-title">
-        <span>Pipelines</span>
-        <button class="btn btn-primary btn-sm" @click="openPyForm()">+ Add year</button>
-      </div>
-
-      <!-- Create year form -->
-      <div class="form-card" v-if="pyf.show">
-        <div class="form-card-title">New pipeline year</div>
-        <div class="row g-2 align-items-end">
-          <div class="col-md-3">
-            <label class="form-label fw-semibold" style="font-size:.82rem">Year</label>
-            <input type="number" min="2000" max="2100" class="form-control form-control-sm"
-                   v-model="pyf.year" @keydown.enter="createPipelineYear" placeholder="e.g. 2027">
-          </div>
-          <div class="col-auto d-flex gap-2">
-            <button class="btn btn-primary btn-sm" @click="createPipelineYear" :disabled="pyf.loading">
-              <span v-if="pyf.loading" class="spinner-border spinner-border-sm me-1"></span>
-              Create
-            </button>
-            <button class="btn btn-outline-secondary btn-sm" @click="pyf.show = false">Cancel</button>
-          </div>
-        </div>
-        <div v-if="pyf.error" class="alert alert-danger alert-sm mt-2">{{ pyf.error }}</div>
-      </div>
-
-      <!-- Pipeline list -->
-      <div class="card md-table-card">
+      <div class="card md-table-card mb-0">
         <div class="card-body">
-          <table class="table" v-if="pipelineYears.length">
+          <table class="mdp-table mdp-list-table" v-if="sortedYears.length || pyf.show">
             <thead>
               <tr>
                 <th>Pipeline</th>
-                <th>Status</th>
-                <th class="text-end">POT Target</th>
-                <th class="text-end">Achievement</th>
+                <th>Visibility</th>
+                <th class="is-num">POT target</th>
+                <th>Achievement · C + A</th>
+                <th class="is-num mdp-col-pots">POTs</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="py in pipelineYears" :key="py.id" style="cursor:pointer"
-                  @click="selectPipeline(py)">
-                <td class="fw-bold" style="font-size:1rem">Pipeline {{ py.year }}</td>
+              <!-- New year, inline -->
+              <tr v-if="pyf.show" class="mdp-new">
+                <td colspan="6">
+                  <div class="mdp-new-line">
+                    <label for="pyfYear" class="mdp-year" style="cursor:default">Pipeline</label>
+                    <input id="pyfYear" ref="pyfInput" type="text" inputmode="numeric" maxlength="4" class="mdp-input"
+                           v-model="pyf.year" @input="pyf.error = null"
+                           @keydown.enter="createPipelineYear" @keydown.esc="pyf.show = false">
+                    <span class="mdp-hint" :class="{ 'is-error': pyfInvalid }">{{ pyfInvalid ? "Enter a year that doesn't exist yet." : 'Created hidden: show it when POTs are ready.' }}</span>
+                    <span class="cg-spacer" style="flex:1 1 auto"></span>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @click="pyf.show = false">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" @click="createPipelineYear" :disabled="pyf.loading">
+                      <span v-if="pyf.loading" class="spinner-border spinner-border-sm me-1"></span>Create
+                    </button>
+                  </div>
+                  <div v-if="pyf.error" class="mdp-err" style="padding-left:0;background:transparent">{{ pyf.error }}</div>
+                </td>
+              </tr>
+              <tr v-for="py in sortedYears" :key="py.id" class="mdp-row" :class="{ 'is-hidden': !py.active }">
                 <td>
-                  <span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:.75rem;font-weight:600"
-                        :style="py.active ? 'background:#dcfce7;color:#166534' : 'background:#f3f4f6;color:#6b7280'">
-                    {{ py.active ? 'Visible' : 'Hidden' }}
-                  </span>
+                  <button type="button" class="mdp-year" @click="go({ year: py.year })">Pipeline {{ py.year }}</button>
+                  <span class="mdp-sub">{{ py.offers || 0 }} {{ py.offers === 1 ? 'proposal' : 'proposals' }}</span>
                 </td>
-                <td class="text-end fw-semibold" style="font-size:.9rem">
-                  {{ yearTotals[py.year] ? formatMoney(yearTotals[py.year].pot_total, 'EUR', activeCurrencies) : '—' }}
+                <td>
+                  <label class="md-switch" title="Hidden pipelines are not shown in the Pipeline page">
+                    <input type="checkbox" :checked="py.active" :disabled="py._toggling"
+                           :aria-label="'Pipeline ' + py.year + ' visible'" @change="togglePipelineYear(py, $event)">
+                    <span>{{ py.active ? 'Visible' : 'Hidden' }}</span>
+                  </label>
                 </td>
-                <td class="text-end" style="font-size:.9rem">
-                  <template v-if="yearTotals[py.year] && yearTotals[py.year].pot_total > 0">
-                    <div class="fw-semibold" style="color:#1a1a2e">
-                      {{ Math.round(yearTotals[py.year].achieved_total / yearTotals[py.year].pot_total * 100) }}%
-                      <span class="text-muted fw-normal" style="font-size:.75rem">({{ formatMoney(yearTotals[py.year].achieved_total, 'EUR', activeCurrencies) }})</span>
+                <td class="is-num fw-semibold">
+                  {{ +(yearTotals[py.year] || {}).pot_total > 0 ? formatMoney(yearTotals[py.year].pot_total, 'EUR', activeCurrencies) : '—' }}
+                </td>
+                <td>
+                  <template v-if="+(yearTotals[py.year] || {}).pot_total > 0">
+                    <div>
+                      <span class="mdp-pct">{{ achievement(yearTotals[py.year].achieved_total, yearTotals[py.year].pot_total) }}%</span>
+                      <span class="mdp-muted">{{ formatMoney(yearTotals[py.year].achieved_total || 0, 'EUR', activeCurrencies) }}</span>
                     </div>
-                    <div style="font-size:.72rem;margin-top:2px">
-                      <span style="color:#198754">C: {{ formatMoney(yearTotals[py.year].committed_total || 0, 'EUR', activeCurrencies) }}</span>
-                      <span class="text-muted mx-1">·</span>
-                      <span style="color:#fd7e14">A: {{ formatMoney(yearTotals[py.year].anticipated_total || 0, 'EUR', activeCurrencies) }}</span>
-                      <span class="text-muted mx-1">·</span>
-                      <span class="text-muted">E: {{ formatMoney(yearTotals[py.year].expected_total || 0, 'EUR', activeCurrencies) }}</span>
-                      <span class="text-muted mx-1">·</span>
-                      <span class="text-muted">S: {{ formatMoney(yearTotals[py.year].sip_total || 0, 'EUR', activeCurrencies) }}</span>
+                    <div class="mdp-bar">
+                      <span class="mdp-bar-c" :style="{ width: barPct(yearTotals[py.year].committed_total, yearTotals[py.year].pot_total) + '%' }"></span>
+                      <span class="mdp-bar-a" :style="{ width: barPct(yearTotals[py.year].anticipated_total, yearTotals[py.year].pot_total, yearTotals[py.year].committed_total) + '%' }"></span>
                     </div>
+                    <div class="mdp-ca">C {{ formatMoney(yearTotals[py.year].committed_total || 0, 'EUR', activeCurrencies) }} · A {{ formatMoney(yearTotals[py.year].anticipated_total || 0, 'EUR', activeCurrencies) }}</div>
                   </template>
-                  <span v-else class="text-muted">—</span>
+                  <span v-else class="mdp-muted">No POTs set</span>
                 </td>
-                <td class="text-end" style="white-space:nowrap" @click.stop>
-                  <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
-                          @click="selectPipeline(py)">POTs →</button>
-                  <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
-                          @click="openPhasingView(py)">📊 Proposal Phasing</button>
-                  <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
-                          @click="openProjectPhasingView(py)">📋 Project Phasing</button>
-                  <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
-                          @click="togglePipelineYear(py)" :disabled="py._toggling">
-                    <span v-if="py._toggling" class="spinner-border spinner-border-sm"></span>
-                    <span v-else>{{ py.active ? 'Hide' : 'Show' }}</span>
-                  </button>
-                  <button class="btn btn-outline-danger btn-sm" style="font-size:.75rem"
-                          :disabled="py._loading" @click="deletePipelineYear(py)">
-                    <span v-if="py._loading" class="spinner-border spinner-border-sm"></span>
-                    <span v-else>🗑</span>
-                  </button>
+                <td class="is-num mdp-col-pots">{{ potCounts[py.year] || '—' }}</td>
+                <td class="mdp-actions">
+                  <button type="button" class="mdp-link" @click="go({ year: py.year })">POT targets →</button>
+                  <span class="dropdown d-inline-block">
+                    <button type="button" class="mdp-icon-btn" :aria-label="'More actions for Pipeline ' + py.year"
+                            data-bs-toggle="dropdown" aria-expanded="false"><ph-icon name="more" :size="16"></ph-icon></button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <li><button type="button" class="dropdown-item mdp-menu-item" @click="go({ year: py.year, phasing: 'proposal' })"><span>Proposal phasing</span><span class="mdp-muted">View →</span></button></li>
+                      <li><button type="button" class="dropdown-item mdp-menu-item" @click="go({ year: py.year, phasing: 'project' })"><span>Project phasing</span><span class="mdp-muted">View →</span></button></li>
+                      <li><hr class="dropdown-divider"></li>
+                      <li><button type="button" class="dropdown-item mdp-menu-item" :disabled="!!deleteBlock(py) || py._loading" @click="deletePipelineYear(py)">
+                        <span>Delete pipeline
+                          <span class="mdp-menu-hint">{{ deleteBlock(py) || 'Removes the pipeline year.' }}</span>
+                        </span>
+                      </button></li>
+                    </ul>
+                  </span>
                 </td>
               </tr>
             </tbody>
           </table>
-          <div class="empty" v-else>No pipeline years yet. Add the first year above.</div>
+          <div class="mdp-empty" v-else>No pipeline years yet. Use + Add year to create the first one.</div>
+          <div class="mdp-note mdp-list-note" v-if="sortedYears.length">Achievement = (Committed + Anticipated) / POT target. Hidden pipelines stay in reports but don't appear in the Pipeline page.</div>
         </div>
       </div>
 
+      <!-- Phone: one card per pipeline -->
+      <div class="mdp-cards" v-if="sortedYears.length">
+        <article v-for="py in sortedYears" :key="'c' + py.id" class="mdp-pcard" :class="{ 'is-hidden': !py.active }">
+          <div class="mdp-pcard-top">
+            <button type="button" class="mdp-pcard-name mdp-year" @click="go({ year: py.year })">Pipeline {{ py.year }}</button>
+            <span class="dropdown">
+              <button type="button" class="mdp-icon-btn" :aria-label="'More actions for Pipeline ' + py.year" data-bs-toggle="dropdown" aria-expanded="false"><ph-icon name="more" :size="16"></ph-icon></button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><button type="button" class="dropdown-item mdp-menu-item" @click="go({ year: py.year, phasing: 'proposal' })"><span>Proposal phasing</span><span class="mdp-muted">View →</span></button></li>
+                <li><button type="button" class="dropdown-item mdp-menu-item" @click="go({ year: py.year, phasing: 'project' })"><span>Project phasing</span><span class="mdp-muted">View →</span></button></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><button type="button" class="dropdown-item mdp-menu-item" :disabled="!!deleteBlock(py) || py._loading" @click="deletePipelineYear(py)"><span>Delete pipeline <span class="mdp-menu-hint">{{ deleteBlock(py) || 'Removes the pipeline year.' }}</span></span></button></li>
+              </ul>
+            </span>
+          </div>
+          <div class="mdp-pcard-body" @click="go({ year: py.year })">
+            <template v-if="+(yearTotals[py.year] || {}).pot_total > 0">
+              <span class="mdp-pct">{{ achievement(yearTotals[py.year].achieved_total, yearTotals[py.year].pot_total) }}%</span>
+              <span class="mdp-muted"> of {{ formatMoney(yearTotals[py.year].pot_total, 'EUR', activeCurrencies) }}</span>
+              <div class="mdp-bar">
+                <span class="mdp-bar-c" :style="{ width: barPct(yearTotals[py.year].committed_total, yearTotals[py.year].pot_total) + '%' }"></span>
+                <span class="mdp-bar-a" :style="{ width: barPct(yearTotals[py.year].anticipated_total, yearTotals[py.year].pot_total, yearTotals[py.year].committed_total) + '%' }"></span>
+              </div>
+            </template>
+            <span v-else class="mdp-muted">No POTs set</span>
+          </div>
+          <div class="mdp-pcard-foot">
+            <label class="md-switch">
+              <input type="checkbox" :checked="py.active" :disabled="py._toggling" :aria-label="'Pipeline ' + py.year + ' visible'" @change="togglePipelineYear(py, $event)">
+              <span>{{ py.active ? 'Visible' : 'Hidden' }}</span>
+            </label>
+            <button type="button" class="mdp-link" @click="go({ year: py.year })">{{ potCounts[py.year] ? potCounts[py.year] + (potCounts[py.year] === 1 ? ' POT' : ' POTs') : 'POTs' }} →</button>
+          </div>
+        </article>
+      </div>
     </div><!-- /view A -->
 
     <!-- ── VIEW B: POTs for selected pipeline ────────────────── -->
-    <div v-else-if="activePipeline">
+    <div v-else-if="level === 'pots'">
 
-      <!-- Navigation row -->
-      <div class="section-title">
-        <span class="d-flex align-items-center gap-2" style="text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:700;color:#374151">
-          <button class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;text-transform:none;letter-spacing:0"
-                  @click="backToPipelines()">← Pipelines</button>
-          Pipeline {{ activePipeline.year }}
-          <span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:600"
-                :style="activePipeline.active ? 'background:#dcfce7;color:#166534' : 'background:#f3f4f6;color:#6b7280'">
-            {{ activePipeline.active ? 'Visible' : 'Hidden' }}
-          </span>
+      <!-- Header: back link, title, phasing entries -->
+      <button type="button" class="mdp-back" @click="go({})"><ph-icon name="chevron-left" :size="14"></ph-icon> Pipelines</button>
+      <div class="mdp-title-row">
+        <h2 class="mdp-title">Pipeline {{ activePipeline.year }}</h2>
+        <span class="mdp-pill" :class="activePipeline.active ? 'is-visible' : 'is-hidden'">{{ activePipeline.active ? 'Visible' : 'Hidden' }}</span>
+        <span class="mdp-spacer"></span>
+        <span class="dropdown mdp-phasing-menu">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="dropdown" aria-expanded="false">Phasing <ph-icon name="chevron-down" :size="12"></ph-icon></button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><button type="button" class="dropdown-item mdp-menu-item" @click="go({ year: year, phasing: 'proposal' })">Proposal phasing</button></li>
+            <li><button type="button" class="dropdown-item mdp-menu-item" @click="go({ year: year, phasing: 'project' })">Project phasing</button></li>
+          </ul>
         </span>
+        <button type="button" class="btn btn-outline-secondary btn-sm mdp-phasing-btn" @click="go({ year: year, phasing: 'proposal' })"><ph-icon name="pipeline" :size="14"></ph-icon> Proposal phasing</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm mdp-phasing-btn" @click="go({ year: year, phasing: 'project' })"><ph-icon name="pipeline" :size="14"></ph-icon> Project phasing</button>
       </div>
 
-      <!-- POT target + achievement banner -->
-      <div class="row g-3 mb-3" v-if="pots.length">
-        <div class="col-auto">
-          <div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:10px;padding:.6rem 1.2rem;display:inline-flex;align-items:center;gap:1.5rem">
-            <div>
-              <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280">Total POT Target</div>
-              <div style="font-size:1.1rem;font-weight:700;color:#1a1a2e">{{ formatMoney(pots.reduce((s,p) => s + Number(p.amount), 0), 'EUR', activeCurrencies) }}</div>
+      <!-- Summary card -->
+      <section class="mdp-card mdp-summary">
+        <div class="mdp-sum-grid" :class="{ 'is-empty': !pots.length }">
+          <div class="mdp-sum-target" v-if="pots.length">
+            <div class="mdp-eyebrow">Total POT target</div>
+            <div class="mdp-big">{{ formatMoney(potTotal, 'EUR', activeCurrencies) }}</div>
+            <div class="mdp-muted">{{ pots.length }} {{ pots.length === 1 ? 'POT' : 'POTs' }}</div>
+          </div>
+          <div class="mdp-sum-progress" v-if="pots.length">
+            <div class="mdp-sum-line">
+              <span class="mdp-eyebrow">Committed + Anticipated</span>
+              <span class="mdp-med">{{ formatMoney(caTotal, 'EUR', activeCurrencies) }}</span>
+              <span class="mdp-muted" v-if="achievement(caTotal, potTotal) != null">{{ achievement(caTotal, potTotal) }}% of target</span>
             </div>
-            <div v-if="pots.reduce((s,p) => s + Number(p.amount), 0) > 0">
-              <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#2e7d32">Committed + Anticipated</div>
-              <div style="font-size:1.1rem;font-weight:700;color:#2e7d32">
-                {{ formatMoney(pipelineSummary.filter(s => ['Committed','Anticipated'].includes(s.pipeline)).reduce((s,r) => s + r.total, 0), 'EUR', activeCurrencies) }}
-                <span style="font-size:.8rem;font-weight:400;color:#6b7280;margin-left:.4rem">
-                  ({{ Math.round(pipelineSummary.filter(s => ['Committed','Anticipated'].includes(s.pipeline)).reduce((s,r) => s + r.total, 0) / pots.reduce((s,p) => s + Number(p.amount), 0) * 100) }}% of target)
-                </span>
+            <div class="mdp-track">
+              <div class="mdp-bar mdp-bar-big">
+                <span class="mdp-seg mdp-seg-c" :style="{ width: scalePct(stageTotal('Committed')) + '%' }"></span>
+                <span class="mdp-seg mdp-seg-a" :style="{ width: scalePct(stageTotal('Anticipated')) + '%' }"></span>
+                <span class="mdp-seg mdp-seg-e" :style="{ width: scalePct(stageTotal('Expected')) + '%' }"></span>
+                <span class="mdp-seg mdp-seg-s" :style="{ width: scalePct(stageTotal('SIP')) + '%' }"></span>
               </div>
+              <span class="mdp-tick" :style="{ left: scalePct(potTotal) + '%' }"><span class="mdp-tick-label">Target</span></span>
+            </div>
+            <div class="mdp-legend">
+              <span><i class="mdp-dot mdp-seg-c"></i>Committed <b>{{ formatMoney(stageTotal('Committed'), 'EUR', activeCurrencies) }}</b></span>
+              <span><i class="mdp-dot mdp-seg-a"></i>Anticipated <b>{{ formatMoney(stageTotal('Anticipated'), 'EUR', activeCurrencies) }}</b></span>
+              <span><i class="mdp-dot mdp-seg-e"></i>Expected <b>{{ formatMoney(stageTotal('Expected'), 'EUR', activeCurrencies) }}</b></span>
+              <span><i class="mdp-dot mdp-seg-s"></i>SIP <b>{{ formatMoney(stageTotal('SIP'), 'EUR', activeCurrencies) }}</b></span>
+            </div>
+            <div class="mdp-callout">Progress and gap to target count Committed + Anticipated only. SIP and Expected are shown as upcoming pipeline.</div>
+          </div>
+          <div class="mdp-sum-gap" v-if="pots.length">
+            <div class="mdp-eyebrow">{{ gapInfo.over > 0 ? 'Over target' : 'Gap to target' }}</div>
+            <div class="mdp-big" :class="{ 'is-over': gapInfo.over > 0 }">{{ formatMoney(gapInfo.over > 0 ? gapInfo.over : gapInfo.gap, 'EUR', activeCurrencies) }}</div>
+            <div class="mdp-muted" v-if="achievement(caTotal, potTotal) != null">{{ gapInfo.over > 0 ? achievement(caTotal, potTotal) - 100 : 100 - achievement(caTotal, potTotal) }}% of target</div>
+            <div class="mdp-caption">Target − (C + A)</div>
+          </div>
+        </div>
+        <div class="mdp-stage-block">
+          <div class="mdp-eyebrow">Whole pipeline by stage · all clients</div>
+          <div class="mdp-stage-tiles">
+            <div v-for="st in stageTiles" :key="st.pipeline" class="mdp-stage-tile" :class="{ 'is-zero': !st.count }"
+                 :style="{ background: 'var(--pipeline-' + st.pipeline.toLowerCase() + '-bg)', color: 'var(--pipeline-' + st.pipeline.toLowerCase() + '-color)' }">
+              <div class="mdp-stage-name">{{ st.pipeline }} · {{ st.count }}</div>
+              <div class="mdp-stage-amount">{{ formatMoney(st.total, 'EUR', activeCurrencies) }}</div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- 5 pipeline stage summary cards -->
-      <div class="row g-3 mb-4">
-        <div class="col" v-for="s in pipelineSummary" :key="s.pipeline">
-          <div class="card mb-0" :style="`border-top:3px solid ${stageColor(s.pipeline)};border-radius:10px`">
-            <div class="card-body" style="padding:1rem!important">
-              <div class="fw-bold mb-1" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em"
-                   :style="`color:${stageColor(s.pipeline)}`">{{ s.pipeline }}</div>
-              <div class="fw-bold" style="font-size:1.15rem;color:#1a1a2e;line-height:1.2">{{ formatMoney(s.total, 'EUR', activeCurrencies) }}</div>
-              <div class="text-muted" style="font-size:.75rem;margin-top:2px">({{ s.count }})</div>
-            </div>
-          </div>
+      <!-- POT targets table -->
+      <section class="mdp-card mdp-pot-card">
+        <div class="mdp-card-head">
+          <h3 class="mdp-card-title">POT targets</h3>
+          <button type="button" class="btn btn-primary btn-sm" @click="openPotForm()">+ New POT</button>
         </div>
-        <div v-if="!pipelineSummary.length" class="col-12 text-muted" style="font-size:.85rem">
-          No proposals in this pipeline year yet.
-        </div>
-      </div>
 
-      <!-- POT Targets section title -->
-      <div class="section-title">
-        <span>POT Targets</span>
-        <button class="btn btn-primary btn-sm" @click="openPotForm()">+ New POT</button>
-      </div>
+        <table class="mdp-table mdp-pot-table" v-if="pots.length || (potf.show && !potf.id)">
+          <thead>
+            <tr>
+              <th>Client / group</th>
+              <th class="is-num">Target</th>
+              <th class="is-num mdp-col-ca">Committed</th>
+              <th class="is-num mdp-col-ca">Anticipated</th>
+              <th>Achievement · C + A</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- New POT, inline -->
+            <tr v-if="potf.show && !potf.id" class="mdp-new">
+              <td colspan="6">
+                <div class="mdp-new-line">
+                  <div class="md-seg" role="group" aria-label="Target type">
+                    <button type="button" class="md-seg-btn" :class="{ active: potf.targetType === 'client' }" @click="setPotTargetType('client')">Individual client</button>
+                    <button type="button" class="md-seg-btn" :class="{ active: potf.targetType === 'group' }" @click="setPotTargetType('group')">Client group</button>
+                  </div>
+                  <cg-select class="mdp-target-select" searchable v-model="potf.targetId" :options="potTargetOptions"
+                             :placeholder="potf.targetType === 'group' ? 'Select group without a POT…' : 'Select client without a POT…'"
+                             :aria-label="potf.targetType === 'group' ? 'Client group' : 'Client'" :width="280"></cg-select>
+                  <label class="mdp-amount">
+                    <span class="mdp-amount-sym">{{ currencyInfo('EUR', activeCurrencies).symbol }}</span>
+                    <input type="text" inputmode="decimal" class="mdp-amount-input"
+                           v-model="potf.amountText" @focus="onPotAmountFocus" @blur="onPotAmountBlur"
+                           @keydown.enter="savePot" @keydown.esc="potf.show = false"
+                           :placeholder="'Target, e.g. ' + moneyExample" aria-label="Target">
+                  </label>
+                  <span class="mdp-hint" v-if="potf.targetType === 'group'">All clients of the group count towards one target.</span>
+                  <span class="mdp-spacer"></span>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" @click="potf.show = false">Cancel</button>
+                  <button type="button" class="btn btn-primary btn-sm" @click="savePot"
+                          :disabled="potf.loading || !potf.targetId || !String(potf.amountText).trim()">
+                    <span v-if="potf.loading" class="spinner-border spinner-border-sm me-1"></span>Create
+                  </button>
+                </div>
+                <div v-if="potf.error" class="mdp-err">{{ potf.error }}</div>
+              </td>
+            </tr>
 
-      <!-- POT create / edit form -->
-      <div class="form-card" v-if="potf.show">
-        <div class="form-card-title">{{ potf.id ? 'Edit POT target' : 'New POT — Pipeline ' + activePipeline.year }}</div>
-        <div class="row g-2 align-items-end">
-
-          <!-- Target type (create only) -->
-          <div class="col-md-3" v-if="!potf.id">
-            <label class="form-label fw-semibold" style="font-size:.82rem">Target type</label>
-            <select class="form-select form-select-sm" v-model="potf.targetType">
-              <option value="client">Individual client</option>
-              <option value="group">Client group</option>
-            </select>
-          </div>
-          <div class="col-md-4" v-if="!potf.id">
-            <label class="form-label fw-semibold" style="font-size:.82rem">
-              {{ potf.targetType === 'group' ? 'Client group' : 'Client' }}
-            </label>
-            <select class="form-select form-select-sm" v-model="potf.targetId">
-              <option value="">— select —</option>
-              <template v-if="potf.targetType === 'group'">
-                <option v-for="g in sortedGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
-              </template>
-              <template v-else>
-                <option value="__unassigned__">Unassigned / To be Identified</option>
-                <option value="__newbiz__">New Biz</option>
-                <option disabled>──────────────</option>
-                <option v-for="c in sortedClients" :key="c.id" :value="c.id">{{ c.name }}</option>
-              </template>
-            </select>
-          </div>
-
-          <!-- Amount (always) -->
-          <div class="col-md-3">
-            <label class="form-label fw-semibold" style="font-size:.82rem">
-              Target ({{ currencyInfo('EUR', activeCurrencies).symbol }})
-              <span v-if="potf.id" class="fw-normal text-muted" style="font-size:.75rem"> — updating for {{ potf.targetLabel }}</span>
-            </label>
-            <input type="text" inputmode="decimal" class="form-control form-control-sm"
-                   v-model="potf.amountText" @focus="onPotAmountFocus" @blur="onPotAmountBlur"
-                   @keydown.enter="savePot" placeholder="e.g. 500000">
-          </div>
-
-          <!-- Note (edit only, required) -->
-          <div class="col-md-12" v-if="potf.id" style="margin-top:.25rem">
-            <label class="form-label fw-semibold" style="font-size:.82rem">
-              Reason for change <span class="text-danger">*</span>
-            </label>
-            <input type="text" class="form-control form-control-sm" v-model="potf.note"
-                   placeholder="Explain why the target is being updated (required)"
-                   @keydown.enter="savePot">
-          </div>
-
-          <div class="col-auto d-flex gap-2" style="margin-top:.25rem">
-            <button class="btn btn-primary btn-sm" @click="savePot" :disabled="potf.loading">
-              <span v-if="potf.loading" class="spinner-border spinner-border-sm me-1"></span>
-              {{ potf.id ? 'Update' : 'Create' }}
-            </button>
-            <button class="btn btn-outline-secondary btn-sm" @click="potf.show = false">Cancel</button>
-          </div>
-        </div>
-        <div v-if="potf.error" class="alert alert-danger alert-sm mt-2">{{ potf.error }}</div>
-      </div>
-
-      <!-- POT list -->
-      <div class="card md-table-card" v-if="pots.length">
-        <div class="card-body">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Client / Group</th>
-                <th>Type</th>
-                <th class="text-end">Target</th>
-                <th class="text-end">Total (C+A)</th>
-                <th class="text-end">Committed</th>
-                <th class="text-end">Anticipated</th>
-                <th class="text-end">Expected</th>
-                <th class="text-end">SIP</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="pot in pots" :key="pot.id">
-                <td class="fw-semibold">{{ pot.special_label || pot.client_group_name || pot.client_name || '—' }}</td>
-                <td>
-                  <span class="badge" style="background:#e8edff;color:#1a1a6e;font-size:.75rem">
-                    {{ pot.special_label ? 'General' : pot.client_group_id ? 'Group' : 'Client' }}
-                  </span>
+            <template v-for="pot in pots" :key="pot.id">
+              <tr class="mdp-row" @click="go({ year: year, pot: pot.id })">
+                <td class="mdp-name-cell">
+                  <div class="mdp-name-line">
+                    <button type="button" class="mdp-name" @click="go({ year: year, pot: pot.id })">{{ potName(pot) }}</button>
+                    <span class="mdp-kind" :class="'is-' + potKind(pot).toLowerCase()">{{ potKind(pot) }}</span>
+                  </div>
+                  <span class="mdp-sub" v-if="pot.client_group_id && groupClientNames(pot)">{{ groupClientNames(pot) }}</span>
                 </td>
-                <td class="text-end fw-semibold">{{ formatMoney(pot.amount, 'EUR', activeCurrencies) }}</td>
-                <td class="text-end fw-semibold">{{ formatMoney(+pot.achieved_total || 0, 'EUR', activeCurrencies) }}</td>
-                <td class="text-end" style="color:#198754;font-weight:600">{{ formatMoney(+pot.committed_total || 0, 'EUR', activeCurrencies) }}</td>
-                <td class="text-end" style="color:#fd7e14;font-weight:600">{{ formatMoney(+pot.anticipated_total || 0, 'EUR', activeCurrencies) }}</td>
-                <td class="text-end text-muted">{{ formatMoney(+pot.expected_total || 0, 'EUR', activeCurrencies) }}</td>
-                <td class="text-end text-muted">{{ formatMoney(+pot.sip_total || 0, 'EUR', activeCurrencies) }}</td>
-                <td class="text-end" style="white-space:nowrap">
-                  <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
-                          @click="openPotDetails(pot)">🔍 View Details</button>
-                  <button class="btn btn-outline-secondary btn-sm me-1" style="font-size:.75rem"
-                          @click="openPotForm(pot)">✏️ Edit</button>
-                  <button class="btn btn-outline-danger btn-sm" style="font-size:.75rem"
-                          :disabled="pot._loading" @click="deletePot(pot)">
+                <td class="is-num fw-semibold">{{ formatMoney(pot.amount, 'EUR', activeCurrencies) }}</td>
+                <td class="is-num mdp-c mdp-col-ca">{{ formatMoney(+pot.committed_total || 0, 'EUR', activeCurrencies) }}</td>
+                <td class="is-num mdp-a mdp-col-ca">{{ formatMoney(+pot.anticipated_total || 0, 'EUR', activeCurrencies) }}</td>
+                <td>
+                  <div class="mdp-ach">
+                    <div class="mdp-bar">
+                      <span class="mdp-seg mdp-seg-c" :style="{ width: barPct(pot.committed_total, pot.amount) + '%' }"></span>
+                      <span class="mdp-seg mdp-seg-a" :style="{ width: barPct(pot.anticipated_total, pot.amount, pot.committed_total) + '%' }"></span>
+                      <span class="mdp-seg mdp-seg-e" :style="{ width: barPct(pot.expected_total, pot.amount, +pot.committed_total + +pot.anticipated_total) + '%' }"></span>
+                      <span class="mdp-seg mdp-seg-s" :style="{ width: barPct(pot.sip_total, pot.amount, +pot.committed_total + +pot.anticipated_total + +pot.expected_total) + '%' }"></span>
+                    </div>
+                    <span class="mdp-pct" :class="{ 'is-done': (achievement(+pot.achieved_total || 0, pot.amount) || 0) >= 100 }">{{ achievement(+pot.achieved_total || 0, pot.amount) ?? '—' }}{{ achievement(+pot.achieved_total || 0, pot.amount) != null ? '%' : '' }}</span>
+                  </div>
+                  <div class="mdp-upcoming" v-if="(+pot.expected_total || 0) + (+pot.sip_total || 0) > 0">+ {{ formatMoney((+pot.expected_total || 0) + (+pot.sip_total || 0), 'EUR', activeCurrencies) }} in SIP / Expected</div>
+                </td>
+                <td class="mdp-actions" @click.stop>
+                  <button type="button" class="mdp-link" @click="go({ year: year, pot: pot.id })">Details</button>
+                  <button type="button" class="mdp-icon-btn" :class="{ 'is-on': potf.show && potf.id === pot.id }"
+                          :aria-label="'Edit target for ' + potName(pot)" @click="openPotForm(pot)"><ph-icon name="pencil" :size="14"></ph-icon></button>
+                  <button type="button" class="mdp-icon-btn" :disabled="pot._loading"
+                          :aria-label="'Delete POT for ' + potName(pot)" @click="deletePot(pot)">
                     <span v-if="pot._loading" class="spinner-border spinner-border-sm"></span>
-                    <span v-else>🗑</span>
+                    <ph-icon v-else name="trash" :size="14"></ph-icon>
                   </button>
                 </td>
+                <td class="mdp-chev-cell"><ph-icon name="chevron-right" :size="14"></ph-icon></td>
               </tr>
-            </tbody>
-          </table>
+              <!-- Edit target, under the row -->
+              <tr v-if="potf.show && potf.id === pot.id" class="mdp-new">
+                <td colspan="6">
+                  <div class="mdp-edit-line">
+                    <label class="mdp-field">
+                      <span class="mdp-field-label">New target ({{ currencyInfo('EUR', activeCurrencies).symbol }})</span>
+                      <input type="text" inputmode="decimal" class="mdp-amount-input mdp-edit-amount"
+                             v-model="potf.amountText" @focus="onPotAmountFocus" @blur="onPotAmountBlur"
+                             @keydown.enter="savePot" @keydown.esc="potf.show = false" aria-label="New target">
+                    </label>
+                    <label class="mdp-field mdp-field-grow">
+                      <span class="mdp-field-label">Reason for change <span class="mdp-req">*</span> <span class="mdp-muted">· saved in the change history</span></span>
+                      <input type="text" class="mdp-text-input" v-model="potf.note" placeholder="Explain why the target is changing"
+                             @keydown.enter="savePot" @keydown.esc="potf.show = false">
+                    </label>
+                    <span class="mdp-muted mdp-current">Current {{ formatMoney(potf.stored ?? 0, 'EUR', activeCurrencies) }}</span>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @click="potf.show = false">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" @click="savePot"
+                            :disabled="potf.loading || !potf.note || !potf.note.trim() || !String(potf.amountText).trim()">
+                      <span v-if="potf.loading" class="spinner-border spinner-border-sm me-1"></span>Update target
+                    </button>
+                  </div>
+                  <div v-if="potf.error" class="mdp-err">{{ potf.error }}</div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+        <div class="mdp-empty" v-else>No POT targets for Pipeline {{ activePipeline.year }}. Use + New POT to add the first one.</div>
+
+        <div class="mdp-pot-cards" v-if="pots.length">
+          <article v-for="pot in pots" :key="'m' + pot.id" class="mdp-pot-card-m" @click="go({ year: year, pot: pot.id })">
+            <div class="mdp-name-line"><span class="mdp-name">{{ potName(pot) }}</span><span class="mdp-kind" :class="'is-' + potKind(pot).toLowerCase()">{{ potKind(pot) }}</span></div>
+            <div class="mdp-pcard-body"><span class="mdp-muted">Target</span> <b>{{ formatMoney(pot.amount, 'EUR', activeCurrencies) }}</b></div>
+            <div class="mdp-ach">
+              <div class="mdp-bar">
+                <span class="mdp-seg mdp-seg-c" :style="{ width: barPct(pot.committed_total, pot.amount) + '%' }"></span>
+                <span class="mdp-seg mdp-seg-a" :style="{ width: barPct(pot.anticipated_total, pot.amount, pot.committed_total) + '%' }"></span>
+              </div>
+              <span class="mdp-pct">{{ achievement(+pot.achieved_total || 0, pot.amount) ?? '—' }}{{ achievement(+pot.achieved_total || 0, pot.amount) != null ? '%' : '' }}</span>
+            </div>
+          </article>
         </div>
-      </div>
-      <div class="empty" v-else-if="!potf.show">
-        No POT targets for Pipeline {{ activePipeline.year }}. Add the first target above.
-      </div>
+
+        <div class="mdp-note mdp-outside" v-if="outsideCommitted != null">
+          <ph-icon name="info" :size="14"></ph-icon>
+          <span>Committed outside POTs: {{ formatMoney(outsideCommitted, 'EUR', activeCurrencies) }} (clients without a POT). It counts in the stage totals but not in the POT targets.</span>
+        </div>
+      </section>
 
     </div><!-- /view B -->
 
-    <!-- ── VIEW C: Phasing for selected pipeline ─────────────── -->
-    <div v-else-if="phasingYear">
+    <!-- ── VIEW C: Phasing (proposal / project) ──────────────── -->
+    <div v-else-if="level === 'phasing'">
 
-      <!-- Navigation row -->
-      <div class="section-title">
-        <span class="d-flex align-items-center gap-2" style="text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:700;color:#374151">
-          <button class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;text-transform:none;letter-spacing:0"
-                  @click="backToPipelines()">← Pipelines</button>
-          Proposal Phasing — Pipeline {{ phasingYear.year }}
-          <span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:600"
-                :style="phasingYear.active ? 'background:#dcfce7;color:#166534' : 'background:#f3f4f6;color:#6b7280'">
-            {{ phasingYear.active ? 'Visible' : 'Hidden' }}
-          </span>
-        </span>
-        <a :href="`/api/exports/phasing?year=${phasingYear.year}`"
-           class="btn btn-outline-secondary btn-sm" style="font-size:.78rem">⬇ Export XLS</a>
+      <button type="button" class="mdp-back" @click="go({ year: year })"><ph-icon name="chevron-left" :size="14"></ph-icon> Pipeline {{ year }} · POT targets</button>
+      <div class="mdp-title-row">
+        <h2 class="mdp-title">{{ phasingMode === 'proposal' ? 'Proposal phasing' : 'Project phasing' }} · Pipeline {{ year }}</h2>
+        <div class="md-seg" role="group" aria-label="Phasing mode">
+          <button type="button" class="md-seg-btn" :class="{ active: phasingMode === 'proposal' }" @click="go({ year: year, phasing: 'proposal' }, { replace: true })">Proposal phasing</button>
+          <button type="button" class="md-seg-btn" :class="{ active: phasingMode === 'project' }" @click="go({ year: year, phasing: 'project' }, { replace: true })">Project phasing</button>
+        </div>
+        <span class="mdp-spacer"></span>
+        <a v-if="phasingMode === 'proposal'" class="btn btn-primary btn-sm mdp-export" :href="'/api/exports/phasing?year=' + year"
+           title="Committed and Anticipated proposals, all clients"><ph-icon name="download" :size="14"></ph-icon> Export XLS</a>
       </div>
+      <p class="mdp-phasing-desc">{{ phasingMode === 'proposal' ? 'Monthly budget phasing of every proposal version in the pipeline (from its cost grid).' : 'Monthly phasing of every project in the pipeline. Open a project to see its reporting.' }}</p>
 
-      <!-- 5 pipeline stage summary cards -->
-      <div class="row g-3 mb-4">
-        <div class="col" v-for="s in pipelineSummary" :key="s.pipeline">
-          <div class="card mb-0" :style="`border-top:3px solid ${stageColor(s.pipeline)};border-radius:10px`">
-            <div class="card-body" style="padding:1rem!important">
-              <div class="fw-bold mb-1" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em"
-                   :style="`color:${stageColor(s.pipeline)}`">{{ s.pipeline }}</div>
-              <div class="fw-bold" style="font-size:1.15rem;color:#1a1a2e;line-height:1.2">{{ formatMoney(s.total, 'EUR', activeCurrencies) }}</div>
-              <div class="text-muted" style="font-size:.75rem;margin-top:2px">({{ s.count }})</div>
+      <section class="mdp-card mdp-phasing-card">
+        <div v-if="phState && phState.loading" class="mdp-empty"><div class="spinner-border text-secondary"></div></div>
+        <div v-else-if="phState && phState.error" class="alert alert-danger alert-sm m-3">{{ phState.error }}</div>
+        <template v-else-if="phData">
+          <!-- Toolbar -->
+          <div class="mdp-toolbar">
+            <span class="mdp-ftl">Stage</span>
+            <button v-for="st in activeStages" :key="st" type="button" class="mdp-chip"
+                    :class="{ 'is-off': phFilter.stages.length && !phFilter.stages.includes(st) }"
+                    :style="{ background: 'var(--pipeline-' + st.toLowerCase() + '-bg)', color: 'var(--pipeline-' + st.toLowerCase() + '-color)' }"
+                    :aria-pressed="phFilter.stages.includes(st)" @click="toggleStage(st)">{{ st }} <b>{{ phCounts[st] }}</b></button>
+            <span class="mdp-vsep"></span>
+            <label class="mdp-filter"><span class="mdp-ftl">Client</span>
+              <cg-select searchable v-model="phFilter.clientId" :options="phClientOptions" aria-label="Client filter" :width="260"></cg-select></label>
+            <label class="mdp-filter"><span class="mdp-ftl">POT</span>
+              <cg-select searchable v-model="phFilter.potId" :options="phPotOptions" aria-label="POT filter" :width="260"></cg-select></label>
+            <button type="button" class="mdp-link" v-if="phFilterActive" @click="clearPhFilter">Clear</button>
+            <span class="mdp-spacer"></span>
+            <span class="mdp-ftl">Amounts</span>
+            <div class="md-seg" role="group" aria-label="Amounts">
+              <button type="button" class="md-seg-btn" :class="{ active: phAmounts === 'eur' }" @click="phAmounts = 'eur'">All in EUR</button>
+              <button type="button" class="md-seg-btn" :class="{ active: phAmounts === 'original' }" @click="phAmounts = 'original'">Original currency</button>
             </div>
           </div>
-        </div>
-        <div v-if="!pipelineSummary.length && !phasingLoading" class="col-12 text-muted" style="font-size:.85rem">
-          No proposals in this pipeline year yet.
-        </div>
-      </div>
 
-      <!-- Phasing table -->
-      <div v-if="phasingLoading" class="text-center py-5">
-        <div class="spinner-border text-primary"></div>
-      </div>
-      <div v-else-if="phasingError" class="alert alert-danger">{{ phasingError }}</div>
-      <div v-else-if="phasingData" class="card md-table-card">
-        <div class="card-body" style="padding:10px 16px 6px;border-bottom:1px solid #e5e7eb">
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            <span style="font-size:.75rem;font-weight:600;color:#6b7280;margin-right:2px">Stage:</span>
-            <button v-for="st in ['SIP','Expected','Anticipated','Committed']" :key="st"
-                    style="font-size:.7rem;padding:1px 8px;border-radius:20px;cursor:pointer;border:1.5px solid;transition:all .15s"
-                    :style="phasingFilterStages.includes(st) ? `background:${stageColor(st)};color:#fff;border-color:${stageColor(st)}` : `background:#fff;color:#6b7280;border-color:#ccc`"
-                    @click="phasingFilterStages.includes(st) ? phasingFilterStages.splice(phasingFilterStages.indexOf(st),1) : phasingFilterStages.push(st)">
-              {{ st }}
-            </button>
-            <select v-model="phasingFilterClient" class="form-select form-select-sm" style="width:auto;font-size:.75rem;height:26px;padding-top:1px;padding-bottom:1px">
-              <option value="">All clients</option>
-              <option v-for="cl in sortedClients" :key="cl.id" :value="cl.id">{{ cl.name }}</option>
-            </select>
-            <button v-if="phasingFilterStages.length || phasingFilterClient"
-                    class="btn btn-sm btn-outline-secondary" style="font-size:.7rem;padding:1px 8px"
-                    @click="phasingFilterStages = []; phasingFilterClient = ''">✕ Clear</button>
+          <div v-if="!phData.projects.length" class="mdp-empty">{{ phasingMode === 'proposal' ? 'No proposals for Pipeline ' + year + '.' : 'No projects for Pipeline ' + year + '.' }}</div>
+          <div v-else-if="!phRows.length" class="mdp-empty">No rows match the current filters.</div>
+          <div v-else class="mdp-ph-scroll">
+            <table class="mdp-ph-table">
+              <thead>
+                <tr>
+                  <th class="mdp-ph-name">{{ phasingMode === 'proposal' ? 'Proposal · client' : 'Project · client' }}</th>
+                  <th class="mdp-ph-stage">Stage</th>
+                  <th v-for="m in phMonths" :key="m.key" class="is-num" :class="{ 'is-current': m.current, 'is-past': m.past }">{{ m.label }}</th>
+                  <th class="is-num mdp-ph-total">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="t in phTotals" :key="'t' + t.currency" class="mdp-ph-sum">
+                  <td class="mdp-ph-name">Total <span class="mdp-ph-sum-sub">{{ phAmounts === 'eur' ? '€ · all amounts in EUR' : t.currency + ' · ' + t.count + ' ' + (phasingMode === 'proposal' ? 'proposals' : 'projects') }}</span></td>
+                  <td class="mdp-ph-stage"></td>
+                  <td v-for="m in phMonths" :key="m.key" class="is-num" :class="{ 'is-current': m.current, 'is-past': m.past }"
+                      :title="t.months[m.key] ? money(t.months[m.key], t.currency) : ''">{{ t.months[m.key] ? money(t.months[m.key], t.currency, true) : '—' }}</td>
+                  <td class="is-num mdp-ph-total" :title="t.total ? money(t.total, t.currency) : ''">{{ t.total ? money(t.total, t.currency, true) : '—' }}</td>
+                </tr>
+                <tr v-for="r in phRows" :key="r.versionId || r.projectId" class="mdp-ph-row">
+                  <td class="mdp-ph-name">
+                    <div class="mdp-ph-name-line">
+                      <span class="mdp-ph-title" :title="r.name">{{ r.name }}</span>
+                      <a class="mdp-ph-open" target="_blank" rel="noopener" :href="rowHref(r)"
+                         :title="phasingMode === 'proposal' ? 'Open proposal' : 'Open project reporting'" :aria-label="'Open ' + r.name"><ph-icon name="arrow-right" :size="12"></ph-icon></a>
+                    </div>
+                    <div class="mdp-ph-sub">
+                      <span>{{ rowSub(r) }}</span>
+                      <span v-if="rowCur(r) !== 'EUR'" class="mdp-cur-pill" title="Proposal currency · converted at the version exchange rate">{{ rowCur(r) }}</span>
+                    </div>
+                  </td>
+                  <td class="mdp-ph-stage"><span class="mdp-stage-pill" :style="{ background: 'var(--pipeline-' + String(r.pipeline).toLowerCase() + '-bg)', color: 'var(--pipeline-' + String(r.pipeline).toLowerCase() + '-color)' }">{{ r.pipeline }}</span></td>
+                  <td v-if="!rowHasAmounts(r)" :colspan="phMonths.length" class="mdp-ph-none">No phasing yet</td>
+                  <template v-else>
+                    <td v-for="m in phMonths" :key="m.key" class="is-num" :class="{ 'is-current': m.current, 'is-past': m.past }"
+                        :title="cellValue(r, m.key) ? money(cellValue(r, m.key), cellCode(r)) : ''">{{ cellValue(r, m.key) ? money(cellValue(r, m.key), cellCode(r), true) : '—' }}</td>
+                  </template>
+                  <td class="is-num mdp-ph-total" :title="rowTotal(r) ? money(rowTotal(r), cellCode(r)) : ''">{{ rowTotal(r) ? money(rowTotal(r), cellCode(r), true) : '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </div>
-        <div class="card-body p-0">
-          <div v-if="!phasingData.projects.length" class="empty" style="padding:1.5rem">No proposals for Pipeline {{ phasingYear.year }}.</div>
-          <div v-else v-html="phasingTableHtml" style="overflow-x:auto"></div>
-        </div>
-      </div>
+
+          <div class="mdp-ph-foot" v-if="phData.projects.length">
+            <span>{{ phRows.length }} {{ phasingMode === 'proposal' ? (phRows.length === 1 ? 'proposal' : 'proposals') : (phRows.length === 1 ? 'project' : 'projects') }} · rounded to the unit</span>
+            <span class="mdp-spacer"></span>
+            <span class="mdp-ph-legend"><i class="mdp-ph-swatch"></i> Past months</span>
+            <span class="mdp-ph-legend" v-if="phAmounts === 'eur' && phForeignCurrencies.length">
+              <span class="mdp-cur-pill" v-for="c in phForeignCurrencies" :key="c">{{ c }}</span> Converted to € at the version rate
+            </span>
+          </div>
+        </template>
+      </section>
 
     </div><!-- /view C -->
 
-    <!-- ── VIEW D: Project Phasing ─────────────────────────── -->
-    <div v-else-if="projectPhasingYear">
-      <div class="section-title">
-        <span class="d-flex align-items-center gap-2" style="text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:700;color:#374151">
-          <button class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;text-transform:none;letter-spacing:0"
-                  @click="backToPipelines()">← Pipelines</button>
-          Project Phasing — Pipeline {{ projectPhasingYear.year }}
-        </span>
-      </div>
-      <div v-if="projectPhasingLoading" class="text-center py-5"><div class="spinner-border text-primary"></div></div>
-      <div v-else-if="projectPhasingError" class="alert alert-danger">{{ projectPhasingError }}</div>
-      <div v-else-if="projectPhasingData" class="card md-table-card">
-        <div class="card-body" style="padding:10px 16px 6px;border-bottom:1px solid #e5e7eb">
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            <span style="font-size:.75rem;font-weight:600;color:#6b7280;margin-right:2px">Stage:</span>
-            <button v-for="st in ['SIP','Expected','Anticipated','Committed']" :key="st"
-                    style="font-size:.7rem;padding:1px 8px;border-radius:20px;cursor:pointer;border:1.5px solid;transition:all .15s"
-                    :style="ppFilterStages.includes(st) ? `background:${stageColor(st)};color:#fff;border-color:${stageColor(st)}` : `background:#fff;color:#6b7280;border-color:#ccc`"
-                    @click="ppFilterStages.includes(st) ? ppFilterStages.splice(ppFilterStages.indexOf(st),1) : ppFilterStages.push(st)">
-              {{ st }}
-            </button>
-            <select v-model="ppFilterClient" class="form-select form-select-sm" style="width:auto;font-size:.75rem;height:26px;padding-top:1px;padding-bottom:1px">
-              <option value="">All clients</option>
-              <option v-for="cl in sortedClients" :key="cl.id" :value="cl.id">{{ cl.name }}</option>
-            </select>
-            <button v-if="ppFilterStages.length || ppFilterClient"
-                    class="btn btn-sm btn-outline-secondary" style="font-size:.7rem;padding:1px 8px"
-                    @click="ppFilterStages = []; ppFilterClient = ''">✕ Clear</button>
-          </div>
-        </div>
-        <div class="card-body p-0">
-          <div v-if="!projectPhasingData.projects.length" class="empty" style="padding:1.5rem">No projects for Pipeline {{ projectPhasingYear.year }}.</div>
-          <div v-else v-html="projectPhasingTableHtml" style="overflow-x:auto"></div>
-        </div>
-      </div>
-    </div><!-- /view D -->
 
     </div><!-- /pots tab -->
 
   </div><!-- .page -->
   </div><!-- /.md-card-body -->
 </section>
-</div><!-- #app -->
-</div><!-- /.md-content -->
-</div><!-- /.md-layout -->
-
-<!-- POT Details Modal (outside #app so Bootstrap can manage it independently) -->
-<div class="modal fade" id="potDetailsModal" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:900px">
-    <div class="modal-content">
-      <div class="modal-header border-0" style="background:#0B1840;color:#fff;border-radius:0">
-        <h5 class="modal-title fw-bold" id="potDetailsModalTitle">POT Details</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+<!-- ── POT details drawer ───────────────────────────────────── -->
+<div v-if="drawerPot" class="mdp-drawer-wrap">
+  <div class="mdp-scrim" @click="closeDrawer"></div>
+  <aside class="mdp-drawer" role="dialog" aria-modal="true" :aria-label="'POT details: ' + potName(drawerPot)">
+    <header class="mdp-dr-head">
+      <button type="button" class="mdp-dr-back" @click="closeDrawer"><ph-icon name="chevron-left" :size="14"></ph-icon> Pipeline {{ year }}</button>
+      <div class="mdp-dr-head-main">
+        <div class="mdp-eyebrow">POT · Pipeline {{ year }}</div>
+        <div class="mdp-dr-name-row">
+          <h3 class="mdp-dr-name">{{ potName(drawerPot) }}</h3>
+          <span class="mdp-kind" :class="'is-' + potKind(drawerPot).toLowerCase()">{{ potKind(drawerPot) === 'General' ? 'General target' : potKind(drawerPot) + ' POT' }}</span>
+        </div>
+        <div class="mdp-muted mdp-dr-sub">{{ drawerPot.client_group_id ? (groupClientNames(drawerPot) || 'Group') : potKind(drawerPot) }}</div>
       </div>
-      <div class="modal-body p-4" id="potDetailsModalBody">
-        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+      <button type="button" class="btn btn-outline-secondary btn-sm mdp-dr-edit-top" @click="editFromDrawer(drawerPot)">Edit target</button>
+      <span class="dropdown mdp-dr-more">
+        <button type="button" class="mdp-icon-btn" aria-label="More actions" data-bs-toggle="dropdown" aria-expanded="false"><ph-icon name="more" :size="16"></ph-icon></button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><button type="button" class="dropdown-item mdp-menu-item" @click="deletePot(drawerPot)">Delete POT target</button></li>
+        </ul>
+      </span>
+      <button type="button" class="mdp-icon-btn mdp-dr-close" aria-label="Close" @click="closeDrawer"><ph-icon name="close" :size="16"></ph-icon></button>
+    </header>
+
+    <div class="mdp-dr-body">
+      <template v-if="drawerState && drawerState.loading">
+        <div class="mdp-skel" style="width:55%;height:28px"></div>
+        <div class="mdp-skel" style="height:10px;margin-top:12px"></div>
+        <div class="mdp-skel" style="height:64px;margin-top:20px"></div>
+        <div class="mdp-skel" style="height:120px;margin-top:20px"></div>
+      </template>
+      <div v-else-if="drawerState && drawerState.error" class="alert alert-danger alert-sm">Failed to load details: {{ drawerState.error }}</div>
+      <template v-else-if="drawerState && drawerState.data">
+        <div class="mdp-dr-progress">
+          <span class="mdp-big">{{ drawerPct != null ? drawerPct + '%' : '—' }}</span>
+          <span class="mdp-muted">of {{ formatMoney(drawerState.data.pot.amount, 'EUR', activeCurrencies) }} target reached by Committed + Anticipated</span>
+        </div>
+        <div class="mdp-bar mdp-bar-big">
+          <span class="mdp-seg mdp-seg-c" :style="{ width: barPct(drawerState.data.committed_total, drawerState.data.pot.amount) + '%' }"></span>
+          <span class="mdp-seg mdp-seg-a" :style="{ width: barPct(drawerState.data.anticipated_total, drawerState.data.pot.amount, drawerState.data.committed_total) + '%' }"></span>
+          <span class="mdp-seg mdp-seg-e" :style="{ width: barPct(drawerState.data.expected_total, drawerState.data.pot.amount, +drawerState.data.committed_total + +drawerState.data.anticipated_total) + '%' }"></span>
+          <span class="mdp-seg mdp-seg-s" :style="{ width: barPct(drawerState.data.sip_total, drawerState.data.pot.amount, +drawerState.data.committed_total + +drawerState.data.anticipated_total + +drawerState.data.expected_total) + '%' }"></span>
+        </div>
+        <div class="mdp-upcoming" v-if="(+drawerState.data.expected_total || 0) + (+drawerState.data.sip_total || 0) > 0">+ {{ formatMoney((+drawerState.data.expected_total || 0) + (+drawerState.data.sip_total || 0), 'EUR', activeCurrencies) }} in SIP / Expected · not counted in the gap</div>
+
+        <div class="mdp-dr-tiles">
+          <div class="mdp-dr-tile">
+            <div class="mdp-eyebrow" style="color:var(--pipeline-committed-color)">Committed</div>
+            <div class="mdp-med">{{ formatMoney(drawerState.data.committed_total || 0, 'EUR', activeCurrencies) }}</div>
+          </div>
+          <div class="mdp-dr-tile">
+            <div class="mdp-eyebrow" style="color:var(--pipeline-anticipated-color)">Anticipated</div>
+            <div class="mdp-med">{{ formatMoney(drawerState.data.anticipated_total || 0, 'EUR', activeCurrencies) }}</div>
+          </div>
+          <div class="mdp-dr-tile">
+            <div class="mdp-eyebrow">{{ drawerGap.over > 0 ? 'Over target' : 'Gap to target' }}</div>
+            <div class="mdp-med" :class="{ 'is-over': drawerGap.over > 0 }">{{ drawerGap.over > 0 ? '+ ' + formatMoney(drawerGap.over, 'EUR', activeCurrencies) : formatMoney(drawerGap.gap, 'EUR', activeCurrencies) }}</div>
+          </div>
+        </div>
+
+        <div class="mdp-eyebrow mdp-dr-section">Proposals · {{ drawerState.data.proposals.length }}</div>
+        <ul class="mdp-prop-list" v-if="drawerState.data.proposals.length">
+          <li v-for="p in drawerProposals" :key="p.version_id" class="mdp-prop"
+              :class="{ 'is-dim': p.pipeline === 'SIP' || p.pipeline === 'Expected' }">
+            <div class="mdp-prop-main">
+              <div class="mdp-prop-name">{{ p.proposal_name }}</div>
+              <div class="mdp-muted mdp-prop-meta">{{ drawerPot.client_group_id && p.client_name ? p.client_name + ' · ' : '' }}{{ fmtDate(p.created_at) }} · {{ p.owner_name || '—' }}</div>
+            </div>
+            <span class="mdp-stage-pill" :style="{ background: 'var(--pipeline-' + String(p.pipeline).toLowerCase() + '-bg)', color: 'var(--pipeline-' + String(p.pipeline).toLowerCase() + '-color)' }">{{ p.pipeline }}</span>
+            <div class="mdp-prop-value">
+              <template v-if="p.currency && p.currency !== 'EUR'">
+                <div>{{ formatMoney(p.value_original, p.currency, activeCurrencies) }}</div>
+                <div class="mdp-muted mdp-prop-eur">({{ formatMoney(p.value, 'EUR', activeCurrencies) }})</div>
+              </template>
+              <template v-else>{{ formatMoney(p.value, 'EUR', activeCurrencies) }}</template>
+            </div>
+            <a class="mdp-icon-btn" :href="'/costgrid.html?cgId=' + encodeURIComponent(p.cg_id) + '&verId=' + encodeURIComponent(p.version_id)"
+               target="_blank" rel="noopener" :aria-label="'Open ' + p.proposal_name"><ph-icon name="arrow-right" :size="14"></ph-icon></a>
+          </li>
+        </ul>
+        <div class="mdp-muted mdp-dr-empty" v-else>No proposals for this target in this year.</div>
+        <div class="mdp-muted mdp-dr-foot">Only Committed and Anticipated count towards the target.</div>
+
+        <div class="mdp-eyebrow mdp-dr-section">Target history</div>
+        <ol class="mdp-timeline" v-if="drawerHistory.length">
+          <li v-for="(h, i) in drawerHistory" :key="h.changed_at + ':' + i" :class="{ 'is-latest': i === 0 }">
+            <div class="mdp-tl-change">
+              <span class="mdp-tl-old" v-if="h.old_value != null">{{ formatMoney(h.old_value, 'EUR', activeCurrencies) }}</span>
+              <span class="mdp-muted" v-else>—</span>
+              <span class="mdp-muted">→</span>
+              <b>{{ formatMoney(h.new_value, 'EUR', activeCurrencies) }}</b>
+            </div>
+            <div class="mdp-muted mdp-tl-meta">{{ fmtDate(h.changed_at) }} · {{ h.changed_by_name || '—' }}{{ h.old_value == null ? ' · created' : '' }}</div>
+            <div class="mdp-tl-note" v-if="h.note">“{{ h.note }}”</div>
+          </li>
+        </ol>
+        <div class="mdp-muted mdp-dr-empty" v-else>No history yet.</div>
+      </template>
+    </div>
+    <div class="mdp-dr-bar"><button type="button" class="btn btn-outline-secondary" @click="openPotForm(drawerPot)">Edit target</button></div>
+  </aside>
+  <!-- Edit target as a bottom sheet (phone) -->
+  <div v-if="potf.show && potf.id && drawerPot" class="mdp-sheet-wrap">
+    <div class="mdp-scrim" @click="potf.show = false"></div>
+    <div class="mdp-sheet" role="dialog" aria-label="Edit target">
+      <label class="mdp-field">
+        <span class="mdp-field-label">New target ({{ currencyInfo('EUR', activeCurrencies).symbol }}) <span class="mdp-muted">· current {{ formatMoney(potf.stored ?? 0, 'EUR', activeCurrencies) }}</span></span>
+        <input type="text" inputmode="decimal" class="mdp-amount-input mdp-edit-amount"
+               v-model="potf.amountText" @focus="onPotAmountFocus" @blur="onPotAmountBlur" @keydown.enter="savePot" aria-label="New target (sheet)">
+      </label>
+      <label class="mdp-field">
+        <span class="mdp-field-label">Reason for change <span class="mdp-req">*</span> <span class="mdp-muted">· saved in the change history</span></span>
+        <input type="text" class="mdp-text-input" v-model="potf.note" placeholder="Explain why the target is changing" @keydown.enter="savePot">
+      </label>
+      <div v-if="potf.error" class="mdp-err" style="padding:0;background:transparent">{{ potf.error }}</div>
+      <div class="mdp-sheet-actions">
+        <button type="button" class="btn btn-outline-secondary" @click="potf.show = false">Cancel</button>
+        <button type="button" class="btn btn-primary" @click="savePot" :disabled="potf.loading || !potf.note || !potf.note.trim() || !String(potf.amountText).trim()">
+          <span v-if="potf.loading" class="spinner-border spinner-border-sm me-1"></span>Update target
+        </button>
+      </div>
+    </div>
+  </div>
+</div><!-- /drawer -->
+</div><!-- #app -->
+
+<!-- Confirm: the modal showConfirm() (js/core.js) writes into -->
+<div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header border-0 pb-1">
+        <h6 class="modal-title fw-bold" id="confirmModalTitle">Confirm</h6>
+      </div>
+      <div class="modal-body pt-1">
+        <p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p>
+      </div>
+      <div class="modal-footer border-0 pt-2">
+        <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger" id="confirmModalOk">Confirm</button>
       </div>
     </div>
   </div>
 </div>
+</div><!-- /.md-content -->
+</div><!-- /.md-layout -->
 
 </div><!-- /#app-main -->
 </div><!-- /#app-shell -->
 
 <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script defer src="js/api.js?v=8"></script>
+<script defer src="js/api.js?v=9"></script>
 <script>
   function esc(s) {
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -511,7 +939,11 @@
 </script>
 <script defer src="js/core.js?v=15"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
-<script type="module" src="js/lib/money.js?v=5"></script>
+<script type="module" src="js/lib/money.js?v=6"></script>
+<script type="module" src="js/lib/master-pipelines.js?v=1"></script>
+<script type="module" src="js/lib/dates.js?v=4"></script>
+<script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
+<script defer src="js/cg-controls.js?v=5"></script>
 <script defer src="js/notifications.js?v=3"></script>
 <script type="module" src="js/lib/icons.js?v=6"></script>
 <script type="module" src="js/lib/md-subnav.js?v=4"></script>
@@ -530,19 +962,20 @@ window.__cfgApp = Vue.createApp({
       groups:   [],
 
       // Pipelines & POT state
-      activePipeline:  null,  // null = pipeline list; object = POT detail view
-      phasingYear:     null,  // null = not in phasing view; pipeline year object = phasing view
-      phasingData:     null,  // { months, totals, projects } from API
-      phasingLoading:        false,
-      phasingError:          null,
-      phasingFilterStages:   [],
-      phasingFilterClient:   '',
-      projectPhasingYear:    null,
-      projectPhasingData:    null,
-      projectPhasingLoading: false,
-      projectPhasingError:   null,
-      ppFilterStages:        [],
-      ppFilterClient:        '',
+      level:           'list', // 'list' | 'pots' | 'phasing' — derived from the URL (parseMdpUrl)
+      year:            null,   // pipeline year of the open level, null on the list
+      potId:           null,   // POT shown in the drawer (pots level)
+      phasingMode:     'proposal',
+      potDetails:      {},     // { potId: { loading, error, data } } cache of the drawer
+      potHistory:      {},     // { potId: history }, dropped with the POT's details
+      loadOk:          true,   // false when loadAll failed: a deep link is then not reported as unknown
+      potCounts:       {},     // { year: number of POTs }, from GET /pots without a year
+      loadedPotsYear:  null,
+      phasing:         { proposal: null, project: null }, // { loading, error, data } per mode, loaded once while on the year
+      phasingYearLoaded: null,
+      phFilter:        { stages: [], clientId: '', potId: '' },
+      phAmounts:       'eur',
+      activeStages:    ['SIP', 'Expected', 'Anticipated', 'Committed'],
       pyf: { show: false, year: new Date().getFullYear() + 1, error: null, loading: false },
       pots:            [],
       potsYear:        new Date().getFullYear(),
@@ -558,170 +991,101 @@ window.__cfgApp = Vue.createApp({
   },
 
   computed: {
+    drawerPot() { return window.resolvePot(this.pots, this.potId); },
+    drawerState() { return this.drawerPot ? this.potDetails[this.drawerPot.id] || null : null; },
+    drawerPct() {
+      const d = this.drawerState && this.drawerState.data;
+      return d ? window.achievement((+d.committed_total || 0) + (+d.anticipated_total || 0), d.pot.amount) : null;
+    },
+    drawerGap() {
+      const d = this.drawerState && this.drawerState.data;
+      return d ? window.gapToTarget(d.pot.amount, (+d.committed_total || 0) + (+d.anticipated_total || 0)) : { gap: 0, over: 0 };
+    },
+    drawerProposals() {
+      const d = this.drawerState && this.drawerState.data;
+      if (!d) return [];
+      const rank = { Committed: 0, Anticipated: 1, Expected: 2, SIP: 3 };
+      const r = p => (p.pipeline in rank ? rank[p.pipeline] : 4);
+      return [...d.proposals].sort((a, b) => r(a) - r(b) || String(b.created_at).localeCompare(String(a.created_at)));
+    },
+    drawerHistory() {
+      const d = this.drawerState && this.drawerState.data;
+      return d ? [...d.history].sort((x, y) => String(y.changed_at).localeCompare(String(x.changed_at))) : [];
+    },
+    potTotal() { return this.pots.reduce((s, p) => s + Number(p.amount || 0), 0); },
+    caTotal() { return this.stageTotal('Committed') + this.stageTotal('Anticipated'); },
+    gapInfo() { return window.gapToTarget(this.potTotal, this.caTotal); },
+    scaleMax() {
+      const all = this.stageTotal('Committed') + this.stageTotal('Anticipated') + this.stageTotal('Expected') + this.stageTotal('SIP');
+      return Math.max(this.potTotal, all) || 1;
+    },
+    stageTiles() {
+      return ['SIP', 'Expected', 'Anticipated', 'Committed', 'Canceled'].map(pipeline => {
+        const row = this.pipelineSummary.find(r => r.pipeline === pipeline);
+        return { pipeline, count: row ? +row.count || 0 : 0, total: row ? +row.total || 0 : 0 };
+      });
+    },
+    outsideCommitted() { return window.outsidePotCommitted(this.pipelineSummary, this.pots); },
+    potTargetOptions() {
+      return window.availableTargets({ type: this.potf.targetType, pots: this.pots, clients: this.clients, groups: this.groups });
+    },
+    moneyExample() { return window.moneyFormatExample('EUR', window.__currencies); },
+    sortedYears() {
+      return [...this.pipelineYears].sort((a, b) => b.year - a.year);
+    },
+    activePipeline() {
+      return this.level === 'list' ? null : (this.pipelineYears.find(py => py.year === this.year) || null);
+    },
+    pyfInvalid() {
+      const y = String(this.pyf.year ?? '').trim();
+      if (!y) return false;
+      const n = Number(y);
+      return !/^[0-9]{4}$/.test(y) || n < 2000 || n > 2100 || this.pipelineYears.some(py => py.year === n);
+    },
     sortedClients() {
       return [...this.clients].sort((a, b) => a.name.localeCompare(b.name));
     },
     sortedGroups() {
       return [...this.groups].sort((a, b) => a.name.localeCompare(b.name));
     },
-    potYearOptions() {
-      // Use admin-managed pipeline years; fallback to current year if none loaded yet
-      return this.pipelineYears.length
-        ? this.pipelineYears.map(py => py.year)
-        : [new Date().getFullYear()];
+    phState() { return this.phasing[this.phasingMode]; },
+    phData() { return this.phState ? this.phState.data : null; },
+    phMonths() {
+      if (!this.phData) return [];
+      const d = new Date();
+      const now = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      return this.phData.months.map(key => {
+        const [y, m] = key.split('-');
+        return {
+          key, current: key === now, past: key < now,
+          label: new Date(+y, +m - 1).toLocaleString('en', { month: 'short', year: '2-digit' }),
+        };
+      });
     },
-    phasingTableHtml() {
-      const d = this.phasingData;
-      if (!d || !d.projects.length) return '';
-      const fmtM = (mo) => {
-        const [y, m] = mo.split('-');
-        return new Date(parseInt(y), parseInt(m) - 1).toLocaleString('en', { month: 'short' });
-      };
-      const fmtH    = (n) => n ? Math.round(n * 10) / 10 + ' h' : '—';
-      const fmtDate = (s) => s && s.length >= 6 ? s.slice(0, 4) + '/' + s.slice(4, 6) : '—';
-      const escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      const col = 'text-align:right;padding:5px 8px;font-size:.78rem;white-space:nowrap;min-width:80px';
-      const lbl = 'padding:5px 10px;font-size:.78rem;white-space:nowrap';
-
-      // Apply filters — Canceled and Draft are always excluded
-      const ACTIVE_STAGES = ['SIP', 'Expected', 'Anticipated', 'Committed'];
-      let projects = d.projects.filter(p => ACTIVE_STAGES.includes(p.pipeline));
-      if (this.phasingFilterStages.length)
-        projects = projects.filter(p => this.phasingFilterStages.includes(p.pipeline));
-      if (this.phasingFilterClient)
-        projects = projects.filter(p => p.clientId === this.phasingFilterClient);
-
-      // Recompute totals from filtered set — convert to EUR via currency_rate snapshot
-      const filteredTotals = {};
-      for (const mo of d.months) filteredTotals[mo] = { hours: 0, amount: 0 };
-      for (const p of projects) {
-        const rate = p.currencyRate || 1.0;
-        for (const [mo, val] of Object.entries(p.months)) {
-          if (filteredTotals[mo]) {
-            filteredTotals[mo].hours  += val.hours  || 0;
-            filteredTotals[mo].amount += (val.amount || 0) / rate;
-          }
-        }
-      }
-
-      const monthCols = d.months.map(mo =>
-        `<th style="${col};font-weight:700;border-bottom:2px solid #dee2e6">${fmtM(mo)}</th>`
-      ).join('');
-      const colTot = col + ';background:#f1f3f5;font-weight:700';
-      const totalCols = d.months.map(mo => {
-        const t = filteredTotals[mo] || {};
-        return `<td style="${col};font-weight:700">${t.amount ? window.formatMoney(t.amount, 'EUR', window.__currencies) : '<span style="color:#ccc">—</span>'}</td>`;
-      }).join('');
-      const grandTotalEur = Object.values(filteredTotals).reduce((s, t) => s + (t.amount || 0), 0);
-      const totalRow = `<tr style="background:#f8f9fa;border-top:2px solid #dee2e6">
-        <td style="${lbl};font-weight:700;min-width:220px">TOTAL <span style="font-size:.7rem;font-weight:400;color:#6b7280">(€)</span></td>
-        <td style="${lbl}"></td><td style="${lbl}"></td><td style="${lbl}"></td>
-        ${totalCols}
-        <td style="${colTot}">${(!(grandTotalEur) ? '—' : window.formatMoney(grandTotalEur, 'EUR', window.__currencies))}</td></tr>`;
-      if (!projects.length) return '<p style="padding:1rem;color:#6b7280;font-size:.85rem">No proposals match the current filters.</p>';
-      const projectRows = projects.map(p => {
-        const rate       = p.currencyRate || 1.0;
-        const isNonEur   = p.currency && p.currency !== 'EUR';
-        const rowTotal   = d.months.reduce((s, mo) => s + (p.months[mo]?.amount || 0), 0);
-        const rowTotalEur = rowTotal / rate;
-        const totalCell  = isNonEur
-          ? `${(!(rowTotal) ? '—' : window.formatMoney(rowTotal, (p.currency || 'EUR').trim(), window.__currencies))}<br><span style="font-size:.7rem;color:#6b7280">(${(!(rowTotalEur) ? '—' : window.formatMoney(rowTotalEur, 'EUR', window.__currencies))})</span>`
-          : (rowTotal ? window.formatMoney(rowTotal, 'EUR', window.__currencies) : '<span style="color:#ccc">—</span>');
-        const moCols = d.months.map(mo => {
-          const val = p.months[mo] || {};
-          if (!val.amount) return `<td style="${col}"><span style="color:#ccc">—</span></td>`;
-          const localStr = (!(val.amount) ? '—' : window.formatMoney(val.amount, (p.currency || 'EUR').trim(), window.__currencies));
-          const eurStr   = isNonEur ? `<br><span style="font-size:.7rem;color:#6b7280">(${(!(val.amount / rate) ? '—' : window.formatMoney(val.amount / rate, 'EUR', window.__currencies))})</span>` : '';
-          return `<td style="${col}">${localStr}${eurStr}</td>`;
-        }).join('');
-        return `<tr style="border-top:1px solid #e5e7eb">
-          <td style="${lbl};font-weight:600;min-width:220px">${escHtml(p.name)}<span style="font-size:.7rem;color:#888;display:block">${escHtml(p.versionLabel)}</span></td>
-          <td style="${lbl}"><span style="display:inline-block;padding:1px 8px;border-radius:20px;font-size:.7rem;font-weight:600;background:${this.stageBg(p.pipeline)};color:${this.stageColor(p.pipeline)}">${escHtml(p.pipeline)}</span></td>
-          <td style="${lbl};font-size:.75rem;color:#6b7280">${fmtDate(p.startDate)}</td>
-          <td style="${lbl};font-size:.75rem;color:#6b7280">${fmtDate(p.endDate)}</td>
-          ${moCols}
-          <td style="${colTot};white-space:nowrap">${totalCell}</td></tr>`;
-      }).join('');
-      return `<table style="border-collapse:collapse;width:100%">
-        <thead><tr style="background:#f1f3f5">
-          <th style="${lbl};font-weight:700;min-width:220px;border-bottom:2px solid #dee2e6">Proposal</th>
-          <th style="${lbl};font-weight:700;border-bottom:2px solid #dee2e6">Stage</th>
-          <th style="${lbl};font-weight:700;border-bottom:2px solid #dee2e6">Start</th>
-          <th style="${lbl};font-weight:700;border-bottom:2px solid #dee2e6">End</th>
-          ${monthCols}
-          <th style="${colTot};border-bottom:2px solid #dee2e6">Total</th>
-        </tr></thead>
-        <tbody>${totalRow}${projectRows}</tbody></table>`;
+    phCounts() { return window.stageCounts(this.phData ? this.phData.projects : []); },
+    phPotClients() {
+      const pot = this.phFilter.potId ? window.resolvePot(this.pots, this.phFilter.potId) : null;
+      return pot ? window.potClientIds(pot, this.groups) : null;
     },
-    projectPhasingTableHtml() {
-      const d = this.projectPhasingData;
-      if (!d || !d.projects.length) return '';
-      const fmtM = (mo) => {
-        const [y, m] = mo.split('-');
-        return new Date(parseInt(y), parseInt(m) - 1).toLocaleString('en', { month: 'short', year: '2-digit' });
-      };
-      const escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      const cell = 'text-align:right;padding:5px 8px;font-size:.78rem;white-space:nowrap;min-width:80px;border-left:1px solid #e5e7eb';
-      const lbl  = 'padding:5px 10px;font-size:.78rem;white-space:nowrap';
-
-      // Apply filters — Canceled and Draft always excluded
-      const ACTIVE_STAGES = ['SIP', 'Expected', 'Anticipated', 'Committed'];
-      let projects = d.projects.filter(p => ACTIVE_STAGES.includes(p.pipeline));
-      if (this.ppFilterStages.length) projects = projects.filter(p => this.ppFilterStages.includes(p.pipeline));
-      if (this.ppFilterClient)        projects = projects.filter(p => p.clientId === this.ppFilterClient);
-
-      // Recompute totals from filtered set — convert to EUR via currency_rate snapshot
-      const ft = Object.fromEntries(d.months.map(m => [m, 0]));
-      for (const p of projects) {
-        const rate = p.currencyRate || 1.0;
-        for (const mo of d.months) ft[mo] += (p.months[mo] || 0) / rate;
-      }
-      const grandTotal = Object.values(ft).reduce((s, v) => s + v, 0);
-
-      const cellTotal = cell + ';background:#f1f3f5;font-weight:700';
-      const monthHeaders = d.months.map(mo =>
-        `<th style="${cell};font-weight:700;border-bottom:2px solid #dee2e6;background:#f1f3f5">${fmtM(mo)}</th>`
-      ).join('');
-      const totalCols = d.months.map(mo =>
-        `<td style="${cell};font-weight:700">${(((ft[mo]) == null || (ft[mo]) === 0) ? '—' : window.formatMoney(ft[mo], 'EUR', window.__currencies))}</td>`
-      ).join('');
-      const totalRow = `<tr style="background:#f8f9fa;border-top:2px solid #dee2e6">
-        <td style="${lbl};font-weight:700;min-width:220px">TOTAL <span style="font-size:.7rem;font-weight:400;color:#6b7280">(€)</span></td>
-        <td style="${lbl}"></td>
-        ${totalCols}
-        <td style="${cellTotal}">${(((grandTotal) == null || (grandTotal) === 0) ? '—' : window.formatMoney(grandTotal, 'EUR', window.__currencies))}</td></tr>`;
-
-      if (!projects.length) return '<p style="padding:1rem;color:#6b7280;font-size:.85rem">No projects match the current filters.</p>';
-      const projectRows = projects.map(p => {
-        const rate     = p.currencyRate || 1.0;
-        const isNonEur = p.currency && p.currency !== 'EUR';
-        const rowTotal = d.months.reduce((s, mo) => s + (p.months[mo] || 0), 0);
-        const rowTotalEur = rowTotal / rate;
-        const totalCellContent = isNonEur
-          ? `${(((rowTotal) == null || (rowTotal) === 0) ? '—' : window.formatMoney(rowTotal, (p.currency || 'EUR').trim(), window.__currencies))}<br><span style="font-size:.7rem;color:#6b7280">(${(((rowTotalEur) == null || (rowTotalEur) === 0) ? '—' : window.formatMoney(rowTotalEur, 'EUR', window.__currencies))})</span>`
-          : (((rowTotal) == null || (rowTotal) === 0) ? '—' : window.formatMoney(rowTotal, (p.currency || 'EUR').trim(), window.__currencies));
-        const moCols = d.months.map(mo => {
-          const v = p.months[mo] || 0;
-          if (!v) return `<td style="${cell}"><span style="color:#ccc">—</span></td>`;
-          const localStr = (((v) == null || (v) === 0) ? '—' : window.formatMoney(v, (p.currency || 'EUR').trim(), window.__currencies));
-          const eurStr   = isNonEur ? `<br><span style="font-size:.7rem;color:#6b7280">(${(((v / rate) == null || (v / rate) === 0) ? '—' : window.formatMoney(v / rate, 'EUR', window.__currencies))})</span>` : '';
-          return `<td style="${cell}">${localStr}${eurStr}</td>`;
-        }).join('');
-        return `<tr style="border-top:1px solid #e5e7eb">
-          <td style="${lbl};font-weight:600;min-width:220px">${escHtml(p.name)}</td>
-          <td style="${lbl}"><span style="display:inline-block;padding:1px 8px;border-radius:20px;font-size:.7rem;font-weight:600;background:${this.stageBg(p.pipeline)};color:${this.stageColor(p.pipeline)}">${escHtml(p.pipeline)}</span></td>
-          ${moCols}
-          <td style="${cellTotal};white-space:nowrap">${totalCellContent}</td></tr>`;
-      }).join('');
-
-      return `<table style="border-collapse:collapse;width:100%">
-        <thead><tr style="background:#f1f3f5">
-          <th style="${lbl};font-weight:700;min-width:220px;border-bottom:2px solid #dee2e6">Project</th>
-          <th style="${lbl};font-weight:700;border-bottom:2px solid #dee2e6">Stage</th>
-          ${monthHeaders}
-          <th style="${cellTotal};border-bottom:2px solid #dee2e6">Total</th>
-        </tr></thead>
-        <tbody>${totalRow}${projectRows}</tbody></table>`;
+    phRows() {
+      if (!this.phData) return [];
+      return window.filterPhasingRows(this.phData.projects, {
+        stages: this.phFilter.stages, clientId: this.phFilter.clientId, potClients: this.phPotClients,
+      });
+    },
+    phTotals() { return window.phasingTotals(this.phRows, this.phData ? this.phData.months : [], this.phAmounts); },
+    phFilterActive() { return !!(this.phFilter.stages.length || this.phFilter.clientId || this.phFilter.potId); },
+    phClientOptions() {
+      return [{ value: '', label: 'All' }, ...this.sortedClients.map(c => ({ value: c.id, label: c.name }))];
+    },
+    phPotOptions() {
+      const named = this.pots.filter(p => !p.special_label)
+        .map(p => ({ value: p.id, label: this.potName(p) }))
+        .sort((x, y) => x.label.localeCompare(y.label));
+      return [{ value: '', label: 'All' }, ...named];
+    },
+    phForeignCurrencies() {
+      return [...new Set(this.phRows.map(r => window.rowCurrency(r)).filter(c => c !== 'EUR'))].sort();
     },
   },
 
@@ -735,11 +1099,19 @@ window.__cfgApp = Vue.createApp({
     if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
     try { window.__currencies = await Api.currencies.list(); } catch {}
     this.activeCurrencies = window.__currencies || [];
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape' || !this.drawerPot) return;
+      if (document.querySelector('.modal.show')) return; // Esc belongs to the open modal
+      if (this.potf.show && this.potf.id) this.potf.show = false; else this.closeDrawer();
+    });
+    window.addEventListener('popstate', () => { if (this.ready) { this.globalError = null; this.applyState(window.parseMdpUrl(location.search)); } });
     await this.loadAll();
+    await this.applyState(window.parseMdpUrl(location.search));
     this.ready = true;
   },
 
   watch: {
+    drawerPot(pot) { if (pot) this.loadPotDetails(pot); },
     // The banner lives at the top of the page, above the tabs: a failed action on a long list
     // (e.g. a blocked role delete) would otherwise set the message where nobody is looking.
     globalError(msg) { if (msg) window.scrollTo({ top: 0, behavior: 'smooth' }); },
@@ -748,31 +1120,128 @@ window.__cfgApp = Vue.createApp({
   methods: {
     // Money helper for the template (bridged on window by js/lib/money.js)
     currencyInfo: (...a) => window.currencyInfo(...a),
+    achievement: (...a) => window.achievement(...a),
+
+    stageTotal(stage) {
+      const row = this.pipelineSummary.find(r => r.pipeline === stage);
+      return row ? +row.total || 0 : 0;
+    },
+    // Position / width on the summary bar, scaled on max(target, C + A + E + SIP).
+    scalePct(amount) { return Math.min(100, (Number(amount) || 0) / this.scaleMax * 100); },
+    potName(pot) { return pot.special_label || pot.client_group_name || pot.client_name || '—'; },
+    potKind(pot) { return pot.special_label ? 'General' : pot.client_group_id ? 'Group' : 'Client'; },
+    groupClientNames(pot) {
+      const g = this.groups.find(x => x.id === pot.client_group_id);
+      return g ? (g.clients || []).map(c => c.name).join(', ') : '';
+    },
+    setPotTargetType(type) {
+      if (this.potf.targetType !== type) { this.potf.targetType = type; this.potf.targetId = ''; }
+    },
+    invalidatePotDetails(id) {
+      delete this.potDetails[id]; delete this.potHistory[id];
+      const open = this.drawerPot;
+      if (open && open.id === id) this.loadPotDetails(open); // an open drawer refreshes in place
+    },
+    async refreshYearData() {
+      try {
+        const [totals, all] = await Promise.all([Api.pots.yearTotals(), Api.pots.list()]);
+        this.yearTotals = totals;
+        this.potCounts = window.potCountByYear(all);
+      } catch { /* the list refreshes on the next load */ }
+    },
+
+    // Width of a bar segment: share of the target, clipped so that segments never overflow the bar.
+    barPct(amount, target, before = 0) {
+      const t = Number(target) || 0;
+      if (t <= 0) return 0;
+      const start = Math.min(100, (Number(before) || 0) / t * 100);
+      return Math.max(0, Math.min(100 - start, (Number(amount) || 0) / t * 100));
+    },
+
+    // One URL per level: push (or replace) the history entry, then apply the state it names.
+    go(state, { replace = false } = {}) {
+      const url = window.buildMdpUrl(state);
+      this.globalError = null; // a message belongs to the level it was raised on
+      const same = location.pathname + url === location.pathname + location.search;
+      history[replace || same ? 'replaceState' : 'pushState'](null, '', location.pathname + url);
+      return this.applyState(window.parseMdpUrl(url));
+    },
+
+    async applyState({ year, pot, phasing }) {
+      this.potf.show = false;
+      if (year === null) {
+        this.level = 'list'; this.year = null; this.potId = null;
+        this.loadedPotsYear = null; this.resetPhasing();
+      } else if (!this.loadOk) {
+        return; // the years did not load: keep the URL, the banner says why
+      } else if (!this.pipelineYears.some(py => py.year === year)) {
+        this.globalError = `Pipeline ${year} not found.`;
+        history.replaceState(null, '', location.pathname);
+        return this.applyState({ year: null, pot: null, phasing: null });
+      } else if (phasing) {
+        this.level = 'phasing'; this.year = year; this.potId = null; this.phasingMode = phasing;
+        if (this.phasingYearLoaded !== year) { this.resetPhasing(); this.phasingYearLoaded = year; }
+        if (this.loadedPotsYear !== year) this.loadYearData(year);
+        this.ensurePhasing(phasing);
+      } else {
+        this.level = 'pots'; this.year = year; this.potId = pot; this.potsYear = year; this.resetPhasing();
+        if (this.loadedPotsYear !== year) this.loadYearData(year);
+      }
+      this.syncChrome();
+    },
+
+    // Breadcrumb and wide mode follow the level.
+    syncChrome() {
+      const layout = document.querySelector('.md-layout');
+      if (layout) layout.classList.toggle('md-layout--wide', this.level === 'phasing');
+      const card = document.querySelector('#app > .md-card');
+      if (card) card.classList.toggle('mdp-bare', this.level !== 'list');
+      const crumbs = [
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Master Data', href: '/master-clients.html' },
+      ];
+      if (this.level === 'list') crumbs.push({ label: 'Pipelines & POTs' });
+      else {
+        crumbs.push({ label: 'Pipelines & POTs', href: '/master-pipelines.html' });
+        if (this.level === 'pots') crumbs.push({ label: 'Pipeline ' + this.year });
+        else {
+          crumbs.push({ label: 'Pipeline ' + this.year, href: '/master-pipelines.html' + window.buildMdpUrl({ year: this.year }) });
+          crumbs.push({ label: this.phasingMode === 'proposal' ? 'Proposal phasing' : 'Project phasing' });
+        }
+      }
+      if (typeof window.updateBreadcrumbs === 'function') window.updateBreadcrumbs(crumbs);
+    },
 
     async loadAll() {
-      this.globalError = null;
+      this.globalError = null; this.loadOk = true;
       try {
-        const [clients, groups, pipelineYears, yearTotals] = await Promise.all([
+        const [clients, groups, pipelineYears, yearTotals, allPots] = await Promise.all([
           Api.clients.list(),
           Api.clientGroups.list(),
           Api.pipelineYears.list(),
           Api.pots.yearTotals(),
+          Api.pots.list(),
         ]);
+        this.potCounts     = window.potCountByYear(allPots);
         this.clients  = clients;
         this.groups   = groups.map(g => ({ ...g, _assignPick: '', _assignLoading: false }));
         this.pipelineYears = pipelineYears.map(py => ({ ...py, _toggling: false, _loading: false }));
         this.yearTotals    = yearTotals;
       } catch (e) {
+        this.loadOk = false;
         this.globalError = e.message || 'Failed to load data.';
       }
     },
 
     async loadPots() {
-      const year = this.activePipeline?.year || this.potsYear;
+      const year = this.year || this.potsYear;
       try {
-        this.pots = await Api.pots.list(year);
+        const pots = await Api.pots.list(year);
+        if (this.loadedPotsYear != null && this.loadedPotsYear !== year) return; // another year was opened meanwhile
+        this.pots = pots;
         this.potHistory = {};
       } catch (e) {
+        if (this.loadedPotsYear === year) this.loadedPotsYear = null; // the next visit of this year loads again
         this.globalError = e.message || 'Failed to load POT targets.';
       }
     },
@@ -781,18 +1250,19 @@ window.__cfgApp = Vue.createApp({
       const nextYear = this.pipelineYears.length
         ? Math.max(...this.pipelineYears.map(py => py.year)) + 1
         : new Date().getFullYear() + 1;
-      this.pyf = { show: true, year: nextYear, error: null, loading: false };
+      this.pyf = { show: true, year: String(nextYear), error: null, loading: false };
+      this.$nextTick(() => { const el = this.$refs.pyfInput; if (el) { el.focus(); el.select(); } });
     },
 
     async createPipelineYear() {
-      const year = parseInt(this.pyf.year);
+      const year = parseInt(String(this.pyf.year).trim(), 10);
       this.pyf.error = null;
       if (!year || year < 2000 || year > 2100) { this.pyf.error = 'Enter a valid year (2000–2100).'; return; }
       if (this.pipelineYears.find(py => py.year === year)) { this.pyf.error = `Pipeline ${year} already exists.`; return; }
       this.pyf.loading = true;
       try {
-        const created = await Api.pipelineYears.create(year);
-        this.pipelineYears.unshift({ ...created, _toggling: false, _loading: false });
+        const created = await Api.pipelineYears.create(year, false);
+        this.pipelineYears.push({ offers: 0, ...created, _toggling: false, _loading: false });
         this.pyf.show = false;
       } catch (e) {
         this.pyf.error = e.message || 'Failed to create.';
@@ -801,58 +1271,46 @@ window.__cfgApp = Vue.createApp({
       }
     },
 
-    async togglePipelineYear(py) {
+    async togglePipelineYear(py, ev) {
+      if (py._toggling) { if (ev) ev.target.checked = py.active; return; }
       py._toggling = true;
       try {
         const updated = await Api.pipelineYears.toggle(py.id, !py.active);
         py.active = updated.active;
-        if (this.activePipeline?.id === py.id) this.activePipeline = { ...this.activePipeline, active: updated.active };
       } catch (e) {
         this.globalError = e.message || 'Failed to update pipeline year.';
       } finally {
         py._toggling = false;
+        if (ev) ev.target.checked = py.active;
       }
+    },
+
+    // Why a year cannot be deleted, '' when it can: the server only refuses a year with cost grid versions, so
+    // a year that still has POTs would leave them orphaned.
+    deleteBlock(py) {
+      if (py.offers > 0) return 'Not available: ' + py.offers + ' ' + (py.offers === 1 ? 'proposal uses' : 'proposals use') + ' this pipeline. Hide it instead.';
+      const pots = this.potCounts[py.year] || 0;
+      if (pots > 0) return 'Not available: this pipeline has ' + pots + ' ' + (pots === 1 ? 'POT' : 'POTs') + '. Hide it instead.';
+      return '';
     },
 
     async deletePipelineYear(py) {
-      if (!confirm(`Delete Pipeline ${py.year}?\n\nCost grid versions linked to this year will remain but the pipeline year entry will be removed.`)) return;
-      py._loading = true;
-      try {
-        await Api.pipelineYears.delete(py.id);
-        this.pipelineYears = this.pipelineYears.filter(p => p.id !== py.id);
-      } catch (e) {
-        this.globalError = e.message || 'Failed to delete pipeline year.';
-        py._loading = false;
-      }
-    },
-
-    selectPipeline(py) {
-      this.activePipeline  = py;
-      this.potsYear        = py.year;
-      this.pots            = [];
-      this.pipelineSummary = [];
-      this.potf.show       = false;
-      this.loadPots();
-      this.loadPipelineSummary();
-    },
-
-    backToPipelines() {
-      this.activePipeline        = null;
-      this.phasingYear           = null;
-      this.phasingData           = null;
-      this.phasingLoading        = false;
-      this.phasingError          = null;
-      this.phasingFilterStages   = [];
-      this.phasingFilterClient   = '';
-      this.projectPhasingYear    = null;
-      this.projectPhasingData    = null;
-      this.projectPhasingLoading = false;
-      this.projectPhasingError   = null;
-      this.ppFilterStages        = [];
-      this.ppFilterClient        = '';
-      this.pots                  = [];
-      this.pipelineSummary       = [];
-      this.potf.show             = false;
+      if (this.deleteBlock(py)) return;
+      showConfirm(
+        `Delete Pipeline ${py.year}? Cost grid versions linked to this year stay; the pipeline entry is removed.`,
+        async () => {
+          py._loading = true;
+          try {
+            await Api.pipelineYears.delete(py.id);
+            this.pipelineYears = this.pipelineYears.filter(p => p.id !== py.id);
+          } catch (e) {
+            this.globalError = e.message || 'Failed to delete pipeline year.';
+            py._loading = false;
+          }
+        },
+        null,
+        'Delete pipeline',
+      );
     },
 
     openPotForm(pot) {
@@ -872,7 +1330,7 @@ window.__cfgApp = Vue.createApp({
         this.potf = {
           show: true, id: null,
           targetType: 'client', targetId: '',
-          targetLabel: '', year: this.activePipeline?.year || this.potsYear,
+          targetLabel: '', year: this.year || this.potsYear,
           amountText: '', stored: null, note: '', error: null, loading: false,
         };
       }
@@ -887,7 +1345,7 @@ window.__cfgApp = Vue.createApp({
     onPotAmountBlur() {
       const v = window.readMoneyInput(this.potf.amountText, 'EUR', window.__currencies, { stored: this.potf.stored });
       if (typeof v !== 'number' || Number.isNaN(v)) return;
-      this.potf.amountText = window.formatMoney(v, 'EUR', window.__currencies);
+      this.potf.amountText = window.formatMoney(v, 'EUR', window.__currencies, { symbol: false }); // the input carries its own symbol span
     },
 
     async savePot() {
@@ -905,8 +1363,7 @@ window.__cfgApp = Vue.createApp({
           const updated = await Api.pots.update(this.potf.id, amount, this.potf.note.trim());
           const p = this.pots.find(p => p.id === this.potf.id);
           if (p) { p.amount = updated.amount; p.achieved_total = p.achieved_total || 0; }
-          // Clear cached history for this pot so it reloads fresh next time
-          delete this.potHistory[this.potf.id];
+          this.invalidatePotDetails(this.potf.id);
         } else {
           if (!this.potf.targetId) { this.potf.error = 'Select a target.'; this.potf.loading = false; return; }
           const specialLabels = { '__unassigned__': 'Unassigned / To be Identified', '__newbiz__': 'New Biz' };
@@ -920,8 +1377,9 @@ window.__cfgApp = Vue.createApp({
           }
           await Api.pots.create(body);
           // Re-fetch the list to get denormalized names
-          this.pots = await Api.pots.list(this.activePipeline?.year || this.potsYear);
+          this.pots = await Api.pots.list(this.year || this.potsYear);
         }
+        this.refreshYearData();
         this.potf.show = false;
       } catch (e) {
         this.potf.error = e.message || 'Save failed.';
@@ -931,183 +1389,121 @@ window.__cfgApp = Vue.createApp({
     },
 
     async deletePot(pot) {
-      if (!confirm(`Delete POT target for "${pot.special_label || pot.client_group_name || pot.client_name}" (${pot.year})?\n\nThis cannot be undone.`)) return;
-      pot._loading = true;
+      showConfirm(
+        `Delete POT target for "${pot.special_label || pot.client_group_name || pot.client_name}" (${pot.year})? This cannot be undone.`,
+        async () => {
+          pot._loading = true;
+          try {
+            await Api.pots.delete(pot.id);
+            this.pots = this.pots.filter(p => p.id !== pot.id);
+            if (this.potId === pot.id) this.go({ year: this.year }, { replace: true });
+            this.refreshYearData();
+            this.invalidatePotDetails(pot.id);
+          } catch (e) {
+            this.globalError = e.message || 'Delete failed.';
+            pot._loading = false;
+          }
+        },
+        null,
+        'Delete POT target',
+      );
+    },
+
+    loadYearData(year) {
+      this.loadedPotsYear = year; this.potsYear = year;
+      this.pots = []; this.pipelineSummary = []; this.potDetails = {}; // the drawer reads fresh totals with the table
+      this.loadPots();
+      this.loadPipelineSummary();
+    },
+
+    resetPhasing() {
+      this.phasing = { proposal: null, project: null };
+      this.phasingYearLoaded = null;
+      this.phFilter = { stages: [], clientId: '', potId: '' };
+    },
+
+    async ensurePhasing(mode) {
+      if (this.phasing[mode] && !this.phasing[mode].error) return; // a failed load is retried
+      this.phasing[mode] = { loading: true, error: null, data: null };
+      const entry = this.phasing[mode]; // the reactive proxy: writes through it re-render
       try {
-        await Api.pots.delete(pot.id);
-        this.pots = this.pots.filter(p => p.id !== pot.id);
-        delete this.potHistory[pot.id];
+        entry.data = mode === 'proposal' ? await Api.reporting.phasing(this.year) : await Api.reporting.projectPhasing(this.year);
       } catch (e) {
-        this.globalError = e.message || 'Delete failed.';
-        pot._loading = false;
+        entry.error = e.message || (mode === 'proposal' ? 'Failed to load phasing data.' : 'Failed to load project phasing data.');
+      } finally {
+        entry.loading = false;
       }
     },
 
-    async openPhasingView(py) {
-      this.phasingYear     = py;
-      this.phasingData     = null;
-      this.phasingLoading  = true;
-      this.phasingError    = null;
-      this.pipelineSummary = [];
-      const [summary, phasing] = await Promise.allSettled([
-        Api.pots.pipelineSummary(py.year),
-        Api.reporting.phasing(py.year),
-      ]);
-      this.pipelineSummary = summary.status === 'fulfilled' ? summary.value : [];
-      if (phasing.status === 'fulfilled') {
-        this.phasingData = phasing.value;
-      } else {
-        this.phasingError = phasing.reason?.message || 'Failed to load phasing data.';
-      }
-      this.phasingLoading = false;
+    toggleStage(st) {
+      const i = this.phFilter.stages.indexOf(st);
+      if (i >= 0) this.phFilter.stages.splice(i, 1); else this.phFilter.stages.push(st);
     },
+    clearPhFilter() { this.phFilter = { stages: [], clientId: '', potId: '' }; },
 
-    async openProjectPhasingView(py) {
-      this.projectPhasingYear    = py;
-      this.projectPhasingData    = null;
-      this.projectPhasingLoading = true;
-      this.projectPhasingError   = null;
-      try {
-        this.projectPhasingData = await Api.reporting.projectPhasing(py.year);
-      } catch (err) {
-        this.projectPhasingError = err.message || 'Failed to load project phasing data.';
-      }
-      this.projectPhasingLoading = false;
+    // Phasing cells: rounded without the symbol, the full amount in the tooltip.
+    money(v, code, rounded = false) {
+      return rounded
+        ? window.formatMoney(v, code, window.__currencies, { rounded: true, symbol: false })
+        : window.formatMoney(v, code, window.__currencies);
+    },
+    rowCur(r) { return window.rowCurrency(r); },
+    cellCode(r) { return this.phAmounts === 'eur' ? 'EUR' : window.rowCurrency(r); },
+    cellValue(r, month) {
+      const a = window.rowMonthAmount(r, month);
+      return this.phAmounts === 'eur' ? a / (Number(r.currencyRate) || 1) : a;
+    },
+    rowTotal(r) { return this.phMonths.reduce((s, m) => s + this.cellValue(r, m.key), 0); },
+    rowHasAmounts(r) { return this.phMonths.some(m => window.rowMonthAmount(r, m.key) > 0); },
+    rowHref(r) {
+      return this.phasingMode === 'proposal'
+        ? '/costgrid.html?cgId=' + encodeURIComponent(r.cgId) + '&verId=' + encodeURIComponent(r.versionId)
+        : '/portfolio.html?projectId=' + encodeURIComponent(r.projectId);
+    },
+    rowSub(r) {
+      const c = this.clients.find(x => x.id === r.clientId);
+      return this.phasingMode === 'proposal' ? [c && c.name, r.versionLabel].filter(Boolean).join(' · ') : (c ? c.name : '');
     },
 
     async loadPipelineSummary() {
       if (!this.activePipeline) return;
+      const year = this.activePipeline.year;
       try {
-        this.pipelineSummary = await Api.pots.pipelineSummary(this.activePipeline.year);
+        const summary = await Api.pots.pipelineSummary(year);
+        if (this.loadedPotsYear != null && this.loadedPotsYear !== year) return;
+        this.pipelineSummary = summary;
       } catch (e) {
+        if (this.loadedPotsYear != null && this.loadedPotsYear !== year) return; // another year was opened meanwhile
+        this.loadedPotsYear = null;
         this.pipelineSummary = [];
       }
     },
 
-    async openPotDetails(pot) {
-      const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('potDetailsModal'));
-      document.getElementById('potDetailsModalTitle').textContent =
-        pot.special_label || pot.client_group_name || pot.client_name || 'POT Details';
-      document.getElementById('potDetailsModalBody').innerHTML =
-        '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
-      modal.show();
-
+    async loadPotDetails(pot) {
+      if (this.potDetails[pot.id] && !this.potDetails[pot.id].error) return; // a failed load is retried
+      this.potDetails[pot.id] = { loading: true, error: null, data: null };
+      const entry = this.potDetails[pot.id]; // the reactive proxy: writes through it re-render
       try {
-        const d = await Api.pots.details(pot.id, this.activePipeline.year);
-        const anticipatedTotal = d.anticipated_total || 0;
-        const achievedTotal    = d.committed_total + anticipatedTotal;
-        const pctTot  = d.pot.amount > 0 ? Math.round(achievedTotal      / d.pot.amount * 100) : 0;
-        const pctC    = d.pot.amount > 0 ? Math.round(d.committed_total   / d.pot.amount * 100) : 0;
-        const pctA    = d.pot.amount > 0 ? Math.round(anticipatedTotal    / d.pot.amount * 100) : 0;
-        const histRows = d.history.length
-          ? d.history.map(h => `
-              <tr>
-                <td style="white-space:nowrap">${this.fmtDate(h.changed_at)}</td>
-                <td>${esc(h.changed_by_name || '—')}</td>
-                <td class="text-muted">${h.old_value != null ? window.formatMoney(h.old_value, 'EUR', window.__currencies) : '—'}</td>
-                <td class="text-muted px-1" style="font-size:1rem">→</td>
-                <td class="fw-semibold">${window.formatMoney(h.new_value, 'EUR', window.__currencies)}</td>
-                <td class="text-muted" style="max-width:220px">${esc(h.note || '—')}</td>
-              </tr>`).join('')
-          : '<tr><td colspan="6" class="text-muted">No history yet.</td></tr>';
-        const proposalRows = d.proposals.length
-          ? d.proposals.map(p => `
-              <tr>
-                <td>${esc(p.client_name || '—')}</td>
-                <td class="fw-semibold">${esc(p.proposal_name)}</td>
-                <td style="white-space:nowrap">${this.fmtDate(p.created_at)}</td>
-                <td>${esc(p.owner_name || '—')}</td>
-                <td><span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:600;background:var(--pipeline-${esc(p.pipeline).toLowerCase()}-bg);color:var(--pipeline-${esc(p.pipeline).toLowerCase()}-color)">${esc(p.pipeline)}</span></td>
-                <td class="text-end fw-semibold" style="white-space:nowrap">${p.currency && p.currency !== 'EUR'
-                  ? `${window.formatMoney(p.value_original, p.currency, window.__currencies)}<br><span style="font-size:.7rem;color:var(--text-muted)">(${window.formatMoney(p.value, 'EUR', window.__currencies)})</span>`
-                  : window.formatMoney(p.value, 'EUR', window.__currencies)}</td>
-                <td class="text-end" style="white-space:nowrap"><a href="/costgrid.html?cgId=${encodeURIComponent(p.cg_id)}&verId=${encodeURIComponent(p.version_id)}" target="_blank" style="font-size:.75rem">↗ Open</a></td>
-              </tr>`).join('')
-          : '<tr><td colspan="7" class="text-muted">No proposals for this target in this year.</td></tr>';
-
-        document.getElementById('potDetailsModalBody').innerHTML = `
-          <div class="mb-3">
-            <span class="badge" style="background:var(--indigo-50);color:var(--brand-navy);font-size:.8rem;padding:5px 14px">
-              ${d.pot.special_label ? 'General Target' : d.pot.client_group_id ? 'Group POT' : 'Client POT'}
-            </span>
-          </div>
-          <div class="row g-3">
-            <div class="col-3">
-              <div class="card mb-0" style="border-top:3px solid var(--text-muted);border-radius:10px">
-                <div class="card-body" style="padding:.9rem">
-                  <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:700;margin-bottom:4px">Target</div>
-                  <div style="font-size:1.3rem;font-weight:700;color:var(--text-primary)">${window.formatMoney(d.pot.amount, 'EUR', window.__currencies)}</div>
-                </div>
-              </div>
-            </div>
-            <div class="col-3">
-              <div class="card mb-0" style="border-top:3px solid var(--text-primary);border-radius:10px">
-                <div class="card-body" style="padding:.9rem">
-                  <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-primary);font-weight:700;margin-bottom:4px">Total (C+A)</div>
-                  <div style="font-size:1.3rem;font-weight:700;color:var(--text-primary)">${window.formatMoney(achievedTotal, 'EUR', window.__currencies)}</div>
-                  ${pctTot ? `<div style="font-size:.78rem;color:var(--text-muted)">${pctTot}% of target</div>` : ''}
-                </div>
-              </div>
-            </div>
-            <div class="col-3">
-              <div class="card mb-0" style="border-top:3px solid var(--pipeline-committed-color);border-radius:10px">
-                <div class="card-body" style="padding:.9rem">
-                  <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--pipeline-committed-color);font-weight:700;margin-bottom:4px">Committed</div>
-                  <div style="font-size:1.3rem;font-weight:700;color:var(--pipeline-committed-color)">${window.formatMoney(d.committed_total, 'EUR', window.__currencies)}</div>
-                  ${pctC ? `<div style="font-size:.78rem;color:var(--text-muted)">${pctC}% of target</div>` : ''}
-                </div>
-              </div>
-            </div>
-            <div class="col-3">
-              <div class="card mb-0" style="border-top:3px solid var(--pipeline-anticipated-color);border-radius:10px">
-                <div class="card-body" style="padding:.9rem">
-                  <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--pipeline-anticipated-color);font-weight:700;margin-bottom:4px">Anticipated</div>
-                  <div style="font-size:1.3rem;font-weight:700;color:var(--pipeline-anticipated-color)">${window.formatMoney(anticipatedTotal, 'EUR', window.__currencies)}</div>
-                  ${pctA ? `<div style="font-size:.78rem;color:var(--text-muted)">+${pctA}% potential</div>` : ''}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="mt-2 mb-4" style="font-size:.8rem;color:var(--text-muted)">Not in total · Expected ${window.formatMoney(d.expected_total || 0, 'EUR', window.__currencies)} · SIP ${window.formatMoney(d.sip_total || 0, 'EUR', window.__currencies)}</div>
-          <div class="mb-4">
-            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem">Change History</div>
-            <table class="table table-sm" style="font-size:.82rem">
-              <thead><tr><th>Date</th><th>By</th><th colspan="3">Change</th><th>Note</th></tr></thead>
-              <tbody>${histRows}</tbody>
-            </table>
-          </div>
-          <div>
-            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem">Proposals (${d.proposals.length})</div>
-            <table class="table table-sm" style="font-size:.82rem">
-              <thead><tr><th>Client</th><th>Proposal</th><th>Created</th><th>Owner</th><th>Stage</th><th class="text-end">Value</th><th></th></tr></thead>
-              <tbody>${proposalRows}</tbody>
-            </table>
-          </div>`;
+        entry.data = await Api.pots.details(pot.id, this.year);
       } catch (e) {
-        document.getElementById('potDetailsModalBody').innerHTML =
-          `<div class="alert alert-danger">Failed to load details: ${esc(e.message)}</div>`;
+        entry.error = e.message || 'Request failed.';
+      } finally {
+        entry.loading = false;
       }
     },
 
-    stageColor(pipeline) {
-      return { SIP: '#4285f4', Expected: '#e6a817', Anticipated: '#ef6c00', Committed: '#2e7d32', Canceled: '#757575', Draft: '#546e7a' }[pipeline] || '#6b7280';
-    },
+    closeDrawer() { return this.go({ year: this.year }); },
 
-    stageBg(pipeline) {
-      return { SIP: '#e8f0fe', Expected: '#fff8e1', Anticipated: '#fff3e0', Committed: '#e8f5e9', Canceled: '#f5f5f5', Draft: '#eceff1' }[pipeline] || '#f8f9fa';
-    },
-
-    fmtRate(n) {
-      return Number(n).toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    async editFromDrawer(pot) {
+      await this.go({ year: this.year });
+      this.openPotForm(pot);
     },
 
     fmtDate(iso) {
-      if (!iso) return '—';
-      try { return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
-      catch { return iso; }
+      return (iso && window.formatDayText(String(iso).slice(0, 10))) || '—';
     },
   },
-}).component('ph-icon', window.PhIcon).mount('#app');
+}).component('ph-icon', window.PhIcon).component('cg-select', window.CgSelect).mount('#app');
 </script>
 </body>
 </html>

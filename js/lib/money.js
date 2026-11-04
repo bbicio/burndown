@@ -30,14 +30,15 @@ export function currencyInfo(code, currencies) {
   };
 }
 
-export function formatMoney(amount, code, currencies, { rounded = false } = {}) {
+export function formatMoney(amount, code, currencies, { rounded = false, symbol = true } = {}) {
   const info = currencyInfo(code, currencies);
   const digits = rounded ? 0 : info.digits;
   const n = parseFloat(amount);
   // useGrouping 'always': some locales (it, es, pl, pt) skip the separator for 4-digit numbers by default;
   // amounts are always written with it (€ 1.234,50), in the separator of each currency's locale.
   const nf = numberFormat(info.locale, { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: 'always' });
-  return `${info.symbol} ${nf.format(Number.isFinite(n) ? n : 0)}`;
+  const text = nf.format(Number.isFinite(n) ? n : 0);
+  return symbol ? `${info.symbol} ${text}` : text;
 }
 
 // Text shown in a money <input> while it has focus: same number format the parser reads.
