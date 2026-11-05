@@ -20,7 +20,7 @@ Summary table leads with Client/Project/Project code (Bootstrap checkbox multi-s
 
 ## Profile processing entry point (Cycle 3d, 2026-09-28)
 
-A "Profile processing →" button in the page header links to the new `profile-jobs.html` console, with a badge showing `GET /api/profile-jobs`'s `queuedCount` (loaded once, fire-and-forget, via `loadProfileQueueCount()`; any failure is ignored and the badge just stays hidden). The badge is hidden when the queue is empty. Full narrative for the console itself: `docs/pages/profile-jobs.md`.
+Until the 2026-11-05 redesign (below), a "Profile processing →" button in the page header linked to the new `profile-jobs.html` console, with a badge showing `GET /api/profile-jobs`'s `queuedCount` (loaded once, fire-and-forget, via `loadProfileQueueCount()`; any failure is ignored and the badge just stays hidden). The badge is hidden when the queue is empty. Full narrative for the console itself: `docs/pages/profile-jobs.md`.
 
 ## Header unification (2026-10-16)
 

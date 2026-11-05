@@ -155,12 +155,6 @@ describe('Gate 3 round 2 fixes', () => {
   const html = read('timesheets.html');
   const method = (start, end) => html.slice(html.indexOf(start), html.indexOf(end));
 
-  it('Esc yields to a dropdown Bootstrap already handled (defaultPrevented), not to a .show it removed', () => {
-    const kd = method('onKeydown(e) {', 'closeView() {');
-    expect(kd).toContain('e.defaultPrevented');
-    expect(kd).not.toContain('.dropdown-menu.show');
-  });
-
   it('viewRows renders the modal before moving focus into it', () => {
     const v = method('async viewRows(r) {', 'async downloadXlsx(');
     expect(v.indexOf('this.modal = {')).toBeGreaterThan(-1);
@@ -173,5 +167,28 @@ describe('Gate 3 round 2 fixes', () => {
     expect(method('openSheet() {', 'closeSheet() {')).toContain('$nextTick');
     expect(method('closeSheet() {', 'onKeydown(e) {')).toContain('_sheetReturn');
     expect(method('onKeydown(e) {', 'closeView() {')).toContain('.ts-filter-set');
+  });
+});
+
+describe('Gate 3 round 3 fixes', () => {
+  const ts = read('timesheets.html');
+  const pj = read('profile-jobs.html');
+  const between = (h, a, b) => h.slice(h.indexOf(a), h.indexOf(b));
+
+  it('Esc yields only when a dropdown menu was really open, read in the capture phase before Bootstrap hides it', () => {
+    expect(ts).toMatch(/addEventListener\('keydown', [^\n]*_escForDropdown[^\n]*, true\)/);
+    const kd = between(ts, 'onKeydown(e) {', 'closeView() {');
+    expect(kd).toContain('this._escForDropdown');
+    expect(kd).not.toContain('e.defaultPrevented');
+  });
+
+  it('the phone Filters sheet closes when the viewport leaves the phone breakpoint', () => {
+    expect(ts).toMatch(/matchMedia\('\(max-width: 767\.98px\)'\)[\s\S]*closeSheet\(\)/);
+  });
+
+  it('the settings drawer shows the outcome of its own actions', () => {
+    const drawer = between(pj, '<aside class="pj-drawer"', '</aside>');
+    expect(drawer).toContain('actionError');
+    expect(drawer).toContain('actionInfo');
   });
 });

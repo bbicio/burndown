@@ -405,6 +405,11 @@
         <button type="button" class="pj-dr-close" title="Close" aria-label="Close" @click="closeDrawer"><ph-icon name="close" :size="16"></ph-icon></button>
       </div>
       <div class="pj-dr-body">
+        <!-- the page alerts sit under the scrim: the drawer repeats the outcome of its own actions -->
+        <div v-if="actionError" class="pj-alert is-warning" role="alert"><ph-icon name="warning" :size="15"></ph-icon><span>{{ actionError }}</span>
+          <button type="button" class="pj-alert-x" title="Dismiss" aria-label="Dismiss" @click="actionError = null"><ph-icon name="close" :size="12"></ph-icon></button></div>
+        <div v-if="actionInfo" class="pj-alert is-success" role="status"><ph-icon name="check" :size="15"></ph-icon><span>{{ actionInfo }}</span>
+          <button type="button" class="pj-alert-x" title="Dismiss" aria-label="Dismiss" @click="actionInfo = null"><ph-icon name="close" :size="12"></ph-icon></button></div>
         <div class="pj-dr-sec">
           <span class="pj-label">Schedule</span>
           <label class="md-switch"><input type="checkbox" role="switch" v-model="form.enabled" :disabled="!!busyAction">Scheduled processing {{ form.enabled ? 'on' : 'off' }}</label>

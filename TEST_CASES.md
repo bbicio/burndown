@@ -1020,7 +1020,7 @@ Third sub-cycle of the resource profile (`docs/api/profile-engine.md`, `docs/pag
 
 ## 23. Profile Jobs Console (2026-09-28, Cycle 3d)
 
-Admin-only console for the profile engine (`docs/pages/profile-jobs.md`, `docs/api/profile-engine.md`): see the queue, force a recalculation (all/one code/a full rebuild), pull a code out of the queue, tune the worker schedule, read recent run history. Hidden page, no menu entry, reached only via a "Profile processing →" button on `timesheets.html`. PJ-01 to PJ-13 are covered by `test-api.js`; the rest are the manual checklist (§8 of the design spec calls these non-deterministic). Pure logic (`nextRunInfo`, `shouldRecordRun`, `jobSettingsError`, `deriveProjectStatus`) is unit-tested with `node:test` (`job-schedule.test.js`); the frontend helpers (`filterJobProjects`, `sortJobProjects`, etc.) with vitest (`profile-jobs-ui.test.js`).
+Admin-only console for the profile engine (`docs/pages/profile-jobs.md`, `docs/api/profile-engine.md`): see the queue, force a recalculation (all/one code/a full rebuild), pull a code out of the queue, tune the worker schedule, read recent run history. Hidden page, no menu entry, reached only from the "Profile processing" item of the Timesheets sub-nav it shares with `timesheets.html`. PJ-01 to PJ-13 are covered by `test-api.js`; the rest are the manual checklist (§8 of the design spec calls these non-deterministic). Pure logic (`nextRunInfo`, `shouldRecordRun`, `jobSettingsError`, `deriveProjectStatus`) is unit-tested with `node:test` (`job-schedule.test.js`); the frontend helpers (`filterJobProjects`, `sortJobProjects`, etc.) with vitest (`profile-jobs-ui.test.js`).
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|

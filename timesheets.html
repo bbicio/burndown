@@ -474,7 +474,12 @@
         : (this.pipelineYears.length ? this.pipelineYears[0].year : 0);
       this.ready = true;
       this.loadProfileQueueCount();   // badge only: not awaited, never blocks the page
+      // Capture phase, before Bootstrap's handler hides the menu: was a dropdown really open for this Esc?
+      document.addEventListener('keydown', e => { this._escForDropdown = e.key === 'Escape' && !!document.querySelector('.dropdown-menu.show'); }, true);
       document.addEventListener('keydown', this.onKeydown);
+      // leaving the phone breakpoint turns the sheet back into the inline filters row
+      const phone = window.matchMedia('(max-width: 767.98px)');
+      phone.addEventListener('change', q => { if (!q.matches && this.sheetOpen) this.closeSheet(); });
     },
     methods: {
       // One GET /api/profile-jobs for the sub-nav badge; any failure hides it.
@@ -506,7 +511,7 @@
       onKeydown(e) {
         if (document.querySelector('.modal.show')) return;
         if (e.key === 'Escape') {
-          if (e.defaultPrevented) return;   // Bootstrap already closed the dropdown this Esc was for
+          if (this._escForDropdown) return;   // this Esc closed an open dropdown (Bootstrap handles it)
           if (this.modal.show) this.closeView();
           else if (this.sheetOpen) this.closeSheet();
           return;
