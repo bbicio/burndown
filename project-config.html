@@ -513,7 +513,7 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/status-rules.js?v=1"></script>
-<script type="module" src="js/lib/config-form-calc.js?v=6"></script>
+<script type="module" src="js/lib/config-form-calc.js?v=7"></script>
 <script type="module" src="js/lib/dates.js?v=4"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
@@ -1463,18 +1463,20 @@ Outside the project period, not distributed: ${fmtB(result.outsideBudget)} · ${
 
         const fmtB = n => window.formatMoney(Math.abs(n) || 0, this.project?.currency, window.__currencies);
         const fmtH = n => `${+(Math.round(Math.abs(n) + 'e1') + 'e-1')} h`;
-        const pastCount = result.pastMonths.length, futureCount = result.futureMonths.length;
+        const futureCount = result.futureMonths.length;
         const distTaskCount = tasks.filter(t => {
           const d = t.monthlyDistribution;
           return d && Math.abs(Object.values(d).reduce((s,v)=>s+v,0) - 100) < 0.5;
         }).length;
+        const distNote = distTaskCount > 0 ? `(${distTaskCount} task${distTaskCount>1?'s':''} use monthly distribution)` : '(even split)';
+        const overB = result.overBudget ? ` (over budget: ${fmtB(result.consumedBudget)} consumed of ${fmtB(result.soldBudget)} sold)` : '';
+        const overH = result.overHours ? ` (over hours: ${fmtH(result.consumedHours)} consumed of ${fmtH(result.soldHours)} sold)` : '';
 
         const message = `Phasing and planning grids will be fully overwritten:\n\n`
-          + `Past months (${pastCount}) — replaced with actual spend & hours from loaded XLS data\n`
-          + `Current & future months (${futureCount}) — distributed per task settings `
-          + (distTaskCount > 0 ? `(${distTaskCount} task${distTaskCount>1?'s':''} use monthly distribution)` : '(even split)') + `:\n`
-          + `  Remaining budget: ${fmtB(result.remainingBudget)}${result.remainingBudget < 0 ? ' (over budget)' : ''}\n`
-          + `  Remaining hours: ${fmtH(result.distributedRemainingHours)}${result.remainingHours < 0 ? ' (over hours)' : ''}`;
+          + `Months with actuals — replaced with actual spend & hours from loaded XLS data\n`
+          + `Current & future months (${futureCount}) — net remaining distributed per task settings ${distNote}:\n`
+          + `  Remaining budget: ${fmtB(result.remainingBudget)}${overB}\n`
+          + `  Remaining hours: ${fmtH(result.distributedRemainingHours)}${overH}`;
 
         if (await this.showConfirm(message)) {
           this.project.phasing = result.newPhasing;
