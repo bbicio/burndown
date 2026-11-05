@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><title>PDash — Master Data · Currencies</title><style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#F3F4F6}
+a{color:#0B1840}a:hover{color:#F0287A}
+input::placeholder{color:#9AA0AC}
+.pb-navitem{height:40px;padding:0 10px;display:flex;align-items:center;gap:10px;border-radius:8px;text-decoration:none}
+.pb-navitem span{color:rgba(255,255,255,.75);font-size:13px;font-weight:500}
+.pb-subitem{height:32px;padding:0 10px 0 14px;display:flex;align-items:center;gap:9px;border-radius:8px;text-decoration:none}
+.pb-subitem span{color:rgba(255,255,255,.58);font-size:12px}
+.pb-subitem.active{background:rgba(255,255,255,.1);box-shadow:inset 3px 0 0 #F0287A}
+.pb-subitem.active span{color:#fff;font-weight:600}
+.pb-sublabel{padding:10px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.38)}
+</style></helmet>
+<div style="width:1400px;height:760px;box-sizing:border-box;display:flex;background:#F3F4F6;overflow:hidden;position:relative">
+
+  <div style="width:220px;flex-shrink:0;background:#0B1840;display:flex;flex-direction:column;box-sizing:border-box">
+    <div style="height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 16px;border-bottom:3px solid #F0287A">
+      <span style="color:#FFFFFF;font-weight:700;font-size:22px;letter-spacing:-0.02em"><span style="color:#F0287A">P</span>Dash</span>
+      <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="rgba(255,255,255,.6)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+    </div>
+    <div style="padding:10px 8px 0;display:flex;flex-direction:column;gap:2px">
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12V8M8 12V4M14 12V6" stroke="rgba(255,255,255,.65)" stroke-width="1.6" stroke-linecap="round"></path></svg><span>Pipeline</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="2" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect></svg><span>Portfolio</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4" stroke-linecap="round"></path></svg><span>Planning</span></a>
+      <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+      <div class="pb-sublabel">Admin</div>
+      <a class="pb-subitem active" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.4" stroke="#fff" stroke-width="1.3"></circle><path d="M8 2v1.6M8 12.4V14M14 8h-1.6M3.6 8H2" stroke="#fff" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Master Data</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="9" rx="1.2" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></rect><path d="M2 4l1.6-2h8.8L14 4" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg><span>Timesheets</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.3" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></circle><path d="M3 14c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg><span>User Admin</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5.5" r="2" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></circle><circle cx="11" cy="6.5" r="1.6" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></circle><path d="M2 14c0-2.3 1.7-3.8 3.9-3.8 1.6 0 2.9.8 3.5 2M9.6 10.3c1.6 0 3 1.1 3 3" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Team</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5L14 8.5 7.5 15 2 9.5V2Z" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Attribute Lists</span></a>
+      <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+      <div class="pb-sublabel">Sysadmin</div>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><ellipse cx="8" cy="3.5" rx="5.2" ry="1.8" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></ellipse><path d="M2.8 3.5v9c0 1 2.3 1.8 5.2 1.8s5.2-.8 5.2-1.8v-9" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></path></svg><span>DB Reset</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 2h5.5L13 5.5V14H4V2Z" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Terms &amp; Conditions</span></a>
+    </div>
+    <div style="flex:1"></div>
+    <div style="border-top:1px solid rgba(255,255,255,.12);padding:12px 12px 14px;display:flex;align-items:center;gap:10px">
+      <div style="width:26px;height:26px;border-radius:999px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:700;flex-shrink:0">AP</div>
+      <span style="color:#fff;font-size:12px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">bbicio@gmail.com</span>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <div style="flex-shrink:0;height:44px;box-sizing:border-box;background:#FFFFFF;border-bottom:1px solid #DDE1E8;padding:0 24px;display:flex;align-items:center">
+      <div style="font-size:12px;color:#6B7280;display:flex;align-items:center;gap:6px">Home <span style="color:#C7CCD9">/</span> Master Data <span style="color:#C7CCD9">/</span> <span style="color:#374151;font-weight:600">Currencies</span></div>
+    </div>
+
+    <div style="flex-shrink:0;padding:16px 24px 0">
+      <div style="font-size:26px;font-weight:700;color:#0B1840">Master Data</div>
+      <div style="font-size:12.5px;color:#6B7280;margin-top:2px">Clients, programs, roles and rates used across the app.</div>
+    </div>
+
+    <div style="flex:1;min-height:0;display:flex;gap:20px;padding:16px 24px 24px">
+      <div style="width:196px;flex-shrink:0;background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:6px 6px 10px;align-self:flex-start;display:flex;flex-direction:column">
+        <sc-for list="{{ subnav }}" as="g" hint-placeholder-count="2">
+          <span style="padding:12px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">{{ g.label }}</span>
+          <sc-for list="{{ g.items }}" as="i">
+            <div style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;cursor:pointer;background:{{ i.bg }};box-shadow:{{ i.bar }}" style-hover="background:#F3F4F6">
+              <span style="flex:1;font-size:12.5px;font-weight:{{ i.w }};color:{{ i.c }}">{{ i.label }}</span>
+              <span style="font-size:11px;color:#9AA0AC">{{ i.count }}</span>
+            </div>
+          </sc-for>
+        </sc-for>
+      </div>
+
+      <div style="flex:1;min-width:0;overflow:auto;display:flex;flex-direction:column;gap:12px">
+        <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #EEF0F4">
+            <div style="display:flex;flex-direction:column;gap:2px;flex:1"><span style="font-size:15px;font-weight:700;color:#0B1840">Currencies</span><span style="font-size:12px;color:#6B7280">Active currencies can be used in proposals and rate cards. EUR is the base currency.</span></div>
+            <div onClick="{{ startAdd }}" style="display:flex;align-items:center;height:32px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer" style-hover="background:#1a2a5e">+ Activate currency</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;margin:12px 18px 0;padding:9px 12px;border-radius:8px;background:#F7F8FA;font-size:12px;color:#374151;line-height:1.5">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.4" style="flex-shrink:0;margin-top:2px"><circle cx="8" cy="8" r="6"></circle><path d="M8 7.2V11M8 5v.2" stroke-linecap="round"></path></svg>
+            <span>A new rate applies to proposal versions created from now on. Existing versions keep the rate saved when they were created.</span>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(170px,1fr) 190px 136px 126px 76px 100px;gap:10px;padding:14px 18px 8px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">
+            <span>Currency</span><span>Rate · 1 EUR =</span><span>Inverse</span><span>Last updated</span><span style="text-align:right">Used in</span><span></span>
+          </div>
+          <sc-if value="{{ adding }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:minmax(170px,1fr) 190px 136px 126px 76px 100px;gap:10px;padding:10px 18px;align-items:center;background:#F7F8FA;border-top:1px solid #EEF0F4;position:relative">
+              <div style="position:relative">
+                <div onClick="{{ togglePick }}" style="height:34px;box-sizing:border-box;border:1px solid #F0287A;box-shadow:0 0 0 3px rgba(240,40,122,.15);border-radius:8px;background:#fff;padding:0 10px;display:flex;align-items:center;gap:8px;font-size:12.5px;color:{{ pickC }};cursor:pointer"><span style="flex:1">{{ pickLabel }}</span><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg></div>
+                <sc-if value="{{ pickOpen }}">
+                  <div style="position:absolute;top:40px;left:0;z-index:10;width:320px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;box-shadow:0 10px 28px rgba(11,24,64,.16);padding:6px;display:flex;flex-direction:column">
+                    <div style="display:flex;align-items:center;gap:8px;height:32px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;margin-bottom:4px"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg><input value="{{ pq }}" onChange="{{ onPq }}" placeholder="Search code or name…" style="flex:1;min-width:0;border:0;outline:none;font-size:12.5px;font-family:inherit;background:transparent"></div>
+                    <div style="max-height:240px;overflow:auto;display:flex;flex-direction:column">
+                      <sc-for list="{{ avail }}" as="o"><div onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px;cursor:pointer" style-hover="background:#F3F4F6"><span style="width:36px;font-size:12px;font-weight:700;color:#0B1840">{{ o.code }}</span><span style="flex:1;font-size:12.5px;color:#374151">{{ o.name }}</span><span style="font-size:12px;color:#9AA0AC">{{ o.sym }}</span></div></sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:34px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;background:#fff;display:flex;align-items:center;padding:0 10px;gap:6px"><input value="{{ newRate }}" onChange="{{ onNewRate }}" placeholder="e.g. 1,6500" style="flex:1;min-width:0;border:0;outline:none;font-size:13px;font-weight:700;font-family:inherit;background:transparent;color:#0B1840"><span style="font-size:12px;color:#9AA0AC">{{ newSym }}</span></div></div>
+              <span style="font-size:12px;color:#6B7280">{{ newInv }}</span>
+              <span style="font-size:11.5px;color:#9AA0AC;grid-column:span 2">Starts the rate history.</span>
+              <div style="display:flex;gap:8px;justify-content:flex-end"><span onClick="{{ cancelAdd }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:7px 4px">Cancel</span><span onClick="{{ activate }}" style="font-size:12.5px;font-weight:600;color:#fff;background:{{ actBg }};border-radius:8px;padding:7px 12px;cursor:pointer">Activate</span></div>
+            </div>
+          </sc-if>
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:minmax(170px,1fr) 190px 136px 126px 76px 100px;gap:10px;padding:0 18px;min-height:58px;align-items:center;border-top:1px solid #F0F1F4;background:{{ r.bg }}" style-hover="background:#FAFBFC">
+              <div style="display:flex;align-items:center;gap:12px;min-width:0">
+                <div style="width:34px;height:34px;border-radius:9px;background:{{ r.symBg }};color:#0B1840;font-size:{{ r.symFs }};font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ r.sym }}</div>
+                <div style="display:flex;flex-direction:column;gap:1px;min-width:0"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:13.5px;font-weight:700;color:#0B1840">{{ r.code }}</span><sc-if value="{{ r.isBase }}"><span style="font-size:10px;font-weight:700;border-radius:999px;padding:1px 7px;background:#0B1840;color:#fff">Base</span></sc-if></div><span style="font-size:12px;color:#6B7280">{{ r.name }}</span></div>
+              </div>
+              <sc-if value="{{ r.isBase }}"><span style="font-size:12.5px;color:#6B7280">Fixed · 1,0000</span></sc-if>
+              <sc-if value="{{ r.view }}">
+                <div onClick="{{ r.edit }}" title="Edit rate" style="display:flex;align-items:center;gap:8px;cursor:pointer;align-self:center;padding:5px 8px;margin-left:-8px;border-radius:7px" style-hover="background:#F3F4F6"><span style="font-size:14px;font-weight:700;color:#0B1840">{{ r.rate }}</span><span style="font-size:12px;color:#9AA0AC">{{ r.sym }}</span><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#9AA0AC" stroke-width="1.4" stroke-linejoin="round"><path d="M10.5 2.5l3 3L6 13H3v-3l7.5-7.5z"></path></svg><sc-if value="{{ r.hasDelta }}"><span style="font-size:10.5px;font-weight:700;color:{{ r.deltaC }}">{{ r.delta }}</span></sc-if></div>
+              </sc-if>
+              <sc-if value="{{ r.editing }}">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <div style="width:110px;height:32px;box-sizing:border-box;border:1px solid #F0287A;box-shadow:0 0 0 3px rgba(240,40,122,.15);border-radius:7px;background:#fff;display:flex;align-items:center;padding:0 8px;gap:4px"><input value="{{ r.draft }}" onChange="{{ r.onDraft }}" style="flex:1;min-width:0;width:100%;border:0;outline:none;font-size:13px;font-weight:700;font-family:inherit;background:transparent;color:#0B1840"><span style="font-size:11px;color:#9AA0AC">{{ r.sym }}</span></div>
+                  <span onClick="{{ r.save }}" style="font-size:12px;font-weight:600;color:#fff;background:#0B1840;border-radius:7px;padding:6px 10px;cursor:pointer">Save</span>
+                  <span onClick="{{ r.cancel }}" style="font-size:12px;font-weight:600;color:#6B7280;cursor:pointer">Cancel</span>
+                </div>
+              </sc-if>
+              <span style="font-size:12px;color:#6B7280">{{ r.inv }}</span>
+              <div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:12.5px;color:#374151">{{ r.upd }}</span><span style="font-size:11px;color:#9AA0AC">{{ r.by }}</span></div>
+              <span style="font-size:12.5px;color:#374151;text-align:right">{{ r.used }}</span>
+              <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;position:relative">
+                <sc-if value="{{ r.notBase }}">
+                  <span onClick="{{ r.history }}" style="font-size:12px;font-weight:600;color:#0B1840;cursor:pointer;padding:6px 8px" style-hover="color:#F0287A">History</span>
+                  <div onClick="{{ r.toggleMenu }}" title="More" style="width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer" style-hover="background:#F3F4F6;color:#0B1840"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg></div>
+                  <sc-if value="{{ r.menuOpen }}">
+                    <div onClick="{{ r.toggleMenu }}" style="position:fixed;inset:0;z-index:9"></div>
+                    <div style="position:absolute;top:36px;right:0;z-index:10;width:260px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;box-shadow:0 10px 28px rgba(11,24,64,.16);padding:4px">
+                      <div style="display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:7px;cursor:{{ r.deCur }}"><span style="font-size:12.5px;font-weight:600;color:{{ r.deC }}">Deactivate</span><span style="font-size:11px;color:#9AA0AC;line-height:1.4">{{ r.deHint }}</span></div>
+                    </div>
+                  </sc-if>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+  <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDrawer }}" style="position:absolute;inset:0;background:rgba(11,24,64,.28);z-index:40"></div>
+    <div style="position:absolute;top:0;right:0;bottom:0;width:560px;background:#fff;z-index:41;box-shadow:-12px 0 32px rgba(11,24,64,.18);display:flex;flex-direction:column">
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:18px 20px 14px;border-bottom:1px solid #EEF0F4">
+        <div style="flex:1;display:flex;flex-direction:column;gap:4px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Rate history</span><span style="font-size:19px;font-weight:700;color:#0B1840">{{ d.title }}</span><span style="font-size:12px;color:#6B7280">{{ d.sub }}</span></div>
+        <div onClick="{{ closeDrawer }}" title="Close" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer" style-hover="background:#F3F4F6"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div>
+      </div>
+      <div style="flex:1;overflow:auto;padding:16px 20px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:13px;color:#6B7280">1 EUR =</span><span style="font-size:24px;font-weight:700;color:#0B1840">{{ d.rate }}</span><span style="font-size:13px;color:#6B7280">{{ d.sym }} · current</span></div>
+        <div style="background:#F7F8FA;border-radius:10px;padding:12px 12px 8px">
+          <svg viewBox="0 0 400 90" preserveAspectRatio="none" style="width:100%;height:90px;display:block;overflow:visible"><polyline points="{{ d.pts }}" fill="none" stroke="#0B1840" stroke-width="2" vector-effect="non-scaling-stroke"></polyline></svg>
+          <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#9AA0AC;padding-top:4px"><span>{{ d.first }}</span><span>{{ d.last }}</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column">
+          <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC;padding-bottom:6px">Changes · {{ d.n }}</span>
+          <sc-for list="{{ d.items }}" as="h">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #F0F1F4">
+              <div style="width:8px;height:8px;border-radius:999px;background:{{ h.dot }};flex-shrink:0"></div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:1px"><span style="font-size:12.5px;color:#374151">{{ h.date }}</span><span style="font-size:11px;color:#9AA0AC">{{ h.by }}</span></div>
+              <span style="font-size:11px;font-weight:700;color:{{ h.dC }}">{{ h.delta }}</span>
+              <span style="font-size:13px;font-weight:700;color:#0B1840;width:72px;text-align:right">{{ h.rate }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:760},&quot;adding&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;history&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const ALL = [['AUD','Australian Dollar','A$'],['BRL','Brazilian Real','R$'],['BGN','Bulgarian Lev','лв'],['CAD','Canadian Dollar','C$'],['CNY','Chinese Yuan','¥'],['CZK','Czech Koruna','Kč'],['DKK','Danish Krone','kr'],['HUF','Hungarian Forint','Ft'],['INR','Indian Rupee','₹'],['JPY','Japanese Yen','¥'],['NOK','Norwegian Krone','kr'],['PLN','Polish Zloty','zł'],['RON','Romanian Leu','lei'],['SGD','Singapore Dollar','S$'],['SEK','Swedish Krona','kr'],['AED','UAE Dirham','د.إ']];
+const HIST = {
+  GBP: [['Oct 3, 2026, 09:12', 0.80], ['Apr 2, 2026, 10:05', 0.86], ['Jan 8, 2026, 11:40', 0.85]],
+  CHF: [['Oct 3, 2026, 09:13', 0.93], ['Jan 8, 2026, 11:41', 0.94]],
+  USD: [['Jun 26, 2026, 19:29', 1.30], ['Jun 26, 2026, 18:37', 1.20], ['Jun 26, 2026, 18:23', 1.20], ['Jun 26, 2026, 18:23', 1.30], ['Jun 26, 2026, 18:23', 1.20], ['Jan 8, 2026, 11:42', 1.09]]
+};
+const USED = { EUR: 31, GBP: 1, CHF: 0, USD: 2 };
+const n4 = v => v.toLocaleString('it-IT', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+const parse = s => Number(String(s).replace(/\./g, '').replace(',', '.'));
+class Component extends DCLogic {
+  state = {};
+  renderVals() {
+    const S = this.state, P = this.props;
+    const base = [['EUR', 'Euro', '€'], ['GBP', 'British Pound', '£'], ['CHF', 'Swiss Franc', 'CHF'], ['USD', 'US Dollar', '$']];
+    const extra = S.extra ?? [];
+    const hist = S.hist ?? HIST;
+    const editId = S.editId ?? null, menu = S.menu ?? null;
+    const drawerId = S.drawerId !== undefined ? S.drawerId : (P.history ? 'USD' : null);
+    const act = [...base, ...extra];
+    const rows = act.map(([code, name, sym]) => {
+      const isBase = code === 'EUR', h = hist[code] || [], cur = isBase ? 1 : h[0][1], prev = h[1] ? h[1][1] : null, ed = editId === code;
+      const dp = prev ? (cur - prev) / prev * 100 : 0;
+      const used = USED[code] ?? 0;
+      return { code, name, sym, isBase, notBase: !isBase, view: !isBase && !ed, editing: ed, symBg: isBase ? '#E6F4EC' : '#EEF0F4', symFs: sym.length > 2 ? '10.5px' : '15px', bg: '#fff',
+        rate: n4(cur), inv: isBase ? '—' : '1 ' + code + ' = € ' + n4(1 / cur), hasDelta: !!prev && Math.abs(dp) > 0.01, delta: (dp > 0 ? '▲ ' : '▼ ') + Math.abs(dp).toFixed(1) + '%', deltaC: '#6B7280',
+        upd: isBase ? '—' : h[0][0].split(',').slice(0, 2).join(','), by: isBase ? '' : 'Admin PDash', used: used ? used + ' proposals' : '—',
+        edit: () => this.setState({ editId: code, draft: n4(cur) }), draft: S.draft ?? '', onDraft: e => this.setState({ draft: e.target.value }), cancel: () => this.setState({ editId: null }),
+        save: () => { const v = parse(S.draft); if (!(v > 0)) return; this.setState({ hist: { ...hist, [code]: [['Oct 5, 2026, 10:15', v], ...h] }, editId: null }); },
+        history: () => this.setState({ drawerId: code }), menuOpen: menu === code, toggleMenu: () => this.setState({ menu: menu === code ? null : code }),
+        deC: used ? '#C9CDD3' : '#B42318', deCur: used ? 'not-allowed' : 'pointer', deHint: used ? 'Not available: used by ' + used + ' proposal' + (used > 1 ? 's' : '') + '.' : 'Hide it from new proposals and rate cards. History is kept.' };
+    });
+    const adding = S.adding ?? !!P.adding, pickOpen = S.pickOpen ?? !!P.adding, pq = (S.pq ?? '').toLowerCase();
+    const sel = S.sel ?? null, selC = ALL.find(a => a[0] === sel);
+    const nr = parse(S.newRate ?? '');
+    const avail = ALL.filter(a => !act.some(x => x[0] === a[0])).filter(a => !pq || (a[0] + a[1]).toLowerCase().includes(pq)).map(([code, name, sym]) => ({ code, name, sym, pick: () => this.setState({ sel: code, pickOpen: false }) }));
+    const dc = drawerId ? act.find(a => a[0] === drawerId) : null;
+    let d = {};
+    if (dc) {
+      const h = hist[dc[0]], vals = h.map(x => x[1]).reverse(), mn = Math.min(...vals), mx = Math.max(...vals), span = mx - mn || 1;
+      d = { title: dc[1] + ' (' + dc[0] + ')', sub: 'Every change is logged with date, time and user.', rate: n4(h[0][1]), sym: dc[2], n: h.length,
+        pts: vals.map((v, i) => (vals.length === 1 ? 200 : i / (vals.length - 1) * 400).toFixed(1) + ',' + (80 - (v - mn) / span * 70).toFixed(1)).join(' '),
+        first: h[h.length - 1][0].split(',').slice(0, 2).join(','), last: h[0][0].split(',').slice(0, 2).join(','),
+        items: h.map(([date, r], i) => { const p = h[i + 1] ? h[i + 1][1] : null, dl = p ? r - p : 0; return { date, by: i === h.length - 1 ? 'Admin PDash · activated' : 'Admin PDash', rate: n4(r), dot: i === 0 ? '#F0287A' : '#C9CDD3', delta: !p ? '' : dl === 0 ? 'no change' : (dl > 0 ? '+' : '−') + n4(Math.abs(dl)), dC: dl === 0 ? '#B4650C' : '#6B7280' }; }) };
+    }
+    return {
+      subnav: [{ label: 'Commercial', items: [['Clients & groups', 5], ['Pipelines & POTs', 3]] }, { label: 'Financial', items: [['Roles & rates', 58], ['Currencies', act.length]] }]
+        .map(g => ({ label: g.label, items: g.items.map(([label, count]) => { const on = label === 'Currencies'; return { label, count, bg: on ? '#F3F4F6' : 'transparent', bar: on ? 'inset 3px 0 0 #F0287A' : 'none', w: on ? 700 : 500, c: on ? '#0B1840' : '#374151' }; }) })),
+      rows, adding, startAdd: () => this.setState({ adding: true, pickOpen: true }), cancelAdd: () => this.setState({ adding: false, sel: null, newRate: '' }),
+      pickOpen, togglePick: () => this.setState({ pickOpen: !pickOpen }), pq: S.pq ?? '', onPq: e => this.setState({ pq: e.target.value }), avail,
+      pickLabel: selC ? selC[0] + ' — ' + selC[1] : 'Select currency…', pickC: selC ? '#0B1840' : '#9AA0AC',
+      newRate: S.newRate ?? '', onNewRate: e => this.setState({ newRate: e.target.value }), newSym: selC ? selC[2] : '',
+      newInv: selC && nr > 0 ? '1 ' + selC[0] + ' = € ' + n4(1 / nr) : '—', actBg: selC && nr > 0 ? '#0B1840' : '#C9CDD3',
+      activate: () => { if (!(selC && nr > 0)) return; this.setState({ extra: [...extra, selC], hist: { ...hist, [selC[0]]: [['Oct 5, 2026, 10:20', nr]] }, adding: false, sel: null, newRate: '' }); },
+      drawerOpen: !!dc, closeDrawer: () => this.setState({ drawerId: null }), d
+    };
+  }
+}
+</script>
+</body>
+</html>
