@@ -6,40 +6,66 @@
 
 const API_BASE = '/api';
 
+// Save overlay (PdOverlay, js/nav.js): shown when a write is still pending after this delay.
+const SAVE_OVERLAY_DELAY_MS = 400;
+let _pdWritesPending = 0;
+let _pdOverlayTimer = null;
+
+// A write is a POST/PUT/PATCH/DELETE not declared `background: true`.
+function _isOverlayWrite(options) {
+  const m = String((options && options.method) || 'GET').toUpperCase();
+  return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(m) && !(options && options.background === true);
+}
+
 async function apiFetch(path, options = {}) {
-  const isFormData = options.body instanceof FormData;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30000);
-  let res;
+  const { background, ...fetchOptions } = options;
+  const counted = _isOverlayWrite(options);
+  if (counted && ++_pdWritesPending === 1) {
+    clearTimeout(_pdOverlayTimer);
+    _pdOverlayTimer = setTimeout(() => {
+      if (_pdWritesPending > 0 && window.PdOverlay) window.PdOverlay.show();
+    }, SAVE_OVERLAY_DELAY_MS);
+  }
   try {
-    res = await fetch(API_BASE + path, {
-      ...options,
-      signal: controller.signal,
-      credentials: 'same-origin',
-      headers: isFormData ? undefined : { 'Content-Type': 'application/json', ...options.headers },
-    });
-  } catch (err) {
+    const isFormData = fetchOptions.body instanceof FormData;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30000);
+    let res;
+    try {
+      res = await fetch(API_BASE + path, {
+        ...fetchOptions,
+        signal: controller.signal,
+        credentials: 'same-origin',
+        headers: isFormData ? undefined : { 'Content-Type': 'application/json', ...fetchOptions.headers },
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      if (err.name === 'AbortError') throw new Error('Request timed out');
+      throw err;
+    }
     clearTimeout(timer);
-    if (err.name === 'AbortError') throw new Error('Request timed out');
-    throw err;
+    if (res.status === 401) {
+      window.__pdashAuthRedirecting = true;
+      window.location.href = '/login.html';
+      throw new Error('Unauthorized');
+    }
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : null;
+    if (!res.ok) {
+      const err = new Error((data && data.error) || `HTTP ${res.status}`);
+      // Full parsed error body, for the rare caller that needs more than the message
+      // string (e.g. a structured list) — additive only, existing callers reading
+      // just err.message are unaffected.
+      err.data = data;
+      throw err;
+    }
+    return data;
+  } finally {
+    if (counted && --_pdWritesPending === 0) {
+      clearTimeout(_pdOverlayTimer);
+      if (window.PdOverlay) window.PdOverlay.hide();
+    }
   }
-  clearTimeout(timer);
-  if (res.status === 401) {
-    window.__pdashAuthRedirecting = true;
-    window.location.href = '/login.html';
-    throw new Error('Unauthorized');
-  }
-  const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
-  if (!res.ok) {
-    const err = new Error((data && data.error) || `HTTP ${res.status}`);
-    // Full parsed error body, for the rare caller that needs more than the message
-    // string (e.g. a structured list) — additive only, existing callers reading
-    // just err.message are unaffected.
-    err.data = data;
-    throw err;
-  }
-  return data;
 }
 
 // ── API NAMESPACES ────────────────────────────────────────────────────────────
