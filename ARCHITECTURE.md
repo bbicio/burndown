@@ -983,7 +983,7 @@ burndown/
   program.html            ← Program Dashboard, no menu entry; adds js/lib/program-calc.js, chart-today.js, shares css/portfolio.css; no endpoint of its own. Detail: docs/pages/program.md
   planning.html           ← resource planning; the three views render the server model (POST /api/planning/model) through js/lib/planning-rows.js; own stylesheet css/planning.css, period pickers from js/cg-controls.js. Detail: docs/pages/planning.md
   costgrid.html           ← cost grid editor; own stylesheet css/costgrid.css and form controls from js/cg-controls.js. Detail: docs/pages/costgrid.md
-  timesheets.html         ← admin-only timesheet upload management. Detail: docs/pages/timesheets.md
+  timesheets.html         ← admin-only Actuals list (Timesheets section, sub-menu .md-subnav shared with profile-jobs.html); adds js/lib/timesheets-list.js. Detail: docs/pages/timesheets.md
   config.html             ← redirect stub (no shell, no Vue) to /master-clients.html
   master-clients.html, master-pipelines.html, master-roles.html, master-currencies.html
                           ← Master Data: four admin pages, one per functionality (Clients & groups, Pipelines & POTs, Roles & rates, Currencies), sharing a lateral sub-menu (.md-subnav). Detail: docs/pages/config.md
@@ -998,7 +998,7 @@ burndown/
   settings.html           ← Settings page, blank apart from the navigation, breadcrumb and title. Detail: docs/pages/settings.md
   team.html               ← resource registry CRUD, admin or sysadmin. Detail: docs/pages/team.md
   attribute-lists.html    ← generic tag/taxonomy admin console (lists + items, no physical delete); its items feed the Tags sections via js/tags.js. Detail: docs/pages/attribute-lists.md
-  profile-jobs.html       ← profile-engine job console, hidden (reached from timesheets.html). Detail: docs/pages/profile-jobs.md
+  profile-jobs.html       ← profile-engine job console, hidden (reached from the Timesheets sub-menu of timesheets.html); adds js/lib/profile-jobs-ui.js. Detail: docs/pages/profile-jobs.md
   test-cases.html         ← dev-only manual test checklist; fetches TEST_CASES.md and renders it via js/lib/test-cases-parse.js, which is why that file counts as code. Detail: docs/js/lib.md
   nginx.conf              ← denies dev-only toolchain artifacts even though it bind-mounts the repo root
   docker-compose.yml

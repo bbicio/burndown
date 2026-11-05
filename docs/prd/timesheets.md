@@ -36,15 +36,17 @@ Actuals are matched to projects and tasks to compute budget spent.
 
 Lists every project code that has uploaded timesheet data, for review and cleanup — separate from the upload action itself (§8.1-8.3), which happens from the Project Reporting view.
 
-- **Summary table**, one row per project code:
-  - **Client**, **Project**, **Project code** — the first 3 columns; Client/Project show "—" for a project code with no matching project record.
-  - **Uploads**, **Rows**, **Last uploaded** — as before.
-  - Filters: a checkbox multi-select for Client, a checkbox multi-select for Project (both combine with AND, and with each other), and a free-text substring filter for Project code.
-  - Sorting: clicking the Client, Project, or Project code header cycles ascending → descending → unsorted; the other columns aren't sortable.
+- **Header and sub-navigation** (2026-11-05): the page is titled **Timesheets**, and a side sub-menu (tabs on a tablet, a section selector on a phone) switches between **Actuals** (this page) and **Profile processing** (§16.10); the Profile processing item carries a yellow badge with the number of project codes waiting to be processed, hidden when none are.
+- **Actuals list**, one row per project code, **grouped by client** (alphabetical; project codes with no matching project record form a last group, **No client**). Each group header shows the number of codes and the total rows of the codes currently shown, and collapses or expands on click (not remembered between visits).
+  - Each row: **Project**, **Project code**, **Uploads**, **Rows**, **Last uploaded**.
+  - Filters: a checkbox multi-select for Client, a checkbox multi-select for Project (both combine with AND, and with each other), a free-text substring filter for Project code, and **Reset filters** when any filter is active. On a phone, Client, Project and Pipeline year move into a **Filters** panel that opens from the bottom.
+  - Sorting: clicking Client, Project, or Project code cycles ascending → descending → unsorted; Client reorders the client groups, Project and Project code sort the rows inside each group.
   - **Pipeline year** selector: defaults to the current calendar year if it's an active pipeline year, otherwise the most recently active year; an explicit "All years" option shows every project code regardless of year. A project code with no linked cost-grid version has no pipeline year and is only shown under "All years."
-- **View** (👁): opens a modal listing every uploaded row for that project code — Date, Owner, Role, Task, Hours, Notes, **Fee**, **Spent**. Fee is the hourly rate snapshotted at import time (§8.3); Spent is Fee × Hours. Both are formatted in the project's own currency.
-- **Download actuals** (⬇): downloads the same rows and columns as the View modal, as an Excel `.xlsx` workbook (not CSV), named `<Client>_<Project>_<ProjectCode>_<YYYYMMDD>.xlsx` (spaces in client/project names become `-`; characters not valid in a filename are dropped).
-- **Delete actuals** (🗑): removes every uploaded row for that project code, after a confirmation prompt naming the number of uploads/rows that will be deleted. Irreversible.
+  - An info note explains that a new upload replaces a code's data and points to **Load Actuals** in the Portfolio view for importing.
+- **View**: opens a large window listing every uploaded row for that project code — Date, Owner, Role, Task, Hours, Notes, **Fee**, **Spent**. Fee is the hourly rate snapshotted at import time (§8.3); Spent is Fee × Hours. Both are formatted in the project's own currency. Full screen on a phone.
+- **Download** (icon button, "Download actuals (.xlsx)"): downloads the same rows and columns as the View window, as an Excel `.xlsx` workbook (not CSV), named `<Client>_<Project>_<ProjectCode>_<YYYYMMDD>.xlsx` (spaces in client/project names become `-`; characters not valid in a filename are dropped). The button shows a spinner and is disabled while the file is being produced.
+- **Delete actuals** (in the row's **⋯** menu): removes every uploaded row for that project code and re-queues it for profile processing, after a confirmation naming the number of uploads/rows that will be deleted. Irreversible.
+- With nothing uploaded the page says so and points to Load Actuals; when the filters match nothing it says so with a **Reset filters** link.
 
 ---
 
