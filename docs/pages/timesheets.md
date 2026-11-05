@@ -24,7 +24,7 @@ Until the 2026-11-05 redesign (below), a "Profile processing →" button in the 
 
 ## Header unification (2026-10-16)
 
-Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. The former `.page-header` is now the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`), placed outside the `.page` wrapper so the breadcrumb and the band read as one block; `.page` keeps its own 2rem top margin. "Profile processing →" is a `.ph-btn` (without an icon); its own inline `.page-header` rule was removed.
+Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. The former `.page-header` is now the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`), placed outside the `.page` wrapper so the breadcrumb and the band read as one block; `.page` keeps its own 2rem top margin. Until the 2026-11-05 redesign, "Profile processing →" was a `.ph-btn` (without an icon); its own inline `.page-header` rule was removed.
 
 ## Redesign (2026-11-05)
 

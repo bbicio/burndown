@@ -511,7 +511,8 @@
       onKeydown(e) {
         if (document.querySelector('.modal.show')) return;
         if (e.key === 'Escape') {
-          if (this._escForDropdown) return;   // this Esc closed an open dropdown (Bootstrap handles it)
+          // Bootstrap closes a dropdown on Esc only when the event comes from its toggle or menu
+          if (this._escForDropdown && e.target.closest && e.target.closest('.dropdown-menu, [data-bs-toggle="dropdown"]')) return;
           if (this.modal.show) this.closeView();
           else if (this.sheetOpen) this.closeSheet();
           return;

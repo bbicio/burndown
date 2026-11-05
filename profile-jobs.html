@@ -659,6 +659,8 @@
       // ── Settings drawer ──
       openDrawer() {
         this._returnFocus = document.activeElement;
+        this.actionError = null;   // the drawer repeats only the outcome of what is done in it
+        this.actionInfo = null;
         this.drawerOpen = true;
         this.$nextTick(() => { const d = document.querySelector('.pj-drawer'); d && (d.querySelector('input:not([disabled])') || d.querySelector('button')).focus(); });
       },

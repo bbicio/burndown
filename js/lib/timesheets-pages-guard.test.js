@@ -192,3 +192,18 @@ describe('Gate 3 round 3 fixes', () => {
     expect(drawer).toContain('actionInfo');
   });
 });
+
+describe('Gate 3 round 4 fixes', () => {
+  it('Esc yields only to a dropdown the event is inside, as Bootstrap does', () => {
+    const ts = read('timesheets.html');
+    const kd = ts.slice(ts.indexOf('onKeydown(e) {'), ts.indexOf('closeView() {'));
+    expect(kd).toMatch(/this\._escForDropdown && [^\n]*e\.target\.closest\('\.dropdown-menu, \[data-bs-toggle="dropdown"\]'\)/);
+  });
+
+  it('opening the settings drawer clears page-action alerts', () => {
+    const pj = read('profile-jobs.html');
+    const open = pj.slice(pj.indexOf('openDrawer() {'), pj.indexOf('closeDrawer() {'));
+    expect(open).toContain('this.actionError = null');
+    expect(open).toContain('this.actionInfo = null');
+  });
+});
