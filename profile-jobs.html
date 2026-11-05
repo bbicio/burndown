@@ -288,7 +288,7 @@
         <span v-if="topicSettings.enabled && !topicSettings.keyConfigured" class="pj-nokey">(no API key configured)</span>
       </div>
       <div class="pj-actions">
-        <button type="button" class="pj-btn pj-settings-btn" title="Settings" aria-label="Settings" @click="openDrawer"><ph-icon name="sliders" :size="14"></ph-icon><span class="pj-settings-label">Settings</span></button>
+        <button type="button" class="pj-btn pj-settings-btn" title="Settings" aria-label="Settings" :disabled="!!busyAction" @click="openDrawer"><ph-icon name="sliders" :size="14"></ph-icon><span class="pj-settings-label">Settings</span></button>
         <button type="button" class="btn btn-primary pj-primary" :disabled="!!busyAction" @click="recalculateNow">
           <span v-if="busyAction === 'run'" class="spinner-border" role="status"></span><ph-icon v-else name="refresh" :size="13"></ph-icon>Recalculate now
         </button>

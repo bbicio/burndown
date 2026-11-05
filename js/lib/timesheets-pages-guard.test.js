@@ -207,3 +207,9 @@ describe('Gate 3 round 4 fixes', () => {
     expect(open).toContain('this.actionInfo = null');
   });
 });
+
+describe('Gate 3 round 5 fix', () => {
+  it('Settings cannot open the drawer while a page action runs', () => {
+    expect(read('profile-jobs.html')).toMatch(/<button[^>]*class="pj-btn pj-settings-btn"[^>]*:disabled="!!busyAction"/);
+  });
+});
