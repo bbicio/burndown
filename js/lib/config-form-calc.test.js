@@ -122,6 +122,23 @@ describe('reforecastDistribution', () => {
     expect(result.newPlanning['202602'] + result.newPlanning['202603']).toBeCloseTo(20, 5);
   });
 
+  it('characterization: no overrun, no distribution, no current-month rows', () => {
+    const tasks = [
+      { name: 'Dev', billable: true, startDate: '20260101', endDate: '20260430',
+        resources: [{ role: 'Developer', soldHours: 40, hourlyRate: 100 }] },
+      { name: 'QA', billable: true, startDate: '20260201', endDate: '20260430',
+        resources: [{ role: 'Tester', soldHours: 20, hourlyRate: 50 }] },
+    ];
+    const actualsRows = [
+      { task: 'Dev', role: 'Developer', date: '2026-01-10', hours: 10 },
+      { task: 'Dev', role: 'Developer', date: '2026-02-10', hours: 5 },
+      { task: 'QA', role: 'Tester', date: '2026-02-12', hours: 4 },
+    ];
+    const r = reforecastDistribution(tasks, ['202601', '202602', '202603', '202604'], actualsRows, '202603');
+    expect(r.newPhasing).toEqual({ '202601': 1000, '202602': 700, '202603': 1650, '202604': 1650 });
+    expect(r.newPlanning).toEqual({ '202601': 10, '202602': 9, '202603': 20.5, '202604': 20.5 });
+  });
+
   it('rounds past months too, to digits', () => {
     const tasks = [{
       name: 'Dev', billable: true,
@@ -137,31 +154,202 @@ describe('reforecastDistribution', () => {
     Object.values(zero).forEach(v => expect(Number.isInteger(v)).toBe(true));
   });
 
-  it('caps past actuals at sold hours/budget when actuals exceed sold', () => {
-    const tasks = [{
-      name: 'Dev', billable: true,
-      startDate: '20260101', endDate: '20260131',
-      resources: [{ role: 'Developer', soldHours: 5, hourlyRate: 100 }],
-    }];
-    const actualsRows = [{ task: 'Dev', role: 'Developer', date: '2026-01-15', hours: 20 }];
-    const result = reforecastDistribution(tasks, ['202601'], actualsRows, '202602');
-    // Actuals (20h) exceed sold (5h) — scaled down to exactly 5h / €500, not 20h / €2000.
-    expect(result.newPlanning['202601']).toBeCloseTo(5, 5);
-    expect(result.newPhasing['202601']).toBeCloseTo(500, 5);
+  const row = (task, role, ym, hours) => ({ task, role, date: `${ym.slice(0, 4)}-${ym.slice(4, 6)}-15`, hours });
+  const dev = (soldHours, startDate, endDate, extra = {}) => ({
+    name: 'Dev', billable: true, startDate, endDate,
+    resources: [{ role: 'Developer', soldHours, hourlyRate: extra.rate ?? 100 }], ...extra.task,
   });
 
-  it('returns a distError when carry-forward pushes a monthlyDistribution month above 100%', () => {
-    const tasks = [{
-      name: 'Dev', billable: true,
-      startDate: '20260101', endDate: '20260331',
-      monthlyDistribution: { '202601': 10, '202602': 95, '202603': -5 },
-      resources: [{ role: 'Developer', soldHours: 100, hourlyRate: 10 }],
-    }];
-    // Zero actuals in Jan (past) — full 10% carries forward as positive delta.
-    // adjustedPct for Feb (first future month) = 95 + 10 = 105 > 100.5.
-    const actualsRows = [];
-    const result = reforecastDistribution(tasks, ['202601', '202602', '202603'], actualsRows, '202602');
-    expect(result.distError).toContain('Dev');
+  it('writes true actuals for an overrun task', () => {
+    const tasks = [dev(5, '20260101', '20260131')];
+    const result = reforecastDistribution(tasks, ['202601'], [row('Dev', 'Developer', '202601', 20)], '202602');
+    expect(result.newPlanning['202601']).toBe(20);
+    expect(result.newPhasing['202601']).toBe(2000);
+    expect(result.overBudget).toBe(true);
+    expect(result.remainingBudget).toBe(0);
+  });
+
+  it('distributes the share by the open-month percentages', () => {
+    const tasks = [dev(100, '20260101', '20260331', { rate: 10, task: { monthlyDistribution: { '202601': 20, '202602': 30, '202603': 50 } } })];
+    const result = reforecastDistribution(tasks, ['202601', '202602', '202603'], [row('Dev', 'Developer', '202601', 10)], '202602');
+    expect(result.distError).toBeNull();
+    expect(result.newPhasing).toEqual({ '202601': 100, '202602': 337.5, '202603': 562.5 });
+    expect(result.newPlanning['202602'] + result.newPlanning['202603']).toBeCloseTo(90, 5);
+  });
+
+  it("nets an overrun against another task's margin", () => {
+    const tasks = [
+      dev(10, '20260101', '20260331'),
+      { name: 'QA', billable: true, startDate: '20260101', endDate: '20260331', resources: [{ role: 'Tester', soldHours: 20, hourlyRate: 50 }] },
+    ];
+    const rows = [row('Dev', 'Developer', '202601', 15), row('QA', 'Tester', '202602', 4)];
+    const result = reforecastDistribution(tasks, ['202601', '202602', '202603'], rows, '202603');
+    expect(result.newPhasing).toEqual({ '202601': 1500, '202602': 200, '202603': 300 });
+    expect(result.newPlanning['202603']).toBe(11);
+    expect(result.remainingBudget).toBe(300);
+    expect(result.remainingHours).toBe(11);
+  });
+
+  it("splits the net remaining in proportion to each task's margin", () => {
+    const t = (name, soldHours, endDate) => ({ name, billable: true, startDate: '20260101', endDate, resources: [{ role: 'Developer', soldHours, hourlyRate: 100 }] });
+    const tasks = [t('A', 40, '20260228'), t('B', 20, '20260331'), t('C', 10, '20260131')];
+    const rows = [row('A', 'Developer', '202601', 10), row('B', 'Developer', '202601', 10), row('C', 'Developer', '202601', 20)];
+    const result = reforecastDistribution(tasks, ['202601', '202602', '202603'], rows, '202602');
+    expect(result.newPhasing['202602']).toBe(2625);
+    expect(result.newPhasing['202603']).toBe(375);
+    expect(result.newPlanning['202602']).toBe(26.25);
+    expect(result.newPlanning['202603']).toBe(3.75);
+  });
+
+  it('project overrun leaves open months empty', () => {
+    const tasks = [dev(10, '20260101', '20260228')];
+    const result = reforecastDistribution(tasks, ['202601', '202602'], [row('Dev', 'Developer', '202601', 15)], '202602');
+    expect(result.newPhasing).toEqual({ '202601': 1500 });
+    expect(result.overBudget).toBe(true);
+    expect(result.overHours).toBe(true);
+    expect(result.consumedBudget).toBe(1500);
+    expect(result.soldBudget).toBe(1000);
+    expect(result.remainingBudget).toBe(0);
+  });
+
+  it('counts current-month actuals in their month', () => {
+    const tasks = [dev(20, '20260101', '20260228')];
+    const result = reforecastDistribution(tasks, ['202601', '202602'], [row('Dev', 'Developer', '202602', 5)], '202602');
+    expect(result.newPhasing).toEqual({ '202602': 2000 });
+    expect(result.newPlanning).toEqual({ '202602': 20 });
+    expect(result.remainingHours).toBe(15);
+  });
+
+  it('nets a negative correction row inside its month', () => {
+    const tasks = [dev(10, '20260101', '20260228')];
+    const rows = [row('Dev', 'Developer', '202601', 5), row('Dev', 'Developer', '202601', -2)];
+    const result = reforecastDistribution(tasks, ['202601', '202602'], rows, '202602');
+    expect(result.newPlanning).toEqual({ '202601': 3, '202602': 7 });
+    expect(result.newPhasing).toEqual({ '202601': 300, '202602': 700 });
+  });
+
+  it('carries a month that nets negative back onto the earlier months', () => {
+    const tasks = [dev(10, '20260101', '20260331')];
+    const rows = [row('Dev', 'Developer', '202601', 5), row('Dev', 'Developer', '202602', -3)];
+    const result = reforecastDistribution(tasks, ['202601', '202602', '202603'], rows, '202603');
+    expect(result.newPlanning).toEqual({ '202601': 2, '202603': 8 });
+    expect(result.newPhasing).toEqual({ '202601': 200, '202603': 800 });
+  });
+
+  it('carries hours and money separately, so the grid totals the sold value', () => {
+    const tasks = [{ name: 'Dev', billable: true, startDate: '20260101', endDate: '20260331',
+      resources: [{ role: 'A', soldHours: 10, hourlyRate: 50 }, { role: 'B', soldHours: 10, hourlyRate: 150 }] }];
+    const rows = [row('Dev', 'A', '202601', 4), row('Dev', 'A', '202602', 5), row('Dev', 'B', '202602', -2)];
+    const result = reforecastDistribution(tasks, ['202601', '202602', '202603'], rows, '202603');
+    expect(result.newPhasing).toEqual({ '202601': 150, '202603': 1850 });
+    expect(result.newPlanning).toEqual({ '202601': 4, '202602': 3, '202603': 13 });
+  });
+
+  it('does not flag an overrun from floating-point noise', () => {
+    const tasks = [{ name: 'Dev', billable: true, startDate: '20260101', endDate: '20260228',
+      resources: [{ role: 'Developer', soldHours: 0.3, hourlyRate: 0.1 }] }];
+    const rows = [1, 2, 3].map(() => row('Dev', 'Developer', '202601', 0.1));
+    const result = reforecastDistribution(tasks, ['202601', '202602'], rows, '202602');
+    expect(result.overHours).toBe(false);
+    expect(result.overBudget).toBe(false);
+  });
+
+  it('distributes nothing and says so when no month is open', () => {
+    const tasks = [dev(10, '20260101', '20260228')];
+    const result = reforecastDistribution(tasks, ['202601', '202602'], [row('Dev', 'Developer', '202601', 4)], '202603');
+    expect(result.futureMonths).toEqual([]);
+    expect(result.newPlanning).toEqual({ '202601': 4 });
+    expect(result.remainingHours).toBe(6);
+    expect(result.distributedRemainingHours).toBe(0);
+  });
+
+  it('reports the distributed net remaining hours without open-month actuals', () => {
+    const tasks = [dev(20, '20260101', '20260228')];
+    const open = reforecastDistribution(tasks, ['202601', '202602'], [row('Dev', 'Developer', '202602', 5)], '202602');
+    expect(open.distributedRemainingHours).toBe(15);
+    const over = reforecastDistribution(tasks, ['202601', '202602'],
+      [row('Dev', 'Developer', '202601', 24), row('Dev', 'Developer', '202602', 3)], '202602');
+    expect(over.distributedRemainingHours).toBe(0);
+    expect(over.overHours).toBe(true);
+  });
+
+  it("values a missing role at the task's first resource rate", () => {
+    const tasks = [{ name: 'Dev', billable: true, startDate: '20260101', endDate: '20260228',
+      resources: [{ role: 'Developer', soldHours: 10, hourlyRate: 100 }, { role: 'Senior', soldHours: 5, hourlyRate: 150 }] }];
+    const result = reforecastDistribution(tasks, ['202601', '202602'], [row('Dev', 'Intern', '202601', 2)], '202602');
+    expect(result.newPhasing['202601']).toBe(200);
+    expect(result.consumedBudget).toBe(200);
+  });
+
+  it("moves an ended task's margin to the open tasks", () => {
+    const t = (name, endDate) => ({ name, billable: true, startDate: '20260101', endDate, resources: [{ role: 'Developer', soldHours: 10, hourlyRate: 100 }] });
+    const result = reforecastDistribution([t('A', '20260131'), t('B', '20260228')], ['202601', '202602'], [row('A', 'Developer', '202601', 4)], '202602');
+    expect(result.newPhasing['202602']).toBe(1600);
+    expect(result.newPlanning['202602']).toBe(16);
+  });
+
+  it('spreads the net remaining over open project months when no task can receive it', () => {
+    const tasks = [{ name: 'A', billable: true, startDate: '20260101', endDate: '20260131', resources: [{ role: 'Developer', soldHours: 10, hourlyRate: 100 }] }];
+    const result = reforecastDistribution(tasks, ['202601', '202602'], [row('A', 'Developer', '202601', 4)], '202602');
+    expect(result.newPhasing['202602']).toBe(600);
+    expect(result.newPlanning['202602']).toBe(6);
+  });
+
+  it('counts rows outside the months without writing them', () => {
+    const tasks = [dev(10, '20260101', '20260228')];
+    const rows = [{ task: 'Dev', role: 'Developer', date: '2025-12-10', hours: 3 }];
+    const result = reforecastDistribution(tasks, ['202601', '202602'], rows, '202601');
+    expect(result.newPhasing).not.toHaveProperty('202512');
+    expect(result.consumedHours).toBe(3);
+    expect(result.newPlanning['202601'] + result.newPlanning['202602']).toBeCloseTo(7, 5);
+  });
+
+  it('zero-resource task yields no NaN', () => {
+    const tasks = [dev(20, '20260101', '20260228'), { name: 'Empty', billable: true, startDate: '20260101', endDate: '20260228', resources: [] }];
+    const rows = [row('Dev', 'Developer', '202602', 5), row('Empty', 'x', '202602', 1)];
+    const result = reforecastDistribution(tasks, ['202601', '202602'], rows, '202602');
+    [...Object.values(result.newPhasing), ...Object.values(result.newPlanning)].forEach(v => expect(Number.isFinite(v)).toBe(true));
+    expect(result.newPhasing).toEqual({ '202602': 2000 });
+    expect(result.newPlanning).toEqual({ '202602': 20 });
+    expect(result.remainingHours).toBe(14);
+  });
+
+  it('distribution with zero open-month percentages splits evenly', () => {
+    const tasks = [dev(100, '20260101', '20260331', { rate: 10, task: { monthlyDistribution: { '202601': 100, '202602': 0, '202603': 0 } } })];
+    const result = reforecastDistribution(tasks, ['202601', '202602', '202603'], [], '202602');
+    expect(result.newPhasing).toEqual({ '202602': 500, '202603': 500 });
+  });
+
+  it('ignores rows without a date', () => {
+    const tasks = [dev(20, '20260101', '20260228')];
+    const rows = [row('Dev', 'Developer', '202602', 5)];
+    const without = reforecastDistribution(tasks, ['202601', '202602'], rows, '202602');
+    const withUndated = reforecastDistribution(tasks, ['202601', '202602'], [...rows, { task: 'Dev', role: 'Developer', hours: 50 }], '202602');
+    expect(withUndated).toEqual(without);
+  });
+
+  it('BERMITS Maintenance 2026: past = actuals, open = net remaining', () => {
+    const months = ['202512', '202601', '202602', '202603', '202604', '202605', '202606', '202607', '202608', '202609', '202610', '202611', '202612'];
+    const t = (name, resources) => ({ name, billable: true, startDate: '20251201', endDate: '20261231', monthlyDistribution: {},
+      resources: resources.map(([role, soldHours, hourlyRate]) => ({ role, soldHours, hourlyRate })) });
+    const tasks = [
+      t('Overall Coordination', [['HWGACCSVS - DIRECTOR', 20, 168]]),
+      t('Project Management', [['HWGINTERN - ACCSVS', 40, 130], ['HWGACCSVS - DIRECTOR', 75, 130], ['HWGACCSVS - MARKETING COORDINATOR', 5, 130]]),
+      t('Content Management', [['HWGDEV - DEVELOPER', 10, 115], ['CPROD - HWGCREAT - CONTENT SPECIALIST', 282, 115]]),
+      t('FE / BE Development', [['HWGDEV - DEVELOPER', 32, 100]]),
+      t('Quality Assurance', [['HWGINTERN - ACCSVS', 7.5, 105], ['HWGACCSVS - DIRECTOR', 24.5, 105]]),
+      t('Artwork for QR Code', [['CPROD - HWGCRSVS - STUDIO DIRECTOR', 8, 115]]),
+    ];
+    const BERMITS_ROWS = [["Artwork for QR Code","CPROD - HWGCRSVS - STUDIO DIRECTOR","202512",0.5],["Artwork for QR Code","CPROD - HWGCRSVS - STUDIO DIRECTOR","202602",1.25],["Artwork for QR Code","CPROD - HWGCRSVS - STUDIO DIRECTOR","202604",0.75],["Artwork for QR Code","CPROD - HWGCRSVS - STUDIO DIRECTOR","202606",1.5],["Artwork for QR Code","CPROD - HWGCRSVS - STUDIO DIRECTOR","202607",1],["Artwork for QR Code","CPROD - HWGCRSVS - STUDIO DIRECTOR","202608",2],["Artwork for QR Code","CPROD - HWGCRSVS - STUDIO DIRECTOR","202609",1],["Content Management","CPROD - HWGCREAT - CONTENT SPECIALIST","202512",5],["Content Management","CPROD - HWGCREAT - CONTENT SPECIALIST","202601",10.5],["Content Management","CPROD - HWGCREAT - CONTENT SPECIALIST","202602",8.75],["Content Management","CPROD - HWGCREAT - CONTENT SPECIALIST","202603",20.25],["Content Management","CPROD - HWGCREAT - CONTENT SPECIALIST","202604",26.75],["Content Management","CPROD - HWGCREAT - CONTENT SPECIALIST","202605",33],["Content Management","CPROD - HWGCREAT - CONTENT SPECIALIST","202606",24],["Content Management","CPROD - HWGCREAT - CONTENT SPECIALIST","202607",14.5],["Content Management","CPROD - HWGCREAT - CONTENT SPECIALIST","202608",21.75],["Content Management","CPROD - HWGCREAT - CONTENT SPECIALIST","202609",7.5],["Content Management","CPROD - HWGCREAT - CONTENT SPECIALIST","202610",21],["Content Management","HWGDEV - DEVELOPER","202607",9],["FE / BE Development","HWGDEV - DEVELOPER","202512",2],["FE / BE Development","HWGDEV - DEVELOPER","202602",13],["FE / BE Development","HWGDEV - DEVELOPER","202603",9],["FE / BE Development","HWGDEV - DEVELOPER","202604",8.5],["FE / BE Development","HWGDEV - DEVELOPER","202605",7],["FE / BE Development","HWGDEV - DEVELOPER","202606",4],["FE / BE Development","HWGDEV - DEVELOPER","202607",9],["FE / BE Development","HWGDEV - DEVELOPER","202608",5],["FE / BE Development","HWGDEV - DEVELOPER","202609",2.5],["FE / BE Development","HWGDEV - DEVELOPER","202610",6],["Overall coordination","HWGACCSVS - DIRECTOR","202512",0.5],["Overall coordination","HWGACCSVS - DIRECTOR","202601",1.5],["Overall coordination","HWGACCSVS - DIRECTOR","202602",1],["Overall coordination","HWGACCSVS - DIRECTOR","202603",1.5],["Overall coordination","HWGACCSVS - DIRECTOR","202604",4],["Overall coordination","HWGACCSVS - DIRECTOR","202605",4],["Overall coordination","HWGACCSVS - DIRECTOR","202606",4],["Overall coordination","HWGACCSVS - DIRECTOR","202607",2],["Overall coordination","HWGACCSVS - DIRECTOR","202608",0.5],["Overall coordination","HWGACCSVS - DIRECTOR","202609",3],["Overall coordination","HWGACCSVS - DIRECTOR","202610",0.5],["Project Management","HWGACCSVS - DIRECTOR","202604",6],["Project Management","HWGACCSVS - DIRECTOR","202605",13.5],["Project Management","HWGACCSVS - DIRECTOR","202606",4.5],["Project Management","HWGACCSVS - DIRECTOR","202607",7.5],["Project Management","HWGACCSVS - DIRECTOR","202608",6.5],["Project Management","HWGACCSVS - DIRECTOR","202609",9.5],["Project Management","HWGACCSVS - DIRECTOR","202610",7],["Project Management","HWGACCSVS - MARKETING COORDINATOR","202607",2.5],["Project Management","HWGACCSVS - MARKETING COORDINATOR","202608",2],["Project Management","HWGINTERN - ACCSVS","202512",2.25],["Project Management","HWGINTERN - ACCSVS","202601",6.5],["Project Management","HWGINTERN - ACCSVS","202602",15],["Project Management","HWGINTERN - ACCSVS","202603",13],["Quality Assurance","HWGACCSVS - DIRECTOR","202606",13.5],["Quality Assurance","HWGACCSVS - DIRECTOR","202609",1],["Quality Assurance","HWGACCSVS - DIRECTOR","202610",0.5],["Quality Assurance","HWGINTERN - ACCSVS","202512",0.25],["Quality Assurance","HWGINTERN - ACCSVS","202601",3.75],["Quality Assurance","HWGINTERN - ACCSVS","202602",0.5],["Quality Assurance","HWGINTERN - ACCSVS","202603",3]];
+    const rows = BERMITS_ROWS.map(([task, role, ym, hours]) => row(task, role, ym, hours));
+    const result = reforecastDistribution(tasks, months, rows, '202611', 2);
+    const sum = (obj, pred) => Object.entries(obj).filter(([ym]) => pred(ym)).reduce((s, [, v]) => s + v, 0);
+    expect(sum(result.newPhasing, ym => ym < '202611')).toBeCloseTo(49340, 2);
+    expect(sum(result.newPlanning, ym => ym < '202611')).toBe(416.75);
+    expect(result.newPhasing['202611'] + result.newPhasing['202612']).toBeCloseTo(10680, 2);
+    expect(result.newPlanning['202611'] + result.newPlanning['202612']).toBe(87.25);
+    expect(result.remainingBudget).toBeCloseTo(10680, 2);
+    expect(result.overBudget).toBe(false);
   });
 });
 
