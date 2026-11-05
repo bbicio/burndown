@@ -65,3 +65,13 @@ describe('page wiring', () => {
     expect(i).toBeLessThan(n);
   });
 });
+
+describe('Timesheets redesign icons', () => {
+  it.each(['folder', 'sliders', 'sparkle', 'warning'])('%s is a currentColor stroke icon without hex', (n) => {
+    const s = iconSvg(n);
+    expect(s).toContain('class="pd-icon"');
+    expect(s).toMatch(/<(path|rect|circle)\b/);
+    expect(ICON_PATHS[n]).toMatch(/stroke="currentColor"/);
+    expect(s).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+});

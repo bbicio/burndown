@@ -4,7 +4,7 @@
 // column, tablet tabs) plus a phone selector (native <select> laid over a styled row). Native ES module, bridged
 // onto `window`.
 
-import { iconSvg } from './icons.js?v=6';
+import { iconSvg } from './icons.js?v=7';
 
 export const MD_SECTIONS = [
   { group: 'COMMERCIAL', items: [

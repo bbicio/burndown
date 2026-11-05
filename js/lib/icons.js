@@ -55,6 +55,10 @@ export const ICON_PATHS = {
   more:         '<circle cx="3.5" cy="8" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="12.5" cy="8" r="1.2" fill="currentColor"/>',
   reset:        '<path d="M3 8a5 5 0 1 0 1.5-3.6M3 2.5V5h2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
   filter:       '<path d="M2.5 4H13.5M4.5 8H11.5M6.5 12H9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  folder:       '<path d="M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"/>',
+  sliders:      '<path d="M2.5 4H8.5M11.5 4H13.5M2.5 8H4M7 8H13.5M2.5 12H7.5M10.5 12H13.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="10" cy="4" r="1.5" stroke="currentColor" stroke-width="1.4"/><circle cx="5.5" cy="8" r="1.5" stroke="currentColor" stroke-width="1.4"/><circle cx="9" cy="12" r="1.5" stroke="currentColor" stroke-width="1.4"/>',
+  sparkle:      '<path d="M8 2l1.3 3.7L13 7l-3.7 1.3L8 12l-1.3-3.7L3 7l3.7-1.3L8 2ZM12.5 10.5l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5.5-1.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" fill="none"/>',
+  warning:      '<path d="M8 2.5L14 13H2L8 2.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"/><path d="M8 6.5V9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.3" r=".8" fill="currentColor"/>',
 };
 
 export function iconSvg(name, size = 16, cls = '') {
