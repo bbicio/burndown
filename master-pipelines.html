@@ -701,7 +701,7 @@
 </section>
 <!-- ── Side drawer: POT details, new year, new POT, edit target ───── -->
 <div v-if="drawerView" class="mdp-drawer-wrap">
-  <div class="mdp-scrim" @mousedown="scrimOverPicker = !!document.querySelector('.cg-pop')" @click="onScrimClick"></div>
+  <div class="mdp-scrim" @mousedown="onScrimDown" @click="onScrimClick"></div>
   <aside class="mdp-drawer" :class="{ 'is-form': drawerView !== 'details' && !drawerPot }" role="dialog" aria-modal="true" :aria-label="drawerLabel">
     <header class="mdp-dr-head">
       <button v-if="drawerView === 'details'" type="button" class="mdp-dr-back" @click="closeDrawer"><ph-icon name="chevron-left" :size="14"></ph-icon> Pipeline {{ year }}</button>
@@ -1489,6 +1489,7 @@ window.__cfgApp = Vue.createApp({
     },
 
     // The mousedown that closed an open picker is not a request to close the drawer.
+    onScrimDown() { this.scrimOverPicker = !!document.querySelector('.cg-pop'); },
     onScrimClick() {
       if (this.scrimOverPicker) { this.scrimOverPicker = false; return; }
       this.dismissDrawer(false);

@@ -461,7 +461,11 @@ describe('Pipelines & POTs responsive styles', () => {
   it('Esc and a scrim click aimed at an open picker leave the form open', () => {
     const esc = html.slice(html.indexOf("if (e.key !== 'Escape' || !this.drawerView) return;"), html.indexOf('this.dismissDrawer(false);'));
     expect(esc).toContain("if (document.querySelector('.cg-pop')) return;");
-    expect(html).toContain('class="mdp-scrim" @mousedown="scrimOverPicker = !!document.querySelector(\'.cg-pop\')" @click="onScrimClick"');
+    // In-DOM Vue templates cannot reach `document`: the check lives in a method.
+    expect(html).toContain('class="mdp-scrim" @mousedown="onScrimDown" @click="onScrimClick"');
+    const tpl = html.slice(html.indexOf('<div id="app"'), html.indexOf('</div><!-- #app -->'));
+    expect(tpl).not.toMatch(/="[^"]*\bdocument\./);
+    expect(html).toContain("onScrimDown() { this.scrimOverPicker = !!document.querySelector('.cg-pop'); },");
     const scrim = html.slice(html.indexOf('onScrimClick() {'), html.indexOf('onScrimClick() {') + 200);
     expect(scrim).toContain('if (this.scrimOverPicker)');
     expect(scrim).toContain('this.dismissDrawer(false)');
