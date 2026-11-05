@@ -23,6 +23,11 @@ describe('master-currencies page', () => {
     expect(html).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
   });
 
+  it('has no hex colour in its inline styles', () => {
+    const styles = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+    expect(styles).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
   it('calls updateRate once, from the Confirm method, and keeps a server error in the dialog', () => {
     expect(html.split('updateRate(').length - 1).toBe(1);
     const confirm = between('async confirmRate()', 'closeConfirm()');

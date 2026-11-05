@@ -50,16 +50,14 @@ describe('component tokens', () => {
 });
 
 describe('excluded pages are untouched', () => {
-  // sha256 of the concatenated inline <style> contents, computed on main before this cycle;
-  // the Master Data one re-pinned by the Master Data shell, which dropped body/.page/.page-header.
-  const MASTER_SHA = '831f66f938c3c40eef78cf91b830d10041da84450837d9a1a2abf044bcd8e6db';
+  // sha256 of the concatenated inline <style> contents, computed on main before this cycle.
   const EXCLUDED_STYLE_SHA = {
     // master-clients.html is restyled by the Clients & groups cycle (hex-free styles pinned in master-data-guard);
     // master-client-groups.html is now a redirect without styles;
     // master-pipelines.html is restyled by the Pipelines & POTs cycle (styles pinned in master-data-guard);
-    // master-roles.html is restyled by the Roles & rates cycle (hex-free styles pinned in master-data-guard).
+    // master-roles.html is restyled by the Roles & rates cycle (hex-free styles pinned in master-data-guard);
+    // master-currencies.html is restyled by the Currencies cycle (hex-free styles pinned in master-currencies-page-guard).
     'master-client-groups.html': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-    'master-currencies.html': MASTER_SHA,
     'project-config.html': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
   };
   const styleSha = file => {
