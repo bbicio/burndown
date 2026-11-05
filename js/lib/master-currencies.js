@@ -6,8 +6,40 @@ import { formatDayText } from './dates.js?v=4';
 
 const num = v => (v === null || v === undefined || v === '' ? NaN : Number(v));
 
+// The rate columns are DECIMAL(10,6): below 0.000001 a rate is stored as 0, from 10000 it overflows.
+export const RATE_MIN = 0.000001;
+export const RATE_MAX = 9999.999999;
+
 export function isValidRate(n) {
-  return typeof n === 'number' && isFinite(n) && n > 0;
+  return typeof n === 'number' && isFinite(n) && n >= RATE_MIN && n <= RATE_MAX;
+}
+
+// null for a valid rate, else the message shown under the input.
+export function rateError(n) {
+  if (!(typeof n === 'number' && n > 0)) return 'Rate must be a positive number';
+  if (!isValidRate(n)) return 'Rate must be between 0.000001 and 9999.999999';
+  return null;
+}
+
+// Equal once stored at 6 decimals.
+export function sameRate(a, b) {
+  return Math.round(Number(a) * 1e6) === Math.round(Number(b) * 1e6);
+}
+
+// A Confirm that lands this soon after the dialog opened is the repeat of the Enter that opened it.
+export const CONFIRM_DELAY_MS = 400;
+export function confirmReady(openedAt, now) {
+  return now - openedAt >= CONFIRM_DELAY_MS;
+}
+
+// The sheet to show after the width crosses the phone breakpoint: an open inline row becomes its sheet on
+// phone; on wider screens the sheet closes and the same state shows inline.
+export function sheetOnResize(isPhone, { sheet, actShow, editCode }) {
+  if (!isPhone) return null;
+  if (sheet) return sheet;
+  if (actShow) return 'activate';
+  if (editCode) return 'edit';
+  return null;
 }
 
 // 4 to 6 decimals, never grouped. Rates are NUMERIC strings from pg ("1.300000").
@@ -108,6 +140,7 @@ export function sparklinePoints(rows, w, h) {
 
 if (typeof window !== 'undefined') {
   Object.assign(window, {
+    rateError, sameRate, confirmReady, sheetOnResize,
     formatRate, inverseRate, parseRateText, isValidRate, editText, rateDelta, formatDelta, historyEntries,
     formatHistoryDelta, pickableCurrencies, formatRateDate, formatRateDateTime, sparklinePoints,
   });

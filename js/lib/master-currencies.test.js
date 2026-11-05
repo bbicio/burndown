@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   formatRate, inverseRate, parseRateText, isValidRate, editText, rateDelta, formatDelta,
   historyEntries, formatHistoryDelta, pickableCurrencies, formatRateDate, formatRateDateTime, sparklinePoints,
+  rateError, sameRate, confirmReady, CONFIRM_DELAY_MS, sheetOnResize,
 } from './master-currencies.js';
 
 describe('formatRate', () => {
@@ -114,5 +115,48 @@ describe('sparklinePoints', () => {
     expect(pts[0][0]).toBe(0);
     expect(pts[1][0]).toBe(200);
     expect(pts[0][1]).toBeGreaterThan(pts[1][1]);
+  });
+});
+
+describe('rate bounds of DECIMAL(10,6)', () => {
+  it('refuses a rate the column would store as 0 or overflow', () => {
+    expect(isValidRate(0.000001)).toBe(true);
+    expect(isValidRate(9999.999999)).toBe(true);
+    expect(isValidRate(0.0000004)).toBe(false);
+    expect(isValidRate(10000)).toBe(false);
+  });
+  it('rateError names the problem', () => {
+    expect(rateError(null)).toBe('Rate must be a positive number');
+    expect(rateError(NaN)).toBe('Rate must be a positive number');
+    expect(rateError(-1)).toBe('Rate must be a positive number');
+    expect(rateError(16500)).toBe('Rate must be between 0.000001 and 9999.999999');
+    expect(rateError(0.0000004)).toBe('Rate must be between 0.000001 and 9999.999999');
+    expect(rateError(1.2)).toBeNull();
+  });
+});
+
+describe('sameRate', () => {
+  it('compares at the stored 6 decimals', () => {
+    expect(sameRate(1.3, '1.300000')).toBe(true);
+    expect(sameRate(1.3000004, '1.300000')).toBe(true);
+    expect(sameRate(1.30001, '1.300000')).toBe(false);
+  });
+});
+
+describe('confirmReady', () => {
+  it('ignores a Confirm that arrives right after the dialog opened', () => {
+    expect(confirmReady(1000, 1100)).toBe(false);
+    expect(confirmReady(1000, 1000 + CONFIRM_DELAY_MS)).toBe(true);
+  });
+});
+
+describe('sheetOnResize', () => {
+  it('moves an open inline row into a sheet on phone and back on wider screens', () => {
+    expect(sheetOnResize(true, { sheet: null, actShow: true, editCode: null })).toBe('activate');
+    expect(sheetOnResize(true, { sheet: null, actShow: false, editCode: 'USD' })).toBe('edit');
+    expect(sheetOnResize(true, { sheet: 'edit', actShow: false, editCode: 'USD' })).toBe('edit');
+    expect(sheetOnResize(true, { sheet: null, actShow: false, editCode: null })).toBeNull();
+    expect(sheetOnResize(false, { sheet: 'activate', actShow: true, editCode: null })).toBeNull();
+    expect(sheetOnResize(false, { sheet: 'edit', actShow: false, editCode: 'USD' })).toBeNull();
   });
 });

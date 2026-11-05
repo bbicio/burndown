@@ -20,8 +20,6 @@ const files = walk(ROOT).map(rel);
 const sources = files.filter(f => /\.(js|html)$/.test(f) && !/\.test\.js$/.test(f));
 const read = f => readFileSync(join(ROOT, f), 'utf8');
 
-// Exchange rates, not amounts (out of scope of the money cycles); this exemption is not tied to cycle 3.
-const EXCHANGE_RATE_MODEL = /v-model="(crf\.rate|crEdit\[[^\]]+\]\.rate)"/;
 
 describe('money guard', () => {
   it('Intl.NumberFormat is used only inside the two money modules', () => {
@@ -56,7 +54,6 @@ describe('money guard', () => {
       for (const m of read(f).matchAll(/<input[^>]*>/g)) {
         const tag = m[0];
         if (!/type="number"/.test(tag) || !/rate|amount|ptc|price|fee/i.test(tag)) continue;
-        if (f === 'master-currencies.html' && EXCHANGE_RATE_MODEL.test(tag)) continue;
         offenders.push(f + ': ' + tag.replace(/\s+/g, ' '));
       }
     }

@@ -89,7 +89,6 @@
     .mdc-combo-opt span:last-child { color: var(--text-muted); }
     .mdc-combo-empty { padding: 10px 8px; font-size: 12.5px; color: var(--text-muted); }
     .mdc-act-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
-    .mdc-act-actions .btn-primary:disabled, .mdc-sheet-primary:disabled { background: var(--border-light); border-color: var(--border-light); color: var(--text-muted); opacity: 1; }
 
     /* ── Confirm dialog (local overlay, no Bootstrap modal) ── */
     .mdc-scrim { position: fixed; inset: 0; z-index: calc(var(--z-notification) - 1); background: var(--overlay-scrim); opacity: .5; }
@@ -136,10 +135,9 @@
     .mdc-change-rate { min-width: 72px; text-align: right; font-weight: var(--weight-bold); color: var(--brand-navy); }
 
     /* ── Tablet / phone pieces hidden on wide screens ── */
-    .mdc-rate-inv, .mdc-cards, .mdc-sheet-wrap { display: none; }
+    .mdc-rate-inv, .mdc-cards { display: none; }
 
     /* ── Bottom sheet ── */
-    .mdc-sheet-wrap { display: block; }
     .mdc-sheet {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-notification); max-height: 92dvh; overflow-y: auto;
       background: var(--surface-white); border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: var(--shadow-xl);
@@ -178,7 +176,7 @@
     @media (max-width: 767.98px) {
       .mdc-head-row { flex-direction: column; }
       .mdc-head-row > .btn { width: 100%; min-height: 44px; }
-      .mdc-table-card .mdc-table, .md-table-card .mdc-table, .md-table-card .mdc-empty { display: none; }
+      .md-table-card .mdc-table, .md-table-card .mdc-empty { display: none; }
       .mdc-cards { display: flex; flex-direction: column; gap: var(--space-3); }
       .mdc-card { border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--surface-white); overflow: hidden; }
       .mdc-card-top { display: flex; align-items: center; gap: var(--space-3); padding: 12px; }
@@ -201,7 +199,6 @@
       .mdc-change { grid-template-columns: 14px 1fr auto; }
       .mdc-change-delta { grid-column: 2; }
     }
-    @media (min-width: 768px) { .mdc-sheet-wrap { display: none; } }
   </style>
 </head>
 <body>
@@ -300,7 +297,7 @@
                 <span v-if="act.code && actInverse">1 {{ act.code }} = {{ eurSymbol }} {{ actInverse }}</span>
                 <span v-else class="mdc-fixed">—</span>
               </td>
-              <td><span class="mdc-sub">Starts the rate history.</span></td>
+              <td><span v-if="actRateError" class="mdc-err">{{ actRateError }}</span><span v-else class="mdc-sub">Starts the rate history.</span></td>
               <td>
                 <div class="mdc-act-actions">
                   <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="act.saving" @click="cancelActivate">Cancel</button>
@@ -433,6 +430,7 @@
       <span class="mdc-sheet-help">
         <template v-if="act.code && actInverse">1 {{ act.code }} = {{ eurSymbol }} {{ actInverse }} · </template>Starts the rate history.
       </span>
+      <span v-if="actRateError" class="mdc-err">{{ actRateError }}</span>
       <span v-if="act.error" class="mdc-err" role="alert">{{ act.error }}</span>
       <button type="button" class="btn btn-primary mdc-sheet-primary" :disabled="!actValid || act.saving" @click="activateCurrency">
         <span v-if="act.saving" class="spinner-border spinner-border-sm me-1"></span>Activate
@@ -545,7 +543,7 @@ window.__cfgApp = Vue.createApp({
 
       edit:    { code: null, text: '', error: null },
       confirm: { show: false, code: '', symbol: '', oldRate: '', newRate: '', rate: null, error: null, saving: false },
-      act:     { show: false, code: '', text: '', error: null, saving: false, pickerOpen: false, query: '', activeIndex: 0 },
+      act:     freshAct(),
       hist:    { code: null, rows: [], loading: false, error: false },
       sheet:   null,
       isPhone: false,
@@ -558,6 +556,8 @@ window.__cfgApp = Vue.createApp({
     canActivate() { return window.pickableCurrencies(this.currencies).length > 0; },
     actRate()     { return window.parseRateText(this.act.text); },
     actValid()    { return !!this.act.code && window.isValidRate(this.actRate); },
+    // Shown only once something was typed: an empty rate just keeps Activate disabled.
+    actRateError() { return this.act.text.trim() ? window.rateError(this.actRate) : null; },
     actInverse()  { return window.inverseRate(this.actRate); },
     histCurrency() { return this.currencies.find(c => c.code === this.hist.code) || null; },
     histEntries()  { return window.historyEntries(this.hist.rows); },
@@ -590,7 +590,12 @@ window.__cfgApp = Vue.createApp({
     const mq = window.matchMedia('(max-width: 767.98px)');
     this.isPhone = mq.matches;
     this._mq = mq;
-    this._onMq = ev => { this.isPhone = ev.matches; if (!ev.matches && this.sheet) this.closeSheet(); };
+    // Crossing the breakpoint moves an open inline row into its sheet and back, so nothing is left hidden.
+    this._onMq = ev => {
+      this.isPhone = ev.matches;
+      this.act.pickerOpen = false;
+      this.sheet = window.sheetOnResize(ev.matches, { sheet: this.sheet, actShow: this.act.show, editCode: this.edit.code });
+    };
     mq.addEventListener('change', this._onMq);
   },
   unmounted() {
@@ -640,18 +645,21 @@ window.__cfgApp = Vue.createApp({
       const cur = this.currencies.find(c => c.code === this.edit.code);
       if (!cur) return;
       const rate = window.parseRateText(this.edit.text);
-      if (!window.isValidRate(rate)) { this.edit.error = 'Rate must be a positive number'; return; }
+      if (!window.isValidRate(rate)) { this.edit.error = window.rateError(rate) || 'Rate must be a positive number'; return; }
+      if (window.sameRate(rate, cur.current_rate)) { this.edit.error = 'The rate is unchanged'; return; }
       this.edit.error = null;
       this.confirm = {
         show: true, code: cur.code, symbol: cur.symbol,
         oldRate: window.formatRate(cur.current_rate), newRate: window.formatRate(rate),
-        rate, error: null, saving: false,
+        rate, error: null, saving: false, openedAt: Date.now(),
       };
       this.$nextTick(() => this.$refs.confirmBtn?.focus());
     },
 
     async confirmRate() {
       if (this.confirm.saving) return;
+      // The repeat of the Enter that opened the dialog lands on the focused Confirm: ignore it.
+      if (!window.confirmReady(this.confirm.openedAt, Date.now())) return;
       this.confirm.saving = true; this.confirm.error = null;
       const code = this.confirm.code;
       try {

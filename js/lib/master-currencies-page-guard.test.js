@@ -72,7 +72,8 @@ describe('master-currencies activation row', () => {
     expect(catchPart).not.toContain('globalError');
   });
   it('starts with an empty rate and offers the row only when something can be activated', () => {
-    expect(html).toMatch(/act:\s*\{[^}]*text: ''/);
+    expect(html).toMatch(/const freshAct = \(\) => \(\{[^}]*text: ''/);
+    expect(html).toContain('act:     freshAct(),');
     expect(html).toMatch(/v-if="[^"]*canActivate[^"]*!act\.show[^"]*"/);
   });
 });
@@ -102,5 +103,25 @@ describe('master-currencies responsive layouts', () => {
   it('has tablet and phone breakpoints', () => {
     expect(html).toContain('@media (max-width: 767.98px)');
     expect(html).toContain('@media (min-width: 768px) and (max-width: 1023.98px)');
+  });
+});
+
+describe('master-currencies review fixes', () => {
+  it('ignores a Confirm pressed right after the dialog opened (a double Enter)', () => {
+    const confirm = between('async confirmRate()', 'closeConfirm()');
+    expect(confirm).toContain('window.confirmReady(this.confirm.openedAt, Date.now())');
+    expect(between('saveEdit() {', 'async confirmRate()')).toContain('openedAt: Date.now()');
+  });
+  it('refuses an unchanged rate and an out-of-range one before the dialog opens', () => {
+    const save = between('saveEdit() {', 'async confirmRate()');
+    expect(save).toContain('window.sameRate(');
+    expect(save).toContain('window.rateError(');
+  });
+  it('moves an open inline row into a sheet when the width crosses the phone breakpoint', () => {
+    expect(html).toContain('window.sheetOnResize(');
+  });
+  it('keeps the shared primary button styles, disabled state included', () => {
+    expect(html).not.toMatch(/\.btn-primary:disabled/);
+    expect(html).not.toMatch(/\.btn-primary\s*\{[^}]*brand-navy/);
   });
 });

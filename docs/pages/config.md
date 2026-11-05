@@ -143,15 +143,15 @@ Spec `docs/superpowers/specs/2026-11-03-master-data-shell-design.md`, plan `docs
 `master-currencies.html` is "Currencies": a read-first list, inline rate edit with a confirm dialog, an inline activation row with a searchable picker, a history drawer with a trend chart, and tablet and phone layouts. No server route, shell, stylesheet or shared script changed; no Bootstrap modal is left on the page (its script stays for `nav.js`). The pure helpers are in `js/lib/master-currencies.js`.
 
 - **List:** active currencies only, EUR first ("Base" pill, "Fixed · 1.0000", not editable). Rate, inverse, delta and the last-updated user come from `formatRate`, `inverseRate`, `rateDelta` and one `GET /:code/history` per active non-EUR currency (`histByCode`); a failed history only drops that row's delta and user.
-- **Edit and confirm:** a click on the rate opens an input on that row (one at a time; Enter saves, Esc cancels, "," accepted through `parseRateText`); Save opens the confirm dialog (`.mdc-dialog`, a Vue overlay), and `confirmRate` is the only caller of `Api.currencies.updateRate`. A server error stays in the dialog with Confirm usable again.
+- **Edit and confirm:** a click on the rate opens an input on that row (one at a time; Enter saves, Esc cancels, "," accepted through `parseRateText`); Save opens the confirm dialog (`.mdc-dialog`, a Vue overlay), and `confirmRate` is the only caller of `Api.currencies.updateRate`. A server error stays in the dialog with Confirm usable again. Save refuses an unchanged rate and one outside the `DECIMAL(10,6)` columns (`rateError`); Confirm ignores a press within `CONFIRM_DELAY_MS` of opening, the repeat of the Enter that opened it (`confirmReady`).
 - **Activation:** "+ Activate currency" opens a row above the list; the picker is a local combobox over `pickableCurrencies` (code, name, symbol); Activate stays disabled until a currency and a rate above zero are chosen.
 - **History drawer:** `.mdc-drawer`, the cached rows show at once and are refetched; the chart is the `sparklinePoints` polyline; "activated" shows only when fewer than 100 rows came back.
 - **Escape:** one document handler closes the topmost layer (picker, confirm, sheet, drawer, inline edit).
-- **Layouts:** 1024–1279px and 768–1023px move the inverse under the rate and hide the delta; below 768px the table becomes cards, "Edit rate" and "+ Activate currency" open bottom sheets and the confirm dialog is a bottom sheet.
+- **Layouts:** 1024–1279px and 768–1023px move the inverse under the rate and hide the delta; below 768px the table becomes cards, "Edit rate" and "+ Activate currency" open bottom sheets and the confirm dialog is a bottom sheet. Crossing 768px moves an open inline row into its sheet and back (`sheetOnResize`).
 - **Accepted deviations from the boards:**
-  - "+ Activate currency" uses the app-wide magenta `.btn-primary`, the boards draw it navy.
+  - Every primary button uses the app-wide magenta `.btn-primary` and its shared disabled state; the boards draw "+ Activate currency", Activate and Save navy, and a disabled Activate grey.
   - No "Used in" column, no "⋯" menu with Deactivate, no sub-nav counts (no API for them; out of scope).
   - The boards show GBP and CHF, the data of the branch stack only had EUR and USD.
   - The scrollbars in the picker capture are not part of the design.
-- **Fixed after the visual review:** the chart line is navy (the shared chart token is blue); a disabled Activate is neutral grey.
+- **Fixed after the visual review:** the chart line is navy (the shared chart token is blue).
 - **Tests:** `js/lib/master-currencies.test.js`, `js/lib/master-currencies-page-guard.test.js`, `js/lib/master-data-guard.test.js`; manual case `MD-17`.
