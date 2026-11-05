@@ -20,8 +20,19 @@ Summary table leads with Client/Project/Project code (Bootstrap checkbox multi-s
 
 ## Profile processing entry point (Cycle 3d, 2026-09-28)
 
-A "Profile processing →" button in the page header links to the new `profile-jobs.html` console, with a badge showing `GET /api/profile-jobs`'s `queuedCount` (loaded once, fire-and-forget, via `loadProfileQueueCount()`; any failure is ignored and the badge just stays hidden). The badge is hidden when the queue is empty. Full narrative for the console itself: `docs/pages/profile-jobs.md`.
+Until the 2026-11-05 redesign (below), a "Profile processing →" button in the page header linked to the new `profile-jobs.html` console, with a badge showing `GET /api/profile-jobs`'s `queuedCount` (loaded once, fire-and-forget, via `loadProfileQueueCount()`; any failure is ignored and the badge just stays hidden). The badge is hidden when the queue is empty. Full narrative for the console itself: `docs/pages/profile-jobs.md`.
 
 ## Header unification (2026-10-16)
 
-Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. The former `.page-header` is now the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`), placed outside the `.page` wrapper so the breadcrumb and the band read as one block; `.page` keeps its own 2rem top margin. "Profile processing →" is a `.ph-btn` (without an icon); its own inline `.page-header` rule was removed.
+Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. The former `.page-header` is now the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`), placed outside the `.page` wrapper so the breadcrumb and the band read as one block; `.page` keeps its own 2rem top margin. Until the 2026-11-05 redesign, "Profile processing →" was a `.ph-btn` (without an icon); its own inline `.page-header` rule was removed.
+
+## Redesign (2026-11-05)
+
+Spec `docs/superpowers/specs/2026-11-05-timesheets-redesign-design.md`, plan `docs/superpowers/plans/2026-11-05-timesheets-redesign.md`, boards `docs/superpowers/design/timesheets/redesign/` (11.1a–f, 11.3). It replaces the header button and the flat table described above.
+
+- `.ph` reads "Timesheets" with the subtitle "Uploaded actuals and the experience profiles built from them." and no button; it and the sub-nav (`js/lib/md-subnav.js`, set `timesheets`, active `actuals`) sit outside the Vue root. `loadProfileQueueCount()` sets the "Profile processing" badge once on load and hides it on any failure.
+- One card: filters (rules unchanged), info note saying **Load Actuals**, and a list grouped by client from `js/lib/timesheets-list.js` (`groupTimesheetRows`, "No client" last, "N codes · M rows" from the filtered codes, collapse state for the session only). Sort stays three-state; Client reorders the groups, Project and Project code sort inside them.
+- Row actions: View, Download (spinner, disabled while the file is built, `r._downloading`) and a ⋯ dropdown with Delete actuals, confirmed through `showConfirm()` with the existing message; `#confirmModal` sits outside the Vue root.
+- The View modal is a local overlay (`.ts-view`, navy scrim, Esc), full screen on a phone; columns and data unchanged.
+- On narrower screens the columns compact (Uploads and the code chip dropped, "Client · code" under the project) and, where the open sidebar leaves no room for the sub-nav column, the sub-nav becomes tabs — the breakpoints are the media queries in the page's `<style>`; on a phone one card per code, sticky group labels and a Filters (n) bottom sheet that is the same filter controls restyled.
+- CSS is page-local `.ts-*` with tokens only; no emoji and no native `confirm()`; guard `js/lib/timesheets-pages-guard.test.js`.

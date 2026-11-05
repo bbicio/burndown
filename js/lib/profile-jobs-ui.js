@@ -98,7 +98,37 @@ export function formatDuration(startedAt, finishedAt) {
   return `${Math.floor(m / 60)} h ${m % 60} min`;
 }
 
+// Local time, 'HH:MM'; '' when empty/invalid.
+export function formatTimeShort(value) {
+  const t = toTime(value);
+  if (t === null) return '';
+  const d = new Date(t);
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// The second line of the "Last · next run" cell: only for a queued (or errored and queued) code.
+export function describeNextRunShort(schedule, project) {
+  if (!project || !project.queued_at) return '';
+  const s = schedule || {};
+  if (s.state === 'paused') return 'Next paused';
+  if (s.state === 'scheduled' && toTime(s.nextRunAt) !== null) return `Next ${formatTimeShort(s.nextRunAt)}`;
+  return 'Next within 60 s';
+}
+
+// The settings drawer's Save rule: a change to the toggle or interval, with a whole interval in 1–1440.
+export function settingsState(form, saved) {
+  const f = form || {};
+  const s = saved || {};
+  const valid = Number.isInteger(f.intervalMin) && f.intervalMin >= 1 && f.intervalMin <= 1440;
+  const dirty = !!f.enabled !== !!s.enabled || f.intervalMin !== s.intervalMin;
+  return { dirty, valid, canSave: dirty && valid };
+}
+
 window.filterJobProjects = filterJobProjects;
+window.formatTimeShort = formatTimeShort;
+window.describeNextRunShort = describeNextRunShort;
+window.settingsState = settingsState;
 window.sortJobProjects = sortJobProjects;
 window.jobStatusLabel = jobStatusLabel;
 window.jobStatusClass = jobStatusClass;

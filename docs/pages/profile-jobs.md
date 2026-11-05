@@ -1,6 +1,6 @@
 # profile-jobs.html
 
-**Profile processing console** (Cycle 3d, 2026-09-28). Vue 3 (CDN, no build step, same pattern as `team.html`/`admin.html`). A separate page with **no menu entry** — the only entry point is a "Profile processing →" button (with a queue-size badge, hidden when the queue is empty) in `timesheets.html`'s header. Admin **or** sysadmin; server-side `requireAdmin` on every route, client-side redirect to `/pipeline.html` for any other role. Calls the console API with direct `fetch()` (`team.html`'s established style, not `js/api.js`). `initNav('timesheets')` keeps the Timesheets nav tab highlighted and renders a breadcrumb bar (Home / Timesheets / Profile processing) whose own "Timesheets" link is the page's only back-navigation — no separate manual link. Spec: `docs/superpowers/specs/2026-09-26-profile-jobs-console-design.md` (context: `docs/superpowers/specs/2026-09-25-resource-profile-design.md` §5b). Plan: `docs/superpowers/plans/2026-09-26-profile-jobs-console.md`. Engine/worker detail: `docs/api/profile-engine.md`.
+**Profile processing console** (Cycle 3d, 2026-09-28). Vue 3 (CDN, no build step, same pattern as `team.html`/`admin.html`). A separate page with **no menu entry** — the only entry point is the "Profile processing" item of the Timesheets sub-nav it shares with `timesheets.html` (with a queue-size badge, hidden when the queue is empty). Admin **or** sysadmin; server-side `requireAdmin` on every route, client-side redirect to `/pipeline.html` for any other role. Calls the console API with direct `fetch()` (`team.html`'s established style, not `js/api.js`). `initNav('timesheets')` keeps the Timesheets nav tab highlighted and renders a breadcrumb bar (Home / Timesheets / Profile processing) whose own "Timesheets" link is the page's only back-navigation — no separate manual link. Spec: `docs/superpowers/specs/2026-09-26-profile-jobs-console-design.md` (context: `docs/superpowers/specs/2026-09-25-resource-profile-design.md` §5b). Plan: `docs/superpowers/plans/2026-09-26-profile-jobs-console.md`. Engine/worker detail: `docs/api/profile-engine.md`.
 
 ## Why
 
@@ -8,9 +8,13 @@ Before this cycle there was no UI for the profile engine (Cycle 3c): a recalcula
 
 ## Layout (top to bottom)
 
-1. **Settings + global actions card**: on/off toggle and interval (1–1440 min, integer), Save disabled until something actually differs from the stored settings; a "Recalculate now" button (no confirmation) and "Rebuild all" (asks via `showConfirm()`). Below: the next-scheduled-run estimate (`describeNextRun`) and, once a scheduled run has happened, its timestamp.
-2. **Project codes table**: search (matches code or project name, every whitespace-separated token) + status filter (All/Queued/Error/Updated — "Not processed" rows appear under All only, spec clarification), sortable columns (Code, Status, Last processed), internal scroll (`max-height:60vh`, sticky header), no pagination. Columns: project, code, actuals rows, matched resources, status (badge; an Error row's badge expands on click to show the full `last_error` text), last processed, next processing, and per-row **Process** / **Remove from queue** (queued rows only, confirmed).
-3. **Run history** (`<details>`, collapsed by default): when, trigger type, projects, resource contributions, duration, error — newest first, capped at 50 (`GET /api/profile-jobs/runs`).
+Since the 2026-11-05 redesign (section below):
+
+1. **Alerts**: red (load failure, not dismissible), amber (failed action), green (completed action), each with an icon.
+2. **Guide text.**
+3. **Status strip**: worker state ("Scheduled · every N min" / "Scheduled processing paused"), Next run with "· last HH:MM", topic extraction on/off, then Settings, Recalculate now (no confirmation) and Rebuild all (`showConfirm()`).
+4. **Settings drawer** (opened from the strip): schedule toggle and interval (a whole number of minutes in the range `settingsState()` accepts), Save schedule enabled only for a valid change, topic-extraction switch saved immediately; closing it discards unsaved schedule edits.
+5. **Project codes / Run history card**: a segmented switch; Project codes has search + status filter ("Not processed" rows under All only) + counter, columns Project · Code, Actuals rows, Matched resources, Status, Last · next run and the row actions (Remove from queue for queued codes, confirmed; Process); an Error pill opens a band with the full `last_error`. Run history (newest first, capped by `MAX_RUNS_KEPT` in `api/src/services/profile-engine.js`, `GET /api/profile-jobs/runs`) hides the search, the status filter and the counter.
 
 ## Behaviour
 
@@ -41,3 +45,14 @@ This project has no browser/Vue runtime test harness. The page was verified by: 
 ## Header unification (2026-10-16)
 
 Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. The former `.page-header` is now the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`), placed outside the `.page` wrapper so the breadcrumb and the band read as one block; `.page` keeps its own 2rem top margin.
+
+## Redesign (2026-11-05)
+
+Spec `docs/superpowers/specs/2026-11-05-timesheets-redesign-design.md`, plan `docs/superpowers/plans/2026-11-05-timesheets-redesign.md`, boards `docs/superpowers/design/timesheets/redesign/` (11.2a–h, 11.3).
+
+- The page head reads "Timesheets" with the shared subtitle, and `.ph` plus the sub-nav (`js/lib/md-subnav.js`, set `timesheets`, active `profileJobs`) sit outside the Vue root; every successful `refresh()` sets the sub-nav badge with `queuedCount`, a failed one hides it.
+- The settings card became the strip plus a local drawer (`.pj-drawer`, Esc, scrim, focus trap); Save schedule and the interval check read `settingsState()`; the `<details>` run history became the card's second view (`view`, not persisted).
+- The error band lives inside its row and is keyed by `expanded[code]`, so it survives the auto-refresh; no timestamp is shown because the API returns none for `last_error`.
+- Polling, `refreshSeq`, `keepForm`, `busyAction` and the action messages are unchanged; the sort stays two-state.
+- On narrower screens the columns compact (Project · Code with "code · rows · resources", Status with the next run, Last processed, Process + ⋯ holding Remove from queue) and, where the open sidebar leaves no room for the sub-nav column, the sub-nav becomes tabs — the breakpoints are the media queries in the page's `<style>`; on a phone the strip is a card, one card per code with the error inline, Settings full screen.
+- CSS is page-local `.pj-*` with tokens only; no emoji; guard `js/lib/timesheets-pages-guard.test.js`.

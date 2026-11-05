@@ -116,7 +116,7 @@ Filtering the pipeline board or portfolio reporting by these tags is not part of
 
 ### 16.10 Profile Processing Console (2026-09-28, Cycle 3d)
 
-Own page (`profile-jobs.html`), admin or sysadmin — a **hidden page with no navigation entry**, reachable only through a "Profile processing →" button in the header of the Excel Timesheet Upload page (§8), which carries a badge showing how many project codes are currently waiting to be processed (hidden when none are).
+Own page (`profile-jobs.html`), admin or sysadmin — a **hidden page with no navigation entry**, reachable only through the "Profile processing" item of the Timesheets sub-navigation it shares with the Excel Timesheet Upload page (§8), which carries a badge showing how many project codes are currently waiting to be processed (hidden when none are).
 
 Every person's Experience profile (§16.7) is rebuilt in the background from uploaded actuals, one project code at a time, on a schedule (every 10 minutes by default). Until this cycle there was no way to see that queue or influence its timing from the product itself. This page gives an admin:
 

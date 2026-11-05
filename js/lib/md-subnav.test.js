@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { MD_SECTIONS, mdSubnavHtml, mountMdSubnav } from './md-subnav.js';
+import { MD_SECTIONS, SUBNAV_SETS, mdSubnavHtml, mountMdSubnav, setSubnavBadge } from './md-subnav.js';
 
 const parse = html => { const d = document.createElement('div'); d.innerHTML = html; return d; };
 
@@ -108,5 +108,83 @@ describe('mountMdSubnav', () => {
     mountMdSubnav(document);
     expect(() => window.dispatchEvent(new Event('pageshow'))).not.toThrow();
     expect(document.querySelectorAll('select.md-subnav-select-input')).toHaveLength(1);
+  });
+});
+
+describe('SUBNAV_SETS', () => {
+  it('keeps Master Data as the default set and adds the Timesheets set', () => {
+    expect(SUBNAV_SETS.masterData).toEqual({ label: 'Master Data', sections: MD_SECTIONS });
+    expect(SUBNAV_SETS.timesheets).toEqual({ label: 'Timesheets', sections: [
+      { group: 'TIMESHEETS', items: [
+        { id: 'actuals', label: 'Actuals', href: '/timesheets.html' },
+        { id: 'profileJobs', label: 'Profile processing', href: '/profile-jobs.html' },
+      ] },
+    ] });
+  });
+
+  it('renders the Timesheets set with its own group, active item and select label', () => {
+    const d = parse(mdSubnavHtml('profileJobs', 'timesheets'));
+    expect([...d.querySelectorAll('.md-subnav-group')].map(g => g.textContent)).toEqual(['TIMESHEETS']);
+    const active = d.querySelectorAll('a.md-subnav-item.active');
+    expect(active).toHaveLength(1);
+    expect(active[0].getAttribute('href')).toBe('/profile-jobs.html');
+    expect(d.querySelector('select.md-subnav-select-input').getAttribute('aria-label')).toBe('Timesheets section');
+    expect(d.querySelector('.md-subnav-select-label').textContent).toBe('Profile processing');
+  });
+
+  it('falls back to Master Data for an unknown set', () => {
+    expect(mdSubnavHtml('roles', 'nope')).toBe(mdSubnavHtml('roles'));
+  });
+});
+
+describe('mountMdSubnav with data-subnav-set', () => {
+  afterEach(() => { document.body.innerHTML = ''; });
+
+  it('renders the set named on the nav', () => {
+    document.body.innerHTML = '<nav class="md-subnav" data-subnav-set="timesheets" data-md-active="actuals"></nav>';
+    mountMdSubnav(document);
+    expect(document.querySelector('nav').innerHTML).toBe(parse(mdSubnavHtml('actuals', 'timesheets')).innerHTML);
+  });
+});
+
+describe('setSubnavBadge', () => {
+  afterEach(() => { document.body.innerHTML = ''; });
+  const mount = active => {
+    document.body.innerHTML = '<nav class="md-subnav" data-subnav-set="timesheets" data-md-active="' + active + '"></nav>';
+    mountMdSubnav(document);
+  };
+  const item = () => document.querySelector('a.md-subnav-item[href="/profile-jobs.html"]');
+
+  it('shows the count on the item and "N queued" on the phone selector', () => {
+    mount('actuals');
+    setSubnavBadge('profileJobs', 3, '3 project codes waiting for profile processing');
+    const b = item().querySelector('.md-subnav-badge');
+    expect(b.textContent).toBe('3');
+    expect(b.getAttribute('title')).toBe('3 project codes waiting for profile processing');
+    expect(document.querySelectorAll('.md-subnav-select-badge')).toHaveLength(1);
+    expect(document.querySelector('.md-subnav-select-badge').textContent).toBe('3 queued');
+  });
+
+  it('accepts a numeric string and updates in place', () => {
+    mount('profileJobs');
+    setSubnavBadge('profileJobs', 3);
+    setSubnavBadge('profileJobs', '5');
+    expect(item().querySelectorAll('.md-subnav-badge')).toHaveLength(1);
+    expect(item().querySelector('.md-subnav-badge').textContent).toBe('5');
+    expect(document.querySelector('.md-subnav-select-badge').textContent).toBe('5 queued');
+  });
+
+  it.each([0, -1, undefined, 'x', null, 2.5])('hides the badge for %s', v => {
+    mount('profileJobs');
+    setSubnavBadge('profileJobs', 4);
+    setSubnavBadge('profileJobs', v);
+    expect(document.querySelector('.md-subnav-badge')).toBeNull();
+    expect(document.querySelector('.md-subnav-select-badge')).toBeNull();
+  });
+
+  it('does nothing for an id that is not on the page', () => {
+    mount('actuals');
+    expect(() => setSubnavBadge('nope', 3)).not.toThrow();
+    expect(document.querySelector('.md-subnav-badge')).toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   filterJobProjects, sortJobProjects, jobStatusLabel, jobStatusClass,
   describeNextRun, formatDateTime, formatDuration,
+  describeNextRunShort, formatTimeShort, settingsState,
 } from './profile-jobs-ui.js';
 
 const P = (code, name, status, extra = {}) => ({
@@ -150,5 +151,44 @@ describe('formatDuration', () => {
     expect(formatDuration(null, t0)).toBe('—');
     expect(formatDuration('nope', t0)).toBe('—');
     expect(formatDuration(t0, plus(-1000))).toBe('—');
+  });
+});
+
+describe('formatTimeShort', () => {
+  it('formats a local HH:MM, empty for nothing or garbage', () => {
+    const d = new Date(2026, 10, 5, 9, 7);
+    expect(formatTimeShort(d)).toBe('09:07');
+    expect(formatTimeShort(d.toISOString())).toBe('09:07');
+    expect(formatTimeShort(null)).toBe('');
+    expect(formatTimeShort('nope')).toBe('');
+  });
+});
+
+describe('describeNextRunShort', () => {
+  const next = new Date(2026, 10, 5, 14, 30);
+  const queued = { queued_at: '2026-11-05T10:00:00.000Z' };
+  it('is empty for a code that is not queued', () => {
+    expect(describeNextRunShort({ state: 'scheduled', nextRunAt: next }, { queued_at: null })).toBe('');
+  });
+  it('follows the schedule for a queued code', () => {
+    expect(describeNextRunShort({ state: 'scheduled', nextRunAt: next.toISOString() }, queued)).toBe('Next 14:30');
+    expect(describeNextRunShort({ state: 'paused' }, queued)).toBe('Next paused');
+    expect(describeNextRunShort({ state: 'scheduled', nextRunAt: null }, queued)).toBe('Next within 60 s');
+    expect(describeNextRunShort(null, queued)).toBe('Next within 60 s');
+  });
+});
+
+describe('settingsState', () => {
+  const saved = { enabled: true, intervalMin: 15 };
+  it('is clean and saveless when nothing changed', () => {
+    expect(settingsState({ enabled: true, intervalMin: 15 }, saved)).toEqual({ dirty: false, valid: true, canSave: false });
+  });
+  it('can save a valid change of either field', () => {
+    expect(settingsState({ enabled: false, intervalMin: 15 }, saved)).toEqual({ dirty: true, valid: true, canSave: true });
+    expect(settingsState({ enabled: true, intervalMin: 1440 }, saved)).toEqual({ dirty: true, valid: true, canSave: true });
+    expect(settingsState({ enabled: true, intervalMin: 1 }, saved).canSave).toBe(true);
+  });
+  it.each([0, 1441, 1.5, '', NaN, null])('refuses interval %s', v => {
+    expect(settingsState({ enabled: true, intervalMin: v }, saved)).toEqual({ dirty: true, valid: false, canSave: false });
   });
 });
