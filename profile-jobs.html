@@ -10,223 +10,363 @@
   <link rel="stylesheet" href="css/style.css?v=34">
   <link rel="stylesheet" href="css/admin-crud.css?v=4">
   <style>
-    .sortable-th { cursor: pointer; user-select: none; white-space: nowrap; }
-    .sortable-th:hover { text-decoration: underline; }
-    .job-st { font-size: var(--text-2xs); padding: .2rem .55rem; border-radius: var(--radius-full); font-weight: 600; white-space: nowrap; }
-    .job-st-error       { background: var(--color-danger-bg);  color: var(--color-danger); cursor: pointer; }
-    .job-st-queued      { background: var(--color-warning-bg); color: var(--color-warning-text); }
-    .job-st-updated     { background: var(--color-success-bg); color: var(--color-success); }
-    .job-st-unprocessed { background: var(--surface-medium);   color: var(--text-muted); }
-    .jobs-scroll { max-height: 60vh; overflow-y: auto; }
-    .jobs-scroll thead th { position: sticky; top: 0; z-index: 1; }
-    .error-detail td { background: var(--color-danger-bg); color: var(--color-danger); font-size: var(--text-xs); white-space: pre-wrap; }
-    .hint { font-size: var(--text-xs); color: var(--text-muted); }
+    /* ── Profile processing (timesheets redesign, boards 11.2a–h) ── */
+    .pj-stack { display: flex; flex-direction: column; gap: var(--space-3); }
+    .pj-alerts { display: flex; flex-direction: column; gap: var(--space-2); }
+    .pj-alert {
+      display: flex; align-items: center; gap: 10px; padding: 10px 8px 10px 14px; border-radius: 10px; border: 1px solid;
+      font-size: 12.5px;
+    }
+    .pj-alert > span { flex: 1 1 auto; }
+    .pj-alert.is-danger { background: var(--color-danger-bg); border-color: var(--color-danger-bg); color: var(--color-danger-text); padding-right: 14px; }
+    .pj-alert.is-warning { background: var(--color-warning-bg); border-color: var(--color-warning-bg); color: var(--color-warning-text); }
+    .pj-alert.is-success { background: var(--color-success-bg); border-color: var(--color-success-bg); color: var(--color-success-text); }
+    .pj-alert-x { width: 26px; height: 26px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; }
+    .pj-alert-x:hover { background: var(--surface-white); }
+    .pj-guide { font-size: 12px; color: var(--text-muted); line-height: 1.5; max-width: 960px; margin: 0; }
+
+    .pj-card { background: var(--card-bg); border: var(--card-border); border-radius: var(--card-radius); }
+    .pj-strip { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; padding: 12px 14px 12px 18px; }
+    .pj-state { display: flex; align-items: center; gap: var(--space-2); font-size: 13px; font-weight: var(--weight-bold); color: var(--brand-navy); white-space: nowrap; }
+    .pj-dot { width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--border-dark); flex: 0 0 auto; }
+    .pj-dot.is-on { background: var(--color-success); }
+    .pj-vsep { width: 1px; height: 28px; background: var(--border-light); }
+    .pj-next { display: flex; flex-direction: column; gap: 1px; }
+    .pj-label { font-size: 10px; font-weight: var(--weight-bold); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+    .pj-next-val { font-size: 13px; font-weight: var(--weight-semibold); color: var(--brand-navy); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .pj-next-last { font-weight: var(--weight-regular); color: var(--text-muted); }
+    .pj-topic { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-secondary); white-space: nowrap; }
+    .pj-topic ph-icon { color: var(--text-muted); }
+    .pj-nokey { color: var(--color-warning-text); }
+    .pj-actions { display: flex; align-items: center; gap: var(--space-2); flex: 0 0 auto; margin-left: auto; }
+    .pj-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 32px; padding: 0 12px;
+      border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--surface-white);
+      font-size: 12.5px; font-weight: var(--weight-semibold); color: var(--brand-navy); white-space: nowrap;
+    }
+    .pj-btn:hover:not(:disabled) { border-color: var(--brand-navy); }
+    .pj-btn:disabled { opacity: .55; cursor: default; }
+    .pj-btn.is-danger { color: var(--color-danger-text); border-color: var(--color-danger-bg); }
+    .pj-btn.is-danger:hover:not(:disabled) { background: var(--color-danger-bg); border-color: var(--color-danger-bg); }
+    .pj-primary { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; font-size: 12.5px; font-weight: var(--weight-semibold); white-space: nowrap; }
+    .pj-primary .spinner-border { width: 13px; height: 13px; border-width: 2px; }
+    .pj-btn .spinner-border { width: 13px; height: 13px; border-width: 2px; }
+
+    .pj-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); padding: 12px 18px; border-bottom: 1px solid var(--border-light); }
+    .pj-seg { margin-right: 6px; }
+    .pj-seg .md-seg-btn { height: 28px; padding: 0 12px; font-size: 12.5px; }
+    .pj-seg-n { font-size: 11px; color: var(--text-muted); font-weight: var(--weight-regular); }
+    .pj-search {
+      display: inline-flex; align-items: center; gap: var(--space-2); width: 220px; height: 32px; padding: 0 10px;
+      border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--surface-white); color: var(--text-muted);
+    }
+    .pj-search:focus-within, .pj-select:focus { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); outline: 0; }
+    .pj-search input { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 12.5px; color: var(--brand-navy); }
+    .pj-search input::placeholder { color: var(--text-placeholder); }
+    .pj-select { min-width: 124px; height: 32px; padding: 0 8px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--surface-white); font-size: 12.5px; color: var(--brand-navy); }
+    .pj-counter { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+    .pj-counter .pj-dot { width: 6px; height: 6px; background: var(--color-success); }
+
+    .pj-scroll { max-height: 60vh; overflow-y: auto; border-radius: 0 0 var(--card-radius) var(--card-radius); }
+    .pj-grid { display: grid; grid-template-columns: minmax(0, 1fr) 56px 72px 124px 128px 206px; gap: 10px; align-items: center; }
+    .pj-head {
+      position: sticky; top: 0; z-index: 1; padding: 10px 18px 8px; align-items: end; background: var(--surface-white);
+      border-bottom: 1px solid var(--border-light); font-size: 10px; font-weight: var(--weight-bold); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted);
+    }
+    .pj-sort { display: inline-flex; align-items: center; gap: 3px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; text-align: left; cursor: pointer; }
+    .pj-sort:hover, .pj-sort.is-on { color: var(--brand-navy); }
+    .pj-sort ph-icon.is-asc { transform: rotate(180deg); }
+    .pj-num { text-align: right; }
+    .pj-row { padding: 9px 18px; min-height: 54px; border-top: 1px solid var(--border-light); }
+    .pj-row:hover, .pj-row.is-open { background: var(--surface-light); }
+    .pj-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .pj-project { font-size: 13px; font-weight: var(--weight-semibold); color: var(--brand-navy); line-height: 1.35; overflow-wrap: anywhere; }
+    .pj-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; color: var(--text-muted); }
+    .pj-topic-err { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: var(--weight-semibold); color: var(--color-danger-text); cursor: help; }
+    .pj-meta, .pj-tab-next, .pj-col-last, .pj-more { display: none; }
+    .pj-cell { font-size: 12.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+    .pj-status { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .pj-pill {
+      display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border: 0; border-radius: var(--radius-full);
+      font-size: 11px; font-weight: var(--weight-bold); white-space: nowrap;
+    }
+    .pj-pill.is-error { background: var(--color-danger-bg); color: var(--color-danger-text); cursor: pointer; }
+    .pj-pill.is-error ph-icon { transition: transform var(--duration-fast); }
+    .pj-pill.is-error[aria-expanded="true"] ph-icon { transform: rotate(180deg); }
+    .pj-pill.is-queued { background: var(--color-warning-bg); color: var(--color-warning-text); }
+    .pj-pill.is-updated { background: var(--color-success-bg); color: var(--color-success-text); }
+    .pj-pill.is-unprocessed { background: var(--surface-subtle); color: var(--text-muted); }
+    .pj-queued-note { font-size: 11px; color: var(--text-muted); }
+    .pj-when { display: flex; flex-direction: column; gap: 2px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+    .pj-next-row { color: var(--color-warning-text); }
+    .pj-row-actions { display: flex; align-items: center; gap: var(--space-2); justify-content: flex-end; }
+    .pj-remove { border: 0; background: transparent; padding: 6px 2px; font-size: 12px; font-weight: var(--weight-semibold); color: var(--color-danger-text); white-space: nowrap; }
+    .pj-remove:hover:not(:disabled) { text-decoration: underline; }
+    .pj-remove:disabled { opacity: .55; }
+    .pj-row-actions .pj-btn { height: 30px; font-size: 12px; border-radius: 7px; }
+    .pj-band {
+      display: flex; gap: 10px; padding: 10px 18px 12px; background: var(--color-danger-bg); border-top: 1px solid var(--color-danger-bg);
+      font-size: 12px; color: var(--color-danger-text); line-height: 1.5;
+    }
+    .pj-band ph-icon { flex: 0 0 auto; margin-top: 2px; }
+    .pj-band-title { font-weight: var(--weight-bold); display: block; }
+    .pj-band-text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+    .pj-hgrid { display: grid; grid-template-columns: 170px 110px 90px 170px 110px minmax(0, 1fr); gap: 12px; align-items: center; padding: 0 18px; }
+    .pj-hhead { position: sticky; top: 0; z-index: 1; background: var(--surface-white); padding-top: 10px; padding-bottom: 8px; font-size: 10px; font-weight: var(--weight-bold); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+    .pj-hrow { min-height: 40px; border-top: 1px solid var(--border-light); font-size: 12.5px; color: var(--text-secondary); }
+    .pj-type { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; color: var(--text-muted); }
+    .pj-herr { font-size: 12px; color: var(--text-muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .pj-herr.is-error { color: var(--color-danger-text); }
+
+    .pj-state-box { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: 48px 24px 56px; text-align: center; }
+    .pj-state-icon { width: 44px; height: 44px; border-radius: var(--radius-lg); background: var(--surface-subtle); display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+    .pj-state-title { font-size: 14px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .pj-link { border: 0; background: transparent; padding: 0; font-size: 12.5px; font-weight: var(--weight-semibold); color: var(--brand-navy); text-decoration: underline; }
+    .pj-link:hover { color: var(--brand-magenta); }
+    .pj-loading { display: flex; align-items: center; justify-content: center; height: 40vh; }
+
+    /* ── Settings drawer (local, modelled on master-pipelines.html's .mdp-drawer) ── */
+    .pj-scrim { position: fixed; inset: 0; z-index: calc(var(--z-notification) - 1); background: var(--brand-navy); opacity: .28; }
+    .pj-drawer {
+      position: fixed; top: 0; right: 0; width: min(440px, 100vw); height: 100vh; height: 100dvh;
+      background: var(--surface-white); border-left: 1px solid var(--border-light); box-shadow: var(--shadow-xl);
+      z-index: var(--z-notification); display: flex; flex-direction: column;
+    }
+    .pj-dr-head { display: flex; align-items: flex-start; gap: var(--space-3); padding: 18px 20px 14px; border-bottom: 1px solid var(--border-light); }
+    .pj-dr-head-main { flex: 1 1 auto; display: flex; flex-direction: column; gap: var(--space-1); }
+    .pj-dr-title { font-size: 19px; font-weight: var(--weight-bold); color: var(--brand-navy); margin: 0; }
+    .pj-dr-close { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text-muted); }
+    .pj-dr-close:hover { background: var(--surface-subtle); color: var(--brand-navy); }
+    .pj-dr-body { flex: 1 1 auto; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 22px; }
+    .pj-dr-sec { display: flex; flex-direction: column; gap: var(--space-3); }
+    .pj-dr-sep { height: 1px; background: var(--border-light); }
+    .pj-dr-body .md-switch { font-size: 13px; font-weight: var(--weight-semibold); color: var(--brand-navy); }
+    .pj-field { display: flex; flex-direction: column; gap: var(--space-1); }
+    .pj-field-label { font-size: 11.5px; font-weight: var(--weight-semibold); color: var(--text-secondary); }
+    .pj-input { width: 140px; height: 36px; padding: 0 10px; border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 13px; color: var(--brand-navy); outline: 0; }
+    .pj-input:focus { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
+    .pj-input.is-invalid { border-color: var(--color-danger); }
+    .pj-err { font-size: 11.5px; color: var(--color-danger-text); }
+    .pj-help { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .pj-help strong { color: var(--text-secondary); }
+    .pj-dr-foot { display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border-light); }
+    .pj-dr-foot .btn-primary { height: 36px; padding: 0 18px; font-size: 12.5px; font-weight: var(--weight-semibold); display: inline-flex; align-items: center; gap: 6px; }
+    .pj-text-btn { border: 0; background: transparent; padding: 9px 6px; font-size: 12.5px; font-weight: var(--weight-semibold); color: var(--text-muted); }
+    .pj-text-btn:hover { color: var(--brand-navy); }
   </style>
 </head>
 <body>
-
 <div id="app-shell">
 <div id="nav-container"></div>
 <div id="app-main">
 
-<div id="app" v-cloak>
-
-  <template v-if="ready">
-  <div class="ph">
-    <div class="ph-main">
-      <div class="ph-title-row"><h1 class="ph-title">Profile processing</h1></div>
-      <div class="ph-sub">{{ queuedCount }} queued</div>
-    </div>
+<div class="ph">
+  <div class="ph-main">
+    <div class="ph-title-row"><h1 class="ph-title">Timesheets</h1></div>
+    <div class="ph-sub">Uploaded actuals and the experience profiles built from them.</div>
   </div>
+</div>
+<div class="md-layout">
+<nav class="md-subnav" data-subnav-set="timesheets" data-md-active="profileJobs" aria-label="Timesheets"></nav>
+<div class="md-content">
 
-  <div class="page app-container">
-
-    <!-- Global alert: network failures / non-JSON responses (kept separate from action errors) -->
-    <div v-if="loadError" class="alert alert-danger alert-sm mb-3">{{ loadError }}</div>
-    <div v-if="actionError" class="alert alert-warning alert-sm mb-3 d-flex justify-content-between align-items-start">
-      <span>{{ actionError }}</span>
-      <button type="button" class="btn-close ms-2" aria-label="Dismiss" @click="actionError = null"></button>
+<div id="app" v-cloak>
+  <div v-if="!ready" class="pj-loading"><div class="spinner-border text-secondary"></div></div>
+  <div v-else class="pj-stack">
+    <!-- ── ALERTS (11.2d) ──────────────────────────────────── -->
+    <div v-if="loadError || actionError || actionInfo" class="pj-alerts">
+      <div v-if="loadError" class="pj-alert is-danger" role="alert"><ph-icon name="info" :size="15"></ph-icon><span>{{ loadError }}</span></div>
+      <div v-if="actionError" class="pj-alert is-warning" role="alert"><ph-icon name="warning" :size="15"></ph-icon><span>{{ actionError }}</span>
+        <button type="button" class="pj-alert-x" title="Dismiss" aria-label="Dismiss" @click="actionError = null"><ph-icon name="close" :size="12"></ph-icon></button></div>
+      <div v-if="actionInfo" class="pj-alert is-success" role="status"><ph-icon name="check" :size="15"></ph-icon><span>{{ actionInfo }}</span>
+        <button type="button" class="pj-alert-x" title="Dismiss" aria-label="Dismiss" @click="actionInfo = null"><ph-icon name="close" :size="12"></ph-icon></button></div>
     </div>
-    <div v-if="actionInfo" class="alert alert-success alert-sm mb-3 d-flex justify-content-between align-items-start">
-      <span>{{ actionInfo }}</span>
-      <button type="button" class="btn-close ms-2" aria-label="Dismiss" @click="actionInfo = null"></button>
-    </div>
 
-    <p class="hint mb-3">
+    <p class="pj-guide">
       Resource experience profiles are rebuilt in the background from uploaded actuals, one project code at a time.
       Uploads and changes to tags, aliases and resources put project codes in the queue; the worker processes the
       queue on the schedule below.
     </p>
 
-    <!-- ── SETTINGS + GLOBAL ACTIONS ─────────────────────────── -->
-    <div class="card mb-3">
-      <div class="p-3">
-        <div class="d-flex flex-wrap align-items-end gap-4">
-          <div class="form-check form-switch mb-1">
-            <input class="form-check-input" type="checkbox" role="switch" id="jobEnabled"
-                   v-model="form.enabled" :disabled="!!busyAction">
-            <label class="form-check-label" for="jobEnabled">Scheduled processing {{ form.enabled ? 'on' : 'off' }}</label>
-          </div>
-          <div>
-            <label class="form-label" for="jobInterval">Interval (minutes)</label>
-            <input id="jobInterval" type="number" min="1" max="1440" step="1"
-                   class="form-control form-control-sm" style="width:120px"
-                   :class="{ 'is-invalid': !intervalValid }"
-                   v-model.number="form.intervalMin" :disabled="!!busyAction">
-          </div>
-          <button class="btn btn-primary btn-sm" :disabled="!settingsDirty || !intervalValid || !!busyAction" @click="saveSettings">
-            <span v-if="busyAction === 'save'" class="spinner-border spinner-border-sm me-1"></span>Save
-          </button>
-          <div class="form-check form-switch mb-1" title="When off, project descriptions are never sent to the AI service">
-            <input class="form-check-input" type="checkbox" role="switch" id="topicEnabled"
-                   :checked="topicSettings.enabled" :disabled="!!busyAction" @change="toggleTopicExtraction($event)">
-            <label class="form-check-label" for="topicEnabled">Topic extraction {{ topicSettings.enabled ? 'on' : 'off' }}
-              <span v-if="topicSettings.enabled && !topicSettings.keyConfigured" class="text-warning small">(no API key configured)</span></label>
-          </div>
-          <div class="ms-auto d-flex gap-2">
-            <button class="btn btn-outline-secondary btn-sm" :disabled="!!busyAction" @click="recalculateNow">
-              <span v-if="busyAction === 'run'" class="spinner-border spinner-border-sm me-1"></span>Recalculate now
-            </button>
-            <button class="btn btn-outline-danger btn-sm" :disabled="!!busyAction" @click="confirmRebuild">
-              <span v-if="busyAction === 'rebuild'" class="spinner-border spinner-border-sm me-1"></span>Rebuild all
-            </button>
-          </div>
-        </div>
-        <div v-if="!intervalValid" class="text-danger small mt-1">Enter a whole number of minutes between 1 and 1440.</div>
-        <div class="small mt-2">
-          <strong>Next scheduled run:</strong> {{ nextRunText }}
-          <span v-if="schedule.lastRunAt" class="text-muted"> · last scheduled run {{ formatDateTime(schedule.lastRunAt) }}</span>
-        </div>
-        <div class="hint mt-1">
-          <strong>Recalculate now</strong> processes the queue immediately; <strong>Rebuild all</strong> queues every project code first.
-          The estimate restarts after an API restart, has the 60-second granularity of the worker tick, and manual runs do not move it.
-        </div>
+    <!-- ── STATUS STRIP (11.2a) ─────────────────────────────── -->
+    <div class="pj-card pj-strip">
+      <div class="pj-state"><span class="pj-dot" :class="{ 'is-on': settings.enabled }"></span>{{ workerLabel }}</div>
+      <div class="pj-vsep"></div>
+      <div class="pj-next">
+        <span class="pj-label">Next run</span>
+        <span class="pj-next-val">{{ nextRunText }}<span v-if="schedule.lastRunAt" class="pj-next-last" :title="'Last scheduled run ' + formatDateTime(schedule.lastRunAt)"> · last {{ formatTimeShort(schedule.lastRunAt) }}</span></span>
+      </div>
+      <div class="pj-vsep"></div>
+      <div class="pj-topic" title="When off, project descriptions are never sent to the AI service">
+        <ph-icon name="sparkle" :size="14"></ph-icon>{{ topicSettings.enabled ? 'Topic extraction on' : 'Topic extraction off' }}
+        <span v-if="topicSettings.enabled && !topicSettings.keyConfigured" class="pj-nokey">(no API key configured)</span>
+      </div>
+      <div class="pj-actions">
+        <button type="button" class="pj-btn pj-settings-btn" @click="openDrawer"><ph-icon name="sliders" :size="14"></ph-icon>Settings</button>
+        <button type="button" class="btn btn-primary pj-primary" :disabled="!!busyAction" @click="recalculateNow">
+          <span v-if="busyAction === 'run'" class="spinner-border" role="status"></span><ph-icon v-else name="refresh" :size="13"></ph-icon>Recalculate now
+        </button>
+        <button type="button" class="pj-btn is-danger" :disabled="!!busyAction" @click="confirmRebuild">
+          <span v-if="busyAction === 'rebuild'" class="spinner-border" role="status"></span>Rebuild all
+        </button>
       </div>
     </div>
 
-    <!-- ── PROJECT CODES ───────────────────────────────────────── -->
-    <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
-      <input v-model="search" type="text" class="form-control form-control-sm" style="max-width:280px"
-             placeholder="Search code or project…">
-      <select v-model="statusFilter" class="form-select form-select-sm" style="width:auto">
-        <option value="all">All statuses</option>
-        <option value="queued">Queued</option>
-        <option value="error">Error</option>
-        <option value="updated">Updated</option>
-      </select>
-      <span class="hint ms-auto">{{ visibleProjects.length }} of {{ projects.length }} project codes · refreshes every 15 s</span>
-    </div>
-
-    <div class="card mb-3">
-      <div class="card-body jobs-scroll">
-        <table class="table table-hover" v-if="visibleProjects.length">
-          <thead>
-            <tr>
-              <th>Project</th>
-              <th class="sortable-th" @click="sortBy('code')">Code {{ sortIndicator('code') }}</th>
-              <th class="text-end">Actuals rows</th>
-              <th class="text-end">Matched resources</th>
-              <th class="sortable-th" @click="sortBy('status')">Status {{ sortIndicator('status') }}</th>
-              <th class="sortable-th" @click="sortBy('lastProcessed')">Last processed {{ sortIndicator('lastProcessed') }}</th>
-              <th>Next processing</th>
-              <th>Topics</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <template v-for="p in visibleProjects" :key="p.project_code">
-              <tr>
-                <td>{{ p.project_name }}</td>
-                <td><code>{{ p.project_code }}</code></td>
-                <td class="text-end">{{ Number(p.row_count).toLocaleString('en-US') }}</td>
-                <td class="text-end">{{ p.resource_count }}</td>
-                <td style="white-space:nowrap">
-                  <span :class="jobStatusClass(p.status)" :title="p.last_error || ''"
-                        @click="p.last_error && toggleExpanded(p.project_code)">{{ jobStatusLabel(p.status) }}<span v-if="p.last_error"> {{ expanded[p.project_code] ? '▴' : '▾' }}</span></span>
-                  <span v-if="p.status === 'error' && p.queued_at" class="text-muted small ms-1">(queued)</span>
-                </td>
-                <td class="text-muted" style="white-space:nowrap">{{ formatDateTime(p.last_processed_at) }}</td>
-                <td class="text-muted" style="white-space:nowrap">{{ describeNextRun(schedule, p) }}</td>
-                <td><span v-if="p.topic_error" class="text-danger small" :title="p.topic_error">⚠ extraction failed</span><span v-else class="text-muted">—</span></td>
-                <td class="text-end" style="white-space:nowrap">
-                  <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!busyAction" @click="processProject(p)">
-                    <span v-if="busyAction === 'process:' + p.project_code" class="spinner-border spinner-border-sm"></span>
-                    <span v-else>Process</span>
-                  </button>
-                  <button v-if="p.queued_at" class="btn btn-outline-danger btn-action" :disabled="!!busyAction" @click="confirmRemove(p)">
-                    <span v-if="busyAction === 'remove:' + p.project_code" class="spinner-border spinner-border-sm"></span>
-                    <span v-else>Remove from queue</span>
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="p.last_error && expanded[p.project_code]" class="error-detail">
-                <td colspan="9">{{ p.last_error }}</td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
-        <div class="empty" v-else>{{ projects.length ? 'No project codes match the current filters.' : 'No actuals uploaded yet.' }}</div>
+    <!-- ── PROJECT CODES / RUN HISTORY (11.2a, 11.2c, 11.2e) ── -->
+    <div class="pj-card">
+      <div class="pj-toolbar">
+        <div class="md-seg pj-seg" role="tablist" aria-label="View">
+          <button type="button" role="tab" class="md-seg-btn" :class="{ active: view === 'codes' }" :aria-selected="view === 'codes'" @click="view = 'codes'">Project codes <span class="pj-seg-n">{{ projects.length }}</span></button>
+          <button type="button" role="tab" class="md-seg-btn" :class="{ active: view === 'history' }" :aria-selected="view === 'history'" @click="view = 'history'">Run history <span class="pj-seg-n">{{ runs.length }}</span></button>
+        </div>
+        <template v-if="view === 'codes'">
+          <label class="pj-search"><ph-icon name="search" :size="13"></ph-icon>
+            <input v-model="search" type="text" placeholder="Search code or project…" aria-label="Search code or project"></label>
+          <select v-model="statusFilter" class="pj-select" aria-label="Status">
+            <option value="all">All statuses</option>
+            <option value="queued">Queued</option>
+            <option value="error">Error</option>
+            <option value="updated">Updated</option>
+          </select>
+          <span class="pj-counter" title="Refreshes every 15 s"><span class="pj-dot"></span>{{ visibleProjects.length }} of {{ projects.length }} project codes</span>
+        </template>
       </div>
-    </div>
 
-    <!-- ── RUN HISTORY ─────────────────────────────────────────── -->
-    <details class="mb-4">
-      <summary class="fw-semibold" style="cursor:pointer">Run history <span class="text-muted fw-normal small">(last {{ runs.length }})</span></summary>
-      <div class="card mt-2">
-        <div class="card-body jobs-scroll">
-          <table class="table table-sm" v-if="runs.length">
-            <thead>
-              <tr>
-                <th>When</th><th>Type</th><th class="text-end">Projects</th><th class="text-end">Resource contributions</th>
-                <th>Duration</th><th>Error</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="r in runs" :key="r.id">
-                <td style="white-space:nowrap">{{ formatDateTime(r.started_at) }}</td>
-                <td>{{ r.trigger_type }}</td>
-                <td class="text-end">{{ r.projects }}</td>
-                <td class="text-end">{{ r.resources }}</td>
-                <td style="white-space:nowrap">{{ formatDuration(r.started_at, r.finished_at) }}</td>
-                <td class="small" :class="r.error ? 'text-danger' : 'text-muted'" style="max-width:420px;white-space:pre-wrap">{{ r.error || '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="empty" v-else>No runs recorded yet.</div>
+      <div v-if="view === 'codes'" class="pj-scroll">
+        <template v-if="visibleProjects.length">
+          <div class="pj-grid pj-head">
+            <button type="button" class="pj-sort" :class="{ 'is-on': sortKey === 'code' }" @click="sortBy('code')">Project · Code<ph-icon v-if="sortKey === 'code'" name="chevron-down" :size="10" :class="{ 'is-asc': sortDir === 'asc' }"></ph-icon></button>
+            <span class="pj-num pj-col-rows">Actuals rows</span><span class="pj-num pj-col-res">Matched resources</span>
+            <button type="button" class="pj-sort" :class="{ 'is-on': sortKey === 'status' }" @click="sortBy('status')">Status<ph-icon v-if="sortKey === 'status'" name="chevron-down" :size="10" :class="{ 'is-asc': sortDir === 'asc' }"></ph-icon></button>
+            <button type="button" class="pj-sort" :class="{ 'is-on': sortKey === 'lastProcessed' }" @click="sortBy('lastProcessed')"><span class="pj-col-lastnext">Last · next run</span><span class="pj-col-last">Last processed</span><ph-icon v-if="sortKey === 'lastProcessed'" name="chevron-down" :size="10" :class="{ 'is-asc': sortDir === 'asc' }"></ph-icon></button>
+            <span></span>
+          </div>
+          <template v-for="p in visibleProjects" :key="p.project_code">
+            <div class="pj-grid pj-row" :class="{ 'is-open': p.last_error && expanded[p.project_code] }">
+              <div class="pj-main">
+                <span class="pj-project">{{ p.project_name || '—' }}</span>
+                <span class="pj-code">{{ p.project_code }}</span>
+                <span class="pj-meta">{{ fmtCount(p.row_count) }} rows · {{ matchedText(p) }} resources</span>
+                <span v-if="p.topic_error" class="pj-topic-err" :title="p.topic_error"><ph-icon name="warning" :size="12"></ph-icon>Topic extraction failed</span>
+              </div>
+              <span class="pj-cell pj-num pj-col-rows">{{ fmtCount(p.row_count) }}</span>
+              <span class="pj-cell pj-num pj-col-res">{{ matchedText(p) }}</span>
+              <div class="pj-status">
+                <button v-if="p.last_error" type="button" class="pj-pill is-error" :title="p.last_error" :aria-expanded="!!expanded[p.project_code]"
+                        @click="toggleExpanded(p.project_code)">{{ jobStatusLabel(p.status) }}<ph-icon name="chevron-down" :size="10"></ph-icon></button>
+                <span v-else class="pj-pill" :class="'is-' + pillKind(p.status)">{{ jobStatusLabel(p.status) }}</span>
+                <span v-if="p.status === 'error' && p.queued_at" class="pj-queued-note">(queued)</span>
+                <span v-if="p.queued_at" class="pj-tab-next pj-next-row">{{ describeNextRunShort(schedule, p) }}</span>
+              </div>
+              <div class="pj-when">
+                <span>{{ formatDateTime(p.last_processed_at) }}</span>
+                <span v-if="p.queued_at" class="pj-next-row pj-desk-next">{{ describeNextRunShort(schedule, p) }}</span>
+              </div>
+              <div class="pj-row-actions">
+                <button v-if="p.queued_at" type="button" class="pj-remove" :disabled="!!busyAction" @click="confirmRemove(p)">
+                  <span v-if="busyAction === 'remove:' + p.project_code" class="spinner-border spinner-border-sm" role="status"></span>
+                  <span v-else>Remove from queue</span>
+                </button>
+                <button type="button" class="pj-btn" :disabled="!!busyAction" @click="processProject(p)">
+                  <span v-if="busyAction === 'process:' + p.project_code" class="spinner-border" role="status"></span>
+                  <span v-else>Process</span>
+                </button>
+              </div>
+            </div>
+            <div v-if="p.last_error && expanded[p.project_code]" class="pj-band">
+              <ph-icon name="info" :size="14"></ph-icon>
+              <div><span class="pj-band-title">Last run failed</span><span class="pj-band-text">{{ p.last_error }}</span></div>
+            </div>
+          </template>
+        </template>
+        <div v-else class="pj-state-box">
+          <div class="pj-state-icon"><ph-icon :name="projects.length ? 'search' : 'folder'" :size="20"></ph-icon></div>
+          <span class="pj-state-title">{{ projects.length ? 'No project codes match the current filters.' : 'No actuals uploaded yet.' }}</span>
+          <button v-if="projects.length" type="button" class="pj-link" @click="clearFilters">Clear search and status</button>
         </div>
       </div>
-    </details>
 
+      <div v-else class="pj-scroll">
+        <template v-if="runs.length">
+          <div class="pj-hgrid pj-hhead"><span>When</span><span>Type</span><span class="pj-num">Projects</span><span class="pj-num">Resource contributions</span><span>Duration</span><span>Error</span></div>
+          <div v-for="r in runs" :key="r.id" class="pj-hgrid pj-hrow">
+            <span class="pj-cell">{{ formatDateTime(r.started_at) }}</span>
+            <span class="pj-type">{{ r.trigger_type }}</span>
+            <span class="pj-num">{{ r.projects }}</span>
+            <span class="pj-num">{{ r.resources }}</span>
+            <span>{{ formatDuration(r.started_at, r.finished_at) }}</span>
+            <span class="pj-herr" :class="{ 'is-error': r.error }">{{ r.error || '—' }}</span>
+          </div>
+        </template>
+        <div v-else class="pj-state-box"><span class="pj-state-title">No runs recorded yet.</span></div>
+      </div>
+    </div>
   </div>
+
+  <!-- ── SETTINGS DRAWER (11.2b) ─────────────────────────────── -->
+  <template v-if="drawerOpen">
+    <div class="pj-scrim" @click="closeDrawer"></div>
+    <aside class="pj-drawer" role="dialog" aria-modal="true" aria-labelledby="pjDrawerTitle">
+      <div class="pj-dr-head">
+        <div class="pj-dr-head-main"><span class="pj-label">Profile processing</span><h2 class="pj-dr-title" id="pjDrawerTitle">Settings</h2></div>
+        <button type="button" class="pj-dr-close" title="Close" aria-label="Close" @click="closeDrawer"><ph-icon name="close" :size="16"></ph-icon></button>
+      </div>
+      <div class="pj-dr-body">
+        <div class="pj-dr-sec">
+          <span class="pj-label">Schedule</span>
+          <label class="md-switch"><input type="checkbox" role="switch" v-model="form.enabled" :disabled="!!busyAction">Scheduled processing {{ form.enabled ? 'on' : 'off' }}</label>
+          <div class="pj-field">
+            <label class="pj-field-label" for="jobInterval">Interval (minutes)</label>
+            <input id="jobInterval" type="number" min="1" max="1440" step="1" class="pj-input"
+                   :class="{ 'is-invalid': !intervalValid }" v-model.number="form.intervalMin" :disabled="!!busyAction">
+          </div>
+          <span v-if="!intervalValid" class="pj-err">Enter a whole number of minutes between 1 and 1440.</span>
+          <span class="pj-help">The estimate restarts after an API restart, has the 60-second granularity of the worker tick, and manual runs do not move it.</span>
+        </div>
+        <div class="pj-dr-sep"></div>
+        <div class="pj-dr-sec">
+          <span class="pj-label">Topic extraction</span>
+          <label class="md-switch"><input type="checkbox" role="switch" :checked="topicSettings.enabled" :disabled="!!busyAction" @change="toggleTopicExtraction($event)">Topic extraction {{ topicSettings.enabled ? 'on' : 'off' }}
+            <span v-if="topicSettings.enabled && !topicSettings.keyConfigured" class="pj-nokey">(no API key configured)</span></label>
+          <span class="pj-help">When off, project descriptions are never sent to the AI service. Saved immediately; turning it back on queues every project code.</span>
+        </div>
+        <div class="pj-dr-sep"></div>
+        <div class="pj-help"><strong>Recalculate now</strong> processes the queue immediately; <strong>Rebuild all</strong> queues every project code first.</div>
+      </div>
+      <div class="pj-dr-foot">
+        <button type="button" class="pj-text-btn" @click="closeDrawer">Close</button>
+        <button type="button" class="btn btn-primary" :disabled="!settingsDirty || !intervalValid || !!busyAction" @click="saveSettings">
+          <span v-if="busyAction === 'save'" class="spinner-border spinner-border-sm" role="status"></span>Save schedule
+        </button>
+      </div>
+    </aside>
   </template>
+</div><!-- #app -->
 
-  <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
-    <div class="spinner-border text-secondary"></div>
-  </div>
+</div><!-- /.md-content -->
+</div><!-- /.md-layout -->
 
-  <!-- Confirm (used by showConfirm() in js/core.js) -->
-  <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
-      <div class="modal-content shadow-lg">
-        <div class="modal-header border-0 pb-1">
-          <h6 class="modal-title fw-bold" id="confirmModalTitle">⚠️ Confirm</h6>
-        </div>
-        <div class="modal-body pt-1">
-          <p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p>
-        </div>
-        <div class="modal-footer border-0 pt-2">
-          <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
-          <button class="btn btn-danger" id="confirmModalOk">Confirm</button>
-        </div>
+<!-- Confirm (used by showConfirm() in js/core.js) -->
+<div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header border-0 pb-1">
+        <h6 class="modal-title fw-bold" id="confirmModalTitle">Confirm</h6>
+      </div>
+      <div class="modal-body pt-1">
+        <p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p>
+      </div>
+      <div class="modal-footer border-0 pt-2">
+        <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger" id="confirmModalOk">Confirm</button>
       </div>
     </div>
   </div>
-
-</div><!-- #app -->
+</div>
 
 </div><!-- /#app-main -->
 </div><!-- /#app-shell -->
-
 <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script type="module" src="js/lib/profile-jobs-ui.js?v=2"></script>
@@ -235,6 +375,7 @@
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script defer src="js/notifications.js?v=3"></script>
 <script type="module" src="js/lib/icons.js?v=7"></script>
+<script type="module" src="js/lib/md-subnav.js?v=5"></script>
 <script defer src="js/nav.js?v=19"></script>
 <script type="module">
   // Module-level (not reactive): timers and the refresh sequence number.
@@ -245,6 +386,7 @@
   const REFRESH_MS = 15000;
   const BUSY_TEXT = 'A profile job is already running — try again in a moment.';
   const NETWORK_TEXT = 'Could not reach the server, or it returned an unexpected response. The page retries every 15 seconds.';
+  const queueTitle = n => `${n} project code${n === 1 ? '' : 's'} waiting for profile processing`;
 
   Vue.createApp({
     data() {
@@ -254,7 +396,7 @@
         actionError: null,      // failures of an action (validation, 404, 409)
         actionInfo: null,       // confirmation of a completed action
         settings: { enabled: true, intervalMin: 10 },   // as stored on the server
-        form: { enabled: true, intervalMin: 10 },       // the settings widget
+        form: { enabled: true, intervalMin: 10 },       // the settings drawer
         schedule: { state: 'due', lastRunAt: null, nextRunAt: null },
         topicSettings: { enabled: true, keyConfigured: true },
         queuedCount: 0,
@@ -264,8 +406,10 @@
         statusFilter: 'all',
         sortKey: 'code',
         sortDir: 'asc',
-        expanded: {},           // project_code → true when its error row is open
+        expanded: {},           // project_code → true when its error band is open; survives the refresh
         busyAction: null,       // anti double-click guard: the action in progress, or null
+        view: 'codes',          // 'codes' | 'history'; not persisted
+        drawerOpen: false,
       };
     },
 
@@ -274,15 +418,14 @@
         const filtered = window.filterJobProjects(this.projects, { search: this.search, status: this.statusFilter });
         return window.sortJobProjects(filtered, this.sortKey, this.sortDir);
       },
-      intervalValid() {
-        const v = this.form.intervalMin;
-        return typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 1440;
-      },
-      settingsDirty() {
-        return this.form.enabled !== this.settings.enabled || this.form.intervalMin !== this.settings.intervalMin;
-      },
+      formState() { return window.settingsState(this.form, this.settings); },
+      intervalValid() { return this.formState.valid; },
+      settingsDirty() { return this.formState.dirty; },
       nextRunText() {
         return window.describeNextRun(this.schedule, null);
+      },
+      workerLabel() {
+        return this.settings.enabled ? `Scheduled · every ${this.settings.intervalMin} min` : 'Scheduled processing paused';
       },
     },
 
@@ -297,18 +440,24 @@
       await this.refresh();
       this.ready = true;
       this.startAutoRefresh();
+      this._onKeydown = e => this.onKeydown(e);
+      document.addEventListener('keydown', this._onKeydown);
     },
 
     beforeUnmount() {
       this.stopAutoRefresh();
+      document.removeEventListener('keydown', this._onKeydown);
     },
 
     methods: {
       jobStatusLabel(s) { return window.jobStatusLabel(s); },
-      jobStatusClass(s) { return window.jobStatusClass(s); },
-      describeNextRun(schedule, p) { return window.describeNextRun(schedule, p); },
+      describeNextRunShort(schedule, p) { return window.describeNextRunShort(schedule, p); },
       formatDateTime(v) { return window.formatDateTime(v); },
+      formatTimeShort(v) { return window.formatTimeShort(v); },
       formatDuration(a, b) { return window.formatDuration(a, b); },
+      pillKind(s) { return ['error', 'queued', 'updated'].includes(s) ? s : 'unprocessed'; },
+      matchedText(p) { return p.status === 'unprocessed' ? '—' : p.resource_count; },
+      fmtCount(n) { return (Number(n) || 0).toLocaleString('en-US'); },
 
       // fetch wrapper: { ok, status, data, network }. network = true when the request failed or the
       // response was not JSON (e.g. a proxy error page).
@@ -337,10 +486,11 @@
           this.request('GET', '/api/profile-jobs/runs'),
         ]);
         if (seq !== refreshSeq) return;            // a newer refresh superseded this one
-        if (state.network || runs.network) { this.loadError = NETWORK_TEXT; return; }
+        if (state.network || runs.network) { this.loadError = NETWORK_TEXT; setSubnavBadge('profileJobs', 0); return; }
         if (!state.ok || !runs.ok) {
           this.loadError = (state.data && state.data.error) || (runs.data && runs.data.error)
             || 'Failed to load the profile processing state.';
+          setSubnavBadge('profileJobs', 0);
           return;
         }
         this.loadError = null;
@@ -350,6 +500,7 @@
         this.schedule = state.data.schedule;
         if (state.data.topicSettings) this.topicSettings = state.data.topicSettings;
         this.queuedCount = state.data.queuedCount;
+        setSubnavBadge('profileJobs', this.queuedCount, queueTitle(Number(this.queuedCount) || 0));
         this.projects = state.data.projects;
         this.runs = runs.data;
       },
@@ -403,6 +554,31 @@
           + (e ? `, ${e} failed (see the Error rows).` : '.');
       },
 
+      // ── Settings drawer ──
+      openDrawer() {
+        this._returnFocus = document.activeElement;
+        this.drawerOpen = true;
+        this.$nextTick(() => { const d = document.querySelector('.pj-drawer'); d && (d.querySelector('input:not([disabled])') || d.querySelector('button')).focus(); });
+      },
+      // Closing discards unsaved schedule edits (spec §7).
+      closeDrawer() {
+        this.form = { ...this.settings };
+        this.drawerOpen = false;
+        this.$nextTick(() => { if (this._returnFocus && this._returnFocus.focus) this._returnFocus.focus(); });
+      },
+      onKeydown(e) {
+        if (!this.drawerOpen || document.querySelector('.modal.show')) return;
+        if (e.key === 'Escape') { e.preventDefault(); this.closeDrawer(); return; }
+        if (e.key !== 'Tab') return;
+        const drawer = document.querySelector('.pj-drawer');
+        const items = drawer ? [...drawer.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')] : [];
+        if (!items.length) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && (document.activeElement === first || !drawer.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (document.activeElement === last || !drawer.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+      },
+
       async toggleTopicExtraction(event) {
         await this.runAction('topics', 'PUT', '/api/profile-jobs/topic-settings', { enabled: !this.topicSettings.enabled });
         // Vue does not repatch :checked when the bound value is unchanged (failed PUT) - resync the DOM
@@ -410,7 +586,7 @@
       },
 
       saveSettings() {
-        if (!this.settingsDirty || !this.intervalValid) return;
+        if (!this.formState.canSave) return;
         return this.runAction('save', 'PUT', '/api/profile-jobs/settings',
           { enabled: this.form.enabled, intervalMin: this.form.intervalMin },
           {
@@ -432,7 +608,7 @@
         if (this.busyAction) return;
         showConfirm(
           'Rebuild every profile?\n\nAll project codes are queued and processed again now. On a large database this can take a while.',
-          () => this.rebuildAll(), null, '⚠️ Rebuild all');
+          () => this.rebuildAll(), null, 'Rebuild all');
       },
       rebuildAll() {
         return this.runAction('rebuild', 'POST', '/api/profile-jobs/rebuild', null, {
@@ -455,7 +631,7 @@
         const code = p.project_code;
         showConfirm(
           `Remove "${code}" from the queue?\n\nThe profile already calculated does not change until this project code is processed again (by a new upload, a change that queues it, Process or Rebuild all).`,
-          () => this.removeFromQueue(code), null, '⚠️ Remove from queue');
+          () => this.removeFromQueue(code), null, 'Remove from queue');
       },
       removeFromQueue(code) {
         return this.runAction('remove:' + code, 'DELETE',
@@ -467,15 +643,16 @@
       toggleExpanded(code) {
         this.expanded = { ...this.expanded, [code]: !this.expanded[code] };
       },
+      clearFilters() {
+        this.search = '';
+        this.statusFilter = 'all';
+      },
       sortBy(key) {
         if (this.sortKey === key) this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
         else { this.sortKey = key; this.sortDir = 'asc'; }
       },
-      sortIndicator(key) {
-        return this.sortKey === key ? (this.sortDir === 'asc' ? '▲' : '▼') : '';
-      },
     },
-  }).mount('#app');
+  }).component('ph-icon', window.PhIcon).mount('#app');
 </script>
 </body>
 </html>

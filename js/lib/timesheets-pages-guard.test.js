@@ -61,3 +61,35 @@ describe('timesheets.html (Actuals)', () => {
     expect(html).toContain("setSubnavBadge('profileJobs'");
   });
 });
+
+describe('profile-jobs.html (Profile processing)', () => {
+  const html = shared('profile-jobs.html', 'profileJobs');
+
+  it('replaces the <details> run history with a segmented view switch', () => {
+    expect(html).not.toContain('<details');
+    expect(html).toMatch(/class="md-seg pj-seg"[\s\S]*Project codes[\s\S]*Run history/);
+    expect(html).toContain("view === 'history'");
+  });
+
+  it('confirms Rebuild all and Remove from queue with showConfirm', () => {
+    expect(html).toMatch(/showConfirm\(\s*'Rebuild every profile\?/);
+    expect(html).toMatch(/showConfirm\(\s*`Remove "\$\{code\}" from the queue\?/);
+  });
+
+  it('drives Save schedule from settingsState and the badge from refresh()', () => {
+    expect(html).toContain('window.settingsState(this.form, this.settings)');
+    const refresh = html.slice(html.indexOf('async refresh() {'), html.indexOf('startAutoRefresh() {'));
+    expect(refresh).toContain("setSubnavBadge('profileJobs', this.queuedCount");
+    expect(refresh).toContain("setSubnavBadge('profileJobs', 0)");
+  });
+
+  it('closing the drawer restores the saved schedule', () => {
+    const close = html.slice(html.indexOf('closeDrawer() {'), html.indexOf('onKeydown(e) {'));
+    expect(close).toContain('this.form = { ...this.settings }');
+  });
+
+  it('keys the error band by project code', () => {
+    expect(html).toContain('expanded[p.project_code]');
+    expect(html).toContain('Last run failed');
+  });
+});
