@@ -852,7 +852,7 @@
                    v-model="potf.amountText" @focus="onPotAmountFocus" @blur="onPotAmountBlur" @keydown.enter="savePot"
                    :placeholder="potf.id ? '' : 'Target, e.g. ' + moneyExample" :aria-label="potf.id ? 'New target' : 'Target'">
           </span>
-          <span v-if="potf.id" class="mdp-muted">Current {{ formatMoney(potf.stored ?? 0, 'EUR', activeCurrencies) }}</span>
+          <span v-if="potf.id" class="mdp-hint">Current {{ formatMoney(potf.stored ?? 0, 'EUR', activeCurrencies) }}</span>
         </label>
         <label v-if="potf.id" class="mdp-field">
           <span class="mdp-field-label">Reason for change <span class="mdp-req">*</span> <span class="mdp-muted">· saved in the change history</span></span>
