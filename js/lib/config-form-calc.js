@@ -193,7 +193,8 @@ export function reforecastDistribution(tasks, months, actualsRows, currentYm, di
   return {
     newPhasing, newPlanning, distError: null, remainingBudget, remainingHours, distributedRemainingHours, pastMonths, futureMonths,
     consumedBudget, consumedHours, soldBudget, soldHours,
-    overBudget: consumedBudget > soldBudget, overHours: consumedHours > soldHours,
+    // Compared at the currency's decimals and at 0.01 h, so floating-point noise is not an overrun.
+    overBudget: round(consumedBudget, digits) > round(soldBudget, digits), overHours: round(consumedHours, 2) > round(soldHours, 2),
   };
 }
 

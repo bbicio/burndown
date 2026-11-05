@@ -245,6 +245,15 @@ describe('reforecastDistribution', () => {
     expect(result.newPlanning).toEqual({ '202601': 4, '202602': 3, '202603': 13 });
   });
 
+  it('does not flag an overrun from floating-point noise', () => {
+    const tasks = [{ name: 'Dev', billable: true, startDate: '20260101', endDate: '20260228',
+      resources: [{ role: 'Developer', soldHours: 0.3, hourlyRate: 0.1 }] }];
+    const rows = [1, 2, 3].map(() => row('Dev', 'Developer', '202601', 0.1));
+    const result = reforecastDistribution(tasks, ['202601', '202602'], rows, '202602');
+    expect(result.overHours).toBe(false);
+    expect(result.overBudget).toBe(false);
+  });
+
   it('distributes nothing and says so when no month is open', () => {
     const tasks = [dev(10, '20260101', '20260228')];
     const result = reforecastDistribution(tasks, ['202601', '202602'], [row('Dev', 'Developer', '202601', 4)], '202603');
