@@ -255,6 +255,7 @@ Pure helpers of `master-pipelines.html` (`<script type="module">`, `window.*` br
 - `resolvePot(pots, id)`, `potCountByYear(pots)`, `potClientIds(pot, groups)`, `availableTargets(...)`: the POT list, its per-year count and the targets still free for a new POT.
 - `achievement`, `gapToTarget`, `outsidePotCommitted(summary, pots)`: the summary tiles; the last returns `null` below one cent.
 - `rowMonthAmount`, `rowCurrency`, `filterPhasingRows`, `phasingTotals(rows, months, mode)`, `stageCounts`: the phasing table; `eur` mode divides by `currencyRate || 1`, `original` gives one total row per currency.
+- `mdpDrawerDismiss({ pyfShow, potfShow, hasDetails, loading, closeAll })` (2026-11-05): what a dismiss does to the side drawer — `'none'` while a save runs or nothing is open, `'close-drawer'` for the close button or the details alone, `'back-to-details'` from a POT form opened over the details, `'close-form'` otherwise.
 
 Page behaviour: `docs/pages/config.md` "Pipelines & POTs".
 
