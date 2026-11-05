@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><title>PDash — Profile processing</title><style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#F3F4F6}
+a{color:#0B1840}a:hover{color:#F0287A}
+input::placeholder{color:#9AA0AC}
+.pb-navitem{height:40px;padding:0 10px;display:flex;align-items:center;gap:10px;border-radius:8px;text-decoration:none}
+.pb-navitem span{color:rgba(255,255,255,.75);font-size:13px;font-weight:500}
+.pb-subitem{height:32px;padding:0 10px 0 14px;display:flex;align-items:center;gap:9px;border-radius:8px;text-decoration:none}
+.pb-subitem span{color:rgba(255,255,255,.58);font-size:12px}
+.pb-subitem.active{background:rgba(255,255,255,.1);box-shadow:inset 3px 0 0 #F0287A}
+.pb-subitem.active span{color:#fff;font-weight:600}
+.pb-sublabel{padding:10px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.38)}
+</style></helmet>
+<div style="width:1400px;height:980px;box-sizing:border-box;display:flex;background:#F3F4F6;overflow:hidden;position:relative">
+  <div style="width:220px;flex-shrink:0;background:#0B1840;display:flex;flex-direction:column;box-sizing:border-box">
+    <div style="height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 16px;border-bottom:3px solid #F0287A">
+      <span style="color:#FFFFFF;font-weight:700;font-size:22px;letter-spacing:-0.02em"><span style="color:#F0287A">P</span>Dash</span>
+      <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="rgba(255,255,255,.6)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+    </div>
+    <div style="padding:10px 8px 0;display:flex;flex-direction:column;gap:2px">
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12V8M8 12V4M14 12V6" stroke="rgba(255,255,255,.65)" stroke-width="1.6" stroke-linecap="round"></path></svg><span>Pipeline</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="2" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect></svg><span>Portfolio</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4" stroke-linecap="round"></path></svg><span>Planning</span></a>
+      <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+      <div class="pb-sublabel">Admin</div>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.4" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></circle><path d="M8 2v1.6M8 12.4V14M14 8h-1.6M3.6 8H2" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Master Data</span></a>
+      <a class="pb-subitem active" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="9" rx="1.2" stroke="#fff" stroke-width="1.3"></rect><path d="M2 4l1.6-2h8.8L14 4" stroke="#fff" stroke-width="1.3"></path></svg><span>Timesheets</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.3" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></circle><path d="M3 14c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg><span>User Admin</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5.5" r="2" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></circle><circle cx="11" cy="6.5" r="1.6" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></circle><path d="M2 14c0-2.3 1.7-3.8 3.9-3.8 1.6 0 2.9.8 3.5 2M9.6 10.3c1.6 0 3 1.1 3 3" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Team</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5L14 8.5 7.5 15 2 9.5V2Z" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Attribute Lists</span></a>
+      <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+      <div class="pb-sublabel">Sysadmin</div>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><ellipse cx="8" cy="3.5" rx="5.2" ry="1.8" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></ellipse><path d="M2.8 3.5v9c0 1 2.3 1.8 5.2 1.8s5.2-.8 5.2-1.8v-9" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></path></svg><span>DB Reset</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 2h5.5L13 5.5V14H4V2Z" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Terms &amp; Conditions</span></a>
+    </div>
+    <div style="flex:1"></div>
+    <div style="border-top:1px solid rgba(255,255,255,.12);padding:12px 12px 14px;display:flex;align-items:center;gap:10px">
+      <div style="width:26px;height:26px;border-radius:999px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:700;flex-shrink:0">AP</div>
+      <span style="color:#fff;font-size:12px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">bbicio@gmail.com</span>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <div style="flex-shrink:0;height:44px;box-sizing:border-box;background:#FFFFFF;border-bottom:1px solid #DDE1E8;padding:0 24px;display:flex;align-items:center">
+      <div style="font-size:12px;color:#6B7280;display:flex;align-items:center;gap:6px">Home <span style="color:#C7CCD9">/</span> <span style="color:#0B1840;text-decoration:underline;cursor:pointer">Timesheets</span> <span style="color:#C7CCD9">/</span> <span style="color:#374151;font-weight:600">Profile processing</span></div>
+    </div>
+    <div style="flex-shrink:0;padding:16px 24px 0;display:flex;flex-direction:column;gap:2px">
+      <span style="font-size:26px;font-weight:700;color:#0B1840">Timesheets</span>
+      <span style="font-size:12.5px;color:#6B7280">Uploaded actuals and the experience profiles built from them.</span>
+    </div>
+    <div style="flex:1;min-height:0;display:flex;gap:20px;padding:16px 24px 24px">
+      <div style="width:184px;flex-shrink:0;background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:6px 6px 10px;align-self:flex-start;display:flex;flex-direction:column">
+          <span style="padding:12px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Timesheets</span>
+          <div style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;cursor:pointer;background:transparent;box-shadow:none" style-hover="background:#F3F4F6"><span style="flex:1;font-size:12.5px;font-weight:500;color:#374151">Actuals</span><span style="font-size:11px;color:#9AA0AC">9</span></div>
+          <div title="" style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;cursor:pointer;background:#F3F4F6;box-shadow:inset 3px 0 0 #F0287A" style-hover="background:#F3F4F6"><span style="flex:1;font-size:12.5px;font-weight:700;color:#0B1840">Profile processing</span><sc-if value="{{ hasQueue }}" hint-placeholder-val="{{ true }}"><span style="font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 7px;background:#FEF3C7;color:#92400E">{{ queueN }}</span></sc-if></div>
+        </div>
+      <div ref="{{ scrollRef }}" style="flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:12px">
+      <sc-if value="{{ showAlerts }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:#FEF3F2;border:1px solid #FECDCA;font-size:12.5px;color:#7A271A"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#B42318" stroke-width="1.5" stroke-linecap="round" style="flex-shrink:0"><circle cx="8" cy="8" r="6"></circle><path d="M8 4.8v3.8M8 11v.2"></path></svg><span style="flex:1"><strong>Could not reach the server.</strong> The page retries every 15 seconds.</span></div>
+          <sc-if value="{{ showY }}"><div style="display:flex;align-items:center;gap:10px;padding:10px 8px 10px 14px;border-radius:10px;background:#FFFAEB;border:1px solid #FEDF89;font-size:12.5px;color:#7A2E0E"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#B54708" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M8 2 14.5 13.5h-13L8 2Z"></path><path d="M8 6.5v3M8 11.6v.1"></path></svg><span style="flex:1">A profile job is already running — try again in a moment.</span><div onClick="{{ dismY }}" title="Dismiss" style="width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#B54708;cursor:pointer" style-hover="background:#FEF0C7"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div></div></sc-if>
+          <sc-if value="{{ showG }}"><div style="display:flex;align-items:center;gap:10px;padding:10px 8px 10px 14px;border-radius:10px;background:#ECFDF3;border:1px solid #ABEFC6;font-size:12.5px;color:#054F31"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#067647" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="8" cy="8" r="6"></circle><path d="M5.5 8.2l1.7 1.7 3.3-3.6"></path></svg><span style="flex:1">Recalculation finished: 3 project codes processed, 12 resource contributions rebuilt.</span><div onClick="{{ dismG }}" title="Dismiss" style="width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#067647;cursor:pointer" style-hover="background:#DCFAE6"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div></div></sc-if>
+        </div>
+      </sc-if>
+
+      <div style="font-size:12px;color:#6B7280;line-height:1.5;max-width:960px">Resource experience profiles are rebuilt in the background from uploaded actuals, one project code at a time. Uploads and changes to tags, aliases and resources put project codes in the queue; the worker processes the queue on the schedule below.</div>
+
+      <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column;flex-shrink:0">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:16px;padding:12px 14px 12px 18px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:999px;background:{{ dot }}"></span><span style="font-size:13px;font-weight:700;color:#0B1840">{{ schedLabel }}</span></div>
+          <div style="width:1px;height:28px;background:#EEF0F4"></div>
+          <div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Next run</span><span style="font-size:13px;font-weight:600;color:#0B1840;font-variant-numeric:tabular-nums;white-space:nowrap">{{ nextRun }} <span style="font-weight:400;color:#9AA0AC">· last 14:29</span></span></div>
+          <div style="width:1px;height:28px;background:#EEF0F4"></div>
+          <div title="When off, project descriptions are never sent to the AI service" style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#374151;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5l1.4 3.6 3.6 1.4-3.6 1.4L8 11.5 6.6 7.9 3 6.5l3.6-1.4L8 1.5Z"></path><path d="M12.5 11l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6.6-1.4Z"></path></svg>{{ topicLabel }}</div>
+          <span style="flex:1"></span>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0"><div onClick="{{ toggleSettings }}" style="display:flex;align-items:center;gap:7px;height:32px;box-sizing:border-box;padding:0 12px;border:1px solid {{ setB }};background:{{ setBg }};border-radius:8px;white-space:nowrap;font-size:12.5px;font-weight:600;color:#0B1840;cursor:pointer" style-hover="border-color:#0B1840"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 4.5h7M12 4.5h2M2 11.5h2M7 11.5h7"></path><circle cx="10.5" cy="4.5" r="1.5"></circle><circle cx="5.5" cy="11.5" r="1.5"></circle></svg>Settings<sc-if value="{{ isA }}"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="transform:{{ setRot }}"><path d="M4 6l4 4 4-4"></path></svg></sc-if></div>
+          <div style="display:flex;align-items:center;gap:6px;height:32px;box-sizing:border-box;padding:0 12px;border-radius:8px;background:#0B1840;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer;white-space:nowrap" style-hover="background:#1a2a5e"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3"></path></svg>Recalculate now</div>
+          <div style="display:flex;align-items:center;height:32px;box-sizing:border-box;padding:0 12px;border:1px solid #FDA29B;border-radius:8px;font-size:12.5px;font-weight:600;color:#B42318;cursor:pointer;white-space:nowrap" style-hover="background:#FEF3F2">Rebuild all</div></div>
+        </div>
+        <sc-if value="{{ inlineOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="border-top:1px solid #EEF0F4;padding:16px 18px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;background:#FBFCFE;border-radius:0 0 12px 12px">
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Schedule</span>
+              <div style="display:flex;align-items:center;gap:10px"><div onClick="{{ tSched }}" style="width:34px;height:20px;border-radius:999px;background:{{ schedBg }};position:relative;cursor:pointer;flex-shrink:0"><div style="position:absolute;top:2px;left:{{ schedL }};width:16px;height:16px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)"></div></div><span style="font-size:13px;color:#0B1840;font-weight:600">{{ schedToggleLabel }}</span></div>
+              <div style="display:flex;align-items:flex-end;gap:10px">
+                <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:11.5px;font-weight:600;color:#374151">Interval (minutes)</span><input value="{{ interval }}" onChange="{{ onInterval }}" style="width:120px;height:34px;box-sizing:border-box;border:1px solid {{ intB }};box-shadow:{{ intSh }};border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;color:#0B1840;outline:none;background:#fff"></div>
+                <div onClick="{{ save }}" style="height:34px;box-sizing:border-box;padding:0 16px;border-radius:8px;background:{{ saveBg }};color:{{ saveC }};font-size:12.5px;font-weight:600;display:flex;align-items:center;cursor:{{ saveCur }}">Save</div>
+              </div>
+              <sc-if value="{{ intBad }}"><span style="font-size:11.5px;color:#B42318">Enter a whole number of minutes between 1 and 1440.</span></sc-if>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Topic extraction</span>
+              <div style="display:flex;align-items:center;gap:10px"><div onClick="{{ tTopic }}" style="width:34px;height:20px;border-radius:999px;background:{{ topicBg }};position:relative;cursor:pointer;flex-shrink:0"><div style="position:absolute;top:2px;left:{{ topicL }};width:16px;height:16px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)"></div></div><span style="font-size:13px;color:#0B1840;font-weight:600">{{ topicLabel }}</span></div>
+              <span style="font-size:12px;color:#6B7280;line-height:1.5">When off, project descriptions are never sent to the AI service. Saved immediately; turning it back on queues every project code.</span>
+            </div>
+            <div style="grid-column:1 / -1;font-size:12px;color:#6B7280;line-height:1.5;border-top:1px solid #EEF0F4;padding-top:12px"><strong style="color:#374151">Recalculate now</strong> processes the queue immediately; <strong style="color:#374151">Rebuild all</strong> queues every project code first. The next-run estimate restarts after an API restart, is precise to the minute (60-second worker tick), and manual runs do not move it.</div>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column;flex-shrink:0">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 18px;border-bottom:1px solid #EEF0F4">
+          <sc-if value="{{ isB }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;padding:3px;border-radius:9px;background:#F3F4F6;gap:2px;margin-right:6px">
+              <div onClick="{{ toCodes }}" style="height:28px;padding:0 12px;border-radius:7px;display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:{{ tabCodes.w }};color:{{ tabCodes.c }};background:{{ tabCodes.bg }};box-shadow:{{ tabCodes.sh }};cursor:pointer">Project codes <span style="font-size:11px;color:#9AA0AC">{{ total }}</span></div>
+              <div onClick="{{ toHist }}" style="height:28px;padding:0 12px;border-radius:7px;display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:{{ tabHist.w }};color:{{ tabHist.c }};background:{{ tabHist.bg }};box-shadow:{{ tabHist.sh }};cursor:pointer">Run history <span style="font-size:11px;color:#9AA0AC">{{ histN }}</span></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ showCodes }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:center;gap:8px;width:220px;height:32px;box-sizing:border-box;padding:0 10px;border:1px solid #DDE1E8;border-radius:8px"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg><input value="{{ q }}" onChange="{{ onQ }}" placeholder="Search code or project…" style="flex:1;min-width:0;border:0;outline:none;font-size:12.5px;font-family:inherit;background:transparent;color:#0B1840"></div>
+            <select value="{{ stf }}" onChange="{{ onStf }}" style="flex-shrink:0;min-width:124px;height:32px;box-sizing:border-box;padding:0 8px;border:1px solid #DDE1E8;border-radius:8px;font-size:12.5px;font-family:inherit;color:#0B1840;background:#fff"><option value="all">All statuses</option><option value="queued">Queued</option><option value="error">Error</option><option value="updated">Updated</option></select>
+            <span style="flex:1"></span>
+            <span title="Refreshes every 15 s" style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#6B7280;white-space:nowrap"><span style="width:6px;height:6px;border-radius:999px;background:#16A34A"></span>{{ counter }}</span>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ showCodes }}" hint-placeholder-val="{{ true }}">
+          <div style="max-height:{{ tableMax }};overflow-y:auto;overflow-x:hidden;border-radius:0 0 12px 12px">
+            <div style="position:sticky;top:0;z-index:1;display:grid;grid-template-columns:minmax(0,1fr) 56px 72px 124px 128px 206px;gap:10px;padding:10px 18px 8px;background:#fff;border-bottom:1px solid #EEF0F4;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC;align-items:end">
+              <span onClick="{{ sCode.click }}" style="cursor:pointer;color:{{ sCode.c }}">Project · Code {{ sCode.arrow }}</span>
+              <span style="text-align:right">Actuals rows</span><span style="text-align:right">Matched resources</span>
+              <span onClick="{{ sStatus.click }}" style="cursor:pointer;color:{{ sStatus.c }}">Status {{ sStatus.arrow }}</span>
+              <span onClick="{{ sLast.click }}" style="cursor:pointer;color:{{ sLast.c }}">Last · next run {{ sLast.arrow }}</span><span></span>
+            </div>
+            <sc-for list="{{ codes }}" as="r" hint-placeholder-count="9">
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 56px 72px 124px 128px 206px;gap:10px;padding:9px 18px;min-height:54px;box-sizing:border-box;align-items:center;border-top:1px solid #F0F1F4;background:{{ r.bg }}" style-hover="background:#FAFBFC">
+                <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:13px;font-weight:600;color:#0B1840;line-height:1.35;overflow-wrap:anywhere">{{ r.project }}</span><span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;color:#6B7280">{{ r.code }}</span><sc-if value="{{ r.topicErr }}"><span title="{{ r.topicTip }}" style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#B42318;cursor:help"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2 14.5 13.5h-13L8 2Z"></path><path d="M8 6.5v3M8 11.6v.1"></path></svg>Topic extraction failed</span></sc-if></div>
+                <span style="font-size:12.5px;color:#374151;text-align:right;font-variant-numeric:tabular-nums">{{ r.rows }}</span>
+                <span style="font-size:12.5px;color:#374151;text-align:right">{{ r.matched }}</span>
+                <div style="display:flex;align-items:center;gap:6px"><span onClick="{{ r.toggleErr }}" title="{{ r.badgeTip }}" style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;background:{{ r.sBg }};color:{{ r.sC }};cursor:{{ r.sCur }}">{{ r.status }}<sc-if value="{{ r.isErr }}"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:{{ r.errRot }}"><path d="M4 6l4 4 4-4"></path></svg></sc-if></span><sc-if value="{{ r.isErr }}"><span style="font-size:11px;color:#9AA0AC">(queued)</span></sc-if></div>
+                <div style="display:flex;flex-direction:column;gap:2px;font-size:12px;font-variant-numeric:tabular-nums"><span style="color:#374151">{{ r.last }}</span><sc-if value="{{ r.queued }}"><span style="color:#92400E">Next {{ r.next }}</span></sc-if></div>
+                <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end">
+                  <sc-if value="{{ r.queued }}"><span style="font-size:12px;font-weight:600;color:#B42318;cursor:pointer;padding:6px 2px;white-space:nowrap" style-hover="text-decoration:underline">Remove from queue</span></sc-if>
+                  <div style="height:30px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:7px;display:flex;align-items:center;font-size:12px;font-weight:600;color:#0B1840;cursor:pointer" style-hover="border-color:#0B1840">Process</div>
+                </div>
+              </div>
+              <sc-if value="{{ r.errOpen }}">
+                <div style="display:flex;gap:10px;padding:10px 18px 12px 18px;background:#FEF3F2;border-top:1px solid #FECDCA;font-size:12px;color:#7A271A;line-height:1.5"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#B42318" stroke-width="1.5" stroke-linecap="round" style="flex-shrink:0;margin-top:2px"><circle cx="8" cy="8" r="6"></circle><path d="M8 4.8v3.8M8 11v.2"></path></svg><div style="display:flex;flex-direction:column;gap:2px"><span style="font-weight:700">Last run failed · {{ r.errWhen }}</span><span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px">{{ r.err }}</span></div></div>
+              </sc-if>
+            </sc-for>
+            <sc-if value="{{ noCodes }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 24px 56px;text-align:center">
+                <div style="width:44px;height:44px;border-radius:12px;background:#F3F4F6;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.3" stroke-linejoin="round"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3H6l1.5 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5v-7Z"></path></svg></div>
+                <span style="font-size:14px;font-weight:700;color:#0B1840">{{ emptyMsg }}</span>
+                <sc-if value="{{ noMatch }}"><span onClick="{{ resetF }}" style="font-size:12.5px;font-weight:600;color:#0B1840;cursor:pointer;text-decoration:underline">Clear search and status</span></sc-if>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showHistB }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:170px 110px 90px 170px 110px minmax(0,1fr);gap:12px;padding:10px 18px 8px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC"><span>When</span><span>Type</span><span style="text-align:right">Projects</span><span style="text-align:right">Resource contributions</span><span>Duration</span><span>Error</span></div>
+          <sc-for list="{{ hist }}" as="h">
+            <div style="display:grid;grid-template-columns:170px 110px 90px 170px 110px minmax(0,1fr);gap:12px;padding:0 18px;min-height:40px;align-items:center;border-top:1px solid #F0F1F4;font-size:12.5px;color:#374151">
+              <span style="font-variant-numeric:tabular-nums">{{ h.when }}</span><span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;color:#6B7280">{{ h.type }}</span><span style="text-align:right">{{ h.projects }}</span><span style="text-align:right">{{ h.contrib }}</span><span>{{ h.dur }}</span><span style="color:{{ h.errC }};font-size:12px">{{ h.err }}</span>
+            </div>
+          </sc-for>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{ isA }}" hint-placeholder-val="{{ true }}">
+        <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column;flex-shrink:0">
+          <div onClick="{{ toggleHist }}" style="display:flex;align-items:center;gap:10px;padding:0 18px;height:46px;cursor:pointer">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="transform:{{ histRot }}"><path d="M4 6l4 4 4-4"></path></svg>
+            <span style="font-size:13.5px;font-weight:700;color:#0B1840">Run history</span><span style="font-size:12px;color:#9AA0AC">last {{ histN }}</span>
+          </div>
+          <sc-if value="{{ histOpenA }}">
+            <div style="max-height:300px;overflow:auto;border-top:1px solid #EEF0F4">
+              <div style="position:sticky;top:0;display:grid;grid-template-columns:170px 110px 90px 170px 110px minmax(0,1fr);gap:12px;padding:10px 18px 8px;background:#fff;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC"><span>When</span><span>Type</span><span style="text-align:right">Projects</span><span style="text-align:right">Resource contributions</span><span>Duration</span><span>Error</span></div>
+              <sc-for list="{{ hist }}" as="h">
+                <div style="display:grid;grid-template-columns:170px 110px 90px 170px 110px minmax(0,1fr);gap:12px;padding:0 18px;min-height:40px;align-items:center;border-top:1px solid #F0F1F4;font-size:12.5px;color:#374151">
+                  <span style="font-variant-numeric:tabular-nums">{{ h.when }}</span><span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;color:#6B7280">{{ h.type }}</span><span style="text-align:right">{{ h.projects }}</span><span style="text-align:right">{{ h.contrib }}</span><span>{{ h.dur }}</span><span style="color:{{ h.errC }};font-size:12px">{{ h.err }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ toggleSettings }}" style="position:absolute;inset:0;background:rgba(11,24,64,.28);z-index:40"></div>
+    <div style="position:absolute;top:0;right:0;bottom:0;width:440px;background:#fff;z-index:41;box-shadow:-12px 0 32px rgba(11,24,64,.18);display:flex;flex-direction:column">
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:18px 20px 14px;border-bottom:1px solid #EEF0F4">
+        <div style="flex:1;display:flex;flex-direction:column;gap:4px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Profile processing</span><span style="font-size:19px;font-weight:700;color:#0B1840">Settings</span></div>
+        <div onClick="{{ toggleSettings }}" title="Close" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer" style-hover="background:#F3F4F6"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div>
+      </div>
+      <div style="flex:1;overflow:auto;padding:18px 20px;display:flex;flex-direction:column;gap:22px">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Schedule</span>
+          <div style="display:flex;align-items:center;gap:10px"><div onClick="{{ tSched }}" style="width:34px;height:20px;border-radius:999px;background:{{ schedBg }};position:relative;cursor:pointer;flex-shrink:0"><div style="position:absolute;top:2px;left:{{ schedL }};width:16px;height:16px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)"></div></div><span style="font-size:13px;color:#0B1840;font-weight:600">{{ schedToggleLabel }}</span></div>
+          <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:11.5px;font-weight:600;color:#374151">Interval (minutes)</span><input value="{{ interval }}" onChange="{{ onInterval }}" style="width:140px;height:36px;box-sizing:border-box;border:1px solid {{ intB }};box-shadow:{{ intSh }};border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;color:#0B1840;outline:none"></div>
+          <sc-if value="{{ intBad }}"><span style="font-size:11.5px;color:#B42318">Enter a whole number of minutes between 1 and 1440.</span></sc-if>
+          <span style="font-size:12px;color:#6B7280;line-height:1.5">The next-run estimate restarts after an API restart, is precise to the minute (60-second worker tick), and manual runs do not move it.</span>
+        </div>
+        <div style="height:1px;background:#EEF0F4"></div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Topic extraction</span>
+          <div style="display:flex;align-items:center;gap:10px"><div onClick="{{ tTopic }}" style="width:34px;height:20px;border-radius:999px;background:{{ topicBg }};position:relative;cursor:pointer;flex-shrink:0"><div style="position:absolute;top:2px;left:{{ topicL }};width:16px;height:16px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)"></div></div><span style="font-size:13px;color:#0B1840;font-weight:600">{{ topicLabel }}</span></div>
+          <span style="font-size:12px;color:#6B7280;line-height:1.5">When off, project descriptions are never sent to the AI service. Saved immediately; turning it back on queues every project code.</span>
+        </div>
+        <div style="height:1px;background:#EEF0F4"></div>
+        <div style="font-size:12px;color:#6B7280;line-height:1.5"><strong style="color:#374151">Recalculate now</strong> processes the queue immediately; <strong style="color:#374151">Rebuild all</strong> queues every project code first.</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid #EEF0F4">
+        <span onClick="{{ toggleSettings }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:9px 6px">Close</span>
+        <div onClick="{{ save }}" style="height:36px;box-sizing:border-box;padding:0 18px;border-radius:8px;background:{{ saveBg }};color:{{ saveC }};font-size:12.5px;font-weight:600;display:flex;align-items:center;cursor:{{ saveCur }}">Save schedule</div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:980},&quot;variant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;A&quot;,&quot;B&quot;],&quot;default&quot;:&quot;A&quot;,&quot;tsType&quot;:&quot;'A'|'B'&quot;},&quot;state&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;list&quot;,&quot;settings&quot;,&quot;errorOpen&quot;,&quot;alerts&quot;,&quot;history&quot;,&quot;empty&quot;,&quot;nomatch&quot;],&quot;default&quot;:&quot;list&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const PD = [
+  ['BERMITS Maintenance 2026', 'HITA.000001201', 337, 1, 'updated', '2026-11-04 22:30'],
+  ['NH-26-ItalianHospitalRankings:AnnualMulti-parametricUpdate', 'HITA.000001586.001', 28, 1, 'error', '2026-09-30 19:59', null, 'Owner alias "C. Giamberini" matches 2 resources (Chiara Giamberini, Carlo Giamberini). Fix the alias in Team, then process the code again.'],
+  ['MEN 26 AURORA Platform Dev.-Overall Proj. MNGM', 'HITA.000001823.001', 24, 1, 'queued', '2026-09-30 19:59'],
+  ['MEN 26 AURORA Platform Dev.-Development', 'HITA.000001823.003', 1284, 3, 'queued', '2026-09-30 19:59'],
+  ['SIFI 26 AKANTIOR Karomy - Spanish Launch Support', 'HITA.000002033.001', 13, 1, 'updated', '2026-09-30 19:59', 'AI service error: 529 overloaded_error'],
+  ['SIFI 26 AKANTIOR Karomy - Italian Launch Support', 'HITA.000002033.002', 5, 1, 'updated', '2026-09-30 19:59'],
+  ['SIFI 26 AKANTIOR Karomy - Pharmacovigil. Feature dev&deploy', 'HITA.000002033.003', 46, 1, 'updated', '2026-09-30 19:59'],
+  ['SIFI 26 AKANTIOR - Karomy Promotional materials', 'HITA.000002102.001', 8, 1, 'updated', '2026-09-30 19:59'],
+  ['SIFI 25 Karomy - Medical Training', 'HITA.000001702.001', 52, 0, 'none', null]
+];
+const HIST = [
+  ['2026-11-05 14:12', 'manual', 3, 9, '4 s', ''], ['2026-11-05 10:06', 'scheduled', 1, 1, '< 1 s', ''], ['2026-11-04 22:30', 'scheduled', 1, 1, '< 1 s', ''],
+  ['2026-11-03 09:41', 'scheduled', 1, 1, '< 1 s', ''], ['2026-11-03 09:39', 'scheduled', 1, 1, '< 1 s', ''], ['2026-11-03 09:19', 'scheduled', 1, 1, '< 1 s', ''],
+  ['2026-10-28 16:02', 'manual', 9, 14, '3 min 4 s', 'HITA.000001586.001: owner alias matches 2 resources'], ['2026-09-30 19:59', 'bootstrap', 8, 10, '12 s', '']
+];
+const ST = { error: ['Error', '#FEE4E2', '#B42318', 0], queued: ['Queued', '#FEF3C7', '#92400E', 1], none: ['Not processed', '#F3F4F6', '#6B7280', 2], updated: ['Updated', '#DCFCE7', '#166534', 3] };
+const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const num = n => n.toLocaleString('en-US');
+class Component extends DCLogic {
+  state = {};
+  componentDidMount() { if ((this.props.state ?? 'list') === 'history' && (this.props.variant ?? 'A') === 'A') setTimeout(() => { const el = this._sc; if (el) el.scrollTop = el.scrollHeight; }, 60); }
+  renderVals() {
+    const P = this.props, S = this.state, st = P.state ?? 'list', variant = P.variant ?? 'A', isA = variant === 'A';
+    const empty = st === 'empty';
+    const q = S.q ?? (st === 'nomatch' ? 'bayer' : ''), stf = S.stf ?? (st === 'nomatch' ? 'error' : 'all');
+    const sort = S.sort ?? { k: 'code', d: 1 };
+    const settingsOpen = S.settings ?? (st === 'settings');
+    const histOpen = S.hist ?? (st === 'history');
+    const errOpen = S.err ?? (st === 'errorOpen' ? { 'HITA.000001586.001': true } : {});
+    const saved = { sched: true, interval: '1' };
+    const sched = S.sched ?? saved.sched, interval = S.interval ?? saved.interval, topic = S.topic ?? true;
+    const iv = Number(interval), intBad = !(Number.isInteger(iv) && iv >= 1 && iv <= 1440);
+    const dirty = sched !== saved.sched || interval !== saved.interval, canSave = dirty && !intBad;
+    const all = empty ? [] : PD;
+    const words = norm(q).split(/\s+/).filter(Boolean);
+    let list = all.filter(d => words.every(w => norm(d[0] + ' ' + d[1]).includes(w)) && (stf === 'all' || d[4] === stf));
+    list = [...list].sort((a, b) => {
+      if (sort.k === 'status') return (ST[a[4]][3] - ST[b[4]][3]) * sort.d;
+      if (sort.k === 'last') { if (!a[5]) return 1; if (!b[5]) return -1; return a[5].localeCompare(b[5]) * sort.d; }
+      return a[1].localeCompare(b[1], 'en', { numeric: true }) * sort.d;
+    });
+    const queuedN = all.filter(d => d[4] === 'queued' || d[4] === 'error').length;
+    const nextRun = sched ? '2026-11-05 14:30' : 'Paused';
+    const codes = list.map(d => { const s = ST[d[4]], isErr = d[4] === 'error', q2 = isErr || d[4] === 'queued', open = !!errOpen[d[1]];
+      return { project: d[0], code: d[1], rows: num(d[2]), matched: d[4] === 'none' ? '—' : d[3], status: s[0], sBg: s[1], sC: s[2], isErr, sCur: isErr ? 'pointer' : 'default', badgeTip: isErr ? 'Show error details' : '',
+        errRot: open ? 'rotate(180deg)' : 'none', errOpen: isErr && open, err: d[7], errWhen: '2026-11-05 14:12', bg: open ? '#FFFBFA' : '#fff',
+        toggleErr: () => { if (isErr) this.setState({ err: { ...errOpen, [d[1]]: !open } }); },
+        last: d[5] || '—', next: sched ? nextRun.slice(11) : 'paused', topicErr: !!d[6], topicOk: !d[6], topicTip: d[6] || '', queued: q2 }; });
+    const hdr = k => ({ arrow: sort.k === k ? (sort.d > 0 ? '▲' : '▼') : '', c: sort.k === k ? '#0B1840' : '#9AA0AC', click: () => this.setState({ sort: sort.k === k ? { k, d: -sort.d } : { k, d: 1 } }) });
+    const tab = on => ({ w: on ? 700 : 500, c: on ? '#0B1840' : '#6B7280', bg: on ? '#fff' : 'transparent', sh: on ? '0 1px 2px rgba(11,24,64,.12)' : 'none' });
+    const showCodes = isA || !histOpen;
+    return {
+      scrollRef: el => { this._sc = el; },
+      hasQueue: queuedN > 0, queueN: queuedN, isA, isB: !isA,
+      showAlerts: st === 'alerts', showY: !S.dy, showG: !S.dg, dismY: () => this.setState({ dy: true }), dismG: () => this.setState({ dg: true }),
+      dot: sched ? '#16A34A' : '#9CA3AF', schedLabel: sched ? 'Scheduled · every ' + saved.interval + ' min' : 'Scheduled processing paused', nextRun,
+      topicLabel: topic ? 'Topic extraction on' : 'Topic extraction off',
+      toggleSettings: () => this.setState({ settings: !settingsOpen }), setRot: settingsOpen ? 'rotate(180deg)' : 'none',
+      setB: settingsOpen ? '#0B1840' : '#DDE1E8', setBg: settingsOpen ? '#F7F8FA' : '#fff',
+      inlineOpen: isA && settingsOpen, drawerOpen: !isA && settingsOpen,
+      tSched: () => this.setState({ sched: !sched }), schedBg: sched ? '#0B1840' : '#C9CDD3', schedL: sched ? '16px' : '2px', schedToggleLabel: sched ? 'Scheduled processing on' : 'Scheduled processing off',
+      tTopic: () => this.setState({ topic: !topic }), topicBg: topic ? '#0B1840' : '#C9CDD3', topicL: topic ? '16px' : '2px',
+      interval, onInterval: e => this.setState({ interval: e.target.value }), intBad, intB: intBad ? '#B42318' : '#DDE1E8', intSh: intBad ? '0 0 0 3px rgba(180,35,24,.12)' : 'none',
+      saveBg: canSave ? '#0B1840' : '#E5E7EB', saveC: canSave ? '#fff' : '#9AA0AC', saveCur: canSave ? 'pointer' : 'not-allowed', save: () => {},
+      showCodes, showHistB: !isA && histOpen, toCodes: () => this.setState({ hist: false }), toHist: () => this.setState({ hist: true }), tabCodes: tab(showCodes), tabHist: tab(!showCodes),
+      total: all.length, q, onQ: e => this.setState({ q: e.target.value }), stf, onStf: e => this.setState({ stf: e.target.value }),
+      counter: list.length + ' of ' + all.length + ' project codes', tableMax: isA ? '520px' : '600px',
+      codes, sCode: hdr('code'), sStatus: hdr('status'), sLast: hdr('last'),
+      noCodes: list.length === 0, emptyMsg: empty ? 'No actuals uploaded yet.' : 'No project codes match the current filters.', noMatch: !empty, resetF: () => this.setState({ q: '', stf: 'all' }),
+      histOpenA: isA && histOpen, toggleHist: () => this.setState({ hist: !histOpen }), histRot: histOpen ? 'none' : 'rotate(-90deg)', histN: HIST.length,
+      hist: HIST.map(([when, type, projects, contrib, dur, err]) => ({ when, type, projects, contrib, dur, err: err || '—', errC: err ? '#B42318' : '#9AA0AC' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

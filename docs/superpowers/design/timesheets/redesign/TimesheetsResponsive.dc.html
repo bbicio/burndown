@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><title>PDash — Timesheets · tablet &amp; smartphone</title><style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#F3F4F6}
+a{color:#0B1840}a:hover{color:#F0287A}
+</style></helmet>
+<div style="width:1980px;box-sizing:border-box;padding:40px;display:flex;flex-direction:column;gap:56px;background:#F3F4F6">
+  <div style="display:flex;gap:48px;align-items:flex-start">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:12px;font-weight:700;color:#0B1840">Tablet landscape — 1024 × 768 · Actuals</div>
+      <div style="font-size:11px;color:#6B7280;max-width:1024px;line-height:1.45">Sidebar a icone. Client e codice passano sotto il nome del progetto; Uploads va nel menu ⋯ insieme a Delete actuals. I filtri vanno a capo su due righe.</div>
+      <div style="width:1024px;height:768px;display:flex;background:#F3F4F6;border:1px solid #DDE1E8;border-radius:18px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08)">
+        <div style="width:64px;flex-shrink:0;background:#0B1840;display:flex;flex-direction:column;align-items:center">
+          <div style="height:56px;width:100%;display:flex;align-items:center;justify-content:center;border-bottom:3px solid #F0287A;box-sizing:border-box"><span style="color:#F0287A;font-weight:800;font-size:22px">P</span></div>
+          <div style="display:flex;flex-direction:column;gap:4px;padding-top:10px;align-items:center">
+            <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12V8M8 12V4M14 12V6" stroke="rgba(255,255,255,.65)" stroke-width="1.6" stroke-linecap="round"></path></svg></div>
+            <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="2" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect></svg></div>
+            <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4" stroke-linecap="round"></path></svg></div>
+            <div style="width:32px;height:1px;background:rgba(255,255,255,.12);margin:6px 0"></div>
+            <div style="width:36px;height:32px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.4" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></circle><path d="M8 2v1.6M8 12.4V14M14 8h-1.6M3.6 8H2" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linecap="round"></path></svg></div>
+            <div style="width:36px;height:32px;border-radius:7px;background:rgba(255,255,255,.1);box-shadow:inset 3px 0 0 #F0287A;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="9" rx="1.2" stroke="#fff" stroke-width="1.3"></rect><path d="M2 4l1.6-2h8.8L14 4" stroke="#fff" stroke-width="1.3"></path></svg></div>
+          </div>
+        </div>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+          <div style="flex-shrink:0;padding:14px 20px 0;display:flex;flex-direction:column;gap:2px"><span style="font-size:22px;font-weight:700;color:#0B1840">Timesheets</span></div>
+          <div style="flex-shrink:0;display:flex;gap:6px;padding:10px 20px;border-bottom:1px solid #DDE1E8">
+            <div style="height:40px;padding:0 12px;border-radius:8px;display:flex;align-items:center;background:#fff;border:1px solid #DDE1E8;box-shadow:inset 0 -3px 0 #F0287A;font-size:12.5px;font-weight:700;color:#0B1840;white-space:nowrap">Actuals</div>
+            <div style="height:40px;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:7px;background:transparent;border:1px solid transparent;box-shadow:inset 0 -3px 0 transparent;font-size:12.5px;font-weight:500;color:#374151">Profile processing<span style="font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 7px;background:#FEF3C7;color:#92400E">3</span></div>
+          </div>
+          <div style="flex:1;min-height:0;overflow:hidden;padding:14px 20px">
+            <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+              <div style="display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;border-bottom:1px solid #EEF0F4">
+                <div style="flex:1 1 100%;display:flex;align-items:center;gap:8px;height:40px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:8px;font-size:13px;color:#9AA0AC"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg>Filter by project code…</div>
+                <sc-for list="{{ tFilters }}" as="f"><div style="display:flex;align-items:center;gap:6px;height:40px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:8px;font-size:12.5px;color:#0B1840;white-space:nowrap">{{ f }}<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg></div></sc-for>
+                <div style="display:flex;align-items:center;gap:5px;height:40px;padding:0 6px;font-size:12.5px;font-weight:600;color:#6B7280"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a5 5 0 1 0 1.5-3.5M3 2.5V5h2.5"></path></svg>Reset filters</div>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 64px 100px 168px;gap:12px;padding:12px 16px 6px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC"><span>Project ▲</span><span style="text-align:right">Rows</span><span>Last uploaded</span><span></span></div>
+              <sc-for list="{{ ts }}" as="r">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) 64px 100px 168px;gap:12px;padding:9px 16px;min-height:60px;box-sizing:border-box;align-items:center;border-top:1px solid #F0F1F4">
+                  <div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:13px;font-weight:600;color:#0B1840;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.project }}</span><span style="font-size:11.5px;color:#6B7280">{{ r.client }} · <span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px">{{ r.code }}</span></span></div>
+                  <span style="font-size:13px;font-weight:700;color:#0B1840;text-align:right">{{ r.rows }}</span>
+                  <span style="font-size:12px;color:#374151">{{ r.last }}</span>
+                  <div style="display:flex;gap:6px;justify-content:flex-end">
+                    <div style="display:flex;align-items:center;gap:6px;height:40px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:8px;font-size:12.5px;font-weight:600;color:#0B1840"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z"></path><circle cx="8" cy="8" r="2"></circle></svg>View</div>
+                    <div style="width:40px;height:40px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#0B1840"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10"></path></svg></div>
+                    <div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6B7280"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg></div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:12px;font-weight:700;color:#0B1840">Smartphone — 390 × 844 · Actuals</div>
+      <div style="font-size:11px;color:#6B7280;width:390px;line-height:1.45">Una card per project code. I filtri Client, Project e Pipeline year vanno in un pannello dal basso ("Filters"); View apre le righe a tutto schermo.</div>
+      <div style="width:390px;height:844px;display:flex;flex-direction:column;background:#F3F4F6;border:1px solid #DDE1E8;border-radius:28px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08)">
+        <div style="flex-shrink:0;background:#0B1840;border-bottom:3px solid #F0287A;padding:8px 12px 0;height:52px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between"><div style="color:#fff;font-weight:700;font-size:17px;letter-spacing:-.02em"><span style="color:#F0287A">P</span>Dash</div><div style="width:32px;height:32px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;white-space:nowrap">AP</div></div>
+        <div style="padding:12px 16px 0;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:20px;font-weight:700;color:#0B1840">Timesheets</span></div>
+          <div style="height:48px;box-sizing:border-box;background:#fff;border:1px solid #DDE1E8;border-radius:10px;padding:0 14px;display:flex;align-items:center;gap:10px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Timesheets</span><span style="flex:1;font-size:14px;font-weight:700;color:#0B1840">Actuals</span><span style="font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 7px;background:#FEF3C7;color:#92400E" title="3 queued">3 queued</span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg></div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1;display:flex;align-items:center;gap:8px;height:44px;box-sizing:border-box;padding:0 12px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;font-size:13px;color:#9AA0AC"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg>Project code…</div>
+            <div style="display:flex;align-items:center;gap:6px;height:44px;box-sizing:border-box;padding:0 12px;background:#fff;border:1px solid #0B1840;border-radius:10px;font-size:13px;font-weight:600;color:#0B1840"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 4.5h7M12 4.5h2M2 11.5h2M7 11.5h7"></path><circle cx="10.5" cy="4.5" r="1.5"></circle><circle cx="5.5" cy="11.5" r="1.5"></circle></svg>Filters (1)</div>
+          </div>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:10px 16px 16px;display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ tsPhone }}" as="r">
+            <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:12px 14px 0;display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+              <span style="font-size:11.5px;color:#6B7280">{{ r.client }}</span>
+              <span style="font-size:14px;font-weight:600;color:#0B1840;line-height:1.3">{{ r.project }}</span>
+              <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#374151"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;background:#F3F4F6;border-radius:6px;padding:2px 6px;color:#0B1840">{{ r.code }}</span><span style="flex:1"></span><strong style="color:#0B1840">{{ r.rows }}</strong> rows · {{ r.last }}</div>
+              <div style="display:flex;border-top:1px solid #F0F1F4;margin:4px -14px 0">
+                <span style="flex:1;height:44px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:600;color:#0B1840;border-right:1px solid #F0F1F4">View</span>
+                <span style="flex:1;height:44px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:600;color:#0B1840;border-right:1px solid #F0F1F4">Download</span>
+                <span style="width:52px;height:44px;display:flex;align-items:center;justify-content:center;color:#6B7280"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg></span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:48px;align-items:flex-start">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:12px;font-weight:700;color:#0B1840">Tablet landscape — 1024 × 768 · Profile processing</div>
+      <div style="font-size:11px;color:#6B7280;max-width:1024px;line-height:1.45">La striscia di stato va su due righe (stato / azioni); Settings apre il pannello laterale a larghezza min(440px, 100%). Il selettore Project codes | Run history resta nella card. In tabella restano Project · Code, Status (con il prossimo passaggio sotto, per i codici in coda), Last processed e Process; righe, risorse e topic passano sotto il nome. Remove from queue va nel menu ⋯.</div>
+      <div style="width:1024px;height:768px;display:flex;background:#F3F4F6;border:1px solid #DDE1E8;border-radius:18px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08)">
+        <div style="width:64px;flex-shrink:0;background:#0B1840;display:flex;flex-direction:column;align-items:center">
+          <div style="height:56px;width:100%;display:flex;align-items:center;justify-content:center;border-bottom:3px solid #F0287A;box-sizing:border-box"><span style="color:#F0287A;font-weight:800;font-size:22px">P</span></div>
+          <div style="display:flex;flex-direction:column;gap:4px;padding-top:10px;align-items:center">
+            <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12V8M8 12V4M14 12V6" stroke="rgba(255,255,255,.65)" stroke-width="1.6" stroke-linecap="round"></path></svg></div>
+            <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="2" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect></svg></div>
+            <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4" stroke-linecap="round"></path></svg></div>
+            <div style="width:32px;height:1px;background:rgba(255,255,255,.12);margin:6px 0"></div>
+            <div style="width:36px;height:32px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.4" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></circle><path d="M8 2v1.6M8 12.4V14M14 8h-1.6M3.6 8H2" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linecap="round"></path></svg></div>
+            <div style="width:36px;height:32px;border-radius:7px;background:rgba(255,255,255,.1);box-shadow:inset 3px 0 0 #F0287A;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="9" rx="1.2" stroke="#fff" stroke-width="1.3"></rect><path d="M2 4l1.6-2h8.8L14 4" stroke="#fff" stroke-width="1.3"></path></svg></div>
+          </div>
+        </div>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+          <div style="flex-shrink:0;padding:14px 20px 0;display:flex;flex-direction:column;gap:2px"><span style="font-size:22px;font-weight:700;color:#0B1840">Timesheets</span></div>
+          <div style="flex-shrink:0;display:flex;gap:6px;padding:10px 20px;border-bottom:1px solid #DDE1E8">
+            <div style="height:40px;padding:0 12px;border-radius:8px;display:flex;align-items:center;background:transparent;border:1px solid transparent;box-shadow:inset 0 -3px 0 transparent;font-size:12.5px;font-weight:500;color:#374151;white-space:nowrap">Actuals</div>
+            <div style="height:40px;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #DDE1E8;box-shadow:inset 0 -3px 0 #F0287A;font-size:12.5px;font-weight:700;color:#0B1840">Profile processing<span style="font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 7px;background:#FEF3C7;color:#92400E">3</span></div>
+          </div>
+          <div style="flex:1;min-height:0;overflow:hidden;padding:14px 20px;display:flex;flex-direction:column;gap:12px">
+            <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:12px 16px;display:flex;flex-direction:column;gap:10px;flex-shrink:0">
+              <div style="display:flex;align-items:center;gap:18px">
+                <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:999px;background:#16A34A"></span><span style="font-size:13px;font-weight:700;color:#0B1840">Scheduled · every 1 min</span></div>
+                <span style="font-size:12.5px;color:#374151;white-space:nowrap"><span style="color:#9AA0AC">Next</span> <strong style="color:#0B1840">2026-11-05 14:30</strong></span>
+                <span style="font-size:12.5px;color:#374151;white-space:nowrap"><span style="color:#9AA0AC">Last</span> 14:29</span>
+                <span style="font-size:12.5px;color:#374151;white-space:nowrap">Topic extraction on</span>
+              </div>
+              <div style="display:flex;gap:8px">
+                <div style="display:flex;align-items:center;gap:7px;height:40px;box-sizing:border-box;padding:0 14px;border:1px solid #DDE1E8;border-radius:8px;font-size:12.5px;font-weight:600;color:#0B1840"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 4.5h7M12 4.5h2M2 11.5h2M7 11.5h7"></path><circle cx="10.5" cy="4.5" r="1.5"></circle><circle cx="5.5" cy="11.5" r="1.5"></circle></svg>Settings</div>
+                <span style="flex:1"></span>
+                <div style="display:flex;align-items:center;height:40px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;font-size:12.5px;font-weight:600;color:#fff;white-space:nowrap">Recalculate now</div>
+                <div style="display:flex;align-items:center;height:40px;box-sizing:border-box;padding:0 14px;border:1px solid #FDA29B;border-radius:8px;font-size:12.5px;font-weight:600;color:#B42318;white-space:nowrap;flex-shrink:0">Rebuild all</div>
+              </div>
+            </div>
+            <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column;flex-shrink:0">
+              <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid #EEF0F4">
+                <div style="display:flex;padding:3px;border-radius:9px;background:#F3F4F6;gap:2px"><div style="height:34px;padding:0 12px;border-radius:7px;display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:#0B1840;background:#fff;box-shadow:0 1px 2px rgba(11,24,64,.12)">Project codes <span style="font-size:11px;color:#9AA0AC">9</span></div><div style="height:34px;padding:0 12px;border-radius:7px;display:flex;align-items:center;gap:6px;font-size:12.5px;color:#6B7280">Run history <span style="font-size:11px;color:#9AA0AC">8</span></div></div><div style="width:200px;display:flex;align-items:center;gap:8px;height:40px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:8px;font-size:12.5px;color:#9AA0AC;white-space:nowrap">Search…</div>
+                <div style="display:flex;align-items:center;gap:6px;height:40px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:8px;font-size:12.5px;color:#0B1840;white-space:nowrap;flex-shrink:0">All statuses<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg></div>
+                <span style="flex:1"></span><span style="font-size:11.5px;color:#6B7280">9 of 9</span>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 150px 120px 132px;gap:12px;padding:10px 16px 6px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC"><span>Project · Code ▲</span><span>Status</span><span>Last processed</span><span></span></div>
+              <sc-for list="{{ pp }}" as="r">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) 150px 120px 132px;gap:12px;padding:8px 16px;min-height:60px;box-sizing:border-box;align-items:center;border-top:1px solid #F0F1F4">
+                  <div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:13px;font-weight:600;color:#0B1840;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.project }}</span><span style="font-size:11px;color:#6B7280"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">{{ r.code }}</span> · {{ r.meta }}<sc-if value="{{ r.topicErr }}"> · <span style="color:#B42318;font-weight:600">Topics failed</span></sc-if></span></div>
+                  <div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start"><span style="font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;background:{{ r.sBg }};color:{{ r.sC }}">{{ r.status }}</span><sc-if value="{{ r.queued }}"><span style="font-size:10.5px;color:#6B7280">Next 14:30</span></sc-if></div>
+                  <span style="font-size:12px;color:#374151">{{ r.last }}</span>
+                  <div style="display:flex;gap:6px;justify-content:flex-end"><div style="height:40px;box-sizing:border-box;padding:0 14px;border:1px solid #DDE1E8;border-radius:8px;display:flex;align-items:center;font-size:12.5px;font-weight:600;color:#0B1840;white-space:nowrap">Process</div><div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:{{ r.moreC }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg></div></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:12px;font-weight:700;color:#0B1840">Smartphone — 390 × 844 · Profile processing</div>
+      <div style="font-size:11px;color:#6B7280;width:390px;line-height:1.45">La striscia diventa una card: stato e prossimo passaggio, poi le azioni. Settings apre le impostazioni a tutto schermo; il selettore Project codes | Run history sta sopra la ricerca, a tutta larghezza.</div>
+      <div style="width:390px;height:844px;display:flex;flex-direction:column;background:#F3F4F6;border:1px solid #DDE1E8;border-radius:28px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08)">
+        <div style="flex-shrink:0;background:#0B1840;border-bottom:3px solid #F0287A;padding:8px 12px 0;height:52px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between"><div style="color:#fff;font-weight:700;font-size:17px;letter-spacing:-.02em"><span style="color:#F0287A">P</span>Dash</div><div style="width:32px;height:32px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;white-space:nowrap">AP</div></div>
+        <div style="padding:12px 16px 0;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:20px;font-weight:700;color:#0B1840">Timesheets</span></div>
+          <div style="height:48px;box-sizing:border-box;background:#fff;border:1px solid #DDE1E8;border-radius:10px;padding:0 14px;display:flex;align-items:center;gap:10px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">Timesheets</span><span style="flex:1;font-size:14px;font-weight:700;color:#0B1840">Profile processing</span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg></div>
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:999px;background:#16A34A"></span><span style="flex:1;font-size:13px;font-weight:700;color:#0B1840">Scheduled · every 1 min</span><div style="width:40px;height:40px;margin:-8px -6px -8px 0;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#0B1840"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 4.5h7M12 4.5h2M2 11.5h2M7 11.5h7"></path><circle cx="10.5" cy="4.5" r="1.5"></circle><circle cx="5.5" cy="11.5" r="1.5"></circle></svg></div></div>
+            <span style="font-size:12px;color:#374151"><span style="color:#9AA0AC">Next run</span> <strong style="color:#0B1840">2026-11-05 14:30</strong> · topic extraction on</span>
+            <div style="display:flex;gap:8px"><div style="flex:1;height:44px;border-radius:8px;background:#0B1840;color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;white-space:nowrap">Recalculate now</div><div style="height:44px;box-sizing:border-box;padding:0 14px;border:1px solid #FDA29B;border-radius:8px;color:#B42318;font-size:13px;font-weight:600;display:flex;align-items:center;white-space:nowrap">Rebuild all</div></div>
+          </div>
+          <div style="display:flex;padding:3px;border-radius:10px;background:#E5E7EB;gap:2px"><div style="flex:1;height:38px;border-radius:8px;background:#fff;box-shadow:0 1px 2px rgba(11,24,64,.12);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#0B1840;white-space:nowrap">Project codes</div><div style="flex:1;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;color:#374151;white-space:nowrap">Run history</div></div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1;display:flex;align-items:center;gap:8px;height:44px;box-sizing:border-box;padding:0 12px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;font-size:13px;color:#9AA0AC;white-space:nowrap">Search…</div>
+            <div style="display:flex;align-items:center;gap:6px;height:44px;box-sizing:border-box;padding:0 12px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;font-size:13px;color:#0B1840;white-space:nowrap;flex-shrink:0">All statuses<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg></div>
+          </div>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:10px 16px 16px;display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ ppPhone }}" as="r">
+            <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:12px 14px 0;display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+              <div style="display:flex;align-items:flex-start;gap:10px"><span style="flex:1;font-size:14px;font-weight:600;color:#0B1840;line-height:1.3">{{ r.project }}</span><span style="font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;background:{{ r.sBg }};color:{{ r.sC }};white-space:nowrap">{{ r.status }}</span></div>
+              <span style="font-size:11.5px;color:#6B7280"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">{{ r.code }}</span> · {{ r.meta }}</span>
+              <span style="font-size:11.5px;color:#374151">{{ r.when }}</span>
+              <sc-if value="{{ r.isErr }}"><div style="font-size:11.5px;color:#7A271A;background:#FEF3F2;border-radius:8px;padding:8px 10px;line-height:1.45">Owner alias "C. Giamberini" matches 2 resources. Fix the alias in Team, then process again.</div></sc-if>
+              <div style="display:flex;border-top:1px solid #F0F1F4;margin:4px -14px 0">
+                <span style="flex:1;height:44px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#0B1840">Process</span>
+                <sc-if value="{{ r.queued }}"><span style="flex:1;height:44px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#B42318;border-left:1px solid #F0F1F4">Remove from queue</span></sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1980,&quot;height&quot;:1820}}">
+const TS = [['Bayer AG', 'BERMITS Maintenance 2026', 'HITA.000001201', '337', '03 Nov 2026'], ['Next Health Advisors', 'NH-26-ItalianHospitalRankings:AnnualMulti-parametricUpdate', 'HITA.000001586.001', '28', '02 Sep 2026'], ['Menarini Ricerche', 'MEN 26 AURORA Platform Dev.-Overall Proj. MNGM', 'HITA.000001823.001', '24', '02 Sep 2026'], ['Menarini Ricerche', 'MEN 26 AURORA Platform Dev.-Development', 'HITA.000001823.003', '1,284', '14 Oct 2026'], ['SIFI Group', 'SIFI 26 AKANTIOR Karomy - Spanish Launch Support', 'HITA.000002033.001', '13', '02 Sep 2026'], ['SIFI Group', 'SIFI 26 AKANTIOR Karomy - Italian Launch Support', 'HITA.000002033.002', '5', '02 Sep 2026'], ['SIFI Group', 'SIFI 26 AKANTIOR Karomy - Pharmacovigil. Feature dev&deploy', 'HITA.000002033.003', '46', '02 Sep 2026'], ['SIFI Group', 'SIFI 26 AKANTIOR - Karomy Promotional materials', 'HITA.000002102.001', '8', '02 Sep 2026']];
+const ST = { error: ['Error', '#FEE4E2', '#B42318'], queued: ['Queued', '#FEF3C7', '#92400E'], updated: ['Updated', '#DCFCE7', '#166534'], none: ['Not processed', '#F3F4F6', '#6B7280'] };
+const PP = [['BERMITS Maintenance 2026', 'HITA.000001201', '337 rows · 1 resource', 'updated', '2026-11-04 22:30'], ['NH-26-ItalianHospitalRankings:AnnualMulti-parametricUpdate', 'HITA.000001586.001', '28 rows · 1 resource', 'error', '2026-09-30 19:59'], ['MEN 26 AURORA Platform Dev.-Overall Proj. MNGM', 'HITA.000001823.001', '24 rows · 1 resource', 'queued', '2026-09-30 19:59'], ['MEN 26 AURORA Platform Dev.-Development', 'HITA.000001823.003', '1,284 rows · 3 resources', 'queued', '2026-09-30 19:59'], ['SIFI 26 AKANTIOR Karomy - Spanish Launch Support', 'HITA.000002033.001', '13 rows · 1 resource', 'updated', '2026-09-30 19:59', 1], ['SIFI 26 AKANTIOR Karomy - Italian Launch Support', 'HITA.000002033.002', '5 rows · 1 resource', 'updated', '2026-09-30 19:59'], ['SIFI 26 AKANTIOR Karomy - Pharmacovigil. Feature dev&deploy', 'HITA.000002033.003', '46 rows · 1 resource', 'updated', '2026-09-30 19:59'], ['SIFI 25 Karomy - Medical Training', 'HITA.000001702.001', '52 rows', 'none', '—']];
+class Component extends DCLogic {
+  renderVals() {
+    const ts = TS.map(([client, project, code, rows, last]) => ({ client, project, code, rows, last }));
+    const pp = PP.map(([project, code, meta, s, last, te]) => ({ project, code, meta, last, status: ST[s][0], sBg: ST[s][1], sC: ST[s][2], queued: s === 'queued' || s === 'error', isErr: s === 'error', topicErr: !!te, moreC: s === 'queued' || s === 'error' ? '#6B7280' : '#C9CDD3',
+      when: s === 'none' ? 'Never processed' : (s === 'queued' || s === 'error') ? 'Last ' + last + ' · next 14:30' : 'Last processed ' + last }));
+    return { tFilters: ['Client', 'Project', 'Pipeline 2026'], ts, tsPhone: ts.slice(0, 4), pp, ppPhone: pp.slice(1, 4) };
+  }
+}
+</script>
+</body>
+</html>
