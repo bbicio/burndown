@@ -64,6 +64,31 @@
     .mdc-link:hover { color: var(--brand-magenta); }
     .mdc-empty { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: .875rem; }
 
+    /* ── Activation row ── */
+    .mdc-act-row td { background: var(--surface-light); height: 64px; }
+    .mdc-combo { position: relative; display: inline-block; width: 100%; max-width: 280px; }
+    .mdc-combo-trigger {
+      width: 100%; height: 36px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+      padding: 0 10px; border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--surface-white);
+      font-size: 13px; color: var(--brand-navy); text-align: left; cursor: pointer;
+    }
+    .mdc-combo-trigger:focus-visible, .mdc-combo-trigger[aria-expanded="true"] { outline: 0; border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
+    .mdc-combo-trigger .is-placeholder { color: var(--text-placeholder); }
+    .mdc-combo-pop {
+      position: absolute; top: calc(100% + 4px); left: 0; width: 320px; max-width: calc(100vw - 32px); z-index: 20;
+      background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-xl); padding: 8px;
+    }
+    .mdc-combo-list { list-style: none; margin: 6px 0 0; padding: 0; max-height: 240px; overflow-y: auto; }
+    .mdc-combo-opt {
+      display: grid; grid-template-columns: 44px 1fr auto; gap: var(--space-2); align-items: center;
+      padding: 7px 8px; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer;
+    }
+    .mdc-combo-opt.is-active, .mdc-combo-opt:hover { background: var(--surface-subtle); }
+    .mdc-combo-opt b { color: var(--brand-navy); }
+    .mdc-combo-opt span:last-child { color: var(--text-muted); }
+    .mdc-combo-empty { padding: 10px 8px; font-size: 12.5px; color: var(--text-muted); }
+    .mdc-act-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+
     /* ── Confirm dialog (local overlay, no Bootstrap modal) ── */
     .mdc-scrim { position: fixed; inset: 0; z-index: calc(var(--z-notification) - 1); background: var(--overlay-scrim); opacity: .5; }
     .mdc-dialog {
@@ -147,6 +172,52 @@
             </tr>
           </thead>
           <tbody>
+            <tr v-if="act.show" class="mdc-act-row">
+              <td>
+                <div class="mdc-combo" ref="picker">
+                  <button type="button" class="mdc-combo-trigger" aria-haspopup="listbox" :aria-expanded="act.pickerOpen"
+                          @click="togglePicker" @keydown.down.prevent="openPicker">
+                    <span v-if="act.code">{{ act.code }} — {{ nameOf(act.code) }}</span>
+                    <span v-else class="is-placeholder">Select currency…</span>
+                    <ph-icon name="chevron-down" :size="14"></ph-icon>
+                  </button>
+                  <div v-if="act.pickerOpen" class="mdc-combo-pop">
+                    <input ref="pickerSearch" class="mdc-input" style="width:100%;padding-right:10px" type="text" autocomplete="off"
+                           placeholder="Search code or name…" aria-label="Search currencies" v-model="act.query"
+                           @input="act.activeIndex = 0" @keydown="onPickerKey">
+                    <ul class="mdc-combo-list" role="listbox">
+                      <li v-for="(opt, i) in actOptions" :key="opt.code" role="option" class="mdc-combo-opt"
+                          :class="{ 'is-active': i === act.activeIndex }" :aria-selected="opt.code === act.code"
+                          @mousedown.prevent="pickCurrency(opt.code)" @mousemove="act.activeIndex = i">
+                        <b>{{ opt.code }}</b><span>{{ opt.name }}</span><span>{{ opt.symbol }}</span>
+                      </li>
+                      <li v-if="!actOptions.length" class="mdc-combo-empty">No currency matches.</li>
+                    </ul>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="mdc-input-wrap">
+                  <input ref="actInput" class="mdc-input" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 1.6500"
+                         aria-label="Rate" v-model="act.text" @keydown.enter.prevent="activateCurrency">
+                  <span v-if="act.code" class="mdc-input-sfx">{{ symbolOf(act.code) }}</span>
+                </span>
+              </td>
+              <td class="mdc-col-inverse">
+                <span v-if="act.code && actInverse">1 {{ act.code }} = {{ eurSymbol }} {{ actInverse }}</span>
+                <span v-else class="mdc-fixed">—</span>
+              </td>
+              <td><span class="mdc-sub">Starts the rate history.</span></td>
+              <td>
+                <div class="mdc-act-actions">
+                  <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="act.saving" @click="cancelActivate">Cancel</button>
+                  <button type="button" class="btn btn-primary btn-sm" :disabled="!actValid || act.saving" @click="activateCurrency">
+                    <span v-if="act.saving" class="spinner-border spinner-border-sm me-1"></span>Activate
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="act.show && act.error" class="mdc-act-row"><td colspan="5"><span class="mdc-err" role="alert">{{ act.error }}</span></td></tr>
             <tr v-for="cur in activeList" :key="cur.code" class="mdc-row">
               <td>
                 <div class="mdc-cur">
@@ -253,6 +324,8 @@
 <script defer src="js/nav.js?v=19"></script>
 
 <script type="module">
+const freshAct = () => ({ show: false, code: '', text: '', error: null, saving: false, pickerOpen: false, query: '', activeIndex: 0 });
+
 window.__cfgApp = Vue.createApp({
   data() {
     return {
@@ -275,6 +348,10 @@ window.__cfgApp = Vue.createApp({
     activeList()  { return this.currencies.filter(c => c.active); },
     eurSymbol()   { return currencyInfo('EUR', this.currencies).symbol; },
     canActivate() { return window.pickableCurrencies(this.currencies).length > 0; },
+    actRate()     { return window.parseRateText(this.act.text); },
+    actValid()    { return !!this.act.code && window.isValidRate(this.actRate); },
+    actInverse()  { return window.inverseRate(this.actRate); },
+    actOptions()  { return window.pickableCurrencies(this.currencies, this.act.query); },
   },
 
   async created() {
@@ -291,8 +368,14 @@ window.__cfgApp = Vue.createApp({
     this.loadHistories();
   },
 
-  mounted()   { document.addEventListener('keydown', this.onKeydown); },
-  unmounted() { document.removeEventListener('keydown', this.onKeydown); },
+  mounted() {
+    document.addEventListener('keydown', this.onKeydown);
+    document.addEventListener('mousedown', this.onDocMousedown);
+  },
+  unmounted() {
+    document.removeEventListener('keydown', this.onKeydown);
+    document.removeEventListener('mousedown', this.onDocMousedown);
+  },
 
   methods: {
     async loadAll() {
@@ -367,7 +450,59 @@ window.__cfgApp = Vue.createApp({
       this.confirm.show = false;
     },
 
-    openActivate() { this.act.show = true; },
+    openActivate() {
+      this.cancelEdit();
+      this.act = { ...freshAct(), show: true, pickerOpen: true };
+      this.$nextTick(() => this.$refs.pickerSearch?.focus());
+    },
+
+    async activateCurrency() {
+      if (!this.actValid || this.act.saving) return;
+      this.act.saving = true; this.act.error = null;
+      const code = this.act.code;
+      try {
+        await Api.currencies.activate(code, this.actRate);
+        this.act = freshAct();
+        await this.loadAll();
+        this.loadHistories([code]);
+      } catch (e) {
+        this.act.error = e.message || 'Failed to activate currency';
+        this.act.saving = false;
+      }
+    },
+
+    cancelActivate() {
+      if (this.act.saving) return;
+      this.act = freshAct();
+    },
+
+    togglePicker() {
+      if (this.act.pickerOpen) { this.act.pickerOpen = false; return; }
+      this.openPicker();
+    },
+
+    openPicker() {
+      this.act.pickerOpen = true; this.act.query = ''; this.act.activeIndex = 0;
+      this.$nextTick(() => this.$refs.pickerSearch?.focus());
+    },
+
+    pickCurrency(code) {
+      this.act.code = code; this.act.pickerOpen = false; this.act.query = '';
+      this.$nextTick(() => this.$refs.actInput?.focus());
+    },
+
+    onPickerKey(e) {
+      const n = this.actOptions.length;
+      if (e.key === 'ArrowDown') { e.preventDefault(); if (n) this.act.activeIndex = (this.act.activeIndex + 1) % n; }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); if (n) this.act.activeIndex = (this.act.activeIndex - 1 + n) % n; }
+      else if (e.key === 'Enter') { e.preventDefault(); const opt = this.actOptions[this.act.activeIndex]; if (opt) this.pickCurrency(opt.code); }
+    },
+
+    onDocMousedown(e) {
+      if (!this.act.pickerOpen) return;
+      const box = [].concat(this.$refs.picker || [])[0];
+      if (box && !box.contains(e.target)) this.act.pickerOpen = false;
+    },
 
     openHistory(cur) { this.hist = { code: cur.code, rows: [], loading: false, error: false }; },
     closeHistory()   { this.hist = { code: null, rows: [], loading: false, error: false }; },
@@ -387,6 +522,7 @@ window.__cfgApp = Vue.createApp({
       if (this.edit.code)      { this.cancelEdit(); }
     },
 
+    nameOf(code)   { return this.currencies.find(c => c.code === code)?.name || ''; },
     symbolOf(code) { return this.currencies.find(c => c.code === code)?.symbol || ''; },
     fmtRate(r)     { return window.formatRate(r); },
     invRate(r)     { return window.inverseRate(r); },

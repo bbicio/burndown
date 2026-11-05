@@ -55,3 +55,19 @@ describe('master-currencies page', () => {
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 });
+
+describe('master-currencies activation row', () => {
+  it('disables Activate until currency and rate are valid, and guards a double click', () => {
+    expect(html).toContain(':disabled="!actValid || act.saving"');
+    const activate = between('async activateCurrency()', 'cancelActivate()');
+    expect(activate).toContain('if (!this.actValid || this.act.saving) return;');
+    expect(activate).toContain('Api.currencies.activate(');
+    const catchPart = activate.slice(activate.indexOf('catch'));
+    expect(catchPart).toContain('this.act.error');
+    expect(catchPart).not.toContain('globalError');
+  });
+  it('starts with an empty rate and offers the row only when something can be activated', () => {
+    expect(html).toMatch(/act:\s*\{[^}]*text: ''/);
+    expect(html).toMatch(/v-if="[^"]*canActivate[^"]*!act\.show[^"]*"/);
+  });
+});
