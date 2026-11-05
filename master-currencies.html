@@ -50,6 +50,7 @@
     .mdc-rate-btn ph-icon { color: var(--text-muted); }
     .mdc-delta { font-size: 11.5px; font-weight: var(--weight-medium); color: var(--text-muted); }
     .mdc-sub { display: block; font-size: 11px; color: var(--text-muted); }
+    .mdc-head-row > .btn, .mdc-delta, .mdc-rate-btn { white-space: nowrap; }
     .mdc-edit { display: flex; align-items: center; gap: var(--space-2); }
     .mdc-input-wrap { position: relative; display: inline-flex; align-items: center; }
     .mdc-input {
@@ -88,6 +89,7 @@
     .mdc-combo-opt span:last-child { color: var(--text-muted); }
     .mdc-combo-empty { padding: 10px 8px; font-size: 12.5px; color: var(--text-muted); }
     .mdc-act-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+    .mdc-act-actions .btn-primary:disabled, .mdc-sheet-primary:disabled { background: var(--border-light); border-color: var(--border-light); color: var(--text-muted); opacity: 1; }
 
     /* ── Confirm dialog (local overlay, no Bootstrap modal) ── */
     .mdc-scrim { position: fixed; inset: 0; z-index: calc(var(--z-notification) - 1); background: var(--overlay-scrim); opacity: .5; }
@@ -120,7 +122,7 @@
     .mdc-dr-current strong { font-size: 22px; }
     .mdc-chart { background: var(--surface-light); border-radius: var(--radius-md); padding: 12px 14px 8px; }
     .mdc-chart svg { display: block; width: 100%; height: 90px; }
-    .mdc-chart-line { fill: none; stroke: var(--chart-actual); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .mdc-chart-line { fill: none; stroke: var(--brand-navy); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
     .mdc-chart-dates { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: var(--text-muted); }
     .mdc-changes { list-style: none; margin: 0; padding: 0; }
     .mdc-change { display: grid; grid-template-columns: 14px 1fr auto auto; gap: var(--space-3); align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-light); font-size: 13px; }
@@ -164,6 +166,12 @@
       .mdc-table .btn { min-height: 40px; }
       .mdc-link { min-height: 40px; }
       .mdc-act-row td { height: auto; padding-top: 12px; padding-bottom: 12px; }
+    }
+
+    /* ── Narrow desktop (sidebar open, 1024–1279px): the inverse moves under the rate ── */
+    @media (min-width: 1024px) and (max-width: 1279.98px) {
+      .mdc-col-inverse, .mdc-delta { display: none; }
+      .mdc-rate-inv { display: block; margin-top: 4px; font-size: 11px; color: var(--text-muted); }
     }
 
     /* ── Phone (< 768px) ── */
