@@ -119,3 +119,7 @@ Spec `docs/superpowers/specs/2026-11-02-project-config-redesign-design.md`, plan
 - **Accepted deviations from the boards** (Task 10, decided by the user): the phasing inputs show the currency symbol, because every amount goes through `formatMoney`; the stage/status badges are uppercase, as the shared `.ph-badge`; at widths where the sidebar is open below 1280px the index column stays (the site switches to tabs only below 1024px); the Tags header has no "· optional", as on the cost grid; the sticky save bar of the boards is not built (spec §1).
 
 Guard: `js/lib/project-config-layout-guard.test.js`. Manual cases: `TEST_CASES.md` PC-38…PC-45.
+
+## Reforecast net remaining (2026-11-05)
+
+Spec `docs/superpowers/specs/2026-11-05-reforecast-net-remaining-design.md`. `runReforecast` calls the rewritten `reforecastDistribution` (see `docs/js/lib.md`), loaded as `js/lib/config-form-calc.js?v=7`. The confirmation says "Months with actuals — replaced with actual spend & hours", then the net remaining budget (`remainingBudget`) and hours (`distributedRemainingHours`) for the current and future months; when `overBudget`/`overHours` it appends "(over budget: X consumed of Y sold)" / "(over hours: …)"; with no current or future month it says the net remaining is not distributed. The `distError` branch is kept but never taken. Manual case: `TEST_CASES.md` PC-46.
