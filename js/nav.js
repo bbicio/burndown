@@ -282,6 +282,80 @@ function navRefreshAccount(u) {
   if (btn) btn.setAttribute('data-tip', u.email || 'Account menu');
 }
 
+// ── SAVE OVERLAY ─────────────────────────────────────────────────────────────
+// Blocking "Saving changes…" layer. Shown by apiFetch (js/api.js) when a write outlasts its delay.
+// Created once at the end of <body>; every other direct child of <body> is made inert while it shows.
+function navEnsureSaveOverlay() {
+  let el = document.getElementById('pd-save-overlay');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'pd-save-overlay';
+  el.className = 'pd-save-overlay';
+  el.hidden = true;
+  el.innerHTML =
+    '<div class="pd-save-overlay__bar"></div>' +
+    '<div class="pd-save-overlay__panel" role="status" aria-live="polite">' +
+      '<div class="spinner-border" aria-hidden="true"></div>' +
+      '<div class="pd-save-overlay__title"></div>' +
+      '<div class="pd-save-overlay__msg"></div>' +
+    '</div>';
+  document.body.appendChild(el);
+  return el;
+}
+
+const PdOverlay = (() => {
+  const DEFAULT_TITLE = 'Saving changes…';
+  const DEFAULT_MESSAGE = "Please don't close this page.";
+  let visible = false;
+  let marked = [];
+  let lockedByUs = false;
+  let prevFocus = null;
+  let hideTimer = null;
+
+  function setCopy(el, { title, message } = {}) {
+    el.querySelector('.pd-save-overlay__title').textContent = title || DEFAULT_TITLE;
+    el.querySelector('.pd-save-overlay__msg').textContent = message || DEFAULT_MESSAGE;
+  }
+
+  function show(copy) {
+    const el = navEnsureSaveOverlay();
+    setCopy(el, copy);
+    if (visible) return;
+    visible = true;
+    clearTimeout(hideTimer);
+    prevFocus = document.activeElement;
+    marked = [];
+    Array.from(document.body.children).forEach(c => {
+      if (c === el || c.hasAttribute('inert')) return;
+      c.setAttribute('inert', '');
+      marked.push(c);
+    });
+    lockedByUs = !document.body.classList.contains('pd-save-locked');
+    document.body.classList.add('pd-save-locked');
+    el.hidden = false;
+    void el.offsetWidth; // flush so the fade-in transition runs
+    el.classList.add('is-visible');
+  }
+
+  function hide() {
+    if (!visible) return;
+    visible = false;
+    marked.forEach(c => { c.removeAttribute('inert'); });
+    marked = [];
+    if (lockedByUs) document.body.classList.remove('pd-save-locked');
+    const el = document.getElementById('pd-save-overlay');
+    if (el) {
+      el.classList.remove('is-visible');
+      el.hidden = true;
+    }
+    if (prevFocus && document.contains(prevFocus) && typeof prevFocus.focus === 'function') prevFocus.focus();
+    prevFocus = null;
+  }
+
+  return { show, hide, isVisible: () => visible };
+})();
+window.PdOverlay = PdOverlay;
+
 async function initNav(activeTab, opts = {}) {
   let user;
   try {
@@ -297,6 +371,7 @@ async function initNav(activeTab, opts = {}) {
     return null;
   }
 
+  navEnsureSaveOverlay();
   // Store user globally so notifications.js can access it
   window.__navUser = user;
 

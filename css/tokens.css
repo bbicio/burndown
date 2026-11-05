@@ -163,6 +163,10 @@
   --shadow-md: 0 2px 8px rgba(0,0,0,.12);
   --shadow-lg: 0 4px 16px rgba(0,0,0,.15);
   --shadow-xl: 0 8px 32px rgba(0,0,0,.20);
+  --shadow-overlay: 0 20px 60px rgba(0,0,0,.25);
+  --overlay-scrim: rgba(11, 24, 64, .55);
+  --overlay-spinner-track: #FBD3E3;
+  --overlay-progress-track: rgba(240, 40, 122, .25);
 
   /* Component surfaces (2026-10, header unification cycle 2) */
   --card-bg: var(--surface-white);
@@ -204,6 +208,7 @@
   --z-modal:        500;
   --z-notification: 700;
   --z-tooltip:      800;
+  --z-blocking: 1090;
 
   /* ── Navigation (cycle B2, 2026-10) ── */
   --brand-magenta-tint:       #fdf0f5;
