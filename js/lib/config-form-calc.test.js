@@ -122,6 +122,23 @@ describe('reforecastDistribution', () => {
     expect(result.newPlanning['202602'] + result.newPlanning['202603']).toBeCloseTo(20, 5);
   });
 
+  it('characterization: no overrun, no distribution, no current-month rows', () => {
+    const tasks = [
+      { name: 'Dev', billable: true, startDate: '20260101', endDate: '20260430',
+        resources: [{ role: 'Developer', soldHours: 40, hourlyRate: 100 }] },
+      { name: 'QA', billable: true, startDate: '20260201', endDate: '20260430',
+        resources: [{ role: 'Tester', soldHours: 20, hourlyRate: 50 }] },
+    ];
+    const actualsRows = [
+      { task: 'Dev', role: 'Developer', date: '2026-01-10', hours: 10 },
+      { task: 'Dev', role: 'Developer', date: '2026-02-10', hours: 5 },
+      { task: 'QA', role: 'Tester', date: '2026-02-12', hours: 4 },
+    ];
+    const r = reforecastDistribution(tasks, ['202601', '202602', '202603', '202604'], actualsRows, '202603');
+    expect(r.newPhasing).toEqual({ '202601': 1000, '202602': 700, '202603': 1650, '202604': 1650 });
+    expect(r.newPlanning).toEqual({ '202601': 10, '202602': 9, '202603': 20.5, '202604': 20.5 });
+  });
+
   it('rounds past months too, to digits', () => {
     const tasks = [{
       name: 'Dev', billable: true,
