@@ -93,7 +93,7 @@ const PAGES = [
     must: ['this.currencies    = currencies;', 'groupedRoles'] },
   { file: 'master-currencies.html',    active: 'currencies', section: 'Currencies',
     api: ['currencies'],
-    must: ['id="crHistoryModal"', 'id="crRateConfirmModal"', 'this.crEdit'] },
+    must: ['class="mdc-dialog"', 'class="mdc-drawer"', 'this.edit'] },
 ];
 
 describe.each(PAGES)('Master Data page: $file', ({ file, active, section, api, must }) => {

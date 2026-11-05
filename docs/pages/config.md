@@ -14,7 +14,7 @@ The former single Vue app `config.html` (six `v-show` tab panels, one `loadAll()
 | `master-client-groups.html` | Client Groups | `Api.clientGroups`, `Api.clients` | assign/remove clients |
 | `master-pipelines.html` | Pipelines & POTs | `Api.pipelineYears`, `Api.pots`, `Api.reporting`, `Api.clients`, `Api.clientGroups`, `Api.currencies.active()` | `#potDetailsModal`, phasing views, `phasingTableHtml`/`projectPhasingTableHtml`, money preload |
 | `master-roles.html` | Roles | `Api.roles`, `Api.currencies.list()` | per-currency rate fields filter `currencies` on `active`; delete guard (since 2026-11-04 see "Roles & rates" below) |
-| `master-currencies.html` | Currencies | `Api.currencies` | `#crHistoryModal`, `#crRateConfirmModal`, `crEdit` built from the loaded list |
+| `master-currencies.html` | Currencies | `Api.currencies` | `.mdc-dialog` (confirm), `.mdc-drawer` (history), `edit` state; see "Currencies" below |
 
 - **How it was built:** `docs/superpowers/plans/2026-10-05-master-data-split/split-config.mjs` sliced the original `config.html` (so every moved method/panel is byte-identical) and `check-split.mjs` verified syntax, balanced divs and that each page defines every member it uses. The generator cannot run any more (`config.html` is now a redirect); it stays as the record. After the final review two things were hand-adjusted in `master-clients.html` (the `window.__currencies` preload and the roles load).
 - **Shell and naming:** every page is a standard page shell (`#app-shell` > `#nav-container` + `#app-main`) calling `initNav('config', …)`, `<title>PDash — Master Data</title>`, breadcrumb Home > Master Data > <section> since 2026-11-03 (so the Admin menu keeps highlighting "Master Data", `js/lib/page-names.test.js` maps the five files to id `config`). `js/nav.js`'s `config` entry points to `/master-clients.html`.
@@ -137,3 +137,21 @@ Spec `docs/superpowers/specs/2026-11-03-master-data-shell-design.md`, plan `docs
   - The amber tints are the warning tokens thinned with white (`color-mix`), the "No rate" text is `--color-warning-text`.
 - **Fixed after the visual review:** amounts carried symbol and decimals; the amber was the full warning background; the scrim was black; at 1024px the table scrolled and the header wrapped; the description took two lines at 1400px; on phone "+ Add" came before the search; a new role opened with an empty Team.
 - **Tests:** `js/lib/master-roles.test.js` (team, filter, groups, columns, fallback, code split/join), `js/lib/master-roles-page-guard.test.js` (panel, delete dialog, layouts), `js/lib/master-roles-rate-input-guard.test.js` (unchanged), `js/lib/master-data-guard.test.js`. Manual case `MD-16`.
+
+## Currencies (2026-11-05, Master Data phase 2)
+
+`master-currencies.html` is "Currencies": a read-first list, inline rate edit with a confirm dialog, an inline activation row with a searchable picker, a history drawer with a trend chart, and tablet and phone layouts. No server route, shell, stylesheet or shared script changed; no Bootstrap modal is left on the page (its script stays for `nav.js`). The pure helpers are in `js/lib/master-currencies.js`.
+
+- **List:** active currencies only, EUR first ("Base" pill, "Fixed · 1.0000", not editable). Rate, inverse, delta and the last-updated user come from `formatRate`, `inverseRate`, `rateDelta` and one `GET /:code/history` per active non-EUR currency (`histByCode`); a failed history only drops that row's delta and user.
+- **Edit and confirm:** a click on the rate opens an input on that row (one at a time, and it closes the activation row; Enter saves, Esc cancels, "," accepted through `parseRateText`); Save opens the confirm dialog (`.mdc-dialog`, a Vue overlay), and `confirmRate` is the only caller of `Api.currencies.updateRate`. A server error stays in the dialog with Confirm usable again and focused. Save refuses an unchanged rate and one outside the `DECIMAL(10,6)` columns (`rateError`); Confirm ignores an Enter that is a key repeat, and an Enter or a tap that comes right after the dialog opened (`onConfirmKey`, `onConfirmClick`, `confirmReady`): a double Enter or a double tap on Save rate does not confirm. Cancel and Esc give the focus back to the rate input.
+- **Activation:** "+ Activate currency" opens a row above the list; the picker is a local combobox over `pickableCurrencies` (code, name, symbol); Activate stays disabled until a currency and a rate above zero are chosen.
+- **History drawer:** `.mdc-drawer`, the cached rows show at once and are refetched; the chart is the `sparklinePoints` polyline; "activated" marks the oldest row only when the route returned the whole history (`historyEntries`, against the route's `LIMIT`).
+- **Escape:** one document handler closes the topmost layer (picker, confirm, sheet, drawer, inline edit, activation row).
+- **Layouts:** on tablet and on the narrow desktop (sidebar open) the inverse moves under the rate and the delta is hidden; on phone the table becomes cards, "Edit rate" and "+ Activate currency" open bottom sheets and the confirm dialog is a bottom sheet. Crossing the phone breakpoint moves an open inline row into its sheet and back (`sheetOnResize`). The breakpoints are the page's media queries; the phone and tablet ones are pinned by `js/lib/master-currencies-page-guard.test.js`.
+- **Accepted deviations from the boards:**
+  - Every primary button uses the app-wide magenta `.btn-primary` and its shared disabled state; the boards draw "+ Activate currency", Activate and Save navy, and a disabled Activate grey.
+  - No "Used in" column, no "⋯" menu with Deactivate, no sub-nav counts (no API for them; out of scope).
+  - The boards show GBP and CHF, the data of the branch stack only had EUR and USD.
+  - The scrollbars in the picker capture are not part of the design.
+- **Fixed after the visual review:** the chart line is navy (the shared chart token is blue).
+- **Tests:** `js/lib/master-currencies.test.js`, `js/lib/master-currencies-page-guard.test.js`, `js/lib/master-data-guard.test.js`; manual case `MD-17`.

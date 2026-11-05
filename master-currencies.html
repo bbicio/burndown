@@ -9,45 +9,196 @@
   <link rel="stylesheet" href="css/tokens.css?v=13">
   <link rel="stylesheet" href="css/style.css?v=33">
   <style>
-    .section-title {
-      font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-      color: #6b7280; margin-bottom: .75rem; display: flex; align-items: center;
-      justify-content: space-between;
+    .mdc-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+    .mdc-note {
+      display: flex; align-items: flex-start; gap: var(--space-2); margin: 0 0 var(--space-3); padding: 10px 12px;
+      background: var(--surface-light); border-radius: var(--radius-md); font-size: 12.5px; color: var(--text-secondary);
+    }
+    .mdc-note ph-icon { flex: 0 0 auto; margin-top: 1px; color: var(--text-muted); }
+    .mdc-alert { margin: 0 0 var(--space-3); font-size: .83rem; padding: .5rem .75rem; }
+
+    .mdc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .mdc-table th {
+      font-size: 10px; font-weight: var(--weight-bold); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted);
+      text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border-light); white-space: nowrap;
+    }
+    .mdc-table td { padding: 8px 12px; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+    .mdc-table tr.mdc-row td { height: 58px; }
+    .mdc-table tbody tr:last-child td { border-bottom: 0; }
+    .mdc-cur { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+    .mdc-sym {
+      flex: 0 0 34px; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+      border-radius: var(--radius-md); background: var(--surface-subtle); color: var(--brand-navy);
+      font-size: 15px; font-weight: var(--weight-bold);
+    }
+    .mdc-sym.is-long { font-size: 11px; }
+    .mdc-sym.is-base { background: var(--color-success-bg); color: var(--color-success-text); }
+    .mdc-cur-code { font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdc-cur-name { display: block; font-size: 12px; color: var(--text-muted); }
+    .mdc-base-pill {
+      display: inline-block; margin-left: var(--space-2); padding: 1px 7px; border-radius: 999px;
+      background: var(--brand-navy); color: var(--surface-white); font-size: 10px; font-weight: var(--weight-bold); vertical-align: 1px;
+    }
+    .mdc-fixed { color: var(--text-muted); }
+    .mdc-rate-btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px; margin: -4px -6px; border: 0; border-radius: var(--radius-sm);
+      background: transparent; color: var(--brand-navy); font-size: 14px; font-weight: var(--weight-bold); cursor: pointer;
+    }
+    .mdc-rate-btn:hover { background: var(--surface-subtle); }
+    .mdc-rate-btn:focus-visible { outline: 0; box-shadow: 0 0 0 3px var(--focus-ring); }
+    .mdc-rate-sym { font-weight: var(--weight-medium); color: var(--text-muted); }
+    .mdc-rate-btn ph-icon { color: var(--text-muted); }
+    .mdc-delta { font-size: 11.5px; font-weight: var(--weight-bold); color: var(--text-muted); }
+    .mdc-sub { display: block; font-size: 11px; color: var(--text-muted); }
+    .mdc-head-row > .btn, .mdc-delta, .mdc-rate-btn { white-space: nowrap; }
+    .mdc-edit { display: flex; align-items: center; gap: var(--space-2); }
+    .mdc-input-wrap { position: relative; display: inline-flex; align-items: center; }
+    .mdc-input {
+      height: 36px; width: 110px; padding: 0 28px 0 10px; border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+      font-size: 13px; color: var(--brand-navy); background: var(--surface-white); outline: 0;
+    }
+    .mdc-input:focus { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
+    .mdc-input::placeholder { color: var(--text-placeholder); }
+    .mdc-input-sfx { position: absolute; right: 9px; font-size: 12px; color: var(--text-muted); pointer-events: none; }
+    .mdc-err { display: block; margin-top: 4px; font-size: 11.5px; color: var(--color-danger-text); }
+    .mdc-link { border: 0; background: transparent; padding: 4px 0; color: var(--brand-navy); font-size: 12.5px; font-weight: var(--weight-semibold); text-decoration: underline; cursor: pointer; }
+    .mdc-link:hover { color: var(--brand-magenta); }
+    .mdc-empty { text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: .875rem; }
+
+    /* ── Activation row ── */
+    .mdc-act-row td { background: var(--surface-light); height: 64px; }
+    .mdc-combo { position: relative; display: inline-block; width: 100%; max-width: 280px; }
+    .mdc-combo-trigger {
+      width: 100%; height: 36px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+      padding: 0 10px; border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--surface-white);
+      font-size: 13px; color: var(--brand-navy); text-align: left; cursor: pointer;
+    }
+    .mdc-combo-trigger:focus-visible, .mdc-combo-trigger[aria-expanded="true"] { outline: 0; border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
+    .mdc-combo-trigger .is-placeholder { color: var(--text-placeholder); }
+    .mdc-combo-pop {
+      position: absolute; top: calc(100% + 4px); left: 0; width: 320px; max-width: calc(100vw - 32px); z-index: 20;
+      background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-xl); padding: 8px;
+    }
+    .mdc-combo-list { list-style: none; margin: 6px 0 0; padding: 0; max-height: 240px; overflow-y: auto; }
+    .mdc-combo-opt {
+      display: grid; grid-template-columns: 44px 1fr auto; gap: var(--space-2); align-items: center;
+      padding: 7px 8px; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer;
+    }
+    .mdc-combo-opt.is-active, .mdc-combo-opt:hover { background: var(--surface-subtle); }
+    .mdc-combo-opt b { color: var(--brand-navy); }
+    .mdc-combo-opt span:last-child { color: var(--text-muted); }
+    .mdc-combo-empty { padding: 10px 8px; font-size: 12.5px; color: var(--text-muted); }
+    .mdc-act-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+
+    /* ── Confirm dialog (local overlay, no Bootstrap modal) ── */
+    .mdc-scrim { position: fixed; inset: 0; z-index: calc(var(--z-notification) - 1); background: var(--overlay-scrim); opacity: .5; }
+    .mdc-dialog {
+      position: fixed; z-index: var(--z-notification); top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: min(480px, calc(100vw - 32px)); background: var(--surface-white); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xl); padding: 20px;
+    }
+    .mdc-dialog-title { font-size: 16px; font-weight: var(--weight-bold); color: var(--brand-navy); margin: 0 0 var(--space-3); }
+    .mdc-dialog-body { font-size: 13.5px; color: var(--text-secondary); }
+    .mdc-dialog-body p { margin: 0 0 var(--space-2); }
+    .mdc-dialog-foot { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-4); }
+
+    /* ── History drawer ── */
+    .mdc-drawer {
+      position: fixed; top: 0; right: 0; width: min(560px, 100vw); height: 100vh; height: 100dvh;
+      background: var(--surface-white); border-left: 1px solid var(--border-light); box-shadow: var(--shadow-xl);
+      z-index: var(--z-notification); display: flex; flex-direction: column;
+    }
+    .mdc-dr-head { display: flex; align-items: flex-start; gap: var(--space-3); padding: 18px 20px 14px; border-bottom: 1px solid var(--border-light); }
+    .mdc-dr-head-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+    .mdc-eyebrow { font-size: 10px; font-weight: var(--weight-bold); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+    .mdc-dr-title { font-size: 19px; font-weight: var(--weight-bold); color: var(--brand-navy); margin: 0; overflow-wrap: anywhere; }
+    .mdc-dr-sub { font-size: 12.5px; color: var(--text-muted); }
+    .mdc-dr-close { flex: 0 0 auto; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer; }
+    .mdc-dr-close:hover { background: var(--surface-subtle); }
+    .mdc-dr-body { flex: 1 1 auto; overflow-y: auto; padding: var(--space-4) 20px; display: flex; flex-direction: column; gap: var(--space-4); }
+    .mdc-dr-state { text-align: center; color: var(--text-muted); font-size: 13px; padding: var(--space-5) 0; }
+    .mdc-dr-current { font-size: 15px; color: var(--brand-navy); }
+    .mdc-dr-current strong { font-size: 22px; }
+    .mdc-chart { background: var(--surface-light); border-radius: var(--radius-md); padding: 12px 14px 8px; }
+    .mdc-chart svg { display: block; width: 100%; height: 90px; }
+    .mdc-chart-line { fill: none; stroke: var(--brand-navy); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .mdc-chart-dates { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: var(--text-muted); }
+    .mdc-changes { list-style: none; margin: 0; padding: 0; }
+    .mdc-change { display: grid; grid-template-columns: 14px 1fr auto auto; gap: var(--space-3); align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-light); font-size: 13px; }
+    .mdc-change:last-child { border-bottom: 0; }
+    .mdc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border-light); }
+    .mdc-dot.is-newest { background: var(--brand-magenta); }
+    .mdc-change-main { display: flex; flex-direction: column; min-width: 0; }
+    .mdc-change-when { color: var(--brand-navy); font-weight: var(--weight-medium); }
+    .mdc-change-delta { font-size: 12px; font-weight: var(--weight-semibold); color: var(--text-muted); }
+    .mdc-change-delta.is-nochange { color: var(--color-warning-text); }
+    .mdc-change-rate { min-width: 72px; text-align: right; font-weight: var(--weight-bold); color: var(--brand-navy); }
+
+    /* ── Tablet / phone pieces hidden on wide screens ── */
+    .mdc-rate-inv, .mdc-cards { display: none; }
+
+    /* ── Bottom sheet ── */
+    .mdc-sheet {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-notification); max-height: 92dvh; overflow-y: auto;
+      background: var(--surface-white); border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: var(--shadow-xl);
+      padding: 16px 16px 20px; display: flex; flex-direction: column; gap: var(--space-3);
+    }
+    .mdc-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+    .mdc-sheet-title { margin: 0; font-size: 16px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdc-sheet-label { font-size: 12px; font-weight: var(--weight-semibold); color: var(--text-primary); }
+    .mdc-sheet .mdc-input { width: 100%; height: 48px; font-size: 16px; }
+    .mdc-sheet-help { font-size: 12px; color: var(--text-muted); }
+    .mdc-sheet-primary { min-height: 46px; width: 100%; }
+    .mdc-sheet .mdc-combo-list { max-height: 38dvh; }
+    .mdc-sheet .mdc-combo-opt { min-height: 44px; }
+
+    /* ── Tablet (768–1023px) ── */
+    @media (min-width: 768px) and (max-width: 1023.98px) {
+      .mdc-col-inverse, .mdc-delta { display: none; }
+      .mdc-rate-btn {
+        height: 40px; margin: 0; padding: 0 10px; border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+        background: var(--surface-white);
+      }
+      .mdc-rate-inv { display: block; margin-top: 4px; font-size: 11px; color: var(--text-muted); }
+      .mdc-input, .mdc-combo-trigger { height: 40px; }
+      .mdc-table .btn { min-height: 40px; }
+      .mdc-link { min-height: 40px; }
+      .mdc-act-row td { height: auto; padding-top: 12px; padding-bottom: 12px; }
     }
 
-    .card { border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.05); margin-bottom: 2rem; }
-    .card-body { padding: 0; }
-
-    .table { margin: 0; font-size: .875rem; }
-    .table thead th {
-      background: #f9fafb; border-bottom: 1px solid #e5e7eb;
-      font-size: .78rem; font-weight: 600; text-transform: uppercase;
-      letter-spacing: .04em; color: #6b7280; padding: .65rem 1rem;
+    /* ── Narrow desktop (sidebar open, 1024–1279px): the inverse moves under the rate ── */
+    @media (min-width: 1024px) and (max-width: 1279.98px) {
+      .mdc-col-inverse, .mdc-delta { display: none; }
+      .mdc-rate-inv { display: block; margin-top: 4px; font-size: 11px; color: var(--text-muted); }
     }
-    .table tbody td { padding: .75rem 1rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6; }
-    .table tbody tr:last-child td { border-bottom: none; }
-    .table tbody tr:hover td { background: #fafafa; }
 
-    .team-sep td { background: #f0f2ff; font-size: .75rem; font-weight: 700; color: #5468c4;
-                   padding: 4px 1rem; border-top: 2px solid #c5cef7; }
-
-    .form-card {
-      border: 1px solid #e5e7eb; border-radius: 8px;
-      background: #fff; padding: 1rem 1.25rem; margin-bottom: 1.25rem;
+    /* ── Phone (< 768px) ── */
+    @media (max-width: 767.98px) {
+      .mdc-head-row { flex-direction: column; }
+      .mdc-head-row > .btn { width: 100%; min-height: 44px; }
+      .md-table-card .mdc-table, .md-table-card .mdc-empty { display: none; }
+      .mdc-cards { display: flex; flex-direction: column; gap: var(--space-3); }
+      .mdc-card { border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--surface-white); overflow: hidden; }
+      .mdc-card-top { display: flex; align-items: center; gap: var(--space-3); padding: 12px; }
+      .mdc-card-top .mdc-cur { flex: 1 1 auto; }
+      .mdc-card-val { text-align: right; }
+      .mdc-card-val strong { display: block; font-size: 15px; color: var(--brand-navy); }
+      .mdc-card-val span { font-size: 11px; color: var(--text-muted); }
+      .mdc-card-actions { display: flex; border-top: 1px solid var(--border-light); }
+      .mdc-card-actions button { flex: 1 1 0; min-height: 44px; border: 0; background: transparent; font-size: 13px; font-weight: var(--weight-semibold); color: var(--brand-navy); }
+      .mdc-card-actions button + button { border-left: 1px solid var(--border-light); }
+      .mdc-sheet-wrap .mdc-scrim { z-index: calc(var(--z-notification) - 1); }
+      .mdc-dialog-wrap .mdc-scrim { z-index: var(--z-notification); }
+      .mdc-dialog {
+        z-index: calc(var(--z-notification) + 1); top: auto; left: 0; right: 0; bottom: 0; transform: none; width: 100%;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 16px 16px 20px;
+      }
+      .mdc-dialog-foot .btn { min-height: 46px; flex: 1 1 0; }
+      .mdc-drawer { width: 100vw; border-left: 0; }
+      .mdc-dr-close { width: 44px; height: 44px; }
+      .mdc-change { grid-template-columns: 14px 1fr auto; }
+      .mdc-change-delta { grid-column: 2; }
     }
-    .form-card-title { font-size: .82rem; font-weight: 700; color: var(--brand-navy); margin-bottom: .75rem; }
-
-    .cfg-tabs { border-bottom: 2px solid var(--border-light); margin-bottom: 1.5rem; display: flex; gap: 0; }
-    .cfg-tab-btn { background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
-                   padding: .6rem 1.25rem; font-size: .88rem; font-weight: 600; color: #6b7280; cursor: pointer; }
-    .cfg-tab-btn:hover { color: var(--brand-navy); }
-    .cfg-tab-btn.active { color: var(--brand-magenta); border-bottom-color: var(--brand-magenta); }
-
-    .empty { text-align: center; padding: 2.5rem 1rem; color: #9ca3af; font-size: .875rem; }
-    .alert-sm { font-size: .83rem; padding: .5rem .75rem; }
-    code { background: #f3f4f6; border-radius: 4px; padding: 1px 5px; font-size: .82rem; color: #374151; }
-
-    .rate-warn { color: #dc3545; font-size: .75rem; }
   </style>
 </head>
 <body>
@@ -68,9 +219,12 @@
 
 <div id="app" v-cloak>
 <section class="md-card">
-  <div class="md-card-head">
-    <h2 class="md-card-title">Currencies</h2>
-    <p class="md-card-desc">Activate currencies and manage their exchange rates.</p>
+  <div class="md-card-head mdc-head-row">
+    <div>
+      <h2 class="md-card-title">Currencies</h2>
+      <p class="md-card-desc">Active currencies can be used in proposals and rate cards. EUR is the base currency.</p>
+    </div>
+    <button v-if="ready && canActivate && !act.show" type="button" class="btn btn-primary btn-sm" @click="isPhone ? openActivateSheet() : openActivate()">+ Activate currency</button>
   </div>
   <div class="md-card-body">
 
@@ -91,151 +245,142 @@
   <!-- ── PAGE ────────────────────────────────────────────────── -->
   <div class="page app-container" v-else>
 
-    <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
+    <div v-if="globalError" class="alert alert-danger mdc-alert" role="alert">{{ globalError }}</div>
 
-    <div>
+    <p class="mdc-note"><ph-icon name="info" :size="14"></ph-icon><span>A new rate applies to proposal versions created from now on. Existing versions keep the rate saved when they were created.</span></p>
 
-      <div class="section-title">
-        <span>Currencies</span>
-        <button class="btn btn-primary btn-sm" @click="crf.show = true">+ Activate currency</button>
-      </div>
-
-      <!-- Activate form -->
-      <div class="form-card" v-if="crf.show">
-        <div class="form-card-title">Activate a currency</div>
-        <div class="row g-2 align-items-end">
-          <div class="col-md-4">
-            <label class="form-label fw-semibold" style="font-size:.82rem">Currency</label>
-            <select class="form-select form-select-sm" v-model="crf.code">
-              <option value="">— select —</option>
-              <option v-for="cur in currencies.filter(c => !c.active && c.code !== 'EUR')" :key="cur.code" :value="cur.code">
-                {{ cur.code }} — {{ cur.name }}
-              </option>
-            </select>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label fw-semibold" style="font-size:.82rem">1 EUR =</label>
-            <div class="input-group input-group-sm">
-              <input type="number" step="0.000001" min="0.000001" class="form-control" v-model="crf.rate" placeholder="e.g. 1.20">
-              <span class="input-group-text" style="font-size:.8rem">{{ currencies.find(c => c.code === crf.code)?.symbol || '?' }}</span>
-            </div>
-          </div>
-          <div class="col-auto d-flex gap-2">
-            <button class="btn btn-primary btn-sm" @click="activateCurrency" :disabled="crf.loading || !crf.code">
-              <span v-if="crf.loading" class="spinner-border spinner-border-sm me-1"></span>
-              Activate
-            </button>
-            <button class="btn btn-outline-secondary btn-sm" @click="crf.show = false; crf.error = null">Cancel</button>
-          </div>
-        </div>
-        <div v-if="crf.error" class="alert alert-danger alert-sm mt-2">{{ crf.error }}</div>
-      </div>
-
-      <!-- Active currencies table -->
-      <div class="card md-table-card">
-        <div class="card-body p-0">
-          <table class="table mb-0">
-            <thead>
-              <tr>
-                <th style="font-size:.82rem">Code</th>
-                <th style="font-size:.82rem">Symbol</th>
-                <th style="font-size:.82rem">Name</th>
-                <th style="font-size:.82rem">1 EUR =</th>
-                <th style="font-size:.82rem">Last updated</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="cur in currencies.filter(c => c.active)" :key="cur.code">
-                <td class="fw-bold" style="font-size:.9rem">{{ cur.code }}</td>
-                <td>{{ cur.symbol }}</td>
-                <td>{{ cur.name }}</td>
-                <td style="min-width:200px">
-                  <template v-if="cur.code === 'EUR'">
-                    <span class="text-muted" style="font-size:.85rem">Fixed 1:1</span>
-                  </template>
-                  <template v-else>
-                    <div class="d-flex align-items-center gap-2">
-                      <input type="number" step="0.000001" min="0.000001" class="form-control form-control-sm" style="max-width:120px"
-                             v-model="crEdit[cur.code].rate">
-                      <span style="font-size:.82rem;color:#6b7280">{{ cur.symbol }}</span>
-                      <button class="btn btn-sm btn-outline-primary" style="font-size:.72rem;white-space:nowrap"
-                              @click="confirmUpdateCurrencyRate(cur)" :disabled="crEdit[cur.code]?.saving">
-                        <span v-if="crEdit[cur.code]?.saving" class="spinner-border spinner-border-sm"></span>
-                        <span v-else>Save</span>
-                      </button>
-                    </div>
-                    <div v-if="crEdit[cur.code]?.error" class="text-danger" style="font-size:.75rem;margin-top:2px">{{ crEdit[cur.code].error }}</div>
-                  </template>
-                </td>
-                <td style="font-size:.82rem;color:#6b7280">
-                  {{ cur.last_updated ? new Date(cur.last_updated).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}) : '—' }}
-                </td>
-                <td class="text-end">
-                  <button v-if="cur.code !== 'EUR'" class="btn btn-outline-secondary btn-sm" style="font-size:.72rem"
-                          @click="openCurrencyHistory(cur)">History</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="empty" v-if="!currencies.some(c => c.active)">No active currencies.</div>
-        </div>
-      </div>
-
-    </div><!-- /currencies tab -->
-
-    <!-- Rate history modal -->
-    <div class="modal fade" id="crHistoryModal" tabindex="-1">
-      <div class="modal-dialog modal-md">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Rate History — {{ crHistory.name }} ({{ crHistory.code }})</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <div v-if="crHistory.loading" class="text-center py-3"><div class="spinner-border text-primary"></div></div>
-            <table v-else-if="crHistory.rows.length" class="table table-sm mb-0">
-              <thead>
-                <tr>
-                  <th style="font-size:.82rem">Date</th>
-                  <th style="font-size:.82rem">1 EUR =</th>
-                  <th style="font-size:.82rem">Updated by</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in crHistory.rows" :key="row.id">
-                  <td style="font-size:.82rem">{{ new Date(row.created_at).toLocaleString('en-GB') }}</td>
-                  <td style="font-size:.82rem;font-weight:600">{{ Number(row.rate).toLocaleString('en', {minimumFractionDigits:6}) }}</td>
-                  <td style="font-size:.82rem;color:#6b7280">{{ row.updated_by || '—' }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <p v-else class="text-muted" style="font-size:.85rem">No rate history yet.</p>
-          </div>
-        </div>
+    <div class="card md-table-card">
+      <div class="card-body p-0">
+        <table class="mdc-table">
+          <thead>
+            <tr>
+              <th>Currency</th>
+              <th>Rate · 1 EUR =</th>
+              <th class="mdc-col-inverse">Inverse</th>
+              <th>Last updated</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="act.show && !sheet" class="mdc-act-row">
+              <td>
+                <div class="mdc-combo" ref="picker">
+                  <button type="button" class="mdc-combo-trigger" aria-haspopup="listbox" :aria-expanded="act.pickerOpen"
+                          @click="togglePicker" @keydown.down.prevent="openPicker">
+                    <span v-if="act.code">{{ act.code }} — {{ nameOf(act.code) }}</span>
+                    <span v-else class="is-placeholder">Select currency…</span>
+                    <ph-icon name="chevron-down" :size="14"></ph-icon>
+                  </button>
+                  <div v-if="act.pickerOpen" class="mdc-combo-pop">
+                    <input ref="pickerSearch" class="mdc-input" style="width:100%;padding-right:10px" type="text" autocomplete="off"
+                           placeholder="Search code or name…" aria-label="Search currencies" v-model="act.query"
+                           @input="act.activeIndex = 0" @keydown="onPickerKey">
+                    <ul class="mdc-combo-list" role="listbox">
+                      <li v-for="(opt, i) in actOptions" :key="opt.code" role="option" class="mdc-combo-opt"
+                          :class="{ 'is-active': i === act.activeIndex }" :aria-selected="opt.code === act.code"
+                          @mousedown.prevent="pickCurrency(opt.code)" @mousemove="act.activeIndex = i">
+                        <b>{{ opt.code }}</b><span>{{ opt.name }}</span><span>{{ opt.symbol }}</span>
+                      </li>
+                      <li v-if="!actOptions.length" class="mdc-combo-empty">No currency matches.</li>
+                    </ul>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="mdc-input-wrap">
+                  <input ref="actInput" class="mdc-input" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 1.6500"
+                         aria-label="Rate" v-model="act.text" @keydown.enter.prevent="activateCurrency">
+                  <span v-if="act.code" class="mdc-input-sfx">{{ symbolOf(act.code) }}</span>
+                </span>
+              </td>
+              <td class="mdc-col-inverse">
+                <span v-if="act.code && actInverse">1 {{ act.code }} = {{ eurSymbol }} {{ actInverse }}</span>
+                <span v-else class="mdc-fixed">—</span>
+              </td>
+              <td><span v-if="actRateError" class="mdc-err">{{ actRateError }}</span><span v-else class="mdc-sub">Starts the rate history.</span></td>
+              <td>
+                <div class="mdc-act-actions">
+                  <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="act.saving" @click="cancelActivate">Cancel</button>
+                  <button type="button" class="btn btn-primary btn-sm" :disabled="!actValid || act.saving" @click="activateCurrency">
+                    <span v-if="act.saving" class="spinner-border spinner-border-sm me-1"></span>Activate
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="act.show && !sheet && act.error" class="mdc-act-row"><td colspan="5"><span class="mdc-err" role="alert">{{ act.error }}</span></td></tr>
+            <tr v-for="cur in activeList" :key="cur.code" class="mdc-row">
+              <td>
+                <div class="mdc-cur">
+                  <span class="mdc-sym" :class="{ 'is-long': cur.symbol.length > 2, 'is-base': cur.code === 'EUR' }">{{ cur.symbol }}</span>
+                  <span>
+                    <span class="mdc-cur-code">{{ cur.code }}</span><span v-if="cur.code === 'EUR'" class="mdc-base-pill">Base</span>
+                    <span class="mdc-cur-name">{{ cur.name }}</span>
+                  </span>
+                </div>
+              </td>
+              <td>
+                <span v-if="cur.code === 'EUR'" class="mdc-fixed">Fixed · 1.0000</span>
+                <template v-else-if="edit.code === cur.code && !sheet">
+                  <div class="mdc-edit">
+                    <span class="mdc-input-wrap">
+                      <input ref="editInput" class="mdc-input" type="text" inputmode="decimal" autocomplete="off"
+                             v-model="edit.text" :aria-label="'Rate for ' + cur.code" @keydown.enter.prevent="saveEdit">
+                      <span class="mdc-input-sfx">{{ cur.symbol }}</span>
+                    </span>
+                    <button type="button" class="btn btn-primary btn-sm" @click="saveEdit">Save</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @click="cancelEdit">Cancel</button>
+                  </div>
+                  <span v-if="edit.error" class="mdc-err">{{ edit.error }}</span>
+                </template>
+                <button v-else type="button" class="mdc-rate-btn" :aria-label="'Edit rate of ' + cur.code" @click="startEdit(cur)">
+                  <span>{{ fmtRate(cur.current_rate) }}</span><span class="mdc-rate-sym">{{ cur.symbol }}</span>
+                  <ph-icon name="pencil" :size="13"></ph-icon>
+                  <span v-if="deltaOf(cur.code)" class="mdc-delta">{{ deltaText(cur.code) }}</span>
+                </button>
+                <span v-if="cur.code !== 'EUR' && edit.code !== cur.code" class="mdc-rate-inv">1 {{ cur.code }} = {{ eurSymbol }} {{ invRate(cur.current_rate) }}</span>
+              </td>
+              <td class="mdc-col-inverse">
+                <span v-if="cur.code === 'EUR'" class="mdc-fixed">—</span>
+                <span v-else>1 {{ cur.code }} = {{ eurSymbol }} {{ invRate(cur.current_rate) }}</span>
+              </td>
+              <td>
+                <template v-if="cur.code === 'EUR'"><span class="mdc-fixed">—</span></template>
+                <template v-else>
+                  {{ fmtDate(cur.last_updated) }}
+                  <span v-if="updatedBy(cur.code)" class="mdc-sub">{{ updatedBy(cur.code) }}</span>
+                </template>
+              </td>
+              <td class="text-end">
+                <button v-if="cur.code !== 'EUR'" type="button" class="mdc-link" @click="openHistory(cur)">History</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="mdc-empty" v-if="!activeList.length">No active currencies.</div>
       </div>
     </div>
 
-    <!-- Rate update confirmation modal -->
-    <div class="modal fade" id="crRateConfirmModal" tabindex="-1">
-      <div class="modal-dialog modal-md">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Update exchange rate?</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="mdc-cards">
+      <div v-for="cur in activeList" :key="cur.code" class="mdc-card">
+        <div class="mdc-card-top">
+          <div class="mdc-cur">
+            <span class="mdc-sym" :class="{ 'is-long': cur.symbol.length > 2, 'is-base': cur.code === 'EUR' }">{{ cur.symbol }}</span>
+            <span>
+              <span class="mdc-cur-code">{{ cur.code }}</span><span v-if="cur.code === 'EUR'" class="mdc-base-pill">Base</span>
+              <span class="mdc-cur-name">{{ cur.name }}</span>
+            </span>
           </div>
-          <div class="modal-body" style="font-size:.88rem">
-            <p>You're about to change 1 EUR = <strong>{{ crRateConfirm.oldRate }}</strong> → <strong>{{ crRateConfirm.newRate }}</strong> {{ crRateConfirm.symbol }} for {{ crRateConfirm.code }}.</p>
-            <p class="mb-0">This update does <strong>not</strong> affect any proposal or project already in the system — it only applies to new ones created from now on (or to an existing cost grid version if a "refresh rate" is explicitly run on it).</p>
-            <p v-if="crEdit[crRateConfirm.code]?.error" class="text-danger mb-0 mt-2" style="font-size:.8rem">{{ crEdit[crRateConfirm.code].error }}</p>
+          <div class="mdc-card-val">
+            <span v-if="cur.code === 'EUR'" class="mdc-fixed">Fixed · 1.0000</span>
+            <template v-else>
+              <strong>{{ fmtRate(cur.current_rate) }} {{ cur.symbol }}</strong>
+              <span>1 {{ cur.code }} = {{ eurSymbol }} {{ invRate(cur.current_rate) }}</span>
+            </template>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" :disabled="crEdit[crRateConfirm.code]?.saving">Cancel</button>
-            <button type="button" class="btn btn-primary btn-sm" @click="updateCurrencyRate(crRateConfirm.code)" :disabled="crEdit[crRateConfirm.code]?.saving">
-              <span v-if="crEdit[crRateConfirm.code]?.saving" class="spinner-border spinner-border-sm me-1"></span>
-              Confirm
-            </button>
-          </div>
+        </div>
+        <div v-if="cur.code !== 'EUR'" class="mdc-card-actions">
+          <button type="button" @click="openEditSheet(cur)">Edit rate</button>
+          <button type="button" @click="openHistory(cur)">History</button>
         </div>
       </div>
     </div>
@@ -243,6 +388,122 @@
   </div><!-- .page -->
   </div><!-- /.md-card-body -->
 </section>
+
+<!-- Phone bottom sheets -->
+<div v-if="sheet" class="mdc-sheet-wrap">
+  <div class="mdc-scrim" @click="closeSheet"></div>
+  <div class="mdc-sheet" role="dialog" aria-modal="true" :aria-label="sheet === 'edit' ? 'Edit rate' : 'Activate currency'">
+    <template v-if="sheet === 'edit'">
+      <div class="mdc-sheet-head">
+        <h3 class="mdc-sheet-title">Edit rate · {{ edit.code }}</h3>
+        <button type="button" class="btn btn-outline-secondary btn-sm" @click="closeSheet">Cancel</button>
+      </div>
+      <label class="mdc-sheet-label" for="mdcSheetRate">1 EUR =</label>
+      <span class="mdc-input-wrap">
+        <input id="mdcSheetRate" ref="sheetInput" class="mdc-input" type="text" inputmode="decimal" autocomplete="off"
+               v-model="edit.text" @keydown.enter.prevent="saveEdit">
+        <span class="mdc-input-sfx">{{ symbolOf(edit.code) }}</span>
+      </span>
+      <span v-if="edit.error" class="mdc-err">{{ edit.error }}</span>
+      <span class="mdc-sheet-help">1 {{ edit.code }} = {{ eurSymbol }} {{ sheetInverse }} · applies to new proposal versions</span>
+      <button type="button" class="btn btn-primary mdc-sheet-primary" @click="saveEdit">Save rate</button>
+    </template>
+    <template v-else>
+      <div class="mdc-sheet-head">
+        <h3 class="mdc-sheet-title">Activate currency</h3>
+        <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="act.saving" @click="closeSheet">Cancel</button>
+      </div>
+      <input class="mdc-input" type="text" autocomplete="off" placeholder="Search code or name…" aria-label="Search currencies" v-model="act.query">
+      <ul class="mdc-combo-list" role="listbox">
+        <li v-for="opt in actOptions" :key="opt.code" role="option" class="mdc-combo-opt"
+            :class="{ 'is-active': opt.code === act.code }" :aria-selected="opt.code === act.code" @click="pickCurrency(opt.code)">
+          <b>{{ opt.code }}</b><span>{{ opt.name }}</span><span>{{ opt.symbol }}</span>
+        </li>
+        <li v-if="!actOptions.length" class="mdc-combo-empty">No currency matches.</li>
+      </ul>
+      <label class="mdc-sheet-label" for="mdcSheetActRate">1 EUR =</label>
+      <span class="mdc-input-wrap">
+        <input id="mdcSheetActRate" ref="actInput" class="mdc-input" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 1.6500"
+               v-model="act.text" @keydown.enter.prevent="activateCurrency">
+        <span v-if="act.code" class="mdc-input-sfx">{{ symbolOf(act.code) }}</span>
+      </span>
+      <span class="mdc-sheet-help">
+        <template v-if="act.code && actInverse">1 {{ act.code }} = {{ eurSymbol }} {{ actInverse }} · </template>Starts the rate history.
+      </span>
+      <span v-if="actRateError" class="mdc-err">{{ actRateError }}</span>
+      <span v-if="act.error" class="mdc-err" role="alert">{{ act.error }}</span>
+      <button type="button" class="btn btn-primary mdc-sheet-primary" :disabled="!actValid || act.saving" @click="activateCurrency">
+        <span v-if="act.saving" class="spinner-border spinner-border-sm me-1"></span>Activate
+      </button>
+    </template>
+  </div>
+</div>
+
+<!-- Confirm rate change (local overlay) -->
+<div v-if="confirm.show" class="mdc-dialog-wrap">
+  <div class="mdc-scrim" @click="closeConfirm"></div>
+  <div class="mdc-dialog" role="alertdialog" aria-modal="true" aria-labelledby="mdcDlgTitle" aria-describedby="mdcDlgBody">
+    <h3 class="mdc-dialog-title" id="mdcDlgTitle">Update exchange rate?</h3>
+    <div class="mdc-dialog-body" id="mdcDlgBody">
+      <p>You're about to change 1 EUR = <strong>{{ confirm.oldRate }}</strong> → <strong>{{ confirm.newRate }}</strong> {{ confirm.symbol }} for {{ confirm.code }}.</p>
+      <p class="mb-0">This update does <strong>not</strong> affect any proposal or project already in the system — it only applies to new ones created from now on (or to an existing cost grid version if a "refresh rate" is explicitly run on it).</p>
+      <p v-if="confirm.error" class="mdc-err" role="alert">{{ confirm.error }}</p>
+    </div>
+    <div class="mdc-dialog-foot">
+      <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="confirm.saving" @click="closeConfirm">Cancel</button>
+      <button type="button" ref="confirmBtn" class="btn btn-primary btn-sm" :disabled="confirm.saving" @click="onConfirmClick" @keydown.enter.prevent="onConfirmKey">
+        <span v-if="confirm.saving" class="spinner-border spinner-border-sm me-1"></span>Confirm
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Rate history drawer -->
+<div v-if="hist.code" class="mdc-drawer-wrap">
+  <div class="mdc-scrim" @click="closeHistory"></div>
+  <aside class="mdc-drawer" role="dialog" aria-modal="true" aria-label="Rate history">
+    <div class="mdc-dr-head">
+      <div class="mdc-dr-head-main">
+        <span class="mdc-eyebrow">Rate history</span>
+        <h3 class="mdc-dr-title">{{ histCurrency ? histCurrency.name : hist.code }} ({{ hist.code }})</h3>
+        <span class="mdc-dr-sub">Every change is logged with date, time and user.</span>
+      </div>
+      <button type="button" class="mdc-dr-close" aria-label="Close" @click="closeHistory"><ph-icon name="close" :size="16"></ph-icon></button>
+    </div>
+    <div class="mdc-dr-body">
+      <div v-if="hist.loading" class="text-center py-4"><div class="spinner-border text-secondary"></div></div>
+      <div v-else-if="hist.error" class="mdc-dr-state">
+        <p>Couldn't load the rate history.</p>
+        <button type="button" class="btn btn-outline-secondary btn-sm" @click="reloadHistory">Retry</button>
+      </div>
+      <div v-else-if="!hist.rows.length" class="mdc-dr-state"><p>No rate history yet.</p></div>
+      <template v-else>
+        <div v-if="histCurrency" class="mdc-dr-current">1 EUR = <strong>{{ fmtRate(histCurrency.current_rate) }}</strong> {{ histCurrency.symbol }} <span class="mdc-fixed">· current</span></div>
+        <div class="mdc-chart">
+          <svg viewBox="0 0 480 90" preserveAspectRatio="none" role="img" :aria-label="'Rate trend of ' + hist.code">
+            <polyline class="mdc-chart-line" :points="histPoints" vector-effect="non-scaling-stroke"></polyline>
+          </svg>
+          <div class="mdc-chart-dates"><span>{{ fmtDate(hist.rows[hist.rows.length - 1].created_at) }}</span><span>{{ fmtDate(hist.rows[0].created_at) }}</span></div>
+        </div>
+        <div class="mdc-eyebrow">Changes · {{ hist.rows.length }}</div>
+        <ul class="mdc-changes">
+          <li v-for="en in histEntries" :key="en.id" class="mdc-change">
+            <span class="mdc-dot" :class="{ 'is-newest': en.newest }"></span>
+            <span class="mdc-change-main">
+              <span class="mdc-change-when">{{ fmtDateTime(en.createdAt) }}</span>
+              <span class="mdc-sub">{{ en.updatedBy || '—' }}<template v-if="en.activated"> · activated</template></span>
+            </span>
+            <span class="mdc-change-delta" :class="{ 'is-nochange': en.noChange }">
+              <template v-if="en.noChange">no change</template>
+              <template v-else-if="en.delta !== null">{{ fmtHistDelta(en.delta) }}</template>
+            </span>
+            <span class="mdc-change-rate">{{ fmtRate(en.rate) }}</span>
+          </li>
+        </ul>
+      </template>
+    </div>
+  </aside>
+</div>
 </div><!-- #app -->
 </div><!-- /.md-content -->
 </div><!-- /.md-layout -->
@@ -264,9 +525,12 @@
 <script defer src="js/notifications.js?v=3"></script>
 <script type="module" src="js/lib/icons.js?v=6"></script>
 <script type="module" src="js/lib/md-subnav.js?v=4"></script>
+<script type="module" src="js/lib/master-currencies.js?v=1"></script>
 <script defer src="js/nav.js?v=19"></script>
 
 <script type="module">
+const freshAct = () => ({ show: false, code: '', text: '', error: null, saving: false, pickerOpen: false, query: '', activeIndex: 0 });
+
 window.__cfgApp = Vue.createApp({
   data() {
     return {
@@ -274,17 +538,36 @@ window.__cfgApp = Vue.createApp({
       accessDenied: false,
       globalError:  null,
 
-      activeCurrencies: [],
-      formatMoney: window.formatMoney,
+      currencies:   [],
+      histByCode:   {},
 
-      currencies:    [],
-
-      crf: { show: false, code: '', rate: '1', error: null, loading: false },
-      crEdit: {},
-      crHistory: { show: false, code: '', name: '', rows: [], loading: false },
-      crRateConfirm: { code: '', symbol: '', oldRate: '', newRate: '' },
-
+      edit:    { code: null, text: '', error: null },
+      confirm: { show: false, code: '', symbol: '', oldRate: '', newRate: '', rate: null, error: null, saving: false },
+      act:     freshAct(),
+      hist:    { code: null, rows: [], loading: false, error: false },
+      sheet:   null,
+      isPhone: false,
     };
+  },
+
+  computed: {
+    activeList()  { return this.currencies.filter(c => c.active); },
+    eurSymbol()   { return currencyInfo('EUR', this.currencies).symbol; },
+    canActivate() { return window.pickableCurrencies(this.currencies).length > 0; },
+    actRate()     { return window.parseRateText(this.act.text); },
+    actValid()    { return !!this.act.code && window.isValidRate(this.actRate); },
+    // Shown only once something was typed: an empty rate just keeps Activate disabled.
+    actRateError() { return this.act.text.trim() ? window.rateError(this.actRate) : null; },
+    actInverse()  { return window.inverseRate(this.actRate); },
+    histCurrency() { return this.currencies.find(c => c.code === this.hist.code) || null; },
+    histEntries()  { return window.historyEntries(this.hist.rows); },
+    histPoints()   { return window.sparklinePoints(this.hist.rows, 480, 90); },
+    sheetInverse() {
+      const cur = this.currencies.find(c => c.code === this.edit.code);
+      const typed = window.parseRateText(this.edit.text);
+      return window.inverseRate(window.isValidRate(typed) ? typed : cur?.current_rate);
+    },
+    actOptions()  { return window.pickableCurrencies(this.currencies, this.act.query); },
   },
 
   async created() {
@@ -296,92 +579,246 @@ window.__cfgApp = Vue.createApp({
     if (!user) return;
     if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
     try { window.__currencies = await Api.currencies.active(); } catch {}
-    this.activeCurrencies = window.__currencies || [];
     await this.loadAll();
     this.ready = true;
+    this.loadHistories();
   },
 
-  watch: {
-    // The banner lives at the top of the page, above the tabs: a failed action on a long list
-    // (e.g. a blocked role delete) would otherwise set the message where nobody is looking.
-    globalError(msg) { if (msg) window.scrollTo({ top: 0, behavior: 'smooth' }); },
+  mounted() {
+    document.addEventListener('keydown', this.onKeydown);
+    document.addEventListener('mousedown', this.onDocMousedown);
+    const mq = window.matchMedia('(max-width: 767.98px)');
+    this.isPhone = mq.matches;
+    this._mq = mq;
+    // Crossing the breakpoint moves an open inline row into its sheet and back, so nothing is left hidden.
+    this._onMq = ev => {
+      this.isPhone = ev.matches;
+      this.act.pickerOpen = false;
+      this.sheet = window.sheetOnResize(ev.matches, { sheet: this.sheet, actShow: this.act.show, editCode: this.edit.code });
+    };
+    mq.addEventListener('change', this._onMq);
+  },
+  unmounted() {
+    document.removeEventListener('keydown', this.onKeydown);
+    document.removeEventListener('mousedown', this.onDocMousedown);
+    this._mq?.removeEventListener('change', this._onMq);
   },
 
   methods: {
     async loadAll() {
       this.globalError = null;
       try {
-        const [currencies] = await Promise.all([
-          Api.currencies.list(),
-        ]);
-        this.currencies    = currencies;
-        this.crEdit        = Object.fromEntries(currencies.map(c => [c.code, { rate: String(c.current_rate), saving: false, error: null }]));
+        this.currencies = await Api.currencies.list();
       } catch (e) {
         this.globalError = e.message || 'Failed to load data.';
       }
     },
 
-    async loadCurrencies() {
-      const all = await Api.currencies.list();
-      this.currencies = all;
-      this.crEdit = Object.fromEntries(all.map(c => [c.code, { rate: String(c.current_rate), saving: false, error: null }]));
+    // One history per active non-EUR currency, for the list's delta and user; a failed one only drops its own.
+    async loadHistories(codes) {
+      const list = codes || this.currencies.filter(c => c.active && c.code !== 'EUR').map(c => c.code);
+      await Promise.all(list.map(async code => {
+        try {
+          this.histByCode[code] = { rows: await Api.currencies.history(code), error: false };
+        } catch {
+          this.histByCode[code] = { rows: [], error: true };
+        }
+      }));
+    },
+
+    startEdit(cur) {
+      if (this.confirm.saving) return;
+      this.cancelActivate();
+      this.edit = { code: cur.code, text: window.editText(cur.current_rate), error: null };
+      this.focusEditInput();
+    },
+
+    // The inline input on wide screens, the sheet's input on phone.
+    focusEditInput() {
+      this.$nextTick(() => {
+        const el = this.sheet === 'edit' ? this.$refs.sheetInput : [].concat(this.$refs.editInput || [])[0];
+        if (el) { el.focus(); el.select(); }
+      });
+    },
+
+    cancelEdit() {
+      if (this.confirm.saving) return;
+      this.edit = { code: null, text: '', error: null };
+    },
+
+    saveEdit() {
+      if (this.confirm.saving) return;
+      const cur = this.currencies.find(c => c.code === this.edit.code);
+      if (!cur) return;
+      const rate = window.parseRateText(this.edit.text);
+      if (!window.isValidRate(rate)) { this.edit.error = window.rateError(rate) || 'Rate must be a positive number'; return; }
+      if (window.sameRate(rate, cur.current_rate)) { this.edit.error = 'The rate is unchanged'; return; }
+      this.edit.error = null;
+      this.confirm = {
+        show: true, code: cur.code, symbol: cur.symbol,
+        oldRate: window.formatRate(cur.current_rate), newRate: window.formatRate(rate),
+        rate, error: null, saving: false, openedAt: Date.now(),
+      };
+      this.$nextTick(() => this.$refs.confirmBtn?.focus());
+    },
+
+    // Enter on the focused Confirm: a held key (repeat) or a second press right after the Enter that opened
+    // the dialog is not a decision.
+    onConfirmKey(e) {
+      if (e.repeat || !window.confirmReady(this.confirm.openedAt, Date.now())) return;
+      this.confirmRate();
+    },
+
+    // On phone Confirm sits where Save rate was: the second tap of a double tap is not a decision either.
+    onConfirmClick() {
+      if (!window.confirmReady(this.confirm.openedAt, Date.now())) return;
+      this.confirmRate();
+    },
+
+    async confirmRate() {
+      if (this.confirm.saving) return;
+      this.confirm.saving = true; this.confirm.error = null;
+      const code = this.confirm.code;
+      try {
+        await Api.currencies.updateRate(code, this.confirm.rate);
+        this.confirm.show = false;
+        this.edit = { code: null, text: '', error: null };
+        this.sheet = null;
+        await this.loadAll();
+        this.loadHistories([code]);
+      } catch (e) {
+        this.confirm.error = e.message || 'Failed to update rate';
+        // Confirm lost the focus while it was disabled: give it back so Enter retries.
+        this.confirm.saving = false;
+        this.$nextTick(() => this.$refs.confirmBtn?.focus());
+      }
+      this.confirm.saving = false;
+    },
+
+    closeConfirm() {
+      if (this.confirm.saving) return;
+      this.confirm.show = false;
+      if (this.edit.code) this.focusEditInput();
+    },
+
+    openActivate() {
+      this.cancelEdit();
+      this.act = { ...freshAct(), show: true, pickerOpen: true };
+      this.$nextTick(() => this.$refs.pickerSearch?.focus());
     },
 
     async activateCurrency() {
-      const rate = parseFloat(this.crf.rate);
-      if (!isFinite(rate) || rate <= 0) { this.crf.error = 'Rate must be a positive number'; return; }
-      if (!this.crf.code) { this.crf.error = 'Select a currency'; return; }
-      this.crf.loading = true; this.crf.error = null;
+      if (!this.actValid || this.act.saving) return;
+      this.act.saving = true; this.act.error = null;
+      const code = this.act.code;
       try {
-        await Api.currencies.activate(this.crf.code, rate);
-        this.crf = { show: false, code: '', rate: '1', error: null, loading: false };
-        await this.loadCurrencies();
+        await Api.currencies.activate(code, this.actRate);
+        this.act = freshAct();
+        this.sheet = null;
+        await this.loadAll();
+        this.loadHistories([code]);
       } catch (e) {
-        this.crf.error = e.message || 'Failed to activate currency';
+        this.act.error = e.message || 'Failed to activate currency';
+        this.act.saving = false;
       }
-      this.crf.loading = false;
     },
 
-    confirmUpdateCurrencyRate(cur) {
-      const ed = this.crEdit[cur.code];
-      if (!ed) return;
-      const rate = parseFloat(ed.rate);
-      if (!isFinite(rate) || rate <= 0) { ed.error = 'Rate must be a positive number'; return; }
-      ed.error = null;
-      this.crRateConfirm = {
-        code: cur.code,
-        symbol: cur.symbol,
-        oldRate: Number(cur.current_rate).toLocaleString('en', { minimumFractionDigits: 6 }),
-        newRate: rate.toLocaleString('en', { minimumFractionDigits: 6 }),
-      };
-      bootstrap.Modal.getOrCreateInstance(document.getElementById('crRateConfirmModal')).show();
+    cancelActivate() {
+      if (this.act.saving) return;
+      this.act = freshAct();
     },
 
-    async updateCurrencyRate(code) {
-      const ed = this.crEdit[code];
-      if (!ed || ed.saving) return;
-      const rate = parseFloat(ed.rate);
-      if (!isFinite(rate) || rate <= 0) { ed.error = 'Rate must be a positive number'; return; }
-      ed.saving = true; ed.error = null;
-      try {
-        await Api.currencies.updateRate(code, rate);
-        await this.loadCurrencies();
-        bootstrap.Modal.getInstance(document.getElementById('crRateConfirmModal'))?.hide();
-      } catch (e) {
-        ed.error = e.message || 'Failed to update rate';
-      }
-      ed.saving = false;
+    togglePicker() {
+      if (this.act.pickerOpen) { this.act.pickerOpen = false; return; }
+      this.openPicker();
     },
 
-    async openCurrencyHistory(cur) {
-      this.crHistory = { show: true, code: cur.code, name: cur.name, rows: [], loading: true };
-      bootstrap.Modal.getOrCreateInstance(document.getElementById('crHistoryModal')).show();
+    openPicker() {
+      this.act.pickerOpen = true; this.act.query = ''; this.act.activeIndex = 0;
+      this.$nextTick(() => this.$refs.pickerSearch?.focus());
+    },
+
+    pickCurrency(code) {
+      this.act.code = code; this.act.pickerOpen = false; this.act.query = '';
+      this.$nextTick(() => this.$refs.actInput?.focus());
+    },
+
+    onPickerKey(e) {
+      const n = this.actOptions.length;
+      if (e.key === 'ArrowDown') { e.preventDefault(); if (n) this.act.activeIndex = (this.act.activeIndex + 1) % n; }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); if (n) this.act.activeIndex = (this.act.activeIndex - 1 + n) % n; }
+      else if (e.key === 'Enter') { e.preventDefault(); const opt = this.actOptions[this.act.activeIndex]; if (opt) this.pickCurrency(opt.code); }
+    },
+
+    onDocMousedown(e) {
+      if (!this.act.pickerOpen) return;
+      const box = [].concat(this.$refs.picker || [])[0];
+      if (box && !box.contains(e.target)) this.act.pickerOpen = false;
+    },
+
+    // Shows the list's cached history at once, then fetches again; a failed fetch keeps the cached rows out of sight.
+    async openHistory(cur) {
+      const cached = this.histByCode[cur.code];
+      const hasRows = !!cached && !cached.error;
+      this.hist = { code: cur.code, rows: hasRows ? cached.rows : [], loading: !hasRows, error: false };
       try {
-        this.crHistory.rows = await Api.currencies.history(cur.code);
-      } catch (e) {
-        this.crHistory.rows = [];
+        const rows = await Api.currencies.history(cur.code);
+        this.histByCode[cur.code] = { rows, error: false };
+        if (this.hist.code === cur.code) this.hist.rows = rows;
+      } catch {
+        if (this.hist.code === cur.code) { this.hist.rows = []; this.hist.error = true; }
       }
-      this.crHistory.loading = false;
+      if (this.hist.code === cur.code) this.hist.loading = false;
+    },
+    closeHistory()   { this.hist = { code: null, rows: [], loading: false, error: false }; },
+    reloadHistory()  { const cur = this.currencies.find(c => c.code === this.hist.code); if (cur) this.openHistory(cur); },
+
+    openEditSheet(cur) {
+      if (this.confirm.saving) return;
+      this.cancelActivate();
+      this.edit = { code: cur.code, text: window.editText(cur.current_rate), error: null };
+      this.sheet = 'edit';
+      this.focusEditInput();
+    },
+
+    openActivateSheet() {
+      this.cancelEdit();
+      this.act = { ...freshAct(), show: true };
+      this.sheet = 'activate';
+    },
+
+    closeSheet() {
+      if (this.sheet === 'activate') { if (this.act.saving) return; this.cancelActivate(); }
+      else if (this.sheet === 'edit') this.cancelEdit();
+      this.sheet = null;
+    },
+
+    // One handler for every layer: Esc closes only the topmost one.
+    onKeydown(e) {
+      if (e.key !== 'Escape') return;
+      if (this.act.pickerOpen) { this.act.pickerOpen = false; return; }
+      if (this.confirm.show)   { this.closeConfirm(); return; }
+      if (this.sheet)          { this.closeSheet(); return; }
+      if (this.hist.code)      { this.closeHistory(); return; }
+      if (this.edit.code)      { this.cancelEdit(); return; }
+      if (this.act.show)       { this.cancelActivate(); }
+    },
+
+    nameOf(code)   { return this.currencies.find(c => c.code === code)?.name || ''; },
+    symbolOf(code) { return this.currencies.find(c => c.code === code)?.symbol || ''; },
+    fmtRate(r)     { return window.formatRate(r); },
+    invRate(r)     { return window.inverseRate(r); },
+    fmtDate(ts)    { return window.formatRateDate(ts); },
+    fmtDateTime(ts)  { return window.formatRateDateTime(ts); },
+    fmtHistDelta(d)  { return window.formatHistoryDelta(d); },
+    deltaOf(code) {
+      const h = this.histByCode[code];
+      return h && !h.error ? window.rateDelta(h.rows) : null;
+    },
+    deltaText(code) { return window.formatDelta(this.deltaOf(code)); },
+    updatedBy(code) {
+      const h = this.histByCode[code];
+      return h && !h.error ? (h.rows[0]?.updated_by || '') : '';
     },
   },
 }).component('ph-icon', window.PhIcon).mount('#app');
