@@ -272,6 +272,18 @@ Pure helpers of `master-roles.html` (`<script type="module">`, `window.*` bridge
 
 Page behaviour: `docs/pages/config.md` "Roles & rates".
 
+## master-currencies.js (2026-11-05, Master Data Currencies)
+
+Pure helpers of `master-currencies.html` (`<script type="module">`, `window.*` bridge for each export). Imports `formatDayText` from `dates.js`. Rates arrive as `pg` NUMERIC strings and are read with `Number()`.
+
+- `formatRate(rate)`: `en`, no grouping, four to six decimals. `inverseRate(rate)`: `1 / rate` with four decimals, `''` for an invalid rate. `editText(rate)`: the text an edit opens with.
+- `parseRateText(text)`: `null` for blank, `NaN` unless one optional `,` or `.` separator follows the digits. `isValidRate(n)`: within `RATE_MIN`..`RATE_MAX`, the range of the `DECIMAL(10,6)` rate columns; `rateError(n)`: the message for an invalid one, `null` when valid. `sameRate(a, b)`: equal at six decimals.
+- `rateDelta(rows)` / `formatDelta(d)`: the change between the two newest history rows ("▲ 8.3%"), `null` with one row or a negligible change. `historyEntries(rows)` / `formatHistoryDelta(delta)`: the drawer's rows with `delta`, `noChange`, `activated`, `newest`.
+- `pickableCurrencies(currencies, query)`: inactive non-EUR currencies, filtered on code, name or symbol. `formatRateDate(ts)` / `formatRateDateTime(ts)`: local date through `formatDayText`, plus `HH:MM`. `sparklinePoints(rows, w, h)`: the chart's polyline points, oldest first.
+- `confirmReady(openedAt, now)` with `CONFIRM_DELAY_MS`: whether a Confirm press is a decision rather than the repeat of the press that opened the dialog. `sheetOnResize(isPhone, state)`: the bottom sheet to show after crossing the phone breakpoint.
+
+Page behaviour: `docs/pages/config.md` "Currencies". Tests: `master-currencies.test.js`, `master-currencies-page-guard.test.js`.
+
 ## dates.js (2026-10-24, dates C1)
 
 The single implementation of date validation, ordering and typed-text parsing for the browser (`<script type="module">`, `window.*` bridge for each export). Pure. Loaded by `costgrid.html`, `project-config.html`, `pipeline.html` and `portfolio.html`. Rules to keep: `CLAUDE.md`'s "Dates".
