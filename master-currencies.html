@@ -451,7 +451,7 @@
     </div>
     <div class="mdc-dialog-foot">
       <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="confirm.saving" @click="closeConfirm">Cancel</button>
-      <button type="button" ref="confirmBtn" class="btn btn-primary btn-sm" :disabled="confirm.saving" @click="confirmRate" @keydown.enter.prevent="onConfirmKey">
+      <button type="button" ref="confirmBtn" class="btn btn-primary btn-sm" :disabled="confirm.saving" @click="onConfirmClick" @keydown.enter.prevent="onConfirmKey">
         <span v-if="confirm.saving" class="spinner-border spinner-border-sm me-1"></span>Confirm
       </button>
     </div>
@@ -628,6 +628,7 @@ window.__cfgApp = Vue.createApp({
 
     startEdit(cur) {
       if (this.confirm.saving) return;
+      this.cancelActivate();
       this.edit = { code: cur.code, text: window.editText(cur.current_rate), error: null };
       this.focusEditInput();
     },
@@ -662,9 +663,15 @@ window.__cfgApp = Vue.createApp({
     },
 
     // Enter on the focused Confirm: a held key (repeat) or a second press right after the Enter that opened
-    // the dialog is not a decision. A click always goes through.
+    // the dialog is not a decision.
     onConfirmKey(e) {
       if (e.repeat || !window.confirmReady(this.confirm.openedAt, Date.now())) return;
+      this.confirmRate();
+    },
+
+    // On phone Confirm sits where Save rate was: the second tap of a double tap is not a decision either.
+    onConfirmClick() {
+      if (!window.confirmReady(this.confirm.openedAt, Date.now())) return;
       this.confirmRate();
     },
 
@@ -681,6 +688,9 @@ window.__cfgApp = Vue.createApp({
         this.loadHistories([code]);
       } catch (e) {
         this.confirm.error = e.message || 'Failed to update rate';
+        // Confirm lost the focus while it was disabled: give it back so Enter retries.
+        this.confirm.saving = false;
+        this.$nextTick(() => this.$refs.confirmBtn?.focus());
       }
       this.confirm.saving = false;
     },
@@ -765,6 +775,7 @@ window.__cfgApp = Vue.createApp({
 
     openEditSheet(cur) {
       if (this.confirm.saving) return;
+      this.cancelActivate();
       this.edit = { code: cur.code, text: window.editText(cur.current_rate), error: null };
       this.sheet = 'edit';
       this.focusEditInput();
@@ -789,7 +800,8 @@ window.__cfgApp = Vue.createApp({
       if (this.confirm.show)   { this.closeConfirm(); return; }
       if (this.sheet)          { this.closeSheet(); return; }
       if (this.hist.code)      { this.closeHistory(); return; }
-      if (this.edit.code)      { this.cancelEdit(); }
+      if (this.edit.code)      { this.cancelEdit(); return; }
+      if (this.act.show)       { this.cancelActivate(); }
     },
 
     nameOf(code)   { return this.currencies.find(c => c.code === code)?.name || ''; },

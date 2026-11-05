@@ -132,3 +132,20 @@ describe('master-currencies review fixes', () => {
     expect(html).not.toMatch(/\.btn-primary\s*\{[^}]*brand-navy/);
   });
 });
+
+describe('master-currencies review round 3', () => {
+  it('ignores a tap on Confirm right after the dialog opened (a double tap on Save rate)', () => {
+    expect(html).toContain('@click="onConfirmClick"');
+    const click = between('onConfirmClick() {', 'async confirmRate()');
+    expect(click).toContain('window.confirmReady(this.confirm.openedAt, Date.now())');
+  });
+  it('keeps one inline row open at a time and lets Esc close the activation row', () => {
+    expect(between('startEdit(cur) {', 'focusEditInput() {')).toContain('this.cancelActivate()');
+    expect(between('openEditSheet(cur) {', 'openActivateSheet() {')).toContain('this.cancelActivate()');
+    expect(between('onKeydown(e) {', 'symbolOf(')).toContain('this.cancelActivate()');
+  });
+  it('gives the focus back to Confirm after a server error', () => {
+    const confirm = between('async confirmRate()', 'closeConfirm()');
+    expect(confirm.slice(confirm.indexOf('catch'))).toContain('this.$refs.confirmBtn?.focus()');
+  });
+});
