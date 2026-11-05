@@ -114,9 +114,12 @@ export function reforecastDistribution(tasks, months, actualsRows, currentYm, di
     consumed[tName].hours += hours;
     consumed[tName].spend += spend;
     if (!monthSet.has(ym)) return;
-    if (hours > 0) newPlanning[ym] = (newPlanning[ym] || 0) + hours;
-    if (spend > 0) newPhasing[ym] = (newPhasing[ym] || 0) + spend;
+    newPlanning[ym] = (newPlanning[ym] || 0) + hours;
+    newPhasing[ym] = (newPhasing[ym] || 0) + spend;
   });
+  // Correction rows net inside their month; a month that nets to zero or less is not written.
+  [newPlanning, newPhasing].forEach(m => Object.keys(m).forEach(ym => { if (!(m[ym] > 0)) delete m[ym]; }));
+  const openActualHours = futureMonths.reduce((s, ym) => s + (newPlanning[ym] || 0), 0);
 
   const sold = tasks.map(t => ({
     hours: (t.resources || []).reduce((s, r) => s + (r.soldHours || 0), 0),
@@ -167,11 +170,13 @@ export function reforecastDistribution(tasks, months, actualsRows, currentYm, di
   const futureRawHours = {};
   futureMonths.forEach(ym => { if (newPlanning[ym] !== undefined) futureRawHours[ym] = newPlanning[ym]; });
   const futureRawHoursTotal = Object.values(futureRawHours).reduce((s, v) => s + v, 0);
+  // The net remaining as it lands in the grid: the open months after rounding, less their own actuals.
   let distributedRemainingHours = remainingHours;
   if (futureRawHoursTotal > 0) {
     const distributedFuture = distributeHoursExact(futureRawHoursTotal, futureRawHours);
     Object.assign(newPlanning, distributedFuture);
-    distributedRemainingHours = Object.values(distributedFuture).reduce((s, v) => s + v, 0);
+    const distributedTotal = Object.values(distributedFuture).reduce((s, v) => s + v, 0);
+    distributedRemainingHours = Math.max(0, round(distributedTotal - openActualHours, 2));
   }
 
   return {

@@ -220,6 +220,24 @@ describe('reforecastDistribution', () => {
     expect(result.remainingHours).toBe(15);
   });
 
+  it('nets a negative correction row inside its month', () => {
+    const tasks = [dev(10, '20260101', '20260228')];
+    const rows = [row('Dev', 'Developer', '202601', 5), row('Dev', 'Developer', '202601', -2)];
+    const result = reforecastDistribution(tasks, ['202601', '202602'], rows, '202602');
+    expect(result.newPlanning).toEqual({ '202601': 3, '202602': 7 });
+    expect(result.newPhasing).toEqual({ '202601': 300, '202602': 700 });
+  });
+
+  it('reports the distributed net remaining hours without open-month actuals', () => {
+    const tasks = [dev(20, '20260101', '20260228')];
+    const open = reforecastDistribution(tasks, ['202601', '202602'], [row('Dev', 'Developer', '202602', 5)], '202602');
+    expect(open.distributedRemainingHours).toBe(15);
+    const over = reforecastDistribution(tasks, ['202601', '202602'],
+      [row('Dev', 'Developer', '202601', 24), row('Dev', 'Developer', '202602', 3)], '202602');
+    expect(over.distributedRemainingHours).toBe(0);
+    expect(over.overHours).toBe(true);
+  });
+
   it("values a missing role at the task's first resource rate", () => {
     const tasks = [{ name: 'Dev', billable: true, startDate: '20260101', endDate: '20260228',
       resources: [{ role: 'Developer', soldHours: 10, hourlyRate: 100 }, { role: 'Senior', soldHours: 5, hourlyRate: 150 }] }];
