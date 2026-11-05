@@ -47,8 +47,6 @@
     .mdp-icon-btn:hover:not(:disabled) { background: var(--surface-subtle); color: var(--brand-navy); }
     .mdp-menu-item { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); font-size: var(--text-sm); }
     .mdp-menu-hint { display: block; font-size: 11px; color: var(--text-muted); white-space: normal; max-width: 240px; }
-    .mdp-new td { background: var(--surface-light); }
-    .mdp-new-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
     .mdp-input {
       height: 34px; padding: 0 var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-sm);
       font-size: var(--text-sm); font-weight: var(--weight-bold); color: var(--brand-navy); background: var(--surface-white); width: 100px;
@@ -148,6 +146,11 @@
       background: var(--surface-white); border-left: 1px solid var(--border-light); box-shadow: var(--shadow-xl);
       z-index: var(--z-notification); display: flex; flex-direction: column;
     }
+    .mdp-drawer.is-form { width: min(440px, 100vw); }
+    .mdp-dr-form { display: flex; flex-direction: column; gap: var(--space-4); }
+    .mdp-dr-form .mdp-amount, .mdp-dr-form .mdp-amount-input, .mdp-dr-form .mdp-target-select, .mdp-dr-form .mdp-input { width: 100%; }
+    .mdp-dr-form .mdp-err { padding: 0; background: transparent; }
+    .mdp-dr-foot-actions { display: flex; justify-content: flex-end; gap: var(--space-3); padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border-light); background: var(--surface-white); }
     .mdp-dr-head { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border-light); }
     .mdp-dr-head-main { flex: 1 1 auto; min-width: 0; }
     .mdp-dr-name-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: 2px; }
@@ -219,7 +222,7 @@
     .mdp-ph-swatch { display: inline-block; width: 12px; height: 12px; border: 1px solid var(--border-light); border-radius: 2px; background: var(--surface-light); }
 
     .mdp-empty { padding: var(--space-6) var(--space-4); text-align: center; color: var(--text-muted); font-size: var(--text-sm); }
-    /* ── Phone cards, drawer bar, bottom sheet: hidden on wide screens ── */
+    /* ── Phone cards, drawer bar: hidden on wide screens ── */
     .mdp-cards, .mdp-pot-cards, .mdp-dr-bar, .mdp-dr-back, .mdp-dr-more, .mdp-phasing-menu, .mdp-chev-cell { display: none; }
     .mdp-pcard, .mdp-pot-card-m { background: var(--surface-white); border: var(--card-border); border-radius: var(--radius-lg); overflow: hidden; }
     .mdp-pcard.is-hidden .mdp-pcard-name { color: var(--text-muted); }
@@ -229,15 +232,6 @@
     .mdp-pcard-foot { display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-4); border-top: 1px solid var(--border-light); }
     .mdp-pot-card-m { padding: var(--space-3) var(--space-4); }
     .mdp-pot-card-m .mdp-pcard-top, .mdp-pot-card-m .mdp-pcard-body { padding-left: 0; padding-right: 0; }
-    .mdp-sheet-wrap { position: fixed; inset: 0; z-index: calc(var(--z-notification) + 1); }
-    .mdp-sheet-wrap .mdp-scrim { z-index: 0; }
-    .mdp-sheet {
-      position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: var(--space-3);
-      background: var(--surface-white); border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: var(--space-4) var(--space-4) var(--space-5);
-      box-shadow: var(--shadow-xl);
-    }
-    .mdp-sheet .mdp-edit-amount { width: 100%; }
-    .mdp-sheet-actions { display: flex; gap: var(--space-3); justify-content: flex-end; }
     @media (min-width: 1024px) and (max-width: 1279.98px) {
       .mdp-col-pots, .mdp-col-ca { display: none; }
       .mdp-sum-grid { grid-template-columns: 1fr; gap: var(--space-3); }
@@ -265,7 +259,7 @@
       .mdp-dr-more { display: inline-block; }
       .mdp-stage-tiles { display: flex; overflow-x: auto; }
       .mdp-stage-tile { flex: 0 0 150px; }
-      .mdp-head .btn, .mdp-card-head .btn, .mdp-title-row .btn, .mdp-toolbar .btn, .mdp-new .btn, .mdp-dr-head .btn,
+      .mdp-head .btn, .mdp-card-head .btn, .mdp-title-row .btn, .mdp-toolbar .btn, .mdp-dr-head .btn, .mdp-dr-foot-actions .btn,
       .mdp-amount, .mdp-input, .mdp-text-input, .mdp-edit-amount, .md-seg-btn { min-height: 40px; }
     }
     @media (max-width: 767.98px) {
@@ -281,6 +275,8 @@
       .mdp-drawer { width: 100vw; border-left: 0; }
       .mdp-dr-back { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 36px; border: 0; background: none; padding: 0; color: var(--text-muted); font-size: var(--text-sm); }
       .mdp-dr-close, .mdp-dr-edit-top { display: none; }
+      .mdp-dr-close.is-form-close { display: inline-flex; }
+      .mdp-dr-foot-actions .btn { min-height: 44px; }
       .mdp-dr-head { flex-wrap: wrap; }
       .mdp-dr-bar { display: block; padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border-light); background: var(--surface-white); }
       .mdp-dr-bar .btn { min-height: 46px; width: 100%; }
@@ -347,7 +343,7 @@
 
       <div class="card md-table-card mb-0">
         <div class="card-body">
-          <table class="mdp-table mdp-list-table" v-if="sortedYears.length || pyf.show">
+          <table class="mdp-table mdp-list-table" v-if="sortedYears.length">
             <thead>
               <tr>
                 <th>Pipeline</th>
@@ -359,24 +355,6 @@
               </tr>
             </thead>
             <tbody>
-              <!-- New year, inline -->
-              <tr v-if="pyf.show" class="mdp-new">
-                <td colspan="6">
-                  <div class="mdp-new-line">
-                    <label for="pyfYear" class="mdp-year" style="cursor:default">Pipeline</label>
-                    <input id="pyfYear" ref="pyfInput" type="text" inputmode="numeric" maxlength="4" class="mdp-input"
-                           v-model="pyf.year" @input="pyf.error = null"
-                           @keydown.enter="createPipelineYear" @keydown.esc="pyf.show = false">
-                    <span class="mdp-hint" :class="{ 'is-error': pyfInvalid }">{{ pyfInvalid ? "Enter a year that doesn't exist yet." : 'Created hidden: show it when POTs are ready.' }}</span>
-                    <span class="cg-spacer" style="flex:1 1 auto"></span>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" @click="pyf.show = false">Cancel</button>
-                    <button type="button" class="btn btn-primary btn-sm" @click="createPipelineYear" :disabled="pyf.loading">
-                      <span v-if="pyf.loading" class="spinner-border spinner-border-sm me-1"></span>Create
-                    </button>
-                  </div>
-                  <div v-if="pyf.error" class="mdp-err" style="padding-left:0;background:transparent">{{ pyf.error }}</div>
-                </td>
-              </tr>
               <tr v-for="py in sortedYears" :key="py.id" class="mdp-row" :class="{ 'is-hidden': !py.active }">
                 <td>
                   <button type="button" class="mdp-year" @click="go({ year: py.year })">Pipeline {{ py.year }}</button>
@@ -546,7 +524,7 @@
           <button type="button" class="btn btn-primary btn-sm" @click="openPotForm()">+ New POT</button>
         </div>
 
-        <table class="mdp-table mdp-pot-table" v-if="pots.length || (potf.show && !potf.id)">
+        <table class="mdp-table mdp-pot-table" v-if="pots.length">
           <thead>
             <tr>
               <th>Client / group</th>
@@ -558,36 +536,6 @@
             </tr>
           </thead>
           <tbody>
-            <!-- New POT, inline -->
-            <tr v-if="potf.show && !potf.id" class="mdp-new">
-              <td colspan="6">
-                <div class="mdp-new-line">
-                  <div class="md-seg" role="group" aria-label="Target type">
-                    <button type="button" class="md-seg-btn" :class="{ active: potf.targetType === 'client' }" @click="setPotTargetType('client')">Individual client</button>
-                    <button type="button" class="md-seg-btn" :class="{ active: potf.targetType === 'group' }" @click="setPotTargetType('group')">Client group</button>
-                  </div>
-                  <cg-select class="mdp-target-select" searchable v-model="potf.targetId" :options="potTargetOptions"
-                             :placeholder="potf.targetType === 'group' ? 'Select group without a POT…' : 'Select client without a POT…'"
-                             :aria-label="potf.targetType === 'group' ? 'Client group' : 'Client'" :width="280"></cg-select>
-                  <label class="mdp-amount">
-                    <span class="mdp-amount-sym">{{ currencyInfo('EUR', activeCurrencies).symbol }}</span>
-                    <input type="text" inputmode="decimal" class="mdp-amount-input"
-                           v-model="potf.amountText" @focus="onPotAmountFocus" @blur="onPotAmountBlur"
-                           @keydown.enter="savePot" @keydown.esc="potf.show = false"
-                           :placeholder="'Target, e.g. ' + moneyExample" aria-label="Target">
-                  </label>
-                  <span class="mdp-hint" v-if="potf.targetType === 'group'">All clients of the group count towards one target.</span>
-                  <span class="mdp-spacer"></span>
-                  <button type="button" class="btn btn-outline-secondary btn-sm" @click="potf.show = false">Cancel</button>
-                  <button type="button" class="btn btn-primary btn-sm" @click="savePot"
-                          :disabled="potf.loading || !potf.targetId || !String(potf.amountText).trim()">
-                    <span v-if="potf.loading" class="spinner-border spinner-border-sm me-1"></span>Create
-                  </button>
-                </div>
-                <div v-if="potf.error" class="mdp-err">{{ potf.error }}</div>
-              </td>
-            </tr>
-
             <template v-for="pot in pots" :key="pot.id">
               <tr class="mdp-row" @click="go({ year: year, pot: pot.id })">
                 <td class="mdp-name-cell">
@@ -614,7 +562,7 @@
                 </td>
                 <td class="mdp-actions" @click.stop>
                   <button type="button" class="mdp-link" @click="go({ year: year, pot: pot.id })">Details</button>
-                  <button type="button" class="mdp-icon-btn" :class="{ 'is-on': potf.show && potf.id === pot.id }"
+                  <button type="button" class="mdp-icon-btn"
                           :aria-label="'Edit target for ' + potName(pot)" @click="openPotForm(pot)"><ph-icon name="pencil" :size="14"></ph-icon></button>
                   <button type="button" class="mdp-icon-btn" :disabled="pot._loading"
                           :aria-label="'Delete POT for ' + potName(pot)" @click="deletePot(pot)">
@@ -623,31 +571,6 @@
                   </button>
                 </td>
                 <td class="mdp-chev-cell"><ph-icon name="chevron-right" :size="14"></ph-icon></td>
-              </tr>
-              <!-- Edit target, under the row -->
-              <tr v-if="potf.show && potf.id === pot.id" class="mdp-new">
-                <td colspan="6">
-                  <div class="mdp-edit-line">
-                    <label class="mdp-field">
-                      <span class="mdp-field-label">New target ({{ currencyInfo('EUR', activeCurrencies).symbol }})</span>
-                      <input type="text" inputmode="decimal" class="mdp-amount-input mdp-edit-amount"
-                             v-model="potf.amountText" @focus="onPotAmountFocus" @blur="onPotAmountBlur"
-                             @keydown.enter="savePot" @keydown.esc="potf.show = false" aria-label="New target">
-                    </label>
-                    <label class="mdp-field mdp-field-grow">
-                      <span class="mdp-field-label">Reason for change <span class="mdp-req">*</span> <span class="mdp-muted">· saved in the change history</span></span>
-                      <input type="text" class="mdp-text-input" v-model="potf.note" placeholder="Explain why the target is changing"
-                             @keydown.enter="savePot" @keydown.esc="potf.show = false">
-                    </label>
-                    <span class="mdp-muted mdp-current">Current {{ formatMoney(potf.stored ?? 0, 'EUR', activeCurrencies) }}</span>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" @click="potf.show = false">Cancel</button>
-                    <button type="button" class="btn btn-primary btn-sm" @click="savePot"
-                            :disabled="potf.loading || !potf.note || !potf.note.trim() || !String(potf.amountText).trim()">
-                      <span v-if="potf.loading" class="spinner-border spinner-border-sm me-1"></span>Update target
-                    </button>
-                  </div>
-                  <div v-if="potf.error" class="mdp-err">{{ potf.error }}</div>
-                </td>
               </tr>
             </template>
           </tbody>
@@ -780,31 +703,45 @@
   </div><!-- .page -->
   </div><!-- /.md-card-body -->
 </section>
-<!-- ── POT details drawer ───────────────────────────────────── -->
-<div v-if="drawerPot" class="mdp-drawer-wrap">
-  <div class="mdp-scrim" @click="closeDrawer"></div>
-  <aside class="mdp-drawer" role="dialog" aria-modal="true" :aria-label="'POT details: ' + potName(drawerPot)">
+<!-- ── Side drawer: POT details, new year, new POT, edit target ───── -->
+<div v-if="drawerView" class="mdp-drawer-wrap">
+  <div class="mdp-scrim" @click="dismissDrawer(false)"></div>
+  <aside class="mdp-drawer" :class="{ 'is-form': drawerView !== 'details' && !drawerPot }" role="dialog" aria-modal="true" :aria-label="drawerLabel">
     <header class="mdp-dr-head">
-      <button type="button" class="mdp-dr-back" @click="closeDrawer"><ph-icon name="chevron-left" :size="14"></ph-icon> Pipeline {{ year }}</button>
+      <button v-if="drawerView === 'details'" type="button" class="mdp-dr-back" @click="closeDrawer"><ph-icon name="chevron-left" :size="14"></ph-icon> Pipeline {{ year }}</button>
       <div class="mdp-dr-head-main">
-        <div class="mdp-eyebrow">POT · Pipeline {{ year }}</div>
-        <div class="mdp-dr-name-row">
-          <h3 class="mdp-dr-name">{{ potName(drawerPot) }}</h3>
-          <span class="mdp-kind" :class="'is-' + potKind(drawerPot).toLowerCase()">{{ potKind(drawerPot) === 'General' ? 'General target' : potKind(drawerPot) + ' POT' }}</span>
-        </div>
-        <div class="mdp-muted mdp-dr-sub">{{ drawerPot.client_group_id ? (groupClientNames(drawerPot) || 'Group') : potKind(drawerPot) }}</div>
+        <template v-if="drawerView === 'details'">
+          <div class="mdp-eyebrow">POT · Pipeline {{ year }}</div>
+          <div class="mdp-dr-name-row">
+            <h3 class="mdp-dr-name">{{ potName(drawerPot) }}</h3>
+            <span class="mdp-kind" :class="'is-' + potKind(drawerPot).toLowerCase()">{{ potKind(drawerPot) === 'General' ? 'General target' : potKind(drawerPot) + ' POT' }}</span>
+          </div>
+          <div class="mdp-muted mdp-dr-sub">{{ drawerPot.client_group_id ? (groupClientNames(drawerPot) || 'Group') : potKind(drawerPot) }}</div>
+        </template>
+        <h3 v-else-if="drawerView === 'year'" class="mdp-dr-name">New pipeline year</h3>
+        <template v-else-if="drawerView === 'newPot'">
+          <div class="mdp-eyebrow">Pipeline {{ year }}</div>
+          <h3 class="mdp-dr-name">New POT</h3>
+        </template>
+        <template v-else>
+          <div class="mdp-eyebrow">POT · Pipeline {{ year }}</div>
+          <h3 class="mdp-dr-name">Edit target</h3>
+          <div class="mdp-muted mdp-dr-sub">{{ potfName }}</div>
+        </template>
       </div>
-      <button type="button" class="btn btn-outline-secondary btn-sm mdp-dr-edit-top" @click="editFromDrawer(drawerPot)">Edit target</button>
-      <span class="dropdown mdp-dr-more">
-        <button type="button" class="mdp-icon-btn" aria-label="More actions" data-bs-toggle="dropdown" aria-expanded="false"><ph-icon name="more" :size="16"></ph-icon></button>
-        <ul class="dropdown-menu dropdown-menu-end">
-          <li><button type="button" class="dropdown-item mdp-menu-item" @click="deletePot(drawerPot)">Delete POT target</button></li>
-        </ul>
-      </span>
-      <button type="button" class="mdp-icon-btn mdp-dr-close" aria-label="Close" @click="closeDrawer"><ph-icon name="close" :size="16"></ph-icon></button>
+      <template v-if="drawerView === 'details'">
+        <button type="button" class="btn btn-outline-secondary btn-sm mdp-dr-edit-top" @click="editFromDrawer(drawerPot)">Edit target</button>
+        <span class="dropdown mdp-dr-more">
+          <button type="button" class="mdp-icon-btn" aria-label="More actions" data-bs-toggle="dropdown" aria-expanded="false"><ph-icon name="more" :size="16"></ph-icon></button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><button type="button" class="dropdown-item mdp-menu-item" @click="deletePot(drawerPot)">Delete POT target</button></li>
+          </ul>
+        </span>
+      </template>
+      <button type="button" class="mdp-icon-btn mdp-dr-close" :class="{ 'is-form-close': drawerView !== 'details' }" aria-label="Close" @click="dismissDrawer(true)"><ph-icon name="close" :size="16"></ph-icon></button>
     </header>
 
-    <div class="mdp-dr-body">
+    <div v-if="drawerView === 'details'" class="mdp-dr-body">
       <template v-if="drawerState && drawerState.loading">
         <div class="mdp-skel" style="width:55%;height:28px"></div>
         <div class="mdp-skel" style="height:10px;margin-top:12px"></div>
@@ -879,30 +816,67 @@
         <div class="mdp-muted mdp-dr-empty" v-else>No history yet.</div>
       </template>
     </div>
-    <div class="mdp-dr-bar"><button type="button" class="btn btn-outline-secondary" @click="openPotForm(drawerPot)">Edit target</button></div>
-  </aside>
-  <!-- Edit target as a bottom sheet (phone) -->
-  <div v-if="potf.show && potf.id && drawerPot" class="mdp-sheet-wrap">
-    <div class="mdp-scrim" @click="potf.show = false"></div>
-    <div class="mdp-sheet" role="dialog" aria-label="Edit target">
-      <label class="mdp-field">
-        <span class="mdp-field-label">New target ({{ currencyInfo('EUR', activeCurrencies).symbol }}) <span class="mdp-muted">· current {{ formatMoney(potf.stored ?? 0, 'EUR', activeCurrencies) }}</span></span>
-        <input type="text" inputmode="decimal" class="mdp-amount-input mdp-edit-amount"
-               v-model="potf.amountText" @focus="onPotAmountFocus" @blur="onPotAmountBlur" @keydown.enter="savePot" aria-label="New target (sheet)">
-      </label>
-      <label class="mdp-field">
-        <span class="mdp-field-label">Reason for change <span class="mdp-req">*</span> <span class="mdp-muted">· saved in the change history</span></span>
-        <input type="text" class="mdp-text-input" v-model="potf.note" placeholder="Explain why the target is changing" @keydown.enter="savePot">
-      </label>
-      <div v-if="potf.error" class="mdp-err" style="padding:0;background:transparent">{{ potf.error }}</div>
-      <div class="mdp-sheet-actions">
-        <button type="button" class="btn btn-outline-secondary" @click="potf.show = false">Cancel</button>
-        <button type="button" class="btn btn-primary" @click="savePot" :disabled="potf.loading || !potf.note || !potf.note.trim() || !String(potf.amountText).trim()">
-          <span v-if="potf.loading" class="spinner-border spinner-border-sm me-1"></span>Update target
-        </button>
-      </div>
+    <div v-if="drawerView === 'details'" class="mdp-dr-bar"><button type="button" class="btn btn-outline-secondary" @click="editFromDrawer(drawerPot)">Edit target</button></div>
+
+    <!-- Forms: new year, new POT, edit target -->
+    <div v-else class="mdp-dr-body mdp-dr-form">
+      <template v-if="drawerView === 'year'">
+        <label class="mdp-field">
+          <span class="mdp-field-label">Pipeline</span>
+          <input id="pyfYear" ref="pyfInput" type="text" inputmode="numeric" maxlength="4" class="mdp-input"
+                 v-model="pyf.year" @input="pyf.error = null" @keydown.enter="createPipelineYear">
+        </label>
+        <span class="mdp-hint" :class="{ 'is-error': pyfInvalid }">{{ pyfInvalid ? "Enter a year that doesn't exist yet." : 'Created hidden: show it when POTs are ready.' }}</span>
+        <div v-if="pyf.error" class="mdp-err">{{ pyf.error }}</div>
+      </template>
+      <template v-else>
+        <template v-if="drawerView === 'newPot'">
+          <div class="mdp-field">
+            <div class="md-seg" role="group" aria-label="Target type">
+              <button type="button" class="md-seg-btn" :class="{ active: potf.targetType === 'client' }" @click="setPotTargetType('client')">Individual client</button>
+              <button type="button" class="md-seg-btn" :class="{ active: potf.targetType === 'group' }" @click="setPotTargetType('group')">Client group</button>
+            </div>
+          </div>
+          <div class="mdp-field">
+            <cg-select class="mdp-target-select" searchable v-model="potf.targetId" :options="potTargetOptions"
+                       :placeholder="potf.targetType === 'group' ? 'Select group without a POT…' : 'Select client without a POT…'"
+                       :aria-label="potf.targetType === 'group' ? 'Client group' : 'Client'"></cg-select>
+            <span class="mdp-hint" v-if="potf.targetType === 'group'">All clients of the group count towards one target.</span>
+          </div>
+        </template>
+        <label class="mdp-field">
+          <span class="mdp-field-label">{{ potf.id ? 'New target (' + currencyInfo('EUR', activeCurrencies).symbol + ')' : 'Target' }}</span>
+          <span class="mdp-amount">
+            <span class="mdp-amount-sym">{{ currencyInfo('EUR', activeCurrencies).symbol }}</span>
+            <input type="text" inputmode="decimal" class="mdp-amount-input" ref="potfAmount"
+                   v-model="potf.amountText" @focus="onPotAmountFocus" @blur="onPotAmountBlur" @keydown.enter="savePot"
+                   :placeholder="potf.id ? '' : 'Target, e.g. ' + moneyExample" :aria-label="potf.id ? 'New target' : 'Target'">
+          </span>
+          <span v-if="potf.id" class="mdp-muted">Current {{ formatMoney(potf.stored ?? 0, 'EUR', activeCurrencies) }}</span>
+        </label>
+        <label v-if="potf.id" class="mdp-field">
+          <span class="mdp-field-label">Reason for change <span class="mdp-req">*</span> <span class="mdp-muted">· saved in the change history</span></span>
+          <input type="text" class="mdp-text-input" v-model="potf.note" placeholder="Explain why the target is changing"
+                 @keydown.enter="savePot">
+        </label>
+        <div v-if="potf.error" class="mdp-err">{{ potf.error }}</div>
+      </template>
     </div>
-  </div>
+    <footer v-if="drawerView !== 'details'" class="mdp-dr-foot-actions">
+      <button type="button" class="btn btn-outline-secondary btn-sm" @click="dismissDrawer(false)">Cancel</button>
+      <button v-if="drawerView === 'year'" type="button" class="btn btn-primary btn-sm" @click="createPipelineYear" :disabled="pyf.loading">
+        <span v-if="pyf.loading" class="spinner-border spinner-border-sm me-1"></span>Create
+      </button>
+      <button v-else-if="drawerView === 'newPot'" type="button" class="btn btn-primary btn-sm" @click="savePot"
+              :disabled="potf.loading || !potf.targetId || !String(potf.amountText).trim()">
+        <span v-if="potf.loading" class="spinner-border spinner-border-sm me-1"></span>Create
+      </button>
+      <button v-else type="button" class="btn btn-primary btn-sm" @click="savePot"
+              :disabled="potf.loading || !potf.note || !potf.note.trim() || !String(potf.amountText).trim()">
+        <span v-if="potf.loading" class="spinner-border spinner-border-sm me-1"></span>Update target
+      </button>
+    </footer>
+  </aside>
 </div><!-- /drawer -->
 </div><!-- #app -->
 
@@ -940,7 +914,7 @@
 <script defer src="js/core.js?v=16"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script type="module" src="js/lib/money.js?v=6"></script>
-<script type="module" src="js/lib/master-pipelines.js?v=1"></script>
+<script type="module" src="js/lib/master-pipelines.js?v=2"></script>
 <script type="module" src="js/lib/dates.js?v=4"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
@@ -992,6 +966,20 @@ window.__cfgApp = Vue.createApp({
 
   computed: {
     drawerPot() { return window.resolvePot(this.pots, this.potId); },
+    // Which view the side drawer shows: a form wins over the POT details it was opened from.
+    drawerView() {
+      if (this.pyf.show) return 'year';
+      if (this.potf.show) return this.potf.id ? 'editPot' : 'newPot';
+      return this.drawerPot ? 'details' : null;
+    },
+    drawerLabel() {
+      return { year: 'New pipeline year', newPot: 'New POT', editPot: 'Edit target' }[this.drawerView]
+        || (this.drawerPot ? 'POT details: ' + this.potName(this.drawerPot) : '');
+    },
+    potfName() {
+      const p = window.resolvePot(this.pots, this.potf.id);
+      return p ? this.potName(p) : this.potf.targetLabel;
+    },
     drawerState() { return this.drawerPot ? this.potDetails[this.drawerPot.id] || null : null; },
     drawerPct() {
       const d = this.drawerState && this.drawerState.data;
@@ -1100,9 +1088,9 @@ window.__cfgApp = Vue.createApp({
     try { window.__currencies = await Api.currencies.list(); } catch {}
     this.activeCurrencies = window.__currencies || [];
     document.addEventListener('keydown', e => {
-      if (e.key !== 'Escape' || !this.drawerPot) return;
+      if (e.key !== 'Escape' || !this.drawerView) return;
       if (document.querySelector('.modal.show')) return; // Esc belongs to the open modal
-      if (this.potf.show && this.potf.id) this.potf.show = false; else this.closeDrawer();
+      this.dismissDrawer(false);
     });
     window.addEventListener('popstate', () => { if (this.ready) { this.globalError = null; this.applyState(window.parseMdpUrl(location.search)); } });
     await this.loadAll();
@@ -1169,6 +1157,7 @@ window.__cfgApp = Vue.createApp({
 
     async applyState({ year, pot, phasing }) {
       this.potf.show = false;
+      this.pyf.show = false;
       if (year === null) {
         this.level = 'list'; this.year = null; this.potId = null;
         this.loadedPotsYear = null; this.resetPhasing();
@@ -1314,6 +1303,7 @@ window.__cfgApp = Vue.createApp({
     },
 
     openPotForm(pot) {
+      if (pot && this.drawerPot && this.drawerPot.id !== pot.id) this.closeDrawer(); // never a form over another POT's details
       if (pot) {
         this.potf = {
           show: true, id: pot.id,
@@ -1334,6 +1324,7 @@ window.__cfgApp = Vue.createApp({
           amountText: '', stored: null, note: '', error: null, loading: false,
         };
       }
+      this.$nextTick(() => { const el = this.$refs.potfAmount; if (el) el.focus(); });
     },
 
     // Focus shows the unformatted amount, blur the formatted one; blank or invalid text stays as typed.
@@ -1494,9 +1485,21 @@ window.__cfgApp = Vue.createApp({
 
     closeDrawer() { return this.go({ year: this.year }); },
 
+    // The form replaces the details in the same drawer; the URL keeps ?year=Y&pot=<id>.
     async editFromDrawer(pot) {
-      await this.go({ year: this.year });
       this.openPotForm(pot);
+    },
+
+    // Scrim, Cancel and Esc (closeAll false), the close button (closeAll true).
+    dismissDrawer(closeAll) {
+      const r = window.mdpDrawerDismiss({
+        pyfShow: this.pyf.show, potfShow: this.potf.show, hasDetails: !!this.drawerPot,
+        loading: this.pyf.loading || this.potf.loading, closeAll,
+      });
+      if (r === 'none') return;
+      this.pyf.show = false;
+      this.potf.show = false;
+      if (r === 'close-drawer' && this.drawerPot) this.closeDrawer();
     },
 
     fmtDate(iso) {

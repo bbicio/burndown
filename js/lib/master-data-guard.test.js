@@ -426,6 +426,35 @@ describe('Pipelines & POTs responsive styles', () => {
     ]) expect(html, x).toContain(x);
   });
 
+  it('opens the new-year, new-POT and edit-target forms in the side drawer, not inside the tables', () => {
+    expect(html).not.toContain('mdp-new');
+    expect(html).not.toContain('mdp-sheet');
+    const drawer = html.slice(html.indexOf('<div v-if="drawerView" class="mdp-drawer-wrap">'), html.indexOf('</div><!-- /drawer -->'));
+    expect(drawer.length).toBeGreaterThan(0);
+    // savePot twice: the Create POT and Update target buttons keep their own :disabled rules.
+    for (const [x, n] of [['ref="pyfInput"', 1], ['@click="createPipelineYear"', 1], ['@click="savePot"', 2], ['ref="potfAmount"', 1]]) {
+      expect(html.split(x).length - 1, x).toBe(n);
+      expect(drawer.split(x).length - 1, x).toBe(n);
+    }
+    for (const m of html.matchAll(/<table class="mdp-table[\s\S]*?<\/table>/g)) {
+      expect(m[0]).not.toContain('pyf.show');
+      expect(m[0]).not.toContain('potf.show');
+    }
+    const edit = html.slice(html.indexOf('async editFromDrawer(pot)'), html.indexOf('fmtDate(', html.indexOf('async editFromDrawer(pot)')));
+    expect(edit.length).toBeGreaterThan(0);
+    expect(edit).not.toContain('this.go(');
+    const apply = html.slice(html.indexOf('async applyState('), html.indexOf('} else if (!this.loadOk)'));
+    expect(apply).toContain('this.pyf.show = false');
+    expect(html).toContain('window.mdpDrawerDismiss(');
+    expect(html).toContain('js/lib/master-pipelines.js?v=2');
+    expect(html).not.toContain('master-pipelines.js?v=1');
+  });
+
+  it("row pencil closes another POT's details", () => {
+    const open = html.slice(html.indexOf('openPotForm(pot) {'), html.indexOf('// Focus shows'));
+    expect(open).toContain('this.closeDrawer()');
+  });
+
   it('has a tablet block followed by a phone block', () => {
     expect(tabletAt).toBeGreaterThan(-1);
     expect(phoneAt).toBeGreaterThan(tabletAt);
@@ -438,7 +467,7 @@ describe('Pipelines & POTs responsive styles', () => {
   });
 
   it('phone: touch targets are 44px on Add year, the more menu, the card foot and proposal rows', () => {
-    for (const sel of ['.mdp-head .btn', '.mdp-icon-btn', '.mdp-pcard-foot', '.mdp-prop']) {
+    for (const sel of ['.mdp-head .btn', '.mdp-icon-btn', '.mdp-pcard-foot', '.mdp-prop', '.mdp-dr-foot-actions .btn']) {
       const i = phone.indexOf(sel);
       expect(i, sel).toBeGreaterThan(-1);
       expect(phone.slice(i, i + 200), sel).toContain('min-height: 44px');
