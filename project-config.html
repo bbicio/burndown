@@ -1474,9 +1474,13 @@ Outside the project period, not distributed: ${fmtB(result.outsideBudget)} · ${
 
         const message = `Phasing and planning grids will be fully overwritten:\n\n`
           + `Months with actuals — replaced with actual spend & hours from loaded XLS data\n`
-          + `Current & future months (${futureCount}) — net remaining distributed per task settings ${distNote}:\n`
-          + `  Remaining budget: ${fmtB(result.remainingBudget)}${overB}\n`
-          + `  Remaining hours: ${fmtH(result.distributedRemainingHours)}${overH}`;
+          + (futureCount === 0
+            ? `No current or future month in the project period — the net remaining is not distributed:\n`
+              + `  Remaining budget: ${fmtB(result.remainingBudget)}${overB}\n`
+              + `  Remaining hours: ${fmtH(result.remainingHours)}${overH}`
+            : `Current & future months (${futureCount}) — net remaining distributed per task settings ${distNote}:\n`
+              + `  Remaining budget: ${fmtB(result.remainingBudget)}${overB}\n`
+              + `  Remaining hours: ${fmtH(result.distributedRemainingHours)}${overH}`);
 
         if (await this.showConfirm(message)) {
           this.project.phasing = result.newPhasing;

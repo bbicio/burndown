@@ -228,6 +228,32 @@ describe('reforecastDistribution', () => {
     expect(result.newPhasing).toEqual({ '202601': 300, '202602': 700 });
   });
 
+  it('carries a month that nets negative back onto the earlier months', () => {
+    const tasks = [dev(10, '20260101', '20260331')];
+    const rows = [row('Dev', 'Developer', '202601', 5), row('Dev', 'Developer', '202602', -3)];
+    const result = reforecastDistribution(tasks, ['202601', '202602', '202603'], rows, '202603');
+    expect(result.newPlanning).toEqual({ '202601': 2, '202603': 8 });
+    expect(result.newPhasing).toEqual({ '202601': 200, '202603': 800 });
+  });
+
+  it('carries hours and money separately, so the grid totals the sold value', () => {
+    const tasks = [{ name: 'Dev', billable: true, startDate: '20260101', endDate: '20260331',
+      resources: [{ role: 'A', soldHours: 10, hourlyRate: 50 }, { role: 'B', soldHours: 10, hourlyRate: 150 }] }];
+    const rows = [row('Dev', 'A', '202601', 4), row('Dev', 'A', '202602', 5), row('Dev', 'B', '202602', -2)];
+    const result = reforecastDistribution(tasks, ['202601', '202602', '202603'], rows, '202603');
+    expect(result.newPhasing).toEqual({ '202601': 150, '202603': 1850 });
+    expect(result.newPlanning).toEqual({ '202601': 4, '202602': 3, '202603': 13 });
+  });
+
+  it('distributes nothing and says so when no month is open', () => {
+    const tasks = [dev(10, '20260101', '20260228')];
+    const result = reforecastDistribution(tasks, ['202601', '202602'], [row('Dev', 'Developer', '202601', 4)], '202603');
+    expect(result.futureMonths).toEqual([]);
+    expect(result.newPlanning).toEqual({ '202601': 4 });
+    expect(result.remainingHours).toBe(6);
+    expect(result.distributedRemainingHours).toBe(0);
+  });
+
   it('reports the distributed net remaining hours without open-month actuals', () => {
     const tasks = [dev(20, '20260101', '20260228')];
     const open = reforecastDistribution(tasks, ['202601', '202602'], [row('Dev', 'Developer', '202602', 5)], '202602');
