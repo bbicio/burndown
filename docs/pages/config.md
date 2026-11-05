@@ -149,8 +149,9 @@ Spec `docs/superpowers/specs/2026-11-03-master-data-shell-design.md`, plan `docs
 - **Escape:** one document handler closes the topmost layer (picker, confirm, sheet, drawer, inline edit).
 - **Layouts:** 1024–1279px and 768–1023px move the inverse under the rate and hide the delta; below 768px the table becomes cards, "Edit rate" and "+ Activate currency" open bottom sheets and the confirm dialog is a bottom sheet.
 - **Accepted deviations from the boards:**
+  - "+ Activate currency" uses the app-wide magenta `.btn-primary`, the boards draw it navy.
   - No "Used in" column, no "⋯" menu with Deactivate, no sub-nav counts (no API for them; out of scope).
   - The boards show GBP and CHF, the data of the branch stack only had EUR and USD.
   - The scrollbars in the picker capture are not part of the design.
-- **Fixed after the visual review:** the chart line is navy (the shared chart token is blue); a disabled Activate is neutral grey; the card head's "+ Activate currency" is navy as on the boards (the app-wide `.btn-primary` is magenta).
+- **Fixed after the visual review:** the chart line is navy (the shared chart token is blue); a disabled Activate is neutral grey.
 - **Tests:** `js/lib/master-currencies.test.js`, `js/lib/master-currencies-page-guard.test.js`, `js/lib/master-data-guard.test.js`; manual case `MD-17`.
