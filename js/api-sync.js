@@ -151,6 +151,7 @@ async function cgLoadStructureFromApi(cgId, versionId) {
 // server-assigned): a failed PATCH is reported, never converted into a POST that would duplicate them.
 // Used by cgAutoSave and version create/duplicate operations.
 // opts.strict = true: a failed upsert throws instead of being logged and swallowed.
+// opts.background = true: the writes never raise the save overlay (autosave).
 // opts.onPatched(): called after a successful PATCH.
 // opts.onServerRate(rate, currency, roles): called after a successful PATCH whose currency_rate differs from the
 // version's; an array it returns replaces the roles of this save's structure.
@@ -166,6 +167,7 @@ function _cgForgetRuleNotices(versionId) {
 }
 async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   const strict = !!(opts && opts.strict);
+  const bg = { background: !!(opts && opts.background) };
   let allOk = true;
   const cg = cgLoad(cgId);
   if (!cg) return false;
@@ -189,7 +191,7 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
 
   // Upsert the grid itself (name)
   try {
-    await Api.costGrids.update(cgId, { name: cg.name });
+    await Api.costGrids.update(cgId, { name: cg.name }, bg);
   } catch (e) { console.warn('[sync] grid upsert failed:', e.message); if (strict) throw e; allOk = false; }
 
   // Upsert the version metadata
@@ -215,7 +217,7 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
   if (hasStructure) { patchBody = { ...serverMeta }; delete patchBody.startDate; delete patchBody.endDate; }
   let serverRate = NaN, serverCurrency, patched = false;
   try {
-    const resp = await Api.costGrids.versions.update(cgId, versionId, patchBody);
+    const resp = await Api.costGrids.versions.update(cgId, versionId, patchBody, bg);
     patched = true;
     serverRate = parseFloat(resp?.currency_rate);
     serverCurrency = resp?.currency;
@@ -238,7 +240,7 @@ async function _cgUpsertVersionToApi(cgId, versionId, opts) {
         phases,
         roles: roles || [],
         period: { startDate: meta.startDate || '', endDate: meta.endDate || '' },
-      });
+      }, bg);
       _cgForgetRuleNotices(versionId);
     } catch (e) {
       console.warn('[sync] structure save failed:', e.message);

@@ -720,7 +720,7 @@ function cgAdoptServerRate(cgId, versionId, rate, afterCurrencyChange, currency,
   return synced;
 }
 
-function cgAutoSave(strict) {
+function cgAutoSave(strict = false, { background = !strict } = {}) {
   if (!_cgActiveCgId || !_cgActiveVersionId || !_cgDraft) return Promise.resolve(false);
   const cgId = _cgActiveCgId, verId = _cgActiveVersionId;
   const afterCurrencyChange = _cgCurrencyChangePending.delete(verId);
@@ -735,6 +735,7 @@ function cgAutoSave(strict) {
     const keepFlag = () => { if (afterCurrencyChange && !patched) _cgCurrencyChangePending.add(verId); };
     return _cgUpsertVersionToApi(cgId, verId, {
       strict: !!strict,
+      background,
       onPatched: () => { patched = true; },
       onServerRate: (rate, currency, roles) => cgAdoptServerRate(cgId, verId, rate, afterCurrencyChange, currency, roles),
     })
@@ -765,7 +766,7 @@ async function cgSaveVersion() {
   const label = btn ? [...btn.childNodes].reverse().find(n => n.nodeType === Node.TEXT_NODE && n.nodeValue.trim()) : null;
   // The original label is remembered once, so a click during "✓ Saved" does not record it as the label.
   if (label && btn.dataset.label === undefined) btn.dataset.label = label.nodeValue;
-  const ok = await cgAutoSave(); // never rejects -- errors are caught and logged internally
+  const ok = await cgAutoSave(false, { background: false }); // never rejects -- errors are caught and logged internally
   if (btn) {
     btn.disabled = false;
     if (label) {
@@ -792,7 +793,7 @@ async function cgPublishDraft() {
   showConfirm(
     `Publish "${ver.versionLabel}" to SIP?${otherWarn}\n\nThis version will become visible to your team and cannot be set back to Draft.`,
     async () => {
-      await cgAutoSave();
+      await cgAutoSave(false, { background: false });
       try {
         // Delete all other Draft versions from the DB first
         for (const other of otherDrafts) {

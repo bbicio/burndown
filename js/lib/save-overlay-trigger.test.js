@@ -115,6 +115,24 @@ describe('save overlay trigger', () => {
     expect(fetchMock.mock.calls[0][1].background).toBeUndefined();
     pending[0].resolve(okRes()); await p;
   });
+  it('Api.costGrids.versions.update(..., { background: true }) does not show the overlay', async () => {
+    const p = api.Api.costGrids.versions.update('c', 'v', {}, { background: true });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(0);
+    expect(fetchMock.mock.calls[0][1].background).toBeUndefined();
+    pending[0].resolve(okRes()); await p;
+  });
+  it('the same wrapper without opts does show it', async () => {
+    const p = api.Api.costGrids.update('c', {});
+    await vi.advanceTimersByTimeAsync(400);
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
+    pending[0].resolve(okRes()); await p;
+  });
+  it('the notifications mark-read PATCHes pass background: true', () => {
+    const n = readFileSync(join(process.cwd(), 'js/notifications.js'), 'utf8');
+    expect(n).toContain("/notifications/${id}/read`, { method: 'PATCH', background: true }");
+    expect(n).toContain("'/notifications/read-all', { method: 'PATCH', background: true }");
+  });
   it('does nothing when window.PdOverlay is missing', async () => {
     delete win.PdOverlay;
     const p = post();
