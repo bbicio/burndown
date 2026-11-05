@@ -188,7 +188,7 @@ Pure helpers for `profile-jobs.html` (only page that loads it, `<script type="mo
 
 ## timesheets-list.js (2026-11-05, Timesheets redesign)
 
-Pure helpers for `timesheets.html`'s Actuals list, bridged to `window.*`: `filterTimesheetRows(rows, { year, clients, projects, code })` (year `0` = all years, code a case-insensitive substring), `hasActiveFilters(filters)`, `nextSortState({ sortBy, sortDir }, field)` (asc → desc → none) and `groupTimesheetRows(rows, { sortBy, sortDir })` (`{ key, label, rows, codes, totalRows }` per client, alphabetical, reversed by a descending client sort, `NO_CLIENT_LABEL` "No client" always last; a project or code sort orders the rows inside each group, an empty value last; no sort keeps the server order). Spec `docs/superpowers/specs/2026-11-05-timesheets-redesign-design.md`; tests in `js/lib/timesheets-list.test.js`.
+Pure helpers for `timesheets.html`'s Actuals list, bridged to `window.*`: `filterTimesheetRows(rows, { year, clients, projects, code })` (year `0` = all years, code a case-insensitive substring), `hasActiveFilters(filters)`, `filterOptions(rows, field)` (the Client / Project checklist values, in the groups' case-insensitive order), `nextSortState({ sortBy, sortDir }, field)` (asc → desc → none) and `groupTimesheetRows(rows, { sortBy, sortDir })` (`{ key, label, rows, codes, totalRows }` per client, alphabetical, reversed by a descending client sort, `NO_CLIENT_LABEL` "No client" always last; a project or code sort orders the rows inside each group, an empty value last; no sort keeps the server order). Spec `docs/superpowers/specs/2026-11-05-timesheets-redesign-design.md`; tests in `js/lib/timesheets-list.test.js`.
 
 ## team-assistant-ui.js (Planning team assistant cycle, 2026-09-30)
 

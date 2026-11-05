@@ -125,3 +125,34 @@ describe('tablet and smartphone layouts (11.3)', () => {
     expect(html).toMatch(/class="dropdown pj-more"[\s\S]*Remove from queue/);
   });
 });
+
+describe('Gate 3 round 1 fixes', () => {
+  it.each(['timesheets.html', 'profile-jobs.html'])('%s styles icons by .pd-icon, never by the ph-icon tag (it renders an svg)', file => {
+    expect(styles(read(file))).not.toMatch(/ph-icon/);
+  });
+
+  it.each(['timesheets.html', 'profile-jobs.html'])('%s never binds a class on a Bootstrap dropdown toggle (Vue would wipe .show)', file => {
+    const toggles = [...read(file).matchAll(/<button\b[^>]*data-bs-toggle="dropdown"[^>]*>/g)].map(m => m[0]);
+    expect(toggles.length).toBeGreaterThan(0);
+    for (const t of toggles) expect(t).not.toMatch(/\s:class=/);
+  });
+
+  it('timesheets.html returns focus from the View modal and traps Tab in it', () => {
+    const html = read('timesheets.html');
+    const close = html.slice(html.indexOf('closeView() {'), html.indexOf('async loadRows()'));
+    expect(close).toContain('_returnFocus');
+    expect(html).toMatch(/onKeydown\(e\) \{[\s\S]*'Tab'[\s\S]*\.ts-view/);
+  });
+
+  it('timesheets.html leaves Esc to an open dropdown before closing the sheet', () => {
+    const html = read('timesheets.html');
+    const kd = html.slice(html.indexOf('onKeydown(e) {'), html.indexOf('closeView() {'));
+    expect(kd).toContain('.dropdown-menu.show');
+  });
+
+  it('timesheets.html drops a deleted row even when the reload fails', () => {
+    const html = read('timesheets.html');
+    const del = html.slice(html.indexOf('deleteCode(row) {'), html.indexOf('async viewRows('));
+    expect(del).toMatch(/await Api\.timesheets\.delete\(code\);\s*this\.rows = this\.rows\.filter\(/);
+  });
+});

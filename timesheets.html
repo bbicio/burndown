@@ -21,8 +21,9 @@
       font-size: 12.5px; color: var(--brand-navy); white-space: nowrap;
     }
     .ts-ctl:hover { border-color: var(--border-dark); }
-    .ts-ctl.is-on { border-color: var(--brand-navy); font-weight: var(--weight-semibold); }
-    .ts-ctl ph-icon { color: var(--text-muted); }
+    /* the active state sits on the .dropdown wrapper: a class binding on the toggle would wipe Bootstrap's .show */
+    .ts-ctl.is-on, .dropdown.is-on > .ts-ctl { border-color: var(--brand-navy); font-weight: var(--weight-semibold); }
+    .ts-ctl .pd-icon { color: var(--text-muted); }
     .ts-search { width: 250px; }
     .ts-search input { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 12.5px; color: var(--brand-navy); }
     .ts-search input::placeholder { color: var(--text-placeholder); }
@@ -38,13 +39,13 @@
       display: flex; align-items: flex-start; gap: 10px; margin: 12px 18px 0; padding: 9px 12px;
       border-radius: var(--radius-md); background: var(--surface-light); font-size: 12px; color: var(--text-secondary); line-height: 1.5;
     }
-    .ts-note ph-icon { flex: 0 0 auto; margin-top: 2px; color: var(--text-muted); }
+    .ts-note .pd-icon { flex: 0 0 auto; margin-top: 2px; color: var(--text-muted); }
 
     .ts-grid { display: grid; grid-template-columns: minmax(0, 1.9fr) 160px 60px 64px 96px 140px; gap: 12px; align-items: center; }
     .ts-head { padding: 14px 18px 8px; font-size: 10px; font-weight: var(--weight-bold); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
     .ts-sort { display: inline-flex; align-items: center; gap: 3px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
     .ts-sort:hover, .ts-sort.is-on { color: var(--brand-navy); }
-    .ts-sort ph-icon.is-asc { transform: rotate(180deg); }
+    .ts-sort .pd-icon.is-asc { transform: rotate(180deg); }
     .ts-sep { color: var(--border-dark); margin: 0 6px; }
     .ts-num { text-align: right; }
 
@@ -52,8 +53,8 @@
       display: flex; align-items: center; gap: 10px; width: 100%; height: 40px; padding: 0 18px;
       border: 0; border-top: 1px solid var(--border-light); background: var(--surface-light); text-align: left; cursor: pointer;
     }
-    .ts-group ph-icon { color: var(--text-muted); transition: transform var(--duration-fast); }
-    .ts-group.is-collapsed ph-icon { transform: rotate(-90deg); }
+    .ts-group .pd-icon { color: var(--text-muted); transition: transform var(--duration-fast); }
+    .ts-group.is-collapsed .pd-icon { transform: rotate(-90deg); }
     .ts-group-name { font-size: 13px; font-weight: var(--weight-bold); color: var(--brand-navy); }
     .ts-group-meta { font-size: 11.5px; color: var(--text-muted); }
 
@@ -85,7 +86,7 @@
       display: flex; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; text-align: left;
     }
     .ts-menu-item:hover, .ts-menu-item:focus-visible { background: var(--color-danger-bg); outline: 0; }
-    .ts-menu-item ph-icon { flex: 0 0 auto; margin-top: 2px; color: var(--color-danger-text); }
+    .ts-menu-item .pd-icon { flex: 0 0 auto; margin-top: 2px; color: var(--color-danger-text); }
     .ts-menu-label { display: block; font-size: 12.5px; font-weight: var(--weight-bold); color: var(--color-danger-text); }
     .ts-menu-hint { display: block; font-size: 11.5px; color: var(--text-muted); line-height: 1.4; white-space: normal; }
 
@@ -190,7 +191,7 @@
       .ts-btn.is-icon { width: 100%; }
       .ts-actions > .ts-btn + .ts-btn, .ts-actions > .dropdown { border-left: 1px solid var(--border-light); }
       .ts-actions > .dropdown { flex: 0 0 52px; }
-      .ts-actions > .ts-btn ph-icon { display: none; }
+      .ts-actions > .ts-btn .pd-icon { display: none; }
       .ts-act-label { display: inline; }
       .ts-view { inset: 0; border-radius: 0; }
     }
@@ -242,8 +243,8 @@
         <div v-if="sheetOpen" class="ts-sheet-scrim" @click="sheetOpen = false"></div>
         <div class="ts-filter-set" :class="{ 'is-open': sheetOpen }" role="dialog" aria-label="Filters">
         <div class="ts-sheet-head"><span class="ts-sheet-title">Filters</span><button type="button" class="ts-close" title="Close" aria-label="Close" @click="sheetOpen = false"><ph-icon name="close" :size="16"></ph-icon></button></div>
-        <div class="dropdown">
-          <button type="button" class="ts-ctl" :class="{ 'is-on': filters.clients.length }" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+        <div class="dropdown" :class="{ 'is-on': filters.clients.length }">
+          <button type="button" class="ts-ctl" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
             {{ 'Client' + (filters.clients.length ? ' (' + filters.clients.length + ')' : '') }}<ph-icon name="chevron-down" :size="11"></ph-icon>
           </button>
           <ul class="dropdown-menu p-2 ts-checklist">
@@ -254,8 +255,8 @@
             <li v-if="!clientOptions.length" class="text-muted small px-2">No data</li>
           </ul>
         </div>
-        <div class="dropdown">
-          <button type="button" class="ts-ctl" :class="{ 'is-on': filters.projects.length }" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+        <div class="dropdown" :class="{ 'is-on': filters.projects.length }">
+          <button type="button" class="ts-ctl" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
             {{ 'Project' + (filters.projects.length ? ' (' + filters.projects.length + ')' : '') }}<ph-icon name="chevron-down" :size="11"></ph-icon>
           </button>
           <ul class="dropdown-menu p-2 ts-checklist">
@@ -420,7 +421,7 @@
 <script defer src="js/notifications.js?v=3"></script>
 <script type="module" src="js/lib/icons.js?v=7"></script>
 <script type="module" src="js/lib/md-subnav.js?v=5"></script>
-<script type="module" src="js/lib/timesheets-list.js?v=1"></script>
+<script type="module" src="js/lib/timesheets-list.js?v=2"></script>
 <script defer src="js/nav.js?v=19"></script>
 <script type="module">
   const app = Vue.createApp({
@@ -440,12 +441,8 @@
       };
     },
     computed: {
-      clientOptions() {
-        return [...new Set(this.rows.map(r => r.client_name).filter(Boolean))].sort();
-      },
-      projectOptions() {
-        return [...new Set(this.rows.map(r => r.project_name).filter(Boolean))].sort();
-      },
+      clientOptions() { return filterOptions(this.rows, 'client_name'); },
+      projectOptions() { return filterOptions(this.rows, 'project_name'); },
       filteredRows() { return filterTimesheetRows(this.rows, this.filters); },
       groups() { return groupTimesheetRows(this.filteredRows, this.sort); },
       filtersOn() { return hasActiveFilters(this.filters); },
@@ -498,11 +495,26 @@
         this.filters = { year: 0, clients: [], projects: [], code: '' };
       },
       onKeydown(e) {
-        if (e.key !== 'Escape' || document.querySelector('.modal.show')) return;
-        if (this.modal.show) this.closeView();
-        else if (this.sheetOpen) this.sheetOpen = false;
+        if (document.querySelector('.modal.show')) return;
+        if (e.key === 'Escape') {
+          if (document.querySelector('.dropdown-menu.show')) return;   // Bootstrap closes the open dropdown first
+          if (this.modal.show) this.closeView();
+          else if (this.sheetOpen) this.sheetOpen = false;
+          return;
+        }
+        if (e.key !== 'Tab' || !this.modal.show) return;
+        const view = document.querySelector('.ts-view');
+        const items = view ? [...view.querySelectorAll('button:not([disabled]), [tabindex]:not([tabindex="-1"])')] : [];
+        if (!items.length) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && (document.activeElement === first || !view.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (document.activeElement === last || !view.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
       },
-      closeView() { this.modal.show = false; },
+      closeView() {
+        this.modal.show = false;
+        this.$nextTick(() => { if (this._returnFocus && this._returnFocus.focus) this._returnFocus.focus(); });
+      },
       async loadRows() {
         this.error = null;
         try {
@@ -521,6 +533,7 @@
             this.error = null;
             try {
               await Api.timesheets.delete(code);
+              this.rows = this.rows.filter(r => r !== row);
               await this.loadRows();
             } catch (e) {
               this.error = e.message || 'Delete failed.';
@@ -529,6 +542,8 @@
           }, null, 'Delete actuals');
       },
       async viewRows(r) {
+        this._returnFocus = document.activeElement;
+        this.$nextTick(() => { const c = document.querySelector('.ts-view .ts-close'); if (c) c.focus(); });
         this.modal = { show: true, loading: true, code: r.project_code, rows: [], currency: r.currency || null };
         try {
           const records = await Api.timesheets.get(r.project_code);

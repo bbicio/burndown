@@ -18,6 +18,11 @@ export function filterTimesheetRows(rows, { year = 0, clients = [], projects = [
   });
 }
 
+// Distinct non-empty values of `field`, in the groups' case-insensitive order (the Client / Project checklists).
+export function filterOptions(rows, field) {
+  return [...new Set((rows || []).map(r => r[field]).filter(Boolean))].sort(cmpText);
+}
+
 export function hasActiveFilters({ year = 0, clients = [], projects = [], code = '' } = {}) {
   return year !== 0 || clients.length > 0 || projects.length > 0 || !!code;
 }
@@ -72,6 +77,7 @@ if (typeof window !== 'undefined') {
   window.NO_CLIENT_LABEL = NO_CLIENT_LABEL;
   window.filterTimesheetRows = filterTimesheetRows;
   window.hasActiveFilters = hasActiveFilters;
+  window.filterOptions = filterOptions;
   window.nextSortState = nextSortState;
   window.groupTimesheetRows = groupTimesheetRows;
 }

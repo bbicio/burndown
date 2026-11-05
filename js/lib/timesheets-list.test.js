@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  filterTimesheetRows, hasActiveFilters, nextSortState, groupTimesheetRows, NO_CLIENT_LABEL,
+  filterTimesheetRows, hasActiveFilters, nextSortState, groupTimesheetRows, NO_CLIENT_LABEL, filterOptions,
 } from './timesheets-list.js';
 
 const row = (project_code, client_name, project_name, total_rows = 1, pipeline_year = 2026) =>
@@ -108,5 +108,12 @@ describe('nextSortState', () => {
     s = nextSortState(s, 'client_name'); expect(s).toEqual({ sortBy: 'client_name', sortDir: 'desc' });
     s = nextSortState(s, 'client_name'); expect(s).toEqual({ sortBy: null, sortDir: 'asc' });
     expect(nextSortState({ sortBy: 'client_name', sortDir: 'desc' }, 'project_code')).toEqual({ sortBy: 'project_code', sortDir: 'asc' });
+  });
+});
+
+describe('filterOptions', () => {
+  it('lists distinct non-empty values in the same case-insensitive order as the groups', () => {
+    expect(filterOptions(ROWS, 'client_name')).toEqual(['alfa Pharma', 'Bayer AG', 'Menarini Ricerche', 'Next Health Advisors', 'SIFI Group']);
+    expect(filterOptions([row('A', null, 'b'), row('B', 'X', 'B'), row('C', 'X', 'a')], 'project_name')).toEqual(['a', 'b', 'B']);
   });
 });
