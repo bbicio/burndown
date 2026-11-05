@@ -239,10 +239,10 @@
           <ph-icon name="search" :size="13"></ph-icon>
           <input type="text" placeholder="Filter by project code…" v-model="filters.code" aria-label="Filter by project code">
         </label>
-        <button type="button" class="ts-ctl ts-sheet-btn" :class="{ 'is-on': sheetCount }" @click="sheetOpen = true"><ph-icon name="filter" :size="14"></ph-icon>{{ 'Filters' + (sheetCount ? ' (' + sheetCount + ')' : '') }}</button>
-        <div v-if="sheetOpen" class="ts-sheet-scrim" @click="sheetOpen = false"></div>
-        <div class="ts-filter-set" :class="{ 'is-open': sheetOpen }" role="dialog" aria-label="Filters">
-        <div class="ts-sheet-head"><span class="ts-sheet-title">Filters</span><button type="button" class="ts-close" title="Close" aria-label="Close" @click="sheetOpen = false"><ph-icon name="close" :size="16"></ph-icon></button></div>
+        <button type="button" class="ts-ctl ts-sheet-btn" :class="{ 'is-on': sheetCount }" @click="openSheet"><ph-icon name="filter" :size="14"></ph-icon>{{ 'Filters' + (sheetCount ? ' (' + sheetCount + ')' : '') }}</button>
+        <div v-if="sheetOpen" class="ts-sheet-scrim" @click="closeSheet"></div>
+        <div class="ts-filter-set" :class="{ 'is-open': sheetOpen }" :role="sheetOpen ? 'dialog' : null" :aria-modal="sheetOpen ? 'true' : null" :aria-label="sheetOpen ? 'Filters' : null">
+        <div class="ts-sheet-head"><span class="ts-sheet-title">Filters</span><button type="button" class="ts-close" title="Close" aria-label="Close" @click="closeSheet"><ph-icon name="close" :size="16"></ph-icon></button></div>
         <div class="dropdown" :class="{ 'is-on': filters.clients.length }">
           <button type="button" class="ts-ctl" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
             {{ 'Client' + (filters.clients.length ? ' (' + filters.clients.length + ')' : '') }}<ph-icon name="chevron-down" :size="11"></ph-icon>
@@ -271,7 +271,7 @@
           <option :value="0">All years</option>
           <option v-for="py in pipelineYears" :key="py.year" :value="py.year">Pipeline {{ py.year }}</option>
         </select>
-        <button type="button" class="btn btn-primary ts-sheet-done" @click="sheetOpen = false">Done</button>
+        <button type="button" class="btn btn-primary ts-sheet-done" @click="closeSheet">Done</button>
         </div>
         <button v-if="filtersOn" type="button" class="ts-reset" @click="resetFilters"><ph-icon name="reset" :size="12"></ph-icon>Reset filters</button>
       </div>
@@ -494,22 +494,34 @@
       resetFilters() {
         this.filters = { year: 0, clients: [], projects: [], code: '' };
       },
+      openSheet() {
+        this._sheetReturn = document.activeElement;
+        this.sheetOpen = true;
+        this.$nextTick(() => { const c = document.querySelector('.ts-filter-set.is-open .ts-close'); if (c) c.focus(); });
+      },
+      closeSheet() {
+        this.sheetOpen = false;
+        this.$nextTick(() => { if (this._sheetReturn && this._sheetReturn.focus) this._sheetReturn.focus(); });
+      },
       onKeydown(e) {
         if (document.querySelector('.modal.show')) return;
         if (e.key === 'Escape') {
-          if (document.querySelector('.dropdown-menu.show')) return;   // Bootstrap closes the open dropdown first
+          if (e.defaultPrevented) return;   // Bootstrap already closed the dropdown this Esc was for
           if (this.modal.show) this.closeView();
-          else if (this.sheetOpen) this.sheetOpen = false;
+          else if (this.sheetOpen) this.closeSheet();
           return;
         }
-        if (e.key !== 'Tab' || !this.modal.show) return;
-        const view = document.querySelector('.ts-view');
-        const items = view ? [...view.querySelectorAll('button:not([disabled]), [tabindex]:not([tabindex="-1"])')] : [];
+        if (e.key !== 'Tab') return;
+        // Tab stays inside the open View modal, or else inside the open phone Filters sheet
+        const box = this.modal.show ? document.querySelector('.ts-view')
+          : this.sheetOpen ? document.querySelector('.ts-filter-set.is-open') : null;
+        const items = box ? [...box.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+          .filter(el => el.offsetParent !== null) : [];
         if (!items.length) return;
         const first = items[0];
         const last = items[items.length - 1];
-        if (e.shiftKey && (document.activeElement === first || !view.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
-        else if (!e.shiftKey && (document.activeElement === last || !view.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+        if (e.shiftKey && (document.activeElement === first || !box.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (document.activeElement === last || !box.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
       },
       closeView() {
         this.modal.show = false;
@@ -543,8 +555,8 @@
       },
       async viewRows(r) {
         this._returnFocus = document.activeElement;
-        this.$nextTick(() => { const c = document.querySelector('.ts-view .ts-close'); if (c) c.focus(); });
         this.modal = { show: true, loading: true, code: r.project_code, rows: [], currency: r.currency || null };
+        this.$nextTick(() => { const c = document.querySelector('.ts-view .ts-close'); if (c) c.focus(); });
         try {
           const records = await Api.timesheets.get(r.project_code);
           // each record has a .data array; flatten all uploads

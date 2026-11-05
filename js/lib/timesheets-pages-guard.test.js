@@ -117,7 +117,7 @@ describe('tablet and smartphone layouts (11.3)', () => {
   it('timesheets.html moves Client, Project and year into a Filters sheet on phone', () => {
     const html = read('timesheets.html');
     expect(html).toContain("'Filters' + (sheetCount ? ' (' + sheetCount + ')' : '')");
-    expect(html).toMatch(/class="ts-filter-set"[^>]*role="dialog"|role="dialog"[^>]*class="ts-filter-set/);
+    expect(html).toContain('class="ts-filter-set"');
   });
 
   it('profile-jobs.html offers Remove from queue in a More menu on tablet', () => {
@@ -144,15 +144,34 @@ describe('Gate 3 round 1 fixes', () => {
     expect(html).toMatch(/onKeydown\(e\) \{[\s\S]*'Tab'[\s\S]*\.ts-view/);
   });
 
-  it('timesheets.html leaves Esc to an open dropdown before closing the sheet', () => {
-    const html = read('timesheets.html');
-    const kd = html.slice(html.indexOf('onKeydown(e) {'), html.indexOf('closeView() {'));
-    expect(kd).toContain('.dropdown-menu.show');
-  });
-
   it('timesheets.html drops a deleted row even when the reload fails', () => {
     const html = read('timesheets.html');
     const del = html.slice(html.indexOf('deleteCode(row) {'), html.indexOf('async viewRows('));
     expect(del).toMatch(/await Api\.timesheets\.delete\(code\);\s*this\.rows = this\.rows\.filter\(/);
+  });
+});
+
+describe('Gate 3 round 2 fixes', () => {
+  const html = read('timesheets.html');
+  const method = (start, end) => html.slice(html.indexOf(start), html.indexOf(end));
+
+  it('Esc yields to a dropdown Bootstrap already handled (defaultPrevented), not to a .show it removed', () => {
+    const kd = method('onKeydown(e) {', 'closeView() {');
+    expect(kd).toContain('e.defaultPrevented');
+    expect(kd).not.toContain('.dropdown-menu.show');
+  });
+
+  it('viewRows renders the modal before moving focus into it', () => {
+    const v = method('async viewRows(r) {', 'async downloadXlsx(');
+    expect(v.indexOf('this.modal = {')).toBeGreaterThan(-1);
+    expect(v.indexOf('this.modal = {')).toBeLessThan(v.indexOf('$nextTick'));
+  });
+
+  it('the Filters sheet is a dialog only while open, takes focus and traps Tab', () => {
+    expect(html).toMatch(/class="ts-filter-set"[^>]*:role="sheetOpen \? 'dialog' : null"[^>]*:aria-modal="sheetOpen \? 'true' : null"/);
+    expect(html).not.toMatch(/class="ts-filter-set"[^>]*\srole="dialog"/);
+    expect(method('openSheet() {', 'closeSheet() {')).toContain('$nextTick');
+    expect(method('closeSheet() {', 'onKeydown(e) {')).toContain('_sheetReturn');
+    expect(method('onKeydown(e) {', 'closeView() {')).toContain('.ts-filter-set');
   });
 });
