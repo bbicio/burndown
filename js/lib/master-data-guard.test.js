@@ -413,6 +413,75 @@ describe('Pipelines & POTs responsive styles', () => {
     expect(html).toContain('} else if (!this.loadOk) {');
   });
 
+  it('pins the form texts and rules that move into the drawer', () => {
+    for (const x of [
+      'Enter a valid year (2000–2100).',
+      '`Pipeline ${year} already exists.`',
+      'Reason for change is required when updating a POT.',
+      'Select a target.',
+      'Created hidden: show it when POTs are ready.',
+      'All clients of the group count towards one target.',
+      ':disabled="potf.loading || !potf.targetId || !String(potf.amountText).trim()"',
+      ':disabled="potf.loading || !potf.note || !potf.note.trim() || !String(potf.amountText).trim()"',
+    ]) expect(html, x).toContain(x);
+  });
+
+  it('opens the new-year, new-POT and edit-target forms in the side drawer, not inside the tables', () => {
+    expect(html).not.toContain('mdp-new');
+    expect(html).not.toContain('mdp-sheet');
+    const drawer = html.slice(html.indexOf('<div v-if="drawerView" class="mdp-drawer-wrap">'), html.indexOf('</div><!-- /drawer -->'));
+    expect(drawer.length).toBeGreaterThan(0);
+    // savePot twice: the Create POT and Update target buttons keep their own :disabled rules.
+    for (const [x, n] of [['ref="pyfInput"', 1], ['@click="createPipelineYear"', 1], ['@click="savePot"', 2], ['ref="potfAmount"', 1]]) {
+      expect(html.split(x).length - 1, x).toBe(n);
+      expect(drawer.split(x).length - 1, x).toBe(n);
+    }
+    for (const m of html.matchAll(/<table class="mdp-table[\s\S]*?<\/table>/g)) {
+      expect(m[0]).not.toContain('pyf.show');
+      expect(m[0]).not.toContain('potf.show');
+    }
+    const edit = html.slice(html.indexOf('async editFromDrawer(pot)'), html.indexOf('fmtDate(', html.indexOf('async editFromDrawer(pot)')));
+    expect(edit.length).toBeGreaterThan(0);
+    expect(edit).not.toContain('this.go(');
+    const apply = html.slice(html.indexOf('async applyState('), html.indexOf('} else if (!this.loadOk)'));
+    expect(apply).toContain('this.pyf.show = false');
+    expect(html).toContain('window.mdpDrawerDismiss(');
+    expect(html).toContain('js/lib/master-pipelines.js?v=2');
+    expect(html).not.toContain('master-pipelines.js?v=1');
+  });
+
+  it('opens the cg-select popover above the side drawer', () => {
+    expect(style).toMatch(/\.cg-pop\s*\{[^}]*z-index:\s*calc\(var\(--z-notification\) \+ 1\)/);
+  });
+
+  it('phone: the form drawer is full screen too, not 440px', () => {
+    expect(phone).toMatch(/\.mdp-drawer, \.mdp-drawer\.is-form \{ width: 100vw;/);
+  });
+
+  it('Esc and a scrim click aimed at an open picker leave the form open', () => {
+    const esc = html.slice(html.indexOf("if (e.key !== 'Escape' || !this.drawerView) return;"), html.indexOf('this.dismissDrawer(false);'));
+    expect(esc).toContain("if (document.querySelector('.cg-pop')) return;");
+    // In-DOM Vue templates cannot reach `document`: the check lives in a method.
+    expect(html).toContain('class="mdp-scrim" @mousedown="onScrimDown" @click="onScrimClick"');
+    const tpl = html.slice(html.indexOf('<div id="app"'), html.indexOf('</div><!-- #app -->'));
+    expect(tpl).not.toMatch(/="[^"]*\bdocument\./);
+    expect(html).toContain("onScrimDown() { this.scrimOverPicker = !!document.querySelector('.cg-pop'); },");
+    const scrim = html.slice(html.indexOf('onScrimClick() {'), html.indexOf('onScrimClick() {') + 200);
+    expect(scrim).toContain('if (this.scrimOverPicker)');
+    expect(scrim).toContain('this.dismissDrawer(false)');
+  });
+
+  it('keeps no CSS of the removed inline rows', () => {
+    for (const sel of ['.mdp-icon-btn.is-on', '.mdp-edit-line', '.mdp-field-grow', '.mdp-current', 'mdp-edit-amount']) {
+      expect(html, sel).not.toContain(sel);
+    }
+  });
+
+  it("row pencil closes another POT's details", () => {
+    const open = html.slice(html.indexOf('openPotForm(pot) {'), html.indexOf('// Focus shows'));
+    expect(open).toContain('this.closeDrawer()');
+  });
+
   it('has a tablet block followed by a phone block', () => {
     expect(tabletAt).toBeGreaterThan(-1);
     expect(phoneAt).toBeGreaterThan(tabletAt);
@@ -425,7 +494,7 @@ describe('Pipelines & POTs responsive styles', () => {
   });
 
   it('phone: touch targets are 44px on Add year, the more menu, the card foot and proposal rows', () => {
-    for (const sel of ['.mdp-head .btn', '.mdp-icon-btn', '.mdp-pcard-foot', '.mdp-prop']) {
+    for (const sel of ['.mdp-head .btn', '.mdp-icon-btn', '.mdp-pcard-foot', '.mdp-prop', '.mdp-dr-foot-actions .btn']) {
       const i = phone.indexOf(sel);
       expect(i, sel).toBeGreaterThan(-1);
       expect(phone.slice(i, i + 200), sel).toContain('min-height: 44px');

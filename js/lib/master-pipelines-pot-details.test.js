@@ -75,13 +75,17 @@ describe('POT details drawer', () => {
   });
 
   it('renders only for a POT of the open year (a stale deep link opens no drawer)', () => {
-    expect(page).toContain('<div v-if="drawerPot" class="mdp-drawer-wrap">');
+    expect(page).toContain('<div v-if="drawerView" class="mdp-drawer-wrap">');
+    expect(page).toContain("return this.drawerPot ? 'details' : null;");
     expect(page).toContain('resolvePot(this.pots, this.potId)');
   });
 
   it('closes on the scrim, the close button and Escape', () => {
-    expect(drawer).toContain('@click="closeDrawer"');
-    expect(page).toMatch(/keydown[\s\S]{0,200}Escape[\s\S]{0,240}closeDrawer/);
+    expect(page).toContain('@click="onScrimClick"');
+    expect(page).toMatch(/onScrimClick\(\) \{[\s\S]{0,160}this\.dismissDrawer\(false\)/);
+    expect(drawer).toContain('aria-label="Close" @click="dismissDrawer(true)"');
+    expect(page).toMatch(/keydown[\s\S]{0,200}Escape[\s\S]{0,240}dismissDrawer\(false\)/);
+    expect(page).toContain("if (r === 'close-drawer' && this.drawerPot) this.closeDrawer();");
   });
 
   it('writes no literal hex colour and takes stage colours from the tokens', () => {
