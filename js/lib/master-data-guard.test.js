@@ -413,6 +413,19 @@ describe('Pipelines & POTs responsive styles', () => {
     expect(html).toContain('} else if (!this.loadOk) {');
   });
 
+  it('pins the form texts and rules that move into the drawer', () => {
+    for (const x of [
+      'Enter a valid year (2000–2100).',
+      '`Pipeline ${year} already exists.`',
+      'Reason for change is required when updating a POT.',
+      'Select a target.',
+      'Created hidden: show it when POTs are ready.',
+      'All clients of the group count towards one target.',
+      ':disabled="potf.loading || !potf.targetId || !String(potf.amountText).trim()"',
+      ':disabled="potf.loading || !potf.note || !potf.note.trim() || !String(potf.amountText).trim()"',
+    ]) expect(html, x).toContain(x);
+  });
+
   it('has a tablet block followed by a phone block', () => {
     expect(tabletAt).toBeGreaterThan(-1);
     expect(phoneAt).toBeGreaterThan(tabletAt);

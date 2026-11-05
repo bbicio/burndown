@@ -138,10 +138,19 @@ export function stageCounts(rows) {
   return out;
 }
 
+// What a dismiss (scrim, Cancel, Esc; closeAll = the close button) does to the side drawer.
+export function mdpDrawerDismiss({ pyfShow = false, potfShow = false, hasDetails = false, loading = false, closeAll = false } = {}) {
+  if (loading) return 'none';
+  const formOpen = pyfShow || potfShow;
+  if (!formOpen && !hasDetails) return 'none';
+  if (closeAll || !formOpen) return 'close-drawer';
+  return potfShow && hasDetails ? 'back-to-details' : 'close-form';
+}
+
 if (typeof window !== 'undefined') {
   Object.assign(window, {
     parseMdpUrl, buildMdpUrl, resolvePot, potCountByYear, achievement, gapToTarget, outsidePotCommitted,
     potClientIds, availableTargets, ACTIVE_STAGES, rowMonthAmount, rowCurrency, filterPhasingRows,
-    phasingTotals, stageCounts,
+    phasingTotals, stageCounts, mdpDrawerDismiss,
   });
 }

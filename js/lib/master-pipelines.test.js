@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseMdpUrl, buildMdpUrl, resolvePot, potCountByYear, achievement, gapToTarget, outsidePotCommitted,
   potClientIds, availableTargets, ACTIVE_STAGES, rowMonthAmount, rowCurrency, filterPhasingRows,
-  phasingTotals, stageCounts,
+  phasingTotals, stageCounts, mdpDrawerDismiss,
 } from './master-pipelines.js';
 
 const MONTHS = ['2026-01', '2026-02'];
@@ -186,5 +186,35 @@ describe('phasingTotals', () => {
 describe('stageCounts', () => {
   it('counts only the four active stages', () => {
     expect(stageCounts(PROPOSAL)).toEqual({ SIP: 1, Expected: 0, Anticipated: 1, Committed: 1 });
+  });
+});
+
+describe('mdpDrawerDismiss', () => {
+  it('does nothing while a save is running', () => {
+    expect(mdpDrawerDismiss({ potfShow: true, hasDetails: true, loading: true })).toBe('none');
+  });
+  it('does nothing while a save is running, even with the close button', () => {
+    expect(mdpDrawerDismiss({ pyfShow: true, loading: true, closeAll: true })).toBe('none');
+  });
+  it('closes the whole drawer with the close button over the details', () => {
+    expect(mdpDrawerDismiss({ potfShow: true, hasDetails: true, closeAll: true })).toBe('close-drawer');
+  });
+  it('closes the details when no form is open', () => {
+    expect(mdpDrawerDismiss({ hasDetails: true })).toBe('close-drawer');
+  });
+  it('goes back to the details from the edit form', () => {
+    expect(mdpDrawerDismiss({ potfShow: true, hasDetails: true })).toBe('back-to-details');
+  });
+  it('closes a POT form opened on its own', () => {
+    expect(mdpDrawerDismiss({ potfShow: true })).toBe('close-form');
+  });
+  it('closes the new-year form', () => {
+    expect(mdpDrawerDismiss({ pyfShow: true })).toBe('close-form');
+  });
+  it('closes the drawer with the close button over the new-year form', () => {
+    expect(mdpDrawerDismiss({ pyfShow: true, closeAll: true })).toBe('close-drawer');
+  });
+  it('does nothing when nothing is open', () => {
+    expect(mdpDrawerDismiss({})).toBe('none');
   });
 });
