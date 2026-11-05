@@ -81,7 +81,8 @@ describe('POT details drawer', () => {
   });
 
   it('closes on the scrim, the close button and Escape', () => {
-    expect(page).toContain('class="mdp-scrim" @click="dismissDrawer(false)"');
+    expect(page).toContain('@click="onScrimClick"');
+    expect(page).toMatch(/onScrimClick\(\) \{[\s\S]{0,160}this\.dismissDrawer\(false\)/);
     expect(drawer).toContain('aria-label="Close" @click="dismissDrawer(true)"');
     expect(page).toMatch(/keydown[\s\S]{0,200}Escape[\s\S]{0,240}dismissDrawer\(false\)/);
     expect(page).toContain("if (r === 'close-drawer' && this.drawerPot) this.closeDrawer();");

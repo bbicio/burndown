@@ -454,6 +454,25 @@ describe('Pipelines & POTs responsive styles', () => {
     expect(style).toMatch(/\.cg-pop\s*\{[^}]*z-index:\s*calc\(var\(--z-notification\) \+ 1\)/);
   });
 
+  it('phone: the form drawer is full screen too, not 440px', () => {
+    expect(phone).toMatch(/\.mdp-drawer, \.mdp-drawer\.is-form \{ width: 100vw;/);
+  });
+
+  it('Esc and a scrim click aimed at an open picker leave the form open', () => {
+    const esc = html.slice(html.indexOf("if (e.key !== 'Escape' || !this.drawerView) return;"), html.indexOf('this.dismissDrawer(false);'));
+    expect(esc).toContain("if (document.querySelector('.cg-pop')) return;");
+    expect(html).toContain('class="mdp-scrim" @mousedown="scrimOverPicker = !!document.querySelector(\'.cg-pop\')" @click="onScrimClick"');
+    const scrim = html.slice(html.indexOf('onScrimClick() {'), html.indexOf('onScrimClick() {') + 200);
+    expect(scrim).toContain('if (this.scrimOverPicker)');
+    expect(scrim).toContain('this.dismissDrawer(false)');
+  });
+
+  it('keeps no CSS of the removed inline rows', () => {
+    for (const sel of ['.mdp-icon-btn.is-on', '.mdp-edit-line', '.mdp-field-grow', '.mdp-current', 'mdp-edit-amount']) {
+      expect(html, sel).not.toContain(sel);
+    }
+  });
+
   it("row pencil closes another POT's details", () => {
     const open = html.slice(html.indexOf('openPotForm(pot) {'), html.indexOf('// Focus shows'));
     expect(open).toContain('this.closeDrawer()');

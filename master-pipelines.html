@@ -117,21 +117,16 @@
     .mdp-ach .mdp-pct { min-width: 38px; text-align: right; }
     .mdp-pct.is-done { color: var(--color-success-text); }
     .mdp-upcoming { font-size: 11.5px; color: var(--pipeline-sip-color); margin-top: 2px; }
-    .mdp-icon-btn.is-on { background: var(--brand-navy); color: var(--surface-white); }
     .mdp-target-select { width: 280px; flex: none; }
     .mdp-amount { display: inline-flex; align-items: center; gap: var(--space-2); height: 34px; padding: 0 var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--surface-white); margin: 0; }
     .mdp-amount:focus-within { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
     .mdp-amount-sym { color: var(--text-muted); font-size: var(--text-sm); }
     .mdp-amount-input { border: 0; outline: 0; width: 190px; font-size: var(--text-sm); color: var(--brand-navy); background: transparent; min-width: 0; }
-    .mdp-edit-line { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); }
     .mdp-field { display: flex; flex-direction: column; gap: 4px; margin: 0; }
-    .mdp-field-grow { flex: 1 1 260px; min-width: 0; }
     .mdp-field-label { font-size: var(--text-sm); color: var(--text-secondary); }
     .mdp-req { color: var(--color-danger-text); }
-    .mdp-edit-amount, .mdp-text-input { height: 34px; padding: 0 var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-sm); font-size: var(--text-sm); color: var(--brand-navy); background: var(--surface-white); width: 150px; }
-    .mdp-text-input { width: 100%; }
-    .mdp-edit-amount:focus, .mdp-text-input:focus { outline: 0; border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
-    .mdp-current { align-self: center; }
+    .mdp-text-input { height: 34px; padding: 0 var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-sm); font-size: var(--text-sm); color: var(--brand-navy); background: var(--surface-white); width: 100%; }
+    .mdp-text-input:focus { outline: 0; border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
     .mdp-outside { display: flex; align-items: flex-start; gap: var(--space-2); }
     @media (max-width: 1023.98px) {
       .mdp-sum-grid { grid-template-columns: 1fr; }
@@ -261,7 +256,7 @@
       .mdp-stage-tiles { display: flex; overflow-x: auto; }
       .mdp-stage-tile { flex: 0 0 150px; }
       .mdp-head .btn, .mdp-card-head .btn, .mdp-title-row .btn, .mdp-toolbar .btn, .mdp-dr-head .btn, .mdp-dr-foot-actions .btn,
-      .mdp-amount, .mdp-input, .mdp-text-input, .mdp-edit-amount, .md-seg-btn { min-height: 40px; }
+      .mdp-amount, .mdp-input, .mdp-text-input, .md-seg-btn { min-height: 40px; }
     }
     @media (max-width: 767.98px) {
       .mdp-head .btn { min-height: 44px; width: 100%; }
@@ -273,7 +268,7 @@
       .mdp-pot-table thead, .mdp-pot-table .mdp-row { display: none; }
       .mdp-pot-cards { display: grid; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
       .mdp-prop { min-height: 44px; }
-      .mdp-drawer { width: 100vw; border-left: 0; }
+      .mdp-drawer, .mdp-drawer.is-form { width: 100vw; border-left: 0; }
       .mdp-dr-back { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 36px; border: 0; background: none; padding: 0; color: var(--text-muted); font-size: var(--text-sm); }
       .mdp-dr-close, .mdp-dr-edit-top { display: none; }
       .mdp-dr-close.is-form-close { display: inline-flex; }
@@ -706,7 +701,7 @@
 </section>
 <!-- ── Side drawer: POT details, new year, new POT, edit target ───── -->
 <div v-if="drawerView" class="mdp-drawer-wrap">
-  <div class="mdp-scrim" @click="dismissDrawer(false)"></div>
+  <div class="mdp-scrim" @mousedown="scrimOverPicker = !!document.querySelector('.cg-pop')" @click="onScrimClick"></div>
   <aside class="mdp-drawer" :class="{ 'is-form': drawerView !== 'details' && !drawerPot }" role="dialog" aria-modal="true" :aria-label="drawerLabel">
     <header class="mdp-dr-head">
       <button v-if="drawerView === 'details'" type="button" class="mdp-dr-back" @click="closeDrawer"><ph-icon name="chevron-left" :size="14"></ph-icon> Pipeline {{ year }}</button>
@@ -955,6 +950,7 @@ window.__cfgApp = Vue.createApp({
       pots:            [],
       potsYear:        new Date().getFullYear(),
       pipelineSummary: [],   // 5 stage cards: [{pipeline, count, total}]
+      scrimOverPicker: false,
       potf: { show: false, id: null, targetType: 'client', targetId: '', year: new Date().getFullYear(), amountText: '', stored: null, targetLabel: '', error: null, loading: false },
       pipelineYears:   [],   // admin-managed pipeline years (all, active + inactive)
       yearTotals:      {},   // { year: { pot_total, achieved_total } }
@@ -1091,6 +1087,7 @@ window.__cfgApp = Vue.createApp({
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape' || !this.drawerView) return;
       if (document.querySelector('.modal.show')) return; // Esc belongs to the open modal
+      if (document.querySelector('.cg-pop')) return; // ...and to the open picker
       this.dismissDrawer(false);
     });
     window.addEventListener('popstate', () => { if (this.ready) { this.globalError = null; this.applyState(window.parseMdpUrl(location.search)); } });
@@ -1489,6 +1486,12 @@ window.__cfgApp = Vue.createApp({
     // The form replaces the details in the same drawer; the URL keeps ?year=Y&pot=<id>.
     async editFromDrawer(pot) {
       this.openPotForm(pot);
+    },
+
+    // The mousedown that closed an open picker is not a request to close the drawer.
+    onScrimClick() {
+      if (this.scrimOverPicker) { this.scrimOverPicker = false; return; }
+      this.dismissDrawer(false);
     },
 
     // Scrim, Cancel and Esc (closeAll false), the close button (closeAll true).
