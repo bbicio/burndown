@@ -132,6 +132,68 @@
     .mdc-change-delta { font-size: 12px; color: var(--text-muted); }
     .mdc-change-delta.is-nochange { color: var(--color-warning-text); }
     .mdc-change-rate { min-width: 72px; text-align: right; font-weight: var(--weight-bold); color: var(--brand-navy); }
+
+    /* ── Tablet / phone pieces hidden on wide screens ── */
+    .mdc-rate-inv, .mdc-cards, .mdc-sheet-wrap { display: none; }
+
+    /* ── Bottom sheet ── */
+    .mdc-sheet-wrap { display: block; }
+    .mdc-sheet {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-notification); max-height: 92dvh; overflow-y: auto;
+      background: var(--surface-white); border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: var(--shadow-xl);
+      padding: 16px 16px 20px; display: flex; flex-direction: column; gap: var(--space-3);
+    }
+    .mdc-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+    .mdc-sheet-title { margin: 0; font-size: 16px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .mdc-sheet-label { font-size: 12px; font-weight: var(--weight-semibold); color: var(--text-primary); }
+    .mdc-sheet .mdc-input { width: 100%; height: 48px; font-size: 16px; }
+    .mdc-sheet-help { font-size: 12px; color: var(--text-muted); }
+    .mdc-sheet-primary { min-height: 46px; width: 100%; }
+    .mdc-sheet .mdc-combo-list { max-height: 38dvh; }
+    .mdc-sheet .mdc-combo-opt { min-height: 44px; }
+
+    /* ── Tablet (768–1023px) ── */
+    @media (min-width: 768px) and (max-width: 1023.98px) {
+      .mdc-col-inverse, .mdc-delta { display: none; }
+      .mdc-rate-btn {
+        height: 40px; margin: 0; padding: 0 10px; border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+        background: var(--surface-white);
+      }
+      .mdc-rate-inv { display: block; margin-top: 4px; font-size: 11px; color: var(--text-muted); }
+      .mdc-input, .mdc-combo-trigger { height: 40px; }
+      .mdc-table .btn { min-height: 40px; }
+      .mdc-link { min-height: 40px; }
+      .mdc-act-row td { height: auto; padding-top: 12px; padding-bottom: 12px; }
+    }
+
+    /* ── Phone (< 768px) ── */
+    @media (max-width: 767.98px) {
+      .mdc-head-row { flex-direction: column; }
+      .mdc-head-row > .btn { width: 100%; min-height: 44px; }
+      .mdc-table-card .mdc-table, .md-table-card .mdc-table, .md-table-card .mdc-empty { display: none; }
+      .mdc-cards { display: flex; flex-direction: column; gap: var(--space-3); }
+      .mdc-card { border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--surface-white); overflow: hidden; }
+      .mdc-card-top { display: flex; align-items: center; gap: var(--space-3); padding: 12px; }
+      .mdc-card-top .mdc-cur { flex: 1 1 auto; }
+      .mdc-card-val { text-align: right; }
+      .mdc-card-val strong { display: block; font-size: 15px; color: var(--brand-navy); }
+      .mdc-card-val span { font-size: 11px; color: var(--text-muted); }
+      .mdc-card-actions { display: flex; border-top: 1px solid var(--border-light); }
+      .mdc-card-actions button { flex: 1 1 0; min-height: 44px; border: 0; background: transparent; font-size: 13px; font-weight: var(--weight-semibold); color: var(--brand-navy); }
+      .mdc-card-actions button + button { border-left: 1px solid var(--border-light); }
+      .mdc-sheet-wrap .mdc-scrim { z-index: calc(var(--z-notification) - 1); }
+      .mdc-dialog-wrap .mdc-scrim { z-index: var(--z-notification); }
+      .mdc-dialog {
+        z-index: calc(var(--z-notification) + 1); top: auto; left: 0; right: 0; bottom: 0; transform: none; width: 100%;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 16px 16px 20px;
+      }
+      .mdc-dialog-foot .btn { min-height: 46px; flex: 1 1 0; }
+      .mdc-drawer { width: 100vw; border-left: 0; }
+      .mdc-dr-close { width: 44px; height: 44px; }
+      .mdc-change { grid-template-columns: 14px 1fr auto; }
+      .mdc-change-delta { grid-column: 2; }
+    }
+    @media (min-width: 768px) { .mdc-sheet-wrap { display: none; } }
   </style>
 </head>
 <body>
@@ -157,7 +219,7 @@
       <h2 class="md-card-title">Currencies</h2>
       <p class="md-card-desc">Active currencies can be used in proposals and rate cards. EUR is the base currency.</p>
     </div>
-    <button v-if="ready && canActivate && !act.show" type="button" class="btn btn-primary btn-sm" @click="openActivate">+ Activate currency</button>
+    <button v-if="ready && canActivate && !act.show" type="button" class="btn btn-primary btn-sm" @click="isPhone ? openActivateSheet() : openActivate()">+ Activate currency</button>
   </div>
   <div class="md-card-body">
 
@@ -195,7 +257,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-if="act.show" class="mdc-act-row">
+            <tr v-if="act.show && !sheet" class="mdc-act-row">
               <td>
                 <div class="mdc-combo" ref="picker">
                   <button type="button" class="mdc-combo-trigger" aria-haspopup="listbox" :aria-expanded="act.pickerOpen"
@@ -240,7 +302,7 @@
                 </div>
               </td>
             </tr>
-            <tr v-if="act.show && act.error" class="mdc-act-row"><td colspan="5"><span class="mdc-err" role="alert">{{ act.error }}</span></td></tr>
+            <tr v-if="act.show && !sheet && act.error" class="mdc-act-row"><td colspan="5"><span class="mdc-err" role="alert">{{ act.error }}</span></td></tr>
             <tr v-for="cur in activeList" :key="cur.code" class="mdc-row">
               <td>
                 <div class="mdc-cur">
@@ -270,6 +332,7 @@
                   <ph-icon name="pencil" :size="13"></ph-icon>
                   <span v-if="deltaOf(cur.code)" class="mdc-delta">{{ deltaText(cur.code) }}</span>
                 </button>
+                <span v-if="cur.code !== 'EUR' && edit.code !== cur.code" class="mdc-rate-inv">1 {{ cur.code }} = {{ eurSymbol }} {{ invRate(cur.current_rate) }}</span>
               </td>
               <td class="mdc-col-inverse">
                 <span v-if="cur.code === 'EUR'" class="mdc-fixed">—</span>
@@ -292,9 +355,83 @@
       </div>
     </div>
 
+    <div class="mdc-cards">
+      <div v-for="cur in activeList" :key="cur.code" class="mdc-card">
+        <div class="mdc-card-top">
+          <div class="mdc-cur">
+            <span class="mdc-sym" :class="{ 'is-long': cur.symbol.length > 2, 'is-base': cur.code === 'EUR' }">{{ cur.symbol }}</span>
+            <span>
+              <span class="mdc-cur-code">{{ cur.code }}</span><span v-if="cur.code === 'EUR'" class="mdc-base-pill">Base</span>
+              <span class="mdc-cur-name">{{ cur.name }}</span>
+            </span>
+          </div>
+          <div class="mdc-card-val">
+            <span v-if="cur.code === 'EUR'" class="mdc-fixed">Fixed · 1.0000</span>
+            <template v-else>
+              <strong>{{ fmtRate(cur.current_rate) }} {{ cur.symbol }}</strong>
+              <span>1 {{ cur.code }} = {{ eurSymbol }} {{ invRate(cur.current_rate) }}</span>
+            </template>
+          </div>
+        </div>
+        <div v-if="cur.code !== 'EUR'" class="mdc-card-actions">
+          <button type="button" @click="openEditSheet(cur)">Edit rate</button>
+          <button type="button" @click="openHistory(cur)">History</button>
+        </div>
+      </div>
+    </div>
+
   </div><!-- .page -->
   </div><!-- /.md-card-body -->
 </section>
+
+<!-- Phone bottom sheets -->
+<div v-if="sheet" class="mdc-sheet-wrap">
+  <div class="mdc-scrim" @click="closeSheet"></div>
+  <div class="mdc-sheet" role="dialog" aria-modal="true" :aria-label="sheet === 'edit' ? 'Edit rate' : 'Activate currency'">
+    <template v-if="sheet === 'edit'">
+      <div class="mdc-sheet-head">
+        <h3 class="mdc-sheet-title">Edit rate · {{ edit.code }}</h3>
+        <button type="button" class="btn btn-outline-secondary btn-sm" @click="closeSheet">Cancel</button>
+      </div>
+      <label class="mdc-sheet-label" for="mdcSheetRate">1 EUR =</label>
+      <span class="mdc-input-wrap">
+        <input id="mdcSheetRate" ref="sheetInput" class="mdc-input" type="text" inputmode="decimal" autocomplete="off"
+               v-model="edit.text" @keydown.enter.prevent="saveEdit">
+        <span class="mdc-input-sfx">{{ symbolOf(edit.code) }}</span>
+      </span>
+      <span v-if="edit.error" class="mdc-err">{{ edit.error }}</span>
+      <span class="mdc-sheet-help">1 {{ edit.code }} = {{ eurSymbol }} {{ sheetInverse }} · applies to new proposal versions</span>
+      <button type="button" class="btn btn-primary mdc-sheet-primary" @click="saveEdit">Save rate</button>
+    </template>
+    <template v-else>
+      <div class="mdc-sheet-head">
+        <h3 class="mdc-sheet-title">Activate currency</h3>
+        <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="act.saving" @click="closeSheet">Cancel</button>
+      </div>
+      <input class="mdc-input" type="text" autocomplete="off" placeholder="Search code or name…" aria-label="Search currencies" v-model="act.query">
+      <ul class="mdc-combo-list" role="listbox">
+        <li v-for="opt in actOptions" :key="opt.code" role="option" class="mdc-combo-opt"
+            :class="{ 'is-active': opt.code === act.code }" :aria-selected="opt.code === act.code" @click="pickCurrency(opt.code)">
+          <b>{{ opt.code }}</b><span>{{ opt.name }}</span><span>{{ opt.symbol }}</span>
+        </li>
+        <li v-if="!actOptions.length" class="mdc-combo-empty">No currency matches.</li>
+      </ul>
+      <label class="mdc-sheet-label" for="mdcSheetActRate">1 EUR =</label>
+      <span class="mdc-input-wrap">
+        <input id="mdcSheetActRate" ref="actInput" class="mdc-input" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 1.6500"
+               v-model="act.text" @keydown.enter.prevent="activateCurrency">
+        <span v-if="act.code" class="mdc-input-sfx">{{ symbolOf(act.code) }}</span>
+      </span>
+      <span class="mdc-sheet-help">
+        <template v-if="act.code && actInverse">1 {{ act.code }} = {{ eurSymbol }} {{ actInverse }} · </template>Starts the rate history.
+      </span>
+      <span v-if="act.error" class="mdc-err" role="alert">{{ act.error }}</span>
+      <button type="button" class="btn btn-primary mdc-sheet-primary" :disabled="!actValid || act.saving" @click="activateCurrency">
+        <span v-if="act.saving" class="spinner-border spinner-border-sm me-1"></span>Activate
+      </button>
+    </template>
+  </div>
+</div>
 
 <!-- Confirm rate change (local overlay) -->
 <div v-if="confirm.show" class="mdc-dialog-wrap">
@@ -403,6 +540,7 @@ window.__cfgApp = Vue.createApp({
       act:     { show: false, code: '', text: '', error: null, saving: false, pickerOpen: false, query: '', activeIndex: 0 },
       hist:    { code: null, rows: [], loading: false, error: false },
       sheet:   null,
+      isPhone: false,
     };
   },
 
@@ -416,6 +554,11 @@ window.__cfgApp = Vue.createApp({
     histCurrency() { return this.currencies.find(c => c.code === this.hist.code) || null; },
     histEntries()  { return window.historyEntries(this.hist.rows); },
     histPoints()   { return window.sparklinePoints(this.hist.rows, 480, 90); },
+    sheetInverse() {
+      const cur = this.currencies.find(c => c.code === this.edit.code);
+      const typed = window.parseRateText(this.edit.text);
+      return window.inverseRate(window.isValidRate(typed) ? typed : cur?.current_rate);
+    },
     actOptions()  { return window.pickableCurrencies(this.currencies, this.act.query); },
   },
 
@@ -436,10 +579,16 @@ window.__cfgApp = Vue.createApp({
   mounted() {
     document.addEventListener('keydown', this.onKeydown);
     document.addEventListener('mousedown', this.onDocMousedown);
+    const mq = window.matchMedia('(max-width: 767.98px)');
+    this.isPhone = mq.matches;
+    this._mq = mq;
+    this._onMq = ev => { this.isPhone = ev.matches; if (!ev.matches && this.sheet) this.closeSheet(); };
+    mq.addEventListener('change', this._onMq);
   },
   unmounted() {
     document.removeEventListener('keydown', this.onKeydown);
     document.removeEventListener('mousedown', this.onDocMousedown);
+    this._mq?.removeEventListener('change', this._onMq);
   },
 
   methods: {
@@ -528,6 +677,7 @@ window.__cfgApp = Vue.createApp({
       try {
         await Api.currencies.activate(code, this.actRate);
         this.act = freshAct();
+        this.sheet = null;
         await this.loadAll();
         this.loadHistories([code]);
       } catch (e) {
@@ -586,8 +736,22 @@ window.__cfgApp = Vue.createApp({
     closeHistory()   { this.hist = { code: null, rows: [], loading: false, error: false }; },
     reloadHistory()  { const cur = this.currencies.find(c => c.code === this.hist.code); if (cur) this.openHistory(cur); },
 
+    openEditSheet(cur) {
+      if (this.confirm.saving) return;
+      this.edit = { code: cur.code, text: window.editText(cur.current_rate), error: null };
+      this.sheet = 'edit';
+      this.$nextTick(() => { const el = this.$refs.sheetInput; if (el) { el.focus(); el.select(); } });
+    },
+
+    openActivateSheet() {
+      this.cancelEdit();
+      this.act = { ...freshAct(), show: true };
+      this.sheet = 'activate';
+    },
+
     closeSheet() {
-      if (this.sheet === 'edit') this.cancelEdit();
+      if (this.sheet === 'activate') { if (this.act.saving) return; this.cancelActivate(); }
+      else if (this.sheet === 'edit') this.cancelEdit();
       this.sheet = null;
     },
 

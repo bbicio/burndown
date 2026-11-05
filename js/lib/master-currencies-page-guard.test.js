@@ -86,3 +86,16 @@ describe('master-currencies history drawer', () => {
     expect(html).toContain('aria-label="Close" @click="closeHistory"');
   });
 });
+
+describe('master-currencies responsive layouts', () => {
+  it('offers the phone edit sheet, saved through the same confirmed path', () => {
+    for (const s of ['Edit rate · ', 'Save rate', 'applies to new proposal versions']) expect(html, s).toContain(s);
+    expect(html.split('updateRate(').length - 1).toBe(1);
+    const sheet = between('class="mdc-sheet"', 'Save rate');
+    expect(sheet).toContain('saveEdit');
+  });
+  it('has tablet and phone breakpoints', () => {
+    expect(html).toContain('@media (max-width: 767.98px)');
+    expect(html).toContain('@media (min-width: 768px) and (max-width: 1023.98px)');
+  });
+});
