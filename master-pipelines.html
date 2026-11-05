@@ -147,6 +147,7 @@
       z-index: var(--z-notification); display: flex; flex-direction: column;
     }
     .mdp-drawer.is-form { width: min(440px, 100vw); }
+    .cg-pop { z-index: calc(var(--z-notification) + 1); } /* the New POT picker opens over the drawer */
     .mdp-dr-form { display: flex; flex-direction: column; gap: var(--space-4); }
     .mdp-dr-form .mdp-amount, .mdp-dr-form .mdp-amount-input, .mdp-dr-form .mdp-target-select, .mdp-dr-form .mdp-input { width: 100%; }
     .mdp-dr-form .mdp-err { padding: 0; background: transparent; }

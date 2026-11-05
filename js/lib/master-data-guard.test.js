@@ -450,6 +450,10 @@ describe('Pipelines & POTs responsive styles', () => {
     expect(html).not.toContain('master-pipelines.js?v=1');
   });
 
+  it('opens the cg-select popover above the side drawer', () => {
+    expect(style).toMatch(/\.cg-pop\s*\{[^}]*z-index:\s*calc\(var\(--z-notification\) \+ 1\)/);
+  });
+
   it("row pencil closes another POT's details", () => {
     const open = html.slice(html.indexOf('openPotForm(pot) {'), html.indexOf('// Focus shows'));
     expect(open).toContain('this.closeDrawer()');
