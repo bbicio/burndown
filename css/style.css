@@ -144,6 +144,14 @@ body.has-breadcrumbs { --breadcrumb-h: 32px; }
 .md-subnav-item:hover { color: var(--brand-navy); background: var(--surface-subtle); }
 .md-subnav-item.active { color: var(--brand-navy); font-weight: var(--weight-bold); }
 .md-subnav-select { display: none; }
+/* queue-count pill set by setSubnavBadge() (Timesheets → Profile processing) */
+.md-subnav-badge, .md-subnav-select-badge {
+  display: inline-flex; align-items: center; height: 18px; padding: 0 6px; margin-left: var(--space-2);
+  border-radius: var(--radius-full); background: var(--color-warning-bg); color: var(--color-warning-text);
+  font-size: 10px; font-weight: var(--weight-bold); white-space: nowrap;
+}
+.md-subnav-select-badge { margin-left: auto; }
+.md-subnav-select-badge + .md-subnav-select-chevron { margin-left: var(--space-2); }
 .md-content { min-width: 0; }
 .md-card {
   background: var(--card-bg); border: var(--card-border); border-radius: var(--card-radius);

@@ -1,7 +1,8 @@
 // js/lib/md-subnav.js
-// The Master Data sub-navigation: one definition of the sections, rendered into every static
-// <nav class="md-subnav" data-md-active="<id>"> as a grouped list (desktop column, tablet tabs)
-// plus a phone selector (native <select> laid over a styled row). Native ES module, bridged onto `window`.
+// The in-page sub-navigation (Master Data, Timesheets): one definition per set of sections, rendered into every
+// static <nav class="md-subnav" data-md-active="<id>" [data-subnav-set="<set>"]> as a grouped list (desktop
+// column, tablet tabs) plus a phone selector (native <select> laid over a styled row). Native ES module, bridged
+// onto `window`.
 
 import { iconSvg } from './icons.js?v=6';
 
@@ -16,19 +17,31 @@ export const MD_SECTIONS = [
   ] },
 ];
 
+// A nav without data-subnav-set (the Master Data pages) renders masterData.
+export const SUBNAV_SETS = {
+  masterData: { label: 'Master Data', sections: MD_SECTIONS },
+  timesheets: { label: 'Timesheets', sections: [
+    { group: 'TIMESHEETS', items: [
+      { id: 'actuals', label: 'Actuals', href: '/timesheets.html' },
+      { id: 'profileJobs', label: 'Profile processing', href: '/profile-jobs.html' },
+    ] },
+  ] },
+};
+
 const escHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-export function mdSubnavHtml(activeId) {
+export function mdSubnavHtml(activeId, setId = 'masterData') {
+  const set = SUBNAV_SETS[setId] || SUBNAV_SETS.masterData;
   let list = '';
   let options = '';
   let current = null;
-  for (const sec of MD_SECTIONS) {
+  for (const sec of set.sections) {
     list += `<div class="md-subnav-group">${escHtml(sec.group)}</div>`;
     options += `<optgroup label="${escHtml(sec.group)}">`;
     for (const it of sec.items) {
       const on = it.id === activeId;
       if (on) current = { group: sec.group, label: it.label };
-      list += `<a class="md-subnav-item${on ? ' active' : ''}" href="${escHtml(it.href)}"${on ? ' aria-current="page"' : ''}>${escHtml(it.label)}</a>`;
+      list += `<a class="md-subnav-item${on ? ' active' : ''}" href="${escHtml(it.href)}" data-subnav-id="${escHtml(it.id)}"${on ? ' aria-current="page"' : ''}>${escHtml(it.label)}</a>`;
       options += `<option value="${escHtml(it.href)}"${on ? ' selected' : ''}>${escHtml(it.label)}</option>`;
     }
     options += '</optgroup>';
@@ -38,15 +51,41 @@ export function mdSubnavHtml(activeId) {
     + `<span class="md-subnav-select-group">${current ? escHtml(current.group) : ''}</span>`
     + `<span class="md-subnav-select-label">${current ? escHtml(current.label) : ''}</span>`
     + iconSvg('chevronDown', 16, 'md-subnav-select-chevron')
-    + `<select class="md-subnav-select-input" aria-label="Master Data section">${options}</select>`
+    + `<select class="md-subnav-select-input" aria-label="${escHtml(set.label)} section">${options}</select>`
     + '</div>';
 }
 
 export function mountMdSubnav(root = document) {
   root.querySelectorAll('nav.md-subnav[data-md-active]').forEach(nav => {
-    nav.innerHTML = mdSubnavHtml(nav.getAttribute('data-md-active'));
+    nav.innerHTML = mdSubnavHtml(nav.getAttribute('data-md-active'), nav.getAttribute('data-subnav-set') || 'masterData');
     const sel = nav.querySelector('select.md-subnav-select-input');
     sel.addEventListener('change', e => { location.href = e.target.value; });
+  });
+}
+
+// A count pill on the item `id`, and "N queued" on the phone selector row whatever section is current;
+// both removed unless `count` is a positive integer (a numeric string counts).
+export function setSubnavBadge(id, count, title = '') {
+  const n = typeof count === 'number' || typeof count === 'string' ? Number(count) : NaN;
+  const show = count !== '' && Number.isInteger(n) && n > 0;
+  document.querySelectorAll('nav.md-subnav').forEach(nav => {
+    const item = [...nav.querySelectorAll('a.md-subnav-item')].find(a => a.getAttribute('data-subnav-id') === id);
+    if (!item) return;
+    item.querySelector('.md-subnav-badge')?.remove();
+    nav.querySelector('.md-subnav-select-badge')?.remove();
+    if (!show) return;
+    const pill = document.createElement('span');
+    pill.className = 'md-subnav-badge';
+    pill.textContent = String(n);
+    if (title) pill.title = title;
+    item.appendChild(pill);
+    const chevron = nav.querySelector('.md-subnav-select-chevron');
+    if (chevron) {
+      const tag = document.createElement('span');
+      tag.className = 'md-subnav-select-badge';
+      tag.textContent = `${n} queued`;
+      chevron.before(tag);
+    }
   });
 }
 
@@ -61,7 +100,9 @@ function resetMdSubnavSelects() {
 if (typeof window !== 'undefined') {
   window.addEventListener('pageshow', resetMdSubnavSelects);
   window.MD_SECTIONS = MD_SECTIONS;
+  window.SUBNAV_SETS = SUBNAV_SETS;
   window.mdSubnavHtml = mdSubnavHtml;
   window.mountMdSubnav = mountMdSubnav;
+  window.setSubnavBadge = setSubnavBadge;
 }
 if (typeof document !== 'undefined') mountMdSubnav();
