@@ -107,10 +107,17 @@ describe('master-currencies responsive layouts', () => {
 });
 
 describe('master-currencies review fixes', () => {
-  it('ignores a Confirm pressed right after the dialog opened (a double Enter)', () => {
-    const confirm = between('async confirmRate()', 'closeConfirm()');
-    expect(confirm).toContain('window.confirmReady(this.confirm.openedAt, Date.now())');
-    expect(between('saveEdit() {', 'async confirmRate()')).toContain('openedAt: Date.now()');
+  it('ignores a repeated or too-early Enter on Confirm (double or held Enter), never a click', () => {
+    expect(html).toContain('@keydown.enter.prevent="onConfirmKey"');
+    const key = between('onConfirmKey(e) {', 'async confirmRate()');
+    expect(key).toContain('e.repeat');
+    expect(key).toContain('window.confirmReady(this.confirm.openedAt, Date.now())');
+    expect(between('async confirmRate()', 'closeConfirm()')).not.toContain('confirmReady');
+    expect(between('saveEdit() {', 'onConfirmKey(e) {')).toContain('openedAt: Date.now()');
+  });
+  it('gives the focus back to the rate input when the dialog is cancelled', () => {
+    const close = between('closeConfirm() {', 'openActivate()');
+    expect(close).toContain('this.focusEditInput()');
   });
   it('refuses an unchanged rate and an out-of-range one before the dialog opens', () => {
     const save = between('saveEdit() {', 'async confirmRate()');

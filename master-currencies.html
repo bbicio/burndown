@@ -451,7 +451,7 @@
     </div>
     <div class="mdc-dialog-foot">
       <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="confirm.saving" @click="closeConfirm">Cancel</button>
-      <button type="button" ref="confirmBtn" class="btn btn-primary btn-sm" :disabled="confirm.saving" @click="confirmRate">
+      <button type="button" ref="confirmBtn" class="btn btn-primary btn-sm" :disabled="confirm.saving" @click="confirmRate" @keydown.enter.prevent="onConfirmKey">
         <span v-if="confirm.saving" class="spinner-border spinner-border-sm me-1"></span>Confirm
       </button>
     </div>
@@ -629,8 +629,13 @@ window.__cfgApp = Vue.createApp({
     startEdit(cur) {
       if (this.confirm.saving) return;
       this.edit = { code: cur.code, text: window.editText(cur.current_rate), error: null };
+      this.focusEditInput();
+    },
+
+    // The inline input on wide screens, the sheet's input on phone.
+    focusEditInput() {
       this.$nextTick(() => {
-        const el = [].concat(this.$refs.editInput || [])[0];
+        const el = this.sheet === 'edit' ? this.$refs.sheetInput : [].concat(this.$refs.editInput || [])[0];
         if (el) { el.focus(); el.select(); }
       });
     },
@@ -656,10 +661,15 @@ window.__cfgApp = Vue.createApp({
       this.$nextTick(() => this.$refs.confirmBtn?.focus());
     },
 
+    // Enter on the focused Confirm: a held key (repeat) or a second press right after the Enter that opened
+    // the dialog is not a decision. A click always goes through.
+    onConfirmKey(e) {
+      if (e.repeat || !window.confirmReady(this.confirm.openedAt, Date.now())) return;
+      this.confirmRate();
+    },
+
     async confirmRate() {
       if (this.confirm.saving) return;
-      // The repeat of the Enter that opened the dialog lands on the focused Confirm: ignore it.
-      if (!window.confirmReady(this.confirm.openedAt, Date.now())) return;
       this.confirm.saving = true; this.confirm.error = null;
       const code = this.confirm.code;
       try {
@@ -678,6 +688,7 @@ window.__cfgApp = Vue.createApp({
     closeConfirm() {
       if (this.confirm.saving) return;
       this.confirm.show = false;
+      if (this.edit.code) this.focusEditInput();
     },
 
     openActivate() {
@@ -756,7 +767,7 @@ window.__cfgApp = Vue.createApp({
       if (this.confirm.saving) return;
       this.edit = { code: cur.code, text: window.editText(cur.current_rate), error: null };
       this.sheet = 'edit';
-      this.$nextTick(() => { const el = this.$refs.sheetInput; if (el) { el.focus(); el.select(); } });
+      this.focusEditInput();
     },
 
     openActivateSheet() {
