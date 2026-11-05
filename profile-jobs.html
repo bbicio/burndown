@@ -105,10 +105,13 @@
     .pj-remove:disabled { opacity: .55; }
     .pj-row-actions .pj-btn { height: 30px; font-size: 12px; border-radius: 7px; }
     .pj-band {
+      grid-column: 1 / -1; margin: 9px -18px -9px;
       display: flex; gap: 10px; padding: 10px 18px 12px; background: var(--color-danger-bg); border-top: 1px solid var(--color-danger-bg);
       font-size: 12px; color: var(--color-danger-text); line-height: 1.5;
     }
+    .pj-band:not(.is-open) { display: none; }
     .pj-band ph-icon { flex: 0 0 auto; margin-top: 2px; }
+    .pj-btn.is-icon { width: 30px; padding: 0; }
     .pj-band-title { font-weight: var(--weight-bold); display: block; }
     .pj-band-text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
 
@@ -154,6 +157,88 @@
     .pj-dr-foot .btn-primary { height: 36px; padding: 0 18px; font-size: 12.5px; font-weight: var(--weight-semibold); display: inline-flex; align-items: center; gap: 6px; }
     .pj-text-btn { border: 0; background: transparent; padding: 9px 6px; font-size: 12.5px; font-weight: var(--weight-semibold); color: var(--text-muted); }
     .pj-text-btn:hover { color: var(--brand-navy); }
+
+    /* ── Tablet (11.3) ── */
+    @media (min-width: 768px) and (max-width: 1399.98px) {
+      .pj-strip { gap: 10px 18px; padding: 12px 16px; }
+      .pj-vsep { display: none; }
+      .pj-actions { flex: 1 1 100%; margin-left: 0; }
+      .pj-settings-btn { margin-right: auto; }
+      .pj-btn, .pj-primary, .pj-select, .pj-search { height: 40px; }
+      .pj-seg .md-seg-btn { height: 34px; }
+      .pj-toolbar { padding: 12px 16px; }
+      .pj-grid { grid-template-columns: minmax(0, 1fr) 150px 120px 132px; gap: 12px; }
+      .pj-head, .pj-row { padding-left: 16px; padding-right: 16px; }
+      .pj-band { margin: 8px -16px -9px; padding-left: 16px; padding-right: 16px; }
+      .pj-col-rows, .pj-col-res, .pj-col-lastnext, .pj-code-line, .pj-desk-next, .pj-remove, .pj-queued-note { display: none; }
+      .pj-col-last, .pj-meta { display: inline; }
+      .pj-meta { font-size: 11px; color: var(--text-muted); }
+      .pj-status { flex-direction: column; align-items: flex-start; gap: 2px; }
+      .pj-tab-next { display: block; font-size: 10.5px; }
+      .pj-more { display: block; }
+      .pj-row-actions .pj-btn { height: 40px; }
+      .pj-btn.is-icon { width: 40px; }
+    }
+
+    /* ── Smartphone (11.3): strip as a card, one card per code, settings full screen ── */
+    @media (max-width: 767.98px) {
+      .pj-strip { gap: 10px; padding: 12px 14px; }
+      .pj-vsep, .pj-settings-label, .pj-counter { display: none; }
+      .pj-actions { display: contents; }
+      .pj-state { order: 1; flex: 1 1 auto; }
+      .pj-settings-btn { order: 2; width: 44px; min-height: 44px; padding: 0; }
+      .pj-next { order: 3; flex-direction: row; align-items: baseline; gap: 6px; }
+      .pj-topic { order: 4; font-size: 12px; }
+      .pj-primary { order: 5; flex: 1 1 60%; justify-content: center; min-height: 44px; font-size: 13px; }
+      .pj-btn.is-danger { order: 6; min-height: 44px; }
+      .pj-codes-card { background: transparent; border: 0; }
+      .pj-toolbar { padding: 0 0 var(--space-2); border: 0; }
+      .pj-seg { flex: 1 1 100%; margin: 0; }
+      .pj-seg .md-seg-btn { flex: 1 1 0; min-height: 44px; }
+      .pj-search { flex: 1 1 auto; width: auto; min-height: 44px; border-radius: 10px; }
+      .pj-select { min-height: 44px; border-radius: 10px; }
+      .pj-scroll { max-height: none; overflow: visible; }
+      .pj-head { display: none; }
+      .pj-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas: "main status" "when when" "band band" "act act";
+        gap: 6px 10px; margin-bottom: var(--space-2); padding: 12px 14px 0; min-height: 0;
+        background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+      }
+      .pj-row:hover, .pj-row.is-open { background: var(--surface-white); }
+      .pj-main { grid-area: main; }
+      .pj-project { font-size: 14px; line-height: 1.3; }
+      .pj-col-rows, .pj-col-res, .pj-code-line, .pj-tab-next, .pj-queued-note, .pj-more { display: none; }
+      .pj-meta { display: inline; font-size: 11.5px; color: var(--text-muted); }
+      .pj-status { grid-area: status; align-self: start; }
+      .pj-when { grid-area: when; flex-direction: row; gap: 6px; font-size: 11.5px; }
+      .pj-when > span:first-child::before { content: 'Last '; }
+      .pj-band, .pj-band:not(.is-open) { grid-area: band; display: flex; margin: 0; padding: 8px 10px; border: 0; border-radius: var(--radius-md); font-size: 11.5px; }
+      .pj-band > ph-icon { display: none; }
+      .pj-row-actions { grid-area: act; gap: 0; margin: 4px -14px 0; border-top: 1px solid var(--border-light); }
+      .pj-row-actions > .pj-process, .pj-row-actions > .pj-remove { flex: 1 1 0; min-height: 44px; border: 0; border-radius: 0; font-size: 13px; }
+      .pj-row-actions > .pj-process { order: 1; }
+      .pj-row-actions > .pj-remove { order: 2; border-left: 1px solid var(--border-light); }
+      .pj-history .pj-hgrid { grid-template-columns: minmax(0, 1fr) auto; padding: 0 14px; }
+      .pj-history .pj-hgrid > :nth-child(n+3):not(:last-child) { display: none; }
+      .pj-history .pj-hgrid > :last-child { grid-column: 1 / -1; }
+      .pj-codes-card.is-history { background: var(--card-bg); border: var(--card-border); }
+      .pj-drawer { width: 100vw; border-left: 0; }
+    }
+    /* 1024–1279px: the open sidebar leaves no room for the sub-nav column, so it becomes the tablet tabs (11.3) */
+    @media (min-width: 1024px) and (max-width: 1279.98px) {
+      .ph:has(+ .md-layout) { border-bottom: 0; }
+      .md-layout { display: block; padding: 0; }
+      .md-subnav {
+        position: static; display: flex; overflow-x: auto; scrollbar-width: none; padding: 10px 24px;
+        background: var(--surface-white); border: 0; border-bottom: 1px solid var(--border-light); border-radius: 0;
+      }
+      .md-subnav-list { display: flex; gap: var(--space-1); }
+      .md-subnav-group { display: none; }
+      .md-subnav-item { height: 36px; padding: 0 12px; white-space: nowrap; }
+      .md-subnav-item.active { background: var(--surface-white); border: 1px solid var(--border-light); box-shadow: inset 0 -3px 0 var(--brand-magenta); }
+      .md-content { padding: var(--space-4) 24px 24px; }
+    }
   </style>
 </head>
 <body>
@@ -203,7 +288,7 @@
         <span v-if="topicSettings.enabled && !topicSettings.keyConfigured" class="pj-nokey">(no API key configured)</span>
       </div>
       <div class="pj-actions">
-        <button type="button" class="pj-btn pj-settings-btn" @click="openDrawer"><ph-icon name="sliders" :size="14"></ph-icon>Settings</button>
+        <button type="button" class="pj-btn pj-settings-btn" title="Settings" aria-label="Settings" @click="openDrawer"><ph-icon name="sliders" :size="14"></ph-icon><span class="pj-settings-label">Settings</span></button>
         <button type="button" class="btn btn-primary pj-primary" :disabled="!!busyAction" @click="recalculateNow">
           <span v-if="busyAction === 'run'" class="spinner-border" role="status"></span><ph-icon v-else name="refresh" :size="13"></ph-icon>Recalculate now
         </button>
@@ -214,7 +299,7 @@
     </div>
 
     <!-- ── PROJECT CODES / RUN HISTORY (11.2a, 11.2c, 11.2e) ── -->
-    <div class="pj-card">
+    <div class="pj-card pj-codes-card" :class="{ 'is-history': view === 'history' }">
       <div class="pj-toolbar">
         <div class="md-seg pj-seg" role="tablist" aria-label="View">
           <button type="button" role="tab" class="md-seg-btn" :class="{ active: view === 'codes' }" :aria-selected="view === 'codes'" @click="view = 'codes'">Project codes <span class="pj-seg-n">{{ projects.length }}</span></button>
@@ -243,11 +328,11 @@
             <span></span>
           </div>
           <template v-for="p in visibleProjects" :key="p.project_code">
-            <div class="pj-grid pj-row" :class="{ 'is-open': p.last_error && expanded[p.project_code] }">
+            <div class="pj-grid pj-row" :data-code="p.project_code" :class="{ 'is-open': p.last_error && expanded[p.project_code] }">
               <div class="pj-main">
                 <span class="pj-project">{{ p.project_name || '—' }}</span>
-                <span class="pj-code">{{ p.project_code }}</span>
-                <span class="pj-meta">{{ fmtCount(p.row_count) }} rows · {{ matchedText(p) }} resources</span>
+                <span class="pj-code pj-code-line">{{ p.project_code }}</span>
+                <span class="pj-meta"><span class="pj-code">{{ p.project_code }}</span> · {{ fmtCount(p.row_count) }} rows · {{ resourcesText(p) }}</span>
                 <span v-if="p.topic_error" class="pj-topic-err" :title="p.topic_error"><ph-icon name="warning" :size="12"></ph-icon>Topic extraction failed</span>
               </div>
               <span class="pj-cell pj-num pj-col-rows">{{ fmtCount(p.row_count) }}</span>
@@ -268,15 +353,22 @@
                   <span v-if="busyAction === 'remove:' + p.project_code" class="spinner-border spinner-border-sm" role="status"></span>
                   <span v-else>Remove from queue</span>
                 </button>
-                <button type="button" class="pj-btn" :disabled="!!busyAction" @click="processProject(p)">
+                <button type="button" class="pj-btn pj-process" :disabled="!!busyAction" @click="processProject(p)">
                   <span v-if="busyAction === 'process:' + p.project_code" class="spinner-border" role="status"></span>
                   <span v-else>Process</span>
                 </button>
+                <div class="dropdown pj-more">
+                  <button type="button" class="pj-btn is-icon" title="More" aria-label="More actions" data-bs-toggle="dropdown" aria-expanded="false" :disabled="!!busyAction"><ph-icon name="more" :size="16"></ph-icon></button>
+                  <div class="dropdown-menu dropdown-menu-end">
+                    <button type="button" class="dropdown-item pj-menu-remove" :disabled="!p.queued_at || !!busyAction" @click="confirmRemove(p)">Remove from queue</button>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div v-if="p.last_error && expanded[p.project_code]" class="pj-band">
-              <ph-icon name="info" :size="14"></ph-icon>
-              <div><span class="pj-band-title">Last run failed</span><span class="pj-band-text">{{ p.last_error }}</span></div>
+              <!-- the band is part of the row: below it on desktop, inline in the phone card -->
+              <div v-if="p.last_error" class="pj-band" :class="{ 'is-open': expanded[p.project_code] }">
+                <ph-icon name="info" :size="14"></ph-icon>
+                <div><span class="pj-band-title">Last run failed</span><span class="pj-band-text">{{ p.last_error }}</span></div>
+              </div>
             </div>
           </template>
         </template>
@@ -287,7 +379,7 @@
         </div>
       </div>
 
-      <div v-else class="pj-scroll">
+      <div v-else class="pj-scroll pj-history">
         <template v-if="runs.length">
           <div class="pj-hgrid pj-hhead"><span>When</span><span>Type</span><span class="pj-num">Projects</span><span class="pj-num">Resource contributions</span><span>Duration</span><span>Error</span></div>
           <div v-for="r in runs" :key="r.id" class="pj-hgrid pj-hrow">
@@ -457,6 +549,11 @@
       formatDuration(a, b) { return window.formatDuration(a, b); },
       pillKind(s) { return ['error', 'queued', 'updated'].includes(s) ? s : 'unprocessed'; },
       matchedText(p) { return p.status === 'unprocessed' ? '—' : p.resource_count; },
+      resourcesText(p) {
+        if (p.status === 'unprocessed') return '— resources';
+        const n = Number(p.resource_count) || 0;
+        return `${n} resource${n === 1 ? '' : 's'}`;
+      },
       fmtCount(n) { return (Number(n) || 0).toLocaleString('en-US'); },
 
       // fetch wrapper: { ok, status, data, network }. network = true when the request failed or the

@@ -93,3 +93,35 @@ describe('profile-jobs.html (Profile processing)', () => {
     expect(html).toContain('Last run failed');
   });
 });
+
+describe('tablet and smartphone layouts (11.3)', () => {
+  const PHONE = '@media (max-width: 767.98px)';
+  const TABLET = '@media (min-width: 768px) and (max-width: 1399.98px)'; // compact table: the boards' desktop layout needs 1400px
+  const block = (css, media) => {
+    const i = css.indexOf(media);
+    if (i < 0) return '';
+    let depth = 0, j = css.indexOf('{', i);
+    for (let k = j; k < css.length; k++) {
+      if (css[k] === '{') depth++;
+      else if (css[k] === '}' && --depth === 0) return css.slice(j, k);
+    }
+    return '';
+  };
+
+  it.each(['timesheets.html', 'profile-jobs.html'])('%s has a tablet and a phone block with 44px touch targets', file => {
+    const css = styles(read(file));
+    expect(block(css, TABLET)).not.toBe('');
+    expect(block(css, PHONE)).toMatch(/min-height:\s*44px/);
+  });
+
+  it('timesheets.html moves Client, Project and year into a Filters sheet on phone', () => {
+    const html = read('timesheets.html');
+    expect(html).toContain("'Filters' + (sheetCount ? ' (' + sheetCount + ')' : '')");
+    expect(html).toMatch(/class="ts-filter-set"[^>]*role="dialog"|role="dialog"[^>]*class="ts-filter-set/);
+  });
+
+  it('profile-jobs.html offers Remove from queue in a More menu on tablet', () => {
+    const html = read('profile-jobs.html');
+    expect(html).toMatch(/class="dropdown pj-more"[\s\S]*Remove from queue/);
+  });
+});
