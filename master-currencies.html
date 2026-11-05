@@ -107,8 +107,31 @@
       background: var(--surface-white); border-left: 1px solid var(--border-light); box-shadow: var(--shadow-xl);
       z-index: var(--z-notification); display: flex; flex-direction: column;
     }
-    .mdc-dr-close { position: absolute; top: 14px; right: 16px; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer; }
+    .mdc-dr-head { display: flex; align-items: flex-start; gap: var(--space-3); padding: 18px 20px 14px; border-bottom: 1px solid var(--border-light); }
+    .mdc-dr-head-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+    .mdc-eyebrow { font-size: 10px; font-weight: var(--weight-bold); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+    .mdc-dr-title { font-size: 19px; font-weight: var(--weight-bold); color: var(--brand-navy); margin: 0; overflow-wrap: anywhere; }
+    .mdc-dr-sub { font-size: 12.5px; color: var(--text-muted); }
+    .mdc-dr-close { flex: 0 0 auto; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer; }
     .mdc-dr-close:hover { background: var(--surface-subtle); }
+    .mdc-dr-body { flex: 1 1 auto; overflow-y: auto; padding: var(--space-4) 20px; display: flex; flex-direction: column; gap: var(--space-4); }
+    .mdc-dr-state { text-align: center; color: var(--text-muted); font-size: 13px; padding: var(--space-5) 0; }
+    .mdc-dr-current { font-size: 15px; color: var(--brand-navy); }
+    .mdc-dr-current strong { font-size: 22px; }
+    .mdc-chart { background: var(--surface-light); border-radius: var(--radius-md); padding: 12px 14px 8px; }
+    .mdc-chart svg { display: block; width: 100%; height: 90px; }
+    .mdc-chart-line { fill: none; stroke: var(--chart-actual); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .mdc-chart-dates { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: var(--text-muted); }
+    .mdc-changes { list-style: none; margin: 0; padding: 0; }
+    .mdc-change { display: grid; grid-template-columns: 14px 1fr auto auto; gap: var(--space-3); align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-light); font-size: 13px; }
+    .mdc-change:last-child { border-bottom: 0; }
+    .mdc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border-light); }
+    .mdc-dot.is-newest { background: var(--brand-magenta); }
+    .mdc-change-main { display: flex; flex-direction: column; min-width: 0; }
+    .mdc-change-when { color: var(--brand-navy); font-weight: var(--weight-medium); }
+    .mdc-change-delta { font-size: 12px; color: var(--text-muted); }
+    .mdc-change-delta.is-nochange { color: var(--color-warning-text); }
+    .mdc-change-rate { min-width: 72px; text-align: right; font-weight: var(--weight-bold); color: var(--brand-navy); }
   </style>
 </head>
 <body>
@@ -292,11 +315,50 @@
   </div>
 </div>
 
-<!-- Rate history drawer (completed with its chart and list in the history step) -->
+<!-- Rate history drawer -->
 <div v-if="hist.code" class="mdc-drawer-wrap">
   <div class="mdc-scrim" @click="closeHistory"></div>
   <aside class="mdc-drawer" role="dialog" aria-modal="true" aria-label="Rate history">
-    <button type="button" class="mdc-dr-close" aria-label="Close" @click="closeHistory"><ph-icon name="close" :size="16"></ph-icon></button>
+    <div class="mdc-dr-head">
+      <div class="mdc-dr-head-main">
+        <span class="mdc-eyebrow">Rate history</span>
+        <h3 class="mdc-dr-title">{{ histCurrency ? histCurrency.name : hist.code }} ({{ hist.code }})</h3>
+        <span class="mdc-dr-sub">Every change is logged with date, time and user.</span>
+      </div>
+      <button type="button" class="mdc-dr-close" aria-label="Close" @click="closeHistory"><ph-icon name="close" :size="16"></ph-icon></button>
+    </div>
+    <div class="mdc-dr-body">
+      <div v-if="hist.loading" class="text-center py-4"><div class="spinner-border text-secondary"></div></div>
+      <div v-else-if="hist.error" class="mdc-dr-state">
+        <p>Couldn't load the rate history.</p>
+        <button type="button" class="btn btn-outline-secondary btn-sm" @click="reloadHistory">Retry</button>
+      </div>
+      <div v-else-if="!hist.rows.length" class="mdc-dr-state"><p>No rate history yet.</p></div>
+      <template v-else>
+        <div v-if="histCurrency" class="mdc-dr-current">1 EUR = <strong>{{ fmtRate(histCurrency.current_rate) }}</strong> {{ histCurrency.symbol }} <span class="mdc-fixed">· current</span></div>
+        <div class="mdc-chart">
+          <svg viewBox="0 0 480 90" preserveAspectRatio="none" role="img" :aria-label="'Rate trend of ' + hist.code">
+            <polyline class="mdc-chart-line" :points="histPoints" vector-effect="non-scaling-stroke"></polyline>
+          </svg>
+          <div class="mdc-chart-dates"><span>{{ fmtDate(hist.rows[hist.rows.length - 1].created_at) }}</span><span>{{ fmtDate(hist.rows[0].created_at) }}</span></div>
+        </div>
+        <div class="mdc-eyebrow">Changes · {{ hist.rows.length }}</div>
+        <ul class="mdc-changes">
+          <li v-for="en in histEntries" :key="en.id" class="mdc-change">
+            <span class="mdc-dot" :class="{ 'is-newest': en.newest }"></span>
+            <span class="mdc-change-main">
+              <span class="mdc-change-when">{{ fmtDateTime(en.createdAt) }}</span>
+              <span class="mdc-sub">{{ en.updatedBy || '—' }}<template v-if="en.activated"> · activated</template></span>
+            </span>
+            <span class="mdc-change-delta" :class="{ 'is-nochange': en.noChange }">
+              <template v-if="en.noChange">no change</template>
+              <template v-else-if="en.delta !== null">{{ fmtHistDelta(en.delta) }}</template>
+            </span>
+            <span class="mdc-change-rate">{{ fmtRate(en.rate) }}</span>
+          </li>
+        </ul>
+      </template>
+    </div>
   </aside>
 </div>
 </div><!-- #app -->
@@ -351,6 +413,9 @@ window.__cfgApp = Vue.createApp({
     actRate()     { return window.parseRateText(this.act.text); },
     actValid()    { return !!this.act.code && window.isValidRate(this.actRate); },
     actInverse()  { return window.inverseRate(this.actRate); },
+    histCurrency() { return this.currencies.find(c => c.code === this.hist.code) || null; },
+    histEntries()  { return window.historyEntries(this.hist.rows); },
+    histPoints()   { return window.sparklinePoints(this.hist.rows, 480, 90); },
     actOptions()  { return window.pickableCurrencies(this.currencies, this.act.query); },
   },
 
@@ -504,8 +569,22 @@ window.__cfgApp = Vue.createApp({
       if (box && !box.contains(e.target)) this.act.pickerOpen = false;
     },
 
-    openHistory(cur) { this.hist = { code: cur.code, rows: [], loading: false, error: false }; },
+    // Shows the list's cached history at once, then fetches again; a failed fetch keeps the cached rows out of sight.
+    async openHistory(cur) {
+      const cached = this.histByCode[cur.code];
+      const hasRows = !!cached && !cached.error;
+      this.hist = { code: cur.code, rows: hasRows ? cached.rows : [], loading: !hasRows, error: false };
+      try {
+        const rows = await Api.currencies.history(cur.code);
+        this.histByCode[cur.code] = { rows, error: false };
+        if (this.hist.code === cur.code) this.hist.rows = rows;
+      } catch {
+        if (this.hist.code === cur.code) { this.hist.rows = []; this.hist.error = true; }
+      }
+      if (this.hist.code === cur.code) this.hist.loading = false;
+    },
     closeHistory()   { this.hist = { code: null, rows: [], loading: false, error: false }; },
+    reloadHistory()  { const cur = this.currencies.find(c => c.code === this.hist.code); if (cur) this.openHistory(cur); },
 
     closeSheet() {
       if (this.sheet === 'edit') this.cancelEdit();
@@ -527,6 +606,8 @@ window.__cfgApp = Vue.createApp({
     fmtRate(r)     { return window.formatRate(r); },
     invRate(r)     { return window.inverseRate(r); },
     fmtDate(ts)    { return window.formatRateDate(ts); },
+    fmtDateTime(ts)  { return window.formatRateDateTime(ts); },
+    fmtHistDelta(d)  { return window.formatHistoryDelta(d); },
     deltaOf(code) {
       const h = this.histByCode[code];
       return h && !h.error ? window.rateDelta(h.rows) : null;

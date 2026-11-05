@@ -71,3 +71,18 @@ describe('master-currencies activation row', () => {
     expect(html).toMatch(/v-if="[^"]*canActivate[^"]*!act\.show[^"]*"/);
   });
 });
+
+describe('master-currencies history drawer', () => {
+  it('loads the history on open and shows its states and chart', () => {
+    const open = between('async openHistory(', 'closeHistory()');
+    expect(open).toContain('Api.currencies.history(');
+    for (const s of ["Couldn't load the rate history.", 'No rate history yet.',
+      'Every change is logged with date, time and user.', '<polyline']) {
+      expect(html, s).toContain(s);
+    }
+  });
+  it('closes from the scrim and the close button', () => {
+    expect(html).toContain('class="mdc-scrim" @click="closeHistory"');
+    expect(html).toContain('aria-label="Close" @click="closeHistory"');
+  });
+});
