@@ -83,109 +83,86 @@ export function deriveDistribution(tasks, months, cfgStart, cfgEnd, digits = 2) 
   return { newPhasing, newPlanning, totalBudget, totalHours, outsideBudget, outsideHours };
 }
 
+// Past months get the true actuals; the open months (current and later) get the project's net remaining,
+// split between the tasks still open in proportion to their own margin. Hours and money use separate keys.
 export function reforecastDistribution(tasks, months, actualsRows, currentYm, digits = 2) {
   const pastMonths = months.filter(ym => ym < currentYm);
   const futureMonths = months.filter(ym => ym >= currentYm);
+  const monthSet = new Set(months);
   const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
   const billableNames = new Set(tasks.map(t => norm(t.name)));
 
   const rateMap = {};
   tasks.forEach(t => {
     const tKey = norm(t.name);
-    rateMap[tKey] = {};
-    (t.resources || []).forEach(r => { if (r.role) rateMap[tKey][norm(r.role)] = r.hourlyRate || 0; });
+    rateMap[tKey] = { roles: {}, first: (t.resources || [])[0]?.hourlyRate ?? 0 };
+    (t.resources || []).forEach(r => { if (r.role) rateMap[tKey].roles[norm(r.role)] = r.hourlyRate || 0; });
   });
-
-  const projData = actualsRows.filter(r => billableNames.has(norm(r.task)));
-  const taskActuals = {};
-  projData.forEach(r => {
-    if (!r.date) return;
-    const dateStr = typeof r.date === 'string' ? r.date : r.date.toISOString();
-    const ym = dateStr.slice(0, 7).replace('-', '');
-    const tName = norm(r.task);
-    const rate = (rateMap[tName] || {})[norm(r.role)] ?? 0;
-    if (!taskActuals[tName]) taskActuals[tName] = {};
-    if (!taskActuals[tName][ym]) taskActuals[tName][ym] = { hours: 0, spend: 0 };
-    taskActuals[tName][ym].hours += r.hours;
-    taskActuals[tName][ym].spend += r.hours * rate;
-  });
-
-  const totalBudget = tasks.reduce((s, t) => s + t.resources.reduce((rs, r) => rs + (r.soldHours||0)*(r.hourlyRate||0), 0), 0);
-  const totalHours = tasks.reduce((s, t) => s + t.resources.reduce((rs, r) => rs + (r.soldHours||0), 0), 0);
 
   const newPhasing = {}, newPlanning = {};
-  let distError = null;
+  const consumed = {};
+  actualsRows.forEach(r => {
+    const tName = norm(r.task);
+    if (!billableNames.has(tName) || !r.date) return;
+    const dateStr = typeof r.date === 'string' ? r.date : r.date.toISOString();
+    const ym = dateStr.slice(0, 7).replace('-', '');
+    const rates = rateMap[tName];
+    const rate = rates.roles[norm(r.role)] ?? rates.first ?? 0;
+    const hours = r.hours || 0;
+    const spend = hours * rate;
+    if (!consumed[tName]) consumed[tName] = { hours: 0, spend: 0 };
+    consumed[tName].hours += hours;
+    consumed[tName].spend += spend;
+    if (!monthSet.has(ym)) return;
+    if (hours > 0) newPlanning[ym] = (newPlanning[ym] || 0) + hours;
+    if (spend > 0) newPhasing[ym] = (newPhasing[ym] || 0) + spend;
+  });
 
-  for (const task of tasks) {
-    const tName = norm(task.name);
-    const tActuals = taskActuals[tName] || {};
-    const taskBudget = task.resources.reduce((s, r) => s + (r.soldHours||0)*(r.hourlyRate||0), 0);
-    const taskHours = task.resources.reduce((s, r) => s + (r.soldHours||0), 0);
-    const dist = task.monthlyDistribution;
-    const distSum = dist ? Object.values(dist).reduce((s, v) => s + v, 0) : 0;
-    const useDist = dist && Math.abs(distSum - 100) < 0.5;
+  const sold = tasks.map(t => ({
+    hours: (t.resources || []).reduce((s, r) => s + (r.soldHours || 0), 0),
+    spend: (t.resources || []).reduce((s, r) => s + (r.soldHours || 0) * (r.hourlyRate || 0), 0),
+  }));
+  const soldHours = sold.reduce((s, v) => s + v.hours, 0);
+  const soldBudget = sold.reduce((s, v) => s + v.spend, 0);
+  const consumedHours = Object.values(consumed).reduce((s, v) => s + v.hours, 0);
+  const consumedBudget = Object.values(consumed).reduce((s, v) => s + v.spend, 0);
+  const remainingHours = Math.max(0, soldHours - consumedHours);
+  const remainingBudget = Math.max(0, soldBudget - consumedBudget);
 
+  // Recipients: tasks with at least one open month inside their own dates.
+  const recipients = [];
+  tasks.forEach((task, i) => {
     const taskStartYM = task.startDate ? task.startDate.slice(0, 6) : months[0];
     const taskEndYM = task.endDate ? task.endDate.slice(0, 6) : months[months.length - 1];
-    const taskFuture = futureMonths.filter(ym => ym >= taskStartYM && ym <= taskEndYM);
-    const taskFutureCount = taskFuture.length || 1;
+    const open = futureMonths.filter(ym => ym >= taskStartYM && ym <= taskEndYM);
+    if (!open.length) return;
+    const used = consumed[norm(task.name)] || { hours: 0, spend: 0 };
+    const dist = task.monthlyDistribution;
+    const distSum = dist ? Object.values(dist).reduce((s, v) => s + v, 0) : 0;
+    const openPct = dist && Math.abs(distSum - 100) < 0.5 ? open.reduce((s, ym) => s + (dist[ym] || 0), 0) : 0;
+    recipients.push({
+      open,
+      weights: openPct > 0 ? open.map(ym => (dist[ym] || 0) / openPct) : open.map(() => 1 / open.length),
+      margin: { hours: Math.max(0, sold[i].hours - used.hours), spend: Math.max(0, sold[i].spend - used.spend) },
+    });
+  });
 
-    const rawPastHrs = pastMonths.reduce((s, ym) => s + ((tActuals[ym] || {}).hours || 0), 0);
-    const rawPastSpend = pastMonths.reduce((s, ym) => s + ((tActuals[ym] || {}).spend || 0), 0);
-    const hrsScale = rawPastHrs > taskHours && taskHours > 0 ? taskHours / rawPastHrs : 1;
-    const spendScale = rawPastSpend > taskBudget && taskBudget > 0 ? taskBudget / rawPastSpend : 1;
-    const remainHrs = Math.max(0, taskHours - rawPastHrs);
-    const remainBud = Math.max(0, taskBudget - rawPastSpend);
-
-    if (useDist) {
-      let deltaPct = 0;
-      pastMonths.forEach(ym => {
-        const actualHrs = ((tActuals[ym] || {}).hours || 0) * hrsScale;
-        const actualBudget = ((tActuals[ym] || {}).spend || 0) * spendScale;
-        const actualPct = taskBudget > 0 ? (actualBudget / taskBudget * 100) : 0;
-        const plannedPct = dist[ym] || 0;
-        deltaPct += plannedPct - actualPct;
-        if (actualHrs > 0) newPlanning[ym] = (newPlanning[ym] || 0) + actualHrs;
-        if (actualBudget > 0) newPhasing[ym] = (newPhasing[ym] || 0) + actualBudget;
+  const spread = (target, key, net) => {
+    if (net <= 0) return;
+    const marginSum = recipients.reduce((s, r) => s + r.margin[key], 0);
+    if (marginSum > 0) {
+      recipients.forEach(r => {
+        const share = net * r.margin[key] / marginSum;
+        if (share > 0) r.open.forEach((ym, j) => { target[ym] = (target[ym] || 0) + share * r.weights[j]; });
       });
-      if (taskFuture.length > 0) {
-        const firstFuture = taskFuture[0];
-        const adjustedPct = (dist[firstFuture] || 0) + deltaPct;
-        if (adjustedPct > 100.5) {
-          distError = `Task "${task.name}": carry-forward (${deltaPct.toFixed(1)}%) pushes ${firstFuture} above 100%.\nAdjust the monthly distribution manually before running Reforecast.`;
-          break;
-        }
-        taskFuture.forEach((ym, i) => {
-          const pct = (i === 0 ? adjustedPct : (dist[ym] || 0));
-          const bud = taskBudget * pct / 100;
-          const hrs = taskHours * pct / 100;
-          if (bud > 0.01) newPhasing[ym] = (newPhasing[ym] || 0) + bud;
-          if (hrs > 0.01) newPlanning[ym] = (newPlanning[ym] || 0) + hrs;
-        });
-      }
-    } else {
-      pastMonths.forEach(ym => {
-        const hrs = ((tActuals[ym] || {}).hours || 0) * hrsScale;
-        const bud = ((tActuals[ym] || {}).spend || 0) * spendScale;
-        if (hrs > 0) newPlanning[ym] = (newPlanning[ym] || 0) + hrs;
-        if (bud > 0) newPhasing[ym] = (newPhasing[ym] || 0) + bud;
-      });
-      taskFuture.forEach(ym => {
-        if (remainBud > 0) newPhasing[ym] = (newPhasing[ym] || 0) + remainBud / taskFutureCount;
-        if (remainHrs > 0) newPlanning[ym] = (newPlanning[ym] || 0) + remainHrs / taskFutureCount;
-      });
+    } else if (futureMonths.length) {
+      futureMonths.forEach(ym => { target[ym] = (target[ym] || 0) + net / futureMonths.length; });
     }
-    if (distError) break;
-  }
-
-  if (distError) return { newPhasing: {}, newPlanning: {}, distError, remainingBudget: 0, remainingHours: 0, pastMonths, futureMonths };
+  };
+  spread(newPhasing, 'spend', remainingBudget);
+  spread(newPlanning, 'hours', remainingHours);
 
   Object.keys(newPhasing).forEach(ym => { newPhasing[ym] = round(newPhasing[ym], digits); });
-
-  const pastSpendTotal = Object.values(taskActuals).reduce((s, ta) => s + pastMonths.reduce((ps, ym) => ps + ((ta[ym]||{}).spend||0), 0), 0);
-  const pastHrsTotal = Object.values(taskActuals).reduce((s, ta) => s + pastMonths.reduce((ps, ym) => ps + ((ta[ym]||{}).hours||0), 0), 0);
-  const remainingBudget = totalBudget - pastSpendTotal;
-  const remainingHours = totalHours - pastHrsTotal;
 
   const futureRawHours = {};
   futureMonths.forEach(ym => { if (newPlanning[ym] !== undefined) futureRawHours[ym] = newPlanning[ym]; });
@@ -197,7 +174,11 @@ export function reforecastDistribution(tasks, months, actualsRows, currentYm, di
     distributedRemainingHours = Object.values(distributedFuture).reduce((s, v) => s + v, 0);
   }
 
-  return { newPhasing, newPlanning, distError: null, remainingBudget, remainingHours, distributedRemainingHours, pastMonths, futureMonths };
+  return {
+    newPhasing, newPlanning, distError: null, remainingBudget, remainingHours, distributedRemainingHours, pastMonths, futureMonths,
+    consumedBudget, consumedHours, soldBudget, soldHours,
+    overBudget: consumedBudget > soldBudget, overHours: consumedHours > soldHours,
+  };
 }
 
 // Dates C4 (B-158): the distribution a task keeps for a month list. An empty list keeps it untouched only for an
