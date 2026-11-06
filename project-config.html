@@ -503,7 +503,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script defer src="js/api.js?v=12"></script>
+<script defer src="js/api.js?v=13"></script>
 <script defer src="js/core.js?v=16"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script type="module" src="js/lib/money.js?v=6"></script>
@@ -895,7 +895,7 @@
           : [...this.projectTags.map(t => t.item_id), itemId];
         this.tagSaving = true;
         try {
-          await Api.projects.tags.replace(this.project.id, newIds);
+          await Api.projects.tags.replace(this.project.id, newIds, { background: true });
           await this.loadTags();
         } catch (e) {
           console.warn('[project-config] toggleTag:', e.message);

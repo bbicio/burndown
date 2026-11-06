@@ -6,17 +6,18 @@
 
 const API_BASE = '/api';
 
-// Save overlay (PdOverlay, js/nav.js): shown when a write is still pending after this delay.
+// Save overlay (PdOverlay, js/nav.js). A save is a chain of requests: it opens with a write
+// (POST/PUT/PATCH/DELETE not declared `background: true`), and while it is open reads count too.
+// It stays open for SAVE_OVERLAY_GRACE_MS after the last pending request settles, success or failure,
+// so the next step of a multi-step save continues it. The overlay shows once the save has lasted
+// SAVE_OVERLAY_DELAY_MS with a request pending, and hides when the save closes.
 const SAVE_OVERLAY_DELAY_MS = 400;
-let _pdWritesPending = 0;
-let _pdOverlayTimer = null;
-// A multi-step save chains its writes: the next one starts in the same tick the previous one ends.
-// When the last pending write succeeds with the overlay up, hide waits this long and a write starting
-// meanwhile cancels it, so the overlay stays up across the steps. A failed write hides at once, before
-// the caller's catch shows its error.
-const SAVE_OVERLAY_GRACE_MS = 50;
-let _pdOverlayShown = false;
-let _pdHideTimer = null;
+const SAVE_OVERLAY_GRACE_MS = 250;
+let _pdPending = 0;
+let _pdSaveStart = null;   // Date.now() when the open save began, null when no save is open
+let _pdShown = false;
+let _pdShowTimer = null;
+let _pdCloseTimer = null;
 
 // A write is a POST/PUT/PATCH/DELETE not declared `background: true`.
 function _isOverlayWrite(options) {
@@ -24,20 +25,43 @@ function _isOverlayWrite(options) {
   return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(m) && !(options && options.background === true);
 }
 
+function _pdShow() {
+  if (_pdShown || !window.PdOverlay) return;
+  _pdShown = true;
+  window.PdOverlay.show();
+}
+
+// Called when a request joins the save; returns whether it counts.
+function _pdBegin(options) {
+  const isRead = String((options && options.method) || 'GET').toUpperCase() === 'GET';
+  const counts = _isOverlayWrite(options) || (isRead && _pdSaveStart !== null);
+  if (!counts) return false;
+  clearTimeout(_pdCloseTimer);
+  if (_pdSaveStart === null) {
+    _pdSaveStart = Date.now();
+    _pdShowTimer = setTimeout(() => { if (_pdPending > 0) _pdShow(); }, SAVE_OVERLAY_DELAY_MS);
+  } else if (Date.now() - _pdSaveStart >= SAVE_OVERLAY_DELAY_MS) {
+    _pdShow(); // the delay ran out in a gap between two steps
+  }
+  _pdPending++;
+  return true;
+}
+
+function _pdEnd() {
+  if (--_pdPending > 0) return;
+  _pdCloseTimer = setTimeout(() => {
+    _pdSaveStart = null;
+    clearTimeout(_pdShowTimer);
+    if (_pdShown) {
+      _pdShown = false;
+      if (window.PdOverlay) window.PdOverlay.hide();
+    }
+  }, SAVE_OVERLAY_GRACE_MS);
+}
+
 async function apiFetch(path, options = {}) {
   const { background, ...fetchOptions } = options;
-  const counted = _isOverlayWrite(options);
-  if (counted && ++_pdWritesPending === 1) {
-    clearTimeout(_pdOverlayTimer);
-    if (_pdOverlayShown) {
-      clearTimeout(_pdHideTimer); // still up from the previous step: keep it
-    } else {
-      _pdOverlayTimer = setTimeout(() => {
-        if (_pdWritesPending > 0 && window.PdOverlay) { _pdOverlayShown = true; window.PdOverlay.show(); }
-      }, SAVE_OVERLAY_DELAY_MS);
-    }
-  }
-  let failed = true;
+  const counted = _pdBegin(options);
   try {
     const isFormData = fetchOptions.body instanceof FormData;
     const controller = new AbortController();
@@ -71,19 +95,9 @@ async function apiFetch(path, options = {}) {
       err.data = data;
       throw err;
     }
-    failed = false;
     return data;
   } finally {
-    if (counted && --_pdWritesPending === 0) {
-      clearTimeout(_pdOverlayTimer);
-      const hideNow = () => {
-        _pdOverlayShown = false;
-        if (window.PdOverlay) window.PdOverlay.hide();
-      };
-      clearTimeout(_pdHideTimer);
-      if (_pdOverlayShown && !failed) _pdHideTimer = setTimeout(hideNow, SAVE_OVERLAY_GRACE_MS);
-      else hideNow();
-    }
+    if (counted) _pdEnd();
   }
 }
 
@@ -153,7 +167,7 @@ const Api = {
     },
     tags: {
       list:    (id)          => apiFetch(`/projects/${id}/tags`),
-      replace: (id, itemIds) => apiFetch(`/projects/${id}/tags`, { method: 'PUT', body: JSON.stringify({ itemIds }) }),
+      replace: (id, itemIds, opts) => apiFetch(`/projects/${id}/tags`, { method: 'PUT', body: JSON.stringify({ itemIds }), background: opts?.background }),
     },
   },
 

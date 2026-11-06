@@ -21,6 +21,10 @@ afterEach(() => { vi.useRealTimers(); });
 const post = (o = {}) => api.apiFetch('/x', { method: 'POST', body: '{}', ...o });
 
 describe('save overlay trigger', () => {
+  // A save is a chain of requests: it stays open for GRACE ms after the last pending request settles.
+  const GRACE = 250;
+  const get = () => api.apiFetch('/r');
+
   it('does not show before 400 ms and shows at 400 ms while a POST is pending', async () => {
     const p = post();
     await vi.advanceTimersByTimeAsync(399);
@@ -29,101 +33,141 @@ describe('save overlay trigger', () => {
     expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
     pending[0].resolve(okRes()); await p;
   });
-  it('never shows for a write that settles in under 400 ms', async () => {
+  it('never shows (nor hides) for a lone write that settles in under 400 ms', async () => {
     const p = post();
-    await vi.advanceTimersByTimeAsync(100);
+    await vi.advanceTimersByTimeAsync(300);
     pending[0].resolve(okRes()); await p;
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(2000);
     expect(win.PdOverlay.show).toHaveBeenCalledTimes(0);
-    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
+    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(0);
   });
-  it('two overlapping writes → one show, hide only after the second settles', async () => {
+  it('two overlapping writes → one show, hide GRACE ms after the second settles', async () => {
     const p1 = post(), p2 = post({ method: 'PUT' });
     await vi.advanceTimersByTimeAsync(400);
     expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
     pending[0].resolve(okRes()); await p1;
-    await vi.advanceTimersByTimeAsync(100);
+    await vi.advanceTimersByTimeAsync(1000);
     expect(win.PdOverlay.hide).toHaveBeenCalledTimes(0);
     pending[1].resolve(okRes()); await p2;
-    await vi.advanceTimersByTimeAsync(50);
+    await vi.advanceTimersByTimeAsync(GRACE - 1);
+    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(0);
+    await vi.advanceTimersByTimeAsync(1);
     expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
   });
-  it('hides when the write rejects', async () => {
-    const p = post().catch(e => e);
-    await vi.advanceTimersByTimeAsync(400);
-    pending[0].reject(new Error('net')); await p;
-    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
-  });
-  it('hides when the write times out (30 s abort)', async () => {
+  for (const [name, settle] of [
+    ['rejects', d => d.reject(new Error('net'))],
+    ['returns 401', d => d.resolve(okRes('', 401))],
+    ['returns an HTTP error', d => d.resolve(okRes('{"error":"no"}', 400))],
+    ['returns a body that is not JSON', d => d.resolve(okRes('<html>502</html>'))],
+  ]) {
+    it(`hides GRACE ms after a visible write that ${name}`, async () => {
+      const p = post().catch(e => e);
+      await vi.advanceTimersByTimeAsync(400);
+      settle(pending[0]); expect(await p).toBeInstanceOf(Error);
+      await vi.advanceTimersByTimeAsync(GRACE);
+      expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
+    });
+  }
+  it('hides after a write that times out (30 s abort)', async () => {
     fetchMock.mockImplementation((u, o) => new Promise((_, rej) => {
       o.signal.addEventListener('abort', () => { const e = new Error('a'); e.name = 'AbortError'; rej(e); });
     }));
     const p = post().catch(e => e);
     await vi.advanceTimersByTimeAsync(30000);
     expect((await p).message).toBe('Request timed out');
+    await vi.advanceTimersByTimeAsync(GRACE);
     expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
   });
-  it('hides on a 401', async () => {
-    const p = post().catch(e => e);
-    pending[0].resolve(okRes('', 401)); await p;
-    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
-  });
-  it('hides when the response body is not JSON', async () => {
-    const p = post().catch(e => e);
+  it('a failed step does not drop the overlay while the save goes on', async () => {
+    const p1 = post().catch(e => e);
     await vi.advanceTimersByTimeAsync(400);
-    pending[0].resolve(okRes('<html>502</html>')); const err = await p;
-    expect(err).toBeInstanceOf(Error);
-    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
-  });
-  it('has hidden the overlay before the caller sees the rejection', async () => {
-    let hiddenAtCatch = false;
-    const p = post().catch(() => { hiddenAtCatch = win.PdOverlay.hide.mock.calls.length > 0; });
-    pending[0].resolve(okRes('{"error":"no"}', 400)); await p;
-    expect(hiddenAtCatch).toBe(true);
-  });
-  it('re-arms the delay for a write that starts right after another ended', async () => {
-    const p1 = post();
-    await vi.advanceTimersByTimeAsync(300);
-    pending[0].resolve(okRes()); await p1;
+    pending[0].resolve(okRes('{"error":"MONEY_RULE"}', 400)); await p1;
     const p2 = post();
-    await vi.advanceTimersByTimeAsync(399);
-    expect(win.PdOverlay.show).toHaveBeenCalledTimes(0);
-    await vi.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(0);
     expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
     pending[1].resolve(okRes()); await p2;
+    await vi.advanceTimersByTimeAsync(GRACE);
+    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
   });
   it('a write chained right after a visible one keeps the overlay up: no hide, no second show', async () => {
     const p1 = post();
     await vi.advanceTimersByTimeAsync(400);
-    expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
     pending[0].resolve(okRes()); await p1;
     const p2 = post();
     await vi.advanceTimersByTimeAsync(1000);
     expect(win.PdOverlay.hide).toHaveBeenCalledTimes(0);
     expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
     pending[1].resolve(okRes()); await p2;
-    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(0);
-    await vi.advanceTimersByTimeAsync(50);
+    await vi.advanceTimersByTimeAsync(GRACE);
     expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
   });
-  it('a failed write hides at once even when the overlay was visible', async () => {
-    const p = post().catch(e => e);
-    await vi.advanceTimersByTimeAsync(400);
-    pending[0].resolve(okRes('{"error":"no"}', 400)); await p;
-    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
-  });
-  it('a write started well after a visible one waits the full 400 ms again', async () => {
+  it('a slow read between two writes keeps the overlay up', async () => {
     const p1 = post();
     await vi.advanceTimersByTimeAsync(400);
     pending[0].resolve(okRes()); await p1;
-    await vi.advanceTimersByTimeAsync(200);
+    await vi.advanceTimersByTimeAsync(10);
+    const g = get();
+    await vi.advanceTimersByTimeAsync(1000);
+    pending[1].resolve(okRes()); await g;
+    const p2 = post();
+    await vi.advanceTimersByTimeAsync(500);
+    pending[2].resolve(okRes()); await p2;
+    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(0);
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(GRACE);
+    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
+  });
+  it('the delay counts from the start of the save, not of each write', async () => {
+    const p1 = post();
+    await vi.advanceTimersByTimeAsync(300);
+    pending[0].resolve(okRes()); await p1;
+    const p2 = post();
+    await vi.advanceTimersByTimeAsync(99);
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(0);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
+    pending[1].resolve(okRes()); await p2;
+  });
+  it('a step that starts after the delay elapsed in an idle gap shows at once', async () => {
+    const p1 = post();
+    await vi.advanceTimersByTimeAsync(300);
+    pending[0].resolve(okRes()); await p1;
+    await vi.advanceTimersByTimeAsync(150); // 450 ms into the save, nothing pending
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(0);
     const p2 = post();
     expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
+    pending[1].resolve(okRes()); await p2;
+  });
+  it('a write started after the save closed waits the full 400 ms again', async () => {
+    const p1 = post();
+    await vi.advanceTimersByTimeAsync(400);
+    pending[0].resolve(okRes()); await p1;
+    await vi.advanceTimersByTimeAsync(GRACE + 10);
+    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
+    const p2 = post();
     await vi.advanceTimersByTimeAsync(399);
     expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(1);
     expect(win.PdOverlay.show).toHaveBeenCalledTimes(2);
     pending[1].resolve(okRes()); await p2;
+  });
+  it('a read outside a save is not counted', async () => {
+    const g = get();
+    await vi.advanceTimersByTimeAsync(2000);
+    pending[0].resolve(okRes()); await g;
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(0);
+    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(0);
+  });
+  it('a background write inside a save neither extends nor shows it', async () => {
+    const p1 = post();
+    await vi.advanceTimersByTimeAsync(100);
+    pending[0].resolve(okRes()); await p1;
+    const b = post({ background: true });
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(0);
+    pending[1].resolve(okRes()); await b;
   });
   it('counts a FormData POST', async () => {
     const p = api.apiFetch('/up', { method: 'POST', body: new FormData() });
@@ -137,6 +181,7 @@ describe('save overlay trigger', () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(win.PdOverlay.show).toHaveBeenCalledTimes(0);
     pending.forEach(d => d.resolve(okRes())); await g; await b;
+    await vi.advanceTimersByTimeAsync(1000);
     expect(win.PdOverlay.hide).toHaveBeenCalledTimes(0);
   });
   it('accepts a lower-case method', async () => {
@@ -167,6 +212,14 @@ describe('save overlay trigger', () => {
     const n = readFileSync(join(process.cwd(), 'js/notifications.js'), 'utf8');
     expect(n).toContain("/notifications/${id}/read`, { method: 'PATCH', background: true }");
     expect(n).toContain("'/notifications/read-all', { method: 'PATCH', background: true }");
+  });
+  it('projects.tags.replace forwards background, and the project-config tag toggle passes it', async () => {
+    const p = api.Api.projects.tags.replace('p', [], { background: true });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(0);
+    pending[0].resolve(okRes()); await p;
+    const html = readFileSync(join(process.cwd(), 'project-config.html'), 'utf8');
+    expect(html).toContain('Api.projects.tags.replace(this.project.id, newIds, { background: true })');
   });
   it('versions.tags.replace forwards background, and the costgrid tag toggle passes it', async () => {
     const p = api.Api.costGrids.versions.tags.replace('c', 'v', [], { background: true });
