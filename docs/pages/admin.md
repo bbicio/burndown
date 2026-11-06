@@ -15,3 +15,29 @@ A "✉️ Resend invite" button (`v-if="u.status === 'pending'"`) calls `resendI
 ## Header unification (2026-10-16)
 
 Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. The former `.page-header` is now the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`), placed outside the `.page` wrapper so the breadcrumb and the band read as one block; `.page` keeps its own 2rem top margin. The user count is in `.ph-sub` ("N users").
+
+## User Admin redesign (2026-11-06)
+
+Spec `docs/superpowers/specs/2026-11-06-user-admin-redesign-design.md`, plan `docs/superpowers/plans/2026-11-06-user-admin-redesign.md`, boards `docs/superpowers/design/admin/redesign/12a…12r`. API and role rules unchanged.
+
+### Current state
+
+- The rules and list transforms live in `js/lib/user-admin-rules.js` ([docs/js/lib.md](../js/lib.md)); the page only renders them. A row is `self`, `anonymized`, `locked` or `normal`; only `normal` rows have a menu.
+- Toolbar: status segments with counts that follow the role and the search, a native role select, a search field. Name, Role, Status and Joined sort in three states (ascending, descending, API order).
+- One visible text button per row (`Resend invite` / `Enable`); everything else is in the ⋯ menu, grouped Role / Access / Data, with the reason shown in place of the description on unavailable items. The popover opens upwards when the tallest menu does not fit below the button (`openMenu`); on a phone the same groups open as a bottom sheet.
+- Disable and Anonymize go through Bootstrap modals (`#disableModal`, `#anonymizeModal`); Anonymize needs its checkbox. The invite form is a right-hand offcanvas (`#inviteDrawer`) with the error and sent states inside it.
+- Results and failures use one `banner`; each row has its own busy state (`u._loading`, `u._sending`).
+- Layouts: full table from 1280px, compact columns below it, card list below 768px. The phone head keeps title, short subtitle and `Invite` on one row.
+
+### Accepted deviations
+
+- Dates keep the page's own `fmtDate`, so the browser prints `Sept`, not the boards' `Sep`: the spec keeps `fmtDate`.
+- No link-expiry line on pending rows: `GET /api/users` has no `invite_expires` and the API is out of scope (spec decision 2).
+- The Disable modal states that an open session stays valid for up to 8 hours, not the boards' "signed out" copy: `requireAuth` does not check the status (spec decision 3).
+- Programmatic focus on the first menu item and on Cancel shows a focus ring the boards do not draw.
+- The page overrides the shared phone page head (`.ph` stacked, subtitle hidden) to match board 12r.
+- The full table still fits well below 1280px when measured with the seed data (spec decision 11); the 1280px breakpoint is kept as the spec states.
+
+### Not covered by screenshots
+
+Loading (12o) and access denied (12q) were captured by forcing the Vue state, not through the real request path.

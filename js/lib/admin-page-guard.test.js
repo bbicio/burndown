@@ -88,3 +88,13 @@ describe('admin.html — row menu, busy rows and confirmations', () => {
     expect(html).not.toMatch(/this\.loadingRow|this\.busy\b/);
   });
 });
+
+describe('admin.html — table', () => {
+  it('lists the header columns in the order of the body cells', () => {
+    const keys = [...html.matchAll(/\{ key: '(\w+)',\s+label: '([^']+)'(?:, plain: true)?(?:, wide: true)? \}/g)].map(m => m[1]);
+    expect(keys).toEqual(['name', 'role', 'status', 'invited', 'joined']);
+    const cells = html.slice(html.indexOf('<tr v-for="u in visibleUsers"'));
+    expect(cells.indexOf('u.invited_by_name ||')).toBeGreaterThan(-1);
+    expect(cells.indexOf('u.invited_by_name ||')).toBeLessThan(cells.indexOf('fmtDate(u.created_at) }}</td>'));
+  });
+});

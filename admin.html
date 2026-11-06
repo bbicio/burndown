@@ -135,6 +135,8 @@
 
     .ua-busy { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
     .ua-busy .spinner-border { --bs-spinner-width: 14px; --bs-spinner-height: 14px; --bs-spinner-border-width: 2px; }
+    .ua-busy:empty { display: none; }
+    .ua-table th:last-child, .ua-table td:last-child { width: 200px; }
     .ua-btn-more { width: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 
     /* ── Row menu (popover inside the actions cell; no ancestor up to the card clips it) ── */
@@ -265,6 +267,7 @@
 
     /* ── Tablet: compact columns, 40px controls ── */
     @media (max-width: 1279.98px) {
+      .ph-side { width: auto; }
       .ua-col-wide { display: none; }
       .ua-compact-line { display: block; color: var(--text-muted); }
       .ua-btn, .ua-search input, .ua-role, .md-seg-btn { height: 40px; }
@@ -274,6 +277,12 @@
 
     /* ── Phone: card list, 44px controls, full-screen drawer ── */
     @media (max-width: 767.98px) {
+      .ph { flex-direction: row; align-items: center; flex-wrap: nowrap; }
+      .ph-sub { display: block; }
+      .ph-main { flex: 1 1 0; }
+      .ph-side { width: auto; }
+      .ua-drawer-foot > button { flex: 1 1 0; }
+      .ua-drawer-foot .ua-btn-text { border: 1px solid var(--border-dark); border-radius: var(--radius-md); }
       .ph-actions .ph-btn-primary { height: 44px; }
       .ua-toolbar { padding: var(--space-3); }
       .ua-search { order: -1; flex: 1 1 100%; margin-left: 0; }
@@ -373,12 +382,12 @@
           <table v-if="!isPhone" class="ua-table">
             <thead>
               <tr>
-                <th v-for="c in sortCols" :key="c.key" :aria-sort="ariaSort(c.key)" :class="{ 'ua-col-wide': c.key === 'joined' }">
-                  <button type="button" class="ua-th" :class="{ 'ua-th--on': sort.key === c.key }" @click="toggleSort(c.key)">
+                <th v-for="c in headCols" :key="c.key" :aria-sort="c.plain ? null : ariaSort(c.key)" :class="{ 'ua-col-wide': c.wide }">
+                  <template v-if="c.plain">{{ c.label }}</template>
+                  <button v-else type="button" class="ua-th" :class="{ 'ua-th--on': sort.key === c.key }" @click="toggleSort(c.key)">
                     {{ c.label }}<span class="ua-sort" aria-hidden="true">{{ sortGlyph(c.key) }}</span>
                   </button>
                 </th>
-                <th class="ua-col-wide">Invited by</th>
                 <th></th>
               </tr>
             </thead>
@@ -716,11 +725,12 @@
             { val: 'pending',  label: 'Pending' },
             { val: 'disabled', label: 'Disabled' },
           ],
-          sortCols: [
-            { key: 'name',   label: 'Name' },
-            { key: 'role',   label: 'Role' },
-            { key: 'status', label: 'Status' },
-            { key: 'joined', label: 'Joined' },
+          headCols: [
+            { key: 'name',    label: 'Name' },
+            { key: 'role',    label: 'Role' },
+            { key: 'status',  label: 'Status' },
+            { key: 'invited', label: 'Invited by', plain: true, wide: true },
+            { key: 'joined',  label: 'Joined', wide: true },
           ],
           notes: {
             self: "You can't change your own role or access. Ask another admin.",
