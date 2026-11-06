@@ -4,7 +4,7 @@
 
 **Goal:** La voce di menu `Settings` e la pagina vuota `settings.html` diventano "Privacy Notice", una pagina in sola lettura con l'ultima versione pubblicata dei T&C e versione + data di pubblicazione in calce.
 
-**Architecture:** Nuova pagina Vue `privacy-notice.html` che legge `GET /api/app-settings/terms` con `apiFetch` e rende `content` con `v-html`; `settings.html` diventa un redirect statico sul modello di `config.html`; in `js/nav.js` cambiano etichetta, icona, id e destinazione della voce del menu account. Nessuna modifica API.
+**Architecture:** Nuova pagina Vue `privacy-notice.html` che legge `GET /api/app-settings/terms` con `apiFetch` e rende `content` con `v-html`; `settings.html` si elimina, senza redirect; in `js/nav.js` cambiano etichetta, icona, id e destinazione della voce del menu account. Nessuna modifica API.
 
 **Tech Stack:** HTML + Vue 3 da CDN, nessun build; vitest + jsdom per i guard.
 
@@ -63,46 +63,48 @@ I task sono **sequenziali**, non indipendenti: Task 2 dipende dall'id e dalla de
 - [ ] **Step 6:** `npx vitest run js/lib/` → PASS. (`nav-shell-guard` conosce ancora `settings` in `PAGES`: resta verde perché `settings.html` non è ancora cambiata.)
 - [ ] **Step 7: Commit** — `git commit -m "feat(nav): account menu entry Settings → Privacy Notice"`.
 
-### Task 2: Pagina `privacy-notice.html` e redirect `settings.html`
+### Task 2: Pagina `privacy-notice.html`, eliminazione di `settings.html`
 
 **Files:**
 - Create: `privacy-notice.html`
-- Modify: `settings.html` (intero file → redirect)
+- Delete: `settings.html`
 - Modify: `js/lib/nav-shell-guard.test.js:44` (`'settings'` → `'privacy-notice'`), `js/lib/page-head-guard.test.js:26` (`'settings.html'` → `'privacy-notice.html'`)
 - Test (create): `js/lib/privacy-notice-guard.test.js`
 
 **Interfaces:**
 - Consumes: `initNav('privacy', { breadcrumbs })` (Task 1), `apiFetch(url)` (`js/api.js`, restituisce il JSON, lancia su `!ok`, porta al login su 401), `formatDayText(iso)` (bridge `window.formatDayText` da `js/lib/dates.js?v=4`).
-- Produces: la pagina `/privacy-notice.html`; il redirect `/settings.html`.
+- Produces: la pagina `/privacy-notice.html`; `settings.html` non esiste più.
 
 - [ ] **Step 1: Scrivi il guard** `js/lib/privacy-notice-guard.test.js` (legge i file con `readFileSync(join(process.cwd(), …))`, come `nav-shell-guard`):
   - `privacy-notice.html` non matcha `/<button|<input|<form|<textarea|<select/i`;
   - contiene `js/lib/dates.js?v=4`, `/api/app-settings/terms`, `initNav('privacy'`, `<title>PDash — Privacy Notice</title>`, `No privacy notice has been published yet.`, `Unable to load the privacy notice. Please refresh or contact your administrator.`;
   - non matcha `/#[0-9a-fA-F]{3,8}\b/` nel suo `<style>`;
-  - `settings.html` contiene `location.replace('/privacy-notice.html')` e `url=/privacy-notice.html`, e non contiene `initNav`.
-- [ ] **Step 2:** aggiorna `PAGES` in `nav-shell-guard.test.js` e l'elenco `.page-header` in `page-head-guard.test.js`; `npx vitest run js/lib/privacy-notice-guard.test.js js/lib/nav-shell-guard.test.js js/lib/page-head-guard.test.js` → FAIL (file mancante / settings.html non è redirect).
+  - `existsSync('settings.html')` è `false`, e nessun `*.html` alla radice né `js/**/*.js` (esclusi i `*.test.js`) contiene la stringa `settings.html`.
+- [ ] **Step 2:** aggiorna `PAGES` in `nav-shell-guard.test.js` e l'elenco `.page-header` in `page-head-guard.test.js`; `npx vitest run js/lib/privacy-notice-guard.test.js js/lib/nav-shell-guard.test.js js/lib/page-head-guard.test.js` → FAIL (`privacy-notice.html` mancante, `settings.html` ancora presente).
 - [ ] **Step 3: Crea `privacy-notice.html`** copiando la struttura di `settings.html` (snippet sidebar, CSS `tokens/style/admin-crud` con i loro `?v=` attuali, page shell, script `defer`/`module` nello stesso ordine, `nav.js?v=22`) e aggiungendo `<script type="module" src="js/lib/dates.js?v=4"></script>` prima dello script della pagina. Vue `data`: `ready`, `loading`, `loadError`, `content`, `version`, `updatedAt`. `created()`: `initNav('privacy', …)`, `ready = true`, poi `apiFetch('/api/app-settings/terms')` in `try/catch` → `loadError` con la copy esatta. Computed `footerLine`: `Version ${version}` + (`formatDayText(String(updatedAt).slice(0, 10))` non vuoto ? ` · Published ${data}` : ''). Template: `.ph` con `Privacy Notice`; card `.pn-doc` con spinner (`loading`), errore, vuoto (`!content`), oppure `<div class="pn-body" v-html="content"></div>` + `<p class="pn-footer">{{ footerLine }}</p>`. `<style>` di pagina: card bianca (`var(--surface-…)`, bordo/raggio dei token), `max-width: 780px`, tipografia h2/p/li di `terms.html:33-34` coi token, `.pn-body img { max-width: 100% }`, `.pn-body { overflow-wrap: anywhere }`, `.pn-body table { display: block; overflow-x: auto }`, `.pn-footer` muted con `border-top` sottile.
-- [ ] **Step 4: Riscrivi `settings.html`** come `config.html`: `<title>PDash — Privacy Notice</title>`, `<meta http-equiv="refresh" content="0; url=/privacy-notice.html">`, `<script>location.replace('/privacy-notice.html');</script>`, `<a href="/privacy-notice.html">Go to Privacy Notice</a>`.
-- [ ] **Step 5:** `npm test` → PASS.
+- [ ] **Step 4: Elimina `settings.html`** — `git rm settings.html`.
+- [ ] **Step 5:** `npx vitest run js/lib/` → PASS. (`scripts/doc-paths-guard.test.js` è rosso finché Task 3 non aggiorna i documenti: atteso.)
 - [ ] **Step 6: Verifica visiva** (§6.3, una per ciclo) — su uno stack di branch (`scripts/test-branch.sh up`, `.env` copiato dal checkout principale) `node scripts/shoot.mjs` su `/privacy-notice.html` a 1440 e 390 px (invocazione: `docs/scripts/shoot.md`); leggi le PNG: titolo, testo, calce `Version N · Published …`, nessuno scroll orizzontale a 390. Annota le PNG lette nel report.
 - [ ] **Step 7: Commit** — `git commit -m "feat(privacy-notice): read-only Terms page replaces the empty Settings page"`.
 
-### Task 3: `TEST_CASES.md`
+### Task 3: Documentazione che cita `settings.html`
 
 **Files:**
 - Modify: `TEST_CASES.md:42-44`, `:54`
+- Rename: `docs/pages/settings.md` → `docs/pages/privacy-notice.md` (`git mv`), più una sezione `## Privacy Notice (2026-11-06)` con lo stato corrente
+- Modify: `CLAUDE.md:111` (riga della tabella Pages → `privacy-notice.html`, link a `docs/pages/privacy-notice.md`), `CLAUDE.md:233` ("settings link to `/settings.html`" → "Privacy Notice link to `/privacy-notice.html`")
+- Modify: `ARCHITECTURE.md:998`, `docs/prd/notifications.md:7,11`, `docs/js/nav.md` (nuova sezione in coda: voce `#nav-privacy-btn` → `/privacy-notice.html`, `settings.html` eliminata), `.claude/skills/operational-manual/SKILL.md:165`
+- Modify: `scripts/doc-paths-guard.test.js` — voce `GONE` `['settings.html', 'deleted by the privacy-notice cycle (2026-11-06); only historical mentions remain']`
 
 - [ ] **Step 1:** N-03 → "Privacy Notice opens a page": click "Privacy Notice" nel menu account → `/privacy-notice.html`. ST-01/ST-02 sostituiti da:
   - PN-01 Privacy Notice content — apri `/privacy-notice.html` → breadcrumb Home › Privacy Notice, titolo Privacy Notice, testo dei T&C pubblicati, nessun pulsante/checkbox, calce `Version N · Published Mon D, YYYY`;
-  - PN-02 Privacy Notice requires login — logout, apri `/privacy-notice.html` → login;
-  - PN-03 Old Settings link — apri `/settings.html` → `/privacy-notice.html`.
+  - PN-02 Privacy Notice requires login — logout, apri `/privacy-notice.html` → login.
   N-12: `/settings.html` → `/privacy-notice.html`, "settings highlights nothing" → "privacy notice highlights nothing".
-- [ ] **Step 2:** `npx vitest run js/lib/test-cases-parse.test.js scripts/` → PASS.
-- [ ] **Step 3: Commit** — `git commit -m "docs(test-cases): Privacy Notice cases replace Settings"`.
-
-La documentazione narrativa (`docs/pages/settings.md` → `privacy-notice.md`, tabella Pages di `CLAUDE.md`, `ARCHITECTURE.md`, `docs/prd/notifications.md`, `docs/js/nav.md`, `.claude/skills/operational-manual/SKILL.md:165`) la aggiorna `/sync-docs` al Gate 5.
+- [ ] **Step 2:** aggiorna gli altri file della lista: la prosa al presente descrive la Privacy Notice; le menzioni al passato di `settings.html` (es. la sezione 2026-09-30 di `docs/js/nav.md`) restano, coperte dalla voce `GONE`.
+- [ ] **Step 3:** `grep -rn "settings.html|pages/settings.md" --include=*.md . | grep -v node_modules | grep -v docs/superpowers` → solo menzioni al passato.
+- [ ] **Step 4:** `npm test` → PASS (compresi `doc-paths-guard` e `claude-md-guard`).
+- [ ] **Step 5: Commit** — `git commit -m "docs: Privacy Notice replaces the Settings page in the live docs"`.
 
 ## Decisioni aperte
 
-1. **La documentazione narrativa va a `/sync-docs` (Gate 5), non a un task del Piano.** Alternativa scartata: un Task 4 che riscrive `docs/pages/`, `CLAUDE.md`, `ARCHITECTURE.md`, PRD e skill. Perché: è il suo instradamento normale e `settings.html` resta come redirect, quindi nessun guard di path si rompe nel frattempo.
-2. **Nessuna funzione pura in `js/lib/` per la calce.** Alternativa scartata: `privacyFooterLine(version, updatedAt)` testata con vitest. Perché: la Spec non la prevede, è una riga di computed, e il comportamento è coperto dalla verifica visiva e dal criterio 6.
+1. **Nessuna funzione pura in `js/lib/` per la calce.** Alternativa scartata: `privacyFooterLine(version, updatedAt)` testata con vitest. Perché: la Spec non la prevede, è una riga di computed, e il comportamento è coperto dalla verifica visiva e dal criterio 6.

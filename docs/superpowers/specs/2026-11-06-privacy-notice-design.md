@@ -20,7 +20,6 @@ calce. Nessuna modifica API, nessuna migrazione. Lo scope escluso è quello conf
   tabella è vuota.
 - `js/lib/dates.js` — `formatDayText(iso)` accetta solo `'YYYY-MM-DD'` e restituisce `'Dec 1, 2025'` (`''` se malformato);
   `updatedAt` arriva come timestamp ISO (`2026-10-12T09:30:00.000Z`).
-- `config.html` — redirect statico: `<meta http-equiv="refresh">` + `location.replace(...)` + link di fallback.
 - Riferimenti a `settings`: `js/lib/nav-model.test.js:83-84` (tab fuori menu), `:96` (elenco id),
   `js/lib/nav-shell-guard.test.js:44` (`PAGES`), `js/lib/page-head-guard.test.js:26` (pagine `.page-header`).
 
@@ -44,11 +43,13 @@ calce. Nessuna modifica API, nessuna migrazione. Lo scope escluso è quello conf
   valida solo `Version {version}`. Data: `formatDayText(String(updatedAt).slice(0, 10))`, cioè il giorno UTC di pubblicazione.
 - Nessun `<button>`, `<input>`, `<form>` nella pagina.
 
-## 3. Redirect — `settings.html`
+## 3. `settings.html` eliminata
 
-Sostituita da un redirect sul modello di `config.html`: `<title>PDash — Privacy Notice</title>`, meta refresh +
-`location.replace('/privacy-notice.html')`, link di fallback "Go to Privacy Notice". Esce da `nav-shell-guard` e
-`page-head-guard` (non chiama più `initNav`).
+`settings.html` si cancella, senza redirect: nessun link la cita tranne la voce di menu, che passa a
+`/privacy-notice.html`. `/settings.html` risponde 404. Esce da `nav-shell-guard` e `page-head-guard`.
+`scripts/doc-paths-guard.test.js` fallisce su ogni documento vivo che citi ancora `settings.html` o
+`docs/pages/settings.md`: quei documenti si aggiornano nel branch (§6), e le sole menzioni al passato restano
+coperte da una voce `GONE` per `settings.html`.
 
 ## 4. Menu — `js/nav.js`
 
@@ -66,15 +67,15 @@ Sostituita da un redirect sul modello di `config.html`: `<title>PDash — Privac
 - Nuovo `js/lib/privacy-notice-guard.test.js`:
   - `privacy-notice.html` non contiene `<button`, `<input`, `<form`;
   - carica `js/lib/dates.js` e chiama `/api/app-settings/terms`;
-  - `settings.html` contiene `location.replace('/privacy-notice.html')`.
+  - `settings.html` non esiste e nessun `*.html` o `js/*.js` contiene `settings.html`.
 
 ## 6. Documentazione
 
 - `docs/pages/settings.md` → `docs/pages/privacy-notice.md`, con la nuova sezione del ciclo.
-- `TEST_CASES.md`: N-03 e N-12 aggiornati; ST-01/ST-02 sostituiti da PN-01 (contenuto + calce), PN-02 (login richiesto),
-  PN-03 (redirect da `/settings.html`).
+- `TEST_CASES.md`: N-03 e N-12 aggiornati; ST-01/ST-02 sostituiti da PN-01 (contenuto + calce), PN-02 (login richiesto).
 - `CLAUDE.md` tabella Pages, `ARCHITECTURE.md:998`, `docs/prd/notifications.md:7,11`, `docs/js/nav.md`,
-  `.claude/skills/operational-manual/SKILL.md` se cita la pagina. I documenti storici (specs, plans, reports) non si toccano.
+  `.claude/skills/operational-manual/SKILL.md:165`, nel branch e non a `/sync-docs` (`doc-paths-guard`, §3). I
+  documenti storici in `docs/superpowers/` non si toccano (fuori dal perimetro del guard).
 
 ## 7. Fuori scope
 
@@ -93,13 +94,13 @@ Sostituita da un redirect sul modello di `config.html`: `<title>PDash — Privac
 6. **Calce** — sotto il testo compare `Version N · Published <Mon D, YYYY>` con i valori di `version` e `updatedAt`.
 7. **Nuova versione** — dopo un "Publish new version" in `_terms-editor.html`, un reload mostra testo, versione e data nuovi.
 8. **Errore** — con la chiamata fallita compare il messaggio d'errore in inglese, non una pagina vuota.
-9. **Redirect** — `/settings.html` porta a `/privacy-notice.html`.
+9. **Settings eliminata** — `settings.html` non esiste più e nessun file di codice la cita (`privacy-notice-guard.test.js`).
 10. **Login** — da non loggato `/privacy-notice.html` porta a `/login.html`.
 11. **Test** — `npm test` verde.
 
 ## Decisioni aperte
 
-1. **Redirect con una pagina HTML (`settings.html`).** Alternativa scartata: 301 in `nginx.conf`. Perché: è lo schema già usato da `config.html` e `index.html` e non tocca nginx.
+1. **`settings.html` eliminata, senza redirect** (scelta dell'utente dopo la prima stesura). Alternativa scartata: un redirect HTML sul modello di `config.html`, o un 301 in `nginx.conf`. Perché: la pagina era vuota e nessun link la usa; il costo è aggiornare nel branch i documenti vivi che la citano.
 2. **Id `nav-privacy-btn`.** Alternativa scartata: tenere `nav-settings-btn`. Perché: un id "settings" su una voce "Privacy Notice" confonde; costa una riga di test.
 3. **Icona `terms`.** Alternativa scartata: tenere l'ingranaggio `config`. Perché: l'ingranaggio promette impostazioni che non ci sono più.
 4. **Stile in un `<style>` di pagina.** Alternativa scartata: regole in `css/style.css`. Perché: eviterebbe un bump di `?v=` su ogni pagina per regole usate da una sola.
