@@ -245,6 +245,51 @@
     }
     .ua-btn-navy:hover { color: var(--text-inverse); opacity: .9; }
     .ua-denied { max-width: 440px; margin: 80px auto; }
+
+    /* ── Compact rows, card list, bottom sheet ── */
+    .ua-compact-line { display: none; font-size: 10.5px; }
+    .ua-cards { display: flex; flex-direction: column; }
+    .ua-cardrow { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border-light); }
+    .ua-cardrow-top { display: flex; align-items: flex-start; gap: var(--space-3); }
+    .ua-cardrow-top .ua-name-text { flex: 1 1 auto; }
+    .ua-cardrow-badges { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+    .ua-cardrow-foot .ua-btn { width: 100%; }
+    .ua-cardrow.ua-row--self { background: var(--surface-light); box-shadow: inset 3px 0 0 var(--brand-magenta); }
+    .ua-cardrow.ua-row--busy { opacity: .7; }
+    .ua-sheet-scrim { position: fixed; inset: 0; z-index: 1060; background: var(--overlay-scrim); display: flex; align-items: flex-end; }
+    .ua-sheet { width: 100%; max-height: 85vh; overflow-y: auto; background: var(--surface-white); border-radius: 16px 16px 0 0; padding: var(--space-3) var(--space-2) var(--space-4); }
+    .ua-sheet-head { display: flex; flex-direction: column; gap: 2px; padding: var(--space-2) var(--space-3) var(--space-3); color: var(--brand-navy); }
+    .ua-sheet-head span { font-size: 12.5px; color: var(--text-muted); }
+    .ua-sheet .ua-mi { min-height: 48px; align-items: center; }
+    .ua-sheet-cancel { display: block; width: calc(100% - 2 * var(--space-3)); margin: var(--space-2) var(--space-3) 0; height: 44px; border: 1px solid var(--border-dark); border-radius: var(--radius-md); background: var(--surface-white); color: var(--brand-navy); font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+
+    /* ── Tablet: compact columns, 40px controls ── */
+    @media (max-width: 1279.98px) {
+      .ua-col-wide { display: none; }
+      .ua-compact-line { display: block; color: var(--text-muted); }
+      .ua-btn, .ua-search input, .ua-role, .md-seg-btn { height: 40px; }
+      .ua-btn-more { width: 40px; }
+      .ua-search { flex: 1 1 200px; width: auto; }
+    }
+
+    /* ── Phone: card list, 44px controls, full-screen drawer ── */
+    @media (max-width: 767.98px) {
+      .ph-actions .ph-btn-primary { height: 44px; }
+      .ua-toolbar { padding: var(--space-3); }
+      .ua-search { order: -1; flex: 1 1 100%; margin-left: 0; }
+      .ua-search input, .ua-role, .ua-btn, .md-seg-btn, .ua-btn-text, .ua-btn-navy, .ua-sheet-cancel { height: 44px; }
+      .ua-btn-more { width: 44px; }
+      .md-seg { display: flex; width: 100%; overflow-x: auto; }
+      .ua-role { width: 100%; }
+      .ua-role select { flex: 1 1 auto; }
+      .ua-drawer { --bs-offcanvas-width: 100vw; }
+      .ua-fields, .ua-roles { grid-template-columns: 1fr; }
+      .ua-drawer .form-control, .ua-drawer .ph-btn-primary { height: 44px; }
+      .ua-confirm { padding: var(--space-4); }
+      #disableModal, #anonymizeModal { --bs-modal-margin: 16px; }
+      #disableModal .modal-dialog, #anonymizeModal .modal-dialog { max-width: none; }
+      .ua-confirm-foot .btn, .ua-confirm-foot .ua-btn-navy, .ua-confirm-foot .ua-btn-text { height: 44px; }
+    }
   </style>
 </head>
 <body>
@@ -274,7 +319,7 @@
         <div class="ph-sub">{{ subtitle }}</div>
       </div>
       <div class="ph-side"><div class="ph-actions">
-        <button class="ph-btn-primary" @click="openInvite"><ph-icon name="plus" :size="14"></ph-icon>Invite user</button>
+        <button class="ph-btn-primary" @click="openInvite"><ph-icon name="plus" :size="14"></ph-icon>{{ isPhone ? 'Invite' : 'Invite user' }}</button>
       </div></div>
     </div>
 
@@ -325,15 +370,15 @@
 
         <!-- Table -->
         <template v-else-if="visibleUsers.length">
-          <table class="ua-table">
+          <table v-if="!isPhone" class="ua-table">
             <thead>
               <tr>
-                <th v-for="c in sortCols" :key="c.key" :aria-sort="ariaSort(c.key)">
+                <th v-for="c in sortCols" :key="c.key" :aria-sort="ariaSort(c.key)" :class="{ 'ua-col-wide': c.key === 'joined' }">
                   <button type="button" class="ua-th" :class="{ 'ua-th--on': sort.key === c.key }" @click="toggleSort(c.key)">
                     {{ c.label }}<span class="ua-sort" aria-hidden="true">{{ sortGlyph(c.key) }}</span>
                   </button>
                 </th>
-                <th>Invited by</th>
+                <th class="ua-col-wide">Invited by</th>
                 <th></th>
               </tr>
             </thead>
@@ -347,6 +392,7 @@
                         {{ displayName(u) }}<span v-if="kind(u) === 'self'" class="ua-you">YOU</span>
                       </div>
                       <div class="ua-email">{{ u.email }}</div>
+                      <div class="ua-compact-line">Joined {{ fmtDate(u.created_at) }}<template v-if="u.invited_by_name"> · by {{ u.invited_by_name }}</template></div>
                     </div>
                   </div>
                 </td>
@@ -361,8 +407,8 @@
                     <span v-if="isAnon(u)" class="ua-badge ua-badge--anon">anonymized</span>
                   </div>
                 </td>
-                <td class="ua-muted">{{ u.invited_by_name || '—' }}</td>
-                <td class="ua-muted">{{ fmtDate(u.created_at) }}</td>
+                <td class="ua-muted ua-col-wide">{{ u.invited_by_name || '—' }}</td>
+                <td class="ua-muted ua-col-wide">{{ fmtDate(u.created_at) }}</td>
                 <td>
                   <div class="ua-actions">
                     <span v-if="kind(u) === 'self'" class="ua-note" :title="notes.self">
@@ -408,6 +454,41 @@
               </tr>
             </tbody>
           </table>
+          <div v-else class="ua-cards">
+            <div v-for="u in visibleUsers" :key="u.id" class="ua-cardrow" :class="rowClass(u)">
+              <div class="ua-cardrow-top">
+                <span class="ua-avatar" :class="avatarClass(u)">{{ initials(u) }}</span>
+                <div class="ua-name-text">
+                  <div class="ua-name-line" :class="{ 'ua-name-line--anon': isAnon(u) }">
+                    {{ displayName(u) }}<span v-if="kind(u) === 'self'" class="ua-you">YOU</span>
+                  </div>
+                  <div class="ua-email">{{ u.email }}</div>
+                </div>
+                <button v-if="kind(u) === 'normal' && !u._loading && !u._sending" type="button" class="ua-btn ua-btn-more ua-menu-trigger" aria-haspopup="menu"
+                        :aria-expanded="menu && menu.userId === u.id ? 'true' : 'false'"
+                        :aria-label="'Actions for ' + displayName(u)" @click="openMenu(u, $event)">
+                  <ph-icon name="more" :size="16"></ph-icon>
+                </button>
+              </div>
+              <div class="ua-cardrow-badges">
+                <span class="ua-badge" :class="'ua-badge--' + u.role"><ua-icon v-if="u.role === 'sysadmin'" name="shield" :size="10"></ua-icon>{{ u.role }}</span>
+                <span class="ua-badge" :class="'ua-badge--' + u.status"><span class="ua-dot" :class="'ua-dot--' + u.status"></span>{{ u.status }}</span>
+                <span v-if="isAnon(u)" class="ua-badge ua-badge--anon">anonymized</span>
+              </div>
+              <div class="ua-cardrow-foot">
+                <span v-if="kind(u) === 'self'" class="ua-note" :title="notes.self"><ph-icon name="info" :size="14"></ph-icon>Your account<span class="visually-hidden">. {{ notes.self }}</span></span>
+                <span v-else-if="kind(u) === 'locked'" class="ua-note" :title="notes.locked"><ph-icon name="lock" :size="14"></ph-icon>Sysadmin only<span class="visually-hidden">. {{ notes.locked }}</span></span>
+                <span v-else-if="kind(u) === 'anonymized'" class="ua-note" :title="notes.anonymized"><ph-icon name="info" :size="14"></ph-icon>No actions<span class="visually-hidden">. {{ notes.anonymized }}</span></span>
+                <template v-else>
+                  <div class="ua-busy" aria-live="polite"><template v-if="u._loading || u._sending"><span class="spinner-border spinner-border-sm" role="presentation"></span>{{ u._sending ? 'Sending…' : 'Updating…' }}</template></div>
+                  <template v-if="!u._loading && !u._sending">
+                    <button v-if="primary(u) === 'resend'" type="button" class="ua-btn" @click="resendInvite(u)">Resend invite</button>
+                    <button v-else-if="primary(u) === 'enable'" type="button" class="ua-btn" @click="setStatus(u, 'active')">Enable</button>
+                  </template>
+                </template>
+              </div>
+            </div>
+          </div>
           <div class="ua-foot">
             <span>Showing {{ visibleUsers.length }} of {{ users.length }}</span>
             <span class="ua-foot-rule">
@@ -426,6 +507,26 @@
       </div>
     </div>
     </template>
+
+    <!-- ── PHONE ACTION SHEET ──────────────────────────────── -->
+    <div v-if="menu && isPhone && menuUser" class="ua-sheet-scrim" @click.self="closeMenu(true)">
+      <div class="ua-sheet" role="menu" :aria-label="'Actions for ' + displayName(menuUser)" @keydown="onMenuKey">
+        <div class="ua-sheet-head"><strong>{{ displayName(menuUser) }}</strong><span>{{ menuUser.role }} · {{ menuUser.status }}</span></div>
+        <div v-for="g in menuFor(menuUser)" :key="g.group" class="ua-menu-group" role="group" :aria-label="g.label">
+          <div class="ua-menu-label" aria-hidden="true">{{ g.label }}</div>
+          <button v-for="it in g.items" :key="it.id" type="button" role="menuitem" tabindex="-1" class="ua-mi"
+                  :class="{ 'ua-mi--off': !it.enabled, 'ua-mi--danger': it.danger }"
+                  :aria-disabled="it.enabled ? null : 'true'" @click="runItem(menuUser, it.id)">
+            <span class="ua-mi-icon"><component :is="menuIcon(it.icon)" :name="it.icon" :size="16"></component></span>
+            <span class="ua-mi-text">
+              <span class="ua-mi-head">{{ it.label }}<span v-if="it.tag" class="ua-tag" :class="it.danger ? 'ua-tag--danger' : 'ua-tag--navy'">{{ it.tag }}</span></span>
+              <span class="ua-mi-desc">{{ it.enabled ? it.desc : it.reason }}</span>
+            </span>
+          </button>
+        </div>
+        <button type="button" class="ua-sheet-cancel" @click="closeMenu(true)">Cancel</button>
+      </div>
+    </div>
 
     <!-- ── DISABLE CONFIRMATION ────────────────────────────── -->
     <div class="modal fade" id="disableModal" tabindex="-1" aria-labelledby="disableTitle" aria-hidden="true">
@@ -628,6 +729,7 @@
           },
           banner: null,
           menu: null,
+          isPhone: window.matchMedia('(max-width: 767.98px)').matches,
           confirmTarget: null,
           anonAck: false,
           invite: blankInvite(),
@@ -652,12 +754,15 @@
           const n = this.users.length;
           const p = this.users.filter(u => u.status === 'pending').length;
           let s = `${n} ${n === 1 ? 'user' : 'users'}`;
-          if (p) s += ` · ${p} pending ${p === 1 ? 'invite' : 'invites'}`;
+          if (p) s += this.isPhone ? ` · ${p} pending` : ` · ${p} pending ${p === 1 ? 'invite' : 'invites'}`;
           return s;
         },
         inviteValid() {
           const i = this.invite;
           return !!(i.firstName.trim() && i.lastName.trim() && /^[^s@]+@[^s@]+.[^s@]+$/.test(i.email.trim()));
+        },
+        menuUser() {
+          return this.menu ? this.users.find(u => u.id === this.menu.userId) : null;
         },
         confirmName() {
           return this.confirmTarget ? R.displayName(this.confirmTarget) : '';
@@ -692,8 +797,10 @@
         const anonEl = document.getElementById('anonymizeModal');
         anonymizeModal = new bootstrap.Modal(anonEl);
         anonEl.addEventListener('shown.bs.modal', () => document.getElementById('anonymizeCancel').focus());
+        const phoneQuery = window.matchMedia('(max-width: 767.98px)');
+        phoneQuery.addEventListener('change', e => { this.isPhone = e.matches; this.menu = null; });
         document.addEventListener('mousedown', ev => {
-          if (this.menu && !ev.target.closest('.ua-menu, .ua-menu-trigger')) this.closeMenu(false);
+          if (this.menu && !ev.target.closest('.ua-menu, .ua-sheet, .ua-menu-trigger')) this.closeMenu(false);
         });
         document.addEventListener('keydown', ev => {
           if (ev.key === 'Escape' && this.menu) this.closeMenu(true);
@@ -725,7 +832,7 @@
           const up = menuTrigger.getBoundingClientRect().bottom + 360 > window.innerHeight;
           this.menu = { userId: user.id, up };
           this.$nextTick(() => {
-            const first = document.querySelector('.ua-menu [role="menuitem"]');
+            const first = document.querySelector('.ua-menu [role="menuitem"], .ua-sheet [role="menuitem"]');
             if (first) first.focus();
           });
         },

@@ -74,6 +74,14 @@ describe('admin.html — row menu, busy rows and confirmations', () => {
       'valid for 48 hours']) expect(html).toContain(s);
   });
 
+  it('has the tablet and phone layouts', () => {
+    expect(styles).toContain('@media (max-width: 1279.98px)');
+    const phone = /@media \(max-width: 767\.98px\) \{([\s\S]*?)\n    \}\n/.exec(styles);
+    expect(phone, 'phone media query').not.toBeNull();
+    expect(phone[1]).toContain('--bs-offcanvas-width: 100vw');
+    expect(html).toMatch(/<div[^>]*class="ua-sheet"[^>]*role="menu"|<div[^>]*role="menu"[^>]*class="ua-sheet"/);
+  });
+
   it('keeps the busy state per row', () => {
     expect(html).toContain('u._loading');
     expect(html).toContain('u._sending');
