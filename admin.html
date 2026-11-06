@@ -171,7 +171,7 @@
     .ua-tag--danger { background: var(--status-at-risk-soft-bg); color: var(--color-danger-text); }
 
     /* ── Confirmation modals ── */
-    .modal-backdrop { --bs-backdrop-bg: var(--overlay-scrim); --bs-backdrop-opacity: 1; }
+    .modal-backdrop, .offcanvas-backdrop { --bs-backdrop-bg: var(--overlay-scrim); --bs-backdrop-opacity: 1; }
     #disableModal, #anonymizeModal { --bs-modal-width: 460px; --bs-modal-border-radius: 12px; }
     .ua-confirm { padding: var(--space-5); }
     .ua-confirm-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
@@ -192,6 +192,30 @@
     .ua-confirm-foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); }
     .ua-btn-text { border: 0; background: transparent; padding: 0 var(--space-3); height: 36px; color: var(--text-secondary); font-size: var(--text-sm); font-weight: var(--weight-semibold); cursor: pointer; }
     .ua-btn-text:hover { color: var(--brand-navy); }
+
+    /* ── Invite drawer ── */
+    .ua-drawer { --bs-offcanvas-width: 480px; --bs-offcanvas-bg: var(--surface-white); }
+    .ua-drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); padding: var(--space-5) var(--space-5) var(--space-4); border-bottom: 1px solid var(--border-light); }
+    .ua-eyebrow { font-size: 10px; font-weight: var(--weight-bold); letter-spacing: .08em; color: var(--text-muted); }
+    .ua-drawer-title { margin: var(--space-1) 0 var(--space-1); font-size: 19px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .ua-drawer-sub { margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
+    .ua-drawer-form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+    .ua-drawer-body { flex: 1 1 auto; overflow-y: auto; padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); }
+    .ua-drawer-foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border-light); background: var(--surface-white); }
+    .ua-drawer-hint { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+    .ua-fields { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+    .ua-fields-wide { grid-column: 1 / -1; }
+    .ua-roles { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+    .ua-roles legend { grid-column: 1 / -1; float: none; width: auto; }
+    .ua-radio { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-md); cursor: pointer; }
+    .ua-radio input { margin-top: 3px; accent-color: var(--brand-navy); }
+    .ua-radio > span { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-muted); }
+    .ua-radio strong { font-size: var(--text-sm); color: var(--brand-navy); }
+    .ua-radio--on { border-color: var(--brand-navy); background: var(--surface-light); }
+    .ua-radio:focus-within { box-shadow: 0 0 0 3px var(--focus-ring); }
+    .ua-sent { display: flex; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--status-started-soft-bg); color: var(--color-success-text); font-size: var(--text-sm); }
+    .ua-sent p { margin: var(--space-1) 0 0; }
+    .ua-sent-icon { flex: none; width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--surface-white); }
 
     /* ── Footer ── */
     .ua-foot {
@@ -467,50 +491,67 @@
       </div>
     </div>
 
-    <!-- ── INVITE MODAL ────────────────────────────────────── -->
-    <div class="modal fade" id="inviteModal" tabindex="-1">
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-header border-0 pb-0">
-            <h5 class="modal-title fw-bold">Invite user</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <!-- ── INVITE DRAWER ───────────────────────────────────── -->
+    <div class="offcanvas offcanvas-end ua-drawer" tabindex="-1" id="inviteDrawer" aria-labelledby="inviteTitle">
+      <div class="ua-drawer-head">
+        <div>
+          <div class="ua-eyebrow">USER ADMIN</div>
+          <h2 class="ua-drawer-title" id="inviteTitle">Invite user</h2>
+          <p class="ua-drawer-sub">They'll get an email with an activation link, valid for 48 hours.</p>
+        </div>
+        <button type="button" class="ua-banner-close" data-bs-dismiss="offcanvas" aria-label="Close"><ph-icon name="close" :size="16"></ph-icon></button>
+      </div>
+      <form class="ua-drawer-form" @submit.prevent="submitInvite" novalidate>
+        <div class="ua-drawer-body">
+          <div v-if="invite.sentTo" class="ua-sent" role="status">
+            <span class="ua-sent-icon"><ph-icon name="check" :size="20"></ph-icon></span>
+            <div>
+              <strong>Invite sent to {{ invite.sentTo }}</strong>
+              <p>{{ invite.sentName }} appears in the list as pending until they activate the account. You can resend the invite from their row.</p>
+            </div>
           </div>
-          <form @submit.prevent="submitInvite" novalidate>
-            <div class="modal-body">
-              <div v-if="invite.error" class="alert alert-danger alert-sm mb-3">{{ invite.error }}</div>
-              <div v-if="invite.success" class="alert alert-success alert-sm mb-3">{{ invite.success }}</div>
-              <div class="row g-3">
-                <div class="col-6">
-                  <label class="form-label">First name</label>
-                  <input v-model="invite.firstName" type="text" class="form-control" required :disabled="!!invite.success">
-                </div>
-                <div class="col-6">
-                  <label class="form-label">Last name</label>
-                  <input v-model="invite.lastName" type="text" class="form-control" required :disabled="!!invite.success">
-                </div>
-                <div class="col-12">
-                  <label class="form-label">Email</label>
-                  <input v-model="invite.email" type="email" class="form-control" required :disabled="!!invite.success">
-                </div>
-                <div class="col-12">
-                  <label class="form-label">Role</label>
-                  <select v-model="invite.role" class="form-select" :disabled="!!invite.success">
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
+          <template v-else>
+            <div v-if="invite.error" class="ua-banner ua-banner--error" role="alert">
+              <ph-icon name="warning" :size="16"></ph-icon>
+              <div class="ua-banner-body">{{ invite.error }}</div>
+            </div>
+            <div class="ua-fields">
+              <div>
+                <label class="form-label" for="inviteFirst">First name</label>
+                <input id="inviteFirst" v-model="invite.firstName" type="text" class="form-control" required autocomplete="off">
+              </div>
+              <div>
+                <label class="form-label" for="inviteLast">Last name</label>
+                <input id="inviteLast" v-model="invite.lastName" type="text" class="form-control" required autocomplete="off">
+              </div>
+              <div class="ua-fields-wide">
+                <label class="form-label" for="inviteEmail">Email</label>
+                <input id="inviteEmail" v-model="invite.email" type="email" class="form-control" :class="{ 'is-invalid': invite.errorField === 'email' }" required autocomplete="off">
               </div>
             </div>
-            <div class="modal-footer border-0 pt-0">
-              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-              <button type="submit" class="btn btn-primary" :disabled="invite.loading || !!invite.success">
-                <span v-if="invite.loading" class="spinner-border spinner-border-sm me-2"></span>
-                Send invite
-              </button>
-            </div>
-          </form>
+            <fieldset class="ua-roles">
+              <legend class="form-label">Role</legend>
+              <label v-for="r in inviteRoles" :key="r.val" class="ua-radio" :class="{ 'ua-radio--on': invite.role === r.val }">
+                <input type="radio" name="inviteRole" :value="r.val" v-model="invite.role">
+                <span><strong>{{ r.label }}</strong><span>{{ r.desc }}</span></span>
+              </label>
+            </fieldset>
+            <p class="ua-drawer-hint">Sysadmin can't be assigned with an invite. Promote an admin once they're active.</p>
+          </template>
         </div>
-      </div>
+        <div class="ua-drawer-foot">
+          <template v-if="invite.sentTo">
+            <button type="button" class="ua-btn-text" @click="inviteAnother">Invite another</button>
+            <button type="button" class="ua-btn-navy" data-bs-dismiss="offcanvas">Close</button>
+          </template>
+          <template v-else>
+            <button type="button" class="ua-btn-text" data-bs-dismiss="offcanvas">Cancel</button>
+            <button type="submit" class="ph-btn-primary" :disabled="invite.loading || !inviteValid">
+              <span v-if="invite.loading" class="spinner-border spinner-border-sm me-2" role="presentation"></span>{{ invite.loading ? 'Sending…' : 'Send invite' }}
+            </button>
+          </template>
+        </div>
+      </form>
     </div>
 
   </div><!-- #app -->
@@ -539,6 +580,9 @@
     let menuTrigger = null; // the ⋯ button of the open menu
     let disableModal = null;
     let anonymizeModal = null;
+    let inviteDrawer = null;
+    let inviteOpener = null; // what had focus when the drawer opened
+    const blankInvite = () => ({ firstName: '', lastName: '', email: '', role: 'user', loading: false, error: null, errorField: null, sentTo: null, sentName: null });
     const NETWORK_ERROR = "The server didn't respond. Check your connection and try again.";
 
     // Icons the shared library does not have (drawn like it: 16×16, stroke = currentColor).
@@ -586,8 +630,11 @@
           menu: null,
           confirmTarget: null,
           anonAck: false,
-          invite: { firstName: '', lastName: '', email: '', role: 'user', loading: false, error: null, success: null },
-          _modal: null,
+          invite: blankInvite(),
+          inviteRoles: [
+            { val: 'user',  label: 'User',  desc: 'Works on pipeline, portfolio and planning' },
+            { val: 'admin', label: 'Admin', desc: 'Also manages users and master data' },
+          ],
         };
       },
       computed: {
@@ -607,6 +654,10 @@
           let s = `${n} ${n === 1 ? 'user' : 'users'}`;
           if (p) s += ` · ${p} pending ${p === 1 ? 'invite' : 'invites'}`;
           return s;
+        },
+        inviteValid() {
+          const i = this.invite;
+          return !!(i.firstName.trim() && i.lastName.trim() && /^[^s@]+@[^s@]+.[^s@]+$/.test(i.email.trim()));
         },
         confirmName() {
           return this.confirmTarget ? R.displayName(this.confirmTarget) : '';
@@ -630,9 +681,13 @@
         this.loading = false;
       },
       mounted() {
-        const el = document.getElementById('inviteModal');
-        this._modal = new bootstrap.Modal(el);
-        el.addEventListener('hidden.bs.modal', () => this.resetInvite());
+        const el = document.getElementById('inviteDrawer');
+        inviteDrawer = new bootstrap.Offcanvas(el);
+        el.addEventListener('shown.bs.offcanvas', () => document.getElementById('inviteFirst')?.focus());
+        el.addEventListener('hidden.bs.offcanvas', () => {
+          this.resetInvite();
+          if (inviteOpener) inviteOpener.focus();
+        });
         disableModal = new bootstrap.Modal(document.getElementById('disableModal'));
         const anonEl = document.getElementById('anonymizeModal');
         anonymizeModal = new bootstrap.Modal(anonEl);
@@ -741,15 +796,22 @@
 
         openInvite() {
           this.resetInvite();
-          this._modal.show();
+          inviteOpener = document.activeElement;
+          inviteDrawer.show();
         },
         resetInvite() {
-          this.invite = { firstName: '', lastName: '', email: '', role: 'user', loading: false, error: null, success: null };
+          this.invite = blankInvite();
+        },
+        inviteAnother() {
+          this.resetInvite();
+          this.$nextTick(() => document.getElementById('inviteFirst')?.focus());
         },
 
         async submitInvite() {
+          if (!this.inviteValid || this.invite.loading) return;
           this.invite.loading = true;
           this.invite.error = null;
+          this.invite.errorField = null;
           try {
             const res = await fetch('/api/auth/invite', {
               method: 'POST',
@@ -763,8 +825,13 @@
               }),
             });
             const data = await res.json();
-            if (!res.ok) { this.invite.error = data.error || 'Invite failed'; return; }
-            this.invite.success = `Invite sent to ${this.invite.email}`;
+            if (!res.ok) {
+              this.invite.error = data.error || 'Invite failed';
+              if (res.status === 409) this.invite.errorField = 'email';
+              return;
+            }
+            this.invite.sentTo = this.invite.email;
+            this.invite.sentName = `${this.invite.firstName} ${this.invite.lastName}`;
             await this.loadUsers();
           } catch {
             this.invite.error = 'Network error. Please try again.';

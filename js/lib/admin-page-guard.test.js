@@ -65,6 +65,15 @@ describe('admin.html — row menu, busy rows and confirmations', () => {
     }
   });
 
+  it('invites from a right-hand drawer, not a modal', () => {
+    expect(html).toContain('offcanvas offcanvas-end');
+    expect(html).toContain('id="inviteDrawer"');
+    expect(html).not.toContain('id="inviteModal"');
+    for (const s of ['Works on pipeline, portfolio and planning', 'Also manages users and master data',
+      "Sysadmin can't be assigned with an invite. Promote an admin once they're active.", 'Invite another',
+      'valid for 48 hours']) expect(html).toContain(s);
+  });
+
   it('keeps the busy state per row', () => {
     expect(html).toContain('u._loading');
     expect(html).toContain('u._sending');
