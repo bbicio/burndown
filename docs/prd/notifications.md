@@ -8,7 +8,7 @@ Accessed via **account dropdown → Privacy Notice** (available on all pages), w
 
 ### 9.1 Removed from Settings (2026-09-30)
 
-The former Settings modal and everything in it were removed: the personal AI provider keys (removed earlier the same day; the remaining AI features run on the server with the server's own key, §11), the three CSV exports (Cost Grids, Project Portfolio, Roles in Rate Cards), **Full Backup (.json)** and **Restore from Backup** (which never worked). The server routes `POST /api/exports/{portfolio|cost-grids|ratecards}` and `GET /api/exports/phasing` are unchanged; the three CSV ones now have no UI entry point, while the phasing XLS is still reachable from Configuration. 
+The former Settings modal and everything in it were removed: the personal AI provider keys (removed earlier the same day; the remaining AI features run on the server with the server's own key, §11), the three CSV exports (Cost Grids, Project Portfolio, Roles in Rate Cards), **Full Backup (.json)** and **Restore from Backup** (which never worked). The server routes `POST /api/exports/{portfolio|cost-grids|ratecards}` and `GET /api/exports/phasing` are unchanged; the three CSV ones now have no UI entry point, while the phasing XLS is still reachable from Configuration.
 
 #### Send Notification
 

@@ -685,7 +685,7 @@ async function initNav(activeTab, opts = {}) {
     });
   });
 
-  // ── SETTINGS BUTTON (wired once) ────────────────────────────────────────────
+  // ── PRIVACY NOTICE BUTTON (wired once) ────────────────────────────────────────────
   if (!document.getElementById('stgAlreadyWired')) {
     document.getElementById('nav-privacy-btn').addEventListener('click', () => {
       window.location.href = '/privacy-notice.html';

@@ -2,7 +2,7 @@
 
 Privacy Notice page, 2026-11-06 (spec `docs/superpowers/specs/2026-11-06-privacy-notice-design.md`, plan `docs/superpowers/plans/2026-11-06-privacy-notice.md`). It replaced `settings.html`, which was a blank page and was deleted without a redirect. Vue 3 (CDN, no build): `initNav('privacy', { breadcrumbs: Home › Privacy Notice })`, `v-cloak` root, `.ph` head, open to any authenticated user. Loads `api.js`, `core.js`, `notifications.js`, `icons.js`, `js/lib/dates.js`, `nav.js`; no `api-sync.js`.
 
-- **Content.** `apiFetch('/api/app-settings/terms')` (latest published version, never the draft); `content` is rendered with `v-html`, as on `terms.html`. States: spinner, load error (`Unable to load the privacy notice. Please refresh or contact your administrator.`), empty (`No privacy notice has been published yet.`).
+- **Content.** `apiFetch('/app-settings/terms')` (`apiFetch` prepends `/api` itself) (latest published version, never the draft); `content` is rendered with `v-html`, as on `terms.html`. States: spinner, load error (`Unable to load the privacy notice. Please refresh or contact your administrator.`), empty (`No privacy notice has been published yet.`).
 - **Footer line.** `Version N · Published Mon D, YYYY`; the day is the UTC day of `updatedAt` (`formatDayText(updatedAt.slice(0, 10))`); without a valid date only `Version N`.
 - **Read-only.** No button, input or form; pinned by `js/lib/privacy-notice-guard.test.js`, which also pins that `settings.html` is gone.
 - **Style.** A page-local `<style>` block (`.pn-*`), tokens only, so no shared stylesheet version changes.

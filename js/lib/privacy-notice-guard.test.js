@@ -36,6 +36,12 @@ describe('privacy-notice.html', () => {
     expect(html).toContain('Unable to load the privacy notice. Please refresh or contact your administrator.');
   });
 
+  it('contains wide sysadmin HTML (media, fixed-width blocks) inside the card', () => {
+    const style = (html.match(/<style>([\s\S]*?)<\/style>/) || [, ''])[1];
+    expect(style).toMatch(/\.pn-body\s*\{[^}]*overflow-x:\s*auto/);
+    expect(style).toMatch(/\.pn-body iframe[^{]*\{[^}]*max-width:\s*100%/);
+  });
+
   it('uses no hardcoded hex colour in its style block', () => {
     const style = (html.match(/<style>([\s\S]*?)<\/style>/) || [, ''])[1];
     expect(style).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
