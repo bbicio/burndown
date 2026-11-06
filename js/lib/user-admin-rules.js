@@ -4,7 +4,8 @@ const ROLE_ORDER = { user: 0, admin: 1, sysadmin: 2 };
 const STATUS_ORDER = { active: 0, pending: 1, disabled: 2 };
 
 export function isAnonymized(user) {
-  return String(user.email || '').startsWith('anon_');
+  // The server writes anon_<id>@deleted.local; a real address may start with anon_ too.
+  return /^anon_.+@deleted\.local$/.test(String(user.email || ''));
 }
 
 function rawName(user) {

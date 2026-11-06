@@ -126,6 +126,12 @@ describe('names', () => {
     expect(displayName(a)).toBe('Anonymized user');
     expect(initials(a)).toBe('—');
   });
+  it('does not take a real address starting with anon_ for an anonymized row', () => {
+    const real = { first_name: 'Ann', last_name: 'Smith', email: 'anon_smith@corp.com' };
+    expect(isAnonymized(real)).toBe(false);
+    expect(isAnonymized({ email: 'anon_1@deletedxlocal' })).toBe(false);
+    expect(rowKind({ ...real, id: 'r', role: 'user', status: 'active' }, { id: 'me', role: 'admin' })).toBe('normal');
+  });
 });
 
 const USERS = [

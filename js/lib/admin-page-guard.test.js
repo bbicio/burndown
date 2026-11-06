@@ -113,6 +113,12 @@ describe('admin.html — review fixes', () => {
     expect(handler[0]).toContain('.ua-sheet-scrim');
   });
 
+  it('shows a spinner while the session is checked, before access is known', () => {
+    const boot = html.slice(html.indexOf('<template v-else-if="authed">'));
+    const end = boot.indexOf('\n    </template>\n');
+    expect(boot.slice(end)).toMatch(/<div v-else[^>]*role="status"[\s\S]*?spinner-border/);
+  });
+
   it('uses only weight tokens that tokens.css defines', () => {
     const tokens = readFileSync(join(process.cwd(), 'css/tokens.css'), 'utf8');
     for (const [, name] of styles.matchAll(/var\((--weight-[\w-]+)\)/g)) expect(tokens, name).toContain(name + ':');

@@ -517,6 +517,9 @@
     </div>
     </template>
 
+    <!-- ── CHECKING THE SESSION ─────────────────────────────── -->
+    <div v-else class="ua-state" role="status"><span class="spinner-border" aria-hidden="true"></span><span class="visually-hidden">Loading…</span></div>
+
     <!-- ── PHONE ACTION SHEET ──────────────────────────────── -->
     <div v-if="menu && isPhone && menuUser" class="ua-sheet-scrim" @click.self="closeMenu(true)">
       <div class="ua-sheet" role="menu" :aria-label="'Actions for ' + displayName(menuUser)" @keydown="onMenuKey">
